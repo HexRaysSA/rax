@@ -43,6 +43,25 @@ source). Faults are classified as Linux classifies them: no VMA
 past end of file (`SIGBUS`, `BUS_ADRERR`). Huge `PROT_NONE` reservations cost
 one VMA and no page-table memory.
 
+**Shared memory.** A page of a shared mapping is not a copy: it is the
+object's own page. The object — the mapped file, or for anonymous shared
+memory (`MAP_SHARED | MAP_ANONYMOUS`, a shared mapping of `/dev/zero`) a
+Linux `memfd` or an unlinked temporary file standing for the `shmem`
+object — is attached to the arena in 256 KiB *extents*, each a host
+`MAP_SHARED` mapping laid over an extent of the arena taken from its top
+(so every host page size divides it), and the page-table entry points
+into it. The guest's stores therefore reach the host page cache: the file
+sees them, `read`, `write`, and other mappings (of this or another
+process) agree with the mapping, `msync(MS_SYNC)` writes them out, and a
+host `fork` leaves the pages shared with the child, as Linux does. An
+extent is shared by every page, of any mapping, that lies in it, is
+attached read-only for a file not open for writing (and attached again
+for writing when a writable mapping needs it), and is detached when no
+page points into it. `mremap` duplicates a shared mapping (an old length
+of 0) by mapping the same object again. A file the guest truncates loses
+its pages past the new end in every mapping, so the next access is
+`SIGBUS`, as after `truncate_pagecache`.
+
 Mapping, unmapping, protection changes, `mremap` moves (which move frames
 without copying), and population all take the VMA lock; reads of the page
 table do not. Every guest thread of a process runs on one host thread, so
@@ -278,11 +297,11 @@ code comments name the kernel function each rule comes from.
   including partial application before a failing VMA or hole; the Linux VMA
   properties that change results (`VM_GROWSDOWN` on `[stack]`, `VM_MAYWRITE`
   clear on shared mappings of read-only files) live in `Vma::flags`
-  (`abi::vma_flags`). Two deliberate deviations: `MADV_GUARD_INSTALL` and
+  (`abi::vma_flags`). One deliberate deviation: `MADV_GUARD_INSTALL` and
   `MADV_GUARD_REMOVE` are refused with `EINVAL`, as on a kernel without
-  guard regions, instead of being accepted without effect, and
-  `MADV_REMOVE` on a shared host-file mapping reports `EOPNOTSUPP` because
-  punching a hole in a host file is not portable.
+  guard regions, instead of being accepted without effect. `MADV_REMOVE`
+  zeroes the object's bytes (its size kept), which is what a punched hole
+  reads as.
 - **Files.** Guest paths resolve through the sysroot overlay; host files are
   opened with `std` and wrapped as Linux open file descriptions (shared by
   `dup`, with per-descriptor close-on-exec). `/proc` entries about the
@@ -293,7 +312,7 @@ code comments name the kernel function each rule comes from.
 | Claim | Evidence |
 |---|---|
 | ELF acceptance matches `binfmt_elf` | Unit tests in `src/user/image/elf/tests.rs`, including a 20,000-image corruption sweep |
-| Address-space semantics | Unit tests in `src/user/mm/tests.rs`, including a randomized model-based differential (8 seeds × 3,000 operations) |
+| Address-space semantics | Unit tests in `src/user/mm/tests.rs`, including a randomized model-based differential (8 seeds × 3,000 operations), and shared objects: stores reaching the file and the file's changes reaching the mapping, pages shared between mappings and moves, bus errors past the end, read-only objects refusing forced stores, re-attachment for writing, detaching, and the frame and extent allocators never overlapping |
 | x86-64 user-mode contract | `src/isa/x86_64/user_mode_tests.rs` (28 tests; the JIT-invalidation test is discriminating on x86-64 hosts; the XSAVE-image tests compare with the `XSAVE`/`XRSTOR` instructions, which also keep x87 tags across `FXRSTOR`/`XRSTOR`) |
 | Adapter contracts | `src/user/cpu/tests.rs` (21 tests across the three ISAs, including JIT/interpreter agreement on RISC-V) |
 | Loader and stack layout | `src/user/linux/tests/{loader,stack}.rs` with addresses derived by hand from the kernel algorithms |
@@ -306,9 +325,9 @@ code comments name the kernel function each rule comes from.
 | Event, timer, and signal descriptors | `src/user/linux/tests/events.rs`: `eventfd` limits, semaphores, zero-length and faulting transfers, `readv`/`writev` segments, and levels; `timerfd` ticks driven by explicit times, `TFD_IOC_SET_TICKS`, and argument order on every ABI; anonymous-inode `fstat` and `/proc` names; `signalfd` checks, reads in order, lost records at a fault, every `siginfo_t` layout's `struct signalfd_siginfo`, and wake-ups of blocked readers and pollers. `src/user/linux/tests/files.rs`: `F_GETFL` of regular, `O_PATH`, directory, pipe, and `eventfd` descriptions |
 | Timers and blocking | `src/user/linux/tests/waits.rs`: interval timers, `alarm` rounding, interrupted sleeps and `restart_syscall`, `clock_nanosleep` clocks, `poll`/`select`/`ppoll`/`pselect6` interruption, write-back, clamping, and temporary masks, interruptible pipe reads, `sigtimedwait` woken by a timer, and the deadlock diagnostic |
 | Host signals | `user_linux` `host_signals`: `kill` from the test process reaches the `hostsig` guest with `SI_USER` and the sender on every ISA, interrupts a blocking `read` of a pipe with `EINTR`, and a default-action `SIGTERM` ends `rax-user` with `SIGTERM`; with `--no-signal-forwarding` the host default applies |
-| Memory-management system calls | `src/user/linux/tests/syscall_mm.rs`: `mprotect`, `madvise`, and `personality` driven through `dispatch` on every ABI, expectations from the named kernel functions |
+| Memory-management system calls | `src/user/linux/tests/syscall_mm.rs`: `mprotect`, `madvise`, and `personality` driven through `dispatch` on every ABI, expectations from the named kernel functions; shared anonymous memory as a `shmem` object (its `/proc/self/maps` line, `mremap` duplication and its checks, growth past the object), and shared file mappings (write-back through `pread`/`pwrite`, `msync`, `MREMAP_DONTUNMAP`, pages dropped by `ftruncate`, `truncate`, and `O_TRUNC`) |
 | Syscall and errno numbering | `user_linux` `abi_tables` against the vendored UAPI headers |
-| End-to-end behavior | `user_linux` `fixtures`: 22 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs, x86-64 and RV64 `epoll` because Rosetta faults converting `struct epoll_event` and QEMU does not apply `epoll_pwait`'s mask, and RV64 `sockets` and `sockmsg` because QEMU drops unknown socket type flags, writes `socketpair`'s descriptors only on success, and ignores `recvmmsg`'s timeout; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
+| End-to-end behavior | `user_linux` `fixtures`: 23 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs, x86-64 and RV64 `epoll` because Rosetta faults converting `struct epoll_event` and QEMU does not apply `epoll_pwait`'s mask, RV64 `sockets` and `sockmsg` because QEMU drops unknown socket type flags, writes `socketpair`'s descriptors only on success, and ignores `recvmmsg`'s timeout, and x86-64 and RV64 `shmem` because Rosetta traps duplicating a mapping with `mremap` and QEMU checks the zero length first and lacks `MADV_REMOVE`; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
 
 **Differential-tested** here means that, for the fixture programs and
 inputs in `tests/fixtures/user/linux`, output and exit status equal what the

@@ -143,6 +143,12 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   items that follow the open file description rather than the
   descriptor, `EINTR` without restart, and every argument check in the
   kernel's order.
+- **Shared memory.** A shared file mapping is the file's own pages: stores
+  reach the file at once, and `read`, `write`, and other mappings, in this
+  process or another, see the same bytes; `msync` flushes them.
+  Anonymous shared memory and shared `/dev/zero` mappings stay shared
+  with forked children. `mremap` can duplicate a shared mapping, and
+  `MADV_REMOVE` punches its object.
 - **Sockets.** `AF_UNIX` (stream and datagram, and sequenced-packet
   where the host has it), `AF_INET`, and `AF_INET6` sockets are host
   sockets, so the loopback and real networks work: `socket`,
@@ -210,8 +216,13 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   513 to 4,096 bytes into a nearly full pipe can be split, which another
   writer to the same pipe could observe.
 - The 32-bit `INT 0x80` system-call ABI on x86-64 returns `-ENOSYS`.
-- Writable `MAP_SHARED` file mappings (writes do not reach the file) are
-  not implemented.
+- A private file mapping copies a page from the file at its first touch,
+  so later changes to the file never reach that page (Linux shows them
+  until the page is written). A shared mapping of a block device is a
+  copy. When another process truncates a file this process maps shared,
+  past a page this process has touched, the next access faults
+  `rax-user` itself rather than raising `SIGBUS` in the guest (the guest's
+  own truncations are handled).
 - Socket families other than `AF_UNIX`, `AF_INET`, and `AF_INET6`
   (netlink, packet, ...) are `EAFNOSUPPORT`, so interface lists through
   netlink are unavailable, and the interface `ioctl`s report no device.
