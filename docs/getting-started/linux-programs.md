@@ -136,6 +136,13 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   and limit checks, `poll`/`select` readiness, and blocking reads and
   writes; an `eventfd` or `timerfd` stays one object across `fork`, as an
   open file description does.
+- **`epoll`.** `epoll_create`, `epoll_ctl`, and `epoll_wait` with its
+  `pwait` variants over pipes, terminals, and event, timer, and signal
+  descriptors, and nested instances: level-triggered, edge-triggered, and
+  one-shot items, the kernel's reporting order and `maxevents` rotation,
+  items that follow the open file description rather than the
+  descriptor, `EINTR` without restart, and every argument check in the
+  kernel's order.
 
 ## Current limitations
 
@@ -153,6 +160,13 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   real-time clock is assumed. `TFD_TIMER_CANCEL_ON_SET` is accepted, but
   changes of the host clock are not observed, so no `timerfd` is
   canceled. `/proc/<pid>/fdinfo` is not provided.
+- An `epoll` instance is copied, not shared, by `fork`. Readiness the
+  emulator does not cause itself (input from a terminal or another
+  process, a timer's expiry, a signal) is found when a wait looks, so an
+  edge-triggered item reports it once per growth of the data waiting and
+  items that became ready that way are reported in the order they were
+  added; `EPOLLWAKEUP` needs root, and the limits on watches and wake-up
+  paths are not enforced.
 - A process sharing memory with its parent (`CLONE_VM`) is a copy: with
   `CLONE_VFORK` (`vfork`, `posix_spawn`) the parent still sleeps until the
   child calls `execve` or exits, but does not see the child's stores (a
