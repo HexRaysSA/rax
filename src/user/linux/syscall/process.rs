@@ -106,16 +106,30 @@ pub fn setid(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> SysResult {
 
 /// `getpgid`/`getsid`: the process is its own group and session leader.
 pub fn getpgid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
-    let me = c.p.pid as u64;
-    for_self(c, pid, me)
+    // A thread of this process names the process (find_task_by_vpid).
+    let pid = if c.is_own_tid(pid) { 0 } else { pid };
+    host::getpgid(pid).map(|g| g as u64)
 }
 
-/// `setpgid`.
+/// `getsid`.
+pub fn getsid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
+    let pid = if c.is_own_tid(pid) { 0 } else { pid };
+    host::getsid(pid).map(|g| g as u64)
+}
+
+/// `setpgid`: a thread other than the leader is `EINVAL`.
 pub fn setpgid(c: &mut Ctx<'_>, pid: i32, pgid: i32) -> SysResult {
     if pgid < 0 {
         return Err(Errno(EINVAL));
     }
-    for_self(c, pid, 0)
+    let pid = if pid == c.p.pid {
+        0
+    } else if c.is_own_tid(pid) {
+        return Err(Errno(EINVAL));
+    } else {
+        pid
+    };
+    host::setpgid(pid, pgid).map(|()| 0)
 }
 
 /// `uname`.

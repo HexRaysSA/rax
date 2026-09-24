@@ -119,8 +119,10 @@ struct CloneArgs {
 /// arm64 and riscv (`CONFIG_CLONE_BACKWARDS`) swap the last two. Only the
 /// low 32 bits of `flags` count; their low byte is the exit signal.
 pub fn clone(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
-    if let Some(Resume::Vfork { child }) = c.resume.take() {
-        return vfork_done(c, child);
+    match c.resume.take() {
+        Some(Resume::Vfork { child }) => return vfork_done(c, child),
+        Some(Resume::VforkChild { pid }) => return super::child::vfork_wait(c, pid),
+        _ => {}
     }
     let (child_tid, tls) = match c.p.abi {
         LinuxAbi::X86_64 => (a[3], a[4]),
@@ -143,8 +145,10 @@ pub fn clone(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
 
 /// `clone3` (`copy_clone_args_from_user`, `clone3_args_valid`).
 pub fn clone3(c: &mut Ctx<'_>, uargs: u64, size: u64) -> Result<Outcome, Errno> {
-    if let Some(Resume::Vfork { child }) = c.resume.take() {
-        return vfork_done(c, child);
+    match c.resume.take() {
+        Some(Resume::Vfork { child }) => return vfork_done(c, child),
+        Some(Resume::VforkChild { pid }) => return super::child::vfork_wait(c, pid),
+        _ => {}
     }
     if size > super::super::abi::PAGE_SIZE {
         return Err(Errno(E2BIG));
@@ -253,9 +257,20 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     if flags & NAMESPACES != 0 {
         return Err(Errno(EPERM));
     }
-    // Only threads of this process can be created.
-    if flags & CLONE_VM == 0 || flags & CLONE_THREAD == 0 {
-        return Err(Errno(ENOSYS));
+    // A new process.
+    if flags & CLONE_THREAD == 0 {
+        return super::child::fork(
+            c,
+            super::child::ForkArgs {
+                flags,
+                exit_signal: args.exit_signal,
+                stack: args.stack,
+                tls: args.tls,
+                parent_tid: args.parent_tid,
+                child_tid: args.child_tid,
+                set_tid: args.set_tid,
+            },
+        );
     }
     if flags & (CLONE_FILES | CLONE_FS) != CLONE_FILES | CLONE_FS
         || flags & (CLONE_PIDFD | CLONE_INTO_CGROUP) != 0

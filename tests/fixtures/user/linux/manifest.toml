@@ -63,6 +63,18 @@ target = "x86_64-linux-musl"
 sha256 = "fe78ce0b91b3fe24396b23b7489ed346b183ffadbdded3dd8703181b7491dea2"
 
 [[fixture]]
+path = "bin/x86_64/exec"
+source = "src/exec.c"
+target = "x86_64-linux-musl"
+sha256 = "73b92160e3cdeb8a353340063a6f19f5d3521d884be42a234ff58d12cc8ea3fe"
+
+[[fixture]]
+path = "bin/x86_64/fork"
+source = "src/fork.c"
+target = "x86_64-linux-musl"
+sha256 = "92b89f3b7e86dc280349b724d85d15c1ccb6ae8068bc541cabcc4eabdb83cee6"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -147,6 +159,18 @@ target = "aarch64-linux-musl"
 sha256 = "cbd450c2d014ac520122df7143852e1f7a1141539248e138434765acc245e157"
 
 [[fixture]]
+path = "bin/aarch64/exec"
+source = "src/exec.c"
+target = "aarch64-linux-musl"
+sha256 = "bbbab2f7ae7ba2a8575c5b201d6b2c1134124379fccfc03ab0f229c7b70a5cb7"
+
+[[fixture]]
+path = "bin/aarch64/fork"
+source = "src/fork.c"
+target = "aarch64-linux-musl"
+sha256 = "15972ec3eacbfba2cb404919a9b42486f846bcf5e934e28fbd8dc19a157364e1"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -229,6 +253,18 @@ path = "bin/riscv64/threadexit"
 source = "src/threadexit.c"
 target = "riscv64-linux-musl"
 sha256 = "2fa4dcab8b6358db11e07f15d748a744ce41fb0a67c5ea8984fdf8e6e643edcc"
+
+[[fixture]]
+path = "bin/riscv64/exec"
+source = "src/exec.c"
+target = "riscv64-linux-musl"
+sha256 = "2f9bb5ecbf0debc4cb6fdc4d883e6be1078c5e8f8d354cb61fc7ac2cd71da9ad"
+
+[[fixture]]
+path = "bin/riscv64/fork"
+source = "src/fork.c"
+target = "riscv64-linux-musl"
+sha256 = "5365bdc1b5aceed8880edafbcde1b6f41ce4ae49b560d0be82dc30fff4747c21"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

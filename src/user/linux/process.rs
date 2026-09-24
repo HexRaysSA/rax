@@ -15,16 +15,14 @@ use super::abi::{DEFAULT_STACK_LIMIT, LinuxAbi};
 use super::arch::{CpuOptions, GuestCpu};
 use super::fs::Vfs;
 use super::fs::fd::{FdTable, FileObject, FileType, NOFILE_HARD, NOFILE_SOFT, OpenFile};
-use super::loader::{ImageFile, LoadError, LoadedProgram, load_program};
+use super::loader::{ImageFile, LoadError, LoadedProgram};
 use super::signal::deliver::SyscallEntry;
 use super::signal::frame::FaultState;
 use super::signal::{AltStack, SigInfo, SigPending, signal_name};
-use super::stack::{AuxInfo, InitialStack, StackError, map_stack, write_initial_stack};
+use super::stack::{InitialStack, StackError};
 use super::syscall;
 use super::wait::Blocked;
-use crate::user::cpu::x86_64::RESERVED_PHYS;
-use crate::user::image::elf::identify;
-use crate::user::mm::{AddressSpace, SpaceConfig};
+use crate::user::mm::AddressSpace;
 
 /// Instructions per scheduling slice for cores whose run budget RAX sets
 /// (AArch64, RV64); the x86-64 core yields on its own ~1 ms timer.
@@ -65,6 +63,14 @@ pub struct LinuxConfig {
     pub kernel_release: String,
     /// Instructions per scheduling slice (AArch64, RV64).
     pub slice_insns: u64,
+    /// Create new processes by forking the host process (`fork`, `vfork`,
+    /// `clone` without `CLONE_THREAD`); otherwise they are `ENOSYS`. A
+    /// forked child never returns from [`LinuxProcess::run`]: it ends the
+    /// host process when the guest process ends. Enable it only in a
+    /// single-threaded host process: a forked child has only the calling
+    /// thread, so locks other threads held stay held. The first new
+    /// process installs the emulator's host `SIGCHLD` handler.
+    pub processes: bool,
 }
 
 impl LinuxConfig {
@@ -86,6 +92,7 @@ impl LinuxConfig {
             seed: None,
             kernel_release: DEFAULT_KERNEL_RELEASE.into(),
             slice_insns: DEFAULT_SLICE_INSNS,
+            processes: false,
         }
     }
 }
@@ -343,6 +350,12 @@ pub struct ProcState {
     /// other threads run: it remains a zombie (`delay_group_leader`) that
     /// signals can still name.
     pub leader_exit: Option<u64>,
+    /// Child processes.
+    pub children: super::children::Children,
+    /// Set in a forked process: its end of the status pipe to its parent.
+    pub forked: Option<super::children::ForkedSelf>,
+    /// `self_exec_id`: how many times the process called `execve`.
+    pub exec_id: u64,
 }
 
 /// A Linux thread.
@@ -551,26 +564,6 @@ fn stdio(fd: i32, host: std::io::Result<std::os::fd::OwnedFd>) -> Option<Arc<Ope
 impl LinuxProcess {
     /// Performs `execve` of `image` as the process's initial program.
     pub fn spawn(config: LinuxConfig, image: ImageFile) -> Result<Self, SpawnError> {
-        let ident = identify(&image.bytes)
-            .map_err(|e| SpawnError::Unsupported(format!("{}: {e}", config.exec_path)))?;
-        let abi = LinuxAbi::from_elf(ident.e_machine, ident.elf_class()).ok_or_else(|| {
-            SpawnError::Unsupported(format!(
-                "{}: ELF machine {} (class {}) is not a supported Linux ABI",
-                config.exec_path, ident.e_machine, ident.class
-            ))
-        })?;
-        let reserved = if abi == LinuxAbi::X86_64 {
-            RESERVED_PHYS.to_vec()
-        } else {
-            Vec::new()
-        };
-        let space = AddressSpace::new(SpaceConfig {
-            va_limit: abi.task_size(),
-            arena_bytes: config.arena_bytes,
-            reserved_phys: reserved,
-        })
-        .map_err(SpawnError::Memory)?;
-        let mut cpu = GuestCpu::new(abi, &space, &config.cpu);
         let vfs = Vfs::new(config.sysroot.clone(), config.cwd.clone());
         // /proc/self/exe and the mapping names carry the absolute, symlink-
         // resolved path (d_path of the executable), whatever path execve got.
@@ -579,65 +572,25 @@ impl LinuxProcess {
         let exe_path = std::fs::canonicalize(&exe_host)
             .map(|p| vfs.guest_path_of(&p))
             .unwrap_or(exe_guest);
-        let image = ImageFile::new(image.bytes.clone(), exe_path.clone());
-
-        // setup_arg_pages() precedes the segment mappings.
-        let exec_stack = {
-            let (class, data) = abi.elf_encoding();
-            crate::user::image::elf::ElfImage::parse(&image.bytes, class, data)
-                .map_err(|e| SpawnError::Load(LoadError::Elf(e)))?
-                .gnu_stack_executable()
-                .unwrap_or(false)
-        };
-        map_stack(abi, &space, config.stack_limit, exec_stack).map_err(SpawnError::Stack)?;
-
-        let mut resolver = |path: &[u8]| -> std::io::Result<ImageFile> {
-            let guest = String::from_utf8_lossy(path).into_owned();
-            let host = vfs.host_path(&guest, true);
-            Ok(ImageFile::new(std::fs::read(&host)?, guest))
-        };
-        let program = load_program(abi, &space, &image, &mut resolver, config.stack_limit)
-            .map_err(SpawnError::Load)?;
-        // ARCH_SETUP_ADDITIONAL_PAGES follows the image and interpreter.
-        let sigtramp =
-            super::signal::frame::map_sigtramp(abi, &space, abi.mmap_base(config.stack_limit))
-                .map_err(SpawnError::Memory)?;
-
-        let caps = cpu.caps();
         let creds = super::host::credentials();
         let mut entropy = Entropy::new(config.seed);
-        let mut random = [0u8; 16];
-        entropy
-            .fill(&mut random)
-            .map_err(|e| SpawnError::Unsupported(format!("no entropy source: {e}")))?;
-        let aux = AuxInfo {
-            phdr: program.phdr,
-            phent: program.phent,
-            phnum: program.phnum,
-            base: program.interp_base,
-            entry: program.program_entry,
-            uid: (creds.0, creds.1),
-            gid: (creds.2, creds.3),
-            secure: false,
-            hwcap: caps.hwcap,
-            hwcap2: caps.hwcap2,
-            platform: caps.platform,
-            minsigstksz: caps.minsigstksz,
-            vdso: None,
-        };
-        let stack = write_initial_stack(
-            abi,
-            &space,
-            config.stack_limit,
-            &config.argv,
-            &config.envp,
-            config.exec_path.as_bytes(),
-            &aux,
-            random,
-        )
-        .map_err(SpawnError::Stack)?;
-        cpu.start(program.entry, stack.sp);
-
+        let img = super::exec::load_image(
+            super::exec::ImageRequest {
+                bytes: image.bytes.clone(),
+                exe_path,
+                exe_host,
+                execfn: config.exec_path.as_bytes(),
+                comm: super::exec::comm_of(config.exec_path.as_bytes()),
+                argv: &config.argv,
+                envp: &config.envp,
+                stack_limit: config.stack_limit,
+                arena_bytes: config.arena_bytes,
+                cpu: &config.cpu,
+            },
+            &vfs,
+            creds,
+            &mut entropy,
+        )?;
         let mut fds = FdTable::new();
         use std::os::fd::AsFd;
         for (fd, host) in [
@@ -652,49 +605,24 @@ impl LinuxProcess {
         }
 
         let pid = super::host::pid();
-        let join0 = |v: &[Vec<u8>]| -> Vec<u8> {
-            let mut out = Vec::new();
-            for s in v {
-                out.extend_from_slice(s);
-                out.push(0);
-            }
-            out
-        };
-        let comm = config
-            .exec_path
-            .rsplit('/')
-            .next()
-            .unwrap_or("")
-            .as_bytes()
-            .iter()
-            .take(15)
-            .copied()
-            .collect();
-        let exe_host_path = Some(exe_host);
         let state = ProcState {
-            abi,
-            space: space.clone(),
+            abi: img.abi,
+            space: img.space,
             vfs,
             fds,
             pid,
             ppid: super::host::ppid(),
             creds,
-            mm: MmState {
-                start_brk: program.brk,
-                brk: program.brk,
-                mmap_base: abi.mmap_base(config.stack_limit),
-                program,
-                stack: stack.clone(),
-            },
+            mm: img.mm,
             rlimits: default_rlimits(config.stack_limit),
             umask: 0o022,
             sigactions: [SigAction::default(); 64],
-            comm,
-            exe_path,
-            exe_host_path,
-            auxv: stack.auxv.clone(),
-            cmdline: join0(&config.argv),
-            environ: join0(&config.envp),
+            comm: img.comm,
+            exe_path: img.exe_path,
+            exe_host_path: img.exe_host_path,
+            auxv: img.auxv,
+            cmdline: img.cmdline,
+            environ: img.environ,
             entropy,
             config,
             exit: None,
@@ -705,14 +633,17 @@ impl LinuxProcess {
             pdeathsig: 0,
             timerslack: 50_000,
             shared_pending: SigPending::new(),
-            sigtramp,
+            sigtramp: img.sigtramp,
             unkillable: pid == 1,
             itimers: Default::default(),
             futex: Default::default(),
             curr_target: pid,
             leader_exit: None,
+            children: Default::default(),
+            forked: None,
+            exec_id: 0,
         };
-        let mut leader = Thread::new(pid, cpu);
+        let mut leader = Thread::new(pid, img.cpu);
         leader.comm = state.comm.clone();
         Ok(LinuxProcess {
             state,

@@ -51,6 +51,9 @@ impl LinuxProcess {
         let mut current = 0usize;
         loop {
             if let Some(status) = &self.state.exit {
+                if let Some(me) = self.state.forked.take() {
+                    finish_forked(me, status);
+                }
                 return status.clone();
             }
             self.collect_async(None);
@@ -186,6 +189,19 @@ impl LinuxProcess {
             Outcome::ExitGroup(code) => {
                 self.state.exit = Some(ExitStatus::Exited(code));
             }
+            Outcome::Exec(image) => {
+                self.commit_exec(idx, *image.0);
+                return After::Gone;
+            }
+            Outcome::Forked(me) => {
+                // The new process has only the thread that forked.
+                let t = self.threads.swap_remove(idx);
+                self.threads.clear();
+                self.threads.push(t);
+                self.threads[0].cpu.set_syscall_result(0);
+                self.state.forked = Some(me);
+                return After::Gone;
+            }
             Outcome::Fatal(why) => {
                 self.state.exit = Some(ExitStatus::Internal(why));
             }
@@ -316,10 +332,50 @@ impl LinuxProcess {
             }
         }
         self.threads.remove(idx);
+        // forget_original_parent: its children pass to the first live
+        // thread (find_new_reaper), whose __WNOTHREAD waits then see them.
+        if let Some(heir) = self.threads.first().map(|t| t.tid) {
+            for ch in self.state.children.list.iter_mut() {
+                if ch.creator == tid {
+                    ch.creator = heir;
+                }
+            }
+        }
         if self.threads.is_empty() {
             self.state.exit = Some(ExitStatus::Exited(code));
         } else if tid == self.state.pid {
             self.state.leader_exit = Some(mask);
         }
     }
+}
+
+/// Ends a forked emulator process as its guest process ended: the Linux
+/// wait status goes to the parent through the status pipe, then the host
+/// process ends the same way (by the signal when it does not dump core, so
+/// host observers see it) without running the parent's cleanup.
+fn finish_forked(me: super::children::ForkedSelf, status: &ExitStatus) -> ! {
+    use super::children::{exited_status, signaled_status};
+    let (wait_status, code) = match status {
+        ExitStatus::Exited(code) => (exited_status(*code), code & 0xff),
+        ExitStatus::Signaled { info, core, .. } => {
+            // No core file is written, so the wait status never carries
+            // the core-dump flag (coredump_finish sets it only for a
+            // written dump).
+            let status = signaled_status(info.signo, false);
+            if !core {
+                me.exit(status);
+                super::host::die_by_signal(info.signo);
+            }
+            (status, 128 + info.signo)
+        }
+        ExitStatus::Internal(why) => {
+            eprintln!(
+                "rax-user: pid {}: emulator error: {why}",
+                super::host::pid()
+            );
+            (exited_status(125), 125)
+        }
+    };
+    me.exit(wait_status);
+    super::host::exit_now(code)
 }

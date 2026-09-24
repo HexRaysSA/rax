@@ -460,29 +460,15 @@ extern "C" fn on_host_signal(host: libc::c_int, info: *mut libc::siginfo_t, _: *
     };
     HOST_SENDER[(sig - 1) as usize].store(packed, Ordering::Relaxed);
     HOST_PENDING.fetch_or(1 << (sig - 1), Ordering::SeqCst);
-    let fd = WAKE_WRITE.load(Ordering::Relaxed);
-    if fd >= 0 {
-        let byte = 1u8;
-        // SAFETY: write(2) is async-signal-safe; `byte` is valid for one
-        // byte. A full pipe (EAGAIN) already wakes its reader.
-        unsafe {
-            libc::write(fd, (&raw const byte).cast(), 1);
-        }
-    }
+    wake();
     // SAFETY: as above.
     unsafe {
         *errno = saved;
     }
 }
 
-/// Installs the forwarding handler for [`FORWARDED`] signals and creates the
-/// wake pipe. Handlers are installed without `SA_RESTART`, so a blocking
-/// host call returns `EINTR` and a wait on the wake pipe ends. Calling it
-/// again has no effect.
-pub fn forward_host_signals() -> Result<(), Errno> {
-    if WAKE_READ.load(Ordering::SeqCst) >= 0 {
-        return Ok(());
-    }
+/// A non-blocking, close-on-exec host pipe as `(read, write)`.
+fn nonblocking_pipe() -> Result<(libc::c_int, libc::c_int), Errno> {
     let mut fds = [0 as libc::c_int; 2];
     // SAFETY: `fds` is a valid two-element array; F_SETFL/F_SETFD take
     // integer flags on the descriptors pipe(2) just returned.
@@ -499,8 +485,50 @@ pub fn forward_host_signals() -> Result<(), Errno> {
             libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC);
         }
     }
-    WAKE_READ.store(fds[0], Ordering::SeqCst);
-    WAKE_WRITE.store(fds[1], Ordering::SeqCst);
+    Ok((fds[0], fds[1]))
+}
+
+/// Creates the wake pipe unless it exists.
+fn ensure_wake_pipe() -> Result<(), Errno> {
+    if WAKE_READ.load(Ordering::SeqCst) >= 0 {
+        return Ok(());
+    }
+    let (r, w) = nonblocking_pipe()?;
+    WAKE_READ.store(r, Ordering::SeqCst);
+    WAKE_WRITE.store(w, Ordering::SeqCst);
+    Ok(())
+}
+
+/// Writes a byte to the wake pipe (async-signal-safe).
+fn wake() {
+    let fd = WAKE_WRITE.load(Ordering::Relaxed);
+    if fd >= 0 {
+        let byte = 1u8;
+        // SAFETY: write(2) is async-signal-safe; `byte` is valid for one
+        // byte. A full pipe (EAGAIN) already wakes its reader.
+        unsafe {
+            libc::write(fd, (&raw const byte).cast(), 1);
+        }
+    }
+}
+
+/// Whether [`forward_host_signals`] installed its handlers.
+static FORWARDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Whether forwarded host signals are installed.
+pub fn forwarding() -> bool {
+    FORWARDING.load(Ordering::SeqCst)
+}
+
+/// Installs the forwarding handler for [`FORWARDED`] signals and creates the
+/// wake pipe. Handlers are installed without `SA_RESTART`, so a blocking
+/// host call returns `EINTR` and a wait on the wake pipe ends. Calling it
+/// again has no effect.
+pub fn forward_host_signals() -> Result<(), Errno> {
+    if FORWARDING.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+    ensure_wake_pipe()?;
     for &sig in FORWARDED {
         let Some(host) = host_signal(sig) else {
             continue;
@@ -585,5 +613,269 @@ pub fn die_by_signal(sig: i32) {
         libc::sigaddset(&mut set, host);
         libc::pthread_sigmask(libc::SIG_UNBLOCK, &set, std::ptr::null_mut());
         libc::raise(host);
+    }
+}
+
+// ------------------------------------------------------ child processes
+
+/// Set by the host `SIGCHLD` handler: a child process changed state.
+static CHILD_EVENT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The host `SIGCHLD` handler: records the event and wakes a sleeping
+/// scheduler (async-signal-safe; preserves `errno`).
+extern "C" fn on_child_signal(_: libc::c_int, _: *mut libc::siginfo_t, _: *mut libc::c_void) {
+    let errno = errno_location();
+    // SAFETY: errno_location is the thread's errno slot.
+    let saved = unsafe { *errno };
+    CHILD_EVENT.store(true, Ordering::SeqCst);
+    wake();
+    // SAFETY: as above.
+    unsafe {
+        *errno = saved;
+    }
+}
+
+/// Watches the emulator's child processes: installs the host `SIGCHLD`
+/// handler (without `SA_RESTART` or `SA_NOCLDSTOP`, so stops and
+/// continuations are reported too) and the wake pipe. Idempotent.
+pub fn watch_children() -> Result<(), Errno> {
+    static WATCHING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if WATCHING.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+    ensure_wake_pipe()?;
+    // SAFETY: `sa` is fully initialized; the handler has the SA_SIGINFO
+    // signature.
+    unsafe {
+        let mut sa: libc::sigaction = std::mem::zeroed();
+        sa.sa_sigaction = on_child_signal as usize;
+        sa.sa_flags = libc::SA_SIGINFO;
+        libc::sigemptyset(&mut sa.sa_mask);
+        if libc::sigaction(libc::SIGCHLD, &sa, std::ptr::null_mut()) != 0 {
+            return Err(last_errno());
+        }
+    }
+    Ok(())
+}
+
+/// Takes the child-event flag.
+pub fn take_child_event() -> bool {
+    CHILD_EVENT.swap(false, Ordering::SeqCst)
+}
+
+/// A host pipe carrying a forked child's status records to its parent:
+/// `(read end, non-blocking; write end)`, both close-on-exec.
+pub fn status_pipe() -> Result<(std::os::fd::OwnedFd, std::os::fd::OwnedFd), Errno> {
+    use std::os::fd::FromRawFd;
+    let (r, w) = nonblocking_pipe()?;
+    // SAFETY: pipe(2) just returned these descriptors, owned by nobody else.
+    unsafe {
+        let w = std::os::fd::OwnedFd::from_raw_fd(w);
+        set_nonblocking(&w, false)?;
+        Ok((std::os::fd::OwnedFd::from_raw_fd(r), w))
+    }
+}
+
+/// Forks the emulator: `Some(pid)` in the parent, `None` in the child. The
+/// child gets its own wake pipe (the inherited one is the parent's) and no
+/// pending host events. The emulator runs one host thread, so the child is
+/// a complete copy.
+pub fn fork_process() -> Result<Option<i32>, Errno> {
+    // SAFETY: fork(2) in a single-threaded process; the child only uses
+    // async-signal-safe calls until it has reinitialized the state below,
+    // and then continues the same single-threaded program.
+    let pid = unsafe { libc::fork() };
+    if pid < 0 {
+        return Err(last_errno());
+    }
+    if pid > 0 {
+        return Ok(Some(pid));
+    }
+    // The child: its own wake pipe, no inherited events.
+    let (old_r, old_w) = (
+        WAKE_READ.swap(-1, Ordering::SeqCst),
+        WAKE_WRITE.swap(-1, Ordering::SeqCst),
+    );
+    // SAFETY: the inherited descriptors belong to this module; the child
+    // closes its copies.
+    unsafe {
+        if old_r >= 0 {
+            libc::close(old_r);
+        }
+        if old_w >= 0 {
+            libc::close(old_w);
+        }
+    }
+    HOST_PENDING.store(0, Ordering::SeqCst);
+    CHILD_EVENT.store(false, Ordering::SeqCst);
+    if old_r >= 0 {
+        ensure_wake_pipe()?;
+    }
+    Ok(None)
+}
+
+/// A child process's state change, as `waitpid` reports it, in Linux
+/// signal numbers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HostWait {
+    /// Exited with this code.
+    Exited(i32),
+    /// Killed by this signal; whether it dumped core.
+    Signaled(i32, bool),
+    /// Stopped by this signal.
+    Stopped(i32),
+    /// Continued.
+    Continued,
+}
+
+/// Resource use of a reaped child: user and system microseconds, maximum
+/// resident size in KiB.
+pub type ChildRusage = (u64, u64, u64);
+
+/// `wait4(pid, WNOHANG | WUNTRACED | WCONTINUED)`: the child's next state
+/// change, if any, and its resource use once it ended.
+pub fn wait_child(pid: i32) -> Result<Option<(HostWait, ChildRusage)>, Errno> {
+    let mut status = 0;
+    // SAFETY: `rusage` is plain data.
+    let mut ru: libc::rusage = unsafe { std::mem::zeroed() };
+    // SAFETY: valid pointers to `status` and `ru`.
+    let r = unsafe {
+        libc::wait4(
+            pid,
+            &mut status,
+            libc::WNOHANG | libc::WUNTRACED | libc::WCONTINUED,
+            &mut ru,
+        )
+    };
+    if r < 0 {
+        return Err(last_errno());
+    }
+    if r == 0 {
+        return Ok(None);
+    }
+    let map = |host: i32| linux_signal(host).unwrap_or(host);
+    let w = if libc::WIFEXITED(status) {
+        HostWait::Exited(libc::WEXITSTATUS(status))
+    } else if libc::WIFSIGNALED(status) {
+        HostWait::Signaled(map(libc::WTERMSIG(status)), libc::WCOREDUMP(status))
+    } else if libc::WIFSTOPPED(status) {
+        HostWait::Stopped(map(libc::WSTOPSIG(status)))
+    } else {
+        HostWait::Continued
+    };
+    let us = |tv: libc::timeval| tv.tv_sec as u64 * 1_000_000 + tv.tv_usec as u64;
+    let maxrss = if cfg!(target_os = "macos") {
+        ru.ru_maxrss as u64 / 1024
+    } else {
+        ru.ru_maxrss as u64
+    };
+    Ok(Some((w, (us(ru.ru_utime), us(ru.ru_stime), maxrss))))
+}
+
+/// `kill(pid, sig)` on the host with Linux signal `sig` (0 probes). A
+/// signal the host lacks is `EINVAL`.
+pub fn kill(pid: i32, sig: i32) -> Result<(), Errno> {
+    let host = if sig == 0 {
+        0
+    } else {
+        host_signal(sig).ok_or(Errno(super::abi::errno_table::EINVAL))?
+    };
+    // SAFETY: plain integer arguments.
+    if unsafe { libc::kill(pid, host) } != 0 {
+        return Err(last_errno());
+    }
+    Ok(())
+}
+
+/// `setpgid`.
+pub fn setpgid(pid: i32, pgid: i32) -> Result<(), Errno> {
+    // SAFETY: plain integer arguments.
+    if unsafe { libc::setpgid(pid, pgid) } != 0 {
+        return Err(last_errno());
+    }
+    Ok(())
+}
+
+/// `getpgid`.
+pub fn getpgid(pid: i32) -> Result<i32, Errno> {
+    // SAFETY: plain integer argument.
+    let r = unsafe { libc::getpgid(pid) };
+    if r < 0 {
+        return Err(last_errno());
+    }
+    Ok(r)
+}
+
+/// `setsid`.
+pub fn setsid() -> Result<i32, Errno> {
+    // SAFETY: no arguments.
+    let r = unsafe { libc::setsid() };
+    if r < 0 {
+        return Err(last_errno());
+    }
+    Ok(r)
+}
+
+/// `getsid`.
+pub fn getsid(pid: i32) -> Result<i32, Errno> {
+    // SAFETY: plain integer argument.
+    let r = unsafe { libc::getsid(pid) };
+    if r < 0 {
+        return Err(last_errno());
+    }
+    Ok(r)
+}
+
+/// Ends the emulator process at once with `code`, without running exit
+/// handlers or destructors (a forked child must not run its parent's
+/// cleanup).
+pub fn exit_now(code: i32) -> ! {
+    // SAFETY: _exit(2) never returns.
+    unsafe { libc::_exit(code) }
+}
+
+/// Sends Linux signal `sig` (0 probes) to process group `pgid`, which
+/// contains the emulator, except the emulator itself: its copy of the host
+/// signal is blocked and consumed. `SIGKILL` and `SIGSTOP` cannot be
+/// blocked and act on the emulator as on the group.
+pub fn kill_group_but_self(pgid: i32, sig: i32) -> Result<(), Errno> {
+    if sig == 0 {
+        // SAFETY: plain integer arguments.
+        return if unsafe { libc::kill(-pgid, 0) } != 0 {
+            Err(last_errno())
+        } else {
+            Ok(())
+        };
+    }
+    let host = host_signal(sig).ok_or(Errno(super::abi::errno_table::EINVAL))?;
+    if host == libc::SIGKILL || host == libc::SIGSTOP {
+        // SAFETY: plain integer arguments.
+        return if unsafe { libc::kill(-pgid, host) } != 0 {
+            Err(last_errno())
+        } else {
+            Ok(())
+        };
+    }
+    // SAFETY: fully initialized signal sets; the blocked copy the kernel
+    // queues for this process before kill returns is consumed by sigwait,
+    // then the previous mask comes back.
+    unsafe {
+        let mut set: libc::sigset_t = std::mem::zeroed();
+        let mut old: libc::sigset_t = std::mem::zeroed();
+        libc::sigemptyset(&mut set);
+        libc::sigaddset(&mut set, host);
+        libc::pthread_sigmask(libc::SIG_BLOCK, &set, &mut old);
+        let r = libc::kill(-pgid, host);
+        let err = (r != 0).then(last_errno);
+        if r == 0 {
+            let mut pending: libc::sigset_t = std::mem::zeroed();
+            libc::sigpending(&mut pending);
+            if libc::sigismember(&pending, host) == 1 {
+                let mut got = 0;
+                libc::sigwait(&set, &mut got);
+            }
+        }
+        libc::pthread_sigmask(libc::SIG_SETMASK, &old, std::ptr::null_mut());
+        err.map_or(Ok(()), Err)
     }
 }

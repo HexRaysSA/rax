@@ -96,12 +96,20 @@ pub enum Resume {
     },
     /// A futex wait.
     Futex(FutexWait),
-    /// A `CLONE_VFORK` parent waiting for its child to exit or `execve`,
-    /// then returning the child's TID.
+    /// A `CLONE_VFORK` parent waiting for its child thread to exit, then
+    /// returning the child's TID.
     Vfork {
         /// The child.
         child: i32,
     },
+    /// A `CLONE_VFORK` parent waiting for its child process to `execve` or
+    /// end, then returning the child's PID.
+    VforkChild {
+        /// The child.
+        pid: i32,
+    },
+    /// `wait4`/`waitid` waiting for a child to change state.
+    WaitChild,
 }
 
 /// A thread asleep in a system call.

@@ -174,6 +174,8 @@ their interpreter and libraries through --sysroot, as with QEMU's -L.",
         if let Some(n) = cli.slice {
             config.slice_insns = n.max(1);
         }
+        // Guest processes are host processes: fork forks rax-user.
+        config.processes = true;
         if !cli.no_signal_forwarding
             && let Err(e) = rax::user::linux::host::forward_host_signals()
         {

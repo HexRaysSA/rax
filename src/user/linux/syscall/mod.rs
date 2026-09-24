@@ -24,6 +24,8 @@
 //! is what a kernel built without the call returns; C libraries treat it as
 //! "unsupported" and fall back.
 
+pub mod child;
+pub mod exec;
 pub mod futex;
 pub mod io;
 pub mod mem;
@@ -39,8 +41,25 @@ use super::abi::errno_table::*;
 use super::process::{Peers, ProcState, Thread, Threads};
 use super::wait::{Resume, Wait};
 
+/// A program image `execve` installs. Opaque: images never compare equal.
+pub struct NewImage(pub Box<super::exec::ProgramImage>);
+
+impl std::fmt::Debug for NewImage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NewImage({})", self.0.exe_path)
+    }
+}
+
+impl PartialEq for NewImage {
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
+}
+
+impl Eq for NewImage {}
+
 /// What a system call did to its thread.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     /// Store this value in the result register.
     Return(u64),
@@ -58,6 +77,11 @@ pub enum Outcome {
     Block(Wait, Resume),
     /// Store this value and let the next thread run (`sched_yield`).
     Yield(u64),
+    /// The process runs a new program (`execve`).
+    Exec(NewImage),
+    /// In a new process (`fork`): the caller continues alone with the
+    /// result 0, reporting to its parent through the status pipe.
+    Forked(super::children::ForkedSelf),
 }
 
 /// How `restart_syscall` continues a call a signal interrupted
@@ -300,6 +324,12 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Clone => thread::clone(c, a),
         S::Clone3 => thread::clone3(c, a[0], a[1]),
         S::SchedYield => Ok(Outcome::Yield(0)),
+        S::Execve => exec::execve(c, a[0], a[1], a[2]),
+        S::Fork => child::sys_fork(c),
+        S::Vfork => child::sys_vfork(c),
+        S::Wait4 => child::wait4(c, a[0] as i32, a[1], a[2] as u32, a[3]),
+        S::Waitid => child::waitid(c, a[0] as i32, a[1] as i32, a[2], a[3] as u32, a[4]),
+        S::Execveat => exec::execveat(c, fd(a[0]), a[1], a[2], a[3], a[4] as u32),
 
         // ------------------------------------------------------------ io
         S::Read => r(io::read(c, fd(a[0]), a[1], a[2])),
@@ -478,7 +508,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
 
         // ------------------------------------------------------- process
         S::Getpid => r(Ok(c.p.pid as u64)),
-        S::Getppid => r(Ok(c.p.ppid as u64)),
+        S::Getppid => r(Ok(super::host::ppid() as u64)),
         S::Gettid => r(Ok(c.t.tid as u64)),
         S::Getuid => r(Ok(u64::from(c.p.creds.0))),
         S::Geteuid => r(Ok(u64::from(c.p.creds.1))),
@@ -492,10 +522,10 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         }
         S::Setfsuid | S::Setfsgid => r(Ok(u64::from(c.p.creds.1))),
         S::Getpgid => r(process::getpgid(c, a[0] as i32)),
-        S::Getpgrp => r(Ok(c.p.pid as u64)),
-        S::Getsid => r(process::getpgid(c, a[0] as i32)),
+        S::Getpgrp => r(process::getpgid(c, 0)),
+        S::Getsid => r(process::getsid(c, a[0] as i32)),
         S::Setpgid => r(process::setpgid(c, a[0] as i32, a[1] as i32)),
-        S::Setsid => r(Err(Errno(EPERM))),
+        S::Setsid => r(super::host::setsid().map(|s| s as u64)),
         S::SetTidAddress => r(thread::set_tid_address(c, a[0])),
         S::SetRobustList => r(futex::set_robust_list(c, a[0], a[1])),
         S::GetRobustList => r(futex::get_robust_list(c, a[0] as i32, a[1], a[2])),
@@ -735,7 +765,9 @@ fn trace(
             format!("-1 {}", e.name())
         }
         Outcome::Return(v) | Outcome::Yield(v) => format!("{v:#x}"),
-        Outcome::Unchanged | Outcome::Block(..) => "?".into(),
+        Outcome::Unchanged | Outcome::Block(..) | Outcome::Exec(_) | Outcome::Forked(_) => {
+            "0".into()
+        }
         Outcome::ExitThread(code) | Outcome::ExitGroup(code) => format!("? (exit {code})"),
         Outcome::Fatal(why) => format!("? ({why})"),
     };

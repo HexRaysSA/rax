@@ -1,7 +1,7 @@
 image: alpine:latest
 kernel: Linux 7.0.14-orbstack-00380-ga7e0a2dc9535 #1 SMP PREEMPT Fri Aug  7 03:48:40 UTC 2026 aarch64
 docker: 29.4.0 linux/arm64
-recorded: 2026-09-24T10:11:31Z
+recorded: 2026-09-24T11:00:19Z
 native-arch: aarch64
 translated: every other architecture runs through the Docker host's binfmt_misc handler
 binfmt: mac-macho-arm64 enabled interpreter [mac] 
@@ -24,3 +24,6 @@ override: riscv64/mman from aarch64 (mm/madvise.c and mm/mprotect.c are generic;
 override: x86_64/signals run under qemu-x86_64 version 11.0.3 (Rosetta resets an SA_RESETHAND disposition before the handler runs, so the process dies of SIGUSR2; get_signal in kernel/signal.c is architecture-independent and the native aarch64 run shows the handler running once)
 override: x86_64/threads from aarch64 (Rosetta returns ENOSYS for clone3 and futex_waitv; the checked behavior is in architecture-independent kernel/fork.c, kernel/futex/, kernel/signal.c, and fs/proc/base.c, and the native aarch64 run passes every check)
 override: riscv64/threads from aarch64 (qemu-riscv64 returns ENOSYS for clone3, futex_waitv, and the robust-list calls, and its /proc/self/task lists the emulator's own threads; the checked behavior is in architecture-independent kernel/fork.c, kernel/futex/, kernel/signal.c, and fs/proc/base.c)
+override: x86_64/exec from aarch64 (Rosetta runs executed programs through binfmt_misc, so AT_EXECFN and comm name the translator and the #! stage dies of SIGTRAP; fs/exec.c and fs/binfmt_script.c are architecture-independent and the native aarch64 run passes every check)
+override: riscv64/exec from aarch64 (qemu-riscv64 runs executed programs through binfmt_misc, so AT_EXECFN and comm name the translator and it cannot load a #! script's interpreter; fs/exec.c and fs/binfmt_script.c are architecture-independent and the native aarch64 run passes every check)
+override: riscv64/fork from aarch64 (qemu-riscv64 gives clone children SIGCHLD as their exit signal whatever was requested and raises SIGCHLD for stops despite SA_NOCLDSTOP; kernel/fork.c, kernel/exit.c, and kernel/signal.c are architecture-independent and the native aarch64 run passes every check)

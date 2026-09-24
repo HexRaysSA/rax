@@ -161,28 +161,114 @@ fn send_process(c: &mut Ctx<'_>, info: SigInfo, target: i32) {
     deliver::send_signal(p, &mut th, info, Dest::Process(target), false);
 }
 
-/// `kill`. Only this process exists in the emulated system, so it is the
-/// only target a positive PID (its own or one of its thread IDs), its own
-/// process group (0 or `-pgid`), or `-1` (every process but the caller) can
-/// reach.
+/// `kill`. This process (by its PID or one of its thread IDs) gets the
+/// signal with its exact `siginfo`. With processes enabled
+/// ([`LinuxConfig::processes`](crate::user::linux::LinuxConfig::processes)),
+/// other processes, process groups, and `-1` are reached through the
+/// host (`SI_USER` from this process; a signal the host lacks, such as a
+/// real-time one, reaches only this process); `-1` then means this
+/// process's children rather than every host process. Otherwise only this
+/// process exists: its process group (0, `-pgid`) is itself and `-1` finds
+/// no process.
 pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
-    let own_group = pid == 0 || pid == -c.p.pid;
-    let target = if own_group {
-        Some(c.p.pid)
-    } else {
-        process_target(c, pid)
-    };
-    let Some(target) = target.filter(|_| pid != -1 && pid != i32::MIN) else {
+    if pid == i32::MIN {
         return Err(Errno(ESRCH));
+    }
+    let processes = c.p.config.processes;
+    let own_pgid = if processes {
+        super::super::host::getpgid(0)?
+    } else {
+        c.p.pid
     };
+    let own_group = pid == 0 || pid == -own_pgid;
+    if let Some(target) = process_target(c, pid) {
+        if !valid_signal(sig) && sig != 0 {
+            return Err(Errno(EINVAL));
+        }
+        if sig != 0 {
+            let info = kill_info(c, sig, code::SI_USER);
+            send_process(c, info, target);
+        }
+        return Ok(0);
+    }
+    if !processes {
+        if !own_group {
+            return Err(Errno(ESRCH));
+        }
+        if !valid_signal(sig) && sig != 0 {
+            return Err(Errno(EINVAL));
+        }
+        if sig != 0 {
+            let info = kill_info(c, sig, code::SI_USER);
+            let me = c.p.pid;
+            send_process(c, info, me);
+        }
+        return Ok(0);
+    }
     if !valid_signal(sig) && sig != 0 {
         return Err(Errno(EINVAL));
     }
-    if sig != 0 {
-        let info = kill_info(c, sig, code::SI_USER);
-        send_process(c, info, target);
+    use super::super::host;
+    if pid == -1 {
+        let children: Vec<i32> = c.p.children.list.iter().map(|ch| ch.pid).collect();
+        let mut sent = false;
+        for child in children {
+            sent |= host::kill(child, sig).is_ok();
+        }
+        return if sent { Ok(0) } else { Err(Errno(ESRCH)) };
     }
-    Ok(0)
+    if own_group {
+        // The other members through the host, this process directly.
+        if host::host_signal(sig).is_some() || sig == 0 {
+            host::kill_group_but_self(own_pgid, sig)?;
+        }
+        if sig != 0 {
+            let info = kill_info(c, sig, code::SI_USER);
+            let me = c.p.pid;
+            send_process(c, info, me);
+        }
+        return Ok(0);
+    }
+    other_process(c, pid, sig)
+}
+
+/// A signal to another process (`pid > 0`) or process group (`pid < 0`)
+/// through the host, with the kernel's error order: no such process
+/// (`ESRCH`), an invalid signal (`EINVAL`), then permission (`EPERM`).
+/// A child that ended but was not waited for is a zombie only in this
+/// process's records (the host has reaped its PID and may reuse it): it is
+/// still found, and the signal goes nowhere, as `group_send_sig_info` to a
+/// zombie does; it is never asked of the host.
+fn other_process(c: &Ctx<'_>, pid: i32, sig: i32) -> SysResult {
+    use super::super::host;
+    let zombie = c.p.children.list.iter().any(|ch| {
+        ch.zombie.is_some()
+            && if pid > 0 {
+                ch.pid == pid
+            } else {
+                ch.pgid == -pid
+            }
+    });
+    let checked = || {
+        if !valid_signal(sig) && sig != 0 {
+            Err(Errno(EINVAL))
+        } else {
+            Ok(0)
+        }
+    };
+    if pid > 0 && zombie {
+        return checked();
+    }
+    let probe = host::kill(pid, 0);
+    if let Err(Errno(ESRCH)) = probe {
+        return if zombie { checked() } else { Err(Errno(ESRCH)) };
+    }
+    checked()?;
+    probe?;
+    if sig == 0 {
+        return Ok(0);
+    }
+    host::kill(pid, sig).map(|()| 0)
 }
 
 /// `tgkill`.
@@ -213,6 +299,14 @@ fn send_specific(
 ) -> SysResult {
     let live = c.is_own_tid(tid);
     let zombie_leader = tid == c.p.pid && c.p.leader_exit.is_some();
+    if !(live || zombie_leader) && c.p.config.processes && tgid != c.p.pid {
+        // Another process: its leader through the host; its other threads
+        // cannot be named.
+        if tgid > 0 && tgid != tid {
+            return Err(Errno(ESRCH));
+        }
+        return other_process(c, tid, sig);
+    }
     if !(live || zombie_leader) || (tgid > 0 && tgid != c.p.pid) {
         return Err(Errno(ESRCH));
     }
@@ -259,7 +353,12 @@ pub fn rt_sigqueueinfo(c: &mut Ctx<'_>, pid: i32, sig: i32, uinfo: u64) -> SysRe
         return Err(Errno(EPERM));
     }
     let Some(target) = process_target(c, pid) else {
-        return Err(Errno(ESRCH));
+        // Another process gets a plain signal: the record cannot travel.
+        return if c.p.config.processes && pid > 0 {
+            other_process(c, pid, sig)
+        } else {
+            Err(Errno(ESRCH))
+        };
     };
     if !valid_signal(sig) && sig != 0 {
         return Err(Errno(EINVAL));

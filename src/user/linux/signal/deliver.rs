@@ -332,6 +332,9 @@ pub fn force_sigsegv(p: &mut ProcState, th: &mut Threads<'_>, sig: i32) {
 /// interval timers (`SEND_SIG_PRIV`), all aimed at the process through its
 /// leader.
 pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
+    if crate::user::linux::host::take_child_event() {
+        crate::user::linux::syscall::child::refresh(p, th);
+    }
     let leader = p.pid;
     for hs in crate::user::linux::host::take_host_signals() {
         let info = match hs.sender {

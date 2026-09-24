@@ -12,7 +12,8 @@
 //! |---|---|
 //! | [`abi`] | Per-ABI numbering, constants, and structure layouts |
 //! | [`arch`] | Per-ISA register conventions and exception-to-signal mapping |
-//! | [`loader`] | `execve` image loading |
+//! | [`loader`] | ELF image loading |
+//! | [`exec`] | Program images and the `execve` point of no return |
 //! | [`stack`] | Initial stack and auxiliary vector |
 //! | [`fs`] | Guest paths, the sysroot overlay, open files, descriptors |
 //! | [`procfs`] | Synthesized `/proc` and `/sys` entries |
@@ -21,12 +22,15 @@
 //! | [`syscall`] | System-call dispatch and handlers |
 //! | [`signal`] | Signals: records, queues, frames, delivery |
 //! | [`futex`] | Futex wait queues, PI ownership, robust lists |
+//! | [`children`] | Child processes and their status records |
 //! | [`timers`] | Interval timers |
 //! | [`wait`] | Sleeping in system calls on descriptors, deadlines, and signals |
 //! | [`host`] | The host services `std` does not expose |
 
 pub mod abi;
 pub mod arch;
+pub mod children;
+pub mod exec;
 pub mod fs;
 pub mod futex;
 pub mod host;
