@@ -11,6 +11,7 @@
 //! | [`image`] | Executable file formats (ELF) and their validation |
 //! | [`mm`] | Guest address spaces: VMAs, demand-populated frames, faults |
 //! | [`cpu`] | OS-neutral CPU adapters running each ISA core unprivileged |
+//! | [`linux`] | The Linux personality (Unix hosts) |
 //!
 //! The subsystem is independent of `machine/`, `devices/`, and `vm/runtime`:
 //! there is no board, firmware, or device model, only a guest address space,
@@ -18,4 +19,6 @@
 
 pub mod cpu;
 pub mod image;
+#[cfg(unix)]
+pub mod linux;
 pub mod mm;
