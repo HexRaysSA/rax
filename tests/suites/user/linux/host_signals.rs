@@ -144,11 +144,15 @@ fn host_signals_are_forwarded_to_the_guest() {
 
 #[test]
 fn without_forwarding_host_signals_act_on_rax_user() {
+    // SIGUSR1's host default action terminates rax-user whatever the guest
+    // is doing, so it is sent at once: once the guest waits in pause,
+    // nothing forwarded can end the wait, and rax-user reports that
+    // instead (exit status 125).
     let s = Session::start("x86_64", &["--no-signal-forwarding"]);
-    s.expect("ready");
-    // SIGUSR1's host default action terminates rax-user; the guest handler
-    // never runs.
     s.kill(SIGUSR1);
-    assert_eq!(s.line(Instant::now() + T), None);
+    // The guest handler never runs.
+    while let Some(line) = s.line(Instant::now() + T) {
+        assert_eq!(line, "ready");
+    }
     assert_eq!(s.wait(), (Some(128 + 10), Some(10)));
 }
