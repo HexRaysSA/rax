@@ -28,6 +28,7 @@ a00964401eccddc9dd64b6c8c5df168a370785084ae637076fcf08825da28409  ./any-linux-an
 ca91a941458a838919af9d3717d2eef9c496985847a1f4e42e5338162174f116  ./any-linux-any/linux/close_range.h
 b167f7d2a8b0893f44e386ce0ac549a55711ae77586747e51d6f949bdbbcc505  ./any-linux-any/linux/elf-em.h
 67653dd5a5c8970e38d8d2b837e030113c1a84abf61a05603490634e7e02f83c  ./any-linux-any/linux/elf.h
+488f610791e08f90ecbf31e014c7954566b37a1e31956a49bb9e14b9e9186861  ./any-linux-any/linux/eventfd.h
 d8e08441a167e1ae71918fce30b3ed3ea5ed72f49a2f713b3f5e798f3210bf1c  ./any-linux-any/linux/eventpoll.h
 22bdbedd716534bb4395ceb514e2538ba324118fd99e24bdeab8eb73fad82cea  ./any-linux-any/linux/fcntl.h
 24539ea5f55bd5963f45e1a9ba2fd2ab25ce64ecd48c6954cb4abb8cf382295d  ./any-linux-any/linux/futex.h
@@ -40,10 +41,12 @@ d3f60857bd7910cb61d0525183e2ccffbb2bbf34efb1f7cdc4ebe410a474ad7a  ./any-linux-an
 4045ff7f63f6f3ef14299fb4f42ac689ea8380ae584d25247337487602d213bc  ./any-linux-any/linux/rseq.h
 c372397b0898f1fd3f3e1d3b6cbd4e92ebaf71b588b7d2d550b40aabe2054a64  ./any-linux-any/linux/sched.h
 f7050aca288f276478dbe7d4e71077f42e10f557c0949edfd776ef4b7f2c0ed0  ./any-linux-any/linux/signal.h
+45c91ecd6a62987c51e155f31c70f0d0289b36836764a1a771897303eed355fd  ./any-linux-any/linux/signalfd.h
 e4fed2378815e36c1e530859b28857e74f1bc684d149130d8a256472c2f9e587  ./any-linux-any/linux/stat.h
 0761755edafe04f0f26c387ecc61c44f31e5f65cf095d962abf7e2d03bbeb9d2  ./any-linux-any/linux/sysinfo.h
 a363191fc412c37793c9596cc0c9bdbe0e5df321c88b26bedc25d5e79a3662c7  ./any-linux-any/linux/time.h
 8667fba412a90842eeefbef581ddb30eda484c03a0fcba297d8757f02f903cfa  ./any-linux-any/linux/time_types.h
+2d1b52b35acec9c2772a3d8dae00ffe436fede89beb9b6063de560bf26a70787  ./any-linux-any/linux/timerfd.h
 335c42c16c9de78cfe865419a2056159cf9e47354de1cd660631789171320fc3  ./any-linux-any/linux/utsname.h
 fe4e39da1ed8ac1faecbc43737f076c7bdade7323c5cbc6d7651dda1346a2b52  ./any-linux-any/linux/version.h
 1ed0701822e2d1cd8ce2cbef3a5672f13a2303b4ab4e9a9af6ed75577425e839  ./any-linux-any/linux/wait.h
