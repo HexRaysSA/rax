@@ -405,6 +405,86 @@ fn source_backed_pages_follow_file_semantics() {
 }
 
 #[test]
+fn discard_refetches_pages_from_their_backing() {
+    let data: Vec<u8> = (0..(2 * P)).map(|i| (i % 253) as u8).collect();
+    let src: Arc<dyn PageSource> = Arc::new(BytesSource::new(data.clone().into()));
+    let s = space();
+    s.map(0x10000, 2 * P, Mapping::anonymous(RW)).unwrap();
+    s.map(
+        0x12000,
+        2 * P,
+        Mapping {
+            perms: RW,
+            backing: Backing::Source {
+                source: src,
+                offset: 0,
+            },
+            shared: false,
+            name: None,
+            flags: 0,
+        },
+    )
+    .unwrap();
+    s.write(0x10000, &[9u8; 4 * P as usize]).unwrap();
+    assert!(s.is_resident(0x10000) && s.is_resident(0x13fff));
+    let resident = s.resident_pages();
+    // One call spanning an anonymous and a source-backed VMA.
+    s.discard(0x11000, 2 * P).unwrap();
+    assert_eq!(s.resident_pages(), resident - 2);
+    assert!(!s.is_resident(0x11000) && !s.is_resident(0x12000));
+    let mut b = vec![0u8; 4 * P as usize];
+    s.read(0x10000, &mut b).unwrap();
+    assert!(b[..P as usize].iter().all(|&x| x == 9), "outside the range");
+    assert!(
+        b[P as usize..2 * P as usize].iter().all(|&x| x == 0),
+        "anonymous"
+    );
+    assert_eq!(
+        &b[2 * P as usize..3 * P as usize],
+        &data[..P as usize],
+        "source"
+    );
+    assert!(
+        b[3 * P as usize..].iter().all(|&x| x == 9),
+        "outside the range"
+    );
+    // The VMAs are unchanged.
+    assert_eq!(s.vma_snapshot().len(), 2);
+}
+
+#[test]
+fn discard_requires_a_fully_mapped_aligned_range() {
+    let s = space();
+    s.map(0x10000, P, Mapping::anonymous(RW)).unwrap();
+    s.write(0x10000, b"x").unwrap();
+    assert_eq!(
+        s.discard(0x10000, 2 * P),
+        Err(MmError::NotMapped { addr: 0x11000 })
+    );
+    assert!(matches!(
+        s.discard(0x10001, P),
+        Err(MmError::InvalidArgument(_))
+    ));
+    assert!(s.is_resident(0x10000), "a failed discard changes nothing");
+    assert!(!s.is_resident(1 << 47), "beyond the address space");
+}
+
+#[test]
+fn discarding_executable_pages_logs_a_code_change() {
+    let s = space();
+    s.map(0x10000, P, Mapping::anonymous(RX)).unwrap();
+    s.map(0x20000, P, Mapping::anonymous(RW)).unwrap();
+    let e0 = s.code_epoch();
+    s.discard(0x20000, P).unwrap();
+    assert_eq!(s.code_changes_since(e0).0, CodeChanges::None);
+    s.discard(0x10000, P).unwrap();
+    assert_eq!(
+        s.code_changes_since(e0).0,
+        CodeChanges::Ranges(vec![(0x10000, P)])
+    );
+}
+
+#[test]
 fn raw_access_ignores_permissions_but_not_mapping() {
     let s = space();
     s.map(0x10000, P, Mapping::anonymous(Perms::READ)).unwrap();

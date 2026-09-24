@@ -406,6 +406,32 @@ impl AddressSpace {
         Ok(())
     }
 
+    /// Discards the contents of `[start, start + len)` without unmapping it:
+    /// the next access sees fresh pages from the backing (zero for anonymous
+    /// memory, the original contents for a private file mapping). This is
+    /// `madvise(MADV_DONTNEED)` on private mappings. Every byte must be
+    /// mapped.
+    pub fn discard(&self, start: u64, len: u64) -> Result<(), MmError> {
+        let end = check_range(start, len, self.inner.va_limit)?;
+        let vmas = self.vmas();
+        if let Some(hole) = first_hole(&vmas, start, end) {
+            return Err(MmError::NotMapped { addr: hole });
+        }
+        let exec = vmas
+            .overlapping(start, end)
+            .any(|v| v.perms.contains(Perms::EXEC));
+        self.release_pages(start, end);
+        if exec {
+            self.log_code_change(start, len);
+        }
+        Ok(())
+    }
+
+    /// Whether the page containing `addr` holds a frame.
+    pub fn is_resident(&self, addr: u64) -> bool {
+        addr < self.inner.va_limit && self.inner.table.get(addr >> 12) & PTE_VALID != 0
+    }
+
     /// Frees every populated frame in `[start, end)`. Caller holds the VMA lock.
     fn release_pages(&self, start: u64, end: u64) {
         let arena = &self.inner.arena;

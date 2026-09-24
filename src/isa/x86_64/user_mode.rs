@@ -270,6 +270,26 @@ impl X86_64Vcpu {
         Ok(())
     }
 
+    /// The `(EAX, EBX, ECX, EDX)` result the guest observes for `CPUID` with
+    /// `leaf`/`subleaf` in the current CR4/XCR0 state.
+    pub fn cpuid(&self, leaf: u32, subleaf: u32) -> (u32, u32, u32, u32) {
+        use super::execute::system::{X86CpuidState, evaluate_cpuid};
+        evaluate_cpuid(
+            leaf,
+            subleaf,
+            X86CpuidState {
+                cr4: self.sregs.cr4,
+                xcr0: self.xcr0,
+                xeon_phi_avx512: self.xeon_phi_avx512,
+                vp2intersect: self.vp2intersect,
+                sse4a: self.sse4a_enabled(),
+                tbm: self.tbm_enabled(),
+                xop: self.xop_enabled(),
+                apx: self.apx_enabled(),
+            },
+        )
+    }
+
     /// MXCSR.
     pub fn mxcsr(&self) -> u32 {
         self.mxcsr

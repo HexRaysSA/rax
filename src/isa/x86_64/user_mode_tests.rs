@@ -386,6 +386,22 @@ fn set_xcr0_applies_xsetbv_rules() {
 }
 
 #[test]
+fn cpuid_reflects_the_user_mode_xcr0() {
+    // CPUID.(EAX=0DH,ECX=0):EBX is the standard-format XSAVE size for the
+    // features enabled in XCR0: legacy area (512) + header (64) = 576; AVX
+    // state at 576 (+256) ends at 832; opmask at 1088 (+64), ZMM_Hi256 at
+    // 1152 (+512), and Hi16_ZMM at 1664 (+1024) end at 2688.
+    let mut h = harness(&[]);
+    assert_eq!(h.vcpu.cpuid(0xD, 0).1, 2688);
+    h.vcpu.set_xcr0(0x7).unwrap();
+    assert_eq!(h.vcpu.cpuid(0xD, 0).1, 832);
+    h.vcpu.set_xcr0(0x3).unwrap();
+    assert_eq!(h.vcpu.cpuid(0xD, 0).1, 576);
+    // CPUID.01H:ECX.OSXSAVE[27] mirrors CR4.OSXSAVE, which user mode sets.
+    assert_ne!(h.vcpu.cpuid(1, 0).2 & (1 << 27), 0);
+}
+
+#[test]
 fn host_code_patch_takes_effect_after_invalidation() {
     // loop: add eax, 1 ; dec ecx ; jnz loop ; syscall
     let code = [0x83, 0xC0, 0x01, 0xFF, 0xC9, 0x75, 0xF9, 0x0F, 0x05];
