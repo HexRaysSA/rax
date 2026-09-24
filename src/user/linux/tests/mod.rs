@@ -1,9 +1,11 @@
 //! Linux personality unit tests.
 
+mod events;
 mod exec;
 mod files;
 mod harness;
 mod loader;
+mod posix_timers;
 mod signals;
 mod stack;
 mod syscall_mm;

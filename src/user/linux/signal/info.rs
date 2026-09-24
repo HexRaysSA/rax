@@ -24,6 +24,29 @@ pub const SIGINFO_SIZE: usize = 128;
 /// Size of `struct kernel_siginfo` (header and union).
 pub const KERNEL_SIGINFO_SIZE: usize = 48;
 
+/// The `_sifields` member a record uses (`enum siginfo_layout`). The
+/// fault variants for bounds, protection keys, and perf events carry only
+/// the address here, as `signalfd` reports them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Layout {
+    /// `_kill`: `si_pid`, `si_uid`.
+    Kill,
+    /// `_timer`: `si_tid`, `si_overrun`, `si_value`.
+    Timer,
+    /// `_sigpoll`: `si_band`, `si_fd`.
+    Poll,
+    /// `_sigfault`: `si_addr`.
+    Fault,
+    /// `_sigfault` with `si_addr_lsb`.
+    FaultMceErr,
+    /// `_sigchld`.
+    Chld,
+    /// `_rt`: `si_pid`, `si_uid`, `si_value`.
+    Rt,
+    /// `_sigsys`.
+    Sys,
+}
+
 /// A `siginfo_t` as the kernel stores it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SigInfo {
@@ -74,6 +97,20 @@ impl SigInfo {
     /// A queued real-time-style signal with `si_value` (`sigqueue`).
     pub fn queued(signo: i32, code: i32, pid: i32, uid: u32, value: u64) -> Self {
         Self::kill(signo, code, pid, uid).put(8, &value.to_le_bytes())
+    }
+
+    /// A POSIX timer's signal (`SI_TIMER`) with its ID (`si_tid`), a zero
+    /// overrun count, and its `sigev_value`, as `do_timer_create`
+    /// prepares the preallocated record.
+    pub fn timer(signo: i32, id: i32, value: u64) -> Self {
+        Self::with(signo, code::SI_TIMER)
+            .put(0, &id.to_le_bytes())
+            .put(8, &value.to_le_bytes())
+    }
+
+    /// Sets `si_overrun` of a timer signal.
+    pub fn set_overrun(&mut self, n: i32) {
+        self.fields[4..8].copy_from_slice(&n.to_le_bytes());
     }
 
     /// `SIGCHLD` for a child's state change.
@@ -133,6 +170,42 @@ impl SigInfo {
             errno: i(4),
             code: i(8),
             fields: b[16..KERNEL_SIGINFO_SIZE].try_into().unwrap(),
+        }
+    }
+
+    /// `siginfo_layout`: which union member `si_signo`/`si_code` select.
+    pub fn layout(&self) -> Layout {
+        use super::*;
+        const NSIGPOLL: i32 = 6;
+        let (sig, c) = (self.signo, self.code);
+        if c > code::SI_USER && c < code::SI_KERNEL {
+            let own = match sig {
+                SIGILL => Some((11, Layout::Fault)),
+                SIGFPE => Some((15, Layout::Fault)),
+                SIGSEGV => Some((10, Layout::Fault)),
+                SIGBUS => Some((5, Layout::Fault)),
+                SIGTRAP => Some((6, Layout::Fault)),
+                SIGCHLD => Some((6, Layout::Chld)),
+                SIGIO => Some((NSIGPOLL, Layout::Poll)),
+                SIGSYS => Some((2, Layout::Sys)),
+                _ => None,
+            };
+            return match own {
+                // BUS_MCEERR_AR, BUS_MCEERR_AO.
+                Some((limit, _)) if c <= limit && sig == SIGBUS && (4..=5).contains(&c) => {
+                    Layout::FaultMceErr
+                }
+                Some((limit, layout)) if c <= limit => layout,
+                _ if c <= NSIGPOLL => Layout::Poll,
+                _ => Layout::Kill,
+            };
+        }
+        match c {
+            code::SI_TIMER => Layout::Timer,
+            // SI_SIGIO.
+            -5 => Layout::Poll,
+            c if c < 0 => Layout::Rt,
+            _ => Layout::Kill,
         }
     }
 

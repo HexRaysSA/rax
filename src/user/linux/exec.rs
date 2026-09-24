@@ -310,6 +310,11 @@ impl LinuxProcess {
         p.exe_host_path = image.exe_host_path;
         p.comm = image.comm;
         p.futex = Default::default();
+        // exit_itimers, flush_itimer_signals: POSIX timers and their
+        // queued signals go; interval timers stay.
+        p.timers.clear();
+        p.shared_pending.flush_timer_signals();
+        t.pending.flush_timer_signals();
         p.curr_target = p.pid;
         p.leader_exit = None;
         p.exec_id += 1;

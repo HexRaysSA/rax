@@ -31,7 +31,8 @@ every architecture and requires a byte-for-byte match.
 | `threads` | `pthread_create`/`join` and thread IDs, mutex/condition-variable/barrier/rwlock correctness under contention, thread-local storage, detached threads, timed waits (`sem_timedwait`, `pthread_cond_timedwait`, `pthread_mutex_timedlock`), `pthread_kill`, a process signal taken by the only thread not blocking it, `sigwait` in a dedicated thread, robust mutexes (`EOWNERDEAD`), priority-inheritance mutexes, cancellation of threads blocked in `read`, `pthread_cond_wait`, and `sleep`, `/proc/self/task` and per-thread names, `clone`/`clone3` validation, and `futex`/`futex_waitv` operations directly (value checks, timeouts, requeue and wake-op counts, PI ownership words) |
 | `threadexit` | How a multithreaded process ends (argument): the last thread's code after the leader exits (`leader`, 9), `exit_group` from a thread (`group`, 5), a fault in a thread (`segv`, 139), and `SIGTERM` taken by a thread (`kill`, 143) |
 | `exec` | A chain of `execve` stages: kept descriptors, closed close-on-exec ones, reset handlers, kept ignored signals, mask, pending signals, and interval timers, a cleared alternate stack, `AT_EXECFN` and `comm`; the error order (missing file, directory, no execute permission, unknown format, bad `#!` lines, a missing interpreter, a script loop, a bad `argv`, an over-long argument, bad `execveat` flags); a `#!` script run with its interpreter's arguments; `execveat` through a descriptor; `execve` from a second thread |
-| `fork` | `fork`, `vfork` (resuming at `execve`), `posix_spawn`, `clone` with a non-`SIGCHLD` exit signal, and `fork` in a second thread (whose child, once the thread exits, the main thread waits for with `__WNOTHREAD`); `waitpid`/`waitid` for exits, signal deaths, faults, stops, and continuations (each reported once), `WNOHANG`, `WNOWAIT`, `__WCLONE`, and `ECHILD`; `SIGCHLD` `siginfo`, `SA_NOCLDSTOP`, and automatic reaping; pipes between processes; `kill(0)` to the process group |
+| `fork` | `fork`, `vfork` (resuming at `execve`), `posix_spawn`, `clone` with a non-`SIGCHLD` exit signal, and `fork` in a second thread (whose child, once the thread exits, the main thread waits for with `__WNOTHREAD`); `waitpid`/`waitid` for exits, signal deaths, faults, stops, and continuations (each reported once), `WNOHANG`, `WNOWAIT`, `__WCLONE`, and `ECHILD`; `SIGCHLD` `siginfo`, `SA_NOCLDSTOP`, and automatic reaping; pipes between processes; `kill(0)` to the process group; 100 children killed the moment they exist |
+| `events` | `eventfd` counters and semaphores (limits, sizes, `lseek`/`pread`, readiness, a blocking read ended by another thread, one counter shared with a child process); `timerfd` one-shot and periodic ticks, `gettime`/`settime` old values, absolute times, `TFD_IOC_SET_TICKS`, blocking reads, and `TFD_TIMER_CANCEL_ON_SET`; `signalfd` reads of blocked signals with their `siginfo`, mask updates, `SIGKILL`/`SIGSTOP` in a mask, and a blocking read ended by another process's signal; POSIX timers with each notification kind, one queued signal and its overrun count, a stale signal dropped after `timer_settime`, `SIGEV_THREAD_ID`, and timers not inherited by a child; the error cases of each call |
 | `hostsig` | Not a recorded case: the `user_linux` `host_signals` tests send it host signals and follow its output (`siginfo` of a `kill`, a blocking `read` of standard input interrupted by a handler, death by `SIGTERM`) |
 | `signals` | Handlers with `siginfo` from `raise`/`kill`/`sigqueue`, the mask during and after a handler, `SA_NODEFER`, `SA_RESETHAND`, delivery order of several unblocked signals, real-time queueing with `sigtimedwait`, `sigsuspend`, ignored signals, `SA_ONSTACK` alternate stacks, recovering from `SIGSEGV` (MAPERR, ACCERR), `SIGBUS`, and traps with `siglongjmp`, a handler editing the saved PC to skip a faulting store, `SIGPIPE`, and `abort()` after its handler returns (status 134) |
 | `stdin` | Reading standard input to end of file |
@@ -49,7 +50,7 @@ every architecture and requires a byte-for-byte match.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 48 binaries (16 programs × 3 architectures), 1,352 KiB in total; each
+- Size: 51 binaries (17 programs × 3 architectures), 1,516 KiB in total; each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -68,9 +69,13 @@ every architecture and requires a byte-for-byte match.
   fixture checks (`clone3` and `futex_waitv` in Rosetta and QEMU, robust
   futex lists in QEMU, whose `/proc/self/task` also lists its own
   threads), or runs executed programs through `binfmt_misc` (`exec`), or
-  mishandles process exit signals and `SA_NOCLDSTOP` (QEMU, `fork`), the
-  native AArch64 result is used for architecture-independent kernel
-  code.
+  mishandles process exit signals and `SA_NOCLDSTOP` (QEMU, `fork`), or
+  lacks `TFD_IOC_SET_TICKS`, `signalfd4`'s mask-size check, and the
+  kernel's POSIX timer IDs (QEMU, `events`), the native AArch64 result is
+  used for architecture-independent kernel code. Rosetta has once, in
+  about ten recordings, lost a stopped child continued by `SIGCONT`
+  (`fork`); a recording is kept only when it matches the native AArch64
+  result.
 - Containers ran with `--init` so the fixture was not the PID-namespace
   init (the kernel ignores default-action signals sent to an init, which
   would make `abort()` loop), and with `--security-opt seccomp=unconfined`

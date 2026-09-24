@@ -303,6 +303,13 @@ fn execve_replaces_the_image_and_keeps_what_the_kernel_keeps() {
             flags: 0,
             size: 0x1000,
         };
+        // A POSIX timer (deleted by exit_itimers) and its queued signal
+        // (flush_itimer_signals).
+        h.ok(Sysno::TimerCreate, &[1, 0, h.scratch + 0x800]);
+        h.proc
+            .state
+            .shared_pending
+            .enqueue_timer(SigInfo::timer(SIGRTMIN, 0, 0), 1);
         put_str(&h, path, "/dev/null");
         let kept = h.ok(Sysno::Openat, &[-100i64 as u64, path, 0, 0]);
         let closed = h.ok(Sysno::Openat, &[-100i64 as u64, path, 0o2000000, 0]);
@@ -338,6 +345,8 @@ fn execve_replaces_the_image_and_keeps_what_the_kernel_keeps() {
         assert!(p.fds.get(kept as i32).is_ok());
         assert!(p.fds.get(closed as i32).is_err(), "close-on-exec");
         assert_eq!(p.exec_id, 1);
+        assert!(p.timers.is_empty(), "exit_itimers");
+        assert!(!p.shared_pending.contains(SIGRTMIN), "flush_itimer_signals");
     });
 }
 

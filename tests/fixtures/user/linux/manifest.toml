@@ -75,6 +75,12 @@ target = "x86_64-linux-musl"
 sha256 = "bdc9f5c9ac668671b41e5f93ec6b8e4edb81eb4e25e383a25162d53c252f252a"
 
 [[fixture]]
+path = "bin/x86_64/events"
+source = "src/events.c"
+target = "x86_64-linux-musl"
+sha256 = "ac7e7fb7a99a960267314e9855a92705e90174df023a3712ed176e960c4e7f85"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -171,6 +177,12 @@ target = "aarch64-linux-musl"
 sha256 = "6ad809e6390e314047581643211e3bd0d8a10005ee0751a74a9c6a69a33aaf21"
 
 [[fixture]]
+path = "bin/aarch64/events"
+source = "src/events.c"
+target = "aarch64-linux-musl"
+sha256 = "43a661c8107d3786e95fb65b4b42299fe80b22f987a7e88c4f453b005a06c04f"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -265,6 +277,12 @@ path = "bin/riscv64/fork"
 source = "src/fork.c"
 target = "riscv64-linux-musl"
 sha256 = "ac7d9684c86cfd217d59cec8345eaea97a3a1f8c7d64306993eeca4e538ced13"
+
+[[fixture]]
+path = "bin/riscv64/events"
+source = "src/events.c"
+target = "riscv64-linux-musl"
+sha256 = "f791595779d181e0463ddf5d4768eb28dedc7c157a0f00820c9f9a8df2856e72"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

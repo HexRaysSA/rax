@@ -35,6 +35,9 @@ pub struct Wait {
     /// A signal ends the wait (`TASK_INTERRUPTIBLE`); otherwise only the
     /// process's exit does (`TASK_KILLABLE`).
     pub interruptible: bool,
+    /// Signals whose queueing, even while blocked, ends the wait: those a
+    /// `signalfd` being read or polled reports (`signalfd_wqh`).
+    pub signals: u64,
 }
 
 impl Wait {
@@ -49,6 +52,7 @@ impl Wait {
             fds: Vec::new(),
             deadline,
             interruptible: true,
+            signals: 0,
         }
     }
 
@@ -58,6 +62,7 @@ impl Wait {
             fds,
             deadline,
             interruptible: true,
+            signals: 0,
         }
     }
 
@@ -72,6 +77,7 @@ impl Wait {
             fds: Vec::new(),
             deadline: None,
             interruptible: false,
+            signals: 0,
         }
     }
 }

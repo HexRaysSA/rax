@@ -35,6 +35,7 @@ pub mod fs;
 pub mod futex;
 pub mod host;
 pub mod loader;
+pub mod posix_timers;
 pub mod process;
 pub mod procfs;
 pub mod sched;

@@ -142,6 +142,19 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
             blksize: 4096,
             ..Default::default()
         }),
+        // alloc_anon_inode: mode 0600 without a file type, one link, the
+        // caller's IDs; the one anon_inode_fs inode all of them share (its
+        // device and inode numbers are fixed at boot).
+        FileObject::Anon(_) => Ok(Stat {
+            dev_minor: 0x10,
+            ino: 0x5241_5801,
+            mode: 0o600,
+            nlink: 1,
+            uid: c.p.creds.1,
+            gid: c.p.creds.3,
+            blksize: 4096,
+            ..Default::default()
+        }),
         FileObject::Synthetic(d) => Ok(proc_stat(
             c,
             &if file.ftype == FileType::Directory {

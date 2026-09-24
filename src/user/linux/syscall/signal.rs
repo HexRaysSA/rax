@@ -66,10 +66,11 @@ pub fn rt_sigaction(c: &mut Ctx<'_>, sig: i32, act: u64, oact: u64, size: u64) -
         // discards it from every queue, whether or not it is blocked.
         if a.handler == SIG_IGN || (a.handler == SIG_DFL && default_ignored(sig)) {
             let (p, mut th) = c.split();
-            p.shared_pending.flush(sigmask(sig));
-            for t in th.iter_mut() {
-                t.pending.flush(sigmask(sig));
-            }
+            deliver::flush_signals(p, &mut th, sigmask(sig));
+        } else if old.handler == SIG_IGN {
+            // posixtimer_sig_unignore: parked timer signals queue again.
+            let (p, mut th) = c.split();
+            deliver::unignore_timer_signals(p, &mut th, sig);
         }
     }
     if oact != 0 {

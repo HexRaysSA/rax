@@ -57,6 +57,9 @@ pub enum FileObject {
     Synthetic(Arc<[u8]>),
     /// An `O_PATH` reference: identifies a file without I/O capability.
     PathOnly,
+    /// An anonymous-inode object (`eventfd`, `timerfd`, `signalfd`),
+    /// whose I/O the system calls perform.
+    Anon(super::anon::Anon),
 }
 
 /// What kind of file an open description refers to.
@@ -76,6 +79,8 @@ pub enum FileType {
     Socket,
     /// Symbolic link (`O_PATH | O_NOFOLLOW` only).
     Symlink,
+    /// An anonymous inode: no file type (`alloc_anon_inode`).
+    Anon,
 }
 
 /// Mutable state of an open file description.
@@ -167,6 +172,7 @@ impl OpenFile {
             FileObject::Host(f) => Ok((&*f).read(buf)?),
             FileObject::PipeRead(p) => Ok((&*p).read(buf)?),
             FileObject::PipeWrite(_) | FileObject::PathOnly => Err(Errno(EBADF)),
+            FileObject::Anon(_) => Err(Errno(EINVAL)),
             FileObject::Synthetic(data) => {
                 let mut st = self.state.lock().unwrap();
                 let pos = st.synth_pos.min(data.len() as u64) as usize;
@@ -194,6 +200,7 @@ impl OpenFile {
             FileObject::PipeWrite(p) => Ok((&*p).write(data)?),
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Synthetic(_) => Err(Errno(EACCES)),
+            FileObject::Anon(_) => Err(Errno(EINVAL)),
         }
     }
 
@@ -287,6 +294,8 @@ impl OpenFile {
                 }
                 Ok(target as u64)
             }
+            // noop_llseek: the position stays 0.
+            FileObject::Anon(_) => Ok(0),
             FileObject::Synthetic(data) => {
                 let mut st = self.state.lock().unwrap();
                 let base = match whence {

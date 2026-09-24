@@ -11,6 +11,7 @@
 //! `/proc`, and `/sys` always resolve on the host (or are synthesized by the
 //! personality).
 
+pub mod anon;
 pub mod fd;
 
 use std::path::{Component, Path, PathBuf};

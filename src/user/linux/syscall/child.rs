@@ -135,6 +135,7 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     p.children = Default::default();
     p.shared_pending = super::super::signal::SigPending::new();
     p.itimers = Default::default();
+    p.timers = Default::default();
     p.futex = Default::default();
     p.curr_target = pid;
     p.leader_exit = None;

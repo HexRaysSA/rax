@@ -122,7 +122,7 @@ impl LinuxProcess {
     /// can wake one.
     fn idle(&mut self) -> Result<(), wait::Deadlock> {
         let mut fds = Vec::new();
-        let mut deadline = self.state.itimers.next_deadline();
+        let mut deadline = self.state.timer_deadline();
         for b in self.threads.iter().filter_map(|t| t.blocked.as_ref()) {
             fds.extend_from_slice(&b.wait.fds);
             deadline = match (deadline, b.wait.deadline) {
@@ -237,7 +237,7 @@ impl LinuxProcess {
             });
             loop {
                 self.collect_async(None);
-                let deadline = self.state.itimers.next_deadline();
+                let deadline = self.state.timer_deadline();
                 let t = &mut self.threads[idx];
                 wait::poll_ready(t.blocked.iter_mut());
                 let b = t.blocked.as_ref().expect("thread sleeps");

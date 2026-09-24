@@ -251,6 +251,9 @@ fn comm_write(c: &mut Ctx<'_>, tid: i32, buf: u64, count: u64) -> SysResult {
 /// `read`.
 pub fn read(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     let file = c.p.fds.file(fd)?;
+    if matches!(file.object, FileObject::Anon(_)) {
+        return super::events::read_call(c, &file, buf, count);
+    }
     if count == 0 {
         return if file.readable() {
             Ok(0)
@@ -264,6 +267,9 @@ pub fn read(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
 /// `write`.
 pub fn write(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     let file = c.p.fds.file(fd)?;
+    if matches!(file.object, FileObject::Anon(_)) {
+        return super::events::write_call(c, &file, buf, count);
+    }
     if count == 0 {
         return if file.writable() {
             Ok(0)
@@ -319,6 +325,9 @@ pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     if total == 0 {
         return Ok(0);
     }
+    if matches!(file.object, FileObject::Anon(_)) {
+        return super::events::read(c, &file, &iovecs);
+    }
     let room = iovec_room(c, &iovecs);
     if room == 0 {
         return Err(Errno(EFAULT));
@@ -334,7 +343,17 @@ pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     if !file.writable() {
         return Err(Errno(EBADF));
     }
+    let anon = matches!(file.object, FileObject::Anon(_));
+    if anon && !super::events::can_write(&file) {
+        return Err(Errno(EINVAL));
+    }
     let vecs = read_iovecs(c, iov, cnt)?;
+    if anon {
+        if vecs.iter().all(|&(_, l)| l == 0) {
+            return Ok(0);
+        }
+        return super::events::write(c, &file, &vecs);
+    }
     let mut data = Vec::new();
     for (base, len) in vecs {
         if len == 0 {
@@ -358,6 +377,9 @@ pub fn pread(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, pos: i64) -> SysRes
     if pos < 0 {
         return Err(Errno(EINVAL));
     }
+    if matches!(file.object, FileObject::Anon(_)) {
+        return Err(Errno(ESPIPE));
+    }
     read_into(c, &file, buf, count, Some(pos as u64))
 }
 
@@ -366,6 +388,9 @@ pub fn pwrite(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, pos: i64) -> SysRe
     let file = c.p.fds.file(fd)?;
     if pos < 0 {
         return Err(Errno(EINVAL));
+    }
+    if matches!(file.object, FileObject::Anon(_)) {
+        return Err(Errno(ESPIPE));
     }
     write_from(c, &file, buf, count, Some(pos as u64))
 }
@@ -381,6 +406,13 @@ pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64
     let file = c.p.fds.file(fd)?;
     if pos < -1 {
         return Err(Errno(EINVAL));
+    }
+    if matches!(file.object, FileObject::Anon(_)) {
+        return if pos >= 0 {
+            Err(Errno(ESPIPE))
+        } else {
+            readv(c, fd, iov, cnt)
+        };
     }
     let mut total = 0;
     for (base, len) in read_iovecs(c, iov, cnt)? {
@@ -402,6 +434,13 @@ pub fn pwritev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u6
     let file = c.p.fds.file(fd)?;
     if pos < -1 {
         return Err(Errno(EINVAL));
+    }
+    if matches!(file.object, FileObject::Anon(_)) {
+        return if pos >= 0 {
+            Err(Errno(ESPIPE))
+        } else {
+            writev(c, fd, iov, cnt)
+        };
     }
     let mut total = 0;
     for (base, len) in read_iovecs(c, iov, cnt)? {
@@ -525,7 +564,7 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
         }
         F_GETFL => {
             // f_flags as the file was created: open() forces O_LARGEFILE;
-            // pipes have none.
+            // pipes and anonymous-inode files have none.
             Ok(u64::from(c.p.fds.file(fd)?.flags()))
         }
         F_SETFL => {
@@ -579,7 +618,7 @@ fn set_host_nonblocking(file: &OpenFile, on: bool) -> Result<(), Errno> {
     match &file.object {
         FileObject::Host(f) => host::set_nonblocking(f, on),
         FileObject::PipeRead(_) | FileObject::PipeWrite(_) => Ok(()),
-        FileObject::Synthetic(_) | FileObject::PathOnly => Ok(()),
+        FileObject::Synthetic(_) | FileObject::PathOnly | FileObject::Anon(_) => Ok(()),
     }
 }
 
@@ -664,6 +703,14 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
             };
             c.write_u32(arg, n as u32)?;
             Ok(0)
+        }
+        super::events::TFD_IOC_SET_TICKS
+            if matches!(
+                file.object,
+                FileObject::Anon(super::super::fs::anon::Anon::Timer(_))
+            ) =>
+        {
+            super::events::set_ticks(c, &file, arg)
         }
         TCGETS | TCSETS | TCSETSW | TCSETSF | TIOCGWINSZ | TIOCSWINSZ | TIOCGPGRP | TIOCSPGRP
         | TIOCSCTTY | TIOCNOTTY | TIOCGPTN => {
@@ -781,6 +828,8 @@ fn poll_fds(
     let mut out = vec![0u16; req.len()];
     let mut host_idx = Vec::new();
     let mut host_req = Vec::new();
+    // What anonymous-inode files add to the wait.
+    let mut extra = Wait::fds(Vec::new(), deadline);
     for (i, &(fd, events)) in req.iter().enumerate() {
         if fd < 0 {
             continue;
@@ -789,6 +838,17 @@ fn poll_fds(
             out[i] = POLLNVAL;
             continue;
         };
+        if let FileObject::Anon(anon) = &file.object {
+            let (ready, wait) = super::events::poll(c, anon, events);
+            out[i] = ready;
+            extra.fds.extend(wait.fds);
+            extra.signals |= wait.signals;
+            extra.deadline = match (extra.deadline, wait.deadline) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            };
+            continue;
+        }
         let want_r = events & (POLLIN | POLLRDNORM | POLLPRI) != 0;
         let want_w = events & (POLLOUT | POLLWRNORM) != 0;
         match (file.ftype, raw_fd(&file)) {
@@ -832,7 +892,11 @@ fn poll_fds(
     if c.signal_pending() {
         return Ok(Polled::Interrupted);
     }
-    Err(c.block(Wait::fds(host_req, deadline), Resume::Until(deadline)))
+    // An anonymous file's deadline (a timer expiry) ends the sleep early,
+    // and the poll looks again.
+    let mut wait = extra;
+    wait.fds.extend(host_req);
+    Err(c.block(wait, Resume::Until(deadline)))
 }
 
 /// The deadline a `poll` or `select` computed when it started, if it is

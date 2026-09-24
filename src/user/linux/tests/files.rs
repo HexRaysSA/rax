@@ -2,8 +2,9 @@
 //! them: `open` keeps the valid open flags with `O_LARGEFILE` forced and
 //! without the creation-time flags and `O_CLOEXEC` (`build_open_how`,
 //! `build_open_flags`, `do_dentry_open`); an `O_PATH` open keeps only
-//! `O_PATH`, `O_DIRECTORY`, and `O_NOFOLLOW`; pipes never have
-//! `O_LARGEFILE` (`create_pipe_files`).
+//! `O_PATH`, `O_DIRECTORY`, and `O_NOFOLLOW`; pipes and anonymous-inode
+//! files never have `O_LARGEFILE` (`create_pipe_files`,
+//! `anon_inode_getfile`).
 
 use super::harness::{Harness, each_abi};
 use crate::user::linux::abi::Sysno;
@@ -70,5 +71,7 @@ fn status_flags_are_those_the_kernel_records() {
             O_WRONLY | O_NONBLOCK,
             "{abi:?}: pipe"
         );
+        let ev = h.ok(Sysno::Eventfd2, &[0, u64::from(O_NONBLOCK | O_CLOEXEC)]);
+        assert_eq!(getfl(&mut h, ev), O_RDWR | O_NONBLOCK, "{abi:?}: eventfd");
     });
 }

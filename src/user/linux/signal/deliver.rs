@@ -29,6 +29,7 @@ use super::{
     signal_name, ss,
 };
 use crate::user::linux::abi::errno_table::EINTR;
+use crate::user::linux::posix_timers::{self, Firing, Notify};
 use crate::user::linux::process::{ExitStatus, LinuxProcess, ProcState, Thread, Threads};
 
 /// Kernel-internal restart codes (`include/linux/errno.h`), returned by
@@ -140,12 +141,35 @@ fn prepare_signal(
         0
     };
     if flush != 0 {
-        p.shared_pending.flush(flush);
-        for t in th.iter_mut() {
-            t.pending.flush(flush);
-        }
+        flush_signals(p, th, flush);
     }
     !sig_ignored(p, mask, sig, force)
+}
+
+/// `flush_sigqueue_mask` on every queue of the process: discards the
+/// pending instances of the signals in `mask`. A periodic POSIX timer
+/// whose signal is discarded keeps it parked until the signal is no longer
+/// ignored (`sigqueue_free_ignored`).
+pub fn flush_signals(p: &mut ProcState, th: &mut Threads<'_>, mask: u64) {
+    let mut timers = p.shared_pending.flush(mask);
+    for t in th.iter_mut() {
+        timers.extend(t.pending.flush(mask));
+    }
+    for uid in timers {
+        p.timers.sig_ignore(uid);
+    }
+}
+
+/// `signalfd_notify`: threads sleeping until a signal of theirs is queued
+/// (reading or polling a `signalfd`) run again to look.
+fn signalfd_notify(th: &mut Threads<'_>, sig: i32) {
+    for t in th.iter_mut() {
+        if let Some(b) = t.blocked.as_mut()
+            && b.wait.signals & sigmask(sig) != 0
+        {
+            b.woken = true;
+        }
+    }
 }
 
 /// `signal_wake_up`: the thread should take a signal; a system call it
@@ -237,6 +261,7 @@ pub fn send_signal(
     if !prepare_signal(p, th, info.signo, mask, force) {
         return false;
     }
+    signalfd_notify(th, info.signo);
     match dest {
         Dest::Thread(tid) => {
             let Some(t) = th.get_mut(tid) else {
@@ -330,7 +355,7 @@ pub fn force_sigsegv(p: &mut ProcState, th: &mut Threads<'_>, sig: i32) {
 /// signals (`SI_USER` with the sender when another process sent them with
 /// `kill`, else `SI_KERNEL`, as terminal-generated signals are) and expired
 /// interval timers (`SEND_SIG_PRIV`), all aimed at the process through its
-/// leader.
+/// leader, and the signals of expired POSIX timers.
 pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
     if crate::user::linux::host::take_child_event() {
         crate::user::linux::syscall::child::refresh(p, th);
@@ -353,19 +378,102 @@ pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
             send_signal(p, th, SigInfo::kernel(sig), Dest::Process(leader), true);
         }
     }
+    if p.timers.armed() {
+        for f in p.timers.expire(posix_timers::clock_now) {
+            send_timer_signal(p, th, f);
+        }
+    }
+}
+
+/// The destination of a POSIX timer's signal and the task it is checked
+/// against (`posixtimer_get_target`): the process through its leader, or
+/// one thread, which must still exist.
+fn timer_target(p: &ProcState, th: &Threads<'_>, notify: Notify) -> Option<(Dest, u64)> {
+    let (dest, tid) = match notify {
+        Notify::Thread(tid) => (Dest::Thread(tid), tid),
+        Notify::Process => (Dest::Process(p.pid), p.pid),
+        Notify::None => return None,
+    };
+    target_mask(p, th, tid).map(|mask| (dest, mask))
+}
+
+/// Queues a POSIX timer's record for `dest` (`posixtimer_queue_sigqueue`).
+fn queue_timer_signal(p: &mut ProcState, th: &mut Threads<'_>, f: Firing, dest: Dest) {
+    let info = SigInfo::timer(f.signo, f.id, f.value);
+    signalfd_notify(th, f.signo);
+    match dest {
+        Dest::Thread(tid) => match th.get_mut(tid) {
+            Some(t) => t.pending.enqueue_timer(info, f.uid),
+            None => return,
+        },
+        Dest::Process(_) => p.shared_pending.enqueue_timer(info, f.uid),
+    }
+    complete_signal(p, th, &info, dest);
+}
+
+/// Whether POSIX timer `uid`'s record is queued anywhere.
+fn timer_queued(p: &ProcState, th: &Threads<'_>, uid: u64) -> bool {
+    p.shared_pending.has_timer(uid) || th.iter().any(|t| t.pending.has_timer(uid))
+}
+
+/// `posixtimer_send_sigqueue`: an expired POSIX timer's signal. A target
+/// thread that has exited takes nothing. An ignored signal is parked if
+/// the expiry was periodic (so that the timer re-arms once the signal is
+/// no longer ignored and delivered); a record already queued stays, as the
+/// one instance of the timer's signal.
+pub fn send_timer_signal(p: &mut ProcState, th: &mut Threads<'_>, f: Firing) {
+    let Some((dest, mask)) = timer_target(p, th, f.notify) else {
+        return;
+    };
+    let queued = timer_queued(p, th, f.uid);
+    if !prepare_signal(p, th, f.signo, mask, false) {
+        if !queued {
+            p.timers.park_ignored(f.uid);
+        }
+        return;
+    }
+    if queued {
+        return;
+    }
+    p.timers.unpark(f.uid);
+    queue_timer_signal(p, th, f, dest);
+}
+
+/// `posixtimer_sig_unignore`: `sig` is no longer ignored; the parked
+/// signals of periodic POSIX timers are queued again.
+pub fn unignore_timer_signals(p: &mut ProcState, th: &mut Threads<'_>, sig: i32) {
+    for f in p.timers.sig_unignore(sig) {
+        if let Some((dest, _)) = timer_target(p, th, f.notify) {
+            queue_timer_signal(p, th, f, dest);
+        }
+    }
 }
 
 /// `dequeue_signal`: the thread's pending signals, then the process's; a
-/// `SIGALRM` taken from the process queue re-arms `ITIMER_REAL`.
+/// `SIGALRM` taken from the process queue re-arms `ITIMER_REAL`. A POSIX
+/// timer's signal re-arms its periodic timer and reports the overrun
+/// count, or is dropped when the timer was changed or deleted since it was
+/// queued, and the next signal is taken instead.
 pub fn dequeue_signal(p: &mut ProcState, t: &mut Thread, blocked: u64) -> Option<SigInfo> {
-    if let Some(info) = t.pending.dequeue(blocked) {
-        return Some(info);
+    loop {
+        let (mut info, timer) = match t.pending.dequeue_tagged(blocked) {
+            Some(x) => x,
+            None => {
+                let x = p.shared_pending.dequeue_tagged(blocked)?;
+                if x.0.signo == super::SIGALRM {
+                    p.itimers.rearm_real(std::time::Instant::now());
+                }
+                x
+            }
+        };
+        let Some(uid) = timer else {
+            return Some(info);
+        };
+        if let Some(overrun) = p.timers.deliver(uid, posix_timers::clock_now) {
+            info.set_overrun(overrun);
+            return Some(info);
+        }
     }
-    let info = p.shared_pending.dequeue(blocked)?;
-    if info.signo == super::SIGALRM {
-        p.itimers.rearm_real(std::time::Instant::now());
-    }
-    Some(info)
 }
 
 /// What `get_signal` found.

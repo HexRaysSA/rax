@@ -25,6 +25,7 @@
 //! "unsupported" and fall back.
 
 pub mod child;
+pub mod events;
 pub mod exec;
 pub mod futex;
 pub mod io;
@@ -34,6 +35,7 @@ pub mod process;
 pub mod signal;
 pub mod thread;
 pub mod time;
+pub mod timer;
 
 use super::abi::Sysno;
 use super::abi::errno::Errno;
@@ -571,6 +573,26 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Getitimer => r(time::getitimer(c, a[0] as i32, a[1])),
         S::Setitimer => r(time::setitimer(c, a[0] as i32, a[1], a[2])),
         S::ClockNanosleep => time::clock_nanosleep(c, a[0] as i32, a[1] as u32, a[2], a[3]),
+        S::TimerCreate => r(timer::timer_create(c, a[0] as i32, a[1], a[2])),
+        S::TimerSettime => r(timer::timer_settime(c, a[0], a[1] as u32, a[2], a[3])),
+        S::TimerGettime => r(timer::timer_gettime(c, a[0], a[1])),
+        S::TimerGetoverrun => r(timer::timer_getoverrun(c, a[0])),
+        S::TimerDelete => r(timer::timer_delete(c, a[0])),
+
+        // ----------------------------------- event, timer, signal files
+        S::Eventfd => r(events::eventfd2(c, a[0] as u32, 0)),
+        S::Eventfd2 => r(events::eventfd2(c, a[0] as u32, a[1] as u32)),
+        S::TimerfdCreate => r(events::timerfd_create(c, a[0] as i32, a[1] as u32)),
+        S::TimerfdSettime => r(events::timerfd_settime(
+            c,
+            fd(a[0]),
+            a[1] as u32,
+            a[2],
+            a[3],
+        )),
+        S::TimerfdGettime => r(events::timerfd_gettime(c, fd(a[0]), a[1])),
+        S::Signalfd => r(events::signalfd4(c, fd(a[0]), a[1], a[2], 0)),
+        S::Signalfd4 => r(events::signalfd4(c, fd(a[0]), a[1], a[2], a[3] as u32)),
 
         // -------------------------------------------------------- signal
         S::RtSigaction => r(signal::rt_sigaction(c, a[0] as i32, a[1], a[2], a[3])),

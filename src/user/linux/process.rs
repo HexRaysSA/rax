@@ -341,6 +341,8 @@ pub struct ProcState {
     pub unkillable: bool,
     /// Interval timers.
     pub itimers: super::timers::Itimers,
+    /// POSIX timers (`timer_create`).
+    pub timers: super::posix_timers::PosixTimers,
     /// Futex wait queues.
     pub futex: super::futex::FutexTable,
     /// `signal->curr_target`: the thread where the search for one to take a
@@ -455,6 +457,17 @@ pub struct Threads<'a> {
     lo: &'a mut [Thread],
     cur: Option<&'a mut Thread>,
     hi: &'a mut [Thread],
+}
+
+impl ProcState {
+    /// When the earliest interval or POSIX timer that runs while the
+    /// process sleeps expires.
+    pub fn timer_deadline(&self) -> Option<std::time::Instant> {
+        [self.itimers.next_deadline(), self.timers.next_deadline()]
+            .into_iter()
+            .flatten()
+            .min()
+    }
 }
 
 impl<'a> Threads<'a> {
@@ -636,6 +649,7 @@ impl LinuxProcess {
             sigtramp: img.sigtramp,
             unkillable: pid == 1,
             itimers: Default::default(),
+            timers: Default::default(),
             futex: Default::default(),
             curr_target: pid,
             leader_exit: None,
