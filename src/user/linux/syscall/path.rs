@@ -67,8 +67,12 @@ pub fn resolve_str(c: &Ctx<'_>, dirfd: i32, path: &str, follow: bool) -> Result<
     } else {
         join_guest(&base_dir(c, dirfd)?, path)
     };
-    if let Some(entry) = procfs::lookup(c.p, c.t, &c.thread_refs(), &guest) {
+    let threads = c.thread_refs();
+    if let Some(entry) = procfs::lookup(c.p, c.t, &threads, &guest) {
         return Ok(Target::Proc(entry, guest));
+    }
+    if procfs::owned(c.p, &threads, &guest) {
+        return Err(Errno(ENOENT));
     }
     let host = c.p.vfs.host_path(&guest, follow);
     Ok(Target::Host { guest, host })

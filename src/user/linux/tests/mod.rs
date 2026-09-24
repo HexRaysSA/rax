@@ -8,6 +8,7 @@ mod harness;
 mod loader;
 mod pidfd;
 mod posix_timers;
+mod procfs;
 mod signals;
 mod sockets;
 mod stack;

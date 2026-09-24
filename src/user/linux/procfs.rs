@@ -382,6 +382,31 @@ pub fn lookup(p: &ProcState, cur: &Thread, threads: &[&Thread], guest: &str) -> 
     }
 }
 
+/// Whether `guest` lies where this process's `/proc` entries come and go
+/// with its descriptors and threads (under `fd/`, `fdinfo/`, or `task/`
+/// of `/proc/self`, `/proc/thread-self`, or `/proc/<id>` for its own IDs).
+/// [`lookup`] finding nothing there means the entry does not exist: the
+/// host's `/proc` would describe the emulator's own descriptors and
+/// threads.
+pub fn owned(p: &ProcState, threads: &[&Thread], guest: &str) -> bool {
+    let path = guest.trim_end_matches('/');
+    let rest = if let Some(r) = path.strip_prefix("/proc/self/") {
+        r
+    } else if let Some(r) = path.strip_prefix("/proc/thread-self/") {
+        r
+    } else if let Some((id, r)) = path.strip_prefix("/proc/").and_then(|n| n.split_once('/')) {
+        match id.parse::<i32>() {
+            Ok(id) if id == p.pid || threads.iter().any(|t| t.tid == id) => r,
+            _ => return false,
+        }
+    } else {
+        return false;
+    };
+    ["fd/", "fdinfo/", "task/"]
+        .iter()
+        .any(|d| rest.starts_with(d))
+}
+
 /// An entry of the process directory: its `task` directory, or what
 /// thread `t` (the leader) shows.
 fn process_entry(p: &ProcState, t: &Thread, threads: &[&Thread], rest: &str) -> Option<ProcEntry> {
