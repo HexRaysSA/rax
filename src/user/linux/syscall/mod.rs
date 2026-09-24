@@ -34,6 +34,7 @@ pub mod fcntl;
 pub mod futex;
 pub mod io;
 pub mod mem;
+pub mod memfd;
 pub mod net;
 pub mod path;
 pub mod process;
@@ -538,6 +539,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Mlockall | S::Munlockall => r(Ok(0)),
         S::Mincore => r(mem::mincore(c, a[0], a[1], a[2])),
         S::RiscvFlushIcache => r(Ok(0)),
+        S::MemfdCreate => r(memfd::memfd_create(c, a[0], a[1] as u32)),
 
         // ------------------------------------------------------- process
         S::Getpid => r(Ok(c.p.pid as u64)),

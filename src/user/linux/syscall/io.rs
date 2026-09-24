@@ -1222,6 +1222,9 @@ pub fn ftruncate(c: &mut Ctx<'_>, fd: i32, len: i64) -> SysResult {
     }
     match &file.object {
         FileObject::Host(f) => {
+            if let Some(m) = &file.memfd {
+                m.check_resize(f.metadata()?.len(), len as u64)?;
+            }
             f.set_len(len as u64)?;
             c.p.space.truncated(fs::identity(f)?, len as u64);
             Ok(0)
@@ -1245,18 +1248,25 @@ pub fn fallocate(c: &mut Ctx<'_>, fd: i32, mode: u32, off: i64, len: i64) -> Sys
     if file.ftype != FileType::Regular {
         return Err(Errno(ENODEV));
     }
+    let FileObject::Host(f) = &file.object else {
+        return Err(Errno(ENODEV));
+    };
+    let end = (off as u64).checked_add(len as u64).ok_or(Errno(EFBIG))?;
+    let size = f.metadata()?.len();
     match mode {
-        0 => {
-            let FileObject::Host(f) = &file.object else {
-                return Err(Errno(ENODEV));
-            };
-            let end = (off as u64).checked_add(len as u64).ok_or(Errno(EFBIG))?;
-            if f.metadata()?.len() < end {
+        0 | FALLOC_FL_KEEP_SIZE => {
+            // shmem_fallocate: a grow seal refuses reaching past the end,
+            // even when the size is kept.
+            if let Some(m) = &file.memfd
+                && end > size
+            {
+                m.check_resize(size, end)?;
+            }
+            if mode == 0 && size < end {
                 f.set_len(end)?;
             }
             Ok(0)
         }
-        FALLOC_FL_KEEP_SIZE => Ok(0),
         _ => Err(Errno(EOPNOTSUPP)),
     }
 }

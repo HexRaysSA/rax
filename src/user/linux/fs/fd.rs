@@ -124,6 +124,8 @@ pub struct OpenFile {
     pub peer: Mutex<std::sync::Weak<OpenFile>>,
     /// The `epoll` items watching this description (its wait queue).
     pub watchers: Mutex<Vec<Watch>>,
+    /// The inode state of a `memfd` (its seals).
+    pub memfd: Option<Arc<super::memfd::Memfd>>,
 }
 
 impl Drop for OpenFile {
@@ -156,6 +158,19 @@ impl OpenFile {
         host_path: Option<std::path::PathBuf>,
         flags: u32,
     ) -> Arc<Self> {
+        Self::with_memfd(object, ftype, path, host_path, flags, None)
+    }
+
+    /// Creates a description of a `memfd` (`memfd` set) or of any other
+    /// file.
+    pub fn with_memfd(
+        object: FileObject,
+        ftype: FileType,
+        path: impl Into<String>,
+        host_path: Option<std::path::PathBuf>,
+        flags: u32,
+        memfd: Option<Arc<super::memfd::Memfd>>,
+    ) -> Arc<Self> {
         Arc::new(OpenFile {
             object,
             ftype,
@@ -167,7 +182,21 @@ impl OpenFile {
             }),
             peer: Mutex::new(std::sync::Weak::new()),
             watchers: Mutex::new(Vec::new()),
+            memfd,
         })
+    }
+
+    /// The bytes of a write of `data` at `pos` (the position when `None`)
+    /// a `memfd`'s seals allow.
+    fn sealed_len(&self, f: &std::fs::File, pos: Option<u64>, len: usize) -> Result<usize, Errno> {
+        let Some(m) = &self.memfd else {
+            return Ok(len);
+        };
+        let pos = match pos {
+            Some(p) => p,
+            None => (&*f).stream_position()?,
+        };
+        m.write_len(pos, len, f.metadata()?.len())
     }
 
     /// Registers an `epoll` item as a watcher (`ep_ptable_queue_proc`).
@@ -264,7 +293,8 @@ impl OpenFile {
                 if self.flags() & O_APPEND != 0 && self.ftype == FileType::Regular {
                     (&*f).seek(SeekFrom::End(0))?;
                 }
-                Ok((&*f).write(data)?)
+                let n = self.sealed_len(f, None, data.len())?;
+                Ok((&*f).write(&data[..n])?)
             }
             FileObject::PipeWrite(p) => {
                 let n = (&*p).write(data)?;
@@ -312,9 +342,11 @@ impl OpenFile {
                 use std::os::unix::fs::FileExt;
                 if self.flags() & O_APPEND != 0 {
                     (&*f).seek(SeekFrom::End(0))?;
-                    return Ok((&*f).write(data)?);
+                    let n = self.sealed_len(f, None, data.len())?;
+                    return Ok((&*f).write(&data[..n])?);
                 }
-                Ok(f.write_at(data, offset)?)
+                let n = self.sealed_len(f, Some(offset), data.len())?;
+                Ok(f.write_at(&data[..n], offset)?)
             }
             FileObject::Synthetic(_) => Err(Errno(EACCES)),
             FileObject::PathOnly => Err(Errno(EBADF)),

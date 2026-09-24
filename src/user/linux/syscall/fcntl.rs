@@ -97,9 +97,13 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
             }
             Ok(65536)
         }
-        F_ADD_SEALS | F_GET_SEALS => {
-            c.p.fds.get(fd)?;
-            Err(Errno(EINVAL))
+        F_ADD_SEALS => {
+            let file = c.p.fds.file(fd)?;
+            super::memfd::add_seals(c, &file, arg as u32)
+        }
+        F_GET_SEALS => {
+            let file = c.p.fds.file(fd)?;
+            super::memfd::get_seals(&file)
         }
         _ => Err(Errno(EINVAL)),
     }

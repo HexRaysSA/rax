@@ -249,10 +249,25 @@ pub fn mmap(
                     }
                     vm_flags |= vma_flags::DENY_WRITE;
                 }
+                if let Some(m) = &file.memfd {
+                    // memfd_check_seals_mmap: a write-sealed object maps
+                    // shared only for reading, never to become writable.
+                    if shared && m.write_sealed() {
+                        if prot & PROT_WRITE != 0 {
+                            return Err(Errno(EPERM));
+                        }
+                        vm_flags |= vma_flags::DENY_WRITE;
+                    }
+                    // hugetlbfs_file_mmap: the pool is empty.
+                    if m.hugetlb {
+                        return Err(Errno(ENOMEM));
+                    }
+                }
                 backing = if shared && file.ftype == FileType::Regular {
                     // The file's own pages (write-back and coherence).
+                    let writable = file.writable() && vm_flags & vma_flags::DENY_WRITE == 0;
                     let object =
-                        SharedObject::file(f.try_clone()?, file.writable()).map_err(Errno::from)?;
+                        SharedObject::file(f.try_clone()?, writable).map_err(Errno::from)?;
                     Backing::Shared {
                         object: Arc::new(object),
                         offset: off,
@@ -720,6 +735,13 @@ pub fn madvise(c: &mut Ctx<'_>, addr: u64, len: u64, advice: u32) -> SysResult {
                 return Err(Errno(EACCES));
             }
             MADV_REMOVE => match &vma.backing {
+                // shmem_fallocate: a write-sealed memfd cannot be punched.
+                Backing::Shared { object, .. }
+                    if super::super::fs::memfd::Memfd::find(object.identity())
+                        .is_some_and(|m| m.write_sealed()) =>
+                {
+                    return Err(Errno(EPERM));
+                }
                 Backing::Shared { object, offset } => {
                     let at = offset + (lo - vma.start);
                     object.zero_range(at, hi - lo).map_err(Errno::from)?;

@@ -437,3 +437,41 @@ fn shared_file_mappings_are_the_files_pages() {
         h.ok(Sysno::Close, &[again]);
     });
 }
+
+const MFD_CLOEXEC: u64 = 0x1;
+const MFD_ALLOW_SEALING: u64 = 0x2;
+const MFD_HUGETLB: u64 = 0x4;
+const F_ADD_SEALS: u64 = 1033;
+const F_GET_SEALS: u64 = 1034;
+
+#[test]
+fn memfd_create_checks_flags_then_name() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let name = h.scratch;
+        h.proc.state.space.write_raw(name, b"m\0").unwrap();
+        // Flags first: a bad flag is EINVAL even with a bad name.
+        assert_eq!(h.err(Sysno::MemfdCreate, &[0x10, 0x100]), EINVAL);
+        assert_eq!(h.err(Sysno::MemfdCreate, &[0x10, 0]), EFAULT);
+        // The huge-page size encoding is only for MFD_HUGETLB.
+        assert_eq!(h.err(Sysno::MemfdCreate, &[name, 21 << 26]), EINVAL);
+        let huge = h.ok(Sysno::MemfdCreate, &[name, MFD_HUGETLB | (21 << 26)]);
+        // An empty pool: the file cannot be mapped.
+        assert_eq!(h.err(Sysno::Mmap, &[0, P, RW, MAP_SHARED, huge, 0]), ENOMEM);
+        let fd = h.ok(Sysno::MemfdCreate, &[name, MFD_CLOEXEC | MFD_ALLOW_SEALING]);
+        assert_eq!(h.ok(Sysno::Fcntl, &[fd, 1, 0]), 1);
+        assert_eq!(h.ok(Sysno::Fcntl, &[fd, F_GET_SEALS, 0]), 0);
+        h.ok(Sysno::Ftruncate, &[fd, P]);
+        assert_eq!(h.ok(Sysno::Fcntl, &[fd, F_ADD_SEALS, 0x4]), 0);
+        assert_eq!(h.ok(Sysno::Fcntl, &[fd, F_GET_SEALS, 0]), 0x4);
+        assert_eq!(h.err(Sysno::Ftruncate, &[fd, 2 * P]), EPERM, "{abi:?}");
+        // A write-sealed memfd maps shared only for reading, and the
+        // mapping never becomes writable.
+        assert_eq!(h.ok(Sysno::Fcntl, &[fd, F_ADD_SEALS, 0x8]), 0);
+        let r = h.ok(Sysno::Mmap, &[0, P, PROT_READ, MAP_SHARED, fd, 0]);
+        assert_ne!(h.perms(r) & Perms::READ, Perms::empty());
+        let vma = h.proc.state.space.vma_at(r).unwrap();
+        assert_ne!(vma.flags & vma_flags::DENY_WRITE, 0);
+        assert_eq!(h.err(Sysno::Mprotect, &[r, P, RW]), EACCES);
+    });
+}

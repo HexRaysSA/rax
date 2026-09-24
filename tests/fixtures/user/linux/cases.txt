@@ -21,6 +21,7 @@ epoll    epoll    -
 sockets  sockets  -
 sockmsg  sockmsg  -
 shmem    shmem    -
+memfd    memfd    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

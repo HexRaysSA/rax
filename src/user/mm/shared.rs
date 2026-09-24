@@ -147,7 +147,7 @@ impl SharedObject {
 
 /// A new, empty, nameless host file: a `memfd` on Linux, an unlinked
 /// temporary file elsewhere.
-fn anonymous_file() -> std::io::Result<std::fs::File> {
+pub fn anonymous_file() -> std::io::Result<std::fs::File> {
     #[cfg(target_os = "linux")]
     {
         use std::os::fd::FromRawFd;

@@ -48,7 +48,7 @@ mod tests;
 
 pub use arena::{EXTENT, FrameArena};
 pub use backing::{Backing, BytesSource, HostFileSource, PageSource, SourceIdentity};
-pub use shared::SharedObject;
+pub use shared::{SharedObject, anonymous_file};
 pub use vma::{Vma, VmaMap};
 
 use std::collections::{BTreeMap, HashMap, VecDeque};

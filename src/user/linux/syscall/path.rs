@@ -670,6 +670,9 @@ pub fn fchmod(c: &mut Ctx<'_>, fd: i32, perm: u32) -> SysResult {
     let file = c.p.fds.file(fd)?;
     match &file.object {
         FileObject::Host(f) => {
+            if let Some(m) = &file.memfd {
+                m.check_mode(f.metadata()?.permissions().mode(), perm)?;
+            }
             f.set_permissions(std::fs::Permissions::from_mode(perm & 0o7777))?;
             Ok(0)
         }
