@@ -270,6 +270,25 @@ fn a64_clone_thread_copies_register_state() {
     assert!(child.space().same_space(cpu.space()));
 }
 
+#[test]
+fn a64_el0_spsr_records_and_restores_pstate() {
+    // cmp x0, x0 sets Z and C; SPSR[31:28] = NZCV, M[4:0] = EL0t (Arm ARM
+    // D1.2 "Saved Program Status Registers").
+    let mut cpu = a64(&[0xeb00_001f, A64_SVC_0]);
+    assert!(matches!(cpu.run(100), A64Exit::Svc { .. }));
+    assert_eq!(cpu.core().el0_spsr(), 0x6000_0000);
+    // N and V, BTYPE = 0b10, SSBS: loaded as an ERET to EL0t would.
+    let spsr = 0x9000_0000 | (0b10 << 10) | (1 << 12);
+    assert!(cpu.core_mut().set_el0_spsr(spsr));
+    assert_eq!(cpu.core().nzcv_bits(), 0b1001);
+    assert_eq!(cpu.core().el0_spsr(), spsr);
+    // EL1h and AArch32 images are not EL0t returns and change nothing.
+    assert!(!cpu.core_mut().set_el0_spsr(0x3c5));
+    assert!(!cpu.core_mut().set_el0_spsr(0x10));
+    assert_eq!(cpu.core().el0_spsr(), spsr);
+    assert_eq!(cpu.core().current_el(), 0);
+}
+
 // ------------------------------------------------------------------- RV64
 
 fn rv(code: &[u8]) -> RvUserCpu {

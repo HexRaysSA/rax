@@ -94,4 +94,35 @@ impl AArch64Cpu {
     pub fn set_nzcv_bits(&mut self, bits: u8) {
         self.nzcv = bits & 0xF;
     }
+
+    /// PSTATE as `SPSR_ELx` records it for an exception taken from EL0:
+    /// NZCV, TCO, DIT, UAO, PAN, SS, IL, SSBS, BTYPE, DAIF, and `M = EL0t`.
+    pub fn el0_spsr(&self) -> u64 {
+        crate::isa::arm::aarch64::exceptions::build_spsr(
+            self.nzcv, self.daif, 0, false, self.ssbs, self.pan, self.uao, self.dit, self.tco,
+            self.btype, self.il, self.ss,
+        )
+    }
+
+    /// Loads PSTATE from an `SPSR_ELx` image as an exception return to
+    /// AArch64 EL0t (`ERET`) does. Returns `false` and changes nothing when
+    /// the image does not select AArch64 EL0t (`M[4:0] != 0b00000`).
+    pub fn set_el0_spsr(&mut self, spsr: u64) -> bool {
+        if spsr & 0x1F != 0 {
+            return false;
+        }
+        let (nzcv, daif, _, _, ssbs, pan, uao, dit, tco, btype, il, ss) =
+            crate::isa::arm::aarch64::exceptions::parse_spsr(spsr);
+        self.nzcv = nzcv;
+        self.daif = daif;
+        self.ssbs = ssbs;
+        self.pan = pan;
+        self.uao = uao;
+        self.dit = dit;
+        self.tco = tco;
+        self.btype = btype;
+        self.il = il;
+        self.ss = ss;
+        true
+    }
 }
