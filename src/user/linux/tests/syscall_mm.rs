@@ -321,12 +321,13 @@ fn mprotect_validates_in_kernel_order() {
         assert_eq!(h.call(Sysno::Mprotect, &[a, 0, 0x1000]), 0);
         assert_eq!(h.err(Sysno::Mprotect, &[a + 1, P, PROT_READ]), EINVAL);
         assert_eq!(h.err(Sysno::Mprotect, &[a, P, 0x1000]), EINVAL);
-        let bti = h.call(Sysno::Mprotect, &[a, P, PROT_READ | PROT_BTI]);
-        if abi == LinuxAbi::Aarch64 {
-            assert_eq!(bti, 0);
-        } else {
-            assert_eq!(bti, -i64::from(EINVAL));
-        }
+        // arm64 accepts PROT_BTI only when system_supports_bti(); the
+        // emulated core does not advertise HWCAP2_BTI, and the other
+        // architectures never accept it.
+        assert_eq!(
+            h.err(Sysno::Mprotect, &[a, P, PROT_READ | PROT_BTI]),
+            EINVAL
+        );
         // VM_GROWSUP does not exist on these architectures.
         assert_eq!(
             h.err(Sysno::Mprotect, &[a, P, PROT_READ | PROT_GROWSUP]),

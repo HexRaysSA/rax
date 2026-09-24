@@ -342,11 +342,15 @@ pub fn mprotect(c: &mut Ctx<'_>, addr: u64, len: u64, prot: u32) -> SysResult {
     let len = page_align(len).ok_or(Errno(ENOMEM))?;
     let mut start = addr;
     let end = addr.checked_add(len).ok_or(Errno(ENOMEM))?;
-    // arch_validate_prot(): arm64 also accepts PROT_BTI (PROT_MTE needs
-    // MTE, which is not advertised).
+    // arch_validate_prot(): arm64 also accepts PROT_BTI when the CPU
+    // supports BTI and PROT_MTE when it supports MTE; the emulated core
+    // advertises neither (AT_HWCAP2).
     let mut valid = PROT_READ | PROT_WRITE | PROT_EXEC | PROT_SEM;
     if c.p.abi == LinuxAbi::Aarch64 {
-        valid |= PROT_BTI;
+        use super::super::arch::aarch64;
+        if aarch64::caps().hwcap2.unwrap_or(0) & aarch64::hwcap2::BTI != 0 {
+            valid |= PROT_BTI;
+        }
     }
     if prot & !valid != 0 {
         return Err(Errno(EINVAL));

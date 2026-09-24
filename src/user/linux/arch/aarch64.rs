@@ -32,6 +32,13 @@ pub mod hwcap {
     pub const CPUID: u64 = 1 << 11;
 }
 
+/// `AT_HWCAP2` bits (`arch/arm64/include/uapi/asm/hwcap.h`) the
+/// personality consults. None is advertised for the emulated core.
+pub mod hwcap2 {
+    /// `HWCAP2_BTI`: branch target identification (`PROT_BTI`).
+    pub const BTI: u64 = 1 << 17;
+}
+
 /// `sizeof(struct rt_sigframe)`: `struct siginfo` (128) + `struct
 /// ucontext` (168 bytes of header padded to 176 for the 16-byte-aligned
 /// `struct sigcontext` of 4384 bytes, whose `__reserved` area holds the
