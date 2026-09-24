@@ -38,6 +38,7 @@ d8e08441a167e1ae71918fce30b3ed3ea5ed72f49a2f713b3f5e798f3210bf1c  ./any-linux-an
 9d2d3c1e64373338b3deb89c773b47ef9b7e506012151a6d5b7c0f3500701c9a  ./any-linux-any/linux/in.h
 bdf4d76eb252ec7d00c9ba233e6a335d7637eb0c1fb716ab5b14be1a75368900  ./any-linux-any/linux/in6.h
 8120e5fa28c7910ac3e9ec2a62889b7c82a555d7fc26b15ba4cb392e7a590068  ./any-linux-any/linux/membarrier.h
+332eebacb4c0a823a65af55ea091db61b676c3aead57906ddccc8647fb4bbe1e  ./any-linux-any/linux/memfd.h
 0eea3f047801b23ccd990e8437c7b50b73c45f37252e07c1def8453766eb05c2  ./any-linux-any/linux/mman.h
 0ecb69da3cfc3af11178f64acf5853cae888ea2578484164730817c65e1ecfb9  ./any-linux-any/linux/net.h
 179997e7ccf3b32755db80241e9e10d404b427328bcee5769bed7b2c0fd74701  ./any-linux-any/linux/openat2.h
