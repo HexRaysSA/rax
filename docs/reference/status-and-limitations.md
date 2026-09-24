@@ -114,6 +114,29 @@ TOML exposes profile selectors for AArch64, AArch32, Cortex-M, and Cortex-R. The
 - Vector comparison must state VLEN/ELEN assumptions, tested LMUL/SEW combinations, masking/tail policy, exception behavior, and QEMU version when claiming breadth.
 - Native tests are host-specific and may self-gate.
 
+## User-mode (Linux program) status
+
+`rax-user` runs Linux ELF programs for x86-64, AArch64, and RV64 on Unix
+hosts ([usage](../getting-started/linux-programs.md),
+[architecture](../architecture/user-mode.md)).
+
+### Established user-mode surfaces
+
+- `binfmt_elf`-equivalent loading, initial stack, and auxiliary vector (unit-tested against hand-derived kernel layouts);
+- exact page-permission enforcement and Linux fault classification (unit-tested, including a model-based differential);
+- 161 system calls across descriptors, paths, memory management, identity, limits, clocks, and signal dispositions;
+- nine static musl fixture programs on each ISA match output and exit status recorded on a Linux kernel (differential-tested for that corpus; one RV64 expectation is the AArch64 kernel's result for architecture-independent memory-management code, because the RV64 translator emulates those calls);
+- dynamically linked programs load their interpreter and libraries through `--sysroot`: Alpine Linux 3.24 BusyBox (`ld-musl`, AArch64 and x86-64) runs shell, text-processing, hashing, and file applets (demonstrated, not differential-tested).
+
+### Required user-mode qualifications
+
+- signal handlers are recorded but not invoked; handled signals terminate the process with their default action;
+- one guest thread; `clone`, `fork`, `vfork`, and `execve` are unsupported;
+- no vDSO; the x86-64 `INT 0x80` (i386) ABI returns `-ENOSYS`;
+- no sockets, `epoll`, `eventfd`, or signal-based timers; writable `MAP_SHARED` file mappings do not write back;
+- `madvise` guard regions (`MADV_GUARD_INSTALL`/`REMOVE`) are refused with `EINVAL`, `MADV_REMOVE` on a shared host-file mapping reports `EOPNOTSUPP`, and `mlock` does not set `VM_LOCKED`;
+- terminal attribute changes are not applied to the host terminal.
+
 ## SMIR and JIT status
 
 ### Established SMIR/JIT surfaces

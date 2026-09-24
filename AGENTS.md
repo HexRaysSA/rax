@@ -221,6 +221,7 @@ CLI/config -> VM runtime -> machine -> devices
                                   -> SMIR lift/interpret/optimize/lower/runtime
 static oracle -------------------> ISA decode + SMIR analysis
 C API ---------------------------> public engine and oracle surfaces
+rax-user -> user::linux ---------> user::{image,mm,cpu} -> ISA cores in user mode
 ```
 
 This is an ownership guide, not a strict dependency DAG. Inspect actual imports
@@ -246,6 +247,7 @@ and callers before changing an interface.
 | `src/smir/optimize/` | Semantics-preserving SMIR transformations |
 | `src/smir/lower/` | Host lowering, emitters, cross lowering, JIT gates, runtime/trampolines |
 | `src/oracle/` | Stateless decode/lift/analysis output |
+| `src/user/` | Process-level emulation: ELF images, guest address spaces, user-mode CPU adapters, the Linux personality (`rax-user`) |
 | `src/debug/` | GDB protocol and debugger behavior |
 | `src/observability/` | Tracing and profiling |
 | `capi/` | Stable C ABI, C++ wrapper, packaging, ABI consumers |
@@ -302,6 +304,7 @@ the exact guest frontier.
 | Backend contract | `src/backend/`, `src/vm/vcpu/` | state conversion, exits, snapshots, API consumers |
 | VM or boot flow | `src/vm/runtime.rs`, `src/machine/` | devices, fixtures, machine tests, README examples |
 | Device | `src/devices/` | machine maps/wiring, IRQ path, MMIO/PIO tests |
+| Linux user mode (`rax-user`) | `src/user/linux/` | `src/user/{mm,cpu,image}/`, `src/isa/x86_64/user_mode.rs`, `tests/suites/user/linux/`, `tests/fixtures/user/linux/` |
 | Static analysis | `src/oracle/`, `src/bin/rax_isa_oracle.rs` | SMIR lifters, `tests/suites/api/isa_oracle.rs`, C API |
 | C/C++ API | `capi/include/rax.h`, `capi/src/` | `capi/include/rax.hpp`, ABI test, examples, README, engine state |
 | Integration-test binary | `Cargo.toml` `[[test]]` | runner file, support module, CI shard ownership |
@@ -784,6 +787,7 @@ changes.
 | Hexagon | `hexagon_smir_lift`, affected library tests | `hexagon_diff`, `hexagon_cf_diff`, `hexagon_float_diff`, `hexagon_mem_diff`, `hexagon_hvx_diff`, `hexagon_hvx_mem_diff` |
 | KVM backend | `kvm_minimal` | `differential`, `diff_fuzz`, release build on Linux x86-64 with `/dev/kvm` |
 | PC/machine boot | `realmode_boot` or owning machine target | `microkernel_multiarch`, relevant boot fixture |
+| Linux user mode | `user_linux`, library `user::` tests | `user_linux -- --ignored` with `RAX_USER_DOCKER_ORACLE=1`; the x86-64 user-mode tests on an x86-64 host for JIT invalidation |
 | Stateless oracle | `isa_oracle` | C API analysis tests and ISA differential target |
 | CI/tooling | `ci_actions_pinned`, matching tooling target | run/parse the edited workflow or script |
 | C/C++ API | `cargo test -p rax-capi` | `make -C capi test` |

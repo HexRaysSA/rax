@@ -41,12 +41,13 @@ The canonical source responsibility map is maintained in [`src/README.md`](../..
 | `src/vm/` | architecture-neutral runtime, memory, snapshots, timing, and vCPU contracts |
 | `src/smir/` | cross-ISA IR, lifting, interpretation, optimization, native lowering, and JIT runtime |
 | `src/oracle/` | static ISA decode/lift oracle output |
+| `src/user/` | process-level (user-mode) emulation: ELF images, guest address spaces, CPU adapters, the Linux personality |
 | `src/debug/` | interactive debugger protocols |
 | `src/observability/` | trace and profiling implementation |
 | `src/host/` | terminal, console, signals, and host-facing interaction |
 | `src/config/` | public architecture/backend/profile types, file schema, defaults, detection, validation, and precedence |
 | `src/cli/` | command-line parsing and CLI-to-runtime wiring |
-| `src/bin/` | additional binaries, including the ISA oracle entrypoint |
+| `src/bin/` | additional binaries: the ISA oracle and `rax-user` |
 
 The collaboration graph is approximately:
 

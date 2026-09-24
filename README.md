@@ -53,6 +53,7 @@ This root `README.md` is the **single complete documentation entrypoint**. There
 - [Getting started](docs/getting-started/overview.md) — choose the smallest path for a Linux guest, bare-metal program, bootable ISO, hardware backend, or development task.
 - [Building](docs/getting-started/building.md) — prerequisites, supported build shapes, host tuning, Make targets, PGO, C API build, release-profile consequences, and common failures.
 - [Linux guests](docs/getting-started/linux-guests.md) — checked-in AArch64 boot, AArch64 HVF, x86 software Linux, x86 KVM, image-format distinctions, serial milestones, and reproducibility records.
+- [Linux programs (`rax-user`)](docs/getting-started/linux-programs.md) — run a single Linux x86-64, AArch64, or RV64 ELF program on the software CPUs: options, sysroot, exit statuses, guest-visible environment, and limitations.
 - [Bare-metal programs and bootable ISOs](docs/getting-started/bare-metal-and-iso.md) — RV64, Hexagon, microkernel, x86 real-mode/El Torito, machine-specific Arm images, stop conditions, and evidence requirements.
 - [Troubleshooting](docs/troubleshooting.md) — known baselines and targeted checks for builds, image loading, consoles, hypervisors, external oracles, JIT admission, and checkpoints.
 
@@ -63,6 +64,7 @@ This root `README.md` is the **single complete documentation entrypoint**. There
 - [Arm architecture](docs/architecture/arm/README.md) — public profiles, AArch64, AArch32, Thumb, Cortex-M/R, AdvSIMD/VFP, SVE-family work, machines, differential tests, and limitations.
 - [Hexagon architecture](docs/architecture/hexagon/README.md) — public revisions, packet commit, `.new` forwarding, predicates/loops, scalar and HVX state, bare-metal loading, oracle targets, and SMIR.
 - [RISC-V architecture](docs/architecture/riscv/README.md) — scalar, compressed, atomic, floating-point, bit-manipulation, crypto, RVV, bare-metal machine, QEMU comparisons, SMIR/native paths, and privileged boundary.
+- [User-mode emulation](docs/architecture/user-mode.md) — address spaces with demand-populated frames and exact faults, per-ISA user-mode CPU adapters, the Linux personality (loader, stack, system calls, `/proc`), code invalidation, and evidence.
 - [Machines and boot](docs/architecture/machines.md) — image detection, x86 direct/legacy boot, AArch64 virtual platform, 32-bit Arm and SoC selection, Hexagon/RISC-V machines, memory, command lines, and restore construction.
 - [Devices and platform wiring](docs/architecture/devices.md) — baseline PC devices, optional PCI attachment, interrupts, serial/VGA boundary, AArch64 and 32-bit Arm devices, bare-metal peripherals, checkpoints, and validation stages.
 - [SMIR and native execution](docs/architecture/smir.md) — IR, lifters, interpreter, optimizer, lowerers, hot-region policy, per-host admission, helper/memory contracts, invalidation, runtime controls, and equivalence evidence.
