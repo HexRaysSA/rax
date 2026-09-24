@@ -137,7 +137,9 @@ pub fn ptest(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
     // CF = (src AND NOT dst) == 0
     let andn_result = (src_lo & !dst_lo) | (src_hi & !dst_hi);
 
-    // Clear AF, OF, PF, SF and set ZF, CF appropriately
+    // Clear AF, OF, PF, SF and set ZF, CF appropriately, discarding any
+    // pending lazy flags.
+    vcpu.clear_lazy_flags();
     vcpu.regs.rflags &= !(flags::bits::AF
         | flags::bits::OF
         | flags::bits::PF

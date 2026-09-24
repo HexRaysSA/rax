@@ -1692,5 +1692,7 @@ mod x86_64_system_xsave_extended;
 mod x86_64_lapic_integration;
 
 // Regression tests
+#[path = "regressions/lazy_flags_compare.rs"]
+mod x86_64_regressions_lazy_flags_compare;
 #[path = "regressions/lazy_flags_pcmpistri.rs"]
 mod x86_64_regressions_lazy_flags_pcmpistri;

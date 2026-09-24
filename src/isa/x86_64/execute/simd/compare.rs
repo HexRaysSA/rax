@@ -234,6 +234,8 @@ pub fn ucomiss_ucomisd(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<O
         | flags::bits::OF
         | flags::bits::AF
         | flags::bits::SF;
+    // The flags are written directly: discard any pending lazy flags.
+    vcpu.clear_lazy_flags();
     vcpu.regs.rflags &= !clear_mask;
 
     if unordered {

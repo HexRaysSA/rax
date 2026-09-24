@@ -50,6 +50,8 @@ pub fn set_fcomi_flags(vcpu: &mut X86_64Vcpu, a: f64, b: f64) {
         (true, false, false)
     };
 
+    // The flags are written directly: discard any pending lazy flags.
+    vcpu.clear_lazy_flags();
     vcpu.regs.rflags &= !0x8D5; // Clear OF, SF, ZF, AF, PF, CF
     if zf {
         vcpu.regs.rflags |= 0x40;
