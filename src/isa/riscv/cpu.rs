@@ -774,8 +774,11 @@ impl RiscVCpu {
             Op::CboZero => {
                 let base = a & !0x3f;
                 self.mem.write(base, &[0; 64]).map_err(|_| Trap {
+                    // Zicboz norm:cbo-zero_unaligned: on faults the
+                    // faulting address is the value in rs1, not the
+                    // aligned cache-block base.
                     cause: cause::STORE_ACCESS_FAULT,
-                    tval: base,
+                    tval: a,
                 })?;
             }
             Op::Ecall => {
@@ -5527,6 +5530,41 @@ mod tests {
             c.csr_read(0x344).unwrap() & (msip | mtip | stip),
             msip | mtip | stip
         );
+    }
+
+    #[test]
+    fn cbo_zero_fault_reports_rs1_value_in_tval() {
+        // Zicboz norm:cbo-zero_unaligned: the faulting address reported in
+        // tval is the value of rs1, not the aligned block base.
+        let mem = FlatMemory::new(0, 0x2000); // 8 KiB: 0x2001 is out of bounds
+        let mut c = RiscVCpu::new(RiscVConfig::rv64gc(), Box::new(mem));
+        c.set_x(10, 0x2001);
+        let d = crate::isa::riscv::decode::decode(0x0045_200f, Xlen::Rv64, &Isa::rv64gc()); // cbo.zero (a0)
+        let r = c.execute_insn(&d, 0x1000);
+        match r {
+            Err(t) => {
+                assert_eq!(t.cause, cause::STORE_ACCESS_FAULT);
+                assert_eq!(t.tval, 0x2001, "tval must be rs1 (unaligned)");
+            }
+            Ok(_) => panic!("cbo.zero at 0x2001 must fault"),
+        }
+        // A block that starts in memory but crosses its end reports the same
+        // original rs1 value rather than the aligned block base.
+        let mut c_partial =
+            RiscVCpu::new(RiscVConfig::rv64gc(), Box::new(FlatMemory::new(0, 0x1ff0)));
+        c_partial.set_x(10, 0x1fef);
+        assert_eq!(
+            c_partial.execute_insn(&d, 0x1000),
+            Err(Trap {
+                cause: cause::STORE_ACCESS_FAULT,
+                tval: 0x1fef,
+            })
+        );
+        // Control: an aligned address inside memory executes cleanly.
+        let mut c2 = RiscVCpu::new(RiscVConfig::rv64gc(), Box::new(FlatMemory::new(0, 0x2000)));
+        c2.set_x(10, 0x1000);
+        let d2 = crate::isa::riscv::decode::decode(0x0045_200f, Xlen::Rv64, &Isa::rv64gc());
+        assert!(c2.execute_insn(&d2, 0x1000).is_ok());
     }
 
     #[test]
