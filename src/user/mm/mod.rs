@@ -633,6 +633,24 @@ impl AddressSpace {
         Ok(())
     }
 
+    /// Reads instruction bytes, requiring execute permission.
+    pub fn fetch(&self, addr: u64, buf: &mut [u8]) -> Result<(), GuestMemoryFault> {
+        let chunks = self.chunks(addr, buf.len(), MemoryAccessKind::Fetch, false)?;
+        self.copy_out(&chunks, buf);
+        Ok(())
+    }
+
+    /// Checks that an access of kind `access` to `[addr, addr + len)` would
+    /// succeed, populating pages as the access would, without moving data.
+    pub fn probe(
+        &self,
+        addr: u64,
+        len: usize,
+        access: MemoryAccessKind,
+    ) -> Result<(), GuestMemoryFault> {
+        self.chunks(addr, len, access, false).map(|_| ())
+    }
+
     /// Reads mapped memory ignoring permissions.
     pub fn read_raw(&self, addr: u64, buf: &mut [u8]) -> Result<(), GuestMemoryFault> {
         let chunks = self.chunks(addr, buf.len(), MemoryAccessKind::Read, true)?;

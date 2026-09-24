@@ -2795,12 +2795,12 @@ fn decode_op_fp(w: u32, rv64: bool, isa: &Isa) -> Insn {
 
 /// Fetch and decode the instruction at `pc`, selecting 16- or 32-bit width.
 pub fn decode_at(mem: &dyn Memory, pc: u64, xlen: Xlen, isa: &Isa) -> Result<Insn, DecodeError> {
-    let lo = mem.read_u16(pc).map_err(DecodeError::Fetch)?;
+    let lo = mem.fetch_u16(pc).map_err(DecodeError::Fetch)?;
     if lo & 0b11 != 0b11 {
         // 16-bit compressed parcel.
         return Ok(decode_compressed(lo, xlen, isa));
     }
-    let hi = mem.read_u16(pc + 2).map_err(DecodeError::Fetch)?;
+    let hi = mem.fetch_u16(pc + 2).map_err(DecodeError::Fetch)?;
     let w = (lo as u32) | ((hi as u32) << 16);
     Ok(decode(w, xlen, isa))
 }

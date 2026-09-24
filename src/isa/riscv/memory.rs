@@ -55,6 +55,15 @@ pub trait Memory: Debug + Send {
         self.read(addr, &mut discarded)
     }
 
+    /// Fetch a little-endian instruction parcel.
+    ///
+    /// Instruction fetch reads memory like a load by default. Memories that
+    /// distinguish execute permission from read permission override this.
+    #[inline]
+    fn fetch_u16(&self, addr: u64) -> MemResult<u16> {
+        self.read_u16(addr)
+    }
+
     /// Read an unsigned byte.
     #[inline]
     fn read_u8(&self, addr: u64) -> MemResult<u8> {

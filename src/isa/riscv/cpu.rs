@@ -23,6 +23,7 @@ mod fp_moves;
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
 mod jit;
+mod user_mode;
 mod vector_config;
 mod vector_conversion;
 mod vector_mask;
@@ -947,7 +948,14 @@ impl RiscVCpu {
             }
             Op::WrsNto | Op::WrsSto => {}
             Op::Uret | Op::SfenceVm => return Err(Trap::illegal(insn.raw)),
-            Op::Mret => self.mret(),
+            Op::Mret => {
+                // MRET is an M-mode instruction: any lower privilege raises an
+                // illegal-instruction exception (Privileged ISA §3.3.2).
+                if self.priv_ != Priv::Machine {
+                    return Err(Trap::illegal(insn.raw));
+                }
+                self.mret()
+            }
             Op::Sret => self.sret(insn)?,
 
             // ---- Zicsr ----

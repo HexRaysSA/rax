@@ -47,6 +47,7 @@ mod system_step;
 pub use system::*;
 #[cfg(test)]
 mod tests;
+mod user_mode;
 
 // =============================================================================
 // CPU Configuration

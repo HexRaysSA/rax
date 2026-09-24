@@ -10,10 +10,12 @@
 //! |---|---|
 //! | [`image`] | Executable file formats (ELF) and their validation |
 //! | [`mm`] | Guest address spaces: VMAs, demand-populated frames, faults |
+//! | [`cpu`] | OS-neutral CPU adapters running each ISA core unprivileged |
 //!
 //! The subsystem is independent of `machine/`, `devices/`, and `vm/runtime`:
 //! there is no board, firmware, or device model, only a guest address space,
 //! one or more guest threads, and the personality that services them.
 
+pub mod cpu;
 pub mod image;
 pub mod mm;
