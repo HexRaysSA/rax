@@ -18,6 +18,7 @@ pub mod machine;
 pub mod observability;
 pub mod oracle;
 pub mod smir;
+pub mod user;
 pub mod vm;
 
 // Compatibility aliases for the pre-reorganization public module paths. New
