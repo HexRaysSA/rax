@@ -16,12 +16,16 @@ mod threaded;
 mod user_mode;
 #[cfg(test)]
 mod user_mode_tests;
+mod user_xstate;
 
 pub use cpu::{CURRENT_RIP, RIP_HISTORY, RIP_IDX, X86_64Vcpu, get_total_instruction_count};
 pub use memory::{AccessType, Mmu};
 pub use user_mode::{
     LINUX_USER_CS, LINUX_USER_DS, LINUX_USER32_CS, X86EventSource, X86SyscallInsn, X86UserEvent,
     X86UserTrap,
+};
+pub use user_xstate::{
+    XSAVE_EXTENDED_OFFSET, XSAVE_HEADER_OFFSET, XSAVE_LEGACY_SIZE, XrstorError, XsaveImage,
 };
 
 /// Implemented MXCSR bits for the fixed x86-64 CPU profile. Bits 16..31 are

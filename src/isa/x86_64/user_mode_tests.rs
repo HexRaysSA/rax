@@ -469,3 +469,223 @@ fn system_emulation_is_unaffected_without_user_mode() {
     assert_eq!(vcpu.regs.rcx, 2);
     assert_eq!(vcpu.take_user_trap(), None);
 }
+
+// ------------------------------------------------ kernel-side xstate images
+
+/// Distinct values in every piece of user extended state.
+fn fill_xstate(v: &mut X86_64Vcpu) {
+    v.fpu.push(1.5);
+    v.fpu.push(-2.25);
+    v.fpu.control_word = 0x027F;
+    v.fpu.status_word |= 0x0020;
+    v.fpu.last_opcode = 0x05D9;
+    v.fpu.instr_ptr = 0x40_1234;
+    v.fpu.data_ptr = 0x60_0040;
+    v.mxcsr = 0x9FC1;
+    for i in 0..16u64 {
+        v.regs.xmm[i as usize] = [0x1111_0000 + i, 0x2222_0000 + i];
+        v.regs.ymm_high[i as usize] = [0x3333_0000 + i, 0x4444_0000 + i];
+        v.regs.zmm_high[i as usize] = [0x5500 + i, 0x5600 + i, 0x5700 + i, 0x5800 + i];
+        v.regs.zmm_ext[i as usize] = [i, i + 1, i + 2, i + 3, i + 4, i + 5, i + 6, i + 7];
+    }
+    for i in 0..8u64 {
+        v.regs.k[i as usize] = 0x6600 + i;
+    }
+}
+
+#[test]
+fn xsave_image_matches_the_xsave_instruction() {
+    // xsave64 [rdi] ; syscall
+    let mut h = harness(&[0x48, 0x0F, 0xAE, 0x27, 0x0F, 0x05]);
+    fill_xstate(&mut h.vcpu);
+    h.mem
+        .write_slice(&[0xCC; 0x1000], GuestAddress(0x1000))
+        .unwrap();
+    h.vcpu.regs.rdi = DATA;
+    h.vcpu.regs.rax = 0xFFFF_FFFF;
+    h.vcpu.regs.rdx = 0xFFFF_FFFF;
+    let image = h.vcpu.xsave_image(u64::MAX);
+    assert!(matches!(run(&mut h.vcpu).unwrap(), VcpuExit::SystemCall));
+    // XCR0 = 0xE7: the standard area ends with Hi16_ZMM at 1664 + 1024.
+    assert_eq!(image.bytes.len(), 2688);
+    let mut stored = vec![0u8; image.bytes.len()];
+    h.mem.read_slice(&mut stored, GuestAddress(0x1000)).unwrap();
+    for &(lo, hi) in &image.written {
+        assert_eq!(&stored[lo..hi], &image.bytes[lo..hi], "bytes {lo}..{hi}");
+    }
+    let xstate_bv = u64::from_le_bytes(image.bytes[512..520].try_into().unwrap());
+    assert_eq!(xstate_bv, 0xE7);
+    // Bytes XSAVE never stores: the reserved legacy bytes 416..512.
+    assert!(image.written.iter().all(|&(lo, hi)| hi <= 416 || lo >= 512));
+    assert!(stored[416..512].iter().all(|&b| b == 0xCC));
+}
+
+#[test]
+fn xrstor_image_round_trips_and_initializes_absent_components() {
+    let mut h = harness(&[]);
+    fill_xstate(&mut h.vcpu);
+    let image = h.vcpu.xsave_image(u64::MAX);
+    let saved = (
+        h.vcpu.regs.xmm,
+        h.vcpu.regs.ymm_high,
+        h.vcpu.regs.zmm_high,
+        h.vcpu.regs.zmm_ext,
+        h.vcpu.regs.k,
+        h.vcpu.mxcsr,
+        h.vcpu.fpu.control_word,
+        h.vcpu.fpu.get_st(0),
+        h.vcpu.fpu.get_st(1),
+    );
+    h.vcpu.init_user_xstate(u64::MAX);
+    assert_eq!(h.vcpu.mxcsr, 0x1F80);
+    assert_eq!(h.vcpu.fpu.control_word, 0x037F);
+    assert_eq!(h.vcpu.fpu.tag_word, 0xFFFF);
+    assert_eq!(h.vcpu.regs.zmm_ext[3], [0; 8]);
+    h.vcpu.xrstor_image(&image.bytes, u64::MAX).unwrap();
+    assert_eq!(
+        saved,
+        (
+            h.vcpu.regs.xmm,
+            h.vcpu.regs.ymm_high,
+            h.vcpu.regs.zmm_high,
+            h.vcpu.regs.zmm_ext,
+            h.vcpu.regs.k,
+            h.vcpu.mxcsr,
+            h.vcpu.fpu.control_word,
+            h.vcpu.fpu.get_st(0),
+            h.vcpu.fpu.get_st(1),
+        )
+    );
+    // XSTATE_BV[2] = 0 initializes AVX state even though the image holds it;
+    // components outside RFBM are left alone.
+    let mut partial = image.bytes.clone();
+    partial[512] &= !0x04;
+    h.vcpu.regs.k[0] = 7;
+    h.vcpu.xrstor_image(&partial, 0x07).unwrap();
+    assert_eq!(h.vcpu.regs.ymm_high[0], [0, 0]);
+    assert_eq!(h.vcpu.regs.xmm[0], saved.0[0]);
+    assert_eq!(h.vcpu.regs.k[0], 7, "opmask state is outside RFBM");
+}
+
+#[test]
+fn xrstor_image_refuses_what_xrstor_faults_on() {
+    // SDM Vol. 1 §13.8.1: #GP if XSTATE_BV sets a bit outside XCR0, if the
+    // standard form's XCOMP_BV or header bytes 23:16 are nonzero, or if the
+    // MXCSR it would load sets reserved bits.
+    let mut h = harness(&[]);
+    fill_xstate(&mut h.vcpu);
+    let good = h.vcpu.xsave_image(u64::MAX).bytes;
+    let before = h.vcpu.regs.xmm;
+    let mut outside = good.clone();
+    outside[512 + 1] |= 0x02; // XSTATE_BV bit 9 (PKRU), not in XCR0
+    let mut xcomp = good.clone();
+    xcomp[520] = 1;
+    let mut reserved = good.clone();
+    reserved[528] = 1;
+    let mut mxcsr = good.clone();
+    mxcsr[26] = 1; // MXCSR bit 16
+    h.vcpu.regs.xmm[0] = [9, 9];
+    use super::XrstorError::*;
+    assert_eq!(h.vcpu.xrstor_image(&outside, u64::MAX), Err(Header));
+    assert_eq!(h.vcpu.xrstor_image(&xcomp, u64::MAX), Err(Header));
+    assert_eq!(h.vcpu.xrstor_image(&reserved, u64::MAX), Err(Header));
+    assert_eq!(h.vcpu.xrstor_image(&mxcsr, u64::MAX), Err(Mxcsr));
+    assert_eq!(h.vcpu.xrstor_image(&good[..600], u64::MAX), Err(Truncated));
+    assert_eq!(
+        h.vcpu.regs.xmm[0],
+        [9, 9],
+        "a refused image changes nothing"
+    );
+    // Standard-form bytes 63:24 of the header are not checked.
+    let mut tail = good.clone();
+    tail[540] = 0xFF;
+    assert_eq!(h.vcpu.xrstor_image(&tail, u64::MAX), Ok(()));
+    assert_eq!(h.vcpu.regs.xmm, before);
+}
+
+#[test]
+fn xrstor_image_accepts_the_compacted_form() {
+    // XCOMP_BV = bit 63 | 0x07: AVX state immediately follows the header.
+    let mut h = harness(&[]);
+    fill_xstate(&mut h.vcpu);
+    let standard = h.vcpu.xsave_image(u64::MAX).bytes;
+    let mut compacted = standard[..832].to_vec();
+    compacted[520..528].copy_from_slice(&((1u64 << 63) | 0x07).to_le_bytes());
+    compacted[512..520].copy_from_slice(&0x07u64.to_le_bytes());
+    let want = h.vcpu.regs.ymm_high;
+    h.vcpu.init_user_xstate(u64::MAX);
+    h.vcpu.xrstor_image(&compacted, 0x07).unwrap();
+    assert_eq!(h.vcpu.regs.ymm_high, want);
+    // XSTATE_BV must be a subset of XCOMP_BV.
+    compacted[512] |= 0x20;
+    assert_eq!(
+        h.vcpu.xrstor_image(&compacted, u64::MAX),
+        Err(super::XrstorError::Header)
+    );
+}
+
+#[test]
+fn fxrstor_image_loads_the_legacy_region() {
+    let mut h = harness(&[]);
+    fill_xstate(&mut h.vcpu);
+    let image = h.vcpu.xsave_image(0x03).bytes;
+    let (xmm, mxcsr, st0) = (h.vcpu.regs.xmm, h.vcpu.mxcsr, h.vcpu.fpu.get_st(0));
+    h.vcpu.init_user_xstate(u64::MAX);
+    h.vcpu.fxrstor_image(&image).unwrap();
+    assert_eq!(
+        (h.vcpu.regs.xmm, h.vcpu.mxcsr, h.vcpu.fpu.get_st(0)),
+        (xmm, mxcsr, st0)
+    );
+    let mut bad = image.clone();
+    bad[27] = 0x80;
+    assert_eq!(h.vcpu.fxrstor_image(&bad), Err(super::XrstorError::Mxcsr));
+}
+
+#[test]
+fn xrstor_image_matches_the_xrstor_instruction() {
+    // xrstor64 [rdi] ; syscall — with XSTATE_BV clearing AVX and opmask
+    // state so both the load and the init paths are compared.
+    let code = [0x48, 0x0F, 0xAE, 0x2F, 0x0F, 0x05];
+    let mut source = harness(&[]);
+    fill_xstate(&mut source.vcpu);
+    let mut image = source.vcpu.xsave_image(u64::MAX).bytes;
+    image[512] &= !(0x04 | 0x20);
+    let mut by_insn = harness(&code);
+    let mut by_image = harness(&code);
+    for h in [&mut by_insn, &mut by_image] {
+        fill_xstate(&mut h.vcpu);
+        h.vcpu.regs.xmm[5] = [0xAB, 0xCD];
+        h.vcpu.mxcsr = 0x1F80;
+    }
+    by_insn
+        .mem
+        .write_slice(&image, GuestAddress(0x1000))
+        .unwrap();
+    by_insn.vcpu.regs.rdi = DATA;
+    by_insn.vcpu.regs.rax = 0xFFFF_FFFF;
+    by_insn.vcpu.regs.rdx = 0xFFFF_FFFF;
+    assert!(matches!(
+        run(&mut by_insn.vcpu).unwrap(),
+        VcpuExit::SystemCall
+    ));
+    by_image.vcpu.xrstor_image(&image, u64::MAX).unwrap();
+    let state = |v: &X86_64Vcpu| {
+        (
+            v.regs.xmm,
+            v.regs.ymm_high,
+            v.regs.zmm_high,
+            v.regs.zmm_ext,
+            v.regs.k,
+            v.mxcsr,
+            v.fpu.control_word,
+            v.fpu.status_word,
+            v.fpu.tag_word,
+            (0..8)
+                .map(|i| v.fpu.get_st(i).to_bits())
+                .collect::<Vec<_>>(),
+        )
+    };
+    assert_eq!(state(&by_insn.vcpu), state(&by_image.vcpu));
+    assert_eq!(by_image.vcpu.regs.ymm_high[0], [0, 0]);
+    assert_eq!(by_image.vcpu.regs.k[0], 0);
+}
