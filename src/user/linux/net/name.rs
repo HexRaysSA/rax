@@ -87,6 +87,16 @@ pub fn place(vfs: &Vfs, a: &Addr, create: bool) -> Result<Place, Errno> {
     })
 }
 
+/// Makes a socket node at host path `host`, as `mknod` with `S_IFSOCK`
+/// does, by binding a socket there and closing it.
+pub fn socket_node(host: &Path) -> Result<(), Errno> {
+    let s = sys::socket(libc::AF_UNIX, libc::SOCK_STREAM, 0)?;
+    match fit(host)? {
+        Place::Addr(a) => sys::bind(&s, &a),
+        Place::At(dir, name) => sys::unix_at(&s, &dir, &name, false),
+    }
+}
+
 /// Binds `s` at `p`.
 pub fn bind(s: &Socket, p: &Place) -> Result<(), Errno> {
     match p {

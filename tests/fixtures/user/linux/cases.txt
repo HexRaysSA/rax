@@ -24,6 +24,7 @@ shmem    shmem    -
 memfd    memfd    -
 pidfd    pidfd    -
 fdinfo   fdinfo   -
+nodes    nodes    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

@@ -44,6 +44,7 @@ pub mod signal;
 pub mod thread;
 pub mod time;
 pub mod timer;
+pub mod utimes;
 
 use super::abi::Sysno;
 use super::abi::errno::Errno;
@@ -515,7 +516,18 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[4] as u32,
         )),
         S::Truncate => r(path::truncate(c, a[0], a[1] as i64)),
-        S::Utimensat => r(path::utimensat(c, fd(a[0]), a[1], a[2], a[3] as u32)),
+        S::Utimensat => r(utimes::utimensat(c, fd(a[0]), a[1], a[2], a[3] as u32)),
+        S::Futimesat => r(utimes::futimesat(c, fd(a[0]), a[1], a[2])),
+        S::Utimes => r(utimes::futimesat(c, path::AT_FDCWD, a[0], a[1])),
+        S::Utime => r(utimes::utime(c, a[0], a[1])),
+        S::Mknod => r(path::mknodat(
+            c,
+            path::AT_FDCWD,
+            a[0],
+            a[1] as u32,
+            a[2] as u32,
+        )),
+        S::Mknodat => r(path::mknodat(c, fd(a[0]), a[1], a[2] as u32, a[3] as u32)),
         S::Statfs => r(path::statfs(c, a[0], a[1])),
         S::Fstatfs => r(path::fstatfs(c, fd(a[0]), a[1])),
         S::Umask => r(path::umask(c, a[0] as u32)),

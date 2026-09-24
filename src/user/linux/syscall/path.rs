@@ -597,6 +597,76 @@ pub fn mkdirat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32) -> SysResult {
     Ok(0)
 }
 
+/// `mknodat` (and `mknod`; `do_mknodat`): a regular file, FIFO, or socket
+/// node, or a device node (with `CAP_MKNOD`, which only root has here),
+/// its permissions masked by the umask. The type is checked first
+/// (`may_mknod`: a directory is `EPERM`, an unknown type `EINVAL`), then the
+/// name (`filename_create`: `EEXIST` for an existing one, `ENOENT` for a
+/// new one with a trailing slash), then the device privilege. A host that
+/// refuses unprivileged socket nodes (macOS) gets one by binding a socket
+/// there.
+pub fn mknodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, dev: u32) -> SysResult {
+    use mode::*;
+    let kind = perm & S_IFMT;
+    match kind {
+        0 | S_IFREG | S_IFCHR | S_IFBLK | S_IFIFO | S_IFSOCK => {}
+        S_IFDIR => return Err(Errno(EPERM)),
+        _ => return Err(Errno(EINVAL)),
+    }
+    let raw = c.read_cstr_raw(path, fs::PATH_MAX - 1)?;
+    let host = host_target(c, dirfd, path, false)?;
+    // The last component is looked up without its trailing slashes.
+    let bare = host.to_string_lossy().trim_end_matches('/').to_string();
+    if std::fs::symlink_metadata(if bare.is_empty() { "/" } else { &bare }).is_ok() {
+        return Err(Errno(EEXIST));
+    }
+    if raw.ends_with(b"/") {
+        return Err(Errno(ENOENT));
+    }
+    let bits = perm & 0o7777 & !c.p.umask;
+    let host_mode = |t: libc::mode_t| u32::from(t) | bits;
+    match kind {
+        0 | S_IFREG => {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(bits)
+                .open(&host)?;
+        }
+        S_IFIFO => super::super::host::mknod(&host, host_mode(libc::S_IFIFO), 0, 0)?,
+        S_IFSOCK => match super::super::host::mknod(&host, host_mode(libc::S_IFSOCK), 0, 0) {
+            Err(Errno(EPERM)) if cfg!(not(target_os = "linux")) => {
+                super::super::net::name::socket_node(&host)?;
+                std::fs::set_permissions(&host, std::fs::Permissions::from_mode(bits))?;
+            }
+            r => r?,
+        },
+        _ => {
+            // vfs_mknod: a whiteout (a character device 0:0) needs no
+            // privilege; may_create comes first.
+            let whiteout = kind == S_IFCHR && dev == 0;
+            if !whiteout && c.p.creds.1 != 0 {
+                let parent = host.parent().unwrap_or(std::path::Path::new("/"));
+                return Err(Errno(
+                    match super::super::host::access(parent, 3, true, true) {
+                        Err(e) => e.0,
+                        Ok(()) => EPERM,
+                    },
+                ));
+            }
+            // new_decode_dev.
+            let (major, minor) = ((dev & 0xfff00) >> 8, (dev & 0xff) | ((dev >> 12) & 0xfff00));
+            let t = if kind == S_IFCHR {
+                libc::S_IFCHR
+            } else {
+                libc::S_IFBLK
+            };
+            super::super::host::mknod(&host, host_mode(t), major, minor)?;
+        }
+    }
+    Ok(0)
+}
+
 /// `unlinkat` (and `unlink`, `rmdir`).
 pub fn unlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult {
     if flags & !AT_REMOVEDIR != 0 {
@@ -761,53 +831,6 @@ pub fn truncate(c: &mut Ctx<'_>, path: u64, len: i64) -> SysResult {
     let f = std::fs::OpenOptions::new().write(true).open(&host)?;
     f.set_len(len as u64)?;
     c.p.space.truncated(fs::identity(&f)?, len as u64);
-    Ok(0)
-}
-
-/// `utimensat` (a null path with a descriptor is `futimens`).
-pub fn utimensat(c: &mut Ctx<'_>, dirfd: i32, path: u64, times: u64, flags: u32) -> SysResult {
-    const UTIME_NOW: i64 = (1 << 30) - 1;
-    const UTIME_OMIT: i64 = (1 << 30) - 2;
-    if flags & !(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH) != 0 {
-        return Err(Errno(EINVAL));
-    }
-    let now = std::time::SystemTime::now();
-    let mut ts = [Some(now), Some(now)];
-    if times != 0 {
-        let raw = c.read_mem(times, 32)?;
-        for (i, chunk) in raw.chunks_exact(16).enumerate() {
-            let t = Timespec::decode(chunk.try_into().unwrap());
-            ts[i] = match t.nsec {
-                UTIME_NOW => Some(now),
-                UTIME_OMIT => None,
-                n if (0..1_000_000_000).contains(&n) => {
-                    let d = std::time::Duration::new(t.sec.max(0) as u64, n as u32);
-                    Some(std::time::UNIX_EPOCH + d)
-                }
-                _ => return Err(Errno(EINVAL)),
-            };
-        }
-    }
-    if ts == [None, None] {
-        return Ok(0);
-    }
-    let file = if path == 0 {
-        match &c.p.fds.file(dirfd)?.object {
-            FileObject::Host(f) => f.try_clone()?,
-            _ => return Err(Errno(EBADF)),
-        }
-    } else {
-        let host = host_target(c, dirfd, path, flags & AT_SYMLINK_NOFOLLOW == 0)?;
-        std::fs::File::open(&host)?
-    };
-    let mut ft = std::fs::FileTimes::new();
-    if let Some(a) = ts[0] {
-        ft = ft.set_accessed(a);
-    }
-    if let Some(m) = ts[1] {
-        ft = ft.set_modified(m);
-    }
-    file.set_times(ft)?;
     Ok(0)
 }
 

@@ -7,6 +7,7 @@ mod fdinfo;
 mod files;
 mod harness;
 mod loader;
+mod nodes;
 mod pidfd;
 mod posix_timers;
 mod procfs;

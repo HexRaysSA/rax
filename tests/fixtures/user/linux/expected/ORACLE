@@ -39,3 +39,4 @@ override: x86_64/pidfd from aarch64 (Rosetta returns ENOSYS for pidfd_getfd and 
 override: riscv64/pidfd from aarch64 (qemu-riscv64 does not translate PIDFD_GET_INFO or FS_IOC_GETVERSION, writes waitid's siginfo on failure, returns ENOSYS for clone3, and accepts CLONE_DETACHED with CLONE_PIDFD)
 override: x86_64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's status-flag encoding, which Rosetta does not convert)
 override: riscv64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's status-flag encoding, which qemu-riscv64 does not convert)
+override: x86_64/nodes from aarch64 (Rosetta dies of SIGSEGV on utime with an unmapped struct utimbuf)

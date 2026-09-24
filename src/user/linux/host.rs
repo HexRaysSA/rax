@@ -1205,3 +1205,68 @@ pub fn proc_ids(pid: i32) -> Result<ProcIds, Errno> {
         gids: (info.pbi_rgid, info.pbi_gid, info.pbi_svgid),
     })
 }
+
+/// `mknod(path, mode, makedev(major, minor))` on the host.
+pub fn mknod(path: &Path, mode: u32, major: u32, minor: u32) -> Result<(), Errno> {
+    let c = cpath(path)?;
+    #[cfg(target_os = "linux")]
+    let dev = libc::makedev(major, minor);
+    #[cfg(not(target_os = "linux"))]
+    let dev = libc::makedev(major as i32, minor as i32);
+    // SAFETY: a NUL-terminated path owned for the call and integer
+    // arguments.
+    if unsafe { libc::mknod(c.as_ptr(), mode as libc::mode_t, dev) } != 0 {
+        return Err(last_errno());
+    }
+    Ok(())
+}
+
+/// One time `utimensat` sets: the current time, none, or seconds and
+/// nanoseconds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SetTime {
+    /// `UTIME_NOW`.
+    Now,
+    /// `UTIME_OMIT`.
+    Omit,
+    /// A time.
+    At(i64, i64),
+}
+
+fn host_times(t: [SetTime; 2]) -> [libc::timespec; 2] {
+    t.map(|t| {
+        let (sec, nsec) = match t {
+            SetTime::Now => (0, libc::UTIME_NOW),
+            SetTime::Omit => (0, libc::UTIME_OMIT),
+            SetTime::At(s, n) => (s, n as libc::c_long),
+        };
+        libc::timespec {
+            tv_sec: sec as libc::time_t,
+            tv_nsec: nsec,
+        }
+    })
+}
+
+/// `utimensat(AT_FDCWD, path, times)` on the host, following a final
+/// symbolic link when `follow`.
+pub fn set_times(path: &Path, t: [SetTime; 2], follow: bool) -> Result<(), Errno> {
+    let c = cpath(path)?;
+    let ts = host_times(t);
+    let flags = if follow { 0 } else { libc::AT_SYMLINK_NOFOLLOW };
+    // SAFETY: a NUL-terminated path and a two-element timespec array, both
+    // owned for the call.
+    if unsafe { libc::utimensat(libc::AT_FDCWD, c.as_ptr(), ts.as_ptr(), flags) } != 0 {
+        return Err(last_errno());
+    }
+    Ok(())
+}
+
+/// `futimens(fd, times)` on the host.
+pub fn set_fd_times(fd: &impl AsRawFd, t: [SetTime; 2]) -> Result<(), Errno> {
+    let ts = host_times(t);
+    // SAFETY: a two-element timespec array owned for the call.
+    if unsafe { libc::futimens(fd.as_raw_fd(), ts.as_ptr()) } != 0 {
+        return Err(last_errno());
+    }
+    Ok(())
+}

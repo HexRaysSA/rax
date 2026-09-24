@@ -123,6 +123,12 @@ target = "x86_64-linux-musl"
 sha256 = "7c6491a33b961a5415318c725053b1ea442349093a0b12a8191db47beef94352"
 
 [[fixture]]
+path = "bin/x86_64/nodes"
+source = "src/nodes.c"
+target = "x86_64-linux-musl"
+sha256 = "04f5862377f7cd220b2e53252e2780d39aebb1ae0d7f8d7f54b72be1cb2755fa"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -267,6 +273,12 @@ target = "aarch64-linux-musl"
 sha256 = "9e862528412fbdae982c8dd59a5b4fb9741c508fcb98eafc0c169c872c83a013"
 
 [[fixture]]
+path = "bin/aarch64/nodes"
+source = "src/nodes.c"
+target = "aarch64-linux-musl"
+sha256 = "b1b9e4f5f95eea1645b0ec66973f43935b1f533dd1767eb5f33f0acf7612bb82"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -409,6 +421,12 @@ path = "bin/riscv64/fdinfo"
 source = "src/fdinfo.c"
 target = "riscv64-linux-musl"
 sha256 = "44053b496bf9c111ec8006994391e6cf8ae29710c071859632202f07d4b1a253"
+
+[[fixture]]
+path = "bin/riscv64/nodes"
+source = "src/nodes.c"
+target = "riscv64-linux-musl"
+sha256 = "493c88c9139d5258800e5447a6cf42065a6b718bf9eec8a1e4cf030ab4932dd1"
 
 [[fixture]]
 path = "bin/riscv64/stdin"
