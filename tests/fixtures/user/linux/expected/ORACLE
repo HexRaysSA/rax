@@ -1,0 +1,23 @@
+image: alpine:latest
+kernel: Linux 7.0.14-orbstack-00380-ga7e0a2dc9535 #1 SMP PREEMPT Fri Aug  7 03:48:40 UTC 2026 aarch64
+docker: 29.4.0 linux/arm64
+recorded: 2026-09-24T05:45:59Z
+native-arch: aarch64
+translated: every other architecture runs through the Docker host's binfmt_misc handler
+binfmt: mac-macho-arm64 enabled interpreter [mac] 
+binfmt: mac-macho-x86_64 enabled interpreter [mac] 
+binfmt: mac-universal-arm64 enabled interpreter [mac] 
+binfmt: mac-universal-x86_64 enabled interpreter [mac] 
+binfmt: qemu-aarch64 disabled interpreter [qemu] 
+binfmt: qemu-arm enabled interpreter [qemu-arm] 
+binfmt: qemu-i386 enabled interpreter [qemu-i386] 
+binfmt: qemu-mips64el enabled interpreter [qemu-mips64el] 
+binfmt: qemu-ppc64le enabled interpreter [qemu-ppc64le] 
+binfmt: qemu-riscv64 enabled interpreter [qemu-riscv64] 
+binfmt: qemu-s390x enabled interpreter [qemu-s390x] 
+binfmt: qemu-x86_64 enabled interpreter [qemu] 
+binfmt: rosetta enabled interpreter [rosetta] 
+binfmt: rosettaM-bM-^@M-^K enabled interpreter [rosetta] 
+binfmt: rosettaM-bM-^@M-^KM-bM-^@M-^K enabled interpreter [rosetta] 
+seccomp: unconfined
+override: riscv64/mman from aarch64 (mm/madvise.c and mm/mprotect.c are generic; QEMU 'target_madvise' ignores most advice and QEMU validates mprotect's prot before its length)

@@ -145,6 +145,7 @@ jobs:
             --test smir_jit_evex_masking \
             --test x86_64_unimplemented_source_inventory \
             --test isa_oracle \
+            --test user_linux \
             -- --include-ignored --test-threads=1 --nocapture
       # The x86-64 JIT suite executes transient native mappings and intentionally
       # exercises host feature-specific encodings. Run it serially so a native

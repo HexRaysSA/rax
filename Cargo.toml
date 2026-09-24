@@ -31,6 +31,10 @@ include = [
 name = "rax-isa-oracle"
 path = "src/bin/rax_isa_oracle.rs"
 
+[[bin]]
+name = "rax-user"
+path = "src/bin/rax_user.rs"
+
 # Integration tests live in semantic subdirectories. Explicit declarations
 # make build participation independent of filesystem accidents and keep
 # generated Rust data from becoming standalone test binaries.

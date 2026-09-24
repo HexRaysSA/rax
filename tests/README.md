@@ -59,6 +59,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `smir_jit_evex_masking` | `suites/smir/jit/x86_64_evex_masking.rs` |
 | `smir_jit_vcpu` | `suites/smir/jit/x86_64.rs` |
 | `smir_jit_x86_aarch64` | `suites/smir/jit/x86_64_aarch64.rs` |
+| `user_linux` | `suites/user/linux/main.rs` |
 | `x86_64` | `suites/isa/x86_64/main.rs` |
 | `x86_64_apx_map4_qemu_diff` | `suites/differential/x86_64/qemu_apx.rs` |
 | `x86_64_avx512_inventory` | `suites/coverage/x86_64/avx512_inventory.rs` |

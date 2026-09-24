@@ -82,6 +82,7 @@ cargo test --release --test differential case_name -- --exact --nocapture
 | `smir_jit_x86_aarch64` | `tests/suites/smir/jit/x86_64_aarch64.rs` | x86 vCPU native AArch64 JIT |
 | `smir_jit_aarch32_aarch64` | `tests/suites/smir/jit/aarch32_aarch64.rs` | AArch32 guest native AArch64-host JIT |
 | `smir_jit_thumb_aarch64` | `tests/suites/smir/jit/thumb_aarch64.rs` | Thumb guest native AArch64-host JIT |
+| `user_linux` | `tests/suites/user/linux/main.rs` | `rax-user` Linux personality: UAPI tables, fixture programs vs recorded Linux results, CLI |
 | `x86_64` | `tests/suites/isa/x86_64/main.rs` | x86 direct ISA aggregate |
 | `x86_64_apx_map4_qemu_diff` | `tests/suites/differential/x86_64/qemu_apx.rs` | APX staged QEMU differential |
 | `x86_64_avx512_inventory` | `tests/suites/coverage/x86_64/avx512_inventory.rs` | AVX-512 coverage inventory |

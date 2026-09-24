@@ -1,0 +1,260 @@
+//! Static Linux programs produce the output a real kernel produced.
+//!
+//! Fixtures, sources, and the case table live in `tests/fixtures/user/linux`
+//! (see its README). `expected/<arch>/<case>.{stdout,status}` were recorded
+//! on Linux by `record-expected.sh`; every case must match them byte for
+//! byte under `rax-user`.
+
+use std::collections::BTreeMap;
+use std::time::Duration;
+
+use super::sha256;
+use super::support::{fixtures, run};
+
+const ARCHES: [&str; 3] = ["x86_64", "aarch64", "riscv64"];
+
+struct Case {
+    name: String,
+    program: String,
+    stdin: Option<String>,
+    args: Vec<String>,
+}
+
+fn cases() -> Vec<Case> {
+    let text = std::fs::read_to_string(fixtures().join("cases.txt")).unwrap();
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|l| {
+            let mut it = l.split_whitespace().map(str::to_string);
+            let name = it.next().unwrap();
+            let program = it.next().unwrap();
+            let stdin = it.next().filter(|s| s != "-");
+            Case {
+                name,
+                program,
+                stdin,
+                args: it.collect(),
+            }
+        })
+        .collect()
+}
+
+/// Parses `manifest.toml` into `path -> sha256`.
+fn manifest() -> BTreeMap<String, String> {
+    let text = std::fs::read_to_string(fixtures().join("manifest.toml")).unwrap();
+    let mut out = BTreeMap::new();
+    let mut path = None;
+    for line in text.lines() {
+        let Some((k, v)) = line.split_once(" = ") else {
+            continue;
+        };
+        let v = v.trim_matches('"').to_string();
+        match k {
+            "path" => path = Some(v),
+            "sha256" => {
+                out.insert(path.take().expect("path before sha256"), v);
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// Parses `oracle-overrides.txt` into `(arch, case) -> source arch`.
+fn overrides() -> BTreeMap<(String, String), String> {
+    let text = std::fs::read_to_string(fixtures().join("oracle-overrides.txt")).unwrap();
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|l| {
+            let mut it = l.split_whitespace().map(str::to_string);
+            let arch = it.next().unwrap();
+            let case = it.next().unwrap();
+            let source = it.next().unwrap();
+            assert!(it.next().is_some(), "override {arch}/{case} needs a reason");
+            ((arch, case), source)
+        })
+        .collect()
+}
+
+#[test]
+fn fixture_binaries_match_manifest() {
+    let m = manifest();
+    let programs: std::collections::BTreeSet<String> =
+        cases().into_iter().map(|c| c.program).collect();
+    assert_eq!(m.len(), ARCHES.len() * programs.len(), "manifest entries");
+    for (path, want) in &m {
+        let bytes = std::fs::read(fixtures().join(path)).unwrap();
+        assert_eq!(
+            &sha256::hex(&bytes),
+            want,
+            "{path} does not match manifest.toml"
+        );
+    }
+}
+
+#[test]
+fn oracle_overrides_copy_real_kernel_results() {
+    // An overridden expectation is the source architecture's recording.
+    let root = fixtures().join("expected");
+    for ((arch, case), source) in overrides() {
+        assert!(ARCHES.contains(&arch.as_str()) && ARCHES.contains(&source.as_str()));
+        assert!(
+            cases().iter().any(|c| c.name == case),
+            "unknown case {case}"
+        );
+        for ext in ["stdout", "status"] {
+            let file = format!("{case}.{ext}");
+            assert_eq!(
+                std::fs::read(root.join(&arch).join(&file)).unwrap(),
+                std::fs::read(root.join(&source).join(&file)).unwrap(),
+                "{arch}/{file} must equal {source}/{file}"
+            );
+        }
+    }
+}
+
+fn check_case(arch: &str, case: &Case, extra: &[&str], env: &[(&str, &str)]) {
+    let root = fixtures();
+    let exe = root.join("bin").join(arch).join(&case.program);
+    let exe = exe.to_str().unwrap().to_string();
+    let mut args: Vec<&str> = extra.to_vec();
+    args.push(&exe);
+    args.extend(case.args.iter().map(String::as_str));
+    let mut env_all = vec![("RAX_FIXTURE_VAR", "set")];
+    env_all.extend_from_slice(env);
+    let stdin = case.stdin.as_ref().map(|p| root.join(p));
+    let r = run(&args, &env_all, stdin.as_deref(), Duration::from_secs(120));
+    let dir = root.join("expected").join(arch);
+    let want_out = std::fs::read(dir.join(format!("{}.stdout", case.name))).unwrap();
+    let want_status: i32 = std::fs::read_to_string(dir.join(format!("{}.status", case.name)))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    let label = format!("{arch}/{} {extra:?}", case.name);
+    assert_eq!(
+        String::from_utf8_lossy(&r.stdout),
+        String::from_utf8_lossy(&want_out),
+        "{label}: stdout differs\nstderr:\n{}",
+        r.stderr
+    );
+    assert_eq!(
+        r.status,
+        Some(want_status),
+        "{label}: status\nstderr:\n{}",
+        r.stderr
+    );
+}
+
+#[test]
+fn x86_64_fixtures_match_linux() {
+    for case in cases() {
+        check_case("x86_64", &case, &[], &[]);
+    }
+}
+
+#[test]
+fn x86_64_fixtures_match_linux_without_jit() {
+    for case in cases() {
+        check_case("x86_64", &case, &[], &[("RAX_NO_JIT", "1")]);
+    }
+}
+
+#[test]
+fn aarch64_fixtures_match_linux() {
+    for case in cases() {
+        check_case("aarch64", &case, &[], &[]);
+    }
+}
+
+#[test]
+fn riscv64_fixtures_match_linux() {
+    for case in cases() {
+        check_case("riscv64", &case, &[], &[]);
+    }
+}
+
+#[test]
+fn riscv64_fixtures_match_linux_with_jit() {
+    for case in cases() {
+        check_case("riscv64", &case, &["--riscv-jit"], &[]);
+    }
+}
+
+#[test]
+fn small_slices_do_not_change_results() {
+    // Preemption boundaries (every 64 instructions) must be invisible.
+    for arch in ["aarch64", "riscv64"] {
+        for case in cases()
+            .iter()
+            .filter(|c| c.name == "memory" || c.name == "fileio")
+        {
+            check_case(arch, case, &["--slice", "64"], &[]);
+        }
+    }
+}
+
+/// Live differential against Docker. Requires a Docker daemon able to run
+/// all three architectures and `RAX_USER_DOCKER_ORACLE=1`; without the
+/// variable the test reports that it did not run (CI runs ignored tests, and
+/// its runners cannot execute foreign-architecture containers).
+#[test]
+#[ignore = "requires Docker with binfmt support for x86_64, aarch64, and riscv64"]
+fn live_docker_oracle() {
+    use std::process::Command;
+    if std::env::var_os("RAX_USER_DOCKER_ORACLE").is_none() {
+        eprintln!("live_docker_oracle: NOT RUN (set RAX_USER_DOCKER_ORACLE=1)");
+        return;
+    }
+    let root = fixtures();
+    let ok = Command::new("docker")
+        .args(["info"])
+        .output()
+        .is_ok_and(|o| o.status.success());
+    assert!(ok, "docker is not available");
+    let overrides = overrides();
+    for arch in ARCHES {
+        for case in cases() {
+            // Same container setup and oracle substitutions as
+            // record-expected.sh.
+            let oracle_arch = overrides
+                .get(&(arch.to_string(), case.name.clone()))
+                .map_or(arch, String::as_str);
+            let mut cmd = Command::new("docker");
+            cmd.args([
+                "run",
+                "--rm",
+                "--init",
+                "--security-opt",
+                "seccomp=unconfined",
+                "-i",
+                "-e",
+                "RAX_FIXTURE_VAR=set",
+                "-v",
+            ])
+            .arg(format!("{}:/w:ro", root.join("bin").display()))
+            .arg("alpine:latest")
+            .arg(format!("/w/{oracle_arch}/{}", case.program))
+            .args(&case.args);
+            cmd.stdin(match &case.stdin {
+                Some(p) => std::process::Stdio::from(std::fs::File::open(root.join(p)).unwrap()),
+                None => std::process::Stdio::null(),
+            });
+            let o = cmd.output().unwrap();
+            let exe = root.join("bin").join(arch).join(&case.program);
+            let mut args = vec![exe.to_str().unwrap()];
+            args.extend(case.args.iter().map(String::as_str));
+            let stdin = case.stdin.as_ref().map(|p| root.join(p));
+            let r = run(
+                &args,
+                &[("RAX_FIXTURE_VAR", "set")],
+                stdin.as_deref(),
+                Duration::from_secs(120),
+            );
+            assert_eq!(r.stdout, o.stdout, "{arch}/{}: stdout", case.name);
+            assert_eq!(r.status, o.status.code(), "{arch}/{}: status", case.name);
+        }
+    }
+}

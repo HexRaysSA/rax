@@ -59,7 +59,7 @@ jobs:
           - { name: macos-intel, os: macos-15-intel,   features: "--no-default-features --features x86_64-suite" }
         shard:
           # unit tests + the self-contained boot / roundtrip / oracle binaries.
-          - { name: unit,      tests: "--lib --test ci_actions_pinned --test smir_avx10_roundtrip --test isa_oracle --test hexagon_bare_metal --test riscv_boot --test realmode_boot", harness: "--include-ignored --test-threads=1 --nocapture" }
+          - { name: unit,      tests: "--lib --test ci_actions_pinned --test smir_avx10_roundtrip --test isa_oracle --test hexagon_bare_metal --test riscv_boot --test realmode_boot --test user_linux", harness: "--include-ignored --test-threads=1 --nocapture" }
           # x86_64 instruction suite (host-independent: the emulator runs x86 on any host).
           - { name: x86_64,    tests: "--test x86_64 --test x86_64_unimplemented_manifests", harness: "--include-ignored" }
           # AArch32 / generic ARM corpora. NOTE: neon_gen.rs / sve2_gen.rs /

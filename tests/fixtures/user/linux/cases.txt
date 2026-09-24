@@ -1,0 +1,13 @@
+# rax-user Linux fixture cases, shared by record-expected.sh and the
+# user_linux integration test. Columns (whitespace-separated):
+#   name  program  stdin-file-or-dash  args...
+# Every case runs with RAX_FIXTURE_VAR=set in its environment.
+hello    hello    -              one two
+fileio   fileio   -
+memory   memory   -
+mman     mman     -
+process  process  -
+stdin    stdin    input/fox.txt
+segv     segv     -
+abort    abort    -
+trap     trap     -

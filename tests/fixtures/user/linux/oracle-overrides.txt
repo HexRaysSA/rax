@@ -1,0 +1,14 @@
+# Expected results taken from another architecture's run instead of the
+# architecture's own, read by record-expected.sh after recording.
+#
+# The Docker host runs non-native architectures through binfmt_misc. When the
+# handler is QEMU user mode, system calls are emulated by QEMU rather than
+# serviced by the kernel, and QEMU's emulation diverges from Linux for some
+# calls. A case belongs here only when every checked behavior comes from
+# architecture-independent kernel code, so a real kernel of any architecture
+# is a faithful oracle for it; the reason column names that code and the
+# divergence. The per-architecture unit tests in
+# src/user/linux/tests/syscall_mm.rs cover the same semantics independently.
+#
+# Columns: architecture  case  source-architecture  reason...
+riscv64  mman  aarch64  mm/madvise.c and mm/mprotect.c are generic; QEMU 'target_madvise' ignores most advice and QEMU validates mprotect's prot before its length
