@@ -164,11 +164,48 @@ code comments name the kernel function each rule comes from.
   returns to the embedder. The parent watches its children through the
   host `SIGCHLD`, keeps exited ones as zombies for `wait4`/`waitid`
   (`wait_task_zombie`, `wait_task_stopped`, `wait_task_continued`), and
-  generates the guest's `SIGCHLD` as `do_notify_parent` does. `execve`
-  builds a complete new image (`exec::load_image`, shared with the
-  initial program) before replacing anything, so an error leaves the
-  caller intact, then does what the point of no return does
-  (`commit_exec`).
+  generates the guest's `SIGCHLD` as `do_notify_parent` does. The
+  forwarded host signals stay blocked across the host `fork` until each
+  process has set up its own records, so a signal sent to a child the
+  moment it exists is not lost, and the child discards the compiled
+  native code it inherited and compiles it again (on Apple-Silicon macOS
+  hosts, JIT code inherited across the host `fork` intermittently faults
+  on its first execution). `execve` builds a complete new image
+  (`exec::load_image`, shared with the initial program) before replacing
+  anything, so an error leaves the caller intact, then does what the point
+  of no return does (`commit_exec`).
+- **POSIX timers** (`posix_timers`). The state machine of
+  `kernel/time/posix-timers.c` and `posix-cpu-timers.c` over expiries in
+  nanoseconds on a base clock (host wall-clock or monotonic time, or the
+  emulator's CPU time); relative `CLOCK_REALTIME` settings count on
+  monotonic time, as `common_hrtimer_arm` makes them. Expiry is found
+  lazily: the scheduler passes the time between slices (and sleeps no
+  longer than the next wall-clock or monotonic expiry), and an expired
+  timer queues its one preallocated signal record, tagged with the timer
+  in the pending queue (`SIGQUEUE_PREALLOC`). A periodic timer stays
+  stopped until that record is dequeued (`__posixtimer_deliver_signal`),
+  then moves forward past now by whole periods (`hrtimer_forward`), which
+  become the signal's overrun count; a setting or deletion since the
+  signal was queued makes the dequeue drop it and take the next signal.
+  An ignored periodic signal is parked and queued again when a handler
+  replaces `SIG_IGN` (`posixtimer_sig_unignore`). `execve` deletes the
+  timers and every queued `SI_TIMER` record (`exit_itimers`,
+  `flush_itimer_signals`); a forked child has none.
+- **Event, timer, and signal descriptors** (`fs::anon`). `eventfd`,
+  `timerfd`, and `signalfd` are anonymous-inode files (mode `0600` without
+  a file type, `anon_inode:[name]` in `/proc/<pid>/fd`, `O_RDWR` without
+  `O_LARGEFILE`, `lseek` 0, no `pread`). Their state lives in anonymous
+  memory shared with forked processes, so a description held by a parent
+  and a child is one counter or timer, as on Linux; a lock word orders
+  changes. A condition a sleeper waits for is mirrored as a *level*: one
+  direction of a host socket pair holds exactly one byte while it is true
+  (an `eventfd` readable or writable, a `timerfd` with ticks), so the
+  scheduler's host `poll`, in any process, wakes on it without consuming
+  it. A `timerfd` fires lazily too: one tick at its expiry, the missed
+  periods counted when it is read or queried. A `signalfd` reports the
+  reading thread's pending signals; queueing a signal wakes threads
+  sleeping on a `signalfd` of it, even while the signal is blocked
+  (`signalfd_notify`).
 - **Signal targeting.** A signal is queued for a thread or for the process;
   `complete_signal` then wakes the thread that should take it — the
   suggested thread if it wants it (unblocked, and running or without a
@@ -190,9 +227,10 @@ code comments name the kernel function each rule comes from.
   `poll` save a `restart_block` so `restart_syscall` resumes them with the
   remaining time; `select` and `poll` write back the time left and
   `revents` as `poll_select_finish` and `do_sys_poll` do.
-- **System calls.** 183 calls across descriptors and I/O, paths and
+- **System calls.** 195 calls across descriptors and I/O, paths and
   metadata, memory management, identity and limits, clocks, signals,
-  threads, futexes, and processes,
+  threads, futexes, processes, POSIX timers, and event, timer, and signal
+  descriptors,
   each validated in the kernel's order so the first failing
   check determines the `errno`. Host `errno` values are translated by name.
   Memory calls act VMA by VMA as `mm/mprotect.c` and `mm/madvise.c` do,
@@ -221,11 +259,13 @@ code comments name the kernel function each rule comes from.
 | Signals | `src/user/linux/signal/tests.rs` (records, queues, alternate stacks) and `src/user/linux/tests/signals.rs` (frames, `rt_sigreturn`, restart, and the signal calls on every ABI, with offsets from the UAPI structures) |
 | Threads, futexes, and signal targeting | `src/user/linux/tests/threads.rs` (13 tests): `clone`/`clone3` register state and validation on every ABI, futex wait/wake/bitset/requeue/wake-op/PI and interrupted waits, robust-list and `clear_child_tid` handling at exit, `complete_signal` choice and retargeting, thread and process exit status, `CLONE_VFORK`, and the `/proc` thread views |
 | `execve` and waits | `src/user/linux/tests/exec.rs`: `#!` parsing edge cases of `load_script`, `execve`/`execveat` error order on every ABI, the argument space charged to the byte (pointers, an empty `argv`, a script's rewritten arguments), a script named by a close-on-exec descriptor, the image replacement with a script and what survives it, `wait4`/`waitid` argument checks and `siginfo_t` writes on errors, children passing to a live thread (`__WNOTHREAD`) on thread exit and `execve`, and processes unavailable without host processes |
+| POSIX timers | `src/user/linux/tests/posix_timers.rs`: the state machine driven by explicit times against `hrtimer_forward` arithmetic (overrun counts, one-shot and `SIGEV_NONE` `gettime`, the 1 ns of a fired but unqueued timer, stale signals, CPU timers set in the past, parked ignored signals), `timer_create` error order and ID use on every ABI, the other calls' checks, one queued record per timer, stale-record drops, re-queueing when `SIG_IGN` is replaced, thread targets, and `execve`'s flush |
+| Event, timer, and signal descriptors | `src/user/linux/tests/events.rs`: `eventfd` limits, semaphores, zero-length and faulting transfers, `readv`/`writev` segments, and levels; `timerfd` ticks driven by explicit times, `TFD_IOC_SET_TICKS`, and argument order on every ABI; anonymous-inode `fstat` and `/proc` names; `signalfd` checks, reads in order, lost records at a fault, every `siginfo_t` layout's `struct signalfd_siginfo`, and wake-ups of blocked readers and pollers. `src/user/linux/tests/files.rs`: `F_GETFL` of regular, `O_PATH`, directory, pipe, and `eventfd` descriptions |
 | Timers and blocking | `src/user/linux/tests/waits.rs`: interval timers, `alarm` rounding, interrupted sleeps and `restart_syscall`, `clock_nanosleep` clocks, `poll`/`select`/`ppoll`/`pselect6` interruption, write-back, clamping, and temporary masks, interruptible pipe reads, `sigtimedwait` woken by a timer, and the deadlock diagnostic |
 | Host signals | `user_linux` `host_signals`: `kill` from the test process reaches the `hostsig` guest with `SI_USER` and the sender on every ISA, interrupts a blocking `read` of a pipe with `EINTR`, and a default-action `SIGTERM` ends `rax-user` with `SIGTERM`; with `--no-signal-forwarding` the host default applies |
 | Memory-management system calls | `src/user/linux/tests/syscall_mm.rs`: `mprotect`, `madvise`, and `personality` driven through `dispatch` on every ABI, expectations from the named kernel functions |
 | Syscall and errno numbering | `user_linux` `abi_tables` against the vendored UAPI headers |
-| End-to-end behavior | `user_linux` `fixtures`: 18 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, and RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
+| End-to-end behavior | `user_linux` `fixtures`: 19 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, and RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
 
 **Differential-tested** here means that, for the fixture programs and
 inputs in `tests/fixtures/user/linux`, output and exit status equal what the

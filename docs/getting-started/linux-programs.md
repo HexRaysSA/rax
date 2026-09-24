@@ -125,18 +125,34 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   restarts exactly as on Linux (`SA_RESTART`; `restart_syscall` for
   `nanosleep` and `poll`; `poll` and `select` never restart after a
   handler).
+- **POSIX timers and event descriptors.** `timer_create` on the
+  realtime, monotonic, boot-time, TAI, and CPU-time clocks, with
+  `SIGEV_SIGNAL`, `SIGEV_NONE`, and `SIGEV_THREAD_ID` notification: one
+  queued signal per timer, the periods missed meanwhile reported as its
+  overrun count, and the queued signal of a changed or deleted timer
+  dropped, as on Linux. `eventfd` counters and semaphores, `timerfd`
+  one-shot and periodic timers (with `TFD_IOC_SET_TICKS`), and `signalfd`
+  readers of blocked signals behave as Linux's do, including their size
+  and limit checks, `poll`/`select` readiness, and blocking reads and
+  writes; an `eventfd` or `timerfd` stays one object across `fork`, as an
+  open file description does.
 
 ## Current limitations
 
 These are tracked in [Status and limitations](../reference/status-and-limitations.md)
 and in the [user-mode architecture page](../architecture/user-mode.md):
 
-- `kill` of any PID other than the guest's own fails with `ESRCH`. With
-  `--no-signal-forwarding`, a wait for a signal with no timeout (`pause`,
-  `sigsuspend`) that no timer can end stops the process with a
-  diagnostic. POSIX timers (`timer_create`) and `timerfd` are not yet
-  implemented. A stop signal's default action stops the `rax-user` process
+- With `--no-signal-forwarding`, a wait for a signal with no timeout
+  (`pause`, `sigsuspend`) that no timer can end stops the process with a
+  diagnostic. A stop signal's default action stops the `rax-user` process
   itself.
+- CPU-time timers (`CLOCK_PROCESS_CPUTIME_ID`, `CLOCK_THREAD_CPUTIME_ID`,
+  and the CPU clocks of the process and its threads) count `rax-user`'s
+  CPU time, as `clock_gettime` reports it; other processes' CPU clocks are
+  refused (`EINVAL`). The alarm clocks need root (`CAP_WAKE_ALARM`), and a
+  real-time clock is assumed. `TFD_TIMER_CANCEL_ON_SET` is accepted, but
+  changes of the host clock are not observed, so no `timerfd` is
+  canceled. `/proc/<pid>/fdinfo` is not provided.
 - A process sharing memory with its parent (`CLONE_VM`) is a copy: with
   `CLONE_VFORK` (`vfork`, `posix_spawn`) the parent still sleeps until the
   child calls `execve` or exits, but does not see the child's stores (a
@@ -165,7 +181,7 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   513 to 4,096 bytes into a nearly full pipe can be split, which another
   writer to the same pipe could observe.
 - The 32-bit `INT 0x80` system-call ABI on x86-64 returns `-ENOSYS`.
-- Creating sockets, `epoll`, `eventfd`, and writable `MAP_SHARED` file
-  mappings (writes do not reach the file) are not implemented.
+- Creating sockets, `epoll`, and writable `MAP_SHARED` file mappings
+  (writes do not reach the file) are not implemented.
 - Terminal attribute changes (`TCSETS*`) are accepted but not applied to the
   host terminal; `TCGETS` reports Linux's default terminal settings.
