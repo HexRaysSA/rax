@@ -8,6 +8,7 @@ use crate::error::{Error, Result};
 use crate::isa::x86_64::cpu::{X86_64Vcpu, log_if_transition};
 use crate::isa::x86_64::execute::system::is_canonical_48;
 use crate::isa::x86_64::flags;
+use crate::isa::x86_64::user_mode::{X86EventSource, X86UserEvent, X86UserTrap};
 use crate::vm::vcpu::Segment;
 
 const EFER_LMA: u64 = 1 << 10;
@@ -449,7 +450,8 @@ impl X86_64Vcpu {
             .map_err(|error| {
                 // A failed #UD delivery must not be mistaken for an ordinary
                 // sparse guest access and "repaired" with fabricated IDT bytes.
-                if vector == 6 {
+                // A user-mode report is not a delivery failure.
+                if vector == 6 && !matches!(error, Error::GuestEvent { .. }) {
                     Error::InvalidInstruction {
                         pc,
                         diagnosis: error.to_string(),
@@ -484,6 +486,26 @@ impl X86_64Vcpu {
         source: EventSource,
         software_fault_rip: Option<u64>,
     ) -> Result<()> {
+        // User mode: report the event to the embedder instead of vectoring
+        // through the IDT. Software interrupts arrive with RIP already past
+        // the instruction and `software_fault_rip` naming it; exceptions
+        // arrive with RIP equal to the return RIP of the architectural frame
+        // (the faulting instruction for faults, the next one for traps).
+        if self.user_mode_enabled() && source != EventSource::External {
+            let return_rip = self.regs.rip;
+            let (insn_rip, event_source) = match (source, software_fault_rip) {
+                (EventSource::Software, Some(rip)) => (rip, X86EventSource::SoftwareInterrupt),
+                _ => (return_rip, X86EventSource::Exception),
+            };
+            self.record_user_trap(X86UserTrap::Event(X86UserEvent {
+                vector,
+                error_code,
+                source: event_source,
+                insn_rip,
+                return_rip,
+            }));
+            return Err(Error::GuestEvent { vector });
+        }
         let original_vector = vector;
         let mut current_vector = vector;
         let mut current_error = error_code;

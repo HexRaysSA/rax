@@ -46,7 +46,7 @@ impl X86_64Vcpu {
         self.invalidate_translation_dependent_caches();
     }
 
-    fn invalidate_translation_dependent_caches(&mut self) {
+    pub(in crate::isa::x86_64) fn invalidate_translation_dependent_caches(&mut self) {
         self.decode_cache.iter_mut().for_each(|entry| {
             entry.rip = 0;
             entry.bytes_len = 0;

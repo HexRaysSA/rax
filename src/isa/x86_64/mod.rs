@@ -13,9 +13,16 @@ pub(crate) mod memory;
 mod memory_tests;
 mod simd_native;
 mod threaded;
+mod user_mode;
+#[cfg(test)]
+mod user_mode_tests;
 
 pub use cpu::{CURRENT_RIP, RIP_HISTORY, RIP_IDX, X86_64Vcpu, get_total_instruction_count};
 pub use memory::{AccessType, Mmu};
+pub use user_mode::{
+    LINUX_USER_CS, LINUX_USER_DS, LINUX_USER32_CS, X86EventSource, X86SyscallInsn, X86UserEvent,
+    X86UserTrap,
+};
 
 /// Implemented MXCSR bits for the fixed x86-64 CPU profile. Bits 16..31 are
 /// reserved and loading any of them as one raises #GP(0).

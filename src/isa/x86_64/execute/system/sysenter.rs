@@ -194,7 +194,18 @@ fn commit_direct_transfer(vcpu: &mut X86_64Vcpu, effect: X86FastSystemTransferEf
 }
 
 /// SYSENTER (0x0F 0x34)
-pub fn sysenter(vcpu: &mut X86_64Vcpu, _ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+pub fn sysenter(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    // User mode: the embedder applies its own SYSENTER ABI. No register is
+    // modified; RIP moves past the instruction.
+    if vcpu.user_mode_enabled() {
+        let insn_rip = vcpu.regs.rip;
+        vcpu.regs.rip = insn_rip.wrapping_add(ctx.cursor as u64);
+        vcpu.record_user_trap(crate::isa::x86_64::user_mode::X86UserTrap::SystemCall {
+            insn: crate::isa::x86_64::user_mode::X86SyscallInsn::Sysenter,
+            insn_rip,
+        });
+        return Ok(Some(VcpuExit::SystemCall));
+    }
     let effect = match evaluate_x86_sysenter(transfer_state(vcpu)) {
         Ok(effect) => effect,
         Err(X86FastSystemTransferFault::GeneralProtection) => return raise_gp0(vcpu),

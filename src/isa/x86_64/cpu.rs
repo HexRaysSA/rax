@@ -460,6 +460,8 @@ pub struct X86_64Vcpu {
     /// retrying the same deferred access indefinitely.
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     jit_vsib_resume_pc: Option<u64>,
+    /// Process-level execution state; `None` for system emulation.
+    pub(super) user: Option<Box<super::user_mode::UserMode>>,
 }
 
 /// Pending I/O operation.
@@ -1088,6 +1090,7 @@ impl X86_64Vcpu {
             jit_verify_vsib_stop: None,
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
             jit_vsib_resume_pc: None,
+            user: None,
         }
     }
 
@@ -1339,7 +1342,7 @@ impl X86_64Vcpu {
     /// Compute what rflags would be if lazy flags were materialized (without modifying self).
     /// Used by get_state() to return accurate flags via &self.
     #[inline]
-    fn compute_materialized_rflags(&self) -> u64 {
+    pub(super) fn compute_materialized_rflags(&self) -> u64 {
         let lf = self.lazy_flags;
         if lf.op == LazyFlagOp::None {
             return self.regs.rflags; // Already materialized
@@ -2231,7 +2234,7 @@ impl X86_64Vcpu {
     /// entries are scanned. Runnable JIT regions retain their exact source-page
     /// sets; hotness and ineligible memos retain the conservative entry-page or
     /// preceding-page test implied by the ≤512-byte lift window.
-    fn invalidate_code_page(&mut self, page_base: u64) {
+    pub(super) fn invalidate_code_page(&mut self, page_base: u64) {
         for idx in 0..DECODE_CACHE_SIZE {
             let entry = &mut self.decode_cache[idx];
             // Use bytes_len (not rip) as the validity sentinel — matching the
@@ -3071,6 +3074,7 @@ impl X86_64Vcpu {
                             })?;
                         Ok(None)
                     }
+                    Err(e @ Error::GuestEvent { .. }) => Err(e),
                     Err(e) => Err(Error::FaultDelivery {
                         fault: Box::new(Error::PageFault { vaddr, error_code }),
                         diagnosis: format!(
@@ -3081,9 +3085,15 @@ impl X86_64Vcpu {
             }
             Err(Error::GeneralProtection { error_code }) => {
                 self.inject_exception(13, Some(error_code))
-                    .map_err(|e| Error::FaultDelivery {
-                        fault: Box::new(Error::GeneralProtection { error_code }),
-                        diagnosis: format!("#GP (error_code={error_code:#x}) delivery failed: {e}"),
+                    .map_err(|e| match e {
+                        // User mode reports the #GP instead of delivering it.
+                        e @ Error::GuestEvent { .. } => e,
+                        e => Error::FaultDelivery {
+                            fault: Box::new(Error::GeneralProtection { error_code }),
+                            diagnosis: format!(
+                                "#GP (error_code={error_code:#x}) delivery failed: {e}"
+                            ),
+                        },
                     })?;
                 Ok(None)
             }

@@ -5,6 +5,7 @@ use crate::vm::vcpu::{Segment, VcpuExit};
 
 use super::control_regs::raise_gp0;
 use crate::isa::x86_64::cpu::{InsnContext, X86_64Vcpu};
+use crate::isa::x86_64::user_mode::{X86SyscallInsn, X86UserTrap};
 
 const EFER_SCE: u64 = 1 << 0;
 const EFER_LMA: u64 = 1 << 10;
@@ -81,6 +82,21 @@ pub fn syscall(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vc
     let next_rip = vcpu.regs.rip + ctx.cursor as u64;
     vcpu.regs.rcx = next_rip;
     vcpu.regs.r11 = vcpu.regs.rflags;
+
+    // User mode: the embedder services the call. Leave the vCPU in the state
+    // the handler's SYSRET would restore (RIP = RCX, RFLAGS from R11 through
+    // the SYSRET mask) and report the trap.
+    if vcpu.user_mode_enabled() {
+        let insn_rip = vcpu.regs.rip;
+        vcpu.regs.rflags = (vcpu.regs.r11 & SYSRET_RFLAGS_MASK) | 0x2;
+        vcpu.regs.rip = next_rip;
+        vcpu.record_user_trap(X86UserTrap::SystemCall {
+            insn: X86SyscallInsn::Syscall,
+            insn_rip,
+        });
+        return Ok(Some(VcpuExit::SystemCall));
+    }
+
     vcpu.regs.rflags &= !vcpu.sregs.fmask;
 
     let star = vcpu.sregs.star;
@@ -100,9 +116,11 @@ pub fn sysret(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
         return vcpu.inject_undefined_instruction();
     }
 
+    // SDM Vol. 2B SYSRET operation: #GP(0) when CPL != 0, checked after the
+    // #UD conditions and before RCX canonicality.
     let cpl = (vcpu.sregs.cs.selector & 0x3) as u8;
     if cpl != 0 {
-        return Err(Error::Emulator("SYSRET requires CPL=0".to_string()));
+        return raise_gp0(vcpu);
     }
 
     let is_64 = ctx.rex_w();

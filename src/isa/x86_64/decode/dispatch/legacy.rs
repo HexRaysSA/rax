@@ -53,6 +53,11 @@ impl X86_64Vcpu {
             // test harness uses HLT as a universal terminator from any CPL (incl.
             // ring 3 after SYSEXIT/SYSRET), so it is intentionally NOT gated here.
             0xF4 => {
+                // User mode enforces the architectural CPL 0 requirement.
+                if self.user_mode_enabled() && self.sregs.cs.selector & 3 != 0 {
+                    self.inject_exception(13, Some(0))?;
+                    return Ok(None);
+                }
                 self.regs.rip += ctx.cursor as u64;
                 self.halted = true;
                 Ok(Some(VcpuExit::Hlt))

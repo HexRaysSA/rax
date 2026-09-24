@@ -225,6 +225,29 @@ impl GuestMemoryWrapper {
     }
 }
 
+/// Linear-address translation supplied by a process-level (user-mode)
+/// emulator.
+///
+/// A vCPU with a flat translation installed does not walk guest paging
+/// structures. Each guest linear access is translated by this object, which
+/// also enforces per-page read, write, and execute permission, and the
+/// returned address indexes the vCPU's guest memory. The translation is
+/// consulted one page at a time: `linear` and the returned address share the
+/// same offset within the 4 KiB page, so the caller splits page-crossing
+/// accesses.
+///
+/// Implementations must be internally synchronized (`Sync`): several vCPUs of
+/// one guest process share a translation.
+pub trait FlatTranslation: Send + Sync {
+    /// Translates `linear` for an access of kind `access`, returning the
+    /// guest-memory address or the fault an ordinary user access would raise.
+    fn translate(
+        &self,
+        linear: u64,
+        access: crate::error::MemoryAccessKind,
+    ) -> std::result::Result<u64, crate::error::GuestMemoryFault>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

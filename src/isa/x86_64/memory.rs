@@ -8,6 +8,7 @@ use crate::devices::pci::PciStub;
 use vm_memory::{Bytes, GuestAddress, GuestMemory, GuestMemoryMmap};
 
 use crate::error::{Error, GuestMemoryFault, MemoryAccessKind, Result};
+use crate::vm::memory::FlatTranslation;
 use crate::vm::timing;
 use crate::vm::vcpu::SystemRegisters;
 
@@ -453,6 +454,10 @@ pub struct Mmu {
     fetch_active: bool,
     /// Buffer of recorded accesses, drained at each instruction boundary.
     mem_rec: Vec<crate::vm::vcpu::MemRecord>,
+    /// User-mode linear translation. When installed it replaces paging and
+    /// the TLB entirely (see `crate::isa::x86_64::user_mode`); `None` keeps
+    /// system-emulation translation unchanged.
+    flat: Option<Arc<dyn FlatTranslation>>,
 }
 
 impl Mmu {
@@ -492,7 +497,22 @@ impl Mmu {
             mem_rec_on: false,
             fetch_active: false,
             mem_rec: Vec::new(),
+            flat: None,
         }
+    }
+
+    /// Installs (or removes) a user-mode flat translation. While installed,
+    /// every linear access is translated and permission-checked by it, and
+    /// instruction fetches are checked as executes.
+    pub fn set_flat_translation(&mut self, flat: Option<Arc<dyn FlatTranslation>>) {
+        self.flat = flat;
+        self.flush_tlb();
+    }
+
+    /// Whether a user-mode flat translation is installed.
+    #[inline(always)]
+    pub fn has_flat_translation(&self) -> bool {
+        self.flat.is_some()
     }
 
     /// Enable/disable per-access memory recording (see [`Mmu::mem_rec`]).
@@ -808,6 +828,22 @@ impl Mmu {
         access: AccessType,
         sregs: &SystemRegisters,
     ) -> Result<u64> {
+        // User mode: the installed translation replaces paging. Long mode
+        // still requires canonical linear addresses (SDM Vol. 1 §3.3.7.1), and
+        // a non-canonical access is #GP(0), never a page fault.
+        if let Some(flat) = self.flat.as_deref() {
+            if self.long_mode(sregs) && !Self::is_canonical(vaddr) {
+                return Err(Error::GeneralProtection { error_code: 0 });
+            }
+            let kind = match access {
+                AccessType::Write => MemoryAccessKind::Write,
+                AccessType::Execute => MemoryAccessKind::Fetch,
+                AccessType::Read if self.fetch_active => MemoryAccessKind::Fetch,
+                AccessType::Read => MemoryAccessKind::Read,
+            };
+            return flat.translate(vaddr, kind).map_err(Error::from);
+        }
+
         // If paging is disabled, virtual = physical
         if !self.paging_enabled(sregs) {
             return Ok(vaddr);

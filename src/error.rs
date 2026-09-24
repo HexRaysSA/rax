@@ -44,6 +44,11 @@ pub enum Error {
     PageFault { vaddr: u64, error_code: u64 },
     #[error("General protection fault (error_code={error_code:#x})")]
     GeneralProtection { error_code: u64 },
+    /// An exception or software interrupt was reported to a user-mode
+    /// embedder instead of being delivered through guest descriptor tables.
+    /// The instruction did not retire; the vCPU records the full event.
+    #[error("guest event vector {vector} reported to the user-mode embedder")]
+    GuestEvent { vector: u8 },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

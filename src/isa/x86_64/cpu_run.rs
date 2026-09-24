@@ -100,6 +100,12 @@ impl X86_64Vcpu {
                     return Ok(exit);
                 }
                 Ok(None) => {
+                    // Defensive: an event recorded by a path that did not
+                    // propagate the report must still end the user-mode run.
+                    if let Some(vector) = self.user_trap_pending() {
+                        publish_instruction_count(self.insn_count);
+                        return Err(Error::GuestEvent { vector });
+                    }
                     #[cfg(all(
                         feature = "smir-jit",
                         any(target_arch = "x86_64", target_arch = "aarch64")
@@ -145,6 +151,10 @@ impl X86_64Vcpu {
                                 }
                             }
                         }
+                        Err(e @ Error::GuestEvent { .. }) => {
+                            publish_instruction_count(self.insn_count);
+                            return Err(e);
+                        }
                         Err(e) => {
                             // IDT entry not present or other error during #PF injection
                             return Err(Error::FaultDelivery {
@@ -164,6 +174,11 @@ impl X86_64Vcpu {
                     // Unlike #PF, a #GP does not set CR2.
                     match self.inject_exception(13, Some(error_code)) {
                         Ok(()) => continue,
+                        Err(e @ Error::GuestEvent { .. }) => {
+                            // User mode reports the #GP instead of delivering it.
+                            publish_instruction_count(self.insn_count);
+                            return Err(e);
+                        }
                         Err(e) => {
                             publish_instruction_count(self.insn_count);
                             return Err(Error::FaultDelivery {

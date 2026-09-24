@@ -78,6 +78,12 @@ pub enum VcpuExit {
     /// Software interrupt or exception.
     Exception(u8),
 
+    /// The guest executed its system-call instruction (x86-64 `SYSCALL` or
+    /// `SYSENTER`) while the vCPU runs in user mode, where system calls are
+    /// serviced by the embedder instead of a guest kernel. The instruction has
+    /// retired; backend-specific accessors describe the trap.
+    SystemCall,
+
     /// GDB breakpoint hit.
     #[cfg(feature = "debug")]
     GdbBreakpoint {
