@@ -124,15 +124,16 @@ hosts ([usage](../getting-started/linux-programs.md),
 
 - `binfmt_elf`-equivalent loading, initial stack, and auxiliary vector (unit-tested against hand-derived kernel layouts);
 - exact page-permission enforcement and Linux fault classification (unit-tested, including a model-based differential);
-- 161 system calls across descriptors, paths, memory management, identity, limits, clocks, and signal dispositions;
-- nine static musl fixture programs on each ISA match output and exit status recorded on a Linux kernel (differential-tested for that corpus; one RV64 expectation is the AArch64 kernel's result for architecture-independent memory-management code, because the RV64 translator emulates those calls);
+- 168 system calls across descriptors, paths, memory management, identity, limits, clocks, and signals;
+- signal delivery: queueing and dequeue order, default actions, handlers with each architecture's `rt_sigframe` (x86-64 XSAVE state, AArch64 FP/SIMD and ESR records, RV64 FP and vector state), `rt_sigreturn`, alternate stacks, `SA_*` flags, and system-call restart (unit-tested against kernel layouts on every ISA);
+- ten static musl fixture programs on each ISA match output and exit status recorded on Linux (differential-tested for that corpus; the RV64 `mman` expectation is the AArch64 kernel's result for architecture-independent memory-management code the RV64 translator emulates, and the x86-64 `signals` expectation comes from QEMU user mode because the x86-64 translator, Rosetta, mishandles `SA_RESETHAND`);
 - dynamically linked programs load their interpreter and libraries through `--sysroot`: Alpine Linux 3.24 BusyBox (`ld-musl`, AArch64 and x86-64) runs shell, text-processing, hashing, and file applets (demonstrated, not differential-tested).
 
 ### Required user-mode qualifications
 
-- signal handlers are recorded but not invoked; handled signals terminate the process with their default action;
+- signals come only from the guest itself: host signals are not forwarded, `kill` of another PID is `ESRCH`, a wait for a signal that nothing can send ends the process, and there are no interval timers;
 - one guest thread; `clone`, `fork`, `vfork`, and `execve` are unsupported;
-- no vDSO; the x86-64 `INT 0x80` (i386) ABI returns `-ENOSYS`;
+- no vDSO image (AArch64 and RV64 map a `[vdso]` page holding only the signal-return trampoline, and no `AT_SYSINFO_EHDR` is given); the x86-64 `INT 0x80` (i386) ABI returns `-ENOSYS`;
 - no sockets, `epoll`, `eventfd`, or signal-based timers; writable `MAP_SHARED` file mappings do not write back;
 - `madvise` guard regions (`MADV_GUARD_INSTALL`/`REMOVE`) are refused with `EINVAL`, `MADV_REMOVE` on a shared host-file mapping reports `EOPNOTSUPP`, and `mlock` does not set `VM_LOCKED`;
 - terminal attribute changes are not applied to the host terminal.

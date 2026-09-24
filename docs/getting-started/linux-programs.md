@@ -34,7 +34,7 @@ host's. The exit status is the guest's:
 | Status | Meaning |
 |---|---|
 | `0`–`255` | The program called `exit`/`exit_group` with this value (mod 256). |
-| `128 + N` | Signal `N` killed the program (for example 139 for `SIGSEGV`). A diagnostic line with the signal, `si_code`, fault address, and PC goes to standard error. |
+| `128 + N` | Signal `N` killed the program (for example 139 for `SIGSEGV`). A diagnostic line with the signal, `si_code`, the fault address or sending PID, and the PC goes to standard error. |
 | `125` | The emulator could not continue (for example a deadlock with no runnable thread). |
 | `126` | The file is not an executable for a supported ABI, or loading it failed. |
 | `127` | The file does not exist. |
@@ -85,10 +85,13 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
 These are tracked in [Status and limitations](../reference/status-and-limitations.md)
 and in the [user-mode architecture page](../architecture/user-mode.md):
 
-- Signal handlers are recorded but not yet invoked: a signal whose
-  disposition is a handler terminates the process as its default action
-  would. Fatal default actions, `SIG_IGN`, and ignored-by-default signals
-  behave as on Linux.
+- Signals come only from the guest itself (faults, `kill`/`tgkill`/
+  `sigqueue` to its own PID, `SIGPIPE`): host signals such as Ctrl-C act on
+  `rax-user` with their host default, `kill` of any other PID fails with
+  `ESRCH`, and a wait for a signal with no timeout (`pause`, `sigsuspend`)
+  that nothing can end stops the process with a diagnostic. There are no
+  interval timers (`alarm`, `setitimer`, `timer_create`). A stop signal's
+  default action stops the `rax-user` process itself.
 - A single guest thread runs; `clone`, `fork`, `vfork`, and `execve` are not
   yet implemented, and a futex wait with no timeout ends the process with a
   deadlock diagnostic.

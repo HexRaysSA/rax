@@ -102,9 +102,27 @@ code comments name the kernel function each rule comes from.
   (`INT3`/`INTO` DPL-3 gates, other `INT n` as #GP, #DE → `FPE_INTDIV`, #XM
   code from MXCSR), AArch64 `traps.c`/`fault.c` (`BRK` → `TRAP_BRKPT`,
   undefined and EL1-only accesses → `ILL_ILLOPC`), and RISC-V `traps.c`.
-- **System calls.** 161 calls across descriptors and I/O, paths and
-  metadata, memory management, identity and limits, clocks, and signal
-  dispositions, each validated in the kernel's order so the first failing
+- **Signals.** Generation, queueing, and delivery follow `kernel/signal.c`:
+  per-thread and process pending sets with the kernel's dequeue order
+  (faults first, then the lowest number), coalesced standard signals and
+  queued real-time signals, ignore-at-generation, `SIGCONT`/stop
+  cancellation, forced synchronous signals, and default actions. Delivery
+  runs on every return to user mode and nests a frame for each deliverable
+  signal. Frames are each architecture's `rt_sigframe`, byte for byte:
+  x86-64 with the 64-byte-aligned XSAVE area, `_fpx_sw_bytes`, and
+  `FP_XSTATE_MAGIC2`, and handlers starting in the initial FPU state;
+  AArch64 with the FP/SIMD record, the ESR record after a fault, and the
+  frame record; RV64 with the D registers and, on a core with V, the vector
+  record. `rt_sigreturn` validates as the kernel does (x86 `XRSTOR` header
+  and MXCSR checks, arm64 `valid_user_regs` and record parsing, riscv
+  extension headers). Interrupted system calls return the internal restart
+  codes, resolved per `SA_RESTART` as `arch_do_signal_or_restart` does.
+  Handlers without `SA_RESTORER` (all RV64 handlers, AArch64 handlers that
+  omit it) return through a `[vdso]` page holding the vDSO's trampoline
+  instructions.
+- **System calls.** 168 calls across descriptors and I/O, paths and
+  metadata, memory management, identity and limits, clocks, and signals,
+  each validated in the kernel's order so the first failing
   check determines the `errno`. Host `errno` values are translated by name.
   Memory calls act VMA by VMA as `mm/mprotect.c` and `mm/madvise.c` do,
   including partial application before a failing VMA or hole; the Linux VMA
@@ -126,12 +144,13 @@ code comments name the kernel function each rule comes from.
 |---|---|
 | ELF acceptance matches `binfmt_elf` | Unit tests in `src/user/image/elf/tests.rs`, including a 20,000-image corruption sweep |
 | Address-space semantics | Unit tests in `src/user/mm/tests.rs`, including a randomized model-based differential (8 seeds × 3,000 operations) |
-| x86-64 user-mode contract | `src/isa/x86_64/user_mode_tests.rs` (21 tests; the JIT-invalidation test is discriminating on x86-64 hosts) |
+| x86-64 user-mode contract | `src/isa/x86_64/user_mode_tests.rs` (27 tests; the JIT-invalidation test is discriminating on x86-64 hosts; the XSAVE-image tests compare with the `XSAVE`/`XRSTOR` instructions) |
 | Adapter contracts | `src/user/cpu/tests.rs` (21 tests across the three ISAs, including JIT/interpreter agreement on RISC-V) |
 | Loader and stack layout | `src/user/linux/tests/{loader,stack}.rs` with addresses derived by hand from the kernel algorithms |
+| Signals | `src/user/linux/signal/tests.rs` (records, queues, alternate stacks) and `src/user/linux/tests/signals.rs` (frames, `rt_sigreturn`, restart, and the signal calls on every ABI, with offsets from the UAPI structures) |
 | Memory-management system calls | `src/user/linux/tests/syscall_mm.rs`: `mprotect`, `madvise`, and `personality` driven through `dispatch` on every ABI, expectations from the named kernel functions |
 | Syscall and errno numbering | `user_linux` `abi_tables` against the vendored UAPI headers |
-| End-to-end behavior | `user_linux` `fixtures`: 9 programs × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
+| End-to-end behavior | `user_linux` `fixtures`: 10 programs × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
 
 **Differential-tested** here means that, for the fixture programs and
 inputs in `tests/fixtures/user/linux`, output and exit status equal what the
