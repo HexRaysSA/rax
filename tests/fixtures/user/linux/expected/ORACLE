@@ -37,3 +37,5 @@ override: riscv64/shmem from aarch64 (qemu-riscv64 refuses mremap's zero old len
 override: riscv64/memfd from aarch64 (qemu-riscv64 does not implement MADV_REMOVE)
 override: x86_64/pidfd from aarch64 (Rosetta returns ENOSYS for pidfd_getfd and clone3)
 override: riscv64/pidfd from aarch64 (qemu-riscv64 does not translate PIDFD_GET_INFO or FS_IOC_GETVERSION, writes waitid's siginfo on failure, returns ENOSYS for clone3, and accepts CLONE_DETACHED with CLONE_PIDFD)
+override: x86_64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's status-flag encoding, which Rosetta does not convert)
+override: riscv64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's status-flag encoding, which qemu-riscv64 does not convert)

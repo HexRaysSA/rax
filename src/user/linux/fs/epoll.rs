@@ -215,6 +215,17 @@ impl Epoll {
             .collect()
     }
 
+    /// Every live item as `ep_show_fdinfo` lists it: the descriptor number
+    /// it was added under, its events (with `EPOLLERR | EPOLLHUP` and the
+    /// private bits), its data, and its file, in insertion order.
+    pub fn listing(&self) -> Vec<(i32, u32, u64, Arc<OpenFile>)> {
+        let st = self.state.lock().unwrap();
+        st.items
+            .iter()
+            .filter_map(|i| i.file.upgrade().map(|f| (i.fd, i.events, i.data, f)))
+            .collect()
+    }
+
     /// Links the items `polled` (one per item of [`Epoll::items`]) shows
     /// ready, as their wake-ups would have, and records what they report.
     pub fn scan(&self, items: &[Interest], polled: &[Polled]) {

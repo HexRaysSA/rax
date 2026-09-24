@@ -17,6 +17,7 @@
 //! | [`stack`] | Initial stack and auxiliary vector |
 //! | [`fs`] | Guest paths, the sysroot overlay, open files, descriptors |
 //! | [`procfs`] | Synthesized `/proc` and `/sys` entries |
+//! | [`fdinfo`] | `/proc/<pid>/fdinfo` |
 //! | [`process`] | Processes and threads |
 //! | [`sched`] | Running threads on the one emulated CPU |
 //! | [`syscall`] | System-call dispatch and handlers |
@@ -32,6 +33,7 @@ pub mod abi;
 pub mod arch;
 pub mod children;
 pub mod exec;
+pub mod fdinfo;
 pub mod fs;
 pub mod futex;
 pub mod host;

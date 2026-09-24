@@ -223,6 +223,16 @@ pub fn poll(c: &Ctx<'_>, t: &Target) -> (Polled, Wait) {
     (Polled { mask, level: 0 }, wait)
 }
 
+/// The `Pid:` and `NSpid:` lines of a pidfd's `fdinfo`
+/// (`pidfd_show_fdinfo`): the task's ID, `-1` once it is gone.
+pub fn fdinfo(p: &ProcState, own: &dyn Fn(i32) -> bool, t: &Target) -> String {
+    let nr = match state_of(p, own, t) {
+        Task::Gone(_) => -1,
+        _ => t.tid,
+    };
+    format!("Pid:\t{nr}\nNSpid:\t{nr}\n")
+}
+
 /// The target and signal scope of `pidfd_send_signal`'s descriptor: the
 /// caller itself for `PIDFD_SELF_*`, a pidfd's task (a thread for a
 /// `PIDFD_THREAD` pidfd), or the process whose `/proc/<pid>` directory the

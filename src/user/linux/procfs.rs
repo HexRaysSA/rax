@@ -53,7 +53,7 @@ fn dir(names: &[&str]) -> ProcEntry {
     use super::fs::fd::dt::{DT_DIR, DT_LNK, DT_REG};
     for (i, n) in names.iter().enumerate() {
         let dtype = match *n {
-            "fd" | "task" | "self" | "thread-self" => DT_DIR,
+            "fd" | "fdinfo" | "task" | "self" | "thread-self" => DT_DIR,
             "exe" | "cwd" | "root" => DT_LNK,
             _ => DT_REG,
         };
@@ -321,7 +321,7 @@ pub fn lookup(p: &ProcState, cur: &Thread, threads: &[&Thread], guest: &str) -> 
         return process_entry(p, leader, threads, rest);
     }
     if let Some(rest) = under("/proc/thread-self") {
-        return thread_entry(p, cur, threads.len(), rest, false);
+        return thread_entry(p, cur, threads, rest, false);
     }
     if let Some(num) = path.strip_prefix("/proc/") {
         let (id, rest) = num.split_once('/').unwrap_or((num, ""));
@@ -330,7 +330,7 @@ pub fn lookup(p: &ProcState, cur: &Thread, threads: &[&Thread], guest: &str) -> 
                 return process_entry(p, leader, threads, rest);
             }
             // /proc/<tid> of another thread: not listed, but present.
-            return find(id).and_then(|t| thread_entry(p, t, threads.len(), rest, true));
+            return find(id).and_then(|t| thread_entry(p, t, threads, rest, true));
         }
     }
     match path {
@@ -425,7 +425,7 @@ fn process_entry(p: &ProcState, t: &Thread, threads: &[&Thread], rest: &str) -> 
         let (id, rest) = task.split_once('/').unwrap_or((task, ""));
         let id = id.parse::<i32>().ok()?;
         let th = threads.iter().copied().find(|t| t.tid == id)?;
-        return thread_entry(p, th, threads.len(), rest, false);
+        return thread_entry(p, th, threads, rest, false);
     }
     // The process's comm is the leader's, kept after it exits.
     if rest == "comm" && t.tid != p.pid {
@@ -433,7 +433,7 @@ fn process_entry(p: &ProcState, t: &Thread, threads: &[&Thread], rest: &str) -> 
         text.push(b'\n');
         return Some(ProcEntry::Comm { tid: p.pid, text });
     }
-    thread_entry(p, t, threads.len(), rest, true)
+    thread_entry(p, t, threads, rest, true)
 }
 
 /// `.` and `..`.
@@ -457,16 +457,17 @@ fn dot_entries() -> Vec<DirEntry> {
 fn thread_entry(
     p: &ProcState,
     t: &Thread,
-    threads: usize,
+    all: &[&Thread],
     rest: &str,
     process: bool,
 ) -> Option<ProcEntry> {
+    let threads = all.len();
     let file = |v: Vec<u8>| Some(ProcEntry::File(v));
     match rest {
         "" => {
             let mut names = vec![
-                "auxv", "cmdline", "comm", "cwd", "environ", "exe", "fd", "maps", "root", "stat",
-                "status",
+                "auxv", "cmdline", "comm", "cwd", "environ", "exe", "fd", "fdinfo", "maps", "root",
+                "stat", "status",
             ];
             if process {
                 names.push("task");
@@ -497,6 +498,22 @@ fn thread_entry(
                 });
             }
             Some(ProcEntry::Dir(v))
+        }
+        "fdinfo" => {
+            let mut v = dot_entries();
+            for fd in p.fds.open_fds() {
+                v.push(DirEntry {
+                    ino: PROC_INO + 0x2000 + fd as u64,
+                    dtype: super::fs::fd::dt::DT_REG,
+                    name: fd.to_string().into_bytes(),
+                });
+            }
+            Some(ProcEntry::Dir(v))
+        }
+        _ if rest.starts_with("fdinfo/") => {
+            let n = rest.strip_prefix("fdinfo/")?.parse::<i32>().ok()?;
+            let own = |tid: i32| all.iter().any(|t| t.tid == tid);
+            super::fdinfo::fdinfo(p, &own, n).map(ProcEntry::File)
         }
         _ => {
             let n = rest.strip_prefix("fd/")?.parse::<i32>().ok()?;

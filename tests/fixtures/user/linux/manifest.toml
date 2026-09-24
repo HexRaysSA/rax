@@ -117,6 +117,12 @@ target = "x86_64-linux-musl"
 sha256 = "bee3681529461335fafd9fa456ddf4b53e2b9c5c02e02391d26448b52b0172cf"
 
 [[fixture]]
+path = "bin/x86_64/fdinfo"
+source = "src/fdinfo.c"
+target = "x86_64-linux-musl"
+sha256 = "7c6491a33b961a5415318c725053b1ea442349093a0b12a8191db47beef94352"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -255,6 +261,12 @@ target = "aarch64-linux-musl"
 sha256 = "97ae8b4792c0b784237d6babc21df5df42af71848c3a4a1b2183244c25e4f8e4"
 
 [[fixture]]
+path = "bin/aarch64/fdinfo"
+source = "src/fdinfo.c"
+target = "aarch64-linux-musl"
+sha256 = "9e862528412fbdae982c8dd59a5b4fb9741c508fcb98eafc0c169c872c83a013"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -391,6 +403,12 @@ path = "bin/riscv64/pidfd"
 source = "src/pidfd.c"
 target = "riscv64-linux-musl"
 sha256 = "04ac2e0c4e12b905670067e2edd4eab67bb49f63076819255d60094366a523ea"
+
+[[fixture]]
+path = "bin/riscv64/fdinfo"
+source = "src/fdinfo.c"
+target = "riscv64-linux-musl"
+sha256 = "44053b496bf9c111ec8006994391e6cf8ae29710c071859632202f07d4b1a253"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

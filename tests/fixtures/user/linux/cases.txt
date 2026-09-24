@@ -23,6 +23,7 @@ sockmsg  sockmsg  -
 shmem    shmem    -
 memfd    memfd    -
 pidfd    pidfd    -
+fdinfo   fdinfo   -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

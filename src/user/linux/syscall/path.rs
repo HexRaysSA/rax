@@ -101,8 +101,9 @@ pub fn resolve(
     resolve_str(c, dirfd, &path, follow)
 }
 
-/// Metadata of a synthesized entry.
-fn proc_stat(c: &Ctx<'_>, e: &ProcEntry) -> Stat {
+/// Metadata of a synthesized entry, owned by `ids` (effective UID and
+/// GID).
+fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
     let (m, size) = match e {
         ProcEntry::File(d) => (mode::S_IFREG | 0o444, d.len() as i64),
         ProcEntry::Comm { .. } => (mode::S_IFREG | 0o644, 0),
@@ -117,8 +118,8 @@ fn proc_stat(c: &Ctx<'_>, e: &ProcEntry) -> Stat {
         ino: 0x5241_5800,
         mode: m,
         nlink: 1,
-        uid: c.p.creds.1,
-        gid: c.p.creds.3,
+        uid: ids.0,
+        gid: ids.1,
         size,
         blksize: 1024,
         blocks: 0,
@@ -131,6 +132,12 @@ fn proc_stat(c: &Ctx<'_>, e: &ProcEntry) -> Stat {
 
 /// Metadata of an open file.
 pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
+    stat_open(file, (c.p.creds.1, c.p.creds.3))
+}
+
+/// Metadata of an open file of a process whose effective UID and GID are
+/// `ids` (the owner of the inodes it creates).
+pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
     match &file.object {
         FileObject::Host(f) => Ok(fs::stat_from_metadata(&f.metadata()?)),
         FileObject::PathOnly => {
@@ -141,8 +148,8 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
             dev_minor: 0xe,
             mode: mode::S_IFIFO | 0o600,
             nlink: 1,
-            uid: c.p.creds.1,
-            gid: c.p.creds.3,
+            uid: ids.0,
+            gid: ids.1,
             blksize: 4096,
             ..Default::default()
         }),
@@ -164,8 +171,8 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
             ino: 0x5241_5801,
             mode: 0o600,
             nlink: 1,
-            uid: c.p.creds.1,
-            gid: c.p.creds.3,
+            uid: ids.0,
+            gid: ids.1,
             blksize: 4096,
             ..Default::default()
         }),
@@ -176,13 +183,13 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
             ino: s.ino,
             mode: mode::S_IFSOCK | 0o777,
             nlink: 1,
-            uid: c.p.creds.1,
-            gid: c.p.creds.3,
+            uid: ids.0,
+            gid: ids.1,
             blksize: 4096,
             ..Default::default()
         }),
         FileObject::Synthetic(d) => Ok(proc_stat(
-            c,
+            ids,
             &if file.ftype == FileType::Directory {
                 ProcEntry::Dir(Vec::new())
             } else {
@@ -200,7 +207,7 @@ fn stat_target(c: &Ctx<'_>, t: &Target, follow: bool) -> Result<Stat, Errno> {
             let target = resolve_str(c, AT_FDCWD, link, true)?;
             stat_target(c, &target, true)
         }
-        Target::Proc(e, _) => Ok(proc_stat(c, e)),
+        Target::Proc(e, _) => Ok(proc_stat((c.p.creds.1, c.p.creds.3), e)),
         Target::Host { host, .. } => {
             let m = if follow {
                 std::fs::metadata(host)?

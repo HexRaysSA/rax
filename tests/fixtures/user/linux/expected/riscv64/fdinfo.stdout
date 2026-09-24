@@ -1,0 +1,21 @@
+ok file
+ok file-cloexec
+ok directory
+ok pipe-read
+ok pipe-write
+ok socket
+ok listed
+ok closed
+ok pidfd
+ok pidfd-child
+ok pidfd-reaped
+ok eventfd
+ok eventfd-count
+ok timerfd-idle
+ok timerfd-armed
+ok timerfd-fired
+ok signalfd
+ok epoll-empty
+ok epoll-item
+ok epoll-closed
+PASSED

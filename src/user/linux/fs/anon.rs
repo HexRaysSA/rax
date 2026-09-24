@@ -145,6 +145,32 @@ pub struct EventFd {
     /// Words: lock, count, flags.
     words: SharedWords,
     levels: Levels,
+    /// Its ID (`eventfd_ida`), shown in `fdinfo`.
+    pub id: u32,
+}
+
+/// The `eventfd` IDs in use in this process (`eventfd_ida`, which is
+/// system-wide in the kernel).
+static EVENTFD_IDS: std::sync::Mutex<std::collections::BTreeSet<u32>> =
+    std::sync::Mutex::new(std::collections::BTreeSet::new());
+
+/// `ida_alloc`: takes the smallest ID not in `ids`.
+fn take_id(ids: &mut std::collections::BTreeSet<u32>) -> u32 {
+    let id = (0..).find(|i| !ids.contains(i)).unwrap_or(0);
+    ids.insert(id);
+    id
+}
+
+/// A new `eventfd`'s ID.
+fn eventfd_id() -> u32 {
+    take_id(&mut EVENTFD_IDS.lock().unwrap())
+}
+
+impl Drop for EventFd {
+    /// `eventfd_free_ctx`: the ID is free again.
+    fn drop(&mut self) {
+        EVENTFD_IDS.lock().unwrap().remove(&self.id);
+    }
 }
 
 const EV_COUNT: usize = 1;
@@ -159,6 +185,7 @@ impl EventFd {
         let ev = EventFd {
             words: SharedWords::new(3)?,
             levels: Levels::new()?,
+            id: eventfd_id(),
         };
         {
             let l = Locked::new(ev.words.words());
@@ -425,6 +452,20 @@ impl TimerFd {
         self.pending_ticks(now) != 0
     }
 
+    /// What `timerfd_show` reports: the expirations counted since the last
+    /// read, the time to the next expiry (0 once it has passed), and the
+    /// period, without re-arming a periodic timer.
+    pub fn shown(&self, now: &dyn Fn(Base) -> i64) -> (u64, i64, i64) {
+        let l = Locked::new(self.words.words());
+        self.refresh(&l, now);
+        let value = if Self::flag(&l, TF_ARMED) {
+            Self::remaining(&l, now(Self::base(&l)))
+        } else {
+            0
+        };
+        (l.get(TF_TICKS), value, l.get(TF_INTERVAL) as i64)
+    }
+
     /// The expirations a read would count now, before the periods a
     /// periodic timer has missed since it fired.
     pub fn pending_ticks(&self, now: &dyn Fn(Base) -> i64) -> u64 {
@@ -475,5 +516,22 @@ impl SignalFd {
     /// Replaces the signals it reports.
     pub fn set_mask(&self, mask: u64) {
         self.words.words()[0].store(mask, Ordering::Release);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn eventfd_ids_are_the_smallest_free() {
+        let mut ids = std::collections::BTreeSet::new();
+        assert_eq!(
+            (take_id(&mut ids), take_id(&mut ids), take_id(&mut ids)),
+            (0, 1, 2)
+        );
+        ids.remove(&1);
+        assert_eq!(take_id(&mut ids), 1);
+        assert_eq!(take_id(&mut ids), 3);
     }
 }

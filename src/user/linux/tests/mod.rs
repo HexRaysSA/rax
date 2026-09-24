@@ -3,6 +3,7 @@
 mod epoll;
 mod events;
 mod exec;
+mod fdinfo;
 mod files;
 mod harness;
 mod loader;
