@@ -42,6 +42,7 @@ bdf4d76eb252ec7d00c9ba233e6a335d7637eb0c1fb716ab5b14be1a75368900  ./any-linux-an
 0eea3f047801b23ccd990e8437c7b50b73c45f37252e07c1def8453766eb05c2  ./any-linux-any/linux/mman.h
 0ecb69da3cfc3af11178f64acf5853cae888ea2578484164730817c65e1ecfb9  ./any-linux-any/linux/net.h
 179997e7ccf3b32755db80241e9e10d404b427328bcee5769bed7b2c0fd74701  ./any-linux-any/linux/openat2.h
+43b22191b61cb648a7a8be7bc8f6f8c7b6de383bc6153da9f42ade356131165d  ./any-linux-any/linux/pidfd.h
 03ab057be2900290154ff6070d76a913eee2ccbe63816263b4553a16ded66bf7  ./any-linux-any/linux/prctl.h
 d3f60857bd7910cb61d0525183e2ccffbb2bbf34efb1f7cdc4ebe410a474ad7a  ./any-linux-any/linux/random.h
 4955efe2ff2de7d706ff1cf2f613f0e2a4147ea56ea6470d81d657a7be3f71c9  ./any-linux-any/linux/resource.h

@@ -15,7 +15,7 @@
   generated `asm/unistd_{32,64}.h` tables.
 - Retrieved: 24 September 2026
 - Integrity: `uapi-6.19.sha256` lists the SHA-256 of every imported file.
-- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (67 files),
+- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (68 files),
   `GPL-2.0-only WITH Linux-syscall-note` (5 files), or
   `GPL-2.0+ WITH Linux-syscall-note` (7 files) SPDX identifiers. Nine
   files have no SPDX line: the six generated syscall tables and the
@@ -38,7 +38,7 @@ These headers are the normative reference for:
   ARM EABI);
 - `errno` values (`asm-generic/errno-base.h`, `asm-generic/errno.h`);
 - open, `fcntl`, `mmap`, `clone`, `futex`, `prctl`, timer/event/signal
-  descriptor (`timerfd.h`, `eventfd.h`, `signalfd.h`), `memfd.h`, and signal constant
+  descriptor (`timerfd.h`, `eventfd.h`, `signalfd.h`), `memfd.h`, `pidfd.h`, and signal constant
   encodings, including the ARM/AArch64 `O_DIRECTORY`/`O_NOFOLLOW`/`O_DIRECT`/
   `O_LARGEFILE` divergence from `asm-generic/fcntl.h`;
 - structure layouts marshalled across the ABI (`struct stat`, `struct statx`,

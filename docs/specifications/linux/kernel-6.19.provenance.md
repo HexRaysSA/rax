@@ -10,8 +10,8 @@
 - Retrieved: 24 September 2026
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (43 files),
-  `GPL-2.0-only` (25), `GPL-2.0-or-later` (18), `GPL-2.0+` (1), or
+- License: the files carry an SPDX identifier: `GPL-2.0` (45 files),
+  `GPL-2.0-only` (26), `GPL-2.0-or-later` (18), `GPL-2.0+` (1), or
   `GPL-1.0+` (1); `mm/memfd.c` and `mm/shmem.c` have none and state
   "This file is released under the GPL." in their headers. The license
   texts are the kernel tree's `LICENSES/preferred/GPL-2.0` and
@@ -39,6 +39,7 @@ behavior it reproduces beyond what the UAPI headers
 | Sleeping, timers, and restarts | `kernel/time/hrtimer.c`, `kernel/time/itimer.c`, `kernel/time/posix-timers.{c,h}`, `include/linux/posix-timers.h`, `kernel/time/posix-cpu-timers.c`, `kernel/time/alarmtimer.c`, `kernel/time/time.c`, `include/linux/restart_block.h` |
 | Timer, event, and signal descriptors | `fs/timerfd.c`, `fs/eventfd.c`, `fs/signalfd.c`, `fs/anon_inodes.c`, `fs/libfs.c` (`alloc_anon_inode`), `include/linux/{eventfd,timerfd}.h` (flag sets) |
 | `epoll` | `fs/eventpoll.c` |
+| pidfds | `kernel/pid.c` (`pidfd_open`, `pidfd_getfd`), `fs/pidfs.c` (poll, `PIDFD_GET_INFO`, the file's name and inode), `include/linux/pidfs.h`, `kernel/fork.c` (`pidfd_prepare`, `CLONE_PIDFD`), `kernel/signal.c` (`pidfd_send_signal`), `kernel/exit.c` (`waitid` with `P_PIDFD`) |
 | `memfd_create` and file seals | `mm/memfd.c`, `include/linux/memfd.h`, `mm/shmem.c` (where seals are enforced: `shmem_setattr`, `shmem_fallocate`, `shmem_file_write_iter`, `shmem_mmap`) |
 | Sockets | `net/socket.c`, `net/unix/af_unix.c`, `net/core/sock.c`, `net/core/scm.c`, `net/ipv4/af_inet.c`, `net/ipv6/af_inet6.c`, `include/linux/socket.h`, `include/net/sock.h` |
 | Blocking I/O, `poll`, and `select` | `fs/select.c`, `fs/pipe.c`, `drivers/tty/n_tty.c` |
