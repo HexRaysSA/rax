@@ -378,3 +378,60 @@ pub fn set_tid_address(c: &mut Ctx<'_>, tidptr: u64) -> SysResult {
     c.t.clear_child_tid = tidptr;
     Ok(c.t.tid as u64)
 }
+
+/// `unshare` (`ksys_unshare`): the flags a request implies are added
+/// (`CLONE_NEWUSER` needs `CLONE_THREAD` and `CLONE_FS`, `CLONE_VM`
+/// `CLONE_SIGHAND`, which needs `CLONE_THREAD`, and `CLONE_NEWNS`
+/// `CLONE_FS`); unknown flags are `EINVAL`, and so is unsharing the thread
+/// group, signal handlers, or address space while other threads exist
+/// (`check_unshare_flags`). A process's threads share their descriptor
+/// table and file-system context, which a single thread need not unshare;
+/// a thread of several cannot have its own (`EINVAL`, as for `clone`).
+/// Namespaces need privileges the emulated process does not have
+/// (`EPERM`); without SysV semaphores there is no undo list to leave.
+pub fn unshare(c: &mut Ctx<'_>, flags: u64) -> SysResult {
+    const ALLOWED: u64 = CLONE_THREAD
+        | CLONE_FS
+        | CLONE_NEWNS
+        | CLONE_SIGHAND
+        | CLONE_VM
+        | CLONE_FILES
+        | CLONE_SYSVSEM
+        | CLONE_NEWUTS
+        | CLONE_NEWIPC
+        | CLONE_NEWNET
+        | CLONE_NEWUSER
+        | CLONE_NEWPID
+        | CLONE_NEWCGROUP
+        | CLONE_NEWTIME;
+    let mut flags = flags;
+    if flags & CLONE_NEWUSER != 0 {
+        flags |= CLONE_THREAD | CLONE_FS;
+    }
+    if flags & CLONE_VM != 0 {
+        flags |= CLONE_SIGHAND;
+    }
+    if flags & CLONE_SIGHAND != 0 {
+        flags |= CLONE_THREAD;
+    }
+    if flags & CLONE_NEWNS != 0 {
+        flags |= CLONE_FS;
+    }
+    if flags & !ALLOWED != 0 {
+        return Err(Errno(EINVAL));
+    }
+    let others = !c.peers.lo.is_empty() || !c.peers.hi.is_empty();
+    // thread_group_empty: the leader, alone.
+    let group_empty = c.t.tid == c.p.pid && !others;
+    if flags & (CLONE_THREAD | CLONE_SIGHAND | CLONE_VM) != 0 && !group_empty {
+        return Err(Errno(EINVAL));
+    }
+    // unshare_fs, unshare_fd: tables other threads share.
+    if flags & (CLONE_FILES | CLONE_FS) != 0 && others {
+        return Err(Errno(EINVAL));
+    }
+    if flags & NAMESPACES != 0 {
+        return Err(Errno(EPERM));
+    }
+    Ok(0)
+}

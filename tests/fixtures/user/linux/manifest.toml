@@ -30,7 +30,7 @@ sha256 = "8618c84b395d1848f4e788bc173e577ef517e34d19676a0b334956c39c04617a"
 path = "bin/x86_64/process"
 source = "src/process.c"
 target = "x86_64-linux-musl"
-sha256 = "a7bbe4b9ec493c1019ea3856c3a89442ef92021de780c80c26534990f9247e2d"
+sha256 = "ccaae81ede7f6bc3b7650ea8cbddba8f45b74b53a3b6cf37181523cbfb31508c"
 
 [[fixture]]
 path = "bin/x86_64/signals"
@@ -210,7 +210,7 @@ sha256 = "ac97760434195e8964e76ea91f2c89fef1f17e89235a60cd31534695ea84afad"
 path = "bin/aarch64/process"
 source = "src/process.c"
 target = "aarch64-linux-musl"
-sha256 = "bfff57525ef09c007f27ce68940a766e06ba341c91dbb38caabd4a6f9ca574d4"
+sha256 = "4538394131a5f270d4510025ba97054d62deb3013fbf5868652f9a9aa80bb62b"
 
 [[fixture]]
 path = "bin/aarch64/signals"
@@ -390,7 +390,7 @@ sha256 = "fdfbbaded3714c75ac7736e211b9ac9768ad7f011094b377ca55f52142133383"
 path = "bin/riscv64/process"
 source = "src/process.c"
 target = "riscv64-linux-musl"
-sha256 = "df28e95ed0553b56ccda40bc25cebc4fc1b5e6135cf8f51109b17ff648b2d84d"
+sha256 = "1a9b2ef5d3aa6f9bc46de64f6ce945c016dde793cdaca8f5768387143ab594d8"
 
 [[fixture]]
 path = "bin/riscv64/signals"

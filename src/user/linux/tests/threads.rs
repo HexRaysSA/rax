@@ -1,6 +1,6 @@
 //! Threads, driven through the system calls of chosen threads without
-//! executing guest code: `clone`/`clone3` (`kernel/fork.c` and the
-//! architectures' `copy_thread`), thread exit (`kernel/exit.c`,
+//! executing guest code: `clone`/`clone3` and `unshare` (`kernel/fork.c`
+//! and the architectures' `copy_thread`), thread exit (`kernel/exit.c`,
 //! `mm_release`, `exit_robust_list`), futexes (`kernel/futex/`), signal
 //! targeting (`complete_signal`, `retarget_shared_pending`), and the `/proc`
 //! thread views (`fs/proc/base.c`). Expectations come from those Linux 6.19
@@ -614,4 +614,37 @@ fn proc_shows_each_thread() {
     );
     assert_eq!(read_file(&mut h, "/proc/thread-self/comm"), b"main\n");
     assert_eq!(read_file(&mut h, "/proc/self/comm"), b"main\n");
+}
+
+#[test]
+fn unshare_follows_ksys_unshare() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let unshare = |h: &mut Harness, flags: u64| h.call(Sysno::Unshare, &[flags]);
+        // Alone, nothing needs unsharing.
+        assert_eq!(unshare(&mut h, 0), 0);
+        let alone =
+            CLONE_FILES | CLONE_FS | CLONE_SYSVSEM | CLONE_THREAD | CLONE_SIGHAND | CLONE_VM;
+        assert_eq!(unshare(&mut h, alone), 0);
+        // Unknown flags, before privilege.
+        assert_eq!(unshare(&mut h, CLONE_SETTLS), neg(EINVAL));
+        assert_eq!(unshare(&mut h, CLONE_SETTLS | CLONE_NEWNET), neg(EINVAL));
+        assert_eq!(unshare(&mut h, 1 << 40), neg(EINVAL));
+        // Namespaces need privileges.
+        assert_eq!(unshare(&mut h, CLONE_NEWUSER), neg(EPERM));
+        assert_eq!(unshare(&mut h, CLONE_NEWNS), neg(EPERM));
+        assert_eq!(unshare(&mut h, CLONE_NEWTIME), neg(EPERM));
+        // With another thread: the thread group, handlers, and address
+        // space are shared, and so (here) are the tables; implied flags
+        // count (CLONE_NEWUSER takes CLONE_THREAD before privilege).
+        spawn(&mut h, 0, 0);
+        assert_eq!(unshare(&mut h, 0), 0);
+        assert_eq!(unshare(&mut h, CLONE_SYSVSEM), 0);
+        for f in [CLONE_THREAD, CLONE_SIGHAND, CLONE_VM, CLONE_FILES, CLONE_FS] {
+            assert_eq!(unshare(&mut h, f), neg(EINVAL), "{f:#x}");
+        }
+        assert_eq!(unshare(&mut h, CLONE_NEWUSER), neg(EINVAL));
+        assert_eq!(unshare(&mut h, CLONE_NEWNS), neg(EINVAL));
+        assert_eq!(unshare(&mut h, CLONE_NEWNET), neg(EPERM));
+    });
 }

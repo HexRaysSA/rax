@@ -1,4 +1,4 @@
-/* Process identity, auxiliary vector, time, limits, and /proc. */
+/* Process identity, auxiliary vector, time, limits, /proc, and unshare. */
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <libgen.h>
@@ -92,6 +92,13 @@ int main(int argc, char **argv) {
     CHECK("proc-self-maps-exe", len > 0 && strstr(maps, basename(arg0)) != NULL);
     if (fd >= 0)
         close(fd);
+
+    /* unshare: nothing to unshare for a lone thread; unknown flags before
+     * privilege; a network namespace needs CAP_SYS_ADMIN. */
+    CHECK("unshare-nothing", unshare(0) == 0);
+    CHECK("unshare-alone", unshare(CLONE_FILES | CLONE_FS | CLONE_SYSVSEM) == 0);
+    CHECK_ERR("unshare-unknown", unshare(CLONE_SETTLS | CLONE_NEWNET), EINVAL);
+    CHECK_ERR("unshare-netns", unshare(CLONE_NEWNET), EPERM);
 
     CHECK_ERR("enosys", syscall(1000), ENOSYS);
     CHECK_ERR("bad-fd", close(4000), EBADF);

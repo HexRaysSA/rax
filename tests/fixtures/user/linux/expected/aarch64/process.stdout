@@ -30,6 +30,10 @@ ok proc-self-exe
 ok proc-self-maps-open
 ok proc-self-maps-stack
 ok proc-self-maps-exe
+ok unshare-nothing
+ok unshare-alone
+ok unshare-unknown
+ok unshare-netns
 ok enosys
 ok bad-fd
 ok efault
