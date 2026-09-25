@@ -117,6 +117,14 @@ pub enum Resume {
         /// Its transfer's progress.
         inner: Box<Resume>,
     },
+    /// `splice` holding bytes it took from a stream that its destination
+    /// has yet to take: the bytes it moved (these among them) and these.
+    Spliced {
+        /// Bytes moved, the held ones included.
+        done: u64,
+        /// Bytes taken and not yet written.
+        pending: Vec<u8>,
+    },
     /// `io_getevents` and `io_pgetevents`: the context, the events already
     /// copied, and the end of the wait.
     AioEvents {

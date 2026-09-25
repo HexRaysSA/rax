@@ -199,7 +199,8 @@ type Kept = HashMap<(u64, u64), Vec<File>>;
 static POSIX: Mutex<Option<Kept>> = Mutex::new(None);
 static ANY_POSIX: AtomicBool = AtomicBool::new(false);
 
-fn identity(fd: RawFd) -> Option<(u64, u64)> {
+/// A host descriptor's device and inode numbers.
+pub(crate) fn identity(fd: RawFd) -> Option<(u64, u64)> {
     // SAFETY: an all-zero `struct stat` is valid and fstat fills it in.
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
     // SAFETY: `st` outlives the call; a bad descriptor fails with EBADF.

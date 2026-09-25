@@ -30,6 +30,7 @@ mod rseq;
 mod seccomp;
 mod signals;
 mod sockets;
+mod splice;
 mod stack;
 mod syscall_mm;
 mod sysvmsg;

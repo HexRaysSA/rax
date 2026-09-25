@@ -45,6 +45,7 @@ mlock    mlock    -
 mseal    mseal    -
 rseq     rseq     -
 aio      aio      -
+splice   splice   -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

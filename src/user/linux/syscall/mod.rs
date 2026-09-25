@@ -65,6 +65,7 @@ pub mod ready;
 pub mod rseq;
 pub mod seccomp;
 pub mod signal;
+pub mod splice;
 pub mod task;
 pub mod thread;
 pub mod time;
@@ -618,6 +619,17 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Munlockall => r(mlock::munlockall(c)),
         S::Mseal => r(mseal::mseal(c, a[0], a[1], a[2])),
         S::Rseq => r(rseq::rseq(c, a[0], a[1] as u32, a[2] as i32, a[3] as u32)),
+        S::Splice => r(splice::splice(
+            c,
+            a[0] as i32,
+            a[1],
+            a[2] as i32,
+            a[3],
+            a[4],
+            a[5] as u32,
+        )),
+        S::Vmsplice => r(splice::vmsplice(c, a[0] as i32, a[1], a[2], a[3] as u32)),
+        S::Tee => r(splice::tee(c, a[0] as i32, a[1] as i32, a[2], a[3] as u32)),
         S::IoSetup => r(aio::io_setup(c, a[0] as u32, a[1])),
         S::IoDestroy => r(aio::io_destroy(c, a[0])),
         S::IoSubmit => r(aio::io_submit(c, a[0], a[1] as i64, a[2])),

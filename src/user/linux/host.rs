@@ -259,6 +259,19 @@ pub fn bytes_readable(fd: &impl AsRawFd) -> Result<i32, Errno> {
     if rc != 0 { Err(last_errno()) } else { Ok(n) }
 }
 
+/// `tee(2)` between two host pipes, never sleeping
+/// (`SPLICE_F_NONBLOCK`): the bytes copied.
+#[cfg(target_os = "linux")]
+pub fn tee(fd_in: i32, fd_out: i32, len: usize) -> Result<usize, Errno> {
+    // SAFETY: tee takes two descriptors, a length, and flags; no memory.
+    let n = unsafe { libc::tee(fd_in, fd_out, len, libc::SPLICE_F_NONBLOCK) };
+    if n < 0 {
+        Err(last_errno())
+    } else {
+        Ok(n as usize)
+    }
+}
+
 /// Readiness of one descriptor, as `poll(2)` reports it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Readiness {

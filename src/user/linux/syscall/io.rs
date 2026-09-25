@@ -52,7 +52,7 @@ fn ready_now(file: &OpenFile, write: bool) -> bool {
 /// with `-ERESTARTSYS`, as `pipe_read`, `pipe_write`, and `n_tty_read`
 /// return it; otherwise the thread sleeps until the descriptor is ready,
 /// with `resume` as its progress.
-fn wait_ready(c: &mut Ctx<'_>, file: &OpenFile, write: bool, resume: Resume) -> Errno {
+pub(super) fn wait_ready(c: &mut Ctx<'_>, file: &OpenFile, write: bool, resume: Resume) -> Errno {
     if c.signal_pending() {
         return Errno(ERESTARTSYS);
     }
@@ -292,7 +292,7 @@ pub fn write(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
 }
 
 /// Scatters `data` over `iovecs`, stopping at the first fault.
-fn scatter(c: &Ctx<'_>, iovecs: &[(u64, u64)], data: &[u8]) -> SysResult {
+pub(super) fn scatter(c: &Ctx<'_>, iovecs: &[(u64, u64)], data: &[u8]) -> SysResult {
     let mut done = 0usize;
     for &(base, len) in iovecs {
         if done == data.len() {
