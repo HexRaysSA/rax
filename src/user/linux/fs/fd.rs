@@ -555,7 +555,9 @@ impl FdTable {
         if self.slots.len() <= fd {
             self.slots.resize(fd + 1, None);
         }
-        self.slots[fd] = Some(Fd { file, cloexec });
+        if let Some(old) = self.slots[fd].replace(Fd { file, cloexec }) {
+            super::locks::filp_close(&old.file);
+        }
         Ok(())
     }
 
@@ -564,10 +566,13 @@ impl FdTable {
         if fd < 0 {
             return Err(Errno(EBADF));
         }
-        self.slots
+        let old = self
+            .slots
             .get_mut(fd as usize)
             .and_then(Option::take)
-            .ok_or(Errno(EBADF))
+            .ok_or(Errno(EBADF))?;
+        super::locks::filp_close(&old.file);
+        Ok(old)
     }
 
     /// `fdt->max_fds`: the table holds `BITS_PER_LONG` (64) descriptors
@@ -594,8 +599,10 @@ impl FdTable {
     /// Closes every close-on-exec descriptor (`do_close_on_exec`).
     pub fn close_on_exec(&mut self) {
         for slot in &mut self.slots {
-            if slot.as_ref().is_some_and(|f| f.cloexec) {
-                *slot = None;
+            if slot.as_ref().is_some_and(|f| f.cloexec)
+                && let Some(old) = slot.take()
+            {
+                super::locks::filp_close(&old.file);
             }
         }
     }

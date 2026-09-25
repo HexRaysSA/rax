@@ -33,6 +33,7 @@ pub mod exec;
 pub mod fcntl;
 pub mod futex;
 pub mod io;
+pub mod locks;
 pub mod mem;
 pub mod memfd;
 pub mod net;
@@ -407,7 +408,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[2] as i64,
             a[3] as u32,
         )),
-        S::Flock => r(io::flock(c, fd(a[0]), a[1] as u32)),
+        S::Flock => r(locks::flock(c, fd(a[0]), a[1] as u32)),
         S::Getdents64 => r(io::getdents(c, fd(a[0]), a[1], a[2], true)),
         S::Getdents => r(io::getdents(c, fd(a[0]), a[1], a[2], false)),
         S::Ftruncate => r(io::ftruncate(c, fd(a[0]), a[1] as i64)),

@@ -1,7 +1,7 @@
 image: alpine:latest
 kernel: Linux 7.0.14-orbstack-00380-ga7e0a2dc9535 #1 SMP PREEMPT Fri Aug  7 03:48:40 UTC 2026 aarch64
 docker: 29.4.0 linux/arm64
-recorded: 2026-09-24T13:31:49Z
+recorded: 2026-09-25T04:14:28Z
 native-arch: aarch64
 translated: every other architecture runs through the Docker host's binfmt_misc handler
 binfmt: mac-macho-arm64 enabled interpreter [mac] 
@@ -30,15 +30,15 @@ override: riscv64/fork from aarch64 (qemu-riscv64 gives clone children SIGCHLD a
 override: riscv64/events from aarch64 (qemu-riscv64 does not translate TFD_IOC_SET_TICKS, does not check signalfd4's mask size, and hands out its own POSIX timer IDs (so a default timer's si_value is not the kernel's ID); fs/timerfd.c, fs/signalfd.c, and kernel/time/posix-timers.c are architecture-independent and the native aarch64 run passes every check)
 override: x86_64/epoll from aarch64 (Rosetta converts the packed x86-64 struct epoll_event itself and dies of SIGSEGV on a bad event pointer instead of returning EFAULT; fs/eventpoll.c is architecture-independent (the x86-64 layout is unit-tested) and the native aarch64 run passes every check)
 override: riscv64/epoll from aarch64 (qemu-riscv64 does not apply epoll_pwait's signal mask for the wait, so the timer signal interrupts it; fs/eventpoll.c is architecture-independent and the native aarch64 run passes every check)
-override: riscv64/sockets from aarch64 (qemu-riscv64 drops unknown socket type flag bits and writes socketpair's descriptors only on success)
-override: riscv64/sockmsg from aarch64 (qemu-riscv64 ignores recvmmsg's timeout argument)
-override: x86_64/shmem from aarch64 (Rosetta dies of SIGTRAP on mremap with an old length of 0)
-override: riscv64/shmem from aarch64 (qemu-riscv64 refuses mremap's zero old length before MREMAP_MAYMOVE and does not implement MADV_REMOVE)
-override: riscv64/memfd from aarch64 (qemu-riscv64 does not implement MADV_REMOVE)
-override: x86_64/pidfd from aarch64 (Rosetta returns ENOSYS for pidfd_getfd and clone3)
-override: riscv64/pidfd from aarch64 (qemu-riscv64 does not translate PIDFD_GET_INFO or FS_IOC_GETVERSION, writes waitid's siginfo on failure, returns ENOSYS for clone3, and accepts CLONE_DETACHED with CLONE_PIDFD)
-override: x86_64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's status-flag encoding, which Rosetta does not convert)
-override: riscv64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's status-flag encoding, which qemu-riscv64 does not convert)
-override: x86_64/nodes from aarch64 (Rosetta dies of SIGSEGV on utime with an unmapped struct utimbuf)
-override: x86_64/xattr from aarch64 (Rosetta dies of SIGSEGV on getxattr with an unmapped path)
-override: riscv64/xattr from aarch64 (qemu-riscv64 lacks the *xattrat calls and faults copying an empty value)
+override: riscv64/sockets from aarch64 (qemu-riscv64 drops unknown socket type flag bits (so socket(AF_INET, 99, 0) and SOCK_STREAM | 0x100 are not EINVAL) and writes socketpair's descriptors only on success; net/socket.c is architecture-independent and the native aarch64 run passes every check)
+override: riscv64/sockmsg from aarch64 (qemu-riscv64 ignores recvmmsg's timeout argument, so the invalid timeout is not refused and the call blocks; net/socket.c is architecture-independent and the native aarch64 run passes every check)
+override: x86_64/shmem from aarch64 (Rosetta dies of SIGTRAP on mremap with an old length of 0 (duplicating a shared mapping); mm/mremap.c and mm/madvise.c are architecture-independent and the native aarch64 run passes every check)
+override: riscv64/shmem from aarch64 (qemu-riscv64 refuses mremap's zero old length with EINVAL before checking MREMAP_MAYMOVE and does not implement MADV_REMOVE; mm/mremap.c and mm/madvise.c are architecture-independent and the native aarch64 run passes every check)
+override: riscv64/memfd from aarch64 (qemu-riscv64 does not implement MADV_REMOVE (it returns 0), so neither the access check nor the seal check refuses it; mm/madvise.c and mm/shmem.c are architecture-independent and the native aarch64 run passes every check)
+override: x86_64/pidfd from aarch64 (Rosetta returns ENOSYS for pidfd_getfd and clone3; kernel/pid.c, fs/pidfs.c, kernel/fork.c, kernel/signal.c, and kernel/exit.c are architecture-independent and the native aarch64 run passes every check)
+override: riscv64/pidfd from aarch64 (qemu-riscv64 does not translate PIDFD_GET_INFO (ENOTTY) or FS_IOC_GETVERSION, writes waitid's siginfo when the call fails, returns ENOSYS for clone3, and accepts CLONE_DETACHED with CLONE_PIDFD; kernel/pid.c, fs/pidfs.c, kernel/fork.c, kernel/signal.c, and kernel/exit.c are architecture-independent and the native aarch64 run passes every check)
+override: x86_64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's own status-flag encoding (O_LARGEFILE, O_DIRECTORY), which Rosetta does not convert as it converts F_GETFL; fs/proc/fd.c and the files' show_fdinfo operations are architecture-independent and the native aarch64 run passes every check)
+override: riscv64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's own status-flag encoding (O_LARGEFILE, O_DIRECTORY), which qemu-riscv64 does not convert as it converts F_GETFL; fs/proc/fd.c and the files' show_fdinfo operations are architecture-independent and the native aarch64 run passes every check)
+override: x86_64/nodes from aarch64 (Rosetta dies of SIGSEGV on utime with an unmapped struct utimbuf instead of returning EFAULT (the other raw x86-64 time calls pass under it); fs/namei.c and fs/utimes.c are architecture-independent and the native aarch64 run passes every check)
+override: x86_64/xattr from aarch64 (Rosetta dies of SIGSEGV on getxattr with an unmapped path instead of returning EFAULT; fs/xattr.c and the file systems' handlers are architecture-independent and the native aarch64 run passes every check)
+override: riscv64/xattr from aarch64 (qemu-riscv64 returns ENOSYS for the *xattrat calls and faults copying a zero-length value to an unmapped buffer (the kernel copies nothing); fs/xattr.c is architecture-independent and the native aarch64 run passes every check)

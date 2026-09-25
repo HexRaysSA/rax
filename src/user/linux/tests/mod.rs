@@ -7,6 +7,7 @@ mod fdinfo;
 mod files;
 mod harness;
 mod loader;
+mod locks;
 mod misc;
 mod nodes;
 mod pidfd;

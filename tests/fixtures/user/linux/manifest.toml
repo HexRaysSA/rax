@@ -141,6 +141,12 @@ target = "x86_64-linux-musl"
 sha256 = "d501d0d1a05da2681d84eea554a7193b6a4d59d0204d020128df70b8dc790fa9"
 
 [[fixture]]
+path = "bin/x86_64/locks"
+source = "src/locks.c"
+target = "x86_64-linux-musl"
+sha256 = "f68912e0e8f4c5982ebe6cfefe3a4b6fd27a23d7c143033fd28562c3542ab7a7"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -303,6 +309,12 @@ target = "aarch64-linux-musl"
 sha256 = "91394a5d1843330da681c009c48f14d66eca8b8f279c854d217a48a9428c48c2"
 
 [[fixture]]
+path = "bin/aarch64/locks"
+source = "src/locks.c"
+target = "aarch64-linux-musl"
+sha256 = "1bcc8b2073845e9faf84490637e3ecd45659d85c2aa09dce9196e1646729e511"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -463,6 +475,12 @@ path = "bin/riscv64/misc"
 source = "src/misc.c"
 target = "riscv64-linux-musl"
 sha256 = "2dcc2d6bb8f65e37c331b336be010bcff70cb22d13d6871059529c1865071d44"
+
+[[fixture]]
+path = "bin/riscv64/locks"
+source = "src/locks.c"
+target = "riscv64-linux-musl"
+sha256 = "15d876e24134269c2292f7485e048d19c45d482d43f2994f5f0b3f9656f858b5"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

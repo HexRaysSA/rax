@@ -135,6 +135,8 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
 fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     let pid = host::pid();
     c.p.pidfds.forked(pid);
+    // copy_process: POSIX locks are not inherited.
+    super::super::fs::locks::forked();
     let p = &mut *c.p;
     p.pid = pid;
     p.ppid = host::ppid();

@@ -8,6 +8,7 @@ use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::abi::open::*;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
+use super::super::fs::locks::Owner;
 use super::super::host;
 use super::io::nofile;
 use super::{Ctx, SysResult};
@@ -29,19 +30,35 @@ mod fc {
     pub const F_OFD_GETLK: u32 = 36;
     pub const F_OFD_SETLK: u32 = 37;
     pub const F_OFD_SETLKW: u32 = 38;
+    pub const F_DUPFD_QUERY: u32 = 1027;
+    pub const F_CREATED_QUERY: u32 = 1028;
     pub const F_DUPFD_CLOEXEC: u32 = 1030;
     pub const F_SETPIPE_SZ: u32 = 1031;
     pub const F_GETPIPE_SZ: u32 = 1032;
     pub const F_ADD_SEALS: u32 = 1033;
     pub const F_GET_SEALS: u32 = 1034;
     pub const FD_CLOEXEC: u64 = 1;
-    pub const F_UNLCK: u16 = 2;
 }
 
 /// `fcntl`.
 pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
     use fc::*;
     let limit = nofile(c);
+    // check_fcntl_cmd: an O_PATH descriptor allows only these commands.
+    if c.p.fds.file(fd)?.flags() & O_PATH != 0
+        && !matches!(
+            cmd,
+            F_CREATED_QUERY
+                | F_DUPFD
+                | F_DUPFD_CLOEXEC
+                | F_DUPFD_QUERY
+                | F_GETFD
+                | F_SETFD
+                | F_GETFL
+        )
+    {
+        return Err(Errno(EBADF));
+    }
     match cmd {
         F_DUPFD | F_DUPFD_CLOEXEC => {
             let file = c.p.fds.file(fd)?;
@@ -74,19 +91,11 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
             file.state.lock().unwrap().flags = (old & !settable) | new;
             Ok(0)
         }
-        F_GETLK | F_OFD_GETLK => {
-            c.p.fds.get(fd)?;
-            // struct flock: short l_type, l_whence; off_t l_start, l_len;
-            // pid_t l_pid. A single process never conflicts with itself.
-            let mut b = c.read_mem(arg, 32)?;
-            b[..2].copy_from_slice(&F_UNLCK.to_le_bytes());
-            c.write_mem(arg, &b)?;
-            Ok(0)
-        }
-        F_SETLK | F_SETLKW | F_OFD_SETLK | F_OFD_SETLKW => {
-            c.p.fds.get(fd)?;
-            c.read_mem(arg, 32)?;
-            Ok(0)
+        F_GETLK => super::locks::getlk(c, fd, arg, Owner::Process),
+        F_OFD_GETLK => super::locks::getlk(c, fd, arg, Owner::Description),
+        F_SETLK | F_SETLKW => super::locks::setlk(c, fd, arg, Owner::Process, cmd == F_SETLKW),
+        F_OFD_SETLK | F_OFD_SETLKW => {
+            super::locks::setlk(c, fd, arg, Owner::Description, cmd == F_OFD_SETLKW)
         }
         F_GETOWN | F_GETSIG => c.p.fds.get(fd).map(|_| 0),
         F_SETOWN | F_SETSIG => c.p.fds.get(fd).map(|_| 0),

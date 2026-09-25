@@ -1214,19 +1214,6 @@ pub fn sync_file_range(
     Ok(0)
 }
 
-/// `flock`: a single process can always obtain its own locks.
-pub fn flock(c: &mut Ctx<'_>, fd: i32, op: u32) -> SysResult {
-    const LOCK_SH: u32 = 1;
-    const LOCK_EX: u32 = 2;
-    const LOCK_NB: u32 = 4;
-    const LOCK_UN: u32 = 8;
-    c.p.fds.get(fd)?;
-    match op & !LOCK_NB {
-        LOCK_SH | LOCK_EX | LOCK_UN => Ok(0),
-        _ => Err(Errno(EINVAL)),
-    }
-}
-
 /// `getdents64` (`struct linux_dirent64`) or legacy `getdents`
 /// (`struct linux_dirent`, type in the last byte).
 pub fn getdents(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, is64: bool) -> SysResult {

@@ -39,6 +39,7 @@
 
 mod arena;
 mod backing;
+mod mapped_file;
 pub mod pagetable;
 mod shared;
 mod vma;
@@ -48,6 +49,7 @@ mod tests;
 
 pub use arena::{EXTENT, FrameArena};
 pub use backing::{Backing, BytesSource, HostFileSource, PageSource, SourceIdentity};
+pub use mapped_file::set_retire;
 pub use shared::{SharedObject, anonymous_file};
 pub use vma::{Vma, VmaMap};
 

@@ -14,6 +14,7 @@
 pub mod anon;
 pub mod epoll;
 pub mod fd;
+pub mod locks;
 pub mod memfd;
 pub mod pidfd;
 pub mod xattr;

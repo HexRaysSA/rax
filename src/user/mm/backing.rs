@@ -78,7 +78,7 @@ impl PageSource for BytesSource {
 /// A host file used as a mapping source.
 #[derive(Debug)]
 pub struct HostFileSource {
-    file: std::fs::File,
+    file: super::mapped_file::MappedFile,
     identity: SourceIdentity,
 }
 
@@ -86,7 +86,10 @@ impl HostFileSource {
     /// Wraps an open host file.
     pub fn new(file: std::fs::File) -> std::io::Result<Self> {
         let identity = file_identity(&file)?;
-        Ok(HostFileSource { file, identity })
+        Ok(HostFileSource {
+            file: super::mapped_file::MappedFile::new(file),
+            identity,
+        })
     }
 }
 

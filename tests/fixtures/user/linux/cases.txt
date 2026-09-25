@@ -27,6 +27,7 @@ fdinfo   fdinfo   -
 nodes    nodes    -
 xattr    xattr    -
 misc     misc     -
+locks    locks    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

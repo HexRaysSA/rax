@@ -16,7 +16,7 @@ use super::backing::SourceIdentity;
 
 /// A host object backing shared mappings.
 pub struct SharedObject {
-    file: std::fs::File,
+    file: super::mapped_file::MappedFile,
     identity: SourceIdentity,
     writable: bool,
     anonymous: bool,
@@ -55,7 +55,7 @@ impl SharedObject {
     pub fn file(file: std::fs::File, writable: bool) -> std::io::Result<Self> {
         Ok(SharedObject {
             identity: identity_of(&file)?,
-            file,
+            file: super::mapped_file::MappedFile::new(file),
             writable,
             anonymous: false,
         })
@@ -68,7 +68,7 @@ impl SharedObject {
         file.set_len(len)?;
         Ok(SharedObject {
             identity: identity_of(&file)?,
-            file,
+            file: super::mapped_file::MappedFile::new(file),
             writable: true,
             anonymous: true,
         })
