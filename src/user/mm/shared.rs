@@ -182,12 +182,24 @@ pub fn anonymous_file() -> std::io::Result<std::fs::File> {
     #[cfg(target_os = "linux")]
     {
         use std::os::fd::FromRawFd;
+        // The raw system call, not glibc's wrapper: `memfd_create(3)` only
+        // exists from glibc 2.27, and older sysroots (the `cross` images'
+        // glibc) cannot link it. A kernel before 3.17 answers ENOSYS and
+        // the temporary file below stands in.
         // SAFETY: memfd_create takes a NUL-terminated name and flags and
-        // returns a new descriptor this function then owns.
-        let fd = unsafe { libc::memfd_create(c"rax-shmem".as_ptr(), libc::MFD_CLOEXEC) };
+        // returns a new descriptor this function then owns; the name is a
+        // static C string and outlives the call.
+        let fd = unsafe {
+            libc::syscall(
+                libc::SYS_memfd_create,
+                c"rax-shmem".as_ptr(),
+                libc::MFD_CLOEXEC,
+            )
+        };
         if fd >= 0 {
-            // SAFETY: `fd` is a fresh descriptor owned by nobody else.
-            return Ok(unsafe { std::fs::File::from_raw_fd(fd) });
+            // SAFETY: `fd` is a fresh descriptor owned by nobody else, and
+            // a descriptor fits in a `c_int`.
+            return Ok(unsafe { std::fs::File::from_raw_fd(fd as libc::c_int) });
         }
     }
     use std::sync::atomic::{AtomicU64, Ordering};

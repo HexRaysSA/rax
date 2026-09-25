@@ -710,6 +710,35 @@ fn clones_share_one_space() {
     assert!(!a.same_space(&space()));
 }
 
+#[test]
+fn anonymous_files_are_empty_close_on_exec_and_memfds_on_linux() {
+    use std::io::{Read, Seek, SeekFrom, Write};
+    let mut f = anonymous_file().unwrap();
+    assert_eq!(f.metadata().unwrap().len(), 0);
+    f.write_all(b"shmem").unwrap();
+    f.seek(SeekFrom::Start(0)).unwrap();
+    let mut out = Vec::new();
+    f.read_to_end(&mut out).unwrap();
+    assert_eq!(out, b"shmem");
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        // SAFETY: F_GETFD only reads the flags of a descriptor `f` owns.
+        let flags = unsafe { libc::fcntl(f.as_raw_fd(), libc::F_GETFD) };
+        assert_ne!(flags & libc::FD_CLOEXEC, 0);
+    }
+    // The raw memfd_create system call, not the temporary-file stand-in.
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::fd::AsRawFd;
+        let link = std::fs::read_link(format!("/proc/self/fd/{}", f.as_raw_fd())).unwrap();
+        assert!(
+            link.to_string_lossy().starts_with("/memfd:rax-shmem"),
+            "{link:?}"
+        );
+    }
+}
+
 /// Naive reference: one entry per page of a small window.
 #[derive(Clone)]
 struct ModelPage {
