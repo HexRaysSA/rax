@@ -2,6 +2,7 @@ ffa8943c2940a5ada36b4fe312420b0904f2483abfbab48786bc1f58b1e74fc9  ./arch/arm64/i
 6a2791679a51c3287dbaf8fead5982221a2703e9728f94b8998c0bef295b1e2b  ./arch/arm64/include/asm/mman.h
 6cad451a1bda70574aefaa74c7f6e403c91e0e486bc7633819da507b136bf585  ./arch/arm64/include/asm/processor.h
 00607db99e25299e448cf467620778f6a3e1f4c0ca85f53ac6ad2f8c3e3de9f8  ./arch/arm64/include/asm/ptrace.h
+b3349fa05a664d0821ee309f09ad6a6b2cf6c9ba44ed8afa982efd7afb020562  ./arch/arm64/include/asm/syscall.h
 c6868626f7276b1380f80da3c7ea4ca721991498d6f8f3f72dc0950d23b5167b  ./arch/arm64/kernel/process.c
 ebe04548f0cdf2ce29d72b85f5150d895d1de683ae995d84279e168c67203ba2  ./arch/arm64/kernel/ptrace.c
 297874252c5e44f3237ac61102a13be0b8f6bf3618bbbb63ca8fdf5b1709d3fb  ./arch/arm64/kernel/signal.c
@@ -9,15 +10,19 @@ a6724856284b7fd61219d71712e64c420c21fe32b7f8f9f65ca0d31752f411bd  ./arch/arm64/k
 a93d529c7bc5fa34d4ff708a6f6b140af46dceb6775a361714a5c069a53c25ab  ./arch/riscv/include/asm/elf.h
 a5f054991412e2a1ffb40b5a32efe827e7ed99f4dc774facf0e8afbc26b1e675  ./arch/riscv/include/asm/pgtable.h
 7d193cab1ec57358aabbd197de1038b5573db6d4e52caa3cdd3d16d20a80733a  ./arch/riscv/include/asm/processor.h
+11396d2448655c38aea81ebc7fcb0483d65faca7cf4561df9c282cfad10af987  ./arch/riscv/include/asm/syscall.h
 cba90870783569de0c74456a580d3c2a2a6cdff4336e188ad9f251a8be66b62a  ./arch/riscv/kernel/process.c
 0401dbe36ecb3ed9edc1a05eb0ef6b1739f187c64287636b7c47a7c74194d22b  ./arch/riscv/kernel/signal.c
+6d775e157ff50d1a46d9e588b158096a40e108d238d06f76b64e6003a9ea9bea  ./arch/riscv/kernel/traps.c
 80362e2b95a70062a7f8f2a787f0dc85b878de5886f2153afa6d1306bbf723d4  ./arch/riscv/kernel/vdso/rt_sigreturn.S
 5c4eaab81345ee84d585dca114f075116da6048b4358975c51b75ae454d12dff  ./arch/x86/include/asm/elf.h
 edbbfdc65393a7637cf501aa1e307cb0ddf956e3e6df2b47fc254e3e4325bab7  ./arch/x86/include/asm/fpu/signal.h
 22f70100c5ff6092b27e4c70b7b0a60f88e4d50b7c965e0b0b686594020b4542  ./arch/x86/include/asm/fpu/types.h
 86e64aac1116923a939f4bb0b9737d87f32bec06349ef75b9d679b02c773c232  ./arch/x86/include/asm/fpu/xstate.h
 fc9b57203f78df9f4b5e5e94a915965a2fc733cfa09555b881435ea9f2cdeaaf  ./arch/x86/include/asm/page_64_types.h
+e6745c2333fbe6eef526876505343eaeba7ff6707ab8012366ce0fd75421e7cf  ./arch/x86/include/asm/seccomp.h
 ff8f3b9ee185f56d68ce09898186be6cec701655784a4e954f30d438b9b47f88  ./arch/x86/include/asm/sighandling.h
+27c02ce2a8ccd3f47675504d562bfab92a46e0072663aab5048b93d7886391d9  ./arch/x86/include/asm/syscall.h
 1f1aefc2e59157e3d449138606555fc85994f81557d287d4bc6ec301ea4f1f93  ./arch/x86/kernel/fpu/core.c
 81d6c2a60e66e24874891b34ebe94ce52b8d337aad8b50ff9144cdc589860313  ./arch/x86/kernel/fpu/signal.c
 f9081b8cc0aabf3fede95db614f87a7a7ec6cb0507a709916a9d00ff34043cca  ./arch/x86/kernel/fpu/xstate.c
@@ -51,6 +56,7 @@ a0cdd0c2b9feb86b8637e71e6f6250f6cb316cb2425366f08e5f8a3cf9764f21  ./fs/signalfd.
 1a65fb161d7b4adcdcf41696fad7ea2cf22fc6266caf82538cc472c68aec6970  ./fs/timerfd.c
 32fff5ab40eab45e0441e8a03f00db0f55fb8f9704f028d4dd3c6d5a647e2051  ./fs/utimes.c
 f44749ed81e6076b27b2e68639d6e14825167cf92d0bab4580af1dcc8f13f855  ./fs/xattr.c
+52c048b70dd2b2784623cf8241ae59770312d714baa74ffe04ce3856254a2cbd  ./include/asm-generic/seccomp.h
 8b4f7557c30181e3a563505079d502d0da30e1565df834d4efd5c69333a596e3  ./include/linux/entry-common.h
 3e4be8a75902ad79fb7f777a4e7e653850aa9cd592aceaf41f1ed5c905fda293  ./include/linux/eventfd.h
 3c32ae8a9ad1d9c819c1605a799021927cc3185d2b9ad3baa760fde4737edbd3  ./include/linux/fs.h
