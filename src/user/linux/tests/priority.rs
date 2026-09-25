@@ -665,3 +665,32 @@ fn io_priorities_are_set_per_task_and_derived_from_nice() {
         );
     });
 }
+
+#[test]
+fn clone_io_tasks_share_one_io_context() {
+    // copy_io: CLONE_IO shares the creator's io_context, so a priority set
+    // through either task is both tasks'; without it a valid priority is
+    // copied into a new context. A creator without a context gives none.
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        creds(&mut h, NOBODY);
+        let early = h.ok(Sysno::Clone, &[THREAD | CLONE_IO, 0, 0, 0, 0]);
+        h.ok(Sysno::IoprioSet, &[1, early, IOPRIO_BE | 2]);
+        assert_eq!(h.call(Sysno::IoprioGet, &[1, 0]), 0, "nothing to share");
+
+        h.ok(Sysno::IoprioSet, &[1, 0, IOPRIO_BE | 3]);
+        let shared = h.ok(Sysno::Clone, &[THREAD | CLONE_IO, 0, 0, 0, 0]);
+        let copied = h.ok(Sysno::Clone, &[THREAD, 0, 0, 0, 0]);
+        assert_eq!(h.call(Sysno::IoprioGet, &[1, shared]) as u64, IOPRIO_BE | 3);
+        assert_eq!(h.call(Sysno::IoprioGet, &[1, copied]) as u64, IOPRIO_BE | 3);
+        h.ok(Sysno::IoprioSet, &[1, shared, IOPRIO_BE | 5]);
+        assert_eq!(h.call(Sysno::IoprioGet, &[1, 0]) as u64, IOPRIO_BE | 5);
+        assert_eq!(h.call(Sysno::IoprioGet, &[1, copied]) as u64, IOPRIO_BE | 3);
+        h.ok(Sysno::IoprioSet, &[1, copied, IOPRIO_BE | 7]);
+        assert_eq!(h.call(Sysno::IoprioGet, &[1, shared]) as u64, IOPRIO_BE | 5);
+        // A thread of the sharer, made with CLONE_IO, joins the same one.
+        h.ok(Sysno::IoprioSet, &[1, 0, IOPRIO_BE | 1]);
+        assert_eq!(h.call(Sysno::IoprioGet, &[1, shared]) as u64, IOPRIO_BE | 1);
+        assert_eq!(h.call(Sysno::IoprioGet, &[1, early]) as u64, IOPRIO_BE | 2);
+    });
+}

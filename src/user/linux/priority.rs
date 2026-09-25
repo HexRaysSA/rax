@@ -8,6 +8,9 @@
 //! slice is `sysctl_sched_base_slice` unscaled, 700 µs), `CONFIG_HZ=250`,
 //! without `CONFIG_UCLAMP_TASK` or `CONFIG_SCHED_CLASS_EXT`.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU16, Ordering};
+
 use super::abi::errno::Errno;
 use super::abi::errno_table::*;
 
@@ -200,8 +203,37 @@ pub fn dl_overflow(others: u64, old: u64, new: u64) -> bool {
     new != old && FAIR_SERVER_BW + others + new > DL_CAPACITY
 }
 
+/// A task's `io_context` (`block/blk-ioc.c`): one object for the tasks
+/// that `CLONE_IO` made share it, so a priority set through any of them
+/// is every sharer's. A new process's copy is its own: processes are
+/// separate host processes, so a `CLONE_IO` child process shares nothing.
+#[derive(Clone, Debug)]
+pub struct IoContext(Arc<AtomicU16>);
+
+impl IoContext {
+    /// `alloc_io_context` holding `ioprio`.
+    pub fn new(ioprio: u16) -> Self {
+        IoContext(Arc::new(AtomicU16::new(ioprio)))
+    }
+
+    /// `ioc->ioprio`.
+    pub fn ioprio(&self) -> u16 {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    /// Sets `ioc->ioprio` for every sharer.
+    pub fn set(&self, ioprio: u16) {
+        self.0.store(ioprio, Ordering::Relaxed);
+    }
+
+    /// The object's identity, as `kcmp` compares it.
+    pub fn id(&self) -> usize {
+        Arc::as_ptr(&self.0) as usize
+    }
+}
+
 /// A task's scheduling attributes.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct Sched {
     pub policy: i32,
     /// `static_prio`: the nice value, offset by [`DEFAULT_PRIO`].
@@ -218,8 +250,8 @@ pub struct Sched {
     /// `timer_slack_ns` and `default_timer_slack_ns`.
     pub timer_slack: u64,
     pub default_timer_slack: u64,
-    /// `io_context->ioprio` (`None`: no I/O context).
-    pub ioprio: Option<u16>,
+    /// `io_context` (`None`: the task has none yet).
+    pub io: Option<IoContext>,
 }
 
 impl Default for Sched {
@@ -236,7 +268,7 @@ impl Default for Sched {
             dl: Deadline::default(),
             timer_slack: TIMER_SLACK,
             default_timer_slack: TIMER_SLACK,
-            ioprio: None,
+            io: None,
         }
     }
 }
@@ -393,9 +425,13 @@ impl Sched {
         }
         // copy_process: the child's default slack is the parent's slack.
         s.default_timer_slack = self.timer_slack;
-        if !share_io {
-            s.ioprio = self.ioprio.filter(|&p| ioprio_valid(p));
-        }
+        // copy_io: CLONE_IO shares the context; otherwise a valid
+        // priority goes into a new one.
+        s.io = match &self.io {
+            Some(ioc) if share_io => Some(ioc.clone()),
+            Some(ioc) if ioprio_valid(ioc.ioprio()) => Some(IoContext::new(ioc.ioprio())),
+            _ => None,
+        };
         Ok(s)
     }
 
@@ -412,7 +448,7 @@ impl Sched {
     /// `__get_task_ioprio`: the I/O priority, derived from the nice value
     /// and policy for a task without a class of its own.
     pub fn effective_ioprio(&self) -> u16 {
-        match self.ioprio {
+        match self.io.as_ref().map(IoContext::ioprio) {
             Some(p) if ioprio_class(p) != ioprio::CLASS_NONE => p,
             _ => {
                 let class = if self.policy == policy::IDLE {
@@ -521,7 +557,7 @@ mod tests {
         };
         let mut s = Sched::default();
         s.apply(&d, policy::DEADLINE);
-        assert_eq!(s.forked(false), Err(Errno(EAGAIN)));
+        assert_eq!(s.forked(false).err(), Some(Errno(EAGAIN)));
         s.reset_on_fork = true;
         assert_eq!(s.forked(false).unwrap().policy, policy::NORMAL);
     }
@@ -567,7 +603,7 @@ mod tests {
         assert_eq!(s.effective_ioprio(), (2 << 13) | 4);
         s.set_nice(19);
         assert_eq!(s.effective_ioprio(), (2 << 13) | 7);
-        s.ioprio = Some(3 << 13);
+        s.io = Some(IoContext::new(3 << 13));
         assert_eq!(s.effective_ioprio(), 3 << 13);
         assert_eq!(ioprio_check(1 << 13, false), Err(Errno(EPERM)));
         assert_eq!(ioprio_check(1, false), Err(Errno(EINVAL)));

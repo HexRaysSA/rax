@@ -427,7 +427,11 @@ pub fn ioprio_set(c: &mut Ctx<'_>, which: i32, who: i32, value: i32) -> SysResul
     }
     // set_task_ioprio: a task of the caller's own process is its user's.
     for tid in tids {
-        task_mut(c, tid).ioprio = Some(value as u16);
+        let task = task_mut(c, tid);
+        match &task.io {
+            Some(ioc) => ioc.set(value as u16),
+            None => task.io = Some(priority::IoContext::new(value as u16)),
+        }
     }
     Ok(0)
 }
@@ -451,7 +455,7 @@ pub fn ioprio_get(c: &mut Ctx<'_>, which: i32, who: i32) -> SysResult {
         .filter_map(|&t| find(c, t).ok())
         .map(|s| {
             if raw {
-                s.ioprio.unwrap_or(0)
+                s.io.as_ref().map_or(0, priority::IoContext::ioprio)
             } else {
                 s.effective_ioprio()
             }
