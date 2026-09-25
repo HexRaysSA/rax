@@ -33,7 +33,9 @@ fn groups_are_inherited_sorted_and_set_by_root() {
         assert_eq!(h.call(Sysno::Getgroups, &[n as u64, buf]), n as i64);
         assert_eq!(u32s(&h, buf, n), h.proc.state.groups);
         assert_eq!(h.err(Sysno::Getgroups, &[u64::MAX, buf]), EINVAL);
-        if n > 0 {
+        // A buffer too small for the groups, unless it is the size query
+        // (0) that one group would make it.
+        if n > 1 {
             assert_eq!(h.err(Sysno::Getgroups, &[n as u64 - 1, buf]), EINVAL);
         }
         // Without CAP_SETGID, whatever the arguments.
