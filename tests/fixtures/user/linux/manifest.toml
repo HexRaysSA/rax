@@ -243,6 +243,12 @@ target = "x86_64-linux-musl"
 sha256 = "f754b957dde7b579df2bade7695d01b5388be3974d83210dbc12fb67f8b8ade3"
 
 [[fixture]]
+path = "bin/x86_64/aio"
+source = "src/aio.c"
+target = "x86_64-linux-musl"
+sha256 = "5703747a186f68a90b810b6b3f817261581703d49dc15a0195ec548b12c6eaaa"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -507,6 +513,12 @@ target = "aarch64-linux-musl"
 sha256 = "c6e582740679457ecba186ef5e945facc592a67b816f9f733a3a7b384d2ce13a"
 
 [[fixture]]
+path = "bin/aarch64/aio"
+source = "src/aio.c"
+target = "aarch64-linux-musl"
+sha256 = "58e9271f5a258bb9b2a7373f9a09b791fdc380b7af676cfe19c939cd0a878db1"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -769,6 +781,12 @@ path = "bin/riscv64/rseq"
 source = "src/rseq.c"
 target = "riscv64-linux-musl"
 sha256 = "fee405244b4e172be65e4c677466134ae64b97587efcb4aee3c0339933ec85de"
+
+[[fixture]]
+path = "bin/riscv64/aio"
+source = "src/aio.c"
+target = "riscv64-linux-musl"
+sha256 = "2e463ad55d1cfff5a224637195828d16139311761c38dbc96e580dc9c4462e0b"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

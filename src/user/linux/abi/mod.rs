@@ -72,13 +72,17 @@ pub mod vma_flags {
     pub const LOCKONFAULT: u32 = 1 << 4;
     /// `VM_LOCKED_MASK`.
     pub const LOCKED_MASK: u32 = LOCKED | LOCKONFAULT;
-    /// A special mapping (`_install_special_mapping`'s `VM_DONTEXPAND`):
-    /// the `[vdso]` page. It is never locked, grown, or kept by
-    /// `MREMAP_DONTUNMAP`.
+    /// A special mapping (`VM_DONTEXPAND`, of `_install_special_mapping`
+    /// and of an AIO ring): the `[vdso]` page or `/[aio]`. It is never
+    /// locked, grown, duplicated, or kept by `MREMAP_DONTUNMAP`.
     pub const SPECIAL: u32 = 1 << 5;
     /// `VM_SEALED` (`mseal`): never unmapped, remapped, reprotected, or
     /// discarded where it could not be written; never unsealed.
     pub const SEALED: u32 = 1 << 6;
+    /// An AIO context's ring (`aio_ring_vm_ops`): with [`SPECIAL`] it is
+    /// never locked or resized, and moving it moves its context's
+    /// identifier (`aio_ring_mremap`).
+    pub const AIO_RING: u32 = 1 << 7;
 }
 
 impl LinuxAbi {

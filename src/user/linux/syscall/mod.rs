@@ -35,6 +35,7 @@
 //! "unsupported" and fall back.
 
 pub mod admin;
+pub mod aio;
 pub mod child;
 pub mod epoll;
 pub mod events;
@@ -190,6 +191,9 @@ pub struct Ctx<'a> {
     /// The call decided itself whether its `EPIPE` raises `SIGPIPE` (the
     /// socket protocols do).
     pub sigpipe_decided: bool,
+    /// The write raises no `SIGPIPE` (`IOCB_NOSIGNAL`, from
+    /// `RWF_NOSIGNAL`).
+    pub nosignal: bool,
     block: Option<(Wait, Resume)>,
 }
 
@@ -209,6 +213,7 @@ impl<'a> Ctx<'a> {
             resume: None,
             woken: false,
             sigpipe_decided: false,
+            nosignal: false,
             block: None,
         }
     }
@@ -225,8 +230,11 @@ impl Ctx<'_> {
 
     /// `send_sig(SIGPIPE, current, 0)`: `SIGPIPE` to the calling thread,
     /// as sent by the kernel (`SEND_SIG_NOINFO`: `SI_USER` from the caller
-    /// itself).
+    /// itself), unless the write asked for none ([`Ctx::nosignal`]).
     pub fn send_sigpipe(&mut self) {
+        if self.nosignal {
+            return;
+        }
         let info = super::signal::SigInfo::kill(
             super::signal::SIGPIPE,
             super::signal::code::SI_USER,
@@ -610,6 +618,27 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Munlockall => r(mlock::munlockall(c)),
         S::Mseal => r(mseal::mseal(c, a[0], a[1], a[2])),
         S::Rseq => r(rseq::rseq(c, a[0], a[1] as u32, a[2] as i32, a[3] as u32)),
+        S::IoSetup => r(aio::io_setup(c, a[0] as u32, a[1])),
+        S::IoDestroy => r(aio::io_destroy(c, a[0])),
+        S::IoSubmit => r(aio::io_submit(c, a[0], a[1] as i64, a[2])),
+        S::IoCancel => r(aio::io_cancel(c, a[0], a[1], a[2])),
+        S::IoGetevents => r(aio::io_getevents(
+            c,
+            a[0],
+            a[1] as i64,
+            a[2] as i64,
+            a[3],
+            a[4],
+        )),
+        S::IoPgetevents => r(aio::io_pgetevents(
+            c,
+            a[0],
+            a[1] as i64,
+            a[2] as i64,
+            a[3],
+            a[4],
+            a[5],
+        )),
         S::Mincore => r(mem::mincore(c, a[0], a[1], a[2])),
         S::RiscvFlushIcache => r(Ok(0)),
         S::MemfdCreate => r(memfd::memfd_create(c, a[0], a[1] as u32)),
@@ -1022,6 +1051,10 @@ pub fn dispatch(
     }
     c.resume = call.resume;
     c.woken = call.woken;
+    // Waiting IOCB_CMD_POLL requests are looked at as the process enters.
+    if c.p.aio.polls_pending() {
+        aio::poll_pending(&mut c);
+    }
     let result = match sysno {
         Some(s) => call_handler(&mut c, s, args),
         None => Err(Errno(ENOSYS)),
@@ -1043,8 +1076,14 @@ pub fn dispatch(
     {
         ipc::sync_shm(c.p);
     }
-    if let Some((wait, resume)) = c.block.take() {
+    if let Some((mut wait, resume)) = c.block.take() {
         debug_assert_eq!(result, Err(Errno(BLOCKED)));
+        // Whatever the thread sleeps in, it wakes for the files of waiting
+        // IOCB_CMD_POLL requests, which complete as the call runs again
+        // (signalling their eventfds, which it may be reading).
+        if c.p.aio.polls_pending() {
+            wait.fds.extend(aio::poll_pending(&mut c).fds);
+        }
         if strace && !resumed {
             trace_unfinished(tid, sysno, nr, &args);
         }

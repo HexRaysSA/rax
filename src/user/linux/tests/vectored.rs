@@ -166,3 +166,60 @@ fn vectors_are_imported_before_anything_moves() {
         assert_eq!(pending(&mut h, s1, scratch), 2, "left queued");
     });
 }
+
+#[test]
+fn rwf_flags_are_refused_as_kiocb_set_rw_flags_refuses_them() {
+    // Linux 6.19's RWF_SUPPORTED adds RWF_NOAPPEND, RWF_ATOMIC,
+    // RWF_DONTCACHE, and RWF_NOSIGNAL; RWF_APPEND with RWF_NOAPPEND is
+    // EINVAL, RWF_ATOMIC needs FMODE_CAN_ATOMIC_WRITE, RWF_DONTCACHE
+    // FOP_DONTCACHE (which pipes lack), and RWF_NOSIGNAL spares a broken
+    // pipe's writer SIGPIPE.
+    use crate::user::linux::signal::{SIGPIPE, SigPending, sa};
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = h.anon(4 * P, 3, false);
+        let fd = h.file(&format!("rwf-{abi:?}"), 8, b'r', O_RDWR);
+        let v = iovecs(&h, m, &[(m + 0x100, 4)]);
+        for flags in [0x20, 0x80, 0x100, 0x1f] {
+            assert_eq!(
+                h.call(Sysno::Preadv2, &[fd, v, 1, 0, 0, flags]),
+                4,
+                "{flags:#x}"
+            );
+        }
+        assert_eq!(h.err(Sysno::Preadv2, &[fd, v, 1, 0, 0, 0x200]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Pwritev2, &[fd, v, 1, 0, 0, 0x30]), EINVAL);
+        assert_eq!(h.err(Sysno::Pwritev2, &[fd, v, 1, 0, 0, 0x40]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Preadv2, &[fd, v, 1, 0, 0, 0x40]), EOPNOTSUPP);
+        let q = m + 0x800;
+        h.ok(Sysno::Pipe2, &[q, 0]);
+        let raw = bytes(&h, q, 8);
+        let (r, w) = (
+            u64::from(u32::from_le_bytes(raw[..4].try_into().unwrap())),
+            u64::from(u32::from_le_bytes(raw[4..].try_into().unwrap())),
+        );
+        let pipe_v = u64::MAX;
+        assert_eq!(
+            h.err(Sysno::Preadv2, &[r, v, 1, pipe_v, 0, 0x80]),
+            EOPNOTSUPP
+        );
+        // A handler keeps a sent SIGPIPE queued.
+        let act = m + 0xf00;
+        let mut words = vec![0x40_1000u64];
+        if h.abi().has_sa_restorer() {
+            words.extend([sa::RESTORER, 0x40_1100]);
+        } else {
+            words.push(0);
+        }
+        words.push(0);
+        let b: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        h.proc.state.space.write_raw(act, &b).unwrap();
+        h.ok(Sysno::RtSigaction, &[SIGPIPE as u64, act, 0, 8]);
+        h.ok(Sysno::Close, &[r]);
+        assert_eq!(h.err(Sysno::Pwritev2, &[w, v, 1, pipe_v, 0, 0x100]), EPIPE);
+        assert!(!h.proc.threads[0].pending.contains(SIGPIPE), "{abi:?}");
+        assert_eq!(h.err(Sysno::Pwritev2, &[w, v, 1, pipe_v, 0, 0]), EPIPE);
+        assert!(h.proc.threads[0].pending.contains(SIGPIPE), "{abi:?}");
+        h.proc.threads[0].pending = SigPending::new();
+    });
+}

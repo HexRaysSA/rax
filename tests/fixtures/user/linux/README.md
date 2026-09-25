@@ -65,6 +65,7 @@ runs in parallel must not see each other's queues and identifiers.
 | `mlock` | Memory locking (as `nobody` when run as root, changing only the soft `RLIMIT_MEMLOCK`): `mlock`, `mlock2`, and `munlock` (the right, the limit less what a range already holds locked, holes, `PROT_NONE`, whole pages, the kernel's length arithmetic), populating or not (`MLOCK_ONFAULT`), `madvise`'s refusals on locked memory, `mlockall` and `MCL_FUTURE` for `mmap`, `brk`, and `mremap` (a `MREMAP_DONTUNMAP` move leaving its old pages counted), `MAP_LOCKED`, `VmLck`, and a child, which inherits no lock |
 | `mseal` | Memory sealing: `mseal`'s checks in order (flags, alignment, the rounded length, holes) and what a seal refuses: `munmap` and the unmapping behind `mmap(MAP_FIXED)`, `shmat(SHM_REMAP)`, and `mremap(MREMAP_FIXED)` (nothing changed), `mremap` of the sealed VMA, `mprotect` VMA by VMA, and discarding advice on private anonymous memory that cannot be written; a shrinking `brk` keeps the break, `shmdt` leaves a sealed attach mapped, and `mlock`, harmless advice, file mappings, and a child's copy behave as usual |
 | `rseq` | Restartable sequences: registration's checks (the flags, the size and alignment, a second registration, the signature), the fields it writes and the IDs the return to user mode fills in, unregistering, a critical section aborted by a signal delivered while it runs and by a preemption by another thread on the same CPU (each resuming at the abort handler, `rseq_cs` cleared), an interrupted IP outside the section only clearing `rseq_cs`, a wrong signature killing the task with `SIGSEGV`, no registration in a new thread, and a forked child keeping it. The critical sections are inline assembly for each architecture; the checks Linux 7.0 changed (it accepts flag 2, writes `flags`, and resets `cpu_id_start` to 0) are left out |
+| `aio` | Linux AIO: `io_setup`'s checks (the limit read from `/proc/sys/fs/aio-max-nr`) and the ring it maps (header, `/proc/self/maps`, never locked, `aio-nr`), `io_submit`'s checks in order (descriptors, `IOCB_FLAG_RESFD`, `RWF_*` flags, files without reads, buffer and vector ranges, positions, the count before a failure), reads, writes, vectors, and syncs, a buffer that faults only in the transfer, pipes without data (`O_NONBLOCK`, a signal), `-EPIPE` with and without `RWF_NOSIGNAL`, `IOCB_CMD_POLL` at once, waiting (completing with a pipe's and a socket's wake-up key, or with the events of a hang-up) and cancelled, `io_getevents` and `io_pgetevents` (checks, a timeout, a fault leaving events in the ring), the ring's capacity and reaping by the process, a clobbered ring ID, `mremap` of the ring (refused growth, duplication, and `MREMAP_DONTUNMAP`; a move moving the context, which a forked child cannot do), and `io_destroy`. The ring's size and slot count depend on the CPUs and are not printed |
 | `hostsig` | Not a recorded case: the `user_linux` `host_signals` tests send it host signals and follow its output (`siginfo` of a `kill`, a blocking `read` of standard input interrupted by a handler, death by `SIGTERM`) |
 | `signals` | Handlers with `siginfo` from `raise`/`kill`/`sigqueue`, the mask during and after a handler, `SA_NODEFER`, `SA_RESETHAND`, delivery order of several unblocked signals, real-time queueing with `sigtimedwait`, `sigsuspend`, ignored signals, `SA_ONSTACK` alternate stacks, recovering from `SIGSEGV` (MAPERR, ACCERR), `SIGBUS`, and traps with `siglongjmp`, a handler editing the saved PC to skip a faulting store, `SIGPIPE`, and `abort()` after its handler returns (status 134) |
 | `stdin` | Reading standard input to end of file |
@@ -82,7 +83,7 @@ runs in parallel must not see each other's queues and identifiers.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 132 binaries (44 programs × 3 architectures), 5,364 KiB in total; each
+- Size: 135 binaries (45 programs × 3 architectures), 5,528 KiB in total; each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -133,7 +134,7 @@ runs in parallel must not see each other's queues and identifiers.
   `MCL_FUTURE` (Rosetta, `mlock`), or lacks `mlock2`, translates the
   `EPERM` and `EAGAIN` of locked mappings, and ignores advice on locked
   ones (QEMU, `mlock`), or lacks `mseal` (both, `mseal`) or `rseq`
-  (both, `rseq`), the native
+  (both, `rseq`) or the AIO calls (QEMU, `aio`), the native
   AArch64
   result is used for architecture-independent kernel code. Rosetta has
   once, in about ten recordings, lost a stopped child continued by

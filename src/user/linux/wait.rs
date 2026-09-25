@@ -107,6 +107,26 @@ pub enum Resume {
     Until(Option<Instant>),
     /// A write to a pipe or socket that has transferred this many bytes.
     Written(u64),
+    /// `io_submit`: the requests before `index` were submitted; the one at
+    /// `index` sleeps with `inner` as its own progress.
+    Aio {
+        /// The context submitted to.
+        ctx: super::aio::Handle,
+        /// The request that sleeps.
+        index: u64,
+        /// Its transfer's progress.
+        inner: Box<Resume>,
+    },
+    /// `io_getevents` and `io_pgetevents`: the context, the events already
+    /// copied, and the end of the wait.
+    AioEvents {
+        /// The context read.
+        ctx: super::aio::Handle,
+        /// Events copied out.
+        got: u64,
+        /// End of the wait (never if `None`).
+        deadline: Option<Instant>,
+    },
     /// A socket call's progress.
     Socket(SockWait),
     /// `rt_sigtimedwait`: its deadline and the mask it replaced

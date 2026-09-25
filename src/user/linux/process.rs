@@ -377,6 +377,8 @@ pub struct ProcState {
     pub exec_id: u64,
     /// System V IPC.
     pub ipc: super::ipc::IpcState,
+    /// Linux AIO contexts (`mm->ioctx_table`).
+    pub aio: super::aio::Table,
     /// The emulated file-system notification namespace, when the backend
     /// is the emulated one and its namespace could be opened.
     pub fsnotify: Option<std::sync::Arc<super::fsnotify::hub::Hub>>,
@@ -713,6 +715,7 @@ impl LinuxProcess {
             forked: None,
             exec_id: 0,
             ipc: super::ipc::IpcState::new(config_ipc_dir),
+            aio: Default::default(),
             fsnotify,
             exec_keep: Vec::new(),
         };

@@ -441,15 +441,50 @@ fn positional(file: &OpenFile) -> i32 {
     }
 }
 
-/// `RWF_*` flags accepted by `preadv2`/`pwritev2`.
-const RWF_SUPPORTED: u64 = 0x1 | 0x2 | 0x4 | 0x8 | 0x10;
+/// `RWF_*` (`include/uapi/linux/fs.h`).
+pub(super) mod rwf {
+    pub const APPEND: u64 = 0x10;
+    pub const NOAPPEND: u64 = 0x20;
+    pub const ATOMIC: u64 = 0x40;
+    pub const DONTCACHE: u64 = 0x80;
+    pub const NOSIGNAL: u64 = 0x100;
+    /// `RWF_SUPPORTED`: those and `RWF_HIPRI`, `RWF_DSYNC`, `RWF_SYNC`,
+    /// and `RWF_NOWAIT`.
+    pub const SUPPORTED: u64 = 0x1ff;
+}
+
+/// `kiocb_set_rw_flags`'s refusals of `RWF_*` flags for a transfer on
+/// `file`: an unknown flag (`EOPNOTSUPP`), `RWF_APPEND` with
+/// `RWF_NOAPPEND` (`EINVAL`), `RWF_ATOMIC` (`EOPNOTSUPP`: a read never
+/// takes it, and no file here has `FMODE_CAN_ATOMIC_WRITE`, which needs
+/// direct I/O on a file system with atomic write units), and
+/// `RWF_DONTCACHE` on a file whose operations lack `FOP_DONTCACHE`
+/// (`EOPNOTSUPP`; regular files are taken to have it). `RWF_NOSIGNAL`
+/// ([`Ctx::nosignal`]) is the one flag with an effect here; the others
+/// are hints.
+pub(super) fn check_rw_flags(file: &OpenFile, flags: u64) -> Result<(), Errno> {
+    if flags & !rwf::SUPPORTED != 0 {
+        return Err(Errno(EOPNOTSUPP));
+    }
+    if flags & rwf::APPEND != 0 && flags & rwf::NOAPPEND != 0 {
+        return Err(Errno(EINVAL));
+    }
+    if flags & rwf::ATOMIC != 0 {
+        return Err(Errno(EOPNOTSUPP));
+    }
+    if flags & rwf::DONTCACHE != 0 && file.ftype != FileType::Regular {
+        return Err(Errno(EOPNOTSUPP));
+    }
+    Ok(())
+}
 
 /// `preadv`/`preadv2` (`pos == -1` means the current position).
 pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64) -> SysResult {
-    if flags & !RWF_SUPPORTED != 0 {
+    if flags & !rwf::SUPPORTED != 0 {
         return Err(Errno(EOPNOTSUPP));
     }
     let file = c.p.fds.file(fd)?;
+    check_rw_flags(&file, flags)?;
     if pos < -1 {
         return Err(Errno(EINVAL));
     }
@@ -483,10 +518,12 @@ pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64
 
 /// `pwritev`/`pwritev2`.
 pub fn pwritev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64) -> SysResult {
-    if flags & !RWF_SUPPORTED != 0 {
+    if flags & !rwf::SUPPORTED != 0 {
         return Err(Errno(EOPNOTSUPP));
     }
     let file = c.p.fds.file(fd)?;
+    check_rw_flags(&file, flags)?;
+    c.nosignal = flags & rwf::NOSIGNAL != 0;
     if pos < -1 {
         return Err(Errno(EINVAL));
     }

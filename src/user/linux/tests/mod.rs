@@ -1,6 +1,7 @@
 //! Linux personality unit tests.
 
 mod admin;
+mod aio;
 mod entry;
 mod epoll;
 mod events;

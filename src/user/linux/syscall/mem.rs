@@ -553,6 +553,10 @@ pub fn mremap(
         if !vma.shared {
             return Err(Errno(EINVAL));
         }
+        // It grows from nothing: a special mapping cannot.
+        if vma.flags & vma_flags::SPECIAL != 0 {
+            return Err(Errno(EFAULT));
+        }
         return duplicate(c, old, new_len, flags, new_addr, &vma);
     }
     // check_prep_vma, for a call that maps a new range (growing or
@@ -611,8 +615,10 @@ pub fn mremap(
                 .unmap(old + new_len, old_len - new_len)
                 .map_err(map_err)?;
         }
+        let ring = super::aio::ring_owner(c.p, &vma)?;
         moved_account(c, &vma, moved, new_len, flags & MREMAP_DONTUNMAP != 0);
         move_range(c, old, moved, new_addr, flags & MREMAP_DONTUNMAP != 0, &vma)?;
+        super::aio::ring_moved(c.p, ring, new_addr);
         if new_len > old_len {
             c.p.space
                 .map(new_addr + old_len, new_len - old_len, extension(new_addr))
@@ -652,8 +658,10 @@ pub fn mremap(
         return Err(Errno(ENOMEM));
     }
     let dest = unmapped_area(c, 0, new_len, 0)?;
+    let ring = super::aio::ring_owner(c.p, &vma)?;
     moved_account(c, &vma, old_len, new_len, flags & MREMAP_DONTUNMAP != 0);
     move_range(c, old, old_len, dest, flags & MREMAP_DONTUNMAP != 0, &vma)?;
+    super::aio::ring_moved(c.p, ring, dest);
     if new_len > old_len {
         c.p.space
             .map(dest + old_len, new_len - old_len, extension(dest))

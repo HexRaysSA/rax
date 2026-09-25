@@ -44,6 +44,7 @@ iovec    iovec    -
 mlock    mlock    -
 mseal    mseal    -
 rseq     rseq     -
+aio      aio      -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

@@ -397,6 +397,12 @@ pub fn lookup(p: &ProcState, cur: &Thread, threads: &[&Thread], guest: &str) -> 
             Some(ProcEntry::File(b"8192\n".to_vec()))
         }
         "/proc/sys/fs/mqueue/queues_max" => Some(ProcEntry::File(b"256\n".to_vec())),
+        // The requests AIO contexts may count (aio_max_nr) and count
+        // (aio_nr, this process's: syscall::aio).
+        "/proc/sys/fs/aio-max-nr" => Some(ProcEntry::File(
+            format!("{}\n", super::aio::AIO_MAX_NR).into_bytes(),
+        )),
+        "/proc/sys/fs/aio-nr" => Some(ProcEntry::File(format!("{}\n", p.aio.aio_nr).into_bytes())),
         "/proc/sys/vm/overcommit_memory" => Some(ProcEntry::File(b"0\n".to_vec())),
         "/proc/sys/vm/mmap_min_addr" => Some(ProcEntry::File(b"65536\n".to_vec())),
         "/proc/sys/fs/inotify/max_user_instances"

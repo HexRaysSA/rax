@@ -246,6 +246,17 @@ impl EventFd {
         true
     }
 
+    /// `eventfd_signal`: adds 1 unless the counter is already `UINT64_MAX`,
+    /// which only this reaches (and `eventfd_poll` reports as an error).
+    pub fn signal(&self) {
+        let l = Locked::new(self.words.words());
+        let count = l.get(EV_COUNT);
+        if count < u64::MAX {
+            l.set(EV_COUNT, count + 1);
+            self.levels_for(&l, count + 1);
+        }
+    }
+
     /// `eventfd_poll`: readable, writable, and error readiness.
     pub fn poll(&self) -> (bool, bool, bool) {
         let count = self.count();

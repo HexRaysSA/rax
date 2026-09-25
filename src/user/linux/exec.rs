@@ -323,6 +323,8 @@ impl LinuxProcess {
         p.exec_keep = image.keep;
         p.comm = image.comm;
         p.futex = Default::default();
+        // exit_aio: the old image's contexts go with its address space.
+        p.aio = Default::default();
         // exit_itimers, flush_itimer_signals: POSIX timers and their
         // queued signals go; interval timers stay.
         p.timers.clear();

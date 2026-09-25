@@ -28,6 +28,7 @@
 //! | [`futex`] | Futex wait queues, PI ownership, robust lists |
 //! | [`children`] | Child processes and their status records |
 //! | [`ipc`] | System V IPC objects and POSIX message queues, shared by the processes of a namespace |
+//! | [`aio`] | Linux AIO contexts: completion rings and request slots |
 //! | [`seccomp`] | System-call filters: strict mode and classic BPF |
 //! | [`timers`] | Interval timers |
 //! | [`wait`] | Sleeping in system calls on descriptors, deadlines, and signals |
@@ -35,6 +36,7 @@
 //! | [`sigmail`] | Senders of signals between `rax-user` processes |
 
 pub mod abi;
+pub mod aio;
 pub mod arch;
 pub mod children;
 pub mod exec;
