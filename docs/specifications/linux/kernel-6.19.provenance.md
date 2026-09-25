@@ -24,8 +24,8 @@
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
   `fs/locks.c`, `fs/fcntl.c`, the seven `net/` files above, the System V
-  IPC files, the seccomp files, and the file-system notification files:
-  25 September 2026)
+  IPC files, the seccomp, file-system notification, and system-call entry
+  files, and `ipc/msgutil.c`: 25 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
 - License: the files carry an SPDX identifier: `GPL-2.0` (74 files),

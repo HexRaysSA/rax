@@ -103,11 +103,13 @@ impl LinuxAbi {
         (ElfClass::Elf64, ElfData::Lsb)
     }
 
-    /// The system call with ABI number `nr`.
+    /// The system call the number register `nr` selects: x86-64 and
+    /// arm64 read the register as an `int` (`do_syscall_64`,
+    /// `el0_svc_common`), RV64 as a `long` (`do_trap_ecall_u`).
     pub fn sysno(self, nr: u64) -> Option<Sysno> {
         match self {
-            LinuxAbi::X86_64 => syscalls::x86_64_sysno(nr),
-            LinuxAbi::Aarch64 => syscalls::aarch64_sysno(nr),
+            LinuxAbi::X86_64 => syscalls::x86_64_sysno(u64::from(nr as u32)),
+            LinuxAbi::Aarch64 => syscalls::aarch64_sysno(u64::from(nr as u32)),
             LinuxAbi::Riscv64 => syscalls::riscv64_sysno(nr),
         }
     }

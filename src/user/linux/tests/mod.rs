@@ -1,5 +1,6 @@
 //! Linux personality unit tests.
 
+mod entry;
 mod epoll;
 mod events;
 mod exec;
