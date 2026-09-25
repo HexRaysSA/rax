@@ -36,7 +36,9 @@
   `include/uapi/linux/ioprio.h`), and the process-memory and
   kernel-object comparison files (`mm/{process_vm_access,gup}.c`,
   `kernel/{kcmp,ptrace}.c`, `lib/iov_iter.c`, `include/linux/ptrace.h`,
-  `include/uapi/linux/kcmp.h`) came from kernel.org's
+  `include/uapi/linux/kcmp.h`), and the memory locking and sealing files
+  (`mm/{mlock,mseal}.c`, `include/linux/mm.h`,
+  `include/uapi/asm-generic/{mman,mman-common}.h`) came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
@@ -44,13 +46,13 @@
   IPC files, the seccomp, file-system notification, and system-call entry
   files, `ipc/msgutil.c`, the machine-administration, clock-setting, and
   mount files, the POSIX message queue files, the scheduling-attribute
-  files, and the process-memory and kernel-object comparison files: 25
-  September 2026)
+  files, the process-memory and kernel-object comparison files, and the
+  memory locking and sealing files: 25 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (97 files),
+- License: the files carry an SPDX identifier: `GPL-2.0` (100 files),
   `GPL-2.0-only` (49), `GPL-2.0-or-later` (36),
-  `GPL-2.0 WITH Linux-syscall-note` (7), `GPL-2.0+` (2),
+  `GPL-2.0 WITH Linux-syscall-note` (9), `GPL-2.0+` (2),
   `LGPL-2.1+ WITH Linux-syscall-note` (1, `include/uapi/linux/mqueue.h`),
   or `GPL-1.0+` (1). Seven have none: `mm/memfd.c`, `mm/shmem.c`, and
   `ipc/mqueue.c` state "This file is released under the GPL." in their
@@ -113,6 +115,7 @@ behavior it reproduces beyond what the UAPI headers
 | Scheduling attributes | `kernel/sched/syscalls.c` (`sched_setscheduler`, `sched_setparam`, `sched_setattr`, `sched_getattr`, `sched_copy_attr`, `__sched_setscheduler`, `user_check_sched_setscheduler`, `__setscheduler_params`, `get_params`, `set_user_nice`, `is_nice_reduction`, `__normal_prio`, `sched_get_priority_max`/`min`, `sched_rr_get_interval`), `kernel/sched/core.c` (`sched_fork`, `to_ratio`), `kernel/sched/fair.c` (`__setparam_fair`, `sysctl_sched_base_slice`, `get_rr_interval_fair`), `kernel/sched/rt.c` (`get_rr_interval_rt`, the real-time bandwidth), `kernel/sched/deadline.c` (`__checkparam_dl`, `sched_dl_overflow`, `__dl_overflow`, the fair server's bandwidth), `kernel/sched/sched.h` (the policy classes), `include/linux/sched/{prio,rt,deadline}.h`, `include/uapi/linux/sched.h`, `include/uapi/linux/sched/types.h` (`struct sched_attr`), `kernel/sys.c` (`setpriority`, `getpriority`, `PR_SET_TIMERSLACK`), `kernel/fork.c` (`default_timer_slack_ns`), `block/ioprio.c` (`ioprio_set`, `ioprio_get`, `ioprio_check_cap`), `block/blk-ioc.c` (`set_task_ioprio`, `copy_io`), `include/linux/ioprio.h` (`__get_task_ioprio`), `include/uapi/linux/ioprio.h` |
 | Supplementary groups, read-ahead, and range sync | `kernel/groups.c` (`setgroups`, `getgroups`), `mm/readahead.c` (`ksys_readahead`), `fs/sync.c` (`sync_file_range`) |
 | Process memory access and kernel-object comparison | `mm/process_vm_access.c` (`process_vm_rw`, `process_vm_rw_core`, `process_vm_rw_single_vec`, `process_vm_rw_pages`), `mm/gup.c` (`check_vma_flags`, `__get_user_pages`, `gup_vma_lookup`, `faultin_page_range`: `VM_READ` for reads, the pinned prefix), `lib/iov_iter.c` (`__import_iovec`, `import_ubuf`, `iovec_from_user`, `copy_iovec_from_user`, `iov_iter_iovec_advance`: `access_ok` on the whole length before `MAX_RW_COUNT`, a single segment capped first), `kernel/ptrace.c` (`__ptrace_may_access`), `kernel/fork.c` (`mm_access`, `may_access_mm`), `mm/madvise.c` (`process_madvise`, `vector_madvise`, `madvise_should_skip`, `process_madvise_remote_valid`), `kernel/pid.c` (`pidfd_get_task`), `kernel/kcmp.c` (`kcmp`, `kcmp_ptr`, `kcmp_epoll_target`), `fs/eventpoll.c` (`get_epoll_tfile_raw_ptr`, `ep_find_tfd`), `include/linux/ptrace.h` (`PTRACE_MODE_*`), `include/uapi/linux/kcmp.h`, `ipc/sem.c` (`copy_semundo`, `get_undo_list`, `find_alloc_undo`, `exit_sem`), `block/blk-ioc.c` (`copy_io`, `exit_io_context`) |
+| Memory locking and sealing | `mm/mlock.c` (`can_do_mlock`, `mlock_fixup`, `apply_vma_lock_flags`, `count_mm_mlocked_page_nr`, `__mlock_posix_error_return`, `do_mlock`, `mlock2`, `munlock`, `apply_mlockall_flags`, `mlockall`, `munlockall`), `mm/mseal.c` (`range_contains_unmapped`, `mseal_apply`, `do_mseal`), `mm/gup.c` (`populate_vma_page_range`, `__mm_populate`), `mm/mmap.c` (`check_brk_limits`, `brk`, `mlock_future_ok`, `do_mmap`, `dup_mmap`), `mm/vma.c` (`vms_gather_munmap_vmas`, `vms_complete_munmap_vmas`, `mmap_region`, `do_brk_flags`: sealed and locked VMAs), `mm/mremap.c` (`check_prep_vma`, `resize_is_valid`, `vrm_stat_account`, `move_vma`, `dontunmap_complete`), `mm/madvise.c` (`madvise_dontneed_free_valid_vma`, `can_madv_lru_vma`, `madvise_remove`, `can_madvise_modify`, `is_discard`), `mm/mprotect.c` (`mprotect_fixup`), `kernel/fork.c` (`mm_init`: `def_flags`), `include/linux/mm.h` (`VM_LOCKED`, `VM_LOCKONFAULT`, `VM_SEALED`, `VM_SPECIAL`, `vma_is_accessible`), `include/uapi/asm-generic/mman.h` (`MCL_*`), `include/uapi/asm-generic/mman-common.h` (`MLOCK_ONFAULT`, `MAP_LOCKED`, the `MADV_*` advice) |
 
 Code comments name the kernel function whose behavior an implementation
 follows (for example `do_mprotect_pkey` or `madvise_walk_vmas`); that

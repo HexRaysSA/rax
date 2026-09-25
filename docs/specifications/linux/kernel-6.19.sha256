@@ -90,6 +90,7 @@ f44749ed81e6076b27b2e68639d6e14825167cf92d0bab4580af1dcc8f13f855  ./fs/xattr.c
 8d55ae5b167a5f186da8e2b6cf3dabb2c0a989a5236ba7d53a4b95428f42dbf4  ./include/linux/ipc_namespace.h
 723ef6c08656ed79a78441fc7f98c435cbef7bafe2ceb29ac145177cb9dbaf10  ./include/linux/jiffies.h
 aec3aef8afc43db9950c13d3459840929fad4f3c8f2c1ca2a2115dd0146ffade  ./include/linux/memfd.h
+b65a8e4c21cfafcf13c99b25775f5e9b6f1c123ae993092064a178b867364fd6  ./include/linux/mm.h
 fa1231cb6aa22d773fba76ea474b86dec09a80efb602d37cd9d450041f70e732  ./include/linux/moduleparam.h
 336b9be0f4a2d1112bd385eb50a76370a2ec9ddbf1eb78cb3f7f39c416f31faa  ./include/linux/msg.h
 d2b599da6d7e2c7c944b8205f672d6bc20fb07f80fc44e2adc951a1ec652b7af  ./include/linux/pidfs.h
@@ -114,6 +115,8 @@ cd3b5c33208c1b3ded9a6fc793837e1d1d83d98b8c884e2b314bbc2d6e89052f  ./include/linu
 6d7d11d81d2049bbd91a98a303a80dc4dfef2556b1ab92ada56d82ea510e8535  ./include/linux/uaccess.h
 54685c4d7999d0113a0c727a675e0f59b77a202981eae74769573a231584deb5  ./include/linux/xattr.h
 096f700a9f40be9aa6bfef2be5fad1651fe700d5cc5373384183c82109276a2c  ./include/net/sock.h
+52849c062488fdaaa877e7a491bec38643e732dc04baa2f6e15b365ab77eb504  ./include/uapi/asm-generic/mman-common.h
+bd9550ecdd91d875315f2c8965263e30b5457611526d7e0db69943843f536343  ./include/uapi/asm-generic/mman.h
 aebe74d8dfe3078a039a3a5faad35d9840c67e6472239e78bd8340bb6deaebfe  ./include/uapi/asm-generic/param.h
 b9fbd261e2893ae568f08414300cfd8f9b1cfcd7fd83c706c81b2b0eaeda61c6  ./include/uapi/linux/ioprio.h
 0e74ad59aefc2329d6d5f9bb5136efa9ee00022aa5b991c68e80e2cce8dc148a  ./include/uapi/linux/kcmp.h
@@ -175,9 +178,11 @@ e4834146177206fd26f79cc8275142d5722e8bf61a68ce4e9b1a04b3c5367ef5  ./kernel/time/
 dd076cb38f805cc2b1d110f143b2f8ae5b54c03bbbec1a40f8581fc7464dcb8c  ./mm/gup.c
 f61a1338060c3f651db014cbdd6676f8d35c4fe5a316fcccc4b8d6b6c355163e  ./mm/madvise.c
 8670d4f894f895f759e66f4624604829e6e8798cef594fdbdb46f2a70786dc42  ./mm/memfd.c
+92e44532e1351255f75b119e5548de104c82bae66724439779ab14f73ebef9a3  ./mm/mlock.c
 98f9e362c0d7086f56402fdf68bae174be7ff34dc6de0d5b6ec4bbd078c05028  ./mm/mmap.c
 e07f89b697674073cfa405936c70462cd06e38f69bc2982a373d4a36a44b0282  ./mm/mprotect.c
 7fa52cf6e7ee72b458379433d0b9922d8a285e0dc68906e99410135b72ad0930  ./mm/mremap.c
+8fc1aadec9bc296dd623063c140cf8e218ee7312113de2a83225dada540ca6cb  ./mm/mseal.c
 f623afa9c304887da1e04e5fefeb914fc8596b9928081b4b911b71d5d6e5bc7a  ./mm/process_vm_access.c
 175dd500106cd731768897b9bffd3399c519b481921e40ca7e4ce58868ebb851  ./mm/readahead.c
 034a4eee57b2416cac1723fd0b7f05cfb0d3fbee59b742f83030897160903388  ./mm/shmem.c
