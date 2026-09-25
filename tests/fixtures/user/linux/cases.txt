@@ -43,6 +43,7 @@ kcmp     kcmp     -
 iovec    iovec    -
 mlock    mlock    -
 mseal    mseal    -
+rseq     rseq     -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

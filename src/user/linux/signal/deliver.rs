@@ -580,6 +580,13 @@ impl LinuxProcess {
         let mut th = Threads::split(&mut self.threads, Some(idx));
         let p = &mut self.state;
         let t = th.current().expect("running thread");
+        // rseq_signal_deliver: an interrupted critical section is aborted
+        // before the frame saves the instruction pointer.
+        let task_size = p.abi.task_size();
+        if !crate::user::linux::rseq::signal_deliver(&p.space, task_size, t) {
+            force_sigsegv(p, &mut th, d.sig);
+        }
+        let t = th.current().expect("running thread");
         if frame::setup_rt_frame(t, &p.space, d, p.sigtramp).is_err() {
             force_sigsegv(p, &mut th, d.sig);
             return;

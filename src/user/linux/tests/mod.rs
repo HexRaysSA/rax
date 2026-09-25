@@ -25,6 +25,7 @@ mod posix_timers;
 mod priority;
 mod procfs;
 mod procmem;
+mod rseq;
 mod seccomp;
 mod signals;
 mod sockets;

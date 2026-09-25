@@ -335,6 +335,8 @@ impl LinuxProcess {
         if let Some(me) = p.forked.as_mut() {
             me.exec();
         }
+        // rseq_execve: the new image has not registered.
+        t.rseq = None;
         t.sigpending = super::signal::deliver::recalc_sigpending(p, &t);
         self.threads.push(t);
     }

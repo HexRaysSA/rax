@@ -364,6 +364,9 @@ pub struct ProcState {
     /// other threads run: it remains a zombie (`delay_group_leader`) that
     /// signals can still name.
     pub leader_exit: Option<u64>,
+    /// The thread that last ran in user mode: another one resuming there
+    /// was switched out in between (`rseq_sched_switch_event`).
+    pub last_user: Option<i32>,
     /// Child processes.
     pub children: super::children::Children,
     /// The tasks this process's pidfds name.
@@ -437,6 +440,8 @@ pub struct Thread {
     pub sched: super::priority::Sched,
     /// Its semaphore undo list (`sysvsem.undo_list`), if it has one.
     pub sysvsem: Option<super::ipc::UndoList>,
+    /// Its restartable-sequences registration and pending events.
+    pub rseq: Option<super::rseq::Rseq>,
 }
 
 impl Thread {
@@ -466,6 +471,7 @@ impl Thread {
             seccomp: Default::default(),
             sched: Default::default(),
             sysvsem: None,
+            rseq: None,
         }
     }
 }
@@ -701,6 +707,7 @@ impl LinuxProcess {
             futex: Default::default(),
             curr_target: pid,
             leader_exit: None,
+            last_user: None,
             children: Default::default(),
             pidfds: Default::default(),
             forked: None,

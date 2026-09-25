@@ -237,6 +237,12 @@ target = "x86_64-linux-musl"
 sha256 = "d33127003260eef360824fed4945c760bd4fb609056973f32b506b2eefc12bcd"
 
 [[fixture]]
+path = "bin/x86_64/rseq"
+source = "src/rseq.c"
+target = "x86_64-linux-musl"
+sha256 = "f754b957dde7b579df2bade7695d01b5388be3974d83210dbc12fb67f8b8ade3"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -495,6 +501,12 @@ target = "aarch64-linux-musl"
 sha256 = "daf2165ac59e151e0b7ce3f5db56306b88686635e7e9c353aeeb9291a27d9f94"
 
 [[fixture]]
+path = "bin/aarch64/rseq"
+source = "src/rseq.c"
+target = "aarch64-linux-musl"
+sha256 = "c6e582740679457ecba186ef5e945facc592a67b816f9f733a3a7b384d2ce13a"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -751,6 +763,12 @@ path = "bin/riscv64/mseal"
 source = "src/mseal.c"
 target = "riscv64-linux-musl"
 sha256 = "7bd2b1d6dae2f8078c9aa90b36d45554b4e66562865ea3c60704cc81aa534b93"
+
+[[fixture]]
+path = "bin/riscv64/rseq"
+source = "src/rseq.c"
+target = "riscv64-linux-musl"
+sha256 = "fee405244b4e172be65e4c677466134ae64b97587efcb4aee3c0339933ec85de"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

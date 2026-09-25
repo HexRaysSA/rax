@@ -138,6 +138,11 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             // parent shares with it; each process applies its own
             // adjustments at its exit.
             c.t.sysvsem = sysvsem;
+            // rseq_fork: a child sharing the address space registers its
+            // own area; a forked one keeps its parent's.
+            if flags & CLONE_VM != 0 {
+                c.t.rseq = None;
+            }
             become_child(c, &args);
             Ok(Outcome::Forked(ForkedSelf {
                 status: write,

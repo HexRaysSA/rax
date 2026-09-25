@@ -82,12 +82,27 @@ impl LinuxProcess {
                 current = self.resume(idx).from(idx);
                 continue;
             }
-            // The return to user mode: restart processing and signals.
+            // The return to user mode: restart processing and signals,
+            // then restartable sequences.
+            let tid = self.threads[idx].tid;
+            if self.state.last_user != Some(tid) {
+                super::rseq::switched(&mut self.threads[idx]);
+            }
             self.deliver_signals(idx);
             if self.state.exit.is_some() {
                 continue;
             }
-            match self.threads[idx].cpu.run(slice) {
+            if !self.rseq_exit(idx) {
+                continue;
+            }
+            self.state.last_user = Some(tid);
+            let event = self.threads[idx].cpu.run(slice);
+            let irq = !matches!(
+                event,
+                CpuEvent::Syscall { .. } | CpuEvent::CompatSyscall { .. }
+            );
+            super::rseq::left_user(&mut self.threads[idx], irq);
+            match event {
                 CpuEvent::Syscall { nr, args } => {
                     self.threads[idx].syscall = Some(SyscallEntry { nr, arg0: args[0] });
                     current = self.syscall(idx, Call::new(nr, args)).from(idx);
@@ -108,6 +123,26 @@ impl LinuxProcess {
                 }
             }
         }
+    }
+
+    /// The rseq work of the return to user mode for thread `idx`; a failure
+    /// forces `SIGSEGV`, which is delivered before the thread runs. False
+    /// when the process ended.
+    fn rseq_exit(&mut self, idx: usize) -> bool {
+        let (abi, task) = (self.state.abi, self.state.abi.task_size());
+        if super::rseq::exit_to_user(&self.state.space, abi, task, &mut self.threads[idx]) {
+            return true;
+        }
+        let mut th = Threads::split(&mut self.threads, Some(idx));
+        let info = SigInfo::kernel(super::signal::SIGSEGV);
+        super::signal::deliver::force_signal(
+            &mut self.state,
+            &mut th,
+            info,
+            super::signal::deliver::ForceMode::Current,
+        );
+        self.deliver_signals(idx);
+        self.state.exit.is_none()
     }
 
     /// The thread to run next, starting at `start`: the thread there if it
