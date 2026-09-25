@@ -195,6 +195,8 @@ pub fn load_image(
             mmap_base: abi.mmap_base(req.stack_limit),
             program,
             stack: stack.clone(),
+            def_lock: 0,
+            locked_vm: 0,
         },
         sigtramp,
         auxv: stack.auxv.clone(),

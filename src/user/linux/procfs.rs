@@ -234,6 +234,8 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let _ = writeln!(s, "Groups:\t{} ", groups.join(" "));
     let _ = writeln!(s, "VmPeak:\t{:8} kB", vsize / 1024);
     let _ = writeln!(s, "VmSize:\t{:8} kB", vsize / 1024);
+    let locked_kb = super::syscall::mlock::locked_pages(p) * 4;
+    let _ = writeln!(s, "VmLck:\t{locked_kb:8} kB");
     let _ = writeln!(s, "VmRSS:\t{:8} kB", rss_kb);
     let _ = writeln!(s, "Threads:\t{threads}");
     // task_sig: queued records against RLIMIT_SIGPENDING, then the pending,

@@ -14,6 +14,7 @@ mod kcmp;
 mod loader;
 mod locks;
 mod misc;
+mod mlock;
 mod mounts;
 mod mqueue;
 mod netlink;

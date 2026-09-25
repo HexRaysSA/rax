@@ -280,6 +280,13 @@ pub struct MmState {
     pub program: LoadedProgram,
     /// The initial stack layout.
     pub stack: InitialStack,
+    /// The lock flags new mappings take (`mm->def_flags & VM_LOCKED_MASK`,
+    /// set by `mlockall(MCL_FUTURE)`); a new address space has none.
+    pub def_lock: u32,
+    /// `mm->locked_vm`, in pages: kept as the kernel keeps it, a count
+    /// raised and lowered by the calls rather than the pages of the locked
+    /// VMAs (`MREMAP_DONTUNMAP` unlocks the old range without lowering it).
+    pub locked_vm: u64,
 }
 
 /// Process-wide state shared by all threads.

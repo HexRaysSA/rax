@@ -148,6 +148,7 @@ pub fn brk(c: &mut Ctx<'_>, addr: u64) -> SysResult {
     }
     if addr <= cur {
         // Shrinking always succeeds.
+        super::mlock::unmapped(c.p, new_end, old_end - new_end);
         c.p.space
             .unmap(new_end, old_end - new_end)
             .map_err(map_err)?;
@@ -166,19 +167,22 @@ pub fn brk(c: &mut Ctx<'_>, addr: u64) -> SysResult {
             return Ok(cur);
         }
     }
-    let rw = Perms::READ | Perms::WRITE;
-    if c.p
-        .space
-        .map(
-            old_end,
-            new_end - old_end,
-            Mapping::anonymous(rw).named("[heap]"),
-        )
-        .is_err()
-    {
+    // check_brk_limits: under mlockall(MCL_FUTURE) the growth is locked
+    // and must fit RLIMIT_MEMLOCK.
+    let lock = c.p.mm.def_lock;
+    if !super::mlock::future_ok(c.p, lock, new_end - old_end) {
+        return Ok(cur);
+    }
+    let mut heap = Mapping::anonymous(Perms::READ | Perms::WRITE).named("[heap]");
+    heap.flags = lock;
+    if c.p.space.map(old_end, new_end - old_end, heap).is_err() {
         return Ok(cur);
     }
     c.p.mm.brk = addr;
+    super::mlock::mapped(c.p, lock, new_end - old_end);
+    if lock & vma_flags::LOCKED != 0 {
+        let _ = super::mlock::populate(c.p, old_end, new_end, true);
+    }
     Ok(addr)
 }
 
@@ -348,6 +352,20 @@ pub fn mmap(
     } else {
         unmapped_area(c, addr, len, flags)?
     };
+    // do_mmap: MAP_LOCKED needs the right to lock, and a locked mapping
+    // (MAP_LOCKED or mlockall's MCL_FUTURE) must fit RLIMIT_MEMLOCK.
+    let lock = if flags & MAP_LOCKED != 0 {
+        vma_flags::LOCKED
+    } else {
+        0
+    } | c.p.mm.def_lock;
+    if flags & MAP_LOCKED != 0 && !super::mlock::can_do_mlock(c.p) {
+        return Err(Errno(EPERM));
+    }
+    if !super::mlock::future_ok(c.p, lock, len) {
+        return Err(Errno(EAGAIN));
+    }
+    super::mlock::unmapped(c.p, start, len);
     c.p.space
         .map(
             start,
@@ -357,10 +375,16 @@ pub fn mmap(
                 backing,
                 shared,
                 name,
-                flags: vm_flags | read_flag(prot),
+                flags: vm_flags | read_flag(prot) | lock,
             },
         )
         .map_err(map_err)?;
+    super::mlock::mapped(c.p, lock, len);
+    // A locked mapping, or MAP_POPULATE without MAP_NONBLOCK, is brought
+    // in at once, failures passed over (mm_populate).
+    if lock & vma_flags::LOCKED != 0 || flags & (MAP_POPULATE | MAP_NONBLOCK) == MAP_POPULATE {
+        let _ = super::mlock::populate(c.p, start, start + len, true);
+    }
     Ok(start)
 }
 
@@ -387,6 +411,7 @@ pub fn munmap(c: &mut Ctx<'_>, addr: u64, len: u64) -> SysResult {
     if len == 0 {
         return Err(Errno(EINVAL));
     }
+    super::mlock::unmapped(c.p, addr, len);
     c.p.space.unmap(addr, len).map_err(map_err)?;
     Ok(0)
 }
@@ -510,9 +535,31 @@ pub fn mremap(
         }
         return duplicate(c, old, new_len, flags, new_addr, &vma);
     }
+    // check_prep_vma, for a call that maps a new range (growing or
+    // moving): a special mapping is never kept by MREMAP_DONTUNMAP, nor
+    // resized; a locked one's change must fit RLIMIT_MEMLOCK.
+    let will_map_new = new_len > old_len || flags & (MREMAP_FIXED | MREMAP_DONTUNMAP) != 0;
+    if will_map_new && flags & MREMAP_DONTUNMAP != 0 && vma.flags & vma_flags::SPECIAL != 0 {
+        return Err(Errno(EINVAL));
+    }
     if old.checked_add(old_len).is_none_or(|end| end > vma.end) {
         return Err(Errno(EFAULT));
     }
+    if will_map_new && new_len != old_len {
+        if vma.flags & vma_flags::SPECIAL != 0 {
+            return Err(Errno(EFAULT));
+        }
+        if !super::mlock::future_ok(c.p, vma.flags, new_len.abs_diff(old_len)) {
+            return Err(Errno(EAGAIN));
+        }
+    }
+    // A locked VMA's new pages are brought in (populate_expand).
+    let locked = vma.flags & vma_flags::LOCKED != 0;
+    let populate_new = |c: &Ctx<'_>, base: u64| {
+        if locked && new_len > old_len {
+            let _ = super::mlock::populate(c.p, base + old_len, base + new_len, true);
+        }
+    };
     let extension = |base: u64| Mapping {
         perms: vma.perms,
         backing: vma.backing.advanced(old - vma.start + old_len),
@@ -531,24 +578,29 @@ pub fn mremap(
         if new_addr < MMAP_MIN_ADDR {
             return Err(Errno(EPERM));
         }
+        super::mlock::unmapped(c.p, new_addr, new_len);
         c.p.space.unmap(new_addr, new_len).map_err(map_err)?;
         let moved = old_len.min(new_len);
         if old_len > new_len {
+            super::mlock::unmapped(c.p, old + new_len, old_len - new_len);
             c.p.space
                 .unmap(old + new_len, old_len - new_len)
                 .map_err(map_err)?;
         }
+        moved_account(c, &vma, moved, new_len, flags & MREMAP_DONTUNMAP != 0);
         move_range(c, old, moved, new_addr, flags & MREMAP_DONTUNMAP != 0, &vma)?;
         if new_len > old_len {
             c.p.space
                 .map(new_addr + old_len, new_len - old_len, extension(new_addr))
                 .map_err(map_err)?;
         }
+        populate_new(c, new_addr);
         return Ok(new_addr);
     }
 
     if new_len <= old_len && flags & MREMAP_DONTUNMAP == 0 {
         if new_len < old_len {
+            super::mlock::unmapped(c.p, old + new_len, old_len - new_len);
             c.p.space
                 .unmap(old + new_len, old_len - new_len)
                 .map_err(map_err)?;
@@ -567,19 +619,43 @@ pub fn mremap(
         c.p.space
             .map(old + old_len, grow, extension(old))
             .map_err(map_err)?;
+        // vrm_stat_account of the growth.
+        super::mlock::mapped(c.p, vma.flags, grow);
+        populate_new(c, old);
         return Ok(old);
     }
     if flags & MREMAP_MAYMOVE == 0 {
         return Err(Errno(ENOMEM));
     }
     let dest = unmapped_area(c, 0, new_len, 0)?;
+    moved_account(c, &vma, old_len, new_len, flags & MREMAP_DONTUNMAP != 0);
     move_range(c, old, old_len, dest, flags & MREMAP_DONTUNMAP != 0, &vma)?;
     if new_len > old_len {
         c.p.space
             .map(dest + old_len, new_len - old_len, extension(dest))
             .map_err(map_err)?;
     }
+    populate_new(c, dest);
     Ok(dest)
+}
+
+/// `move_vma`'s count of locked pages: the new VMA's `new_len` bytes are
+/// counted (`vrm_stat_account`), then the `old_len` bytes of the source
+/// leave with its unmapping, which `MREMAP_DONTUNMAP` never does (the old
+/// range is unlocked with its pages still counted).
+fn moved_account(
+    c: &mut Ctx<'_>,
+    vma: &crate::user::mm::Vma,
+    old_len: u64,
+    new_len: u64,
+    dontunmap: bool,
+) {
+    super::mlock::mapped(c.p, vma.flags, new_len);
+    if !dontunmap {
+        if vma.flags & vma_flags::LOCKED != 0 {
+            c.p.mm.locked_vm = c.p.mm.locked_vm.wrapping_sub(old_len / PAGE_SIZE);
+        }
+    }
 }
 
 /// `mremap` of zero bytes of a shared mapping: a second mapping of the
@@ -614,6 +690,8 @@ fn duplicate(
     } else {
         unmapped_area(c, 0, new_len, 0)?
     };
+    // mremap_to unmaps the destination; move_vma counts the new VMA.
+    super::mlock::unmapped(c.p, dest, new_len);
     c.p.space
         .map(
             dest,
@@ -627,6 +705,7 @@ fn duplicate(
             },
         )
         .map_err(map_err)?;
+    super::mlock::mapped(c.p, vma.flags, new_len);
     Ok(dest)
 }
 
@@ -642,8 +721,9 @@ fn move_range(
 ) -> Result<(), Errno> {
     c.p.space.remap(old, len, dest).map_err(map_err)?;
     if dontunmap {
-        // The range stays mapped, emptied: private memory reads as zero, a
-        // shared mapping faults the object's pages in again.
+        // The range stays mapped, emptied and unlocked: private memory
+        // reads as zero, a shared mapping faults the object's pages in
+        // again.
         let backing = if vma.shared {
             vma.backing.advanced(old - vma.start)
         } else {
@@ -658,7 +738,7 @@ fn move_range(
                     backing,
                     shared: vma.shared,
                     name: vma.name.clone(),
-                    flags: vma.flags,
+                    flags: vma.flags & !vma_flags::LOCKED_MASK,
                 },
             )
             .map_err(map_err)?;
@@ -703,6 +783,8 @@ pub fn madvise(c: &mut Ctx<'_>, addr: u64, len: u64, advice: u32) -> SysResult {
     const MADV_DONTNEED: u32 = 4;
     const MADV_FREE: u32 = 8;
     const MADV_REMOVE: u32 = 9;
+    const MADV_COLD: u32 = 20;
+    const MADV_PAGEOUT: u32 = 21;
     const MADV_POPULATE_READ: u32 = 22;
     const MADV_POPULATE_WRITE: u32 = 23;
     const MADV_DONTNEED_LOCKED: u32 = 24;
@@ -744,6 +826,17 @@ pub fn madvise(c: &mut Ctx<'_>, addr: u64, len: u64, advice: u32) -> SysResult {
             Backing::Shared { object, .. } => object.is_anonymous(),
             Backing::Source { .. } => false,
         };
+        // A locked VMA keeps its pages: madvise_dontneed_free_valid_vma
+        // (MADV_DONTNEED_LOCKED excepted), madvise_remove, and
+        // can_madv_lru_vma refuse it.
+        if vma.flags & vma_flags::LOCKED != 0
+            && matches!(
+                advice,
+                MADV_DONTNEED | MADV_FREE | MADV_REMOVE | MADV_COLD | MADV_PAGEOUT
+            )
+        {
+            return Err(Errno(EINVAL));
+        }
         let discard = match advice {
             // Private pages are dropped: the next touch sees zero (anonymous)
             // or the file. Shared pages live on in the page cache or shmem,
@@ -809,17 +902,6 @@ pub fn msync(c: &mut Ctx<'_>, addr: u64, len: u64, flags: u32) -> SysResult {
     // (vfs_fsync_range), MS_ASYNC and MS_INVALIDATE have nothing to do.
     if flags & MS_SYNC != 0 && len != 0 {
         c.p.space.sync(addr, len).map_err(Errno::from)?;
-    }
-    Ok(0)
-}
-
-/// `mlock`/`munlock`/`mlock2`: memory is never paged out, so locking only
-/// validates the range.
-pub fn mlock(c: &mut Ctx<'_>, addr: u64, len: u64) -> SysResult {
-    let start = addr & !PAGE_MASK;
-    let end = page_align(addr.saturating_add(len)).ok_or(Errno(ENOMEM))?;
-    if end > start && c.p.space.first_unmapped(start, end - start).is_some() {
-        return Err(Errno(ENOMEM));
     }
     Ok(0)
 }

@@ -64,6 +64,18 @@ pub mod vma_flags {
     /// `/proc/<pid>/maps` shows no `r` and `get_user_pages` refuses to
     /// read them (`check_vma_flags`).
     pub const NO_READ: u32 = 1 << 2;
+    /// `VM_LOCKED`: `mlock`, `mlockall`, `MAP_LOCKED`, or `MCL_FUTURE`;
+    /// counted in `VmLck`, never dropped by `madvise`.
+    pub const LOCKED: u32 = 1 << 3;
+    /// `VM_LOCKONFAULT`: locked as pages fault in, not populated at once
+    /// (`MLOCK_ONFAULT`, `MCL_ONFAULT`).
+    pub const LOCKONFAULT: u32 = 1 << 4;
+    /// `VM_LOCKED_MASK`.
+    pub const LOCKED_MASK: u32 = LOCKED | LOCKONFAULT;
+    /// A special mapping (`_install_special_mapping`'s `VM_DONTEXPAND`):
+    /// the `[vdso]` page. It is never locked, grown, or kept by
+    /// `MREMAP_DONTUNMAP`.
+    pub const SPECIAL: u32 = 1 << 5;
 }
 
 impl LinuxAbi {

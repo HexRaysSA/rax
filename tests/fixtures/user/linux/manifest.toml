@@ -225,6 +225,12 @@ target = "x86_64-linux-musl"
 sha256 = "895fbe0b6e19526d218a72deae63e2cdefdf5d3c0cf6033a9604b02d7e5da9fb"
 
 [[fixture]]
+path = "bin/x86_64/mlock"
+source = "src/mlock.c"
+target = "x86_64-linux-musl"
+sha256 = "a308be708781b093da5a7feba61c6e2a64dab0b3fef88fe99168673de030d0fb"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -471,6 +477,12 @@ target = "aarch64-linux-musl"
 sha256 = "0ec745a9619c4487b1ee764cdf18ff5f2d4644a9f0e59fbd92f6f5f3de9a8278"
 
 [[fixture]]
+path = "bin/aarch64/mlock"
+source = "src/mlock.c"
+target = "aarch64-linux-musl"
+sha256 = "cb819b44d0ecd86a2a8ebaf1da3e86002f3476304fdb8758ed87b76455df34d6"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -715,6 +727,12 @@ path = "bin/riscv64/iovec"
 source = "src/iovec.c"
 target = "riscv64-linux-musl"
 sha256 = "7c1ed304d08fcee96f58a4af7c1a28128e588d6214d6a95c43d3b77e94c7acfa"
+
+[[fixture]]
+path = "bin/riscv64/mlock"
+source = "src/mlock.c"
+target = "riscv64-linux-musl"
+sha256 = "c578ed3eb0f10ad5d91040b1f3f080082777f3e6aefbe6b49940c4d24b46d308"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

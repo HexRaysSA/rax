@@ -21,7 +21,7 @@ if [[ "$zig_version" != "0.16.0" ]]; then
 fi
 
 targets=(x86_64-linux-musl aarch64-linux-musl riscv64-linux-musl)
-programs=(hello fileio memory mman process signals timers hostsig threads threadexit exec fork events epoll sockets sockmsg shmem memfd pidfd fdinfo nodes xattr misc locks netlink ifreq sysvshm sysvsem sysvmsg seccomp inotify admin mqueue sched procmem kcmp iovec stdin segv abort trap)
+programs=(hello fileio memory mman process signals timers hostsig threads threadexit exec fork events epoll sockets sockmsg shmem memfd pidfd fdinfo nodes xattr misc locks netlink ifreq sysvshm sysvsem sysvmsg seccomp inotify admin mqueue sched procmem kcmp iovec mlock stdin segv abort trap)
 flags=(-static -Os -s -fno-sanitize=all -fno-stack-protector -ffile-prefix-map="$here"=.)
 
 manifest="manifest.toml"

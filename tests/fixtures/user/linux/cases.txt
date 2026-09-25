@@ -41,6 +41,7 @@ sched    sched    -
 procmem  procmem  -
 kcmp     kcmp     -
 iovec    iovec    -
+mlock    mlock    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

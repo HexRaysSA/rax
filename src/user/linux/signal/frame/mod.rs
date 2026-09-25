@@ -203,11 +203,9 @@ pub fn map_sigtramp(
     let page = space
         .find_free_top_down(PAGE_SIZE, PAGE_SIZE, MMAP_MIN_ADDR, mmap_base)
         .ok_or(MmError::OutOfMemory)?;
-    space.map(
-        page,
-        PAGE_SIZE,
-        Mapping::anonymous(Perms::READ | Perms::EXEC).named("[vdso]"),
-    )?;
+    let mut vdso = Mapping::anonymous(Perms::READ | Perms::EXEC).named("[vdso]");
+    vdso.flags = crate::user::linux::abi::vma_flags::SPECIAL;
+    space.map(page, PAGE_SIZE, vdso)?;
     let bytes: Vec<u8> = code.iter().flat_map(|w| w.to_le_bytes()).collect();
     space
         .write_raw(page, &bytes)

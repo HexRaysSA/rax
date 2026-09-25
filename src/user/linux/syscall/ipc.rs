@@ -113,7 +113,14 @@ pub fn shmat(c: &mut Ctx<'_>, id: i32, addr: u64, flags: i32) -> SysResult {
     } else {
         unmapped_area(c, 0, len, 0)?
     };
+    // do_mmap: under mlockall(MCL_FUTURE) the attach is locked and must
+    // fit RLIMIT_MEMLOCK.
+    let lock = c.p.mm.def_lock;
+    if !super::mlock::future_ok(c.p, lock, len) {
+        return Err(Errno(EAGAIN));
+    }
     let object = SharedObject::sysv(file, writable, id).map_err(Errno::from)?;
+    super::mlock::unmapped(c.p, start, len);
     c.p.space
         .map(
             start,
@@ -126,10 +133,14 @@ pub fn shmat(c: &mut Ctx<'_>, id: i32, addr: u64, flags: i32) -> SysResult {
                 },
                 shared: true,
                 name: Some(format!("/SYSV{:08x} (deleted)", seg.key as u32).into()),
-                flags: if writable { 0 } else { vma_flags::DENY_WRITE },
+                flags: (if writable { 0 } else { vma_flags::DENY_WRITE }) | lock,
             },
         )
         .map_err(map_err)?;
+    super::mlock::mapped(c.p, lock, len);
+    if lock & vma_flags::LOCKED != 0 {
+        let _ = super::mlock::populate(c.p, start, start + len, true);
+    }
     Ok(start)
 }
 
@@ -151,6 +162,7 @@ pub fn shmdt(c: &mut Ctx<'_>, addr: u64) -> SysResult {
     let mut found = None;
     for v in rest.by_ref() {
         if let Some(object) = at_offset(v) {
+            super::mlock::unmapped(c.p, v.start, v.len());
             c.p.space.unmap(v.start, v.len()).map_err(map_err)?;
             found = Some(object);
             break;
@@ -165,6 +177,7 @@ pub fn shmdt(c: &mut Ctx<'_>, addr: u64) -> SysResult {
             break;
         }
         if at_offset(v).is_some_and(|o| Arc::ptr_eq(&o, &attach)) {
+            super::mlock::unmapped(c.p, v.start, v.len());
             c.p.space.unmap(v.start, v.len()).map_err(map_err)?;
         }
     }
