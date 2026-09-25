@@ -22,7 +22,7 @@ use super::super::abi::open::*;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::net::addr::{self, Addr, UnixName};
 use super::super::net::sys::{self, HostAddr};
-use super::super::net::{Socket, host_domain, host_type, lx, name, opts};
+use super::super::net::{Socket, host_domain, host_type, lx, name, netlink, opts};
 use super::super::signal::deliver::restart::ERESTARTSYS;
 use super::super::wait::{Resume, SockWait, Wait};
 use super::{Ctx, SysResult};
@@ -174,6 +174,20 @@ fn resolve(c: &Ctx<'_>, family: i32, kind: i32, protocol: i32) -> Result<(i32, i
             (kind, 0)
         }
         lx::AF_INET | lx::AF_INET6 => (kind, inet_protocol(family, kind, protocol, admin(c))?),
+        lx::AF_NETLINK => {
+            // netlink_create: raw and datagram sockets of a protocol below
+            // MAX_LINKS that is registered (the host's on Linux, only
+            // NETLINK_ROUTE elsewhere).
+            if kind != lx::SOCK_RAW && kind != lx::SOCK_DGRAM {
+                return Err(Errno(ESOCKTNOSUPPORT));
+            }
+            if !(0..netlink::MAX_LINKS).contains(&protocol)
+                || (!cfg!(target_os = "linux") && protocol != netlink::NETLINK_ROUTE)
+            {
+                return Err(Errno(EPROTONOSUPPORT));
+            }
+            (kind, protocol)
+        }
         _ => return Err(Errno(EAFNOSUPPORT)),
     };
     Ok((family, kind, protocol))
@@ -182,6 +196,9 @@ fn resolve(c: &Ctx<'_>, family: i32, kind: i32, protocol: i32) -> Result<(i32, i
 /// A new socket (`__sock_create`).
 fn create(c: &Ctx<'_>, family: i32, kind: i32, protocol: i32) -> Result<Socket, Errno> {
     let (family, kind, protocol) = resolve(c, family, kind, protocol)?;
+    if family == lx::AF_NETLINK && !cfg!(target_os = "linux") {
+        return Socket::emulated_netlink(kind);
+    }
     let fd = sys::socket(host_domain(family), host_type(kind), protocol)?;
     Ok(Socket::new(fd, family, kind, protocol))
 }
@@ -255,6 +272,15 @@ pub fn bind(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
                 return Err(Errno(EACCES));
             }
             name::bind(s, &name::place(&c.p.vfs, &a, true)?)?;
+            Ok(0)
+        }
+        lx::AF_NETLINK => {
+            if let Some(n) = &s.netlink {
+                n.bind(&b, c.p.pid, admin(c))?;
+            } else {
+                let (pid, groups) = netlink::parse_addr(&b)?;
+                sys::bind(&s.file, &HostAddr::Netlink(pid, groups))?;
+            }
             Ok(0)
         }
         _ => Err(Errno(EOPNOTSUPP)),
@@ -452,6 +478,10 @@ fn connect_target(s: &Socket, b: &[u8]) -> Result<Option<Addr>, Errno> {
         _ if unspec => Ok(None),
         lx::AF_INET => addr::parse_v4(b, false).map(Some),
         lx::AF_INET6 => addr::parse_v6(b).map(Some),
+        lx::AF_NETLINK => {
+            let (pid, groups) = netlink::parse_addr(b)?;
+            Ok(Some(Addr::Netlink { pid, groups }))
+        }
         _ => Err(Errno(EOPNOTSUPP)),
     }
 }
@@ -476,6 +506,10 @@ pub fn connect(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
     let file = c.p.fds.file(fd)?;
     let b = read_addr(c, uaddr, len)?;
     let s = sock_of(&file)?;
+    if let Some(n) = &s.netlink {
+        n.connect(&b, c.p.pid, admin(c))?;
+        return Ok(0);
+    }
     let timeout = s.state.lock().unwrap().sndtimeo;
     let resumed = matches!(c.resume, Some(Resume::Socket(_)));
     let w = progress(c, timeout);
@@ -545,6 +579,10 @@ fn finish_connect(c: &mut Ctx<'_>, s: &Socket, w: SockWait, timeout: opts::Timeo
 pub fn getname(c: &mut Ctx<'_>, fd: i32, uaddr: u64, ulen: u64, peer: bool) -> SysResult {
     let file = c.p.fds.file(fd)?;
     let s = sock_of(&file)?;
+    if let Some(n) = &s.netlink {
+        write_addr(c, &n.name(peer), uaddr, ulen)?;
+        return Ok(0);
+    }
     let own = s.state.lock().unwrap().name.clone();
     let a = match own {
         // unix_getname: the name bound here.
@@ -571,6 +609,10 @@ pub fn getname(c: &mut Ctx<'_>, fd: i32, uaddr: u64, ulen: u64, peer: bool) -> S
 pub fn shutdown(c: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
     let file = c.p.fds.file(fd)?;
     let s = sock_of(&file)?;
+    // Netlink has no shutdown (sock_no_shutdown).
+    if s.domain == lx::AF_NETLINK {
+        return Err(Errno(EOPNOTSUPP));
+    }
     if !(0..=2).contains(&how) {
         return Err(Errno(EINVAL));
     }
@@ -596,6 +638,9 @@ pub fn getsockopt(
 ) -> SysResult {
     let file = c.p.fds.file(fd)?;
     let s = sock_of(&file)?;
+    if level == lx::SOL_NETLINK && s.domain == lx::AF_NETLINK {
+        return netlink_getsockopt(c, s, opt, val, ulen);
+    }
     let (v, len) = if level == lx::SOL_SOCKET {
         // sk_getsockopt reads the length before the option.
         let len = c.read_u32(ulen)? as i32;
@@ -636,6 +681,26 @@ pub fn getsockopt(
     Ok(0)
 }
 
+/// `netlink_getsockopt`: the value, and the length the option reports.
+fn netlink_getsockopt(c: &Ctx<'_>, s: &Socket, opt: i32, val: u64, ulen: u64) -> SysResult {
+    let len = c.read_u32(ulen)? as i32;
+    if len < 0 {
+        return Err(Errno(EINVAL));
+    }
+    let (v, report) = match &s.netlink {
+        Some(n) => n.getsockopt(opt, len as usize)?,
+        None => {
+            // The host writes what it writes; the rest stays the guest's.
+            let mut v = c.read_mem(val, len as usize)?;
+            let n = sys::getsockopt_into(&s.file, lx::SOL_NETLINK, opt, &mut v)?;
+            (v, n)
+        }
+    };
+    c.write_mem(val, &v)?;
+    c.write_u32(ulen, report)?;
+    Ok(0)
+}
+
 /// `SO_PEERNAME`: the peer's address; a buffer longer than it is `EINVAL`.
 fn peer_name_opt(c: &Ctx<'_>, s: &Socket, val: u64, ulen: u64, len: i32) -> SysResult {
     let h = sys::peername(&s.file).map_err(|_| Errno(ENOTCONN))?;
@@ -657,6 +722,13 @@ pub fn setsockopt(c: &mut Ctx<'_>, fd: i32, level: i32, opt: i32, val: u64, len:
     }
     // The largest option structure taken (struct group_source_req).
     let bytes = c.read_mem(val, (len as usize).min(264))?;
+    if level == lx::SOL_NETLINK && s.domain == lx::AF_NETLINK {
+        match &s.netlink {
+            Some(n) => n.setsockopt(opt, &bytes, admin(c))?,
+            None => sys::setsockopt(&s.file, lx::SOL_NETLINK, opt, &bytes)?,
+        }
+        return Ok(0);
+    }
     opts::set(s, level, opt, &bytes, admin(c))?;
     Ok(0)
 }
@@ -668,6 +740,11 @@ pub fn ioctl(c: &mut Ctx<'_>, s: &Socket, req: u32, arg: u64) -> SysResult {
     const FIONREAD: u32 = 0x541B;
     const SIOCOUTQ: u32 = 0x5411;
     const SIOCATMARK: u32 = 0x8905;
+    // netlink_ioctl has none, and these are not socket-type requests
+    // (sock_do_ioctl).
+    if s.domain == lx::AF_NETLINK && matches!(req, FIONREAD | SIOCOUTQ) {
+        return Err(Errno(ENOTTY));
+    }
     let v = match req {
         FIONREAD => {
             // A listening socket has no bytes (EINVAL, tcp_ioctl).

@@ -273,8 +273,7 @@ fn creation_checks_follow_sock_create() {
         let m = area(&mut h);
         assert_eq!(h.err(Sysno::Socket, &[999, STREAM, 0]), EAFNOSUPPORT);
         assert_eq!(h.err(Sysno::Socket, &[u64::MAX, STREAM, 0]), EAFNOSUPPORT);
-        // AF_NETLINK and AF_PACKET are not provided.
-        assert_eq!(h.err(Sysno::Socket, &[16, 3, 0]), EAFNOSUPPORT);
+        // AF_PACKET is not provided (netlink is, in tests/netlink.rs).
         assert_eq!(h.err(Sysno::Socket, &[17, 3, 0]), EAFNOSUPPORT);
         // SOCK_MAX, flag bits, and the type switch.
         assert_eq!(h.err(Sysno::Socket, &[AF_INET, 11, 0]), EINVAL);

@@ -147,6 +147,12 @@ target = "x86_64-linux-musl"
 sha256 = "f68912e0e8f4c5982ebe6cfefe3a4b6fd27a23d7c143033fd28562c3542ab7a7"
 
 [[fixture]]
+path = "bin/x86_64/netlink"
+source = "src/netlink.c"
+target = "x86_64-linux-musl"
+sha256 = "0bad2c5b32d82f0bd3f5cb4bc34539cf80768469b441188030397e20d350c3f2"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -315,6 +321,12 @@ target = "aarch64-linux-musl"
 sha256 = "1bcc8b2073845e9faf84490637e3ecd45659d85c2aa09dce9196e1646729e511"
 
 [[fixture]]
+path = "bin/aarch64/netlink"
+source = "src/netlink.c"
+target = "aarch64-linux-musl"
+sha256 = "25e895b27e1079d8b7f1fe161de66e5c9ee73fca0ba194af619cc21c88a5cb4b"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -481,6 +493,12 @@ path = "bin/riscv64/locks"
 source = "src/locks.c"
 target = "riscv64-linux-musl"
 sha256 = "15d876e24134269c2292f7485e048d19c45d482d43f2994f5f0b3f9656f858b5"
+
+[[fixture]]
+path = "bin/riscv64/netlink"
+source = "src/netlink.c"
+target = "riscv64-linux-musl"
+sha256 = "3b58cdd7fb8ff5b6d6b9f8a4bd03bbba55db41f8e09ca389e0a2b7262dce1f4f"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

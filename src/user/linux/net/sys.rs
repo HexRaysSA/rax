@@ -36,6 +36,8 @@ pub enum HostAddr {
     V4([u8; 4], u16),
     /// IPv6: address, port, flow information, scope.
     V6([u8; 16], u16, u32, u32),
+    /// Netlink (Linux hosts only): port ID and groups.
+    Netlink(u32, u32),
 }
 
 /// `sun_path`'s size on the host.
@@ -107,6 +109,18 @@ fn encode(a: &HostAddr) -> Result<(libc::sockaddr_storage, libc::socklen_t), Err
             }
             std::mem::size_of::<libc::sockaddr_in6>()
         }
+        #[cfg(target_os = "linux")]
+        HostAddr::Netlink(pid, groups) => {
+            let nl = unsafe { &mut *(&mut st as *mut _ as *mut libc::sockaddr_nl) };
+            nl.nl_family = libc::AF_NETLINK as _;
+            nl.nl_pid = *pid;
+            nl.nl_groups = *groups;
+            std::mem::size_of::<libc::sockaddr_nl>()
+        }
+        #[cfg(not(target_os = "linux"))]
+        HostAddr::Netlink(..) => {
+            return Err(Errno(super::super::abi::errno_table::EAFNOSUPPORT));
+        }
     };
     Ok((st, len as libc::socklen_t))
 }
@@ -156,6 +170,12 @@ fn decode(st: &libc::sockaddr_storage, len: libc::socklen_t) -> HostAddr {
                 u32::from_be(sin6.sin6_flowinfo),
                 sin6.sin6_scope_id,
             )
+        }
+        #[cfg(target_os = "linux")]
+        libc::AF_NETLINK => {
+            // SAFETY: the family says the storage holds a sockaddr_nl.
+            let nl = unsafe { &*(st as *const _ as *const libc::sockaddr_nl) };
+            HostAddr::Netlink(nl.nl_pid, nl.nl_groups)
         }
         _ => HostAddr::Unspec,
     }
@@ -375,10 +395,16 @@ pub struct Received {
     pub flags: i32,
     /// Descriptors received with `SCM_RIGHTS`.
     pub fds: Vec<OwnedFd>,
+    /// `SOL_NETLINK` control messages: type and data.
+    pub netlink: Vec<(i32, Vec<u8>)>,
 }
 
+/// `SOL_NETLINK` (Linux's number; no other host has the level).
+const SOL_NETLINK: libc::c_int = 270;
+
 /// `recvmsg(2)` into `buf` with host flags, taking `SCM_RIGHTS`
-/// descriptors (up to 253, `SCM_MAX_FD`).
+/// descriptors (up to 253, `SCM_MAX_FD`) and `SOL_NETLINK` control
+/// messages.
 pub fn recvmsg(fd: &impl AsRawFd, buf: &mut [u8], flags: i32) -> Result<Received, Errno> {
     const MAX_FDS: usize = 253;
     // SAFETY (whole function): the iovec, address storage, and control
@@ -406,8 +432,14 @@ pub fn recvmsg(fd: &impl AsRawFd, buf: &mut [u8], flags: i32) -> Result<Received
             return Err(last_errno());
         }
         let mut fds = Vec::new();
+        let mut netlink = Vec::new();
         let mut c = libc::CMSG_FIRSTHDR(&msg);
         while !c.is_null() {
+            if (*c).cmsg_level == SOL_NETLINK {
+                let len = (*c).cmsg_len as usize - libc::CMSG_LEN(0) as usize;
+                let data = std::slice::from_raw_parts(libc::CMSG_DATA(c), len);
+                netlink.push(((*c).cmsg_type, data.to_vec()));
+            }
             if (*c).cmsg_level == libc::SOL_SOCKET && (*c).cmsg_type == libc::SCM_RIGHTS {
                 let data = libc::CMSG_DATA(c) as *const libc::c_int;
                 let count = ((*c).cmsg_len as usize - libc::CMSG_LEN(0) as usize)
@@ -426,6 +458,7 @@ pub fn recvmsg(fd: &impl AsRawFd, buf: &mut [u8], flags: i32) -> Result<Received
             truncated: msg.msg_flags & libc::MSG_TRUNC != 0,
             flags: msg.msg_flags,
             fds,
+            netlink,
         })
     }
 }
@@ -485,6 +518,20 @@ pub fn getsockopt(fd: &impl AsRawFd, level: i32, opt: i32, len: usize) -> Result
     check(unsafe { libc::getsockopt(fd.as_raw_fd(), level, opt, b.as_mut_ptr().cast(), &mut l) })?;
     b.truncate(l as usize);
     Ok(b)
+}
+
+/// `getsockopt(2)` into `b` (bytes the host does not write keep their
+/// values): the length the host reports, which may exceed `b`'s.
+pub fn getsockopt_into(
+    fd: &impl AsRawFd,
+    level: i32,
+    opt: i32,
+    b: &mut [u8],
+) -> Result<u32, Errno> {
+    let mut l = b.len() as libc::socklen_t;
+    // SAFETY: `b` is writable for `l` bytes.
+    check(unsafe { libc::getsockopt(fd.as_raw_fd(), level, opt, b.as_mut_ptr().cast(), &mut l) })?;
+    Ok(l as u32)
 }
 
 /// `getsockopt(2)` of an `int`.

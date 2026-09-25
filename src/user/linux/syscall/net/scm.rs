@@ -5,7 +5,7 @@
 //! | Message | Sending | Receiving |
 //! |---|---|---|
 //! | `SCM_RIGHTS` (Unix) | up to `SCM_MAX_FD` (253) open descriptors, passed as host descriptors ([`net::msg`](super::super::super::net::msg)) | installed from the lowest free descriptor, close-on-exec with `MSG_CMSG_CLOEXEC`; what does not fit is closed and `MSG_CTRUNC` set |
-//! | `SCM_CREDENTIALS` (Unix) | checked (`scm_check_creds`: the caller's PID, one of its user and group IDs); the host carries its own | with `SO_PASSCRED`, the connected peer's credentials |
+//! | `SCM_CREDENTIALS` (Unix, netlink) | checked (`scm_check_creds`: the caller's PID, one of its user and group IDs); the host carries its own | with `SO_PASSCRED`, the connected peer's credentials (Unix) |
 //! | IP-level and `SOL_SOCKET` options of IP sockets (`IP_TTL`, `IP_TOS`, `IP_PKTINFO`, `SO_MARK`, ...) | accepted and not applied | none |
 
 use std::os::fd::{AsRawFd, OwnedFd, RawFd};
@@ -43,7 +43,8 @@ pub struct Sending {
 pub fn parse(c: &Ctx<'_>, s: &Socket, ctl: &[u8]) -> Result<Sending, Errno> {
     let mut out = Sending::default();
     for m in msg::split(ctl)? {
-        if !s.unix() {
+        // Netlink takes __scm_send's messages, less SCM_RIGHTS.
+        if !s.unix() && s.domain != lx::AF_NETLINK {
             inet_cmsg(c, s, &m)?;
             continue;
         }
@@ -51,7 +52,7 @@ pub fn parse(c: &Ctx<'_>, s: &Socket, ctl: &[u8]) -> Result<Sending, Errno> {
             continue;
         }
         match m.kind {
-            lx::SCM_RIGHTS => {
+            lx::SCM_RIGHTS if s.unix() => {
                 // scm_fp_copy: the whole ints the message holds.
                 let fds: Vec<i32> = m
                     .data
@@ -150,6 +151,9 @@ fn host_fd(f: &OpenFile) -> Option<RawFd> {
         FileObject::Host(h) => Some(h.as_raw_fd()),
         FileObject::PipeRead(p) => Some(p.as_raw_fd()),
         FileObject::PipeWrite(p) => Some(p.as_raw_fd()),
+        // An emulated netlink socket's descriptor is its readiness level,
+        // which no other process may read.
+        FileObject::Socket(s) if s.netlink.is_some() => None,
         FileObject::Socket(s) => Some(s.raw()),
         FileObject::Synthetic(_) | FileObject::PathOnly | FileObject::Anon(_) => None,
     }

@@ -9,19 +9,21 @@
 //! | [`addr`] | guest `struct sockaddr` parsing and encoding |
 //! | [`name`] | Unix names and IP addresses between guest and host: file-system paths through the VFS, the abstract namespace, autobind |
 //! | [`msg`] | ancillary data: `SCM_RIGHTS` and `SCM_CREDENTIALS` |
+//! | [`netlink`] | `AF_NETLINK`: the host's on Linux, `NETLINK_ROUTE` emulated elsewhere |
 //! | [`opts`] | socket options |
 //! | [`poll`] | readiness as `sock_poll` reports it |
-//! | [`sys`] | the host socket calls (the module's only `unsafe` code) |
+//! | [`sys`] | the host socket calls (with the host interface enumeration in [`netlink::ifaces`], the module's only `unsafe` code) |
 //!
-//! The families are `AF_UNIX`, `AF_INET`, and `AF_INET6`; creating any
-//! other is `EAFNOSUPPORT`, as a kernel built without it answers. Every host
-//! socket is non-blocking: blocking, the socket timeouts, and signal
-//! interruption are the personality's (see
+//! The families are `AF_UNIX`, `AF_INET`, `AF_INET6`, and `AF_NETLINK`;
+//! creating any other is `EAFNOSUPPORT`, as a kernel built without it
+//! answers. Every host socket is non-blocking: blocking, the socket
+//! timeouts, and signal interruption are the personality's (see
 //! [`syscall::net`](super::syscall::net)).
 
 pub mod addr;
 pub mod msg;
 pub mod name;
+pub mod netlink;
 pub mod opts;
 pub mod poll;
 pub mod sys;
@@ -37,6 +39,7 @@ pub mod lx {
     pub const AF_UNIX: i32 = 1;
     pub const AF_INET: i32 = 2;
     pub const AF_INET6: i32 = 10;
+    pub const AF_NETLINK: i32 = 16;
     pub const AF_PACKET: i32 = 17;
     /// `AF_MAX` (`NPROTO`).
     pub const AF_MAX: i32 = 46;
@@ -64,6 +67,7 @@ pub mod lx {
     pub const IPPROTO_MAX: i32 = 263;
 
     pub const SOL_SOCKET: i32 = 1;
+    pub const SOL_NETLINK: i32 = 270;
 
     pub const MSG_OOB: u32 = 0x1;
     pub const MSG_PEEK: u32 = 0x2;
@@ -164,6 +168,9 @@ pub struct Socket {
     pub ino: u64,
     /// State the kernel keeps and the host does not.
     pub state: Mutex<SockState>,
+    /// An emulated netlink socket's state (its host descriptor is a
+    /// readiness level).
+    pub netlink: Option<netlink::Endpoint>,
 }
 
 /// A socket's personality-side state.
@@ -228,7 +235,16 @@ impl Socket {
                 cookie: COOKIE.fetch_add(1, Ordering::Relaxed),
                 ..Default::default()
             }),
+            netlink: None,
         }
+    }
+
+    /// An emulated `NETLINK_ROUTE` socket of type `stype`.
+    pub fn emulated_netlink(stype: i32) -> Result<Self, super::abi::errno::Errno> {
+        let (fd, endpoint) = netlink::Endpoint::new()?;
+        let mut s = Socket::new(fd, lx::AF_NETLINK, stype, netlink::NETLINK_ROUTE);
+        s.netlink = Some(endpoint);
+        Ok(s)
     }
 
     /// The host descriptor.

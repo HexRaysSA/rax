@@ -1062,6 +1062,20 @@ pub fn take_byte(fd: i32) {
     }
 }
 
+/// Makes descriptor number `target` refer to `with`'s open file (closing
+/// what it referred to), close-on-exec, and closes `with`.
+pub fn replace_fd(target: i32, with: std::os::fd::OwnedFd) -> Result<(), Errno> {
+    // SAFETY: dup2 and F_SETFD take integer descriptors; `with` stays open
+    // across both calls and is closed once, when dropped.
+    unsafe {
+        if libc::dup2(with.as_raw_fd(), target) < 0 {
+            return Err(last_errno());
+        }
+        libc::fcntl(target, libc::F_SETFD, libc::FD_CLOEXEC);
+    }
+    Ok(())
+}
+
 /// A watch for the end of a host process: a descriptor that becomes
 /// readable, and stays so, once the process has exited — a pidfd on Linux,
 /// a kqueue holding an `EVFILT_PROC`/`NOTE_EXIT` filter on macOS.

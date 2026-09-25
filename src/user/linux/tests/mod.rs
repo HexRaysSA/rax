@@ -9,6 +9,7 @@ mod harness;
 mod loader;
 mod locks;
 mod misc;
+mod netlink;
 mod nodes;
 mod pidfd;
 mod posix_timers;

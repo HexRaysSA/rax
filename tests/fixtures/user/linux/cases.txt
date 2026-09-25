@@ -28,6 +28,7 @@ nodes    nodes    -
 xattr    xattr    -
 misc     misc     -
 locks    locks    -
+netlink  netlink  -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

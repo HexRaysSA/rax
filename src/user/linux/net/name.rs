@@ -75,6 +75,7 @@ pub fn place(vfs: &Vfs, a: &Addr, create: bool) -> Result<Place, Errno> {
             flow,
             scope,
         } => Place::Addr(HostAddr::V6(*ip, *port, *flow, *scope)),
+        Addr::Netlink { pid, groups } => Place::Addr(HostAddr::Netlink(*pid, *groups)),
         Addr::Unix(UnixName::Path(p)) => fit(&unix_path(vfs, p, create)?)?,
         Addr::Unix(UnixName::Abstract(n)) if cfg!(target_os = "linux") => {
             Place::Addr(HostAddr::Unix {
@@ -124,6 +125,7 @@ pub fn guest_addr(vfs: &Vfs, h: HostAddr) -> Addr {
             flow,
             scope,
         },
+        HostAddr::Netlink(pid, groups) => Addr::Netlink { pid, groups },
         HostAddr::Unix {
             name,
             abstract_: true,

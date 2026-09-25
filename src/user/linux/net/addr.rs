@@ -63,6 +63,13 @@ pub enum Addr {
         /// `sin6_scope_id`.
         scope: u32,
     },
+    /// `AF_NETLINK`.
+    Netlink {
+        /// `nl_pid`.
+        pid: u32,
+        /// `nl_groups`.
+        groups: u32,
+    },
 }
 
 /// The family word of a guest address, if it has one.
@@ -173,6 +180,13 @@ impl Addr {
                 b[4..8].copy_from_slice(&flow.to_be_bytes());
                 b[8..24].copy_from_slice(ip);
                 b[24..28].copy_from_slice(&scope.to_le_bytes());
+                b
+            }
+            Addr::Netlink { pid, groups } => {
+                let mut b = vec![0u8; 12];
+                b[..2].copy_from_slice(&fam(lx::AF_NETLINK));
+                b[4..8].copy_from_slice(&pid.to_le_bytes());
+                b[8..12].copy_from_slice(&groups.to_le_bytes());
                 b
             }
         }

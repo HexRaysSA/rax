@@ -25,7 +25,7 @@ use super::super::super::net::msg::Out;
 use super::super::super::net::name::{self, Place};
 use super::super::super::net::opts::Timeout;
 use super::super::super::net::sys::{self, HostAddr};
-use super::super::super::net::{Socket, host_msg_flags, lx};
+use super::super::super::net::{Socket, host_msg_flags, lx, netlink};
 use super::super::super::signal::deliver::restart::ERESTARTSYS;
 use super::super::super::wait::{Resume, SockWait, Wait};
 use super::super::io::{MAX_RW_COUNT, iovec_room};
@@ -57,6 +57,9 @@ pub struct Got {
     pub flags: u32,
     /// Descriptors passed with the data.
     pub fds: Vec<OwnedFd>,
+    /// Control messages of the protocol's level (`SOL_NETLINK`): type and
+    /// data.
+    pub netlink: Vec<(i32, Vec<u8>)>,
 }
 
 /// Writes `data` into the vectors `iov` from byte `skip` on.
@@ -143,13 +146,16 @@ pub fn recv(
     flags: u32,
     mut w: SockWait,
 ) -> Result<Got, Errno> {
+    if let Some(n) = &s.netlink {
+        return netlink_recv(c, file, s, n, iov, flags, w);
+    }
     let total = iov.iter().map(|v| v.1).sum::<u64>().min(MAX_RW_COUNT);
     let room = iovec_room(c, iov).min(total);
     if total > 0 && room == 0 {
         return Err(Errno(EFAULT));
     }
-    // An IP socket's error queue is empty.
-    if flags & lx::MSG_ERRQUEUE != 0 && !s.unix() {
+    // An IP socket's error queue is empty; netlink has none.
+    if flags & lx::MSG_ERRQUEUE != 0 && !s.unix() && s.domain != lx::AF_NETLINK {
         return Err(Errno(EAGAIN));
     }
     let timeout = s.state.lock().unwrap().rcvtimeo;
@@ -197,6 +203,7 @@ pub fn recv(
                         from,
                         flags: rflags,
                         fds: r.fds,
+                        netlink: r.netlink,
                     });
                 }
                 let len = if trunc && rflags & lx::MSG_TRUNC != 0 {
@@ -209,6 +216,7 @@ pub fn recv(
                     from,
                     flags: rflags,
                     fds: r.fds,
+                    netlink: r.netlink,
                 });
             }
             Err(Errno(EINTR)) => continue,
@@ -218,6 +226,7 @@ pub fn recv(
                     from: Vec::new(),
                     flags: 0,
                     fds: Vec::new(),
+                    netlink: Vec::new(),
                 };
                 if nonblock {
                     return if w.done > 0 {
@@ -239,6 +248,7 @@ pub fn recv(
                     from: Vec::new(),
                     flags: 0,
                     fds: Vec::new(),
+                    netlink: Vec::new(),
                 });
             }
             // unix_stream_read_generic: a stream not connected is EINVAL.
@@ -246,6 +256,53 @@ pub fn recv(
             Err(e) => return Err(e),
         }
     }
+}
+
+/// `netlink_recvmsg` of an emulated netlink socket: the next datagram from
+/// the kernel, waited for as any datagram is; the source is the kernel
+/// (port ID 0).
+fn netlink_recv(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    s: &Socket,
+    n: &netlink::Endpoint,
+    iov: &[(u64, u64)],
+    flags: u32,
+    w: SockWait,
+) -> Result<Got, Errno> {
+    if flags & lx::MSG_OOB != 0 {
+        return Err(Errno(EOPNOTSUPP));
+    }
+    let total = iov.iter().map(|v| v.1).sum::<u64>().min(MAX_RW_COUNT) as usize;
+    let timeout = s.state.lock().unwrap().rcvtimeo;
+    let Some(d) = n.recv(&s.file, total, flags & lx::MSG_PEEK != 0) else {
+        if nonblocking(file, timeout) || flags & lx::MSG_DONTWAIT != 0 {
+            return Err(Errno(EAGAIN));
+        }
+        return Err(sleep(c, s, false, w, timeout, EAGAIN));
+    };
+    let stored = d.bytes.len().min(total);
+    scatter_at(c, iov, 0, &d.bytes[..stored])?;
+    Ok(Got {
+        len: if flags & lx::MSG_TRUNC != 0 {
+            d.bytes.len()
+        } else {
+            stored
+        },
+        from: netlink::encode_addr(0, 0),
+        flags: if stored < d.bytes.len() {
+            lx::MSG_TRUNC
+        } else {
+            0
+        },
+        fds: Vec::new(),
+        // netlink_cmsg_recv_pktinfo: the kernel's unicasts have group 0.
+        netlink: if d.pktinfo {
+            vec![(netlink::NETLINK_PKTINFO, 0u32.to_le_bytes().to_vec())]
+        } else {
+            Vec::new()
+        },
+    })
 }
 
 /// `sock_sendmsg` of `data` on socket `s` to `to` (`target` the guest's
@@ -383,6 +440,12 @@ fn destination(
             }
             addr::parse_v4(&v, false)?
         }
+        // netlink_sendmsg: a name of no length names no destination.
+        lx::AF_NETLINK if b.is_empty() => return Ok(None),
+        lx::AF_NETLINK => {
+            let (pid, groups) = netlink::parse_addr(b)?;
+            Addr::Netlink { pid, groups }
+        }
         lx::AF_INET6 => {
             if b.len() < 2 {
                 return Err(Errno(EINVAL));
@@ -433,6 +496,9 @@ fn send_message(
     ctl: &[u8],
     w: SockWait,
 ) -> Result<usize, Errno> {
+    if let Some(n) = &s.netlink {
+        return netlink_send(c, s, n, data, flags, name, ctl);
+    }
     // unix_*_sendmsg take the control data first; IP protocols check the
     // address first. A send resumed in part already passed its
     // descriptors.
@@ -455,6 +521,42 @@ fn send_message(
         carried.failed();
     }
     r
+}
+
+/// `netlink_sendmsg` of an emulated netlink socket: `MSG_OOB`, an empty
+/// message, the control data, then the destination and the message.
+fn netlink_send(
+    c: &mut Ctx<'_>,
+    s: &Socket,
+    n: &netlink::Endpoint,
+    data: &[u8],
+    flags: u32,
+    name: Option<&[u8]>,
+    ctl: &[u8],
+) -> Result<usize, Errno> {
+    if flags & lx::MSG_OOB != 0 {
+        return Err(Errno(EOPNOTSUPP));
+    }
+    if data.is_empty() {
+        return Err(Errno(ENODATA));
+    }
+    scm::parse(c, s, ctl)?;
+    let sndbuf = s
+        .state
+        .lock()
+        .unwrap()
+        .sndbuf
+        .map_or(netlink::MEM_DEFAULT, |v| v as usize);
+    let to = name.filter(|b| !b.is_empty());
+    n.send(
+        &s.file,
+        data,
+        to,
+        c.p.pid,
+        super::admin(c),
+        sndbuf,
+        &netlink::ifaces::snapshot,
+    )
 }
 
 /// `sendto` (and `send`).
@@ -601,6 +703,14 @@ fn recv_one(
     let got = recv(c, file, s, &iov, flags, w)?;
     let files = scm::receive(c, got.fds);
     let mut out = Out::new(m.controllen.min(i32::MAX as u64) as usize);
+    for (kind, data) in &got.netlink {
+        // put_cmsg: no buffer is MSG_CTRUNC.
+        if m.control == 0 {
+            out.truncated = true;
+        } else {
+            out.put(lx::SOL_NETLINK, *kind, data);
+        }
+    }
     let cloexec = flags & lx::MSG_CMSG_CLOEXEC != 0;
     scm::deliver(c, s, &mut out, m.control == 0, files, cloexec);
     if m.name != 0 {
@@ -760,6 +870,9 @@ pub fn read(c: &mut Ctx<'_>, file: &Arc<OpenFile>, iov: &[(u64, u64)]) -> SysRes
 pub fn write(c: &mut Ctx<'_>, file: &Arc<OpenFile>, iov: &[(u64, u64)]) -> SysResult {
     let s = sock_of(file)?;
     let (data, _) = gather(c, iov)?;
+    if let Some(n) = &s.netlink {
+        return netlink_send(c, s, n, &data, 0, None, &[]).map(|n| n as u64);
+    }
     let flags = if s.stype == lx::SOCK_SEQPACKET {
         lx::MSG_EOR
     } else {

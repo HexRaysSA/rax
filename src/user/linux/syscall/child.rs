@@ -137,6 +137,8 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     c.p.pidfds.forked(pid);
     // copy_process: POSIX locks are not inherited.
     super::super::fs::locks::forked();
+    // Emulated netlink sockets get readiness levels of their own.
+    super::super::net::netlink::forked();
     let p = &mut *c.p;
     p.pid = pid;
     p.ppid = host::ppid();
