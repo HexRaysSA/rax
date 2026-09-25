@@ -49,6 +49,7 @@ splice   splice   -
 ptrace   ptrace   -
 ptracestops ptracestops -
 ptraceregs ptraceregs -
+ptracejobs ptracejobs -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

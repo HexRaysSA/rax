@@ -268,7 +268,7 @@ fn ask(
                 return Err(Errno(EIO));
             }
         }
-        req::KILL | req::GET_SYSCALL_INFO => {}
+        req::KILL | req::INTERRUPT | req::LISTEN | req::GET_SYSCALL_INFO => {}
         req::SET_SYSCALL_INFO => {
             if addr < call::INFO_SIZE as u64 {
                 return Err(Errno(EINVAL));

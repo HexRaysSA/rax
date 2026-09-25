@@ -384,6 +384,10 @@ pub struct ProcState {
     pub parent_link: Option<super::ptrace::Link>,
     /// The threads this process traces (`ptraced`).
     pub tracees: super::ptrace::Tracees,
+    /// The group stop a traced process is in (`SIGNAL_STOP_STOPPED` or
+    /// `group_stop_count`) and its signal (`group_exit_code`). An untraced
+    /// process's group stop stops the host process instead.
+    pub group_stop: Option<i32>,
     /// The emulated file-system notification namespace, when the backend
     /// is the emulated one and its namespace could be opened.
     pub fsnotify: Option<std::sync::Arc<super::fsnotify::hub::Hub>>,
@@ -726,6 +730,7 @@ impl LinuxProcess {
             aio: Default::default(),
             parent_link: None,
             tracees: Default::default(),
+            group_stop: None,
             fsnotify,
             exec_keep: Vec::new(),
         };

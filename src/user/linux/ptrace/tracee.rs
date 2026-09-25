@@ -15,7 +15,7 @@ use super::super::signal::{
 };
 use super::super::wait::Resume;
 use super::{
-    EVENT_EXEC, EVENTMSG_SYSCALL_ENTRY, EVENTMSG_SYSCALL_EXIT, LinkId, Mode, Msg, NSIG,
+    EVENT_EXEC, EVENT_STOP, EVENTMSG_SYSCALL_ENTRY, EVENTMSG_SYSCALL_EXIT, LinkId, Mode, Msg, NSIG,
     PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, Resumption, SIGINFO, StopKind, Stopped, Traced, call,
     link_mut, offered, opt, peer_pid, regs, req, resumes, send,
 };
@@ -70,11 +70,29 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
             };
             p.tracees.add(tid, creator, link, false);
         }
-        Msg::Stop { tid, code: exit } => {
+        Msg::Stop {
+            tid,
+            code: exit,
+            why,
+            status,
+            uid,
+        } => {
             if let Some(t) = p.tracees.get_mut(tid) {
                 t.stopped = Some(exit);
                 t.reported = false;
-                notify_trapped(p, th, tid, exit);
+                notify_trapped(p, th, tid, why, status, uid);
+            }
+        }
+        Msg::Kill { sig, pid, uid } => {
+            let info = SigInfo::kill(sig, code::SI_USER, pid, uid);
+            let me = p.pid;
+            deliver::send_signal(p, th, info, Dest::Process(me), false);
+        }
+        // A listening tracee is not in a stop its tracer sees.
+        Msg::Listening { tid } => {
+            if let Some(t) = p.tracees.get_mut(tid) {
+                t.stopped = None;
+                t.reported = false;
             }
         }
         Msg::Gone { tid } => p.tracees.remove(tid),
@@ -118,14 +136,21 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
     }
 }
 
-/// `do_notify_parent_cldstop(..., CLD_TRAPPED)` for the tracer: `SIGCHLD`
-/// unless it is ignored or `SA_NOCLDSTOP`.
-fn notify_trapped(p: &mut ProcState, th: &mut Threads<'_>, tid: i32, exit: i32) {
+/// `do_notify_parent_cldstop(..., why)` for the tracer: `SIGCHLD` unless
+/// it is ignored or `SA_NOCLDSTOP`.
+fn notify_trapped(
+    p: &mut ProcState,
+    th: &mut Threads<'_>,
+    tid: i32,
+    why: i32,
+    status: i32,
+    uid: u32,
+) {
     let chld = p.sigactions[(SIGCHLD - 1) as usize];
     if chld.handler == SIG_IGN || chld.flags & sa::NOCLDSTOP != 0 {
         return;
     }
-    let info = SigInfo::child(code::CLD_TRAPPED, tid, p.creds.0, exit & 0x7f, 0, 0);
+    let info = SigInfo::child(why, tid, uid, status, 0, 0);
     let me = p.pid;
     deliver::send_signal(p, th, info, Dest::Process(me), false);
 }
@@ -183,7 +208,8 @@ fn serve(
     let Some(tr) = t.ptrace.as_ref() else {
         return fail(ESRCH);
     };
-    if tr.link != link || (request != req::KILL && !tr.stopped()) {
+    let any_state = request == req::KILL || request == req::INTERRUPT;
+    if tr.link != link || (!any_state && !tr.stopped()) {
         return fail(ESRCH);
     }
     match request {
@@ -327,6 +353,40 @@ fn serve(
             detach(t);
             (0, Vec::new())
         }
+        // A trap without side effects on signals or job control: due at
+        // once for a running thread (its sleep ends), after the current stop
+        // for a stopped one, and now for a listening one. Seized only.
+        req::INTERRUPT => {
+            let Some(tr) = t.ptrace.as_mut().filter(|tr| tr.seized) else {
+                return fail(EIO);
+            };
+            tr.trap_stop = true;
+            trap_wake(t);
+            (0, Vec::new())
+        }
+        // Stays stopped, out of the tracer's sight, until a job-control
+        // change (or PTRACE_INTERRUPT) traps it again. Only a seized
+        // thread in a PTRACE_EVENT_STOP trap listens.
+        req::LISTEN => {
+            let Some(tr) = t.ptrace.as_mut().filter(|tr| tr.seized) else {
+                return fail(EIO);
+            };
+            let event_stop = tr
+                .stop
+                .as_ref()
+                .and_then(|s| s.info.as_ref())
+                .is_some_and(|i| i.code >> 8 == EVENT_STOP);
+            if !event_stop {
+                return fail(EIO);
+            }
+            tr.listening = true;
+            let notify = tr.trap_notify;
+            send(p, link, &Msg::Listening { tid });
+            if notify {
+                trap_wake(t);
+            }
+            (0, Vec::new())
+        }
         req::KILL => {
             // ptrace_resume(child, PTRACE_KILL, SIGKILL).
             if t.ptrace.as_ref().is_some_and(Traced::stopped) {
@@ -432,8 +492,8 @@ fn link_ended(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId) {
 
 /// Stops a traced thread for its tracer with exit code `exit`,
 /// `last_siginfo` `info`, and `ptrace_message` `message` (`ptrace_stop`),
-/// telling the tracer. A thread whose tracer is not a `rax-user` process
-/// (no link) stays stopped.
+/// telling the tracer (`CLD_TRAPPED`). A thread whose tracer is not a
+/// `rax-user` process (no link) stays stopped.
 pub fn stop(
     p: &mut ProcState,
     t: &mut Thread,
@@ -442,10 +502,30 @@ pub fn stop(
     kind: StopKind,
     message: u64,
 ) {
+    let why = (code::CLD_TRAPPED, exit & 0x7f);
+    report(p, t, exit, info, kind, message, why);
+}
+
+/// `ptrace_stop` with the tracer's `SIGCHLD` code and status: any stop
+/// satisfies a pending `PTRACE_INTERRUPT` (`JOBCTL_TRAP_STOP`), and a
+/// `PTRACE_EVENT_STOP` trap reports the job-control change that was due.
+fn report(
+    p: &mut ProcState,
+    t: &mut Thread,
+    exit: i32,
+    info: Option<SigInfo>,
+    kind: StopKind,
+    message: u64,
+    (why, status): (i32, i32),
+) {
     let Some(tr) = t.ptrace.as_mut() else {
         return;
     };
     tr.message = message;
+    tr.trap_stop = false;
+    if info.as_ref().is_some_and(|i| i.code >> 8 == EVENT_STOP) {
+        tr.trap_notify = false;
+    }
     tr.stop = Some(Stopped {
         code: exit,
         info,
@@ -454,8 +534,92 @@ pub fn stop(
         resumed: None,
     });
     let link = tr.link;
-    let tid = t.tid;
-    send(p, link, &Msg::Stop { tid, code: exit });
+    let (tid, uid) = (t.tid, p.creds.0);
+    let m = Msg::Stop {
+        tid,
+        code: exit,
+        why,
+        status,
+        uid,
+    };
+    send(p, link, &m);
+}
+
+/// `do_jobctl_trap`: a group stop's or a pending trap's stop, reported to
+/// the tracer as `CLD_STOPPED` with the group's stop signal. A seized
+/// thread traps with `PTRACE_EVENT_STOP` (its signal the group stop's, or
+/// `SIGTRAP` when the process is not group-stopped); another stops with the
+/// group stop's signal and no siginfo.
+pub fn jobctl_trap(p: &mut ProcState, t: &mut Thread) {
+    let Some(tr) = t.ptrace.as_ref() else {
+        return;
+    };
+    let status = p.group_stop.unwrap_or(0) & 0x7f;
+    if tr.seized {
+        let signr = p.group_stop.unwrap_or(SIGTRAP);
+        let exit = signr | (EVENT_STOP << 8);
+        let info = SigInfo::kill(signr, exit, t.tid, p.creds.0);
+        report(
+            p,
+            t,
+            exit,
+            Some(info),
+            StopKind::Quiet,
+            0,
+            (code::CLD_STOPPED, status),
+        );
+    } else {
+        let exit = p.group_stop.unwrap_or(SIGSTOP);
+        report(
+            p,
+            t,
+            exit,
+            None,
+            StopKind::Quiet,
+            0,
+            (code::CLD_STOPPED, status),
+        );
+    }
+}
+
+/// `ptrace_signal_wake_up` after a trap became due: an interruptible sleep
+/// ends (`TIF_SIGPENDING`), and a listening thread leaves its stop to trap
+/// again.
+pub fn trap_wake(t: &mut Thread) {
+    t.sigpending = true;
+    let Some(tr) = t.ptrace.as_mut() else {
+        return;
+    };
+    if std::mem::take(&mut tr.listening)
+        && let Some(s) = tr.stop.as_mut()
+        && s.resumed.is_none()
+    {
+        s.resumed = Some(Resumption::Continue(0));
+    }
+}
+
+/// Another thread's part in a group stop that began (`do_signal_stop`): a
+/// seized thread is told (`ptrace_trap_notify`), another traced one stops
+/// with the group (`JOBCTL_STOP_PENDING`, then its trap).
+pub fn join_group_stop(t: &mut Thread) {
+    match t.ptrace.as_mut() {
+        Some(tr) if tr.seized => trap_notify(t),
+        Some(tr) => {
+            tr.trap_stop = true;
+            trap_wake(t);
+        }
+        None => {}
+    }
+}
+
+/// `ptrace_trap_notify` for a seized thread: a job-control change is due
+/// to be reported.
+pub fn trap_notify(t: &mut Thread) {
+    let Some(tr) = t.ptrace.as_mut().filter(|tr| tr.seized) else {
+        return;
+    };
+    tr.trap_notify = true;
+    trap_wake(t);
 }
 
 /// `ptrace_notify(exit, message)`: a stop for `SIGTRAP` whose siginfo

@@ -149,6 +149,14 @@ fn prepare_signal(
     if flush != 0 {
         flush_signals(p, th, flush);
     }
+    if sig == SIGCONT {
+        // A traced process's group stop ends, and every seized thread is
+        // told (ptrace_trap_notify).
+        p.group_stop = None;
+        for t in th.iter_mut() {
+            crate::user::linux::ptrace::tracee::trap_notify(t);
+        }
+    }
     !sig_ignored(p, mask, sig, force, traced)
 }
 
@@ -187,7 +195,10 @@ pub fn signal_wake_up(t: &mut Thread) {
 /// `recalc_sigpending_tsk`: whether a signal the thread does not block is
 /// pending for it or for the process.
 pub fn recalc_sigpending(p: &ProcState, t: &Thread) -> bool {
-    t.pending.next(t.sigmask).is_some() || p.shared_pending.next(t.sigmask).is_some()
+    t.pending.next(t.sigmask).is_some()
+        || p.shared_pending.next(t.sigmask).is_some()
+        // JOBCTL_PENDING_MASK: a tracer's trap is due.
+        || t.ptrace.as_ref().is_some_and(|tr| tr.trap_pending())
 }
 
 /// `wants_signal`: an unblocked thread takes the signal if it is running
@@ -531,7 +542,9 @@ impl LinuxProcess {
         t.sigpending
             || t.syscall.is_some()
             || t.saved_sigmask.is_some()
-            || t.ptrace.as_ref().is_some_and(|tr| tr.stop.is_some())
+            || t.ptrace
+                .as_ref()
+                .is_some_and(|tr| tr.stop.is_some() || tr.trap_pending())
     }
 
     /// `get_signal`: dequeues signals for thread `idx` until one has a
@@ -559,6 +572,11 @@ impl LinuxProcess {
                     continue;
                 }
                 Some(Verdict::Deliver(info)) => info,
+                // do_jobctl_trap: a due trap comes before any signal.
+                None if t.ptrace.as_ref().is_some_and(|tr| tr.trap_pending()) => {
+                    ptrace::jobctl_trap(p, t);
+                    return Next::Traced;
+                }
                 None => {
                     let info = match t.pending.dequeue_synchronous(blocked) {
                         Some(info) => Some(info),
@@ -602,9 +620,18 @@ impl LinuxProcess {
                 continue;
             }
             if default_stops(sig) && t.ptrace.is_some() {
-                // do_signal_stop for a traced thread: a group stop its
-                // tracer is told of (do_jobctl_trap), with no siginfo.
-                ptrace::stop(p, t, sig, None, StopKind::Quiet, 0);
+                // do_signal_stop for a traced thread: the process's group
+                // stop begins (keeping its signal while it lasts), the other
+                // traced threads join it, and the thread traps
+                // (do_jobctl_trap).
+                p.group_stop.get_or_insert(sig);
+                for (i, other) in self.threads.iter_mut().enumerate() {
+                    if i != idx {
+                        ptrace::join_group_stop(other);
+                    }
+                }
+                let (p, t) = (&mut self.state, &mut self.threads[idx]);
+                ptrace::jobctl_trap(p, t);
                 return Next::Traced;
             }
             if default_stops(sig) {

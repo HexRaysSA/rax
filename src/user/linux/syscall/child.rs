@@ -140,6 +140,7 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             // one; its link to its parent is new.
             c.p.parent_link = Some(child_link);
             c.p.tracees = Default::default();
+            c.p.group_stop = None;
             c.t.ptrace = None;
             c.t.sched = sched;
             // With CLONE_SYSVSEM the child's list stands for the one its

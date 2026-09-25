@@ -415,7 +415,10 @@ fn answers_and_what_follows_them_arrive_together() {
         }));
         assert!(theirs.send(&Msg::Stop {
             tid: parent,
-            code: SIGSTOP
+            code: SIGSTOP,
+            why: code::CLD_TRAPPED,
+            status: SIGSTOP,
+            uid: 0,
         }));
         assert_eq!(h.proc.wake_sleepers(), 1);
         assert_eq!(h.result(0), 0);

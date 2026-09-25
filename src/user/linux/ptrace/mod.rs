@@ -91,6 +91,8 @@ pub mod opt {
 
 /// `PTRACE_EVENT_EXEC`.
 pub const EVENT_EXEC: i32 = 4;
+/// `PTRACE_EVENT_STOP`: a seized tracee's group stop or trap.
+pub const EVENT_STOP: i32 = 128;
 
 /// `PTRACE_EVENTMSG_SYSCALL_ENTRY` and `PTRACE_EVENTMSG_SYSCALL_EXIT`: the
 /// message of a system-call stop.
@@ -124,8 +126,25 @@ pub enum Msg {
         capable: bool,
     },
     /// Thread `tid` stopped for its tracer: the wait status's exit code
-    /// (`exit_code`: a signal, `SIGTRAP | event << 8`, ...).
-    Stop { tid: i32, code: i32 },
+    /// (`exit_code`: a signal, `SIGTRAP | event << 8`, ...), and the
+    /// `SIGCHLD` the tracer gets: its `si_code` (`CLD_TRAPPED`, or
+    /// `CLD_STOPPED` for a group stop or a trap), `si_status`, and the
+    /// thread's UID (`si_uid`).
+    Stop {
+        tid: i32,
+        code: i32,
+        why: i32,
+        status: i32,
+        uid: u32,
+    },
+    /// Thread `tid` listens (`PTRACE_LISTEN`): still stopped, but not in a
+    /// stop its tracer sees until it traps again.
+    Listening { tid: i32 },
+    /// `kill(pid, sig)` from process `pid` (user `uid`) to the receiver: the
+    /// host cannot deliver `SIGSTOP` without stopping the host process, so
+    /// a process sends it along its link instead, and the receiver takes it
+    /// as a guest signal (which a traced thread reports).
+    Kill { sig: i32, pid: i32, uid: u32 },
     /// Thread `tid` is no longer traced (it exited or was detached).
     Gone { tid: i32 },
     /// A request to the stopped thread `tid`; answered by a
@@ -167,10 +186,29 @@ impl Msg {
                 b.extend_from_slice(&gid.to_le_bytes());
                 b.push(u8::from(*capable));
             }
-            Msg::Stop { tid, code } => {
+            Msg::Stop {
+                tid,
+                code,
+                why,
+                status,
+                uid,
+            } => {
                 b.push(b'S');
                 i32s(&mut b, *tid);
                 i32s(&mut b, *code);
+                i32s(&mut b, *why);
+                i32s(&mut b, *status);
+                b.extend_from_slice(&uid.to_le_bytes());
+            }
+            Msg::Listening { tid } => {
+                b.push(b'L');
+                i32s(&mut b, *tid);
+            }
+            Msg::Kill { sig, pid, uid } => {
+                b.push(b'K');
+                i32s(&mut b, *sig);
+                i32s(&mut b, *pid);
+                b.extend_from_slice(&uid.to_le_bytes());
             }
             Msg::Gone { tid } => {
                 b.push(b'G');
@@ -218,6 +256,15 @@ impl Msg {
             b'S' => Msg::Stop {
                 tid: i32at(0)?,
                 code: i32at(4)?,
+                why: i32at(8)?,
+                status: i32at(12)?,
+                uid: i32at(16)? as u32,
+            },
+            b'L' => Msg::Listening { tid: i32at(0)? },
+            b'K' => Msg::Kill {
+                sig: i32at(0)?,
+                pid: i32at(4)?,
+                uid: i32at(8)? as u32,
             },
             b'G' => Msg::Gone { tid: i32at(0)? },
             b'Q' => Msg::Request {
@@ -391,6 +438,13 @@ pub struct Traced {
     /// The system call it is in came through x86-64's `INT 0x80`
     /// (`TS_COMPAT`).
     pub compat: bool,
+    /// `JOBCTL_TRAP_STOP`: a trap is due (`PTRACE_INTERRUPT`).
+    pub trap_stop: bool,
+    /// `JOBCTL_TRAP_NOTIFY`: a job-control change is due to be reported
+    /// (a group stop begun or ended), for a seized thread.
+    pub trap_notify: bool,
+    /// `JOBCTL_LISTENING`: stopped but listening (`PTRACE_LISTEN`).
+    pub listening: bool,
 }
 
 impl Traced {
@@ -405,7 +459,15 @@ impl Traced {
             stop: None,
             mode: Mode::default(),
             compat: false,
+            trap_stop: false,
+            trap_notify: false,
+            listening: false,
         }
+    }
+
+    /// A trap is pending (`JOBCTL_TRAP_MASK`).
+    pub fn trap_pending(&self) -> bool {
+        self.trap_stop || self.trap_notify
     }
 
     /// Whether the thread is stopped for its tracer and not yet resumed.
@@ -517,6 +579,22 @@ pub fn link_fds(p: &ProcState) -> Vec<(i32, bool, bool)> {
     fds
 }
 
+/// The link to process `pid`, when it is this process's child (not yet
+/// reaped) or its parent.
+pub fn link_to(p: &ProcState, pid: i32) -> Option<LinkId> {
+    if p.children
+        .list
+        .iter()
+        .any(|c| c.pid == pid && c.zombie.is_none() && c.link.as_ref().is_some_and(|l| !l.closed))
+    {
+        Some(LinkId::Child(pid))
+    } else if pid == p.ppid && p.parent_link.as_ref().is_some_and(|l| !l.closed) {
+        Some(LinkId::Parent)
+    } else {
+        None
+    }
+}
+
 /// Sends a message along a link; false when it is gone.
 pub fn send(p: &mut ProcState, id: LinkId, m: &Msg) -> bool {
     link_mut(p, id).is_some_and(|l| l.send(m))
@@ -564,6 +642,15 @@ mod tests {
             Msg::Stop {
                 tid: 9,
                 code: 5 | (EVENT_EXEC << 8),
+                why: 4,
+                status: 5,
+                uid: 1000,
+            },
+            Msg::Listening { tid: 9 },
+            Msg::Kill {
+                sig: 19,
+                pid: 4,
+                uid: 1000,
             },
             Msg::Gone { tid: 9 },
             Msg::Request {

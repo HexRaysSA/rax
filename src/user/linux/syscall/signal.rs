@@ -12,8 +12,8 @@ use super::super::signal::deliver::{self, Dest, restart::ERESTARTNOHAND};
 use super::super::signal::frame::{self, SigreturnError};
 use super::super::signal::info::{KERNEL_SIGINFO_SIZE, SIGINFO_SIZE};
 use super::super::signal::{
-    AltStack, KERNEL_ONLY_MASK, SIG_DFL, SIG_IGN, SigInfo, code, default_ignored, minsigstksz,
-    sigmask, uapi_sa_flags, valid_signal,
+    AltStack, KERNEL_ONLY_MASK, SIG_DFL, SIG_IGN, SIGSTOP, SigInfo, code, default_ignored,
+    minsigstksz, sigmask, uapi_sa_flags, valid_signal,
 };
 use super::super::wait::{Resume, Wait};
 use super::{Ctx, Outcome, RestartBlock, SysResult, is_blocked};
@@ -241,7 +241,7 @@ pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
 /// process's records (the host has reaped its PID and may reuse it): it is
 /// still found, and the signal goes nowhere, as `group_send_sig_info` to a
 /// zombie does; it is never asked of the host.
-pub(super) fn other_process(c: &Ctx<'_>, pid: i32, sig: i32) -> SysResult {
+pub(super) fn other_process(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
     use super::super::host;
     let zombie = c.p.children.list.iter().any(|ch| {
         ch.zombie.is_some()
@@ -271,6 +271,23 @@ pub(super) fn other_process(c: &Ctx<'_>, pid: i32, sig: i32) -> SysResult {
         return Ok(0);
     }
     if pid > 0 {
+        // SIGSTOP to a linked process goes along the link, so that the
+        // receiver takes it as a guest signal (a host SIGSTOP would stop
+        // it, traced or not).
+        use super::super::ptrace::{Msg, link_to, send};
+        if sig == SIGSTOP
+            && let Some(link) = link_to(c.p, pid)
+        {
+            let m = Msg::Kill {
+                sig,
+                pid: c.p.pid,
+                uid: c.p.creds.0,
+            };
+            // The link may end as the process dies: the signal is lost with
+            // it, as it would be.
+            send(c.p, link, &m);
+            return Ok(0);
+        }
         return host::send(pid, sig, (c.p.pid, c.p.creds.0)).map(|()| 0);
     }
     host::kill(pid, sig).map(|()| 0)
