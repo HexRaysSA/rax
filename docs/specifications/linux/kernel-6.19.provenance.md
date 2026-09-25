@@ -19,21 +19,36 @@
   `include/linux/{fsnotify,fsnotify_backend}.h`, `fs/open.c`,
   `fs/file_table.c`, `fs/read_write.c`, `fs/attr.c`, `fs/readdir.c`,
   `fs/splice.c`, `arch/x86/entry/syscall_64.c`, `arch/arm64/kernel/syscall.c`,
-  and `ipc/msgutil.c` came from kernel.org's
+  `ipc/msgutil.c`, and the machine-administration, clock-setting, and mount
+  files (`mm/swapfile.c`, `kernel/reboot.c`, `kernel/acct.c`,
+  `arch/x86/kernel/ioport.c`, `kernel/module/main.c`,
+  `kernel/printk/printk.c`, `init/Kconfig`, `security/commoncap.c`,
+  `kernel/time/{ntp,timekeeping,posix-clock}.c`, `fs/namespace.c`,
+  `fs/fsopen.c`, `include/linux/{security,swap,syslog,timex,time64,jiffies,moduleparam,file}.h`,
+  `include/asm-generic/param.h`, `include/uapi/asm-generic/param.h`, and
+  `include/uapi/linux/{mount,reboot,timex,module}.h`) came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
   `fs/locks.c`, `fs/fcntl.c`, the seven `net/` files above, the System V
   IPC files, the seccomp, file-system notification, and system-call entry
-  files, and `ipc/msgutil.c`: 25 September 2026)
+  files, `ipc/msgutil.c`, and the machine-administration, clock-setting,
+  and mount files: 25 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (74 files),
-  `GPL-2.0-only` (39), `GPL-2.0-or-later` (30), `GPL-2.0+` (1), or
-  `GPL-1.0+` (1); `mm/memfd.c` and `mm/shmem.c` have none and state
-  "This file is released under the GPL." in their headers. The license
-  texts are the kernel tree's `LICENSES/preferred/GPL-2.0` and
-  `LICENSES/deprecated/GPL-1.0`. The files are reference material for an
+- License: the files carry an SPDX identifier: `GPL-2.0` (84 files),
+  `GPL-2.0-only` (44), `GPL-2.0-or-later` (34),
+  `GPL-2.0 WITH Linux-syscall-note` (3), `GPL-2.0+` (2), or `GPL-1.0+`
+  (1). Six have none: `mm/memfd.c` and `mm/shmem.c` state "This file is
+  released under the GPL." in their headers; `include/linux/security.h`
+  grants the GPL, version 2 or later, in its header;
+  `include/linux/timex.h` and `include/uapi/linux/timex.h` carry David L.
+  Mills's 1993 permission notice (University of Delaware) ahead of the
+  kernel's changes; and `include/uapi/linux/mount.h` states no license,
+  so the kernel's `COPYING` applies (GPL-2.0, with the Linux-syscall-note
+  for UAPI headers). The license texts are the kernel tree's
+  `LICENSES/preferred/GPL-2.0`, `LICENSES/deprecated/GPL-1.0`, and
+  `LICENSES/exceptions/Linux-syscall-note`. The files are reference material for an
   independent implementation; no RAX source is derived from their text.
 
 Paths under `kernel-6.19/` mirror the kernel tree. The files are reference
@@ -76,6 +91,9 @@ behavior it reproduces beyond what the UAPI headers
 | Seccomp | `kernel/seccomp.c` (`seccomp_check_filter`, `seccomp_prepare_filter`, `seccomp_attach_filter`, `seccomp_run_filters`, `seccomp_uprobe_exception`, `__seccomp_filter`, `__secure_computing_strict`, `seccomp_set_mode_strict`, `seccomp_set_mode_filter`, `seccomp_can_sync_threads`, `seccomp_sync_threads`, `do_seccomp`, `prctl_set_seccomp`), `net/core/filter.c` (`bpf_check_classic`, `chk_code_allowed`, `check_load_and_stores`, `bpf_prepare_filter`, and `bpf_convert_filter`: the eBPF length and the division by zero), `kernel/signal.c` (`force_sig_seccomp`, `force_sig_info_to_task`), `include/asm-generic/seccomp.h` and `arch/x86/include/asm/seccomp.h` (strict mode's calls, native and i386), `arch/{x86,arm64,riscv}/include/asm/syscall.h` (`syscall_get_arch`, `syscall_get_arguments`, `syscall_rollback`), `arch/riscv/kernel/traps.c` (`do_trap_ecall_u`: `epc` past the `ecall` before the check), `arch/x86/kernel/process.c` (`disable_TSC`, `get_tsc_mode`, `set_tsc_mode`, `arch_setup_new_exec`), `kernel/sys.c` (`PR_SET_NO_NEW_PRIVS`, `PR_GET_SECCOMP`, `PR_SET_TSC`), `fs/proc/array.c` (`task_seccomp`) |
 | File-system notification (inotify) | `fs/notify/inotify/inotify_user.c` (the calls, `inotify_read`, `inotify_ioctl`, `inotify_update_existing_watch`, `inotify_new_watch`, `inotify_arg_to_mask`), `fs/notify/inotify/inotify_fsnotify.c` (`inotify_handle_inode_event`, `inotify_merge`, `inotify_freeing_mark`), `fs/notify/inotify/inotify.h`, `fs/notify/fsnotify.c` (`__fsnotify_parent`, `fsnotify`, `send_to_group`, `fsnotify_handle_event`), `fs/notify/notification.c` (`fsnotify_insert_event`, the overflow event), `fs/notify/mark.c` (the group's mark list), `fs/notify/fdinfo.c` (`inotify_fdinfo`), `include/linux/fsnotify.h` (the VFS hooks and what each reports), `include/linux/fsnotify_backend.h` (the event bits), and where the VFS calls the hooks: `fs/open.c` (`vfs_open`, `vfs_fallocate`, `do_truncate`, `chmod_common`, `chown_common`), `fs/file_table.c` (`__fput`), `fs/read_write.c` (`vfs_read`, `vfs_readv`, `vfs_write`, `vfs_writev`, `do_sendfile`, `vfs_copy_file_range`), `fs/attr.c` (`notify_change`), `fs/readdir.c` (`iterate_dir`), `fs/splice.c`, `fs/namei.c`, `fs/utimes.c`, `fs/xattr.c`, and `fs/exec.c` |
 | System-call entry | `arch/x86/entry/syscall_64.c` (`do_syscall_64`, `do_syscall_x64`: the number as an `int`), `arch/arm64/kernel/syscall.c` (`el0_svc_common`, `invoke_syscall`: likewise), `arch/riscv/kernel/traps.c` (`do_trap_ecall_u`: the whole `long`) |
+| Machine administration | `mm/swapfile.c` (`swapon`, `swapoff`), `include/linux/swap.h` (`SWAP_FLAGS_VALID`), `kernel/reboot.c` (`reboot`), `include/uapi/linux/reboot.h`, `kernel/acct.c` (`acct`), `kernel/sys.c` (`sethostname`, `setdomainname`), `fs/open.c` (`vhangup`, `chroot`), `arch/x86/kernel/ioport.c` (`ioperm`, `iopl`), `kernel/module/main.c` (`init_module`, `finit_module`, `delete_module`, `copy_module_from_user`), `include/uapi/linux/module.h`, `include/linux/moduleparam.h` (`MODULE_NAME_LEN`), `kernel/printk/printk.c` (`do_syslog`, `check_syslog_permissions`, `syslog_action_restricted`), `include/linux/syslog.h`, `init/Kconfig` (`LOG_BUF_SHIFT`), `include/linux/security.h` and `security/commoncap.c` (without security modules: `cap_settime`, `security_syslog`) |
+| Setting the clocks | `kernel/time/time.c` (`settimeofday`, `do_sys_settimeofday64`, `adjtimex`), `kernel/time/posix-timers.c` (`clock_settime`, `clock_adjtime`, `clockid_to_kclock`), `kernel/time/posix-cpu-timers.c` (`posix_cpu_clock_set`, `pid_for_clock`), `kernel/time/posix-clock.c` (`get_clock_desc`, `pc_clock_settime`, `pc_clock_adjtime`), `kernel/time/timekeeping.c` (`timekeeping_validate_timex`, `__do_adjtimex`), `kernel/time/ntp.c` (the initial NTP state, `ntp_adjtimex`, `pps_fill_timex`), `include/linux/timex.h`, `include/uapi/linux/timex.h`, `include/linux/time64.h` (`timespec64_valid_settod`), `include/linux/jiffies.h`, `include/asm-generic/param.h`, and `include/uapi/asm-generic/param.h` (`USER_TICK_USEC`) |
+| Mounts | `fs/namespace.c` (`mount`, `umount`, `pivot_root`, `open_tree`, `open_tree_attr`, `mount_setattr`, `move_mount`, `fsmount`, `may_mount`, `copy_mount_options`, `path_mount`, `build_mount_kattr`, `build_mount_idmapped`), `fs/fsopen.c` (`fsopen`, `fspick`, `fsconfig`), `include/uapi/linux/mount.h`, `include/linux/file.h` (`FD_ADD`, `FD_PREPARE`: the descriptor before the file), `mm/util.c` (`strndup_user`) |
 | Supplementary groups, read-ahead, and range sync | `kernel/groups.c` (`setgroups`, `getgroups`), `mm/readahead.c` (`ksys_readahead`), `fs/sync.c` (`sync_file_range`) |
 
 Code comments name the kernel function whose behavior an implementation
