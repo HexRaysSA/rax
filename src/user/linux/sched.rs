@@ -50,6 +50,11 @@ impl LinuxProcess {
         let slice = self.state.config.slice_insns;
         let mut current = 0usize;
         loop {
+            if self.state.exit.is_some() {
+                // exit_mmap: the System V attaches go before the parent
+                // can see the exit.
+                super::syscall::ipc::exit(&mut self.state);
+            }
             if let Some(status) = &self.state.exit {
                 if let Some(me) = self.state.forked.take() {
                     finish_forked(me, status);

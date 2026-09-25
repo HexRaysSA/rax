@@ -141,6 +141,8 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     super::super::net::netlink::forked();
     let p = &mut *c.p;
     p.pid = pid;
+    // dup_mmap: the inherited System V mappings are the child's attaches.
+    super::ipc::forked(p);
     p.ppid = host::ppid();
     p.next_tid = pid + 1;
     p.children = Default::default();

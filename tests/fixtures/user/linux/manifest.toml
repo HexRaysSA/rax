@@ -159,6 +159,12 @@ target = "x86_64-linux-musl"
 sha256 = "63f306c1adffbed4ddacb7f543afb213c305fc61f366cae9a49cfefe460d0aac"
 
 [[fixture]]
+path = "bin/x86_64/sysvshm"
+source = "src/sysvshm.c"
+target = "x86_64-linux-musl"
+sha256 = "73ca8cc808cdd350829bc68e60629714b5e7a7afc58ca1f265da531b90d2e8c1"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -339,6 +345,12 @@ target = "aarch64-linux-musl"
 sha256 = "93f534c7252a78a83317f6201f954e5a89150cdf21a67eb769949480721a308f"
 
 [[fixture]]
+path = "bin/aarch64/sysvshm"
+source = "src/sysvshm.c"
+target = "aarch64-linux-musl"
+sha256 = "20dcbc5826191c5a2974040f57495dd7c433e33ebed47932070341aa94173544"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -517,6 +529,12 @@ path = "bin/riscv64/ifreq"
 source = "src/ifreq.c"
 target = "riscv64-linux-musl"
 sha256 = "e72298b3fc4a2a285a65a49b530383c1ed43d30cd55d058d0780acc7577923ba"
+
+[[fixture]]
+path = "bin/riscv64/sysvshm"
+source = "src/sysvshm.c"
+target = "riscv64-linux-musl"
+sha256 = "12914292a214cdc694cf36aa21d14fa18bda3d928725dec9d6a28e92f87aee55"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

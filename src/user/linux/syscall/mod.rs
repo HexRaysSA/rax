@@ -33,6 +33,7 @@ pub mod exec;
 pub mod fcntl;
 pub mod futex;
 pub mod io;
+pub mod ipc;
 pub mod locks;
 pub mod mem;
 pub mod memfd;
@@ -578,6 +579,10 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Munmap => r(mem::munmap(c, a[0], a[1])),
         S::Mprotect => r(mem::mprotect(c, a[0], a[1], a[2] as u32)),
         S::Mremap => r(mem::mremap(c, a[0], a[1], a[2], a[3] as u32, a[4])),
+        S::Shmget => r(ipc::shmget(c, a[0] as i32, a[1], a[2] as i32)),
+        S::Shmat => r(ipc::shmat(c, a[0] as i32, a[1], a[2] as i32)),
+        S::Shmdt => r(ipc::shmdt(c, a[0])),
+        S::Shmctl => r(ipc::shmctl(c, a[0] as i32, a[1] as i32, a[2])),
         S::Madvise => r(mem::madvise(c, a[0], a[1], a[2] as u32)),
         S::Msync => r(mem::msync(c, a[0], a[1], a[2] as u32)),
         S::Mlock | S::Munlock | S::Mlock2 => r(mem::mlock(c, a[0], a[1])),
@@ -842,6 +847,23 @@ pub fn dispatch(
         Some(s) => call_handler(&mut c, s, args),
         None => Err(Errno(ENOSYS)),
     };
+    // shm_open, shm_close: the calls that change System V segment
+    // mappings publish them.
+    if let Some(s) = sysno
+        && (s == Sysno::Shmat || !c.p.ipc.shm_published.is_empty())
+        && matches!(
+            s,
+            Sysno::Shmat
+                | Sysno::Shmdt
+                | Sysno::Mmap
+                | Sysno::Munmap
+                | Sysno::Mremap
+                | Sysno::Mprotect
+                | Sysno::Brk
+        )
+    {
+        ipc::sync_shm(c.p);
+    }
     if let Some((wait, resume)) = c.block.take() {
         debug_assert_eq!(result, Err(Errno(BLOCKED)));
         if strace && !resumed {

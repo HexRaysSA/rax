@@ -30,6 +30,7 @@ misc     misc     -
 locks    locks    -
 netlink  netlink  -
 ifreq    ifreq    -
+sysvshm  sysvshm  -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

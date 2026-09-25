@@ -301,6 +301,8 @@ impl LinuxProcess {
         };
         p.abi = image.abi;
         p.space = image.space;
+        // exit_mmap: the old image's System V attaches go.
+        super::syscall::ipc::sync_shm(p);
         p.mm = image.mm;
         p.sigtramp = image.sigtramp;
         p.auxv = image.auxv;

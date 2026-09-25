@@ -70,7 +70,13 @@ fn dir(names: &[&str]) -> ProcEntry {
 pub fn maps(p: &ProcState) -> Vec<u8> {
     let mut out = String::new();
     for v in p.space.vma_snapshot() {
-        let id = v.backing.identity();
+        let mut id = v.backing.identity();
+        // A System V segment's inode number is its identifier.
+        if let Backing::Shared { object, .. } = &v.backing
+            && let Some(shmid) = object.sysv_id()
+        {
+            id.ino = shmid as u64;
+        }
         let offset = v.backing.offset();
         let (major, minor) = match &v.backing {
             // Anonymous shared memory is a shmem inode (device 0:1).

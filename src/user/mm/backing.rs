@@ -186,13 +186,20 @@ impl Backing {
                     offset: next_offset,
                 },
             ) => Arc::ptr_eq(source, next_source) && offset + len == *next_offset,
+            // A System V segment's mappings are never merged: each is an
+            // attach (Linux's is_mergeable_vma refuses VMAs with a close
+            // operation, which shm's have).
             (
                 Backing::Shared { object, offset },
                 Backing::Shared {
                     object: next_object,
                     offset: next_offset,
                 },
-            ) => Arc::ptr_eq(object, next_object) && offset + len == *next_offset,
+            ) => {
+                Arc::ptr_eq(object, next_object)
+                    && offset + len == *next_offset
+                    && object.sysv_id().is_none()
+            }
             _ => false,
         }
     }

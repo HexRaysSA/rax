@@ -24,6 +24,7 @@
 //! | [`signal`] | Signals: records, queues, frames, delivery |
 //! | [`futex`] | Futex wait queues, PI ownership, robust lists |
 //! | [`children`] | Child processes and their status records |
+//! | [`ipc`] | System V IPC objects, shared by the processes of a namespace |
 //! | [`timers`] | Interval timers |
 //! | [`wait`] | Sleeping in system calls on descriptors, deadlines, and signals |
 //! | [`host`] | The host services `std` does not expose |
@@ -37,6 +38,7 @@ pub mod fdinfo;
 pub mod fs;
 pub mod futex;
 pub mod host;
+pub mod ipc;
 pub mod loader;
 pub mod net;
 pub mod posix_timers;

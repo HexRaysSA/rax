@@ -93,20 +93,20 @@ pub mod mman {
 }
 use mman::*;
 
-const PAGE_MASK: u64 = PAGE_SIZE - 1;
+pub(super) const PAGE_MASK: u64 = PAGE_SIZE - 1;
 
-fn page_align(x: u64) -> Option<u64> {
+pub(super) fn page_align(x: u64) -> Option<u64> {
     x.checked_add(PAGE_MASK).map(|v| v & !PAGE_MASK)
 }
 
-fn map_err(e: MmError) -> Errno {
+pub(super) fn map_err(e: MmError) -> Errno {
     match e {
         MmError::InvalidArgument(_) => Errno(EINVAL),
         MmError::OutOfRange | MmError::OutOfMemory | MmError::NotMapped { .. } => Errno(ENOMEM),
     }
 }
 
-fn perms(abi: LinuxAbi, prot: u32) -> Perms {
+pub(super) fn perms(abi: LinuxAbi, prot: u32) -> Perms {
     prot_to_perms(
         abi,
         prot & PROT_READ != 0,
@@ -166,7 +166,7 @@ pub fn brk(c: &mut Ctx<'_>, addr: u64) -> SysResult {
 }
 
 /// `get_unmapped_area` for a non-fixed request.
-fn unmapped_area(c: &Ctx<'_>, hint: u64, len: u64, flags: u32) -> Result<u64, Errno> {
+pub(super) fn unmapped_area(c: &Ctx<'_>, hint: u64, len: u64, flags: u32) -> Result<u64, Errno> {
     let task = c.p.abi.task_size();
     if len > task {
         return Err(Errno(ENOMEM));

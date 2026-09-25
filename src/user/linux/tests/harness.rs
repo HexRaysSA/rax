@@ -34,6 +34,7 @@ impl Drop for Harness {
         for f in &self.files {
             let _ = std::fs::remove_file(f);
         }
+        let _ = std::fs::remove_dir_all(self.proc.state.ipc.ns.dir());
     }
 }
 
@@ -57,6 +58,14 @@ impl Harness {
         let mut config = LinuxConfig::new("/prog", vec![b"prog".to_vec()], vec![]);
         config.arena_bytes = 256 << 20;
         config.seed = Some(1);
+        // A System V IPC namespace of its own: harnesses run in parallel in
+        // one host process.
+        static IPC: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = IPC.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("rax-user-ipc-test-{}-{n}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        config.ipc_dir = Some(dir);
         let proc = LinuxProcess::spawn(config, ImageFile::new(bytes, "/prog")).unwrap();
         let mut h = Harness {
             proc,

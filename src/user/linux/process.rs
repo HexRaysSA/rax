@@ -71,6 +71,9 @@ pub struct LinuxConfig {
     /// thread, so locks other threads held stay held. The first new
     /// process installs the emulator's host `SIGCHLD` handler.
     pub processes: bool,
+    /// The System V IPC namespace's directory; `None` for the host user's
+    /// default one.
+    pub ipc_dir: Option<PathBuf>,
 }
 
 impl LinuxConfig {
@@ -93,6 +96,7 @@ impl LinuxConfig {
             kernel_release: DEFAULT_KERNEL_RELEASE.into(),
             slice_insns: DEFAULT_SLICE_INSNS,
             processes: false,
+            ipc_dir: None,
         }
     }
 }
@@ -362,6 +366,8 @@ pub struct ProcState {
     pub forked: Option<super::children::ForkedSelf>,
     /// `self_exec_id`: how many times the process called `execve`.
     pub exec_id: u64,
+    /// System V IPC.
+    pub ipc: super::ipc::IpcState,
 }
 
 /// A Linux thread.
@@ -622,6 +628,7 @@ impl LinuxProcess {
         }
 
         let pid = super::host::pid();
+        let config_ipc_dir = config.ipc_dir.clone();
         let state = ProcState {
             abi: img.abi,
             space: img.space,
@@ -664,6 +671,7 @@ impl LinuxProcess {
             pidfds: Default::default(),
             forked: None,
             exec_id: 0,
+            ipc: super::ipc::IpcState::new(config_ipc_dir),
         };
         let mut leader = Thread::new(pid, img.cpu);
         leader.comm = state.comm.clone();

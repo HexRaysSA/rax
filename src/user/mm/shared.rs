@@ -20,6 +20,8 @@ pub struct SharedObject {
     identity: SourceIdentity,
     writable: bool,
     anonymous: bool,
+    /// The System V segment it is, by identifier.
+    sysv: Option<i32>,
 }
 
 impl fmt::Debug for SharedObject {
@@ -28,6 +30,7 @@ impl fmt::Debug for SharedObject {
             .field("identity", &self.identity)
             .field("writable", &self.writable)
             .field("anonymous", &self.anonymous)
+            .field("sysv", &self.sysv)
             .finish()
     }
 }
@@ -58,7 +61,25 @@ impl SharedObject {
             file: super::mapped_file::MappedFile::new(file),
             writable,
             anonymous: false,
+            sysv: None,
         })
+    }
+
+    /// The host file of System V shared memory segment `id` (a shmem
+    /// object, as `/proc/<pid>/maps` shows it).
+    pub fn sysv(file: std::fs::File, writable: bool, id: i32) -> std::io::Result<Self> {
+        Ok(SharedObject {
+            identity: identity_of(&file)?,
+            file: super::mapped_file::MappedFile::new(file),
+            writable,
+            anonymous: true,
+            sysv: Some(id),
+        })
+    }
+
+    /// The System V segment it is, by identifier.
+    pub fn sysv_id(&self) -> Option<i32> {
+        self.sysv
     }
 
     /// A new anonymous object of `len` bytes, zero-filled
@@ -71,6 +92,7 @@ impl SharedObject {
             file: super::mapped_file::MappedFile::new(file),
             writable: true,
             anonymous: true,
+            sysv: None,
         })
     }
 
