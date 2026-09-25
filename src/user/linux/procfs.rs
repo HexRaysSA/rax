@@ -385,6 +385,8 @@ pub fn lookup(p: &ProcState, cur: &Thread, threads: &[&Thread], guest: &str) -> 
         )),
         "/proc/sys/kernel/ostype" => Some(ProcEntry::File(b"Linux\n".to_vec())),
         "/proc/sys/kernel/pid_max" => Some(ProcEntry::File(b"4194304\n".to_vec())),
+        // The kernel log needs CAP_SYSLOG for every action (syscall::admin).
+        "/proc/sys/kernel/dmesg_restrict" => Some(ProcEntry::File(b"1\n".to_vec())),
         "/proc/sys/vm/overcommit_memory" => Some(ProcEntry::File(b"0\n".to_vec())),
         "/proc/sys/vm/mmap_min_addr" => Some(ProcEntry::File(b"65536\n".to_vec())),
         "/proc/sys/fs/inotify/max_user_instances"

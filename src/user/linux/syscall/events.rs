@@ -172,7 +172,7 @@ pub fn signalfd4(c: &mut Ctx<'_>, fd: i32, mask: u64, size: u64, flags: u32) -> 
 }
 
 /// `access_ok`: the range lies in user space.
-fn access_ok(c: &Ctx<'_>, addr: u64, len: u64) -> bool {
+pub(super) fn access_ok(c: &Ctx<'_>, addr: u64, len: u64) -> bool {
     addr.checked_add(len)
         .is_some_and(|end| end <= c.p.abi.task_size())
 }

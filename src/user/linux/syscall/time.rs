@@ -239,6 +239,238 @@ pub fn clock_nanosleep(
     sleep_until(c, deadline, rmtp)
 }
 
+// ------------------------------------------------- setting the clocks
+//
+// Only CLOCK_REALTIME can be set or adjusted, and changing it needs
+// CAP_SYS_TIME (`cap_settime`, `timekeeping_validate_timex`). Root passes
+// that check and is refused (EOPNOTSUPP): the host's clock is not the
+// guest's to change. Reading the NTP state needs nothing, and shows the
+// kernel's state at boot, which nothing here changes: an unsynchronized
+// clock (`TIME_ERROR`).
+
+/// `TIME_SETTOD_SEC_MAX` (`linux/time64.h`): `KTIME_SEC_MAX` less 30 years
+/// of uptime.
+const TIME_SETTOD_SEC_MAX: u64 = (i64::MAX / 1_000_000_000) as u64 - 30 * 365 * 24 * 3600;
+
+/// `timespec64_valid_settod`.
+fn valid_settod(t: Timespec) -> bool {
+    t.sec >= 0 && (0..1_000_000_000).contains(&t.nsec) && (t.sec as u64) < TIME_SETTOD_SEC_MAX
+}
+
+/// `do_sys_settimeofday64`: the time, then `CAP_SYS_TIME`, then the time
+/// zone (at most 15 hours west or east).
+fn settod(c: &Ctx<'_>, t: Option<Timespec>, minuteswest: Option<i32>) -> SysResult {
+    if t.is_some_and(|t| !valid_settod(t)) {
+        return Err(Errno(EINVAL));
+    }
+    super::admin::capability(c)?;
+    if minuteswest.is_some_and(|m| !(-15 * 60..=15 * 60).contains(&m)) {
+        return Err(Errno(EINVAL));
+    }
+    super::admin::refused()
+}
+
+/// `settimeofday`: the time (microseconds past 1000000 or negative are
+/// `EINVAL`), the time zone, then `do_sys_settimeofday64`.
+pub fn settimeofday(c: &mut Ctx<'_>, tv: u64, tz: u64) -> SysResult {
+    let t = if tv != 0 {
+        let t = Timespec::decode(&c.read_mem(tv, 16)?.try_into().unwrap());
+        if !(0..=1_000_000).contains(&t.nsec) {
+            return Err(Errno(EINVAL));
+        }
+        Some(Timespec {
+            sec: t.sec,
+            nsec: t.nsec * 1000,
+        })
+    } else {
+        None
+    };
+    let minuteswest = if tz != 0 {
+        let b = c.read_mem(tz, 8)?;
+        Some(i32::from_le_bytes(b[..4].try_into().unwrap()))
+    } else {
+        None
+    };
+    settod(c, t, minuteswest)
+}
+
+/// `pid_for_clock` for setting a clock: whether the CPU-time clock `id`
+/// names the calling process (by its ID) or one of its threads; `EINVAL`
+/// if not. Other processes' clocks are refused.
+fn cpu_clock_found(c: &Ctx<'_>, id: i32) -> Result<(), Errno> {
+    let pid = !(id >> 3);
+    let found = if id & 3 == 3 {
+        false
+    } else if pid == 0 {
+        true
+    } else if id & 4 != 0 {
+        c.is_own_tid(pid)
+    } else {
+        pid == c.p.pid
+    };
+    if found { Ok(()) } else { Err(Errno(EINVAL)) }
+}
+
+/// `clock_settime`: a clock with a setter (`EINVAL` for any other), the
+/// time, then the setter: `CLOCK_REALTIME` through
+/// `do_sys_settimeofday64`; a CPU-time clock, once found, never
+/// (`EPERM`); a clock device (`CLOCKFD`) is not found (`EINVAL`).
+pub fn clock_settime(c: &mut Ctx<'_>, id: i32, tp: u64) -> SysResult {
+    let dynamic = id < 0 && id & 7 == 3;
+    if id != clk::REALTIME && id >= 0 {
+        return Err(Errno(EINVAL));
+    }
+    let t = Timespec::decode(&c.read_mem(tp, 16)?.try_into().unwrap());
+    if dynamic {
+        Err(Errno(EINVAL))
+    } else if id < 0 {
+        cpu_clock_found(c, id)?;
+        Err(Errno(EPERM))
+    } else {
+        settod(c, Some(t), None)
+    }
+}
+
+/// `struct __kernel_timex` (`linux/timex.h`): its size and field offsets.
+mod timex {
+    pub const SIZE: usize = 208;
+    pub const MODES: usize = 0;
+    pub const OFFSET: usize = 8;
+    pub const FREQ: usize = 16;
+    pub const MAXERROR: usize = 24;
+    pub const ESTERROR: usize = 32;
+    pub const STATUS: usize = 40;
+    pub const CONSTANT: usize = 48;
+    pub const PRECISION: usize = 56;
+    pub const TOLERANCE: usize = 64;
+    pub const TIME_SEC: usize = 72;
+    pub const TIME_USEC: usize = 80;
+    pub const TICK: usize = 88;
+    /// `ppsfreq` and `jitter`.
+    pub const PPS_WORDS: [usize; 2] = [96, 104];
+    pub const SHIFT: usize = 112;
+    /// `stabil`, `jitcnt`, `calcnt`, `errcnt`, and `stbcnt`.
+    pub const PPS_COUNTS: [usize; 5] = [120, 128, 136, 144, 152];
+    pub const TAI: usize = 160;
+
+    /// `modes` bits (`ADJ_ADJTIME`, `ADJ_OFFSET_SINGLESHOT`, and
+    /// `ADJ_OFFSET_READONLY` as the kernel splits them).
+    pub const ADJ_OFFSET_SINGLESHOT: u32 = 0x0001;
+    pub const ADJ_FREQUENCY: u32 = 0x0002;
+    pub const ADJ_SETOFFSET: u32 = 0x0100;
+    pub const ADJ_NANO: u32 = 0x2000;
+    pub const ADJ_OFFSET_READONLY: u32 = 0x2000;
+    pub const ADJ_TICK: u32 = 0x4000;
+    pub const ADJ_ADJTIME: u32 = 0x8000;
+
+    /// `STA_UNSYNC`.
+    pub const STA_UNSYNC: i32 = 0x40;
+    /// `TIME_ERROR`: the clock is not synchronized.
+    pub const TIME_ERROR: u64 = 5;
+    /// `NTP_PHASE_LIMIT`: `MAXPHASE` in microseconds, shifted by 5.
+    pub const NTP_PHASE_LIMIT: i64 = (500_000_000 / 1000) << 5;
+    /// `USER_TICK_USEC` at `USER_HZ` 100.
+    pub const USER_TICK_USEC: i64 = 10_000;
+    /// `PPM_SCALE`: `NSEC_PER_USEC << (NTP_SCALE_SHIFT - SHIFT_USEC)`.
+    pub const PPM_SCALE: i64 = 1000 << (32 - 16);
+    /// `MAXFREQ_SCALED / PPM_SCALE`: 500 ppm, scaled by 2^16.
+    pub const TOLERANCE_PPM: i64 = (500_000 << 32) / PPM_SCALE;
+}
+
+/// `do_adjtimex` on `CLOCK_REALTIME` with the structure's bytes `b`:
+/// `timekeeping_validate_timex`'s checks, a refused change, or the NTP
+/// state (`ntp_adjtimex` reading an unsynchronized clock) with the clock
+/// state as the result.
+fn adjust(c: &Ctx<'_>, b: &mut [u8]) -> SysResult {
+    use timex::*;
+    let word = |b: &[u8], at: usize| i64::from_le_bytes(b[at..at + 8].try_into().unwrap());
+    let modes = u32::from_le_bytes(b[MODES..MODES + 4].try_into().unwrap());
+    let changes = if modes & ADJ_ADJTIME != 0 {
+        // Single-shot adjtime must not come with other mode bits.
+        if modes & ADJ_OFFSET_SINGLESHOT == 0 {
+            return Err(Errno(EINVAL));
+        }
+        modes & ADJ_OFFSET_READONLY == 0
+    } else {
+        modes != 0
+    };
+    if changes {
+        super::admin::capability(c)?;
+    }
+    if modes & ADJ_ADJTIME == 0 && modes & ADJ_TICK != 0 && !(9000..=11000).contains(&word(b, TICK))
+    {
+        return Err(Errno(EINVAL));
+    }
+    if modes & ADJ_SETOFFSET != 0 {
+        super::admin::capability(c)?;
+        let limit = if modes & ADJ_NANO != 0 {
+            1_000_000_000
+        } else {
+            1_000_000
+        };
+        if !(0..limit).contains(&word(b, TIME_USEC)) {
+            return Err(Errno(EINVAL));
+        }
+    }
+    if modes & ADJ_FREQUENCY != 0 {
+        let freq = word(b, FREQ);
+        if freq < i64::MIN / PPM_SCALE || freq > i64::MAX / PPM_SCALE {
+            return Err(Errno(EINVAL));
+        }
+    }
+    if changes || modes & ADJ_SETOFFSET != 0 {
+        return super::admin::refused();
+    }
+    let t = now(HostClock::Realtime);
+    let mut put = |at: usize, v: i64| b[at..at + 8].copy_from_slice(&v.to_le_bytes());
+    put(OFFSET, 0);
+    put(FREQ, 0);
+    put(MAXERROR, NTP_PHASE_LIMIT);
+    put(ESTERROR, NTP_PHASE_LIMIT);
+    put(CONSTANT, 2);
+    put(PRECISION, 1);
+    put(TOLERANCE, TOLERANCE_PPM);
+    // Microseconds: STA_NANO is clear.
+    put(TIME_SEC, t.sec);
+    put(TIME_USEC, t.nsec / 1000);
+    put(TICK, USER_TICK_USEC);
+    // pps_fill_timex without CONFIG_NTP_PPS: zeros.
+    for at in PPS_WORDS.into_iter().chain(PPS_COUNTS) {
+        put(at, 0);
+    }
+    b[STATUS..STATUS + 4].copy_from_slice(&STA_UNSYNC.to_le_bytes());
+    b[SHIFT..SHIFT + 4].copy_from_slice(&0i32.to_le_bytes());
+    b[TAI..TAI + 4].copy_from_slice(&0i32.to_le_bytes());
+    Ok(TIME_ERROR)
+}
+
+/// `adjtimex`: the structure, `do_adjtimex`, and the structure written
+/// back whatever the result (`EFAULT` if it cannot be).
+pub fn adjtimex(c: &mut Ctx<'_>, tx: u64) -> SysResult {
+    let mut b = c.read_mem(tx, timex::SIZE)?;
+    let r = adjust(c, &mut b);
+    c.write_mem(tx, &b)?;
+    r
+}
+
+/// `clock_adjtime`: the structure, the clock (`EINVAL` for none, a clock
+/// device included; `EOPNOTSUPP` for one without an adjuster: all but
+/// `CLOCK_REALTIME`), `do_adjtimex`, and on success the structure written
+/// back.
+pub fn clock_adjtime(c: &mut Ctx<'_>, id: i32, tx: u64) -> SysResult {
+    let mut b = c.read_mem(tx, timex::SIZE)?;
+    let r = match id {
+        clk::REALTIME => adjust(c, &mut b),
+        id if id < 0 && id & 7 == 3 => Err(Errno(EINVAL)),
+        id if id < 0 || ((0..=clk::TAI).contains(&id) && id != 10) => Err(Errno(EOPNOTSUPP)),
+        _ => Err(Errno(EINVAL)),
+    };
+    if r.is_ok() {
+        c.write_mem(tx, &b)?;
+    }
+    r
+}
+
 // ---------------------------------------------------------- itimers
 
 fn itimer_which(which: i32) -> Result<i32, Errno> {

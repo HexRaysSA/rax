@@ -26,6 +26,7 @@
 //! is what a kernel built without the call returns; C libraries treat it as
 //! "unsupported" and fall back.
 
+pub mod admin;
 pub mod child;
 pub mod epoll;
 pub mod events;
@@ -38,6 +39,7 @@ pub mod ipc;
 pub mod locks;
 pub mod mem;
 pub mod memfd;
+pub mod mount;
 pub mod net;
 pub mod notify;
 pub mod path;
@@ -685,6 +687,10 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::TimerGettime => r(timer::timer_gettime(c, a[0], a[1])),
         S::TimerGetoverrun => r(timer::timer_getoverrun(c, a[0])),
         S::TimerDelete => r(timer::timer_delete(c, a[0])),
+        S::Settimeofday => r(time::settimeofday(c, a[0], a[1])),
+        S::ClockSettime => r(time::clock_settime(c, a[0] as i32, a[1])),
+        S::Adjtimex => r(time::adjtimex(c, a[0])),
+        S::ClockAdjtime => r(time::clock_adjtime(c, a[0] as i32, a[1])),
 
         // ----------------------------------- event, timer, signal files
         S::Eventfd => r(events::eventfd2(c, a[0] as u32, 0)),
@@ -820,7 +826,64 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[4],
         )),
 
-        // Calls intentionally reported as unsupported.
+        // ------------------------------------------ machine administration
+        S::Swapon => r(admin::swapon(c, a[1] as i32)),
+        S::Swapoff => r(admin::swapoff(c)),
+        S::Reboot => r(admin::reboot(
+            c,
+            a[0] as i32,
+            a[1] as i32,
+            a[2] as u32,
+            a[3],
+        )),
+        S::Acct => r(admin::acct(c, a[0])),
+        S::Sethostname | S::Setdomainname => r(admin::setname(c, a[0], a[1] as i32)),
+        S::Vhangup => r(admin::vhangup(c)),
+        S::Iopl => r(admin::iopl(c, a[0] as u32)),
+        S::Ioperm => r(admin::ioperm(c, a[0], a[1], a[2] as i32)),
+        S::InitModule => r(admin::init_module(c, a[0], a[1])),
+        S::FinitModule => r(admin::finit_module(c, fd(a[0]), a[2] as i32)),
+        S::DeleteModule => r(admin::delete_module(c, a[0])),
+        S::Syslog => admin::syslog(c, a[0] as i32, a[1], a[2] as i32),
+        S::Chroot => r(admin::chroot(c, a[0])),
+
+        // -------------------------------------------------------- mounts
+        S::Mount => r(mount::mount(c, a[0], a[1], a[2], a[3], a[4])),
+        S::Umount2 => r(mount::umount2(c, a[0], a[1] as i32)),
+        S::PivotRoot => r(mount::pivot_root(c)),
+        S::MoveMount => r(mount::move_mount(c, a[4] as u32)),
+        S::Fsopen => r(mount::fsopen(c, a[0], a[1] as u32)),
+        S::Fspick => r(mount::fspick(c, fd(a[0]), a[1], a[2] as u32)),
+        S::Fsmount => r(mount::fsmount(c, fd(a[0]), a[1] as u32, a[2] as u32)),
+        S::Fsconfig => r(mount::fsconfig(
+            c,
+            fd(a[0]),
+            a[1] as u32,
+            a[2],
+            a[3],
+            a[4] as i32,
+        )),
+        S::OpenTree => r(mount::open_tree(c, fd(a[0]), a[1], a[2] as u32)),
+        S::OpenTreeAttr => r(mount::open_tree_attr(
+            c,
+            fd(a[0]),
+            a[1],
+            a[2] as u32,
+            a[3],
+            a[4],
+        )),
+        S::MountSetattr => r(mount::mount_setattr(
+            c,
+            fd(a[0]),
+            a[1],
+            a[2] as u32,
+            a[3],
+            a[4],
+        )),
+
+        // Calls intentionally reported as unsupported. kexec among them:
+        // the kernel is built without CONFIG_KEXEC and CONFIG_KEXEC_FILE,
+        // as the reference kernel is.
         _ => Err(Errno(ENOSYS)),
     }
 }

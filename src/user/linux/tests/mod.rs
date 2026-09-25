@@ -1,5 +1,6 @@
 //! Linux personality unit tests.
 
+mod admin;
 mod entry;
 mod epoll;
 mod events;
@@ -12,6 +13,7 @@ mod inotify;
 mod loader;
 mod locks;
 mod misc;
+mod mounts;
 mod netlink;
 mod nodes;
 mod pidfd;

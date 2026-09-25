@@ -189,6 +189,12 @@ target = "x86_64-linux-musl"
 sha256 = "941e20079e2400fdc397ff2425387ccacf317df5d08168fef326b898d9e3b4e2"
 
 [[fixture]]
+path = "bin/x86_64/admin"
+source = "src/admin.c"
+target = "x86_64-linux-musl"
+sha256 = "b78f4458bbdbba1c11d622aaa5a02e95a903cc59cf3e65f97f67d588bd96fcd5"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -399,6 +405,12 @@ target = "aarch64-linux-musl"
 sha256 = "f04c02184ef2d216ca16172e04f9efaada84773196295b5319802d4d0b1a0427"
 
 [[fixture]]
+path = "bin/aarch64/admin"
+source = "src/admin.c"
+target = "aarch64-linux-musl"
+sha256 = "defc82fb698c4865cd021d7b23ec4f2c94fbd521017a4658852e72b654beffe1"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -607,6 +619,12 @@ path = "bin/riscv64/inotify"
 source = "src/inotify.c"
 target = "riscv64-linux-musl"
 sha256 = "6002f0b8606b2b4252febddb5bd68d0d44dd17ec7aee314e1f0cc6b367330ecb"
+
+[[fixture]]
+path = "bin/riscv64/admin"
+source = "src/admin.c"
+target = "riscv64-linux-musl"
+sha256 = "cd31ec17c80282f0f999fa49d38de980654cc859882e7eab3b5f3a4a0aa0a797"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

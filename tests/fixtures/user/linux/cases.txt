@@ -35,6 +35,7 @@ sysvsem  sysvsem  -
 sysvmsg  sysvmsg  -
 seccomp  seccomp  -
 inotify  inotify  -
+admin    admin    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

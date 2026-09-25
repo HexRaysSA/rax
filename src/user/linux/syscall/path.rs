@@ -201,7 +201,7 @@ pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
 }
 
 /// Metadata of a resolved target.
-fn stat_target(c: &Ctx<'_>, t: &Target, follow: bool) -> Result<Stat, Errno> {
+pub(super) fn stat_target(c: &Ctx<'_>, t: &Target, follow: bool) -> Result<Stat, Errno> {
     match t {
         Target::Fd(f) => stat_file(c, f),
         Target::Proc(ProcEntry::Link(link), _) if follow => {
@@ -221,7 +221,7 @@ fn stat_target(c: &Ctx<'_>, t: &Target, follow: bool) -> Result<Stat, Errno> {
 }
 
 /// Opens a resolved target.
-fn open_target(
+pub(super) fn open_target(
     c: &mut Ctx<'_>,
     target: Target,
     flags: u32,
