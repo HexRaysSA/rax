@@ -21,6 +21,7 @@ use super::super::abi::errno_table::*;
 use super::super::abi::open::*;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::net::addr::{self, Addr, UnixName};
+use super::super::net::ifreq::{self, Shape};
 use super::super::net::sys::{self, HostAddr};
 use super::super::net::{Socket, host_domain, host_type, lx, name, netlink, opts};
 use super::super::signal::deliver::restart::ERESTARTSYS;
@@ -734,9 +735,13 @@ pub fn setsockopt(c: &mut Ctx<'_>, fd: i32, level: i32, opt: i32, val: u64, len:
 }
 
 /// Socket `ioctl`s (`sock_ioctl`): `SIOCINQ` (`FIONREAD`), `SIOCOUTQ`,
-/// `SIOCATMARK`; the interface requests find no device; others are not
-/// socket requests (`ENOTTY`).
+/// `SIOCATMARK`, and the interface requests ([`interface`]); others are
+/// not socket requests (`ENOTTY`).
 pub fn ioctl(c: &mut Ctx<'_>, s: &Socket, req: u32, arg: u64) -> SysResult {
+    let shape = ifreq::shape(s.domain, req);
+    if shape != Shape::Other {
+        return interface(c, s, req, arg, shape);
+    }
     const FIONREAD: u32 = 0x541B;
     const SIOCOUTQ: u32 = 0x5411;
     const SIOCATMARK: u32 = 0x8905;
@@ -755,9 +760,113 @@ pub fn ioctl(c: &mut Ctx<'_>, s: &Socket, req: u32, arg: u64) -> SysResult {
         }
         SIOCOUTQ => sys::outq(&s.file)?,
         SIOCATMARK => sys::at_mark(&s.file)?,
-        0x8910..=0x8970 => return Err(Errno(ENODEV)),
         _ => return Err(Errno(ENOTTY)),
     };
     c.write_u32(arg, v as u32)?;
     Ok(0)
+}
+
+/// An interface request ([`ifreq`]) of `shape`: on a Linux host the host
+/// answers it for the socket's host descriptor, the argument's bytes
+/// passing through (every guest ABI's `struct ifreq` is the host's), except
+/// the requests whose `ifr_data` points to more data (`EOPNOTSUPP`);
+/// elsewhere, and for emulated sockets, it is answered from rtnetlink's
+/// view of the host's interfaces.
+fn interface(c: &mut Ctx<'_>, s: &Socket, req: u32, arg: u64, shape: Shape) -> SysResult {
+    let emulate = !cfg!(target_os = "linux") || s.netlink.is_some();
+    let admin = admin(c);
+    match shape {
+        Shape::Conf => {
+            // dev_ifconf: struct ifconf, its buffer's entries, the length.
+            let b = c.read_mem(arg, ifreq::IFCONF)?;
+            let len = i32::from_le_bytes(b[..4].try_into().unwrap());
+            let buf = u64::from_le_bytes(b[8..16].try_into().unwrap());
+            let room = (buf != 0).then_some(len);
+            let (entries, total) = if emulate {
+                ifreq::ifconf(&netlink::ifaces::snapshot(), room)
+            } else {
+                host_ifconf(s, room)?
+            };
+            if !entries.is_empty() {
+                c.write_mem(buf, &entries)?;
+            }
+            c.write_u32(arg, total as u32)?;
+            Ok(0)
+        }
+        Shape::In6 => {
+            if emulate && ifreq::in6_needs_admin(req) && !admin {
+                return Err(Errno(EPERM));
+            }
+            let b = c.read_mem(arg, ifreq::IN6_IFREQ)?;
+            let mut ireq: [u8; ifreq::IN6_IFREQ] = b.try_into().unwrap();
+            if emulate {
+                return Err(ifreq::in6(&netlink::ifaces::snapshot(), req, &ireq));
+            }
+            host_in6(s, req, &mut ireq)?;
+            Ok(0)
+        }
+        Shape::Ifreq { .. } | Shape::Indirect => {
+            let b = c.read_mem(arg, ifreq::IFREQ)?;
+            let mut ifr: [u8; ifreq::IFREQ] = b.try_into().unwrap();
+            let answer = if emulate {
+                ifreq::answer(&netlink::ifaces::snapshot(), s.domain, req, &mut ifr, admin)?
+            } else {
+                host_ifreq(s, req, shape, &mut ifr)?
+            };
+            if answer {
+                c.write_mem(arg, &ifr)?;
+            }
+            Ok(0)
+        }
+        Shape::Other => Err(Errno(ENOTTY)),
+    }
+}
+
+/// The host's `SIOCGIFCONF` (Linux hosts).
+fn host_ifconf(s: &Socket, room: Option<i32>) -> Result<(Vec<u8>, i32), Errno> {
+    #[cfg(target_os = "linux")]
+    {
+        sys::ifconf(&s.file, room)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (s, room);
+        Err(Errno(ENOTTY))
+    }
+}
+
+/// The host's answer to IPv6 address change `req` (Linux hosts).
+fn host_in6(s: &Socket, req: u32, ireq: &mut [u8; ifreq::IN6_IFREQ]) -> Result<(), Errno> {
+    #[cfg(target_os = "linux")]
+    {
+        sys::ioctl_in6_ifreq(&s.file, req, ireq)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (s, req, ireq);
+        Err(Errno(ENOTTY))
+    }
+}
+
+/// The host's answer to `struct ifreq` request `req` (Linux hosts):
+/// whether the answer is copied back.
+fn host_ifreq(
+    s: &Socket,
+    req: u32,
+    shape: Shape,
+    ifr: &mut [u8; ifreq::IFREQ],
+) -> Result<bool, Errno> {
+    let Shape::Ifreq { answer } = shape else {
+        return Err(Errno(EOPNOTSUPP));
+    };
+    #[cfg(target_os = "linux")]
+    {
+        sys::ioctl_ifreq(&s.file, req, ifr)?;
+        Ok(answer)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (s, req, ifr, answer);
+        Err(Errno(ENOTTY))
+    }
 }

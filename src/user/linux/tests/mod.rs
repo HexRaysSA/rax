@@ -6,6 +6,7 @@ mod exec;
 mod fdinfo;
 mod files;
 mod harness;
+mod ifreq;
 mod loader;
 mod locks;
 mod misc;

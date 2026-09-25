@@ -534,6 +534,51 @@ pub fn getsockopt_into(
     Ok(l as u32)
 }
 
+/// An interface request on a Linux host with the `struct ifreq` bytes
+/// `ifr`, which the host reads and may rewrite.
+#[cfg(target_os = "linux")]
+pub fn ioctl_ifreq(fd: &impl AsRawFd, req: u32, ifr: &mut [u8; 40]) -> Result<(), Errno> {
+    // SAFETY: `ifr` is a 40-byte `struct ifreq` (every Linux host is LP64)
+    // that outlives the call; the requests passed carry no pointers.
+    check(unsafe { libc::ioctl(fd.as_raw_fd(), req as _, ifr.as_mut_ptr()) }).map(|_| ())
+}
+
+/// An IPv6 address change on a Linux host with the `struct in6_ifreq`
+/// bytes `ireq`.
+#[cfg(target_os = "linux")]
+pub fn ioctl_in6_ifreq(fd: &impl AsRawFd, req: u32, ireq: &mut [u8; 24]) -> Result<(), Errno> {
+    // SAFETY: `ireq` is a 24-byte `struct in6_ifreq` that outlives the
+    // call.
+    check(unsafe { libc::ioctl(fd.as_raw_fd(), req as _, ireq.as_mut_ptr()) }).map(|_| ())
+}
+
+/// `SIOCGIFCONF` on a Linux host: the entries that fit `room` bytes (the
+/// length alone without a buffer) and the length the host reports. At most
+/// 1 MiB is asked for.
+#[cfg(target_os = "linux")]
+pub fn ifconf(fd: &impl AsRawFd, room: Option<i32>) -> Result<(Vec<u8>, i32), Errno> {
+    let mut buf = vec![0u8; room.map_or(0, |r| r.clamp(0, 1 << 20) as usize)];
+    // SAFETY: an all-zero struct ifconf is valid; its buffer pointer is
+    // `buf` (or null) with its length, both outliving the call.
+    unsafe {
+        let mut ifc: libc::ifconf = std::mem::zeroed();
+        ifc.ifc_len = if room.is_some() { buf.len() as i32 } else { 0 };
+        ifc.ifc_ifcu.ifcu_buf = if room.is_some() {
+            buf.as_mut_ptr().cast()
+        } else {
+            std::ptr::null_mut()
+        };
+        check(libc::ioctl(
+            fd.as_raw_fd(),
+            libc::SIOCGIFCONF as _,
+            &mut ifc,
+        ))?;
+        let n = ifc.ifc_len.max(0) as usize;
+        buf.truncate(if room.is_some() { n.min(buf.len()) } else { 0 });
+        Ok((buf, ifc.ifc_len))
+    }
+}
+
 /// `getsockopt(2)` of an `int`.
 pub fn getsockopt_int(fd: &impl AsRawFd, level: i32, opt: i32) -> Result<i32, Errno> {
     let b = getsockopt(fd, level, opt, 4)?;

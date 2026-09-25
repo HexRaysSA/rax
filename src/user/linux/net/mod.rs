@@ -7,6 +7,7 @@
 //! | Module | Contents |
 //! |---|---|
 //! | [`addr`] | guest `struct sockaddr` parsing and encoding |
+//! | [`ifreq`] | interface requests (`SIOCGIFCONF`, `SIOCGIFINDEX`, ...) answered from the host's interfaces |
 //! | [`name`] | Unix names and IP addresses between guest and host: file-system paths through the VFS, the abstract namespace, autobind |
 //! | [`msg`] | ancillary data: `SCM_RIGHTS` and `SCM_CREDENTIALS` |
 //! | [`netlink`] | `AF_NETLINK`: the host's on Linux, `NETLINK_ROUTE` emulated elsewhere |
@@ -21,6 +22,7 @@
 //! [`syscall::net`](super::syscall::net)).
 
 pub mod addr;
+pub mod ifreq;
 pub mod msg;
 pub mod name;
 pub mod netlink;

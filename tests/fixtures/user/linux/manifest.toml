@@ -153,6 +153,12 @@ target = "x86_64-linux-musl"
 sha256 = "0bad2c5b32d82f0bd3f5cb4bc34539cf80768469b441188030397e20d350c3f2"
 
 [[fixture]]
+path = "bin/x86_64/ifreq"
+source = "src/ifreq.c"
+target = "x86_64-linux-musl"
+sha256 = "63f306c1adffbed4ddacb7f543afb213c305fc61f366cae9a49cfefe460d0aac"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -327,6 +333,12 @@ target = "aarch64-linux-musl"
 sha256 = "25e895b27e1079d8b7f1fe161de66e5c9ee73fca0ba194af619cc21c88a5cb4b"
 
 [[fixture]]
+path = "bin/aarch64/ifreq"
+source = "src/ifreq.c"
+target = "aarch64-linux-musl"
+sha256 = "93f534c7252a78a83317f6201f954e5a89150cdf21a67eb769949480721a308f"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -499,6 +511,12 @@ path = "bin/riscv64/netlink"
 source = "src/netlink.c"
 target = "riscv64-linux-musl"
 sha256 = "3b58cdd7fb8ff5b6d6b9f8a4bd03bbba55db41f8e09ca389e0a2b7262dce1f4f"
+
+[[fixture]]
+path = "bin/riscv64/ifreq"
+source = "src/ifreq.c"
+target = "riscv64-linux-musl"
+sha256 = "e72298b3fc4a2a285a65a49b530383c1ed43d30cd55d058d0780acc7577923ba"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

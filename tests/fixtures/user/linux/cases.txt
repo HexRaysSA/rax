@@ -29,6 +29,7 @@ xattr    xattr    -
 misc     misc     -
 locks    locks    -
 netlink  netlink  -
+ifreq    ifreq    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -
