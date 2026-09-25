@@ -51,6 +51,7 @@ ptracestops ptracestops -
 ptraceregs ptraceregs -
 ptracejobs ptracejobs -
 ptraceevents ptraceevents -
+ptracefork ptracefork -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

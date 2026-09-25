@@ -17,7 +17,7 @@ use super::super::wait::Resume;
 use super::{
     EVENT_EXEC, EVENT_EXIT, EVENT_STOP, EVENTMSG_SYSCALL_ENTRY, EVENTMSG_SYSCALL_EXIT, Exiting,
     LinkId, Mode, Msg, NSIG, PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, Resumption, SIGINFO, StopKind,
-    Stopped, Traced, call, link_mut, offered, opt, peer_pid, regs, req, resumes, send,
+    Stopped, Traced, call, link_ids, link_mut, offered, opt, peer_pid, regs, req, resumes, send,
 };
 
 /// `arch_prctl` codes `do_arch_prctl_64` takes for another task.
@@ -33,17 +33,7 @@ mod arch {
 /// departures, and answers; a tracee attaches, answers requests, and
 /// resumes. A link that ended detaches what went along it.
 pub fn poll_links(p: &mut ProcState, th: &mut Threads<'_>) {
-    let mut ids: Vec<LinkId> = p
-        .children
-        .list
-        .iter()
-        .filter(|c| c.link.is_some())
-        .map(|c| LinkId::Child(c.pid))
-        .collect();
-    if p.parent_link.is_some() {
-        ids.push(LinkId::Parent);
-    }
-    for id in ids {
+    for id in link_ids(p) {
         let (msgs, closed) = match link_mut(p, id) {
             Some(l) if !l.closed => {
                 let m = l.recv();
@@ -66,7 +56,7 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
             // The tracer is the thread that made the child.
             let creator = match link {
                 LinkId::Child(pid) => p.children.get_mut(pid).map_or(p.pid, |c| c.creator),
-                LinkId::Parent => p.pid,
+                _ => p.pid,
             };
             p.tracees.add(tid, creator, link, false);
         }
@@ -114,6 +104,20 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
             }
         }
         Msg::Gone { tid, status: None } => p.tracees.remove(tid),
+        // A tracee's fork: the link to the new tracee, whose tracer is the
+        // thread tracing the one that forked it.
+        Msg::Adopt {
+            tid,
+            parent,
+            seized,
+        } => {
+            if let Some(fd) = link_mut(p, link).and_then(|l| l.take_fd()) {
+                p.adopted.retain(|a| a.0 != tid);
+                p.adopted.push((tid, super::Link::from_fd(fd)));
+                let tracer = p.tracees.get(parent).map_or(p.pid, |t| t.tracer);
+                p.tracees.add(tid, tracer, LinkId::Adopted(tid), seized);
+            }
+        }
         Msg::GroupExit { status } => {
             for t in p.tracees.list.iter_mut().filter(|t| t.link == link) {
                 if t.exited.is_some() {
@@ -500,8 +504,11 @@ fn detach(t: &mut Thread) {
 /// `PTRACE_O_EXITKILL`.
 fn link_ended(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId) {
     // Answers that came before the end stand: a tracee may answer and die
-    // at once (PTRACE_KILL, or a PTRACE_CONT to its exit).
-    p.tracees.list.retain(|t| t.link != link);
+    // at once (PTRACE_KILL, or a PTRACE_CONT to its exit). So do the
+    // records of tracees that exited, for the tracer to reap.
+    p.tracees
+        .list
+        .retain(|t| t.link != link || t.exited.is_some());
     let mut kill = false;
     for t in th.iter_mut() {
         let Some(tr) = t.ptrace.as_ref() else {
@@ -526,6 +533,12 @@ fn link_ended(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId) {
     }
     if let Some(l) = link_mut(p, link) {
         l.closed = true;
+    }
+    // Links that only tracing made go with it.
+    match link {
+        LinkId::Adopted(pid) => p.adopted.retain(|a| a.0 != pid),
+        LinkId::Tracer => p.tracer_link = None,
+        _ => {}
     }
     if kill {
         let me = p.pid;
@@ -817,19 +830,108 @@ pub fn exec_event(p: &mut ProcState, t: &mut Thread, old_tid: i32) {
 /// finishes, if its tracer asked for it (`ptrace_event_pid` after
 /// `clone`).
 pub fn due_event(t: &mut Thread, event: i32, message: u64) {
-    if let Some(tr) = t.ptrace.as_mut().filter(|tr| tr.event_enabled(event)) {
-        tr.event = Some((event, message));
+    if let Some(tr) = t
+        .ptrace
+        .as_mut()
+        .filter(|tr| tr.tracer >= 0 && tr.event_enabled(event))
+    {
+        tr.events.push_back((event, message));
     }
 }
 
-/// Stops the thread for the event due as its call finishes (`SIGTRAP |
-/// event << 8`, its message). True when it stopped.
+/// Stops the thread for the next event due as its call finishes
+/// (`SIGTRAP | event << 8`, its message). True when it stopped.
 pub fn event_stop(p: &mut ProcState, t: &mut Thread) -> bool {
-    let Some((event, message)) = t.ptrace.as_mut().and_then(|tr| tr.event.take()) else {
+    let Some((event, message)) = t.ptrace.as_mut().and_then(|tr| tr.events.pop_front()) else {
         return false;
     };
     notify(p, t, SIGTRAP | (event << 8), message, StopKind::Event);
     true
+}
+
+/// How a forked process is traced (`ptrace_init_task` with `kernel_clone`'s
+/// event): by the forker's tracer, along a link of its own.
+pub struct ForkTrace {
+    /// The event to report (`PTRACE_EVENT_FORK`, `_VFORK`, or `_CLONE`),
+    /// when the tracer asked for it (none for `CLONE_PTRACE` alone).
+    pub event: Option<i32>,
+    /// The tracer's PID and the forker's tracing.
+    pub tracer: i32,
+    pub seized: bool,
+    pub options: u64,
+    /// The new link: the tracer's end, then the child's.
+    pub ends: (super::Link, super::Link),
+}
+
+/// Whether and how a process thread `t` forks is traced: the event is
+/// `PTRACE_EVENT_VFORK` with `CLONE_VFORK`, `PTRACE_EVENT_CLONE` for an exit
+/// signal other than `SIGCHLD`, else `PTRACE_EVENT_FORK`; traced when the
+/// tracer asked for it or `CLONE_PTRACE` asks, never with `CLONE_UNTRACED`
+/// (which drops the event only).
+pub fn fork_trace(
+    t: &Thread,
+    vfork: bool,
+    untraced: bool,
+    ptrace_flag: bool,
+    exit_signal: u64,
+) -> Result<Option<ForkTrace>, super::super::abi::errno::Errno> {
+    use super::{EVENT_CLONE, EVENT_FORK, EVENT_VFORK};
+    let Some(tr) = t.ptrace.as_ref().filter(|tr| tr.tracer >= 0) else {
+        return Ok(None);
+    };
+    let event = if vfork {
+        EVENT_VFORK
+    } else if exit_signal != SIGCHLD as u64 {
+        EVENT_CLONE
+    } else {
+        EVENT_FORK
+    };
+    let event = (!untraced && tr.event_enabled(event)).then_some(event);
+    if event.is_none() && !ptrace_flag {
+        return Ok(None);
+    }
+    Ok(Some(ForkTrace {
+        event,
+        tracer: tr.tracer,
+        seized: tr.seized,
+        options: tr.options,
+        ends: super::Link::pair()?,
+    }))
+}
+
+/// The forked process's side: traced along its end of the new link,
+/// starting with `SIGSTOP` (a trap when seized).
+pub fn forked_traced(p: &mut ProcState, t: &mut Thread, trace: ForkTrace) {
+    let mut tr = Traced::new(trace.tracer, LinkId::Tracer, trace.seized, trace.options);
+    if trace.seized {
+        tr.trap_stop = true;
+    } else {
+        t.pending
+            .enqueue(SigInfo::kill(SIGSTOP, code::SI_USER, 0, 0));
+    }
+    t.sigpending = true;
+    t.ptrace = Some(tr);
+    p.tracer_link = Some((trace.tracer, trace.ends.1));
+}
+
+/// The forker's side: the tracer gets its end of the link to the new
+/// process, then the forker's event (with the new PID) is due.
+pub fn forker_traced(p: &mut ProcState, t: &mut Thread, trace: ForkTrace, pid: i32) {
+    let Some(tr) = t.ptrace.as_ref() else {
+        return;
+    };
+    let m = Msg::Adopt {
+        tid: pid,
+        parent: t.tid,
+        seized: trace.seized,
+    };
+    let link = tr.link;
+    if let Some(l) = link_mut(p, link) {
+        l.send_passing(&m, &trace.ends.0);
+    }
+    if let Some(event) = trace.event {
+        due_event(t, event, pid as u64);
+    }
 }
 
 /// Whether a thread about to exit stops for `PTRACE_EVENT_EXIT`: its
@@ -878,17 +980,7 @@ pub fn gone(p: &mut ProcState, t: &Thread, status: i32) {
 /// A group exit begins with `status` (`do_group_exit`): the tracers along
 /// every link learn of it, for the threads they have yet to reap.
 pub fn group_exit(p: &mut ProcState, status: i32) {
-    let mut links: Vec<LinkId> = p
-        .children
-        .list
-        .iter()
-        .filter(|c| c.link.is_some())
-        .map(|c| LinkId::Child(c.pid))
-        .collect();
-    if p.parent_link.is_some() {
-        links.push(LinkId::Parent);
-    }
-    for link in links {
+    for link in link_ids(p) {
         send(p, link, &Msg::GroupExit { status });
     }
 }

@@ -28,6 +28,7 @@ mod procfs;
 mod procmem;
 mod ptrace;
 mod ptrace_events;
+mod ptrace_fork;
 mod ptrace_jobctl;
 mod ptrace_regsets;
 mod ptrace_stops;

@@ -83,13 +83,13 @@ impl LinuxProcess {
                 continue;
             };
             current = idx;
-            if self.threads[idx].blocked.is_some() {
-                current = self.resume(idx).from(idx);
-                continue;
-            }
             // A system call its tracer stopped goes on once resumed.
             if super::ptrace::tracee::resumed_in_call(&self.threads[idx]) {
                 current = self.resume_in_call(idx).from(idx);
+                continue;
+            }
+            if self.threads[idx].blocked.is_some() {
+                current = self.resume(idx).from(idx);
                 continue;
             }
             // The return to user mode: restart processing and signals,
@@ -196,7 +196,11 @@ impl LinuxProcess {
         // A tracing message (a request, a resumption, a stop) wakes it.
         let mut fds = super::ptrace::link_fds(&self.state);
         let mut deadline = self.state.timer_deadline();
-        for b in self.threads.iter().filter_map(|t| t.blocked.as_ref()) {
+        // A stopped thread's sleep waits for its tracer first (a vfork
+        // parent at its event stop).
+        let parked = super::ptrace::tracee::parked;
+        let sleeping = self.threads.iter().filter(|t| !parked(t));
+        for b in sleeping.filter_map(|t| t.blocked.as_ref()) {
             fds.extend_from_slice(&b.wait.fds);
             deadline = match (deadline, b.wait.deadline) {
                 (Some(a), Some(b)) => Some(a.min(b)),
@@ -265,6 +269,8 @@ impl LinuxProcess {
                     woken: false,
                     ready: false,
                 });
+                // An event due before the call sleeps (vfork's).
+                self.call_event(idx);
                 return After::Next;
             }
             Outcome::ExitThread(code) => {
@@ -382,9 +388,10 @@ impl LinuxProcess {
         let mut i = 0;
         while i < self.threads.len() {
             let t = &self.threads[i];
-            if t.blocked
-                .as_ref()
-                .is_some_and(|b| b.can_wake(t.sigpending, now))
+            if !super::ptrace::tracee::parked(t)
+                && t.blocked
+                    .as_ref()
+                    .is_some_and(|b| b.can_wake(t.sigpending, now))
             {
                 ran += 1;
                 if self.resume(i) == After::Gone {

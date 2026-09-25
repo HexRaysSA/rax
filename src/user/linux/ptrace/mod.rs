@@ -119,6 +119,12 @@ pub enum LinkId {
     Parent,
     /// The link to the child with this PID.
     Child(i32),
+    /// The link to a tracee with this PID that is not a child (its parent,
+    /// a tracee, passed the link over when it forked it).
+    Adopted(i32),
+    /// The link to this process's tracer when that is neither its parent
+    /// nor a child (it came from the parent that forked it traced).
+    Tracer,
 }
 
 /// A message on a link.
@@ -165,6 +171,10 @@ pub enum Msg {
     /// Thread `tid`, which thread `parent` made, is traced as its maker is
     /// (`ptrace_init_task`: `PTRACE_O_TRACECLONE` or `CLONE_PTRACE`).
     Traced { tid: i32, parent: i32, seized: bool },
+    /// Process `tid`, which thread `parent` of the sender forked, is traced
+    /// as `parent` is; the frame carries the descriptor of the tracer's
+    /// end of a link to it (`SCM_RIGHTS`).
+    Adopt { tid: i32, parent: i32, seized: bool },
     /// The sender's process began a group exit with this status
     /// (`SIGNAL_GROUP_EXIT`): its threads reaped from now on report it
     /// (`wait_task_zombie`).
@@ -242,6 +252,16 @@ impl Msg {
                 b.push(b'X');
                 i32s(&mut b, *status);
             }
+            Msg::Adopt {
+                tid,
+                parent,
+                seized,
+            } => {
+                b.push(b'D');
+                i32s(&mut b, *tid);
+                i32s(&mut b, *parent);
+                b.push(u8::from(*seized));
+            }
             Msg::Traced {
                 tid,
                 parent,
@@ -309,6 +329,11 @@ impl Msg {
                 status: (*f.get(4)? != 0).then_some(i32at(5)?),
             },
             b'X' => Msg::GroupExit { status: i32at(0)? },
+            b'D' => Msg::Adopt {
+                tid: i32at(0)?,
+                parent: i32at(4)?,
+                seized: *f.get(8)? != 0,
+            },
             b'C' => Msg::Traced {
                 tid: i32at(0)?,
                 parent: i32at(4)?,
@@ -336,6 +361,8 @@ impl Msg {
 pub struct Link {
     fd: OwnedFd,
     inbox: Vec<u8>,
+    /// Descriptors that arrived with the bytes (`SCM_RIGHTS`), in order.
+    fds: std::collections::VecDeque<OwnedFd>,
     /// The other end is gone.
     pub closed: bool,
 }
@@ -344,12 +371,46 @@ impl Link {
     /// A new link's two ends.
     pub fn pair() -> Result<(Link, Link), Errno> {
         let (a, b) = super::host::link_pair()?;
-        let end = |fd| Link {
+        Ok((Link::from_fd(a), Link::from_fd(b)))
+    }
+
+    /// A link over a descriptor another process passed (an end of a pair
+    /// it made).
+    pub fn from_fd(fd: OwnedFd) -> Link {
+        Link {
             fd,
             inbox: Vec::new(),
+            fds: Default::default(),
             closed: false,
+        }
+    }
+
+    /// Sends a message whose frame carries descriptor `fd`
+    /// (`SCM_RIGHTS` with its first bytes); false when the other end is
+    /// gone.
+    pub fn send_passing(&self, m: &Msg, fd: &impl AsRawFd) -> bool {
+        #[cfg(target_os = "linux")]
+        let quiet = libc::MSG_NOSIGNAL;
+        #[cfg(not(target_os = "linux"))]
+        let quiet = 0;
+        let frame = m.encode();
+        let fds = [fd.as_raw_fd()];
+        let sent = loop {
+            match super::net::sys::sendmsg(&self.fd, &frame, quiet, None, &fds) {
+                Ok(n) => break n,
+                Err(Errno(EINTR)) => {}
+                Err(Errno(EAGAIN)) => {
+                    let _ = super::host::poll(&[(self.fd(), false, true)], -1);
+                }
+                Err(_) => return false,
+            }
         };
-        Ok((end(a), end(b)))
+        super::host::write_all_waiting(&self.fd, &frame[sent..]).is_ok()
+    }
+
+    /// The oldest descriptor that arrived, for the message that carried it.
+    pub fn take_fd(&mut self) -> Option<OwnedFd> {
+        self.fds.pop_front()
     }
 
     /// The host descriptor, for a sleep to wake on.
@@ -368,12 +429,15 @@ impl Link {
     pub fn recv(&mut self) -> Vec<Msg> {
         let mut buf = [0u8; 4096];
         loop {
-            match super::host::read_nonblocking(&self.fd, &mut buf) {
-                Ok(0) => {
+            match super::net::sys::recvmsg(&self.fd, &mut buf, 0) {
+                Ok(r) if r.len == 0 && r.fds.is_empty() => {
                     self.closed = true;
                     break;
                 }
-                Ok(n) => self.inbox.extend_from_slice(&buf[..n]),
+                Ok(r) => {
+                    self.inbox.extend_from_slice(&buf[..r.len]);
+                    self.fds.extend(r.fds);
+                }
                 Err(Errno(EAGAIN)) => break,
                 Err(Errno(EINTR)) => continue,
                 Err(_) => {
@@ -394,6 +458,12 @@ impl Link {
             }
         }
         out
+    }
+}
+
+impl AsRawFd for Link {
+    fn as_raw_fd(&self) -> std::os::fd::RawFd {
+        self.fd.as_raw_fd()
     }
 }
 
@@ -496,9 +566,9 @@ pub struct Traced {
     pub trap_notify: bool,
     /// `JOBCTL_LISTENING`: stopped but listening (`PTRACE_LISTEN`).
     pub listening: bool,
-    /// An event stop due as the system call finishes (`ptrace_event`,
-    /// after `clone`): the event and its message.
-    pub event: Option<(i32, u64)>,
+    /// Event stops due as the system call finishes (`ptrace_event`, after
+    /// `clone`; a `vfork`'s two), in order: the event and its message.
+    pub events: std::collections::VecDeque<(i32, u64)>,
     /// How the thread ends once resumed from `PTRACE_EVENT_EXIT`.
     pub exiting: Option<Exiting>,
 }
@@ -532,7 +602,7 @@ impl Traced {
             trap_stop: false,
             trap_notify: false,
             listening: false,
-            event: None,
+            events: Default::default(),
             exiting: None,
         }
     }
@@ -633,6 +703,8 @@ pub fn link_mut(p: &mut ProcState, id: LinkId) -> Option<&mut Link> {
     match id {
         LinkId::Parent => p.parent_link.as_mut(),
         LinkId::Child(pid) => p.children.get_mut(pid).and_then(|c| c.link.as_mut()),
+        LinkId::Adopted(pid) => p.adopted.iter_mut().find(|a| a.0 == pid).map(|a| &mut a.1),
+        LinkId::Tracer => p.tracer_link.as_mut().map(|t| &mut t.1),
     }
 }
 
@@ -640,23 +712,46 @@ pub fn link_mut(p: &mut ProcState, id: LinkId) -> Option<&mut Link> {
 pub fn peer_pid(p: &ProcState, id: LinkId) -> i32 {
     match id {
         LinkId::Parent => p.ppid,
-        LinkId::Child(pid) => pid,
+        LinkId::Child(pid) | LinkId::Adopted(pid) => pid,
+        LinkId::Tracer => p.tracer_link.as_ref().map_or(0, |t| t.0),
+    }
+}
+
+/// Every link's identity.
+pub fn link_ids(p: &ProcState) -> Vec<LinkId> {
+    let mut ids: Vec<LinkId> = p
+        .children
+        .list
+        .iter()
+        .filter(|c| c.link.is_some())
+        .map(|c| LinkId::Child(c.pid))
+        .collect();
+    ids.extend(p.adopted.iter().map(|a| LinkId::Adopted(a.0)));
+    if p.parent_link.is_some() {
+        ids.push(LinkId::Parent);
+    }
+    if p.tracer_link.is_some() {
+        ids.push(LinkId::Tracer);
+    }
+    ids
+}
+
+/// The link with this identity, to look at.
+pub fn link_ref(p: &ProcState, id: LinkId) -> Option<&Link> {
+    match id {
+        LinkId::Parent => p.parent_link.as_ref(),
+        LinkId::Child(pid) => p.children.list.iter().find(|c| c.pid == pid)?.link.as_ref(),
+        LinkId::Adopted(pid) => p.adopted.iter().find(|a| a.0 == pid).map(|a| &a.1),
+        LinkId::Tracer => p.tracer_link.as_ref().map(|t| &t.1),
     }
 }
 
 /// The descriptors of every link, for a sleep that a message must end.
 pub fn link_fds(p: &ProcState) -> Vec<(i32, bool, bool)> {
-    let mut fds: Vec<(i32, bool, bool)> = p
-        .children
-        .list
-        .iter()
-        .filter_map(|c| c.link.as_ref())
-        .map(|l| (l.fd(), true, false))
-        .collect();
-    if let Some(l) = &p.parent_link {
-        fds.push((l.fd(), true, false));
-    }
-    fds
+    link_ids(p)
+        .into_iter()
+        .filter_map(|id| link_ref(p, id).map(|l| (l.fd(), true, false)))
+        .collect()
 }
 
 /// The link to process `pid`, when it is this process's child (not yet
@@ -670,6 +765,14 @@ pub fn link_to(p: &ProcState, pid: i32) -> Option<LinkId> {
         Some(LinkId::Child(pid))
     } else if pid == p.ppid && p.parent_link.as_ref().is_some_and(|l| !l.closed) {
         Some(LinkId::Parent)
+    } else if p.adopted.iter().any(|a| a.0 == pid && !a.1.closed) {
+        Some(LinkId::Adopted(pid))
+    } else if p
+        .tracer_link
+        .as_ref()
+        .is_some_and(|t| t.0 == pid && !t.1.closed)
+    {
+        Some(LinkId::Tracer)
     } else {
         None
     }
@@ -746,6 +849,11 @@ mod tests {
                 seized: true,
             },
             Msg::GroupExit { status: 0x300 },
+            Msg::Adopt {
+                tid: 11,
+                parent: 9,
+                seized: false,
+            },
             Msg::Request {
                 tid: 9,
                 req: req::POKEDATA,

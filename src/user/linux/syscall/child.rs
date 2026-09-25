@@ -105,6 +105,16 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     host::watch_children()?;
     let (read, write) = host::status_pipe()?;
     let (link, child_link) = super::super::ptrace::Link::pair()?;
+    // ptrace_init_task and the fork's event: traced by the forker's tracer
+    // along a link of its own.
+    use super::super::ptrace::tracee;
+    let trace = tracee::fork_trace(
+        c.t,
+        flags & CLONE_VFORK != 0,
+        flags & super::thread::cf::CLONE_UNTRACED != 0,
+        flags & super::thread::cf::CLONE_PTRACE != 0,
+        args.exit_signal,
+    )?;
     // The child shares the open file descriptions.
     if let Some(h) = &c.p.fsnotify {
         h.before_fork();
@@ -122,6 +132,9 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             let (tid, exec_id) = (c.t.tid, c.p.exec_id);
             c.p.children
                 .add(pid, read, Some(link), args.exit_signal as i32, tid, exec_id);
+            if let Some(trace) = trace {
+                tracee::forker_traced(c.p, c.t, trace, pid);
+            }
             if flags & CLONE_PIDFD != 0 {
                 super::pidfd::clone_install(c, pid, pid, args.pidfd)?;
             }
@@ -140,6 +153,8 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             // one; its link to its parent is new.
             c.p.parent_link = Some(child_link);
             c.p.tracees = Default::default();
+            c.p.adopted.clear();
+            c.p.tracer_link = None;
             c.p.group_stop = None;
             c.t.ptrace = None;
             c.t.sched = sched;
@@ -153,6 +168,10 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
                 c.t.rseq = None;
             }
             become_child(c, &args);
+            // Traced as its forker is, from its first instruction.
+            if let Some(trace) = trace {
+                tracee::forked_traced(c.p, c.t, trace);
+            }
             Ok(Outcome::Forked(ForkedSelf {
                 status: write,
                 vfork: flags & CLONE_VFORK != 0,
@@ -235,7 +254,12 @@ pub fn vfork_wait(c: &mut Ctx<'_>, pid: i32) -> Result<Outcome, Errno> {
     refresh(p, &mut th);
     let fds = match p.children.list.iter().find(|ch| ch.pid == pid) {
         Some(ch) if !ch.released => p.children.live_fds(|x| x.pid == pid),
-        _ => return Ok(Outcome::Return(pid as u64)),
+        _ => {
+            // wait_for_vfork_done ended: PTRACE_EVENT_VFORK_DONE.
+            use super::super::ptrace::{EVENT_VFORK_DONE, tracee};
+            tracee::due_event(c.t, EVENT_VFORK_DONE, pid as u64);
+            return Ok(Outcome::Return(pid as u64));
+        }
     };
     let mut wait = Wait::fds(fds, None);
     wait.interruptible = false;

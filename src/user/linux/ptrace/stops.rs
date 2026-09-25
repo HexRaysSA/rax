@@ -146,6 +146,10 @@ impl LinuxProcess {
             StopKind::Entry { emu } => emu,
             StopKind::Exiting => return self.finish_exit(idx, exiting),
             StopKind::Seccomp => return self.recheck(idx, compat, dying),
+            // An event while the call sleeps (vfork's): the sleep goes on.
+            StopKind::Event if self.threads[idx].blocked.is_some() => return After::Stay,
+            // The next event due, else the call's exit work.
+            StopKind::Event if self.call_event(idx) => return After::Next,
             _ => return self.after_exit_work(idx),
         };
         let t = &mut self.threads[idx];

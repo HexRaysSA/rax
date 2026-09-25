@@ -384,6 +384,12 @@ pub struct ProcState {
     pub parent_link: Option<super::ptrace::Link>,
     /// The threads this process traces (`ptraced`).
     pub tracees: super::ptrace::Tracees,
+    /// Links to tracees that are not children, by PID (their parents,
+    /// tracees of this process, passed them over as they forked them).
+    pub adopted: Vec<(i32, super::ptrace::Link)>,
+    /// The link to this process's tracer (its PID) when the tracer is
+    /// neither its parent nor a child.
+    pub tracer_link: Option<(i32, super::ptrace::Link)>,
     /// The group stop a traced process is in (`SIGNAL_STOP_STOPPED` or
     /// `group_stop_count`) and its signal (`group_exit_code`). An untraced
     /// process's group stop stops the host process instead.
@@ -730,6 +736,8 @@ impl LinuxProcess {
             aio: Default::default(),
             parent_link: None,
             tracees: Default::default(),
+            adopted: Vec::new(),
+            tracer_link: None,
             group_stop: None,
             fsnotify,
             exec_keep: Vec::new(),
