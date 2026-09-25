@@ -1,6 +1,6 @@
 //! Supplementary groups (`kernel/groups.c`), `readahead`
-//! (`mm/readahead.c`), and `sync_file_range` (`fs/sync.c`), Linux 6.19,
-//! driven through the system calls.
+//! (`mm/readahead.c`), and `sync_file_range`, `fsync`, and `syncfs`
+//! (`fs/sync.c`), Linux 6.19, driven through the system calls.
 
 use super::harness::{Harness, each_abi};
 use crate::user::linux::abi::errno_table::*;
@@ -100,4 +100,34 @@ fn readahead_and_sync_file_range_check_the_file() {
     assert_eq!(h.err(Sysno::SyncFileRange, &[s, 0, 0, 0]), ESPIPE);
     // The flags come before the file's kind.
     assert_eq!(h.err(Sysno::SyncFileRange, &[p, 0, 0, 8]), EINVAL);
+}
+
+#[test]
+fn fsync_needs_the_operation_and_syncfs_any_file() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let f = h.file("sync", 16, b'x', 2);
+        let fds = h.scratch + 0x200;
+        h.ok(Sysno::Pipe2, &[fds, 0]);
+        let p = u64::from(u32s(&h, fds, 1)[0]);
+        let s = h.ok(Sysno::Socket, &[1, 1, 0]);
+        let e = h.ok(Sysno::Eventfd2, &[0, 0]);
+        let path = h.scratch + 0x300;
+        h.proc.state.space.write_raw(path, b"/dev/null\0").unwrap();
+        let null = h.ok(Sysno::Openat, &[AT_FDCWD, path, 2, 0]);
+        // O_PATH.
+        let o = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0o10000000, 0]);
+        assert_eq!(h.call(Sysno::Fsync, &[f]), 0);
+        assert_eq!(h.call(Sysno::Fdatasync, &[f]), 0);
+        for fd in [p, s, e, null] {
+            assert_eq!(h.err(Sysno::Fsync, &[fd]), EINVAL);
+            assert_eq!(h.err(Sysno::Fdatasync, &[fd]), EINVAL);
+        }
+        assert_eq!(h.err(Sysno::Fsync, &[o]), EBADF);
+        for fd in [f, p, s, e, null] {
+            assert_eq!(h.call(Sysno::Syncfs, &[fd]), 0);
+        }
+        assert_eq!(h.err(Sysno::Syncfs, &[o]), EBADF);
+        assert_eq!(h.err(Sysno::Syncfs, &[999]), EBADF);
+    });
 }

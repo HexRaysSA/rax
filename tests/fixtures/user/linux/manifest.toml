@@ -138,7 +138,7 @@ sha256 = "54299c8eca250d48e54e3f9a9b4b509b8a037d2b656a901616fcfb85f4687943"
 path = "bin/x86_64/misc"
 source = "src/misc.c"
 target = "x86_64-linux-musl"
-sha256 = "d501d0d1a05da2681d84eea554a7193b6a4d59d0204d020128df70b8dc790fa9"
+sha256 = "b819784afa16c771c409135f8a3381463a597e7aadf0e03bbfc201cf32e30a47"
 
 [[fixture]]
 path = "bin/x86_64/locks"
@@ -318,7 +318,7 @@ sha256 = "ef903e6401674ca5a4041d8fda5b83b1d204a457359f05ab828b8b7852a3a68a"
 path = "bin/aarch64/misc"
 source = "src/misc.c"
 target = "aarch64-linux-musl"
-sha256 = "91394a5d1843330da681c009c48f14d66eca8b8f279c854d217a48a9428c48c2"
+sha256 = "5dae5610c39fb8e57eb69d818f102e21f3eb3b16f279f37d7f9e958b7d0fd971"
 
 [[fixture]]
 path = "bin/aarch64/locks"
@@ -498,7 +498,7 @@ sha256 = "dffb711556318a9ea505138f5894c762e6d523532bff577cea564a0febe914a8"
 path = "bin/riscv64/misc"
 source = "src/misc.c"
 target = "riscv64-linux-musl"
-sha256 = "2dcc2d6bb8f65e37c331b336be010bcff70cb22d13d6871059529c1865071d44"
+sha256 = "bc8f21c245984e9852a60ba6fccaad39929e789e6c399520e017202f851c65e3"
 
 [[fixture]]
 path = "bin/riscv64/locks"

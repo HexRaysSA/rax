@@ -398,7 +398,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::CopyFileRange => r(io::copy_file_range(c, fd(a[0]), a[1], fd(a[2]), a[3], a[4])),
         S::Fsync | S::Fdatasync => r(io::fsync(c, fd(a[0]))),
         S::Sync => r(Ok(0)),
-        S::Syncfs => r(io::fsync(c, fd(a[0])).map(|_| 0)),
+        S::Syncfs => r(io::syncfs(c, fd(a[0]))),
         S::Fadvise64 => r(io::fadvise(c, fd(a[0]), a[3] as u32)),
         S::Readahead => r(io::readahead(c, fd(a[0]))),
         S::SyncFileRange => r(io::sync_file_range(

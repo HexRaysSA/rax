@@ -1128,14 +1128,28 @@ pub fn copy_file_range(
 pub fn fsync(c: &mut Ctx<'_>, fd: i32) -> SysResult {
     let file = c.p.fds.file(fd)?;
     match (&file.object, file.ftype) {
+        // fdget: an O_PATH descriptor is none.
+        (FileObject::PathOnly, _) => Err(Errno(EBADF)),
         (FileObject::Host(f), FileType::Regular | FileType::Directory | FileType::BlockDevice) => {
             // Some hosts reject fsync on directories; the data is durable
             // either way for the guest's purposes.
             let _ = f.sync_all();
             Ok(0)
         }
-        (FileObject::Host(_), FileType::CharDevice) => Ok(0),
+        // vfs_fsync_range: files without the operation, which include
+        // character devices (terminals, /dev/null), pipes, sockets, and
+        // /proc files.
         _ => Err(Errno(EINVAL)),
+    }
+}
+
+/// `syncfs`: any open file (not an `O_PATH` one) names a file system to
+/// write back, a pseudo one for pipes, sockets, and anonymous files. The
+/// host's write-back is relied on, as for `sync`.
+pub fn syncfs(c: &mut Ctx<'_>, fd: i32) -> SysResult {
+    match c.p.fds.file(fd)?.object {
+        FileObject::PathOnly => Err(Errno(EBADF)),
+        _ => Ok(0),
     }
 }
 

@@ -27,4 +27,21 @@ ok sync-range-pipe
 ok sync-range-socket
 ok sync-range-path-only
 ok sync-range-flags-first
+ok fsync-file
+ok fsync-directory
+ok fsync-pipe
+ok fdatasync-pipe
+ok fsync-socket
+ok fsync-eventfd
+ok fsync-dev-null
+ok fsync-proc
+ok fsync-o-path
+ok syncfs-file
+ok syncfs-pipe
+ok syncfs-socket
+ok syncfs-eventfd
+ok syncfs-dev-null
+ok syncfs-proc
+ok syncfs-o-path
+ok syncfs-closed
 PASSED

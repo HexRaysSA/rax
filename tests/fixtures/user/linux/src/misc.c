@@ -1,13 +1,16 @@
-/* Supplementary groups, read-ahead, and range sync: getgroups (the count,
+/* Supplementary groups, read-ahead, and syncing: getgroups (the count,
  * a small buffer, a bad size or buffer) and the /proc/self/status line;
  * setgroups for root (sorting, the invalid gid, NGROUPS_MAX, a bad buffer,
- * clearing) and refused for others; readahead on each kind of file; and
- * sync_file_range's flag, range, and file checks. */
+ * clearing) and refused for others; readahead on each kind of file;
+ * sync_file_range's flag, range, and file checks; and fsync, fdatasync,
+ * and syncfs on each kind of file (syncfs takes any file's file system;
+ * fsync only files that have the operation; neither an O_PATH one). */
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <grp.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -103,9 +106,51 @@ static void ranges(void) {
     unlink(path);
 }
 
+static void syncs(void) {
+    char path[64];
+    snprintf(path, sizeof path, "/tmp/rax-sync-%d", getpid());
+    int f = open(path, O_CREAT | O_RDWR | O_TRUNC, 0600);
+    int d = open("/tmp", O_RDONLY | O_DIRECTORY);
+    int p[2];
+    pipe(p);
+    int s = socket(AF_UNIX, SOCK_STREAM, 0);
+    int e = eventfd(0, 0);
+    int null = open("/dev/null", O_RDWR);
+    int proc = open("/proc/self/status", O_RDONLY);
+    int o = open(path, O_PATH);
+    CHECK("fsync-file", fsync(f) == 0 && fdatasync(f) == 0);
+    CHECK("fsync-directory", fsync(d) == 0);
+    CHECK_ERR("fsync-pipe", fsync(p[0]), EINVAL);
+    CHECK_ERR("fdatasync-pipe", fdatasync(p[1]), EINVAL);
+    CHECK_ERR("fsync-socket", fsync(s), EINVAL);
+    CHECK_ERR("fsync-eventfd", fsync(e), EINVAL);
+    CHECK_ERR("fsync-dev-null", fsync(null), EINVAL);
+    CHECK_ERR("fsync-proc", fsync(proc), EINVAL);
+    CHECK_ERR("fsync-o-path", fsync(o), EBADF);
+    CHECK("syncfs-file", syncfs(f) == 0 && syncfs(d) == 0);
+    CHECK("syncfs-pipe", syncfs(p[0]) == 0);
+    CHECK("syncfs-socket", syncfs(s) == 0);
+    CHECK("syncfs-eventfd", syncfs(e) == 0);
+    CHECK("syncfs-dev-null", syncfs(null) == 0);
+    CHECK("syncfs-proc", syncfs(proc) == 0);
+    CHECK_ERR("syncfs-o-path", syncfs(o), EBADF);
+    CHECK_ERR("syncfs-closed", syncfs(999), EBADF);
+    close(f);
+    close(d);
+    close(p[0]);
+    close(p[1]);
+    close(s);
+    close(e);
+    close(null);
+    close(proc);
+    close(o);
+    unlink(path);
+}
+
 int main(void) {
     setvbuf(stdout, NULL, _IOLBF, 0);
     groups();
     ranges();
+    syncs();
     FINISH();
 }
