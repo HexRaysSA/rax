@@ -37,6 +37,7 @@ seccomp  seccomp  -
 inotify  inotify  -
 admin    admin    -
 mqueue   mqueue   -
+sched    sched    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

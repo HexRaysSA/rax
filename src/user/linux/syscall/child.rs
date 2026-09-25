@@ -80,6 +80,8 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     if flags & (CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
         return Err(Errno(EINVAL));
     }
+    // sched_fork (EAGAIN for a deadline task), then copy_thread.
+    let sched = c.t.sched.forked(flags & CLONE_IO != 0)?;
     if flags & CLONE_SETTLS != 0
         && c.p.abi == super::super::abi::LinuxAbi::X86_64
         && args.tls >= c.p.abi.task_size()
@@ -130,6 +132,7 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         }
         None => {
             drop(read);
+            c.t.sched = sched;
             become_child(c, &args);
             Ok(Outcome::Forked(ForkedSelf {
                 status: write,

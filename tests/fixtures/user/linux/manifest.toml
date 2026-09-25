@@ -201,6 +201,12 @@ target = "x86_64-linux-musl"
 sha256 = "01c257a7f7247de516fdd4aa34a8b888d399686fab4c529fcb78d4fc33537005"
 
 [[fixture]]
+path = "bin/x86_64/sched"
+source = "src/sched.c"
+target = "x86_64-linux-musl"
+sha256 = "840412d371f9cfa27d44e08275bafafc23d980f4403386efa6f4a89f362a7fb5"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -423,6 +429,12 @@ target = "aarch64-linux-musl"
 sha256 = "fb29b14c31d6d2015aecc85251b90e3f92d448d59b6e766bf5cfe4e3a3a8e51d"
 
 [[fixture]]
+path = "bin/aarch64/sched"
+source = "src/sched.c"
+target = "aarch64-linux-musl"
+sha256 = "35065bef3bad9e2c72601f97ab13d7d2888e49ddc20065139b9dcdf05d297acc"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -643,6 +655,12 @@ path = "bin/riscv64/mqueue"
 source = "src/mqueue.c"
 target = "riscv64-linux-musl"
 sha256 = "914081d5d6ef996e83fb20b6ad038d3a6fc5ec49a0fb8c31be17d6f347e4045a"
+
+[[fixture]]
+path = "bin/riscv64/sched"
+source = "src/sched.c"
+target = "riscv64-linux-musl"
+sha256 = "611b3ef35c1325fc0c59ea6b79f32db54c4074b4934c2151cc182ec2b9efb5ed"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

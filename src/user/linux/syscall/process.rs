@@ -374,10 +374,14 @@ pub fn prctl(c: &mut Ctx<'_>, option: i32, a2: u64, a3: u64, a4: u64, a5: u64) -
             Ok(u64::from(a2 <= 40))
         }
         PR_SET_TIMERSLACK => {
-            c.p.timerslack = if a2 == 0 { 50_000 } else { a2 };
+            // A real-time or deadline task has no slack to set.
+            let s = &mut c.t.sched;
+            if !(super::super::priority::rt(s.policy) || super::super::priority::dl(s.policy)) {
+                s.timer_slack = if a2 == 0 { s.default_timer_slack } else { a2 };
+            }
             Ok(0)
         }
-        PR_GET_TIMERSLACK => Ok(c.p.timerslack),
+        PR_GET_TIMERSLACK => Ok(c.t.sched.timer_slack),
         PR_SET_CHILD_SUBREAPER => Ok(0),
         PR_GET_CHILD_SUBREAPER => c.write_u32(a2, 0).map(|_| 0),
         PR_SET_NO_NEW_PRIVS => {
@@ -538,22 +542,6 @@ pub fn getcpu(c: &mut Ctx<'_>, cpu: u64, node: u64) -> SysResult {
         c.write_u32(node, 0)?;
     }
     Ok(0)
-}
-
-/// `sched_getparam`.
-pub fn sched_getparam(c: &mut Ctx<'_>, pid: i32, param: u64) -> SysResult {
-    for_self(c, pid, 0)?;
-    c.write_u32(param, 0)?;
-    Ok(0)
-}
-
-/// `sched_get_priority_max`/`min`.
-pub fn sched_priority(policy: i32) -> SysResult {
-    match policy {
-        0 | 3 | 5 | 6 => Ok(0),
-        1 | 2 => Ok(99),
-        _ => Err(Errno(EINVAL)),
-    }
 }
 
 /// `capget`: an unprivileged process holds no capabilities.

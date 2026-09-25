@@ -21,11 +21,12 @@
 //! | [`fdinfo`] | `/proc/<pid>/fdinfo` |
 //! | [`process`] | Processes and threads |
 //! | [`sched`] | Running threads on the one emulated CPU |
+//! | [`priority`] | Tasks' scheduling attributes and I/O priorities |
 //! | [`syscall`] | System-call dispatch and handlers |
 //! | [`signal`] | Signals: records, queues, frames, delivery |
 //! | [`futex`] | Futex wait queues, PI ownership, robust lists |
 //! | [`children`] | Child processes and their status records |
-//! | [`ipc`] | System V IPC objects, shared by the processes of a namespace |
+//! | [`ipc`] | System V IPC objects and POSIX message queues, shared by the processes of a namespace |
 //! | [`seccomp`] | System-call filters: strict mode and classic BPF |
 //! | [`timers`] | Interval timers |
 //! | [`wait`] | Sleeping in system calls on descriptors, deadlines, and signals |
@@ -45,6 +46,7 @@ pub mod ipc;
 pub mod loader;
 pub mod net;
 pub mod posix_timers;
+pub mod priority;
 pub mod process;
 pub mod procfs;
 pub mod sched;

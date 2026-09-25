@@ -277,7 +277,8 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     {
         return Err(Errno(EINVAL));
     }
-    // copy_thread.
+    // sched_fork (EAGAIN for a deadline task), then copy_thread.
+    let sched = c.t.sched.forked(flags & CLONE_IO != 0)?;
     if flags & CLONE_SETTLS != 0 && c.p.abi == LinuxAbi::X86_64 && args.tls >= c.p.abi.task_size() {
         // x86-64 set_new_tls: ARCH_SET_FS refuses a kernel address.
         return Err(Errno(EPERM));
@@ -322,6 +323,7 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     child.no_new_privs = c.t.no_new_privs;
     child.notsc = c.t.notsc;
     child.cpu.set_tsc_disabled(child.notsc);
+    child.sched = sched;
     // A thread sharing the address space gets no alternate stack.
     child.altstack = if flags & CLONE_VFORK == 0 {
         AltStack::DISABLED

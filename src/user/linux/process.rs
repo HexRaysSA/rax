@@ -335,8 +335,6 @@ pub struct ProcState {
     pub dumpable: u64,
     /// `prctl(PR_SET_PDEATHSIG)` value.
     pub pdeathsig: i32,
-    /// `prctl(PR_SET_TIMERSLACK)` value in nanoseconds.
-    pub timerslack: u64,
     /// Signals pending for the process (`signal->shared_pending`).
     pub shared_pending: SigPending,
     /// Address of the signal-return trampoline in the `[vdso]` page (arm64
@@ -428,6 +426,8 @@ pub struct Thread {
     pub notsc: bool,
     /// Its seccomp mode and filters.
     pub seccomp: super::seccomp::Seccomp,
+    /// Its scheduling attributes and I/O priority.
+    pub sched: super::priority::Sched,
 }
 
 impl Thread {
@@ -455,6 +455,7 @@ impl Thread {
             no_new_privs: false,
             notsc: false,
             seccomp: Default::default(),
+            sched: Default::default(),
         }
     }
 }
@@ -682,7 +683,6 @@ impl LinuxProcess {
             persona: 0,
             dumpable: 1,
             pdeathsig: 0,
-            timerslack: 50_000,
             shared_pending: SigPending::new(),
             sigtramp: img.sigtramp,
             unkillable: pid == 1,

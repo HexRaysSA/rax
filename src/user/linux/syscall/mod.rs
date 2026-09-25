@@ -45,6 +45,7 @@ pub mod net;
 pub mod notify;
 pub mod path;
 pub mod pidfd;
+pub mod priority;
 pub mod process;
 pub mod ready;
 pub mod seccomp;
@@ -655,12 +656,40 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::SchedGetaffinity => r(process::sched_getaffinity(c, a[0] as i32, a[1], a[2])),
         S::SchedSetaffinity => r(process::sched_setaffinity(c, a[0] as i32, a[1], a[2])),
         S::Getcpu => r(process::getcpu(c, a[0], a[1])),
-        S::SchedGetscheduler => r(process::for_self(c, a[0] as i32, 0)),
-        S::SchedGetparam => r(process::sched_getparam(c, a[0] as i32, a[1])),
-        S::SchedSetscheduler | S::SchedSetparam => r(process::for_self(c, a[0] as i32, 0)),
-        S::SchedGetPriorityMax | S::SchedGetPriorityMin => r(process::sched_priority(a[0] as i32)),
-        S::Getpriority => r(process::for_self(c, a[1] as i32, 20)),
-        S::Setpriority => r(process::for_self(c, a[1] as i32, 0)),
+        S::SchedGetscheduler => r(priority::sched_getscheduler(c, a[0] as i32)),
+        S::SchedGetparam => r(priority::sched_getparam(c, a[0] as i32, a[1])),
+        S::SchedSetscheduler => r(priority::sched_setscheduler(
+            c,
+            a[0] as i32,
+            a[1] as i32,
+            a[2],
+        )),
+        S::SchedSetparam => r(priority::sched_setparam(c, a[0] as i32, a[1])),
+        S::SchedSetattr => r(priority::sched_setattr(c, a[0] as i32, a[1], a[2] as u32)),
+        S::SchedGetattr => r(priority::sched_getattr(
+            c,
+            a[0] as i32,
+            a[1],
+            a[2] as u32,
+            a[3] as u32,
+        )),
+        S::SchedGetPriorityMax => r(priority::sched_priority(a[0] as i32, true)),
+        S::SchedGetPriorityMin => r(priority::sched_priority(a[0] as i32, false)),
+        S::SchedRrGetInterval => r(priority::sched_rr_get_interval(c, a[0] as i32, a[1])),
+        S::Getpriority => r(priority::getpriority(c, a[0] as i32, a[1] as i32)),
+        S::Setpriority => r(priority::setpriority(
+            c,
+            a[0] as i32,
+            a[1] as i32,
+            a[2] as i32,
+        )),
+        S::IoprioGet => r(priority::ioprio_get(c, a[0] as i32, a[1] as i32)),
+        S::IoprioSet => r(priority::ioprio_set(
+            c,
+            a[0] as i32,
+            a[1] as i32,
+            a[2] as i32,
+        )),
         S::Capget => r(process::capget(c, a[0], a[1])),
         S::Capset => r(Err(Errno(EPERM))),
         S::RiscvHwprobe => r(process::riscv_hwprobe(

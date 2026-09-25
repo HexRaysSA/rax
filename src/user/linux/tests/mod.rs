@@ -19,6 +19,7 @@ mod netlink;
 mod nodes;
 mod pidfd;
 mod posix_timers;
+mod priority;
 mod procfs;
 mod seccomp;
 mod signals;

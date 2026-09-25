@@ -168,11 +168,11 @@ pub fn stat(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
         "0".into(),
         "0".into(),
         "0".into(), // utime stime cutime cstime
-        "20".into(),
-        "0".into(),          // priority nice
-        threads.to_string(), // num_threads
-        "0".into(),          // itrealvalue
-        "0".into(),          // starttime
+        t.sched.task_prio().to_string(),
+        t.sched.nice().to_string(), // priority nice
+        threads.to_string(),        // num_threads
+        "0".into(),                 // itrealvalue
+        "0".into(),                 // starttime
         vsize.to_string(),
         rss.to_string(),
         u64::MAX.to_string(), // rsslim
@@ -190,9 +190,9 @@ pub fn stat(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
         "0".into(),
         "17".into(), // exit_signal
         "0".into(),  // processor
-        "0".into(),
-        "0".into(), // rt_priority policy
-        "0".into(), // delayacct
+        t.sched.rt_priority.to_string(),
+        t.sched.policy.to_string(), // rt_priority policy
+        "0".into(),                 // delayacct
         "0".into(),
         "0".into(), // guest times
         prog.start_data.to_string(),
