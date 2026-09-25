@@ -288,17 +288,24 @@ static void closes(void) {
     drain(fd, "mapped-closed");
     munmap(m, 4096);
     drain(fd, "unmapped");
-    /* A forked child shares the description: the last holder closes. */
+    /* A forked child shares the description: the last holder closes. The
+     * child exits only once the parent has closed its copy and looked. */
     a = open(at("c"), O_WRONLY);
+    int go[2];
+    pipe(go);
     fflush(stdout);
     pid_t p = fork();
     if (p == 0) {
-        usleep(20000);
+        char c;
+        read(go[0], &c, 1);
         _exit(0);
     }
     close(a);
     drain(fd, "fork-parent-closed");
+    write(go[1], "x", 1);
     waitpid(p, NULL, 0);
+    close(go[0]);
+    close(go[1]);
     drain(fd, "fork-child-exited");
     /* A child that exits without closing. */
     fflush(stdout);
