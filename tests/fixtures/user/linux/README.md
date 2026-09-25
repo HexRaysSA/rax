@@ -3,7 +3,11 @@
 Static Linux programs that exercise the `rax-user` Linux personality, with
 the output a real Linux kernel produced for each of them. The
 `user_linux` test target (`tests/suites/user/linux/`) runs every case on
-every architecture and requires a byte-for-byte match.
+every architecture and requires a byte-for-byte match. Each run gets a
+`TMPDIR` of its own, and with it a fresh namespace for the objects
+`rax-user` processes share (System V and POSIX IPC, abstract socket names,
+the emulated inotify hub), as each recording ran in a fresh container:
+runs in parallel must not see each other's queues and identifiers.
 
 | Path | Content |
 |---|---|

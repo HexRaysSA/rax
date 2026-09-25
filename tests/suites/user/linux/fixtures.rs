@@ -6,6 +6,8 @@
 //! byte under `rax-user`.
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use super::sha256;
@@ -144,6 +146,21 @@ fn oracle_overrides_are_consistent() {
     }
 }
 
+/// A temporary directory of its own for one run. `rax-user` keeps the
+/// objects the host user's emulated processes share (System V and POSIX
+/// IPC, abstract socket names, the emulated inotify hub) under `TMPDIR`,
+/// and each expected result was recorded in a fresh container, so runs in
+/// parallel must not see each other's objects: a fixture may rely on a
+/// fresh namespace, as `sysvmsg` does in naming the identifier after its
+/// queue's. The name is short to leave room for socket paths.
+fn private_tmpdir() -> PathBuf {
+    static NEXT: AtomicU32 = AtomicU32::new(0);
+    let n = NEXT.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("rxf{:x}-{n}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
 fn check_case(arch: &str, case: &Case, extra: &[&str], env: &[(&str, &str)]) {
     let root = fixtures();
     let exe = root.join("bin").join(arch).join(&case.program);
@@ -151,10 +168,15 @@ fn check_case(arch: &str, case: &Case, extra: &[&str], env: &[(&str, &str)]) {
     let mut args: Vec<&str> = extra.to_vec();
     args.push(&exe);
     args.extend(case.args.iter().map(String::as_str));
-    let mut env_all = vec![("RAX_FIXTURE_VAR", "set")];
+    let tmp = private_tmpdir();
+    let mut env_all = vec![
+        ("RAX_FIXTURE_VAR", "set"),
+        ("TMPDIR", tmp.to_str().unwrap()),
+    ];
     env_all.extend_from_slice(env);
     let stdin = case.stdin.as_ref().map(|p| root.join(p));
     let r = run(&args, &env_all, stdin.as_deref(), Duration::from_secs(120));
+    let _ = std::fs::remove_dir_all(&tmp);
     let dir = root.join("expected").join(arch);
     let want_out = std::fs::read(dir.join(format!("{}.stdout", case.name))).unwrap();
     let want_status: i32 = std::fs::read_to_string(dir.join(format!("{}.status", case.name)))
