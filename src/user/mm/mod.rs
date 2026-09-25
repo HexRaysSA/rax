@@ -883,13 +883,27 @@ impl AddressSpace {
 
     /// Checks that an access of kind `access` to `[addr, addr + len)` would
     /// succeed, populating pages as the access would, without moving data.
+    /// The pages are walked as [`AddressSpace::chunks`] walks them, but
+    /// nothing is kept: `len` may describe far more memory than exists (a
+    /// guest's vector length), so the first fault ends the walk at no cost
+    /// proportional to `len`.
     pub fn probe(
         &self,
         addr: u64,
         len: usize,
         access: MemoryAccessKind,
     ) -> Result<(), GuestMemoryFault> {
-        self.chunks(addr, len, access, false).map(|_| ())
+        let mut cur = addr;
+        let mut left = len;
+        while left > 0 {
+            let chunk = ((PAGE_SIZE - (cur & PAGE_MASK)) as usize).min(left);
+            self.translate(cur, access)?;
+            left -= chunk;
+            cur = cur
+                .checked_add(chunk as u64)
+                .ok_or_else(|| fault(u64::MAX, access, MemoryFaultKind::Unmapped))?;
+        }
+        Ok(())
     }
 
     /// Reads mapped memory ignoring permissions.

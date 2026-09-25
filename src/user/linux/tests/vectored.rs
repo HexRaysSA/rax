@@ -54,3 +54,27 @@ fn empty_vectors_are_passed_over() {
         assert_eq!(h.err(Sysno::Preadv, &[fd, v, 1, 0]), EFAULT);
     });
 }
+
+#[test]
+fn a_vector_longer_than_memory_reads_what_fits() {
+    // A vector's length is the guest's to choose: a read into one far
+    // longer than any mapping takes what the data and the memory allow,
+    // and must not make the emulator size anything by the length.
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = h.anon(P, 3, false);
+        let fds = m + 0x800;
+        h.ok(Sysno::Pipe2, &[fds, 0]);
+        let raw = bytes(&h, fds, 8);
+        let (r, w) = (
+            u64::from(u32::from_le_bytes(raw[..4].try_into().unwrap())),
+            u64::from(u32::from_le_bytes(raw[4..].try_into().unwrap())),
+        );
+        h.proc.state.space.write_raw(m, b"hello").unwrap();
+        h.ok(Sysno::Write, &[w, m, 5]);
+        let buf = m + 0x100;
+        let v = iovecs(&h, m + 0x400, &[(buf, 1 << 62)]);
+        assert_eq!(h.call(Sysno::Readv, &[r, v, 1]), 5);
+        assert_eq!(bytes(&h, buf, 5), b"hello");
+    });
+}

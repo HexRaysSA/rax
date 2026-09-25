@@ -385,6 +385,27 @@ fn set_flags_splits_changes_and_merges_back() {
 }
 
 #[test]
+fn probe_ends_at_the_first_fault_whatever_the_length() {
+    // A length may describe far more memory than exists (a guest's vector
+    // length): the probe ends at the first fault with nothing held in
+    // proportion to it.
+    let s = space();
+    s.map(0x10000, 2 * P, Mapping::anonymous(RW)).unwrap();
+    let e = s
+        .probe(0x10000, 1usize << 62, MemoryAccessKind::Write)
+        .unwrap_err();
+    assert_eq!(e.address, 0x12000);
+    let e = s
+        .probe(0x11800, usize::MAX, MemoryAccessKind::Read)
+        .unwrap_err();
+    assert_eq!(e.address, 0x12000);
+    assert!(
+        s.probe(0x10000, 2 * P as usize, MemoryAccessKind::Write)
+            .is_ok()
+    );
+}
+
+#[test]
 fn remap_moves_pages_without_copying() {
     let s = space();
     s.map(0x10000, 2 * P, Mapping::anonymous(RW)).unwrap();
