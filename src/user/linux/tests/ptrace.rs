@@ -5,15 +5,16 @@
 //! signal-delivery-stop and the tracer's verdict on it (cancelled,
 //! changed, requeued when blocked), a group stop, `execve`'s `SIGTRAP` and
 //! event stop, ignored signals queued for a tracer, and a tracer's link
-//! ending (the stopped thread goes on, or dies with `PTRACE_O_EXITKILL`).
-//! The fixture `ptrace` covers tracing between two processes.
+//! ending (the stopped thread goes on, or dies with `PTRACE_O_EXITKILL`),
+//! and a tracer reading an answer together with the stop or the end that
+//! follows it. The fixture `ptrace` covers tracing between two processes.
 
 use super::harness::{Harness, each_abi};
 use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::arch::GuestCpu;
 use crate::user::linux::process::Threads;
-use crate::user::linux::ptrace::{Link, LinkId, Resumption, Traced, opt, regs};
+use crate::user::linux::ptrace::{Link, LinkId, Msg, Resumption, Traced, opt, regs};
 use crate::user::linux::signal::deliver::SyscallEntry;
 use crate::user::linux::signal::{
     SIG_IGN, SIGKILL, SIGSTOP, SIGTRAP, SIGUSR1, SIGUSR2, SigInfo, code, sigmask,
@@ -22,6 +23,7 @@ use crate::user::linux::syscall::ptrace::{self as pt, parked, take_verdict};
 
 const TRACEME: u64 = 0;
 const PEEKDATA: u64 = 2;
+const KILL: u64 = 8;
 const ATTACH: u64 = 16;
 const SEIZE: u64 = 0x4206;
 
@@ -374,5 +376,59 @@ fn a_tracers_link_ending_detaches_or_kills() {
         drop(theirs);
         h.proc.collect_async(None);
         assert!(h.proc.threads[0].pending.contains(SIGKILL) || h.proc.state.exit.is_some());
+    });
+}
+
+/// The messages that arrived on `link`, waiting for at least one.
+fn recv_some(link: &mut Link) -> Vec<Msg> {
+    loop {
+        let got = link.recv();
+        if !got.is_empty() || link.closed {
+            return got;
+        }
+        std::thread::yield_now();
+    }
+}
+
+/// A tracee stops as soon as it answers an attach, and may die as soon as
+/// it answers a request: the tracer reads the answer with what follows it
+/// (the stop, the link's end) and loses neither.
+#[test]
+fn answers_and_what_follows_them_arrive_together() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let (mine, mut theirs) = Link::pair().unwrap();
+        h.proc.state.parent_link = Some(mine);
+        let parent = h.proc.state.ppid;
+        assert_eq!(
+            h.start(0, Sysno::Ptrace, &[ATTACH, parent as u64, 0, 0]),
+            None
+        );
+        assert!(matches!(recv_some(&mut theirs)[..], [Msg::Attach { .. }]));
+        assert!(theirs.send(&Msg::Reply {
+            ret: 0,
+            payload: Vec::new()
+        }));
+        assert!(theirs.send(&Msg::Stop {
+            tid: parent,
+            code: SIGSTOP
+        }));
+        assert_eq!(h.proc.wake_sleepers(), 1);
+        assert_eq!(h.result(0), 0);
+        let tracee = h.proc.state.tracees.get(parent).unwrap();
+        assert_eq!(tracee.stopped, Some(SIGSTOP), "the stop that came along");
+        // PTRACE_KILL answered, then the tracee's end.
+        assert_eq!(
+            h.start(0, Sysno::Ptrace, &[KILL, parent as u64, 0, 0]),
+            None
+        );
+        assert!(matches!(recv_some(&mut theirs)[..], [Msg::Request { .. }]));
+        assert!(theirs.send(&Msg::Reply {
+            ret: 0,
+            payload: Vec::new()
+        }));
+        drop(theirs);
+        assert_eq!(h.proc.wake_sleepers(), 1);
+        assert_eq!(h.result(0), 0, "the answer that came before the end");
     });
 }

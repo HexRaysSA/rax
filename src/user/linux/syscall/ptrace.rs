@@ -139,10 +139,9 @@ fn attach(
             return wait_answer(c, link);
         };
         if ret < 0 {
+            c.p.tracees.remove(pid);
             return Err(Errno(-ret as i32));
         }
-        let tracer = c.t.tid;
-        c.p.tracees.add(pid, tracer, link, seize);
         return Ok(0);
     }
     if pid <= 0 {
@@ -198,7 +197,16 @@ fn attach(
     if !send(c.p, link, &m) {
         return Err(Errno(ESRCH));
     }
-    wait_answer(c, link)
+    // Recorded as the attach goes out: the tracee stops (PTRACE_ATTACH's
+    // SIGSTOP) as soon as it answers, and that stop may arrive with the
+    // answer, before this thread takes it.
+    let tracer = c.t.tid;
+    c.p.tracees.add(pid, tracer, link, seize);
+    let r = wait_answer(c, link);
+    if r == Err(Errno(ESRCH)) {
+        c.p.tracees.remove(pid);
+    }
+    r
 }
 
 /// `check_ptrace_options`: unknown options (`EINVAL`), and
@@ -628,8 +636,9 @@ fn detach(t: &mut Thread) {
 /// ones going on with the signal they stopped for, or killed with
 /// `PTRACE_O_EXITKILL`.
 fn link_ended(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId) {
+    // Answers that came before the end stand: a tracee may answer and die
+    // at once (PTRACE_KILL, or a PTRACE_CONT to its exit).
     p.tracees.list.retain(|t| t.link != link);
-    p.tracees.replies.retain(|r| r.0 != link);
     let mut kill = false;
     for t in th.iter_mut() {
         let Some(tr) = t.ptrace.as_ref() else {
