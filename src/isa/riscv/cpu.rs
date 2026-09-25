@@ -485,6 +485,11 @@ impl RiscVCpu {
         self.execute(insn, pc)
     }
 
+    #[inline]
+    fn mark_fp_state_dirty(&mut self) {
+        self.mstatus = (self.mstatus & !(0b11 << 13)) | (0b11 << 13);
+    }
+
     /// Current privilege level.
     pub fn privilege(&self) -> Priv {
         self.priv_
@@ -647,8 +652,21 @@ impl RiscVCpu {
         // Default fall-through PC; control-flow ops override.
         self.pc = pc.wrapping_add(insn.len as u64) & self.xmask();
 
+        let vector_fp = vector_validation::is_vector_fp_encoding(insn);
+        if insn.op.is_fp() || vector_fp {
+            // priv spec v1.12 norm:mstatus_fs_op: with mstatus.FS=Off,
+            // attempts to execute instructions that access FP state raise an
+            // illegal-instruction exception in every privilege mode.
+            if (self.mstatus >> 13) & 0b11 == 0 {
+                return Err(Trap::illegal(insn.raw));
+            }
+        }
         if insn.op.is_fp() {
-            return self.exec_fp(insn, pc);
+            let result = self.exec_fp(insn, pc);
+            if result.is_ok() {
+                self.mark_fp_state_dirty();
+            }
+            return result;
         }
 
         let rd = insn.rd;
@@ -1334,6 +1352,9 @@ impl RiscVCpu {
 
             // FP handled above via exec_fp.
             _ => return Err(Trap::illegal(insn.raw)),
+        }
+        if vector_fp {
+            self.mark_fp_state_dirty();
         }
         Ok(RiscVExit::Continue)
     }
@@ -5530,6 +5551,78 @@ mod tests {
     }
 
     #[test]
+    fn fp_instructions_and_csrs_trap_when_fs_is_off() {
+        // priv spec v1.12 norm:mstatus_fs_op: FS=Off gates FP state access in
+        // every privilege mode. U-mode fadd.s with FS=Off (default 0) traps.
+        let mut c = cpu();
+        c.write_memory(0x2000, &0x0031_00d3u32.to_le_bytes())
+            .unwrap(); // fadd.s f1, f2, f3
+        c.priv_ = Priv::User;
+        c.set_pc(0x2000);
+        let e = c.step();
+        assert!(
+            matches!(e, RiscVExit::Trap(_)),
+            "U-mode fadd.s with FS=Off must trap"
+        );
+        // U-mode fcsr read with FS=Off must trap.
+        let mut c2 = cpu();
+        c2.priv_ = Priv::User;
+        assert_eq!(c2.csr_read(0x003), Err(Trap::illegal(0)));
+        // M-mode fcsr access is gated by the same FS field.
+        let mut c3 = cpu();
+        assert_eq!(c3.csr_read(0x003), Err(Trap::illegal(0)));
+        // M-mode fadd.s with FS=Off must also trap.
+        let mut c4 = cpu();
+        c4.write_memory(0x2000, &0x0031_00d3u32.to_le_bytes())
+            .unwrap(); // fadd.s f1, f2, f3
+        c4.set_pc(0x2000);
+        assert!(matches!(c4.step(), RiscVExit::Trap(_)));
+        // Vector FP instructions use the same FS gate.
+        let mut c5 = cpu_e8m1();
+        c5.set_vl_vtype(4, 0x10); // e32,m1
+        assert!(matches!(
+            run_one(&mut c5, op_v(0b000000, 1, 2, 3, 0b001, 1)), // vfadd.vv
+            RiscVExit::Trap(_)
+        ));
+        // FS=Initial (0b01) permits S/U-mode FP again.
+        let mut c6 = cpu();
+        c6.write_memory(0x2000, &0x0031_00d3u32.to_le_bytes())
+            .unwrap();
+        c6.csr_write(0x300, 0b01 << 13).unwrap();
+        c6.priv_ = Priv::User;
+        c6.set_pc(0x2000);
+        assert_eq!(c6.step(), RiscVExit::Continue);
+        assert_eq!(
+            (c6.csr_read(0x300).unwrap() >> 13) & 0b11,
+            0b11,
+            "successful scalar FP execution must set mstatus.FS=Dirty"
+        );
+
+        let mut c7 = cpu();
+        c7.set_vl_vtype(4, 0x10); // e32,m1
+        c7.csr_write(0x300, 0b01 << 13).unwrap();
+        assert_eq!(
+            run_one(&mut c7, op_v(0b000000, 1, 2, 3, 0b001, 1)), // vfadd.vv
+            RiscVExit::Continue
+        );
+        assert_eq!(
+            (c7.csr_read(0x300).unwrap() >> 13) & 0b11,
+            0b11,
+            "successful vector FP execution must set mstatus.FS=Dirty"
+        );
+
+        let mut c8 = cpu();
+        c8.csr_write(0x300, 0b01 << 13).unwrap();
+        c8.set_x(1, 1);
+        assert_eq!(run_one(&mut c8, csr(0x003, 1, 1, 0)), RiscVExit::Continue);
+        assert_eq!(
+            (c8.csr_read(0x300).unwrap() >> 13) & 0b11,
+            0b11,
+            "successful FP CSR write must set mstatus.FS=Dirty"
+        );
+    }
+
+    #[test]
     fn ecall_exit_can_be_delivered_as_machine_trap() {
         let mut c = cpu();
         c.set_pc(0x200);
@@ -5572,6 +5665,7 @@ mod tests {
     #[test]
     fn fcsr_subfields() {
         let mut c = cpu();
+        c.csr_write(0x300, 0b01 << 13).unwrap(); // mstatus.FS=Initial
         c.set_fcsr(0xff);
         // frm (0x002) reads bits [7:5] = 0b111 = 7.
         run_one(&mut c, csr(0x002, 0, 2, 6));

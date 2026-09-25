@@ -1370,6 +1370,11 @@ fn exec_rv_vector(
         }
     };
     let mut cpu = crate::isa::riscv::RiscVCpu::new(config, Box::new(bridge));
+    // RvVectorState does not carry privilege or mstatus; the owning RISC-V
+    // execution path gates FP before lifting, so the transient bridge enables
+    // the already-admitted vector FP operation here.
+    cpu.csr_write(0x300, 0b01 << 13)
+        .expect("transient vector hart must expose mstatus");
     for i in 1..32u8 {
         cpu.set_x(i, ctx.read_vreg(state.x_srcs[i as usize]));
     }

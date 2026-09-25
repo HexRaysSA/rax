@@ -38,6 +38,9 @@ impl RiscVCpu {
                 _ => unreachable!(),
             };
             self.csr_write(addr, new)?;
+            if matches!(addr, 0x001..=0x003) {
+                self.mark_fp_state_dirty();
+            }
         }
         self.set_x(insn.rd, old);
         Ok(())
@@ -169,7 +172,11 @@ impl RiscVCpu {
     /// covers the XLEN- and extension-dependent register families.
     fn csr_available(&self, csr: Csr) -> bool {
         match csr {
-            Csr::Fflags | Csr::Frm | Csr::Fcsr => self.cfg.isa.f,
+            Csr::Fflags | Csr::Frm | Csr::Fcsr => {
+                // priv spec v1.12 norm:mstatus_fs_op: FP CSRs are gated on
+                // mstatus.FS != Off in every privilege mode.
+                self.cfg.isa.f && (self.mstatus >> 13) & 0b11 != 0
+            }
             Csr::Jvt => self.cfg.isa.zcmt,
             Csr::CycleH | Csr::TimeH | Csr::InstretH => self.rv32(),
             Csr::Vstart
@@ -543,6 +550,7 @@ mod tests {
             zcmt: true,
             ..Isa::rv_i()
         });
+        available.csr_write(0x300, 0b01 << 13).unwrap(); // mstatus.FS=Initial
         for addr in [0x001, 0x002, 0x003, 0x017, 0x008, 0x009, 0x00A, 0x00F] {
             assert!(available.csr_write(addr, 0).is_ok(), "write {addr:#05x}");
         }
