@@ -1,8 +1,10 @@
 //! Register sets a tracer reads and writes: `NT_PRSTATUS` (and, on
-//! x86-64, `PTRACE_GETREGS` and the `struct user` of `PTRACE_PEEKUSR`),
-//! laid out as each architecture's `ptrace.h` defines them and checked on
-//! writing as its `ptrace.c` checks them.
+//! x86-64, `PTRACE_GETREGS` and the `struct user` of `PTRACE_PEEKUSR`) and
+//! AArch64's `NT_ARM_SYSTEM_CALL`, laid out as each architecture's
+//! `ptrace.h` defines them and checked on writing as its `ptrace.c` checks
+//! them.
 
+use super::super::abi::LinuxAbi;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::arch::GuestCpu;
@@ -12,6 +14,8 @@ use crate::isa::x86_64::{LINUX_USER_CS, LINUX_USER_DS};
 
 /// `NT_PRSTATUS`.
 pub const NT_PRSTATUS: u64 = 1;
+/// `NT_ARM_SYSTEM_CALL`: AArch64's `syscallno`, an `int`.
+pub const NT_ARM_SYSTEM_CALL: u64 = 0x404;
 
 /// `sizeof(struct user_regs_struct)` on x86-64: 27 registers.
 const X86_REGS: usize = 27 * 8;
@@ -34,6 +38,50 @@ pub fn prstatus_size(cpu: &GuestCpu) -> usize {
         GuestCpu::Aarch64(_) => 34 * 8,
         // user_regs_struct: pc, then x1-x31.
         GuestCpu::Riscv64(_) => 32 * 8,
+    }
+}
+
+/// A register set's element size and whole size on `abi` (its `struct
+/// user_regset`'s `size` and `n * size`), `EINVAL` for one it does not
+/// have (`find_regset`).
+pub fn layout(abi: LinuxAbi, nt: u64) -> Result<(u64, u64), Errno> {
+    Ok(match (nt, abi) {
+        (NT_PRSTATUS, LinuxAbi::X86_64) => (8, X86_REGS as u64),
+        (NT_PRSTATUS, LinuxAbi::Aarch64) => (8, 34 * 8),
+        (NT_PRSTATUS, LinuxAbi::Riscv64) => (8, 32 * 8),
+        (NT_ARM_SYSTEM_CALL, LinuxAbi::Aarch64) => (4, 4),
+        _ => return Err(Errno(EINVAL)),
+    })
+}
+
+/// Register set `nt` as a whole (`regset_get`).
+pub fn get(cpu: &GuestCpu, syscall: Option<SyscallEntry>, nt: u64) -> Vec<u8> {
+    match nt {
+        NT_ARM_SYSTEM_CALL => syscall.map_or(-1, |s| s.nr as i32).to_le_bytes().to_vec(),
+        _ => prstatus(cpu, syscall),
+    }
+}
+
+/// Writes a prefix of register set `nt` (`regset->set`):
+/// `system_call_set` takes `syscallno` as it is.
+pub fn set(
+    cpu: &mut GuestCpu,
+    syscall: &mut Option<SyscallEntry>,
+    nt: u64,
+    bytes: &[u8],
+) -> Result<(), Errno> {
+    match nt {
+        NT_ARM_SYSTEM_CALL => {
+            if let Some(b) = bytes.get(..4) {
+                let nr = i32::from_le_bytes(b.try_into().unwrap());
+                *syscall = Some(SyscallEntry {
+                    nr: nr as i64 as u64,
+                    arg0: syscall.map_or(0, |s| s.arg0),
+                });
+            }
+            Ok(())
+        }
+        _ => set_prstatus(cpu, syscall, bytes),
     }
 }
 

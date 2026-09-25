@@ -21,7 +21,7 @@ use super::children::{exited_status, signaled_status};
 use super::futex::{self, BITSET_MATCH_ANY, FutexKey};
 use super::process::{ExitStatus, LinuxProcess, Peers, Threads};
 use super::signal::SigInfo;
-use super::signal::deliver::{SyscallEntry, retarget_shared_pending};
+use super::signal::deliver::retarget_shared_pending;
 use super::syscall::{self, Call, Outcome};
 use super::wait::{self, Blocked};
 
@@ -82,6 +82,11 @@ impl LinuxProcess {
                 current = self.resume(idx).from(idx);
                 continue;
             }
+            // A system call its tracer stopped goes on once resumed.
+            if super::syscall::ptrace::resumed_in_call(&self.threads[idx]) {
+                current = self.resume_in_call(idx).from(idx);
+                continue;
+            }
             // The return to user mode: restart processing and signals,
             // then restartable sequences.
             let tid = self.threads[idx].tid;
@@ -101,7 +106,13 @@ impl LinuxProcess {
                 continue;
             }
             self.state.last_user = Some(tid);
-            let event = self.threads[idx].cpu.run(slice);
+            // A stepping thread runs one instruction at a time.
+            let step = super::syscall::ptrace::mode(&self.threads[idx]).step;
+            let event = if step {
+                self.threads[idx].cpu.step()
+            } else {
+                self.threads[idx].cpu.run(slice)
+            };
             let irq = !matches!(
                 event,
                 CpuEvent::Syscall { .. } | CpuEvent::CompatSyscall { .. }
@@ -109,18 +120,13 @@ impl LinuxProcess {
             super::rseq::left_user(&mut self.threads[idx], irq);
             match event {
                 CpuEvent::Syscall { nr, args } => {
-                    self.threads[idx].syscall = Some(SyscallEntry { nr, arg0: args[0] });
-                    current = self.syscall(idx, Call::new(nr, args)).from(idx);
+                    current = self.enter_syscall(idx, nr, args).from(idx);
                 }
                 CpuEvent::CompatSyscall { nr, args } => {
-                    let outcome = {
-                        let (lo, rest) = self.threads.split_at_mut(idx);
-                        let (t, hi) = rest.split_first_mut().expect("thread index is valid");
-                        syscall::dispatch_compat(&mut self.state, t, Peers { lo, hi }, nr, args)
-                    };
-                    current = self.apply(idx, nr, args, outcome).from(idx);
+                    current = self.enter_compat(idx, nr, args).from(idx);
                 }
                 CpuEvent::Signal(info, update) => self.trap_signal(idx, info, update),
+                CpuEvent::Yield if step => self.step_trap(idx),
                 CpuEvent::Yield => current = idx + 1,
                 CpuEvent::Internal(why) => {
                     let pc = self.threads[idx].cpu.pc();
@@ -215,18 +221,28 @@ impl LinuxProcess {
         self.apply(idx, nr, args, outcome)
     }
 
-    /// Applies a system call's outcome to thread `idx`.
-    fn apply(&mut self, idx: usize, nr: u64, args: [u64; 6], outcome: Outcome) -> After {
+    /// Applies a system call's outcome to thread `idx`, then the exit work
+    /// of a call that returns (its tracer's exit stop).
+    pub(super) fn apply(&mut self, idx: usize, nr: u64, args: [u64; 6], outcome: Outcome) -> After {
         match outcome {
-            Outcome::Return(value) => self.threads[idx].cpu.set_syscall_result(value),
+            Outcome::Return(value) => {
+                self.threads[idx].cpu.set_syscall_result(value);
+                if self.syscall_exit_work(idx) {
+                    return After::Next;
+                }
+            }
             Outcome::Yield(value) => {
                 self.threads[idx].cpu.set_syscall_result(value);
+                self.syscall_exit_work(idx);
                 return After::Next;
             }
             Outcome::Unchanged => {
                 // The call replaced the register state (rt_sigreturn):
                 // nothing is left to restart.
                 self.threads[idx].syscall = None;
+                if self.syscall_exit_work(idx) {
+                    return After::Next;
+                }
             }
             Outcome::Block(wait, resume) => {
                 self.threads[idx].blocked = Some(Blocked {
@@ -252,6 +268,10 @@ impl LinuxProcess {
             }
             Outcome::Exec(image) => {
                 self.commit_exec(idx, *image.0);
+                // The exit work follows the event stop, if it stopped.
+                if !super::syscall::ptrace::parked(&self.threads[0]) {
+                    self.syscall_exit_work(0);
+                }
                 return After::Gone;
             }
             Outcome::Forked(me) => {

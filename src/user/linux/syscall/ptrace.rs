@@ -12,9 +12,11 @@
 use super::super::abi::LinuxAbi;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
+use super::super::arch::GuestCpu;
 use super::super::process::{ProcState, Thread, Threads};
 use super::super::ptrace::{
-    EVENT_EXEC, Link, LinkId, Msg, Resumption, Stopped, Traced, opt, regs, req, stop_status,
+    EVENT_EXEC, EVENTMSG_SYSCALL_ENTRY, EVENTMSG_SYSCALL_EXIT, Link, LinkId, Mode, Msg, Resumption,
+    StopKind, Stopped, Traced, call, opt, regs, req, stop_status,
 };
 use super::super::signal::deliver::{self, Dest};
 use super::super::signal::{
@@ -234,16 +236,22 @@ fn wait_answer(c: &mut Ctx<'_>, link: LinkId) -> SysResult {
     Err(c.block(wait, Resume::Ptrace { link }))
 }
 
-/// A register set's element and whole sizes on this ABI (`EINVAL` for one
-/// it does not have).
-fn regset(abi: LinuxAbi, nt: u64) -> Result<(u64, u64), Errno> {
-    let size = match (nt, abi) {
-        (regs::NT_PRSTATUS, LinuxAbi::X86_64) => 27 * 8,
-        (regs::NT_PRSTATUS, LinuxAbi::Aarch64) => 34 * 8,
-        (regs::NT_PRSTATUS, LinuxAbi::Riscv64) => 32 * 8,
-        _ => return Err(Errno(EINVAL)),
-    };
-    Ok((8, size))
+/// Whether `request` resumes the thread (`ptrace_resume`'s requests).
+fn resumes(request: u64) -> bool {
+    matches!(
+        request,
+        req::CONT | req::SYSCALL | req::SINGLESTEP | req::SYSEMU | req::SYSEMU_SINGLESTEP
+    )
+}
+
+/// Whether this ABI has `request`: `PTRACE_SYSEMU` and
+/// `PTRACE_SYSEMU_SINGLESTEP` exist on x86-64 and AArch64 only (RISC-V's
+/// `ptrace_request` does not know them: `EIO`).
+fn offered(abi: LinuxAbi, request: u64) -> bool {
+    match request {
+        req::SYSEMU | req::SYSEMU_SINGLESTEP => abi != LinuxAbi::Riscv64,
+        _ => true,
+    }
 }
 
 /// Sends a request to a tracee after the checks the tracer makes itself,
@@ -274,7 +282,7 @@ fn ask(
             let iov = c.read_mem(data, 16)?;
             let base = u64::from_le_bytes(iov[..8].try_into().unwrap());
             let len = u64::from_le_bytes(iov[8..].try_into().unwrap());
-            let (unit, size) = regset(c.p.abi, addr)?;
+            let (unit, size) = regs::layout(c.p.abi, addr)?;
             if len % unit != 0 {
                 return Err(Errno(EINVAL));
             }
@@ -298,12 +306,25 @@ fn ask(
                 payload = c.read_mem(data, SIGSET as usize)?;
             }
         }
-        req::CONT | req::DETACH => {
+        req::CONT
+        | req::SYSCALL
+        | req::SINGLESTEP
+        | req::SYSEMU
+        | req::SYSEMU_SINGLESTEP
+        | req::DETACH
+            if offered(c.p.abi, request) =>
+        {
             if data > NSIG {
                 return Err(Errno(EIO));
             }
         }
-        req::KILL => {}
+        req::KILL | req::GET_SYSCALL_INFO => {}
+        req::SET_SYSCALL_INFO => {
+            if addr < call::INFO_SIZE as u64 {
+                return Err(Errno(EINVAL));
+            }
+            payload = c.read_mem(data, call::INFO_SIZE)?;
+        }
         _ => return Err(Errno(EIO)),
     }
     let m = Msg::Request {
@@ -317,16 +338,17 @@ fn ask(
         return Err(Errno(ESRCH));
     }
     // Resuming: the tracee runs from now on, and a stop after it is new;
-    // after a detach it is no tracee.
-    match request {
-        req::CONT | req::KILL => {
-            if let Some(t) = c.p.tracees.get_mut(tracee.tid) {
-                t.stopped = None;
-                t.reported = false;
-            }
-        }
-        req::DETACH => c.p.tracees.remove(tracee.tid),
-        _ => {}
+    // after a detach it is no tracee. RISC-V cannot step: the tracee stays
+    // stopped (EIO).
+    let steps = matches!(request, req::SINGLESTEP | req::SYSEMU_SINGLESTEP);
+    let resumed = resumes(request) && !(steps && c.p.abi == LinuxAbi::Riscv64);
+    if request == req::DETACH {
+        c.p.tracees.remove(tracee.tid);
+    } else if (resumed || request == req::KILL)
+        && let Some(t) = c.p.tracees.get_mut(tracee.tid)
+    {
+        t.stopped = None;
+        t.reported = false;
     }
     wait_answer(c, tracee.link)
 }
@@ -345,6 +367,12 @@ fn answer(c: &mut Ctx<'_>, request: u64, addr: u64, data: u64, link: LinkId) -> 
             c.write_mem(data, &payload[..8])?;
         }
         req::GETREGS | req::GETSIGINFO | req::GETSIGMASK => c.write_mem(data, &payload)?,
+        // ptrace_get_syscall_info: as much of the structure as both the
+        // caller's size and the stop's meaningful size allow.
+        req::GET_SYSCALL_INFO => {
+            let n = (ret as u64).min(addr) as usize;
+            c.write_mem(data, &payload[..n])?;
+        }
         req::GETREGSET | req::SETREGSET => {
             let base = c.read_u64(data)?;
             if request == req::GETREGSET {
@@ -359,7 +387,6 @@ fn answer(c: &mut Ctx<'_>, request: u64, addr: u64, data: u64, link: LinkId) -> 
         }
         _ => {}
     }
-    let _ = addr;
     Ok(ret as u64)
 }
 
@@ -548,14 +575,28 @@ fn serve(
             Err(e) => fail(e.0),
         },
         req::GETREGSET => {
-            let mut all = regs::prstatus(&t.cpu, t.syscall);
+            let mut all = regs::get(&t.cpu, t.syscall, addr);
             all.truncate(data as usize);
             (0, all)
         }
-        req::SETREGSET => match regs::set_prstatus(&mut t.cpu, &mut t.syscall, payload) {
+        req::SETREGSET => match regs::set(&mut t.cpu, &mut t.syscall, addr, payload) {
             Ok(()) => (0, data.to_le_bytes().to_vec()),
             Err(e) => fail(e.0),
         },
+        req::GET_SYSCALL_INFO => {
+            let s = tr.stop.as_ref();
+            let op = call::op(s.and_then(|s| s.info.as_ref()), tr.message);
+            let (b, size) = call::info(p.abi, &t.cpu, t.syscall, op, tr.compat, tr.message);
+            (size as i64, b.to_vec())
+        }
+        req::SET_SYSCALL_INFO => {
+            let op = call::op(tr.stop.as_ref().and_then(|s| s.info.as_ref()), tr.message);
+            let compat = tr.compat;
+            match call::set_info(&mut t.cpu, &mut t.syscall, compat, op, payload) {
+                Ok(()) => (0, Vec::new()),
+                Err(e) => fail(e.0),
+            }
+        }
         // ptrace_getsiginfo and ptrace_setsiginfo: a stop without
         // last_siginfo (a group stop) has none to give or take (EINVAL).
         req::GETSIGINFO => match tr.stop.as_ref().and_then(|s| s.info.as_ref()) {
@@ -584,7 +625,25 @@ fn serve(
             t.sigpending = deliver::recalc_sigpending(p, t);
             (0, Vec::new())
         }
-        req::CONT => {
+        _ if resumes(request) && offered(p.abi, request) => {
+            // ptrace_resume: the stepping is set before an architecture
+            // that cannot step refuses (EIO), leaving the thread stopped.
+            let steps = matches!(request, req::SINGLESTEP | req::SYSEMU_SINGLESTEP);
+            let mode = Mode {
+                syscall: request == req::SYSCALL,
+                emu: matches!(request, req::SYSEMU | req::SYSEMU_SINGLESTEP),
+                step: steps,
+            };
+            let riscv = p.abi == LinuxAbi::Riscv64;
+            if let Some(tr) = t.ptrace.as_mut() {
+                tr.mode = Mode {
+                    step: mode.step && !riscv,
+                    ..mode
+                };
+            }
+            if steps && riscv {
+                return fail(EIO);
+            }
             resume(t, data as i32);
             (0, Vec::new())
         }
@@ -626,6 +685,9 @@ fn detach(t: &mut Thread) {
         t.ptrace = None;
         return;
     }
+    // ptrace_disable and __ptrace_unlink: no stepping, no system-call
+    // stops.
+    tr.mode = Mode::default();
     tr.options = 0;
     tr.seized = false;
     tr.tracer = -1;
@@ -648,13 +710,16 @@ fn link_ended(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId) {
             continue;
         }
         kill |= tr.options & opt::EXITKILL != 0;
+        // The stop's own exit code is what ptrace_stop returns: a
+        // signal-delivery-stop's signal is delivered, a system-call stop's
+        // SIGTRAP sent (none with TRACESYSGOOD's 0x80: not a signal).
         let code = tr
             .stop
             .as_ref()
             .filter(|s| s.resumed.is_none())
             .map(|s| s.code);
         if let Some(code) = code {
-            resume(t, code & 0x7f);
+            resume(t, code);
         }
         detach(t);
     }
@@ -667,22 +732,60 @@ fn link_ended(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId) {
     }
 }
 
-/// Stops a traced thread for its tracer with exit code `exit` and
-/// `last_siginfo` `info` (`ptrace_stop`), telling the tracer. A thread
-/// whose tracer is not a `rax-user` process (no link) stays stopped.
-pub fn stop(p: &mut ProcState, t: &mut Thread, exit: i32, info: Option<SigInfo>, signal: bool) {
+/// Stops a traced thread for its tracer with exit code `exit`,
+/// `last_siginfo` `info`, and `ptrace_message` `message` (`ptrace_stop`),
+/// telling the tracer. A thread whose tracer is not a `rax-user` process
+/// (no link) stays stopped.
+pub fn stop(
+    p: &mut ProcState,
+    t: &mut Thread,
+    exit: i32,
+    info: Option<SigInfo>,
+    kind: StopKind,
+    message: u64,
+) {
     let Some(tr) = t.ptrace.as_mut() else {
         return;
     };
+    tr.message = message;
     tr.stop = Some(Stopped {
         code: exit,
         info,
-        signal,
+        kind,
+        saved: None,
         resumed: None,
     });
     let link = tr.link;
     let tid = t.tid;
     send(p, link, &Msg::Stop { tid, code: exit });
+}
+
+/// `ptrace_notify(exit, message)`: a stop for `SIGTRAP` whose siginfo
+/// carries the exit code as its `si_code` and the thread as its sender.
+pub fn notify(p: &mut ProcState, t: &mut Thread, exit: i32, message: u64, kind: StopKind) {
+    let info = SigInfo::kill(SIGTRAP, exit, t.tid, p.creds.0);
+    stop(p, t, exit, Some(info), kind, message);
+}
+
+/// `ptrace_report_syscall` at a system call's entry or exit: `SIGTRAP`,
+/// with `0x80` under `PTRACE_O_TRACESYSGOOD`, and the direction as the
+/// message.
+pub fn syscall_stop(p: &mut ProcState, t: &mut Thread, exit: bool) {
+    let Some(tr) = t.ptrace.as_ref() else {
+        return;
+    };
+    let good = if tr.options & opt::TRACESYSGOOD != 0 {
+        0x80
+    } else {
+        0
+    };
+    let (kind, message) = if exit {
+        (StopKind::Exit, EVENTMSG_SYSCALL_EXIT)
+    } else {
+        let emu = tr.mode.emu;
+        (StopKind::Entry { emu }, EVENTMSG_SYSCALL_ENTRY)
+    };
+    notify(p, t, SIGTRAP | good, message, kind);
 }
 
 /// Whether a thread is stopped for its tracer and not yet resumed (it does
@@ -691,27 +794,94 @@ pub fn parked(t: &Thread) -> bool {
     t.ptrace.as_ref().is_some_and(Traced::stopped)
 }
 
-/// The tracer's verdict on a resumed signal-delivery-stop, for
-/// `get_signal` (`ptrace_signal`): `None` when there is none; `Some(None)`
-/// when the tracer cancelled the signal or the stop was no signal's; else
-/// the signal to deliver, its `siginfo` rewritten as sent by the tracer
-/// when the tracer changed it. A detached thread leaves tracing here.
-pub fn take_verdict(p: &ProcState, t: &mut Thread) -> Option<Option<SigInfo>> {
+/// What the tracer let a thread do (`mode`), untraced threads running
+/// freely.
+pub fn mode(t: &Thread) -> Mode {
+    t.ptrace.as_ref().map_or(Mode::default(), |tr| tr.mode)
+}
+
+/// What becomes of a resumed stop's signal.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Verdict {
+    /// Nothing more (cancelled, or the stop's signal is dropped).
+    Drop,
+    /// Deliver this signal (a signal-delivery-stop).
+    Deliver(SigInfo),
+    /// Send the thread this signal (`send_sig(signr, current, 1)`: from
+    /// the kernel), after a system-call stop.
+    Send(i32),
+}
+
+/// Takes a resumed stop: puts back what the stop changed (AArch64's `x7`),
+/// drops tracing for a thread detached meanwhile, and decides on the
+/// tracer's signal. `None` when the thread is in no resumed stop.
+fn take_resumed(t: &mut Thread) -> Option<(Stopped, i32, i32)> {
     let tr = t.ptrace.as_mut()?;
-    let s = tr.stop.as_ref()?;
-    let Resumption::Continue(sig) = s.resumed?;
+    let Resumption::Continue(sig) = tr.stop.as_ref()?.resumed?;
     let s = tr.stop.take().expect("stop");
-    if tr.tracer < 0 {
+    let tracer = tr.tracer;
+    if tracer < 0 {
         t.ptrace = None;
     }
-    if !s.signal || sig == 0 {
-        return Some(None);
+    if let Some(x7) = s.saved
+        && let GuestCpu::Aarch64(c) = &mut t.cpu
+    {
+        c.core_mut().set_x(7, x7);
     }
-    let mut info = s.info.unwrap_or_else(|| SigInfo::kernel(sig));
-    if sig != info.signo {
-        info = SigInfo::kill(sig, code::SI_USER, p.ppid, p.creds.0);
+    Some((s, sig, tracer))
+}
+
+/// The tracer's verdict on a resumed stop, for `get_signal`
+/// (`ptrace_signal` for a signal-delivery-stop): the signal to deliver,
+/// its `siginfo` rewritten as sent by the tracer when the tracer changed
+/// it; a system-call stop's signal to send; else nothing. `None` when
+/// the thread is in no resumed stop.
+pub fn take_verdict(p: &ProcState, t: &mut Thread) -> Option<Verdict> {
+    let (s, sig, tracer) = take_resumed(t)?;
+    Some(match s.kind {
+        _ if sig == 0 => Verdict::Drop,
+        StopKind::Signal => {
+            let mut info = s.info.unwrap_or_else(|| SigInfo::kernel(sig));
+            if sig != info.signo {
+                let from = if tracer > 0 { tracer } else { p.ppid };
+                info = SigInfo::kill(sig, code::SI_USER, from, p.creds.0);
+            }
+            Verdict::Deliver(info)
+        }
+        // send_sig refuses what is not a signal (TRACESYSGOOD's 0x80).
+        StopKind::Entry { .. } | StopKind::Exit if (1..=NSIG as i32).contains(&sig) => {
+            Verdict::Send(sig)
+        }
+        _ => Verdict::Drop,
+    })
+}
+
+/// A resumed stop inside a system call, which the scheduler finishes
+/// before the thread returns to user mode: a system-call-entry stop (the
+/// call is made next) or an event stop (the call's exit work follows).
+/// Returns the kind and the signal to send (0: none).
+pub fn take_in_call(t: &mut Thread) -> Option<(StopKind, i32)> {
+    let s = t.ptrace.as_ref()?.stop.as_ref()?;
+    if s.resumed.is_none() || !matches!(s.kind, StopKind::Entry { .. } | StopKind::Event) {
+        return None;
     }
-    Some(Some(info))
+    let (s, sig, _) = take_resumed(t)?;
+    let send = if s.kind.syscall() && (1..=NSIG as i32).contains(&sig) {
+        sig
+    } else {
+        0
+    };
+    Some((s.kind, send))
+}
+
+/// Whether a thread is in a resumed stop inside a system call.
+pub fn resumed_in_call(t: &Thread) -> bool {
+    t.ptrace
+        .as_ref()
+        .and_then(|tr| tr.stop.as_ref())
+        .is_some_and(|s| {
+            s.resumed.is_some() && matches!(s.kind, StopKind::Entry { .. } | StopKind::Event)
+        })
 }
 
 /// `ptrace_event(PTRACE_EVENT_EXEC, old_vpid)` after a successful
@@ -722,10 +892,8 @@ pub fn exec_event(p: &mut ProcState, t: &mut Thread, old_tid: i32) {
         return;
     };
     if tr.options & opt::TRACEEXEC != 0 {
-        tr.message = old_tid as u64;
         let exit = SIGTRAP | (EVENT_EXEC << 8);
-        let info = SigInfo::kill(SIGTRAP, exit, t.tid, p.creds.0);
-        stop(p, t, exit, Some(info), false);
+        notify(p, t, exit, old_tid as u64, StopKind::Event);
     } else if !tr.seized {
         let info = SigInfo::kill(SIGTRAP, code::SI_USER, p.pid, p.creds.0);
         t.pending.enqueue(info);

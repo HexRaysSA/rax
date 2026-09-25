@@ -14,12 +14,12 @@ use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::arch::GuestCpu;
 use crate::user::linux::process::Threads;
-use crate::user::linux::ptrace::{Link, LinkId, Msg, Resumption, Traced, opt, regs};
+use crate::user::linux::ptrace::{Link, LinkId, Msg, Resumption, StopKind, Traced, opt, regs};
 use crate::user::linux::signal::deliver::SyscallEntry;
 use crate::user::linux::signal::{
     SIG_IGN, SIGKILL, SIGSTOP, SIGTRAP, SIGUSR1, SIGUSR2, SigInfo, code, sigmask,
 };
-use crate::user::linux::syscall::ptrace::{self as pt, parked, take_verdict};
+use crate::user::linux::syscall::ptrace::{self as pt, Verdict, parked, take_verdict};
 
 const TRACEME: u64 = 0;
 const PEEKDATA: u64 = 2;
@@ -257,13 +257,15 @@ fn a_traced_thread_stops_before_taking_a_signal() {
         resume(&mut h, 0);
         assert!(!parked(&h.proc.threads[0]));
         let (p, t) = (&h.proc.state, &mut h.proc.threads[0]);
-        assert!(matches!(take_verdict(p, t), Some(None)));
+        assert_eq!(take_verdict(p, t), Some(Verdict::Drop));
         // Changed: the siginfo is rewritten as sent by the tracer.
         send(&mut h, SigInfo::kill(SIGUSR1, code::SI_USER, me, 0));
         h.proc.deliver_signals(0);
         resume(&mut h, SIGUSR2);
         let (p, t) = (&h.proc.state, &mut h.proc.threads[0]);
-        let info = take_verdict(p, t).unwrap().unwrap();
+        let Some(Verdict::Deliver(info)) = take_verdict(p, t) else {
+            panic!("a signal to deliver");
+        };
         assert_eq!((info.signo, info.code), (SIGUSR2, code::SI_USER));
         // Left as it was, but now blocked: requeued for later.
         send(&mut h, SigInfo::kill(SIGUSR1, code::SI_USER, me, 0));
@@ -311,7 +313,7 @@ fn traced_threads_queue_ignored_signals_and_trap_group_stops() {
             .stop
             .clone()
             .unwrap();
-        assert_eq!((stop.code, stop.signal), (SIGSTOP, false));
+        assert_eq!((stop.code, stop.kind), (SIGSTOP, StopKind::Quiet));
         assert!(stop.info.is_none());
         resume(&mut h, SIGUSR2);
         h.proc.deliver_signals(0);
@@ -365,7 +367,9 @@ fn a_tracers_link_ending_detaches_or_kills() {
         // traced no more.
         assert!(!parked(&h.proc.threads[0]));
         let (p, t) = (&h.proc.state, &mut h.proc.threads[0]);
-        let info = take_verdict(p, t).unwrap().unwrap();
+        let Some(Verdict::Deliver(info)) = take_verdict(p, t) else {
+            panic!("the signal it stopped for");
+        };
         assert_eq!(info.signo, SIGUSR1);
         assert!(t.ptrace.is_none());
         // With PTRACE_O_EXITKILL the tracee dies.

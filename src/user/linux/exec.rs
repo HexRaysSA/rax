@@ -274,6 +274,7 @@ impl LinuxProcess {
         self.threads.clear();
         let p = &mut self.state;
         let old_tid = t.tid;
+        let call = t.syscall.map(|s| s.nr);
         t.tid = p.pid;
         // The other threads' children passed to the caller as they died
         // (forget_original_parent); all are now children of the leader ID.
@@ -341,6 +342,11 @@ impl LinuxProcess {
         // rseq_execve: the new image has not registered.
         t.rseq = None;
         t.sigpending = super::signal::deliver::recalc_sigpending(p, &t);
+        // start_thread keeps the number (x86-64's orig_ax, AArch64's
+        // syscallno), which a tracer sees as the call finishes.
+        if t.ptrace.is_some() {
+            t.syscall = call.map(|nr| super::signal::deliver::SyscallEntry { nr, arg0: 0 });
+        }
         // ptrace_event(PTRACE_EVENT_EXEC, old_vpid).
         super::syscall::ptrace::exec_event(p, &mut t, old_tid);
         self.threads.push(t);

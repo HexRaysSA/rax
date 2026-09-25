@@ -261,6 +261,12 @@ target = "x86_64-linux-musl"
 sha256 = "3e30cd287b766a7354c784a7e3eea0e468d86ef9051a54d2f3ca85c88379e97c"
 
 [[fixture]]
+path = "bin/x86_64/ptracestops"
+source = "src/ptracestops.c"
+target = "x86_64-linux-musl"
+sha256 = "b0cdd0febc42603d37d82e82c4160fe7303cd3fb5fa9033ad4644c30088875f3"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -543,6 +549,12 @@ target = "aarch64-linux-musl"
 sha256 = "2ff208cd9fa96f1719325794149ace62cfb0d396701f5aea525849143e474546"
 
 [[fixture]]
+path = "bin/aarch64/ptracestops"
+source = "src/ptracestops.c"
+target = "aarch64-linux-musl"
+sha256 = "74d1f4153167d85983865d6f21329c368639cd19704005ffa864791e1b88bbf1"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -823,6 +835,12 @@ path = "bin/riscv64/ptrace"
 source = "src/ptrace.c"
 target = "riscv64-linux-musl"
 sha256 = "3d5ef8079ba17f90a14433f5d610776dac43e387b3488c58065c22ff33ad7238"
+
+[[fixture]]
+path = "bin/riscv64/ptracestops"
+source = "src/ptracestops.c"
+target = "riscv64-linux-musl"
+sha256 = "39a9c6cba5c80d782ac271ec883e95fbecb89eb94d702207c7b68734dd276872"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

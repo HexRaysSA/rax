@@ -15,8 +15,14 @@
 //! the fields. The tracee tells its tracer of a `PTRACE_TRACEME` and of
 //! each stop, and answers requests; the tracer attaches, asks, and resumes.
 //! A link that ends (its process exited) detaches whatever went along it.
+//!
+//! [`regs`] lays out the register sets, [`call`] reads and writes the system
+//! call a stopped thread is in, and the scheduler's side of system-call
+//! stops and single steps is in `stops`.
 
+pub mod call;
 pub mod regs;
+mod stops;
 
 use std::os::fd::{AsRawFd, OwnedFd};
 
@@ -48,6 +54,8 @@ pub mod req {
     /// x86-64 only.
     pub const SYSEMU: u64 = 31;
     pub const SYSEMU_SINGLESTEP: u64 = 32;
+    /// x86-64 only (branch stepping, not offered here).
+    pub const SINGLEBLOCK: u64 = 33;
     pub const SETOPTIONS: u64 = 0x4200;
     pub const GETEVENTMSG: u64 = 0x4201;
     pub const GETSIGINFO: u64 = 0x4202;
@@ -59,6 +67,8 @@ pub mod req {
     pub const LISTEN: u64 = 0x4208;
     pub const GETSIGMASK: u64 = 0x420a;
     pub const SETSIGMASK: u64 = 0x420b;
+    pub const GET_SYSCALL_INFO: u64 = 0x420e;
+    pub const SET_SYSCALL_INFO: u64 = 0x4212;
 }
 
 /// `PTRACE_O_*` options and `PTRACE_O_MASK`.
@@ -72,6 +82,11 @@ pub mod opt {
 
 /// `PTRACE_EVENT_EXEC`.
 pub const EVENT_EXEC: i32 = 4;
+
+/// `PTRACE_EVENTMSG_SYSCALL_ENTRY` and `PTRACE_EVENTMSG_SYSCALL_EXIT`: the
+/// message of a system-call stop.
+pub const EVENTMSG_SYSCALL_ENTRY: u64 = 1;
+pub const EVENTMSG_SYSCALL_EXIT: u64 = 2;
 
 /// Which link a relationship goes along.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -282,20 +297,68 @@ impl Link {
 /// How a traced thread is to go on when its tracer resumes it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Resumption {
-    /// `PTRACE_CONT` (and `PTRACE_DETACH`) with this signal (0: none).
+    /// Resumed (`PTRACE_CONT`, `PTRACE_SYSCALL`, a step, `PTRACE_DETACH`)
+    /// with this `exit_code` (0: no signal).
     Continue(i32),
+}
+
+/// What the thread runs until, as its last resumption set it
+/// (`ptrace_resume`): `SYSCALL_WORK_SYSCALL_TRACE`,
+/// `SYSCALL_WORK_SYSCALL_EMU`, and `TIF_SINGLESTEP`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Mode {
+    /// `PTRACE_SYSCALL`: a stop at each system call's entry and exit.
+    pub syscall: bool,
+    /// `PTRACE_SYSEMU`: a stop at each entry, the call not made.
+    pub emu: bool,
+    /// `PTRACE_SINGLESTEP`: a `SIGTRAP` after each instruction.
+    pub step: bool,
+}
+
+/// The kind of a stop, which decides what becomes of the signal the tracer
+/// resumes it with and what the thread does next.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StopKind {
+    /// A signal-delivery-stop (`ptrace_signal`): the signal the tracer
+    /// leaves is delivered.
+    Signal,
+    /// A group stop, or a `ptrace_notify` outside a system call: the
+    /// signal is dropped.
+    Quiet,
+    /// An event stop inside a system call (`ptrace_event`): the signal is
+    /// dropped, and the call's exit work follows.
+    Event,
+    /// A system-call-entry stop (`ptrace_report_syscall_entry`): the call
+    /// is made once resumed, unless the thread stopped under
+    /// `PTRACE_SYSEMU` (`emu`: the work flags `syscall_trace_enter` read
+    /// before stopping).
+    Entry { emu: bool },
+    /// A system-call-exit stop (`ptrace_report_syscall_exit`).
+    Exit,
+}
+
+impl StopKind {
+    /// A system-call stop, whose resumption's signal is sent to the thread
+    /// (`send_sig(signr, current, 1)`).
+    pub fn syscall(self) -> bool {
+        matches!(self, StopKind::Entry { .. } | StopKind::Exit)
+    }
 }
 
 /// What a traced thread stopped for.
 #[derive(Clone, Debug)]
 pub struct Stopped {
-    /// `exit_code`: the stop's signal, or `SIGTRAP | event << 8`.
+    /// `exit_code`: the stop's signal, `SIGTRAP | event << 8`, or a
+    /// system-call stop's `SIGTRAP` (with `0x80` under
+    /// `PTRACE_O_TRACESYSGOOD`).
     pub code: i32,
     /// `last_siginfo` (none in a group stop).
     pub info: Option<SigInfo>,
-    /// The stop is a signal-delivery-stop: the signal the tracer leaves is
-    /// delivered (else a resumption's signal is sent, as after an event).
-    pub signal: bool,
+    /// What stopped it.
+    pub kind: StopKind,
+    /// AArch64's `x7` as it was before a system-call stop put the stop's
+    /// direction in it (`report_syscall`); restored as the thread goes on.
+    pub saved: Option<u64>,
     /// The tracer's verdict, once it resumed the thread.
     pub resumed: Option<Resumption>,
 }
@@ -314,6 +377,11 @@ pub struct Traced {
     pub message: u64,
     /// The stop it is in, if any.
     pub stop: Option<Stopped>,
+    /// What the last resumption set it running until.
+    pub mode: Mode,
+    /// The system call it is in came through x86-64's `INT 0x80`
+    /// (`TS_COMPAT`).
+    pub compat: bool,
 }
 
 impl Traced {
@@ -326,6 +394,8 @@ impl Traced {
             options,
             message: 0,
             stop: None,
+            mode: Mode::default(),
+            compat: false,
         }
     }
 

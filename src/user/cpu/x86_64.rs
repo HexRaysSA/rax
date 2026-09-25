@@ -103,6 +103,25 @@ impl X86UserCpu {
 
     /// Runs until an operating-system event or the end of the time slice.
     pub fn run(&mut self) -> X86Exit {
+        self.sync_code();
+        let result = self.vcpu.run();
+        self.exit(result)
+    }
+
+    /// Runs exactly one instruction with the core's precise step (never
+    /// native code); [`X86Exit::Yield`] when it retired without an event.
+    pub fn step(&mut self) -> X86Exit {
+        self.sync_code();
+        let result = self
+            .vcpu
+            .step_with_faults()
+            .map(|exit| exit.unwrap_or(VcpuExit::Hlt));
+        self.exit(result)
+    }
+
+    /// Drops the decodes and native code of guest code written since the
+    /// last run.
+    fn sync_code(&mut self) {
         match take_code_changes(&self.space, &mut self.code_epoch) {
             CodeChanges::None => {}
             CodeChanges::Ranges(ranges) => {
@@ -112,7 +131,10 @@ impl X86UserCpu {
             }
             CodeChanges::All => self.vcpu.invalidate_all_code(),
         }
-        let result = self.vcpu.run();
+    }
+
+    /// Classifies how a run or step ended.
+    fn exit(&mut self, result: crate::error::Result<VcpuExit>) -> X86Exit {
         let pc = self.vcpu.user_regs().rip;
         let trap = self.vcpu.take_user_trap();
         match (result, trap) {
@@ -122,9 +144,12 @@ impl X86UserCpu {
             (Err(Error::GuestEvent { .. }), Some(X86UserTrap::Event(event))) => {
                 X86Exit::Event(event)
             }
-            // The x86 core yields `Hlt` at time-slice boundaries; user mode
-            // turns a guest HLT into #GP, so this is never a real halt.
+            // The x86 core yields `Hlt` at time-slice boundaries (and a step
+            // reports it for a retired instruction); user mode turns a guest
+            // HLT into #GP, so this is never a real halt.
             (Ok(VcpuExit::Hlt), None) => X86Exit::Yield,
+            // A step whose event was recorded without an error return.
+            (Ok(VcpuExit::Hlt), Some(X86UserTrap::Event(event))) => X86Exit::Event(event),
             (Err(Error::GuestAccess(fault)), None) => {
                 X86Exit::Fault(AccessFault::from_memory(fault, pc))
             }

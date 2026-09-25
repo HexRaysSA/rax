@@ -24,10 +24,11 @@
 
 use super::frame::{self, Delivery, FaultUpdate};
 use super::{
-    AltStack, KERNEL_ONLY_MASK, SIG_DFL, SIG_IGN, SIGCONT, SIGKILL, SIGSEGV, SIGSTOP, SIGTSTP,
-    SIGTTIN, SIGTTOU, SigInfo, default_dumps_core, default_ignored, default_stops, sa, sigmask,
-    signal_name, ss,
+    AltStack, KERNEL_ONLY_MASK, SIG_DFL, SIG_IGN, SIGCONT, SIGKILL, SIGSEGV, SIGSTOP, SIGTRAP,
+    SIGTSTP, SIGTTIN, SIGTTOU, SigInfo, default_dumps_core, default_ignored, default_stops, sa,
+    sigmask, signal_name, ss,
 };
+use crate::user::linux::abi::LinuxAbi;
 use crate::user::linux::abi::errno_table::EINTR;
 use crate::user::linux::posix_timers::{self, Firing, Notify};
 use crate::user::linux::process::{ExitStatus, LinuxProcess, ProcState, Thread, Threads};
@@ -536,19 +537,28 @@ impl LinuxProcess {
     /// `get_signal`: dequeues signals for thread `idx` until one has a
     /// handler, taking default actions on the way.
     fn get_signal(&mut self, idx: usize) -> Next {
-        use crate::user::linux::syscall::ptrace;
+        use crate::user::linux::ptrace::StopKind;
+        use crate::user::linux::syscall::ptrace::{self, Verdict};
         loop {
             let (p, t) = (&mut self.state, &mut self.threads[idx]);
             let blocked = t.sigmask;
             // ptrace_signal after the tracer resumed the thread: the signal
-            // it left (or none), requeued if it is now blocked.
+            // it left (or none), requeued if it is now blocked; after a
+            // system-call stop, the signal is sent as the kernel's.
             let info = match ptrace::take_verdict(p, t) {
-                Some(None) => continue,
-                Some(Some(info)) if blocked & sigmask(info.signo) != 0 => {
+                Some(Verdict::Drop) => continue,
+                Some(Verdict::Send(sig)) => {
+                    let tid = t.tid;
+                    let mut th = Threads::split(&mut self.threads, Some(idx));
+                    let info = SigInfo::kernel(sig);
+                    send_signal(&mut self.state, &mut th, info, Dest::Thread(tid), false);
+                    continue;
+                }
+                Some(Verdict::Deliver(info)) if blocked & sigmask(info.signo) != 0 => {
                     t.pending.enqueue(info);
                     continue;
                 }
-                Some(Some(info)) => info,
+                Some(Verdict::Deliver(info)) => info,
                 None => {
                     let info = match t.pending.dequeue_synchronous(blocked) {
                         Some(info) => Some(info),
@@ -560,7 +570,7 @@ impl LinuxProcess {
                     // A traced thread stops for its tracer before taking
                     // any signal but SIGKILL (signal-delivery-stop).
                     if t.ptrace.is_some() && info.signo != SIGKILL {
-                        ptrace::stop(p, t, info.signo, Some(info), true);
+                        ptrace::stop(p, t, info.signo, Some(info), StopKind::Signal, 0);
                         return Next::Traced;
                     }
                     info
@@ -594,7 +604,7 @@ impl LinuxProcess {
             if default_stops(sig) && t.ptrace.is_some() {
                 // do_signal_stop for a traced thread: a group stop its
                 // tracer is told of (do_jobctl_trap), with no siginfo.
-                ptrace::stop(p, t, sig, None, false);
+                ptrace::stop(p, t, sig, None, StopKind::Quiet, 0);
                 return Next::Traced;
             }
             if default_stops(sig) {
@@ -616,8 +626,8 @@ impl LinuxProcess {
     }
 
     /// `handle_signal` minus the restart fixups: builds the frame, then
-    /// `signal_setup_done`.
-    fn handle_signal(&mut self, idx: usize, d: &Delivery) {
+    /// `signal_setup_done`; false when the frame could not be built.
+    fn handle_signal(&mut self, idx: usize, d: &Delivery) -> bool {
         let mut th = Threads::split(&mut self.threads, Some(idx));
         let p = &mut self.state;
         let t = th.current().expect("running thread");
@@ -630,7 +640,7 @@ impl LinuxProcess {
         let t = th.current().expect("running thread");
         if frame::setup_rt_frame(t, &p.space, d, p.sigtramp).is_err() {
             force_sigsegv(p, &mut th, d.sig);
-            return;
+            return false;
         }
         let t = th.current().expect("running thread");
         // signal_delivered.
@@ -643,6 +653,7 @@ impl LinuxProcess {
             t.altstack = AltStack::DISABLED;
         }
         set_blocked(p, &mut th, blocked);
+        true
     }
 
     /// The work the kernel does on return to user mode for thread `idx`:
@@ -666,7 +677,11 @@ impl LinuxProcess {
         // arch_do_signal_or_restart: provisionally restart the call.
         let mut rewound = None;
         let entry = t.syscall.take();
-        if let Some(entry) = entry {
+        // in_syscall: x86-64 and AArch64 take a number of -1 for none.
+        let riscv = self.state.abi == LinuxAbi::Riscv64;
+        if let Some(entry) = entry
+            && (riscv || entry.nr as i32 != -1)
+        {
             let value = t.cpu.syscall_return_value();
             if is_restart(value) {
                 let continue_pc = t.cpu.pc();
@@ -700,7 +715,23 @@ impl LinuxProcess {
                             cpu.set_syscall_result(-(EINTR as i64) as u64);
                         }
                     }
-                    self.handle_signal(idx, &d);
+                    let delivered = self.handle_signal(idx, &d);
+                    let t = &mut self.threads[idx];
+                    if delivered && crate::user::linux::syscall::ptrace::mode(t).step {
+                        // signal_delivered while stepping: ptrace_notify(
+                        // SIGTRAP, 0) before the handler's first
+                        // instruction; x86-64 stops stepping first.
+                        if let Some(tr) = t.ptrace.as_mut()
+                            && self.state.abi == LinuxAbi::X86_64
+                        {
+                            tr.mode.step = false;
+                        }
+                        let p = &mut self.state;
+                        let quiet = crate::user::linux::ptrace::StopKind::Quiet;
+                        crate::user::linux::syscall::ptrace::notify(p, t, SIGTRAP, 0, quiet);
+                        t.syscall = entry;
+                        return;
+                    }
                 }
                 Next::None => {
                     let t = &mut self.threads[idx];

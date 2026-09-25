@@ -168,6 +168,16 @@ impl GuestCpu {
         }
     }
 
+    /// Runs exactly one instruction (a traced thread's single step);
+    /// [`CpuEvent::Yield`] when it retired without an event.
+    pub fn step(&mut self) -> CpuEvent {
+        match self {
+            GuestCpu::X86_64(cpu) => x86_64::step(cpu),
+            GuestCpu::Aarch64(cpu) => aarch64::run(cpu, 1),
+            GuestCpu::Riscv64(cpu) => riscv64::run(cpu, 1),
+        }
+    }
+
     /// Stores a system call's return value in the ABI's result register.
     pub fn set_syscall_result(&mut self, value: u64) {
         match self {

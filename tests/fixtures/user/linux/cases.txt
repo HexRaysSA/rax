@@ -47,6 +47,7 @@ rseq     rseq     -
 aio      aio      -
 splice   splice   -
 ptrace   ptrace   -
+ptracestops ptracestops -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

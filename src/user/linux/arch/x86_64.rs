@@ -140,7 +140,19 @@ pub(crate) fn page_fault_record(f: &AccessFault) -> FaultUpdate {
 
 /// Runs one time slice.
 pub fn run(cpu: &mut X86UserCpu) -> CpuEvent {
-    match cpu.run() {
+    let exit = cpu.run();
+    event(cpu, exit)
+}
+
+/// Runs one instruction.
+pub fn step(cpu: &mut X86UserCpu) -> CpuEvent {
+    let exit = cpu.step();
+    event(cpu, exit)
+}
+
+/// The Linux view of how a run ended.
+fn event(cpu: &mut X86UserCpu, exit: X86Exit) -> CpuEvent {
+    match exit {
         X86Exit::Syscall {
             insn: X86SyscallInsn::Syscall,
             ..
