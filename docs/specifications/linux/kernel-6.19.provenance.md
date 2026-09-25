@@ -8,16 +8,16 @@
   `https://raw.githubusercontent.com/torvalds/linux/v6.19/<path>`, which serves
   the same tagged tree; `fs/namei.c`, `fs/utimes.c`, `fs/xattr.c`,
   `fs/sync.c`, `kernel/groups.c`, `mm/readahead.c`,
-  `include/linux/xattr.h`, and `drivers/perf/riscv_pmu_sbi.c` came from
-  kernel.org's
+  `include/linux/xattr.h`, `drivers/perf/riscv_pmu_sbi.c`, `fs/locks.c`,
+  and `fs/fcntl.c` came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
-- Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`: 25 September
-  2026)
+- Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
+  `fs/locks.c`, and `fs/fcntl.c`: 25 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (54 files),
-  `GPL-2.0-only` (28), `GPL-2.0-or-later` (18), `GPL-2.0+` (1), or
+- License: the files carry an SPDX identifier: `GPL-2.0` (55 files),
+  `GPL-2.0-only` (29), `GPL-2.0-or-later` (18), `GPL-2.0+` (1), or
   `GPL-1.0+` (1); `mm/memfd.c` and `mm/shmem.c` have none and state
   "This file is released under the GPL." in their headers. The license
   texts are the kernel tree's `LICENSES/preferred/GPL-2.0` and
@@ -57,6 +57,7 @@ behavior it reproduces beyond what the UAPI headers
 | File creation and times | `fs/namei.c` (`do_mknodat`, `may_mknod`, `vfs_mknod`), `fs/utimes.c` (`utimensat`, `utimes`, `futimesat`, `utime`) |
 | Extended attributes | `fs/xattr.c` (name import, the namespaces' permissions, the `*xattr` and `*xattrat` calls), `include/linux/xattr.h` |
 | RISC-V user counter access (`scounteren`: only `time`, so `rdcycle` and `rdinstret` raise `SIGILL` unless a perf event is mapped) | `drivers/perf/riscv_pmu_sbi.c` (`sysctl_perf_user_access`, `pmu_sbi_starting_cpu`) |
+| File locks | `fs/locks.c` (`flock`, `fcntl_getlk`, `fcntl_setlk`, `flock64_to_posix_lock`, `flock_lock_inode`, `locks_remove_posix`), `fs/fcntl.c` (`do_fcntl`, `check_fcntl_cmd`) |
 | Supplementary groups, read-ahead, and range sync | `kernel/groups.c` (`setgroups`, `getgroups`), `mm/readahead.c` (`ksys_readahead`), `fs/sync.c` (`sync_file_range`) |
 
 Code comments name the kernel function whose behavior an implementation
