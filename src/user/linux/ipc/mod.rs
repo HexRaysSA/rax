@@ -323,6 +323,31 @@ impl Namespace {
     }
 }
 
+/// A task's reference to a semaphore undo list (`task->sysvsem.undo_list`):
+/// made when the task first asks for `SEM_UNDO` (`get_undo_list`) and
+/// shared by the tasks `CLONE_SYSVSEM` makes. The adjustments themselves
+/// are recorded per process ([`IpcState::sem_undo`]).
+#[derive(Clone, Debug)]
+pub struct UndoList(std::sync::Arc<()>);
+
+impl UndoList {
+    /// A new, empty list.
+    pub fn new() -> Self {
+        UndoList(std::sync::Arc::new(()))
+    }
+
+    /// The list's identity, as `kcmp` compares it.
+    pub fn id(&self) -> usize {
+        std::sync::Arc::as_ptr(&self.0) as usize
+    }
+}
+
+impl Default for UndoList {
+    fn default() -> Self {
+        UndoList::new()
+    }
+}
+
 /// A process's System V IPC state.
 #[derive(Debug)]
 pub struct IpcState {

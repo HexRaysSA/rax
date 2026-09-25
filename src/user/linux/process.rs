@@ -428,6 +428,8 @@ pub struct Thread {
     pub seccomp: super::seccomp::Seccomp,
     /// Its scheduling attributes and I/O priority.
     pub sched: super::priority::Sched,
+    /// Its semaphore undo list (`sysvsem.undo_list`), if it has one.
+    pub sysvsem: Option<super::ipc::UndoList>,
 }
 
 impl Thread {
@@ -456,6 +458,7 @@ impl Thread {
             notsc: false,
             seccomp: Default::default(),
             sched: Default::default(),
+            sysvsem: None,
         }
     }
 }

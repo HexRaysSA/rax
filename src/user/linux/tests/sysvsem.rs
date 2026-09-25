@@ -242,3 +242,66 @@ fn waits_end_by_value_removal_or_signal() {
         assert_eq!(semctl(&mut h, id, 0, GETNCNT, 0), 0);
     });
 }
+
+#[test]
+fn unshare_sysvsem_leaves_the_undo_list_as_an_exit_would() {
+    // ksys_unshare: "CLONE_SYSVSEM is equivalent to sys_exit()" for the
+    // undo list (exit_sem): its adjustments apply when its last holder
+    // leaves it, and the caller's next SEM_UNDO makes a new list.
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = h.anon(P, 3, false);
+        let id = h.ok(Sysno::Semget, &[IPC_PRIVATE, 1, 0o600]);
+        let n = sembufs(&h, m, &[(0, 2, SEM_UNDO)]);
+        h.ok(Sysno::Semop, &[id, m, n]);
+        assert_eq!(semctl(&mut h, id, 0, GETVAL, 0), 2);
+        h.ok(Sysno::Unshare, &[CLONE_SYSVSEM]);
+        assert_eq!(semctl(&mut h, id, 0, GETVAL, 0), 0, "undone");
+        h.ok(Sysno::Unshare, &[CLONE_SYSVSEM]);
+        assert_eq!(semctl(&mut h, id, 0, GETVAL, 0), 0, "no list: nothing");
+        // A list shared with a thread stays while the thread holds it,
+        // whose exit is then the last holder's.
+        let n = sembufs(&h, m, &[(0, 1, SEM_UNDO)]);
+        h.ok(Sysno::Semop, &[id, m, n]);
+        let w = spawn(&mut h);
+        h.ok(Sysno::Unshare, &[CLONE_SYSVSEM]);
+        assert_eq!(semctl(&mut h, id, 0, GETVAL, 0), 1, "still held");
+        h.start(w, Sysno::Exit, &[0]);
+        assert_eq!(semctl(&mut h, id, 0, GETVAL, 0), 0, "undone at its exit");
+    });
+}
+
+#[test]
+fn a_thread_without_clone_sysvsem_has_a_list_of_its_own() {
+    // copy_semundo without CLONE_SYSVSEM: the thread has no list until
+    // its first SEM_UNDO (get_undo_list, even for a set that does not
+    // exist), and its exit applies that list (exit_sem).
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = h.anon(P, 3, false);
+        let id = h.ok(Sysno::Semget, &[IPC_PRIVATE, 1, 0o600]);
+        let tid = h.ok(Sysno::Clone, &[THREAD & !CLONE_SYSVSEM, 0, 0, 0, 0]) as i32;
+        let w = h.index_of(tid);
+        assert!(h.proc.threads[0].sysvsem.is_none(), "the creator made none");
+        assert!(h.proc.threads[w].sysvsem.is_none());
+        let n = sembufs(&h, m, &[(0, 3, SEM_UNDO)]);
+        assert_eq!(
+            h.start(w, Sysno::Semop, &[0x7fff_ffff, m, n]),
+            Some(-(EINVAL as i64))
+        );
+        assert!(
+            h.proc.threads[w].sysvsem.is_some(),
+            "made before the lookup"
+        );
+        assert_eq!(h.start(w, Sysno::Semop, &[id, m, n]), Some(0));
+        assert_eq!(semctl(&mut h, id, 0, GETVAL, 0), 3);
+        h.start(w, Sysno::Exit, &[0]);
+        assert_eq!(semctl(&mut h, id, 0, GETVAL, 0), 0, "undone at its exit");
+        // CLONE_SYSVSEM makes the creator's list to share.
+        let t2 = h.ok(Sysno::Clone, &[THREAD, 0, 0, 0, 0]) as i32;
+        let w2 = h.index_of(t2);
+        let (a, b) = (&h.proc.threads[0].sysvsem, &h.proc.threads[w2].sysvsem);
+        assert_eq!(a.as_ref().map(|l| l.id()), b.as_ref().map(|l| l.id()));
+        assert!(a.is_some());
+    });
+}

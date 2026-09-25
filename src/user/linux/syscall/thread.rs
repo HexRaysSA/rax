@@ -11,6 +11,7 @@
 use super::super::abi::LinuxAbi;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
+use super::super::ipc::UndoList;
 use super::super::process::Thread;
 use super::super::signal::deliver::recalc_sigpending;
 use super::super::signal::deliver::restart::ERESTARTNOINTR;
@@ -279,6 +280,7 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     }
     // sched_fork (EAGAIN for a deadline task), then copy_thread.
     let sched = c.t.sched.forked(flags & CLONE_IO != 0)?;
+    let sysvsem = copy_semundo(c, flags);
     if flags & CLONE_SETTLS != 0 && c.p.abi == LinuxAbi::X86_64 && args.tls >= c.p.abi.task_size() {
         // x86-64 set_new_tls: ARCH_SET_FS refuses a kernel address.
         return Err(Errno(EPERM));
@@ -324,6 +326,7 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     child.notsc = c.t.notsc;
     child.cpu.set_tsc_disabled(child.notsc);
     child.sched = sched;
+    child.sysvsem = sysvsem;
     // A thread sharing the address space gets no alternate stack.
     child.altstack = if flags & CLONE_VFORK == 0 {
         AltStack::DISABLED
@@ -387,6 +390,13 @@ pub fn set_tid_address(c: &mut Ctx<'_>, tidptr: u64) -> SysResult {
     Ok(c.t.tid as u64)
 }
 
+/// `copy_semundo`: with `CLONE_SYSVSEM` the new task shares the creator's
+/// undo list, which is made now if the creator had none; without, it has
+/// none.
+pub(super) fn copy_semundo(c: &mut Ctx<'_>, flags: u64) -> Option<UndoList> {
+    (flags & CLONE_SYSVSEM != 0).then(|| c.t.sysvsem.get_or_insert_with(UndoList::new).clone())
+}
+
 /// `unshare` (`ksys_unshare`): the flags a request implies are added
 /// (`CLONE_NEWUSER` needs `CLONE_THREAD` and `CLONE_FS`, `CLONE_VM`
 /// `CLONE_SIGHAND`, which needs `CLONE_THREAD`, and `CLONE_NEWNS`
@@ -396,7 +406,8 @@ pub fn set_tid_address(c: &mut Ctx<'_>, tidptr: u64) -> SysResult {
 /// table and file-system context, which a single thread need not unshare;
 /// a thread of several cannot have its own (`EINVAL`, as for `clone`).
 /// Namespaces need privileges the emulated process does not have
-/// (`EPERM`); without SysV semaphores there is no undo list to leave.
+/// (`EPERM`). `CLONE_SYSVSEM` leaves the caller's semaphore undo list as
+/// an exit would (`exit_sem`).
 pub fn unshare(c: &mut Ctx<'_>, flags: u64) -> SysResult {
     const ALLOWED: u64 = CLONE_THREAD
         | CLONE_FS
@@ -440,6 +451,10 @@ pub fn unshare(c: &mut Ctx<'_>, flags: u64) -> SysResult {
     }
     if flags & NAMESPACES != 0 {
         return Err(Errno(EPERM));
+    }
+    if flags & CLONE_SYSVSEM != 0 && c.t.sysvsem.take().is_some() {
+        let others = c.thread_refs().iter().any(|t| t.sysvsem.is_some());
+        super::ipc::leave_undo_list(c.p, others);
     }
     Ok(0)
 }

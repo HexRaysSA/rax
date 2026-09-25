@@ -22,7 +22,7 @@ use super::super::abi::{MMAP_MIN_ADDR, PAGE_SIZE, READ_IMPLIES_EXEC, vma_flags};
 use super::super::ipc::msg::{self, Message};
 use super::super::ipc::sem::{self, SemBuf};
 use super::super::ipc::shm::{self, SHM_EXEC, SHM_RDONLY, SHM_REMAP, SHM_RND};
-use super::super::ipc::{Caller, IPC_INFO, IPC_RMID, IPC_SET, IPC_STAT};
+use super::super::ipc::{Caller, IPC_INFO, IPC_RMID, IPC_SET, IPC_STAT, UndoList};
 use super::super::process::ProcState;
 use super::super::signal::deliver::restart::ERESTARTNOHAND;
 use super::super::wait::{Resume, Wait};
@@ -293,6 +293,11 @@ pub fn semtimedop(c: &mut Ctx<'_>, id: i32, sops: u64, nsops: u32, timeout: u64)
             flg: i16::from_le_bytes([b[4], b[5]]),
         })
         .collect();
+    // find_alloc_undo: the caller's undo list exists from here on, before
+    // the set is even looked up.
+    if ops.iter().any(|o| o.flg & sem::SEM_UNDO != 0) {
+        c.t.sysvsem.get_or_insert_with(UndoList::new);
+    }
     let who = caller(c.p);
     let tid = c.t.tid;
     match sem::semop(&c.p.ipc.ns, id, &ops, &who, tid, waiting)? {
@@ -482,6 +487,19 @@ pub fn msgctl(c: &mut Ctx<'_>, id: i32, cmd: i32, buf: u64) -> SysResult {
             Ok(0)
         }
         _ => Err(Errno(EINVAL)),
+    }
+}
+
+/// `exit_sem` for a task that left its undo list while its process goes
+/// on (`unshare(CLONE_SYSVSEM)`, a thread's exit): a list's adjustments
+/// apply when its last holder leaves it. They are recorded per process, so
+/// they apply now only when no other task holds a list (`others`), every
+/// recorded adjustment then being the left list's; otherwise they wait for
+/// the process's exit.
+pub fn leave_undo_list(p: &mut ProcState, others: bool) {
+    if !others && p.ipc.sem_undo {
+        sem::exit(&p.ipc.ns, p.pid);
+        p.ipc.sem_undo = false;
     }
 }
 

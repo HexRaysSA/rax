@@ -82,6 +82,7 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     }
     // sched_fork (EAGAIN for a deadline task), then copy_thread.
     let sched = c.t.sched.forked(flags & CLONE_IO != 0)?;
+    let sysvsem = super::thread::copy_semundo(c, flags);
     if flags & CLONE_SETTLS != 0
         && c.p.abi == super::super::abi::LinuxAbi::X86_64
         && args.tls >= c.p.abi.task_size()
@@ -133,6 +134,10 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         None => {
             drop(read);
             c.t.sched = sched;
+            // With CLONE_SYSVSEM the child's list stands for the one its
+            // parent shares with it; each process applies its own
+            // adjustments at its exit.
+            c.t.sysvsem = sysvsem;
             become_child(c, &args);
             Ok(Outcome::Forked(ForkedSelf {
                 status: write,

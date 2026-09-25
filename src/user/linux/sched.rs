@@ -333,6 +333,7 @@ impl LinuxProcess {
             t.cpu.pc(),
         );
         let others = self.threads.len() > 1;
+        let undo = self.threads[idx].sysvsem.take();
         {
             let mut th = Threads::split(&mut self.threads, Some(idx));
             if others && th.current().is_some_and(|t| t.sigpending) {
@@ -360,6 +361,12 @@ impl LinuxProcess {
             }
         }
         self.threads.remove(idx);
+        // exit_sem while other threads go on (the process's exit applies
+        // what remains).
+        if undo.is_some() && others {
+            let holders = self.threads.iter().any(|t| t.sysvsem.is_some());
+            syscall::ipc::leave_undo_list(&mut self.state, holders);
+        }
         // A thread other than the leader is released as it exits: its
         // pidfds report it gone, and their pollers look again.
         if tid != self.state.pid
