@@ -103,12 +103,40 @@ fn messages_follow_do_msgsnd_and_do_msgrcv() {
             Ok((1, b"dd".to_vec()))
         );
         assert_eq!(h.err(Sysno::Msgrcv, &[id, r, u64::MAX, 0, 0]), EINVAL);
-        // MSG_COPY: its flags, then a kernel without checkpoint/restore.
+        // MSG_COPY (CONFIG_CHECKPOINT_RESTORE): its flags, then the copy
+        // of the buffer (before the queue is looked up), then the message
+        // at a position, left queued.
+        const COPY: u64 = MSG_COPY | IPC_NOWAIT;
         assert_eq!(h.err(Sysno::Msgrcv, &[id, r, 16, 0, MSG_COPY]), EINVAL);
         assert_eq!(
-            h.err(Sysno::Msgrcv, &[id, r, 16, 0, MSG_COPY | IPC_NOWAIT]),
-            ENOSYS
+            h.err(Sysno::Msgrcv, &[id, r, 16, 0, COPY | MSG_EXCEPT]),
+            EINVAL
         );
+        assert_eq!(h.err(Sysno::Msgrcv, &[id + 1, 8, 16, 0, COPY]), EFAULT);
+        assert_eq!(h.err(Sysno::Msgrcv, &[id + 1, r, 16, 0, COPY]), EINVAL);
+        assert_eq!(h.err(Sysno::Msgrcv, &[id, r, 16, 0, COPY]), ENOMSG);
+        msgbuf(&h, m, 5, b"five");
+        assert_eq!(h.call(Sysno::Msgsnd, &[id, m, 4, 0]), 0);
+        msgbuf(&h, m, 6, b"sixth");
+        assert_eq!(h.call(Sysno::Msgsnd, &[id, m, 5, 0]), 0);
+        assert_eq!(
+            rcv(&mut h, id, r, 16, 1, COPY as u64),
+            Ok((6, b"sixth".to_vec()))
+        );
+        assert_eq!(
+            rcv(&mut h, id, r, 16, 0, COPY as u64),
+            Ok((5, b"five".to_vec()))
+        );
+        assert_eq!(rcv(&mut h, id, r, 16, 2, COPY as u64), Err(ENOMSG));
+        assert_eq!(rcv(&mut h, id, r, 16, -1, COPY as u64), Err(ENOMSG));
+        // Too big: E2BIG, and with MSG_NOERROR the copy's own EINVAL.
+        assert_eq!(rcv(&mut h, id, r, 4, 1, COPY as u64), Err(E2BIG));
+        assert_eq!(
+            rcv(&mut h, id, r, 4, 1, COPY as u64 | MSG_NOERROR),
+            Err(EINVAL)
+        );
+        assert_eq!(rcv(&mut h, id, r, 16, 0, 0), Ok((5, b"five".to_vec())));
+        assert_eq!(rcv(&mut h, id, r, 16, 0, 0), Ok((6, b"sixth".to_vec())));
         // A full queue.
         msgbuf(&h, m, 1, &[7u8; 8192]);
         assert_eq!(h.call(Sysno::Msgsnd, &[id, m, 8192, 0]), 0);

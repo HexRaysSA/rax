@@ -4,8 +4,8 @@
  * full queue (EAGAIN, and a sender waiting for room); receivers waiting
  * across processes, ended by a message, a removal (EIDRM), or a handled
  * signal (EINTR, even with SA_RESTART); the sender and receiver
- * processes in the status; IPC_SET; access for another user. Values that
- * depend on other queues in the namespace are not printed. */
+ * processes in the status; IPC_SET; access for another user; MSG_COPY.
+ * Values that depend on other queues in the namespace are not printed. */
 #define _GNU_SOURCE
 #include <signal.h>
 #include <stdio.h>
@@ -65,6 +65,23 @@ static void basics(void) {
     CHECK_ERR("too-big", msgrcv(id, &buf, 2, 0, 0), E2BIG);
     CHECK("noerror-cuts", msgrcv(id, &buf, 2, 0, MSG_NOERROR) == 2 && !memcmp(buf.text, "dd", 2));
     CHECK_ERR("copy-needs-nowait", msgrcv(id, &buf, 16, 0, MSG_COPY), EINVAL);
+    /* MSG_COPY (CONFIG_CHECKPOINT_RESTORE): the copy of the buffer comes
+     * first, then the message at a position, which stays queued. */
+    CHECK_ERR("copy-except", msgrcv(id, &buf, 16, 0, MSG_COPY | IPC_NOWAIT | MSG_EXCEPT), EINVAL);
+    CHECK_ERR("copy-fault", msgrcv(id + 1, (void *)8, 16, 0, MSG_COPY | IPC_NOWAIT), EFAULT);
+    CHECK_ERR("copy-bad-id", msgrcv(id + 1, &buf, 16, 0, MSG_COPY | IPC_NOWAIT), EINVAL);
+    CHECK_ERR("copy-empty", msgrcv(id, &buf, 16, 0, MSG_COPY | IPC_NOWAIT), ENOMSG);
+    snd(id, 5, "five", 4, 0);
+    snd(id, 6, "sixth", 5, 0);
+    CHECK("copy-second", msgrcv(id, &buf, 16, 1, MSG_COPY | IPC_NOWAIT) == 5 && buf.type == 6 &&
+                             !memcmp(buf.text, "sixth", 5));
+    CHECK("copy-first", msgrcv(id, &buf, 16, 0, MSG_COPY | IPC_NOWAIT) == 4 && buf.type == 5);
+    CHECK_ERR("copy-past-end", msgrcv(id, &buf, 16, 2, MSG_COPY | IPC_NOWAIT), ENOMSG);
+    CHECK_ERR("copy-negative", msgrcv(id, &buf, 16, -1, MSG_COPY | IPC_NOWAIT), ENOMSG);
+    CHECK_ERR("copy-too-big", msgrcv(id, &buf, 4, 1, MSG_COPY | IPC_NOWAIT), E2BIG);
+    CHECK_ERR("copy-noerror", msgrcv(id, &buf, 4, 1, MSG_COPY | IPC_NOWAIT | MSG_NOERROR), EINVAL);
+    CHECK("copy-left-queued", msgrcv(id, &buf, 16, 0, 0) == 4 && buf.type == 5 &&
+                                  msgrcv(id, &buf, 16, 0, 0) == 5 && buf.type == 6);
     CHECK_ERR("negative-size", msgrcv(id, &buf, (size_t)-1, 0, 0), EINVAL);
     /* A full queue. */
     memset(buf.text, 7, sizeof buf.text);

@@ -6,8 +6,9 @@
 //! message wait, trying again, until they can, the queue is removed
 //! (`EIDRM`), or a signal ends them (`-ERESTARTNOHAND`). A waiting receiver
 //! is not handed a message as it is sent (`pipelined_send`): it finds it on
-//! its next try, and so may another receiver first. `MSG_COPY` is answered
-//! as by a kernel without `CONFIG_CHECKPOINT_RESTORE` (`ENOSYS`).
+//! its next try, and so may another receiver first. `MSG_COPY`
+//! (`CONFIG_CHECKPOINT_RESTORE`) copies the message at a position and
+//! leaves it queued.
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
@@ -297,6 +298,12 @@ pub fn send(
 /// `convert_mode` and `find_msg`: the index of the message `msgtyp` and
 /// `flags` select.
 fn find(q: &Queue, msgtyp: i64, flags: i32) -> Option<usize> {
+    // SEARCH_NUMBER: the message at that position.
+    if flags & MSG_COPY != 0 {
+        return usize::try_from(msgtyp)
+            .ok()
+            .filter(|&i| i < q.messages.len());
+    }
     if msgtyp == 0 {
         return (!q.messages.is_empty()).then_some(0);
     }
@@ -325,17 +332,31 @@ fn find(q: &Queue, msgtyp: i64, flags: i32) -> Option<usize> {
     q.messages.iter().position(|m| m.mtype == msgtyp)
 }
 
+/// What a `msgrcv` asks for.
+#[derive(Clone, Copy, Debug)]
+pub struct Want {
+    pub bufsz: u64,
+    pub msgtyp: i64,
+    pub flags: i32,
+    /// With `MSG_COPY`, the size of the copy `prepare_copy` made room for.
+    pub copy: u64,
+}
+
 /// One attempt at `do_msgrcv` after its argument checks: the message
-/// (cut to `bufsz` with `MSG_NOERROR`).
+/// (cut to `bufsz` with `MSG_NOERROR`). With `MSG_COPY` it stays queued.
 pub fn receive(
     ns: &Namespace,
     id: i32,
-    bufsz: u64,
-    msgtyp: i64,
-    flags: i32,
+    want: Want,
     who: &Caller,
     waiting: bool,
 ) -> Result<Outcome<Message>, Errno> {
+    let Want {
+        bufsz,
+        msgtyp,
+        flags,
+        copy,
+    } = want;
     ns.with_table::<MsgTable, _>(TABLE, |t| {
         let q = match t.by_id(id) {
             Ok(q) => q,
@@ -353,6 +374,15 @@ pub fn receive(
         };
         if bufsz < q.messages[i].text.len() as u64 && flags & MSG_NOERROR == 0 {
             return Err(Errno(E2BIG));
+        }
+        if flags & MSG_COPY != 0 {
+            // copy_msg: a message longer than the copy is EINVAL.
+            let mut m = q.messages[i].clone();
+            if m.text.len() as u64 > copy {
+                return Err(Errno(EINVAL));
+            }
+            m.text.truncate(bufsz.min(m.text.len() as u64) as usize);
+            return Ok(Outcome::Done(m));
         }
         let mut m = q.messages.remove(i);
         q.rtime = now();
@@ -491,7 +521,13 @@ mod tests {
                 Ok(Outcome::Done(()))
             );
         }
-        let rcv = |typ: i64, flags: i32| match receive(&n, id, 10, typ, flags, &who, false) {
+        let want = |msgtyp, flags| Want {
+            bufsz: 10,
+            msgtyp,
+            flags,
+            copy: 0,
+        };
+        let rcv = |typ: i64, flags: i32| match receive(&n, id, want(typ, flags), &who, false) {
             Ok(Outcome::Done(m)) => (m.mtype, m.text),
             r => panic!("{r:?}"),
         };
@@ -500,20 +536,73 @@ mod tests {
         assert_eq!(rcv(2, 0), (2, b"b".to_vec()));
         assert_eq!(rcv(1, MSG_EXCEPT), (3, b"c".to_vec()));
         assert_eq!(
-            receive(&n, id, 10, 5, IPC_NOWAIT, &who, false),
+            receive(&n, id, want(5, IPC_NOWAIT), &who, false),
             Err(Errno(ENOMSG))
         );
-        assert_eq!(receive(&n, id, 10, 5, 0, &who, false), Ok(Outcome::Wait));
+        assert_eq!(
+            receive(
+                &n,
+                id,
+                Want {
+                    bufsz: 10,
+                    msgtyp: 5,
+                    flags: 0,
+                    copy: 0
+                },
+                &who,
+                false
+            ),
+            Ok(Outcome::Wait)
+        );
         assert_eq!(rcv(0, 0), (1, b"d".to_vec()));
         // Too big: E2BIG, the message kept; cut with MSG_NOERROR.
         send(&n, id, &msg(9, b"hello"), 0, &who, false).unwrap();
-        assert_eq!(receive(&n, id, 3, 0, 0, &who, false), Err(Errno(E2BIG)));
         assert_eq!(
-            receive(&n, id, 3, 0, MSG_NOERROR, &who, false),
+            receive(
+                &n,
+                id,
+                Want {
+                    bufsz: 3,
+                    msgtyp: 0,
+                    flags: 0,
+                    copy: 0
+                },
+                &who,
+                false
+            ),
+            Err(Errno(E2BIG))
+        );
+        assert_eq!(
+            receive(
+                &n,
+                id,
+                Want {
+                    bufsz: 3,
+                    msgtyp: 0,
+                    flags: MSG_NOERROR,
+                    copy: 0
+                },
+                &who,
+                false
+            ),
             Ok(Outcome::Done(msg(9, b"hel")))
         );
         rmid(&n, id, &who).unwrap();
-        assert_eq!(receive(&n, id, 3, 0, 0, &who, true), Err(Errno(EIDRM)));
+        assert_eq!(
+            receive(
+                &n,
+                id,
+                Want {
+                    bufsz: 3,
+                    msgtyp: 0,
+                    flags: 0,
+                    copy: 0
+                },
+                &who,
+                true
+            ),
+            Err(Errno(EIDRM))
+        );
         let _ = std::fs::remove_dir_all(n.dir());
     }
 

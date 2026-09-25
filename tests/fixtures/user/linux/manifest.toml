@@ -174,7 +174,7 @@ sha256 = "857e3edd5a6a94069b3654c560a109cd3621543ff04cdc8be6cefc8d6882109b"
 path = "bin/x86_64/sysvmsg"
 source = "src/sysvmsg.c"
 target = "x86_64-linux-musl"
-sha256 = "c6752075a26d375d42735d00b6638d44bbe1be77aaa6ebe86cb4d8370debf8bf"
+sha256 = "e8eb67c027e8df9891f744a5e32b001e5b159ad25509ff27da3645df720343e7"
 
 [[fixture]]
 path = "bin/x86_64/seccomp"
@@ -384,7 +384,7 @@ sha256 = "ee86fb07ddb5e80a8a470dae8f95332cc243bd91b748d2c07483cdcfef70d2a8"
 path = "bin/aarch64/sysvmsg"
 source = "src/sysvmsg.c"
 target = "aarch64-linux-musl"
-sha256 = "279160374e9e9b761d653b89451136594669ecb43d4c1853d5dd500fb7c7ee5f"
+sha256 = "eb84f2c220ccc4e555582f2fc611c63e1b705fc76405a15e645c9be33bcfe97e"
 
 [[fixture]]
 path = "bin/aarch64/seccomp"
@@ -594,7 +594,7 @@ sha256 = "9891cd8b63bcff401f15c24d37423476204e3608f6f533fec05362db256606b1"
 path = "bin/riscv64/sysvmsg"
 source = "src/sysvmsg.c"
 target = "riscv64-linux-musl"
-sha256 = "bad6cdabbb9cc57f2076e3c3c1d8e394173f7c1f589614ec2765fa6a970acd4f"
+sha256 = "cd7ab426392e83dafd726e99209ad846d118a6c2003368df749bc2ebb1054c39"
 
 [[fixture]]
 path = "bin/riscv64/seccomp"

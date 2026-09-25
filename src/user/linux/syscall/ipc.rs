@@ -411,8 +411,8 @@ pub fn msgsnd(c: &mut Ctx<'_>, id: i32, msgp: u64, msgsz: u64, flags: i32) -> Sy
     }
 }
 
-/// `msgrcv` (`do_msgrcv`): the identifier and size, `MSG_COPY`'s flags,
-/// then the receive, the message's type and text copied out (a failed copy
+/// `msgrcv` (`do_msgrcv`): the identifier and size, `MSG_COPY`'s flags
+/// and its copy of the buffer, then the receive, the message's type and text copied out (a failed copy
 /// loses it, as the kernel's does).
 pub fn msgrcv(
     c: &mut Ctx<'_>,
@@ -425,16 +425,26 @@ pub fn msgrcv(
     if id < 0 || (bufsz as i64) < 0 {
         return Err(Errno(EINVAL));
     }
+    let mut copy = 0;
     if flags & msg::MSG_COPY != 0 {
         if flags & msg::MSG_EXCEPT != 0 || flags & super::super::ipc::IPC_NOWAIT == 0 {
             return Err(Errno(EINVAL));
         }
-        // prepare_copy without CONFIG_CHECKPOINT_RESTORE.
-        return Err(Errno(ENOSYS));
+        // prepare_copy (CONFIG_CHECKPOINT_RESTORE): load_msg of the
+        // buffer, at most msg_ctlmax bytes of it, before the queue is
+        // looked up.
+        copy = bufsz.min(msg::MSGMAX as u64);
+        c.read_mem(msgp, copy as usize)?;
     }
     let waiting = c.resume.take().is_some();
     let who = caller(c.p);
-    match msg::receive(&c.p.ipc.ns, id, bufsz, msgtyp, flags, &who, waiting)? {
+    let want = msg::Want {
+        bufsz,
+        msgtyp,
+        flags,
+        copy,
+    };
+    match msg::receive(&c.p.ipc.ns, id, want, &who, waiting)? {
         msg::Outcome::Done(m) => {
             c.write_u64(msgp, m.mtype as u64)?;
             c.write_mem(msgp + 8, &m.text)?;

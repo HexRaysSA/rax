@@ -10,6 +10,17 @@ ok no-message
 ok too-big
 ok noerror-cuts
 ok copy-needs-nowait
+ok copy-except
+ok copy-fault
+ok copy-bad-id
+ok copy-empty
+ok copy-second
+ok copy-first
+ok copy-past-end
+ok copy-negative
+ok copy-too-big
+ok copy-noerror
+ok copy-left-queued
 ok negative-size
 ok full
 ok stat
