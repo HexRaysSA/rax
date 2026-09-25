@@ -15,7 +15,7 @@
   generated `asm/unistd_{32,64}.h` tables.
 - Retrieved: 24 September 2026
 - Integrity: `uapi-6.19.sha256` lists the SHA-256 of every imported file.
-- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (88 files),
+- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (89 files),
   `GPL-2.0-only WITH Linux-syscall-note` (5 files), or
   `GPL-2.0+ WITH Linux-syscall-note` (11 files) SPDX identifiers. Thirteen
   files have no SPDX line: the six generated syscall tables and the
@@ -62,6 +62,8 @@ These headers are the normative reference for:
   and `struct sock_fprog` in `linux/filter.h`, the instruction encoding in
   `linux/bpf_common.h`) and the `AUDIT_ARCH_*` identifiers a filter sees
   (`linux/audit.h`);
+- inotify's event bits, watch flags, `struct inotify_event`, and
+  `INOTIFY_IOC_SETNEXTWD` (`linux/inotify.h`);
 - auxiliary-vector tags and per-architecture `AT_HWCAP` bits.
 
 `tests/suites/user/linux/abi_tables.rs` (Cargo target `user_linux`) parses the syscall and errno tables in
