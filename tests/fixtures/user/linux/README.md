@@ -53,6 +53,7 @@ every architecture and requires a byte-for-byte match.
 | `inotify` | inotify: the calls and their checks in order; the events of every file call (creation, opens, reads and vectored reads at the end of a file, writes, truncation, `fallocate`, listings, renames, links, attribute and time changes, symbolic links, FIFOs, removal) and their order; a file watching itself through removal while open and closed and through renames over another; merging; one-shot, `IN_EXCL_UNLINK`, and `IN_MASK_ADD` watches; closes at the last reference (a duplicate, a mapping, a forked child, an exit without close); a forked and an executed child's calls; an executable opened by `execve`; waiting readers, woken by a child or ended by a signal (in a directory under `/dev/shm` when there is one: an overlayfs file hands its mapping another file) |
 | `sysvmsg` | System V message queues: `msgsnd`'s and `msgrcv`'s checks in order; message types (the first, a given type, any but a type, the least type up to a bound); `E2BIG` and `MSG_NOERROR`; `ENOMSG`; a full queue (`EAGAIN`, and a sender waiting for room); receivers waiting across processes, ended by a message, a removal (`EIDRM`), or a handled signal (`EINTR`, even with `SA_RESTART`); the sender and receiver processes in the status; `MSG_STAT`, `IPC_INFO`, `MSG_INFO`, `IPC_SET`; access for another user; `MSG_COPY` (the copy of the buffer first, a message at a position left queued, `E2BIG`, and the copy's `EINVAL`) |
 | `admin` | Machine administration without privilege (the caller drops to `nobody` when root): each call's checks in the kernel's order up to its capability check (`EPERM`) for swap, `reboot`, `acct`, the host and domain names, `vhangup`, the module calls, `syslog` with `dmesg_restrict`, and `chroot`; kexec absent (`ENOSYS`); `settimeofday`, `clock_settime` (the clocks without a setter, CPU-time clocks never set), `adjtimex` (reading the NTP state; the modes' checks; the structure written back whatever the result) and `clock_adjtime` (not written back on failure); the mount calls (`mount`'s strings, options, and mount point, `umount2`'s flags and lookup, `may_mount`, `fsconfig` finding no context, the attribute sizes of `mount_setattr` and `open_tree_attr`); `open_tree` without a clone as an `O_PATH` open, taking its descriptor first. Only cases on which Linux 6.19 and the oracle's 7.0 agree are checked |
+| `mqueue` | POSIX message queues: `mq_open`'s checks in order and the namespace's limits and attributes (as `nobody` when run as root); messages by priority; the queue file (status line, position, metadata, flags); sizes, access, non-blocking calls, timeouts, and a message taken although its copy faults; `mq_unlink` and a queue living on while open; a receiver waiting in another process handed a message; a sender waiting until another process frees a slot; notification across processes (`SI_MESGQ` with the sender and value), `EBUSY`, removal by closing, and none while a receiver waits; a signal ending a wait (`EINTR`) or restarting it; `mq_getsetattr`. Queue names carry the process ID, and nothing depending on the user's other queues is printed |
 | `hostsig` | Not a recorded case: the `user_linux` `host_signals` tests send it host signals and follow its output (`siginfo` of a `kill`, a blocking `read` of standard input interrupted by a handler, death by `SIGTERM`) |
 | `signals` | Handlers with `siginfo` from `raise`/`kill`/`sigqueue`, the mask during and after a handler, `SA_NODEFER`, `SA_RESETHAND`, delivery order of several unblocked signals, real-time queueing with `sigtimedwait`, `sigsuspend`, ignored signals, `SA_ONSTACK` alternate stacks, recovering from `SIGSEGV` (MAPERR, ACCERR), `SIGBUS`, and traps with `siglongjmp`, a handler editing the saved PC to skip a faulting store, `SIGPIPE`, and `abort()` after its handler returns (status 134) |
 | `stdin` | Reading standard input to end of file |
@@ -70,7 +71,7 @@ every architecture and requires a byte-for-byte match.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 108 binaries (36 programs × 3 architectures), 3,930 KiB in total; each
+- Size: 111 binaries (37 programs × 3 architectures), 4,088 KiB in total; each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -110,7 +111,8 @@ every architecture and requires a byte-for-byte match.
   `INOTIFY_IOC_SETNEXTWD` (QEMU, `inotify`), or lacks `mount_setattr` and
   `open_tree_attr` (Rosetta, `admin`), or reads pointer arguments before
   the kernel's checks, makes `settimeofday` succeed, and lacks the module
-  and file-system context calls (QEMU, `admin`), the native AArch64
+  and file-system context calls (QEMU, `admin`), or mishandles queue names
+  and lacks `mq_notify` (QEMU, `mqueue`), the native AArch64
   result is used for architecture-independent kernel code. Rosetta has
   once, in about ten recordings, lost a stopped child continued by
   `SIGCONT` (`fork`); a recording is kept only when it matches the native

@@ -24,6 +24,7 @@
 //! holds `CAP_IPC_OWNER`, `CAP_IPC_LOCK`, and `CAP_SYS_ADMIN` when its
 //! effective user is root.
 
+pub mod mqueue;
 pub mod msg;
 pub mod sem;
 pub mod shm;
@@ -253,16 +254,8 @@ impl Namespace {
         }
     }
 
-    /// Runs `f` on table `name` under its lock, writing back what `f`
-    /// leaves unless it fails.
-    pub fn with_table<T, R>(
-        &self,
-        name: &str,
-        f: impl FnOnce(&mut T) -> Result<R, Errno>,
-    ) -> Result<R, Errno>
-    where
-        T: Table,
-    {
+    /// Runs `f` under type `name`'s lock.
+    pub fn locked<R>(&self, name: &str, f: impl FnOnce() -> Result<R, Errno>) -> Result<R, Errno> {
         self.ensure()?;
         let lock = File::options()
             .read(true)
@@ -278,6 +271,33 @@ impl Namespace {
                 return Err(Errno(EIO));
             }
         }
+        let r = f();
+        drop(lock);
+        r
+    }
+
+    /// Runs `f` on table `name` under its lock, writing back what `f`
+    /// leaves unless it fails.
+    pub fn with_table<T, R>(
+        &self,
+        name: &str,
+        f: impl FnOnce(&mut T) -> Result<R, Errno>,
+    ) -> Result<R, Errno>
+    where
+        T: Table,
+    {
+        self.locked(name, || self.table_change(name, f))
+    }
+
+    /// `with_table`'s work, under the lock.
+    fn table_change<T, R>(
+        &self,
+        name: &str,
+        f: impl FnOnce(&mut T) -> Result<R, Errno>,
+    ) -> Result<R, Errno>
+    where
+        T: Table,
+    {
         let path = self.dir.join(format!("{name}.table"));
         let mut text = String::new();
         match File::open(&path) {
@@ -299,7 +319,6 @@ impl Namespace {
                 .map_err(Errno::from)?;
             std::fs::rename(&tmp, &path).map_err(Errno::from)?;
         }
-        drop(lock);
         Ok(r)
     }
 }

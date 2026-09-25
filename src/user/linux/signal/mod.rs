@@ -101,6 +101,8 @@ pub mod code {
     pub const SI_QUEUE: i32 = -1;
     /// Sent by a POSIX timer expiring.
     pub const SI_TIMER: i32 = -2;
+    /// A message arrived on an empty POSIX message queue (`mq_notify`).
+    pub const SI_MESGQ: i32 = -3;
     /// Sent by `tkill`/`tgkill`.
     pub const SI_TKILL: i32 = -6;
     /// A child exited (`SIGCHLD`).

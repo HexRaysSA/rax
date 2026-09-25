@@ -363,6 +363,9 @@ pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
     let leader = p.pid;
     for hs in crate::user::linux::host::take_host_signals() {
         let info = match hs.sender {
+            Some((pid, uid)) if hs.code != super::code::SI_USER => {
+                SigInfo::queued(hs.sig, hs.code, pid, uid, hs.value)
+            }
             Some((pid, uid)) => SigInfo::kill(hs.sig, super::code::SI_USER, pid, uid),
             None => SigInfo::kernel(hs.sig),
         };

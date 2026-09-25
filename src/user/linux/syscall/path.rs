@@ -140,6 +140,7 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
 /// `ids` (the owner of the inodes it creates).
 pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
     match &file.object {
+        FileObject::Mqueue(h) => Ok(super::mqueue::stat(&h.get()?)),
         FileObject::Host(f) => Ok(fs::stat_from_metadata(&f.metadata()?)),
         FileObject::PathOnly => {
             let h = file.host_path.as_ref().ok_or(Errno(EBADF))?;
@@ -798,6 +799,7 @@ pub fn fchmod(c: &mut Ctx<'_>, fd: i32, perm: u32) -> SysResult {
         FileObject::PathOnly => Err(Errno(EBADF)),
         // anon_inode_setattr (pidfs_setattr calls it too).
         FileObject::Anon(_) => Err(Errno(EOPNOTSUPP)),
+        FileObject::Mqueue(h) => super::mqueue::chmod(c, h, perm),
         _ => Ok(0),
     }
 }
@@ -855,6 +857,7 @@ pub fn fchown(c: &mut Ctx<'_>, fd: i32, uid: u32, gid: u32) -> SysResult {
         FileObject::PathOnly => Err(Errno(EBADF)),
         // anon_inode_setattr.
         FileObject::Anon(_) => Err(Errno(EOPNOTSUPP)),
+        FileObject::Mqueue(h) => super::mqueue::chown(c, h, uid, gid),
         _ => Ok(0),
     }
 }

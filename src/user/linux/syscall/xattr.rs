@@ -181,6 +181,8 @@ fn file_node(file: Arc<OpenFile>, by_fd: bool) -> Result<Node, Errno> {
         FileObject::Socket(s) => pseudo(Pseudo::Socket(proto_name(s)), mode::S_IFSOCK | 0o777),
         FileObject::Anon(Anon::Pid(_)) => pseudo(Pseudo::Pid, mode::S_IFREG | 0o700),
         FileObject::Anon(_) => pseudo(Pseudo::Anon, 0o600),
+        // mqueue has no attribute handlers either.
+        FileObject::Mqueue(_) => pseudo(Pseudo::Anon, mode::S_IFREG | 0o600),
         FileObject::Synthetic(_) if file.ftype == FileType::Directory => {
             pseudo(Pseudo::Proc, mode::S_IFDIR | 0o555)
         }

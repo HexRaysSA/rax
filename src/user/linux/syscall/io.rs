@@ -1342,6 +1342,7 @@ pub fn ftruncate(c: &mut Ctx<'_>, fd: i32, len: i64) -> SysResult {
         return Err(Errno(EINVAL));
     }
     match &file.object {
+        FileObject::Mqueue(h) => super::mqueue::truncate(&file, h, len),
         FileObject::Host(f) => {
             if let Some(m) = &file.memfd {
                 m.check_resize(f.metadata()?.len(), len as u64)?;

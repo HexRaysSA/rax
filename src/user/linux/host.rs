@@ -440,6 +440,10 @@ static HOST_PENDING: AtomicU64 = AtomicU64::new(0);
 /// Per signal, the sender as `pid << 32 | uid` and a flag in bit 63's
 /// place: whether the host reported a `kill` from a process.
 static HOST_SENDER: [AtomicU64; 64] = [const { AtomicU64::new(0) }; 64];
+/// Per signal, the `si_code` and `si_value` a `rax-user` sender posted
+/// (0 for `SI_USER`).
+static HOST_CODE: [AtomicU64; 64] = [const { AtomicU64::new(0) }; 64];
+static HOST_VALUE: [AtomicU64; 64] = [const { AtomicU64::new(0) }; 64];
 /// The write end of the wake pipe (-1 before installation).
 static WAKE_WRITE: AtomicI32 = AtomicI32::new(-1);
 /// The read end of the wake pipe.
@@ -471,13 +475,18 @@ extern "C" fn on_host_signal(host: libc::c_int, info: *mut libc::siginfo_t, _: *
         unsafe { (*errno, (*info).si_code, (*info).si_pid(), (*info).si_uid()) };
     // A rax-user sender's own record first (see `sigmail`), then the
     // host's report of a process's kill.
-    let sender = super::sigmail::claim(sig)
+    let sent = super::sigmail::claim(sig);
+    let (sent_code, value) = sent.map_or((0, 0), |s| (s.code, s.value));
+    let sender = sent
+        .map(|s| s.sender)
         .or_else(|| (HOST_SI_USER.contains(&code) && pid > 0).then_some((pid, uid)));
     let packed = match sender {
         Some((pid, uid)) => (1 << 63) | ((pid as u64 & 0x7fff_ffff) << 32) | u64::from(uid),
         None => 0,
     };
     HOST_SENDER[(sig - 1) as usize].store(packed, Ordering::Relaxed);
+    HOST_CODE[(sig - 1) as usize].store(u64::from(sent_code as u32), Ordering::Relaxed);
+    HOST_VALUE[(sig - 1) as usize].store(value, Ordering::Relaxed);
     HOST_PENDING.fetch_or(1 << (sig - 1), Ordering::SeqCst);
     wake();
     // SAFETY: as above.
@@ -593,6 +602,10 @@ pub struct HostSignal {
     pub sig: i32,
     /// `(pid, uid)` of a sending process.
     pub sender: Option<(i32, u32)>,
+    /// The `si_code` a `rax-user` sender gave it (0: `SI_USER`).
+    pub code: i32,
+    /// Its `si_value`.
+    pub value: u64,
 }
 
 /// Takes the forwarded signals received since the last call, lowest number
@@ -608,6 +621,8 @@ pub fn take_host_signals() -> Vec<HostSignal> {
             HostSignal {
                 sig: i as i32 + 1,
                 sender,
+                code: HOST_CODE[i].load(Ordering::Relaxed) as u32 as i32,
+                value: HOST_VALUE[i].load(Ordering::Relaxed),
             }
         })
         .collect()
@@ -832,7 +847,21 @@ pub fn wait_child(pid: i32) -> Result<Option<(HostWait, ChildRusage)>, Errno> {
 /// `pid` through the host, its sender posted for a `rax-user` target (see
 /// [`sigmail`](super::sigmail)).
 pub fn send(pid: i32, sig: i32, sender: (i32, u32)) -> Result<(), Errno> {
-    let post = super::sigmail::post(pid, sig, sender);
+    send_sent(
+        pid,
+        sig,
+        super::sigmail::Sent {
+            sender,
+            code: 0,
+            value: 0,
+        },
+    )
+}
+
+/// Linux signal `sig` to process `pid` through the host, with the sender,
+/// `si_code`, and `si_value` of `sent` posted for a `rax-user` target.
+pub fn send_sent(pid: i32, sig: i32, sent: super::sigmail::Sent) -> Result<(), Errno> {
+    let post = super::sigmail::post_sent(pid, sig, sent);
     let r = kill(pid, sig);
     if r.is_err()
         && let Some(p) = post

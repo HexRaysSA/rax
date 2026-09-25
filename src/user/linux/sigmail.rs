@@ -8,7 +8,9 @@
 //! signal to whom, in a table every process forked from the first shares (a
 //! `MAP_SHARED` page made before any fork); the target's signal handler
 //! claims the record. The record also carries the sender's guest UID, which
-//! the host does not know.
+//! the host does not know, and the signal's `si_code` and `si_value` when
+//! the kernel would give it more than `SI_USER` (a message queue's
+//! notification: `SI_MESGQ`).
 //!
 //! A record is ignored when it is older than its target process (a PID the
 //! host reused: each process's floor is the table's stamp when it was
@@ -32,9 +34,13 @@ const BUSY: u64 = u64::MAX;
 /// How long a record waits for its signal.
 pub const TTL_MS: u64 = 2000;
 
+/// Words per slot.
+const WORDS: usize = 6;
+
 /// Word 0: the last stamp given; then per slot: state (0 free, [`BUSY`], or
-/// the record's stamp), `target << 32 | sig`, `sender pid << 32 | uid`, and
-/// the posting time in milliseconds of the monotonic clock.
+/// the record's stamp), `target << 32 | sig`, `sender pid << 32 | uid`, the
+/// posting time in milliseconds of the monotonic clock, `si_code`, and
+/// `si_value`.
 static TABLE: OnceLock<SharedWords> = OnceLock::new();
 /// This process's floor: records stamped at or below it predate it.
 static FLOOR: AtomicU64 = AtomicU64::new(0);
@@ -42,7 +48,7 @@ static FLOOR: AtomicU64 = AtomicU64::new(0);
 /// Makes the table (once, before any fork).
 pub fn init() -> Result<(), Errno> {
     if TABLE.get().is_none() {
-        let _ = TABLE.set(SharedWords::new(1 + 4 * SLOTS)?);
+        let _ = TABLE.set(SharedWords::new(1 + WORDS * SLOTS)?);
     }
     Ok(())
 }
@@ -80,14 +86,40 @@ pub struct Post {
     stamp: u64,
 }
 
-/// Posts that process `sender` (`(pid, uid)`) sends `sig` to `target`.
-/// `None` without a table or a free slot.
+/// What a claimed record says of its signal.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Sent {
+    /// The sender's `(pid, uid)`.
+    pub sender: (i32, u32),
+    /// `si_code`.
+    pub code: i32,
+    /// `si_value`.
+    pub value: u64,
+}
+
+/// Posts that process `sender` (`(pid, uid)`) sends `sig` to `target`
+/// (`SI_USER`). `None` without a table or a free slot.
 pub fn post(target: i32, sig: i32, sender: (i32, u32)) -> Option<Post> {
+    post_sent(
+        target,
+        sig,
+        Sent {
+            sender,
+            code: 0,
+            value: 0,
+        },
+    )
+}
+
+/// Posts that `sent.sender` sends `sig` to `target` with `sent`'s
+/// `si_code` and `si_value`.
+pub fn post_sent(target: i32, sig: i32, sent: Sent) -> Option<Post> {
+    let sender = sent.sender;
     let t = TABLE.get()?.words();
     let stamp = t[0].fetch_add(1, Ordering::SeqCst) + 1;
     let now = now_ms();
     for slot in 0..SLOTS {
-        let w = &t[1 + 4 * slot..5 + 4 * slot];
+        let w = &t[1 + WORDS * slot..1 + WORDS * (slot + 1)];
         let state = w[0].load(Ordering::Acquire);
         let expired = state != 0
             && state != BUSY
@@ -103,6 +135,8 @@ pub fn post(target: i32, sig: i32, sender: (i32, u32)) -> Option<Post> {
                 Ordering::Relaxed,
             );
             w[3].store(now, Ordering::Relaxed);
+            w[4].store(u64::from(sent.code as u32), Ordering::Relaxed);
+            w[5].store(sent.value, Ordering::Relaxed);
             w[0].store(stamp, Ordering::Release);
             return Some(Post { slot, stamp });
         }
@@ -113,7 +147,7 @@ pub fn post(target: i32, sig: i32, sender: (i32, u32)) -> Option<Post> {
 /// Withdraws a record whose signal was not sent.
 pub fn withdraw(p: Post) {
     if let Some(t) = TABLE.get() {
-        let _ = t.words()[1 + 4 * p.slot].compare_exchange(
+        let _ = t.words()[1 + WORDS * p.slot].compare_exchange(
             p.stamp,
             0,
             Ordering::AcqRel,
@@ -122,9 +156,9 @@ pub fn withdraw(p: Post) {
     }
 }
 
-/// Claims the oldest current record of `sig` sent to this process: its
-/// sender's `(pid, uid)`. Stale records met on the way are freed.
-pub fn claim(sig: i32) -> Option<(i32, u32)> {
+/// Claims the oldest current record of `sig` sent to this process. Stale
+/// records met on the way are freed.
+pub fn claim(sig: i32) -> Option<Sent> {
     let t = TABLE.get()?.words();
     // SAFETY: getpid has no failure mode and is async-signal-safe.
     let me = unsafe { libc::getpid() };
@@ -134,7 +168,7 @@ pub fn claim(sig: i32) -> Option<(i32, u32)> {
     loop {
         let mut best: Option<(usize, u64)> = None;
         for slot in 0..SLOTS {
-            let w = &t[1 + 4 * slot..5 + 4 * slot];
+            let w = &t[1 + WORDS * slot..1 + WORDS * (slot + 1)];
             let state = w[0].load(Ordering::Acquire);
             if state == 0 || state == BUSY || w[1].load(Ordering::Relaxed) != want {
                 continue;
@@ -148,13 +182,19 @@ pub fn claim(sig: i32) -> Option<(i32, u32)> {
             }
         }
         let (slot, state) = best?;
-        let w = &t[1 + 4 * slot..5 + 4 * slot];
+        let w = &t[1 + WORDS * slot..1 + WORDS * (slot + 1)];
         let sender = w[2].load(Ordering::Relaxed);
+        let code = w[4].load(Ordering::Relaxed) as u32 as i32;
+        let value = w[5].load(Ordering::Relaxed);
         if w[0]
             .compare_exchange(state, 0, Ordering::AcqRel, Ordering::Relaxed)
             .is_ok()
         {
-            return Some(((sender >> 32) as u32 as i32, sender as u32));
+            return Some(Sent {
+                sender: ((sender >> 32) as u32 as i32, sender as u32),
+                code,
+                value,
+            });
         }
     }
 }
@@ -175,8 +215,15 @@ mod tests {
         post(me, sig, (11, 1000)).unwrap();
         post(me, sig, (22, 2000)).unwrap();
         post(me + 1, sig, (33, 3000)).unwrap();
-        assert_eq!(claim(sig), Some((11, 1000)));
-        assert_eq!(claim(sig), Some((22, 2000)));
+        let from = |sender| {
+            Some(Sent {
+                sender,
+                code: 0,
+                value: 0,
+            })
+        };
+        assert_eq!(claim(sig), from((11, 1000)));
+        assert_eq!(claim(sig), from((22, 2000)));
         assert_eq!(claim(sig), None, "another process's record");
         // A withdrawn record is gone.
         let p = post(me, sig, (44, 4000)).unwrap();
@@ -188,7 +235,15 @@ mod tests {
         set_floor(stamp());
         assert_eq!(claim(sig), None);
         post(me, sig, (66, 6000)).unwrap();
-        assert_eq!(claim(sig), Some((66, 6000)));
+        assert_eq!(claim(sig), from((66, 6000)));
+        // A record with its code and value.
+        let mesgq = Sent {
+            sender: (77, 7000),
+            code: -3,
+            value: 0xfeed,
+        };
+        post_sent(me, sig, mesgq).unwrap();
+        assert_eq!(claim(sig), Some(mesgq));
         set_floor(old);
     }
 }

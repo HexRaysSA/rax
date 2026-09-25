@@ -35,6 +35,8 @@ mod mnt {
     pub const ANON: i32 = 6;
     /// The internal `tmpfs` of `memfd`s.
     pub const SHM: i32 = 7;
+    /// `mqueue`.
+    pub const MQUEUE: i32 = 8;
 }
 
 /// The mount ID of the file system `file` lives on.
@@ -47,6 +49,7 @@ fn mount_id(file: &OpenFile) -> i32 {
         FileObject::Socket(_) => mnt::SOCKFS,
         FileObject::Anon(Anon::Pid(_)) => mnt::PIDFS,
         FileObject::Anon(_) => mnt::ANON,
+        FileObject::Mqueue(_) => mnt::MQUEUE,
     }
 }
 
@@ -56,7 +59,9 @@ fn position(file: &OpenFile) -> i64 {
     let dir = file.state.lock().unwrap().dir.as_ref().map(|d| d.1);
     match &file.object {
         _ if file.ftype == FileType::Directory => dir.unwrap_or(0) as i64,
-        FileObject::Synthetic(_) => file.state.lock().unwrap().synth_pos as i64,
+        FileObject::Synthetic(_) | FileObject::Mqueue(_) => {
+            file.state.lock().unwrap().synth_pos as i64
+        }
         FileObject::Host(_) if matches!(file.ftype, FileType::Regular | FileType::BlockDevice) => {
             file.seek(0, 1).map_or(0, |p| p as i64)
         }

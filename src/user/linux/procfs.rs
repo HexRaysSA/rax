@@ -387,6 +387,14 @@ pub fn lookup(p: &ProcState, cur: &Thread, threads: &[&Thread], guest: &str) -> 
         "/proc/sys/kernel/pid_max" => Some(ProcEntry::File(b"4194304\n".to_vec())),
         // The kernel log needs CAP_SYSLOG for every action (syscall::admin).
         "/proc/sys/kernel/dmesg_restrict" => Some(ProcEntry::File(b"1\n".to_vec())),
+        // The namespace's message queue limits (ipc::mqueue).
+        "/proc/sys/fs/mqueue/msg_max" | "/proc/sys/fs/mqueue/msg_default" => {
+            Some(ProcEntry::File(b"10\n".to_vec()))
+        }
+        "/proc/sys/fs/mqueue/msgsize_max" | "/proc/sys/fs/mqueue/msgsize_default" => {
+            Some(ProcEntry::File(b"8192\n".to_vec()))
+        }
+        "/proc/sys/fs/mqueue/queues_max" => Some(ProcEntry::File(b"256\n".to_vec())),
         "/proc/sys/vm/overcommit_memory" => Some(ProcEntry::File(b"0\n".to_vec())),
         "/proc/sys/vm/mmap_min_addr" => Some(ProcEntry::File(b"65536\n".to_vec())),
         "/proc/sys/fs/inotify/max_user_instances"
@@ -553,9 +561,10 @@ fn thread_entry(
         _ => {
             let n = rest.strip_prefix("fd/")?.parse::<i32>().ok()?;
             let f = p.fds.get(n).ok()?;
-            let target = match &f.file.host_path {
-                Some(h) => p.vfs.guest_path_of(h),
-                None => f.file.path.clone(),
+            let target = match (&f.file.host_path, &f.file.object) {
+                (Some(h), _) => p.vfs.guest_path_of(h),
+                (None, super::fs::fd::FileObject::Mqueue(q)) => super::syscall::mqueue::link(q),
+                (None, _) => f.file.path.clone(),
             };
             Some(ProcEntry::Link(target))
         }

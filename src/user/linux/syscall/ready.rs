@@ -141,6 +141,11 @@ pub fn poll_files(c: &Ctx<'_>, files: &[(&OpenFile, u32)]) -> (Vec<Polled>, Wait
                 wait.deadline = earlier(wait.deadline, w.deadline);
             }
             FileObject::PathOnly => out[i].mask = ev::NVAL,
+            FileObject::Mqueue(h) => {
+                let (polled, w) = super::mqueue::poll(h);
+                out[i] = polled;
+                wait.deadline = earlier(wait.deadline, w.deadline);
+            }
             FileObject::Socket(s) => {
                 let mask = super::super::net::poll::mask(s);
                 let level = super::super::net::sys::inq(&s.file, s.connected_type())

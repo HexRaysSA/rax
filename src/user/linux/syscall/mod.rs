@@ -40,6 +40,7 @@ pub mod locks;
 pub mod mem;
 pub mod memfd;
 pub mod mount;
+pub mod mqueue;
 pub mod net;
 pub mod notify;
 pub mod path;
@@ -846,6 +847,27 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::DeleteModule => r(admin::delete_module(c, a[0])),
         S::Syslog => admin::syslog(c, a[0] as i32, a[1], a[2] as i32),
         S::Chroot => r(admin::chroot(c, a[0])),
+
+        // ------------------------------------------- POSIX message queues
+        S::MqOpen => r(mqueue::mq_open(
+            c,
+            a[0],
+            a[1] as i32,
+            u32::from(a[2] as u16),
+            a[3],
+        )),
+        S::MqUnlink => r(mqueue::mq_unlink(c, a[0])),
+        S::MqTimedsend => r(mqueue::mq_timedsend(
+            c,
+            fd(a[0]),
+            a[1],
+            a[2],
+            a[3] as u32,
+            a[4],
+        )),
+        S::MqTimedreceive => r(mqueue::mq_timedreceive(c, fd(a[0]), a[1], a[2], a[3], a[4])),
+        S::MqNotify => r(mqueue::mq_notify(c, fd(a[0]), a[1])),
+        S::MqGetsetattr => r(mqueue::mq_getsetattr(c, fd(a[0]), a[1], a[2])),
 
         // -------------------------------------------------------- mounts
         S::Mount => r(mount::mount(c, a[0], a[1], a[2], a[3], a[4])),

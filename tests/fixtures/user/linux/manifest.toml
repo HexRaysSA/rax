@@ -195,6 +195,12 @@ target = "x86_64-linux-musl"
 sha256 = "b78f4458bbdbba1c11d622aaa5a02e95a903cc59cf3e65f97f67d588bd96fcd5"
 
 [[fixture]]
+path = "bin/x86_64/mqueue"
+source = "src/mqueue.c"
+target = "x86_64-linux-musl"
+sha256 = "01c257a7f7247de516fdd4aa34a8b888d399686fab4c529fcb78d4fc33537005"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -411,6 +417,12 @@ target = "aarch64-linux-musl"
 sha256 = "defc82fb698c4865cd021d7b23ec4f2c94fbd521017a4658852e72b654beffe1"
 
 [[fixture]]
+path = "bin/aarch64/mqueue"
+source = "src/mqueue.c"
+target = "aarch64-linux-musl"
+sha256 = "fb29b14c31d6d2015aecc85251b90e3f92d448d59b6e766bf5cfe4e3a3a8e51d"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -625,6 +637,12 @@ path = "bin/riscv64/admin"
 source = "src/admin.c"
 target = "riscv64-linux-musl"
 sha256 = "cd31ec17c80282f0f999fa49d38de980654cc859882e7eab3b5f3a4a0aa0a797"
+
+[[fixture]]
+path = "bin/riscv64/mqueue"
+source = "src/mqueue.c"
+target = "riscv64-linux-musl"
+sha256 = "914081d5d6ef996e83fb20b6ad038d3a6fc5ec49a0fb8c31be17d6f347e4045a"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

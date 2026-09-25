@@ -36,6 +36,7 @@ sysvmsg  sysvmsg  -
 seccomp  seccomp  -
 inotify  inotify  -
 admin    admin    -
+mqueue   mqueue   -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

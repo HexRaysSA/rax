@@ -14,6 +14,7 @@ mod loader;
 mod locks;
 mod misc;
 mod mounts;
+mod mqueue;
 mod netlink;
 mod nodes;
 mod pidfd;

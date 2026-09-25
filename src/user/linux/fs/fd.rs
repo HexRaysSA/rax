@@ -62,6 +62,8 @@ pub enum FileObject {
     Anon(super::anon::Anon),
     /// A socket, whose transfers the socket calls perform.
     Socket(super::super::net::Socket),
+    /// A POSIX message queue (`ipc/mqueue.c`).
+    Mqueue(super::super::ipc::mqueue::Handle),
 }
 
 /// What kind of file an open description refers to.
@@ -283,7 +285,49 @@ impl OpenFile {
                 st.synth_pos += n as u64;
                 Ok(n)
             }
+            FileObject::Mqueue(h) => {
+                let pos = self.state.lock().unwrap().synth_pos;
+                let n = self.mq_status(h, buf, pos)?;
+                self.state.lock().unwrap().synth_pos = pos + n as u64;
+                Ok(n)
+            }
         }
+    }
+
+    /// Whether the description was opened for reading and for writing
+    /// (`FMODE_READ`, `FMODE_WRITE`): access mode 3 gives neither.
+    pub fn fmode(&self) -> (bool, bool) {
+        match self.access_mode() {
+            O_RDONLY => (true, false),
+            O_WRONLY => (false, true),
+            O_RDWR => (true, true),
+            _ => (false, false),
+        }
+    }
+
+    /// A queue file's contents from `pos` (`mqueue_read_file`: its status
+    /// line), marking the queue accessed and changed when anything is read.
+    fn mq_status(
+        &self,
+        h: &super::super::ipc::mqueue::Handle,
+        buf: &mut [u8],
+        pos: u64,
+    ) -> Result<usize, Errno> {
+        if !self.fmode().0 {
+            return Err(Errno(EBADF));
+        }
+        h.with(|q| {
+            let text = q.status().into_bytes();
+            let at = pos.min(text.len() as u64) as usize;
+            let n = buf.len().min(text.len() - at);
+            buf[..n].copy_from_slice(&text[at..at + n]);
+            if n > 0 {
+                let (sec, nsec) =
+                    super::super::host::clock_gettime(super::super::host::HostClock::Realtime);
+                q.touch(1 | 4, (sec, nsec));
+            }
+            Ok(n)
+        })
     }
 
     /// `write(2)` at the current position (or at end of file with
@@ -310,6 +354,9 @@ impl OpenFile {
             FileObject::Synthetic(_) => Err(Errno(EACCES)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             FileObject::Socket(s) => Ok((&s.file).write(data)?),
+            // No write operation (FMODE_CAN_WRITE is clear).
+            FileObject::Mqueue(_) if !self.fmode().1 => Err(Errno(EBADF)),
+            FileObject::Mqueue(_) => Err(Errno(EINVAL)),
         }
     }
 
@@ -330,6 +377,7 @@ impl OpenFile {
                 buf[..n].copy_from_slice(&data[pos..pos + n]);
                 Ok(n)
             }
+            FileObject::Mqueue(h) => self.mq_status(h, buf, offset),
             FileObject::PathOnly => Err(Errno(EBADF)),
             _ => Err(Errno(ESPIPE)),
         }
@@ -353,6 +401,8 @@ impl OpenFile {
                 Ok(f.write_at(&data[..n], offset)?)
             }
             FileObject::Synthetic(_) => Err(Errno(EACCES)),
+            FileObject::Mqueue(_) if !self.fmode().1 => Err(Errno(EBADF)),
+            FileObject::Mqueue(_) => Err(Errno(EINVAL)),
             FileObject::PathOnly => Err(Errno(EBADF)),
             _ => Err(Errno(ESPIPE)),
         }
@@ -407,6 +457,26 @@ impl OpenFile {
             }
             // pidfs has no llseek operation.
             FileObject::Anon(super::anon::Anon::Pid(_)) => Err(Errno(ESPIPE)),
+            // default_llseek, against the queue file's size.
+            FileObject::Mqueue(h) => {
+                const SEEK_DATA: u32 = 3;
+                const SEEK_HOLE: u32 = 4;
+                let size = h.get()?.size;
+                let mut st = self.state.lock().unwrap();
+                let target = match whence {
+                    SEEK_SET => Some(offset),
+                    SEEK_CUR => (st.synth_pos as i64).checked_add(offset),
+                    SEEK_END => size.checked_add(offset),
+                    SEEK_DATA if offset >= size => return Err(Errno(ENXIO)),
+                    SEEK_DATA => Some(offset),
+                    SEEK_HOLE if offset >= size => return Err(Errno(ENXIO)),
+                    SEEK_HOLE => Some(size),
+                    _ => return Err(Errno(EINVAL)),
+                };
+                let target = target.filter(|t| *t >= 0).ok_or(Errno(EINVAL))?;
+                st.synth_pos = target as u64;
+                Ok(target as u64)
+            }
             // noop_llseek: the position stays 0.
             FileObject::Anon(_) => Ok(0),
             FileObject::Synthetic(data) => {
@@ -434,6 +504,16 @@ impl OpenFile {
             FileObject::Host(f) => Some(f),
             _ => None,
         }
+    }
+}
+
+/// `filp_close`'s file-specific work as a descriptor of `file` closes:
+/// `locks_remove_posix`, and a message queue's `flush` (its notification
+/// dropped if this process registered it).
+fn filp_close(file: &OpenFile) {
+    super::locks::filp_close(file);
+    if let FileObject::Mqueue(h) = &file.object {
+        super::super::syscall::mqueue::flush(h, super::super::host::pid());
     }
 }
 
@@ -560,7 +640,7 @@ impl FdTable {
             self.slots.resize(fd + 1, None);
         }
         if let Some(old) = self.slots[fd].replace(Fd { file, cloexec }) {
-            super::locks::filp_close(&old.file);
+            filp_close(&old.file);
         }
         Ok(())
     }
@@ -575,7 +655,7 @@ impl FdTable {
             .get_mut(fd as usize)
             .and_then(Option::take)
             .ok_or(Errno(EBADF))?;
-        super::locks::filp_close(&old.file);
+        filp_close(&old.file);
         Ok(old)
     }
 
@@ -606,7 +686,7 @@ impl FdTable {
             if slot.as_ref().is_some_and(|f| f.cloexec)
                 && let Some(old) = slot.take()
             {
-                super::locks::filp_close(&old.file);
+                filp_close(&old.file);
             }
         }
     }

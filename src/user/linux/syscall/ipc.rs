@@ -36,7 +36,7 @@ const SHMLBA: u64 = PAGE_SIZE;
 const RLIMIT_MEMLOCK: usize = 8;
 
 /// The caller's credentials.
-fn caller(p: &ProcState) -> Caller {
+pub(super) fn caller(p: &ProcState) -> Caller {
     Caller {
         pid: p.pid,
         euid: p.creds.1,

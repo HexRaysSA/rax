@@ -129,7 +129,8 @@ fn set_host_nonblocking(file: &OpenFile, on: bool) -> Result<(), Errno> {
         FileObject::Synthetic(_)
         | FileObject::PathOnly
         | FileObject::Anon(_)
-        | FileObject::Socket(_) => Ok(()),
+        | FileObject::Socket(_)
+        | FileObject::Mqueue(_) => Ok(()),
     }
 }
 
