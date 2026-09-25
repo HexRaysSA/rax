@@ -52,7 +52,8 @@
   `arch/x86/entry/entry_64.S`, `arch/x86/kernel/{step,traps}.c`,
   `arch/x86/include/asm/{ptrace,traps}.h`,
   `arch/arm64/kernel/debug-monitors.c`), `arch/x86/kernel/fpu/regset.c`,
-  and `include/linux/sched/jobctl.h` came from kernel.org's
+  `include/linux/sched/jobctl.h`, and `kernel/regset.c` came from
+  kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
@@ -65,11 +66,11 @@
   asynchronous I/O files, the splice files, the process-tracing files,
   the system-call tracing and stepping files,
   `arch/x86/kernel/fpu/regset.c`, and `include/linux/sched/jobctl.h`:
-  25 September 2026)
+  25 September 2026; `kernel/regset.c`: 26 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
 - License: the files carry an SPDX identifier: `GPL-2.0` (115 files),
-  `GPL-2.0-only` (55), `GPL-2.0-or-later` (36),
+  `GPL-2.0-only` (56), `GPL-2.0-or-later` (36),
   `GPL-2.0 WITH Linux-syscall-note` (14), `GPL-2.0+` (3),
   `GPL-2.0-only WITH Linux-syscall-note` (1),
   `GPL-2.0+ WITH Linux-syscall-note` (2),
