@@ -207,6 +207,18 @@ target = "x86_64-linux-musl"
 sha256 = "840412d371f9cfa27d44e08275bafafc23d980f4403386efa6f4a89f362a7fb5"
 
 [[fixture]]
+path = "bin/x86_64/procmem"
+source = "src/procmem.c"
+target = "x86_64-linux-musl"
+sha256 = "9d06185cc34b3d3fdd00c3d63ed0974bf55e90b305c877b802d610bd00d9ad40"
+
+[[fixture]]
+path = "bin/x86_64/kcmp"
+source = "src/kcmp.c"
+target = "x86_64-linux-musl"
+sha256 = "9a33867abe272640239d76deb5915069db521348f4dcb215f230d66b143ab17d"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -435,6 +447,18 @@ target = "aarch64-linux-musl"
 sha256 = "35065bef3bad9e2c72601f97ab13d7d2888e49ddc20065139b9dcdf05d297acc"
 
 [[fixture]]
+path = "bin/aarch64/procmem"
+source = "src/procmem.c"
+target = "aarch64-linux-musl"
+sha256 = "3667d9e89f850c0ceac36fcd96e393504558f265072e476c631c2cb62fde6c1b"
+
+[[fixture]]
+path = "bin/aarch64/kcmp"
+source = "src/kcmp.c"
+target = "aarch64-linux-musl"
+sha256 = "1845561004bd893e2fa8b9f6653819987974f1513af027232257c16fe7697de2"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -661,6 +685,18 @@ path = "bin/riscv64/sched"
 source = "src/sched.c"
 target = "riscv64-linux-musl"
 sha256 = "611b3ef35c1325fc0c59ea6b79f32db54c4074b4934c2151cc182ec2b9efb5ed"
+
+[[fixture]]
+path = "bin/riscv64/procmem"
+source = "src/procmem.c"
+target = "riscv64-linux-musl"
+sha256 = "c893e65e84395185c8a1084ee35e81a4c976f6a9672cc10fe2615663601bb4c2"
+
+[[fixture]]
+path = "bin/riscv64/kcmp"
+source = "src/kcmp.c"
+target = "riscv64-linux-musl"
+sha256 = "c9b01ed0efff491709b39ce24e4c9703a1d9c35e889a44d7767dbf1bb251aab4"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

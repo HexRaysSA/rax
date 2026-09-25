@@ -55,6 +55,8 @@ every architecture and requires a byte-for-byte match.
 | `admin` | Machine administration without privilege (the caller drops to `nobody` when root): each call's checks in the kernel's order up to its capability check (`EPERM`) for swap, `reboot`, `acct`, the host and domain names, `vhangup`, the module calls, `syslog` with `dmesg_restrict`, and `chroot`; kexec absent (`ENOSYS`); `settimeofday`, `clock_settime` (the clocks without a setter, CPU-time clocks never set), `adjtimex` (reading the NTP state; the modes' checks; the structure written back whatever the result) and `clock_adjtime` (not written back on failure); the mount calls (`mount`'s strings, options, and mount point, `umount2`'s flags and lookup, `may_mount`, `fsconfig` finding no context, the attribute sizes of `mount_setattr` and `open_tree_attr`); `open_tree` without a clone as an `O_PATH` open, taking its descriptor first. Only cases on which Linux 6.19 and the oracle's 7.0 agree are checked |
 | `mqueue` | POSIX message queues: `mq_open`'s checks in order and the namespace's limits and attributes (as `nobody` when run as root); messages by priority; the queue file (status line, position, metadata, flags); sizes, access, non-blocking calls, timeouts, and a message taken although its copy faults; `mq_unlink` and a queue living on while open; a receiver waiting in another process handed a message; a sender waiting until another process frees a slot; notification across processes (`SI_MESGQ` with the sender and value), `EBUSY`, removal by closing, and none while a receiver waits; a signal ending a wait (`EINTR`) or restarting it; `mq_getsetattr`. Queue names carry the process ID, and nothing depending on the user's other queues is printed |
 | `sched` | Scheduling attributes without privilege (as `nobody` when run as root): policies and their checks in order, `sched_setattr` and `sched_getattr` (sizes, flags, the slice, keeping the policy or the parameters, `SCHED_IDLE`'s priority), nice values with `setpriority` and `getpriority` (a thread, the group, the user, a partial failure), `SCHED_RESET_ON_FORK`, inheritance by threads and children, timer slack, the priority ranges, `/proc/<pid>/task/<tid>/stat`'s priority fields, and I/O priorities. The default slice and time slices depend on the machine and are not printed |
+| `procmem` | A process's memory through a task's ID (as `nobody` when run as root): `process_vm_readv` and `process_vm_writev` (the checks in order, vector import with `access_ok` and `MAX_RW_COUNT`, transfers by page needing `VM_READ` or `VM_WRITE`, partial transfers at a remote or local fault, a thread's ID), `/proc/self/maps` and `MADV_POPULATE_READ` for mappings without `PROT_READ`, `process_madvise` (the checks, advice by vector, empty and misaligned vectors, pidfds), a leader that exited while its threads run, and init's memory, which another user may not reach |
+| `kcmp` | `kcmp` and what tasks share by their clone flags (as `nobody` when run as root): the checks in order, open file descriptions (duplicates, `O_PATH`, the index as an `unsigned int`, a total order), the address space, tables, and signal handlers threads share, I/O contexts and semaphore undo lists shared only by `CLONE_IO` and `CLONE_SYSVSEM` (bare `clone` threads, `rawthread.h`), epoll items by descriptor and offset, an exited leader, and init |
 | `hostsig` | Not a recorded case: the `user_linux` `host_signals` tests send it host signals and follow its output (`siginfo` of a `kill`, a blocking `read` of standard input interrupted by a handler, death by `SIGTERM`) |
 | `signals` | Handlers with `siginfo` from `raise`/`kill`/`sigqueue`, the mask during and after a handler, `SA_NODEFER`, `SA_RESETHAND`, delivery order of several unblocked signals, real-time queueing with `sigtimedwait`, `sigsuspend`, ignored signals, `SA_ONSTACK` alternate stacks, recovering from `SIGSEGV` (MAPERR, ACCERR), `SIGBUS`, and traps with `siglongjmp`, a handler editing the saved PC to skip a faulting store, `SIGPIPE`, and `abort()` after its handler returns (status 134) |
 | `stdin` | Reading standard input to end of file |
@@ -72,7 +74,7 @@ every architecture and requires a byte-for-byte match.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 114 binaries (38 programs × 3 architectures), 4,253 KiB in total; each
+- Size: 120 binaries (40 programs × 3 architectures), 4,808 KiB in total; each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -114,8 +116,11 @@ every architecture and requires a byte-for-byte match.
   the kernel's checks, makes `settimeofday` succeed, and lacks the module
   and file-system context calls (QEMU, `admin`), or mishandles queue names
   and lacks `mq_notify` (QEMU, `mqueue`), or converts `struct sched_attr`
-  itself and runs threads of its own in the process (QEMU, `sched`), the
-  native AArch64
+  itself and runs threads of its own in the process (QEMU, `sched`), or
+  lacks `process_madvise` (Rosetta, `procmem`), or lacks
+  `process_vm_readv` and `process_vm_writev` and populates a mapping
+  without `PROT_READ` for reading (QEMU, `procmem`), or cannot run a bare
+  `CLONE_THREAD` clone (QEMU, `kcmp`), the native AArch64
   result is used for architecture-independent kernel code. Rosetta has
   once, in about ten recordings, lost a stopped child continued by
   `SIGCONT` (`fork`); a recording is kept only when it matches the native

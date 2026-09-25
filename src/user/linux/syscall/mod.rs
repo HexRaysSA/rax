@@ -10,12 +10,18 @@
 //! | [`fcntl`] | `fcntl`, `ioctl` |
 //! | [`path`] | `open`, `stat`, directory and name operations, working directory |
 //! | [`mem`] | `brk`, `mmap` family, `madvise` |
+//! | [`procmem`] | `process_vm_readv`, `process_vm_writev`, `process_madvise` |
+//! | [`kcmp`] | `kcmp` |
 //! | [`process`] | identity, limits, `uname`, `prctl`, `arch_prctl` |
 //! | [`thread`] | `clone`/`clone3`, thread exit, `set_tid_address`, `sched_yield` |
 //! | [`futex`] | `futex`, `futex_waitv`, the `futex2` calls, robust lists |
 //! | [`time`] | clocks and sleeping |
 //! | [`signal`] | signal dispositions and masks |
 //! | [`net`] | sockets |
+//!
+//! Shared by handlers: [`iov`] imports `struct iovec` arrays as the kernel
+//! does, and [`task`] names another task and decides whether it may be
+//! inspected.
 //!
 //! A handler that must sleep records what it waits for with
 //! [`Ctx::block`]; the thread is parked and the call dispatched again,
@@ -35,7 +41,9 @@ pub mod fcntl;
 pub mod futex;
 pub mod inotify;
 pub mod io;
+pub mod iov;
 pub mod ipc;
+pub mod kcmp;
 pub mod locks;
 pub mod mem;
 pub mod memfd;
@@ -47,9 +55,11 @@ pub mod path;
 pub mod pidfd;
 pub mod priority;
 pub mod process;
+pub mod procmem;
 pub mod ready;
 pub mod seccomp;
 pub mod signal;
+pub mod task;
 pub mod thread;
 pub mod time;
 pub mod timer;
@@ -615,6 +625,40 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Mincore => r(mem::mincore(c, a[0], a[1], a[2])),
         S::RiscvFlushIcache => r(Ok(0)),
         S::MemfdCreate => r(memfd::memfd_create(c, a[0], a[1] as u32)),
+        S::ProcessVmReadv => r(procmem::process_vm_readv(
+            c,
+            a[0] as i32,
+            a[1],
+            a[2],
+            a[3],
+            a[4],
+            a[5],
+        )),
+        S::ProcessVmWritev => r(procmem::process_vm_writev(
+            c,
+            a[0] as i32,
+            a[1],
+            a[2],
+            a[3],
+            a[4],
+            a[5],
+        )),
+        S::ProcessMadvise => r(procmem::process_madvise(
+            c,
+            a[0] as i32,
+            a[1],
+            a[2],
+            a[3] as i32,
+            a[4] as u32,
+        )),
+        S::Kcmp => r(kcmp::kcmp(
+            c,
+            a[0] as i32,
+            a[1] as i32,
+            a[2] as i32,
+            a[3],
+            a[4],
+        )),
 
         // ------------------------------------------------------- process
         S::Getpid => r(Ok(c.p.pid as u64)),

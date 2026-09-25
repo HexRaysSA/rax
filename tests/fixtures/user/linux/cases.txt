@@ -38,6 +38,8 @@ inotify  inotify  -
 admin    admin    -
 mqueue   mqueue   -
 sched    sched    -
+procmem  procmem  -
+kcmp     kcmp     -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -
