@@ -42,6 +42,7 @@ f0940e848ad9996c3cf71bfa6926a1d94c86884b13909550a93916e9a48edb3a  ./arch/x86/ker
 f33e815ba09ca96e05dcf565fb244ed97bfb27a767adb41c30ef4ecec20366e5  ./block/ioprio.c
 26816f5455683e182f202f239c8e248e7955461e0326333d4110a018353aa316  ./drivers/perf/riscv_pmu_sbi.c
 5f33bf3bca249d246c2bbf85f7852e77dd65dc14e57a135a83fa03adb9dda0a9  ./drivers/tty/n_tty.c
+8c544d18addee54c37114a506dbb2f60474fcc8497cd27ceba3b1e707e7e2fd6  ./fs/aio.c
 a64ba9782cddf905c33912ab58186b2b1d82a7da3b81c1df271a99b5b0ec8037  ./fs/anon_inodes.c
 ef4e1ea099c17e02a3392791edfd6d3d1d0091f5f039ad82cfba4729154f341c  ./fs/attr.c
 559f8683d2ef397e569e7d720f9d9bb30adbc8ef1dc2f07333a3ba2036e34ec5  ./fs/binfmt_elf.c
@@ -82,6 +83,7 @@ a0cdd0c2b9feb86b8637e71e6f6250f6cb316cb2425366f08e5f8a3cf9764f21  ./fs/signalfd.
 f44749ed81e6076b27b2e68639d6e14825167cf92d0bab4580af1dcc8f13f855  ./fs/xattr.c
 35763c3ded5ab8966539b4f3096a41de2c7b7d374d9e26ad99cf32426e6ffbc5  ./include/asm-generic/param.h
 52c048b70dd2b2784623cf8241ae59770312d714baa74ffe04ce3856254a2cbd  ./include/asm-generic/seccomp.h
+fafb5acd5ce478f16c81a50a064b4f1583a61718bfaa89a74163fcabd8f4cf87  ./include/linux/aio.h
 8b4f7557c30181e3a563505079d502d0da30e1565df834d4efd5c69333a596e3  ./include/linux/entry-common.h
 3e4be8a75902ad79fb7f777a4e7e653850aa9cd592aceaf41f1ed5c905fda293  ./include/linux/eventfd.h
 33a3333977ffcffb0cb22290b9718c4359cf3939e77ea9876341fc5d664d2637  ./include/linux/file.h
@@ -124,6 +126,8 @@ cd3b5c33208c1b3ded9a6fc793837e1d1d83d98b8c884e2b314bbc2d6e89052f  ./include/linu
 52849c062488fdaaa877e7a491bec38643e732dc04baa2f6e15b365ab77eb504  ./include/uapi/asm-generic/mman-common.h
 bd9550ecdd91d875315f2c8965263e30b5457611526d7e0db69943843f536343  ./include/uapi/asm-generic/mman.h
 aebe74d8dfe3078a039a3a5faad35d9840c67e6472239e78bd8340bb6deaebfe  ./include/uapi/asm-generic/param.h
+1f149322eeb746481527a6627e2432ea384c78dee0ee309797d27886e638d352  ./include/uapi/linux/aio_abi.h
+26eb8b143da9ae1ba435f18ceb3eaad96d212f508937fc71094ccf9eb2493bb0  ./include/uapi/linux/fs.h
 b9fbd261e2893ae568f08414300cfd8f9b1cfcd7fd83c706c81b2b0eaeda61c6  ./include/uapi/linux/ioprio.h
 0e74ad59aefc2329d6d5f9bb5136efa9ee00022aa5b991c68e80e2cce8dc148a  ./include/uapi/linux/kcmp.h
 4d6c0afdcab1849321cfdca32173f649854800fe4b239307a59d9a5a65b8ac5f  ./include/uapi/linux/module.h
