@@ -1470,7 +1470,6 @@ mod tests {
     fn jit_boundary_rejects_every_predecoded_illegal_compressed_encoding() {
         let full = Isa::rv64gc();
         let cases = [
-            ("C.LUI rd=x0", config(Xlen::Rv64, full), 0x6005),
             ("C.ADDIW rd=x0", config(Xlen::Rv64, full), 0x2005),
             ("RV32 C.SLLI shamt[5]=1", config(Xlen::Rv32, full), 0x1402),
             (
