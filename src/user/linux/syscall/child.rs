@@ -509,11 +509,37 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
         }
     }
     if found.is_none() {
+        let mut reaped = None;
         for t in p.tracees.list.iter_mut().filter(|t| pick_tracee(t)) {
+            // A traced thread that exited is its tracer's to reap
+            // (wait_task_zombie for a ptraced task).
+            if let Some(status) = t.exited {
+                if flags & WEXITED == 0 {
+                    continue;
+                }
+                let (cause, si_status) = cause_of(status);
+                found = Some((
+                    Found {
+                        pid: t.tid,
+                        status,
+                        cause,
+                        si_status,
+                        rusage: (0, 0, 0),
+                    },
+                    false,
+                ));
+                if flags & WNOWAIT == 0 {
+                    reaped = Some(t.tid);
+                }
+                break;
+            }
             if let Some(f) = trapped(t) {
                 found = Some((f, false));
                 break;
             }
+        }
+        if let Some(tid) = reaped {
+            p.tracees.remove(tid);
         }
     }
     if let Some((f, exited)) = found {

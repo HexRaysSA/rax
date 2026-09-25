@@ -124,6 +124,10 @@ pub enum Outcome {
     /// In a new process (`fork`): the caller continues alone with the
     /// result 0, reporting to its parent through the status pipe.
     Forked(super::children::ForkedSelf),
+    /// Seccomp's `SECCOMP_RET_TRACE` for a tracer that asked for it: the
+    /// thread stops (`PTRACE_EVENT_SECCOMP`, the filter's data as the
+    /// message) before the call is looked at again.
+    SeccompTrace(u16),
 }
 
 /// How `restart_syscall` continues a call a signal interrupted
@@ -1026,6 +1030,10 @@ pub struct Call {
     pub resume: Option<Resume>,
     /// Another thread reported the event it slept for.
     pub woken: bool,
+    /// Seccomp looks at the call again after its tracer's
+    /// `PTRACE_EVENT_SECCOMP` stop (`recheck_after_trace`:
+    /// `SECCOMP_RET_TRACE` allows it).
+    pub recheck: bool,
 }
 
 impl Call {
@@ -1036,6 +1044,7 @@ impl Call {
             args,
             resume: None,
             woken: false,
+            recheck: false,
         }
     }
 }
@@ -1057,7 +1066,8 @@ pub fn dispatch(
     let tid = t.tid;
     let mut c = Ctx::new(p, t, peers, spawned);
     // __secure_computing: once, as the call enters.
-    if !resumed && let Some(outcome) = seccomp::entry(&mut c, nr, args, seccomp::Entry::Native) {
+    let entry = seccomp::Entry::Native;
+    if !resumed && let Some(outcome) = seccomp::entry(&mut c, nr, args, entry, call.recheck) {
         if strace {
             trace(tid, sysno, nr, &args, &outcome, false);
         }
@@ -1147,10 +1157,11 @@ pub fn dispatch_compat(
     peers: Peers<'_>,
     nr: u64,
     args: [u64; 6],
+    recheck: bool,
 ) -> Outcome {
     let mut spawned = Vec::new();
     let mut c = Ctx::new(p, t, peers, &mut spawned);
-    if let Some(outcome) = seccomp::entry(&mut c, nr, args, seccomp::Entry::Compat) {
+    if let Some(outcome) = seccomp::entry(&mut c, nr, args, seccomp::Entry::Compat, recheck) {
         return outcome;
     }
     let outcome = Outcome::Return(Errno(ENOSYS).as_return());
@@ -1206,6 +1217,7 @@ fn trace(
             format!("-1 {}", e.name())
         }
         Outcome::Return(v) | Outcome::Yield(v) => format!("{v:#x}"),
+        Outcome::SeccompTrace(_) => "? (stopped for the tracer)".into(),
         Outcome::Unchanged | Outcome::Block(..) | Outcome::Exec(_) | Outcome::Forked(_) => {
             "0".into()
         }

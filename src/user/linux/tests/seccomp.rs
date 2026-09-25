@@ -61,7 +61,7 @@ fn nr(h: &Harness, s: Sysno) -> u32 {
 }
 
 /// Returns `hit` for call `s`, `RET_ALLOW` for the others.
-fn on(h: &Harness, s: Sysno, hit: u32) -> Vec<Insn> {
+pub(super) fn on(h: &Harness, s: Sysno, hit: u32) -> Vec<Insn> {
     vec![ld(0), jeq(nr(h, s), 0, 1), ret(hit), ret(RET_ALLOW)]
 }
 
@@ -78,7 +78,7 @@ fn encode(prog: &[Insn]) -> Vec<u8> {
 
 /// Writes `prog` and its `struct sock_fprog` to `at`; returns the
 /// `sock_fprog` address.
-fn fprog(h: &Harness, at: u64, prog: &[Insn]) -> u64 {
+pub(super) fn fprog(h: &Harness, at: u64, prog: &[Insn]) -> u64 {
     let insns = at + 16;
     let mut b = (prog.len() as u16).to_le_bytes().to_vec();
     b.extend([0u8; 6]);
@@ -88,7 +88,7 @@ fn fprog(h: &Harness, at: u64, prog: &[Insn]) -> u64 {
     at
 }
 
-fn nnp(h: &mut Harness) {
+pub(super) fn nnp(h: &mut Harness) {
     h.ok(Sysno::Prctl, &[PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0]);
 }
 
@@ -577,7 +577,7 @@ fn int80_calls_are_checked_as_i386() {
     assert_eq!(install(&mut h, m, 0, &prog), 0);
     let mut compat = |nr: u64| {
         let t = &mut h.proc.threads[0];
-        dispatch_compat(&mut h.proc.state, t, Peers::none(), nr, [0; 6])
+        dispatch_compat(&mut h.proc.state, t, Peers::none(), nr, [0; 6], false)
     };
     // i386 getpid (20) is refused by the filter; other calls reach the
     // missing i386 table.
@@ -588,7 +588,7 @@ fn int80_calls_are_checked_as_i386() {
     assert_eq!(h.call(Sysno::Seccomp, &[SET_MODE_STRICT, 0, 0]), 0);
     let mut compat = |nr: u64| {
         let t = &mut h.proc.threads[0];
-        dispatch_compat(&mut h.proc.state, t, Peers::none(), nr, [0; 6])
+        dispatch_compat(&mut h.proc.state, t, Peers::none(), nr, [0; 6], false)
     };
     for nr in [3, 4, 1, 119] {
         assert_eq!(compat(nr), Outcome::Return(-(ENOSYS as i64) as u64));

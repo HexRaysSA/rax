@@ -26,14 +26,15 @@ use super::super::abi::LinuxAbi;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::ENOSYS;
 use super::super::arch::GuestCpu;
-use super::super::process::{LinuxProcess, Peers, Thread, Threads};
+use super::super::children::{exited_status, signaled_status};
+use super::super::process::{ExitStatus, LinuxProcess, Peers, Thread, Threads};
 use super::super::sched::After;
 use super::super::signal::deliver::{Dest, SyscallEntry, send_signal};
 use super::super::signal::frame::FaultUpdate;
 use super::super::signal::{SIGKILL, SIGTRAP, SigInfo, code};
 use super::super::syscall::{self, Call};
 use super::tracee as ptrace;
-use super::{StopKind, call};
+use super::{EVENT_SECCOMP, Exiting, StopKind, call};
 
 /// RISC-V's `NR_syscalls` (`asm-generic/unistd.h`'s `__NR_syscalls`): a
 /// number outside the table is no call at all.
@@ -58,6 +59,7 @@ impl LinuxProcess {
         t.syscall = Some(SyscallEntry { nr, arg0: args[0] });
         if let Some(tr) = t.ptrace.as_mut() {
             tr.compat = false;
+            self.entry_view(idx);
         }
         if self.syscall_entry_stop(idx) {
             return After::Next;
@@ -73,36 +75,43 @@ impl LinuxProcess {
         if let Some(tr) = t.ptrace.as_mut() {
             tr.compat = true;
             t.syscall = Some(SyscallEntry { nr, arg0: args[0] });
+            self.entry_view(idx);
             if self.syscall_entry_stop(idx) {
                 return After::Next;
             }
         }
-        self.compat_call(idx, nr, args)
+        self.compat_call(idx, nr, args, false)
     }
 
-    fn compat_call(&mut self, idx: usize, nr: u64, args: [u64; 6]) -> After {
+    fn compat_call(&mut self, idx: usize, nr: u64, args: [u64; 6], recheck: bool) -> After {
         let outcome = {
             let (lo, rest) = self.threads.split_at_mut(idx);
             let (t, hi) = rest.split_first_mut().expect("thread index is valid");
-            syscall::dispatch_compat(&mut self.state, t, Peers { lo, hi }, nr, args)
+            syscall::dispatch_compat(&mut self.state, t, Peers { lo, hi }, nr, args, recheck)
         };
         self.apply(idx, nr, args, outcome)
     }
 
+    /// The architecture's entry view of a traced thread's call, which its
+    /// tracer sees at any stop inside the call: `entry_SYSCALL_64`'s
+    /// `rax=$-ENOSYS` (and `do_int80_emulation`'s) and `do_trap_ecall_u`'s
+    /// `a0 = -ENOSYS`; `el0_svc_common` does it only for a user's own
+    /// `syscall(-1)`, whose `x0` would otherwise come back.
+    fn entry_view(&mut self, idx: usize) {
+        let t = &mut self.threads[idx];
+        if self.state.abi != LinuxAbi::Aarch64 || call::nr(&t.cpu, t.syscall) == -1 {
+            t.cpu.set_syscall_result(Errno(ENOSYS).as_return());
+        }
+    }
+
     /// `syscall_trace_enter`'s tracing: under `PTRACE_SYSCALL` or
-    /// `PTRACE_SYSEMU`, stops thread `idx` at its call's entry in the
-    /// architecture's entry view. True when it stopped.
+    /// `PTRACE_SYSEMU`, stops thread `idx` at its call's entry. True when
+    /// it stopped.
     fn syscall_entry_stop(&mut self, idx: usize) -> bool {
         let (p, t) = (&mut self.state, &mut self.threads[idx]);
         let mode = ptrace::mode(t);
         if !(mode.syscall || mode.emu) {
             return false;
-        }
-        // entry_SYSCALL_64's `rax=$-ENOSYS` and do_trap_ecall_u's
-        // `a0 = -ENOSYS`; el0_svc_common does it only for a user's own
-        // syscall(-1), whose x0 would otherwise come back.
-        if p.abi != LinuxAbi::Aarch64 || call::nr(&t.cpu, t.syscall) == -1 {
-            t.cpu.set_syscall_result(Errno(ENOSYS).as_return());
         }
         ptrace::syscall_stop(p, t, false);
         show_direction(t, 0);
@@ -113,11 +122,15 @@ impl LinuxProcess {
     /// it from a stop inside it: after an entry stop, the call with the
     /// number and arguments the registers now hold (skipped for -1, after
     /// a stop under `PTRACE_SYSEMU`, or when the process is dying), then
-    /// its exit work; after an event stop, the exit work.
+    /// its exit work; after an event stop, the exit work; after
+    /// `PTRACE_EVENT_SECCOMP`, the call looked at again (skipped for a
+    /// negative number); after `PTRACE_EVENT_EXIT`, the end of the thread
+    /// or the process.
     pub fn resume_in_call(&mut self, idx: usize) -> After {
         let t = &mut self.threads[idx];
         let tid = t.tid;
         let compat = t.ptrace.as_ref().is_some_and(|tr| tr.compat);
+        let exiting = t.ptrace.as_mut().and_then(|tr| tr.exiting.take());
         let Some((kind, sig)) = ptrace::take_in_call(t) else {
             return After::Stay;
         };
@@ -129,8 +142,11 @@ impl LinuxProcess {
         let dying = self.state.exit.is_some()
             || self.threads[idx].pending.contains(SIGKILL)
             || self.state.shared_pending.contains(SIGKILL);
-        let StopKind::Entry { emu } = kind else {
-            return self.after_exit_work(idx);
+        let emu = match kind {
+            StopKind::Entry { emu } => emu,
+            StopKind::Exiting => return self.finish_exit(idx, exiting),
+            StopKind::Seccomp => return self.recheck(idx, compat, dying),
+            _ => return self.after_exit_work(idx),
         };
         let t = &mut self.threads[idx];
         let nr = call::nr(&t.cpu, t.syscall);
@@ -146,11 +162,144 @@ impl LinuxProcess {
         if let Some(s) = t.syscall.as_mut() {
             s.nr = wide;
         }
+        self.make_call(idx, compat, wide, args, false)
+    }
+
+    /// Makes the call thread `idx` is in with these registers, seccomp
+    /// looking at it again after its tracer's stop when `recheck`.
+    fn make_call(
+        &mut self,
+        idx: usize,
+        compat: bool,
+        nr: u64,
+        args: [u64; 6],
+        recheck: bool,
+    ) -> After {
         if compat {
             let lo = |v: u64| v & 0xFFFF_FFFF;
-            self.compat_call(idx, lo(wide), args.map(lo))
+            self.compat_call(idx, lo(nr), args.map(lo), recheck)
         } else {
-            self.syscall(idx, Call::new(wide, args))
+            let mut call = Call::new(nr, args);
+            call.recheck = recheck;
+            self.syscall(idx, call)
+        }
+    }
+
+    /// `__seccomp_filter` after `PTRACE_EVENT_SECCOMP`: skipped when the
+    /// process is dying or the tracer made the number negative, else looked
+    /// at again with the registers the tracer left (`SECCOMP_RET_TRACE` now
+    /// allowing it).
+    fn recheck(&mut self, idx: usize, compat: bool, dying: bool) -> After {
+        let t = &mut self.threads[idx];
+        let nr = call::nr(&t.cpu, t.syscall);
+        if dying || nr < 0 {
+            return self.after_exit_work(idx);
+        }
+        let args = call::args(&t.cpu, t.syscall, compat);
+        let wide = nr as i64 as u64;
+        if let Some(s) = t.syscall.as_mut() {
+            s.nr = wide;
+        }
+        self.make_call(idx, compat, wide, args, true)
+    }
+
+    /// The event due as thread `idx`'s call finishes (clone's), before its
+    /// exit work. True when it stopped.
+    pub fn call_event(&mut self, idx: usize) -> bool {
+        let (p, t) = (&mut self.state, &mut self.threads[idx]);
+        ptrace::event_stop(p, t)
+    }
+
+    /// `PTRACE_EVENT_SECCOMP` for thread `idx`, the filter's data as the
+    /// message.
+    pub fn seccomp_stop(&mut self, idx: usize, data: u16) {
+        let (p, t) = (&mut self.state, &mut self.threads[idx]);
+        let exit = SIGTRAP | (EVENT_SECCOMP << 8);
+        ptrace::notify(p, t, exit, u64::from(data), StopKind::Seccomp);
+    }
+
+    /// `PTRACE_EVENT_EXIT` for thread `idx` leaving alone (`exit`, a
+    /// thread's seccomp death), `code` the message. True when it stopped.
+    pub fn exit_event(&mut self, idx: usize, code: i32, how: Exiting) -> bool {
+        let (p, t) = (&mut self.state, &mut self.threads[idx]);
+        if !ptrace::exit_traced(p, t) {
+            return false;
+        }
+        ptrace::exit_event(p, t, code, how);
+        true
+    }
+
+    /// `do_group_exit` for thread `idx` when its tracer stops it at
+    /// `PTRACE_EVENT_EXIT`: the other threads die at once
+    /// (`zap_other_threads`: with the group's status, and without stopping,
+    /// a fatal signal pending), then the thread stops. True when it stopped;
+    /// the thread's index may have changed.
+    pub fn group_exit_event(&mut self, idx: usize, code: i32, how: Exiting) -> bool {
+        if !ptrace::exit_traced(&self.state, &self.threads[idx]) {
+            return false;
+        }
+        let tid = self.threads[idx].tid;
+        let status = match &how {
+            Exiting::Group(c) | Exiting::Thread(c) => exited_status(*c),
+            Exiting::Killed(sig) => signaled_status(*sig, false),
+            Exiting::Signaled { info, .. } => signaled_status(info.signo, false),
+        };
+        ptrace::group_exit(&mut self.state, status);
+        let others: Vec<i32> = self
+            .threads
+            .iter()
+            .map(|t| t.tid)
+            .filter(|&t| t != tid)
+            .collect();
+        for other in others {
+            if let Some(i) = self.threads.iter().position(|t| t.tid == other) {
+                self.end_thread(i, status);
+            }
+        }
+        let idx = self
+            .threads
+            .iter()
+            .position(|t| t.tid == tid)
+            .expect("the exiting thread lives");
+        let (p, t) = (&mut self.state, &mut self.threads[idx]);
+        ptrace::exit_event(p, t, code, how);
+        true
+    }
+
+    /// The end of thread `idx` its tracer resumed from `PTRACE_EVENT_EXIT`.
+    fn finish_exit(&mut self, idx: usize, how: Option<Exiting>) -> After {
+        match how {
+            Some(Exiting::Thread(code)) => {
+                self.exit_thread(idx, code);
+                After::Gone
+            }
+            Some(Exiting::Killed(sig)) => {
+                self.end_thread(idx, signaled_status(sig, false));
+                After::Gone
+            }
+            Some(Exiting::Group(code)) => {
+                self.state.exit = Some(ExitStatus::Exited(code));
+                After::Stay
+            }
+            Some(Exiting::Signaled { info, pc, core }) => {
+                self.state.exit = Some(ExitStatus::Signaled { info, pc, core });
+                After::Stay
+            }
+            None => After::Stay,
+        }
+    }
+
+    /// `exit_notify` for the traced threads of a process that ends: each
+    /// one's tracer is told, with the process's status.
+    pub fn report_exits(&mut self) {
+        let status = match &self.state.exit {
+            Some(ExitStatus::Exited(code)) => exited_status(*code),
+            Some(ExitStatus::Signaled { info, .. }) => signaled_status(info.signo, false),
+            _ => return,
+        };
+        ptrace::group_exit(&mut self.state, status);
+        for t in &self.threads {
+            ptrace::gone(&mut self.state, t, status);
         }
     }
 

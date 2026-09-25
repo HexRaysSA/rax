@@ -59,6 +59,19 @@ pub(super) fn ask(
     payload: &[u8],
 ) -> (i64, Vec<u8>) {
     let tid = h.proc.threads[0].tid;
+    ask_on(h, tr, tid, request, addr, data, payload)
+}
+
+/// A request to thread `tid`.
+pub(super) fn ask_on(
+    h: &mut Harness,
+    tr: &mut Tracer,
+    tid: i32,
+    request: u64,
+    addr: u64,
+    data: u64,
+    payload: &[u8],
+) -> (i64, Vec<u8>) {
     let m = Msg::Request {
         tid,
         req: request,

@@ -343,6 +343,7 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     if flags & CLONE_PARENT_SETTID != 0 {
         let _ = c.write_u32(args.parent_tid, tid as u32);
     }
+    trace_child(c, &mut child, flags);
     if flags & CLONE_VFORK != 0 {
         child.vfork_parent = Some(c.t.tid);
         c.spawned.push(child);
@@ -350,6 +351,48 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     }
     c.spawned.push(child);
     Ok(Outcome::Return(tid as u64))
+}
+
+/// `ptrace_init_task` and `kernel_clone`'s event for a new thread: traced
+/// as its maker is when the maker's tracer asked for its event
+/// (`PTRACE_O_TRACECLONE`: a thread's exit signal is none) or
+/// `CLONE_PTRACE` asks, unless `CLONE_UNTRACED`; it starts with `SIGSTOP`
+/// pending (a trap when seized), its tracer is told of it, and the maker
+/// stops for the event as the call finishes. (A thread made with
+/// `CLONE_VFORK` has no event here: `PTRACE_EVENT_VFORK` comes before the
+/// maker waits, which this does not model.)
+fn trace_child(c: &mut Ctx<'_>, child: &mut Thread, flags: u64) {
+    use super::super::ptrace::{EVENT_CLONE, Msg, Traced, send, tracee};
+    use super::super::signal::{SIGSTOP, SigInfo, code};
+    let Some(tr) = c.t.ptrace.as_ref().filter(|tr| tr.tracer >= 0) else {
+        return;
+    };
+    let event = EVENT_CLONE;
+    let traced = flags & (CLONE_UNTRACED | CLONE_VFORK) == 0 && tr.event_enabled(event);
+    if !traced && flags & CLONE_PTRACE == 0 {
+        return;
+    }
+    let mut t = Traced::new(tr.tracer, tr.link, tr.seized, tr.options);
+    if tr.seized {
+        t.trap_stop = true;
+    } else {
+        // sigaddset alone: taken with no siginfo of its own (SI_USER).
+        child
+            .pending
+            .enqueue(SigInfo::kill(SIGSTOP, code::SI_USER, 0, 0));
+    }
+    child.sigpending = true;
+    child.ptrace = Some(t);
+    let (link, seized) = (tr.link, tr.seized);
+    let m = Msg::Traced {
+        tid: child.tid,
+        parent: c.t.tid,
+        seized,
+    };
+    send(c.p, link, &m);
+    if traced {
+        tracee::due_event(c.t, event, child.tid as u64);
+    }
 }
 
 /// `wait_for_vfork_done`, when the parent runs again: the child has

@@ -643,11 +643,14 @@ impl LinuxProcess {
                 continue;
             }
             let pc = t.cpu.pc();
-            p.exit = Some(ExitStatus::Signaled {
-                info,
-                pc,
-                core: default_dumps_core(sig) && sig != SIGKILL,
-            });
+            let core = default_dumps_core(sig) && sig != SIGKILL;
+            // do_group_exit: a thread its tracer stops at PTRACE_EVENT_EXIT
+            // (the exit code the signal) ends the process once resumed.
+            let how = crate::user::linux::ptrace::Exiting::Signaled { info, pc, core };
+            if sig != SIGKILL && self.group_exit_event(idx, sig, how) {
+                return Next::Traced;
+            }
+            self.state.exit = Some(ExitStatus::Signaled { info, pc, core });
             return Next::Exit;
         }
     }
@@ -700,6 +703,7 @@ impl LinuxProcess {
         }
         use restart::*;
         let restart_nr = restart_syscall_nr(&self.state);
+        let tid = self.threads[idx].tid;
         let t = &mut self.threads[idx];
         // arch_do_signal_or_restart: provisionally restart the call.
         let mut rewound = None;
@@ -722,7 +726,11 @@ impl LinuxProcess {
                 Next::Traced => {
                     // The tracer sees the call as it ended (its result, the
                     // instruction after it, orig_rax); the restart is
-                    // decided once the thread goes on.
+                    // decided once the thread goes on. (A group exit that
+                    // stopped may have ended other threads.)
+                    let Some(idx) = self.threads.iter().position(|t| t.tid == tid) else {
+                        return;
+                    };
                     let t = &mut self.threads[idx];
                     if let Some((code, continue_pc)) = rewound.take() {
                         t.cpu.set_pc(continue_pc);

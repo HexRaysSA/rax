@@ -83,14 +83,27 @@ pub mod req {
 /// `PTRACE_O_*` options and `PTRACE_O_MASK`.
 pub mod opt {
     pub const TRACESYSGOOD: u64 = 1;
+    pub const TRACEFORK: u64 = 0x2;
+    pub const TRACEVFORK: u64 = 0x4;
+    pub const TRACECLONE: u64 = 0x8;
     pub const TRACEEXEC: u64 = 0x10;
+    pub const TRACEVFORKDONE: u64 = 0x20;
+    pub const TRACEEXIT: u64 = 0x40;
+    pub const TRACESECCOMP: u64 = 0x80;
     pub const EXITKILL: u64 = 0x10_0000;
     pub const SUSPEND_SECCOMP: u64 = 0x20_0000;
     pub const MASK: u64 = 0xff | EXITKILL | SUSPEND_SECCOMP;
 }
 
-/// `PTRACE_EVENT_EXEC`.
+/// `PTRACE_EVENT_*`: an event's number, whose option is `1 << event`
+/// (`PT_EVENT_FLAG`).
+pub const EVENT_FORK: i32 = 1;
+pub const EVENT_VFORK: i32 = 2;
+pub const EVENT_CLONE: i32 = 3;
 pub const EVENT_EXEC: i32 = 4;
+pub const EVENT_VFORK_DONE: i32 = 5;
+pub const EVENT_EXIT: i32 = 6;
+pub const EVENT_SECCOMP: i32 = 7;
 /// `PTRACE_EVENT_STOP`: a seized tracee's group stop or trap.
 pub const EVENT_STOP: i32 = 128;
 
@@ -145,8 +158,17 @@ pub enum Msg {
     /// a process sends it along its link instead, and the receiver takes it
     /// as a guest signal (which a traced thread reports).
     Kill { sig: i32, pid: i32, uid: u32 },
-    /// Thread `tid` is no longer traced (it exited or was detached).
-    Gone { tid: i32 },
+    /// Thread `tid` is no longer traced: it exited, with this wait status
+    /// when its tracer is to reap it (a thread other than the leader, or a
+    /// leader whose tracer is not its parent), or was detached.
+    Gone { tid: i32, status: Option<i32> },
+    /// Thread `tid`, which thread `parent` made, is traced as its maker is
+    /// (`ptrace_init_task`: `PTRACE_O_TRACECLONE` or `CLONE_PTRACE`).
+    Traced { tid: i32, parent: i32, seized: bool },
+    /// The sender's process began a group exit with this status
+    /// (`SIGNAL_GROUP_EXIT`): its threads reaped from now on report it
+    /// (`wait_task_zombie`).
+    GroupExit { status: i32 },
     /// A request to the stopped thread `tid`; answered by a
     /// [`Msg::Reply`].
     Request {
@@ -210,9 +232,25 @@ impl Msg {
                 i32s(&mut b, *pid);
                 b.extend_from_slice(&uid.to_le_bytes());
             }
-            Msg::Gone { tid } => {
+            Msg::Gone { tid, status } => {
                 b.push(b'G');
                 i32s(&mut b, *tid);
+                b.push(u8::from(status.is_some()));
+                i32s(&mut b, status.unwrap_or(0));
+            }
+            Msg::GroupExit { status } => {
+                b.push(b'X');
+                i32s(&mut b, *status);
+            }
+            Msg::Traced {
+                tid,
+                parent,
+                seized,
+            } => {
+                b.push(b'C');
+                i32s(&mut b, *tid);
+                i32s(&mut b, *parent);
+                b.push(u8::from(*seized));
             }
             Msg::Request {
                 tid,
@@ -266,7 +304,16 @@ impl Msg {
                 pid: i32at(4)?,
                 uid: i32at(8)? as u32,
             },
-            b'G' => Msg::Gone { tid: i32at(0)? },
+            b'G' => Msg::Gone {
+                tid: i32at(0)?,
+                status: (*f.get(4)? != 0).then_some(i32at(5)?),
+            },
+            b'X' => Msg::GroupExit { status: i32at(0)? },
+            b'C' => Msg::Traced {
+                tid: i32at(0)?,
+                parent: i32at(4)?,
+                seized: *f.get(8)? != 0,
+            },
             b'Q' => Msg::Request {
                 tid: i32at(0)?,
                 req: u64at(4)?,
@@ -391,6 +438,10 @@ pub enum StopKind {
     Entry { emu: bool },
     /// A system-call-exit stop (`ptrace_report_syscall_exit`).
     Exit,
+    /// `PTRACE_EVENT_EXIT`: the thread finishes exiting once resumed.
+    Exiting,
+    /// `PTRACE_EVENT_SECCOMP`: the call is looked at again once resumed.
+    Seccomp,
 }
 
 impl StopKind {
@@ -445,6 +496,25 @@ pub struct Traced {
     pub trap_notify: bool,
     /// `JOBCTL_LISTENING`: stopped but listening (`PTRACE_LISTEN`).
     pub listening: bool,
+    /// An event stop due as the system call finishes (`ptrace_event`,
+    /// after `clone`): the event and its message.
+    pub event: Option<(i32, u64)>,
+    /// How the thread ends once resumed from `PTRACE_EVENT_EXIT`.
+    pub exiting: Option<Exiting>,
+}
+
+/// How a thread stopped at `PTRACE_EVENT_EXIT` ends.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Exiting {
+    /// `exit(code)`: the thread alone.
+    Thread(i32),
+    /// `exit_group(code)`: the process.
+    Group(i32),
+    /// Killed by `signal` alone (seccomp's `SECCOMP_RET_KILL_THREAD`).
+    Killed(i32),
+    /// The process dies of the signal `info` (its default action), the
+    /// thread at `pc`.
+    Signaled { info: SigInfo, pc: u64, core: bool },
 }
 
 impl Traced {
@@ -462,7 +532,14 @@ impl Traced {
             trap_stop: false,
             trap_notify: false,
             listening: false,
+            event: None,
+            exiting: None,
         }
+    }
+
+    /// `ptrace_event_enabled`: the option of event `event` is set.
+    pub fn event_enabled(&self, event: i32) -> bool {
+        self.options & (1 << event) != 0
     }
 
     /// A trap is pending (`JOBCTL_TRAP_MASK`).
@@ -491,6 +568,8 @@ pub struct Tracee {
     pub stopped: Option<i32>,
     /// That stop was reported by `wait`.
     pub reported: bool,
+    /// It exited with this wait status, for its tracer to reap.
+    pub exited: Option<i32>,
 }
 
 /// A tracer's tracees and the answer awaited on each link.
@@ -521,6 +600,7 @@ impl Tracees {
             seized,
             stopped: None,
             reported: false,
+            exited: None,
         });
     }
 
@@ -652,7 +732,20 @@ mod tests {
                 pid: 4,
                 uid: 1000,
             },
-            Msg::Gone { tid: 9 },
+            Msg::Gone {
+                tid: 9,
+                status: None,
+            },
+            Msg::Gone {
+                tid: 10,
+                status: Some(0x300),
+            },
+            Msg::Traced {
+                tid: 10,
+                parent: 9,
+                seized: true,
+            },
+            Msg::GroupExit { status: 0x300 },
             Msg::Request {
                 tid: 9,
                 req: req::POKEDATA,

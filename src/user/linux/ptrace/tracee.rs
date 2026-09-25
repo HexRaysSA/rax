@@ -15,9 +15,9 @@ use super::super::signal::{
 };
 use super::super::wait::Resume;
 use super::{
-    EVENT_EXEC, EVENT_STOP, EVENTMSG_SYSCALL_ENTRY, EVENTMSG_SYSCALL_EXIT, LinkId, Mode, Msg, NSIG,
-    PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, Resumption, SIGINFO, StopKind, Stopped, Traced, call,
-    link_mut, offered, opt, peer_pid, regs, req, resumes, send,
+    EVENT_EXEC, EVENT_EXIT, EVENT_STOP, EVENTMSG_SYSCALL_ENTRY, EVENTMSG_SYSCALL_EXIT, Exiting,
+    LinkId, Mode, Msg, NSIG, PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, Resumption, SIGINFO, StopKind,
+    Stopped, Traced, call, link_mut, offered, opt, peer_pid, regs, req, resumes, send,
 };
 
 /// `arch_prctl` codes `do_arch_prctl_64` takes for another task.
@@ -95,7 +95,41 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
                 t.reported = false;
             }
         }
-        Msg::Gone { tid } => p.tracees.remove(tid),
+        // A traced thread that exited is its tracer's to reap (and to be
+        // told of: do_notify_parent); a detached one is simply gone.
+        Msg::Gone {
+            tid,
+            status: Some(status),
+        } => {
+            if let Some(t) = p.tracees.get_mut(tid) {
+                t.exited = Some(status);
+                t.stopped = None;
+                let (why, si_status) = exit_cause(status);
+                let chld = p.sigactions[(SIGCHLD - 1) as usize];
+                if chld.handler != SIG_IGN {
+                    let info = SigInfo::child(why, tid, p.creds.0, si_status, 0, 0);
+                    let me = p.pid;
+                    deliver::send_signal(p, th, info, Dest::Process(me), false);
+                }
+            }
+        }
+        Msg::Gone { tid, status: None } => p.tracees.remove(tid),
+        Msg::GroupExit { status } => {
+            for t in p.tracees.list.iter_mut().filter(|t| t.link == link) {
+                if t.exited.is_some() {
+                    t.exited = Some(status);
+                }
+            }
+        }
+        // A thread its tracee made, traced by the thread tracing its maker.
+        Msg::Traced {
+            tid,
+            parent,
+            seized,
+        } => {
+            let tracer = p.tracees.get(parent).map_or(p.pid, |t| t.tracer);
+            p.tracees.add(tid, tracer, link, seized);
+        }
         Msg::Reply { ret, payload } => p.tracees.replies.push((link, ret, payload)),
         Msg::Attach {
             tid,
@@ -133,6 +167,15 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
         {
             b.woken = true;
         }
+    }
+}
+
+/// The `SIGCHLD` code and status of an exit with wait status `status`.
+fn exit_cause(status: i32) -> (i32, i32) {
+    match status & 0x7f {
+        0 => (code::CLD_EXITED, (status >> 8) & 0xff),
+        sig if status & 0x80 != 0 => (code::CLD_DUMPED, sig),
+        sig => (code::CLD_KILLED, sig),
     }
 }
 
@@ -724,7 +767,7 @@ pub fn take_verdict(p: &ProcState, t: &mut Thread) -> Option<Verdict> {
 /// Returns the kind and the signal to send (0: none).
 pub fn take_in_call(t: &mut Thread) -> Option<(StopKind, i32)> {
     let s = t.ptrace.as_ref()?.stop.as_ref()?;
-    if s.resumed.is_none() || !matches!(s.kind, StopKind::Entry { .. } | StopKind::Event) {
+    if s.resumed.is_none() || !in_call(s.kind) {
         return None;
     }
     let (s, sig, _) = take_resumed(t)?;
@@ -736,14 +779,21 @@ pub fn take_in_call(t: &mut Thread) -> Option<(StopKind, i32)> {
     Some((s.kind, send))
 }
 
+/// A stop the scheduler finishes itself: inside a system call, or on the
+/// way out of the thread.
+fn in_call(kind: StopKind) -> bool {
+    matches!(
+        kind,
+        StopKind::Entry { .. } | StopKind::Event | StopKind::Exiting | StopKind::Seccomp
+    )
+}
+
 /// Whether a thread is in a resumed stop inside a system call.
 pub fn resumed_in_call(t: &Thread) -> bool {
     t.ptrace
         .as_ref()
         .and_then(|tr| tr.stop.as_ref())
-        .is_some_and(|s| {
-            s.resumed.is_some() && matches!(s.kind, StopKind::Entry { .. } | StopKind::Event)
-        })
+        .is_some_and(|s| s.resumed.is_some() && in_call(s.kind))
 }
 
 /// `ptrace_event(PTRACE_EVENT_EXEC, old_vpid)` after a successful
@@ -760,6 +810,86 @@ pub fn exec_event(p: &mut ProcState, t: &mut Thread, old_tid: i32) {
         let info = SigInfo::kill(SIGTRAP, code::SI_USER, p.pid, p.creds.0);
         t.pending.enqueue(info);
         t.sigpending = deliver::recalc_sigpending(p, t);
+    }
+}
+
+/// Makes event `event` (with `message`) due as the thread's system call
+/// finishes, if its tracer asked for it (`ptrace_event_pid` after
+/// `clone`).
+pub fn due_event(t: &mut Thread, event: i32, message: u64) {
+    if let Some(tr) = t.ptrace.as_mut().filter(|tr| tr.event_enabled(event)) {
+        tr.event = Some((event, message));
+    }
+}
+
+/// Stops the thread for the event due as its call finishes (`SIGTRAP |
+/// event << 8`, its message). True when it stopped.
+pub fn event_stop(p: &mut ProcState, t: &mut Thread) -> bool {
+    let Some((event, message)) = t.ptrace.as_mut().and_then(|tr| tr.event.take()) else {
+        return false;
+    };
+    notify(p, t, SIGTRAP | (event << 8), message, StopKind::Event);
+    true
+}
+
+/// Whether a thread about to exit stops for `PTRACE_EVENT_EXIT`: its
+/// tracer asked for it and it is not dying of `SIGKILL` (`ptrace_stop`
+/// does not stop a thread with a fatal signal pending).
+pub fn exit_traced(p: &ProcState, t: &Thread) -> bool {
+    t.ptrace
+        .as_ref()
+        .is_some_and(|tr| tr.tracer >= 0 && tr.event_enabled(EVENT_EXIT))
+        && !t.pending.contains(SIGKILL)
+        && !p.shared_pending.contains(SIGKILL)
+}
+
+/// `ptrace_event(PTRACE_EVENT_EXIT, code)` in `do_exit`: stops the thread,
+/// the exit code (`(status & 0xff) << 8`, or the signal) as the message,
+/// keeping how it ends for its resumption.
+pub fn exit_event(p: &mut ProcState, t: &mut Thread, code: i32, how: Exiting) {
+    if let Some(tr) = t.ptrace.as_mut() {
+        tr.exiting = Some(how);
+    }
+    notify(
+        p,
+        t,
+        SIGTRAP | (EVENT_EXIT << 8),
+        code as u32 as u64,
+        StopKind::Exiting,
+    );
+}
+
+/// A traced thread ends (`exit_notify`): its tracer is told, with the wait
+/// status when the tracer is to reap it (a thread other than the leader,
+/// or a leader whose tracer is not its parent, which reaps it anyway).
+pub fn gone(p: &mut ProcState, t: &Thread, status: i32) {
+    let Some(tr) = t.ptrace.as_ref().filter(|tr| tr.tracer >= 0) else {
+        return;
+    };
+    let reaped = t.tid != p.pid || tr.link != LinkId::Parent;
+    let m = Msg::Gone {
+        tid: t.tid,
+        status: reaped.then_some(status),
+    };
+    let link = tr.link;
+    send(p, link, &m);
+}
+
+/// A group exit begins with `status` (`do_group_exit`): the tracers along
+/// every link learn of it, for the threads they have yet to reap.
+pub fn group_exit(p: &mut ProcState, status: i32) {
+    let mut links: Vec<LinkId> = p
+        .children
+        .list
+        .iter()
+        .filter(|c| c.link.is_some())
+        .map(|c| LinkId::Child(c.pid))
+        .collect();
+    if p.parent_link.is_some() {
+        links.push(LinkId::Parent);
+    }
+    for link in links {
+        send(p, link, &Msg::GroupExit { status });
     }
 }
 

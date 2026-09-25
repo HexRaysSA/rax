@@ -12,9 +12,9 @@
 //! `SECCOMP_FILTER_FLAG_TSYNC` becomes every thread's. Every filter of the
 //! chain runs on a call; the result whose action ranks lowest wins, the
 //! newest on a tie (`seccomp_run_filters`), and decides it as
-//! `__seccomp_filter` does. `SECCOMP_RET_TRACE` finds no tracer (`ENOSYS`)
-//! and `SECCOMP_RET_USER_NOTIF` no listener (`ENOSYS`), as no filter can
-//! have one here.
+//! `__seccomp_filter` does. `SECCOMP_RET_TRACE` stops for a tracer that
+//! asked for it (`ENOSYS` with none), and `SECCOMP_RET_USER_NOTIF` finds no
+//! listener (`ENOSYS`), as no filter can have one here.
 
 pub mod bpf;
 
@@ -69,6 +69,9 @@ pub enum Verdict {
     Allow,
     /// It returns this error without running.
     Errno(i32),
+    /// `SECCOMP_RET_TRACE`, with this datum: the tracer is told (or, with
+    /// none asking, it returns `ENOSYS`).
+    Trace(u16),
     /// It does not run; `SIGSYS` (`SYS_SECCOMP`) reports it, with this
     /// datum.
     Trap(u16),
@@ -168,7 +171,8 @@ impl Seccomp {
                 match ret & RET_ACTION_FULL {
                     RET_ERRNO => Verdict::Errno((ret & RET_DATA).min(MAX_ERRNO) as i32),
                     RET_TRAP => Verdict::Trap(datum),
-                    RET_TRACE | RET_USER_NOTIF => Verdict::Errno(super::abi::errno_table::ENOSYS),
+                    RET_TRACE => Verdict::Trace(datum),
+                    RET_USER_NOTIF => Verdict::Errno(super::abi::errno_table::ENOSYS),
                     RET_LOG | RET_ALLOW => Verdict::Allow,
                     RET_KILL_THREAD => Verdict::KillThread(datum),
                     // SECCOMP_RET_KILL_PROCESS, and actions the kernel does
@@ -259,7 +263,9 @@ mod tests {
         assert_eq!(v(&t, 3), Verdict::Errno(4095));
         assert_eq!(v(&t, 4), Verdict::KillThread(2));
         assert_eq!(v(&t, 5), Verdict::KillProcess(0));
-        assert_eq!(v(&t, 6), Verdict::Errno(38));
+        // SECCOMP_RET_TRACE is the tracer's (ENOSYS when none asks, as the
+        // system call decides); SECCOMP_RET_USER_NOTIF finds no listener.
+        assert_eq!(v(&t, 6), Verdict::Trace(0));
         assert_eq!(v(&t, 7), Verdict::Errno(38));
         assert_eq!(v(&t, 8), Verdict::Allow);
         assert_eq!(v(&t, 9), Verdict::KillProcess(0));

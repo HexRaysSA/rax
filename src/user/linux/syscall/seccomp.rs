@@ -70,7 +70,13 @@ fn strict_allows(abi: LinuxAbi, entry: Entry, nr: i32) -> bool {
 
 /// `__secure_computing` for call `nr` of the calling thread: `None` lets
 /// it run; otherwise the outcome that replaces it.
-pub fn entry(c: &mut Ctx<'_>, nr: u64, args: [u64; 6], entry: Entry) -> Option<Outcome> {
+pub fn entry(
+    c: &mut Ctx<'_>,
+    nr: u64,
+    args: [u64; 6],
+    entry: Entry,
+    recheck: bool,
+) -> Option<Outcome> {
     let mode = c.t.seccomp.mode;
     if mode == sc::MODE_DISABLED {
         return None;
@@ -96,9 +102,28 @@ pub fn entry(c: &mut Ctx<'_>, nr: u64, args: [u64; 6], entry: Entry) -> Option<O
     match verdict {
         Verdict::Allow => None,
         Verdict::Errno(e) => Some(Outcome::Return((-i64::from(e)) as u64)),
+        // SECCOMP_RET_TRACE: allowed when looked at again after the
+        // tracer's stop; a stop for a tracer that asked for it; else no
+        // call (ENOSYS).
+        Verdict::Trace(_) if recheck => None,
+        Verdict::Trace(datum) => {
+            let traced = c.t.ptrace.as_ref().is_some_and(|tr| {
+                tr.tracer >= 0 && tr.event_enabled(super::super::ptrace::EVENT_SECCOMP)
+            });
+            Some(if traced {
+                Outcome::SeccompTrace(datum)
+            } else {
+                Outcome::Return(Errno(ENOSYS).as_return())
+            })
+        }
         Verdict::Trap(datum) => {
-            // The handler sees the registers as they were: the call's
-            // result register is left alone (syscall_rollback).
+            // The handler sees the registers as they were
+            // (syscall_rollback: the result register gets its entry value
+            // back, which a traced thread's entry view replaced).
+            if let Some(e) = c.t.syscall {
+                let x86 = matches!(c.t.cpu, super::super::arch::GuestCpu::X86_64(_));
+                c.t.cpu.set_syscall_result(if x86 { e.nr } else { e.arg0 });
+            }
             let (p, mut th) = c.split();
             force_signal(p, &mut th, sigsys(datum), ForceMode::Current);
             Some(Outcome::Unchanged)

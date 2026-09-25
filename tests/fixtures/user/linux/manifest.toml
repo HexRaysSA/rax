@@ -279,6 +279,12 @@ target = "x86_64-linux-musl"
 sha256 = "fe0a046834e089d5d8aed801d00096880ddc0508dba6f34ad69f55d3538acb3d"
 
 [[fixture]]
+path = "bin/x86_64/ptraceevents"
+source = "src/ptraceevents.c"
+target = "x86_64-linux-musl"
+sha256 = "b72ef48185c34f0d606f37f05b2307c5962ab4871025a6a604184bfb9d3ed465"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -579,6 +585,12 @@ target = "aarch64-linux-musl"
 sha256 = "8341ea2898a0d60cf3919a64e68c212111fc82bcbe2ddf07c710b3d370059291"
 
 [[fixture]]
+path = "bin/aarch64/ptraceevents"
+source = "src/ptraceevents.c"
+target = "aarch64-linux-musl"
+sha256 = "f84a0c83a24feee895792b72c8c5ea39a7a1cd28c375a9d85ab821c417dab7e1"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -877,6 +889,12 @@ path = "bin/riscv64/ptracejobs"
 source = "src/ptracejobs.c"
 target = "riscv64-linux-musl"
 sha256 = "501b3f6fb8b39368b840661710183f4ef0c74a43e8eac246b77e0e954ce2014a"
+
+[[fixture]]
+path = "bin/riscv64/ptraceevents"
+source = "src/ptraceevents.c"
+target = "riscv64-linux-musl"
+sha256 = "55411a21c96884f4f7436a47a3f0afbef58853a4f84219b7a343e87b9a757c05"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

@@ -20,6 +20,7 @@ use super::arch::CpuEvent;
 use super::children::{exited_status, signaled_status};
 use super::futex::{self, BITSET_MATCH_ANY, FutexKey};
 use super::process::{ExitStatus, LinuxProcess, Peers, Threads};
+use super::ptrace::Exiting;
 use super::signal::SigInfo;
 use super::signal::deliver::retarget_shared_pending;
 use super::syscall::{self, Call, Outcome};
@@ -61,6 +62,10 @@ impl LinuxProcess {
                     h.exit();
                 }
             }
+            if self.state.exit.is_some() {
+                // exit_notify: tracers learn of their threads' ends.
+                self.report_exits();
+            }
             if let Some(status) = &self.state.exit {
                 if let Some(me) = self.state.forked.take() {
                     finish_forked(me, status);
@@ -97,6 +102,11 @@ impl LinuxProcess {
             if self.state.exit.is_some() {
                 continue;
             }
+            // A group exit its tracer stopped may have ended other threads.
+            let Some(idx) = self.threads.iter().position(|t| t.tid == tid) else {
+                continue;
+            };
+            current = idx;
             // Stopped for its tracer: it runs again once resumed.
             if super::ptrace::tracee::parked(&self.threads[idx]) {
                 current = idx + 1;
@@ -204,6 +214,7 @@ impl LinuxProcess {
             args: b.args,
             resume: Some(b.resume),
             woken: b.woken,
+            recheck: false,
         };
         self.syscall(idx, call)
     }
@@ -227,7 +238,8 @@ impl LinuxProcess {
         match outcome {
             Outcome::Return(value) => {
                 self.threads[idx].cpu.set_syscall_result(value);
-                if self.syscall_exit_work(idx) {
+                // An event (clone's) comes before the exit work.
+                if self.call_event(idx) || self.syscall_exit_work(idx) {
                     return After::Next;
                 }
             }
@@ -256,15 +268,28 @@ impl LinuxProcess {
                 return After::Next;
             }
             Outcome::ExitThread(code) => {
+                if self.exit_event(idx, (code & 0xff) << 8, Exiting::Thread(code)) {
+                    return After::Next;
+                }
                 self.exit_thread(idx, code);
                 return After::Gone;
             }
             Outcome::KillThread(sig) => {
+                if self.exit_event(idx, sig, Exiting::Killed(sig)) {
+                    return After::Next;
+                }
                 self.end_thread(idx, signaled_status(sig, false));
                 return After::Gone;
             }
             Outcome::ExitGroup(code) => {
+                if self.group_exit_event(idx, (code & 0xff) << 8, Exiting::Group(code)) {
+                    return After::Next;
+                }
                 self.state.exit = Some(ExitStatus::Exited(code));
+            }
+            Outcome::SeccompTrace(data) => {
+                self.seccomp_stop(idx, data);
+                return After::Next;
             }
             Outcome::Exec(image) => {
                 self.commit_exec(idx, *image.0);
@@ -341,6 +366,7 @@ impl LinuxProcess {
                 args,
                 resume: Some(b.resume),
                 woken: b.woken,
+                recheck: false,
             };
         }
     }
@@ -386,6 +412,8 @@ impl LinuxProcess {
     /// signal ending the process, when the thread is its last, as that
     /// signal would.
     pub fn end_thread(&mut self, idx: usize, status: i32) {
+        // exit_notify: its tracer learns of it.
+        super::ptrace::tracee::gone(&mut self.state, &self.threads[idx], status);
         let t = &self.threads[idx];
         let (tid, robust, clear, vfork_parent, mask, pc) = (
             t.tid,
