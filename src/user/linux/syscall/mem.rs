@@ -263,18 +263,24 @@ pub fn mmap(
                         return Err(Errno(ENOMEM));
                     }
                 }
+                // The mapping holds its file, and so its close (vm_file).
+                let keep = file
+                    .notify
+                    .get()
+                    .map(|t| t.clone() as crate::user::mm::Keep);
                 backing = if shared && file.ftype == FileType::Regular {
                     // The file's own pages (write-back and coherence).
                     let writable = file.writable() && vm_flags & vma_flags::DENY_WRITE == 0;
-                    let object =
-                        SharedObject::file(f.try_clone()?, writable).map_err(Errno::from)?;
+                    let object = SharedObject::file_keeping(f.try_clone()?, writable, keep)
+                        .map_err(Errno::from)?;
                     Backing::Shared {
                         object: Arc::new(object),
                         offset: off,
                     }
                 } else {
-                    let source: Arc<dyn PageSource> =
-                        Arc::new(HostFileSource::new(f.try_clone()?).map_err(Errno::from)?);
+                    let source: Arc<dyn PageSource> = Arc::new(
+                        HostFileSource::keeping(f.try_clone()?, keep).map_err(Errno::from)?,
+                    );
                     Backing::Source {
                         source,
                         offset: off,

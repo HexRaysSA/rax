@@ -315,6 +315,7 @@ fn bind_unix(c: &mut Ctx<'_>, s: &Socket, b: &[u8]) -> SysResult {
                 }
                 let parent = host.parent().unwrap_or(std::path::Path::new("/"));
                 std::fs::metadata(parent)?;
+                super::notify::made_and_unmade(c, &host);
                 return Err(Errno(EINVAL));
             }
             let place = name::place(&c.p.vfs, &Addr::Unix(UnixName::Path(p.clone())), true)?;
@@ -324,6 +325,8 @@ fn bind_unix(c: &mut Ctx<'_>, s: &Socket, b: &[u8]) -> SysResult {
             let mode = 0o777 & !c.p.umask;
             let _ = std::fs::set_permissions(&host, std::fs::Permissions::from_mode(mode));
             st.name = Some(UnixName::Path(p));
+            // vfs_mknod.
+            super::notify::created(c, &host, false);
             Ok(0)
         }
         UnixName::Abstract(n) => {

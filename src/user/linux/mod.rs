@@ -16,6 +16,7 @@
 //! | [`exec`] | Program images and the `execve` point of no return |
 //! | [`stack`] | Initial stack and auxiliary vector |
 //! | [`fs`] | Guest paths, the sysroot overlay, open files, descriptors |
+//! | [`fsnotify`] | File-system events and inotify instances |
 //! | [`procfs`] | Synthesized `/proc` and `/sys` entries |
 //! | [`fdinfo`] | `/proc/<pid>/fdinfo` |
 //! | [`process`] | Processes and threads |
@@ -37,6 +38,7 @@ pub mod children;
 pub mod exec;
 pub mod fdinfo;
 pub mod fs;
+pub mod fsnotify;
 pub mod futex;
 pub mod host;
 pub mod ipc;

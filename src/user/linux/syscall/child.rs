@@ -101,7 +101,17 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     }
     host::watch_children()?;
     let (read, write) = host::status_pipe()?;
-    match host::fork_process()? {
+    // The child shares the open file descriptions.
+    if let Some(h) = &c.p.fsnotify {
+        h.before_fork();
+    }
+    let forked = host::fork_process();
+    if forked.is_err()
+        && let Some(h) = &c.p.fsnotify
+    {
+        h.fork_failed();
+    }
+    match forked? {
         Some(pid) => {
             drop(write);
             let (tid, exec_id) = (c.t.tid, c.p.exec_id);
@@ -139,6 +149,10 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     super::super::fs::locks::forked();
     // Emulated netlink sockets get readiness levels of their own.
     super::super::net::netlink::forked();
+    // It holds the inotify instances its parent held.
+    if let Some(h) = &c.p.fsnotify {
+        h.forked();
+    }
     let p = &mut *c.p;
     p.pid = pid;
     // dup_mmap: the inherited System V mappings are the child's attaches.

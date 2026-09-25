@@ -126,6 +126,9 @@ pub struct OpenFile {
     pub watchers: Mutex<Vec<Watch>>,
     /// The inode state of a `memfd` (its seals).
     pub memfd: Option<Arc<super::memfd::Memfd>>,
+    /// What reports file-system events on the file, and its close when it
+    /// and its mappings are gone (the emulated notification backend).
+    pub notify: std::sync::OnceLock<Arc<super::super::fsnotify::hub::Token>>,
 }
 
 impl Drop for OpenFile {
@@ -183,6 +186,7 @@ impl OpenFile {
             peer: Mutex::new(std::sync::Weak::new()),
             watchers: Mutex::new(Vec::new()),
             memfd,
+            notify: std::sync::OnceLock::new(),
         })
     }
 

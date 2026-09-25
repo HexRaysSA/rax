@@ -56,9 +56,18 @@ impl SharedObject {
     /// A host file, mapped for writing when `writable` (the file must then
     /// be open for reading and writing).
     pub fn file(file: std::fs::File, writable: bool) -> std::io::Result<Self> {
+        Self::file_keeping(file, writable, None)
+    }
+
+    /// [`SharedObject::file`], keeping `keep` while it lives.
+    pub fn file_keeping(
+        file: std::fs::File,
+        writable: bool,
+        keep: Option<super::Keep>,
+    ) -> std::io::Result<Self> {
         Ok(SharedObject {
             identity: identity_of(&file)?,
-            file: super::mapped_file::MappedFile::new(file),
+            file: super::mapped_file::MappedFile::keeping(file, keep),
             writable,
             anonymous: false,
             sysv: None,

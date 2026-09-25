@@ -264,7 +264,9 @@ pub fn read(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
             Err(Errno(EBADF))
         };
     }
-    read_into(c, &file, buf, count, None)
+    let n = read_into(c, &file, buf, count, None)?;
+    super::notify::access(&file, n, false);
+    Ok(n)
 }
 
 /// `write`.
@@ -283,7 +285,9 @@ pub fn write(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
             Err(Errno(EBADF))
         };
     }
-    write_from(c, &file, buf, count, None)
+    let n = write_from(c, &file, buf, count, None)?;
+    super::notify::modify(&file, n);
+    Ok(n)
 }
 
 /// Scatters `data` over `iovecs`, stopping at the first fault.
@@ -331,7 +335,10 @@ pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     }
     let iovecs = read_iovecs(c, iov, cnt)?;
     let total: u64 = iovecs.iter().map(|&(_, l)| l).sum();
+    // vfs_readv: fsnotify_access for any result that is not an error,
+    // an empty transfer included.
     if total == 0 {
+        super::notify::vectored_nothing(c, &file);
         return Ok(0);
     }
     if matches!(file.object, FileObject::Anon(_)) {
@@ -345,7 +352,13 @@ pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
         return Err(Errno(EFAULT));
     }
     let data = read_bytes(c, &file, room, None)?;
-    scatter(c, &iovecs, &data)
+    let n = scatter(c, &iovecs, &data)?;
+    if n == 0 {
+        super::notify::vectored_nothing(c, &file);
+    } else {
+        super::notify::access(&file, n, true);
+    }
+    Ok(n)
 }
 
 /// `writev`: the vectors are gathered so the data reaches the file in one
@@ -383,7 +396,9 @@ pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     if data.is_empty() {
         return Ok(0);
     }
-    write_bytes(c, &file, &data, None)
+    let n = write_bytes(c, &file, &data, None)?;
+    super::notify::modify(&file, n);
+    Ok(n)
 }
 
 /// `pread64`.
@@ -395,7 +410,9 @@ pub fn pread(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, pos: i64) -> SysRes
     if matches!(file.object, FileObject::Anon(_)) {
         return Err(Errno(positional(&file)));
     }
-    read_into(c, &file, buf, count, Some(pos as u64))
+    let n = read_into(c, &file, buf, count, Some(pos as u64))?;
+    super::notify::access(&file, n, false);
+    Ok(n)
 }
 
 /// `pwrite64`.
@@ -407,7 +424,9 @@ pub fn pwrite(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, pos: i64) -> SysRe
     if matches!(file.object, FileObject::Anon(_)) {
         return Err(Errno(positional(&file)));
     }
-    write_from(c, &file, buf, count, Some(pos as u64))
+    let n = write_from(c, &file, buf, count, Some(pos as u64))?;
+    super::notify::modify(&file, n);
+    Ok(n)
 }
 
 /// Why a positioned transfer on an anonymous-inode file fails: most have
@@ -449,6 +468,11 @@ pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64
             break;
         }
     }
+    if total == 0 {
+        super::notify::vectored_nothing(c, &file);
+    } else {
+        super::notify::access(&file, total, true);
+    }
     Ok(total)
 }
 
@@ -477,6 +501,7 @@ pub fn pwritev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u6
             break;
         }
     }
+    super::notify::modify(&file, total);
     Ok(total)
 }
 
@@ -1063,7 +1088,11 @@ pub fn sendfile(c: &mut Ctx<'_>, out_fd: i32, in_fd: i32, off_ptr: u64, count: u
     }
     match stop {
         Some(e) => Err(e),
-        None => Ok(done),
+        None => {
+            super::notify::access(&input, done, false);
+            super::notify::modify(&output, done);
+            Ok(done)
+        }
     }
 }
 
@@ -1121,6 +1150,8 @@ pub fn copy_file_range(
     } else {
         output.seek(opos as i64, 0)?;
     }
+    super::notify::access(&input, done, false);
+    super::notify::modify(&output, done);
     Ok(done)
 }
 
@@ -1270,15 +1301,18 @@ pub fn getdents(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, is64: bool) -> S
             r
         };
         if out.len() + rec.len() > count as usize {
-            if out.is_empty() {
-                return Err(Errno(EINVAL));
-            }
             break;
         }
         out.extend_from_slice(&rec);
         i += 1;
     }
+    let too_small = out.is_empty() && i < entries.len();
     drop(st);
+    // iterate_dir reports the access whatever the entries' copies do.
+    super::notify::listed(&file);
+    if too_small {
+        return Err(Errno(EINVAL));
+    }
     c.write_mem(buf, &out)?;
     if let Some((_, cur)) = file.state.lock().unwrap().dir.as_mut() {
         *cur = i;
@@ -1307,6 +1341,8 @@ pub fn ftruncate(c: &mut Ctx<'_>, fd: i32, len: i64) -> SysResult {
             }
             f.set_len(len as u64)?;
             c.p.space.truncated(fs::identity(f)?, len as u64);
+            // do_truncate: ATTR_SIZE with the times.
+            super::notify::changed_file(&file, super::super::fsnotify::bits::IN_MODIFY);
             Ok(0)
         }
         _ => Err(Errno(EINVAL)),
@@ -1349,6 +1385,7 @@ pub fn fallocate(c: &mut Ctx<'_>, fd: i32, mode: u32, off: i64, len: i64) -> Sys
             if mode == 0 && size < end {
                 f.set_len(end)?;
             }
+            super::notify::allocated(&file);
             Ok(0)
         }
         _ => Err(Errno(EOPNOTSUPP)),

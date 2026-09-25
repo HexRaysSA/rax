@@ -193,6 +193,11 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
     {
         return super::pidfd::ioctl(c, t, req, arg);
     }
+    if let FileObject::Anon(super::super::fs::anon::Anon::Inotify(i)) = &file.object
+        && !matches!(req, FIOCLEX | FIONCLEX | FIONBIO)
+    {
+        return super::inotify::ioctl(c, i, req, arg);
+    }
     match req {
         FIOCLEX | FIONCLEX => {
             c.p.fds.get_mut(fd)?.cloexec = req == FIOCLEX;

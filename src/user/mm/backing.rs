@@ -85,9 +85,14 @@ pub struct HostFileSource {
 impl HostFileSource {
     /// Wraps an open host file.
     pub fn new(file: std::fs::File) -> std::io::Result<Self> {
+        Self::keeping(file, None)
+    }
+
+    /// [`HostFileSource::new`], keeping `keep` while it lives.
+    pub fn keeping(file: std::fs::File, keep: Option<super::Keep>) -> std::io::Result<Self> {
         let identity = file_identity(&file)?;
         Ok(HostFileSource {
-            file: super::mapped_file::MappedFile::new(file),
+            file: super::mapped_file::MappedFile::keeping(file, keep),
             identity,
         })
     }

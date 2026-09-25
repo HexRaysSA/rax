@@ -418,7 +418,20 @@ fn setxattr_at(
         // there is none; the others keep nothing.
         None => return Err(Errno(EOPNOTSUPP)),
     }
+    changed(c, &node);
     Ok(0)
+}
+
+/// `fsnotify_xattr`: an attribute change of the node's file.
+fn changed(c: &Ctx<'_>, node: &Node) {
+    use super::super::fsnotify::bits::IN_ATTRIB;
+    if let Node::Host { path, file, .. } = node {
+        match (file, path) {
+            (Some(f), _) => super::notify::changed_file(f, IN_ATTRIB),
+            (None, Some((p, follow))) => super::notify::changed(c, p, *follow, IN_ATTRIB),
+            (None, None) => {}
+        }
+    }
 }
 
 /// `path_getxattrat`: the value's length, the value copied to `value`
@@ -540,6 +553,7 @@ fn removexattr_at(c: &mut Ctx<'_>, dirfd: i32, path: u64, at_flags: u32, uname: 
         Some(o) => xattr::remove(o, &name)?,
         None => return Err(Errno(EOPNOTSUPP)),
     }
+    changed(c, &node);
     Ok(0)
 }
 

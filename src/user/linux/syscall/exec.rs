@@ -18,6 +18,7 @@ use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::exec::{self, BINPRM_BUF_SIZE, ImageRequest, ScriptError};
 use super::super::fs::PATH_MAX;
+use super::super::fsnotify::bits::IN_ACCESS;
 use super::super::process::SpawnError;
 use super::super::procfs::ProcEntry;
 use super::path::{AT_EMPTY_PATH, AT_FDCWD, AT_SYMLINK_NOFOLLOW, Target, resolve_str};
@@ -230,12 +231,18 @@ pub fn execveat(
     // exec_binprm: up to five interpreter rewrites.
     let mut interp = filename.clone().into_bytes();
     let mut depth = 0;
+    // open_exec: each file the handlers read is opened for execution.
+    let mut opened = super::notify::exec_open(c, &file.host);
     let bytes: std::sync::Arc<[u8]> = loop {
         if depth > 5 {
             return Err(Errno(ELOOP));
         }
         depth += 1;
         let data = std::fs::read(&file.host)?;
+        // prepare_binprm's read (and the handlers' after it).
+        if let Some(t) = &opened {
+            t.event(IN_ACCESS);
+        }
         match exec::parse_script(&data[..data.len().min(BINPRM_BUF_SIZE)]) {
             Err(ScriptError::NotScript) => break data.into(),
             Err(ScriptError::Bad) => return Err(Errno(ENOEXEC)),
@@ -260,6 +267,10 @@ pub fn execveat(
                 interp = i_name.clone();
                 let path = String::from_utf8_lossy(&i_name).into_owned();
                 file = open_exec(c, AT_FDCWD, &path, 0)?;
+                // load_script opens the interpreter, then exec_binprm
+                // releases the script.
+                let next = super::notify::exec_open(c, &file.host);
+                drop(std::mem::replace(&mut opened, next));
             }
         }
     };
@@ -281,7 +292,19 @@ pub fn execveat(
         cpu: &c.p.config.cpu,
     };
     let creds = c.p.creds;
-    let image =
+    let mut image =
         exec::load_image(request, &c.p.vfs, creds, &mut c.p.entropy).map_err(|e| load_errno(&e))?;
+    // load_elf_binary opens and reads the interpreter.
+    let interp_path = image.mm.program.interp_path.clone();
+    if let Some(p) = interp_path {
+        let host = c.p.vfs.host_path(&String::from_utf8_lossy(&p), true);
+        if let Some(t) = super::notify::exec_open(c, &host) {
+            t.event(IN_ACCESS);
+            image.keep.push(t);
+        }
+    }
+    if let Some(t) = opened {
+        image.keep.insert(0, t);
+    }
     Ok(Outcome::Exec(super::NewImage(Box::new(image))))
 }

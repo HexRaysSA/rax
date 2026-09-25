@@ -7,6 +7,7 @@ mod fdinfo;
 mod files;
 mod harness;
 mod ifreq;
+mod inotify;
 mod loader;
 mod locks;
 mod misc;

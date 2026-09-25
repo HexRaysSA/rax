@@ -44,14 +44,24 @@ fn times_of(times: Option<[Timespec; 2]>) -> Result<[SetTime; 2], Errno> {
     }))
 }
 
+/// `fsnotify_change`'s mask for times `t`.
+fn notify_mask(t: &[SetTime; 2]) -> u32 {
+    super::notify::times_mask(t[0] != SetTime::Omit, t[1] != SetTime::Omit)
+}
+
 /// Sets the times of an open file (`vfs_utimes` on its path).
-fn file_times(file: &OpenFile, t: [SetTime; 2]) -> SysResult {
+fn file_times(c: &Ctx<'_>, file: &OpenFile, t: [SetTime; 2]) -> SysResult {
     match &file.object {
-        FileObject::Host(f) => host::set_fd_times(f, t)?,
+        FileObject::Host(f) => {
+            host::set_fd_times(f, t)?;
+            super::notify::changed_file(file, notify_mask(&t));
+        }
         // An O_PATH description names its object by host path.
         FileObject::PathOnly => {
             let h = file.host_path.as_ref().ok_or(Errno(EBADF))?;
-            host::set_times(h, t, file.ftype != FileType::Symlink)?;
+            let follow = file.ftype != FileType::Symlink;
+            host::set_times(h, t, follow)?;
+            super::notify::changed(c, h, follow, notify_mask(&t));
         }
         FileObject::Anon(_) => return Err(Errno(EOPNOTSUPP)),
         FileObject::PipeRead(_)
@@ -79,7 +89,7 @@ fn do_utimes(
         if matches!(file.object, FileObject::PathOnly) {
             return Err(Errno(EBADF));
         }
-        return file_times(&file, times_of(times)?);
+        return file_times(c, &file, times_of(times)?);
     }
     if flags & !(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH) != 0 {
         return Err(Errno(EINVAL));
@@ -105,9 +115,10 @@ fn do_utimes(
     match target {
         Target::Host { host, .. } => {
             host::set_times(&host, t, follow)?;
+            super::notify::changed(c, &host, follow, notify_mask(&t));
             Ok(0)
         }
-        Target::Fd(file) => file_times(&file, t),
+        Target::Fd(file) => file_times(c, &file, t),
         Target::Proc(..) => Ok(0),
     }
 }

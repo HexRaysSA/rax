@@ -262,6 +262,24 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     s.into_bytes()
 }
 
+/// A `/proc/sys/fs/inotify` limit: the emulated backend's, or the host's
+/// when the instances are the host's.
+fn inotify_limit(p: &ProcState, path: &str) -> Vec<u8> {
+    use super::fsnotify::{hub, queue};
+    let name = path.rsplit('/').next().unwrap_or("");
+    if p.fsnotify.is_none()
+        && let Ok(v) = std::fs::read(format!("/proc/sys/fs/inotify/{name}"))
+    {
+        return v;
+    }
+    let v = match name {
+        "max_user_instances" => hub::MAX_USER_INSTANCES as u64,
+        "max_user_watches" => hub::MAX_USER_WATCHES as u64,
+        _ => queue::MAX_QUEUED,
+    };
+    format!("{v}\n").into_bytes()
+}
+
 /// `/proc/cpuinfo` for the single emulated CPU.
 pub fn cpuinfo(abi: LinuxAbi) -> Vec<u8> {
     match abi {
@@ -369,6 +387,9 @@ pub fn lookup(p: &ProcState, cur: &Thread, threads: &[&Thread], guest: &str) -> 
         "/proc/sys/kernel/pid_max" => Some(ProcEntry::File(b"4194304\n".to_vec())),
         "/proc/sys/vm/overcommit_memory" => Some(ProcEntry::File(b"0\n".to_vec())),
         "/proc/sys/vm/mmap_min_addr" => Some(ProcEntry::File(b"65536\n".to_vec())),
+        "/proc/sys/fs/inotify/max_user_instances"
+        | "/proc/sys/fs/inotify/max_user_watches"
+        | "/proc/sys/fs/inotify/max_queued_events" => Some(ProcEntry::File(inotify_limit(p, path))),
         "/proc/uptime" => {
             let (s, ns) = super::host::clock_gettime(super::host::HostClock::Monotonic);
             Some(ProcEntry::File(

@@ -183,6 +183,12 @@ target = "x86_64-linux-musl"
 sha256 = "3097f83ab79351ac8e9bddc7cba41f7f9efd4c982f3af7e0dd3bd5e6026b413b"
 
 [[fixture]]
+path = "bin/x86_64/inotify"
+source = "src/inotify.c"
+target = "x86_64-linux-musl"
+sha256 = "941e20079e2400fdc397ff2425387ccacf317df5d08168fef326b898d9e3b4e2"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -387,6 +393,12 @@ target = "aarch64-linux-musl"
 sha256 = "f1aaf2172681c014aa29d76f78f4e48de03f482f98947c02328eb736cb6e4db5"
 
 [[fixture]]
+path = "bin/aarch64/inotify"
+source = "src/inotify.c"
+target = "aarch64-linux-musl"
+sha256 = "f04c02184ef2d216ca16172e04f9efaada84773196295b5319802d4d0b1a0427"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -589,6 +601,12 @@ path = "bin/riscv64/seccomp"
 source = "src/seccomp.c"
 target = "riscv64-linux-musl"
 sha256 = "2679a20e7a8790892323b07fd93bbe7eb505e20d1ed4c8ef709eb650a6168a32"
+
+[[fixture]]
+path = "bin/riscv64/inotify"
+source = "src/inotify.c"
+target = "riscv64-linux-musl"
+sha256 = "6002f0b8606b2b4252febddb5bd68d0d44dd17ec7aee314e1f0cc6b367330ecb"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

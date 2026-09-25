@@ -198,7 +198,7 @@ pub fn identity(f: &std::fs::File) -> Result<crate::user::mm::SourceIdentity, Er
 
 /// Splits a host `dev_t` into Linux major/minor numbers.
 #[cfg(target_os = "linux")]
-fn host_dev(dev: u64) -> (u32, u32) {
+pub fn host_dev(dev: u64) -> (u32, u32) {
     // glibc gnu_dev_major/gnu_dev_minor encoding.
     let major = ((dev >> 8) & 0xfff) | ((dev >> 32) & !0xfff);
     let minor = (dev & 0xff) | ((dev >> 12) & !0xff);
@@ -208,7 +208,7 @@ fn host_dev(dev: u64) -> (u32, u32) {
 /// Splits a host `dev_t` into major/minor numbers (BSD encoding:
 /// major in bits 24..31, minor in bits 0..23).
 #[cfg(not(target_os = "linux"))]
-fn host_dev(dev: u64) -> (u32, u32) {
+pub fn host_dev(dev: u64) -> (u32, u32) {
     (((dev >> 24) & 0xff) as u32, (dev & 0xff_ffff) as u32)
 }
 

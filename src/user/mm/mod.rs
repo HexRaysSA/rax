@@ -49,7 +49,7 @@ mod tests;
 
 pub use arena::{EXTENT, FrameArena};
 pub use backing::{Backing, BytesSource, HostFileSource, PageSource, SourceIdentity};
-pub use mapped_file::set_retire;
+pub use mapped_file::{Keep, set_retire};
 pub use shared::{SharedObject, anonymous_file};
 pub use vma::{Vma, VmaMap};
 

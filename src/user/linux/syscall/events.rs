@@ -180,7 +180,7 @@ fn access_ok(c: &Ctx<'_>, addr: u64, len: u64) -> bool {
 /// Copies `data` to the destination vectors from byte `at` on
 /// (`copy_to_iter`), stopping at the first fault; returns the bytes
 /// copied.
-fn copy_out(c: &Ctx<'_>, vecs: &[(u64, u64)], mut at: u64, data: &[u8]) -> u64 {
+pub(super) fn copy_out(c: &Ctx<'_>, vecs: &[(u64, u64)], mut at: u64, data: &[u8]) -> u64 {
     let mut done = 0u64;
     for &(base, len) in vecs {
         if at >= len {
@@ -219,7 +219,7 @@ fn nonblocking(file: &OpenFile) -> bool {
 
 /// Sleeps in a read or write that must wait, or ends it: `EAGAIN` without
 /// blocking, `-ERESTARTSYS` with a signal pending.
-fn wait_or(c: &mut Ctx<'_>, file: &OpenFile, wait: Wait) -> Errno {
+pub(super) fn wait_or(c: &mut Ctx<'_>, file: &OpenFile, wait: Wait) -> Errno {
     if nonblocking(file) {
         return Errno(EAGAIN);
     }
@@ -270,6 +270,7 @@ pub fn read(c: &mut Ctx<'_>, file: &OpenFile, vecs: &[(u64, u64)]) -> SysResult 
             }
         }
         Anon::Epoll(_) | Anon::Pid(_) => Err(Errno(EINVAL)),
+        Anon::Inotify(_) => super::inotify::read(c, file, vecs),
         Anon::Signal(s) => {
             let count = len / SIGNALFD_SIZE;
             if count == 0 {
@@ -484,6 +485,7 @@ pub fn poll(c: &Ctx<'_>, anon: &Anon, events: u32) -> (Polled, Wait) {
     match anon {
         Anon::Epoll(ep) => return super::epoll::poll_instance(c, ep, events),
         Anon::Pid(t) => return super::pidfd::poll(c, t),
+        Anon::Inotify(i) => return super::inotify::poll(i, events),
         Anon::Event(ev) => {
             let (r, w, err) = ev.poll();
             if r {

@@ -32,12 +32,14 @@ pub mod events;
 pub mod exec;
 pub mod fcntl;
 pub mod futex;
+pub mod inotify;
 pub mod io;
 pub mod ipc;
 pub mod locks;
 pub mod mem;
 pub mod memfd;
 pub mod net;
+pub mod notify;
 pub mod path;
 pub mod pidfd;
 pub mod process;
@@ -687,6 +689,10 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         // ----------------------------------- event, timer, signal files
         S::Eventfd => r(events::eventfd2(c, a[0] as u32, 0)),
         S::Eventfd2 => r(events::eventfd2(c, a[0] as u32, a[1] as u32)),
+        S::InotifyInit => r(inotify::init1(c, 0)),
+        S::InotifyInit1 => r(inotify::init1(c, a[0] as u32)),
+        S::InotifyAddWatch => r(inotify::add_watch(c, fd(a[0]), a[1], a[2] as u32)),
+        S::InotifyRmWatch => r(inotify::rm_watch(c, fd(a[0]), a[1] as i32)),
         S::TimerfdCreate => r(events::timerfd_create(c, a[0] as i32, a[1] as u32)),
         S::TimerfdSettime => r(events::timerfd_settime(
             c,

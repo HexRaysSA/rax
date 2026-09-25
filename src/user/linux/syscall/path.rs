@@ -10,6 +10,7 @@ use super::super::abi::open::*;
 use super::super::abi::types::{Stat, Timespec, mode};
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::fs::{self, join_guest};
+use super::super::fsnotify::bits::{IN_ATTRIB, IN_MODIFY};
 use super::super::procfs::{self, ProcEntry};
 use super::{Ctx, SysResult};
 
@@ -373,17 +374,22 @@ fn open_target(
             if flags & O_TRUNC != 0 && file.metadata().is_ok_and(|m| m.is_file()) {
                 c.p.space.truncated(fs::identity(&file)?, 0);
             }
-            let ftype = fs::file_type_of(&file.metadata()?);
+            let meta = file.metadata()?;
+            let ftype = fs::file_type_of(&meta);
             if flags & layout.directory != 0 && ftype != FileType::Directory {
                 return Err(Errno(ENOTDIR));
             }
-            Ok(OpenFile::new(
+            let open = OpenFile::new(
                 FileObject::Host(file),
                 ftype,
                 guest,
-                Some(host),
+                Some(host.clone()),
                 status,
-            ))
+            );
+            // handle_truncate follows the open of an existing regular file.
+            let truncated = flags & O_TRUNC != 0 && !creates && ftype == FileType::Regular;
+            super::notify::opened(c, &open, &host, &meta, creates, truncated, false);
+            Ok(open)
         }
     }
 }
@@ -600,6 +606,7 @@ pub fn mkdirat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32) -> SysResult {
     let bits = perm & 0o7777 & !c.p.umask;
     std::fs::DirBuilder::new().mode(bits).create(&host)?;
     fs::created_mode(&host, bits)?;
+    super::notify::created(c, &host, true);
     Ok(0)
 }
 
@@ -671,6 +678,7 @@ pub fn mknodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, dev: u32) -> S
         }
     }
     fs::created_mode(&host, bits)?;
+    super::notify::created(c, &host, false);
     Ok(0)
 }
 
@@ -680,6 +688,7 @@ pub fn unlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult
         return Err(Errno(EINVAL));
     }
     let host = host_target(c, dirfd, path, false)?;
+    let was = super::notify::before(c, &host);
     if flags & AT_REMOVEDIR != 0 {
         std::fs::remove_dir(&host)?;
     } else {
@@ -689,6 +698,7 @@ pub fn unlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult
         }
         std::fs::remove_file(&host)?;
     }
+    super::notify::removed(c, &host, was);
     Ok(0)
 }
 
@@ -710,7 +720,14 @@ pub fn renameat2(
     if flags & RENAME_NOREPLACE != 0 && std::fs::symlink_metadata(&to).is_ok() {
         return Err(Errno(EEXIST));
     }
+    let moved = super::notify::moving(c, &from);
+    let target = super::notify::before(c, &to);
     std::fs::rename(&from, &to)?;
+    // vfs_rename: two links of one inode are left as they are, unreported.
+    let same = matches!((moved, target), (Some((m, _)), Some((t, _))) if m.key == t.key);
+    if !same {
+        super::notify::renamed(c, &from, &to, moved, target);
+    }
     Ok(0)
 }
 
@@ -729,6 +746,7 @@ pub fn linkat(
     let from = host_target(c, olddir, old, flags & AT_SYMLINK_FOLLOW != 0)?;
     let to = host_target(c, newdir, new, false)?;
     std::fs::hard_link(&from, &to)?;
+    super::notify::linked(c, &to);
     Ok(0)
 }
 
@@ -741,6 +759,7 @@ pub fn symlinkat(c: &mut Ctx<'_>, target: u64, newdir: i32, linkpath: u64) -> Sy
     let target = fs::Vfs::path_str(&raw)?;
     let link = host_target(c, newdir, linkpath, false)?;
     std::os::unix::fs::symlink(target, &link)?;
+    super::notify::created(c, &link, false);
     Ok(0)
 }
 
@@ -760,6 +779,7 @@ pub fn fchmodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, flags: u32) -
         return Err(Errno(EOPNOTSUPP));
     }
     std::fs::set_permissions(&host, std::fs::Permissions::from_mode(perm & 0o7777))?;
+    super::notify::changed(c, &host, follow, IN_ATTRIB);
     Ok(0)
 }
 
@@ -772,6 +792,7 @@ pub fn fchmod(c: &mut Ctx<'_>, fd: i32, perm: u32) -> SysResult {
                 m.check_mode(f.metadata()?.permissions().mode(), perm)?;
             }
             f.set_permissions(std::fs::Permissions::from_mode(perm & 0o7777))?;
+            super::notify::changed_file(&file, IN_ATTRIB);
             Ok(0)
         }
         FileObject::PathOnly => Err(Errno(EBADF)),
@@ -808,7 +829,18 @@ pub fn fchownat(
     } else {
         std::os::unix::fs::lchown(&host, opt_id(uid), opt_id(gid))?;
     }
+    super::notify::changed(c, &host, follow, owner_mask(uid, gid));
     Ok(0)
+}
+
+/// `fsnotify_change`'s mask for an ownership change: `ATTR_UID` or
+/// `ATTR_GID` are an attribute change; neither is nothing.
+fn owner_mask(uid: u32, gid: u32) -> u32 {
+    if opt_id(uid).is_some() || opt_id(gid).is_some() {
+        IN_ATTRIB
+    } else {
+        0
+    }
 }
 
 /// `fchown`.
@@ -817,6 +849,7 @@ pub fn fchown(c: &mut Ctx<'_>, fd: i32, uid: u32, gid: u32) -> SysResult {
     match &file.object {
         FileObject::Host(f) => {
             std::os::unix::fs::fchown(f, opt_id(uid), opt_id(gid))?;
+            super::notify::changed_file(&file, owner_mask(uid, gid));
             Ok(0)
         }
         FileObject::PathOnly => Err(Errno(EBADF)),
@@ -832,12 +865,25 @@ pub fn truncate(c: &mut Ctx<'_>, path: u64, len: i64) -> SysResult {
         return Err(Errno(EINVAL));
     }
     let host = host_target(c, AT_FDCWD, path, true)?;
-    if std::fs::metadata(&host)?.is_dir() {
+    let m = std::fs::metadata(&host)?;
+    if m.is_dir() {
         return Err(Errno(EISDIR));
     }
-    let f = std::fs::OpenOptions::new().write(true).open(&host)?;
-    f.set_len(len as u64)?;
-    c.p.space.truncated(fs::identity(&f)?, len as u64);
+    // By path, as the guest asked: an open of the file would be one more
+    // thing a host watcher sees.
+    let p =
+        std::ffi::CString::new(host.as_os_str().as_encoded_bytes()).map_err(|_| Errno(EINVAL))?;
+    // SAFETY: a NUL-terminated path and a length.
+    if unsafe { libc::truncate(p.as_ptr(), len) } != 0 {
+        return Err(Errno::from(std::io::Error::last_os_error()));
+    }
+    use std::os::unix::fs::MetadataExt;
+    let identity = crate::user::mm::SourceIdentity {
+        dev: m.dev(),
+        ino: m.ino(),
+    };
+    c.p.space.truncated(identity, len as u64);
+    super::notify::changed(c, &host, true, IN_MODIFY);
     Ok(0)
 }
 

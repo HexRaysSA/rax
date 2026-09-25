@@ -74,6 +74,8 @@ pub struct LinuxConfig {
     /// The System V IPC namespace's directory; `None` for the host user's
     /// default one.
     pub ipc_dir: Option<PathBuf>,
+    /// Where inotify instances come from.
+    pub fsnotify: super::fsnotify::Backend,
 }
 
 impl LinuxConfig {
@@ -97,6 +99,7 @@ impl LinuxConfig {
             slice_insns: DEFAULT_SLICE_INSNS,
             processes: false,
             ipc_dir: None,
+            fsnotify: Default::default(),
         }
     }
 }
@@ -366,6 +369,11 @@ pub struct ProcState {
     pub exec_id: u64,
     /// System V IPC.
     pub ipc: super::ipc::IpcState,
+    /// The emulated file-system notification namespace, when the backend
+    /// is the emulated one and its namespace could be opened.
+    pub fsnotify: Option<std::sync::Arc<super::fsnotify::hub::Hub>>,
+    /// What the running image keeps open (its executable and interpreter).
+    pub exec_keep: Vec<crate::user::mm::Keep>,
 }
 
 /// A Linux thread.
@@ -638,6 +646,14 @@ impl LinuxProcess {
 
         let pid = super::host::pid();
         let config_ipc_dir = config.ipc_dir.clone();
+        let fsnotify = match &config.fsnotify {
+            super::fsnotify::Backend::Host => None,
+            super::fsnotify::Backend::Emulated(dir) => super::fsnotify::hub::Hub::open(
+                dir.clone()
+                    .unwrap_or_else(super::fsnotify::hub::Hub::default_dir),
+            )
+            .ok(),
+        };
         let state = ProcState {
             abi: img.abi,
             space: img.space,
@@ -680,6 +696,8 @@ impl LinuxProcess {
             forked: None,
             exec_id: 0,
             ipc: super::ipc::IpcState::new(config_ipc_dir),
+            fsnotify,
+            exec_keep: Vec::new(),
         };
         let mut leader = Thread::new(pid, img.cpu);
         leader.comm = state.comm.clone();

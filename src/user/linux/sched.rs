@@ -56,6 +56,10 @@ impl LinuxProcess {
                 // exit_mmap: the System V attaches go before the parent
                 // can see the exit.
                 super::syscall::ipc::exit(&mut self.state);
+                // exit_mm and exit_files: the process's files close.
+                if let Some(h) = &self.state.fsnotify {
+                    h.exit();
+                }
             }
             if let Some(status) = &self.state.exit {
                 if let Some(me) = self.state.forked.take() {

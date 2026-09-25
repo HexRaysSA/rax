@@ -55,6 +55,10 @@ pub struct ProgramImage {
     pub exe_host_path: Option<PathBuf>,
     /// The new `comm`.
     pub comm: Vec<u8>,
+    /// What the image keeps open: its executable and interpreter
+    /// (`mm->exe_file` and their mappings), as file-system notification
+    /// tokens.
+    pub keep: Vec<crate::user::mm::Keep>,
 }
 
 /// What to load.
@@ -199,6 +203,7 @@ pub fn load_image(
         exe_path: req.exe_path,
         exe_host_path: Some(req.exe_host),
         comm: req.comm,
+        keep: Vec::new(),
     })
 }
 
@@ -312,6 +317,8 @@ impl LinuxProcess {
         p.environ = image.environ;
         p.exe_path = image.exe_path;
         p.exe_host_path = image.exe_host_path;
+        // The old image's files close (exec_mmap), the new one's stay open.
+        p.exec_keep = image.keep;
         p.comm = image.comm;
         p.futex = Default::default();
         // exit_itimers, flush_itimer_signals: POSIX timers and their

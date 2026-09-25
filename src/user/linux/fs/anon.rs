@@ -36,6 +36,8 @@ pub enum Anon {
     Epoll(super::epoll::Epoll),
     /// A pidfd.
     Pid(std::sync::Arc<super::pidfd::Target>),
+    /// An inotify instance.
+    Inotify(super::super::fsnotify::Instance),
 }
 
 impl Anon {
@@ -47,6 +49,7 @@ impl Anon {
             Anon::Signal(_) => "[signalfd]",
             Anon::Epoll(_) => "[eventpoll]",
             Anon::Pid(_) => "[pidfd]",
+            Anon::Inotify(_) => "inotify",
         }
     }
 }

@@ -90,6 +90,7 @@ pub fn fdinfo(p: &ProcState, own: &dyn Fn(i32) -> bool, fd: i32) -> Option<Vec<u
     };
     match anon {
         Anon::Pid(t) => s.push_str(&super::syscall::pidfd::fdinfo(p, own, t)),
+        Anon::Inotify(i) => s.push_str(&super::syscall::inotify::fdinfo(i)),
         Anon::Event(ev) => {
             let _ = write!(
                 s,

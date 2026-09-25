@@ -35,11 +35,23 @@ impl Drop for Harness {
             let _ = std::fs::remove_file(f);
         }
         let _ = std::fs::remove_dir_all(self.proc.state.ipc.ns.dir());
+        if let Some(h) = &self.proc.state.fsnotify {
+            let _ = std::fs::remove_dir_all(h.dir());
+        }
     }
 }
 
 impl Harness {
     pub(crate) fn new(abi: LinuxAbi) -> Self {
+        Self::with_fsnotify(abi, None)
+    }
+
+    /// A harness whose inotify instances come from `backend` (`None`: an
+    /// emulated namespace of its own).
+    pub(crate) fn with_fsnotify(
+        abi: LinuxAbi,
+        backend: Option<crate::user::linux::fsnotify::Backend>,
+    ) -> Self {
         let machine = match abi {
             LinuxAbi::X86_64 => EM_X86_64,
             LinuxAbi::Aarch64 => EM_AARCH64,
@@ -66,6 +78,13 @@ impl Harness {
             std::env::temp_dir().join(format!("rax-user-ipc-test-{}-{n}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         config.ipc_dir = Some(dir);
+        // And an emulated file-system notification namespace of its own.
+        let notify =
+            std::env::temp_dir().join(format!("rax-user-fsnotify-test-{}-{n}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&notify);
+        config.fsnotify = backend.unwrap_or(crate::user::linux::fsnotify::Backend::Emulated(Some(
+            notify,
+        )));
         let proc = LinuxProcess::spawn(config, ImageFile::new(bytes, "/prog")).unwrap();
         let mut h = Harness {
             proc,
