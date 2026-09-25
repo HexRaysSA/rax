@@ -2036,6 +2036,15 @@ impl RiscVCpu {
                 let scalar = match insn.funct3 {
                     0b100 => self.x(insn.rs1) & mask,
                     0b011 => sext5(insn.rs1) & mask,
+                    // OPFVF merge form: vfmv.v.f vd, rs1 splats the SEW-bit
+                    // value of f[rs1] (RVV 11.2). Only vm=1/vs2=0 decodes.
+                    0b101 => {
+                        (match eb {
+                            2 => self.h(insn.rs1),
+                            4 => self.s32(insn.rs1),
+                            _ => self.f(insn.rs1),
+                        }) & mask
+                    }
                     _ => 0,
                 };
                 for e in vstart..vl {
@@ -5984,6 +5993,52 @@ mod tests {
                 RiscVExit::Continue
             ));
         }
+    }
+
+    #[test]
+    fn vfmv_v_f_executes_and_splats_scalar() {
+        // vfmv.v.f v1, f2 (funct6=010111, funct3=101, vm=1, vs2=0) splats the
+        // SEW-bit value of f[rs1] to every body element (RVV 11.2).
+        let mut c = cpu_e8m1();
+        c.set_vl_vtype(4, 0x10); // e32,m1, vl=4
+        c.csr_write(0x300, 0b01 << 13).unwrap(); // mstatus.FS=Initial
+        c.set_f(2, 0xffff_ffff_0000_0000 | 0x3f80_0000); // f2 = 1.0f
+        assert!(matches!(
+            run_one(&mut c, op_v(0b010111, 1, 0, 2, 0b101, 1)),
+            RiscVExit::Continue
+        ));
+        for e in 0..4 {
+            assert_eq!(c.velem(1, e, 4), 0x3f80_0000, "lane {e}");
+        }
+
+        // Control: the integer vmerge.vvm form still executes.
+        let mut c = cpu_e8m1();
+        c.set_vl_vtype(4, 0x10);
+        for e in 0..4 {
+            c.set_velem(2, e, 4, 0xaaaa);
+            c.set_velem(3, e, 4, 0xbbbb);
+        }
+        assert!(matches!(
+            run_one(&mut c, op_v(0b010111, 0, 2, 3, 0b000, 1)),
+            RiscVExit::Continue
+        ));
+        for e in 0..4 {
+            assert_eq!(c.velem(1, e, 4), 0xaaaa, "lane {e}");
+        }
+
+        // Control: the scalar-move forms vfmv.f.s / vfmv.s.f still execute
+        // at SEW=32 (SEW=8 has no IEEE type and is reserved).
+        let mut c = cpu_e8m1();
+        c.set_vl_vtype(4, 0x10); // e32,m1
+        c.csr_write(0x300, 0b01 << 13).unwrap(); // mstatus.FS=Initial
+        assert!(matches!(
+            run_one(&mut c, op_v(0b010000, 1, 2, 0, 0b001, 1)),
+            RiscVExit::Continue
+        ));
+        assert!(matches!(
+            run_one(&mut c, op_v(0b010000, 1, 0, 2, 0b101, 1)),
+            RiscVExit::Continue
+        ));
     }
 
     #[test]
