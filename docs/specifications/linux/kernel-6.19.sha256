@@ -35,6 +35,8 @@ c1f91025d96e74f797a7091d180405bd5487a9789d692e8b11c1611738dfd263  ./arch/x86/ker
 55a684e8cec8ce77090c6104404dfa417f22bea7751077144de2c84dddd964d7  ./arch/x86/kernel/signal.c
 f0940e848ad9996c3cf71bfa6926a1d94c86884b13909550a93916e9a48edb3a  ./arch/x86/kernel/signal_64.c
 3500c2e1509f93bf15ad2f7c203638434527f15bb062b0408f4355e2b94285f7  ./arch/x86/mm/mmap.c
+7fd278f7f4037e2e5db3b17e147d5982b02ae76b5d48657a6666f0a54ad40942  ./block/blk-ioc.c
+f33e815ba09ca96e05dcf565fb244ed97bfb27a767adb41c30ef4ecec20366e5  ./block/ioprio.c
 26816f5455683e182f202f239c8e248e7955461e0326333d4110a018353aa316  ./drivers/perf/riscv_pmu_sbi.c
 5f33bf3bca249d246c2bbf85f7852e77dd65dc14e57a135a83fa03adb9dda0a9  ./drivers/tty/n_tty.c
 a64ba9782cddf905c33912ab58186b2b1d82a7da3b81c1df271a99b5b0ec8037  ./fs/anon_inodes.c
@@ -83,6 +85,7 @@ f44749ed81e6076b27b2e68639d6e14825167cf92d0bab4580af1dcc8f13f855  ./fs/xattr.c
 3c32ae8a9ad1d9c819c1605a799021927cc3185d2b9ad3baa760fde4737edbd3  ./include/linux/fs.h
 58b8a17276f75032117d2ab660a08eac2549705f4a269b4015b0a2c5ffdb3eee  ./include/linux/fsnotify.h
 5803ed9d0c062f8cda21728c772b037d860952a89020718733b16acafacbe909  ./include/linux/fsnotify_backend.h
+6c2e7b2a57af782db5d7a0a089df894e4fd4ba62e3d515a17977c187add94a15  ./include/linux/ioprio.h
 7f64fc4bd85e8b666cb6a3050460104ee6786fbad803363b5f91ef0cf77a739f  ./include/linux/ipc.h
 8d55ae5b167a5f186da8e2b6cf3dabb2c0a989a5236ba7d53a4b95428f42dbf4  ./include/linux/ipc_namespace.h
 723ef6c08656ed79a78441fc7f98c435cbef7bafe2ceb29ac145177cb9dbaf10  ./include/linux/jiffies.h
@@ -93,6 +96,9 @@ d2b599da6d7e2c7c944b8205f672d6bc20fb07f80fc44e2adc951a1ec652b7af  ./include/linu
 5aa804807519b6f26918c7dab72a3e22bd50e898763f434ab51b2c58c275988c  ./include/linux/posix-timers.h
 bb78534d4212776381b3b849ad6ce1009b9d3fdfb87e19f51e5e9449e7f03e22  ./include/linux/rbtree_types.h
 b2ad6d6cf7c5075e246cefccc8118f5c5ac579100f14626bf00b45db664e5189  ./include/linux/restart_block.h
+f93c073351364593650008db7d23d78d061126fb82071daf70379c5d79b0a1db  ./include/linux/sched/deadline.h
+6799482082e27f9bdb43ccd037c5a6a49c406af836dc05a1f5e8c160e2880870  ./include/linux/sched/prio.h
+a5911ad628eb2b6db538443ccc2ccffca387d9944aeb757d188ec3bf0fffa692  ./include/linux/sched/rt.h
 052e16e5272d978e4c22eb0668bba87243a582c15e3dd97bbc6db1cc05702b5e  ./include/linux/sched/signal.h
 852788879f7ff0cbfad5393d47bbcc03405145de442b54febd96978028c458fd  ./include/linux/sched/task.h
 a6f65f9e074a85bd349cbdc36975383f804a980ecb3e1208db6aaeb8a4442dd5  ./include/linux/security.h
@@ -108,10 +114,13 @@ cd3b5c33208c1b3ded9a6fc793837e1d1d83d98b8c884e2b314bbc2d6e89052f  ./include/linu
 54685c4d7999d0113a0c727a675e0f59b77a202981eae74769573a231584deb5  ./include/linux/xattr.h
 096f700a9f40be9aa6bfef2be5fad1651fe700d5cc5373384183c82109276a2c  ./include/net/sock.h
 aebe74d8dfe3078a039a3a5faad35d9840c67e6472239e78bd8340bb6deaebfe  ./include/uapi/asm-generic/param.h
+b9fbd261e2893ae568f08414300cfd8f9b1cfcd7fd83c706c81b2b0eaeda61c6  ./include/uapi/linux/ioprio.h
 4d6c0afdcab1849321cfdca32173f649854800fe4b239307a59d9a5a65b8ac5f  ./include/uapi/linux/module.h
 dfc0b594b4fe8b27e074425373029faa0f83543ed5c7e6cd06da83e5bf73339b  ./include/uapi/linux/mount.h
 60187352813e3ed08ddb03748dca2288d3f3fbc1c95e584507eeff24aacc58ba  ./include/uapi/linux/mqueue.h
 24a1a120fe399f45d5278a4fdbea7c26fb22023daef1fed5ea5c9c1e6c8fb223  ./include/uapi/linux/reboot.h
+2081b07cee6adab443e4ba320d0ccb13db4c97bed64f3eefafbfde2f25c833a4  ./include/uapi/linux/sched.h
+c7b77be9d131d2ef071383858d45a065d4237e676118f93eb98f2fa52c378901  ./include/uapi/linux/sched/types.h
 bb95ba42ac8169c0ddbb4192dac37210cfa883b0200b6db00eabb33a35f6c7ec  ./include/uapi/linux/timex.h
 7c2abd3eba67fe49f0cfd54900a6cd668b057efb9a280c3e79b40ffa2efc8522  ./init/Kconfig
 1b60ee8bd0c4519979b38ff43e3437e6705736874185126e731b833b595105c9  ./ipc/ipc_sysctl.c
@@ -139,6 +148,11 @@ a9a424e30a2213587c052c6a68996af9dc34aca123b85acdd9d519440e554c36  ./kernel/futex
 fc1515e6e1976821036e0587b65e3a44fd46f373af5f63edd72e6958bad532f6  ./kernel/pid.c
 3492add6da3a025a5e10355bfa63f408935ef796360579a1ffcf240d04f587b4  ./kernel/printk/printk.c
 58073d46b0657084dff68a451d6ffcb6b342c979d745598716ca3a46e7bf67a8  ./kernel/reboot.c
+bd80c5a7f80943012e840eaf5840ae1c234680c3a8c203f21f855ebd63e24ca7  ./kernel/sched/core.c
+e2483a7bbe80d279676806adc320b558f73ba4edfdbb916c4f58b14dfc441d03  ./kernel/sched/deadline.c
+7a401ee08c9c415941332c907cc552e89ce0684059258e849adf04d03839dc20  ./kernel/sched/fair.c
+13abcd81d4a10a1e5f08701e02a8aa15db306991bc93ebbc20711af992cf82a1  ./kernel/sched/rt.c
+0ca4d3e8cdcd320717c6b8169faf26b34e05040ab318ca775ab938fa0f65521f  ./kernel/sched/sched.h
 18dcd244faf9f5930fcfe89dcf47ce13ad86158a554d079bb68866502903f9ea  ./kernel/sched/syscalls.c
 b1dcfea06e6c4665bbf362622949bd6485415724206e7ded1b2f8d9eb356f1fb  ./kernel/seccomp.c
 0e89f25fefc4b230d68d500fad076d7fdcdb5bb84fba6e83e1228c3019f71ca1  ./kernel/signal.c

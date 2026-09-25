@@ -28,20 +28,25 @@
   `include/asm-generic/param.h`, `include/uapi/asm-generic/param.h`, and
   `include/uapi/linux/{mount,reboot,timex,module}.h`), and the POSIX message
   queue files (`ipc/mqueue.c`, `ipc/mq_sysctl.c`,
-  `include/linux/{msg,rbtree_types}.h`, `include/uapi/linux/mqueue.h`)
-  came from kernel.org's
+  `include/linux/{msg,rbtree_types}.h`, `include/uapi/linux/mqueue.h`),
+  and the scheduling-attribute files (`kernel/sched/{core,fair,deadline,rt}.c`,
+  `kernel/sched/sched.h`, `include/linux/sched/{prio,rt,deadline}.h`,
+  `include/uapi/linux/sched.h`, `include/uapi/linux/sched/types.h`,
+  `block/{ioprio,blk-ioc}.c`, `include/linux/ioprio.h`,
+  `include/uapi/linux/ioprio.h`) came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
   `fs/locks.c`, `fs/fcntl.c`, the seven `net/` files above, the System V
   IPC files, the seccomp, file-system notification, and system-call entry
   files, `ipc/msgutil.c`, the machine-administration, clock-setting, and
-  mount files, and the POSIX message queue files: 25 September 2026)
+  mount files, the POSIX message queue files, and the scheduling-attribute
+  files: 25 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (85 files),
-  `GPL-2.0-only` (45), `GPL-2.0-or-later` (35),
-  `GPL-2.0 WITH Linux-syscall-note` (3), `GPL-2.0+` (2),
+- License: the files carry an SPDX identifier: `GPL-2.0` (95 files),
+  `GPL-2.0-only` (46), `GPL-2.0-or-later` (35),
+  `GPL-2.0 WITH Linux-syscall-note` (6), `GPL-2.0+` (2),
   `LGPL-2.1+ WITH Linux-syscall-note` (1, `include/uapi/linux/mqueue.h`),
   or `GPL-1.0+` (1). Seven have none: `mm/memfd.c`, `mm/shmem.c`, and
   `ipc/mqueue.c` state "This file is released under the GPL." in their
@@ -101,6 +106,7 @@ behavior it reproduces beyond what the UAPI headers
 | Setting the clocks | `kernel/time/time.c` (`settimeofday`, `do_sys_settimeofday64`, `adjtimex`), `kernel/time/posix-timers.c` (`clock_settime`, `clock_adjtime`, `clockid_to_kclock`), `kernel/time/posix-cpu-timers.c` (`posix_cpu_clock_set`, `pid_for_clock`), `kernel/time/posix-clock.c` (`get_clock_desc`, `pc_clock_settime`, `pc_clock_adjtime`), `kernel/time/timekeeping.c` (`timekeeping_validate_timex`, `__do_adjtimex`), `kernel/time/ntp.c` (the initial NTP state, `ntp_adjtimex`, `pps_fill_timex`), `include/linux/timex.h`, `include/uapi/linux/timex.h`, `include/linux/time64.h` (`timespec64_valid_settod`), `include/linux/jiffies.h`, `include/asm-generic/param.h`, and `include/uapi/asm-generic/param.h` (`USER_TICK_USEC`) |
 | Mounts | `fs/namespace.c` (`mount`, `umount`, `pivot_root`, `open_tree`, `open_tree_attr`, `mount_setattr`, `move_mount`, `fsmount`, `may_mount`, `copy_mount_options`, `path_mount`, `build_mount_kattr`, `build_mount_idmapped`), `fs/fsopen.c` (`fsopen`, `fspick`, `fsconfig`), `include/uapi/linux/mount.h`, `include/linux/file.h` (`FD_ADD`, `FD_PREPARE`: the descriptor before the file), `mm/util.c` (`strndup_user`) |
 | POSIX message queues | `ipc/mqueue.c` (`do_mq_open`, `prepare_open`, `mqueue_create_attr`, `mqueue_get_inode`: the limits and the `RLIMIT_MSGQUEUE` charge, `mq_unlink`, `do_mq_timedsend`, `do_mq_timedreceive`, `wq_add`, `wq_sleep`, `pipelined_send`, `pipelined_receive`, `msg_insert`, `msg_get`, `__do_notify`, `do_mq_notify`, `do_mq_getsetattr`, `mqueue_read_file`, `mqueue_flush_file`, `mqueue_poll_file`), `ipc/mq_sysctl.c` and `include/linux/ipc_namespace.h` (the limits), `include/linux/msg.h` and `include/linux/rbtree_types.h` (the charged structure sizes), `include/uapi/linux/mqueue.h`, `fs/namei.c` (`lookup_noperm_common`, `vfs_mkobj`, `__check_sticky`), `fs/libfs.c` (`simple_lookup`), `net/netlink/af_netlink.c` (`netlink_getsockbyfd`) |
+| Scheduling attributes | `kernel/sched/syscalls.c` (`sched_setscheduler`, `sched_setparam`, `sched_setattr`, `sched_getattr`, `sched_copy_attr`, `__sched_setscheduler`, `user_check_sched_setscheduler`, `__setscheduler_params`, `get_params`, `set_user_nice`, `is_nice_reduction`, `__normal_prio`, `sched_get_priority_max`/`min`, `sched_rr_get_interval`), `kernel/sched/core.c` (`sched_fork`, `to_ratio`), `kernel/sched/fair.c` (`__setparam_fair`, `sysctl_sched_base_slice`, `get_rr_interval_fair`), `kernel/sched/rt.c` (`get_rr_interval_rt`, the real-time bandwidth), `kernel/sched/deadline.c` (`__checkparam_dl`, `sched_dl_overflow`, `__dl_overflow`, the fair server's bandwidth), `kernel/sched/sched.h` (the policy classes), `include/linux/sched/{prio,rt,deadline}.h`, `include/uapi/linux/sched.h`, `include/uapi/linux/sched/types.h` (`struct sched_attr`), `kernel/sys.c` (`setpriority`, `getpriority`, `PR_SET_TIMERSLACK`), `kernel/fork.c` (`default_timer_slack_ns`), `block/ioprio.c` (`ioprio_set`, `ioprio_get`, `ioprio_check_cap`), `block/blk-ioc.c` (`set_task_ioprio`, `copy_io`), `include/linux/ioprio.h` (`__get_task_ioprio`), `include/uapi/linux/ioprio.h` |
 | Supplementary groups, read-ahead, and range sync | `kernel/groups.c` (`setgroups`, `getgroups`), `mm/readahead.c` (`ksys_readahead`), `fs/sync.c` (`sync_file_range`) |
 
 Code comments name the kernel function whose behavior an implementation
