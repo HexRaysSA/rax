@@ -348,7 +348,7 @@ impl LinuxProcess {
             t.syscall = call.map(|nr| super::signal::deliver::SyscallEntry { nr, arg0: 0 });
         }
         // ptrace_event(PTRACE_EVENT_EXEC, old_vpid).
-        super::syscall::ptrace::exec_event(p, &mut t, old_tid);
+        super::ptrace::tracee::exec_event(p, &mut t, old_tid);
         self.threads.push(t);
     }
 }

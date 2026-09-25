@@ -438,7 +438,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
         }
         Some(Found {
             pid: t.tid,
-            status: super::ptrace::tracee_status(code),
+            status: super::super::ptrace::stop_status(code),
             cause: code::CLD_TRAPPED,
             si_status: code,
             rusage: (0, 0, 0),
@@ -530,7 +530,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
     let mut fds = c.p.children.live_fds(|ch| eligible(ch));
     // A tracee's stop arrives on its link.
     if !c.p.tracees.list.is_empty() {
-        fds.extend(super::ptrace::link_fds(c.p));
+        fds.extend(super::super::ptrace::link_fds(c.p));
     }
     Err(c.block(Wait::fds(fds, None), Resume::WaitChild))
 }

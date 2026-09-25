@@ -469,7 +469,8 @@ code comments name the kernel function each rule comes from.
   delivery to an interrupted thread does the same before the handler's
   frame saves the instruction pointer. A bad descriptor, a fault, or a
   wrong signature forces `SIGSEGV`. The emulated CPU is CPU 0 of node 0.
-- **Process tracing** (`ptrace`, `syscall::ptrace`). A tracer and its
+- **Process tracing** (`ptrace`: the tracee's side in `ptrace::tracee`,
+  the tracer's requests in `syscall::ptrace`). A tracer and its
   tracee are separate host processes, joined by the link each `fork`
   makes between parent and child (an `AF_UNIX` stream pair carrying
   framed messages): a process traces its children or its parent along

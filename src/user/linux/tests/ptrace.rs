@@ -14,12 +14,12 @@ use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::arch::GuestCpu;
 use crate::user::linux::process::Threads;
+use crate::user::linux::ptrace::tracee::{self as pt, Verdict, parked, take_verdict};
 use crate::user::linux::ptrace::{Link, LinkId, Msg, Resumption, StopKind, Traced, opt, regs};
 use crate::user::linux::signal::deliver::SyscallEntry;
 use crate::user::linux::signal::{
     SIG_IGN, SIGKILL, SIGSTOP, SIGTRAP, SIGUSR1, SIGUSR2, SigInfo, code, sigmask,
 };
-use crate::user::linux::syscall::ptrace::{self as pt, Verdict, parked, take_verdict};
 
 const TRACEME: u64 = 0;
 const PEEKDATA: u64 = 2;

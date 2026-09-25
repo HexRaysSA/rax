@@ -17,17 +17,22 @@
 //! A link that ends (its process exited) detaches whatever went along it.
 //!
 //! [`regs`] lays out the register sets, [`call`] reads and writes the system
-//! call a stopped thread is in, and the scheduler's side of system-call
-//! stops and single steps is in `stops`.
+//! call a stopped thread is in, [`tracee`] is the tracee's side (with what a
+//! process does with its links' messages), and the scheduler's side of
+//! system-call stops and single steps is in `stops`. The tracer's requests
+//! are the `ptrace` system call (`syscall::ptrace`).
 
 pub mod call;
 pub mod regs;
 mod stops;
+pub mod tracee;
 
 use std::os::fd::{AsRawFd, OwnedFd};
 
+use super::abi::LinuxAbi;
 use super::abi::errno::Errno;
 use super::abi::errno_table::*;
+use super::process::ProcState;
 use super::signal::SigInfo;
 
 /// `PTRACE_*` requests (`include/uapi/linux/ptrace.h` and the
@@ -467,6 +472,71 @@ impl Tracees {
         let i = self.replies.iter().position(|r| r.0 == link)?;
         let (_, ret, payload) = self.replies.remove(i);
         Some((ret, payload))
+    }
+}
+
+/// `_NSIG`: a resumption's signal beyond it is `EIO` (`valid_signal`).
+pub const NSIG: u64 = 64;
+/// `sizeof(sigset_t)`.
+pub const SIGSET: u64 = 8;
+/// `sizeof(siginfo_t)`.
+pub const SIGINFO: usize = 128;
+/// `sizeof(struct ptrace_rseq_configuration)`.
+pub const RSEQ_CONFIGURATION: u64 = 24;
+/// `PTRACE_PEEKSIGINFO_SHARED`.
+pub const PEEKSIGINFO_SHARED: u32 = 1;
+
+/// The link with this identity, if it is still there.
+pub fn link_mut(p: &mut ProcState, id: LinkId) -> Option<&mut Link> {
+    match id {
+        LinkId::Parent => p.parent_link.as_mut(),
+        LinkId::Child(pid) => p.children.get_mut(pid).and_then(|c| c.link.as_mut()),
+    }
+}
+
+/// The PID at the other end of a link.
+pub fn peer_pid(p: &ProcState, id: LinkId) -> i32 {
+    match id {
+        LinkId::Parent => p.ppid,
+        LinkId::Child(pid) => pid,
+    }
+}
+
+/// The descriptors of every link, for a sleep that a message must end.
+pub fn link_fds(p: &ProcState) -> Vec<(i32, bool, bool)> {
+    let mut fds: Vec<(i32, bool, bool)> = p
+        .children
+        .list
+        .iter()
+        .filter_map(|c| c.link.as_ref())
+        .map(|l| (l.fd(), true, false))
+        .collect();
+    if let Some(l) = &p.parent_link {
+        fds.push((l.fd(), true, false));
+    }
+    fds
+}
+
+/// Sends a message along a link; false when it is gone.
+pub fn send(p: &mut ProcState, id: LinkId, m: &Msg) -> bool {
+    link_mut(p, id).is_some_and(|l| l.send(m))
+}
+
+/// Whether `request` resumes the thread (`ptrace_resume`'s requests).
+pub fn resumes(request: u64) -> bool {
+    matches!(
+        request,
+        req::CONT | req::SYSCALL | req::SINGLESTEP | req::SYSEMU | req::SYSEMU_SINGLESTEP
+    )
+}
+
+/// Whether this ABI has `request`: `PTRACE_SYSEMU` and
+/// `PTRACE_SYSEMU_SINGLESTEP` exist on x86-64 and AArch64 only (RISC-V's
+/// `ptrace_request` does not know them: `EIO`).
+pub fn offered(abi: LinuxAbi, request: u64) -> bool {
+    match request {
+        req::SYSEMU | req::SYSEMU_SINGLESTEP => abi != LinuxAbi::Riscv64,
+        _ => true,
     }
 }
 

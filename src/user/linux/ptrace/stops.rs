@@ -31,7 +31,8 @@ use super::super::sched::After;
 use super::super::signal::deliver::{Dest, SyscallEntry, send_signal};
 use super::super::signal::frame::FaultUpdate;
 use super::super::signal::{SIGKILL, SIGTRAP, SigInfo, code};
-use super::super::syscall::{self, Call, ptrace};
+use super::super::syscall::{self, Call};
+use super::tracee as ptrace;
 use super::{StopKind, call};
 
 /// RISC-V's `NR_syscalls` (`asm-generic/unistd.h`'s `__NR_syscalls`): a

@@ -134,7 +134,7 @@ pub fn auxv(p: &ProcState) -> Vec<u8> {
 /// A thread's scheduler state letter (`task_state_array`): sleeping in a
 /// system call, or runnable.
 fn state(t: &Thread) -> (&'static str, &'static str) {
-    if super::syscall::ptrace::parked(t) {
+    if super::ptrace::tracee::parked(t) {
         ("t", "t (tracing stop)")
     } else if t.blocked.is_some() {
         ("S", "S (sleeping)")
@@ -226,7 +226,7 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let _ = writeln!(s, "Ngid:\t0");
     let _ = writeln!(s, "Pid:\t{}", t.tid);
     let _ = writeln!(s, "PPid:\t{}", p.ppid);
-    let _ = writeln!(s, "TracerPid:\t{}", super::syscall::ptrace::tracer_pid(t));
+    let _ = writeln!(s, "TracerPid:\t{}", super::ptrace::tracee::tracer_pid(t));
     let _ = writeln!(s, "Uid:\t{uid}\t{euid}\t{euid}\t{euid}");
     let _ = writeln!(s, "Gid:\t{gid}\t{egid}\t{egid}\t{egid}");
     let _ = writeln!(s, "FDSize:\t64");

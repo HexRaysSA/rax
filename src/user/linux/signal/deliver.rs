@@ -367,7 +367,7 @@ pub fn force_sigsegv(p: &mut ProcState, th: &mut Threads<'_>, sig: i32) {
 /// leader, and the signals of expired POSIX timers.
 pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
     // Tracing messages: a tracee's answers and stops, a tracer's requests.
-    crate::user::linux::syscall::ptrace::poll_links(p, th);
+    crate::user::linux::ptrace::tracee::poll_links(p, th);
     if crate::user::linux::host::take_child_event() {
         crate::user::linux::syscall::child::refresh(p, th);
     }
@@ -538,7 +538,7 @@ impl LinuxProcess {
     /// handler, taking default actions on the way.
     fn get_signal(&mut self, idx: usize) -> Next {
         use crate::user::linux::ptrace::StopKind;
-        use crate::user::linux::syscall::ptrace::{self, Verdict};
+        use crate::user::linux::ptrace::tracee::{self as ptrace, Verdict};
         loop {
             let (p, t) = (&mut self.state, &mut self.threads[idx]);
             let blocked = t.sigmask;
@@ -717,7 +717,7 @@ impl LinuxProcess {
                     }
                     let delivered = self.handle_signal(idx, &d);
                     let t = &mut self.threads[idx];
-                    if delivered && crate::user::linux::syscall::ptrace::mode(t).step {
+                    if delivered && crate::user::linux::ptrace::tracee::mode(t).step {
                         // signal_delivered while stepping: ptrace_notify(
                         // SIGTRAP, 0) before the handler's first
                         // instruction; x86-64 stops stepping first.
@@ -728,7 +728,7 @@ impl LinuxProcess {
                         }
                         let p = &mut self.state;
                         let quiet = crate::user::linux::ptrace::StopKind::Quiet;
-                        crate::user::linux::syscall::ptrace::notify(p, t, SIGTRAP, 0, quiet);
+                        crate::user::linux::ptrace::tracee::notify(p, t, SIGTRAP, 0, quiet);
                         t.syscall = entry;
                         return;
                     }

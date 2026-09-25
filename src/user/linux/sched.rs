@@ -83,7 +83,7 @@ impl LinuxProcess {
                 continue;
             }
             // A system call its tracer stopped goes on once resumed.
-            if super::syscall::ptrace::resumed_in_call(&self.threads[idx]) {
+            if super::ptrace::tracee::resumed_in_call(&self.threads[idx]) {
                 current = self.resume_in_call(idx).from(idx);
                 continue;
             }
@@ -98,7 +98,7 @@ impl LinuxProcess {
                 continue;
             }
             // Stopped for its tracer: it runs again once resumed.
-            if super::syscall::ptrace::parked(&self.threads[idx]) {
+            if super::ptrace::tracee::parked(&self.threads[idx]) {
                 current = idx + 1;
                 continue;
             }
@@ -107,7 +107,7 @@ impl LinuxProcess {
             }
             self.state.last_user = Some(tid);
             // A stepping thread runs one instruction at a time.
-            let step = super::syscall::ptrace::mode(&self.threads[idx]).step;
+            let step = super::ptrace::tracee::mode(&self.threads[idx]).step;
             let event = if step {
                 self.threads[idx].cpu.step()
             } else {
@@ -165,7 +165,7 @@ impl LinuxProcess {
             return None;
         }
         let start = start % n;
-        let parked = super::syscall::ptrace::parked;
+        let parked = super::ptrace::tracee::parked;
         if self.threads[start].blocked.is_none() && !parked(&self.threads[start]) {
             return Some(start);
         }
@@ -184,7 +184,7 @@ impl LinuxProcess {
     /// can wake one.
     fn idle(&mut self) -> Result<(), wait::Deadlock> {
         // A tracing message (a request, a resumption, a stop) wakes it.
-        let mut fds = super::syscall::ptrace::link_fds(&self.state);
+        let mut fds = super::ptrace::link_fds(&self.state);
         let mut deadline = self.state.timer_deadline();
         for b in self.threads.iter().filter_map(|t| t.blocked.as_ref()) {
             fds.extend_from_slice(&b.wait.fds);
@@ -269,7 +269,7 @@ impl LinuxProcess {
             Outcome::Exec(image) => {
                 self.commit_exec(idx, *image.0);
                 // The exit work follows the event stop, if it stopped.
-                if !super::syscall::ptrace::parked(&self.threads[0]) {
+                if !super::ptrace::tracee::parked(&self.threads[0]) {
                     self.syscall_exit_work(0);
                 }
                 return After::Gone;

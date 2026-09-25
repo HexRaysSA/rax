@@ -15,9 +15,9 @@ use super::harness::{CODE, Harness, each_abi};
 use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::arch::{CpuEvent, GuestCpu};
+use crate::user::linux::ptrace::tracee::{mode, parked};
 use crate::user::linux::ptrace::{Link, LinkId, Msg, StopKind, Traced, call, opt, regs, req};
 use crate::user::linux::signal::{SIGSTOP, SIGTRAP, SIGUSR1, SigInfo, code, sa};
-use crate::user::linux::syscall::ptrace::{mode, parked};
 
 /// The tracer's end of thread 0's link to it.
 pub(super) struct Tracer {
@@ -81,7 +81,7 @@ pub(super) fn ask(
 /// stop's verdict (as it would on its way back to user mode).
 pub(super) fn resume(h: &mut Harness, tr: &mut Tracer, request: u64, sig: u64) -> i64 {
     let (ret, _) = ask(h, tr, request, 0, sig, &[]);
-    if ret == 0 && !crate::user::linux::syscall::ptrace::resumed_in_call(&h.proc.threads[0]) {
+    if ret == 0 && !crate::user::linux::ptrace::tracee::resumed_in_call(&h.proc.threads[0]) {
         h.proc.deliver_signals(0);
     }
     ret
