@@ -17,3 +17,4 @@ mod stack;
 mod syscall_mm;
 mod threads;
 mod waits;
+mod xattr;

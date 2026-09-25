@@ -16,6 +16,7 @@ pub mod epoll;
 pub mod fd;
 pub mod memfd;
 pub mod pidfd;
+pub mod xattr;
 
 use std::path::{Component, Path, PathBuf};
 

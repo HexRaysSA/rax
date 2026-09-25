@@ -40,3 +40,5 @@ override: riscv64/pidfd from aarch64 (qemu-riscv64 does not translate PIDFD_GET_
 override: x86_64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's status-flag encoding, which Rosetta does not convert)
 override: riscv64/fdinfo from aarch64 (fdinfo shows the arm64 host kernel's status-flag encoding, which qemu-riscv64 does not convert)
 override: x86_64/nodes from aarch64 (Rosetta dies of SIGSEGV on utime with an unmapped struct utimbuf)
+override: x86_64/xattr from aarch64 (Rosetta dies of SIGSEGV on getxattr with an unmapped path)
+override: riscv64/xattr from aarch64 (qemu-riscv64 lacks the *xattrat calls and faults copying an empty value)

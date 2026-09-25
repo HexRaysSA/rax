@@ -45,6 +45,7 @@ pub mod thread;
 pub mod time;
 pub mod timer;
 pub mod utimes;
+pub mod xattr;
 
 use super::abi::Sysno;
 use super::abi::errno::Errno;
@@ -528,6 +529,28 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[2] as u32,
         )),
         S::Mknodat => r(path::mknodat(c, fd(a[0]), a[1], a[2] as u32, a[3] as u32)),
+        S::Setxattr => r(xattr::setxattr(c, a[0], 0, a)),
+        S::Lsetxattr => r(xattr::setxattr(c, a[0], path::AT_SYMLINK_NOFOLLOW, a)),
+        S::Fsetxattr => r(xattr::fsetxattr(c, a)),
+        S::Getxattr => r(xattr::getxattr(c, a[0], 0, a)),
+        S::Lgetxattr => r(xattr::getxattr(c, a[0], path::AT_SYMLINK_NOFOLLOW, a)),
+        S::Fgetxattr => r(xattr::fgetxattr(c, a)),
+        S::Listxattr => r(xattr::listxattr(c, a[0], 0, a[1], a[2])),
+        S::Llistxattr => r(xattr::listxattr(
+            c,
+            a[0],
+            path::AT_SYMLINK_NOFOLLOW,
+            a[1],
+            a[2],
+        )),
+        S::Flistxattr => r(xattr::flistxattr(c, fd(a[0]), a[1], a[2])),
+        S::Removexattr => r(xattr::removexattr(c, a[0], 0, a[1])),
+        S::Lremovexattr => r(xattr::removexattr(c, a[0], path::AT_SYMLINK_NOFOLLOW, a[1])),
+        S::Fremovexattr => r(xattr::fremovexattr(c, fd(a[0]), a[1])),
+        S::Setxattrat => r(xattr::setxattrat(c, a)),
+        S::Getxattrat => r(xattr::getxattrat(c, a)),
+        S::Listxattrat => r(xattr::listxattrat(c, a)),
+        S::Removexattrat => r(xattr::removexattrat(c, a)),
         S::Statfs => r(path::statfs(c, a[0], a[1])),
         S::Fstatfs => r(path::fstatfs(c, fd(a[0]), a[1])),
         S::Umask => r(path::umask(c, a[0] as u32)),
