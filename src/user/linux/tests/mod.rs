@@ -17,6 +17,7 @@ mod misc;
 mod mlock;
 mod mounts;
 mod mqueue;
+mod mseal;
 mod netlink;
 mod nodes;
 mod pidfd;

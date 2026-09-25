@@ -42,6 +42,7 @@ procmem  procmem  -
 kcmp     kcmp     -
 iovec    iovec    -
 mlock    mlock    -
+mseal    mseal    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

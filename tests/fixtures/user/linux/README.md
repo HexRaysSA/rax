@@ -63,6 +63,7 @@ runs in parallel must not see each other's queues and identifiers.
 | `kcmp` | `kcmp` and what tasks share by their clone flags (as `nobody` when run as root): the checks in order, open file descriptions (duplicates, `O_PATH`, the index as an `unsigned int`, a total order), the address space, tables, and signal handlers threads share, I/O contexts and semaphore undo lists shared only by `CLONE_IO` and `CLONE_SYSVSEM` (bare `clone` threads, `rawthread.h`), epoll items by descriptor and offset, an exited leader, and init |
 | `iovec` | Vector import as the vectored transfers use it (`readv`, `writev`, `preadv`, `pwritev`, their `2` forms, `sendmsg`, `recvmsg`): each of several vectors checked at its full length before anything moves, a single one capped at `MAX_RW_COUNT` first, the count an `unsigned int` (a message header's a `size_t`, `EMSGSIZE` past `UIO_MAXIOV`), negative lengths and faults in vector order, and a file position left alone by a refused import |
 | `mlock` | Memory locking (as `nobody` when run as root, changing only the soft `RLIMIT_MEMLOCK`): `mlock`, `mlock2`, and `munlock` (the right, the limit less what a range already holds locked, holes, `PROT_NONE`, whole pages, the kernel's length arithmetic), populating or not (`MLOCK_ONFAULT`), `madvise`'s refusals on locked memory, `mlockall` and `MCL_FUTURE` for `mmap`, `brk`, and `mremap` (a `MREMAP_DONTUNMAP` move leaving its old pages counted), `MAP_LOCKED`, `VmLck`, and a child, which inherits no lock |
+| `mseal` | Memory sealing: `mseal`'s checks in order (flags, alignment, the rounded length, holes) and what a seal refuses: `munmap` and the unmapping behind `mmap(MAP_FIXED)`, `shmat(SHM_REMAP)`, and `mremap(MREMAP_FIXED)` (nothing changed), `mremap` of the sealed VMA, `mprotect` VMA by VMA, and discarding advice on private anonymous memory that cannot be written; a shrinking `brk` keeps the break, `shmdt` leaves a sealed attach mapped, and `mlock`, harmless advice, file mappings, and a child's copy behave as usual |
 | `hostsig` | Not a recorded case: the `user_linux` `host_signals` tests send it host signals and follow its output (`siginfo` of a `kill`, a blocking `read` of standard input interrupted by a handler, death by `SIGTERM`) |
 | `signals` | Handlers with `siginfo` from `raise`/`kill`/`sigqueue`, the mask during and after a handler, `SA_NODEFER`, `SA_RESETHAND`, delivery order of several unblocked signals, real-time queueing with `sigtimedwait`, `sigsuspend`, ignored signals, `SA_ONSTACK` alternate stacks, recovering from `SIGSEGV` (MAPERR, ACCERR), `SIGBUS`, and traps with `siglongjmp`, a handler editing the saved PC to skip a faulting store, `SIGPIPE`, and `abort()` after its handler returns (status 134) |
 | `stdin` | Reading standard input to end of file |
@@ -80,7 +81,7 @@ runs in parallel must not see each other's queues and identifiers.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 126 binaries (42 programs × 3 architectures), 5,028 KiB in total; each
+- Size: 129 binaries (43 programs × 3 architectures), 5,192 KiB in total; each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -130,7 +131,8 @@ runs in parallel must not see each other's queues and identifiers.
   (QEMU, `iovec`), or cannot run under a small `RLIMIT_MEMLOCK` with
   `MCL_FUTURE` (Rosetta, `mlock`), or lacks `mlock2`, translates the
   `EPERM` and `EAGAIN` of locked mappings, and ignores advice on locked
-  ones (QEMU, `mlock`), the native AArch64
+  ones (QEMU, `mlock`), or lacks `mseal` (both, `mseal`), the native
+  AArch64
   result is used for architecture-independent kernel code. Rosetta has
   once, in about ten recordings, lost a stopped child continued by
   `SIGCONT` (`fork`); a recording is kept only when it matches the native

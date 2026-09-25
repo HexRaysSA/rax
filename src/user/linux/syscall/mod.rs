@@ -11,6 +11,7 @@
 //! | [`path`] | `open`, `stat`, directory and name operations, working directory |
 //! | [`mem`] | `brk`, `mmap` family, `madvise` |
 //! | [`mlock`] | `mlock`, `mlock2`, `munlock`, `mlockall`, `munlockall` |
+//! | [`mseal`] | `mseal` |
 //! | [`procmem`] | `process_vm_readv`, `process_vm_writev`, `process_madvise` |
 //! | [`kcmp`] | `kcmp` |
 //! | [`process`] | identity, limits, `uname`, `prctl`, `arch_prctl` |
@@ -51,6 +52,7 @@ pub mod memfd;
 pub mod mlock;
 pub mod mount;
 pub mod mqueue;
+pub mod mseal;
 pub mod net;
 pub mod notify;
 pub mod path;
@@ -605,6 +607,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Munlock => r(mlock::munlock(c, a[0], a[1])),
         S::Mlockall => r(mlock::mlockall(c, a[0] as i32)),
         S::Munlockall => r(mlock::munlockall(c)),
+        S::Mseal => r(mseal::mseal(c, a[0], a[1], a[2])),
         S::Mincore => r(mem::mincore(c, a[0], a[1], a[2])),
         S::RiscvFlushIcache => r(Ok(0)),
         S::MemfdCreate => r(memfd::memfd_create(c, a[0], a[1] as u32)),

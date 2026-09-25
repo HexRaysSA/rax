@@ -147,7 +147,11 @@ pub fn brk(c: &mut Ctx<'_>, addr: u64) -> SysResult {
         return Ok(addr);
     }
     if addr <= cur {
-        // Shrinking always succeeds.
+        // Shrinking succeeds unless the pages are sealed (the unmapping
+        // fails and the break stays).
+        if super::mseal::sealed_in(c.p, new_end, old_end - new_end) {
+            return Ok(cur);
+        }
         super::mlock::unmapped(c.p, new_end, old_end - new_end);
         c.p.space
             .unmap(new_end, old_end - new_end)
@@ -365,6 +369,10 @@ pub fn mmap(
     if !super::mlock::future_ok(c.p, lock, len) {
         return Err(Errno(EAGAIN));
     }
+    // __mmap_region: a sealed range cannot be mapped over.
+    if super::mseal::sealed_in(c.p, start, len) {
+        return Err(Errno(EPERM));
+    }
     super::mlock::unmapped(c.p, start, len);
     c.p.space
         .map(
@@ -410,6 +418,10 @@ pub fn munmap(c: &mut Ctx<'_>, addr: u64, len: u64) -> SysResult {
     let len = page_align(len).ok_or(Errno(EINVAL))?;
     if len == 0 {
         return Err(Errno(EINVAL));
+    }
+    // vms_gather_munmap_vmas: a sealed VMA stops it before anything goes.
+    if super::mseal::sealed_in(c.p, addr, len) {
+        return Err(Errno(EPERM));
     }
     super::mlock::unmapped(c.p, addr, len);
     c.p.space.unmap(addr, len).map_err(map_err)?;
@@ -481,6 +493,10 @@ pub fn mprotect(c: &mut Ctx<'_>, addr: u64, len: u64, prot: u32) -> SysResult {
         if p & PROT_WRITE != 0 && vma.flags & vma_flags::DENY_WRITE != 0 {
             return Err(Errno(EACCES));
         }
+        // mprotect_fixup: a sealed VMA keeps its protection, even the same.
+        if vma.flags & vma_flags::SEALED != 0 {
+            return Err(Errno(EPERM));
+        }
         let hi = vma.end.min(end);
         c.p.space
             .protect(cursor, hi - cursor, perms(c.p.abi, p))
@@ -527,6 +543,10 @@ pub fn mremap(
     }
     let task = c.p.abi.task_size();
     let vma = c.p.space.vma_at(old).ok_or(Errno(EFAULT))?;
+    // check_prep_vma: a sealed VMA is not remapped.
+    if vma.flags & vma_flags::SEALED != 0 {
+        return Err(Errno(EPERM));
+    }
     // Duplicating a mapping (old_len == 0): only a shared one, whose pages
     // the new mapping shares (mremap_to or a new area).
     if old_len == 0 {
@@ -576,6 +596,10 @@ pub fn mremap(
             return Err(Errno(EINVAL));
         }
         if new_addr < MMAP_MIN_ADDR {
+            return Err(Errno(EPERM));
+        }
+        // mremap_to's do_munmap of the destination.
+        if super::mseal::sealed_in(c.p, new_addr, new_len) {
             return Err(Errno(EPERM));
         }
         super::mlock::unmapped(c.p, new_addr, new_len);
@@ -691,6 +715,9 @@ fn duplicate(
         unmapped_area(c, 0, new_len, 0)?
     };
     // mremap_to unmaps the destination; move_vma counts the new VMA.
+    if super::mseal::sealed_in(c.p, dest, new_len) {
+        return Err(Errno(EPERM));
+    }
     super::mlock::unmapped(c.p, dest, new_len);
     c.p.space
         .map(
@@ -826,6 +853,10 @@ pub fn madvise(c: &mut Ctx<'_>, addr: u64, len: u64, advice: u32) -> SysResult {
             Backing::Shared { object, .. } => object.is_anonymous(),
             Backing::Source { .. } => false,
         };
+        // can_madvise_modify: a seal keeps what could not be written.
+        if super::mseal::blocks_discard(&vma, advice) {
+            return Err(Errno(EPERM));
+        }
         // A locked VMA keeps its pages: madvise_dontneed_free_valid_vma
         // (MADV_DONTNEED_LOCKED excepted), madvise_remove, and
         // can_madv_lru_vma refuse it.

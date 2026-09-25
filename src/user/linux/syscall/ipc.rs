@@ -119,6 +119,10 @@ pub fn shmat(c: &mut Ctx<'_>, id: i32, addr: u64, flags: i32) -> SysResult {
     if !super::mlock::future_ok(c.p, lock, len) {
         return Err(Errno(EAGAIN));
     }
+    // SHM_REMAP over a sealed range fails as do_mmap's unmapping does.
+    if super::mseal::sealed_in(c.p, start, len) {
+        return Err(Errno(EPERM));
+    }
     let object = SharedObject::sysv(file, writable, id).map_err(Errno::from)?;
     super::mlock::unmapped(c.p, start, len);
     c.p.space
@@ -146,7 +150,8 @@ pub fn shmat(c: &mut Ctx<'_>, id: i32, addr: u64, flags: i32) -> SysResult {
 
 /// `shmdt` (`ksys_shmdt`): the first segment mapping at or after `addr`
 /// that maps its segment from where `addr` would (its offset), then the
-/// following ones of the same attach within the segment's size.
+/// following ones of the same attach within the segment's size. The
+/// unmapping's failure is ignored, so a sealed mapping stays.
 pub fn shmdt(c: &mut Ctx<'_>, addr: u64) -> SysResult {
     if addr & PAGE_MASK != 0 {
         return Err(Errno(EINVAL));
@@ -162,8 +167,7 @@ pub fn shmdt(c: &mut Ctx<'_>, addr: u64) -> SysResult {
     let mut found = None;
     for v in rest.by_ref() {
         if let Some(object) = at_offset(v) {
-            super::mlock::unmapped(c.p, v.start, v.len());
-            c.p.space.unmap(v.start, v.len()).map_err(map_err)?;
+            detach(c, v)?;
             found = Some(object);
             break;
         }
@@ -177,11 +181,20 @@ pub fn shmdt(c: &mut Ctx<'_>, addr: u64) -> SysResult {
             break;
         }
         if at_offset(v).is_some_and(|o| Arc::ptr_eq(&o, &attach)) {
-            super::mlock::unmapped(c.p, v.start, v.len());
-            c.p.space.unmap(v.start, v.len()).map_err(map_err)?;
+            detach(c, v)?;
         }
     }
     Ok(0)
+}
+
+/// Unmaps one attach VMA unless it is sealed (`do_vmi_align_munmap`
+/// failing, its error ignored by `shmdt`).
+fn detach(c: &mut Ctx<'_>, v: &crate::user::mm::Vma) -> Result<(), Errno> {
+    if v.flags & vma_flags::SEALED != 0 {
+        return Ok(());
+    }
+    super::mlock::unmapped(c.p, v.start, v.len());
+    c.p.space.unmap(v.start, v.len()).map_err(map_err)
 }
 
 /// `shmctl` (`ksys_shmctl`).

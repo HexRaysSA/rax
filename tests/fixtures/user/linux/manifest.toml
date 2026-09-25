@@ -231,6 +231,12 @@ target = "x86_64-linux-musl"
 sha256 = "a308be708781b093da5a7feba61c6e2a64dab0b3fef88fe99168673de030d0fb"
 
 [[fixture]]
+path = "bin/x86_64/mseal"
+source = "src/mseal.c"
+target = "x86_64-linux-musl"
+sha256 = "d33127003260eef360824fed4945c760bd4fb609056973f32b506b2eefc12bcd"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -483,6 +489,12 @@ target = "aarch64-linux-musl"
 sha256 = "cb819b44d0ecd86a2a8ebaf1da3e86002f3476304fdb8758ed87b76455df34d6"
 
 [[fixture]]
+path = "bin/aarch64/mseal"
+source = "src/mseal.c"
+target = "aarch64-linux-musl"
+sha256 = "daf2165ac59e151e0b7ce3f5db56306b88686635e7e9c353aeeb9291a27d9f94"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -733,6 +745,12 @@ path = "bin/riscv64/mlock"
 source = "src/mlock.c"
 target = "riscv64-linux-musl"
 sha256 = "c578ed3eb0f10ad5d91040b1f3f080082777f3e6aefbe6b49940c4d24b46d308"
+
+[[fixture]]
+path = "bin/riscv64/mseal"
+source = "src/mseal.c"
+target = "riscv64-linux-musl"
+sha256 = "7bd2b1d6dae2f8078c9aa90b36d45554b4e66562865ea3c60704cc81aa534b93"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

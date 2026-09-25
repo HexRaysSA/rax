@@ -76,6 +76,9 @@ pub mod vma_flags {
     /// the `[vdso]` page. It is never locked, grown, or kept by
     /// `MREMAP_DONTUNMAP`.
     pub const SPECIAL: u32 = 1 << 5;
+    /// `VM_SEALED` (`mseal`): never unmapped, remapped, reprotected, or
+    /// discarded where it could not be written; never unsealed.
+    pub const SEALED: u32 = 1 << 6;
 }
 
 impl LinuxAbi {
