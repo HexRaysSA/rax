@@ -31,6 +31,7 @@ mod ptrace_events;
 mod ptrace_fork;
 mod ptrace_jobctl;
 mod ptrace_regsets;
+mod ptrace_seccomp;
 mod ptrace_stops;
 mod rseq;
 mod seccomp;

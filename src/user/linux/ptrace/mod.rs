@@ -73,6 +73,10 @@ pub mod req {
     pub const INTERRUPT: u64 = 0x4207;
     pub const LISTEN: u64 = 0x4208;
     pub const PEEKSIGINFO: u64 = 0x4209;
+    /// `PTRACE_SECCOMP_GET_FILTER` and `PTRACE_SECCOMP_GET_METADATA`
+    /// (checkpoint and restore).
+    pub const SECCOMP_GET_FILTER: u64 = 0x420c;
+    pub const SECCOMP_GET_METADATA: u64 = 0x420d;
     pub const GETSIGMASK: u64 = 0x420a;
     pub const SETSIGMASK: u64 = 0x420b;
     pub const GET_SYSCALL_INFO: u64 = 0x420e;
@@ -697,6 +701,8 @@ pub const SIGINFO: usize = 128;
 pub const RSEQ_CONFIGURATION: u64 = 24;
 /// `PTRACE_PEEKSIGINFO_SHARED`.
 pub const PEEKSIGINFO_SHARED: u32 = 1;
+/// `sizeof(struct seccomp_metadata)`: `filter_off` and `flags`.
+pub const SECCOMP_METADATA: u64 = 16;
 
 /// The link with this identity, if it is still there.
 pub fn link_mut(p: &mut ProcState, id: LinkId) -> Option<&mut Link> {

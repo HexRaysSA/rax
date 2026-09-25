@@ -20,7 +20,7 @@ use crate::user::linux::arch::GuestCpu;
 use crate::user::linux::ptrace::{Link, LinkId, Msg, regs, req};
 use crate::user::linux::signal::{SIGRTMIN, SIGUSR1, SIGUSR2, SigInfo, code};
 
-fn e(errno: i32) -> i64 {
+pub(super) fn e(errno: i32) -> i64 {
     -(errno as i64)
 }
 
@@ -38,7 +38,7 @@ fn set(h: &mut Harness, tr: &mut Tracer, nt: u64, bytes: &[u8]) -> i64 {
 
 /// A tracee the test plays: thread `tid` of the process at the other end
 /// of the harness's parent link, stopped. Returns the test's end.
-fn fake_tracee(h: &mut Harness, tid: i32) -> Link {
+pub(super) fn fake_tracee(h: &mut Harness, tid: i32) -> Link {
     let (mine, theirs) = Link::pair().unwrap();
     h.proc.state.parent_link = Some(mine);
     let me = h.proc.threads[0].tid;
@@ -50,7 +50,7 @@ fn fake_tracee(h: &mut Harness, tid: i32) -> Link {
 /// A `ptrace` call of the harness (the tracer) answered by the test with
 /// `ret` and `payload`, if it reaches the tracee: the call's result and the
 /// request that came.
-fn tracer_call(
+pub(super) fn tracer_call(
     h: &mut Harness,
     tracee: &mut Link,
     args: [u64; 4],

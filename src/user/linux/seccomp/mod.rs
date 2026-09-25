@@ -26,6 +26,8 @@ pub const MODE_STRICT: u32 = 1;
 pub const MODE_FILTER: u32 = 2;
 /// `SECCOMP_MODE_DEAD`: after a kill, before the thread is gone.
 pub const MODE_DEAD: u32 = 3;
+/// `SECCOMP_FILTER_FLAG_LOG`.
+pub const FILTER_FLAG_LOG: u32 = 2;
 /// `SECCOMP_RET_*`.
 pub const RET_KILL_PROCESS: u32 = 0x8000_0000;
 pub const RET_KILL_THREAD: u32 = 0x0000_0000;
@@ -102,7 +104,33 @@ fn rank(ret: u32) -> i32 {
     (ret & RET_ACTION_FULL) as i32
 }
 
+impl Filter {
+    /// The program as it was installed (`orig_prog`, which checkpoint and
+    /// restore keeps).
+    pub fn prog(&self) -> &[bpf::Insn] {
+        &self.prog
+    }
+}
+
 impl Seccomp {
+    /// `get_nth_filter`: the filter `off` places after the oldest (0 is the
+    /// first installed); `EINVAL` outside filter mode, `ENOENT` past the
+    /// newest.
+    pub fn nth(&self, off: u64) -> Result<&Filter, i32> {
+        use crate::user::linux::abi::errno_table::{EINVAL, ENOENT};
+        if self.mode != MODE_FILTER {
+            return Err(EINVAL);
+        }
+        let count = self.count() as u64;
+        if off >= count {
+            return Err(ENOENT);
+        }
+        let back = (count - 1 - off) as usize;
+        std::iter::successors(self.filter.as_deref(), |f| f.prev.as_deref())
+            .nth(back)
+            .ok_or(ENOENT)
+    }
+
     /// How many filters the chain has (`filter_count`).
     pub fn count(&self) -> usize {
         std::iter::successors(self.filter.as_deref(), |f| f.prev.as_deref()).count()

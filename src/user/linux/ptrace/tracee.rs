@@ -9,6 +9,7 @@ use super::super::abi::LinuxAbi;
 use super::super::abi::errno_table::*;
 use super::super::arch::GuestCpu;
 use super::super::process::{ProcState, Thread, Threads};
+use super::super::seccomp::FILTER_FLAG_LOG;
 use super::super::signal::deliver::{self, Dest};
 use super::super::signal::{
     SIG_IGN, SIGCHLD, SIGKILL, SIGSTOP, SIGTRAP, SigInfo, code, sa, sigmask,
@@ -316,6 +317,29 @@ fn serve(
                 .flat_map(|info| info.encode())
                 .collect();
             ((out.len() / SIGINFO) as i64, out)
+        }
+        // seccomp_get_filter (the tracer holds CAP_SYS_ADMIN): the
+        // instruction count of filter `addr`, and its instructions.
+        req::SECCOMP_GET_FILTER => match t.seccomp.nth(addr) {
+            Ok(f) => {
+                let b = f.prog().iter().flat_map(|i| i.encode()).collect();
+                (f.prog().len() as i64, b)
+            }
+            Err(e) => fail(e),
+        },
+        // seccomp_get_metadata: struct seccomp_metadata of filter
+        // `filter_off`, its flags SECCOMP_FILTER_FLAG_LOG or none.
+        req::SECCOMP_GET_METADATA => {
+            let off = u64::from_le_bytes(payload[..8].try_into().unwrap());
+            match t.seccomp.nth(off) {
+                Ok(f) => {
+                    let flags = if f.log { FILTER_FLAG_LOG } else { 0 };
+                    let mut b = off.to_le_bytes().to_vec();
+                    b.extend_from_slice(&u64::from(flags).to_le_bytes());
+                    (0, b)
+                }
+                Err(e) => fail(e),
+            }
         }
         req::GET_RSEQ_CONFIGURATION => {
             // ptrace_get_rseq_configuration: the registration, no flags.
@@ -983,6 +1007,15 @@ pub fn group_exit(p: &mut ProcState, status: i32) {
     for link in link_ids(p) {
         send(p, link, &Msg::GroupExit { status });
     }
+}
+
+/// Whether the thread's seccomp is suspended: its tracer set
+/// `PTRACE_O_SUSPEND_SECCOMP` (`PT_SUSPEND_SECCOMP`, which
+/// `__secure_computing` honors before any mode).
+pub fn seccomp_suspended(t: &Thread) -> bool {
+    t.ptrace
+        .as_ref()
+        .is_some_and(|tr| tr.tracer >= 0 && tr.options & opt::SUSPEND_SECCOMP != 0)
 }
 
 /// `/proc/<pid>/status`'s `TracerPid` for a thread.

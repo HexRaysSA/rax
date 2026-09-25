@@ -2,7 +2,9 @@
 //! (`kernel/seccomp.c`).
 //!
 //! A call is checked when it enters, before its handler runs, but not when
-//! it runs again after sleeping: the kernel checks it once. Filters are
+//! it runs again after sleeping: the kernel checks it once; nothing is
+//! checked while a tracer suspends the thread's seccomp
+//! (`PTRACE_O_SUSPEND_SECCOMP`). Filters are
 //! installed with `no_new_privs` or `CAP_SYS_ADMIN` (`EACCES` otherwise)
 //! and pass the checks of [`bpf::check`] (`EINVAL` otherwise).
 //! `SECCOMP_FILTER_FLAG_NEW_LISTENER` is refused (`EINVAL`, as by a kernel
@@ -25,7 +27,7 @@ const GET_ACTION_AVAIL: u32 = 2;
 const GET_NOTIF_SIZES: u32 = 3;
 /// `SECCOMP_FILTER_FLAG_*`.
 const FLAG_TSYNC: u32 = 1;
-const FLAG_LOG: u32 = 2;
+const FLAG_LOG: u32 = sc::FILTER_FLAG_LOG;
 const FLAG_NEW_LISTENER: u32 = 8;
 const FLAG_TSYNC_ESRCH: u32 = 16;
 const FLAG_WAIT_KILLABLE_RECV: u32 = 32;
@@ -78,7 +80,8 @@ pub fn entry(
     recheck: bool,
 ) -> Option<Outcome> {
     let mode = c.t.seccomp.mode;
-    if mode == sc::MODE_DISABLED {
+    // __secure_computing: nothing is checked while the tracer suspends it.
+    if mode == sc::MODE_DISABLED || super::super::ptrace::tracee::seccomp_suspended(c.t) {
         return None;
     }
     let abi = c.p.abi;

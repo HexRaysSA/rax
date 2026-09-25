@@ -29,6 +29,16 @@ impl Insn {
             k: u32::from_le_bytes(b[4..8].try_into().unwrap()),
         }
     }
+
+    /// The guest's 8 bytes (`struct sock_filter`).
+    pub fn encode(&self) -> [u8; 8] {
+        let mut b = [0u8; 8];
+        b[..2].copy_from_slice(&self.code.to_le_bytes());
+        b[2] = self.jt;
+        b[3] = self.jf;
+        b[4..].copy_from_slice(&self.k.to_le_bytes());
+        b
+    }
 }
 
 // Instruction classes, sizes, modes, operations, and sources.

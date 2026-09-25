@@ -11,9 +11,10 @@ use super::super::abi::LinuxAbi;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::ptrace::{
-    LinkId, Msg, NSIG, PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, SIGINFO, SIGSET, Traced, call,
-    link_mut, offered, opt, regs, req, resumes, send,
+    LinkId, Msg, NSIG, PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, SECCOMP_METADATA, SIGINFO, SIGSET,
+    Traced, call, link_mut, offered, opt, regs, req, resumes, send,
 };
+use super::super::seccomp::MODE_DISABLED;
 use super::super::wait::{Resume, Wait};
 use super::{Ctx, SysResult};
 
@@ -164,13 +165,25 @@ fn attach(
 }
 
 /// `check_ptrace_options`: unknown options (`EINVAL`), and
-/// `PTRACE_O_SUSPEND_SECCOMP`, which only a kernel with checkpoint and
-/// restore offers to `CAP_SYS_ADMIN`: not offered here (`EINVAL`).
-fn check_options(_c: &Ctx<'_>, data: u64) -> Result<(), Errno> {
-    if data & !opt::MASK != 0 || data & opt::SUSPEND_SECCOMP != 0 {
+/// `PTRACE_O_SUSPEND_SECCOMP` (checkpoint and restore), which needs
+/// `CAP_SYS_ADMIN` and a tracer neither under seccomp nor itself traced
+/// with seccomp suspended (`EPERM`).
+fn check_options(c: &Ctx<'_>, data: u64) -> Result<(), Errno> {
+    if data & !opt::MASK != 0 {
         return Err(Errno(EINVAL));
     }
+    if data & opt::SUSPEND_SECCOMP != 0 {
+        let suspended = super::super::ptrace::tracee::seccomp_suspended(c.t);
+        if !admin(c) || c.t.seccomp.mode != MODE_DISABLED || suspended {
+            return Err(Errno(EPERM));
+        }
+    }
     Ok(())
+}
+
+/// `capable(CAP_SYS_ADMIN)`: only root holds it.
+fn admin(c: &Ctx<'_>) -> bool {
+    c.p.creds.1 == 0
 }
 
 /// Sleeps until the answer on `link` comes (or the link goes: `ESRCH`).
@@ -275,6 +288,20 @@ fn ask(
             }
             payload = c.read_mem(data, call::INFO_SIZE)?;
         }
+        // seccomp_get_filter and seccomp_get_metadata: CAP_SYS_ADMIN and a
+        // tracer without seccomp (EACCES); the metadata's size (at least
+        // its filter_off, EINVAL) and filter_off, read from the tracer.
+        req::SECCOMP_GET_FILTER | req::SECCOMP_GET_METADATA => {
+            if !admin(c) || c.t.seccomp.mode != MODE_DISABLED {
+                return Err(Errno(EACCES));
+            }
+            if request == req::SECCOMP_GET_METADATA {
+                if addr.min(SECCOMP_METADATA) < 8 {
+                    return Err(Errno(EINVAL));
+                }
+                payload = c.read_mem(data, 8)?;
+            }
+        }
         _ => return Err(Errno(EIO)),
     }
     let m = Msg::Request {
@@ -343,6 +370,20 @@ fn answer(c: &mut Ctx<'_>, request: u64, addr: u64, data: u64, link: LinkId) -> 
         req::GET_SYSCALL_INFO => {
             let n = (ret as u64).min(addr) as usize;
             c.write_mem(data, &payload[..n])?;
+        }
+        // The filter's instructions, when the tracer gave a buffer.
+        req::SECCOMP_GET_FILTER if data != 0 => {
+            if c.write_mem(data, &payload).is_err() {
+                return Err(Errno(EFAULT));
+            }
+        }
+        // As much of struct seccomp_metadata as the tracer's size allows.
+        req::SECCOMP_GET_METADATA => {
+            let size = addr.min(SECCOMP_METADATA);
+            if c.write_mem(data, &payload[..size as usize]).is_err() {
+                return Err(Errno(EFAULT));
+            }
+            return Ok(size);
         }
         req::GETREGSET | req::SETREGSET => {
             let base = c.read_u64(data)?;

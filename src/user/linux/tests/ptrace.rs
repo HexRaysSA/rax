@@ -84,9 +84,11 @@ fn requests_check_in_the_kernels_order() {
         assert_eq!(h.call(Sysno::Ptrace, &[ATTACH, me, 0, 0]), e(EPERM));
         assert_eq!(h.call(Sysno::Ptrace, &[SEIZE, me, 1, 0]), e(EIO));
         assert_eq!(h.call(Sysno::Ptrace, &[SEIZE, me, 0, 0x40_0000]), e(EIO));
+        // PTRACE_O_SUSPEND_SECCOMP: EPERM without CAP_SYS_ADMIN, and as
+        // root for the caller's own process.
         assert_eq!(
             h.call(Sysno::Ptrace, &[SEIZE, me, 0, opt::SUSPEND_SECCOMP]),
-            e(EINVAL)
+            e(EPERM)
         );
         assert_eq!(
             h.call(Sysno::Ptrace, &[SEIZE, me, 0, opt::EXITKILL]),
