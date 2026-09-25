@@ -61,6 +61,7 @@ runs in parallel must not see each other's queues and identifiers.
 | `sched` | Scheduling attributes without privilege (as `nobody` when run as root): policies and their checks in order, `sched_setattr` and `sched_getattr` (sizes, flags, the slice, keeping the policy or the parameters, `SCHED_IDLE`'s priority), nice values with `setpriority` and `getpriority` (a thread, the group, the user, a partial failure), `SCHED_RESET_ON_FORK`, inheritance by threads and children, timer slack, the priority ranges, `/proc/<pid>/task/<tid>/stat`'s priority fields, and I/O priorities. The default slice and time slices depend on the machine and are not printed |
 | `procmem` | A process's memory through a task's ID (as `nobody` when run as root): `process_vm_readv` and `process_vm_writev` (the checks in order, vector import with `access_ok` and `MAX_RW_COUNT`, transfers by page needing `VM_READ` or `VM_WRITE`, partial transfers at a remote or local fault, a thread's ID), `/proc/self/maps` and `MADV_POPULATE_READ` for mappings without `PROT_READ`, `process_madvise` (the checks, advice by vector, empty and misaligned vectors, pidfds), a leader that exited while its threads run, and init's memory, which another user may not reach |
 | `kcmp` | `kcmp` and what tasks share by their clone flags (as `nobody` when run as root): the checks in order, open file descriptions (duplicates, `O_PATH`, the index as an `unsigned int`, a total order), the address space, tables, and signal handlers threads share, I/O contexts and semaphore undo lists shared only by `CLONE_IO` and `CLONE_SYSVSEM` (bare `clone` threads, `rawthread.h`), epoll items by descriptor and offset, an exited leader, and init |
+| `iovec` | Vector import as the vectored transfers use it (`readv`, `writev`, `preadv`, `pwritev`, their `2` forms, `sendmsg`, `recvmsg`): each of several vectors checked at its full length before anything moves, a single one capped at `MAX_RW_COUNT` first, the count an `unsigned int` (a message header's a `size_t`, `EMSGSIZE` past `UIO_MAXIOV`), negative lengths and faults in vector order, and a file position left alone by a refused import |
 | `hostsig` | Not a recorded case: the `user_linux` `host_signals` tests send it host signals and follow its output (`siginfo` of a `kill`, a blocking `read` of standard input interrupted by a handler, death by `SIGTERM`) |
 | `signals` | Handlers with `siginfo` from `raise`/`kill`/`sigqueue`, the mask during and after a handler, `SA_NODEFER`, `SA_RESETHAND`, delivery order of several unblocked signals, real-time queueing with `sigtimedwait`, `sigsuspend`, ignored signals, `SA_ONSTACK` alternate stacks, recovering from `SIGSEGV` (MAPERR, ACCERR), `SIGBUS`, and traps with `siglongjmp`, a handler editing the saved PC to skip a faulting store, `SIGPIPE`, and `abort()` after its handler returns (status 134) |
 | `stdin` | Reading standard input to end of file |
@@ -78,7 +79,7 @@ runs in parallel must not see each other's queues and identifiers.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 120 binaries (40 programs × 3 architectures), 4,808 KiB in total; each
+- Size: 123 binaries (41 programs × 3 architectures), 4,904 KiB in total; each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -124,7 +125,8 @@ runs in parallel must not see each other's queues and identifiers.
   lacks `process_madvise` (Rosetta, `procmem`), or lacks
   `process_vm_readv` and `process_vm_writev` and populates a mapping
   without `PROT_READ` for reading (QEMU, `procmem`), or cannot run a bare
-  `CLONE_THREAD` clone (QEMU, `kcmp`), the native AArch64
+  `CLONE_THREAD` clone (QEMU, `kcmp`), or converts vector arrays itself
+  (QEMU, `iovec`), the native AArch64
   result is used for architecture-independent kernel code. Rosetta has
   once, in about ten recordings, lost a stopped child continued by
   `SIGCONT` (`fork`); a recording is kept only when it matches the native

@@ -29,7 +29,8 @@ use super::super::super::net::{Socket, host_msg_flags, lx, netlink};
 use super::super::super::signal::deliver::restart::ERESTARTSYS;
 use super::super::super::wait::{Resume, SockWait, Wait};
 use super::super::io::{MAX_RW_COUNT, iovec_room};
-use super::super::{Ctx, SysResult, is_blocked, read_iovecs};
+use super::super::iov::import_iovec;
+use super::super::{Ctx, SysResult, is_blocked};
 use super::{nonblocking, progress, read_addr, scm, sleep, sock_of, unix_target_error, write_addr};
 
 /// A datagram's most bytes, the receive bounce buffer's cap: Linux's
@@ -662,7 +663,7 @@ fn send_one(
     } else {
         None
     };
-    let iov = read_iovecs(c, m.iov, m.iovlen)?;
+    let iov = import_iovec(c, m.iov, m.iovlen)?;
     if m.controllen > i32::MAX as u64 {
         return Err(Errno(ENOBUFS));
     }
@@ -699,7 +700,7 @@ fn recv_one(
     w: SockWait,
 ) -> Result<(usize, u32), Errno> {
     let m = read_msghdr(c, at)?;
-    let iov = read_iovecs(c, m.iov, m.iovlen)?;
+    let iov = import_iovec(c, m.iov, m.iovlen)?;
     let got = recv(c, file, s, &iov, flags, w)?;
     let files = scm::receive(c, got.fds);
     let mut out = Out::new(m.controllen.min(i32::MAX as u64) as usize);

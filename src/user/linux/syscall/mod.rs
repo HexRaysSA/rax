@@ -348,28 +348,6 @@ impl Ctx<'_> {
     }
 }
 
-/// `struct iovec` array reader shared by the vector I/O calls.
-pub fn read_iovecs(c: &Ctx<'_>, iov: u64, count: u64) -> Result<Vec<(u64, u64)>, Errno> {
-    // UIO_MAXIOV.
-    if count > 1024 {
-        return Err(Errno(EINVAL));
-    }
-    let raw = c.read_mem(iov, count as usize * 16)?;
-    let mut out = Vec::with_capacity(count as usize);
-    let mut total: u64 = 0;
-    for chunk in raw.chunks_exact(16) {
-        let base = u64::from_le_bytes(chunk[..8].try_into().unwrap());
-        let len = u64::from_le_bytes(chunk[8..].try_into().unwrap());
-        // rw_copy_check_uvector: the total must fit in ssize_t.
-        total = total.checked_add(len).ok_or(Errno(EINVAL))?;
-        if total > i64::MAX as u64 {
-            return Err(Errno(EINVAL));
-        }
-        out.push((base, len));
-    }
-    Ok(out)
-}
-
 fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
     use Sysno as S;
     let r = |v: SysResult| v.map(Outcome::Return);

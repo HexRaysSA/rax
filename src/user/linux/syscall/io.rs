@@ -11,8 +11,9 @@ use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::host;
 use super::super::signal::deliver::restart::{ERESTART_RESTARTBLOCK, ERESTARTNOHAND, ERESTARTSYS};
 use super::super::wait::{Resume, Wait};
+use super::iov::import_iovec;
 use super::ready::raw_fd;
-use super::{Ctx, Outcome, RestartBlock, SysResult, is_blocked, read_iovecs};
+use super::{Ctx, Outcome, RestartBlock, SysResult, is_blocked};
 use crate::error::MemoryAccessKind;
 
 /// `MAX_RW_COUNT`: `INT_MAX & PAGE_MASK`.
@@ -333,7 +334,7 @@ pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     if !super::events::can_read(&file) {
         return Err(Errno(EINVAL));
     }
-    let iovecs = read_iovecs(c, iov, cnt)?;
+    let iovecs = import_iovec(c, iov, cnt)?;
     let total: u64 = iovecs.iter().map(|&(_, l)| l).sum();
     // vfs_readv: fsnotify_access for any result that is not an error,
     // an empty transfer included.
@@ -372,7 +373,7 @@ pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     if anon && !super::events::can_write(&file) {
         return Err(Errno(EINVAL));
     }
-    let vecs = read_iovecs(c, iov, cnt)?;
+    let vecs = import_iovec(c, iov, cnt)?;
     if matches!(file.object, FileObject::Socket(_)) {
         return super::net::io::write(c, &file, &vecs);
     }
@@ -460,7 +461,7 @@ pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64
         };
     }
     let mut total = 0;
-    for (base, len) in read_iovecs(c, iov, cnt)? {
+    for (base, len) in import_iovec(c, iov, cnt)? {
         // An empty vector has nothing to copy (and so nothing to fault).
         if len == 0 {
             continue;
@@ -497,7 +498,7 @@ pub fn pwritev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u6
         };
     }
     let mut total = 0;
-    for (base, len) in read_iovecs(c, iov, cnt)? {
+    for (base, len) in import_iovec(c, iov, cnt)? {
         if len == 0 {
             continue;
         }

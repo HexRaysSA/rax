@@ -40,6 +40,7 @@ mqueue   mqueue   -
 sched    sched    -
 procmem  procmem  -
 kcmp     kcmp     -
+iovec    iovec    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

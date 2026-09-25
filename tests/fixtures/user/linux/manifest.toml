@@ -219,6 +219,12 @@ target = "x86_64-linux-musl"
 sha256 = "9a33867abe272640239d76deb5915069db521348f4dcb215f230d66b143ab17d"
 
 [[fixture]]
+path = "bin/x86_64/iovec"
+source = "src/iovec.c"
+target = "x86_64-linux-musl"
+sha256 = "895fbe0b6e19526d218a72deae63e2cdefdf5d3c0cf6033a9604b02d7e5da9fb"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -459,6 +465,12 @@ target = "aarch64-linux-musl"
 sha256 = "1845561004bd893e2fa8b9f6653819987974f1513af027232257c16fe7697de2"
 
 [[fixture]]
+path = "bin/aarch64/iovec"
+source = "src/iovec.c"
+target = "aarch64-linux-musl"
+sha256 = "0ec745a9619c4487b1ee764cdf18ff5f2d4644a9f0e59fbd92f6f5f3de9a8278"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -697,6 +709,12 @@ path = "bin/riscv64/kcmp"
 source = "src/kcmp.c"
 target = "riscv64-linux-musl"
 sha256 = "c9b01ed0efff491709b39ce24e4c9703a1d9c35e889a44d7767dbf1bb251aab4"
+
+[[fixture]]
+path = "bin/riscv64/iovec"
+source = "src/iovec.c"
+target = "riscv64-linux-musl"
+sha256 = "7c1ed304d08fcee96f58a4af7c1a28128e588d6214d6a95c43d3b77e94c7acfa"
 
 [[fixture]]
 path = "bin/riscv64/stdin"
