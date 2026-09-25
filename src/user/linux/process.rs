@@ -379,6 +379,11 @@ pub struct ProcState {
     pub ipc: super::ipc::IpcState,
     /// Linux AIO contexts (`mm->ioctx_table`).
     pub aio: super::aio::Table,
+    /// The link to the parent process (made at `fork`; none for the first
+    /// process), along which it traces or is traced.
+    pub parent_link: Option<super::ptrace::Link>,
+    /// The threads this process traces (`ptraced`).
+    pub tracees: super::ptrace::Tracees,
     /// The emulated file-system notification namespace, when the backend
     /// is the emulated one and its namespace could be opened.
     pub fsnotify: Option<std::sync::Arc<super::fsnotify::hub::Hub>>,
@@ -444,6 +449,8 @@ pub struct Thread {
     pub sysvsem: Option<super::ipc::UndoList>,
     /// Its restartable-sequences registration and pending events.
     pub rseq: Option<super::rseq::Rseq>,
+    /// Its tracer and the stop it is in (`task->ptrace`, `last_siginfo`).
+    pub ptrace: Option<super::ptrace::Traced>,
 }
 
 impl Thread {
@@ -474,6 +481,7 @@ impl Thread {
             sched: Default::default(),
             sysvsem: None,
             rseq: None,
+            ptrace: None,
         }
     }
 }
@@ -716,6 +724,8 @@ impl LinuxProcess {
             exec_id: 0,
             ipc: super::ipc::IpcState::new(config_ipc_dir),
             aio: Default::default(),
+            parent_link: None,
+            tracees: Default::default(),
             fsnotify,
             exec_keep: Vec::new(),
         };

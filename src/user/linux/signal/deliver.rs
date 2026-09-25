@@ -92,9 +92,13 @@ pub enum Dest {
 
 /// Whether `sig` is ignored for delivery to a thread with mask `blocked`
 /// (`sig_ignored`): blocked signals are never ignored, since the handler
-/// may change before they are unblocked.
-fn sig_ignored(p: &ProcState, blocked: u64, sig: i32, force: bool) -> bool {
+/// may change before they are unblocked, nor any but `SIGKILL` to a traced
+/// thread, whose tracer may want to know of it.
+fn sig_ignored(p: &ProcState, blocked: u64, sig: i32, force: bool, traced: bool) -> bool {
     if blocked & sigmask(sig) != 0 {
+        return false;
+    }
+    if traced && sig != SIGKILL {
         return false;
     }
     let handler = p.sigactions[(sig - 1) as usize].handler;
@@ -131,6 +135,7 @@ fn prepare_signal(
     sig: i32,
     mask: u64,
     force: bool,
+    traced: bool,
 ) -> bool {
     let stops = sigmask(SIGSTOP) | sigmask(SIGTSTP) | sigmask(SIGTTIN) | sigmask(SIGTTOU);
     let flush = if default_stops(sig) {
@@ -143,7 +148,7 @@ fn prepare_signal(
     if flush != 0 {
         flush_signals(p, th, flush);
     }
-    !sig_ignored(p, mask, sig, force)
+    !sig_ignored(p, mask, sig, force, traced)
 }
 
 /// `flush_sigqueue_mask` on every queue of the process: discards the
@@ -231,9 +236,11 @@ fn complete_signal(p: &mut ProcState, th: &mut Threads<'_>, info: &SigInfo, dest
         && p.exit.is_none()
         && t.real_blocked & sigmask(sig) == 0
         && !default_dumps_core(sig)
+        && (sig == SIGKILL || t.ptrace.is_none())
     {
         // The signal will be fatal to the whole group: start the group
-        // exit now rather than after the thread dequeues it.
+        // exit now rather than after the thread dequeues it (not for a
+        // traced thread, whose tracer sees the signal first).
         p.exit = Some(ExitStatus::Signaled {
             info: *info,
             pc: t.cpu.pc(),
@@ -258,7 +265,8 @@ pub fn send_signal(
         Dest::Thread(tid) | Dest::Process(tid) => tid,
     };
     let mask = target_mask(p, th, target).unwrap_or(0);
-    if !prepare_signal(p, th, info.signo, mask, force) {
+    let traced = th.iter().any(|t| t.tid == target && t.ptrace.is_some());
+    if !prepare_signal(p, th, info.signo, mask, force, traced) {
         return false;
     }
     signalfd_notify(th, info.signo);
@@ -357,6 +365,8 @@ pub fn force_sigsegv(p: &mut ProcState, th: &mut Threads<'_>, sig: i32) {
 /// interval timers (`SEND_SIG_PRIV`), all aimed at the process through its
 /// leader, and the signals of expired POSIX timers.
 pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
+    // Tracing messages: a tracee's answers and stops, a tracer's requests.
+    crate::user::linux::syscall::ptrace::poll_links(p, th);
     if crate::user::linux::host::take_child_event() {
         crate::user::linux::syscall::child::refresh(p, th);
     }
@@ -429,7 +439,7 @@ pub fn send_timer_signal(p: &mut ProcState, th: &mut Threads<'_>, f: Firing) {
         return;
     };
     let queued = timer_queued(p, th, f.uid);
-    if !prepare_signal(p, th, f.signo, mask, false) {
+    if !prepare_signal(p, th, f.signo, mask, false, false) {
         if !queued {
             p.timers.park_ignored(f.uid);
         }
@@ -487,6 +497,8 @@ enum Next {
     Handler(Delivery),
     /// The process is exiting.
     Exit,
+    /// The thread stopped for its tracer.
+    Traced,
 }
 
 /// Formats a delivered signal the way `strace` does.
@@ -515,21 +527,44 @@ impl LinuxProcess {
     /// restore.
     fn signal_work(&self, idx: usize) -> bool {
         let t = &self.threads[idx];
-        t.sigpending || t.syscall.is_some() || t.saved_sigmask.is_some()
+        t.sigpending
+            || t.syscall.is_some()
+            || t.saved_sigmask.is_some()
+            || t.ptrace.as_ref().is_some_and(|tr| tr.stop.is_some())
     }
 
     /// `get_signal`: dequeues signals for thread `idx` until one has a
     /// handler, taking default actions on the way.
     fn get_signal(&mut self, idx: usize) -> Next {
+        use crate::user::linux::syscall::ptrace;
         loop {
             let (p, t) = (&mut self.state, &mut self.threads[idx]);
             let blocked = t.sigmask;
-            let info = match t.pending.dequeue_synchronous(blocked) {
-                Some(info) => Some(info),
-                None => dequeue_signal(p, t, blocked),
-            };
-            let Some(info) = info else {
-                return Next::None;
+            // ptrace_signal after the tracer resumed the thread: the signal
+            // it left (or none), requeued if it is now blocked.
+            let info = match ptrace::take_verdict(p, t) {
+                Some(None) => continue,
+                Some(Some(info)) if blocked & sigmask(info.signo) != 0 => {
+                    t.pending.enqueue(info);
+                    continue;
+                }
+                Some(Some(info)) => info,
+                None => {
+                    let info = match t.pending.dequeue_synchronous(blocked) {
+                        Some(info) => Some(info),
+                        None => dequeue_signal(p, t, blocked),
+                    };
+                    let Some(info) = info else {
+                        return Next::None;
+                    };
+                    // A traced thread stops for its tracer before taking
+                    // any signal but SIGKILL (signal-delivery-stop).
+                    if t.ptrace.is_some() && info.signo != SIGKILL {
+                        ptrace::stop(p, t, info.signo, Some(info), true);
+                        return Next::Traced;
+                    }
+                    info
+                }
             };
             if p.config.strace {
                 trace_signal(t.tid, &info);
@@ -555,6 +590,12 @@ impl LinuxProcess {
             }
             if p.unkillable && sigmask(sig) & KERNEL_ONLY_MASK == 0 {
                 continue;
+            }
+            if default_stops(sig) && t.ptrace.is_some() {
+                // do_signal_stop for a traced thread: a group stop its
+                // tracer is told of (do_jobctl_trap), with no siginfo.
+                ptrace::stop(p, t, sig, None, false);
+                return Next::Traced;
             }
             if default_stops(sig) {
                 // Group stop. Process groups are never treated as
@@ -624,7 +665,8 @@ impl LinuxProcess {
         let t = &mut self.threads[idx];
         // arch_do_signal_or_restart: provisionally restart the call.
         let mut rewound = None;
-        if let Some(entry) = t.syscall.take() {
+        let entry = t.syscall.take();
+        if let Some(entry) = entry {
             let value = t.cpu.syscall_return_value();
             if is_restart(value) {
                 let continue_pc = t.cpu.pc();
@@ -635,6 +677,18 @@ impl LinuxProcess {
         loop {
             match self.get_signal(idx) {
                 Next::Exit => return,
+                Next::Traced => {
+                    // The tracer sees the call as it ended (its result, the
+                    // instruction after it, orig_rax); the restart is
+                    // decided once the thread goes on.
+                    let t = &mut self.threads[idx];
+                    if let Some((code, continue_pc)) = rewound.take() {
+                        t.cpu.set_pc(continue_pc);
+                        t.cpu.set_syscall_result(-(code as i64) as u64);
+                    }
+                    t.syscall = entry;
+                    return;
+                }
                 Next::Handler(d) => {
                     if let Some((code, continue_pc)) = rewound.take() {
                         let interrupt = code == ERESTARTNOHAND

@@ -724,6 +724,84 @@ pub fn status_pipe() -> Result<(std::os::fd::OwnedFd, std::os::fd::OwnedFd), Err
     }
 }
 
+/// A tracing link's two ends: a connected pair of non-blocking,
+/// close-on-exec `AF_UNIX` stream sockets that raise no `SIGPIPE`.
+pub fn link_pair() -> Result<(std::os::fd::OwnedFd, std::os::fd::OwnedFd), Errno> {
+    use std::os::fd::FromRawFd;
+    let mut fds = [0 as libc::c_int; 2];
+    // SAFETY: socketpair writes two descriptors into `fds`, which outlives
+    // the call.
+    if unsafe { libc::socketpair(libc::AF_UNIX, libc::SOCK_STREAM, 0, fds.as_mut_ptr()) } != 0 {
+        return Err(last_errno());
+    }
+    // SAFETY: socketpair just returned these descriptors, owned by nobody
+    // else.
+    let (a, b) = unsafe {
+        (
+            std::os::fd::OwnedFd::from_raw_fd(fds[0]),
+            std::os::fd::OwnedFd::from_raw_fd(fds[1]),
+        )
+    };
+    for f in [&a, &b] {
+        set_nonblocking(f, true)?;
+        // SAFETY: F_SETFD takes an integer flag; the descriptor is borrowed.
+        unsafe { libc::fcntl(f.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) };
+        #[cfg(target_vendor = "apple")]
+        {
+            let one: libc::c_int = 1;
+            // SAFETY: the option value is a valid int for the call.
+            unsafe {
+                libc::setsockopt(
+                    f.as_raw_fd(),
+                    libc::SOL_SOCKET,
+                    libc::SO_NOSIGPIPE,
+                    (&one as *const libc::c_int).cast(),
+                    std::mem::size_of::<libc::c_int>() as libc::socklen_t,
+                )
+            };
+        }
+    }
+    Ok((a, b))
+}
+
+/// Writes all of `data` to a non-blocking socket, waiting for room.
+pub fn write_all_waiting(fd: &impl AsRawFd, data: &[u8]) -> Result<(), Errno> {
+    #[cfg(target_os = "linux")]
+    let quiet = libc::MSG_NOSIGNAL;
+    #[cfg(not(target_os = "linux"))]
+    let quiet = 0;
+    let mut at = 0;
+    while at < data.len() {
+        let rest = &data[at..];
+        // SAFETY: `rest` is readable for its length; the descriptor is
+        // borrowed for the call.
+        let n = unsafe { libc::send(fd.as_raw_fd(), rest.as_ptr().cast(), rest.len(), quiet) };
+        if n > 0 {
+            at += n as usize;
+            continue;
+        }
+        match last_errno() {
+            Errno(EINTR) => {}
+            Errno(EAGAIN) => {
+                poll(&[(fd.as_raw_fd(), false, true)], -1)?;
+            }
+            e => return Err(e),
+        }
+    }
+    Ok(())
+}
+
+/// One `read(2)` of a non-blocking descriptor.
+pub fn read_nonblocking(fd: &impl AsRawFd, buf: &mut [u8]) -> Result<usize, Errno> {
+    // SAFETY: `buf` is writable for its length; the descriptor is borrowed.
+    let n = unsafe { libc::read(fd.as_raw_fd(), buf.as_mut_ptr().cast(), buf.len()) };
+    if n < 0 {
+        Err(last_errno())
+    } else {
+        Ok(n as usize)
+    }
+}
+
 /// Forks the emulator: `Some(pid)` in the parent, `None` in the child. The
 /// child gets its own wake pipe (the inherited one is the parent's) and no
 /// pending host events. The emulator runs one host thread, so the child is

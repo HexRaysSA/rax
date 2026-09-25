@@ -61,6 +61,7 @@ pub mod pidfd;
 pub mod priority;
 pub mod process;
 pub mod procmem;
+pub mod ptrace;
 pub mod ready;
 pub mod rseq;
 pub mod seccomp;
@@ -619,6 +620,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Munlockall => r(mlock::munlockall(c)),
         S::Mseal => r(mseal::mseal(c, a[0], a[1], a[2])),
         S::Rseq => r(rseq::rseq(c, a[0], a[1] as u32, a[2] as i32, a[3] as u32)),
+        S::Ptrace => r(ptrace::ptrace(c, a[0], a[1] as i64, a[2], a[3])),
         S::Splice => r(splice::splice(
             c,
             a[0] as i32,

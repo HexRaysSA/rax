@@ -111,6 +111,8 @@ pub mod code {
     pub const CLD_KILLED: i32 = 2;
     /// A child was killed and dumped core.
     pub const CLD_DUMPED: i32 = 3;
+    /// A traced child stopped for its tracer.
+    pub const CLD_TRAPPED: i32 = 4;
     /// A child stopped.
     pub const CLD_STOPPED: i32 = 5;
     /// A stopped child continued.

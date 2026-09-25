@@ -134,7 +134,9 @@ pub fn auxv(p: &ProcState) -> Vec<u8> {
 /// A thread's scheduler state letter (`task_state_array`): sleeping in a
 /// system call, or runnable.
 fn state(t: &Thread) -> (&'static str, &'static str) {
-    if t.blocked.is_some() {
+    if super::syscall::ptrace::parked(t) {
+        ("t", "t (tracing stop)")
+    } else if t.blocked.is_some() {
         ("S", "S (sleeping)")
     } else {
         ("R", "R (running)")
@@ -224,7 +226,7 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let _ = writeln!(s, "Ngid:\t0");
     let _ = writeln!(s, "Pid:\t{}", t.tid);
     let _ = writeln!(s, "PPid:\t{}", p.ppid);
-    let _ = writeln!(s, "TracerPid:\t0");
+    let _ = writeln!(s, "TracerPid:\t{}", super::syscall::ptrace::tracer_pid(t));
     let _ = writeln!(s, "Uid:\t{uid}\t{euid}\t{euid}\t{euid}");
     let _ = writeln!(s, "Gid:\t{gid}\t{egid}\t{egid}\t{egid}");
     let _ = writeln!(s, "FDSize:\t64");
@@ -387,6 +389,8 @@ pub fn lookup(p: &ProcState, cur: &Thread, threads: &[&Thread], guest: &str) -> 
         )),
         "/proc/sys/kernel/ostype" => Some(ProcEntry::File(b"Linux\n".to_vec())),
         "/proc/sys/kernel/pid_max" => Some(ProcEntry::File(b"4194304\n".to_vec())),
+        // Yama with classic ptrace permissions (syscall::ptrace).
+        "/proc/sys/kernel/yama/ptrace_scope" => Some(ProcEntry::File(b"0\n".to_vec())),
         // The kernel log needs CAP_SYSLOG for every action (syscall::admin).
         "/proc/sys/kernel/dmesg_restrict" => Some(ProcEntry::File(b"1\n".to_vec())),
         // The namespace's message queue limits (ipc::mqueue).

@@ -427,7 +427,7 @@ fn children_pass_to_a_live_thread_and_to_an_executing_one() {
             h.proc
                 .state
                 .children
-                .add(child, status, SIGCHLD, creator, 0);
+                .add(child, status, None, SIGCHLD, creator, 0);
         }
         // The siginfo_t goes to the new program's data after execve.
         let wait = |h: &mut Harness, by: i32, child: i32| {
@@ -456,7 +456,7 @@ fn children_pass_to_a_live_thread_and_to_an_executing_one() {
             h.proc
                 .state
                 .children
-                .add(child, status, SIGCHLD, creator, 0);
+                .add(child, status, None, SIGCHLD, creator, 0);
         }
         let file = TempFile::new(&format!("{abi:?}-heir"), &program(abi), 0o755);
         let (path, argv) = (h.scratch + 0x100, h.scratch + 0x200);
@@ -484,7 +484,7 @@ fn a_zombie_child_is_found_without_asking_the_host() {
     h.proc
         .state
         .children
-        .add(Z, status, SIGCHLD, h.proc.state.pid, 0);
+        .add(Z, status, None, SIGCHLD, h.proc.state.pid, 0);
     let ch = h.proc.state.children.get_mut(Z).unwrap();
     ch.pgid = Z;
     ch.zombie = Some((0, (0, 0, 0)));

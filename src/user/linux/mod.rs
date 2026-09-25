@@ -23,6 +23,7 @@
 //! | [`sched`] | Running threads on the one emulated CPU |
 //! | [`priority`] | Tasks' scheduling attributes and I/O priorities |
 //! | [`rseq`] | Restartable sequences on the return to user mode |
+//! | [`ptrace`] | Process tracing between `rax-user` processes: links, messages, register sets |
 //! | [`syscall`] | System-call dispatch and handlers |
 //! | [`signal`] | Signals: records, queues, frames, delivery |
 //! | [`futex`] | Futex wait queues, PI ownership, robust lists |
@@ -52,6 +53,7 @@ pub mod posix_timers;
 pub mod priority;
 pub mod process;
 pub mod procfs;
+pub mod ptrace;
 pub mod rseq;
 pub mod sched;
 pub mod seccomp;

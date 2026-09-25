@@ -39,6 +39,8 @@ pub struct Child {
     pub continued: bool,
     /// Ended: its wait status and resource use (a zombie).
     pub zombie: Option<(i32, ChildRusage)>,
+    /// The link to it, along which it traces or is traced.
+    pub link: Option<super::ptrace::Link>,
 }
 
 /// A state change of a child, for `SIGCHLD` and `wait`.
@@ -73,7 +75,15 @@ pub fn signaled_status(sig: i32, core: bool) -> i32 {
 
 impl Children {
     /// Records a new child.
-    pub fn add(&mut self, pid: i32, status: OwnedFd, exit_signal: i32, creator: i32, exec_id: u64) {
+    pub fn add(
+        &mut self,
+        pid: i32,
+        status: OwnedFd,
+        link: Option<super::ptrace::Link>,
+        exit_signal: i32,
+        creator: i32,
+        exec_id: u64,
+    ) {
         let pgid = host::getpgid(pid).unwrap_or(0);
         self.list.push(Child {
             pid,
@@ -87,6 +97,7 @@ impl Children {
             stopped: None,
             continued: false,
             zombie: None,
+            link,
         });
     }
 

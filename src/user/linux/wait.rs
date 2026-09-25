@@ -117,6 +117,11 @@ pub enum Resume {
         /// Its transfer's progress.
         inner: Box<Resume>,
     },
+    /// A `ptrace` request awaiting the answer on this link.
+    Ptrace {
+        /// The link.
+        link: super::ptrace::LinkId,
+    },
     /// `splice` holding bytes it took from a stream that its destination
     /// has yet to take: the bytes it moved (these among them) and these.
     Spliced {

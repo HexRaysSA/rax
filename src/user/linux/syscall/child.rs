@@ -104,6 +104,7 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     }
     host::watch_children()?;
     let (read, write) = host::status_pipe()?;
+    let (link, child_link) = super::super::ptrace::Link::pair()?;
     // The child shares the open file descriptions.
     if let Some(h) = &c.p.fsnotify {
         h.before_fork();
@@ -117,9 +118,10 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     match forked? {
         Some(pid) => {
             drop(write);
+            drop(child_link);
             let (tid, exec_id) = (c.t.tid, c.p.exec_id);
             c.p.children
-                .add(pid, read, args.exit_signal as i32, tid, exec_id);
+                .add(pid, read, Some(link), args.exit_signal as i32, tid, exec_id);
             if flags & CLONE_PIDFD != 0 {
                 super::pidfd::clone_install(c, pid, pid, args.pidfd)?;
             }
@@ -133,6 +135,12 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         }
         None => {
             drop(read);
+            drop(link);
+            // ptrace_init_task: the child is traced by no one and traces no
+            // one; its link to its parent is new.
+            c.p.parent_link = Some(child_link);
+            c.p.tracees = Default::default();
+            c.t.ptrace = None;
             c.t.sched = sched;
             // With CLONE_SYSVSEM the child's list stands for the one its
             // parent shares with it; each process applies its own
@@ -406,11 +414,47 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
         let thread = flags & WNOTHREAD == 0 || ch.creator == me;
         matches && kind && thread
     };
-    if !c.p.children.list.iter().any(|ch| eligible(ch)) {
+    // A tracee is eligible by its thread ID or process group, whatever its
+    // exit signal (eligible_child with ptrace), for the thread tracing it.
+    let pick_tracee = |t: &super::super::ptrace::Tracee| {
+        let matches = match sel {
+            Select::Any => true,
+            Select::Pid(pid) => t.tid == pid,
+            Select::Pgid(g) => host::getpgid(t.tid).is_ok_and(|pg| pg == g),
+            Select::Nothing => false,
+        };
+        matches && (flags & WNOTHREAD == 0 || t.tracer == me)
+    };
+    if !c.p.children.list.iter().any(|ch| eligible(ch)) && !c.p.tracees.list.iter().any(pick_tracee)
+    {
         return Err(Errno(ECHILD));
     }
+    // wait_task_stopped for a tracee: a stop not yet reported, whatever
+    // WUNTRACED (CLD_TRAPPED, the exit code as si_status).
+    let trapped = |t: &mut super::super::ptrace::Tracee| {
+        let code = t.stopped.filter(|_| !t.reported)?;
+        if flags & WNOWAIT == 0 {
+            t.reported = true;
+        }
+        Some(Found {
+            pid: t.tid,
+            status: super::ptrace::tracee_status(code),
+            cause: code::CLD_TRAPPED,
+            si_status: code,
+            rusage: (0, 0, 0),
+        })
+    };
     let mut found = None;
-    for ch in c.p.children.list.iter_mut().filter(|ch| eligible(ch)) {
+    let p = &mut *c.p;
+    for ch in p.children.list.iter_mut().filter(|ch| eligible(ch)) {
+        // A child traced by this process: its stops are its tracer's.
+        if ch.zombie.is_none()
+            && let Some(t) = p.tracees.list.iter_mut().find(|t| t.tid == ch.pid)
+            && let Some(f) = trapped(t)
+        {
+            found = Some((f, false));
+            break;
+        }
         if let Some((status, rusage)) = ch.zombie {
             if flags & WEXITED != 0 {
                 let (cause, si_status) = cause_of(status);
@@ -463,6 +507,14 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
             break;
         }
     }
+    if found.is_none() {
+        for t in p.tracees.list.iter_mut().filter(|t| pick_tracee(t)) {
+            if let Some(f) = trapped(t) {
+                found = Some((f, false));
+                break;
+            }
+        }
+    }
     if let Some((f, exited)) = found {
         if exited && flags & WNOWAIT == 0 {
             reap(c.p, f.pid);
@@ -475,7 +527,11 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
     if c.signal_pending() {
         return Err(Errno(ERESTARTSYS));
     }
-    let fds = c.p.children.live_fds(|ch| eligible(ch));
+    let mut fds = c.p.children.live_fds(|ch| eligible(ch));
+    // A tracee's stop arrives on its link.
+    if !c.p.tracees.list.is_empty() {
+        fds.extend(super::ptrace::link_fds(c.p));
+    }
     Err(c.block(Wait::fds(fds, None), Resume::WaitChild))
 }
 

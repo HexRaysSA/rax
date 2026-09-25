@@ -273,6 +273,7 @@ impl LinuxProcess {
         let mut t = self.threads.swap_remove(idx);
         self.threads.clear();
         let p = &mut self.state;
+        let old_tid = t.tid;
         t.tid = p.pid;
         // The other threads' children passed to the caller as they died
         // (forget_original_parent); all are now children of the leader ID.
@@ -340,6 +341,8 @@ impl LinuxProcess {
         // rseq_execve: the new image has not registered.
         t.rseq = None;
         t.sigpending = super::signal::deliver::recalc_sigpending(p, &t);
+        // ptrace_event(PTRACE_EVENT_EXEC, old_vpid).
+        super::syscall::ptrace::exec_event(p, &mut t, old_tid);
         self.threads.push(t);
     }
 }

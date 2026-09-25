@@ -92,6 +92,11 @@ impl LinuxProcess {
             if self.state.exit.is_some() {
                 continue;
             }
+            // Stopped for its tracer: it runs again once resumed.
+            if super::syscall::ptrace::parked(&self.threads[idx]) {
+                current = idx + 1;
+                continue;
+            }
             if !self.rseq_exit(idx) {
                 continue;
             }
@@ -154,23 +159,26 @@ impl LinuxProcess {
             return None;
         }
         let start = start % n;
-        if self.threads[start].blocked.is_none() {
+        let parked = super::syscall::ptrace::parked;
+        if self.threads[start].blocked.is_none() && !parked(&self.threads[start]) {
             return Some(start);
         }
         wait::poll_ready(self.threads.iter_mut().filter_map(|t| t.blocked.as_mut()));
         let now = Instant::now();
         (0..n).map(|i| (start + i) % n).find(|&i| {
             let t = &self.threads[i];
-            t.blocked
-                .as_ref()
-                .is_none_or(|b| b.can_wake(t.sigpending, now))
+            !parked(t)
+                && t.blocked
+                    .as_ref()
+                    .is_none_or(|b| b.can_wake(t.sigpending, now))
         })
     }
 
     /// Every thread sleeps: waits on the host for the earliest event that
     /// can wake one.
     fn idle(&mut self) -> Result<(), wait::Deadlock> {
-        let mut fds = Vec::new();
+        // A tracing message (a request, a resumption, a stop) wakes it.
+        let mut fds = super::syscall::ptrace::link_fds(&self.state);
         let mut deadline = self.state.timer_deadline();
         for b in self.threads.iter().filter_map(|t| t.blocked.as_ref()) {
             fds.extend_from_slice(&b.wait.fds);
