@@ -34,7 +34,9 @@ fdf18dbad33f7c3824af82e2987a30ef8ebfb1362095f257632260c11bb4c311  ./any-linux-an
 2dcb877a1d416012868a21cb0ef92c8ee294f8c18b679cc8c46d46e7338bcd51  ./any-linux-any/asm/sembuf.h
 ddc7987a331c9943cdab1c5856d82bd964f9d0876a1490fd96d2910790d462d0  ./any-linux-any/asm/shmbuf.h
 8a93bf17c16a612f72a8b0b88b7e5e205d23ef4eada42d17a4fc302cabf434d4  ./any-linux-any/asm/socket.h
+cfb475e702dda26caf3d370c69147a92f7f4e6cf6c2c051f64a15cc785976876  ./any-linux-any/linux/audit.h
 a00964401eccddc9dd64b6c8c5df168a370785084ae637076fcf08825da28409  ./any-linux-any/linux/auxvec.h
+c337391532e37acb9286ca08a02e93645dac05c51bf04b31ef66c4bd966b23e3  ./any-linux-any/linux/bpf_common.h
 3eecc2c8cf897f825b1706c57c7d42d7f9d70f34d1c1cd7837384379e515604e  ./any-linux-any/linux/capability.h
 ca91a941458a838919af9d3717d2eef9c496985847a1f4e42e5338162174f116  ./any-linux-any/linux/close_range.h
 b167f7d2a8b0893f44e386ce0ac549a55711ae77586747e51d6f949bdbbcc505  ./any-linux-any/linux/elf-em.h
@@ -42,6 +44,7 @@ b167f7d2a8b0893f44e386ce0ac549a55711ae77586747e51d6f949bdbbcc505  ./any-linux-an
 488f610791e08f90ecbf31e014c7954566b37a1e31956a49bb9e14b9e9186861  ./any-linux-any/linux/eventfd.h
 d8e08441a167e1ae71918fce30b3ed3ea5ed72f49a2f713b3f5e798f3210bf1c  ./any-linux-any/linux/eventpoll.h
 22bdbedd716534bb4395ceb514e2538ba324118fd99e24bdeab8eb73fad82cea  ./any-linux-any/linux/fcntl.h
+658e8821f4db98cc9e9dee9c611e1f4fc5646cef4316918907304166b0e4823e  ./any-linux-any/linux/filter.h
 24539ea5f55bd5963f45e1a9ba2fd2ab25ce64ecd48c6954cb4abb8cf382295d  ./any-linux-any/linux/futex.h
 5f8041050ea40ced0baffc1653faff6a406066cc3b4d0758c43efcbf860acfa6  ./any-linux-any/linux/if.h
 47ce8ac42a1c129b8d1432df8ca4911d1cc8b5105b7597ead7733ca44cf0df73  ./any-linux-any/linux/if_addr.h
@@ -65,6 +68,7 @@ d3f60857bd7910cb61d0525183e2ccffbb2bbf34efb1f7cdc4ebe410a474ad7a  ./any-linux-an
 4045ff7f63f6f3ef14299fb4f42ac689ea8380ae584d25247337487602d213bc  ./any-linux-any/linux/rseq.h
 62b609303e48dd80453dbbfc57ce2c6d85d2590df8e7fefee5b8aceb46f8e2ae  ./any-linux-any/linux/rtnetlink.h
 c372397b0898f1fd3f3e1d3b6cbd4e92ebaf71b588b7d2d550b40aabe2054a64  ./any-linux-any/linux/sched.h
+ff674e8b4058293f7fff59c48d6e23af9ac436a1d239d2b5b0f4e33a67196d48  ./any-linux-any/linux/seccomp.h
 a958c37a9b0fd1ad248cbb1e4ef55661fb093b6b0b621405986386dd12f38cb2  ./any-linux-any/linux/sem.h
 4ac0c5476e72719a6809b7c0b00735ef3f7dd9b49ce46edf0ee5d684459f3bf9  ./any-linux-any/linux/shm.h
 f7050aca288f276478dbe7d4e71077f42e10f557c0949edfd776ef4b7f2c0ed0  ./any-linux-any/linux/signal.h

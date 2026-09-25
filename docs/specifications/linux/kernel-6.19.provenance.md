@@ -11,17 +11,18 @@
   `include/linux/xattr.h`, `drivers/perf/riscv_pmu_sbi.c`, `fs/locks.c`,
   `fs/fcntl.c`, `net/netlink/af_netlink.c`, `net/core/rtnetlink.c`,
   `net/ipv4/devinet.c`, `net/ipv6/addrconf.c`, `net/core/dev.c`,
-  `net/core/dev_ioctl.c`, the `ipc/` files, `include/linux/ipc.h`, and
-  `include/linux/ipc_namespace.h` came from kernel.org's
+  `net/core/dev_ioctl.c`, the `ipc/` files, `include/linux/ipc.h`,
+  `include/linux/ipc_namespace.h`, `kernel/seccomp.c`, and
+  `net/core/filter.c` came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
-  `fs/locks.c`, `fs/fcntl.c`, the six `net/` files above, and the System V
-  IPC files: 25 September 2026)
+  `fs/locks.c`, `fs/fcntl.c`, the seven `net/` files above, the System V
+  IPC files, and `kernel/seccomp.c`: 25 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (63 files),
-  `GPL-2.0-only` (30), `GPL-2.0-or-later` (23), `GPL-2.0+` (1), or
+- License: the files carry an SPDX identifier: `GPL-2.0` (64 files),
+  `GPL-2.0-only` (30), `GPL-2.0-or-later` (24), `GPL-2.0+` (1), or
   `GPL-1.0+` (1); `mm/memfd.c` and `mm/shmem.c` have none and state
   "This file is released under the GPL." in their headers. The license
   texts are the kernel tree's `LICENSES/preferred/GPL-2.0` and
@@ -65,6 +66,7 @@ behavior it reproduces beyond what the UAPI headers
 | Netlink route sockets | `net/netlink/af_netlink.c` (`netlink_create`, `netlink_bind`, `netlink_autobind`, `netlink_connect`, `netlink_getname`, `netlink_sendmsg`, `netlink_recvmsg`, `netlink_dump`, `netlink_ack`, `netlink_rcv_skb`, `netlink_setsockopt`, `netlink_getsockopt`), `net/core/rtnetlink.c` (`rtnetlink_rcv_msg`, `rtnl_dumpit`, `rtnl_dump_all`, `rtnl_getlink`, `rtnl_fill_ifinfo`, `rtnetlink_bind`), `net/ipv4/devinet.c` (`inet_fill_ifaddr`, `inet_set_ifa`), `net/ipv6/addrconf.c` (`inet6_fill_ifaddr`, `inet6_rtm_getaddr`, `ipv6_link_dev_addr`) |
 | Interface requests | `net/socket.c` (`sock_ioctl`, `sock_do_ioctl`, `get_user_ifreq`), `net/core/dev_ioctl.c` (`dev_ioctl`, `dev_ifconf`, `dev_ifname`, `dev_ifsioc_locked`, `dev_getifmap`), `net/core/dev.c` (`netdev_get_name`, `netdev_copy_name`, `netif_get_mac_address`, `netif_get_flags`), `net/ipv4/af_inet.c` (`inet_ioctl`), `net/ipv4/devinet.c` (`devinet_ioctl`, `inet_gifconf`), `net/ipv6/af_inet6.c` (`inet6_ioctl`), `net/ipv6/addrconf.c` (`addrconf_add_ifaddr`, `addrconf_del_ifaddr`, `addrconf_set_dstaddr`) |
 | System V IPC | `ipc/util.c` (`ipcget`, `ipcget_public`, `ipc_addid`, `ipc_idr_alloc`, `ipcperms`, `ipcctl_obtain_check`, `ipc_update_perm`, `kernel_to_ipc64_perm`), `ipc/util.h` (identifier layout), `ipc/shm.c` (`newseg`, `do_shmat`, `ksys_shmdt`, `ksys_shmctl`, `shm_may_destroy`), `ipc/sem.c` (`newary`, `do_semtimedop`, `semctl_main`, `exit_sem`), `ipc/msg.c` (`newque`, `do_msgsnd`, `do_msgrcv`, `ksys_msgctl`), `ipc/ipc_sysctl.c` and `include/linux/ipc_namespace.h` (limits), `include/linux/ipc.h` |
+| Seccomp | `kernel/seccomp.c` (`seccomp_check_filter`, `seccomp_prepare_filter`, `seccomp_attach_filter`, `seccomp_run_filters`, `__seccomp_filter`, `__secure_computing_strict`, `seccomp_set_mode_filter`, `seccomp_can_sync_threads`, `do_seccomp`, `prctl_set_seccomp`), `net/core/filter.c` (`bpf_check_classic`, `chk_code_allowed`, `check_load_and_stores`, `bpf_convert_filter`'s division by zero), `kernel/signal.c` (`force_sig_seccomp`) |
 | Supplementary groups, read-ahead, and range sync | `kernel/groups.c` (`setgroups`, `getgroups`), `mm/readahead.c` (`ksys_readahead`), `fs/sync.c` (`sync_file_range`) |
 
 Code comments name the kernel function whose behavior an implementation
