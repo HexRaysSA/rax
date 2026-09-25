@@ -32,6 +32,7 @@ netlink  netlink  -
 ifreq    ifreq    -
 sysvshm  sysvshm  -
 sysvsem  sysvsem  -
+sysvmsg  sysvmsg  -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

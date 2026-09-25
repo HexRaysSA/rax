@@ -6,6 +6,7 @@
 //! | this one | the namespace, identifiers, permissions, `struct ipc64_perm` |
 //! | [`shm`] | shared memory segments |
 //! | [`sem`] | semaphore sets |
+//! | [`msg`] | message queues |
 //!
 //! The namespace is a directory on the host (by default one per host user
 //! under the temporary directory, which a reboot clears as it clears a
@@ -23,6 +24,7 @@
 //! holds `CAP_IPC_OWNER`, `CAP_IPC_LOCK`, and `CAP_SYS_ADMIN` when its
 //! effective user is root.
 
+pub mod msg;
 pub mod sem;
 pub mod shm;
 

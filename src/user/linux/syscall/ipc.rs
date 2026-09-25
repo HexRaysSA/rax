@@ -1,7 +1,7 @@
 //! System V IPC system calls: `shmget`, `shmat`, `shmdt`, and `shmctl`
 //! (`ipc/shm.c`); `semget`, `semop`, `semtimedop`, and `semctl`
-//! (`ipc/sem.c`); over the namespace's objects
-//! ([`ipc`](super::super::ipc)).
+//! (`ipc/sem.c`); `msgget`, `msgsnd`, `msgrcv`, and `msgctl` (`ipc/msg.c`);
+//! over the namespace's objects ([`ipc`](super::super::ipc)).
 //!
 //! `shmat` maps a segment's host file shared, named as Linux names it
 //! (`/SYSV<key> (deleted)`); after every call that changes the process's
@@ -9,7 +9,8 @@
 //! many mappings of each segment it has ([`sync_shm`]). A semaphore
 //! operation that must wait tries again every [`RETRY`](super::locks::RETRY)
 //! until it can, its timeout passes (`EAGAIN`), or a signal ends it
-//! (`EINTR`: `semop` is never restarted).
+//! (`EINTR`: `semop` is never restarted). A message send or receive that
+//! must wait does the same, a signal ending it with `-ERESTARTNOHAND`.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -18,10 +19,12 @@ use std::time::{Duration, Instant};
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::abi::{MMAP_MIN_ADDR, PAGE_SIZE, READ_IMPLIES_EXEC, vma_flags};
+use super::super::ipc::msg::{self, Message};
 use super::super::ipc::sem::{self, SemBuf};
 use super::super::ipc::shm::{self, SHM_EXEC, SHM_RDONLY, SHM_REMAP, SHM_RND};
 use super::super::ipc::{Caller, IPC_INFO, IPC_RMID, IPC_SET, IPC_STAT};
 use super::super::process::ProcState;
+use super::super::signal::deliver::restart::ERESTARTNOHAND;
 use super::super::wait::{Resume, Wait};
 use super::mem::{PAGE_MASK, map_err, mman, page_align, perms, unmapped_area};
 use super::{Ctx, SysResult};
@@ -367,6 +370,105 @@ pub fn semctl(c: &mut Ctx<'_>, id: i32, num: i32, cmd: i32, arg: u64) -> SysResu
         }
         IPC_RMID => {
             sem::rmid(&ns, id, &who)?;
+            Ok(0)
+        }
+        _ => Err(Errno(EINVAL)),
+    }
+}
+
+/// `msgget`.
+pub fn msgget(c: &mut Ctx<'_>, key: i32, flags: i32) -> SysResult {
+    let who = caller(c.p);
+    msg::get(&c.p.ipc.ns, key, flags, &who).map(|id| id as u64)
+}
+
+/// A send or receive that must wait: again shortly, unless a signal ends
+/// it (`-ERESTARTNOHAND`).
+fn wait_retry(c: &mut Ctx<'_>) -> Errno {
+    if c.signal_pending() {
+        return Errno(ERESTARTNOHAND);
+    }
+    c.block(
+        Wait::until(Some(Instant::now() + super::locks::RETRY)),
+        Resume::Retry,
+    )
+}
+
+/// `msgsnd` (`ksys_msgsnd`, `do_msgsnd`): the type's copy, the size, the
+/// identifier, and the type, the text's copy, then the send.
+pub fn msgsnd(c: &mut Ctx<'_>, id: i32, msgp: u64, msgsz: u64, flags: i32) -> SysResult {
+    let mtype = c.read_u64(msgp)? as i64;
+    if msgsz > msg::MSGMAX as u64 || id < 0 || mtype < 1 {
+        return Err(Errno(EINVAL));
+    }
+    let text = c.read_mem(msgp + 8, msgsz as usize)?;
+    let waiting = c.resume.take().is_some();
+    let who = caller(c.p);
+    let m = Message { mtype, text };
+    match msg::send(&c.p.ipc.ns, id, &m, flags, &who, waiting)? {
+        msg::Outcome::Done(()) => Ok(0),
+        msg::Outcome::Wait => Err(wait_retry(c)),
+    }
+}
+
+/// `msgrcv` (`do_msgrcv`): the identifier and size, `MSG_COPY`'s flags,
+/// then the receive, the message's type and text copied out (a failed copy
+/// loses it, as the kernel's does).
+pub fn msgrcv(
+    c: &mut Ctx<'_>,
+    id: i32,
+    msgp: u64,
+    bufsz: u64,
+    msgtyp: i64,
+    flags: i32,
+) -> SysResult {
+    if id < 0 || (bufsz as i64) < 0 {
+        return Err(Errno(EINVAL));
+    }
+    if flags & msg::MSG_COPY != 0 {
+        if flags & msg::MSG_EXCEPT != 0 || flags & super::super::ipc::IPC_NOWAIT == 0 {
+            return Err(Errno(EINVAL));
+        }
+        // prepare_copy without CONFIG_CHECKPOINT_RESTORE.
+        return Err(Errno(ENOSYS));
+    }
+    let waiting = c.resume.take().is_some();
+    let who = caller(c.p);
+    match msg::receive(&c.p.ipc.ns, id, bufsz, msgtyp, flags, &who, waiting)? {
+        msg::Outcome::Done(m) => {
+            c.write_u64(msgp, m.mtype as u64)?;
+            c.write_mem(msgp + 8, &m.text)?;
+            Ok(m.text.len() as u64)
+        }
+        msg::Outcome::Wait => Err(wait_retry(c)),
+    }
+}
+
+/// `msgctl` (`ksys_msgctl`).
+pub fn msgctl(c: &mut Ctx<'_>, id: i32, cmd: i32, buf: u64) -> SysResult {
+    if id < 0 || cmd < 0 {
+        return Err(Errno(EINVAL));
+    }
+    let who = caller(c.p);
+    let ns = c.p.ipc.ns.clone();
+    match cmd {
+        IPC_INFO | msg::MSG_INFO => {
+            let (b, r) = msg::info(&ns, cmd)?;
+            c.write_mem(buf, &b)?;
+            Ok(r as u64)
+        }
+        IPC_STAT | msg::MSG_STAT | msg::MSG_STAT_ANY => {
+            let (b, r) = msg::stat(&ns, id, cmd, &who)?;
+            c.write_mem(buf, &b)?;
+            Ok(r as u64)
+        }
+        IPC_SET => {
+            let b = c.read_mem(buf, msg::MSQID64_DS)?;
+            msg::set(&ns, id, &b, &who)?;
+            Ok(0)
+        }
+        IPC_RMID => {
+            msg::rmid(&ns, id, &who)?;
             Ok(0)
         }
         _ => Err(Errno(EINVAL)),

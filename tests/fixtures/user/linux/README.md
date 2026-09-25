@@ -49,6 +49,7 @@ every architecture and requires a byte-for-byte match.
 | `ifreq` | Interface requests on IPv4, Unix, and netlink sockets: `SIOCGIFCONF` (the length alone, entries with the loopback's 127.0.0.1, whole entries only, a negative length); a device by name and by index, flags, MTU, metric, map, hardware address (the bytes past it untouched), an alias's `:` kept and the name's 16th byte cleared; IPv4 address, netmask, destination, and broadcast on an IPv4 socket (`ENOTTY` elsewhere), an alias without an address; unknown devices, `SIOCGIFSLAVE`, `SIOCGIFMEM`, `SIOCGIFPFLAGS`, a bad pointer; changes without `CAP_NET_ADMIN`; musl's `if_nametoindex` and `if_indextoname` |
 | `sysvshm` | System V shared memory: a segment's creation and status; attaches seeing each other's stores; attaches counted by mapping (a split counts twice and is not merged back); `shmdt` and `munmap`; a forked child's inherited attach and its exit; read-only attaches; `SHM_RND` and `SHM_REMAP`; keys (sizes, `IPC_EXCL`, `ENOENT`); access for another user; `IPC_SET`, `SHM_STAT`, `IPC_INFO`, `SHM_INFO`; removal while attached (`SHM_DEST`, the key private, still attachable) and at the last detach, also a dying process's; `/proc/self/maps` |
 | `sysvsem` | System V semaphores: sets and values (`SETVAL`, `SETALL`, `GETALL`, `GETPID`, the limits and errors); operation lists applied all or none and in order; waits across processes, counted by `GETNCNT` and `GETZCNT` and ended by a value, a timeout, a removal (`EIDRM`), or a signal (`EINTR`); `SEM_UNDO` undone at exit (a killed process's too, and clamped at 0); `IPC_STAT`, `SEM_STAT`, `IPC_INFO`, `SEM_INFO`, `IPC_SET`; access for another user |
+| `sysvmsg` | System V message queues: `msgsnd`'s and `msgrcv`'s checks in order; message types (the first, a given type, any but a type, the least type up to a bound); `E2BIG` and `MSG_NOERROR`; `ENOMSG`; a full queue (`EAGAIN`, and a sender waiting for room); receivers waiting across processes, ended by a message, a removal (`EIDRM`), or a handled signal (`EINTR`, even with `SA_RESTART`); the sender and receiver processes in the status; `MSG_STAT`, `IPC_INFO`, `MSG_INFO`, `IPC_SET`; access for another user |
 | `hostsig` | Not a recorded case: the `user_linux` `host_signals` tests send it host signals and follow its output (`siginfo` of a `kill`, a blocking `read` of standard input interrupted by a handler, death by `SIGTERM`) |
 | `signals` | Handlers with `siginfo` from `raise`/`kill`/`sigqueue`, the mask during and after a handler, `SA_NODEFER`, `SA_RESETHAND`, delivery order of several unblocked signals, real-time queueing with `sigtimedwait`, `sigsuspend`, ignored signals, `SA_ONSTACK` alternate stacks, recovering from `SIGSEGV` (MAPERR, ACCERR), `SIGBUS`, and traps with `siglongjmp`, a handler editing the saved PC to skip a faulting store, `SIGPIPE`, and `abort()` after its handler returns (status 134) |
 | `stdin` | Reading standard input to end of file |
@@ -101,8 +102,8 @@ every architecture and requires a byte-for-byte match.
   `getxattr` with an unmapped path (Rosetta, `xattr`), or lacks the
   `*xattrat` calls (QEMU, `xattr`), or translates netlink messages itself
   (QEMU, `netlink`), or returns 1 from a failed `shmat` (Rosetta,
-  `sysvshm`) or converts the IPC structures itself (QEMU, `sysvshm`), the
-  native AArch64 result is used for
+  `sysvshm`) or converts the IPC structures itself (QEMU, `sysvshm` and
+  `sysvmsg`), the native AArch64 result is used for
   architecture-independent kernel code. Rosetta has once, in
   about ten recordings, lost a stopped child continued by `SIGCONT`
   (`fork`); a recording is kept only when it matches the native AArch64
