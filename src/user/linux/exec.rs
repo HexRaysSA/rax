@@ -273,6 +273,8 @@ impl LinuxProcess {
             ch.creator = p.pid;
         }
         t.cpu = image.cpu;
+        // arch_setup_new_exec re-enables CPUID but keeps TIF_NOTSC.
+        t.cpu.set_tsc_disabled(t.notsc);
         t.altstack = AltStack::DISABLED;
         t.robust_list = (0, 0);
         t.clear_child_tid = 0;

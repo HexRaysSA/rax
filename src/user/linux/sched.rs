@@ -17,8 +17,10 @@
 use std::time::Instant;
 
 use super::arch::CpuEvent;
+use super::children::{exited_status, signaled_status};
 use super::futex::{self, BITSET_MATCH_ANY, FutexKey};
 use super::process::{ExitStatus, LinuxProcess, Peers, Threads};
+use super::signal::SigInfo;
 use super::signal::deliver::{SyscallEntry, retarget_shared_pending};
 use super::syscall::{self, Call, Outcome};
 use super::wait::{self, Blocked};
@@ -87,8 +89,11 @@ impl LinuxProcess {
                     current = self.syscall(idx, Call::new(nr, args)).from(idx);
                 }
                 CpuEvent::CompatSyscall { nr, args } => {
-                    let outcome =
-                        syscall::dispatch_compat(&mut self.state, &mut self.threads[idx], nr, args);
+                    let outcome = {
+                        let (lo, rest) = self.threads.split_at_mut(idx);
+                        let (t, hi) = rest.split_first_mut().expect("thread index is valid");
+                        syscall::dispatch_compat(&mut self.state, t, Peers { lo, hi }, nr, args)
+                    };
                     current = self.apply(idx, nr, args, outcome).from(idx);
                 }
                 CpuEvent::Signal(info, update) => self.trap_signal(idx, info, update),
@@ -189,6 +194,10 @@ impl LinuxProcess {
             }
             Outcome::ExitThread(code) => {
                 self.exit_thread(idx, code);
+                return After::Gone;
+            }
+            Outcome::KillThread(sig) => {
+                self.end_thread(idx, signaled_status(sig, false));
                 return After::Gone;
             }
             Outcome::ExitGroup(code) => {
@@ -302,13 +311,22 @@ impl LinuxProcess {
     /// thread's exit ends the process with that thread's code
     /// (`synchronize_group_exit`).
     pub fn exit_thread(&mut self, idx: usize, code: i32) {
+        self.end_thread(idx, exited_status(code));
+    }
+
+    /// `do_exit` for thread `idx` with wait status `status` (its
+    /// `exit_code`): as [`LinuxProcess::exit_thread`], a status of a death by
+    /// signal ending the process, when the thread is its last, as that
+    /// signal would.
+    pub fn end_thread(&mut self, idx: usize, status: i32) {
         let t = &self.threads[idx];
-        let (tid, robust, clear, vfork_parent, mask) = (
+        let (tid, robust, clear, vfork_parent, mask, pc) = (
             t.tid,
             t.robust_list.0,
             t.clear_child_tid,
             t.vfork_parent,
             t.sigmask,
+            t.cpu.pc(),
         );
         let others = self.threads.len() > 1;
         {
@@ -341,11 +359,10 @@ impl LinuxProcess {
         // A thread other than the leader is released as it exits: its
         // pidfds report it gone, and their pollers look again.
         if tid != self.state.pid
-            && self.state.pidfds.task_ended(
-                self.state.pid,
-                tid,
-                Some(super::children::exited_status(code)),
-            )
+            && self
+                .state
+                .pidfds
+                .task_ended(self.state.pid, tid, Some(status))
         {
             for b in self.threads.iter_mut().filter_map(|t| t.blocked.as_mut()) {
                 if matches!(b.resume, wait::Resume::Until(_)) {
@@ -363,7 +380,14 @@ impl LinuxProcess {
             }
         }
         if self.threads.is_empty() {
-            self.state.exit = Some(ExitStatus::Exited(code));
+            self.state.exit = Some(match status & 0x7f {
+                0 => ExitStatus::Exited((status >> 8) & 0xff),
+                sig => ExitStatus::Signaled {
+                    info: SigInfo::kernel(sig),
+                    pc,
+                    core: false,
+                },
+            });
         } else if tid == self.state.pid {
             self.state.leader_exit = Some(mask);
         }
@@ -375,7 +399,6 @@ impl LinuxProcess {
 /// process ends the same way (by the signal when it does not dump core, so
 /// host observers see it) without running the parent's cleanup.
 fn finish_forked(me: super::children::ForkedSelf, status: &ExitStatus) -> ! {
-    use super::children::{exited_status, signaled_status};
     let (wait_status, code) = match status {
         ExitStatus::Exited(code) => (exited_status(*code), code & 0xff),
         ExitStatus::Signaled { info, core, .. } => {

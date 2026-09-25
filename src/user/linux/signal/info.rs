@@ -108,6 +108,19 @@ impl SigInfo {
             .put(8, &value.to_le_bytes())
     }
 
+    /// `SIGSYS` for a system call a seccomp filter stopped
+    /// (`force_sig_seccomp`): the address after the calling instruction,
+    /// the call's number and audit architecture, and the filter's datum in
+    /// `si_errno`.
+    pub fn seccomp(call_addr: u64, syscall: i32, arch: u32, datum: i32) -> Self {
+        let mut info = Self::with(super::SIGSYS, code::SYS_SECCOMP)
+            .put(0, &call_addr.to_le_bytes())
+            .put(8, &syscall.to_le_bytes())
+            .put(12, &arch.to_le_bytes());
+        info.errno = datum;
+        info
+    }
+
     /// Sets `si_overrun` of a timer signal.
     pub fn set_overrun(&mut self, n: i32) {
         self.fields[4..8].copy_from_slice(&n.to_le_bytes());

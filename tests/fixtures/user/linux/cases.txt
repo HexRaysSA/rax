@@ -33,6 +33,7 @@ ifreq    ifreq    -
 sysvshm  sysvshm  -
 sysvsem  sysvsem  -
 sysvmsg  sysvmsg  -
+seccomp  seccomp  -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

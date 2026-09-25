@@ -253,7 +253,10 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let _ = writeln!(s, "SigBlk:\t{:016x}", t.sigmask);
     let _ = writeln!(s, "SigIgn:\t{ignored:016x}");
     let _ = writeln!(s, "SigCgt:\t{caught:016x}");
-    let _ = writeln!(s, "Seccomp:\t0");
+    // task_seccomp.
+    let _ = writeln!(s, "NoNewPrivs:\t{}", u8::from(t.no_new_privs));
+    let _ = writeln!(s, "Seccomp:\t{}", t.seccomp.mode);
+    let _ = writeln!(s, "Seccomp_filters:\t{}", t.seccomp.count());
     let _ = writeln!(s, "Cpus_allowed:\t1");
     let _ = writeln!(s, "Cpus_allowed_list:\t0");
     s.into_bytes()

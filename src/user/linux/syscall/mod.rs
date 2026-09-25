@@ -42,6 +42,7 @@ pub mod path;
 pub mod pidfd;
 pub mod process;
 pub mod ready;
+pub mod seccomp;
 pub mod signal;
 pub mod thread;
 pub mod time;
@@ -81,6 +82,9 @@ pub enum Outcome {
     Unchanged,
     /// The thread exits with this code (`exit`).
     ExitThread(i32),
+    /// The thread dies of this signal, alone (`do_exit` with a signal:
+    /// seccomp's strict mode and `SECCOMP_RET_KILL_THREAD`).
+    KillThread(i32),
     /// The process exits with this code (`exit_group`).
     ExitGroup(i32),
     /// The process cannot continue; the process ends with an emulator
@@ -639,6 +643,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Getrusage => r(process::getrusage(c, a[0] as i32, a[1])),
         S::Times => r(process::times(c, a[0])),
         S::Prctl => r(process::prctl(c, a[0] as i32, a[1], a[2], a[3], a[4])),
+        S::Seccomp => r(seccomp::seccomp(c, a[0] as u32, a[1] as u32, a[2])),
         S::ArchPrctl => r(process::arch_prctl(c, a[0] as u32, a[1])),
         S::Personality => r(process::personality(c, a[0] as u32)),
         S::Getrandom => r(process::getrandom(c, a[0], a[1], a[2] as u32)),
@@ -856,6 +861,13 @@ pub fn dispatch(
     let sysno = abi.sysno(nr);
     let tid = t.tid;
     let mut c = Ctx::new(p, t, peers, spawned);
+    // __secure_computing: once, as the call enters.
+    if !resumed && let Some(outcome) = seccomp::entry(&mut c, nr, args, seccomp::Entry::Native) {
+        if strace {
+            trace(tid, sysno, nr, &args, &outcome, false);
+        }
+        return outcome;
+    }
     c.resume = call.resume;
     c.woken = call.woken;
     let result = match sysno {
@@ -920,10 +932,22 @@ pub fn dispatch(
     outcome
 }
 
-/// Dispatches an x86-64 `INT 0x80` (i386 ABI) system call. The 32-bit
-/// table is not provided; `-ENOSYS` is what a kernel built without
-/// `CONFIG_IA32_EMULATION` returns.
-pub fn dispatch_compat(p: &mut ProcState, t: &mut Thread, nr: u64, args: [u64; 6]) -> Outcome {
+/// Dispatches an x86-64 `INT 0x80` (i386 ABI) system call. Seccomp checks
+/// it as `do_int80_emulation` has it checked, as an `AUDIT_ARCH_I386`
+/// call (`TS_COMPAT`); the 32-bit table is not provided, so it then
+/// returns `-ENOSYS`.
+pub fn dispatch_compat(
+    p: &mut ProcState,
+    t: &mut Thread,
+    peers: Peers<'_>,
+    nr: u64,
+    args: [u64; 6],
+) -> Outcome {
+    let mut spawned = Vec::new();
+    let mut c = Ctx::new(p, t, peers, &mut spawned);
+    if let Some(outcome) = seccomp::entry(&mut c, nr, args, seccomp::Entry::Compat) {
+        return outcome;
+    }
     let outcome = Outcome::Return(Errno(ENOSYS).as_return());
     if p.config.strace {
         eprintln!(
@@ -981,6 +1005,7 @@ fn trace(
             "0".into()
         }
         Outcome::ExitThread(code) | Outcome::ExitGroup(code) => format!("? (exit {code})"),
+        Outcome::KillThread(sig) => format!("? (killed by signal {sig})"),
         Outcome::Fatal(why) => format!("? ({why})"),
     };
     if resumed {

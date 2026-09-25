@@ -330,8 +330,6 @@ pub struct ProcState {
     pub persona: u32,
     /// `prctl(PR_SET_DUMPABLE)` value.
     pub dumpable: u64,
-    /// `prctl(PR_SET_NO_NEW_PRIVS)` value.
-    pub no_new_privs: bool,
     /// `prctl(PR_SET_PDEATHSIG)` value.
     pub pdeathsig: i32,
     /// `prctl(PR_SET_TIMERSLACK)` value in nanoseconds.
@@ -414,6 +412,14 @@ pub struct Thread {
     pub vfork_parent: Option<i32>,
     /// `comm`: the thread's name (at most 15 bytes).
     pub comm: Vec<u8>,
+    /// `PFA_NO_NEW_PRIVS` (`prctl(PR_SET_NO_NEW_PRIVS)`): kept across
+    /// `execve` and inherited by new threads and processes.
+    pub no_new_privs: bool,
+    /// x86-64 `TIF_NOTSC` (`prctl(PR_SET_TSC)`, seccomp's strict mode):
+    /// `RDTSC` faults. Kept across `execve` and inherited.
+    pub notsc: bool,
+    /// Its seccomp mode and filters.
+    pub seccomp: super::seccomp::Seccomp,
 }
 
 impl Thread {
@@ -438,6 +444,9 @@ impl Thread {
             set_child_tid: 0,
             vfork_parent: None,
             comm: Vec::new(),
+            no_new_privs: false,
+            notsc: false,
+            seccomp: Default::default(),
         }
     }
 }
@@ -656,7 +665,6 @@ impl LinuxProcess {
             next_tid: pid + 1,
             persona: 0,
             dumpable: 1,
-            no_new_privs: false,
             pdeathsig: 0,
             timerslack: 50_000,
             shared_pending: SigPending::new(),

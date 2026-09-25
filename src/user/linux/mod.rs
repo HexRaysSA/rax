@@ -25,6 +25,7 @@
 //! | [`futex`] | Futex wait queues, PI ownership, robust lists |
 //! | [`children`] | Child processes and their status records |
 //! | [`ipc`] | System V IPC objects, shared by the processes of a namespace |
+//! | [`seccomp`] | System-call filters: strict mode and classic BPF |
 //! | [`timers`] | Interval timers |
 //! | [`wait`] | Sleeping in system calls on descriptors, deadlines, and signals |
 //! | [`host`] | The host services `std` does not expose |
@@ -45,6 +46,7 @@ pub mod posix_timers;
 pub mod process;
 pub mod procfs;
 pub mod sched;
+pub mod seccomp;
 pub mod sigmail;
 pub mod signal;
 pub mod stack;

@@ -316,6 +316,12 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     let mut child = Thread::new(tid, cpu);
     child.sigmask = c.t.sigmask;
     child.comm = c.t.comm.clone();
+    // copy_seccomp: the filters are shared, and no_new_privs is kept, as
+    // are the thread flags.
+    child.seccomp = c.t.seccomp.clone();
+    child.no_new_privs = c.t.no_new_privs;
+    child.notsc = c.t.notsc;
+    child.cpu.set_tsc_disabled(child.notsc);
     // A thread sharing the address space gets no alternate stack.
     child.altstack = if flags & CLONE_VFORK == 0 {
         AltStack::DISABLED

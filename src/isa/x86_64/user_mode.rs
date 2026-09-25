@@ -307,6 +307,22 @@ impl X86_64Vcpu {
         Ok(())
     }
 
+    /// Whether CR4.TSD is set: `RDTSC` and `RDTSCP` raise #GP(0) at CPL3
+    /// (Linux's `TIF_NOTSC`).
+    pub fn user_tsc_disabled(&self) -> bool {
+        self.sregs.cr4 & (1 << 2) != 0
+    }
+
+    /// Sets or clears CR4.TSD. Every execution path checks it when the
+    /// instruction runs, so no compiled code needs discarding.
+    pub fn set_user_tsc_disabled(&mut self, disabled: bool) {
+        if disabled {
+            self.sregs.cr4 |= 1 << 2;
+        } else {
+            self.sregs.cr4 &= !(1 << 2);
+        }
+    }
+
     /// Discards every cached decode and compiled region whose source bytes
     /// overlap `[start, start + len)`. The embedder calls this after changing
     /// guest memory or permissions outside this vCPU's own stores (another

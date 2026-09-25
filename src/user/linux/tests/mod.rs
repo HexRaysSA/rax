@@ -15,6 +15,7 @@ mod nodes;
 mod pidfd;
 mod posix_timers;
 mod procfs;
+mod seccomp;
 mod signals;
 mod sockets;
 mod stack;

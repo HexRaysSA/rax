@@ -204,7 +204,22 @@ impl LinuxAbi {
     pub fn has_sa_restorer(self) -> bool {
         !matches!(self, LinuxAbi::Riscv64)
     }
+
+    /// `syscall_get_arch`: the `AUDIT_ARCH_*` value seccomp filters see
+    /// (`uapi/linux/audit.h`: machine, `__AUDIT_ARCH_64BIT`,
+    /// `__AUDIT_ARCH_LE`).
+    pub fn audit_arch(self) -> u32 {
+        match self {
+            LinuxAbi::X86_64 => 0xC000_003E,
+            LinuxAbi::Aarch64 => 0xC000_00B7,
+            LinuxAbi::Riscv64 => 0xC000_00F3,
+        }
+    }
 }
+
+/// `AUDIT_ARCH_I386`: the architecture of an x86-64 thread's `INT 0x80`
+/// calls.
+pub const AUDIT_ARCH_I386: u32 = 0x4000_0003;
 
 /// Architecture-specific open-flag encodings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

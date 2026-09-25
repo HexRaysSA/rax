@@ -283,6 +283,11 @@ pub fn prctl(c: &mut Ctx<'_>, option: i32, a2: u64, a3: u64, a4: u64, a5: u64) -
     const PR_SET_NAME: i32 = 15;
     const PR_GET_NAME: i32 = 16;
     const PR_GET_SECCOMP: i32 = 21;
+    const PR_SET_SECCOMP: i32 = 22;
+    const PR_GET_TSC: i32 = 25;
+    const PR_SET_TSC: i32 = 26;
+    const PR_TSC_ENABLE: u64 = 1;
+    const PR_TSC_SIGSEGV: u64 = 2;
     const PR_CAPBSET_READ: i32 = 23;
     const PR_SET_TIMERSLACK: i32 = 29;
     const PR_GET_TIMERSLACK: i32 = 30;
@@ -339,7 +344,29 @@ pub fn prctl(c: &mut Ctx<'_>, option: i32, a2: u64, a3: u64, a4: u64, a5: u64) -
             c.write_mem(a2, &b)?;
             Ok(0)
         }
-        PR_GET_SECCOMP => Ok(0),
+        PR_GET_SECCOMP => Ok(u64::from(c.t.seccomp.mode)),
+        PR_SET_SECCOMP => super::seccomp::prctl_set(c, a2, a3),
+        // get_tsc_mode and set_tsc_mode (x86); other architectures define
+        // neither (EINVAL).
+        PR_GET_TSC | PR_SET_TSC if c.p.abi != LinuxAbi::X86_64 => Err(Errno(EINVAL)),
+        PR_GET_TSC => {
+            let mode = if c.t.notsc {
+                PR_TSC_SIGSEGV
+            } else {
+                PR_TSC_ENABLE
+            };
+            c.write_u32(a2, mode as u32).map(|_| 0)
+        }
+        PR_SET_TSC => {
+            // set_tsc_mode takes an unsigned int.
+            let mode = u64::from(a2 as u32);
+            if mode != PR_TSC_ENABLE && mode != PR_TSC_SIGSEGV {
+                return Err(Errno(EINVAL));
+            }
+            c.t.notsc = mode == PR_TSC_SIGSEGV;
+            c.t.cpu.set_tsc_disabled(c.t.notsc);
+            Ok(0)
+        }
         PR_CAPBSET_READ => {
             if a2 > 63 {
                 return Err(Errno(EINVAL));
@@ -354,13 +381,18 @@ pub fn prctl(c: &mut Ctx<'_>, option: i32, a2: u64, a3: u64, a4: u64, a5: u64) -
         PR_SET_CHILD_SUBREAPER => Ok(0),
         PR_GET_CHILD_SUBREAPER => c.write_u32(a2, 0).map(|_| 0),
         PR_SET_NO_NEW_PRIVS => {
-            if a2 != 1 || a3 != 0 {
+            if a2 != 1 || a3 != 0 || a4 != 0 || a5 != 0 {
                 return Err(Errno(EINVAL));
             }
-            c.p.no_new_privs = true;
+            c.t.no_new_privs = true;
             Ok(0)
         }
-        PR_GET_NO_NEW_PRIVS => Ok(u64::from(c.p.no_new_privs)),
+        PR_GET_NO_NEW_PRIVS => {
+            if a2 != 0 || a3 != 0 || a4 != 0 || a5 != 0 {
+                return Err(Errno(EINVAL));
+            }
+            Ok(u64::from(c.t.no_new_privs))
+        }
         PR_GET_TID_ADDRESS => c.write_u64(a2, c.t.clear_child_tid).map(|_| 0),
         PR_SET_THP_DISABLE | PR_GET_THP_DISABLE => Ok(0),
         PR_GET_AUXV => {

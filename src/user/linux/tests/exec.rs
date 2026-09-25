@@ -310,6 +310,19 @@ fn execve_replaces_the_image_and_keeps_what_the_kernel_keeps() {
             .state
             .shared_pending
             .enqueue_timer(SigInfo::timer(SIGRTMIN, 0, 0), 1);
+        // no_new_privs, seccomp filters, and x86-64 TIF_NOTSC.
+        h.ok(Sysno::Prctl, &[38, 1, 0, 0, 0]);
+        let allow = crate::user::linux::seccomp::bpf::Insn {
+            code: 6,
+            jt: 0,
+            jf: 0,
+            k: crate::user::linux::seccomp::RET_ALLOW,
+        };
+        h.proc.threads[0].seccomp.attach(vec![allow], false);
+        let x86 = abi == LinuxAbi::X86_64;
+        if x86 {
+            h.ok(Sysno::Prctl, &[26, 2, 0, 0, 0]);
+        }
         put_str(&h, path, "/dev/null");
         let kept = h.ok(Sysno::Openat, &[-100i64 as u64, path, 0, 0]);
         let closed = h.ok(Sysno::Openat, &[-100i64 as u64, path, 0o2000000, 0]);
@@ -347,6 +360,12 @@ fn execve_replaces_the_image_and_keeps_what_the_kernel_keeps() {
         assert_eq!(p.exec_id, 1);
         assert!(p.timers.is_empty(), "exit_itimers");
         assert!(!p.shared_pending.contains(SIGRTMIN), "flush_itimer_signals");
+        assert!(t.no_new_privs);
+        assert_eq!((t.seccomp.mode, t.seccomp.count()), (2, 1));
+        assert_eq!(t.notsc, x86);
+        if let crate::user::linux::arch::GuestCpu::X86_64(cpu) = &t.cpu {
+            assert!(cpu.vcpu().user_tsc_disabled(), "arch_setup_new_exec");
+        }
     });
 }
 

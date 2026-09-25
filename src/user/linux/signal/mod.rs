@@ -113,6 +113,8 @@ pub mod code {
     pub const CLD_STOPPED: i32 = 5;
     /// A stopped child continued.
     pub const CLD_CONTINUED: i32 = 6;
+    /// A seccomp filter stopped a system call (`SIGSYS`).
+    pub const SYS_SECCOMP: i32 = 1;
     /// Illegal opcode.
     pub const ILL_ILLOPC: i32 = 1;
     /// Illegal operand.

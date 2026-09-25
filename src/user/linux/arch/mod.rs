@@ -281,6 +281,14 @@ impl GuestCpu {
         }
     }
 
+    /// Applies `TIF_NOTSC`: on x86-64, CR4.TSD, so `RDTSC` and `RDTSCP`
+    /// fault with `SIGSEGV`; other architectures have no such flag.
+    pub fn set_tsc_disabled(&mut self, disabled: bool) {
+        if let GuestCpu::X86_64(cpu) = self {
+            cpu.vcpu_mut().set_user_tsc_disabled(disabled);
+        }
+    }
+
     /// A CPU for a new thread with this thread's register state.
     pub fn clone_thread(&self) -> Self {
         match self {
