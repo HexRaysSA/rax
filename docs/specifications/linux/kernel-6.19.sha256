@@ -39,6 +39,7 @@ adbcd49103f151d32046e17222b8eafc30777ad34bfa1699063f3f12d175b025  ./arch/x86/inc
 04f3cd620a5f7714f0bf2083d0af85b53f1828d4491d852bf7acf3695373d9f3  ./arch/x86/include/uapi/asm/ptrace-abi.h
 b6dffdec33919725e67f00014a7e4256effaedaebac37c45d5d60d783cb96d51  ./arch/x86/include/uapi/asm/ptrace.h
 1f1aefc2e59157e3d449138606555fc85994f81557d287d4bc6ec301ea4f1f93  ./arch/x86/kernel/fpu/core.c
+870bf686c92f608c8d463c7a09ced9f85b5eb3e3e18c62a1b66ac01e2d97e553  ./arch/x86/kernel/fpu/regset.c
 81d6c2a60e66e24874891b34ebe94ce52b8d337aad8b50ff9144cdc589860313  ./arch/x86/kernel/fpu/signal.c
 f9081b8cc0aabf3fede95db614f87a7a7ec6cb0507a709916a9d00ff34043cca  ./arch/x86/kernel/fpu/xstate.c
 4209cffeb3414bec2fa339bd045b4f6d5d4ac5e79809c7baa5e44082f58e853e  ./arch/x86/kernel/fpu/xstate.h
