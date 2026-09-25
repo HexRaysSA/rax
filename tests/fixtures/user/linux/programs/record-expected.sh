@@ -67,8 +67,8 @@ record() {
 # The noise.txt filters of ARCH/PROGRAM applied to stdin, as the test
 # applies them: `addresses` masks hexadecimal addresses (0x and six or more
 # digits), `number-before:WORD` masks the number just before " WORD",
-# `line:WORD` masks a line containing WORD, and `ignore-stdout` drops the
-# output.
+# `line:WORD` masks a line containing WORD, `drop:WORD` drops a line
+# containing WORD, and `ignore-stdout` drops the output.
 denoise() {
     local filters
     filters="$(grep -v '^#' noise.txt |
@@ -82,6 +82,7 @@ denoise() {
                 if ($_ eq "addresses") { $l =~ s/0x[0-9a-fA-F]{6,}/0x?/g }
                 elsif (/^number-before:(.*)$/) { my $w = quotemeta $1; $l =~ s/[0-9][0-9.]*(?= $w)/?/g }
                 elsif (/^line:(.*)$/) { $l = ($l =~ /\n$/ ? "<masked>\n" : "<masked>") if index($l, $1) >= 0 }
+                elsif (/^drop:(.*)$/) { $l = "" if index($l, $1) >= 0 }
             }
             print $l;
         }' "$filters"

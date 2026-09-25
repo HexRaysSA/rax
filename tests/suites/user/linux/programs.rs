@@ -103,6 +103,9 @@ enum Filter {
     /// Masks a whole line containing `WORD` (a measured ratio), keeping the
     /// line itself so that the output's shape is still compared.
     Line(String),
+    /// Drops a line containing `WORD`: one the program prints only when a
+    /// measurement comes out a certain way.
+    Drop(String),
     /// Ignores standard output entirely (the exit status still counts).
     IgnoreStdout,
 }
@@ -113,6 +116,7 @@ fn parse_filter(s: &str) -> Filter {
         None if s == "ignore-stdout" => Filter::IgnoreStdout,
         Some(("number-before", w)) if !w.is_empty() => Filter::NumberBefore(w.to_string()),
         Some(("line", w)) if !w.is_empty() => Filter::Line(w.to_string()),
+        Some(("drop", w)) if !w.is_empty() => Filter::Drop(w.to_string()),
         _ => panic!("unknown noise filter {s}"),
     }
 }
@@ -208,6 +212,8 @@ fn denoise(stdout: &[u8], filters: &[Filter]) -> String {
                 }
                 .to_string(),
                 Filter::Line(_) => l,
+                Filter::Drop(w) if l.contains(w.as_str()) => String::new(),
+                Filter::Drop(_) => l,
                 Filter::IgnoreStdout => unreachable!("handled above"),
             };
         }
@@ -465,12 +471,13 @@ fn corpus_sources_are_upstream_or_annotated() {
 fn corpus_tables_are_consistent() {
     let names: BTreeSet<String> = programs().into_iter().map(|p| p.name).collect();
     // Every filter names a program and changes its recording (a filter that
-    // changes nothing is stale).
+    // changes nothing is stale), except a dropped line, which the recording
+    // may lack as it appears only sometimes.
     for ((arch, name), filters) in noise() {
         assert!(names.contains(&name), "noise.txt: unknown program {name}");
         let (stdout, _) = expected(&arch, &name);
         for f in &filters {
-            if *f != Filter::IgnoreStdout {
+            if !matches!(f, Filter::IgnoreStdout | Filter::Drop(_)) {
                 assert_ne!(
                     denoise(&stdout, std::slice::from_ref(f)),
                     String::from_utf8_lossy(&stdout),
@@ -539,6 +546,8 @@ fn noise_filters_mask_only_their_targets() {
         t("a\n  is 90.6x faster\nb", &[f("line:faster")]),
         "a\n<masked>\nb"
     );
+    assert_eq!(t("a\n  Speedup: 1.2x\nb\n", &[f("drop:Speedup")]), "a\nb\n");
+    assert_eq!(t("a\nb\n", &[f("drop:Speedup")]), "a\nb\n");
     assert_eq!(
         mask_number_before("x 1.5 ms and 2 ms", "ms"),
         "x ? ms and ? ms"

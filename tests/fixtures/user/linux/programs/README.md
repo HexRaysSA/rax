@@ -32,7 +32,7 @@ registers, which made the C library print last digits wrongly.
 | `expected/<arch>/<program>.{stdout,status}` | Recorded results. |
 | `expected/ORACLE` | Kernel, Docker server, CPU count, cross-check, and overrides of the recording. |
 | `oracle-overrides.txt` | Expectations that do not come from the recording, with the reason. |
-| `noise.txt` | Output that differs between two runs on one kernel, masked before comparing. |
+| `noise.txt` | Output that differs between two runs on one kernel, masked (or, for a line printed only sometimes, dropped) before comparing. |
 | `known-divergences.txt` | rax's open defects: programs that must still differ in a given mode. |
 
 ## Provenance

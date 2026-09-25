@@ -5,12 +5,13 @@
 #
 # filter: `addresses` (masks 0x followed by six or more hex digits),
 # `number-before:WORD` (masks the number just before " WORD"), `line:WORD`
-# (masks a line containing WORD), or `ignore-stdout` (compares the exit
-# status only).
+# (masks a line containing WORD), `drop:WORD` (drops a line containing
+# WORD), or `ignore-stdout` (compares the exit status only).
 * 02_fibonacci number-before:seconds wall-clock times of both algorithms
 * 02_fibonacci line:faster the ratio of the two wall-clock times
 * 03_linked_list addresses heap node addresses, randomized by ASLR on Linux and placed by rax's own allocator layout
 * 05_thread_pool number-before:ms wall-clock times of the parallel, sequential, and timed runs
 * 05_thread_pool number-before:tasks the number of queued tasks when shutdown begins depends on thread scheduling
 * 05_thread_pool line:Throughput tasks per second from a wall-clock time (inf when it measured 0 ms)
+* 05_thread_pool drop:Speedup printed only when the sequential run measured at least 1 ms
 x86_64 asm_syscall_raw ignore-stdout the x86-64 inline write passes its length in r10 instead of rdx, so it writes an undefined amount of stack memory
