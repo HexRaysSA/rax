@@ -2,8 +2,8 @@
  * regular file, a FIFO, a socket, a device when privileged) with the umask
  * applied, and its name checks; utimensat's order of checks, its null
  * paths and descriptors, UTIME_OMIT, AT_SYMLINK_NOFOLLOW, and a file the
- * caller may not read; and the older utimes, futimesat, and utime (the raw
- * x86-64 calls where they exist). */
+ * caller may not read; the older utimes, futimesat, and utime (the raw
+ * x86-64 calls where they exist); and new files' modes under umask 0. */
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <stdio.h>
@@ -165,6 +165,24 @@ static void times(void) {
     close(p[1]);
 }
 
+/* The umask alone decides what a new file's mode loses. */
+static void masks(void) {
+    umask(0);
+    int fd = open(at("m1"), O_CREAT | O_WRONLY, 0777);
+    close(fd);
+    CHECK("umask0-open", mode_of(at("m1")) == (S_IFREG | 0777));
+    CHECK("umask0-mkdir", mkdir(at("m2"), 0777) == 0 && mode_of(at("m2")) == (S_IFDIR | 0777));
+    CHECK("umask0-mknod", mknod(at("m3"), S_IFIFO | 0666, 0) == 0 &&
+                              mode_of(at("m3")) == (S_IFIFO | 0666));
+    chmod(at("m1"), 0600);
+    close(open(at("m1"), O_CREAT | O_WRONLY, 0777));
+    CHECK("umask0-existing", mode_of(at("m1")) == (S_IFREG | 0600));
+    umask(022);
+    unlink(at("m1"));
+    rmdir(at("m2"));
+    unlink(at("m3"));
+}
+
 int main(void) {
     setvbuf(stdout, NULL, _IOLBF, 0);
     umask(022);
@@ -172,6 +190,7 @@ int main(void) {
     mkdir(dir, 0755);
     nodes();
     times();
+    masks();
     const char *names[] = {"r", "l", "f", "s", "f2", "f3", "c", "t"};
     for (unsigned i = 0; i < sizeof names / sizeof *names; i++)
         unlink(at(names[i]));

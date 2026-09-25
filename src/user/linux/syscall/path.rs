@@ -339,6 +339,8 @@ fn open_target(
                 _ => opts.read(true),
             };
             let mut custom = 0;
+            // Whether this open may create the file (it does not exist).
+            let creates = flags & O_CREAT != 0 && std::fs::metadata(&host).is_err();
             if flags & O_CREAT != 0 {
                 if flags & O_EXCL != 0 {
                     opts.create_new(true);
@@ -364,6 +366,10 @@ fn open_target(
             }
             opts.custom_flags(custom);
             let file = opts.open(&host)?;
+            let bits = create_mode & 0o7777 & !c.p.umask;
+            if creates && bits & super::super::host::umask() != 0 {
+                file.set_permissions(std::fs::Permissions::from_mode(bits))?;
+            }
             if flags & O_TRUNC != 0 && file.metadata().is_ok_and(|m| m.is_file()) {
                 c.p.space.truncated(fs::identity(&file)?, 0);
             }
@@ -591,9 +597,9 @@ fn host_target(c: &Ctx<'_>, dirfd: i32, path: u64, follow: bool) -> Result<PathB
 /// `mkdirat` (and `mkdir`).
 pub fn mkdirat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32) -> SysResult {
     let host = host_target(c, dirfd, path, false)?;
-    std::fs::DirBuilder::new()
-        .mode(perm & 0o7777 & !c.p.umask)
-        .create(&host)?;
+    let bits = perm & 0o7777 & !c.p.umask;
+    std::fs::DirBuilder::new().mode(bits).create(&host)?;
+    fs::created_mode(&host, bits)?;
     Ok(0)
 }
 
@@ -664,6 +670,7 @@ pub fn mknodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, dev: u32) -> S
             super::super::host::mknod(&host, host_mode(t), major, minor)?;
         }
     }
+    fs::created_mode(&host, bits)?;
     Ok(0)
 }
 

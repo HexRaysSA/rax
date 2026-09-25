@@ -172,6 +172,17 @@ impl Vfs {
     }
 }
 
+/// Gives the host object the guest just created at `path` exactly the
+/// permission bits `bits` its umask left, which the host's umask may have
+/// narrowed.
+pub fn created_mode(path: &Path, bits: u32) -> Result<(), Errno> {
+    use std::os::unix::fs::PermissionsExt;
+    if bits & super::host::umask() != 0 {
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(bits))?;
+    }
+    Ok(())
+}
+
 /// A host file's identity (device, inode), as the address space knows the
 /// objects of shared mappings.
 pub fn identity(f: &std::fs::File) -> Result<crate::user::mm::SourceIdentity, Errno> {

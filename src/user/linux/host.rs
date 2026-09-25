@@ -1206,6 +1206,21 @@ pub fn proc_ids(pid: i32) -> Result<ProcIds, Errno> {
     })
 }
 
+/// The emulator's host umask, read once. The host applies it to every
+/// object the emulator creates, beneath the guest's own.
+pub fn umask() -> u32 {
+    static MASK: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *MASK.get_or_init(|| {
+        // SAFETY: umask only swaps the process's mask; the old one comes
+        // back at once.
+        unsafe {
+            let m = libc::umask(0o022);
+            libc::umask(m);
+            u32::from(m)
+        }
+    })
+}
+
 /// `mknod(path, mode, makedev(major, minor))` on the host.
 pub fn mknod(path: &Path, mode: u32, major: u32, minor: u32) -> Result<(), Errno> {
     let c = cpath(path)?;

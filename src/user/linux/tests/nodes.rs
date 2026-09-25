@@ -57,6 +57,7 @@ fn mknod(h: &mut Harness, path: &str, mode: u64, dev: u64) -> i64 {
 fn mknodat_checks_the_type_then_the_name_then_the_privilege() {
     each_abi(|abi| {
         let mut h = Harness::new(abi);
+        h.ok(Sysno::Umask, &[0o022]);
         let d = Dir::new(&format!("mk-{abi:?}"));
         let err = |e: i32| -(e as i64);
         assert_eq!(
@@ -186,4 +187,37 @@ fn the_older_time_calls_convert_to_utimensat() {
     assert_eq!(h.err(Sysno::Utime, &[fp, 8]), EFAULT);
     let none = put(&h, 0x200, &d.path("none"));
     assert_eq!(h.err(Sysno::Utime, &[none, ub]), ENOENT);
+}
+
+#[test]
+fn the_guests_umask_alone_masks_new_files() {
+    use std::os::unix::fs::PermissionsExt;
+    let mut h = Harness::new(LinuxAbi::Aarch64);
+    // A new process inherits its parent's umask.
+    assert_eq!(
+        h.proc.state.umask,
+        crate::user::linux::host::umask() & 0o777
+    );
+    let d = Dir::new("umask");
+    let mode = |p: &str| std::fs::symlink_metadata(p).unwrap().permissions().mode() & 0o7777;
+    h.ok(Sysno::Umask, &[0]);
+    let f = put(&h, 0x100, &d.path("f"));
+    let fd = h.ok(Sysno::Openat, &[AT_FDCWD, f, 0o101, 0o777]);
+    h.ok(Sysno::Close, &[fd]);
+    assert_eq!(mode(&d.path("f")), 0o777, "open(O_CREAT)");
+    let m = put(&h, 0x100, &d.path("d"));
+    h.ok(Sysno::Mkdirat, &[AT_FDCWD, m, 0o777]);
+    assert_eq!(mode(&d.path("d")), 0o777, "mkdir");
+    assert_eq!(mknod(&mut h, &d.path("p"), 0o10666, 0), 0);
+    assert_eq!(mode(&d.path("p")), 0o666, "mknod");
+    // An existing file keeps its mode.
+    std::fs::set_permissions(d.path("f"), std::fs::Permissions::from_mode(0o600)).unwrap();
+    let f = put(&h, 0x100, &d.path("f"));
+    let fd = h.ok(Sysno::Openat, &[AT_FDCWD, f, 0o101, 0o777]);
+    h.ok(Sysno::Close, &[fd]);
+    assert_eq!(mode(&d.path("f")), 0o600);
+    // The guest's umask still applies.
+    h.ok(Sysno::Umask, &[0o027]);
+    assert_eq!(mknod(&mut h, &d.path("q"), 0o10666, 0), 0);
+    assert_eq!(mode(&d.path("q")), 0o640);
 }

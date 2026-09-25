@@ -42,4 +42,8 @@ ok raw-futimesat-fd
 ok raw-utime
 ok raw-utime-fault
 ok raw-utime-missing
+ok umask0-open
+ok umask0-mkdir
+ok umask0-mknod
+ok umask0-existing
 PASSED

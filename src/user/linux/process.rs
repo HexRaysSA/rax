@@ -630,7 +630,8 @@ impl LinuxProcess {
             creds,
             mm: img.mm,
             rlimits: default_rlimits(config.stack_limit),
-            umask: 0o022,
+            // A new process inherits its parent's umask.
+            umask: super::host::umask() & 0o777,
             sigactions: [SigAction::default(); 64],
             comm: img.comm,
             exe_path: img.exe_path,
