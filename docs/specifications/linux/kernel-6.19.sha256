@@ -125,6 +125,7 @@ b2ad6d6cf7c5075e246cefccc8118f5c5ac579100f14626bf00b45db664e5189  ./include/linu
 51b9a79a75ea082b38227b599906709daf5caba2c880869ba486ec70df98f3a8  ./include/linux/rseq_entry.h
 5adbd0cda2dde76d3bc3a310a54f8b36bc808993863784c14fbcba8a58167bf1  ./include/linux/rseq_types.h
 f93c073351364593650008db7d23d78d061126fb82071daf70379c5d79b0a1db  ./include/linux/sched/deadline.h
+a75580ee0688850fdccdb862f4996e4b355b406d77a63803a34a036d0bea41c6  ./include/linux/sched/jobctl.h
 6799482082e27f9bdb43ccd037c5a6a49c406af836dc05a1f5e8c160e2880870  ./include/linux/sched/prio.h
 a5911ad628eb2b6db538443ccc2ccffca387d9944aeb757d188ec3bf0fffa692  ./include/linux/sched/rt.h
 052e16e5272d978e4c22eb0668bba87243a582c15e3dd97bbc6db1cc05702b5e  ./include/linux/sched/signal.h
