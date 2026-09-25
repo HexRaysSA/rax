@@ -1696,3 +1696,5 @@ mod x86_64_lapic_integration;
 mod x86_64_regressions_lazy_flags_compare;
 #[path = "regressions/lazy_flags_pcmpistri.rs"]
 mod x86_64_regressions_lazy_flags_pcmpistri;
+#[path = "regressions/sse_shift_imm_rex_b.rs"]
+mod x86_64_regressions_sse_shift_imm_rex_b;

@@ -1357,12 +1357,18 @@ impl X86_64Vcpu {
         ctx: &mut InsnContext,
     ) -> Result<Option<VcpuExit>> {
         let modrm = ctx.consume_u8()?;
+        // Groups 12-14 are defined for mod = 11B only (SDM Vol. 2, Table A-6).
+        if modrm >> 6 != 3 {
+            return self.inject_undefined_instruction();
+        }
         let reg = (modrm >> 3) & 0x07; // operation type
         let rm = modrm & 0x07;
         let imm8 = ctx.consume_u8()?;
 
         if ctx.operand_size_override {
-            let xmm = rm as usize;
+            // REX.B extends the XMM register (REX2 is refused for legacy SIMD
+            // before dispatch); MMX forms below ignore it.
+            let xmm = (rm | ctx.rex_b()) as usize;
             let shift = imm8 as u32;
 
             match reg {
@@ -1430,12 +1436,18 @@ impl X86_64Vcpu {
         ctx: &mut InsnContext,
     ) -> Result<Option<VcpuExit>> {
         let modrm = ctx.consume_u8()?;
+        // Groups 12-14 are defined for mod = 11B only (SDM Vol. 2, Table A-6).
+        if modrm >> 6 != 3 {
+            return self.inject_undefined_instruction();
+        }
         let reg = (modrm >> 3) & 0x07;
         let rm = modrm & 0x07;
         let imm8 = ctx.consume_u8()?;
 
         if ctx.operand_size_override {
-            let xmm = rm as usize;
+            // REX.B extends the XMM register (REX2 is refused for legacy SIMD
+            // before dispatch); MMX forms below ignore it.
+            let xmm = (rm | ctx.rex_b()) as usize;
             let shift = imm8 as u32;
 
             match reg {
@@ -1503,12 +1515,18 @@ impl X86_64Vcpu {
         ctx: &mut InsnContext,
     ) -> Result<Option<VcpuExit>> {
         let modrm = ctx.consume_u8()?;
+        // Groups 12-14 are defined for mod = 11B only (SDM Vol. 2, Table A-6).
+        if modrm >> 6 != 3 {
+            return self.inject_undefined_instruction();
+        }
         let reg = (modrm >> 3) & 0x07;
         let rm = modrm & 0x07;
         let imm8 = ctx.consume_u8()?;
 
         if ctx.operand_size_override {
-            let xmm = rm as usize;
+            // REX.B extends the XMM register (REX2 is refused for legacy SIMD
+            // before dispatch); MMX forms below ignore it.
+            let xmm = (rm | ctx.rex_b()) as usize;
             let shift = imm8 as u32;
 
             match reg {
