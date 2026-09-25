@@ -1,0 +1,45 @@
+Computing Fibonacci(20)
+========================================
+
+Testing error handling with negative input:
+  Correctly returned -1 for negative input
+
+Memoized Fibonacci (O(n) time complexity):
+  fib(20) = 6765
+  Time: 0.000000208 seconds
+
+Naive Recursive Fibonacci (O(2^n) time complexity):
+  fib(20) = 6765
+  Time: 0.000019333 seconds
+
+Performance Comparison:
+========================================
+  Memoized version is 92.9x faster
+
+Theoretical Analysis for n=20:
+  Naive: ~2^20 = ~1.05e+06 function calls
+  Memoized: 19 unique computations + 19 cache hits
+
+  Results verified: both methods return the same value
+
+First 20 Fibonacci numbers (using memoized version):
+  fib( 0) = 0
+  fib( 1) = 1
+  fib( 2) = 1
+  fib( 3) = 2
+  fib( 4) = 3
+  fib( 5) = 5
+  fib( 6) = 8
+  fib( 7) = 13
+  fib( 8) = 21
+  fib( 9) = 34
+  fib(10) = 55
+  fib(11) = 89
+  fib(12) = 144
+  fib(13) = 233
+  fib(14) = 377
+  fib(15) = 610
+  fib(16) = 987
+  fib(17) = 1597
+  fib(18) = 2584
+  fib(19) = 4181

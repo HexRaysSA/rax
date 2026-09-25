@@ -1,0 +1,595 @@
+
+================================================================================
+       Custom Memory Allocator - Educational Implementation in C               
+================================================================================
+
+This program demonstrates a simple free-list based memory allocator.
+
+Features:
+  - Static 1MB heap buffer
+  - First-fit allocation strategy
+  - Block splitting to reduce internal fragmentation
+  - Coalescing to reduce external fragmentation
+  - 8-byte alignment for all allocations
+
+
+################################################################################
+#                         MEMORY ALLOCATOR STRESS TEST                         #
+################################################################################
+
+=== TEST 1: Basic Allocation ===
+
+Allocating 3 blocks of different sizes...
+[INIT] Heap initialized: 1048576 bytes total, 1048544 bytes usable
+  p1 = 0x1008c00 (100 bytes)
+  p2 = 0x1008c88 (200 bytes)
+  p3 = 0x1008d70 (300 bytes)
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0          104   USED    0x1008c00 - 0x1008c68
+  1   0x1008c68          200   USED    0x1008c88 - 0x1008d50
+  2   0x1008d50          304   USED    0x1008d70 - 0x1008ea0
+  3   0x1008ea0      1047840   FREE    0x1008ec0 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     4
+  Used blocks:      3 (75.0%)
+  Free blocks:      1 (25.0%)
+
+  Memory used:      608 bytes
+  Memory free:      1047840 bytes
+  Largest free:     1047840 bytes
+  Overhead:         128 bytes (4 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 3
+  Total frees:       0
+  Active allocations: 3
+  Peak memory:       608 bytes
+  Coalesce ops:      0
+  Split ops:         3
+
+Visual Heap Map (each char = ~16384 bytes):
+[###.............................................................]
+Legend: # = used, . = free
+
+================================================================================
+
+=== TEST 2: Free and Coalescing ===
+
+Freeing middle block (p2)...
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0          104   USED    0x1008c00 - 0x1008c68
+  1   0x1008c68          200   FREE    0x1008c88 - 0x1008d50
+  2   0x1008d50          304   USED    0x1008d70 - 0x1008ea0
+  3   0x1008ea0      1047840   FREE    0x1008ec0 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     4
+  Used blocks:      2 (50.0%)
+  Free blocks:      2 (50.0%)
+
+  Memory used:      408 bytes
+  Memory free:      1048040 bytes
+  Largest free:     1047840 bytes
+  Overhead:         128 bytes (4 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 3
+  Total frees:       1
+  Active allocations: 2
+  Peak memory:       608 bytes
+  Coalesce ops:      0
+  Split ops:         3
+
+Visual Heap Map (each char = ~16384 bytes):
+[#.#.............................................................]
+Legend: # = used, . = free
+
+================================================================================
+
+Freeing first block (p1) - should coalesce with p2's space...
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0          336   FREE    0x1008c00 - 0x1008d50
+  1   0x1008d50          304   USED    0x1008d70 - 0x1008ea0
+  2   0x1008ea0      1047840   FREE    0x1008ec0 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     3
+  Used blocks:      1 (33.3%)
+  Free blocks:      2 (66.7%)
+
+  Memory used:      304 bytes
+  Memory free:      1048176 bytes
+  Largest free:     1047840 bytes
+  Overhead:         96 bytes (3 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 3
+  Total frees:       2
+  Active allocations: 1
+  Peak memory:       608 bytes
+  Coalesce ops:      1
+  Split ops:         3
+
+Visual Heap Map (each char = ~16384 bytes):
+[.#..............................................................]
+Legend: # = used, . = free
+
+================================================================================
+
+Freeing last block (p3) - should create one big free block...
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0      1048544   FREE    0x1008c00 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     1
+  Used blocks:      0 (0.0%)
+  Free blocks:      1 (100.0%)
+
+  Memory used:      0 bytes
+  Memory free:      1048544 bytes
+  Largest free:     1048544 bytes
+  Overhead:         32 bytes (1 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 3
+  Total frees:       3
+  Active allocations: 0
+  Peak memory:       608 bytes
+  Coalesce ops:      3
+  Split ops:         3
+
+Visual Heap Map (each char = ~16384 bytes):
+[................................................................]
+Legend: # = used, . = free
+
+================================================================================
+
+=== TEST 3: Fragmentation Stress Test ===
+
+Allocating 10 blocks of 1000 bytes each...
+  blocks[0] = 0x1008c00
+  blocks[1] = 0x1009008
+  blocks[2] = 0x1009410
+  blocks[3] = 0x1009818
+  blocks[4] = 0x1009c20
+  blocks[5] = 0x100a028
+  blocks[6] = 0x100a430
+  blocks[7] = 0x100a838
+  blocks[8] = 0x100ac40
+  blocks[9] = 0x100b048
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0         1000   USED    0x1008c00 - 0x1008fe8
+  1   0x1008fe8         1000   USED    0x1009008 - 0x10093f0
+  2   0x10093f0         1000   USED    0x1009410 - 0x10097f8
+  3   0x10097f8         1000   USED    0x1009818 - 0x1009c00
+  4   0x1009c00         1000   USED    0x1009c20 - 0x100a008
+  5   0x100a008         1000   USED    0x100a028 - 0x100a410
+  6   0x100a410         1000   USED    0x100a430 - 0x100a818
+  7   0x100a818         1000   USED    0x100a838 - 0x100ac20
+  8   0x100ac20         1000   USED    0x100ac40 - 0x100b028
+  9   0x100b028         1000   USED    0x100b048 - 0x100b430
+ 10   0x100b430      1038224   FREE    0x100b450 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     11
+  Used blocks:      10 (90.9%)
+  Free blocks:      1 (9.1%)
+
+  Memory used:      10000 bytes
+  Memory free:      1038224 bytes
+  Largest free:     1038224 bytes
+  Overhead:         352 bytes (11 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 13
+  Total frees:       3
+  Active allocations: 10
+  Peak memory:       10000 bytes
+  Coalesce ops:      3
+  Split ops:         13
+
+Visual Heap Map (each char = ~16384 bytes):
+[##########......................................................]
+Legend: # = used, . = free
+
+================================================================================
+
+Freeing every other block (creating fragmentation)...
+  Freeing blocks[0]
+  Freeing blocks[2]
+  Freeing blocks[4]
+  Freeing blocks[6]
+  Freeing blocks[8]
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0         1000   FREE    0x1008c00 - 0x1008fe8
+  1   0x1008fe8         1000   USED    0x1009008 - 0x10093f0
+  2   0x10093f0         1000   FREE    0x1009410 - 0x10097f8
+  3   0x10097f8         1000   USED    0x1009818 - 0x1009c00
+  4   0x1009c00         1000   FREE    0x1009c20 - 0x100a008
+  5   0x100a008         1000   USED    0x100a028 - 0x100a410
+  6   0x100a410         1000   FREE    0x100a430 - 0x100a818
+  7   0x100a818         1000   USED    0x100a838 - 0x100ac20
+  8   0x100ac20         1000   FREE    0x100ac40 - 0x100b028
+  9   0x100b028         1000   USED    0x100b048 - 0x100b430
+ 10   0x100b430      1038224   FREE    0x100b450 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     11
+  Used blocks:      5 (45.5%)
+  Free blocks:      6 (54.5%)
+
+  Memory used:      5000 bytes
+  Memory free:      1043224 bytes
+  Largest free:     1038224 bytes
+  Overhead:         352 bytes (11 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 13
+  Total frees:       8
+  Active allocations: 5
+  Peak memory:       10000 bytes
+  Coalesce ops:      3
+  Split ops:         13
+
+Visual Heap Map (each char = ~16384 bytes):
+[.#.#.#.#.#......................................................]
+Legend: # = used, . = free
+
+================================================================================
+
+Trying to allocate 3000 bytes (should fail - fragmented)...
+  Result: 0x100b450 (success)
+
+Freeing remaining blocks...
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0        10288   FREE    0x1008c00 - 0x100b430
+  1   0x100b430         3000   USED    0x100b450 - 0x100c008
+  2   0x100c008      1035192   FREE    0x100c028 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     3
+  Used blocks:      1 (33.3%)
+  Free blocks:      2 (66.7%)
+
+  Memory used:      3000 bytes
+  Memory free:      1045480 bytes
+  Largest free:     1035192 bytes
+  Overhead:         96 bytes (3 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 14
+  Total frees:       13
+  Active allocations: 1
+  Peak memory:       10000 bytes
+  Coalesce ops:      12
+  Split ops:         14
+
+Visual Heap Map (each char = ~16384 bytes):
+[.#..............................................................]
+Legend: # = used, . = free
+
+================================================================================
+
+Now allocating 3000 bytes (should succeed - coalesced)...
+  Result: 0x1008c00 (success!)
+
+=== TEST 4: Calloc (Zero-initialized allocation) ===
+
+Allocating array of 10 integers with calloc...
+  Checking if memory is zeroed: YES - all zeros!
+
+=== TEST 5: Realloc (Resize allocation) ===
+
+Initial allocation of 100 bytes...
+  Address: 0x1008c00, Content: "Hello, World!"
+
+Growing to 200 bytes with realloc...
+  Address: 0x1008c00, Content preserved: "Hello, World!"
+  After append: "Hello, World! This is additional text after realloc."
+
+Shrinking to 50 bytes with realloc...
+  Address: 0x1008c00, Content (truncated): "Hello, World! This is additional text after reall"
+
+=== TEST 6: Edge Cases ===
+
+Testing malloc(0)...
+  Result: 0 (should be NULL)
+
+Testing free(NULL)...
+  No crash - good!
+
+Testing realloc(NULL, 100) (should act like malloc)...
+  Result: 0x1008c00
+
+Testing realloc(ptr, 0) (should act like free)...
+  Allocated: 0x1008c00
+  After realloc(ptr, 0): 0 (should be NULL)
+
+=== TEST 7: Many Small Allocations ===
+
+Allocating 49 small blocks (16-64 bytes each)...
+  Allocated 49 blocks
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0           16   USED    0x1008c00 - 0x1008c10
+  1   0x1008c10           24   USED    0x1008c30 - 0x1008c48
+  2   0x1008c48           24   USED    0x1008c68 - 0x1008c80
+  3   0x1008c80           24   USED    0x1008ca0 - 0x1008cb8
+  4   0x1008cb8           24   USED    0x1008cd8 - 0x1008cf0
+  5   0x1008cf0           24   USED    0x1008d10 - 0x1008d28
+  6   0x1008d28           24   USED    0x1008d48 - 0x1008d60
+  7   0x1008d60           24   USED    0x1008d80 - 0x1008d98
+  8   0x1008d98           24   USED    0x1008db8 - 0x1008dd0
+  9   0x1008dd0           32   USED    0x1008df0 - 0x1008e10
+ 10   0x1008e10           32   USED    0x1008e30 - 0x1008e50
+ 11   0x1008e50           32   USED    0x1008e70 - 0x1008e90
+ 12   0x1008e90           32   USED    0x1008eb0 - 0x1008ed0
+ 13   0x1008ed0           32   USED    0x1008ef0 - 0x1008f10
+ 14   0x1008f10           32   USED    0x1008f30 - 0x1008f50
+ 15   0x1008f50           32   USED    0x1008f70 - 0x1008f90
+ 16   0x1008f90           32   USED    0x1008fb0 - 0x1008fd0
+ 17   0x1008fd0           40   USED    0x1008ff0 - 0x1009018
+ 18   0x1009018           40   USED    0x1009038 - 0x1009060
+ 19   0x1009060           40   USED    0x1009080 - 0x10090a8
+ 20   0x10090a8           40   USED    0x10090c8 - 0x10090f0
+ 21   0x10090f0           40   USED    0x1009110 - 0x1009138
+ 22   0x1009138           40   USED    0x1009158 - 0x1009180
+ 23   0x1009180           40   USED    0x10091a0 - 0x10091c8
+ 24   0x10091c8           40   USED    0x10091e8 - 0x1009210
+ 25   0x1009210           48   USED    0x1009230 - 0x1009260
+ 26   0x1009260           48   USED    0x1009280 - 0x10092b0
+ 27   0x10092b0           48   USED    0x10092d0 - 0x1009300
+ 28   0x1009300           48   USED    0x1009320 - 0x1009350
+ 29   0x1009350           48   USED    0x1009370 - 0x10093a0
+ 30   0x10093a0           48   USED    0x10093c0 - 0x10093f0
+ 31   0x10093f0           48   USED    0x1009410 - 0x1009440
+ 32   0x1009440           48   USED    0x1009460 - 0x1009490
+ 33   0x1009490           56   USED    0x10094b0 - 0x10094e8
+ 34   0x10094e8           56   USED    0x1009508 - 0x1009540
+ 35   0x1009540           56   USED    0x1009560 - 0x1009598
+ 36   0x1009598           56   USED    0x10095b8 - 0x10095f0
+ 37   0x10095f0           56   USED    0x1009610 - 0x1009648
+ 38   0x1009648           56   USED    0x1009668 - 0x10096a0
+ 39   0x10096a0           56   USED    0x10096c0 - 0x10096f8
+ 40   0x10096f8           56   USED    0x1009718 - 0x1009750
+ 41   0x1009750           64   USED    0x1009770 - 0x10097b0
+ 42   0x10097b0           64   USED    0x10097d0 - 0x1009810
+ 43   0x1009810           64   USED    0x1009830 - 0x1009870
+ 44   0x1009870           64   USED    0x1009890 - 0x10098d0
+ 45   0x10098d0           64   USED    0x10098f0 - 0x1009930
+ 46   0x1009930           64   USED    0x1009950 - 0x1009990
+ 47   0x1009990           64   USED    0x10099b0 - 0x10099f0
+ 48   0x10099f0           64   USED    0x1009a10 - 0x1009a50
+ 49   0x1009a50         6592   FREE    0x1009a70 - 0x100b430
+ 50   0x100b430         3000   USED    0x100b450 - 0x100c008
+ 51   0x100c008      1035192   FREE    0x100c028 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     52
+  Used blocks:      50 (96.2%)
+  Free blocks:      2 (3.8%)
+
+  Memory used:      5128 bytes
+  Memory free:      1041784 bytes
+  Largest free:     1035192 bytes
+  Overhead:         1664 bytes (52 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 68
+  Total frees:       18
+  Active allocations: 50
+  Peak memory:       10000 bytes
+  Coalesce ops:      19
+  Split ops:         70
+
+Visual Heap Map (each char = ~16384 bytes):
+[#################################################.#.............]
+Legend: # = used, . = free
+
+================================================================================
+
+Freeing all small blocks in random order...
+  All blocks freed
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0        10288   FREE    0x1008c00 - 0x100b430
+  1   0x100b430         3000   USED    0x100b450 - 0x100c008
+  2   0x100c008      1035192   FREE    0x100c028 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     3
+  Used blocks:      1 (33.3%)
+  Free blocks:      2 (66.7%)
+
+  Memory used:      3000 bytes
+  Memory free:      1045480 bytes
+  Largest free:     1035192 bytes
+  Overhead:         96 bytes (3 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 68
+  Total frees:       67
+  Active allocations: 1
+  Peak memory:       10000 bytes
+  Coalesce ops:      68
+  Split ops:         70
+
+Visual Heap Map (each char = ~16384 bytes):
+[.#..............................................................]
+Legend: # = used, . = free
+
+================================================================================
+
+
+################################################################################
+#                           STRESS TEST COMPLETE                               #
+################################################################################
+
+Final Statistics:
+  Total allocations performed: 68
+  Total frees performed:       67
+  Peak memory usage:           10000 bytes
+  Coalescing operations:       68
+  Block splits:                70
+
+WARNING: Memory leak detected! 1 allocations not freed.
+
+=== Final Heap State ===
+
+================================================================================
+                              HEAP DUMP                                         
+================================================================================
+
+Heap range: 0x1008be0 - 0x1108be0 (1048576 bytes)
+Header size: 32 bytes
+Alignment: 8 bytes
+
+Block List:
+---------------------------------------------------------------------------
+ #    Address            Size        Status    Data Range
+---------------------------------------------------------------------------
+  0   0x1008be0        10288   FREE    0x1008c00 - 0x100b430
+  1   0x100b430         3000   USED    0x100b450 - 0x100c008
+  2   0x100c008      1035192   FREE    0x100c028 - 0x1108be0
+---------------------------------------------------------------------------
+
+Summary:
+  Total blocks:     3
+  Used blocks:      1 (33.3%)
+  Free blocks:      2 (66.7%)
+
+  Memory used:      3000 bytes
+  Memory free:      1045480 bytes
+  Largest free:     1035192 bytes
+  Overhead:         96 bytes (3 headers * 32 bytes)
+
+Allocation Statistics:
+  Total allocations: 68
+  Total frees:       67
+  Active allocations: 1
+  Peak memory:       10000 bytes
+  Coalesce ops:      68
+  Split ops:         70
+
+Visual Heap Map (each char = ~16384 bytes):
+[.#..............................................................]
+Legend: # = used, . = free
+
+================================================================================
+

@@ -1,0 +1,9 @@
+image: alpine:latest
+kernel: Linux 7.0.14-orbstack-00380-ga7e0a2dc9535 #1 SMP PREEMPT Fri Aug  7 03:48:40 UTC 2026 aarch64
+docker: 29.4.0 linux/arm64
+recorded: 2026-09-25T02:52:11Z
+native-arch: aarch64
+cpus: 1 (--cpuset-cpus 0)
+seccomp: unconfined
+cross-check: x86_64 under qemu-x86_64 version 11.0.3 agrees on 97 of 97 programs
+override: riscv64/asm_arch_detect from the kernel source (Linux 6.19 leaves scounteren at 0x2 (time only) unless kernel.perf_user_access is 2 (drivers/perf/riscv_pmu_sbi.c, pmu_sbi_starting_cpu), so rdcycle raises an illegal-instruction exception and the program dies of SIGILL (status 132) with nothing printed; qemu-riscv64 user mode lets U-mode read cycle)

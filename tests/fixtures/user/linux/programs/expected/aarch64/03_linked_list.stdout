@@ -1,0 +1,122 @@
+============================================================
+    Singly Linked List Implementation Demo
+============================================================
+
+--- Test 1: Basic Insertions ---
+
+Inserting 30, 20, 10 at head:
+List: [10] -> [20] -> [30] -> NULL
+
+Inserting 40, 50 at tail:
+List: [10] -> [20] -> [30] -> [40] -> [50] -> NULL
+
+Inserting 25 at position 2:
+List: [10] -> [20] -> [25] -> [30] -> [40] -> [50] -> NULL
+
+Inserting 5 at position 0 (should become new head):
+List: [5] -> [10] -> [20] -> [25] -> [30] -> [40] -> [50] -> NULL
+
+=== Detailed List View ===
+Index     Address           Data      Next            
+------------------------------------------------------
+0         0xffffad0100d0    5         0xffffad010050  
+1         0xffffad010050    10        0xffffad010030  
+2         0xffffad010030    20        0xffffad0100b0  
+3         0xffffad0100b0    25        0xffffad010010  
+4         0xffffad010010    30        0xffffad010070  
+5         0xffffad010070    40        0xffffad010090  
+6         0xffffad010090    50        0               
+------------------------------------------------------
+Total nodes: 7
+
+--- Test 2: Search Operations ---
+
+List length: 7
+Found node with value 25 at address 0xffffad0100b0
+Found node with value 50 at address 0xffffad010090
+Value 100 not found in list
+
+--- Test 3: Deletion Operations ---
+
+Current list:
+List: [5] -> [10] -> [20] -> [25] -> [30] -> [40] -> [50] -> NULL
+
+Deleting node with value 25:
+List: [5] -> [10] -> [20] -> [30] -> [40] -> [50] -> NULL
+
+Deleting head node (value 5):
+List: [10] -> [20] -> [30] -> [40] -> [50] -> NULL
+
+Deleting tail node (value 50):
+List: [10] -> [20] -> [30] -> [40] -> NULL
+
+Trying to delete non-existent value 999:
+Warning: Value 999 not found in list
+List: [10] -> [20] -> [30] -> [40] -> NULL
+
+Deleting node at position 1:
+List: [10] -> [30] -> [40] -> NULL
+
+--- Test 4: List Reversal ---
+
+Memory cleanup: Freed 3 node(s)
+
+Building new list for reversal demo:
+List: [10] -> [20] -> [30] -> [40] -> [50] -> NULL
+
+Reversing list (iterative method):
+List: [50] -> [40] -> [30] -> [20] -> [10] -> NULL
+
+Reversing list again (recursive method):
+List: [10] -> [20] -> [30] -> [40] -> [50] -> NULL
+
+--- Test 5: Edge Cases ---
+
+Memory cleanup: Freed 5 node(s)
+
+Testing operations on empty list:
+List is empty (NULL)
+Length of empty list: 0
+Find 10 in empty list: Not found
+Warning: Cannot delete from empty list
+
+Reversing empty list:
+List is empty (NULL)
+
+Testing with single node:
+List: [42] -> NULL
+
+Reversing single-node list:
+List: [42] -> NULL
+
+Deleting the only node:
+List is empty (NULL)
+
+--- Test 6: Building Larger List ---
+
+Inserting 10 elements at alternating positions:
+List: [8] -> [6] -> [4] -> [2] -> [0] -> [1] -> [3] -> [5] -> [7] -> [9] -> NULL
+
+=== Detailed List View ===
+Index     Address           Data      Next            
+------------------------------------------------------
+0         0xffffad010110    8         0xffffad0100b0  
+1         0xffffad0100b0    6         0xffffad010070  
+2         0xffffad010070    4         0xffffad010050  
+3         0xffffad010050    2         0xffffad010090  
+4         0xffffad010090    0         0xffffad010030  
+5         0xffffad010030    1         0xffffad010010  
+6         0xffffad010010    3         0xffffad0100d0  
+7         0xffffad0100d0    5         0xffffad0100f0  
+8         0xffffad0100f0    7         0xffffad010130  
+9         0xffffad010130    9         0               
+------------------------------------------------------
+Total nodes: 10
+
+
+--- Cleanup ---
+
+Memory cleanup: Freed 10 node(s)
+
+All tests completed successfully!
+============================================================

@@ -17,6 +17,7 @@ every architecture and requires a byte-for-byte match.
 | `oracle-overrides.txt` | Cases whose expectation for one architecture is another architecture's real-kernel result, with the reason. |
 | `expected/<arch>/<case>.{stdout,status}` | Recorded results. |
 | `expected/ORACLE` | Kernel, Docker server, binfmt handlers, overrides, and recording time of the oracle run. |
+| `programs/` | The morok program corpus: 97 whole C and C++ programs with their own build, recordings, and README. |
 
 ## Programs
 

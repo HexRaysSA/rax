@@ -1,0 +1,169 @@
+=======================================================
+Mini Regular Expression Engine - Test Suite
+=======================================================
+
+--- Literal Characters ---
+PASS: Simple literal match
+PASS: Literal found in middle
+PASS: Literal not found (incomplete)
+PASS: Case sensitive
+PASS: Full match literal
+PASS: Full match fails with extra
+
+--- Dot (Any Character) ---
+PASS: Dot matches single char
+PASS: Dot matches any char
+PASS: Dot requires one char
+PASS: Multiple dots
+PASS: Multiple dots need multiple chars
+PASS: Full match with dot
+
+--- Star (Zero or More) ---
+PASS: Star matches zero times
+PASS: Star matches one time
+PASS: Star matches many times
+PASS: Star matches empty
+PASS: Star matches all
+PASS: Dot-star matches anything
+PASS: Multiple stars
+PASS: Star with following literal
+PASS: Star matches zero before literal
+
+--- Plus (One or More) ---
+PASS: Plus matches one time
+PASS: Plus matches many times
+PASS: Plus requires at least one
+PASS: Plus matches single
+PASS: Plus matches many
+PASS: Plus doesn't match empty
+PASS: Plus with following literal
+
+--- Question (Zero or One) ---
+PASS: Question matches zero
+PASS: Question matches one
+PASS: Question doesn't match two
+PASS: Optional u in color
+PASS: Optional u in colour
+PASS: All optional matches empty
+PASS: All optional matches full
+
+--- Anchor Start (^) ---
+PASS: Caret at start
+PASS: Caret at start with more
+PASS: Caret fails if not at start
+PASS: Just caret matches
+PASS: Caret with star
+PASS: Caret and dollar
+
+--- Anchor End ($) ---
+PASS: Dollar at end
+PASS: Dollar at end with prefix
+PASS: Dollar fails if not at end
+PASS: Just dollar matches empty
+PASS: Star with dollar
+PASS: Empty pattern matches empty string
+
+--- Character Classes ---
+PASS: Char class matches first
+PASS: Char class matches second
+PASS: Char class matches third
+PASS: Char class doesn't match other
+PASS: Char class with plus
+PASS: Char class with star empty
+PASS: Multiple char classes
+
+--- Character Ranges ---
+PASS: Range matches middle
+PASS: Range matches start
+PASS: Range matches end
+PASS: Range is case sensitive
+PASS: Digit range
+PASS: Digit range rejects letter
+PASS: Combined ranges uppercase
+PASS: Combined ranges lowercase
+PASS: Alphanumeric range
+PASS: Range with quantifier
+
+--- Negated Character Classes ---
+PASS: Negated class matches other
+PASS: Negated class rejects member
+PASS: Negated class rejects member 2
+PASS: Negated range matches non-digit
+PASS: Negated range rejects digit
+PASS: Negated range with plus
+PASS: Negated class star
+
+--- Escape Sequences ---
+PASS: Escaped dot matches literal
+PASS: Escaped dot doesn't match other
+PASS: Escaped star matches literal
+PASS: Escaped plus matches literal
+PASS: Escaped question matches literal
+PASS: Escaped bracket matches literal
+PASS: Escaped close bracket matches literal
+PASS: Escaped caret matches literal
+PASS: Escaped dollar matches literal
+PASS: Escaped backslash matches literal
+PASS: Escaped dot in context
+PASS: Escaped dot doesn't match any
+PASS: Escaped n matches newline
+PASS: Escaped t matches tab
+
+--- Search Position ---
+PASS: Find abc in middle
+PASS: Find a+ greedy
+PASS: Find ^abc at start
+PASS: Find def$ at end
+PASS: Find digits in string
+PASS: Not found returns -1
+
+--- Complex Patterns ---
+PASS: C identifier valid
+PASS: C identifier underscore
+PASS: C identifier invalid start
+PASS: Decimal number
+PASS: Decimal needs dot
+PASS: Wildcards in middle
+PASS: Match entire line
+PASS: Simple email pattern
+
+--- Edge Cases ---
+PASS: Empty pattern matches empty string
+PASS: Empty pattern matches any string
+PASS: Non-empty pattern fails on empty string
+PASS: Bracket as first char in class
+PASS: Bracket as first char in class 2
+PASS: Hyphen at end of class
+PASS: Hyphen at end of class 2
+PASS: Hyphen at start of class
+PASS: Double star is compile error (error: Multiple quantifiers not allowed)
+
+--- Error Cases ---
+PASS: Star without preceding element (error: Quantifier '*' without preceding element)
+PASS: Plus without preceding element (error: Quantifier '+' without preceding element)
+PASS: Question without preceding element (error: Quantifier '?' without preceding element)
+PASS: Unclosed character class (error: Unclosed character class)
+PASS: Trailing backslash (error: Incomplete escape sequence at end of pattern)
+PASS: Double quantifier (error: Multiple quantifiers not allowed)
+PASS: Quantified anchor start (error: Cannot quantify anchor)
+PASS: Quantified anchor end (error: Cannot quantify anchor)
+PASS: Invalid range (reversed) (error: Invalid character range: z-a)
+
+--- Greedy Backtracking ---
+PASS: Backtracking: a*a on aaa
+PASS: Backtracking: .*x on abcx
+PASS: Backtracking: a*aa on aaa
+PASS: Multiple greedy wildcards
+PASS: Backtracking with char class
+
+=======================================================
+Test Results: 122/122 passed - ALL TESTS PASSED!
+=======================================================
+
+Demo: Compiled regex structure for "^[a-z]+[0-9]*$":
+Compiled regex (5 nodes):
+  [0] ANCHOR_START (^)
+  [1] CHAR_CLASS [abcdefghijklmnopqrstuvwxyz] +
+  [2] CHAR_CLASS [0123456789] *
+  [3] ANCHOR_END ($)
+  [4] MATCH

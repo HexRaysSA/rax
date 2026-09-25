@@ -1,0 +1,232 @@
+Bytecode Virtual Machine Interpreter
+====================================
+Stack size: 256 entries
+Call stack: 64 frames
+Locals per frame: 16
+Global variables: 256
+Code buffer: 4096 bytes
+Total opcodes: 44
+Debug mode: OFF
+
+========================================
+Running: Arithmetic Demo
+========================================
+
+Assembly successful: 206 bytes
+
+=== Disassembly ===
+Address  Opcode       Operand
+-------  -----------  ----------
+0000     PRINT_STR    "=== Arithmetic Demo ===
+"
+0026     PRINT_STR    "10 + 25 = "
+0038     PUSH         10
+0043     PUSH         25
+0048     ADD          
+0049     PRINT        
+0050     PRINT_STR    "100 - 37 = "
+0063     PUSH         100
+0068     PUSH         37
+0073     SUB          
+0074     PRINT        
+0075     PRINT_STR    "7 * 8 = "
+0085     PUSH         7
+0090     PUSH         8
+0095     MUL          
+0096     PRINT        
+0097     PRINT_STR    "99 / 9 = "
+0108     PUSH         99
+0113     PUSH         9
+0118     DIV          
+0119     PRINT        
+0120     PRINT_STR    "17 %% 5 = "
+0132     PUSH         17
+0137     PUSH         5
+0142     MOD          
+0143     PRINT        
+0144     PRINT_STR    "5 < 10 = "
+0155     PUSH         5
+0160     PUSH         10
+0165     LT           
+0166     PRINT        
+0167     PRINT_STR    "5 > 10 = "
+0178     PUSH         5
+0183     PUSH         10
+0188     GT           
+0189     PRINT        
+0190     PRINT_STR    "=== Done ===
+"
+0205     HALT         
+===================
+
+=== Execution ===
+=== Arithmetic Demo ===
+10 + 25 = 35
+100 - 37 = 63
+7 * 8 = 56
+99 / 9 = 11
+17 %% 5 = 2
+5 < 10 = 1
+5 > 10 = 0
+=== Done ===
+
+=== Statistics ===
+Instructions executed: 38
+Final stack pointer: 0
+==================
+
+========================================
+Running: Recursive Factorial
+========================================
+
+Assembly successful: 91 bytes
+
+=== Disassembly ===
+Address  Opcode       Operand
+-------  -----------  ----------
+0000     PRINT_STR    "Calculating 10! (factorial)...
+"
+0033     PUSH         10
+0038     CALL         53
+0043     PRINT        
+0044     PRINT_STR    "Done!
+"
+0052     HALT         
+0053     STORE_LOCAL  0
+0055     LOAD_LOCAL   0
+0057     PUSH         1
+0062     LE           
+0063     JNZ          85
+0068     LOAD_LOCAL   0
+0070     LOAD_LOCAL   0
+0072     PUSH         1
+0077     SUB          
+0078     CALL         53
+0083     MUL          
+0084     RET          
+0085     PUSH         1
+0090     RET          
+===================
+
+=== Execution ===
+Calculating 10! (factorial)...
+3628800
+Done!
+
+=== Statistics ===
+Instructions executed: 121
+Final stack pointer: 0
+==================
+
+========================================
+Running: Fibonacci Sequence
+========================================
+
+Assembly successful: 120 bytes
+
+=== Disassembly ===
+Address  Opcode       Operand
+-------  -----------  ----------
+0000     PRINT_STR    "Fibonacci sequence:
+"
+0022     PUSH         0
+0027     STORE_GLOBAL 0
+0032     PUSH         1
+0037     STORE_GLOBAL 1
+0042     PUSH         15
+0047     STORE_GLOBAL 2
+0052     LOAD_GLOBAL  0
+0057     PRINT        
+0058     LOAD_GLOBAL  0
+0063     LOAD_GLOBAL  1
+0068     ADD          
+0069     STORE_GLOBAL 3
+0074     LOAD_GLOBAL  1
+0079     STORE_GLOBAL 0
+0084     LOAD_GLOBAL  3
+0089     STORE_GLOBAL 1
+0094     LOAD_GLOBAL  2
+0099     DEC          
+0100     DUP          
+0101     STORE_GLOBAL 2
+0106     JNZ          52
+0111     PRINT_STR    "Done!
+"
+0119     HALT         
+===================
+
+=== Execution ===
+Fibonacci sequence:
+0
+1
+1
+2
+3
+5
+8
+13
+21
+34
+55
+89
+144
+233
+377
+Done!
+
+=== Statistics ===
+Instructions executed: 234
+Final stack pointer: 0
+==================
+
+========================================
+Running: Nested Function Calls
+========================================
+
+Assembly successful: 151 bytes
+
+=== Disassembly ===
+Address  Opcode       Operand
+-------  -----------  ----------
+0000     PRINT_STR    "Testing nested calls...
+"
+0026     PUSH         5
+0031     CALL         54
+0036     PRINT_STR    "Final result: "
+0052     PRINT        
+0053     HALT         
+0054     STORE_LOCAL  0
+0056     PRINT_STR    "outer called with: "
+0077     LOAD_LOCAL   0
+0079     PRINT        
+0080     LOAD_LOCAL   0
+0082     CALL         91
+0087     LOAD_LOCAL   0
+0089     ADD          
+0090     RET          
+0091     STORE_LOCAL  0
+0093     PRINT_STR    "  inner called with: "
+0116     LOAD_LOCAL   0
+0118     PRINT        
+0119     LOAD_LOCAL   0
+0121     PUSH         2
+0126     MUL          
+0127     PRINT_STR    "  inner returning: "
+0148     DUP          
+0149     PRINT        
+0150     RET          
+===================
+
+=== Execution ===
+Testing nested calls...
+outer called with: 5
+  inner called with: 5
+  inner returning: 10
+Final result: 15
+
+=== Statistics ===
+Instructions executed: 26
+Final stack pointer: 0
+==================
+
+=== All programs completed ===

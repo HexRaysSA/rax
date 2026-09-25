@@ -1,0 +1,10 @@
+
+==============================================================
+  JOINT LICENSING CONTROL / SERIAL AUTHENTICATION TERMINAL
+==============================================================
+[0000.001] BOOT  :: tactical licensing firmware online
+[0000.007] CRYPTO:: fragmented entitlement lattice armed
+[0000.011] INPUT :: enter serial package (four blocks)
+
+SERIAL > 
+[AUTH/FAIL] entitlement rejected :: malformed serial envelope

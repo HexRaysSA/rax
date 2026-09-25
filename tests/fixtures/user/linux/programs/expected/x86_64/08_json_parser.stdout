@@ -1,0 +1,173 @@
+=== JSON Parser and Serializer Demo ===
+
+1. Parsing complex nested JSON:
+--------------------------------------------------
+Successfully parsed JSON!
+
+2. Accessing values:
+--------------------------------------------------
+  name: JSON Parser Test
+  version: 2.5
+  enabled: true
+  numbers.integer: 42
+  numbers.scientific: 6.022000e+23
+  features.unicode: Hello 世界 (World in Chinese)
+  features.nested.level1.level2.level3[2]: 3
+  arrays.strings[1]: banana
+  arrays.mixed size: 6
+
+3. Modifying the document:
+--------------------------------------------------
+  Added fields: newField, timestamp, numbers.added, newArray, newObject
+  Modified: version (now 3.000000)
+  Modified: enabled (now false)
+  Deleted: metadata
+  arrays.strings now has 5 elements
+
+4. Pretty-printed output (first 60 lines):
+--------------------------------------------------
+{
+  "arrays": {
+    "empty": [],
+    "mixed": [
+      1,
+      "two",
+      true,
+      null,
+      {
+        "nested": "object"
+      },
+      [
+        1,
+        2,
+        3
+      ]
+    ],
+    "strings": [
+      "apple",
+      "banana",
+      "cherry",
+      "date",
+      "elderberry"
+    ]
+  },
+  "emptyObject": {},
+  "enabled": false,
+  "features": {
+    "escapes": "Line1\nLine2\tTabbed\\Backslash\"Quote",
+    "nested": {
+      "level1": {
+        "level2": {
+          "level3": [
+            1,
+            2,
+            3,
+            null,
+            true,
+            false
+          ]
+        }
+      }
+    },
+    "unicode": "Hello 世界 (World in Chinese)"
+  },
+  "name": "JSON Parser Test",
+  "newArray": [
+    10,
+    20,
+    30,
+    40,
+    50
+  ],
+  "newField": "Added programmatically",
+  "newObject": {
+    "key1": "value1",
+    "key2": 42,
+    "key3": [
+      true,
+      false,
+  ... (truncated)
+
+5. Compact serialization (first 200 chars):
+--------------------------------------------------
+{"arrays":{"empty":[],"mixed":[1,"two",true,null,{"nested":"object"},[1,2,3]],"strings":["apple","banana","cherry","date","elderberry"]},"emptyObject":{},"enabled":false,"features":{"escapes":"Line1\n...
+  Total length: 689 characters
+  Pretty length: 1174 characters
+
+6. Building JSON programmatically:
+--------------------------------------------------
+{
+  "application": "MyApp",
+  "settings": {
+    "autoSave": true,
+    "fontSize": 14,
+    "recentFiles": [
+      "/path/to/file1.txt",
+      "/path/to/file2.txt"
+    ],
+    "theme": "dark"
+  },
+  "users": [
+    {
+      "name": "Alice",
+      "role": "admin"
+    },
+    {
+      "name": "Bob",
+      "role": "user"
+    }
+  ]
+}
+
+7. Error handling demonstrations:
+--------------------------------------------------
+  Missing value:
+    JSON parse error at line 1, column 9: Unexpected token: }
+  near: "...
+
+  Missing colon:
+    JSON parse error at line 1, column 8: Expected ':', got 'value'
+  n...
+
+  Trailing comma:
+    JSON parse error at line 1, column 10: Trailing comma not allowed i...
+
+  Unterminated string:
+    JSON parse error at line 1, column 1: Unterminated string
+  near: "...
+
+  Invalid escape:
+    JSON parse error at line 1, column 11: Invalid escape sequence: \z
+...
+
+  Invalid number:
+    JSON parse error at line 1, column 14: Unexpected character: '.'
+  ...
+
+  Invalid literal:
+    JSON parse error at line 1, column 1: Unexpected character: 'u'
+  n...
+
+8. Type checking and safe access:
+--------------------------------------------------
+  [0]: type=number, value=42
+  [1]: type=string, value="hello"
+  [2]: type=boolean, value=true
+  [3]: type=null, value=null
+  [4]: type=object, keys=1
+
+9. Safe defaults with value_or():
+--------------------------------------------------
+  timeout: 30 (exists)
+  retries: 3 (default)
+  verbose: true (exists)
+  debug: false (default)
+
+10. Unicode and escape sequences:
+--------------------------------------------------
+  Chinese: 中文
+  Japanese: 日本語
+  Emoji: 😀
+  Escapes (raw): Tab:[TAB] Newline:[NL] Quote:" Backslash:\
+
+=== All tests completed successfully! ===

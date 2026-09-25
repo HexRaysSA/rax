@@ -1,0 +1,211 @@
+Binary Search Tree Implementation Test Suite
+============================================
+Using C++17 with smart pointers (unique_ptr)
+
+============================================================
+  Testing BST<int>
+============================================================
+
+--- Test 1: Basic insertion and traversals ---
+Inserted: 50, 30, 70, 20, 40, 60, 80
+
+Tree structure:
+`-- 50
+    |-- 70
+    |   |-- 80
+    |   `-- 60
+    `-- 30
+        |-- 40
+        `-- 20
+
+Inorder: 20 -> 30 -> 40 -> 50 -> 60 -> 70 -> 80
+Preorder: 50 -> 30 -> 20 -> 40 -> 70 -> 60 -> 80
+Postorder: 20 -> 40 -> 30 -> 60 -> 80 -> 70 -> 50
+Level-order: 50 -> 30 -> 70 -> 20 -> 40 -> 60 -> 80
+
+--- Test 2: Tree properties ---
+Size: 7 (expected: 7)
+Height: 2 (expected: 2)
+Is balanced: yes (expected: yes)
+Is empty: no (expected: no)
+
+--- Test 3: Find operations ---
+Min value: 20 (expected: 20)
+Max value: 80 (expected: 80)
+Contains 40: yes (expected: yes)
+Contains 45: no (expected: no)
+Find 60: 60 (expected: 60)
+
+--- Test 4: Removal operations ---
+Removing 20 (leaf): success
+Tree after removing 20:
+`-- 50
+    |-- 70
+    |   |-- 80
+    |   `-- 60
+    `-- 30
+        `-- 40
+Inorder: 30 -> 40 -> 50 -> 60 -> 70 -> 80
+
+After inserting 25:
+`-- 50
+    |-- 70
+    |   |-- 80
+    |   `-- 60
+    `-- 30
+        |-- 40
+        `-- 25
+Removing 30 (one child): success
+Tree after removing 30:
+`-- 50
+    |-- 70
+    |   |-- 80
+    |   `-- 60
+    `-- 40
+        `-- 25
+Inorder: 25 -> 40 -> 50 -> 60 -> 70 -> 80
+
+Removing 50 (root, two children): success
+Tree after removing 50 (root):
+`-- 60
+    |-- 70
+    |   `-- 80
+    `-- 40
+        `-- 25
+Inorder: 25 -> 40 -> 60 -> 70 -> 80
+
+Removing 999 (non-existent): failed (expected: failed)
+
+Final size: 5 (expected: 5)
+
+--- Test 5: Copy constructor ---
+Original tree:
+Inorder: 25 -> 40 -> 60 -> 70 -> 80
+Copied tree:
+Inorder: 25 -> 40 -> 60 -> 70 -> 80
+
+After inserting 100 into original:
+Original: Inorder: 25 -> 40 -> 60 -> 70 -> 80 -> 100
+Copy (should be unchanged): Inorder: 25 -> 40 -> 60 -> 70 -> 80
+
+--- Test 6: Move semantics ---
+Tree to move: Inorder: 1 -> 2 -> 3 -> 4 -> 5
+Size before move: 5
+Moved tree: Inorder: 1 -> 2 -> 3 -> 4 -> 5
+Original after move (should be empty): size = 0
+
+--- Test 7: Assignment operators ---
+After copy assignment: Inorder: 25 -> 40 -> 60 -> 70 -> 80
+After move assignment: Inorder: 1 -> 2 -> 3 -> 4 -> 5
+
+--- Test 8: Edge cases ---
+Empty tree - size: 0, height: -1
+Empty tree - isBalanced: yes
+Empty tree - findMin: null
+Single node - size: 1, height: 0
+Single node - isBalanced: yes
+
+--- Test 9: Unbalanced tree detection ---
+Right-skewed tree (1,2,3,4,5):
+`-- 1
+    `-- 2
+        `-- 3
+            `-- 4
+                `-- 5
+Height: 4 (expected: 4)
+Is balanced: no (expected: no)
+
+--- Test 10: Duplicate handling ---
+Inserted: 5, 3, 7, 3, 5, 7 (duplicates should be ignored)
+Size: 3 (expected: 3)
+Inorder: 3 -> 5 -> 7
+
+============================================================
+  Testing BST<std::string>
+============================================================
+
+--- Test 1: Basic string insertion ---
+Inserted: mango, apple, zebra, banana, orange, kiwi, grape
+
+Tree structure:
+`-- mango
+    |-- zebra
+    |   `-- orange
+    `-- apple
+        `-- banana
+            `-- kiwi
+                `-- grape
+
+Inorder: apple -> banana -> grape -> kiwi -> mango -> orange -> zebra
+Preorder: mango -> apple -> banana -> kiwi -> grape -> zebra -> orange
+
+--- Test 2: String find operations ---
+Min: apple (expected: apple)
+Max: zebra (expected: zebra)
+Contains 'banana': yes
+Contains 'cherry': no
+
+--- Test 3: Move semantics with strings ---
+Inserting via move: 'watermelon'
+After move, original string: '' (may be empty or unchanged)
+Inorder: apple -> banana -> grape -> kiwi -> mango -> orange -> watermelon -> zebra
+
+--- Test 4: String removal ---
+After removing 'mango':
+`-- orange
+    |-- zebra
+    |   `-- watermelon
+    `-- apple
+        `-- banana
+            `-- kiwi
+                `-- grape
+Inorder: apple -> banana -> grape -> kiwi -> orange -> watermelon -> zebra
+
+--- Test 5: Collect to vector ---
+Sorted vector: apple banana grape kiwi orange watermelon zebra 
+
+--- Test 6: Deep copy verification ---
+Original (added pineapple): Inorder: apple -> banana -> grape -> kiwi -> orange -> pineapple -> watermelon -> zebra
+Copy (added strawberry): Inorder: apple -> banana -> grape -> kiwi -> orange -> strawberry -> watermelon -> zebra
+
+============================================================
+  Testing Callback Traversals
+============================================================
+
+Tree structure:
+`-- 4
+    |-- 6
+    |   |-- 7
+    |   `-- 5
+    `-- 2
+        |-- 3
+        `-- 1
+
+--- Sum using inorder callback ---
+Sum of all elements: 28 (expected: 28)
+
+--- Filter even numbers using preorder ---
+Even numbers (preorder): 4 2 6 
+
+--- Transform using level-order ---
+Transformed (level-order): node_4 node_2 node_6 node_1 node_3 node_5 node_7 
+
+============================================================
+  Running Assertions
+============================================================
+
+Basic property assertions: PASSED
+Find operation assertions: PASSED
+Sorted order assertion: PASSED
+Remove operation assertions: PASSED
+Copy independence assertion: PASSED
+Move semantics assertion: PASSED
+Clear operation assertion: PASSED
+Empty tree assertions: PASSED
+
+All assertions PASSED!
+
+============================================================
+  All Tests Completed Successfully!
+============================================================
+

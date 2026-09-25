@@ -1,0 +1,62 @@
+=== Thread Pool Demonstration ===
+
+Hardware concurrency: 1 threads
+
+--- Test 1: Parallel Sum of Squares ---
+[ThreadPool] Initialized with 1 worker threads
+Sum of squares [0, 10000000):
+  Parallel result:   1291890006563070912 (0 ms)
+  Sequential result: 1291890006563070912 (0 ms)
+  Results match: YES
+[ThreadPool] Graceful shutdown requested (0 tasks pending)
+[ThreadPool] Shutdown complete. Tasks completed: 2/2
+
+--- Test 2: Various Callable Types ---
+[ThreadPool] Initialized with 4 worker threads
+  Lambda (10 + 20): 30
+  Function pointer (100 + 200): 300
+  Functor (7 * 5): 35
+  std::function (8^2): 64
+  Capturing lambda (42 * 2): 84
+[ThreadPool] Graceful shutdown requested (0 tasks pending)
+[ThreadPool] Shutdown complete. Tasks completed: 5/5
+
+--- Test 3: Exception Handling ---
+[ThreadPool] Initialized with 2 worker threads
+  Successful task (10 * 2): 20
+  Exception caught as expected: Negative value not allowed: -5
+[ThreadPool] Graceful shutdown requested (0 tasks pending)
+[ThreadPool] Shutdown complete. Tasks completed: 2/2
+
+--- Test 4: High Task Volume ---
+[ThreadPool] Initialized with 1 worker threads
+  Submitted 10 tasks
+  Total result: 80063
+  Time: 0 ms
+  Throughput: inf tasks/sec
+  Stats: 10/10 tasks completed
+[ThreadPool] Graceful shutdown requested (0 tasks pending)
+[ThreadPool] Shutdown complete. Tasks completed: 10/10
+
+--- Test 5: Void Return Type Tasks ---
+[ThreadPool] Initialized with 2 worker threads
+  Counter after 10 increments (0+1+2+...+9): 45
+  Expected: 45
+[ThreadPool] Graceful shutdown requested (0 tasks pending)
+[ThreadPool] Shutdown complete. Tasks completed: 10/10
+
+--- Test 6: Graceful Shutdown ---
+[ThreadPool] Initialized with 2 worker threads
+  Submitted 20 tasks (each takes 20ms)
+  Pool will shutdown gracefully (wait for all tasks)...
+[ThreadPool] Graceful shutdown requested (20 tasks pending)
+[ThreadPool] Shutdown complete. Tasks completed: 20/20
+  Graceful shutdown test completed
+
+--- Test 7: Submit After Shutdown ---
+[ThreadPool] Initialized with 2 worker threads
+[ThreadPool] Immediate shutdown requested
+[ThreadPool] Shutdown complete. Tasks completed: 0/0
+  Exception caught as expected: Cannot submit task to stopped ThreadPool
+
+=== All Tests Completed ===

@@ -46,7 +46,21 @@ pub fn shell_status(s: std::process::ExitStatus) -> (Option<i32>, Option<i32>) {
 /// Runs `rax-user` with `args`, extra environment, and `stdin`, killing it
 /// after `timeout`.
 pub fn run(args: &[&str], env: &[(&str, &str)], stdin: Option<&Path>, timeout: Duration) -> Run {
+    run_in(None, args, env, stdin, timeout)
+}
+
+/// [`run`] in working directory `cwd` (default: the test's own).
+pub fn run_in(
+    cwd: Option<&Path>,
+    args: &[&str],
+    env: &[(&str, &str)],
+    stdin: Option<&Path>,
+    timeout: Duration,
+) -> Run {
     let mut cmd = Command::new(rax_user());
+    if let Some(dir) = cwd {
+        cmd.current_dir(dir);
+    }
     cmd.args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

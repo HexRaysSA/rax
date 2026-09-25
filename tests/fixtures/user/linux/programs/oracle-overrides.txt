@@ -1,0 +1,10 @@
+# Programs whose recorded expectation for one architecture does not come
+# from running it through the Docker host's binfmt_misc handler.
+#
+#   arch  program  source  reason
+#
+# source: `kernel` (a committed expectation derived from the kernel source
+# named in the reason; record-expected.sh keeps it), `qemu-<arch>` (a run
+# under QEMU user mode in the container), or another architecture (its
+# recording, copied).
+riscv64 asm_arch_detect kernel Linux 6.19 leaves scounteren at 0x2 (time only) unless kernel.perf_user_access is 2 (drivers/perf/riscv_pmu_sbi.c, pmu_sbi_starting_cpu), so rdcycle raises an illegal-instruction exception and the program dies of SIGILL (status 132) with nothing printed; qemu-riscv64 user mode lets U-mode read cycle
