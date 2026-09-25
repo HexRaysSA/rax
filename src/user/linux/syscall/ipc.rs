@@ -1,20 +1,28 @@
 //! System V IPC system calls: `shmget`, `shmat`, `shmdt`, and `shmctl`
-//! (`ipc/shm.c`), over the namespace's objects ([`ipc`](super::super::ipc)).
+//! (`ipc/shm.c`); `semget`, `semop`, `semtimedop`, and `semctl`
+//! (`ipc/sem.c`); over the namespace's objects
+//! ([`ipc`](super::super::ipc)).
 //!
 //! `shmat` maps a segment's host file shared, named as Linux names it
 //! (`/SYSV<key> (deleted)`); after every call that changes the process's
 //! mappings, and at `fork`, `execve`, and exit, the process publishes how
-//! many mappings of each segment it has ([`sync_shm`]).
+//! many mappings of each segment it has ([`sync_shm`]). A semaphore
+//! operation that must wait tries again every [`RETRY`](super::locks::RETRY)
+//! until it can, its timeout passes (`EAGAIN`), or a signal ends it
+//! (`EINTR`: `semop` is never restarted).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::abi::{MMAP_MIN_ADDR, PAGE_SIZE, READ_IMPLIES_EXEC, vma_flags};
+use super::super::ipc::sem::{self, SemBuf};
 use super::super::ipc::shm::{self, SHM_EXEC, SHM_RDONLY, SHM_REMAP, SHM_RND};
 use super::super::ipc::{Caller, IPC_INFO, IPC_RMID, IPC_SET, IPC_STAT};
 use super::super::process::ProcState;
+use super::super::wait::{Resume, Wait};
 use super::mem::{PAGE_MASK, map_err, mman, page_align, perms, unmapped_area};
 use super::{Ctx, SysResult};
 use crate::user::mm::{Backing, Mapping, SharedObject};
@@ -220,8 +228,11 @@ pub fn sync_shm(p: &mut ProcState) {
     p.ipc.shm_published = counts;
 }
 
-/// In a new process: the mappings it inherited are its own attaches.
+/// In a new process: the mappings it inherited are its own attaches, and
+/// it has no semaphore undo adjustments (`copy_semundo` without
+/// `CLONE_SYSVSEM`).
 pub fn forked(p: &mut ProcState) {
+    p.ipc.sem_undo = false;
     if p.ipc.shm_published.is_empty() {
         return;
     }
@@ -229,8 +240,146 @@ pub fn forked(p: &mut ProcState) {
     sync_shm(p);
 }
 
-/// At exit (`exit_mmap`): every mapping goes.
+/// `semget`.
+pub fn semget(c: &mut Ctx<'_>, key: i32, nsems: i32, flags: i32) -> SysResult {
+    let who = caller(c.p);
+    sem::get(&c.p.ipc.ns, key, nsems, flags, &who).map(|id| id as u64)
+}
+
+/// `semtimedop` (`ksys_semtimedop`, `do_semtimedop`, `__do_semtimedop`),
+/// and `semop` without a timeout: the timeout's copy, the operation count,
+/// the operations' copy, the identifier, the timeout's value, then the
+/// operations.
+pub fn semtimedop(c: &mut Ctx<'_>, id: i32, sops: u64, nsops: u32, timeout: u64) -> SysResult {
+    let resumed = c.resume.take();
+    let waiting = resumed.is_some();
+    let mut time = None;
+    if !waiting && timeout != 0 {
+        let b = c.read_mem(timeout, 16)?;
+        time = Some((
+            i64::from_le_bytes(b[..8].try_into().unwrap()),
+            i64::from_le_bytes(b[8..].try_into().unwrap()),
+        ));
+    }
+    if nsops > sem::SEMOPM {
+        return Err(Errno(E2BIG));
+    }
+    if nsops < 1 {
+        return Err(Errno(EINVAL));
+    }
+    let raw = c.read_mem(sops, nsops as usize * 6)?;
+    if id < 0 {
+        return Err(Errno(EINVAL));
+    }
+    let deadline = match resumed {
+        Some(Resume::Until(d)) => d,
+        _ => match time {
+            // timespec64_valid.
+            Some((sec, nsec)) if sec < 0 || !(0..1_000_000_000).contains(&nsec) => {
+                return Err(Errno(EINVAL));
+            }
+            Some((sec, nsec)) => Instant::now().checked_add(Duration::new(sec as u64, nsec as u32)),
+            None => None,
+        },
+    };
+    let ops: Vec<SemBuf> = raw
+        .chunks_exact(6)
+        .map(|b| SemBuf {
+            num: u16::from_le_bytes([b[0], b[1]]),
+            op: i16::from_le_bytes([b[2], b[3]]),
+            flg: i16::from_le_bytes([b[4], b[5]]),
+        })
+        .collect();
+    let who = caller(c.p);
+    let tid = c.t.tid;
+    match sem::semop(&c.p.ipc.ns, id, &ops, &who, tid, waiting)? {
+        sem::Outcome::Done => {
+            if ops.iter().any(|o| o.flg & sem::SEM_UNDO != 0) {
+                c.p.ipc.sem_undo = true;
+            }
+            Ok(0)
+        }
+        sem::Outcome::Wait => {
+            let now = Instant::now();
+            if deadline.is_some_and(|d| now >= d) {
+                sem::stop_waiting(&c.p.ipc.ns, id, who.pid, tid);
+                return Err(Errno(EAGAIN));
+            }
+            if c.signal_pending() {
+                sem::stop_waiting(&c.p.ipc.ns, id, who.pid, tid);
+                return Err(Errno(EINTR));
+            }
+            let soon = now + super::locks::RETRY;
+            let until = deadline.map_or(soon, |d| d.min(soon));
+            Err(c.block(Wait::until(Some(until)), Resume::Until(deadline)))
+        }
+    }
+}
+
+/// `semctl` (`ksys_semctl`).
+pub fn semctl(c: &mut Ctx<'_>, id: i32, num: i32, cmd: i32, arg: u64) -> SysResult {
+    if id < 0 {
+        return Err(Errno(EINVAL));
+    }
+    let who = caller(c.p);
+    let ns = c.p.ipc.ns.clone();
+    let x86_64 = c.p.abi == super::super::abi::LinuxAbi::X86_64;
+    match cmd {
+        IPC_INFO | sem::SEM_INFO => {
+            let (b, r) = sem::info(&ns, cmd)?;
+            c.write_mem(arg, &b)?;
+            Ok(r as u64)
+        }
+        IPC_STAT | sem::SEM_STAT | sem::SEM_STAT_ANY => {
+            let (b, r) = sem::stat(&ns, id, cmd, &who, x86_64)?;
+            c.write_mem(arg, &b)?;
+            Ok(r as u64)
+        }
+        sem::GETALL => {
+            let (_, vals) = sem::read(&ns, id, num, cmd, &who)?;
+            let b: Vec<u8> = vals.iter().flat_map(|v| v.to_le_bytes()).collect();
+            c.write_mem(arg, &b)?;
+            Ok(0)
+        }
+        sem::GETVAL | sem::GETPID | sem::GETNCNT | sem::GETZCNT => {
+            sem::read(&ns, id, num, cmd, &who).map(|(v, _)| v as u64)
+        }
+        sem::SETALL => {
+            let n = sem::nsems(&ns, id, &who)?;
+            let b = c.read_mem(arg, n * 2)?;
+            let vals: Vec<i32> = b
+                .chunks_exact(2)
+                .map(|w| i32::from(u16::from_le_bytes([w[0], w[1]])))
+                .collect();
+            sem::write(&ns, id, None, &vals, &who)?;
+            Ok(0)
+        }
+        // A little-endian 64-bit ABI's int in the unsigned long.
+        sem::SETVAL => {
+            sem::write(&ns, id, Some(num), &[arg as u32 as i32], &who)?;
+            Ok(0)
+        }
+        IPC_SET => {
+            let len = if x86_64 { 104 } else { 88 };
+            let b = c.read_mem(arg, len)?;
+            sem::set(&ns, id, &b[..super::super::ipc::IPC64_PERM], &who)?;
+            Ok(0)
+        }
+        IPC_RMID => {
+            sem::rmid(&ns, id, &who)?;
+            Ok(0)
+        }
+        _ => Err(Errno(EINVAL)),
+    }
+}
+
+/// At exit: every mapping goes (`exit_mmap`), and the semaphore undo
+/// adjustments are applied (`exit_sem`).
 pub fn exit(p: &mut ProcState) {
+    if p.ipc.sem_undo {
+        sem::exit(&p.ipc.ns, p.pid);
+        p.ipc.sem_undo = false;
+    }
     if p.ipc.shm_published.is_empty() {
         return;
     }

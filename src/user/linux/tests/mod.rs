@@ -19,6 +19,7 @@ mod signals;
 mod sockets;
 mod stack;
 mod syscall_mm;
+mod sysvsem;
 mod sysvshm;
 mod threads;
 mod waits;

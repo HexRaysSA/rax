@@ -31,6 +31,7 @@ locks    locks    -
 netlink  netlink  -
 ifreq    ifreq    -
 sysvshm  sysvshm  -
+sysvsem  sysvsem  -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

@@ -165,6 +165,12 @@ target = "x86_64-linux-musl"
 sha256 = "73ca8cc808cdd350829bc68e60629714b5e7a7afc58ca1f265da531b90d2e8c1"
 
 [[fixture]]
+path = "bin/x86_64/sysvsem"
+source = "src/sysvsem.c"
+target = "x86_64-linux-musl"
+sha256 = "857e3edd5a6a94069b3654c560a109cd3621543ff04cdc8be6cefc8d6882109b"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -351,6 +357,12 @@ target = "aarch64-linux-musl"
 sha256 = "20dcbc5826191c5a2974040f57495dd7c433e33ebed47932070341aa94173544"
 
 [[fixture]]
+path = "bin/aarch64/sysvsem"
+source = "src/sysvsem.c"
+target = "aarch64-linux-musl"
+sha256 = "ee86fb07ddb5e80a8a470dae8f95332cc243bd91b748d2c07483cdcfef70d2a8"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -535,6 +547,12 @@ path = "bin/riscv64/sysvshm"
 source = "src/sysvshm.c"
 target = "riscv64-linux-musl"
 sha256 = "12914292a214cdc694cf36aa21d14fa18bda3d928725dec9d6a28e92f87aee55"
+
+[[fixture]]
+path = "bin/riscv64/sysvsem"
+source = "src/sysvsem.c"
+target = "riscv64-linux-musl"
+sha256 = "9891cd8b63bcff401f15c24d37423476204e3608f6f533fec05362db256606b1"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

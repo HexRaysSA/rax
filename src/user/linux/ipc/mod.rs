@@ -5,6 +5,7 @@
 //! |---|---|
 //! | this one | the namespace, identifiers, permissions, `struct ipc64_perm` |
 //! | [`shm`] | shared memory segments |
+//! | [`sem`] | semaphore sets |
 //!
 //! The namespace is a directory on the host (by default one per host user
 //! under the temporary directory, which a reboot clears as it clears a
@@ -22,6 +23,7 @@
 //! holds `CAP_IPC_OWNER`, `CAP_IPC_LOCK`, and `CAP_SYS_ADMIN` when its
 //! effective user is root.
 
+pub mod sem;
 pub mod shm;
 
 use std::collections::BTreeMap;
@@ -307,6 +309,8 @@ pub struct IpcState {
     pub ns: Namespace,
     /// How many mappings of each segment it last published.
     pub shm_published: BTreeMap<i32, u32>,
+    /// Whether it has semaphore undo adjustments (`current->sysvsem`).
+    pub sem_undo: bool,
 }
 
 impl IpcState {
@@ -316,6 +320,7 @@ impl IpcState {
         IpcState {
             ns: Namespace::at(dir.unwrap_or_else(Namespace::default_dir)),
             shm_published: BTreeMap::new(),
+            sem_undo: false,
         }
     }
 }
