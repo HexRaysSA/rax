@@ -5,6 +5,7 @@ ffa8943c2940a5ada36b4fe312420b0904f2483abfbab48786bc1f58b1e74fc9  ./arch/arm64/i
 00607db99e25299e448cf467620778f6a3e1f4c0ca85f53ac6ad2f8c3e3de9f8  ./arch/arm64/include/asm/ptrace.h
 b3349fa05a664d0821ee309f09ad6a6b2cf6c9ba44ed8afa982efd7afb020562  ./arch/arm64/include/asm/syscall.h
 d2a3bd92082744508bee060f2e7612d3362b23acd3f7ca5ad53c99d3c98b9698  ./arch/arm64/include/uapi/asm/ptrace.h
+31c54830d52fb73d697ec851907835dfdbc5e0b2aa167744b7afb67d97894ad9  ./arch/arm64/kernel/debug-monitors.c
 c6868626f7276b1380f80da3c7ea4ca721991498d6f8f3f72dc0950d23b5167b  ./arch/arm64/kernel/process.c
 ebe04548f0cdf2ce29d72b85f5150d895d1de683ae995d84279e168c67203ba2  ./arch/arm64/kernel/ptrace.c
 297874252c5e44f3237ac61102a13be0b8f6bf3618bbbb63ca8fdf5b1709d3fb  ./arch/arm64/kernel/signal.c
@@ -22,15 +23,18 @@ cba90870783569de0c74456a580d3c2a2a6cdff4336e188ad9f251a8be66b62a  ./arch/riscv/k
 6d775e157ff50d1a46d9e588b158096a40e108d238d06f76b64e6003a9ea9bea  ./arch/riscv/kernel/traps.c
 80362e2b95a70062a7f8f2a787f0dc85b878de5886f2153afa6d1306bbf723d4  ./arch/riscv/kernel/vdso/rt_sigreturn.S
 1f4ba32a24f0f89554a7cbf528db41b4a3cad6215f68b44d848d2e0dd35595e4  ./arch/x86/Kconfig
+26a8fde6da8ce28a3e0f4dc7994a1998dc63e767aa8125593f89809c5d2b0ac1  ./arch/x86/entry/entry_64.S
 b97e396c4816ed2b8256957861bc976eb25c4e6953f66c97af7bd1383c2b612b  ./arch/x86/entry/syscall_64.c
 5c4eaab81345ee84d585dca114f075116da6048b4358975c51b75ae454d12dff  ./arch/x86/include/asm/elf.h
 edbbfdc65393a7637cf501aa1e307cb0ddf956e3e6df2b47fc254e3e4325bab7  ./arch/x86/include/asm/fpu/signal.h
 22f70100c5ff6092b27e4c70b7b0a60f88e4d50b7c965e0b0b686594020b4542  ./arch/x86/include/asm/fpu/types.h
 86e64aac1116923a939f4bb0b9737d87f32bec06349ef75b9d679b02c773c232  ./arch/x86/include/asm/fpu/xstate.h
 fc9b57203f78df9f4b5e5e94a915965a2fc733cfa09555b881435ea9f2cdeaaf  ./arch/x86/include/asm/page_64_types.h
+03a681643cf1e1f23b43fec61e6dd33511a687cd5e1733743c6ccd3200c43402  ./arch/x86/include/asm/ptrace.h
 e6745c2333fbe6eef526876505343eaeba7ff6707ab8012366ce0fd75421e7cf  ./arch/x86/include/asm/seccomp.h
 ff8f3b9ee185f56d68ce09898186be6cec701655784a4e954f30d438b9b47f88  ./arch/x86/include/asm/sighandling.h
 27c02ce2a8ccd3f47675504d562bfab92a46e0072663aab5048b93d7886391d9  ./arch/x86/include/asm/syscall.h
+9691473334a0c164bf4678ccd1c2e25726eb16264d2ee78c984d3c52f4bc7b2b  ./arch/x86/include/asm/traps.h
 adbcd49103f151d32046e17222b8eafc30777ad34bfa1699063f3f12d175b025  ./arch/x86/include/asm/user_64.h
 04f3cd620a5f7714f0bf2083d0af85b53f1828d4491d852bf7acf3695373d9f3  ./arch/x86/include/uapi/asm/ptrace-abi.h
 b6dffdec33919725e67f00014a7e4256effaedaebac37c45d5d60d783cb96d51  ./arch/x86/include/uapi/asm/ptrace.h
@@ -44,6 +48,8 @@ c1f91025d96e74f797a7091d180405bd5487a9789d692e8b11c1611738dfd263  ./arch/x86/ker
 bc52f48380e5ecbe5580af8d64c9464cfa145cb6514f061ae581964fdc2bec32  ./arch/x86/kernel/ptrace.c
 55a684e8cec8ce77090c6104404dfa417f22bea7751077144de2c84dddd964d7  ./arch/x86/kernel/signal.c
 f0940e848ad9996c3cf71bfa6926a1d94c86884b13909550a93916e9a48edb3a  ./arch/x86/kernel/signal_64.c
+67f788fa389867eaa8d9edf60c7f2ab9122cfea0d5bad3c4c11ee4b682162923  ./arch/x86/kernel/step.c
+73ec2ec083dcb87a034acdd657ce05b2eef7f676935bff82c1369f7688961b69  ./arch/x86/kernel/traps.c
 3500c2e1509f93bf15ad2f7c203638434527f15bb062b0408f4355e2b94285f7  ./arch/x86/mm/mmap.c
 7fd278f7f4037e2e5db3b17e147d5982b02ae76b5d48657a6666f0a54ad40942  ./block/blk-ioc.c
 f33e815ba09ca96e05dcf565fb244ed97bfb27a767adb41c30ef4ecec20366e5  ./block/ioprio.c
@@ -162,6 +168,7 @@ b596a8cafdaa26f520952ef59cf6845ccd117b9e1722474b62a5b1f2096f8cde  ./ipc/util.c
 660560ebc799c8b47b15fc6fbdf2471652bb8e80031320438571f91fcc8804cd  ./ipc/util.h
 4a289cd9df49c499d8f80d8021d194e5033278f0d31f02510f794cc8e625609a  ./kernel/acct.c
 4b649ceedf5ca0c05341d79954ae3dc923316898eb2c24d9dca38b21244a6aa7  ./kernel/entry/common.c
+73df0b7e1ee0bb9cbd3b937ee5c171dd2a727dd1866966f65e3daca276d128ff  ./kernel/entry/syscall-common.c
 3598a408c67b7f7291f5ae436a021ac262891649816856bb9a1b55cab1f8260f  ./kernel/exec_domain.c
 bc44f0b5489c871c422dc828f8e4a143cdb44eae337961049c062339b7757957  ./kernel/exit.c
 972ca050df6fb46f730b3d1f1066d744d42e47420464308e128f2ae430c294b4  ./kernel/fork.c
