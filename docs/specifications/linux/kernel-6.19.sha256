@@ -1,3 +1,4 @@
+b9a69d00a02ec0c6f179088d2858a8aeae2cb1e1de89b19fc75df5f43d51ee16  ./arch/arm64/Kconfig
 ffa8943c2940a5ada36b4fe312420b0904f2483abfbab48786bc1f58b1e74fc9  ./arch/arm64/include/asm/elf.h
 6a2791679a51c3287dbaf8fead5982221a2703e9728f94b8998c0bef295b1e2b  ./arch/arm64/include/asm/mman.h
 6cad451a1bda70574aefaa74c7f6e403c91e0e486bc7633819da507b136bf585  ./arch/arm64/include/asm/processor.h
@@ -8,6 +9,7 @@ ebe04548f0cdf2ce29d72b85f5150d895d1de683ae995d84279e168c67203ba2  ./arch/arm64/k
 297874252c5e44f3237ac61102a13be0b8f6bf3618bbbb63ca8fdf5b1709d3fb  ./arch/arm64/kernel/signal.c
 d9d7b825ed742cfc6f3ab50108062ef99816f3fede5d66bd9414d4434ee121f2  ./arch/arm64/kernel/syscall.c
 a6724856284b7fd61219d71712e64c420c21fe32b7f8f9f65ca0d31752f411bd  ./arch/arm64/kernel/vdso/sigreturn.S
+a8017e73109d4d0c36ffe74b4e4f991e16fb5f8169fff74b86ecdcda8ecb47ac  ./arch/riscv/Kconfig
 a93d529c7bc5fa34d4ff708a6f6b140af46dceb6775a361714a5c069a53c25ab  ./arch/riscv/include/asm/elf.h
 a5f054991412e2a1ffb40b5a32efe827e7ed99f4dc774facf0e8afbc26b1e675  ./arch/riscv/include/asm/pgtable.h
 7d193cab1ec57358aabbd197de1038b5573db6d4e52caa3cdd3d16d20a80733a  ./arch/riscv/include/asm/processor.h
@@ -16,6 +18,7 @@ cba90870783569de0c74456a580d3c2a2a6cdff4336e188ad9f251a8be66b62a  ./arch/riscv/k
 0401dbe36ecb3ed9edc1a05eb0ef6b1739f187c64287636b7c47a7c74194d22b  ./arch/riscv/kernel/signal.c
 6d775e157ff50d1a46d9e588b158096a40e108d238d06f76b64e6003a9ea9bea  ./arch/riscv/kernel/traps.c
 80362e2b95a70062a7f8f2a787f0dc85b878de5886f2153afa6d1306bbf723d4  ./arch/riscv/kernel/vdso/rt_sigreturn.S
+1f4ba32a24f0f89554a7cbf528db41b4a3cad6215f68b44d848d2e0dd35595e4  ./arch/x86/Kconfig
 b97e396c4816ed2b8256957861bc976eb25c4e6953f66c97af7bd1383c2b612b  ./arch/x86/entry/syscall_64.c
 5c4eaab81345ee84d585dca114f075116da6048b4358975c51b75ae454d12dff  ./arch/x86/include/asm/elf.h
 edbbfdc65393a7637cf501aa1e307cb0ddf956e3e6df2b47fc254e3e4325bab7  ./arch/x86/include/asm/fpu/signal.h
@@ -98,6 +101,9 @@ d2b599da6d7e2c7c944b8205f672d6bc20fb07f80fc44e2adc951a1ec652b7af  ./include/linu
 1150f9a6c9e4dea3247183c16995f8ef4420cdfdb91bf3e4281cfc52e5f9c04c  ./include/linux/ptrace.h
 bb78534d4212776381b3b849ad6ce1009b9d3fdfb87e19f51e5e9449e7f03e22  ./include/linux/rbtree_types.h
 b2ad6d6cf7c5075e246cefccc8118f5c5ac579100f14626bf00b45db664e5189  ./include/linux/restart_block.h
+1101c9c26a1ef5ea9cc3c66194a52f4ffa54c94180751f76f899174c7f703e25  ./include/linux/rseq.h
+51b9a79a75ea082b38227b599906709daf5caba2c880869ba486ec70df98f3a8  ./include/linux/rseq_entry.h
+5adbd0cda2dde76d3bc3a310a54f8b36bc808993863784c14fbcba8a58167bf1  ./include/linux/rseq_types.h
 f93c073351364593650008db7d23d78d061126fb82071daf70379c5d79b0a1db  ./include/linux/sched/deadline.h
 6799482082e27f9bdb43ccd037c5a6a49c406af836dc05a1f5e8c160e2880870  ./include/linux/sched/prio.h
 a5911ad628eb2b6db538443ccc2ccffca387d9944aeb757d188ec3bf0fffa692  ./include/linux/sched/rt.h
@@ -124,6 +130,7 @@ b9fbd261e2893ae568f08414300cfd8f9b1cfcd7fd83c706c81b2b0eaeda61c6  ./include/uapi
 dfc0b594b4fe8b27e074425373029faa0f83543ed5c7e6cd06da83e5bf73339b  ./include/uapi/linux/mount.h
 60187352813e3ed08ddb03748dca2288d3f3fbc1c95e584507eeff24aacc58ba  ./include/uapi/linux/mqueue.h
 24a1a120fe399f45d5278a4fdbea7c26fb22023daef1fed5ea5c9c1e6c8fb223  ./include/uapi/linux/reboot.h
+f22a452dc38ce6f140b3f197239661a4650cd9f6b282877a279e19e8708c4527  ./include/uapi/linux/rseq.h
 2081b07cee6adab443e4ba320d0ccb13db4c97bed64f3eefafbfde2f25c833a4  ./include/uapi/linux/sched.h
 c7b77be9d131d2ef071383858d45a065d4237e676118f93eb98f2fa52c378901  ./include/uapi/linux/sched/types.h
 bb95ba42ac8169c0ddbb4192dac37210cfa883b0200b6db00eabb33a35f6c7ec  ./include/uapi/linux/timex.h
@@ -155,6 +162,7 @@ fc1515e6e1976821036e0587b65e3a44fd46f373af5f63edd72e6958bad532f6  ./kernel/pid.c
 3492add6da3a025a5e10355bfa63f408935ef796360579a1ffcf240d04f587b4  ./kernel/printk/printk.c
 413b33102ea1218add2c772ac8406168dc1c55a865882bb4230b2d8e64305211  ./kernel/ptrace.c
 58073d46b0657084dff68a451d6ffcb6b342c979d745598716ca3a46e7bf67a8  ./kernel/reboot.c
+033b74634effba7b02e991961209455161cc44c709b656bea8ef00f882584c01  ./kernel/rseq.c
 bd80c5a7f80943012e840eaf5840ae1c234680c3a8c203f21f855ebd63e24ca7  ./kernel/sched/core.c
 e2483a7bbe80d279676806adc320b558f73ba4edfdbb916c4f58b14dfc441d03  ./kernel/sched/deadline.c
 7a401ee08c9c415941332c907cc552e89ce0684059258e849adf04d03839dc20  ./kernel/sched/fair.c

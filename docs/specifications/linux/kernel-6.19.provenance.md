@@ -38,7 +38,9 @@
   `kernel/{kcmp,ptrace}.c`, `lib/iov_iter.c`, `include/linux/ptrace.h`,
   `include/uapi/linux/kcmp.h`), and the memory locking and sealing files
   (`mm/{mlock,mseal}.c`, `include/linux/mm.h`,
-  `include/uapi/asm-generic/{mman,mman-common}.h`) came from kernel.org's
+  `include/uapi/asm-generic/{mman,mman-common}.h`), and the restartable
+  sequences files (`kernel/rseq.c`, `include/linux/{rseq,rseq_entry,rseq_types}.h`,
+  `include/uapi/linux/rseq.h`, `arch/{arm64,x86,riscv}/Kconfig`) came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
@@ -46,13 +48,15 @@
   IPC files, the seccomp, file-system notification, and system-call entry
   files, `ipc/msgutil.c`, the machine-administration, clock-setting, and
   mount files, the POSIX message queue files, the scheduling-attribute
-  files, the process-memory and kernel-object comparison files, and the
-  memory locking and sealing files: 25 September 2026)
+  files, the process-memory and kernel-object comparison files, the
+  memory locking and sealing files, and the restartable sequences files:
+  25 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (100 files),
-  `GPL-2.0-only` (49), `GPL-2.0-or-later` (36),
-  `GPL-2.0 WITH Linux-syscall-note` (9), `GPL-2.0+` (2),
+- License: the files carry an SPDX identifier: `GPL-2.0` (103 files),
+  `GPL-2.0-only` (51), `GPL-2.0-or-later` (36),
+  `GPL-2.0 WITH Linux-syscall-note` (9), `GPL-2.0+` (3),
+  `GPL-2.0+ WITH Linux-syscall-note` (2),
   `LGPL-2.1+ WITH Linux-syscall-note` (1, `include/uapi/linux/mqueue.h`),
   or `GPL-1.0+` (1). Seven have none: `mm/memfd.c`, `mm/shmem.c`, and
   `ipc/mqueue.c` state "This file is released under the GPL." in their
@@ -116,6 +120,7 @@ behavior it reproduces beyond what the UAPI headers
 | Supplementary groups, read-ahead, and range sync | `kernel/groups.c` (`setgroups`, `getgroups`), `mm/readahead.c` (`ksys_readahead`), `fs/sync.c` (`sync_file_range`) |
 | Process memory access and kernel-object comparison | `mm/process_vm_access.c` (`process_vm_rw`, `process_vm_rw_core`, `process_vm_rw_single_vec`, `process_vm_rw_pages`), `mm/gup.c` (`check_vma_flags`, `__get_user_pages`, `gup_vma_lookup`, `faultin_page_range`: `VM_READ` for reads, the pinned prefix), `lib/iov_iter.c` (`__import_iovec`, `import_ubuf`, `iovec_from_user`, `copy_iovec_from_user`, `iov_iter_iovec_advance`: `access_ok` on the whole length before `MAX_RW_COUNT`, a single segment capped first), `kernel/ptrace.c` (`__ptrace_may_access`), `kernel/fork.c` (`mm_access`, `may_access_mm`), `mm/madvise.c` (`process_madvise`, `vector_madvise`, `madvise_should_skip`, `process_madvise_remote_valid`), `kernel/pid.c` (`pidfd_get_task`), `kernel/kcmp.c` (`kcmp`, `kcmp_ptr`, `kcmp_epoll_target`), `fs/eventpoll.c` (`get_epoll_tfile_raw_ptr`, `ep_find_tfd`), `include/linux/ptrace.h` (`PTRACE_MODE_*`), `include/uapi/linux/kcmp.h`, `ipc/sem.c` (`copy_semundo`, `get_undo_list`, `find_alloc_undo`, `exit_sem`), `block/blk-ioc.c` (`copy_io`, `exit_io_context`) |
 | Memory locking and sealing | `mm/mlock.c` (`can_do_mlock`, `mlock_fixup`, `apply_vma_lock_flags`, `count_mm_mlocked_page_nr`, `__mlock_posix_error_return`, `do_mlock`, `mlock2`, `munlock`, `apply_mlockall_flags`, `mlockall`, `munlockall`), `mm/mseal.c` (`range_contains_unmapped`, `mseal_apply`, `do_mseal`), `mm/gup.c` (`populate_vma_page_range`, `__mm_populate`), `mm/mmap.c` (`check_brk_limits`, `brk`, `mlock_future_ok`, `do_mmap`, `dup_mmap`), `mm/vma.c` (`vms_gather_munmap_vmas`, `vms_complete_munmap_vmas`, `mmap_region`, `do_brk_flags`: sealed and locked VMAs), `mm/mremap.c` (`check_prep_vma`, `resize_is_valid`, `vrm_stat_account`, `move_vma`, `dontunmap_complete`), `mm/madvise.c` (`madvise_dontneed_free_valid_vma`, `can_madv_lru_vma`, `madvise_remove`, `can_madvise_modify`, `is_discard`), `mm/mprotect.c` (`mprotect_fixup`), `kernel/fork.c` (`mm_init`: `def_flags`), `include/linux/mm.h` (`VM_LOCKED`, `VM_LOCKONFAULT`, `VM_SEALED`, `VM_SPECIAL`, `vma_is_accessible`), `include/uapi/asm-generic/mman.h` (`MCL_*`), `include/uapi/asm-generic/mman-common.h` (`MLOCK_ONFAULT`, `MAP_LOCKED`, the `MADV_*` advice) |
+| Restartable sequences | `kernel/rseq.c` (`rseq`: the registration checks and fields, `rseq_reset_ids`; `rseq_handle_cs`, `rseq_slowpath_update_usr`, `__rseq_signal_deliver`), `include/linux/rseq_entry.h` (`rseq_update_user_cs`: the section, abort-handler, and signature checks; `rseq_set_ids_get_csaddr`, `rseq_update_usr`, `rseq_exit_user_update`, `__rseq_exit_to_user_mode_restart`), `include/linux/rseq.h` (`rseq_signal_deliver`, `rseq_sched_switch_event`, `rseq_force_update`, `rseq_reset`, `rseq_execve`, `rseq_fork`), `include/linux/rseq_types.h` (`struct rseq_event`), `include/uapi/linux/rseq.h` (`struct rseq`, `struct rseq_cs`, `RSEQ_FLAG_UNREGISTER`, `RSEQ_CPU_ID_UNINITIALIZED`), `arch/{arm64,x86,riscv}/Kconfig` (all three select the generic IRQ entry, which ties section checks to user-mode interrupts) |
 
 Code comments name the kernel function whose behavior an implementation
 follows (for example `do_mprotect_pkey` or `madvise_walk_vmas`); that
