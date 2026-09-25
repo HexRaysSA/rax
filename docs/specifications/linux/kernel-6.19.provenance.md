@@ -26,28 +26,34 @@
   `kernel/time/{ntp,timekeeping,posix-clock}.c`, `fs/namespace.c`,
   `fs/fsopen.c`, `include/linux/{security,swap,syslog,timex,time64,jiffies,moduleparam,file}.h`,
   `include/asm-generic/param.h`, `include/uapi/asm-generic/param.h`, and
-  `include/uapi/linux/{mount,reboot,timex,module}.h`) came from kernel.org's
+  `include/uapi/linux/{mount,reboot,timex,module}.h`), and the POSIX message
+  queue files (`ipc/mqueue.c`, `ipc/mq_sysctl.c`,
+  `include/linux/{msg,rbtree_types}.h`, `include/uapi/linux/mqueue.h`)
+  came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
   `fs/locks.c`, `fs/fcntl.c`, the seven `net/` files above, the System V
   IPC files, the seccomp, file-system notification, and system-call entry
-  files, `ipc/msgutil.c`, and the machine-administration, clock-setting,
-  and mount files: 25 September 2026)
+  files, `ipc/msgutil.c`, the machine-administration, clock-setting, and
+  mount files, and the POSIX message queue files: 25 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (84 files),
-  `GPL-2.0-only` (44), `GPL-2.0-or-later` (34),
-  `GPL-2.0 WITH Linux-syscall-note` (3), `GPL-2.0+` (2), or `GPL-1.0+`
-  (1). Six have none: `mm/memfd.c` and `mm/shmem.c` state "This file is
-  released under the GPL." in their headers; `include/linux/security.h`
+- License: the files carry an SPDX identifier: `GPL-2.0` (85 files),
+  `GPL-2.0-only` (45), `GPL-2.0-or-later` (35),
+  `GPL-2.0 WITH Linux-syscall-note` (3), `GPL-2.0+` (2),
+  `LGPL-2.1+ WITH Linux-syscall-note` (1, `include/uapi/linux/mqueue.h`),
+  or `GPL-1.0+` (1). Seven have none: `mm/memfd.c`, `mm/shmem.c`, and
+  `ipc/mqueue.c` state "This file is released under the GPL." in their
+  headers; `include/linux/security.h`
   grants the GPL, version 2 or later, in its header;
   `include/linux/timex.h` and `include/uapi/linux/timex.h` carry David L.
   Mills's 1993 permission notice (University of Delaware) ahead of the
   kernel's changes; and `include/uapi/linux/mount.h` states no license,
   so the kernel's `COPYING` applies (GPL-2.0, with the Linux-syscall-note
   for UAPI headers). The license texts are the kernel tree's
-  `LICENSES/preferred/GPL-2.0`, `LICENSES/deprecated/GPL-1.0`, and
+  `LICENSES/preferred/GPL-2.0`, `LICENSES/preferred/LGPL-2.1`,
+  `LICENSES/deprecated/GPL-1.0`, and
   `LICENSES/exceptions/Linux-syscall-note`. The files are reference material for an
   independent implementation; no RAX source is derived from their text.
 
@@ -94,6 +100,7 @@ behavior it reproduces beyond what the UAPI headers
 | Machine administration | `mm/swapfile.c` (`swapon`, `swapoff`), `include/linux/swap.h` (`SWAP_FLAGS_VALID`), `kernel/reboot.c` (`reboot`), `include/uapi/linux/reboot.h`, `kernel/acct.c` (`acct`), `kernel/sys.c` (`sethostname`, `setdomainname`), `fs/open.c` (`vhangup`, `chroot`), `arch/x86/kernel/ioport.c` (`ioperm`, `iopl`), `kernel/module/main.c` (`init_module`, `finit_module`, `delete_module`, `copy_module_from_user`), `include/uapi/linux/module.h`, `include/linux/moduleparam.h` (`MODULE_NAME_LEN`), `kernel/printk/printk.c` (`do_syslog`, `check_syslog_permissions`, `syslog_action_restricted`), `include/linux/syslog.h`, `init/Kconfig` (`LOG_BUF_SHIFT`), `include/linux/security.h` and `security/commoncap.c` (without security modules: `cap_settime`, `security_syslog`) |
 | Setting the clocks | `kernel/time/time.c` (`settimeofday`, `do_sys_settimeofday64`, `adjtimex`), `kernel/time/posix-timers.c` (`clock_settime`, `clock_adjtime`, `clockid_to_kclock`), `kernel/time/posix-cpu-timers.c` (`posix_cpu_clock_set`, `pid_for_clock`), `kernel/time/posix-clock.c` (`get_clock_desc`, `pc_clock_settime`, `pc_clock_adjtime`), `kernel/time/timekeeping.c` (`timekeeping_validate_timex`, `__do_adjtimex`), `kernel/time/ntp.c` (the initial NTP state, `ntp_adjtimex`, `pps_fill_timex`), `include/linux/timex.h`, `include/uapi/linux/timex.h`, `include/linux/time64.h` (`timespec64_valid_settod`), `include/linux/jiffies.h`, `include/asm-generic/param.h`, and `include/uapi/asm-generic/param.h` (`USER_TICK_USEC`) |
 | Mounts | `fs/namespace.c` (`mount`, `umount`, `pivot_root`, `open_tree`, `open_tree_attr`, `mount_setattr`, `move_mount`, `fsmount`, `may_mount`, `copy_mount_options`, `path_mount`, `build_mount_kattr`, `build_mount_idmapped`), `fs/fsopen.c` (`fsopen`, `fspick`, `fsconfig`), `include/uapi/linux/mount.h`, `include/linux/file.h` (`FD_ADD`, `FD_PREPARE`: the descriptor before the file), `mm/util.c` (`strndup_user`) |
+| POSIX message queues | `ipc/mqueue.c` (`do_mq_open`, `prepare_open`, `mqueue_create_attr`, `mqueue_get_inode`: the limits and the `RLIMIT_MSGQUEUE` charge, `mq_unlink`, `do_mq_timedsend`, `do_mq_timedreceive`, `wq_add`, `wq_sleep`, `pipelined_send`, `pipelined_receive`, `msg_insert`, `msg_get`, `__do_notify`, `do_mq_notify`, `do_mq_getsetattr`, `mqueue_read_file`, `mqueue_flush_file`, `mqueue_poll_file`), `ipc/mq_sysctl.c` and `include/linux/ipc_namespace.h` (the limits), `include/linux/msg.h` and `include/linux/rbtree_types.h` (the charged structure sizes), `include/uapi/linux/mqueue.h`, `fs/namei.c` (`lookup_noperm_common`, `vfs_mkobj`, `__check_sticky`), `fs/libfs.c` (`simple_lookup`), `net/netlink/af_netlink.c` (`netlink_getsockbyfd`) |
 | Supplementary groups, read-ahead, and range sync | `kernel/groups.c` (`setgroups`, `getgroups`), `mm/readahead.c` (`ksys_readahead`), `fs/sync.c` (`sync_file_range`) |
 
 Code comments name the kernel function whose behavior an implementation
