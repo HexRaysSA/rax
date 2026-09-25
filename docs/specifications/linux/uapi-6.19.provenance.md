@@ -15,14 +15,15 @@
   generated `asm/unistd_{32,64}.h` tables.
 - Retrieved: 24 September 2026
 - Integrity: `uapi-6.19.sha256` lists the SHA-256 of every imported file.
-- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (74 files),
+- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (85 files),
   `GPL-2.0-only WITH Linux-syscall-note` (5 files), or
-  `GPL-2.0+ WITH Linux-syscall-note` (10 files) SPDX identifiers. Nine
+  `GPL-2.0+ WITH Linux-syscall-note` (10 files) SPDX identifiers. Thirteen
   files have no SPDX line: the six generated syscall tables and the
   generated `linux/version.h`, derived from kernel sources under the same
   terms; `linux/membarrier.h`, whose upstream header has none; and
-  `any-linux-any/asm/socket.h`, Zig's one-line wrapper that includes
-  `asm-generic/socket.h`. The license and exception texts are the
+  `any-linux-any/asm/{socket,ipcbuf,shmbuf,sembuf,msgbuf}.h`, Zig's
+  one-line wrappers that include the `asm-generic/` headers of those
+  names. The license and exception texts are the
   kernel tree's `LICENSES/preferred/GPL-2.0` and
   `LICENSES/exceptions/Linux-syscall-note`. The Linux-syscall-note states that user programs using kernel services by
   normal system calls are not derived works of the kernel.
@@ -51,6 +52,12 @@ These headers are the normative reference for:
   `linux/if_addr.h`, `linux/if_arp.h`, `linux/if.h`), and the interface
   requests (`linux/sockios.h`, with `struct ifreq` and `struct ifconf` in
   `linux/if.h`);
+- System V IPC commands, flags, limits, and the `struct ipc64_perm`,
+  `shmid64_ds`, `semid64_ds`, `msqid64_ds`, `shminfo64`, `shm_info`,
+  `seminfo`, and `msginfo` layouts (`linux/{ipc,shm,sem,msg}.h`,
+  `asm-generic/{ipcbuf,shmbuf,sembuf,msgbuf}.h`, and x86-64's own
+  `asm/{shmbuf,sembuf,msgbuf}.h`, whose `semid64_ds` keeps padding after
+  each time);
 - auxiliary-vector tags and per-architecture `AT_HWCAP` bits.
 
 `tests/suites/user/linux/abi_tables.rs` (Cargo target `user_linux`) parses the syscall and errno tables in
