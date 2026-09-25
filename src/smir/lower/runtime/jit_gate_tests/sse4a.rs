@@ -239,11 +239,16 @@ fn sse4a_state_detection_layout_and_o2_retention_are_exact() {
         crate::smir::lower::X86_GUEST_ATOMIC_RMW_FN_OFFSET as usize
     );
     assert_eq!(GuestRegs::default().atomic_rmw_fn, 0);
-    let field_end = std::mem::offset_of!(GuestRegs, atomic_rmw_fn) + std::mem::size_of::<u64>();
+    assert_eq!(
+        std::mem::offset_of!(GuestRegs, x87_payload_high),
+        crate::smir::lower::X86_GUEST_X87_PAYLOAD_HIGH_OFFSET as usize
+    );
+    assert_eq!(GuestRegs::default().x87_payload_high, [0; 8]);
+    let field_end = std::mem::offset_of!(GuestRegs, x87_payload_high) + 8 * 8;
     assert!(field_end <= std::mem::size_of::<GuestRegs>());
     assert!(
         std::mem::size_of::<GuestRegs>() - field_end < std::mem::align_of::<GuestRegs>(),
-        "only trailing repr(C) alignment padding may follow append-only atomic callback"
+        "only trailing repr(C) alignment padding may follow the append-only x87 payload words"
     );
 
     let mut function = function_with(bitfield(

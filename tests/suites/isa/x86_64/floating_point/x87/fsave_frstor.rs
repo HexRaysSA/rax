@@ -49,10 +49,13 @@ fn read_f64(mem: &vm_memory::GuestMemoryMmap, addr: u64) -> f64 {
     f64::from_le_bytes(buf)
 }
 
-// FSAVE/FRSTOR area structure offsets (in protected 32-bit mode, 108 bytes)
+// FSAVE/FRSTOR area offsets: the 108-byte 32-bit protected-mode format used
+// in 64-bit mode without an operand-size prefix (Intel SDM Vol. 1, Figure
+// 8-9: a 28-byte environment whose fields start doublewords, then ST(0)-ST(7)
+// as 80-bit values).
 const FSAVE_FCW: u64 = 0; // FPU Control Word (2 bytes)
-const FSAVE_FSW: u64 = 2; // FPU Status Word (2 bytes)
-const FSAVE_FTW: u64 = 4; // FPU Tag Word (2 bytes)
+const FSAVE_FSW: u64 = 4; // FPU Status Word (2 bytes)
+const FSAVE_FTW: u64 = 8; // FPU Tag Word (2 bytes)
 const FSAVE_SIZE: u64 = 108; // Total size in 32-bit protected mode
 
 // Status word bit definitions
@@ -479,9 +482,11 @@ fn test_frstor_then_arithmetic() {
     ];
 
     let (mut vcpu, mem) = setup_vm(&code, None);
-    // Prepare restore area
+    // Prepare restore area: ST(0) (R0, TOP = 0) holds +0.0 and is tagged
+    // zero; the other registers are empty.
     write_u16(&mem, 0x2000 + FSAVE_FCW, 0x037F);
     write_u16(&mem, 0x2000 + FSAVE_FSW, 0x0000);
+    write_u16(&mem, 0x2000 + FSAVE_FTW, 0xFFFD);
     write_f64(&mem, 0x3000, 1.5);
 
     run_until_hlt(&mut vcpu).unwrap();

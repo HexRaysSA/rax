@@ -39,8 +39,9 @@ const CHECKPOINT_MAGIC: [u8; 8] = *b"RAXCKPT\0";
 
 /// Current checkpoint format version. Version 2 added embedded config + device
 /// state; version 3 added the emulator-private STI interrupt shadow; version 4
-/// added IA32_MISC_ENABLE and IA32_PAT; version 5 adds IA32_UMWAIT_CONTROL.
-const CHECKPOINT_VERSION: u32 = 5;
+/// added IA32_MISC_ENABLE and IA32_PAT; version 5 added IA32_UMWAIT_CONTROL;
+/// version 6 stores the x87 registers in their exact 80-bit encoding.
+const CHECKPOINT_VERSION: u32 = 6;
 
 /// Canonical checkpoint file extension ("RaX Checkpoint").
 pub const CHECKPOINT_EXT: &str = "rxc";
@@ -58,7 +59,8 @@ pub struct FpuSnapshot {
     pub data_ptr: u64,
     pub instr_ptr: u64,
     pub last_opcode: u16,
-    pub st: [f64; 8],
+    /// Physical registers R0-R7 in the exact 80-bit memory encoding.
+    pub st: [[u8; 10]; 8],
     pub top: u8,
 }
 
@@ -71,7 +73,7 @@ impl Default for FpuSnapshot {
             data_ptr: 0,
             instr_ptr: 0,
             last_opcode: 0,
-            st: [0.0; 8],
+            st: [[0; 10]; 8],
             top: 0,
         }
     }

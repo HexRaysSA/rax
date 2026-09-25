@@ -16,7 +16,8 @@ atomics, inline assembly, and the file, `mmap`, signal, socket, and
 check system calls one by one, these are whole programs whose compiled code
 exercises the CPU emulation broadly: the corpus found an x86-64 decoder
 defect (the SSE shift-by-immediate forms ignored REX.B) behind seven
-programs' wrong results.
+programs' wrong results, and the direct x86-64 engine's binary64 x87
+registers, which made the C library print last digits wrongly.
 
 | Path | Content |
 |---|---|

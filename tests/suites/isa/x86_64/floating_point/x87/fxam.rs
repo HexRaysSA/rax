@@ -334,7 +334,10 @@ fn test_fxam_negative_nan() {
 // ============================================================================
 
 #[test]
-fn test_fxam_positive_denormal() {
+fn test_fxam_positive_double_denormal_loads_as_normal() {
+    // FLD m64fp widens a binary64 denormal to a normal binary80 value (its
+    // 15-bit exponent reaches far lower), so FXAM reports a normal number
+    // (confirmed on Rosetta 2: FSW 3C02h, with DE from the load).
     let code = [
         0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
         0xD9, 0xE5, // FXAM
@@ -355,14 +358,13 @@ fn test_fxam_positive_denormal() {
     let c1 = (status >> 9) & 1;
     let c0 = (status >> 8) & 1;
 
-    assert_eq!(c3, 1, "C3 should be 1 for denormal");
-    assert_eq!(c2, 1, "C2 should be 1 for denormal");
-    assert_eq!(c0, 0, "C0 should be 0 for denormal");
-    assert_eq!(c1, 0, "C1 should be 0 for positive denormal");
+    assert_eq!((c3, c2, c0), (0, 1, 0), "normal in binary80");
+    assert_eq!(c1, 0, "C1 should be 0 for a positive value");
 }
 
 #[test]
-fn test_fxam_negative_denormal() {
+fn test_fxam_negative_double_denormal_loads_as_normal() {
+    // As above, negative (confirmed on Rosetta 2: FSW 3E02h).
     let code = [
         0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
         0xD9, 0xE5, // FXAM
@@ -383,10 +385,8 @@ fn test_fxam_negative_denormal() {
     let c1 = (status >> 9) & 1;
     let c0 = (status >> 8) & 1;
 
-    assert_eq!(c3, 1, "C3 should be 1 for denormal");
-    assert_eq!(c2, 1, "C2 should be 1 for denormal");
-    assert_eq!(c0, 0, "C0 should be 0 for denormal");
-    assert_eq!(c1, 1, "C1 should be 1 for negative denormal");
+    assert_eq!((c3, c2, c0), (0, 1, 0), "normal in binary80");
+    assert_eq!(c1, 1, "C1 should be 1 for a negative value");
 }
 
 // ============================================================================
@@ -673,7 +673,8 @@ fn test_fxam_does_not_modify_value() {
 // ============================================================================
 
 #[test]
-fn test_fxam_very_small_denormal() {
+fn test_fxam_very_small_double_denormal_loads_as_normal() {
+    // Even the smallest binary64 denormals are normal binary80 values.
     let code = [
         0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
         0xD9, 0xE5, // FXAM
@@ -693,9 +694,42 @@ fn test_fxam_very_small_denormal() {
     let c2 = (status >> 10) & 1;
     let c0 = (status >> 8) & 1;
 
-    assert_eq!(c3, 1, "C3 should be 1 for denormal");
-    assert_eq!(c2, 1, "C2 should be 1 for denormal");
-    assert_eq!(c0, 0, "C0 should be 0 for denormal");
+    assert_eq!((c3, c2, c0), (0, 1, 0), "normal in binary80");
+}
+
+/// FXAM's class bits (C3, C2, C0) and C1 after `FLD m80fp` of `value`.
+fn fxam_extended(value: [u8; 10]) -> (u16, u16, u16, u16) {
+    let code = [
+        0xDB, 0x2C, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD tbyte [0x2000]
+        0xD9, 0xE5, // FXAM
+        0x9B, 0xDF, 0xE0, // FSTSW AX
+        0x66, 0x67, 0xA3, 0x00, 0x30, 0x00, 0x00, // MOV [0x3000], AX
+        0xF4, // HLT
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    mem.write_slice(&value, GuestAddress(0x2000)).unwrap();
+    run_until_hlt(&mut vcpu).unwrap();
+    let status = read_u16(&mem, 0x3000);
+    (
+        (status >> 14) & 1,
+        (status >> 10) & 1,
+        (status >> 8) & 1,
+        (status >> 9) & 1,
+    )
+}
+
+#[test]
+fn test_fxam_extended_denormals() {
+    // Binary80 denormals (exponent 0, integer bit clear) and pseudo-denormals
+    // (exponent 0, integer bit set) are the denormal class: C3 = C2 = 1,
+    // C0 = 0 (Intel SDM Vol. 2A, FXAM; confirmed on Rosetta 2: FSW 7C00h and
+    // 7E00h).
+    let smallest = [1, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00];
+    let negative = [0, 0, 0, 0, 0, 0, 0, 0x40, 0x00, 0x80];
+    let pseudo = [0, 0, 0, 0, 0, 0, 0, 0x80, 0x00, 0x00];
+    assert_eq!(fxam_extended(smallest), (1, 1, 0, 0));
+    assert_eq!(fxam_extended(negative), (1, 1, 0, 1));
+    assert_eq!(fxam_extended(pseudo), (1, 1, 0, 0));
 }
 
 #[test]

@@ -266,7 +266,10 @@ fn test_ffree_same_register_twice() {
 
 #[test]
 fn test_ffree_before_operation() {
-    // FFREE before using the register
+    // FFREE empties the register that FADDP later reads as ST(1): a stack
+    // underflow, whose masked response is the x87 indefinite (Intel SDM
+    // Vol. 1, 8.5.1.1; confirmed on Rosetta 2: result FFF8000000000000,
+    // FSW 0041h)
     let code = [
         0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
         0xDD, 0xC0, // FFREE ST(0)
@@ -283,7 +286,11 @@ fn test_ffree_before_operation() {
     run_until_hlt(&mut vcpu).unwrap();
 
     let result = read_f64(&mem, 0x3000);
-    assert_eq!(result, 15.0, "Operations should work after FFREE");
+    assert_eq!(
+        result.to_bits(),
+        0xFFF8_0000_0000_0000,
+        "an emptied register is a stack underflow"
+    );
 }
 
 #[test]
@@ -487,7 +494,9 @@ fn test_ffree_reverse_order() {
 
 #[test]
 fn test_ffree_preserves_values() {
-    // Verify FFREE truly doesn't change values
+    // FFREE keeps the values but tags both registers empty, so FADDP
+    // underflows: the masked response is the x87 indefinite (confirmed on
+    // Rosetta 2: result FFF8000000000000, FSW 0041h)
     let code = [
         0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
         0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00, // FLD qword [0x2008]
@@ -506,5 +515,9 @@ fn test_ffree_preserves_values() {
     run_until_hlt(&mut vcpu).unwrap();
 
     let result = read_f64(&mem, 0x3000);
-    assert_eq!(result, 15.0, "Values should be usable after FFREE");
+    assert_eq!(
+        result.to_bits(),
+        0xFFF8_0000_0000_0000,
+        "emptied registers are a stack underflow"
+    );
 }

@@ -7,6 +7,11 @@ use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 const STACK: u64 = 0x8000;
 
+/// The exact binary80 encoding of the binary64 value with `bits`.
+fn raw(bits: u64) -> [u8; 10] {
+    crate::smir::interpret::SmirInterpreter::x86_x87_from_f64(f64::from_bits(bits))
+}
+
 fn register_store_forms() -> impl Iterator<Item = (u8, u8, bool, u16)> {
     [
         (0xDD, 0xD0, false, 0x05D0),
@@ -30,7 +35,7 @@ fn x87_register_store_preserves_physical_tags_and_masked_unmasked_stack_response
                     cpu.fpu.status_word = (u16::from(top) << 11) | 0x4700;
                     cpu.fpu.control_word = 0x037E | u16::from(masked);
                     cpu.fpu.tag_word = (0x6996 & !(3 << (top * 2))) | (tag << (top * 2));
-                    cpu.fpu.st[usize::from(top)] = f64::from_bits(0xFFF0_A5A5_5A5A_1234);
+                    cpu.fpu.st[usize::from(top)] = raw(0xFFF0_A5A5_5A5A_1234);
                     let mut expected = fpu_image(&cpu);
                     expected.instr_ptr = 0;
                     expected.last_opcode = fop;
@@ -45,7 +50,7 @@ fn x87_register_store_preserves_physical_tags_and_masked_unmasked_stack_response
                     if !empty || masked {
                         let destination = (top + (modrm & 7)) & 7;
                         expected.st[usize::from(destination)] = if empty {
-                            0xFFF8_0000_0000_0000
+                            crate::smir::X86X87State::INDEFINITE
                         } else {
                             expected.st[usize::from(top)]
                         };
@@ -129,7 +134,7 @@ fn jit_x87_register_store_matches_direct_and_deopts_empty_sources_without_commit
                     cpu.fpu.status_word = (u16::from(top) << 11) | 0x4700;
                     cpu.fpu.control_word = 0x037E | u16::from(masked);
                     cpu.fpu.tag_word = (0x6996 & !(3 << (top * 2))) | (tag << (top * 2));
-                    cpu.fpu.st[usize::from(top)] = f64::from_bits(0xFFF0_A5A5_5A5A_1234);
+                    cpu.fpu.st[usize::from(top)] = raw(0xFFF0_A5A5_5A5A_1234);
                     cpu.regs.r8 = 0x8877_6655_4433_2211;
                 }
                 let before = fpu_image(&native);
@@ -168,7 +173,7 @@ struct FpuImage {
     data_ptr: u64,
     instr_ptr: u64,
     last_opcode: u16,
-    st: [u64; 8],
+    st: [[u8; 10]; 8],
     top: u8,
 }
 
@@ -180,7 +185,7 @@ fn fpu_image(vcpu: &X86_64Vcpu) -> FpuImage {
         data_ptr: vcpu.fpu.data_ptr,
         instr_ptr: vcpu.fpu.instr_ptr,
         last_opcode: vcpu.fpu.last_opcode,
-        st: vcpu.fpu.st.map(f64::to_bits),
+        st: vcpu.fpu.st,
         top: vcpu.fpu.top,
     }
 }
@@ -227,7 +232,7 @@ fn seed_fpu(vcpu: &mut X86_64Vcpu) {
     vcpu.fpu.instr_ptr = 0x8877_6655_4433_2211;
     vcpu.fpu.last_opcode = 0x05A5;
     vcpu.fpu.st = std::array::from_fn(|index| {
-        f64::from_bits(0x3FF0_0000_0000_0000 | ((index as u64) << 40) | index as u64)
+        raw(0x3FF0_0000_0000_0000 | ((index as u64) << 40) | index as u64)
     });
     vcpu.fpu.top = 5;
 }
@@ -700,13 +705,13 @@ fn jit_x87_sign_payload_matches_direct_for_all_scanned_prefixes_and_value_classe
                 let mut native = test_vcpu(memory_with_code(&code));
                 for vcpu in [&mut direct, &mut native] {
                     seed_stack_metadata_fpu(vcpu);
-                    vcpu.fpu.st[5] = f64::from_bits(input);
+                    vcpu.fpu.st[5] = raw(input);
                 }
 
                 run_direct_to(&mut direct, hlt_pc);
                 assert_eq!(
-                    direct.fpu.st[5].to_bits(),
-                    form.expected_bits(input),
+                    direct.fpu.st[5],
+                    raw(form.expected_bits(input)),
                     "{form:?}, {prefix:02X?}, {input:#018x}"
                 );
                 assert_eq!(direct.fpu.status_word & 0x0200, 0);
@@ -749,7 +754,7 @@ fn jit_verifier_accepts_multi_operation_x87_sign_payload_region() {
     ];
     let mut vcpu = test_vcpu(memory_with_code(CODE));
     seed_stack_metadata_fpu(&mut vcpu);
-    vcpu.fpu.st[5] = f64::from_bits(0x7FF8_A5A5_5A5A_1234);
+    vcpu.fpu.st[5] = raw(0x7FF8_A5A5_5A5A_1234);
 
     let region = vcpu
         .jit_compile_region()
@@ -758,7 +763,7 @@ fn jit_verifier_accepts_multi_operation_x87_sign_payload_region() {
     vcpu.jit_run_region_verified(&region);
 
     assert_eq!(vcpu.regs.rip, 8);
-    assert_eq!(vcpu.fpu.st[5].to_bits(), 0xFFF8_A5A5_5A5A_1234);
+    assert_eq!(vcpu.fpu.st[5], raw(0xFFF8_A5A5_5A5A_1234));
     assert_eq!(vcpu.fpu.instr_ptr, 4);
     assert_eq!(vcpu.fpu.last_opcode, 0x01E0);
 }
@@ -774,7 +779,7 @@ fn jit_x87_sign_payload_empty_stack_deopts_for_exact_direct_underflow_response()
             native.fpu.control_word = if masked { 0x037F } else { 0x037E };
             native.fpu.status_word = (5 << 11) | 0x4700;
             native.fpu.tag_word = 3 << (5 * 2);
-            native.fpu.st[5] = f64::from_bits(0x7FF8_A5A5_5A5A_1234);
+            native.fpu.st[5] = raw(0x7FF8_A5A5_5A5A_1234);
 
             let region = native
                 .jit_compile_region()
@@ -802,11 +807,11 @@ fn jit_x87_sign_payload_empty_stack_deopts_for_exact_direct_underflow_response()
             if masked {
                 assert_eq!(native.fpu.status_word & 0x8080, 0);
                 assert_eq!((native.fpu.tag_word >> (5 * 2)) & 3, 2);
-                assert_eq!(native.fpu.st[5].to_bits(), 0xFFF8_0000_0000_0000);
+                assert_eq!(native.fpu.st[5], raw(0xFFF8_0000_0000_0000));
             } else {
                 assert_eq!(native.fpu.status_word & 0x8080, 0x8080);
                 assert_eq!((native.fpu.tag_word >> (5 * 2)) & 3, 3);
-                assert_eq!(native.fpu.st[5].to_bits(), 0x7FF8_A5A5_5A5A_1234);
+                assert_eq!(native.fpu.st[5], raw(0x7FF8_A5A5_5A5A_1234));
             }
         }
     }
@@ -867,7 +872,7 @@ fn jit_x87_sign_payload_executes_in_legacy_error_mode_and_with_clear_summary_sta
                     vcpu.sregs.cr0 &= !(1 << 5);
                 }
                 vcpu.fpu.status_word |= status_bits;
-                vcpu.fpu.st[5] = f64::from_bits(0xFFF8_A5A5_5A5A_1234);
+                vcpu.fpu.st[5] = raw(0xFFF8_A5A5_5A5A_1234);
             }
 
             run_direct_to(&mut direct, 4);
@@ -899,7 +904,7 @@ fn jit_callout_round_trips_x87_payload_changes_in_both_directions() {
     for vcpu in [&mut direct, &mut native] {
         vcpu.set_jit_call(true);
         seed_stack_metadata_fpu(vcpu);
-        vcpu.fpu.st[5] = f64::from_bits(0x7FF8_A5A5_5A5A_1234);
+        vcpu.fpu.st[5] = raw(0x7FF8_A5A5_5A5A_1234);
     }
 
     run_direct_to(&mut direct, 0x0B);
@@ -914,7 +919,7 @@ fn jit_callout_round_trips_x87_payload_changes_in_both_directions() {
     assert_eq!(register_image(&native), register_image(&direct));
     assert_eq!(fpu_image(&native), fpu_image(&direct));
     assert_eq!(native.regs.rip, 0x0B);
-    assert_eq!(native.fpu.st[5].to_bits(), 0xFFF8_A5A5_5A5A_1234);
+    assert_eq!(native.fpu.st[5], raw(0xFFF8_A5A5_5A5A_1234));
     assert_eq!(native.fpu.instr_ptr, 7);
     assert_eq!(native.fpu.last_opcode, 0x01E0);
 }
@@ -936,9 +941,8 @@ fn jit_callout_round_trips_complete_x87_environment_and_payload_ownership() {
         vcpu.set_jit_call(true);
         vcpu.fpu.init();
         vcpu.fpu.status_word = 0x80FF;
-        vcpu.fpu.st = std::array::from_fn(|index| {
-            f64::from_bits(0x4000_0000_0000_0000 | ((index as u64) << 40))
-        });
+        vcpu.fpu.st =
+            std::array::from_fn(|index| raw(0x4000_0000_0000_0000 | ((index as u64) << 40)));
     }
 
     run_direct_to(&mut direct, 0x0B);
@@ -956,7 +960,7 @@ fn jit_callout_round_trips_complete_x87_environment_and_payload_ownership() {
     assert_eq!(native.fpu.top, 7);
     assert_eq!(native.fpu.status_word, 7 << 11);
     assert_eq!(native.fpu.tag_word, 0x3FFF);
-    assert_eq!(native.fpu.st[7].to_bits(), 1.0f64.to_bits());
+    assert_eq!(native.fpu.st[7], raw(1.0f64.to_bits()));
     assert_eq!(native.regs.rax & 0xFFFF, 7 << 11);
 }
 
@@ -968,13 +972,16 @@ fn jit_x87_callout_payload_marker_preserves_legacy_frames() {
         let mut vcpu = test_vcpu(memory_with_code(&[0xD9, 0xE0, 0xC3]));
         seed_stack_metadata_fpu(&mut vcpu);
         let cpu_bits = 0x7FF8_A5A5_5A5A_1234u64;
-        let frame_bits = 0x8000_0000_0000_0000u64;
-        vcpu.fpu.st[5] = f64::from_bits(cpu_bits);
+        // The frame's registers hold +1.0: significand 8000...0, exponent
+        // 3FFFh.
+        let (frame_significand, frame_high) = (0x8000_0000_0000_0000u64, 0x3FFFu64);
+        vcpu.fpu.st[5] = raw(cpu_bits);
         let mut gr = GuestRegs::default();
         vcpu.marshal_x87_environment_to_guest_regs(&mut gr);
         gr.x87_state_active = 1;
         gr.x87_payload_active = u64::from(active);
-        gr.x87_payload = [frame_bits; 8];
+        gr.x87_payload = [frame_significand; 8];
+        gr.x87_payload_high = [frame_high; 8];
         gr.ctx = (&mut vcpu as *mut X86_64Vcpu) as u64;
         gr.cr0 = vcpu.sregs.cr0;
         gr.efer = vcpu.sregs.efer;
@@ -984,14 +991,20 @@ fn jit_x87_callout_payload_marker_preserves_legacy_frames() {
         // SAFETY: the frame and owning vCPU remain live throughout the call.
         let ok = unsafe { rax_jit_call(&mut gr, 0, 0x100, 0x80) };
         assert_eq!(ok, 1, "payload marker={active}");
-        let input = if active { frame_bits } else { cpu_bits };
-        assert_eq!(vcpu.fpu.st[5].to_bits(), input ^ (1 << 63));
-        let expected_frame = if active {
-            input ^ (1 << 63)
+        // FCHS runs on the frame's payload only when the marker says so.
+        let expected = if active {
+            raw((-1.0f64).to_bits())
         } else {
-            frame_bits
+            raw(cpu_bits ^ (1 << 63))
         };
-        assert_eq!(gr.x87_payload[5], expected_frame);
+        assert_eq!(vcpu.fpu.st[5], expected);
+        assert_eq!(gr.x87_payload[5], frame_significand);
+        let expected_high = if active {
+            frame_high ^ 0x8000
+        } else {
+            frame_high
+        };
+        assert_eq!(gr.x87_payload_high[5], expected_high);
         assert_eq!(gr.x87_instr_ptr, 0);
         assert_eq!(gr.x87_last_opcode, 0x01E0);
     }

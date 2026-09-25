@@ -605,7 +605,7 @@ impl X86_64Vcpu {
                     self.write_mem32(addr + 28, 0xFFFF)?;
                     // ST0-ST7 at offset 32 (16 bytes each)
                     for i in 0..8 {
-                        let bytes = execute::fpu::f64_to_f80_pub(self.fpu.get_st(i as u8));
+                        let bytes = self.fpu.get_st_raw(i as u8);
                         self.write_bytes(addr + 32 + (i as u64) * 16, &bytes)?;
                     }
                     // XMM0-XMM15 at offset 160 (16 bytes each)
@@ -644,14 +644,6 @@ impl X86_64Vcpu {
                     self.fpu.top = ((self.fpu.status_word >> 11) & 7) as u8;
                     // Abridged FTW at offset 4
                     let abtw = self.mmu.read_u8(addr + 4, &self.sregs)?;
-                    self.fpu.tag_word = 0;
-                    for i in 0..8 {
-                        if abtw & (1 << i) != 0 {
-                            self.fpu.tag_word |= 0 << (i * 2); // Valid
-                        } else {
-                            self.fpu.tag_word |= 3 << (i * 2); // Empty
-                        }
-                    }
                     // FOP at offset 6
                     self.fpu.last_opcode = self.read_mem16(addr + 6)?;
                     // FIP at offset 8
@@ -663,10 +655,12 @@ impl X86_64Vcpu {
                     // ST0-ST7 at offset 32
                     for i in 0..8 {
                         let bytes = self.read_bytes(addr + 32 + (i as u64) * 16, 10)?;
-                        // Stack order; keep the tags restored above.
+                        // Stack order.
                         let idx = self.fpu.st_index(i as u8);
-                        self.fpu.st[idx] = execute::fpu::f80_to_f64_pub(&bytes);
+                        self.fpu.st[idx].copy_from_slice(&bytes);
                     }
+                    // Full tags from the abridged word and the loaded registers.
+                    self.fpu.restore_abridged_tag_word(abtw);
                     // XMM0-XMM15 at offset 160
                     for i in 0..16 {
                         self.regs.xmm[i][0] = self.read_mem64(addr + 160 + (i as u64) * 16)?;
@@ -727,7 +721,7 @@ impl X86_64Vcpu {
                         self.write_mem64(addr + 8, self.fpu.instr_ptr)?;
                         self.write_mem64(addr + 16, self.fpu.data_ptr)?;
                         for i in 0..8 {
-                            let bytes = execute::fpu::f64_to_f80_pub(self.fpu.get_st(i as u8));
+                            let bytes = self.fpu.get_st_raw(i as u8);
                             self.write_bytes(addr + 32 + (i as u64) * 16, &bytes)?;
                         }
                         xstate_bv |= 0x1;
@@ -831,21 +825,17 @@ impl X86_64Vcpu {
                             self.fpu.status_word = self.read_mem16(addr + 2)?;
                             self.fpu.top = ((self.fpu.status_word >> 11) & 7) as u8;
                             let abtw = self.mmu.read_u8(addr + 4, &self.sregs)?;
-                            self.fpu.tag_word = 0;
-                            for i in 0..8 {
-                                if abtw & (1 << i) == 0 {
-                                    self.fpu.tag_word |= 3 << (i * 2);
-                                }
-                            }
                             self.fpu.last_opcode = self.read_mem16(addr + 6)?;
                             self.fpu.instr_ptr = self.read_mem64(addr + 8)?;
                             self.fpu.data_ptr = self.read_mem64(addr + 16)?;
                             for i in 0..8 {
                                 let bytes = self.read_bytes(addr + 32 + (i as u64) * 16, 10)?;
-                                // Stack order; keep the tags restored above.
+                                // Stack order.
                                 let idx = self.fpu.st_index(i as u8);
-                                self.fpu.st[idx] = execute::fpu::f80_to_f64_pub(&bytes);
+                                self.fpu.st[idx].copy_from_slice(&bytes);
                             }
+                            // Full tags from the abridged word and the loaded registers.
+                            self.fpu.restore_abridged_tag_word(abtw);
                         } else {
                             self.fpu.init();
                         }

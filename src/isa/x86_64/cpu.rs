@@ -110,8 +110,10 @@ pub struct FpuState {
     pub instr_ptr: u64,
     /// FPU last opcode
     pub last_opcode: u16,
-    /// FPU register stack (8 x 80-bit, stored as f64 for simplicity)
-    pub st: [f64; 8],
+    /// Physical registers R0-R7 in the exact 80-bit memory encoding: the
+    /// significand (with its explicit integer bit) in bytes 0..8, the sign
+    /// and biased exponent in bytes 8..10. Logical ST(i) is R[(TOP + i) & 7].
+    pub st: [[u8; 10]; 8],
     /// Top of stack pointer (0-7), stored in status word bits 11-13
     pub top: u8,
 }
@@ -125,7 +127,7 @@ impl Default for FpuState {
             data_ptr: 0,
             instr_ptr: 0,
             last_opcode: 0,
-            st: [0.0; 8],
+            st: [[0; 10]; 8],
             top: 0,
         }
     }
@@ -150,75 +152,103 @@ impl FpuState {
         ((self.top.wrapping_add(i)) & 7) as usize
     }
 
-    /// Push a value onto the FPU stack
-    pub fn push(&mut self, value: f64) {
-        // New TOP is the register below the current one. Per the x87 spec, if it
-        // is not already empty (tag != 3) the push is a stack OVERFLOW: raise the
-        // invalid-operation (IE) and stack-fault (SF) exceptions, set C1 to flag
-        // the overflow direction, and raise the error-summary (ES) bit. With the
-        // exception masked (the default) the push still completes.
-        let dst = self.top.wrapping_sub(1) & 7;
-        let dst_tag = (self.tag_word >> ((dst as u16) * 2)) & 3;
-        if dst_tag != 3 {
-            // IE (bit 0) | SF (bit 6) | C1 (bit 9, overflow direction).
-            // With the default masked invalid-operation exception, ES remains clear.
-            self.status_word |= 0x0001 | 0x0040 | 0x0200;
+    /// This state in the form the shared x87 core
+    /// (`SmirInterpreter::x86_x87_data_step`) executes on.
+    pub(crate) fn to_x87(&self) -> crate::smir::X86X87State {
+        crate::smir::X86X87State {
+            control_word: self.control_word,
+            status_word: (self.status_word & !0x3800) | (u16::from(self.top & 7) << 11),
+            tag_word: self.tag_word,
+            data_ptr: self.data_ptr,
+            instr_ptr: self.instr_ptr,
+            last_opcode: self.last_opcode,
+            regs: self.st,
         }
-        self.top = dst;
-        self.st[self.top as usize] = value;
-        // Update tag for this register (mark as valid)
-        let tag_shift = (self.top as u16) * 2;
-        self.tag_word &= !(3 << tag_shift);
-        // 0 = valid, 1 = zero, 2 = special, 3 = empty
-        if value == 0.0 {
-            self.tag_word |= 1 << tag_shift;
-        }
-        // Update TOP in status word
-        self.status_word = (self.status_word & !0x3800) | ((self.top as u16) << 11);
     }
 
-    /// Pop a value from the FPU stack
-    pub fn pop(&mut self) -> f64 {
-        // If the current TOP register is empty (tag == 3) the pop is a stack
-        // UNDERFLOW: raise invalid-operation (IE), stack-fault (SF), and clear
-        // C1 to flag the underflow direction.
-        let tag_shift = (self.top as u16) * 2;
-        let underflow = (self.tag_word >> tag_shift) & 3 == 3;
-        if underflow {
-            // Set IE (bit 0) | SF (bit 6); clear C1 (bit 9) for underflow.
-            // Masked invalid-operation exceptions return the x87 indefinite
-            // value without setting ES.
-            self.status_word = (self.status_word | 0x0001 | 0x0040) & !0x0200;
-        }
-        let value = if underflow {
-            f64::from_bits(0xfff8_0000_0000_0000)
-        } else {
-            self.st[self.top as usize]
-        };
-        // Mark register as empty
-        self.tag_word |= 3 << tag_shift;
-        self.top = self.top.wrapping_add(1) & 7;
-        // Update TOP in status word
-        self.status_word = (self.status_word & !0x3800) | ((self.top as u16) << 11);
-        value
+    /// Take every field from `state`, TOP from its status word.
+    pub(crate) fn load_x87(&mut self, state: &crate::smir::X86X87State) {
+        self.control_word = state.control_word;
+        self.status_word = state.status_word;
+        self.tag_word = state.tag_word;
+        self.data_ptr = state.data_ptr;
+        self.instr_ptr = state.instr_ptr;
+        self.last_opcode = state.last_opcode;
+        self.st = state.regs;
+        self.top = state.top();
     }
 
-    /// Get ST(i) value
+    /// Rebuild the full tag word from the abridged FXSAVE/XSAVE form: a clear
+    /// bit is an empty register, and a set bit takes the valid, zero, or
+    /// special tag of the register's contents (load the registers first).
+    pub fn restore_abridged_tag_word(&mut self, abridged: u8) {
+        let mut state = self.to_x87();
+        state.restore_abridged_tag_word(abridged);
+        self.tag_word = state.tag_word;
+    }
+
+    /// ST(i) in its exact 80-bit encoding.
     #[inline]
-    pub fn get_st(&self, i: u8) -> f64 {
+    pub fn get_st_raw(&self, i: u8) -> [u8; 10] {
         self.st[self.st_index(i)]
     }
 
-    /// Set ST(i) value
+    /// Set ST(i) to an 80-bit value, tagging it by its class (the tag is
+    /// valid, zero, or special; never empty).
+    pub fn set_st_raw(&mut self, i: u8, raw: [u8; 10]) {
+        let mut state = self.to_x87();
+        state.set_logical_raw(i, raw);
+        self.load_x87(&state);
+    }
+
+    /// ST(i) rounded to the nearest binary64 value: a view for diagnostics
+    /// and tests. It loses the extra precision of an 80-bit value.
     #[inline]
-    pub fn set_st(&mut self, i: u8, value: f64) {
-        let idx = self.st_index(i);
-        self.st[idx] = value;
-        let tag_shift = (idx as u16) * 2;
-        self.tag_word &= !(3 << tag_shift);
-        if value == 0.0 {
-            self.tag_word |= 1 << tag_shift;
+    pub fn get_st(&self, i: u8) -> f64 {
+        crate::smir::interpret::SmirInterpreter::x86_x87_to_f64(&self.get_st_raw(i))
+    }
+
+    /// Push `value` as `FLD m64fp` does (stack overflow included), leaving
+    /// FIP, FDP, and FOP as they were: a test convenience.
+    #[cfg(test)]
+    pub(crate) fn push(&mut self, value: f64) {
+        use crate::smir::interpret::{SmirInterpreter, X87Memory};
+        use crate::smir::ir::memory::MemoryError;
+        struct Source([u8; 8]);
+        impl X87Memory for Source {
+            fn read_x87(&mut self, _: u64, buf: &mut [u8]) -> std::result::Result<(), MemoryError> {
+                buf.copy_from_slice(&self.0[..buf.len()]);
+                Ok(())
+            }
+            fn write_x87(&mut self, addr: u64, _: &[u8]) -> std::result::Result<(), MemoryError> {
+                Err(MemoryError::AccessViolation { addr, write: true })
+            }
         }
+        let mut state = self.to_x87();
+        let (fip, fdp, fop) = (state.instr_ptr, state.data_ptr, state.last_opcode);
+        SmirInterpreter::x86_x87_data_step(
+            &mut state,
+            &mut Source(value.to_bits().to_le_bytes()),
+            fip,
+            crate::smir::ir::ops::X86X87DataKind::LoadDouble,
+            Some(0),
+            0,
+            fop,
+            None,
+        )
+        .expect("FLD m64fp reads its source");
+        state.instr_ptr = fip;
+        state.data_ptr = fdp;
+        state.last_opcode = fop;
+        self.load_x87(&state);
+    }
+
+    /// Set ST(i) to the exact 80-bit value of `value`, tagging it.
+    pub fn set_st(&mut self, i: u8, value: f64) {
+        self.set_st_raw(
+            i,
+            crate::smir::interpret::SmirInterpreter::x86_x87_from_f64(value),
+        );
     }
 }
 

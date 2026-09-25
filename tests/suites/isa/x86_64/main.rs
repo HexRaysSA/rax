@@ -1698,3 +1698,5 @@ mod x86_64_regressions_lazy_flags_compare;
 mod x86_64_regressions_lazy_flags_pcmpistri;
 #[path = "regressions/sse_shift_imm_rex_b.rs"]
 mod x86_64_regressions_sse_shift_imm_rex_b;
+#[path = "regressions/x87_binary80.rs"]
+mod x86_64_regressions_x87_binary80;

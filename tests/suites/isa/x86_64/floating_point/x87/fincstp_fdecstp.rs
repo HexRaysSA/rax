@@ -403,6 +403,10 @@ fn test_fdecstp_preserves_data() {
 
 #[test]
 fn test_fincstp_with_operation() {
+    // FINCSTP leaves the register it skipped tagged valid, so the next FLD
+    // overflows the stack: the masked response loads the x87 indefinite,
+    // which FADDP propagates (Intel SDM Vol. 1, 8.5.1.1; confirmed on
+    // Rosetta 2: result FFF8000000000000, FSW 0041h).
     let code = [
         0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
         0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00, // FLD qword [0x2008]
@@ -421,11 +425,15 @@ fn test_fincstp_with_operation() {
     run_until_hlt(&mut vcpu).unwrap();
 
     let result = read_f64(&mem, 0x3000);
-    assert_eq!(result, 8.0, "FINCSTP with arithmetic");
+    assert_eq!(result.to_bits(), 0xFFF8_0000_0000_0000, "stack overflow");
 }
 
 #[test]
 fn test_fdecstp_with_operation() {
+    // After FDECSTP, FLD, FINCSTP, ST(0) is the empty register FDECSTP
+    // exposed, so FADDP underflows: the masked response is the x87
+    // indefinite (confirmed on Rosetta 2: result FFF8000000000000, FSW
+    // 3841h).
     let code = [
         0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
         0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00, // FLD qword [0x2008]
@@ -445,7 +453,7 @@ fn test_fdecstp_with_operation() {
     run_until_hlt(&mut vcpu).unwrap();
 
     let result = read_f64(&mem, 0x3000);
-    assert!(result > 0.0, "FDECSTP with operations");
+    assert_eq!(result.to_bits(), 0xFFF8_0000_0000_0000, "stack underflow");
 }
 
 // ============================================================================

@@ -34,6 +34,7 @@ This page consolidates the current project boundary. It is intentionally conserv
 
 - legacy, REX, VEX, EVEX, and REX2/APX-oriented decode structures are present;
 - broad integer, flag, control-flow, system, x87, SSE/AVX, AVX-512, AVX10, crypto, and state-management implementation exists;
+- x87 instructions execute on exact binary80 registers, with precision and rounding control, exception flags, masked responses, and stack faults, through one implementation shared by the direct engine and SMIR;
 - the software machine has a serial-oriented PC platform and direct Linux loading;
 - KVM provides a hardware-backed x86 execution path on suitable Linux hosts;
 - the real-mode/El Torito/ATAPI route has a named TempleOS demonstration and a registered real-mode machine test;
@@ -149,8 +150,7 @@ hosts ([usage](../getting-started/linux-programs.md),
 - a private file mapping copies each page at its first touch (later file changes do not reach it); a shared mapping of a block device is a copy; another process truncating a file mapped shared here, past a page touched here, faults `rax-user` instead of raising the guest's `SIGBUS`; a `memfd` passed to another process or reopened through `/proc` is an ordinary file there (no seals), `F_SEAL_WRITE` counts only this process's writable shared mappings, and an `MFD_HUGETLB` `memfd` cannot be mapped;
 - socket families other than `AF_UNIX`, `AF_INET`, and `AF_INET6` are `EAFNOSUPPORT` (no netlink); options and IP control messages without a host counterpart are accepted without effect; an `SCM_RIGHTS` description without a host descriptor reaches only its own process, and one reaching another process keeps only its access mode and `O_APPEND`; `SO_PASSCRED` reports the connected peer; peers see relative Unix paths as absolute; on macOS hosts, abstract names are files in a per-user directory, sequenced-packet Unix sockets are unavailable, and a peer's `SHUT_RD` is not reported by `poll`;
 - `madvise` guard regions (`MADV_GUARD_INSTALL`/`REMOVE`) are refused with `EINVAL`, and `mlock` does not set `VM_LOCKED`;
-- terminal attribute changes are not applied to the host terminal;
-- the direct x86-64 engine holds x87 registers as binary64, so `long double` arithmetic can differ in its last bits, which shows in the C library's formatting of floating-point numbers (four programs of the morok corpus print a last digit differently).
+- terminal attribute changes are not applied to the host terminal.
 
 ## SMIR and JIT status
 

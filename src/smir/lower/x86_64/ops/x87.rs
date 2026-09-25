@@ -6,8 +6,9 @@ use crate::smir::lower::regalloc::PhysReg;
 use crate::smir::lower::{
     LowerError, X86_GUEST_CR0_OFFSET, X86_GUEST_X87_CONTROL_WORD_OFFSET,
     X86_GUEST_X87_DATA_PTR_OFFSET, X86_GUEST_X87_INSTR_PTR_OFFSET,
-    X86_GUEST_X87_LAST_OPCODE_OFFSET, X86_GUEST_X87_PAYLOAD_OFFSET,
-    X86_GUEST_X87_STATUS_WORD_OFFSET, X86_GUEST_X87_TAG_WORD_OFFSET, X86_STATE_PTR_AT_RBP,
+    X86_GUEST_X87_LAST_OPCODE_OFFSET, X86_GUEST_X87_PAYLOAD_HIGH_OFFSET,
+    X86_GUEST_X87_PAYLOAD_OFFSET, X86_GUEST_X87_STATUS_WORD_OFFSET, X86_GUEST_X87_TAG_WORD_OFFSET,
+    X86_STATE_PTR_AT_RBP,
 };
 
 use crate::smir::lower::x86_64::{BitTestRegOp, X86_64Lowerer, X86Cond, X86Emitter};
@@ -338,12 +339,14 @@ impl X86_64Lowerer {
                 !0x0200,
                 OpWidth::W64,
             );
+            // The sign is bit 79 of the binary80 value: bit 15 of the
+            // register's sign-and-exponent word.
             emitter.emit_lea_sib(
                 PhysReg::Rdx,
                 Some(PhysReg::Rax),
                 PhysReg::Rcx,
                 8,
-                X86_GUEST_X87_PAYLOAD_OFFSET,
+                X86_GUEST_X87_PAYLOAD_HIGH_OFFSET,
             );
             emitter.emit_bit_test_mi_disp(
                 if kind == X86X87DataKind::ChangeSign {
@@ -353,7 +356,7 @@ impl X86_64Lowerer {
                 },
                 PhysReg::Rdx,
                 0,
-                63,
+                15,
                 OpWidth::W64,
             );
         }
@@ -418,6 +421,15 @@ impl X86_64Lowerer {
                 8,
                 X86_GUEST_X87_PAYLOAD_OFFSET,
             );
+        }
+        // The high words sit at a fixed distance from the significands in a
+        // parallel eight-slot array: carry the source's across on the stack.
+        let high_delta = X86_GUEST_X87_PAYLOAD_HIGH_OFFSET - X86_GUEST_X87_PAYLOAD_OFFSET;
+        self.code.emit_u8(0xFF); // push qword [rdx + high_delta]
+        self.code.emit_u8(0xB2);
+        self.code.emit_i32(high_delta);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
             e.emit_mov_rm(PhysReg::Rdx, PhysReg::Rdx, 0, OpWidth::W64);
             e.emit_add_ri(PhysReg::Rcx, i64::from(st), OpWidth::W64);
             e.emit_and_ri(PhysReg::Rcx, 7, OpWidth::W64);
@@ -430,6 +442,12 @@ impl X86_64Lowerer {
                 X86_GUEST_X87_PAYLOAD_OFFSET,
             );
             e.emit_mov_mr(PhysReg::Rcx, 0, PhysReg::Rdx, OpWidth::W64);
+        }
+        self.code.emit_u8(0x8F); // pop qword [rcx + high_delta]
+        self.code.emit_u8(0x81);
+        self.code.emit_i32(high_delta);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
             e.emit_mov_rm(
                 PhysReg::Rcx,
                 PhysReg::Rax,

@@ -5,11 +5,3 @@
 #   mode  program  cause
 #
 # mode: x86_64, x86_64-nojit, aarch64, riscv64, or riscv64-jit.
-x86_64 02_fibonacci x87 registers are held as binary64 in the direct engine (FpuState.st), so musl printf, which formats through long double, rounds the last digit wrongly
-x86_64 06_allocator x87 registers are held as binary64 in the direct engine (FpuState.st), so musl printf, which formats through long double, rounds the last digit wrongly
-x86_64 08_json_parser x87 registers are held as binary64 in the direct engine (FpuState.st), so musl printf, which formats through long double, rounds the last digit wrongly
-x86_64 10_template_madness x87 registers are held as binary64 in the direct engine (FpuState.st), so musl printf, which formats through long double, rounds the last digit wrongly
-x86_64-nojit 02_fibonacci x87 registers are held as binary64 in the direct engine (FpuState.st), so musl printf, which formats through long double, rounds the last digit wrongly
-x86_64-nojit 06_allocator x87 registers are held as binary64 in the direct engine (FpuState.st), so musl printf, which formats through long double, rounds the last digit wrongly
-x86_64-nojit 08_json_parser x87 registers are held as binary64 in the direct engine (FpuState.st), so musl printf, which formats through long double, rounds the last digit wrongly
-x86_64-nojit 10_template_madness x87 registers are held as binary64 in the direct engine (FpuState.st), so musl printf, which formats through long double, rounds the last digit wrongly

@@ -3,7 +3,7 @@
 use super::*;
 use crate::smir::ir::ops::X86X87DataKind;
 use crate::smir::lower::{
-    X86_GUEST_CR0_OFFSET, X86_GUEST_X87_CONTROL_WORD_OFFSET, X86_GUEST_X87_PAYLOAD_OFFSET,
+    X86_GUEST_CR0_OFFSET, X86_GUEST_X87_CONTROL_WORD_OFFSET, X86_GUEST_X87_PAYLOAD_HIGH_OFFSET,
     X86_GUEST_X87_STATUS_WORD_OFFSET, X86_GUEST_X87_TAG_WORD_OFFSET,
 };
 
@@ -190,7 +190,8 @@ fn lower_x87_sign_payload_requires_waiting_guards_and_exact_state_slots() {
             X86_GUEST_CR0_OFFSET,
             X86_GUEST_X87_STATUS_WORD_OFFSET,
             X86_GUEST_X87_TAG_WORD_OFFSET,
-            X86_GUEST_X87_PAYLOAD_OFFSET,
+            // The sign is in the sign-and-exponent word.
+            X86_GUEST_X87_PAYLOAD_HIGH_OFFSET,
             crate::smir::lower::X86_GUEST_X87_INSTR_PTR_OFFSET,
             crate::smir::lower::X86_GUEST_X87_LAST_OPCODE_OFFSET,
         ] {
@@ -310,35 +311,16 @@ fn native_x87_stack_metadata_pending_error_guard_is_noncommitting() {
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 #[test]
 fn native_x87_sign_payload_is_bit_exact_for_dynamic_top_and_special_values() {
+    // (operation, ST(i), FOP, sign-and-exponent word before, after): the
+    // sign is bit 15 of the word (bit 79 of the binary80 value), and the
+    // significand never changes.
     for (kind, st, fop, input, expected) in [
-        (
-            X86X87DataKind::ChangeSign,
-            0,
-            0x01E0,
-            0x7FF8_A5A5_5A5A_1234,
-            0xFFF8_A5A5_5A5A_1234,
-        ),
-        (
-            X86X87DataKind::ChangeSign,
-            0,
-            0x01E0,
-            0x7FF0_A5A5_5A5A_1234,
-            0xFFF0_A5A5_5A5A_1234,
-        ),
-        (
-            X86X87DataKind::Absolute,
-            1,
-            0x01E1,
-            0xFFF0_A5A5_5A5A_1234,
-            0x7FF0_A5A5_5A5A_1234,
-        ),
-        (
-            X86X87DataKind::Absolute,
-            1,
-            0x01E1,
-            0x8000_0000_0000_0000,
-            0,
-        ),
+        (X86X87DataKind::ChangeSign, 0, 0x01E0, 0x7FFF, 0xFFFF),
+        (X86X87DataKind::ChangeSign, 0, 0x01E0, 0x3FFF, 0xBFFF),
+        (X86X87DataKind::ChangeSign, 0, 0x01E0, 0x0000, 0x8000),
+        (X86X87DataKind::Absolute, 1, 0x01E1, 0xFFFF, 0x7FFF),
+        (X86X87DataKind::Absolute, 1, 0x01E1, 0x8000, 0x0000),
+        (X86X87DataKind::Absolute, 1, 0x01E1, 0x4001, 0x4001),
     ] {
         for top in 0..8usize {
             for tag in 0..3u64 {
@@ -347,17 +329,23 @@ fn native_x87_sign_payload_is_bit_exact_for_dynamic_top_and_special_values() {
                     regs.x87_tag_word = tag << (top * 2);
                     regs.x87_payload =
                         std::array::from_fn(|index| 0xA500_0000_0000_0000 | index as u64);
-                    regs.x87_payload[top] = input;
+                    regs.x87_payload_high = std::array::from_fn(|index| 0x1230 | index as u64);
+                    regs.x87_payload_high[top] = input;
                 });
                 assert_eq!(
-                    result.x87_payload[top], expected,
+                    result.x87_payload_high[top], expected,
                     "{kind:?}, TOP={top}, tag={tag}"
                 );
                 for index in 0..8 {
+                    assert_eq!(
+                        result.x87_payload[index],
+                        0xA500_0000_0000_0000 | index as u64,
+                        "{kind:?}, TOP={top}, tag={tag}, significand {index}"
+                    );
                     if index != top {
                         assert_eq!(
-                            result.x87_payload[index],
-                            0xA500_0000_0000_0000 | index as u64,
+                            result.x87_payload_high[index],
+                            0x1230 | index as u64,
                             "{kind:?}, TOP={top}, tag={tag}, physical={index}"
                         );
                     }
@@ -385,6 +373,7 @@ fn native_x87_sign_payload_empty_stack_guard_is_noncommitting() {
             regs.x87_status_word = (5 << 11) | 0x4700 | 0x003F;
             regs.x87_tag_word = 3 << (5 * 2);
             regs.x87_payload = std::array::from_fn(|index| 0xA500_0000_0000_0000 | index as u64);
+            regs.x87_payload_high = std::array::from_fn(|index| 0x1230 | index as u64);
         });
         assert_eq!(result.exit_pc, 0x1000, "{kind:?}");
         assert_eq!(result.x87_status_word, (5 << 11) | 0x4700 | 0x003F);
@@ -392,6 +381,10 @@ fn native_x87_sign_payload_empty_stack_guard_is_noncommitting() {
         assert_eq!(
             result.x87_payload,
             std::array::from_fn(|index| 0xA500_0000_0000_0000 | index as u64)
+        );
+        assert_eq!(
+            result.x87_payload_high,
+            std::array::from_fn(|index| 0x1230 | index as u64)
         );
         assert_eq!(result.x87_instr_ptr, 0x8877_6655_4433_2211);
         assert_eq!(result.x87_last_opcode, 0x05A5);

@@ -55,14 +55,16 @@ fn read_f64(mem: &vm_memory::GuestMemoryMmap, addr: u64) -> f64 {
     f64::from_le_bytes(buf)
 }
 
-// FPU Environment offsets (28 bytes in protected mode)
+// FPU environment offsets: the 28-byte 32-bit protected-mode format, which
+// FLDENV/FNSTENV use in 64-bit mode without an operand-size prefix (Intel
+// SDM Vol. 1, Figure 8-9: each field starts a doubleword).
 const ENV_FCW: usize = 0; // FPU Control Word (2 bytes)
-const ENV_FSW: usize = 2; // FPU Status Word (2 bytes)
-const ENV_FTW: usize = 4; // FPU Tag Word (2 bytes)
-const ENV_FIP: usize = 6; // Instruction Pointer (2 bytes)
-const ENV_FCS: usize = 8; // Code Segment (2 bytes)
-const ENV_FDP: usize = 10; // Data Pointer (2 bytes)
-const ENV_FDS: usize = 12; // Data Segment (2 bytes)
+const ENV_FSW: usize = 4; // FPU Status Word (2 bytes)
+const ENV_FTW: usize = 8; // FPU Tag Word (2 bytes)
+const ENV_FIP: usize = 12; // Instruction Pointer offset (4 bytes)
+const ENV_FCS: usize = 16; // Instruction Pointer selector (2 bytes); FOP in bits 26:16
+const ENV_FDP: usize = 20; // Data Pointer offset (4 bytes)
+const ENV_FDS: usize = 24; // Data Pointer selector (2 bytes)
 const ENV_SIZE: usize = 28; // Total environment size
 
 // Status word bit definitions
@@ -396,9 +398,11 @@ fn test_fldenv_then_arithmetic() {
     ];
 
     let (mut vcpu, mem) = setup_vm(&code, None);
-    // Prepare environment
+    // Prepare environment: every register empty (a zero tag word would make
+    // them all valid, and the loads would overflow the stack).
     write_u16(&mem, 0x2000 + ENV_FCW as u64, 0x037F);
     write_u16(&mem, 0x2000 + ENV_FSW as u64, 0x0000);
+    write_u16(&mem, 0x2000 + ENV_FTW as u64, 0xFFFF);
     write_f64(&mem, 0x3000, 1.5);
     write_f64(&mem, 0x3008, 2.5);
 

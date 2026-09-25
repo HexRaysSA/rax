@@ -303,11 +303,9 @@ pub struct GuestRegs {
     /// Non-zero when a native region reads or writes the x87 environment or
     /// tag word. Interpreter callouts use it to synchronize the environment.
     pub x87_state_active: u64,
-    /// Raw IEEE 754 binary64 bits for the direct engine's eight physical x87
-    /// register slots. The direct engine currently projects binary80 payloads
-    /// to `f64`; retaining raw bits here makes sign-only native operations
-    /// preserve zeros, infinities, subnormals, and NaN payload/sign exactly
-    /// within that established representation.
+    /// Bits 63:0 (the significand, with its explicit integer bit) of the
+    /// direct engine's eight physical x87 registers R0-R7 in their exact
+    /// binary80 encoding; bits 79:64 are in `x87_payload_high`.
     pub x87_payload: [u64; 8],
     /// Non-zero when `x87_payload` participates in native execution or an
     /// interpreter callout. This separate append-only marker preserves the
@@ -330,6 +328,10 @@ pub struct GuestRegs {
     /// register writeback; ordinary load/store callbacks are never substituted.
     /// Append-only execution metadata, not serialized architectural state.
     pub atomic_rmw_fn: u64,
+    /// Bits 79:64 (the sign in bit 15 and the biased exponent) of each
+    /// physical x87 register, in the low 16 bits of its slot; the rest of
+    /// each slot is zero. Append-only; synchronized with `x87_payload`.
+    pub x87_payload_high: [u64; 8],
 }
 
 pub const X86_VECTOR_STATE_INACTIVE: u64 = 0;
@@ -439,6 +441,7 @@ impl Default for GuestRegs {
             x86_vsib_frontier_lane_plus_one: 0,
             x86_vsib_instruction_ordinal: 0,
             atomic_rmw_fn: 0,
+            x87_payload_high: [0; 8],
         }
     }
 }

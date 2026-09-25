@@ -251,7 +251,7 @@ impl X86_64Vcpu {
         match component {
             0 => {
                 self.fpu.init();
-                self.fpu.st = [0.0; 8];
+                self.fpu.st = [[0; 10]; 8];
             }
             2 => self.regs.ymm_high = [[0; 2]; 16],
             5 => self.regs.k = [0; 8],
@@ -283,7 +283,7 @@ impl X86_64Vcpu {
         b[16..24].copy_from_slice(&self.fpu.data_ptr.to_le_bytes());
         for i in 0..8 {
             let at = 32 + i * 16;
-            b[at..at + 10].copy_from_slice(&execute::fpu::f64_to_f80_pub(self.fpu.get_st(i as u8)));
+            b[at..at + 10].copy_from_slice(&self.fpu.get_st_raw(i as u8));
         }
     }
 
@@ -319,22 +319,17 @@ impl X86_64Vcpu {
         self.fpu.control_word = half(0);
         self.fpu.status_word = half(2);
         self.fpu.top = ((self.fpu.status_word >> 11) & 7) as u8;
-        self.fpu.tag_word = 0;
-        for i in 0..8 {
-            if b[4] & (1 << i) == 0 {
-                self.fpu.tag_word |= 3 << (i * 2);
-            }
-        }
         self.fpu.last_opcode = half(6);
         self.fpu.instr_ptr = quad(8);
         self.fpu.data_ptr = quad(16);
         for i in 0..8 {
             let at = 32 + i * 16;
-            // Stack order; the abridged tag word above says which
-            // registers are empty, so set_st (which retags) is not used.
+            // Stack order.
             let idx = self.fpu.st_index(i as u8);
-            self.fpu.st[idx] = execute::fpu::f80_to_f64_pub(&b[at..at + 10]);
+            self.fpu.st[idx].copy_from_slice(&b[at..at + 10]);
         }
+        // Full tags from the abridged word and the loaded registers.
+        self.fpu.restore_abridged_tag_word(b[4]);
     }
 
     fn get_xmm(&mut self, b: &[u8]) {

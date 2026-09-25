@@ -78,7 +78,9 @@ fn cpu(kind: Restore, rex_w: bool) -> (X86_64Vcpu, Arc<GuestMemoryMmap>) {
     vcpu.fpu.instr_ptr = 0x1122_3344_5566_7788;
     vcpu.fpu.data_ptr = 0x8877_6655_4433_2211;
     vcpu.fpu.last_opcode = 0x3A5;
-    vcpu.fpu.st = std::array::from_fn(|index| index as f64 + 0.25);
+    vcpu.fpu.st = std::array::from_fn(|index| {
+        crate::smir::interpret::SmirInterpreter::x86_x87_from_f64(index as f64 + 0.25)
+    });
     for index in 0..16 {
         vcpu.regs.xmm[index] = [0x1111_2222_3333_4444 ^ index as u64; 2];
         vcpu.regs.ymm_high[index] = [0x5555_6666_7777_8888 ^ index as u64; 2];
@@ -120,8 +122,8 @@ fn image(memory: &GuestMemoryMmap, addr: u64, kind: Restore, xstate: u64, mxcsr:
 }
 
 fn payload(vcpu: &X86_64Vcpu) -> (Vec<u8>, Vec<u8>) {
-    // Bincode preserves the exact f64 bit patterns in the existing snapshot
-    // representation, including signed zero and NaN payloads.
+    // Bincode preserves the exact binary80 register bytes of the snapshot,
+    // including signed zero and NaN payloads.
     (
         bincode::serialize(&vcpu.regs).unwrap(),
         bincode::serialize(&vcpu.get_emulator_state().unwrap()).unwrap(),
@@ -427,7 +429,7 @@ fn direct_mxcsr_restore_snapshot_rejects_reserved_bits_without_mutation() {
         let mut state = vcpu.get_emulator_state().unwrap();
         state.mxcsr = 0x1F80 | (1 << bit);
         state.fpu.control_word ^= 0x400;
-        state.fpu.st[0] = -0.0;
+        state.fpu.st[0] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80]; // -0.0
         state.lazy_flags.op = 1;
         state.lazy_flags.result = u64::MAX;
         state.kernel_gs_base ^= u64::MAX;
@@ -451,7 +453,8 @@ fn direct_mxcsr_restore_snapshot_roundtrips_supported_mxcsr_and_all_existing_fie
         let (mut vcpu, _) = cpu(Restore::Fx, false);
         let mut state = vcpu.get_emulator_state().unwrap();
         state.mxcsr = mxcsr;
-        state.fpu.st = [f64::from_bits(0x7FF8_0000_0000_0042); 8];
+        // A quiet NaN with a payload, in binary80.
+        state.fpu.st = [[0x42, 0, 0, 0, 0, 0, 0, 0xC0, 0xFF, 0x7F]; 8];
         state.fpu.top = 7;
         state.fpu.status_word = 7 << 11;
         state.lazy_flags.op = 5;

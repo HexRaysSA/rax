@@ -24,11 +24,17 @@ impl X86_64Vcpu {
     }
 
     pub(super) fn marshal_x87_payload_to_guest_regs(&self, gr: &mut GuestRegs) {
-        gr.x87_payload = self.fpu.st.map(f64::to_bits);
+        for (physical, raw) in self.fpu.st.iter().enumerate() {
+            gr.x87_payload[physical] = u64::from_le_bytes(raw[..8].try_into().unwrap());
+            gr.x87_payload_high[physical] = u64::from(u16::from_le_bytes([raw[8], raw[9]]));
+        }
     }
 
     pub(super) fn marshal_x87_payload_from_guest_regs(&mut self, gr: &GuestRegs) {
-        self.fpu.st = gr.x87_payload.map(f64::from_bits);
+        for (physical, raw) in self.fpu.st.iter_mut().enumerate() {
+            raw[..8].copy_from_slice(&gr.x87_payload[physical].to_le_bytes());
+            raw[8..].copy_from_slice(&(gr.x87_payload_high[physical] as u16).to_le_bytes());
+        }
     }
 
     /// Publish every x87 state channel used by a real compiled region. The
@@ -79,10 +85,14 @@ impl FpuState {
             }
         }
         for index in 0..8 {
-            let interp = self.st[index].to_bits();
-            let jit = native.st[index].to_bits();
+            let raw = |st: &[u8; 10]| {
+                let mut wide = [0u8; 16];
+                wide[..10].copy_from_slice(st);
+                u128::from_le_bytes(wide)
+            };
+            let (interp, jit) = (raw(&self.st[index]), raw(&native.st[index]));
             if interp != jit {
-                diffs.push(format!("st{index}: interp={interp:#x} jit={jit:#x}"));
+                diffs.push(format!("r{index}: interp={interp:#022x} jit={jit:#022x}"));
             }
         }
     }

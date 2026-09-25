@@ -430,9 +430,12 @@ fn test_fxrstor_then_arithmetic() {
     ];
 
     let (mut vcpu, mem) = setup_vm(&code, None);
-    // Prepare restore area
+    // Prepare restore area: the abridged tag word marks only R0 (ST(0) with
+    // TOP = 0, holding +0.0) non-empty; with every register empty FADDP
+    // would underflow the stack.
     write_u16(&mem, 0x2000 + FXSAVE_FCW, 0x037F);
     write_u16(&mem, 0x2000 + FXSAVE_FSW, 0x0000);
+    write_u16(&mem, 0x2000 + FXSAVE_FTW, 0x0001);
     write_f64(&mem, 0x2008, 1.5);
 
     run_until_hlt(&mut vcpu).unwrap();
