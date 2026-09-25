@@ -10,16 +10,17 @@
   `fs/sync.c`, `kernel/groups.c`, `mm/readahead.c`,
   `include/linux/xattr.h`, `drivers/perf/riscv_pmu_sbi.c`, `fs/locks.c`,
   `fs/fcntl.c`, `net/netlink/af_netlink.c`, `net/core/rtnetlink.c`,
-  `net/ipv4/devinet.c`, and `net/ipv6/addrconf.c` came from kernel.org's
+  `net/ipv4/devinet.c`, `net/ipv6/addrconf.c`, `net/core/dev.c`, and
+  `net/core/dev_ioctl.c` came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
-  `fs/locks.c`, `fs/fcntl.c`, and the four `net/` files above: 25 September
+  `fs/locks.c`, `fs/fcntl.c`, and the six `net/` files above: 25 September
   2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (55 files),
-  `GPL-2.0-only` (29), `GPL-2.0-or-later` (22), `GPL-2.0+` (1), or
+- License: the files carry an SPDX identifier: `GPL-2.0` (56 files),
+  `GPL-2.0-only` (29), `GPL-2.0-or-later` (23), `GPL-2.0+` (1), or
   `GPL-1.0+` (1); `mm/memfd.c` and `mm/shmem.c` have none and state
   "This file is released under the GPL." in their headers. The license
   texts are the kernel tree's `LICENSES/preferred/GPL-2.0` and
@@ -61,6 +62,7 @@ behavior it reproduces beyond what the UAPI headers
 | RISC-V user counter access (`scounteren`: only `time`, so `rdcycle` and `rdinstret` raise `SIGILL` unless a perf event is mapped) | `drivers/perf/riscv_pmu_sbi.c` (`sysctl_perf_user_access`, `pmu_sbi_starting_cpu`) |
 | File locks | `fs/locks.c` (`flock`, `fcntl_getlk`, `fcntl_setlk`, `flock64_to_posix_lock`, `flock_lock_inode`, `locks_remove_posix`), `fs/fcntl.c` (`do_fcntl`, `check_fcntl_cmd`) |
 | Netlink route sockets | `net/netlink/af_netlink.c` (`netlink_create`, `netlink_bind`, `netlink_autobind`, `netlink_connect`, `netlink_getname`, `netlink_sendmsg`, `netlink_recvmsg`, `netlink_dump`, `netlink_ack`, `netlink_rcv_skb`, `netlink_setsockopt`, `netlink_getsockopt`), `net/core/rtnetlink.c` (`rtnetlink_rcv_msg`, `rtnl_dumpit`, `rtnl_dump_all`, `rtnl_getlink`, `rtnl_fill_ifinfo`, `rtnetlink_bind`), `net/ipv4/devinet.c` (`inet_fill_ifaddr`, `inet_set_ifa`), `net/ipv6/addrconf.c` (`inet6_fill_ifaddr`, `inet6_rtm_getaddr`, `ipv6_link_dev_addr`) |
+| Interface requests | `net/socket.c` (`sock_ioctl`, `sock_do_ioctl`, `get_user_ifreq`), `net/core/dev_ioctl.c` (`dev_ioctl`, `dev_ifconf`, `dev_ifname`, `dev_ifsioc_locked`, `dev_getifmap`), `net/core/dev.c` (`netdev_get_name`, `netdev_copy_name`, `netif_get_mac_address`, `netif_get_flags`), `net/ipv4/af_inet.c` (`inet_ioctl`), `net/ipv4/devinet.c` (`devinet_ioctl`, `inet_gifconf`), `net/ipv6/af_inet6.c` (`inet6_ioctl`), `net/ipv6/addrconf.c` (`addrconf_add_ifaddr`, `addrconf_del_ifaddr`, `addrconf_set_dstaddr`) |
 | Supplementary groups, read-ahead, and range sync | `kernel/groups.c` (`setgroups`, `getgroups`), `mm/readahead.c` (`ksys_readahead`), `fs/sync.c` (`sync_file_range`) |
 
 Code comments name the kernel function whose behavior an implementation

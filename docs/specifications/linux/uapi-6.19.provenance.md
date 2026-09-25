@@ -17,7 +17,7 @@
 - Integrity: `uapi-6.19.sha256` lists the SHA-256 of every imported file.
 - License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (74 files),
   `GPL-2.0-only WITH Linux-syscall-note` (5 files), or
-  `GPL-2.0+ WITH Linux-syscall-note` (9 files) SPDX identifiers. Nine
+  `GPL-2.0+ WITH Linux-syscall-note` (10 files) SPDX identifiers. Nine
   files have no SPDX line: the six generated syscall tables and the
   generated `linux/version.h`, derived from kernel sources under the same
   terms; `linux/membarrier.h`, whose upstream header has none; and
@@ -48,7 +48,9 @@ These headers are the normative reference for:
   `asm-generic/socket.h`), signal frames);
 - netlink and rtnetlink messages, attributes, groups, and options
   (`linux/netlink.h`, `linux/rtnetlink.h`, `linux/if_link.h`,
-  `linux/if_addr.h`, `linux/if_arp.h`, `linux/if.h`);
+  `linux/if_addr.h`, `linux/if_arp.h`, `linux/if.h`), and the interface
+  requests (`linux/sockios.h`, with `struct ifreq` and `struct ifconf` in
+  `linux/if.h`);
 - auxiliary-vector tags and per-architecture `AT_HWCAP` bits.
 
 `tests/suites/user/linux/abi_tables.rs` (Cargo target `user_linux`) parses the syscall and errno tables in
