@@ -146,7 +146,10 @@ static void other_objects(void) {
     int ev = eventfd(0, 0);
     CHECK_ERR("eventfd-set", fsetxattr(ev, "user.p", "x", 1, 0), EPERM);
     CHECK_ERR("eventfd-get", fgetxattr(ev, "user.p", buf, sizeof buf), ENODATA);
-    CHECK_ERR("eventfd-trusted", fgetxattr(ev, "trusted.x", buf, sizeof buf), ENODATA);
+    /* trusted.* reads as missing without CAP_SYS_ADMIN; with it, the
+     * anonymous inode has no handler. Root may or may not have it. */
+    int r = fgetxattr(ev, "trusted.x", buf, sizeof buf);
+    CHECK("eventfd-trusted", r == -1 && (errno == ENODATA || (geteuid() == 0 && errno == EOPNOTSUPP)));
     close(ev);
     /* A socket's inode names its protocol. */
     int us = socket(AF_UNIX, SOCK_STREAM, 0), ud = socket(AF_UNIX, SOCK_DGRAM, 0);

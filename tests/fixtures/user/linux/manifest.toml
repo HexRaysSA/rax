@@ -132,7 +132,7 @@ sha256 = "fa7c0602b91c5ca401ca2441ac08fee23ebdc45d491f1b731963569093a6726a"
 path = "bin/x86_64/xattr"
 source = "src/xattr.c"
 target = "x86_64-linux-musl"
-sha256 = "a6e4daf4d0b6cf71dfc6951009fdf3dd1070bdf48f0eefa2510a27fa6b3f8c8e"
+sha256 = "54299c8eca250d48e54e3f9a9b4b509b8a037d2b656a901616fcfb85f4687943"
 
 [[fixture]]
 path = "bin/x86_64/stdin"
@@ -288,7 +288,7 @@ sha256 = "ded9e4136ef56072f63e7ebedc857ed641d4ec1536704ed4a2ef3123f87f04d3"
 path = "bin/aarch64/xattr"
 source = "src/xattr.c"
 target = "aarch64-linux-musl"
-sha256 = "8a034e1d60b660eb78ef75c660b81ed0b2654c5d6dde178970f3fb3b002533b2"
+sha256 = "ef903e6401674ca5a4041d8fda5b83b1d204a457359f05ab828b8b7852a3a68a"
 
 [[fixture]]
 path = "bin/aarch64/stdin"
@@ -444,7 +444,7 @@ sha256 = "d34dc632492559dda4e1b9f59e5c4456176757fb33cd48e247ac97b668cc3d15"
 path = "bin/riscv64/xattr"
 source = "src/xattr.c"
 target = "riscv64-linux-musl"
-sha256 = "0a7ea4f35db554b8d5264004707fd902f3f8deb703b2db1a0704a8f533daff5d"
+sha256 = "dffb711556318a9ea505138f5894c762e6d523532bff577cea564a0febe914a8"
 
 [[fixture]]
 path = "bin/riscv64/stdin"
