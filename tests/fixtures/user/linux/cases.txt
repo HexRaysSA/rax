@@ -48,6 +48,7 @@ aio      aio      -
 splice   splice   -
 ptrace   ptrace   -
 ptracestops ptracestops -
+ptraceregs ptraceregs -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

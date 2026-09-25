@@ -27,6 +27,7 @@ mod priority;
 mod procfs;
 mod procmem;
 mod ptrace;
+mod ptrace_regsets;
 mod ptrace_stops;
 mod rseq;
 mod seccomp;

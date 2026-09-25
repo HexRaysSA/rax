@@ -31,6 +31,20 @@ const NSIG: u64 = 64;
 const SIGSET: u64 = 8;
 /// `sizeof(siginfo_t)`.
 const SIGINFO: usize = 128;
+/// `sizeof(struct user_i387_struct)`.
+const USER_I387: usize = 512;
+/// `sizeof(struct ptrace_rseq_configuration)`.
+const RSEQ_CONFIGURATION: u64 = 24;
+/// `PTRACE_PEEKSIGINFO_SHARED`.
+const PEEKSIGINFO_SHARED: u32 = 1;
+
+/// `arch_prctl` codes `do_arch_prctl_64` takes for another task.
+mod arch {
+    pub const SET_GS: u64 = 0x1001;
+    pub const SET_FS: u64 = 0x1002;
+    pub const GET_FS: u64 = 0x1003;
+    pub const GET_GS: u64 = 0x1004;
+}
 
 /// The link with this identity, if it is still there.
 pub fn link_mut(p: &mut ProcState, id: LinkId) -> Option<&mut Link> {
@@ -282,7 +296,7 @@ fn ask(
             let iov = c.read_mem(data, 16)?;
             let base = u64::from_le_bytes(iov[..8].try_into().unwrap());
             let len = u64::from_le_bytes(iov[8..].try_into().unwrap());
-            let (unit, size) = regs::layout(c.p.abi, addr)?;
+            let (unit, size) = regs::layout(&c.t.cpu, addr)?;
             if len % unit != 0 {
                 return Err(Errno(EINVAL));
             }
@@ -295,8 +309,24 @@ fn ask(
             }
             data = len;
         }
-        req::GETSIGINFO | req::GETEVENTMSG => {}
+        req::GETFPREGS | req::SETFPREGS if x86 => {
+            if request == req::SETFPREGS {
+                payload = c.read_mem(data, USER_I387)?;
+            }
+        }
+        req::ARCH_PRCTL if x86 => {}
+        req::GETSIGINFO | req::GETEVENTMSG | req::GET_RSEQ_CONFIGURATION => {}
         req::SETSIGINFO => payload = c.read_mem(data, SIGINFO)?,
+        req::PEEKSIGINFO => {
+            // ptrace_peek_siginfo: struct ptrace_peeksiginfo_args (off,
+            // flags, nr); `off` always fits an unsigned long here.
+            payload = c.read_mem(addr, 16)?;
+            let flags = u32::from_le_bytes(payload[8..12].try_into().unwrap());
+            let nr = i32::from_le_bytes(payload[12..16].try_into().unwrap());
+            if flags & !PEEKSIGINFO_SHARED != 0 || nr < 0 {
+                return Err(Errno(EINVAL));
+            }
+        }
         req::SETOPTIONS => check_options(c, data)?,
         req::GETSIGMASK | req::SETSIGMASK => {
             if addr != SIGSET {
@@ -366,7 +396,28 @@ fn answer(c: &mut Ctx<'_>, request: u64, addr: u64, data: u64, link: LinkId) -> 
         req::PEEKTEXT | req::PEEKDATA | req::PEEKUSR | req::GETEVENTMSG => {
             c.write_mem(data, &payload[..8])?;
         }
-        req::GETREGS | req::GETSIGINFO | req::GETSIGMASK => c.write_mem(data, &payload)?,
+        req::GETREGS | req::GETFPREGS | req::GETSIGINFO | req::GETSIGMASK => {
+            c.write_mem(data, &payload)?
+        }
+        // do_arch_prctl_64's put_user of a base, into the tracer.
+        req::ARCH_PRCTL if !payload.is_empty() => c.write_mem(addr, &payload)?,
+        // Each record copied in turn: a fault ends the copy, an error only
+        // for the first.
+        req::PEEKSIGINFO => {
+            for (i, rec) in payload.chunks_exact(SIGINFO).enumerate() {
+                if c.write_mem(data + (i * SIGINFO) as u64, rec).is_err() {
+                    return if i > 0 {
+                        Ok(i as u64)
+                    } else {
+                        Err(Errno(EFAULT))
+                    };
+                }
+            }
+        }
+        req::GET_RSEQ_CONFIGURATION => {
+            let n = RSEQ_CONFIGURATION.min(addr) as usize;
+            c.write_mem(data, &payload[..n])?;
+        }
         // ptrace_get_syscall_info: as much of the structure as both the
         // caller's size and the stop's meaningful size allow.
         req::GET_SYSCALL_INFO => {
@@ -583,6 +634,41 @@ fn serve(
             Ok(()) => (0, data.to_le_bytes().to_vec()),
             Err(e) => fail(e.0),
         },
+        req::GETFPREGS => (0, regs::fpregs(&t.cpu)),
+        req::SETFPREGS => match regs::set_fpregs(&mut t.cpu, payload) {
+            Ok(()) => (0, Vec::new()),
+            Err(e) => fail(e.0),
+        },
+        req::ARCH_PRCTL => arch_prctl(t, data, addr),
+        req::PEEKSIGINFO => {
+            let off = u64::from_le_bytes(payload[..8].try_into().unwrap());
+            let flags = u32::from_le_bytes(payload[8..12].try_into().unwrap());
+            let nr = i32::from_le_bytes(payload[12..16].try_into().unwrap());
+            let pending = if flags & PEEKSIGINFO_SHARED != 0 {
+                &p.shared_pending
+            } else {
+                &t.pending
+            };
+            let out: Vec<u8> = pending
+                .records()
+                .skip(usize::try_from(off).unwrap_or(usize::MAX))
+                .take(nr as usize)
+                .flat_map(|info| info.encode())
+                .collect();
+            ((out.len() / SIGINFO) as i64, out)
+        }
+        req::GET_RSEQ_CONFIGURATION => {
+            // ptrace_get_rseq_configuration: the registration, no flags.
+            let (addr, len, sig) = t
+                .rseq
+                .as_ref()
+                .map_or((0, 0, 0), |r| (r.addr, r.len, r.sig));
+            let mut b = addr.to_le_bytes().to_vec();
+            b.extend_from_slice(&len.to_le_bytes());
+            b.extend_from_slice(&sig.to_le_bytes());
+            b.extend_from_slice(&[0; 8]);
+            (RSEQ_CONFIGURATION as i64, b)
+        }
         req::GET_SYSCALL_INFO => {
             let s = tr.stop.as_ref();
             let op = call::op(s.and_then(|s| s.info.as_ref()), tr.message);
@@ -664,6 +750,31 @@ fn serve(
             (0, Vec::new())
         }
         _ => fail(EIO),
+    }
+}
+
+/// `do_arch_prctl_64` on a traced thread (x86-64): a base in user space
+/// set (`EPERM` beyond it), or read for the tracer to store.
+fn arch_prctl(t: &mut Thread, code: u64, value: u64) -> (i64, Vec<u8>) {
+    let GuestCpu::X86_64(cpu) = &mut t.cpu else {
+        return (-(EIO as i64), Vec::new());
+    };
+    let v = cpu.vcpu_mut();
+    match code {
+        arch::SET_FS | arch::SET_GS => {
+            if value >= LinuxAbi::X86_64.task_size() {
+                return (-(EPERM as i64), Vec::new());
+            }
+            if code == arch::SET_FS {
+                v.set_fs_base(value);
+            } else {
+                v.set_gs_base(value);
+            }
+            (0, Vec::new())
+        }
+        arch::GET_FS => (0, v.fs_base().to_le_bytes().to_vec()),
+        arch::GET_GS => (0, v.gs_base().to_le_bytes().to_vec()),
+        _ => (-(EINVAL as i64), Vec::new()),
     }
 }
 

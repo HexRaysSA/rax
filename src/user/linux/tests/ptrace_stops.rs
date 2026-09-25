@@ -20,8 +20,8 @@ use crate::user::linux::signal::{SIGSTOP, SIGTRAP, SIGUSR1, SigInfo, code, sa};
 use crate::user::linux::syscall::ptrace::{mode, parked};
 
 /// The tracer's end of thread 0's link to it.
-struct Tracer {
-    link: Link,
+pub(super) struct Tracer {
+    pub(super) link: Link,
 }
 
 fn e(errno: i32) -> i64 {
@@ -30,7 +30,7 @@ fn e(errno: i32) -> i64 {
 
 /// Makes thread 0 traced along its parent link with `options`, stopped in
 /// a signal-delivery-stop (`SIGSTOP`) so that the tracer can resume it.
-fn traced(h: &mut Harness, options: u64) -> Tracer {
+pub(super) fn traced(h: &mut Harness, options: u64) -> Tracer {
     let (mine, theirs) = Link::pair().unwrap();
     h.proc.state.parent_link = Some(mine);
     let tracer = h.proc.state.ppid;
@@ -50,7 +50,7 @@ fn traced(h: &mut Harness, options: u64) -> Tracer {
 }
 
 /// A request to thread 0 as its tracer makes it: the answer and its bytes.
-fn ask(
+pub(super) fn ask(
     h: &mut Harness,
     tr: &mut Tracer,
     request: u64,
@@ -79,7 +79,7 @@ fn ask(
 
 /// Resumes thread 0 with `request` and signal `sig`, and lets it take the
 /// stop's verdict (as it would on its way back to user mode).
-fn resume(h: &mut Harness, tr: &mut Tracer, request: u64, sig: u64) -> i64 {
+pub(super) fn resume(h: &mut Harness, tr: &mut Tracer, request: u64, sig: u64) -> i64 {
     let (ret, _) = ask(h, tr, request, 0, sig, &[]);
     if ret == 0 && !crate::user::linux::syscall::ptrace::resumed_in_call(&h.proc.threads[0]) {
         h.proc.deliver_signals(0);
@@ -396,11 +396,12 @@ fn aarch64_system_call_register_set() {
     resume(&mut h, &mut tr, req::SYSCALL, 0);
     let nr = make_call(&mut h, Sysno::Getpid, [0; 6]);
     assert_eq!(
-        regs::layout(LinuxAbi::Aarch64, regs::NT_ARM_SYSTEM_CALL),
+        regs::layout(&h.proc.threads[0].cpu, regs::NT_ARM_SYSTEM_CALL),
         Ok((4, 4))
     );
+    let x86 = Harness::new(LinuxAbi::X86_64);
     assert_eq!(
-        regs::layout(LinuxAbi::X86_64, regs::NT_ARM_SYSTEM_CALL).map_err(|e| e.0),
+        regs::layout(&x86.proc.threads[0].cpu, regs::NT_ARM_SYSTEM_CALL).map_err(|e| e.0),
         Err(EINVAL)
     );
     let (ret, b) = ask(

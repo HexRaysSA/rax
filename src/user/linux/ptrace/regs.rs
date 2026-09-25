@@ -1,10 +1,11 @@
 //! Register sets a tracer reads and writes: `NT_PRSTATUS` (and, on
-//! x86-64, `PTRACE_GETREGS` and the `struct user` of `PTRACE_PEEKUSR`) and
-//! AArch64's `NT_ARM_SYSTEM_CALL`, laid out as each architecture's
-//! `ptrace.h` defines them and checked on writing as its `ptrace.c` checks
-//! them.
+//! x86-64, `PTRACE_GETREGS` and the `struct user` of `PTRACE_PEEKUSR`),
+//! the floating-point registers (`NT_PRFPREG`; x86-64's
+//! `PTRACE_GETFPREGS`), x86-64's whole XSAVE area (`NT_X86_XSTATE`), and
+//! AArch64's `NT_ARM_TLS` and `NT_ARM_SYSTEM_CALL`, laid out as each
+//! architecture's `ptrace.h` and `asm/user.h` define them and checked on
+//! writing as its `ptrace.c` (x86-64's `fpu/regset.c`) checks them.
 
-use super::super::abi::LinuxAbi;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::arch::GuestCpu;
@@ -14,8 +15,27 @@ use crate::isa::x86_64::{LINUX_USER_CS, LINUX_USER_DS};
 
 /// `NT_PRSTATUS`.
 pub const NT_PRSTATUS: u64 = 1;
+/// `NT_PRFPREG`: x86-64's `FXSAVE` area (`struct user_i387_struct`),
+/// AArch64's `struct user_fpsimd_state`, RISC-V's
+/// `struct __riscv_d_ext_state`.
+pub const NT_PRFPREG: u64 = 2;
+/// `NT_X86_XSTATE`: x86-64's XSAVE area in the standard format.
+pub const NT_X86_XSTATE: u64 = 0x202;
+/// `NT_ARM_TLS`: `TPIDR_EL0`, then `TPIDR2_EL0` (zero without SME).
+pub const NT_ARM_TLS: u64 = 0x401;
 /// `NT_ARM_SYSTEM_CALL`: AArch64's `syscallno`, an `int`.
 pub const NT_ARM_SYSTEM_CALL: u64 = 0x404;
+
+/// `sizeof(struct fxregs_state)`.
+const X86_FXSAVE: usize = 512;
+/// The part of the `FXSAVE` area `XSTATE_COPY_FX` fills: up to the end of
+/// `xmm_space` (the reserved tail is zero).
+const X86_FX_USED: usize = 416;
+/// `sizeof(struct user_fpsimd_state)`: 32 128-bit registers, FPSR, FPCR,
+/// two reserved words.
+const ARM_FPSIMD: usize = 32 * 16 + 16;
+/// `sizeof(struct __riscv_d_ext_state)`: `f[32]`, `fcsr`, padded to 8.
+const RISCV_FP: usize = 32 * 8 + 8;
 
 /// `sizeof(struct user_regs_struct)` on x86-64: 27 registers.
 const X86_REGS: usize = 27 * 8;
@@ -41,15 +61,19 @@ pub fn prstatus_size(cpu: &GuestCpu) -> usize {
     }
 }
 
-/// A register set's element size and whole size on `abi` (its `struct
-/// user_regset`'s `size` and `n * size`), `EINVAL` for one it does not
-/// have (`find_regset`).
-pub fn layout(abi: LinuxAbi, nt: u64) -> Result<(u64, u64), Errno> {
-    Ok(match (nt, abi) {
-        (NT_PRSTATUS, LinuxAbi::X86_64) => (8, X86_REGS as u64),
-        (NT_PRSTATUS, LinuxAbi::Aarch64) => (8, 34 * 8),
-        (NT_PRSTATUS, LinuxAbi::Riscv64) => (8, 32 * 8),
-        (NT_ARM_SYSTEM_CALL, LinuxAbi::Aarch64) => (4, 4),
+/// A register set's element size and whole size on `cpu`'s architecture
+/// (its `struct user_regset`'s `size` and `n * size`), `EINVAL` for one it
+/// does not have (`find_regset`).
+pub fn layout(cpu: &GuestCpu, nt: u64) -> Result<(u64, u64), Errno> {
+    Ok(match (nt, cpu) {
+        (NT_PRSTATUS, _) => (8, prstatus_size(cpu) as u64),
+        (NT_PRFPREG, GuestCpu::X86_64(_)) => (8, X86_FXSAVE as u64),
+        // fpsr and fpcr are 32 bits wide, so the set is of words.
+        (NT_PRFPREG, GuestCpu::Aarch64(_)) => (4, ARM_FPSIMD as u64),
+        (NT_PRFPREG, GuestCpu::Riscv64(_)) => (8, RISCV_FP as u64),
+        (NT_X86_XSTATE, GuestCpu::X86_64(c)) => (8, c.vcpu().xsave_standard_size() as u64),
+        (NT_ARM_TLS, GuestCpu::Aarch64(_)) => (8, 16),
+        (NT_ARM_SYSTEM_CALL, GuestCpu::Aarch64(_)) => (4, 4),
         _ => return Err(Errno(EINVAL)),
     })
 }
@@ -57,13 +81,21 @@ pub fn layout(abi: LinuxAbi, nt: u64) -> Result<(u64, u64), Errno> {
 /// Register set `nt` as a whole (`regset_get`).
 pub fn get(cpu: &GuestCpu, syscall: Option<SyscallEntry>, nt: u64) -> Vec<u8> {
     match nt {
+        NT_PRFPREG => fpregs(cpu),
+        NT_X86_XSTATE => xstate(cpu),
+        NT_ARM_TLS => {
+            let mut b = cpu.thread_pointer().to_le_bytes().to_vec();
+            b.extend_from_slice(&[0; 8]);
+            b
+        }
         NT_ARM_SYSTEM_CALL => syscall.map_or(-1, |s| s.nr as i32).to_le_bytes().to_vec(),
         _ => prstatus(cpu, syscall),
     }
 }
 
 /// Writes a prefix of register set `nt` (`regset->set`):
-/// `system_call_set` takes `syscallno` as it is.
+/// `system_call_set` takes `syscallno` as it is; `tls_set` the thread
+/// pointer (`TPIDR2_EL0` is not there without SME).
 pub fn set(
     cpu: &mut GuestCpu,
     syscall: &mut Option<SyscallEntry>,
@@ -71,6 +103,14 @@ pub fn set(
     bytes: &[u8],
 ) -> Result<(), Errno> {
     match nt {
+        NT_PRFPREG => set_fpregs(cpu, bytes),
+        NT_X86_XSTATE => set_xstate(cpu, bytes),
+        NT_ARM_TLS => {
+            if let Some(b) = bytes.get(..8) {
+                cpu.set_thread_pointer(u64::from_le_bytes(b.try_into().unwrap()));
+            }
+            Ok(())
+        }
         NT_ARM_SYSTEM_CALL => {
             if let Some(b) = bytes.get(..4) {
                 let nr = i32::from_le_bytes(b.try_into().unwrap());
@@ -83,6 +123,130 @@ pub fn set(
         }
         _ => set_prstatus(cpu, syscall, bytes),
     }
+}
+
+/// The floating-point registers (`xfpregs_get` in `XSTATE_COPY_FX` mode,
+/// `fpr_get`, `riscv_fpr_get`).
+pub fn fpregs(cpu: &GuestCpu) -> Vec<u8> {
+    match cpu {
+        GuestCpu::X86_64(c) => {
+            // The x87 and SSE parts of the XSAVE image; the reserved tail
+            // (the padding and software bytes) is zero.
+            let image = c.vcpu().xsave_image(0x3);
+            let mut b = image.bytes[..X86_FXSAVE].to_vec();
+            b[X86_FX_USED..].fill(0);
+            b
+        }
+        GuestCpu::Aarch64(c) => fpsimd(c),
+        GuestCpu::Riscv64(c) => {
+            let core = c.core();
+            let mut b = Vec::with_capacity(RISCV_FP);
+            for r in 0..32 {
+                b.extend_from_slice(&core.f(r).to_le_bytes());
+            }
+            b.extend_from_slice(&core.fcsr().to_le_bytes());
+            b.extend_from_slice(&[0; 4]);
+            b
+        }
+    }
+}
+
+/// Writes the floating-point registers: x86-64's `xfpregs_set` takes the
+/// whole area only (`EINVAL`) and refuses reserved MXCSR bits (`EINVAL`);
+/// AArch64's `fpr_set` and RISC-V's `riscv_fpr_set` take a prefix (the
+/// reserved words and padding are not kept).
+pub fn set_fpregs(cpu: &mut GuestCpu, bytes: &[u8]) -> Result<(), Errno> {
+    match cpu {
+        GuestCpu::X86_64(c) => {
+            if bytes.len() != X86_FXSAVE {
+                return Err(Errno(EINVAL));
+            }
+            c.vcpu_mut().fxrstor_image(bytes).map_err(|_| Errno(EINVAL))
+        }
+        GuestCpu::Aarch64(c) => {
+            let mut all = fpsimd(c);
+            let n = bytes.len().min(ARM_FPSIMD);
+            all[..n].copy_from_slice(&bytes[..n]);
+            let core = c.core_mut();
+            for v in 0..32 {
+                let at = 16 * v;
+                core.set_simd(
+                    v as u8,
+                    u128::from_le_bytes(all[at..at + 16].try_into().unwrap()),
+                );
+            }
+            let word = |at: usize| u32::from_le_bytes(all[at..at + 4].try_into().unwrap());
+            core.set_fpsr_value(word(512));
+            core.set_fpcr_value(word(516));
+            Ok(())
+        }
+        GuestCpu::Riscv64(c) => {
+            let core = c.core_mut();
+            for (r, w) in bytes.chunks_exact(8).take(32).enumerate() {
+                core.set_f(r as u8, u64::from_le_bytes(w.try_into().unwrap()));
+            }
+            if let Some(f) = bytes.get(256..260) {
+                core.set_fcsr(u32::from_le_bytes(f.try_into().unwrap()));
+            }
+            Ok(())
+        }
+    }
+}
+
+/// AArch64's `struct user_fpsimd_state`.
+fn fpsimd(c: &crate::user::cpu::aarch64::A64UserCpu) -> Vec<u8> {
+    let core = c.core();
+    let mut b = Vec::with_capacity(ARM_FPSIMD);
+    for v in 0..32 {
+        b.extend_from_slice(&core.get_simd(v).to_le_bytes());
+    }
+    b.extend_from_slice(&core.fpsr_value().to_le_bytes());
+    b.extend_from_slice(&core.fpcr_value().to_le_bytes());
+    b.extend_from_slice(&[0; 8]);
+    b
+}
+
+/// x86-64's XSAVE area (`xstateregs_get`, `copy_xstate_to_uabi_buf` in
+/// `XSTATE_COPY_XSAVE` mode): the image of every enabled component, the
+/// software bytes `xstate_fx_sw_bytes` in the legacy area's reserved tail,
+/// and the header's feature bitmap. Other architectures have none.
+pub fn xstate(cpu: &GuestCpu) -> Vec<u8> {
+    use super::super::signal::frame::x86_64::{FP_XSTATE_MAGIC1, SW_RESERVED};
+    let GuestCpu::X86_64(c) = cpu else {
+        return Vec::new();
+    };
+    let v = c.vcpu();
+    let size = v.xsave_standard_size();
+    let image = v.xsave_image(v.xcr0());
+    let mut b = image.bytes;
+    b.truncate(size);
+    let at = SW_RESERVED as usize;
+    b[at..at + 4].copy_from_slice(&FP_XSTATE_MAGIC1.to_le_bytes());
+    b[at + 4..at + 8].copy_from_slice(&((size + 4) as u32).to_le_bytes());
+    b[at + 8..at + 16].copy_from_slice(&v.xcr0().to_le_bytes());
+    b[at + 16..at + 20].copy_from_slice(&(size as u32).to_le_bytes());
+    b
+}
+
+/// `xstateregs_set`: the whole standard-format area only (`EFAULT`
+/// otherwise, as the kernel answers), loaded as `copy_uabi_to_xstate` does:
+/// a header naming features that are not enabled or with reserved bits
+/// set, or reserved MXCSR bits, are refused (`EINVAL`), and components the
+/// header leaves out are initialized.
+pub fn set_xstate(cpu: &mut GuestCpu, bytes: &[u8]) -> Result<(), Errno> {
+    let GuestCpu::X86_64(c) = cpu else {
+        return Err(Errno(EINVAL));
+    };
+    let v = c.vcpu_mut();
+    if bytes.len() != v.xsave_standard_size() {
+        return Err(Errno(EFAULT));
+    }
+    // validate_user_xstate_header: only the standard format.
+    if bytes[520..528] != [0; 8] {
+        return Err(Errno(EINVAL));
+    }
+    let all = v.xcr0();
+    v.xrstor_image(bytes, all).map_err(|_| Errno(EINVAL))
 }
 
 /// `orig_rax`: the system call the thread is in, else -1.

@@ -51,6 +51,8 @@ pub mod req {
     pub const ATTACH: u64 = 16;
     pub const DETACH: u64 = 17;
     pub const SYSCALL: u64 = 24;
+    /// x86-64 only (`arch_prctl` on the tracee, its arguments swapped).
+    pub const ARCH_PRCTL: u64 = 30;
     /// x86-64 only.
     pub const SYSEMU: u64 = 31;
     pub const SYSEMU_SINGLESTEP: u64 = 32;
@@ -65,9 +67,11 @@ pub mod req {
     pub const SEIZE: u64 = 0x4206;
     pub const INTERRUPT: u64 = 0x4207;
     pub const LISTEN: u64 = 0x4208;
+    pub const PEEKSIGINFO: u64 = 0x4209;
     pub const GETSIGMASK: u64 = 0x420a;
     pub const SETSIGMASK: u64 = 0x420b;
     pub const GET_SYSCALL_INFO: u64 = 0x420e;
+    pub const GET_RSEQ_CONFIGURATION: u64 = 0x420f;
     pub const SET_SYSCALL_INFO: u64 = 0x4212;
 }
 

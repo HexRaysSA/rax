@@ -44,6 +44,12 @@ impl SigPending {
         self.set & sigmask(sig) != 0
     }
 
+    /// The queued records in queue order (`pending->list`, as
+    /// `PTRACE_PEEKSIGINFO` walks it).
+    pub fn records(&self) -> impl Iterator<Item = &SigInfo> {
+        self.queue.iter().map(|q| &q.info)
+    }
+
     /// Queues `info`. A standard signal (below `SIGRTMIN`) that is already
     /// pending is not queued again (`legacy_queue`); returns whether the
     /// record was queued.
