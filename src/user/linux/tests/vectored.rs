@@ -1,0 +1,56 @@
+//! Positioned vectored transfers (`fs/read_write.c`, Linux 6.19):
+//! `preadv`, `pwritev`, and their `2` forms move each vector in turn from
+//! the given position, pass over empty vectors (an `iov_iter` has nothing
+//! to copy there), and stop at a short transfer.
+
+use super::harness::{Harness, P, each_abi};
+use crate::user::linux::abi::Sysno;
+use crate::user::linux::abi::errno_table::*;
+
+const O_RDWR: u64 = 2;
+
+/// Writes `struct iovec`s `v` at `at`.
+fn iovecs(h: &Harness, at: u64, v: &[(u64, u64)]) -> u64 {
+    let b: Vec<u8> = v
+        .iter()
+        .flat_map(|&(base, len)| [base.to_le_bytes(), len.to_le_bytes()].concat())
+        .collect();
+    h.proc.state.space.write_raw(at, &b).unwrap();
+    at
+}
+
+fn bytes(h: &Harness, at: u64, n: usize) -> Vec<u8> {
+    let mut b = vec![0u8; n];
+    h.proc.state.space.read(at, &mut b).unwrap();
+    b
+}
+
+#[test]
+fn empty_vectors_are_passed_over() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = h.anon(4 * P, 3, false);
+        let fd = h.file(&format!("vec-{abi:?}"), 8, b'a', O_RDWR);
+        // An empty vector first, one at an unmapped address among them:
+        // nothing is copied there, so nothing faults.
+        let (a, b) = (m + 0x100, m + 0x200);
+        let v = iovecs(&h, m, &[(a, 0), (8, 0), (b, 3), (a, 0), (a, 2)]);
+        assert_eq!(h.call(Sysno::Preadv, &[fd, v, 5, 1]), 5);
+        assert_eq!(bytes(&h, b, 3), b"aaa");
+        assert_eq!(bytes(&h, a, 2), b"aa");
+        // Only empty vectors: nothing, and no error.
+        let v = iovecs(&h, m, &[(8, 0), (a, 0)]);
+        assert_eq!(h.call(Sysno::Preadv2, &[fd, v, 2, 0, 0, 0]), 0);
+        assert_eq!(h.call(Sysno::Pwritev, &[fd, v, 2, 0]), 0);
+        // Writes likewise.
+        h.proc.state.space.write_raw(b, b"xyz").unwrap();
+        let v = iovecs(&h, m, &[(8, 0), (b, 3), (a, 0)]);
+        assert_eq!(h.call(Sysno::Pwritev2, &[fd, v, 3, 6, 0, 0]), 3);
+        let v = iovecs(&h, m, &[(a, 9)]);
+        assert_eq!(h.call(Sysno::Preadv, &[fd, v, 1, 0]), 9);
+        assert_eq!(bytes(&h, a, 9), b"aaaaaaxyz");
+        // A vector that faults still ends the transfer.
+        let v = iovecs(&h, m, &[(8, 4)]);
+        assert_eq!(h.err(Sysno::Preadv, &[fd, v, 1, 0]), EFAULT);
+    });
+}

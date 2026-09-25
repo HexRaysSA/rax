@@ -461,6 +461,10 @@ pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64
     }
     let mut total = 0;
     for (base, len) in read_iovecs(c, iov, cnt)? {
+        // An empty vector has nothing to copy (and so nothing to fault).
+        if len == 0 {
+            continue;
+        }
         let at = (pos >= 0).then(|| pos as u64 + total);
         let n = read_into(c, &file, base, len, at)?;
         total += n;
@@ -494,6 +498,9 @@ pub fn pwritev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u6
     }
     let mut total = 0;
     for (base, len) in read_iovecs(c, iov, cnt)? {
+        if len == 0 {
+            continue;
+        }
         let at = (pos >= 0).then(|| pos as u64 + total);
         let n = write_from(c, &file, base, len, at)?;
         total += n;

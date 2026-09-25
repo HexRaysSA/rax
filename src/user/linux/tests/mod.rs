@@ -25,5 +25,6 @@ mod sysvmsg;
 mod sysvsem;
 mod sysvshm;
 mod threads;
+mod vectored;
 mod waits;
 mod xattr;
