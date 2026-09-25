@@ -61,7 +61,7 @@ every architecture and requires a byte-for-byte match.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 54 binaries (18 programs × 3 architectures), 1,652 KiB in total; each
+- Size: 81 binaries (27 programs × 3 architectures), 2,768 KiB in total; each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).

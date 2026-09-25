@@ -328,10 +328,12 @@ code comments name the kernel function each rule comes from.
   `poll` save a `restart_block` so `restart_syscall` resumes them with the
   remaining time; `select` and `poll` write back the time left and
   `revents` as `poll_select_finish` and `do_sys_poll` do.
-- **System calls.** 223 calls across descriptors and I/O, paths and
-  metadata, memory management (with `memfd_create`), identity and limits,
-  clocks, signals, threads, futexes, processes (with pidfds), POSIX
-  timers, event, timer, and signal descriptors, `epoll`, and sockets,
+- **System calls.** 247 calls across descriptors and I/O, paths and
+  metadata (with device and FIFO nodes, file times, and extended
+  attributes), memory management (with `memfd_create`), identity (with
+  supplementary groups) and limits, clocks, signals, threads, futexes,
+  processes (with pidfds), POSIX timers, event, timer, and signal
+  descriptors, `epoll`, and sockets,
   each validated in the kernel's order so the first failing
   check determines the `errno`. Host `errno` values are translated by name.
   Memory calls act VMA by VMA as `mm/mprotect.c` and `mm/madvise.c` do,
@@ -351,6 +353,34 @@ code comments name the kernel function each rule comes from.
   `O_CLOEXEC`, a mount ID per file system, the inode number) and the
   lines of the pidfd, `eventfd`, `timerfd`, `signalfd`, and `epoll`
   `show_fdinfo` operations.
+- **Nodes, times, and the umask** (`nodes`). `mknod` and `mknodat` follow
+  `do_mknodat`: the type, then the name, then the privilege (device nodes
+  need a privileged guest); FIFOs and device nodes are host nodes, and a
+  socket node is a bound Unix socket where the host refuses to make one
+  (macOS, for other users than root). `utimensat` looks the path up before
+  it checks the times, and `utime`, `utimes`, and `futimesat` convert to it
+  as `fs/utimes.c` does. The guest has its own umask, inherited from the
+  host at start; a new file or directory gets the mode that umask leaves
+  even where the host's stripped more bits.
+- **Extended attributes** (`xattr`). The `*xattr` calls and the
+  `*xattrat` calls check in `fs/xattr.c`'s order (flags, name, value,
+  object, then the namespace's permission) and give host files the
+  handlers of a disk file system mounted without POSIX ACLs: `user.*` on
+  regular files and directories only, `trusted.*` for a privileged guest,
+  `security.*` set only by one, and `EOPNOTSUPP` for other names,
+  `system.posix_acl_*` included. The attributes are the host file's; a
+  macOS host stores a name it cannot hold (not UTF-8, or longer than 127
+  bytes) under a hashed `rax.x.` name whose value begins with the full
+  name, and its own names are not shown. Sockets have `sockfs`'s
+  `system.sockprotoname`; pipes, anonymous inodes, and synthesized `/proc`
+  files have none.
+- **Groups, read-ahead, and range sync** (`misc`). Supplementary groups
+  start as the host's; `setgroups` needs a privileged guest and sorts
+  them as `groups_sort` does, and `/proc/<pid>/status` lists them.
+  `readahead` checks the descriptor and the file's type as
+  `ksys_readahead` does; `sync_file_range` checks its flags, then the
+  range, then the file as `fs/sync.c` does, and writing a range
+  (`SYNC_FILE_RANGE_WRITE`) writes the host file's data.
 
 ## Evidence
 
@@ -368,13 +398,16 @@ code comments name the kernel function each rule comes from.
 | Sockets | `src/user/linux/tests/sockets.rs` (15 tests on every ABI): `__sock_create` and `inet_create` checks in order, `socketpair` writing its reserved descriptors first, Unix names (relative and over-long paths, node permissions, rebinding, abstract names in use and freed, autobind), `move_addr_to_user` copies, IP `bind`/`connect` address checks, `copy_msghdr_from_user` checks, `scm_detach_fds` installation and `MSG_CTRUNC`, descriptions shared within the process, `SCM_CREDENTIALS` checks and `SO_PASSCRED` delivery, timeouts and signal interruption, `sk_setsockopt`/`sk_getsockopt` rules, `SIGPIPE` by protocol, `sendmmsg`/`recvmmsg`, readiness and the socket `ioctl`s, IPv6; unit tests of the address codec, control-message framing, name mapping, and timeouts in `src/user/linux/net/` |
 | POSIX timers | `src/user/linux/tests/posix_timers.rs`: the state machine driven by explicit times against `hrtimer_forward` arithmetic (overrun counts, one-shot and `SIGEV_NONE` `gettime`, the 1 ns of a fired but unqueued timer, stale signals, CPU timers set in the past, parked ignored signals), `timer_create` error order and ID use on every ABI, the other calls' checks, one queued record per timer, stale-record drops, re-queueing when `SIG_IGN` is replaced, thread targets, and `execve`'s flush |
 | Event, timer, and signal descriptors | `src/user/linux/tests/events.rs`: `eventfd` limits, semaphores, zero-length and faulting transfers, `readv`/`writev` segments, and levels; `timerfd` ticks driven by explicit times, `TFD_IOC_SET_TICKS`, and argument order on every ABI; anonymous-inode `fstat` and `/proc` names; `signalfd` checks, reads in order, lost records at a fault, every `siginfo_t` layout's `struct signalfd_siginfo`, and wake-ups of blocked readers and pollers. `src/user/linux/tests/files.rs`: `F_GETFL` of regular, `O_PATH`, directory, pipe, and `eventfd` descriptions |
+| Nodes, file times, and the umask | `src/user/linux/tests/nodes.rs`: `do_mknodat`'s type, name, and privilege checks in order; `utimensat` looking the path up before checking the times; the older calls converted as `fs/utimes.c` converts them; the guest's umask alone masking new files |
+| Extended attributes | `src/user/linux/tests/xattr.rs`: `setxattr`'s checks in order (flags, name, size, value, path), the name-length limit, listing and its sizes, the namespaces' permissions and handlers (no POSIX ACLs), host names hidden on macOS, descriptors (`O_PATH` refused), pipes and sockets (`system.sockprotoname`), and `struct xattr_args` of the `*xattrat` calls |
+| Groups, read-ahead, and range sync | `src/user/linux/tests/misc.rs`: groups inherited and sorted, `setgroups`'s privilege and limits, the `Groups:` line of `/proc/self/status`, and the file checks of `readahead` and `sync_file_range` |
 | `/proc/<pid>/fdinfo` | `src/user/linux/tests/fdinfo.rs`: the generic lines of a file (position, flags with `O_CLOEXEC`, mount, inode) on every ABI and of a pipe, the directory's listing, and the `eventfd` (16-column count, ID, semaphore), `signalfd` (mask without `SIGKILL`), `timerfd`, `epoll` (events with `EPOLLERR \| EPOLLHUP`, data, position, inode, device), and pidfd lines (`-1` once gone); `src/user/linux/fs/anon.rs`: `eventfd` IDs as `ida_alloc` gives them |
 | pidfds | `src/user/linux/tests/pidfd.rs` (9 tests): `pidfd_open`'s checks and file on every ABI, the operations a pidfd refuses and its `fstat`/`fstatfs`, the `ioctl`s (`PIDFD_GET_INFO` fields, sizes, and request checks; `FS_IOC_GETVERSION`; the namespace requests), a thread's pidfd through its exit (a sleeping `ppoll` woken by it, the exit status kept), `CLONE_PIDFD` for threads (the result word, `EFAULT` and `EMFILE` leaving no thread), `pidfd_send_signal`'s scope, record, and descriptor rules, `pidfd_getfd`, `waitid(P_PIDFD)` checks, and a host process watched to its end. `src/user/linux/fs/pidfd.rs`: inode numbers and the registry |
 | Timers and blocking | `src/user/linux/tests/waits.rs`: interval timers, `alarm` rounding, interrupted sleeps and `restart_syscall`, `clock_nanosleep` clocks, `poll`/`select`/`ppoll`/`pselect6` interruption, write-back, clamping, and temporary masks, interruptible pipe reads, `sigtimedwait` woken by a timer, and the deadlock diagnostic |
 | Host signals | `user_linux` `host_signals`: `kill` from the test process reaches the `hostsig` guest with `SI_USER` and the sender on every ISA, interrupts a blocking `read` of a pipe with `EINTR`, and a default-action `SIGTERM` ends `rax-user` with `SIGTERM`; with `--no-signal-forwarding` the host default applies. `src/user/linux/sigmail.rs`: sender records claimed oldest first, only by their target, withdrawn when unsent, and ignored below the target's floor |
 | Memory-management system calls | `src/user/linux/tests/syscall_mm.rs`: `mprotect`, `madvise`, and `personality` driven through `dispatch` on every ABI, expectations from the named kernel functions; shared anonymous memory as a `shmem` object (its `/proc/self/maps` line, `mremap` duplication and its checks, growth past the object), and shared file mappings (write-back through `pread`/`pwrite`, `msync`, `MREMAP_DONTUNMAP`, pages dropped by `ftruncate`, `truncate`, and `O_TRUNC`); `memfd_create`'s flag and name checks, `MFD_HUGETLB`'s empty pool, and seals on `ftruncate` and `mmap`/`mprotect`. `src/user/linux/fs/memfd.rs`: the seal rules of `shmem_write_begin` and `shmem_setattr` |
 | Syscall and errno numbering | `user_linux` `abi_tables` against the vendored UAPI headers |
-| End-to-end behavior | `user_linux` `fixtures`: 26 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs, x86-64 and RV64 `epoll` because Rosetta faults converting `struct epoll_event` and QEMU does not apply `epoll_pwait`'s mask, RV64 `sockets` and `sockmsg` because QEMU drops unknown socket type flags, writes `socketpair`'s descriptors only on success, and ignores `recvmmsg`'s timeout, x86-64 and RV64 `shmem` because Rosetta traps duplicating a mapping with `mremap` and QEMU checks the zero length first and lacks `MADV_REMOVE`, RV64 `memfd` because QEMU lacks `MADV_REMOVE`, x86-64 and RV64 `pidfd` because Rosetta lacks `pidfd_getfd` and `clone3` and QEMU the pidfd `ioctl`s, and x86-64 and RV64 `fdinfo` because both translators leave the AArch64 kernel's status-flag encoding in `fdinfo`; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
+| End-to-end behavior | `user_linux` `fixtures`: 29 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs, x86-64 and RV64 `epoll` because Rosetta faults converting `struct epoll_event` and QEMU does not apply `epoll_pwait`'s mask, RV64 `sockets` and `sockmsg` because QEMU drops unknown socket type flags, writes `socketpair`'s descriptors only on success, and ignores `recvmmsg`'s timeout, x86-64 and RV64 `shmem` because Rosetta traps duplicating a mapping with `mremap` and QEMU checks the zero length first and lacks `MADV_REMOVE`, RV64 `memfd` because QEMU lacks `MADV_REMOVE`, x86-64 and RV64 `pidfd` because Rosetta lacks `pidfd_getfd` and `clone3` and QEMU the pidfd `ioctl`s, x86-64 and RV64 `fdinfo` because both translators leave the AArch64 kernel's status-flag encoding in `fdinfo`, x86-64 `nodes` because Rosetta faults on `utime` with an unmapped buffer, and x86-64 and RV64 `xattr` because Rosetta faults on `getxattr` with an unmapped path and QEMU lacks the `*xattrat` calls; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
 | Whole programs | `user_linux` `programs`: the morok corpus (`tests/fixtures/user/linux/programs`), 97 C and C++ programs × 3 ISAs, each run with the x86-64 JIT on and off and the RISC-V JIT off and on, match stdout and exit status recorded on Linux after masking run-to-run noise (times, ASLR addresses); the programs rax does not reproduce yet are listed per mode in `known-divergences.txt`, which the test requires to be exact |
 
 **Differential-tested** here means that, for the fixture programs and
