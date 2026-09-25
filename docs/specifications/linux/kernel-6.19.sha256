@@ -98,9 +98,13 @@ e07f89b697674073cfa405936c70462cd06e38f69bc2982a373d4a36a44b0282  ./mm/mprotect.
 034a4eee57b2416cac1723fd0b7f05cfb0d3fbee59b742f83030897160903388  ./mm/shmem.c
 e659997aa67dcfac71b532ef8780c3df488bd2089ccbcbe3ccd89f5bc92773bb  ./mm/util.c
 c21bbdde02fe3d841bea74f26ef4932d33ce63410ca61d52e894aa93975fefdf  ./mm/vma.c
+fa6c25afbf2e067948dd86e358fa273f13d8544ce0d8b84782b19a9f71d27dec  ./net/core/rtnetlink.c
 2a0c6c910267835644a4db3dce84a3fb3566ac304bd0407f524d9a09852e04a7  ./net/core/scm.c
 6a66273dc5dd38d31901e0a146c57efb1bd1d217933a6a94bf125face0fb8946  ./net/core/sock.c
 3ea76a1bbe09feed88ab2af9d83da088ff237e13e474866d6b044dc844f87afc  ./net/ipv4/af_inet.c
+668cbb8c5d6efedfacb2c9d4a7a924c5e560c9c1ca88af5e8cc47c59aa596270  ./net/ipv4/devinet.c
+4ccf8c491769a1853f8d5bb5115db7795d5a7bda48bc11a76da737137eb99de5  ./net/ipv6/addrconf.c
 401eeefabc986f6dc66b42f5977333fe534ce3215eb52285b1b4efdbb83a553b  ./net/ipv6/af_inet6.c
+88d1cef58406fc8e25d0af99ee822aca2afb7bca163d1f89de070d8c0f03fde1  ./net/netlink/af_netlink.c
 acd4aef7ae14c460dda7d1313e3c11943affbfd1683eeb56ffa2c8ea05438e76  ./net/socket.c
 76145d4b72f61047c67653661b75ee1dd5f9129b6a4c41de01a860e56ede62f1  ./net/unix/af_unix.c
