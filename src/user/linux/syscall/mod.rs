@@ -399,6 +399,14 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Sync => r(Ok(0)),
         S::Syncfs => r(io::fsync(c, fd(a[0])).map(|_| 0)),
         S::Fadvise64 => r(io::fadvise(c, fd(a[0]), a[3] as u32)),
+        S::Readahead => r(io::readahead(c, fd(a[0]))),
+        S::SyncFileRange => r(io::sync_file_range(
+            c,
+            fd(a[0]),
+            a[1] as i64,
+            a[2] as i64,
+            a[3] as u32,
+        )),
         S::Flock => r(io::flock(c, fd(a[0]), a[1] as u32)),
         S::Getdents64 => r(io::getdents(c, fd(a[0]), a[1], a[2], true)),
         S::Getdents => r(io::getdents(c, fd(a[0]), a[1], a[2], false)),
@@ -588,6 +596,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Getresuid => r(process::getres(c, a[0], a[1], a[2], true)),
         S::Getresgid => r(process::getres(c, a[0], a[1], a[2], false)),
         S::Getgroups => r(process::getgroups(c, a[0] as i32, a[1])),
+        S::Setgroups => r(process::setgroups(c, a[0] as i32, a[1])),
         S::Setuid | S::Setgid | S::Setreuid | S::Setregid | S::Setresuid | S::Setresgid => {
             r(process::setid(c, s, a))
         }

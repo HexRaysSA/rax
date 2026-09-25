@@ -1151,6 +1151,69 @@ pub fn fadvise(c: &mut Ctx<'_>, fd: i32, advice: u32) -> SysResult {
     Ok(0)
 }
 
+/// `readahead` (`ksys_readahead`): a readable regular file or block
+/// device (a synthesized `/proc` file is one too); the host's page cache
+/// does the rest. Pipes, sockets, directories, and anonymous inodes are
+/// `EINVAL`.
+pub fn readahead(c: &mut Ctx<'_>, fd: i32) -> SysResult {
+    let file = c.p.fds.file(fd)?;
+    if matches!(file.object, FileObject::PathOnly) || !file.readable() {
+        return Err(Errno(EBADF));
+    }
+    let cached = matches!(file.object, FileObject::Host(_) | FileObject::Synthetic(_))
+        && matches!(file.ftype, FileType::Regular | FileType::BlockDevice);
+    if !cached {
+        return Err(Errno(EINVAL));
+    }
+    Ok(0)
+}
+
+/// `sync_file_range`: the flags (`SYNC_FILE_RANGE_WAIT_BEFORE`,
+/// `_WRITE`, `_WAIT_AFTER`), a range within `0..LLONG_MAX` (a length of 0
+/// runs to the end), then a file with data (`ESPIPE` for pipes, sockets,
+/// and other special files). Writing the range writes the file's data.
+pub fn sync_file_range(
+    c: &mut Ctx<'_>,
+    fd: i32,
+    offset: i64,
+    nbytes: i64,
+    flags: u32,
+) -> SysResult {
+    const WRITE: u32 = 2;
+    const VALID: u32 = 1 | WRITE | 4;
+    let file = c.p.fds.file(fd)?;
+    if matches!(file.object, FileObject::PathOnly) {
+        return Err(Errno(EBADF));
+    }
+    if flags & !VALID != 0 {
+        return Err(Errno(EINVAL));
+    }
+    let end = offset.wrapping_add(nbytes);
+    if offset < 0 || end < 0 || end < offset {
+        return Err(Errno(EINVAL));
+    }
+    // A regular file, block device, directory, or link (a pidfd's inode
+    // is a regular file to the VFS; /proc's are regular files and
+    // directories).
+    let data = match &file.object {
+        FileObject::Host(_) | FileObject::Synthetic(_) => matches!(
+            file.ftype,
+            FileType::Regular | FileType::BlockDevice | FileType::Directory | FileType::Symlink
+        ),
+        FileObject::Anon(super::super::fs::anon::Anon::Pid(_)) => true,
+        _ => false,
+    };
+    if !data {
+        return Err(Errno(ESPIPE));
+    }
+    if flags & WRITE != 0
+        && let FileObject::Host(f) = &file.object
+    {
+        let _ = f.sync_data();
+    }
+    Ok(0)
+}
+
 /// `flock`: a single process can always obtain its own locks.
 pub fn flock(c: &mut Ctx<'_>, fd: i32, op: u32) -> SysResult {
     const LOCK_SH: u32 = 1;

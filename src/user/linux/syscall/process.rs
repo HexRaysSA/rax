@@ -39,11 +39,44 @@ pub fn getres(c: &mut Ctx<'_>, r: u64, e: u64, s: u64, user: bool) -> SysResult 
     Ok(0)
 }
 
-/// `getgroups`: the emulated process has no supplementary groups.
-pub fn getgroups(_c: &mut Ctx<'_>, size: i32, _list: u64) -> SysResult {
+/// `getgroups`: the number of supplementary groups, and with a nonzero
+/// `size` the groups themselves (`EINVAL` if they do not fit).
+pub fn getgroups(c: &mut Ctx<'_>, size: i32, list: u64) -> SysResult {
     if size < 0 {
         return Err(Errno(EINVAL));
     }
+    let n = c.p.groups.len();
+    if size != 0 {
+        if n > size as usize {
+            return Err(Errno(EINVAL));
+        }
+        let b: Vec<u8> = c.p.groups.iter().flat_map(|g| g.to_le_bytes()).collect();
+        c.write_mem(list, &b)?;
+    }
+    Ok(n as u64)
+}
+
+/// `setgroups`: with `CAP_SETGID` (root here), replaces the supplementary
+/// groups with the `size` IDs at `list`, sorted (`groups_sort`); at most
+/// `NGROUPS_MAX`, none of them `-1`.
+pub fn setgroups(c: &mut Ctx<'_>, size: i32, list: u64) -> SysResult {
+    const NGROUPS_MAX: u32 = 65536;
+    if c.p.creds.1 != 0 {
+        return Err(Errno(EPERM));
+    }
+    if size as u32 > NGROUPS_MAX {
+        return Err(Errno(EINVAL));
+    }
+    let mut groups = Vec::with_capacity(size as usize);
+    for i in 0..size as u64 {
+        let g = c.read_u32(list + 4 * i)?;
+        if g == u32::MAX {
+            return Err(Errno(EINVAL));
+        }
+        groups.push(g);
+    }
+    groups.sort_unstable();
+    c.p.groups = groups;
     Ok(0)
 }
 

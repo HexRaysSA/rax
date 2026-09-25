@@ -85,6 +85,23 @@ pub fn credentials() -> (u32, u32, u32, u32) {
     }
 }
 
+/// The emulator's supplementary group IDs, sorted as `setgroups` leaves
+/// them.
+pub fn groups() -> Vec<u32> {
+    // SAFETY: a null buffer of size 0 asks for the count.
+    let n = unsafe { libc::getgroups(0, std::ptr::null_mut()) };
+    if n <= 0 {
+        return Vec::new();
+    }
+    let mut v = vec![0 as libc::gid_t; n as usize];
+    // SAFETY: `v` is writable for `n` group IDs.
+    let m = unsafe { libc::getgroups(n, v.as_mut_ptr()) };
+    v.truncate(m.max(0) as usize);
+    let mut g: Vec<u32> = v.into_iter().map(|x| x as u32).collect();
+    g.sort_unstable();
+    g
+}
+
 /// The emulator process ID.
 pub fn pid() -> i32 {
     std::process::id() as i32

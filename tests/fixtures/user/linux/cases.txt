@@ -26,6 +26,7 @@ pidfd    pidfd    -
 fdinfo   fdinfo   -
 nodes    nodes    -
 xattr    xattr    -
+misc     misc     -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

@@ -222,7 +222,10 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let _ = writeln!(s, "Uid:\t{uid}\t{euid}\t{euid}\t{euid}");
     let _ = writeln!(s, "Gid:\t{gid}\t{egid}\t{egid}\t{egid}");
     let _ = writeln!(s, "FDSize:\t64");
-    let _ = writeln!(s, "Groups:\t");
+    // task_state: the groups, then a space the kernel keeps for
+    // compatibility.
+    let groups: Vec<String> = p.groups.iter().map(|g| g.to_string()).collect();
+    let _ = writeln!(s, "Groups:\t{} ", groups.join(" "));
     let _ = writeln!(s, "VmPeak:\t{:8} kB", vsize / 1024);
     let _ = writeln!(s, "VmSize:\t{:8} kB", vsize / 1024);
     let _ = writeln!(s, "VmRSS:\t{:8} kB", rss_kb);

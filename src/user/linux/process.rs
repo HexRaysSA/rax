@@ -291,6 +291,8 @@ pub struct ProcState {
     pub ppid: i32,
     /// `(uid, euid, gid, egid)`.
     pub creds: (u32, u32, u32, u32),
+    /// Supplementary group IDs, sorted (`group_info`).
+    pub groups: Vec<u32>,
     /// Memory bookkeeping.
     pub mm: MmState,
     /// Resource limits.
@@ -628,6 +630,8 @@ impl LinuxProcess {
             pid,
             ppid: super::host::ppid(),
             creds,
+            // A new process inherits its parent's groups.
+            groups: super::host::groups(),
             mm: img.mm,
             rlimits: default_rlimits(config.stack_limit),
             // A new process inherits its parent's umask.
