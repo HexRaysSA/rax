@@ -17,8 +17,9 @@
   `arch/x86/include/asm/seccomp.h`, `arch/{x86,arm64,riscv}/include/asm/syscall.h`,
   `arch/riscv/kernel/traps.c`, the `fs/notify/` files,
   `include/linux/{fsnotify,fsnotify_backend}.h`, `fs/open.c`,
-  `fs/file_table.c`, `fs/read_write.c`, `fs/attr.c`, `fs/readdir.c`, and
-  `fs/splice.c` came from kernel.org's
+  `fs/file_table.c`, `fs/read_write.c`, `fs/attr.c`, `fs/readdir.c`,
+  `fs/splice.c`, `arch/x86/entry/syscall_64.c`, `arch/arm64/kernel/syscall.c`,
+  and `ipc/msgutil.c` came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
@@ -27,8 +28,8 @@
   25 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (73 files),
-  `GPL-2.0-only` (38), `GPL-2.0-or-later` (30), `GPL-2.0+` (1), or
+- License: the files carry an SPDX identifier: `GPL-2.0` (74 files),
+  `GPL-2.0-only` (39), `GPL-2.0-or-later` (30), `GPL-2.0+` (1), or
   `GPL-1.0+` (1); `mm/memfd.c` and `mm/shmem.c` have none and state
   "This file is released under the GPL." in their headers. The license
   texts are the kernel tree's `LICENSES/preferred/GPL-2.0` and
@@ -74,6 +75,7 @@ behavior it reproduces beyond what the UAPI headers
 | System V IPC | `ipc/util.c` (`ipcget`, `ipcget_public`, `ipc_addid`, `ipc_idr_alloc`, `ipcperms`, `ipcctl_obtain_check`, `ipc_update_perm`, `kernel_to_ipc64_perm`), `ipc/util.h` (identifier layout), `ipc/shm.c` (`newseg`, `do_shmat`, `ksys_shmdt`, `ksys_shmctl`, `shm_may_destroy`), `ipc/sem.c` (`newary`, `do_semtimedop`, `semctl_main`, `exit_sem`), `ipc/msg.c` (`newque`, `do_msgsnd`, `do_msgrcv`, `ksys_msgctl`, `prepare_copy`), `ipc/msgutil.c` (`load_msg`, `copy_msg`), `ipc/ipc_sysctl.c` and `include/linux/ipc_namespace.h` (limits), `include/linux/ipc.h` |
 | Seccomp | `kernel/seccomp.c` (`seccomp_check_filter`, `seccomp_prepare_filter`, `seccomp_attach_filter`, `seccomp_run_filters`, `seccomp_uprobe_exception`, `__seccomp_filter`, `__secure_computing_strict`, `seccomp_set_mode_strict`, `seccomp_set_mode_filter`, `seccomp_can_sync_threads`, `seccomp_sync_threads`, `do_seccomp`, `prctl_set_seccomp`), `net/core/filter.c` (`bpf_check_classic`, `chk_code_allowed`, `check_load_and_stores`, `bpf_prepare_filter`, and `bpf_convert_filter`: the eBPF length and the division by zero), `kernel/signal.c` (`force_sig_seccomp`, `force_sig_info_to_task`), `include/asm-generic/seccomp.h` and `arch/x86/include/asm/seccomp.h` (strict mode's calls, native and i386), `arch/{x86,arm64,riscv}/include/asm/syscall.h` (`syscall_get_arch`, `syscall_get_arguments`, `syscall_rollback`), `arch/riscv/kernel/traps.c` (`do_trap_ecall_u`: `epc` past the `ecall` before the check), `arch/x86/kernel/process.c` (`disable_TSC`, `get_tsc_mode`, `set_tsc_mode`, `arch_setup_new_exec`), `kernel/sys.c` (`PR_SET_NO_NEW_PRIVS`, `PR_GET_SECCOMP`, `PR_SET_TSC`), `fs/proc/array.c` (`task_seccomp`) |
 | File-system notification (inotify) | `fs/notify/inotify/inotify_user.c` (the calls, `inotify_read`, `inotify_ioctl`, `inotify_update_existing_watch`, `inotify_new_watch`, `inotify_arg_to_mask`), `fs/notify/inotify/inotify_fsnotify.c` (`inotify_handle_inode_event`, `inotify_merge`, `inotify_freeing_mark`), `fs/notify/inotify/inotify.h`, `fs/notify/fsnotify.c` (`__fsnotify_parent`, `fsnotify`, `send_to_group`, `fsnotify_handle_event`), `fs/notify/notification.c` (`fsnotify_insert_event`, the overflow event), `fs/notify/mark.c` (the group's mark list), `fs/notify/fdinfo.c` (`inotify_fdinfo`), `include/linux/fsnotify.h` (the VFS hooks and what each reports), `include/linux/fsnotify_backend.h` (the event bits), and where the VFS calls the hooks: `fs/open.c` (`vfs_open`, `vfs_fallocate`, `do_truncate`, `chmod_common`, `chown_common`), `fs/file_table.c` (`__fput`), `fs/read_write.c` (`vfs_read`, `vfs_readv`, `vfs_write`, `vfs_writev`, `do_sendfile`, `vfs_copy_file_range`), `fs/attr.c` (`notify_change`), `fs/readdir.c` (`iterate_dir`), `fs/splice.c`, `fs/namei.c`, `fs/utimes.c`, `fs/xattr.c`, and `fs/exec.c` |
+| System-call entry | `arch/x86/entry/syscall_64.c` (`do_syscall_64`, `do_syscall_x64`: the number as an `int`), `arch/arm64/kernel/syscall.c` (`el0_svc_common`, `invoke_syscall`: likewise), `arch/riscv/kernel/traps.c` (`do_trap_ecall_u`: the whole `long`) |
 | Supplementary groups, read-ahead, and range sync | `kernel/groups.c` (`setgroups`, `getgroups`), `mm/readahead.c` (`ksys_readahead`), `fs/sync.c` (`sync_file_range`) |
 
 Code comments name the kernel function whose behavior an implementation

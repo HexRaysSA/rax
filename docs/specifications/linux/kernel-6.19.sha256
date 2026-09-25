@@ -6,6 +6,7 @@ b3349fa05a664d0821ee309f09ad6a6b2cf6c9ba44ed8afa982efd7afb020562  ./arch/arm64/i
 c6868626f7276b1380f80da3c7ea4ca721991498d6f8f3f72dc0950d23b5167b  ./arch/arm64/kernel/process.c
 ebe04548f0cdf2ce29d72b85f5150d895d1de683ae995d84279e168c67203ba2  ./arch/arm64/kernel/ptrace.c
 297874252c5e44f3237ac61102a13be0b8f6bf3618bbbb63ca8fdf5b1709d3fb  ./arch/arm64/kernel/signal.c
+d9d7b825ed742cfc6f3ab50108062ef99816f3fede5d66bd9414d4434ee121f2  ./arch/arm64/kernel/syscall.c
 a6724856284b7fd61219d71712e64c420c21fe32b7f8f9f65ca0d31752f411bd  ./arch/arm64/kernel/vdso/sigreturn.S
 a93d529c7bc5fa34d4ff708a6f6b140af46dceb6775a361714a5c069a53c25ab  ./arch/riscv/include/asm/elf.h
 a5f054991412e2a1ffb40b5a32efe827e7ed99f4dc774facf0e8afbc26b1e675  ./arch/riscv/include/asm/pgtable.h
@@ -15,6 +16,7 @@ cba90870783569de0c74456a580d3c2a2a6cdff4336e188ad9f251a8be66b62a  ./arch/riscv/k
 0401dbe36ecb3ed9edc1a05eb0ef6b1739f187c64287636b7c47a7c74194d22b  ./arch/riscv/kernel/signal.c
 6d775e157ff50d1a46d9e588b158096a40e108d238d06f76b64e6003a9ea9bea  ./arch/riscv/kernel/traps.c
 80362e2b95a70062a7f8f2a787f0dc85b878de5886f2153afa6d1306bbf723d4  ./arch/riscv/kernel/vdso/rt_sigreturn.S
+b97e396c4816ed2b8256957861bc976eb25c4e6953f66c97af7bd1383c2b612b  ./arch/x86/entry/syscall_64.c
 5c4eaab81345ee84d585dca114f075116da6048b4358975c51b75ae454d12dff  ./arch/x86/include/asm/elf.h
 edbbfdc65393a7637cf501aa1e307cb0ddf956e3e6df2b47fc254e3e4325bab7  ./arch/x86/include/asm/fpu/signal.h
 22f70100c5ff6092b27e4c70b7b0a60f88e4d50b7c965e0b0b686594020b4542  ./arch/x86/include/asm/fpu/types.h
