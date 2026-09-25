@@ -399,6 +399,21 @@ impl AddressSpace {
         Ok(())
     }
 
+    /// Replaces the `mask` bits of the OS-personality flags of
+    /// `[start, start + len)` with those of `bits`, splitting VMAs at the
+    /// range ends. Every byte must be mapped; otherwise nothing changes and
+    /// the first hole is reported.
+    pub fn set_flags(&self, start: u64, len: u64, mask: u32, bits: u32) -> Result<(), MmError> {
+        let end = check_range(start, len, self.inner.va_limit)?;
+        let mut vmas = self.vmas();
+        if let Some(hole) = first_hole(&vmas, start, end) {
+            return Err(MmError::NotMapped { addr: hole });
+        }
+        vmas.update(start, end, |v| v.flags = (v.flags & !mask) | (bits & mask));
+        vmas.coalesce(start, end);
+        Ok(())
+    }
+
     /// Moves the mapped range `[old, old + len)` to `[new, new + len)`,
     /// keeping page contents without copying, and replacing anything mapped
     /// at the destination (Linux `mremap` with `MREMAP_FIXED`). The source

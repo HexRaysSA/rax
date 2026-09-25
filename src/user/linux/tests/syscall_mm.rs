@@ -178,6 +178,23 @@ fn populate_faults_pages_in_or_reports_why_it_cannot() {
 }
 
 #[test]
+fn populating_for_reading_needs_vm_read() {
+    // check_vma_flags: a read fault-in needs VM_READ, which a write-only or
+    // execute-only protection lacks even where its pages can be read.
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let w = h.anon(P, PROT_WRITE, false);
+        assert!(h.perms(w).contains(Perms::READ), "write implies read");
+        assert_eq!(h.err(Sysno::Madvise, &[w, P, MADV_POPULATE_READ]), EINVAL);
+        h.ok(Sysno::Madvise, &[w, P, MADV_POPULATE_WRITE]);
+        h.ok(Sysno::Mprotect, &[w, P, RW]);
+        h.ok(Sysno::Madvise, &[w, P, MADV_POPULATE_READ]);
+        h.ok(Sysno::Mprotect, &[w, P, PROT_EXEC]);
+        assert_eq!(h.err(Sysno::Madvise, &[w, P, MADV_POPULATE_READ]), EINVAL);
+    });
+}
+
+#[test]
 fn guard_regions_are_refused_rather_than_ignored() {
     each_abi(|abi| {
         let mut h = Harness::new(abi);
@@ -345,6 +362,43 @@ fn maps(h: &mut Harness) -> String {
     let mut b = vec![0u8; n as usize];
     h.proc.state.space.read(buf, &mut b).unwrap();
     String::from_utf8(b).unwrap()
+}
+
+/// The permission column of the `/proc/self/maps` line covering `at`.
+fn maps_perms(h: &mut Harness, at: u64) -> String {
+    let all = maps(h);
+    let line = all
+        .lines()
+        .find(|l| {
+            let (lo, hi) = l.split(' ').next().unwrap().split_once('-').unwrap();
+            let lo = u64::from_str_radix(lo, 16).unwrap();
+            let hi = u64::from_str_radix(hi, 16).unwrap();
+            (lo..hi).contains(&at)
+        })
+        .unwrap_or_else(|| panic!("no mapping at {at:#x} in\n{all}"));
+    line.split(' ').nth(1).unwrap().to_owned()
+}
+
+#[test]
+fn maps_shows_vm_read_rather_than_readable_pages() {
+    // show_map_vma prints VM_READ: a PROT_WRITE mapping is "-w-p" and a
+    // PROT_EXEC one "--xp" although their pages read in user mode, and
+    // mprotect changes the column with the protection.
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let a = h.anon(3 * P, PROT_WRITE, false);
+        assert_eq!(maps_perms(&mut h, a), "-w-p");
+        h.ok(Sysno::Mprotect, &[a + P, P, PROT_EXEC]);
+        assert_eq!(maps_perms(&mut h, a), "-w-p");
+        assert_eq!(maps_perms(&mut h, a + P), "--xp");
+        assert_eq!(maps_perms(&mut h, a + 2 * P), "-w-p");
+        h.ok(Sysno::Mprotect, &[a, 3 * P, RW]);
+        assert_eq!(maps_perms(&mut h, a), "rw-p", "one VMA again");
+        let r = h.anon(P, PROT_READ | PROT_EXEC, false);
+        assert_eq!(maps_perms(&mut h, r), "r-xp");
+        h.ok(Sysno::Mprotect, &[r, P, 0]);
+        assert_eq!(maps_perms(&mut h, r), "---p");
+    });
 }
 
 #[test]

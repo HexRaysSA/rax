@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crate::user::image::elf::{
     ET_DYN, ET_EXEC, PF_R, PF_W, PF_X, PT_GNU_STACK, PT_INTERP, PT_LOAD,
 };
-use crate::user::linux::abi::{DEFAULT_STACK_LIMIT, LinuxAbi};
+use crate::user::linux::abi::{DEFAULT_STACK_LIMIT, LinuxAbi, vma_flags};
 use crate::user::linux::loader::{ImageFile, LoadError, load_program};
 use crate::user::linux::stack::map_stack;
 use crate::user::mm::{AddressSpace, Backing, Perms, SpaceConfig};
@@ -229,6 +229,30 @@ fn executable_bss_pages_stay_executable() {
     );
     let (s, _) = load(LinuxAbi::Aarch64, bytes).unwrap();
     assert_eq!(s.vma_at(0x401000).unwrap().perms, Perms::all());
+}
+
+#[test]
+fn a_segment_without_pf_r_lacks_vm_read() {
+    // elf_map maps with make_prot(p_flags): no PROT_READ without PF_R, so
+    // no VM_READ, although execute implies read for the pages on x86-64.
+    // The anonymous tail is vm_brk_flags memory, which always reads.
+    let bytes = image(
+        62,
+        ET_EXEC,
+        0x400000,
+        &[
+            Seg::load(0x400000, 0, 0x800, 0x2000, PF_X),
+            Seg::load(0x600000, 0x2000, 0x10, 0x10, PF_R | PF_X),
+        ],
+        None,
+    );
+    let (s, _) = load(LinuxAbi::X86_64, bytes).unwrap();
+    let text = s.vma_at(0x400000).unwrap();
+    assert_eq!(text.perms, Perms::READ | Perms::EXEC);
+    assert_eq!(text.flags & vma_flags::NO_READ, vma_flags::NO_READ);
+    let tail = s.vma_at(0x401000).unwrap();
+    assert_eq!(tail.flags & vma_flags::NO_READ, 0);
+    assert_eq!(s.vma_at(0x600000).unwrap().flags & vma_flags::NO_READ, 0);
 }
 
 #[test]

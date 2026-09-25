@@ -87,7 +87,7 @@ pub fn maps(p: &ProcState) -> Vec<u8> {
             "{:08x}-{:08x} {}{}{}{} {:08x} {:02x}:{:02x} {} ",
             v.start,
             v.end,
-            if v.perms.contains(Perms::READ) {
+            if super::syscall::mem::vm_read(&v) {
                 'r'
             } else {
                 '-'

@@ -21,7 +21,7 @@
 
 use std::sync::Arc;
 
-use super::abi::{LinuxAbi, MMAP_MIN_ADDR, PAGE_SIZE};
+use super::abi::{LinuxAbi, MMAP_MIN_ADDR, PAGE_SIZE, vma_flags};
 use crate::user::image::elf::{
     ET_DYN, ET_EXEC, ElfError, ElfImage, PF_R, PF_W, PF_X, ProgramHeader, identify,
 };
@@ -307,7 +307,12 @@ impl Loader<'_> {
                     },
                     shared: false,
                     name: Some(file.name.clone()),
-                    flags: 0,
+                    // elf_map: make_prot gives PROT_READ only for PF_R.
+                    flags: if ph.p_flags & PF_R == 0 {
+                        vma_flags::NO_READ
+                    } else {
+                        0
+                    },
                 },
             )?;
             zero_start = vaddr + ph.p_filesz;

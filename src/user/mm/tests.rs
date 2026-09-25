@@ -347,6 +347,44 @@ fn protect_updates_populated_pages_and_requires_full_coverage() {
 }
 
 #[test]
+fn set_flags_splits_changes_and_merges_back() {
+    let s = space();
+    s.map(0x10000, 3 * P, Mapping::anonymous(RW)).unwrap();
+    s.map(0x14000, P, Mapping::anonymous(RW)).unwrap();
+    let flags = |s: &AddressSpace| {
+        s.vma_snapshot()
+            .iter()
+            .map(|v| (v.start, v.end, v.flags))
+            .collect::<Vec<_>>()
+    };
+    s.set_flags(0x11000, P, 0b110, 0b111).unwrap();
+    assert_eq!(
+        flags(&s),
+        vec![
+            (0x10000, 0x11000, 0),
+            (0x11000, 0x12000, 0b110),
+            (0x12000, 0x13000, 0),
+            (0x14000, 0x15000, 0)
+        ],
+        "only the masked bits change, in the range only"
+    );
+    // A range with a hole fails as a whole and changes nothing.
+    assert_eq!(
+        s.set_flags(0x10000, 5 * P, 0b110, 0),
+        Err(MmError::NotMapped { addr: 0x13000 })
+    );
+    assert_eq!(s.vma_at(0x11000).unwrap().flags, 0b110);
+    s.set_flags(0x11000, P, 0b010, 0).unwrap();
+    assert_eq!(s.vma_at(0x11000).unwrap().flags, 0b100);
+    s.set_flags(0x11000, P, 0b100, 0).unwrap();
+    assert_eq!(
+        flags(&s),
+        vec![(0x10000, 0x13000, 0), (0x14000, 0x15000, 0)],
+        "equal neighbours merge again"
+    );
+}
+
+#[test]
 fn remap_moves_pages_without_copying() {
     let s = space();
     s.map(0x10000, 2 * P, Mapping::anonymous(RW)).unwrap();

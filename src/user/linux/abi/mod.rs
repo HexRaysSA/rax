@@ -58,6 +58,12 @@ pub mod vma_flags {
     /// `VM_MAYWRITE` and `VM_SHARED` clear: a `MAP_SHARED` mapping of a file
     /// not open for writing, which can never become writable (`do_mmap`).
     pub const DENY_WRITE: u32 = 1 << 1;
+    /// `VM_READ` clear: the protection lacked `PROT_READ` (`PF_R` for an
+    /// ELF segment). The pages may still read in user mode, as write-only
+    /// mappings and, where execute implies read, execute-only ones do, but
+    /// `/proc/<pid>/maps` shows no `r` and `get_user_pages` refuses to
+    /// read them (`check_vma_flags`).
+    pub const NO_READ: u32 = 1 << 2;
 }
 
 impl LinuxAbi {

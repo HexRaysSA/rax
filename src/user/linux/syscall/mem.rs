@@ -115,6 +115,23 @@ pub(super) fn perms(abi: LinuxAbi, prot: u32) -> Perms {
     )
 }
 
+/// The VMA flag a protection records beside its page permissions:
+/// [`vma_flags::NO_READ`] without `PROT_READ` (`calc_vm_prot_bits`).
+pub(super) fn read_flag(prot: u32) -> u32 {
+    if prot & PROT_READ == 0 {
+        vma_flags::NO_READ
+    } else {
+        0
+    }
+}
+
+/// `vma->vm_flags & VM_READ`: the mapping was asked to be readable, which
+/// the permissions alone cannot tell (write and, on some architectures,
+/// execute imply read access to the pages).
+pub(crate) fn vm_read(vma: &crate::user::mm::Vma) -> bool {
+    vma.perms.contains(Perms::READ) && vma.flags & vma_flags::NO_READ == 0
+}
+
 /// `brk`.
 pub fn brk(c: &mut Ctx<'_>, addr: u64) -> SysResult {
     let mm = &c.p.mm;
@@ -340,7 +357,7 @@ pub fn mmap(
                 backing,
                 shared,
                 name,
-                flags: vm_flags,
+                flags: vm_flags | read_flag(prot),
             },
         )
         .map_err(map_err)?;
@@ -442,6 +459,9 @@ pub fn mprotect(c: &mut Ctx<'_>, addr: u64, len: u64, prot: u32) -> SysResult {
         let hi = vma.end.min(end);
         c.p.space
             .protect(cursor, hi - cursor, perms(c.p.abi, p))
+            .map_err(map_err)?;
+        c.p.space
+            .set_flags(cursor, hi - cursor, vma_flags::NO_READ, read_flag(p))
             .map_err(map_err)?;
         cursor = hi;
     }
@@ -659,7 +679,9 @@ fn madvise_populate(c: &Ctx<'_>, addr: u64, end: u64, write: bool) -> SysResult 
         // No VMA: ENOMEM. Incompatible permissions: EINVAL. A fault that
         // would raise SIGBUS or SIGSEGV: EFAULT.
         let vma = c.p.space.vma_at(cursor).ok_or(Errno(ENOMEM))?;
-        if !vma.perms.contains(need) {
+        // check_vma_flags: reading needs VM_READ, not merely readable
+        // pages.
+        if !vma.perms.contains(need) || (!write && !vm_read(&vma)) {
             return Err(Errno(EINVAL));
         }
         let hi = vma.end.min(end);
