@@ -196,7 +196,7 @@ pub fn map_sigtramp(
     use crate::user::linux::abi::{LinuxAbi, MMAP_MIN_ADDR, PAGE_SIZE};
     use crate::user::mm::{Mapping, MmError, Perms};
     let (code, entry): (&[u32], u64) = match abi {
-        LinuxAbi::X86_64 => return Ok(0),
+        LinuxAbi::X86_64 | LinuxAbi::I386 => return Ok(0),
         LinuxAbi::Aarch64 => (&[0xd503_201f, 0xd280_1168, 0xd400_0001], 4),
         LinuxAbi::Riscv64 => (&[0x08b0_0893, 0x0000_0073], 0),
     };

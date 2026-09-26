@@ -328,10 +328,12 @@ pub fn write_initial_stack(
     auxv.push((AT_RSEQ_ALIGN, RSEQ_ALIGN));
     auxv.push((AT_NULL, 0));
 
-    // sp = STACK_ADD(p, ei_index); bprm->p = STACK_ROUND(sp, items).
+    // sp = STACK_ADD(p, ei_index); bprm->p = STACK_ROUND(sp, items), in
+    // elf_addr_t units: 4 bytes for a compatibility task (compat_binfmt_elf).
+    let word = abi.word_size();
     let aux_words = auxv.len() as u64 * 2;
     let items = (argv.len() as u64 + 1) + (envp.len() as u64 + 1) + 1;
-    let sp = (p - aux_words * 8 - items * 8) & !0xF;
+    let sp = (p - aux_words * word - items * word) & !0xF;
 
     let mut words: Vec<u64> = Vec::with_capacity((items + aux_words) as usize);
     words.push(argv.len() as u64);
@@ -343,7 +345,10 @@ pub fn write_initial_stack(
         words.push(tag);
         words.push(val);
     }
-    let bytes: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
+    let bytes: Vec<u8> = words
+        .iter()
+        .flat_map(|&w| w.to_le_bytes()[..word as usize].to_vec())
+        .collect();
     write(sp, &bytes)?;
 
     Ok(InitialStack {

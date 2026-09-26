@@ -37,6 +37,7 @@
 pub mod admin;
 pub mod aio;
 pub mod child;
+pub mod compat;
 pub mod epoll;
 pub mod events;
 pub mod exec;
@@ -200,6 +201,9 @@ pub struct Ctx<'a> {
     /// The write raises no `SIGPIPE` (`IOCB_NOSIGNAL`, from
     /// `RWF_NOSIGNAL`).
     pub nosignal: bool,
+    /// A 32-bit call (`in_compat_syscall`): its structures have the
+    /// compatibility layouts.
+    pub compat: bool,
     block: Option<(Wait, Resume)>,
 }
 
@@ -220,6 +224,7 @@ impl<'a> Ctx<'a> {
             woken: false,
             sigpipe_decided: false,
             nosignal: false,
+            compat: false,
             block: None,
         }
     }
@@ -1065,6 +1070,8 @@ pub fn dispatch(
     let sysno = abi.sysno(nr);
     let tid = t.tid;
     let mut c = Ctx::new(p, t, peers, spawned);
+    // A compatibility task's calls are all 32-bit ones.
+    c.compat = abi.is_compat();
     // __secure_computing: once, as the call enters.
     let entry = seccomp::Entry::Native;
     if !resumed && let Some(outcome) = seccomp::entry(&mut c, nr, args, entry, call.recheck) {
@@ -1080,6 +1087,7 @@ pub fn dispatch(
         aio::poll_pending(&mut c);
     }
     let result = match sysno {
+        Some(s) if c.compat => compat::call(&mut c, s, args),
         Some(s) => call_handler(&mut c, s, args),
         None => Err(Errno(ENOSYS)),
     };

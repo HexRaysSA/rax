@@ -33,6 +33,7 @@ TABLES = [
     ("x86_64", "x86-linux-any/asm/unistd_64.h", "x86-64 (`arch/x86/entry/syscalls/syscall_64.tbl`, common + 64)"),
     ("aarch64", "aarch64-linux-any/asm/unistd_64.h", "AArch64 (asm-generic numbering)"),
     ("riscv64", "riscv-linux-any/asm/unistd_64.h", "RV64 (asm-generic numbering plus RISC-V calls)"),
+    ("i386", "x86-linux-any/asm/unistd_32.h", "i386 (`arch/x86/entry/syscalls/syscall_32.tbl`, the `int $0x80` table)"),
 ]
 
 DEFINE = re.compile(r"^#define __NR_(\w+)\s+(\d+)\s*$")

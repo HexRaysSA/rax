@@ -87,6 +87,16 @@ impl X86UserCpu {
         child
     }
 
+    /// Runs 32-bit compatibility-mode code (an i386 process) or 64-bit code.
+    pub fn set_compat(&mut self, compat: bool) {
+        self.vcpu.set_user_compat(compat);
+    }
+
+    /// Whether the CPU runs compatibility-mode code.
+    pub fn compat(&self) -> bool {
+        self.vcpu.user_compat()
+    }
+
     /// The underlying core.
     pub fn vcpu(&self) -> &X86_64Vcpu {
         &self.vcpu

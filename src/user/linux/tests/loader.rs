@@ -107,6 +107,43 @@ pub(crate) fn image(
     out
 }
 
+/// Builds an ELF32 little-endian image of `segs` (no interpreter): header,
+/// program headers at 52 (`Elf32_Phdr`, `p_flags` after `p_memsz`), and
+/// pattern bytes everywhere else.
+pub(crate) fn image32(machine: u16, e_type: u16, entry: u32, segs: &[Seg]) -> Vec<u8> {
+    let end = segs
+        .iter()
+        .map(|s| s.offset + s.filesz)
+        .max()
+        .unwrap_or(0)
+        .max(52 + 32 * segs.len() as u64);
+    let mut out: Vec<u8> = (0..end).map(pattern).collect();
+    let mut h = Vec::new();
+    h.extend_from_slice(&[0x7f, b'E', b'L', b'F', 1, 1, 1, 0]);
+    h.resize(16, 0);
+    h.extend_from_slice(&e_type.to_le_bytes());
+    h.extend_from_slice(&machine.to_le_bytes());
+    h.extend_from_slice(&1u32.to_le_bytes());
+    h.extend_from_slice(&entry.to_le_bytes());
+    h.extend_from_slice(&52u32.to_le_bytes());
+    h.extend_from_slice(&0u32.to_le_bytes());
+    h.extend_from_slice(&0u32.to_le_bytes());
+    h.extend_from_slice(&52u16.to_le_bytes());
+    h.extend_from_slice(&32u16.to_le_bytes());
+    h.extend_from_slice(&(segs.len() as u16).to_le_bytes());
+    h.extend_from_slice(&[40, 0, 0, 0, 0, 0]);
+    for s in segs {
+        h.extend_from_slice(&s.p_type.to_le_bytes());
+        for v in [s.offset, s.vaddr, s.vaddr, s.filesz, s.memsz] {
+            h.extend_from_slice(&(v as u32).to_le_bytes());
+        }
+        h.extend_from_slice(&s.flags.to_le_bytes());
+        h.extend_from_slice(&(s.align as u32).to_le_bytes());
+    }
+    out[..h.len()].copy_from_slice(&h);
+    out
+}
+
 fn space(abi: LinuxAbi) -> AddressSpace {
     let s = AddressSpace::new(SpaceConfig {
         va_limit: abi.task_size(),

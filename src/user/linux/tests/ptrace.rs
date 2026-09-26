@@ -132,6 +132,7 @@ fn general_registers_as_each_architecture_lays_them_out() {
         let (size, pc, sp) = match abi {
             LinuxAbi::X86_64 => (216, 16, 19),
             LinuxAbi::Aarch64 => (272, 32, 31),
+            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::Riscv64 => (256, 0, 2),
         };
         assert_eq!(b.len(), size);
@@ -167,6 +168,7 @@ fn general_registers_as_each_architecture_lays_them_out() {
                 );
                 assert_eq!(t.cpu.pc(), 0x40_2000);
             }
+            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::Riscv64 => {}
         }
     });

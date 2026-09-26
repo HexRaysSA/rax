@@ -9,6 +9,7 @@ mod exec;
 mod fdinfo;
 mod files;
 mod harness;
+mod i386;
 mod ifreq;
 mod inotify;
 mod kcmp;

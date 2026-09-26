@@ -199,9 +199,36 @@ pub const STATX_BASIC_STATS: u32 = 0x7ff;
 /// `STATX_BTIME`.
 pub const STATX_BTIME: u32 = 0x800;
 
+/// `DEFAULT_OVERFLOWUID` (`linux/highuid.h`): what a 16-bit ID field shows
+/// for an ID that does not fit (`high2lowuid`).
+pub const OVERFLOW_ID: u32 = 65534;
+
+/// `MAX_NON_LFS` (`linux/fs.h`): the largest size a non-LFS field holds.
+pub const MAX_NON_LFS: i64 = (1 << 31) - 1;
+
+/// `high2lowuid`: an ID in a 16-bit field.
+pub fn low_id(id: u32) -> u16 {
+    if id & !0xFFFF != 0 {
+        OVERFLOW_ID as u16
+    } else {
+        id as u16
+    }
+}
+
 impl Stat {
+    /// Whether `cp_compat_stat` refuses the status (`EOVERFLOW`): an inode
+    /// number or link count that its 32- and 16-bit fields cannot hold, or a
+    /// size past `MAX_NON_LFS`.
+    pub fn compat_overflow(&self) -> bool {
+        self.ino > u64::from(u32::MAX)
+            || self.nlink > u64::from(u16::MAX)
+            || self.size > MAX_NON_LFS
+    }
+
     /// Encodes `struct stat` for `abi`: 144 bytes on x86-64, 128 bytes in the
-    /// asm-generic layout used by arm64 and riscv.
+    /// asm-generic layout used by arm64 and riscv, and i386's 64-byte
+    /// `struct compat_stat` as `cp_compat_stat` fills it (the caller checks
+    /// [`Stat::compat_overflow`] first).
     pub fn encode(&self, abi: LinuxAbi) -> Vec<u8> {
         let dev = encode_dev(self.dev_major, self.dev_minor);
         let rdev = encode_dev(self.rdev_major, self.rdev_minor);
@@ -250,6 +277,26 @@ impl Stat {
                     .u32(0)
                     .u32(0);
                 debug_assert_eq!(e.len(), 128);
+            }
+            LinuxAbi::I386 => {
+                e.u32(dev as u32)
+                    .u32(self.ino as u32)
+                    .u16(self.mode as u16)
+                    .u16(self.nlink as u16)
+                    .u16(low_id(self.uid))
+                    .u16(low_id(self.gid))
+                    .u32(rdev as u32)
+                    .u32(self.size as u32)
+                    .u32(self.blksize as u32)
+                    .u32(self.blocks as u32)
+                    .u32(self.atime.sec as u32)
+                    .u32(self.atime.nsec as u32)
+                    .u32(self.mtime.sec as u32)
+                    .u32(self.mtime.nsec as u32)
+                    .u32(self.ctime.sec as u32)
+                    .u32(self.ctime.nsec as u32)
+                    .zeros(8);
+                debug_assert_eq!(e.len(), 64);
             }
         }
         e.finish()

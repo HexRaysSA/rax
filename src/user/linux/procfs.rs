@@ -287,7 +287,7 @@ fn inotify_limit(p: &ProcState, path: &str) -> Vec<u8> {
 /// `/proc/cpuinfo` for the single emulated CPU.
 pub fn cpuinfo(abi: LinuxAbi) -> Vec<u8> {
     match abi {
-        LinuxAbi::X86_64 => concat!(
+        LinuxAbi::X86_64 | LinuxAbi::I386 => concat!(
             "processor\t: 0\n",
             "vendor_id\t: GenuineIntel\n",
             "cpu family\t: 6\n",

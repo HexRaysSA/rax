@@ -306,12 +306,12 @@ pub mod ss {
 }
 
 /// `MINSIGSTKSZ`, the smallest stack `sigaltstack` accepts: 5120 bytes on
-/// arm64 (`arch/arm64/include/uapi/asm/signal.h`), 2048 on x86-64 and
-/// riscv.
+/// arm64 (`arch/arm64/include/uapi/asm/signal.h`), 2048 on x86-64, i386,
+/// and riscv.
 pub fn minsigstksz(abi: LinuxAbi) -> u64 {
     match abi {
         LinuxAbi::Aarch64 => 5120,
-        LinuxAbi::X86_64 | LinuxAbi::Riscv64 => 2048,
+        LinuxAbi::X86_64 | LinuxAbi::I386 | LinuxAbi::Riscv64 => 2048,
     }
 }
 

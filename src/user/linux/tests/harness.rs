@@ -1,8 +1,8 @@
 //! A spawned process whose system calls tests drive through [`dispatch`]
 //! without executing guest code, plus helpers to write guest code and run.
 
-use super::loader::{Seg, image};
-use crate::user::image::elf::{EM_AARCH64, EM_RISCV, EM_X86_64, ET_EXEC, PF_R, PF_W, PF_X};
+use super::loader::{Seg, image, image32};
+use crate::user::image::elf::{EM_386, EM_AARCH64, EM_RISCV, EM_X86_64, ET_EXEC, PF_R, PF_W, PF_X};
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::loader::ImageFile;
 use crate::user::linux::syscall::Outcome;
@@ -52,21 +52,16 @@ impl Harness {
         abi: LinuxAbi,
         backend: Option<crate::user::linux::fsnotify::Backend>,
     ) -> Self {
-        let machine = match abi {
-            LinuxAbi::X86_64 => EM_X86_64,
-            LinuxAbi::Aarch64 => EM_AARCH64,
-            LinuxAbi::Riscv64 => EM_RISCV,
+        let segs = [
+            Seg::load(CODE, 0, 0x2000, 0x2000, PF_R | PF_X),
+            Seg::load(DATA, 0x2000, 0x1000, 0x2000, PF_R | PF_W),
+        ];
+        let bytes = match abi {
+            LinuxAbi::X86_64 => image(EM_X86_64, ET_EXEC, 0x40_1000, &segs, None),
+            LinuxAbi::Aarch64 => image(EM_AARCH64, ET_EXEC, 0x40_1000, &segs, None),
+            LinuxAbi::Riscv64 => image(EM_RISCV, ET_EXEC, 0x40_1000, &segs, None),
+            LinuxAbi::I386 => image32(EM_386, ET_EXEC, 0x40_1000, &segs),
         };
-        let bytes = image(
-            machine,
-            ET_EXEC,
-            0x40_1000,
-            &[
-                Seg::load(CODE, 0, 0x2000, 0x2000, PF_R | PF_X),
-                Seg::load(DATA, 0x2000, 0x1000, 0x2000, PF_R | PF_W),
-            ],
-            None,
-        );
         let mut config = LinuxConfig::new("/prog", vec![b"prog".to_vec()], vec![]);
         config.arena_bytes = 256 << 20;
         config.seed = Some(1);
@@ -91,10 +86,26 @@ impl Harness {
             scratch: 0,
             files: Vec::new(),
         };
-        h.scratch = h.ok(
-            Sysno::Mmap,
-            &[0, P, RW, MAP_PRIVATE | MAP_ANONYMOUS, u64::MAX, 0],
-        );
+        // i386 has mmap2 (the old mmap takes a structure); fd -1 as its
+        // 32-bit register holds it.
+        h.scratch = if abi.is_compat() {
+            h.ok(
+                Sysno::Mmap2,
+                &[
+                    0,
+                    P,
+                    RW,
+                    MAP_PRIVATE | MAP_ANONYMOUS,
+                    u64::from(u32::MAX),
+                    0,
+                ],
+            )
+        } else {
+            h.ok(
+                Sysno::Mmap,
+                &[0, P, RW, MAP_PRIVATE | MAP_ANONYMOUS, u64::MAX, 0],
+            )
+        };
         h
     }
 

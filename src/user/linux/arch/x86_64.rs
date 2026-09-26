@@ -24,7 +24,9 @@ pub const HWCAP2_FSGSBASE: u64 = 1 << 1;
 
 /// Capabilities: `AT_HWCAP` is CPUID leaf 1 EDX; `AT_HWCAP2` reports
 /// FSGSBASE; the signal frame size is `init_sigframe_size()` computed for the
-/// XSAVE area the emulated CPU's XCR0 selects.
+/// XSAVE area the emulated CPU's XCR0 selects (a compatibility task gets the
+/// same `get_sigframe_size()`); `AT_PLATFORM` is `x86_64`, or `i686` for a
+/// compatibility task (`COMPAT_ELF_PLATFORM`).
 pub fn caps(cpu: &X86UserCpu) -> ArchCaps {
     let (_, _, _, edx) = cpu.vcpu().cpuid(1, 0);
     // CPUID.(EAX=0DH,ECX=0):EBX = XSAVE area size for the enabled XCR0.
@@ -36,7 +38,7 @@ pub fn caps(cpu: &X86UserCpu) -> ArchCaps {
     ArchCaps {
         hwcap: u64::from(edx),
         hwcap2: Some(HWCAP2_FSGSBASE),
-        platform: Some("x86_64"),
+        platform: Some(if cpu.compat() { "i686" } else { "x86_64" }),
         minsigstksz: frame.div_ceil(16) * 16,
     }
 }
@@ -180,20 +182,27 @@ fn event(cpu: &mut X86UserCpu, exit: X86Exit) -> CpuEvent {
                 },
             )
         }
+        // INT 0x80 (do_int80_emulation): the number in EAX, the arguments
+        // in EBX, ECX, EDX, ESI, EDI, EBP. An i386 process's own system
+        // calls; a 64-bit process's compat ones.
         X86Exit::Event(e) if e.source == X86EventSource::SoftwareInterrupt && e.vector == 0x80 => {
+            let compat = cpu.compat();
             let r = cpu.vcpu_mut().user_regs_mut();
             r.rip = e.return_rip;
             let lo = |v: u64| v & 0xFFFF_FFFF;
-            CpuEvent::CompatSyscall {
-                nr: lo(r.rax),
-                args: [
-                    lo(r.rbx),
-                    lo(r.rcx),
-                    lo(r.rdx),
-                    lo(r.rsi),
-                    lo(r.rdi),
-                    lo(r.rbp),
-                ],
+            let nr = lo(r.rax);
+            let args = [
+                lo(r.rbx),
+                lo(r.rcx),
+                lo(r.rdx),
+                lo(r.rsi),
+                lo(r.rdi),
+                lo(r.rbp),
+            ];
+            if compat {
+                CpuEvent::Syscall { nr, args }
+            } else {
+                CpuEvent::CompatSyscall { nr, args }
             }
         }
         X86Exit::Event(e) => match event_signal(&e, cpu.vcpu().mxcsr()) {

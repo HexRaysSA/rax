@@ -55,6 +55,7 @@ fn program(abi: LinuxAbi) -> Vec<u8> {
     let machine = match abi {
         LinuxAbi::X86_64 => EM_X86_64,
         LinuxAbi::Aarch64 => EM_AARCH64,
+        LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
         LinuxAbi::Riscv64 => EM_RISCV,
     };
     image(

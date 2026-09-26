@@ -583,6 +583,26 @@ code comments name the kernel function each rule comes from.
   counted from the oldest; `PTRACE_SECCOMP_GET_METADATA`: its
   `SECCOMP_FILTER_FLAG_LOG`); any other tracer is refused (`EPERM`,
   `EACCES`).
+- **i386 compatibility tasks** (`syscall::compat`). An ELF32 `EM_386` or
+  `EM_486` program runs as a compatibility task of an x86-64 kernel
+  (`compat_binfmt_elf`, `CONFIG_IA32_EMULATION`): the x86-64 core in IA-32e
+  compatibility mode (`__USER32_CS`, 0x23), a 4 GiB address space
+  (`TASK_SIZE` and `STACK_TOP` 0xFFFFE000, the mmap area below 0xF7FFE000,
+  a PIE at 0x56555000), an initial stack of 4-byte words with
+  `AT_PLATFORM` `i686`, and `int $0x80` as its system-call entry with the
+  `syscall_32.tbl` numbering. The user-mode x86 core carries the GDT a Linux
+  kernel installs (kernel and user code and data, TLS entries 12-14, the
+  CPU/node entry `LSL` reads), outside guest memory, so selector loads,
+  far transfers, and `LAR`/`LSL` behave as against the kernel's table;
+  `set_thread_area` and `get_thread_area` fill and read the TLS entries
+  (`fill_ldt`) and reload the segment registers holding a changed one.
+  The compatibility table is fail-closed: a call whose native entry point
+  sees the same arguments and layouts goes to the native handler, a call
+  with a 32-bit conversion goes through it (`mmap2`'s page offset, the
+  old `mmap`'s `struct mmap_arg_struct32`, `struct compat_iovec`, the
+  terminal `ioctl`s whose arguments have one layout), and every other call
+  is `ENOSYS` rather than running with 64-bit layouts. Compatibility-mode
+  code stays in the interpreter, which decodes by mode.
 - **Splicing** (`syscall::splice`). `splice` and `vmsplice` move data
   through the pipes' host descriptors by reading and writing, with the
   kernel's checks in order (a pipe's offsets before either is read,
@@ -794,6 +814,7 @@ code comments name the kernel function each rule comes from.
 | POSIX message queues | `src/user/linux/tests/mqueue.rs` (9 tests, on every ABI): `mq_open`'s checks in order, the attributes, limits, `RLIMIT_MSGQUEUE` charge, and permissions, priorities, the status line and position, sizes, access, timeouts, a message taken although its copy faults, waiting receivers handed messages and waiting senders given slots, a signal ending a wait, notifications (`SI_MESGQ`, once, `EBUSY`, removal by closing, none while a receiver waits, `SIGEV_THREAD`'s checks), `mq_getsetattr`, unlinked queues, and `poll`; the `sigmail` unit test of records with a code and value |
 | Machine administration and mounts | `src/user/linux/tests/admin.rs` (10 tests) and `src/user/linux/tests/mounts.rs` (7 tests), on every ABI (the I/O port calls on x86-64): each call's checks in order for an unprivileged caller and for root, the refusals, the empty kernel log and its wait, reading the NTP state and the `timex` bytes written back or not, the CPU-time and device clocks, `mount`'s string and option copies, `copy_struct_from_user` zero checks up to a fault, `build_mount_kattr`, `open_tree` as an `O_PATH` open and its descriptor taken first, and `open_tree_attr` publishing its descriptor only on success |
 | inotify | `src/user/linux/tests/inotify.rs` (9 tests, on every ABI and, on Linux hosts, with both backends, so that the host kernel checks the expectations): the calls' checks in order, descriptors, the events of each file call and their order, a file watching itself through removal and renames, merging, overflow, `read`'s records, `FIONREAD`, waiting readers, one-shot and `IN_EXCL_UNLINK` watches, closes at the last reference (a duplicate, a mapping), `fdinfo`, `poll`, and the limits; unit tests of delivery in `src/user/linux/fsnotify/mod.rs` and of the queue in `src/user/linux/fsnotify/queue.rs` |
+| i386 compatibility tasks | `src/user/linux/tests/i386.rs` (7 tests): the compatibility task's layout, ELF32 acceptance, and `syscall_32.tbl` numbers; its start in compatibility mode with a 4-byte-word stack and `AT_PLATFORM` `i686`; `int $0x80` as its system call; `set_thread_area` and `get_thread_area` (allocation, `fill_ldt` descriptors, `tls_desc_okay`, the entry range, clearing, `EFAULT`) and the reload of a register holding a changed entry; `struct compat_iovec`, `mmap2` and the old `mmap`, the terminal `ioctl`s, and `ENOSYS` for calls without a conversion; `cp_compat_stat`'s layout and `EOVERFLOW`; `src/isa/x86_64/user_gdt_tests.rs` (6 tests): the user-mode GDT against Linux's descriptors, selector loads and faults, a TLS entry basing `%gs` in compatibility mode, `LSL` on the CPU/node entry, and reloads; `user_linux` `abi_tables`: the i386 table against `unistd_32.h` |
 | Seccomp | `src/user/linux/tests/seccomp.rs` (10 tests, most on every ABI): installing in `seccomp_set_mode_filter`'s order, the eBPF-length bound, what filters see and decide, `SECCOMP_RET_TRAP`'s `SIGSYS`, the kill actions against the number of threads, strict mode, TSYNC, calls checked once as they enter, x86-64 `INT 0x80` calls as i386 ones, and `TIF_NOTSC` faulting `RDTSC`; unit tests of the checks, the conversion length, and running in `src/user/linux/seccomp/bpf.rs`, and of verdicts and chains in `src/user/linux/seccomp/mod.rs` |
 | System V semaphores | `src/user/linux/tests/sysvsem.rs` (5 tests on every ABI): values and `semctl`'s commands with each ABI's `semid64_ds`, operation lists all or none and in order, `semtimedop`'s checks in order and its timeout, waits counted by `GETNCNT` and `GETZCNT` and ended by a value, a removal, or a signal, `SEM_UNDO` at exit, undo lists shared by `CLONE_SYSVSEM` or a thread's own, left by `unshare(CLONE_SYSVSEM)` or a thread's exit; unit tests of `perform_atomic_semop`'s rules and `exit_sem` in `src/user/linux/ipc/sem.rs` |
 | System V shared memory | `src/user/linux/tests/sysvshm.rs` (3 tests on every ABI): attaches seeing each other's stores, attach counting by mapping (split, not merged back), `shmdt` and `munmap`, `/proc/self/maps`, read-only attaches, `SHM_RND` and `SHM_REMAP`, keys, `SHM_STAT`, `IPC_INFO`, `SHM_INFO`, `IPC_SET`, `SHM_LOCK`, and removal while attached; unit tests of identifier allocation, `ipcperms`, the tables, and publication in `src/user/linux/ipc/` |

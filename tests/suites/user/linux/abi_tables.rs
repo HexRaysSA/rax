@@ -76,6 +76,11 @@ fn riscv64_syscall_numbers_match_unistd_64() {
 }
 
 #[test]
+fn i386_syscall_numbers_match_unistd_32() {
+    check_table(LinuxAbi::I386, "x86-linux-any/asm/unistd_32.h");
+}
+
+#[test]
 fn every_sysno_name_is_unique_and_sorted() {
     let names: Vec<&str> = Sysno::ALL.iter().map(|s| s.name()).collect();
     let mut sorted = names.clone();

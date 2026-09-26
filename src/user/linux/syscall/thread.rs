@@ -127,7 +127,8 @@ pub fn clone(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
     }
     let (child_tid, tls) = match c.p.abi {
         LinuxAbi::X86_64 => (a[3], a[4]),
-        LinuxAbi::Aarch64 | LinuxAbi::Riscv64 => (a[4], a[3]),
+        // compat_sys_ia32_clone has the same order.
+        LinuxAbi::Aarch64 | LinuxAbi::Riscv64 | LinuxAbi::I386 => (a[4], a[3]),
     };
     let low = a[0] & CLONE_LEGACY_FLAGS;
     let args = CloneArgs {

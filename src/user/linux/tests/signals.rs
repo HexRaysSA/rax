@@ -265,6 +265,7 @@ fn expected_frame(abi: LinuxAbi, sp: u64) -> u64 {
             ((buf_fx - 440) & !15) - 8
         }
         LinuxAbi::Aarch64 => ((sp - 16) & !15) - 4688,
+        LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
         LinuxAbi::Riscv64 => (sp - rv_size) & !15,
     }
 }
@@ -292,6 +293,7 @@ fn handler_frames_match_each_abi() {
         );
         let (gp, fp, fl, old_sp, old_pc) = before;
         match abi {
+            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::X86_64 => {
                 let GuestCpu::X86_64(x) = c else {
                     unreachable!()
@@ -490,6 +492,7 @@ fn a_handler_can_edit_the_saved_context() {
         let (pc_slot, mask_slot) = match abi {
             LinuxAbi::X86_64 => (frame + 48 + 128, frame + 304),
             LinuxAbi::Aarch64 => (frame + 568, frame + 168),
+            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::Riscv64 => (frame + 304, frame + 168),
         };
         let space = &h.proc.state.space;
@@ -613,6 +616,7 @@ fn a_fault_records_the_arch_fault_state() {
                 address: f.addr,
                 esr: crate::user::linux::arch::aarch64::abort_esr(&f),
             },
+            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::Riscv64 => frame::FaultUpdate::None,
         };
         h.proc.trap_signal(0, fault_signal(&f), update);
@@ -637,6 +641,7 @@ fn a_fault_records_the_arch_fault_state() {
                 assert_eq!(u64_at(&h, frame + 1128), esr);
                 assert_eq!(read(&h, frame + 1136, 8), [0; 8], "terminator");
             }
+            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::Riscv64 => {}
         }
         let info = frame + if abi == LinuxAbi::X86_64 { 312 } else { 0 };
@@ -801,6 +806,7 @@ fn restart_codes_follow_the_handler_and_sa_restart() {
             let (saved_pc, saved_ret) = match abi {
                 LinuxAbi::X86_64 => (u64_at(&h, frame + 48 + 128), u64_at(&h, frame + 48 + 104)),
                 LinuxAbi::Aarch64 => (u64_at(&h, frame + 568), u64_at(&h, frame + 312)),
+                LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
                 LinuxAbi::Riscv64 => (u64_at(&h, frame + 304), u64_at(&h, frame + 304 + 80)),
             };
             if rewound {
@@ -904,6 +910,7 @@ fn sigsuspend_returns_through_the_restart_path() {
         let saved_ret = match abi {
             LinuxAbi::X86_64 => u64_at(&h, frame + 48 + 104),
             LinuxAbi::Aarch64 => u64_at(&h, frame + 312),
+            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::Riscv64 => u64_at(&h, frame + 304 + 80),
         };
         assert_eq!(saved_ret as i64, -i64::from(EINTR));

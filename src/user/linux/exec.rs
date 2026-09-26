@@ -118,7 +118,7 @@ pub fn load_image(
             req.exe_path, ident.e_machine, ident.class
         ))
     })?;
-    let reserved = if abi == LinuxAbi::X86_64 {
+    let reserved = if abi.isa() == crate::user::cpu::Isa::X86_64 {
         RESERVED_PHYS.to_vec()
     } else {
         Vec::new()

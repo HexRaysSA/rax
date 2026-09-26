@@ -14,15 +14,26 @@ pub const UIO_MAXIOV: u64 = 1024;
 /// `copy_iovec_from_user`: `nr` vectors at `uvec`, read in order. The
 /// array must lie in user space and each vector be readable (`EFAULT`);
 /// a length negative as an `ssize_t` is `EINVAL` once its vector is read.
+/// A 32-bit call reads `struct compat_iovec`s, whose lengths are
+/// `compat_ssize_t` (`copy_compat_iovec_from_user`).
 fn copy_iovec_from_user(c: &Ctx<'_>, uvec: u64, nr: u64) -> Result<Vec<(u64, u64)>, Errno> {
-    if !access_ok(c, uvec, nr * 16) {
+    let size = if c.compat { 8 } else { 16 };
+    if !access_ok(c, uvec, nr * size) {
         return Err(Errno(EFAULT));
     }
     let mut out = Vec::with_capacity(nr as usize);
     for i in 0..nr {
-        let b = c.read_mem(uvec + 16 * i, 16)?;
-        let base = u64::from_le_bytes(b[..8].try_into().unwrap());
-        let len = u64::from_le_bytes(b[8..].try_into().unwrap());
+        let b = c.read_mem(uvec + size * i, size as usize)?;
+        let (base, len) = if c.compat {
+            let base = u32::from_le_bytes(b[..4].try_into().unwrap());
+            let len = i32::from_le_bytes(b[4..].try_into().unwrap());
+            (u64::from(base), i64::from(len) as u64)
+        } else {
+            (
+                u64::from_le_bytes(b[..8].try_into().unwrap()),
+                u64::from_le_bytes(b[8..].try_into().unwrap()),
+            )
+        };
         if (len as i64) < 0 {
             return Err(Errno(EINVAL));
         }

@@ -332,7 +332,7 @@ impl LinuxProcess {
         match self.state.abi {
             // report_single_step: a stepped call reports as it finishes,
             // unless emulated (its entry stop was the report).
-            LinuxAbi::X86_64 | LinuxAbi::Riscv64 => {
+            LinuxAbi::X86_64 | LinuxAbi::I386 | LinuxAbi::Riscv64 => {
                 if mode.step && !mode.emu {
                     self.step_report(idx);
                     return false;

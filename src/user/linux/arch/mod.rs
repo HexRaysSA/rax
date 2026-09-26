@@ -122,6 +122,12 @@ impl GuestCpu {
     pub fn new(abi: LinuxAbi, space: &AddressSpace, options: &CpuOptions) -> Self {
         match abi {
             LinuxAbi::X86_64 => GuestCpu::X86_64(X86UserCpu::new(space)),
+            // start_thread_ia32: the same CPU in compatibility mode.
+            LinuxAbi::I386 => {
+                let mut cpu = X86UserCpu::new(space);
+                cpu.set_compat(true);
+                GuestCpu::X86_64(cpu)
+            }
             LinuxAbi::Aarch64 => GuestCpu::Aarch64(A64UserCpu::new(space)),
             LinuxAbi::Riscv64 => {
                 let mut cpu = RvUserCpu::new(space, options.riscv_config);
@@ -134,6 +140,7 @@ impl GuestCpu {
     /// The ABI.
     pub fn abi(&self) -> LinuxAbi {
         match self {
+            GuestCpu::X86_64(cpu) if cpu.compat() => LinuxAbi::I386,
             GuestCpu::X86_64(_) => LinuxAbi::X86_64,
             GuestCpu::Aarch64(_) => LinuxAbi::Aarch64,
             GuestCpu::Riscv64(_) => LinuxAbi::Riscv64,
