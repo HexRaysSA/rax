@@ -54,6 +54,10 @@ impl LinuxProcess {
         let mut current = 0usize;
         loop {
             if self.state.exit.is_some() {
+                // do_exit of the threads the process's end takes with it
+                // (exit_group, a fatal signal): exit_mm releases each
+                // one's robust futexes.
+                self.release_robust_lists();
                 // exit_mmap: the System V attaches go before the parent
                 // can see the exit.
                 super::syscall::ipc::exit(&mut self.state);
@@ -415,6 +419,21 @@ impl LinuxProcess {
     /// (`synchronize_group_exit`).
     pub fn exit_thread(&mut self, idx: usize, code: i32) {
         self.end_thread(idx, exited_status(code));
+    }
+
+    /// `futex_exit_release` (`futex_cleanup`) for every thread still in
+    /// the process: the robust futexes each holds are released, and its
+    /// list is forgotten.
+    fn release_robust_lists(&mut self) {
+        for idx in 0..self.threads.len() {
+            let t = &mut self.threads[idx];
+            let (tid, head) = (t.tid, t.robust_list.0);
+            t.robust_list = (0, 0);
+            if head != 0 {
+                let mut th = Threads::split(&mut self.threads, Some(idx));
+                futex::exit_robust_list(&mut self.state, &mut th, tid, head);
+            }
+        }
     }
 
     /// `do_exit` for thread `idx` with wait status `status` (its

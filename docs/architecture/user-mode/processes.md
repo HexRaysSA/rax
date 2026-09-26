@@ -24,7 +24,10 @@ Thread exit follows `do_exit`: process signals meant for the thread go to others
 (`exit_signals`), the robust list is walked and PI futexes handed on
 (`futex_exit_release`), and the `clear_child_tid` word is cleared and woken
 (`mm_release`); the last thread's code becomes the process's
-(`synchronize_group_exit`).
+(`synchronize_group_exit`). The robust lists of the threads still running when the
+process ends (`exit_group`, a fatal signal) are released as each one's `do_exit`
+would, and `execve` releases the caller's against the old address space under the
+TID `de_thread` gave it (`futex_exec_release`).
 
 ## Sleeping in system calls
 

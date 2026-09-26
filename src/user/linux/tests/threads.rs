@@ -470,6 +470,47 @@ fn thread_exit_clears_the_tid_word_and_releases_robust_futexes() {
 }
 
 #[test]
+fn the_end_of_the_process_releases_every_threads_robust_futexes() {
+    // exit_group and a fatal signal take every thread through do_exit, whose
+    // exit_mm releases its robust futexes: locks in shared memory are
+    // marked FUTEX_OWNER_DIED for the processes that share them.
+    for fatal in [false, true] {
+        each_abi(|abi| {
+            let mut h = Harness::new(abi);
+            let shared = h.anon(4096, 3, true);
+            let (tid, w) = spawn(&mut h, 0, 0);
+            // One list per thread, each holding a lock.
+            for (i, (idx, owner)) in [(0, h.proc.threads[0].tid), (w, tid)].into_iter().enumerate() {
+                let base = shared + 0x400 * i as u64;
+                let (head, entry, offset) = (base, base + 0x40, 0x20u64);
+                put_u64s(&h, head, &[entry, offset, 0]);
+                put_u64s(&h, entry, &[head]);
+                put_u32(&h, entry + offset, owner as u32);
+                assert_eq!(h.start(idx, Sysno::SetRobustList, &[head, 24]), Some(0));
+            }
+            if fatal {
+                let pid = h.proc.state.pid as u64;
+                h.ok(Sysno::Kill, &[pid, SIGKILL as u64]);
+                h.proc.deliver_signals(0);
+            } else {
+                // The threads stay until the run loop ends the process.
+                h.start(0, Sysno::ExitGroup, &[3]);
+            }
+            assert!(h.proc.state.exit.is_some(), "{abi:?}");
+            let status = h.proc.run();
+            assert!(
+                matches!(status, ExitStatus::Exited(3) | ExitStatus::Signaled { .. }),
+                "{status:?}"
+            );
+            for i in 0..2u64 {
+                let lock = shared + 0x400 * i + 0x60;
+                assert_eq!(u32_at(&h, lock), FUTEX_OWNER_DIED, "{abi:?} thread {i}");
+            }
+        });
+    }
+}
+
+#[test]
 fn process_signals_go_to_a_thread_that_takes_them() {
     let mut h = Harness::new(LinuxAbi::X86_64);
     handle(&mut h, SIGUSR1);

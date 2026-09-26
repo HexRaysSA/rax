@@ -155,10 +155,11 @@ its descriptor only on success
 
 ### Threads, futexes, and signal targeting
 
-`src/user/linux/tests/threads.rs` (14 tests): `clone`/`clone3` register state and
+`src/user/linux/tests/threads.rs` (15 tests): `clone`/`clone3` register state and
 validation on every 64-bit ABI, `unshare`'s implied flags and checks alone and with
 another thread, futex wait/wake/bitset/requeue/wake-op/PI and interrupted waits,
-robust-list and `clear_child_tid` handling at exit, `complete_signal` choice and
+robust-list and `clear_child_tid` handling at exit, every thread's robust futexes
+released when the process ends, `complete_signal` choice and
 retargeting, thread and process exit status, `CLONE_VFORK`, and the `/proc` thread
 views
 
@@ -168,7 +169,8 @@ views
 `execve`/`execveat` error order on every 64-bit ABI, the argument space charged to
 the byte (pointers, an empty `argv`, a script's rewritten arguments), a script named
 by a close-on-exec descriptor, the image replacement with a script and what survives
-it, `wait4`/`waitid` argument checks and `siginfo_t` writes on errors, children
+it, the caller's robust futexes released against the old address space,
+`wait4`/`waitid` argument checks and `siginfo_t` writes on errors, children
 passing to a live thread (`__WNOTHREAD`) on thread exit and `execve`, and processes
 unavailable without host processes
 

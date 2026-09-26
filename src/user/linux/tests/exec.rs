@@ -371,6 +371,39 @@ fn execve_replaces_the_image_and_keeps_what_the_kernel_keeps() {
 }
 
 #[test]
+fn execve_releases_the_robust_futexes_the_caller_holds() {
+    // exec_mm_release: futex_exec_release walks the robust list against the
+    // old address space, so a lock in shared memory another process waits
+    // on is marked FUTEX_OWNER_DIED.
+    use crate::user::linux::futex::FUTEX_OWNER_DIED;
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let shared = h.anon(4096, 3, true);
+        let (head, entry, offset) = (shared, shared + 0x40, 0x20u64);
+        let lock = entry + offset;
+        put_u64s(&h, head, &[entry, offset, 0]);
+        put_u64s(&h, entry, &[head]);
+        let tid = h.proc.threads[0].tid as u32;
+        h.proc.state.space.write(lock, &tid.to_le_bytes()).unwrap();
+        h.ok(Sysno::SetRobustList, &[head, 24]);
+        let old = h.proc.state.space.clone();
+        let (path, argv) = (h.scratch, h.scratch + 0x200);
+        let file = TempFile::new(&format!("{abi:?}-robust"), &program(abi), 0o755);
+        put_str(&h, path, file.path());
+        put_argv(&h, argv, &["prog"]);
+        let out = h.dispatch(Sysno::Execve, &[path, argv, 0]);
+        let Outcome::Exec(image) = out else {
+            panic!("{abi:?}: {out:?}");
+        };
+        h.proc.commit_exec(0, *image.0);
+        let mut b = [0u8; 4];
+        old.read(lock, &mut b).unwrap();
+        assert_eq!(u32::from_le_bytes(b), FUTEX_OWNER_DIED, "{abi:?}");
+        assert_eq!(h.proc.threads[0].robust_list, (0, 0));
+    });
+}
+
+#[test]
 fn waits_check_their_arguments_and_find_no_children() {
     let mut h = Harness::new(LinuxAbi::X86_64);
     // kernel_wait4: unknown options, INT_MIN, then no children.
