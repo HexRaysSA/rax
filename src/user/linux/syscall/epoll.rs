@@ -444,8 +444,7 @@ pub fn epoll_pwait2(
         Some(d) => (d, false, false),
         None if timeout == 0 => (None, false, true),
         None => {
-            let b = c.read_mem(timeout, 16)?;
-            let ts = super::super::abi::types::Timespec::decode(&b.try_into().unwrap());
+            let ts = c.get_timespec(timeout)?;
             if !super::timer::timespec_valid(ts) {
                 return Err(Errno(EINVAL));
             }

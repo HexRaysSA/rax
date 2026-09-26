@@ -230,6 +230,8 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         | S::EpollCtl
         | S::EpollWait
         | S::EpollPwait
+        // struct __kernel_timespec, its padding cleared (`timeabi`).
+        | S::EpollPwait2
         | S::Eventfd
         | S::Eventfd2
         | S::TimerfdCreate
@@ -360,9 +362,7 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
             }
             call_handler(c, S::Mmap, [word(0), word(1), word(2), word(3), word(4), word(5)])
         }
-        S::Ioctl if SAME_LAYOUT_IOCTLS.contains(&(a[1] as u32)) => call_handler(c, s, a),
-        // compat_sys_ioctl: a command without a 32-bit conversion.
-        S::Ioctl => Err(Errno(ENOTTY)),
+        S::Ioctl => ioctl(c, a),
 
         // compat_sys_open and compat_sys_openat: no forced O_LARGEFILE.
         S::Open => r(path::compat_openat(c, AT_FDCWD, a[0], a[1] as u32, a[2] as u32)),
@@ -480,6 +480,28 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         | S::TimerGetoverrun
         | S::TimerDelete => call_handler(c, s, a),
         _ => Err(Errno(ENOSYS)),
+    }
+}
+
+/// `compat_sys_ioctl`: the descriptor first (`EBADF`); the commands
+/// `do_vfs_ioctl` handles and the terminal ones with one layout, and every
+/// command of the files whose `compat_ioctl` is the native handler
+/// (`compat_ptr_ioctl`: pidfds and `epoll`; `inotify_ioctl`), run natively.
+/// Any other command has no 32-bit conversion here (`ENOTTY`, as for a
+/// file without `compat_ioctl`, such as a `timerfd`).
+fn ioctl(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
+    use super::super::fs::anon::Anon;
+    use super::super::fs::fd::FileObject;
+    let file = c.p.fds.file(a[0] as i32)?;
+    let native = SAME_LAYOUT_IOCTLS.contains(&(a[1] as u32))
+        || matches!(
+            &file.object,
+            FileObject::Anon(Anon::Pid(_) | Anon::Epoll(_) | Anon::Inotify(_))
+        );
+    if native {
+        call_handler(c, S::Ioctl, a)
+    } else {
+        Err(Errno(ENOTTY))
     }
 }
 

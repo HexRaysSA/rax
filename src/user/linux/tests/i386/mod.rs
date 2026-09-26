@@ -12,6 +12,7 @@
 //! | Module | Contents |
 //! |---|---|
 //! | this one | the task, its entry, TLS, and the first conversions |
+//! | [`descriptors`] | `compat_sys_ioctl`'s routing, `epoll_pwait2` |
 //! | [`files`] | opens, offsets, status, directories, locks, `execve` |
 //! | [`process`] | 16-bit IDs, limits, usage, waits, `times`, `sysinfo`, CPU masks, old `uname`s, `nice`, `arch_prctl` |
 //! | [`sigcalls`] | the signal calls' 32-bit structures, `struct compat_siginfo`, restart by the low half |
@@ -19,6 +20,7 @@
 //! | [`threads`] | `CLONE_SETTLS` descriptors, the 32-bit robust list, `futex_time32` |
 //! | [`time`] | clocks, sleeps, time setting, interval and POSIX timers, timerfds, file times |
 
+mod descriptors;
 mod files;
 mod process;
 mod sigcalls;

@@ -65,8 +65,10 @@ segment registers holding a changed one.
 The compatibility table is fail-closed: a call whose native entry point sees the
 same arguments and layouts goes to the native handler, a call with a 32-bit
 conversion goes through it (`mmap2`'s page offset, the old `mmap`'s `struct
-mmap_arg_struct32`, `struct compat_iovec`, the terminal `ioctl`s whose arguments
-have one layout). File conversions include split 64-bit offsets, `_llseek`,
+mmap_arg_struct32`, `struct compat_iovec`, and `compat_sys_ioctl`: the descriptor
+first, then the terminal commands whose arguments have one layout and every command
+of the files whose `compat_ioctl` is the native handler, pidfds, `epoll`, and
+inotify; a `timerfd` has none). File conversions include split 64-bit offsets, `_llseek`,
 `stat`/`stat64` and old-stat images, `statfs`/`statfs64`, directory entries, `fcntl`
 record locks, and `execve` vectors of 32-bit pointers. `open`/`openat` preserve the
 compatibility ABI's `O_LARGEFILE` rules. Matching-layout path, 32-bit-ID,

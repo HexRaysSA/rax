@@ -128,8 +128,8 @@ resource layouts, the i386 signal frames and returns (layouts derived from the
 UAPI structures, FSAVE conversions from the SDM tag rules, selector reloads and
 `IRET` faults, bad frames, the `[vdso]` trampolines), the 32-bit signal calls and
 `struct compat_siginfo`, threads (`CLONE_SETTLS` descriptors checked before a TID is
-taken, the separate 32-bit robust list, `futex_time32`/`futex_time64` timeouts), and
-rejection of unconverted calls;
+taken, the separate 32-bit robust list, `futex_time32`/`futex_time64` timeouts),
+`compat_sys_ioctl`'s routing and `epoll_pwait2`, and rejection of unconverted calls;
 `src/user/linux/abi/compat_tests.rs`: 32-bit layout and overflow checks;
 `src/isa/x86_64/user_gdt_tests.rs`: GDT selector/TLS behavior; `user_linux`
 `abi_tables`: numbering against `unistd_32.h`. `user_linux` `fixtures` runs an i386
