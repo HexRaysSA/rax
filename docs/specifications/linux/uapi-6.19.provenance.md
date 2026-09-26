@@ -15,7 +15,7 @@
   generated `asm/unistd_{32,64}.h` tables.
 - Retrieved: 24 September 2026
 - Integrity: `uapi-6.19.sha256` lists the SHA-256 of every imported file.
-- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (89 files),
+- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (90 files),
   `GPL-2.0-only WITH Linux-syscall-note` (5 files), or
   `GPL-2.0+ WITH Linux-syscall-note` (11 files) SPDX identifiers. Thirteen
   files have no SPDX line: the six generated syscall tables and the
@@ -43,6 +43,9 @@ These headers are the normative reference for:
   encodings, including the ARM/AArch64 `O_DIRECTORY`/`O_NOFOLLOW`/`O_DIRECT`/
   `O_LARGEFILE` divergence from `asm-generic/fcntl.h`;
 - structure layouts marshalled across the ABI (`struct stat`, `struct statx`,
+  i386's `struct stat64`, `struct __old_kernel_stat`, and `struct statfs64`
+  (`x86-linux-any/asm/{stat,statfs}.h`, the latter packing
+  `struct compat_statfs64`),
   `struct timespec`, `struct rlimit`, `struct utsname`,
   `struct signalfd_siginfo`, socket addresses and options (`linux/socket.h`,
   `linux/un.h`, `linux/in.h`, `linux/in6.h`, `linux/tcp.h`,

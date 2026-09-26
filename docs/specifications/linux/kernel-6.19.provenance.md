@@ -58,7 +58,9 @@
   `arch/x86/entry/{syscall_32.c,entry_64_compat.S}`,
   `arch/x86/entry/syscalls/syscall_32.tbl`, `fs/compat_binfmt_elf.c`,
   `include/linux/compat.h`, `include/asm-generic/compat.h`,
-  `include/linux/{highuid,kdev_t}.h`, `fs/stat.c`) came from kernel.org's
+  `include/linux/{highuid,kdev_t}.h`, `fs/{stat,statfs}.c`,
+  `include/linux/syscalls.h`, `mm/fadvise.c`,
+  `arch/x86/entry/syscalls/syscall_64.tbl`) came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
@@ -75,9 +77,9 @@
   26 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (128 files),
-  `GPL-2.0-only` (59), `GPL-2.0-or-later` (36),
-  `GPL-2.0 WITH Linux-syscall-note` (15), `GPL-2.0+` (3),
+- License: the files carry an SPDX identifier: `GPL-2.0` (130 files),
+  `GPL-2.0-only` (60), `GPL-2.0-or-later` (36),
+  `GPL-2.0 WITH Linux-syscall-note` (16), `GPL-2.0+` (3),
   `GPL-2.0-only WITH Linux-syscall-note` (1),
   `GPL-2.0+ WITH Linux-syscall-note` (2),
   `LGPL-2.1+ WITH Linux-syscall-note` (1, `include/uapi/linux/mqueue.h`),
@@ -156,6 +158,7 @@ behavior it reproduces beyond what the UAPI headers
 | Splicing | `fs/splice.c` (`splice`, `__do_splice`, `do_splice`, `splice_pipe_to_pipe`, `ipipe_prep`, `opipe_prep`, `wait_for_space`, `splice_file_to_pipe`, `do_splice_read`, `do_splice_from`, `splice_from_pipe_next`, `iter_file_splice_write`, `vmsplice`, `vmsplice_to_pipe`, `iter_to_pipe`, `vmsplice_to_user`, `pipe_to_user`, `tee`, `do_tee`, `link_pipe`), `fs/read_write.c` (`rw_verify_area`), the `splice_read` and `splice_write` operations of `fs/read_write.c` (regular files), `mm/shmem.c`, `fs/pipe.c`, `net/socket.c`, `net/unix/af_unix.c`, `drivers/char/mem.c` (`/dev/null` writes only, `/dev/full` reads only, `/dev/zero` both), `drivers/tty/tty_io.c` (both; `nonseekable_open`), and `fs/proc/inode.c` (`proc_iter_file_ops`) |
 | Asynchronous I/O | `fs/aio.c` (`ioctx_alloc`, `aio_setup_ring`, `aio_ring_mmap_prepare`, `aio_ring_mremap`, `ioctx_add_table`, `kill_ioctx`, `lookup_ioctx`, `__get_reqs_available`, `put_reqs_available`, `refill_reqs_available`, `user_refill_reqs_available`, `aio_complete`, `aio_read_events_ring`, `aio_read_events`, `read_events`, `aio_prep_rw`, `aio_setup_rw`, `aio_rw_done`, `aio_read`, `aio_write`, `aio_fsync`, `aio_poll`, `aio_poll_wake`, `aio_poll_complete_work`, `aio_poll_cancel`, `__io_submit_one`, `io_submit_one`, and the `io_setup`, `io_destroy`, `io_submit`, `io_cancel`, `io_getevents`, and `io_pgetevents` system calls), `include/linux/aio.h`, `include/uapi/linux/aio_abi.h` (`struct iocb`, `struct io_event`, `IOCB_CMD_*`, `IOCB_FLAG_*`), `include/uapi/linux/fs.h` (`RWF_*`, `RWF_SUPPORTED`), `include/linux/fs.h` (`kiocb_set_rw_flags`, `FOP_DONTCACHE`), `fs/read_write.c` (`rw_verify_area`), `fs/eventfd.c` (`eventfd_ctx_fdget`, `eventfd_signal_mask`, and its wake-up keys), the wake-up keys of `fs/pipe.c`, `net/core/sock.c` (`sock_def_readable`, `sock_def_write_space`), `net/unix/af_unix.c` (`unix_write_space`), `fs/timerfd.c`, and `fs/eventpoll.c` (`ep_poll_safewake`), `mm/mremap.c` (`check_prep_vma`: `VM_DONTEXPAND`; `copy_vma_and_data`: the `mremap` hook), `mm/vma.c` (`__mmap_complete`: a `VM_SPECIAL` mapping is never locked) |
 | Restartable sequences | `kernel/rseq.c` (`rseq`: the registration checks and fields, `rseq_reset_ids`; `rseq_handle_cs`, `rseq_slowpath_update_usr`, `__rseq_signal_deliver`), `include/linux/rseq_entry.h` (`rseq_update_user_cs`: the section, abort-handler, and signature checks; `rseq_set_ids_get_csaddr`, `rseq_update_usr`, `rseq_exit_user_update`, `__rseq_exit_to_user_mode_restart`), `include/linux/rseq.h` (`rseq_signal_deliver`, `rseq_sched_switch_event`, `rseq_force_update`, `rseq_reset`, `rseq_execve`, `rseq_fork`), `include/linux/rseq_types.h` (`struct rseq_event`), `include/uapi/linux/rseq.h` (`struct rseq`, `struct rseq_cs`, `RSEQ_FLAG_UNREGISTER`, `RSEQ_CPU_ID_UNINITIALIZED`), `arch/{arm64,x86,riscv}/Kconfig` (all three select the generic IRQ entry, which ties section checks to user-mode interrupts) |
+| i386 compatibility tasks | `arch/x86/entry/syscalls/syscall_32.tbl` (each call's native or `compat_sys_*`/`sys_ia32_*` entry point), `arch/x86/entry/syscalls/syscall_64.tbl` (x86-64's `sendfile` is `sys_sendfile64`), `arch/x86/entry/{syscall_32.c,entry_64_compat.S}` (`do_int80_emulation`: the arguments zero-extended), `arch/x86/kernel/sys_ia32.c` (the offsets in register pairs, `cp_stat64`, `struct mmap_arg_struct32`), `arch/x86/kernel/tls.c` (`set_thread_area`, `get_thread_area`, `fill_ldt`), `arch/x86/kernel/cpu/common.c` and `arch/x86/include/asm/{segment,desc,desc_defs}.h` (the GDT), `arch/x86/include/asm/{compat,processor}.h`, `include/linux/compat.h`, and `include/asm-generic/compat.h` (the compatibility types and structures), `fs/compat_binfmt_elf.c` (loading), `fs/open.c` (`compat_sys_open` and `compat_sys_openat` without forced `O_LARGEFILE`, `generic_file_open`'s `EOVERFLOW`, `do_sys_ftruncate`'s `small`), `include/linux/syscalls.h` (`ksys_ftruncate`), `fs/read_write.c` (`compat_sys_lseek`, `llseek`, the compatibility `preadv` family, `compat_sys_sendfile`), `fs/stat.c` (`cp_compat_stat`, `cp_old_stat`), `fs/statfs.c` (`put_compat_statfs`, `put_compat_statfs64`), `fs/readdir.c` (`compat_filldir`, `compat_fillonedir`), `fs/fcntl.c` (`do_compat_fcntl64`, `fixup_compat_flock`), `mm/fadvise.c` (`ksys_fadvise64_64`, `generic_fadvise`), `fs/exec.c` (`get_user_arg_ptr`, `bprm_stack_limits`), `arch/x86/kernel/process_64.c` (`set_personality_ia32`), `include/linux/{highuid,kdev_t}.h` (`high2lowuid`, `old_encode_dev`, `huge_encode_dev`) |
 
 Code comments name the kernel function whose behavior an implementation
 follows (for example `do_mprotect_pkey` or `madvise_walk_vmas`); that
