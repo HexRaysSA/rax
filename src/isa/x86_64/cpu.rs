@@ -5189,7 +5189,9 @@ impl X86_64Vcpu {
     /// compiles exactly there. Ineligible heads are cached as `None` so they are
     /// never retried.
     fn jit_sample_backedge(&mut self, rip_before: u64) {
-        if self.interrupt_inhibit || self.jit_disabled_for_debugger() {
+        // User-mode compatibility code stays in the interpreter: the lifter
+        // decodes 64-bit mode (`set_user_compat`).
+        if self.interrupt_inhibit || self.jit_disabled_for_debugger() || self.user_compat() {
             return;
         }
 

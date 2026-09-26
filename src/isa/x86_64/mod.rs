@@ -14,6 +14,7 @@ pub(crate) mod memory;
 mod memory_tests;
 mod simd_native;
 mod threaded;
+mod user_gdt;
 mod user_mode;
 #[cfg(test)]
 mod user_mode_tests;
@@ -21,6 +22,7 @@ mod user_xstate;
 
 pub use cpu::{CURRENT_RIP, RIP_HISTORY, RIP_IDX, X86_64Vcpu, get_total_instruction_count};
 pub use memory::{AccessType, Mmu};
+pub use user_gdt::{GDT_ENTRY_CPUNODE, GDT_ENTRY_TLS_MAX, GDT_ENTRY_TLS_MIN, USER_GDT_BASE};
 pub use user_mode::{
     LINUX_USER_CS, LINUX_USER_DS, LINUX_USER32_CS, X86EventSource, X86SyscallInsn, X86UserEvent,
     X86UserTrap,

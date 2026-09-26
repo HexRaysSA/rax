@@ -460,6 +460,9 @@ pub struct Mmu {
     /// the TLB entirely (see `crate::isa::x86_64::user_mode`); `None` keeps
     /// system-emulation translation unchanged.
     flat: Option<Arc<dyn FlatTranslation>>,
+    /// User mode's descriptor tables (`super::user_gdt`), which supervisor
+    /// accesses reach at their fixed address.
+    pub(super) user_tables: Option<Box<super::user_gdt::UserTables>>,
 }
 
 impl Mmu {
@@ -500,6 +503,7 @@ impl Mmu {
             fetch_active: false,
             mem_rec: Vec::new(),
             flat: None,
+            user_tables: None,
         }
     }
 
@@ -1470,6 +1474,9 @@ impl Mmu {
         buf: &mut [u8],
         sregs: &SystemRegisters,
     ) -> Result<()> {
+        if self.user_table_read(vaddr, buf).is_some() {
+            return Ok(());
+        }
         // Create a temporary sregs with CPL=0 (supervisor)
         let mut supervisor_sregs = sregs.clone();
         supervisor_sregs.cs.selector &= !0x3; // Clear CPL bits to 0
@@ -1492,6 +1499,9 @@ impl Mmu {
         buf: &[u8],
         sregs: &SystemRegisters,
     ) -> Result<()> {
+        if self.user_table_write(vaddr, buf).is_some() {
+            return Ok(());
+        }
         let mut supervisor_sregs = sregs.clone();
         supervisor_sregs.cs.selector &= !0x3;
         self.write(vaddr, buf, &supervisor_sregs)

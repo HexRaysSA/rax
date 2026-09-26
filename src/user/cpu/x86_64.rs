@@ -11,7 +11,9 @@ use std::sync::Arc;
 
 use super::{AccessFault, take_code_changes};
 use crate::error::Error;
-use crate::isa::x86_64::{X86_64Vcpu, X86SyscallInsn, X86UserEvent, X86UserTrap};
+use crate::isa::x86_64::{
+    GDT_ENTRY_TLS_MAX, GDT_ENTRY_TLS_MIN, X86_64Vcpu, X86SyscallInsn, X86UserEvent, X86UserTrap,
+};
 use crate::user::mm::{AddressSpace, CodeChanges, PAGE_SIZE};
 use crate::vm::vcpu::{VCpu, VcpuExit};
 
@@ -73,8 +75,15 @@ impl X86UserCpu {
             .expect("parent XCR0 is valid");
         *child.vcpu.user_regs_mut() = self.vcpu.user_regs().clone();
         child.vcpu.set_user_rflags(self.vcpu.user_rflags());
-        child.vcpu.set_fs_base(self.vcpu.fs_base());
-        child.vcpu.set_gs_base(self.vcpu.gs_base());
+        // The mode, the TLS entries, and the data segment registers with
+        // their cached descriptors (copy_thread; the FS/GS bases with them).
+        child.vcpu.set_user_compat(self.vcpu.user_compat());
+        for index in GDT_ENTRY_TLS_MIN..=GDT_ENTRY_TLS_MAX {
+            if let Some(entry) = self.vcpu.user_gdt_entry(index) {
+                child.vcpu.set_user_tls_entry(index, entry);
+            }
+        }
+        child.vcpu.copy_user_data_segments(&self.vcpu);
         child
     }
 

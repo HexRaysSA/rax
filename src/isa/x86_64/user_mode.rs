@@ -87,6 +87,8 @@ pub enum X86UserTrap {
 /// Per-vCPU user-mode state.
 pub(super) struct UserMode {
     pub(super) trap: Option<X86UserTrap>,
+    /// Running 32-bit compatibility-mode code (`set_user_compat`).
+    pub(super) compat: bool,
 }
 
 /// Linux x86-64 user code selector (`__USER_CS`, GDT entry 6, RPL 3).
@@ -163,8 +165,57 @@ impl X86_64Vcpu {
         self.halted = false;
         self.interrupt_inhibit = false;
         self.mmu.set_flat_translation(Some(translation));
-        self.user = Some(Box::new(UserMode { trap: None }));
+        self.install_user_gdt();
+        self.user = Some(Box::new(UserMode {
+            trap: None,
+            compat: false,
+        }));
         self.invalidate_all_code();
+    }
+
+    /// Switches user-mode code between 64-bit mode and 32-bit compatibility
+    /// mode: CS becomes `__USER32_CS` (L = 0, D = 1) or `__USER_CS`, as
+    /// `start_thread_ia32` and `start_thread` load it at `execve`. Without
+    /// user mode it does nothing. Compatibility-mode code stays in the
+    /// interpreter, which decodes by mode; the lifter decodes 64-bit mode.
+    pub fn set_user_compat(&mut self, compat: bool) {
+        let Some(user) = self.user.as_mut() else {
+            return;
+        };
+        user.compat = compat;
+        self.sregs.cs.selector = if compat {
+            LINUX_USER32_CS
+        } else {
+            LINUX_USER_CS
+        };
+        self.sregs.cs.l = !compat;
+        self.sregs.cs.db = compat;
+        self.invalidate_all_code();
+    }
+
+    /// Whether user-mode code runs in compatibility mode.
+    pub fn user_compat(&self) -> bool {
+        self.user.as_ref().is_some_and(|u| u.compat)
+    }
+
+    /// Reloads DS, ES, FS, and GS where they hold `selector`, as
+    /// `do_set_thread_area` refreshes the registers that point at a TLS entry
+    /// it changed. A register whose reload faults becomes null, as the
+    /// kernel's `loadsegment` fixup leaves it.
+    pub fn reload_user_segments(&mut self, selector: u16) {
+        use super::execute::system::X86SegmentLoadTarget as T;
+        for target in [T::Ds, T::Es, T::Fs, T::Gs] {
+            let current = match target {
+                T::Ds => self.sregs.ds.selector,
+                T::Es => self.sregs.es.selector,
+                T::Fs => self.sregs.fs.selector,
+                T::Gs => self.sregs.gs.selector,
+                T::Ss => continue,
+            };
+            if current == selector && self.load_segment_selector(target, selector, false).is_err() {
+                let _ = self.load_segment_selector(target, 0, false);
+            }
+        }
     }
 
     /// Whether [`X86_64Vcpu::enable_user_mode`] is in effect.
