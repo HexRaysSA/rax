@@ -755,11 +755,13 @@ impl LinuxProcess {
                     if delivered && crate::user::linux::ptrace::tracee::mode(t).step {
                         // signal_delivered while stepping: ptrace_notify(
                         // SIGTRAP, 0) before the handler's first
-                        // instruction; x86-64 stops stepping first.
+                        // instruction; x86-64 stops stepping (and block
+                        // stepping) first.
                         if let Some(tr) = t.ptrace.as_mut()
                             && self.state.abi == LinuxAbi::X86_64
                         {
                             tr.mode.step = false;
+                            tr.mode.block = false;
                         }
                         let p = &mut self.state;
                         let quiet = crate::user::linux::ptrace::StopKind::Quiet;

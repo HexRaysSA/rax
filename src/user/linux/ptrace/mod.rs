@@ -61,7 +61,7 @@ pub mod req {
     /// x86-64 only.
     pub const SYSEMU: u64 = 31;
     pub const SYSEMU_SINGLESTEP: u64 = 32;
-    /// x86-64 only (branch stepping, not offered here).
+    /// x86-64 only: stepping to the next branch.
     pub const SINGLEBLOCK: u64 = 33;
     pub const SETOPTIONS: u64 = 0x4200;
     pub const GETEVENTMSG: u64 = 0x4201;
@@ -490,6 +490,9 @@ pub struct Mode {
     pub emu: bool,
     /// `PTRACE_SINGLESTEP`: a `SIGTRAP` after each instruction.
     pub step: bool,
+    /// `PTRACE_SINGLEBLOCK` (with `step`): the trap only after an
+    /// instruction that branches (`TIF_BLOCKSTEP`, `DEBUGCTL.BTF`).
+    pub block: bool,
 }
 
 /// The kind of a stop, which decides what becomes of the signal the tracer
@@ -793,16 +796,23 @@ pub fn send(p: &mut ProcState, id: LinkId, m: &Msg) -> bool {
 pub fn resumes(request: u64) -> bool {
     matches!(
         request,
-        req::CONT | req::SYSCALL | req::SINGLESTEP | req::SYSEMU | req::SYSEMU_SINGLESTEP
+        req::CONT
+            | req::SYSCALL
+            | req::SINGLESTEP
+            | req::SYSEMU
+            | req::SYSEMU_SINGLESTEP
+            | req::SINGLEBLOCK
     )
 }
 
 /// Whether this ABI has `request`: `PTRACE_SYSEMU` and
 /// `PTRACE_SYSEMU_SINGLESTEP` exist on x86-64 and AArch64 only (RISC-V's
-/// `ptrace_request` does not know them: `EIO`).
+/// `ptrace_request` does not know them: `EIO`), `PTRACE_SINGLEBLOCK` on
+/// x86-64 only.
 pub fn offered(abi: LinuxAbi, request: u64) -> bool {
     match request {
         req::SYSEMU | req::SYSEMU_SINGLESTEP => abi != LinuxAbi::Riscv64,
+        req::SINGLEBLOCK => abi == LinuxAbi::X86_64,
         _ => true,
     }
 }

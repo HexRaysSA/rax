@@ -8,7 +8,8 @@
 //! bytes, the header, `EFAULT` for a partial write, `EINVAL` for a
 //! compacted header), AArch64's `NT_ARM_TLS`, x86-64's `PTRACE_ARCH_PRCTL`,
 //! `PTRACE_PEEKSIGINFO` over either queue (checks, order, offsets, a fault
-//! after some records), and `PTRACE_GET_RSEQ_CONFIGURATION`. Both sides are
+//! after some records), `PTRACE_GET_RSEQ_CONFIGURATION`, and x86-64's sets
+//! without contents (`NT_386_IOPERM`, `NT_X86_SHSTK`). Both sides are
 //! exercised: the tracee answering over its link, and the tracer's checks
 //! and copies against a tracee the test plays.
 
@@ -403,4 +404,80 @@ fn rseq_configuration() {
         assert_eq!(b[8..16], [32, 0, 0, 0, 0x53, 0x30, 0x05, 0x53]);
         assert_eq!(b[16..], [0; 8]);
     });
+}
+
+/// x86-64's sets that no thread here has contents for: the I/O permission
+/// bitmap (`ENXIO` to read; no writer, so `EOPNOTSUPP` before the buffer
+/// counts) and the shadow-stack pointer (`ENODEV` both ways, before any
+/// copy); neither exists on the other architectures (`EINVAL`). A read's
+/// copy out comes after the tracee's answer (`copy_regset_to_user`).
+#[test]
+fn x86_64_ioperm_and_shadow_stack_sets_have_no_contents() {
+    let (ioperm, shstk) = (regs::NT_386_IOPERM, regs::NT_X86_SHSTK);
+    // The tracee's answers.
+    let mut h = Harness::new(LinuxAbi::X86_64);
+    let mut tr = traced(&mut h, 0);
+    let cpu = &h.proc.threads[0].cpu;
+    assert_eq!(regs::layout(cpu, ioperm), Ok((8, 8192)));
+    assert_eq!(regs::layout(cpu, shstk), Ok((8, 8)));
+    assert_eq!(
+        ask(&mut h, &mut tr, req::GETREGSET, ioperm, 8192, &[]).0,
+        e(ENXIO)
+    );
+    assert_eq!(
+        ask(&mut h, &mut tr, req::GETREGSET, shstk, 8, &[]).0,
+        e(ENODEV)
+    );
+    assert_eq!(
+        ask(&mut h, &mut tr, req::SETREGSET, shstk, 8, &[]).0,
+        e(ENODEV)
+    );
+    // The tracer's checks, with an unmapped buffer below the task size
+    // (access_ok passes it).
+    let mut h = Harness::new(LinuxAbi::X86_64);
+    let tid = h.proc.state.ppid;
+    let t = tid as u64;
+    let mut tracee = fake_tracee(&mut h, tid);
+    let iov = h.scratch;
+    let put_iov = |h: &Harness, base: u64, len: u64| {
+        let mut b = base.to_le_bytes().to_vec();
+        b.extend(len.to_le_bytes());
+        h.proc.state.space.write_raw(iov, &b).unwrap();
+    };
+    let bad = 8u64;
+    // A length of part of a long: EINVAL; the bitmap has no writer.
+    put_iov(&h, bad, 12);
+    let call = [req::SETREGSET, t, ioperm, iov];
+    assert_eq!(
+        tracer_call(&mut h, &mut tracee, call, 0, vec![]),
+        (e(EINVAL), None)
+    );
+    put_iov(&h, bad, 16);
+    assert_eq!(
+        tracer_call(&mut h, &mut tracee, call, 0, vec![]),
+        (e(EOPNOTSUPP), None)
+    );
+    // The shadow-stack pointer: sent without bytes, refused by the tracee.
+    put_iov(&h, bad, 8);
+    let call = [req::SETREGSET, t, shstk, iov];
+    let (ret, m) = tracer_call(&mut h, &mut tracee, call, e(ENODEV), vec![]);
+    assert_eq!(ret, e(ENODEV));
+    assert!(matches!(m, Some(Msg::Request { data: 8, ref payload, .. }) if payload.is_empty()));
+    // Reads: the tracee's refusal, or its bytes and then the copy's fault.
+    let call = [req::GETREGSET, t, shstk, iov];
+    let (ret, m) = tracer_call(&mut h, &mut tracee, call, e(ENODEV), vec![]);
+    assert_eq!((ret, m.is_some()), (e(ENODEV), true));
+    put_iov(&h, bad, 16);
+    let call = [req::GETREGSET, t, regs::NT_PRSTATUS, iov];
+    let (ret, m) = tracer_call(&mut h, &mut tracee, call, 0, vec![0; 16]);
+    assert_eq!((ret, m.is_some()), (e(EFAULT), true));
+    // Not on the other architectures.
+    for abi in [LinuxAbi::Aarch64, LinuxAbi::Riscv64] {
+        let h = Harness::new(abi);
+        let cpu = &h.proc.threads[0].cpu;
+        for nt in [ioperm, shstk] {
+            let got = regs::layout(cpu, nt).map_err(|e| e.0);
+            assert_eq!(got, Err(EINVAL));
+        }
+    }
 }

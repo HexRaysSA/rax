@@ -4,7 +4,9 @@
 //! `PTRACE_GETFPREGS`), x86-64's whole XSAVE area (`NT_X86_XSTATE`), and
 //! AArch64's `NT_ARM_TLS` and `NT_ARM_SYSTEM_CALL`, laid out as each
 //! architecture's `ptrace.h` and `asm/user.h` define them and checked on
-//! writing as its `ptrace.c` (x86-64's `fpu/regset.c`) checks them.
+//! writing as its `ptrace.c` (x86-64's `fpu/regset.c`) checks them; and
+//! x86-64's sets that no thread here has contents for: the I/O permission
+//! bitmap (`NT_386_IOPERM`) and the shadow-stack pointer (`NT_X86_SHSTK`).
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
@@ -25,6 +27,16 @@ pub const NT_X86_XSTATE: u64 = 0x202;
 pub const NT_ARM_TLS: u64 = 0x401;
 /// `NT_ARM_SYSTEM_CALL`: AArch64's `syscallno`, an `int`.
 pub const NT_ARM_SYSTEM_CALL: u64 = 0x404;
+/// `NT_386_IOPERM`: x86-64's I/O permission bitmap. No thread has one
+/// (`ioperm` is refused), so reading it is `ENXIO` (`ioperm_get`); it has
+/// no writer (`EOPNOTSUPP`).
+pub const NT_386_IOPERM: u64 = 0x201;
+/// `NT_X86_SHSTK`: x86-64's shadow-stack pointer. The emulated CPU has no
+/// user shadow stacks (`X86_FEATURE_USER_SHSTK`), so both ways are
+/// `ENODEV` (`ssp_get`, `ssp_set`, before copying anything).
+pub const NT_X86_SHSTK: u64 = 0x204;
+/// `IO_BITMAP_BYTES`.
+const IO_BITMAP_BYTES: u64 = 65536 / 8;
 
 /// `sizeof(struct fxregs_state)`.
 const X86_FXSAVE: usize = 512;
@@ -74,13 +86,29 @@ pub fn layout(cpu: &GuestCpu, nt: u64) -> Result<(u64, u64), Errno> {
         (NT_X86_XSTATE, GuestCpu::X86_64(c)) => (8, c.vcpu().xsave_standard_size() as u64),
         (NT_ARM_TLS, GuestCpu::Aarch64(_)) => (8, 16),
         (NT_ARM_SYSTEM_CALL, GuestCpu::Aarch64(_)) => (4, 4),
+        (NT_386_IOPERM, GuestCpu::X86_64(_)) => (8, IO_BITMAP_BYTES),
+        (NT_X86_SHSTK, GuestCpu::X86_64(_)) => (8, 8),
         _ => return Err(Errno(EINVAL)),
     })
 }
 
-/// Register set `nt` as a whole (`regset_get`).
-pub fn get(cpu: &GuestCpu, syscall: Option<SyscallEntry>, nt: u64) -> Vec<u8> {
-    match nt {
+/// Whether set `nt` has a writer (`copy_regset_from_user` refuses one
+/// without, `EOPNOTSUPP`, before looking at the tracer's buffer).
+pub fn writable(nt: u64) -> bool {
+    nt != NT_386_IOPERM
+}
+
+/// Whether writing set `nt` copies the tracer's bytes in (`ssp_set`
+/// refuses first).
+pub fn copies_in(nt: u64) -> bool {
+    nt != NT_X86_SHSTK
+}
+
+/// Register set `nt` as a whole (`regset_get`), or why it cannot be read.
+pub fn get(cpu: &GuestCpu, syscall: Option<SyscallEntry>, nt: u64) -> Result<Vec<u8>, Errno> {
+    Ok(match nt {
+        NT_386_IOPERM => return Err(Errno(ENXIO)),
+        NT_X86_SHSTK => return Err(Errno(ENODEV)),
         NT_PRFPREG => fpregs(cpu),
         NT_X86_XSTATE => xstate(cpu),
         NT_ARM_TLS => {
@@ -90,7 +118,7 @@ pub fn get(cpu: &GuestCpu, syscall: Option<SyscallEntry>, nt: u64) -> Vec<u8> {
         }
         NT_ARM_SYSTEM_CALL => syscall.map_or(-1, |s| s.nr as i32).to_le_bytes().to_vec(),
         _ => prstatus(cpu, syscall),
-    }
+    })
 }
 
 /// Writes a prefix of register set `nt` (`regset->set`):
@@ -103,6 +131,8 @@ pub fn set(
     bytes: &[u8],
 ) -> Result<(), Errno> {
     match nt {
+        NT_386_IOPERM => Err(Errno(EOPNOTSUPP)),
+        NT_X86_SHSTK => Err(Errno(ENODEV)),
         NT_PRFPREG => set_fpregs(cpu, bytes),
         NT_X86_XSTATE => set_xstate(cpu, bytes),
         NT_ARM_TLS => {

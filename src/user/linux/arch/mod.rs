@@ -178,6 +178,15 @@ impl GuestCpu {
         }
     }
 
+    /// Whether the instruction about to run branches (x86-64's block
+    /// step); never on the others, which cannot block-step.
+    pub fn branch_ahead(&self) -> bool {
+        match self {
+            GuestCpu::X86_64(cpu) => cpu.branch_ahead(),
+            _ => false,
+        }
+    }
+
     /// Stores a system call's return value in the ABI's result register.
     pub fn set_syscall_result(&mut self, value: u64) {
         match self {

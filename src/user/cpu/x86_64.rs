@@ -5,6 +5,8 @@
 //! returns control at ~1 ms time-slice boundaries on its own, which the
 //! adapter reports as [`X86Exit::Yield`].
 
+mod branch;
+
 use std::sync::Arc;
 
 use super::{AccessFault, take_code_changes};
@@ -117,6 +119,20 @@ impl X86UserCpu {
             .step_with_faults()
             .map(|exit| exit.unwrap_or(VcpuExit::Hlt));
         self.exit(result)
+    }
+
+    /// Whether the instruction at RIP branches when it runs (see
+    /// [`branch`]): the end of a block step. Code the thread cannot fetch
+    /// does not branch; its step faults.
+    pub fn branch_ahead(&self) -> bool {
+        let rip = self.vcpu.user_regs().rip;
+        let mut code = [0u8; 15];
+        let mut n = 0;
+        while n < code.len() && self.space.fetch(rip + n as u64, &mut code[n..=n]).is_ok() {
+            n += 1;
+        }
+        let rcx = self.vcpu.user_regs().rcx;
+        branch::taken(&code[..n], self.vcpu.user_rflags(), rcx)
     }
 
     /// Drops the decodes and native code of guest code written since the

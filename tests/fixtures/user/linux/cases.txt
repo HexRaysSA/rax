@@ -53,6 +53,7 @@ ptracejobs ptracejobs -
 ptraceevents ptraceevents -
 ptracefork ptracefork -
 ptraceseccomp ptraceseccomp -
+ptraceblock ptraceblock -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

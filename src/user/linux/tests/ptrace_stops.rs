@@ -7,7 +7,8 @@
 //! flags read before the stop), a system-call stop's signal sent from the
 //! kernel, AArch64's `NT_ARM_SYSTEM_CALL`, one instruction per step with
 //! each architecture's trap, a stepped system call's report, the stop as a
-//! handler is entered, and RISC-V refusing to step. The tracer here speaks
+//! handler is entered, RISC-V refusing to step, and x86-64's block steps
+//! (`PTRACE_SINGLEBLOCK`, which the others refuse). The tracer here speaks
 //! over a real link, so the tracee answers as it does between processes;
 //! the fixture `ptrace` covers two processes.
 
@@ -552,4 +553,121 @@ fn riscv_cannot_step() {
         ask(&mut h, &mut tr, req::SYSEMU_SINGLESTEP, 0, 0, &[]).0,
         e(EIO)
     );
+}
+
+/// The tracer's side of a request, from another thread while the tracee's
+/// scheduler runs: the answer and its bytes. Other messages that come
+/// meanwhile (a stop right after the answer) are kept in `held`.
+fn request_from(
+    link: &mut Link,
+    held: &mut Vec<Msg>,
+    tid: i32,
+    request: u64,
+    data: u64,
+) -> (i64, Vec<u8>) {
+    let m = Msg::Request {
+        tid,
+        req: request,
+        addr: 0,
+        data,
+        payload: Vec::new(),
+    };
+    assert!(link.send(&m));
+    loop {
+        let mut reply = None;
+        for m in link.recv() {
+            match m {
+                Msg::Reply { ret, payload } if reply.is_none() => reply = Some((ret, payload)),
+                other => held.push(other),
+            }
+        }
+        if let Some(r) = reply {
+            return r;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+}
+
+/// `PTRACE_SINGLEBLOCK` through the scheduler: no trap after a `nop` or a
+/// `jz` not taken, the trap (`TRAP_TRACE`) after a `jmp` to the very next
+/// instruction, and none after it before the process exits. The tracer,
+/// another thread, block-steps again at every stop until told the tracee
+/// exited.
+#[test]
+fn block_steps_trap_after_branches_only() {
+    let mut h = Harness::new(LinuxAbi::X86_64);
+    let at = CODE + 0x1000;
+    let code = [
+        0x90, // nop
+        0x74, 0x01, // jz .+3 (ZF clear: not taken)
+        0x90, // nop
+        0xeb, 0x00, // jmp .+2: taken, to the next instruction
+        0x90, // nop
+        0xb8, 0xe7, 0x00, 0x00, 0x00, // mov $231, %eax (exit_group)
+        0x31, 0xff, // xor %edi, %edi
+        0x0f, 0x05, // syscall
+    ];
+    h.proc.state.space.write_raw(at, &code).unwrap();
+    let mut tr = traced(&mut h, 0);
+    let GuestCpu::X86_64(cpu) = &mut h.proc.threads[0].cpu else {
+        unreachable!("an x86-64 harness")
+    };
+    cpu.vcpu_mut().set_user_rflags(0x202);
+    h.proc.threads[0].cpu.set_pc(at);
+    assert_eq!(resume(&mut h, &mut tr, req::SINGLEBLOCK, 0), 0);
+    let m = mode(&h.proc.threads[0]);
+    assert!(m.step && m.block && !m.syscall);
+    let tid = h.proc.threads[0].tid;
+    let mut link = tr.link;
+    let (exited, done) = std::sync::mpsc::channel::<()>();
+    let tracer = std::thread::spawn(move || {
+        let (mut traps, mut held) = (Vec::new(), Vec::new());
+        while done.try_recv().is_err() {
+            held.extend(link.recv());
+            let stops: Vec<i32> = std::mem::take(&mut held)
+                .into_iter()
+                .filter_map(|m| match m {
+                    Msg::Stop { code, .. } => Some(code),
+                    _ => None,
+                })
+                .collect();
+            for code in stops {
+                let (_, si) = request_from(&mut link, &mut held, tid, req::GETSIGINFO, 0);
+                let si = SigInfo::decode(&si);
+                traps.push((code, si.signo, si.code, si.addr()));
+                let (ret, _) = request_from(&mut link, &mut held, tid, req::SINGLEBLOCK, 0);
+                assert_eq!(ret, 0);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        traps
+    });
+    let status = h.proc.run();
+    exited.send(()).unwrap();
+    let traps = tracer.join().unwrap();
+    // The one trap: after the jmp, at the instruction it reached.
+    let trap = (SIGTRAP, SIGTRAP, code::TRAP_TRACE, at + 6);
+    assert_eq!(traps, vec![trap]);
+    assert_eq!(status, crate::user::linux::process::ExitStatus::Exited(0));
+}
+
+/// `PTRACE_SINGLEBLOCK` exists on x86-64 only: elsewhere it is an unknown
+/// request (`EIO`) that leaves the tracee stopped and its mode as it was.
+#[test]
+fn only_x86_64_block_steps() {
+    for abi in [LinuxAbi::Aarch64, LinuxAbi::Riscv64] {
+        let mut h = Harness::new(abi);
+        let mut tr = traced(&mut h, 0);
+        assert_eq!(ask(&mut h, &mut tr, req::SINGLEBLOCK, 0, 0, &[]).0, e(EIO));
+        assert!(parked(&h.proc.threads[0]));
+        let m = mode(&h.proc.threads[0]);
+        assert!(!m.step && !m.block);
+        // The tracer refuses it too, sending nothing.
+        let mut h = Harness::new(abi);
+        let tid = h.proc.state.ppid;
+        let mut tracee = super::ptrace_regsets::fake_tracee(&mut h, tid);
+        let call = [req::SINGLEBLOCK, tid as u64, 0, 0];
+        let got = super::ptrace_regsets::tracer_call(&mut h, &mut tracee, call, 0, vec![]);
+        assert_eq!(got, (e(EIO), None));
+    }
 }

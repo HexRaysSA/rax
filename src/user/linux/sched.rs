@@ -116,8 +116,11 @@ impl LinuxProcess {
                 continue;
             }
             self.state.last_user = Some(tid);
-            // A stepping thread runs one instruction at a time.
-            let step = super::ptrace::tracee::mode(&self.threads[idx]).step;
+            // A stepping thread runs one instruction at a time; a block
+            // step traps only after one that branches.
+            let mode = super::ptrace::tracee::mode(&self.threads[idx]);
+            let step = mode.step;
+            let trap = step && (!mode.block || self.threads[idx].cpu.branch_ahead());
             let event = if step {
                 self.threads[idx].cpu.step()
             } else {
@@ -136,7 +139,7 @@ impl LinuxProcess {
                     current = self.enter_compat(idx, nr, args).from(idx);
                 }
                 CpuEvent::Signal(info, update) => self.trap_signal(idx, info, update),
-                CpuEvent::Yield if step => self.step_trap(idx),
+                CpuEvent::Yield if trap => self.step_trap(idx),
                 CpuEvent::Yield => current = idx + 1,
                 CpuEvent::Internal(why) => {
                     let pc = self.threads[idx].cpu.pc();

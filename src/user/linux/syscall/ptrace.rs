@@ -234,11 +234,20 @@ fn ask(
                 return Err(Errno(EINVAL));
             }
             let len = len.min(size);
-            if !super::events::access_ok(c, base, len) {
-                return Err(Errno(EFAULT));
-            }
+            // copy_regset_from_user: a set without a writer, then
+            // access_ok, then the writer, which may refuse before it copies
+            // in. A read's copy out comes after the tracee's answer
+            // (copy_regset_to_user).
             if request == req::SETREGSET {
-                payload = c.read_mem(base, len as usize)?;
+                if !regs::writable(addr) {
+                    return Err(Errno(EOPNOTSUPP));
+                }
+                if !super::events::access_ok(c, base, len) {
+                    return Err(Errno(EFAULT));
+                }
+                if regs::copies_in(addr) {
+                    payload = c.read_mem(base, len as usize)?;
+                }
             }
             data = len;
         }
@@ -274,6 +283,7 @@ fn ask(
         | req::SINGLESTEP
         | req::SYSEMU
         | req::SYSEMU_SINGLESTEP
+        | req::SINGLEBLOCK
         | req::DETACH
             if offered(c.p.abi, request) =>
         {

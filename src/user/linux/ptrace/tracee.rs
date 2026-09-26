@@ -286,11 +286,13 @@ fn serve(
             Ok(()) => (0, Vec::new()),
             Err(e) => fail(e.0),
         },
-        req::GETREGSET => {
-            let mut all = regs::get(&t.cpu, t.syscall, addr);
-            all.truncate(data as usize);
-            (0, all)
-        }
+        req::GETREGSET => match regs::get(&t.cpu, t.syscall, addr) {
+            Ok(mut all) => {
+                all.truncate(data as usize);
+                (0, all)
+            }
+            Err(e) => fail(e.0),
+        },
         req::SETREGSET => match regs::set(&mut t.cpu, &mut t.syscall, addr, payload) {
             Ok(()) => (0, data.to_le_bytes().to_vec()),
             Err(e) => fail(e.0),
@@ -398,11 +400,16 @@ fn serve(
         _ if resumes(request) && offered(p.abi, request) => {
             // ptrace_resume: the stepping is set before an architecture
             // that cannot step refuses (EIO), leaving the thread stopped.
-            let steps = matches!(request, req::SINGLESTEP | req::SYSEMU_SINGLESTEP);
+            // A block step is a step whose trap waits for a branch.
+            let steps = matches!(
+                request,
+                req::SINGLESTEP | req::SYSEMU_SINGLESTEP | req::SINGLEBLOCK
+            );
             let mode = Mode {
                 syscall: request == req::SYSCALL,
                 emu: matches!(request, req::SYSEMU | req::SYSEMU_SINGLESTEP),
                 step: steps,
+                block: request == req::SINGLEBLOCK,
             };
             let riscv = p.abi == LinuxAbi::Riscv64;
             if let Some(tr) = t.ptrace.as_mut() {
