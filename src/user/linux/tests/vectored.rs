@@ -256,3 +256,83 @@ fn fadvise_refuses_a_negative_length() {
         assert_eq!(h.err(Sysno::Fadvise64, &[fd, 0, 0, 6]), EINVAL);
     });
 }
+
+/// Two readable pages then an inaccessible one, and a pipe: `(m, bad,
+/// read end, write end)` with `bad` the start of the inaccessible page.
+fn faulting(h: &mut Harness) -> (u64, u64, u64, u64) {
+    let m = h.anon(3 * P, 3, false);
+    h.ok(Sysno::Mprotect, &[m + 2 * P, P, 0]);
+    h.fill(m, 2 * P, b'x');
+    let fds = m + 0x800;
+    h.ok(Sysno::Pipe2, &[fds, 0]);
+    let raw = bytes(h, fds, 8);
+    let (r, w) = (
+        u64::from(u32::from_le_bytes(raw[..4].try_into().unwrap())),
+        u64::from(u32::from_le_bytes(raw[4..].try_into().unwrap())),
+    );
+    (m, m + 2 * P, r, w)
+}
+
+/// `anon_pipe_write` copies the source a page at a time and commits only
+/// whole pages: a fault in a page drops it, and with nothing committed the
+/// write is `EFAULT`. `pipe_read` consumes a pipe buffer only when it
+/// copied it whole: data the destination faults in stays in the pipe.
+/// (Results as Linux 6.19 gives them: see `oracle/record-kernel.sh`.)
+#[test]
+fn a_pipe_transfer_that_faults_moves_whole_pages() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let (m, bad, r, w) = faulting(&mut h);
+        let at = m + 0x900;
+        // 10 bytes faulting after 5, directly and as two vectors.
+        assert_eq!(h.err(Sysno::Write, &[w, bad - 5, 10]), EFAULT, "{abi:?}");
+        let v = iovecs(&h, m + 0xA00, &[(m, 5), (bad, 5)]);
+        assert_eq!(h.err(Sysno::Writev, &[w, v, 2]), EFAULT);
+        assert_eq!(pending(&mut h, r, at), 0, "nothing written");
+        // Two pages from 100 bytes into the first: the fault cuts the first
+        // page of the transfer short.
+        assert_eq!(h.err(Sysno::Write, &[w, m + P + 100, 2 * P]), EFAULT);
+        // Two pages from a page start, the second faulting: one committed.
+        assert_eq!(h.call(Sysno::Write, &[w, bad - P, 2 * P]), P as i64);
+        assert_eq!(pending(&mut h, r, at), P as u32);
+        h.fill(m, P, 0);
+        assert_eq!(h.call(Sysno::Read, &[r, m, 2 * P]), P as i64);
+        // A pipe holding 10 bytes read into 5 that can be written: nothing
+        // is consumed.
+        h.proc.state.space.write_raw(m, b"0123456789").unwrap();
+        assert_eq!(h.call(Sysno::Write, &[w, m, 10]), 10);
+        assert_eq!(h.err(Sysno::Read, &[r, bad - 5, 10]), EFAULT);
+        let v = iovecs(&h, m + 0xA00, &[(m + 0x100, 3), (bad, 6)]);
+        assert_eq!(h.err(Sysno::Readv, &[r, v, 2]), EFAULT);
+        assert_eq!(pending(&mut h, r, at), 10, "left in the pipe");
+        // A destination with room for everything the pipe holds does not
+        // fault, however long it claims to be.
+        assert_eq!(h.call(Sysno::Read, &[r, bad - 16, 64]), 10);
+    });
+}
+
+/// A file transfer through vectors stops at a fault and reports the bytes
+/// before it (`do_iter_readv_writev`, `filemap_read`,
+/// `generic_perform_write`), the part of the faulting vector included.
+#[test]
+fn a_file_transfer_that_faults_reports_the_bytes_before_it() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let (m, bad, _, _) = faulting(&mut h);
+        let fd = h.file(&format!("vec-fault-{abi:?}"), 0, 0, O_RDWR);
+        h.proc.state.space.write_raw(m, b"abcdefghij").unwrap();
+        h.ok(Sysno::Write, &[fd, m, 10]);
+        let v = iovecs(&h, m + 0xA00, &[(m + 0x100, 3), (bad, 5)]);
+        assert_eq!(h.call(Sysno::Preadv, &[fd, v, 2, 2]), 3, "{abi:?}");
+        assert_eq!(bytes(&h, m + 0x100, 3), b"cde");
+        h.proc.state.space.write_raw(m + 0x200, b"XYZ").unwrap();
+        let v = iovecs(&h, m + 0xA00, &[(m + 0x200, 3), (bad, 5)]);
+        assert_eq!(h.call(Sysno::Pwritev, &[fd, v, 2, 20]), 3);
+        assert_eq!(h.call(Sysno::Lseek, &[fd, 0, 2]), 23);
+        // writev: the faulting vector's readable part is written too.
+        h.ok(Sysno::Lseek, &[fd, 0, 0]);
+        let v = iovecs(&h, m + 0xA00, &[(m, 2), (bad - 3, 8)]);
+        assert_eq!(h.call(Sysno::Writev, &[fd, v, 2]), 5);
+        assert_eq!(h.call(Sysno::Lseek, &[fd, 0, 1]), 5);
+    });
+}

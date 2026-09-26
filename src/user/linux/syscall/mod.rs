@@ -38,6 +38,7 @@ pub mod admin;
 pub mod aio;
 pub mod child;
 pub mod compat;
+pub mod copy;
 pub mod dirents;
 pub mod epoll;
 pub mod events;
@@ -432,8 +433,15 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Ppoll => io::ppoll(c, a[0], a[1], a[2], a[3], a[4]),
         S::Select => io::select(c, a[0] as i32, a[1], a[2], a[3], a[4]),
         S::Pselect6 => io::pselect6(c, a[0] as i32, a[1], a[2], a[3], a[4], a[5]),
-        S::Sendfile => r(io::sendfile(c, fd(a[0]), fd(a[1]), a[2], a[3])),
-        S::CopyFileRange => r(io::copy_file_range(c, fd(a[0]), a[1], fd(a[2]), a[3], a[4])),
+        S::Sendfile => r(copy::sendfile(c, fd(a[0]), fd(a[1]), a[2], a[3])),
+        S::CopyFileRange => r(copy::copy_file_range(
+            c,
+            fd(a[0]),
+            a[1],
+            fd(a[2]),
+            a[3],
+            a[4],
+        )),
         S::Fsync | S::Fdatasync => r(io::fsync(c, fd(a[0]))),
         S::Sync => r(Ok(0)),
         S::Syncfs => r(io::syncfs(c, fd(a[0]))),

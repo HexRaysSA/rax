@@ -20,7 +20,7 @@ use crate::error::MemoryAccessKind;
 pub const MAX_RW_COUNT: u64 = 0x7fff_f000;
 
 /// Host bounce-buffer size for one transfer step.
-const CHUNK: usize = 1 << 20;
+pub(super) const CHUNK: usize = 1 << 20;
 
 pub(super) fn nofile(c: &Ctx<'_>) -> u64 {
     c.p.rlimits[7].0
@@ -28,7 +28,7 @@ pub(super) fn nofile(c: &Ctx<'_>) -> u64 {
 
 /// Whether a transfer on `file` can block: pipes, FIFOs, sockets, and
 /// character devices (terminals) without `O_NONBLOCK`.
-fn may_block(file: &OpenFile) -> bool {
+pub(super) fn may_block(file: &OpenFile) -> bool {
     matches!(
         file.ftype,
         FileType::Fifo | FileType::Socket | FileType::CharDevice
@@ -39,7 +39,7 @@ fn may_block(file: &OpenFile) -> bool {
 /// or an error to report (`POLLIN`/`POLLHUP`/`POLLERR`), or (`write`) room
 /// or a vanished reader (`POLLOUT`/`POLLERR`; a macOS pipe reports its
 /// last reader closing as `POLLHUP`), so the write fails with `EPIPE`.
-fn ready_now(file: &OpenFile, write: bool) -> bool {
+pub(super) fn ready_now(file: &OpenFile, write: bool) -> bool {
     raw_fd(file).is_none_or(|fd| {
         host::poll(&[(fd, !write, write)], 0).is_ok_and(|r| {
             let r = r[0];
@@ -71,10 +71,46 @@ fn interrupted(c: &mut Ctx<'_>) -> bool {
 
 /// The number of bytes from `addr` the guest may write before the first
 /// fault (`copy_to_user` stops there).
+/// The bytes of `[addr, addr + len)` that can be read before a fault.
+fn readable_prefix(c: &Ctx<'_>, addr: u64, len: u64) -> u64 {
+    match c.p.space.probe(addr, len as usize, MemoryAccessKind::Read) {
+        Ok(()) => len,
+        Err(f) => f.address.saturating_sub(addr).min(len),
+    }
+}
+
 fn writable_prefix(c: &Ctx<'_>, addr: u64, len: u64) -> u64 {
     match c.p.space.probe(addr, len as usize, MemoryAccessKind::Write) {
         Ok(()) => len,
         Err(f) => f.address.saturating_sub(addr).min(len),
+    }
+}
+
+/// A pipe or FIFO transfer that faults partway (`anon_pipe_write`,
+/// `pipe_read`) moves whole pages of it: a write commits each page of the
+/// source it copied whole and drops the one the fault cut short, and a read
+/// consumes each pipe buffer it copied whole and leaves the one it could
+/// not in the pipe, taking pipe buffers as page-aligned in the stream (as
+/// consecutive small writes merge into them). Of a transfer of `total`
+/// bytes whose first `ok` can be copied, the bytes moved; none is `EFAULT`.
+fn pipe_moved(ok: u64, total: u64) -> u64 {
+    const PAGE: u64 = 4096;
+    if ok >= total { total } else { ok / PAGE * PAGE }
+}
+
+/// Of `count` bytes a pipe read may copy to a destination whose first
+/// `room` bytes are writable, the bytes it takes (see [`pipe_moved`]); a
+/// fault lies in the transfer only when the pipe holds more than `room`.
+/// An empty pipe keeps `room`, so the read waits for data as usual.
+fn pipe_read_room(file: &OpenFile, room: u64, count: u64) -> u64 {
+    let avail = match &file.object {
+        FileObject::PipeRead(p) => host::bytes_readable(p),
+        FileObject::Host(f) => host::bytes_readable(f),
+        _ => return room,
+    };
+    match avail {
+        Ok(n) if n > 0 => pipe_moved(room, count.min(n as u64)),
+        _ => room,
     }
 }
 
@@ -140,7 +176,11 @@ fn read_into(
     count: u64,
     pos: Option<u64>,
 ) -> SysResult {
-    let room = writable_prefix(c, buf, count.min(MAX_RW_COUNT));
+    let count = count.min(MAX_RW_COUNT);
+    let mut room = writable_prefix(c, buf, count);
+    if file.ftype == FileType::Fifo && room < count && room > 0 {
+        room = pipe_read_room(file, room, count);
+    }
     if room == 0 {
         return Err(Errno(EFAULT));
     }
@@ -211,10 +251,10 @@ fn write_from(
     pos: Option<u64>,
 ) -> SysResult {
     let count = count.min(MAX_RW_COUNT);
-    let readable = match c.p.space.probe(buf, count as usize, MemoryAccessKind::Read) {
-        Ok(()) => count,
-        Err(f) => f.address.saturating_sub(buf).min(count),
-    };
+    let mut readable = readable_prefix(c, buf, count);
+    if file.ftype == FileType::Fifo {
+        readable = pipe_moved(readable, count);
+    }
     if readable == 0 {
         return Err(Errno(EFAULT));
     }
@@ -348,7 +388,11 @@ pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     if matches!(file.object, FileObject::Socket(_)) {
         return super::net::io::read(c, &file, &iovecs);
     }
-    let room = iovec_room(c, &iovecs);
+    let mut room = iovec_room(c, &iovecs);
+    let want = total.min(MAX_RW_COUNT);
+    if file.ftype == FileType::Fifo && room < want && room > 0 {
+        room = pipe_read_room(&file, room, want);
+    }
     if room == 0 {
         return Err(Errno(EFAULT));
     }
@@ -383,19 +427,29 @@ pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
         }
         return super::events::write(c, &file, &vecs);
     }
+    // The bytes before the first fault, up to MAX_RW_COUNT.
+    let total = vecs.iter().map(|&(_, l)| l).sum::<u64>().min(MAX_RW_COUNT);
     let mut data = Vec::new();
     for (base, len) in vecs {
+        let len = len.min(MAX_RW_COUNT - data.len() as u64);
         if len == 0 {
             continue;
         }
-        match c.read_mem(base, len.min(MAX_RW_COUNT) as usize) {
-            Ok(d) => data.extend_from_slice(&d),
-            Err(e) if data.is_empty() => return Err(e),
-            Err(_) => break,
+        let ok = readable_prefix(c, base, len);
+        data.extend_from_slice(&c.read_mem(base, ok as usize)?);
+        if ok < len {
+            break;
         }
     }
+    if file.ftype == FileType::Fifo {
+        data.truncate(pipe_moved(data.len() as u64, total) as usize);
+    }
     if data.is_empty() {
-        return Ok(0);
+        return if total == 0 {
+            Ok(0)
+        } else {
+            Err(Errno(EFAULT))
+        };
     }
     let n = write_bytes(c, &file, &data, None)?;
     super::notify::modify(&file, n);
@@ -511,7 +565,13 @@ pub fn preadv(
             continue;
         }
         let at = pos.map(|p| p as u64 + total);
-        let n = read_into(c, &file, base, len, at)?;
+        // do_iter_readv_writev: a fault after some bytes ends the transfer
+        // with them.
+        let n = match read_into(c, &file, base, len, at) {
+            Ok(n) => n,
+            Err(Errno(EFAULT)) if total > 0 => break,
+            Err(e) => return Err(e),
+        };
         total += n;
         if n < len {
             break;
@@ -556,7 +616,11 @@ pub fn pwritev(
             continue;
         }
         let at = pos.map(|p| p as u64 + total);
-        let n = write_from(c, &file, base, len, at)?;
+        let n = match write_from(c, &file, base, len, at) {
+            Ok(n) => n,
+            Err(Errno(EFAULT)) if total > 0 => break,
+            Err(e) => return Err(e),
+        };
         total += n;
         if n < len {
             break;
@@ -1069,190 +1133,6 @@ pub fn pselect6(
     };
     let result = core_sys_select(c, nfds, rd, wr, ex, deadline);
     poll_select_finish(c, deadline, zero, tsp, TimeFormat::Timespec, result)
-}
-
-/// `sendfile`: copies from `in_fd` (at `*off_ptr`, or its position) to
-/// `out_fd`. Bytes the output does not take are left in the input. A pipe
-/// or socket output without `O_NONBLOCK` that is full sleeps as `write`
-/// does; a signal ends the copy with what was copied, or `-ERESTARTSYS`.
-pub fn sendfile(c: &mut Ctx<'_>, out_fd: i32, in_fd: i32, off_ptr: u64, count: u64) -> SysResult {
-    sendfile_as(c, out_fd, in_fd, off_ptr, count, SendfileOffset::Loff)
-}
-
-/// The offset a `sendfile` call reads and writes back.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SendfileOffset {
-    /// A `loff_t` (`sendfile64`, and `sendfile` of the 64-bit ABIs):
-    /// transfers up to the file-size limit.
-    Loff,
-    /// A `compat_off_t` (`compat_sys_sendfile`): sign-extended, written
-    /// back truncated, and the transfer ends at `MAX_NON_LFS` (`EOVERFLOW`
-    /// from there).
-    Compat,
-}
-
-/// `do_sendfile` with the offset at `off_ptr` (none for 0) in `width`.
-pub fn sendfile_as(
-    c: &mut Ctx<'_>,
-    out_fd: i32,
-    in_fd: i32,
-    off_ptr: u64,
-    count: u64,
-    width: SendfileOffset,
-) -> SysResult {
-    let input = c.p.fds.file(in_fd)?;
-    let output = c.p.fds.file(out_fd)?;
-    if !input.readable() || !output.writable() {
-        return Err(Errno(EBADF));
-    }
-    let mut pos = if off_ptr != 0 {
-        let v = match width {
-            SendfileOffset::Loff => c.read_u64(off_ptr)? as i64,
-            SendfileOffset::Compat => i64::from(c.read_u32(off_ptr)? as i32),
-        };
-        if v < 0 {
-            return Err(Errno(EINVAL));
-        }
-        Some(v as u64)
-    } else {
-        None
-    };
-    let mut count = count.min(MAX_RW_COUNT);
-    if let (Some(p), SendfileOffset::Compat) = (pos, width) {
-        let max = super::super::abi::types::MAX_NON_LFS as u64;
-        if p + count > max {
-            if p >= max {
-                return Err(Errno(EOVERFLOW));
-            }
-            count = max - p;
-        }
-    }
-    let waits = may_block(&output) && matches!(output.ftype, FileType::Fifo | FileType::Socket);
-    // After a sleep the offset in memory is still the original one.
-    let mut done = match c.resume.take() {
-        Some(Resume::Written(n)) => n,
-        _ => 0,
-    };
-    if let Some(p) = pos.as_mut() {
-        *p += done;
-    }
-    let mut buf = vec![0u8; (count as usize).min(CHUNK)];
-    let mut stop = None;
-    while done < count {
-        if waits && !ready_now(&output, true) {
-            if c.signal_pending() {
-                if done == 0 {
-                    stop = Some(Errno(ERESTARTSYS));
-                }
-                break;
-            }
-            return Err(wait_ready(c, &output, true, Resume::Written(done)));
-        }
-        let want = ((count - done) as usize).min(buf.len());
-        let n = match pos {
-            Some(p) => input.read_at(&mut buf[..want], p)?,
-            None => input.read(&mut buf[..want])?,
-        };
-        if n == 0 {
-            break;
-        }
-        let w = match output.write(&buf[..n]) {
-            Ok(w) => w,
-            Err(Errno(EAGAIN)) if waits => 0,
-            Err(e) => {
-                if pos.is_none() {
-                    input.seek(-(n as i64), 1)?;
-                }
-                if done == 0 {
-                    return Err(e);
-                }
-                break;
-            }
-        };
-        if pos.is_none() && w < n {
-            input.seek(-((n - w) as i64), 1)?;
-        }
-        done += w as u64;
-        if let Some(p) = pos.as_mut() {
-            *p += w as u64;
-        }
-        if w < n && !waits {
-            break;
-        }
-    }
-    if let (Some(p), true) = (pos, off_ptr != 0) {
-        match width {
-            SendfileOffset::Loff => c.write_u64(off_ptr, p)?,
-            SendfileOffset::Compat => c.write_u32(off_ptr, p as u32)?,
-        }
-    }
-    match stop {
-        Some(e) => Err(e),
-        None => {
-            super::notify::access(&input, done, false);
-            super::notify::modify(&output, done);
-            Ok(done)
-        }
-    }
-}
-
-/// `copy_file_range` (emulated with positioned reads and writes).
-pub fn copy_file_range(
-    c: &mut Ctx<'_>,
-    in_fd: i32,
-    in_off: u64,
-    out_fd: i32,
-    out_off: u64,
-    len: u64,
-) -> SysResult {
-    let input = c.p.fds.file(in_fd)?;
-    let output = c.p.fds.file(out_fd)?;
-    if !input.readable() || !output.writable() || output.flags() & O_APPEND != 0 {
-        return Err(Errno(EBADF));
-    }
-    if input.ftype != FileType::Regular || output.ftype != FileType::Regular {
-        return Err(Errno(EINVAL));
-    }
-    let mut ipos = if in_off != 0 {
-        c.read_u64(in_off)?
-    } else {
-        input.seek(0, 1)?
-    };
-    let mut opos = if out_off != 0 {
-        c.read_u64(out_off)?
-    } else {
-        output.seek(0, 1)?
-    };
-    let len = len.min(MAX_RW_COUNT);
-    let mut done = 0;
-    let mut buf = vec![0u8; (len as usize).min(CHUNK)];
-    while done < len {
-        let want = ((len - done) as usize).min(buf.len());
-        let n = input.read_at(&mut buf[..want], ipos)?;
-        if n == 0 {
-            break;
-        }
-        let w = output.write_at(&buf[..n], opos)?;
-        done += w as u64;
-        ipos += w as u64;
-        opos += w as u64;
-        if w < n {
-            break;
-        }
-    }
-    if in_off != 0 {
-        c.write_u64(in_off, ipos)?;
-    } else {
-        input.seek(ipos as i64, 0)?;
-    }
-    if out_off != 0 {
-        c.write_u64(out_off, opos)?;
-    } else {
-        output.seek(opos as i64, 0)?;
-    }
-    super::notify::access(&input, done, false);
-    super::notify::modify(&output, done);
-    Ok(done)
 }
 
 /// `fsync`/`fdatasync`.

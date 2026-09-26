@@ -10,7 +10,8 @@ use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;
 use super::super::super::abi::types::MAX_NON_LFS;
 use super::super::super::fs::locks::Owner;
-use super::super::io::{self, SendfileOffset};
+use super::super::copy::{self, SendfileOffset};
+use super::super::io;
 use super::super::locks::{self, FlockLayout};
 use super::super::{Ctx, SysResult};
 
@@ -66,7 +67,7 @@ pub fn ftruncate(c: &mut Ctx<'_>, fd: i32, len: i64) -> SysResult {
 /// `loff_t` one).
 pub fn sendfile(c: &mut Ctx<'_>, a: [u64; 6], width: SendfileOffset) -> SysResult {
     let count = u64::from(a[3] as u32);
-    io::sendfile_as(c, a[0] as i32, a[1] as i32, a[2], count, width)
+    copy::sendfile_as(c, a[0] as i32, a[1] as i32, a[2], count, width)
 }
 
 /// `fcntl` commands with a compatibility structure (i386 numbering).

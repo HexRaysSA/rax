@@ -631,3 +631,34 @@ fn a_vector_past_4_gib_is_in_user_space_for_access_ok() {
     assert_eq!(h.call(Sysno::Readv, &[rd, iov, 1]), 3);
     assert_eq!(cstr(&h, m + 0x400), "abc");
 }
+
+/// Pipe transfers that fault move whole pages, as for a 64-bit caller
+/// (`anon_pipe_write`, `pipe_read`; recorded on Linux 6.19 for x86-64).
+#[test]
+fn a_compat_pipe_transfer_that_faults_moves_whole_pages() {
+    let mut h = Harness::new(LinuxAbi::I386);
+    let m = pages(&mut h, 3);
+    h.ok(Sysno::Mprotect, &[m + 0x2000, 0x1000, 0]);
+    let (bad, fds) = (m + 0x2000, m + 0x100);
+    h.ok(Sysno::Pipe, &[fds]);
+    let (rd, wr) = (u64::from(u32_at(&h, fds)), u64::from(u32_at(&h, fds + 4)));
+    let iov = m + 0x200;
+    put(
+        &h,
+        iov,
+        &[
+            (m as u32).to_le_bytes(),
+            5u32.to_le_bytes(),
+            (bad as u32).to_le_bytes(),
+            5u32.to_le_bytes(),
+        ]
+        .concat(),
+    );
+    assert_eq!(h.call(Sysno::Writev, &[wr, iov, 2]), -i64::from(EFAULT));
+    assert_eq!(h.call(Sysno::Write, &[wr, bad - 0x1000, 0x2000]), 0x1000);
+    put(&h, m + 0x300, &[0; 16]);
+    assert_eq!(
+        h.call(Sysno::Read, &[rd, bad - 5, 0x1000]),
+        -i64::from(EFAULT)
+    );
+}
