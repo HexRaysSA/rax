@@ -60,6 +60,15 @@ pub fn getgroups(c: &mut Ctx<'_>, size: i32, list: u64) -> SysResult {
 /// groups with the `size` IDs at `list`, sorted (`groups_sort`); at most
 /// `NGROUPS_MAX`, none of them `-1`.
 pub fn setgroups(c: &mut Ctx<'_>, size: i32, list: u64) -> SysResult {
+    set_groups(c, size, |c, i| c.read_u32(list + 4 * i))
+}
+
+/// `setgroups` with entry `i` of the caller's list read by `entry`.
+pub(super) fn set_groups(
+    c: &mut Ctx<'_>,
+    size: i32,
+    entry: impl Fn(&Ctx<'_>, u64) -> Result<u32, Errno>,
+) -> SysResult {
     const NGROUPS_MAX: u32 = 65536;
     if c.p.creds.1 != 0 {
         return Err(Errno(EPERM));
@@ -69,7 +78,7 @@ pub fn setgroups(c: &mut Ctx<'_>, size: i32, list: u64) -> SysResult {
     }
     let mut groups = Vec::with_capacity(size as usize);
     for i in 0..size as u64 {
-        let g = c.read_u32(list + 4 * i)?;
+        let g = entry(c, i)?;
         if g == u32::MAX {
             return Err(Errno(EINVAL));
         }
@@ -167,16 +176,49 @@ pub fn setpgid(c: &mut Ctx<'_>, pid: i32, pgid: i32) -> SysResult {
 
 /// `uname`.
 pub fn uname(c: &mut Ctx<'_>, buf: u64) -> SysResult {
-    let host = host::hostname();
-    let release = c.p.config.kernel_release.clone();
-    let b = encode_utsname([
-        "Linux",
-        &host,
-        &release,
-        "#1 SMP PREEMPT_DYNAMIC rax-user",
-        c.p.abi.machine(),
-        "(none)",
-    ]);
+    let fields = utsname(c);
+    let b = encode_utsname(fields.each_ref().map(String::as_str));
+    c.write_mem(buf, &b)?;
+    Ok(0)
+}
+
+/// `PER_LINUX32`: the personality whose `uname` shows the 32-bit machine.
+const PER_LINUX32: u32 = 0x0008;
+
+/// The fields of `struct new_utsname`. On x86, `override_architecture`
+/// shows `COMPAT_UTS_MACHINE` (`i686`) to a task whose personality is
+/// `PER_LINUX32`, 64-bit or not.
+fn utsname(c: &Ctx<'_>) -> [String; 6] {
+    let machine =
+        if c.p.abi.isa() == crate::user::cpu::Isa::X86_64 && c.p.persona & 0xff == PER_LINUX32 {
+            "i686"
+        } else {
+            c.p.abi.machine()
+        };
+    [
+        "Linux".into(),
+        host::hostname(),
+        c.p.config.kernel_release.clone(),
+        "#1 SMP PREEMPT_DYNAMIC rax-user".into(),
+        machine.into(),
+        "(none)".into(),
+    ]
+}
+
+/// `uname` of the old ABI (`sys_uname`, `struct old_utsname`): the first
+/// five fields of 65 bytes each, without the domain name; and (`width` 9)
+/// the oldest one (`sys_olduname`, `struct oldold_utsname`): 8 bytes of
+/// each and a NUL. A null buffer is `EFAULT`.
+pub fn old_uname(c: &mut Ctx<'_>, buf: u64, width: usize) -> SysResult {
+    if buf == 0 {
+        return Err(Errno(EFAULT));
+    }
+    let fields = utsname(c);
+    let mut b = vec![0u8; 5 * width];
+    for (i, f) in fields[..5].iter().enumerate() {
+        let n = f.len().min(width - 1);
+        b[i * width..i * width + n].copy_from_slice(&f.as_bytes()[..n]);
+    }
     c.write_mem(buf, &b)?;
     Ok(0)
 }
@@ -194,12 +236,46 @@ pub fn sysinfo(c: &mut Ctx<'_>, buf: u64) -> SysResult {
         mem_unit: 1,
         ..Default::default()
     };
-    c.write_mem(buf, &info.encode())?;
+    let b = if c.compat {
+        info.encode_compat()
+    } else {
+        info.encode()
+    };
+    c.write_mem(buf, &b)?;
     Ok(0)
 }
 
-/// `prlimit64` (and `getrlimit`/`setrlimit` with `pid` 0).
+/// `prlimit64` (and `getrlimit`/`setrlimit` with `pid` 0): the new
+/// `struct rlimit` read first (`EFAULT`), then `do_prlimit`, then the old
+/// limits stored.
 pub fn prlimit(c: &mut Ctx<'_>, pid: i32, resource: u32, new: u64, old: u64) -> SysResult {
+    let requested = if new != 0 {
+        let b = c.read_mem(new, 16)?;
+        let word = |i: usize| u64::from_le_bytes(b[i..i + 8].try_into().unwrap());
+        Some((word(0), word(8)))
+    } else {
+        None
+    };
+    let current = do_prlimit(c, pid, resource, requested)?;
+    if old != 0 {
+        let mut e = Encoder::new();
+        e.u64(current.0).u64(current.1);
+        c.write_mem(old, &e.finish())?;
+    }
+    Ok(0)
+}
+
+/// `do_prlimit` for the calling process (`pid` 0 or its own): the
+/// resource (`EINVAL`), the task (`ESRCH`), and a new `(cur, max)` pair's
+/// checks (`EINVAL` for a soft limit over the hard one, `EPERM` for a
+/// raised hard limit without privilege or a descriptor limit past
+/// `nr_open`); returns the limits before the change.
+pub(super) fn do_prlimit(
+    c: &mut Ctx<'_>,
+    pid: i32,
+    resource: u32,
+    new: Option<(u64, u64)>,
+) -> Result<(u64, u64), Errno> {
     const RLIMIT_NOFILE: usize = 7;
     const NR_OPEN: u64 = 1 << 20;
     if resource >= 16 {
@@ -210,10 +286,7 @@ pub fn prlimit(c: &mut Ctx<'_>, pid: i32, resource: u32, new: u64, old: u64) -> 
     }
     let r = resource as usize;
     let current = c.p.rlimits[r];
-    let requested = if new != 0 {
-        let b = c.read_mem(new, 16)?;
-        let cur = u64::from_le_bytes(b[..8].try_into().unwrap());
-        let max = u64::from_le_bytes(b[8..].try_into().unwrap());
+    if let Some((cur, max)) = new {
         if cur > max {
             return Err(Errno(EINVAL));
         }
@@ -223,19 +296,9 @@ pub fn prlimit(c: &mut Ctx<'_>, pid: i32, resource: u32, new: u64, old: u64) -> 
         if r == RLIMIT_NOFILE && max != RLIM_INFINITY && max > NR_OPEN {
             return Err(Errno(EPERM));
         }
-        Some((cur, max))
-    } else {
-        None
-    };
-    if old != 0 {
-        let mut e = Encoder::new();
-        e.u64(current.0).u64(current.1);
-        c.write_mem(old, &e.finish())?;
+        c.p.rlimits[r] = (cur, max);
     }
-    if let Some(v) = requested {
-        c.p.rlimits[r] = v;
-    }
-    Ok(0)
+    Ok(current)
 }
 
 /// `getrusage` (`struct rusage`, 144 bytes). The emulator's own usage
@@ -244,28 +307,51 @@ pub fn getrusage(c: &mut Ctx<'_>, who: i32, buf: u64) -> SysResult {
     const RUSAGE_SELF: i32 = 0;
     const RUSAGE_CHILDREN: i32 = -1;
     const RUSAGE_THREAD: i32 = 1;
-    let (user_us, sys_us, maxrss) = match who {
+    let usage = match who {
         RUSAGE_SELF | RUSAGE_THREAD => host::rusage_self(),
         RUSAGE_CHILDREN => (0, 0, 0),
         _ => return Err(Errno(EINVAL)),
     };
-    let mut e = Encoder::new();
-    e.u64(user_us / 1_000_000)
-        .u64(user_us % 1_000_000)
-        .u64(sys_us / 1_000_000)
-        .u64(sys_us % 1_000_000)
-        .u64(maxrss)
-        .zeros(13 * 8);
-    c.write_mem(buf, &e.finish())?;
+    c.write_mem(buf, &rusage_bytes(c, usage))?;
     Ok(0)
 }
 
+/// A `struct rusage` with user and system microseconds and the maximum
+/// resident size: 144 bytes, or for a 32-bit call `struct compat_rusage`
+/// (72 bytes: `old_timeval32`s and `compat_long_t`s, `put_compat_rusage`).
+pub(super) fn rusage_bytes(c: &Ctx<'_>, (user, system, maxrss): (u64, u64, u64)) -> Vec<u8> {
+    let mut e = Encoder::new();
+    for us in [user, system] {
+        e.bytes(&c.timeval_bytes((us / 1_000_000) as i64, (us % 1_000_000) as i64));
+    }
+    if c.compat {
+        e.u32(maxrss as u32).zeros(13 * 4);
+        debug_assert_eq!(e.len(), 72);
+    } else {
+        e.u64(maxrss).zeros(13 * 8);
+        debug_assert_eq!(e.len(), 144);
+    }
+    e.finish()
+}
+
 /// `times`: returns clock ticks (`USER_HZ` = 100) since an arbitrary point.
+/// A 32-bit call's `struct compat_tms` holds `compat_clock_t`s made
+/// through jiffies (`clock_t_to_compat_clock_t`: `USER_HZ` 100, `HZ` 250),
+/// which can round a value down by a tick.
 pub fn times(c: &mut Ctx<'_>, buf: u64) -> SysResult {
+    const HZ: u64 = 250;
+    const USER_HZ: u64 = 100;
     let (user_us, sys_us, _) = host::rusage_self();
     if buf != 0 {
+        let ticks = [user_us / 10_000, sys_us / 10_000, 0, 0];
         let mut e = Encoder::new();
-        e.u64(user_us / 10_000).u64(sys_us / 10_000).u64(0).u64(0);
+        for t in ticks {
+            if c.compat {
+                e.u32((t * HZ / USER_HZ * USER_HZ / HZ) as u32);
+            } else {
+                e.u64(t);
+            }
+        }
         c.write_mem(buf, &e.finish())?;
     }
     let (s, ns) = host::clock_gettime(host::HostClock::Monotonic);
@@ -424,6 +510,15 @@ pub fn arch_prctl(c: &mut Ctx<'_>, code: u32, addr: u64) -> SysResult {
     const ARCH_SET_CPUID: u32 = 0x1012;
     const ARCH_GET_XCOMP_SUPP: u32 = 0x1021;
     const ARCH_GET_XCOMP_PERM: u32 = 0x1022;
+    // A 32-bit call has the options common to both (in_ia32_syscall).
+    if c.compat
+        && !matches!(
+            code,
+            ARCH_GET_CPUID | ARCH_SET_CPUID | ARCH_GET_XCOMP_SUPP | ARCH_GET_XCOMP_PERM
+        )
+    {
+        return Err(Errno(EINVAL));
+    }
     let GuestCpu::X86_64(cpu) = &mut c.t.cpu else {
         return Err(Errno(ENOSYS));
     };
@@ -509,27 +604,52 @@ pub fn getrandom(c: &mut Ctx<'_>, buf: u64, len: u64, flags: u32) -> SysResult {
 }
 
 /// `sched_getaffinity`: one CPU (CPU 0) executes every guest thread.
-pub fn sched_getaffinity(c: &mut Ctx<'_>, pid: i32, len: u64, mask: u64) -> SysResult {
+pub fn sched_getaffinity(c: &mut Ctx<'_>, pid: i32, len: u32, mask: u64) -> SysResult {
+    getaffinity(c, pid, len, mask, 8)
+}
+
+/// `cpumask_size()`: one `unsigned long` of the one CPU.
+const CPUMASK_SIZE: u32 = 8;
+
+/// `sched_getaffinity` with masks of `unit`-byte words (8, or 4 for
+/// `compat_sys_sched_getaffinity`): the length first (`EINVAL`: fewer bits
+/// than CPUs, or not whole words), then the task (`ESRCH`); the mask's
+/// first `min(len, cpumask_size())` bytes, and that length returned.
+pub(super) fn getaffinity(c: &mut Ctx<'_>, pid: i32, len: u32, mask: u64, unit: u32) -> SysResult {
+    if len == 0 || len % unit != 0 {
+        return Err(Errno(EINVAL));
+    }
     if !is_self(c, pid) {
         return Err(Errno(ESRCH));
     }
-    if len * 8 < 1 || len & 7 != 0 {
-        return Err(Errno(EINVAL));
-    }
-    c.write_u64(mask, 1)?;
-    Ok(8)
+    let n = len.min(CPUMASK_SIZE) as usize;
+    let mut b = vec![0u8; n];
+    b[0] = 1;
+    c.write_mem(mask, &b)?;
+    Ok(n as u64)
 }
 
 /// `sched_setaffinity`: the mask must include CPU 0.
-pub fn sched_setaffinity(c: &mut Ctx<'_>, pid: i32, len: u64, mask: u64) -> SysResult {
+pub fn sched_setaffinity(c: &mut Ctx<'_>, pid: i32, len: u32, mask: u64) -> SysResult {
+    setaffinity(c, pid, len, mask, 8)
+}
+
+/// `sched_setaffinity` with masks of `unit`-byte words: the mask read
+/// first (`get_user_cpu_mask`: at most `cpumask_size()` bytes;
+/// `compat_get_user_cpu_mask` in whole 32-bit words), then the task
+/// (`ESRCH`); a mask without CPU 0 leaves no CPU (`EINVAL`).
+pub(super) fn setaffinity(c: &mut Ctx<'_>, pid: i32, len: u32, mask: u64, unit: u32) -> SysResult {
+    let n = len.min(CPUMASK_SIZE);
+    let read = if unit == 4 { n.div_ceil(4) * 4 } else { n };
+    let bytes = if read == 0 {
+        Vec::new()
+    } else {
+        c.read_mem(mask, read as usize)?
+    };
     if !is_self(c, pid) {
         return Err(Errno(ESRCH));
     }
-    if len == 0 {
-        return Err(Errno(EINVAL));
-    }
-    let first = c.read_mem(mask, 1)?;
-    if first[0] & 1 == 0 {
+    if bytes.first().is_none_or(|b| b & 1 == 0) {
         return Err(Errno(EINVAL));
     }
     Ok(0)

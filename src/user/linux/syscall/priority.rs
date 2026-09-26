@@ -406,6 +406,22 @@ pub fn getpriority(c: &mut Ctx<'_>, which: i32, who: i32) -> SysResult {
         .ok_or(Errno(ESRCH))
 }
 
+/// `NICE_WIDTH`: the span of nice values.
+const NICE_WIDTH: i32 = MAX_NICE - MIN_NICE + 1;
+
+/// `nice` (`__ARCH_WANT_SYS_NICE`, i386): the caller's nice value moved by
+/// `increment` (clamped to the span of nice values), the result clamped to
+/// `[MIN_NICE, MAX_NICE]`; lowering it needs `can_nice` (`EPERM`).
+pub fn nice(c: &mut Ctx<'_>, increment: i32) -> SysResult {
+    let increment = increment.clamp(-NICE_WIDTH, NICE_WIDTH);
+    let nice = (c.t.sched.nice() + increment).clamp(MIN_NICE, MAX_NICE);
+    if increment < 0 && !(nice_within(c, nice) || capable(c)) {
+        return Err(Errno(EPERM));
+    }
+    c.t.sched.set_nice(nice);
+    Ok(0)
+}
+
 /// `ioprio_set`: the value's class and level and the right to the
 /// real-time class, then each task named (`set_task_ioprio`).
 pub fn ioprio_set(c: &mut Ctx<'_>, which: i32, who: i32, value: i32) -> SysResult {

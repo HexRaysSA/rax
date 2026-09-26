@@ -13,9 +13,11 @@
 //! |---|---|
 //! | this one | the task, its entry, TLS, and the first conversions |
 //! | [`files`] | opens, offsets, status, directories, locks, `execve` |
+//! | [`process`] | 16-bit IDs, limits, usage, waits, `times`, `sysinfo`, CPU masks, old `uname`s, `nice`, `arch_prctl` |
 //! | [`time`] | clocks, sleeps, time setting, interval and POSIX timers, timerfds, file times |
 
 mod files;
+mod process;
 mod time;
 
 use super::harness::{CODE, Harness};
@@ -293,8 +295,8 @@ fn compat_calls_convert_or_refuse() {
     assert_eq!(b, [2; 4]);
     put(&h, at + 0x3014, &100u32.to_le_bytes());
     assert_eq!(h.call(Sysno::Mmap, &[at + 0x3000]), -i64::from(EINVAL));
-    // Calls without a 32-bit conversion yet, and the 16-bit-ID getuid.
-    for s in [Sysno::Socketcall, Sysno::RtSigaction, Sysno::Getuid] {
+    // Calls without a 32-bit conversion yet.
+    for s in [Sysno::Socketcall, Sysno::RtSigaction, Sysno::Signal] {
         assert_eq!(h.call(s, &[0, 0, 0, 0]), -i64::from(ENOSYS), "{s:?}");
     }
 }

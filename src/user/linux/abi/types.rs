@@ -449,6 +449,47 @@ impl SysInfo {
         debug_assert_eq!(e.len(), 112);
         e.finish()
     }
+
+    /// `struct compat_sysinfo` (64 bytes) as `compat_sys_sysinfo` fills it:
+    /// when the RAM or swap total needs more than 32 bits, the memory unit
+    /// doubles up to `PAGE_SIZE` and the figures shift down with it; each
+    /// field is then truncated to its 32 bits.
+    pub fn encode_compat(&self) -> Vec<u8> {
+        let mut s = *self;
+        if (s.totalram | s.totalswap) >> 32 != 0 {
+            while s.mem_unit < 4096 {
+                s.mem_unit <<= 1;
+                for v in [
+                    &mut s.totalram,
+                    &mut s.freeram,
+                    &mut s.sharedram,
+                    &mut s.bufferram,
+                    &mut s.totalswap,
+                    &mut s.freeswap,
+                ] {
+                    *v >>= 1;
+                }
+            }
+        }
+        let mut e = Encoder::new();
+        e.u32(s.uptime as u32);
+        for l in s.loads {
+            e.u32(l as u32);
+        }
+        for v in [
+            s.totalram,
+            s.freeram,
+            s.sharedram,
+            s.bufferram,
+            s.totalswap,
+            s.freeswap,
+        ] {
+            e.u32(v as u32);
+        }
+        e.u16(s.procs).u16(0).u32(0).u32(0).u32(s.mem_unit).zeros(8);
+        debug_assert_eq!(e.len(), 64);
+        e.finish()
+    }
 }
 
 #[cfg(test)]

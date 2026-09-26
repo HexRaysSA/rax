@@ -586,22 +586,6 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
     Err(c.block(Wait::fds(fds, None), Resume::WaitChild))
 }
 
-/// Encodes a `struct rusage` with user and system microseconds and the
-/// maximum resident size.
-fn rusage_bytes((user, system, maxrss): (u64, u64, u64)) -> [u8; 144] {
-    let mut b = [0u8; 144];
-    let tv = |us: u64| {
-        let mut t = [0u8; 16];
-        t[..8].copy_from_slice(&((us / 1_000_000) as i64).to_le_bytes());
-        t[8..].copy_from_slice(&((us % 1_000_000) as i64).to_le_bytes());
-        t
-    };
-    b[..16].copy_from_slice(&tv(user));
-    b[16..32].copy_from_slice(&tv(system));
-    b[32..40].copy_from_slice(&(maxrss as i64).to_le_bytes());
-    b
-}
-
 /// The caller's process group.
 fn own_pgid() -> Result<i32, Errno> {
     host::getpgid(0)
@@ -634,7 +618,7 @@ pub fn wait4(
         c.write_u32(stat, f.status as u32)?;
     }
     if ru != 0 {
-        c.write_mem(ru, &rusage_bytes(f.rusage))?;
+        c.write_mem(ru, &super::process::rusage_bytes(c, f.rusage))?;
     }
     Ok(Outcome::Return(f.pid as u64))
 }
@@ -669,10 +653,12 @@ pub fn waitid(
     if let Ok(Some(f)) = &found
         && ru != 0
     {
-        c.write_mem(ru, &rusage_bytes(f.rusage))?;
+        c.write_mem(ru, &super::process::rusage_bytes(c, f.rusage))?;
     }
     if infop != 0 {
-        // user_write_access_begin covers the whole 128-byte siginfo_t.
+        // user_write_access_begin covers the whole 128-byte siginfo_t; a
+        // 32-bit call's (struct compat_siginfo) has no padding before the
+        // union at 12.
         if infop
             .checked_add(128)
             .is_none_or(|end| end > c.p.abi.task_size())
@@ -688,7 +674,7 @@ pub fn waitid(
             body[8..].copy_from_slice(&f.si_status.to_le_bytes());
         }
         c.write_mem(infop, &head)?;
-        c.write_mem(infop + 16, &body)?;
+        c.write_mem(infop + if c.compat { 12 } else { 16 }, &body)?;
     }
     found.map(|_| Outcome::Return(0))
 }

@@ -10,19 +10,22 @@
 //! [`Ctx::compat`] is set, as the kernel's do under `in_compat_syscall`. A
 //! call with a compatibility entry point (`compat_sys_*`, `sys_ia32_*`) or
 //! a 32-bit-only one goes through its conversion here. Every other call is
-//! `ENOSYS`, so none runs with 64-bit layouts on 32-bit memory; so are the
-//! 16-bit-ID calls (`getuid`, `chown`, ...) until they convert their IDs.
+//! `ENOSYS`, so none runs with 64-bit layouts on 32-bit memory.
 //!
 //! | Module | Contents |
 //! |---|---|
 //! | this one | the table and the calls without a module of their own |
 //! | [`file`] | split and 32-bit offsets, `_llseek`, `fcntl`'s locks |
+//! | [`resource`] | resource limits and CPU masks |
 //! | [`stat`] | `stat`, `stat64`, the old `stat`, `statfs`, `statfs64` |
 //! | [`tls`] | `set_thread_area`, `get_thread_area` |
+//! | [`uid16`] | the 16-bit user- and group-ID calls |
 
 pub mod file;
+pub mod resource;
 pub mod stat;
 pub mod tls;
+pub mod uid16;
 
 use super::super::abi::Sysno as S;
 use super::super::abi::errno::Errno;
@@ -32,6 +35,7 @@ use super::io::{self, SendfileOffset};
 use super::path::{self, AT_FDCWD};
 use super::time;
 use super::{Ctx, Outcome, call_handler};
+use super::{priority, process};
 use file::{dual, sext};
 use stat::{FsOf, Of};
 
@@ -241,6 +245,17 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         // The argument and environment vectors hold compat_uptr_ts.
         | S::Execve
         | S::Execveat => call_handler(c, s, a),
+        // struct compat_rusage, struct compat_tms, struct compat_sysinfo,
+        // struct compat_siginfo's waitid fields, and arch_prctl's common
+        // options: each native handler's 32-bit form.
+        | S::Getrusage
+        | S::Wait4
+        | S::Waitid
+        | S::Times
+        | S::Sysinfo
+        | S::ArchPrctl => call_handler(c, s, a),
+        // sys_waitpid: wait4 without a usage record.
+        S::Waitpid => call_handler(c, S::Wait4, [a[0], a[1], a[2], 0, 0, 0]),
         // prctl, except the seccomp filter's struct compat_sock_fprog.
         S::Prctl if a[0] == PR_SET_SECCOMP => Err(Errno(ENOSYS)),
         S::Prctl => call_handler(c, s, a),
@@ -264,6 +279,28 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::Chown32 => call_handler(c, S::Chown, a),
         S::Lchown32 => call_handler(c, S::Lchown, a),
         S::Fchown32 => call_handler(c, S::Fchown, a),
+        // The 16-bit ID calls (kernel/uid16.c).
+        S::Getuid => r(uid16::get(c.p.creds.0)),
+        S::Geteuid => r(uid16::get(c.p.creds.1)),
+        S::Getgid => r(uid16::get(c.p.creds.2)),
+        S::Getegid => r(uid16::get(c.p.creds.3)),
+        S::Setuid | S::Setgid | S::Setfsuid | S::Setfsgid => uid16::widened(c, s, a, &[0]),
+        S::Setreuid | S::Setregid => uid16::widened(c, s, a, &[0, 1]),
+        S::Setresuid | S::Setresgid => uid16::widened(c, s, a, &[0, 1, 2]),
+        S::Chown | S::Lchown | S::Fchown => uid16::widened(c, s, a, &[1, 2]),
+        S::Getresuid => r(uid16::getres(c, a, true)),
+        S::Getresgid => r(uid16::getres(c, a, false)),
+        S::Getgroups => r(uid16::getgroups(c, a[0] as i32, a[1])),
+        S::Setgroups => r(uid16::setgroups(c, a[0] as i32, a[1])),
+        // Limits, CPU masks, the old unames, and nice.
+        S::Getrlimit => r(resource::old_getrlimit(c, a[0] as u32, a[1])),
+        S::Ugetrlimit => r(resource::getrlimit(c, a[0] as u32, a[1])),
+        S::Setrlimit => r(resource::setrlimit(c, a[0] as u32, a[1])),
+        S::SchedGetaffinity => r(resource::sched_getaffinity(c, fd(a[0]), a[1] as u32, a[2])),
+        S::SchedSetaffinity => r(resource::sched_setaffinity(c, fd(a[0]), a[1] as u32, a[2])),
+        S::Olduname => r(process::old_uname(c, a[0], 65)),
+        S::Oldolduname => r(process::old_uname(c, a[0], 9)),
+        S::Nice => r(priority::nice(c, a[0] as i32)),
         S::SetThreadArea => r(tls::set_thread_area(c, a[0])),
         S::GetThreadArea => r(tls::get_thread_area(c, a[0])),
         // sys_mmap_pgoff: the offset in pages.

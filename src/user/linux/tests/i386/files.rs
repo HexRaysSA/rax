@@ -596,9 +596,7 @@ fn prctl_is_native_but_for_the_seccomp_filter() {
     assert_eq!(cstr(&h, m), "compat");
     // PR_SET_SECCOMP reads a struct compat_sock_fprog: not converted yet.
     assert_eq!(h.call(Sysno::Prctl, &[22, 2, m, 0, 0]), -i64::from(ENOSYS));
-    // The 16-bit ID calls are refused until they convert their IDs; the
-    // 32-bit ones are the native ones.
-    assert_eq!(h.call(Sysno::Chown, &[m, 0, 0]), -i64::from(ENOSYS));
+    // The 32-bit ID calls are the native ones.
     assert_eq!(
         h.call(Sysno::Getuid32, &[]),
         i64::from(h.proc.state.creds.0)

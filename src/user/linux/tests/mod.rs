@@ -13,6 +13,7 @@ mod i386;
 mod ifreq;
 mod inotify;
 mod kcmp;
+mod limits;
 mod loader;
 mod locks;
 mod misc;
