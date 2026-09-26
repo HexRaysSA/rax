@@ -27,7 +27,17 @@ struct Case {
 }
 
 fn cases() -> Vec<Case> {
-    let text = std::fs::read_to_string(fixtures().join("cases.txt")).unwrap();
+    cases_in("cases.txt")
+}
+
+/// The cases of the i386-only programs (`cases-i386.txt`), which have no
+/// 64-bit builds.
+fn i386_only_cases() -> Vec<Case> {
+    cases_in("cases-i386.txt")
+}
+
+fn cases_in(file: &str) -> Vec<Case> {
+    let text = std::fs::read_to_string(fixtures().join(file)).unwrap();
     text.lines()
         .map(str::trim)
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
@@ -68,11 +78,12 @@ fn manifest() -> BTreeMap<String, String> {
 }
 
 /// The cases with an i386 build: those whose program `manifest.toml` lists
-/// under `bin/i386`.
+/// under `bin/i386`, and the i386-only ones.
 fn i386_cases() -> Vec<Case> {
     let m = manifest();
     cases()
         .into_iter()
+        .chain(i386_only_cases())
         .filter(|c| m.contains_key(&format!("bin/{I386}/{}", c.program)))
         .collect()
 }
@@ -128,9 +139,23 @@ fn fixture_binaries_match_manifest() {
     for path in m.keys().filter(|p| p.starts_with(&format!("bin/{I386}/"))) {
         let program = path.rsplit('/').next().unwrap();
         assert!(
-            cases().iter().any(|c| c.program == program),
+            i386_cases().iter().any(|c| c.program == program),
             "{path} has no case"
         );
+    }
+    // An i386-only program has an i386 build and no other, and no case in
+    // the shared table.
+    for case in i386_only_cases() {
+        assert!(m.contains_key(&format!("bin/{I386}/{}", case.program)));
+        assert!(
+            !cases()
+                .iter()
+                .any(|c| c.name == case.name || c.program == case.program)
+        );
+        for arch in ARCHES {
+            let path = format!("bin/{arch}/{}", case.program);
+            assert!(!m.contains_key(&path), "{path}: the program is i386-only");
+        }
     }
     assert!(m.len() == full + m.keys().filter(|p| p.starts_with("bin/i386/")).count());
 }

@@ -1,0 +1,50 @@
+sigaltstack 0
+sigaltstack old 0 0 0 65536
+rt sig=10 pinfo=16 puc=144 pretcode=restorer
+rt retcode=b8ad000000cd8000
+rt uc_flags=1 link=0 ss_sp=0 ss_flags=0 ss_size=65536
+rt info signo=10 code=-6 pid_ok=1 uid_ok=1 rest0=1
+rt sigmask=1:2
+rt gs=63 fs=0 es=2b ds=2b cs=23 ss=2b
+rt flags&0xcd5=44 oldmask=1 trapno=0 err=0 sp_eq=1
+rt fsave cw=ffff027f sw=ffff3000 tag=ffff4fff cssel=23 datasel=ffff002b status=3000 magic=0
+rt fx align=0 magic1=46505853 ext-size=116 xfeat&3=3 magic2=46505845 bv&3=3
+rt placed=1 frame-align=0 buf-frame=276
+after rt: eax=1234 cw=c7f st=1,0 xmm0=44
+after rt: mask=1:2
+old sig=12 pretcode=restorer extramask=4
+old retcode=58b877000000cd80
+old gs=63 fs=0 es=2b ds=2b cs=23 ss=2b
+old flags&0xcd5=44 oldmask=1 trapno=0 err=0 sp_eq=1
+old fsave cw=ffff0c7f sw=ffff0000 tag=ffffffff cssel=23 datasel=ffff002b status=0 magic=0
+old fx align=0 magic1=46505853 ext-size=116 xfeat&3=3 magic2=46505845 bv&3=3
+old placed=1 frame-align=0 buf-frame=740
+after old: eax=0 got=12
+vdso rt returned got=10
+old sig=12 pretcode=other extramask=4
+old retcode=58b877000000cd80
+old gs=63 fs=0 es=2b ds=2b cs=23 ss=2b
+old flags&0xcd5=44 oldmask=1 trapno=0 err=0 sp_eq=1
+old fsave cw=ffff0c7f sw=ffff0000 tag=ffffffff cssel=23 datasel=ffff002b status=0 magic=0
+old fx align=0 magic1=46505853 ext-size=116 xfeat&3=3 magic2=46505845 bv&3=3
+old placed=1 frame-align=0 buf-frame=740
+vdso old returned got=12
+ssetmask(-1) -> 0
+mask after ssetmask(-1) fffbfeff:ffffffff sgetmask fffbfeff
+sigprocmask setmask 0 old fffbfeff
+mask after sigprocmask 2:ffffffff
+sigprocmask how=3 -22
+ssetmask(4) -> 2
+sigpending 0 2
+signal(SIGINT) -> 0
+signal(SIGINT) -> 1
+sigaction old 0 h=0 m=0 f=c0000000
+rt_sigaction flags 8000004
+rt_sigaction size4 -22
+skip sig=11 code=2 trapno=14 err=6 cr2_eq_addr=1
+store skipped
+skip sig=11 code=2 trapno=14 err=7 cr2_eq_addr=1
+skip sig=11 code=2 trapno=14 err=6 cr2_eq_addr=1
+abort handler returns
+abort child signaled=1 sig=6
+segv sig=11 code=128 mask=800:1 eax=0

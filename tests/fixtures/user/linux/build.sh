@@ -55,10 +55,11 @@ done
 
 # i386 (x86-linux-musl) builds of the programs whose cases run as
 # compatibility tasks so far; the rest need calls without a 32-bit
-# conversion yet (signal handlers, threads, sockets, System V IPC, AIO,
-# ptrace) or have 64-bit-only code. Their expected results come from a real
-# x86-64 kernel (oracle/record-kernel.sh), not from Docker.
-i386_programs=(hello fileio memory mman memfd nodes stdin segv abort trap)
+# conversion yet (threads, sockets, System V IPC, AIO, ptrace) or have
+# 64-bit-only code. sigframes is an i386-only program (its case is in
+# cases-i386.txt). Their expected results come from a real x86-64 kernel
+# (oracle/record-kernel.sh), not from Docker.
+i386_programs=(hello fileio memory mman memfd nodes signals shmem locks stdin segv abort trap sigframes)
 mkdir -p bin/i386
 for prog in "${i386_programs[@]}"; do
     out="bin/i386/$prog"

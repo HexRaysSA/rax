@@ -14,8 +14,10 @@ runs in parallel must not see each other's queues and identifiers.
 The execution matrix is x86-64, AArch64, and RV64 for every case, and
 i386 for the cases whose programs `build.sh` builds for it: those that run
 as compatibility tasks so far (the rest need calls without a 32-bit
-conversion yet, such as signal handlers, threads, sockets, System V IPC,
-AIO, and `ptrace`, or have 64-bit-only code). The i386 results come from
+conversion yet, such as threads, sockets, System V IPC, AIO, and `ptrace`,
+or have 64-bit-only code), and the cases of `cases-i386.txt`, whose
+programs are built for i386 alone (`sigframes`: the i386 signal frames,
+printed relative to a fixed alternate stack). The i386 results come from
 Linux 6.19 for x86-64 itself (see [Kernel oracle](#kernel-oracle)); the
 library tests under `src/user/linux/tests/i386/` cover the conversions
 call by call.
@@ -27,6 +29,7 @@ call by call.
 | `bin/<arch>/<program>` | Static, stripped executables for `x86_64`, `aarch64`, and `riscv64`, and for `i386` (a subset). |
 | `manifest.toml` | Toolchain, flags, and SHA-256 of every binary (checked by the test). |
 | `cases.txt` | Case table: program, standard-input file, and arguments. |
+| `cases-i386.txt` | The same for the i386-only programs, which have no 64-bit builds. |
 | `input/` | Standard-input files referenced by `cases.txt`. |
 | `record-expected.sh` | Records `expected/` on Linux through Docker. |
 | `oracle-overrides.txt` | Cases whose expectation for one architecture is another architecture's real-kernel result, with the reason. |
@@ -105,8 +108,8 @@ call by call.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 172 binaries (54 programs × 3 architectures, and 10 for i386),
-  6,692 KiB in total (`du -k`); each
+- Size: 176 binaries (54 programs × 3 architectures, and 14 for i386, one
+  of them i386-only), 6,820 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -203,7 +206,8 @@ call by call.
    `oracle/build-kernel.sh <linux-v6.19-checkout> <out>` (Docker), then run
    `oracle/record-kernel.sh <out>/bzImage` (`qemu-system-x86_64`, Zig) and
    review the diff under `expected/i386`. Adding a program to
-   `build.sh`'s `i386_programs` adds its cases to the i386 matrix.
+   `build.sh`'s `i386_programs` adds its cases to the i386 matrix; an
+   i386-only program's cases go in `cases-i386.txt`.
 4. Run `cargo test --no-default-features --features x86_64-suite,smir-jit
    --test user_linux`.
 

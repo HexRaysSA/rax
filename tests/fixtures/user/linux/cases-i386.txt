@@ -1,0 +1,4 @@
+# Cases of the i386-only programs, built for i386 alone (build.sh), in the
+# format of cases.txt: name, program, standard-input file or -, arguments.
+# Their expected results come from the kernel oracle like every i386 case.
+sigframes sigframes -

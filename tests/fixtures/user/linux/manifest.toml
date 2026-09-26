@@ -1011,6 +1011,24 @@ target = "x86-linux-musl"
 sha256 = "e608c4a5a9df9da338c1017f46cf9b416ab5fd3272e42720fa9ede26ae29b5f5"
 
 [[fixture]]
+path = "bin/i386/signals"
+source = "src/signals.c"
+target = "x86-linux-musl"
+sha256 = "ae11d3dd95b7ed72a33bbc05bf9c3f3a54ed5de45b0fd0536634f1c5b1471b15"
+
+[[fixture]]
+path = "bin/i386/shmem"
+source = "src/shmem.c"
+target = "x86-linux-musl"
+sha256 = "4f4bc3690333197b45e2313245632344429cfa8583dde6b2c57f6eea935c10f5"
+
+[[fixture]]
+path = "bin/i386/locks"
+source = "src/locks.c"
+target = "x86-linux-musl"
+sha256 = "483e4d110e68414b182094542da4e5bec2887c417d1686c67041a4ad01afc928"
+
+[[fixture]]
 path = "bin/i386/stdin"
 source = "src/stdin.c"
 target = "x86-linux-musl"
@@ -1033,4 +1051,10 @@ path = "bin/i386/trap"
 source = "src/trap.c"
 target = "x86-linux-musl"
 sha256 = "be292d06c261b3aae312a9f7447babd546daf503a289be2f2af438e21e24e032"
+
+[[fixture]]
+path = "bin/i386/sigframes"
+source = "src/sigframes.c"
+target = "x86-linux-musl"
+sha256 = "053f5ce2f249261710c8d82060feed542da0a1d196613592da9c812e08325bf8"
 

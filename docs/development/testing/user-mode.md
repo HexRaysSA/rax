@@ -123,11 +123,18 @@ kernel algorithms
 `src/user/linux/tests/i386/`: ELF32 acceptance, layout and numbering,
 compatibility-mode entry and stack, `INT 0x80`, TLS descriptors/reloads,
 mapping/iovec conversions, file opens and offsets, status/statistics layouts,
-directories, record locks, exec vectors, time32/time64 layouts, and rejection of
-unconverted calls; `src/user/linux/abi/compat_tests.rs`: 32-bit layout and overflow
-checks; `src/isa/x86_64/user_gdt_tests.rs`: GDT selector/TLS behavior; `user_linux`
-`abi_tables`: numbering against `unistd_32.h`. The recorded three-ISA
-fixture/program matrices do not include i386.
+directories, record locks, exec vectors, time32/time64 layouts, process and
+resource layouts, the i386 signal frames and returns (layouts derived from the
+UAPI structures, FSAVE conversions from the SDM tag rules, selector reloads and
+`IRET` faults, bad frames, the `[vdso]` trampolines), the 32-bit signal calls and
+`struct compat_siginfo`, and rejection of unconverted calls;
+`src/user/linux/abi/compat_tests.rs`: 32-bit layout and overflow checks;
+`src/isa/x86_64/user_gdt_tests.rs`: GDT selector/TLS behavior; `user_linux`
+`abi_tables`: numbering against `unistd_32.h`. `user_linux` `fixtures` runs an i386
+subset of the fixture programs, and the i386-only `sigframes` (`cases-i386.txt`),
+against results recorded on Linux 6.19 for x86-64 under `qemu-system-x86_64`
+(`tests/fixtures/user/linux/oracle/`); the morok program corpus has no i386
+builds.
 
 ### Syscall and errno numbering
 
@@ -509,5 +516,6 @@ exclude i386; a mode name alone does not prove native admission on the current h
 inputs in `tests/fixtures/user/linux` (including its `programs` corpus),
 output and exit status equal what the recorded Linux kernel produced; it is
 scoped to decoded stdout text and the whole-program runner's declared noise
-filters. It is not a claim about programs outside that corpus, arbitrary
-binary stdout, or i386 compatibility programs.
+filters, and for i386 to the fixture subset built for it. It is not a claim
+about programs outside that corpus, arbitrary binary stdout, or other i386
+compatibility programs.
