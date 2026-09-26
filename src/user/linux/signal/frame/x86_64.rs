@@ -120,39 +120,67 @@ pub const FIX_EFLAGS: u64 = (1 << 18) // AC
     | (1 << 16); // RF
 
 const REDZONE: u64 = 128;
-const XFEATURE_MASK_FPSSE: u64 = 0x3;
+/// `XFEATURE_MASK_FPSSE`: x87 and SSE state.
+pub(super) const XFEATURE_MASK_FPSSE: u64 = 0x3;
 const EFLAGS_TF: u64 = 1 << 8;
 const EFLAGS_DF: u64 = 1 << 10;
 const EFLAGS_RF: u64 = 1 << 16;
+/// The RFLAGS bits `handle_signal` clears for the handler: DF (the ABI's
+/// function-entry state), RF, and TF.
+pub(super) const HANDLER_CLEARED_EFLAGS: u64 = EFLAGS_DF | EFLAGS_RF | EFLAGS_TF;
 
 /// `fpstate->user_size`: the standard XSAVE size for XCR0.
-fn user_size(cpu: &X86UserCpu) -> u64 {
+pub(super) fn user_size(cpu: &X86UserCpu) -> u64 {
     cpu.vcpu().xsave_standard_size() as u64
 }
 
-/// `copy_fpstate_to_sigframe` for a 64-bit frame: clear the XSAVE header,
-/// `XSAVE` the user features, then `save_xstate_epilog`.
-fn copy_fpstate(cpu: &X86UserCpu, space: &AddressSpace, buf: u64) -> Result<(), FrameFault> {
+/// `copy_fpstate_to_sigframe`'s transfer: clear the XSAVE header, then
+/// `XSAVE` the user features to `buf_fx` (`xsave_to_user_sigframe`).
+pub(super) fn xsave_to_frame(
+    cpu: &X86UserCpu,
+    space: &AddressSpace,
+    buf_fx: u64,
+) -> Result<(), FrameFault> {
     let v = cpu.vcpu();
-    let size = user_size(cpu);
-    put(space, buf + 512, &[0u8; 64])?;
+    put(space, buf_fx + 512, &[0u8; 64])?;
     let image = v.xsave_image(v.xcr0());
     for &(lo, hi) in &image.written {
-        put(space, buf + lo as u64, &image.bytes[lo..hi])?;
+        put(space, buf_fx + lo as u64, &image.bytes[lo..hi])?;
     }
+    Ok(())
+}
+
+/// `save_xstate_epilog`: the software-reserved bytes, `FP_XSTATE_MAGIC2`
+/// after the area, and x87 and SSE marked present. A 32-bit frame's
+/// extended size also counts the FSAVE header below the area.
+pub(super) fn save_xstate_epilog(
+    cpu: &X86UserCpu,
+    space: &AddressSpace,
+    buf_fx: u64,
+    ia32: bool,
+) -> Result<(), FrameFault> {
+    let v = cpu.vcpu();
+    let size = user_size(cpu);
+    let extended = size + 4 + if ia32 { super::ia32::FSAVE_SIZE } else { 0 };
     let mut sw = [0u8; 48];
     sw[0..4].copy_from_slice(&FP_XSTATE_MAGIC1.to_le_bytes());
-    sw[4..8].copy_from_slice(&((size + 4) as u32).to_le_bytes());
+    sw[4..8].copy_from_slice(&(extended as u32).to_le_bytes());
     sw[8..16].copy_from_slice(&v.xcr0().to_le_bytes());
     sw[16..20].copy_from_slice(&(size as u32).to_le_bytes());
-    put(space, buf + SW_RESERVED, &sw)?;
-    put(space, buf + size, &FP_XSTATE_MAGIC2.to_le_bytes())?;
-    let xfeatures = get_u64(space, buf + 512).ok_or(FrameFault)?;
+    put(space, buf_fx + SW_RESERVED, &sw)?;
+    put(space, buf_fx + size, &FP_XSTATE_MAGIC2.to_le_bytes())?;
+    let xfeatures = get_u64(space, buf_fx + 512).ok_or(FrameFault)?;
     put(
         space,
-        buf + 512,
+        buf_fx + 512,
         &(xfeatures | XFEATURE_MASK_FPSSE).to_le_bytes(),
     )
+}
+
+/// `copy_fpstate_to_sigframe` for a 64-bit frame.
+fn copy_fpstate(cpu: &X86UserCpu, space: &AddressSpace, buf: u64) -> Result<(), FrameFault> {
+    xsave_to_frame(cpu, space, buf)?;
+    save_xstate_epilog(cpu, space, buf, false)
 }
 
 /// `get_sigframe`: the frame address and the XSAVE area address, or a
@@ -244,7 +272,7 @@ pub fn setup_rt_frame(
     }
 
     let v = cpu.vcpu_mut();
-    let rflags = v.user_rflags() & !(EFLAGS_DF | EFLAGS_RF | EFLAGS_TF);
+    let rflags = v.user_rflags() & !HANDLER_CLEARED_EFLAGS;
     let r = v.user_regs_mut();
     r.rdi = d.sig as u64;
     r.rax = 0;
@@ -259,7 +287,7 @@ pub fn setup_rt_frame(
 }
 
 /// The `SIGSEGV` `signal_fault` forces for a bad frame.
-fn bad_frame() -> SigreturnError {
+pub(super) fn bad_frame() -> SigreturnError {
     SigreturnError::Bad(super::BadFrame {
         info: SigInfo::kernel(SIGSEGV),
         fault: FaultUpdate::None,
@@ -377,7 +405,7 @@ pub fn rt_sigreturn(
         // The return to user mode loads an invalid selector: #GP with the
         // selector as the error code.
         let selector = if cs != LINUX_USER_CS { cs } else { ss };
-        return Err(SigreturnError::Bad(super::BadFrame {
+        return Err(SigreturnError::Fault(super::BadFrame {
             info: SigInfo::kernel(SIGSEGV),
             fault: FaultUpdate::X86 {
                 trap_nr: 13,

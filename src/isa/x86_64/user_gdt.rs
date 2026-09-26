@@ -15,6 +15,9 @@
 //! table, as each task has its own TLS entries.
 
 use super::cpu::X86_64Vcpu;
+use super::execute::system::{
+    X86SegmentLoadTarget, X86SegmentSelectorLoadFault, X86SystemDescriptorFault,
+};
 use super::memory::Mmu;
 
 /// Where GDTR points in user mode.
@@ -57,6 +60,36 @@ pub const fn gdt_entry(flags: u16, base: u32, limit: u32) -> u64 {
         | ((limit >> 16) & 0xF) << 48
         | ((flags >> 12) & 0xF) << 52
         | ((base >> 24) & 0xFF) << 56
+}
+
+/// A segment register of a user-mode thread.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum X86UserSegment {
+    /// CS.
+    Cs,
+    /// SS.
+    Ss,
+    /// DS.
+    Ds,
+    /// ES.
+    Es,
+    /// FS.
+    Fs,
+    /// GS.
+    Gs,
+}
+
+/// The exception a segment-register load raises (SDM Vol. 2B `MOV`,
+/// "Protected Mode Exceptions"), with its selector error code (the
+/// selector with RPL cleared, or zero).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum X86SegmentFault {
+    /// #GP.
+    GeneralProtection(u16),
+    /// #NP: a data segment not present.
+    NotPresent(u16),
+    /// #SS: a stack segment not present.
+    StackSegment(u16),
 }
 
 /// The table, as bytes.
@@ -176,6 +209,58 @@ impl X86_64Vcpu {
         };
         tables.set_entry(index, descriptor);
         true
+    }
+
+    /// The selector segment register `seg` holds.
+    pub fn user_selector(&self, seg: X86UserSegment) -> u16 {
+        match seg {
+            X86UserSegment::Cs => self.sregs.cs.selector,
+            X86UserSegment::Ss => self.sregs.ss.selector,
+            X86UserSegment::Ds => self.sregs.ds.selector,
+            X86UserSegment::Es => self.sregs.es.selector,
+            X86UserSegment::Fs => self.sregs.fs.selector,
+            X86UserSegment::Gs => self.sregs.gs.selector,
+        }
+    }
+
+    /// Loads `selector` into SS, DS, ES, FS, or GS as a `MOV` to the
+    /// register at the thread's privilege level would: the descriptor
+    /// checks, the accessed-bit store, and the hidden part. On a fault the
+    /// register is unchanged. CS is not loaded this way
+    /// ([`X86_64Vcpu::set_user_compat`] selects the code segment).
+    pub fn load_user_segment(
+        &mut self,
+        seg: X86UserSegment,
+        selector: u16,
+    ) -> Result<(), X86SegmentFault> {
+        let target = match seg {
+            X86UserSegment::Ss => X86SegmentLoadTarget::Ss,
+            X86UserSegment::Ds => X86SegmentLoadTarget::Ds,
+            X86UserSegment::Es => X86SegmentLoadTarget::Es,
+            X86UserSegment::Fs => X86SegmentLoadTarget::Fs,
+            X86UserSegment::Gs => X86SegmentLoadTarget::Gs,
+            X86UserSegment::Cs => return Err(X86SegmentFault::GeneralProtection(selector & !3)),
+        };
+        let code = |e: u32| e as u16;
+        match self.load_segment_selector(target, selector, false) {
+            Ok(()) => Ok(()),
+            Err(X86SegmentSelectorLoadFault::Architectural(fault)) => Err(match fault {
+                X86SystemDescriptorFault::GeneralProtection { error_code } => {
+                    X86SegmentFault::GeneralProtection(code(error_code))
+                }
+                X86SystemDescriptorFault::SegmentNotPresent { error_code } => {
+                    X86SegmentFault::NotPresent(code(error_code))
+                }
+            }),
+            Err(X86SegmentSelectorLoadFault::StackSegment { error_code }) => {
+                Err(X86SegmentFault::StackSegment(code(error_code)))
+            }
+            // The table is served by the MMU and a direct load never
+            // preflights: neither happens in user mode.
+            Err(
+                X86SegmentSelectorLoadFault::Memory(_) | X86SegmentSelectorLoadFault::NativeDeopt,
+            ) => Err(X86SegmentFault::GeneralProtection(selector & !3)),
+        }
     }
 }
 

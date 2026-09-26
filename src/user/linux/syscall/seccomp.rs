@@ -51,10 +51,13 @@ pub enum Entry {
     Compat,
 }
 
-/// `mode1_syscalls`: whether strict mode allows call `nr`.
+/// `mode1_syscalls`: whether strict mode allows call `nr`; a 32-bit call,
+/// an i386 task's own included, is checked against `mode1_syscalls_32`
+/// (`sigreturn`, not `rt_sigreturn`).
 fn strict_allows(abi: LinuxAbi, entry: Entry, nr: i32) -> bool {
     match entry {
         Entry::Compat => I386_STRICT.contains(&nr),
+        Entry::Native if abi.is_compat() => I386_STRICT.contains(&nr),
         Entry::Native => {
             (abi == LinuxAbi::X86_64 && X86_64_UPROBE_CALLS.contains(&nr))
                 || u64::try_from(nr)

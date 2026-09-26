@@ -55,6 +55,84 @@ fn known_siginfo_layouts_follow_the_kernel() {
     assert!(!k(SIGUSR1, 0x81));
 }
 
+/// `struct compat_siginfo` (`copy_siginfo_to_external32`,
+/// `post_copy_siginfo_from_user32`): the union at byte 12, pointers and
+/// `long`s narrowed to 32 bits, `sigval` as `si_int`; offsets checked
+/// against the i386 `asm/siginfo.h`.
+#[test]
+fn compat_siginfo_narrows_each_layout() {
+    let w = |b: &[u8; 128], at: usize| u32::from_le_bytes(b[at..at + 4].try_into().unwrap());
+    let kill = SigInfo::kill(SIGUSR1, code::SI_TKILL, 1234, 1000).encode_compat();
+    assert_eq!((w(&kill, 0), w(&kill, 8)), (SIGUSR1 as u32, (-6i32) as u32));
+    assert_eq!((w(&kill, 12), w(&kill, 16)), (1234, 1000));
+    assert!(kill[20..].iter().all(|&b| b == 0));
+    // SI_QUEUE: si_int is sigval's low half.
+    let q = SigInfo::queued(SIGRTMIN, code::SI_QUEUE, 7, 8, 0x1_2345_6789);
+    let b = q.encode_compat();
+    assert_eq!((w(&b, 12), w(&b, 16), w(&b, 20)), (7, 8, 0x2345_6789));
+    assert!(b[24..].iter().all(|&x| x == 0));
+    let back = SigInfo::decode_compat(&b);
+    assert_eq!(
+        back.value(),
+        0x2345_6789,
+        "the upper half of sigval is lost"
+    );
+    // SI_TIMER: si_tid, si_overrun, si_int.
+    let mut t = SigInfo::timer(SIGALRM, 3, 0xAB);
+    t.set_overrun(2);
+    let b = t.encode_compat();
+    assert_eq!((w(&b, 12), w(&b, 16), w(&b, 20)), (3, 2, 0xAB));
+    // SIGCHLD: si_status @20, the clock_ts @24 and @28 narrowed and
+    // sign-extended back.
+    let c = SigInfo::child(code::CLD_EXITED, 99, 5, 3, -1, 12);
+    let b = c.encode_compat();
+    assert_eq!((w(&b, 12), w(&b, 16), w(&b, 20)), (99, 5, 3));
+    assert_eq!((w(&b, 24), w(&b, 28)), (u32::MAX, 12));
+    assert_eq!(SigInfo::decode_compat(&b), c);
+    // A fault's si_addr, 32 bits.
+    let f = SigInfo::fault(SIGSEGV, code::SEGV_ACCERR, 0xdead_beef);
+    let b = f.encode_compat();
+    assert_eq!(w(&b, 12), 0xdead_beef);
+    assert!(b[16..].iter().all(|&x| x == 0));
+    assert_eq!(SigInfo::decode_compat(&b), f);
+    // SIGSYS: si_call_addr, si_syscall, si_arch.
+    let sys = SigInfo::seccomp(0x0804_8000, 20, 0x4000_0003, 5);
+    let b = sys.encode_compat();
+    assert_eq!(
+        (w(&b, 4), w(&b, 12), w(&b, 16), w(&b, 20)),
+        (5, 0x0804_8000, 20, 0x4000_0003)
+    );
+    assert_eq!(SigInfo::decode_compat(&b), sys);
+    // SIGIO: si_band (a long, signed) and si_fd.
+    let mut poll = SigInfo::fault(SIGIO, 1, u64::MAX);
+    poll.fields[8..12].copy_from_slice(&9i32.to_le_bytes());
+    let b = poll.encode_compat();
+    assert_eq!((w(&b, 12), w(&b, 16)), (u32::MAX, 9));
+    assert_eq!(SigInfo::decode_compat(&b), poll, "si_band sign-extended");
+    // BUS_MCEERR_AR: si_addr_lsb, a short @16.
+    let mut mce = SigInfo::fault(SIGBUS, 4, 0x1000);
+    mce.fields[8..10].copy_from_slice(&12u16.to_le_bytes());
+    let b = mce.encode_compat();
+    assert_eq!((w(&b, 12), w(&b, 16)), (0x1000, 12));
+    // SEGV_BNDERR's si_lower/si_upper @20/@24, SEGV_PKUERR's si_pkey @20,
+    // TRAP_PERF's si_perf_data/type/flags @16/@20/@24.
+    let mut bnd = SigInfo::fault(SIGSEGV, 3, 0x10);
+    bnd.fields[16..24].copy_from_slice(&0x20u64.to_le_bytes());
+    bnd.fields[24..32].copy_from_slice(&0x30u64.to_le_bytes());
+    let b = bnd.encode_compat();
+    assert_eq!((w(&b, 12), w(&b, 20), w(&b, 24)), (0x10, 0x20, 0x30));
+    let mut pku = SigInfo::fault(SIGSEGV, 4, 0x10);
+    pku.fields[16..20].copy_from_slice(&7u32.to_le_bytes());
+    assert_eq!(w(&pku.encode_compat(), 20), 7);
+    let mut perf = SigInfo::fault(SIGTRAP, 6, 0x10);
+    perf.fields[8..16].copy_from_slice(&0x40u64.to_le_bytes());
+    perf.fields[16..20].copy_from_slice(&1u32.to_le_bytes());
+    perf.fields[20..24].copy_from_slice(&2u32.to_le_bytes());
+    let b = perf.encode_compat();
+    assert_eq!((w(&b, 16), w(&b, 20), w(&b, 24)), (0x40, 1, 2));
+    assert_eq!(SigInfo::decode_compat(&b), perf);
+}
+
 // ------------------------------------------------------------ sigpending
 
 fn user(sig: i32) -> SigInfo {

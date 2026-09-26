@@ -222,6 +222,87 @@ impl SigInfo {
         }
     }
 
+    /// The field moves between this record's `_sifields` (64-bit offsets)
+    /// and `struct compat_siginfo`'s (from byte 12) for its layout
+    /// (`siginfo_layout`, with the `SIL_FAULT_*` exceptions): `(native,
+    /// compat, native width, compat width)`. A pointer or `long` narrows to
+    /// 32 bits; `sigval` travels as `si_int`.
+    fn compat_fields(&self) -> &'static [(usize, usize, usize, usize)] {
+        use super::{SIGSEGV, SIGTRAP};
+        const SEGV_BNDERR: i32 = 3;
+        const SEGV_PKUERR: i32 = 4;
+        const TRAP_PERF: i32 = 6;
+        match self.layout() {
+            Layout::Kill => &[(0, 12, 4, 4), (4, 16, 4, 4)],
+            // si_tid/si_pid, si_overrun/si_uid, si_int.
+            Layout::Timer | Layout::Rt => &[(0, 12, 4, 4), (4, 16, 4, 4), (8, 20, 4, 4)],
+            // si_band (a long), si_fd.
+            Layout::Poll => &[(0, 12, 8, 4), (8, 16, 4, 4)],
+            Layout::Fault if self.signo == SIGSEGV && self.code == SEGV_BNDERR => {
+                &[(0, 12, 8, 4), (16, 20, 8, 4), (24, 24, 8, 4)]
+            }
+            Layout::Fault if self.signo == SIGSEGV && self.code == SEGV_PKUERR => {
+                &[(0, 12, 8, 4), (16, 20, 4, 4)]
+            }
+            // si_perf_data (a long), si_perf_type, si_perf_flags: in the
+            // inner union itself, without the pointer pad.
+            Layout::Fault if self.signo == SIGTRAP && self.code == TRAP_PERF => {
+                &[(0, 12, 8, 4), (8, 16, 8, 4), (16, 20, 4, 4), (20, 24, 4, 4)]
+            }
+            Layout::Fault => &[(0, 12, 8, 4)],
+            // si_addr, si_addr_lsb (a short).
+            Layout::FaultMceErr => &[(0, 12, 8, 4), (8, 16, 2, 2)],
+            // si_pid, si_uid, si_status, si_utime, si_stime (clock_ts).
+            Layout::Chld => &[
+                (0, 12, 4, 4),
+                (4, 16, 4, 4),
+                (8, 20, 4, 4),
+                (16, 24, 8, 4),
+                (24, 28, 8, 4),
+            ],
+            // si_call_addr, si_syscall, si_arch.
+            Layout::Sys => &[(0, 12, 8, 4), (8, 16, 4, 4), (12, 20, 4, 4)],
+        }
+    }
+
+    /// `struct compat_siginfo` (128 bytes) as `copy_siginfo_to_external32`
+    /// fills it: zeroed, then `si_signo`, `si_errno`, `si_code`, and the
+    /// layout's fields narrowed.
+    pub fn encode_compat(&self) -> [u8; SIGINFO_SIZE] {
+        let mut b = [0u8; SIGINFO_SIZE];
+        b[0..4].copy_from_slice(&self.signo.to_le_bytes());
+        b[4..8].copy_from_slice(&self.errno.to_le_bytes());
+        b[8..12].copy_from_slice(&self.code.to_le_bytes());
+        for &(from, to, _, width) in self.compat_fields() {
+            b[to..to + width].copy_from_slice(&self.fields[from..from + width]);
+        }
+        b
+    }
+
+    /// A `struct compat_siginfo` read from a 32-bit caller
+    /// (`post_copy_siginfo_from_user32`): the layout's fields widened
+    /// (pointers zero-extended, `si_band` and the `clock_t`s sign-extended),
+    /// the rest of the record zero.
+    pub fn decode_compat(b: &[u8]) -> Self {
+        let i = |at: usize| i32::from_le_bytes(b[at..at + 4].try_into().unwrap());
+        let mut info = SigInfo {
+            signo: i(0),
+            errno: i(4),
+            code: i(8),
+            fields: [0; 32],
+        };
+        let layout = info.layout();
+        for &(to, from, native, width) in info.compat_fields() {
+            info.fields[to..to + width].copy_from_slice(&b[from..from + width]);
+            // si_band and the clock_ts are signed; pointers are not.
+            let signed = matches!((layout, to), (Layout::Poll, 0) | (Layout::Chld, 16 | 24));
+            if signed && native > width && b[from + width - 1] & 0x80 != 0 {
+                info.fields[to + width..to + native].fill(0xFF);
+            }
+        }
+        info
+    }
+
     /// Whether `si_signo`/`si_code` select a union layout the kernel knows
     /// (`known_siginfo_layout`); for an unknown one `rt_sigqueueinfo`
     /// requires bytes 48-127 of the user record to be zero.

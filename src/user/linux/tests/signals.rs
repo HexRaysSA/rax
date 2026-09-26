@@ -542,6 +542,49 @@ fn a_bad_frame_raises_sigsegv() {
 }
 
 #[test]
+fn a_bad_frame_keeps_the_mask_it_already_set() {
+    // Each rt_sigreturn sets the frame's mask (set_current_blocked) before
+    // it restores the registers; a bad record found after that forces
+    // SIGSEGV with the frame's mask in effect. The x86-64 frame's fpstate
+    // points at unmapped memory, the arm64 frame lacks its FPSIMD record,
+    // and the riscv frame's extension header has its reserved word set.
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        install(
+            &mut h,
+            SIGUSR1,
+            HANDLER,
+            sa::SIGINFO | restorer_flag(abi),
+            0,
+        );
+        prepare(&mut h, 2);
+        raise(&mut h, SIGUSR1);
+        h.proc.deliver_signals(0);
+        let frame = h.proc.threads[0].cpu.sp();
+        let mask = sigmask(SIGUSR2) | sigmask(SIGRTMIN + 4);
+        let (mask_slot, bad_slot, bad) = match abi {
+            LinuxAbi::X86_64 => (frame + 304, frame + 48 + 184, 0x10_0000u64),
+            LinuxAbi::Aarch64 => (frame + 168, frame + 592, 0),
+            LinuxAbi::Riscv64 => (frame + 168, frame + 1072, 1 << 32),
+            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
+        };
+        let space = &h.proc.state.space;
+        space.write(mask_slot, &mask.to_le_bytes()).unwrap();
+        space.write(bad_slot, &bad.to_le_bytes()).unwrap();
+        cpu(&mut h).set_sp(if abi == LinuxAbi::X86_64 {
+            frame + 8
+        } else {
+            frame
+        });
+        assert_eq!(h.dispatch(Sysno::RtSigreturn, &[]), Outcome::Unchanged);
+        let t = &mut h.proc.threads[0];
+        assert_eq!(t.sigmask, mask, "{abi:?}");
+        assert_eq!(t.cpu.syscall_return_value(), 0);
+        assert_eq!(t.pending.dequeue(0).map(|i| i.signo), Some(SIGSEGV));
+    });
+}
+
+#[test]
 fn x86_handlers_need_sa_restorer() {
     // x64_setup_rt_frame returns -EFAULT without SA_RESTORER, and the
     // failed delivery of a non-SIGSEGV signal forces SIGSEGV.

@@ -17,12 +17,14 @@
 //! | this one | the table and the calls without a module of their own |
 //! | [`file`] | split and 32-bit offsets, `_llseek`, `fcntl`'s locks |
 //! | [`resource`] | resource limits and CPU masks |
+//! | [`signal`] | `struct compat_sigaction`, the old one-word signal calls, `compat_stack_t` |
 //! | [`stat`] | `stat`, `stat64`, the old `stat`, `statfs`, `statfs64` |
 //! | [`tls`] | `set_thread_area`, `get_thread_area` |
 //! | [`uid16`] | the 16-bit user- and group-ID calls |
 
 pub mod file;
 pub mod resource;
+pub mod signal;
 pub mod stat;
 pub mod tls;
 pub mod uid16;
@@ -61,8 +63,12 @@ const SAME_LAYOUT_IOCTLS: &[u32] = &[
     0x5451, // FIOCLEX
 ];
 
-/// `prctl` options that read a structure the call does not convert yet.
+/// `prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER)` and `seccomp`'s
+/// `SECCOMP_SET_MODE_FILTER` read a `struct compat_sock_fprog`, which is
+/// not converted yet; strict mode reads nothing.
 const PR_SET_SECCOMP: u64 = 22;
+const SECCOMP_MODE_FILTER: u64 = 2;
+const SECCOMP_SET_MODE_FILTER: u64 = 1;
 
 /// Runs system call `s` of a compatibility task.
 pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno> {
@@ -173,6 +179,13 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         // and both are 8 bytes.
         | S::RtSigprocmask
         | S::RtSigpending
+        | S::RtSigsuspend
+        // struct compat_siginfo in and out (`read_user_siginfo`,
+        // rt_sigtimedwait), and the i386 frames of the sigreturns.
+        | S::RtSigqueueinfo
+        | S::RtTgsigqueueinfo
+        | S::PidfdSendSignal
+        | S::RtSigreturn
         | S::Pause
         | S::Alarm
         | S::Uname
@@ -257,9 +270,10 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         | S::ArchPrctl => call_handler(c, s, a),
         // sys_waitpid: wait4 without a usage record.
         S::Waitpid => call_handler(c, S::Wait4, [a[0], a[1], a[2], 0, 0, 0]),
-        // prctl, except the seccomp filter's struct compat_sock_fprog.
-        S::Prctl if a[0] == PR_SET_SECCOMP => Err(Errno(ENOSYS)),
-        S::Prctl => call_handler(c, s, a),
+        // prctl and seccomp, except a filter's struct compat_sock_fprog.
+        S::Prctl if a[0] == PR_SET_SECCOMP && a[1] == SECCOMP_MODE_FILTER => Err(Errno(ENOSYS)),
+        S::Seccomp if a[0] == SECCOMP_SET_MODE_FILTER => Err(Errno(ENOSYS)),
+        S::Prctl | S::Seccomp => call_handler(c, s, a),
         // The 32-bit ID calls are the native ones.
         S::Getuid32 => call_handler(c, S::Getuid, a),
         S::Geteuid32 => call_handler(c, S::Geteuid, a),
@@ -303,6 +317,19 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::Oldolduname => r(process::old_uname(c, a[0], 9)),
         S::Nice => r(priority::nice(c, a[0] as i32)),
         S::SetThreadArea => r(tls::set_thread_area(c, a[0])),
+        // Signals.
+        S::RtSigaction => r(signal::rt_sigaction(c, a[0] as i32, a[1], a[2], a[3])),
+        S::Sigaction => r(signal::sigaction(c, a[0] as i32, a[1], a[2])),
+        S::Signal => r(signal::signal(c, a[0] as i32, a[1])),
+        S::Sgetmask => Ok(Outcome::Return(signal::sgetmask(c))),
+        S::Ssetmask => Ok(Outcome::Return(signal::ssetmask(c, a[0]))),
+        S::Sigprocmask => r(signal::sigprocmask(c, a[0] as i32, a[1], a[2])),
+        S::Sigpending => r(signal::sigpending(c, a[0])),
+        S::Sigsuspend => signal::sigsuspend_old(c, a[2]),
+        S::Sigaltstack => r(signal::sigaltstack(c, a[0], a[1])),
+        S::Sigreturn => super::signal::sigreturn(c),
+        S::RtSigtimedwait => time32(c, S::RtSigtimedwait, a),
+        S::RtSigtimedwaitTime64 => call_handler(c, S::RtSigtimedwait, a),
         S::GetThreadArea => r(tls::get_thread_area(c, a[0])),
         // sys_mmap_pgoff: the offset in pages.
         S::Mmap2 => {

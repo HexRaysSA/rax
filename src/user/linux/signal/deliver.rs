@@ -714,6 +714,13 @@ impl LinuxProcess {
             && (riscv || entry.nr as i32 != -1)
         {
             let value = t.cpu.syscall_return_value();
+            // syscall_get_error: a 32-bit call's result is sign-extended
+            // from its low half (TS_COMPAT).
+            let value = if self.state.abi.is_compat() {
+                i64::from(value as u32 as i32) as u64
+            } else {
+                value
+            };
             if is_restart(value) {
                 let continue_pc = t.cpu.pc();
                 t.cpu.rewind_syscall(entry.nr, entry.arg0);
@@ -755,10 +762,10 @@ impl LinuxProcess {
                     if delivered && crate::user::linux::ptrace::tracee::mode(t).step {
                         // signal_delivered while stepping: ptrace_notify(
                         // SIGTRAP, 0) before the handler's first
-                        // instruction; x86-64 stops stepping (and block
+                        // instruction; x86 stops stepping (and block
                         // stepping) first.
                         if let Some(tr) = t.ptrace.as_mut()
-                            && self.state.abi == LinuxAbi::X86_64
+                            && matches!(self.state.abi, LinuxAbi::X86_64 | LinuxAbi::I386)
                         {
                             tr.mode.step = false;
                             tr.mode.block = false;

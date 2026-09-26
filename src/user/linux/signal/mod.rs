@@ -266,6 +266,10 @@ pub mod sa {
     pub const EXPOSE_TAGBITS: u64 = 0x0000_0800;
     /// `SA_RESTORER` (x86 and arm64 only).
     pub const RESTORER: u64 = 0x0400_0000;
+    /// `SA_IA32_ABI` (x86, kernel-internal): the handler was installed by a
+    /// 32-bit call and runs on an i386 frame (`sigaction_compat_abi`).
+    /// Never reported to user space.
+    pub const IA32_ABI: u64 = 0x0200_0000;
     /// `SA_ONSTACK`.
     pub const ONSTACK: u64 = 0x0800_0000;
     /// `SA_RESTART`.
@@ -428,6 +432,22 @@ impl AltStack {
             u32::from_le_bytes(b[8..12].try_into().unwrap()),
             u64::from_le_bytes(b[16..].try_into().unwrap()),
         )
+    }
+
+    /// Encodes a `compat_stack_t` (`ss_sp`, `ss_flags`, `ss_size`; 12
+    /// bytes), the pointer and size truncated to 32 bits.
+    pub fn encode_compat_stack_t(sp: u64, flags: u32, size: u64) -> [u8; 12] {
+        let mut b = [0u8; 12];
+        b[..4].copy_from_slice(&(sp as u32).to_le_bytes());
+        b[4..8].copy_from_slice(&flags.to_le_bytes());
+        b[8..].copy_from_slice(&(size as u32).to_le_bytes());
+        b
+    }
+
+    /// Decodes a `compat_stack_t`, widening the pointer and size.
+    pub fn decode_compat_stack_t(b: &[u8; 12]) -> (u64, u32, u64) {
+        let w = |i: usize| u32::from_le_bytes(b[i..i + 4].try_into().unwrap());
+        (u64::from(w(0)), w(4), u64::from(w(8)))
     }
 }
 

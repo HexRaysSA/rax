@@ -77,13 +77,20 @@ interval/value pairs, `old_time32_t`, `timex`, and compatibility `sigevent` layo
 The `*_time64` calls use `__kernel_timespec` and clear the padding above its 32-bit
 nanoseconds field on input.
 
+Signal calls convert `struct compat_sigaction`, `struct compat_old_sigaction`,
+the one-word masks of `sigprocmask`, `sigpending`, `sigsuspend`, `sgetmask`, and
+`ssetmask`, `compat_stack_t`, and `struct compat_siginfo` (`rt_sigqueueinfo`,
+`rt_tgsigqueueinfo`, `pidfd_send_signal`, `rt_sigtimedwait` in both time layouts);
+handlers run on i386 frames ([signals](signals.md#i386-frames)).
+
 Calls without a conversion return `ENOSYS`, and unsupported `ioctl` commands return
-`ENOTTY`, rather than using 64-bit layouts. Signal-handler installation/return,
-thread creation, sockets, and ptrace calls are not in the compatibility table.
+`ENOTTY`, rather than using 64-bit layouts. Thread creation, sockets, and ptrace
+calls are not in the compatibility table, nor is a seccomp filter (strict mode
+is, with the 32-bit list).
 The [compatibility dispatcher](../../../src/user/linux/syscall/compat/mod.rs)
 determines the exact supported call set, including wait and ID conversions. `SYSENTER` raises `SIGILL`; there is
-no 32-bit vDSO. Compatibility-mode code stays in the interpreter, which decodes by
-mode.
+no ELF 32-bit vDSO (the `[vdso]` page holds only the signal-return trampolines).
+Compatibility-mode code stays in the interpreter, which decodes by mode.
 
 ## Machine administration and mounts
 

@@ -39,6 +39,39 @@ system calls return the internal restart codes, resolved per `SA_RESTART` as
 Handlers without `SA_RESTORER` (all RV64 handlers, AArch64 handlers that omit it)
 return through a `[vdso]` page holding the vDSO's trampoline instructions.
 
+### i386 frames
+
+Implementation: `signal::frame::ia32`, `syscall::compat::signal`.
+
+A handler installed by a 32-bit call is marked `SA_IA32_ABI`
+(`sigaction_compat_abi`, never reported) and runs on an i386 frame
+(`arch/x86/kernel/signal_32.c`): `struct sigframe_ia32` with `sigreturn`, or with
+`SA_SIGINFO` `struct rt_sigframe_ia32` (a `struct compat_siginfo` and `struct
+ucontext_ia32`) with `rt_sigreturn`. `get_sigframe` places it without a red zone
+at the i386 function-entry alignment, `(frame + 4) % 16 == 0`, below a 112-byte
+FSAVE header converted from the FXSAVE image (`convert_from_fxsr`: the full tag
+word, the pointers' 32-bit offsets, `magic` 0) and the 64-bit frame's XSAVE area,
+whose extended size counts the header; a stack segment other than `__USER_DS`
+without `SA_RESTORER` switches to the `sa_restorer` stack, which must lie on the
+alternate stack. The handler gets `-mregparm=3` arguments in EAX, EDX, and ECX,
+DS, ES, and SS reloaded with `__USER_DS`, and CS `__USER32_CS`; without
+`SA_RESTORER` it returns through `__kernel_sigreturn` or `__kernel_rt_sigreturn` in
+a `[vdso]` page holding the `vdso32/sigreturn.S` instructions (no ELF vDSO or
+`AT_SYSINFO` is provided).
+
+The 32-bit returns restore EAX-EBP, ESP, and EIP zero-extended, the `FIX_EFLAGS`
+bits, each data selector the handler changed (a selector that does not load becomes
+null, as the kernel's fixup leaves it), and the FPU state with the FSAVE header
+folded over the FXSAVE or XSAVE image (`convert_to_fxsr`: FOP from the upper half of
+`fcs`, which is zero). The return to user mode checks the code and stack selectors
+as `IRET` does: an invalid one raises `SIGSEGV` with the restored state and the
+trap recorded, and a return to 64-bit mode (`__USER_CS`) is not provided.
+
+On every ABI, a sigreturn that finds its frame bad after reading the frame's mask
+keeps that mask (`set_current_blocked` precedes the register restore), then forces
+`SIGSEGV`. A 32-bit call's result is sign-extended from its low half before restart
+processing (`syscall_get_error`).
+
 ## Signal targeting
 
 A signal is queued for a thread or for the process; `complete_signal` then wakes the
