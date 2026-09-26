@@ -1029,6 +1029,42 @@ target = "x86-linux-musl"
 sha256 = "483e4d110e68414b182094542da4e5bec2887c417d1686c67041a4ad01afc928"
 
 [[fixture]]
+path = "bin/i386/threads"
+source = "src/threads.c"
+target = "x86-linux-musl"
+sha256 = "3fd533ab15516205b4b6b3dfd56336f2a4c52eb63d815708a3700517dc5ca999"
+
+[[fixture]]
+path = "bin/i386/threadexit"
+source = "src/threadexit.c"
+target = "x86-linux-musl"
+sha256 = "6198cd3e34e046e95731ed46fbf6cfa206911a168053fea6422c6b17ea1ed7af"
+
+[[fixture]]
+path = "bin/i386/exec"
+source = "src/exec.c"
+target = "x86-linux-musl"
+sha256 = "6f2938c1d07c992e4bbf6185bcfd901f7f07f41f881f28a64d8c9384684db269"
+
+[[fixture]]
+path = "bin/i386/fork"
+source = "src/fork.c"
+target = "x86-linux-musl"
+sha256 = "cbc26b7668acc1bbdf5f1752179f09c69b83be8d098c5b293799477ed9563739"
+
+[[fixture]]
+path = "bin/i386/sched"
+source = "src/sched.c"
+target = "x86-linux-musl"
+sha256 = "55373f7a66bb7d6612aaedf11cccc8685237af69a48f8d400c3f9b09dfe0fd1e"
+
+[[fixture]]
+path = "bin/i386/procmem"
+source = "src/procmem.c"
+target = "x86-linux-musl"
+sha256 = "e38a166d685ae55f08674308f3edd457ef79da5038e4078c7db5f0c3e678c579"
+
+[[fixture]]
 path = "bin/i386/stdin"
 source = "src/stdin.c"
 target = "x86-linux-musl"
@@ -1057,4 +1093,10 @@ path = "bin/i386/sigframes"
 source = "src/sigframes.c"
 target = "x86-linux-musl"
 sha256 = "053f5ce2f249261710c8d82060feed542da0a1d196613592da9c812e08325bf8"
+
+[[fixture]]
+path = "bin/i386/futex32"
+source = "src/futex32.c"
+target = "x86-linux-musl"
+sha256 = "5552cdc57c0a6d1428d3ee57cae0228815e9b480d2e31bd6cb4f98f599f4d2d3"
 

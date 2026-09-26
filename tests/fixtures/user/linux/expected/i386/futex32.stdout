@@ -1,0 +1,13 @@
+ok robust-len
+ok robust-set
+ok robust-get
+exit: status 4 lock c0000000 pending 40000000
+ok exit-releases
+exec: status 5 lock c0000000 pending 40000000
+ok exec-releases
+ok time32-again
+ok time32-timeout
+ok time32-invalid
+ok time64-padding
+ok time64-invalid
+PASSED
