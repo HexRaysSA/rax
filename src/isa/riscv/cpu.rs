@@ -1808,12 +1808,41 @@ impl RiscVCpu {
                     .mem
                     .read_u64(addr)
                     .map_err(|_| acc_fault(false, addr))?;
-                if old == self.x(insn.rd) {
+                // Zacas RV32: amocas.d compares/writes an even register pair
+                // (rd:rd+1 compare value, rs2:rs2+1 swap value, result pair).
+                let cmp = if self.rv32() {
+                    if insn.rd == 0 {
+                        0
+                    } else {
+                        (self.x(insn.rd) & 0xffff_ffff)
+                            | ((self.x(insn.rd.wrapping_add(1)) & 0xffff_ffff) << 32)
+                    }
+                } else {
+                    self.x(insn.rd)
+                };
+                let new = if self.rv32() {
+                    if insn.rs2 == 0 {
+                        0
+                    } else {
+                        (self.x(insn.rs2) & 0xffff_ffff)
+                            | ((self.x(insn.rs2.wrapping_add(1)) & 0xffff_ffff) << 32)
+                    }
+                } else {
+                    self.x(insn.rs2)
+                };
+                if old == cmp {
                     self.mem
-                        .write_u64(addr, self.x(insn.rs2))
+                        .write_u64(addr, new)
                         .map_err(|_| acc_fault(true, addr))?;
                 }
-                self.set_x(insn.rd, old);
+                if self.rv32() {
+                    if insn.rd != 0 {
+                        self.set_x(insn.rd, old & 0xffff_ffff);
+                        self.set_x(insn.rd.wrapping_add(1), (old >> 32) & 0xffff_ffff);
+                    }
+                } else {
+                    self.set_x(insn.rd, old);
+                }
             }
             Op::AmocasQ => {
                 if addr % 16 != 0 {
@@ -5534,6 +5563,85 @@ mod tests {
         assert_eq!(
             c.csr_read(0x344).unwrap() & (msip | mtip | stip),
             msip | mtip | stip
+        );
+    }
+
+    #[test]
+    fn rv32_amocas_d_decodes_and_uses_register_pairs() {
+        // Zacas §2.1: RV32 amocas.d is legal with even rd/rs2 pairs.
+        let mut isa = Isa::rv64gc(); // zacas: true
+        let cfg = RiscVConfig {
+            xlen: Xlen::Rv32,
+            isa,
+        };
+        let mut c = RiscVCpu::new(cfg, Box::new(FlatMemory::new(0, 0x2000)));
+        // amocas.d x6, (x10), x8 : funct5=00101, rs2=8, rs1=10, funct3=011, rd=6
+        let w = (0b00101u32 << 27) | (8 << 20) | (10 << 15) | (0b011 << 12) | (6 << 7) | 0x2f;
+        let d = crate::isa::riscv::decode::decode(w, Xlen::Rv32, &Isa::rv64gc());
+        assert_eq!(d.op, Op::AmocasD, "RV32 amocas.d must decode");
+        c.set_x(10, 0x1000);
+        c.set_x(6, 0x1122_3344); // cmp low
+        c.set_x(7, 0x5566_7788); // cmp high
+        c.set_x(8, 0x99aa_bbcc); // new low
+        c.set_x(9, 0xddee_ff00); // new high
+        // Memory holds the compare pair (low word first in LE).
+        c.write_memory(0x1000, &0x5566_7788_1122_3344u64.to_le_bytes())
+            .unwrap();
+        c.execute_insn(&d, 0x1000).unwrap();
+        // Match: memory now holds the new pair.
+        let stored = c.mem_read_u64(0x1000).unwrap();
+        assert_eq!(stored, 0xddee_ff00_99aa_bbcc);
+        // Result pair: old value in x6:x7.
+        assert_eq!(c.x(6), 0x1122_3344);
+        assert_eq!(c.x(7), 0x5566_7788);
+
+        // RV32 only adds AMOCAS.D; the ordinary 64-bit AMO encodings remain
+        // illegal because they have no register-pair form.
+        for funct5 in [
+            0b00000, 0b00001, 0b00010, 0b00011, 0b00100, 0b01000, 0b01100, 0b10000, 0b10100,
+            0b11000, 0b11100,
+        ] {
+            let ordinary_d = (funct5 << 27) | (10 << 15) | (0b011 << 12) | (6 << 7) | 0x2f;
+            assert!(
+                crate::isa::riscv::decode::decode(ordinary_d, Xlen::Rv32, &Isa::rv64gc())
+                    .is_illegal(),
+                "RV32 ordinary .D AMO funct5={funct5:#x} must be illegal"
+            );
+        }
+
+        // RV32 pair operands beginning at x0 read as two zero words, and an
+        // x0 destination pair discards both result words.
+        c.set_x(1, 0xfeed_face);
+        c.set_x(10, 0x1010);
+        c.write_memory(0x1010, &[0; 8]).unwrap();
+        let source_x0 = (0b00101u32 << 27) | (10 << 15) | (0b011 << 12) | (2 << 7) | 0x2f;
+        c.execute_insn(
+            &crate::isa::riscv::decode::decode(source_x0, Xlen::Rv32, &Isa::rv64gc()),
+            0x1010,
+        )
+        .unwrap();
+        assert_eq!(c.mem_read_u64(0x1010).unwrap(), 0);
+
+        c.set_x(10, 0x1020);
+        c.write_memory(0x1020, &[0; 8]).unwrap();
+        c.set_x(2, 0xaabb_ccdd);
+        c.set_x(3, 0x1122_3344);
+        let destination_x0 = (0b00101u32 << 27) | (2 << 20) | (10 << 15) | (0b011 << 12) | 0x2f;
+        c.execute_insn(
+            &crate::isa::riscv::decode::decode(destination_x0, Xlen::Rv32, &Isa::rv64gc()),
+            0x1020,
+        )
+        .unwrap();
+        assert_eq!(c.mem_read_u64(0x1020).unwrap(), 0x1122_3344_aabb_ccdd);
+        assert_eq!(c.x(1), 0xfeed_face);
+        // Odd rd/rs2 pairs are illegal on RV32.
+        let w2 = (0b00101u32 << 27) | (9 << 20) | (10 << 15) | (0b011 << 12) | (7 << 7) | 0x2f;
+        assert!(crate::isa::riscv::decode::decode(w2, Xlen::Rv32, &Isa::rv64gc()).is_illegal());
+        // RV64 amocas.d stays a plain 64-bit register op.
+        let w3 = (0b00101u32 << 27) | (8 << 20) | (10 << 15) | (0b011 << 12) | (6 << 7) | 0x2f;
+        assert_eq!(
+            crate::isa::riscv::decode::decode(w3, Xlen::Rv64, &Isa::rv64gc()).op,
+            Op::AmocasD
         );
     }
 
