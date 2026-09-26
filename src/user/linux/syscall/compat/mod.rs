@@ -30,6 +30,7 @@ use super::super::abi::errno_table::*;
 use super::dirents::{self, Dirent};
 use super::io::{self, SendfileOffset};
 use super::path::{self, AT_FDCWD};
+use super::time;
 use super::{Ctx, Outcome, call_handler};
 use file::{dual, sext};
 use stat::{FsOf, Of};
@@ -356,6 +357,55 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::Fstatfs64 => r(stat::statfs64(c, FsOf::Fd(fd(a[0])), a[1], a[2])),
         S::Getdents => r(dirents::getdents(c, fd(a[0]), a[1], a[2], Dirent::Compat)),
         S::Readdir => r(dirents::old_readdir(c, fd(a[0]), a[1])),
+
+        // The *_time32 calls: struct old_timespec32, old_time32_t, and
+        // struct old_timex32.
+        S::Time => time32(c, S::Time, a),
+        S::Stime => r(time::stime(c, a[0])),
+        S::ClockGettime => time32(c, S::ClockGettime, a),
+        S::ClockSettime => time32(c, S::ClockSettime, a),
+        S::ClockGetres => time32(c, S::ClockGetres, a),
+        S::ClockNanosleep => time32(c, S::ClockNanosleep, a),
+        S::Nanosleep => time32(c, S::Nanosleep, a),
+        S::SchedRrGetInterval => time32(c, S::SchedRrGetInterval, a),
+        S::Utimensat => time32(c, S::Utimensat, a),
+        S::TimerSettime => time32(c, S::TimerSettime, a),
+        S::TimerGettime => time32(c, S::TimerGettime, a),
+        S::TimerfdSettime => time32(c, S::TimerfdSettime, a),
+        S::TimerfdGettime => time32(c, S::TimerfdGettime, a),
+        S::Adjtimex => time32(c, S::Adjtimex, a),
+        S::ClockAdjtime => time32(c, S::ClockAdjtime, a),
+        // Their *_time64 forms: struct __kernel_timespec, the padding
+        // above the nanoseconds cleared (`timeabi`).
+        S::ClockGettime64 => call_handler(c, S::ClockGettime, a),
+        S::ClockSettime64 => call_handler(c, S::ClockSettime, a),
+        S::ClockGetresTime64 => call_handler(c, S::ClockGetres, a),
+        S::ClockNanosleepTime64 => call_handler(c, S::ClockNanosleep, a),
+        S::ClockAdjtime64 => call_handler(c, S::ClockAdjtime, a),
+        S::SchedRrGetIntervalTime64 => call_handler(c, S::SchedRrGetInterval, a),
+        S::UtimensatTime64 => call_handler(c, S::Utimensat, a),
+        S::TimerSettime64 => call_handler(c, S::TimerSettime, a),
+        S::TimerGettime64 => call_handler(c, S::TimerGettime, a),
+        S::TimerfdSettime64 => call_handler(c, S::TimerfdSettime, a),
+        S::TimerfdGettime64 => call_handler(c, S::TimerfdGettime, a),
+        // struct old_timeval32, struct old_itimerval32, struct
+        // old_utimbuf32, and struct compat_sigevent: every 32-bit call's.
+        S::Gettimeofday
+        | S::Settimeofday
+        | S::Getitimer
+        | S::Setitimer
+        | S::Utimes
+        | S::Futimesat
+        | S::Utime
+        | S::TimerCreate
+        | S::TimerGetoverrun
+        | S::TimerDelete => call_handler(c, s, a),
         _ => Err(Errno(ENOSYS)),
     }
+}
+
+/// A `*_time32` call: the native one with the 32-bit time layouts.
+fn time32(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno> {
+    c.time32 = true;
+    call_handler(c, s, a)
 }

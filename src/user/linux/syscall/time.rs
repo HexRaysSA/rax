@@ -72,7 +72,7 @@ pub fn clock_gettime(c: &mut Ctx<'_>, id: i32, tp: u64) -> SysResult {
     if coarse {
         t.nsec -= t.nsec % COARSE_RESOLUTION_NS;
     }
-    c.write_mem(tp, &t.encode())?;
+    c.put_timespec(tp, t)?;
     Ok(0)
 }
 
@@ -88,7 +88,7 @@ pub fn clock_getres(c: &mut Ctx<'_>, id: i32, res: u64) -> SysResult {
             let _ = host::clock_getres(clock);
             1
         };
-        c.write_mem(res, &Timespec { sec: 0, nsec: ns }.encode())?;
+        c.put_timespec(res, Timespec { sec: 0, nsec: ns })?;
     }
     Ok(0)
 }
@@ -97,10 +97,7 @@ pub fn clock_getres(c: &mut Ctx<'_>, id: i32, res: u64) -> SysResult {
 pub fn gettimeofday(c: &mut Ctx<'_>, tv: u64, tz: u64) -> SysResult {
     if tv != 0 {
         let t = now(HostClock::Realtime);
-        let mut b = [0u8; 16];
-        b[..8].copy_from_slice(&t.sec.to_le_bytes());
-        b[8..].copy_from_slice(&(t.nsec / 1000).to_le_bytes());
-        c.write_mem(tv, &b)?;
+        c.write_mem(tv, &c.timeval_bytes(t.sec, t.nsec / 1000))?;
     }
     if tz != 0 {
         c.write_mem(tz, &[0u8; 8])?;
@@ -108,18 +105,21 @@ pub fn gettimeofday(c: &mut Ctx<'_>, tv: u64, tz: u64) -> SysResult {
     Ok(0)
 }
 
-/// `time`.
+/// `time` (and `time32`, which stores and returns an `old_time32_t`).
 pub fn time(c: &mut Ctx<'_>, tloc: u64) -> SysResult {
     let t = now(HostClock::Realtime);
     if tloc != 0 {
-        c.write_u64(tloc, t.sec as u64)?;
+        c.put_time(tloc, t.sec)?;
     }
-    Ok(t.sec as u64)
+    Ok(if c.time32 {
+        i64::from(t.sec as i32) as u64
+    } else {
+        t.sec as u64
+    })
 }
 
 fn read_timespec(c: &Ctx<'_>, addr: u64) -> Result<Timespec, Errno> {
-    let b = c.read_mem(addr, 16)?;
-    let t = Timespec::decode(&b.try_into().unwrap());
+    let t = c.get_timespec(addr)?;
     if t.sec < 0 || !(0..1_000_000_000).contains(&t.nsec) {
         return Err(Errno(EINVAL));
     }
@@ -146,9 +146,13 @@ fn sleep_until(c: &mut Ctx<'_>, deadline: Instant, rmtp: u64) -> Result<Outcome,
             sec: left.as_secs() as i64,
             nsec: i64::from(left.subsec_nanos()),
         };
-        c.write_mem(rmtp, &rem.encode())?;
+        c.put_timespec(rmtp, rem)?;
     }
-    c.t.restart = Some(RestartBlock::Nanosleep { deadline, rmtp });
+    c.t.restart = Some(RestartBlock::Nanosleep {
+        deadline,
+        rmtp,
+        time32: c.time32,
+    });
     Err(Errno(ERESTART_RESTARTBLOCK))
 }
 
@@ -274,13 +278,13 @@ fn settod(c: &Ctx<'_>, t: Option<Timespec>, minuteswest: Option<i32>) -> SysResu
 /// `EINVAL`), the time zone, then `do_sys_settimeofday64`.
 pub fn settimeofday(c: &mut Ctx<'_>, tv: u64, tz: u64) -> SysResult {
     let t = if tv != 0 {
-        let t = Timespec::decode(&c.read_mem(tv, 16)?.try_into().unwrap());
-        if !(0..=1_000_000).contains(&t.nsec) {
+        let (sec, usec) = c.get_timeval(tv)?;
+        if !(0..=1_000_000).contains(&usec) {
             return Err(Errno(EINVAL));
         }
         Some(Timespec {
-            sec: t.sec,
-            nsec: t.nsec * 1000,
+            sec,
+            nsec: usec * 1000,
         })
     } else {
         None
@@ -292,6 +296,18 @@ pub fn settimeofday(c: &mut Ctx<'_>, tv: u64, tz: u64) -> SysResult {
         None
     };
     settod(c, t, minuteswest)
+}
+
+/// `stime` (`sys_stime32`): whole seconds from an `old_time32_t`, then
+/// `CAP_SYS_TIME` (`security_settime64`), then `do_settimeofday64`'s
+/// check.
+pub fn stime(c: &mut Ctx<'_>, tptr: u64) -> SysResult {
+    let sec = i64::from(c.read_u32(tptr)? as i32);
+    super::admin::capability(c)?;
+    if !valid_settod(Timespec { sec, nsec: 0 }) {
+        return Err(Errno(EINVAL));
+    }
+    super::admin::refused()
 }
 
 /// `pid_for_clock` for setting a clock: whether the CPU-time clock `id`
@@ -320,7 +336,7 @@ pub fn clock_settime(c: &mut Ctx<'_>, id: i32, tp: u64) -> SysResult {
     if id != clk::REALTIME && id >= 0 {
         return Err(Errno(EINVAL));
     }
-    let t = Timespec::decode(&c.read_mem(tp, 16)?.try_into().unwrap());
+    let t = c.get_timespec(tp)?;
     if dynamic {
         Err(Errno(EINVAL))
     } else if id < 0 {
@@ -444,21 +460,101 @@ fn adjust(c: &Ctx<'_>, b: &mut [u8]) -> SysResult {
     Ok(TIME_ERROR)
 }
 
-/// `adjtimex`: the structure, `do_adjtimex`, and the structure written
-/// back whatever the result (`EFAULT` if it cannot be).
+/// `struct old_timex32` (`linux/time32.h`): every field a 32-bit one,
+/// the time an `old_timeval32`, then padding to 128 bytes.
+mod timex32 {
+    pub const SIZE: usize = 128;
+    /// Each field's offset here and in `struct __kernel_timex`, in the
+    /// order `get_old_timex32` copies them.
+    pub const FIELDS: [(usize, usize); 19] = [
+        (4, super::timex::OFFSET),
+        (8, super::timex::FREQ),
+        (12, super::timex::MAXERROR),
+        (16, super::timex::ESTERROR),
+        (20, super::timex::STATUS),
+        (24, super::timex::CONSTANT),
+        (28, super::timex::PRECISION),
+        (32, super::timex::TOLERANCE),
+        (36, super::timex::TIME_SEC),
+        (40, super::timex::TIME_USEC),
+        (44, super::timex::TICK),
+        (48, super::timex::PPS_WORDS[0]),
+        (52, super::timex::PPS_WORDS[1]),
+        (56, super::timex::SHIFT),
+        (60, super::timex::PPS_COUNTS[0]),
+        (64, super::timex::PPS_COUNTS[1]),
+        (68, super::timex::PPS_COUNTS[2]),
+        (72, super::timex::PPS_COUNTS[3]),
+        (76, super::timex::PPS_COUNTS[4]),
+    ];
+    /// `tai`, which `put_old_timex32` alone copies.
+    pub const TAI: usize = 80;
+}
+
+/// `struct __kernel_timex` from a `struct old_timex32` (`get_old_timex32`:
+/// the fields sign-extended, `tai` and the rest zero).
+fn timex_from_old32(old: &[u8]) -> Vec<u8> {
+    let mut b = vec![0u8; timex::SIZE];
+    b[timex::MODES..timex::MODES + 4].copy_from_slice(&old[..4]);
+    for (from, to) in timex32::FIELDS {
+        let v = i32::from_le_bytes(old[from..from + 4].try_into().unwrap());
+        // status and shift are ints in both; the rest long longs.
+        if to == timex::STATUS || to == timex::SHIFT {
+            b[to..to + 4].copy_from_slice(&v.to_le_bytes());
+        } else {
+            b[to..to + 8].copy_from_slice(&i64::from(v).to_le_bytes());
+        }
+    }
+    b
+}
+
+/// `struct old_timex32` from a `struct __kernel_timex` (`put_old_timex32`:
+/// each field truncated, `tai` included, the padding zero).
+fn timex_to_old32(b: &[u8]) -> Vec<u8> {
+    let mut old = vec![0u8; timex32::SIZE];
+    old[..4].copy_from_slice(&b[timex::MODES..timex::MODES + 4]);
+    for (to, from) in timex32::FIELDS {
+        old[to..to + 4].copy_from_slice(&b[from..from + 4]);
+    }
+    old[timex32::TAI..timex32::TAI + 4].copy_from_slice(&b[timex::TAI..timex::TAI + 4]);
+    old
+}
+
+/// The `struct __kernel_timex` at `tx`: for a `*_time32` call a converted
+/// `struct old_timex32`.
+fn read_timex(c: &Ctx<'_>, tx: u64) -> Result<Vec<u8>, Errno> {
+    if c.time32 {
+        Ok(timex_from_old32(&c.read_mem(tx, timex32::SIZE)?))
+    } else {
+        c.read_mem(tx, timex::SIZE)
+    }
+}
+
+/// Writes `b` back as the call's structure.
+fn write_timex(c: &Ctx<'_>, tx: u64, b: &[u8]) -> Result<(), Errno> {
+    if c.time32 {
+        c.write_mem(tx, &timex_to_old32(b))
+    } else {
+        c.write_mem(tx, b)
+    }
+}
+
+/// `adjtimex` (and `adjtimex_time32`): the structure, `do_adjtimex`, and
+/// the structure written back whatever the result (`EFAULT` if it cannot
+/// be).
 pub fn adjtimex(c: &mut Ctx<'_>, tx: u64) -> SysResult {
-    let mut b = c.read_mem(tx, timex::SIZE)?;
+    let mut b = read_timex(c, tx)?;
     let r = adjust(c, &mut b);
-    c.write_mem(tx, &b)?;
+    write_timex(c, tx, &b)?;
     r
 }
 
-/// `clock_adjtime`: the structure, the clock (`EINVAL` for none, a clock
-/// device included; `EOPNOTSUPP` for one without an adjuster: all but
-/// `CLOCK_REALTIME`), `do_adjtimex`, and on success the structure written
-/// back.
+/// `clock_adjtime` (and `clock_adjtime32`): the structure, the clock
+/// (`EINVAL` for none, a clock device included; `EOPNOTSUPP` for one
+/// without an adjuster: all but `CLOCK_REALTIME`), `do_adjtimex`, and on
+/// success the structure written back.
 pub fn clock_adjtime(c: &mut Ctx<'_>, id: i32, tx: u64) -> SysResult {
-    let mut b = c.read_mem(tx, timex::SIZE)?;
+    let mut b = read_timex(c, tx)?;
     let r = match id {
         clk::REALTIME => adjust(c, &mut b),
         id if id < 0 && id & 7 == 3 => Err(Errno(EINVAL)),
@@ -466,7 +562,7 @@ pub fn clock_adjtime(c: &mut Ctx<'_>, id: i32, tx: u64) -> SysResult {
         _ => Err(Errno(EINVAL)),
     };
     if r.is_ok() {
-        c.write_mem(tx, &b)?;
+        write_timex(c, tx, &b)?;
     }
     r
 }
@@ -480,11 +576,28 @@ fn itimer_which(which: i32) -> Result<i32, Errno> {
     }
 }
 
+/// Writes `v` as a `struct itimerval` (`struct old_itimerval32` for a
+/// 32-bit call), truncated to microseconds (`put_itimerval`).
+fn put_itimerval(c: &Ctx<'_>, addr: u64, v: ItimerSpec) -> Result<(), Errno> {
+    let tv = |d: Duration| c.timeval_bytes(d.as_secs() as i64, i64::from(d.subsec_micros()));
+    c.write_mem(addr, &[tv(v.interval), tv(v.value)].concat())
+}
+
+/// Reads a `struct itimerval` (`get_itimerval`): whole, then both
+/// `timeval`s checked (`timeval_valid`: `EINVAL`).
+fn get_itimerval(c: &Ctx<'_>, addr: u64) -> Result<ItimerSpec, Errno> {
+    let n = c.timeval_size();
+    c.read_mem(addr, 2 * n as usize)?;
+    let interval = c.get_timeval(addr)?;
+    let value = c.get_timeval(addr + n)?;
+    ItimerSpec::from_timevals(interval, value).ok_or(Errno(EINVAL))
+}
+
 /// `getitimer`.
 pub fn getitimer(c: &mut Ctx<'_>, which: i32, value: u64) -> SysResult {
     let which = itimer_which(which)?;
     let v = c.p.itimers.get(which, Instant::now(), cpu_samples);
-    c.write_mem(value, &v.encode_itimerval())?;
+    put_itimerval(c, value, v)?;
     Ok(0)
 }
 
@@ -492,15 +605,14 @@ pub fn getitimer(c: &mut Ctx<'_>, which: i32, value: u64) -> SysResult {
 /// (with a warning).
 pub fn setitimer(c: &mut Ctx<'_>, which: i32, value: u64, ovalue: u64) -> SysResult {
     let new = if value != 0 {
-        let b: [u8; 32] = c.read_mem(value, 32)?.try_into().unwrap();
-        ItimerSpec::decode_itimerval(&b).ok_or(Errno(EINVAL))?
+        get_itimerval(c, value)?
     } else {
         ItimerSpec::default()
     };
     let which = itimer_which(which)?;
     let old = c.p.itimers.set(which, new, Instant::now(), cpu_samples);
     if ovalue != 0 {
-        c.write_mem(ovalue, &old.encode_itimerval())?;
+        put_itimerval(c, ovalue, old)?;
     }
     Ok(0)
 }

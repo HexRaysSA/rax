@@ -13,8 +13,10 @@
 //! |---|---|
 //! | this one | the task, its entry, TLS, and the first conversions |
 //! | [`files`] | opens, offsets, status, directories, locks, `execve` |
+//! | [`time`] | clocks, sleeps, time setting, interval and POSIX timers, timerfds, file times |
 
 mod files;
+mod time;
 
 use super::harness::{CODE, Harness};
 use crate::user::image::elf::ElfClass;

@@ -72,6 +72,7 @@ pub mod splice;
 pub mod task;
 pub mod thread;
 pub mod time;
+pub mod timeabi;
 pub mod timer;
 pub mod utimes;
 pub mod xattr;
@@ -144,6 +145,8 @@ pub enum RestartBlock {
         deadline: std::time::Instant,
         /// `rmtp`.
         rmtp: u64,
+        /// `rmtp` is a `struct old_timespec32` (`TT_COMPAT`).
+        time32: bool,
     },
     /// `do_restart_poll`: poll `fds` again until `deadline`.
     Poll {
@@ -206,6 +209,9 @@ pub struct Ctx<'a> {
     /// A 32-bit call (`in_compat_syscall`): its structures have the
     /// compatibility layouts.
     pub compat: bool,
+    /// A compatibility task's `*_time32` call: its `timespec` is `struct
+    /// old_timespec32` and its `time_t` an `old_time32_t` ([`timeabi`]).
+    pub time32: bool,
     block: Option<(Wait, Resume)>,
 }
 
@@ -227,6 +233,7 @@ impl<'a> Ctx<'a> {
             sigpipe_decided: false,
             nosignal: false,
             compat: false,
+            time32: false,
             block: None,
         }
     }

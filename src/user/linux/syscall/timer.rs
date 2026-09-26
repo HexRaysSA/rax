@@ -113,10 +113,33 @@ fn clock_base(c: &Ctx<'_>, clock: i32) -> Result<Base, Errno> {
     })
 }
 
+/// A `struct sigevent`'s value, signal, notification, and thread: for a
+/// 32-bit call a `struct compat_sigevent`, whose value is `sival_int`
+/// alone (`get_compat_sigevent`: the four fields of a structure that must
+/// lie in user space).
+fn read_sigevent(c: &Ctx<'_>, sevp: u64) -> Result<(u64, i32, i32, i32), Errno> {
+    if c.compat {
+        if !super::events::access_ok(c, sevp, SIGEVENT_SIZE as u64) {
+            return Err(Errno(EFAULT));
+        }
+        let b = c.read_mem(sevp, 16)?;
+        let w = |i: usize| i32::from_le_bytes(b[i..i + 4].try_into().unwrap());
+        return Ok((u64::from(w(0) as u32), w(4), w(8), w(12)));
+    }
+    let ev = c.read_mem(sevp, SIGEVENT_SIZE)?;
+    let w = |i: usize| i32::from_le_bytes(ev[i..i + 4].try_into().unwrap());
+    Ok((
+        u64::from_le_bytes(ev[0..8].try_into().unwrap()),
+        w(8),
+        w(12),
+        w(16),
+    ))
+}
+
 /// `timer_create`: the `sigevent` is read before the clock is looked up.
 pub fn timer_create(c: &mut Ctx<'_>, clock: i32, sevp: u64, idp: u64) -> SysResult {
     let event = if sevp != 0 {
-        Some(c.read_mem(sevp, SIGEVENT_SIZE)?)
+        Some(read_sigevent(c, sevp)?)
     } else {
         None
     };
@@ -124,13 +147,9 @@ pub fn timer_create(c: &mut Ctx<'_>, clock: i32, sevp: u64, idp: u64) -> SysResu
     // posix_timer_add: the ID is used up from here on, even on failure.
     let id = c.p.timers.alloc_id().ok_or(Errno(EAGAIN))?;
     // good_sigevent.
-    let (notify, signo, value) = match &event {
+    let (notify, signo, value) = match event {
         None => (Notify::Process, SIGALRM, id as u32 as u64),
-        Some(ev) => {
-            let value = u64::from_le_bytes(ev[0..8].try_into().unwrap());
-            let signo = i32::from_le_bytes(ev[8..12].try_into().unwrap());
-            let how = i32::from_le_bytes(ev[12..16].try_into().unwrap());
-            let tid = i32::from_le_bytes(ev[16..20].try_into().unwrap());
+        Some((value, signo, how, tid)) => {
             let valid_signo = signo > 0 && signo <= NSIG;
             let notify = match how {
                 x if x == SIGEV_SIGNAL | SIGEV_THREAD_ID => {
@@ -158,21 +177,15 @@ pub fn timer_create(c: &mut Ctx<'_>, clock: i32, sevp: u64, idp: u64) -> SysResu
     Ok(0)
 }
 
-/// Reads a `struct __kernel_itimerspec` (`get_itimerspec64`): the
-/// interval, then the value.
+/// Reads a `struct __kernel_itimerspec` (`get_itimerspec64`; `struct
+/// old_itimerspec32` for a `*_time32` call): the interval, then the value.
 pub fn read_itimerspec(c: &Ctx<'_>, addr: u64) -> Result<(Timespec, Timespec), Errno> {
-    let b = c.read_mem(addr, 32)?;
-    let interval = Timespec::decode(&b[..16].try_into().unwrap());
-    let value = Timespec::decode(&b[16..].try_into().unwrap());
-    Ok((interval, value))
+    c.get_itimerspec(addr)
 }
 
-/// Writes a setting as a `struct __kernel_itimerspec` (`put_itimerspec64`).
+/// Writes a setting as the call's `itimerspec` (`put_itimerspec64`).
 pub fn write_itimerspec(c: &Ctx<'_>, addr: u64, s: Setting) -> Result<(), Errno> {
-    let mut b = [0u8; 32];
-    b[..16].copy_from_slice(&ns_timespec(s.interval).encode());
-    b[16..].copy_from_slice(&ns_timespec(s.value).encode());
-    c.write_mem(addr, &b)
+    c.put_itimerspec(addr, ns_timespec(s.interval), ns_timespec(s.value))
 }
 
 /// `timespec64_valid`.

@@ -124,12 +124,12 @@ fn do_utimes(
     }
 }
 
-/// Two `struct __kernel_timespec`.
+/// Two `struct __kernel_timespec` (`struct old_timespec32` for a
+/// `*_time32` call).
 fn read_timespecs(c: &Ctx<'_>, addr: u64) -> Result<[Timespec; 2], Errno> {
-    let raw = c.read_mem(addr, 32)?;
     Ok([
-        Timespec::decode(raw[..16].try_into().unwrap()),
-        Timespec::decode(raw[16..].try_into().unwrap()),
+        c.get_timespec(addr)?,
+        c.get_timespec(addr + c.timespec_size())?,
     ])
 }
 
@@ -149,14 +149,13 @@ pub fn utimensat(c: &mut Ctx<'_>, dirfd: i32, path: u64, times: u64, flags: u32)
     do_utimes(c, dirfd, path, t, flags)
 }
 
-/// `futimesat` (and `utimes`): two `struct __kernel_old_timeval`, whose
-/// microseconds must lie in `[0, 1000000)` (`UTIME_NOW` and `UTIME_OMIT`
-/// are not special here).
+/// `futimesat` (and `utimes`): two `struct __kernel_old_timeval` (`struct
+/// old_timeval32` for a 32-bit call), whose microseconds must lie in `[0,
+/// 1000000)` (`UTIME_NOW` and `UTIME_OMIT` are not special here).
 pub fn futimesat(c: &mut Ctx<'_>, dirfd: i32, path: u64, tv: u64) -> SysResult {
     let t = if tv != 0 {
-        let raw = c.read_mem(tv, 32)?;
-        let w = |i: usize| i64::from_le_bytes(raw[i * 8..i * 8 + 8].try_into().unwrap());
-        let (s0, u0, s1, u1) = (w(0), w(1), w(2), w(3));
+        let (s0, u0) = c.get_timeval(tv)?;
+        let (s1, u1) = c.get_timeval(tv + c.timeval_size())?;
         if !(0..1_000_000).contains(&u0) || !(0..1_000_000).contains(&u1) {
             return Err(Errno(EINVAL));
         }
@@ -176,15 +175,19 @@ pub fn futimesat(c: &mut Ctx<'_>, dirfd: i32, path: u64, tv: u64) -> SysResult {
     do_utimes(c, dirfd, path, t, 0)
 }
 
-/// `utime`: a `struct utimbuf` of whole seconds (`actime`, `modtime`).
+/// `utime`: a `struct utimbuf` of whole seconds (`actime`, `modtime`;
+/// `struct old_utimbuf32` for a 32-bit call).
 pub fn utime(c: &mut Ctx<'_>, path: u64, times: u64) -> SysResult {
     let t = if times != 0 {
-        let raw = c.read_mem(times, 16)?;
-        let w = |i: usize| i64::from_le_bytes(raw[i * 8..i * 8 + 8].try_into().unwrap());
-        Some([
-            Timespec { sec: w(0), nsec: 0 },
-            Timespec { sec: w(1), nsec: 0 },
-        ])
+        let secs = |i: u64| -> Result<Timespec, Errno> {
+            let sec = if c.compat {
+                i64::from(c.read_u32(times + 4 * i)? as i32)
+            } else {
+                c.read_u64(times + 8 * i)? as i64
+            };
+            Ok(Timespec { sec, nsec: 0 })
+        };
+        Some([secs(0)?, secs(1)?])
     } else {
         None
     };

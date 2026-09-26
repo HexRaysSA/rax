@@ -536,7 +536,12 @@ pub fn rt_sigreturn(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
 pub fn restart_syscall(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
     let block = c.t.restart.take();
     let result = match block {
-        Some(RestartBlock::Nanosleep { deadline, rmtp }) => {
+        Some(RestartBlock::Nanosleep {
+            deadline,
+            rmtp,
+            time32,
+        }) => {
+            c.time32 = time32;
             super::time::nanosleep_restart(c, deadline, rmtp)
         }
         Some(RestartBlock::Poll {

@@ -54,31 +54,18 @@ pub struct ItimerSpec {
 }
 
 impl ItimerSpec {
-    /// Decodes `struct itimerval` (`it_interval`, `it_value`; `timeval`
-    /// pairs of 64-bit words). Microseconds must be below one million and
-    /// seconds non-negative (`timeval_valid`).
-    pub fn decode_itimerval(b: &[u8; 32]) -> Option<Self> {
-        let w = |i: usize| i64::from_le_bytes(b[i * 8..i * 8 + 8].try_into().unwrap());
-        let tv = |sec: i64, usec: i64| {
+    /// The interval and value of a `struct itimerval`, each (seconds,
+    /// microseconds): `None` unless the seconds are non-negative and the
+    /// microseconds below one million (`timeval_valid`).
+    pub fn from_timevals(interval: (i64, i64), value: (i64, i64)) -> Option<Self> {
+        let tv = |(sec, usec): (i64, i64)| {
             (sec >= 0 && (0..1_000_000).contains(&usec))
                 .then(|| Duration::new(sec as u64, usec as u32 * 1000))
         };
         Some(ItimerSpec {
-            interval: tv(w(0), w(1))?,
-            value: tv(w(2), w(3))?,
+            interval: tv(interval)?,
+            value: tv(value)?,
         })
-    }
-
-    /// Encodes `struct itimerval`, truncating to microseconds
-    /// (`put_itimerval`).
-    pub fn encode_itimerval(&self) -> [u8; 32] {
-        let mut b = [0u8; 32];
-        for (i, d) in [self.interval, self.value].into_iter().enumerate() {
-            b[i * 16..i * 16 + 8].copy_from_slice(&(d.as_secs() as i64).to_le_bytes());
-            b[i * 16 + 8..i * 16 + 16]
-                .copy_from_slice(&(i64::from(d.subsec_micros())).to_le_bytes());
-        }
-        b
     }
 }
 

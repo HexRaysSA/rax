@@ -312,7 +312,7 @@ pub fn sched_rr_get_interval(c: &mut Ctx<'_>, pid: i32, interval: u64) -> SysRes
         sec: (ns / 1_000_000_000) as i64,
         nsec: (ns % 1_000_000_000) as i64,
     };
-    c.write_mem(interval, &t.encode())?;
+    c.put_timespec(interval, t)?;
     Ok(0)
 }
 
