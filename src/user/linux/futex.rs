@@ -54,7 +54,7 @@ pub fn key(p: &ProcState, uaddr: u64, shared: bool, write: bool) -> Result<Futex
     }
     if uaddr
         .checked_add(4)
-        .is_none_or(|end| end > p.abi.task_size())
+        .is_none_or(|end| end > p.abi.user_ptr_max())
     {
         return Err(Errno(EFAULT));
     }

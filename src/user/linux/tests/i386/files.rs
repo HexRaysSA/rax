@@ -602,3 +602,32 @@ fn prctl_is_native_but_for_the_seccomp_filter() {
         i64::from(h.proc.state.creds.0)
     );
 }
+
+/// `access_ok` on an x86-64 kernel checks a compatibility task's pointers
+/// against the 64-bit `USER_PTR_MAX`: a vector running past 4 GiB is
+/// accepted, and only the copy can fault.
+#[test]
+fn a_vector_past_4_gib_is_in_user_space_for_access_ok() {
+    let mut h = Harness::new(LinuxAbi::I386);
+    let m = pages(&mut h, 1);
+    let fds = m + 0x100;
+    h.ok(Sysno::Pipe, &[fds]);
+    let (rd, wr) = (u64::from(u32_at(&h, fds)), u64::from(u32_at(&h, fds + 4)));
+    put(&h, m + 0x200, b"abc");
+    assert_eq!(h.call(Sysno::Write, &[wr, m + 0x200, 3]), 3);
+    // One struct compat_iovec: 1 GiB from a page near the top of the
+    // 32-bit space, its end past 4 GiB.
+    assert!(m > 0xC000_0000, "{m:#x}");
+    let iov = m + 0x300;
+    put(
+        &h,
+        iov,
+        &[
+            (m as u32 + 0x400).to_le_bytes(),
+            0x4000_0000u32.to_le_bytes(),
+        ]
+        .concat(),
+    );
+    assert_eq!(h.call(Sysno::Readv, &[rd, iov, 1]), 3);
+    assert_eq!(cstr(&h, m + 0x400), "abc");
+}

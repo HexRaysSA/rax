@@ -196,6 +196,18 @@ impl LinuxAbi {
         }
     }
 
+    /// `USER_PTR_MAX`, the bound `access_ok` checks user pointers against:
+    /// the task size, except that an x86-64 kernel checks a compatibility
+    /// task's pointers against the 64-bit `TASK_SIZE_MAX` too (the bound
+    /// does not depend on the task), so a range past 4 GiB passes and
+    /// faults when it is copied.
+    pub fn user_ptr_max(self) -> u64 {
+        match self {
+            LinuxAbi::I386 => LinuxAbi::X86_64.task_size(),
+            _ => self.task_size(),
+        }
+    }
+
     /// `STACK_TOP` (and the default mmap window end) without randomization:
     /// `DEFAULT_MAP_WINDOW` on x86-64 and riscv, `TASK_SIZE_64` on arm64,
     /// `TASK_SIZE_LOW = IA32_PAGE_OFFSET` for i386.

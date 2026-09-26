@@ -661,7 +661,7 @@ pub fn waitid(
         // union at 12.
         if infop
             .checked_add(128)
-            .is_none_or(|end| end > c.p.abi.task_size())
+            .is_none_or(|end| end > c.p.abi.user_ptr_max())
         {
             return Err(Errno(EFAULT));
         }

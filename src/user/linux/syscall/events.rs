@@ -171,10 +171,10 @@ pub fn signalfd4(c: &mut Ctx<'_>, fd: i32, mask: u64, size: u64, flags: u32) -> 
     Ok(fd as u64)
 }
 
-/// `access_ok`: the range lies in user space.
+/// `access_ok`: the range lies in user space (below `USER_PTR_MAX`).
 pub(super) fn access_ok(c: &Ctx<'_>, addr: u64, len: u64) -> bool {
     addr.checked_add(len)
-        .is_some_and(|end| end <= c.p.abi.task_size())
+        .is_some_and(|end| end <= c.p.abi.user_ptr_max())
 }
 
 /// Copies `data` to the destination vectors from byte `at` on

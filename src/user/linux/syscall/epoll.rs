@@ -287,7 +287,7 @@ fn wait_events(
     let len = maxevents as u64 * size;
     if events
         .checked_add(len)
-        .is_none_or(|end| end > c.p.abi.task_size())
+        .is_none_or(|end| end > c.p.abi.user_ptr_max())
     {
         return Err(Errno(EFAULT));
     }
