@@ -55,6 +55,12 @@ The IR interpreter provides a second execution of lifted semantics. It is useful
 
 Agreement between the architecture interpreter and SMIR interpreter is evidence for the lifter/SMIR semantics. Shared helper code can create correlated failures, so external differential testing remains useful.
 
+The x86 direct engine and SMIR explicitly share x87 data semantics in
+`src/smir/interpret/x87/data.rs`, operating on raw 80-bit register values.
+The direct wrapper supplies its own fault delivery and state-image accesses.
+Their agreement tests check integration and lifting, while hardware/QEMU
+comparisons are needed to test the shared implementation independently.
+
 ## Optimizer
 
 The documented optimizer includes O0/O1/O2-style levels and transformations such as:
@@ -141,6 +147,14 @@ RISC-V uses cache-keyed straight-line regions over the architectural state objec
 Hexagon scalar/HVX instructions are lifted and interpreted through SMIR in the dedicated lift suite. Packet semantics impose an additional obligation: the lifted representation must preserve packet-old reads, forwarding, and packet-end commit rather than treating the packet as an ordinary sequential list.
 
 ## Self-modifying code and cache identity
+
+Process address spaces (`user::mm`) also invalidate decoded instructions and
+native regions when executable pages are written, unmapped, replaced, or lose
+execute permission. CPU adapters apply the invalidation log before resuming.
+A guest process fork discards inherited compiled regions and recompiles them
+when hot; i386 compatibility code stays interpreted. These process contracts
+are covered by `user::` library tests and `user_linux` and are separate from
+whole-machine invalidation tests.
 
 Native code must be invalidated when guest code changes. The x86 software MMU records writes to executable pages and evicts affected compiled blocks. Cache keys for region-based paths include the instruction bytes/encodings used to build the region. SMC-heavy workloads can mark a region ineligible to avoid compile/evict thrashing.
 

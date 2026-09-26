@@ -4,6 +4,14 @@
 
 This is the exact root-package feature reference. For procedural setup, prerequisites, Make targets, PGO, and common failures, see [Building](../getting-started/building.md).
 
+Linux process emulation is a separate binary, `rax-user`, with no dedicated
+Cargo feature. It requires a Linux or macOS host at runtime. A software-only
+build uses `--no-default-features --bin rax-user`; adding `smir-jit` enables
+eligible x86-64 native regions and the opt-in RV64 path (`--riscv-jit`).
+ELF32 i386 compatibility stays interpreted. Enabling KVM or HVF does not
+change the process application's CPU adapters. See
+[Linux programs](../getting-started/linux-programs.md) for its ABI limits.
+
 ## Root package
 
 The root manifest currently declares:

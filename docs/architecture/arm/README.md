@@ -9,10 +9,17 @@
 - Cortex-M profiles;
 - Cortex-R profiles;
 - an AArch64 Linux virtual machine;
+- AArch64 Linux ELF process execution through `rax-user` at EL0;
 - selected 32-bit machine and SoC paths;
 - SMIR lifting and AArch64 native lowering.
 
 The existence of instruction semantics for a profile does not imply that every operating system or board for that profile boots.
+
+`rax-user` reuses the AArch64 core with a process address space and Linux
+syscall personality, including guest threads, signals, IPC, and ptrace.
+Its software execution and guest single-step do not require HVF or a Linux
+machine. This interface accepts AArch64 ELF, not AArch32 Linux programs;
+see [Linux programs](../../getting-started/linux-programs.md).
 
 ## Public selectors
 

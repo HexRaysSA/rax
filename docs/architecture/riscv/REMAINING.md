@@ -1,4 +1,12 @@
+[← Documentation home](../../../README.md)
+
 # RISC-V (`rax::isa::riscv`) — Remaining Work
+
+This is an ISA/privileged-machine roadmap snapshot. Current runtime scope is
+maintained in [RISC-V architecture](README.md): `rax-user` runs RV64 Linux
+programs without a privileged Linux-capable machine. Completeness language
+below describes the named historical instruction corpora, not exhaustive
+architectural conformance or the Linux syscall personality.
 
 Status snapshot for the self-contained RISC-V interpreter at `src/isa/riscv/`. The
 **user-mode ISA is complete and differentially verified** against `qemu-riscv64`;

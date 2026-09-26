@@ -38,6 +38,7 @@ The source tree reflects those boundaries:
 | `src/vm/` | Architecture-neutral runtime, memory, checkpoints, and vCPU contracts |
 | `src/smir/` | Cross-ISA IR, lifting, interpretation, optimization, and native lowering |
 | `src/oracle/` | Static decode/lift oracle material |
+| `src/user/` | Process-level address spaces, CPU adapters, and the Linux personality |
 | `src/debug/` | Interactive debugger protocols |
 | `src/observability/` | Tracing and profiling |
 | `src/host/` | Terminal and console integration |
@@ -73,6 +74,10 @@ Architecture names describe a CPU family. They do not imply that every family ha
 | RV64 | yes | no | bare-metal ELF with UART and halt path |
 
 ## Execution backends
+
+The backend selectors below belong to the `rax` machine application. The
+separate `rax-user` process application detects its Linux ABI from the ELF
+header and uses the software CPU adapters without machine or device construction.
 
 ### Software emulator
 
@@ -112,9 +117,22 @@ The architecture-specific vCPU owns registers, flags or condition state, the ins
 
 For packetized Hexagon execution, retirement occurs at packet scope rather than after each individual instruction encoding. For JIT regions, native execution must preserve the same externally visible state transition as the interpreter for the admitted region. Faulting and replay-sensitive boundaries therefore restrict region construction.
 
+## Process execution without a machine
+
+`rax-user` connects `user::linux` to `user::{image,mm,cpu}` and the ISA cores.
+It loads Linux ELF programs for x86-64, AArch64, and RV64, and ELF32 i386
+programs through a partial compatibility ABI. It supplies guest VMAs, syscall
+dispatch, signals, threads, files, sockets, IPC, and guest `ptrace`; it does
+not require a kernel image, firmware, interrupt controller, or board.
+
+Guest threads run cooperatively on one emulated CPU in each process. A guest
+`fork` creates a host process; `execve` replaces its guest image. Thus RV64
+Linux process execution coexists with an RV64 machine path that remains
+bare-metal. See [User-mode emulation](user-mode.md) for ABI and host boundaries.
+
 ## One executing vCPU
 
-The configuration accepts `vcpus`, but the current runtime executes vCPU 0 only. A value greater than one is not evidence of SMP. Documentation, benchmarks, and bug reports should describe `rax` as single-vCPU until the scheduler, interrupt routing, shared-memory ordering, and machine paths actually run multiple CPUs.
+The machine configuration accepts `vcpus`, but the current VM runtime executes vCPU 0 only. A value greater than one is not evidence of SMP. The process scheduler described above implements guest threads; it does not add SMP to the VM runtime.
 
 ## Documentation vocabulary
 

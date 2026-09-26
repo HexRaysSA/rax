@@ -9,6 +9,8 @@
 
 `rax` contains software execution engines for x86-64, AArch64/AArch32, Qualcomm Hexagon, and RV64. Its x86-64 and AArch64 machines have Linux boot paths; Hexagon and RISC-V currently run bare-metal programs. Supported regions can be lifted into SMIR and, when an exact host-specific admission contract is satisfied, executed as native code on x86-64 or AArch64 hosts.
 
+`rax-user` runs Linux user-space ELF programs on Linux or macOS without booting a guest kernel. The Linux personality implements process and thread creation, signals, file and socket I/O, IPC, memory controls, and guest process tracing for x86-64, AArch64, and RV64. ELF32 i386 compatibility tasks use the x86 core in compatibility mode with a partial 32-bit syscall table. This process execution path is independent of the machine boot paths.
+
 The project uses differential testing extensively. A harness initializes `rax` and a reference engine or host CPU from corresponding state, executes selected instructions or sequences, and compares the state that each side exposes. That is strong evidence for the cases, states, tools, and projections that actually run. It is not formal verification, exhaustive ISA conformance, or proof that the reference has no defect.
 
 `rax` is a research project. It is not an official Hex-Rays product and it is not a production hypervisor or hardened security sandbox.
@@ -35,12 +37,13 @@ Continue with [Getting started](docs/getting-started/overview.md) for host prere
 
 ## Current project shape
 
-| Guest family | Runnable paths | Machine-level use | Principal evidence | Important boundary |
+| Guest family / interface | Runnable paths | Machine or process use | Principal evidence | Important boundary |
 |---|---|---|---|---|
 | **x86-64** | software emulator; KVM on Linux x86-64; HVF on an appropriate macOS host; admitted SMIR native regions | direct Linux loading, serial PC platform, legacy real-mode/El Torito ISO route | direct ISA tests, KVM/QEMU differential suites, generated inventories, SMIR/JIT comparisons, machine tests | one executing vCPU; software Linux and JIT coverage are narrower than the architecture as a whole |
 | **AArch64 / AArch32 / Thumb / Cortex-M/R** | software Arm cores; AArch64 HVF on Apple Silicon; selected AArch64-host native lowerers | AArch64 Linux virtual machine, DT-based and profile-specific 32-bit paths, SoC and microcontroller work | native AArch64 EL0 or QEMU comparisons, generated Arm cases, machine tests, microkernel, SMIR tests | AArch64 Linux is established; no general AArch32 Linux-to-shell result is claimed |
 | **Qualcomm Hexagon** | packet-aware software emulator | bare-metal ELF machine with UART/halt integration | scalar, control-flow, floating-point, memory, HVX, HVX-memory, bare-metal, and lift targets | public ISA selector currently ends at `v69`; no general-purpose OS machine |
 | **RISC-V RV64** | software emulator; selected state-backed SMIR/native paths | bare-metal ELF machine with UART/halt integration | scalar and vector QEMU comparisons, boot test, lift tests, x86-64/AArch64-host native tests | no complete privileged architecture or Sv39 Linux-capable machine |
+| **Linux programs (`rax-user`)** | x86-64, AArch64, and RV64 software CPUs; partial i386 compatibility; admitted x86-64 regions and optional RV64 JIT | static and dynamic ELF programs, threads and child processes, guest `ptrace` | Linux-source-derived unit tests, recorded syscall fixtures and whole-program comparisons, CLI and host-signal tests | Linux/macOS hosts; one emulated CPU per process; per-ABI syscall and host-resource limits |
 
 The source and executable tests define current implementation state. The detailed pages below explain what is present, what is publicly selectable, what has a registered test, what can self-skip, and what remains unsupported.
 
@@ -53,7 +56,7 @@ This root `README.md` is the **single complete documentation entrypoint**. There
 - [Getting started](docs/getting-started/overview.md) — choose the smallest path for a Linux guest, bare-metal program, bootable ISO, hardware backend, or development task.
 - [Building](docs/getting-started/building.md) — prerequisites, supported build shapes, host tuning, Make targets, PGO, C API build, release-profile consequences, and common failures.
 - [Linux guests](docs/getting-started/linux-guests.md) — checked-in AArch64 boot, AArch64 HVF, x86 software Linux, x86 KVM, image-format distinctions, serial milestones, and reproducibility records.
-- [Linux programs (`rax-user`)](docs/getting-started/linux-programs.md) — run a single Linux x86-64, AArch64, or RV64 ELF program on the software CPUs: options, sysroot, exit statuses, guest-visible environment, and limitations.
+- [Linux programs (`rax-user`)](docs/getting-started/linux-programs.md) — run Linux x86-64, AArch64, RV64, or partial i386 ELF programs: options, sysroot, exit statuses, processes, tracing, IPC, and ABI/host limitations.
 - [Bare-metal programs and bootable ISOs](docs/getting-started/bare-metal-and-iso.md) — RV64, Hexagon, microkernel, x86 real-mode/El Torito, machine-specific Arm images, stop conditions, and evidence requirements.
 - [Troubleshooting](docs/troubleshooting.md) — known baselines and targeted checks for builds, image loading, consoles, hypervisors, external oracles, JIT admission, and checkpoints.
 
@@ -64,7 +67,7 @@ This root `README.md` is the **single complete documentation entrypoint**. There
 - [Arm architecture](docs/architecture/arm/README.md) — public profiles, AArch64, AArch32, Thumb, Cortex-M/R, AdvSIMD/VFP, SVE-family work, machines, differential tests, and limitations.
 - [Hexagon architecture](docs/architecture/hexagon/README.md) — public revisions, packet commit, `.new` forwarding, predicates/loops, scalar and HVX state, bare-metal loading, oracle targets, and SMIR.
 - [RISC-V architecture](docs/architecture/riscv/README.md) — scalar, compressed, atomic, floating-point, bit-manipulation, crypto, RVV, bare-metal machine, QEMU comparisons, SMIR/native paths, and privileged boundary.
-- [User-mode emulation](docs/architecture/user-mode.md) — address spaces with demand-populated frames and exact faults, per-ISA user-mode CPU adapters, the Linux personality (loader, stack, system calls, `/proc`), code invalidation, and evidence.
+- [User-mode emulation](docs/architecture/user-mode.md) — address spaces, CPU adapters, Linux loading and ABI conversion, scheduling, signals, IPC, process tracing, code invalidation, and evidence.
 - [Machines and boot](docs/architecture/machines.md) — image detection, x86 direct/legacy boot, AArch64 virtual platform, 32-bit Arm and SoC selection, Hexagon/RISC-V machines, memory, command lines, and restore construction.
 - [Devices and platform wiring](docs/architecture/devices.md) — baseline PC devices, optional PCI attachment, interrupts, serial/VGA boundary, AArch64 and 32-bit Arm devices, bare-metal peripherals, checkpoints, and validation stages.
 - [SMIR and native execution](docs/architecture/smir.md) — IR, lifters, interpreter, optimizer, lowerers, hot-region policy, per-host admission, helper/memory contracts, invalidation, runtime controls, and equivalence evidence.
@@ -77,6 +80,7 @@ This root `README.md` is the **single complete documentation entrypoint**. There
 - [Microkernel harness](docs/development/microkernel.md) — independent nightly build, x86-64/AArch64/ARMv6 payloads, result markers, cross-architecture checksum, SDE comparison, and interpretation.
 - [Repository layout and ownership](docs/reference/repository-layout.md) — root map, source collaboration graph, canonical owners, change routing, test structure, truth hierarchy, and merge checklist.
 - [Documentation policy](docs/documentation-policy.md) — one-entrypoint rule, claim classes, evidence qualifiers, ownership, update procedure, and style rules that prevent a return to synthetic completeness.
+- [Capability review (26 September 2026)](docs/development/capability-review-2026-09-26.md) — source evidence, documentation reconciliation, assumptions, validation results, and remaining boundaries for this update.
 
 ### Operate and measure
 
@@ -127,6 +131,9 @@ cargo test --release --test differential
 cargo test --release --test arm_diff
 cargo test --release --test hexagon_hvx_diff
 cargo test --release --test riscv_diff
+
+# Linux process emulation against checked-in Linux recordings.
+cargo test --release --locked --no-default-features --features smir-jit --test user_linux
 ```
 
 External-reference and host-specific tests can self-skip when `/dev/kvm`, a required host architecture or CPU feature, QEMU user-mode binary, cross-toolchain, LLVM facility, or other prerequisite is absent. Record the target, features, host/tool versions, `running N tests`, and skip output. A zero exit status alone does not establish that a comparison ran.
@@ -137,6 +144,8 @@ External-reference and host-specific tests can self-skip when `/dev/kvm`, a requ
 - The software x86 Linux path is deliberately constrained and is not interchangeable with arbitrary KVM boot.
 - AArch64 Linux is the established Arm Linux machine; the 32-bit Arm work does not currently justify a general Linux-to-shell claim.
 - RISC-V and Hexagon are bare-metal machine paths, not general OS platforms.
+- `rax-user` runs RV64 Linux programs without a privileged RISC-V machine. Its i386 compatibility table is partial, and the three-ISA recorded corpora do not establish equivalent i386 coverage.
+- Guest threads share one emulated CPU per process; child processes are host processes. The sysroot is a path overlay, and file/network operations can reach host resources.
 - The public Hexagon ISA selector currently reaches `v69`, despite broader historical prose.
 - Native JIT coverage is partial, host-specific, and designed to fall back to interpretation.
 - A device model’s source file does not imply default attachment, guest enumeration, working interrupts/DMA, or checkpoint completeness.

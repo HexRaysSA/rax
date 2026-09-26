@@ -6,6 +6,24 @@ The software interpreter is the observability path. It owns instruction fetch, d
 
 KVM and HVF execute guest instructions in hardware between exits. They are useful for speed and reference comparisons, but they do not become per-instruction software tracers merely because the binary was built with observability features.
 
+## Linux process observability
+
+`rax-user` uses a separate process loop. `--strace` logs guest syscall names,
+arguments, results, and TIDs without the machine `trace` feature:
+
+```sh
+./target/release/rax-user --strace tests/fixtures/user/linux/bin/aarch64/hello
+```
+
+Guest `ptrace` supports linked parent/child and descendant processes, memory
+and register access, syscall stops/editing, job-control and process events,
+and seccomp inspection. Single-step is implemented for x86-64 and AArch64;
+block-step is x86-64 only. RISC-V stepping and i386 ptrace calls are refused.
+This is the emulated Linux syscall interface, with the reach and regset limits
+in [User-mode emulation](../architecture/user-mode.md); it is separate from
+the machine GDB RSP server. `rax-user` has no `--gdb`, machine trace/profiler,
+or `.rxc` checkpoint CLI options.
+
 ## Build the required features
 
 ```sh

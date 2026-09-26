@@ -6,7 +6,9 @@ and exit status each one produced on a real Linux kernel. The `programs`
 module of the `user_linux` test target (`tests/suites/user/linux/programs.rs`)
 runs every program under `rax-user` in five execution modes (x86-64 with and
 without the SMIR JIT, AArch64, and RV64 with and without `--riscv-jit`) and
-requires the recorded result, byte for byte, after the `noise.txt` filters.
+requires the recorded exit status and decoded stdout text after the
+`noise.txt` filters. UTF-8 lossy decoding precedes those filters; arbitrary
+invalid UTF-8 byte sequences are outside that comparison contract.
 
 The programs cover integer, floating-point, and SIMD arithmetic, calling
 conventions, control flow (computed `goto`, `setjmp`/`longjmp`, C++
@@ -17,7 +19,14 @@ check system calls one by one, these are whole programs whose compiled code
 exercises the CPU emulation broadly: the corpus found an x86-64 decoder
 defect (the SSE shift-by-immediate forms ignored REX.B) behind seven
 programs' wrong results, and the direct x86-64 engine's binary64 x87
-registers, which made the C library print last digits wrongly.
+registers, which made the C library print last digits wrongly. Both defects
+were corrected: the direct engine now shares raw 80-bit x87 data semantics
+with SMIR. `known-divergences.txt` contains no entries at the September 2026
+review; that inventory is separate from the result of any particular run.
+
+The three-ISA corpus does not include i386 compatibility. On hosts where a
+mode cannot admit native regions, its mode name does not establish native
+execution; comparisons still exercise the interpreter/fallback path.
 
 | Path | Content |
 |---|---|

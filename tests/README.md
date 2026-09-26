@@ -16,6 +16,7 @@ tests/
     ├── isa/        # Direct instruction-semantics tests
     ├── machine/    # Boot and platform integration
     ├── smir/       # Lift, lower, JIT, and round-trip validation
+    ├── user/       # Linux program, ABI, CLI, host-signal, and recording checks
     └── tooling/    # Repository and build-tool invariants
 ```
 
@@ -59,6 +60,8 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `smir_jit_evex_masking` | `suites/smir/jit/x86_64_evex_masking.rs` |
 | `smir_jit_vcpu` | `suites/smir/jit/x86_64.rs` |
 | `smir_jit_x86_aarch64` | `suites/smir/jit/x86_64_aarch64.rs` |
+| `smir_jit_aarch32_aarch64` | `suites/smir/jit/aarch32_aarch64.rs` |
+| `smir_jit_thumb_aarch64` | `suites/smir/jit/thumb_aarch64.rs` |
 | `user_linux` | `suites/user/linux/main.rs` |
 | `x86_64` | `suites/isa/x86_64/main.rs` |
 | `x86_64_apx_map4_qemu_diff` | `suites/differential/x86_64/qemu_apx.rs` |
@@ -84,6 +87,13 @@ listed below is declared explicitly with a `[[test]]` entry in the root
   checks; directory placement does not imply that an oracle is installed.
 
 ## Adding tests
+
+`user_linux` reaches its ABI-table, CLI, host-signal, syscall-fixture, and
+whole-program modules through `suites/user/linux/main.rs`. Its execution
+matrices cover x86-64, AArch64, and RV64; i386 numbering is checked there,
+while compatibility execution tests live under `src/user/linux/tests/i386/`
+and run as library tests. The ignored live Docker comparison requires
+`RAX_USER_DOCKER_ORACLE=1`; checked-in recordings need no live oracle.
 
 Add behavioral cases beneath the matching suite domain. Add generated material
 under `generated/` and record its provenance in `generated/manifest.toml`.

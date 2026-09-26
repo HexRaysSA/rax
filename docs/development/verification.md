@@ -84,6 +84,44 @@ It is not honest to call LLVM an execution oracle, and a QEMU target that self-s
 
 Machine-readable specifications and checked-in instruction corpora can define a finite set of encodings or cases. They are valuable for coverage, but the generator and parser are part of the trusted computing base. A parser bug can systematically produce the wrong expected set.
 
+## Linux process and whole-program comparisons
+
+The `user_linux` target compares guest stdout text and exit status with
+checked-in Linux recordings. It has two inputs: syscall fixtures under
+`tests/fixtures/user/linux/` and the morok corpus under its `programs/`
+subdirectory. The runners enumerate x86-64, AArch64, and RV64; ELF32 i386
+compatibility currently has library tests, not the same recorded matrix.
+
+Each corpus's `expected/ORACLE` identifies the actual recording kernel,
+container engine, native architecture, translator, and overrides. The
+personality models vendored Linux 6.19 sources; the checked-in recordings
+identify a Linux 7.0.14 OrbStack kernel on AArch64. They are distinct evidence
+sources. An expectation borrowed from another ABI or derived from kernel
+source is labeled in `oracle-overrides.txt`; it is not execution of that
+syscall on native silicon for the borrowed ABI.
+
+Both runners decode stdout with `String::from_utf8_lossy`; these textual
+corpora therefore do not establish equality of arbitrary invalid UTF-8 bytes.
+The whole-program runner also applies the declared `noise.txt` filters to both
+outputs. Filters may normalize addresses/numbers, mask or drop lines, or
+ignore stdout while retaining exit-status comparison. Its
+`known-divergences.txt` must match observed failures exactly; a listed failure
+is an expected divergence, not successful equivalence. Fixture/program mode
+labels also do not prove native admission: the x86 JIT is host-specific and
+the RV64 `--riscv-jit` path can fall back.
+
+The ordinary target verifies binaries and recordings without Docker:
+
+```sh
+cargo test --release --locked --no-default-features --features smir-jit --test user_linux
+```
+
+The ignored live Docker test additionally requires `RAX_USER_DOCKER_ORACLE=1`
+and a daemon able to run the three architectures. It still uses the declared
+oracle substitutions. Record ignored/self-skip output separately. Unit tests
+under `src/user/` exercise faults, layouts, scheduling, signals, ABI conversion,
+and cache invalidation that stdout/status alone does not expose.
+
 ## State projection
 
 A differential result is only as broad as the compared state. Common projections include:

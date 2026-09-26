@@ -21,6 +21,12 @@ The command-line `rax` application builds complete machines: guest memory, boot 
 
 It is not automatically the same interface as the root PC/AArch64 virtual machines. Device construction, Linux boot protocols, and all root CLI backend combinations are not implied by the C ABI.
 
+The separate Rust `rax::user::linux` subsystem and `rax-user` binary supply
+Linux ELF loading, syscall servicing, processes, signals, sockets, IPC, and
+guest ptrace. `librax` does not export that Linux personality or its process
+scheduler. An engine accepting 32-bit x86 code is a different contract from
+`rax-user`'s partial i386 syscall compatibility.
+
 ## Build
 
 ```sh

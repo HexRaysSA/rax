@@ -3,11 +3,18 @@
 Static Linux programs that exercise the `rax-user` Linux personality, with
 the output a real Linux kernel produced for each of them. The
 `user_linux` test target (`tests/suites/user/linux/`) runs every case on
-every architecture and requires a byte-for-byte match. Each run gets a
+every recorded architecture and compares decoded stdout text and exit status.
+The runner uses UTF-8 lossy decoding; this is a textual-output corpus, not
+an arbitrary-binary-output equality test. Each run gets a
 `TMPDIR` of its own, and with it a fresh namespace for the objects
 `rax-user` processes share (System V and POSIX IPC, abstract socket names,
 the emulated inotify hub), as each recording ran in a fresh container:
 runs in parallel must not see each other's queues and identifiers.
+
+The execution matrix is x86-64, AArch64, and RV64. i386 syscall numbering
+is checked by the integration target, but its compatibility execution is
+covered by separate library tests under `src/user/linux/tests/i386/`;
+this fixture corpus supplies no recorded i386 result matrix.
 
 | Path | Content |
 |---|---|

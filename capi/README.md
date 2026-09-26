@@ -20,6 +20,12 @@ control over stop conditions and a rich set of execution hooks.
 
 ## Quick start (C)
 
+This is the CPU-engine ABI. Linux process emulation, ELF/sysroot loading,
+syscall servicing, guest processes/signals/IPC, and guest `ptrace` belong to
+the separate Rust `rax::user::linux` subsystem and `rax-user` binary; they
+are not exported by `librax`. See [Linux programs](../docs/getting-started/linux-programs.md)
+for that interface and its partial i386 compatibility.
+
 ```c
 #include <rax.h>
 #include <stdio.h>

@@ -11,7 +11,7 @@ The repository is organized by responsibility, but it also contains generated in
 | `Cargo.toml` | root package, workspace membership, features, explicit integration-test targets, dependencies, release profile |
 | `.cargo/` | checked-in Cargo/compiler configuration, including host CPU baseline flags |
 | `.github/workflows/` | actual CI build/test/tool matrix |
-| `src/` | production Rust implementation for CLI, VM runtime, machines, backends, ISAs, devices, SMIR, debugging, and observability |
+| `src/` | production Rust implementation for CLI, VM runtime, machines, backends, ISAs, devices, SMIR, Linux process emulation, debugging, and observability |
 | `tests/` | integration suites, fixtures, generated test data, and shared support |
 | `capi/` | workspace member exporting the C ABI and C++17 wrapper |
 | `docs/` | architecture, development, hardware, research, specifications, and this breakout documentation |
@@ -56,6 +56,7 @@ cli -> config -> vm/runtime -> machine -> devices
                          \-> backend -> isa
                                     \-> smir
 oracle ----------------------------> isa + smir
+rax-user -> user::linux ------------> user::{image,mm,cpu} -> isa
 host/debug/observability ----------> runtime execution surfaces
 ```
 

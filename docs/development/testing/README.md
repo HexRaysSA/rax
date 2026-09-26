@@ -17,6 +17,7 @@ tests/
     ├── isa/            # direct instruction semantics
     ├── machine/        # boot and platform integration
     ├── smir/           # lift, lower, JIT, and round trip
+    ├── user/           # Linux programs, ABI tables, CLI, host signals, recordings
     └── tooling/        # repository/build invariants
 ```
 
@@ -82,7 +83,7 @@ cargo test --release --test differential case_name -- --exact --nocapture
 | `smir_jit_x86_aarch64` | `tests/suites/smir/jit/x86_64_aarch64.rs` | x86 vCPU native AArch64 JIT |
 | `smir_jit_aarch32_aarch64` | `tests/suites/smir/jit/aarch32_aarch64.rs` | AArch32 guest native AArch64-host JIT |
 | `smir_jit_thumb_aarch64` | `tests/suites/smir/jit/thumb_aarch64.rs` | Thumb guest native AArch64-host JIT |
-| `user_linux` | `tests/suites/user/linux/main.rs` | `rax-user` Linux personality: UAPI tables, fixture programs vs recorded Linux results, CLI |
+| `user_linux` | `tests/suites/user/linux/main.rs` | Linux ABI tables (including i386), syscall fixtures, morok whole programs, CLI, host signals, recorded-oracle provenance |
 | `x86_64` | `tests/suites/isa/x86_64/main.rs` | x86 direct ISA aggregate |
 | `x86_64_apx_map4_qemu_diff` | `tests/suites/differential/x86_64/qemu_apx.rs` | APX staged QEMU differential |
 | `x86_64_avx512_inventory` | `tests/suites/coverage/x86_64/avx512_inventory.rs` | AVX-512 coverage inventory |
@@ -117,11 +118,31 @@ This table is an interface: changing a target name breaks CI and developer comma
 | native x86 lowerer | `smir_jit_vcpu`, relevant EVEX test | runtime `RAX_JIT_VERIFY=1`, benchmark and SMC cases |
 | native AArch64 lowerer | `aarch64_smir_native` or cross-host target | run on actual AArch64 host; fallback/flags cases |
 | machine/device | matching machine target | guest integration, interrupt, checkpoint round trip |
+| Linux process emulation | `user::` library tests and `user_linux` | matching-layout and compatibility conversions; interpreter/JIT modes; opt-in Docker oracle; i386 library cases separately |
 | CLI/config | unit/API tests plus representative launch | precedence and error-message tests |
 | C API | `cargo test -p rax-capi` plus C/C++ examples | static/dynamic build, panic boundary, symbol/ABI check |
 | generated tooling | tooling/inventory target | regenerate in clean tree and assert no unexplained diff |
 
 The table is a floor, not a substitute for impact analysis.
+
+## Linux process coverage
+
+```sh
+cargo test --locked --no-default-features --features smir-jit --lib user::
+cargo test --release --locked --no-default-features --features smir-jit --test user_linux
+```
+
+The integration target includes binary-hash, source-provenance, oracle-override,
+CLI, host-signal, fixture, and whole-program tests. Recorded execution matrices
+cover three 64-bit ISAs; the i386 numbering test does not establish i386
+whole-program coverage. The `programs` runner enforces noise filters and the
+exact known-divergence list. Read the corpus metadata before treating a green
+target as equivalence for all outputs or as host-native JIT evidence.
+
+`.github/workflows/ci.yml` includes `user_linux` in the portable core slice;
+`full-suite.yml` includes it in the serial unit shard. Their inclusion of
+ignored tests does not opt into live Docker execution: the ignored test
+reports `NOT RUN` without `RAX_USER_DOCKER_ORACLE`.
 
 ## External prerequisites
 

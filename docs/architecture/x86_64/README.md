@@ -15,8 +15,11 @@ That breadth does not make every x86 instruction, machine configuration, or back
 | `--arch x86-64 --backend hvf` | supported macOS/x86 host and HVF build | hardware-assisted x86 guest path | backend-dependent; not the software step loop |
 | x86 guest through SMIR on x86-64 host | `smir-jit`, supported Unix host | eligible hot regions | promotion/fallback counters; optional live verification |
 | x86 guest through SMIR on AArch64 host | `smir-jit`, AArch64 host | eligible register-only scalar hot regions | static admission plus dedicated cross-host tests |
+| `rax-user PROGRAM` | Linux or macOS | Linux x86-64 ELF; partial ELF32 i386 compatibility | syscall logging and guest `ptrace`; compatibility code stays interpreted |
 
-Only one virtual CPU executes.
+Only one virtual CPU executes in the machine runtime. `rax-user` schedules
+guest threads on one emulated CPU per process and forks host processes for
+guest child processes; it does not use KVM or HVF.
 
 ## Decoder surface
 
@@ -57,7 +60,7 @@ The checked-in high-level inventory covers:
 
 | Family | Current documented surface |
 |---|---|
-| x87 | D8–DF escape groups represented through the x87 execution layer; host floating-point representation imposes limits that tests must qualify |
+| x87 | D8–DF escapes execute on raw 80-bit extended-precision registers through the data implementation shared by the direct engine and SMIR; precision/rounding control, exception flags, masked responses, and stack faults are modeled |
 | SSE–SSE4 | scalar and packed moves, arithmetic, comparisons, shuffles, permutations, conversions, and integer SIMD families |
 | AVX / AVX2 | VEX-encoded XMM/YMM forms, integer and floating-point arithmetic, data movement, shuffles, conversions, FMA, BMI-related scalar operations |
 | AVX-512 | F, VL, BW, DQ, CD and additional families including FP16, VBMI/VBMI2, IFMA, VNNI, BITALG, VPOPCNTDQ, BF16, VP2INTERSECT, masked operations, opmask state, gather/scatter, and EVEX crypto forms |
@@ -66,6 +69,30 @@ The checked-in high-level inventory covers:
 | APX | REX2, extended GPRs, NDD/NF forms, conditional compare/test, SETZUcc, PUSH2, JMPABS, MOVBE, multiply/divide, and Map 4 work represented in source/tests |
 
 Do not infer “all AVX-512” or “all APX” from a family label. The generated instruction corpus, unimplemented manifests, source inventory tests, and differential target results define the current finite claim.
+
+The x87 direct wrapper owns availability checks, guest-memory faults,
+environment/state images, and RFLAGS updates. Shared data semantics live in
+`src/smir/interpret/x87/data.rs`; transcendental approximations live in
+`src/smir/interpret/x87/transcendental.rs`. Raw 80-bit storage does not make
+every transcendental result identical to every hardware implementation,
+and direct-vs-SMIR agreement is not an independent oracle for their shared code.
+
+## Linux user mode and compatibility tasks
+
+The default-off user-mode engine path runs at CPL 3 and translates through
+the process address space. `SYSCALL` reports a syscall exit; exceptions and
+software interrupts are exported to the Linux personality for signal handling.
+The engine supplies Linux-style user GDT entries, including TLS entries 12–14
+and the CPU/node entry used by `LSL`.
+
+ELF32 i386 programs run with `CS=0x23` in IA-32e compatibility mode. Their
+`INT 0x80` calls reach a separate 32-bit conversion table; `INT 0x80` from
+a 64-bit process is still refused with `ENOSYS` after seccomp inspection.
+Compatibility code is interpreted, and the 32-bit syscall table remains
+partial. Outside 64-bit mode, linear address formation wraps to 32 bits
+after adding the segment base; this differs from merely truncating an
+effective offset before segment-base addition. See
+[User-mode emulation](../user-mode.md) for the supported ABI boundary and tests.
 
 ## Software MMU and interpreter loop
 

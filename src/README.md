@@ -12,7 +12,7 @@ implementation path:
 | `vm/` | Architecture-neutral VM runtime, memory, snapshots, and vCPU contracts |
 | `smir/` | Cross-ISA IR, lifting, interpretation, optimization, and lowering |
 | `oracle/` | Static ISA decode/lift oracle output |
-| `user/` | Userland (process-level) emulation: executable images, guest address spaces, OS personalities |
+| `user/` | Process-level emulation: ELF images, guest address spaces, unprivileged CPU adapters, and the Linux personality (ABI conversion, files/networking/IPC, scheduling, signals, process tracing) |
 | `debug/` | Interactive debugger protocols |
 | `observability/` | Tracing and profiling |
 | `host/` | Host console and terminal integration |
@@ -24,7 +24,7 @@ cli -> vm/runtime -> machine -> devices
                   -> backend -> isa
                              -> smir
 oracle ---------------------> isa + smir
-rax-user -> user -----------> isa
+rax-user -> user::linux ----> user::{image,mm,cpu} -> isa
 ```
 
 This is not a strict directed acyclic graph: machine initialization exposes a
@@ -38,3 +38,8 @@ New code should use the canonical directories above.
 
 Device ownership is intentionally unchanged by this reorganization. Machine
 modules wire device models but do not duplicate or redistribute them.
+
+The Linux personality's three primary 64-bit ABIs share subsystem handlers;
+`user/linux/syscall/compat/` owns i386 conversions and rejection of calls
+without a supported 32-bit layout. These process APIs do not construct a
+machine or expose the complete personality through the C engine ABI.

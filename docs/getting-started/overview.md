@@ -23,6 +23,7 @@ Additional tasks add their own requirements:
 | APX encoding checks | a sufficiently new LLVM toolchain; the QEMU execution path remains dependent on QEMU support |
 | Microkernel | nightly Rust, `rust-src`, and `llvm-objcopy` or `objcopy` |
 | Tracing, GDB, profiling | the matching Cargo feature |
+| Linux program execution with `rax-user` | Linux or macOS, a supported guest ELF, and its interpreter/libraries for dynamic linking |
 
 Check the local toolchain before diagnosing the repository:
 
@@ -32,7 +33,24 @@ cargo -V
 cc --version
 ```
 
-## Clean-checkout baseline
+## Run a Linux program without booting a machine
+
+For process execution, build `rax-user` and run a checked-in static guest:
+
+```sh
+cargo build --release --locked --no-default-features --features smir-jit --bin rax-user
+./target/release/rax-user tests/fixtures/user/linux/bin/aarch64/hello
+```
+
+This fixture prints its argument/environment report and exits with 41 by
+design (`40 + argc`), exercising guest exit-status propagation.
+
+The ELF header selects x86-64, AArch64, RV64, or the partial i386
+compatibility ABI. Dynamic programs use `--sysroot` for their interpreter
+and libraries. See [Linux programs](linux-programs.md) for processes,
+threads, signals, sockets, IPC, tracing, and limitations.
+
+## Clean-checkout machine baseline
 
 Build the command-line binary without the default KVM and JIT features:
 

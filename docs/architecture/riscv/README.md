@@ -2,7 +2,14 @@
 
 # RISC-V architecture
 
-The public RISC-V target is an RV64 software CPU connected to a small bare-metal machine. It loads an ELF, exposes a 16550-compatible UART over MMIO, and provides a halt path around the current environment-call convention. It is not a privileged RISC-V virtual machine and does not boot Linux.
+The `rax --arch riscv64` machine path connects an RV64 software CPU to a small bare-metal machine. It loads an ELF, exposes a 16550-compatible UART over MMIO, and provides a halt path around the current environment-call convention. It is not a privileged RISC-V virtual machine and does not boot Linux.
+
+The separate `rax-user` path runs RV64 Linux ELF programs in U-mode without
+a kernel or board. It implements the Linux personality's processes, threads,
+signals, files, networking, IPC, and tracing; `--riscv-jit` selects eligible
+SMIR regions. This process path does not add privileged paging or Linux boot
+to the machine. See [Linux programs](../../getting-started/linux-programs.md)
+and [User-mode emulation](../user-mode.md) for syscall and tracing limits.
 
 ## Launching a bare-metal program
 

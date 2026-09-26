@@ -11,6 +11,7 @@ emulators (`qemu-x86_64`, `qemu-aarch64`, `qemu-riscv64`).
 
 | Guest ABI | ELF `e_machine` | CPU core |
 |---|---|---|
+| i386 Linux compatibility (partial) | `EM_386` (3) or `EM_486` (6), ELFCLASS32 | RAX x86 core in IA-32e compatibility mode; interpreter only |
 | x86-64 Linux | `EM_X86_64` (62) | RAX x86-64 interpreter with the SMIR JIT on x86-64 hosts |
 | AArch64 Linux | `EM_AARCH64` (183) | RAX AArch64 interpreter at EL0 |
 | RV64 Linux | `EM_RISCV` (243), ELFCLASS64 | RAX RISC-V interpreter in U-mode (optional SMIR JIT) |
@@ -21,15 +22,19 @@ reports that the host is unsupported.
 ## Build and run
 
 ```sh
-cargo build --release --no-default-features --features smir-jit --bin rax-user
+cargo build --release --locked --no-default-features --features smir-jit --bin rax-user
 
-./target/release/rax-user ./hello-aarch64 arg1 arg2
+./target/release/rax-user tests/fixtures/user/linux/bin/aarch64/hello arg1 arg2
 echo $?
 ```
 
-The guest ABI comes from the ELF header, so the same command runs x86-64,
-AArch64, and RV64 programs. Standard input, output, and error are the
-host's. The exit status is the guest's:
+The checked-in `hello` fixture prints its arguments/environment and returns
+`40 + argc`: this invocation reports status 43. With no extra arguments it
+returns 41. These nonzero values test exit-status propagation.
+
+The guest ABI comes from the ELF header, so the same command selects x86-64,
+AArch64, RV64, or the partial i386 compatibility path. Standard input, output,
+and error are the host's. The exit status is the guest's:
 
 | Status | Meaning |
 |---|---|
@@ -59,9 +64,16 @@ host's. The exit status is the guest's:
 | `--slice N` | Instructions per scheduling slice for AArch64 and RV64 guests. |
 | `--no-signal-forwarding` | Leave host signals at their host dispositions (Ctrl-C then ends `rax-user` directly) and report every signal death as `128 + N`. |
 
-Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
+Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024); `8M` is
+8 MiB and `16G` is 16 GiB. `--seed` fixes `AT_RANDOM` and `getrandom`
+bytes, not host timing, I/O, or the complete thread interleaving.
 
-## What the guest sees
+## What the 64-bit guest sees
+
+The following describes the x86-64, AArch64, and RV64 ABIs. The narrower
+i386 path is described separately below. The behavioral reference is the
+vendored Linux 6.19 source; supported operations and deviations are enumerated
+in [User-mode emulation](../architecture/user-mode.md).
 
 - **Address space.** Linux 6.19's layout with randomization disabled
   (`setarch -R`): x86-64 PIEs load at `0x555555554000` and their
@@ -75,8 +87,9 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   because no vDSO is mapped; C libraries then use system calls for time).
 - **CPU and threads.** One CPU executes every guest thread, in time slices
   (`--slice` on AArch64 and RV64, about 1 ms on x86-64), so guest atomic
-  instructions stay atomic and a program's interleaving depends only on
-  where slices end. `sched_getaffinity` reports CPU 0 only, and
+  instructions stay atomic among that process's guest threads. Interleaving
+  depends on scheduler boundaries and guest/host events. `sched_getaffinity`
+  reports CPU 0 only, and
   `/proc/cpuinfo` describes that CPU. Threads come from `clone` and `clone3`
   with the flags threads libraries pass (musl and glibc `pthread_create`),
   with Linux's register state, TLS, and TID words; futexes (every `futex`
@@ -102,8 +115,8 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   continuations with Linux statuses; `SIGCHLD` carries the child's
   `siginfo`, honors `SA_NOCLDSTOP`, and an ignored `SIGCHLD` or
   `SA_NOCLDWAIT` reaps children automatically. `execve` and `execveat`
-  run ELF programs of any of the three ABIs (as a kernel with
-  `binfmt_misc` handlers for the other two would) and `#!` scripts, and
+  load ELF programs for the supported ABIs, including partial i386
+  compatibility, and `#!` scripts, and
   keep, reset, and close what Linux does. A forked child that dies prints
   no diagnostic; its parent sees its status.
 - **Host signals.** `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGUSR1`, `SIGUSR2`,
@@ -158,7 +171,9 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   polls readable when its task exits and hung up when it is gone, so
   `poll`, `select`, and `epoll` can wait for a process to end, and it
   names that process even after the host reuses its PID.
-  `PIDFD_GET_INFO` reports identifiers, credentials, and exit status.
+  `PIDFD_GET_INFO` reports identifiers, credentials, and available exit status.
+  `pidfd_getfd` reaches only the caller's own descriptors; other-process and
+  namespace queries have the limits listed below.
 - **Sockets.** `AF_UNIX` (stream and datagram, and sequenced-packet
   where the host has it), `AF_INET`, and `AF_INET6` sockets are host
   sockets, so the loopback and real networks work: `socket`,
@@ -173,102 +188,125 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   protocol; `poll`, `select`, and `epoll` report sockets as `sock_poll`
   does, including `POLLRDHUP`.
 
+- **Netlink and interfaces.** `AF_NETLINK` uses host netlink on Linux;
+  macOS emulates `NETLINK_ROUTE` link/address queries over host interfaces.
+  Interface lookup calls include `SIOCGIFCONF` and device/address queries.
+  Routing changes and notifications are not implemented by the macOS model.
+- **File metadata and locks.** Device/FIFO nodes, file times, extended
+  attributes, supplementary groups, `flock`, and POSIX record locks are
+  implemented. OFD locks require Linux host support; POSIX ACL attributes
+  are unsupported. File locks interact with other host programs.
+- **IPC and notifications.** System V shared memory, semaphores, and message
+  queues, plus POSIX message queues, use a namespace shared by `rax-user`
+  processes of the host user. Inotify uses the host kernel on Linux and an
+  emulated event hub elsewhere. The emulated hub observes `rax-user` file
+  operations rather than arbitrary host changes.
+- **Memory and scheduling controls.** `mlock`/`mlock2`/`mlockall`, `mseal`,
+  and `rseq` track guest memory and critical-section state. Scheduling and
+  I/O-priority attributes are stored and reported; guest threads still share
+  one emulated CPU. `process_vm_readv`, `process_vm_writev`,
+  `process_madvise`, and `kcmp` inspect the caller's process or its threads,
+  with explicit refusals for other processes.
+- **Seccomp and tracing.** Strict seccomp and classic BPF filters apply to
+  guest syscall entry. Guest `ptrace` implements attach/seize, register and
+  memory access, syscall stops and editing, job-control and process events,
+  and seccomp events/queries. It reaches linked parent/child processes and
+  descendants passed to the tracer. Single-step is implemented for x86-64
+  and AArch64; block-step is x86-64 only. RISC-V step requests are refused.
+- **Splicing and asynchronous I/O.** `splice`, `vmsplice`, and Linux-host
+  `tee` are implemented. Linux AIO (`io_setup`, `io_submit`, `io_getevents`,
+  `io_pgetevents`, `io_cancel`, `io_destroy`) provides completion rings,
+  file/vector transfers, syncs, poll requests, and eventfd notifications.
+  This is the Linux AIO interface; it does not imply `io_uring` support.
+- **Administration.** Machine, clock, module, and mount calls perform guest
+  argument/permission checks and refuse unsupported changes. They do not
+  create a separate guest kernel, mount tree, or network namespace.
+
+## i386 compatibility tasks
+
+ELF32 `EM_386`/`EM_486` programs use the x86 core with `CS=0x23`, 32-bit
+stack words, `AT_PLATFORM=i686`, and `INT 0x80` syscall numbering. The user
+address limit and stack top are `0xFFFFE000`; a PIE starts at `0x56555000`.
+`set_thread_area` and `get_thread_area` manage Linux-style GDT TLS entries.
+
+The compatibility dispatcher implements matching-layout calls and explicit
+32-bit conversions. Current conversions include `mmap`/`mmap2`, iovecs,
+`execve` argument/environment pointers, split 64-bit file offsets, `_llseek`,
+file status/statistics, directory entries, `fcntl` record locks, and
+`time32`/`time64` clock, sleep, and timer layouts. File and path operations,
+32-bit ID calls, and selected event-descriptor and memory controls are reachable through that table. The owning table is
+[`syscall::compat`](../../src/user/linux/syscall/compat/mod.rs); support
+must be checked there for the exact syscall and layout.
+
+This is a partial ABI: signal-handler installation/return, thread creation,
+child wait calls, sockets, and `ptrace` calls lack a compatibility path.
+Calls without a conversion return `ENOSYS`; unsupported compatibility
+`ioctl`s return `ENOTTY`. `SYSENTER` raises `SIGILL`, no 32-bit vDSO is
+provided, and compatibility code does not use the JIT. A 64-bit process's
+`INT 0x80` is still refused with `ENOSYS` after seccomp checks. The recorded
+three-ISA fixture and whole-program corpora below do not exercise i386.
+
 ## Current limitations
 
-These are tracked in [Status and limitations](../reference/status-and-limitations.md)
-and in the [user-mode architecture page](../architecture/user-mode.md):
+The [status page](../reference/status-and-limitations.md#required-user-mode-qualifications)
+and [architecture page](../architecture/user-mode.md) own the complete
+subsystem qualifications. The operational boundaries are:
 
-- With `--no-signal-forwarding`, a wait for a signal with no timeout
-  (`pause`, `sigsuspend`) that no timer can end stops the process with a
-  diagnostic. A stop signal's default action stops the `rax-user` process
-  itself.
-- CPU-time timers (`CLOCK_PROCESS_CPUTIME_ID`, `CLOCK_THREAD_CPUTIME_ID`,
-  and the CPU clocks of the process and its threads) count `rax-user`'s
-  CPU time, as `clock_gettime` reports it; other processes' CPU clocks are
-  refused (`EINVAL`). The alarm clocks need root (`CAP_WAKE_ALARM`), and a
-  real-time clock is assumed. `TFD_TIMER_CANCEL_ON_SET` is accepted, but
-  changes of the host clock are not observed, so no `timerfd` is
-  canceled. In `/proc/<pid>/fdinfo`, mount IDs only tell file systems
-  apart (there is no `mountinfo`), file locks and sockets' `scm_fds` are
-  not shown, and an `epoll` instance lists its items in the order they
-  were added.
-- An `epoll` instance is copied, not shared, by `fork`. Readiness the
-  emulator does not cause itself (input from a terminal or another
-  process, a timer's expiry, a signal) is found when a wait looks, so an
-  edge-triggered item reports it once per growth of the data waiting and
-  items that became ready that way are reported in the order they were
-  added; `EPOLLWAKEUP` needs root, and the limits on watches and wake-up
-  paths are not enforced.
-- A process sharing memory with its parent (`CLONE_VM`) is a copy: with
-  `CLONE_VFORK` (`vfork`, `posix_spawn`) the parent still sleeps until the
-  child calls `execve` or exits, but does not see the child's stores (a
-  glibc `posix_spawn` whose `execve` fails therefore reports success and
-  the child exits with 127). Without `CLONE_VFORK` such a process, and one
-  sharing descriptors, file-system context, or handlers (`CLONE_FILES`,
-  `CLONE_FS`, `CLONE_SIGHAND` without `CLONE_THREAD`), and `CLONE_PARENT`
-  are not supported.
-- A pidfd sees a process that is not the caller's child as gone as soon
-  as it exits (its parent alone knows it as a zombie until it is reaped),
-  and names no thread of another process. `pidfd_getfd` takes only the
-  caller's own descriptors (`EPERM` for another process's). In
-  `PIDFD_GET_INFO`, there is no cgroup ID, another process's credentials
-  and parent are the host's, and exit information exists only for the
-  caller's threads and the children it reaped. The namespace `ioctl`s
-  report no namespaces (`EOPNOTSUPP`).
-- Signals to other processes are host signals: they arrive as `SI_USER`
-  from the sender, without a `sigqueue` value; a real-time signal the host
-  lacks reaches only the sending process; a thread of another process
-  other than its leader cannot be named; `kill(-1)` reaches the caller's
-  children. Between `rax-user` processes the sender is exact (its UID the
-  guest's); a signal from a process outside `rax-user` carries the host's
-  report, which on macOS hosts is lost (`SI_KERNEL`) when the signal
-  arrives while the target forks or a child of the target exits.
-- `/proc` describes only the calling process. `PR_SET_PDEATHSIG` is
-  recorded but never delivered.
-- A thread must share the descriptor table and file-system context
-  (`CLONE_FILES | CLONE_FS`, otherwise `EINVAL`); `CLONE_PIDFD` and
-  `CLONE_INTO_CGROUP` are `EINVAL` and namespace flags `EPERM`.
-  `FUTEX_WAIT_REQUEUE_PI` and `FUTEX_CMP_REQUEUE_PI` return `ENOSYS`; an
-  absolute `CLOCK_REALTIME` futex timeout does not follow later changes of
-  the host clock.
-- Pipes the guest creates never block the host (their blocking is
-  emulated), but a write to an inherited pipe or terminal whose reader is
-  slow (standard output into a pager) holds every guest thread until it
-  completes. On macOS hosts, whose `PIPE_BUF` is 512 bytes, a pipe write of
-  513 to 4,096 bytes into a nearly full pipe can be split, which another
-  writer to the same pipe could observe.
-- The 32-bit `INT 0x80` system-call ABI on x86-64 returns `-ENOSYS`.
-- A `memfd` is one object for this process, its children, and
-  descriptors passed within the process; one passed to another process
-  with `SCM_RIGHTS`, or opened again through `/proc/self/fd`, is an
-  ordinary file there, without seals. `F_SEAL_WRITE` is refused only for
-  writable shared mappings in the calling process. An `MFD_HUGETLB`
-  `memfd` cannot be mapped (the huge-page pool is empty).
-- A private file mapping copies a page from the file at its first touch,
-  so later changes to the file never reach that page (Linux shows them
-  until the page is written). A shared mapping of a block device is a
-  copy. When another process truncates a file this process maps shared,
-  past a page this process has touched, the next access faults
-  `rax-user` itself rather than raising `SIGBUS` in the guest (the guest's
-  own truncations are handled).
-- Socket families other than `AF_UNIX`, `AF_INET`, and `AF_INET6`
-  (netlink, packet, ...) are `EAFNOSUPPORT`, so interface lists through
-  netlink are unavailable, and the interface `ioctl`s report no device.
-  Options without a host counterpart (`SO_TIMESTAMP`, `IP_PKTINFO`,
-  `TCP_QUICKACK`, ...) and IP-level control messages are accepted but
-  have no effect. A description without a host descriptor (`eventfd`,
-  `timerfd`, `signalfd`, `epoll`, a `/proc` file) passed with
-  `SCM_RIGHTS` reaches only its own process, and one passed to another
-  process arrives with its access mode and `O_APPEND` but not its other
-  status flags. `SO_PASSCRED` reports the connected peer's credentials,
-  not each sender's. Peers see a socket bound by a relative path under
-  its absolute path. The timeouts count whole milliseconds (a 1000 Hz
-  kernel), and `MSG_CMSG_COMPAT` is an ordinary bit, as in a kernel
-  without 32-bit system calls.
-- On macOS hosts an abstract socket name is a file in a per-user temporary
-  directory, a path longer than 103 bytes is bound through a temporary
-  link that peers see, sequenced-packet Unix sockets are unavailable, the
-  peer's `SHUT_RD` does not show in `poll`, and a datagram to a full
-  receiver is retried every millisecond until it fits.
-- Terminal attribute changes (`TCSETS*`) are accepted but not applied to the
-  host terminal; `TCGETS` reports Linux's default terminal settings.
+- `--sysroot` is an overlay: paths absent from it fall back to the host.
+  Files, pipes, locks, sockets, and guest child processes use host resources.
+- `CLONE_VM` child processes use copied private memory; `vfork` sleeps the
+  parent but does not expose child stores. Non-thread sharing of descriptor,
+  file-system, or signal-handler tables, namespaces, and requeue-PI futexes
+  are unsupported. Guest threads require `CLONE_FILES | CLONE_FS`.
+- CPU-time timers measure emulator host CPU time, including emulation overhead.
+  `TFD_TIMER_CANCEL_ON_SET` does not observe host-clock changes. Epoll instances
+  are copied by fork, and externally generated readiness has emulation-specific
+  edge/order limits. Scheduling attributes do not change scheduling policy.
+- Process-memory access and `kcmp` do not reach another process. Pidfds have
+  restricted cross-process descriptor, thread, credential, and exit-state
+  visibility; `PR_SET_PDEATHSIG` is recorded but not delivered.
+- Guest ptrace has no arbitrary same-user host-process attach, hardware
+  breakpoints, or SVE/vector regsets. Seccomp user notification is unsupported;
+  logging actions do not produce logs, and capability checks use the guest's
+  root/non-root model.
+- IPC namespaces are visible to `rax-user` processes, with resource-counting,
+  wake-up-order, and killed-process cleanup limits. The macOS inotify and
+  netlink models have narrower event/query coverage than their Linux backends.
+- A private file page is copied on first touch; external file changes do not
+  reach that copy. External truncation of an already touched shared file page
+  can fault the emulator itself. A memfd transferred to another process or
+  reopened through `/proc` loses seal tracking there.
+- Splicing copies bytes through host pipes; it does not gift kernel pages.
+  Linux AIO poll completion is detected at scheduler/syscall boundaries.
+  OFD locks and `tee` are unavailable on macOS. Terminal attribute changes
+  are accepted without applying them to the host terminal.
+- With `--no-signal-forwarding`, a signal wait that nothing can wake ends with
+  a diagnostic. Inherited blocking output can hold all guest threads while
+  the host write completes. A default stop signal stops the host process.
+
+## Validation scope
+
+The registered `user_linux` target compares decoded stdout text and exit status with
+checked-in Linux recordings for syscall fixtures and the morok whole-program
+corpus. Some expectations use an explicit architecture override when Rosetta
+or QEMU cannot exercise the kernel interface; `oracle-overrides.txt` records
+those cases. Whole-program output passes through declared noise filters, and
+`known-divergences.txt` is enforced exactly. Neither corpus is exhaustive
+Linux or ISA conformance, and neither covers i386 compatibility tasks.
+Both runners use UTF-8 lossy decoding, so this evidence does not establish
+equality of arbitrary binary output.
+
+```sh
+cargo test --release --locked --no-default-features --features smir-jit --test user_linux
+cargo test --locked --no-default-features --features smir-jit --lib user::
+```
+
+The ignored live Docker comparison requires Docker and explicit opt-in:
+
+```sh
+RAX_USER_DOCKER_ORACLE=1 cargo test --release --locked --no-default-features \
+    --features smir-jit --test user_linux -- --ignored --nocapture
+```
+
+See [Verification model](../development/verification.md) for the recorded
+oracle, output projection, host gates, and execution-mode distinctions.

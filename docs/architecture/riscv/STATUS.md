@@ -1,4 +1,13 @@
+[← Documentation home](../../../README.md)
+
 # RISC-V in rax — Implementation Status
+
+This is a historical ISA/JIT implementation report. Current execution scope
+and qualifications are maintained in [RISC-V architecture](README.md) and
+[Status and limitations](../../reference/status-and-limitations.md).
+The report's completeness and proof terminology applies only to its named
+corpora and compared state; self-skipped tests establish no comparison.
+It does not inventory the newer RV64 Linux process personality (`rax-user`).
 
 This document records the state of RISC-V support in rax across two layers:
 
@@ -9,9 +18,9 @@ This document records the state of RISC-V support in rax across two layers:
    RISC-V machine code to rax's SMIR and state-backed native x86-64 code.
 
 Companion docs: [`REMAINING.md`](REMAINING.md) (interpreter roadmap — privileged
-arch / MMU). The two verification harnesses are the backbone of the "provably
-correct" guarantee below; both **fail on any divergence** and self-skip when their
-toolchain is absent.
+arch / MMU). The two verification harnesses compare their named finite corpora;
+both fail on observed divergence and self-skip when their toolchain is absent.
+They do not establish a formal correctness guarantee.
 
 ---
 

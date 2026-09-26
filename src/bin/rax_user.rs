@@ -4,7 +4,8 @@
 //! rax-user [OPTIONS] <PROGRAM> [ARGS]...
 //! ```
 //!
-//! The guest ABI (x86-64, AArch64, or RV64) is taken from the ELF header.
+//! The guest ABI (x86-64, AArch64, RV64, or partial i386 compatibility)
+//! is taken from the ELF header.
 //! The exit status is the guest's: its `exit` code; when a signal killed it,
 //! death by the same signal, or `128 + N` for a signal whose default action
 //! dumps core (so the host records no crash of the emulator) or that the
@@ -48,10 +49,11 @@ mod unix {
     #[command(
         name = "rax-user",
         version,
-        about = "Run a Linux user-space program (x86-64, AArch64, RV64) on RAX's software CPUs",
+        about = "Run a Linux user-space program (x86-64, AArch64, RV64; partial i386) on RAX's software CPUs",
         long_about = "rax-user loads a Linux ELF executable as the kernel's binfmt_elf would \
 (with address-space randomization disabled), executes it on RAX's x86-64, AArch64, or RISC-V \
-CPU in user mode, and services its system calls on the host. Dynamically linked programs find \
+CPU in user mode, and services its system calls on the host. ELF32 i386 programs use a partial \
+compatibility syscall table and interpreter-only execution. Dynamically linked programs find \
 their interpreter and libraries through --sysroot, as with QEMU's -L.",
         trailing_var_arg = true
     )]

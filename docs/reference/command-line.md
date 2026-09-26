@@ -4,6 +4,11 @@
 
 This page describes the public options exposed by the current `rax` command-line parser. The executable’s `--help` output and `src/cli/mod.rs` remain authoritative when this page lags.
 
+`rax-user` has a separate parser in `src/bin/rax_user.rs`. Its ELF-selected
+ABI, sysroot, syscall logging, environment, scheduling-slice, and host-signal
+options are documented in [Linux programs](../getting-started/linux-programs.md).
+Machine `--arch`, `--backend`, GDB, and checkpoint options do not apply to it.
+
 ## Invocation model
 
 ```sh

@@ -9,6 +9,10 @@
 
 They have different contracts and should not share documentation examples without explaining the distinction.
 
+These restore paths belong to the machine application. `rax-user` does not
+expose `.rxc` checkpoints or these CLI triggers; guest ptrace register/memory
+access is not a serialized Linux-process checkpoint format.
+
 ## Whole-machine `.rxc` checkpoint
 
 The documented whole-machine format contains enough state to reconstruct a live machine without a separate kernel or TOML file:

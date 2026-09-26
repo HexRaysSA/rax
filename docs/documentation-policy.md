@@ -135,6 +135,6 @@ When a change affects public behavior:
 
 Use a compact block:
 
-> **Documentation conflict:** The root README advertises V73 Hexagon coverage, while the public `HexagonIsa` selector currently exposes V4 through V69 and defaults to V68. The implementation may contain newer semantics, but the selectable profile and advertised version are not aligned. Resolve by inspecting the decoder/version gates and then update both the selector and architecture page.
+> **Documentation conflict (resolved in the September 2026 review):** The Linux-program guide listed `AF_NETLINK` as unsupported, while the socket dispatch and dedicated tests already implemented it. The corrected guide distinguishes Linux host sockets from macOS `NETLINK_ROUTE` emulation and retains the latter's route/notification limits. A shared family name is not evidence of identical host coverage.
 
 A conflict is useful documentation. Hiding it is not.

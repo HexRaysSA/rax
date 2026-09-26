@@ -66,6 +66,31 @@ Use it to distinguish register/flag lowering from guest-memory helper behavior.
 
 These controls are not equivalent to Cargo features. `RAX_NO_JIT=1` changes runtime promotion; `--no-default-features` omits the native tier from the build.
 
+## Linux process execution and validation
+
+`RAX_NO_JIT` also establishes an x86-64 interpreter baseline for `rax-user`.
+RV64 process JIT selection uses its `--riscv-jit` option; i386 compatibility
+code stays interpreted.
+
+`TMPDIR` selects the host temporary namespace used by emulated System V and
+POSIX IPC, macOS abstract Unix sockets, and the emulated inotify hub. Processes
+that must share those objects need the same namespace. The fixture runner
+allocates a private `TMPDIR` for each run so unrelated cases do not share it.
+
+`RAX_USER_DOCKER_ORACLE` is a presence switch used only by the ignored
+`user_linux` live Docker comparison. Without it, that test reports `NOT RUN`
+even with `--include-ignored`; setting it also requires a usable Docker daemon
+and the three-architecture execution setup. The ordinary recorded-result
+comparisons do not need Docker.
+
+```sh
+RAX_USER_DOCKER_ORACLE=1 cargo test --release --locked --no-default-features \
+    --features smir-jit --test user_linux -- --ignored --nocapture
+```
+
+`--seed` controls `AT_RANDOM` and `getrandom` bytes; it does not make host
+timing or all process scheduling deterministic. See [Linux programs](../getting-started/linux-programs.md).
+
 ## Machine-selection control
 
 ### `RAX_MACHINE`
@@ -262,6 +287,7 @@ RAX_NO_JIT=
 RAX_JIT_VERIFY=
 RAX_JIT_NO_CALL=
 RAX_JIT_NO_MEM=
+RAX_USER_DOCKER_ORACLE=
 RAX_MACHINE=
 RAX_KERNEL=
 RAX_INITRD=

@@ -129,6 +129,22 @@ make test-microkernel
 
 The PGO target is explicitly host-tuned by default. Set `PGO_TARGET_CPU=x86-64-v3` when a more portable PGO artifact is required.
 
+## Building Linux process emulation
+
+`rax-user` is a root-package binary with no additional feature requirement:
+
+```sh
+cargo build --release --locked --no-default-features --bin rax-user
+# Include eligible x86-64 and opt-in RV64 native regions.
+cargo build --release --locked --no-default-features --features smir-jit --bin rax-user
+```
+
+It runs Linux ELF programs on Linux or macOS, selects the ABI from the ELF
+header, and loads dynamic interpreters/libraries through `--sysroot`.
+The primary ABIs are x86-64, AArch64, and RV64; i386 compatibility is partial
+and interpreted. KVM/HVF, a kernel image, and machine configuration are not
+part of this execution path. See [Linux programs](linux-programs.md).
+
 ## Building the C API
 
 ```sh
