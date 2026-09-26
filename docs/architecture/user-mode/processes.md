@@ -16,7 +16,8 @@ Implementation: `sched`.
 The process's threads run round-robin on the one emulated CPU: a thread keeps the
 CPU until its slice ends, it sleeps in a system call, it yields, or it exits.
 `clone`/`clone3` follow `copy_process` and each architecture's `copy_thread` (return
-value 0, stack, `CLONE_SETTLS`, a cleared alternate stack, RV64 vector state
+value 0, stack, `CLONE_SETTLS` (an i386 task's is a `struct user_desc`, checked
+before the child has a TID), a cleared alternate stack, RV64 vector state
 cleared, `CLONE_*_SETTID` and `CLONE_CHILD_CLEARTID` words, the arm64/riscv
 `CONFIG_CLONE_BACKWARDS` argument order).
 
@@ -27,7 +28,9 @@ Thread exit follows `do_exit`: process signals meant for the thread go to others
 (`synchronize_group_exit`). The robust lists of the threads still running when the
 process ends (`exit_group`, a fatal signal) are released as each one's `do_exit`
 would, and `execve` releases the caller's against the old address space under the
-TID `de_thread` gave it (`futex_exec_release`).
+TID `de_thread` gave it (`futex_exec_release`). An i386 task's 32-bit list
+(`compat_robust_list`) is a head of its own, released after the native one with
+32-bit address arithmetic.
 
 ## Sleeping in system calls
 

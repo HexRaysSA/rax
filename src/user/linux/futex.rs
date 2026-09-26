@@ -460,20 +460,38 @@ fn futex_death(
 
 /// `exit_robust_list` for exiting thread `tid` with list head `head`
 /// (`struct robust_list_head`: `list.next`, `futex_offset`,
-/// `list_op_pending`; bit 0 of an entry pointer marks a PI futex).
-pub fn exit_robust_list(p: &mut ProcState, th: &mut Threads<'_>, tid: i32, head: u64) {
+/// `list_op_pending`; bit 0 of an entry pointer marks a PI futex), or with
+/// `compat` `compat_exit_robust_list` for a `struct
+/// compat_robust_list_head` of 32-bit words, whose futex addresses wrap at
+/// 32 bits (`futex_uaddr`: `compat_ptr(base + futex_offset)`).
+pub fn exit_robust_list(
+    p: &mut ProcState,
+    th: &mut Threads<'_>,
+    tid: i32,
+    head: u64,
+    compat: bool,
+) {
+    let width = if compat { 4 } else { 8 };
     let read = |p: &ProcState, addr: u64| -> Option<u64> {
         let mut b = [0u8; 8];
-        p.space.read(addr, &mut b).ok()?;
+        p.space.read(addr, &mut b[..width]).ok()?;
         Some(u64::from_le_bytes(b))
     };
+    let uaddr = |entry: u64, offset: u64| {
+        if compat {
+            u64::from((entry as u32).wrapping_add(offset as u32))
+        } else {
+            entry.wrapping_add(offset)
+        }
+    };
+    let w = width as u64;
     let Some(first) = read(p, head) else {
         return;
     };
-    let Some(offset) = read(p, head + 8) else {
+    let Some(offset) = read(p, head + w) else {
         return;
     };
-    let Some(pending_raw) = read(p, head + 16) else {
+    let Some(pending_raw) = read(p, head + 2 * w) else {
         return;
     };
     let (pending, pending_pi) = (pending_raw & !1, pending_raw & 1 != 0);
@@ -481,7 +499,7 @@ pub fn exit_robust_list(p: &mut ProcState, th: &mut Threads<'_>, tid: i32, head:
     let mut limit = ROBUST_LIST_LIMIT;
     while entry != head {
         let next = read(p, entry);
-        if entry != pending && !futex_death(p, th, entry.wrapping_add(offset), tid, pi, false) {
+        if entry != pending && !futex_death(p, th, uaddr(entry, offset), tid, pi, false) {
             return;
         }
         let Some(next) = next else {
@@ -494,6 +512,6 @@ pub fn exit_robust_list(p: &mut ProcState, th: &mut Threads<'_>, tid: i32, head:
         }
     }
     if pending != 0 {
-        futex_death(p, th, pending.wrapping_add(offset), tid, pending_pi, true);
+        futex_death(p, th, uaddr(pending, offset), tid, pending_pi, true);
     }
 }

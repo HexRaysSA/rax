@@ -411,6 +411,9 @@ pub struct Thread {
     pub clear_child_tid: u64,
     /// `set_robust_list` head and length.
     pub robust_list: (u64, u64),
+    /// The head a 32-bit call registered (`compat_robust_list`), a list of
+    /// its own that exit also releases.
+    pub compat_robust_list: u64,
     /// Blocked signals.
     pub sigmask: u64,
     /// Signals pending for this thread (`task->pending`).
@@ -472,6 +475,7 @@ impl Thread {
             cpu,
             clear_child_tid: 0,
             robust_list: (0, 0),
+            compat_robust_list: 0,
             sigmask: 0,
             pending: SigPending::new(),
             altstack: AltStack::DISABLED,

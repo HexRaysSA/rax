@@ -480,7 +480,10 @@ fn the_end_of_the_process_releases_every_threads_robust_futexes() {
             let shared = h.anon(4096, 3, true);
             let (tid, w) = spawn(&mut h, 0, 0);
             // One list per thread, each holding a lock.
-            for (i, (idx, owner)) in [(0, h.proc.threads[0].tid), (w, tid)].into_iter().enumerate() {
+            for (i, (idx, owner)) in [(0, h.proc.threads[0].tid), (w, tid)]
+                .into_iter()
+                .enumerate()
+            {
                 let base = shared + 0x400 * i as u64;
                 let (head, entry, offset) = (base, base + 0x40, 0x20u64);
                 put_u64s(&h, head, &[entry, offset, 0]);

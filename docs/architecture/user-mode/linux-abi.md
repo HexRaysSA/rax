@@ -84,9 +84,15 @@ the one-word masks of `sigprocmask`, `sigpending`, `sigsuspend`, `sgetmask`, and
 handlers run on i386 frames ([signals](signals.md#i386-frames)).
 
 Calls without a conversion return `ENOSYS`, and unsupported `ioctl` commands return
-`ENOTTY`, rather than using 64-bit layouts. Thread creation, sockets, and ptrace
-calls are not in the compatibility table, nor is a seccomp filter (strict mode
-is, with the 32-bit list).
+`ENOTTY`, rather than using 64-bit layouts. Sockets and ptrace calls are not in
+the compatibility table, nor is a seccomp filter (strict mode is, with the 32-bit
+list).
+
+Threads: `clone` (in `sys_ia32_clone`'s argument order) and `clone3` take a `struct
+user_desc` for `CLONE_SETTLS`, filling the child's TLS entry (`set_new_tls`); the
+robust list a 32-bit call registers is a separate head of 12 bytes, released with
+32-bit address arithmetic; `futex_time32` reads `struct old_timespec32` and the
+`*_time64` futex calls clear the padding above the nanoseconds.
 The [compatibility dispatcher](../../../src/user/linux/syscall/compat/mod.rs)
 determines the exact supported call set, including wait and ID conversions. `SYSENTER` raises `SIGILL`; there is
 no ELF 32-bit vDSO (the `[vdso]` page holds only the signal-return trampolines).

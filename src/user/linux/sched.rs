@@ -422,16 +422,20 @@ impl LinuxProcess {
     }
 
     /// `futex_exit_release` (`futex_cleanup`) for every thread still in
-    /// the process: the robust futexes each holds are released, and its
-    /// list is forgotten.
+    /// the process: the robust futexes each holds are released, its native
+    /// list and then its 32-bit one, and both are forgotten.
     fn release_robust_lists(&mut self) {
         for idx in 0..self.threads.len() {
             let t = &mut self.threads[idx];
-            let (tid, head) = (t.tid, t.robust_list.0);
+            let (tid, native, compat) = (t.tid, t.robust_list.0, t.compat_robust_list);
             t.robust_list = (0, 0);
-            if head != 0 {
-                let mut th = Threads::split(&mut self.threads, Some(idx));
-                futex::exit_robust_list(&mut self.state, &mut th, tid, head);
+            t.compat_robust_list = 0;
+            let mut th = Threads::split(&mut self.threads, Some(idx));
+            if native != 0 {
+                futex::exit_robust_list(&mut self.state, &mut th, tid, native, false);
+            }
+            if compat != 0 {
+                futex::exit_robust_list(&mut self.state, &mut th, tid, compat, true);
             }
         }
     }
@@ -444,9 +448,10 @@ impl LinuxProcess {
         // exit_notify: its tracer learns of it.
         super::ptrace::tracee::gone(&mut self.state, &self.threads[idx], status);
         let t = &self.threads[idx];
-        let (tid, robust, clear, vfork_parent, mask, pc) = (
+        let (tid, robust, compat_robust, clear, vfork_parent, mask, pc) = (
             t.tid,
             t.robust_list.0,
+            t.compat_robust_list,
             t.clear_child_tid,
             t.vfork_parent,
             t.sigmask,
@@ -459,8 +464,12 @@ impl LinuxProcess {
             if others && th.current().is_some_and(|t| t.sigpending) {
                 retarget_shared_pending(&self.state, &mut th, !mask);
             }
+            // futex_cleanup: the native list, then the 32-bit one.
             if robust != 0 {
-                futex::exit_robust_list(&mut self.state, &mut th, tid, robust);
+                futex::exit_robust_list(&mut self.state, &mut th, tid, robust, false);
+            }
+            if compat_robust != 0 {
+                futex::exit_robust_list(&mut self.state, &mut th, tid, compat_robust, true);
             }
             futex::exit_pi(&mut self.state, &mut th, tid);
             self.state.futex.unqueue(tid);

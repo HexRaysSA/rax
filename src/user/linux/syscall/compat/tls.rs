@@ -1,13 +1,15 @@
 //! i386 thread-local storage (`arch/x86/kernel/tls.c`, `asm/desc.h`
 //! `fill_ldt`, `LDT_empty`, `LDT_zero`): `set_thread_area` and
 //! `get_thread_area` over the thread's GDT entries 12-14, as a
-//! `struct user_desc`.
+//! `struct user_desc`, and the descriptor a 32-bit clone's `CLONE_SETTLS`
+//! gives the child (`set_new_tls`).
 
 use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;
 use super::super::super::arch::GuestCpu;
 use super::super::Ctx;
 use crate::isa::x86_64::{GDT_ENTRY_TLS_MAX, GDT_ENTRY_TLS_MIN};
+use crate::user::cpu::x86_64::X86UserCpu;
 
 /// `sizeof(struct user_desc)`.
 const USER_DESC: usize = 16;
@@ -134,22 +136,23 @@ impl UserDesc {
     }
 }
 
-fn x86<'c>(c: &'c mut Ctx<'_>) -> Result<&'c mut crate::user::cpu::x86_64::X86UserCpu, Errno> {
+fn x86<'c>(c: &'c mut Ctx<'_>) -> Result<&'c mut X86UserCpu, Errno> {
     match &mut c.t.cpu {
         GuestCpu::X86_64(cpu) => Ok(cpu),
         _ => Err(Errno(ENOSYS)),
     }
 }
 
-/// `do_set_thread_area` for the calling thread (`idx` -1 takes the
-/// entry number from the descriptor, and -1 there allocates a free entry
-/// when `can_allocate`, written back).
-pub fn do_set_thread_area(
+/// The `struct user_desc` at `u_info`, checked (`tls_desc_okay`), and the
+/// entry it names: `idx`, or with `idx` -1 its own `entry_number`, which
+/// -1 allocates a free entry when `can_allocate` (the number written
+/// back). The part of `do_set_thread_area` before the descriptor is set.
+fn tls_entry(
     c: &mut Ctx<'_>,
     idx: i32,
     u_info: u64,
     can_allocate: bool,
-) -> Result<u64, Errno> {
+) -> Result<(usize, u64), Errno> {
     let b = c.read_mem(u_info, USER_DESC)?;
     let info = UserDesc::decode(&b);
     if !info.okay() {
@@ -174,11 +177,37 @@ pub fn do_set_thread_area(
     if !(GDT_ENTRY_TLS_MIN as i32..=GDT_ENTRY_TLS_MAX as i32).contains(&idx) {
         return Err(Errno(EINVAL));
     }
-    let cpu = x86(c)?;
-    cpu.vcpu_mut()
-        .set_user_tls_entry(idx as usize, info.descriptor());
-    // The registers holding the entry load it again.
-    cpu.vcpu_mut().reload_user_segments((idx as u16) << 3 | 3);
+    Ok((idx as usize, info.descriptor()))
+}
+
+/// `set_tls_desc` and the refresh `do_set_thread_area` makes: TLS entry
+/// `index` of `cpu`'s table becomes `descriptor`, and the segment
+/// registers holding its selector load it again (for a new task, the
+/// switch to it does).
+pub fn install(cpu: &mut X86UserCpu, index: usize, descriptor: u64) {
+    let v = cpu.vcpu_mut();
+    v.set_user_tls_entry(index, descriptor);
+    v.reload_user_segments((index as u16) << 3 | 3);
+}
+
+/// `set_new_tls` of a 32-bit clone: `do_set_thread_area(p, -1, utls, 0)`
+/// for the child, checked in the caller before the child exists. The
+/// descriptor's own entry number must name a TLS entry.
+pub fn new_tls(c: &mut Ctx<'_>, u_info: u64) -> Result<(usize, u64), Errno> {
+    tls_entry(c, -1, u_info, false)
+}
+
+/// `do_set_thread_area` for the calling thread (`idx` -1 takes the
+/// entry number from the descriptor, and -1 there allocates a free entry
+/// when `can_allocate`, written back).
+pub fn do_set_thread_area(
+    c: &mut Ctx<'_>,
+    idx: i32,
+    u_info: u64,
+    can_allocate: bool,
+) -> Result<u64, Errno> {
+    let (index, descriptor) = tls_entry(c, idx, u_info, can_allocate)?;
+    install(x86(c)?, index, descriptor);
     Ok(0)
 }
 

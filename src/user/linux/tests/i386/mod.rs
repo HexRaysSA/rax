@@ -16,12 +16,14 @@
 //! | [`process`] | 16-bit IDs, limits, usage, waits, `times`, `sysinfo`, CPU masks, old `uname`s, `nice`, `arch_prctl` |
 //! | [`sigcalls`] | the signal calls' 32-bit structures, `struct compat_siginfo`, restart by the low half |
 //! | [`signals`] | the i386 signal frames, `sigreturn`, `rt_sigreturn`, strict seccomp |
+//! | [`threads`] | `CLONE_SETTLS` descriptors, the 32-bit robust list, `futex_time32` |
 //! | [`time`] | clocks, sleeps, time setting, interval and POSIX timers, timerfds, file times |
 
 mod files;
 mod process;
 mod sigcalls;
 mod signals;
+mod threads;
 mod time;
 
 use super::harness::{CODE, Harness};

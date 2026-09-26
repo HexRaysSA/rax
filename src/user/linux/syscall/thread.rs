@@ -11,6 +11,7 @@
 use super::super::abi::LinuxAbi;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
+use super::super::arch::GuestCpu;
 use super::super::ipc::UndoList;
 use super::super::process::Thread;
 use super::super::signal::deliver::recalc_sigpending;
@@ -100,6 +101,50 @@ const CLONE_ARGS_SIZE_VER2: u64 = 88;
 const MAX_PID_NS_LEVEL: u64 = 32;
 /// `PID_MAX_LIMIT` on 64-bit kernels: the largest `pid_max`.
 const PID_MAX_LIMIT: i32 = 4 * 1024 * 1024;
+
+/// What `CLONE_SETTLS` gives the new task (`set_new_tls`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NewTls {
+    /// A thread-pointer value: x86-64 `ARCH_SET_FS`, arm64 `TPIDR_EL0`,
+    /// riscv `tp`.
+    Pointer(u64),
+    /// A 32-bit caller's `struct user_desc`, read and checked in the
+    /// caller: GDT TLS entry `index` becomes `descriptor` in the child.
+    Descriptor {
+        /// The entry.
+        index: usize,
+        /// Its descriptor.
+        descriptor: u64,
+    },
+}
+
+impl NewTls {
+    /// `set_new_tls`'s checks, made by `copy_thread` before the child has
+    /// a TID: a 32-bit call's `tls` is a `struct user_desc` pointer
+    /// (`do_set_thread_area` without allocation), and x86-64's
+    /// `ARCH_SET_FS` refuses a kernel address.
+    pub fn new(c: &mut Ctx<'_>, tls: u64) -> Result<NewTls, Errno> {
+        if c.compat {
+            let (index, descriptor) = super::compat::tls::new_tls(c, tls)?;
+            return Ok(NewTls::Descriptor { index, descriptor });
+        }
+        if c.p.abi == LinuxAbi::X86_64 && tls >= c.p.abi.task_size() {
+            return Err(Errno(EPERM));
+        }
+        Ok(NewTls::Pointer(tls))
+    }
+
+    /// Gives `cpu`, the child's, its thread pointer.
+    pub fn apply(self, cpu: &mut GuestCpu) {
+        match (self, cpu) {
+            (NewTls::Pointer(tp), cpu) => cpu.set_thread_pointer(tp),
+            (NewTls::Descriptor { index, descriptor }, GuestCpu::X86_64(x)) => {
+                super::compat::tls::install(x, index, descriptor)
+            }
+            (NewTls::Descriptor { .. }, _) => unreachable!("a user_desc comes from an x86 task"),
+        }
+    }
+}
 
 /// `struct kernel_clone_args`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -268,6 +313,7 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
                 exit_signal: args.exit_signal,
                 stack: args.stack,
                 tls: args.tls,
+                new_tls: None,
                 parent_tid: args.parent_tid,
                 child_tid: args.child_tid,
                 pidfd: args.pidfd,
@@ -282,10 +328,11 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     // sched_fork (EAGAIN for a deadline task), then copy_thread.
     let sched = c.t.sched.forked(flags & CLONE_IO != 0)?;
     let sysvsem = copy_semundo(c, flags);
-    if flags & CLONE_SETTLS != 0 && c.p.abi == LinuxAbi::X86_64 && args.tls >= c.p.abi.task_size() {
-        // x86-64 set_new_tls: ARCH_SET_FS refuses a kernel address.
-        return Err(Errno(EPERM));
-    }
+    let tls = if flags & CLONE_SETTLS != 0 {
+        Some(NewTls::new(c, args.tls)?)
+    } else {
+        None
+    };
     // alloc_pid: one PID namespace level exists, a chosen TID must be in
     // range, and choosing one needs CAP_CHECKPOINT_RESTORE.
     let tid = match args.set_tid.as_slice() {
@@ -314,8 +361,8 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     if args.stack != 0 {
         cpu.set_sp(args.stack);
     }
-    if flags & CLONE_SETTLS != 0 {
-        cpu.set_thread_pointer(args.tls);
+    if let Some(tls) = tls {
+        tls.apply(&mut cpu);
     }
     let mut child = Thread::new(tid, cpu);
     child.sigmask = c.t.sigmask;

@@ -180,6 +180,17 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         | S::RtSigprocmask
         | S::RtSigpending
         | S::RtSigsuspend
+        // Threads: clone's CLONE_SETTLS reads a struct user_desc
+        // (`thread::NewTls`), the robust-list calls keep the 32-bit list,
+        // and struct futex_waitv has one layout.
+        | S::Clone
+        | S::Clone3
+        | S::SetRobustList
+        | S::GetRobustList
+        | S::FutexWaitv
+        | S::FutexWake
+        | S::FutexWait
+        | S::FutexRequeue
         // struct compat_siginfo in and out (`read_user_siginfo`,
         // rt_sigtimedwait), and the i386 frames of the sigreturns.
         | S::RtSigqueueinfo
@@ -329,6 +340,9 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::Sigaltstack => r(signal::sigaltstack(c, a[0], a[1])),
         S::Sigreturn => super::signal::sigreturn(c),
         S::RtSigtimedwait => time32(c, S::RtSigtimedwait, a),
+        // futex_time32 and futex_time64.
+        S::Futex => time32(c, S::Futex, a),
+        S::FutexTime64 => call_handler(c, S::Futex, a),
         S::RtSigtimedwaitTime64 => call_handler(c, S::RtSigtimedwait, a),
         S::GetThreadArea => r(tls::get_thread_area(c, a[0])),
         // sys_mmap_pgoff: the offset in pages.

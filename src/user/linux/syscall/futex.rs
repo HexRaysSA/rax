@@ -56,12 +56,14 @@ const WAITV_MAX: u32 = 128;
 const NO_NODE: u32 = u32::MAX;
 /// `sizeof(struct robust_list_head)` on 64-bit ABIs.
 const ROBUST_LIST_HEAD_SIZE: u64 = 24;
+/// `sizeof(struct compat_robust_list_head)`.
+const COMPAT_ROBUST_LIST_HEAD_SIZE: u64 = 12;
 
-/// Reads a `struct __kernel_timespec` (`EFAULT`) and checks it
-/// (`timespec64_valid`, `EINVAL`).
+/// Reads a timeout (`EFAULT`) in the layout the call uses (`struct
+/// __kernel_timespec`, or `struct old_timespec32` for `futex_time32`;
+/// [`Ctx::get_timespec`]) and checks it (`timespec64_valid`, `EINVAL`).
 fn read_timespec(c: &Ctx<'_>, addr: u64) -> Result<Timespec, Errno> {
-    let b: [u8; 16] = c.read_mem(addr, 16)?.try_into().unwrap();
-    let t = Timespec::decode(&b);
+    let t = c.get_timespec(addr)?;
     if t.sec < 0 || !(0..1_000_000_000).contains(&t.nsec) {
         return Err(Errno(EINVAL));
     }
@@ -560,8 +562,16 @@ pub fn futex_requeue(
     )
 }
 
-/// `set_robust_list`.
+/// `set_robust_list`, or for a 32-bit call `compat_sys_set_robust_list`,
+/// which registers the thread's separate 32-bit list.
 pub fn set_robust_list(c: &mut Ctx<'_>, head: u64, len: u64) -> SysResult {
+    if c.compat {
+        if len != COMPAT_ROBUST_LIST_HEAD_SIZE {
+            return Err(Errno(EINVAL));
+        }
+        c.t.compat_robust_list = head;
+        return Ok(0);
+    }
     if len != ROBUST_LIST_HEAD_SIZE {
         return Err(Errno(EINVAL));
     }
@@ -569,18 +579,33 @@ pub fn set_robust_list(c: &mut Ctx<'_>, head: u64, len: u64) -> SysResult {
     Ok(0)
 }
 
-/// `get_robust_list` of the caller (`pid` 0) or another thread.
+/// `get_robust_list` of the caller (`pid` 0) or another thread; a 32-bit
+/// call reads the 32-bit list and stores 32-bit words
+/// (`compat_sys_get_robust_list`).
 pub fn get_robust_list(c: &mut Ctx<'_>, pid: i32, head_ptr: u64, len_ptr: u64) -> SysResult {
+    let compat = c.compat;
+    let of = |t: &super::super::process::Thread| {
+        if compat {
+            t.compat_robust_list
+        } else {
+            t.robust_list.0
+        }
+    };
     let head = if pid == 0 || pid == c.t.tid {
-        c.t.robust_list.0
+        of(c.t)
     } else {
         let (_, th) = c.split();
         th.iter()
             .find(|t| t.tid == pid)
-            .map(|t| t.robust_list.0)
+            .map(of)
             .ok_or(Errno(ESRCH))?
     };
-    c.write_u64(len_ptr, ROBUST_LIST_HEAD_SIZE)?;
-    c.write_u64(head_ptr, head)?;
+    if compat {
+        c.write_u32(len_ptr, COMPAT_ROBUST_LIST_HEAD_SIZE as u32)?;
+        c.write_u32(head_ptr, head as u32)?;
+    } else {
+        c.write_u64(len_ptr, ROBUST_LIST_HEAD_SIZE)?;
+        c.write_u64(head_ptr, head)?;
+    }
     Ok(0)
 }

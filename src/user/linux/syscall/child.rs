@@ -56,6 +56,8 @@ pub struct ForkArgs {
     pub stack: u64,
     /// `CLONE_SETTLS` value.
     pub tls: u64,
+    /// The child's thread pointer, once checked (`CLONE_SETTLS`).
+    pub new_tls: Option<super::thread::NewTls>,
     /// `CLONE_PARENT_SETTID` address.
     pub parent_tid: u64,
     /// `CLONE_CHILD_SETTID`/`CLONE_CHILD_CLEARTID` address.
@@ -83,11 +85,9 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     // sched_fork (EAGAIN for a deadline task), then copy_thread.
     let sched = c.t.sched.forked(flags & CLONE_IO != 0)?;
     let sysvsem = super::thread::copy_semundo(c, flags);
-    if flags & CLONE_SETTLS != 0
-        && c.p.abi == super::super::abi::LinuxAbi::X86_64
-        && args.tls >= c.p.abi.task_size()
-    {
-        return Err(Errno(EPERM));
+    let mut args = args;
+    if flags & CLONE_SETTLS != 0 {
+        args.new_tls = Some(super::thread::NewTls::new(c, args.tls)?);
     }
     // alloc_pid: a chosen PID needs CAP_CHECKPOINT_RESTORE; the host
     // chooses a new process's PID, so it cannot be honored.
@@ -228,6 +228,7 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     t.pending = super::super::signal::SigPending::new();
     t.sigpending = false;
     t.robust_list = (0, 0);
+    t.compat_robust_list = 0;
     t.restart = None;
     t.clear_child_tid = if args.flags & CLONE_CHILD_CLEARTID != 0 {
         args.child_tid
@@ -242,8 +243,8 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     if args.stack != 0 {
         t.cpu.set_sp(args.stack);
     }
-    if args.flags & CLONE_SETTLS != 0 {
-        t.cpu.set_thread_pointer(args.tls);
+    if let Some(tls) = args.new_tls {
+        tls.apply(&mut t.cpu);
     }
 }
 
@@ -293,6 +294,7 @@ fn fork_like(c: &mut Ctx<'_>, flags: u64) -> Result<Outcome, Errno> {
             exit_signal: SIGCHLD as u64,
             stack: 0,
             tls: 0,
+            new_tls: None,
             parent_tid: 0,
             child_tid: 0,
             pidfd: 0,

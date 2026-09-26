@@ -284,15 +284,22 @@ impl LinuxProcess {
         // exec_mm_release (futex_exec_release, futex_cleanup): the robust
         // futexes the caller holds are released in the old address space,
         // under the TID de_thread gave it.
-        if t.robust_list.0 != 0 {
+        {
             let mut th = super::process::Threads::split(&mut self.threads, None);
-            super::futex::exit_robust_list(p, &mut th, t.tid, t.robust_list.0);
+            let (tid, native, compat) = (t.tid, t.robust_list.0, t.compat_robust_list);
+            if native != 0 {
+                super::futex::exit_robust_list(p, &mut th, tid, native, false);
+            }
+            if compat != 0 {
+                super::futex::exit_robust_list(p, &mut th, tid, compat, true);
+            }
         }
         t.cpu = image.cpu;
         // arch_setup_new_exec re-enables CPUID but keeps TIF_NOTSC.
         t.cpu.set_tsc_disabled(t.notsc);
         t.altstack = AltStack::DISABLED;
         t.robust_list = (0, 0);
+        t.compat_robust_list = 0;
         t.clear_child_tid = 0;
         t.set_child_tid = 0;
         t.vfork_parent = None;
