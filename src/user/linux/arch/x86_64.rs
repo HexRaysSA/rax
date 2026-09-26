@@ -14,6 +14,7 @@ use crate::user::cpu::x86_64::{X86Exit, X86UserCpu};
 use crate::user::cpu::{AccessFault, AccessFaultKind};
 use crate::user::linux::signal::frame::FaultUpdate;
 use crate::user::linux::signal::{SIGBUS, SIGFPE, SIGILL, SIGSEGV, SIGTRAP, SigInfo, code};
+use crate::user::mm::AddressSpace;
 
 /// `sizeof(struct rt_sigframe)` on x86-64: `pretcode` (8) + `struct
 /// ucontext` (304) + `struct siginfo` (128).
@@ -120,12 +121,19 @@ pub(crate) fn trap_record(e: &X86UserEvent) -> FaultUpdate {
     }
 }
 
-/// `set_signal_archinfo` for a page fault: vector 14, the #PF error code
-/// (P for protection violations, W for writes, U always, I for
-/// instruction fetches; P is forced at or above `TASK_SIZE_MAX`), and cr2.
-pub(crate) fn page_fault_record(f: &AccessFault) -> FaultUpdate {
+/// `set_signal_archinfo` for a page fault: vector 14, the #PF error code,
+/// and cr2. P reports a present page-table entry: a protection violation on
+/// a page already populated in `space` (Linux maps a page at its first
+/// permitted touch, a read of anonymous memory mapping the zero page) whose
+/// protection is not `PROT_NONE` (such entries are not present to the
+/// hardware), and any address at or above `TASK_SIZE_MAX`; W marks writes,
+/// U is always set, and I marks instruction fetches.
+pub(crate) fn page_fault_record(f: &AccessFault, space: &AddressSpace) -> FaultUpdate {
     let mut error_code = 1 << 2;
-    if f.kind == AccessFaultKind::Permission || f.addr >= (1 << 47) - 4096 {
+    let present = f.kind == AccessFaultKind::Permission
+        && space.is_resident(f.addr)
+        && space.vma_at(f.addr).is_some_and(|v| !v.perms.is_empty());
+    if present || f.addr >= (1 << 47) - 4096 {
         error_code |= 1;
     }
     match f.access {
@@ -220,7 +228,10 @@ fn event(cpu: &mut X86UserCpu, exit: X86Exit) -> CpuEvent {
             }
             Err(()) => CpuEvent::Internal(format!("unexpected x86 event {e:?}")),
         },
-        X86Exit::Fault(f) => CpuEvent::Signal(fault_signal(&f), page_fault_record(&f)),
+        X86Exit::Fault(f) => {
+            let update = page_fault_record(&f, cpu.space());
+            CpuEvent::Signal(fault_signal(&f), update)
+        }
         X86Exit::Yield => CpuEvent::Yield,
         X86Exit::Internal(e) => CpuEvent::Internal(e.to_string()),
     }

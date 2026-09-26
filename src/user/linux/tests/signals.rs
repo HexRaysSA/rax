@@ -590,6 +590,46 @@ fn riscv_trampoline_is_li_a7_ecall_and_x86_has_none() {
 }
 
 #[test]
+fn the_x86_page_fault_error_code_reports_a_present_entry() {
+    // The #PF error code's P bit is the entry's presence (Intel SDM Vol. 3A
+    // §4.7): Linux populates a page at its first permitted touch (a read
+    // of anonymous memory maps the zero page), and a PROT_NONE entry is
+    // not present to the hardware.
+    use crate::error::MemoryAccessKind::{Fetch, Read, Write};
+    use crate::user::cpu::{AccessFault, AccessFaultKind};
+    let mut h = Harness::new(LinuxAbi::X86_64);
+    let base = h.anon(3 * 4096, 1, false);
+    let (untouched, read_first, none) = (base, base + 4096, base + 8192);
+    h.ok(Sysno::Mprotect, &[none, 4096, 3]);
+    let space = &h.proc.state.space;
+    space.write(none, &[1]).unwrap();
+    let mut b = [0u8; 1];
+    space.read(read_first, &mut b).unwrap();
+    h.ok(Sysno::Mprotect, &[none, 4096, 0]);
+    let space = &h.proc.state.space;
+    let err = |addr, access| {
+        let f = AccessFault {
+            addr,
+            access,
+            kind: AccessFaultKind::Permission,
+            pc: CODE,
+        };
+        match crate::user::linux::arch::x86_64::page_fault_record(&f, space) {
+            frame::FaultUpdate::X86 { error_code, .. } => error_code,
+            other => panic!("{other:?}"),
+        }
+    };
+    // U | W: an untouched read-only page is not present.
+    assert_eq!(err(untouched, Write), 6);
+    // P | U | W, and P | U | I for a fetch: populated by the read.
+    assert_eq!(err(read_first, Write), 7);
+    assert_eq!(err(read_first, Fetch), 0x15);
+    // A populated page made PROT_NONE: U, U | W.
+    assert_eq!(err(none, Read), 4);
+    assert_eq!(err(none, Write), 6);
+}
+
+#[test]
 fn a_fault_records_the_arch_fault_state() {
     use crate::error::MemoryAccessKind;
     use crate::user::cpu::{AccessFault, AccessFaultKind};
@@ -611,7 +651,9 @@ fn a_fault_records_the_arch_fault_state() {
             pc: CODE + 0x40,
         };
         let update = match abi {
-            LinuxAbi::X86_64 => crate::user::linux::arch::x86_64::page_fault_record(&f),
+            LinuxAbi::X86_64 => {
+                crate::user::linux::arch::x86_64::page_fault_record(&f, &h.proc.state.space)
+            }
             LinuxAbi::Aarch64 => frame::FaultUpdate::Arm64 {
                 address: f.addr,
                 esr: crate::user::linux::arch::aarch64::abort_esr(&f),
