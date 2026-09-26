@@ -2,8 +2,10 @@
 //!
 //! Fixtures, sources, and the case table live in `tests/fixtures/user/linux`
 //! (see its README). `expected/<arch>/<case>.{stdout,status}` were recorded
-//! on Linux by `record-expected.sh`; every case must match them byte for
-//! byte under `rax-user`.
+//! on Linux by `record-expected.sh` (x86-64, AArch64, RV64, through Docker)
+//! and `oracle/record-kernel.sh` (i386, on an x86-64 kernel under
+//! `qemu-system-x86_64`); every case must match them byte for byte under
+//! `rax-user`.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -14,6 +16,8 @@ use super::sha256;
 use super::support::{fixtures, run};
 
 const ARCHES: [&str; 3] = ["x86_64", "aarch64", "riscv64"];
+/// The compatibility architecture, built for the cases `build.sh` lists.
+const I386: &str = "i386";
 
 struct Case {
     name: String,
@@ -63,6 +67,16 @@ fn manifest() -> BTreeMap<String, String> {
     out
 }
 
+/// The cases with an i386 build: those whose program `manifest.toml` lists
+/// under `bin/i386`.
+fn i386_cases() -> Vec<Case> {
+    let m = manifest();
+    cases()
+        .into_iter()
+        .filter(|c| m.contains_key(&format!("bin/{I386}/{}", c.program)))
+        .collect()
+}
+
 /// Parses `oracle-overrides.txt` into `(arch, case) -> source`: another
 /// architecture, or `qemu-<arch>` for a run under QEMU user mode.
 fn overrides() -> BTreeMap<(String, String), String> {
@@ -101,10 +115,52 @@ fn fixture_binaries_match_manifest() {
             assert!(m.contains_key(&path), "{path} is not in manifest.toml");
         }
     }
+    let full = m
+        .keys()
+        .filter(|p| ARCHES.iter().any(|a| p.starts_with(&format!("bin/{a}/"))))
+        .count();
     assert_eq!(
-        m.len() % ARCHES.len(),
+        full % ARCHES.len(),
         0,
-        "every program is built for every architecture"
+        "every program is built for every 64-bit architecture"
+    );
+    // The i386 subset: each build is a program with a case.
+    for path in m.keys().filter(|p| p.starts_with(&format!("bin/{I386}/"))) {
+        let program = path.rsplit('/').next().unwrap();
+        assert!(
+            cases().iter().any(|c| c.program == program),
+            "{path} has no case"
+        );
+    }
+    assert!(m.len() == full + m.keys().filter(|p| p.starts_with("bin/i386/")).count());
+}
+
+#[test]
+fn i386_expectations_come_from_an_x86_64_kernel() {
+    // Docker here has no x86-64 kernel to run i386 programs on (Rosetta
+    // has no 32-bit mode; QEMU user mode emulates a 32-bit kernel), so
+    // every i386 case was recorded on Linux 6.19 for x86-64 with
+    // CONFIG_IA32_EMULATION, and nothing else is in expected/i386.
+    let root = fixtures().join("expected");
+    let oracle = std::fs::read_to_string(root.join("ORACLE-i386")).unwrap();
+    assert!(oracle.contains("kernel: 6.19.0 "), "{oracle}");
+    assert!(oracle.contains("qemu-system-x86_64"), "{oracle}");
+    let cases = i386_cases();
+    assert!(!cases.is_empty());
+    let mut want: Vec<String> = cases
+        .iter()
+        .flat_map(|c| [format!("{}.status", c.name), format!("{}.stdout", c.name)])
+        .collect();
+    want.sort();
+    let mut got: Vec<String> = std::fs::read_dir(root.join(I386))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    got.sort();
+    assert_eq!(got, want, "expected/i386 holds exactly the i386 cases");
+    assert!(
+        !overrides().keys().any(|(arch, _)| arch == I386),
+        "i386 results are the kernel's own"
     );
 }
 
@@ -231,6 +287,15 @@ fn riscv64_fixtures_match_linux() {
 fn riscv64_fixtures_match_linux_with_jit() {
     for case in cases() {
         check_case("riscv64", &case, &["--riscv-jit"], &[]);
+    }
+}
+
+#[test]
+fn i386_fixtures_match_linux() {
+    // Compatibility-mode code runs in the interpreter (the JIT is not
+    // admitted there).
+    for case in i386_cases() {
+        check_case(I386, &case, &[], &[]);
     }
 }
 

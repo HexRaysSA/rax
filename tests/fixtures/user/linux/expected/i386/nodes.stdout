@@ -1,0 +1,49 @@
+ok dir
+ok bad-type
+ok regular
+ok exists
+ok exists-slash
+ok new-slash
+ok no-parent
+ok parent-file
+ok fault
+ok exists-link
+ok fifo
+ok fifo-works
+ok socket
+ok mknodat
+ok umask
+ok device
+ok device-no-dir
+ok utimensat
+ok omit
+ok omit-both
+ok path-first
+ok bad-nsec
+ok bad-flags
+ok null-path
+ok fd-flags
+ok fd
+ok fd-path-only
+ok empty-path
+ok pipe
+ok eventfd
+ok nofollow
+ok write-only
+ok proc-link
+ok now
+ok utimes
+ok utime
+FAIL raw-utimes-usec: syscall(SYS_utimes, f, tv) returned 0 errno 0, want errno 22
+FAIL raw-utimes-negative: syscall(SYS_utimes, f, tv) returned 0 errno 0, want errno 22
+FAIL raw-utimes: syscall(SYS_utimes, f, tv) == 0 && times_are(f, 100, 5000, 200, 9000) (errno 0 No error information) at line 138
+FAIL raw-futimesat: syscall(SYS_futimesat, dirfd, "t", tv) == 0 && times_are(f, 11, 5000, 200, 9000) (errno 0 No error information) at line 142
+FAIL raw-futimesat-fd: syscall(SYS_futimesat, fd, 0, tv) == 0 && times_are(f, 12, 5000, 200, 9000) (errno 0 No error information) at line 145
+FAIL raw-utime: syscall(SYS_utime, f, &ub) == 0 && times_are(f, 13, 0, 400, 0) (errno 0 No error information) at line 147
+ok raw-utime-fault
+ok raw-utime-missing
+ok umask0-open
+ok umask0-mkdir
+ok umask0-mknod
+ok umask0-existing
+FAILED

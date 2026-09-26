@@ -974,3 +974,63 @@ source = "src/trap.c"
 target = "riscv64-linux-musl"
 sha256 = "c43a6c73fbfb9ec5b2b0ce59c148675821bce843f5c6a62c70e06d79e7e0dee1"
 
+[[fixture]]
+path = "bin/i386/hello"
+source = "src/hello.c"
+target = "x86-linux-musl"
+sha256 = "67e10a7fb6fa7502e473830461655d38e51ff47cc9af976750630a2b92b68e7e"
+
+[[fixture]]
+path = "bin/i386/fileio"
+source = "src/fileio.c"
+target = "x86-linux-musl"
+sha256 = "998937fd7131d762b3f19805592b17f9cd59bb99e04469d11952139c00aaea9c"
+
+[[fixture]]
+path = "bin/i386/memory"
+source = "src/memory.c"
+target = "x86-linux-musl"
+sha256 = "dff3149a1ff371b18f67b89e4e702b56cdbcc50682e7d5594dea650c70639666"
+
+[[fixture]]
+path = "bin/i386/mman"
+source = "src/mman.c"
+target = "x86-linux-musl"
+sha256 = "6cc8f449c8042faab3dfff78e6780b9caccb6af572eac94874ec82d414bc8c5e"
+
+[[fixture]]
+path = "bin/i386/memfd"
+source = "src/memfd.c"
+target = "x86-linux-musl"
+sha256 = "a6ecb2702c9f24f683ccc1ff09171d1ad96c2fc3a00d4a8c9e63e341c4633d37"
+
+[[fixture]]
+path = "bin/i386/nodes"
+source = "src/nodes.c"
+target = "x86-linux-musl"
+sha256 = "e608c4a5a9df9da338c1017f46cf9b416ab5fd3272e42720fa9ede26ae29b5f5"
+
+[[fixture]]
+path = "bin/i386/stdin"
+source = "src/stdin.c"
+target = "x86-linux-musl"
+sha256 = "655b8fcff7338b4e67ca53cdfd6a2050013ea076a23f4cac317502d881511cd0"
+
+[[fixture]]
+path = "bin/i386/segv"
+source = "src/segv.c"
+target = "x86-linux-musl"
+sha256 = "3807ac315025ef12bfbcfffef5b5adae5abf98b3408e70df70a5d47a9b81db99"
+
+[[fixture]]
+path = "bin/i386/abort"
+source = "src/abort.c"
+target = "x86-linux-musl"
+sha256 = "8e24e75224dd5590ab14048afa9745c0c3e6e93210f7ae702aa758eb125c29da"
+
+[[fixture]]
+path = "bin/i386/trap"
+source = "src/trap.c"
+target = "x86-linux-musl"
+sha256 = "be292d06c261b3aae312a9f7447babd546daf503a289be2f2af438e21e24e032"
+

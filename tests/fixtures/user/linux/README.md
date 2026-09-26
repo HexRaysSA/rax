@@ -11,16 +11,20 @@ an arbitrary-binary-output equality test. Each run gets a
 the emulated inotify hub), as each recording ran in a fresh container:
 runs in parallel must not see each other's queues and identifiers.
 
-The execution matrix is x86-64, AArch64, and RV64. i386 syscall numbering
-is checked by the integration target, but its compatibility execution is
-covered by separate library tests under `src/user/linux/tests/i386/`;
-this fixture corpus supplies no recorded i386 result matrix.
+The execution matrix is x86-64, AArch64, and RV64 for every case, and
+i386 for the cases whose programs `build.sh` builds for it: those that run
+as compatibility tasks so far (the rest need calls without a 32-bit
+conversion yet, such as signal handlers, threads, sockets, System V IPC,
+AIO, and `ptrace`, or have 64-bit-only code). The i386 results come from
+Linux 6.19 for x86-64 itself (see [Kernel oracle](#kernel-oracle)); the
+library tests under `src/user/linux/tests/i386/` cover the conversions
+call by call.
 
 | Path | Content |
 |---|---|
 | `src/*.c` | Self-checking C sources. Each check prints `ok <name>` or `FAIL <name>: ...`. |
 | `build.sh` | Rebuilds `bin/` and `manifest.toml`. |
-| `bin/<arch>/<program>` | Static, stripped executables for `x86_64`, `aarch64`, and `riscv64`. |
+| `bin/<arch>/<program>` | Static, stripped executables for `x86_64`, `aarch64`, and `riscv64`, and for `i386` (a subset). |
 | `manifest.toml` | Toolchain, flags, and SHA-256 of every binary (checked by the test). |
 | `cases.txt` | Case table: program, standard-input file, and arguments. |
 | `input/` | Standard-input files referenced by `cases.txt`. |
@@ -28,6 +32,8 @@ this fixture corpus supplies no recorded i386 result matrix.
 | `oracle-overrides.txt` | Cases whose expectation for one architecture is another architecture's real-kernel result, with the reason. |
 | `expected/<arch>/<case>.{stdout,status}` | Recorded results. |
 | `expected/ORACLE` | Kernel, Docker server, binfmt handlers, overrides, and recording time of the oracle run. |
+| `expected/ORACLE-i386` | Kernel, its build, QEMU, machine, and recording time of the i386 recording. |
+| `oracle/` | The kernel oracle: `build-kernel.sh` (Linux 6.19 for x86-64 with `CONFIG_IA32_EMULATION`), `vminit.c` (its init: one container-like run per case), and `record-kernel.sh` (records `expected/i386`). |
 | `programs/` | The morok program corpus: 97 whole C and C++ programs with their own build, recordings, and README. |
 
 ## Programs
@@ -95,11 +101,12 @@ this fixture corpus supplies no recorded i386 result matrix.
   bottle `zig 0.16.0_1` on macOS 27 arm64.
 - Flags: `-static -Os -s -fno-sanitize=all -fno-stack-protector
   -ffile-prefix-map=<dir>=.`, targets `x86_64-linux-musl`,
-  `aarch64-linux-musl`, `riscv64-linux-musl`.
+  `aarch64-linux-musl`, `riscv64-linux-musl`, and `x86-linux-musl` (i386).
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 162 binaries (54 programs × 3 architectures), 6,448 KiB in total; each
+- Size: 172 binaries (54 programs × 3 architectures, and 10 for i386),
+  6,692 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -159,6 +166,26 @@ this fixture corpus supplies no recorded i386 result matrix.
   once, in about ten recordings, lost a stopped child continued by
   `SIGCONT` (`fork`); a recording is kept only when it matches the native
   AArch64 result.
+- The i386 results were recorded with `oracle/record-kernel.sh` on Linux
+  6.19 for x86-64 (`CONFIG_IA32_EMULATION`), built by
+  `oracle/build-kernel.sh` and booted under `qemu-system-x86_64` (TCG);
+  `expected/ORACLE-i386` names the kernel, its hash, and QEMU. No Docker
+  host here runs i386 programs on an x86-64 kernel: Rosetta has no 32-bit
+  mode, and the registered `qemu-i386` user-mode handler emulates a 32-bit
+  kernel on the arm64 one, which differs from a compatibility task where
+  the fixtures look (a 64-bit kernel's `access_ok`, zero-extended lengths,
+  `utimes` and `futimesat` by descriptor, `mlock2` and `mseal`). The
+  oracle's init gives each case what a Docker container gives it: fresh
+  IPC, mount, UTS, and network namespaces with a fresh `/tmp`,
+  `/dev/shm` (without exec), `/dev/mqueue`, and `/dev/pts`, the loopback
+  up, root with Docker's default capabilities, and the recordings'
+  environment. Run over the x86-64 cases, it reproduces 50 of the 56
+  Docker recordings byte for byte, including many that Rosetta cannot run
+  (so those take the AArch64 result); the six others differ through the
+  oracle's configuration (no modules; `HZ` 250), its CPU model (shadow
+  stacks, `XSTATE`), `RLIMIT_MEMLOCK`, and one kernel difference: Linux 6.19
+  refuses `MSG_CMSG_COMPAT` from a 64-bit `recvmsg` (`EINVAL`), which the
+  Docker kernel (7.0.14) does not.
 - Containers ran with `--init` so the fixture was not the PID-namespace
   init (the kernel ignores default-action signals sent to an init, which
   would make `abort()` loop), and with `--security-opt seccomp=unconfined`
@@ -172,7 +199,12 @@ this fixture corpus supplies no recorded i386 result matrix.
 1. Edit `src/`, then run `./build.sh` (requires Zig 0.16.0).
 2. Run `./record-expected.sh` on a host with Docker able to execute all
    three architectures, and review the diff under `expected/`.
-3. Run `cargo test --no-default-features --features x86_64-suite,smir-jit
+3. For the i386 cases, build the kernel once with
+   `oracle/build-kernel.sh <linux-v6.19-checkout> <out>` (Docker), then run
+   `oracle/record-kernel.sh <out>/bzImage` (`qemu-system-x86_64`, Zig) and
+   review the diff under `expected/i386`. Adding a program to
+   `build.sh`'s `i386_programs` adds its cases to the i386 matrix.
+4. Run `cargo test --no-default-features --features x86_64-suite,smir-jit
    --test user_linux`.
 
 A case added to `cases.txt` is picked up by the test automatically; a new

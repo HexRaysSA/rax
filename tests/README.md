@@ -90,9 +90,11 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 
 `user_linux` reaches its ABI-table, CLI, host-signal, syscall-fixture, and
 whole-program modules through `suites/user/linux/main.rs`. Its execution
-matrices cover x86-64, AArch64, and RV64; i386 numbering is checked there,
-while compatibility execution tests live under `src/user/linux/tests/i386/`
-and run as library tests. The ignored live Docker comparison requires
+matrices cover x86-64, AArch64, and RV64, and the syscall fixtures also an
+i386 subset recorded on an x86-64 Linux kernel under `qemu-system-x86_64`
+(`fixtures/user/linux/oracle/`); i386 numbering is checked there, and the
+compatibility conversions have library tests under
+`src/user/linux/tests/i386/`. The ignored live Docker comparison requires
 `RAX_USER_DOCKER_ORACLE=1`; checked-in recordings need no live oracle.
 
 Add behavioral cases beneath the matching suite domain. Add generated material

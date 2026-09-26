@@ -6,7 +6,8 @@
 #
 #     tests/fixtures/user/linux/build.sh
 #
-# Binaries are static, stripped, position-dependent executables. The
+# Binaries are static, stripped, position-dependent executables (i386 for
+# a subset, listed below). The
 # manifest records the toolchain, flags, and SHA-256 of every output; the
 # user_linux test verifies the hashes before running anything.
 set -euo pipefail
@@ -51,4 +52,25 @@ for target in "${targets[@]}"; do
         } >> "$manifest"
     done
 done
-echo "built ${#targets[@]} targets x ${#programs[@]} programs"
+
+# i386 (x86-linux-musl) builds of the programs whose cases run as
+# compatibility tasks so far; the rest need calls without a 32-bit
+# conversion yet (signal handlers, threads, sockets, System V IPC, AIO,
+# ptrace) or have 64-bit-only code. Their expected results come from a real
+# x86-64 kernel (oracle/record-kernel.sh), not from Docker.
+i386_programs=(hello fileio memory mman memfd nodes stdin segv abort trap)
+mkdir -p bin/i386
+for prog in "${i386_programs[@]}"; do
+    out="bin/i386/$prog"
+    zig cc -target x86-linux-musl "${flags[@]}" -o "$out" "src/$prog.c"
+    sum="$(shasum -a 256 "$out" | cut -d' ' -f1)"
+    {
+        echo "[[fixture]]"
+        echo "path = \"$out\""
+        echo "source = \"src/$prog.c\""
+        echo "target = \"x86-linux-musl\""
+        echo "sha256 = \"$sum\""
+        echo
+    } >> "$manifest"
+done
+echo "built ${#targets[@]} targets x ${#programs[@]} programs, and ${#i386_programs[@]} i386 programs"
