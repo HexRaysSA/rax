@@ -534,7 +534,16 @@ fn a_host_watch_sees_another_process_end() {
     assert!(!t.exited());
     let fd = t.watch_fd().unwrap();
     child.release();
-    crate::user::linux::host::poll(&[(fd, true, false)], 5000).unwrap();
+    // A host SIGCHLD handler another test installed (watch_children) may
+    // interrupt the wait: EINTR, then wait again.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        let left = deadline.saturating_duration_since(std::time::Instant::now());
+        match crate::user::linux::host::poll(&[(fd, true, false)], left.as_millis() as i32) {
+            Err(crate::user::linux::abi::errno::Errno(EINTR)) if !left.is_zero() => continue,
+            r => break r.map(|_| ()).unwrap(),
+        }
+    }
     assert!(t.exited(), "exited, even before it is reaped");
     child.reap();
     assert!(t.exited());
