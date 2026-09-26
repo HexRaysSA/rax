@@ -67,7 +67,7 @@ This root `README.md` is the **single complete documentation entrypoint**. There
 - [Arm architecture](docs/architecture/arm/README.md) — public profiles, AArch64, AArch32, Thumb, Cortex-M/R, AdvSIMD/VFP, SVE-family work, machines, differential tests, and limitations.
 - [Hexagon architecture](docs/architecture/hexagon/README.md) — public revisions, packet commit, `.new` forwarding, predicates/loops, scalar and HVX state, bare-metal loading, oracle targets, and SMIR.
 - [RISC-V architecture](docs/architecture/riscv/README.md) — scalar, compressed, atomic, floating-point, bit-manipulation, crypto, RVV, bare-metal machine, QEMU comparisons, SMIR/native paths, and privileged boundary.
-- [User-mode emulation](docs/architecture/user-mode.md) — address spaces, CPU adapters, Linux loading and ABI conversion, scheduling, signals, IPC, process tracing, code invalidation, and evidence.
+- [User-mode emulation](docs/architecture/user-mode.md) — concise execution overview and focused references for memory, ABI/loading, processes, signals, files, I/O, networking/IPC, and tracing.
 - [Machines and boot](docs/architecture/machines.md) — image detection, x86 direct/legacy boot, AArch64 virtual platform, 32-bit Arm and SoC selection, Hexagon/RISC-V machines, memory, command lines, and restore construction.
 - [Devices and platform wiring](docs/architecture/devices.md) — baseline PC devices, optional PCI attachment, interrupts, serial/VGA boundary, AArch64 and 32-bit Arm devices, bare-metal peripherals, checkpoints, and validation stages.
 - [SMIR and native execution](docs/architecture/smir.md) — IR, lifters, interpreter, optimizer, lowerers, hot-region policy, per-host admission, helper/memory contracts, invalidation, runtime controls, and equivalence evidence.

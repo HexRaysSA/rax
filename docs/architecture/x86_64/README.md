@@ -92,7 +92,10 @@ Compatibility code is interpreted, and the 32-bit syscall table remains
 partial. Outside 64-bit mode, linear address formation wraps to 32 bits
 after adding the segment base; this differs from merely truncating an
 effective offset before segment-base addition. See
-[User-mode emulation](../user-mode.md) for the supported ABI boundary and tests.
+[Linux ABI and loading](../user-mode/linux-abi.md#i386-compatibility-tasks)
+for the supported compatibility boundary;
+[validation evidence](../../development/testing/user-mode.md#abi-and-loading)
+lists its tests.
 
 ## Software MMU and interpreter loop
 

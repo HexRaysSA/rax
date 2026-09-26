@@ -127,6 +127,10 @@ The table is a floor, not a substitute for impact analysis.
 
 ## Linux process coverage
 
+The [user-mode validation inventory](user-mode.md) contains subsystem-specific
+unit and recorded-oracle evidence; the [architecture overview](../../architecture/user-mode.md)
+links the corresponding runtime descriptions.
+
 ```sh
 cargo test --locked --no-default-features --features smir-jit --lib user::
 cargo test --release --locked --no-default-features --features smir-jit --test user_linux

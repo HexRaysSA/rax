@@ -173,3 +173,43 @@ with its actual oracle prerequisites and skip counts recorded.
 | QG5 — Contradictions and edge cases | Pass for documentation scope: 64-bit/i386, process/machine, C-engine/personality, interpreter/native, and current/historical boundaries are explicit. Runtime limitations remain recorded rather than removed. |
 | QG6 — Provenance | Pass: claims link to owning source/tests, Cargo/workflows, Linux/Intel provenance, and actual recording metadata. Passed/ignored/filtered execution is distinguished. |
 | QG7 — Bounded expansion | Pass: the findings table records impact and blocking status; unrelated implementations, corpora, references, and dependencies are preserved. |
+
+## User-mode documentation restructuring
+
+The readability follow-up began at
+`4ab2eaa6e0d3a1c45f22130654b9e7e1d547b771`. The
+[user-mode page](../architecture/user-mode.md) changed from 856 lines to an
+84-line overview. Eight runtime references under `docs/architecture/user-mode/`
+contain 103–187 lines each. The 43-entry evidence table moved to a
+[testing inventory](testing/user-mode.md) with subsystem headings and paragraph
+entries. Related guides now link directly to ABI, tracing, or validation details.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+|---|---|---|---|---|---|---|
+| A3 | The requested readability change retains the technical inventory and its qualifications while separating runtime explanation from test evidence. | The request identifies the crowded architecture page; it does not request removal of supported behavior or evidence. | Topic split, overview, and testing inventory. | A behavior, numerical field, owner, oracle limitation, or deep link is lost during relocation. | Compare every original behavior/evidence payload after whitespace normalization; validate relative links and the four original section anchors. | Confirmed: all 37 behavior blocks and 43 evidence entries accounted for; one compatibility block corrected against current source. |
+
+The preservation check compares every behavior payload and source-owner clause,
+including the separate memory portion of the old syscall inventory. The tracing
+check ignores only inserted headings; the evidence check accounts for table pipe
+escaping and the corpus link's new relative depth. Two obsolete i386 exclusions
+(child waits and 16-bit IDs) were removed after concurrent commit `c910f55c1`
+added those dispatcher paths. The owning dispatcher remains the exact call-set
+reference; this restructuring adds no execution claim for those paths.
+
+Documentation checks passed: relative paths and heading anchors, balanced code
+fences, root navigation, preservation of `address-spaces`, `cpu-adapters`,
+`linux-personality`, and `evidence` anchors, and `git diff --check`. Cargo targets,
+features, and binary registration were checked against the manifest. Runtime
+checks were not repeated because the changes are Markdown only; the earlier
+runtime results above retain their original source-snapshot scope.
+
+| Impact | Finding | Blocks this restructuring? |
+|---|---|---|
+| Medium | Concurrent ABI additions made two copied absence claims stale. They were corrected against `src/user/linux/syscall/compat/mod.rs`; no broad compatibility completeness claim was added. | No; the identified conflict is resolved. |
+| Low | External links may use the old page's section anchors. All four are retained as concise sections pointing to the detailed references. | No; the original anchors remain valid. |
+
+The self-review passed the repository's nine quality gates for this documentation
+scope: assumptions, coverage, reproducibility, contradictions, provenance,
+bounded expansion, worktree integrity, applicable documentation validation, and
+repository consistency. Source, fixtures, dependencies, generated data, and
+unrelated concurrent changes were preserved.

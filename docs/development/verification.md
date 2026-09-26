@@ -121,6 +121,8 @@ and a daemon able to run the three architectures. It still uses the declared
 oracle substitutions. Record ignored/self-skip output separately. Unit tests
 under `src/user/` exercise faults, layouts, scheduling, signals, ABI conversion,
 and cache invalidation that stdout/status alone does not expose.
+The [user-mode validation inventory](testing/user-mode.md) maps those contracts
+to their source tests and recordings.
 
 ## State projection
 

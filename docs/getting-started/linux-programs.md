@@ -73,7 +73,7 @@ bytes, not host timing, I/O, or the complete thread interleaving.
 The following describes the x86-64, AArch64, and RV64 ABIs. The narrower
 i386 path is described separately below. The behavioral reference is the
 vendored Linux 6.19 source; supported operations and deviations are enumerated
-in [User-mode emulation](../architecture/user-mode.md).
+in the [user-mode topic references](../architecture/user-mode.md#runtime-topics).
 
 - **Address space.** Linux 6.19's layout with randomization disabled
   (`setarch -R`): x86-64 PIEs load at `0x555555554000` and their
@@ -239,7 +239,7 @@ file status/statistics, directory entries, `fcntl` record locks, and
 must be checked there for the exact syscall and layout.
 
 This is a partial ABI: signal-handler installation/return, thread creation,
-child wait calls, sockets, and `ptrace` calls lack a compatibility path.
+sockets and `ptrace` calls lack a compatibility path.
 Calls without a conversion return `ENOSYS`; unsupported compatibility
 `ioctl`s return `ENOTTY`. `SYSENTER` raises `SIGILL`, no 32-bit vDSO is
 provided, and compatibility code does not use the JIT. A 64-bit process's
@@ -249,8 +249,9 @@ three-ISA fixture and whole-program corpora below do not exercise i386.
 ## Current limitations
 
 The [status page](../reference/status-and-limitations.md#required-user-mode-qualifications)
-and [architecture page](../architecture/user-mode.md) own the complete
-subsystem qualifications. The operational boundaries are:
+owns the subsystem qualifications. The
+[architecture topics](../architecture/user-mode.md#runtime-topics) explain the
+corresponding mechanisms. The operational boundaries are:
 
 - `--sysroot` is an overlay: paths absent from it fall back to the host.
   Files, pipes, locks, sockets, and guest child processes use host resources.

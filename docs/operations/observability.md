@@ -20,7 +20,7 @@ and register access, syscall stops/editing, job-control and process events,
 and seccomp inspection. Single-step is implemented for x86-64 and AArch64;
 block-step is x86-64 only. RISC-V stepping and i386 ptrace calls are refused.
 This is the emulated Linux syscall interface, with the reach and regset limits
-in [User-mode emulation](../architecture/user-mode.md); it is separate from
+in [Process tracing and seccomp](../architecture/user-mode/tracing.md); it is separate from
 the machine GDB RSP server. `rax-user` has no `--gdb`, machine trace/profiler,
 or `.rxc` checkpoint CLI options.
 
