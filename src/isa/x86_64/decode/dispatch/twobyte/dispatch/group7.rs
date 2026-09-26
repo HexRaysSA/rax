@@ -59,16 +59,9 @@ impl X86_64Vcpu {
                 self.get_reg(reg, 4)
             }
         };
-        let segment_base = if self.sregs.cs.l {
-            match ctx.segment_override {
-                Some(0x64) => self.sregs.fs.base,
-                Some(0x65) => self.sregs.gs.base,
-                _ => 0,
-            }
-        } else {
-            self.get_segment_base(ctx.segment_override)
-        };
-        segment_base.wrapping_add(offset)
+        // 64-bit mode: only FS and GS have bases (get_segment_base).
+        let segment_base = self.get_segment_base(ctx.segment_override);
+        self.segment_linear(segment_base, offset)
     }
 
     #[inline(always)]

@@ -178,7 +178,7 @@ pub fn pop_sreg(
     let stack_address = if vcpu.sregs.cs.l {
         stack_offset
     } else {
-        vcpu.sregs.ss.base.wrapping_add(stack_offset)
+        vcpu.segment_linear(vcpu.sregs.ss.base, stack_offset)
     };
     if in_64bit_mode && !long_mode_stack_read_is_canonical(stack_address, op_size) {
         vcpu.inject_exception(12, Some(0))?;

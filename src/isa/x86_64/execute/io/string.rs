@@ -39,7 +39,8 @@ fn ins_common(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, size: u8) -> Result<
     // discrete `IoIn` exit, matching hardware semantics where every string
     // element is an individual port access (a batched fast path is invisible to
     // FIFO-style devices and to consumers that count discrete port reads).
-    let addr = di_addr(vcpu, addr_size);
+    // ES:[RDI]: ES's base outside 64-bit mode (get_segment_base), wrapped.
+    let addr = vcpu.segment_linear(vcpu.get_segment_base(Some(0x26)), di_addr(vcpu, addr_size));
     vcpu.set_io_pending_mem(size, addr);
     update_di(vcpu, addr_size, size, df);
 
@@ -162,9 +163,10 @@ fn outs_common(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, size: u8) -> Result
 
     // Read data from DS:RSI; FS/GS segment overrides provide nonzero bases in
     // long mode, while other segment bases are handled for legacy modes.
-    let addr = vcpu
-        .get_segment_base(ctx.segment_override)
-        .wrapping_add(si_addr(vcpu, addr_size));
+    let addr = vcpu.segment_linear(
+        vcpu.get_segment_base(ctx.segment_override),
+        si_addr(vcpu, addr_size),
+    );
     let val = vcpu.read_mem(addr, size)?;
     let mut data = Vec::with_capacity(size as usize);
     for i in 0..size {

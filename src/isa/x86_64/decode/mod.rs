@@ -778,19 +778,20 @@ impl X86_64Vcpu {
     #[inline]
     fn get_segment_base_with_default(&self, segment_override: Option<u8>, default_ss: bool) -> u64 {
         match segment_override {
+            Some(0x64) => self.sregs.fs.base, // FS
+            Some(0x65) => self.sregs.gs.base, // GS
+            // 64-bit mode treats the CS, DS, ES, and SS bases as zero, an
+            // override of them included (SDM Vol. 1 §3.7.4.1).
+            _ if self.sregs.cs.l => 0,
             Some(0x26) => self.sregs.es.base, // ES
             Some(0x2E) => self.sregs.cs.base, // CS
             Some(0x36) => self.sregs.ss.base, // SS
             Some(0x3E) => self.sregs.ds.base, // DS
-            Some(0x64) => self.sregs.fs.base, // FS
-            Some(0x65) => self.sregs.gs.base, // GS
             // No override: the default data segment is DS. Its base is
             // selector<<4 in real mode and the descriptor base in protected /
             // compatibility mode — 0 for the usual flat model, but non-zero for
             // an OS that runs on based data segments (e.g. TempleOS relocating
-            // through ds.base before going flat). Only true 64-bit mode
-            // (CS.L=1) ignores data-segment bases, so it stays flat.
-            None if self.sregs.cs.l => 0,
+            // through ds.base before going flat).
             None if default_ss => self.sregs.ss.base,
             None => self.sregs.ds.base,
             _ => 0,
@@ -1037,7 +1038,7 @@ impl X86_64Vcpu {
             let (addr, extra, default_ss) =
                 self.decode_modrm_addr16(ctx, bytes, mod_bits, rm_field)?;
             let seg_base = self.get_segment_base_with_default(ctx.segment_override, default_ss);
-            let final_addr = addr.wrapping_add(seg_base);
+            let final_addr = self.segment_linear(seg_base, addr);
             return Ok((final_addr, extra, seg_base, default_ss));
         }
 
@@ -1169,7 +1170,7 @@ impl X86_64Vcpu {
 
         // Apply segment override (in 64-bit mode, only FS and GS have non-zero bases)
         let seg_base = self.get_segment_base_with_default(ctx.segment_override, default_ss);
-        let final_addr = addr.wrapping_add(seg_base);
+        let final_addr = self.segment_linear(seg_base, addr);
 
         Ok((final_addr, extra, seg_base, default_ss))
     }
@@ -1178,16 +1179,21 @@ impl X86_64Vcpu {
     /// operand as required by LEA. Identical to `decode_modrm_addr` except it
     /// does NOT fold in the FS/GS segment base: per Intel SDM, LEA computes the
     /// offset part of the address and ignores any segment override. The subtract
-    /// is exactly the inverse of the `wrapping_add(seg_base)` in
-    /// `decode_modrm_addr` (including the 0x67 32-bit truncation, which happens
-    /// before the base is applied), and is a no-op in the common no-override case.
+    /// is exactly the inverse of `segment_linear` in `decode_modrm_addr`
+    /// (including the 0x67 32-bit truncation, which happens before the base is
+    /// applied): outside 64-bit mode the linear address wrapped at 4 GiB and the
+    /// offset is at most 32 bits, so the difference is taken modulo 4 GiB. It is
+    /// a no-op in the common no-override case.
     pub(super) fn decode_lea_addr(
         &self,
         ctx: &InsnContext,
         modrm_offset: usize,
     ) -> Result<(u64, usize)> {
         let (addr, extra, seg_base, _) = self.decode_modrm_addr_with_segment(ctx, modrm_offset)?;
-        let offset = addr.wrapping_sub(seg_base);
+        let mut offset = addr.wrapping_sub(seg_base);
+        if !self.sregs.cs.l {
+            offset &= 0xFFFF_FFFF;
+        }
         Ok((offset, extra))
     }
 
@@ -1268,7 +1274,7 @@ impl X86_64Vcpu {
         if addr_size == ModrmAddressSize::Addr16 {
             let (addr, default_ss) = self.decode_fpu_modrm_addr16(ctx, mod_bits, rm_field)?;
             let seg_base = self.get_segment_base_with_default(ctx.segment_override, default_ss);
-            return Ok(addr.wrapping_add(seg_base));
+            return Ok(self.segment_linear(seg_base, addr));
         }
 
         let addr_size_32 = addr_size == ModrmAddressSize::Addr32;
@@ -1348,7 +1354,7 @@ impl X86_64Vcpu {
 
         // Apply segment override (in 64-bit mode, only FS and GS have non-zero bases)
         let seg_base = self.get_segment_base_with_default(ctx.segment_override, default_ss);
-        addr = addr.wrapping_add(seg_base);
+        addr = self.segment_linear(seg_base, addr);
 
         Ok(addr)
     }

@@ -26,7 +26,7 @@ pub fn lodsb(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
         if is_rep && rep_count(vcpu.regs.rcx, addr_size) == 0 {
             break;
         }
-        let src = src_base.wrapping_add(index(vcpu.regs.rsi, addr_size));
+        let src = vcpu.segment_linear(src_base, index(vcpu.regs.rsi, addr_size));
         let val = vcpu.mmu.read_u8(src, &vcpu.sregs)?;
         vcpu.regs.rax = (vcpu.regs.rax & !0xFF) | (val as u64);
         let forward = vcpu.regs.rflags & flags::bits::DF == 0;
@@ -58,7 +58,7 @@ pub fn lods(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
         if is_rep && rep_count(vcpu.regs.rcx, addr_size) == 0 {
             break;
         }
-        let src = src_base.wrapping_add(index(vcpu.regs.rsi, addr_size));
+        let src = vcpu.segment_linear(src_base, index(vcpu.regs.rsi, addr_size));
         let val = vcpu.read_mem(src, op_size)?;
         vcpu.set_reg(0, val, op_size);
         let forward = vcpu.regs.rflags & flags::bits::DF == 0;

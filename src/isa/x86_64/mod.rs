@@ -8,6 +8,7 @@ mod decode;
 mod exception;
 pub(crate) mod execute;
 pub mod flags;
+mod linear;
 pub(crate) mod memory;
 #[cfg(test)]
 mod memory_tests;

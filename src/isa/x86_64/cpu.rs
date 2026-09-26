@@ -2427,7 +2427,7 @@ impl X86_64Vcpu {
     // NOTE: These must NOT modify RSP if the write fails, otherwise page fault
     // handling will corrupt the stack (RSP gets decremented twice on retry).
     #[inline(always)]
-    fn stack_segment_base(&self) -> u64 {
+    pub(super) fn stack_segment_base(&self) -> u64 {
         if self.sregs.cs.l {
             0
         } else {
@@ -2494,11 +2494,8 @@ impl X86_64Vcpu {
 
     pub(super) fn push64(&mut self, value: u64) -> Result<()> {
         let new_rsp = self.stack_pointer_wrapping_sub(8);
-        self.mmu.write_u64(
-            self.stack_segment_base().wrapping_add(new_rsp),
-            value,
-            &self.sregs,
-        )?;
+        self.mmu
+            .write_u64(self.stack_linear(new_rsp), value, &self.sregs)?;
         self.set_stack_pointer_offset(new_rsp);
         Ok(())
     }
@@ -2515,9 +2512,7 @@ impl X86_64Vcpu {
 
     pub(super) fn pop64(&mut self) -> Result<u64> {
         let rsp = self.stack_pointer_offset();
-        let value = self
-            .mmu
-            .read_u64(self.stack_segment_base().wrapping_add(rsp), &self.sregs)?;
+        let value = self.mmu.read_u64(self.stack_linear(rsp), &self.sregs)?;
         let new_rsp = self.stack_pointer_wrapping_add(8);
         self.set_stack_pointer_offset(new_rsp);
         Ok(value)
@@ -2525,31 +2520,23 @@ impl X86_64Vcpu {
 
     pub(super) fn push32(&mut self, value: u32) -> Result<()> {
         let new_rsp = self.stack_pointer_wrapping_sub(4);
-        self.mmu.write_u32(
-            self.stack_segment_base().wrapping_add(new_rsp),
-            value,
-            &self.sregs,
-        )?;
+        self.mmu
+            .write_u32(self.stack_linear(new_rsp), value, &self.sregs)?;
         self.set_stack_pointer_offset(new_rsp);
         Ok(())
     }
 
     pub(super) fn push_segment32(&mut self, value: u16) -> Result<()> {
         let new_rsp = self.stack_pointer_wrapping_sub(4);
-        self.mmu.write_u16(
-            self.stack_segment_base().wrapping_add(new_rsp),
-            value,
-            &self.sregs,
-        )?;
+        self.mmu
+            .write_u16(self.stack_linear(new_rsp), value, &self.sregs)?;
         self.set_stack_pointer_offset(new_rsp);
         Ok(())
     }
 
     pub(super) fn pop32(&mut self) -> Result<u32> {
         let rsp = self.stack_pointer_offset();
-        let value = self
-            .mmu
-            .read_u32(self.stack_segment_base().wrapping_add(rsp), &self.sregs)?;
+        let value = self.mmu.read_u32(self.stack_linear(rsp), &self.sregs)?;
         let new_rsp = self.stack_pointer_wrapping_add(4);
         self.set_stack_pointer_offset(new_rsp);
         Ok(value)
@@ -2557,20 +2544,15 @@ impl X86_64Vcpu {
 
     pub(super) fn push16(&mut self, value: u16) -> Result<()> {
         let new_rsp = self.stack_pointer_wrapping_sub(2);
-        self.mmu.write_u16(
-            self.stack_segment_base().wrapping_add(new_rsp),
-            value,
-            &self.sregs,
-        )?;
+        self.mmu
+            .write_u16(self.stack_linear(new_rsp), value, &self.sregs)?;
         self.set_stack_pointer_offset(new_rsp);
         Ok(())
     }
 
     pub(super) fn pop16(&mut self) -> Result<u16> {
         let rsp = self.stack_pointer_offset();
-        let value = self
-            .mmu
-            .read_u16(self.stack_segment_base().wrapping_add(rsp), &self.sregs)?;
+        let value = self.mmu.read_u16(self.stack_linear(rsp), &self.sregs)?;
         let new_rsp = self.stack_pointer_wrapping_add(2);
         self.set_stack_pointer_offset(new_rsp);
         Ok(value)

@@ -119,9 +119,12 @@ fn movdir64b_decoded(
         return Ok(None);
     }
 
+    // The register is an offset into ES without override (SDM Vol. 2B,
+    // MOVDIR64B): ES's base outside 64-bit mode, wrapping at 4 GiB.
+    let dest_linear = vcpu.segment_linear(vcpu.get_segment_base(Some(0x26)), dest_addr);
     let mut buf = [0u8; 64];
     vcpu.mmu.read(addr, &mut buf, &vcpu.sregs)?;
-    vcpu.mmu.write(dest_addr, &buf, &vcpu.sregs)?;
+    vcpu.mmu.write(dest_linear, &buf, &vcpu.sregs)?;
 
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)

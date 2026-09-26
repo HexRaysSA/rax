@@ -64,9 +64,7 @@ fn moffs_addr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<u64> {
     } else {
         ctx.consume_u16()? as u64
     };
-    Ok(vcpu
-        .get_segment_base(ctx.segment_override)
-        .wrapping_add(off))
+    Ok(vcpu.segment_linear(vcpu.get_segment_base(ctx.segment_override), off))
 }
 
 /// MOV AL, moffs8 (0xA0) - Load byte from absolute address

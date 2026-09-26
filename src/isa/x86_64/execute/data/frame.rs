@@ -39,7 +39,7 @@ fn stack_linear_address(vcpu: &X86_64Vcpu, offset: u64) -> u64 {
     if vcpu.sregs.cs.l {
         offset
     } else {
-        vcpu.sregs.ss.base.wrapping_add(offset)
+        vcpu.segment_linear(vcpu.sregs.ss.base, offset)
     }
 }
 

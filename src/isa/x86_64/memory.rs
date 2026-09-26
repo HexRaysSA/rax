@@ -12,6 +12,8 @@ use crate::vm::memory::FlatTranslation;
 use crate::vm::timing;
 use crate::vm::vcpu::SystemRegisters;
 
+use super::linear::crossing_next;
+
 #[path = "memory_fault.rs"]
 mod fault;
 
@@ -1521,7 +1523,7 @@ impl Mmu {
 
             offset += bytes_in_page;
             remaining -= bytes_in_page;
-            addr += bytes_in_page as u64;
+            addr = crossing_next(vaddr, addr, bytes_in_page as u64, sregs);
         }
 
         Ok(())
@@ -1591,7 +1593,7 @@ impl Mmu {
 
             offset += bytes_in_page;
             remaining -= bytes_in_page;
-            addr += bytes_in_page as u64;
+            addr = crossing_next(vaddr, addr, bytes_in_page as u64, sregs);
         }
 
         for (paddr, offset, bytes_in_page) in chunks {

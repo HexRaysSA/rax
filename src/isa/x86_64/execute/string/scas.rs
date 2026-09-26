@@ -24,7 +24,10 @@ pub fn scasb(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
         if is_rep && rep_count(vcpu.regs.rcx, addr_size) == 0 {
             break;
         }
-        let dst = index(vcpu.regs.rdi, addr_size);
+        let dst = vcpu.segment_linear(
+            vcpu.get_segment_base(Some(0x26)),
+            index(vcpu.regs.rdi, addr_size),
+        );
         let val = vcpu.mmu.read_u8(dst, &vcpu.sregs)? as u64;
         let al = vcpu.regs.rax & 0xFF;
         let result = al.wrapping_sub(val);
@@ -67,7 +70,10 @@ pub fn scas(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
         if is_rep && rep_count(vcpu.regs.rcx, addr_size) == 0 {
             break;
         }
-        let dst = index(vcpu.regs.rdi, addr_size);
+        let dst = vcpu.segment_linear(
+            vcpu.get_segment_base(Some(0x26)),
+            index(vcpu.regs.rdi, addr_size),
+        );
         let val = vcpu.read_mem(dst, op_size)?;
         let rax = vcpu.get_reg(0, op_size);
         let result = rax.wrapping_sub(val);

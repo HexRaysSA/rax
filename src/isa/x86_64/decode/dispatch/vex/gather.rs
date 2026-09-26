@@ -19,16 +19,20 @@ impl X86_64Vcpu {
             return self.inject_undefined_instruction();
         }
 
-        let (dst_reg, index_reg, base_addr, scale) = self.decode_vsib(ctx)?;
+        let (dst_reg, index_reg, base_addr, scale, segment_base) = self.decode_vsib(ctx)?;
         let mask_reg = vvvv as usize;
-        let addr32 = ctx.address_size_override && self.sregs.cs.l;
-        let effective_addr = |base: u64, offset: i64| {
+        // 32-bit addressing outside 64-bit mode (as for EVEX VSIB) or with
+        // 67h; the effective address is truncated before the segment base is
+        // added, and the linear address wraps at 4 GiB outside 64-bit mode.
+        let addr32 = !self.sregs.cs.l || ctx.address_size_override;
+        let effective_addr = |vcpu: &Self, base: u64, offset: i64| {
             let addr = (base as i64).wrapping_add(offset);
-            if addr32 {
+            let effective = if addr32 {
                 addr as u32 as u64
             } else {
                 addr as u64
-            }
+            };
+            vcpu.segment_linear(segment_base, effective)
         };
 
         let index_size = match opcode {
@@ -62,7 +66,7 @@ impl X86_64Vcpu {
             for i in 0..elem_count {
                 if (mask[i] & 0x8000_0000) != 0 {
                     let offset = (indices[i] as i128 * scale as i128) as i64;
-                    let addr = effective_addr(base_addr, offset);
+                    let addr = effective_addr(self, base_addr, offset);
                     dest[i] = self.read_mem(addr, 4)? as u32;
                     mask[i] = 0;
                 }
@@ -81,7 +85,7 @@ impl X86_64Vcpu {
             for i in 0..elem_count {
                 if (mask[i] & 0x8000_0000_0000_0000) != 0 {
                     let offset = (indices[i] as i128 * scale as i128) as i64;
-                    let addr = effective_addr(base_addr, offset);
+                    let addr = effective_addr(self, base_addr, offset);
                     dest[i] = self.read_mem(addr, 8)?;
                     mask[i] = 0;
                 }
@@ -100,7 +104,10 @@ impl X86_64Vcpu {
         Ok(None)
     }
 
-    fn decode_vsib(&self, ctx: &mut InsnContext) -> Result<(usize, usize, u64, i64)> {
+    /// The VSIB operand: destination and index registers, base plus
+    /// displacement, scale, and the segment base (FS/GS or an override; SS
+    /// for an ESP/EBP base and DS otherwise outside 64-bit mode).
+    fn decode_vsib(&self, ctx: &mut InsnContext) -> Result<(usize, usize, u64, i64, u64)> {
         let modrm = ctx.consume_u8()?;
         let mod_bits = modrm >> 6;
         if mod_bits == 3 {
@@ -116,10 +123,18 @@ impl X86_64Vcpu {
         let scale = 1i64 << (sib >> 6);
         let index = ((sib >> 3) & 0x07) | (ctx.rex.map_or(0, |r| (r & 0x02) << 2));
         let base_reg = (sib & 0x07) | ctx.rex_b();
-        let base_size = if ctx.address_size_override && self.sregs.cs.l {
+        let base_size = if !self.sregs.cs.l || ctx.address_size_override {
             4
         } else {
             8
+        };
+        let no_base = mod_bits == 0 && sib & 0x07 == 5;
+        let segment_base = match ctx.segment_override {
+            Some(_) => self.get_segment_base(ctx.segment_override),
+            None if !self.sregs.cs.l && !no_base && matches!(sib & 0x07, 4 | 5) => {
+                self.sregs.ss.base
+            }
+            None => self.get_segment_base(None),
         };
 
         let mut base = if base_reg == 5 && mod_bits == 0 {
@@ -146,7 +161,13 @@ impl X86_64Vcpu {
             _ => {}
         }
 
-        Ok((reg as usize, index as usize, base as u64, scale))
+        Ok((
+            reg as usize,
+            index as usize,
+            base as u64,
+            scale,
+            segment_base,
+        ))
     }
 
     fn read_indices_i32(&self, reg: usize, vex_l: u8) -> [i64; 8] {

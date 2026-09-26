@@ -6,19 +6,24 @@ use crate::vm::vcpu::VcpuExit;
 use crate::isa::x86_64::cpu::{InsnContext, X86_64Vcpu};
 use crate::isa::x86_64::simd_native;
 
+/// Byte `lane` of MASKMOVQ/MASKMOVDQU's implicit DS:rDI destination
+/// (overridable): rDI plus the lane at the address size (64 bits, or 32 with
+/// 67h, in 64-bit mode; otherwise CS.D's 32 or 16 bits, flipped by 67h),
+/// in the segment, wrapping at 4 GiB outside 64-bit mode.
 #[inline(always)]
 fn implicit_rdi_addr(vcpu: &X86_64Vcpu, ctx: &InsnContext, lane: u32) -> u64 {
-    let offset = if ctx.address_size_override && vcpu.sregs.cs.l {
+    let offset = if vcpu.sregs.cs.l {
+        if ctx.address_size_override {
+            u64::from((vcpu.regs.rdi as u32).wrapping_add(lane))
+        } else {
+            vcpu.regs.rdi.wrapping_add(u64::from(lane))
+        }
+    } else if vcpu.sregs.cs.db != ctx.address_size_override {
         u64::from((vcpu.regs.rdi as u32).wrapping_add(lane))
     } else {
-        vcpu.regs.rdi.wrapping_add(u64::from(lane))
+        u64::from((vcpu.regs.rdi as u16).wrapping_add(lane as u16))
     };
-    let segment_base = match ctx.segment_override {
-        Some(0x64) => vcpu.sregs.fs.base,
-        Some(0x65) => vcpu.sregs.gs.base,
-        _ => 0,
-    };
-    segment_base.wrapping_add(offset)
+    vcpu.segment_linear(vcpu.get_segment_base(ctx.segment_override), offset)
 }
 
 // =============================================================================

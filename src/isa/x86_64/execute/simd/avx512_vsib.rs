@@ -25,6 +25,8 @@ struct EvexVsib {
     scale: u64,
     address_32: bool,
     segment_base: u64,
+    /// Outside 64-bit mode: the linear address wraps at 4 GiB.
+    linear_32: bool,
 }
 
 fn decode_evex_vsib(
@@ -98,6 +100,7 @@ fn decode_evex_vsib(
         base: base.wrapping_add(displacement as u64),
         scale,
         address_32,
+        linear_32: !vcpu.sregs.cs.l,
         segment_base,
     })
 }
@@ -166,7 +169,12 @@ fn evex_vsib_lane_addr(
     } else {
         effective
     };
-    vsib.segment_base.wrapping_add(effective)
+    let linear = vsib.segment_base.wrapping_add(effective);
+    if vsib.linear_32 {
+        linear & 0xFFFF_FFFF
+    } else {
+        linear
+    }
 }
 
 /// EVEX VGATHER*/VPGATHER*: masked VSIB gather into a vector destination.

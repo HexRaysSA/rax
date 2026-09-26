@@ -46,7 +46,8 @@ impl X86_64Vcpu {
         } else {
             self.sregs.cs.base
         };
-        let rip = base.wrapping_add(self.regs.rip);
+        // CS:rIP, wrapping at 4 GiB outside 64-bit mode.
+        let rip = self.segment_linear(base, self.regs.rip);
         self.mmu.mark_code_page(rip);
         self.mmu.set_fetch_active(true);
         let result = self.fetch_window(rip);

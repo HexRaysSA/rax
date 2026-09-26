@@ -122,8 +122,8 @@ fn movs_common(
         if is_rep && rep_count(vcpu.regs.rcx, addr_size) == 0 {
             break;
         }
-        let src = src_base.wrapping_add(index(vcpu.regs.rsi, addr_size));
-        let dst = dst_base.wrapping_add(index(vcpu.regs.rdi, addr_size));
+        let src = vcpu.segment_linear(src_base, index(vcpu.regs.rsi, addr_size));
+        let dst = vcpu.segment_linear(dst_base, index(vcpu.regs.rdi, addr_size));
         let val = vcpu.read_mem(src, op_size)?;
         vcpu.write_mem(dst, val, op_size)?;
         let forward = vcpu.regs.rflags & flags::bits::DF == 0;

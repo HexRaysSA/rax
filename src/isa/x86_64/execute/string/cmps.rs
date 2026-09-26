@@ -26,8 +26,11 @@ pub fn cmpsb(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
         if is_rep && rep_count(vcpu.regs.rcx, addr_size) == 0 {
             break;
         }
-        let src = src_base.wrapping_add(index(vcpu.regs.rsi, addr_size));
-        let dst = index(vcpu.regs.rdi, addr_size);
+        let src = vcpu.segment_linear(src_base, index(vcpu.regs.rsi, addr_size));
+        let dst = vcpu.segment_linear(
+            vcpu.get_segment_base(Some(0x26)),
+            index(vcpu.regs.rdi, addr_size),
+        );
         let val1 = vcpu.mmu.read_u8(src, &vcpu.sregs)? as u64;
         let val2 = vcpu.mmu.read_u8(dst, &vcpu.sregs)? as u64;
         let result = val1.wrapping_sub(val2);
@@ -70,8 +73,11 @@ pub fn cmps(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
         if is_rep && rep_count(vcpu.regs.rcx, addr_size) == 0 {
             break;
         }
-        let src = src_base.wrapping_add(index(vcpu.regs.rsi, addr_size));
-        let dst = index(vcpu.regs.rdi, addr_size);
+        let src = vcpu.segment_linear(src_base, index(vcpu.regs.rsi, addr_size));
+        let dst = vcpu.segment_linear(
+            vcpu.get_segment_base(Some(0x26)),
+            index(vcpu.regs.rdi, addr_size),
+        );
         let val1 = vcpu.read_mem(src, op_size)?;
         let val2 = vcpu.read_mem(dst, op_size)?;
         let result = val1.wrapping_sub(val2);

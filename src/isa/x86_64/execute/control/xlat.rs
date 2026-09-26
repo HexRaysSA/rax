@@ -27,9 +27,7 @@ pub fn xlat(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
         8 => vcpu.regs.rbx.wrapping_add(index),
         _ => unreachable!(),
     };
-    let addr = vcpu
-        .get_segment_base(ctx.segment_override)
-        .wrapping_add(offset);
+    let addr = vcpu.segment_linear(vcpu.get_segment_base(ctx.segment_override), offset);
     let value = vcpu.read_mem(addr, 1)?;
     vcpu.regs.rax = (vcpu.regs.rax & !0xFF) | (value & 0xFF);
     vcpu.regs.rip += ctx.cursor as u64;

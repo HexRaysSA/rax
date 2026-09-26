@@ -84,7 +84,10 @@ fn stos_common(
         if is_rep && rep_count(vcpu.regs.rcx, addr_size) == 0 {
             break;
         }
-        let dst = index(vcpu.regs.rdi, addr_size);
+        let dst = vcpu.segment_linear(
+            vcpu.get_segment_base(Some(0x26)),
+            index(vcpu.regs.rdi, addr_size),
+        );
         vcpu.write_mem(dst, vcpu.regs.rax, op_size)?;
         let forward = vcpu.regs.rflags & flags::bits::DF == 0;
         vcpu.regs.rdi = advance_index(vcpu.regs.rdi, delta, forward, addr_size);
