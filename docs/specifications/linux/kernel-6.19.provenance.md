@@ -57,7 +57,8 @@
   `arch/x86/kernel/{tls,sys_ia32}.c`, `arch/x86/kernel/cpu/common.c`,
   `arch/x86/entry/{syscall_32.c,entry_64_compat.S}`,
   `arch/x86/entry/syscalls/syscall_32.tbl`, `fs/compat_binfmt_elf.c`,
-  `include/linux/compat.h`) came from kernel.org's
+  `include/linux/compat.h`, `include/asm-generic/compat.h`,
+  `include/linux/{highuid,kdev_t}.h`, `fs/stat.c`) came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
@@ -74,7 +75,7 @@
   26 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (124 files),
+- License: the files carry an SPDX identifier: `GPL-2.0` (128 files),
   `GPL-2.0-only` (59), `GPL-2.0-or-later` (36),
   `GPL-2.0 WITH Linux-syscall-note` (15), `GPL-2.0+` (3),
   `GPL-2.0-only WITH Linux-syscall-note` (1),

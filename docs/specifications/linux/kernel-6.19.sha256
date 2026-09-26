@@ -106,10 +106,12 @@ f3afb0ed8f36a77440640a821d0572f448c856db5c7c310bc4d7dbdcf82d684d  ./fs/proc/task
 b557844efe68621a37c8fd0fe74014dc6e9b6a5c3e8e6162c570bb1808357f29  ./fs/select.c
 a0cdd0c2b9feb86b8637e71e6f6250f6cb316cb2425366f08e5f8a3cf9764f21  ./fs/signalfd.c
 0eb639aa2e081e47728756fc27fe07389435d86d59127bac8414b686a0a0d6ed  ./fs/splice.c
+c7ce7edb53a0dca2dd1f4703a81227ff420060d6e62164b149f9b656c27b47fc  ./fs/stat.c
 06457ffba3ba71c7a786ee4ac2dc57d9af4641cd4db5d92e2b8d7db0d343b15c  ./fs/sync.c
 1a65fb161d7b4adcdcf41696fad7ea2cf22fc6266caf82538cc472c68aec6970  ./fs/timerfd.c
 32fff5ab40eab45e0441e8a03f00db0f55fb8f9704f028d4dd3c6d5a647e2051  ./fs/utimes.c
 f44749ed81e6076b27b2e68639d6e14825167cf92d0bab4580af1dcc8f13f855  ./fs/xattr.c
+5151ee3279b77ccb5db1a77d7b54f32059f759480ee52e52dceaddc7977f881d  ./include/asm-generic/compat.h
 35763c3ded5ab8966539b4f3096a41de2c7b7d374d9e26ad99cf32426e6ffbc5  ./include/asm-generic/param.h
 52c048b70dd2b2784623cf8241ae59770312d714baa74ffe04ce3856254a2cbd  ./include/asm-generic/seccomp.h
 fafb5acd5ce478f16c81a50a064b4f1583a61718bfaa89a74163fcabd8f4cf87  ./include/linux/aio.h
@@ -120,10 +122,12 @@ fafb5acd5ce478f16c81a50a064b4f1583a61718bfaa89a74163fcabd8f4cf87  ./include/linu
 3c32ae8a9ad1d9c819c1605a799021927cc3185d2b9ad3baa760fde4737edbd3  ./include/linux/fs.h
 58b8a17276f75032117d2ab660a08eac2549705f4a269b4015b0a2c5ffdb3eee  ./include/linux/fsnotify.h
 5803ed9d0c062f8cda21728c772b037d860952a89020718733b16acafacbe909  ./include/linux/fsnotify_backend.h
+cf83180733c5f9283367c990224ffef7de7526f132d23061337e8e04534aa7e5  ./include/linux/highuid.h
 6c2e7b2a57af782db5d7a0a089df894e4fd4ba62e3d515a17977c187add94a15  ./include/linux/ioprio.h
 7f64fc4bd85e8b666cb6a3050460104ee6786fbad803363b5f91ef0cf77a739f  ./include/linux/ipc.h
 8d55ae5b167a5f186da8e2b6cf3dabb2c0a989a5236ba7d53a4b95428f42dbf4  ./include/linux/ipc_namespace.h
 723ef6c08656ed79a78441fc7f98c435cbef7bafe2ceb29ac145177cb9dbaf10  ./include/linux/jiffies.h
+88c47d8d1979f2c0e11aca3ad52f07d8da574db821a5a2b17bf64c5495991015  ./include/linux/kdev_t.h
 aec3aef8afc43db9950c13d3459840929fad4f3c8f2c1ca2a2115dd0146ffade  ./include/linux/memfd.h
 b65a8e4c21cfafcf13c99b25775f5e9b6f1c123ae993092064a178b867364fd6  ./include/linux/mm.h
 fa1231cb6aa22d773fba76ea474b86dec09a80efb602d37cd9d450041f70e732  ./include/linux/moduleparam.h
