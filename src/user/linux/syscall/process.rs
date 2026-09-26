@@ -348,7 +348,9 @@ pub fn prctl(c: &mut Ctx<'_>, option: i32, a2: u64, a3: u64, a4: u64, a5: u64) -
         PR_SET_SECCOMP => super::seccomp::prctl_set(c, a2, a3),
         // get_tsc_mode and set_tsc_mode (x86); other architectures define
         // neither (EINVAL).
-        PR_GET_TSC | PR_SET_TSC if c.p.abi != LinuxAbi::X86_64 => Err(Errno(EINVAL)),
+        PR_GET_TSC | PR_SET_TSC if c.p.abi.isa() != crate::user::cpu::Isa::X86_64 => {
+            Err(Errno(EINVAL))
+        }
         PR_GET_TSC => {
             let mode = if c.t.notsc {
                 PR_TSC_SIGSEGV

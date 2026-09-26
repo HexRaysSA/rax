@@ -305,10 +305,12 @@ impl LinuxProcess {
         }
         p.fds.close_on_exec();
         // SET_PERSONALITY: x86-64 drops READ_IMPLIES_EXEC; arm64 and riscv
-        // keep the flags with PER_LINUX.
+        // keep the flags with PER_LINUX; an i386 program inherits the
+        // personality (set_personality_ia32 adds force_personality32, 0).
         p.persona = match image.abi {
             LinuxAbi::X86_64 => p.persona & !super::abi::READ_IMPLIES_EXEC,
-            _ => p.persona & !0xff,
+            LinuxAbi::I386 => p.persona,
+            LinuxAbi::Aarch64 | LinuxAbi::Riscv64 => p.persona & !0xff,
         };
         p.abi = image.abi;
         p.space = image.space;

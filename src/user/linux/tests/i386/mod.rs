@@ -8,6 +8,13 @@
 //! `get_thread_area` (`arch/x86/kernel/tls.c`, `fill_ldt`), `mmap2`'s page
 //! offset, `struct compat_iovec`, the terminal `ioctl`s passed through, and
 //! `ENOSYS` for calls without a 32-bit conversion yet.
+//!
+//! | Module | Contents |
+//! |---|---|
+//! | this one | the task, its entry, TLS, and the first conversions |
+//! | [`files`] | opens, offsets, status, directories, locks, `execve` |
+
+mod files;
 
 use super::harness::{CODE, Harness};
 use crate::user::image::elf::ElfClass;
@@ -16,17 +23,17 @@ use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::arch::{CpuEvent, GuestCpu};
 use crate::vm::vcpu::VCpu;
 
-fn put(h: &Harness, at: u64, bytes: &[u8]) {
+pub(super) fn put(h: &Harness, at: u64, bytes: &[u8]) {
     h.proc.state.space.write_raw(at, bytes).unwrap();
 }
 
-fn u32_at(h: &Harness, at: u64) -> u32 {
+pub(super) fn u32_at(h: &Harness, at: u64) -> u32 {
     let mut b = [0u8; 4];
     h.proc.state.space.read_raw(at, &mut b).unwrap();
     u32::from_le_bytes(b)
 }
 
-fn cstr(h: &Harness, at: u64) -> String {
+pub(super) fn cstr(h: &Harness, at: u64) -> String {
     let mut out = Vec::new();
     let mut b = [0u8];
     let mut p = at;
@@ -284,8 +291,8 @@ fn compat_calls_convert_or_refuse() {
     assert_eq!(b, [2; 4]);
     put(&h, at + 0x3014, &100u32.to_le_bytes());
     assert_eq!(h.call(Sysno::Mmap, &[at + 0x3000]), -i64::from(EINVAL));
-    // Calls without a 32-bit conversion yet.
-    for s in [Sysno::Stat64, Sysno::Socketcall, Sysno::RtSigaction] {
+    // Calls without a 32-bit conversion yet, and the 16-bit-ID getuid.
+    for s in [Sysno::Socketcall, Sysno::RtSigaction, Sysno::Getuid] {
         assert_eq!(h.call(s, &[0, 0, 0, 0]), -i64::from(ENOSYS), "{s:?}");
     }
 }

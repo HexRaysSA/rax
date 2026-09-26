@@ -71,8 +71,25 @@ pub fn flock(c: &mut Ctx<'_>, fd: i32, cmd: u32) -> SysResult {
     }
 }
 
-/// A guest `struct flock` (the same 32 bytes on every supported ABI:
-/// `short l_type, l_whence; off_t l_start, l_len; pid_t l_pid`).
+/// The `struct flock` layouts of the record-lock commands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FlockLayout {
+    /// `struct flock` of the 64-bit ABIs (32 bytes: `short l_type,
+    /// l_whence; off_t l_start, l_len; pid_t l_pid`). A reply keeps the
+    /// caller's padding: `fcntl_getlk` returns the structure it read.
+    Native,
+    /// `struct compat_flock` (16 bytes: 32-bit start, length, and PID),
+    /// written whole (`put_compat_flock`).
+    Compat,
+    /// `struct compat_flock64` (24 bytes, packed on x86: 64-bit start and
+    /// length at offsets 4 and 12).
+    Compat64,
+}
+
+/// `COMPAT_OFF_T_MAX`.
+const COMPAT_OFF_T_MAX: i64 = i32::MAX as i64;
+
+/// A guest `struct flock`.
 struct Flock {
     kind: i16,
     whence: i16,
@@ -82,25 +99,54 @@ struct Flock {
 }
 
 impl Flock {
-    fn read(c: &Ctx<'_>, addr: u64) -> Result<Self, Errno> {
-        let b = c.read_mem(addr, 32)?;
+    fn read(c: &Ctx<'_>, addr: u64, layout: FlockLayout) -> Result<Self, Errno> {
+        let size = match layout {
+            FlockLayout::Native => 32,
+            FlockLayout::Compat => 16,
+            FlockLayout::Compat64 => 24,
+        };
+        let b = c.read_mem(addr, size)?;
+        let i32_at = |at: usize| i32::from_le_bytes(b[at..at + 4].try_into().unwrap());
         let i64_at = |at: usize| i64::from_le_bytes(b[at..at + 8].try_into().unwrap());
+        let (start, len, pid) = match layout {
+            FlockLayout::Native => (i64_at(8), i64_at(16), i32_at(24)),
+            FlockLayout::Compat => (i64::from(i32_at(4)), i64::from(i32_at(8)), i32_at(12)),
+            FlockLayout::Compat64 => (i64_at(4), i64_at(12), i32_at(20)),
+        };
         Ok(Flock {
             kind: i16::from_le_bytes([b[0], b[1]]),
             whence: i16::from_le_bytes([b[2], b[3]]),
-            start: i64_at(8),
-            len: i64_at(16),
-            pid: i32::from_le_bytes(b[24..28].try_into().unwrap()),
+            start,
+            len,
+            pid,
         })
     }
 
-    fn write(&self, c: &Ctx<'_>, addr: u64) -> Result<(), Errno> {
-        let mut b = c.read_mem(addr, 32)?;
+    fn write(&self, c: &Ctx<'_>, addr: u64, layout: FlockLayout) -> Result<(), Errno> {
+        let mut b = match layout {
+            FlockLayout::Native => c.read_mem(addr, 32)?,
+            FlockLayout::Compat => vec![0; 16],
+            FlockLayout::Compat64 => vec![0; 24],
+        };
         b[0..2].copy_from_slice(&self.kind.to_le_bytes());
         b[2..4].copy_from_slice(&self.whence.to_le_bytes());
-        b[8..16].copy_from_slice(&self.start.to_le_bytes());
-        b[16..24].copy_from_slice(&self.len.to_le_bytes());
-        b[24..28].copy_from_slice(&self.pid.to_le_bytes());
+        match layout {
+            FlockLayout::Native => {
+                b[8..16].copy_from_slice(&self.start.to_le_bytes());
+                b[16..24].copy_from_slice(&self.len.to_le_bytes());
+                b[24..28].copy_from_slice(&self.pid.to_le_bytes());
+            }
+            FlockLayout::Compat => {
+                b[4..8].copy_from_slice(&(self.start as i32).to_le_bytes());
+                b[8..12].copy_from_slice(&(self.len as i32).to_le_bytes());
+                b[12..16].copy_from_slice(&self.pid.to_le_bytes());
+            }
+            FlockLayout::Compat64 => {
+                b[4..12].copy_from_slice(&self.start.to_le_bytes());
+                b[12..20].copy_from_slice(&self.len.to_le_bytes());
+                b[20..24].copy_from_slice(&self.pid.to_le_bytes());
+            }
+        }
         c.write_mem(addr, &b)
     }
 
@@ -147,22 +193,30 @@ impl Flock {
 
 /// The description behind `fd` for a record-lock command: `EBADF` for a
 /// closed or `O_PATH` descriptor (`check_fcntl_cmd`), then the structure.
-fn setup(c: &Ctx<'_>, fd: i32, arg: u64) -> Result<(std::sync::Arc<OpenFile>, Flock), Errno> {
+fn setup(
+    c: &Ctx<'_>,
+    fd: i32,
+    arg: u64,
+    layout: FlockLayout,
+) -> Result<(std::sync::Arc<OpenFile>, Flock), Errno> {
     let file = c.p.fds.file(fd)?;
     if file.flags() & O_PATH != 0 {
         return Err(Errno(EBADF));
     }
-    let fl = Flock::read(c, arg)?;
+    let fl = Flock::read(c, arg, layout)?;
     Ok((file, fl))
 }
 
-/// `F_GETLK` and `F_OFD_GETLK` (`fcntl_getlk`).
-pub fn getlk(c: &mut Ctx<'_>, fd: i32, arg: u64, owner: Owner) -> SysResult {
+/// `F_GETLK` and `F_OFD_GETLK` (`fcntl_getlk`), and a compatibility
+/// task's `F_GETLK` and `F_GETLK64`. A `struct compat_flock` reply whose
+/// start does not fit is `EOVERFLOW`; its length is clamped
+/// (`fixup_compat_flock`).
+pub fn getlk(c: &mut Ctx<'_>, fd: i32, arg: u64, owner: Owner, layout: FlockLayout) -> SysResult {
     #[cfg(not(target_os = "linux"))]
     if owner == Owner::Description {
         return Err(Errno(EINVAL));
     }
-    let (file, mut fl) = setup(c, fd, arg)?;
+    let (file, mut fl) = setup(c, fd, arg, layout)?;
     if owner == Owner::Process && fl.kind != F_RDLCK && fl.kind != F_WRLCK {
         return Err(Errno(EINVAL));
     }
@@ -193,18 +247,31 @@ pub fn getlk(c: &mut Ctx<'_>, fd: i32, arg: u64, owner: Owner) -> SysResult {
         }
         None => fl.kind = F_UNLCK,
     }
-    fl.write(c, arg)?;
+    if layout == FlockLayout::Compat {
+        if fl.start > COMPAT_OFF_T_MAX {
+            return Err(Errno(EOVERFLOW));
+        }
+        fl.len = fl.len.min(COMPAT_OFF_T_MAX);
+    }
+    fl.write(c, arg, layout)?;
     Ok(0)
 }
 
 /// `F_SETLK`, `F_SETLKW`, `F_OFD_SETLK`, and `F_OFD_SETLKW`
-/// (`fcntl_setlk`).
-pub fn setlk(c: &mut Ctx<'_>, fd: i32, arg: u64, owner: Owner, sleep: bool) -> SysResult {
+/// (`fcntl_setlk`), with the structure in `layout`.
+pub fn setlk(
+    c: &mut Ctx<'_>,
+    fd: i32,
+    arg: u64,
+    owner: Owner,
+    sleep: bool,
+    layout: FlockLayout,
+) -> SysResult {
     #[cfg(not(target_os = "linux"))]
     if owner == Owner::Description {
         return Err(Errno(EINVAL));
     }
-    let (file, fl) = setup(c, fd, arg)?;
+    let (file, fl) = setup(c, fd, arg, layout)?;
     let range = fl.range(&file)?;
     // assign_type, then check_fmode_for_setlk.
     match fl.kind {

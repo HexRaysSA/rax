@@ -7,7 +7,7 @@ use std::sync::Arc;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::abi::open::*;
-use super::super::abi::types::{Stat, Timespec, mode};
+use super::super::abi::types::{Kstatfs, MAX_NON_LFS, Stat, Timespec, mode};
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::fs::{self, join_guest};
 use super::super::fsnotify::bits::{IN_ATTRIB, IN_MODIFY};
@@ -231,9 +231,9 @@ pub(super) fn open_target(
     let layout = c.p.abi.open_flags();
     let accmode = flags & O_ACCMODE;
     // f_flags (build_open_how, build_open_flags, do_dentry_open): the
-    // valid open flags with O_LARGEFILE forced, as on every 64-bit kernel,
-    // less the creation-time flags and O_CLOEXEC; an O_PATH open keeps
-    // only O_PATH, O_DIRECTORY, and O_NOFOLLOW.
+    // valid open flags less the creation-time flags and O_CLOEXEC; an
+    // O_PATH open keeps only O_PATH, O_DIRECTORY, and O_NOFOLLOW. The
+    // caller has added O_LARGEFILE where the call forces it.
     let valid = O_ACCMODE
         | O_CREAT
         | O_EXCL
@@ -255,7 +255,7 @@ pub(super) fn open_target(
     let status = if flags & O_PATH != 0 {
         flags & (O_PATH | layout.directory | layout.nofollow)
     } else {
-        (flags & valid | layout.largefile) & !(O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC | O_CLOEXEC)
+        flags & valid & !(O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC | O_CLOEXEC)
     };
     match target {
         Target::Fd(file) => Ok(file),
@@ -341,6 +341,12 @@ pub(super) fn open_target(
                 _ => opts.read(true),
             };
             let mut custom = 0;
+            // generic_file_open (do_dentry_open) runs after the lookup and
+            // permission checks and before handle_truncate: without
+            // O_LARGEFILE a regular file past MAX_NON_LFS is EOVERFLOW and
+            // stays untruncated, so such an open truncates only after the
+            // size check.
+            let size_checked = status & layout.largefile == 0;
             // Whether this open may create the file (it does not exist).
             let creates = flags & O_CREAT != 0 && std::fs::metadata(&host).is_err();
             if flags & O_CREAT != 0 {
@@ -351,7 +357,7 @@ pub(super) fn open_target(
                 }
                 opts.mode(create_mode & 0o7777 & !c.p.umask);
             }
-            if flags & O_TRUNC != 0 {
+            if flags & O_TRUNC != 0 && !size_checked {
                 custom |= libc::O_TRUNC;
             }
             if flags & O_NONBLOCK != 0 {
@@ -368,6 +374,14 @@ pub(super) fn open_target(
             }
             opts.custom_flags(custom);
             let file = opts.open(&host)?;
+            if size_checked && file.metadata().is_ok_and(|m| m.is_file()) {
+                if file.metadata()?.len() > MAX_NON_LFS as u64 {
+                    return Err(Errno(EOVERFLOW));
+                }
+                if flags & O_TRUNC != 0 {
+                    truncate_opened(&file, &host, accmode)?;
+                }
+            }
             let bits = create_mode & 0o7777 & !c.p.umask;
             if creates && bits & super::super::host::umask() != 0 {
                 file.set_permissions(std::fs::Permissions::from_mode(bits))?;
@@ -395,8 +409,46 @@ pub(super) fn open_target(
     }
 }
 
-/// `openat` (and `open`, `creat`).
+/// Truncates the regular file just opened as `file` (`handle_truncate`),
+/// through a second, writable open when `accmode` is `O_RDONLY` (which
+/// `O_TRUNC` truncates as well, `may_open` having required write access).
+fn truncate_opened(
+    file: &std::fs::File,
+    host: &std::path::Path,
+    accmode: u32,
+) -> Result<(), Errno> {
+    if accmode == O_RDONLY {
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(host)?
+            .set_len(0)?;
+    } else {
+        file.set_len(0)?;
+    }
+    Ok(())
+}
+
+/// `openat` (and `open`, `creat`, `openat2`) as a 64-bit kernel's native
+/// entry points run it: `force_o_largefile()` holds, so the file is opened
+/// with `O_LARGEFILE`.
 pub fn openat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, create_mode: u32) -> SysResult {
+    let largefile = c.p.abi.open_flags().largefile;
+    open_at(c, dirfd, path, flags | largefile, create_mode)
+}
+
+/// `compat_sys_openat` (and `compat_sys_open`): `O_LARGEFILE` only if the
+/// caller passes it.
+pub fn compat_openat(
+    c: &mut Ctx<'_>,
+    dirfd: i32,
+    path: u64,
+    flags: u32,
+    create_mode: u32,
+) -> SysResult {
+    open_at(c, dirfd, path, flags, create_mode)
+}
+
+fn open_at(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, create_mode: u32) -> SysResult {
     let nofollow = flags & c.p.abi.open_flags().nofollow != 0;
     let target = resolve(c, dirfd, path, 0, !nofollow)?;
     let file = open_target(c, target, flags, create_mode)?;
@@ -450,22 +502,32 @@ pub fn openat2(c: &mut Ctx<'_>, dirfd: i32, path: u64, how: u64, size: u64) -> S
     openat(c, dirfd, path, flags as u32, mode as u32)
 }
 
-/// `newfstatat` (and `stat`, `lstat`).
-pub fn fstatat(c: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32) -> SysResult {
+/// `vfs_fstatat`: the status of `path` relative to `dirfd`.
+pub(super) fn stat_at(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> Result<Stat, Errno> {
     if flags & !(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH | AT_NO_AUTOMOUNT) != 0 {
         return Err(Errno(EINVAL));
     }
     let follow = flags & AT_SYMLINK_NOFOLLOW == 0;
     let target = resolve(c, dirfd, path, flags, follow)?;
-    let st = stat_target(c, &target, follow)?;
+    stat_target(c, &target, follow)
+}
+
+/// `vfs_fstat`: the status of `fd`'s file.
+pub(super) fn stat_fd(c: &Ctx<'_>, fd: i32) -> Result<Stat, Errno> {
+    let file = c.p.fds.file(fd)?;
+    stat_file(c, &file)
+}
+
+/// `newfstatat` (and `stat`, `lstat`).
+pub fn fstatat(c: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32) -> SysResult {
+    let st = stat_at(c, dirfd, path, flags)?;
     c.write_mem(buf, &st.encode(c.p.abi))?;
     Ok(0)
 }
 
 /// `fstat`.
 pub fn fstat(c: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
-    let file = c.p.fds.file(fd)?;
-    let st = stat_file(c, &file)?;
+    let st = stat_fd(c, fd)?;
     c.write_mem(buf, &st.encode(c.p.abi))?;
     Ok(0)
 }
@@ -897,64 +959,68 @@ const PROC_SUPER_MAGIC: u64 = 0x9fa0;
 /// `ST_VALID` (`f_flags` is meaningful).
 const ST_VALID: u64 = 0x20;
 
-fn encode_statfs(magic: u64, st: &super::super::host::FsStats) -> Vec<u8> {
-    let mut e = super::super::abi::types::Encoder::new();
-    e.u64(magic)
-        .u64(st.bsize)
-        .u64(st.blocks)
-        .u64(st.bfree)
-        .u64(st.bavail)
-        .u64(st.files)
-        .u64(st.ffree)
-        .u64(0) // f_fsid
-        .u64(st.namemax)
-        .u64(st.frsize)
-        .u64(ST_VALID | (st.flags & 0x3))
-        .zeros(32);
-    e.finish()
+/// `struct kstatfs` of a file system of magic `kind`.
+fn kstatfs(kind: u64, st: &super::super::host::FsStats) -> Kstatfs {
+    Kstatfs {
+        kind,
+        bsize: st.bsize,
+        blocks: st.blocks,
+        bfree: st.bfree,
+        bavail: st.bavail,
+        files: st.files,
+        ffree: st.ffree,
+        fsid: [0, 0],
+        namelen: st.namemax,
+        frsize: st.frsize,
+        flags: ST_VALID | (st.flags & 0x3),
+    }
+}
+
+/// The statistics of a synthesized file system.
+fn synthetic_fs() -> super::super::host::FsStats {
+    super::super::host::FsStats {
+        bsize: 4096,
+        frsize: 4096,
+        namemax: 255,
+        ..Default::default()
+    }
+}
+
+/// `user_statfs`: the statistics of the file system holding `path`.
+pub(super) fn statfs_path(c: &mut Ctx<'_>, path: u64) -> Result<Kstatfs, Errno> {
+    match resolve(c, AT_FDCWD, path, 0, true)? {
+        Target::Proc(..) => Ok(kstatfs(PROC_SUPER_MAGIC, &synthetic_fs())),
+        Target::Host { host, .. } => Ok(kstatfs(
+            EXT4_SUPER_MAGIC,
+            &super::super::host::statvfs(&host)?,
+        )),
+        Target::Fd(_) => Err(Errno(ENOENT)),
+    }
+}
+
+/// `fd_statfs`: the statistics of the file system holding `fd`'s file.
+pub(super) fn statfs_fd(c: &Ctx<'_>, fd: i32) -> Result<Kstatfs, Errno> {
+    let file = c.p.fds.file(fd)?;
+    Ok(match &file.host_path {
+        Some(h) => kstatfs(EXT4_SUPER_MAGIC, &super::super::host::statvfs(h)?),
+        None if super::pidfd::target_of(&file).is_some() => {
+            kstatfs(super::pidfd::PID_FS_MAGIC, &synthetic_fs())
+        }
+        None => kstatfs(PROC_SUPER_MAGIC, &synthetic_fs()),
+    })
 }
 
 /// `statfs` (`struct statfs`, 120 bytes on every 64-bit ABI).
 pub fn statfs(c: &mut Ctx<'_>, path: u64, buf: u64) -> SysResult {
-    match resolve(c, AT_FDCWD, path, 0, true)? {
-        Target::Proc(..) => {
-            let st = super::super::host::FsStats {
-                bsize: 4096,
-                frsize: 4096,
-                namemax: 255,
-                ..Default::default()
-            };
-            c.write_mem(buf, &encode_statfs(PROC_SUPER_MAGIC, &st))?;
-        }
-        Target::Host { host, .. } => {
-            let st = super::super::host::statvfs(&host)?;
-            c.write_mem(buf, &encode_statfs(EXT4_SUPER_MAGIC, &st))?;
-        }
-        Target::Fd(_) => return Err(Errno(ENOENT)),
-    }
+    let k = statfs_path(c, path)?;
+    c.write_mem(buf, &k.encode())?;
     Ok(0)
 }
 
 /// `fstatfs`.
 pub fn fstatfs(c: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
-    let file = c.p.fds.file(fd)?;
-    let st = match &file.host_path {
-        Some(h) => super::super::host::statvfs(h)?,
-        None => super::super::host::FsStats {
-            bsize: 4096,
-            frsize: 4096,
-            namemax: 255,
-            ..Default::default()
-        },
-    };
-    let magic = if file.host_path.is_some() {
-        EXT4_SUPER_MAGIC
-    } else if super::pidfd::target_of(&file).is_some() {
-        super::pidfd::PID_FS_MAGIC
-    } else {
-        PROC_SUPER_MAGIC
-    };
-    c.write_mem(buf, &encode_statfs(magic, &st))?;
+    let k = statfs_fd(c, fd)?;
+    c.write_mem(buf, &k.encode())?;
     Ok(0)
 }
 

@@ -478,18 +478,27 @@ pub(super) fn check_rw_flags(file: &OpenFile, flags: u64) -> Result<(), Errno> {
     Ok(())
 }
 
-/// `preadv`/`preadv2` (`pos == -1` means the current position).
-pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64) -> SysResult {
+/// `preadv` and `preadv2` at `pos`, or at the current position for `None`
+/// (`preadv2`'s -1: `do_readv`). A negative position is `EINVAL` before
+/// the descriptor is looked at (`do_preadv`).
+pub fn preadv(
+    c: &mut Ctx<'_>,
+    fd: i32,
+    iov: u64,
+    cnt: u64,
+    pos: Option<i64>,
+    flags: u64,
+) -> SysResult {
+    if pos.is_some_and(|p| p < 0) {
+        return Err(Errno(EINVAL));
+    }
     if flags & !rwf::SUPPORTED != 0 {
         return Err(Errno(EOPNOTSUPP));
     }
     let file = c.p.fds.file(fd)?;
     check_rw_flags(&file, flags)?;
-    if pos < -1 {
-        return Err(Errno(EINVAL));
-    }
     if matches!(file.object, FileObject::Anon(_)) {
-        return if pos >= 0 {
+        return if pos.is_some() {
             Err(Errno(positional(&file)))
         } else {
             readv(c, fd, iov, cnt)
@@ -501,7 +510,7 @@ pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64
         if len == 0 {
             continue;
         }
-        let at = (pos >= 0).then(|| pos as u64 + total);
+        let at = pos.map(|p| p as u64 + total);
         let n = read_into(c, &file, base, len, at)?;
         total += n;
         if n < len {
@@ -516,19 +525,26 @@ pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64
     Ok(total)
 }
 
-/// `pwritev`/`pwritev2`.
-pub fn pwritev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64) -> SysResult {
+/// `pwritev` and `pwritev2`, as [`preadv`].
+pub fn pwritev(
+    c: &mut Ctx<'_>,
+    fd: i32,
+    iov: u64,
+    cnt: u64,
+    pos: Option<i64>,
+    flags: u64,
+) -> SysResult {
+    if pos.is_some_and(|p| p < 0) {
+        return Err(Errno(EINVAL));
+    }
     if flags & !rwf::SUPPORTED != 0 {
         return Err(Errno(EOPNOTSUPP));
     }
     let file = c.p.fds.file(fd)?;
     check_rw_flags(&file, flags)?;
     c.nosignal = flags & rwf::NOSIGNAL != 0;
-    if pos < -1 {
-        return Err(Errno(EINVAL));
-    }
     if matches!(file.object, FileObject::Anon(_)) {
-        return if pos >= 0 {
+        return if pos.is_some() {
             Err(Errno(positional(&file)))
         } else {
             writev(c, fd, iov, cnt)
@@ -539,7 +555,7 @@ pub fn pwritev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u6
         if len == 0 {
             continue;
         }
-        let at = (pos >= 0).then(|| pos as u64 + total);
+        let at = pos.map(|p| p as u64 + total);
         let n = write_from(c, &file, base, len, at)?;
         total += n;
         if n < len {
@@ -1060,13 +1076,40 @@ pub fn pselect6(
 /// or socket output without `O_NONBLOCK` that is full sleeps as `write`
 /// does; a signal ends the copy with what was copied, or `-ERESTARTSYS`.
 pub fn sendfile(c: &mut Ctx<'_>, out_fd: i32, in_fd: i32, off_ptr: u64, count: u64) -> SysResult {
+    sendfile_as(c, out_fd, in_fd, off_ptr, count, SendfileOffset::Loff)
+}
+
+/// The offset a `sendfile` call reads and writes back.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SendfileOffset {
+    /// A `loff_t` (`sendfile64`, and `sendfile` of the 64-bit ABIs):
+    /// transfers up to the file-size limit.
+    Loff,
+    /// A `compat_off_t` (`compat_sys_sendfile`): sign-extended, written
+    /// back truncated, and the transfer ends at `MAX_NON_LFS` (`EOVERFLOW`
+    /// from there).
+    Compat,
+}
+
+/// `do_sendfile` with the offset at `off_ptr` (none for 0) in `width`.
+pub fn sendfile_as(
+    c: &mut Ctx<'_>,
+    out_fd: i32,
+    in_fd: i32,
+    off_ptr: u64,
+    count: u64,
+    width: SendfileOffset,
+) -> SysResult {
     let input = c.p.fds.file(in_fd)?;
     let output = c.p.fds.file(out_fd)?;
     if !input.readable() || !output.writable() {
         return Err(Errno(EBADF));
     }
     let mut pos = if off_ptr != 0 {
-        let v = c.read_u64(off_ptr)? as i64;
+        let v = match width {
+            SendfileOffset::Loff => c.read_u64(off_ptr)? as i64,
+            SendfileOffset::Compat => i64::from(c.read_u32(off_ptr)? as i32),
+        };
         if v < 0 {
             return Err(Errno(EINVAL));
         }
@@ -1074,7 +1117,16 @@ pub fn sendfile(c: &mut Ctx<'_>, out_fd: i32, in_fd: i32, off_ptr: u64, count: u
     } else {
         None
     };
-    let count = count.min(MAX_RW_COUNT);
+    let mut count = count.min(MAX_RW_COUNT);
+    if let (Some(p), SendfileOffset::Compat) = (pos, width) {
+        let max = super::super::abi::types::MAX_NON_LFS as u64;
+        if p + count > max {
+            if p >= max {
+                return Err(Errno(EOVERFLOW));
+            }
+            count = max - p;
+        }
+    }
     let waits = may_block(&output) && matches!(output.ftype, FileType::Fifo | FileType::Socket);
     // After a sleep the offset in memory is still the original one.
     let mut done = match c.resume.take() {
@@ -1129,7 +1181,10 @@ pub fn sendfile(c: &mut Ctx<'_>, out_fd: i32, in_fd: i32, off_ptr: u64, count: u
         }
     }
     if let (Some(p), true) = (pos, off_ptr != 0) {
-        c.write_u64(off_ptr, p)?;
+        match width {
+            SendfileOffset::Loff => c.write_u64(off_ptr, p)?,
+            SendfileOffset::Compat => c.write_u32(off_ptr, p as u32)?,
+        }
     }
     match stop {
         Some(e) => Err(e),
@@ -1230,12 +1285,13 @@ pub fn syncfs(c: &mut Ctx<'_>, fd: i32) -> SysResult {
 }
 
 /// `fadvise64`.
-pub fn fadvise(c: &mut Ctx<'_>, fd: i32, advice: u32) -> SysResult {
+pub fn fadvise(c: &mut Ctx<'_>, fd: i32, len: i64, advice: u32) -> SysResult {
     let file = c.p.fds.file(fd)?;
     if file.ftype == FileType::Fifo {
         return Err(Errno(ESPIPE));
     }
-    if advice > 5 {
+    // generic_fadvise: a length negative as a loff_t.
+    if len < 0 || advice > 5 {
         return Err(Errno(EINVAL));
     }
     Ok(0)
@@ -1302,67 +1358,6 @@ pub fn sync_file_range(
         let _ = f.sync_data();
     }
     Ok(0)
-}
-
-/// `getdents64` (`struct linux_dirent64`) or legacy `getdents`
-/// (`struct linux_dirent`, type in the last byte).
-pub fn getdents(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, is64: bool) -> SysResult {
-    let file = c.p.fds.file(fd)?;
-    if file.ftype != FileType::Directory {
-        return Err(Errno(ENOTDIR));
-    }
-    let mut st = file.state.lock().unwrap();
-    if st.dir.is_none() {
-        let entries = match &file.host_path {
-            Some(h) => super::super::fs::read_directory(h)?,
-            None => Vec::new(),
-        };
-        st.dir = Some((entries, 0));
-    }
-    let (entries, cursor) = st.dir.as_mut().unwrap();
-    let mut out = Vec::new();
-    let mut i = *cursor;
-    while i < entries.len() {
-        let e = &entries[i];
-        let rec = if is64 {
-            let reclen = (19 + e.name.len() + 1).div_ceil(8) * 8;
-            let mut r = Vec::with_capacity(reclen);
-            r.extend_from_slice(&e.ino.to_le_bytes());
-            r.extend_from_slice(&((i + 1) as i64).to_le_bytes());
-            r.extend_from_slice(&(reclen as u16).to_le_bytes());
-            r.push(e.dtype);
-            r.extend_from_slice(&e.name);
-            r.resize(reclen, 0);
-            r
-        } else {
-            let reclen = (18 + e.name.len() + 2).div_ceil(8) * 8;
-            let mut r = Vec::with_capacity(reclen);
-            r.extend_from_slice(&e.ino.to_le_bytes());
-            r.extend_from_slice(&((i + 1) as i64).to_le_bytes());
-            r.extend_from_slice(&(reclen as u16).to_le_bytes());
-            r.extend_from_slice(&e.name);
-            r.resize(reclen - 1, 0);
-            r.push(e.dtype);
-            r
-        };
-        if out.len() + rec.len() > count as usize {
-            break;
-        }
-        out.extend_from_slice(&rec);
-        i += 1;
-    }
-    let too_small = out.is_empty() && i < entries.len();
-    drop(st);
-    // iterate_dir reports the access whatever the entries' copies do.
-    super::notify::listed(&file);
-    if too_small {
-        return Err(Errno(EINVAL));
-    }
-    c.write_mem(buf, &out)?;
-    if let Some((_, cur)) = file.state.lock().unwrap().dir.as_mut() {
-        *cur = i;
-    }
-    Ok(out.len() as u64)
 }
 
 /// `ftruncate`.

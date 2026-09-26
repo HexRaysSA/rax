@@ -32,19 +32,22 @@ const EP_MAX_NESTS: usize = 4;
 const EPOLLEXCLUSIVE_OK_BITS: u32 =
     ev::IN | ev::OUT | ev::ERR | ev::HUP | EPOLLWAKEUP | EPOLLET | EPOLLEXCLUSIVE;
 
+/// Whether `struct epoll_event` is packed (`EPOLL_PACKED`: x86-64, so
+/// that it matches i386's, whose 64-bit field is 4-byte aligned).
+fn packed(abi: LinuxAbi) -> bool {
+    abi.isa() == crate::user::cpu::Isa::X86_64
+}
+
 /// `sizeof(struct epoll_event)`.
 fn event_size(abi: LinuxAbi) -> u64 {
-    match abi {
-        LinuxAbi::X86_64 => 12,
-        _ => 16,
-    }
+    if packed(abi) { 12 } else { 16 }
 }
 
 /// Reads a `struct epoll_event`.
 fn read_event(c: &Ctx<'_>, addr: u64) -> Result<(u32, u64), Errno> {
     let b = c.read_mem(addr, event_size(c.p.abi) as usize)?;
     let events = u32::from_le_bytes(b[..4].try_into().unwrap());
-    let at = if c.p.abi == LinuxAbi::X86_64 { 4 } else { 8 };
+    let at = if packed(c.p.abi) { 4 } else { 8 };
     let data = u64::from_le_bytes(b[at..at + 8].try_into().unwrap());
     Ok((events, data))
 }
@@ -53,7 +56,7 @@ fn read_event(c: &Ctx<'_>, addr: u64) -> Result<(u32, u64), Errno> {
 fn encode_event(abi: LinuxAbi, events: u32, data: u64) -> Vec<u8> {
     let mut b = vec![0u8; event_size(abi) as usize];
     b[..4].copy_from_slice(&events.to_le_bytes());
-    let at = if abi == LinuxAbi::X86_64 { 4 } else { 8 };
+    let at = if packed(abi) { 4 } else { 8 };
     b[at..at + 8].copy_from_slice(&data.to_le_bytes());
     b
 }

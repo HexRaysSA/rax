@@ -443,11 +443,11 @@ fn rw(c: &mut Ctx<'_>, file: &OpenFile, iocb: &Iocb) -> Result<i64, Err2> {
     let r = match (write, vectored, positioned) {
         (false, false, true) => super::io::pread(c, fd, buf, n, pos),
         (false, false, false) => super::io::read(c, fd, buf, n),
-        (false, true, true) => super::io::preadv(c, fd, buf, n, pos, 0),
+        (false, true, true) => super::io::preadv(c, fd, buf, n, Some(pos), 0),
         (false, true, false) => super::io::readv(c, fd, buf, n),
         (true, false, true) => super::io::pwrite(c, fd, buf, n, pos),
         (true, false, false) => super::io::write(c, fd, buf, n),
-        (true, true, true) => super::io::pwritev(c, fd, buf, n, pos, 0),
+        (true, true, true) => super::io::pwritev(c, fd, buf, n, Some(pos), 0),
         (true, true, false) => super::io::writev(c, fd, buf, n),
     };
     // pipe_write's SIGPIPE (the socket protocols send their own).

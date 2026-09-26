@@ -38,6 +38,7 @@ pub mod admin;
 pub mod aio;
 pub mod child;
 pub mod compat;
+pub mod dirents;
 pub mod epoll;
 pub mod events;
 pub mod exec;
@@ -80,6 +81,7 @@ use super::abi::errno::Errno;
 use super::abi::errno_table::*;
 use super::process::{Peers, ProcState, Thread, Threads};
 use super::wait::{Resume, Wait};
+use dirents::Dirent;
 
 /// A program image `execve` installs. Opaque: images never compare equal.
 pub struct NewImage(pub Box<super::exec::ProgramImage>);
@@ -372,6 +374,12 @@ impl Ctx<'_> {
     }
 }
 
+/// `preadv2`'s and `pwritev2`'s position: -1 is the current one.
+fn v2_pos(pos: u64) -> Option<i64> {
+    let pos = pos as i64;
+    (pos != -1).then_some(pos)
+}
+
 fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
     use Sysno as S;
     let r = |v: SysResult| v.map(Outcome::Return);
@@ -399,10 +407,10 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Writev => r(io::writev(c, fd(a[0]), a[1], a[2])),
         S::Pread64 => r(io::pread(c, fd(a[0]), a[1], a[2], a[3] as i64)),
         S::Pwrite64 => r(io::pwrite(c, fd(a[0]), a[1], a[2], a[3] as i64)),
-        S::Preadv => r(io::preadv(c, fd(a[0]), a[1], a[2], a[3] as i64, 0)),
-        S::Pwritev => r(io::pwritev(c, fd(a[0]), a[1], a[2], a[3] as i64, 0)),
-        S::Preadv2 => r(io::preadv(c, fd(a[0]), a[1], a[2], a[3] as i64, a[5])),
-        S::Pwritev2 => r(io::pwritev(c, fd(a[0]), a[1], a[2], a[3] as i64, a[5])),
+        S::Preadv => r(io::preadv(c, fd(a[0]), a[1], a[2], Some(a[3] as i64), 0)),
+        S::Pwritev => r(io::pwritev(c, fd(a[0]), a[1], a[2], Some(a[3] as i64), 0)),
+        S::Preadv2 => r(io::preadv(c, fd(a[0]), a[1], a[2], v2_pos(a[3]), a[5])),
+        S::Pwritev2 => r(io::pwritev(c, fd(a[0]), a[1], a[2], v2_pos(a[3]), a[5])),
         S::Close => r(io::close(c, fd(a[0]))),
         S::CloseRange => r(io::close_range(c, a[0] as u32, a[1] as u32, a[2] as u32)),
         S::Lseek => r(io::lseek(c, fd(a[0]), a[1] as i64, a[2] as u32)),
@@ -422,7 +430,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Fsync | S::Fdatasync => r(io::fsync(c, fd(a[0]))),
         S::Sync => r(Ok(0)),
         S::Syncfs => r(io::syncfs(c, fd(a[0]))),
-        S::Fadvise64 => r(io::fadvise(c, fd(a[0]), a[3] as u32)),
+        S::Fadvise64 => r(io::fadvise(c, fd(a[0]), a[2] as i64, a[3] as u32)),
         S::Readahead => r(io::readahead(c, fd(a[0]))),
         S::SyncFileRange => r(io::sync_file_range(
             c,
@@ -432,8 +440,8 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[3] as u32,
         )),
         S::Flock => r(locks::flock(c, fd(a[0]), a[1] as u32)),
-        S::Getdents64 => r(io::getdents(c, fd(a[0]), a[1], a[2], true)),
-        S::Getdents => r(io::getdents(c, fd(a[0]), a[1], a[2], false)),
+        S::Getdents64 => r(dirents::getdents(c, fd(a[0]), a[1], a[2], Dirent::Dirent64)),
+        S::Getdents => r(dirents::getdents(c, fd(a[0]), a[1], a[2], Dirent::Long)),
         S::Ftruncate => r(io::ftruncate(c, fd(a[0]), a[1] as i64)),
         S::Fallocate => r(io::fallocate(
             c,

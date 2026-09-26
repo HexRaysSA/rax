@@ -169,6 +169,60 @@ pub struct Stat {
     pub btime: Option<Timespec>,
 }
 
+/// `struct kstatfs`: a file system's statistics, before a layout.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Kstatfs {
+    /// `f_type`: the file system's magic number.
+    pub kind: u64,
+    /// `f_bsize`.
+    pub bsize: u64,
+    /// `f_blocks`.
+    pub blocks: u64,
+    /// `f_bfree`.
+    pub bfree: u64,
+    /// `f_bavail`.
+    pub bavail: u64,
+    /// `f_files`.
+    pub files: u64,
+    /// `f_ffree`.
+    pub ffree: u64,
+    /// `f_fsid`.
+    pub fsid: [u32; 2],
+    /// `f_namelen`.
+    pub namelen: u64,
+    /// `f_frsize`.
+    pub frsize: u64,
+    /// `f_flags` (`ST_*`).
+    pub flags: u64,
+}
+
+impl Kstatfs {
+    /// `struct statfs` of the 64-bit ABIs (`asm-generic/statfs.h` with
+    /// `__statfs_word` a `long`: 120 bytes).
+    pub fn encode(&self) -> Vec<u8> {
+        let mut e = Encoder::new();
+        for v in [
+            self.kind,
+            self.bsize,
+            self.blocks,
+            self.bfree,
+            self.bavail,
+            self.files,
+            self.ffree,
+        ] {
+            e.u64(v);
+        }
+        e.u32(self.fsid[0])
+            .u32(self.fsid[1])
+            .u64(self.namelen)
+            .u64(self.frsize)
+            .u64(self.flags)
+            .zeros(32);
+        debug_assert_eq!(e.len(), 120);
+        e.finish()
+    }
+}
+
 /// Linux `new_encode_dev()`: the 32-bit `dev_t` placed in `struct stat`.
 pub fn encode_dev(major: u32, minor: u32) -> u64 {
     u64::from((minor & 0xff) | ((major & 0xfff) << 8) | ((minor & !0xff) << 12))

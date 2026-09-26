@@ -11,6 +11,7 @@ use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::fs::locks::Owner;
 use super::super::host;
 use super::io::nofile;
+use super::locks::FlockLayout;
 use super::{Ctx, SysResult};
 
 /// `fcntl` commands (`asm-generic/fcntl.h`, 64-bit numbering).
@@ -75,8 +76,9 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
             Ok(0)
         }
         F_GETFL => {
-            // f_flags as the file was created: open() forces O_LARGEFILE;
-            // pipes and anonymous-inode files have none.
+            // f_flags as the file was created: a 64-bit open() forces
+            // O_LARGEFILE (a 32-bit one keeps it as passed); pipes and
+            // anonymous-inode files have none.
             Ok(u64::from(c.p.fds.file(fd)?.flags()))
         }
         F_SETFL => {
@@ -91,12 +93,24 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
             file.state.lock().unwrap().flags = (old & !settable) | new;
             Ok(0)
         }
-        F_GETLK => super::locks::getlk(c, fd, arg, Owner::Process),
-        F_OFD_GETLK => super::locks::getlk(c, fd, arg, Owner::Description),
-        F_SETLK | F_SETLKW => super::locks::setlk(c, fd, arg, Owner::Process, cmd == F_SETLKW),
-        F_OFD_SETLK | F_OFD_SETLKW => {
-            super::locks::setlk(c, fd, arg, Owner::Description, cmd == F_OFD_SETLKW)
-        }
+        F_GETLK => super::locks::getlk(c, fd, arg, Owner::Process, FlockLayout::Native),
+        F_OFD_GETLK => super::locks::getlk(c, fd, arg, Owner::Description, FlockLayout::Native),
+        F_SETLK | F_SETLKW => super::locks::setlk(
+            c,
+            fd,
+            arg,
+            Owner::Process,
+            cmd == F_SETLKW,
+            FlockLayout::Native,
+        ),
+        F_OFD_SETLK | F_OFD_SETLKW => super::locks::setlk(
+            c,
+            fd,
+            arg,
+            Owner::Description,
+            cmd == F_OFD_SETLKW,
+            FlockLayout::Native,
+        ),
         F_GETOWN | F_GETSIG => c.p.fds.get(fd).map(|_| 0),
         F_SETOWN | F_SETSIG => c.p.fds.get(fd).map(|_| 0),
         F_GETPIPE_SZ | F_SETPIPE_SZ => {

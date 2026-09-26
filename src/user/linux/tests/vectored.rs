@@ -223,3 +223,36 @@ fn rwf_flags_are_refused_as_kiocb_set_rw_flags_refuses_them() {
         h.proc.threads[0].pending = SigPending::new();
     });
 }
+
+/// `preadv` and `pwritev` refuse a negative position before they look at
+/// the descriptor (`do_preadv`, `do_pwritev`); only the `2` forms read -1
+/// as the current position (`do_readv`, `do_writev`).
+#[test]
+fn only_the_2_forms_take_minus_one_as_the_current_position() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = h.anon(P, 3, false);
+        let fd = h.file(&format!("vec-pos-{abi:?}"), 8, b'a', O_RDWR);
+        let v = iovecs(&h, m, &[(m + 0x100, 2)]);
+        let minus1 = u64::MAX;
+        assert_eq!(h.err(Sysno::Preadv, &[fd, v, 1, minus1]), EINVAL);
+        assert_eq!(h.err(Sysno::Pwritev, &[fd, v, 1, minus1]), EINVAL);
+        assert_eq!(h.err(Sysno::Preadv, &[999, v, 1, minus1]), EINVAL);
+        assert_eq!(h.call(Sysno::Preadv2, &[fd, v, 1, minus1, 0, 0]), 2);
+        assert_eq!(h.call(Sysno::Pwritev2, &[fd, v, 1, minus1, 0, 0]), 2);
+        assert_eq!(h.err(Sysno::Preadv2, &[fd, v, 1, minus1 - 1, 0, 0]), EINVAL);
+    });
+}
+
+/// `generic_fadvise`: a length negative as a `loff_t` is `EINVAL` (a pipe
+/// is `ESPIPE` first).
+#[test]
+fn fadvise_refuses_a_negative_length() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let fd = h.file(&format!("fadvise-{abi:?}"), 8, b'a', O_RDWR);
+        assert_eq!(h.call(Sysno::Fadvise64, &[fd, 0, 100, 0]), 0);
+        assert_eq!(h.err(Sysno::Fadvise64, &[fd, 0, 1 << 63, 0]), EINVAL);
+        assert_eq!(h.err(Sysno::Fadvise64, &[fd, 0, 0, 6]), EINVAL);
+    });
+}

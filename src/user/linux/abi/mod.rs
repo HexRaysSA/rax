@@ -8,6 +8,7 @@
 //! the Linux 6.19 sources and the UAPI headers vendored in
 //! `docs/specifications/linux/uapi-6.19`.
 
+pub mod compat;
 pub mod errno;
 pub mod errno_table;
 pub mod syscalls;

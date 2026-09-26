@@ -120,6 +120,16 @@ fn check_exec(c: &Ctx<'_>, host: &std::path::Path, follow: bool) -> Result<(), E
     Ok(())
 }
 
+/// `get_user_arg_ptr`: entry `i` of a pointer array, a `compat_uptr_t`
+/// for a 32-bit call.
+fn arg_ptr(c: &Ctx<'_>, array: u64, i: usize) -> Result<u64, Errno> {
+    if c.compat {
+        c.read_u32(array + i as u64 * 4).map(u64::from)
+    } else {
+        c.read_u64(array + i as u64 * 8)
+    }
+}
+
 /// `count`: the entries of a NULL-terminated pointer array (`EFAULT`,
 /// `E2BIG`).
 fn count(c: &Ctx<'_>, array: u64) -> Result<usize, Errno> {
@@ -128,7 +138,7 @@ fn count(c: &Ctx<'_>, array: u64) -> Result<usize, Errno> {
     }
     let mut n = 0usize;
     loop {
-        let p = c.read_u64(array + n as u64 * 8)?;
+        let p = arg_ptr(c, array, n)?;
         if p == 0 {
             return Ok(n);
         }
@@ -144,7 +154,7 @@ fn count(c: &Ctx<'_>, array: u64) -> Result<usize, Errno> {
 fn copy_strings(c: &Ctx<'_>, array: u64, n: usize, room: &mut u64) -> Result<Vec<Vec<u8>>, Errno> {
     let mut out = Vec::with_capacity(n);
     for i in 0..n {
-        let p = c.read_u64(array + i as u64 * 8)?;
+        let p = arg_ptr(c, array, i)?;
         let s = match c.p.space.read_cstr(p, MAX_ARG_STRLEN - 1) {
             Ok(Some(s)) => s,
             Ok(None) => return Err(Errno(E2BIG)),
@@ -212,7 +222,8 @@ pub fn execveat(
     let argc = count(c, argv)?;
     let envc = count(c, envp)?;
     // bprm_stack_limits: a quarter of the stack (at most 3/4 of _STK_LIM,
-    // at least ARG_MAX) holds the strings and their pointers.
+    // at least ARG_MAX) holds the strings and their pointers, counted at
+    // the kernel's sizeof(void *) whatever the caller's.
     let stack = c.p.rlimits[3].0;
     let limit = (STK_LIM / 4 * 3).min(stack / 4).max(ARG_MAX);
     let pointers = (argc.max(1) as u64 + envc as u64) * 8;

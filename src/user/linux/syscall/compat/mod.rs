@@ -4,22 +4,35 @@
 //!
 //! A call the table gives a native entry point whose arguments and memory
 //! layouts are the same for a 32-bit caller goes to the native handler with
-//! the registers as `do_int80_emulation` zero-extends them. A call with a
-//! compatibility entry point (`compat_sys_*`, `sys_ia32_*`) or a 32-bit-only
-//! one goes through its conversion here. Every other call is `ENOSYS`, so
-//! none runs with 64-bit layouts on 32-bit memory.
+//! the registers as `do_int80_emulation` zero-extends them; handlers that
+//! read structures with pointers or `long`s in them (`struct iovec`,
+//! `execve`'s vectors) read the compatibility layouts when
+//! [`Ctx::compat`] is set, as the kernel's do under `in_compat_syscall`. A
+//! call with a compatibility entry point (`compat_sys_*`, `sys_ia32_*`) or
+//! a 32-bit-only one goes through its conversion here. Every other call is
+//! `ENOSYS`, so none runs with 64-bit layouts on 32-bit memory; so are the
+//! 16-bit-ID calls (`getuid`, `chown`, ...) until they convert their IDs.
 //!
 //! | Module | Contents |
 //! |---|---|
 //! | this one | the table and the calls without a module of their own |
+//! | [`file`] | split and 32-bit offsets, `_llseek`, `fcntl`'s locks |
+//! | [`stat`] | `stat`, `stat64`, the old `stat`, `statfs`, `statfs64` |
 //! | [`tls`] | `set_thread_area`, `get_thread_area` |
 
+pub mod file;
+pub mod stat;
 pub mod tls;
 
 use super::super::abi::Sysno as S;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
+use super::dirents::{self, Dirent};
+use super::io::{self, SendfileOffset};
+use super::path::{self, AT_FDCWD};
 use super::{Ctx, Outcome, call_handler};
+use file::{dual, sext};
+use stat::{FsOf, Of};
 
 /// `PAGE_SHIFT`: `mmap2`'s offset unit.
 const PAGE_SHIFT: u32 = 12;
@@ -42,44 +55,214 @@ const SAME_LAYOUT_IOCTLS: &[u32] = &[
     0x5451, // FIOCLEX
 ];
 
+/// `prctl` options that read a structure the call does not convert yet.
+const PR_SET_SECCOMP: u64 = 22;
+
 /// Runs system call `s` of a compatibility task.
 pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno> {
     let r = |v: Result<u64, Errno>| v.map(Outcome::Return);
+    let fd = |x: u64| x as i32;
     match s {
         // The native entry points, the same for a 32-bit caller.
-        S::Exit
+        S::RestartSyscall
+        | S::Exit
         | S::ExitGroup
+        | S::Fork
+        | S::Vfork
         | S::Read
         | S::Write
         | S::Close
+        | S::Creat
+        | S::Link
+        | S::Unlink
+        | S::Chdir
+        | S::Fchdir
+        | S::Mknod
+        | S::Chmod
+        | S::Fchmod
+        | S::Access
+        | S::Sync
+        | S::Syncfs
+        | S::Fsync
+        | S::Fdatasync
+        | S::Rename
+        | S::Mkdir
+        | S::Rmdir
+        | S::Symlink
+        | S::Readlink
+        | S::Umask
+        | S::Chroot
+        | S::PivotRoot
+        | S::Getcwd
+        | S::Flock
+        | S::Getdents64
+        | S::Statx
+        | S::Openat2
+        | S::Mkdirat
+        | S::Mknodat
+        | S::Fchownat
+        | S::Unlinkat
+        | S::Renameat
+        | S::Renameat2
+        | S::Linkat
+        | S::Symlinkat
+        | S::Readlinkat
+        | S::Fchmodat
+        | S::Fchmodat2
+        | S::Faccessat
+        | S::Faccessat2
+        | S::Setxattr
+        | S::Lsetxattr
+        | S::Fsetxattr
+        | S::Getxattr
+        | S::Lgetxattr
+        | S::Fgetxattr
+        | S::Listxattr
+        | S::Llistxattr
+        | S::Flistxattr
+        | S::Removexattr
+        | S::Lremovexattr
+        | S::Fremovexattr
+        | S::Setxattrat
+        | S::Getxattrat
+        | S::Listxattrat
+        | S::Removexattrat
+        | S::Splice
+        | S::Tee
+        | S::Vmsplice
+        | S::CopyFileRange
+        | S::CloseRange
         | S::Getpid
         | S::Gettid
         | S::Getppid
+        | S::Getpgid
+        | S::Getpgrp
+        | S::Setpgid
+        | S::Getsid
+        | S::Setsid
         | S::Brk
         | S::Munmap
         | S::Mprotect
         | S::Madvise
+        | S::Mremap
+        | S::Mincore
+        | S::Msync
+        | S::Mlock
+        | S::Mlock2
+        | S::Munlock
+        | S::Mlockall
+        | S::Munlockall
+        | S::Mseal
         | S::SetTidAddress
         | S::Dup
         | S::Dup2
         | S::Dup3
+        | S::Pipe
+        | S::Pipe2
+        | S::Poll
         | S::Kill
         | S::Tkill
         | S::Tgkill
+        // compat_sigset_t is sigset_t's bytes on a little-endian machine,
+        // and both are 8 bytes.
+        | S::RtSigprocmask
+        | S::RtSigpending
+        | S::Pause
+        | S::Alarm
         | S::Uname
+        | S::Personality
         | S::SchedYield
+        | S::SchedSetparam
+        | S::SchedGetparam
+        | S::SchedSetscheduler
+        | S::SchedGetscheduler
+        | S::SchedGetPriorityMax
+        | S::SchedGetPriorityMin
+        | S::SchedSetattr
+        | S::SchedGetattr
+        | S::Getpriority
+        | S::Setpriority
+        | S::IoprioGet
+        | S::IoprioSet
+        | S::Getcpu
+        | S::Capget
+        | S::Capset
+        | S::Prlimit64
         | S::Getrandom
-        | S::Pipe
-        | S::Pipe2
         | S::MemfdCreate
-        // The vectors are read as `struct compat_iovec` (`iov`).
+        | S::Membarrier
+        | S::Rseq
+        | S::Kcmp
+        | S::Unshare
+        | S::EpollCreate
+        | S::EpollCreate1
+        // struct epoll_event is packed on x86-64 to match i386's.
+        | S::EpollCtl
+        | S::EpollWait
+        | S::EpollPwait
+        | S::Eventfd
+        | S::Eventfd2
+        | S::TimerfdCreate
+        | S::Signalfd
+        | S::Signalfd4
+        | S::InotifyInit
+        | S::InotifyInit1
+        | S::InotifyAddWatch
+        | S::InotifyRmWatch
+        | S::PidfdOpen
+        | S::PidfdGetfd
+        | S::Mount
+        | S::Umount2
+        | S::Fsopen
+        | S::Fsconfig
+        | S::Fsmount
+        | S::Fspick
+        | S::MoveMount
+        | S::Sethostname
+        | S::Setdomainname
+        | S::Swapon
+        | S::Swapoff
+        | S::Reboot
+        | S::Acct
+        | S::Vhangup
+        | S::Iopl
+        | S::Ioperm
+        | S::Syslog
+        | S::InitModule
+        | S::FinitModule
+        | S::DeleteModule
+        // The vectors are read as struct compat_iovec (`iov`).
         | S::Readv
-        | S::Writev => call_handler(c, s, a),
+        | S::Writev
+        | S::ProcessVmReadv
+        | S::ProcessVmWritev
+        | S::ProcessMadvise
+        // The argument and environment vectors hold compat_uptr_ts.
+        | S::Execve
+        | S::Execveat => call_handler(c, s, a),
+        // prctl, except the seccomp filter's struct compat_sock_fprog.
+        S::Prctl if a[0] == PR_SET_SECCOMP => Err(Errno(ENOSYS)),
+        S::Prctl => call_handler(c, s, a),
         // The 32-bit ID calls are the native ones.
         S::Getuid32 => call_handler(c, S::Getuid, a),
         S::Geteuid32 => call_handler(c, S::Geteuid, a),
         S::Getgid32 => call_handler(c, S::Getgid, a),
         S::Getegid32 => call_handler(c, S::Getegid, a),
+        S::Setuid32 => call_handler(c, S::Setuid, a),
+        S::Setgid32 => call_handler(c, S::Setgid, a),
+        S::Setreuid32 => call_handler(c, S::Setreuid, a),
+        S::Setregid32 => call_handler(c, S::Setregid, a),
+        S::Setresuid32 => call_handler(c, S::Setresuid, a),
+        S::Setresgid32 => call_handler(c, S::Setresgid, a),
+        S::Getresuid32 => call_handler(c, S::Getresuid, a),
+        S::Getresgid32 => call_handler(c, S::Getresgid, a),
+        S::Setfsuid32 => call_handler(c, S::Setfsuid, a),
+        S::Setfsgid32 => call_handler(c, S::Setfsgid, a),
+        S::Getgroups32 => call_handler(c, S::Getgroups, a),
+        S::Setgroups32 => call_handler(c, S::Setgroups, a),
+        S::Chown32 => call_handler(c, S::Chown, a),
+        S::Lchown32 => call_handler(c, S::Lchown, a),
+        S::Fchown32 => call_handler(c, S::Fchown, a),
         S::SetThreadArea => r(tls::set_thread_area(c, a[0])),
         S::GetThreadArea => r(tls::get_thread_area(c, a[0])),
         // sys_mmap_pgoff: the offset in pages.
@@ -100,6 +283,79 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::Ioctl if SAME_LAYOUT_IOCTLS.contains(&(a[1] as u32)) => call_handler(c, s, a),
         // compat_sys_ioctl: a command without a 32-bit conversion.
         S::Ioctl => Err(Errno(ENOTTY)),
+
+        // compat_sys_open and compat_sys_openat: no forced O_LARGEFILE.
+        S::Open => r(path::compat_openat(c, AT_FDCWD, a[0], a[1] as u32, a[2] as u32)),
+        S::Openat => r(path::compat_openat(c, fd(a[0]), a[1], a[2] as u32, a[3] as u32)),
+        // sys_oldumount: umount without flags.
+        S::Umount => call_handler(c, S::Umount2, [a[0], 0, 0, 0, 0, 0]),
+
+        // Offsets.
+        S::Lseek => r(file::lseek(c, fd(a[0]), a[1], a[2] as u32)),
+        S::Llseek => r(file::llseek(c, fd(a[0]), a[1], a[2], a[3], a[4] as u32)),
+        S::Pread64 => r(io::pread(c, fd(a[0]), a[1], a[2], dual(a[3], a[4]))),
+        S::Pwrite64 => r(io::pwrite(c, fd(a[0]), a[1], a[2], dual(a[3], a[4]))),
+        S::Preadv => r(io::preadv(c, fd(a[0]), a[1], a[2], Some(dual(a[3], a[4])), 0)),
+        S::Pwritev => r(io::pwritev(c, fd(a[0]), a[1], a[2], Some(dual(a[3], a[4])), 0)),
+        S::Preadv2 => {
+            let pos = dual(a[3], a[4]);
+            r(io::preadv(c, fd(a[0]), a[1], a[2], (pos != -1).then_some(pos), a[5]))
+        }
+        S::Pwritev2 => {
+            let pos = dual(a[3], a[4]);
+            r(io::pwritev(c, fd(a[0]), a[1], a[2], (pos != -1).then_some(pos), a[5]))
+        }
+        S::Truncate => r(path::truncate(c, a[0], sext(a[1]))),
+        S::Truncate64 => r(path::truncate(c, a[0], dual(a[1], a[2]))),
+        S::Ftruncate => r(file::ftruncate(c, fd(a[0]), sext(a[1]))),
+        S::Ftruncate64 => r(file::ftruncate(c, fd(a[0]), dual(a[1], a[2]))),
+        // sys_ia32_fadvise64: a size_t length.
+        S::Fadvise64 => r(io::fadvise(c, fd(a[0]), a[3] as i64, a[4] as u32)),
+        S::Fadvise6464 => r(io::fadvise(c, fd(a[0]), dual(a[3], a[4]), a[5] as u32)),
+        S::Readahead => r(io::readahead(c, fd(a[0]))),
+        S::SyncFileRange => r(io::sync_file_range(
+            c,
+            fd(a[0]),
+            dual(a[1], a[2]),
+            dual(a[3], a[4]),
+            a[5] as u32,
+        )),
+        S::Fallocate => r(io::fallocate(
+            c,
+            fd(a[0]),
+            a[1] as u32,
+            dual(a[2], a[3]),
+            dual(a[4], a[5]),
+        )),
+        S::Sendfile => r(file::sendfile(c, a, SendfileOffset::Compat)),
+        S::Sendfile64 => r(file::sendfile(c, a, SendfileOffset::Loff)),
+        S::Fcntl => r(file::fcntl(c, fd(a[0]), a[1] as u32, a[2], false)),
+        S::Fcntl64 => r(file::fcntl(c, fd(a[0]), a[1] as u32, a[2], true)),
+
+        // Status.
+        S::Stat => r(stat::stat(c, Of::followed(a[0]), a[1])),
+        S::Lstat => r(stat::stat(c, Of::link(a[0]), a[1])),
+        S::Fstat => r(stat::stat(c, Of::Fd(fd(a[0])), a[1])),
+        S::Stat64 => r(stat::stat64(c, Of::followed(a[0]), a[1])),
+        S::Lstat64 => r(stat::stat64(c, Of::link(a[0]), a[1])),
+        S::Fstat64 => r(stat::stat64(c, Of::Fd(fd(a[0])), a[1])),
+        S::Fstatat64 => {
+            let of = Of::Path {
+                dirfd: fd(a[0]),
+                path: a[1],
+                flags: a[3] as u32,
+            };
+            r(stat::stat64(c, of, a[2]))
+        }
+        S::Oldstat => r(stat::old_stat(c, Of::followed(a[0]), a[1])),
+        S::Oldlstat => r(stat::old_stat(c, Of::link(a[0]), a[1])),
+        S::Oldfstat => r(stat::old_stat(c, Of::Fd(fd(a[0])), a[1])),
+        S::Statfs => r(stat::statfs(c, FsOf::Path(a[0]), a[1])),
+        S::Fstatfs => r(stat::statfs(c, FsOf::Fd(fd(a[0])), a[1])),
+        S::Statfs64 => r(stat::statfs64(c, FsOf::Path(a[0]), a[1], a[2])),
+        S::Fstatfs64 => r(stat::statfs64(c, FsOf::Fd(fd(a[0])), a[1], a[2])),
+        S::Getdents => r(dirents::getdents(c, fd(a[0]), a[1], a[2], Dirent::Compat)),
+        S::Readdir => r(dirents::old_readdir(c, fd(a[0]), a[1])),
         _ => Err(Errno(ENOSYS)),
     }
 }
