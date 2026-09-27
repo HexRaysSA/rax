@@ -209,3 +209,13 @@ fn identity_arm64() {
 fn identity_x86_64() {
     fixture("identity", "x86_64", &[], &[]);
 }
+
+#[test]
+fn shm_arm64() {
+    fixture("shm", "arm64", &[], &[]);
+}
+
+#[test]
+fn shm_x86_64() {
+    fixture("shm", "x86_64", &[], &[]);
+}

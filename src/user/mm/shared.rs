@@ -22,6 +22,9 @@ pub struct SharedObject {
     anonymous: bool,
     /// The System V segment it is, by identifier.
     sysv: Option<i32>,
+    /// A size fixed at creation that the host maps no further than (a
+    /// Darwin POSIX shared memory object's).
+    limit: Option<u64>,
 }
 
 impl fmt::Debug for SharedObject {
@@ -71,6 +74,7 @@ impl SharedObject {
             writable,
             anonymous: false,
             sysv: None,
+            limit: None,
         })
     }
 
@@ -83,6 +87,7 @@ impl SharedObject {
             writable,
             anonymous: true,
             sysv: Some(id),
+            limit: None,
         })
     }
 
@@ -102,7 +107,43 @@ impl SharedObject {
             writable: true,
             anonymous: true,
             sysv: None,
+            limit: None,
         })
+    }
+
+    /// A host object of fixed size `len` whose device and inode do not
+    /// identify it (a Darwin POSIX shared memory object reports zero for
+    /// both): it gets an identity of its own, so that its extents are never
+    /// taken for another object's, and is mapped no further than `len`
+    /// rounded up to a host page.
+    pub fn fixed(file: std::fs::File, writable: bool, len: u64) -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(1);
+        SharedObject {
+            identity: SourceIdentity {
+                dev: u64::MAX,
+                ino: NEXT.fetch_add(1, Ordering::Relaxed),
+            },
+            file: super::mapped_file::MappedFile::new(file),
+            writable,
+            anonymous: false,
+            sysv: None,
+            limit: Some(len),
+        }
+    }
+
+    /// How many bytes of the object from `start` (an extent's first byte)
+    /// the host maps: an extent's worth, or up to the end of a fixed-size
+    /// object rounded to a host page.
+    pub fn extent_len(&self, start: u64, extent: u64, host_page: u64) -> u64 {
+        match self.limit {
+            None => extent,
+            Some(len) => len
+                .saturating_sub(start)
+                .div_ceil(host_page)
+                .saturating_mul(host_page)
+                .min(extent),
+        }
     }
 
     /// Current size in bytes.
@@ -225,5 +266,33 @@ pub fn anonymous_file() -> std::io::Result<std::fs::File> {
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(e),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp() -> std::fs::File {
+        let f = anonymous_file().unwrap();
+        f.set_len(3 * 4096).unwrap();
+        f
+    }
+
+    #[test]
+    fn fixed_objects_map_to_their_end_and_have_their_own_identity() {
+        let extent = 256 << 10;
+        let a = SharedObject::fixed(temp(), true, 5000);
+        let b = SharedObject::fixed(temp(), true, 5000);
+        assert_ne!(a.identity(), b.identity());
+        // 5000 bytes round up to two 4 KiB pages or one 16 KiB page.
+        assert_eq!(a.extent_len(0, extent, 4096), 8192);
+        assert_eq!(a.extent_len(0, extent, 16384), 16384);
+        assert_eq!(a.extent_len(extent, extent, 4096), 0);
+        let big = SharedObject::fixed(temp(), true, 3 * extent);
+        assert_eq!(big.extent_len(extent, extent, 4096), extent);
+        // An object that can grow maps whole extents.
+        let file = SharedObject::file(temp(), true).unwrap();
+        assert_eq!(file.extent_len(0, extent, 4096), extent);
     }
 }
