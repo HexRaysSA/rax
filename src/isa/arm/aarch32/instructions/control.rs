@@ -225,13 +225,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// CPS: change processor state (ARMv6). NOP in user mode. A1 keeps imod
     /// in bits 19:18, M in 17, and A, I, F in 8:6; T2 imod in 10:9, M in
-    /// 8, and A, I, F in 7:5; both the mode in 4:0.
+    /// 8, and A, I, F in 7:5; both the mode in 4:0. T1 has im (imod 1:im)
+    /// in bit 4 and A, I, F in 2:0, and no mode.
     pub(crate) fn exec_cps(&mut self, insn: &DecodedInsn) -> ExecResult {
         if self.cpu.is_user_or_system() && self.cpu.cpsr.mode == ProcessorMode::User as u8 {
             return ExecResult::Continue;
         }
         let raw = insn.raw;
-        let (imod, m, aif) = if insn.state.is_thumb() {
+        let (imod, m, aif) = if insn.state.is_thumb() && insn.size == 2 {
+            (0b10 | (raw >> 4) & 1, 0, 0)
+        } else if insn.state.is_thumb() {
             ((raw >> 9) & 0x3, (raw >> 8) & 1, 5)
         } else {
             ((raw >> 18) & 0x3, (raw >> 17) & 1, 6)

@@ -323,7 +323,7 @@ fn t32_misc_control_decodes_hints_barriers_and_status_moves() {
         (0xf381_8400, Mnemonic::MSR),     // msr apsr_g, r1
         (0xf7f0_a000, Mnemonic::UDF),     // udf.w #0
         (0xf3ef_8020, Mnemonic::UNKNOWN), // banked MRS
-        (0xf3c0_8f00, Mnemonic::UNKNOWN), // BXJ r0
+        (0xf3c3_8f00, Mnemonic::BX),      // bxj r3
     ] {
         let insn = ThumbDecoder::decode_32bit(raw).unwrap();
         assert_eq!(insn.mnemonic, mnemonic, "{raw:#010x}");
@@ -349,4 +349,21 @@ fn t32_push_and_pop_are_stmdb_and_ldmia_of_sp_with_writeback() {
         let insn = ThumbDecoder::decode_32bit(raw).unwrap();
         assert_eq!(insn.mnemonic, mnemonic, "{raw:#010x}");
     }
+}
+
+#[test]
+fn t16_cps_decodes_and_setend_does_not() {
+    // Encodings from LLVM 23.1.1 (llvm-mc -triple=thumbv7a).
+    for (raw, mnemonic) in [
+        (0xb662, Mnemonic::CPS),     // cpsie i
+        (0xb673, Mnemonic::CPS),     // cpsid if
+        (0xb677, Mnemonic::CPS),     // cpsid aif
+        (0xb658, Mnemonic::UNKNOWN), // setend be
+    ] {
+        let insn = ThumbDecoder::decode_16bit(raw).unwrap();
+        assert_eq!((insn.mnemonic, insn.size), (mnemonic, 2), "{raw:#06x}");
+    }
+    // BXJ r3 is BX r3.
+    let bxj = ThumbDecoder::decode_32bit(0xf3c3_8f00).unwrap();
+    assert_eq!(bxj.operands, vec![Operand::Reg(Register::arm32(3))]);
 }

@@ -684,7 +684,8 @@ impl ThumbDecoder {
     /// The rest of "Branches and miscellaneous control" (op2 = 0x0 with
     /// op1 = x111xxx, and UDF): MSR and MRS (the banked forms, hw2 bit 5
     /// set, are not decoded), the hints and CPS, CLREX and the barriers,
-    /// and UDF. BXJ, ERET, HVC, and SMC are not decoded either.
+    /// BXJ (BX, as Jazelle is trivial), and UDF. ERET, HVC, and SMC are not
+    /// decoded.
     fn decode_32bit_misc_control(raw: u32) -> DecodedInsn {
         let hw1 = (raw >> 16) as u16;
         let hw2 = raw as u16;
@@ -714,6 +715,9 @@ impl ThumbDecoder {
                     0b0111 => insn(Mnemonic::SB),
                     _ => insn(Mnemonic::UNKNOWN),
                 }
+            }
+            (0x3C, 0b000 | 0b010) => {
+                insn(Mnemonic::BX).with_operand(Operand::Reg(Self::any_reg((hw1 & 0xF) as u8)))
             }
             (0x3E | 0x3F, 0b000 | 0b010) if !banked => insn(Mnemonic::MRS),
             (0x7F, 0b010) => insn(Mnemonic::UDF),

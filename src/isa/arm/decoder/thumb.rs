@@ -762,6 +762,13 @@ impl ThumbDecoder {
                         .with_operand(Operand::RegList(RegisterList::from_mask(reg_list))),
                 )
             }
+            // 0110 011x: CPS (the 010x SETEND forms are not decoded)
+            0b0110 if (raw >> 5) & 0x7 == 0b011 => Ok(DecodedInsn::new(
+                Mnemonic::CPS,
+                ExecutionState::Thumb,
+                raw as u32,
+                2,
+            )),
             // 1110: BKPT
             0b1110 => {
                 let imm8 = (raw & 0xFF) as i64;

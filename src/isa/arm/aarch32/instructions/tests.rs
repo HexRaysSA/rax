@@ -1380,3 +1380,27 @@ fn t32_ldrd_and_strd_use_the_encoded_second_register() {
     );
     assert_eq!(exec.cpu.regs[4], 0x3010);
 }
+
+#[test]
+fn thumb_cps_masks_only_above_user_mode_and_bxj_is_bx() {
+    let t16 = |hw| crate::isa::arm::decoder::ThumbDecoder::decode_16bit(hw).unwrap();
+    // CPSID if, then CPSIE i (T1): a NOP in User mode.
+    let mut cpu = thumb_cpu(0x1000);
+    cpu.cpsr.mode = ProcessorMode::User as u8;
+    cpu.cpsr.i = false;
+    cpu.cpsr.f = false;
+    let mut mem = make_mem();
+    completes(Executor::new(&mut cpu, &mut mem).execute(&t16(0xb673)));
+    assert!(!cpu.cpsr.i && !cpu.cpsr.f);
+    // In Supervisor mode CPSID if sets both masks and CPSIE i clears I.
+    cpu.cpsr.mode = ProcessorMode::Supervisor as u8;
+    completes(Executor::new(&mut cpu, &mut mem).execute(&t16(0xb673)));
+    assert!(cpu.cpsr.i && cpu.cpsr.f && !cpu.cpsr.a);
+    completes(Executor::new(&mut cpu, &mut mem).execute(&t16(0xb662)));
+    assert!(!cpu.cpsr.i && cpu.cpsr.f);
+    // BXJ r3 to an A32 address leaves Thumb state.
+    cpu.regs[3] = 0x2000;
+    let result = Executor::new(&mut cpu, &mut mem).execute(&t32(0xf3c3_8f00));
+    assert!(matches!(result, ExecResult::Branch(0x2000)), "{result:?}");
+    assert!(!cpu.cpsr.t);
+}
