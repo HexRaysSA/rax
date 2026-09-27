@@ -219,6 +219,9 @@ pub fn value(ctx: &Ctx<'_>, name: &str) -> Value {
     if let Some(level) = name.strip_prefix("hw.perflevel") {
         return perflevel(level, &c);
     }
+    if !arm && name.starts_with("machdep.") {
+        return super::intel::value(ctx, name);
+    }
     match name {
         "hw.machine" => Value::string(abi.name().as_bytes()),
         "hw.model" | "hw.product" if !arm => Value::string(b"MacPro7,1"),

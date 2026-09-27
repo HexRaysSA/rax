@@ -9,7 +9,7 @@
 
 use std::sync::OnceLock;
 
-use super::arm64;
+use super::{arm64, intel};
 use crate::user::darwin::abi::{DarwinAbi, Errno};
 
 /// `CTLTYPE`: a kind's type bits.
@@ -72,8 +72,8 @@ pub fn rows(abi: DarwinAbi) -> &'static [Row] {
 
 /// The Intel kernel's `hw` nodes: the arm64 kernel's that `kern_mib.c`
 /// declares for every architecture, under the same OIDs (the automatic
-/// numbers follow declaration order, which the two share). The `machdep`
-/// subtree is the Intel kernel's own (`bsd/dev/i386/sysctl.c`).
+/// numbers follow declaration order, which the two share); then its own
+/// `machdep` subtree ([`intel`]).
 fn x86_rows() -> Vec<Row> {
     let arm_only = |n: &str| {
         n.starts_with("hw.optional.arm")
@@ -93,6 +93,7 @@ fn x86_rows() -> Vec<Row> {
     arm64::ROWS
         .iter()
         .filter(|r| !arm_only(r.name))
+        .chain(intel::ROWS)
         .copied()
         .collect()
 }
@@ -207,6 +208,11 @@ mod tests {
         assert_eq!(oid_of(x86, "hw.optional.avx2_0"), Ok(&[6, 101, 116][..]));
         assert!(oid_of(x86, "hw.optional.arm").is_err());
         assert!(oid_of(x86, "hw.optional.neon").is_err());
-        assert!(x86.iter().all(|r| r.oid[0] == CTL_HW));
+        assert!(x86.windows(2).all(|w| w[0].oid < w[1].oid));
+        assert_eq!(
+            oid_of(x86, "machdep.cpu.brand_string"),
+            Ok(&[7, 101, 103][..])
+        );
+        assert!(oid_of(x86, "machdep.ptrauth_enabled").is_err());
     }
 }

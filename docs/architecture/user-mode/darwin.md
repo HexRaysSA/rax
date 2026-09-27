@@ -351,7 +351,12 @@ under the OIDs, kinds, formats, and descriptions of the arm64 kernel the
 host runs (`docs/specifications/darwin/macos-27.2-26B5091g/`, turned into
 a table by `tools/darwin/gen_sysctl.py`); an x86-64 guest sees the Intel
 kernel's `hw` nodes (the arm64-only ones removed, the frequencies and x86
-capabilities present) and no `machdep` nodes yet. Each value is copied out
+capabilities present) and its `machdep` subtree (`bsd/dev/i386/sysctl.c`,
+numbered in declaration order): the CPU description `cpuid.c` derives from
+the emulated CPU's `CPUID` (the cache nodes, which that `CPUID` does not
+describe, report the machine's cache profile), the TSC and nanotime
+parameters of the commpage, and the interrupt vectors; the kernel's own
+statistics and controls there are not modeled. Each value is copied out
 as its kernel handler does it (an exact copy, or `sysctl_io_number`, which
 gives a 32-bit buffer a 64-bit value that fits); the platform's identity
 and configuration (model, target, brand string) are the host's on arm64.
