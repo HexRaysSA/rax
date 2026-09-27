@@ -372,3 +372,104 @@ fn test_ldraa_needs_feat_pauth_and_an_aligned_sp() {
     cpu.set_current_sp(0x5004);
     assert!(matches!(cpu.step(), Err(ArmError::MemoryError(_))));
 }
+// -------------------------------------------------------------------------
+// Top Byte Ignore (AArch64.AddrTop, TCR_EL1.{TBI0, TBID0})
+// -------------------------------------------------------------------------
+
+const TCR_TBI0: u64 = 1 << 37;
+const TCR_TBID0: u64 = 1 << 51;
+const STR_X0_X1: u32 = 0xF900_0020;
+const LDR_X2_X1: u32 = 0xF940_0022;
+const LDXR_X3_X1: u32 = 0xC85F_7C23;
+const STXR_W4_X0_X1: u32 = 0xC804_7C20;
+
+fn tbi_cpu(tcr: u64, insns: &[u32]) -> AArch64Cpu {
+    let mut cpu = create_test_cpu();
+    for (i, insn) in insns.iter().enumerate() {
+        write_insn(&mut cpu, 4 * i as u64, *insn);
+    }
+    cpu.sysregs.el1.tcr = tcr;
+    cpu.update_mmu_config();
+    cpu
+}
+
+fn fault_of(result: Result<CpuExit, ArmError>) -> MemoryFaultInfo {
+    match result {
+        Err(ArmError::MemoryError(info)) => info,
+        other => panic!("expected a memory fault, got {other:?}"),
+    }
+}
+
+#[test]
+fn tbi0_ignores_the_top_byte_of_data_addresses() {
+    // With TBI0, bits [63:56] of an address whose bit 55 is 0 take no part
+    // in a data access: the MMU-off output address is VA[55:0].
+    let mut cpu = tbi_cpu(TCR_TBI0, &[STR_X0_X1, LDR_X2_X1, LDXR_X3_X1, STXR_W4_X0_X1]);
+    cpu.set_x(0, 0x1122_3344_5566_7788);
+    cpu.set_x(1, 0x5A00_0000_0000_2000);
+    cpu.set_x(4, 7);
+    for _ in 0..4 {
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+    }
+    assert_eq!(cpu.mem_read_u64(0x2000).unwrap(), 0x1122_3344_5566_7788);
+    assert_eq!(cpu.get_x(2), 0x1122_3344_5566_7788);
+    assert_eq!(cpu.get_x(3), 0x1122_3344_5566_7788);
+    assert_eq!(cpu.get_x(4), 0, "the store-exclusive pairs with the load");
+}
+
+#[test]
+fn without_tbi_a_tagged_data_address_faults() {
+    let mut cpu = tbi_cpu(0, &[STR_X0_X1]);
+    cpu.set_x(0, 1);
+    cpu.set_x(1, 0x5A00_0000_0000_2000);
+    let info = fault_of(cpu.step());
+    assert_eq!(info.address, 0x5A00_0000_0000_2000);
+    assert_eq!(cpu.get_pc(), 0);
+    assert_eq!(cpu.mem_read_u64(0x2000).unwrap(), 0);
+}
+
+#[test]
+fn tbi_faults_report_the_tagged_address() {
+    // FAR holds the address as the instruction formed it, tag included.
+    let mut cpu = tbi_cpu(TCR_TBI0, &[STR_X0_X1]);
+    cpu.set_x(1, 0x5A00_0000_2000_0000);
+    let info = fault_of(cpu.step());
+    assert_eq!(info.address, 0x5A00_0000_2000_0000);
+    assert_eq!(cpu.get_pc(), 0);
+}
+
+#[test]
+fn tbi0_does_not_cover_the_ttbr1_half() {
+    // Bit 55 selects TBI1 (clear here), so the top byte stays significant.
+    let mut cpu = tbi_cpu(TCR_TBI0, &[LDR_X2_X1]);
+    cpu.set_x(1, 0x5A80_0000_0000_2000);
+    let info = fault_of(cpu.step());
+    assert_eq!(info.address, 0x5A80_0000_0000_2000);
+}
+
+#[test]
+fn tbi0_applies_through_stage_1_translation() {
+    let (mut cpu, data_va) = create_issue_39_cpu();
+    write_insn(&mut cpu, 0, LDR_X2_X1);
+    cpu.set_x(1, 0xA500_0000_0000_0000 | data_va);
+    let info = fault_of(cpu.step());
+    assert_eq!(info.address, 0xA500_0000_0000_0000 | data_va);
+
+    cpu.sysregs.el1.tcr |= TCR_TBI0;
+    cpu.update_mmu_config();
+    assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+    assert_eq!(cpu.get_x(2), 0xCAFE_F00D_DEAD_BEEF);
+}
+
+#[test]
+fn tbid0_keeps_instruction_addresses_significant() {
+    // TBID0 limits TBI0 to data accesses: a fetch from a tagged PC faults at
+    // that PC rather than running the LDR at 0.
+    let mut cpu = tbi_cpu(TCR_TBI0 | TCR_TBID0, &[LDR_X2_X1]);
+    cpu.set_pc(0x5A00_0000_0000_0000);
+    cpu.set_x(1, 0x2000);
+    cpu.set_x(2, 9);
+    let info = fault_of(cpu.step());
+    assert_eq!(info.address, 0x5A00_0000_0000_0000);
+    assert_eq!(cpu.get_x(2), 9);
+}

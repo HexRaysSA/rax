@@ -279,3 +279,8 @@ fn attrs_arm64() {
 fn attrs_x86_64() {
     fixture("attrs", "x86_64", &[], &[]);
 }
+
+#[test]
+fn tbi_arm64() {
+    fixture("tbi", "arm64", &[], &[]);
+}

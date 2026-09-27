@@ -32,6 +32,24 @@ impl AArch64Cpu {
         self.update_mmu_config();
     }
 
+    /// Sets the top-byte-ignore controls of `TCR_EL1` for the lower
+    /// (`TTBR0`) half of the address space, the half EL0 programs run in:
+    /// with `tbi` (TBI0) data accesses ignore address bits [63:56]; with
+    /// `data_only` (TBID0) instruction addresses keep them.
+    pub fn set_el0_top_byte_ignore(&mut self, tbi: bool, data_only: bool) {
+        const TBI0: u64 = 1 << 37;
+        const TBID0: u64 = 1 << 51;
+        let tcr = &mut self.sysregs.el1.tcr;
+        *tcr &= !(TBI0 | TBID0);
+        if tbi {
+            *tcr |= TBI0;
+        }
+        if data_only {
+            *tcr |= TBID0;
+        }
+        self.update_mmu_config();
+    }
+
     /// `TPIDR_EL0`, the EL0 read/write thread pointer.
     pub fn tpidr_el0(&self) -> u64 {
         self.sysregs.tpidr_el0
