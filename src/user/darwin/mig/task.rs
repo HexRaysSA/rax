@@ -4,14 +4,16 @@
 
 use std::sync::Arc;
 
+use super::exception;
 use super::{
     Buf, MigResult, Out, OutDesc, Req, copy_send, ids, info_reply, is_task, make_send, null_port,
 };
 use crate::user::darwin::abi::DarwinAbi;
+use crate::user::darwin::mach::exception::EXC_MASK_VALID;
 use crate::user::darwin::mach::ipc::{KObject, Port, Right, disp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::mach::sync::Semaphore;
-use crate::user::darwin::mach::task::{EXC_TYPES_COUNT, ExcAction, RestartableRange, special};
+use crate::user::darwin::mach::task::{RestartableRange, special};
 use crate::user::darwin::process::Proc;
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::syscall::mach::kmsg;
@@ -203,34 +205,48 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
         }
         t::TASK_SET_EXCEPTION_PORTS | t::TASK_SWAP_EXCEPTION_PORTS => {
             req.complex_of(1, 60)?;
-            let right = req.take_port(28, &[disp::MOVE_SEND, disp::MOVE_SEND_ONCE])?;
-            if !task {
-                kmsg::release(ctx.proc, right);
-                return Err(kr::KERN_INVALID_ARGUMENT);
-            }
+            let handler = exception::take_handler(req)?;
             let (mask, behavior, flv) = (req.u32(48), req.i32(52), req.i32(56));
-            let old = if req.id == t::TASK_SWAP_EXCEPTION_PORTS {
-                Some(get_exception_ports(&ctx.proc.task.exc, mask))
+            let checked = if task {
+                exception::validate(ctx.proc.abi, mask, &handler, behavior, flv)
             } else {
-                None
+                Err(kr::KERN_INVALID_ARGUMENT)
             };
-            set_exception_ports(ctx.proc, mask, right, behavior, flv)?;
+            if let Err(k) = checked {
+                exception::release(ctx.proc, &handler);
+                return Err(k);
+            }
+            let old = (req.id == t::TASK_SWAP_EXCEPTION_PORTS)
+                .then(|| exception::view(&ctx.proc.task.exc, mask));
+            let replaced =
+                exception::install(&mut ctx.proc.task.exc, mask, &handler, behavior, flv);
+            exception::release(ctx.proc, &handler);
+            for p in replaced {
+                kmsg::release_send(ctx.proc, &p);
+            }
             match old {
                 None => Ok(Out::Simple(Vec::new())),
-                Some(o) => Ok(exception_ports_reply(o)),
+                Some(o) => Ok(exception::ports_reply(&o)),
             }
         }
-        t::TASK_GET_EXCEPTION_PORTS => {
+        t::TASK_GET_EXCEPTION_PORTS | t::TASK_GET_EXCEPTION_PORTS_INFO => {
+            // The info variant takes a read port; the plain one the
+            // control port only.
             req.simple(36)?;
-            if !readable {
+            let info = req.id == t::TASK_GET_EXCEPTION_PORTS_INFO;
+            if !(task || info && req.port.kobject == KObject::TaskRead) {
                 return Err(kr::KERN_INVALID_ARGUMENT);
             }
             let mask = req.u32(32);
-            if mask & !valid_exc_mask() != 0 {
+            if mask & !EXC_MASK_VALID != 0 {
                 return Err(kr::KERN_INVALID_ARGUMENT);
             }
-            let o = get_exception_ports(&ctx.proc.task.exc, mask);
-            Ok(exception_ports_reply(o))
+            let o = exception::view(&ctx.proc.task.exc, mask);
+            Ok(if info {
+                exception::info_reply(&o, ctx.proc.pid as u32 | 1)
+            } else {
+                exception::ports_reply(&o)
+            })
         }
         t::TASK_GET_EXC_GUARD_BEHAVIOR => {
             req.simple(24)?;
@@ -421,140 +437,6 @@ fn set_special_port(proc: &mut Proc, which: i32, right: Option<Right>) -> Result
             Err(kr::KERN_INVALID_ARGUMENT)
         }
     }
-}
-
-/// `EXC_MASK_VALID`: exception types 1 ..= 14 (`EXC_MASK_ALL` plus
-/// `EXC_MASK_CORPSE_NOTIFY`).
-pub(crate) fn valid_exc_mask() -> u32 {
-    ((1u32 << EXC_TYPES_COUNT) - 1) & !1
-}
-
-/// `EXCEPTION_*` behaviors with optional `MACH_EXCEPTION_*` flags.
-pub(crate) fn valid_behavior(b: i32) -> bool {
-    // EXCEPTION_DEFAULT 1, STATE 2, STATE_IDENTITY 3, IDENTITY_PROTECTED
-    // 4, STATE_IDENTITY_PROTECTED 5; flags MACH_EXCEPTION_CODES
-    // 0x80000000, ERRORS 0x40000000, BACKTRACE_PREFERRED 0x20000000.
-    let base = b & !(0x8000_0000u32 as i32 | 0x4000_0000 | 0x2000_0000);
-    (1..=5).contains(&base)
-}
-
-/// `task_set_exception_ports`.
-pub fn set_exception_ports(
-    proc: &mut Proc,
-    mask: u32,
-    right: Option<Right>,
-    behavior: i32,
-    flv: i32,
-) -> Result<(), KernReturn> {
-    let port = match right {
-        None | Some(Right::Dead) => None,
-        Some(Right::Send(p)) => Some(p),
-        Some(other) => {
-            kmsg::release(proc, [other]);
-            return Err(kr::KERN_INVALID_RIGHT);
-        }
-    };
-    if mask & !valid_exc_mask() != 0 || (port.is_some() && !valid_behavior(behavior)) {
-        if let Some(p) = port {
-            kmsg::release_send(proc, &p);
-        }
-        return Err(kr::KERN_INVALID_ARGUMENT);
-    }
-    let old = replace_exception_actions(&mut proc.task.exc, mask, port.as_ref(), behavior, flv);
-    // The right the message carried was copied into each action.
-    if let Some(p) = port {
-        kmsg::release_send(proc, &p);
-    }
-    for p in old {
-        kmsg::release_send(proc, &p);
-    }
-    Ok(())
-}
-
-/// Installs `port` (a send right copied for each action) as the handler
-/// of every exception type in `mask`; returns the handlers it replaced,
-/// whose send rights the caller releases.
-pub fn replace_exception_actions(
-    exc: &mut [ExcAction],
-    mask: u32,
-    port: Option<&Arc<Port>>,
-    behavior: i32,
-    flv: i32,
-) -> Vec<Arc<Port>> {
-    let mut old = Vec::new();
-    for (i, action) in exc.iter_mut().enumerate().skip(1) {
-        if mask & (1 << i) == 0 {
-            continue;
-        }
-        if let Some(p) = port {
-            p.state.lock().unwrap().srights += 1;
-        }
-        let a = std::mem::replace(
-            action,
-            ExcAction {
-                port: port.cloned(),
-                behavior,
-                flavor: flv,
-            },
-        );
-        old.extend(a.port);
-    }
-    old
-}
-
-/// `task_get_exception_ports`: the distinct handlers covering `mask` with
-/// their combined masks.
-pub fn get_exception_ports(
-    exc: &[ExcAction],
-    mask: u32,
-) -> Vec<(u32, Option<Arc<Port>>, i32, i32)> {
-    let mut out: Vec<(u32, Option<Arc<Port>>, i32, i32)> = Vec::new();
-    for (i, a) in exc.iter().enumerate().skip(1) {
-        if mask & (1 << i) == 0 {
-            continue;
-        }
-        let same = out.iter_mut().find(|o| {
-            o.2 == a.behavior
-                && o.3 == a.flavor
-                && match (&o.1, &a.port) {
-                    (Some(x), Some(y)) => Arc::ptr_eq(x, y),
-                    (None, None) => true,
-                    _ => false,
-                }
-        });
-        match same {
-            Some(o) => o.0 |= 1 << i,
-            None => out.push((1 << i, a.port.clone(), a.behavior, a.flavor)),
-        }
-    }
-    out
-}
-
-/// The `task_get_exception_ports` reply: 32 port descriptors (the
-/// handlers, then nulls), then `masksCnt` and the three arrays.
-pub fn exception_ports_reply(o: Vec<(u32, Option<Arc<Port>>, i32, i32)>) -> Out {
-    let n = o.len();
-    let mut descs = Vec::with_capacity(32);
-    for (_, p, _, _) in &o {
-        descs.push(match p {
-            Some(p) => copy_send(p),
-            None => null_port(),
-        });
-    }
-    while descs.len() < 32 {
-        descs.push(null_port());
-    }
-    let mut b = Buf::new().u32(n as u32);
-    for e in &o {
-        b = b.u32(e.0);
-    }
-    for e in &o {
-        b = b.i32(e.2);
-    }
-    for e in &o {
-        b = b.i32(e.3);
-    }
-    Out::Complex(descs, b.done())
 }
 
 /// `TASK_RESTARTABLE_OFFSET_MAX`.

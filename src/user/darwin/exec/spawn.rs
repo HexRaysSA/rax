@@ -495,19 +495,13 @@ fn port_actions(ctx: &Ctx<'_>, task: &mut TaskState, actions: &[PortAction]) -> 
         match a.kind {
             pspa::SPECIAL => set_special_port(task, a.which, port)?,
             pspa::EXCEPTION => {
-                use crate::user::darwin::mig::task as mt;
-                if a.mask & !mt::valid_exc_mask() != 0
-                    || (port.is_some() && !mt::valid_behavior(a.behavior))
-                {
-                    return Err(Errno::EINVAL);
-                }
-                mt::replace_exception_actions(
-                    &mut task.exc,
-                    a.mask,
-                    port.as_ref(),
-                    a.behavior,
-                    a.flavor,
-                );
+                // task_set_exception_ports on the new task.
+                use crate::user::darwin::mach::exception::Handler;
+                use crate::user::darwin::mig::exception;
+                let handler = port.map_or(Handler::None, Handler::Port);
+                exception::validate(ctx.proc.abi, a.mask, &handler, a.behavior, a.flavor)
+                    .map_err(|_| Errno::EINVAL)?;
+                exception::install(&mut task.exc, a.mask, &handler, a.behavior, a.flavor);
             }
             _ => {}
         }

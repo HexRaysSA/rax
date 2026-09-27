@@ -1,8 +1,9 @@
 //! The thread subsystem (`thread_act.defs`, `osfmk/kern/thread.c`,
 //! `thread_act.c`, `thread_policy.c`) for threads of the calling task.
 
-use super::task::{exception_ports_reply, get_exception_ports, replace_exception_actions};
+use super::exception;
 use super::{Buf, MigResult, Out, Req, copy_send, ids, info_reply, make_send, null_port};
+use crate::user::darwin::mach::exception::EXC_MASK_VALID;
 use crate::user::darwin::mach::ipc::{KObject, Right, disp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::mach::task::{EXC_TYPES_COUNT, ExcAction};
@@ -205,57 +206,45 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
         }
         t::THREAD_SET_EXCEPTION_PORTS | t::THREAD_SWAP_EXCEPTION_PORTS => {
             req.complex_of(1, 60)?;
-            let right = req.take_port(28, &[disp::MOVE_SEND, disp::MOVE_SEND_ONCE])?;
+            let handler = exception::take_handler(req)?;
             let (mask, behavior, flv) = (req.u32(48), req.i32(52), req.i32(56));
-            let port = match right {
-                None | Some(Right::Dead) => None,
-                Some(Right::Send(p)) => Some(p),
-                Some(other) => {
-                    kmsg::release(ctx.proc, [other]);
-                    return Err(kr::KERN_INVALID_RIGHT);
-                }
-            };
-            let swap = req.id == t::THREAD_SWAP_EXCEPTION_PORTS;
-            let valid_mask = ((1u32 << EXC_TYPES_COUNT) - 1) & !1;
-            if mask & !valid_mask != 0 {
-                if let Some(p) = port {
-                    kmsg::release_send(ctx.proc, &p);
-                }
-                return Err(kr::KERN_INVALID_ARGUMENT);
-            }
+            let abi = ctx.proc.abi;
             let result = with_thread(ctx, req, |th, _| {
+                exception::validate(abi, mask, &handler, behavior, flv)?;
+                // The thread's actions exist from its first set or swap.
                 if th.mach.exc.is_empty() {
                     th.mach.exc = vec![ExcAction::default(); EXC_TYPES_COUNT];
                 }
-                let old_view = get_exception_ports(&th.mach.exc, mask);
-                let old =
-                    replace_exception_actions(&mut th.mach.exc, mask, port.as_ref(), behavior, flv);
-                (old_view, old)
-            });
-            if let Some(p) = port {
-                kmsg::release_send(ctx.proc, &p);
-            }
+                let old_view = exception::view(&th.mach.exc, mask);
+                let old = exception::install(&mut th.mach.exc, mask, &handler, behavior, flv);
+                Ok((old_view, old))
+            })
+            .and_then(|r| r);
+            exception::release(ctx.proc, &handler);
             let (old_view, old) = result?;
             for p in old {
                 kmsg::release_send(ctx.proc, &p);
             }
-            if swap {
-                Ok(exception_ports_reply(old_view))
+            if req.id == t::THREAD_SWAP_EXCEPTION_PORTS {
+                Ok(exception::ports_reply(&old_view))
             } else {
                 Ok(Out::Simple(Vec::new()))
             }
         }
-        t::THREAD_GET_EXCEPTION_PORTS => {
+        t::THREAD_GET_EXCEPTION_PORTS | t::THREAD_GET_EXCEPTION_PORTS_INFO => {
             req.simple(36)?;
             let mask = req.u32(32);
             let o = with_thread(ctx, req, |th, _| {
-                if th.mach.exc.is_empty() {
-                    Vec::new()
-                } else {
-                    get_exception_ports(&th.mach.exc, mask)
+                if mask & !EXC_MASK_VALID != 0 {
+                    return Err(kr::KERN_INVALID_ARGUMENT);
                 }
-            })?;
-            Ok(exception_ports_reply(o))
+                Ok(exception::view(&th.mach.exc, mask))
+            })??;
+            Ok(if req.id == t::THREAD_GET_EXCEPTION_PORTS_INFO {
+                exception::info_reply(&o, ctx.proc.pid as u32 | 1)
+            } else {
+                exception::ports_reply(&o)
+            })
         }
         t::KERNELRPC_THREAD_POLICY_SET => {
             let n = req.simple_array(40, 4, 16, 36)?;

@@ -314,3 +314,13 @@ fn vouchers_arm64() {
 fn vouchers_x86_64() {
     fixture("vouchers", "x86_64", &[], &[]);
 }
+
+#[test]
+fn exc_ports_arm64() {
+    fixture("exc_ports", "arm64", &[], &[]);
+}
+
+#[test]
+fn exc_ports_x86_64() {
+    fixture("exc_ports", "x86_64", &[], &[]);
+}
