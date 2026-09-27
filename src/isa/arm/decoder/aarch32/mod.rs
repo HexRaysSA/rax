@@ -1049,6 +1049,16 @@ impl Aarch32Decoder {
         }
 
         let l = (raw >> 20) & 1;
+        // op1 0b00010x: the two-register transfers (the coprocessors other
+        // than CP10 and CP11, whose forms are VMOV above).
+        if raw & 0x0FE0_0000 == 0x0C40_0000 {
+            let mnemonic = if l == 1 {
+                Mnemonic::MRRC
+            } else {
+                Mnemonic::MCRR
+            };
+            return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));
+        }
 
         let mnemonic = if l == 1 { Mnemonic::LDC } else { Mnemonic::STC };
 

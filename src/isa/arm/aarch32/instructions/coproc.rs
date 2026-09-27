@@ -2,6 +2,7 @@
 //! registers through CP10), with what PL0 may reach.
 
 use crate::isa::arm::ExecutionState;
+use crate::isa::arm::aarch32::cp15::{CNTKCTL_PL0PCTEN, CNTKCTL_PL0VCTEN};
 use crate::isa::arm::aarch32::cpu::{
     ArmMemory, Armv7Cpu, MemoryError, ProcessorMode, Psr, add_with_carry, compute_n_flag,
     compute_z_flag, condition_passed, expand_imm_c, shift_c, sign_extend,
@@ -173,11 +174,47 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if insn.raw >> 28 == 0xF || opc1 != 0 {
             return false;
         }
+        let kctl = self.cpu.cp15.cntkctl;
         match (crn, crm, opc2) {
             (13, 0, 2) => true,
             (13, 0, 3) => read,
             (7, 10, 4) | (7, 10, 5) | (7, 5, 4) => !read && self.cpu.cp15.sctlr.cp15ben(),
+            // CNTFRQ, readable when PL0 may read either counter.
+            (14, 0, 0) => read && kctl & (CNTKCTL_PL0PCTEN | CNTKCTL_PL0VCTEN) != 0,
             _ => false,
         }
+    }
+
+    /// MRRC: of CP15, CNTPCT (opc1 0, CRm 14) and CNTVCT (opc1 1, CRm 14)
+    /// into Rt (low word) and Rt2 (high word), which PL0 reads as
+    /// CNTKCTL.PL0PCTEN and PL0VCTEN allow; no other 64-bit register is
+    /// modelled. Rt or Rt2 being the PC, or both the same register, is
+    /// CONSTRAINED UNPREDICTABLE: UNDEFINED.
+    pub(crate) fn exec_mrrc(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let t = ((insn.raw >> 12) & 0xF) as usize;
+        let t2 = ((insn.raw >> 16) & 0xF) as usize;
+        let cp = (insn.raw >> 8) & 0xF;
+        let opc1 = (insn.raw >> 4) & 0xF;
+        let crm = insn.raw & 0xF;
+        if cp != 15 || t == 15 || t2 == 15 || t == t2 || insn.raw >> 28 == 0xF {
+            return ExecResult::Undefined;
+        }
+        let pl0 = !self.cpu.is_privileged();
+        let kctl = self.cpu.cp15.cntkctl;
+        let value = match (opc1, crm) {
+            (0, 14) if !pl0 || kctl & CNTKCTL_PL0PCTEN != 0 => self.cpu.cp15.cntpct,
+            (1, 14) if !pl0 || kctl & CNTKCTL_PL0VCTEN != 0 => self.cpu.cp15.cntvct(),
+            _ => return ExecResult::Undefined,
+        };
+        self.cpu.regs[t] = value as u32;
+        self.cpu.regs[t2] = (value >> 32) as u32;
+        ExecResult::Continue
+    }
+
+    /// MCRR: no 64-bit CP15 register is written here (the timers' compare
+    /// values and the translation table bases are not modelled), and PL0
+    /// may write none: UNDEFINED.
+    pub(crate) fn exec_mcrr(&mut self, _insn: &DecodedInsn) -> ExecResult {
+        ExecResult::Undefined
     }
 }

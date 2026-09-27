@@ -6,7 +6,9 @@
 //! default mode) and `CONFIG_SWP_EMULATION` (off by default, so `SWP` is
 //! `SIGILL`), on a CPU without mixed-endian EL0 (`SETEND` is `SIGILL`),
 //! and without `CONFIG_COMPAT_ALIGNMENT_FIXUPS` (its default), so a
-//! misaligned multi-word access (LDM, STM, LDRD, VLDR, ...) is `SIGBUS`.
+//! misaligned multi-word access (LDM, STM, LDRD, VLDR, ...) is `SIGBUS`. Its
+//! generic timer lets EL0 read CNTVCT and CNTFRQ but not CNTPCT
+//! (`arch_counter_set_user_access`).
 //!
 //! - System calls: `SVC` (whatever its immediate) with the number in R7 and
 //!   the arguments in R0-R5; the result returns in R0 (`el0_svc_compat`,

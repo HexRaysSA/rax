@@ -509,6 +509,30 @@ fn a32_unaligned_exclusives_are_alignment_faults() {
 }
 
 #[test]
+fn a32_reads_the_virtual_counter_as_an_arm64_kernel_lets_it() {
+    // mrc p15, 0, r2, c14, c0, 0 (CNTFRQ); mrrc p15, 1, r0, r1, c14
+    // (CNTVCT); svc #0. The frequency is the AArch64 model's, and the count
+    // advances with host time between runs.
+    let code = words(&[0xEE1E_2F10, 0xEC51_0F1E, 0xEF00_0000]);
+    let count =
+        |cpu: &A32UserCpu| u64::from(cpu.core().regs[1]) << 32 | u64::from(cpu.core().regs[0]);
+    let mut cpu = a32(&code);
+    assert!(matches!(cpu.run(10), A32Exit::Svc { .. }));
+    assert_eq!(
+        u64::from(cpu.core().regs[2]),
+        a64(&[]).core().counter_frequency()
+    );
+    let first = count(&cpu);
+    std::thread::sleep(std::time::Duration::from_millis(2));
+    cpu.set_pc(CODE);
+    assert!(matches!(cpu.run(10), A32Exit::Svc { .. }));
+    assert!(count(&cpu) > first, "{first} then {}", count(&cpu));
+    // CNTPCT (mrrc p15, 0, r0, r1, c14) is not EL0's.
+    let mut cpu = a32(&words(&[0xEC51_0F0E]));
+    assert!(matches!(cpu.run(10), A32Exit::Undefined { .. }));
+}
+
+#[test]
 fn a32_unaligned_multi_word_accesses_are_alignment_faults() {
     // ldm r1, {r2, r3}; stm r1, {r2, r3}; strd r2, r3, [r1]; vstr d0,
     // [r1], at DATA + 2: MemA's alignment faults, the stores as writes.

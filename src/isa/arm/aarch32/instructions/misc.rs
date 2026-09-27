@@ -219,6 +219,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             // Coprocessor
             Mnemonic::MCR => self.exec_mcr(insn),
             Mnemonic::MRC => self.exec_mrc(insn),
+            Mnemonic::MCRR => self.exec_mcrr(insn),
+            Mnemonic::MRRC => self.exec_mrrc(insn),
             Mnemonic::VMSR => self.exec_mcr(insn),
             Mnemonic::VMRS => self.exec_mrc(insn),
             Mnemonic::VLDR => self.exec_vldr(insn),

@@ -1028,3 +1028,52 @@ fn multi_word_accesses_need_word_alignment() {
     assert_eq!(exec.cpu.regs[4], 0x1100_0000);
     assert!(mem.read_word(0x100).unwrap() == 0 && mem.read_word(0x104).unwrap() == 0x1111_1111);
 }
+
+/// MRRC and MCRR (not LDC/STC): CNTPCT and CNTVCT (CNTPCT less CNTVOFF)
+/// through MRRC, which PL0 reaches as CNTKCTL's PL0PCTEN and PL0VCTEN
+/// allow, as it reaches CNTFRQ with either; CNTKCTL and MCRR need PL1; an
+/// MRRC with Rt or Rt2 the PC, or both the same, is UNDEFINED.
+#[test]
+fn mrrc_reads_the_generic_counters_as_cntkctl_allows() {
+    let dec = |raw| crate::isa::arm::decoder::Aarch32Decoder::decode(raw).unwrap();
+    assert_eq!(dec(0xEC51_0F1E).mnemonic, Mnemonic::MRRC);
+    assert_eq!(dec(0xEC41_0F1E).mnemonic, Mnemonic::MCRR);
+    let mut cpu = make_cpu();
+    let mut mem = make_mem();
+    cpu.cpsr.mode = ProcessorMode::User as u8;
+    cpu.cp15.cntpct = 0x1_2345_6789;
+    cpu.cp15.cntvoff = 0x100;
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    let (vct, pct) = (0xEC51_0F1E, 0xEC51_0F0E); // mrrc p15, {1, 0}, r0, r1, c14
+    let (frq, kctl) = (0xEE1E_2F10, 0xEE1E_2F11); // mrc p15, 0, r2, c14, {c0, c1}, 0
+    let undef = |r: ExecResult| matches!(r, ExecResult::Undefined);
+    for raw in [vct, pct, frq, kctl] {
+        assert!(
+            undef(exec.execute(&dec(raw))),
+            "{raw:#010x} without CNTKCTL"
+        );
+    }
+    exec.cpu.cp15.cntkctl = 1 << 1; // PL0VCTEN, as Linux sets it
+    assert!(matches!(exec.execute(&dec(vct)), ExecResult::Continue));
+    assert_eq!((exec.cpu.regs[0], exec.cpu.regs[1]), (0x2345_6689, 1));
+    assert!(matches!(exec.execute(&dec(frq)), ExecResult::Continue));
+    assert_eq!(exec.cpu.regs[2], exec.cpu.cp15.cntfrq);
+    for raw in [pct, kctl, 0xEC41_0F1E, 0xEC50_0F1E, 0xEC5F_0F1E] {
+        assert!(undef(exec.execute(&dec(raw))), "{raw:#010x}");
+    }
+    exec.cpu.cp15.cntkctl = 1 << 0; // PL0PCTEN
+    assert!(matches!(exec.execute(&dec(pct)), ExecResult::Continue));
+    assert_eq!((exec.cpu.regs[0], exec.cpu.regs[1]), (0x2345_6789, 1));
+    // PL1 reaches all of them, and writes CNTKCTL.
+    exec.cpu.cpsr.mode = ProcessorMode::Supervisor as u8;
+    exec.cpu.cp15.cntkctl = 0;
+    exec.cpu.regs[3] = 3;
+    assert!(matches!(
+        exec.execute(&dec(0xEE0E_3F11)), // mcr p15, 0, r3, c14, c1, 0
+        ExecResult::Continue
+    ));
+    assert!(matches!(exec.execute(&dec(kctl)), ExecResult::Continue));
+    assert_eq!(exec.cpu.regs[2], 3);
+    assert!(matches!(exec.execute(&dec(vct)), ExecResult::Continue));
+    assert_eq!(exec.cpu.regs[0], 0x2345_6689);
+}

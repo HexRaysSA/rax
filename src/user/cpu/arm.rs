@@ -154,6 +154,10 @@ pub enum A32Exit {
     Internal(String),
 }
 
+/// The system counter's frequency an arm64 kernel's AArch32 task reads in
+/// CNTFRQ: the one the AArch64 model advertises in `CNTFRQ_EL0`.
+pub const COUNTER_HZ: u32 = 62_500_000;
+
 /// An AArch32 guest thread's CPU.
 pub struct A32UserCpu {
     cpu: Armv7Cpu,
@@ -172,6 +176,10 @@ impl A32UserCpu {
         cpu.regs = [0; 16];
         cpu.vfp.fpexc = 1 << 30;
         cpu.cp15.sctlr = crate::isa::arm::cp15::Sctlr::from_bits(0);
+        // arch_counter_set_user_access: EL0 reads the virtual counter (and
+        // CNTFRQ), not the physical one.
+        cpu.cp15.cntkctl = crate::isa::arm::aarch32::cp15::CNTKCTL_PL0VCTEN;
+        cpu.cp15.cntfrq = COUNTER_HZ;
         A32UserCpu {
             cpu,
             mem: UserA32Memory::new(space.clone()),
@@ -237,6 +245,10 @@ impl A32UserCpu {
     /// Runs at most `budget` instructions, stopping at the first operating
     /// system event.
     pub fn run(&mut self, budget: u64) -> A32Exit {
+        // The system counter advances with host time, CNTFRQ ticks a
+        // second (computed in 128 bits so neither factor overflows).
+        let freq = u128::from(self.cpu.cp15.cntfrq);
+        self.cpu.cp15.cntpct = (u128::from(super::host_nanos()) * freq / 1_000_000_000) as u64;
         let exit = (0..budget)
             .find_map(|_| self.step())
             .unwrap_or(A32Exit::Yield);

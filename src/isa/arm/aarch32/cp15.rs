@@ -176,7 +176,19 @@ pub struct Cp15State {
     pub cntv_tval: u32,
     /// Virtual Timer Control Register (CNTV_CTL).
     pub cntv_ctl: u32,
+    /// Timer PL1 Control Register (CNTKCTL): what PL0 may reach
+    /// ([`CNTKCTL_PL0PCTEN`], [`CNTKCTL_PL0VCTEN`], ...).
+    pub cntkctl: u32,
+    /// The system counter's count (CNTPCT), which the platform advances.
+    pub cntpct: u64,
+    /// Virtual Offset Register (CNTVOFF): CNTVCT is CNTPCT less it.
+    pub cntvoff: u64,
 }
+
+/// CNTKCTL.PL0PCTEN: PL0 reads CNTPCT (and CNTFRQ).
+pub const CNTKCTL_PL0PCTEN: u32 = 1 << 0;
+/// CNTKCTL.PL0VCTEN: PL0 reads CNTVCT (and CNTFRQ).
+pub const CNTKCTL_PL0VCTEN: u32 = 1 << 1;
 
 impl Default for Cp15State {
     fn default() -> Self {
@@ -246,6 +258,9 @@ impl Default for Cp15State {
             cntp_ctl: 0,
             cntv_tval: 0,
             cntv_ctl: 0,
+            cntkctl: 0,
+            cntpct: 0,
+            cntvoff: 0,
         }
     }
 }
@@ -254,6 +269,11 @@ impl Cp15State {
     /// Create new CP15 state with default values.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// CNTVCT, the virtual count: CNTPCT less CNTVOFF.
+    pub fn cntvct(&self) -> u64 {
+        self.cntpct.wrapping_sub(self.cntvoff)
     }
 
     /// Read a CP15 register.
@@ -322,6 +342,7 @@ impl Cp15State {
 
             // CRn=14: Timer
             (14, 0, 0, 0) => Some(self.cntfrq),
+            (14, 0, 1, 0) => Some(self.cntkctl),
 
             _ => None, // Unknown register
         }
@@ -489,6 +510,10 @@ impl Cp15State {
             // CRn=14: Timer
             (14, 0, 0, 0) => {
                 self.cntfrq = value;
+                true
+            }
+            (14, 0, 1, 0) => {
+                self.cntkctl = value;
                 true
             }
             (14, 0, 2, 0) => {
