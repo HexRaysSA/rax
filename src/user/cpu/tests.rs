@@ -271,6 +271,35 @@ fn a64_clone_thread_copies_register_state() {
 }
 
 #[test]
+fn a64_with_config_selects_the_architecture_and_clones_keep_it() {
+    use crate::isa::arm::aarch64::cpu::AArch64Config;
+    use crate::isa::arm::common::features::ArmFeatures;
+    // retaa (0xd65f0bff) is FEAT_PAuth: UNDEFINED on the default v8.2 CPU,
+    // a return through X30 on a CPU configured with PACA.
+    const A64_RETAA: u32 = 0xd65f_0bff;
+    let s = space(&words(&[A64_RETAA]));
+    let mut plain = A64UserCpu::new(&s);
+    plain.core_mut().set_pc(CODE);
+    assert!(matches!(plain.run(10), A64Exit::Undefined { .. }));
+
+    let config = AArch64Config {
+        features: AArch64Config::v8_2().features | ArmFeatures::PACA,
+        ..AArch64Config::v8_2()
+    };
+    let mut cpu = A64UserCpu::with_config(&s, config);
+    cpu.core_mut().set_counter_frequency(24_000_000);
+    cpu.core_mut().set_pc(CODE);
+    cpu.core_mut().set_x(30, CODE + 4);
+    assert!(cpu.core().config().features.contains(ArmFeatures::PACA));
+    let child = cpu.clone_thread();
+    assert!(child.core().config().features.contains(ArmFeatures::PACA));
+    assert_eq!(child.core().counter_frequency(), 24_000_000);
+    // The configured CPU executes the return.
+    let _ = cpu.run(1);
+    assert_eq!(cpu.pc(), CODE + 4);
+}
+
+#[test]
 fn a64_el0_spsr_records_and_restores_pstate() {
     // cmp x0, x0 sets Z and C; SPSR[31:28] = NZCV, M[4:0] = EL0t (Arm ARM
     // D1.2 "Saved Program Status Registers").

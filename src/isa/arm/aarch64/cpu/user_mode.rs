@@ -60,9 +60,20 @@ impl AArch64Cpu {
         self.sysregs.cntvct_el0 = ticks.wrapping_sub(self.sysregs.cntvoff_el2);
     }
 
+    /// The architecture configuration the CPU was created with.
+    pub fn config(&self) -> &AArch64Config {
+        &self.config
+    }
+
     /// `CNTFRQ_EL0`, the advertised system-counter frequency in hertz.
     pub fn counter_frequency(&self) -> u64 {
         self.sysregs.cntfrq_el0
+    }
+
+    /// Sets `CNTFRQ_EL0`, as firmware programs it for the platform's system
+    /// counter.
+    pub fn set_counter_frequency(&mut self, hz: u64) {
+        self.sysregs.cntfrq_el0 = hz;
     }
 
     /// Clears a pending `WFI`/`WFE` wait so the next step executes an
