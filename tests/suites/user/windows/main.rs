@@ -44,6 +44,9 @@ mod crt_exit;
 #[path = "crt_bootstrap.rs"]
 mod crt_bootstrap;
 
+#[path = "crt_normal_exit.rs"]
+mod crt_normal_exit;
+
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/user/windows")
 }

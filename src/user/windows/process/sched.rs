@@ -275,7 +275,6 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
         p.loader.exiting_process = true;
         // ExitProcess terminates other threads without DLL_THREAD_DETACH;
         // only the caller retains its environment for PROCESS_DETACH.
-        sync::on_process_exit(p);
         for other in p.threads.values_mut() {
             other.frames.clear();
         }
@@ -284,7 +283,9 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
             super::fiber::discard_thread_continuations(p, tid);
         }
         p.tls.fls_discard_abandoned();
-        let cleanup = crate::user::windows::dll::crt::onexit::retire_process_drains(p)
+        let cleanup = sync::on_normal_process_exit(p, t.tid)
+            .map_err(|error| format!("normal process-exit wait retirement failed: {error:?}"))
+            .and_then(|()| crate::user::windows::dll::crt::onexit::retire_process_drains(p))
             .and_then(|()| crate::user::windows::dll::crt::termination::retire_process_drains(p))
             .and_then(|()| crate::user::windows::dll::libraries::cleanup_abandoned(p, &mut t));
         if let Err(error) = cleanup {
@@ -293,7 +294,13 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
             for (_, other) in std::mem::take(&mut p.threads) {
                 thread::destroy(p, other, code);
             }
-            outcome = lifecycle::process_exit(p, &mut t, code);
+            outcome = if let Some(error) = &p.failure {
+                // Failed peer teardown can invalidate guest callback state.
+                // Do not resume DLL_PROCESS_DETACH in that partial state.
+                Outcome::Fail(error.clone())
+            } else {
+                lifecycle::process_exit(p, &mut t, code)
+            };
         }
     }
     let final_exit = match outcome {
@@ -631,6 +638,9 @@ mod tests {
     use std::collections::{BTreeMap, VecDeque};
     use std::sync::Arc;
 
+    #[path = "exit_tests.rs"]
+    mod exit_tests;
+
     fn process(arch: WinArch) -> Proc {
         let space = AddressSpace::new(SpaceConfig {
             va_limit: 1 << 32,
@@ -840,45 +850,6 @@ mod tests {
                 "normal exit must await DLL_THREAD_DETACH"
             );
             assert!(p.exit_code.is_none());
-        }
-    }
-
-    #[test]
-    fn forced_process_exit_aborts_held_loader_without_guest_detach_all_abis() {
-        for arch in WinArch::ALL {
-            let (mut process, mut t, index) = terminal_fixture(arch);
-            let p = process.state_mut();
-            let (stack, teb) = (t.stack_alloc, t.teb);
-            assert_eq!(lifecycle::thread_exit(p, &mut t, 3), Outcome::Continue);
-            assert!(!t.frames.is_empty());
-            assert!(!p.loader.is_idle());
-            let mut peer = thread(p, 12);
-            let peer_stack = peer.stack_alloc;
-            park(
-                &mut peer,
-                sync::Wait::Sleep {
-                    deadline: None,
-                    alertable: false,
-                },
-            );
-            p.threads.insert(peer.tid, peer);
-            let mut last = 0;
-            apply_outcome(p, t, Outcome::ProcessTerminate(0xDEAD_BEEF), &mut last);
-            assert_eq!(p.exit_code, Some(0xDEAD_BEEF));
-            assert!(p.failure.is_none());
-            assert!(p.loader.is_idle());
-            assert!(p.threads.values().all(|t| t.frames.is_empty()));
-            assert!(
-                p.modules.list[index].initialized,
-                "forced termination must not run detach or guest rollback"
-            );
-            assert_eq!(run(p), ExitStatus::Exited(0xDEAD_BEEF));
-            assert!(p.threads.is_empty());
-            assert_eq!(p.objects.handle_count(), 0);
-            for address in [stack, peer_stack] {
-                assert_eq!(p.vm.query(address).unwrap().state, mem::FREE);
-            }
-            assert!(p.space.probe(teb, 1, MemoryAccessKind::Read).is_err());
         }
     }
 

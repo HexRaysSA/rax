@@ -137,6 +137,11 @@ pub struct SyncState {
     cs_waiters: HashMap<u64, u32>,
     /// SRW locks.
     srw: HashMap<u64, SrwState>,
+    /// Validated pre-retirement words left in guest storage when a normal
+    /// process exit cancels other threads' exclusive waits without writing
+    /// potentially obsolete lock storage. The next live lock mutation
+    /// replaces the word and removes this exception.
+    retired_srw_words: HashMap<u64, u64>,
     /// Explicitly initialized critical sections; use after delete is rejected.
     initialized_cs: HashSet<u64>,
     /// One registration per parked thread, including retained object IDs.
@@ -290,6 +295,103 @@ pub fn on_process_exit(p: &mut Proc) {
             }
         }
     }
+}
+
+/// Retires other threads' parked waits before normal process-detach callbacks.
+/// The selected thread and live lock ownership/initialization remain usable
+/// until final shutdown. In particular, retirement cannot write guest lock
+/// storage: a peer may have waited on an address that is now inaccessible.
+///
+/// The validation pass precedes all mutation, so a corrupt host registration
+/// cannot partially release object pins or lock wait counts. A later live SRW
+/// access accepts only the exact old word left by this operation; its first
+/// successful write publishes the new count. Complexity is O(P + L) time and
+/// O(P + L) auxiliary space for P peer registrations and L touched lock keys.
+pub fn on_normal_process_exit(p: &mut Proc, caller_tid: u32) -> Result<(), SyncError> {
+    let peers: Vec<(u32, Wait)> = p
+        .sync
+        .parked
+        .iter()
+        .filter(|(tid, _)| **tid != caller_tid)
+        .map(|(&tid, wait)| (tid, wait.clone()))
+        .collect();
+    let mut cs_counts = HashMap::<u64, u32>::new();
+    let mut srw_counts = HashMap::<u64, u32>::new();
+    for (tid, wait) in &peers {
+        // A successful poll already consumed a lock waiter count; only its
+        // retained registration/pin remains until cancellation.
+        if p.sync.completed.contains(tid) {
+            continue;
+        }
+        match wait {
+            Wait::CritSec { addr } => {
+                let count = cs_counts.entry(*addr).or_default();
+                *count = count.checked_add(1).ok_or(SyncError::Invalid(
+                    "critical-section retirement count overflow",
+                ))?;
+            }
+            Wait::Srw {
+                addr,
+                exclusive: true,
+            } => {
+                let count = srw_counts.entry(*addr).or_default();
+                *count = count
+                    .checked_add(1)
+                    .ok_or(SyncError::Invalid("SRW retirement count overflow"))?;
+            }
+            _ => {}
+        }
+    }
+    for (&addr, &count) in &cs_counts {
+        if p.sync.cs_waiters.get(&addr).copied().unwrap_or(0) < count {
+            return Err(SyncError::Invalid(
+                "unregistered critical-section exit wait",
+            ));
+        }
+    }
+    let mut srw_updates = Vec::with_capacity(srw_counts.len());
+    for (&addr, &count) in &srw_counts {
+        let old_state = p
+            .sync
+            .srw
+            .get(&addr)
+            .ok_or(SyncError::Invalid("unregistered SRW exit wait"))?;
+        let mut state = old_state.clone();
+        state.waiting_exclusive = state
+            .waiting_exclusive
+            .checked_sub(count)
+            .ok_or(SyncError::Invalid("unregistered SRW exit wait"))?;
+        let old_word = srw_word(p, old_state)?;
+        srw_updates.push((addr, state, old_word));
+    }
+
+    for (tid, wait) in peers {
+        p.sync.parked.remove(&tid);
+        p.sync.completed.remove(&tid);
+        p.sync.woken.remove(&tid);
+        match wait {
+            Wait::Objects { objs, .. } => {
+                for obj in objs {
+                    p.objects.release(obj);
+                }
+            }
+            Wait::Address { key, .. } => p.sync.cancel(key, tid),
+            _ => {}
+        }
+    }
+    for (addr, count) in cs_counts {
+        let remaining = p.sync.cs_waiters[&addr] - count;
+        set_cs_waiters(p, addr, remaining);
+    }
+    for (addr, state, old_word) in srw_updates {
+        if state.exclusive.is_none() && state.shared.is_empty() && state.waiting_exclusive == 0 {
+            p.sync.srw.remove(&addr);
+        } else {
+            p.sync.srw.insert(addr, state);
+        }
+        p.sync.retired_srw_words.insert(addr, old_word);
+    }
+    Ok(())
 }
 
 fn expired(deadline: Option<Instant>, now: Instant) -> bool {
@@ -717,6 +819,13 @@ pub fn cs_spin(p: &mut Proc, addr: u64, spin: u64) -> Result<u64, SyncError> {
     let old = getptr(&bytes, at, p.arch.ptr_size());
     let _ = spin;
     putptr(&mut bytes, at, p.arch.ptr_size(), 0);
+    // Normal process exit can retire peer waiters without touching obsolete
+    // guest storage; this live mutation publishes the current count.
+    cs_word(
+        &mut bytes,
+        p,
+        p.sync.cs_waiters.get(&addr).copied().unwrap_or(0),
+    )?;
     p.space.wr(addr, &bytes)?;
     Ok(old)
 }
@@ -739,7 +848,8 @@ fn srw_word(p: &Proc, s: &SrwState) -> Result<u64, SyncError> {
 fn srw_state(p: &Proc, addr: u64) -> Result<SrwState, SyncError> {
     storage(p, addr, p.arch.ptr_size())?;
     let s = p.sync.srw.get(&addr).cloned().unwrap_or_default();
-    if p.space.ptr(addr, p.arch.ptr_size())? != srw_word(p, &s)? {
+    let word = p.space.ptr(addr, p.arch.ptr_size())?;
+    if word != srw_word(p, &s)? && p.sync.retired_srw_words.get(&addr).copied() != Some(word) {
         return Err(SyncError::Invalid("modified/uninitialized SRW lock word"));
     }
     Ok(s)
@@ -747,6 +857,7 @@ fn srw_state(p: &Proc, addr: u64) -> Result<SrwState, SyncError> {
 
 fn commit_srw(p: &mut Proc, addr: u64, s: SrwState) -> Result<(), SyncError> {
     p.space.wptr(addr, p.arch.ptr_size(), srw_word(p, &s)?)?;
+    p.sync.retired_srw_words.remove(&addr);
     if s.exclusive.is_none() && s.shared.is_empty() && s.waiting_exclusive == 0 {
         p.sync.srw.remove(&addr);
     } else {
@@ -761,6 +872,7 @@ pub fn srw_init(p: &mut Proc, addr: u64) -> Result<(), SyncError> {
         return Err(SyncError::Invalid("reinitializing active SRW lock"));
     }
     p.space.wptr(addr, p.arch.ptr_size(), 0)?;
+    p.sync.retired_srw_words.remove(&addr);
     Ok(())
 }
 
@@ -851,6 +963,10 @@ pub fn cv_check(p: &Proc, addr: u64) -> Result<(), SyncError> {
 pub fn last_error_offset(p: &Proc) -> u64 {
     offsets(p.arch).teb_last_error
 }
+
+#[cfg(test)]
+#[path = "sync_exit_tests.rs"]
+mod exit_tests;
 
 #[cfg(test)]
 mod tests {
