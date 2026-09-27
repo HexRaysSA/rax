@@ -1,0 +1,8 @@
+
+/Users/int/.cache/zig/o/152791cf652f60c4402bea4673565078/crt2.obj:	file format coff-arm64
+
+Disassembly of section .text:
+
+0000000000000454 <atexit>:
+     454: 14000000     	b	0x454 <atexit>
+		0000000000000454:  IMAGE_REL_ARM64_BRANCH26	_crt_atexit

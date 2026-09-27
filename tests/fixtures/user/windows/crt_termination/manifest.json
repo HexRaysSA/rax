@@ -1,0 +1,1083 @@
+{
+  "schema": 1,
+  "source_baseline": "06e90d4bb41e0390a877819ed41ed98e369558a3",
+  "purpose": "Genuine UCRT runtime-global registration and recursive shared exit-lock witnesses",
+  "native_windows_oracle": "unknown; no recorded native execution",
+  "producer": "Clang custom-entry C objects; llvm-dlltool definitions validated against primary Microsoft UCRT exports; LLD /nodefaultlib /timestamp:0",
+  "tools": [
+    {
+      "name": "clang",
+      "path": "/Users/int/local/bin/clang",
+      "sha256": "6acca6b9583c9270f8606d026bab0015a4f82affd5610606f97fef6e606bde00",
+      "version": "clang version 23.0.0git (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Users/int/local/bin"
+    },
+    {
+      "name": "linker",
+      "path": "/Users/int/local/bin/lld-link",
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd",
+      "version": "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d)"
+    },
+    {
+      "name": "dlltool",
+      "path": "/Users/int/local/bin/llvm-dlltool",
+      "sha256": "36566071f789a6f966ba69b05b38570f840f4d15269b76407fed7bce5711e03d",
+      "version": "No version flag; executable hash pins identity"
+    },
+    {
+      "name": "readobj",
+      "path": "/Users/int/local/bin/llvm-readobj",
+      "sha256": "903feaa9324fcedcfb80afd2e8da6248bed8e9fb3222c8476fdfb59519ec95d1",
+      "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build."
+    }
+  ],
+  "sources": [
+    {
+      "path": "build.rb",
+      "sha256": "f0805bfe53a2085854d73a8272e3b10edcf22d30a24bc0df2d5453b088dbce0d",
+      "bytes": 5942
+    },
+    {
+      "path": "baseline.rb",
+      "sha256": "9b5454ca9b6b07d7ece7929c170091d34c65a53d24587ca40da6bb0e36627da3",
+      "bytes": 2626
+    },
+    {
+      "path": "README.md",
+      "sha256": "3d923caacfdf184ccc16a554247c51be4f379969b767b5d57c394f3e5ae6dca5",
+      "bytes": 3957
+    },
+    {
+      "path": "src/common.h",
+      "sha256": "08a39eb213073070f54dff79c2150d5ef980dd572a3a17c9d87ee741a0c5056a",
+      "bytes": 1749
+    },
+    {
+      "path": "src/registration.c",
+      "sha256": "f02d215b3e32aabbbb2c513fec35dff70935f5eceb5bab588093da8976022487",
+      "bytes": 744
+    },
+    {
+      "path": "src/explicit.c",
+      "sha256": "0767dc784cdf605841d0dc8337338d1036e5aa2786611a886202fe033dffc9fd",
+      "bytes": 1777
+    },
+    {
+      "path": "src/concurrent.c",
+      "sha256": "8c7947bf36fbd4420dc86bd317b4881f94611579aa72eec53e2bfddfb29ff8ca",
+      "bytes": 1747
+    },
+    {
+      "path": "src/runtime.def",
+      "sha256": "35780c86151f19796d8f91323f29743f683a4cbda579d925ab05dc195e1c2665",
+      "bytes": 112
+    },
+    {
+      "path": "src/kernel32.def",
+      "sha256": "60c906ecd1b8751d74127fda29b490f0cfdac2fe074e80b3e6991f2ea1e2f611",
+      "bytes": 155
+    },
+    {
+      "path": "src/kernel32-x86.def",
+      "sha256": "e2e581c30fe44d87ba8d2aefce83b321ef06f3e44af54c4819338ec25fbc18d0",
+      "bytes": 178
+    }
+  ],
+  "fixtures": [
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "program": "register_zero",
+      "path": "bin/x86/ucrtbase/register_zero.exe",
+      "sha256": "694c4cb84c2c4533300fe5cf21c1e5f1d165c0ad37dcea9b28fdaa9c15f6ad37",
+      "bytes": 2560,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-ucrtbase-register_zero.txt",
+      "iat_sha256": "acf5f6dcd2daddca4de5991668f481a94cfcb803cb0f8621b85c57c9b3f2e966",
+      "registrations_per_queue": 0
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "program": "register_65",
+      "path": "bin/x86/ucrtbase/register_65.exe",
+      "sha256": "b7220e2627bf3505640a890f64b66b5d71cffebedbd10d0e706c6589a052ef56",
+      "bytes": 2560,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-ucrtbase-register_65.txt",
+      "iat_sha256": "43c5374a5813f49e3001732d48780745b8c7deeec8b78794a23237a2c60024e9",
+      "registrations_per_queue": 65
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "program": "register_1057",
+      "path": "bin/x86/ucrtbase/register_1057.exe",
+      "sha256": "210c9146176f34678d4f4bbb09b9bfdd688bbb0d59d3e71e699f0bd71ff9dcff",
+      "bytes": 2560,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-ucrtbase-register_1057.txt",
+      "iat_sha256": "43c5374a5813f49e3001732d48780745b8c7deeec8b78794a23237a2c60024e9",
+      "registrations_per_queue": 1057
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "program": "explicit",
+      "path": "bin/x86/ucrtbase/explicit.exe",
+      "sha256": "ef7eb9a8a91b56aa128e7ebec4da203dbf9eb24e6bfd5d8eb2a26bccb146cfae",
+      "bytes": 3072,
+      "expected_exit": 0,
+      "expected_stdout": "explicit\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-ucrtbase-explicit.txt",
+      "iat_sha256": "0692b741ae322c3e5f09ddefda33d9124a6427401986def648b3e5f98d321f40"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "program": "concurrent",
+      "path": "bin/x86/ucrtbase/concurrent.exe",
+      "sha256": "a5490bb216194eb06f3f9e4cb82d650f0f4cb8a535ee1b8e3bd89541a6f3eda0",
+      "bytes": 3584,
+      "expected_exit": 0,
+      "expected_stdout": "concurrent\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateEventW",
+            "CreateThread",
+            "ExitProcess",
+            "GetExitCodeThread",
+            "GetStdHandle",
+            "SetEvent",
+            "Sleep",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-ucrtbase-concurrent.txt",
+      "iat_sha256": "742010852ee35371e4d51ec25c457e72121f708ef99e6b02e92586cb888a0680"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "program": "register_zero",
+      "path": "bin/x86/apiset/register_zero.exe",
+      "sha256": "cee0f14752ab6c339a1345bd68a4689cf5fcd77388cf4589ca63d03f8705238c",
+      "bytes": 2560,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-apiset-register_zero.txt",
+      "iat_sha256": "8ff116b501b48fefea768bb6328265e9cce2e78441b005c2437d76447df5f0ae",
+      "registrations_per_queue": 0
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "program": "register_65",
+      "path": "bin/x86/apiset/register_65.exe",
+      "sha256": "f4ea17b7db69e08d587b3ee4a4e2a77622c903234c1edcb4f03b8eed7f95ee89",
+      "bytes": 2560,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-apiset-register_65.txt",
+      "iat_sha256": "2e2d6d2eeb0e677479166651b18b0571772c9fbbc2090a03200c5a94ff354355",
+      "registrations_per_queue": 65
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "program": "register_1057",
+      "path": "bin/x86/apiset/register_1057.exe",
+      "sha256": "832ba37655237bf6048d9f69138231c70657813369a65ed5a55445cf449ef170",
+      "bytes": 2560,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-apiset-register_1057.txt",
+      "iat_sha256": "2e2d6d2eeb0e677479166651b18b0571772c9fbbc2090a03200c5a94ff354355",
+      "registrations_per_queue": 1057
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "program": "explicit",
+      "path": "bin/x86/apiset/explicit.exe",
+      "sha256": "440c9f6ea66e89451503efebaca6f76e7cafe68fe5bb83ea79ade2dd0a807824",
+      "bytes": 3072,
+      "expected_exit": 0,
+      "expected_stdout": "explicit\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-apiset-explicit.txt",
+      "iat_sha256": "d97eccab4effe3a058c36d0fa81689d13719caa3264cb786a248c3e2dd037a3e"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "program": "concurrent",
+      "path": "bin/x86/apiset/concurrent.exe",
+      "sha256": "2cf218f13a4b274a0961553da0c7a767126460097304b2b00f9e2bc68d9c9d6a",
+      "bytes": 3584,
+      "expected_exit": 0,
+      "expected_stdout": "concurrent\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateEventW",
+            "CreateThread",
+            "ExitProcess",
+            "GetExitCodeThread",
+            "GetStdHandle",
+            "SetEvent",
+            "Sleep",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-apiset-concurrent.txt",
+      "iat_sha256": "8f7fd7371d6aef5c5dfe2218e2e763f23bbddb9e755b340ac7ccca59e6607af5"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "program": "register_zero",
+      "path": "bin/x64/ucrtbase/register_zero.exe",
+      "sha256": "c86aded8eb3ed688df6df5f16e5a64d6c46b121a2e22b9a07ead27c60e071d7f",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-ucrtbase-register_zero.txt",
+      "iat_sha256": "c5694047b48db5a56f83ca5097a798199da95c648ca90415ab2eba229186c7f2",
+      "registrations_per_queue": 0
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "program": "register_65",
+      "path": "bin/x64/ucrtbase/register_65.exe",
+      "sha256": "89ffeb55d01197f1cb6d6ee2c051c2a1d2b2ff589f004822f2ed39c604c2fb5f",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-ucrtbase-register_65.txt",
+      "iat_sha256": "c5694047b48db5a56f83ca5097a798199da95c648ca90415ab2eba229186c7f2",
+      "registrations_per_queue": 65
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "program": "register_1057",
+      "path": "bin/x64/ucrtbase/register_1057.exe",
+      "sha256": "e41568bf251ebce6c056c2e1153459baa0f20423bf99459d5c02f2d99160a962",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-ucrtbase-register_1057.txt",
+      "iat_sha256": "c5694047b48db5a56f83ca5097a798199da95c648ca90415ab2eba229186c7f2",
+      "registrations_per_queue": 1057
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "program": "explicit",
+      "path": "bin/x64/ucrtbase/explicit.exe",
+      "sha256": "d7bb7de55db4e70989b84104fa7fbf681c19b6059513199e8ee6eaa75530f50d",
+      "bytes": 2560,
+      "expected_exit": 0,
+      "expected_stdout": "explicit\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-ucrtbase-explicit.txt",
+      "iat_sha256": "e51951d54b0c7de56b37646d2497f9ab9109016dbe4c62c2f098e8e56fe9b8b3"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "program": "concurrent",
+      "path": "bin/x64/ucrtbase/concurrent.exe",
+      "sha256": "26d3e0da1d85cbc7574d3ce91e4358bb7606c7674b6917b64f844744016d8268",
+      "bytes": 3072,
+      "expected_exit": 0,
+      "expected_stdout": "concurrent\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateEventW",
+            "CreateThread",
+            "ExitProcess",
+            "GetExitCodeThread",
+            "GetStdHandle",
+            "SetEvent",
+            "Sleep",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-ucrtbase-concurrent.txt",
+      "iat_sha256": "9598edce37878ca22150b56af5b1edc29bc1db3821a5aca1f5034bab7e3b8aaf"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "program": "register_zero",
+      "path": "bin/x64/apiset/register_zero.exe",
+      "sha256": "92d7cd6809a6ab0afb634628bba5375aaf3dd090a6b3927d7cc09c1ad95e093a",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-apiset-register_zero.txt",
+      "iat_sha256": "34dbb7cf45b38905edb35efeffe6cc9b5353b291d1a50e4024d1860583d2ca3d",
+      "registrations_per_queue": 0
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "program": "register_65",
+      "path": "bin/x64/apiset/register_65.exe",
+      "sha256": "bed3ee541567194c2f23c67b5a3a770f8dce687d1a0c850f100e3bc19d560847",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-apiset-register_65.txt",
+      "iat_sha256": "34dbb7cf45b38905edb35efeffe6cc9b5353b291d1a50e4024d1860583d2ca3d",
+      "registrations_per_queue": 65
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "program": "register_1057",
+      "path": "bin/x64/apiset/register_1057.exe",
+      "sha256": "9527547a26d994d37a77eddeee6c2cd0bd82566d0081353880c57869ef8f0a84",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-apiset-register_1057.txt",
+      "iat_sha256": "34dbb7cf45b38905edb35efeffe6cc9b5353b291d1a50e4024d1860583d2ca3d",
+      "registrations_per_queue": 1057
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "program": "explicit",
+      "path": "bin/x64/apiset/explicit.exe",
+      "sha256": "9eef54e8f67856616b490eacd5cabe9b6fbd091b04d723c2330a584693c9915a",
+      "bytes": 2560,
+      "expected_exit": 0,
+      "expected_stdout": "explicit\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-apiset-explicit.txt",
+      "iat_sha256": "631d46d346155f3b6bb6cde80f72d6f08e95cdb28c28b799909d30b8993ab709"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "program": "concurrent",
+      "path": "bin/x64/apiset/concurrent.exe",
+      "sha256": "286707930e13c0fd81c98b45e64573fcfc4c965013903fe4ff629ad8bfc5f9ed",
+      "bytes": 3072,
+      "expected_exit": 0,
+      "expected_stdout": "concurrent\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateEventW",
+            "CreateThread",
+            "ExitProcess",
+            "GetExitCodeThread",
+            "GetStdHandle",
+            "SetEvent",
+            "Sleep",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-apiset-concurrent.txt",
+      "iat_sha256": "06a4877573ff436a7b31e33a5fd58f8716dfd35dc08bf2a9b30906e198f3e68f"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "program": "register_zero",
+      "path": "bin/arm64/ucrtbase/register_zero.exe",
+      "sha256": "12f7fd2349fe187e9446e908d998af399a3fcf366619fb23e40593bf833342a1",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-ucrtbase-register_zero.txt",
+      "iat_sha256": "a4fca5ef426cabe70785a856affe0e42900cf3cdb928d280d573625e95768dda",
+      "registrations_per_queue": 0
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "program": "register_65",
+      "path": "bin/arm64/ucrtbase/register_65.exe",
+      "sha256": "a4c80a47707a02db9bdf896b92b9746918e059e2b35d7631d6ab0b8c4d10d40f",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-ucrtbase-register_65.txt",
+      "iat_sha256": "a4fca5ef426cabe70785a856affe0e42900cf3cdb928d280d573625e95768dda",
+      "registrations_per_queue": 65
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "program": "register_1057",
+      "path": "bin/arm64/ucrtbase/register_1057.exe",
+      "sha256": "964e28533568b40c4ff10cfaa005c96196a9535e1a1dc3ba65fb866f337a4803",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-ucrtbase-register_1057.txt",
+      "iat_sha256": "a4fca5ef426cabe70785a856affe0e42900cf3cdb928d280d573625e95768dda",
+      "registrations_per_queue": 1057
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "program": "explicit",
+      "path": "bin/arm64/ucrtbase/explicit.exe",
+      "sha256": "23ca7f7cc32b873e059a244f0a307d37837cc81050508ce16c551f567d8b8d75",
+      "bytes": 3072,
+      "expected_exit": 0,
+      "expected_stdout": "explicit\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-ucrtbase-explicit.txt",
+      "iat_sha256": "00565e8cdbd38842d57e7dc84a2ce11fba64ad89645605cdb7ba82c24228b26a"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "program": "concurrent",
+      "path": "bin/arm64/ucrtbase/concurrent.exe",
+      "sha256": "2b8fa1c660ad1db0afc8ad948b04cc7d14f0e314497546badb1bb438bbc4383d",
+      "bytes": 3584,
+      "expected_exit": 0,
+      "expected_stdout": "concurrent\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateEventW",
+            "CreateThread",
+            "ExitProcess",
+            "GetExitCodeThread",
+            "GetStdHandle",
+            "SetEvent",
+            "Sleep",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-ucrtbase-concurrent.txt",
+      "iat_sha256": "f266b4571a24119b4f50b8725f8585267b64c0d111f9ccc131802afc68741c8d"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "program": "register_zero",
+      "path": "bin/arm64/apiset/register_zero.exe",
+      "sha256": "7ad8a8d4d7b5238a0325e94cbe200a98294434f65fd62a1e785e2cfcd30e8694",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-apiset-register_zero.txt",
+      "iat_sha256": "ffca9bd27384388659123e9a5474c62a112ca3406eab762f404bd9bbcca23763",
+      "registrations_per_queue": 0
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "program": "register_65",
+      "path": "bin/arm64/apiset/register_65.exe",
+      "sha256": "4c85411d75d01bafed01815b0aee3e022e2bdbdb2fd3474b2ccdac829994cbb8",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-apiset-register_65.txt",
+      "iat_sha256": "ffca9bd27384388659123e9a5474c62a112ca3406eab762f404bd9bbcca23763",
+      "registrations_per_queue": 65
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "program": "register_1057",
+      "path": "bin/arm64/apiset/register_1057.exe",
+      "sha256": "208766b963b2cf357c5d40f12ec705c88eb98da1de8a38dc0d73788f8bf495c2",
+      "bytes": 2048,
+      "expected_exit": 0,
+      "expected_stdout": "registered\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-apiset-register_1057.txt",
+      "iat_sha256": "ffca9bd27384388659123e9a5474c62a112ca3406eab762f404bd9bbcca23763",
+      "registrations_per_queue": 1057
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "program": "explicit",
+      "path": "bin/arm64/apiset/explicit.exe",
+      "sha256": "133ef4d9d7c2abe305e866ccc5bb03cc428e0e382a0792cfe39774fb398e8b14",
+      "bytes": 3072,
+      "expected_exit": 0,
+      "expected_stdout": "explicit\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "ExitProcess",
+            "GetStdHandle",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-apiset-explicit.txt",
+      "iat_sha256": "a8d8753fdf60264f5cc8b7588107ff95fb8951be296855feb4f30b314d395c28"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "program": "concurrent",
+      "path": "bin/arm64/apiset/concurrent.exe",
+      "sha256": "ac1bb77a4a7c1d1e4f8e3b115e19ccd9f939dd089bea481773ef303b130b31e5",
+      "bytes": 3584,
+      "expected_exit": 0,
+      "expected_stdout": "concurrent\n",
+      "role": "custom-entry; no CRT startup object",
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_execute_onexit_table",
+            "_initialize_onexit_table",
+            "_register_onexit_function"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateEventW",
+            "CreateThread",
+            "ExitProcess",
+            "GetExitCodeThread",
+            "GetStdHandle",
+            "SetEvent",
+            "Sleep",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-apiset-concurrent.txt",
+      "iat_sha256": "22231d1f013c68c0435b527ea933606d7eacd672082fd00592254642062c3173"
+    }
+  ]
+}

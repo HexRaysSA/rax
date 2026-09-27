@@ -1,0 +1,180 @@
+
+/Users/int/.cache/zig/o/618f749787b034ac069f4c2294bef143/tls_atexit.obj:	file format coff-arm64
+
+Disassembly of section .text$tls_callback:
+
+0000000000000000 <tls_callback>:
+       0: a9bd53f3     	stp	x19, x20, [sp, #-0x30]!
+       4: f9000bf5     	str	x21, [sp, #0x10]
+       8: a901fbfd     	stp	x29, x30, [sp, #0x18]
+       c: 910063fd     	add	x29, sp, #0x18
+      10: 34000741     	cbz	w1, 0xf8 <tls_callback+0xf8>
+      14: 71000c3f     	cmp	w1, #0x3
+      18: 540003c0     	b.eq	0x90 <tls_callback+0x90>
+      1c: 7100043f     	cmp	w1, #0x1
+      20: 54000da1     	b.ne	0x1d4 <tls_callback+0x1d4>
+      24: 90000013     	adrp	x19, 0x0 <tls_callback>
+		0000000000000024:  IMAGE_REL_ARM64_PAGEBASE_REL21	inited
+      28: 39400268     	ldrb	w8, [x19]
+		0000000000000028:  IMAGE_REL_ARM64_PAGEOFFSET_12L	inited
+      2c: 370002c8     	tbnz	w8, #0x0, 0x84 <tls_callback+0x84>
+      30: 90000009     	adrp	x9, 0x0 <tls_callback>
+		0000000000000030:  IMAGE_REL_ARM64_PAGEBASE_REL21	__imp_InitializeCriticalSection
+      34: 90000008     	adrp	x8, 0x0 <tls_callback>
+		0000000000000034:  IMAGE_REL_ARM64_PAGEBASE_REL21	lock
+      38: 91000108     	add	x8, x8, #0x0
+		0000000000000038:  IMAGE_REL_ARM64_PAGEOFFSET_12A	lock
+      3c: f9400129     	ldr	x9, [x9]
+		000000000000003c:  IMAGE_REL_ARM64_PAGEOFFSET_12L	__imp_InitializeCriticalSection
+      40: aa0003f4     	mov	x20, x0
+      44: aa0803e0     	mov	x0, x8
+      48: d63f0120     	blr	x9
+      4c: 90000008     	adrp	x8, 0x0 <tls_callback>
+		000000000000004c:  IMAGE_REL_ARM64_PAGEBASE_REL21	__dso_handle
+      50: f9000114     	str	x20, [x8]
+		0000000000000050:  IMAGE_REL_ARM64_PAGEOFFSET_12L	__dso_handle
+      54: 90000008     	adrp	x8, 0x0 <tls_callback>
+		0000000000000054:  IMAGE_REL_ARM64_PAGEBASE_REL21	__imp_TlsAlloc
+      58: f9400108     	ldr	x8, [x8]
+		0000000000000058:  IMAGE_REL_ARM64_PAGEOFFSET_12L	__imp_TlsAlloc
+      5c: d63f0100     	blr	x8
+      60: 90000008     	adrp	x8, 0x0 <tls_callback>
+		0000000000000060:  IMAGE_REL_ARM64_PAGEBASE_REL21	.refptr.__mingw_module_is_dll
+      64: 90000009     	adrp	x9, 0x0 <tls_callback>
+		0000000000000064:  IMAGE_REL_ARM64_PAGEBASE_REL21	tls_dtors_slot
+      68: f9400108     	ldr	x8, [x8]
+		0000000000000068:  IMAGE_REL_ARM64_PAGEOFFSET_12L	.refptr.__mingw_module_is_dll
+      6c: b9000120     	str	w0, [x9]
+		000000000000006c:  IMAGE_REL_ARM64_PAGEOFFSET_12L	tls_dtors_slot
+      70: 39400108     	ldrb	w8, [x8]
+      74: 35000088     	cbnz	w8, 0x84 <tls_callback+0x84>
+      78: 90000000     	adrp	x0, 0x0 <tls_callback>
+		0000000000000078:  IMAGE_REL_ARM64_PAGEBASE_REL21	tls_atexit_callback
+      7c: 91000000     	add	x0, x0, #0x0
+		000000000000007c:  IMAGE_REL_ARM64_PAGEOFFSET_12A	tls_atexit_callback
+      80: 94000000     	bl	0x80 <tls_callback+0x80>
+		0000000000000080:  IMAGE_REL_ARM64_BRANCH26	_register_thread_local_exe_atexit_callback
+      84: 52800028     	mov	w8, #0x1                // =1
+      88: 39000268     	strb	w8, [x19]
+		0000000000000088:  IMAGE_REL_ARM64_PAGEOFFSET_12L	inited
+      8c: 14000052     	b	0x1d4 <tls_callback+0x1d4>
+      90: 90000015     	adrp	x21, 0x0 <tls_callback>
+		0000000000000090:  IMAGE_REL_ARM64_PAGEBASE_REL21	tls_dtors_slot
+      94: 90000008     	adrp	x8, 0x0 <tls_callback>
+		0000000000000094:  IMAGE_REL_ARM64_PAGEBASE_REL21	__imp_TlsGetValue
+      98: b94002a0     	ldr	w0, [x21]
+		0000000000000098:  IMAGE_REL_ARM64_PAGEOFFSET_12L	tls_dtors_slot
+      9c: f9400108     	ldr	x8, [x8]
+		000000000000009c:  IMAGE_REL_ARM64_PAGEOFFSET_12L	__imp_TlsGetValue
+      a0: d63f0100     	blr	x8
+      a4: aa0003f3     	mov	x19, x0
+      a8: b5000100     	cbnz	x0, 0xc8 <tls_callback+0xc8>
+      ac: 14000009     	b	0xd0 <tls_callback+0xd0>
+      b0: a940a280     	ldp	x0, x8, [x20, #0x8]
+      b4: f9400289     	ldr	x9, [x20]
+      b8: f9000268     	str	x8, [x19]
+      bc: d63f0120     	blr	x9
+      c0: aa1403e0     	mov	x0, x20
+      c4: 94000000     	bl	0xc4 <tls_callback+0xc4>
+		00000000000000c4:  IMAGE_REL_ARM64_BRANCH26	free
+      c8: f9400274     	ldr	x20, [x19]
+      cc: b5ffff34     	cbnz	x20, 0xb0 <tls_callback+0xb0>
+      d0: aa1303e0     	mov	x0, x19
+      d4: 94000000     	bl	0xd4 <tls_callback+0xd4>
+		00000000000000d4:  IMAGE_REL_ARM64_BRANCH26	free
+      d8: 90000002     	adrp	x2, 0x0 <tls_callback>
+		00000000000000d8:  IMAGE_REL_ARM64_PAGEBASE_REL21	__imp_TlsSetValue
+      dc: b94002a0     	ldr	w0, [x21]
+		00000000000000dc:  IMAGE_REL_ARM64_PAGEOFFSET_12L	tls_dtors_slot
+      e0: aa1f03e1     	mov	x1, xzr
+      e4: f9400042     	ldr	x2, [x2]
+		00000000000000e4:  IMAGE_REL_ARM64_PAGEOFFSET_12L	__imp_TlsSetValue
+      e8: a941fbfd     	ldp	x29, x30, [sp, #0x18]
+      ec: f9400bf5     	ldr	x21, [sp, #0x10]
+      f0: a8c353f3     	ldp	x19, x20, [sp], #0x30
+      f4: d61f0040     	br	x2
+      f8: 90000008     	adrp	x8, 0x0 <tls_callback>
+		00000000000000f8:  IMAGE_REL_ARM64_PAGEBASE_REL21	.refptr.__mingw_module_is_dll
+      fc: f9400108     	ldr	x8, [x8]
+		00000000000000fc:  IMAGE_REL_ARM64_PAGEOFFSET_12L	.refptr.__mingw_module_is_dll
+     100: 39400108     	ldrb	w8, [x8]
+     104: 340004e8     	cbz	w8, 0x1a0 <tls_callback+0x1a0>
+     108: 90000015     	adrp	x21, 0x0 <tls_callback>
+		0000000000000108:  IMAGE_REL_ARM64_PAGEBASE_REL21	tls_dtors_slot
+     10c: 90000008     	adrp	x8, 0x0 <tls_callback>
+		000000000000010c:  IMAGE_REL_ARM64_PAGEBASE_REL21	__imp_TlsGetValue
+     110: b94002a0     	ldr	w0, [x21]
+		0000000000000110:  IMAGE_REL_ARM64_PAGEOFFSET_12L	tls_dtors_slot
+     114: f9400108     	ldr	x8, [x8]
+		0000000000000114:  IMAGE_REL_ARM64_PAGEOFFSET_12L	__imp_TlsGetValue
+     118: d63f0100     	blr	x8
+     11c: aa0003f3     	mov	x19, x0
+     120: b5000100     	cbnz	x0, 0x140 <tls_callback+0x140>
+     124: 14000009     	b	0x148 <tls_callback+0x148>
+     128: a940a280     	ldp	x0, x8, [x20, #0x8]
+     12c: f9400289     	ldr	x9, [x20]
+     130: f9000268     	str	x8, [x19]
+     134: d63f0120     	blr	x9
+     138: aa1403e0     	mov	x0, x20
+     13c: 94000000     	bl	0x13c <tls_callback+0x13c>
+		000000000000013c:  IMAGE_REL_ARM64_BRANCH26	free
+     140: f9400274     	ldr	x20, [x19]
+     144: b5ffff34     	cbnz	x20, 0x128 <tls_callback+0x128>
+     148: aa1303e0     	mov	x0, x19
+     14c: 94000000     	bl	0x14c <tls_callback+0x14c>
+		000000000000014c:  IMAGE_REL_ARM64_BRANCH26	free
+     150: 90000008     	adrp	x8, 0x0 <tls_callback>
+		0000000000000150:  IMAGE_REL_ARM64_PAGEBASE_REL21	__imp_TlsSetValue
+     154: b94002a0     	ldr	w0, [x21]
+		0000000000000154:  IMAGE_REL_ARM64_PAGEOFFSET_12L	tls_dtors_slot
+     158: aa1f03e1     	mov	x1, xzr
+     15c: f9400108     	ldr	x8, [x8]
+		000000000000015c:  IMAGE_REL_ARM64_PAGEOFFSET_12L	__imp_TlsSetValue
+     160: d63f0100     	blr	x8
+     164: 90000014     	adrp	x20, 0x0 <tls_callback>
+		0000000000000164:  IMAGE_REL_ARM64_PAGEBASE_REL21	global_dtors
+     168: f9400293     	ldr	x19, [x20]
+		0000000000000168:  IMAGE_REL_ARM64_PAGEOFFSET_12L	global_dtors
+     16c: b4000133     	cbz	x19, 0x190 <tls_callback+0x190>
+     170: a940a260     	ldp	x0, x8, [x19, #0x8]
+     174: f9400269     	ldr	x9, [x19]
+     178: f9000288     	str	x8, [x20]
+		0000000000000178:  IMAGE_REL_ARM64_PAGEOFFSET_12L	global_dtors
+     17c: d63f0120     	blr	x9
+     180: aa1303e0     	mov	x0, x19
+     184: 94000000     	bl	0x184 <tls_callback+0x184>
+		0000000000000184:  IMAGE_REL_ARM64_BRANCH26	free
+     188: f9400293     	ldr	x19, [x20]
+		0000000000000188:  IMAGE_REL_ARM64_PAGEOFFSET_12L	global_dtors
+     18c: b5ffff33     	cbnz	x19, 0x170 <tls_callback+0x170>
+     190: 90000008     	adrp	x8, 0x0 <tls_callback>
+		0000000000000190:  IMAGE_REL_ARM64_PAGEBASE_REL21	__imp_TlsFree
+     194: b94002a0     	ldr	w0, [x21]
+		0000000000000194:  IMAGE_REL_ARM64_PAGEOFFSET_12L	tls_dtors_slot
+     198: f9400108     	ldr	x8, [x8]
+		0000000000000198:  IMAGE_REL_ARM64_PAGEOFFSET_12L	__imp_TlsFree
+     19c: d63f0100     	blr	x8
+     1a0: 90000008     	adrp	x8, 0x0 <tls_callback>
+		00000000000001a0:  IMAGE_REL_ARM64_PAGEBASE_REL21	inited
+     1a4: 39400109     	ldrb	w9, [x8]
+		00000000000001a4:  IMAGE_REL_ARM64_PAGEOFFSET_12L	inited
+     1a8: 7100053f     	cmp	w9, #0x1
+     1ac: 54000141     	b.ne	0x1d4 <tls_callback+0x1d4>
+     1b0: 90000001     	adrp	x1, 0x0 <tls_callback>
+		00000000000001b0:  IMAGE_REL_ARM64_PAGEBASE_REL21	__imp_DeleteCriticalSection
+     1b4: 90000000     	adrp	x0, 0x0 <tls_callback>
+		00000000000001b4:  IMAGE_REL_ARM64_PAGEBASE_REL21	lock
+     1b8: 91000000     	add	x0, x0, #0x0
+		00000000000001b8:  IMAGE_REL_ARM64_PAGEOFFSET_12A	lock
+     1bc: f9400021     	ldr	x1, [x1]
+		00000000000001bc:  IMAGE_REL_ARM64_PAGEOFFSET_12L	__imp_DeleteCriticalSection
+     1c0: 3900011f     	strb	wzr, [x8]
+		00000000000001c0:  IMAGE_REL_ARM64_PAGEOFFSET_12L	inited
+     1c4: a941fbfd     	ldp	x29, x30, [sp, #0x18]
+     1c8: f9400bf5     	ldr	x21, [sp, #0x10]
+     1cc: a8c353f3     	ldp	x19, x20, [sp], #0x30
+     1d0: d61f0020     	br	x1
+     1d4: a941fbfd     	ldp	x29, x30, [sp, #0x18]
+     1d8: f9400bf5     	ldr	x21, [sp, #0x10]
+     1dc: a8c353f3     	ldp	x19, x20, [sp], #0x30
+     1e0: d65f03c0     	ret

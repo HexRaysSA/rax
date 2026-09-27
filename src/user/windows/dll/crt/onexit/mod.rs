@@ -65,7 +65,16 @@ fn decode(
             }
         }
     }
-    perform(c, kind, request, values)
+    // The SDK initializer does not acquire the exit lock. An independent
+    // table can initialize while another thread is executing a locked table.
+    if matches!(request, Request::Initialize) {
+        return perform(c, kind, request, values);
+    }
+    super::termination::with_lock(
+        c,
+        kind,
+        Box::new(move |c, _| perform(c, kind, request, values)),
+    )
 }
 
 fn negative() -> ApiResult {

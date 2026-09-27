@@ -1,0 +1,9 @@
+  Name: _Exit
+  Name: _c_exit
+  Name: _cexit
+  Name: _crt_at_quick_exit
+  Name: _crt_atexit
+  Name: _exit
+  Name: _register_thread_local_exe_atexit_callback
+  Name: exit
+  Name: quick_exit

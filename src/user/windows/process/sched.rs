@@ -159,6 +159,7 @@ fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
         return ExitStatus::Internal(message);
     }
     crate::user::windows::dll::crt::onexit::discard_process(p);
+    let termination_failure = crate::user::windows::dll::crt::termination::discard_process(p).err();
     let stdio_failure = crate::user::windows::dll::crt::stdio::discard_process(p).err();
     p.tls.fls_discard_all();
     for (_, object) in p.objects.iter_mut() {
@@ -176,7 +177,7 @@ fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
             return ExitStatus::Internal(message);
         }
     }
-    if let Some(message) = stdio_failure {
+    if let Some(message) = termination_failure.or(stdio_failure) {
         p.fail(message.clone());
         ExitStatus::Internal(message)
     } else {
@@ -195,6 +196,9 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
         }
         super::fiber::discard_continuations(p);
         crate::user::windows::dll::crt::onexit::discard_process(p);
+        if let Err(error) = crate::user::windows::dll::crt::termination::discard_process(p) {
+            tracing::debug!("forced CRT global teardown: {error}");
+        }
         if let Err(error) = crate::user::windows::dll::crt::stdio::discard_process(p) {
             // Forced termination retains its deliberate supplied status. The
             // attempted host cleanup failure remains a trace diagnostic.
@@ -230,6 +234,12 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
         outcome = Outcome::Fail(error);
     }
     let abandoned = p.tls.fls_take_abandoned();
+    if let Err(error) = crate::user::windows::dll::crt::termination::cleanup_abandoned(
+        p,
+        terminal_owner.then_some(t.tid),
+    ) {
+        outcome = Outcome::Fail(error);
+    }
     if let Some(receipt) = abandoned
         .into_iter()
         .find(|receipt| !terminal_owner || receipt.tid != t.tid)
@@ -275,6 +285,7 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
         }
         p.tls.fls_discard_abandoned();
         let cleanup = crate::user::windows::dll::crt::onexit::retire_process_drains(p)
+            .and_then(|()| crate::user::windows::dll::crt::termination::retire_process_drains(p))
             .and_then(|()| crate::user::windows::dll::libraries::cleanup_abandoned(p, &mut t));
         if let Err(error) = cleanup {
             outcome = Outcome::Fail(error);

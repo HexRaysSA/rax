@@ -21,6 +21,7 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(MSVCRT_STARTUP_EXPORTS)
         .chain(UCRT_STARTUP_EXPORTS)
         .chain(UCRT_ONEXIT_EXPORTS)
+        .chain(UCRT_REGISTRATION_EXPORTS)
         .chain(STDIO_EXPORTS)
         .chain(MSVCRT_STDIO_EXPORTS)
         .chain(UCRT_STDIO_EXPORTS)

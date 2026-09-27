@@ -68,20 +68,19 @@ fn genuine_table_binding_matrix_and_termination_exclusions_all_abis() {
                         .unwrap();
                 assert_eq!(target.is_some(), dll != "msvcrt.dll", "{dll}!{name}");
             }
-            for name in [
-                "atexit",
-                "_crt_atexit",
-                "_onexit",
-                "exit",
-                "_cexit",
-                "quick_exit",
-            ] {
+            for name in ["atexit", "_onexit", "exit", "_cexit", "quick_exit"] {
                 assert!(
                     loader::lookup(c.p, index, &SymRef::Name(name.as_bytes().to_vec(), None))
                         .unwrap()
                         .is_none(),
                     "{dll}!{name}"
                 );
+            }
+            for name in ["_crt_atexit", "_crt_at_quick_exit"] {
+                let target =
+                    loader::lookup(c.p, index, &SymRef::Name(name.as_bytes().to_vec(), None))
+                        .unwrap();
+                assert_eq!(target.is_some(), dll != "msvcrt.dll", "{dll}!{name}");
             }
         }
         for export in UCRT_ONEXIT_EXPORTS {

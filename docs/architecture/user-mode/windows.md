@@ -69,7 +69,11 @@ independent detached generations and checked ownership/fault continuations.
 Real CRT stream/descriptor storage and bounded binary/ANSI-text byte I/O are
 implemented in [windows-crt-stdio.md](windows-crt-stdio.md), with genuine
 per-ABI bindings, actual guest buffers, flush/close and captured I/O frontiers.
-Ordinary compiler startup still requires global registration/termination,
+Genuine UCRT runtime-global ordinary/quick registration is implemented in
+[windows-crt-global-registration.md](windows-crt-global-registration.md),
+separately from DLL-local tables. Table execution and registration share a
+recursive exit lock; this does not admit CRT termination exports.
+Ordinary compiler startup still requires legacy registration and termination,
 formatted/Unicode stdio, exception-personality, locale and FP dependencies;
 custom-entry probes do not establish that
 outcome. Native opaque-table private behavior remains unknown.

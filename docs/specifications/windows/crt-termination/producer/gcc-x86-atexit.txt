@@ -1,0 +1,19 @@
+
+/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/crt2.o:	file format coff-i386
+
+Disassembly of section .text:
+
+00000470 <_atexit>:
+     470: e9 00 00 00 00               	jmp	0x475 <_atexit+0x5>
+			00000471:  IMAGE_REL_I386_REL32	__crt_atexit
+     475: 90                           	nop
+     476: 90                           	nop
+     477: 90                           	nop
+     478: 90                           	nop
+     479: 90                           	nop
+     47a: 90                           	nop
+     47b: 90                           	nop
+     47c: 90                           	nop
+     47d: 90                           	nop
+     47e: 90                           	nop
+     47f: 90                           	nop
