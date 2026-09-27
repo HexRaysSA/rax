@@ -8,7 +8,9 @@
 //! The personality follows the executable's format: an ELF file runs under
 //! the Linux personality (x86-64, AArch64, RV64, or partial i386
 //! compatibility, from the ELF header), a Mach-O or fat file under the
-//! Darwin personality (x86-64 or arm64; `--arch` picks a fat file's slice).
+//! Darwin personality (x86-64 or arm64; `--arch` picks a fat file's slice),
+//! and a `#!` script whose interpreter is a Mach-O program runs that
+//! interpreter under the Darwin personality as `execve` would.
 //! The exit status is the guest's: its `exit` code; when a signal killed it,
 //! death by the same signal, or `128 + N` for a signal whose default action
 //! dumps core (so the host records no crash of the emulator) or that the
@@ -60,7 +62,8 @@ compatibility syscall table and interpreter-only execution. Dynamically linked p
 their interpreter and libraries through --sysroot, as with QEMU's -L. A Mach-O program runs \
 under the Darwin personality: rax-user maps it and /usr/lib/dyld as XNU's exec does, and dyld \
 maps the dyld shared cache through the emulated shared-region calls; --sysroot supplies dyld and \
-the cache on a host that is not a Mac.",
+the cache on a host that is not a Mac. A #! script whose interpreter is a Mach-O program runs \
+that interpreter as execve would.",
         override_usage = "rax-user [OPTIONS] <PROGRAM> [ARGS]..."
     )]
     pub struct Cli {
@@ -178,6 +181,29 @@ the cache on a host that is not a Mac.",
             .collect();
         if rax::user::image::macho::is_macho(&bytes) {
             return crate::darwin::run(&cli, &program, argv, environment(&cli));
+        }
+        // A `#!` script whose interpreter is a Mach-O program runs that
+        // interpreter as execve does (exec_shell_imgact): the interpreter
+        // line's words, the script's path, then the arguments after
+        // argv[0].
+        if let Some(line) = rax::user::darwin::exec::image::shell_imgact(&bytes) {
+            let Ok(words) = line else {
+                eprintln!("rax-user: {program}: malformed interpreter line");
+                return 126;
+            };
+            let interp = String::from_utf8_lossy(&words[0]).into_owned();
+            let host = match &cli.sysroot {
+                Some(root) if interp.starts_with('/') => root.join(interp.trim_start_matches('/')),
+                _ => std::path::PathBuf::from(&interp),
+            };
+            if std::fs::read(&host).is_ok_and(|b| rax::user::image::macho::is_macho(&b)) {
+                let argv = words
+                    .into_iter()
+                    .chain(std::iter::once(program.clone().into_bytes()))
+                    .chain(argv.into_iter().skip(1))
+                    .collect();
+                return crate::darwin::run(&cli, &interp, argv, environment(&cli));
+            }
         }
         let mut config = LinuxConfig::new(program.clone(), argv, environment(&cli));
         config.sysroot = cli.sysroot.clone();

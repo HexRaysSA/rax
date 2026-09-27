@@ -63,3 +63,16 @@ fn sh_runs_commands() {
         program("/bin/sh", arch, &["-c", script], None);
     }
 }
+
+#[test]
+fn a_script_runs_its_interpreter() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = build_dir().join("script");
+    std::fs::create_dir_all(&dir).unwrap();
+    let script = dir.join("args.sh");
+    std::fs::write(&script, "#!/bin/sh -e\necho \"$0\" \"$#\" \"$@\"\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    for arch in ["arm64", "x86_64"] {
+        program(script.to_str().unwrap(), arch, &["one", "two words"], None);
+    }
+}
