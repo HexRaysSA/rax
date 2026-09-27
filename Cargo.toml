@@ -183,6 +183,10 @@ name = "user_linux"
 path = "tests/suites/user/linux/main.rs"
 
 [[test]]
+name = "user_darwin"
+path = "tests/suites/user/darwin/main.rs"
+
+[[test]]
 name = "x86_64"
 path = "tests/suites/isa/x86_64/main.rs"
 required-features = ["x86_64-suite"]

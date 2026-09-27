@@ -4,11 +4,14 @@
 
 `rax::user` executes guest programs and their processes without constructing a
 machine. It supplies a guest address space, unprivileged CPU adapters, and an
-operating-system personality. `rax-user` is the Linux command-line front end;
-see [Linux programs](../getting-started/linux-programs.md) for build and usage.
+operating-system personality. `rax-user` is the command-line front end: an ELF
+program runs under the Linux personality (see
+[Linux programs](../getting-started/linux-programs.md) for build and usage), a
+Mach-O program under the [Darwin personality](user-mode/darwin.md).
 
 ```text
-rax-user -> user::linux -> user::{image,mm,cpu} -> ISA core
+rax-user -> user::linux  -> user::{image,mm,cpu} -> ISA core
+         -> user::darwin -> user::{image,mm,cpu} -> ISA core
 ```
 
 | Module | Responsibility |
@@ -18,6 +21,7 @@ rax-user -> user::linux -> user::{image,mm,cpu} -> ISA core
 | `user::mm` | VMAs, page backing, faults, and code invalidation |
 | `user::cpu` | Unprivileged execution and architectural exits |
 | `user::linux` | Linux loading, ABI conversion, syscalls, scheduling, and signals |
+| `user::darwin` | macOS loading, BSD system calls, Mach traps and messages, MIG kernel servers |
 
 ## Runtime topics
 
@@ -30,6 +34,7 @@ rax-user -> user::linux -> user::{image,mm,cpu} -> ISA core
 | Files and notifications | [Descriptions, metadata, attributes, locks, and inotify](user-mode/files.md) |
 | Descriptor I/O | [Event descriptors, epoll, splicing, and Linux AIO](user-mode/io.md) |
 | Networking and IPC | [Sockets, netlink, interfaces, System V IPC, and message queues](user-mode/networking-ipc.md) |
+| macOS programs | [Darwin personality: exec, kernel entry, Mach IPC, MIG servers](user-mode/darwin.md) |
 | Tracing and seccomp | [Tracer links, stops, register sets, stepping, events, and filters](user-mode/tracing.md) |
 
 ## Address spaces
@@ -51,6 +56,10 @@ shared extents, memfd seals, memory controls, and process-memory access.
 | i386 compatibility | CPL 3, IA-32e compatibility mode | `INT 0x80` |
 | AArch64 | EL0t | `SVC` |
 | RV64 | U-mode | `ECALL` |
+
+The Darwin personality uses the x86-64 and AArch64 adapters with XNU's
+conventions (`SYSCALL` with a class in `RAX[31:24]`; `SVC #0x80` with the
+call in `X16`).
 
 Adapters expose architectural exits to the personality and use the process
 address space for memory. They clear exclusive reservations when leaving
@@ -74,6 +83,15 @@ overlay. Host and ABI limits are listed in
 The [ABI reference](user-mode/linux-abi.md) describes program construction and
 syscall conversion. The runtime topics above describe each subsystem's state
 and transitions. The Linux personality is separate from the C engine ABI.
+
+## Darwin personality
+
+The behavior reference is the vendored
+[XNU 12377.121.6 source](../specifications/darwin/xnu-12377.121.6.provenance.md);
+programs run against the host's macOS user space. The
+[Darwin reference](user-mode/darwin.md) describes process construction,
+kernel entry, Mach IPC and the MIG servers, the shared region, the emulated
+machine, and the current status.
 
 ## Evidence
 

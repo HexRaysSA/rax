@@ -24,6 +24,7 @@ a particular host. The runtime mechanisms are in the
 ```sh
 cargo test --locked --no-default-features --features smir-jit --lib user::
 cargo test --release --locked --no-default-features --features smir-jit --test user_linux
+cargo test --locked --no-default-features --features x86_64-suite,smir-jit --test user_darwin
 ```
 
 The library filter selects `user::`; it does not run every ISA or backend
@@ -32,6 +33,12 @@ Docker comparison requires `RAX_USER_DOCKER_ORACLE=1`. Record test, ignored,
 filtered, and self-skip counts separately. See
 [Verification](../verification.md#linux-process-and-whole-program-comparisons)
 for the output projection and oracle substitutions.
+
+The Darwin target has no recordings: on a macOS host it compares each run
+with the same program's native run (x86_64 through Rosetta, which exercises
+the host's x86-64 user space but is not a physical-x86 oracle), and
+elsewhere its comparisons report themselves skipped. See
+[Darwin evidence](../../architecture/user-mode/darwin.md#evidence).
 
 ## Memory and CPU contracts
 
