@@ -4,7 +4,10 @@
 //! create the task's address space and port name space, load the image and
 //! `dyld`, and start the main thread — and [`DarwinProcess::run`] executes
 //! the process's threads until it exits, routing each kernel entry to the
-//! system-call layer.
+//! system-call layer. `start` builds a process image, the first or one
+//! that a later `execve` or spawn runs with the state the process
+//! [`Carried`] into it; the scheduler swaps such an image in when the call
+//! that made it returns ([`super::exec::Swap`]).
 //!
 //! Every thread of a process runs on one host thread; the scheduler takes
 //! the thread to run out of the process, runs it for a slice, handles the
@@ -343,6 +346,9 @@ pub struct Proc {
     pub wq: super::workq::Workqueue,
     /// Children not yet reaped, by pid (host processes).
     pub children: std::collections::BTreeSet<i32>,
+    /// Children the kernel reaped itself (a spawn that failed in the
+    /// child): the host's `SIGCHLD` for them is not the guest's.
+    pub hidden: std::collections::BTreeSet<i32>,
     /// Machine facts.
     pub machine: MachineInfo,
     /// The shared region, once mapped.
@@ -356,6 +362,8 @@ pub struct Proc {
     /// The task's audit token: auid, euid, egid, ruid, rgid, pid, asid,
     /// pidversion (the host process's, as the emulated process is it).
     pub audit: [u32; 8],
+    /// A new image to run once the current call returns (`execve`).
+    pub exec: Option<Box<super::exec::Swap>>,
 }
 
 impl Proc {
@@ -447,167 +455,53 @@ pub fn memsize_usable(abi: DarwinAbi) -> u64 {
     }
 }
 
+/// What a process keeps when it runs a new image (`execve`,
+/// `posix_spawn`'s child): its identity and the state the kernel carries
+/// into the new image (`proc_exec_switch_task`, `execsigs`, `fdt_exec`,
+/// `proc_inherit_itimers`, `ipc_task_init`).
+pub struct Carried {
+    /// Process and parent IDs.
+    pub pid: i32,
+    pub ppid: i32,
+    /// `(ruid, euid, rgid, egid)`.
+    pub creds: (u32, u32, u32, u32),
+    /// Working directory.
+    pub cwd: Vec<u8>,
+    /// File-creation mask.
+    pub umask: u32,
+    /// Resource limits.
+    pub rlimits: Rlimits,
+    /// Descriptors (after close-on-exec).
+    pub fds: FdTable,
+    /// Signal actions (after `execsigs`).
+    pub sigacts: signal::SigActs,
+    /// The new main thread's signal mask and pending signals.
+    pub mask: u32,
+    pub pending: u32,
+    /// Interval timers.
+    pub itimers: signal::timer::ITimers,
+    /// Children.
+    pub children: std::collections::BTreeSet<i32>,
+    /// The new task's inherited special ports and exception actions.
+    pub task: TaskState,
+    /// The host port.
+    pub host_port: Arc<Port>,
+    /// When the process started.
+    pub started: Instant,
+    /// The audit token (a new pidversion).
+    pub audit: [u32; 8],
+    /// The entropy source.
+    pub entropy: Entropy,
+    /// The new main thread's ID.
+    pub tid: u64,
+}
+
 impl DarwinProcess {
     /// Loads `image` and prepares its main thread, as `execve` does for the
     /// first program.
     pub fn spawn(config: DarwinConfig, image: ImageFile) -> Result<Self, SpawnError> {
-        let abi = loader::choose_abi(&image.bytes, config.abi)
-            .map_err(|e| SpawnError::Load(LoadError::Image(e)))?;
-        let reserved = match abi {
-            DarwinAbi::X86_64 => crate::user::cpu::x86_64::RESERVED_PHYS.to_vec(),
-            DarwinAbi::Arm64 => Vec::new(),
-        };
-        let space = AddressSpace::new(SpaceConfig {
-            va_limit: VA_LIMIT,
-            arena_bytes: config.arena_bytes,
-            reserved_phys: reserved,
-        })
-        .map_err(SpawnError::Memory)?;
-        let vfs = Vfs::new(config.root.clone());
-
-        // The task's name space: the main thread's port first (th_port,
-        // 0x103), then the task's (0x203), as on macOS.
-        let mut ipc = IpcSpace::new();
-        let pid = std::process::id() as i32;
-        let tid = ((pid as u64) << 20) | 1;
-        let kport = Port::new(KObject::Thread(tid));
-        kport.state.lock().unwrap().srights += 1;
-        let thread_port = ipc
-            .insert(Right::Send(kport.clone()))
-            .expect("a fresh space has room");
-        let task_port = Port::new(KObject::Task);
-        task_port.state.lock().unwrap().srights += 1;
-        ipc.insert(Right::Send(task_port.clone()))
-            .expect("a fresh space has room");
-
-        let dyld_file = match loader::parse_executable(&image, abi) {
-            Ok((_, main)) if main.dylinker.is_some() => {
-                let host = vfs.system_path(loader::DYLD_PATH);
-                Some(ImageFile::read(loader::DYLD_PATH, &host).map_err(|e| {
-                    SpawnError::Load(LoadError::Dylinker(loader::DYLD_PATH.into(), e))
-                })?)
-            }
-            _ => None,
-        };
-        let mut entropy = Entropy::new(config.seed);
-        let mut rand = [0u8; 32];
-        entropy.fill(&mut rand);
-        let stack_limit = config
-            .stack_limit
-            .unwrap_or_else(|| loader::default_stack_limit(abi));
-        let machine = MachineInfo {
-            memory_size: MEMSIZE,
-            boottime_usec: boottime_usec(),
-        };
-        let params = ExecParams {
-            argv: &config.argv,
-            envp: &config.envp,
-            dyld: dyld_file.as_ref(),
-            stack_limit,
-            entropy: rand,
-            thread_port,
-            machine,
-        };
-        let program = loader::load(&space, abi, &image, &params).map_err(SpawnError::Load)?;
-
-        let mut cpu = DarwinCpu::new(abi, &space);
-        if let Some(state) = &program.thread_state {
-            cpu.set_thread_state(state);
-        }
-        cpu.set_pc(program.entry);
-        cpu.set_sp(program.sp);
-
-        let vm = VmLayout {
-            min: program.vm_min.max(abi.user_page_size()),
-            hint: program.mmap_base,
-            max: abi.max_address(),
-            page: abi.user_page_size(),
-        };
-        let mut rlimits: Rlimits = [(RLIM_INFINITY, RLIM_INFINITY); 9];
-        rlimits[3] = (stack_limit, 64 << 20); // RLIMIT_STACK
-        rlimits[4] = (0, RLIM_INFINITY); // RLIMIT_CORE
-        rlimits[7] = (1_392, 1_392); // RLIMIT_NPROC
-        rlimits[8] = (NOFILE_SOFT, NOFILE_HARD); // RLIMIT_NOFILE
-        // SAFETY: the credential getters take no arguments.
-        let creds = unsafe {
-            (
-                libc::getuid(),
-                libc::geteuid(),
-                libc::getgid(),
-                libc::getegid(),
-            )
-        };
-        // SAFETY: umask(2) takes no pointers; the mask is put back at once.
-        let umask = unsafe {
-            let m = libc::umask(0o022);
-            libc::umask(m);
-            m as u32
-        };
-        let main = Thread {
-            tid,
-            port: thread_port,
-            kport,
-            cpu,
-            sig: signal::ThreadSig {
-                mask: config.inherited.map_or(0, |i| i.mask),
-                ..Default::default()
-            },
-            wait: None,
-            resume: None,
-            pthread: 0,
-            exited: false,
-            woken: false,
-            wake_event: false,
-            mach: ThreadMach {
-                tag: syscall::bsd::pthread::tag::MAINTHREAD,
-                ..Default::default()
-            },
-            name: Vec::new(),
-            pw: Default::default(),
-        };
-        let mut threads = BTreeMap::new();
-        threads.insert(tid, main);
-        let sigacts = config
-            .inherited
-            .as_ref()
-            .map_or_else(signal::SigActs::default, signal::SigActs::inherited);
         Ok(DarwinProcess {
-            proc: Proc {
-                abi,
-                space,
-                vm,
-                vfs,
-                cwd: config.cwd.clone().into_bytes(),
-                fds: FdTable::with_stdio(),
-                pid,
-                // SAFETY: getppid takes no arguments.
-                ppid: unsafe { libc::getppid() },
-                creds,
-                program,
-                config,
-                exit: None,
-                ipc,
-                task_port,
-                host_port: Port::new(KObject::Host),
-                threads,
-                next_tid: tid + 1,
-                entropy,
-                rlimits,
-                umask,
-                sigacts,
-                itimers: signal::timer::ITimers::default(),
-                pthread: PthreadRegistration::default(),
-                psynch: Default::default(),
-                kq: Default::default(),
-                wq: Default::default(),
-                children: Default::default(),
-                machine,
-                shared_region: None,
-                started: Instant::now(),
-                posted: Vec::new(),
-                task: TaskState::default(),
-                audit: host_audit_token(pid, creds),
-            },
+            proc: start(config, image, None)?,
             last: 0,
         })
     }
@@ -622,7 +516,9 @@ impl DarwinProcess {
                 if sig == signal::SIGCHLD {
                     // A child changed state: waiters look again.
                     self.proc.post(WaitKey::Child);
-                    if !signal::child_changed(&mut self.proc, &origin) {
+                    if self.proc.hidden.remove(&origin.pid)
+                        || !signal::child_changed(&mut self.proc, &origin)
+                    {
                         continue;
                     }
                 }
@@ -657,6 +553,12 @@ impl DarwinProcess {
             let trap = thread.cpu.run(self.proc.config.slice_insns);
             let t1 = thread_cpu_ns();
             self.handle(&mut thread, trap);
+            if let Some(swap) = self.proc.exec.take() {
+                // The call ran a new image: the process continues as it,
+                // and the calling thread went with the old one.
+                self.swap(*swap);
+                continue;
+            }
             let t2 = thread_cpu_ns();
             let (user, system) = (t1.saturating_sub(t0), t2.saturating_sub(t1));
             thread.mach.user_ns += user;
@@ -690,6 +592,23 @@ impl DarwinProcess {
                 self.proc.task.dead_times.1 += t.mach.system_ns;
                 syscall::bsd::pthread::reap(&mut self.proc, &mut t);
             }
+        }
+    }
+
+    /// Replaces the process image with `swap`'s (the old one's threads,
+    /// memory, and ports end here).
+    fn swap(&mut self, swap: super::exec::Swap) {
+        if let Some(dir) = &swap.chdir {
+            use std::os::fd::AsRawFd;
+            // SAFETY: fchdir on a live directory descriptor.
+            unsafe { libc::fchdir(dir.as_raw_fd()) };
+        }
+        let old = std::mem::replace(&mut self.proc, swap.proc);
+        drop(old);
+        self.last = 0;
+        if swap.suspend {
+            // POSIX_SPAWN_START_SUSPENDED: stopped before it runs.
+            signal::host::stop(&mut self.proc);
         }
     }
 
@@ -814,6 +733,237 @@ impl DarwinProcess {
             other => syscall::dispatch(&mut self.proc, thread, other),
         }
     }
+}
+
+/// Builds a process running `image`: a new one (`exec` of the first
+/// program), or with `carried`, the process that execs `image`.
+pub(crate) fn start(
+    config: DarwinConfig,
+    image: ImageFile,
+    carried: Option<Carried>,
+) -> Result<Proc, SpawnError> {
+    let abi = loader::choose_abi(&image.bytes, config.abi)
+        .map_err(|e| SpawnError::Load(LoadError::Image(e)))?;
+    let reserved = match abi {
+        DarwinAbi::X86_64 => crate::user::cpu::x86_64::RESERVED_PHYS.to_vec(),
+        DarwinAbi::Arm64 => Vec::new(),
+    };
+    let space = AddressSpace::new(SpaceConfig {
+        va_limit: VA_LIMIT,
+        arena_bytes: config.arena_bytes,
+        reserved_phys: reserved,
+    })
+    .map_err(SpawnError::Memory)?;
+    let vfs = Vfs::new(config.root.clone());
+
+    // The task's name space: the main thread's port first (th_port,
+    // 0x103), then the task's (0x203), as on macOS.
+    let mut ipc = IpcSpace::new();
+    let pid = carried
+        .as_ref()
+        .map_or(std::process::id() as i32, |c| c.pid);
+    let tid = carried.as_ref().map_or(((pid as u64) << 20) | 1, |c| c.tid);
+    let kport = Port::new(KObject::Thread(tid));
+    kport.state.lock().unwrap().srights += 1;
+    let thread_port = ipc
+        .insert(Right::Send(kport.clone()))
+        .expect("a fresh space has room");
+    let task_port = Port::new(KObject::Task);
+    task_port.state.lock().unwrap().srights += 1;
+    ipc.insert(Right::Send(task_port.clone()))
+        .expect("a fresh space has room");
+
+    let dyld_file =
+        match loader::parse_executable(&image, abi) {
+            Ok((_, main)) if main.dylinker.is_some() => {
+                let host = vfs.system_path(loader::DYLD_PATH);
+                Some(ImageFile::read(loader::DYLD_PATH, &host).map_err(|e| {
+                    SpawnError::Load(LoadError::Dylinker(loader::DYLD_PATH.into(), e))
+                })?)
+            }
+            _ => None,
+        };
+    let (mut entropy, rlimits) = match &carried {
+        Some(c) => (c.entropy.clone(), c.rlimits),
+        None => (Entropy::new(config.seed), default_rlimits(&config, abi)),
+    };
+    let mut rand = [0u8; 32];
+    entropy.fill(&mut rand);
+    let stack_limit = rlimits[3].0;
+    let machine = MachineInfo {
+        memory_size: MEMSIZE,
+        boottime_usec: boottime_usec(),
+    };
+    let params = ExecParams {
+        argv: &config.argv,
+        envp: &config.envp,
+        dyld: dyld_file.as_ref(),
+        stack_limit,
+        entropy: rand,
+        thread_port,
+        machine,
+    };
+    let program = loader::load(&space, abi, &image, &params).map_err(SpawnError::Load)?;
+
+    let mut cpu = DarwinCpu::new(abi, &space);
+    if let Some(state) = &program.thread_state {
+        cpu.set_thread_state(state);
+    }
+    cpu.set_pc(program.entry);
+    cpu.set_sp(program.sp);
+
+    let vm = VmLayout {
+        min: program.vm_min.max(abi.user_page_size()),
+        hint: program.mmap_base,
+        max: abi.max_address(),
+        page: abi.user_page_size(),
+    };
+    let (mask, pending) = match &carried {
+        Some(c) => (c.mask, c.pending),
+        None => (config.inherited.map_or(0, |i| i.mask), 0),
+    };
+    let main = Thread {
+        tid,
+        port: thread_port,
+        kport,
+        cpu,
+        sig: signal::ThreadSig {
+            mask,
+            pending,
+            ..Default::default()
+        },
+        wait: None,
+        resume: None,
+        pthread: 0,
+        exited: false,
+        woken: false,
+        wake_event: false,
+        mach: ThreadMach {
+            tag: syscall::bsd::pthread::tag::MAINTHREAD,
+            ..Default::default()
+        },
+        name: Vec::new(),
+        pw: Default::default(),
+    };
+    let mut threads = BTreeMap::new();
+    threads.insert(tid, main);
+    let cwd = match &carried {
+        Some(c) => c.cwd.clone(),
+        None => config.cwd.clone().into_bytes(),
+    };
+    let proc = match carried {
+        Some(c) => Proc {
+            abi,
+            space,
+            vm,
+            vfs,
+            cwd,
+            fds: c.fds,
+            pid,
+            ppid: c.ppid,
+            creds: c.creds,
+            program,
+            config,
+            exit: None,
+            ipc,
+            task_port,
+            host_port: c.host_port,
+            threads,
+            next_tid: tid + 1,
+            entropy,
+            rlimits,
+            umask: c.umask,
+            sigacts: c.sigacts,
+            itimers: c.itimers,
+            pthread: PthreadRegistration::default(),
+            psynch: Default::default(),
+            kq: Default::default(),
+            wq: Default::default(),
+            children: c.children,
+            hidden: Default::default(),
+            machine,
+            shared_region: None,
+            started: c.started,
+            posted: Vec::new(),
+            task: c.task,
+            audit: c.audit,
+            exec: None,
+        },
+        None => {
+            // SAFETY: the credential getters take no arguments.
+            let creds = unsafe {
+                (
+                    libc::getuid(),
+                    libc::geteuid(),
+                    libc::getgid(),
+                    libc::getegid(),
+                )
+            };
+            // SAFETY: umask(2) takes no pointers; the mask is put back at
+            // once.
+            let umask = unsafe {
+                let m = libc::umask(0o022);
+                libc::umask(m);
+                m as u32
+            };
+            let sigacts = config
+                .inherited
+                .as_ref()
+                .map_or_else(signal::SigActs::default, signal::SigActs::inherited);
+            Proc {
+                abi,
+                space,
+                vm,
+                vfs,
+                cwd,
+                fds: FdTable::with_stdio(),
+                pid,
+                // SAFETY: getppid takes no arguments.
+                ppid: unsafe { libc::getppid() },
+                creds,
+                program,
+                config,
+                exit: None,
+                ipc,
+                task_port,
+                host_port: Port::new(KObject::Host),
+                threads,
+                next_tid: tid + 1,
+                entropy,
+                rlimits,
+                umask,
+                sigacts,
+                itimers: signal::timer::ITimers::default(),
+                pthread: PthreadRegistration::default(),
+                psynch: Default::default(),
+                kq: Default::default(),
+                wq: Default::default(),
+                children: Default::default(),
+                hidden: Default::default(),
+                machine,
+                shared_region: None,
+                started: Instant::now(),
+                posted: Vec::new(),
+                task: TaskState::default(),
+                audit: host_audit_token(pid, creds),
+                exec: None,
+            }
+        }
+    };
+    Ok(proc)
+}
+
+/// A new process's resource limits.
+fn default_rlimits(config: &DarwinConfig, abi: DarwinAbi) -> Rlimits {
+    let stack_limit = config
+        .stack_limit
+        .unwrap_or_else(|| loader::default_stack_limit(abi));
+    let mut rlimits: Rlimits = [(RLIM_INFINITY, RLIM_INFINITY); 9];
+    rlimits[3] = (stack_limit, 64 << 20); // RLIMIT_STACK
+    rlimits[4] = (0, RLIM_INFINITY); // RLIMIT_CORE
+    rlimits[7] = (1_392, 1_392); // RLIMIT_NPROC
+    rlimits[8] = (NOFILE_SOFT, NOFILE_HARD); // RLIMIT_NOFILE
+    rlimits
 }
 
 /// The audit token of the host process the emulated process runs in

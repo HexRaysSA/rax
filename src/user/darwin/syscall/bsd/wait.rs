@@ -1,5 +1,5 @@
-//! Waiting for children (`wait4`, `wait4_nocancel` in
-//! `bsd/kern/kern_exit.c`).
+//! Waiting for children (`wait4`, `waitid`, and their `_nocancel`
+//! variants in `bsd/kern/kern_exit.c`).
 //!
 //! The guest's children are host processes (a guest `fork` forks the
 //! host process), so their state changes are the host kernel's: a wait
@@ -13,11 +13,20 @@ use crate::user::darwin::signal::{self, SIGCHLD};
 use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{Wait, WaitKey};
 
-/// `wait4` options (`bsd/sys/wait.h`).
+/// `wait4` and `waitid` options (`bsd/sys/wait.h`).
 pub mod opt {
     pub const WNOHANG: i32 = 0x01;
     pub const WUNTRACED: i32 = 0x02;
+    pub const WEXITED: i32 = 0x04;
+    pub const WSTOPPED: i32 = 0x08;
     pub const WCONTINUED: i32 = 0x10;
+    pub const WNOWAIT: i32 = 0x20;
+}
+
+/// `idtype_t`.
+pub mod idtype {
+    pub const P_PID: i32 = 1;
+    pub const P_PGID: i32 = 2;
 }
 
 /// `sizeof(struct user64_rusage)`.
@@ -115,20 +124,7 @@ pub fn wait4(ctx: &mut Ctx<'_>, pid: i32, status: u64, options: i32, rusage: u64
         if options & opt::WNOHANG != 0 {
             return Ok(Rv::one(0));
         }
-        // msleep0(PWAIT | PCATCH) until a child changes state.
-        let wait = if signal::host::forwarding() {
-            Wait::key(WaitKey::Child, None)
-        } else {
-            // Nothing forwards the host's SIGCHLD: look again shortly.
-            let again = std::time::Instant::now() + std::time::Duration::from_millis(10);
-            Wait {
-                keys: vec![WaitKey::Child],
-                deadline: Some(again),
-                interruptible: true,
-                ..Default::default()
-            }
-        };
-        return syscall::sleep(ctx, wait);
+        return sleep_for_child(ctx);
     };
     let exited = r.status & 0x7f != 0x7f;
     if status != 0 {
@@ -146,6 +142,133 @@ pub fn wait4(ctx: &mut Ctx<'_>, pid: i32, status: u64, options: i32, rusage: u64
         }
     }
     Ok(Rv::one(r.pid as u64))
+}
+
+/// Sleeps until a child changes state (`msleep0(PWAIT | PCATCH)`).
+fn sleep_for_child(ctx: &mut Ctx<'_>) -> SysResult {
+    let wait = if signal::host::forwarding() {
+        Wait::key(WaitKey::Child, None)
+    } else {
+        // Nothing forwards the host's SIGCHLD: look again shortly.
+        let again = std::time::Instant::now() + std::time::Duration::from_millis(10);
+        Wait {
+            keys: vec![WaitKey::Child],
+            deadline: Some(again),
+            interruptible: true,
+            ..Default::default()
+        }
+    };
+    syscall::sleep(ctx, wait)
+}
+
+/// The host's `waitid`: the child that matched, if one has changed state.
+fn host_waitid(idtype: i32, id: u32, options: i32) -> Result<Option<libc::siginfo_t>, Errno> {
+    let (htype, hid) = match idtype {
+        idtype::P_PID => (libc::P_PID, id),
+        idtype::P_PGID => (libc::P_PGID, id),
+        // Any other type selects every child, as P_ALL does.
+        _ => (libc::P_ALL, 0),
+    };
+    let mut hopts = libc::WNOHANG;
+    for (guest, host) in [
+        (opt::WEXITED, libc::WEXITED),
+        (opt::WSTOPPED, libc::WSTOPPED),
+        (opt::WCONTINUED, libc::WCONTINUED),
+        (opt::WNOWAIT, libc::WNOWAIT),
+    ] {
+        if options & guest != 0 {
+            hopts |= host;
+        }
+    }
+    // SAFETY: an all-zero siginfo_t is a valid value to be overwritten.
+    let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+    // SAFETY: `info` is valid for the host to write.
+    if unsafe { libc::waitid(htype, hid as libc::id_t, &mut info, hopts) } < 0 {
+        return Err(Errno::last());
+    }
+    // SAFETY: si_pid is set by a successful waitid (zero when no child
+    // was ready).
+    Ok((unsafe { info.si_pid() } != 0).then_some(info))
+}
+
+/// A `user64_siginfo_t` for child `pid`'s state change
+/// (`copyoutsiginfo`): `SIGCHLD`, its code, pid, and status (a signal
+/// number except for an exit); the user ID is not set.
+fn child_siginfo(info: &libc::siginfo_t, pid: i32) -> [u8; 104] {
+    // SAFETY: waitid filled the SIGCHLD fields.
+    let status = unsafe { info.si_status() };
+    let status = match info.si_code {
+        libc::CLD_EXITED => status & 0x00ff_ffff,
+        // A continue as its default action records it (p_xstat).
+        libc::CLD_CONTINUED => signal::SIGCONT,
+        _ => signal::host::from_host(status).unwrap_or(status),
+    };
+    let mut b = [0u8; 104];
+    b[0..4].copy_from_slice(&SIGCHLD.to_le_bytes());
+    b[8..12].copy_from_slice(&info.si_code.to_le_bytes());
+    b[12..16].copy_from_slice(&pid.to_le_bytes());
+    b[20..24].copy_from_slice(&status.to_le_bytes());
+    b
+}
+
+/// The child a host `waitid` result is about. A continue names the
+/// process that continued the child (`p_contproc`): the child itself
+/// under SIGCONT's default action, which the host cannot report for an
+/// emulated child (it catches SIGCONT to forward it), so the child is
+/// found by asking about each one.
+fn changed_child(ctx: &Ctx<'_>, idtype: i32, id: u32, info: &libc::siginfo_t) -> i32 {
+    // SAFETY: waitid filled si_pid.
+    let pid = unsafe { info.si_pid() };
+    if info.si_code != libc::CLD_CONTINUED {
+        return pid;
+    }
+    if idtype == idtype::P_PID {
+        return id as i32;
+    }
+    let peek = opt::WCONTINUED | opt::WNOWAIT;
+    ctx.proc
+        .children
+        .iter()
+        .copied()
+        .find(|&c| {
+            host_waitid(idtype::P_PID, c as u32, peek)
+                .ok()
+                .flatten()
+                .is_some_and(|i| i.si_code == libc::CLD_CONTINUED)
+        })
+        .unwrap_or(pid)
+}
+
+/// `waitid(idtype, id, infop, options)`.
+pub fn waitid(ctx: &mut Ctx<'_>, idtype: i32, id: u32, infop: u64, options: i32) -> SysResult {
+    let valid = opt::WNOHANG | opt::WNOWAIT | opt::WCONTINUED | opt::WSTOPPED | opt::WEXITED;
+    if options == 0 || options & !valid != 0 {
+        return Err(Errno::EINVAL);
+    }
+    if matches!(idtype, idtype::P_PID | idtype::P_PGID) && (id as i32) < 0 {
+        return Err(Errno::EINVAL);
+    }
+    // Look without consuming, so that a fault writing the siginfo leaves
+    // the state change to a later wait.
+    let Some(info) = host_waitid(idtype, id, options | opt::WNOWAIT)? else {
+        if options & opt::WNOHANG != 0 {
+            // The siginfo is left as it was.
+            return Ok(Rv::one(0));
+        }
+        return sleep_for_child(ctx);
+    };
+    let pid = changed_child(ctx, idtype, id, &info);
+    ctx.write(infop, &child_siginfo(&info, pid))?;
+    if options & opt::WNOWAIT == 0 {
+        host_waitid(idtype::P_PID, pid as u32, options)?;
+        if matches!(
+            info.si_code,
+            libc::CLD_EXITED | libc::CLD_KILLED | libc::CLD_DUMPED
+        ) {
+            ctx.proc.children.remove(&pid);
+        }
+    }
+    Ok(Rv::one(0))
 }
 
 #[cfg(test)]

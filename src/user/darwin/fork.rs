@@ -45,6 +45,8 @@ pub fn fork(ctx: &mut Ctx<'_>) -> SysResult {
     match signal::host::fork_host()? {
         Some(pid) => {
             ctx.proc.children.insert(pid);
+            // A pid the kernel reaped before is a new child now.
+            ctx.proc.hidden.remove(&pid);
             Ok(Rv(pid as u64, 0))
         }
         None => {
@@ -67,6 +69,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     proc.exit = None;
     proc.posted.clear();
     proc.children.clear();
+    proc.hidden.clear();
 
     // The caller is the only thread (the others were never copied).
     proc.threads.clear();
@@ -137,7 +140,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
 /// The child's task state (`ipc_task_init` with a parent,
 /// `task_create_internal`): the inherited special ports, registered
 /// ports, exception actions, and guard behavior.
-fn inherited_task(parent: &TaskState) -> TaskState {
+pub(crate) fn inherited_task(parent: &TaskState) -> TaskState {
     let mut t = TaskState {
         exc: parent.exc.clone(),
         exc_guard: parent.exc_guard,

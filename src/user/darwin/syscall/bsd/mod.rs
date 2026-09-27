@@ -78,6 +78,11 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::EXIT => proc::exit(ctx, i(0)),
         nr::FORK => crate::user::darwin::fork::fork(ctx),
         nr::WAIT4 | nr::WAIT4_NOCANCEL => wait::wait4(ctx, i(0), a[1], i(2), a[3]),
+        nr::WAITID | nr::WAITID_NOCANCEL => wait::waitid(ctx, i(0), u(1), a[2], i(3)),
+        nr::EXECVE => crate::user::darwin::exec::execve(ctx, a[0], a[1], a[2]),
+        nr::POSIX_SPAWN => {
+            crate::user::darwin::exec::spawn::posix_spawn(ctx, a[0], a[1], a[2], a[3], a[4])
+        }
         nr::READ | nr::READ_NOCANCEL => file::read(ctx, i(0), a[1], a[2], None),
         nr::WRITE | nr::WRITE_NOCANCEL => file::write(ctx, i(0), a[1], a[2], None),
         nr::PREAD | nr::PREAD_NOCANCEL => file::read(ctx, i(0), a[1], a[2], Some(a[3] as i64)),

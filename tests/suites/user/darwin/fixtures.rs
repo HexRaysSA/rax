@@ -1,6 +1,6 @@
 //! The C fixtures behave under `rax-user` as they do natively.
 
-use super::support::{build, comparable, compare};
+use super::support::{build, build_as, comparable, compare};
 
 fn fixture(name: &str, arch: &str, args: &[&str], env: &[(&str, &str)]) {
     if !comparable(name, arch) {
@@ -138,6 +138,46 @@ fn fork_arm64() {
 #[test]
 fn fork_x86_64() {
     fixture("fork", "x86_64", &[], &[]);
+}
+
+#[test]
+fn exec_arm64() {
+    fixture("exec", "arm64", &[], &[]);
+}
+
+#[test]
+fn exec_x86_64() {
+    fixture("exec", "x86_64", &[], &[]);
+}
+
+/// arm64 execs the x86_64 build of the fixture (translated), thin and in
+/// fat files beside x86_64h slices.
+#[test]
+fn exec_translated_arm64() {
+    if !comparable("exec_translated", "arm64") || !comparable("exec_translated", "x86_64") {
+        return;
+    }
+    let x86 = build_as("exec", "x86_64", "exec_translated");
+    let program = build_as("exec", "arm64", "exec_translated");
+    let x86 = x86.to_str().expect("UTF-8 build path");
+    compare(
+        "exec_translated",
+        &program,
+        "arm64",
+        &["translate", x86],
+        &[],
+        None,
+    );
+}
+
+#[test]
+fn spawn_arm64() {
+    fixture("spawn", "arm64", &[], &[]);
+}
+
+#[test]
+fn spawn_x86_64() {
+    fixture("spawn", "x86_64", &[], &[]);
 }
 
 #[test]
