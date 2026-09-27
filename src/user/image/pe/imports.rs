@@ -168,17 +168,17 @@ fn thunk_table(
 pub struct DelayDescriptor {
     /// `Attributes` (bit 0: RVA-based descriptor).
     pub attributes: u32,
-    /// `DllNameRVA`.
+    /// `DllNameRVA`, or a legacy VA when attributes bit 0 is clear.
     pub name_rva: u32,
-    /// `ModuleHandleRVA`.
+    /// `ModuleHandleRVA`, or a legacy VA when attributes bit 0 is clear.
     pub module_handle_rva: u32,
-    /// `ImportAddressTableRVA`.
+    /// `ImportAddressTableRVA`, or a legacy VA when attributes bit 0 is clear.
     pub iat_rva: u32,
-    /// `ImportNameTableRVA`.
+    /// `ImportNameTableRVA`, or a legacy VA when attributes bit 0 is clear.
     pub name_table_rva: u32,
-    /// `BoundImportAddressTableRVA`.
+    /// `BoundImportAddressTableRVA`, or a legacy VA when bit 0 is clear.
     pub bound_iat_rva: u32,
-    /// `UnloadInformationTableRVA`.
+    /// `UnloadInformationTableRVA`, or a legacy VA when bit 0 is clear.
     pub unload_iat_rva: u32,
     /// `TimeDateStamp`.
     pub time_date_stamp: u32,
@@ -220,15 +220,20 @@ pub fn delay_descriptors(
 }
 
 impl DelayDescriptor {
-    /// The delay-loaded imports (RVA-based descriptors only; a legacy
-    /// VA-based descriptor, attributes bit 0 clear, yields none).
+    /// The delay-loaded imports of an RVA-based descriptor.
+    ///
+    /// A legacy VA-based descriptor cannot be decoded without the image's
+    /// actual base. This RVA-only API rejects it instead of silently
+    /// reporting no imports. Reserved attribute bits are also rejected.
     pub fn thunks(
         &self,
         src: &(impl RvaSource + ?Sized),
         kind: PeKind,
     ) -> Result<Vec<ImportThunk>, RvaFault> {
-        if self.attributes & 1 == 0 {
-            return Ok(Vec::new());
+        if self.attributes != 1 {
+            return Err(RvaFault {
+                rva: u64::from(self.name_table_rva),
+            });
         }
         thunk_table(src, kind, self.name_table_rva, self.iat_rva)
     }
