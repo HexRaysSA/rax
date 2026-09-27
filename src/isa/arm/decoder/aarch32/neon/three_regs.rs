@@ -576,12 +576,12 @@ impl Aarch32Decoder {
             _ => return None,
         };
 
-        let size = (raw >> 20) & 0x3;
+        // Every size, 64-bit lanes (0b11) among them.
         let q = ((raw >> 6) & 1) != 0;
         let vd = (raw >> 12) & 0xF;
         let vn = (raw >> 16) & 0xF;
         let vm = raw & 0xF;
-        if size == 0b11 || (q && ((vd | vn | vm) & 1) != 0) {
+        if q && ((vd | vn | vm) & 1) != 0 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,

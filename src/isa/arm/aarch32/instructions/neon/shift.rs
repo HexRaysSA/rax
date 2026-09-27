@@ -277,7 +277,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             0b00 => NeonSize::B8,
             0b01 => NeonSize::H16,
             0b10 => NeonSize::S32,
-            _ => return ExecResult::Undefined,
+            _ => NeonSize::D64,
         };
         let ebytes = (size.bits() / 8) as u8;
         let unsigned = ((insn.raw >> 24) & 1) != 0;
@@ -301,102 +301,71 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
 
-        let mask = if size.bits() == 32 {
-            u64::from(u32::MAX)
-        } else {
-            (1u64 << size.bits()) - 1
-        };
         for reg in 0..regs {
-            let shift_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
-            let value_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
-            let mut out = Vec::with_capacity(value_elements.len());
-            for (shift_elem, value_elem) in
-                shift_elements.into_iter().zip(value_elements.into_iter())
-            {
-                let shift = Self::neon_sign_extend_elem_u64(shift_elem, size.bits());
-                let result = if shift >= size.bits() as i128 {
-                    if saturating {
-                        if (value_elem & mask) == 0 {
-                            0
-                        } else {
-                            self.cpu.vfp.fpscr.set_qc(true);
-                            if unsigned {
-                                mask
-                            } else {
-                                let signed_value =
-                                    Self::neon_sign_extend_elem_u64(value_elem, size.bits());
-                                if signed_value < 0 {
-                                    Self::neon_pack_signed_elem_i128(
-                                        -(1i128 << (size.bits() - 1)),
-                                        size.bits(),
-                                    )
-                                } else {
-                                    Self::neon_pack_signed_elem_i128(
-                                        (1i128 << (size.bits() - 1)) - 1,
-                                        size.bits(),
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        0
-                    }
-                } else if shift >= 0 {
-                    if saturating {
-                        if unsigned {
-                            let value = (value_elem as i128) << (shift as u32);
-                            let (result, saturated) =
-                                Self::neon_unsigned_saturate(value, size.bits());
-                            if saturated {
-                                self.cpu.vfp.fpscr.set_qc(true);
-                            }
-                            result
-                        } else {
-                            let value = Self::neon_sign_extend_elem_u64(value_elem, size.bits())
-                                << (shift as u32);
-                            let (result, saturated) =
-                                Self::neon_signed_saturate_i128(value, size.bits());
-                            if saturated {
-                                self.cpu.vfp.fpscr.set_qc(true);
-                            }
-                            Self::neon_pack_signed_elem_i128(result, size.bits())
-                        }
-                    } else {
-                        (value_elem << (shift as u32)) & mask
-                    }
-                } else {
-                    let rshift = (-shift) as u32;
-                    if rshift > size.bits() {
-                        if unsigned {
-                            0
-                        } else if Self::neon_sign_extend_elem_u64(value_elem, size.bits()) < 0 {
-                            mask
-                        } else {
-                            0
-                        }
-                    } else if unsigned {
-                        let add = if rounding && rshift > 0 {
-                            1u64 << (rshift - 1)
-                        } else {
-                            0
-                        };
-                        ((value_elem.wrapping_add(add)) >> rshift) & mask
-                    } else {
-                        let add = if rounding && rshift > 0 {
-                            1i128 << (rshift - 1)
-                        } else {
-                            0
-                        };
-                        let value = Self::neon_sign_extend_elem_u64(value_elem, size.bits()) + add;
-                        Self::neon_pack_signed_elem_i128(value >> rshift, size.bits())
-                    }
-                };
+            let counts = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
+            let values = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let mut out = Vec::with_capacity(values.len());
+            for (count, value) in counts.into_iter().zip(values) {
+                let (result, sat) = Self::neon_shift_register_elem(
+                    value,
+                    count,
+                    size.bits(),
+                    unsigned,
+                    rounding,
+                    saturating,
+                );
+                if sat {
+                    self.cpu.vfp.fpscr.set_qc(true);
+                }
                 out.push(result);
             }
             self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
         }
 
         ExecResult::Continue
+    }
+
+    /// One element of a shift by a register (`aarch32_VSHL_r_A`,
+    /// `aarch32_VRSHL_A`, `aarch32_VQSHL_r_A`, `aarch32_VQRSHL_A`): the
+    /// `esize`-bit `value` shifted by the signed low byte of `count` (right
+    /// when negative, adding `2^(-count-1)` first when `rounding`) as an
+    /// integer, then truncated to the element, or saturated when
+    /// `saturating` (with whether it was).
+    pub(crate) fn neon_shift_register_elem(
+        value: u64,
+        count: u64,
+        esize: u32,
+        unsigned: bool,
+        rounding: bool,
+        saturating: bool,
+    ) -> (u64, bool) {
+        let shift = i32::from(count as u8 as i8);
+        let operand = if unsigned {
+            i128::from(value)
+        } else {
+            Self::neon_sign_extend_elem_u64(value, esize)
+        };
+        let result = if shift >= 64 {
+            // No bit of the operand stays in any element: only its sign
+            // matters (for saturation).
+            operand.signum() << 64
+        } else if shift >= 0 {
+            operand << shift
+        } else {
+            // Past 65 bits the result is the same (0 or -1, and 0 when
+            // rounding: the constant then exceeds every operand).
+            let r = (-shift).min(65) as u32;
+            let round = if rounding { 1i128 << (r - 1) } else { 0 };
+            (operand + round) >> r
+        };
+        if !saturating {
+            (Self::neon_pack_signed_elem_i128(result, esize), false)
+        } else if unsigned {
+            Self::neon_unsigned_saturate(result, esize)
+        } else {
+            let (v, sat) = Self::neon_signed_saturate_i128(result, esize);
+            (Self::neon_pack_signed_elem_i128(v, esize), sat)
+        }
     }
 
     pub(crate) fn exec_neon_shift_narrow_immediate(&mut self, insn: &DecodedInsn) -> ExecResult {
