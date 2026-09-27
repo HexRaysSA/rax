@@ -90,6 +90,8 @@ pub enum ExecResult {
 #[derive(Clone, Copy, Debug)]
 struct NeonStructMem {
     addr: u32,
+    /// The alignment the encoding asks for (1: none).
+    align: u32,
     regs: u8,
     first: u8,
     inc: u8,
@@ -102,6 +104,8 @@ struct NeonStructMem {
 #[derive(Clone, Copy, Debug)]
 struct NeonAllLanesMem {
     addr: u32,
+    /// The alignment the encoding asks for (1: none).
+    align: u32,
     streams: u8,
     regs: u8,
     first: u8,
@@ -115,6 +119,8 @@ struct NeonAllLanesMem {
 #[derive(Clone, Copy, Debug)]
 struct NeonSingleLaneMem {
     addr: u32,
+    /// The alignment the encoding asks for (1: none).
+    align: u32,
     streams: u8,
     first: u8,
     inc: u8,

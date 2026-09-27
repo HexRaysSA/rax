@@ -29,6 +29,13 @@ use crate::isa::arm::aarch32::vfp::{
 use crate::isa::arm::decoder::{Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType};
 
 impl<'a, M: ArmMemory> Executor<'a, M> {
+    /// An Advanced SIMD element or structure access whose address is not
+    /// aligned as its encoding asks: `AArch32.CheckAlignment` with
+    /// `AccType_VEC` checks it whatever SCTLR.A says, before any access.
+    fn neon_misaligned(addr: u32, align: u32) -> Option<ExecResult> {
+        (addr % align != 0).then_some(ExecResult::MemoryFault(MemoryError::Unaligned(addr)))
+    }
+
     /// VLDR and VSTR's `MemA`: a halfword (half precision) or a word
     /// aligned to its size, whatever SCTLR.A says.
     fn vfp_misaligned(addr: u32, size: u32) -> Option<ExecResult> {
@@ -228,6 +235,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let NeonStructMem {
             addr,
             regs,
@@ -268,6 +278,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let NeonStructMem {
             addr,
             regs,
@@ -308,6 +321,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let second = info.first + info.inc;
         let elements = 8 / info.ebytes;
         let mut current = info.addr;
@@ -346,6 +362,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let second = info.first + info.inc;
         let elements = 8 / info.ebytes;
         let mut current = info.addr;
@@ -387,6 +406,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let second = info.first + info.inc;
         let third = second + info.inc;
         let elements = 8 / info.ebytes;
@@ -431,6 +453,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let second = info.first + info.inc;
         let third = second + info.inc;
         let elements = 8 / info.ebytes;
@@ -479,6 +504,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let second = info.first + info.inc;
         let third = second + info.inc;
         let fourth = third + info.inc;
@@ -522,6 +550,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_vld_single_lane(&mut self, info: NeonSingleLaneMem) -> ExecResult {
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let mut current = info.addr;
         for stream in 0..info.streams {
             let value = match self.neon_read_mem_elem(current, info.ebytes) {
@@ -545,6 +576,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_vld_all_lanes(&mut self, info: NeonAllLanesMem) -> ExecResult {
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let mut current = info.addr;
         for stream in 0..info.streams {
             let value = match self.neon_read_mem_elem(current, info.ebytes) {
@@ -580,6 +614,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let second = info.first + info.inc;
         let third = second + info.inc;
         let fourth = third + info.inc;
@@ -625,6 +662,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_vst_single_lane(&mut self, info: NeonSingleLaneMem) -> ExecResult {
+        if let Some(fault) = Self::neon_misaligned(info.addr, info.align) {
+            return fault;
+        }
         let mut current = info.addr;
         for stream in 0..info.streams {
             let value =
@@ -716,8 +756,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
         let rm = (insn.raw & 0xF) as usize;
         let writeback = rm != 15;
+        // VLD3/VST3: align<0> asks for 64 bits; the others 4 << align bytes.
+        let alignment = match (insn.mnemonic, align) {
+            (_, 0) => 1,
+            (Mnemonic::VLD3 | Mnemonic::VST3, _) => 8,
+            (_, a) => 4 << a,
+        };
         Some(NeonStructMem {
             addr: self.reg(rn),
+            align: alignment,
             regs,
             first,
             inc,
@@ -785,8 +832,20 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return None;
         }
         let rm = (insn.raw & 0xF) as usize;
+        // a asks for one element (VLD1), two (VLD2), none (VLD3), or four
+        // (VLD4; 8 bytes for 32-bit elements, 16 for the size 11 form).
+        let alignment = match (insn.mnemonic, a, size) {
+            (_, 0, _) => 1,
+            (Mnemonic::VLD1, _, _) => u32::from(ebytes),
+            (Mnemonic::VLD2, _, _) => 2 * u32::from(ebytes),
+            (Mnemonic::VLD4, _, 0b11) => 16,
+            (Mnemonic::VLD4, _, 0b10) => 8,
+            (Mnemonic::VLD4, _, _) => 4 * u32::from(ebytes),
+            _ => 1,
+        };
         Some(NeonAllLanesMem {
             addr: self.reg(rn),
+            align: alignment,
             streams,
             regs,
             first,
@@ -846,6 +905,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let rm = (insn.raw & 0xF) as usize;
         Some(NeonSingleLaneMem {
             addr: self.reg(rn),
+            align: Self::neon_single_lane_alignment(streams, size, index_align),
             streams,
             first,
             inc,
@@ -855,6 +915,22 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             rn,
             rm,
         })
+    }
+
+    /// The alignment a single-lane access's `index_align` asks for: an
+    /// element (VLD1/VST1), two (VLD2/VST2), none (VLD3/VST3), or four
+    /// (VLD4/VST4; 8 or 16 bytes for 32-bit elements).
+    fn neon_single_lane_alignment(streams: u8, size: u8, index_align: u8) -> u32 {
+        match (streams, size, index_align & 0b11) {
+            (1, 0, _) | (3, _, _) => 1,
+            (1, 1, a) if a & 1 == 1 => 2,
+            (1, 2, 0b11) => 4,
+            (2, s, a) if a & 1 == 1 => 2 << s,
+            (4, 0, a) if a & 1 == 1 => 4,
+            (4, 1, a) if a & 1 == 1 => 8,
+            (4, 2, a) if a != 0 => 4 << a,
+            _ => 1,
+        }
     }
 
     pub(crate) fn decode_neon_single_lane_shape(

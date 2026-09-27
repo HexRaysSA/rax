@@ -443,5 +443,9 @@ fn is_store(m: Mnemonic) -> bool {
             | Mnemonic::VSTR
             | Mnemonic::VSTM
             | Mnemonic::VPUSH
+            | Mnemonic::VST1
+            | Mnemonic::VST2
+            | Mnemonic::VST3
+            | Mnemonic::VST4
     )
 }

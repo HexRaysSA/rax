@@ -1404,3 +1404,51 @@ fn thumb_cps_masks_only_above_user_mode_and_bxj_is_bx() {
     assert!(matches!(result, ExecResult::Branch(0x2000)), "{result:?}");
     assert!(!cpu.cpsr.t);
 }
+
+#[test]
+fn neon_alignment_qualifiers_fault_before_any_access() {
+    // Encodings from LLVM 23.1.1 (llvm-mc -triple=armv7a); the alignment
+    // each asks for is the ASL decode's (AArch32.CheckAlignment with
+    // AccType_VEC: checked whatever SCTLR.A says).
+    let run = |insn: &DecodedInsn, rn: usize, addr: u32| {
+        let mut cpu = make_cpu();
+        cpu.vfp.fpexc = 0x4000_0000;
+        cpu.regs[rn] = addr;
+        cpu.cpsr.t = insn.state.is_thumb();
+        let mut mem = make_mem();
+        let result = Executor::new(&mut cpu, &mut mem).execute(insn);
+        (result, cpu.regs[rn], mem.read_word(addr & !3).unwrap())
+    };
+    for (raw, align, form) in [
+        (0xf420_071f, 8, "vld1.8 {d0}, [r0:64]"),
+        (0xf4a0_055f, 4, "vld2.16 {d0[1], d1[1]}, [r0:32]"),
+        (0xf4a0_0fdf, 16, "vld4.32 {d0[]-d3[]}, [r0:128]"),
+        (0xf420_041f, 8, "vld3.8 {d0-d2}, [r0:64]"),
+        (0xf4a0_035f, 4, "vld4.8 {d0[2]-d3[2]}, [r0:32]"),
+    ] {
+        let insn = a32(raw);
+        let bad = 0x2000 + align / 2;
+        let (result, ..) = run(&insn, 0, bad);
+        assert!(
+            matches!(result, ExecResult::MemoryFault(MemoryError::Unaligned(a)) if a == bad),
+            "{form}: {result:?}"
+        );
+        completes(run(&insn, 0, 0x2000 + align).0);
+    }
+    // No qualifier: an element at any address (MemU).
+    completes(run(&a32(0xf420_070f), 0, 0x2004).0);
+    completes(run(&a32(0xf420_078f), 0, 0x2002).0);
+    // vst1.32 {d1}, [r2:64]!: neither the store nor the writeback happens.
+    let (result, r2, word) = run(&a32(0xf402_179d), 2, 0x3004);
+    assert!(matches!(
+        result,
+        ExecResult::MemoryFault(MemoryError::Unaligned(0x3004))
+    ));
+    assert_eq!((r2, word), (0x3004, 0));
+    // The T32 encoding of vld1.8 {d0}, [r0:64].
+    let (result, ..) = run(&t32(0xf920_071f), 0, 0x2004);
+    assert!(matches!(
+        result,
+        ExecResult::MemoryFault(MemoryError::Unaligned(0x2004))
+    ));
+}
