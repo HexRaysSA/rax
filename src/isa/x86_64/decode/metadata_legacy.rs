@@ -116,7 +116,13 @@ pub(super) fn fixed_legacy(
         0x9a | 0xea if bits != 64 => {
             out.operands.push(immediate(ctx, width, false)?);
             out.operands.push(immediate(ctx, 2, false)?);
-            out.flow = if op == 0x9a { Flow::Call } else { Flow::Branch };
+            // The selector names a descriptor, so the linear target is not
+            // static: classify as indirect, as rax_decode reports far pointers.
+            out.flow = if op == 0x9a {
+                Flow::IndirectCall
+            } else {
+                Flow::IndirectJump
+            };
             if op == 0x9a { "callf" } else { "jmpf" }
         }
         0xa0..=0xa3 => {

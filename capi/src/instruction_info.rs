@@ -92,11 +92,17 @@ pub(crate) fn decode_x86(bits: u32, pc: u64, bytes: &[u8]) -> RaxInstructionInfo
         if matches!(decoded, Err(metadata::DecodeFailure::Unsupported)) {
             out.flags = RAX_INSTRUCTION_UNREPRESENTED;
         }
-        // Preserve the existing RAX SMIR projection where native metadata is
-        // not yet exported. Never decode a legacy mode through the long-mode
-        // lifter, and never claim a mnemonic/operand contract from flow alone.
-        if bits == 64 && matches!(decoded, Err(metadata::DecodeFailure::Unsupported)) {
-            let opts = crate::decode::oracle_options(RaxArch::X86, RAX_MODE_64, pc);
+        // Where native metadata is not yet exported, keep rax_decode's decoder
+        // for the same code size: the SMIR projection in 64-bit mode, the
+        // legacy length decoder in 16/32-bit mode (never the long-mode lifter).
+        // Never claim a mnemonic/operand contract from flow alone.
+        if matches!(decoded, Err(metadata::DecodeFailure::Unsupported)) {
+            let mode = match bits {
+                16 => RAX_MODE_16,
+                32 => RAX_MODE_32,
+                _ => RAX_MODE_64,
+            };
+            let opts = crate::decode::oracle_options(RaxArch::X86, mode, pc);
             if let Ok(value) = rax_engine::isa_oracle::decode_to_json(bytes, &opts) {
                 crate::decode::fill_from_json(&value, &mut out.decoded);
                 if out.decoded.size as usize > bytes.len() || out.decoded.size > 15 {
@@ -364,6 +370,70 @@ mod tests {
                 .take(2)
                 .all(|op| op.access == RAX_OPERAND_READ | RAX_OPERAND_WRITE)
         );
+    }
+
+    #[test]
+    fn unrepresented_legacy_encodings_keep_length_and_flow() {
+        // x87 FCOM m32 and MMX PSUBUSB mm,m64 with a disp8, in 16/32-bit code.
+        for mode in [RAX_MODE_16, RAX_MODE_32] {
+            for bytes in [&[0xd8, 0x51, 0x04][..], &[0x0f, 0xd8, 0x51, 0x04][..]] {
+                let x = decode(mode, bytes);
+                assert_eq!(
+                    (x.decoded.valid, x.decoded.size as usize, x.decoded.flow),
+                    (1, bytes.len(), RAX_FLOW_FALLTHROUGH),
+                    "mode {mode:#x} {bytes:02x?}"
+                );
+                assert_eq!(x.flags, RAX_INSTRUCTION_UNREPRESENTED);
+                assert_eq!((x.mnemonic[0], x.operand_count), (0, 0));
+            }
+        }
+        // A truncated encoding stays invalid rather than borrowing a length.
+        assert_eq!(decode(RAX_MODE_32, &[0xd8, 0x51]).decoded.valid, 0);
+    }
+
+    #[test]
+    fn far_pointer_branches_have_no_static_target() {
+        for (mode, bytes, flow) in [
+            (
+                RAX_MODE_16,
+                &[0xea, 0xf0, 0xff, 0x00, 0xf0][..],
+                RAX_FLOW_INDIRECT_JUMP,
+            ),
+            (
+                RAX_MODE_16,
+                &[0x9a, 0xf0, 0xff, 0x00, 0xf0][..],
+                RAX_FLOW_INDIRECT_CALL,
+            ),
+            (
+                RAX_MODE_32,
+                &[0xea, 0, 0, 0, 0, 0x08, 0][..],
+                RAX_FLOW_INDIRECT_JUMP,
+            ),
+            (
+                RAX_MODE_32,
+                &[0x9a, 0, 0, 0, 0, 0x08, 0][..],
+                RAX_FLOW_INDIRECT_CALL,
+            ),
+        ] {
+            let x = decode(mode, bytes);
+            assert_eq!(
+                (
+                    x.decoded.size as usize,
+                    x.decoded.flow,
+                    x.decoded.is_indirect
+                ),
+                (bytes.len(), flow, 1)
+            );
+            assert_eq!(x.decoded.has_target, 0);
+        }
+        // Both opcodes raise #UD in 64-bit mode: a one-byte trap, never a branch.
+        for op in [0x9a, 0xea] {
+            let x = decode(RAX_MODE_64, &[op, 0, 0, 0, 0, 0x08, 0]);
+            assert_eq!(
+                (x.decoded.valid, x.decoded.size, x.decoded.flow, x.flags),
+                (1, 1, RAX_FLOW_TRAP, RAX_INSTRUCTION_UNREPRESENTED)
+            );
+        }
     }
 
     #[test]

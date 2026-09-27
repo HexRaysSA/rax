@@ -575,9 +575,10 @@ Larger caller tails remain untouched; smaller or unknown versions are rejected.
 `BASIC_COMPLETE` means mnemonic/length/flow are represented; `OPERANDS_COMPLETE`
 means explicit operands are represented, not implicit effects or full execution
 semantics. Unsupported native metadata is not evidence of unsupported execution.
-For unprojected 64-bit encodings the existing RAX SMIR projection can supply
-length/flow with both completeness flags clear and `UNREPRESENTED` set. Legacy modes never pass through
-the long-mode lifter. Unrepresented, invalid and truncated encodings never acquire
+For unprojected encodings, `rax_decode`'s decoder for the same code size (the SMIR
+projection in 64-bit mode, the legacy length decoder in 16- and 32-bit mode) can
+supply length/flow with both completeness flags clear and `UNREPRESENTED` set.
+Legacy modes never pass through the long-mode lifter. Unrepresented, invalid and truncated encodings never acquire
 invented mnemonics. Consumers must inspect completeness flags.
 
 The C API tests exercise prefixes, modes, truncation, memory/register branch
