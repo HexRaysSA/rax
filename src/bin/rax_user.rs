@@ -61,7 +61,7 @@ their interpreter and libraries through --sysroot, as with QEMU's -L. A Mach-O p
 under the Darwin personality: rax-user maps it and /usr/lib/dyld as XNU's exec does, and dyld \
 maps the dyld shared cache through the emulated shared-region calls; --sysroot supplies dyld and \
 the cache on a host that is not a Mac.",
-        trailing_var_arg = true
+        override_usage = "rax-user [OPTIONS] <PROGRAM> [ARGS]..."
     )]
     pub struct Cli {
         /// Guest root overlay: absolute guest paths that exist under DIR
@@ -113,12 +113,22 @@ the cache on a host that is not a Mac.",
         /// signal with exit status 128 + N.
         #[arg(long)]
         pub no_signal_forwarding: bool,
-        /// The Linux executable.
-        #[arg(value_name = "PROGRAM")]
-        pub program: PathBuf,
-        /// Arguments passed to the program.
-        #[arg(value_name = "ARGS", allow_hyphen_values = true)]
-        pub args: Vec<String>,
+        /// The executable (ELF or Mach-O), then the arguments passed to
+        /// it: everything after PROGRAM is the program's, options included.
+        #[arg(value_name = "PROGRAM", required = true, trailing_var_arg = true)]
+        command: Vec<String>,
+    }
+
+    impl Cli {
+        /// The executable.
+        pub fn program(&self) -> PathBuf {
+            PathBuf::from(&self.command[0])
+        }
+
+        /// The arguments passed to the program.
+        pub fn args(&self) -> &[String] {
+            &self.command[1..]
+        }
     }
 
     fn environment(cli: &Cli) -> Vec<Vec<u8>> {
@@ -149,8 +159,8 @@ the cache on a host that is not a Mac.",
 
     pub fn main() -> i32 {
         let cli = Cli::parse();
-        let program = cli.program.to_string_lossy().into_owned();
-        let bytes = match std::fs::read(&cli.program) {
+        let program = cli.program().to_string_lossy().into_owned();
+        let bytes = match std::fs::read(cli.program()) {
             Ok(b) => b,
             Err(e) => {
                 eprintln!("rax-user: {program}: {e}");
@@ -163,7 +173,7 @@ the cache on a host that is not a Mac.",
         };
         let argv0 = cli.argv0.clone().unwrap_or_else(|| program.clone());
         let argv: Vec<Vec<u8>> = std::iter::once(argv0)
-            .chain(cli.args.iter().cloned())
+            .chain(cli.args().iter().cloned())
             .map(String::into_bytes)
             .collect();
         if rax::user::image::macho::is_macho(&bytes) {

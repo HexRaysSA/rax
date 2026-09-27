@@ -65,6 +65,22 @@ fn exit_status_and_arguments_pass_through() {
 }
 
 #[test]
+fn options_after_the_program_are_its_arguments() {
+    // rax-user's own options (`--version`, `-s`, `--help`) after PROGRAM
+    // are the program's arguments.
+    let h = hello("x86_64");
+    let r = run(&[&h, "--version", "-s", "1", "--help", "--"], &[], None, T);
+    assert_eq!(r.status, Some(46), "{}", r.stderr);
+    let out = String::from_utf8(r.stdout).unwrap();
+    assert!(
+        out.contains(
+            "argc=6\nargv[1]=--version\nargv[2]=-s\nargv[3]=1\nargv[4]=--help\nargv[5]=--\n"
+        ),
+        "{out}"
+    );
+}
+
+#[test]
 fn environment_options_edit_the_guest_environment() {
     let h = hello("aarch64");
     let r = run(
