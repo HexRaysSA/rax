@@ -12,14 +12,20 @@ use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::ptrace::{
     LinkId, Msg, NSIG, PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, SECCOMP_METADATA, SIGINFO, SIGSET,
-    Traced, call, link_mut, offered, opt, regs, req, resumes, send,
+    Traced, call, link_mut, offered, opt, regs, regs32, req, resumes, send,
 };
 use super::super::seccomp::MODE_DISABLED;
+use super::super::signal::info::SigInfo;
 use super::super::wait::{Resume, Wait};
 use super::{Ctx, SysResult};
 
-/// `sizeof(struct user_i387_struct)`.
+/// `sizeof(struct user_i387_struct)` (and of i386's `struct
+/// user32_fxsr_struct`).
 const USER_I387: usize = 512;
+/// `sizeof(struct user_regs_struct)` on x86-64.
+const X86_REGS: usize = 27 * 8;
+/// `sizeof(struct user_desc)`.
+const USER_DESC: usize = 16;
 
 /// `ptrace`.
 pub fn ptrace(c: &mut Ctx<'_>, request: u64, pid: i64, addr: u64, data: u64) -> SysResult {
@@ -201,8 +207,26 @@ fn wait_answer(c: &mut Ctx<'_>, link: LinkId) -> SysResult {
     Err(c.block(wait, Resume::Ptrace { link }))
 }
 
+/// A `struct iovec`, or a 32-bit tracer's `struct compat_iovec`: its base
+/// and length.
+fn read_iovec(c: &Ctx<'_>, at: u64) -> Result<(u64, u64), Errno> {
+    if c.compat {
+        let b = c.read_mem(at, 8)?;
+        let w = |i: usize| u64::from(u32::from_le_bytes(b[i..i + 4].try_into().unwrap()));
+        Ok((w(0), w(4)))
+    } else {
+        let b = c.read_mem(at, 16)?;
+        Ok((
+            u64::from_le_bytes(b[..8].try_into().unwrap()),
+            u64::from_le_bytes(b[8..].try_into().unwrap()),
+        ))
+    }
+}
+
 /// Sends a request to a tracee after the checks the tracer makes itself,
-/// in `ptrace_request`'s and `arch_ptrace`'s order.
+/// in `ptrace_request`'s and `arch_ptrace`'s order; a 32-bit tracer's
+/// (`compat_arch_ptrace`) in `ia32_arch_ptrace`'s and
+/// `compat_ptrace_request`'s, with their structures.
 fn ask(
     c: &mut Ctx<'_>,
     tracee: &super::super::ptrace::Tracee,
@@ -210,7 +234,8 @@ fn ask(
     addr: u64,
     data: u64,
 ) -> SysResult {
-    let x86 = c.p.abi == LinuxAbi::X86_64;
+    let compat = c.compat;
+    let x86 = matches!(c.p.abi, LinuxAbi::X86_64 | LinuxAbi::I386);
     let mut payload = Vec::new();
     let mut data = data;
     match request {
@@ -222,14 +247,14 @@ fn ask(
         | req::POKEUSR => {}
         req::GETREGS | req::SETREGS if x86 => {
             if request == req::SETREGS {
-                payload = c.read_mem(data, 27 * 8)?;
+                let size = if compat { regs32::REGS32 } else { X86_REGS };
+                payload = c.read_mem(data, size)?;
             }
         }
         req::GETREGSET | req::SETREGSET => {
-            let iov = c.read_mem(data, 16)?;
-            let base = u64::from_le_bytes(iov[..8].try_into().unwrap());
-            let len = u64::from_le_bytes(iov[8..].try_into().unwrap());
-            let (unit, size) = regs::layout(&c.t.cpu, addr)?;
+            let (base, len) = read_iovec(c, data)?;
+            // The set of the tracee's view (task_user_regset_view).
+            let (unit, size) = regs::layout(&c.t.cpu, tracee.compat, addr)?;
             if len % unit != 0 {
                 return Err(Errno(EINVAL));
             }
@@ -253,11 +278,33 @@ fn ask(
         }
         req::GETFPREGS | req::SETFPREGS if x86 => {
             if request == req::SETFPREGS {
+                let size = if compat { regs32::I387_32 } else { USER_I387 };
+                payload = c.read_mem(data, size)?;
+            }
+        }
+        req::GETFPXREGS | req::SETFPXREGS if compat => {
+            if request == req::SETFPXREGS {
                 payload = c.read_mem(data, USER_I387)?;
             }
         }
-        req::ARCH_PRCTL if x86 => {}
+        // do_get_thread_area and do_set_thread_area for entry `addr`,
+        // which as an int must not be negative (EIO).
+        req::GET_THREAD_AREA | req::SET_THREAD_AREA if x86 => {
+            if (addr as i32) < 0 {
+                return Err(Errno(EIO));
+            }
+            if request == req::SET_THREAD_AREA {
+                payload = c.read_mem(data, USER_DESC)?;
+            }
+        }
+        req::ARCH_PRCTL if x86 && !compat => {}
         req::GETSIGINFO | req::GETEVENTMSG | req::GET_RSEQ_CONFIGURATION => {}
+        // copy_siginfo_from_user32 for a 32-bit tracer.
+        req::SETSIGINFO if compat => {
+            payload = SigInfo::decode_compat(&c.read_mem(data, SIGINFO)?)
+                .encode()
+                .to_vec();
+        }
         req::SETSIGINFO => payload = c.read_mem(data, SIGINFO)?,
         req::PEEKSIGINFO => {
             // ptrace_peek_siginfo: struct ptrace_peeksiginfo_args (off,
@@ -319,6 +366,7 @@ fn ask(
         req: request,
         addr,
         data,
+        compat,
         payload,
     };
     if !send(c.p, tracee.link, &m) {
@@ -349,20 +397,35 @@ fn answer(c: &mut Ctx<'_>, request: u64, addr: u64, data: u64, link: LinkId) -> 
     if ret < 0 {
         return Err(Errno(-ret as i32));
     }
+    // A 32-bit tracer's words (compat_ulong_t) and siginfo records
+    // (copy_siginfo_to_user32).
+    let word = if c.compat { 4 } else { 8 };
+    let siginfo = |rec: &[u8]| -> Vec<u8> {
+        if c.compat {
+            SigInfo::decode(rec).encode_compat().to_vec()
+        } else {
+            rec.to_vec()
+        }
+    };
     match request {
         req::PEEKTEXT | req::PEEKDATA | req::PEEKUSR | req::GETEVENTMSG => {
-            c.write_mem(data, &payload[..8])?;
+            c.write_mem(data, &payload[..word])?;
         }
-        req::GETREGS | req::GETFPREGS | req::GETSIGINFO | req::GETSIGMASK => {
-            c.write_mem(data, &payload)?
-        }
+        req::GETSIGINFO => c.write_mem(data, &siginfo(&payload))?,
+        req::GETREGS
+        | req::GETFPREGS
+        | req::GETFPXREGS
+        | req::GET_THREAD_AREA
+        | req::GETSIGMASK => c.write_mem(data, &payload)?,
         // do_arch_prctl_64's put_user of a base, into the tracer.
         req::ARCH_PRCTL if !payload.is_empty() => c.write_mem(addr, &payload)?,
         // Each record copied in turn: a fault ends the copy, an error only
         // for the first.
         req::PEEKSIGINFO => {
             for (i, rec) in payload.chunks_exact(SIGINFO).enumerate() {
-                if c.write_mem(data + (i * SIGINFO) as u64, rec).is_err() {
+                if c.write_mem(data + (i * SIGINFO) as u64, &siginfo(rec))
+                    .is_err()
+                {
                     return if i > 0 {
                         Ok(i as u64)
                     } else {
@@ -396,7 +459,7 @@ fn answer(c: &mut Ctx<'_>, request: u64, addr: u64, data: u64, link: LinkId) -> 
             return Ok(size);
         }
         req::GETREGSET | req::SETREGSET => {
-            let base = c.read_u64(data)?;
+            let (base, _) = read_iovec(c, data)?;
             if request == req::GETREGSET {
                 c.write_mem(base, &payload)?;
             }
@@ -405,7 +468,13 @@ fn answer(c: &mut Ctx<'_>, request: u64, addr: u64, data: u64, link: LinkId) -> 
             } else {
                 u64::from_le_bytes(payload[..8].try_into().unwrap())
             };
-            c.write_u64(data + 8, len)?;
+            // The length back into the iovec (a compat_size_t for a 32-bit
+            // tracer).
+            if c.compat {
+                c.write_u32(data + 4, len as u32)?;
+            } else {
+                c.write_u64(data + 8, len)?;
+            }
         }
         _ => {}
     }

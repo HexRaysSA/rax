@@ -18,7 +18,8 @@ use super::super::wait::Resume;
 use super::{
     EVENT_EXEC, EVENT_EXIT, EVENT_STOP, EVENTMSG_SYSCALL_ENTRY, EVENTMSG_SYSCALL_EXIT, Exiting,
     LinkId, Mode, Msg, NSIG, PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, Resumption, SIGINFO, StopKind,
-    Stopped, Traced, call, link_ids, link_mut, offered, opt, peer_pid, regs, req, resumes, send,
+    Stopped, Traced, call, link_ids, link_mut, offered, opt, peer_pid, regs, regs32, req, resumes,
+    send,
 };
 
 /// `arch_prctl` codes `do_arch_prctl_64` takes for another task.
@@ -67,12 +68,14 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
             why,
             status,
             uid,
+            compat,
         } => {
             if let Some(t) = p.tracees.get_mut(tid)
                 && !t.killed
             {
                 t.stopped = Some(exit);
                 t.reported = false;
+                t.compat = compat;
                 notify_trapped(p, th, tid, why, status, uid);
             }
         }
@@ -161,9 +164,16 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
             req: request,
             addr,
             data,
+            compat,
             payload,
         } => {
-            let (ret, out) = serve(p, th, link, tid, request, addr, data, &payload);
+            let asked = Asked {
+                request,
+                addr,
+                data,
+                compat,
+            };
+            let (ret, out) = serve(p, th, link, tid, asked, &payload);
             send(p, link, &Msg::Reply { ret, payload: out });
         }
     }
@@ -239,18 +249,32 @@ fn serve_attach(
     0
 }
 
+/// A tracer's request: its number and arguments, and whether it asked in
+/// a 32-bit call (`compat_arch_ptrace`: 32-bit words, and
+/// `ia32_arch_ptrace`'s i386 register view).
+#[derive(Clone, Copy, Debug)]
+struct Asked {
+    request: u64,
+    addr: u64,
+    data: u64,
+    compat: bool,
+}
+
 /// A request to a stopped tracee: its answer and bytes.
-#[allow(clippy::too_many_arguments)]
 fn serve(
     p: &mut ProcState,
     th: &mut Threads<'_>,
     link: LinkId,
     tid: i32,
-    request: u64,
-    addr: u64,
-    data: u64,
+    asked: Asked,
     payload: &[u8],
 ) -> (i64, Vec<u8>) {
+    let Asked {
+        request,
+        addr,
+        data,
+        compat,
+    } = asked;
     let fail = |e: i32| (-(e as i64), Vec::new());
     let Some(t) = th.get_mut(tid) else {
         return fail(ESRCH);
@@ -262,19 +286,64 @@ fn serve(
     if tr.link != link || (!any_state && !tr.stopped()) {
         return fail(ESRCH);
     }
+    // A word of the tracer's size (compat_ulong_t for a 32-bit one).
+    let word = if compat { 4 } else { 8 };
+    let done = |r: Result<(), super::super::abi::errno::Errno>| match r {
+        Ok(()) => (0, Vec::new()),
+        Err(e) => fail(e.0),
+    };
+    // ia32_arch_ptrace's requests of the i386 view.
+    if compat
+        && matches!(
+            request,
+            req::PEEKUSR
+                | req::POKEUSR
+                | req::GETREGS
+                | req::SETREGS
+                | req::GETFPREGS
+                | req::SETFPREGS
+                | req::GETFPXREGS
+                | req::SETFPXREGS
+        )
+        || matches!(request, req::GET_THREAD_AREA | req::SET_THREAD_AREA)
+    {
+        let GuestCpu::X86_64(c) = &mut t.cpu else {
+            return fail(EIO);
+        };
+        return match request {
+            req::PEEKUSR => match regs32::getreg32(c, t.syscall, addr) {
+                Ok(v) => (0, v.to_le_bytes().to_vec()),
+                Err(e) => fail(e.0),
+            },
+            req::POKEUSR => done(regs32::putreg32(c, &mut t.syscall, addr, data as u32)),
+            req::GETREGS => (0, regs32::prstatus32(c, t.syscall)),
+            req::SETREGS => done(regs32::set_prstatus32(c, &mut t.syscall, payload)),
+            req::GETFPREGS => (0, regs32::fpregs32(c)),
+            req::SETFPREGS => done(regs32::set_fpregs32(c, payload)),
+            req::GET_THREAD_AREA => match regs32::get_thread_area(c, addr) {
+                Ok(b) => (0, b),
+                Err(e) => fail(e.0),
+            },
+            req::SET_THREAD_AREA => done(regs32::set_thread_area(c, addr, payload)),
+            req::GETFPXREGS => (0, regs::fpregs(&t.cpu)),
+            _ => done(regs::set_fpregs(&mut t.cpu, payload)),
+        };
+    }
     match request {
         req::PEEKTEXT | req::PEEKDATA => {
             // ptrace_access_vm with FOLL_FORCE: any mapped page.
-            let mut b = [0u8; 8];
+            let mut b = vec![0u8; word];
             match p.space.read_raw(addr, &mut b) {
-                Ok(()) => (0, b.to_vec()),
+                Ok(()) => (0, b),
                 Err(_) => fail(EIO),
             }
         }
-        req::POKETEXT | req::POKEDATA => match p.space.write_raw(addr, &data.to_le_bytes()) {
-            Ok(()) => (0, Vec::new()),
-            Err(_) => fail(EIO),
-        },
+        req::POKETEXT | req::POKEDATA => {
+            match p.space.write_raw(addr, &data.to_le_bytes()[..word]) {
+                Ok(()) => (0, Vec::new()),
+                Err(_) => fail(EIO),
+            }
+        }
         req::PEEKUSR => match regs::peek_user(&t.cpu, t.syscall, addr) {
             Ok(v) => (0, v.to_le_bytes().to_vec()),
             Err(e) => fail(e.0),
@@ -630,6 +699,7 @@ fn report(
         why,
         status,
         uid,
+        compat: regs::compat_mode(&t.cpu),
     };
     send(p, link, &m);
 }

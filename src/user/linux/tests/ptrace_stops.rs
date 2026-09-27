@@ -78,6 +78,7 @@ pub(super) fn ask_on(
         req: request,
         addr,
         data,
+        compat: false,
         payload: payload.to_vec(),
     };
     assert!(tr.link.send(&m));
@@ -410,12 +411,12 @@ fn aarch64_system_call_register_set() {
     resume(&mut h, &mut tr, req::SYSCALL, 0);
     let nr = make_call(&mut h, Sysno::Getpid, [0; 6]);
     assert_eq!(
-        regs::layout(&h.proc.threads[0].cpu, regs::NT_ARM_SYSTEM_CALL),
+        regs::layout(&h.proc.threads[0].cpu, false, regs::NT_ARM_SYSTEM_CALL),
         Ok((4, 4))
     );
     let x86 = Harness::new(LinuxAbi::X86_64);
     assert_eq!(
-        regs::layout(&x86.proc.threads[0].cpu, regs::NT_ARM_SYSTEM_CALL).map_err(|e| e.0),
+        regs::layout(&x86.proc.threads[0].cpu, false, regs::NT_ARM_SYSTEM_CALL).map_err(|e| e.0),
         Err(EINVAL)
     );
     let (ret, b) = ask(
@@ -572,6 +573,7 @@ fn request_from(
         req: request,
         addr: 0,
         data,
+        compat: false,
         payload: Vec::new(),
     };
     assert!(link.send(&m));

@@ -92,14 +92,14 @@ impl UserDesc {
     }
 
     /// `tls_desc_okay`: no segment, or a present 32-bit data segment.
-    fn okay(&self) -> bool {
+    pub fn okay(&self) -> bool {
         self.empty()
             || self.zero()
             || (self.seg_32bit && self.contents <= 1 && !self.seg_not_present)
     }
 
     /// `fill_ldt`: the descriptor, accessed, DPL 3, never 64-bit code.
-    fn descriptor(&self) -> u64 {
+    pub fn descriptor(&self) -> u64 {
         if self.empty() || self.zero() {
             return 0;
         }
@@ -120,7 +120,7 @@ impl UserDesc {
     }
 
     /// `fill_user_desc`: entry `index`'s descriptor as a `user_desc`.
-    fn from_descriptor(index: u32, d: u64) -> UserDesc {
+    pub fn from_descriptor(index: u32, d: u64) -> UserDesc {
         let ty = ((d >> 40) & 0xF) as u32;
         UserDesc {
             entry_number: index,

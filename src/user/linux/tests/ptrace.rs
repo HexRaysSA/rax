@@ -423,6 +423,7 @@ fn answers_and_what_follows_them_arrive_together() {
             why: code::CLD_TRAPPED,
             status: SIGSTOP,
             uid: 0,
+            compat: false,
         }));
         assert_eq!(h.proc.wake_sleepers(), 1);
         assert_eq!(h.result(0), 0);
@@ -463,6 +464,7 @@ fn a_killed_tracees_stops_are_not_reported() {
             why: code::CLD_TRAPPED,
             status: code,
             uid: 0,
+            compat: false,
         };
         assert!(theirs.send(&stop(SIGSTOP)));
         while h.proc.state.tracees.get(parent).unwrap().stopped.is_none() {

@@ -304,6 +304,7 @@ fn a_tracer_adopts_a_forked_tracee_and_reaps_it() {
         why: crate::user::linux::signal::code::CLD_TRAPPED,
         status: SIGSTOP,
         uid: 0,
+        compat: false,
     }));
     while h.proc.state.tracees.get(g).unwrap().stopped.is_none() {
         h.proc.collect_async(None);

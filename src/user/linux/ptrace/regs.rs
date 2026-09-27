@@ -13,7 +13,8 @@ use super::super::abi::errno_table::*;
 use super::super::arch::GuestCpu;
 use super::super::signal::deliver::SyscallEntry;
 use super::super::signal::frame::aarch64::valid_user_pstate;
-use crate::isa::x86_64::{LINUX_USER_CS, LINUX_USER_DS};
+use super::regs32;
+use crate::isa::x86_64::{LINUX_USER_CS, LINUX_USER_DS, X86UserSegment};
 
 /// `NT_PRSTATUS`.
 pub const NT_PRSTATUS: u64 = 1;
@@ -27,6 +28,11 @@ pub const NT_X86_XSTATE: u64 = 0x202;
 pub const NT_ARM_TLS: u64 = 0x401;
 /// `NT_ARM_SYSTEM_CALL`: AArch64's `syscallno`, an `int`.
 pub const NT_ARM_SYSTEM_CALL: u64 = 0x404;
+/// `NT_PRXFPREG`: the i386 view's `FXSAVE` area (`struct
+/// user32_fxsr_struct`).
+pub const NT_PRXFPREG: u64 = 0x46e6_2b7f;
+/// `NT_386_TLS`: the i386 view's TLS entries (`struct user_desc`s).
+pub const NT_386_TLS: u64 = 0x200;
 /// `NT_386_IOPERM`: x86-64's I/O permission bitmap. No thread has one
 /// (`ioperm` is refused), so reading it is `ENXIO` (`ioperm_get`); it has
 /// no writer (`EOPNOTSUPP`).
@@ -62,6 +68,12 @@ const X86_FLAG_MASK: u64 =
 /// `TASK_SIZE_MAX` on x86-64 (4-level paging).
 const X86_TASK_SIZE_MAX: u64 = (1 << 47) - 4096;
 
+/// Whether an x86 thread runs 32-bit code (`!user_64bit_mode`), which
+/// selects the i386 register view (`task_user_regset_view`).
+pub fn compat_mode(cpu: &GuestCpu) -> bool {
+    matches!(cpu, GuestCpu::X86_64(c) if c.vcpu().user_compat())
+}
+
 /// The size of the general registers' set (`NT_PRSTATUS`).
 pub fn prstatus_size(cpu: &GuestCpu) -> usize {
     match cpu {
@@ -74,9 +86,24 @@ pub fn prstatus_size(cpu: &GuestCpu) -> usize {
 }
 
 /// A register set's element size and whole size on `cpu`'s architecture
-/// (its `struct user_regset`'s `size` and `n * size`), `EINVAL` for one it
-/// does not have (`find_regset`).
-pub fn layout(cpu: &GuestCpu, nt: u64) -> Result<(u64, u64), Errno> {
+/// (its `struct user_regset`'s `size` and `n * size`), in the i386 view
+/// when `i386` (`x86_32_regsets`), `EINVAL` for one it does not have
+/// (`find_regset`).
+pub fn layout(cpu: &GuestCpu, i386: bool, nt: u64) -> Result<(u64, u64), Errno> {
+    if let (true, GuestCpu::X86_64(c)) = (i386, cpu) {
+        return Ok(match nt {
+            NT_PRSTATUS => (4, regs32::REGS32 as u64),
+            NT_PRFPREG => (4, regs32::I387_32 as u64),
+            NT_PRXFPREG => (4, X86_FXSAVE as u64),
+            NT_X86_XSTATE => (8, c.vcpu().xsave_standard_size() as u64),
+            NT_386_TLS => (
+                regs32::USER_DESC as u64,
+                (regs32::USER_DESC * regs32::TLS_ENTRIES) as u64,
+            ),
+            NT_386_IOPERM => (4, IO_BITMAP_BYTES),
+            _ => return Err(Errno(EINVAL)),
+        });
+    }
     Ok(match (nt, cpu) {
         (NT_PRSTATUS, _) => (8, prstatus_size(cpu) as u64),
         (NT_PRFPREG, GuestCpu::X86_64(_)) => (8, X86_FXSAVE as u64),
@@ -104,8 +131,22 @@ pub fn copies_in(nt: u64) -> bool {
     nt != NT_X86_SHSTK
 }
 
-/// Register set `nt` as a whole (`regset_get`), or why it cannot be read.
+/// Register set `nt` as a whole (`regset_get`) in the thread's view, or
+/// why it cannot be read.
 pub fn get(cpu: &GuestCpu, syscall: Option<SyscallEntry>, nt: u64) -> Result<Vec<u8>, Errno> {
+    if let GuestCpu::X86_64(c) = cpu
+        && c.vcpu().user_compat()
+    {
+        return Ok(match nt {
+            NT_386_IOPERM => return Err(Errno(ENXIO)),
+            NT_PRSTATUS => regs32::prstatus32(c, syscall),
+            NT_PRFPREG => regs32::fpregs32(c),
+            NT_PRXFPREG => fpregs(cpu),
+            NT_X86_XSTATE => xstate(cpu),
+            NT_386_TLS => regs32::tls(c),
+            _ => return Err(Errno(EINVAL)),
+        });
+    }
     Ok(match nt {
         NT_386_IOPERM => return Err(Errno(ENXIO)),
         NT_X86_SHSTK => return Err(Errno(ENODEV)),
@@ -130,6 +171,19 @@ pub fn set(
     nt: u64,
     bytes: &[u8],
 ) -> Result<(), Errno> {
+    if let GuestCpu::X86_64(c) = cpu
+        && c.vcpu().user_compat()
+    {
+        return match nt {
+            NT_386_IOPERM => Err(Errno(EOPNOTSUPP)),
+            NT_PRSTATUS => regs32::set_prstatus32(c, syscall, bytes),
+            NT_PRFPREG => regs32::set_fpregs32(c, bytes),
+            NT_PRXFPREG => set_fpregs(cpu, bytes),
+            NT_X86_XSTATE => set_xstate(cpu, bytes),
+            NT_386_TLS => regs32::set_tls(c, bytes),
+            _ => Err(Errno(EINVAL)),
+        };
+    }
     match nt {
         NT_386_IOPERM => Err(Errno(EOPNOTSUPP)),
         NT_X86_SHSTK => Err(Errno(ENODEV)),
@@ -291,6 +345,12 @@ pub fn prstatus(cpu: &GuestCpu, syscall: Option<SyscallEntry>) -> Vec<u8> {
         GuestCpu::X86_64(c) => {
             let v = c.vcpu();
             let r = v.user_regs();
+            // A 64-bit thread's selectors are the fixed user ones and null
+            // data selectors; a 32-bit thread's are its own.
+            let compat = v.user_compat();
+            let sel = |s: X86UserSegment, native: u16| {
+                u64::from(if compat { v.user_selector(s) } else { native })
+            };
             vec![
                 r.r15,
                 r.r14,
@@ -309,17 +369,16 @@ pub fn prstatus(cpu: &GuestCpu, syscall: Option<SyscallEntry>) -> Vec<u8> {
                 r.rdi,
                 orig(syscall),
                 r.rip,
-                u64::from(LINUX_USER_CS),
+                sel(X86UserSegment::Cs, LINUX_USER_CS),
                 v.user_rflags(),
                 r.rsp,
-                u64::from(LINUX_USER_DS),
+                sel(X86UserSegment::Ss, LINUX_USER_DS),
                 v.fs_base(),
                 v.gs_base(),
-                // ds, es, fs, gs: a 64-bit process's null selectors.
-                0,
-                0,
-                0,
-                0,
+                sel(X86UserSegment::Ds, 0),
+                sel(X86UserSegment::Es, 0),
+                sel(X86UserSegment::Fs, 0),
+                sel(X86UserSegment::Gs, 0),
             ]
         }
         GuestCpu::Aarch64(c) => {
@@ -420,6 +479,22 @@ pub fn poke_user(
     };
     if off % 8 != 0 || off >= X86_USER {
         return Err(Errno(EIO));
+    }
+    // A thread running 32-bit code keeps its selectors: the i386 view's
+    // checks and loads (set_segment_reg is the same for both).
+    let seg32 = match off / 8 {
+        17 => Some(52),
+        20 => Some(64),
+        23 => Some(28),
+        24 => Some(32),
+        25 => Some(36),
+        26 => Some(40),
+        _ => None,
+    };
+    if let Some(off32) = seg32
+        && c.vcpu().user_compat()
+    {
+        return regs32::putreg32(c, syscall, off32, value as u32);
     }
     if off >= X86_REGS as u64 {
         let debug = (X86_DEBUGREG..X86_DEBUGREG + 64).contains(&off);

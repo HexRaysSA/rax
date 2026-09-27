@@ -405,6 +405,9 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::PpollTime64 => call_handler(c, S::Ppoll, a),
         // struct mount_attr has one layout.
         S::OpenTree | S::OpenTreeAttr | S::MountSetattr => call_handler(c, s, a),
+        // ptrace: compat_arch_ptrace's words, structures, and i386 register
+        // view, where Ctx::compat is.
+        S::Ptrace => call_handler(c, s, a),
         // recvmmsg_time32 and recvmmsg_time64.
         S::Recvmmsg => time32(c, S::Recvmmsg, a),
         S::RecvmmsgTime64 => call_handler(c, S::Recvmmsg, a),

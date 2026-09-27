@@ -24,6 +24,7 @@
 
 pub mod call;
 pub mod regs;
+pub mod regs32;
 mod stops;
 pub mod tracee;
 
@@ -55,6 +56,13 @@ pub mod req {
     pub const SETFPREGS: u64 = 15;
     pub const ATTACH: u64 = 16;
     pub const DETACH: u64 = 17;
+    /// i386's `PTRACE_GETFPXREGS` and `PTRACE_SETFPXREGS`: the `FXSAVE`
+    /// area, for a 32-bit tracer.
+    pub const GETFPXREGS: u64 = 18;
+    pub const SETFPXREGS: u64 = 19;
+    /// x86's `PTRACE_GET_THREAD_AREA` and `PTRACE_SET_THREAD_AREA`.
+    pub const GET_THREAD_AREA: u64 = 25;
+    pub const SET_THREAD_AREA: u64 = 26;
     pub const SYSCALL: u64 = 24;
     /// x86-64 only (`arch_prctl` on the tracee, its arguments swapped).
     pub const ARCH_PRCTL: u64 = 30;
@@ -159,6 +167,9 @@ pub enum Msg {
         why: i32,
         status: i32,
         uid: u32,
+        /// The thread runs 32-bit code (`task_user_regset_view`'s i386
+        /// view).
+        compat: bool,
     },
     /// Thread `tid` listens (`PTRACE_LISTEN`): still stopped, but not in a
     /// stop its tracer sees until it traps again.
@@ -190,6 +201,8 @@ pub enum Msg {
         req: u64,
         addr: u64,
         data: u64,
+        /// The tracer asked in a 32-bit call (`compat_arch_ptrace`).
+        compat: bool,
         payload: Vec<u8>,
     },
     /// The answer to an attach or a request: its result and bytes.
@@ -228,6 +241,7 @@ impl Msg {
                 why,
                 status,
                 uid,
+                compat,
             } => {
                 b.push(b'S');
                 i32s(&mut b, *tid);
@@ -235,6 +249,7 @@ impl Msg {
                 i32s(&mut b, *why);
                 i32s(&mut b, *status);
                 b.extend_from_slice(&uid.to_le_bytes());
+                b.push(u8::from(*compat));
             }
             Msg::Listening { tid } => {
                 b.push(b'L');
@@ -281,6 +296,7 @@ impl Msg {
                 req,
                 addr,
                 data,
+                compat,
                 payload,
             } => {
                 b.push(b'Q');
@@ -288,6 +304,7 @@ impl Msg {
                 u64s(&mut b, *req);
                 u64s(&mut b, *addr);
                 u64s(&mut b, *data);
+                b.push(u8::from(*compat));
                 b.extend_from_slice(payload);
             }
             Msg::Reply { ret, payload } => {
@@ -321,6 +338,7 @@ impl Msg {
                 why: i32at(8)?,
                 status: i32at(12)?,
                 uid: i32at(16)? as u32,
+                compat: *f.get(20)? != 0,
             },
             b'L' => Msg::Listening { tid: i32at(0)? },
             b'K' => Msg::Kill {
@@ -348,7 +366,8 @@ impl Msg {
                 req: u64at(4)?,
                 addr: u64at(12)?,
                 data: u64at(20)?,
-                payload: f.get(28..)?.to_vec(),
+                compat: *f.get(28)? != 0,
+                payload: f.get(29..)?.to_vec(),
             },
             b'R' => Msg::Reply {
                 ret: u64at(0)? as i64,
@@ -647,6 +666,9 @@ pub struct Tracee {
     pub reported: bool,
     /// It exited with this wait status, for its tracer to reap.
     pub exited: Option<i32>,
+    /// At its last stop it ran 32-bit code: its register sets are the
+    /// i386 view's (`task_user_regset_view`).
+    pub compat: bool,
     /// This tracer sent it `SIGKILL`, which ends a traced stop at once and
     /// keeps it from stopping again (`signal_wake_up`,
     /// `__fatal_signal_pending` in `ptrace_stop`): no stop of it is
@@ -683,6 +705,7 @@ impl Tracees {
             stopped: None,
             reported: false,
             exited: None,
+            compat: false,
             killed: false,
         });
     }
@@ -829,7 +852,7 @@ pub fn resumes(request: u64) -> bool {
 pub fn offered(abi: LinuxAbi, request: u64) -> bool {
     match request {
         req::SYSEMU | req::SYSEMU_SINGLESTEP => abi != LinuxAbi::Riscv64,
-        req::SINGLEBLOCK => abi == LinuxAbi::X86_64,
+        req::SINGLEBLOCK => matches!(abi, LinuxAbi::X86_64 | LinuxAbi::I386),
         _ => true,
     }
 }
@@ -861,6 +884,7 @@ mod tests {
                 why: 4,
                 status: 5,
                 uid: 1000,
+                compat: true,
             },
             Msg::Listening { tid: 9 },
             Msg::Kill {
@@ -892,6 +916,7 @@ mod tests {
                 req: req::POKEDATA,
                 addr: 0x1000,
                 data: u64::MAX,
+                compat: true,
                 payload: vec![1, 2, 3],
             },
             Msg::Reply {

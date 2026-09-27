@@ -16,6 +16,7 @@
 //! | [`descriptors`] | `compat_sys_ioctl`'s routing, `epoll_pwait2` |
 //! | [`files`] | opens, offsets, status, directories, locks, `execve` |
 //! | [`mqueue`] | `struct compat_mq_attr`, `struct compat_sigevent`, `*_time32` sends and receives |
+//! | [`ptrace`] | a 32-bit tracer's forms, the i386 register sets, the x86-64 view's selectors |
 //! | [`process`] | 16-bit IDs, limits, usage, waits, `times`, `sysinfo`, CPU masks, old `uname`s, `nice`, `arch_prctl` |
 //! | [`seccomp`] | `struct compat_sock_fprog`, the 32-bit call's `struct seccomp_data` |
 //! | [`select`] | 32-bit fd set words, `struct old_timeval32`, the old `select`, `struct compat_sigset_argpack`, `*_time32` timeouts |
@@ -31,6 +32,7 @@ mod descriptors;
 mod files;
 mod mqueue;
 mod process;
+mod ptrace;
 mod seccomp;
 mod select;
 mod sigcalls;
@@ -316,7 +318,7 @@ fn compat_calls_convert_or_refuse() {
     put(&h, at + 0x3014, &100u32.to_le_bytes());
     assert_eq!(h.call(Sysno::Mmap, &[at + 0x3000]), -i64::from(EINVAL));
     // Calls without a 32-bit conversion yet.
-    for s in [Sysno::Ptrace, Sysno::KexecLoad] {
+    for s in [Sysno::KexecLoad, Sysno::FanotifyMark] {
         assert_eq!(h.call(s, &[0, 0, 0, 0]), -i64::from(ENOSYS), "{s:?}");
     }
 }

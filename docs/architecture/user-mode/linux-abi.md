@@ -86,8 +86,7 @@ the one-word masks of `sigprocmask`, `sigpending`, `sigsuspend`, `sgetmask`, and
 handlers run on i386 frames ([signals](signals.md#i386-frames)).
 
 Calls without a conversion return `ENOSYS`, and unsupported `ioctl` commands return
-`ENOTTY`, rather than using 64-bit layouts. Ptrace calls are not in the
-compatibility table.
+`ENOTTY`, rather than using 64-bit layouts.
 
 Seccomp: a filter arrives in a `struct compat_sock_fprog` (a 16-bit length and a
 32-bit pointer) through `seccomp` or `prctl`, and a 32-bit call's `struct
@@ -132,6 +131,19 @@ Readiness: `select` (the old one with its `struct compat_sel_arg_struct`, and
 and write back `struct old_timeval32` or the `*_time32` calls' `struct
 old_timespec32` (the `*_time64` ones a `struct __kernel_timespec`), and read
 `pselect6`'s mask through `struct compat_sigset_argpack`.
+
+Tracing: a 32-bit tracer's requests are `compat_arch_ptrace`'s. `PEEKDATA`,
+`POKEDATA`, `PEEKUSR`, and `GETEVENTMSG` move 32-bit words; siginfo records are
+`struct compat_siginfo`; `GETREGSET` and `SETREGSET` take a `struct compat_iovec`;
+and `GETREGS`, `PEEKUSR`, `POKEUSR`, `GETFPREGS`, `GETFPXREGS`, and their setters use
+the i386 layouts (`struct user_regs_struct32`, `struct user32`'s offsets, the FSAVE
+environment, the `FXSAVE` area); `GET_THREAD_AREA` and `SET_THREAD_AREA` read and
+write the TLS entries. Any tracer reads and writes a thread running 32-bit code in
+the i386 register sets (`NT_PRSTATUS` of 68 bytes, the FSAVE `NT_PRFPREG`,
+`NT_PRXFPREG`, `NT_386_TLS`), as `task_user_regset_view` chooses by the thread's
+mode, and sees its own selectors in the x86-64 view. A code selector other than the
+one the thread runs with is refused (`EIO`) rather than switching or faulting the
+thread on its way back to user mode.
 
 Threads: `clone` (in `sys_ia32_clone`'s argument order) and `clone3` take a `struct
 user_desc` for `CLONE_SETTLS`, filling the child's TLS entry (`set_new_tls`); the

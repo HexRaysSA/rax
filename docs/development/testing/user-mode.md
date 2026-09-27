@@ -138,8 +138,9 @@ compat_sigevent`, the `*_time32` calls), asynchronous I/O (32-bit contexts and i
 pointers, `io_getevents_time32`, `struct __compat_aio_sigset`), `select`,
 `pselect6`, and `ppoll` (32-bit fd set words, `struct old_timeval32`, the old
 `select`, `struct compat_sigset_argpack`), seccomp filters (`struct
-compat_sock_fprog`, the 32-bit `struct seccomp_data`), and rejection of unconverted
-calls;
+compat_sock_fprog`, the 32-bit `struct seccomp_data`), tracing (a 32-bit tracer's
+forms, the i386 register sets, the x86-64 view's selectors), and rejection of
+unconverted calls;
 `src/user/linux/abi/compat_tests.rs`: 32-bit layout and overflow checks;
 `src/isa/x86_64/user_gdt_tests.rs`: GDT selector/TLS behavior; `user_linux`
 `abi_tables`: numbering against `unistd_32.h`. `user_linux` `fixtures` runs an i386
