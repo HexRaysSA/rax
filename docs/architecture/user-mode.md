@@ -14,6 +14,7 @@ rax-user -> user::linux -> user::{image,mm,cpu} -> ISA core
 | Module | Responsibility |
 |---|---|
 | `user::image::elf` | ELF parsing and acceptance |
+| `user::image::macho` | Mach-O and fat-file parsing, slice grading, and XNU load planning |
 | `user::mm` | VMAs, page backing, faults, and code invalidation |
 | `user::cpu` | Unprivileged execution and architectural exits |
 | `user::linux` | Linux loading, ABI conversion, syscalls, scheduling, and signals |
