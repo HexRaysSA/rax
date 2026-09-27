@@ -313,7 +313,7 @@ fn listfds(ctx: &Ctx<'_>, a: &Args) -> SysResult {
 
 /// The emulated process's image name (`p_comm`, `p_name`): the last
 /// component of the path it was executed by.
-fn image_name(ctx: &Ctx<'_>) -> Vec<u8> {
+pub(crate) fn image_name(ctx: &Ctx<'_>) -> Vec<u8> {
     let path = ctx.proc.program.image.path.as_bytes();
     let name = path.rsplit(|&c| c == b'/').next().unwrap_or(path);
     name.to_vec()

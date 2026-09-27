@@ -354,3 +354,13 @@ fn mach_exc_arm64() {
 fn mach_exc_x86_64() {
     fixture("mach_exc", "x86_64", &[], &[]);
 }
+
+#[test]
+fn sysctl_arm64() {
+    fixture("sysctl", "arm64", &[], &[]);
+}
+
+#[test]
+fn sysctl_x86_64() {
+    fixture("sysctl", "x86_64", &[], &[]);
+}

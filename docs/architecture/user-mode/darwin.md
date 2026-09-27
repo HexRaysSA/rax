@@ -341,7 +341,27 @@ Apple-silicon Mac for arm64 (`CPU_SUBTYPE_ARM64E`, `PSTATE.SSBS` set for new
 threads; the implementation's pointer-authentication algorithm is the
 identity; data addresses ignore their top byte, instruction addresses do
 not, as XNU's `TCR_EL1` sets `TBI0` and `TBID0`, so a fault reports the
-tagged address and a branch to one faults), with 16 GiB of memory. Mach absolute time, uptime, and `kern.boottime` share one
+tagged address and a branch to one faults), with 16 GiB of memory.
+
+`sysctl` (`syscall::bsd::sysctl`, after `kern_newsysctl.c` and
+`kern_mib.c`): the `hw` and `machdep` subtrees describe the emulated
+machine (one CPU at one performance level, its caches and no L3 cache, its
+`hw.optional` features and capability bits, its memory and page size)
+under the OIDs, kinds, formats, and descriptions of the arm64 kernel the
+host runs (`docs/specifications/darwin/macos-27.2-26B5091g/`, turned into
+a table by `tools/darwin/gen_sysctl.py`); an x86-64 guest sees the Intel
+kernel's `hw` nodes (the arm64-only ones removed, the frequencies and x86
+capabilities present) and no `machdep` nodes yet. Each value is copied out
+as its kernel handler does it (an exact copy, or `sysctl_io_number`, which
+gives a 32-bit buffer a 64-bit value that fits); the platform's identity
+and configuration (model, target, brand string) are the host's on arm64.
+The other subtrees are the host's, answered with the guest's buffer, except
+the boot time, the stack top, the argument limit, the process name, and a
+few constants the emulation decides. The metadata nodes (`sysctl.name`,
+`.next`, `.name2oid`, `.oidfmt`, `.oiddescr`) cover both, `next` merging
+the two walks. Writes are refused (`EPERM`) once the node is found.
+
+Mach absolute time, uptime, and `kern.boottime` share one
 clock that starts with the emulator. Process identity (pid, credentials,
 audit token) is the host process's. A thread's assumed identity
 (`settid`, `settid_with_pid`: privileged, `EPERM` otherwise) is what
@@ -398,10 +418,12 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   descriptors of `sockets`, the attribute lists, clones, and access tables
   of `attrs`, the deferred-reclamation ring of `reclaim`
   (libmalloc's, and a ring of the fixture's own in a process libmalloc gives
-  none), and the identity tokens, requests, replies, levels, codes, and
+  none), the identity tokens, requests, replies, levels, codes, and
   fallen-through signals of `mach_exc` (the failure paths, protected
   behaviors, and guard exceptions, which Rosetta handles differently, on
-  arm64 only).
+  arm64 only), and the metadata, copy-out rules, lookups, and walks of
+  `sysctl` (the `machdep` subtree, which Rosetta shows as the arm64
+  kernel's, on arm64 only).
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit
@@ -414,7 +436,8 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
 Without a macOS host (or without Rosetta, for x86_64) the comparisons have
 no oracle and report themselves skipped. Library tests under
 `src/user/darwin/` cover the name space, message trailers, commpage and
-stack layout, slide info, sysctl nodes, the host-information flavors,
+stack layout, slide info, sysctl walks, values, and copy-out, the
+host-information flavors,
 exception-to-signal translation, exception requests and reply checks,
 signal actions, interval-timer
 arithmetic, the thread-state flavors, psynch sequence arithmetic and queue
