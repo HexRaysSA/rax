@@ -111,6 +111,11 @@ counts and process IDs); `MSGRCV`'s version 0 reads `struct compat_ipc_kludge`,
 `SEMTIMEDOP`'s timeout is a `struct old_timespec32`. Messages carry a 32-bit type
 (`struct compat_msgbuf`) and sign-extended sizes.
 
+POSIX message queues: `struct compat_mq_attr` (32-bit `long`s, sign-extended, which
+`mq_open` reads only when creating a queue), `mq_notify`'s `struct compat_sigevent`,
+and `mq_timedsend` and `mq_timedreceive` as the `*_time32` calls beside the
+`*_time64` ones.
+
 Threads: `clone` (in `sys_ia32_clone`'s argument order) and `clone3` take a `struct
 user_desc` for `CLONE_SETTLS`, filling the child's TLS entry (`set_new_tls`); the
 robust list a 32-bit call registers is a separate head of 12 bytes, released with

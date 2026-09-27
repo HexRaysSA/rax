@@ -14,6 +14,7 @@
 //! | this one | the task, its entry, TLS, and the first conversions |
 //! | [`descriptors`] | `compat_sys_ioctl`'s routing, `epoll_pwait2` |
 //! | [`files`] | opens, offsets, status, directories, locks, `execve` |
+//! | [`mqueue`] | `struct compat_mq_attr`, `struct compat_sigevent`, `*_time32` sends and receives |
 //! | [`process`] | 16-bit IDs, limits, usage, waits, `times`, `sysinfo`, CPU masks, old `uname`s, `nice`, `arch_prctl` |
 //! | [`sigcalls`] | the signal calls' 32-bit structures, `struct compat_siginfo`, restart by the low half |
 //! | [`signals`] | the i386 signal frames, `sigreturn`, `rt_sigreturn`, strict seccomp |
@@ -24,6 +25,7 @@
 
 mod descriptors;
 mod files;
+mod mqueue;
 mod process;
 mod sigcalls;
 mod signals;
@@ -308,7 +310,7 @@ fn compat_calls_convert_or_refuse() {
     put(&h, at + 0x3014, &100u32.to_le_bytes());
     assert_eq!(h.call(Sysno::Mmap, &[at + 0x3000]), -i64::from(EINVAL));
     // Calls without a 32-bit conversion yet.
-    for s in [Sysno::MqOpen, Sysno::IoSetup] {
+    for s in [Sysno::IoSetup, Sysno::IoSubmit] {
         assert_eq!(h.call(s, &[0, 0, 0, 0]), -i64::from(ENOSYS), "{s:?}");
     }
 }

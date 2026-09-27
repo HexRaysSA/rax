@@ -380,6 +380,13 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
             S::Msgrcv,
             [a[0], a[1], sext(a[2]) as u64, sext(a[3]) as u64, a[4], 0],
         ),
+        // POSIX message queues: struct compat_mq_attr and struct
+        // compat_sigevent are read where Ctx::compat is; mq_timedsend and
+        // mq_timedreceive are the *_time32 calls.
+        S::MqOpen | S::MqUnlink | S::MqNotify | S::MqGetsetattr => call_handler(c, s, a),
+        S::MqTimedsend | S::MqTimedreceive => time32(c, s, a),
+        S::MqTimedsendTime64 => call_handler(c, S::MqTimedsend, a),
+        S::MqTimedreceiveTime64 => call_handler(c, S::MqTimedreceive, a),
         // recvmmsg_time32 and recvmmsg_time64.
         S::Recvmmsg => time32(c, S::Recvmmsg, a),
         S::RecvmmsgTime64 => call_handler(c, S::Recvmmsg, a),

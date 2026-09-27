@@ -20,6 +20,13 @@
 //! `SIGEV_THREAD` notifications, which the kernel sends to a netlink
 //! socket, are refused with `ENOSYS` after their checks.
 //!
+//! A compatibility task's calls (`compat_sys_mq_open`,
+//! `compat_sys_mq_notify`, `compat_sys_mq_getsetattr`) read and write
+//! `struct compat_mq_attr` (32-bit `long`s, sign-extended) and `struct
+//! compat_sigevent`, and its `mq_open` reads the attributes only to create
+//! a queue; its `mq_timedsend` and `mq_timedreceive` take a `struct
+//! old_timespec32` ([`Ctx::time32`]).
+//!
 //! [`ipc::mqueue`]: super::super::ipc::mqueue
 
 use std::sync::Arc;
@@ -39,10 +46,10 @@ use super::super::wait::{Resume, Wait};
 use super::ready::{Polled, ev};
 use super::{Ctx, SysResult};
 
-/// `sizeof(struct mq_attr)`: four `long`s and four reserved.
+/// `sizeof(struct mq_attr)` and `sizeof(struct compat_mq_attr)`: four
+/// `long`s and four reserved.
 const MQ_ATTR: usize = 64;
-/// `sizeof(struct sigevent)`.
-const SIGEVENT: usize = 64;
+const COMPAT_MQ_ATTR: usize = 32;
 /// `SIGEV_THREAD`.
 const SIGEV_THREAD: i32 = 2;
 /// `NOTIFY_COOKIE_LEN`.
@@ -235,13 +242,49 @@ fn queue_name(c: &Ctx<'_>, addr: u64) -> Result<Vec<u8>, Errno> {
     Ok(name)
 }
 
-/// `mq_open`: the attributes' copy, the name, a descriptor
-/// (close-on-exec), the name's look-up, then `prepare_open`.
+/// A `struct mq_attr`'s `mq_flags`, `mq_maxmsg`, `mq_msgsize`, and
+/// `mq_curmsgs` (`get_compat_mq_attr` for a 32-bit call).
+fn read_attr(c: &Ctx<'_>, addr: u64) -> Result<[i64; 4], Errno> {
+    let mut v = [0i64; 4];
+    if c.compat {
+        let b = c.read_mem(addr, COMPAT_MQ_ATTR)?;
+        for (i, w) in v.iter_mut().enumerate() {
+            *w = i64::from(i32::from_le_bytes(b[i * 4..i * 4 + 4].try_into().unwrap()));
+        }
+    } else {
+        let b = c.read_mem(addr, MQ_ATTR)?;
+        for (i, w) in v.iter_mut().enumerate() {
+            *w = i64::from_le_bytes(b[i * 8..i * 8 + 8].try_into().unwrap());
+        }
+    }
+    Ok(v)
+}
+
+/// Writes a `struct mq_attr` (`put_compat_mq_attr` for a 32-bit call),
+/// the reserved words zeroed.
+fn write_attr(c: &Ctx<'_>, addr: u64, v: [u64; 4]) -> Result<(), Errno> {
+    if c.compat {
+        let mut b = [0u8; COMPAT_MQ_ATTR];
+        for (i, w) in v.iter().enumerate() {
+            b[i * 4..i * 4 + 4].copy_from_slice(&(*w as u32).to_le_bytes());
+        }
+        c.write_mem(addr, &b)
+    } else {
+        let mut b = [0u8; MQ_ATTR];
+        for (i, w) in v.iter().enumerate() {
+            b[i * 8..i * 8 + 8].copy_from_slice(&w.to_le_bytes());
+        }
+        c.write_mem(addr, &b)
+    }
+}
+
+/// `mq_open`: the attributes' copy (for a 32-bit call, only to create), the
+/// name, a descriptor (close-on-exec), the name's look-up, then
+/// `prepare_open`.
 pub fn mq_open(c: &mut Ctx<'_>, name: u64, oflag: i32, perm: u32, uattr: u64) -> SysResult {
-    let attr = if uattr != 0 {
-        let b = c.read_mem(uattr, MQ_ATTR)?;
-        let word = |i: usize| i64::from_le_bytes(b[i * 8..i * 8 + 8].try_into().unwrap());
-        Some((word(1), word(2)))
+    let attr = if uattr != 0 && (!c.compat || oflag as u32 & O_CREAT != 0) {
+        let v = read_attr(c, uattr)?;
+        Some((v[1], v[2]))
     } else {
         None
     };
@@ -281,9 +324,10 @@ pub fn mq_unlink(c: &mut Ctx<'_>, name: u64) -> SysResult {
     Ok(0)
 }
 
-/// `prepare_timeout`: an absolute `CLOCK_REALTIME` time, as an instant.
+/// `prepare_timeout` (`compat_prepare_timeout`): an absolute
+/// `CLOCK_REALTIME` time, as an instant.
 fn prepare_timeout(c: &Ctx<'_>, addr: u64) -> Result<Instant, Errno> {
-    let t = Timespec::decode(&c.read_mem(addr, 16)?.try_into().unwrap());
+    let t = c.get_timespec(addr)?;
     if t.sec < 0 || !(0..1_000_000_000).contains(&t.nsec) {
         return Err(Errno(EINVAL));
     }
@@ -551,10 +595,9 @@ pub fn mq_timedreceive(
 /// another process holds it.
 pub fn mq_notify(c: &mut Ctx<'_>, fd: i32, sev: u64) -> SysResult {
     let reg = if sev != 0 {
-        let b = c.read_mem(sev, SIGEVENT)?;
-        let value = u64::from_le_bytes(b[0..8].try_into().unwrap());
-        let signo = i32::from_le_bytes(b[8..12].try_into().unwrap());
-        let kind = i32::from_le_bytes(b[12..16].try_into().unwrap());
+        // A 32-bit call's struct compat_sigevent: sival_int, which a
+        // SIGEV_THREAD cookie's address is (compat_ptr).
+        let (value, signo, kind, _) = super::timer::read_sigevent(c, sev)?;
         if kind != mqueue::SIGEV_NONE && kind != mqueue::SIGEV_SIGNAL && kind != SIGEV_THREAD {
             return Err(Errno(EINVAL));
         }
@@ -614,8 +657,7 @@ pub fn mq_notify(c: &mut Ctx<'_>, fd: i32, sev: u64) -> SysResult {
 /// description's `O_NONBLOCK`) and the new flags.
 pub fn mq_getsetattr(c: &mut Ctx<'_>, fd: i32, new: u64, old: u64) -> SysResult {
     let flags = if new != 0 {
-        let b = c.read_mem(new, MQ_ATTR)?;
-        let flags = u64::from_le_bytes(b[0..8].try_into().unwrap());
+        let flags = read_attr(c, new)?[0] as u64;
         if flags & !u64::from(O_NONBLOCK) != 0 {
             return Err(Errno(EINVAL));
         }
@@ -637,19 +679,13 @@ pub fn mq_getsetattr(c: &mut Ctx<'_>, fd: i32, new: u64, old: u64) -> SysResult 
         st.flags = (st.flags & !O_NONBLOCK) | f;
     }
     if old != 0 {
-        let mut b = [0u8; MQ_ATTR];
-        for (i, v) in [
+        let v = [
             u64::from(was),
             q.maxmsg as u64,
             q.msgsize as u64,
             q.messages.len() as u64,
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            b[i * 8..i * 8 + 8].copy_from_slice(&v.to_le_bytes());
-        }
-        c.write_mem(old, &b)?;
+        ];
+        write_attr(c, old, v)?;
     }
     Ok(0)
 }

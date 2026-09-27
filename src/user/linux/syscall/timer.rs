@@ -117,7 +117,7 @@ fn clock_base(c: &Ctx<'_>, clock: i32) -> Result<Base, Errno> {
 /// 32-bit call a `struct compat_sigevent`, whose value is `sival_int`
 /// alone (`get_compat_sigevent`: the four fields of a structure that must
 /// lie in user space).
-fn read_sigevent(c: &Ctx<'_>, sevp: u64) -> Result<(u64, i32, i32, i32), Errno> {
+pub(super) fn read_sigevent(c: &Ctx<'_>, sevp: u64) -> Result<(u64, i32, i32, i32), Errno> {
     if c.compat {
         if !super::events::access_ok(c, sevp, SIGEVENT_SIZE as u64) {
             return Err(Errno(EFAULT));
