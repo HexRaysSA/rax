@@ -222,9 +222,12 @@ impl A32UserCpu {
         u64::from(self.cpu.regs[15])
     }
 
-    /// Sets the PC; bit 0 is cleared, the instruction set unchanged.
+    /// Sets the PC as the kernel's `regs->pc` holds it, the instruction set
+    /// unchanged: an odd Thumb entry or handler address stays odd (as
+    /// `compat_start_thread` and `compat_setup_return` leave it, and as a
+    /// tracer reads it) until [`run`](Self::run) returns to the thread.
     pub fn set_pc(&mut self, pc: u64) {
-        self.cpu.regs[15] = pc as u32 & !1;
+        self.cpu.regs[15] = pc as u32;
     }
 
     /// Current SP (R13).
@@ -245,6 +248,10 @@ impl A32UserCpu {
     /// Runs at most `budget` instructions, stopping at the first operating
     /// system event.
     pub fn run(&mut self, budget: u64) -> A32Exit {
+        // Returning to the thread is an exception return, which takes the
+        // PC's bit 0 (T32) or bits 1:0 (A32) as zero
+        // (AArch64.ExceptionReturn).
+        self.cpu.regs[15] &= if self.cpu.cpsr.t { !1 } else { !3 };
         // The system counter advances with host time, CNTFRQ ticks a
         // second (computed in 128 bits so neither factor overflows).
         let freq = u128::from(self.cpu.cp15.cntfrq);

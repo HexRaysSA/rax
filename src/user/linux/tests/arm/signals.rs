@@ -132,7 +132,9 @@ fn a_non_rt_frame_and_the_thumb_and_restorer_returns() {
     let sigpage = h.proc.state.sigtramp;
     let cpu = arm(&mut h);
     assert!(cpu.thumb());
-    assert_eq!((cpu.pc(), cpu.sp()), (THUMB_HANDLER - 1, frame));
+    // compat_setup_return's regs->pc = handler, bit 0 included, as a
+    // tracer reads it; the return to the thread clears it.
+    assert_eq!((cpu.pc(), cpu.sp()), (THUMB_HANDLER, frame));
     let core = cpu.core();
     assert_eq!(core.regs[..3], [SIGUSR1 as u32, 0x2222_2222, 0x3333_3333]);
     assert_eq!(u64::from(core.regs[14]), sigpage + 8 + 1);

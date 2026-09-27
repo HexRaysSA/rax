@@ -176,11 +176,12 @@ fn an_arm_program_starts_in_user_mode_with_the_compat_auxv() {
     assert_eq!(cstr(&h, u64::from(aux[&15])), "v8l", "AT_PLATFORM");
     // COMPAT_ARCH_DLINFO without a compat vDSO is empty.
     assert!(!aux.contains_key(&33) && !aux.contains_key(&51));
-    // A Thumb entry point (bit 0) starts in T32 state.
+    // A Thumb entry point (bit 0) starts in T32 state; the PC keeps bit 0
+    // until the thread runs (compat_start_thread's regs->pc = pc).
     let cpu = arm(&mut h);
     crate::user::linux::arch::arm::start(cpu, 0x40_1001, 0x1000_0000);
     assert!(cpu.thumb());
-    assert_eq!((cpu.pc(), cpu.sp()), (0x40_1000, 0x1000_0000));
+    assert_eq!((cpu.pc(), cpu.sp()), (0x40_1001, 0x1000_0000));
 }
 
 #[test]

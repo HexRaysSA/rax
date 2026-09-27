@@ -438,13 +438,14 @@ fn a32_memory_faults_are_precise_and_classified() {
         cpu.run(10),
         fault(CODE + PAGE_SIZE, MemoryAccessKind::Fetch, unmapped, last)
     );
-    // A32 execution at a PC that is not word-aligned.
-    let mut cpu = a32(&words(&[A32_SVC_0, A32_SVC_0]));
-    cpu.set_pc(CODE + 2);
+    // A32 execution at a PC that is not word-aligned, after a branch to
+    // one: add r0, pc, #2 ; bx r0 (to CODE + 10). A return to the thread
+    // aligns the PC instead (a32_pc_keeps_its_low_bits_until_the_thread_runs).
+    let mut cpu = a32(&words(&[0xe28f_0002, A32_BX_R0, A32_SVC_0, A32_SVC_0]));
     let align = AccessFaultKind::Alignment;
     assert_eq!(
         cpu.run(10),
-        fault(CODE + 2, MemoryAccessKind::Fetch, align, CODE + 2)
+        fault(CODE + 10, MemoryAccessKind::Fetch, align, CODE + 10)
     );
 }
 
@@ -575,6 +576,36 @@ fn a32_interworks_with_thumb_and_it_blocks() {
     assert!(cpu.thumb());
     assert_eq!((cpu.pc(), cpu.core().regs[2]), (CODE + 20, 1));
     assert!(!cpu.core().cpsr.in_it_block());
+}
+
+#[test]
+fn a32_pc_keeps_its_low_bits_until_the_thread_runs() {
+    // An odd Thumb PC (an entry or handler address, as the kernel's
+    // regs->pc holds it and a tracer reads it) runs from the even address:
+    // movs r1, #5 ; svc #0x12.
+    let mut cpu = a32(&halves(&[0x2105, 0xdf12]));
+    cpu.core_mut().cpsr.t = true;
+    cpu.set_pc(CODE | 1);
+    assert_eq!(cpu.pc(), CODE | 1);
+    assert_eq!(
+        cpu.run(10),
+        A32Exit::Svc {
+            imm: 0x12,
+            pc: CODE + 2
+        }
+    );
+    assert_eq!(cpu.core().regs[1], 5);
+    // In A32 state the return takes bits 1:0 as zero.
+    let mut cpu = a32(&words(&[A32_MOV_R7_1, A32_SVC_0]));
+    cpu.set_pc(CODE | 2);
+    assert_eq!(cpu.pc(), CODE | 2);
+    assert_eq!(
+        cpu.run(10),
+        A32Exit::Svc {
+            imm: 0,
+            pc: CODE + 4
+        }
+    );
 }
 
 #[test]
