@@ -118,6 +118,7 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
         }
         let flags = Flags {
             cloexec: slot.cloexec,
+            clofork: slot.clofork,
             shared: std::sync::Arc::strong_count(&slot.file) > 1,
         };
         (slot.file.clone(), flags)
@@ -169,21 +170,27 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
 struct Flags {
     /// Close-on-exec.
     cloexec: bool,
+    /// Close-on-fork.
+    clofork: bool,
     /// Its open file has another descriptor in the process.
     shared: bool,
 }
 
 /// The descriptor's `proc_fileinfo` (the first 24 bytes): close-on-exec
-/// is the guest slot's; the open file is shared when another guest
-/// descriptor names it or, as the host says, another process holds it.
+/// and close-on-fork are the guest slot's; the open file is shared when
+/// another guest descriptor names it or, as the host says, another process
+/// holds it.
 fn fileinfo(o: &mut Out, flags: Flags) {
     let status = u32::from_le_bytes(o.0[4..8].try_into().expect("4 bytes"));
-    let mut status = status & !PROC_FP_CLEXEC;
+    let mut status = status & !(PROC_FP_CLEXEC | PROC_FP_CLFORK);
     if flags.shared {
         status |= PROC_FP_SHARED;
     }
     if flags.cloexec {
         status |= PROC_FP_CLEXEC;
+    }
+    if flags.clofork {
+        status |= PROC_FP_CLFORK;
     }
     o.u32(4, status);
 }
@@ -221,14 +228,15 @@ fn kqueue(ctx: &Ctx<'_>, a: &Args, kq: u64, flags: Option<Flags>) -> SysResult {
         state |= KQ_WORKQ | KQ_KEV_QOS;
     }
     let mut o = Out::new(168);
-    // FREAD | FWRITE; kqueues are close-on-fork and, unless cleared,
-    // close-on-exec.
+    // FREAD | FWRITE; the work queue's kqueue (no descriptor) is
+    // close-on-fork and close-on-exec, as a kqueue descriptor starts.
     let cloexec = flags.is_none_or(|f| f.cloexec);
+    let clofork = flags.is_none_or(|f| f.clofork);
     let shared = flags.is_some_and(|f| f.shared);
     o.u32(0, 3)
         .u32(
             4,
-            PROC_FP_CLFORK
+            if clofork { PROC_FP_CLFORK } else { 0 }
                 | if cloexec { PROC_FP_CLEXEC } else { 0 }
                 | if shared { PROC_FP_SHARED } else { 0 },
         )

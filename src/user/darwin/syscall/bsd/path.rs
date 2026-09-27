@@ -14,7 +14,7 @@ use crate::user::darwin::abi::types::Stat;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::OpenFile;
 use crate::user::darwin::host::{self, AT_FDCWD, AT_SYMLINK_NOFOLLOW, check};
-use crate::user::darwin::io::O_CLOEXEC;
+use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK};
 #[cfg(not(target_os = "macos"))]
 use crate::user::darwin::io::{O_EXLOCK, O_SHLOCK};
 use crate::user::darwin::syscall::Ctx;
@@ -45,8 +45,6 @@ const O_DP_AUTHENTICATE: i32 = 0x4;
 const O_DP_READ_ONLY: i32 = 0x7;
 /// `AUTH_OPEN_NOAUTHFD`.
 const AUTH_OPEN_NOAUTHFD: i32 = -1;
-/// `O_EXEC`.
-const O_EXEC: u32 = 0x4000_0000;
 
 /// `open_dprotected_np(path, flags, class, dpflags, mode)` and
 /// `openat_dprotected_np(fd, path, flags, class, dpflags, mode, authfd)`
@@ -85,7 +83,7 @@ pub fn openat_dprotected(
         if (dpflags & O_DP_AUTHENTICATE != 0 && (authfd.is_none() || creat))
             || (dpflags & O_DP_READ_ONLY != 0 && accmode != 0)
             || accmode == 3
-            || (accmode != 0 && flags & O_EXEC != 0)
+            || (accmode != 0 && flags & crate::user::darwin::io::O_EXEC != 0)
         {
             return Err(Errno::EINVAL);
         }
@@ -163,12 +161,19 @@ fn open_by(
         check(unsafe { libc::flock(fd, op) })?;
     }
     let full = absolute(ctx, dirfd, &guest);
-    let file = Arc::new(OpenFile::host(owned, flags & !O_CLOEXEC, Some(full)));
+    let file = Arc::new(OpenFile::host(
+        owned,
+        flags & !(O_CLOEXEC | O_CLOFORK),
+        Some(full),
+    ));
     let limit = nofile(ctx);
-    let n = ctx
-        .proc
-        .fds
-        .install(file, flags & O_CLOEXEC != 0, 0, limit)?;
+    let n = ctx.proc.fds.install_with(
+        file,
+        flags & O_CLOEXEC != 0,
+        flags & O_CLOFORK != 0,
+        0,
+        limit,
+    )?;
     Ok(Rv::one(n as u64))
 }
 

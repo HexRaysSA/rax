@@ -67,7 +67,7 @@ pub struct Swap {
 pub fn execve(ctx: &mut Ctx<'_>, path: u64, argv: u64, envp: u64) -> SysResult {
     let act = image::activate(ctx, path, Dir::Cwd, &Binprefs::default())?;
     let strings = args::extract(ctx, &act.interp, &act.user_path, argv, envp)?;
-    let fds = without_kqueues(&ctx.proc.fds);
+    let fds = fdt_fork(&ctx.proc.fds, true);
     let carried = carry(ctx.proc, ctx.thread, fds, None);
     let built = build(ctx.proc, act, strings, carried);
     swap_or_kill(ctx, built, None, false)
@@ -129,16 +129,19 @@ fn build_errno(e: &SpawnError) -> Errno {
     }
 }
 
-/// The descriptor table without kqueues, which no new process or image
-/// inherits (`FG_CONFINED`).
-pub fn without_kqueues(fds: &FdTable) -> FdTable {
+/// `fdt_fork`: the descriptor table a new process (`in_exec` false: a
+/// fork, or a spawn's child) or image (`in_exec`: an exec, or a spawn that
+/// sets it) starts from. Kqueues are never inherited (`FG_CONFINED`);
+/// close-on-fork descriptors are not by a new process, whose descriptors
+/// keep only their close-on-exec flag.
+pub fn fdt_fork(fds: &FdTable, in_exec: bool) -> FdTable {
     let mut t = fds.clone();
-    let kqueues: Vec<i32> = t
+    let dropped: Vec<i32> = t
         .iter()
-        .filter(|(_, f)| matches!(f.file.kind, FileKind::Kqueue(_)))
+        .filter(|(_, f)| matches!(f.file.kind, FileKind::Kqueue(_)) || (f.clofork && !in_exec))
         .map(|(fd, _)| fd)
         .collect();
-    for fd in kqueues {
+    for fd in dropped {
         let _ = t.remove(fd);
     }
     t
@@ -289,5 +292,26 @@ mod tests {
         let keep: BTreeSet<i32> = [1, 3].into_iter().collect();
         fdt_exec(&mut t, Some(&keep));
         assert_eq!(t.iter().map(|(fd, _)| fd).collect::<Vec<_>>(), [3]);
+    }
+
+    #[test]
+    fn fdt_fork_drops_kqueues_and_close_on_fork_descriptors_from_new_processes() {
+        let mut t = FdTable::new();
+        for (cloexec, clofork) in [(false, false), (true, false), (false, true), (true, true)] {
+            t.install_with(devnull(), cloexec, clofork, 0, 256).unwrap();
+        }
+        let kqueue = std::sync::Arc::new(super::super::fd::OpenFile {
+            kind: FileKind::Kqueue(1),
+            path: None,
+            flags: std::sync::Mutex::new(2),
+        });
+        t.install(kqueue, false, 0, 256).unwrap();
+        let fds = |t: &FdTable| t.iter().map(|(fd, _)| fd).collect::<Vec<_>>();
+        // A fork (or a spawn's child) keeps neither; an exec keeps the
+        // close-on-fork ones, flags and all.
+        assert_eq!(fds(&fdt_fork(&t, false)), [0, 1]);
+        let exec = fdt_fork(&t, true);
+        assert_eq!(fds(&exec), [0, 1, 2, 3]);
+        assert!(exec.get(3).unwrap().clofork && exec.get(3).unwrap().cloexec);
     }
 }

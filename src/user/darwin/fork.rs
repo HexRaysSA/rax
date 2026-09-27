@@ -129,15 +129,9 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     // child either: their descriptors are closed, so they are not closed
     // again here.
     std::mem::forget(std::mem::take(&mut proc.kq));
-    let kqueues: Vec<i32> = proc
-        .fds
-        .iter()
-        .filter(|(_, f)| matches!(f.file.kind, super::fd::FileKind::Kqueue(_)))
-        .map(|(fd, _)| fd)
-        .collect();
-    for fd in kqueues {
-        let _ = proc.fds.remove(fd);
-    }
+    // Nor are close-on-fork descriptors; the child's copies of their host
+    // descriptors close.
+    proc.fds = super::exec::fdt_fork(&proc.fds, false);
 
     unmap_uninherited(proc);
 }
