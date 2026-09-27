@@ -12,6 +12,7 @@
 //! | Module | Contents |
 //! |---|---|
 //! | this one | the task, its entry, TLS, and the first conversions |
+//! | [`aio`] | 32-bit contexts and iocb pointers, `io_getevents_time32`, `struct __compat_aio_sigset` |
 //! | [`descriptors`] | `compat_sys_ioctl`'s routing, `epoll_pwait2` |
 //! | [`files`] | opens, offsets, status, directories, locks, `execve` |
 //! | [`mqueue`] | `struct compat_mq_attr`, `struct compat_sigevent`, `*_time32` sends and receives |
@@ -23,6 +24,7 @@
 //! | [`threads`] | `CLONE_SETTLS` descriptors, the 32-bit robust list, `futex_time32` |
 //! | [`time`] | clocks, sleeps, time setting, interval and POSIX timers, timerfds, file times |
 
+mod aio;
 mod descriptors;
 mod files;
 mod mqueue;
@@ -310,7 +312,7 @@ fn compat_calls_convert_or_refuse() {
     put(&h, at + 0x3014, &100u32.to_le_bytes());
     assert_eq!(h.call(Sysno::Mmap, &[at + 0x3000]), -i64::from(EINVAL));
     // Calls without a 32-bit conversion yet.
-    for s in [Sysno::IoSetup, Sysno::IoSubmit] {
+    for s in [Sysno::Ptrace, Sysno::KexecLoad] {
         assert_eq!(h.call(s, &[0, 0, 0, 0]), -i64::from(ENOSYS), "{s:?}");
     }
 }

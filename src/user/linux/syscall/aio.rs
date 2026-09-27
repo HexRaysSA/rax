@@ -123,9 +123,14 @@ fn geometry(max_reqs: u32) -> Result<(u32, u64), Errno> {
 
 /// `io_setup`: `*ctxp` must be 0 and `nr_events` not; the ring is mapped
 /// shared (`/[aio]`), the context counted against `aio-max-nr`, and its
-/// identifier stored (a failure there destroys it: `EFAULT`).
+/// identifier stored (a failure there destroys it: `EFAULT`). A 32-bit
+/// call's context is a `u32` (`compat_sys_io_setup`).
 pub fn io_setup(c: &mut Ctx<'_>, nr_events: u32, ctxp: u64) -> SysResult {
-    let old = c.read_u64(ctxp)?;
+    let old = if c.compat {
+        u64::from(c.read_u32(ctxp)?)
+    } else {
+        c.read_u64(ctxp)?
+    };
     if old != 0 || nr_events == 0 {
         return Err(Errno(EINVAL));
     }
@@ -162,7 +167,12 @@ pub fn io_setup(c: &mut Ctx<'_>, nr_events: u32, ctxp: u64) -> SysResult {
         c.p.aio
             .insert(Context::new(at, index, object, size, slots, nr_events));
     c.p.aio.aio_nr += u64::from(nr_events);
-    if c.write_u64(ctxp, at).is_err() {
+    let stored = if c.compat {
+        c.write_u32(ctxp, at as u32)
+    } else {
+        c.write_u64(ctxp, at)
+    };
+    if stored.is_err() {
         kill(c, h);
         return Err(Errno(EFAULT));
     }
@@ -282,7 +292,13 @@ pub fn io_submit(c: &mut Ctx<'_>, id: u64, nr: i64, iocbpp: u64) -> SysResult {
     };
     let nr = (nr as u64).min(u64::from(context(c, h).nr_events));
     for i in start..nr {
-        let Ok(ptr) = c.read_u64(iocbpp + 8 * i) else {
+        // compat_sys_io_submit: an array of compat_uptr_t.
+        let ptr = if c.compat {
+            c.read_u32(iocbpp + 4 * i).map(u64::from)
+        } else {
+            c.read_u64(iocbpp + 8 * i)
+        };
+        let Ok(ptr) = ptr else {
             return if i > 0 { Ok(i) } else { Err(Errno(EFAULT)) };
         };
         c.resume = inner.take();
@@ -714,15 +730,14 @@ fn getevents(
     ))
 }
 
-/// Reads a `struct __kernel_timespec` (`EFAULT`); `None` for no pointer.
+/// Reads a `struct __kernel_timespec`, or for a `*_time32` call a `struct
+/// old_timespec32` (`EFAULT`); `None` for no pointer.
 fn read_timeout(c: &Ctx<'_>, at: u64) -> Result<Option<(i64, i64)>, Errno> {
     if at == 0 {
         return Ok(None);
     }
-    let b = c.read_mem(at, 16)?;
-    let sec = i64::from_le_bytes(b[..8].try_into().unwrap());
-    let nsec = i64::from_le_bytes(b[8..].try_into().unwrap());
-    Ok(Some((sec, nsec)))
+    let t = c.get_timespec(at)?;
+    Ok(Some((t.sec, t.nsec)))
 }
 
 /// `io_getevents`: 0 events and a pending signal is `-EINTR`.
@@ -748,9 +763,10 @@ pub fn io_getevents(
 }
 
 /// `io_pgetevents`: the timeout (`EFAULT`), the `struct __aio_sigset`
-/// (`EFAULT`) and its mask (`set_user_sigmask`), then the wait; 0 events
-/// and a pending signal is `-ERESTARTNOHAND`, with the caller's mask
-/// restored after the handler runs.
+/// (`EFAULT`; a 32-bit call's `struct __compat_aio_sigset` of two words)
+/// and its mask (`set_user_sigmask`), then the wait; 0 events and a
+/// pending signal is `-ERESTARTNOHAND`, with the caller's mask restored
+/// after the handler runs.
 pub fn io_pgetevents(
     c: &mut Ctx<'_>,
     id: u64,
@@ -766,9 +782,17 @@ pub fn io_pgetevents(
     } else {
         let ts = read_timeout(c, timeout)?;
         if usig != 0 {
-            let b = c.read_mem(usig, 16)?;
-            let mask = u64::from_le_bytes(b[..8].try_into().unwrap());
-            let size = u64::from_le_bytes(b[8..].try_into().unwrap());
+            let (mask, size) = if c.compat {
+                let b = c.read_mem(usig, 8)?;
+                let w = |i: usize| u64::from(u32::from_le_bytes(b[i..i + 4].try_into().unwrap()));
+                (w(0), w(4))
+            } else {
+                let b = c.read_mem(usig, 16)?;
+                (
+                    u64::from_le_bytes(b[..8].try_into().unwrap()),
+                    u64::from_le_bytes(b[8..].try_into().unwrap()),
+                )
+            };
             if mask != 0 {
                 super::io::set_user_sigmask(c, mask, size)?;
             }

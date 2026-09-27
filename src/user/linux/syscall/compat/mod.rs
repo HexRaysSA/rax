@@ -387,6 +387,17 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::MqTimedsend | S::MqTimedreceive => time32(c, s, a),
         S::MqTimedsendTime64 => call_handler(c, S::MqTimedsend, a),
         S::MqTimedreceiveTime64 => call_handler(c, S::MqTimedreceive, a),
+        // Asynchronous I/O: a 32-bit context and iocb pointers
+        // (compat_sys_io_setup, compat_sys_io_submit's int count), the
+        // *_time32 io_getevents with __s32 counts, and io_pgetevents with
+        // struct __compat_aio_sigset and compat_long_t counts.
+        S::IoSetup | S::IoDestroy | S::IoCancel => call_handler(c, s, a),
+        S::IoSubmit => call_handler(c, s, [a[0], sext(a[1]) as u64, a[2], 0, 0, 0]),
+        S::IoGetevents | S::IoPgetevents => {
+            c.time32 = true;
+            call_handler(c, s, aio_counts(a))
+        }
+        S::IoPgeteventsTime64 => call_handler(c, S::IoPgetevents, aio_counts(a)),
         // recvmmsg_time32 and recvmmsg_time64.
         S::Recvmmsg => time32(c, S::Recvmmsg, a),
         S::RecvmmsgTime64 => call_handler(c, S::Recvmmsg, a),
@@ -558,6 +569,11 @@ fn ioctl(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
 }
 
 /// A `*_time32` call: the native one with the 32-bit time layouts.
+/// The `io_getevents` family's `min_nr` and `nr`, 32-bit and sign-extended.
+fn aio_counts(a: [u64; 6]) -> [u64; 6] {
+    [a[0], sext(a[1]) as u64, sext(a[2]) as u64, a[3], a[4], a[5]]
+}
+
 fn time32(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno> {
     c.time32 = true;
     call_handler(c, s, a)

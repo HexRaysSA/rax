@@ -116,6 +116,12 @@ POSIX message queues: `struct compat_mq_attr` (32-bit `long`s, sign-extended, wh
 and `mq_timedsend` and `mq_timedreceive` as the `*_time32` calls beside the
 `*_time64` ones.
 
+Asynchronous I/O: `io_setup` reads and stores a 32-bit context, `io_submit` takes an
+array of 32-bit iocb pointers and an `int` count (a vectored request's vectors are
+`struct compat_iovec`s), `io_getevents` is `io_getevents_time32` with `__s32` counts,
+and `io_pgetevents` reads `struct __compat_aio_sigset` with `compat_long_t` counts
+and either timeout layout.
+
 Threads: `clone` (in `sys_ia32_clone`'s argument order) and `clone3` take a `struct
 user_desc` for `CLONE_SETTLS`, filling the child's TLS entry (`set_new_tls`); the
 robust list a 32-bit call registers is a separate head of 12 bytes, released with
