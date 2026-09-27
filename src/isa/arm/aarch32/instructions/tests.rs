@@ -244,6 +244,122 @@ fn test_user_mode_mrc_cp15_is_undefined_and_does_not_expose_state() {
     assert_eq!(cpu.regs[1], 0xdead_beef);
 }
 
+/// PL0's CP15 transfers: the thread ID registers (TPIDRURO read-only)
+/// and, when SCTLR.CP15BEN is set, the barriers; never the MCR2/MRC2
+/// forms, nor another coprocessor.
+#[test]
+fn pl0_cp15_reaches_only_the_thread_ids_and_enabled_barriers() {
+    let mut cpu = make_cpu();
+    let mut mem = make_mem();
+    cpu.cpsr.mode = ProcessorMode::User as u8;
+    cpu.cp15.tpidruro = 0x1111_2222;
+    cpu.regs[0] = 0x3333_4444;
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    let mut run = |mnemonic, raw| exec.execute(&make_insn(mnemonic, raw, false));
+    // MCR TPIDRURW, MRC it back; MRC TPIDRURO; MCR TPIDRURO is UNDEFINED.
+    assert!(matches!(
+        run(Mnemonic::MCR, cp15_transfer_raw(0, 13, 0, 0, 2)),
+        ExecResult::Continue
+    ));
+    assert!(matches!(
+        run(Mnemonic::MRC, cp15_transfer_raw(1, 13, 0, 0, 2)),
+        ExecResult::Continue
+    ));
+    assert!(matches!(
+        run(Mnemonic::MRC, cp15_transfer_raw(2, 13, 0, 0, 3)),
+        ExecResult::Continue
+    ));
+    assert!(matches!(
+        run(Mnemonic::MCR, cp15_transfer_raw(0, 13, 0, 0, 3)),
+        ExecResult::Undefined
+    ));
+    // TPIDRPRW, another opc1, and MRC2 are UNDEFINED.
+    for (mnemonic, raw) in [
+        (Mnemonic::MRC, cp15_transfer_raw(3, 13, 0, 0, 4)),
+        (Mnemonic::MRC, cp15_transfer_raw(3, 13, 1, 0, 3)),
+        (
+            Mnemonic::MRC,
+            0xF000_0000 | cp15_transfer_raw(3, 13, 0, 0, 3),
+        ),
+    ] {
+        assert!(
+            matches!(run(mnemonic, raw), ExecResult::Undefined),
+            "{raw:#010x}"
+        );
+    }
+    // DMB, DSB, and ISB with SCTLR.CP15BEN clear.
+    let barriers = [
+        cp15_transfer_raw(0, 7, 0, 10, 5),
+        cp15_transfer_raw(0, 7, 0, 10, 4),
+        cp15_transfer_raw(0, 7, 0, 5, 4),
+    ];
+    for raw in barriers {
+        assert!(
+            matches!(run(Mnemonic::MCR, raw), ExecResult::Undefined),
+            "{raw:#010x}"
+        );
+    }
+    // Another coprocessor's transfer.
+    let cp14 = (cp15_transfer_raw(3, 0, 0, 1, 0) & !(0xF << 8)) | (14 << 8);
+    assert!(matches!(run(Mnemonic::MRC, cp14), ExecResult::Undefined));
+    assert_eq!(cpu.cp15.tpidrurw, 0x3333_4444);
+    assert_eq!(cpu.cp15.tpidruro, 0x1111_2222);
+    assert_eq!(cpu.regs[1..4], [0x3333_4444, 0x1111_2222, 0]);
+
+    // With SCTLR.CP15BEN set, the barriers execute.
+    cpu.cp15.sctlr = crate::isa::arm::aarch32::cp15::Sctlr::from_bits(1 << 5);
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    for raw in barriers {
+        let result = exec.execute(&make_insn(Mnemonic::MCR, raw, false));
+        assert!(matches!(result, ExecResult::Continue), "{raw:#010x}");
+    }
+}
+
+/// VMRS and VMSR reach only FPSCR at PL0; FPSID, MVFR0-2, and FPEXC need
+/// PL1.
+#[test]
+fn pl0_vmrs_and_vmsr_reach_only_fpscr() {
+    let vmrs = |reg: u32, rt: u32| 0x0EF0_0A10 | (reg << 16) | (rt << 12);
+    let vmsr = |reg: u32, rt: u32| 0x0EE0_0A10 | (reg << 16) | (rt << 12);
+    let mut cpu = make_cpu();
+    let mut mem = make_mem();
+    cpu.cpsr.mode = ProcessorMode::User as u8;
+    cpu.vfp.fpexc = 0x4000_0000;
+    cpu.regs[0] = 0x0300_0000;
+    cpu.regs[5] = 0x5555_5555;
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    let mut run = |mnemonic, raw| exec.execute(&make_insn(mnemonic, raw, false));
+    assert!(matches!(
+        run(Mnemonic::VMSR, vmsr(1, 0)),
+        ExecResult::Continue
+    ));
+    assert!(matches!(
+        run(Mnemonic::VMRS, vmrs(1, 1)),
+        ExecResult::Continue
+    ));
+    for reg in [0, 5, 6, 7, 8] {
+        assert!(
+            matches!(run(Mnemonic::VMRS, vmrs(reg, 5)), ExecResult::Undefined),
+            "{reg}"
+        );
+        assert!(
+            matches!(run(Mnemonic::VMSR, vmsr(reg, 5)), ExecResult::Undefined),
+            "{reg}"
+        );
+    }
+    assert_eq!(cpu.regs[1], 0x0300_0000);
+    assert_eq!((cpu.regs[5], cpu.vfp.fpexc), (0x5555_5555, 0x4000_0000));
+
+    // PL1 still reads FPEXC and MVFR0.
+    cpu.cpsr.mode = ProcessorMode::Supervisor as u8;
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    assert!(matches!(
+        exec.execute(&make_insn(Mnemonic::VMRS, vmrs(8, 5), false)),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.regs[5], 0x4000_0000);
+}
+
 #[test]
 fn test_privileged_mcr_mrc_cp15_still_access_state() {
     let mut cpu = make_cpu();

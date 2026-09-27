@@ -616,6 +616,11 @@ impl Sctlr {
         }
     }
 
+    /// CP15BEN bit: CP15 barrier operations enabled at PL0.
+    pub fn cp15ben(&self) -> bool {
+        (self.bits & (1 << 5)) != 0
+    }
+
     /// B bit: Big-endian mode (deprecated in ARMv7).
     pub fn b(&self) -> bool {
         (self.bits & (1 << 7)) != 0

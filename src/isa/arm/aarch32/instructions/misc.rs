@@ -714,7 +714,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let reg = ((insn.raw >> 16) & 0xF) as u8;
 
         if cp == 10 && opc1 == 0b111 {
-            if t == 15 {
+            if t == 15 || (reg != 1 && !self.cpu.is_privileged()) {
                 return ExecResult::Undefined;
             }
             let value = self.reg(t);
@@ -737,11 +737,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
 
         if cp == 15 {
-            if !self.cpu.is_privileged() {
-                return ExecResult::Undefined;
-            }
             let crm = (insn.raw & 0xF) as u8;
             let opc2 = ((insn.raw >> 5) & 0x7) as u8;
+            if !self.cpu.is_privileged() && !self.pl0_cp15(insn, false, reg, opc1, crm, opc2) {
+                return ExecResult::Undefined;
+            }
             let value = self.reg(t);
             // WFI (MCR p15, 0, Rt, c7, c0, 4): ARMv6 wait-for-interrupt.
             if opc1 == 0 && reg == 7 && crm == 0 && opc2 == 4 {
@@ -755,6 +755,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Continue;
         }
 
+        if !self.cpu.is_privileged() {
+            return ExecResult::Undefined;
+        }
         // For now, just consume the value (would write to coprocessor)
         let _value = self.reg(t);
 
@@ -769,6 +772,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
         if cp == 10 && opc1 == 0b111 {
             if t == 15 && reg != 1 {
+                return ExecResult::Undefined;
+            }
+            // Only FPSCR is accessible at PL0 (VMRS: "Non-FPSCR registers
+            // accessible only at PL1 or above").
+            if reg != 1 && !self.cpu.is_privileged() {
                 return ExecResult::Undefined;
             }
             let value = match reg {
@@ -797,11 +805,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
 
         if cp == 15 {
-            if !self.cpu.is_privileged() {
-                return ExecResult::Undefined;
-            }
             let crm = (insn.raw & 0xF) as u8;
             let opc2 = ((insn.raw >> 5) & 0x7) as u8;
+            if !self.cpu.is_privileged() && !self.pl0_cp15(insn, true, reg, opc1, crm, opc2) {
+                return ExecResult::Undefined;
+            }
             let enc = crate::isa::arm::common::sysreg::Cp15Encoding::new(reg, opc1, crm, opc2);
             let value = self.cpu.cp15.read(enc).unwrap_or(0);
             if t != 15 {
@@ -816,12 +824,39 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Continue;
         }
 
+        if !self.cpu.is_privileged() {
+            return ExecResult::Undefined;
+        }
         // For now, return 0 (would read from coprocessor)
         if t != 15 {
             self.cpu.regs[t] = 0;
         }
 
         ExecResult::Continue
+    }
+
+    /// Whether PL0 may make a CP15 transfer: reading TPIDRURW and
+    /// TPIDRURO, writing TPIDRURW, and the CP15DMB/CP15DSB/CP15ISB
+    /// barriers when SCTLR.CP15BEN is set. The MCR2/MRC2 forms (bits
+    /// 31:28 = 0b1111 in both A32 and T32) are none of them.
+    fn pl0_cp15(
+        &self,
+        insn: &DecodedInsn,
+        read: bool,
+        crn: u8,
+        opc1: u8,
+        crm: u8,
+        opc2: u8,
+    ) -> bool {
+        if insn.raw >> 28 == 0xF || opc1 != 0 {
+            return false;
+        }
+        match (crn, crm, opc2) {
+            (13, 0, 2) => true,
+            (13, 0, 3) => read,
+            (7, 10, 4) | (7, 10, 5) | (7, 5, 4) => !read && self.cpu.cp15.sctlr.cp15ben(),
+            _ => false,
+        }
     }
 
     pub(crate) fn vrint_rounding(&self, mnemonic: Mnemonic) -> Option<(RoundingMode, bool)> {
