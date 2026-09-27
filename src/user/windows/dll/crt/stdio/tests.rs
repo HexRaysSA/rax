@@ -13,9 +13,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-struct File(PathBuf);
+pub(super) struct File(pub(super) PathBuf);
 impl File {
-    fn new(c: &mut Ctx, contents: &[u8]) -> (Self, u64) {
+    pub(super) fn new(c: &mut Ctx, contents: &[u8]) -> (Self, u64) {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let (path, mut host) = loop {
             let path = std::env::temp_dir().join(format!(
@@ -52,7 +52,7 @@ impl File {
         })));
         (Self(path), handle)
     }
-    fn bytes(&self) -> Vec<u8> {
+    pub(super) fn bytes(&self) -> Vec<u8> {
         std::fs::read(&self.0).unwrap()
     }
 }
@@ -62,7 +62,13 @@ impl Drop for File {
     }
 }
 
-fn attach(c: &mut Ctx, kind: RuntimeKind, handle: u64, flags: u64, mode: &[u8]) -> (i32, u64) {
+pub(super) fn attach(
+    c: &mut Ctx,
+    kind: RuntimeKind,
+    handle: u64,
+    flags: u64,
+    mode: &[u8],
+) -> (i32, u64) {
     let fd = int(invoke(c, kind, "_open_osfhandle", &[handle, flags])) as i32;
     assert!(fd >= 3);
     let at = area(c);
@@ -72,7 +78,7 @@ fn attach(c: &mut Ctx, kind: RuntimeKind, handle: u64, flags: u64, mode: &[u8]) 
     (fd, file)
 }
 
-fn clobber_formals(c: &mut Ctx, count: usize) {
+pub(super) fn clobber_formals(c: &mut Ctx, count: usize) {
     for index in 0..count {
         match c.arch() {
             WinArch::X86 => c.mem().w32(c.entry_sp + 4 + index as u64 * 4, 0).unwrap(),
@@ -83,7 +89,7 @@ fn clobber_formals(c: &mut Ctx, count: usize) {
     }
 }
 
-fn retry(
+pub(super) fn retry(
     result: ApiResult,
 ) -> (
     crate::user::windows::memory::MemFault,

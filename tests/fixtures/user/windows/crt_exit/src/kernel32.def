@@ -1,0 +1,12 @@
+LIBRARY kernel32.dll
+EXPORTS
+ExitProcess
+TerminateProcess
+GetStdHandle
+WriteFile
+CreateFileW
+GetFileSizeEx
+GetCommandLineW
+LoadLibraryW
+GetProcAddress
+RaiseException

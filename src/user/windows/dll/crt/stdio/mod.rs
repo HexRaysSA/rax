@@ -8,13 +8,15 @@ mod io;
 mod storage;
 
 #[cfg(test)]
+mod detach_tests;
+#[cfg(test)]
 mod tests;
 
 pub(crate) use exports::{MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_STDIO_EXPORTS};
 pub(super) use storage::StdioState;
 pub(crate) use storage::{PreparedStdio, prepare};
 
-use crate::user::windows::hle::{ApiErr, Ctx};
+use crate::user::windows::hle::{ApiErr, ApiResult, Cont, Ctx};
 use crate::user::windows::process::Proc;
 
 use super::RuntimeKind;
@@ -32,9 +34,16 @@ fn state(c: &Ctx, kind: RuntimeKind) -> Result<StdioState, ApiErr> {
         .ok_or_else(|| ApiErr::Internal("CRT stream storage is not initialized".into()))
 }
 
-/// Process teardown does not perform invented CRT normal-exit flushing. That
-/// belongs to the actual CRT termination exports, not TerminateProcess or raw
-/// ExitProcess. Discard only host-owned resources, without guest writes.
+/// Selected dynamic-retail UCRT PROCESS_DETACH performs SDK `_flushall`
+/// semantics. This is a loader continuation, not a new guest export. Forced
+/// termination bypasses the loader notifications and never calls this hook.
+pub(crate) fn ucrt_process_detach(c: &mut Ctx, then: Cont) -> ApiResult {
+    io::ucrt_process_detach(c, then)
+}
+
+/// Final resource discard is host-only: no flush, guest writes, or callbacks.
+/// Normal dynamic UCRT flushing belongs to its earlier loader notification;
+/// forced termination proceeds directly to resource discard.
 pub(crate) fn discard_process(p: &mut Proc) -> Result<(), String> {
     let mut failure = None;
     for kind in [RuntimeKind::Msvcrt, RuntimeKind::Ucrt] {

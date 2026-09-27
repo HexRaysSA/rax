@@ -1,0 +1,3063 @@
+{
+  "schema": 1,
+  "source_baseline": "02f28dbb4b6cc51e394987b7784ca34de965e2f5",
+  "purpose": "Custom-entry retail dynamic UCRT termination, software signal and guest SEH crossing witnesses; no ordinary CRT startup",
+  "native_windows_oracle": "unknown; no recorded native execution",
+  "slices": [
+    1,
+    4096
+  ],
+  "physical_pe_count": 12,
+  "semantic_case_count": 126,
+  "required_execution_count": 252,
+  "primary_sources_path": "../../../../../docs/specifications/windows/crt-exit/sources.json",
+  "primary_sources_sha256": "d23cc52016aafb016c284050b0fc66ac0b16ef50089670fc345c501fe4d22d31",
+  "tools": [
+    {
+      "name": "clang",
+      "path": "/Users/int/local/bin/clang",
+      "sha256": "6acca6b9583c9270f8606d026bab0015a4f82affd5610606f97fef6e606bde00",
+      "version": "clang version 23.0.0git (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Users/int/local/bin"
+    },
+    {
+      "name": "linker",
+      "path": "/Users/int/local/bin/lld-link",
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd",
+      "version": "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d)"
+    },
+    {
+      "name": "dlltool",
+      "path": "/Users/int/local/bin/llvm-dlltool",
+      "sha256": "36566071f789a6f966ba69b05b38570f840f4d15269b76407fed7bce5711e03d",
+      "version": "No version flag; executable hash pins identity"
+    },
+    {
+      "name": "readobj",
+      "path": "/Users/int/local/bin/llvm-readobj",
+      "sha256": "903feaa9324fcedcfb80afd2e8da6248bed8e9fb3222c8476fdfb59519ec95d1",
+      "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build."
+    }
+  ],
+  "producers": [
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "target": "i686-pc-windows-msvc",
+      "machine": "x86",
+      "compile_flags": [
+        "--target=i686-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-funwind-tables",
+        "-fasynchronous-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "compile_inputs": [
+        "src/graph.c",
+        "src/scopes.S",
+        "src/companion.c"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32-x86.def",
+        "src/runtime.def",
+        "src/stdio.def"
+      ],
+      "compiler_command_recipe": [
+        "clang",
+        "--target=i686-pc-windows-msvc",
+        "compile_flags...",
+        "-c",
+        "FIXTURE_ROOT/compile_input",
+        "-o",
+        "TEMPORARY/input.obj"
+      ],
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "--coff-exports",
+        "--unwind",
+        "-"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "runtime_dll": "ucrtbase.dll",
+      "stdio_dll": "ucrtbase.dll",
+      "guest_scope_metadata": "FS:[0] explicit registration; SafeSEH checking disabled in fixture image"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "target": "i686-pc-windows-msvc",
+      "machine": "x86",
+      "compile_flags": [
+        "--target=i686-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-funwind-tables",
+        "-fasynchronous-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "compile_inputs": [
+        "src/graph.c",
+        "src/scopes.S",
+        "src/companion.c"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32-x86.def",
+        "src/runtime.def",
+        "src/stdio.def"
+      ],
+      "compiler_command_recipe": [
+        "clang",
+        "--target=i686-pc-windows-msvc",
+        "compile_flags...",
+        "-c",
+        "FIXTURE_ROOT/compile_input",
+        "-o",
+        "TEMPORARY/input.obj"
+      ],
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "--coff-exports",
+        "--unwind",
+        "-"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "runtime_dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+      "stdio_dll": "api-ms-win-crt-stdio-l1-1-0.dll",
+      "guest_scope_metadata": "FS:[0] explicit registration; SafeSEH checking disabled in fixture image"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "target": "x86_64-pc-windows-msvc",
+      "machine": "x64",
+      "compile_flags": [
+        "--target=x86_64-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-funwind-tables",
+        "-fasynchronous-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "compile_inputs": [
+        "src/graph.c",
+        "src/scopes.S",
+        "src/companion.c"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32.def",
+        "src/runtime.def",
+        "src/stdio.def"
+      ],
+      "compiler_command_recipe": [
+        "clang",
+        "--target=x86_64-pc-windows-msvc",
+        "compile_flags...",
+        "-c",
+        "FIXTURE_ROOT/compile_input",
+        "-o",
+        "TEMPORARY/input.obj"
+      ],
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "--coff-exports",
+        "--unwind",
+        "-"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "runtime_dll": "ucrtbase.dll",
+      "stdio_dll": "ucrtbase.dll",
+      "guest_scope_metadata": "LLVM .seh_handler except metadata; no __C_specific_handler"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "target": "x86_64-pc-windows-msvc",
+      "machine": "x64",
+      "compile_flags": [
+        "--target=x86_64-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-funwind-tables",
+        "-fasynchronous-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "compile_inputs": [
+        "src/graph.c",
+        "src/scopes.S",
+        "src/companion.c"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32.def",
+        "src/runtime.def",
+        "src/stdio.def"
+      ],
+      "compiler_command_recipe": [
+        "clang",
+        "--target=x86_64-pc-windows-msvc",
+        "compile_flags...",
+        "-c",
+        "FIXTURE_ROOT/compile_input",
+        "-o",
+        "TEMPORARY/input.obj"
+      ],
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "--coff-exports",
+        "--unwind",
+        "-"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "runtime_dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+      "stdio_dll": "api-ms-win-crt-stdio-l1-1-0.dll",
+      "guest_scope_metadata": "LLVM .seh_handler except metadata; no __C_specific_handler"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "target": "aarch64-pc-windows-msvc",
+      "machine": "arm64",
+      "compile_flags": [
+        "--target=aarch64-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-funwind-tables",
+        "-fasynchronous-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository",
+        "-mgeneral-regs-only",
+        "-ffixed-x18"
+      ],
+      "compile_inputs": [
+        "src/graph.c",
+        "src/scopes.S",
+        "src/companion.c"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32.def",
+        "src/runtime.def",
+        "src/stdio.def"
+      ],
+      "compiler_command_recipe": [
+        "clang",
+        "--target=aarch64-pc-windows-msvc",
+        "compile_flags...",
+        "-c",
+        "FIXTURE_ROOT/compile_input",
+        "-o",
+        "TEMPORARY/input.obj"
+      ],
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "--coff-exports",
+        "--unwind",
+        "-"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "runtime_dll": "ucrtbase.dll",
+      "stdio_dll": "ucrtbase.dll",
+      "guest_scope_metadata": "LLVM .seh_handler except metadata; no __C_specific_handler"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "target": "aarch64-pc-windows-msvc",
+      "machine": "arm64",
+      "compile_flags": [
+        "--target=aarch64-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-funwind-tables",
+        "-fasynchronous-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository",
+        "-mgeneral-regs-only",
+        "-ffixed-x18"
+      ],
+      "compile_inputs": [
+        "src/graph.c",
+        "src/scopes.S",
+        "src/companion.c"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32.def",
+        "src/runtime.def",
+        "src/stdio.def"
+      ],
+      "compiler_command_recipe": [
+        "clang",
+        "--target=aarch64-pc-windows-msvc",
+        "compile_flags...",
+        "-c",
+        "FIXTURE_ROOT/compile_input",
+        "-o",
+        "TEMPORARY/input.obj"
+      ],
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "--coff-exports",
+        "--unwind",
+        "-"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "runtime_dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+      "stdio_dll": "api-ms-win-crt-stdio-l1-1-0.dll",
+      "guest_scope_metadata": "LLVM .seh_handler except metadata; no __C_specific_handler"
+    }
+  ],
+  "sources": [
+    {
+      "path": "build.rb",
+      "sha256": "4ccb28d70a6bd895419f47f8c8104dee956e3367b575fbd2b312391af2811e7c",
+      "bytes": 9686
+    },
+    {
+      "path": "baseline.rb",
+      "sha256": "2a835286574e747569e4c8233aa42cdb52365f0b8afe02e9d2967412856a5474",
+      "bytes": 5095
+    },
+    {
+      "path": "README.md",
+      "sha256": "8e6fcf33fc8321f48fce6f4808a2f46bef55c3f389627b55bbb4e6264e3be1ee",
+      "bytes": 8111
+    },
+    {
+      "path": "src/common.h",
+      "sha256": "508e25d4c3fdfceb667ba6717181619cacc72b6103ef53b0e36fe9a28b29c72f",
+      "bytes": 3061
+    },
+    {
+      "path": "src/graph.c",
+      "sha256": "e08b7a123017a0936d7bb1cbf67c688db38073fec749a1adbc54f3403660e2c1",
+      "bytes": 8165
+    },
+    {
+      "path": "src/companion.c",
+      "sha256": "19815636240721394143e10acbcc7b87efcb237f50e92e1fb39903554828766a",
+      "bytes": 436
+    },
+    {
+      "path": "src/scopes.S",
+      "sha256": "b48dab333d4ec1a515428d1e86821c0b07ed25bec55020a2f3f5495fa16e5c01",
+      "bytes": 1923
+    },
+    {
+      "path": "src/runtime.def",
+      "sha256": "c5c80da2ff675539c9917287aac27b1853f60d48f79b118f23199127bb2083c7",
+      "bytes": 262
+    },
+    {
+      "path": "src/stdio.def",
+      "sha256": "bb994b4173043f4fce2ef43e33ffa359b3f507a44f00b16f6099f507db2fa443",
+      "bytes": 69
+    },
+    {
+      "path": "src/kernel32.def",
+      "sha256": "810c277035ed9bdea8f8c975457a81c5abda6ed20c8a190f560428dc28561ba9",
+      "bytes": 166
+    },
+    {
+      "path": "src/kernel32-x86.def",
+      "sha256": "522002644b3623f3829ca4ed46f72126348a74a05fc38c7e8567312f2615e614",
+      "bytes": 189
+    }
+  ],
+  "fixtures": [
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "role": "graph",
+      "path": "bin/x86/ucrtbase/graph.exe",
+      "sha256": "605de21bb2aa0ca03fca94d29c6b1a6a33d4af5424527f94395c29952c584db0",
+      "bytes": 6144,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CreateFileW",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetFileSizeEx",
+            "GetProcAddress",
+            "GetStdHandle",
+            "LoadLibraryW",
+            "RaiseException",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_Exit",
+            "_c_exit",
+            "_cexit",
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_errno",
+            "_exit",
+            "_get_terminate",
+            "_open_osfhandle",
+            "_register_thread_local_exe_atexit_callback",
+            "_set_abort_behavior",
+            "_set_invalid_parameter_handler",
+            "_wfdopen",
+            "abort",
+            "exit",
+            "fwrite",
+            "quick_exit",
+            "raise",
+            "set_terminate",
+            "setvbuf",
+            "signal",
+            "terminate"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-ucrtbase-graph.txt",
+      "iat_sha256": "98350619ed2a979c7d6023bb795524a63be6bbedf2e9b1a264886b54c21b0ea9"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "role": "companion",
+      "path": "bin/x86/ucrtbase/companion.dll",
+      "sha256": "0ba8e4a3ed276f4a01e0c6afff277dcc2e799d8b061a97bc5989778325714a52",
+      "bytes": 2560,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "GetStdHandle",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-ucrtbase-companion.txt",
+      "iat_sha256": "41093a9e70bd2863542d7a7358b87aed1a85be2f46cb521cb0f92ed50e7bce9a"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "role": "graph",
+      "path": "bin/x86/apiset/graph.exe",
+      "sha256": "56b88620e09b7977ae0c31731d9a028152e99d312f472de7341a7445310ca4d9",
+      "bytes": 6144,
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_Exit",
+            "_c_exit",
+            "_cexit",
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_errno",
+            "_exit",
+            "_get_terminate",
+            "_register_thread_local_exe_atexit_callback",
+            "_set_abort_behavior",
+            "_set_invalid_parameter_handler",
+            "abort",
+            "exit",
+            "quick_exit",
+            "raise",
+            "set_terminate",
+            "signal",
+            "terminate"
+          ]
+        },
+        {
+          "dll": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "symbols": [
+            "_open_osfhandle",
+            "_wfdopen",
+            "fwrite",
+            "setvbuf"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CreateFileW",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetFileSizeEx",
+            "GetProcAddress",
+            "GetStdHandle",
+            "LoadLibraryW",
+            "RaiseException",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-apiset-graph.txt",
+      "iat_sha256": "07bcde01a239f25e5e7ec64cac145a7985b92bffb7812876361275b564fcb475"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "role": "companion",
+      "path": "bin/x86/apiset/companion.dll",
+      "sha256": "0ba8e4a3ed276f4a01e0c6afff277dcc2e799d8b061a97bc5989778325714a52",
+      "bytes": 2560,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "GetStdHandle",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-apiset-companion.txt",
+      "iat_sha256": "41093a9e70bd2863542d7a7358b87aed1a85be2f46cb521cb0f92ed50e7bce9a"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "role": "graph",
+      "path": "bin/x64/ucrtbase/graph.exe",
+      "sha256": "5cec096b8983ae222a3d23860e64973b121a6dc0e6d10f7bf47fac9a992bec85",
+      "bytes": 7168,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CreateFileW",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetFileSizeEx",
+            "GetProcAddress",
+            "GetStdHandle",
+            "LoadLibraryW",
+            "RaiseException",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_Exit",
+            "_c_exit",
+            "_cexit",
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_errno",
+            "_exit",
+            "_get_terminate",
+            "_open_osfhandle",
+            "_register_thread_local_exe_atexit_callback",
+            "_set_abort_behavior",
+            "_set_invalid_parameter_handler",
+            "_wfdopen",
+            "abort",
+            "exit",
+            "fwrite",
+            "quick_exit",
+            "raise",
+            "set_terminate",
+            "setvbuf",
+            "signal",
+            "terminate"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-ucrtbase-graph.txt",
+      "iat_sha256": "f24af951414a82d12ed5bd69e2bdb680559cca313e449a883128845968bff774"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "role": "companion",
+      "path": "bin/x64/ucrtbase/companion.dll",
+      "sha256": "b990322d0af17183d639e1a5d9f0ba25966279c1541be04e615087faade7bce2",
+      "bytes": 2560,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "GetStdHandle",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-ucrtbase-companion.txt",
+      "iat_sha256": "b36a729377c45abfb507e744ee9b3c4814b5ffb27e1c3f3c45b200331e7fe95b"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "role": "graph",
+      "path": "bin/x64/apiset/graph.exe",
+      "sha256": "8cd112c545d6642855a32cde43ecac7b2c6add391bf8e7e22a3ca4ea02aedc76",
+      "bytes": 7168,
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_Exit",
+            "_c_exit",
+            "_cexit",
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_errno",
+            "_exit",
+            "_get_terminate",
+            "_register_thread_local_exe_atexit_callback",
+            "_set_abort_behavior",
+            "_set_invalid_parameter_handler",
+            "abort",
+            "exit",
+            "quick_exit",
+            "raise",
+            "set_terminate",
+            "signal",
+            "terminate"
+          ]
+        },
+        {
+          "dll": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "symbols": [
+            "_open_osfhandle",
+            "_wfdopen",
+            "fwrite",
+            "setvbuf"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CreateFileW",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetFileSizeEx",
+            "GetProcAddress",
+            "GetStdHandle",
+            "LoadLibraryW",
+            "RaiseException",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-apiset-graph.txt",
+      "iat_sha256": "2e3062e14ffad53deb588108d87d0b7c54e0c42e4abbb7f156cbc51f428d7537"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "role": "companion",
+      "path": "bin/x64/apiset/companion.dll",
+      "sha256": "b990322d0af17183d639e1a5d9f0ba25966279c1541be04e615087faade7bce2",
+      "bytes": 2560,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "GetStdHandle",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-apiset-companion.txt",
+      "iat_sha256": "b36a729377c45abfb507e744ee9b3c4814b5ffb27e1c3f3c45b200331e7fe95b"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "role": "graph",
+      "path": "bin/arm64/ucrtbase/graph.exe",
+      "sha256": "000132e73131527c1b35ac9b558817b64c0d7117b2642fdaab444d4c700a23c0",
+      "bytes": 7168,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CreateFileW",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetFileSizeEx",
+            "GetProcAddress",
+            "GetStdHandle",
+            "LoadLibraryW",
+            "RaiseException",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "_Exit",
+            "_c_exit",
+            "_cexit",
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_errno",
+            "_exit",
+            "_get_terminate",
+            "_open_osfhandle",
+            "_register_thread_local_exe_atexit_callback",
+            "_set_abort_behavior",
+            "_set_invalid_parameter_handler",
+            "_wfdopen",
+            "abort",
+            "exit",
+            "fwrite",
+            "quick_exit",
+            "raise",
+            "set_terminate",
+            "setvbuf",
+            "signal",
+            "terminate"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-ucrtbase-graph.txt",
+      "iat_sha256": "f695d1f082d64d374e74ca7570aab24a4c479365fe7312f5c56bf5df4257d673"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "role": "companion",
+      "path": "bin/arm64/ucrtbase/companion.dll",
+      "sha256": "4797c08360be8f99ed94433f2fd426a3b75565d38717864ceb4b2bc0aea55953",
+      "bytes": 2560,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "GetStdHandle",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-ucrtbase-companion.txt",
+      "iat_sha256": "1f7853e54304b94c629f6927f75c4425fbf1342be6ee07b7c1ad2fe9f9d4c4fa"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "role": "graph",
+      "path": "bin/arm64/apiset/graph.exe",
+      "sha256": "79c9c9c9525a0f08b4bd3505700095a3f332bd5e8f4bb6b556a84fb5a697d0d2",
+      "bytes": 7168,
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "_Exit",
+            "_c_exit",
+            "_cexit",
+            "_crt_at_quick_exit",
+            "_crt_atexit",
+            "_errno",
+            "_exit",
+            "_get_terminate",
+            "_register_thread_local_exe_atexit_callback",
+            "_set_abort_behavior",
+            "_set_invalid_parameter_handler",
+            "abort",
+            "exit",
+            "quick_exit",
+            "raise",
+            "set_terminate",
+            "signal",
+            "terminate"
+          ]
+        },
+        {
+          "dll": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "symbols": [
+            "_open_osfhandle",
+            "_wfdopen",
+            "fwrite",
+            "setvbuf"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CreateFileW",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetFileSizeEx",
+            "GetProcAddress",
+            "GetStdHandle",
+            "LoadLibraryW",
+            "RaiseException",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-apiset-graph.txt",
+      "iat_sha256": "d04a30374369a3dc58217a2994f0df34468301dacb12121eb4ef27fb46d1d4bb"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "role": "companion",
+      "path": "bin/arm64/apiset/companion.dll",
+      "sha256": "4797c08360be8f99ed94433f2fd426a3b75565d38717864ceb4b2bc0aea55953",
+      "bytes": 2560,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "GetStdHandle",
+            "TerminateProcess",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-apiset-companion.txt",
+      "iat_sha256": "1f7853e54304b94c629f6927f75c4425fbf1342be6ee07b7c1ad2fe9f9d4c4fa"
+    }
+  ],
+  "cases": [
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 0,
+      "name": "full_exit",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 0",
+      "expected_status": 17,
+      "expected_shell_exit": 17,
+      "expected_stdout": "TBCAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 1,
+      "name": "quick_exit",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 1",
+      "expected_status": 18,
+      "expected_shell_exit": 18,
+      "expected_stdout": "RSQD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 2,
+      "name": "minimal_exit",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 2",
+      "expected_status": 19,
+      "expected_shell_exit": 19,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 3,
+      "name": "minimal_Exit",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 3",
+      "expected_status": 20,
+      "expected_shell_exit": 20,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 4,
+      "name": "raw_exit_process",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 4",
+      "expected_status": 21,
+      "expected_shell_exit": 21,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 5,
+      "name": "forced_process",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 5",
+      "expected_status": 22,
+      "expected_shell_exit": 22,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 6,
+      "name": "cexit_repeat",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "TBCATVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 7,
+      "name": "c_exit",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "VD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 8,
+      "name": "duplicate_tls_custom",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 8",
+      "expected_status": 23,
+      "expected_shell_exit": 23,
+      "expected_stdout": "H",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 9,
+      "name": "duplicate_tls_default",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 9",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 10,
+      "name": "terminate_return",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 10",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 11,
+      "name": "terminate_fault",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 11",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 12,
+      "name": "abort_custom",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 12",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "SD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 13,
+      "name": "abort_ignore",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 13",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 14,
+      "name": "signal_roundtrip",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 14",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "ABZIVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 15,
+      "name": "signalterm_default",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 15",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 16,
+      "name": "cpp_escaped",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 16",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 17,
+      "name": "noncpp_escaped",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 17",
+      "expected_status": 25,
+      "expected_shell_exit": 25,
+      "expected_stdout": "TXO",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 18,
+      "name": "terminate_inner",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 18",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HIRD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 19,
+      "name": "cpp_inner",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 19",
+      "expected_status": 26,
+      "expected_shell_exit": 26,
+      "expected_stdout": "TXIRAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 20,
+      "name": "cpp_unwind",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "companion_path": "bin/x86/ucrtbase/companion.dll",
+      "command_line": "graph.exe 20",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXUH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 0,
+      "name": "full_exit",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 0",
+      "expected_status": 17,
+      "expected_shell_exit": 17,
+      "expected_stdout": "TBCAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 1,
+      "name": "quick_exit",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 1",
+      "expected_status": 18,
+      "expected_shell_exit": 18,
+      "expected_stdout": "RSQD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 2,
+      "name": "minimal_exit",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 2",
+      "expected_status": 19,
+      "expected_shell_exit": 19,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 3,
+      "name": "minimal_Exit",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 3",
+      "expected_status": 20,
+      "expected_shell_exit": 20,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 4,
+      "name": "raw_exit_process",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 4",
+      "expected_status": 21,
+      "expected_shell_exit": 21,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 5,
+      "name": "forced_process",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 5",
+      "expected_status": 22,
+      "expected_shell_exit": 22,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 6,
+      "name": "cexit_repeat",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "TBCATVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 7,
+      "name": "c_exit",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "VD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 8,
+      "name": "duplicate_tls_custom",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 8",
+      "expected_status": 23,
+      "expected_shell_exit": 23,
+      "expected_stdout": "H",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 9,
+      "name": "duplicate_tls_default",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 9",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 10,
+      "name": "terminate_return",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 10",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 11,
+      "name": "terminate_fault",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 11",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 12,
+      "name": "abort_custom",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 12",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "SD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 13,
+      "name": "abort_ignore",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 13",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 14,
+      "name": "signal_roundtrip",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 14",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "ABZIVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 15,
+      "name": "signalterm_default",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 15",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 16,
+      "name": "cpp_escaped",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 16",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 17,
+      "name": "noncpp_escaped",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 17",
+      "expected_status": 25,
+      "expected_shell_exit": 25,
+      "expected_stdout": "TXO",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 18,
+      "name": "terminate_inner",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 18",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HIRD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 19,
+      "name": "cpp_inner",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 19",
+      "expected_status": 26,
+      "expected_shell_exit": 26,
+      "expected_stdout": "TXIRAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 20,
+      "name": "cpp_unwind",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "companion_path": "bin/x86/apiset/companion.dll",
+      "command_line": "graph.exe 20",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXUH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 0,
+      "name": "full_exit",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 0",
+      "expected_status": 17,
+      "expected_shell_exit": 17,
+      "expected_stdout": "TBCAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 1,
+      "name": "quick_exit",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 1",
+      "expected_status": 18,
+      "expected_shell_exit": 18,
+      "expected_stdout": "RSQD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 2,
+      "name": "minimal_exit",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 2",
+      "expected_status": 19,
+      "expected_shell_exit": 19,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 3,
+      "name": "minimal_Exit",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 3",
+      "expected_status": 20,
+      "expected_shell_exit": 20,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 4,
+      "name": "raw_exit_process",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 4",
+      "expected_status": 21,
+      "expected_shell_exit": 21,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 5,
+      "name": "forced_process",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 5",
+      "expected_status": 22,
+      "expected_shell_exit": 22,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 6,
+      "name": "cexit_repeat",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "TBCATVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 7,
+      "name": "c_exit",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "VD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 8,
+      "name": "duplicate_tls_custom",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 8",
+      "expected_status": 23,
+      "expected_shell_exit": 23,
+      "expected_stdout": "H",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 9,
+      "name": "duplicate_tls_default",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 9",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 10,
+      "name": "terminate_return",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 10",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 11,
+      "name": "terminate_fault",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 11",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 12,
+      "name": "abort_custom",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 12",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "SD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 13,
+      "name": "abort_ignore",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 13",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 14,
+      "name": "signal_roundtrip",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 14",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "ABZIVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 15,
+      "name": "signalterm_default",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 15",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 16,
+      "name": "cpp_escaped",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 16",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 17,
+      "name": "noncpp_escaped",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 17",
+      "expected_status": 25,
+      "expected_shell_exit": 25,
+      "expected_stdout": "TXO",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 18,
+      "name": "terminate_inner",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 18",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HIRD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 19,
+      "name": "cpp_inner",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 19",
+      "expected_status": 26,
+      "expected_shell_exit": 26,
+      "expected_stdout": "TXIRAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 20,
+      "name": "cpp_unwind",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "companion_path": "bin/x64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 20",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXUH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 0,
+      "name": "full_exit",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 0",
+      "expected_status": 17,
+      "expected_shell_exit": 17,
+      "expected_stdout": "TBCAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 1,
+      "name": "quick_exit",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 1",
+      "expected_status": 18,
+      "expected_shell_exit": 18,
+      "expected_stdout": "RSQD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 2,
+      "name": "minimal_exit",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 2",
+      "expected_status": 19,
+      "expected_shell_exit": 19,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 3,
+      "name": "minimal_Exit",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 3",
+      "expected_status": 20,
+      "expected_shell_exit": 20,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 4,
+      "name": "raw_exit_process",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 4",
+      "expected_status": 21,
+      "expected_shell_exit": 21,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 5,
+      "name": "forced_process",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 5",
+      "expected_status": 22,
+      "expected_shell_exit": 22,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 6,
+      "name": "cexit_repeat",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "TBCATVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 7,
+      "name": "c_exit",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "VD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 8,
+      "name": "duplicate_tls_custom",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 8",
+      "expected_status": 23,
+      "expected_shell_exit": 23,
+      "expected_stdout": "H",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 9,
+      "name": "duplicate_tls_default",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 9",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 10,
+      "name": "terminate_return",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 10",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 11,
+      "name": "terminate_fault",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 11",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 12,
+      "name": "abort_custom",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 12",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "SD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 13,
+      "name": "abort_ignore",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 13",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 14,
+      "name": "signal_roundtrip",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 14",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "ABZIVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 15,
+      "name": "signalterm_default",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 15",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 16,
+      "name": "cpp_escaped",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 16",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 17,
+      "name": "noncpp_escaped",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 17",
+      "expected_status": 25,
+      "expected_shell_exit": 25,
+      "expected_stdout": "TXO",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 18,
+      "name": "terminate_inner",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 18",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HIRD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 19,
+      "name": "cpp_inner",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 19",
+      "expected_status": 26,
+      "expected_shell_exit": 26,
+      "expected_stdout": "TXIRAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 20,
+      "name": "cpp_unwind",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "companion_path": "bin/x64/apiset/companion.dll",
+      "command_line": "graph.exe 20",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXUH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 0,
+      "name": "full_exit",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 0",
+      "expected_status": 17,
+      "expected_shell_exit": 17,
+      "expected_stdout": "TBCAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 1,
+      "name": "quick_exit",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 1",
+      "expected_status": 18,
+      "expected_shell_exit": 18,
+      "expected_stdout": "RSQD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 2,
+      "name": "minimal_exit",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 2",
+      "expected_status": 19,
+      "expected_shell_exit": 19,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 3,
+      "name": "minimal_Exit",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 3",
+      "expected_status": 20,
+      "expected_shell_exit": 20,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 4,
+      "name": "raw_exit_process",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 4",
+      "expected_status": 21,
+      "expected_shell_exit": 21,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 5,
+      "name": "forced_process",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 5",
+      "expected_status": 22,
+      "expected_shell_exit": 22,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 6,
+      "name": "cexit_repeat",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "TBCATVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 7,
+      "name": "c_exit",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "VD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 8,
+      "name": "duplicate_tls_custom",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 8",
+      "expected_status": 23,
+      "expected_shell_exit": 23,
+      "expected_stdout": "H",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 9,
+      "name": "duplicate_tls_default",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 9",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 10,
+      "name": "terminate_return",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 10",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 11,
+      "name": "terminate_fault",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 11",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 12,
+      "name": "abort_custom",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 12",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "SD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 13,
+      "name": "abort_ignore",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 13",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 14,
+      "name": "signal_roundtrip",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 14",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "ABZIVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 15,
+      "name": "signalterm_default",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 15",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 16,
+      "name": "cpp_escaped",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 16",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 17,
+      "name": "noncpp_escaped",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 17",
+      "expected_status": 25,
+      "expected_shell_exit": 25,
+      "expected_stdout": "TXO",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 18,
+      "name": "terminate_inner",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 18",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HIRD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 19,
+      "name": "cpp_inner",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 19",
+      "expected_status": 26,
+      "expected_shell_exit": 26,
+      "expected_stdout": "TXIRAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 20,
+      "name": "cpp_unwind",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "companion_path": "bin/arm64/ucrtbase/companion.dll",
+      "command_line": "graph.exe 20",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXUH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 0,
+      "name": "full_exit",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 0",
+      "expected_status": 17,
+      "expected_shell_exit": 17,
+      "expected_stdout": "TBCAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 1,
+      "name": "quick_exit",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 1",
+      "expected_status": 18,
+      "expected_shell_exit": 18,
+      "expected_stdout": "RSQD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 2,
+      "name": "minimal_exit",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 2",
+      "expected_status": 19,
+      "expected_shell_exit": 19,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 3,
+      "name": "minimal_Exit",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 3",
+      "expected_status": 20,
+      "expected_shell_exit": 20,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 4,
+      "name": "raw_exit_process",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 4",
+      "expected_status": 21,
+      "expected_shell_exit": 21,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 5,
+      "name": "forced_process",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 5",
+      "expected_status": 22,
+      "expected_shell_exit": 22,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 6,
+      "name": "cexit_repeat",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "TBCATVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 7,
+      "name": "c_exit",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "VD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 8,
+      "name": "duplicate_tls_custom",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 8",
+      "expected_status": 23,
+      "expected_shell_exit": 23,
+      "expected_stdout": "H",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 9,
+      "name": "duplicate_tls_default",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 9",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 10,
+      "name": "terminate_return",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 10",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 11,
+      "name": "terminate_fault",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 11",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 12,
+      "name": "abort_custom",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 12",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "SD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 13,
+      "name": "abort_ignore",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 13",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 14,
+      "name": "signal_roundtrip",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 14",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "ABZIVD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 15,
+      "name": "signalterm_default",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 15",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "D",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 16,
+      "name": "cpp_escaped",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 16",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 17,
+      "name": "noncpp_escaped",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 17",
+      "expected_status": 25,
+      "expected_shell_exit": 25,
+      "expected_stdout": "TXO",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 18,
+      "name": "terminate_inner",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 18",
+      "expected_status": 3,
+      "expected_shell_exit": 3,
+      "expected_stdout": "HIRD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 19,
+      "name": "cpp_inner",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 19",
+      "expected_status": 26,
+      "expected_shell_exit": 26,
+      "expected_stdout": "TXIRAD",
+      "expected_files": {
+        "pending.bin": "B"
+      },
+      "expected_detach": true,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 20,
+      "name": "cpp_unwind",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "companion_path": "bin/arm64/apiset/companion.dll",
+      "command_line": "graph.exe 20",
+      "expected_status": 24,
+      "expected_shell_exit": 24,
+      "expected_stdout": "TXUH",
+      "expected_files": {
+        "pending.bin": ""
+      },
+      "expected_detach": false,
+      "oracle": "Independent literals; SDK source profile; native Windows execution unknown"
+    }
+  ]
+}

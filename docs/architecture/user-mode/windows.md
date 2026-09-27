@@ -72,11 +72,21 @@ per-ABI bindings, actual guest buffers, flush/close and captured I/O frontiers.
 Genuine UCRT runtime-global ordinary/quick registration is implemented in
 [windows-crt-global-registration.md](windows-crt-global-registration.md),
 separately from DLL-local tables. Table execution and registration share a
-recursive exit lock; this does not admit CRT termination exports.
-Ordinary compiler startup still requires legacy registration and termination,
-formatted/Unicode stdio, exception-personality, locale and FP dependencies;
-custom-entry probes do not establish that
-outcome. Native opaque-table private behavior remains unknown.
+recursive exit lock. That registration group's historical validation did not
+admit termination.
+Dynamic retail desktop UCRT termination is now implemented in
+[windows-crt-exit.md](windows-crt-exit.md): full/quick/minimal cleanup,
+executable TLS callbacks, per-thread terminate handlers, software-global
+SIGABRT/SIGTERM and bounded abort controls. Normal terminating UCRT DLL detach
+flushes initialized streams; forced termination does not. Synthetic HLE
+filters are offered after inner guest exception search; selected handlers
+run after available inner unwind handlers, with explicit diagnostic rejection
+of unsupported collided-unwind protocols.
+Ordinary compiler startup remains incomplete: application-type, locale, FP
+and language-personality dependencies remain, alongside formatted/Unicode
+stdio and separate legacy CRT registration/termination surfaces. Custom-entry
+probes do not establish ordinary startup. Native opaque-table private behavior
+remains unknown.
 
 CFG enforcement and enabled mitigation-policy reporting are not implemented.
 An instrumented image may retain its own no-op CFG fallback; admitting that

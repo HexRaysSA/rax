@@ -120,6 +120,18 @@ pub(in crate::user::windows::dll::crt) fn with_lock(
 
 fn hold(c: &mut Ctx, guard: Guard, result: ApiResult) -> ApiResult {
     match result {
+        Ok(Flow::Protected {
+            code,
+            handler,
+            then,
+        }) => Ok(Flow::Protected {
+            code,
+            handler,
+            then: Box::new(move |c, value| {
+                let result = then(c, value);
+                hold(c, guard, result)
+            }),
+        }),
         Ok(Flow::Call { target, args, then }) => Ok(Flow::Call {
             target,
             args,

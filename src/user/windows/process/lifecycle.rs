@@ -2,7 +2,7 @@
 //!
 //! TLS callbacks precede the PE DLL entry on attach. On detach the entry
 //! precedes TLS callbacks, whose array order is unchanged. Reverse ready-native
-//! module order on detach is an explicit personality profile: the public API
+//! plus dynamic UCRT completion order on detach is a personality profile: the public API
 //! documentation does not specify every inter-category/dependency ordering.
 
 use std::collections::VecDeque;
@@ -61,6 +61,20 @@ fn native_order(p: &Proc, ready_only: bool) -> Vec<usize> {
             p.modules.is_live(index)
                 && matches!(p.modules.list[index].kind, ModuleKind::Native)
                 && (!ready_only || p.modules.list[index].initialized)
+        })
+        .collect()
+}
+
+/// Only UCRT admits a built-in process-detach hook in this profile. Other
+/// built-ins stay pinned but have no invented DLL notifications.
+fn process_order(p: &Proc) -> Vec<usize> {
+    p.modules
+        .ready_order()
+        .into_iter()
+        .filter(|&index| match p.modules.list[index].kind {
+            ModuleKind::Native => true,
+            ModuleKind::Builtin(dll) => dll.name == "ucrtbase.dll",
+            _ => false,
         })
         .collect()
 }
@@ -128,7 +142,7 @@ fn initialize(c: &mut Ctx, mut guard: LoaderGuard, mut attach: Attach) -> ApiRes
             };
             let reason = if attach.process { 1 } else { 2 };
             let base = c.p.modules.list[index].base;
-            return Flow::call(
+            return Flow::call_checked(
                 callback.target,
                 vec![base, reason, reserved],
                 move |c, result| {
@@ -170,7 +184,7 @@ fn initialize(c: &mut Ctx, mut guard: LoaderGuard, mut attach: Attach) -> ApiRes
             };
             let main = c.t.main;
             // The notification lock is released before ordinary user code.
-            return Flow::call(c.t.start, args, move |_, result| {
+            return Flow::call_checked(c.t.start, args, move |_, result| {
                 Ok(if main {
                     Flow::ExitProcess(result as u32)
                 } else {
@@ -254,7 +268,7 @@ fn detach(c: &mut Ctx, mut guard: LoaderGuard, mut plan: Detach) -> ApiResult {
             };
             let reserved = if callback.dll_main { plan.reserved } else { 0 };
             let base = c.p.modules.list[index].base;
-            return Flow::call(
+            return Flow::call_checked(
                 callback.target,
                 vec![base, plan.reason, reserved],
                 move |c, _| {
@@ -278,6 +292,16 @@ fn detach(c: &mut Ctx, mut guard: LoaderGuard, mut plan: Detach) -> ApiResult {
         };
         if !c.p.modules.is_live(index) {
             continue;
+        }
+        if plan.reason == 0
+            && matches!(c.p.modules.list[index].kind, ModuleKind::Builtin(dll) if dll.name == "ucrtbase.dll")
+        {
+            loader::detach_started(c.p, index).map_err(internal)?;
+            plan.current = Some(index);
+            return crate::user::windows::dll::crt::stdio::ucrt_process_detach(
+                c,
+                Box::new(move |c, _| detach(c, guard, plan)),
+            );
         }
         let module = &c.p.modules.list[index];
         let entry = module.has_dll_main().then_some(module.entry);
@@ -339,7 +363,7 @@ pub fn process_exit(p: &mut Proc, t: &mut Thread, code: u32) -> Outcome {
         with_lock(
             c,
             Box::new(move |c, guard| {
-                let mut modules = native_order(c.p, true);
+                let mut modules = process_order(c.p);
                 modules.reverse();
                 if c.p.modules.is_live(0) && c.p.modules.list[0].initialized {
                     modules.push(0);
@@ -378,6 +402,10 @@ pub fn thread_start(p: &mut Proc, t: &mut Thread) -> Outcome {
 }
 
 #[cfg(test)]
+#[path = "lifecycle/detach_tests.rs"]
+mod detach_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::user::windows::arch::WinArch;
@@ -388,7 +416,7 @@ mod tests {
 
     // These tests step HLE continuations without executing callback bodies.
     // They verify ABI arguments/state transitions, not a native ordering oracle.
-    fn fixture(arch: WinArch) -> (WindowsProcess, Thread) {
+    pub(super) fn fixture(arch: WinArch) -> (WindowsProcess, Thread) {
         let image: &[u8] = match arch {
             WinArch::X86 => {
                 include_bytes!("../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
@@ -410,7 +438,7 @@ mod tests {
         (process, t)
     }
 
-    fn native(p: &mut Proc, name: &str, callbacks: usize, ready: bool) -> usize {
+    pub(super) fn native(p: &mut Proc, name: &str, callbacks: usize, ready: bool) -> usize {
         let base =
             p.vm.allocate(None, 0x1000, mem::RESERVE | mem::COMMIT, prot::READWRITE)
                 .unwrap()
@@ -469,7 +497,7 @@ mod tests {
         index
     }
 
-    fn args(p: &Proc, t: &Thread) -> [u64; 3] {
+    pub(super) fn args(p: &Proc, t: &Thread) -> [u64; 3] {
         std::array::from_fn(|index| match p.arch {
             WinArch::X86 => p.space.ptr(t.cpu.sp() + 4 + index as u64 * 4, 4).unwrap(),
             WinArch::X64 => t.cpu.gpr([1, 2, 8][index]),
@@ -477,7 +505,7 @@ mod tests {
         })
     }
 
-    fn returned(p: &mut Proc, t: &mut Thread, value: u64) -> Outcome {
+    pub(super) fn returned(p: &mut Proc, t: &mut Thread, value: u64) -> Outcome {
         t.cpu.set_gpr(0, value);
         dispatch::callback_return(p, t)
     }
@@ -638,7 +666,7 @@ mod tests {
                 loader::attach_started(p, index, true).unwrap();
                 loader::attach_succeeded(p, index).unwrap();
             }
-            assert_eq!(p.modules.ready_order(), [second, first]);
+            assert_eq!(native_order(p, true), [second, first]);
             t.attached = true;
             assert_eq!(thread_exit(p, &mut t, 52), Outcome::Continue);
             assert_eq!(t.cpu.pc(), p.modules.list[first].entry);

@@ -215,7 +215,8 @@ impl Modules {
             && !self.failed_indices.contains_key(&idx)
             && !self.dynamic.unloaded.contains(&idx)
     }
-    /// Successfully attached native modules in actual completion order.
+    /// Successfully initialized native and built-in modules in actual
+    /// completion order. Callers select the notifications each kind admits.
     /// Separate from mapping post-order so nested callback loads are retained.
     pub(crate) fn ready_order(&self) -> Vec<usize> {
         self.dynamic
@@ -809,7 +810,19 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
     };
     p.modules.list.push(module);
     let idx = p.modules.list.len() - 1;
-    if let Err(error) = ldr::add_entry(p, idx).and_then(|_| ldr::link_init_order(p, idx)) {
+    if let Err(error) = ldr::add_entry(p, idx)
+        .and_then(|_| ldr::link_init_order(p, idx))
+        .and_then(|_| {
+            // Publication cannot fail after installing process-owned runtime
+            // state or traps. A failed ready-ledger reservation follows the
+            // same exact data/LDR/image rollback as a linking failure.
+            p.modules
+                .dynamic
+                .attached_order
+                .try_reserve(1)
+                .map_err(|_| LoadError::new(STATUS_NO_MEMORY, "cannot record built-in completion"))
+        })
+    {
         p.modules.failed_indices.insert(idx, error.clone());
         // This local receipt is not part of dynamic rollback (built-ins are
         // pinned roots). Abort it even if subsequent LDR cleanup also fails.
@@ -830,6 +843,7 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
         return Err(error);
     }
     prepared.commit(p);
+    p.modules.dynamic.attached_order.push(idx);
     p.traps.add(text, img.slots, img.capacity);
     Ok(idx)
 }
@@ -1319,5 +1333,7 @@ pub fn load_system_dlls(p: &mut Proc) -> Result<(), LoadError> {
     Ok(())
 }
 
+#[cfg(test)]
+mod builtin_ready_tests;
 #[cfg(test)]
 mod data_init_tests;

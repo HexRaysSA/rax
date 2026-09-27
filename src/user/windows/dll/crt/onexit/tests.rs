@@ -50,7 +50,7 @@ fn add(c: &mut Ctx, table: u64, target: u64) {
 }
 
 #[test]
-fn genuine_table_binding_matrix_and_termination_exclusions_all_abis() {
+fn genuine_table_binding_matrix_and_legacy_exclusions_all_abis() {
     run(|c| {
         for dll in [
             "ucrtbase.dll",
@@ -68,7 +68,7 @@ fn genuine_table_binding_matrix_and_termination_exclusions_all_abis() {
                         .unwrap();
                 assert_eq!(target.is_some(), dll != "msvcrt.dll", "{dll}!{name}");
             }
-            for name in ["atexit", "_onexit", "exit", "_cexit", "quick_exit"] {
+            for name in ["atexit", "_onexit", "_is_c_termination_complete"] {
                 assert!(
                     loader::lookup(c.p, index, &SymRef::Name(name.as_bytes().to_vec(), None))
                         .unwrap()

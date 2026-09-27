@@ -202,7 +202,10 @@ fn fiber_continuations_seh_and_fls_follow_context_not_thread_all_abis() {
             cursor: t.cpu.sp(),
             cont: Some(Box::new(|_, _| Flow::ret(7))),
             checked_call: false,
+            callback_sp: None,
             retry: None,
+            exception: Vec::new(),
+            exception_caller: None,
         });
         let f = create(p, &t, 0x10000, 4096, 1, 0x34560000, 0).unwrap();
         switch(p, &mut t, f).unwrap();

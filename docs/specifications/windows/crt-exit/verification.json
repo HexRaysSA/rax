@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "date": "2026-09-27",
+  "manifest_sha256": "d23cc52016aafb016c284050b0fc66ac0b16ef50089670fc345c501fe4d22d31",
+  "acquisition_script_sha256": "ad670ad0e3f9222cfa9b805d361878fc6b987c4780b025f0e463f8773e03e580",
+  "source_inputs": 32,
+  "retained_hash_size_checks": 16,
+  "publisher_source_receipts": 16,
+  "network_source_replays": 21,
+  "publisher_export_replays": 3,
+  "tool_hash_checks": 3,
+  "two_acquisitions_manifest_byte_identical": true,
+  "two_acquisitions_retained_inputs_byte_identical": true,
+  "full_package_digest": "Reused exact prior full-stream receipt; not rerun here",
+  "nuget_signature_verified": false,
+  "raw_sdk_source_committed": false,
+  "native_windows_execution": "unknown; not performed",
+  "commands": [
+    ["ruby", "docs/specifications/windows/crt-exit/acquire.rb"],
+    ["ruby", "docs/specifications/windows/crt-exit/acquire.rb", "--verify"],
+    ["ruby", "docs/specifications/windows/crt-exit/acquire.rb", "--verify-network"]
+  ]
+}

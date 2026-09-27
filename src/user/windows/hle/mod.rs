@@ -24,6 +24,7 @@
 
 pub mod args;
 pub mod dispatch;
+pub mod exception;
 
 use super::arch::WinArch;
 use super::context::{ExceptionRecord, RegContext};
@@ -231,6 +232,20 @@ pub enum Flow {
         /// Continuation retained across setup faults and guest execution.
         then: Cont,
     },
+    /// Execute `then` inside an owned synthetic SEH scope. Guest frame
+    /// handlers inside the operation search first. A selected scope disables
+    /// its filter, runs available inner guest unwind handlers, then invokes
+    /// its handler before handlers belonging to the original caller. `None`
+    /// matches any SEH code, while `Some` matches exactly that 32-bit code.
+    Protected {
+        /// The exact exception code, or any SEH exception.
+        code: Option<u32>,
+        /// Invoked with the exception code after inner cleanup. Disabled
+        /// before unwinding, including during nested cleanup exceptions.
+        handler: Cont,
+        /// The protected operation, invoked with zero at this framed site.
+        then: Cont,
+    },
     /// Block the thread on `wait`, then continue with the wait's status.
     Block {
         /// The wait.
@@ -377,9 +392,19 @@ pub struct Frame {
     /// checked callback cannot resume at the API-entry SP, whereas an APC may
     /// legitimately restore a blocked API at that same PC and stack height.
     pub checked_call: bool,
+    /// Actual guest callback entry SP. Table-based exception search uses this
+    /// to identify the owning HLE frame at the callback-return sentinel.
+    pub callback_sp: Option<u64>,
+    /// Original exception context owned by the synthetic exception dispatcher.
+    /// Its callbacks have no real guest return-to-caller site; nested search
+    /// bridges through this context rather than inventing a return to zero.
+    pub exception_caller: Option<Box<RegContext>>,
     /// Checked operation waiting for exception repair, distinct from a guest
     /// callback's continuation. Pruning or abandoning the frame drops it.
     pub retry: Option<Cont>,
+    /// Owned synthetic exception scopes, innermost last. Frame completion,
+    /// pruning and fiber lifetime move/drop these with their continuations.
+    pub exception: Vec<exception::ExceptionBoundary>,
 }
 
 /// The execution context of a built-in function: the process, the calling

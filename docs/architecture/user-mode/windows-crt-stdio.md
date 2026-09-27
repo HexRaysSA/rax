@@ -115,8 +115,10 @@ Normal process teardown attempts host-owned cleanup and reports unexpected
 failure after handle draining. Forced termination preserves its supplied exit
 status for CRT-discard failures and retains those failures as trace diagnostics.
 The pre-existing final handle-drain failure policy can still produce `Internal`.
-Neither path invents
-CRT normal-exit flushing: actual `exit`/`_cexit` remains a subsequent dependency.
+At this historical stream-group baseline, neither path implemented CRT
+normal-exit flushing. The subsequent [dynamic UCRT termination group](windows-crt-exit.md)
+adds terminating UCRT DLL-detach flushing, including raw normal OS exit;
+dynamic `_cexit` itself does not flush in the inspected SDK source profile.
 Host I/O errors may have partial effects; actual host ENOSPC atomicity is not
 established. A failing flush discards remaining buffered data as permitted by
 the public contract. Mandatory full-buffer flush failure subtracts the current

@@ -189,3 +189,17 @@ they do not establish ordinary CRT startup or admit CRT termination/TLS APIs.
 Source, IAT, binary, and retained baseline receipts are checked by the same
 test binary. Native Windows differential execution remains unknown. See
 `docs/architecture/user-mode/windows-crt-global-registration.md`.
+
+The same target reaches `suites/user/windows/crt_exit.rs`. Its independently
+compiled `fixtures/user/windows/crt_exit/` corpus has 12 physical PEs and 126
+individual cases (three ABIs, two bindings, 21 modes), each run at slices 1
+and 4096. It checks dynamic UCRT full/quick/minimal and returning cleanup,
+executable TLS callbacks, terminate/abort and software SIGABRT/SIGTERM,
+guest search/unwind ordering across synthetic HLE filters, and normal DLL
+detach flushing versus forced termination. Exact stdout, full 32-bit terminal
+status, pending file bytes, source/IAT/PE hashes and 252 preserved-CLI
+observations are checked. Forced-exit baseline passes remain negative controls;
+normal raw ExitProcess exposes the pre-feature flush defect. These custom-entry
+probes do not establish ordinary compiler startup, complete C++ exception
+personality or native Windows equivalence. See
+`docs/architecture/user-mode/windows-crt-exit.md`.

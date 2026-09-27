@@ -6,6 +6,10 @@ and index were clean; unrelated untracked inputs remain user-owned. The Windows
 userland objective remains active and incomplete. This group implements genuine
 UCRT/runtime API-set registration, not CRT termination/TLS admission.
 
+This historical receipt's subsequent termination dependency is tracked in
+[dynamic UCRT termination](windows-crt-exit.md); its recorded gate counts
+describe the registration commit, not that later implementation.
+
 ## Acceptance criteria
 
 1. Admit `_crt_atexit` and `_crt_at_quick_exit` with their genuine cdecl,

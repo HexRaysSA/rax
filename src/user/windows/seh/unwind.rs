@@ -322,6 +322,7 @@ pub fn step(
 #[derive(Clone, Default)]
 struct WalkState {
     seen: BTreeSet<(u64, u64, u64)>,
+    exception: crate::user::windows::hle::exception::Search,
 }
 
 impl WalkState {
@@ -440,7 +441,7 @@ fn search(
     mut ctx: RegContext,
     frame_ctx: u64,
     dc: u64,
-    first: bool,
+    mut first: bool,
     mut walk: WalkState,
 ) -> ApiResult {
     loop {
@@ -449,6 +450,30 @@ fn search(
             return unhandled(c, rec, recs);
         }
         walk.visit(&ctx)?;
+        match crate::user::windows::hle::exception::table(c, &rec, &mut ctx, &mut walk.exception)? {
+            crate::user::windows::hle::exception::Crossing::Selected(selected) => {
+                // Search changed only a virtual context. Real cleanup starts
+                // from the original fault, never from the search frontier.
+                let fault = RegContext::read(&c.p.space, c.p.arch, recs.context)?;
+                c.p.space
+                    .w32(recs.record + 4, rec.flags | EXCEPTION_UNWINDING)?;
+                return unwind_selected(
+                    c,
+                    recs,
+                    fault,
+                    frame_ctx,
+                    dc,
+                    selected,
+                    WalkState::default(),
+                    true,
+                );
+            }
+            crate::user::windows::hle::exception::Crossing::Bridged => {
+                first = false;
+                continue;
+            }
+            crate::user::windows::hle::exception::Crossing::None => {}
+        }
         let this = ctx.clone();
         let (entry, u) = match step(c.p, UNW_FLAG_EHANDLER, &mut ctx) {
             Ok(result) => result,
@@ -463,6 +488,8 @@ fn search(
                 return unhandled(c, rec, recs);
             }
         };
+        let control_pc_is_unwound = !first && c.p.arch == WinArch::Arm64;
+        first = false;
         let (Some(f), Some(handler)) = (entry, u.handler) else {
             continue;
         };
@@ -483,7 +510,7 @@ fn search(
             handler,
             handler_data: u.handler_data,
             scope_index: 0,
-            control_pc_is_unwound: !first && c.p.arch == WinArch::Arm64,
+            control_pc_is_unwound,
         }
         .write(&c.p.space, c.p.arch, dc)?;
         let next = ctx;
@@ -505,6 +532,84 @@ fn search(
                         params: Vec::new(),
                     })),
                 }
+            },
+        );
+    }
+}
+
+/// Run available guest termination handlers before entering a selected HLE
+/// scope. The exact selected owner is the target; its original continuation
+/// and outer callers are neither unwound nor consumed. This uses the same
+/// bounded metadata decoder as ordinary SEH (no invented language personality).
+fn unwind_selected(
+    c: &mut Ctx,
+    recs: Records,
+    mut ctx: RegContext,
+    frame_ctx: u64,
+    dc: u64,
+    selected: crate::user::windows::hle::exception::Selected,
+    mut walk: WalkState,
+    mut first: bool,
+) -> ApiResult {
+    use crate::user::windows::hle::exception::{UnwindCrossing, table_unwind};
+    loop {
+        if ctx.pc() == 0 || !in_stack(c, ctx.sp()) {
+            return Err(ApiErr::Internal(
+                "synthetic SEH unwind did not reach selected owner".into(),
+            ));
+        }
+        walk.visit(&ctx)?;
+        match table_unwind(c, &mut ctx, &mut walk.exception, &selected)? {
+            UnwindCrossing::Reached => return selected.invoke(c),
+            UnwindCrossing::Bridged => {
+                first = false;
+                continue;
+            }
+            UnwindCrossing::None => {}
+        }
+        let this = ctx.clone();
+        let (entry, u) = step(c.p, UNW_FLAG_UHANDLER, &mut ctx).map_err(ApiErr::Fault)?;
+        let control_pc_is_unwound = !first && c.p.arch == WinArch::Arm64;
+        first = false;
+        let (Some(f), Some(handler)) = (entry, u.handler) else {
+            continue;
+        };
+        if !in_stack(c, u.establisher) || u.establisher % 8 != 0 {
+            return Err(ApiErr::Internal(
+                "synthetic SEH unwind invalid establisher frame".into(),
+            ));
+        }
+        let flags = c.p.space.u32(recs.record + 4)?;
+        c.p.space.w32(
+            recs.record + 4,
+            (flags & !(EXCEPTION_TARGET_UNWIND | EXCEPTION_COLLIDED_UNWIND)) | EXCEPTION_UNWINDING,
+        )?;
+        this.write(&c.p.space, frame_ctx)?;
+        DispatcherContext {
+            control_pc: this.pc(),
+            image_base: f.image_base,
+            function_entry: f.entry,
+            establisher: u.establisher,
+            target_ip: 0,
+            context: frame_ctx,
+            handler,
+            handler_data: u.handler_data,
+            scope_index: 0,
+            control_pc_is_unwound,
+        }
+        .write(&c.p.space, c.p.arch, dc)?;
+        return Flow::call_checked(
+            handler,
+            vec![recs.record, u.establisher, frame_ctx, dc],
+            move |c, ret| {
+                if ret as u32 != disposition::CONTINUE_SEARCH {
+                    // A collided unwind requires a language-specific restart
+                    // context, which this personality does not synthesize.
+                    return Err(ApiErr::Internal(format!(
+                        "synthetic SEH unwind unsupported disposition {ret:#x}"
+                    )));
+                }
+                unwind_selected(c, recs, ctx, frame_ctx, dc, selected, walk, false)
             },
         );
     }

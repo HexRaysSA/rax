@@ -7,7 +7,7 @@
 
 use std::io::ErrorKind;
 
-use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow, Value};
+use crate::user::windows::hle::{ApiErr, ApiResult, Cont, Ctx, Flow, Value};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::objects::Object;
 
@@ -815,5 +815,152 @@ fn walk_flush(c: &mut Ctx, mut job: Flush) -> ApiResult {
             Some(errno) => api::report(c, job.kind, errno, Value::Int(u32::MAX.into())),
             None => Flow::ret(0),
         },
+    }
+}
+
+/// The selected SDK retail terminating-DLL path calls `_flushall`, not
+/// `fflush(NULL)`. Its nonflushable/no-commit streams are skipped completely:
+/// in particular, input buffering and pushback are not cleared. The public
+/// `_flushall` input-discard prose conflicts with these retained SDK bytes.
+/// Streams stay open. Only this initialized runtime participates.
+pub(super) fn ucrt_process_detach(c: &mut Ctx, then: Cont) -> ApiResult {
+    let Some(streams) = c.p.crt.runtimes[RuntimeKind::Ucrt.index()].stdio.clone() else {
+        return then(c, 0);
+    };
+    let files = streams.open_streams().map_err(converted)?;
+    detach_flush(
+        c,
+        DetachFlush {
+            files,
+            cursor: 0,
+            active: None,
+            commit: false,
+            phase: DetachPhase::Buffer,
+            then,
+        },
+    )
+}
+
+#[derive(Clone, Copy)]
+enum DetachPhase {
+    Buffer,
+    Commit,
+    Publish,
+    Error,
+}
+
+struct DetachFlush {
+    files: Vec<(u64, u64, u64)>,
+    cursor: usize,
+    active: Option<Transfer>,
+    commit: bool,
+    phase: DetachPhase,
+    then: Cont,
+}
+
+/// Capture the stream set once, then retain the selected stream and each
+/// irreversible host-I/O frontier across guest faults. The snapshot needs
+/// O(S) host storage; the payload scratch remains 256 bytes. Registry scans
+/// mean metadata work is O(S² + K*S) for S streams and K flush chunks.
+fn detach_flush(c: &mut Ctx, mut job: DetachFlush) -> ApiResult {
+    let kind = RuntimeKind::Ucrt;
+    let result = (|| -> Result<(), ApiErr> {
+        while job.cursor < job.files.len() {
+            let streams = state(c, kind)?;
+            if job.active.is_none() {
+                let (file, generation, revision) = job.files[job.cursor];
+                let stream = streams.stream(file).map_err(converted)?;
+                if stream.generation != generation || stream.revision != revision {
+                    return Err(c.unsupported("CRT detach flush set changed during fault repair"));
+                }
+                let inherited = stream.commit_inherit
+                    && c.mem().u32(
+                        streams
+                            .mode_cell(1)
+                            .ok_or_else(|| c.unsupported("CRT commode cell"))?,
+                    )? != 0;
+                let commit = stream.commit || inherited;
+                if !(stream.last == Direction::Write && stream.buffer.capacity() != 0) && !commit {
+                    // No publication, errno allocation, descriptor validation,
+                    // or buffer access for a skipped ordinary-read stream.
+                    job.cursor += 1;
+                    continue;
+                }
+                api::preflight_error(c, kind)?;
+                streams.preflight(c.p, file).map_err(converted)?;
+                let descriptor = streams.descriptor(stream.descriptor).map_err(converted)?;
+                job.active = Some(Transfer {
+                    kind,
+                    request: Request::Fwrite,
+                    address: 0,
+                    total: 0,
+                    item: 1,
+                    done: 0,
+                    raw_done: 0,
+                    buffer_current: 0,
+                    stream: Some(stream),
+                    descriptor,
+                    failed: None,
+                    ended: false,
+                });
+                job.commit = commit;
+                job.phase = DetachPhase::Buffer;
+            }
+            let active = job.active.as_mut().expect("selected detach flush");
+            if matches!(job.phase, DetachPhase::Buffer) {
+                let stream = active.stream.expect("detach stream");
+                if stream.last == Direction::Write && stream.buffer.capacity() != 0 {
+                    supported(c, active.descriptor)?;
+                    flush_pending(c, active)?;
+                }
+                job.phase = DetachPhase::Commit;
+            }
+            if matches!(job.phase, DetachPhase::Commit) {
+                if job.commit && active.failed.is_none() {
+                    // Commit can also visit read-only streams; do not require
+                    // write rights just to validate their captured descriptor.
+                    live(
+                        c,
+                        kind,
+                        active.stream,
+                        active.descriptor,
+                        !active.descriptor.readable,
+                    )?;
+                    if let Some(id) = active.descriptor.object {
+                        if let Err(error) = backend::commit(c.p, id) {
+                            active.failed = Some(errno(&error));
+                        }
+                    }
+                }
+                // A late FILE/errno fault must not replay a completed commit.
+                job.phase = DetachPhase::Publish;
+            }
+            if matches!(job.phase, DetachPhase::Publish) {
+                let stream = active.stream.as_mut().expect("detach stream");
+                if stream.last == Direction::Write {
+                    stream.last = Direction::None;
+                }
+                if active.failed.is_some() {
+                    stream.error = true;
+                }
+                // Unlike public fflush, this path never negates pushback.
+                publish(c, active)?;
+                job.phase = DetachPhase::Error;
+            }
+            if let Some(error) = active.failed {
+                super::super::state::set_errno(c, kind, error)?;
+            }
+            job.cursor += 1;
+            job.active = None;
+        }
+        Ok(())
+    })();
+    match result {
+        Err(ApiErr::Fault(fault)) => Ok(Flow::RetryFault {
+            fault,
+            retry: Box::new(move |c, _| detach_flush(c, job)),
+        }),
+        Err(error) => Err(error),
+        Ok(()) => (job.then)(c, 0),
     }
 }

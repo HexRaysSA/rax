@@ -1,12 +1,17 @@
 //! Runtime-global UCRT registration, distinct from DLL-local startup tables.
 //!
 //! Global queues follow the retained Windows SDK 10.0.26100.0 implementation
-//! receipts. Termination/TLS exports are deliberately not admitted by this
-//! registration group. Raw OS process exit discards, never executes, queues.
+//! receipts. CRT cleanup is distinct from normal OS DLL detachment. Raw OS
+//! process exit discards, never executes, global callback queues.
 
+mod exit;
+mod fatal;
 mod lock;
+mod signal;
 mod storage;
 
+#[cfg(test)]
+mod exit_tests;
 #[cfg(test)]
 mod tests;
 
@@ -15,8 +20,12 @@ use crate::user::windows::nt::status::STATUS_NO_MEMORY;
 use crate::user::windows::process::Proc;
 
 use super::{RuntimeKind, runtime, state};
+pub(super) use exit::ExitState;
+pub(crate) use exit::UCRT_EXIT_EXPORTS;
+pub(crate) use fatal::UCRT_FATAL_EXPORTS;
 pub(super) use lock::ExitLockState;
 pub(super) use lock::with_lock;
+pub(crate) use signal::UCRT_SIGNAL_EXPORTS;
 pub(super) use storage::TerminationState;
 use storage::{Kind, TerminationError};
 
