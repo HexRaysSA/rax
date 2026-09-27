@@ -12,7 +12,6 @@ use std::sync::Arc;
 use rax_engine::cpu::MemAccess;
 use rax_engine::memory::vm::{Bytes, GuestAddress, GuestMemoryMmap, GuestRegionMmap, MmapRegion};
 
-use crate::arch::build_vcpu;
 use crate::engine::{Engine, PAGE, engine_mut, engine_ref};
 use crate::guard;
 use crate::status::RaxStatus;
@@ -217,6 +216,12 @@ impl Engine {
         // Perms-only change (identical backing set): update in place.
         if fresh_idx.is_empty() && new_regions.len() == self.regions.len() {
             self.regions = new_regions;
+            if let Some(translation) = &self.translation {
+                translation.set(self.region_specs());
+                // Code whose page lost execute permission must not run from
+                // a cached decode or compiled region.
+                self.vcpu.invalidate_all_code();
+            }
             return RaxStatus::Ok;
         }
 
@@ -244,12 +249,20 @@ impl Engine {
         }
 
         // Reconstruct the vCPU over the new memory, round-tripping CPU state.
+        // User mode shares one translation with the vCPU; publish the new
+        // mapping only once nothing below can fail.
         let st = match self.vcpu.get_state() {
             Ok(s) => s,
             Err(e) => return self.fail_engine(&e),
         };
         let es = self.vcpu.get_emulator_state();
-        let mut v = match build_vcpu(self.arch, self.mode, new_mem.clone(), self.riscv_config) {
+        let mut v = match crate::arch::build_vcpu(
+            self.arch,
+            self.mode,
+            new_mem.clone(),
+            self.riscv_config,
+            self.translation.as_ref(),
+        ) {
             Ok(v) => v,
             Err(e) => return self.fail_engine(&e),
         };
@@ -258,6 +271,14 @@ impl Engine {
         }
         if let Some(es) = es {
             let _ = v.set_emulator_state(&es);
+        }
+        if let Some(translation) = &self.translation {
+            translation.set(
+                new_regions
+                    .iter()
+                    .map(|r| (r.base, r.size, r.perms))
+                    .collect(),
+            );
         }
 
         // Rebuilding physical backing must not reset the embedding counter.
@@ -451,6 +472,8 @@ pub extern "C" fn rax_mem_write(
         let st = e.phys_write(addr, buf);
         if st != RaxStatus::Ok {
             e.err_msg = "physical write out of mapped range".to_string();
+        } else {
+            e.vcpu.invalidate_code(addr, len as u64);
         }
         st
     })
@@ -508,7 +531,11 @@ pub extern "C" fn rax_mem_write_virt(
         }
         // Copy into a temporary so virt_access can use one direction signature.
         let mut tmp = unsafe { std::slice::from_raw_parts(bytes, len) }.to_vec();
-        e.virt_access(vaddr, &mut tmp, true)
+        let st = e.virt_access(vaddr, &mut tmp, true);
+        if st == RaxStatus::Ok {
+            e.vcpu.invalidate_code(vaddr, len as u64);
+        }
+        st
     })
 }
 

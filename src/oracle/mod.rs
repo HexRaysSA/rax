@@ -4,7 +4,10 @@ mod address;
 mod call_target;
 mod x86_fma;
 mod x86_frame;
+mod x86_legacy;
 mod x86_opmask;
+
+pub use x86_legacy::X86CodeSize;
 
 use call_target::call_target_json;
 
@@ -148,6 +151,10 @@ pub struct OracleOptions {
     pub riscv_isa: RiscVIsaProfile,
     pub smir_source: SourceArch,
     pub include_smir: bool,
+    /// The code size of [`OracleIsa::X86_64`] input. The SMIR lifter and
+    /// the side-effect summaries model 64-bit code only; 16- and 32-bit code
+    /// is decoded for length and control flow.
+    pub x86_code_size: X86CodeSize,
 }
 
 impl Default for OracleOptions {
@@ -162,6 +169,7 @@ impl Default for OracleOptions {
             riscv_isa: RiscVIsaProfile::Rv64Gc,
             smir_source: SourceArch::X86_64,
             include_smir: true,
+            x86_code_size: X86CodeSize::Bits64,
         }
     }
 }
@@ -268,7 +276,7 @@ pub fn decode_to_json_with_seed(
 
 fn decode_to_json_no_seed(bytes: &[u8], opts: &OracleOptions) -> Result<Value, String> {
     match opts.isa {
-        OracleIsa::X86_64 => Ok(decode_x86(bytes, opts)),
+        OracleIsa::X86_64 => decode_x86(bytes, opts),
         OracleIsa::Arm => decode_arm(bytes, opts),
         OracleIsa::Hexagon => decode_hexagon_packet(bytes, opts),
         OracleIsa::RiscV => decode_riscv(bytes, opts),
@@ -338,7 +346,20 @@ fn parse_u64ish(raw: &str) -> Result<u64, String> {
     }
 }
 
-fn decode_x86(bytes: &[u8], opts: &OracleOptions) -> Value {
+fn decode_x86(bytes: &[u8], opts: &OracleOptions) -> Result<Value, String> {
+    match opts.x86_code_size {
+        X86CodeSize::Bits64 => Ok(decode_x86_64(bytes, opts)),
+        size => x86_legacy::decode_json(
+            bytes,
+            opts.pc,
+            size,
+            input_json(bytes),
+            side_effects_not_run(),
+        ),
+    }
+}
+
+fn decode_x86_64(bytes: &[u8], opts: &OracleOptions) -> Value {
     let prefix = decode_x86_prefix_metadata(bytes);
     let smir = if opts.include_smir {
         lift_smir(SourceArch::X86_64, bytes, opts)
@@ -742,7 +763,8 @@ fn smir_side_effects(bytes: &[u8], opts: &OracleOptions, seed: &OracleSeed) -> V
 
 fn side_effect_source(opts: &OracleOptions) -> Option<SourceArch> {
     match opts.isa {
-        OracleIsa::X86_64 => Some(SourceArch::X86_64),
+        OracleIsa::X86_64 if opts.x86_code_size == X86CodeSize::Bits64 => Some(SourceArch::X86_64),
+        OracleIsa::X86_64 => None,
         OracleIsa::Arm if opts.arm_state == ArmState::Aarch64 => Some(SourceArch::Aarch64),
         OracleIsa::Arm => None,
         OracleIsa::Hexagon => Some(SourceArch::Hexagon),

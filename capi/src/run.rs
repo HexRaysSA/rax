@@ -11,6 +11,7 @@ use std::time::Instant;
 
 use rax_engine::cpu::{MemAccess, MemRecord, VcpuExit};
 
+use crate::arch::RaxArch;
 use crate::engine::{Engine, engine_mut};
 use crate::guard;
 use crate::hook::{
@@ -18,6 +19,10 @@ use crate::hook::{
     RAX_MEM_READ, RAX_MEM_WRITE, SimpleHook,
 };
 use crate::status::RaxStatus;
+use crate::user::{
+    RAX_EXCEPTION_SOFTWARE, RAX_EXCEPTION_SYNDROME, RAX_EXCEPTION_VALID, RaxExceptionInfo,
+};
+use crate::vcpu::UserTrap;
 
 /// Dispatches buffered memory-access records to matching memory hooks. Called
 /// from the run loop between steps, so no Rust borrow of the engine is held and
@@ -53,6 +58,7 @@ pub const RAX_STOP_INTERRUPT: i32 = 11;
 pub const RAX_STOP_SHUTDOWN: i32 = 12;
 pub const RAX_STOP_DEBUG: i32 = 13;
 pub const RAX_STOP_ERROR: i32 = 14;
+pub const RAX_STOP_SYSCALL: i32 = 15;
 
 /// Sentinel `until` meaning "no until-address stop". Mirrors `RAX_NO_ADDR`.
 pub const RAX_NO_ADDR: u64 = u64::MAX;
@@ -212,6 +218,14 @@ fn dispatch_exit(
             }
         }
         VcpuExit::Debug => Action::Stop(ExitInfo::stop(RAX_STOP_DEBUG)),
+        // User-mode cores record the call they report; the run loop consumes
+        // that record before dispatching exits. An unrecorded call is an
+        // engine inconsistency, never a clean stop.
+        VcpuExit::SystemCall => {
+            let mut e = ExitInfo::stop(RAX_STOP_ERROR);
+            e.status = RaxStatus::Fault as i32;
+            Action::Stop(e)
+        }
         VcpuExit::FailEntry { reason } => {
             let mut e = ExitInfo::stop(RAX_STOP_ERROR);
             e.status = RaxStatus::Fault as i32;
@@ -232,6 +246,101 @@ fn dispatch_exit(
         #[allow(unreachable_patterns)]
         _ => Action::Stop(ExitInfo::stop(RAX_STOP_DEBUG)),
     }
+}
+
+/// Services a system call or exception a user-mode core reported.
+///
+/// A system call goes to the first syscall hook, which continues execution at
+/// the resume address the PC already holds, or stops with `RAX_STOP_SYSCALL`.
+/// An exception is recorded for `rax_emu_last_exception`, the PC is moved to
+/// its architectural return address, and it goes to the first interrupt hook
+/// (continuing at whatever PC the hook leaves) or stops with
+/// `RAX_STOP_EXCEPTION`.
+///
+/// SAFETY: `eptr` is a live engine pointer; no Rust borrow of the engine is
+/// held across a callback.
+fn dispatch_user_trap(
+    eptr: *mut Engine,
+    trap: UserTrap,
+    syscall: &[SimpleHook<crate::hook::SyscallCb>],
+    intr: &[SimpleHook<crate::hook::IntrCb>],
+) -> Action {
+    match trap {
+        UserTrap::Syscall { pc, len, insn, imm } => match syscall.first() {
+            Some(h) => {
+                (h.cb)(eptr, pc, insn, imm, h.user);
+                Action::Continue
+            }
+            None => {
+                let mut e = ExitInfo::stop(RAX_STOP_SYSCALL);
+                e.address = pc;
+                e.size = len;
+                e.port = insn;
+                e.intno = imm;
+                Action::Stop(e)
+            }
+        },
+        UserTrap::Exception {
+            vector,
+            pc,
+            return_pc,
+            syndrome,
+            software,
+            undefined,
+        } => {
+            {
+                let e = unsafe { &mut *eptr };
+                let mut flags = RAX_EXCEPTION_VALID;
+                if syndrome.is_some() {
+                    flags |= RAX_EXCEPTION_SYNDROME;
+                }
+                if software {
+                    flags |= RAX_EXCEPTION_SOFTWARE;
+                }
+                e.last_exception = RaxExceptionInfo {
+                    vector,
+                    flags,
+                    pc,
+                    return_pc,
+                    syndrome: syndrome.unwrap_or(0),
+                    ..RaxExceptionInfo::default()
+                };
+                if e.vcpu.current_pc() != return_pc {
+                    if let Err(err) = e.vcpu.set_current_pc(return_pc) {
+                        let status = e.fail_engine(&err);
+                        let mut info = ExitInfo::stop(RAX_STOP_ERROR);
+                        info.address = pc;
+                        info.status = status as i32;
+                        return Action::Stop(info);
+                    }
+                }
+            }
+            match intr.first() {
+                Some(h) => {
+                    (h.cb)(eptr, vector, h.user);
+                    Action::Continue
+                }
+                None => {
+                    if undefined {
+                        let e = unsafe { &mut *eptr };
+                        e.last_fault.kind = crate::fault::RAX_FAULT_INVALID_INSTRUCTION;
+                        e.last_fault.pc = pc;
+                    }
+                    let mut e = ExitInfo::stop(RAX_STOP_EXCEPTION);
+                    e.address = pc;
+                    e.intno = vector;
+                    Action::Stop(e)
+                }
+            }
+        }
+    }
+}
+
+/// Whether the vCPU is halted. The x86 core's `run` also returns `Hlt` at
+/// its periodic (about 1 ms) yield; only a set halted flag is a guest halt.
+/// Cores without extended state report every `Hlt` as a halt.
+fn really_halted(eptr: *mut Engine) -> bool {
+    unsafe { (*eptr).vcpu.get_emulator_state() }.is_none_or(|state| state.halted)
 }
 
 /// Core run loop. `set_begin` (if `Some`) loads PC before running; `until`
@@ -258,14 +367,20 @@ fn run_emulation(
     let mmio_w_hooks;
     let invalid_hooks;
     let mem_hooks;
+    let syscall_hooks;
+    let run_to_exit;
     {
         let e = unsafe { &mut *eptr };
         e.clear_err();
         e.last_exit = ExitInfo::none();
         e.last_fault = crate::fault::RaxFaultInfo::default();
+        e.last_exception = RaxExceptionInfo::default();
         e.stop_flag.set(false);
         e.running = true;
         if let Some(b) = set_begin {
+            // An explicit start resumes a halted or waiting vCPU at `begin`;
+            // a bare step does not.
+            e.vcpu.wake();
             if let Err(err) = e.vcpu.set_current_pc(b) {
                 e.running = false;
                 return e.fail_engine(&err);
@@ -281,6 +396,11 @@ fn run_emulation(
         mmio_w_hooks = e.hooks.mmio_write.clone();
         invalid_hooks = e.hooks.invalid.clone();
         mem_hooks = e.hooks.mem.clone();
+        syscall_hooks = e.hooks.syscall.clone();
+        // Only the x86 core's `run` is more than a loop of its steps (it
+        // enters compiled code); the others' `run` ends batches with exits
+        // that are not guest events, so those engines always step.
+        run_to_exit = !supports || e.arch == RaxArch::X86;
         // Arm per-access recording only while memory hooks are present.
         e.vcpu.set_mem_recording(!mem_hooks.is_empty());
     }
@@ -291,7 +411,8 @@ fn run_emulation(
             || timeout_us != 0
             || !code_hooks.is_empty()
             || !block_hooks.is_empty()
-            || !mem_hooks.is_empty());
+            || !mem_hooks.is_empty()
+            || !run_to_exit);
     let mut mem_records: Vec<MemRecord> = Vec::new();
 
     let start = Instant::now();
@@ -375,51 +496,64 @@ fn run_emulation(
                 fire_mem_hooks(eptr, &mem_hooks, &mem_records);
             }
 
-            match res {
-                Ok(None) => {}
-                Ok(Some(exit)) => {
-                    match dispatch_exit(
-                        eptr,
-                        exit,
-                        &io_in_hooks,
-                        &io_out_hooks,
-                        &mmio_r_hooks,
-                        &mmio_w_hooks,
-                        &intr_hooks,
-                    ) {
-                        Action::Continue => {}
-                        Action::Stop(mut info) => {
-                            if info.address == 0 {
-                                info.address = pc;
-                            }
-                            exit_info = info;
-                            break 'step;
-                        }
+            // A user-mode system call or exception, whatever shape the step
+            // result took.
+            let trap = unsafe { (*eptr).vcpu.take_user_trap() };
+            if let Some(trap) = trap {
+                match dispatch_user_trap(eptr, trap, &syscall_hooks, &intr_hooks) {
+                    Action::Continue => {}
+                    Action::Stop(info) => {
+                        exit_info = info;
+                        break 'step;
                     }
                 }
-                Err(err) => {
-                    let s = crate::status::status_from_engine_error(&err);
-                    let msg = err.to_string();
-                    unsafe {
-                        (*eptr).err_msg = msg;
-                        (*eptr).last_fault = crate::fault::RaxFaultInfo::from_error(pc, &err);
-                        (*eptr).last_fault.retired_instructions = executed;
-                    }
-                    if let Some(h) = invalid_hooks.first() {
-                        let handled = (h.cb)(eptr, pc, h.user);
-                        if handled != 0 {
-                            unsafe {
-                                (*eptr).last_fault = crate::fault::RaxFaultInfo::default();
+            } else {
+                match res {
+                    Ok(None) => {}
+                    Ok(Some(exit)) => {
+                        match dispatch_exit(
+                            eptr,
+                            exit,
+                            &io_in_hooks,
+                            &io_out_hooks,
+                            &mmio_r_hooks,
+                            &mmio_w_hooks,
+                            &intr_hooks,
+                        ) {
+                            Action::Continue => {}
+                            Action::Stop(mut info) => {
+                                if info.address == 0 {
+                                    info.address = pc;
+                                }
+                                exit_info = info;
+                                break 'step;
                             }
-                            continue 'step;
                         }
                     }
-                    let mut info = ExitInfo::stop(RAX_STOP_ERROR);
-                    info.address = pc;
-                    info.status = s as i32;
-                    exit_info = info;
-                    ret = s;
-                    break 'step;
+                    Err(err) => {
+                        let s = crate::status::status_from_engine_error(&err);
+                        let msg = err.to_string();
+                        unsafe {
+                            (*eptr).err_msg = msg;
+                            (*eptr).last_fault = crate::fault::RaxFaultInfo::from_error(pc, &err);
+                            (*eptr).last_fault.retired_instructions = executed;
+                        }
+                        if let Some(h) = invalid_hooks.first() {
+                            let handled = (h.cb)(eptr, pc, h.user);
+                            if handled != 0 {
+                                unsafe {
+                                    (*eptr).last_fault = crate::fault::RaxFaultInfo::default();
+                                }
+                                continue 'step;
+                            }
+                        }
+                        let mut info = ExitInfo::stop(RAX_STOP_ERROR);
+                        info.address = pc;
+                        info.status = s as i32;
+                        exit_info = info;
+                        ret = s;
+                        break 'step;
+                    }
                 }
             }
 
@@ -447,7 +581,19 @@ fn run_emulation(
             let after = unsafe { (*eptr).vcpu.instruction_count() };
             executed = executed.saturating_add(after.wrapping_sub(before));
             let pc = unsafe { (*eptr).vcpu.current_pc() };
+            let trap = unsafe { (*eptr).vcpu.take_user_trap() };
+            if let Some(trap) = trap {
+                match dispatch_user_trap(eptr, trap, &syscall_hooks, &intr_hooks) {
+                    Action::Continue => continue,
+                    Action::Stop(info) => {
+                        exit_info = info;
+                        break;
+                    }
+                }
+            }
             match res {
+                // A periodic yield, not a guest halt: keep running.
+                Ok(VcpuExit::Hlt) if !really_halted(eptr) => {}
                 Ok(exit) => match dispatch_exit(
                     eptr,
                     exit,
@@ -508,6 +654,7 @@ fn run_emulation(
             | RAX_STOP_SHUTDOWN
             | RAX_STOP_DEBUG
             | RAX_STOP_ERROR
+            | RAX_STOP_SYSCALL
     ) {
         exit_info.value = executed;
     }
@@ -516,7 +663,9 @@ fn run_emulation(
         e.running = false;
         e.last_exit = exit_info;
         e.last_fault.retired_instructions = executed;
-        if exit_info.reason == RAX_STOP_EXCEPTION && exit_info.intno == 6 {
+        // User-mode exceptions classify undefined instructions per
+        // architecture as they are dispatched.
+        if !e.is_user() && exit_info.reason == RAX_STOP_EXCEPTION && exit_info.intno == 6 {
             e.last_fault.kind = crate::fault::RAX_FAULT_INVALID_INSTRUCTION;
             e.last_fault.pc = exit_info.address;
         }
@@ -659,6 +808,12 @@ pub extern "C" fn rax_interrupt(engine: *mut Engine, vector: u32) -> RaxStatus {
             None => return RaxStatus::Handle,
         };
         e.clear_err();
+        if e.is_user() {
+            return e.fail(
+                RaxStatus::Unsupported,
+                "user mode has no asynchronous interrupts",
+            );
+        }
         match e.vcpu.inject_interrupt(vector as u8) {
             Ok(true) => RaxStatus::Ok,
             Ok(false) => e.fail(RaxStatus::State, "interrupts are masked"),
@@ -676,6 +831,12 @@ pub extern "C" fn rax_nmi(engine: *mut Engine) -> RaxStatus {
             None => return RaxStatus::Handle,
         };
         e.clear_err();
+        if e.is_user() {
+            return e.fail(
+                RaxStatus::Unsupported,
+                "user mode has no asynchronous interrupts",
+            );
+        }
         match e.vcpu.inject_nmi() {
             Ok(_) => RaxStatus::Ok,
             Err(err) => e.fail_engine(&err),
@@ -687,7 +848,7 @@ pub extern "C" fn rax_nmi(engine: *mut Engine) -> RaxStatus {
 #[unsafe(no_mangle)]
 pub extern "C" fn rax_can_interrupt(engine: *const Engine) -> c_int {
     crate::guard_val(0, || match unsafe { crate::engine::engine_ref(engine) } {
-        Some(e) => e.vcpu.can_inject_interrupt() as c_int,
+        Some(e) => (!e.is_user() && e.vcpu.can_inject_interrupt()) as c_int,
         None => 0,
     })
 }

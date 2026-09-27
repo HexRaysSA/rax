@@ -46,6 +46,9 @@ mod mem;
 mod reg;
 mod run;
 mod status;
+mod user;
+mod vcpu;
+mod x87;
 
 #[cfg(test)]
 mod tests;
@@ -70,9 +73,10 @@ pub use analyze::{
 };
 pub use arch::{
     RAX_BACKEND_DEFAULT, RAX_BACKEND_EMULATOR, RAX_MODE_16, RAX_MODE_32, RAX_MODE_64, RAX_MODE_ARM,
-    RAX_MODE_BIG_ENDIAN, RAX_MODE_LITTLE_ENDIAN, RAX_MODE_THUMB, RAX_RISCV_EXT_SUPPORTED,
-    RAX_RISCV_EXT_XANDES, RAX_RISCV_EXT_XHAZARD3, RAX_RISCV_EXT_XIDA_SLTW, RAX_RISCV_EXT_XTHEAD,
-    RAX_RISCV_EXT_ZCLSD, RAX_RISCV_EXT_ZCMP, RAX_RISCV_EXT_ZCMT, RAX_RISCV_EXT_ZILSD, RaxArch,
+    RAX_MODE_BIG_ENDIAN, RAX_MODE_LITTLE_ENDIAN, RAX_MODE_THUMB, RAX_MODE_USER,
+    RAX_RISCV_EXT_SUPPORTED, RAX_RISCV_EXT_XANDES, RAX_RISCV_EXT_XHAZARD3, RAX_RISCV_EXT_XIDA_SLTW,
+    RAX_RISCV_EXT_XTHEAD, RAX_RISCV_EXT_ZCLSD, RAX_RISCV_EXT_ZCMP, RAX_RISCV_EXT_ZCMT,
+    RAX_RISCV_EXT_ZILSD, RaxArch,
 };
 pub use decode::{
     RAX_FLOW_BRANCH, RAX_FLOW_CALL, RAX_FLOW_COND_BRANCH, RAX_FLOW_FALLTHROUGH,
@@ -83,7 +87,7 @@ pub use engine::{DEFAULT_MEM_SIZE, Engine, RAX_OPEN_NO_DEFAULT_STATE, RaxEngineC
 pub use hook::{
     RAX_HOOK_BLOCK, RAX_HOOK_CODE, RAX_HOOK_INTR, RAX_HOOK_INVALID, RAX_HOOK_IO_IN,
     RAX_HOOK_IO_OUT, RAX_HOOK_MEM_FETCH, RAX_HOOK_MEM_READ, RAX_HOOK_MEM_WRITE, RAX_HOOK_MMIO_READ,
-    RAX_HOOK_MMIO_WRITE, RAX_MEM_FETCH, RAX_MEM_READ, RAX_MEM_WRITE,
+    RAX_HOOK_MMIO_WRITE, RAX_HOOK_SYSCALL, RAX_MEM_FETCH, RAX_MEM_READ, RAX_MEM_WRITE,
 };
 pub use mem::{
     RAX_PROT_ALL, RAX_PROT_EXEC, RAX_PROT_NONE, RAX_PROT_READ, RAX_PROT_WRITE, RaxMemRegion,
@@ -91,13 +95,19 @@ pub use mem::{
 pub use run::{
     ExitInfo, RAX_NO_ADDR, RAX_STOP_COUNT, RAX_STOP_DEBUG, RAX_STOP_ERROR, RAX_STOP_EXCEPTION,
     RAX_STOP_HLT, RAX_STOP_INTERRUPT, RAX_STOP_IO_IN, RAX_STOP_IO_OUT, RAX_STOP_MMIO_READ,
-    RAX_STOP_MMIO_WRITE, RAX_STOP_NONE, RAX_STOP_SHUTDOWN, RAX_STOP_TIMEOUT, RAX_STOP_UNTIL,
+    RAX_STOP_MMIO_WRITE, RAX_STOP_NONE, RAX_STOP_SHUTDOWN, RAX_STOP_SYSCALL, RAX_STOP_TIMEOUT,
+    RAX_STOP_UNTIL,
+};
+pub use user::{
+    RAX_EXCEPTION_INFO_VERSION, RAX_EXCEPTION_SOFTWARE, RAX_EXCEPTION_SYNDROME,
+    RAX_EXCEPTION_VALID, RAX_SYSCALL_INSN_ECALL, RAX_SYSCALL_INSN_SVC, RAX_SYSCALL_INSN_SYSCALL,
+    RAX_SYSCALL_INSN_SYSENTER, RaxExceptionInfo, rax_emu_last_exception,
 };
 
 /// ABI major version. Incremented only on a breaking ABI change.
 pub const RAX_API_MAJOR: u32 = 1;
 /// ABI minor version. Incremented when backward-compatible additions are made.
-pub const RAX_API_MINOR: u32 = 4;
+pub const RAX_API_MINOR: u32 = 5;
 /// ABI patch version.
 pub const RAX_API_PATCH: u32 = 0;
 
@@ -160,7 +170,7 @@ pub extern "C" fn rax_version(major: *mut u32, minor: *mut u32, patch: *mut u32)
 #[unsafe(no_mangle)]
 pub extern "C" fn rax_version_string() -> *const c_char {
     // Static NUL-terminated string with embedded version.
-    concat!(env!("CARGO_PKG_VERSION"), " (rax-capi ABI ", "1.4.0", ")\0").as_ptr() as *const c_char
+    concat!(env!("CARGO_PKG_VERSION"), " (rax-capi ABI ", "1.5.0", ")\0").as_ptr() as *const c_char
 }
 
 /// Returns a static, NUL-terminated description for a [`RaxStatus`] code.

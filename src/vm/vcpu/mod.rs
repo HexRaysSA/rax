@@ -10,7 +10,7 @@ pub use state::{
     Aarch32CpuState, Aarch32Registers, Aarch32SystemRegisters, Aarch64CpuState, Aarch64Registers,
     Aarch64SystemRegisters, CortexMCpuState, CortexMRegisters, CortexMSystemRegisters, CpuState,
     DescriptorTable, HexagonCpuState, HexagonRegisters, Registers, RiscVCpuState, RiscVRegisters,
-    Segment, SystemRegisters, X86_64CpuState,
+    RiscVVectorState, Segment, SystemRegisters, X86_64CpuState,
 };
 
 use crate::error::{Error, Result};
@@ -102,6 +102,13 @@ pub trait VCpu: Send {
     fn current_pc(&self) -> u64 {
         self.get_state().map(|s| s.pc()).unwrap_or(0)
     }
+
+    /// Leave a halted or waiting state (x86 `HLT`, AArch64 `WFI`/`WFE`, a
+    /// latched shutdown) so the next `run` or `step_insn` executes from the
+    /// current PC. Embedders call it when they explicitly restart execution;
+    /// guests leave these states through interrupts as usual. Backends without
+    /// such a state keep the default no-op.
+    fn wake(&mut self) {}
 
     /// Set only the program counter, preserving all other architectural and
     /// backend execution state. Backends should override this when loading a

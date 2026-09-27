@@ -1,7 +1,8 @@
 // cpp_engine.cpp — the C++ wrapper (rax.hpp) in action.
 //
 // Shows RAII lifetime, typed register access, a lambda code hook, exceptions
-// for error handling, and a context round-trip.
+// for error handling (a failed hook registration releases its callback), and
+// a context round-trip.
 //
 // Build:
 //   c++ -std=c++17 -I capi/include capi/examples/cpp_engine.cpp \
@@ -11,6 +12,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <memory>
 #include <vector>
 
 int main() {
@@ -49,7 +51,29 @@ int main() {
         e.contextRestore(snap);
         bool ctx_ok = e.regU64(RAX_X86_REG_RBX) == 0xABCD;
 
-        bool ok = ex.reason == RAX_STOP_HLT && rax == 0x1338 && traced >= 3 && ctx_ok;
+        // A registration that fails keeps nothing: RV64 cannot record memory
+        // accesses and system-call hooks need a user-mode engine, so both
+        // throw, and each callback (holding `token`) is released at once.
+        auto token = std::make_shared<int>(0);
+        bool drop_ok = true;
+        {
+            rax::Engine rv(rax::Arch::Riscv64, 0);
+            try {
+                rv.hookMem(RAX_HOOK_MEM_READ, [token](rax::Engine&, int, uint64_t, uint32_t, uint64_t) {});
+                drop_ok = false;
+            } catch (const rax::Error&) {
+            }
+            try {
+                rv.hookSyscall([token](rax::Engine&, uint64_t, uint32_t, uint32_t) {});
+                drop_ok = false;
+            } catch (const rax::Error&) {
+            }
+            drop_ok = drop_ok && token.use_count() == 1;
+        }
+        std::printf("failed hook registrations release their callbacks: %s\n",
+                    drop_ok ? "yes" : "no");
+
+        bool ok = ex.reason == RAX_STOP_HLT && rax == 0x1338 && traced >= 3 && ctx_ok && drop_ok;
         std::puts(ok ? "OK" : "FAILED");
         return ok ? 0 : 1;
     } catch (const rax::Error& err) {

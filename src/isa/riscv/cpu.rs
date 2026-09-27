@@ -23,6 +23,7 @@ mod fp_moves;
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
 mod jit;
+mod state_transfer;
 mod user_mode;
 mod vector_config;
 mod vector_conversion;

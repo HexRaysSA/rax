@@ -23,6 +23,7 @@ pub const RAX_HOOK_INVALID: u32 = 1 << 7;
 pub const RAX_HOOK_MEM_READ: u32 = 1 << 8;
 pub const RAX_HOOK_MEM_WRITE: u32 = 1 << 9;
 pub const RAX_HOOK_MEM_FETCH: u32 = 1 << 10;
+pub const RAX_HOOK_SYSCALL: u32 = 1 << 11;
 
 // `kind` argument passed to a memory hook callback.
 pub const RAX_MEM_READ: i32 = 0;
@@ -51,6 +52,11 @@ pub type InvalidCb = extern "C" fn(*mut Engine, u64, *mut c_void) -> c_int;
 /// instruction that made it retires (so the callback may freely re-enter the
 /// API).
 pub type MemCb = extern "C" fn(*mut Engine, c_int, u64, u32, u64, *mut c_void);
+/// User-mode system-call callback: `(engine, pc, insn, imm, user)`. `pc` is
+/// the system-call instruction, `insn` its `RAX_SYSCALL_INSN_*` class, and
+/// `imm` its immediate (AArch64 `SVC`; 0 otherwise). The PC register already
+/// holds the resume address, so returning continues after the call.
+pub type SyscallCb = extern "C" fn(*mut Engine, u64, u32, u32, *mut c_void);
 
 /// A memory hook: a range filter plus a type-mask (`RAX_HOOK_MEM_*`).
 #[derive(Clone, Copy)]
@@ -107,6 +113,7 @@ pub struct HookTable {
     pub mmio_write: Vec<SimpleHook<MmioWriteCb>>,
     pub invalid: Vec<SimpleHook<InvalidCb>>,
     pub mem: Vec<MemHook>,
+    pub syscall: Vec<SimpleHook<SyscallCb>>,
 }
 
 impl HookTable {
@@ -122,6 +129,7 @@ impl HookTable {
             mmio_write: Vec::new(),
             invalid: Vec::new(),
             mem: Vec::new(),
+            syscall: Vec::new(),
         }
     }
 
@@ -148,6 +156,7 @@ impl HookTable {
             || drop_from!(self.mmio_write)
             || drop_from!(self.invalid)
             || drop_from!(self.mem)
+            || drop_from!(self.syscall)
     }
 }
 
@@ -402,6 +411,34 @@ pub extern "C" fn rax_hook_add_mem(
             cb,
             user,
         });
+        finish_id(out_id, id)
+    })
+}
+
+/// Adds a user-mode system-call hook. The first registered hook services
+/// each system-call instruction (`SYSCALL`/`SYSENTER`, `SVC`, `ECALL`); with
+/// none, the run stops with `RAX_STOP_SYSCALL`. Requires `RAX_MODE_USER`.
+#[unsafe(no_mangle)]
+pub extern "C" fn rax_hook_add_syscall(
+    engine: *mut Engine,
+    cb: Option<SyscallCb>,
+    user: *mut c_void,
+    out_id: *mut u32,
+) -> RaxStatus {
+    guard(|| {
+        let e = check_handle!(engine);
+        let cb = match cb {
+            Some(c) => c,
+            None => return e.fail(RaxStatus::Arg, "null callback"),
+        };
+        if !e.is_user() {
+            return e.fail(
+                RaxStatus::Unsupported,
+                "system-call hooks require a RAX_MODE_USER engine",
+            );
+        }
+        let id = e.hooks.alloc_id();
+        e.hooks.syscall.push(SimpleHook { id, cb, user });
         finish_id(out_id, id)
     })
 }

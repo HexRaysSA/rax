@@ -65,7 +65,9 @@ enum class Status : int {
 
 using Exit = rax_exit;
 using FaultInfo = rax_fault_info;
+using ExceptionInfo = rax_exception_info;
 using MemRegion = rax_mem_region;
+using Decoded = rax_decoded;
 
 inline const char* strerror(Status s) { return rax_strerror(static_cast<int>(s)); }
 
@@ -88,6 +90,44 @@ private:
 
 inline void check(rax_status s, const char* ctx = nullptr) {
     if (s != RAX_OK) throw Error(static_cast<Status>(s), ctx ? ctx : "");
+}
+
+// --- Stateless decode and analysis -----------------------------------------
+
+/// Decodes one instruction (rax_decode). An undecodable instruction returns a
+/// record with `valid == 0`; only malformed arguments throw.
+inline Decoded decode(Arch arch, uint32_t mode, uint64_t pc, const void* bytes, size_t len) {
+    Decoded d{};
+    check(rax_decode(static_cast<int>(arch), mode, pc, bytes, len, &d), "decode");
+    return d;
+}
+inline Decoded decode(Arch arch, uint32_t mode, uint64_t pc, const std::vector<uint8_t>& bytes) {
+    return decode(arch, mode, pc, bytes.data(), bytes.size());
+}
+
+/// The rax_analyze summary and its complete effect list.
+struct Analysis {
+    rax_analysis summary{};
+    std::vector<rax_analysis_effect> effects;
+};
+
+/// Analyzes one instruction (rax_analyze), negotiating the effect count.
+inline Analysis analyze(Arch arch, uint32_t mode, uint64_t pc, const void* bytes, size_t len) {
+    Analysis a;
+    size_t count = 0;
+    check(rax_analyze(static_cast<int>(arch), mode, pc, bytes, len, &a.summary, nullptr, 0, &count),
+          "analyze");
+    if (count) {
+        a.effects.resize(count);
+        check(rax_analyze(static_cast<int>(arch), mode, pc, bytes, len, &a.summary,
+                          a.effects.data(), a.effects.size(), &count),
+              "analyze");
+        a.effects.resize(count);
+    }
+    return a;
+}
+inline Analysis analyze(Arch arch, uint32_t mode, uint64_t pc, const std::vector<uint8_t>& bytes) {
+    return analyze(arch, mode, pc, bytes.data(), bytes.size());
 }
 
 // --- Hook thunks ----------------------------------------------------------
@@ -122,6 +162,7 @@ struct Hook {
     std::function<void(Engine&, uint64_t, uint32_t, uint64_t)> mmioWrite;
     std::function<bool(Engine&, uint64_t)> invalid;
     std::function<void(Engine&, int, uint64_t, uint32_t, uint64_t)> mem;
+    std::function<void(Engine&, uint64_t, uint32_t, uint32_t)> syscall;
 };
 
 } // namespace detail
@@ -138,6 +179,7 @@ public:
     using MmioWriteFn = std::function<void(Engine&, uint64_t /*addr*/, uint32_t /*size*/, uint64_t /*value*/)>;
     using InvalidFn = std::function<bool(Engine&, uint64_t /*addr*/)>;
     using MemFn = std::function<void(Engine&, int /*kind*/, uint64_t /*addr*/, uint32_t /*size*/, uint64_t /*value*/)>;
+    using SyscallFn = std::function<void(Engine&, uint64_t /*pc*/, uint32_t /*insn*/, uint32_t /*imm*/)>;
 
     // -- lifecycle --
     Engine(Arch arch, uint32_t mode) {
@@ -296,7 +338,16 @@ public:
         check(rax_emu_last_fault(h_, &f), "emu_last_fault");
         return f;
     }
+    /// The exception the last run/step reported (check RAX_EXCEPTION_VALID).
+    ExceptionInfo lastException() const {
+        ExceptionInfo x{};
+        x.struct_size = sizeof(x);
+        x.version = RAX_EXCEPTION_INFO_VERSION;
+        check(rax_emu_last_exception(h_, &x), "emu_last_exception");
+        return x;
+    }
     uint64_t icount() const noexcept { return rax_emu_icount(h_); }
+    bool userMode() const noexcept { return (rax_engine_mode(h_) & RAX_MODE_USER) != 0; }
 
     // -- interrupts --
     Status interrupt(uint32_t vector) noexcept {
@@ -309,79 +360,79 @@ public:
     uint32_t hookCode(uint64_t begin, uint64_t end, CodeFn fn) {
         auto* hk = newHook();
         hk->code = std::move(fn);
-        uint32_t id = 0;
-        check(rax_hook_add_code(h_, begin, end, &Engine::codeTramp, hk, &id), "hook_add_code");
-        hk->id = id;
-        return id;
+        return registerHook(hk, "hook_add_code", [&](uint32_t* id) {
+            return rax_hook_add_code(h_, begin, end, &Engine::codeTramp, hk, id);
+        });
     }
     uint32_t hookCode(CodeFn fn) { return hookCode(1, 0, std::move(fn)); } // all addresses
     uint32_t hookBlock(uint64_t begin, uint64_t end, CodeFn fn) {
         auto* hk = newHook();
         hk->code = std::move(fn);
-        uint32_t id = 0;
-        check(rax_hook_add_block(h_, begin, end, &Engine::codeTramp, hk, &id), "hook_add_block");
-        hk->id = id;
-        return id;
+        return registerHook(hk, "hook_add_block", [&](uint32_t* id) {
+            return rax_hook_add_block(h_, begin, end, &Engine::codeTramp, hk, id);
+        });
     }
     uint32_t hookIntr(IntrFn fn) {
         auto* hk = newHook();
         hk->intr = std::move(fn);
-        uint32_t id = 0;
-        check(rax_hook_add_intr(h_, &Engine::intrTramp, hk, &id), "hook_add_intr");
-        hk->id = id;
-        return id;
+        return registerHook(hk, "hook_add_intr", [&](uint32_t* id) {
+            return rax_hook_add_intr(h_, &Engine::intrTramp, hk, id);
+        });
     }
     uint32_t hookIoIn(IoInFn fn) {
         auto* hk = newHook();
         hk->ioIn = std::move(fn);
-        uint32_t id = 0;
-        check(rax_hook_add_io_in(h_, &Engine::ioInTramp, hk, &id), "hook_add_io_in");
-        hk->id = id;
-        return id;
+        return registerHook(hk, "hook_add_io_in", [&](uint32_t* id) {
+            return rax_hook_add_io_in(h_, &Engine::ioInTramp, hk, id);
+        });
     }
     uint32_t hookIoOut(IoOutFn fn) {
         auto* hk = newHook();
         hk->ioOut = std::move(fn);
-        uint32_t id = 0;
-        check(rax_hook_add_io_out(h_, &Engine::ioOutTramp, hk, &id), "hook_add_io_out");
-        hk->id = id;
-        return id;
+        return registerHook(hk, "hook_add_io_out", [&](uint32_t* id) {
+            return rax_hook_add_io_out(h_, &Engine::ioOutTramp, hk, id);
+        });
     }
     uint32_t hookMmioRead(MmioReadFn fn) {
         auto* hk = newHook();
         hk->mmioRead = std::move(fn);
-        uint32_t id = 0;
-        check(rax_hook_add_mmio_read(h_, &Engine::mmioReadTramp, hk, &id), "hook_add_mmio_read");
-        hk->id = id;
-        return id;
+        return registerHook(hk, "hook_add_mmio_read", [&](uint32_t* id) {
+            return rax_hook_add_mmio_read(h_, &Engine::mmioReadTramp, hk, id);
+        });
     }
     uint32_t hookMmioWrite(MmioWriteFn fn) {
         auto* hk = newHook();
         hk->mmioWrite = std::move(fn);
-        uint32_t id = 0;
-        check(rax_hook_add_mmio_write(h_, &Engine::mmioWriteTramp, hk, &id), "hook_add_mmio_write");
-        hk->id = id;
-        return id;
+        return registerHook(hk, "hook_add_mmio_write", [&](uint32_t* id) {
+            return rax_hook_add_mmio_write(h_, &Engine::mmioWriteTramp, hk, id);
+        });
     }
     uint32_t hookInvalid(InvalidFn fn) {
         auto* hk = newHook();
         hk->invalid = std::move(fn);
-        uint32_t id = 0;
-        check(rax_hook_add_invalid(h_, &Engine::invalidTramp, hk, &id), "hook_add_invalid");
-        hk->id = id;
-        return id;
+        return registerHook(hk, "hook_add_invalid", [&](uint32_t* id) {
+            return rax_hook_add_invalid(h_, &Engine::invalidTramp, hk, id);
+        });
     }
     /// Per-access memory hook. `types` is a mask of RAX_HOOK_MEM_READ/WRITE/FETCH;
     /// `[begin, end]` filters by address (begin > end ⇒ all addresses).
     uint32_t hookMem(uint32_t types, uint64_t begin, uint64_t end, MemFn fn) {
         auto* hk = newHook();
         hk->mem = std::move(fn);
-        uint32_t id = 0;
-        check(rax_hook_add_mem(h_, types, begin, end, &Engine::memTramp, hk, &id), "hook_add_mem");
-        hk->id = id;
-        return id;
+        return registerHook(hk, "hook_add_mem", [&](uint32_t* id) {
+            return rax_hook_add_mem(h_, types, begin, end, &Engine::memTramp, hk, id);
+        });
     }
     uint32_t hookMem(uint32_t types, MemFn fn) { return hookMem(types, 1, 0, std::move(fn)); }
+    /// User-mode system-call hook (RAX_MODE_USER engines). The PC already holds
+    /// the resume address; service the call through the register API.
+    uint32_t hookSyscall(SyscallFn fn) {
+        auto* hk = newHook();
+        hk->syscall = std::move(fn);
+        return registerHook(hk, "hook_add_syscall", [&](uint32_t* id) {
+            return rax_hook_add_syscall(h_, &Engine::syscallTramp, hk, id);
+        });
+    }
     void hookDel(uint32_t id) {
         check(rax_hook_del(h_, id), "hook_del");
         for (auto it = hooks_.begin(); it != hooks_.end(); ++it) {
@@ -412,6 +463,20 @@ private:
         auto* hk = hooks_.back().get();
         hk->owner = this;
         return hk;
+    }
+    // Registers the newest hook, `hk`, through `add`; a failed registration
+    // drops it (and its callback) before the error propagates.
+    template <class Add>
+    uint32_t registerHook(detail::Hook* hk, const char* what, Add add) {
+        uint32_t id = 0;
+        try {
+            check(add(&id), what);
+        } catch (...) {
+            hooks_.pop_back();
+            throw;
+        }
+        hk->id = id;
+        return id;
     }
 
     void moveFrom(Engine&& o) noexcept {
@@ -454,6 +519,10 @@ private:
     static void memTramp(rax_engine*, int kind, uint64_t a, uint32_t s, uint64_t val, void* u) {
         auto& h = hk(u);
         if (h.mem) h.mem(*h.owner, kind, a, s, val);
+    }
+    static void syscallTramp(rax_engine*, uint64_t pc, uint32_t insn, uint32_t imm, void* u) {
+        auto& h = hk(u);
+        if (h.syscall) h.syscall(*h.owner, pc, insn, imm);
     }
 };
 

@@ -13,6 +13,13 @@
 //!
 //! PSCI calls (the device tree advertises `method = "hvc"`) surface as
 //! [`CpuExit::Hvc`]/[`CpuExit::Smc`] and are implemented here.
+//!
+//! [`Aarch64Vcpu::new_user`] builds a process-level (user-mode) vCPU for
+//! embedders that implement the operating system themselves: it executes at
+//! EL0, translates every access through a [`FlatTranslation`] that enforces
+//! page permissions, and reports `SVC` as [`VcpuExit::SystemCall`] and other
+//! synchronous exceptions as [`Error::GuestEvent`] instead of taking them to
+//! EL1 (see [`A64UserTrap`]).
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -21,11 +28,12 @@ use tracing::{debug, info};
 use vm_memory::{Bytes, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
 
 use crate::devices::pl011::{Pl011, Pl011MmioDevice};
-use crate::error::{Error, Result};
+use crate::error::{Error, GuestMemoryFault, MemoryAccessKind, MemoryFaultKind, Result};
 use crate::isa::arm::aarch64::{AArch64Config, AArch64Cpu, Gic};
 use crate::isa::arm::cpu_trait::{AccessType, ArmCpu, ArmError, CpuExit, ProcessorState};
 use crate::isa::arm::memory::{ArmMemory, MemResult, MemoryError, MmioHandler};
 use crate::machine::arm_virt::{AARCH64_GICD_BASE, AARCH64_GICR_BASE, AARCH64_UART_IRQ};
+use crate::vm::memory::FlatTranslation;
 use crate::vm::vcpu::{CpuState, MemAccess, MemRecord, VCpu, VcpuExit};
 
 /// GICv3 distributor frame size.
@@ -131,6 +139,9 @@ struct GuestBridge {
     /// Full-machine construction owns fixed UART/GIC windows; an instruction
     /// embedder owns its complete address space through explicit mappings.
     devices_enabled: bool,
+    /// User mode: every access is translated and permission-checked here,
+    /// one page at a time, before guest memory is touched.
+    translation: Option<Arc<dyn FlatTranslation>>,
     /// Local exclusive monitor: (address, size) of the open reservation.
     exclusive: Mutex<Option<(u64, u8)>>,
 }
@@ -146,7 +157,126 @@ fn in_window(addr: u64, base: u64, size: u64) -> bool {
     addr >= base && addr < base + size
 }
 
+/// The core's memory error for a user-mode translation fault. `size` is the
+/// number of bytes of the access from the first inaccessible byte onward.
+fn user_fault(fault: GuestMemoryFault, size: usize) -> MemoryError {
+    let access = match fault.access {
+        MemoryAccessKind::Read => AccessType::Read,
+        MemoryAccessKind::Write => AccessType::Write,
+        MemoryAccessKind::Fetch => AccessType::InstructionFetch,
+    };
+    match fault.kind {
+        MemoryFaultKind::Unmapped => MemoryError::Unmapped {
+            addr: fault.address,
+            size,
+            access,
+        },
+        MemoryFaultKind::Permission => MemoryError::Permission {
+            addr: fault.address,
+            access,
+            reason: String::new(),
+        },
+        MemoryFaultKind::Other => MemoryError::BusError {
+            addr: fault.address,
+        },
+    }
+}
+
+/// Translates `[addr, addr + len)` one 4 KiB page at a time and calls `f`
+/// with each chunk's guest-memory address and its byte range within the
+/// access. Stops at the first translation fault or `f` error.
+fn for_each_user_page(
+    translation: &dyn FlatTranslation,
+    addr: u64,
+    len: usize,
+    access: MemoryAccessKind,
+    mut f: impl FnMut(u64, std::ops::Range<usize>) -> MemResult<()>,
+) -> MemResult<()> {
+    let mut done = 0usize;
+    while done < len {
+        let linear = addr.wrapping_add(done as u64);
+        let chunk = ((0x1000 - (linear & 0xFFF)) as usize).min(len - done);
+        let target = translation
+            .translate(linear, access)
+            .map_err(|fault| user_fault(fault, len - done))?;
+        f(target, done..done + chunk)?;
+        done += chunk;
+    }
+    Ok(())
+}
+
 impl GuestBridge {
+    /// A user-mode load or fetch through the installed translation.
+    fn user_read(
+        &self,
+        translation: &dyn FlatTranslation,
+        addr: u64,
+        buf: &mut [u8],
+        access: MemoryAccessKind,
+    ) -> MemResult<()> {
+        let len = buf.len();
+        let arm_access = match access {
+            MemoryAccessKind::Fetch => AccessType::InstructionFetch,
+            _ => AccessType::Read,
+        };
+        for_each_user_page(translation, addr, len, access, |target, range| {
+            self.mem
+                .read_slice(&mut buf[range], GuestAddress(target))
+                .map_err(|error| MemoryError::Unmapped {
+                    addr: Self::failed_address(target, error),
+                    size: len,
+                    access: arm_access,
+                })
+        })
+    }
+
+    /// A user-mode store through the installed translation. Every page is
+    /// translated and checked before any byte is written, so a store that
+    /// faults on a later page publishes nothing.
+    fn user_write(
+        &self,
+        translation: &dyn FlatTranslation,
+        addr: u64,
+        data: &[u8],
+    ) -> MemResult<()> {
+        let len = data.len();
+        for_each_user_page(
+            translation,
+            addr,
+            len,
+            MemoryAccessKind::Write,
+            |target, range| {
+                if self
+                    .mem
+                    .check_range(GuestAddress(target), range.end - range.start)
+                {
+                    Ok(())
+                } else {
+                    Err(MemoryError::Unmapped {
+                        addr: target,
+                        size: len - range.start,
+                        access: AccessType::Write,
+                    })
+                }
+            },
+        )?;
+        for_each_user_page(
+            translation,
+            addr,
+            len,
+            MemoryAccessKind::Write,
+            |target, range| {
+                self.mem
+                    .write_slice(&data[range], GuestAddress(target))
+                    .map_err(|error| MemoryError::Unmapped {
+                        addr: Self::failed_address(target, error),
+                        size: len,
+                        access: AccessType::Write,
+                    })
+            },
+        )
+    }
+
     /// Recompute the PL011's level-triggered SPI after a UART access.
     fn sync_uart_irq(&self) {
         let (Some(gic), Some(uart)) = (self.late.gic.get(), self.late.uart.get()) else {
@@ -260,12 +390,20 @@ impl GuestBridge {
 
 impl ArmMemory for GuestBridge {
     fn read(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
-        self.read_unrecorded(addr, buf)?;
+        match self.translation.as_deref() {
+            Some(translation) => self.user_read(translation, addr, buf, MemoryAccessKind::Read)?,
+            None => self.read_unrecorded(addr, buf)?,
+        }
         self.recorder.record(MemAccess::Read, addr, buf);
         Ok(())
     }
 
     fn write(&mut self, addr: u64, data: &[u8]) -> MemResult<()> {
+        if let Some(translation) = self.translation.as_deref() {
+            self.user_write(translation, addr, data)?;
+            self.recorder.record(MemAccess::Write, addr, data);
+            return Ok(());
+        }
         // Boot-debug physical watchpoint (set RAX_WATCH=hexaddr).
         if let Some(w) = watch_addr() {
             if addr < w + 8 && addr + data.len() as u64 > w {
@@ -322,6 +460,11 @@ impl ArmMemory for GuestBridge {
     }
 
     fn fetch(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
+        if let Some(translation) = self.translation.as_deref() {
+            self.user_read(translation, addr, buf, MemoryAccessKind::Fetch)?;
+            self.recorder.record(MemAccess::Exec, addr, buf);
+            return Ok(());
+        }
         self.read_unrecorded(addr, buf)
             .map_err(|error| match error {
                 MemoryError::Unmapped { addr, size, .. } => MemoryError::Unmapped {
@@ -366,6 +509,39 @@ impl ArmMemory for GuestBridge {
     fn unregister_mmio(&mut self, _base: u64) {}
 }
 
+/// `ESR_ELx.EC` for an exception with an unknown reason (UNDEFINED
+/// instructions, including EL1-only system registers and `HVC`/`SMC`/`HLT`
+/// executed at EL0).
+pub const A64_EC_UNKNOWN: u8 = 0x00;
+/// `ESR_ELx.EC` for a `BRK` instruction executed in AArch64 state.
+pub const A64_EC_BRK: u8 = 0x3C;
+
+/// An EL0 event a user-mode vCPU ([`Aarch64Vcpu::new_user`]) reported to its
+/// embedder instead of taking it to EL1.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum A64UserTrap {
+    /// `SVC #imm` at `pc` executed; the PC is the following instruction, the
+    /// preferred return address of the exception.
+    Svc { imm: u16, pc: u64 },
+    /// A synchronous exception raised by the instruction at `pc`, which did
+    /// not retire: the PC is `pc`, the preferred return address. `ec` and
+    /// `iss` are the `ESR_EL1` fields an EL1 handler would receive
+    /// ([`A64_EC_BRK`] with the `BRK` immediate, or [`A64_EC_UNKNOWN`]).
+    Exception { ec: u8, iss: u32, pc: u64 },
+}
+
+/// Per-vCPU user-mode state.
+struct A64User {
+    /// The translation the memory bridge applies, for debugger-style
+    /// [`VCpu::translate_addr`] queries.
+    translation: Arc<dyn FlatTranslation>,
+    trap: Option<A64UserTrap>,
+    /// Instructions the core counted as executed that the user-mode contract
+    /// reports as not retired (an exception-raising `BRK`, `HVC`, `SMC`, or
+    /// `HLT`); subtracted from [`VCpu::instruction_count`].
+    not_retired: u64,
+}
+
 /// AArch64 vCPU backed by the software system emulator.
 pub struct Aarch64Vcpu {
     id: u32,
@@ -381,6 +557,8 @@ pub struct Aarch64Vcpu {
     shutdown: bool,
     /// C API instruction execution reports faults instead of entering guest vectors.
     fault_exits: bool,
+    /// Process-level execution at EL0 ([`Aarch64Vcpu::new_user`]).
+    user: Option<A64User>,
 }
 
 impl Aarch64Vcpu {
@@ -389,6 +567,16 @@ impl Aarch64Vcpu {
     }
 
     fn with_machine_devices(id: u32, mem: Arc<GuestMemoryMmap>, devices_enabled: bool) -> Self {
+        Self::build(id, mem, devices_enabled, None, AArch64Config::default())
+    }
+
+    fn build(
+        id: u32,
+        mem: Arc<GuestMemoryMmap>,
+        devices_enabled: bool,
+        translation: Option<Arc<dyn FlatTranslation>>,
+        config: AArch64Config,
+    ) -> Self {
         let late = Arc::new(LateBound::default());
         let recorder = Arc::new(MemRecorder::default());
         let bridge = GuestBridge {
@@ -396,9 +584,10 @@ impl Aarch64Vcpu {
             late: late.clone(),
             recorder: recorder.clone(),
             devices_enabled,
+            translation,
             exclusive: Mutex::new(None),
         };
-        let cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(bridge));
+        let cpu = AArch64Cpu::new(config, Box::new(bridge));
         // The CPU owns the GIC; hand the bridge a reference to the same
         // instance so MMIO and ICC system registers agree.
         if let Some(gic) = cpu.gic_handle() {
@@ -414,6 +603,7 @@ impl Aarch64Vcpu {
             trace_reg_last: 0,
             shutdown: false,
             fault_exits: !devices_enabled,
+            user: None,
         }
     }
 
@@ -421,6 +611,139 @@ impl Aarch64Vcpu {
     /// The ordinary constructor retains full-machine architectural delivery.
     pub fn new_micro(id: u32, mem: Arc<GuestMemoryMmap>) -> Self {
         Self::with_machine_devices(id, mem, false)
+    }
+
+    /// Process-level (user-mode) engine: the core executes at EL0 (`EL0t`)
+    /// with the Linux `execve` PSTATE, and every load, store, and instruction
+    /// fetch is translated and permission-checked by `translation`, whose
+    /// results index `mem`. There is no interrupt controller and no device
+    /// window. `SVC` retires and returns [`VcpuExit::SystemCall`]; `BRK` and
+    /// UNDEFINED instructions return [`Error::GuestEvent`] without retiring;
+    /// a translation fault returns [`Error::GuestAccess`]. Each records an
+    /// [`A64UserTrap`] (except the memory fault) for
+    /// [`Aarch64Vcpu::take_user_trap`].
+    pub fn new_user(
+        id: u32,
+        mem: Arc<GuestMemoryMmap>,
+        translation: Arc<dyn FlatTranslation>,
+    ) -> Self {
+        let config = AArch64Config {
+            // No interrupt controller: user mode has no asynchronous
+            // interrupts, and the GIC would be locked on every step.
+            gic_config: None,
+            ..AArch64Config::default()
+        };
+        let mut vcpu = Self::build(id, mem, false, Some(translation.clone()), config);
+        vcpu.cpu.enter_el0();
+        vcpu.user = Some(A64User {
+            translation,
+            trap: None,
+            not_retired: 0,
+        });
+        vcpu
+    }
+
+    /// Whether this vCPU executes at EL0 for a user-mode embedder.
+    pub fn user_mode_enabled(&self) -> bool {
+        self.user.is_some()
+    }
+
+    /// Removes and returns the event that ended the last user-mode step.
+    pub fn take_user_trap(&mut self) -> Option<A64UserTrap> {
+        self.user.as_mut().and_then(|user| user.trap.take())
+    }
+
+    /// Executes one EL0 instruction for a user-mode embedder.
+    fn step_user(&mut self) -> Result<Option<VcpuExit>> {
+        let pc = self.cpu.get_pc();
+        let before = self.cpu.instruction_count();
+        let stepped = self.cpu.step();
+        let counted = self.cpu.instruction_count().wrapping_sub(before);
+        let event = |cpu: &mut AArch64Cpu,
+                     user: &mut A64User,
+                     ec: u8,
+                     iss: u32|
+         -> Result<Option<VcpuExit>> {
+            // The exception's preferred return address is the instruction.
+            cpu.set_pc(pc);
+            user.not_retired = user.not_retired.wrapping_add(counted);
+            user.trap = Some(A64UserTrap::Exception { ec, iss, pc });
+            // Taking an exception clears the local exclusive monitor.
+            cpu.clear_exclusive_monitor();
+            Err(Error::GuestEvent { vector: ec })
+        };
+        let Some(user) = self.user.as_mut() else {
+            return Err(Error::Emulator(
+                "AArch64 user-mode step on a system vCPU".to_string(),
+            ));
+        };
+        let result = match stepped {
+            Ok(CpuExit::Continue) => Ok(None),
+            Ok(CpuExit::Svc(imm)) => {
+                user.trap = Some(A64UserTrap::Svc {
+                    imm: imm as u16,
+                    pc,
+                });
+                self.cpu.clear_exclusive_monitor();
+                Ok(Some(VcpuExit::SystemCall))
+            }
+            Ok(CpuExit::Breakpoint(imm)) => event(&mut self.cpu, user, A64_EC_BRK, imm & 0xFFFF),
+            Ok(CpuExit::Halt) => {
+                // HLT without halting debug enabled is UNDEFINED.
+                self.cpu.clear_halt();
+                event(&mut self.cpu, user, A64_EC_UNKNOWN, 0)
+            }
+            Ok(CpuExit::Hvc(_) | CpuExit::Smc(_) | CpuExit::Undefined(_)) => {
+                event(&mut self.cpu, user, A64_EC_UNKNOWN, 0)
+            }
+            Ok(CpuExit::Wfi | CpuExit::Wfe) => {
+                // Linux lets EL0 execute WFI/WFE; with no interrupt or event
+                // source in user mode they complete as hints.
+                self.cpu.clear_wait();
+                Ok(None)
+            }
+            Ok(other) => Err(Error::Emulator(format!(
+                "unexpected AArch64 user-mode exit at {pc:#x}: {other:?}"
+            ))),
+            Err(ArmError::MemoryError(info)) => {
+                self.cpu.set_pc(pc);
+                let access = match info.access {
+                    AccessType::Write | AccessType::Atomic => MemoryAccessKind::Write,
+                    AccessType::Read => MemoryAccessKind::Read,
+                    AccessType::InstructionFetch => MemoryAccessKind::Fetch,
+                };
+                let kind = match info.fault_type {
+                    crate::isa::arm::common::cpu::MemoryFaultType::Translation => {
+                        MemoryFaultKind::Unmapped
+                    }
+                    crate::isa::arm::common::cpu::MemoryFaultType::Permission => {
+                        MemoryFaultKind::Permission
+                    }
+                    _ => MemoryFaultKind::Other,
+                };
+                Err(GuestMemoryFault {
+                    address: info.address,
+                    size: 0,
+                    access,
+                    kind,
+                }
+                .into())
+            }
+            Err(
+                ArmError::UndefinedInstruction(_)
+                | ArmError::InvalidExceptionLevel(_)
+                | ArmError::Unimplemented(_),
+            ) => event(&mut self.cpu, user, A64_EC_UNKNOWN, 0),
+            Err(error) => Err(Error::Emulator(format!(
+                "AArch64 user-mode instruction failed at {pc:#x}: {error}"
+            ))),
+        };
+        let not_retired = self.user.as_ref().map_or(0, |user| user.not_retired);
+        self.insn_count.store(
+            self.cpu.instruction_count().wrapping_sub(not_retired),
+            Ordering::Relaxed,
+        );
+        result
     }
 
     fn step_micro(&mut self) -> Result<Option<VcpuExit>> {
@@ -564,6 +887,17 @@ impl VCpu for Aarch64Vcpu {
             return Ok(VcpuExit::Shutdown);
         }
 
+        if self.user.is_some() {
+            for _ in 0..BATCH {
+                if let Some(exit) = self.step_user()? {
+                    return Ok(exit);
+                }
+            }
+            // The end of a batch. User mode completes WFI/WFE as hints, so
+            // `Hlt` here never reports a halted core.
+            return Ok(VcpuExit::Hlt);
+        }
+
         if self.fault_exits {
             for _ in 0..BATCH {
                 if let Some(exit) = self.step_micro()? {
@@ -702,6 +1036,13 @@ impl VCpu for Aarch64Vcpu {
         // overlaid for compatibility with existing initial-state callers.
         self.cpu.set_sp(state.regs.sp);
         self.shutdown = false;
+        if let Some(user) = self.user.as_mut() {
+            // `reset` restarted the core's instruction count.
+            user.trap = None;
+            user.not_retired = 0;
+            self.insn_count
+                .store(self.cpu.instruction_count(), Ordering::Relaxed);
+        }
         Ok(())
     }
 
@@ -780,9 +1121,32 @@ impl VCpu for Aarch64Vcpu {
         Ok(())
     }
 
+    fn wake(&mut self) {
+        self.cpu.clear_wait();
+        self.cpu.clear_halt();
+        self.shutdown = false;
+    }
+
+    fn translate_addr(&mut self, vaddr: u64, access: MemAccess) -> Result<u64> {
+        let Some(user) = self.user.as_ref() else {
+            return Ok(vaddr);
+        };
+        let access = match access {
+            MemAccess::Read => MemoryAccessKind::Read,
+            MemAccess::Write => MemoryAccessKind::Write,
+            MemAccess::Exec => MemoryAccessKind::Fetch,
+        };
+        user.translation
+            .translate(vaddr, access)
+            .map_err(Error::from)
+    }
+
     fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
         if self.shutdown {
             return Ok(Some(VcpuExit::Shutdown));
+        }
+        if self.user.is_some() {
+            return self.step_user();
         }
         if self.fault_exits {
             return self.step_micro();
@@ -819,6 +1183,10 @@ impl VCpu for Aarch64Vcpu {
         r
     }
 }
+
+#[cfg(test)]
+#[path = "aarch64_user_tests.rs"]
+mod user_tests;
 
 #[cfg(test)]
 mod tests {

@@ -278,6 +278,19 @@ impl CortexMVariant {
         )
     }
 
+    /// Whether this variant implements the Armv7-M Thumb instruction set
+    /// (Armv6-M and Armv8-M Baseline have only its 16-bit subset plus BL,
+    /// MSR, MRS, the barriers, and UDF).
+    pub fn has_thumb2(&self) -> bool {
+        !matches!(
+            self,
+            CortexMVariant::CortexM0
+                | CortexMVariant::CortexM0Plus
+                | CortexMVariant::CortexM1
+                | CortexMVariant::CortexM23
+        )
+    }
+
     /// Check if this is an ARMv8-M variant.
     pub fn is_v8m(&self) -> bool {
         matches!(
@@ -465,6 +478,12 @@ impl Scb {
     /// Set UsageFault.
     pub fn set_usage_fault(&mut self, status: u32) {
         self.cfsr |= (status << 16) & 0xFFFF_0000;
+    }
+
+    /// Replaces CFSR and HFSR (state restore; guest writes clear bits).
+    pub fn set_status(&mut self, cfsr: u32, hfsr: u32) {
+        self.cfsr = cfsr;
+        self.hfsr = hfsr;
     }
 
     /// Set HardFault status.

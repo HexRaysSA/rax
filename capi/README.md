@@ -24,7 +24,10 @@ This is the CPU-engine ABI. Linux process emulation, ELF/sysroot loading,
 syscall servicing, guest processes/signals/IPC, and guest `ptrace` belong to
 the separate Rust `rax::user::linux` subsystem and `rax-user` binary; they
 are not exported by `librax`. See [Linux programs](../docs/getting-started/linux-programs.md)
-for that interface and its partial i386 compatibility.
+for that interface and its partial i386 compatibility. `librax` provides only
+the CPU half of process emulation: `RAX_MODE_USER` (ABI 1.5) runs unprivileged
+code and returns its system calls and exceptions to the embedder; see
+[User-mode execution](#user-mode-execution-abi-15).
 
 ```c
 #include <rax.h>
@@ -154,7 +157,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.4.0).
+C ABI version (currently 1.5.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -307,11 +310,12 @@ cargo build -p rax-capi --release --features jit
 | Memory map | `rax_mem_map`, `rax_mem_unmap`, `rax_mem_protect`, `rax_mem_regions` |
 | Memory access | `rax_mem_read`/`write`, `rax_mem_read_virt`/`write_virt`, `rax_mem_translate` |
 | Registers | `rax_reg_size`, `rax_reg_read`/`write`, `rax_reg_read_u64`/`write_u64` |
-| Execution | `rax_emu_start`, `rax_emu_step`, `rax_emu_stop`, `rax_emu_last_exit`, `rax_emu_icount` |
+| Execution | `rax_emu_start`, `rax_emu_step`, `rax_emu_stop`, `rax_emu_last_exit`, `rax_emu_last_fault`, `rax_emu_last_exception`, `rax_emu_icount` |
 | Interrupts | `rax_interrupt`, `rax_nmi`, `rax_can_interrupt` |
-| Hooks | `rax_hook_add_code`/`block`/`intr`/`io_in`/`io_out`/`mmio_read`/`mmio_write`/`invalid`/`mem`, `rax_hook_del` |
+| Hooks | `rax_hook_add_code`/`block`/`intr`/`io_in`/`io_out`/`mmio_read`/`mmio_write`/`invalid`/`mem`/`syscall`, `rax_hook_del` |
 | Context | `rax_context_save`, `rax_context_restore` |
-| Stateless analysis | `rax_decode`, `rax_analyze` |
+| User mode (ABI 1.5) | `RAX_MODE_USER`, `rax_hook_add_syscall`, `RAX_STOP_SYSCALL`, `rax_emu_last_exception` |
+| Stateless analysis | `rax_decode`, `rax_analyze` (C++: `rax::decode`, `rax::analyze`) |
 
 ### Stateless instruction analysis
 
@@ -321,7 +325,13 @@ plus normalized architectural-register reads/writes, memory access and effective
 address characteristics, condition-code effects, and direct constant/register
 results when SMIR proves them. Rich effects currently cover x86-64, AArch64,
 RV64 and Hexagon; the summary explicitly distinguishes complete, partial and
-unsupported results.
+unsupported results. x86 decodes in the code size the mode selects:
+`RAX_MODE_64` (the default), `RAX_MODE_32`, or `RAX_MODE_16` (since ABI 1.5;
+earlier versions decoded all x86 as 64-bit code, so `40 90` was one 2-byte
+instruction rather than `inc eax`). 16- and 32-bit code decodes for length and
+control flow only: `pc` is the offset in the code segment, relative targets
+wrap to the operand size, far jumps and calls have no static target, and
+`rax_analyze` reports the effects as unsupported.
 
 The effect list is caller-owned and uses normal two-call negotiation: pass a
 NULL array and zero capacity to obtain the required count, then pass that many
@@ -347,15 +357,41 @@ that give complete coverage, and **named aliases** (`RAX_X86_REG_RAX`, …) that
 evaluate to the same numbers. Values are little‑endian, sized to the register's
 natural width (`rax_reg_size`); vector registers are raw byte arrays. x86
 sub‑register writes follow architectural semantics (writing `EAX` zero‑extends
-into `RAX`; `AX`/`AL`/`AH` preserve the rest).
+into `RAX`; `AX`/`AL`/`AH` preserve the rest). Writing `RFLAGS`/`EFLAGS`/`FLAGS`
+replaces flags the core would otherwise still derive from the last ALU result.
+
+ABI 1.5 adds register ids for state the engine models but earlier versions did
+not expose:
+
+| Architecture | Ids | Notes |
+|---|---|---|
+| x86 | `RAX_X86_ST(i)`, `RAX_X86_REG_FPCW`/`FPSW`/`FPTAG`/`FOP`/`FIP`/`FDP`, `RAX_X86_REG_MXCSR` | ST(i) is stack‑relative in the exact 80‑bit format (10 bytes); writing it tags the register by its encoding; `FPSW` carries TOP; MXCSR writes with reserved bits return `RAX_ERR_ARG` |
+| x86 | `RAX_X86_REG_KERNEL_GS_BASE`, `TSC_AUX`, `PKRU` | read by `SWAPGS`, `RDTSCP`/`RDPID`, `RDPKRU` |
+| x86 | `RAX_X86_SEG_ATTR(i)`, `RAX_X86_REG_TR_ATTR`, `RAX_X86_REG_LDTR_ATTR` | VMX access‑rights layout (Intel SDM Vol. 3C, Table 26‑2); writing CS can select 64‑bit, compatibility, or legacy mode |
+| AArch64 | `RAX_ARM64_REG_TPIDR_EL0` … `RAX_ARM64_REG_CNTV_CVAL_EL0` | thread pointers, banked `SP_EL0`/`SP_EL1`, EL1 exception/translation registers, generic timers |
+| AArch32 | `RAX_ARM_D(i)` (D0–D31), `RAX_ARM_Q(i)` (Q0–Q15) | D0–D15 overlay S0–S31 |
+| RISC‑V | `RAX_RISCV_V(i)`, `RAX_RISCV_CSR(n)`, `RAX_RISCV_REG_PRIV` | V0–V31 (16 bytes, VLEN 128); CSR *n* as the hart implements it, written with its WARL rules (`vl`/`vtype` are writable here; use `mstatus`/`mie`/`mip` rather than the `sstatus`/`sie`/`sip` views; an unimplemented CSR reports `RAX_ERR_REG`); privilege 0, 1, or 3 (a user‑mode engine stays at 0); all saved in contexts |
+| Cortex‑M | `RAX_CM_REG_SP`, `RAX_CM_REG_VTOR`, `CCR`, `SHCSR`, `CFSR`, `HFSR`, `BFAR`, `AIRCR`, `SHPR1`–`SHPR3` | SP is the active stack pointer; the System Control Block registers the core models (the System Control Space is not memory‑mapped) |
 
 ### Execution & stop reasons
 
 `rax_emu_start(begin, until, timeout_us, count)` runs until the first stop
 condition; `rax_emu_last_exit` reports why (`rax_exit.reason` is one of the
-`RAX_STOP_*` values: count/until/timeout/stopped/hlt/io/mmio/exception/…). The
-call returns `RAX_OK` for any clean stop and an error status only for an
-unrecoverable fault.
+`RAX_STOP_*` values: count/until/timeout/stopped/hlt/io/mmio/exception/syscall/…).
+The call returns `RAX_OK` for any clean stop and an error status only for an
+unrecoverable fault. An unbounded run stops only at a guest event or an
+explicit condition; a backend's periodic yield is not reported as a halt. A
+vCPU that stopped in `HLT`, `WFI`, or `WFE` reports `RAX_STOP_HLT`;
+`rax_emu_start` resumes it at `begin` (since ABI 1.5; earlier versions kept
+it halted until a reset or restore). A system‑mode RV64 engine stops at
+`ECALL` with `RAX_STOP_SHUTDOWN` (with `a7` = 93 and a nonzero `a0`, the
+riscv-tests failure convention, `RAX_STOP_ERROR`) and at `EBREAK` with
+`RAX_STOP_DEBUG`.
+
+The engine an `arch`/`mode` pair selects owns no devices: every mapped byte is
+ordinary memory (the RV64 core no longer claims `0x1000_0000` as a UART), and
+the choice does not depend on the process environment (`RAX_MACHINE`, which
+selects board vCPUs for full‑machine runs, is ignored).
 
 ### Hooks
 
@@ -371,25 +407,45 @@ the API, including `rax_emu_stop`: memory accesses are recorded during execution
 and dispatched at instruction boundaries, so no callback ever runs while the
 engine is internally borrowed. Memory hooks require a recording‑capable backend
 (x86‑64 and AArch64 today; query via the `RAX_ERR_UNSUPPORTED` result of
-`rax_hook_add_mem`).
+`rax_hook_add_mem`). **System‑call hooks** (`rax_hook_add_syscall`) service
+the system calls of a user‑mode engine; see below.
 
 ## Architecture capability matrix
 
-| Architecture | `RAX_ARCH_*` | registers / memory / run | single‑step + code/block hooks |
-|--------------|--------------|--------------------------|--------------------------------|
-| x86 / x86‑64 | `X86`        | ✅                       | ✅                              |
-| AArch64      | `ARM64`      | ✅                       | ✅                              |
-| RISC‑V (RV64)| `RISCV64`    | ✅                       | ✅                              |
-| AArch32 / ARMv7 | `ARM`     | ✅                       | run‑to‑exit                    |
-| Cortex‑M     | `CORTEXM`    | ✅                       | run‑to‑exit                    |
-| Hexagon      | `HEXAGON`    | ✅                       | run‑to‑exit                    |
+| Architecture | `RAX_ARCH_*` | registers / memory / run | single‑step + code/block hooks | user mode (`RAX_MODE_USER`) |
+|--------------|--------------|--------------------------|--------------------------------|-----------------------------|
+| x86 / x86‑64 | `X86`        | ✅                       | ✅                              | ✅ 64‑bit and 32‑bit compatibility mode |
+| AArch64      | `ARM64`      | ✅                       | ✅                              | ✅ EL0                       |
+| RISC‑V (RV64)| `RISCV64`    | ✅                       | ✅                              | ✅ U‑mode                    |
+| AArch32 / ARMv7 | `ARM`     | ✅                       | ✅                              | —                           |
+| Hexagon      | `HEXAGON`    | ✅                       | ✅ (per packet)                 | —                           |
+| Cortex‑M     | `CORTEXM`    | ✅ Cortex‑M4, no FPU     | ✅                              | —                           |
 
-All architectures support the full register, memory, run, reset, and context
-API. Instruction‑granular control (`count`/`until`, code/block hooks, and
-`rax_emu_step`) is available on every backend that advertises
-`rax_engine_supports_stepping` — x86‑64, AArch64, and RISC‑V today; the
-remaining architectures run to the next exit. Query at runtime rather than
-assuming.
+Every architecture supports the full register, memory, run, reset, and
+context API, and instruction‑granular control (`count`/`until`, code/block
+hooks, `rax_emu_step`; `rax_engine_supports_stepping` reports it). Hexagon
+steps whole packets.
+
+The ARM engines take exceptions architecturally through the guest's vector
+table — AArch32 `SVC` and `BKPT` through SCTLR.V's vectors, Cortex‑M `SVC`,
+`BKPT` (escalated to HardFault), and the UsageFaults (`UNALIGNED`,
+`DIVBYZERO`, `INVSTATE`, and `INVPC` on a bad `EXC_RETURN`, escalated to
+HardFault while SHCSR leaves them disabled) through `VTOR` — while a memory
+fault or an UNDEFINED instruction is returned at the faulting instruction,
+which does not retire (`RAX_ERR_FAULT` with `rax_emu_last_fault`, or the
+invalid‑instruction hook). `WFI`/`WFE` stop with `RAX_STOP_HLT`, and a
+Cortex‑M lockup is an error.
+
+`RAX_ARCH_CORTEXM` (since ABI 1.5) is a Cortex‑M4: the Armv7E‑M Thumb
+instruction set with the DSP extension and the Armv7‑M exception model
+(8‑byte frame alignment per CCR.STKALIGN, priority escalation, `EXC_RETURN`
+through `BX`, `POP`, `LDM`, or `LDR`). It has no Floating‑point Extension —
+FP instructions are invalid instructions and `RAX_CM_S(i)`/`RAX_CM_REG_FPSCR`
+report `RAX_ERR_REG` — and its System Control Space (NVIC, SCB, SysTick) is
+reached through the `RAX_CM_REG_*` registers, not memory: addresses in
+`0xE000_E000` are ordinary memory. It is little‑endian and Thumb‑only;
+`RAX_MODE_ARM` and `RAX_MODE_BIG_ENDIAN` are rejected. Its instruction
+semantics are checked against QEMU's Cortex‑M4 (`tools/cortex-m-diff`).
 
 ## Threading & safety
 
@@ -409,10 +465,12 @@ See `examples/`:
 - `x86_64_step.c` — single‑stepping instruction by instruction.
 - `x86_64_io.c` — servicing guest port I/O with hooks.
 - `x86_64_memhook.c` — per-access memory read/write watchpoints.
+- `x86_64_user.c` — user mode: servicing `write`/`exit` system calls, enforced page permissions.
 - `mem_and_context.c` — sparse mapping, region enumeration, snapshots.
-- `cpp_engine.cpp` — the C++ wrapper with a lambda hook and a context round‑trip.
+- `cpp_engine.cpp` — the C++ wrapper with a lambda hook, a context round‑trip, and a failed hook registration that releases its callback.
 - `cpp_registers.cpp` — scalar/byte-buffer register agreement across host byte orders.
 - `cpp_fault_recovery.cpp` — typed sparse fetch recovery with retirement checks.
+- `cpp_user_arm64.cpp` — AArch64 EL0 with `hookSyscall`, `TPIDR_EL0`, `BRK` via `lastException()`, and `rax::decode`/`rax::analyze`.
 
 ## License
 
@@ -444,3 +502,59 @@ I/O stops where `rax_exit.value` has another meaning. Failed fetches/accesses
 retire nothing; architecturally completed REP elements remain committed for
 retry. Mapping changes preserve the cumulative `rax_emu_icount`; reset/context
 restoration starts its count again at zero.
+
+### User-mode execution (ABI 1.5)
+
+`RAX_MODE_USER` runs guest code the way an operating system runs a process —
+x86 CPL 3 in 64‑bit (`RAX_MODE_64`) or 32‑bit compatibility (`RAX_MODE_32`)
+mode, AArch64 EL0, or RV64 U‑mode — and makes the embedder that operating
+system. It is the engine‑level counterpart of `rax-user`: librax traps system
+calls and exceptions; it does not implement Linux or any other OS.
+
+```c
+rax_engine_config cfg = {sizeof cfg, RAX_ARCH_ARM64, RAX_MODE_USER};
+cfg.mem_base = 0x400000; cfg.mem_size = 0x10000;
+cfg.mem_perms = RAX_PROT_READ | RAX_PROT_EXEC;      /* enforced in user mode */
+rax_engine_open_config(&cfg, &e);
+rax_hook_add_syscall(e, on_svc, &os, NULL);          /* X8 = number, X0.. = args */
+rax_emu_start(e, 0x400000, RAX_NO_ADDR, 0, 0);
+```
+
+- **Address space.** Every guest load, store, and fetch is checked against the
+  region's `RAX_PROT_*` bits. A violation or unmapped access fails the run
+  with `RAX_ERR_FAULT` and a `rax_fault_info` of kind `PERMISSION` or
+  `UNMAPPED` carrying the exact first inaccessible byte; the instruction does
+  not retire, so `rax_mem_protect`/`rax_mem_map` and a retry resume it.
+  Virtual accessors and `rax_mem_translate` apply the same checks; physical
+  host access does not.
+- **System calls.** `SYSCALL`/`SYSENTER`, `SVC`, and `ECALL` complete (and
+  count as one executed instruction) with the PC at the resume address. The
+  first syscall hook — `(engine, pc, insn, imm, user)`, `insn` a
+  `RAX_SYSCALL_INSN_*` class, `imm` the `SVC` immediate — services the call
+  through the register API; without one the run stops with `RAX_STOP_SYSCALL`
+  (`address` = the instruction, `size` = its length, `port` = the class,
+  `intno` = the immediate). x86 `SYSCALL` sets RCX and R11 architecturally.
+- **Exceptions.** x86 IDT events (`#UD`, `#GP`, `INT n`, `INT3`, …), AArch64
+  `BRK` and UNDEFINED instructions, and RV64 `EBREAK`, illegal instructions,
+  and misaligned fetches or AMOs are not delivered through guest vector tables. The
+  PC moves to the architectural return address and the interrupt hook
+  receives the vector (x86 IDT vector, AArch64 `ESR_EL1.EC`, RISC‑V `mcause`)
+  and may change the PC; without a hook the run stops with
+  `RAX_STOP_EXCEPTION`. `rax_emu_last_exception` returns a versioned
+  `rax_exception_info` with the raising PC, return PC, and syndrome (x86 error
+  code, AArch64 ISS, RISC‑V `mtval`); initialize `struct_size` and `version`
+  as for `rax_emu_last_fault`. An undefined instruction that stops the run is
+  also reported as `RAX_FAULT_INVALID_INSTRUCTION`.
+- **Environment.** Open and reset install the unprivileged state (x86: the
+  Linux `execve` segments — CS `0x33`, or `0x23` in compatibility mode —
+  `EFER.SCE`, SSE/AVX/AVX‑512 enabled). There are no asynchronous interrupts:
+  `rax_interrupt`/`rax_nmi` return `RAX_ERR_UNSUPPORTED`. x86 `HLT` and other
+  privileged instructions raise `#GP`; AArch64 EL1 system registers, RV64
+  higher‑privilege CSRs, and the RV64 counters are UNDEFINED/illegal. Register
+  writes are not privilege‑checked. Contexts record the mode, so a restored
+  user‑mode context yields a user‑mode engine with its permissions.
+
+Context format: ABI 1.5 writes context format 2, whose x86 state keeps the x87
+registers in their exact 80‑bit encoding. Contexts written by ABI 1.4 and
+earlier (format 1, binary64 x87 registers) still restore, each register
+widened exactly; ABI 1.4 libraries cannot read format 2.

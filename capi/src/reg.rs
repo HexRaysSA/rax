@@ -13,6 +13,7 @@
 use std::os::raw::c_int;
 
 use rax_engine::cpu::{CpuState, Registers, Segment, SystemRegisters};
+use rax_engine::snapshot::EmulatorState;
 
 use crate::arch::RaxArch;
 use crate::engine::{Engine, engine_mut, engine_ref};
@@ -81,6 +82,25 @@ const X86_LDTR_LIMIT: i32 = 0x1106;
 const X86_TR_SEL: i32 = 0x1107;
 const X86_TR_BASE: i32 = 0x1108;
 const X86_TR_LIMIT: i32 = 0x1109;
+const X86_TR_ATTR: i32 = 0x110A;
+const X86_LDTR_ATTR: i32 = 0x110B;
+const X86_SEG_ATTR: i32 = 0x1300;
+
+// State the engine keeps outside `CpuState` (its extended `EmulatorState`).
+const X86_KERNEL_GS_BASE: i32 = 0x100B;
+const X86_TSC_AUX: i32 = 0x100C;
+const X86_PKRU: i32 = 0x100D;
+const X86_ST: i32 = 0x1200;
+const X86_FPCW: i32 = 0x1210;
+const X86_FPSW: i32 = 0x1211;
+const X86_FPTAG: i32 = 0x1212;
+const X86_FOP: i32 = 0x1213;
+const X86_FIP: i32 = 0x1214;
+const X86_FDP: i32 = 0x1215;
+const X86_MXCSR: i32 = 0x1216;
+
+/// x87 status-word TOP field (bits 13:11).
+const FSW_TOP: u16 = 0x3800;
 
 fn x86_gpr_get(r: &Registers, idx: usize) -> u64 {
     match idx {
@@ -196,6 +216,8 @@ fn x86_size(id: i32) -> Option<usize> {
             X86_GDT_LIMIT | X86_IDT_LIMIT | X86_LDTR_LIMIT | X86_TR_LIMIT => 2,
             _ => 2,
         },
+        X86_TR_ATTR | X86_LDTR_ATTR => 4,
+        _ if x86_emu_size(id).is_some() => return x86_emu_size(id),
         _ => match fam {
             X86_GPR64 if idx < 32 => 8,
             X86_GPR32 if idx < 32 => 4,
@@ -212,9 +234,111 @@ fn x86_size(id: i32) -> Option<usize> {
             X86_ZMM if idx < 32 => 64,
             X86_K if idx < 8 => 8,
             X86_MM if idx < 8 => 8,
+            X86_SEG_ATTR if idx < 6 => 4,
             _ => return None,
         },
     })
+}
+
+/// Access-rights bits defined by the VMX guest segment format (Intel SDM
+/// Vol. 3C, Table 26-2 "Format of Access Rights"): type 3:0, S 4, DPL 6:5,
+/// P 7, AVL 12, L 13 (CS only), D/B 14, G 15, unusable 16.
+const SEG_ATTR_DEFINED: u32 = 0x1_F0FF;
+
+fn seg_attr(seg: &Segment) -> u32 {
+    u32::from(seg.type_ & 0xF)
+        | (u32::from(seg.s) << 4)
+        | (u32::from(seg.dpl & 3) << 5)
+        | (u32::from(seg.present) << 7)
+        | (u32::from(seg.avl) << 12)
+        | (u32::from(seg.l) << 13)
+        | (u32::from(seg.db) << 14)
+        | (u32::from(seg.g) << 15)
+        | (u32::from(seg.unusable) << 16)
+}
+
+fn set_seg_attr(seg: &mut Segment, attr: u32) {
+    seg.type_ = (attr & 0xF) as u8;
+    seg.s = attr & (1 << 4) != 0;
+    seg.dpl = ((attr >> 5) & 3) as u8;
+    seg.present = attr & (1 << 7) != 0;
+    seg.avl = attr & (1 << 12) != 0;
+    seg.l = attr & (1 << 13) != 0;
+    seg.db = attr & (1 << 14) != 0;
+    seg.g = attr & (1 << 15) != 0;
+    seg.unusable = attr & (1 << 16) != 0;
+}
+
+/// Width of an x86 register the engine keeps in its extended state.
+fn x86_emu_size(id: i32) -> Option<usize> {
+    Some(match id {
+        X86_KERNEL_GS_BASE | X86_FIP | X86_FDP => 8,
+        X86_TSC_AUX | X86_PKRU | X86_MXCSR => 4,
+        X86_FPCW | X86_FPSW | X86_FPTAG | X86_FOP => 2,
+        _ if (X86_ST..X86_ST + 8).contains(&id) => 10,
+        _ => return None,
+    })
+}
+
+/// Physical x87 register holding ST(`i`).
+fn x87_physical(es: &EmulatorState, i: i32) -> usize {
+    ((i32::from(es.fpu.top) + i) & 7) as usize
+}
+
+fn x86_emu_read(es: &EmulatorState, id: i32, out: &mut [u8]) -> Option<usize> {
+    let size = x86_emu_size(id)?;
+    let fpu = &es.fpu;
+    match id {
+        X86_KERNEL_GS_BASE => put_uint(out, es.kernel_gs_base, 8),
+        X86_TSC_AUX => put_uint(out, u64::from(es.tsc_aux), 4),
+        X86_PKRU => put_uint(out, u64::from(es.pkru), 4),
+        X86_MXCSR => put_uint(out, u64::from(es.mxcsr), 4),
+        X86_FPCW => put_uint(out, u64::from(fpu.control_word), 2),
+        X86_FPSW => put_uint(
+            out,
+            u64::from((fpu.status_word & !FSW_TOP) | (u16::from(fpu.top & 7) << 11)),
+            2,
+        ),
+        X86_FPTAG => put_uint(out, u64::from(fpu.tag_word), 2),
+        X86_FOP => put_uint(out, u64::from(fpu.last_opcode & 0x7FF), 2),
+        X86_FIP => put_uint(out, fpu.instr_ptr, 8),
+        X86_FDP => put_uint(out, fpu.data_ptr, 8),
+        _ => out[..10].copy_from_slice(&fpu.st[x87_physical(es, id - X86_ST)]),
+    }
+    Some(size)
+}
+
+fn x86_emu_write(es: &mut EmulatorState, id: i32, inp: &[u8]) -> Option<usize> {
+    let size = x86_emu_size(id)?;
+    let v = if size <= 8 { get_uint(inp, size) } else { 0 };
+    match id {
+        X86_KERNEL_GS_BASE => es.kernel_gs_base = v,
+        X86_TSC_AUX => es.tsc_aux = v as u32,
+        X86_PKRU => es.pkru = v as u32,
+        // Reserved bits are rejected when the state is installed.
+        X86_MXCSR => es.mxcsr = v as u32,
+        X86_FPCW => es.fpu.control_word = v as u16,
+        X86_FPSW => {
+            es.fpu.status_word = v as u16;
+            es.fpu.top = ((v as u16 & FSW_TOP) >> 11) as u8;
+        }
+        X86_FPTAG => es.fpu.tag_word = v as u16,
+        X86_FOP => es.fpu.last_opcode = v as u16 & 0x7FF,
+        X86_FIP => es.fpu.instr_ptr = v,
+        X86_FDP => es.fpu.data_ptr = v,
+        _ => {
+            // As loading a value does, tag the register valid, zero, or
+            // special by its encoding (never empty).
+            let physical = x87_physical(es, id - X86_ST);
+            let mut raw = [0u8; 10];
+            raw.copy_from_slice(&inp[..10]);
+            es.fpu.st[physical] = raw;
+            let shift = physical * 2;
+            es.fpu.tag_word =
+                (es.fpu.tag_word & !(3 << shift)) | (crate::x87::tag_of(&raw) << shift);
+        }
+    }
+    Some(size)
 }
 
 /// Assembles a ZMM register (up to 64 bytes) from the split storage.
@@ -297,6 +421,8 @@ fn x86_read(st: &CpuState, id: i32, out: &mut [u8]) -> Option<usize> {
         X86_TR_SEL => put_uint(out, s.tr.selector as u64, 2),
         X86_TR_BASE => put_uint(out, s.tr.base, 8),
         X86_TR_LIMIT => put_uint(out, s.tr.limit as u64, 2),
+        X86_TR_ATTR => put_uint(out, u64::from(seg_attr(&s.tr)), 4),
+        X86_LDTR_ATTR => put_uint(out, u64::from(seg_attr(&s.ldt)), 4),
         _ => match fam {
             X86_GPR64 => put_uint(out, x86_gpr_get(r, idx), 8),
             X86_GPR32 => put_uint(out, x86_gpr_get(r, idx) & 0xFFFF_FFFF, 4),
@@ -336,6 +462,7 @@ fn x86_read(st: &CpuState, id: i32, out: &mut [u8]) -> Option<usize> {
             X86_ZMM => out[..64].copy_from_slice(&x86_zmm_bytes(r, idx)[..64]),
             X86_K => put_uint(out, r.k.get(idx).copied().unwrap_or(0), 8),
             X86_MM => put_uint(out, r.mm.get(idx).copied().unwrap_or(0), 8),
+            X86_SEG_ATTR => put_uint(out, u64::from(seg_attr(x86_seg(s, idx)?)), 4),
             _ => return None,
         },
     }
@@ -377,6 +504,8 @@ fn x86_write(st: &mut CpuState, id: i32, inp: &[u8]) -> Option<usize> {
         X86_TR_SEL => s.tr.selector = v as u16,
         X86_TR_BASE => s.tr.base = v,
         X86_TR_LIMIT => s.tr.limit = v as u32,
+        X86_TR_ATTR => set_seg_attr(&mut s.tr, v as u32 & SEG_ATTR_DEFINED),
+        X86_LDTR_ATTR => set_seg_attr(&mut s.ldt, v as u32 & SEG_ATTR_DEFINED),
         _ => match fam {
             X86_GPR64 => x86_gpr_set(r, idx, v),
             X86_GPR32 => x86_gpr_set(r, idx, v & 0xFFFF_FFFF), // zero-extend
@@ -429,6 +558,7 @@ fn x86_write(st: &mut CpuState, id: i32, inp: &[u8]) -> Option<usize> {
                     return None;
                 }
             }
+            X86_SEG_ATTR => set_seg_attr(x86_seg_mut(s, idx)?, v as u32 & SEG_ATTR_DEFINED),
             _ => return None,
         },
     }
@@ -462,6 +592,76 @@ const CM_CONTROL: i32 = 0x0032;
 const CM_PRIMASK: i32 = 0x0033;
 const CM_FAULTMASK: i32 = 0x0034;
 const CM_BASEPRI: i32 = 0x0035;
+// Cortex-M System Control Block registers (4 bytes each; since API 1.5).
+const CM_VTOR: i32 = 0x0036;
+const CM_CCR: i32 = 0x0037;
+const CM_SHCSR: i32 = 0x0038;
+const CM_CFSR: i32 = 0x0039;
+const CM_HFSR: i32 = 0x003A;
+const CM_BFAR: i32 = 0x003B;
+const CM_AIRCR: i32 = 0x003C;
+const CM_SHPR1: i32 = 0x003D;
+const CM_SHPR3: i32 = 0x003F;
+
+// AArch64 system registers (8 bytes each), in `rax.h` order.
+const A64_SYSREG: i32 = 0x0400;
+const A64_TPIDR_EL0: i32 = 0x0400;
+const A64_TPIDRRO_EL0: i32 = 0x0401;
+const A64_TPIDR_EL1: i32 = 0x0402;
+const A64_SP_EL0: i32 = 0x0403;
+const A64_SP_EL1: i32 = 0x0404;
+const A64_ELR_EL1: i32 = 0x0405;
+const A64_SPSR_EL1: i32 = 0x0406;
+const A64_ESR_EL1: i32 = 0x0407;
+const A64_FAR_EL1: i32 = 0x0408;
+const A64_VBAR_EL1: i32 = 0x0409;
+const A64_SCTLR_EL1: i32 = 0x040A;
+const A64_TCR_EL1: i32 = 0x040B;
+const A64_TTBR0_EL1: i32 = 0x040C;
+const A64_TTBR1_EL1: i32 = 0x040D;
+const A64_MAIR_EL1: i32 = 0x040E;
+const A64_CNTP_CTL_EL0: i32 = 0x040F;
+const A64_CNTP_CVAL_EL0: i32 = 0x0410;
+const A64_CNTV_CTL_EL0: i32 = 0x0411;
+const A64_CNTV_CVAL_EL0: i32 = 0x0412;
+
+fn arm64_sysreg(s: &mut rax_engine::cpu::Aarch64SystemRegisters, id: i32) -> Option<&mut u64> {
+    Some(match id {
+        A64_TPIDR_EL0 => &mut s.tpidr_el0,
+        A64_TPIDRRO_EL0 => &mut s.tpidrro_el0,
+        A64_TPIDR_EL1 => &mut s.tpidr_el1,
+        A64_SP_EL0 => &mut s.sp_el0,
+        A64_SP_EL1 => &mut s.sp_el1,
+        A64_ELR_EL1 => &mut s.elr_el1,
+        A64_SPSR_EL1 => &mut s.spsr_el1,
+        A64_ESR_EL1 => &mut s.esr_el1,
+        A64_FAR_EL1 => &mut s.far_el1,
+        A64_VBAR_EL1 => &mut s.vbar_el1,
+        A64_SCTLR_EL1 => &mut s.sctlr_el1,
+        A64_TCR_EL1 => &mut s.tcr_el1,
+        A64_TTBR0_EL1 => &mut s.ttbr0_el1,
+        A64_TTBR1_EL1 => &mut s.ttbr1_el1,
+        A64_MAIR_EL1 => &mut s.mair_el1,
+        A64_CNTP_CTL_EL0 => &mut s.cntp_ctl_el0,
+        A64_CNTP_CVAL_EL0 => &mut s.cntp_cval_el0,
+        A64_CNTV_CTL_EL0 => &mut s.cntv_ctl_el0,
+        A64_CNTV_CVAL_EL0 => &mut s.cntv_cval_el0,
+        _ => return None,
+    })
+}
+
+/// The banked SP register (`A64_SP_EL0`/`A64_SP_EL1`) that PSTATE selects as
+/// the current SP, if it is one of those two: EL0 and `EL1t` use `SP_EL0`,
+/// `EL1h` uses `SP_EL1`.
+fn arm64_current_sp(pstate: u64) -> Option<i32> {
+    let el = (pstate >> 2) & 3;
+    let sp_sel = pstate & 1 != 0;
+    match (el, sp_sel) {
+        (0, _) | (1, false) => Some(A64_SP_EL0),
+        (1, true) => Some(A64_SP_EL1),
+        _ => None,
+    }
+}
 
 fn arm64_size(id: i32) -> Option<usize> {
     let fam = id & !0xFF;
@@ -469,6 +669,7 @@ fn arm64_size(id: i32) -> Option<usize> {
     Some(match id {
         SC_SP | SC_PC | SC_PSTATE => 8,
         SC_FPCR | SC_FPSR => 4,
+        A64_TPIDR_EL0..=A64_CNTV_CVAL_EL0 => 8,
         _ => match fam {
             REG_GP if idx < 31 => 8,
             REG_VEC if idx < 32 => 16,
@@ -483,6 +684,11 @@ fn arm64_read(st: &CpuState, id: i32, out: &mut [u8]) -> Option<usize> {
     let size = arm64_size(id)?;
     let fam = id & !0xFF;
     let idx = (id & 0xFF) as usize;
+    if id & !0xFF == A64_SYSREG {
+        let mut sregs = x.sregs.clone();
+        put_uint(out, *arm64_sysreg(&mut sregs, id)?, 8);
+        return Some(size);
+    }
     match id {
         SC_SP => put_uint(out, r.sp, 8),
         SC_PC => put_uint(out, r.pc, 8),
@@ -507,13 +713,34 @@ fn arm64_write(st: &mut CpuState, id: i32, inp: &[u8]) -> Option<usize> {
         CpuState::Aarch64(x) => x,
         _ => return None,
     };
-    let r = &mut x.regs;
     let fam = id & !0xFF;
     let idx = (id & 0xFF) as usize;
+    if fam == A64_SYSREG {
+        let v = get_uint(inp, 8);
+        *arm64_sysreg(&mut x.sregs, id)? = v;
+        // The vCPU installs the banked SPs first and then the current SP
+        // from `regs.sp`; keep that copy equal so the write takes effect.
+        if arm64_current_sp(x.regs.pstate) == Some(id) {
+            x.regs.sp = v;
+        }
+        return Some(size);
+    }
+    let r = &mut x.regs;
     match id {
         SC_SP => r.sp = get_uint(inp, 8),
         SC_PC => r.pc = get_uint(inp, 8),
-        SC_PSTATE => r.pstate = get_uint(inp, 8),
+        SC_PSTATE => {
+            r.pstate = get_uint(inp, 8);
+            // The vCPU installs `regs.sp` as the current SP after the new
+            // PSTATE, so it must be the bank that PSTATE selects; otherwise
+            // switching SPSel/EL copies the old stack pointer into the new
+            // bank.
+            match arm64_current_sp(r.pstate) {
+                Some(A64_SP_EL0) => r.sp = x.sregs.sp_el0,
+                Some(A64_SP_EL1) => r.sp = x.sregs.sp_el1,
+                _ => {}
+            }
+        }
         SC_FPCR => r.fpcr = get_uint(inp, 4) as u32,
         SC_FPSR => r.fpsr = get_uint(inp, 4) as u32,
         _ => match fam {
@@ -532,6 +759,29 @@ fn arm64_write(st: &mut CpuState, id: i32, inp: &[u8]) -> Option<usize> {
     Some(size)
 }
 
+// AArch32 doubleword and quadword views of the VFP/Advanced SIMD file.
+const ARM_D: i32 = 0x0300;
+const ARM_Q: i32 = 0x0400;
+
+/// D`i` of the AArch32 register file: D0-D15 overlay S0-S31, D16-D31 are
+/// separate (VFPv3-D32 / Advanced SIMD).
+fn arm32_d(r: &rax_engine::cpu::Aarch32Registers, i: usize) -> u64 {
+    if i < 16 {
+        u64::from(r.s[2 * i]) | (u64::from(r.s[2 * i + 1]) << 32)
+    } else {
+        r.d_high[i - 16]
+    }
+}
+
+fn arm32_set_d(r: &mut rax_engine::cpu::Aarch32Registers, i: usize, v: u64) {
+    if i < 16 {
+        r.s[2 * i] = v as u32;
+        r.s[2 * i + 1] = (v >> 32) as u32;
+    } else {
+        r.d_high[i - 16] = v;
+    }
+}
+
 fn arm32_size(id: i32) -> Option<usize> {
     let fam = id & !0xFF;
     let idx = (id & 0xFF) as usize;
@@ -540,6 +790,8 @@ fn arm32_size(id: i32) -> Option<usize> {
         _ => match fam {
             REG_GP if idx < 13 => 4,
             REG_VEC if idx < 32 => 4,
+            ARM_D if idx < 32 => 8,
+            ARM_Q if idx < 16 => 16,
             _ => return None,
         },
     })
@@ -561,6 +813,11 @@ fn arm32_read(st: &CpuState, id: i32, out: &mut [u8]) -> Option<usize> {
         _ => match fam {
             REG_GP => put_uint(out, r.r[idx] as u64, 4),
             REG_VEC => put_uint(out, r.s[idx] as u64, 4),
+            ARM_D => put_uint(out, arm32_d(r, idx), 8),
+            ARM_Q => {
+                put_uint(&mut out[..8], arm32_d(r, 2 * idx), 8);
+                put_uint(&mut out[8..16], arm32_d(r, 2 * idx + 1), 8);
+            }
             _ => return None,
         },
     }
@@ -587,6 +844,11 @@ fn arm32_write(st: &mut CpuState, id: i32, inp: &[u8]) -> Option<usize> {
         _ => match fam {
             REG_GP => r.r[idx] = v,
             REG_VEC => r.s[idx] = v,
+            ARM_D => arm32_set_d(r, idx, get_uint(inp, 8)),
+            ARM_Q => {
+                arm32_set_d(r, 2 * idx, get_uint(&inp[..8], 8));
+                arm32_set_d(r, 2 * idx + 1, get_uint(&inp[8..16], 8));
+            }
             _ => return None,
         },
     }
@@ -594,42 +856,50 @@ fn arm32_write(st: &mut CpuState, id: i32, inp: &[u8]) -> Option<usize> {
 }
 
 fn cortexm_size(id: i32) -> Option<usize> {
+    // The Cortex-M engine has no Floating-point Extension: the S registers
+    // and FPSCR are not valid ids for it.
     let fam = id & !0xFF;
     let idx = (id & 0xFF) as usize;
     Some(match id {
-        SC_LR | SC_PC | SC_PSTATE | SC_FPSCR | CM_MSP | CM_PSP | CM_CONTROL | CM_PRIMASK
-        | CM_FAULTMASK | CM_BASEPRI => 4,
-        _ => match fam {
-            REG_GP if idx < 13 => 4,
-            REG_VEC if idx < 32 => 4,
-            _ => return None,
-        },
+        SC_SP | SC_LR | SC_PC | SC_PSTATE | CM_MSP..=CM_SHPR3 => 4,
+        _ if fam == REG_GP && idx < 13 => 4,
+        _ => return None,
     })
+}
+
+/// Whether Cortex-M code runs on the process stack: Thread mode (IPSR 0)
+/// with CONTROL.SPSEL set.
+fn cortexm_uses_psp(r: &rax_engine::cpu::CortexMRegisters) -> bool {
+    r.xpsr & 0x1FF == 0 && r.control & 2 != 0
 }
 
 fn cortexm_read(st: &CpuState, id: i32, out: &mut [u8]) -> Option<usize> {
     let x = st.as_cortex_m()?;
-    let r = &x.regs;
+    let (r, s) = (&x.regs, &x.sregs);
     let size = cortexm_size(id)?;
-    let fam = id & !0xFF;
-    let idx = (id & 0xFF) as usize;
-    match id {
-        SC_LR => put_uint(out, r.lr as u64, 4),
-        SC_PC => put_uint(out, r.pc as u64, 4),
-        SC_PSTATE => put_uint(out, r.xpsr as u64, 4),
-        SC_FPSCR => put_uint(out, r.fpscr as u64, 4),
-        CM_MSP => put_uint(out, r.msp as u64, 4),
-        CM_PSP => put_uint(out, r.psp as u64, 4),
-        CM_CONTROL => put_uint(out, r.control as u64, 4),
-        CM_PRIMASK => put_uint(out, r.primask as u64, 4),
-        CM_FAULTMASK => put_uint(out, r.faultmask as u64, 4),
-        CM_BASEPRI => put_uint(out, r.basepri as u64, 4),
-        _ => match fam {
-            REG_GP => put_uint(out, r.r[idx] as u64, 4),
-            REG_VEC => put_uint(out, r.s[idx] as u64, 4),
-            _ => return None,
-        },
-    }
+    let value = match id {
+        SC_SP if cortexm_uses_psp(r) => r.psp,
+        SC_SP => r.msp,
+        SC_LR => r.lr,
+        SC_PC => r.pc,
+        SC_PSTATE => r.xpsr,
+        CM_MSP => r.msp,
+        CM_PSP => r.psp,
+        CM_CONTROL => r.control,
+        CM_PRIMASK => r.primask,
+        CM_FAULTMASK => r.faultmask,
+        CM_BASEPRI => r.basepri,
+        CM_VTOR => s.vtor,
+        CM_CCR => s.ccr,
+        CM_SHCSR => s.shcsr,
+        CM_CFSR => s.cfsr,
+        CM_HFSR => s.hfsr,
+        CM_BFAR => s.bfar,
+        CM_AIRCR => s.aircr,
+        CM_SHPR1..=CM_SHPR3 => s.shpr[(id - CM_SHPR1) as usize],
+        _ => r.r[(id & 0xFF) as usize],
+    };
+    put_uint(out, u64::from(value), 4);
     Some(size)
 }
 
@@ -639,29 +909,40 @@ fn cortexm_write(st: &mut CpuState, id: i32, inp: &[u8]) -> Option<usize> {
         CpuState::CortexM(x) => x,
         _ => return None,
     };
-    let r = &mut x.regs;
     let v = get_uint(inp, 4) as u32;
-    let fam = id & !0xFF;
-    let idx = (id & 0xFF) as usize;
+    let psp = cortexm_uses_psp(&x.regs);
+    let (r, s) = (&mut x.regs, &mut x.sregs);
     match id {
+        SC_SP if psp => r.psp = v,
+        SC_SP => r.msp = v,
         SC_LR => r.lr = v,
         SC_PC => r.pc = v,
         SC_PSTATE => r.xpsr = v,
-        SC_FPSCR => r.fpscr = v,
         CM_MSP => r.msp = v,
         CM_PSP => r.psp = v,
         CM_CONTROL => r.control = v,
         CM_PRIMASK => r.primask = v,
         CM_FAULTMASK => r.faultmask = v,
         CM_BASEPRI => r.basepri = v,
-        _ => match fam {
-            REG_GP => r.r[idx] = v,
-            REG_VEC => r.s[idx] = v,
-            _ => return None,
-        },
+        CM_VTOR => s.vtor = v,
+        CM_CCR => s.ccr = v,
+        CM_SHCSR => s.shcsr = v,
+        CM_CFSR => s.cfsr = v,
+        CM_HFSR => s.hfsr = v,
+        CM_BFAR => s.bfar = v,
+        CM_AIRCR => s.aircr = v,
+        CM_SHPR1..=CM_SHPR3 => s.shpr[(id - CM_SHPR1) as usize] = v,
+        _ => r.r[(id & 0xFF) as usize] = v,
     }
     Some(size)
 }
+
+// RISC-V (since API 1.5): vector registers, CSRs by number, privilege.
+const RV_VREG: i32 = 0x0300;
+const RV_CSR: i32 = 0x1000;
+const RV_PRIV: i32 = 0x0024;
+/// Vector register length in bytes (VLEN / 8).
+const RV_VLENB: usize = rax_engine::isa::riscv::cpu::VLENB as usize;
 
 fn riscv_size(id: i32) -> Option<usize> {
     let fam = id & !0xFF;
@@ -669,12 +950,65 @@ fn riscv_size(id: i32) -> Option<usize> {
     Some(match id {
         SC_PC => 8,
         SC_FCSR => 4,
+        RV_PRIV => 1,
+        RV_CSR..=0x1FFF => 8,
         _ => match fam {
             REG_GP if idx < 32 => 8,
             REG_VEC if idx < 32 => 8,
+            RV_VREG if idx < 32 => RV_VLENB,
             _ => return None,
         },
     })
+}
+
+/// A CSR's value: the `fcsr` views and the vector CSRs from their state,
+/// the rest from the hart's exported CSRs.
+fn riscv_csr(r: &rax_engine::cpu::RiscVRegisters, n: u16) -> Option<u64> {
+    let fcsr = u64::from(r.fcsr);
+    Some(match n {
+        0x001 => fcsr & 0x1F,
+        0x002 => (fcsr >> 5) & 7,
+        0x003 => fcsr & 0xFF,
+        0x008 | 0x009 | 0x00A | 0x00F | 0xC20..=0xC22 => {
+            let v = r.vector.as_ref()?;
+            match n {
+                0x008 => v.vstart,
+                0x009 => u64::from(v.vxsat),
+                0x00A => u64::from(v.vxrm),
+                0x00F => u64::from(v.vxrm) << 1 | u64::from(v.vxsat),
+                0xC20 => v.vl,
+                0xC21 => v.vtype,
+                _ => (v.v.len() / 32) as u64,
+            }
+        }
+        _ => r.csrs.iter().find(|(m, _)| *m == n)?.1,
+    })
+}
+
+/// Stores a CSR value into the state; the hart applies the CSR's WARL rules
+/// when the state is installed. `vlenb` and unimplemented CSRs fail.
+fn set_riscv_csr(r: &mut rax_engine::cpu::RiscVRegisters, n: u16, value: u64) -> Option<()> {
+    match n {
+        0x001 => r.fcsr = (r.fcsr & !0x1F) | (value as u32 & 0x1F),
+        0x002 => r.fcsr = (r.fcsr & !0xE0) | ((value as u32 & 7) << 5),
+        0x003 => r.fcsr = value as u32 & 0xFF,
+        0x008 | 0x009 | 0x00A | 0x00F | 0xC20 | 0xC21 => {
+            let v = r.vector.as_mut()?;
+            match n {
+                0x008 => v.vstart = value,
+                0x009 => v.vxsat = value as u8 & 1,
+                0x00A => v.vxrm = value as u8 & 3,
+                0x00F => {
+                    v.vxsat = value as u8 & 1;
+                    v.vxrm = (value >> 1) as u8 & 3;
+                }
+                0xC20 => v.vl = value,
+                _ => v.vtype = value,
+            }
+        }
+        _ => r.csrs.iter_mut().find(|(m, _)| *m == n)?.1 = value,
+    }
+    Some(())
 }
 
 fn riscv_read(st: &CpuState, id: i32, out: &mut [u8]) -> Option<usize> {
@@ -686,9 +1020,15 @@ fn riscv_read(st: &CpuState, id: i32, out: &mut [u8]) -> Option<usize> {
     match id {
         SC_PC => put_uint(out, r.pc, 8),
         SC_FCSR => put_uint(out, r.fcsr as u64, 4),
+        RV_PRIV => put_uint(out, u64::from(r.privilege?), 1),
+        RV_CSR..=0x1FFF => put_uint(out, riscv_csr(r, (id - RV_CSR) as u16)?, 8),
         _ => match fam {
             REG_GP => put_uint(out, r.x[idx], 8),
             REG_VEC => put_uint(out, r.f[idx], 8),
+            RV_VREG => {
+                let v = r.vector.as_ref()?;
+                out[..RV_VLENB].copy_from_slice(v.v.get(idx * RV_VLENB..(idx + 1) * RV_VLENB)?);
+            }
             _ => return None,
         },
     }
@@ -707,6 +1047,14 @@ fn riscv_write(st: &mut CpuState, id: i32, inp: &[u8]) -> Option<usize> {
     match id {
         SC_PC => r.pc = get_uint(inp, 8),
         SC_FCSR => r.fcsr = get_uint(inp, 4) as u32,
+        RV_PRIV => {
+            let level = inp[0];
+            if !matches!(level, 0 | 1 | 3) {
+                return None;
+            }
+            r.privilege = Some(level);
+        }
+        RV_CSR..=0x1FFF => set_riscv_csr(r, (id - RV_CSR) as u16, get_uint(inp, 8))?,
         _ => match fam {
             // x0 is hardwired zero; ignore writes to keep architectural truth.
             REG_GP => {
@@ -715,6 +1063,11 @@ fn riscv_write(st: &mut CpuState, id: i32, inp: &[u8]) -> Option<usize> {
                 }
             }
             REG_VEC => r.f[idx] = get_uint(inp, 8),
+            RV_VREG => {
+                let v = r.vector.as_mut()?;
+                v.v.get_mut(idx * RV_VLENB..(idx + 1) * RV_VLENB)?
+                    .copy_from_slice(&inp[..RV_VLENB]);
+            }
             _ => return None,
         },
     }
@@ -851,11 +1204,24 @@ pub extern "C" fn rax_reg_read(
         if value.is_null() {
             return e.fail(RaxStatus::Arg, "null value buffer");
         }
+        let mut tmp = [0u8; MAX_REG_BYTES];
+        if e.arch == RaxArch::X86 && x86_emu_size(regid).is_some() {
+            let Some(es) = e.vcpu.get_emulator_state() else {
+                return e.fail(RaxStatus::Reg, "register state is not available");
+            };
+            let n = x86_emu_read(&es, regid, &mut tmp).unwrap_or(0);
+            unsafe {
+                std::ptr::copy_nonoverlapping(tmp.as_ptr(), value, n);
+                if !out_size.is_null() {
+                    *out_size = n;
+                }
+            }
+            return RaxStatus::Ok;
+        }
         let st = match e.vcpu.get_state() {
             Ok(s) => s,
             Err(err) => return e.fail_engine(&err),
         };
-        let mut tmp = [0u8; MAX_REG_BYTES];
         let res = match e.arch {
             RaxArch::X86 => x86_read(&st, regid, &mut tmp),
             RaxArch::Arm64 => arm64_read(&st, regid, &mut tmp),
@@ -897,6 +1263,18 @@ pub extern "C" fn rax_reg_write(engine: *mut Engine, regid: c_int, value: *const
             None => return e.fail(RaxStatus::Reg, "invalid register id for architecture"),
         };
         let inp = unsafe { std::slice::from_raw_parts(value, size) };
+        if e.arch == RaxArch::X86 && x86_emu_size(regid).is_some() {
+            let Some(mut es) = e.vcpu.get_emulator_state() else {
+                return e.fail(RaxStatus::Reg, "register state is not available");
+            };
+            x86_emu_write(&mut es, regid, inp);
+            // The engine validates the image (MXCSR reserved bits) before
+            // installing any of it.
+            return match e.vcpu.set_emulator_state(&es) {
+                Ok(()) => RaxStatus::Ok,
+                Err(err) => e.fail_engine(&err),
+            };
+        }
         let mut st = match e.vcpu.get_state() {
             Ok(s) => s,
             Err(err) => return e.fail_engine(&err),
@@ -912,6 +1290,8 @@ pub extern "C" fn rax_reg_write(engine: *mut Engine, regid: c_int, value: *const
         if res.is_none() {
             return e.fail(RaxStatus::Reg, "invalid register id for architecture");
         }
+        // The engine installs the written RFLAGS as the architectural value,
+        // discarding flags still derived lazily from the last ALU result.
         match e.vcpu.update_state(&st) {
             Ok(()) => RaxStatus::Ok,
             Err(err) => e.fail_engine(&err),

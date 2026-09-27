@@ -4,7 +4,7 @@
 //! The blob format is versioned and little-endian:
 //! ```text
 //!   magic   u32  = 0x52415843 ("RAXC")
-//!   version u32  = 1
+//!   version u32  = 2
 //!   arch    i32
 //!   mode    u32
 //!   flags   u32  (bit0: extended emulator state present)
@@ -13,18 +13,32 @@
 //!   nregion u64
 //!   per region: base u64, size u64, perms u32, _pad u32, bytes[size]
 //! ```
+//!
+//! Version 2 (ABI 1.5) changed the extended x86 state, where the engine now
+//! keeps the x87 registers in their exact 80-bit encoding, and the RISC-V
+//! CPU state, which gained the privilege level, the CSRs, and the vector
+//! state. Version 1, which ABI 1.4 and earlier wrote, is still restored: each
+//! x87 register is widened exactly (see [`decode_v1_emulator_state`]), and a
+//! RISC-V hart restores with the reset privilege, CSRs, and vector state
+//! (see [`decode_v1_riscv_state`]).
 
-use rax_engine::cpu::CpuState;
+use std::sync::Arc;
+
+use rax_engine::cpu::{CpuState, RiscVRegisters};
 use rax_engine::memory::vm::GuestAddress;
-use rax_engine::snapshot::EmulatorState;
+use rax_engine::snapshot::{EmulatorState, FpuSnapshot, LazyFlagsSnapshot};
 
-use crate::arch::RaxArch;
+use crate::arch::{self, RaxArch};
 use crate::engine::{Engine, engine_mut};
 use crate::guard;
 use crate::status::RaxStatus;
+use crate::user::{RaxExceptionInfo, RegionTranslation};
 
 const CTX_MAGIC: u32 = 0x5241_5843; // "RAXC"
-const CTX_VERSION: u32 = 1;
+/// Written by this library.
+const CTX_VERSION: u32 = 2;
+/// ABI 1.4 and earlier: binary64 x87 registers in the extended state.
+const CTX_VERSION_V1: u32 = 1;
 const FLAG_HAS_EMU: u32 = 1 << 0;
 
 struct Writer {
@@ -57,12 +71,29 @@ impl<'a> Reader<'a> {
         Reader { buf, pos: 0 }
     }
     fn take(&mut self, n: usize) -> Option<&'a [u8]> {
-        if self.pos + n > self.buf.len() {
+        if n > self.buf.len() - self.pos {
             return None;
         }
         let s = &self.buf[self.pos..self.pos + n];
         self.pos += n;
         Some(s)
+    }
+    fn at_end(&self) -> bool {
+        self.pos == self.buf.len()
+    }
+    fn u8(&mut self) -> Option<u8> {
+        self.take(1).map(|b| b[0])
+    }
+    fn bool(&mut self) -> Option<bool> {
+        match self.u8()? {
+            0 => Some(false),
+            1 => Some(true),
+            _ => None,
+        }
+    }
+    fn u16(&mut self) -> Option<u16> {
+        let b = self.take(2)?;
+        Some(u16::from_le_bytes([b[0], b[1]]))
     }
     fn u32(&mut self) -> Option<u32> {
         let b = self.take(4)?;
@@ -77,6 +108,89 @@ impl<'a> Reader<'a> {
         t.copy_from_slice(b);
         Some(u64::from_le_bytes(t))
     }
+}
+
+/// `CpuState::RiscV`'s bincode variant index (declaration order).
+const CPU_STATE_RISCV_VARIANT: u32 = 5;
+
+/// Decodes the RISC-V `CpuState` of a version-1 context: the variant index,
+/// then the registers of ABI 1.4 and earlier (`x`, `pc`, `f`, `fcsr`, and an
+/// optional `tohost` address) in bincode 1's default fixed-width
+/// little-endian encoding (`Option` as a one-byte tag). The privilege level,
+/// CSRs, and vector state were not recorded: the restored hart has their
+/// reset values. The input must be consumed exactly.
+fn decode_v1_riscv_state(bytes: &[u8]) -> Option<CpuState> {
+    let mut r = Reader::new(bytes);
+    if r.u32()? != CPU_STATE_RISCV_VARIANT {
+        return None;
+    }
+    let mut regs = RiscVRegisters::default();
+    for x in &mut regs.x {
+        *x = r.u64()?;
+    }
+    regs.pc = r.u64()?;
+    for f in &mut regs.f {
+        *f = r.u64()?;
+    }
+    regs.fcsr = r.u32()?;
+    regs.tohost_addr = match r.u8()? {
+        0 => None,
+        1 => Some(r.u64()?),
+        _ => return None,
+    };
+    r.at_end().then(|| CpuState::riscv(regs))
+}
+
+/// Decodes the extended x86 state of a version-1 context: the
+/// `EmulatorState` of ABI 1.4 and earlier in bincode 1's default fixed-width
+/// little-endian encoding (fields in declaration order, `bool` as one byte),
+/// whose only difference from the current layout is the x87 registers,
+/// stored as binary64 values. Each is widened to its exact binary80 encoding.
+/// The input must be consumed exactly.
+fn decode_v1_emulator_state(bytes: &[u8]) -> Option<EmulatorState> {
+    let mut r = Reader::new(bytes);
+    let control_word = r.u16()?;
+    let status_word = r.u16()?;
+    let tag_word = r.u16()?;
+    let data_ptr = r.u64()?;
+    let instr_ptr = r.u64()?;
+    let last_opcode = r.u16()?;
+    let mut st = [[0u8; 10]; 8];
+    for reg in &mut st {
+        *reg = crate::x87::from_f64_bits(r.u64()?);
+    }
+    let top = r.u8()?;
+    let lazy_flags = LazyFlagsSnapshot {
+        op: r.u8()?,
+        result: r.u64()?,
+        src: r.u64()?,
+        dst: r.u64()?,
+        size: r.u8()?,
+    };
+    let state = EmulatorState {
+        fpu: FpuSnapshot {
+            control_word,
+            status_word,
+            tag_word,
+            data_ptr,
+            instr_ptr,
+            last_opcode,
+            st,
+            top,
+        },
+        lazy_flags,
+        kernel_gs_base: r.u64()?,
+        tsc_adjust: r.u64()?,
+        tsc_aux: r.u32()?,
+        misc_enable: r.u64()?,
+        pat: r.u64()?,
+        umwait_control: r.u64()?,
+        pkru: r.u32()?,
+        mxcsr: r.u32()?,
+        halted: r.bool()?,
+        interrupt_inhibit: r.bool()?,
+    };
+    r.at_end().then_some(state)
 }
 
 impl Engine {
@@ -142,13 +256,19 @@ impl Engine {
             return self.fail(RaxStatus::Format, "bad context magic");
         }
         let version = r.u32().unwrap_or(0);
-        if version != CTX_VERSION {
+        if version != CTX_VERSION && version != CTX_VERSION_V1 {
             return self.fail(RaxStatus::Format, "unsupported context version");
         }
         let arch = r.i32().unwrap_or(-1);
         let mode = r.u32().unwrap_or(0);
         if RaxArch::from_i32(arch) != Some(self.arch) {
             return self.fail(RaxStatus::Arch, "context architecture mismatch");
+        }
+        if arch::normalize_mode(self.arch, mode) != Some(mode) {
+            return self.fail(
+                RaxStatus::Format,
+                "context mode is invalid for its architecture",
+            );
         }
         let flags = match r.u32() {
             Some(v) => v,
@@ -162,9 +282,14 @@ impl Engine {
             Some(b) => b,
             None => return self.fail(RaxStatus::Format, "truncated cpu state"),
         };
-        let cpu: CpuState = match bincode::deserialize(cpu_bytes) {
-            Ok(c) => c,
-            Err(_) => return self.fail(RaxStatus::Format, "bad cpu state encoding"),
+        let decoded = if version == CTX_VERSION_V1 && self.arch == RaxArch::Riscv64 {
+            decode_v1_riscv_state(cpu_bytes)
+        } else {
+            bincode::deserialize(cpu_bytes).ok()
+        };
+        let cpu: CpuState = match decoded {
+            Some(c) => c,
+            None => return self.fail(RaxStatus::Format, "bad cpu state encoding"),
         };
         let emu_len = match r.u64() {
             Some(v) => v as usize,
@@ -175,9 +300,14 @@ impl Engine {
                 Some(b) => b,
                 None => return self.fail(RaxStatus::Format, "truncated emulator state"),
             };
-            match bincode::deserialize(eb) {
-                Ok(e) => Some(e),
-                Err(_) => return self.fail(RaxStatus::Format, "bad emulator state encoding"),
+            let decoded = if version == CTX_VERSION_V1 {
+                decode_v1_emulator_state(eb)
+            } else {
+                bincode::deserialize(eb).ok()
+            };
+            match decoded {
+                Some(e) => Some(e),
+                None => return self.fail(RaxStatus::Format, "bad emulator state encoding"),
             }
         } else {
             None
@@ -238,25 +368,40 @@ impl Engine {
             }
         }
 
-        // Reconstruct the vCPU over the restored memory and load CPU state.
-        let mut vcpu =
-            match crate::arch::build_vcpu(self.arch, mode, new_mem.clone(), self.riscv_config) {
-                Ok(v) => v,
-                Err(err) => return self.fail_engine(&err),
-            };
+        // Reconstruct the vCPU over the restored memory and load CPU state. A
+        // user-mode context restores its address space with its regions.
+        let translation = arch::is_user(mode).then(|| {
+            Arc::new(RegionTranslation::new(
+                regions.iter().map(|r| (r.base, r.size, r.perms)).collect(),
+            ))
+        });
+        let mut vcpu = match crate::arch::build_vcpu(
+            self.arch,
+            mode,
+            new_mem.clone(),
+            self.riscv_config,
+            translation.as_ref(),
+        ) {
+            Ok(v) => v,
+            Err(err) => return self.fail_engine(&err),
+        };
         if let Err(err) = vcpu.set_state(&cpu) {
             return self.fail_engine(&err);
         }
         if let Some(es) = &emu {
-            let _ = vcpu.set_emulator_state(es);
+            if let Err(err) = vcpu.set_emulator_state(es) {
+                return self.fail_engine(&err);
+            }
         }
 
         self.mode = mode;
         self.vcpu = vcpu;
         self.mem = new_mem;
         self.regions = regions;
+        self.translation = translation;
         self.last_exit = crate::run::ExitInfo::none();
         self.last_fault = crate::fault::RaxFaultInfo::default();
+        self.last_exception = RaxExceptionInfo::default();
         self.icount_base = 0;
         self.stop_flag.set(false);
         RaxStatus::Ok

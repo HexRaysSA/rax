@@ -73,7 +73,7 @@ TOML exposes profile selectors for AArch64, AArch32, Cortex-M, and Cortex-R. The
 ### Established Arm surfaces
 
 - AArch64 scalar/system, floating-point/AdvSIMD, SVE-family, crypto, and modern extension code is present;
-- AArch32 and Thumb execution is present across application, microcontroller, and real-time profiles;
+- AArch32 and Thumb execution is present across application, microcontroller, and real-time profiles; the Cortex-M core implements the Armv7-M/Armv7E-M Thumb instruction set (integer and DSP, no Floating-point Extension or Armv8-M additions) and exception model, checked against QEMU's Cortex-M4;
 - the AArch64 virtual machine boots the checked-in Linux image through the software backend and can use HVF on Apple Silicon;
 - native AArch64 EL0 and QEMU user-mode differential paths exist;
 - generated architecture cases and SMIR lowerer tests provide additional coverage;
@@ -82,6 +82,7 @@ TOML exposes profile selectors for AArch64, AArch32, Cortex-M, and Cortex-R. The
 ### Required Arm qualifications
 
 - AArch64 Linux success does not imply AArch32 Linux success.
+- The AArch32 (A-profile) Thumb executor has known defects: replaying the Cortex-M4 QEMU corpus (`tools/cortex-m-diff`) on it shows reads of PC by 16-bit ADD/MOV and by ADDW/SUBW/ADR off by 4 or more, `adr` (T1) wrong, BX/BLX/MOV PC to a Thumb target misbehaving, 16-bit instructions setting flags inside IT blocks, LDRD (literal) reading the wrong words, and SXTB/SXTH/UXTB with a rotation returning 0; the Thumb decoder rejects LDREX/STREX (all widths), TBB/TBH, DMB/DSB/ISB, NOP.W, MRS/MSR, and SMLAL<x><y>; and `ssat #32` panics in checked builds. The ARM-state decoder also decodes `udf` (0xE7F000F0) as UBFX.
 - A selector such as `v9_4` is a configuration value, not proof of complete Armv9.4-A/SME2 system conformance.
 - QEMU or native EL0 user-mode comparisons do not exercise all privileged state, exception levels, MMU behavior, interrupts, or devices.
 - SVE/SVE2 implementation breadth must be stated with the tested vector lengths, operations, predicates, exception behavior, and reference.
@@ -310,15 +311,16 @@ The `rax-capi` workspace member exposes a stable hand-authored C header and C++1
 
 - arbitrary memory mapping and code/data loading;
 - register access;
-- run, bounded execution, and step on engines that advertise stepping;
-- code, block, interrupt, I/O, MMIO, invalid-instruction, and memory hooks;
-- context save/restore;
-- stateless decode/analysis;
+- run, bounded execution, and step on every architecture (Hexagon per packet; since ABI 1.5), with a halted vCPU resumed by `rax_emu_start`;
+- code, block, interrupt, I/O, MMIO, invalid-instruction, memory, and user-mode system-call hooks;
+- user-mode (process-level) execution for x86 (64-bit and 32-bit compatibility mode), AArch64, and RV64, with enforced region permissions and system calls and exceptions returned to the embedder (ABI 1.5);
+- context save/restore, including the RISC-V privilege level, CSRs, and vector state;
+- stateless decode/analysis, with x86 decoded in the selected 16-, 32-, or 64-bit code size (effects for 64-bit code only);
 - panic containment as `RAX_ERR_INTERNAL`;
 - no global state or hidden threads;
 - one engine handle is not thread-safe, while distinct handles can run independently.
 
-The C API’s KVM feature is not yet exposed through the C backend selector according to its own README. The embedding interface should therefore not be advertised as identical to every root CLI backend.
+The C API’s KVM feature is not yet exposed through the C backend selector according to its own README. The embedding interface should therefore not be advertised as identical to every root CLI backend. Its engines own no devices and ignore `RAX_MACHINE`. `RAX_ARCH_CORTEXM` (ABI 1.5) is a Cortex-M4 without the Floating-point Extension whose System Control Space is reached through registers, not memory; its integer and DSP instruction semantics and exception entry are checked against QEMU's `mps2-an386` Cortex-M4 by a checked-in 1 392-case corpus. User mode traps system calls without providing the `rax-user` Linux personality.
 
 ## Security posture
 

@@ -55,3 +55,12 @@ generator = "unknown"
 generator_revision = "unknown"
 inputs = "src/isa/x86_64 and src/smir/lift/x86_64; exact scan command unknown"
 command = "unknown"
+
+[corpora.cortex_m_thumb_oracle]
+output = "tests/generated/cortex_m/thumb_oracle.json"
+sha256 = "5a83927fa42d9b4a633cb0deb7df7bfa5e9105f00bcc8938ea31523fe2e8d450"
+generator = "tools/cortex-m-diff/qemu_oracle.py"
+generator_revision = "this file's commit"
+inputs = "tools/cortex-m-diff/corpus.py; QEMU 11.1.1 qemu-system-arm -M mps2-an386 -cpu cortex-m4; LLVM 23.1.1 llvm-mc/llvm-objcopy/llvm-nm"
+command = "python3 tools/cortex-m-diff/qemu_oracle.py tests/generated/cortex_m/thumb_oracle.json"
+reachability = "included by src/backend/emulator/cortex_m_oracle_tests.rs (library unit tests)"

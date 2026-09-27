@@ -14,6 +14,10 @@ activate the dormant AArch32, Thumb, or system-register suites.
 - `neon_sweep.rs`: Advanced SIMD, VFP, and FP16 encodings.
 - `sve2_sweep.rs`: SVE2 and SVE2.1 encodings.
 
+`cortex_m/thumb_oracle.json` holds the Cortex-M4 differential corpus that
+`tools/cortex-m-diff/qemu_oracle.py` generates from QEMU; the library unit
+tests of `src/backend/emulator/cortex_m_oracle_tests.rs` include it.
+
 `x86_64/inventories/` contains include-only instruction inventories used by
 coverage and differential runners. It includes the AVX-512 case table, the
 extension-specific unimplemented-mnemonic sets, and the source-diagnostic

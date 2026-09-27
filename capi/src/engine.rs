@@ -3,7 +3,6 @@
 use std::os::raw::{c_char, c_int};
 use std::sync::Arc;
 
-use rax_engine::cpu::VCpu;
 use rax_engine::memory::vm::GuestMemoryMmap;
 use rax_engine::riscv::RiscVConfig;
 
@@ -13,6 +12,8 @@ use crate::hook::HookTable;
 use crate::mem::Region;
 use crate::run::ExitInfo;
 use crate::status::RaxStatus;
+use crate::user::{RaxExceptionInfo, RegionTranslation};
+use crate::vcpu::Vcpu;
 
 /// Magic value stamped into a live [`Engine`] so the ABI can reject NULL,
 /// already-closed, and obviously-bogus handles instead of dereferencing them.
@@ -41,13 +42,18 @@ pub struct Engine {
     pub(crate) regions: Vec<Region>,
     /// Backing store reflecting `regions`; rebuilt when the mapping set changes.
     pub(crate) mem: Arc<GuestMemoryMmap>,
+    /// User mode: the address space every guest access is checked against,
+    /// kept equal to `regions`. `None` in system mode.
+    pub(crate) translation: Option<Arc<RegionTranslation>>,
     /// The architectural vCPU driven by the run/step API.
-    pub(crate) vcpu: Box<dyn VCpu>,
+    pub(crate) vcpu: Vcpu,
     /// Registered execution hooks.
     pub(crate) hooks: HookTable,
     /// The most recent execution stop/exit descriptor.
     pub(crate) last_exit: ExitInfo,
     pub(crate) last_fault: crate::fault::RaxFaultInfo,
+    /// The exception the last run/step reported (`rax_emu_last_exception`).
+    pub(crate) last_exception: RaxExceptionInfo,
     pub(crate) icount_base: u64,
     /// Cooperative stop flag honoured by the run loop.
     pub(crate) stop_flag: std::cell::Cell<bool>,
@@ -73,6 +79,28 @@ impl Engine {
     /// Clears the stored error message (called at the start of fallible ops).
     pub(crate) fn clear_err(&mut self) {
         self.err_msg.clear();
+    }
+
+    /// Whether the engine executes in user mode (`RAX_MODE_USER`).
+    pub(crate) fn is_user(&self) -> bool {
+        arch::is_user(self.mode)
+    }
+
+    /// A fresh vCPU for this engine's architecture and mode over `mem`, with
+    /// the power-on state installed. User mode installs its unprivileged
+    /// environment instead of the system-mode default state.
+    pub(crate) fn fresh_vcpu(&self, mem: Arc<GuestMemoryMmap>) -> rax_engine::Result<Vcpu> {
+        let mut vcpu = arch::build_vcpu(
+            self.arch,
+            self.mode,
+            mem,
+            self.riscv_config,
+            self.translation.as_ref(),
+        )?;
+        if !self.is_user() {
+            vcpu.set_state(&arch::default_state(self.arch, self.mode))?;
+        }
+        Ok(vcpu)
     }
 }
 
@@ -135,10 +163,14 @@ fn open_internal(
             .map_err(|_| RaxStatus::Map)?,
     );
 
-    let mut vcpu =
-        arch::build_vcpu(arch, mode, mem.clone(), riscv_config).map_err(|_| RaxStatus::Backend)?;
+    let translation = arch::is_user(mode)
+        .then(|| Arc::new(RegionTranslation::new(vec![(mem_base, mem_size, perms)])));
+    let mut vcpu = arch::build_vcpu(arch, mode, mem.clone(), riscv_config, translation.as_ref())
+        .map_err(|_| RaxStatus::Backend)?;
 
-    if flags & RAX_OPEN_NO_DEFAULT_STATE == 0 {
+    // User mode always installs its unprivileged environment; there is no
+    // system-mode default state to skip.
+    if flags & RAX_OPEN_NO_DEFAULT_STATE == 0 && !arch::is_user(mode) {
         let st = arch::default_state(arch, mode);
         vcpu.set_state(&st).map_err(|_| RaxStatus::Backend)?;
     }
@@ -150,10 +182,12 @@ fn open_internal(
         riscv_config,
         regions: vec![region],
         mem,
+        translation,
         vcpu,
         hooks: HookTable::new(),
         last_exit: ExitInfo::none(),
         last_fault: crate::fault::RaxFaultInfo::default(),
+        last_exception: RaxExceptionInfo::default(),
         icount_base: 0,
         stop_flag: std::cell::Cell::new(false),
         running: false,
@@ -347,17 +381,14 @@ pub extern "C" fn rax_engine_reset(engine: *mut Engine) -> RaxStatus {
         }
         e.clear_err();
         // A fresh vCPU guarantees pristine transient state (halt flags, caches).
-        let mut vcpu = match arch::build_vcpu(e.arch, e.mode, e.mem.clone(), e.riscv_config) {
+        let vcpu = match e.fresh_vcpu(e.mem.clone()) {
             Ok(v) => v,
             Err(err) => return e.fail_engine(&err),
         };
-        let st = arch::default_state(e.arch, e.mode);
-        if let Err(err) = vcpu.set_state(&st) {
-            return e.fail_engine(&err);
-        }
         e.vcpu = vcpu;
         e.last_exit = ExitInfo::none();
         e.last_fault = crate::fault::RaxFaultInfo::default();
+        e.last_exception = RaxExceptionInfo::default();
         e.icount_base = 0;
         e.stop_flag.set(false);
         RaxStatus::Ok

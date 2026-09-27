@@ -7,6 +7,8 @@ use rax_engine::cpu::{
 };
 use rax_engine::riscv::RiscVConfig;
 
+use crate::vcpu::Vcpu;
+
 /// Architecture selector, ABI-stable. Mirrors `rax_arch` in `rax.h`.
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -57,6 +59,9 @@ pub const RAX_MODE_ARM: u32 = 1 << 3;
 pub const RAX_MODE_THUMB: u32 = 1 << 4;
 pub const RAX_MODE_BIG_ENDIAN: u32 = 1 << 5;
 pub const RAX_MODE_LITTLE_ENDIAN: u32 = 1 << 6;
+/// Process-level (user-mode) execution; see `crate::user`. Valid for x86 in
+/// 64-bit or 32-bit (compatibility) mode, AArch64, and RV64.
+pub const RAX_MODE_USER: u32 = 1 << 7;
 
 // RISC-V extension flags. Mirror `RAX_RISCV_EXT_*` in `rax.h`.
 pub const RAX_RISCV_EXT_ZCMP: u64 = 1 << 0;
@@ -81,6 +86,10 @@ pub const RAX_RISCV_EXT_SUPPORTED: u64 = RAX_RISCV_EXT_ZCMP
 pub fn normalize_mode(arch: RaxArch, mode: u32) -> Option<u32> {
     let bitness = mode & (RAX_MODE_16 | RAX_MODE_32 | RAX_MODE_64);
     let armstate = mode & (RAX_MODE_ARM | RAX_MODE_THUMB);
+    let user = mode & RAX_MODE_USER;
+    if user != 0 && !matches!(arch, RaxArch::X86 | RaxArch::Arm64 | RaxArch::Riscv64) {
+        return None;
+    }
     match arch {
         RaxArch::X86 => {
             // Exactly one bitness, default to 64-bit.
@@ -88,13 +97,23 @@ pub fn normalize_mode(arch: RaxArch, mode: u32) -> Option<u32> {
             if b.count_ones() != 1 {
                 return None;
             }
-            Some(b | (mode & RAX_MODE_LITTLE_ENDIAN))
+            // User mode runs ring-3 code in long mode: 64-bit or
+            // compatibility mode, never real mode.
+            if user != 0 && b == RAX_MODE_16 {
+                return None;
+            }
+            Some(b | user | (mode & RAX_MODE_LITTLE_ENDIAN))
         }
-        RaxArch::Arm | RaxArch::CortexM => {
-            // Cortex-M is always Thumb; ARM/AArch32 default to ARM state.
-            let st = if matches!(arch, RaxArch::CortexM) {
-                RAX_MODE_THUMB
-            } else if armstate == 0 {
+        RaxArch::CortexM => {
+            // Always Thumb, and the engine is little-endian only.
+            if mode & RAX_MODE_BIG_ENDIAN != 0 || armstate == RAX_MODE_ARM {
+                return None;
+            }
+            Some(RAX_MODE_THUMB | (mode & RAX_MODE_LITTLE_ENDIAN))
+        }
+        RaxArch::Arm => {
+            // ARM/AArch32 default to ARM state.
+            let st = if armstate == 0 {
                 RAX_MODE_ARM
             } else if armstate.count_ones() == 1 {
                 armstate
@@ -103,10 +122,16 @@ pub fn normalize_mode(arch: RaxArch, mode: u32) -> Option<u32> {
             };
             Some(st | (mode & (RAX_MODE_BIG_ENDIAN | RAX_MODE_LITTLE_ENDIAN)))
         }
-        RaxArch::Arm64 => Some(mode & (RAX_MODE_BIG_ENDIAN | RAX_MODE_LITTLE_ENDIAN)),
+        RaxArch::Arm64 => Some(user | (mode & (RAX_MODE_BIG_ENDIAN | RAX_MODE_LITTLE_ENDIAN))),
         RaxArch::Hexagon => Some(mode & (RAX_MODE_BIG_ENDIAN | RAX_MODE_LITTLE_ENDIAN)),
-        RaxArch::Riscv64 => Some(0),
+        RaxArch::Riscv64 => Some(user),
     }
+}
+
+/// Whether a normalized mode selects user-mode execution.
+#[inline]
+pub fn is_user(mode: u32) -> bool {
+    mode & RAX_MODE_USER != 0
 }
 
 /// Endianness implied by a normalized mode.
@@ -153,36 +178,68 @@ pub fn riscv_config_from_ext(ext: u64) -> Option<RiscVConfig> {
     Some(cfg)
 }
 
-/// Builds a fresh, self-contained emulator vCPU for `arch` over `mem`.
-pub fn build_vcpu(
+/// Builds a fresh, self-contained emulator vCPU for `arch` over `mem`. A
+/// user-mode `mode` requires `translation`, the engine's address space.
+pub(crate) fn build_vcpu(
     arch: RaxArch,
     mode: u32,
     mem: std::sync::Arc<rax_engine::memory::vm::GuestMemoryMmap>,
     riscv_config: Option<RiscVConfig>,
-) -> rax_engine::Result<Box<dyn rax_engine::cpu::VCpu>> {
-    use rax_engine::backend::Backend;
-    // The C API is an instruction engine: return guest faults to the embedder
-    // at the retry PC. Full-machine VMM construction still uses system mode.
-    if arch == RaxArch::Arm64 {
-        return Ok(Box::new(
-            rax_engine::backend::emulator::aarch64::Aarch64Vcpu::new_micro(0, mem),
-        ));
+    translation: Option<&std::sync::Arc<crate::user::RegionTranslation>>,
+) -> rax_engine::Result<Vcpu> {
+    if is_user(mode) {
+        let translation = translation.cloned().ok_or_else(|| {
+            rax_engine::Error::InvalidConfig("user mode requires an address space".to_string())
+        })?;
+        return Ok(match arch {
+            RaxArch::X86 => {
+                let mut core = rax_engine::isa::x86_64::X86_64Vcpu::new(0, mem);
+                core.enable_user_mode(translation);
+                core.set_user_compat(mode & RAX_MODE_32 != 0);
+                Vcpu::X86User(Box::new(core))
+            }
+            RaxArch::Arm64 => Vcpu::Arm64User(Box::new(
+                rax_engine::backend::emulator::aarch64::Aarch64Vcpu::new_user(0, mem, translation),
+            )),
+            RaxArch::Riscv64 => Vcpu::RiscvUser(Box::new(
+                rax_engine::backend::emulator::riscv::RiscVVcpu::new_user(
+                    0,
+                    mem,
+                    riscv_config.unwrap_or_else(RiscVConfig::rv64gc),
+                    translation,
+                ),
+            )),
+            _ => {
+                return Err(rax_engine::Error::InvalidConfig(format!(
+                    "user mode is not available for {arch:?}"
+                )));
+            }
+        });
     }
-    let backend = match riscv_config {
-        Some(cfg) => rax_engine::backend::emulator::EmulatorBackend::with_riscv_config(
-            arch.to_kind(),
+    // The C API is an instruction engine: every vCPU returns guest faults to
+    // the embedder at the retry PC and owns no devices, so the whole address
+    // space is the embedder's memory. The choice depends only on `arch` and
+    // `mode`, never on the process environment (`RAX_MACHINE` selects board
+    // vCPUs for full-machine runs only).
+    use rax_engine::backend::emulator::{aarch32, aarch64, cortex_m, riscv};
+    let vcpu: Box<dyn rax_engine::cpu::VCpu> = match arch {
+        RaxArch::X86 => Box::new(rax_engine::isa::x86_64::X86_64Vcpu::new(0, mem)),
+        RaxArch::Arm64 => Box::new(aarch64::Aarch64Vcpu::new_micro(0, mem)),
+        RaxArch::Arm => Box::new(aarch32::Aarch32Vcpu::new(0, mem)),
+        RaxArch::CortexM => Box::new(cortex_m::CortexMVcpu::new(0, mem)),
+        RaxArch::Riscv64 => Box::new(riscv::RiscVVcpu::new_embedded(
+            0,
+            mem,
+            riscv_config.unwrap_or_else(RiscVConfig::rv64gc),
+        )),
+        RaxArch::Hexagon => Box::new(rax_engine::isa::hexagon::HexagonVcpu::new(
+            0,
+            mem,
             HexagonIsa::default(),
             endianness(mode),
-            cfg,
-        ),
-        None => rax_engine::backend::emulator::EmulatorBackend::new(
-            arch.to_kind(),
-            HexagonIsa::default(),
-            endianness(mode),
-        ),
+        )),
     };
-    let vm = backend.create_vm()?;
-    vm.create_vcpu(0, mem)
+    Ok(Vcpu::System(vcpu))
 }
 
 /// Produces a sensible power-on [`CpuState`] for an architecture and mode.

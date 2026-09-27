@@ -17,6 +17,7 @@ The command-line `rax` application builds complete machines: guest memory, boot 
 - service I/O and MMIO exits;
 - install code, block, interrupt, invalid-instruction, and memory hooks;
 - save and restore engine contexts;
+- run user-mode (process-level) code with system calls and exceptions returned to the embedder (ABI 1.5);
 - decode or analyze an instruction without opening an engine.
 
 It is not automatically the same interface as the root PC/AArch64 virtual machines. Device construction, Linux boot protocols, and all root CLI backend combinations are not implied by the C ABI.
@@ -25,7 +26,9 @@ The separate Rust `rax::user::linux` subsystem and `rax-user` binary supply
 Linux ELF loading, syscall servicing, processes, signals, sockets, IPC, and
 guest ptrace. `librax` does not export that Linux personality or its process
 scheduler. An engine accepting 32-bit x86 code is a different contract from
-`rax-user`'s partial i386 syscall compatibility.
+`rax-user`'s partial i386 syscall compatibility. `RAX_MODE_USER` supplies only
+the CPU half: unprivileged execution with system calls and exceptions returned
+to the embedder (see [User-mode execution](#user-mode-execution)).
 
 ## Build
 
@@ -244,9 +247,12 @@ Do not hard-code register widths from one architecture into architecture-neutral
 - port I/O;
 - MMIO;
 - exception;
+- system call (user mode);
 - invalid/unsupported execution path.
 
 A return of `RAX_OK` means the API call completed with a clean engine stop. It does not mean the guest program produced its intended result. Always inspect the exit record and application-specific state.
+
+A halt (`HLT`, `WFI`, `WFE`) persists across `rax_emu_step`; `rax_emu_start` resumes the vCPU at `begin` (since ABI 1.5). The engine for an `arch`/`mode` pair owns no devices and does not depend on the process environment: `RAX_MACHINE`, which selects board vCPUs for full-machine runs, does not affect the C API.
 
 Single-step, bounded execution, code hooks, and block hooks require a stepping-capable backend. Query:
 
@@ -266,7 +272,8 @@ The API provides hooks for:
 - port input/output;
 - MMIO reads/writes;
 - invalid instruction;
-- memory read/write/fetch.
+- memory read/write/fetch;
+- user-mode system calls.
 
 I/O hooks can supply values or service an exit so execution continues. Memory hooks report address, size, access kind, and value for recording-capable engines.
 
@@ -285,6 +292,14 @@ Use:
 
 Do not interchange their files or compatibility expectations.
 
+C API contexts are versioned. ABI 1.5 writes context format 2, which stores the x86 x87 registers in their exact 80-bit encoding, and still restores format 1 contexts from ABI 1.4 and earlier. An ABI 1.4 library cannot restore a format 2 context.
+
+## User-mode execution
+
+Opening an engine with `RAX_MODE_USER` (ABI 1.5) runs x86 64-bit or 32-bit compatibility-mode, AArch64 EL0, or RV64 U-mode code unprivileged. Mapped regions become the process address space, with their `RAX_PROT_*` permissions enforced and violations reported through `rax_emu_last_fault`. System-call instructions stop with `RAX_STOP_SYSCALL` or call a syscall hook, and other exceptions are reported with `RAX_STOP_EXCEPTION`, the interrupt hook, and `rax_emu_last_exception` instead of vectoring through guest tables.
+
+This traps system calls for the embedder to service. It does not provide `rax-user`'s Linux personality; the embedder implements whatever operating-system behavior it needs. The normative contract is the user-mode section of [`capi/README.md`](../capi/README.md) and `capi/include/rax.h`.
+
 ## Stateless decode and analysis
 
 `rax_decode` and `rax_analyze` can inspect one instruction without opening an engine or mapping guest memory. The analysis result can include:
@@ -294,6 +309,8 @@ Do not interchange their files or compatibility expectations.
 - memory-access/effective-address characteristics;
 - condition-code effects;
 - direct constant or register results when the SMIR analysis proves them.
+
+x86 decodes in the code size `mode` selects (`RAX_MODE_64` by default, `RAX_MODE_32`, `RAX_MODE_16`; since ABI 1.5). 16- and 32-bit code decodes for length and control flow only, with `pc` as the offset in the code segment; its effects are reported as unsupported.
 
 The current API distinguishes complete, partial, and unsupported effect summaries. Downstream analysis must preserve that status. Absence of an effect in a partial summary is not evidence that the instruction cannot produce it.
 
@@ -307,10 +324,12 @@ The C API README currently describes full memory/register/run/reset/context surf
 - AArch64;
 - RV64;
 - AArch32/ARMv7;
-- Cortex-M;
-- Hexagon.
+- Hexagon;
+- Cortex-M (since ABI 1.5: a Cortex-M4 without the Floating-point Extension, whose System Control Space is reached through registers rather than memory).
 
-Instruction-granular stepping and code/block hooks are currently advertised for engines that return true from `rax_engine_supports_stepping`, identified there as x86-64, AArch64, and RISC-V. The remaining architectures run to the next engine exit under the current contract.
+User mode is available for x86, AArch64, and RV64.
+
+Since ABI 1.5 every architecture returns true from `rax_engine_supports_stepping`, so instruction-granular stepping and code/block hooks are available everywhere (Hexagon steps whole packets). RISC-V engines also expose the vector registers, the CSRs by number, and the privilege level, and save them in contexts.
 
 Query at runtime. Do not compile an architecture table into downstream logic without version negotiation.
 
@@ -359,6 +378,7 @@ A downstream release should test:
 [ ] permission changes and overlap rejection
 [ ] every register family used by the product
 [ ] each execution stop reason handled by the product
+[ ] user-mode system-call, exception, and permission-fault paths the product relies on
 [ ] hook add/remove and callback re-entry
 [ ] context round trip
 [ ] stateless decode/analysis complete/partial/unsupported paths

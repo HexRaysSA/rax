@@ -16,7 +16,6 @@ const SERIAL_MMIO_LEN: u64 = 8;
 /// Debug-console MMIO port (single byte sink/source); see `crate::devices::map`.
 const DEBUG_MMIO_BASE: u64 = crate::devices::map::HEXAGON_DEBUG_MMIO_BASE;
 const DEBUG_MMIO_LEN: u64 = 8;
-const MAX_RUN_ITERATIONS: u64 = 100_000;
 
 /// 32-bit register-amount shift (`asl`/`asr`/`lsr`(Rs,Rt)).
 ///
@@ -278,6 +277,8 @@ pub struct HexagonVcpu {
     /// it) only when this matches the SC address; otherwise the SC fails. Models
     /// the qemu-hexagon behaviour where a bare store-conditional fails.
     lock_addr: Option<u32>,
+    /// Packets committed, reported as the vCPU instruction count.
+    packets: u64,
 }
 
 impl HexagonVcpu {
@@ -297,6 +298,7 @@ impl HexagonVcpu {
             gather_tmp: None,
             last_v_produced: None,
             lock_addr: None,
+            packets: 0,
         }
     }
 
@@ -2345,83 +2347,5 @@ impl HexagonVcpu {
     }
 }
 
-impl VCpu for HexagonVcpu {
-    fn run(&mut self) -> Result<VcpuExit> {
-        if self.halted {
-            return Ok(VcpuExit::Hlt);
-        }
-        let mut iterations = 0u64;
-        loop {
-            iterations += 1;
-            if iterations > MAX_RUN_ITERATIONS {
-                return Err(Error::Emulator(format!(
-                    "exceeded {} iterations at pc=0x{:08x}",
-                    MAX_RUN_ITERATIONS,
-                    self.regs.pc()
-                )));
-            }
-
-            if let Some(exit) = self.step_packet()? {
-                return Ok(exit);
-            }
-        }
-    }
-
-    fn get_state(&self) -> Result<CpuState> {
-        Ok(CpuState::hexagon(self.regs.clone()))
-    }
-
-    fn set_state(&mut self, state: &CpuState) -> Result<()> {
-        let state = match state {
-            CpuState::Hexagon(state) => state,
-            _ => {
-                return Err(Error::Emulator(
-                    "expected hexagon state for hexagon vCPU".to_string(),
-                ));
-            }
-        };
-        self.regs = state.regs.clone();
-        Ok(())
-    }
-
-    fn complete_io_in(&mut self, data: &[u8]) {
-        if let Some(pending) = self.pending_mmio.take() {
-            let val = match pending.size {
-                1 if data.len() >= 1 => {
-                    let raw = data[0] as u32;
-                    if pending.signed {
-                        (raw as i8 as i32) as u32
-                    } else {
-                        raw
-                    }
-                }
-                2 if data.len() >= 2 => {
-                    let raw = match self.endian {
-                        Endianness::Little => u16::from_le_bytes([data[0], data[1]]) as u32,
-                        Endianness::Big => u16::from_be_bytes([data[0], data[1]]) as u32,
-                    };
-                    if pending.signed {
-                        (raw as i16 as i32) as u32
-                    } else {
-                        raw
-                    }
-                }
-                4 if data.len() >= 4 => match self.endian {
-                    Endianness::Little => u32::from_le_bytes([data[0], data[1], data[2], data[3]]),
-                    Endianness::Big => u32::from_be_bytes([data[0], data[1], data[2], data[3]]),
-                },
-                _ => return,
-            };
-
-            if let Some(packet) = self.pending_packet.as_mut() {
-                packet.new_r[pending.dst as usize] = Some(val);
-            } else {
-                self.regs.r[pending.dst as usize] = val;
-            }
-        }
-    }
-
-    fn id(&self) -> u32 {
-        self.id
-    }
-}
+#[path = "cpu_vcpu.rs"]
+mod vcpu_impl;

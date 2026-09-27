@@ -5,7 +5,7 @@ use clap::{Parser, ValueEnum};
 use rax::config::{Endianness, HexagonIsa};
 use rax::isa::riscv::Xlen;
 use rax::oracle::{
-    ArmState, OracleIsa, OracleOptions, OracleSeed, RiscVIsaProfile, decode_to_json,
+    ArmState, OracleIsa, OracleOptions, OracleSeed, RiscVIsaProfile, X86CodeSize, decode_to_json,
     decode_to_json_with_seed, parse_hex_bytes,
 };
 use rax::smir::SourceArch;
@@ -55,6 +55,11 @@ struct Cli {
     #[arg(long)]
     no_smir: bool,
 
+    /// x86 code size in bits: 64-bit mode, or 32/16-bit code (decoded for
+    /// length and control flow only)
+    #[arg(long, value_enum, default_value = "64")]
+    x86_code_size: CliX86CodeSize,
+
     /// JSON seed for optional side-effect execution through the SMIR interpreter.
     #[arg(long)]
     seed_json: Option<PathBuf>,
@@ -72,6 +77,16 @@ enum CliIsa {
     Hexagon,
     Riscv,
     Smir,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum CliX86CodeSize {
+    #[value(name = "16")]
+    Bits16,
+    #[value(name = "32")]
+    Bits32,
+    #[value(name = "64")]
+    Bits64,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -186,6 +201,11 @@ fn run() -> Result<(), String> {
             CliSmirSource::Riscv32 => SourceArch::RiscV32,
         },
         include_smir: !cli.no_smir,
+        x86_code_size: match cli.x86_code_size {
+            CliX86CodeSize::Bits16 => X86CodeSize::Bits16,
+            CliX86CodeSize::Bits32 => X86CodeSize::Bits32,
+            CliX86CodeSize::Bits64 => X86CodeSize::Bits64,
+        },
     };
 
     let seed = if let Some(path) = &cli.seed_json {

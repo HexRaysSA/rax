@@ -1,11 +1,20 @@
 //! Cortex-M processor implementation.
 //!
-//! This module provides complete Cortex-M emulation including:
-//!
-//! - **CPU Core**: Full Thumb/Thumb-2 instruction execution
+//! - **CPU core** ([`cpu`], [`exec`]): the Armv7-M and Armv7E-M Thumb
+//!   instruction set, integer and DSP, decoded per the Armv7-M ARM (DDI
+//!   0403E.e) chapter A5 tables; Armv6-M variants execute only its Thumb
+//!   subset. The Floating-point Extension and the Armv8-M additions
+//!   (TrustZone, MVE, Armv8-M-only instructions) are not implemented; their
+//!   instructions are UNDEFINED or NOCP.
+//! - **Exception model** ([`exception`]): execution priority, exception
+//!   entry and return with the basic 32-byte frame and CCR.STKALIGN,
+//!   priority escalation to HardFault, and lockup.
 //! - **NVIC**: Nested Vectored Interrupt Controller with priority handling
 //! - **SysTick**: System timer for periodic interrupts
 //! - **SCB**: System Control Block for configuration and fault handling
+//!
+//! Instruction semantics are checked against QEMU's Cortex-M4 by
+//! `backend::emulator::cortex_m` (`tools/cortex-m-diff`).
 //!
 //! # Supported Variants
 //!
@@ -71,11 +80,16 @@
 //! | ETM | 0xE004_1000 - 0xE004_1FFF | Embedded Trace Macrocell |
 
 pub mod cpu;
+pub mod exception;
+pub mod exec;
 pub mod nvic;
 pub mod scb;
+pub mod state;
 pub mod systick;
 
 pub use cpu::CortexMCpu;
+pub use exception::EntryError;
+pub use exec::Fault;
 pub use nvic::Nvic;
 pub use scb::{CortexMVariant, Scb};
 pub use systick::SysTick;

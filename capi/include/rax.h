@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 4u
+#define RAX_API_MINOR 5u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -85,7 +85,7 @@ typedef enum rax_arch {
     RAX_ARCH_ARM     = 3, /* AArch32 / ARMv7-A (ARM or Thumb) */
     RAX_ARCH_RISCV64 = 4, /* RV64GC; optional extensions via rax_engine_config.riscv_ext */
     RAX_ARCH_HEXAGON = 5, /* Qualcomm Hexagon */
-    RAX_ARCH_CORTEXM = 6  /* ARM Cortex-M (Thumb-only) */
+    RAX_ARCH_CORTEXM = 6  /* ARM Cortex-M4 (Thumb-only, no FPU; since API 1.5) */
 } rax_arch;
 
 /* Backend selector (only the portable software emulator is exposed via C). */
@@ -100,6 +100,10 @@ typedef enum rax_arch {
 #define RAX_MODE_THUMB         (1u << 4) /* AArch32 Thumb state */
 #define RAX_MODE_BIG_ENDIAN    (1u << 5) /* big-endian (where applicable) */
 #define RAX_MODE_LITTLE_ENDIAN (1u << 6) /* little-endian (default) */
+/* User-mode (process-level) execution, since API 1.5: x86 with RAX_MODE_64
+ * (64-bit) or RAX_MODE_32 (32-bit compatibility mode), ARM64, or RISCV64.
+ * See "User-mode execution" below. Other combinations return RAX_ERR_MODE. */
+#define RAX_MODE_USER          (1u << 7)
 
 /* Open flags. */
 #define RAX_OPEN_NO_DEFAULT_STATE (1u << 0) /* do not install a default state */
@@ -144,6 +148,7 @@ typedef enum rax_arch {
 #define RAX_HOOK_MEM_READ   (1u << 8)  /* per-access data read  */
 #define RAX_HOOK_MEM_WRITE  (1u << 9)  /* per-access data write */
 #define RAX_HOOK_MEM_FETCH  (1u << 10) /* per-access instruction fetch */
+#define RAX_HOOK_SYSCALL    (1u << 11) /* user-mode system call (API 1.5) */
 
 /* `kind` value passed to a memory hook callback (rax_mem_cb). */
 #define RAX_MEM_READ  0
@@ -166,6 +171,7 @@ typedef enum rax_arch {
 #define RAX_STOP_SHUTDOWN    12 /* guest requested shutdown */
 #define RAX_STOP_DEBUG       13 /* debug/breakpoint event */
 #define RAX_STOP_ERROR       14 /* unrecoverable error (see rax_exit.status) */
+#define RAX_STOP_SYSCALL     15 /* user-mode system call, no syscall hook (API 1.5) */
 
 /* Sentinel "no until-address" value for rax_emu_start(). */
 #define RAX_NO_ADDR ((uint64_t)0xFFFFFFFFFFFFFFFFULL)
@@ -200,15 +206,19 @@ typedef struct rax_mem_region {
     uint32_t _reserved;
 } rax_mem_region;
 
-/* Description of why execution stopped (rax_emu_last_exit). */
+/* Description of why execution stopped (rax_emu_last_exit).
+ * For RAX_STOP_SYSCALL: `address` is the system-call instruction, `size` its
+ * length, `port` its RAX_SYSCALL_INSN_* class, and `intno` its immediate
+ * (AArch64 SVC; 0 otherwise). For RAX_STOP_EXCEPTION: `address` is the
+ * raising instruction and `intno` the vector. */
 typedef struct rax_exit {
     int32_t  reason;    /* RAX_STOP_* */
     int32_t  status;    /* rax_status if reason == RAX_STOP_ERROR */
     uint64_t address;   /* PC at stop, or fault/MMIO address */
     uint64_t value;     /* I/O/MMIO value; retired steps for control stops */
-    uint32_t size;      /* access size in bytes (I/O / MMIO) */
-    uint32_t port;      /* I/O port (IO_IN / IO_OUT) */
-    uint32_t intno;     /* interrupt/exception vector */
+    uint32_t size;      /* access size in bytes (I/O / MMIO); insn length (SYSCALL) */
+    uint32_t port;      /* I/O port (IO_IN / IO_OUT); RAX_SYSCALL_INSN_* (SYSCALL) */
+    uint32_t intno;     /* interrupt/exception vector; syscall immediate (SYSCALL) */
     uint32_t _reserved;
 } rax_exit;
 
@@ -246,6 +256,30 @@ typedef struct rax_fault_info {
  * Guest translation/decoder/internal faults must not trigger guessed mappings. */
 RAX_API rax_status rax_emu_last_fault(const rax_engine *engine, rax_fault_info *out);
 
+/* Typed exception query, added in ABI 1.5 (see "User-mode execution"). */
+#define RAX_EXCEPTION_INFO_VERSION 1u
+#define RAX_EXCEPTION_VALID    (1u << 0) /* the last run/step reported an exception */
+#define RAX_EXCEPTION_SYNDROME (1u << 1) /* `syndrome` holds architectural detail */
+#define RAX_EXCEPTION_SOFTWARE (1u << 2) /* INT n/INT3/INTO, BRK, or EBREAK */
+
+typedef struct rax_exception_info {
+    uint32_t struct_size; /* caller: sizeof(rax_exception_info); output: v1 size */
+    uint32_t version;     /* caller: RAX_EXCEPTION_INFO_VERSION */
+    uint32_t vector;      /* x86 IDT vector; AArch64 ESR_EL1.EC; RISC-V mcause */
+    uint32_t flags;       /* RAX_EXCEPTION_* */
+    uint64_t pc;          /* instruction that raised the exception */
+    uint64_t return_pc;   /* architectural return address; the PC after the report */
+    uint64_t syndrome;    /* x86 error code; AArch64 ESR_EL1.ISS; RISC-V mtval */
+} rax_exception_info;
+
+/* The exception the last run or step reported, callable from the interrupt
+ * hook. Reset by the next run/step, reset, or context restore; retained across
+ * host memory/register queries. Header validation matches rax_emu_last_fault:
+ * NULL/short output returns RAX_ERR_ARG, an unknown version
+ * RAX_ERR_UNSUPPORTED, and the output is unchanged on failure. A record without
+ * RAX_EXCEPTION_VALID means no exception was reported. */
+RAX_API rax_status rax_emu_last_exception(const rax_engine *engine, rax_exception_info *out);
+
 /* ===========================================================================
  * Hook callback types
  *
@@ -265,6 +299,12 @@ typedef int      (*rax_invalid_cb)(rax_engine *e, uint64_t address, void *user);
  * access after the step attempt, including completed REP elements before a
  * later fault. A callback does not prove instruction retirement. */
 typedef void     (*rax_mem_cb)(rax_engine *e, int kind, uint64_t addr, uint32_t size, uint64_t value, void *user);
+/* User-mode system-call hook (API 1.5): `pc` is the system-call instruction,
+ * `insn` its RAX_SYSCALL_INSN_* class, `imm` its immediate (AArch64 SVC; 0
+ * otherwise). The PC already holds the resume address, so returning continues
+ * after the call; read the call number/arguments and write results with the
+ * register API, or call rax_emu_stop. */
+typedef void     (*rax_syscall_cb)(rax_engine *e, uint64_t pc, uint32_t insn, uint32_t imm, void *user);
 
 /* ===========================================================================
  * Library globals
@@ -351,8 +391,12 @@ RAX_API rax_status rax_reg_write_u64(rax_engine *engine, int regid, uint64_t val
  * Returns RAX_OK for any clean stop (inspect rax_emu_last_exit), or an error
  * status for an unrecoverable fault.
  *
+ * Starting at `begin` also wakes a vCPU that stopped in HLT, WFI, or WFE
+ * (since API 1.5); rax_emu_step from the current PC does not.
+ *
  * Instruction-granular control (count/until/timeout and code/block hooks)
- * requires a stepping-capable backend (rax_engine_supports_stepping). */
+ * requires a stepping-capable backend (rax_engine_supports_stepping); every
+ * architecture supports it since API 1.5. */
 RAX_API rax_status rax_emu_start(rax_engine *engine, uint64_t begin, uint64_t until,
                                  uint64_t timeout_us, uint64_t count);
 /* Step `count` instructions from the current PC (0 treated as 1); writes the
@@ -365,7 +409,8 @@ RAX_API rax_status rax_emu_last_exit(const rax_engine *engine, rax_exit *out);
 /* Total number of instructions retired by the vCPU. */
 RAX_API uint64_t   rax_emu_icount(const rax_engine *engine);
 
-/* Interrupts. */
+/* Interrupts. User mode has no asynchronous interrupts: rax_interrupt and
+ * rax_nmi return RAX_ERR_UNSUPPORTED and rax_can_interrupt returns 0. */
 RAX_API rax_status rax_interrupt(rax_engine *engine, uint32_t vector); /* RAX_ERR_STATE if masked */
 RAX_API rax_status rax_nmi(rax_engine *engine);
 RAX_API int        rax_can_interrupt(const rax_engine *engine);       /* 1/0 */
@@ -391,6 +436,11 @@ RAX_API rax_status rax_hook_add_invalid(rax_engine *engine, rax_invalid_cb cb, v
  * that records memory accesses (x86-64 today). */
 RAX_API rax_status rax_hook_add_mem(rax_engine *engine, uint32_t types, uint64_t begin, uint64_t end,
                                     rax_mem_cb cb, void *user, uint32_t *out_id);
+/* User-mode system-call hook (API 1.5). The first registered hook services
+ * each call; without one the run stops with RAX_STOP_SYSCALL. Returns
+ * RAX_ERR_UNSUPPORTED unless the engine was opened with RAX_MODE_USER. */
+RAX_API rax_status rax_hook_add_syscall(rax_engine *engine, rax_syscall_cb cb, void *user,
+                                        uint32_t *out_id);
 RAX_API rax_status rax_hook_del(rax_engine *engine, uint32_t hook_id);
 
 /* ===========================================================================
@@ -402,8 +452,63 @@ RAX_API rax_status rax_hook_del(rax_engine *engine, uint32_t hook_id);
  * sufficiently large buffer. Returns RAX_ERR_BOUNDS if buf != NULL but cap is
  * too small. */
 RAX_API rax_status rax_context_save(const rax_engine *engine, void *buf, size_t cap, size_t *out_len);
-/* Restore a context previously produced by rax_context_save. */
+/* Restore a context previously produced by rax_context_save. The engine
+ * adopts the context's mode (including RAX_MODE_USER) and memory map. API 1.5
+ * writes context format 2 (exact 80-bit x87 registers) and still restores
+ * format 1 from API 1.4 and earlier; older libraries cannot read format 2.
+ * Malformed data returns RAX_ERR_FORMAT and leaves the engine unchanged. */
 RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, size_t len);
+
+/* ===========================================================================
+ * User-mode execution (since API 1.5)
+ *
+ * Opening with RAX_MODE_USER runs guest code unprivileged -- x86 CPL 3 in
+ * 64-bit mode (RAX_MODE_64) or 32-bit compatibility mode (RAX_MODE_32),
+ * AArch64 EL0, RV64 U-mode -- with the embedder acting as the operating
+ * system. librax traps system calls; it does not implement any OS.
+ *
+ *  - Mapped regions are the process address space. Every guest load, store,
+ *    and instruction fetch is checked against its region's RAX_PROT_* bits
+ *    (including the initial region's rax_engine_config.mem_perms). A
+ *    violation or unmapped access fails the run with RAX_ERR_FAULT and a
+ *    rax_fault_info of kind PERMISSION or UNMAPPED with the exact first
+ *    inaccessible byte (`size` 0). The instruction does not retire, so a
+ *    rax_mem_map/rax_mem_protect and a retry resume it. rax_mem_translate and
+ *    the *_virt accessors apply the same checks; physical host access
+ *    (rax_mem_read/rax_mem_write) ignores permissions.
+ *  - A system-call instruction (x86 SYSCALL or SYSENTER, AArch64 SVC, RISC-V
+ *    ECALL) completes and counts as one executed instruction, leaving the PC
+ *    at its resume address. The first syscall hook services it, or the run
+ *    stops with RAX_STOP_SYSCALL. x86 SYSCALL sets RCX (return RIP) and R11
+ *    (RFLAGS) architecturally; the other instructions modify no register.
+ *  - Other exceptions (x86 #UD, #GP, #DE, INT n, INT3, ...; AArch64 BRK and
+ *    UNDEFINED; RISC-V EBREAK, illegal instruction, misaligned fetch or AMO) are
+ *    not delivered through guest vector tables. The PC moves to the
+ *    architectural return address -- the next instruction for x86 software
+ *    interrupts and trap-class exceptions, the raising instruction otherwise
+ *    -- and the first interrupt hook is called with the vector, continuing at
+ *    whatever PC the hook leaves (a hook that neither moves the PC nor stops
+ *    re-executes a faulting instruction). Without a hook the run stops with
+ *    RAX_STOP_EXCEPTION. rax_emu_last_exception describes the exception; an
+ *    undefined instruction that stops the run is also reported as
+ *    RAX_FAULT_INVALID_INSTRUCTION. An exception-raising instruction,
+ *    including INT n, INT3, BRK, and EBREAK, does not count as executed. The
+ *    invalid-instruction hook sees only memory faults in user mode.
+ *  - Open and reset install the unprivileged environment (x86: the Linux
+ *    execve state with CS 0x33, or 0x23 in compatibility mode, SS/DS/ES 0x2B,
+ *    EFER.SCE, and SSE/AVX/AVX-512 enabled; AArch64: EL0t; RV64: U-mode) with
+ *    zeroed general registers; RAX_OPEN_NO_DEFAULT_STATE has no further
+ *    effect. There are no asynchronous interrupts. x86 HLT and other
+ *    privileged instructions raise #GP; AArch64 EL1 system registers and RV64
+ *    CSRs above U-mode are UNDEFINED/illegal, as are the RV64 cycle, time,
+ *    and instret counters. Register writes are not privilege-checked.
+ * ======================================================================== */
+
+/* System-call instruction classes (rax_syscall_cb `insn`; rax_exit.port). */
+#define RAX_SYSCALL_INSN_SYSCALL  1u /* x86 SYSCALL */
+#define RAX_SYSCALL_INSN_SYSENTER 2u /* x86 SYSENTER */
+#define RAX_SYSCALL_INSN_SVC      3u /* AArch64 SVC #imm16 */
+#define RAX_SYSCALL_INSN_ECALL    4u /* RISC-V ECALL */
 
 /* ===========================================================================
  * Register ids
@@ -458,6 +563,35 @@ RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, siz
 #define RAX_X86_REG_TR_SEL       0x1107
 #define RAX_X86_REG_TR_BASE      0x1108
 #define RAX_X86_REG_TR_LIMIT     0x1109
+/* Since API 1.5. */
+#define RAX_X86_REG_TR_ATTR      0x110A /* TR access rights (4), RAX_X86_SEG_ATTR layout */
+#define RAX_X86_REG_LDTR_ATTR    0x110B /* LDTR access rights (4) */
+#define RAX_X86_REG_KERNEL_GS_BASE 0x100B /* IA32_KERNEL_GS_BASE (8) */
+#define RAX_X86_REG_TSC_AUX      0x100C /* IA32_TSC_AUX, read by RDTSCP/RDPID (4) */
+#define RAX_X86_REG_PKRU         0x100D /* protection-key rights, RDPKRU (4) */
+
+/* x87 and SSE state (since API 1.5). ST(i) is stack-relative: physical
+ * register (TOP + i) mod 8, in the exact 80-bit memory format (10 bytes:
+ * 64-bit significand with explicit integer bit, then sign and 15-bit biased
+ * exponent). Writing ST(i) tags that register valid, zero, or special by its
+ * encoding. FPSW includes TOP (bits 13:11); writing it moves TOP. FPTAG is the
+ * full two-bit-per-register tag word (11 = empty). FOP is the 11-bit last
+ * opcode. MXCSR writes with reserved bits return RAX_ERR_ARG. */
+#define RAX_X86_ST(i)            (0x1200 + (i)) /* ST(0)..ST(7) (10 bytes) */
+#define RAX_X86_REG_FPCW         0x1210 /* x87 control word (2) */
+#define RAX_X86_REG_FPSW         0x1211 /* x87 status word (2) */
+#define RAX_X86_REG_FPTAG        0x1212 /* x87 tag word (2) */
+#define RAX_X86_REG_FOP          0x1213 /* x87 last opcode (2) */
+#define RAX_X86_REG_FIP          0x1214 /* x87 last instruction pointer (8) */
+#define RAX_X86_REG_FDP          0x1215 /* x87 last data pointer (8) */
+#define RAX_X86_REG_MXCSR        0x1216 /* SSE control/status (4) */
+
+/* Segment access rights (since API 1.5), 4 bytes in the VMX guest-segment
+ * layout (Intel SDM Vol. 3C, Table 26-2): type 3:0, S 4, DPL 6:5, P 7,
+ * AVL 12, L 13 (CS only), D/B 14, G 15, unusable 16. Other bits are ignored
+ * on write and read as zero. Writing CS can switch between 64-bit,
+ * compatibility, and legacy modes. */
+#define RAX_X86_SEG_ATTR(i)      (0x1300 + (i)) /* ES,CS,SS,DS,FS,GS (i in 0..5) */
 
 /* 64-bit GPR named aliases. */
 #define RAX_X86_REG_RAX RAX_X86_GPR64(0)
@@ -528,6 +662,19 @@ RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, siz
 #define RAX_CM_REG_PRIMASK   0x0033
 #define RAX_CM_REG_FAULTMASK 0x0034
 #define RAX_CM_REG_BASEPRI   0x0035
+/* Cortex-M System Control Block registers (4 bytes, since API 1.5). The
+ * System Control Space is not memory-mapped by the engine: these ids are
+ * its only access. */
+#define RAX_CM_REG_VTOR      0x0036 /* bits [6:0] read as zero */
+#define RAX_CM_REG_CCR       0x0037 /* STKALIGN (1 at reset), UNALIGN_TRP, DIV_0_TRP, NONBASETHRDENA */
+#define RAX_CM_REG_SHCSR     0x0038 /* fault enables; active bits of the system handlers */
+#define RAX_CM_REG_CFSR      0x0039
+#define RAX_CM_REG_HFSR      0x003A
+#define RAX_CM_REG_BFAR      0x003B
+#define RAX_CM_REG_AIRCR     0x003C /* PRIGROUP; reads VECTKEYSTAT (0xFA05 << 16) */
+#define RAX_CM_REG_SHPR1     0x003D /* system handler priorities 4..7 */
+#define RAX_CM_REG_SHPR2     0x003E /* 8..11 (SVCall) */
+#define RAX_CM_REG_SHPR3     0x003F /* 12..15 (PendSV, SysTick) */
 
 /* ---- AArch64 ------------------------------------------------------------- */
 #define RAX_ARM64_X(i)  (0x0100 + (i)) /* X0..X30 (8 bytes) */
@@ -537,10 +684,36 @@ RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, siz
 #define RAX_ARM64_REG_PSTATE RAX_REG_PSTATE
 #define RAX_ARM64_REG_FPCR   RAX_REG_FPCR
 #define RAX_ARM64_REG_FPSR   RAX_REG_FPSR
+/* System registers (8 bytes, since API 1.5). SP_EL0/SP_EL1 are the banked
+ * stack pointers; RAX_REG_SP is whichever PSTATE selects (EL0 and EL1t:
+ * SP_EL0; EL1h: SP_EL1), and writing PSTATE keeps each bank's value. */
+#define RAX_ARM64_REG_TPIDR_EL0     0x0400
+#define RAX_ARM64_REG_TPIDRRO_EL0   0x0401
+#define RAX_ARM64_REG_TPIDR_EL1     0x0402
+#define RAX_ARM64_REG_SP_EL0        0x0403
+#define RAX_ARM64_REG_SP_EL1        0x0404
+#define RAX_ARM64_REG_ELR_EL1       0x0405
+#define RAX_ARM64_REG_SPSR_EL1      0x0406
+#define RAX_ARM64_REG_ESR_EL1       0x0407
+#define RAX_ARM64_REG_FAR_EL1       0x0408
+#define RAX_ARM64_REG_VBAR_EL1      0x0409
+#define RAX_ARM64_REG_SCTLR_EL1     0x040A
+#define RAX_ARM64_REG_TCR_EL1       0x040B
+#define RAX_ARM64_REG_TTBR0_EL1     0x040C
+#define RAX_ARM64_REG_TTBR1_EL1     0x040D
+#define RAX_ARM64_REG_MAIR_EL1      0x040E
+#define RAX_ARM64_REG_CNTP_CTL_EL0  0x040F /* ENABLE and IMASK bits only */
+#define RAX_ARM64_REG_CNTP_CVAL_EL0 0x0410
+#define RAX_ARM64_REG_CNTV_CTL_EL0  0x0411 /* ENABLE and IMASK bits only */
+#define RAX_ARM64_REG_CNTV_CVAL_EL0 0x0412
 
 /* ---- AArch32 / ARMv7-A --------------------------------------------------- */
 #define RAX_ARM_R(i)    (0x0100 + (i)) /* R0..R12 (4 bytes) */
 #define RAX_ARM_S(i)    (0x0200 + (i)) /* S0..S31 (4 bytes) */
+/* Since API 1.5: D0..D15 overlay S0..S31 (D<n> = S<2n+1>:S<2n>); Q<n> is
+ * D<2n+1>:D<2n>. */
+#define RAX_ARM_D(i)    (0x0300 + (i)) /* D0..D31 (8 bytes) */
+#define RAX_ARM_Q(i)    (0x0400 + (i)) /* Q0..Q15 (16 bytes) */
 #define RAX_ARM_REG_SP   RAX_REG_SP
 #define RAX_ARM_REG_LR   RAX_REG_LR
 #define RAX_ARM_REG_PC   RAX_REG_PC
@@ -549,18 +722,37 @@ RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, siz
 #define RAX_ARM_REG_FPSCR RAX_REG_FPSCR
 
 /* ---- Cortex-M ------------------------------------------------------------ */
+/* The Cortex-M engine (since API 1.5) is a Cortex-M4 without the
+ * Floating-point Extension: RAX_CM_S(i) and RAX_CM_REG_FPSCR are reserved
+ * and report RAX_ERR_REG. RAX_CM_REG_SP is the active stack pointer (PSP in
+ * Thread mode with CONTROL.SPSEL set, otherwise MSP). */
 #define RAX_CM_R(i)     (0x0100 + (i)) /* R0..R12 (4 bytes) */
-#define RAX_CM_S(i)     (0x0200 + (i)) /* S0..S31 (4 bytes) */
+#define RAX_CM_S(i)     (0x0200 + (i)) /* reserved (no FPU) */
+#define RAX_CM_REG_SP    RAX_REG_SP
 #define RAX_CM_REG_LR    RAX_REG_LR
 #define RAX_CM_REG_PC    RAX_REG_PC
 #define RAX_CM_REG_XPSR  RAX_REG_PSTATE
-#define RAX_CM_REG_FPSCR RAX_REG_FPSCR
+#define RAX_CM_REG_FPSCR RAX_REG_FPSCR /* reserved (no FPU) */
 
 /* ---- RISC-V (RV64) ------------------------------------------------------- */
 #define RAX_RISCV_X(i)  (0x0100 + (i)) /* x0..x31 (8 bytes; x0 is read-only 0) */
 #define RAX_RISCV_F(i)  (0x0200 + (i)) /* f0..f31 (8 bytes) */
 #define RAX_RISCV_REG_PC   RAX_REG_PC
 #define RAX_RISCV_REG_FCSR RAX_REG_FCSR
+/* Since API 1.5: the vector registers, CSRs by number, and the privilege
+ * level. RAX_RISCV_V(i) holds VLEN = 128 bits, element bytes in memory
+ * order. RAX_RISCV_CSR(n) is CSR n as the hart implements it: fflags, frm,
+ * fcsr; vstart, vxsat, vxrm, vcsr, vl, vtype, and vlenb (read-only; vl and
+ * vtype are writable here to set up vector state); the machine trap,
+ * delegation, and counter-enable CSRs, sepc, scounteren; misa, mvendorid,
+ * marchid, mimpid, mhartid (read-only); cycle, time, instret; jvt; and the
+ * vendor CSRs the hart keeps. Writes follow each CSR's WARL rules. The
+ * sstatus, sie, and sip views are not addressable (use mstatus, mie, mip);
+ * a CSR the hart does not implement reports RAX_ERR_REG. A user-mode engine
+ * stays at privilege 0. */
+#define RAX_RISCV_V(i)       (0x0300 + (i)) /* v0..v31 (16 bytes) */
+#define RAX_RISCV_CSR(n)     (0x1000 + (n)) /* CSR n, 0..0xFFF (8 bytes) */
+#define RAX_RISCV_REG_PRIV   0x0024         /* 0 (U), 1 (S), or 3 (M) (1 byte) */
 
 /* ---- Hexagon ------------------------------------------------------------- */
 #define RAX_HEX_R(i)    (0x0100 + (i)) /* R0..R31 (4 bytes) */
@@ -608,7 +800,14 @@ typedef struct rax_decoded {
  * rax_engine_open). Fills *out. Returns RAX_OK when the call is well-formed —
  * inspect out->valid to see whether the bytes actually decoded (an undecodable
  * or truncated instruction yields RAX_OK with out->valid == 0). Returns an
- * error status only for a bad argument (NULL out/bytes, unsupported arch). */
+ * error status only for a bad argument (NULL out/bytes, unsupported arch).
+ *
+ * x86 decodes in the code size the mode selects: RAX_MODE_64 (the default),
+ * RAX_MODE_32 (protected or compatibility mode), or RAX_MODE_16 (real mode)
+ * — since API 1.5; earlier versions decoded every x86 mode as 64-bit code.
+ * In 16- and 32-bit code `pc` is the offset in the code segment, and branch
+ * targets wrap to the operand size (16 or 32 bits); far jumps and calls have
+ * no static target. */
 RAX_API rax_status rax_decode(int arch, uint32_t mode, uint64_t pc,
                               const void *bytes, size_t len, rax_decoded *out);
 

@@ -17,11 +17,13 @@ use std::slice;
 use serde_json::Value;
 
 use rax_engine::config::Endianness;
-use rax_engine::isa_oracle::{ArmState, OracleIsa, OracleOptions, decode_to_json};
+use rax_engine::isa_oracle::{ArmState, OracleIsa, OracleOptions, X86CodeSize, decode_to_json};
 use rax_engine::riscv::Xlen;
 use rax_engine::smir::SourceArch;
 
-use crate::arch::{RAX_MODE_BIG_ENDIAN, RAX_MODE_THUMB, RaxArch};
+use crate::arch::{
+    RAX_MODE_16, RAX_MODE_32, RAX_MODE_64, RAX_MODE_BIG_ENDIAN, RAX_MODE_THUMB, RaxArch,
+};
 use crate::guard;
 use crate::status::RaxStatus;
 
@@ -148,6 +150,13 @@ pub(crate) fn oracle_options(arch: RaxArch, mode: u32, pc: u64) -> OracleOptions
         RaxArch::X86 => {
             opts.isa = OracleIsa::X86_64;
             opts.smir_source = SourceArch::X86_64;
+            // 16- and 32-bit code decode for length and control flow; the
+            // SMIR lifter models 64-bit mode only.
+            opts.x86_code_size = match mode & (RAX_MODE_16 | RAX_MODE_32 | RAX_MODE_64) {
+                RAX_MODE_16 => X86CodeSize::Bits16,
+                RAX_MODE_32 => X86CodeSize::Bits32,
+                _ => X86CodeSize::Bits64,
+            };
         }
         RaxArch::Arm64 => {
             opts.isa = OracleIsa::Arm;

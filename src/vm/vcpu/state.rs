@@ -248,6 +248,39 @@ pub struct RiscVRegisters {
     /// Optional HTIF `tohost` physical address for bare-metal test harnesses.
     #[serde(default)]
     pub tohost_addr: Option<u64>,
+    /// Current privilege level: 0 (U), 1 (S), or 3 (M). `None` leaves the
+    /// hart's privilege unchanged when the state is installed.
+    #[serde(default)]
+    pub privilege: Option<u8>,
+    /// Control and status registers as (CSR number, value) pairs: the trap,
+    /// delegation, and counter-enable CSRs the hart models, its read-only
+    /// identification CSRs and counters, and any vendor CSRs it keeps. The
+    /// views (`sstatus`, `sie`, `sip`), `fcsr` and its views, and the vector
+    /// CSRs are carried elsewhere. Installing the state writes each listed
+    /// CSR with its WARL rules; unlisted CSRs keep their values.
+    #[serde(default)]
+    pub csrs: Vec<(u16, u64)>,
+    /// Vector extension state; `None` leaves the vector unit unchanged.
+    #[serde(default)]
+    pub vector: Option<RiscVVectorState>,
+}
+
+/// RISC-V vector extension state.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RiscVVectorState {
+    /// `vl`.
+    pub vl: u64,
+    /// `vtype` (including `vill`).
+    pub vtype: u64,
+    /// `vstart`.
+    pub vstart: u64,
+    /// `vxrm` (fixed-point rounding mode, 2 bits).
+    pub vxrm: u8,
+    /// `vxsat` (fixed-point saturation flag, 1 bit).
+    pub vxsat: u8,
+    /// The register file `v0..v31`, `vlenb` bytes each, element bytes in
+    /// memory (little-endian) order.
+    pub v: Vec<u8>,
 }
 
 impl Default for RiscVRegisters {
@@ -258,6 +291,9 @@ impl Default for RiscVRegisters {
             f: [0u64; 32],
             fcsr: 0,
             tohost_addr: None,
+            privilege: None,
+            csrs: Vec::new(),
+            vector: None,
         }
     }
 }
@@ -833,7 +869,7 @@ impl CortexMRegisters {
 }
 
 /// Cortex-M system registers (SCS - System Control Space).
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CortexMSystemRegisters {
     /// Interrupt Control and State Register
     pub icsr: u32,
@@ -863,6 +899,30 @@ pub struct CortexMSystemRegisters {
     pub afsr: u32,
     /// Coprocessor Access Control Register
     pub cpacr: u32,
+}
+
+impl Default for CortexMSystemRegisters {
+    /// The reset values: AIRCR reads VECTKEYSTAT with PRIGROUP 0, and
+    /// CCR.STKALIGN is 1 (8-byte exception frame alignment, the Cortex-M4
+    /// reset value); every other register is zero.
+    fn default() -> Self {
+        CortexMSystemRegisters {
+            icsr: 0,
+            vtor: 0,
+            aircr: 0xFA05_0000,
+            scr: 0,
+            ccr: 0x0000_0200,
+            shpr: [0; 3],
+            shcsr: 0,
+            cfsr: 0,
+            hfsr: 0,
+            dfsr: 0,
+            mmfar: 0,
+            bfar: 0,
+            afsr: 0,
+            cpacr: 0,
+        }
+    }
 }
 
 /// Complete Cortex-M CPU state snapshot.

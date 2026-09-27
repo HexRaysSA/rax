@@ -3,4 +3,4 @@
 
 mod cpu;
 
-pub use cpu::RiscVVcpu;
+pub use cpu::{RiscVVcpu, RvUserTrap};

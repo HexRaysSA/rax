@@ -40,8 +40,9 @@ const CHECKPOINT_MAGIC: [u8; 8] = *b"RAXCKPT\0";
 /// Current checkpoint format version. Version 2 added embedded config + device
 /// state; version 3 added the emulator-private STI interrupt shadow; version 4
 /// added IA32_MISC_ENABLE and IA32_PAT; version 5 added IA32_UMWAIT_CONTROL;
-/// version 6 stores the x87 registers in their exact 80-bit encoding.
-const CHECKPOINT_VERSION: u32 = 6;
+/// version 6 stores the x87 registers in their exact 80-bit encoding;
+/// version 7 adds the RISC-V privilege level, CSRs, and vector state.
+const CHECKPOINT_VERSION: u32 = 7;
 
 /// Canonical checkpoint file extension ("RaX Checkpoint").
 pub const CHECKPOINT_EXT: &str = "rxc";

@@ -739,7 +739,7 @@ impl ThumbDecoder {
                     ));
                 }
 
-                let mnemonic = match op_b {
+                let mnemonic = match op_a {
                     0b0000 => Mnemonic::NOP,
                     0b0001 => Mnemonic::YIELD,
                     0b0010 => Mnemonic::WFE,
