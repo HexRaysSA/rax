@@ -193,7 +193,15 @@ a dropped SQ index; CQ overflow and its flush; the task work of deferring and
 ordinary rings; drains and async requests; waits (timeouts, a signal);
 `poll` of the ring; registration (probe, personalities, eventfds, enabling a
 disabled ring, registered ring descriptors); and `/proc/<pid>/fdinfo`, each
-following the Linux 6.19 function it names. `user_linux` `fixtures` runs the
+following the Linux 6.19 function it names. `src/user/linux/tests/uring/rsrc.rs`:
+registered files and buffers (`io_uring/rsrc.c`, `io_uring/filetable.c`):
+registration and its refusals, sparse tables, updates, tags posted as nodes
+are released (a node a request uses once that request is freed), a
+registered file holding its file open, NOP's lookups,
+`IORING_OP_FILES_UPDATE` and slot allocation within the allocation range,
+pinning checks, `VmPin`, the `RLIMIT_MEMLOCK` charge of a user without
+`CAP_IPC_LOCK`, cloning buffers between rings, the compatibility vector
+layout, and the fdinfo listings. `user_linux` `fixtures` runs the
 `uring` program on every architecture against results recorded on the Linux
 6.19 kernel oracles (native AArch64 and x86-64 in their `compare` runs,
 i386, ARM, and Thumb-2).

@@ -12,6 +12,7 @@
 
 mod ops;
 mod register;
+mod rsrc;
 mod submit;
 
 pub use register::io_uring_register;
@@ -29,6 +30,7 @@ use super::super::posix_timers::{Base, instant_at};
 use super::super::uring::abi::{
     self, MAX_CQ_ENTRIES, MAX_ENTRIES, OP_NAMES, Params, enter, feat, off, rings, setup,
 };
+use super::super::uring::rsrc::Account;
 use super::super::uring::{Layout, Ring, State, Waiting};
 use super::super::wait::{Resume, Wait};
 use super::ready::Polled;
@@ -38,6 +40,9 @@ use crate::user::mm::Backing;
 /// How often a waiting call looks at the rings again: completions another
 /// process (or a forked child sharing the ring) posts raise no event here.
 const RECHECK: Duration = Duration::from_millis(2);
+
+/// `RLIMIT_MEMLOCK`.
+const RLIMIT_MEMLOCK: usize = 8;
 
 /// The flags refused at setup (see the module documentation).
 const UNMODELLED: u32 = setup::SQPOLL
@@ -61,6 +66,22 @@ pub fn ring_file(file: &OpenFile) -> Option<Arc<Ring>> {
         FileObject::Anon(Anon::Uring(r)) => Some(r.clone()),
         _ => None,
     }
+}
+
+/// `ctx->user` and `ctx->mm_account`: the caller's user (by real user
+/// ID) unless it holds `CAP_IPC_LOCK` (is root), and its address space.
+fn account(c: &mut Ctx<'_>) -> Account {
+    let (uid, euid, ..) = c.p.creds;
+    let user = (euid != 0).then(|| c.p.locked_vm_users.entry(uid).or_default().clone());
+    Account {
+        user,
+        mm: c.p.mm.pinned_vm.clone(),
+    }
+}
+
+/// `rlimit(RLIMIT_MEMLOCK)` in pages: what a user may charge.
+pub(super) fn memlock_pages(c: &Ctx<'_>) -> u64 {
+    c.p.rlimits[RLIMIT_MEMLOCK].0 >> 12
 }
 
 /// `io_uring_sanitise_params`.
@@ -152,12 +173,15 @@ pub fn io_uring_setup(c: &mut Ctx<'_>, entries: u32, uptr: u64) -> SysResult {
         0,
     ];
     p.cq_user_addr = 0;
+    let account = account(c);
     let ring = Arc::new(Ring::new(
         p.flags,
         p.sq_entries,
         p.cq_entries,
         layout,
         c.compat,
+        account,
+        memlock_pages(c),
     )?);
     // io_sq_offload_create: an async-worker pool to share must be another
     // ring's; a CPU for a polling thread needs one.
@@ -343,17 +367,18 @@ pub fn fdinfo(ring: &Ring, path_of: &dyn Fn(&OpenFile) -> String) -> String {
         i += 1;
     }
     s.push_str("SqThread:\t-1\nSqThreadCpu:\t-1\nSqTotalTime:\t0\nSqWorkTime:\t0\n");
-    let _ = writeln!(s, "UserFiles:\t{}", st.files.len());
-    for (i, f) in st.files.iter().enumerate() {
-        if let Some(f) = f {
-            let _ = writeln!(s, "{i:5}: {}", path_of(f));
+    let t = &st.rsrc;
+    let _ = writeln!(s, "UserFiles:\t{}", t.files.len());
+    for (i, slot) in t.files.iter().enumerate() {
+        if let Some(f) = slot.and_then(|id| t.node_file(id)) {
+            let _ = writeln!(s, "{i:5}: {}", mangle_path(&path_of(f)));
         }
     }
-    let _ = writeln!(s, "UserBufs:\t{}", st.bufs.len());
-    for (i, b) in st.bufs.iter().enumerate() {
-        match b {
-            Some((addr, len)) => {
-                let _ = writeln!(s, "{i:5}: 0x{addr:x}/{len}");
+    let _ = writeln!(s, "UserBufs:\t{}", t.bufs.len());
+    for (i, slot) in t.bufs.iter().enumerate() {
+        match slot.and_then(|id| t.node_buf(id)) {
+            Some(b) => {
+                let _ = writeln!(s, "{i:5}: 0x{:x}/{}", b.addr, b.len);
             }
             None => {
                 let _ = writeln!(s, "{i:5}: <none>");
@@ -370,6 +395,20 @@ pub fn fdinfo(ring: &Ring, path_of: &dyn Fn(&OpenFile) -> String) -> String {
     }
     s.push_str("NAPI:\tdisabled\n");
     s
+}
+
+/// `seq_file_path` with the escapes `" \t\n\\"` (`mangle_path`): each
+/// of those bytes as a backslash and three octal digits.
+fn mangle_path(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    for ch in path.chars() {
+        if matches!(ch, ' ' | '\t' | '\n' | '\\') {
+            let _ = write!(out, "\\{:03o}", ch as u32);
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 /// The ring `io_uring_enter` works on: a descriptor, or with
@@ -394,7 +433,8 @@ fn enter_ring(c: &Ctx<'_>, fd: u32, flags: u32) -> Result<Arc<Ring>, Errno> {
 /// `io_uring_enter`: submits up to `to_submit` SQEs, then with
 /// `IORING_ENTER_GETEVENTS` waits for `min_complete` completions; the
 /// number submitted, or the wait's result if none was. A submission that
-/// stops short returns at once.
+/// stops short returns at once. What the call released is dropped once
+/// the ring's lock is let go.
 pub fn io_uring_enter(
     c: &mut Ctx<'_>,
     fd: u32,
@@ -406,12 +446,28 @@ pub fn io_uring_enter(
 ) -> SysResult {
     if let Some(Resume::Uring(w)) = c.resume.take() {
         let ring = enter_ring(c, fd, flags)?;
-        return wait_again(c, &ring, w);
+        let r = wait_again(c, &ring, w);
+        ring.reap();
+        return r;
     }
     if flags & !enter::ALL != 0 {
         return Err(Errno(EINVAL));
     }
     let ring = enter_ring(c, fd, flags)?;
+    let r = enter(c, &ring, to_submit, min_complete, flags, argp, argsz);
+    ring.reap();
+    r
+}
+
+fn enter(
+    c: &mut Ctx<'_>,
+    ring: &Ring,
+    to_submit: u32,
+    min_complete: u32,
+    flags: u32,
+    argp: u64,
+    argsz: u64,
+) -> SysResult {
     let mut st = ring.state();
     if st.disabled {
         return Err(Errno(EBADFD));
@@ -422,14 +478,14 @@ pub fn io_uring_enter(
         if st.submitter.is_some_and(|t| t != c.t.tid) {
             return Err(Errno(EEXIST));
         }
-        ret = submit::submit(c, &ring, &mut st, to_submit);
+        ret = submit::submit(c, ring, &mut st, to_submit);
         if ret != i64::from(to_submit) {
-            finish(c, &ring, &mut st);
+            finish(c, ring, &mut st);
             return Ok(ret as u64);
         }
     }
     if flags & enter::GETEVENTS != 0 {
-        let r2 = start_wait(c, &ring, &mut st, min_complete, flags, argp, argsz, ret);
+        let r2 = start_wait(c, ring, &mut st, min_complete, flags, argp, argsz, ret);
         if is_blocked(&r2) {
             return r2.map(|v| v as u64);
         }
@@ -437,13 +493,13 @@ pub fn io_uring_enter(
             ret = match r2 {
                 Ok(v) => v,
                 Err(e) => {
-                    finish(c, &ring, &mut st);
+                    finish(c, ring, &mut st);
                     return Err(e);
                 }
             };
         }
     }
-    finish(c, &ring, &mut st);
+    finish(c, ring, &mut st);
     Ok(ret as u64)
 }
 

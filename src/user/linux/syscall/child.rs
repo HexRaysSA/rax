@@ -203,8 +203,10 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     // and no mapping stays locked (mm_init drops MCL_FUTURE too).
     super::ipc::forked(p);
     super::mlock::forked(p);
-    // mm_init: no AIO context (the rings' mappings stay).
+    // mm_init: no AIO context (the rings' mappings stay), and nothing
+    // pinned (the io_uring rings the child shares charge its parent's).
     p.aio = Default::default();
+    p.mm.pinned_vm = Default::default();
     p.ppid = host::ppid();
     p.next_tid = pid + 1;
     p.children = Default::default();

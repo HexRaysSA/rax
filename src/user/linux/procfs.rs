@@ -211,6 +211,16 @@ pub fn stat(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     s.into_bytes()
 }
 
+/// The path of an open file (`d_path`), as `/proc/<pid>/fd/<fd>` links to
+/// it.
+pub fn file_path(p: &ProcState, f: &super::fs::fd::OpenFile) -> String {
+    match (&f.host_path, &f.object) {
+        (Some(h), _) => p.vfs.guest_path_of(h),
+        (None, super::fs::fd::FileObject::Mqueue(q)) => super::syscall::mqueue::link(q),
+        (None, _) => f.path.clone(),
+    }
+}
+
 /// `/proc/<pid>/status` (the fields programs commonly parse) for thread
 /// `t` of a process with `threads` threads.
 pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
@@ -238,6 +248,8 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let _ = writeln!(s, "VmSize:\t{:8} kB", vsize / 1024);
     let locked_kb = super::syscall::mlock::locked_pages(p) * 4;
     let _ = writeln!(s, "VmLck:\t{locked_kb:8} kB");
+    let pinned_kb = p.mm.pinned_vm.load(std::sync::atomic::Ordering::Relaxed) * 4;
+    let _ = writeln!(s, "VmPin:\t{pinned_kb:8} kB");
     let _ = writeln!(s, "VmRSS:\t{:8} kB", rss_kb);
     let _ = writeln!(s, "Threads:\t{threads}");
     // task_sig: queued records against RLIMIT_SIGPENDING, then the pending,
@@ -575,12 +587,7 @@ fn thread_entry(
         _ => {
             let n = rest.strip_prefix("fd/")?.parse::<i32>().ok()?;
             let f = p.fds.get(n).ok()?;
-            let target = match (&f.file.host_path, &f.file.object) {
-                (Some(h), _) => p.vfs.guest_path_of(h),
-                (None, super::fs::fd::FileObject::Mqueue(q)) => super::syscall::mqueue::link(q),
-                (None, _) => f.file.path.clone(),
-            };
-            Some(ProcEntry::Link(target))
+            Some(ProcEntry::Link(file_path(p, &f.file)))
         }
     }
 }

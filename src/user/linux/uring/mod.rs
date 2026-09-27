@@ -19,6 +19,7 @@
 //! overflow list each then keeps.
 
 pub mod abi;
+pub mod rsrc;
 
 use std::collections::VecDeque;
 use std::os::unix::fs::FileExt;
@@ -113,7 +114,9 @@ pub mod req_flags {
 }
 
 /// A request (`struct io_kiocb`): its SQE as read at submission
-/// (`IORING_FEAT_SUBMIT_STABLE`), its flags, and its result.
+/// (`IORING_FEAT_SUBMIT_STABLE`), its flags, its result, and what it holds
+/// until it is freed: a file it looked up by descriptor, and the nodes of
+/// the registered file and buffer it uses (`file_node`, `buf_node`).
 #[derive(Clone, Debug)]
 pub struct Req {
     pub sqe: Sqe,
@@ -121,6 +124,9 @@ pub struct Req {
     pub res: i32,
     pub cflags: u32,
     pub big: [u64; 2],
+    pub file: Option<Arc<super::fs::fd::OpenFile>>,
+    pub file_node: Option<rsrc::NodeId>,
+    pub buf_node: Option<rsrc::NodeId>,
 }
 
 impl Req {
@@ -132,6 +138,9 @@ impl Req {
             res: 0,
             cflags: 0,
             big: [0; 2],
+            file: None,
+            file_node: None,
+            buf_node: None,
         }
     }
 
@@ -225,12 +234,8 @@ pub struct State {
     /// `personalities` and the next identifier `xa_alloc_cyclic` gives.
     pub personalities: std::collections::BTreeMap<u16, Personality>,
     pub next_personality: u16,
-    /// The registered files (`file_table`): a slot per index, empty or
-    /// holding a file.
-    pub files: Vec<Option<Arc<super::fs::fd::OpenFile>>>,
-    /// The registered buffers (`buf_table`): a slot per index, empty or
-    /// holding a user address and length.
-    pub bufs: Vec<Option<(u64, u32)>>,
+    /// The registered files and buffers.
+    pub rsrc: rsrc::Tables,
 }
 
 /// An io_uring instance: the object behind an `anon_inode:[io_uring]`
@@ -251,7 +256,18 @@ pub struct Ring {
     pub compat: bool,
     /// Its own anon_inode_fs inode (`anon_inode_create_getfile`).
     pub ino: u64,
+    /// What its pinned memory is charged to, and the pages of its two
+    /// regions charged to the user (`io_create_region`).
+    pub account: rsrc::Account,
+    region_pages: u64,
     state: Mutex<State>,
+}
+
+impl Drop for Ring {
+    /// `io_free_region`: the regions' pages are uncharged.
+    fn drop(&mut self) {
+        self.account.uncharge_user(self.region_pages);
+    }
 }
 
 /// `get_next_ino` for the rings' inodes: distinct from the inode the
@@ -265,28 +281,48 @@ fn page_align(n: u64) -> u64 {
 
 impl Ring {
     /// `io_allocate_scq_urings`: zeroed regions with the ring masks and
-    /// entry counts written.
+    /// entry counts written, each region's pages charged to the user
+    /// against `memlock` pages (`ENOMEM`).
     pub fn new(
         flags: u32,
         sq_entries: u32,
         cq_entries: u32,
         layout: Layout,
         compat: bool,
+        account: rsrc::Account,
+        memlock: u64,
     ) -> Result<Self, Errno> {
         let region = |size: u64| {
             SharedObject::anonymous(page_align(size))
                 .map(Arc::new)
                 .map_err(|_| Errno(ENOMEM))
         };
+        let ring_pages = page_align(layout.rings_size) / PAGE_SIZE;
+        let sq_pages = page_align(layout.sq_size) / PAGE_SIZE;
+        account.charge_user(ring_pages, memlock)?;
+        if let Err(e) = account.charge_user(sq_pages, memlock) {
+            account.uncharge_user(ring_pages);
+            return Err(e);
+        }
+        let region_pages = ring_pages + sq_pages;
+        let (rings, sqes) = match (region(layout.rings_size), region(layout.sq_size)) {
+            (Ok(r), Ok(s)) => (r, s),
+            (Err(e), _) | (_, Err(e)) => {
+                account.uncharge_user(region_pages);
+                return Err(e);
+            }
+        };
         let ring = Ring {
             flags,
             sq_entries,
             cq_entries,
             layout,
-            rings: region(layout.rings_size)?,
-            sqes: region(layout.sq_size)?,
+            rings,
+            sqes,
             compat,
             ino: NEXT_INO.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            account,
+            region_pages,
             state: Mutex::new(State {
                 disabled: flags & setup::R_DISABLED != 0,
                 ..State::default()
@@ -302,6 +338,13 @@ impl Ring {
     /// The instance's state.
     pub fn state(&self) -> MutexGuard<'_, State> {
         self.state.lock().unwrap()
+    }
+
+    /// Drops what released nodes and freed requests held, with the lock
+    /// let go.
+    pub fn reap(&self) {
+        let dead = std::mem::take(&mut self.state().rsrc.dead);
+        drop(dead);
     }
 
     /// A word of the ring region.
@@ -383,8 +426,9 @@ impl Ring {
     }
 
     /// Writes `cqe` at the cached tail if the ring has room
-    /// (`io_cqe_cache_refill`, `io_fill_cqe_req`).
-    fn fill(&self, st: &mut State, cqe: &Cqe) -> bool {
+    /// (`io_cqe_cache_refill`, `io_fill_cqe_req`): the whole slot, or
+    /// (`whole` false) its first 16 bytes.
+    fn fill(&self, st: &mut State, cqe: &Cqe, whole: bool) -> bool {
         // userspace may move the head past the tail: the minimum.
         let queued = self.cq_queued(st).min(self.cq_entries);
         if queued == self.cq_entries {
@@ -393,10 +437,11 @@ impl Ring {
         let slot = st.cached_cq_tail & (self.cq_entries - 1);
         let size = abi::CQE_SIZE * if self.cqe32() { 2 } else { 1 };
         let bytes = cqe.encode();
-        let _ = self.rings.host_file().write_all_at(
-            &bytes[..size as usize],
-            rings::CQES + u64::from(slot) * size,
-        );
+        let len = if whole { size } else { abi::CQE_SIZE };
+        let _ = self
+            .rings
+            .host_file()
+            .write_all_at(&bytes[..len as usize], rings::CQES + u64::from(slot) * size);
         st.cached_cq_tail = st.cached_cq_tail.wrapping_add(1);
         true
     }
@@ -405,13 +450,25 @@ impl Ring {
     /// completions wait on the overflow list (which keeps them ordered),
     /// onto that list (`io_cqring_add_overflow`).
     pub fn post(&self, st: &mut State, cqe: Cqe) {
-        if st.overflow.is_empty() && self.fill(st, &cqe) {
+        self.post_as(st, cqe, true);
+    }
+
+    fn post_as(&self, st: &mut State, cqe: Cqe, whole: bool) {
+        if st.overflow.is_empty() && self.fill(st, &cqe, whole) {
             return;
         }
         if st.overflow.is_empty() {
             self.sq_flags_update(sq_flags::CQ_OVERFLOW, 0);
         }
         st.overflow.push_back(cqe);
+    }
+
+    /// `io_post_aux_cqe`: a completion no request posts (a released
+    /// node's tag). Written into the ring it fills only the 16-byte entry,
+    /// leaving a 32-byte slot's extra words as they were; an overflowed
+    /// one has them zeroed (`io_alloc_ocqe`).
+    pub fn post_aux(&self, st: &mut State, user_data: u64, res: i32, flags: u32) {
+        self.post_as(st, Cqe::new(user_data, res, flags), false);
     }
 
     /// `io_commit_cqring`: publishes the posted tail.
@@ -426,7 +483,7 @@ impl Ring {
             return;
         }
         while let Some(cqe) = st.overflow.front().copied() {
-            if !self.fill(st, &cqe) {
+            if !self.fill(st, &cqe, true) {
                 break;
             }
             st.overflow.pop_front();

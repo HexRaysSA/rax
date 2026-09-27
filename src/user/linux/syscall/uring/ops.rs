@@ -9,6 +9,7 @@ use super::super::super::abi::errno_table::*;
 use super::super::super::uring::abi::{nop, op, setup};
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::Ctx;
+use super::rsrc;
 
 /// How an issued request completes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,22 +23,27 @@ pub(super) enum Done {
 
 /// Whether an operation is modelled (`io_uring_op_supported`).
 pub(super) fn supported(opcode: u8) -> bool {
-    matches!(opcode, op::NOP | op::NOP128)
+    matches!(opcode, op::NOP | op::NOP128 | op::FILES_UPDATE)
 }
 
 /// The operation's `prep`.
 pub(super) fn prep(_c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno> {
     match req.sqe.opcode {
         op::NOP | op::NOP128 => nop_prep(ring, req),
+        op::FILES_UPDATE => rsrc::files_update_prep(req),
         _ => Err(Errno(EOPNOTSUPP)),
     }
 }
 
 /// The operation's `issue`: sets the request's result (and fails it, as
 /// the operation's `req_set_fail` does).
-pub(super) fn issue(c: &mut Ctx<'_>, _ring: &Ring, st: &mut State, req: &mut Req) -> Done {
+pub(super) fn issue(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done {
     match req.sqe.opcode {
         op::NOP | op::NOP128 => nop_issue(c, st, req),
+        op::FILES_UPDATE => {
+            rsrc::files_update_issue(c, ring, st, req);
+            Done::Inline
+        }
         // prep refused it.
         _ => {
             req.res = -EOPNOTSUPP;
@@ -68,9 +74,10 @@ fn nop_prep(ring: &Ring, req: &Req) -> Result<(), Errno> {
 /// descriptor (or registered file) must exist and with
 /// `IORING_NOP_FIXED_BUFFER` the registered buffer; a missing one fails the
 /// request (its link with it), though its CQE still carries the injected
-/// result. `IORING_NOP_CQE32` puts `off` and `addr` in the CQE's extra
-/// words; `IORING_NOP_TW` completes through task work.
-fn nop_issue(c: &Ctx<'_>, st: &State, req: &mut Req) -> Done {
+/// result. The request holds what it looked up until it is freed.
+/// `IORING_NOP_CQE32` puts `off` and `addr` in the CQE's extra words;
+/// `IORING_NOP_TW` completes through task work.
+fn nop_issue(c: &Ctx<'_>, st: &mut State, req: &mut Req) -> Done {
     let flags = req.sqe.op_flags;
     let result = if flags & nop::INJECT_RESULT != 0 {
         req.sqe.len as i32
@@ -82,24 +89,18 @@ fn nop_issue(c: &Ctx<'_>, st: &State, req: &mut Req) -> Done {
     if flags & nop::FILE != 0 {
         let fd = req.sqe.fd;
         file_ok = if flags & nop::FIXED_FILE != 0 {
+            let found = rsrc::get_fixed_file(st, req, fd).is_some();
             req.flags |= rf::FIXED_FILE;
-            st.files
-                .get(fd as u32 as usize)
-                .is_some_and(|slot| slot.is_some())
+            found
         } else {
-            c.p.fds.file(fd).is_ok()
+            req.file = c.p.fds.file(fd).ok();
+            req.file.is_some()
         };
         if !file_ok {
             ret = -EBADF;
         }
     }
-    if file_ok
-        && flags & nop::FIXED_BUFFER != 0
-        && !st
-            .bufs
-            .get(usize::from(req.sqe.buf_index))
-            .is_some_and(|b| b.is_some())
-    {
+    if file_ok && flags & nop::FIXED_BUFFER != 0 && rsrc::find_buf_node(st, req).is_none() {
         ret = -EFAULT;
     }
     if ret < 0 {

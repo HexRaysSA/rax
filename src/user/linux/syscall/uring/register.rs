@@ -1,6 +1,7 @@
 //! `io_uring_register` (`io_uring/register.c`, `io_uring/tctx.c`,
-//! `io_uring/eventfd.c`, Linux 6.19). The operations not modelled yet are
-//! refused with `EINVAL`, as an unknown one is.
+//! `io_uring/eventfd.c`, Linux 6.19); the registered files and buffers are
+//! in [`rsrc`](super::rsrc). The operations not modelled yet are refused
+//! with `EINVAL`, as an unknown one is.
 
 use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;
@@ -9,19 +10,32 @@ use super::super::super::fs::fd::FileObject;
 use super::super::super::uring::abi::{RINGFD_REG_MAX, op};
 use super::super::super::uring::{EventFd, Personality, Ring};
 use super::super::{Ctx, SysResult};
+use super::rsrc::{self, Kind};
 use super::{ops, ring_file};
+use std::sync::Arc;
 
 /// `IORING_REGISTER_*` (the ones modelled) and `IORING_REGISTER_LAST`.
 mod reg {
+    pub const REGISTER_BUFFERS: u32 = 0;
+    pub const UNREGISTER_BUFFERS: u32 = 1;
+    pub const REGISTER_FILES: u32 = 2;
+    pub const UNREGISTER_FILES: u32 = 3;
     pub const REGISTER_EVENTFD: u32 = 4;
     pub const UNREGISTER_EVENTFD: u32 = 5;
+    pub const REGISTER_FILES_UPDATE: u32 = 6;
     pub const REGISTER_EVENTFD_ASYNC: u32 = 7;
     pub const REGISTER_PROBE: u32 = 8;
     pub const REGISTER_PERSONALITY: u32 = 9;
     pub const UNREGISTER_PERSONALITY: u32 = 10;
     pub const REGISTER_ENABLE_RINGS: u32 = 12;
+    pub const REGISTER_FILES2: u32 = 13;
+    pub const REGISTER_FILES_UPDATE2: u32 = 14;
+    pub const REGISTER_BUFFERS2: u32 = 15;
+    pub const REGISTER_BUFFERS_UPDATE: u32 = 16;
     pub const REGISTER_RING_FDS: u32 = 20;
     pub const UNREGISTER_RING_FDS: u32 = 21;
+    pub const REGISTER_FILE_ALLOC_RANGE: u32 = 25;
+    pub const REGISTER_CLONE_BUFFERS: u32 = 30;
     pub const LAST: u32 = 37;
     /// `IORING_REGISTER_USE_REGISTERED_RING`.
     pub const USE_REGISTERED_RING: u32 = 1 << 31;
@@ -35,9 +49,29 @@ const OP_SUPPORTED: u16 = 1;
 /// `sizeof(struct io_uring_rsrc_update)`.
 const RSRC_UPDATE: u64 = 16;
 
+/// `io_uring_register_get_file`: a ring by descriptor, or by the caller's
+/// registered index (`EINVAL` past them); `EBADF` if there is none,
+/// `EOPNOTSUPP` if the file is no ring.
+pub(super) fn get_ring(c: &Ctx<'_>, fd: u32, registered: bool) -> Result<Arc<Ring>, Errno> {
+    if registered {
+        if fd >= RINGFD_REG_MAX {
+            return Err(Errno(EINVAL));
+        }
+        return c
+            .t
+            .uring_rings
+            .get(fd as usize)
+            .cloned()
+            .flatten()
+            .ok_or(Errno(EBADF));
+    }
+    super::ring_of(c, fd as i32)
+}
+
 /// `io_uring_register`: the ring by descriptor or registered index; with
 /// descriptor -1 the operations that need no ring (none modelled). A
-/// single-issuer ring takes registrations from its submitter only.
+/// single-issuer ring takes registrations from its submitter only. What
+/// the operation released is dropped once the ring's lock is let go.
 pub fn io_uring_register(
     c: &mut Ctx<'_>,
     fd: u32,
@@ -53,27 +87,72 @@ pub fn io_uring_register(
     if fd == u32::MAX {
         return Err(Errno(EINVAL));
     }
-    let ring = if registered {
-        if fd >= RINGFD_REG_MAX {
-            return Err(Errno(EINVAL));
-        }
-        c.t.uring_rings
-            .get(fd as usize)
-            .cloned()
-            .flatten()
-            .ok_or(Errno(EBADF))?
-    } else {
-        super::ring_of(c, fd as i32)?
-    };
+    let ring = get_ring(c, fd, registered)?;
+    let r = register(c, &ring, opcode, arg, nr_args);
+    ring.reap();
+    r
+}
+
+/// `__io_uring_register`.
+fn register(c: &mut Ctx<'_>, ring: &Arc<Ring>, opcode: u32, arg: u64, nr_args: u32) -> SysResult {
     if ring.state().submitter.is_some_and(|t| t != c.t.tid) {
         return Err(Errno(EEXIST));
     }
+    if opcode == reg::REGISTER_CLONE_BUFFERS {
+        return clone_buffers(c, ring, arg, nr_args);
+    }
+    let ring = &**ring;
     match opcode {
+        reg::REGISTER_BUFFERS => {
+            if arg == 0 {
+                return Err(Errno(EFAULT));
+            }
+            rsrc::buffers_register(c, ring, &mut ring.state(), arg, nr_args, 0)
+        }
+        reg::UNREGISTER_BUFFERS => {
+            if arg != 0 || nr_args != 0 {
+                return Err(Errno(EINVAL));
+            }
+            rsrc::buffers_unregister(ring, &mut ring.state())
+        }
+        reg::REGISTER_FILES => {
+            if arg == 0 {
+                return Err(Errno(EFAULT));
+            }
+            rsrc::files_register(c, ring, &mut ring.state(), arg, nr_args, 0)
+        }
+        reg::UNREGISTER_FILES => {
+            if arg != 0 || nr_args != 0 {
+                return Err(Errno(EINVAL));
+            }
+            rsrc::files_unregister(ring, &mut ring.state())
+        }
+        reg::REGISTER_FILES_UPDATE => {
+            rsrc::register_files_update(c, ring, &mut ring.state(), arg, nr_args)
+        }
+        reg::REGISTER_FILES2 => {
+            rsrc::register_rsrc(c, ring, &mut ring.state(), arg, nr_args, Kind::File)
+        }
+        reg::REGISTER_FILES_UPDATE2 => {
+            rsrc::register_rsrc_update(c, ring, &mut ring.state(), arg, nr_args, Kind::File)
+        }
+        reg::REGISTER_BUFFERS2 => {
+            rsrc::register_rsrc(c, ring, &mut ring.state(), arg, nr_args, Kind::Buffer)
+        }
+        reg::REGISTER_BUFFERS_UPDATE => {
+            rsrc::register_rsrc_update(c, ring, &mut ring.state(), arg, nr_args, Kind::Buffer)
+        }
+        reg::REGISTER_FILE_ALLOC_RANGE => {
+            if arg == 0 || nr_args != 0 {
+                return Err(Errno(EINVAL));
+            }
+            rsrc::file_alloc_range(c, &mut ring.state(), arg)
+        }
         reg::REGISTER_EVENTFD | reg::REGISTER_EVENTFD_ASYNC => {
             if nr_args != 1 {
                 return Err(Errno(EINVAL));
             }
-            eventfd_register(c, &ring, arg, opcode == reg::REGISTER_EVENTFD_ASYNC)
+            eventfd_register(c, ring, arg, opcode == reg::REGISTER_EVENTFD_ASYNC)
         }
         reg::UNREGISTER_EVENTFD => {
             if arg != 0 || nr_args != 0 {
@@ -95,7 +174,7 @@ pub fn io_uring_register(
             if arg != 0 || nr_args != 0 {
                 return Err(Errno(EINVAL));
             }
-            register_personality(c, &ring)
+            register_personality(c, ring)
         }
         reg::UNREGISTER_PERSONALITY => {
             if arg != 0 {
@@ -111,12 +190,20 @@ pub fn io_uring_register(
             if arg != 0 || nr_args != 0 {
                 return Err(Errno(EINVAL));
             }
-            enable_rings(c, &ring)
+            enable_rings(c, ring)
         }
         reg::REGISTER_RING_FDS => ringfd_register(c, arg, nr_args),
         reg::UNREGISTER_RING_FDS => ringfd_unregister(c, arg, nr_args),
         _ => Err(Errno(EINVAL)),
     }
+}
+
+/// `IORING_REGISTER_CLONE_BUFFERS`, which names a second ring.
+fn clone_buffers(c: &Ctx<'_>, ring: &Arc<Ring>, arg: u64, nr_args: u32) -> SysResult {
+    if arg == 0 || nr_args != 1 {
+        return Err(Errno(EINVAL));
+    }
+    rsrc::clone_buffers(c, ring, arg)
 }
 
 /// `io_eventfd_register`: one eventfd at a time (`EBUSY`), read from `arg`

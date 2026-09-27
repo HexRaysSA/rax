@@ -287,6 +287,10 @@ pub struct MmState {
     /// raised and lowered by the calls rather than the pages of the locked
     /// VMAs (`MREMAP_DONTUNMAP` unlocks the old range without lowering it).
     pub locked_vm: u64,
+    /// `mm->pinned_vm`, in pages: memory io_uring pinned for its buffers.
+    /// Shared with the rings that charged it, which may outlive the
+    /// address space.
+    pub pinned_vm: std::sync::Arc<std::sync::atomic::AtomicU64>,
 }
 
 /// Process-wide state shared by all threads.
@@ -399,6 +403,11 @@ pub struct ProcState {
     pub fsnotify: Option<std::sync::Arc<super::fsnotify::hub::Hub>>,
     /// What the running image keeps open (its executable and interpreter).
     pub exec_keep: Vec<crate::user::mm::Keep>,
+    /// The pages io_uring locked for each user, by real user ID
+    /// (`user->locked_vm`). The kernel's count is shared by all of the
+    /// user's processes; this is what this process charged.
+    pub locked_vm_users:
+        std::collections::BTreeMap<u32, std::sync::Arc<std::sync::atomic::AtomicU64>>,
 }
 
 /// A Linux thread.
@@ -750,6 +759,7 @@ impl LinuxProcess {
             group_stop: None,
             fsnotify,
             exec_keep: Vec::new(),
+            locked_vm_users: Default::default(),
         };
         let mut leader = Thread::new(pid, img.cpu);
         leader.comm = state.comm.clone();

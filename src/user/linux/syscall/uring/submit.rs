@@ -22,6 +22,7 @@ use super::super::super::uring::{Chain, Req, Ring, State, Work, req_flags as rf}
 use super::super::Ctx;
 use super::super::ready::ev as ev_mask;
 use super::ops::{self, Done};
+use super::rsrc;
 
 /// A submission's completed requests, flushed together (`compl_reqs`).
 type Batch = Vec<Chain>;
@@ -271,14 +272,14 @@ fn post(ring: &Ring, st: &mut State, req: &Req) {
     }
 }
 
-/// `io_req_find_next` and `io_disarm_next` for a completed chain: its next
-/// request as task work, or, if it failed through a soft link, the rest
-/// cancelled as task work.
-fn next_work(chain: Chain) -> Option<Work> {
+/// `io_req_find_next` and `io_disarm_next` for a completed chain: its head,
+/// and its next request as task work, or, if it failed through a soft
+/// link, the rest cancelled as task work.
+fn next_work(chain: Chain) -> (Req, Option<Work>) {
     let mut rest = chain;
     let head = rest.pop_front().expect("a request");
     if rest.is_empty() {
-        return None;
+        return (head, None);
     }
     if head.flags & rf::FAIL != 0 && head.flags & rf::HARDLINK == 0 {
         let ignore = head.flags & rf::SKIP_LINK_CQES != 0;
@@ -289,15 +290,16 @@ fn next_work(chain: Chain) -> Option<Work> {
                 r.flags &= !rf::CQE_SKIP;
             }
         }
-        Some(Work::FailLinks(rest))
+        (head, Some(Work::FailLinks(rest)))
     } else {
-        Some(Work::Issue(rest))
+        (head, Some(Work::Issue(rest)))
     }
 }
 
 /// `__io_submit_flush_completions`: the batch's CQEs in order, committed
-/// (and counted on a registered eventfd); then its requests are freed,
-/// their links queued, and drained chains looked at again.
+/// (and counted on a registered eventfd); then its requests are freed
+/// (`io_free_batch_list`: each one's link queued, then what it held
+/// released), and drained chains looked at again.
 fn flush(ring: &Ring, st: &mut State, batch: Batch) {
     if batch.is_empty() {
         return;
@@ -308,9 +310,11 @@ fn flush(ring: &Ring, st: &mut State, batch: Batch) {
     commit(ring, st, false);
     for chain in batch {
         st.live -= 1;
-        if let Some(w) = next_work(chain) {
+        let (head, next) = next_work(chain);
+        if let Some(w) = next {
             st.task_work.push_back(w);
         }
+        rsrc::free_req(ring, st, head);
     }
     if st.drain_active {
         queue_deferred(st);
@@ -356,19 +360,30 @@ fn run_iowq(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
                 st.task_work.push_back(Work::Complete(chain));
                 break;
             }
-            // io_req_complete_post: the CQE at once; the worker goes on
-            // with the link (io_wq_free_work).
-            let head = chain[0].clone();
-            post(ring, st, &head);
+            // io_req_complete_post: the CQE at once. io_wq_free_work: the
+            // worker goes on with the link, and the request is freed
+            // through task work (io_free_req), posting nothing more.
+            post(ring, st, &chain[0]);
             commit(ring, st, true);
-            st.live -= 1;
-            match next_work(chain) {
-                Some(Work::Issue(rest)) => chain = rest,
+            let (head, next) = next_work(chain);
+            let free = |st: &mut State, mut head: Req| {
+                head.flags |= rf::CQE_SKIP;
+                st.task_work.push_back(Work::Complete(Chain::from([head])));
+            };
+            match next {
+                Some(Work::Issue(rest)) => {
+                    free(st, head);
+                    chain = rest;
+                }
                 Some(w) => {
                     st.task_work.push_back(w);
+                    free(st, head);
                     break;
                 }
-                None => break,
+                None => {
+                    free(st, head);
+                    break;
+                }
             }
         }
     }

@@ -17,14 +17,36 @@ pub const UIO_MAXIOV: u64 = 1024;
 /// A 32-bit call reads `struct compat_iovec`s, whose lengths are
 /// `compat_ssize_t` (`copy_compat_iovec_from_user`).
 fn copy_iovec_from_user(c: &Ctx<'_>, uvec: u64, nr: u64) -> Result<Vec<(u64, u64)>, Errno> {
-    let size = if c.compat { 8 } else { 16 };
+    copy_iovec_in(c, uvec, nr, c.compat)
+}
+
+/// `iovec_from_user` with the layout chosen by `compat` rather than by
+/// the call (as io_uring reads vectors in the layout its instance was
+/// created with).
+pub fn iovec_from_user_as(
+    c: &Ctx<'_>,
+    uvec: u64,
+    nr: u64,
+    compat: bool,
+) -> Result<Vec<(u64, u64)>, Errno> {
+    if nr == 0 {
+        return Ok(Vec::new());
+    }
+    if nr > UIO_MAXIOV {
+        return Err(Errno(EINVAL));
+    }
+    copy_iovec_in(c, uvec, nr, compat)
+}
+
+fn copy_iovec_in(c: &Ctx<'_>, uvec: u64, nr: u64, compat: bool) -> Result<Vec<(u64, u64)>, Errno> {
+    let size = if compat { 8 } else { 16 };
     if !access_ok(c, uvec, nr * size) {
         return Err(Errno(EFAULT));
     }
     let mut out = Vec::with_capacity(nr as usize);
     for i in 0..nr {
         let b = c.read_mem(uvec + size * i, size as usize)?;
-        let (base, len) = if c.compat {
+        let (base, len) = if compat {
             let base = u32::from_le_bytes(b[..4].try_into().unwrap());
             let len = i32::from_le_bytes(b[4..].try_into().unwrap());
             (u64::from(base), i64::from(len) as u64)

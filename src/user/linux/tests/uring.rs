@@ -4,6 +4,8 @@
 
 use std::time::{Duration, Instant};
 
+mod rsrc;
+
 use super::harness::{Harness, P, each_abi};
 use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::abi::{LinuxAbi, Sysno};

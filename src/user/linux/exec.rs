@@ -216,6 +216,7 @@ pub fn load_image(
             stack: stack.clone(),
             def_lock: 0,
             locked_vm: 0,
+            pinned_vm: Default::default(),
         },
         sigtramp,
         auxv: stack.auxv.clone(),
