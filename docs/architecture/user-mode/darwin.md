@@ -112,6 +112,19 @@ another process is not supported.
 Closing a descriptor drops its knotes (or reports `EV_VANISHED` for those
 that asked); closing a kqueue's last descriptor drops the kqueue.
 
+## Processes
+
+| Area | Module | Counterpart |
+|---|---|---|
+| `fork`: the host process forks (the child is a copy of the emulator with its guest; private memory copied on write, shared mappings shared), and the child becomes XNU's forked process: the caller's thread only, with a new thread ID and the caller's signal mask; a new task whose space holds its control port then the thread's, keeping the bootstrap, access, and host special ports and the exception actions; descriptors without kqueues (`FG_CONFINED`); no pending signals, interval timers, alternate stack, work queue, psynch, or kqueue state; `VM_INHERIT_NONE` regions unmapped. The child's call returns its own pid with 1 in the second return register | `fork` | `kern_fork.c`, `ipc_task_init`, `fdt_fork`, `thread_set_child` |
+| `wait4`: the host's wait for the guest's children (host processes), XNU's status encoding (a continue is `W_STOPCODE(SIGCONT)`), `struct rusage`, `WNOHANG`, sleeping until a child changes state with signal interruption, and the pending `SIGCHLD` cleared when the last child is reaped with `SIGCHLD` blocked | `syscall::bsd::wait` | `wait4_nocancel` |
+| `SIGCHLD`: the host's `SIGCHLD` wakes waiters and becomes the guest's with the child's pid, user, code, and status; `SA_NOCLDSTOP` suppresses it for stops, a process that ignores `SIGCHLD` or sets `SA_NOCLDWAIT` leaves no zombies and gets no signal for exits, and continues send none | `signal`, `signal::host` | `proc_exit`, `psignal_internal` |
+
+A guest killed by a signal whose default action dumps core makes
+`rax-user` exit with status 128 + N rather than die by the signal (so the
+host records no crash of the emulator); a parent waiting for such a child
+sees an exit.
+
 ## Work queues
 
 | Area | Module | Counterpart |
@@ -190,10 +203,11 @@ semaphores and sleeping, signals, POSIX threads with their mutexes,
 condition variables, and read-write locks, kqueues, and work queues with
 their kqueue and workloops (so `libdispatch`: global and serial queues,
 groups, semaphores, `dispatch_apply`, `dispatch_after`, barriers, and
-timer, read, and signal sources). Not yet implemented, and answered
+timer, read, and signal sources), and `fork` with `wait4` and `SIGCHLD`.
+Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
 under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`,
-`fork`/`execve`/`posix_spawn`, sockets, `proc_info`, and exception delivery
+`execve`/`posix_spawn`, sockets, `proc_info`, and exception delivery
 to Mach exception ports (a machine exception becomes its signal
 directly). `kill` of the process group reaches this process only through
 host-signal forwarding, and `kill(-1, sig)` signals only this process.
@@ -211,7 +225,8 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `threads_sync`, the filters and delivery protocol of `kqueue`, the
   workqueue and workloop calls, errors, servicers, synchronous waiters,
   and ownership of `workq` (driven through libpthread's SPI and the raw
-  calls), and libdispatch's queues and sources in `dispatch`.
+  calls), libdispatch's queues and sources in `dispatch`, and the
+  inheritance, statuses, and `SIGCHLD` of `fork`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise.
 - `generators`: the checked-in tables equal what the generators produce

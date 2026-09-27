@@ -66,7 +66,7 @@ mod flags {
 }
 
 /// `si_code` values (`bsd/sys/signal.h`).
-mod code {
+pub(super) mod code {
     pub const ILL_ILLOPC: i32 = 1;
     pub const ILL_ILLTRP: i32 = 2;
     pub const FPE_FLTDIV: i32 = 1;
@@ -84,6 +84,8 @@ mod code {
     pub const CLD_EXITED: i32 = 1;
     pub const CLD_KILLED: i32 = 2;
     pub const CLD_DUMPED: i32 = 3;
+    pub const CLD_STOPPED: i32 = 5;
+    pub const CLD_CONTINUED: i32 = 6;
 }
 
 /// The signal frame could not be written.

@@ -33,6 +33,7 @@ pub mod abi;
 pub mod arch;
 pub mod commpage;
 pub mod fd;
+pub mod fork;
 pub mod host;
 pub mod io;
 pub mod kevent;

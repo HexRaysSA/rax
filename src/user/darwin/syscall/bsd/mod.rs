@@ -15,6 +15,7 @@ pub mod region;
 pub mod sig;
 pub mod sysctl;
 pub mod thread;
+pub mod wait;
 pub mod workq;
 
 use super::Ctx;
@@ -75,6 +76,8 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
     }
     match number {
         nr::EXIT => proc::exit(ctx, i(0)),
+        nr::FORK => crate::user::darwin::fork::fork(ctx),
+        nr::WAIT4 | nr::WAIT4_NOCANCEL => wait::wait4(ctx, i(0), a[1], i(2), a[3]),
         nr::READ | nr::READ_NOCANCEL => file::read(ctx, i(0), a[1], a[2], None),
         nr::WRITE | nr::WRITE_NOCANCEL => file::write(ctx, i(0), a[1], a[2], None),
         nr::PREAD | nr::PREAD_NOCANCEL => file::read(ctx, i(0), a[1], a[2], Some(a[3] as i64)),
