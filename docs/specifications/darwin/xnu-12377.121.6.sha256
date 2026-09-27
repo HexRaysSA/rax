@@ -109,6 +109,7 @@ ac3fe4827e77cd0f98af117e0107e8788723435490b7b4a514d12c666b225fc3  ./bsd/vfs/vfs_
 30f706bb8f2a260210eacbfeddaaf649e9709d76b1dcbbb9a4edd88ef8e07bec  ./libsyscall/mach/host.c
 d2b9f677f8ed2e3338c23ace865a889208a5d2a0147f05d6e0b82115703b5cfa  ./libsyscall/mach/mach_msg.c
 06bfc350c1d4f7d5fa0ff69fde3340ce9b68d86996e347a2a4332f7a227699f5  ./libsyscall/mach/mach_port.c
+f8c533a43edfbb4713d5377c5d8375ad3ff03a41364c68f6c5ff63500fa9b865  ./libsyscall/mach/task.c
 37497b3bb40a62b21ef6e9b5cec2453fbd853c237a8405bf29d40b835270273e  ./libsyscall/mach/vm_reclaim.c
 5c8a771427e04c5e1d55c4cdf5a077f3b52c5be4a091683b970084bfdda76df2  ./libsyscall/wrappers/libproc/libproc.c
 37c7629819a18c5ef10d19a9bea00eb7e0bd31e0b127ecd2ae108c74f47c39e2  ./libsyscall/wrappers/libproc/libproc.h
