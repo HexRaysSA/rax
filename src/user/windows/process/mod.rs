@@ -12,7 +12,7 @@
 mod lifecycle;
 mod sched;
 mod start;
-mod thread;
+pub(crate) mod thread;
 
 pub use thread::{Thread, ThreadState};
 

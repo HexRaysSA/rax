@@ -6,8 +6,6 @@ use super::super::layout::offsets;
 use super::super::loader;
 use super::super::memory::Mem;
 use super::super::nt::error::*;
-use super::super::objects::{Object, StdStream};
-use std::io::{Read, Write};
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func("ExitProcess", Stdcall, &[I32], exit_process),
@@ -47,9 +45,6 @@ pub(super) static EXPORTS: &[Export] = &[
     Export::func("HeapReAlloc", Stdcall, &[Ptr, I32, Ptr, Ptr], heap_realloc),
     Export::func("GetStdHandle", Stdcall, &[I32], get_std_handle),
     Export::func("SetStdHandle", Stdcall, &[I32, Ptr], set_std_handle),
-    Export::func("CloseHandle", Stdcall, &[Ptr], close_handle),
-    Export::func("WriteFile", Stdcall, &[Ptr, Ptr, I32, Ptr, Ptr], write_file),
-    Export::func("ReadFile", Stdcall, &[Ptr, Ptr, I32, Ptr, Ptr], read_file),
     Export::func("GetCommandLineW", Stdcall, &[], command_line_w),
     Export::func("GetCommandLineA", Stdcall, &[], command_line_a),
     Export::func("GetModuleHandleW", Stdcall, &[Ptr], module_handle_w),
@@ -291,86 +286,6 @@ fn set_std_handle(c: &mut Ctx) -> ApiResult {
     c.write_ptr(c.p.params + off, handle)?;
     Flow::bool(true)
 }
-fn close_handle(c: &mut Ctx) -> ApiResult {
-    let handle = c.ptr(0)?;
-    match c.p.objects.close(handle) {
-        Ok(_) => Flow::bool(true),
-        Err(_) => c.fail(ERROR_INVALID_HANDLE, 0),
-    }
-}
-fn write_file(c: &mut Ctx) -> ApiResult {
-    let (handle, addr, size, written, overlapped) =
-        (c.ptr(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?, c.ptr(4)?);
-    if overlapped != 0 {
-        return Err(c.unsupported("overlapped WriteFile"));
-    }
-    if written != 0 {
-        c.mem().w32(written, 0)?;
-    }
-    if size > 16 << 20 {
-        return Err(c.unsupported("WriteFile larger than 16 MiB"));
-    }
-    let bytes = c.mem().bytes(addr, size as usize)?;
-    let result = match c.p.objects.get_mut(handle) {
-        Some(Object::Console(StdStream::Out)) => std::io::stdout().write(&bytes),
-        Some(Object::Console(StdStream::Err)) => std::io::stderr().write(&bytes),
-        Some(Object::Null) => Ok(bytes.len()),
-        Some(Object::File(file)) if file.access & (0x4000_0000 | 2 | 4) != 0 => {
-            match file.host.as_mut() {
-                Some(f) => f.write(&bytes),
-                None => return c.fail(ERROR_INVALID_HANDLE, 0),
-            }
-        }
-        _ => return c.fail(ERROR_INVALID_HANDLE, 0),
-    };
-    match result {
-        Ok(count) => {
-            if written != 0 {
-                c.mem().w32(written, count as u32)?;
-            }
-            Flow::bool(true)
-        }
-        Err(_) => c.fail(ERROR_WRITE_FAULT, 0),
-    }
-}
-fn read_file(c: &mut Ctx) -> ApiResult {
-    let (handle, addr, size, read, overlapped) =
-        (c.ptr(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?, c.ptr(4)?);
-    if overlapped != 0 {
-        return Err(c.unsupported("overlapped ReadFile"));
-    }
-    if read != 0 {
-        c.mem().w32(read, 0)?;
-    }
-    if size > 16 << 20 {
-        return Err(c.unsupported("ReadFile larger than 16 MiB"));
-    }
-    // Probe the destination before consuming host input.
-    let previous = c.mem().bytes(addr, size as usize)?;
-    c.mem().wr(addr, &previous)?;
-    let mut bytes = vec![0; size as usize];
-    let result = match c.p.objects.get_mut(handle) {
-        Some(Object::Console(StdStream::In)) => std::io::stdin().read(&mut bytes),
-        Some(Object::Null) => Ok(0),
-        Some(Object::File(file)) if file.access & (0x8000_0000 | 1) != 0 => {
-            match file.host.as_mut() {
-                Some(f) => f.read(&mut bytes),
-                None => return c.fail(ERROR_INVALID_HANDLE, 0),
-            }
-        }
-        _ => return c.fail(ERROR_INVALID_HANDLE, 0),
-    };
-    match result {
-        Ok(count) => {
-            c.mem().wr(addr, &bytes[..count])?;
-            if read != 0 {
-                c.mem().w32(read, count as u32)?;
-            }
-            Flow::bool(true)
-        }
-        Err(_) => c.fail(ERROR_READ_FAULT, 0),
-    }
-}
 fn command_line_w(c: &mut Ctx) -> ApiResult {
     Flow::ret(c.read_ptr(c.p.params + offsets(c.arch()).pp_command_line + c.psize())?)
 }
@@ -487,6 +402,15 @@ fn tls_slot(
     let pointer = c.t.teb + o.teb_tls_expansion_slots;
     let mut array = c.read_ptr(pointer)?;
     if array == 0 && allocate {
+        // Host-tracked addresses, not mutable guest TLS pointers, determine
+        // thread teardown. Reserve tracking capacity before publication.
+        c.t.tls_blocks.try_reserve(1).map_err(|_| {
+            super::super::hle::ApiErr::Raise(super::super::context::ExceptionRecord::new(
+                super::super::nt::status::STATUS_NO_MEMORY,
+                c.entry_pc,
+                vec![],
+            ))
+        })?;
         array =
             c.p.heaps
                 .alloc_checked(&mut c.p.vm, c.p.process_heap, 1024 * o.ptr, true)
@@ -507,6 +431,7 @@ fn tls_slot(
             let _ = c.p.heaps.free(c.p.process_heap, array);
             return Err(fault.into());
         }
+        c.t.tls_blocks.push(array);
     }
     Ok(if array == 0 {
         None

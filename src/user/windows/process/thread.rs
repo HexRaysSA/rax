@@ -80,7 +80,8 @@ pub struct Thread {
     pub terminate: Option<u32>,
     /// `ThreadLocalStoragePointer` array.
     pub tls_array: u64,
-    /// Static TLS blocks (freed at exit).
+    /// Host-owned TLS blocks, including static templates and expansion arrays;
+    /// freed at exit without trusting guest-writable TEB pointers.
     pub tls_blocks: Vec<u64>,
     /// `DLL_THREAD_ATTACH` notifications have been delivered.
     pub attached: bool,
@@ -230,6 +231,18 @@ fn create_inner(
     main: bool,
     cleanup: &mut ThreadAlloc,
 ) -> Result<u32, u32> {
+    // The guest-visible CreateThread path must not overflow the host's ID
+    // allocator or replace a previously published thread/object. Exhaustion
+    // is a resource failure, not wraparound/reuse of an outstanding client ID.
+    if p.next_tid == 0
+        || p.next_tid & 3 != 0
+        || p.next_tid.checked_add(4).is_none()
+        || p.objects
+            .iter()
+            .any(|(_, object)| matches!(object, Object::Thread { tid, .. } if *tid == p.next_tid))
+    {
+        return Err(STATUS_NO_MEMORY);
+    }
     let tid = p.alloc_tid();
     let o = *offsets(p.arch);
     let teb = alloc_teb(p)?;
@@ -322,10 +335,13 @@ fn create_inner(
     cpu.set_gpr(r0, start);
     cpu.set_gpr(r1, param);
 
-    let obj = p.objects.create(Object::Thread {
-        tid,
-        exit_code: None,
-    });
+    let obj = p
+        .objects
+        .try_create(Object::Thread {
+            tid,
+            exit_code: None,
+        })
+        .ok_or(STATUS_NO_MEMORY)?;
     p.objects.retain(obj);
 
     p.threads.insert(

@@ -2,10 +2,16 @@
 //! fabricated successful operations.
 
 pub mod crt;
+mod files;
+mod handles;
 mod kernel;
+mod locks;
 mod native;
+mod threading;
 
 use super::hle::Export;
+
+pub(crate) use files::finish_close;
 
 /// A synthetic PE DLL and its export tables.
 pub struct BuiltinDll {
@@ -37,13 +43,25 @@ static KERNEL32: BuiltinDll = BuiltinDll {
     name: "kernel32.dll",
     display: "KERNEL32.DLL",
     subsystem: 3,
-    exports: &[kernel::EXPORTS],
+    exports: &[
+        kernel::EXPORTS,
+        handles::EXPORTS,
+        threading::EXPORTS,
+        locks::EXPORTS,
+        files::EXPORTS,
+    ],
 };
 static KERNELBASE: BuiltinDll = BuiltinDll {
     name: "kernelbase.dll",
     display: "KERNELBASE.dll",
     subsystem: 3,
-    exports: &[kernel::EXPORTS],
+    exports: &[
+        kernel::EXPORTS,
+        handles::EXPORTS,
+        threading::EXPORTS,
+        locks::EXPORTS,
+        files::EXPORTS,
+    ],
 };
 
 /// Initializes data exports. Current built-ins contain only function exports.
@@ -56,5 +74,31 @@ pub fn find(name: &str) -> Option<&'static BuiltinDll> {
         "kernel32.dll" => Some(&KERNEL32),
         "kernelbase.dll" => Some(&KERNELBASE),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::user::windows::arch::WinArch;
+
+    #[test]
+    fn builtin_tables_have_no_shadowed_architecture_specific_exports() {
+        for dll in [&NTDLL, &KERNEL32, &KERNELBASE] {
+            for arch in WinArch::ALL {
+                let mut names = std::collections::HashSet::new();
+                for export in dll.exports.iter().flat_map(|table| table.iter()) {
+                    if export.archs.has(arch) {
+                        assert!(
+                            names.insert(export.name),
+                            "{} {:?}: {}",
+                            dll.name,
+                            arch,
+                            export.name
+                        );
+                    }
+                }
+            }
+        }
     }
 }

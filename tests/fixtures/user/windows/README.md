@@ -31,3 +31,20 @@ and [VirtualFree](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/
 Primary-source copies and retrieval metadata reside in
 `docs/specifications/windows/`. Native Windows execution is unknown: these
 are specification-based conformance tests, not recorded differential results.
+
+## Guest services fixture
+
+The separate build-services.sh builds services.exe for all three guest
+architectures without changing the smoke binaries. services-manifest.toml
+records four source/script hashes, compiler/linker identity, three executable
+hashes/sizes, and expected exit code 0. LARGE_INTEGER by value exercises the
+20-byte x86 stdcall cleanup for SetFilePointerEx.
+
+The program checks suspended/resumed and terminated guest threads, TLS isolation,
+contended critical sections and SRW locks, alertable APC delivery, condition and
+address wait timeouts, abandoned mutexes, wait-all semaphore consumption,
+named-object case/type collisions, restricted access grants, handle protection,
+synchronous file I/O, duplicated-handle shared cursors, deferred deletion and NUL.
+The runner maps C: to a unique temporary directory, imposes a 30 s external
+deadline, and tests scheduling slices of 1 and 4,096 guest instructions.
+Native Windows differential execution remains unknown.

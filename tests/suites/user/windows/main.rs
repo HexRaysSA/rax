@@ -51,6 +51,8 @@ impl TemporaryImage {
 
 impl Drop for TemporaryImage {
     fn drop(&mut self) {
+        let _ = std::fs::remove_file(self.directory.join("rax-services.dat"));
+        let _ = std::fs::remove_file(self.directory.join("rax-services-exit.dat"));
         let _ = std::fs::remove_file(&self.path);
         let _ = std::fs::remove_dir(&self.directory);
     }
@@ -76,6 +78,125 @@ fn freestanding_x64_windows_process_and_memory() {
 #[test]
 fn freestanding_arm64_windows_process_and_memory() {
     smoke("arm64", WinArch::Arm64);
+}
+
+fn services(arch: &str) {
+    let bytes = std::fs::read(fixtures().join(format!("bin/{arch}/services.exe"))).unwrap();
+    let temp = TemporaryImage::new(&format!("services-{arch}"), &bytes);
+    let drive = format!("C={}", temp.directory.display());
+    let image = temp.path.to_str().unwrap();
+    for slice in ["1", "4096"] {
+        let output = cli_support::run(
+            &[
+                "--os", "windows", "--memory", "64M", "--drive", &drive, "--cwd", "C:\\",
+                "--slice", slice, "--seed", "1", image,
+            ],
+            &[("RAX_NO_JIT", "1")],
+            None,
+            std::time::Duration::from_secs(30),
+        );
+        assert_eq!(
+            output.status,
+            Some(0),
+            "{arch} slice={slice}: stderr={:?}, stdout={:?}, signal={:?}",
+            output.stderr,
+            output.stdout,
+            output.signal
+        );
+        assert!(
+            !temp.directory.join("rax-services.dat").exists(),
+            "final independent file close must complete deferred deletion"
+        );
+        assert!(
+            !temp.directory.join("rax-services-exit.dat").exists(),
+            "ExitProcess must close file handles and complete delete-on-close"
+        );
+        assert_eq!(
+            std::fs::read(&temp.path).unwrap(),
+            bytes,
+            "input image is unchanged"
+        );
+    }
+}
+
+#[test]
+fn x86_guest_threads_locks_apcs_and_files() {
+    services("x86");
+}
+#[test]
+fn x64_guest_threads_locks_apcs_and_files() {
+    services("x64");
+}
+#[test]
+fn arm64_guest_threads_locks_apcs_and_files() {
+    services("arm64");
+}
+
+#[test]
+fn service_fixture_sources_hashes_and_single_import_dll_are_verified() {
+    let text = std::fs::read_to_string(fixtures().join("services-manifest.toml")).unwrap();
+    let manifest: toml::Value = toml::from_str(&text).unwrap();
+    let sources = manifest["source"].as_array().unwrap();
+    assert_eq!(sources.len(), 4);
+    for source in sources {
+        let path = source["path"].as_str().unwrap();
+        assert_eq!(
+            sha256::hex(&std::fs::read(fixtures().join(path)).unwrap()),
+            source["sha256"].as_str().unwrap(),
+            "{path}"
+        );
+    }
+    let entries = manifest["fixture"].as_array().unwrap();
+    assert_eq!(entries.len(), 3);
+    for entry in entries {
+        let path = entry["path"].as_str().unwrap();
+        let bytes = std::fs::read(fixtures().join(path)).unwrap();
+        assert_eq!(
+            sha256::hex(&bytes),
+            entry["sha256"].as_str().unwrap(),
+            "{path}"
+        );
+        assert_eq!(bytes.len() as i64, entry["bytes"].as_integer().unwrap());
+        let pe = PeImage::parse(bytes).unwrap();
+        let image = pe.memory_image();
+        let descriptors =
+            imports::descriptors(&image, pe.headers().directory(dir::IMPORT)).unwrap();
+        assert_eq!(descriptors.len(), 1);
+        assert_eq!(descriptors[0].dll_name(&image).unwrap(), b"KERNEL32.dll");
+        let thunks = descriptors[0].thunks(&image, pe.headers().kind).unwrap();
+        assert!(
+            thunks.len() >= 50,
+            "services must not be optimized out of the fixture"
+        );
+    }
+}
+
+#[test]
+fn retained_service_primary_sources_match_their_provenance_hashes() {
+    let root =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/specifications/windows/services");
+    for group in ["thread-sync", "locks", "file"] {
+        let folder = root.join(group);
+        let manifest: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(folder.join("sources.json")).unwrap()).unwrap();
+        let entries = manifest["sources"]
+            .as_array()
+            .or_else(|| manifest["files"].as_array())
+            .unwrap();
+        assert!(!entries.is_empty(), "{group} primary sources are required");
+        for entry in entries {
+            let path = entry["path"]
+                .as_str()
+                .or_else(|| entry["file"].as_str())
+                .unwrap();
+            let content = std::fs::read(folder.join(path)).unwrap();
+            assert_eq!(
+                sha256::hex(&content),
+                entry["sha256"].as_str().unwrap(),
+                "{group}/{path}"
+            );
+        }
+    }
 }
 
 fn cli_smoke(arch: &str) {
