@@ -1,3 +1,11 @@
 44952631117ae38334ed1dbc5fbc94fe2f992dcc25bc82761f4c54f778db2deb  ./kern/kern_internal.h
 48a21f4c064642d69ac4c80bddcdede575eb9a7597235f861c226429d2c6f147  ./kern/kern_support.c
+99f1445afa395a714fbc82c178dbbbdce662fdf8bdc393aaaca714226032f067  ./kern/kern_synch.c
+0ef6d51c695deb9adccc65c6b13277d722a3739124caae32354d262b73b23564  ./kern/synch_internal.h
 223a4c216a30c2d98941fa68ec983f2dcb3650bf3adb6cbb8d0a69881f4aeade  ./private/pthread/qos_private.h
+20dbfe99ea37add77c34da12d3590d267aacb4e92c862d649db4d43bc3274669  ./src/pthread.c
+982676f930ec0d7a3feb6279d653c8dd431ddd6b35be52b242169140bb214fda  ./src/pthread_cancelable.c
+1ae8db5b479ad2a7314fc5c5d61b765a0a88be5c9521a2db64448f40b1232a0b  ./src/pthread_cond.c
+28e355c987bcde9db2bc001933fd543b925a395344aedf7b029b79069b6744f3  ./src/pthread_mutex.c
+3979f8d84a356893ad8c59fd5d0da97d0ba7708d572abf7861a5a80847f89dc2  ./src/pthread_rwlock.c
+8e48a8ad40e3ade70facc56d506634c0c8adaa66e9e61232ed56d75a20d099ee  ./src/types_internal.h
