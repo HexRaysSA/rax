@@ -153,6 +153,12 @@ fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
         // ExitProcess documents the supplied code for the process/all threads.
         thread::destroy(p, thread, code);
     }
+    if let Err(status) = super::fiber::destroy_all(p) {
+        let message = format!("process fiber teardown failed: {status:#010x}");
+        p.fail(message.clone());
+        return ExitStatus::Internal(message);
+    }
+    p.tls.fls_discard_all();
     for (_, object) in p.objects.iter_mut() {
         if let Object::Process { pid, exit_code } = object
             && *pid == p.pid
@@ -180,6 +186,8 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
         for other in p.threads.values_mut() {
             other.frames.clear();
         }
+        super::fiber::discard_continuations(p);
+        p.tls.fls_discard_abandoned();
         crate::user::windows::dll::libraries::abort_process(p);
         p.exit_code = Some(code);
         p.threads.insert(t.tid, t);
@@ -192,6 +200,25 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
         // Cancellation runs before destroying the TLS/TEB needed by a loader
         // journal. A held DLL entrypoint cannot silently escape through exit.
         t.frames.clear();
+        super::fiber::discard_thread_continuations(p, t.tid);
+    }
+    // A terminal callback does not return through the abandoned API. Retire
+    // its host receipt, but do not turn a deliberate normal/forced exit into
+    // fabricated API success or an unrelated emulator failure. Nonterminal
+    // escapes (NtContinue/longjmp) still report the unfinished continuation.
+    let terminal_owner = matches!(
+        outcome,
+        Outcome::ThreadExit(_) | Outcome::ProcessExit(_) | Outcome::ThreadTerminate(_)
+    );
+    let abandoned = p.tls.fls_take_abandoned();
+    if let Some(receipt) = abandoned
+        .into_iter()
+        .find(|receipt| !terminal_owner || receipt.tid != t.tid)
+    {
+        outcome = Outcome::Fail(format!(
+            "FLS continuation abandoned: {} on thread {}",
+            receipt.kind, receipt.tid
+        ));
     }
     if let Err(error) = crate::user::windows::dll::libraries::cleanup_abandoned(p, &mut t) {
         outcome = Outcome::Fail(error);
@@ -223,6 +250,11 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
         for other in p.threads.values_mut() {
             other.frames.clear();
         }
+        let tids: Vec<_> = p.threads.keys().copied().collect();
+        for tid in tids {
+            super::fiber::discard_thread_continuations(p, tid);
+        }
+        p.tls.fls_discard_abandoned();
         if let Err(error) = crate::user::windows::dll::libraries::cleanup_abandoned(p, &mut t) {
             outcome = Outcome::Fail(error);
         } else {
@@ -231,6 +263,17 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
             }
             outcome = lifecycle::process_exit(p, &mut t, code);
         }
+    }
+    let final_exit = match outcome {
+        Outcome::ThreadExit(code) => Some((code, false)),
+        Outcome::ProcessExit(code) => Some((code, true)),
+        _ => None,
+    };
+    if let Some((code, process)) = final_exit
+        && !t.fls_exiting
+    {
+        t.fls_exiting = true;
+        outcome = super::fls_exit::begin(p, &mut t, code, process);
     }
     match outcome {
         Outcome::ThreadExit(code) | Outcome::ThreadTerminate(code) => {
@@ -338,6 +381,23 @@ fn raise(
 fn access_fault(p: &mut Proc, t: &mut Thread, f: AccessFault) -> Outcome {
     let params = vec![access_parameter(f.access), f.addr];
     if p.vm.take_guard(f.addr) {
+        match super::stack::grow(p, t, f.addr) {
+            Ok(super::stack::Growth::Grown) => return Outcome::Continue,
+            Err(fault) => {
+                return raise(
+                    p,
+                    t,
+                    STATUS_ACCESS_VIOLATION,
+                    f.pc,
+                    vec![u64::from(fault.write), fault.addr],
+                    f.pc,
+                );
+            }
+            Ok(super::stack::Growth::Overflow) => {
+                return raise(p, t, STATUS_STACK_OVERFLOW, f.pc, params, f.pc);
+            }
+            Ok(super::stack::Growth::NotStack) => {}
+        }
         let stack_guard = f.addr >= t.stack_alloc && f.addr < t.stack_limit;
         return raise(
             p,
@@ -367,6 +427,7 @@ fn access_fault(p: &mut Proc, t: &mut Thread, f: AccessFault) -> Outcome {
             Trap::Resume(api) => dispatch::resume_return(p, t, api),
             Trap::CallbackReturn => dispatch::callback_return(p, t),
             Trap::ThreadStart => lifecycle::thread_start(p, t),
+            Trap::FiberStart => crate::user::windows::dll::fibers::fiber_start(p, t),
             Trap::Missing(name) => Outcome::Fail(format!(
                 "unimplemented Windows export: {name} at {:#x}",
                 f.pc
@@ -556,6 +617,7 @@ mod tests {
             process_heap: 0,
             modules: Default::default(),
             loader: Default::default(),
+            fibers: Default::default(),
             traps: Default::default(),
             objects: Objects::default(),
             heaps: Heaps::new(if arch.is64() { 16 } else { 8 }),
@@ -571,6 +633,7 @@ mod tests {
             rng: 1,
             cwd: vec![],
             exe_stack_reserve: 0x10000,
+            exe_stack_commit: PAGE_SIZE,
         }
     }
 
@@ -605,6 +668,9 @@ mod tests {
             stack_base: stack + size,
             stack_limit: stack,
             stack_alloc: stack,
+            thread_stack_alloc: stack,
+            current_fiber: None,
+            fls_exiting: false,
             state: ThreadState::Ready,
             frames: vec![],
             obj,
@@ -1051,6 +1117,96 @@ mod tests {
     }
 
     #[test]
+    fn normal_fls_exit_keeps_environment_until_callback_returns_all_abis() {
+        for arch in WinArch::ALL {
+            let mut p = process(arch);
+            let t = thread(&mut p, 8);
+            let teb = t.teb;
+            let stack = t.thread_stack_alloc;
+            let slot = p.tls.fls_alloc(0x1234_5678).unwrap();
+            p.tls.fls_set(t.fls_key(), slot, 91).unwrap();
+            let mut last = 0;
+            apply_outcome(&mut p, t, Outcome::ThreadExit(37), &mut last);
+            let mut t = p.threads.remove(&8).unwrap();
+            assert_eq!(t.cpu.pc(), 0x1234_5678);
+            assert!(t.fls_exiting);
+            assert!(p.vm.query(teb).is_some_and(|r| r.state == mem::COMMIT));
+            assert!(p.vm.query(stack).is_some_and(|r| r.state == mem::COMMIT));
+            assert_eq!(p.tls.fls_get(t.fls_key(), slot), Ok(0));
+            let outcome = dispatch::callback_return(&mut p, &mut t);
+            assert_eq!(outcome, Outcome::ThreadExit(37));
+            apply_outcome(&mut p, t, outcome, &mut last);
+            assert!(p.threads.is_empty());
+            assert!(p.failure.is_none(), "{:?}", p.failure);
+            assert_eq!(last, 37);
+            assert_eq!(p.vm.query(stack).unwrap().state, mem::FREE);
+            assert_eq!(p.vm.query(teb).unwrap().state, mem::RESERVE);
+        }
+    }
+
+    #[test]
+    fn terminal_fls_callback_aborts_api_without_replacing_exit_all_abis() {
+        for arch in WinArch::ALL {
+            for forced in [false, true] {
+                let mut p = process(arch);
+                let mut t = thread(&mut p, 8);
+                let slot = p.tls.fls_alloc(0x1234_5678).unwrap();
+                p.tls.fls_set(t.fls_key(), slot, 91).unwrap();
+                let mut plan = p.tls.fls_begin_free(slot).unwrap();
+                plan.set_owner(t.tid);
+                assert!(plan.next().is_some());
+                t.frames.push(Frame {
+                    api: &APC,
+                    entry_pc: t.cpu.pc(),
+                    entry_sp: t.cpu.sp(),
+                    ret_addr: 0,
+                    cursor: t.cpu.sp(),
+                    cont: Some(Box::new(move |_, _| {
+                        drop(plan);
+                        Flow::void()
+                    })),
+                });
+                let mut last = 0;
+                let outcome = if forced {
+                    Outcome::ThreadTerminate(38)
+                } else {
+                    Outcome::ThreadExit(38)
+                };
+                apply_outcome(&mut p, t, outcome, &mut last);
+                assert!(
+                    p.failure.is_none(),
+                    "{arch}, forced={forced}: {:?}",
+                    p.failure
+                );
+                assert!(p.threads.is_empty());
+                assert_eq!(last, 38);
+                assert!(p.tls.fls_take_abandoned().is_empty());
+                assert_eq!(p.tls.fls_alloc(0), Ok(slot));
+            }
+        }
+    }
+
+    #[test]
+    fn nonterminal_fls_escape_reports_receipt_before_more_guest_execution_all_abis() {
+        for arch in WinArch::ALL {
+            let mut p = process(arch);
+            let t = thread(&mut p, 8);
+            let slot = p.tls.fls_alloc(0x1234_5678).unwrap();
+            p.tls.fls_set(t.fls_key(), slot, 91).unwrap();
+            let mut plan = p.tls.fls_begin_free(slot).unwrap();
+            plan.set_owner(t.tid);
+            assert!(plan.next().is_some());
+            drop(plan);
+            apply_outcome(&mut p, t, Outcome::Continue, &mut 0);
+            assert!(
+                p.failure
+                    .as_ref()
+                    .is_some_and(|m| m.contains("FLS continuation abandoned"))
+            );
+        }
+    }
+
+    #[test]
     fn unhandled_cpu_exceptions_preserve_guest_status() {
         for arch in WinArch::ALL {
             let mut p = process(arch);
@@ -1135,6 +1291,75 @@ mod tests {
                 ),
                 Outcome::ProcessTerminate(STATUS_STACK_OVERFLOW)
             );
+        }
+    }
+
+    #[test]
+    fn exhausted_stack_guard_dispatches_veh_on_consumed_emergency_page_all_abis() {
+        for arch in WinArch::ALL {
+            let mut p = process(arch);
+            let mut t = thread(&mut p, 8);
+            let bottom = t.stack_alloc;
+            let emergency = bottom + PAGE_SIZE;
+            let limit = bottom + 2 * PAGE_SIZE;
+            p.vm.decommit(bottom, PAGE_SIZE).unwrap();
+            p.vm.protect(emergency, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+                .unwrap();
+            t.stack_limit = limit;
+            p.space
+                .wptr(
+                    t.teb + crate::user::windows::layout::offsets(arch).teb_stack_limit,
+                    arch.ptr_size(),
+                    limit,
+                )
+                .unwrap();
+            t.cpu.set_sp(limit);
+            let fault_pc = t.cpu.pc();
+            let fault_addr = limit - arch.ptr_size();
+            let handler = 0x2345_0000;
+            p.seh.veh.push((1, handler));
+            assert_eq!(
+                access_fault(
+                    &mut p,
+                    &mut t,
+                    AccessFault {
+                        addr: fault_addr,
+                        access: MemoryAccessKind::Write,
+                        kind: AccessFaultKind::Permission,
+                        pc: fault_pc,
+                    }
+                ),
+                Outcome::Continue,
+                "{arch}: consumed emergency page must permit exception dispatch"
+            );
+            assert_eq!(t.cpu.pc(), handler);
+            assert_eq!(p.vm.query(bottom).unwrap().state, mem::RESERVE);
+            assert_eq!(p.vm.query(emergency).unwrap().protect, prot::READWRITE);
+            let pointers = match arch {
+                WinArch::X86 => p.space.ptr(t.cpu.sp() + 4, 4).unwrap(),
+                WinArch::X64 => t.cpu.gpr(1),
+                WinArch::Arm64 => t.cpu.gpr(0),
+            };
+            let record_addr = p.space.ptr(pointers, arch.ptr_size()).unwrap();
+            let context_addr = p
+                .space
+                .ptr(pointers + arch.ptr_size(), arch.ptr_size())
+                .unwrap();
+            let record = ExceptionRecord::read(&p.space, arch, record_addr).unwrap();
+            let context = RegContext::read(&p.space, arch, context_addr).unwrap();
+            assert_eq!(record.code, STATUS_STACK_OVERFLOW);
+            assert_eq!(record.address, fault_pc);
+            assert_eq!(record.params, vec![1, fault_addr]);
+            assert_eq!(context.pc(), fault_pc);
+            assert_eq!(context.sp(), limit);
+            assert!(record_addr >= emergency && context_addr >= emergency);
+            // Model the handler's ordinary EXCEPTION_CONTINUE_EXECUTION return.
+            t.cpu.set_gpr(0, arch.ptr(u64::MAX));
+            assert_eq!(dispatch::callback_return(&mut p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.pc(), fault_pc);
+            assert_eq!(t.cpu.sp(), limit);
+            assert!(t.frames.is_empty());
+            assert!(p.failure.is_none());
         }
     }
 

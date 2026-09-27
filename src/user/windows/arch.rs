@@ -448,6 +448,33 @@ impl WinCpu {
             WinCpu::Arm64(cpu) => cpu.discard_native_code(),
         }
     }
+
+    /// Copies the complete enabled x86 floating-point/SIMD state without
+    /// changing integer registers, control flow, segments, or the TEB.
+    ///
+    /// Fiber flag-zero sharing is a personality profile on x86: Microsoft
+    /// specifies that floating-point state is not switched, but does not
+    /// specify mixed flag combinations or the exact extended-state subset.
+    pub(crate) fn inherit_fiber_fp(&mut self, source: &WinCpu) -> Result<(), u32> {
+        use crate::user::windows::nt::status::STATUS_INVALID_PARAMETER;
+        match (self, source) {
+            (WinCpu::X86(target, a), WinCpu::X86(source, b)) if a == b => {
+                // x87/SSE/AVX/opmask/ZMM only. APX's XSAVE component 19
+                // contains integer EGPRs and is not floating-point state.
+                const FP_SIMD: u64 = 0xE7;
+                let image = source.vcpu().xsave_image(FP_SIMD);
+                target
+                    .vcpu_mut()
+                    .set_xcr0(source.vcpu().xcr0())
+                    .map_err(|_| STATUS_INVALID_PARAMETER)?;
+                target
+                    .vcpu_mut()
+                    .xrstor_image(&image.bytes, FP_SIMD)
+                    .map_err(|_| STATUS_INVALID_PARAMETER)
+            }
+            _ => Err(STATUS_INVALID_PARAMETER),
+        }
+    }
 }
 
 #[cfg(test)]

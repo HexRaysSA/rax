@@ -264,6 +264,7 @@ pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc,
         process_heap: 0,
         modules: Default::default(),
         loader: Default::default(),
+        fibers: Default::default(),
         traps: Default::default(),
         objects: Objects::default(),
         heaps: Heaps::new(if arch.is64() { 16 } else { 8 }),
@@ -279,6 +280,7 @@ pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc,
         rng: seed,
         cwd: cwd.encode_utf16().collect(),
         exe_stack_reserve: h.stack_reserve,
+        exe_stack_commit: h.stack_commit,
     };
     let host_path = p.cfg.exe_host_path.clone();
     loader::load_exe(&mut p, &pe, &host_path, image_path.clone()).map_err(|e| {

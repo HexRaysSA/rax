@@ -1,0 +1,470 @@
+{
+  "schema": 1,
+  "issuer": "Microsoft; mingw-w64",
+  "retrieved": "2026-09-27",
+  "license": "CC-BY-4.0 (Microsoft documentation prose); MIT (Microsoft code samples); ZPL-2.1 (installed MinGW header excerpts)",
+  "normalization": "Microsoft Markdown/license trailing blank lines normalized with terminal LF; installed MinGW excerpts and COPYING bytes preserved exactly as recorded per entry.",
+  "sources": [
+    {
+      "path": "flsalloc.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/fibersapi/nf-fibersapi-flsalloc.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fibersapi/nf-fibersapi-flsalloc",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "8e0c94f70c6dcae287b52a1ce17aba1c41b9ae02602d70308beabcf0dc4ca147",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "flsfree.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/fibersapi/nf-fibersapi-flsfree.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fibersapi/nf-fibersapi-flsfree",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "4ded17d78f8ae42a0eb6479909807e578b319ef628ddc260175a079804be2f1c",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "flsgetvalue.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/fibersapi/nf-fibersapi-flsgetvalue.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fibersapi/nf-fibersapi-flsgetvalue",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "203098d8ee7481c51cd9dd57da9a92ae68bda62d003804b4ad2c141da2fe56a9",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "flssetvalue.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/fibersapi/nf-fibersapi-flssetvalue.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fibersapi/nf-fibersapi-flssetvalue",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "c53a71d62a41425ce2dd4d3039f0193a4a84ba182b4be83a35089677228acbb4",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "isthreadafiber.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/fibersapi/nf-fibersapi-isthreadafiber.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fibersapi/nf-fibersapi-isthreadafiber",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "b3314fefa0f9f1809b8240df7abd016f056e413284d4cbbf68b33cd5028ebdda",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "convertthreadtofiber.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/nf-winbase-convertthreadtofiber.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-convertthreadtofiber",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "ec9f748a42b097c7bc1d5de70dbb95eff11d1075053a24e256746055497ee14d",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "convertthreadtofiberex.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/nf-winbase-convertthreadtofiberex.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-convertthreadtofiberex",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "1eacce56cb7801615aff97cd86058066b2a7c4faf233f13d4d6eaed5f5a5ed3e",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "convertfibertothread.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/nf-winbase-convertfibertothread.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-convertfibertothread",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "322310e95167d265f2fd3cbeaad50a73ac9fbc9303308c77a1a0e5d8b925f5f8",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "createfiber.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/nf-winbase-createfiber.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createfiber",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "0543efdecbcd5bb1af487c134201d7c01053099c9fab7671a26d176861f9398f",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "createfiberex.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/nf-winbase-createfiberex.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createfiberex",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "4f25fc7d65762c24cc16f1dda7ffba722d2d75b8bf100b581b9960e07b765c53",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "switchtofiber.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/nf-winbase-switchtofiber.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-switchtofiber",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "6bcaf0d942866be3daddbe52d2dc87bdd908b2284a682ca1fb5a7f0b28cf8e81",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "deletefiber.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/nf-winbase-deletefiber.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-deletefiber",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "30429b7b5db444fe70e67b741ba41792afa86719901bcdc0ca443fa67772c788",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "getcurrentfiber.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winnt/nf-winnt-getcurrentfiber.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/nf-winnt-getcurrentfiber",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "821284b564c5385af118dae3b2407ac68197ca04398f50f664de681b0fe7d89a",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "getfiberdata.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winnt/nf-winnt-getfiberdata.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/nf-winnt-getfiberdata",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "9485d66d48ab585d2f6ee8618f21498d3d83fec7eccf928e3adcdfc36354b78d",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "flscallback.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winnt/nc-winnt-pfls_callback_function.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/nc-winnt-pfls_callback_function",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "624b8dd46d7a2617acafeb2295a62c03f25470f69b4f979bdaec0566991d58fc",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "fiberproc.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/nc-winbase-pfiber_start_routine.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nc-winbase-pfiber_start_routine",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "f2df63afcdab617bc1e98bf5398f2343060d7a451fb5a7a5cf2f8c7b5c2a3ba6",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "fibers.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/ProcThread/fibers.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/procthread/fibers",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "ac7e1fa0c2cb7e1a27f207a10d6b8c05f6da5a260515d00713b05edccfc7d19b",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "thread-stack-size.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/ProcThread/thread-stack-size.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/procthread/thread-stack-size",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "c962d7420e6a3770c988898aba843cc1c0101f592968cc5506902b3458f13d1f",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "using-fibers.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/ProcThread/using-fibers.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/procthread/using-fibers",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "34c6ed41a79cdb016ef7de255cfe80ca4ed7cffabd8c2de2a5682f93569954ee",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "system-error-codes--1000-1299-.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Debug/system-error-codes--1000-1299-.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--1000-1299-",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "f0f3067e3fd5e0bfacd154a60de0436624478743cf35ff51b09f2911a068a93f",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "creating-guard-pages.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Memory/creating-guard-pages.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/memory/creating-guard-pages",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "867bd77b93618c34e5f13a16d2d8b9d6d365b37a6914821270163c52ec6f83f0",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "fatal-error-thread-exit-fls-callback.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/main/support/developer/visualstudio/cpp/libraries/fatal-error-thread-exit-fls-callback.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/fatal-error-thread-exit-fls-callback",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable main branch; local SHA-256 pins retained contents)",
+      "sha256": "de78d9bd741a1e0db092b29a7f1f3a820a805902b8383c092345ac3da9dc4dac",
+      "license_url": "https://github.com/MicrosoftDocs/SupportArticles-docs/blob/main/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/SupportArticles-docs/blob/main/LICENSE-CODE"
+    },
+    {
+      "path": "SUPPORT-ARTICLES-LICENSE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/main/LICENSE",
+      "canonical_url": "https://github.com/MicrosoftDocs/SupportArticles-docs/blob/main/LICENSE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable main branch; local SHA-256 pins retained contents)",
+      "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+      "license_url": "https://github.com/MicrosoftDocs/SupportArticles-docs/blob/main/LICENSE"
+    },
+    {
+      "path": "SDK-API-LICENSE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/LICENSE",
+      "canonical_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "WIN32-LICENSE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE",
+      "canonical_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE"
+    },
+    {
+      "path": "SDK-API-LICENSE-CODE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/LICENSE-CODE",
+      "canonical_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "5c124ba1707e9edeae4fa704df5c46b922a38b194b563c86650237bd172069ae",
+      "license": "MIT",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "WIN32-LICENSE-CODE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE-CODE",
+      "canonical_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE-CODE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "5c124ba1707e9edeae4fa704df5c46b922a38b194b563c86650237bd172069ae",
+      "license": "MIT",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE-CODE"
+    },
+    {
+      "path": "SUPPORT-ARTICLES-LICENSE-CODE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/SupportArticles-docs/main/LICENSE-CODE",
+      "canonical_url": "https://github.com/MicrosoftDocs/SupportArticles-docs/blob/main/LICENSE-CODE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable main branch; local SHA-256 pins retained contents)",
+      "sha256": "5c124ba1707e9edeae4fa704df5c46b922a38b194b563c86650237bd172069ae",
+      "license": "MIT",
+      "license_url": "https://github.com/MicrosoftDocs/SupportArticles-docs/blob/main/LICENSE-CODE"
+    },
+    {
+      "path": "mingw14-winnt-fiber-excerpt.h",
+      "issuer": "mingw-w64",
+      "source_url": "file:///opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/winnt.h",
+      "canonical_url": "https://github.com/mingw-w64/mingw-w64/blob/v14.0.0/mingw-w64-headers/include/winnt.h",
+      "retrieved": "2026-09-27",
+      "version": "14.0.0",
+      "distribution": "Homebrew mingw-w64 14.0.0_3",
+      "revision": "unknown (exact upstream commit of installed input not independently identified)",
+      "sha256": "2b5841f6d660cdfaf10bce24f45e86c5615cb03508a323da9f63268c3a3f55e9",
+      "license": "ZPL-2.1 package default; exceptions apply only to prominently marked components",
+      "license_url": "https://github.com/mingw-w64/mingw-w64/blob/v14.0.0/COPYING",
+      "retained_license_path": "MINGW14-COPYING",
+      "normalization": "none; verbatim concatenation of inclusive input line ranges, without added separators",
+      "extraction_recipe": "sed -n -e '1,5p' -e '2739,2748p' -e '4610,4652p' -e '10399,10448p' '/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/winnt.h'",
+      "line_ranges": [
+        [
+          1,
+          5
+        ],
+        [
+          2739,
+          2748
+        ],
+        [
+          4610,
+          4652
+        ],
+        [
+          10399,
+          10448
+        ]
+      ],
+      "installed_inputs": [
+        {
+          "path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/include/winnt.h",
+          "sha256": "d9924297c155c1e955d5262a1a6fa1dcccf12608afcc5327d7b848fb7514af0b"
+        },
+        {
+          "path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/winnt.h",
+          "sha256": "d9924297c155c1e955d5262a1a6fa1dcccf12608afcc5327d7b848fb7514af0b"
+        }
+      ],
+      "upstream_reference_sha256": "d9924297c155c1e955d5262a1a6fa1dcccf12608afcc5327d7b848fb7514af0b",
+      "canonical_url_role": "Release-tag header; independently fetched full bytes match both installed input hashes"
+    },
+    {
+      "path": "zig-mingw13-winnt-fiber-excerpt.h",
+      "issuer": "mingw-w64",
+      "source_url": "file:///opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/include/any-windows-any/winnt.h",
+      "canonical_url": "https://github.com/mingw-w64/mingw-w64/blob/v13.0.0/mingw-w64-headers/include/winnt.h",
+      "retrieved": "2026-09-27",
+      "version": "13.0.0",
+      "distribution": "Zig 0.16.0_1 bundled MinGW headers/runtime",
+      "revision": "unknown (exact upstream commit of installed input not independently identified)",
+      "sha256": "2b5841f6d660cdfaf10bce24f45e86c5615cb03508a323da9f63268c3a3f55e9",
+      "license": "ZPL-2.1 package default; exceptions apply only to prominently marked components",
+      "license_url": "https://github.com/mingw-w64/mingw-w64/blob/v13.0.0/COPYING",
+      "retained_license_path": "ZIG-MINGW13-COPYING",
+      "normalization": "none; verbatim concatenation of inclusive input line ranges, without added separators",
+      "extraction_recipe": "sed -n -e '1,5p' -e '2731,2740p' -e '4602,4644p' -e '10363,10412p' '/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/include/any-windows-any/winnt.h'",
+      "line_ranges": [
+        [
+          1,
+          5
+        ],
+        [
+          2731,
+          2740
+        ],
+        [
+          4602,
+          4644
+        ],
+        [
+          10363,
+          10412
+        ]
+      ],
+      "installed_inputs": [
+        {
+          "path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/include/any-windows-any/winnt.h",
+          "sha256": "1bffc405c3dff7133fbb03d5902b384d31db8e76d6a6dffa89f495a2e2728828"
+        }
+      ],
+      "upstream_reference_sha256": "696cd8229475c0e2c75c062cb640c8ce740ca259427b1be834606c9aae1226d9",
+      "canonical_url_role": "MinGW 13.0.0 release-lineage reference; installed Zig header differs from tag bytes and exact Zig upstream commit is unknown"
+    },
+    {
+      "path": "MINGW14-COPYING",
+      "issuer": "mingw-w64",
+      "source_url": "file:///opt/homebrew/Cellar/mingw-w64/14.0.0_3/COPYING",
+      "canonical_url": "https://github.com/mingw-w64/mingw-w64/blob/v14.0.0/COPYING",
+      "retrieved": "2026-09-27",
+      "version": "14.0.0",
+      "distribution": "Homebrew mingw-w64 14.0.0_3",
+      "revision": "unknown (exact upstream commit of installed input not independently identified)",
+      "sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+      "license": "ZPL-2.1 package default; exceptions apply only to prominently marked components",
+      "license_url": "https://github.com/mingw-w64/mingw-w64/blob/v14.0.0/COPYING",
+      "retained_license_path": "MINGW14-COPYING",
+      "normalization": "none; verbatim installed COPYING file",
+      "extraction_recipe": "sed -n '1,$p' '/opt/homebrew/Cellar/mingw-w64/14.0.0_3/COPYING'",
+      "installed_inputs": [
+        {
+          "path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/COPYING",
+          "sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f"
+        }
+      ]
+    },
+    {
+      "path": "ZIG-MINGW13-COPYING",
+      "issuer": "mingw-w64",
+      "source_url": "file:///opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/COPYING",
+      "canonical_url": "https://github.com/mingw-w64/mingw-w64/blob/v13.0.0/COPYING",
+      "retrieved": "2026-09-27",
+      "version": "13.0.0",
+      "distribution": "Zig 0.16.0_1 bundled MinGW headers/runtime",
+      "revision": "unknown (exact upstream commit of installed input not independently identified)",
+      "sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+      "license": "ZPL-2.1 package default; exceptions apply only to prominently marked components",
+      "license_url": "https://github.com/mingw-w64/mingw-w64/blob/v13.0.0/COPYING",
+      "retained_license_path": "ZIG-MINGW13-COPYING",
+      "normalization": "none; verbatim installed COPYING file",
+      "extraction_recipe": "sed -n '1,$p' '/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/COPYING'",
+      "installed_inputs": [
+        {
+          "path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/COPYING",
+          "sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f"
+        }
+      ]
+    }
+  ],
+  "existing_retained_sources": [
+    {
+      "repository_path": "docs/specifications/windows/mingw-w64-headers/winerror.h",
+      "provenance": "docs/specifications/windows/sources.json",
+      "source_url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/v14.0.0/mingw-w64-headers/include/winerror.h",
+      "license": "Public Domain; retained file notice",
+      "consulted_definitions": "ERROR_ALREADY_FIBER = 1280; ERROR_ALREADY_THREAD = 1281"
+    },
+    {
+      "repository_path": "docs/specifications/windows/services/thread-sync/terminatethread.md",
+      "provenance": "docs/specifications/windows/services/thread-sync/sources.json",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminatethread"
+    },
+    {
+      "repository_path": "docs/specifications/windows/services/thread-sync/exitprocess.md",
+      "provenance": "docs/specifications/windows/services/thread-sync/sources.json",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-exitprocess"
+    }
+  ],
+  "license_scopes": {
+    "microsoft_documentation_prose": "Creative Commons Attribution 4.0 International",
+    "microsoft_code_samples": "MIT; corresponding owning repository LICENSE-CODE retained",
+    "installed_mingw_header_excerpts": "ZPL-2.1 package default; installed COPYING retained, no exception marking in captured header ranges"
+  }
+}

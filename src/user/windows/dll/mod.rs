@@ -2,7 +2,9 @@
 //! fabricated successful operations.
 
 pub mod crt;
+pub(crate) mod fibers;
 mod files;
+pub(crate) mod fls;
 mod handles;
 mod kernel;
 pub(crate) mod libraries;
@@ -47,6 +49,8 @@ static KERNEL32: BuiltinDll = BuiltinDll {
     exports: &[
         kernel::EXPORTS,
         libraries::EXPORTS,
+        fibers::EXPORTS,
+        fls::EXPORTS,
         handles::EXPORTS,
         threading::EXPORTS,
         locks::EXPORTS,
@@ -60,6 +64,8 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
     exports: &[
         kernel::EXPORTS,
         libraries::EXPORTS,
+        fibers::EXPORTS,
+        fls::EXPORTS,
         handles::EXPORTS,
         threading::EXPORTS,
         locks::EXPORTS,

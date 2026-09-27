@@ -247,6 +247,36 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
         Ok(Flow::Call { target, args, then }) => {
             let cursor = site.cursor;
             let ret_trap = p.traps.callback_return();
+            let bytes = match p.arch {
+                WinArch::X86 => (args.len() as u64)
+                    .checked_mul(4)
+                    .and_then(|n| n.checked_add(15))
+                    .map(|n| (n & !15) + 4),
+                WinArch::X64 => (args.len().max(4) as u64)
+                    .checked_mul(8)
+                    .and_then(|n| n.checked_add(15))
+                    .map(|n| (n & !15) + 8),
+                WinArch::Arm64 => (args.len().saturating_sub(8) as u64)
+                    .checked_mul(8)
+                    .and_then(|n| n.checked_add(15))
+                    .map(|n| n & !15),
+            };
+            let prepared = bytes
+                .and_then(|n| (cursor & !15).checked_sub(n).map(|a| (a, n)))
+                .ok_or(super::super::process::stack::StackFault::Access(MemFault {
+                    addr: cursor,
+                    write: true,
+                }))
+                .and_then(|(address, bytes)| {
+                    super::super::process::stack::prepare(p, t, address, bytes)
+                });
+            if let Err(fault) = prepared {
+                // The continuation has not been published or called. Dropping
+                // it queues any loader/FLS abandonment receipt for checked cleanup.
+                drop(then);
+                let error = fault.into_api(site.entry_pc);
+                return complete(p, t, site, Err(error));
+            }
             frame_for(t, &site).cont = Some(then);
             match call_guest(p, &mut t.cpu, cursor, target, &args, ret_trap) {
                 Ok(()) => Outcome::Continue,
@@ -307,6 +337,16 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
         Ok(Flow::TerminateProcess(code)) => {
             pop_frame(t, &site);
             Outcome::ProcessTerminate(code)
+        }
+        Ok(Flow::SwitchFiber(target)) => {
+            pop_frame(t, &site);
+            return_to_caller(p, t, &site, Value::None);
+            match super::super::process::fiber::switch(p, t, target) {
+                Ok(()) => Outcome::Continue,
+                Err(status) => Outcome::Fail(format!(
+                    "fiber switch rejected after validation: {status:#010x}"
+                )),
+            }
         }
         Ok(Flow::Done) => {
             pop_frame(t, &site);

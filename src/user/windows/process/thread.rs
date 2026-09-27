@@ -61,6 +61,13 @@ pub struct Thread {
     pub stack_limit: u64,
     /// `DeallocationStack` (the reservation's base).
     pub stack_alloc: u64,
+    /// Stack owned directly by this thread. Conversion transfers this ledger
+    /// to a fiber; reconversion transfers its current stack back to the thread.
+    pub thread_stack_alloc: u64,
+    /// Currently selected fiber; None denotes an ordinary thread context.
+    pub current_fiber: Option<u64>,
+    /// Final normal-exit FLS callback drain has begun.
+    pub fls_exiting: bool,
     /// Scheduling state.
     pub state: ThreadState,
     /// Built-in calls in progress.
@@ -374,6 +381,9 @@ fn create_inner(
             stack_base: base,
             stack_limit: limit,
             stack_alloc: alloc,
+            thread_stack_alloc: alloc,
+            current_fiber: None,
+            fls_exiting: false,
             state: ThreadState::Ready,
             frames: Vec::new(),
             obj,
@@ -396,6 +406,9 @@ fn create_inner(
 /// its object is signaled with `code`, and its stack, TEB, and TLS blocks
 /// are freed.
 pub fn destroy(p: &mut Proc, t: Thread, code: u32) {
+    if let Err(status) = super::fiber::destroy_active(p, &t) {
+        p.fail(format!("fiber teardown failed: {status:#010x}"));
+    }
     let tid = t.tid;
     p.modules.dynamic.tls_blocks.remove(&tid);
     let ids: Vec<ObjId> = p
@@ -429,12 +442,23 @@ pub fn destroy(p: &mut Proc, t: Thread, code: u32) {
     if t.tls_array != 0 {
         let _ = p.heaps.free(heap, t.tls_array);
     }
-    let _ = p.vm.release(t.stack_alloc);
+    if t.thread_stack_alloc != 0 {
+        let _ = p.vm.release(t.thread_stack_alloc);
+    }
     let _ = p.vm.decommit(t.teb, layout::teb_stride(p.arch));
-    p.tls.fls_values.remove(&tid);
+    p.tls
+        .fls_discard_context(crate::user::windows::tls::FlsKey::Thread(tid));
 }
 
 impl Thread {
+    /// FLS follows the selected fiber; TLS continues to follow this thread.
+    pub fn fls_key(&self) -> crate::user::windows::tls::FlsKey {
+        self.current_fiber.map_or(
+            crate::user::windows::tls::FlsKey::Thread(self.tid),
+            crate::user::windows::tls::FlsKey::Fiber,
+        )
+    }
+
     /// Whether the thread can run now.
     pub fn runnable(&self) -> bool {
         matches!(self.state, ThreadState::Ready) && self.suspend == 0

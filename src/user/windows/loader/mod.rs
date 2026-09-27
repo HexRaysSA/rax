@@ -703,7 +703,11 @@ fn builtin_base(p: &mut Proc, size: u64) -> Result<u64, LoadError> {
 fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadError> {
     admit_new_module(p)?;
     let specials: &[SlotKind] = if dll.name == "ntdll.dll" {
-        &[SlotKind::CallbackReturn, SlotKind::ThreadStart]
+        &[
+            SlotKind::CallbackReturn,
+            SlotKind::ThreadStart,
+            SlotKind::FiberStart,
+        ]
     } else {
         &[]
     };

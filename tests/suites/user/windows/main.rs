@@ -17,6 +17,9 @@ mod sha256;
 #[path = "lifecycle.rs"]
 mod lifecycle;
 
+#[path = "fibers.rs"]
+mod fibers;
+
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/user/windows")
 }
@@ -178,7 +181,7 @@ fn service_fixture_sources_hashes_and_single_import_dll_are_verified() {
 fn retained_service_primary_sources_match_their_provenance_hashes() {
     let root =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/specifications/windows/services");
-    for group in ["thread-sync", "locks", "file", "dll-lifecycle"] {
+    for group in ["thread-sync", "locks", "file", "dll-lifecycle", "fibers"] {
         let folder = root.join(group);
         let manifest: serde_json::Value =
             serde_json::from_slice(&std::fs::read(folder.join("sources.json")).unwrap()).unwrap();

@@ -82,6 +82,12 @@ impl LoaderState {
     pub(crate) fn is_idle(&self) -> bool {
         self.owner.is_none()
     }
+
+    /// A parked startup/dynamic loader continuation remains thread-bound even
+    /// when its outer synthetic frame has an ordinary thread-start name.
+    pub(crate) fn held_by(&self, tid: u32) -> bool {
+        self.owner.is_some_and(|(owner, _)| owner == tid)
+    }
 }
 
 /// A held reentrant loader-lock level and its optional resource journal.

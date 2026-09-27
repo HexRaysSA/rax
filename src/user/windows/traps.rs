@@ -3,8 +3,8 @@
 //! Each built-in DLL image has a code section of 16-byte slots mapped
 //! without execute permission. [`Traps`] maps a faulting fetch address to
 //! what it means: slot offset 0 is an export's entry, offset 8 its resume
-//! point; two slots at the start of `ntdll`'s section are the
-//! callback-return and thread-start traps.
+//! point; three slots at the start of `ntdll`'s section are the
+//! callback-return, thread-start and fiber-start traps.
 
 use std::sync::Arc;
 
@@ -27,6 +27,8 @@ pub enum SlotKind {
     CallbackReturn,
     /// A new thread starts here (`ntdll!RtlUserThreadStart`).
     ThreadStart,
+    /// A newly selected fiber begins its application start routine.
+    FiberStart,
 }
 
 /// A decoded trap.
@@ -42,6 +44,8 @@ pub enum Trap {
     CallbackReturn,
     /// A thread starts.
     ThreadStart,
+    /// A newly created fiber starts.
+    FiberStart,
 }
 
 #[derive(Debug)]
@@ -58,6 +62,7 @@ pub struct Traps {
     ranges: Vec<Range>,
     callback_return: u64,
     thread_start: u64,
+    fiber_start: u64,
 }
 
 impl Traps {
@@ -69,6 +74,7 @@ impl Traps {
             match s {
                 SlotKind::CallbackReturn => self.callback_return = at,
                 SlotKind::ThreadStart => self.thread_start = at,
+                SlotKind::FiberStart => self.fiber_start = at,
                 _ => {}
             }
         }
@@ -107,6 +113,7 @@ impl Traps {
             (0, SlotKind::Missing(name)) => Some(Trap::Missing(name.clone())),
             (0, SlotKind::CallbackReturn) => Some(Trap::CallbackReturn),
             (0, SlotKind::ThreadStart) => Some(Trap::ThreadStart),
+            (0, SlotKind::FiberStart) => Some(Trap::FiberStart),
             _ => None,
         }
     }
@@ -128,6 +135,11 @@ impl Traps {
     /// The thread-start trap.
     pub fn thread_start(&self) -> u64 {
         self.thread_start
+    }
+
+    /// The first-entry trap for a created fiber.
+    pub fn fiber_start(&self) -> u64 {
+        self.fiber_start
     }
 
     /// The entry address of `api` in the first range that holds it.
