@@ -374,6 +374,37 @@ mod tests {
         assert_eq!(bytes_readable(&r).unwrap(), 1);
         set_nonblocking(&r, true).unwrap();
     }
+
+    /// Runs `f` on another thread; `None` if it has not finished in 10 s.
+    fn within_10s<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> Option<T> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || tx.send(f()));
+        rx.recv_timeout(std::time::Duration::from_secs(10)).ok()
+    }
+
+    #[test]
+    fn write_all_waiting_waits_for_room_and_fails_without_a_peer() {
+        use std::io::Read;
+        // 1 MiB through a full socket buffer: EAGAIN waits for the reader.
+        let (a, b) = link_pair().unwrap();
+        set_nonblocking(&b, false).unwrap();
+        let reader = std::thread::spawn(move || {
+            let mut all = Vec::new();
+            std::fs::File::from(b).read_to_end(&mut all).unwrap();
+            all.len()
+        });
+        let data = vec![0x5A; 1 << 20];
+        let a = within_10s(move || write_all_waiting(&a, &data).map(|()| a))
+            .expect("write_all_waiting did not finish")
+            .unwrap();
+        drop(a);
+        assert_eq!(reader.join().unwrap(), 1 << 20);
+        // The other end gone: EPIPE, not a retry.
+        let (a, b) = link_pair().unwrap();
+        drop(b);
+        let r = within_10s(move || write_all_waiting(&a, b"x")).expect("write_all_waiting spun");
+        assert_eq!(r, Err(Errno(super::super::abi::errno_table::EPIPE)));
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -766,6 +797,7 @@ pub fn link_pair() -> Result<(std::os::fd::OwnedFd, std::os::fd::OwnedFd), Errno
 
 /// Writes all of `data` to a non-blocking socket, waiting for room.
 pub fn write_all_waiting(fd: &impl AsRawFd, data: &[u8]) -> Result<(), Errno> {
+    use super::abi::errno_table::{EAGAIN, EINTR};
     #[cfg(target_os = "linux")]
     let quiet = libc::MSG_NOSIGNAL;
     #[cfg(not(target_os = "linux"))]
