@@ -96,6 +96,9 @@ fn unix(proc: &mut Proc, thread: &mut Thread, code: u32) {
                 {
                     thread.resume = None;
                 }
+                // Not a cancellation point unless the call says so
+                // (__pthread_testcancel clears the flag).
+                thread.sig.uflags |= super::signal::uflag::NOTCANCELPT;
                 let mut ctx = Ctx {
                     proc,
                     thread,
@@ -103,6 +106,9 @@ fn unix(proc: &mut Proc, thread: &mut Thread, code: u32) {
                     pc,
                 };
                 let r = bsd::call(&mut ctx, nr, &args);
+                if ctx.thread.wait.is_none() {
+                    ctx.thread.sig.uflags &= !super::signal::uflag::NOTCANCELPT;
+                }
                 if ctx.proc.config.strace {
                     util::trace_unix(&ctx, sc.name, &args[..sc.nargs as usize], &r);
                 }
@@ -129,7 +135,7 @@ fn finish(thread: &mut Thread, ret: abi::Ret, result: SysResult) {
 /// the action has `SA_RESTART` (see [`interrupted`]).
 pub fn sleep(ctx: &mut Ctx<'_>, mut wait: Wait) -> SysResult {
     if wait.interruptible
-        && let Some(e) = super::signal::interruption(ctx.proc, ctx.thread)
+        && let Some(e) = super::signal::sleep_interruption(ctx.proc, ctx.thread)
     {
         ctx.thread.resume = None;
         return Err(e);

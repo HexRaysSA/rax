@@ -79,3 +79,23 @@ fn signals_arm64() {
 fn signals_x86_64() {
     fixture("signals", "x86_64", &[], &[]);
 }
+
+#[test]
+fn threads_arm64() {
+    fixture("threads", "arm64", &[], &[]);
+}
+
+#[test]
+fn threads_x86_64() {
+    fixture("threads", "x86_64", &[], &[]);
+}
+
+#[test]
+fn threads_sync_arm64() {
+    fixture("threads_sync", "arm64", &[], &[]);
+}
+
+#[test]
+fn threads_sync_x86_64() {
+    fixture("threads_sync", "x86_64", &[], &[]);
+}

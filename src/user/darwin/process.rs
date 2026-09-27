@@ -250,12 +250,15 @@ pub struct Thread {
     pub mach: ThreadMach,
     /// The thread's name (`PROC_SELFSET_THREADNAME`).
     pub name: Vec<u8>,
+    /// psynch wait state.
+    pub pw: super::psynch::ThreadPsynch,
 }
 
 impl Thread {
-    /// Whether the thread can run now.
+    /// Whether the thread can run now: alive, not suspended, and not
+    /// waiting (or woken).
     pub fn runnable(&self) -> bool {
-        !self.exited && (self.wait.is_none() || self.woken)
+        !self.exited && self.mach.suspend_count == 0 && (self.wait.is_none() || self.woken)
     }
 }
 
@@ -329,6 +332,8 @@ pub struct Proc {
     pub itimers: signal::timer::ITimers,
     /// libpthread's registration.
     pub pthread: PthreadRegistration,
+    /// psynch wait queues.
+    pub psynch: super::psynch::Table,
     /// Machine facts.
     pub machine: MachineInfo,
     /// The shared region, once mapped.
@@ -544,8 +549,12 @@ impl DarwinProcess {
             exited: false,
             woken: false,
             wake_event: false,
-            mach: ThreadMach::default(),
+            mach: ThreadMach {
+                tag: syscall::bsd::pthread::tag::MAINTHREAD,
+                ..Default::default()
+            },
             name: Vec::new(),
+            pw: Default::default(),
         };
         let mut threads = BTreeMap::new();
         threads.insert(tid, main);
@@ -579,6 +588,7 @@ impl DarwinProcess {
                 sigacts,
                 itimers: signal::timer::ITimers::default(),
                 pthread: PthreadRegistration::default(),
+                psynch: Default::default(),
                 machine,
                 shared_region: None,
                 started: Instant::now(),
@@ -634,9 +644,24 @@ impl DarwinProcess {
             if thread.exited {
                 self.proc.task.dead_times.0 += thread.mach.user_ns;
                 self.proc.task.dead_times.1 += thread.mach.system_ns;
+                syscall::bsd::pthread::reap(&mut self.proc, &mut thread);
             }
             if !thread.exited {
                 self.proc.threads.insert(tid, thread);
+            }
+            // Threads another thread terminated (thread_terminate) end now.
+            let ended: Vec<u64> = self
+                .proc
+                .threads
+                .values()
+                .filter(|t| t.exited)
+                .map(|t| t.tid)
+                .collect();
+            for tid in ended {
+                let mut t = self.proc.threads.remove(&tid).expect("listed thread");
+                self.proc.task.dead_times.0 += t.mach.user_ns;
+                self.proc.task.dead_times.1 += t.mach.system_ns;
+                syscall::bsd::pthread::reap(&mut self.proc, &mut t);
             }
         }
     }

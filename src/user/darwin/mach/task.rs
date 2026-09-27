@@ -102,4 +102,9 @@ pub struct ThreadMach {
     pub suspend_count: u32,
     /// Context switches (slices run).
     pub csw: u64,
+    /// `THREAD_TAG_*`.
+    pub tag: u16,
+    /// A join ulock to wake when the thread is gone, with the port name
+    /// to drop then (`uus_bsdthread_terminate`).
+    pub join: Option<(u64, u32)>,
 }
