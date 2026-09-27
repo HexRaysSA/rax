@@ -853,6 +853,10 @@ impl ThumbLifter {
                 self.lift_memory(&normalized, pc, &mut ops)?;
                 ControlFlow::Fallthrough
             }
+            // The direct executor raises the pseudocode's MemA alignment
+            // fault for an address that is not word-aligned; SMIR has no
+            // AArch32 alignment check (only X86CheckAlignment), so this lift
+            // does not: a recorded asymmetry between the planes.
             Mnemonic::LDP | Mnemonic::STP => {
                 self.lift_double_memory(&normalized, pc, &mut ops)?;
                 ControlFlow::Fallthrough

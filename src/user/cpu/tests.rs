@@ -509,6 +509,32 @@ fn a32_unaligned_exclusives_are_alignment_faults() {
 }
 
 #[test]
+fn a32_unaligned_multi_word_accesses_are_alignment_faults() {
+    // ldm r1, {r2, r3}; stm r1, {r2, r3}; strd r2, r3, [r1]; vstr d0,
+    // [r1], at DATA + 2: MemA's alignment faults, the stores as writes.
+    for (insn, access) in [
+        (0xE891_000C, MemoryAccessKind::Read),
+        (0xE881_000C, MemoryAccessKind::Write),
+        (0xE1C1_20F0, MemoryAccessKind::Write),
+        (0xED81_0B00, MemoryAccessKind::Write),
+    ] {
+        let mut cpu = a32(&words(&[insn]));
+        cpu.core_mut().regs[1] = DATA as u32 + 2;
+        assert_eq!(
+            cpu.run(10),
+            A32Exit::Fault(AccessFault {
+                addr: DATA + 2,
+                access,
+                kind: AccessFaultKind::Alignment,
+                pc: CODE,
+            }),
+            "{insn:#010x}"
+        );
+        assert_eq!(cpu.pc(), CODE);
+    }
+}
+
+#[test]
 fn a32_interworks_with_thumb_and_it_blocks() {
     // adr r0, . + 9 ; bx r0 ; then T32 at CODE + 8: movs r1, #5 ;
     // cmp r1, #5 ; ite eq ; moveq r2, #1 ; movne r2, #2 ; svc #0x12.

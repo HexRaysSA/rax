@@ -414,5 +414,15 @@ fn is_store(m: Mnemonic) -> bool {
             | Mnemonic::STLR
             | Mnemonic::STLRB
             | Mnemonic::STLRH
+            | Mnemonic::STP
+            | Mnemonic::STM
+            | Mnemonic::STMIA
+            | Mnemonic::STMIB
+            | Mnemonic::STMDA
+            | Mnemonic::STMDB
+            | Mnemonic::PUSH
+            | Mnemonic::VSTR
+            | Mnemonic::VSTM
+            | Mnemonic::VPUSH
     )
 }

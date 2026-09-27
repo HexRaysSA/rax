@@ -29,6 +29,13 @@ use crate::isa::arm::aarch32::vfp::{
 use crate::isa::arm::decoder::{Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType};
 
 impl<'a, M: ArmMemory> Executor<'a, M> {
+    /// VLDR and VSTR's `MemA`: a halfword (half precision) or a word
+    /// aligned to its size, whatever SCTLR.A says.
+    fn vfp_misaligned(addr: u32, size: u32) -> Option<ExecResult> {
+        let align = if size == 16 { 2 } else { 4 };
+        (addr % align != 0).then_some(ExecResult::MemoryFault(MemoryError::Unaligned(addr)))
+    }
+
     pub(crate) fn exec_vldr(&mut self, insn: &DecodedInsn) -> ExecResult {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
@@ -36,6 +43,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some((addr, size, d)) = self.decode_vfp_mem(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::vfp_misaligned(addr, size) {
+            return fault;
+        }
         match size {
             16 => match self.mem.read_halfword(addr) {
                 Ok(bits) => {
@@ -76,6 +86,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let Some((addr, size, d)) = self.decode_vfp_mem(insn) else {
             return ExecResult::Undefined;
         };
+        if let Some(fault) = Self::vfp_misaligned(addr, size) {
+            return fault;
+        }
         match size {
             16 => match self
                 .mem
@@ -114,6 +127,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         else {
             return ExecResult::Undefined;
         };
+        // MemA: word alignment, checked at the first word.
+        if addr & 3 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(addr));
+        }
 
         let mut current = addr;
         for index in 0..count {
@@ -160,6 +177,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         else {
             return ExecResult::Undefined;
         };
+        // MemA: word alignment, checked at the first word.
+        if addr & 3 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(addr));
+        }
 
         let mut current = addr;
         for index in 0..count {

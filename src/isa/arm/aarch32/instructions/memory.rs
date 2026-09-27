@@ -239,6 +239,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             None => return ExecResult::Undefined,
         };
         let t2 = (t + 1) & 0xF;
+        // MemA: word alignment, whatever SCTLR.A says.
+        if address & 3 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
 
         match self.mem.read_word(address) {
             Ok(data1) => match self.mem.read_word(address.wrapping_add(4)) {
@@ -262,6 +266,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             None => return ExecResult::Undefined,
         };
         let t2 = (t + 1) & 0xF;
+        if address & 3 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
 
         match self.mem.write_word(address, self.reg(t)) {
             Ok(()) => match self.mem.write_word(address.wrapping_add(4), self.reg(t2)) {
@@ -540,6 +547,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         } else {
             base.wrapping_sub(count * 4)
         };
+        // MemA: every word is aligned, or the first access (at the lowest
+        // address) faults before anything changes.
+        if low & 3 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(low));
+        }
 
         // A32 S bit (the `^` forms): without PC in an LDM list it selects the
         // USER bank for the transfer; an LDM with PC additionally restores
@@ -746,6 +758,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let mut address = self.cpu.regs[13].wrapping_sub(count * 4);
         let start_address = address;
         let user_bank = Self::a32_s_bit(insn) && !self.cpu.is_user_or_system();
+        // PUSH of a list is MemA (a single register's STR form is not
+        // decoded as PUSH).
+        if start_address & 3 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(start_address));
+        }
 
         for i in 0..16 {
             if (reglist & (1 << i)) != 0 {
@@ -774,6 +791,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         };
 
         let mut address = self.cpu.regs[13];
+        if address & 3 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
         let mut branch_target = None;
         let s_bit = Self::a32_s_bit(insn);
         let exception_return = s_bit && (reglist & 0x8000) != 0 && !self.cpu.is_user_or_system();

@@ -373,6 +373,17 @@ fn the_aarch32_exceptions_become_their_signals() {
         run_code(&mut h, &words(&[0xe191_0f9f]), false),
         sig(SIGBUS, code::BUS_ADRALN, h.scratch + 2, fault)
     );
+    // stm r1, {r2, r3} there: the same, as a write (no alignment fixups:
+    // CONFIG_COMPAT_ALIGNMENT_FIXUPS is off).
+    let esr = (0x24 << 26) | (1 << 25) | (1 << 6) | 0x21;
+    let fault = FaultUpdate::Arm64 {
+        address: h.scratch + 2,
+        esr,
+    };
+    assert_eq!(
+        run_code(&mut h, &words(&[0xe881_000c]), false),
+        sig(SIGBUS, code::BUS_ADRALN, h.scratch + 2, fault)
+    );
     // A branch to an A32 address that is not word-aligned: a PC alignment
     // fault, SIGBUS at the PC.
     arm(&mut h).core_mut().regs[0] = (CODE + 0x102) as u32;

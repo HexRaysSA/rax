@@ -962,3 +962,69 @@ fn test_bitfield_invalid_bounds_are_undefined() {
     assert!(matches!(result, ExecResult::Undefined));
     assert_eq!(cpu.regs[0], 0xDEAD_BEEF);
 }
+
+/// The accesses the pseudocode makes with `MemA` (LDM/STM in every mode,
+/// PUSH/POP of a list, LDRD/STRD, VLDR/VSTR, VLDM/VSTM) fault on an address
+/// that is not word-aligned whatever SCTLR.A says, at the lowest address
+/// accessed and before anything is written; a plain LDR is `MemU`, and
+/// LDRD needs only word alignment.
+#[test]
+fn multi_word_accesses_need_word_alignment() {
+    let a32 = |raw| crate::isa::arm::decoder::Aarch32Decoder::decode(raw).unwrap();
+    let t16 = |hw| crate::isa::arm::decoder::ThumbDecoder::decode_16bit(hw).unwrap();
+    let mut cpu = make_cpu();
+    let mut mem = make_mem();
+    for a in (0x100..0x140).step_by(4) {
+        mem.write_word(a, 0x1111_1111 * (a / 4 % 16)).unwrap();
+    }
+    cpu.regs[2] = 0x2222;
+    cpu.regs[3] = 0x3333;
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    let fault = |r: ExecResult| match r {
+        ExecResult::MemoryFault(MemoryError::Unaligned(a)) => Some(a),
+        _ => None,
+    };
+    // (instruction, base in r1, the fault address)
+    for (raw, base, at) in [
+        (0xE891_000C, 0x102, 0x102), // ldm r1, {r2, r3}
+        (0xE8B1_000C, 0x102, 0x102), // ldm r1!, {r2, r3}
+        (0xE931_000C, 0x10A, 0x102), // ldmdb r1!, {r2, r3}
+        (0xE981_0004, 0x101, 0x105), // stmib r1, {r2}
+        (0xE881_000C, 0x103, 0x103), // stm r1, {r2, r3}
+        (0xE1C1_20D0, 0x102, 0x102), // ldrd r2, r3, [r1]
+        (0xE1E1_20D8, 0x0FA, 0x102), // ldrd r2, r3, [r1, #8]!
+        (0xE1C1_20F0, 0x102, 0x102), // strd r2, r3, [r1]
+        (0xED91_0B00, 0x102, 0x102), // vldr d0, [r1]
+        (0xED81_0B00, 0x102, 0x102), // vstr d0, [r1]
+        (0xED91_0A00, 0x101, 0x101), // vldr s0, [r1]
+        (0xEC91_0B02, 0x106, 0x106), // vldmia r1, {d0}
+        (0xECA1_0B02, 0x106, 0x106), // vstmia r1!, {d0}
+    ] {
+        exec.cpu.regs[1] = base;
+        assert_eq!(fault(exec.execute(&a32(raw))), Some(at), "{raw:#010x}");
+        assert_eq!(exec.cpu.regs[1], base, "{raw:#010x}: no writeback");
+        assert_eq!((exec.cpu.regs[2], exec.cpu.regs[3]), (0x2222, 0x3333));
+    }
+    // T16 PUSH and POP take the list's words from SP (POP {r0} too).
+    exec.cpu.regs[13] = 0x122;
+    assert_eq!(fault(exec.execute(&t16(0xB50C))), Some(0x116)); // push {r2, r3, lr}
+    assert_eq!(fault(exec.execute(&t16(0xBC04))), Some(0x122)); // pop {r2}
+    assert_eq!(exec.cpu.regs[13], 0x122);
+    // Word-aligned LDRD, and a plain LDR anywhere.
+    exec.cpu.regs[1] = 0x104;
+    assert!(matches!(
+        exec.execute(&a32(0xE1C1_20D0)),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        (exec.cpu.regs[2], exec.cpu.regs[3]),
+        (0x1111_1111, 0x2222_2222)
+    );
+    exec.cpu.regs[1] = 0x101;
+    assert!(matches!(
+        exec.execute(&a32(0xE591_4000)),
+        ExecResult::Continue
+    ));
+    assert_eq!(exec.cpu.regs[4], 0x1100_0000);
+    assert!(mem.read_word(0x100).unwrap() == 0 && mem.read_word(0x104).unwrap() == 0x1111_1111);
+}

@@ -4,7 +4,9 @@
 //! compat vDSO, and `CONFIG_ARMV8_DEPRECATED` with
 //! `CONFIG_CP15_BARRIER_EMULATION` (the A32 CP15 barriers emulated, their
 //! default mode) and `CONFIG_SWP_EMULATION` (off by default, so `SWP` is
-//! `SIGILL`), on a CPU without mixed-endian EL0 (`SETEND` is `SIGILL`).
+//! `SIGILL`), on a CPU without mixed-endian EL0 (`SETEND` is `SIGILL`),
+//! and without `CONFIG_COMPAT_ALIGNMENT_FIXUPS` (its default), so a
+//! misaligned multi-word access (LDM, STM, LDRD, VLDR, ...) is `SIGBUS`.
 //!
 //! - System calls: `SVC` (whatever its immediate) with the number in R7 and
 //!   the arguments in R0-R5; the result returns in R0 (`el0_svc_compat`,
@@ -16,7 +18,8 @@
 //!   with `TRAP_BRKPT`; `do_el0_undef` emulates the CP15 barriers in A32
 //!   state (`armv8_deprecated.c`) and makes every other UNDEFINED
 //!   instruction `SIGILL` with `ILL_ILLOPC`; aborts go through
-//!   `do_page_fault`, and a PC alignment fault is `SIGBUS` with
+//!   `do_page_fault`, alignment faults through `do_alignment_fault` to
+//!   `SIGBUS` with `BUS_ADRALN`, and a PC alignment fault is `SIGBUS` with
 //!   `BUS_ADRALN` (`do_sp_pc_abort`).
 
 use super::{ArchCaps, CpuEvent, fault_signal};

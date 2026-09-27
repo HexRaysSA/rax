@@ -280,11 +280,15 @@ the sets alone, the TLS word and the system-call number among them.
 
 Limitations: the hardware breakpoint requests and sets are not modelled,
 as in a kernel without `CONFIG_HAVE_HW_BREAKPOINT`; `SWP` and `SETEND`
-raise `SIGILL`, as on an arm64 CPU without mixed-endian EL0. The AArch32 core's Thumb-2 decoder lacks the coprocessor
-and exclusive-access encodings, ARMv8's load-acquire and store-release ones
-among them (so T32 code that reads TLS with `MRC` does not run; A32 code
-has them all), and its NEON coverage has gaps. The recorded fixtures cover
-ARM EABI with A32 code for ARMv7-A and VFPv3-D16, without Advanced SIMD.
+raise `SIGILL`, as on an arm64 CPU without mixed-endian EL0, and a
+multi-word load or store (LDM, STM, LDRD, VLDR, ...) at an address that is
+not word-aligned raises `SIGBUS`, as without
+`CONFIG_COMPAT_ALIGNMENT_FIXUPS`. The AArch32 core's Thumb-2 decoder lacks
+the coprocessor and exclusive-access encodings, ARMv8's load-acquire and
+store-release ones among them (so T32 code that reads TLS with `MRC` does
+not run; A32 code has them all), and its NEON coverage has gaps. The
+recorded fixtures cover ARM EABI with A32 code for ARMv7-A and VFPv3-D16,
+without Advanced SIMD.
 
 ## Current limitations
 
