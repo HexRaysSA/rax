@@ -1,20 +1,22 @@
 //! Guest CPU adapters for user-mode execution.
 //!
 //! Each adapter binds one ISA core to an [`AddressSpace`] and runs it in its
-//! unprivileged mode (x86-64 CPL 3, AArch64 EL0, RISC-V U-mode). A run ends
-//! at the first event an operating system must handle — a system call, an
-//! exception, a memory fault — or when the instruction budget of a time
-//! slice is spent. Adapters are OS-neutral: they report *what the hardware
-//! did*, and an OS personality decides what that means (a Linux signal, a
-//! system call, ...).
+//! unprivileged mode (x86-64 CPL 3, AArch64 EL0, AArch32 User mode, RISC-V
+//! U-mode). A run ends at the first event an operating system must handle —
+//! a system call, an exception, a memory fault — or when the instruction
+//! budget of a time slice is spent. Adapters are OS-neutral: they report
+//! *what the hardware did*, and an OS personality decides what that means (a
+//! Linux signal, a system call, ...).
 //!
-//! Every adapter keeps the core's code caches coherent with the address
-//! space by applying [`AddressSpace::code_changes_since`] before it resumes
-//! execution, clears LL/SC reservations whenever it leaves the guest (as an
-//! exception return does on real hardware), and restores the unprivileged
-//! execution state after any trap the core models architecturally.
+//! Every adapter whose core caches code keeps the cache coherent with the
+//! address space by applying [`AddressSpace::code_changes_since`] before it
+//! resumes execution. Every adapter clears LL/SC reservations whenever it
+//! leaves the guest (as an exception return does on real hardware), and
+//! restores the unprivileged execution state after any trap the core models
+//! architecturally.
 
 pub mod aarch64;
+pub mod arm;
 pub mod riscv64;
 pub mod x86_64;
 
@@ -35,6 +37,8 @@ pub enum Isa {
     Aarch64,
     /// 64-bit RISC-V (RV64GC plus the extensions the core implements).
     Riscv64,
+    /// ARMv7-A and later in AArch32 state (ARM and Thumb).
+    Arm,
 }
 
 impl Isa {
@@ -44,6 +48,7 @@ impl Isa {
             Isa::X86_64 => "x86_64",
             Isa::Aarch64 => "aarch64",
             Isa::Riscv64 => "riscv64",
+            Isa::Arm => "arm",
         }
     }
 }

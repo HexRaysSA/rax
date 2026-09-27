@@ -1,12 +1,16 @@
 //! CPU adapter contracts. Instruction bytes were produced with `llvm-mc`
-//! (`-triple=aarch64 -mattr=+v8.2a`, `-triple=riscv64 -mattr=+m,+a,+f,+d,+c,
-//! +zicsr,+zicntr`, `-triple=x86_64 -x86-asm-syntax=intel`). Expected
-//! exception reporting follows the Arm ARM (preferred return addresses of
-//! SVC, BRK, and synchronous aborts), the RISC-V Privileged ISA (ECALL/EBREAK
-//! epc, U-mode CSR privilege, MRET privilege), and Linux's EL0/U-mode
-//! register configuration.
+//! (`-triple=aarch64 -mattr=+v8.2a`, `-triple=armv7a -mattr=+vfp3`,
+//! `-triple=thumbv7a`, `-triple=riscv64 -mattr=+m,+a,+f,+d,+c,+zicsr,
+//! +zicntr`, `-triple=x86_64 -x86-asm-syntax=intel`). Expected exception
+//! reporting follows the Arm ARM (preferred return addresses of SVC, BRK,
+//! BKPT, and synchronous aborts; PL0 access to CP15 and the FP system
+//! registers; ARMv8's AArch32 without SWP and, lacking mixed-endian EL0,
+//! SETEND), the RISC-V Privileged ISA (ECALL/EBREAK epc, U-mode CSR
+//! privilege, MRET privilege), and Linux's EL0/U-mode register
+//! configuration.
 
 use super::aarch64::{A64Exit, A64UserCpu};
+use super::arm::{A32Exit, A32UserCpu};
 use super::riscv64::{RvExit, RvUserCpu};
 use super::x86_64::{RESERVED_PHYS, X86Exit, X86UserCpu};
 use super::{AccessFault, AccessFaultKind};
@@ -287,6 +291,250 @@ fn a64_el0_spsr_records_and_restores_pstate() {
     assert!(!cpu.core_mut().set_el0_spsr(0x10));
     assert_eq!(cpu.core().el0_spsr(), spsr);
     assert_eq!(cpu.core().current_el(), 0);
+}
+
+// ---------------------------------------------------------------- AArch32
+
+const A32_MOV_R7_1: u32 = 0xe3a0_7001;
+const A32_SVC_0: u32 = 0xef00_0000;
+const A32_BKPT_1234: u32 = 0xe121_2374;
+const A32_UDF_0: u32 = 0xe7f0_00f0;
+const A32_SWP_R2_R2_R1: u32 = 0xe101_2092;
+const A32_SETEND_BE: u32 = 0xf101_0200;
+const A32_LDR_R0_R1: u32 = 0xe591_0000;
+const A32_STR_R0_R1: u32 = 0xe581_0000;
+const A32_MCR_TPIDRURW_R0: u32 = 0xee0d_0f50;
+const A32_MRC_R1_TPIDRURW: u32 = 0xee1d_1f50;
+const A32_MRC_R2_TPIDRURO: u32 = 0xee1d_2f70;
+const A32_MCR_TPIDRURO_R0: u32 = 0xee0d_0f70;
+const A32_MCR_CP15DMB_R0: u32 = 0xee07_0fba;
+const A32_VMRS_R0_FPSID: u32 = 0xeef0_0a10;
+const A32_VMRS_R1_FPSCR: u32 = 0xeef1_1a10;
+const A32_LDREX_R0_R1: u32 = 0xe191_0f9f;
+const A32_STREX_R2_R0_R1: u32 = 0xe181_2f90;
+const A32_ADR_R0_PLUS_1: u32 = 0xe28f_0001;
+const A32_BX_R0: u32 = 0xe12f_ff10;
+const A32_WFI: u32 = 0xe320_f003;
+const A32_B_SELF: u32 = 0xeaff_fffe;
+
+fn a32(code: &[u8]) -> A32UserCpu {
+    let s = space(code);
+    let mut cpu = A32UserCpu::new(&s);
+    cpu.set_pc(CODE);
+    cpu.set_sp(DATA + 0x800);
+    cpu
+}
+
+fn halves(hs: &[u16]) -> Vec<u8> {
+    hs.iter().flat_map(|h| h.to_le_bytes()).collect()
+}
+
+fn a32_undefined(exit: A32Exit) -> (u64, u32, bool) {
+    match exit {
+        A32Exit::Undefined {
+            pc, insn, thumb, ..
+        } => (pc, insn, thumb),
+        other => panic!("expected an undefined instruction, got {other:?}"),
+    }
+}
+
+#[test]
+fn a32_starts_in_user_mode_with_fp_enabled() {
+    let cpu = a32(&words(&[A32_SVC_0]));
+    let core = cpu.core();
+    assert_eq!(core.cpsr.to_u32(), 0x10, "User mode, A32, no masks");
+    assert!(!core.is_privileged());
+    assert_eq!(core.vfp.fpexc, 1 << 30);
+    assert!(!core.cp15.sctlr.cp15ben());
+    assert_eq!(core.regs[..13], [0; 13]);
+}
+
+#[test]
+fn a32_svc_reports_with_pc_past_it() {
+    let mut cpu = a32(&words(&[A32_MOV_R7_1, A32_SVC_0]));
+    assert_eq!(
+        cpu.run(10),
+        A32Exit::Svc {
+            imm: 0,
+            pc: CODE + 4
+        }
+    );
+    assert_eq!((cpu.pc(), cpu.core().regs[7]), (CODE + 8, 1));
+}
+
+#[test]
+fn a32_bkpt_and_undefined_leave_pc_at_the_instruction() {
+    let mut cpu = a32(&words(&[A32_BKPT_1234]));
+    assert_eq!(
+        cpu.run(10),
+        A32Exit::Bkpt {
+            imm: 0x1234,
+            pc: CODE
+        }
+    );
+    assert_eq!(cpu.pc(), CODE);
+    // UDF, and SWP and SETEND, which ARMv8 AArch32 EL0 lacks.
+    for insn in [A32_UDF_0, A32_SWP_R2_R2_R1, A32_SETEND_BE] {
+        let mut cpu = a32(&words(&[insn]));
+        cpu.core_mut().regs[1] = DATA as u32;
+        assert_eq!(a32_undefined(cpu.run(10)), (CODE, insn, false));
+        assert_eq!(cpu.pc(), CODE);
+    }
+    // T16 SETEND and BKPT.
+    let mut cpu = a32(&halves(&[0xb658]));
+    cpu.core_mut().cpsr.t = true;
+    assert_eq!(a32_undefined(cpu.run(10)), (CODE, 0xb658, true));
+    let mut cpu = a32(&halves(&[0xbe12]));
+    cpu.core_mut().cpsr.t = true;
+    assert_eq!(
+        cpu.run(10),
+        A32Exit::Bkpt {
+            imm: 0x12,
+            pc: CODE
+        }
+    );
+}
+
+#[test]
+fn a32_memory_faults_are_precise_and_classified() {
+    let fault = |addr, access, kind, pc| {
+        A32Exit::Fault(AccessFault {
+            addr,
+            access,
+            kind,
+            pc,
+        })
+    };
+    let mut cpu = a32(&words(&[A32_LDR_R0_R1]));
+    cpu.core_mut().regs[1] = UNMAPPED as u32;
+    let unmapped = AccessFaultKind::Unmapped;
+    assert_eq!(
+        cpu.run(10),
+        fault(UNMAPPED, MemoryAccessKind::Read, unmapped, CODE)
+    );
+    assert_eq!(cpu.pc(), CODE);
+    let mut cpu = a32(&words(&[A32_STR_R0_R1]));
+    cpu.core_mut().regs[1] = RODATA as u32 + 2;
+    let denied = AccessFaultKind::Permission;
+    assert_eq!(
+        cpu.run(10),
+        fault(RODATA + 2, MemoryAccessKind::Write, denied, CODE)
+    );
+    // Fetching from a page without execute permission.
+    let mut cpu = a32(&words(&[A32_SVC_0]));
+    cpu.set_pc(DATA);
+    assert_eq!(
+        cpu.run(10),
+        fault(DATA, MemoryAccessKind::Fetch, denied, DATA)
+    );
+    // The second halfword of a T32 instruction on the next, unmapped page.
+    let mut code = vec![0; PAGE_SIZE as usize - 2];
+    code.extend(halves(&[0xf8d1]));
+    let mut cpu = a32(&code);
+    cpu.core_mut().cpsr.t = true;
+    let last = CODE + PAGE_SIZE - 2;
+    cpu.set_pc(last);
+    assert_eq!(
+        cpu.run(10),
+        fault(CODE + PAGE_SIZE, MemoryAccessKind::Fetch, unmapped, last)
+    );
+    // A32 execution at a PC that is not word-aligned.
+    let mut cpu = a32(&words(&[A32_SVC_0, A32_SVC_0]));
+    cpu.set_pc(CODE + 2);
+    let align = AccessFaultKind::Alignment;
+    assert_eq!(
+        cpu.run(10),
+        fault(CODE + 2, MemoryAccessKind::Fetch, align, CODE + 2)
+    );
+}
+
+#[test]
+fn a32_pl0_reaches_the_thread_ids_and_fpscr_only() {
+    let mut cpu = a32(&words(&[
+        A32_MCR_TPIDRURW_R0,
+        A32_MRC_R1_TPIDRURW,
+        A32_MRC_R2_TPIDRURO,
+        A32_VMRS_R1_FPSCR,
+        A32_SVC_0,
+    ]));
+    cpu.core_mut().regs[0] = 0x1234_5678;
+    cpu.core_mut().cp15.tpidruro = 0xbeef_0000;
+    cpu.core_mut().vfp.fpscr = crate::isa::arm::vfp::Fpscr::from_bits(0x0300_0000);
+    assert!(matches!(cpu.run(10), A32Exit::Svc { .. }));
+    assert_eq!(cpu.core().regs[1..3], [0x0300_0000, 0xbeef_0000]);
+    assert_eq!(cpu.core().cp15.tpidrurw, 0x1234_5678);
+    // TPIDRURO is read-only, the CP15 barriers are disabled, and FPSID is
+    // PL1's.
+    for insn in [A32_MCR_TPIDRURO_R0, A32_MCR_CP15DMB_R0, A32_VMRS_R0_FPSID] {
+        let mut cpu = a32(&words(&[insn]));
+        assert_eq!(a32_undefined(cpu.run(10)), (CODE, insn, false));
+        assert_eq!(cpu.core().cp15.tpidruro, 0);
+    }
+}
+
+#[test]
+fn a32_exclusive_monitor_is_cleared_between_runs() {
+    let code = words(&[A32_LDREX_R0_R1, A32_STREX_R2_R0_R1, A32_SVC_0]);
+    let mut cpu = a32(&code);
+    cpu.core_mut().regs[1] = DATA as u32;
+    assert!(matches!(cpu.run(10), A32Exit::Svc { .. }));
+    assert_eq!(cpu.core().regs[2], 0, "STREX succeeds within a run");
+    let mut cpu = a32(&code);
+    cpu.core_mut().regs[1] = DATA as u32;
+    assert_eq!(cpu.run(1), A32Exit::Yield);
+    assert!(matches!(cpu.run(10), A32Exit::Svc { .. }));
+    assert_eq!(cpu.core().regs[2], 1, "STREX fails after the thread left");
+}
+
+#[test]
+fn a32_interworks_with_thumb_and_it_blocks() {
+    // adr r0, . + 9 ; bx r0 ; then T32 at CODE + 8: movs r1, #5 ;
+    // cmp r1, #5 ; ite eq ; moveq r2, #1 ; movne r2, #2 ; svc #0x12.
+    let mut code = words(&[A32_ADR_R0_PLUS_1, A32_BX_R0]);
+    code.extend(halves(&[0x2105, 0x2905, 0xbf0c, 0x2201, 0x2202, 0xdf12]));
+    let mut cpu = a32(&code);
+    assert_eq!(
+        cpu.run(20),
+        A32Exit::Svc {
+            imm: 0x12,
+            pc: CODE + 18
+        }
+    );
+    assert!(cpu.thumb());
+    assert_eq!((cpu.pc(), cpu.core().regs[2]), (CODE + 20, 1));
+    assert!(!cpu.core().cpsr.in_it_block());
+}
+
+#[test]
+fn a32_wfi_completes_and_the_budget_bounds_a_run() {
+    let mut cpu = a32(&words(&[A32_WFI, A32_B_SELF]));
+    assert_eq!(cpu.run(10), A32Exit::Yield);
+    assert_eq!(cpu.pc(), CODE + 4);
+    assert_eq!(cpu.run(1000), A32Exit::Yield);
+    assert_eq!(cpu.pc(), CODE + 4);
+}
+
+#[test]
+fn a32_clone_thread_copies_register_state() {
+    let mut code = halves(&[0xdf00]);
+    code.extend([0; 2]);
+    let mut cpu = a32(&code);
+    cpu.core_mut().cpsr.t = true;
+    cpu.core_mut().regs[5] = 0xfeed;
+    cpu.core_mut().cpsr.ge = 0b0101;
+    cpu.core_mut().vfp.dregs[31] = 0x4000_0000_0000_0000;
+    cpu.core_mut().cp15.tpidrurw = 0x7000;
+    cpu.core_mut().cp15.tpidruro = 0x8000;
+    assert!(matches!(cpu.run(10), A32Exit::Svc { .. }));
+    let child = cpu.clone_thread();
+    let (c, p) = (child.core(), cpu.core());
+    assert_eq!(c.regs, p.regs);
+    assert_eq!(c.cpsr.to_u32(), p.cpsr.to_u32());
+    assert!(child.thumb());
+    assert_eq!(c.vfp.dregs[31], 0x4000_0000_0000_0000);
+    assert_eq!((c.cp15.tpidrurw, c.cp15.tpidruro), (0x7000, 0x8000));
+    assert!(!c.is_privileged());
+    assert!(child.space().same_space(cpu.space()));
 }
 
 // ------------------------------------------------------------------- RV64
