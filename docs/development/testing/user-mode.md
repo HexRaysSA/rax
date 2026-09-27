@@ -131,7 +131,9 @@ UAPI structures, FSAVE conversions from the SDM tag rules, selector reloads and
 taken, the separate 32-bit robust list, `futex_time32`/`futex_time64` timeouts),
 `compat_sys_ioctl`'s routing and `epoll_pwait2`, sockets (`struct compat_msghdr`,
 32-bit control messages and their checks, `mmsghdr` strides, `socketcall`, old
-timeouts, interface requests), and rejection of unconverted calls;
+timeouts, interface requests), System V IPC (the `ipc` multiplexer, the old and
+`*64` structures, whole commands, 32-bit message types, `old_timespec32`
+timeouts), and rejection of unconverted calls;
 `src/user/linux/abi/compat_tests.rs`: 32-bit layout and overflow checks;
 `src/isa/x86_64/user_gdt_tests.rs`: GDT selector/TLS behavior; `user_linux`
 `abi_tables`: numbering against `unistd_32.h`. `user_linux` `fixtures` runs an i386

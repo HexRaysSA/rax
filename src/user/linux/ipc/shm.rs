@@ -17,8 +17,8 @@ use std::path::PathBuf;
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::{
-    Caller, IPC_CREAT, IPC_EXCL, IPC_PRIVATE, IPCMNI, Ids, Namespace, Perm, Table, alive, build_id,
-    idx_of, now, seq_of,
+    Caller, IPC_CREAT, IPC_EXCL, IPC_PRIVATE, IPCMNI, Ids, Namespace, Perm, PermSet, Table, alive,
+    build_id, idx_of, now, seq_of,
 };
 
 /// `SHMMIN`, `SHMMNI`, `SHMMAX`, `SHMALL` (the defaults of `shm_init_ns`).
@@ -54,6 +54,93 @@ pub const SHM_INFO_SIZE: usize = 48;
 const TABLE: &str = "shm";
 
 const PAGE_SIZE: u64 = 4096;
+
+/// A segment's status as `shmctl_stat` fills `struct shmid64_ds`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ShmDs {
+    pub perm: Perm,
+    pub segsz: u64,
+    pub atime: i64,
+    pub dtime: i64,
+    pub ctime: i64,
+    pub cpid: i32,
+    pub lpid: i32,
+    pub nattch: u64,
+}
+
+impl ShmDs {
+    /// `struct shmid64_ds`.
+    pub fn encode(&self) -> [u8; SHMID64_DS] {
+        let mut b = [0u8; SHMID64_DS];
+        b[..super::IPC64_PERM].copy_from_slice(&self.perm.encode());
+        b[48..56].copy_from_slice(&self.segsz.to_le_bytes());
+        b[56..64].copy_from_slice(&self.atime.to_le_bytes());
+        b[64..72].copy_from_slice(&self.dtime.to_le_bytes());
+        b[72..80].copy_from_slice(&self.ctime.to_le_bytes());
+        b[80..84].copy_from_slice(&self.cpid.to_le_bytes());
+        b[84..88].copy_from_slice(&self.lpid.to_le_bytes());
+        b[88..96].copy_from_slice(&self.nattch.to_le_bytes());
+        b
+    }
+}
+
+/// `struct shminfo64` as `shmctl_ipc_info` fills it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ShmInfo64 {
+    pub shmmax: u64,
+    pub shmmin: u64,
+    pub shmmni: u64,
+    pub shmseg: u64,
+    pub shmall: u64,
+}
+
+impl ShmInfo64 {
+    pub fn encode(&self) -> [u8; SHMINFO64] {
+        let mut b = [0u8; SHMINFO64];
+        for (i, v) in [
+            self.shmmax,
+            self.shmmin,
+            self.shmmni,
+            self.shmseg,
+            self.shmall,
+        ]
+        .iter()
+        .enumerate()
+        {
+            b[i * 8..i * 8 + 8].copy_from_slice(&v.to_le_bytes());
+        }
+        b
+    }
+}
+
+/// `struct shm_info` as `shmctl_shm_info` fills it (nothing is swapped).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ShmInfo {
+    pub used_ids: i32,
+    pub shm_tot: u64,
+    pub shm_rss: u64,
+    pub shm_swp: u64,
+    pub swap_attempts: u64,
+    pub swap_successes: u64,
+}
+
+impl ShmInfo {
+    pub fn encode(&self) -> [u8; SHM_INFO_SIZE] {
+        let mut b = [0u8; SHM_INFO_SIZE];
+        b[0..4].copy_from_slice(&self.used_ids.to_le_bytes());
+        let rest = [
+            self.shm_tot,
+            self.shm_rss,
+            self.shm_swp,
+            self.swap_attempts,
+            self.swap_successes,
+        ];
+        for (i, v) in rest.iter().enumerate() {
+            b[8 + i * 8..16 + i * 8].copy_from_slice(&v.to_le_bytes());
+        }
+        b
+    }
+}
 
 /// A segment (`struct shmid_kernel`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -91,18 +178,18 @@ impl Segment {
         self.segsz.div_ceil(PAGE_SIZE)
     }
 
-    /// `struct shmid64_ds`.
-    pub fn encode(&self) -> [u8; SHMID64_DS] {
-        let mut b = [0u8; SHMID64_DS];
-        b[..super::IPC64_PERM].copy_from_slice(&self.perm.encode());
-        b[48..56].copy_from_slice(&self.segsz.to_le_bytes());
-        b[56..64].copy_from_slice(&self.atime.to_le_bytes());
-        b[64..72].copy_from_slice(&self.dtime.to_le_bytes());
-        b[72..80].copy_from_slice(&self.ctime.to_le_bytes());
-        b[80..84].copy_from_slice(&self.cpid.to_le_bytes());
-        b[84..88].copy_from_slice(&self.lpid.to_le_bytes());
-        b[88..96].copy_from_slice(&self.nattch().to_le_bytes());
-        b
+    /// Its status (`shmctl_stat`).
+    pub fn ds(&self) -> ShmDs {
+        ShmDs {
+            perm: self.perm.clone(),
+            segsz: self.segsz,
+            atime: self.atime,
+            dtime: self.dtime,
+            ctime: self.ctime,
+            cpid: self.cpid,
+            lpid: self.lpid,
+            nattch: self.nattch(),
+        }
     }
 }
 
@@ -401,52 +488,49 @@ pub fn publish(
 }
 
 /// `shmctl`'s `IPC_STAT`, `SHM_STAT`, and `SHM_STAT_ANY` (`shmctl_stat`):
-/// the `struct shmid64_ds` and the call's result (0, or for the `SHM_STAT`
-/// forms, which take an index, the identifier).
-pub fn stat(
-    ns: &Namespace,
-    id: i32,
-    cmd: i32,
-    who: &Caller,
-) -> Result<([u8; SHMID64_DS], i32), Errno> {
+/// the status and the call's result (0, or for the `SHM_STAT` forms, which
+/// take an index, the identifier).
+pub fn stat(ns: &Namespace, id: i32, cmd: i32, who: &Caller) -> Result<(ShmDs, i32), Errno> {
     ns.with_table::<ShmTable, _>(TABLE, |t| {
         t.collect(ns);
-        let s = if cmd == super::IPC_STAT {
-            t.by_id(id)?
-        } else {
+        let s = if cmd == SHM_STAT || cmd == SHM_STAT_ANY {
             // shm_obtain_object: by index, whatever the sequence number.
             let idx = idx_of(id);
             t.segs
                 .iter_mut()
                 .find(|s| s.idx == idx)
                 .ok_or(Errno(EINVAL))?
+        } else {
+            t.by_id(id)?
         };
         if cmd != SHM_STAT_ANY && !s.perm.allows(who, 0o444) {
             return Err(Errno(EACCES));
         }
         let r = if cmd == super::IPC_STAT { 0 } else { s.id() };
-        Ok((s.encode(), r))
+        Ok((s.ds(), r))
     })
 }
 
 /// `IPC_INFO` (`shmctl_ipc_info`): `struct shminfo64` and the highest
 /// index in use.
-pub fn ipc_info(ns: &Namespace) -> Result<([u8; SHMINFO64], i32), Errno> {
+pub fn ipc_info(ns: &Namespace) -> Result<(ShmInfo64, i32), Errno> {
     ns.with_table::<ShmTable, _>(TABLE, |t| {
         t.collect(ns);
-        let mut b = [0u8; SHMINFO64];
-        b[0..8].copy_from_slice(&SHMMAX.to_le_bytes());
-        b[8..16].copy_from_slice(&SHMMIN.to_le_bytes());
-        b[16..24].copy_from_slice(&u64::from(SHMMNI).to_le_bytes());
-        b[24..32].copy_from_slice(&u64::from(SHMMNI).to_le_bytes());
-        b[32..40].copy_from_slice(&SHMALL.to_le_bytes());
-        Ok((b, t.max_idx()))
+        let info = ShmInfo64 {
+            shmmax: SHMMAX,
+            shmmin: SHMMIN,
+            shmmni: u64::from(SHMMNI),
+            // SHMSEG is SHMMNI.
+            shmseg: u64::from(SHMMNI),
+            shmall: SHMALL,
+        };
+        Ok((info, t.max_idx()))
     })
 }
 
 /// `SHM_INFO` (`shmctl_shm_info`): `struct shm_info` and the highest
 /// index in use. Resident pages are the host files' allocated blocks.
-pub fn shm_info(ns: &Namespace) -> Result<([u8; SHM_INFO_SIZE], i32), Errno> {
+pub fn shm_info(ns: &Namespace) -> Result<(ShmInfo, i32), Errno> {
     use std::os::unix::fs::MetadataExt;
     ns.with_table::<ShmTable, _>(TABLE, |t| {
         t.collect(ns);
@@ -456,17 +540,20 @@ pub fn shm_info(ns: &Namespace) -> Result<([u8; SHM_INFO_SIZE], i32), Errno> {
             .filter_map(|s| std::fs::metadata(ns.dir().join(&s.file)).ok())
             .map(|m| (m.blocks() * 512).div_ceil(PAGE_SIZE))
             .sum();
-        let mut b = [0u8; SHM_INFO_SIZE];
-        b[0..4].copy_from_slice(&(t.segs.len() as i32).to_le_bytes());
-        b[8..16].copy_from_slice(&t.total_pages().to_le_bytes());
-        b[16..24].copy_from_slice(&rss.to_le_bytes());
-        Ok((b, t.max_idx()))
+        let info = ShmInfo {
+            used_ids: t.segs.len() as i32,
+            shm_tot: t.total_pages(),
+            shm_rss: rss,
+            shm_swp: 0,
+            swap_attempts: 0,
+            swap_successes: 0,
+        };
+        Ok((info, t.max_idx()))
     })
 }
 
-/// `IPC_SET` (`shmctl_down`): the owner, group, and permissions from the
-/// guest's `struct ipc64_perm`.
-pub fn set(ns: &Namespace, id: i32, perm: &[u8], who: &Caller) -> Result<(), Errno> {
+/// `IPC_SET` (`shmctl_down`): the owner, group, and permissions.
+pub fn set(ns: &Namespace, id: i32, perm: &PermSet, who: &Caller) -> Result<(), Errno> {
     ns.with_table::<ShmTable, _>(TABLE, |t| {
         let s = t.by_id(id)?;
         if !s.perm.owned_by(who) {
@@ -559,6 +646,7 @@ mod tests {
             Err(Errno(ENOMEM))
         );
         let (ds, r) = stat(&n, k, super::super::IPC_STAT, &who).unwrap();
+        let ds = ds.encode();
         assert_eq!(r, 0);
         assert_eq!(i32::from_le_bytes(ds[..4].try_into().unwrap()), 42);
         assert_eq!(u32::from_le_bytes(ds[20..24].try_into().unwrap()), 0o640);
@@ -579,7 +667,10 @@ mod tests {
         let who = me(1000);
         let id = get(&n, 7, 8192, IPC_CREAT | 0o600, &who).unwrap();
         let nattch = |n: &Namespace| {
-            let (ds, _) = stat(n, id, super::super::IPC_STAT, &who).unwrap();
+            let ds = stat(n, id, super::super::IPC_STAT, &who)
+                .unwrap()
+                .0
+                .encode();
             u64::from_le_bytes(ds[88..96].try_into().unwrap())
         };
         let none = BTreeMap::new();
@@ -592,7 +683,10 @@ mod tests {
         assert_eq!(nattch(&n), 2);
         // Removal while attached: marked, its key private.
         rmid(&n, id, &who).unwrap();
-        let (ds, _) = stat(&n, id, super::super::IPC_STAT, &who).unwrap();
+        let ds = stat(&n, id, super::super::IPC_STAT, &who)
+            .unwrap()
+            .0
+            .encode();
         assert_eq!(i32::from_le_bytes(ds[..4].try_into().unwrap()), IPC_PRIVATE);
         assert_eq!(
             u32::from_le_bytes(ds[20..24].try_into().unwrap()) & SHM_DEST,
@@ -615,8 +709,11 @@ mod tests {
         let mut perm = [0u8; super::super::IPC64_PERM];
         perm[4..8].copy_from_slice(&5u32.to_le_bytes());
         perm[20..24].copy_from_slice(&0o644u32.to_le_bytes());
-        set(&n, id, &perm, &who).unwrap();
-        let (ds, _) = stat(&n, id, super::super::IPC_STAT, &who).unwrap();
+        set(&n, id, &PermSet::decode(&perm), &who).unwrap();
+        let ds = stat(&n, id, super::super::IPC_STAT, &who)
+            .unwrap()
+            .0
+            .encode();
         assert_eq!(
             u32::from_le_bytes(ds[20..24].try_into().unwrap()),
             0o644 | SHM_LOCKED

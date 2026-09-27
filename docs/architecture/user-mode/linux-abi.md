@@ -98,6 +98,19 @@ and converted before any data is sent, received with `put_cmsg_compat`'s and
 `compat_sock_ioctl` passes on: `struct compat_ifconf`, 32-byte `struct compat_ifreq`
 reads and writes, and `struct compat_ifmap`.
 
+System V IPC: the direct calls and the `ipc` multiplexer (`compat_ksys_ipc`) share
+the native objects. The direct `semctl`, `msgctl`, and `shmctl` always use the `*64`
+structures (`struct compat_ipc64_perm`, 32-bit words, times in low and high halves)
+and pass the command on whole, as the kernel's do: `IPC_STAT | IPC_64` returns the
+identifier from `semctl` and `msgctl`, their other commands with `IPC_64` end in
+`EINVAL` after the lookup, and `shmctl` refuses them. Through the multiplexer,
+`IPC_64` selects those structures and its absence the old ones (`struct
+compat_ipc_perm` with 16-bit IDs through `high2lowuid`, `old_time32_t` times, 16-bit
+counts and process IDs); `MSGRCV`'s version 0 reads `struct compat_ipc_kludge`,
+`SHMAT` stores the address in a 32-bit word (its version 1 is `EINVAL`), and
+`SEMTIMEDOP`'s timeout is a `struct old_timespec32`. Messages carry a 32-bit type
+(`struct compat_msgbuf`) and sign-extended sizes.
+
 Threads: `clone` (in `sys_ia32_clone`'s argument order) and `clone3` take a `struct
 user_desc` for `CLONE_SETTLS`, filling the child's TLS entry (`set_new_tls`); the
 robust list a 32-bit call registers is a separate head of 12 bytes, released with

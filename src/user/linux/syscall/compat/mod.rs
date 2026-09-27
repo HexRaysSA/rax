@@ -16,6 +16,7 @@
 //! |---|---|
 //! | this one | the table and the calls without a module of their own |
 //! | [`file`] | split and 32-bit offsets, `_llseek`, `fcntl`'s locks |
+//! | [`ipc`] | the `ipc` multiplexer and System V IPC's 32-bit structures |
 //! | [`net`] | the `socketcall` multiplexer |
 //! | [`resource`] | resource limits and CPU masks |
 //! | [`signal`] | `struct compat_sigaction`, the old one-word signal calls, `compat_stack_t` |
@@ -24,6 +25,7 @@
 //! | [`uid16`] | the 16-bit user- and group-ID calls |
 
 pub mod file;
+pub mod ipc;
 pub mod net;
 pub mod resource;
 pub mod signal;
@@ -363,6 +365,21 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::Sigreturn => super::signal::sigreturn(c),
         S::RtSigtimedwait => time32(c, S::RtSigtimedwait, a),
         S::Socketcall => net::socketcall(c, a[0], a[1]),
+        // System V IPC: the calls whose layouts are the same, the ipc
+        // multiplexer, and the compatibility entry points.
+        S::Semget | S::Shmget | S::Shmat | S::Shmdt | S::Msgget => call_handler(c, s, a),
+        S::SemtimedopTime64 => call_handler(c, S::Semtimedop, a),
+        S::Ipc => r(ipc::ipc(c, a)),
+        S::Semctl => r(ipc::semctl(c, fd(a[0]), fd(a[1]), fd(a[2]), a[3], true)),
+        S::Msgctl => r(ipc::msgctl(c, fd(a[0]), fd(a[1]), a[2], true)),
+        S::Shmctl => r(ipc::shmctl(c, fd(a[0]), fd(a[1]), a[2], true)),
+        // compat_ssize_t sizes and a compat_long_t type, sign-extended.
+        S::Msgsnd => call_handler(c, S::Msgsnd, [a[0], a[1], sext(a[2]) as u64, a[3], 0, 0]),
+        S::Msgrcv => call_handler(
+            c,
+            S::Msgrcv,
+            [a[0], a[1], sext(a[2]) as u64, sext(a[3]) as u64, a[4], 0],
+        ),
         // recvmmsg_time32 and recvmmsg_time64.
         S::Recvmmsg => time32(c, S::Recvmmsg, a),
         S::RecvmmsgTime64 => call_handler(c, S::Recvmmsg, a),

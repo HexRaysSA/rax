@@ -15,8 +15,8 @@
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::{
-    Caller, IPC_CREAT, IPC_EXCL, IPC_NOWAIT, IPC_PRIVATE, IPCMNI, Ids, Namespace, Perm, Table,
-    alive, build_id, idx_of, now, seq_of,
+    Caller, IPC_CREAT, IPC_EXCL, IPC_NOWAIT, IPC_PRIVATE, IPCMNI, Ids, Namespace, Perm, PermSet,
+    Table, alive, build_id, idx_of, now, seq_of,
 };
 
 /// `SEMMSL`, `SEMMNS`, `SEMOPM`, `SEMMNI`, `SEMVMX`, `SEMAEM`, and the
@@ -72,6 +72,36 @@ pub struct Waiter {
     pub zero: bool,
 }
 
+/// A set's status as `semctl_stat` fills `struct semid64_ds`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SemDs {
+    pub perm: Perm,
+    pub otime: i64,
+    pub ctime: i64,
+    pub nsems: u64,
+}
+
+impl SemDs {
+    /// `struct semid64_ds`, whose x86-64 form keeps a word of padding after
+    /// each time.
+    pub fn encode(&self, x86_64: bool) -> Vec<u8> {
+        let mut b = self.perm.encode().to_vec();
+        let word = |b: &mut Vec<u8>, v: i64| b.extend_from_slice(&v.to_le_bytes());
+        word(&mut b, self.otime);
+        if x86_64 {
+            word(&mut b, 0);
+        }
+        word(&mut b, self.ctime);
+        if x86_64 {
+            word(&mut b, 0);
+        }
+        word(&mut b, self.nsems as i64);
+        word(&mut b, 0);
+        word(&mut b, 0);
+        b
+    }
+}
+
 /// A set (`struct sem_array`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemSet {
@@ -94,23 +124,14 @@ impl SemSet {
         self.sems.iter().map(|s| s.otime).max().unwrap_or(0)
     }
 
-    /// `struct semid64_ds`, whose x86-64 form keeps a word of padding after
-    /// each time.
-    pub fn encode(&self, x86_64: bool) -> Vec<u8> {
-        let mut b = self.perm.encode().to_vec();
-        let word = |b: &mut Vec<u8>, v: i64| b.extend_from_slice(&v.to_le_bytes());
-        word(&mut b, self.otime());
-        if x86_64 {
-            word(&mut b, 0);
+    /// Its status (`semctl_stat`).
+    pub fn ds(&self) -> SemDs {
+        SemDs {
+            perm: self.perm.clone(),
+            otime: self.otime(),
+            ctime: self.ctime,
+            nsems: self.sems.len() as u64,
         }
-        word(&mut b, self.ctime);
-        if x86_64 {
-            word(&mut b, 0);
-        }
-        word(&mut b, self.sems.len() as i64);
-        word(&mut b, 0);
-        word(&mut b, 0);
-        b
     }
 
     /// `count_semcnt`: the waiting processes still alive whose blocking
@@ -462,30 +483,28 @@ pub fn stop_waiting(ns: &Namespace, id: i32, pid: i32, tid: i32) {
     });
 }
 
-/// `IPC_STAT`, `SEM_STAT`, `SEM_STAT_ANY` (`semctl_stat`).
-pub fn stat(
-    ns: &Namespace,
-    id: i32,
-    cmd: i32,
-    who: &Caller,
-    x86_64: bool,
-) -> Result<(Vec<u8>, i32), Errno> {
+/// `IPC_STAT`, `SEM_STAT`, `SEM_STAT_ANY` (`semctl_stat`): the status and
+/// the call's result. As in the kernel, `cmd` is compared whole, so a
+/// compatibility caller's `IPC_STAT | IPC_64` (which `compat_ksys_semctl`
+/// passes on unmasked) looks the set up by identifier as `IPC_STAT` does
+/// but returns the identifier as `SEM_STAT` does.
+pub fn stat(ns: &Namespace, id: i32, cmd: i32, who: &Caller) -> Result<(SemDs, i32), Errno> {
     ns.with_table::<SemTable, _>(TABLE, |t| {
         t.collect();
-        let s = if cmd == super::IPC_STAT {
-            t.by_id(id)?
-        } else {
+        let s = if cmd == SEM_STAT || cmd == SEM_STAT_ANY {
             let idx = idx_of(id);
             t.sets
                 .iter_mut()
                 .find(|s| s.idx == idx)
                 .ok_or(Errno(EINVAL))?
+        } else {
+            t.by_id(id)?
         };
         if cmd != SEM_STAT_ANY && !s.perm.allows(who, 0o444) {
             return Err(Errno(EACCES));
         }
         let r = if cmd == super::IPC_STAT { 0 } else { s.id() };
-        Ok((s.encode(x86_64), r))
+        Ok((s.ds(), r))
     })
 }
 
@@ -523,7 +542,10 @@ pub fn info(ns: &Namespace, cmd: i32) -> Result<([u8; SEMINFO], i32), Errno> {
 }
 
 /// `GETVAL`, `GETPID`, `GETNCNT`, `GETZCNT`, and `GETALL` (`semctl_main`):
-/// the value (or, for `GETALL`, every value).
+/// the value (or, for `GETALL`, every value). Any other `cmd` (a
+/// compatibility caller's command with `IPC_64` set, which
+/// `compat_ksys_semctl` passes on unmasked) is `EINVAL` after the set, read
+/// access, and the semaphore number are checked.
 pub fn read(
     ns: &Namespace,
     id: i32,
@@ -548,7 +570,8 @@ pub fn read(
             GETVAL => m.val,
             GETPID => m.pid,
             GETNCNT => s.count(num as u16, false),
-            _ => s.count(num as u16, true),
+            GETZCNT => s.count(num as u16, true),
+            _ => return Err(Errno(EINVAL)),
         };
         Ok((v, Vec::new()))
     })
@@ -612,8 +635,21 @@ pub fn write(
     })
 }
 
+/// `semctl_down`'s lookup (`ipcctl_obtain_check`) for a command it then
+/// refuses (`EINVAL`): a compatibility caller's `IPC_SET` or `IPC_RMID`
+/// with `IPC_64` set.
+pub fn check_owner(ns: &Namespace, id: i32, who: &Caller) -> Result<(), Errno> {
+    ns.with_table::<SemTable, _>(TABLE, |t| {
+        let s = t.by_id(id)?;
+        if !s.perm.owned_by(who) {
+            return Err(Errno(EPERM));
+        }
+        Ok(())
+    })
+}
+
 /// `IPC_SET` (`semctl_down`).
-pub fn set(ns: &Namespace, id: i32, perm: &[u8], who: &Caller) -> Result<(), Errno> {
+pub fn set(ns: &Namespace, id: i32, perm: &PermSet, who: &Caller) -> Result<(), Errno> {
     ns.with_table::<SemTable, _>(TABLE, |t| {
         let s = t.by_id(id)?;
         if !s.perm.owned_by(who) {
@@ -784,12 +820,13 @@ mod tests {
         exit(&n, who.pid);
         assert_eq!(read(&n, id, 1, GETVAL, &who).unwrap().0, 4);
         // The x86-64 status layout.
-        let (ds, _) = stat(&n, id, super::super::IPC_STAT, &who, true).unwrap();
-        assert_eq!(ds.len(), 104);
-        assert_eq!(u64::from_le_bytes(ds[80..88].try_into().unwrap()), 2);
-        let (ds, _) = stat(&n, id, super::super::IPC_STAT, &who, false).unwrap();
-        assert_eq!(ds.len(), 88);
-        assert_eq!(u64::from_le_bytes(ds[64..72].try_into().unwrap()), 2);
+        let (ds, _) = stat(&n, id, super::super::IPC_STAT, &who).unwrap();
+        let b = ds.encode(true);
+        assert_eq!(b.len(), 104);
+        assert_eq!(u64::from_le_bytes(b[80..88].try_into().unwrap()), 2);
+        let b = ds.encode(false);
+        assert_eq!(b.len(), 88);
+        assert_eq!(u64::from_le_bytes(b[64..72].try_into().unwrap()), 2);
         let _ = std::fs::remove_dir_all(n.dir());
     }
 }

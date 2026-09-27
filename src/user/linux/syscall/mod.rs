@@ -1125,21 +1125,26 @@ pub fn dispatch(
         None => Err(Errno(ENOSYS)),
     };
     // shm_open, shm_close: the calls that change System V segment
-    // mappings publish them.
-    if let Some(s) = sysno
-        && (s == Sysno::Shmat || !c.p.ipc.shm_published.is_empty())
-        && matches!(
-            s,
-            Sysno::Shmat
-                | Sysno::Shmdt
-                | Sysno::Mmap
-                | Sysno::Munmap
-                | Sysno::Mremap
-                | Sysno::Mprotect
-                | Sysno::Brk
-        )
-    {
-        ipc::sync_shm(c.p);
+    // mappings publish them (a compatibility task's include `mmap2` and
+    // the ipc multiplexer's SHMAT and SHMDT).
+    if let Some(s) = sysno {
+        let op = (s == Sysno::Ipc).then_some(args[0] as u32 & 0xFFFF);
+        let attach = s == Sysno::Shmat || op == Some(compat::ipc::SHMAT);
+        let maps = attach
+            || op == Some(compat::ipc::SHMDT)
+            || matches!(
+                s,
+                Sysno::Shmdt
+                    | Sysno::Mmap
+                    | Sysno::Mmap2
+                    | Sysno::Munmap
+                    | Sysno::Mremap
+                    | Sysno::Mprotect
+                    | Sysno::Brk
+            );
+        if maps && (attach || !c.p.ipc.shm_published.is_empty()) {
+            ipc::sync_shm(c.p);
+        }
     }
     if let Some((mut wait, resume)) = c.block.take() {
         debug_assert_eq!(result, Err(Errno(BLOCKED)));

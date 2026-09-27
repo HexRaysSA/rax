@@ -13,8 +13,8 @@
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::{
-    Caller, IPC_CREAT, IPC_EXCL, IPC_NOWAIT, IPC_PRIVATE, IPCMNI, Ids, Namespace, Perm, Table,
-    build_id, idx_of, now, seq_of,
+    Caller, IPC_CREAT, IPC_EXCL, IPC_NOWAIT, IPC_PRIVATE, IPCMNI, Ids, Namespace, Perm, PermSet,
+    Table, build_id, idx_of, now, seq_of,
 };
 
 /// `MSGMNI`, `MSGMAX`, `MSGMNB`, and the informational `MSGPOOL`,
@@ -47,6 +47,37 @@ pub struct Message {
     pub text: Vec<u8>,
 }
 
+/// A queue's status as `msgctl_stat` fills `struct msqid64_ds`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MsqDs {
+    pub perm: Perm,
+    pub stime: i64,
+    pub rtime: i64,
+    pub ctime: i64,
+    pub cbytes: u64,
+    pub qnum: u64,
+    pub qbytes: u64,
+    pub lspid: i32,
+    pub lrpid: i32,
+}
+
+impl MsqDs {
+    /// `struct msqid64_ds`.
+    pub fn encode(&self) -> [u8; MSQID64_DS] {
+        let mut b = [0u8; MSQID64_DS];
+        b[..super::IPC64_PERM].copy_from_slice(&self.perm.encode());
+        b[48..56].copy_from_slice(&self.stime.to_le_bytes());
+        b[56..64].copy_from_slice(&self.rtime.to_le_bytes());
+        b[64..72].copy_from_slice(&self.ctime.to_le_bytes());
+        b[72..80].copy_from_slice(&self.cbytes.to_le_bytes());
+        b[80..88].copy_from_slice(&self.qnum.to_le_bytes());
+        b[88..96].copy_from_slice(&self.qbytes.to_le_bytes());
+        b[96..100].copy_from_slice(&self.lspid.to_le_bytes());
+        b[100..104].copy_from_slice(&self.lrpid.to_le_bytes());
+        b
+    }
+}
+
 /// A queue (`struct msg_queue`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Queue {
@@ -76,19 +107,19 @@ impl Queue {
         size + self.cbytes() <= self.qbytes && (self.messages.len() as u64) < self.qbytes
     }
 
-    /// `struct msqid64_ds`.
-    pub fn encode(&self) -> [u8; MSQID64_DS] {
-        let mut b = [0u8; MSQID64_DS];
-        b[..super::IPC64_PERM].copy_from_slice(&self.perm.encode());
-        b[48..56].copy_from_slice(&self.stime.to_le_bytes());
-        b[56..64].copy_from_slice(&self.rtime.to_le_bytes());
-        b[64..72].copy_from_slice(&self.ctime.to_le_bytes());
-        b[72..80].copy_from_slice(&self.cbytes().to_le_bytes());
-        b[80..88].copy_from_slice(&(self.messages.len() as u64).to_le_bytes());
-        b[88..96].copy_from_slice(&self.qbytes.to_le_bytes());
-        b[96..100].copy_from_slice(&self.lspid.to_le_bytes());
-        b[100..104].copy_from_slice(&self.lrpid.to_le_bytes());
-        b
+    /// Its status (`msgctl_stat`).
+    pub fn ds(&self) -> MsqDs {
+        MsqDs {
+            perm: self.perm.clone(),
+            stime: self.stime,
+            rtime: self.rtime,
+            ctime: self.ctime,
+            cbytes: self.cbytes(),
+            qnum: self.messages.len() as u64,
+            qbytes: self.qbytes,
+            lspid: self.lspid,
+            lrpid: self.lrpid,
+        }
     }
 }
 
@@ -392,28 +423,24 @@ pub fn receive(
     })
 }
 
-/// `IPC_STAT`, `MSG_STAT`, `MSG_STAT_ANY` (`msgctl_stat`).
-pub fn stat(
-    ns: &Namespace,
-    id: i32,
-    cmd: i32,
-    who: &Caller,
-) -> Result<([u8; MSQID64_DS], i32), Errno> {
+/// `IPC_STAT`, `MSG_STAT`, `MSG_STAT_ANY` (`msgctl_stat`): the status and
+/// the call's result, `cmd` compared whole as in [`sem::stat`](super::sem::stat).
+pub fn stat(ns: &Namespace, id: i32, cmd: i32, who: &Caller) -> Result<(MsqDs, i32), Errno> {
     ns.with_table::<MsgTable, _>(TABLE, |t| {
-        let q = if cmd == super::IPC_STAT {
-            t.by_id(id)?
-        } else {
+        let q = if cmd == MSG_STAT || cmd == MSG_STAT_ANY {
             let idx = idx_of(id);
             t.queues
                 .iter_mut()
                 .find(|q| q.idx == idx)
                 .ok_or(Errno(EINVAL))?
+        } else {
+            t.by_id(id)?
         };
         if cmd != MSG_STAT_ANY && !q.perm.allows(who, 0o444) {
             return Err(Errno(EACCES));
         }
         let r = if cmd == super::IPC_STAT { 0 } else { q.id() };
-        Ok((q.encode(), r))
+        Ok((q.ds(), r))
     })
 }
 
@@ -453,11 +480,17 @@ pub fn info(ns: &Namespace, cmd: i32) -> Result<([u8; MSGINFO], i32), Errno> {
 
 /// `IPC_SET` (`msgctl_down`): the owner, group, permissions, and the
 /// queue's size (past `MSGMNB` only with `CAP_SYS_RESOURCE`).
-pub fn set(ns: &Namespace, id: i32, ds: &[u8], who: &Caller) -> Result<(), Errno> {
+pub fn set(
+    ns: &Namespace,
+    id: i32,
+    perm: &PermSet,
+    qbytes: u64,
+    who: &Caller,
+) -> Result<(), Errno> {
     // msgctl_down's msg_qbytes is an int: compared with the unsigned int
     // msg_ctlmnb as unsigned, and stored in the unsigned long q_qbytes
     // sign-extended.
-    let qbytes = u64::from_le_bytes(ds[88..96].try_into().unwrap()) as i32;
+    let qbytes = qbytes as i32;
     ns.with_table::<MsgTable, _>(TABLE, |t| {
         let q = t.by_id(id)?;
         if !q.perm.owned_by(who) {
@@ -466,9 +499,22 @@ pub fn set(ns: &Namespace, id: i32, ds: &[u8], who: &Caller) -> Result<(), Errno
         if qbytes as u32 > MSGMNB as u32 && !who.capable() {
             return Err(Errno(EPERM));
         }
-        q.perm.update(&ds[..super::IPC64_PERM])?;
+        q.perm.update(perm)?;
         q.qbytes = i64::from(qbytes) as u64;
         q.ctime = now();
+        Ok(())
+    })
+}
+
+/// `msgctl_down`'s lookup (`ipcctl_obtain_check`) for a command it then
+/// refuses (`EINVAL`): a compatibility caller's `IPC_SET` or `IPC_RMID`
+/// with `IPC_64` set.
+pub fn check_owner(ns: &Namespace, id: i32, who: &Caller) -> Result<(), Errno> {
+    ns.with_table::<MsgTable, _>(TABLE, |t| {
+        let q = t.by_id(id)?;
+        if !q.perm.owned_by(who) {
+            return Err(Errno(EPERM));
+        }
         Ok(())
     })
 }
@@ -633,16 +679,17 @@ mod tests {
             Ok(Outcome::Wait)
         );
         // Zero-length messages count against msg_qbytes too.
-        let (ds, _) = stat(&n, id, super::super::IPC_STAT, &who).unwrap();
+        let ds = stat(&n, id, super::super::IPC_STAT, &who)
+            .unwrap()
+            .0
+            .encode();
         assert_eq!(u64::from_le_bytes(ds[72..80].try_into().unwrap()), 16384);
         assert_eq!(u64::from_le_bytes(ds[80..88].try_into().unwrap()), 2);
         assert_eq!(i32::from_le_bytes(ds[96..100].try_into().unwrap()), who.pid);
         // IPC_SET: past MSGMNB needs CAP_SYS_RESOURCE.
-        let mut ds = ds.to_vec();
-        ds[88..96].copy_from_slice(&20000u64.to_le_bytes());
-        assert_eq!(set(&n, id, &ds, &who), Err(Errno(EPERM)));
-        ds[88..96].copy_from_slice(&2u64.to_le_bytes());
-        set(&n, id, &ds, &who).unwrap();
+        let perm = PermSet::decode(&ds);
+        assert_eq!(set(&n, id, &perm, 20000, &who), Err(Errno(EPERM)));
+        set(&n, id, &perm, 2, &who).unwrap();
         let (b, _) = info(&n, MSG_INFO).unwrap();
         assert_eq!(
             i32::from_le_bytes(b[4..8].try_into().unwrap()),

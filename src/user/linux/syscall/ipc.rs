@@ -22,7 +22,7 @@ use super::super::abi::{MMAP_MIN_ADDR, PAGE_SIZE, READ_IMPLIES_EXEC, vma_flags};
 use super::super::ipc::msg::{self, Message};
 use super::super::ipc::sem::{self, SemBuf};
 use super::super::ipc::shm::{self, SHM_EXEC, SHM_RDONLY, SHM_REMAP, SHM_RND};
-use super::super::ipc::{Caller, IPC_INFO, IPC_RMID, IPC_SET, IPC_STAT, UndoList};
+use super::super::ipc::{Caller, IPC_INFO, IPC_RMID, IPC_SET, IPC_STAT, PermSet, UndoList};
 use super::super::process::ProcState;
 use super::super::signal::deliver::restart::ERESTARTNOHAND;
 use super::super::wait::{Resume, Wait};
@@ -206,23 +206,23 @@ pub fn shmctl(c: &mut Ctx<'_>, id: i32, cmd: i32, buf: u64) -> SysResult {
     let ns = c.p.ipc.ns.clone();
     match cmd {
         IPC_INFO => {
-            let (b, r) = shm::ipc_info(&ns)?;
-            c.write_mem(buf, &b)?;
+            let (info, r) = shm::ipc_info(&ns)?;
+            c.write_mem(buf, &info.encode())?;
             Ok(r as u64)
         }
         shm::SHM_INFO => {
-            let (b, r) = shm::shm_info(&ns)?;
-            c.write_mem(buf, &b)?;
+            let (info, r) = shm::shm_info(&ns)?;
+            c.write_mem(buf, &info.encode())?;
             Ok(r as u64)
         }
         IPC_STAT | shm::SHM_STAT | shm::SHM_STAT_ANY => {
-            let (b, r) = shm::stat(&ns, id, cmd, &who)?;
-            c.write_mem(buf, &b)?;
+            let (ds, r) = shm::stat(&ns, id, cmd, &who)?;
+            c.write_mem(buf, &ds.encode())?;
             Ok(r as u64)
         }
         IPC_SET => {
             let b = c.read_mem(buf, shm::SHMID64_DS)?;
-            shm::set(&ns, id, &b[..super::super::ipc::IPC64_PERM], &who)?;
+            shm::set(&ns, id, &PermSet::decode(&b), &who)?;
             Ok(0)
         }
         IPC_RMID => {
@@ -278,17 +278,16 @@ pub fn semget(c: &mut Ctx<'_>, key: i32, nsems: i32, flags: i32) -> SysResult {
 /// `semtimedop` (`ksys_semtimedop`, `do_semtimedop`, `__do_semtimedop`),
 /// and `semop` without a timeout: the timeout's copy, the operation count,
 /// the operations' copy, the identifier, the timeout's value, then the
-/// operations.
+/// operations. The timeout is a `struct __kernel_timespec` (a
+/// compatibility caller's padding cleared), or through the `ipc`
+/// multiplexer's `SEMTIMEDOP` a `struct old_timespec32` ([`Ctx::time32`]).
 pub fn semtimedop(c: &mut Ctx<'_>, id: i32, sops: u64, nsops: u32, timeout: u64) -> SysResult {
     let resumed = c.resume.take();
     let waiting = resumed.is_some();
     let mut time = None;
     if !waiting && timeout != 0 {
-        let b = c.read_mem(timeout, 16)?;
-        time = Some((
-            i64::from_le_bytes(b[..8].try_into().unwrap()),
-            i64::from_le_bytes(b[8..].try_into().unwrap()),
-        ));
+        let t = c.get_timespec(timeout)?;
+        time = Some((t.sec, t.nsec));
     }
     if nsops > sem::SEMOPM {
         return Err(Errno(E2BIG));
@@ -365,8 +364,8 @@ pub fn semctl(c: &mut Ctx<'_>, id: i32, num: i32, cmd: i32, arg: u64) -> SysResu
             Ok(r as u64)
         }
         IPC_STAT | sem::SEM_STAT | sem::SEM_STAT_ANY => {
-            let (b, r) = sem::stat(&ns, id, cmd, &who, x86_64)?;
-            c.write_mem(arg, &b)?;
+            let (ds, r) = sem::stat(&ns, id, cmd, &who)?;
+            c.write_mem(arg, &ds.encode(x86_64))?;
             Ok(r as u64)
         }
         sem::GETALL => {
@@ -396,7 +395,7 @@ pub fn semctl(c: &mut Ctx<'_>, id: i32, num: i32, cmd: i32, arg: u64) -> SysResu
         IPC_SET => {
             let len = if x86_64 { 104 } else { 88 };
             let b = c.read_mem(arg, len)?;
-            sem::set(&ns, id, &b[..super::super::ipc::IPC64_PERM], &who)?;
+            sem::set(&ns, id, &PermSet::decode(&b), &who)?;
             Ok(0)
         }
         IPC_RMID => {
@@ -425,14 +424,26 @@ fn wait_retry(c: &mut Ctx<'_>) -> Errno {
     )
 }
 
-/// `msgsnd` (`ksys_msgsnd`, `do_msgsnd`): the type's copy, the size, the
-/// identifier, and the type, the text's copy, then the send.
+/// The `long` of a `struct msgbuf`'s type: a compatibility caller's
+/// `struct compat_msgbuf` has a 32-bit one.
+fn mtype_size(c: &Ctx<'_>) -> u64 {
+    if c.compat { 4 } else { 8 }
+}
+
+/// `msgsnd` (`ksys_msgsnd`, `do_msgsnd`; `compat_ksys_msgsnd`): the type's
+/// copy, the size, the identifier, and the type, the text's copy, then the
+/// send. A compatibility caller's size and type are sign-extended.
 pub fn msgsnd(c: &mut Ctx<'_>, id: i32, msgp: u64, msgsz: u64, flags: i32) -> SysResult {
-    let mtype = c.read_u64(msgp)? as i64;
+    let long = mtype_size(c);
+    let mtype = if c.compat {
+        i64::from(c.read_u32(msgp)? as i32)
+    } else {
+        c.read_u64(msgp)? as i64
+    };
     if msgsz > msg::MSGMAX as u64 || id < 0 || mtype < 1 {
         return Err(Errno(EINVAL));
     }
-    let text = c.read_mem(msgp + 8, msgsz as usize)?;
+    let text = c.read_mem(msgp + long, msgsz as usize)?;
     let waiting = c.resume.take().is_some();
     let who = caller(c.p);
     let m = Message { mtype, text };
@@ -443,8 +454,10 @@ pub fn msgsnd(c: &mut Ctx<'_>, id: i32, msgp: u64, msgsz: u64, flags: i32) -> Sy
 }
 
 /// `msgrcv` (`do_msgrcv`): the identifier and size, `MSG_COPY`'s flags
-/// and its copy of the buffer, then the receive, the message's type and text copied out (a failed copy
-/// loses it, as the kernel's does).
+/// and its copy of the buffer, then the receive, the message's type and
+/// text copied out (a failed copy loses it, as the kernel's does); a
+/// compatibility caller's `struct compat_msgbuf` (`compat_do_msg_fill`)
+/// has a 32-bit type.
 pub fn msgrcv(
     c: &mut Ctx<'_>,
     id: i32,
@@ -477,8 +490,12 @@ pub fn msgrcv(
     };
     match msg::receive(&c.p.ipc.ns, id, want, &who, waiting)? {
         msg::Outcome::Done(m) => {
-            c.write_u64(msgp, m.mtype as u64)?;
-            c.write_mem(msgp + 8, &m.text)?;
+            if c.compat {
+                c.write_u32(msgp, m.mtype as u32)?;
+            } else {
+                c.write_u64(msgp, m.mtype as u64)?;
+            }
+            c.write_mem(msgp + mtype_size(c), &m.text)?;
             Ok(m.text.len() as u64)
         }
         msg::Outcome::Wait => Err(wait_retry(c)),
@@ -499,13 +516,14 @@ pub fn msgctl(c: &mut Ctx<'_>, id: i32, cmd: i32, buf: u64) -> SysResult {
             Ok(r as u64)
         }
         IPC_STAT | msg::MSG_STAT | msg::MSG_STAT_ANY => {
-            let (b, r) = msg::stat(&ns, id, cmd, &who)?;
-            c.write_mem(buf, &b)?;
+            let (ds, r) = msg::stat(&ns, id, cmd, &who)?;
+            c.write_mem(buf, &ds.encode())?;
             Ok(r as u64)
         }
         IPC_SET => {
             let b = c.read_mem(buf, msg::MSQID64_DS)?;
-            msg::set(&ns, id, &b, &who)?;
+            let qbytes = u64::from_le_bytes(b[88..96].try_into().unwrap());
+            msg::set(&ns, id, &PermSet::decode(&b), qbytes, &who)?;
             Ok(0)
         }
         IPC_RMID => {

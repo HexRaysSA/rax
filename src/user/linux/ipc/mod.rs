@@ -7,6 +7,7 @@
 //! | [`shm`] | shared memory segments |
 //! | [`sem`] | semaphore sets |
 //! | [`msg`] | message queues |
+//! | [`compat`] | a compatibility task's 32-bit structures |
 //!
 //! The namespace is a directory on the host (by default one per host user
 //! under the temporary directory, which a reboot clears as it clears a
@@ -24,6 +25,7 @@
 //! holds `CAP_IPC_OWNER`, `CAP_IPC_LOCK`, and `CAP_SYS_ADMIN` when its
 //! effective user is root.
 
+pub mod compat;
 pub mod mqueue;
 pub mod msg;
 pub mod sem;
@@ -155,18 +157,15 @@ impl Perm {
         b
     }
 
-    /// `ipc_update_perm` from a guest `struct ipc64_perm`: the owner, the
-    /// group, and the permission bits; an invalid ID (-1) is `EINVAL`.
-    pub fn update(&mut self, b: &[u8]) -> Result<(), Errno> {
-        let uid = u32::from_le_bytes(b[4..8].try_into().unwrap());
-        let gid = u32::from_le_bytes(b[8..12].try_into().unwrap());
-        let mode = u32::from_le_bytes(b[20..24].try_into().unwrap());
-        if uid == u32::MAX || gid == u32::MAX {
+    /// `ipc_update_perm`: the owner, the group, and the permission bits;
+    /// an invalid ID (-1) is `EINVAL`.
+    pub fn update(&mut self, s: &PermSet) -> Result<(), Errno> {
+        if s.uid == u32::MAX || s.gid == u32::MAX {
             return Err(Errno(EINVAL));
         }
-        self.uid = uid;
-        self.gid = gid;
-        self.mode = (self.mode & !S_IRWXUGO) | (mode & S_IRWXUGO);
+        self.uid = s.uid;
+        self.gid = s.gid;
+        self.mode = (self.mode & !S_IRWXUGO) | (s.mode & S_IRWXUGO);
         Ok(())
     }
 
@@ -187,6 +186,27 @@ impl Perm {
             mode: f.next()?.parse().ok()?,
             seq: f.next()?.parse().ok()?,
         })
+    }
+}
+
+/// The fields of a `struct ipc64_perm` that `IPC_SET` takes (the owner, the
+/// group, and the mode), whichever layout the caller's is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PermSet {
+    pub uid: u32,
+    pub gid: u32,
+    pub mode: u32,
+}
+
+impl PermSet {
+    /// From the 64-bit ABIs' `struct ipc64_perm`.
+    pub fn decode(b: &[u8]) -> Self {
+        let w = |i: usize| u32::from_le_bytes(b[i..i + 4].try_into().unwrap());
+        PermSet {
+            uid: w(4),
+            gid: w(8),
+            mode: w(20),
+        }
     }
 }
 
@@ -468,10 +488,10 @@ mod tests {
         b[8..12].copy_from_slice(&8u32.to_le_bytes());
         b[20..24].copy_from_slice(&0o7777u32.to_le_bytes());
         q.mode |= 0o1000;
-        q.update(&b).unwrap();
+        q.update(&PermSet::decode(&b)).unwrap();
         assert_eq!((q.uid, q.gid, q.mode), (7, 8, 0o1777));
         b[4..8].copy_from_slice(&u32::MAX.to_le_bytes());
-        assert_eq!(q.update(&b), Err(Errno(EINVAL)));
+        assert_eq!(q.update(&PermSet::decode(&b)), Err(Errno(EINVAL)));
         let e = p.encode();
         assert_eq!(i32::from_le_bytes(e[..4].try_into().unwrap()), 5);
         assert_eq!(u32::from_le_bytes(e[20..24].try_into().unwrap()), 0o640);
