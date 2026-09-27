@@ -29,6 +29,7 @@ use self::abi::{Cqe, Sqe, rings, setup, sq_flags};
 use super::abi::PAGE_SIZE;
 use super::abi::errno::Errno;
 use super::abi::errno_table::*;
+use super::syscall::ready::Polled;
 use crate::user::mm::SharedObject;
 
 /// The ring region's layout (`rings_size`): the CQE array's offset is
@@ -206,16 +207,41 @@ pub enum Work {
     FailLinks(Chain),
     /// Complete a request whose result is set (`io_req_task_complete`).
     Complete(Chain),
+    /// A poll's task work (`io_poll_task_func`): the entry of the poll
+    /// table with this key, woken or cancelled.
+    Poll(u64),
 }
 
-/// A chain whose head waits for its file (`io_arm_poll_handler`): it is
-/// issued again once the file reports an event of `mask` (or an error or
-/// hang-up).
+/// An entry of the poll table (`cancel_table`): a chain whose head polls
+/// its file, as `IORING_OP_POLL_ADD` or as a request the file could not
+/// serve at once and that is issued again once it can
+/// (`io_arm_poll_handler`, `REQ_F_POLLED`).
 #[derive(Debug)]
-pub struct Parked {
+pub struct Poll {
+    /// Its key, which also orders the entries by when they were armed.
+    pub id: u64,
     pub chain: Chain,
     pub file: Arc<super::fs::fd::OpenFile>,
-    pub mask: u32,
+    /// `poll->events`: the events it waits for, with `IO_POLL_UNMASK`
+    /// (`EPOLLERR | EPOLLHUP | EPOLLNVAL | EPOLLRDHUP`) and the behaviour
+    /// bits `EPOLLONESHOT`, `EPOLLET`, and `EPOLLEXCLUSIVE`.
+    pub events: u32,
+    /// A request waiting to be issued again, not a poll request.
+    pub retry: bool,
+    /// What the file reported when last looked at: a multishot poll
+    /// reports again when a wanted event appears or the level grows.
+    pub seen: Polled,
+    /// How many io_uring completions had signalled the file (an eventfd)
+    /// when last looked at (`EPOLL_URING_WAKE`).
+    pub uring_seen: u64,
+    /// Its task work is queued (it holds `poll_refs`).
+    pub queued: bool,
+    /// Cancelled (`IO_POLL_CANCEL_FLAG`): its task work completes it with
+    /// `-ECANCELED`.
+    pub cancelled: bool,
+    /// Off its file's wait queue, so nothing wakes it any more: a
+    /// multishot poll a completion of io_uring itself woke.
+    pub detached: bool,
 }
 
 /// A registered personality: the credentials a request with its identifier
@@ -264,8 +290,9 @@ pub struct State {
     pub next_personality: u16,
     /// The registered files and buffers.
     pub rsrc: rsrc::Tables,
-    /// Chains waiting for their files.
-    pub parked: Vec<Parked>,
+    /// The poll table, and the key the next entry takes.
+    pub polls: Vec<Poll>,
+    pub next_poll: u64,
 }
 
 /// An io_uring instance: the object behind an `anon_inode:[io_uring]`

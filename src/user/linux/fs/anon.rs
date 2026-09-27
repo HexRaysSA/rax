@@ -148,7 +148,7 @@ pub const EFD_SEMAPHORE: u32 = 1;
 /// An `eventfd` counter.
 #[derive(Debug)]
 pub struct EventFd {
-    /// Words: lock, count, flags.
+    /// Words: lock, count, flags, and the signals io_uring gave.
     words: SharedWords,
     levels: Levels,
     /// Its ID (`eventfd_ida`), shown in `fdinfo`.
@@ -181,6 +181,7 @@ impl Drop for EventFd {
 
 const EV_COUNT: usize = 1;
 const EV_FLAGS: usize = 2;
+const EV_URING: usize = 3;
 const EV_SEMAPHORE: u64 = 1;
 const EV_READABLE: u64 = 2;
 const EV_WRITABLE: u64 = 4;
@@ -189,7 +190,7 @@ impl EventFd {
     /// `do_eventfd`: a counter starting at `count`.
     pub fn new(count: u32, semaphore: bool) -> Result<Self, Errno> {
         let ev = EventFd {
-            words: SharedWords::new(3)?,
+            words: SharedWords::new(4)?,
             levels: Levels::new()?,
             id: eventfd_id(),
         };
@@ -252,12 +253,29 @@ impl EventFd {
     /// `eventfd_signal`: adds 1 unless the counter is already `UINT64_MAX`,
     /// which only this reaches (and `eventfd_poll` reports as an error).
     pub fn signal(&self) {
-        let l = Locked::new(self.words.words());
+        self.signal_locked(&Locked::new(self.words.words()));
+    }
+
+    fn signal_locked(&self, l: &Locked<'_>) {
         let count = l.get(EV_COUNT);
         if count < u64::MAX {
             l.set(EV_COUNT, count + 1);
-            self.levels_for(&l, count + 1);
+            self.levels_for(l, count + 1);
         }
+    }
+
+    /// `eventfd_signal_mask(ctx, EPOLL_URING_WAKE)`: an io_uring
+    /// instance's signal of its completions, whose wake-up tells a poll of
+    /// io_uring's own that it came from io_uring; counted apart.
+    pub fn uring_signal(&self) {
+        let l = Locked::new(self.words.words());
+        l.set(EV_URING, l.get(EV_URING).wrapping_add(1));
+        self.signal_locked(&l);
+    }
+
+    /// How many signals io_uring gave.
+    pub fn uring_signals(&self) -> u64 {
+        Locked::new(self.words.words()).get(EV_URING)
     }
 
     /// `eventfd_poll`: readable, writable, and error readiness.

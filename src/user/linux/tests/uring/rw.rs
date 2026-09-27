@@ -670,7 +670,7 @@ fn waiting_requests_do_not_outlive_exec_or_cross_fork() {
     assert_eq!(run(&mut h, &r, &[rw(READ, rd, buf, 4, -1, 3)]), []);
     crate::user::linux::syscall::uring::forked(&mut h.proc.state);
     assert!(h.proc.state.uring_parked.is_empty());
-    assert!(r.state(&h).state().parked.is_empty());
+    assert!(r.state(&h).state().polls.is_empty());
     assert_eq!(r.reap(&h), []);
 }
 

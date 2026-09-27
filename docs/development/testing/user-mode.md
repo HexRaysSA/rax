@@ -219,8 +219,16 @@ reader, the name read at preparation), `OPENAT2`'s structure and flags,
 direct descriptors, `FIXED_FD_INSTALL`, `CLOSE`, `PIPE` (into slots too),
 the path operations (`io_uring/fs.c`, `statx.c`), whose failures keep
 their links, and extended attributes (`io_uring/xattr.c`: of a file and a
-path, their preparation, the value read at preparation). `user_linux` `fixtures` runs the
-`uring` and `uringio` programs on every architecture against results recorded on the Linux
+path, their preparation, the value read at preparation).
+`src/user/linux/tests/uring/poll.rs`: poll requests (`io_uring/poll.c`):
+one-shot ones woken by a write or ready at once (with `IO_POLL_UNMASK`'s
+events), files without a wait queue, preparation, multishot ones woken by
+each write and not by reads, removals (none, a waiting request, the newest
+of two) and their event and user-data updates, `EALREADY` for a poll whose
+task work a deferring ring holds, links, the async workers, exec and fork,
+fdinfo's `PollList` by hash bucket, and a wake-up of io_uring's own ending a
+multishot poll. `user_linux` `fixtures` runs the
+`uring`, `uringio`, and `uringpoll` programs on every architecture against results recorded on the Linux
 6.19 kernel oracles (native AArch64 and x86-64 in their `compare` runs,
 i386, ARM, and Thumb-2).
 

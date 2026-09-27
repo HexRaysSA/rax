@@ -17,12 +17,15 @@ use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;
 use super::super::super::fs::anon::Anon;
 use super::super::super::fs::fd::FileObject;
-use super::super::super::uring::abi::{CQ_EVENTFD_DISABLED, OP_DEFS, op, rings, setup, sqe_flags};
+use super::super::super::uring::abi::{
+    CQ_EVENTFD_DISABLED, OP_DEFS, cqe_flags, op, rings, setup, sqe_flags,
+};
 use super::super::super::uring::{Chain, Req, Ring, State, Work, req_flags as rf};
 use super::super::Ctx;
 use super::super::ready::ev as ev_mask;
 use super::ops::{self, Done};
-use super::{poll, rsrc};
+use super::poll::{self, Fired};
+use super::rsrc;
 
 /// A submission's completed requests, flushed together (`compl_reqs`).
 type Batch = Vec<Chain>;
@@ -162,6 +165,7 @@ fn queue_sqe(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, batch: &mut Batch, mu
         Done::Inline => batch.push(chain),
         Done::TaskWork => st.task_work.push_back(Work::Complete(chain)),
         Done::Park(file, mask) => poll::park(c, ring, st, chain, file, mask),
+        Done::Poll(arm) => poll::arm(c, ring, st, chain, arm),
     }
 }
 
@@ -351,7 +355,7 @@ pub(super) fn commit(ring: &Ring, st: &mut State, from_worker: bool) {
     st.eventfd_tail = st.cached_cq_tail;
     // eventfd_signal_mask(EPOLL_URING_WAKE).
     if let FileObject::Anon(Anon::Event(e)) = &ev.file.object {
-        e.signal();
+        e.uring_signal();
         ev.file.woke(ev_mask::IN | ev_mask::RDNORM);
     }
 }
@@ -368,6 +372,10 @@ fn run_iowq(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
                 // A worker that tried without sleeping waits for the file
                 // (io_wq_submit_work's poll).
                 poll::park(c, ring, st, chain, file, mask);
+                break;
+            }
+            if let Done::Poll(arm) = done {
+                poll::arm(c, ring, st, chain, arm);
                 break;
             }
             if lockless || matches!(done, Done::TaskWork) {
@@ -407,22 +415,25 @@ fn run_iowq(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
     }
 }
 
+/// `io_req_task_submit`: a forced-async request goes to the workers.
+fn task_submit(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, batch: &mut Batch, chain: Chain) {
+    if chain[0].flags & rf::FORCE_ASYNC != 0 {
+        queue_iowq(st, chain);
+    } else {
+        queue_sqe(c, ring, st, batch, chain);
+    }
+}
+
 /// Runs queued task work until none is left (`task_work_run`,
-/// `io_run_local_work`): each round's completions flushed together.
+/// `io_run_local_work`): each round's completions flushed together, and
+/// the CQ committed for a multishot report posted in it (`cq_flush`).
 pub(super) fn run_task_work(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
     while !st.task_work.is_empty() {
         let mut batch = Batch::new();
+        let mut cq_flush = false;
         while let Some(w) = st.task_work.pop_front() {
             match w {
-                // io_req_task_submit: a forced-async request goes to the
-                // workers.
-                Work::Issue(chain) => {
-                    if chain[0].flags & rf::FORCE_ASYNC != 0 {
-                        queue_iowq(st, chain);
-                    } else {
-                        queue_sqe(c, ring, st, &mut batch, chain);
-                    }
-                }
+                Work::Issue(chain) => task_submit(c, ring, st, &mut batch, chain),
                 // Each request completes alone, its CQE as io_fail_links
                 // marked it.
                 Work::FailLinks(chain) => {
@@ -435,9 +446,24 @@ pub(super) fn run_task_work(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
                     }
                 }
                 Work::Complete(chain) => batch.push(chain),
+                Work::Poll(id) => match poll::task(c, st, id) {
+                    None => {}
+                    Some(Fired::Complete(chain)) => batch.push(chain),
+                    Some(Fired::Issue(chain)) => task_submit(c, ring, st, &mut batch, chain),
+                    // io_req_post_cqe: the completions the batch holds
+                    // first.
+                    Some(Fired::Post(user_data, res)) => {
+                        flush(ring, st, std::mem::take(&mut batch));
+                        ring.post_aux(st, user_data, res, cqe_flags::MORE);
+                        cq_flush = true;
+                    }
+                },
             }
         }
         flush(ring, st, batch);
+        if cq_flush {
+            commit(ring, st, false);
+        }
         run_iowq(c, ring, st);
     }
 }

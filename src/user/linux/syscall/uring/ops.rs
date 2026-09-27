@@ -12,7 +12,7 @@ use super::super::super::fs::fd::{FileObject, OpenFile};
 use super::super::super::uring::abi::{nop, op, setup};
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::Ctx;
-use super::{fs, openclose, rsrc, rw, sync, xattr};
+use super::{fs, openclose, poll, rsrc, rw, sync, xattr};
 
 /// How an issued request completes.
 #[derive(Clone, Debug)]
@@ -25,6 +25,9 @@ pub(super) enum Done {
     /// Not yet: it waits for its file to report an event of the mask
     /// (`-EAGAIN` to `io_queue_async`, then `io_arm_poll_handler`).
     Park(Arc<OpenFile>, u32),
+    /// Armed on its file (`IOU_ISSUE_SKIP_COMPLETE` after `io_poll_add`):
+    /// the poll completes it.
+    Poll(poll::Arm),
 }
 
 /// Whether an operation is modelled (`io_uring_op_supported`).
@@ -63,6 +66,8 @@ pub(super) fn supported(opcode: u8) -> bool {
             | op::GETXATTR
             | op::FSETXATTR
             | op::SETXATTR
+            | op::POLL_ADD
+            | op::POLL_REMOVE
     )
 }
 
@@ -93,6 +98,8 @@ pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno>
             fs::prep(c, req)
         }
         op::FGETXATTR | op::GETXATTR | op::FSETXATTR | op::SETXATTR => xattr::prep(c, req),
+        op::POLL_ADD => poll::add_prep(req),
+        op::POLL_REMOVE => poll::remove_prep(req),
         _ => Err(Errno(EOPNOTSUPP)),
     }
 }
@@ -200,6 +207,8 @@ fn issue_op(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done
             xattr::issue(c, st, req);
             Done::Inline
         }
+        op::POLL_ADD => poll::add_issue(c, st, req),
+        op::POLL_REMOVE => poll::remove_issue(c, ring, st, req),
         // prep refused it.
         _ => {
             req.res = -EOPNOTSUPP;

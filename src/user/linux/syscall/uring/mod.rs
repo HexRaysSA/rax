@@ -282,8 +282,8 @@ fn local_work_pending(ring: &Ring, st: &State) -> bool {
 
 /// `io_uring_show_fdinfo`: the rings' state, the SQEs and CQEs waiting in
 /// them (the CQ listing indexes 16-byte slots even on a 32-byte ring, as
-/// the kernel's does), the registered files and buffers, and the overflow
-/// list.
+/// the kernel's does), the registered files and buffers, the poll table,
+/// and the overflow list.
 pub fn fdinfo(ring: &Ring, path_of: &dyn Fn(&OpenFile) -> String) -> String {
     let st = ring.state();
     let sq_mask = ring.sq_entries - 1;
@@ -392,7 +392,9 @@ pub fn fdinfo(ring: &Ring, path_of: &dyn Fn(&OpenFile) -> String) -> String {
             }
         }
     }
-    s.push_str("PollList:\nCqOverflowList:\n");
+    s.push_str("PollList:\n");
+    s.push_str(&poll::poll_list(ring, &st));
+    s.push_str("CqOverflowList:\n");
     for cqe in &st.overflow {
         let _ = writeln!(
             s,

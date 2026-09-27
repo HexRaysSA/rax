@@ -408,8 +408,9 @@ pub struct ProcState {
     /// user's processes; this is what this process charged.
     pub locked_vm_users:
         std::collections::BTreeMap<u32, std::sync::Arc<std::sync::atomic::AtomicU64>>,
-    /// The io_uring instances with requests waiting for their files,
-    /// looked at again as the process makes system calls.
+    /// The io_uring instances with entries in their poll tables (poll
+    /// requests and requests waiting for their files), looked at again as
+    /// the process makes system calls.
     pub uring_parked: Vec<std::sync::Weak<super::uring::Ring>>,
 }
 
