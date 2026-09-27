@@ -1,0 +1,9 @@
+ok stopped
+ok ioperm-read
+ok ioperm-write
+ok shstk-read
+ok shstk-write
+ok block-steps
+ok block-end
+ok killed
+PASSED

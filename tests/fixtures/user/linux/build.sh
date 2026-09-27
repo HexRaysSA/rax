@@ -7,7 +7,7 @@
 #     tests/fixtures/user/linux/build.sh
 #
 # Binaries are static, stripped, position-dependent executables (i386 and
-# ARM EABI for subsets, listed below). The
+# ARM EABI, as A32 and as Thumb-2 code, for subsets, listed below). The
 # manifest records the toolchain, flags, and SHA-256 of every output; the
 # user_linux test verifies the hashes before running anything.
 set -euo pipefail
@@ -127,4 +127,25 @@ for prog in "${arm_only_programs[@]}"; do
         echo
     } >> "$manifest"
 done
-echo "built ${#targets[@]} targets x ${#programs[@]} programs, ${#i386_programs[@]} i386 programs, and $((${#arm_programs[@]} + ${#arm_only_programs[@]})) ARM programs"
+
+# The ARM matrix again as Thumb-2 (T32) code, C library included: the same
+# compatibility tasks, entered in Thumb state (an odd entry point). The
+# kernel records their results too (expected/thumb). armframes is A32 only.
+thumb_target=thumb-linux-musleabihf
+thumb_programs=("${arm_programs[@]}")
+mkdir -p bin/thumb
+for prog in "${thumb_programs[@]}"; do
+    out="bin/thumb/$prog"
+    zig cc -target "$thumb_target" -mcpu="$arm_cpu" "${flags[@]}" -o "$out" "src/$prog.c"
+    sum="$(shasum -a 256 "$out" | cut -d' ' -f1)"
+    {
+        echo "[[fixture]]"
+        echo "path = \"$out\""
+        echo "source = \"src/$prog.c\""
+        echo "target = \"$thumb_target\""
+        echo "cpu = \"$arm_cpu\""
+        echo "sha256 = \"$sum\""
+        echo
+    } >> "$manifest"
+done
+echo "built ${#targets[@]} targets x ${#programs[@]} programs, ${#i386_programs[@]} i386 programs, $((${#arm_programs[@]} + ${#arm_only_programs[@]})) ARM programs, and ${#thumb_programs[@]} Thumb programs"

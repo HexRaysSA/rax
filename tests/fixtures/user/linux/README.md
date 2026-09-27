@@ -35,13 +35,16 @@ built for ARM alone (`armframes`: the AArch32 signal frames, printed
 relative to a fixed alternate stack, the frame, or the `[sigpage]`, with
 their VFP record, return code, edited context, and fault records, the
 one-word mask calls, and a bad frame); `src/user/linux/tests/arm/` covers
-its conversions and signal frames call by call.
+its conversions and signal frames call by call. The same programs built as
+Thumb-2 code (`thumb`: T32 throughout, the C library included, entered at
+an odd address) run the ARM cases again, recorded in the same kernel
+boots.
 
 | Path | Content |
 |---|---|
 | `src/*.c` | Self-checking C sources. Each check prints `ok <name>` or `FAIL <name>: ...`. |
 | `build.sh` | Rebuilds `bin/` and `manifest.toml`. |
-| `bin/<arch>/<program>` | Static, stripped executables for `x86_64`, `aarch64`, and `riscv64`, and for `i386` and `arm` (subsets). |
+| `bin/<arch>/<program>` | Static, stripped executables for `x86_64`, `aarch64`, and `riscv64`, and for `i386`, `arm`, and `thumb` (subsets). |
 | `manifest.toml` | Toolchain, flags, and SHA-256 of every binary (checked by the test). |
 | `cases.txt` | Case table: program, standard-input file, and arguments. |
 | `cases-i386.txt` | The same for the i386-only programs, which have no 64-bit builds. |
@@ -51,8 +54,8 @@ its conversions and signal frames call by call.
 | `oracle-overrides.txt` | Cases whose expectation for one architecture is another architecture's real-kernel result, with the reason. |
 | `expected/<arch>/<case>.{stdout,status}` | Recorded results. |
 | `expected/ORACLE` | Kernel, Docker server, binfmt handlers, overrides, and recording time of the oracle run. |
-| `expected/ORACLE-i386`, `expected/ORACLE-arm` | Kernel, its build, QEMU, machine, and recording time of the i386 and ARM recordings. |
-| `oracle/` | The kernel oracle: `build-kernel.sh` (Linux 6.19 for x86-64 with `CONFIG_IA32_EMULATION`, or for arm64 with `CONFIG_COMPAT`), `vminit.c` (its init: one container-like run per case), and `record-kernel.sh` (records `expected/i386` or `expected/arm`). |
+| `expected/ORACLE-i386`, `expected/ORACLE-arm`, `expected/ORACLE-thumb` | Kernel, its build, QEMU, machine, and recording time of the i386, ARM, and Thumb-2 recordings. |
+| `oracle/` | The kernel oracle: `build-kernel.sh` (Linux 6.19 for x86-64 with `CONFIG_IA32_EMULATION`, or for arm64 with `CONFIG_COMPAT`), `vminit.c` (its init: one container-like run per case), and `record-kernel.sh` (records `expected/i386`, or `expected/arm` and `expected/thumb`). |
 | `programs/` | The morok program corpus: 97 whole C and C++ programs with their own build, recordings, and README. |
 
 ## Programs
@@ -123,13 +126,15 @@ its conversions and signal frames call by call.
   -ffile-prefix-map=<dir>=.`, targets `x86_64-linux-musl`,
   `aarch64-linux-musl`, `riscv64-linux-musl`, `x86-linux-musl` (i386), and
   `arm-linux-musleabihf` with `-mcpu=cortex_a9-neon-d32` (ARM EABI: ARMv7-A
-  with VFPv3-D16 and no Advanced SIMD; the manifest records the CPU).
+  with VFPv3-D16 and no Advanced SIMD; the manifest records the CPU), and
+  `thumb-linux-musleabihf` with the same CPU (the same ABI, compiled to
+  Thumb-2).
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 263 binaries (55 programs × 3 architectures, 48 for i386, eight
-  of them i386-only, and 50 for ARM, one of them ARM-only), 10,028 KiB in
-  total (`du -k`); each
+- Size: 312 binaries (55 programs × 3 architectures, 48 for i386, eight
+  of them i386-only, 50 for ARM, one of them ARM-only, and 49 for
+  Thumb-2), 11,448 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -233,6 +238,15 @@ its conversions and signal frames call by call.
   `rseq` critical section there, as they do on the Docker kernel. The
   ARM matrix leaves those programs out, and `iovec` (64-bit-only code;
   `build.sh` names each).
+- The Thumb-2 results were recorded in the same boots of a rebuilt kernel
+  (same script and configuration; `expected/ORACLE-thumb`), which
+  reproduced every ARM recording byte for byte; four recordings in a row
+  were identical. They equal the A32 results except `procmem`'s
+  `count-unsigned-int`, whose count `(1UL << 32) | 1` is undefined in
+  32-bit C and compiles to a different value in each build. `ptracestops`
+  shows the kernel keeping a Thumb handler's bit 0 in the PC a tracer
+  reads at the signal's delivery (`compat_setup_return`); the return to
+  user mode clears it.
 - Containers ran with `--init` so the fixture was not the PID-namespace
   init (the kernel ignores default-action signals sent to an init, which
   would make `abort()` loop), and with `--security-opt seccomp=unconfined`
@@ -254,8 +268,9 @@ its conversions and signal frames call by call.
    i386-only program's cases go in `cases-i386.txt`. For the ARM cases,
    build `oracle/build-kernel.sh <linux-v6.19-checkout> <out> arm64` and
    run `oracle/record-kernel.sh <out>/Image arm64`
-   (`qemu-system-aarch64`); `arm_programs` is the ARM matrix, and an
-   ARM-only program's cases go in `cases-arm.txt`.
+   (`qemu-system-aarch64`), which records `expected/arm` and
+   `expected/thumb`; `arm_programs` is the ARM matrix (built again as
+   Thumb-2 code), and an ARM-only program's cases go in `cases-arm.txt`.
 4. Run `cargo test --no-default-features --features x86_64-suite,smir-jit
    --test user_linux`.
 

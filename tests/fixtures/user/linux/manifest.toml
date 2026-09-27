@@ -1630,3 +1630,346 @@ target = "arm-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
 sha256 = "240e303419f4ea75c7cf4e4e28787bd407f826192f96415296ed2b1fbc92b032"
 
+[[fixture]]
+path = "bin/thumb/hello"
+source = "src/hello.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "dbdd28028d7dfa7cc676b60205dc3afbec39b343969fda49b0cb4982dc546a5f"
+
+[[fixture]]
+path = "bin/thumb/fileio"
+source = "src/fileio.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "76757ba8b849d928ab035055126e85787a3360a6c3735138f982815e1f85953c"
+
+[[fixture]]
+path = "bin/thumb/memory"
+source = "src/memory.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "e9b5ef90d6fefbeae3c4b14a2a63a9d0b8939a7ba492a0175bae6f78b214ba38"
+
+[[fixture]]
+path = "bin/thumb/mman"
+source = "src/mman.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "6eef2ef54c9ae7eca3130f550aed0b2cf0f48daed81f9b3fd9adb87a7ab53329"
+
+[[fixture]]
+path = "bin/thumb/process"
+source = "src/process.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "6184c2b742243235a31ccceb55e78a5a9d95767b4a1c926b44bfdca66b2acfe5"
+
+[[fixture]]
+path = "bin/thumb/signals"
+source = "src/signals.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "1a9f6b29352d0e92160eb72e677d12c93aa074d17e0a1b5b8f17b8728d8419f9"
+
+[[fixture]]
+path = "bin/thumb/timers"
+source = "src/timers.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "7da02e293bf4e25379b1cafb0629fb57e5429ac9bbc7b111274e48f4e03f1143"
+
+[[fixture]]
+path = "bin/thumb/threads"
+source = "src/threads.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "3fe612639727d675575eabea5a8f5bcd1005c7cf1931cf02588c6e774b6709aa"
+
+[[fixture]]
+path = "bin/thumb/threadexit"
+source = "src/threadexit.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "28827392e984c159a674ac43273bd033aba9cdfb0796d36688c1ff28eaea9e2b"
+
+[[fixture]]
+path = "bin/thumb/exec"
+source = "src/exec.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "acb163693cf62d0c5b2eb344c35de99d0db04893d61e9ed16d3316bf04fe3bec"
+
+[[fixture]]
+path = "bin/thumb/fork"
+source = "src/fork.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "be29515ed3d52fcc51e3fb48e362e9d292e2a082baddba70c0b0fea843014861"
+
+[[fixture]]
+path = "bin/thumb/events"
+source = "src/events.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "fce7b9e7e44974781557a5518db123ef2f7cea3121fc9b9cfdfac31898a60de5"
+
+[[fixture]]
+path = "bin/thumb/epoll"
+source = "src/epoll.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "0bf8917759c2847e6fda129942447b9da0b38d35d2084cceceeca0d0db7c0dc9"
+
+[[fixture]]
+path = "bin/thumb/sockmsg"
+source = "src/sockmsg.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "8afb6da1e761e1ef2e0d1f69b23a97f4d966275e7b72c1f75a3fd06b2b424192"
+
+[[fixture]]
+path = "bin/thumb/shmem"
+source = "src/shmem.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "4b35fe66cd9fe8d2a2863bc1cb9f7f1df030c1c18682a4003a4574d137905572"
+
+[[fixture]]
+path = "bin/thumb/memfd"
+source = "src/memfd.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "86911e8d83ca9566ebbe8c61b70e679f8ff8370ebd8733c32485ba010528a275"
+
+[[fixture]]
+path = "bin/thumb/pidfd"
+source = "src/pidfd.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "89216f70451847609626510bc1ef3e07639820ddf8474c2713b1eb1541fe977d"
+
+[[fixture]]
+path = "bin/thumb/nodes"
+source = "src/nodes.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "ca102137e00ed149a1cc3f774d813f88cec2e25ecc7b75d3967f7dc024224996"
+
+[[fixture]]
+path = "bin/thumb/xattr"
+source = "src/xattr.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "184eb66326d57b3bb41aef25a35684268c39a28a90d75db0b972258a26437d6e"
+
+[[fixture]]
+path = "bin/thumb/misc"
+source = "src/misc.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "1ccada26e4267bfc0236a572fdb6b4f8035e64b4f0ad510f17756e05d1abb3db"
+
+[[fixture]]
+path = "bin/thumb/locks"
+source = "src/locks.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "8f29dc3c2afadc64325687080cb78ec4510487af5b7db5137c471f803f6e443a"
+
+[[fixture]]
+path = "bin/thumb/netlink"
+source = "src/netlink.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "9993b3d9c85d5c76735e296f0ff6a074a497f17e68c12b2390b39c9e40f580b8"
+
+[[fixture]]
+path = "bin/thumb/ifreq"
+source = "src/ifreq.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "27a6f83848629e7041d9b0d280a21757e2e0f3cd558349e8fe0e5c1992e92973"
+
+[[fixture]]
+path = "bin/thumb/sysvshm"
+source = "src/sysvshm.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "bc4c9c663ebddd686bb3028a44251eecf3531b8cd908a88f7e1587665509ebc2"
+
+[[fixture]]
+path = "bin/thumb/sysvsem"
+source = "src/sysvsem.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "ef35d830be5dbb83fe3565b563b9fd696c1abc415d2ca18cfb722d9459afc624"
+
+[[fixture]]
+path = "bin/thumb/sysvmsg"
+source = "src/sysvmsg.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "720cb112706fe3f8d5bd849fad5706d29f3c6dc5265cc17afc3afc4525b52304"
+
+[[fixture]]
+path = "bin/thumb/seccomp"
+source = "src/seccomp.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "098633b2eb032c1f958bb7a731f7340e50a2ba3c3553db4788dda050b3fa44b8"
+
+[[fixture]]
+path = "bin/thumb/inotify"
+source = "src/inotify.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "73a39644f331f236ccf601022c4c0aed838d7edd22a4bff7a60c38ef3b232fa1"
+
+[[fixture]]
+path = "bin/thumb/mqueue"
+source = "src/mqueue.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "d464f15612ac5166857414e0aff62b43bfbe14455ce6a15dde9249446d2293ec"
+
+[[fixture]]
+path = "bin/thumb/sched"
+source = "src/sched.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "e3d68f9cad9d9b30858fc65fc8bbf4e8a98dbf09822980fc9cbc66edf9160d42"
+
+[[fixture]]
+path = "bin/thumb/procmem"
+source = "src/procmem.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "76ac4e68983a91ac139da665e9a3ff1a612c5744f0bdeb82db0848752d6c9b07"
+
+[[fixture]]
+path = "bin/thumb/kcmp"
+source = "src/kcmp.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "c72557e2d8a53f6e84da8e85b7a2398bb8895226f11edd3fff81f1e3a39cfad7"
+
+[[fixture]]
+path = "bin/thumb/mlock"
+source = "src/mlock.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "72c8c235e9eeed0e3c9c52702357e91ab495f90ab7153bb596436b64d52010b6"
+
+[[fixture]]
+path = "bin/thumb/mseal"
+source = "src/mseal.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "b44eebdcf279191b6e3324ac5a0b4ff91f77cd30c6dfd556920ee5a5c5271555"
+
+[[fixture]]
+path = "bin/thumb/aio"
+source = "src/aio.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "50b0b8d865857786864d5de11fdac07270ada88dd07187ac9db61044be316dc8"
+
+[[fixture]]
+path = "bin/thumb/splice"
+source = "src/splice.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "e72f51c875c0cf4003a3e6361b8ec95188e35e6289c00923958fdf56f0961738"
+
+[[fixture]]
+path = "bin/thumb/sendfault"
+source = "src/sendfault.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "4b8d23711e906b03468690e07f8dc8024c46803acbf6dcdf0cac045fc54201bb"
+
+[[fixture]]
+path = "bin/thumb/ptrace"
+source = "src/ptrace.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "d5f31b132dd4e3e064962f26d77ea8a25c8738da74e683330379cf53de33c941"
+
+[[fixture]]
+path = "bin/thumb/ptracestops"
+source = "src/ptracestops.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "e1d7dd442f0f7b7553334f103a0f665f0e5a6795f6925c7f06bc023220603508"
+
+[[fixture]]
+path = "bin/thumb/ptraceregs"
+source = "src/ptraceregs.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "5ac148cf1ea09c3ab406b3d55eefe84afa998612a45a827bb7eeacc888061783"
+
+[[fixture]]
+path = "bin/thumb/ptracejobs"
+source = "src/ptracejobs.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "fbadadf5b18072b01bf3ffbe32b32b84eebc44185712e0d09f8b3606a3a62f24"
+
+[[fixture]]
+path = "bin/thumb/ptraceevents"
+source = "src/ptraceevents.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "6678232a50bdf173c61013924fbd6dbb637c88d7223872a7fbdccbbf95c04a6b"
+
+[[fixture]]
+path = "bin/thumb/ptracefork"
+source = "src/ptracefork.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "dc49a8a9c8a34377eded0090b1fc363b71b484d89a76cc0e72f89f1b5c070ba7"
+
+[[fixture]]
+path = "bin/thumb/ptraceseccomp"
+source = "src/ptraceseccomp.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "5aa3182f34c5349543df0af9fe20ae390caaf4a7a02d246aafdbeb325c9b2a3b"
+
+[[fixture]]
+path = "bin/thumb/ptraceblock"
+source = "src/ptraceblock.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "98f3009b463291fac1608bc0dd3ade27abb0c34690b988937a4ee252fdc87f6f"
+
+[[fixture]]
+path = "bin/thumb/stdin"
+source = "src/stdin.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "7ed4ae2430cc81b3ae8551c100d1f3739a8bca3ec8af7c76b47af1fe0bdc7ab3"
+
+[[fixture]]
+path = "bin/thumb/segv"
+source = "src/segv.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "323883deb7b8f1acd4f7f9a2cd56c0980ccec986ae20a614218b309a04b9a8e9"
+
+[[fixture]]
+path = "bin/thumb/abort"
+source = "src/abort.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "f83880aa80ee99c527e00953468fb662f0c3d47c8aeab2454b9e278ba3e3f8e9"
+
+[[fixture]]
+path = "bin/thumb/trap"
+source = "src/trap.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "8a58d1f02dfbf16481391661d666145a92f4d81e0247f3f0565327bac7a57425"
+

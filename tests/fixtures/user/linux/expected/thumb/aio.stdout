@@ -1,0 +1,103 @@
+ok setup-ctx-nonzero
+ok setup-zero
+ok setup-fault
+ok setup-overflow
+ok aio-max-nr
+ok setup-over-max
+ok setup-wraps
+ok setup-left-zero
+ok setup
+ok aio-nr-counts
+ok ring-header
+ok ring-mapped
+FAIL pwrite: submit1(ctx, &w) == 1 && w.key == 0 (errno 22 Invalid argument) at line 174
+FAIL pwrite-event: one(ctx, &e) && e.data == 77 && e.obj == (uintptr_t)&w && e.res == 11 && e.res2 == 0 (errno 14 Bad address) at line 176
+FAIL pread: submit1(ctx, &rd) == 1 && one(ctx, &e) && e.res == 11 && memcmp(in, "hello, aio!", 11) == 0 (errno 22 Invalid argument) at line 180
+ok position-unchanged
+FAIL pwritev: submit1(ctx, &wvc) == 1 && one(ctx, &e) && e.res == 6 (errno 22 Invalid argument) at line 185
+FAIL preadv: submit1(ctx, &rvc) == 1 && one(ctx, &e) && e.res == 5 && memcmp(x, "bc", 2) == 0 && memcmp(y, "def", 3) == 0 (errno 22 Invalid argument) at line 190
+FAIL fsync: submit1(ctx, &s) == 1 && one(ctx, &e) && e.res == 0 (errno 22 Invalid argument) at line 192
+FAIL fdsync: submit1(ctx, &ds) == 1 && one(ctx, &e) && e.res == 0 (errno 22 Invalid argument) at line 193
+ok fsync-fields
+ok fsync-pipe
+FAIL bad-fd: submit1(ctx, &bad) returned -1 errno 22, want errno 9
+ok reserved
+ok negative-length
+ok bad-opcode
+ok negative-offset
+FAIL rw-flags: submit1(ctx, &bad) returned -1 errno 22, want errno 95
+ok rw-flags-append
+FAIL rw-flags-atomic-read: submit1(ctx, &bad) returned -1 errno 22, want errno 95
+FAIL not-readable: submit1(ctx, &bad) returned -1 errno 22, want errno 9
+ok resfd-not-eventfd
+FAIL resfd-bad: submit1(ctx, &bad) returned -1 errno 22, want errno 9
+FAIL resfd-path: submit1(ctx, &bad) returned -1 errno 22, want errno 9
+FAIL path-fd: submit1(ctx, &bad) returned -1 errno 22, want errno 9
+ok directory
+ok epoll
+FAIL buffer-kernel: submit1(ctx, &bad) returned -1 errno 22, want errno 14
+FAIL vector-fault: submit1(ctx, &bad) returned -1 errno 22, want errno 14
+FAIL buffer-unmapped: submit1(ctx, &bad) == 1 && one(ctx, &e) && e.res == -EFAULT && e.data == 9 (errno 22 Invalid argument) at line 247
+FAIL bad-iocb: submit(ctx, 1, pv) returned -1 errno 22, want errno 14
+FAIL bad-array: submit(ctx, 1, BAD) returned -1 errno 22, want errno 14
+ok negative-count
+FAIL zero-count: submit(ctx, 0, pv) == 0 (errno 22 Invalid argument) at line 252
+ok bad-context
+FAIL count-before-failure: submit(ctx, 2, two) == 1 && one(ctx, &e) (errno 22 Invalid argument) at line 257
+FAIL resfd: submit(ctx, 2, nv) == 2 && getevents(ctx, 2, 2, (struct io_event[2]){0}, NULL) == 2 && read(efd, &count, 8) == 8 && count == 2 (errno 22 Invalid argument) at line 266
+FAIL pipe-nonblock: submit1(ctx, &pr) == 1 && one(ctx, &e) && e.res == -EAGAIN (errno 22 Invalid argument) at line 272
+FAIL pipe-interrupted: interrupted == 1 && one(ctx, &e) && e.res == -EINTR (errno 22 Invalid argument) at line 283
+FAIL pipe-data: submit1(ctx, &pr) == 1 && one(ctx, &e) && e.res == 3 (errno 22 Invalid argument) at line 285
+FAIL epipe-nosignal: submit1(ctx, &pw) == 1 && one(ctx, &e) && e.res == -EPIPE && sigpipes == 0 (errno 22 Invalid argument) at line 294
+FAIL epipe-sigpipe: submit1(ctx, &pw) == 1 && one(ctx, &e) && e.res == -EPIPE && sigpipes == 1 (errno 22 Invalid argument) at line 296
+FAIL poll-waits: submit1(ctx, &pl) == 1 && getevents(ctx, 1, 1, &e, &zero) == 0 (errno 22 Invalid argument) at line 301
+FAIL poll-completes: one(ctx, &e) && e.data == 5 && e.res == (POLLIN | POLLRDNORM) (errno 14 Bad address) at line 304
+FAIL poll-at-once: submit1(ctx, &pl) == 1 && one(ctx, &e) && e.res == POLLIN (errno 22 Invalid argument) at line 305
+FAIL poll-cancel: submit1(ctx, &pl) == 1 && cancel(ctx, &pl, &e) == -1 && errno == EINPROGRESS && one(ctx, &e) && e.res == 0 && e.obj == (uintptr_t)&pl (errno 22 Invalid argument) at line 308
+ok cancel-again
+ok cancel-completed
+ok cancel-key
+FAIL cancel-fault: cancel(ctx, BAD, &e) returned -1 errno 22, want errno 14
+FAIL poll-socket-waits: submit1(ctx, &sk) == 1 && getevents(ctx, 1, 1, &e, &zero) == 0 (errno 22 Invalid argument) at line 317
+FAIL poll-socket-key: one(ctx, &e) && e.data == 6 && e.res == (POLLIN | POLLPRI | POLLRDNORM | POLLRDBAND) (errno 14 Bad address) at line 320
+FAIL poll-hangup-waits: submit1(ctx, &hp) == 1 && getevents(ctx, 1, 1, &e, &zero) == 0 (errno 22 Invalid argument) at line 327
+FAIL poll-hangup: one(ctx, &e) && e.data == 7 && e.res == POLLHUP (errno 14 Bad address) at line 329
+ok poll-events
+ok poll-fields
+ok poll-file-cannot-wait
+FAIL poll-file-ready: submit1(ctx, &reg) == 1 && one(ctx, &e) && e.res == POLLIN (errno 22 Invalid argument) at line 338
+FAIL getevents-min-over-max: getevents(ctx, 2, 1, &e, NULL) returned -1 errno 14, want errno 22
+FAIL getevents-negative-min: getevents(ctx, -1, 1, &e, NULL) returned -1 errno 14, want errno 22
+FAIL getevents-context: getevents(ctx + 4096, 0, 1, &e, NULL) returned -1 errno 14, want errno 22
+ok getevents-timeout-fault
+ok events-fault
+FAIL events-kept: getevents(ctx, 1, 1, &e, &zero) == 1 && e.data == 1 (errno 14 Bad address) at line 348
+FAIL getevents-timeout: got == 0 && ms >= 10 (errno 14 Bad address) at line 354
+ok pgetevents-sigset-fault
+FAIL pgetevents-sigset-size: syscall(SYS_io_pgetevents, ctx, 0, 1, &e, &zero, &us) returned -1 errno 14, want errno 22
+FAIL pgetevents: syscall(SYS_io_pgetevents, ctx, 0, 1, &e, &zero, &us) == 0 (errno 14 Bad address) at line 363
+FAIL destroy-first: destroy(ctx) == 0 (errno 22 Invalid argument) at line 452
+FAIL aio-nr-returns: proc_long("/proc/sys/fs/aio-nr") == nr (errno 22 Invalid argument) at line 453
+ok ring-not-locked
+FAIL destroy-unlocked: destroy(ctx) == 0 (errno 22 Invalid argument) at line 373
+FAIL ring-not-locked-future: r == 0 && locked == 0 && destroy(ctx) == 0 (errno 22 Invalid argument) at line 379
+ok mremap-grow
+ok mremap-duplicate
+ok mremap-dontunmap
+ok mremap-moves
+FAIL moved-context: submit1(moved, &w) == 1 && getevents(moved, 1, 1, &e, NULL) == 1 (errno 22 Invalid argument) at line 396
+ok old-address
+ok child-cannot-move
+FAIL destroy-moved: destroy(moved) == 0 && mincore(to, 4096, &v) == -1 && errno == ENOMEM (errno 22 Invalid argument) at line 406
+ok setup-small
+FAIL ring-full: n > 0 && errno == EAGAIN (errno 22 Invalid argument) at line 419
+ok ring-holds-them
+FAIL reaped-by-user: submit1(ctx, &w) == 1 && getevents(ctx, 1, 1, &(struct io_event){0}, NULL) == 1 (errno 22 Invalid argument) at line 424
+ok ring-id-clobbered
+FAIL ring-id-restored: submit1(ctx, &w) == 1 && getevents(ctx, 1, 1, &(struct io_event){0}, NULL) == 1 (errno 22 Invalid argument) at line 430
+ok child-no-context
+FAIL destroy: destroy(ctx) == 0 (errno 22 Invalid argument) at line 437
+FAIL destroy-unmaps: mincore((void *)(uintptr_t)ctx, 4096, &v) == -1 && errno == ENOMEM (errno 22 Invalid argument) at line 439
+ok destroy-again
+ok submit-destroyed
+FAILED

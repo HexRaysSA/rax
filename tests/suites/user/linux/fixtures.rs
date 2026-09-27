@@ -4,9 +4,9 @@
 //! (see its README). `expected/<arch>/<case>.{stdout,status}` were recorded
 //! on Linux by `record-expected.sh` (x86-64, AArch64, RV64, through Docker)
 //! and `oracle/record-kernel.sh` (i386 on an x86-64 kernel under
-//! `qemu-system-x86_64`, ARM EABI on an arm64 kernel under
-//! `qemu-system-aarch64`); every case must match them byte for byte under
-//! `rax-user`.
+//! `qemu-system-x86_64`, ARM EABI, as A32 and as Thumb-2 code, on an arm64
+//! kernel under `qemu-system-aarch64`); every case must match them byte for
+//! byte under `rax-user`.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -17,10 +17,12 @@ use super::sha256;
 use super::support::{fixtures, run};
 
 const ARCHES: [&str; 3] = ["x86_64", "aarch64", "riscv64"];
-/// The compatibility architectures, built for the cases `build.sh` lists.
+/// The compatibility architectures, built for the cases `build.sh` lists
+/// (`thumb`: the ARM programs built as Thumb-2 code).
 const I386: &str = "i386";
 const ARM: &str = "arm";
-const COMPAT: [&str; 2] = [I386, ARM];
+const THUMB: &str = "thumb";
+const COMPAT: [&str; 3] = [I386, ARM, THUMB];
 
 struct Case {
     name: String,
@@ -45,12 +47,12 @@ fn arm_only_cases() -> Vec<Case> {
 }
 
 /// The cases of the programs built for compatibility architecture `arch`
-/// alone.
+/// alone (none for Thumb-2 code).
 fn only_cases(arch: &str) -> Vec<Case> {
-    if arch == I386 {
-        i386_only_cases()
-    } else {
-        arm_only_cases()
+    match arch {
+        I386 => i386_only_cases(),
+        ARM => arm_only_cases(),
+        _ => Vec::new(),
     }
 }
 
@@ -192,8 +194,9 @@ fn fixture_binaries_match_manifest() {
 }
 
 /// A compatibility architecture's results come from a real kernel booted
-/// under `qemu` (see [`i386_expectations_come_from_an_x86_64_kernel`] and
-/// [`arm_expectations_come_from_an_arm64_kernel`]): `expected/<arch>` holds
+/// under `qemu` (see [`i386_expectations_come_from_an_x86_64_kernel`],
+/// [`arm_expectations_come_from_an_arm64_kernel`], and
+/// [`thumb_expectations_come_from_an_arm64_kernel`]): `expected/<arch>` holds
 /// exactly its cases, no case is overridden, and `ORACLE-<arch>` names the
 /// kernel and the emulator.
 fn check_kernel_oracle(arch: &str, qemu: &str) {
@@ -236,6 +239,12 @@ fn arm_expectations_come_from_an_arm64_kernel() {
     // arm64 with CONFIG_COMPAT, configured as the compatibility task
     // rax-user models (oracle/build-kernel.sh).
     check_kernel_oracle(ARM, "qemu-system-aarch64");
+}
+
+#[test]
+fn thumb_expectations_come_from_an_arm64_kernel() {
+    // The same programs as Thumb-2 code, recorded in the same boot.
+    check_kernel_oracle(THUMB, "qemu-system-aarch64");
 }
 
 #[test]
@@ -378,6 +387,14 @@ fn arm_fixtures_match_linux() {
     // AArch32 code runs in the interpreter.
     for case in compat_cases(ARM) {
         check_case(ARM, &case, &[], &[]);
+    }
+}
+
+#[test]
+fn thumb_fixtures_match_linux() {
+    // Thumb-2 code, entered in Thumb state, in the same interpreter.
+    for case in compat_cases(THUMB) {
+        check_case(THUMB, &case, &[], &[]);
     }
 }
 

@@ -10,15 +10,15 @@
 #                     cases (programs built into bin/i386), and with
 #                     `compare` the x86_64 ones
 #   arm64             KERNEL is an Image; qemu-system-aarch64 runs the ARM
-#                     EABI cases (bin/arm), and with `compare` the aarch64
-#                     ones
+#                     EABI cases, as A32 (bin/arm) and as Thumb-2 code
+#                     (bin/thumb), and with `compare` the aarch64 ones
 #
 # KERNEL is Linux 6.19 built by build-kernel.sh for the same architecture.
 # The initramfs holds vminit (PID 1), the case list, the binaries, and
 # input/; vminit runs each case and writes its output to the serial
 # console, which this script decodes into expected/<arch>/<case>.{stdout,
-# status} (i386, arm), or into oracle-<arch>/ (the comparison run, not
-# committed). expected/ORACLE-<arch> records the kernel, QEMU, and
+# status} (i386, arm, thumb), or into oracle-<arch>/ (the comparison run,
+# not committed). expected/ORACLE-<arch> records the kernel, QEMU, and
 # recording time.
 #
 # Requirements: Zig 0.16.0 (to build vminit), qemu-system-x86_64 or
@@ -32,8 +32,8 @@ compare="${3:-}"
 cd "$here"
 
 case "$machine" in
-x86_64) compat=i386 native=x86_64 ;;
-arm64) compat=arm native=aarch64 ;;
+x86_64) compat=(i386) native=x86_64 ;;
+arm64) compat=(arm thumb) native=aarch64 ;;
 *)
     echo "error: unknown machine $machine" >&2
     exit 1
@@ -50,7 +50,7 @@ root="$work/root"
 mkdir -p "$root/w"
 zig cc -target "$native-linux-musl" -static -Os -s -o "$root/init" oracle/vminit.c
 cp -R input "$root/w/input"
-arches=("$compat")
+arches=("${compat[@]}")
 [[ -n "$compare" ]] && arches+=("$native")
 for arch in "${arches[@]}"; do
     cp -R "bin/$arch" "$root/w/$arch"
@@ -100,8 +100,8 @@ grep -q '^@@done' <(tr -d '\r' < "$console") || {
 }
 
 # Decode: "@@case ARCH NAME", hex lines, "@@status N".
-tr -d '\r' < "$console" | awk -v here="$here" -v compat="$compat" '
-    /^@@case / { arch = $2; name = $3; dir = (arch == compat) ? "expected/" arch : "oracle-" arch;
+tr -d '\r' < "$console" | awk -v here="$here" -v compat=" ${compat[*]} " '
+    /^@@case / { arch = $2; name = $3; dir = index(compat, " " arch " ") ? "expected/" arch : "oracle-" arch;
                  system("mkdir -p " here "/" dir);
                  out = here "/" dir "/" name ".stdout"; printf "" > out; hex = ""; next }
     /^@@status / { close(out); cmd = "xxd -r -p > " out; printf "%s", hex | cmd; close(cmd);
@@ -115,14 +115,16 @@ case "$machine" in
 x86_64) config="x86_64_defconfig with CONFIG_IA32_EMULATION" ;;
 arm64) config="arm64 defconfig with CONFIG_COMPAT and the compat-task options" ;;
 esac
-{
-    echo "$compat oracle: Linux on $qemu (TCG), not Docker"
-    # bzImage's setup header holds the version; an Image, linux_banner
-    # (after init/version.c's placeholder, which has no build number).
-    echo "kernel: $(strings "$kernel" | sed -nE 's/^(Linux version )?([0-9]+\.[0-9]+\.[0-9]+ \(.*#[0-9]+ .*)/\2/p' | head -1)"
-    echo "build: oracle/build-kernel.sh from tag v6.19 ($config)"
-    echo "kernel-sha256: $(shasum -a 256 "$kernel" | cut -d' ' -f1)"
-    echo "qemu: $("$qemu" --version | head -1)"
-    echo "machine: $machine_desc"
-    echo "recorded: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-} > "expected/ORACLE-$compat"
+for arch in "${compat[@]}"; do
+    {
+        echo "$arch oracle: Linux on $qemu (TCG), not Docker"
+        # bzImage's setup header holds the version; an Image, linux_banner
+        # (after init/version.c's placeholder, which has no build number).
+        echo "kernel: $(strings "$kernel" | sed -nE 's/^(Linux version )?([0-9]+\.[0-9]+\.[0-9]+ \(.*#[0-9]+ .*)/\2/p' | head -1)"
+        echo "build: oracle/build-kernel.sh from tag v6.19 ($config)"
+        echo "kernel-sha256: $(shasum -a 256 "$kernel" | cut -d' ' -f1)"
+        echo "qemu: $("$qemu" --version | head -1)"
+        echo "machine: $machine_desc"
+        echo "recorded: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    } > "expected/ORACLE-$arch"
+done

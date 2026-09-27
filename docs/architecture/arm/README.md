@@ -130,7 +130,7 @@ These facilities have different levels of machine integration. An instruction en
 
 ## AArch32 and Thumb
 
-The 32-bit core includes A32 plus T16/T32 decode and execution, VFP/NEON surfaces, and hardware-exception routing. Generated differential cases compare selected 32-bit execution against `qemu-arm`.
+The 32-bit core includes A32 plus T16/T32 decode and execution, VFP/NEON surfaces, and hardware-exception routing. Generated differential cases compare selected 32-bit execution against `qemu-arm`. In user mode, `rax-user` runs static ARM EABI programs, built as A32 and as Thumb-2 code, against results recorded on Linux 6.19 for arm64 (`tests/fixtures/user/linux/`).
 
 Machine-level status is more limited than instruction status:
 
