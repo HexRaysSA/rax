@@ -631,6 +631,40 @@ enum Target {
     TryThread(u64),
 }
 
+/// A host `SIGCHLD` reported a child's state change: whether the process
+/// gets its `SIGCHLD`. A process that does not wait for its children
+/// (`SIGCHLD` ignored or `SA_NOCLDWAIT`: `P_NOCLDWAIT`) leaves no zombies
+/// and gets no signal for an exit (`proc_exit` hands the child to the
+/// kernel); `SA_NOCLDSTOP` suppresses the signal for a stop; XNU sends
+/// none for a continue.
+pub fn child_changed(proc: &mut Proc, origin: &Origin) -> bool {
+    use frame::code::{CLD_CONTINUED, CLD_STOPPED};
+    let post = match origin.code {
+        CLD_CONTINUED => false,
+        CLD_STOPPED => !proc.sigacts.nocldstop,
+        _ if proc.sigacts.nocldwait => {
+            // Reap every child that ended, as the kernel would have.
+            loop {
+                let mut status = 0;
+                // SAFETY: `status` is valid for the host to write.
+                let pid = unsafe { libc::waitpid(-1, &mut status, libc::WNOHANG) };
+                if pid <= 0 {
+                    break;
+                }
+                proc.children.remove(&pid);
+            }
+            false
+        }
+        _ => true,
+    };
+    if post {
+        // The child's record for the signal's siginfo (pp->si_pid,
+        // si_status, si_code, si_uid).
+        proc.sigacts.origin = *origin;
+    }
+    post
+}
+
 /// Sends `sig` to the process (`psignal`). `running` is the thread that
 /// is executing, if any.
 pub fn psignal(proc: &mut Proc, running: Option<&mut Thread>, sig: Signal, origin: Origin) {

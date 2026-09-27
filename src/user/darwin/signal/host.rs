@@ -150,10 +150,11 @@ pub fn inherited() -> super::Inherited {
 }
 
 /// The asynchronous signals forwarded to the guest: those a terminal,
-/// another process, or the host's timers and resource limits send.
+/// another process, or the host's timers and resource limits send, and
+/// `SIGCHLD` for the guest's children, which are host processes.
 const FORWARDED: &[Signal] = &[
     SIGHUP, SIGINT, SIGQUIT, SIGALRM, SIGTERM, SIGURG, SIGTSTP, SIGCONT, SIGTTIN, SIGTTOU, SIGIO,
-    SIGXCPU, SIGXFSZ, SIGVTALRM, SIGPROF, SIGWINCH, SIGINFO, SIGUSR1, SIGUSR2,
+    SIGXCPU, SIGXFSZ, SIGVTALRM, SIGPROF, SIGWINCH, SIGINFO, SIGUSR1, SIGUSR2, SIGCHLD,
 ];
 
 /// Forwarded signals received and not yet taken, as a Darwin signal set.
@@ -166,6 +167,10 @@ static WAKE_READ: AtomicI32 = AtomicI32::new(-1);
 static WAKE_WRITE: AtomicI32 = AtomicI32::new(-1);
 /// Whether [`forward`] ran.
 static FORWARDING: AtomicBool = AtomicBool::new(false);
+/// The last host `SIGCHLD`'s child: `1 << 63 | si_code << 32 | si_pid`,
+/// and `si_uid << 32 | si_status` (0 before one arrives).
+static CHILD_WHO: AtomicU64 = AtomicU64::new(0);
+static CHILD_WHAT: AtomicU64 = AtomicU64::new(0);
 
 /// The host `si_code` of a signal a process sent with `kill`: `SI_USER`,
 /// which XNU's `kill(2)` delivers as 0.
@@ -197,6 +202,18 @@ extern "C" fn on_host_signal(host: libc::c_int, info: *mut libc::siginfo_t, _: *
     // errno_location is this thread's errno slot.
     let (saved, code, pid, uid) =
         unsafe { (*errno, (*info).si_code, (*info).si_pid(), (*info).si_uid()) };
+    if host == libc::SIGCHLD {
+        // SAFETY: as above; si_status is set for SIGCHLD.
+        let status = unsafe { (*info).si_status() };
+        CHILD_WHAT.store(
+            (u64::from(uid) << 32) | u64::from(status as u32),
+            Ordering::Relaxed,
+        );
+        CHILD_WHO.store(
+            (1 << 63) | ((code as u64 & 0xff) << 32) | (pid as u64 & 0x7fff_ffff),
+            Ordering::Relaxed,
+        );
+    }
     let sender = if sent_by_kill(code) && pid > 0 {
         (1 << 63) | ((pid as u64 & 0x7fff_ffff) << 32) | u64::from(uid)
     } else {
@@ -303,6 +320,9 @@ pub fn take() -> Vec<(Signal, Origin)> {
     (1..super::NSIG)
         .filter(|&s| pending & super::bit(s) != 0)
         .map(|s| {
+            if s == SIGCHLD {
+                return (s, child_origin());
+            }
             let packed = SENDER[s as usize].load(Ordering::Relaxed);
             let origin = if packed >> 63 != 0 {
                 Origin::process(((packed >> 32) & 0x7fff_ffff) as i32, packed as u32)
@@ -312,6 +332,109 @@ pub fn take() -> Vec<(Signal, Origin)> {
             (s, origin)
         })
         .collect()
+}
+
+/// The child a host `SIGCHLD` reported, as XNU records it in the parent
+/// for the signal's `siginfo` (`proc_exit`, `proc_reparentlocked`): the
+/// child's pid and user, `CLD_EXITED` with its raw wait status for an
+/// exit or a death by a signal, else the stop or continue code with the
+/// signal in the status's second byte.
+fn child_origin() -> Origin {
+    let who = CHILD_WHO.load(Ordering::Relaxed);
+    if who >> 63 == 0 {
+        return Origin::KERNEL;
+    }
+    let what = CHILD_WHAT.load(Ordering::Relaxed);
+    let (code, pid) = (((who >> 32) & 0xff) as i32, (who & 0x7fff_ffff) as i32);
+    let (uid, status) = ((what >> 32) as u32, what as u32 as i32);
+    let sig = |s: i32| from_host(s).unwrap_or(s);
+    let (code, status) = match code {
+        c if c == libc::CLD_EXITED => (super::frame::code::CLD_EXITED, (status & 0xff) << 8),
+        c if c == libc::CLD_KILLED => (super::frame::code::CLD_EXITED, sig(status) & 0x7f),
+        c if c == libc::CLD_DUMPED => (super::frame::code::CLD_EXITED, (sig(status) & 0x7f) | 0x80),
+        c if c == libc::CLD_STOPPED => (super::frame::code::CLD_STOPPED, (sig(status) << 8) | 0x7f),
+        c if c == libc::CLD_CONTINUED => (super::frame::code::CLD_CONTINUED, 0xffff),
+        c => (c, status),
+    };
+    Origin {
+        pid,
+        uid,
+        status,
+        code,
+    }
+}
+
+/// Forks the host process (the emulator with its guest): `Some(pid)` in
+/// the parent, `None` in the child. The forwarded signals stay blocked
+/// across the fork, so that a signal sent to the child at once stays
+/// pending in the host kernel until the child has dropped the parent's
+/// records and made its own wake pipe.
+pub fn fork_host() -> Result<Option<i32>, Errno> {
+    // SAFETY: the sets are initialized by sigemptyset before use;
+    // pthread_sigmask only reads `block` and writes `old`.
+    let old = unsafe {
+        let mut block: libc::sigset_t = std::mem::zeroed();
+        let mut old: libc::sigset_t = std::mem::zeroed();
+        libc::sigemptyset(&mut block);
+        for &sig in FORWARDED {
+            if let Some(h) = to_host(sig) {
+                libc::sigaddset(&mut block, h);
+            }
+        }
+        libc::pthread_sigmask(libc::SIG_BLOCK, &block, &mut old);
+        old
+    };
+    let restore = || {
+        // SAFETY: `old` is the mask pthread_sigmask returned above.
+        unsafe {
+            libc::pthread_sigmask(libc::SIG_SETMASK, &old, std::ptr::null_mut());
+        }
+    };
+    // SAFETY: fork(2) of a process whose guest runs on this one host
+    // thread; the child continues the same single-threaded program.
+    let pid = unsafe { libc::fork() };
+    if pid < 0 {
+        let e = Errno::last();
+        restore();
+        return Err(e);
+    }
+    if pid > 0 {
+        restore();
+        return Ok(Some(pid));
+    }
+    // The child: nothing received yet, and its own wake pipe.
+    PENDING.store(0, Ordering::SeqCst);
+    CHILD_WHO.store(0, Ordering::SeqCst);
+    for s in &SENDER {
+        s.store(0, Ordering::Relaxed);
+    }
+    if FORWARDING.load(Ordering::SeqCst) {
+        let (r, w) = (
+            WAKE_READ.swap(-1, Ordering::SeqCst),
+            WAKE_WRITE.swap(-1, Ordering::SeqCst),
+        );
+        let mut fds = [0 as libc::c_int; 2];
+        // SAFETY: the inherited descriptors belong to this module and the
+        // child closes its copies; `fds` receives pipe(2)'s descriptors.
+        unsafe {
+            libc::close(r);
+            libc::close(w);
+            if libc::pipe(fds.as_mut_ptr()) == 0 {
+                for fd in fds {
+                    libc::fcntl(
+                        fd,
+                        libc::F_SETFL,
+                        libc::fcntl(fd, libc::F_GETFL) | libc::O_NONBLOCK,
+                    );
+                    libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC);
+                }
+                WAKE_READ.store(fds[0], Ordering::SeqCst);
+                WAKE_WRITE.store(fds[1], Ordering::SeqCst);
+            }
+        }
+    }
+    restore();
+    Ok(None)
 }
 
 /// Stops the process for a stop signal's default action. The emulator

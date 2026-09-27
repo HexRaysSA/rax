@@ -300,7 +300,15 @@ mod darwin {
             }
         };
         let status = process.run();
-        if !matches!(status, ExitStatus::Exited(_)) {
+        // A death by a signal whose default action only terminates (a
+        // `kill`, a terminal interrupt) is the guest's business; crashes
+        // and emulator errors are reported.
+        let quiet = matches!(
+            status,
+            ExitStatus::Exited(_) | ExitStatus::Signaled { core: false, .. }
+        ) && !cli.strace
+            && std::env::var_os("RAX_DARWIN_WARN").is_none();
+        if !quiet {
             eprintln!("rax-user: {program}: {status}");
         }
         if let ExitStatus::Signaled {

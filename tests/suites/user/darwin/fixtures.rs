@@ -129,3 +129,13 @@ fn dispatch_arm64() {
 fn dispatch_x86_64() {
     fixture("dispatch", "x86_64", &[], &[]);
 }
+
+#[test]
+fn fork_arm64() {
+    fixture("fork", "arm64", &[], &[]);
+}
+
+#[test]
+fn fork_x86_64() {
+    fixture("fork", "x86_64", &[], &[]);
+}

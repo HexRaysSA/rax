@@ -341,6 +341,8 @@ pub struct Proc {
     pub kq: super::kevent::State,
     /// The work queue.
     pub wq: super::workq::Workqueue,
+    /// Children not yet reaped, by pid (host processes).
+    pub children: std::collections::BTreeSet<i32>,
     /// Machine facts.
     pub machine: MachineInfo,
     /// The shared region, once mapped.
@@ -598,6 +600,7 @@ impl DarwinProcess {
                 psynch: Default::default(),
                 kq: Default::default(),
                 wq: Default::default(),
+                children: Default::default(),
                 machine,
                 shared_region: None,
                 started: Instant::now(),
@@ -616,6 +619,13 @@ impl DarwinProcess {
                 return status;
             }
             for (sig, origin) in signal::host::take() {
+                if sig == signal::SIGCHLD {
+                    // A child changed state: waiters look again.
+                    self.proc.post(WaitKey::Child);
+                    if !signal::child_changed(&mut self.proc, &origin) {
+                        continue;
+                    }
+                }
                 signal::psignal(&mut self.proc, None, sig, origin);
             }
             signal::timer::expire_real(&mut self.proc);
@@ -662,7 +672,9 @@ impl DarwinProcess {
                 syscall::bsd::pthread::reap(&mut self.proc, &mut thread);
             }
             if !thread.exited {
-                self.proc.threads.insert(tid, thread);
+                // A forked child's thread has a new ID.
+                self.last = thread.tid;
+                self.proc.threads.insert(thread.tid, thread);
             }
             // Threads another thread terminated (thread_terminate) end now.
             let ended: Vec<u64> = self
@@ -808,7 +820,7 @@ impl DarwinProcess {
 /// (`TASK_AUDIT_TOKEN`), with the emulated credentials; elsewhere a
 /// token with the default audit user and session and pidversion 1 (the
 /// kernel's version numbers are never zero).
-fn host_audit_token(pid: i32, creds: (u32, u32, u32, u32)) -> [u32; 8] {
+pub(crate) fn host_audit_token(pid: i32, creds: (u32, u32, u32, u32)) -> [u32; 8] {
     let (ruid, euid, rgid, egid) = creds;
     let mut t = [u32::MAX, euid, egid, ruid, rgid, pid as u32, 0, 1];
     #[cfg(target_os = "macos")]
