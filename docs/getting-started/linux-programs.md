@@ -48,6 +48,10 @@ and error are the host's. The exit status is the guest's:
 
 ## Options
 
+Options go before `PROGRAM`: everything after it is the program's
+arguments, including words that look like `rax-user` options
+(`rax-user prog --version` passes `--version` to `prog`).
+
 | Option | Effect |
 |---|---|
 | `-L`, `--sysroot DIR` | Guest root overlay: an absolute guest path that exists under `DIR` resolves there, anything else resolves on the host (QEMU `-L` semantics). Symbolic links inside `DIR` resolve inside `DIR`. `/dev`, `/proc`, and `/sys` always resolve on the host or are synthesized. |
