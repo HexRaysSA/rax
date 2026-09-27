@@ -314,3 +314,61 @@ fn test_xpaclri_strips_lr_instruction_pac() {
         assert_eq!(cpu.get_pc(), 4);
     }
 }
+
+// -------------------------------------------------------------------------
+// LDRAA/LDRAB (encodings from `clang -arch arm64e`).
+// -------------------------------------------------------------------------
+
+fn pauth_cpu() -> AArch64Cpu {
+    use crate::isa::arm::common::features::ArmFeatures;
+    use crate::isa::arm::common::memory::FlatMemory;
+    let config = AArch64Config {
+        features: ArmFeatures::armv8_3_base(),
+        ..AArch64Config::default()
+    };
+    AArch64Cpu::new(config, Box::new(FlatMemory::new(0, 0x1000_0000)))
+}
+
+#[test]
+fn test_ldraa_ldrab_offsets_and_writeback() {
+    // (insn, Rt, Rn, base, address loaded, written-back base)
+    let cases: [(u32, u8, u8, u64, u64, Option<u64>); 5] = [
+        (0xf8200420, 0, 1, 0x2000, 0x2000, None), // ldraa x0, [x1]
+        (0xf8600462, 2, 3, 0x3000, 0x2000, None), // ldraa x2, [x3, #-0x1000]
+        (0xf8bffca4, 4, 5, 0x3000, 0x3ff8, Some(0x3ff8)), // ldrab x4, [x5, #0xff8]!
+        (0xf82017e6, 6, 31, 0x5000, 0x5008, None), // ldraa x6, [sp, #0x8]
+        (0xf8fffd07, 7, 8, 0x6008, 0x6000, Some(0x6000)), // ldrab x7, [x8, #-0x8]!
+    ];
+    for (insn, rt, rn, base, addr, wback) in cases {
+        let mut cpu = pauth_cpu();
+        cpu.write_memory(0, &insn.to_le_bytes()).unwrap();
+        cpu.write_memory(addr, &0x1122_3344_5566_7788u64.to_le_bytes())
+            .unwrap();
+        if rn == 31 {
+            cpu.set_current_sp(base);
+        } else {
+            cpu.set_x(rn, base);
+        }
+        cpu.step().unwrap();
+        assert_eq!(cpu.get_x(rt), 0x1122_3344_5566_7788, "{insn:#010x}");
+        let now = if rn == 31 {
+            cpu.current_sp()
+        } else {
+            cpu.get_x(rn)
+        };
+        assert_eq!(now, wback.unwrap_or(base), "{insn:#010x} base");
+        assert_eq!(cpu.get_pc(), 4);
+    }
+}
+
+#[test]
+fn test_ldraa_needs_feat_pauth_and_an_aligned_sp() {
+    let mut cpu = create_test_cpu();
+    cpu.write_memory(0, &0xf8200420u32.to_le_bytes()).unwrap();
+    cpu.set_x(1, 0x2000);
+    assert!(matches!(cpu.step(), Err(ArmError::UndefinedInstruction(_))));
+    let mut cpu = pauth_cpu();
+    cpu.write_memory(0, &0xf82017e6u32.to_le_bytes()).unwrap(); // ldraa x6, [sp, #8]
+    cpu.set_current_sp(0x5004);
+    assert!(matches!(cpu.step(), Err(ArmError::MemoryError(_))));
+}

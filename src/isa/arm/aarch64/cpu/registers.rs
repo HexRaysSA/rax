@@ -711,7 +711,14 @@ impl AArch64Cpu {
         let rn = ((insn >> 5) & 0x1F) as u8;
         let op4 = insn & 0x1F;
 
-        if op2 != 0x1F || op3 != 0 {
+        if op2 != 0x1F {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        // FEAT_PAuth forms: op3 = 00001M selects key A (M=0) or B (M=1).
+        if op3 & 0b111110 == 0b000010 {
+            return self.exec_br_reg_pauth(insn, opc, rn, op4 as u8);
+        }
+        if op3 != 0 {
             return Err(ArmError::UndefinedInstruction(insn));
         }
 
@@ -752,6 +759,69 @@ impl AArch64Cpu {
             _ => return Err(ArmError::UndefinedInstruction(insn)),
         }
 
+        Ok(CpuExit::Continue)
+    }
+
+    /// The FEAT_PAuth unconditional branches (register): `BRAA`/`BRAB`
+    /// (`opc` 1000, modifier `Xm|SP` in bits[4:0]), `BRAAZ`/`BRABZ` (`opc`
+    /// 0000, zero modifier, bits[4:0] = 11111), `BLRAA`/`BLRAB` (1001),
+    /// `BLRAAZ`/`BLRABZ` (0001), `RETAA`/`RETAB` (0010, Rn = Rm = 11111,
+    /// authenticating X30 with SP), and `ERETAA`/`ERETAB` (0100, EL1 and
+    /// above). UNDEFINED without FEAT_PAuth.
+    ///
+    /// The pointer-authentication algorithm is the implementation's own
+    /// (FEAT_PACIMP), one whose PAC field is the pointer's canonical
+    /// extension, so `PAC*`/`AUT*` leave a pointer unchanged (see
+    /// `exec_dp_1src`); authenticating the target therefore yields `Xn`
+    /// itself, and the modifier does not affect the result.
+    fn exec_br_reg_pauth(
+        &mut self,
+        insn: u32,
+        opc: u32,
+        rn: u8,
+        op4: u8,
+    ) -> Result<CpuExit, ArmError> {
+        if !self.config.features.contains(ArmFeatures::PACA) {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        match opc {
+            // BRAAZ/BRABZ, BRAA/BRAB
+            0b0000 | 0b1000 => {
+                if opc == 0b0000 && op4 != 0b11111 {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                self.pc = self.get_x(rn);
+                self.btype = 0b01;
+            }
+            // BLRAAZ/BLRABZ, BLRAA/BLRAB
+            0b0001 | 0b1001 => {
+                if opc == 0b0001 && op4 != 0b11111 {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                let target = self.get_x(rn);
+                self.set_x(30, self.pc);
+                self.pc = target;
+                self.btype = 0b10;
+            }
+            // RETAA/RETAB
+            0b0010 => {
+                if rn != 0b11111 || op4 != 0b11111 {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                self.pc = self.get_x(30);
+            }
+            // ERETAA/ERETAB
+            0b0100 => {
+                if rn != 0b11111 || op4 != 0b11111 {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                if self.current_el == 0 {
+                    return Err(ArmError::InvalidExceptionLevel(0));
+                }
+                return self.exception_return();
+            }
+            _ => return Err(ArmError::UndefinedInstruction(insn)),
+        }
         Ok(CpuExit::Continue)
     }
 
