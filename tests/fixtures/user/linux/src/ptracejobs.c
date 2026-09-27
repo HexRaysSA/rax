@@ -28,17 +28,18 @@ static long pt(long req, pid_t pid, void *addr, void *data) {
 
 static int chld_code, chld_status;
 
-/* The SIGCHLD a stop sent the tracer, which blocks it and takes one per
- * stop: ptrace_stop makes the stop visible to waitpid before it sends the
- * signal, so it may come a moment after. */
+/* The SIGCHLD a stop sends the tracer, which blocks it and takes one per
+ * stop before it reaps the stop: ptrace_stop makes the stop visible before
+ * it sends the signal, whose si_status it reads from the exit code that
+ * reaping the stop clears. */
 static void take_chld(void) {
     sigset_t s;
     sigemptyset(&s);
     sigaddset(&s, SIGCHLD);
     siginfo_t si;
-    struct timespec second = {1, 0};
+    struct timespec limit = {5, 0};
     chld_code = chld_status = 0;
-    if (sigtimedwait(&s, &si, &second) == SIGCHLD) {
+    if (sigtimedwait(&s, &si, &limit) == SIGCHLD) {
         chld_code = si.si_code;
         chld_status = si.si_status;
     }
@@ -47,9 +48,9 @@ static void take_chld(void) {
 /* The next stop's exit code (the wait status's high bits), or -1. */
 static int wait_stop(pid_t c) {
     int st = 0;
+    take_chld();
     if (waitpid(c, &st, 0) != c || !WIFSTOPPED(st))
         return -1;
-    take_chld();
     return st >> 8;
 }
 

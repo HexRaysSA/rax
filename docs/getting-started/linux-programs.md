@@ -271,11 +271,16 @@ size fixup), the direct System V IPC calls with `IPC_64` in the command and
 the 16 KiB `COMPAT_SHMLBA`, and the private calls `cacheflush` and
 `set_tls`; the rest of the compatibility table is i386's where the layouts
 agree, and the EABI `struct stat64` and `struct compat_flock64` otherwise.
-Signals use the AArch32 frames with their VFP record.
+Signals use the AArch32 frames with their VFP record. A tracer sees an
+AArch32 thread's registers in arm64's AArch32 views: a 32-bit tracer
+through `compat_arch_ptrace`'s requests (`PTRACE_GETREGS`,
+`PTRACE_PEEKUSR`, `PTRACE_GET_THREAD_AREA`, `PTRACE_SET_SYSCALL`,
+`PTRACE_GETVFPREGS`) and the general and VFP sets, a 64-bit tracer through
+the sets alone, the TLS word and the system-call number among them.
 
-Limitations: register requests of `ptrace` on or by an AArch32 thread are
-`EIO`; `SWP` and `SETEND` raise `SIGILL`, as on an arm64 CPU without
-mixed-endian EL0. The AArch32 core's Thumb-2 decoder lacks the coprocessor
+Limitations: the hardware breakpoint requests and sets are not modelled,
+as in a kernel without `CONFIG_HAVE_HW_BREAKPOINT`; `SWP` and `SETEND`
+raise `SIGILL`, as on an arm64 CPU without mixed-endian EL0. The AArch32 core's Thumb-2 decoder lacks the coprocessor
 and exclusive-access encodings, ARMv8's load-acquire and store-release ones
 among them (so T32 code that reads TLS with `MRC` does not run; A32 code
 has them all), and its NEON coverage has gaps. The recorded fixtures cover

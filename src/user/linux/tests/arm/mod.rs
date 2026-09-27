@@ -15,8 +15,10 @@
 //! | this one | the task, its entry, exceptions, and the private calls |
 //! | [`calls`] | the `aarch32_*` wrappers, EABI layouts, System V IPC's direct calls, sockets, `uname`, `CLONE_SETTLS` |
 //! | [`signals`] | the AArch32 signal frames, `sigreturn`, `rt_sigreturn` |
+//! | [`ptrace`] | the AArch32 register views a 32-bit and a 64-bit tracer get |
 
 mod calls;
+mod ptrace;
 mod signals;
 
 use super::harness::{CODE, Harness};

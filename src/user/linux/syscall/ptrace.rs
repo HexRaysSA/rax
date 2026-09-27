@@ -12,7 +12,7 @@ use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::ptrace::{
     LinkId, Msg, NSIG, PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, SECCOMP_METADATA, SIGINFO, SIGSET,
-    Traced, call, link_mut, offered, opt, regs, regs32, req, resumes, send,
+    Traced, call, link_mut, offered, opt, regs, regs_a32, regs32, req, resumes, send,
 };
 use super::super::seccomp::MODE_DISABLED;
 use super::super::signal::info::SigInfo;
@@ -236,6 +236,8 @@ fn ask(
 ) -> SysResult {
     let compat = c.compat;
     let x86 = matches!(c.p.abi, LinuxAbi::X86_64 | LinuxAbi::I386);
+    // A 32-bit ARM tracer: compat_arch_ptrace's own requests.
+    let arm = c.p.abi == LinuxAbi::Arm;
     let mut payload = Vec::new();
     let mut data = data;
     match request {
@@ -251,10 +253,22 @@ fn ask(
                 payload = c.read_mem(data, size)?;
             }
         }
+        req::GETREGS | req::SETREGS if arm => {
+            if request == req::SETREGS {
+                payload = c.read_mem(data, regs_a32::GREGS)?;
+            }
+        }
+        req::compat_arm::GET_THREAD_AREA | req::compat_arm::SET_SYSCALL if arm => {}
+        req::compat_arm::GETVFPREGS | req::compat_arm::SETVFPREGS if arm => {
+            if request == req::compat_arm::SETVFPREGS {
+                payload = c.read_mem(data, regs_a32::VFP)?;
+            }
+        }
         req::GETREGSET | req::SETREGSET => {
             let (base, len) = read_iovec(c, data)?;
-            // The set of the tracee's view (task_user_regset_view).
-            let (unit, size) = regs::layout(&c.t.cpu, tracee.compat, addr)?;
+            // The set of the view this tracer has of the tracee
+            // (task_user_regset_view).
+            let (unit, size) = regs::layout(&c.t.cpu, compat, tracee.compat, addr)?;
             if len % unit != 0 {
                 return Err(Errno(EINVAL));
             }
@@ -282,7 +296,7 @@ fn ask(
                 payload = c.read_mem(data, size)?;
             }
         }
-        req::GETFPXREGS | req::SETFPXREGS if compat => {
+        req::GETFPXREGS | req::SETFPXREGS if compat && x86 => {
             if request == req::SETFPXREGS {
                 payload = c.read_mem(data, USER_I387)?;
             }
@@ -417,6 +431,12 @@ fn answer(c: &mut Ctx<'_>, request: u64, addr: u64, data: u64, link: LinkId) -> 
         | req::GETFPXREGS
         | req::GET_THREAD_AREA
         | req::GETSIGMASK => c.write_mem(data, &payload)?,
+        // compat_arch_ptrace's put_user of the TLS word and its VFP set.
+        req::compat_arm::GET_THREAD_AREA | req::compat_arm::GETVFPREGS
+            if c.p.abi == LinuxAbi::Arm =>
+        {
+            c.write_mem(data, &payload)?
+        }
         // do_arch_prctl_64's put_user of a base, into the tracer.
         req::ARCH_PRCTL if !payload.is_empty() => c.write_mem(addr, &payload)?,
         // Each record copied in turn: a fault ends the copy, an error only

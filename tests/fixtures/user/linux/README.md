@@ -122,8 +122,8 @@ signal frames call by call.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 258 binaries (55 programs × 3 architectures, 48 for i386, eight
-  of them i386-only, and 45 for ARM), 9,864 KiB in total (`du -k`); each
+- Size: 262 binaries (55 programs × 3 architectures, 48 for i386, eight
+  of them i386-only, and 49 for ARM), 9,984 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -225,9 +225,8 @@ signal frames call by call.
   (`el0_interrupt` calls `enter_from_user_mode`, not
   `irqentry_enter_from_user_mode`), so no signal or preemption aborts an
   `rseq` critical section there, as they do on the Docker kernel. The
-  ARM matrix leaves those programs out, and `iovec` (64-bit-only code)
-  and the `ptrace` programs whose register requests `rax-user` does not
-  yet model for compatibility tasks (`build.sh` names each).
+  ARM matrix leaves those programs out, and `iovec` (64-bit-only code;
+  `build.sh` names each).
 - Containers ran with `--init` so the fixture was not the PID-namespace
   init (the kernel ignores default-action signals sent to an init, which
   would make `abort()` loop), and with `--security-opt seccomp=unconfined`

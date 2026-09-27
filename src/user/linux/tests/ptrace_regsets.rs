@@ -104,7 +104,7 @@ fn floating_point_registers_as_each_architecture_lays_them_out() {
             LinuxAbi::Riscv64 => (8, 264, 0, 256),
         };
         assert_eq!(
-            regs::layout(&h.proc.threads[0].cpu, false, regs::NT_PRFPREG),
+            regs::layout(&h.proc.threads[0].cpu, false, false, regs::NT_PRFPREG),
             Ok((unit, size))
         );
         let value = 0x0123_4567_89ab_cdef_0f1e_2d3c_4b5a_6978u128;
@@ -166,7 +166,7 @@ fn x86_64_xsave_area() {
     };
     let (size, xcr0) = (c.vcpu().xsave_standard_size(), c.vcpu().xcr0());
     assert_eq!(
-        regs::layout(&h.proc.threads[0].cpu, false, regs::NT_X86_XSTATE),
+        regs::layout(&h.proc.threads[0].cpu, false, false, regs::NT_X86_XSTATE),
         Ok((8, size as u64))
     );
     let mut tr = traced(&mut h, 0);
@@ -199,7 +199,7 @@ fn x86_64_xsave_area() {
     let h = Harness::new(LinuxAbi::Aarch64);
     let cpu = &h.proc.threads[0].cpu;
     assert_eq!(
-        regs::layout(cpu, false, regs::NT_X86_XSTATE).map_err(|e| e.0),
+        regs::layout(cpu, false, false, regs::NT_X86_XSTATE).map_err(|e| e.0),
         Err(EINVAL)
     );
 }
@@ -226,7 +226,7 @@ fn aarch64_tls_register_set() {
         let h = Harness::new(abi);
         let cpu = &h.proc.threads[0].cpu;
         assert_eq!(
-            regs::layout(cpu, false, regs::NT_ARM_TLS).map_err(|e| e.0),
+            regs::layout(cpu, false, false, regs::NT_ARM_TLS).map_err(|e| e.0),
             Err(EINVAL)
         );
     }
@@ -422,8 +422,8 @@ fn x86_64_ioperm_and_shadow_stack_sets_have_no_contents() {
     let mut h = Harness::new(LinuxAbi::X86_64);
     let mut tr = traced(&mut h, 0);
     let cpu = &h.proc.threads[0].cpu;
-    assert_eq!(regs::layout(cpu, false, ioperm), Ok((8, 8192)));
-    assert_eq!(regs::layout(cpu, false, shstk), Ok((8, 8)));
+    assert_eq!(regs::layout(cpu, false, false, ioperm), Ok((8, 8192)));
+    assert_eq!(regs::layout(cpu, false, false, shstk), Ok((8, 8)));
     assert_eq!(
         ask(&mut h, &mut tr, req::GETREGSET, ioperm, 8192, &[]).0,
         e(ENXIO)
@@ -480,7 +480,7 @@ fn x86_64_ioperm_and_shadow_stack_sets_have_no_contents() {
         let h = Harness::new(abi);
         let cpu = &h.proc.threads[0].cpu;
         for nt in [ioperm, shstk] {
-            let got = regs::layout(cpu, false, nt).map_err(|e| e.0);
+            let got = regs::layout(cpu, false, false, nt).map_err(|e| e.0);
             assert_eq!(got, Err(EINVAL));
         }
     }

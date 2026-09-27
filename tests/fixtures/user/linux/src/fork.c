@@ -141,9 +141,11 @@ int main(int argc, char **argv) {
         read(go[0], &g, 1);
         _exit(3);
     }
+    /* The SIGCHLD first: do_signal_stop sends it after the stop is
+     * visible, with the status that reaping the stop clears. */
+    await_chld(1);
     CHECK("waitpid-stopped", waitpid(p, &st, WUNTRACED) == p && WIFSTOPPED(st) &&
                                  WSTOPSIG(st) == SIGSTOP);
-    await_chld(1);
     CHECK("sigchld-stopped", chld_code == CLD_STOPPED && chld_status == SIGSTOP);
     CHECK("stop-reported-once", waitpid(p, &st, WUNTRACED | WNOHANG) == 0);
     kill(p, SIGCONT);

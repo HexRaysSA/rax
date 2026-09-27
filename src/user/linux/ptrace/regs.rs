@@ -7,13 +7,15 @@
 //! writing as its `ptrace.c` (x86-64's `fpu/regset.c`) checks them; and
 //! x86-64's sets that no thread here has contents for: the I/O permission
 //! bitmap (`NT_386_IOPERM`) and the shadow-stack pointer (`NT_X86_SHSTK`).
+//! The i386 view is [`regs32`](super::regs32)'s, arm64's AArch32 views
+//! [`regs_a32`](super::regs_a32)'s.
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::arch::GuestCpu;
 use super::super::signal::deliver::SyscallEntry;
 use super::super::signal::frame::aarch64::valid_user_pstate;
-use super::regs32;
+use super::{regs_a32, regs32};
 use crate::isa::x86_64::{LINUX_USER_CS, LINUX_USER_DS, X86UserSegment};
 
 /// `NT_PRSTATUS`.
@@ -68,10 +70,16 @@ const X86_FLAG_MASK: u64 =
 /// `TASK_SIZE_MAX` on x86-64 (4-level paging).
 const X86_TASK_SIZE_MAX: u64 = (1 << 47) - 4096;
 
-/// Whether an x86 thread runs 32-bit code (`!user_64bit_mode`), which
-/// selects the i386 register view (`task_user_regset_view`).
+/// Whether a thread runs 32-bit code, which selects the register view a
+/// 64-bit tracer sees (`task_user_regset_view`): an x86 thread outside
+/// 64-bit mode (`!user_64bit_mode`, the i386 view), or an AArch32 thread
+/// (`is_compat_thread`, the AArch32 ptrace view).
 pub fn compat_mode(cpu: &GuestCpu) -> bool {
-    matches!(cpu, GuestCpu::X86_64(c) if c.vcpu().user_compat())
+    match cpu {
+        GuestCpu::X86_64(c) => c.vcpu().user_compat(),
+        GuestCpu::Arm(_) => true,
+        _ => false,
+    }
 }
 
 /// The size of the general registers' set (`NT_PRSTATUS`).
@@ -87,15 +95,30 @@ pub fn prstatus_size(cpu: &GuestCpu) -> usize {
     }
 }
 
-/// A register set's element size and whole size on `cpu`'s architecture
-/// (its `struct user_regset`'s `size` and `n * size`), in the i386 view
-/// when `i386` (`x86_32_regsets`), `EINVAL` for one it does not have
-/// (`find_regset`).
-pub fn layout(cpu: &GuestCpu, i386: bool, nt: u64) -> Result<(u64, u64), Errno> {
-    if matches!(cpu, GuestCpu::Arm(_)) {
-        return Err(Errno(EIO));
+/// A register set's element size and whole size (its `struct
+/// user_regset`'s `size` and `n * size`) in the view a tracer on `cpu`'s
+/// architecture has of a thread (`task_user_regset_view`), `EINVAL` for
+/// one the view does not have (`find_regset`). x86's view follows the
+/// thread: the i386 one when it runs 32-bit code (`compat_tracee`,
+/// `x86_32_regsets`). arm64's follows the tracer first: a 32-bit tracer's
+/// is `user_aarch32_view`, a 64-bit tracer's of an AArch32 thread
+/// `user_aarch32_ptrace_view` (with the TLS word and the system-call
+/// number).
+pub fn layout(
+    cpu: &GuestCpu,
+    compat_tracer: bool,
+    compat_tracee: bool,
+    nt: u64,
+) -> Result<(u64, u64), Errno> {
+    if matches!(cpu, GuestCpu::Arm(_) | GuestCpu::Aarch64(_)) && (compat_tracer || compat_tracee) {
+        return Ok(match nt {
+            NT_PRSTATUS => (4, regs_a32::GREGS as u64),
+            regs_a32::NT_ARM_VFP => (4, regs_a32::VFP as u64),
+            NT_ARM_TLS | NT_ARM_SYSTEM_CALL if !compat_tracer => (4, 4),
+            _ => return Err(Errno(EINVAL)),
+        });
     }
-    if let (true, GuestCpu::X86_64(c)) = (i386, cpu) {
+    if let (true, GuestCpu::X86_64(c)) = (compat_tracee, cpu) {
         return Ok(match nt {
             NT_PRSTATUS => (4, regs32::REGS32 as u64),
             NT_PRFPREG => (4, regs32::I387_32 as u64),
@@ -237,7 +260,7 @@ pub fn fpregs(cpu: &GuestCpu) -> Vec<u8> {
             b.extend_from_slice(&[0; 4]);
             b
         }
-        // Not reached: an AArch32 thread's register requests are EIO.
+        // Not reached: an AArch32 thread's sets are regs_a32's.
         GuestCpu::Arm(_) => Vec::new(),
     }
 }
@@ -248,7 +271,7 @@ pub fn fpregs(cpu: &GuestCpu) -> Vec<u8> {
 /// reserved words and padding are not kept).
 pub fn set_fpregs(cpu: &mut GuestCpu, bytes: &[u8]) -> Result<(), Errno> {
     match cpu {
-        // An AArch32 thread's register views are not implemented.
+        // Not reached: an AArch32 thread's sets are regs_a32's.
         GuestCpu::Arm(_) => Err(Errno(EIO)),
         GuestCpu::X86_64(c) => {
             if bytes.len() != X86_FXSAVE {
@@ -351,7 +374,7 @@ fn orig(syscall: Option<SyscallEntry>) -> u64 {
 /// thread is in (x86-64's `orig_rax`).
 pub fn prstatus(cpu: &GuestCpu, syscall: Option<SyscallEntry>) -> Vec<u8> {
     let words: Vec<u64> = match cpu {
-        // Not reached: an AArch32 thread's register requests are EIO.
+        // Not reached: an AArch32 thread's sets are regs_a32's.
         GuestCpu::Arm(_) => Vec::new(),
         GuestCpu::X86_64(c) => {
             let v = c.vcpu();
@@ -423,7 +446,7 @@ pub fn set_prstatus(
         .map(|c| u64::from_le_bytes(c.try_into().unwrap()))
         .collect();
     let pc = match cpu {
-        // An AArch32 thread's register views are not implemented.
+        // Not reached: an AArch32 thread's sets are regs_a32's.
         GuestCpu::Arm(_) => return Err(Errno(EIO)),
         GuestCpu::X86_64(_) => {
             for (i, &w) in words.iter().enumerate() {

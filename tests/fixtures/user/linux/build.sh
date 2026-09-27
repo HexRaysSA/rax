@@ -84,10 +84,8 @@ done
 # ARM EABI (hard-float) builds, run as an arm64 kernel's compatibility
 # tasks. -mcpu=cortex_a9-neon-d32 is an ARMv7-A core with VFPv3-D16 and no
 # Advanced SIMD: code the emulated core runs completely (Zig's generic ARM
-# CPU vectorizes with Advanced SIMD). Left out: ptrace, ptracestops,
-# ptraceregs, and ptraceblock (register requests by and on compatibility
-# tasks, which rax-user refuses with EIO; the kernel's compat_arch_ptrace
-# is not modelled yet); iovec (64-bit-only code, as for i386); rseq (Linux
+# CPU vectorizes with Advanced SIMD). Left out: iovec (64-bit-only code,
+# as for i386); rseq (Linux
 # 6.19's arm64 entry code never notes an interrupt from user mode, so the
 # oracle aborts no critical section; later kernels do); and admin, sockets,
 # and fdinfo (the oracle kernel's configuration: no modules and HZ=250; the
@@ -95,7 +93,7 @@ done
 # from a real arm64 kernel (oracle/record-kernel.sh ... arm64).
 arm_target=arm-linux-musleabihf
 arm_cpu=cortex_a9-neon-d32
-arm_programs=(hello fileio memory mman process signals timers threads threadexit exec fork events epoll sockmsg shmem memfd pidfd nodes xattr misc locks netlink ifreq sysvshm sysvsem sysvmsg seccomp inotify mqueue sched procmem kcmp mlock mseal aio splice sendfault ptracejobs ptraceevents ptracefork ptraceseccomp stdin segv abort trap)
+arm_programs=(hello fileio memory mman process signals timers threads threadexit exec fork events epoll sockmsg shmem memfd pidfd nodes xattr misc locks netlink ifreq sysvshm sysvsem sysvmsg seccomp inotify mqueue sched procmem kcmp mlock mseal aio splice sendfault ptrace ptracestops ptraceregs ptracejobs ptraceevents ptracefork ptraceseccomp ptraceblock stdin segv abort trap)
 mkdir -p bin/arm
 for prog in "${arm_programs[@]}"; do
     out="bin/arm/$prog"

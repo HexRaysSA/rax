@@ -18,8 +18,8 @@ use super::super::wait::Resume;
 use super::{
     EVENT_EXEC, EVENT_EXIT, EVENT_STOP, EVENTMSG_SYSCALL_ENTRY, EVENTMSG_SYSCALL_EXIT, Exiting,
     LinkId, Mode, Msg, NSIG, PEEKSIGINFO_SHARED, RSEQ_CONFIGURATION, Resumption, SIGINFO, StopKind,
-    Stopped, Traced, call, link_ids, link_mut, offered, opt, peer_pid, regs, regs32, req, resumes,
-    send,
+    Stopped, Traced, call, link_ids, link_mut, offered, opt, peer_pid, regs, regs_a32, regs32, req,
+    resumes, send,
 };
 
 /// `arch_prctl` codes `do_arch_prctl_64` takes for another task.
@@ -260,6 +260,126 @@ struct Asked {
     compat: bool,
 }
 
+/// A register request to an arm64 kernel's thread in an AArch32 view
+/// (`task_user_regset_view`): a 32-bit tracer's (`compat_arch_ptrace`, of
+/// `user_aarch32_view`), or a 64-bit tracer's of an AArch32 thread
+/// (`arch_ptrace`, of `user_aarch32_ptrace_view`, which adds the TLS word
+/// and `NT_ARM_SYSTEM_CALL`). `None` for a request that is not about
+/// registers. arm64 has no `PTRACE_PEEKUSR` or `PTRACE_GETREGS` of its own,
+/// nor do the ARM requests whose numbers are x86-64's (FPA, iWMMXt,
+/// Crunch) reach anything: `EIO`.
+fn serve_a32(
+    p: &ProcState,
+    t: &mut Thread,
+    asked: Asked,
+    payload: &[u8],
+) -> Option<(i64, Vec<u8>)> {
+    use regs_a32::NT_ARM_VFP;
+    use req::compat_arm as arm;
+    let Asked {
+        request,
+        addr,
+        data,
+        compat,
+    } = asked;
+    let fail = |e: i32| Some((-(e as i64), Vec::new()));
+    let done = |r: Result<(), super::super::abi::errno::Errno>| match r {
+        Ok(()) => Some((0, Vec::new())),
+        Err(e) => fail(e.0),
+    };
+    let word = |v: u32| Some((0, v.to_le_bytes().to_vec()));
+    // The sets of the view: a 64-bit tracer's has the TLS word and the
+    // system-call number too.
+    let get = |t: &Thread, nt: u64| -> Result<Vec<u8>, i32> {
+        match nt {
+            regs::NT_PRSTATUS => Ok(regs_a32::gregs(&t.cpu, t.syscall)),
+            NT_ARM_VFP => Ok(regs_a32::vfp(&t.cpu)),
+            regs::NT_ARM_TLS if !compat => {
+                Ok((t.cpu.thread_pointer() as u32).to_le_bytes().to_vec())
+            }
+            regs::NT_ARM_SYSTEM_CALL if !compat => {
+                regs::get(&t.cpu, t.syscall, nt).map_err(|e| e.0)
+            }
+            _ => Err(EINVAL),
+        }
+    };
+    match request {
+        req::GETREGSET => Some(match get(t, addr) {
+            Ok(mut b) => {
+                b.truncate(data as usize);
+                (0, b)
+            }
+            Err(e) => (-(e as i64), Vec::new()),
+        }),
+        req::SETREGSET => {
+            let r = match addr {
+                regs::NT_PRSTATUS => regs_a32::set_gregs(&mut t.cpu, &mut t.syscall, 0, payload),
+                NT_ARM_VFP => regs_a32::set_vfp(&mut t.cpu, payload),
+                // compat_tls_set: the old value where the tracer's bytes
+                // do not reach.
+                regs::NT_ARM_TLS if !compat => {
+                    if let Some(b) = payload.get(..4) {
+                        let tp = u32::from_le_bytes(b.try_into().unwrap());
+                        t.cpu.set_thread_pointer(u64::from(tp));
+                    }
+                    Ok(())
+                }
+                regs::NT_ARM_SYSTEM_CALL if !compat => {
+                    regs::set(&mut t.cpu, &mut t.syscall, addr, payload)
+                }
+                _ => Err(super::super::abi::errno::Errno(EINVAL)),
+            };
+            Some(match r {
+                Ok(()) => (0, data.to_le_bytes().to_vec()),
+                Err(e) => (-(e.0 as i64), Vec::new()),
+            })
+        }
+        req::PEEKUSR if compat => {
+            let image = regs_a32::Image {
+                start_code: p.mm.program.start_code,
+                start_data: p.mm.program.start_data,
+                end_code: p.mm.program.end_code,
+            };
+            match regs_a32::peek_user(&t.cpu, t.syscall, image, addr) {
+                Ok(v) => word(v),
+                Err(e) => fail(e.0),
+            }
+        }
+        req::POKEUSR if compat => done(regs_a32::poke_user(
+            &mut t.cpu,
+            &mut t.syscall,
+            addr,
+            data as u32,
+        )),
+        req::GETREGS if compat => Some((0, regs_a32::gregs(&t.cpu, t.syscall))),
+        req::SETREGS if compat => done(regs_a32::set_gregs(&mut t.cpu, &mut t.syscall, 0, payload)),
+        arm::GET_THREAD_AREA if compat => word(t.cpu.thread_pointer() as u32),
+        // task_pt_regs(child)->syscallno = data, as NT_ARM_SYSTEM_CALL
+        // writes it.
+        arm::SET_SYSCALL if compat => done(regs::set(
+            &mut t.cpu,
+            &mut t.syscall,
+            regs::NT_ARM_SYSTEM_CALL,
+            &(data as u32).to_le_bytes(),
+        )),
+        arm::GETVFPREGS if compat => Some((0, regs_a32::vfp(&t.cpu))),
+        arm::SETVFPREGS if compat => done(regs_a32::set_vfp(&mut t.cpu, payload)),
+        req::PEEKUSR
+        | req::POKEUSR
+        | req::GETREGS
+        | req::SETREGS
+        | req::GETFPREGS
+        | req::SETFPREGS
+        | req::GETFPXREGS
+        | req::SETFPXREGS
+        | req::GET_THREAD_AREA
+        | req::SET_THREAD_AREA
+        | req::ARCH_PRCTL
+        | arm::GETHBPREGS => fail(EIO),
+        _ => None,
+    }
+}
+
 /// A request to a stopped tracee: its answer and bytes.
 fn serve(
     p: &mut ProcState,
@@ -286,34 +406,21 @@ fn serve(
     if tr.link != link || (!any_state && !tr.stopped()) {
         return fail(ESRCH);
     }
+    // arm64's AArch32 views: a 32-bit tracer's requests of any thread, a
+    // 64-bit tracer's of an AArch32 one.
+    if regs_a32::has_view(&t.cpu)
+        && (compat || matches!(t.cpu, GuestCpu::Arm(_)))
+        && let Some(r) = serve_a32(p, t, asked, payload)
+    {
+        return r;
+    }
+    let tr = t.ptrace.as_ref().expect("checked above");
     // A word of the tracer's size (compat_ulong_t for a 32-bit one).
     let word = if compat { 4 } else { 8 };
     let done = |r: Result<(), super::super::abi::errno::Errno>| match r {
         Ok(()) => (0, Vec::new()),
         Err(e) => fail(e.0),
     };
-    // An AArch32 thread's register views (compat_arch_ptrace, the compat
-    // regsets) are not implemented yet: their requests are EIO.
-    if matches!(t.cpu, GuestCpu::Arm(_))
-        && matches!(
-            request,
-            req::PEEKUSR
-                | req::POKEUSR
-                | req::GETREGS
-                | req::SETREGS
-                | req::GETREGSET
-                | req::SETREGSET
-                | req::GETFPREGS
-                | req::SETFPREGS
-                | req::GETFPXREGS
-                | req::SETFPXREGS
-                | req::GET_THREAD_AREA
-                | req::SET_THREAD_AREA
-                | req::ARCH_PRCTL
-        )
-    {
-        return fail(EIO);
-    }
     // ia32_arch_ptrace's requests of the i386 view.
     if compat
         && matches!(

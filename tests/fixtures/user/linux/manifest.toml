@@ -72,7 +72,7 @@ sha256 = "73b92160e3cdeb8a353340063a6f19f5d3521d884be42a234ff58d12cc8ea3fe"
 path = "bin/x86_64/fork"
 source = "src/fork.c"
 target = "x86_64-linux-musl"
-sha256 = "f6c14a7aacd7c3209f66eea08a810252234ef101f7e6bbafd6e43fad76a69b33"
+sha256 = "55cb51758b79902baac0d604c2201ed24f779cf649d0b8f480df6be45c49d0c3"
 
 [[fixture]]
 path = "bin/x86_64/events"
@@ -264,25 +264,25 @@ sha256 = "69f44ad5c1dfd91a8323aa99155cc17147e21bb77e5c6634f466890425542202"
 path = "bin/x86_64/ptrace"
 source = "src/ptrace.c"
 target = "x86_64-linux-musl"
-sha256 = "3e30cd287b766a7354c784a7e3eea0e468d86ef9051a54d2f3ca85c88379e97c"
+sha256 = "effb1e6278b6874f8b71b68097d893c8e3ebaba59181e625b4f4776ebc331e52"
 
 [[fixture]]
 path = "bin/x86_64/ptracestops"
 source = "src/ptracestops.c"
 target = "x86_64-linux-musl"
-sha256 = "b0cdd0febc42603d37d82e82c4160fe7303cd3fb5fa9033ad4644c30088875f3"
+sha256 = "e1b45ffa98b2d453e3c4a74dc570943986321fbb638b20339847cda69d38fc14"
 
 [[fixture]]
 path = "bin/x86_64/ptraceregs"
 source = "src/ptraceregs.c"
 target = "x86_64-linux-musl"
-sha256 = "c82545aa8e33db6a717c1d73e5e622df808a5112fcbaf41d559368eac1e23b90"
+sha256 = "54b912d7cd451ff4119f5f01ba44933e4fda164a4cde47164d2f6b78c5d6228b"
 
 [[fixture]]
 path = "bin/x86_64/ptracejobs"
 source = "src/ptracejobs.c"
 target = "x86_64-linux-musl"
-sha256 = "fe0a046834e089d5d8aed801d00096880ddc0508dba6f34ad69f55d3538acb3d"
+sha256 = "1ac730b4667c649f88420c695c39cee9383881fcbdde50a8ff5225ae0dac8d5a"
 
 [[fixture]]
 path = "bin/x86_64/ptraceevents"
@@ -402,7 +402,7 @@ sha256 = "bbbab2f7ae7ba2a8575c5b201d6b2c1134124379fccfc03ab0f229c7b70a5cb7"
 path = "bin/aarch64/fork"
 source = "src/fork.c"
 target = "aarch64-linux-musl"
-sha256 = "05c35990e9275f7eab164660e4df9327177cca501eeae77020832de351403732"
+sha256 = "040938c1e75109bd32028b2922f095903fe632b4c88f5ebb9fc4ed12a28d974a"
 
 [[fixture]]
 path = "bin/aarch64/events"
@@ -594,25 +594,25 @@ sha256 = "87731af39e3d5a33536441f98a63e27547121f8d378541880d3f2112b2d0c6b2"
 path = "bin/aarch64/ptrace"
 source = "src/ptrace.c"
 target = "aarch64-linux-musl"
-sha256 = "2ff208cd9fa96f1719325794149ace62cfb0d396701f5aea525849143e474546"
+sha256 = "c687248a0726dadfe4aa02d5819a3cef2fd88a7d054f8823ecd1cb7b7bd92c5b"
 
 [[fixture]]
 path = "bin/aarch64/ptracestops"
 source = "src/ptracestops.c"
 target = "aarch64-linux-musl"
-sha256 = "74d1f4153167d85983865d6f21329c368639cd19704005ffa864791e1b88bbf1"
+sha256 = "6aa9cb0ff36bca77e570ae71a879da7c8606457f1f626402f41520ef741b3904"
 
 [[fixture]]
 path = "bin/aarch64/ptraceregs"
 source = "src/ptraceregs.c"
 target = "aarch64-linux-musl"
-sha256 = "9e5c7a6c84a12ea83503820ad5820983d24e64ab8d4478b1090fc98deb9cf4a1"
+sha256 = "3dbe41c0663d1a3570107546041e3c99e2e548ed23c4af215a48549f50c3e584"
 
 [[fixture]]
 path = "bin/aarch64/ptracejobs"
 source = "src/ptracejobs.c"
 target = "aarch64-linux-musl"
-sha256 = "8341ea2898a0d60cf3919a64e68c212111fc82bcbe2ddf07c710b3d370059291"
+sha256 = "4512b5bd0229d6f72b1cd9b06f6b75e2e0ec80d888dedee475fb7a6ccd2ec66a"
 
 [[fixture]]
 path = "bin/aarch64/ptraceevents"
@@ -732,7 +732,7 @@ sha256 = "2f9bb5ecbf0debc4cb6fdc4d883e6be1078c5e8f8d354cb61fc7ac2cd71da9ad"
 path = "bin/riscv64/fork"
 source = "src/fork.c"
 target = "riscv64-linux-musl"
-sha256 = "44b07dcb9f64b3e2ac1b33db4cc46d7df7eacd9f2c2a1744bf948bad874be1c3"
+sha256 = "0ac2047577267715922784fd32870d00ed3435f89e05dcff69f49518790106fa"
 
 [[fixture]]
 path = "bin/riscv64/events"
@@ -924,25 +924,25 @@ sha256 = "f440765d829997b594804a83715193240bf03836a1d5860112f96ca013d40600"
 path = "bin/riscv64/ptrace"
 source = "src/ptrace.c"
 target = "riscv64-linux-musl"
-sha256 = "3d5ef8079ba17f90a14433f5d610776dac43e387b3488c58065c22ff33ad7238"
+sha256 = "ee4d638c770c253135a4a5c5307cd190d2a67f1b9c16eb97a965e355cbc44caa"
 
 [[fixture]]
 path = "bin/riscv64/ptracestops"
 source = "src/ptracestops.c"
 target = "riscv64-linux-musl"
-sha256 = "39a9c6cba5c80d782ac271ec883e95fbecb89eb94d702207c7b68734dd276872"
+sha256 = "fc31e9c027b8ec8b24ea316bece14cba6847e1d46f75005480e225334ed5fff3"
 
 [[fixture]]
 path = "bin/riscv64/ptraceregs"
 source = "src/ptraceregs.c"
 target = "riscv64-linux-musl"
-sha256 = "6fb4c0a7c706b306481007b4b266ba64bb48d4e7e456add445e53b5a668af918"
+sha256 = "411d66f340f57c9698573f64a4751117bf02ffb0d10c8e570df29d8c9582fdf1"
 
 [[fixture]]
 path = "bin/riscv64/ptracejobs"
 source = "src/ptracejobs.c"
 target = "riscv64-linux-musl"
-sha256 = "501b3f6fb8b39368b840661710183f4ef0c74a43e8eac246b77e0e954ce2014a"
+sha256 = "c2225735c48963c6d71743d4fba9277aa3ba12ebe1c726c70a1603738d88a7e6"
 
 [[fixture]]
 path = "bin/riscv64/ptraceevents"
@@ -1068,7 +1068,7 @@ sha256 = "6f2938c1d07c992e4bbf6185bcfd901f7f07f41f881f28a64d8c9384684db269"
 path = "bin/i386/fork"
 source = "src/fork.c"
 target = "x86-linux-musl"
-sha256 = "ed2ea0a38e23a4acde7da70c2063ec6904da9f2389576c1234c8b703fcadac0e"
+sha256 = "00ff113e3fbfa8916e27e2df66b13d87398bdad82999d46c316c5a47565c6920"
 
 [[fixture]]
 path = "bin/i386/sched"
@@ -1212,7 +1212,7 @@ sha256 = "82c03db518be4f35552bce3698956d2f6fdebc6fc7be61fd0a9490c23b8f5b92"
 path = "bin/i386/ptracejobs"
 source = "src/ptracejobs.c"
 target = "x86-linux-musl"
-sha256 = "5dcb5848c5d276e8c5cffa550c865302a01006b2d59cdc682804cd2d2638dd9c"
+sha256 = "c5138c2c5b55ddd8ddd1a4f61cd7fd6551d5cd661d087068b77245db248a6281"
 
 [[fixture]]
 path = "bin/i386/ptraceevents"
@@ -1355,7 +1355,7 @@ path = "bin/arm/fork"
 source = "src/fork.c"
 target = "arm-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
-sha256 = "babdeaba5a3b0ef3320a6064ee0d7077b4760e75f72ebf227aa6436ea9607bad"
+sha256 = "a15665a38d4e495f109df1f00202e84daafe73cc173e3efb734e47057d524659"
 
 [[fixture]]
 path = "bin/arm/events"
@@ -1540,11 +1540,32 @@ cpu = "cortex_a9-neon-d32"
 sha256 = "54eddafe562c47765f68ea06493e45a83b6c89c8111f338a40c6dc95a4b8e06c"
 
 [[fixture]]
+path = "bin/arm/ptrace"
+source = "src/ptrace.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "8737587e370258ad276b06f2cc1103dc475e1aad9adcb1ef69fee5abc45a40f0"
+
+[[fixture]]
+path = "bin/arm/ptracestops"
+source = "src/ptracestops.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "e65fc46984e75936d95681da17448459800c80c3dd469d3fd1ccd304440d480d"
+
+[[fixture]]
+path = "bin/arm/ptraceregs"
+source = "src/ptraceregs.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "2efeb0d4e88515de3911d42f6f94bcb53548b0bbfc8f4bded82037b4cbd77673"
+
+[[fixture]]
 path = "bin/arm/ptracejobs"
 source = "src/ptracejobs.c"
 target = "arm-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
-sha256 = "ce17f9d821cad95745336152bc823f499ba95cf6534f937301be53202f6daede"
+sha256 = "8506ec767fc8683320890894fa0df426566c3a58311f0b5bb6ddee2c7fe9fc7c"
 
 [[fixture]]
 path = "bin/arm/ptraceevents"
@@ -1566,6 +1587,13 @@ source = "src/ptraceseccomp.c"
 target = "arm-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
 sha256 = "95ad2e3ca6aafbdfb6a48907b21a7be14672409fb9605335479eda617bccc993"
+
+[[fixture]]
+path = "bin/arm/ptraceblock"
+source = "src/ptraceblock.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "f70e160eead44be87e8396fe9eb9c088e37b765a2481ea0f5f78d637be3121e4"
 
 [[fixture]]
 path = "bin/arm/stdin"

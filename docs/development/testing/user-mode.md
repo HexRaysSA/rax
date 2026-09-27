@@ -165,13 +165,16 @@ wrappers' register pairs, the EABI `struct stat64` and `struct compat_flock64`,
 16 KiB `COMPAT_SHMLBA`, `accept`/`send`/`recv`, `uname` under `PER_LINUX32`,
 `CLONE_SETTLS`, and the AArch32 signal frames and returns (layouts from
 `asm/signal32.h`, the handler's entry state from `compat_setup_return`, bad
-frames from `valid_compat_regs`); `src/user/cpu/tests.rs`: the AArch32 adapter
+frames from `valid_compat_regs`), and tracing an AArch32 thread (a 32-bit
+tracer's `compat_arch_ptrace` requests, the AArch32 views' sets for a 32-bit
+and a 64-bit tracer, `valid_compat_regs` on writing, a 32-bit tracer's view of
+an AArch64 thread); `src/user/cpu/tests.rs`: the AArch32 adapter
 (User mode, `SVC`/`BKPT`/UNDEFINED reporting, precise faults, PL0 CP15 and FP
 system-register access, the exclusive monitor, interworking and IT blocks);
 `src/user/linux/tests/stack.rs`: the compat auxiliary vector's order;
 `user_linux` `abi_tables`: numbering against `unistd-eabi.h` and arm64's
 `syscall_32.tbl`. `user_linux` `fixtures` runs an ARM subset of the fixture
-programs (45 of 55, built for ARMv7-A with VFPv3-D16) against results recorded
+programs (49 of 55, built for ARMv7-A with VFPv3-D16) against results recorded
 on Linux 6.19 for arm64, configured as the modelled compatibility task, under
 `qemu-system-aarch64` (`tests/fixtures/user/linux/oracle/`); the morok program
 corpus has no ARM builds.

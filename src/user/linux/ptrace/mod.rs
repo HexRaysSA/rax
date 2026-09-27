@@ -25,6 +25,7 @@
 pub mod call;
 pub mod regs;
 pub mod regs32;
+pub mod regs_a32;
 mod stops;
 pub mod tracee;
 
@@ -90,6 +91,18 @@ pub mod req {
     pub const GET_SYSCALL_INFO: u64 = 0x420e;
     pub const GET_RSEQ_CONFIGURATION: u64 = 0x420f;
     pub const SET_SYSCALL_INFO: u64 = 0x4212;
+
+    /// arm64's `COMPAT_PTRACE_*`: a 32-bit ARM tracer's own requests
+    /// (`compat_arch_ptrace`; `PTRACE_GETREGS` and `PTRACE_SETREGS` keep
+    /// their numbers), which overlap x86-64's.
+    pub mod compat_arm {
+        pub const GET_THREAD_AREA: u64 = 22;
+        pub const SET_SYSCALL: u64 = 23;
+        pub const GETVFPREGS: u64 = 27;
+        pub const SETVFPREGS: u64 = 28;
+        pub const GETHBPREGS: u64 = 29;
+        pub const SETHBPREGS: u64 = 30;
+    }
 }
 
 /// `PTRACE_O_*` options and `PTRACE_O_MASK`.

@@ -57,6 +57,18 @@
 #define FP_CTL 256
 #define CTL_VALUE (2u << 5) /* frm: RDN */
 #define CTL_MASK (7u << 5)
+#elif defined(__arm__)
+/* An arm64 kernel's 32-bit tracer has no NT_PRFPREG: NT_ARM_VFP, d15 at
+ * 120, the FPSCR at 256. */
+#define FP_NT NT_ARM_VFP
+#define FP_SIZE 260
+#define FP_REG 120
+#define FP_CTL 256
+#define CTL_VALUE (2u << 22) /* RMode: toward minus infinity */
+#define CTL_MASK (3u << 22)
+#endif
+#ifndef FP_NT
+#define FP_NT NT_PRFPREG
 #endif
 
 #define BAD ((void *)16)
@@ -107,6 +119,16 @@ static uint64_t stop_with_register(uint32_t *ctl) {
                      : [v] "r"(first), "r"(a7), "r"(a1)
                      : "memory", "fs11");
     *ctl = (uint32_t)fcsr;
+#elif defined(__arm__)
+    uint32_t fpscr;
+    register long r7 __asm__("r7") = nr;
+    register long r0 __asm__("r0") = tid;
+    register long r1 __asm__("r1") = sig;
+    __asm__ volatile("vmov d15, %Q[v], %R[v]\n\tsvc #0\n\tvmov %Q[o], %R[o], d15\n\tvmrs %[c], fpscr"
+                     : [o] "=&r"(out), [c] "=r"(fpscr), "+r"(r0)
+                     : [v] "r"(first), "r"(r7), "r"(r1)
+                     : "memory", "d15");
+    *ctl = fpscr;
 #endif
     return out;
 }
@@ -119,6 +141,10 @@ static uint64_t read_tp(void) {
     __asm__("mrs %0, tpidr_el0" : "=r"(tp));
 #elif defined(__riscv)
     __asm__("mv %0, tp" : "=r"(tp));
+#elif defined(__arm__)
+    uint32_t tpidruro;
+    __asm__("mrc p15, 0, %0, c13, c0, 3" : "=r"(tpidruro));
+    tp = tpidruro;
 #endif
     return tp;
 }
@@ -166,19 +192,19 @@ static void fp_registers(pid_t c) {
     size_t len = sizeof fp;
     uint64_t reg = 0;
     uint32_t ctl = 0;
-    int got = getregset(c, NT_PRFPREG, fp, &len) == 0 && len == FP_SIZE;
+    int got = getregset(c, FP_NT, fp, &len) == 0 && len == FP_SIZE;
     memcpy(&reg, fp + FP_REG, 8);
     CHECK("fpregs-get", got && reg == FIRST);
     size_t six = 6;
-    CHECK_ERR("fpregs-length", getregset(c, NT_PRFPREG, back, &six), EINVAL);
+    CHECK_ERR("fpregs-length", getregset(c, FP_NT, back, &six), EINVAL);
     reg = SECOND;
     memcpy(fp + FP_REG, &reg, 8);
     memcpy(&ctl, fp + FP_CTL, 4);
     ctl = (ctl & ~CTL_MASK) | CTL_VALUE;
     memcpy(fp + FP_CTL, &ctl, 4);
     len = sizeof back;
-    CHECK("fpregs-set", setregset(c, NT_PRFPREG, fp, FP_SIZE) == 0 &&
-                            getregset(c, NT_PRFPREG, back, &len) == 0 && len == FP_SIZE &&
+    CHECK("fpregs-set", setregset(c, FP_NT, fp, FP_SIZE) == 0 &&
+                            getregset(c, FP_NT, back, &len) == 0 && len == FP_SIZE &&
                             memcmp(fp, back, FP_SIZE) == 0);
 #if defined(__x86_64__)
     /* xfpregs_set: the whole area only, and no reserved MXCSR bit;
@@ -193,7 +219,7 @@ static void fp_registers(pid_t c) {
     CHECK("fpregs-rules", rules);
 #else
     /* A prefix: the first register alone. */
-    CHECK("fpregs-rules", setregset(c, NT_PRFPREG, fp, 8) == 0);
+    CHECK("fpregs-rules", setregset(c, FP_NT, fp, 8) == 0);
 #endif
 }
 
@@ -221,6 +247,17 @@ static void thread_pointer_of(pid_t c) {
     size_t len = sizeof regs;
     ok &= getregset(c, NT_PRSTATUS, regs, &len) == 0 && regs[4] == (uint64_t)tp;
     size_t n = 64;
+    CHECK("xstate", getregset(c, NT_X86_XSTATE, regs, &n) == -1 && errno == EINVAL);
+#elif defined(__arm__)
+    /* A 32-bit tracer's view has neither NT_ARM_TLS nor NT_PRFPREG;
+     * PTRACE_GET_THREAD_AREA reads the TLS word. */
+    uint32_t tls = 0, regs[18];
+    size_t n = sizeof regs;
+    ok &= pt(PTRACE_GET_THREAD_AREA, c, 0, &tls) == 0 && tls == (uint32_t)tp;
+    ok &= getregset(c, NT_ARM_TLS, regs, &n) == -1 && errno == EINVAL;
+    n = sizeof regs;
+    ok &= getregset(c, NT_PRFPREG, regs, &n) == -1 && errno == EINVAL;
+    n = 64;
     CHECK("xstate", getregset(c, NT_X86_XSTATE, regs, &n) == -1 && errno == EINVAL);
 #endif
     CHECK("thread-pointer", ok);

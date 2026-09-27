@@ -57,6 +57,14 @@
 #define CAN_STEP 0
 #define CAN_SYSEMU 0
 #define STEP_REPORT_CODE 0
+#elif defined(__arm__)
+/* An arm64 kernel's compatibility task: compat_elf_gregset_t's words. */
+#define REGS_SIZE 72
+#define PC_OF(r) (((uint32_t *)(r))[15])
+#define AUDIT_ARCH_SELF 0x40000028u
+#define CAN_STEP 1
+#define CAN_SYSEMU 1
+#define STEP_REPORT_CODE SI_USER
 #endif
 
 #define BAD ((void *)16)
@@ -105,13 +113,17 @@ static int regs(pid_t c, uint64_t *r) {
 
 /* The architecture's view of a call at its entry (1) or exit (0) stop:
  * x86-64's rax and RISC-V's a0 are -ENOSYS at entry and the result at
- * exit; AArch64 keeps x0 at entry and holds the direction in x7. */
+ * exit; AArch64 keeps x0 at entry and holds the direction in x7, and an
+ * AArch32 task r0 and r12. */
 static int entry_view(pid_t c, int entry, long result) {
     uint64_t r[40];
     if (!regs(c, r))
         return 0;
 #if defined(__aarch64__)
     return r[7] == (entry ? 0 : 1) && (entry || r[0] == (uint64_t)result);
+#elif defined(__arm__)
+    uint32_t *w = (uint32_t *)r;
+    return w[12] == (entry ? 0u : 1u) && (entry || w[0] == (uint32_t)result);
 #else
     return r[10] == (uint64_t)(entry ? -ENOSYS : result);
 #endif
