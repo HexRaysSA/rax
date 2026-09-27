@@ -163,6 +163,7 @@ f5203580ad9a36c790aaa251190653546bbd198abf7186253a8dc0d9aa67ed1a  ./osfmk/ipc/ma
 0a7781f478b3bd8d209a69f8c74fe31e4aab9ed46fdd08b88a7bacac4a665a34  ./osfmk/kern/clock.c
 375ba9e48ee7e46d203b21cf9e49c89afbe8963be6548b714196a35565fc7975  ./osfmk/kern/clock_oldops.c
 729ba3fd280fe3bbadcb2c3d88eabca8a2598eda7ff5570310043f19eb0a147d  ./osfmk/kern/exc_guard.h
+700df4b00347b374bbfcb094f33f356b2bd3c292b1997af26a47a0183aad30da  ./osfmk/kern/exception_policy.c
 e3c3b51ca1810af00565eb1d759750a8cb861735e70752708938852e07d4b4fd  ./osfmk/kern/host.c
 8025d165c166df28ed26430a834b3992e945b134838ed5ff6a7e3b970279c9f6  ./osfmk/kern/ipc_host.c
 3d8a458723f92f098de3d231424726cc0af430a5143e3db3362b898acb408d5d  ./osfmk/kern/ipc_kobject.c
@@ -183,6 +184,7 @@ e9424f4236d2ff5a5b2c93bd9cef56634e06117c9e681003432eb1d1afb59cd4  ./osfmk/kern/t
 c14d9956890389097874811695ce90d436da9a39957124be4a79b4d6a426c876  ./osfmk/kern/thread_call.c
 b17f9faebb3c007b06b4d9c72d1bbb8d19121e96e8761c3df865917e6dac38e0  ./osfmk/kern/thread_policy.c
 859828b42b8ca5f7ca562c8d32284f99ffd474311ae060cd5908d43d190d755b  ./osfmk/kern/timer_call.c
+486b9b3ab6e846dd2aa2357ea15a1db1fe591d7e29c7d2013990b73df9a20d43  ./osfmk/kern/ux_handler.c
 3de0bd03d3a22417842b7fa9f68de09ce20a4bc3ace30d1124954f45b8c430a2  ./osfmk/mach/arm/_structs.h
 edeb4622bd932b3ac8bf46888fb8a44a9fa5aa63f94f26ca06793848d36972f4  ./osfmk/mach/arm/exception.h
 ab91af1d14bd3ff1e028709e7d4db215eac0df620ff81ad3aa38ae295a50aed0  ./osfmk/mach/arm/thread_state.h
