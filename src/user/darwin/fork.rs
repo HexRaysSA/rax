@@ -16,9 +16,10 @@
 //!   thread's control ports; the task keeps the bootstrap, access, and
 //!   host special ports, the registered ports, the exception actions, and
 //!   the guard-exception behavior;
-//! - the signal actions, resource limits, working directory, and
-//!   descriptors, except kqueues (`FG_CONFINED`); no interval timers, no
-//!   work queue, no psynch or kqueue state;
+//! - the signal actions (but not `SA_NOCLDSTOP` and `SA_NOCLDWAIT`, which
+//!   are process flags `forkproc` does not copy), resource limits,
+//!   working directory, and descriptors, except kqueues (`FG_CONFINED`);
+//!   no interval timers, no work queue, no psynch or kqueue state;
 //! - the address space less its `VM_INHERIT_NONE` regions.
 //!
 //! The parent's call returns the child's pid with 0 in the second return
@@ -107,8 +108,12 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     thread.woken = false;
     thread.wake_event = false;
 
-    // Pending signals and their records stay with the parent.
+    // Pending signals and their records stay with the parent, and so do
+    // P_NOCLDSTOP and P_NOCLDWAIT (forkproc keeps only some p_flag bits;
+    // the actions stay).
     proc.sigacts.origin = Default::default();
+    proc.sigacts.nocldstop = false;
+    proc.sigacts.nocldwait = false;
     proc.itimers = Default::default();
     proc.psynch = Default::default();
     proc.wq = Default::default();
