@@ -4,6 +4,9 @@
 `--os windows`. Supported guest machine types are PE32 i386 (`0x014C`), PE32+
 AMD64 (`0x8664`), and PE32+ ARM64 (`0xAA64`). The personality currently requires
 a Unix host; all three guests execute through the existing software ISA cores.
+The x86 guest uses the x86 core's architectural compatibility mode; this does
+not implement the complete WoW64 subsystem, its thunk DLLs, or its native NT
+service dispatch. The synthetic TEB selector does not establish WoW64 fidelity.
 
 ```sh
 cargo run --bin rax-user --no-default-features -- program.exe argument
