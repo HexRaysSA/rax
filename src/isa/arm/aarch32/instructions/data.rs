@@ -32,7 +32,38 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Data Processing - Arithmetic
     // =========================================================================
 
+    /// ADR in Thumb state: T1 (decoded as ADD Rd with the offset as a
+    /// label) and T3 and T2 (ADDW and SUBW with Rn = PC), whose base is
+    /// Align(PC, 4); the flags are unchanged.
+    fn thumb_adr(&self, insn: &DecodedInsn) -> Option<(usize, u32)> {
+        use crate::isa::arm::decoder::Operand;
+        if !insn.state.is_thumb() {
+            return None;
+        }
+        let base = self.cpu.get_pc() & !3;
+        match insn.operands.as_slice() {
+            [Operand::Reg(d), Operand::Label(offset)] if insn.mnemonic == Mnemonic::ADD => {
+                Some((d.num as usize, base.wrapping_add(*offset as u32)))
+            }
+            // Plain binary immediate (hw1 bit 9), not T32ExpandImm's.
+            [Operand::Reg(d), Operand::Reg(n), Operand::Imm(imm)]
+                if n.num == 15 && insn.size == 4 && insn.raw & 0x0200_0000 != 0 =>
+            {
+                let imm = imm.value as u32;
+                match insn.mnemonic {
+                    Mnemonic::ADD => Some((d.num as usize, base.wrapping_add(imm))),
+                    Mnemonic::SUB => Some((d.num as usize, base.wrapping_sub(imm))),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn exec_add(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if let Some((d, address)) = self.thumb_adr(insn) {
+            return self.set_reg_with_s(d, address, false);
+        }
         let (d, n, operand2) = self.decode_dp_operands(insn);
         let result = self.cpu.add_with_carry(self.reg(n), operand2, false);
 
@@ -55,6 +86,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_sub(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if let Some((d, address)) = self.thumb_adr(insn) {
+            return self.set_reg_with_s(d, address, false);
+        }
         let (d, n, operand2) = self.decode_dp_operands(insn);
         let result = self.cpu.add_with_carry(self.reg(n), !operand2, true);
 

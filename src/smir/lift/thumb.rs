@@ -19,8 +19,8 @@
 //!   target state, and all PC arithmetic wraps modulo 2^32;
 //! - T16/T32 scalar single- and multiple-transfer memory uses the W32 helper
 //!   contract; literal loads freeze `Align(PC + 4, 4)` into absolute-address
-//!   IR, while other PC-bearing, empty-list, and constrained base/list forms
-//!   fail closed;
+//!   IR, and T16 ADR into a constant, while other PC-bearing, empty-list,
+//!   and constrained base/list forms fail closed;
 //! - T32 LDRD/STRD over validated adjacent even register pairs retain atomic
 //!   load-destination and ordered-store fault behavior through pair memory IR;
 //! - T32 MOVT and bitfield encodings are translated using their T32 layouts;
@@ -817,6 +817,24 @@ impl ThumbLifter {
         if let Some(literal) = Self::literal_load(insn, pc)? {
             let mut ops = Vec::new();
             Self::push(&mut ops, pc, literal);
+            return Ok((ops, ControlFlow::Fallthrough));
+        }
+        // ADR (T1), decoded as ADD Rd with the offset as a label: the
+        // address, Align(PC + 4, 4) + imm32, is known when lifting.
+        if let (Mnemonic::ADD, None, [Operand::Reg(rd), Operand::Label(offset)]) =
+            (insn.mnemonic, insn.cond, insn.operands.as_slice())
+        {
+            let address = (Self::pc32(pc)?.wrapping_add(4) & !3).wrapping_add(*offset as u32);
+            let mut ops = Vec::new();
+            Self::push(
+                &mut ops,
+                pc,
+                OpKind::Mov {
+                    dst: Self::reg(rd.num),
+                    src: SrcOperand::Imm(i64::from(address)),
+                    width: OpWidth::W32,
+                },
+            );
             return Ok((ops, ControlFlow::Fallthrough));
         }
         if Self::rejects_hidden_state(insn) {

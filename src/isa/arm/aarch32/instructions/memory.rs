@@ -233,12 +233,22 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Load/Store Double
     // =========================================================================
 
+    /// The second register of LDRD and STRD: A32 pairs Rt with Rt+1, T32
+    /// encodes Rt2 in bits 11:8.
+    fn dual_rt2(insn: &DecodedInsn, t: usize) -> usize {
+        if insn.state.is_thumb() {
+            ((insn.raw >> 8) & 0xF) as usize
+        } else {
+            (t + 1) & 0xF
+        }
+    }
+
     pub(crate) fn exec_ldrd(&mut self, insn: &DecodedInsn) -> ExecResult {
         let (t, address, writeback) = match self.decode_ldst_halfword_operands(insn) {
             Some(v) => v,
             None => return ExecResult::Undefined,
         };
-        let t2 = (t + 1) & 0xF;
+        let t2 = Self::dual_rt2(insn, t);
         // MemA: word alignment, whatever SCTLR.A says.
         if address & 3 != 0 {
             return ExecResult::MemoryFault(MemoryError::Unaligned(address));
@@ -265,7 +275,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Some(v) => v,
             None => return ExecResult::Undefined,
         };
-        let t2 = (t + 1) & 0xF;
+        let t2 = Self::dual_rt2(insn, t);
         if address & 3 != 0 {
             return ExecResult::MemoryFault(MemoryError::Unaligned(address));
         }

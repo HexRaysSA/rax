@@ -1270,3 +1270,28 @@ fn thumb_block_keeps_cbz_as_a_register_condition_without_flag_materialization() 
         } if true_target == nonzero && false_target == zero
     ));
 }
+
+#[test]
+fn lifts_t16_adr_as_the_word_aligned_pc_plus_its_offset() {
+    // ADR r1, #24 (LLVM 23.1.1: a106) at 0x1002: Align(0x1006, 4) + 24.
+    let mut lifter = ThumbLifter::new();
+    let mut ctx = LiftContext::new(SourceArch::Thumb);
+    let result = lifter.lift_insn(0x1002, &[0x06, 0xa1], &mut ctx).unwrap();
+    assert_eq!(result.bytes_consumed, 2);
+    assert!(matches!(result.control_flow, ControlFlow::Fallthrough));
+    match result.ops.as_slice() {
+        [op] => assert!(
+            matches!(
+                op.kind,
+                OpKind::Mov {
+                    dst,
+                    src: SrcOperand::Imm(0x101c),
+                    width: OpWidth::W32,
+                } if dst == ThumbLifter::reg(1)
+            ),
+            "{:?}",
+            op.kind
+        ),
+        ops => panic!("unexpected ADR lift: {ops:?}"),
+    }
+}

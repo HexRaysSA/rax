@@ -268,10 +268,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Operand::Mem(m) => Some(m),
             _ => None,
         })?;
-        // T32 LDR/LDRB/LDRH/LDRSB/LDRSH literal forms carry Rn=PC in a Mem
-        // operand (unlike T16 LDR literal's Label operand).  Their base is
-        // Align(current instruction address + 4, 4), not the A32 PC+8 value
-        // returned by `reg(15)`.
+        // T32 LDR/LDRB/LDRH/LDRSB/LDRSH/LDRD literal forms carry Rn=PC in a
+        // Mem operand (unlike T16 LDR literal's Label operand). Their base is
+        // Align(current instruction address + 4, 4), not the unaligned PC
+        // `reg(15)` reads.
         if mem.base.num == 15
             && mem.mode == AddressingMode::Offset
             && matches!(
@@ -281,6 +281,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     | crate::isa::arm::decoder::Mnemonic::LDRH
                     | crate::isa::arm::decoder::Mnemonic::LDRSB
                     | crate::isa::arm::decoder::Mnemonic::LDRSH
+                    | crate::isa::arm::decoder::Mnemonic::LDP
             )
         {
             let MemOffset::Imm(offset) = mem.offset else {

@@ -1313,3 +1313,70 @@ fn t32_stmia_and_ldmdb_of_sp_move_it_their_own_way() {
     assert_eq!((exec.cpu.regs[4], exec.cpu.regs[5]), (0x4444, 0x5555));
     assert_eq!(exec.cpu.regs[13], 0x3000);
 }
+
+#[test]
+fn thumb_adr_is_the_word_aligned_pc_plus_or_minus_its_offset() {
+    // Encodings from LLVM 23.1.1: ADR r1, #24 (T1), ADR.W r0, #291 (ADDW
+    // r0, pc), ADR.W r0, #-16 (SUBW r0, pc). At 0x1002 the base is
+    // Align(0x1006, 4) = 0x1004; the flags are unchanged.
+    let t16 = |hw| crate::isa::arm::decoder::ThumbDecoder::decode_16bit(hw).unwrap();
+    for (insn, rd, want) in [
+        (t16(0xa106), 1, 0x1004 + 24),
+        (t32(0xf20f_1023), 0, 0x1004 + 291),
+        (t32(0xf2af_0010), 0, 0x1004 - 16),
+    ] {
+        let mut cpu = thumb_cpu(0x1002);
+        cpu.regs[0] = 0x5555_0000;
+        cpu.cpsr.n = true;
+        cpu.cpsr.c = true;
+        let mut mem = make_mem();
+        completes(Executor::new(&mut cpu, &mut mem).execute(&insn));
+        assert_eq!(cpu.regs[rd], want, "{:#010x}", insn.raw);
+        let psr = &cpu.cpsr;
+        assert!(psr.n && !psr.z && psr.c && !psr.v, "{:#010x}", insn.raw);
+    }
+}
+
+#[test]
+fn t32_ldrd_and_strd_use_the_encoded_second_register() {
+    // Encodings from LLVM 23.1.1.
+    let mut cpu = thumb_cpu(0x1000);
+    cpu.regs[0] = 0x2000;
+    cpu.regs[6] = 0x6666_6666;
+    let mut mem = make_mem();
+    mem.write_word(0x200c, 0x1111_1111).unwrap();
+    mem.write_word(0x2010, 0x2222_2222).unwrap();
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    // LDRD r5, r1, [r0, #12]: not Rt+1 (r6).
+    completes(exec.execute(&t32(0xe9d0_5103)));
+    assert_eq!(
+        (exec.cpu.regs[5], exec.cpu.regs[1]),
+        (0x1111_1111, 0x2222_2222)
+    );
+    assert_eq!(exec.cpu.regs[6], 0x6666_6666);
+    // STRD r2, r7, [r3, #-8]!
+    exec.cpu.regs[2] = 0xaaaa_aaaa;
+    exec.cpu.regs[7] = 0xbbbb_bbbb;
+    exec.cpu.regs[3] = 0x3008;
+    completes(exec.execute(&t32(0xe963_2702)));
+    assert_eq!(exec.mem.read_word(0x3000).unwrap(), 0xaaaa_aaaa);
+    assert_eq!(exec.mem.read_word(0x3004).unwrap(), 0xbbbb_bbbb);
+    assert_eq!(exec.cpu.regs[3], 0x3000);
+    // LDRD r0, r1, [pc, #8] at 0x1012: Align(0x1016, 4) + 8 = 0x101c.
+    exec.cpu.regs[15] = 0x1012;
+    exec.mem.write_word(0x101c, 0x3333_3333).unwrap();
+    exec.mem.write_word(0x1020, 0x4444_4444).unwrap();
+    completes(exec.execute(&t32(0xe9df_0102)));
+    assert_eq!(
+        (exec.cpu.regs[0], exec.cpu.regs[1]),
+        (0x3333_3333, 0x4444_4444)
+    );
+    // LDRD r2, r3, [r4], #16
+    exec.cpu.regs[4] = 0x3000;
+    completes(exec.execute(&t32(0xe8f4_2304)));
+    assert_eq!(
+        (exec.cpu.regs[2], exec.cpu.regs[3]),
+        (0xaaaa_aaaa, 0xbbbb_bbbb)
+    );
+    assert_eq!(exec.cpu.regs[4], 0x3010);
+}

@@ -551,3 +551,36 @@ fn lifted_a32_data_processing_register_shifts_cover_all_semantics_and_aliases() 
         }
     }
 }
+
+#[test]
+fn lifted_t16_adr_matches_the_direct_executor() {
+    // ADR Rd, #imm8:'00' at 0x1000: Align(0x1004, 4) + imm32, the flags
+    // and the other registers unchanged.
+    use crate::isa::arm::aarch32::cpu::{Armv7Cpu, FlatMemory as ArmMemory};
+    use crate::isa::arm::aarch32::instructions::Executor;
+    use crate::isa::arm::decoder::ThumbDecoder;
+    for rd in [0_u16, 1, 7] {
+        for imm8 in [0_u16, 6, 0xff] {
+            let hw = 0xa000 | (rd << 8) | imm8;
+            let want = 0x1004 + u32::from(imm8) * 4;
+
+            let mut cpu = Armv7Cpu::new();
+            cpu.regs[15] = 0x1000;
+            cpu.cpsr.t = true;
+            cpu.regs[0] = 0x5555_0000;
+            let mut mem = ArmMemory::new(0x2000, 0);
+            let insn = ThumbDecoder::decode_16bit(hw).unwrap();
+            Executor::new(&mut cpu, &mut mem).execute(&insn);
+            assert_eq!(cpu.regs[usize::from(rd)], want, "direct {hw:#06x}");
+
+            let mut ctx = SmirContext::new_aarch64();
+            ctx.write_vreg(VReg::Arch(ArchReg::Arm(ArmReg::X(0))), 0x5555_0000);
+            assert!(matches!(
+                execute_lifted_thumb(&hw.to_le_bytes(), &mut ctx),
+                BlockResult::Exit(ExitReason::Halt)
+            ));
+            let got = ctx.read_vreg(VReg::Arch(ArchReg::Arm(ArmReg::X(rd as u8))));
+            assert_eq!(got, u64::from(want), "lifted {hw:#06x}");
+        }
+    }
+}
