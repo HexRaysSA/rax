@@ -97,7 +97,10 @@ threads, semaphores, policies, restartable ranges, dyld registration),
 | psynch: kernel wait queues per object address for contended mutexes (first-fit and fair-share), condition variables (signals, broadcasts, directed signals, timed waits, preposts), and read-write locks (overlapping readers, writer hand-off) | `psynch` | libpthread `kern_synch.c` |
 
 A new thread inherits its creator's signal mask. Threads share the one
-emulated CPU in round-robin time slices; a thread parked in a psynch wait
+emulated CPU in round-robin time slices; between slices the scheduler ends
+the waits whose timeouts have passed or whose descriptors are ready (a
+poll that does not block), so a thread that never sleeps does not keep the
+others asleep. A thread parked in a psynch wait
 finishes its call in the operation's continuation when a waker grants it,
 its timeout passes, or a signal or cancellation interrupts it, as
 `ksyn_wait` and the `psynch_*continue` functions do. Queues of

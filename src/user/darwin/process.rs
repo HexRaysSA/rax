@@ -540,6 +540,7 @@ impl DarwinProcess {
             super::kevent::pump(&mut self.proc);
             super::workq::redrive(&mut self.proc);
             self.deliver_posted();
+            self.poll_waits();
             let Some(tid) = self.next_runnable() else {
                 if self.proc.threads.values().all(|t| t.exited) {
                     self.proc.exit_with(ExitStatus::Exited(0));
@@ -694,6 +695,37 @@ impl DarwinProcess {
             // takes the signal.
             signal::host::drain();
         }
+        self.wake_ready(&fds, &ready);
+    }
+
+    /// Wakes, while other threads keep running, the sleeping threads whose
+    /// waits are over: their deadlines passed or their descriptors ready
+    /// (a poll that does not block). `idle` does the same when no thread
+    /// can run; without this a thread that never sleeps would keep every
+    /// other thread asleep.
+    fn poll_waits(&mut self) {
+        let mut fds = Vec::new();
+        let mut any = false;
+        for t in self.proc.threads.values() {
+            if let Some(w) = t.wait.as_ref().filter(|_| !t.woken) {
+                any = true;
+                fds.extend_from_slice(&w.fds);
+            }
+        }
+        if !any {
+            return;
+        }
+        let ready = if fds.is_empty() {
+            Vec::new()
+        } else {
+            wait::sleep(&fds, Some(Instant::now()))
+        };
+        self.wake_ready(&fds, &ready);
+    }
+
+    /// Marks woken the threads whose deadlines have passed or one of whose
+    /// descriptors (among `fds`) `ready` reports.
+    fn wake_ready(&mut self, fds: &[(i32, bool, bool)], ready: &[bool]) {
         let now = Instant::now();
         for t in self.proc.threads.values_mut() {
             if let Some(w) = &t.wait {
