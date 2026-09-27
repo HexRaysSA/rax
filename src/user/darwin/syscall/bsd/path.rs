@@ -31,13 +31,121 @@ fn nofile(ctx: &Ctx<'_>) -> u64 {
 
 /// `openat(fd, path, flags, mode)` (`open` with `AT_FDCWD`).
 pub fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, mode: u32) -> SysResult {
-    let (guest, cpath) = guest_path(ctx, path)?;
-    let hdir = host::dirfd(&ctx.proc.fds, dirfd)?;
+    open_by(ctx, dirfd, path, flags, |dir, path, flags| {
+        // SAFETY: `path` is a NUL-terminated string or faults (`open_by`).
+        unsafe { libc::openat(dir, path, flags, mode as libc::c_uint) }
+    })
+}
+
+/// `O_DP_AUTHENTICATE`: an open authenticated against the file `authfd`
+/// is open on (`openat_authenticated_np`).
+const O_DP_AUTHENTICATE: i32 = 0x4;
+/// `O_DP_GETRAWENCRYPTED | O_DP_GETRAWUNENCRYPTED | O_DP_AUTHENTICATE`:
+/// the flags that open read-only.
+const O_DP_READ_ONLY: i32 = 0x7;
+/// `AUTH_OPEN_NOAUTHFD`.
+const AUTH_OPEN_NOAUTHFD: i32 = -1;
+/// `O_EXEC`.
+const O_EXEC: u32 = 0x4000_0000;
+
+/// `open_dprotected_np(path, flags, class, dpflags, mode)` and
+/// `openat_dprotected_np(fd, path, flags, class, dpflags, mode, authfd)`
+/// (`vfs_syscalls.c`; `authfd` is `None` for the first): an open that
+/// creates the file in data-protection class `class`, or reads a file's
+/// raw bytes, or (the second only) is authenticated against the file
+/// `authfd` is open on. The host's file system keeps the classes and makes
+/// the checks; the first refuses authentication outright.
+pub fn openat_dprotected(
+    ctx: &mut Ctx<'_>,
+    dirfd: i32,
+    path: u64,
+    flags: u32,
+    class: i32,
+    dpflags: i32,
+    mode: u32,
+    authfd: Option<i32>,
+) -> SysResult {
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            fn __openat_dprotected_np(
+                fd: libc::c_int,
+                path: *const libc::c_char,
+                flags: libc::c_int,
+                class: libc::c_int,
+                dpflags: libc::c_int,
+                mode: libc::c_int,
+                authfd: libc::c_int,
+            ) -> libc::c_int;
+        }
+        // The checks before the path is read, in the kernel's order: the
+        // call's own, `openat_dprotected_internal`'s, then `open1`'s.
+        let accmode = flags & 3;
+        let creat = flags & crate::user::darwin::io::O_CREAT != 0;
+        if (dpflags & O_DP_AUTHENTICATE != 0 && (authfd.is_none() || creat))
+            || (dpflags & O_DP_READ_ONLY != 0 && accmode != 0)
+            || accmode == 3
+            || (accmode != 0 && flags & O_EXEC != 0)
+        {
+            return Err(Errno::EINVAL);
+        }
+        let authfd = match authfd {
+            None | Some(AUTH_OPEN_NOAUTHFD) => AUTH_OPEN_NOAUTHFD,
+            // `vnode_getfromfd`: a descriptor that is not a file's (the
+            // host tells its own pipes and sockets apart).
+            Some(fd) => ctx.proc.fds.file(fd)?.host_fd().ok_or(Errno::ENOTSUP)?,
+        };
+        open_by(ctx, dirfd, path, flags, |dir, path, flags| {
+            // SAFETY: `path` is a NUL-terminated string or faults (`open_by`).
+            unsafe { __openat_dprotected_np(dir, path, flags, class, dpflags, mode as i32, authfd) }
+        })
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (ctx, dirfd, path, flags, class, dpflags, mode, authfd);
+        Err(Errno::ENOTSUP)
+    }
+}
+
+/// A host path in the unmapped first page that is not null: an open the
+/// host is handed it for faults where it reads the path.
+const FAULT_PATH: *const libc::c_char = 8 as *const libc::c_char;
+
+/// An open of guest path `path` relative to `dirfd` that `open` performs
+/// on the host (given the directory, host path, and host flags), installed
+/// in the guest's table.
+///
+/// The kernel checks an open's flags (and whatever else the call takes)
+/// before it reads the path: where the path or directory cannot be
+/// resolved, the host is handed a path that faults, and its error is the
+/// call's unless the host got as far as the path.
+fn open_by(
+    ctx: &mut Ctx<'_>,
+    dirfd: i32,
+    path: u64,
+    flags: u32,
+    open: impl FnOnce(i32, *const libc::c_char, i32) -> i32,
+) -> SysResult {
     // Descriptors are opened close-on-exec on the host: a guest exec never
     // executes a host program, and the guest's own flag is kept per slot.
     let hflags = host::open_flags(flags) | libc::O_CLOEXEC;
-    // SAFETY: `cpath` is NUL-terminated for the call's duration.
-    let fd = check(unsafe { libc::openat(hdir, cpath.as_ptr(), hflags, mode as libc::c_uint) })?;
+    let resolved = guest_path(ctx, path)
+        .and_then(|(guest, cpath)| Ok((guest, cpath, host::dirfd(&ctx.proc.fds, dirfd)?)));
+    let (guest, cpath, hdir) = match resolved {
+        Ok(r) => r,
+        Err(e) => {
+            return match check(open(libc::AT_FDCWD, FAULT_PATH, hflags)) {
+                Ok(fd) => {
+                    // SAFETY: a descriptor the host just returned, unused.
+                    unsafe { libc::close(fd) };
+                    Err(e)
+                }
+                Err(Errno::EFAULT) => Err(e),
+                Err(early) => Err(early),
+            };
+        }
+    };
+    let fd = check(open(hdir, cpath.as_ptr(), hflags))?;
     // SAFETY: `fd` was just returned by the host and is owned here.
     let owned = unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(fd) };
     #[cfg(not(target_os = "macos"))]
