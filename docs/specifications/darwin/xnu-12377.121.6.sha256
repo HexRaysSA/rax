@@ -11,6 +11,7 @@ c93a7f65f755f4654c6a30dc6a37ec04f2b46043134ff2d8a0de0cc0fbb5d00f  ./bsd/dev/i386
 f2692d8ff64204af8d07882231d9ca81fbbc75197cc9ad8607aa582ccf9b8703  ./bsd/i386/vmparam.h
 b21411f1606e26a4d7d8b9995d50bd238cb2571af0cc85a586b99a0ad8c0f57f  ./bsd/kern/kern_aio.c
 5ec7c4392f60733bb44c8d2df61870bbabf9b4d7c474032e30eac129b3f2d258  ./bsd/kern/kern_descrip.c
+b2238ee5d4cce2625e9f2bc1bd22b73e90b6594de76a56a3de46a2c7ec428253  ./bsd/kern/kern_event.c
 ecec070f1cb5139f3681d7a95167a4bfe8f034f6fd1cc58bda5d9b447d85e045  ./bsd/kern/kern_exec.c
 3bf5d40cf482254ec47626108c760e0879fac2e41145bd63566d13f9acab311a  ./bsd/kern/kern_exit.c
 145c0b61c2e6e6288d65166a987869a60c1bb8aa4fbf9bd0700eae842f32bfdd  ./bsd/kern/kern_fork.c
@@ -36,6 +37,9 @@ e4c53c7f0164f5cad7be1c958d76df66d5e9033e577c62cfa15863b2e181362e  ./bsd/libkern/
 b4e9c4e1abb7410ceb59f5cd9b1208126cd81af83c8bd7a0f7a2a2c16c85fecc  ./bsd/pthread/pthread_shims.c
 620df9bc6be975bc84a50aff939f2cf17c4c01b0f95219274cf4ef2d03322375  ./bsd/sys/commpage_private.h
 b16e5eb195f153793b14c3826e6b04db945e9ed6a37c5a9046196555bded6906  ./bsd/sys/errno.h
+3d706489a4ab1bd529f5c38627f3dcd624a7706d7b9184f6118b9dad788f4f29  ./bsd/sys/event.h
+7c542ad252d6b075a24a54dbc503fe636fa6a5d6a0a41936da18b814eb84ad3e  ./bsd/sys/event_private.h
+e02764802c108a180942da73cc555d88179414b555b811a535801a5a3825e271  ./bsd/sys/eventvar.h
 5d227b5ec649d710a9cc938ff2f9b9b929e1932cdcd24c868a3d74e877c3fbe0  ./bsd/sys/fcntl.h
 2efb1aca5abdfa6f9e8bad155f2db319fdca1a029400cad1558e4df981d6eeea  ./bsd/sys/signal.h
 f05feb319366d6fc2948fdb728891c87bc2406a1028041382bc13251cbf0e17e  ./bsd/sys/signalvar.h
@@ -81,6 +85,7 @@ c2d27eae8540bc58fa493f685a1c914867623cb3c6e401001ff7190a2dffbe86  ./osfmk/ipc/ip
 8f2552aa1b6f232de5ae5e0a8028b904bb27bfc0a7d7f3e348ca78cb82fd14a2  ./osfmk/ipc/ipc_policy.c
 d4d121b05110362dc95669ce35badfe0493c8e1d465b6ba086ce60633c895098  ./osfmk/ipc/ipc_policy.h
 e02e2d59482f7b492541c1959a2b9dae78cd674ad0e79dfb688c2320806377e8  ./osfmk/ipc/ipc_port.c
+90fff2eccfbf24bd71e819549bc312704960d86d30f2f4d79731937f6140ed58  ./osfmk/ipc/ipc_pset.c
 0d335ac400cd08665653a2b2d6827ac3d0a4e2a7077f98b0da98b99b5b8844ed  ./osfmk/ipc/ipc_right.c
 6fb613d82ae5e191db3353c8ebdafb1a51632c0fc0041ddafd3ab701528a8e7e  ./osfmk/ipc/ipc_types.h
 24514afae1b4b443afaaf2caedb7aafe7d171b91fa9f913392dc16e769149ffc  ./osfmk/ipc/mach_debug.c
