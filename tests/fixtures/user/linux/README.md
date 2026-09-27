@@ -30,8 +30,12 @@ Linux 6.19 for x86-64 itself (see [Provenance](#provenance)); the
 library tests under `src/user/linux/tests/i386/` cover the conversions
 call by call. ARM EABI (hard-float, A32 code) runs the cases whose programs
 `build.sh` builds for it, as compatibility tasks of Linux 6.19 for arm64,
-which recorded them; `src/user/linux/tests/arm/` covers its conversions and
-signal frames call by call.
+which recorded them, and the cases of `cases-arm.txt`, whose programs are
+built for ARM alone (`armframes`: the AArch32 signal frames, printed
+relative to a fixed alternate stack, the frame, or the `[sigpage]`, with
+their VFP record, return code, edited context, and fault records, the
+one-word mask calls, and a bad frame); `src/user/linux/tests/arm/` covers
+its conversions and signal frames call by call.
 
 | Path | Content |
 |---|---|
@@ -41,6 +45,7 @@ signal frames call by call.
 | `manifest.toml` | Toolchain, flags, and SHA-256 of every binary (checked by the test). |
 | `cases.txt` | Case table: program, standard-input file, and arguments. |
 | `cases-i386.txt` | The same for the i386-only programs, which have no 64-bit builds. |
+| `cases-arm.txt` | The same for the ARM-only programs. |
 | `input/` | Standard-input files referenced by `cases.txt`. |
 | `record-expected.sh` | Records `expected/` on Linux through Docker. |
 | `oracle-overrides.txt` | Cases whose expectation for one architecture is another architecture's real-kernel result, with the reason. |
@@ -122,8 +127,9 @@ signal frames call by call.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 262 binaries (55 programs × 3 architectures, 48 for i386, eight
-  of them i386-only, and 49 for ARM), 9,984 KiB in total (`du -k`); each
+- Size: 263 binaries (55 programs × 3 architectures, 48 for i386, eight
+  of them i386-only, and 50 for ARM, one of them ARM-only), 10,028 KiB in
+  total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -248,7 +254,8 @@ signal frames call by call.
    i386-only program's cases go in `cases-i386.txt`. For the ARM cases,
    build `oracle/build-kernel.sh <linux-v6.19-checkout> <out> arm64` and
    run `oracle/record-kernel.sh <out>/Image arm64`
-   (`qemu-system-aarch64`); `arm_programs` is the ARM matrix.
+   (`qemu-system-aarch64`); `arm_programs` is the ARM matrix, and an
+   ARM-only program's cases go in `cases-arm.txt`.
 4. Run `cargo test --no-default-features --features x86_64-suite,smir-jit
    --test user_linux`.
 

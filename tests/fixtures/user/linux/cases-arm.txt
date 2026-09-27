@@ -1,0 +1,5 @@
+# Cases of the ARM-only programs, built for ARM EABI alone (build.sh), in
+# the format of cases.txt: name, program, standard-input file or -,
+# arguments. Their expected results come from the kernel oracle like every
+# ARM case.
+armframes armframes -

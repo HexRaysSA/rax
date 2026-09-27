@@ -1,0 +1,46 @@
+sigaltstack 0
+rt r0=10 r1-sp=0 r2-sp=128 top-sp=880 lr=restorer_rt+438
+rt info signo=10 code=-6 pid_ok=1 uid_ok=1 rest0=1
+rt uc_flags=0 link=0 ss_sp=0 ss_flags=0 ss_size=65536
+rt trap_no=0 error_code=0 oldmask=1 r0=0 r2=a r4=400000
+rt sp_is_main=1 cpsr&0xff0fffff=10 fault_address=0
+rt sigmask=1:2 unused0=1
+rt vfp magic=56465001 size=288 d8=123456789abcdef fpscr=400000 fpexc=40000000 fpinst=0 end=0:0
+after rt: r0=1234 d8=4444444444444444 fpscr&0xc00000=c00000
+after rt: mask=1:2
+old r0=12 top-sp=752 lr=restorer_old+430 retcode=0:0
+old uc_flags=5ac3c35a link=0 ss_sp=0 ss_flags=0 ss_size=65536
+old trap_no=0 error_code=0 oldmask=1 r0=0 r2=c r4=10034
+old sp_is_main=1 cpsr&0xff0fffff=10 fault_address=0
+old sigmask=1:4 unused0=1
+old vfp magic=56465001 size=288 d8=4444444444444444 fpscr=c00000 fpexc=40000000 fpinst=0 end=0:0
+after old: r0=0 got=12
+old r0=12 top-sp=752 lr=sigpage+0 retcode=0:0
+old uc_flags=5ac3c35a link=0 ss_sp=0 ss_flags=0 ss_size=65536
+old trap_no=0 error_code=0 oldmask=1 r0=0 r2=c r4=10034
+old sp_is_main=1 cpsr&0xff0fffff=10 fault_address=0
+old sigmask=1:4 unused0=1
+old vfp magic=56465001 size=288 d8=4444444444444444 fpscr=c00000 fpexc=40000000 fpinst=0 end=0:0
+sigpage old: r0=0
+rt r0=10 r1-sp=0 r2-sp=128 top-sp=880 lr=sigpage+c
+rt info signo=10 code=-6 pid_ok=1 uid_ok=1 rest0=1
+rt uc_flags=0 link=0 ss_sp=0 ss_flags=0 ss_size=65536
+rt trap_no=0 error_code=0 oldmask=1 r0=0 r2=a r4=400000
+rt sp_is_main=1 cpsr&0xff0fffff=10 fault_address=0
+rt sigmask=1:4 unused0=1
+rt vfp magic=56465001 size=288 d8=123456789abcdef fpscr=400000 fpexc=40000000 fpinst=0 end=0:0
+sigpage rt: r0=1234
+sigpage code e3a07077 ef000077 df772777 e3a070ad ef0000ad dfad27ad tail=e7fddef1
+sigprocmask setmask 0 old 0
+mask after sigprocmask 2:0
+sigprocmask how=3 -1
+sigpending 0 2
+sigaction set 0
+sigaction old 0 h=1 m=0 f=0
+rt_sigaction flags 8000000 size4 -1
+fault sig=11 code=2 addr=16/16 trap_no=0 error_code=800 at_insn=1
+fault sig=7 code=1 addr=2/2 trap_no=0 error_code=0 at_insn=1
+fault sig=4 code=1 addr=0/-136272 trap_no=0 error_code=0 at_insn=1
+fault sig=5 code=1 addr=0/-136280 trap_no=0 error_code=0 at_insn=1
+faults skipped
+segv sig=11 code=2 mask=800:1

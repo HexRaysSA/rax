@@ -174,10 +174,12 @@ system-register access, the exclusive monitor, interworking and IT blocks);
 `src/user/linux/tests/stack.rs`: the compat auxiliary vector's order;
 `user_linux` `abi_tables`: numbering against `unistd-eabi.h` and arm64's
 `syscall_32.tbl`. `user_linux` `fixtures` runs an ARM subset of the fixture
-programs (49 of 55, built for ARMv7-A with VFPv3-D16) against results recorded
-on Linux 6.19 for arm64, configured as the modelled compatibility task, under
-`qemu-system-aarch64` (`tests/fixtures/user/linux/oracle/`); the morok program
-corpus has no ARM builds.
+programs (49 of 55, built for ARMv7-A with VFPv3-D16) and the ARM-only
+`armframes` (the AArch32 signal frames and signal calls, `cases-arm.txt`)
+against results recorded on Linux 6.19 for arm64, configured as the modelled
+compatibility task, under `qemu-system-aarch64`
+(`tests/fixtures/user/linux/oracle/`); the morok program corpus has no ARM
+builds.
 
 ### Syscall and errno numbering
 

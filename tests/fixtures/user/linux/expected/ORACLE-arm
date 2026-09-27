@@ -4,4 +4,4 @@ build: oracle/build-kernel.sh from tag v6.19 (arm64 defconfig with CONFIG_COMPAT
 kernel-sha256: c7336d444ed7bede25180a611d368b9a3c0e82b11d8040173144cf80d1f906e8
 qemu: QEMU emulator version 11.1.1
 machine: virt, -cpu cortex-a72, 2 CPUs, 1 GiB
-recorded: 2026-09-27T08:07:34Z
+recorded: 2026-09-27T08:56:06Z

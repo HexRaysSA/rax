@@ -1623,3 +1623,10 @@ target = "arm-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
 sha256 = "d8b51583ba4099871c4f51980a5e5432ed92258dbf8494f8fc5d2b0caf339e4f"
 
+[[fixture]]
+path = "bin/arm/armframes"
+source = "src/armframes.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "240e303419f4ea75c7cf4e4e28787bd407f826192f96415296ed2b1fbc92b032"
+

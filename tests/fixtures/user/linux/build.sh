@@ -109,4 +109,22 @@ for prog in "${arm_programs[@]}"; do
         echo
     } >> "$manifest"
 done
-echo "built ${#targets[@]} targets x ${#programs[@]} programs, ${#i386_programs[@]} i386 programs, and ${#arm_programs[@]} ARM programs"
+
+# ARM-only programs (their cases are in cases-arm.txt): armframes, the
+# AArch32 signal frames and 32-bit signal calls.
+arm_only_programs=(armframes)
+for prog in "${arm_only_programs[@]}"; do
+    out="bin/arm/$prog"
+    zig cc -target "$arm_target" -mcpu="$arm_cpu" "${flags[@]}" -o "$out" "src/$prog.c"
+    sum="$(shasum -a 256 "$out" | cut -d' ' -f1)"
+    {
+        echo "[[fixture]]"
+        echo "path = \"$out\""
+        echo "source = \"src/$prog.c\""
+        echo "target = \"$arm_target\""
+        echo "cpu = \"$arm_cpu\""
+        echo "sha256 = \"$sum\""
+        echo
+    } >> "$manifest"
+done
+echo "built ${#targets[@]} targets x ${#programs[@]} programs, ${#i386_programs[@]} i386 programs, and $((${#arm_programs[@]} + ${#arm_only_programs[@]})) ARM programs"

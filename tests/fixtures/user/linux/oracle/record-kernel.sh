@@ -55,10 +55,10 @@ arches=("$compat")
 for arch in "${arches[@]}"; do
     cp -R "bin/$arch" "$root/w/$arch"
 done
-# The cases each architecture has a binary for (cases-i386.txt: the
-# i386-only programs').
+# The cases each architecture has a binary for (cases-i386.txt and
+# cases-arm.txt: the i386-only and ARM-only programs').
 for arch in "${arches[@]}"; do
-    cat cases.txt cases-i386.txt | grep -v '^#' | while read -r name prog input args; do
+    cat cases.txt cases-i386.txt cases-arm.txt | grep -v '^#' | while read -r name prog input args; do
         [[ -z "$name" ]] && continue
         [[ -f "bin/$arch/$prog" ]] || continue
         echo "$arch $name $prog $input $args"

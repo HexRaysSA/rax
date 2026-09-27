@@ -39,6 +39,21 @@ fn i386_only_cases() -> Vec<Case> {
     cases_in("cases-i386.txt")
 }
 
+/// The cases of the ARM-only programs (`cases-arm.txt`).
+fn arm_only_cases() -> Vec<Case> {
+    cases_in("cases-arm.txt")
+}
+
+/// The cases of the programs built for compatibility architecture `arch`
+/// alone.
+fn only_cases(arch: &str) -> Vec<Case> {
+    if arch == I386 {
+        i386_only_cases()
+    } else {
+        arm_only_cases()
+    }
+}
+
 fn cases_in(file: &str) -> Vec<Case> {
     let text = std::fs::read_to_string(fixtures().join(file)).unwrap();
     text.lines()
@@ -81,18 +96,13 @@ fn manifest() -> BTreeMap<String, String> {
 }
 
 /// The cases with a build for compatibility architecture `arch`: those
-/// whose program `manifest.toml` lists under `bin/<arch>`, and for i386
-/// the i386-only ones.
+/// whose program `manifest.toml` lists under `bin/<arch>`, and the ones of
+/// the programs built for it alone.
 fn compat_cases(arch: &str) -> Vec<Case> {
     let m = manifest();
-    let only = if arch == I386 {
-        i386_only_cases()
-    } else {
-        Vec::new()
-    };
     cases()
         .into_iter()
-        .chain(only)
+        .chain(only_cases(arch))
         .filter(|c| m.contains_key(&format!("bin/{arch}/{}", c.program)))
         .collect()
 }
@@ -154,18 +164,20 @@ fn fixture_binaries_match_manifest() {
             );
         }
     }
-    // An i386-only program has an i386 build and no other, and no case in
-    // the shared table.
-    for case in i386_only_cases() {
-        assert!(m.contains_key(&format!("bin/{I386}/{}", case.program)));
-        assert!(
-            !cases()
-                .iter()
-                .any(|c| c.name == case.name || c.program == case.program)
-        );
-        for arch in ARCHES.iter().chain(&[ARM]) {
-            let path = format!("bin/{arch}/{}", case.program);
-            assert!(!m.contains_key(&path), "{path}: the program is i386-only");
+    // A program built for one compatibility architecture alone has that
+    // build and no other, and no case in the shared table.
+    for only in COMPAT {
+        for case in only_cases(only) {
+            assert!(m.contains_key(&format!("bin/{only}/{}", case.program)));
+            assert!(
+                !cases()
+                    .iter()
+                    .any(|c| c.name == case.name || c.program == case.program)
+            );
+            for arch in ARCHES.iter().chain(&COMPAT).filter(|a| **a != only) {
+                let path = format!("bin/{arch}/{}", case.program);
+                assert!(!m.contains_key(&path), "{path}: the program is {only}-only");
+            }
         }
     }
     let compat = m
