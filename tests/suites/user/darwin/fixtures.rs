@@ -334,3 +334,13 @@ fn busy_wait_arm64() {
 fn busy_wait_x86_64() {
     fixture("busy_wait", "x86_64", &[], &[]);
 }
+
+#[test]
+fn thread_state_arm64() {
+    fixture("thread_state", "arm64", &[], &[]);
+}
+
+#[test]
+fn thread_state_x86_64() {
+    fixture("thread_state", "x86_64", &[], &[]);
+}

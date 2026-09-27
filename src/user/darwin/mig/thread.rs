@@ -8,6 +8,10 @@ use crate::user::darwin::mach::ipc::{KObject, Right, disp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::mach::task::{EXC_TYPES_COUNT, ExcAction};
 use crate::user::darwin::process::Thread;
+use crate::user::darwin::thread_status;
+
+/// `THREAD_STATE_MAX`: the most words of state a message carries.
+const THREAD_STATE_MAX: u32 = 1296;
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::syscall::mach::kmsg;
 
@@ -330,6 +334,36 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             with_thread(ctx, req, |th, _| {
                 th.exited = true;
             })?;
+            Ok(Out::Simple(Vec::new()))
+        }
+        t::THREAD_GET_STATE => {
+            // flavor, old_stateCnt (bounded by THREAD_STATE_MAX).
+            req.simple(40)?;
+            let (flavor, count) = (req.i32(32), req.u32(36).min(THREAD_STATE_MAX));
+            let ptrauth = crate::user::darwin::signal::frame::uses_ptrauth(ctx.proc);
+            let state = with_thread(ctx, req, |th, _| {
+                let view = thread_status::View {
+                    cpu: &th.cpu,
+                    entry: &th.sig.entry,
+                    debug: &th.mach.debug_state,
+                    ptrauth,
+                };
+                thread_status::get(&view, flavor, count)
+            })??;
+            let mut b = Buf::new().u32(state.len() as u32);
+            for w in state {
+                b = b.u32(w);
+            }
+            Ok(Out::Simple(b.done()))
+        }
+        t::THREAD_SET_STATE => {
+            // flavor, new_state[new_stateCnt].
+            let n = req.simple_array(40, 4, THREAD_STATE_MAX as usize, 36)?;
+            let flavor = req.i32(32);
+            let state: Vec<u32> = (0..n).map(|i| req.u32(40 + 4 * i)).collect();
+            with_thread(ctx, req, |th, _| {
+                thread_status::set(&mut th.cpu, &mut th.mach.debug_state, flavor, &state)
+            })??;
             Ok(Out::Simple(Vec::new()))
         }
         t::THREAD_GET_MACH_VOUCHER => {
