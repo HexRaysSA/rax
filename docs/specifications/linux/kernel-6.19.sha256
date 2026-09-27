@@ -71,6 +71,7 @@ f0940e848ad9996c3cf71bfa6926a1d94c86884b13909550a93916e9a48edb3a  ./arch/x86/ker
 a657d8220efa4c9d9f5f7e9d43ce261067cc2fd509ee6e3c7de7e68f22a5564f  ./arch/x86/kernel/tls.c
 73ec2ec083dcb87a034acdd657ce05b2eef7f676935bff82c1369f7688961b69  ./arch/x86/kernel/traps.c
 3500c2e1509f93bf15ad2f7c203638434527f15bb062b0408f4355e2b94285f7  ./arch/x86/mm/mmap.c
+682da41093deab03bd1d615ddc7bf4139d57bb16e0661d7540c3a4490170b37a  ./arch/x86/mm/pkeys.c
 7fd278f7f4037e2e5db3b17e147d5982b02ae76b5d48657a6666f0a54ad40942  ./block/blk-ioc.c
 f33e815ba09ca96e05dcf565fb244ed97bfb27a767adb41c30ef4ecec20366e5  ./block/ioprio.c
 0e5fb9ef08eac878c043616f286a413f6b12bf748f00f2a60211e1150657a33d  ./drivers/char/mem.c
@@ -89,6 +90,7 @@ da6858c75d54df0fb156edb6ffaed5745e3cb8abf0a0637e7bf6a7f236d79d3b  ./fs/eventfd.c
 16ad22e1e1d069e789ead31ef80ae0bebda3dd8e5b4e07bd86c796623a921c86  ./fs/fcntl.c
 defbf903c2317bbe3c975b6f42abc1c83a02626a52039c24766b4dd2cea6e9da  ./fs/file_table.c
 1fb806656fa3e1c20b6a057501f185dbc15cd1fb6fbdf42d465556f86ef845d8  ./fs/fsopen.c
+39e65f609b2cb3d1d9963eb8c718e06aa1dcd21627578b49aef868374a354d75  ./fs/ioctl.c
 6bee86d05e45122e67cd5eff2d9edb097ff1ec8a44d24c835846addf906026c3  ./fs/libfs.c
 302c9228ebd48f1b4b59db2813d8fdeafcd5e886616c13707188ceb5ac9dddc2  ./fs/locks.c
 2a7a5d9869d0baf0a35400183b49b1189c8bd5b33d45be8c448f43a34925aeb3  ./fs/namei.c
@@ -169,6 +171,7 @@ ef8f43d0d3587fbab1896b11bd30b53560bbdfa9975812a57fe575abcf07d91b  ./include/linu
 cd3b5c33208c1b3ded9a6fc793837e1d1d83d98b8c884e2b314bbc2d6e89052f  ./include/linux/timex.h
 6d7d11d81d2049bbd91a98a303a80dc4dfef2556b1ab92ada56d82ea510e8535  ./include/linux/uaccess.h
 54685c4d7999d0113a0c727a675e0f59b77a202981eae74769573a231584deb5  ./include/linux/xattr.h
+b9ef143ff953974bd282ed7baabb3969bac53c24585ac8bd175407fe762507cb  ./include/net/compat.h
 096f700a9f40be9aa6bfef2be5fad1651fe700d5cc5373384183c82109276a2c  ./include/net/sock.h
 52849c062488fdaaa877e7a491bec38643e732dc04baa2f6e15b365ab77eb504  ./include/uapi/asm-generic/mman-common.h
 bd9550ecdd91d875315f2c8965263e30b5457611526d7e0db69943843f536343  ./include/uapi/asm-generic/mman.h
@@ -181,6 +184,7 @@ b9fbd261e2893ae568f08414300cfd8f9b1cfcd7fd83c706c81b2b0eaeda61c6  ./include/uapi
 4d6c0afdcab1849321cfdca32173f649854800fe4b239307a59d9a5a65b8ac5f  ./include/uapi/linux/module.h
 dfc0b594b4fe8b27e074425373029faa0f83543ed5c7e6cd06da83e5bf73339b  ./include/uapi/linux/mount.h
 60187352813e3ed08ddb03748dca2288d3f3fbc1c95e584507eeff24aacc58ba  ./include/uapi/linux/mqueue.h
+7a3044c1910301b969d43b181208e702d6c6174f2aa07fbc0789020078fcd3de  ./include/uapi/linux/net.h
 a84ea8a9eb063438511fbb200d4df0e052b5551b82a6bbed71fb02ea823a6adb  ./include/uapi/linux/ptrace.h
 24a1a120fe399f45d5278a4fdbea7c26fb22023daef1fed5ea5c9c1e6c8fb223  ./include/uapi/linux/reboot.h
 f22a452dc38ce6f140b3f197239661a4650cd9f6b282877a279e19e8708c4527  ./include/uapi/linux/rseq.h
@@ -255,6 +259,7 @@ f623afa9c304887da1e04e5fefeb914fc8596b9928081b4b911b71d5d6e5bc7a  ./mm/process_v
 bac6474ab14a46fa9b91ab1cbe58f5d48f981abd00b0aee23e239d21ac6868d5  ./mm/swapfile.c
 e659997aa67dcfac71b532ef8780c3df488bd2089ccbcbe3ccd89f5bc92773bb  ./mm/util.c
 c21bbdde02fe3d841bea74f26ef4932d33ce63410ca61d52e894aa93975fefdf  ./mm/vma.c
+169bcc9ebe139121b929878f19bcc648eac7d616d8318970d47d837fd9b0bfcb  ./net/compat.c
 24f1d8a24ac03b8b576af3c674556cb6a6148d7163359e8dcf1999ae6132fdcc  ./net/core/dev.c
 56175d60318af23c5a752be8046f8e2db1573d6996fba13ed3c223b23bc16fdc  ./net/core/dev_ioctl.c
 9af6c4f9cdbf1a55032bd2f4206a9bdcaf6ed2e4045da47b076dcf2324b559c5  ./net/core/filter.c
