@@ -13,10 +13,11 @@
 //! The emulated machine is never under memory pressure, so nothing else
 //! reclaims.
 
+use super::guard;
 use crate::user::darwin::abi::DarwinAbi;
+use crate::user::darwin::exception;
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::mach::task::Ring;
-use crate::user::darwin::process::ExitStatus;
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::vm::{self, VmFlags};
 use crate::user::mm::{Mapping, Perms};
@@ -108,20 +109,23 @@ impl Stop {
     }
 }
 
-/// `reclaim_kill_with_reason`: the task dies of `SIGKILL` by an
-/// `EXC_GUARD` of type `GUARD_TYPE_VIRT_MEMORY`.
+/// `reclaim_kill_with_reason`: an `EXC_GUARD` of type
+/// `GUARD_TYPE_VIRT_MEMORY` goes to the thread's and task's handlers,
+/// then the task dies of `SIGKILL` (`exit_with_fatal_exception_and_notify`;
+/// both once the call returns, which it never does to user code).
 fn kill(ctx: &mut Ctx<'_>, flavor: u64, subcode: u64) -> Stop {
+    let code = guard::code(guard::GUARD_TYPE_VIRT_MEMORY, flavor as u32, 0);
     if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {
-        eprintln!(
-            "rax-user: EXC_GUARD (virtual memory {:#x}, subcode {subcode:#x}): fatal",
-            (5u64 << 61) | (flavor << 32)
-        );
+        eprintln!("rax-user: EXC_GUARD (virtual memory {code:#x}, subcode {subcode:#x}): fatal");
     }
-    ctx.proc.exit_with(ExitStatus::Signaled {
-        signo: 9,
-        core: false,
-        pc: 0,
-    });
+    exception::post_guard(
+        &mut ctx.proc.guard_ast,
+        exception::GuardAst {
+            code,
+            subcode,
+            sticky: true,
+        },
+    );
     Stop::Killed
 }
 

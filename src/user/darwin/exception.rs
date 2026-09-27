@@ -26,7 +26,7 @@ use super::mach::kr::{self, KernReturn};
 use super::mach::msg::{self, Item, Message, Sender, bits, desc};
 use super::process::{Proc, Thread};
 use super::signal;
-use super::syscall::mach::kmsg;
+use super::syscall::mach::{guard, kmsg};
 use super::thread_status;
 use super::wait::{self, Wait, WaitKey};
 
@@ -57,6 +57,61 @@ pub struct Raised {
     pub codes: [i64; 2],
     /// How many codes there are (1 or 2).
     pub ncodes: u32,
+    /// The task dies of `SIGKILL` once the exception is delivered (a
+    /// fatal guard violation).
+    pub fatal: bool,
+}
+
+/// A guard violation the thread handles on its way back to user mode
+/// (`thread_ast_mach_exception`): `EXC_GUARD`'s code and subcode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GuardAst {
+    /// Type, flavor, and target.
+    pub code: u64,
+    /// The payload.
+    pub subcode: u64,
+    /// Another violation cannot replace it.
+    pub sticky: bool,
+}
+
+/// Notes violation `g` in `slot` unless a pending one stays: a sticky one,
+/// or any when `g` is not sticky.
+pub fn post_guard(slot: &mut Option<GuardAst>, g: GuardAst) {
+    if slot.is_some_and(|p| p.sticky || !g.sticky) {
+        return;
+    }
+    *slot = Some(g);
+}
+
+/// `guard_ast`: raises the thread's pending guard violation, if its kind
+/// is delivered (`mach_port_guard_ast`; a virtual-memory violation is
+/// always fatal), with `thread_interrupt_level(THREAD_UNINT)` as for any
+/// exception here.
+pub fn guard_ast(proc: &mut Proc, thread: &mut Thread) {
+    let Some(g) = thread.mach.guard_ast.take() else {
+        return;
+    };
+    if proc.exit.is_some() || thread.exited {
+        return;
+    }
+    let fatal = match g.code >> 61 {
+        guard::GUARD_TYPE_MACH_PORT => guard::ast(proc, g.code),
+        _ => Some(true),
+    };
+    let Some(fatal) = fatal else {
+        return;
+    };
+    // task_exception_notify: delivered synchronously (developer mode).
+    triage(
+        proc,
+        thread,
+        Raised {
+            exception: exc::GUARD,
+            codes: [g.code as i64, g.subcode as i64],
+            ncodes: 2,
+            fatal,
+        },
+    );
 }
 
 /// The levels an exception tries, in order.
@@ -105,6 +160,7 @@ fn fault_codes(e: &Exception, insn: u32) -> Raised {
         exception,
         codes: [code, subcode],
         ncodes: 2,
+        fatal: false,
     }
 }
 
@@ -159,11 +215,13 @@ fn syscall_codes(abi: DarwinAbi, number: u64) -> Raised {
             exception: exc::SYSCALL,
             codes: [i64::from((number as i32).wrapping_neg()), 0],
             ncodes: 1,
+            fatal: false,
         },
         DarwinAbi::X86_64 => Raised {
             exception: exc::SYSCALL,
             codes: [number as i64, 1],
             ncodes: 2,
+            fatal: false,
         },
     }
 }
@@ -185,12 +243,25 @@ fn walk(proc: &mut Proc, thread: &mut Thread, raised: Raised, from: Level) {
         }
         if level == Level::Host {
             host(proc, thread, &raised);
-            return;
+            break;
         }
         if send(proc, thread, &raised, level).is_ok() {
             return;
         }
         level = level.next();
+    }
+    finish(proc, &raised);
+}
+
+/// The end of an exception's delivery: a fatal one kills the task
+/// (`exit_with_mach_exception`).
+fn finish(proc: &mut Proc, raised: &Raised) {
+    if raised.fatal && proc.exit.is_none() {
+        proc.exit_with(super::process::ExitStatus::Signaled {
+            signo: SIGKILL,
+            core: false,
+            pc: 0,
+        });
     }
 }
 
@@ -391,6 +462,8 @@ pub fn resume(proc: &mut Proc, thread: &mut Thread) {
     }
     if kr != kr::KERN_SUCCESS && kr != kr::MACH_RCV_PORT_DIED {
         walk(proc, thread, f.raised, f.level.next());
+    } else {
+        finish(proc, &f.raised);
     }
 }
 
@@ -480,7 +553,26 @@ mod tests {
             exception,
             codes,
             ncodes,
+            fatal: false,
         }
+    }
+
+    #[test]
+    fn sticky_guards_stay_pending() {
+        let g = |code, sticky| GuardAst {
+            code,
+            subcode: 0,
+            sticky,
+        };
+        let mut slot = None;
+        post_guard(&mut slot, g(1, false));
+        post_guard(&mut slot, g(2, false));
+        assert_eq!(slot, Some(g(1, false)));
+        // A sticky violation replaces a non-sticky one, not another sticky.
+        post_guard(&mut slot, g(3, true));
+        post_guard(&mut slot, g(4, true));
+        post_guard(&mut slot, g(5, false));
+        assert_eq!(slot, Some(g(3, true)));
     }
 
     /// The request sizes and offsets `mach_excUser.c` and `excUser.c`
