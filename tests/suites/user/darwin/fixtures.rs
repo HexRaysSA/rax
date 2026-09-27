@@ -364,3 +364,13 @@ fn sysctl_arm64() {
 fn sysctl_x86_64() {
     fixture("sysctl", "x86_64", &[], &[]);
 }
+
+#[test]
+fn audit_arm64() {
+    fixture("audit", "arm64", &[], &[]);
+}
+
+#[test]
+fn audit_x86_64() {
+    fixture("audit", "x86_64", &[], &[]);
+}

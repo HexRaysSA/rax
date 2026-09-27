@@ -9,6 +9,8 @@
 pub mod acl;
 #[cfg(target_os = "macos")]
 pub mod attr;
+#[cfg(target_os = "macos")]
+pub mod audit;
 pub mod event;
 pub mod file;
 pub mod misc;
@@ -283,6 +285,20 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         }
         nr::SYSCTL => sysctl::sysctl(ctx, a),
         nr::SYSCTLBYNAME => sysctl::sysctlbyname(ctx, a),
+        #[cfg(target_os = "macos")]
+        nr::AUDIT => audit::submit(ctx, a[0], u(1)),
+        #[cfg(target_os = "macos")]
+        nr::AUDITON => audit::control(ctx, i(0), a[1], u(2)),
+        #[cfg(target_os = "macos")]
+        nr::GETAUID => audit::get_auid(ctx, a[0]),
+        #[cfg(target_os = "macos")]
+        nr::SETAUID => audit::set_auid(ctx, a[0]),
+        #[cfg(target_os = "macos")]
+        nr::GETAUDIT_ADDR => audit::get_audit_addr(ctx, a[0], u(1)),
+        #[cfg(target_os = "macos")]
+        nr::SETAUDIT_ADDR => audit::set_audit_addr(ctx, a[0], u(1)),
+        #[cfg(target_os = "macos")]
+        nr::AUDITCTL => audit::control_file(ctx, a[0]),
 
         #[cfg(target_os = "macos")]
         nr::SOCKET => socket::socket(ctx, i(0), i(1), i(2)),
