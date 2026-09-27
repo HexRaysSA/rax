@@ -45,6 +45,12 @@ struct Recv {
     aux_addr: u64,
     aux_size: u32,
     name: PortName,
+    /// `MACH64_RCV_LINEAR_VECTOR` (kevent receives): the auxiliary data
+    /// follows the trailer in the one buffer, and a message whose data
+    /// does not fit there is too large.
+    linear: bool,
+    /// `MACH64_RCV_STACK`: a linear receive ends at the buffer's end.
+    stack: bool,
 }
 
 fn lo(v: u64) -> u32 {
@@ -175,6 +181,8 @@ pub fn msg2(ctx: &mut Ctx<'_>, a: &[u64; 9]) -> KernReturn {
                 aux_addr,
                 aux_size,
                 name: hi(dc_rn),
+                linear: false,
+                stack: false,
             })
         });
         (send, recv)
@@ -194,6 +202,8 @@ pub fn msg2(ctx: &mut Ctx<'_>, a: &[u64; 9]) -> KernReturn {
                 aux_addr: 0,
                 aux_size: 0,
                 name: hi(dc_rn),
+                linear: false,
+                stack: false,
             })
         });
         (send, recv)
@@ -262,6 +272,8 @@ pub fn overwrite(ctx: &mut Ctx<'_>, a: &[u64; 9], has_rcv_msg: bool) -> KernRetu
         aux_addr: 0,
         aux_size: 0,
         name: rcv_name,
+        linear: false,
+        stack: false,
     }));
     run(ctx, options, send, recv, timeout, false)
 }
@@ -560,12 +572,19 @@ fn receive_from(
 
     // ipc_mqueue_select_on_thread_locked: the size check.
     let tsize = msg::trailer_size(options);
-    let (msize, seqno, context) = {
+    let (msize, asize, seqno, context) = {
         let st = port.state.lock().unwrap();
         let m = st.queue.front().expect("the queue has a message");
-        (m.size(), st.seqno, st.context)
+        (m.size(), m.aux.len(), st.seqno, st.context)
     };
-    let too_large = msize + tsize > r.size as usize;
+    // ipc_mqueue_msg_too_large: a linear receive needs room for the
+    // auxiliary data too.
+    let too_large = msize + tsize + if r.linear { asize } else { 0 } > r.size as usize;
+    // A message left queued reports its size without a trailer.
+    if too_large && options & opt::RCV_LARGE != 0 && r.linear {
+        // The knote reports the sizes; nothing is written.
+        return done(kr::MACH_RCV_TOO_LARGE, msize, 0, asize);
+    }
     if too_large && options & opt::RCV_LARGE != 0 {
         // mach_msg_receive_too_large: report the size, keep the message.
         let mut mr = kr::MACH_RCV_TOO_LARGE;
@@ -577,7 +596,7 @@ fn receive_from(
         if r.size >= 8 && ctx.write_u32(r.addr + 4, msize as u32).is_err() {
             mr = kr::MACH_RCV_INVALID_DATA;
         }
-        return done(mr, msize, tsize, 0);
+        return done(mr, msize, 0, 0);
     }
     let m = {
         let mut st = port.state.lock().unwrap();
@@ -589,11 +608,18 @@ fn receive_from(
     ctx.proc.task.messages.1 += 1;
     let sender = m.sender;
     let aux = m.aux.clone();
+    // ipc_kmsg_put_to_user: where the message goes. A linear receive on a
+    // stack ends at the buffer's end.
+    let msg_addr = if r.linear && r.stack && !too_large {
+        r.addr + u64::from(r.size) - (msize + tsize + asize) as u64
+    } else {
+        r.addr
+    };
     let (bytes, mut mr) = if too_large {
         // mach_msg_receive_error: only the header survives.
         (kmsg::copyout_dest_only(ctx.proc, m), kr::MACH_RCV_TOO_LARGE)
     } else {
-        let (b, status) = kmsg::copyout(ctx.proc, m, options, r.addr);
+        let (b, status) = kmsg::copyout(ctx.proc, m, options, msg_addr);
         (
             b,
             if status != 0 {
@@ -604,9 +630,9 @@ fn receive_from(
         )
     };
 
-    // ipc_kmsg_put_to_user
+    // ipc_kmsg_put_to_user (a failed copy-out reports no sizes).
     if bytes.len() > r.size as usize {
-        return done(kr::MACH_RCV_INVALID_DATA, msize, tsize, 0);
+        return done(kr::MACH_RCV_INVALID_DATA, 0, 0, 0);
     }
     let mut out = bytes;
     let trailer = msg::trailer(options, seqno, &sender, context);
@@ -627,10 +653,15 @@ fn receive_from(
         );
     }
     let trailer_len = out.len() - msize.min(out.len());
-    if ctx.write(r.addr, &out).is_err() {
-        return done(kr::MACH_RCV_INVALID_DATA, msize, trailer_len, 0);
+    if ctx.write(msg_addr, &out).is_err() {
+        return done(kr::MACH_RCV_INVALID_DATA, 0, 0, 0);
     }
-    if r.aux_addr != 0 {
+    if r.linear {
+        // The auxiliary data follows the trailer; none leaves no header.
+        if !aux.is_empty() && ctx.write(msg_addr + out.len() as u64, &aux).is_err() {
+            return done(kr::MACH_RCV_INVALID_DATA, 0, 0, 0);
+        }
+    } else if r.aux_addr != 0 {
         if aux.is_empty() {
             if ctx.write(r.aux_addr, &[0u8; 8]).is_err() {
                 mr = kr::MACH_RCV_INVALID_DATA;
@@ -676,13 +707,16 @@ impl Watched {
 }
 
 /// Receives without waiting from `w` into `addr` (`size` bytes) with
-/// `options` (`filt_machportprocess`); `None` when nothing is queued.
+/// `options` (`filt_machportprocess`): a linear vector receive, the
+/// message, its trailer, and its auxiliary data in one buffer, at the
+/// buffer's end when `stack`. `None` when nothing is queued.
 pub fn receive_object(
     ctx: &mut Ctx<'_>,
     w: &Watched,
     options: u64,
     addr: u64,
     size: u32,
+    stack: bool,
 ) -> Option<Received> {
     let r = Recv {
         addr,
@@ -690,6 +724,8 @@ pub fn receive_object(
         aux_addr: 0,
         aux_size: 0,
         name: MACH_PORT_NULL,
+        linear: true,
+        stack,
     };
     receive_from(ctx, &w.ports(), options, &r)
 }

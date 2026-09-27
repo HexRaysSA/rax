@@ -294,3 +294,13 @@ fn mk_timer_arm64() {
 fn mk_timer_x86_64() {
     fixture("mk_timer", "x86_64", &[], &[]);
 }
+
+#[test]
+fn kevent_data_arm64() {
+    fixture("kevent_data", "arm64", &[], &[]);
+}
+
+#[test]
+fn kevent_data_x86_64() {
+    fixture("kevent_data", "x86_64", &[], &[]);
+}

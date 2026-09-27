@@ -553,7 +553,14 @@ fn machport_process(
         options = u64::from(rcv::LARGE);
         (0, 0, false)
     };
-    let r = crate::user::darwin::syscall::mach::msg::receive_object(ctx, w, options, addr, size);
+    let r = crate::user::darwin::syscall::mach::msg::receive_object(
+        ctx,
+        w,
+        options,
+        addr,
+        size,
+        from_area && data.stack,
+    );
     let Some(r) = r else {
         // Nothing queued (MACH_RCV_TIMED_OUT): not active.
         return (Kev::default(), 0);
