@@ -278,3 +278,51 @@ fn test_integer_divide_operands() {
         ]
     );
 }
+
+/// The miscellaneous space (op1 = 10xx0, bit 7 clear) holds BKPT, BXJ,
+/// ERET, HVC, and SMC; the rest of it is UNDEFINED, never the
+/// TST/TEQ/CMP/CMN it would alias with S = 0 (`llvm-mc -triple=armv7a
+/// -mattr=+virtualization,+trustzone`).
+#[test]
+fn miscellaneous_space_is_not_data_processing() {
+    for (raw, mnemonic) in [
+        (0xe121_2374, Mnemonic::BKPT),
+        (0xe12f_ff23, Mnemonic::BX), // bxj r3
+        (0xe160_006e, Mnemonic::ERET),
+        (0xe141_2374, Mnemonic::HVC),
+        (0xe160_0075, Mnemonic::SMC),
+        (0xe100_0010, Mnemonic::UNKNOWN), // op 00, op2 001
+        (0xe120_0070, Mnemonic::BKPT),
+        (0xe160_0070, Mnemonic::SMC),
+        (0xe120_0020, Mnemonic::BX),             // bxj r0
+        (0xe160_0050, Mnemonic::A32_SAT_ADDSUB), // qdsub
+    ] {
+        let insn = Aarch32Decoder::decode(raw).unwrap();
+        assert_eq!(insn.mnemonic, mnemonic, "{raw:#010x}");
+    }
+    // bxj r3 is bx r3.
+    let bxj = Aarch32Decoder::decode(0xe12f_ff23).unwrap();
+    assert_eq!(
+        bxj.operands,
+        Aarch32Decoder::decode(0xe12f_ff13).unwrap().operands
+    );
+}
+
+/// The bit-field encodings need their op2 (bits 7:5); 11111/111 is UDF.
+#[test]
+fn bit_field_encodings_check_op2_and_udf_is_undefined() {
+    for (raw, mnemonic) in [
+        (0xe7fa_bcfd, Mnemonic::UDF), // udf #0xabcd
+        (0xe7f0_00f0, Mnemonic::UDF),
+        (0xe7e2_00d2, Mnemonic::UBFX),
+        (0xe7a2_00d2, Mnemonic::SBFX),
+        (0xe7c3_0092, Mnemonic::BFI),
+        (0xe7c3_009f, Mnemonic::BFC),
+        (0xe7e2_00f2, Mnemonic::UNKNOWN), // 11110 with op2 111
+        (0xe7a2_0092, Mnemonic::UNKNOWN), // SBFX's op1 with op2 x00
+        (0xe7c3_00d2, Mnemonic::UNKNOWN), // BFI's op1 with op2 x10
+    ] {
+        let insn = Aarch32Decoder::decode(raw).unwrap();
+        assert_eq!(insn.mnemonic, mnemonic, "{raw:#010x}");
+    }
+}

@@ -874,3 +874,30 @@ fn incomplete_input_is_reported_without_decoder_access() {
         })
     ));
 }
+
+/// BKPT, UDF, ERET, HVC, and SMC are exceptions the lifter does not model:
+/// they are rejected, not lifted as the TEQ and UBFX they decoded as before
+/// the decoder checked the miscellaneous space and the media op2 field.
+/// BXJ (a trivial Jazelle implementation's BX) lifts as BX.
+#[test]
+fn a32_exception_generating_instructions_are_not_lifted() {
+    for raw in [
+        0xe121_2374_u32,
+        0xe7f0_00f0,
+        0xe160_006e,
+        0xe141_2374,
+        0xe160_0075,
+    ] {
+        let mut lifter = Aarch32Lifter::new();
+        let mut ctx = LiftContext::new(SourceArch::Aarch32);
+        let result = lifter.lift_insn(0x1000, &raw.to_le_bytes(), &mut ctx);
+        assert!(
+            matches!(result, Err(LiftError::Unsupported { .. })),
+            "{raw:#010x}: {result:?}"
+        );
+    }
+    assert!(matches!(
+        lift(0xe12f_ff23).control_flow,
+        ControlFlow::IndirectBranch { target } if target == Aarch32Lifter::reg(3)
+    ));
+}

@@ -568,6 +568,23 @@ impl Aarch32Decoder {
                         .with_operand(Operand::Reg(Register::raw(rd, false, false))),
                 );
             }
+            // The rest of the miscellaneous space (bit 7 clear; op = bits
+            // 22:21, op2 = bits 6:4): BKPT, BXJ, ERET, HVC, SMC. Anything
+            // else there (the banked MRS/MSR of the Virtualization
+            // Extensions among it) is UNDEFINED, never data processing.
+            if op2 & 0b1000 == 0 {
+                let mk = |m| DecodedInsn::new(m, ExecutionState::Aarch32, raw, 4);
+                return Ok(match ((raw >> 21) & 0b11, op2 & 0b111) {
+                    (0b01, 0b111) => mk(Mnemonic::BKPT),
+                    // BXJ with a trivial Jazelle implementation (ARMv8, and
+                    // ARMv7 with Jazelle disabled) is BX.
+                    (0b01, 0b010) => return Self::decode_bx(raw),
+                    (0b11, 0b110) => mk(Mnemonic::ERET),
+                    (0b10, 0b111) => mk(Mnemonic::HVC),
+                    (0b11, 0b111) => mk(Mnemonic::SMC),
+                    _ => mk(Mnemonic::UNKNOWN),
+                });
+            }
         }
 
         if op2 == 0b1001 {
@@ -1179,17 +1196,19 @@ impl Aarch32Decoder {
             _ => {}
         }
 
-        // Bit-field: SBFX (1101x), BFI/BFC (1110x), UBFX (1111x).
-        match op1 >> 1 {
-            0b1101 => return mk(Mnemonic::SBFX, &[rd]),
-            0b1110 => {
+        // Bit-field: SBFX (1101x, op2 x10), BFI/BFC (1110x, op2 x00), UBFX
+        // (1111x, op2 x10); and UDF, the permanently UNDEFINED 11111/111.
+        match (op1 >> 1, op2 & 0b011) {
+            _ if op1 == 0b11111 && op2 == 0b111 => return mk(Mnemonic::UDF, &[]),
+            (0b1101, 0b10) => return mk(Mnemonic::SBFX, &[rd]),
+            (0b1110, 0b00) => {
                 if (raw & 0xF) == 0xF {
                     return mk(Mnemonic::BFC, &[rd]);
                 } else {
                     return mk(Mnemonic::BFI, &[rd]);
                 }
             }
-            0b1111 => return mk(Mnemonic::UBFX, &[rd]),
+            (0b1111, 0b10) => return mk(Mnemonic::UBFX, &[rd]),
             _ => {}
         }
 
