@@ -198,4 +198,22 @@ ok unlinkat-empty
 ok statx-empty
 ok statx-fd
 ok statx-fd-size
+ok xattr-setup
+ok xattr-fset
+ok xattr-fget
+ok xattr-fget-value
+ok xattr-get-length
+ok xattr-set
+ok xattr-get
+ok xattr-exists
+ok xattr-missing
+ok xattr-path-fixed
+ok xattr-get-flags
+ok xattr-set-flags
+ok xattr-empty-name
+ok xattr-too-big
+ok xattr-empty-path
+ok xattr-value-stable
+ok xattr-value-stable-get
+ok xattr-value-stable-old
 PASSED

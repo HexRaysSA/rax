@@ -631,6 +631,77 @@ static void paths(void) {
     unlink(sym);
     drop(&r);
 }
+static struct sqe xattr_sqe(uint8_t op, int fd, const char *name, void *value, uint32_t len,
+                            const char *path, uint32_t flags, uint64_t data) {
+    struct sqe s = nop(data);
+    s.opcode = op;
+    s.fd = fd;
+    s.addr = PTR(name);
+    s.off = PTR(value);
+    s.len = len;
+    s.addr3 = PTR(path);
+    s.op_flags = flags;
+    return s;
+}
+
+static void xattrs(void) {
+    struct ring r = make(8, 0, 0);
+    char path[] = "/tmp/uring-xattr";
+    int fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 0600);
+    CHECK("xattr-setup", fd >= 0);
+    char value[16] = "v1", got[16];
+    ONE("xattr-fset", &r, xattr_sqe(OP_FSETXATTR, fd, "user.k", value, 2, NULL, 0, 1), 1, "1:0");
+    memset(got, 0, sizeof got);
+    ONE("xattr-fget", &r, xattr_sqe(OP_FGETXATTR, fd, "user.k", got, sizeof got, NULL, 0, 2), 1,
+        "2:2");
+    CHECK("xattr-fget-value", memcmp(got, "v1", 2) == 0);
+    /* By path; a size of 0 asks the length. */
+    ONE("xattr-get-length", &r, xattr_sqe(OP_GETXATTR, 0, "user.k", NULL, 0, path, 0, 3), 1,
+        "3:2");
+    memcpy(value, "v22", 3);
+    ONE("xattr-set", &r, xattr_sqe(OP_SETXATTR, 0, "user.k", value, 3, path, 0, 4), 1, "4:0");
+    ONE("xattr-get", &r, xattr_sqe(OP_GETXATTR, 0, "user.k", got, sizeof got, path, 0, 5), 1,
+        "5:3");
+    /* XATTR_CREATE of an existing name; a failure keeps the link going. */
+    struct sqe s = xattr_sqe(OP_FSETXATTR, fd, "user.k", value, 3, NULL, 1, 6);
+    s.flags = LINK;
+    push(&r, s);
+    ONE("xattr-exists", &r, nop(7), 2, "6:-17 7:0");
+    ONE("xattr-missing", &r, xattr_sqe(OP_FGETXATTR, fd, "user.none", got, sizeof got, NULL, 0, 8),
+        1, "8:-61");
+    /* Preparation. */
+    s = xattr_sqe(OP_GETXATTR, 0, "user.k", got, sizeof got, path, 0, 9);
+    s.flags = FIXED_FILE;
+    PREP("xattr-path-fixed", &r, s, "9:-9");
+    PREP("xattr-get-flags", &r, xattr_sqe(OP_FGETXATTR, fd, "user.k", got, sizeof got, NULL, 1, 10),
+         "10:-22");
+    PREP("xattr-set-flags", &r, xattr_sqe(OP_FSETXATTR, fd, "user.k", value, 1, NULL, 4, 11),
+         "11:-22");
+    PREP("xattr-empty-name", &r, xattr_sqe(OP_FGETXATTR, fd, "", got, sizeof got, NULL, 0, 12),
+         "12:-34");
+    PREP("xattr-too-big", &r, xattr_sqe(OP_FSETXATTR, fd, "user.k", value, 65537, NULL, 0, 13),
+         "13:-7");
+    PREP("xattr-empty-path", &r, xattr_sqe(OP_GETXATTR, 0, "user.k", got, sizeof got, "", 0, 14),
+         "14:-2");
+    /* The value is the one at preparation: a read linked ahead rewrites it
+     * before the set runs. */
+    int src = file_with("new");
+    memcpy(value, "old", 3);
+    s = xfer(OP_READ, src, value, 3, 0, 15);
+    s.flags = LINK;
+    push(&r, s);
+    ONE("xattr-value-stable", &r, xattr_sqe(OP_FSETXATTR, fd, "user.k", value, 3, NULL, 0, 16), 2,
+        "15:3 16:0");
+    memset(got, 0, sizeof got);
+    ONE("xattr-value-stable-get", &r,
+        xattr_sqe(OP_FGETXATTR, fd, "user.k", got, sizeof got, NULL, 0, 17), 1, "17:3");
+    CHECK("xattr-value-stable-old", memcmp(got, "old", 3) == 0);
+    close(src);
+    close(fd);
+    unlink(path);
+    drop(&r);
+}
+
 int main(void) {
     transfers();
     transfer_checks();
@@ -641,5 +712,6 @@ int main(void) {
     closes();
     pipes();
     paths();
+    xattrs();
     FINISH();
 }

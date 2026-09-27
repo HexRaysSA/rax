@@ -258,7 +258,7 @@ sha256 = "10160bdb52bfe19b37a06c1bde7a1c55fd5e16cf35aac43e73bdbb73b253bd25"
 path = "bin/x86_64/uringio"
 source = "src/uringio.c"
 target = "x86_64-linux-musl"
-sha256 = "c9d50637fe7db8eac4a3133902d08d5505df3fad4c983d6f1cb149a85d7d1e38"
+sha256 = "2cbca69b6033bc252570832aba602ad177148e68d7387ca3d80ce228a3b2a87a"
 
 [[fixture]]
 path = "bin/x86_64/splice"
@@ -600,7 +600,7 @@ sha256 = "8211481bc7bf530c3042a3ca363cef4584eed8185f6a5be084a4d97b8a3f19c2"
 path = "bin/aarch64/uringio"
 source = "src/uringio.c"
 target = "aarch64-linux-musl"
-sha256 = "ed37aece0ead10a2ddad44c1dc73147f441c9e100808da7465ee4f3fbc4499fb"
+sha256 = "c3b2b6ad4aedca23f35a19a1927befd2e7cb476c0d8bedf988636a09ed2bcd77"
 
 [[fixture]]
 path = "bin/aarch64/splice"
@@ -942,7 +942,7 @@ sha256 = "c62d98ef949e2c3e3d5e7ccdb36e558e63a2d7b547ba913901551a9f87420c39"
 path = "bin/riscv64/uringio"
 source = "src/uringio.c"
 target = "riscv64-linux-musl"
-sha256 = "e5903702c2fa30f65fa7015cb8598f55987d3ad2a1e9257e6bf6136944ee9b55"
+sha256 = "3cf54b36ae40106f2d1afcf99db4a6b4304bf4a0d53c01f7a88eee6605d6cf94"
 
 [[fixture]]
 path = "bin/riscv64/splice"
@@ -1254,7 +1254,7 @@ sha256 = "8cc69b33841b135b9a3e5b409c93d4434328c364dbfe132084148c5b553c4ef9"
 path = "bin/i386/uringio"
 source = "src/uringio.c"
 target = "x86-linux-musl"
-sha256 = "98709d94ede9de4dc90514151300a5cd26333ee3ea376e02a3642dbfad0493bc"
+sha256 = "22c42552cbde0dc01e79792a03b3c3f97a9d8e30ab1a6d5011d0f53aba46e609"
 
 [[fixture]]
 path = "bin/i386/ptracejobs"
@@ -1585,7 +1585,7 @@ path = "bin/arm/uringio"
 source = "src/uringio.c"
 target = "arm-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
-sha256 = "ad9d590c25846d43523150bd873a35beb77916ffad58044421ef311f61720726"
+sha256 = "5053b068a034c66af261de82ad96f095c5c1b65df4e6def0aa3f3ff69850b2a6"
 
 [[fixture]]
 path = "bin/arm/splice"
@@ -1949,7 +1949,7 @@ path = "bin/thumb/uringio"
 source = "src/uringio.c"
 target = "thumb-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
-sha256 = "39a489e2f208552191ca5075e16ce555ea19ca496ac368620051ce0597210fd5"
+sha256 = "5ce7e5df2847f3a12343958e0ab2da49a9776e873cd9728a7e7dcd6353795646"
 
 [[fixture]]
 path = "bin/thumb/splice"

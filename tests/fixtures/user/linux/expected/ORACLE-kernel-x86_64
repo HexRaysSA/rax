@@ -4,6 +4,6 @@ build: oracle/build-kernel.sh from tag v6.19 (x86_64_defconfig with CONFIG_IA32_
 kernel-sha256: c1bf028f08806348ad6e43af4e4722264dc1f32c2af6610b008902a88db0fa8d
 qemu: QEMU emulator version 11.1.1
 machine: q35, -cpu max, 2 CPUs, 1 GiB; kernel command line: nopku
-recorded: 2026-09-27T22:08:27Z
+recorded: 2026-09-27T22:34:06Z
 case: uring
 case: uringio
