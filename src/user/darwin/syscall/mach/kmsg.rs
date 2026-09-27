@@ -500,7 +500,7 @@ fn copyin_right(proc: &mut Proc, name: PortName, d: u32) -> Result<Option<Right>
             .and_then(|e| e.port().cloned())
             .is_some_and(|p| p.state.lock().unwrap().immovable_receive());
         if immovable {
-            super::guard::raise(proc, name, super::guard::reason::IMMOVABLE);
+            super::guard::raise(proc, name, super::guard::reason::IMMOVABLE, 0);
             return Err(kr::KERN_INVALID_CAPABILITY);
         }
     }
@@ -765,7 +765,13 @@ pub fn copyin(
                         || (st.guarded() && st.context == context)
                 });
                 if !guard_ok {
-                    super::guard::raise(ctx.proc, name, super::guard::reason::INCORRECT_GUARD);
+                    let context = port.as_ref().map_or(0, |p| p.state.lock().unwrap().context);
+                    super::guard::raise(
+                        ctx.proc,
+                        name,
+                        super::guard::reason::INCORRECT_GUARD,
+                        context,
+                    );
                     Err(kr::MACH_SEND_INVALID_RIGHT)
                 } else {
                     if let Some(p) = &port {

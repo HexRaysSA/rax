@@ -2,10 +2,11 @@
 // each behavior sends (its ID, size, header bits, descriptors, codes, and
 // thread state), a reply that resumes the thread (with the state it
 // returns) or refuses the exception (the next level, then the signal),
-// the thread's handler before the task's, and the codes each fault
-// raises. Rosetta departs from the kernel where a handler fails to reply
-// properly, for dead or stateless handlers, and for the brk ranges: those
-// run on arm64 only.
+// the thread's handler before the task's, the codes each fault raises,
+// and port guard violations delivered as the task's guard behavior asks.
+// Rosetta departs from the kernel where a handler fails to reply
+// properly, for dead or stateless handlers, for the brk ranges, and for
+// guard exceptions: those run on arm64 only.
 #include <mach/mach.h>
 #include <mach/mig_errors.h>
 #include <pthread.h>
@@ -87,7 +88,7 @@ struct level {
     pthread_t thread;
 };
 
-static mach_port_t faulter;
+static mach_port_t faulter, guard_target;
 static uintptr_t fault_fn, fault_addr;
 static long fault_len;
 static void *protnone, *readonly;
@@ -213,6 +214,15 @@ static void *handler(void *arg) {
         uint32_t ncodes = *(uint32_t *)(b + off + 4);
         off += 8;
         out("    exception=%d codes=%u:", exc, ncodes);
+        if (exc == EXC_GUARD && wide && ncodes == 2) {
+            // Type, flavor, and target (the port name) of the guard.
+            uint64_t c = *(uint64_t *)(b + off);
+            out(" type %llu flavor %#llx target %s, %#llx", (unsigned long long)(c >> 61),
+                (unsigned long long)((c >> 32) & 0x1fffffff),
+                (uint32_t)c == guard_target ? "the port" : (uint32_t)c ? "other" : "0",
+                (unsigned long long)*(uint64_t *)(b + off + 8));
+            ncodes = 0;
+        }
         for (uint32_t i = 0; i < ncodes && i < 2; i++) {
             int64_t c = wide ? *(int64_t *)(b + off + 8 * i) : *(int32_t *)(b + off + 4 * i);
             if (i == 0)
@@ -221,7 +231,7 @@ static void *handler(void *arg) {
                 out(" %s", rel((uint64_t)c));
         }
         out("\n");
-        off += (int)ncodes * (wide ? 8 : 4);
+        off += (int)*(uint32_t *)(b + off - 4) * (wide ? 8 : 4);
         int stateful = id == 2402 || id == 2403 || id == 2406 || id == 2407;
         int flavor = 0;
         uint32_t n = 0, *s = NULL;
@@ -398,6 +408,49 @@ static void one(const char *what, int behavior, int flavor, enum fault f, enum r
     unhandle();
 }
 
+#if defined(__arm64__)
+extern kern_return_t task_set_exc_guard_behavior(task_t, uint32_t);
+extern kern_return_t task_get_exc_guard_behavior(task_t, uint32_t *);
+
+// TASK_EXC_GUARD_MP_*.
+#define MP_DELIVER 0x10
+#define MP_ONCE 0x20
+#define MP_FATAL 0x80
+
+// A port guard violation in a child with its own handler of EXC_GUARD:
+// destroying a guarded receive right (fatal), or deallocating a name
+// that does not exist twice (delivered as the task's guard behavior
+// asks).
+static void guard_child(const char *what, uint32_t behavior, int destroy) {
+    out("\n%s\n", what);
+    pid_t pid = fork();
+    if (pid == 0) {
+        faulter = mach_thread_self();
+        task_set_exc_guard_behavior(mach_task_self(), behavior);
+        handle(0, EXC_MASK_GUARD, EXCEPTION_DEFAULT | CODES, 0, 2, NOCHANGE, NOCHANGE);
+        if (destroy) {
+            mach_port_options_t o = {.flags = MPO_CONTEXT_AS_GUARD | MPO_STRICT};
+            mach_port_construct(mach_task_self(), &o, 0x1234, &guard_target);
+            out("destroy: %d\n", mach_port_mod_refs(mach_task_self(), guard_target, MACH_PORT_RIGHT_RECEIVE, -1));
+        } else {
+            guard_target = 0x12345603;
+            out("deallocate: %d\n", mach_port_deallocate(mach_task_self(), guard_target));
+            out("deallocate: %d\n", mach_port_deallocate(mach_task_self(), guard_target));
+            uint32_t now = 0;
+            task_get_exc_guard_behavior(mach_task_self(), &now);
+            out("guard behavior now %#x\n", now);
+        }
+        unhandle();
+        _exit(0);
+    }
+    int st = 0;
+    waitpid(pid, &st, 0);
+    out("child: exited %d status %d signaled %d signal %d\n", WIFEXITED(st), WIFEXITED(st) ? WEXITSTATUS(st) : 0,
+        WIFSIGNALED(st), WIFSIGNALED(st) ? WTERMSIG(st) : 0);
+}
+
+#endif
+
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
     struct sigaction sa = {0};
@@ -505,6 +558,14 @@ int main(void) {
     int st = 0;
     waitpid(pid, &st, 0);
     out("child: signaled %d signal %d\n", WIFSIGNALED(st), WIFSIGNALED(st) ? WTERMSIG(st) : 0);
+
+    // Guard exceptions (Rosetta kills the process while it delivers them).
+    guard_child("guarded receive right destroyed", 0, 1);
+    guard_child("invalid name, guard exceptions not delivered", 0, 0);
+    guard_child("invalid name, guard exceptions delivered", MP_DELIVER, 0);
+    guard_child("invalid name, guard exceptions delivered once", MP_DELIVER | MP_ONCE, 0);
+    guard_child("invalid name, guard exceptions delivered and fatal", MP_DELIVER | MP_FATAL, 0);
+    guard_child("invalid name, guard exceptions fatal but not delivered", MP_FATAL, 0);
 #endif
     out("\ndone\n");
     return 0;

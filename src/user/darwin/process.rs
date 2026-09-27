@@ -373,6 +373,9 @@ pub struct Proc {
     /// `P_EXEC`: the process has executed an image (not so for a forked
     /// child until it does).
     pub execed: bool,
+    /// A guard violation the running thread raised, for its way back to
+    /// user mode.
+    pub guard_ast: Option<super::exception::GuardAst>,
 }
 
 impl Proc {
@@ -573,6 +576,9 @@ impl DarwinProcess {
                 Some(trap) => self.handle(&mut thread, trap),
                 None => super::exception::resume(&mut self.proc, &mut thread),
             }
+            if let Some(g) = self.proc.guard_ast.take() {
+                super::exception::post_guard(&mut thread.mach.guard_ast, g);
+            }
             if let Some(swap) = self.proc.exec.take() {
                 // The call ran a new image: the process continues as it,
                 // and the calling thread went with the old one.
@@ -584,9 +590,11 @@ impl DarwinProcess {
             thread.mach.user_ns += user;
             thread.mach.system_ns += system;
             signal::timer::charge(&mut self.proc, &mut thread, user, system);
-            // Back to user mode: deliver the thread's signals (bsd_ast).
+            // Back to user mode: deliver the thread's signals (bsd_ast),
+            // then raise its guard violation.
             if thread.wait.is_none() {
                 signal::ast(&mut self.proc, &mut thread);
+                super::exception::guard_ast(&mut self.proc, &mut thread);
             }
             if thread.exited {
                 self.proc.task.dead_times.0 += thread.mach.user_ns;
@@ -935,6 +943,7 @@ pub(crate) fn start(
             shared_region: None,
             started: c.started,
             posted: Vec::new(),
+            guard_ast: None,
             task: c.task,
             audit: c.audit,
             exec: None,
@@ -997,6 +1006,7 @@ pub(crate) fn start(
                 shared_region: None,
                 started: Instant::now(),
                 posted: Vec::new(),
+                guard_ast: None,
                 task: TaskState::default(),
                 audit: host_audit_token(pid, creds),
                 exec: None,

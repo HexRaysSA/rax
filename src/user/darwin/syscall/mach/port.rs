@@ -102,8 +102,14 @@ pub fn destroy(proc: &mut Proc, name: PortName) -> KernReturn {
     }
     let set = match proc.ipc.lookup(name) {
         Ok(e) => {
-            if e.receive && e.port().is_some_and(|p| p.state.lock().unwrap().guarded()) {
-                guard::raise(proc, name, reason::DESTROY);
+            let guarded = e
+                .port()
+                .filter(|_| e.receive)
+                .map(|p| p.state.lock().unwrap())
+                .filter(|st| st.guarded())
+                .map(|st| st.context);
+            if let Some(context) = guarded {
+                guard::raise(proc, name, reason::DESTROY, context);
                 return kr::KERN_INVALID_RIGHT;
             }
             match &e.object {
@@ -112,7 +118,7 @@ pub fn destroy(proc: &mut Proc, name: PortName) -> KernReturn {
             }
         }
         Err(k) => {
-            guard::raise(proc, name, reason::INVALID_NAME);
+            guard::raise(proc, name, reason::INVALID_NAME, 0);
             return k;
         }
     };
@@ -146,11 +152,17 @@ pub fn deallocate(proc: &mut Proc, name: PortName) -> KernReturn {
         Ok(e) if e.send_once => right::SEND_ONCE,
         Ok(e) if e.dead > 0 => right::DEAD_NAME,
         Ok(_) => {
-            guard::raise(proc, name, reason::INVALID_RIGHT);
+            let bits = guard::entry_bits(proc, name);
+            guard::raise(
+                proc,
+                name,
+                reason::INVALID_RIGHT,
+                guard::payload(guard::FLAG_DEALLOC, 0, bits),
+            );
             return kr::KERN_INVALID_RIGHT;
         }
         Err(k) => {
-            guard::raise(proc, name, reason::INVALID_NAME);
+            guard::raise(proc, name, reason::INVALID_NAME, 0);
             return k;
         }
     };
@@ -199,14 +211,17 @@ pub fn mod_refs(proc: &mut Proc, name: PortName, r: u32, delta: i32) -> KernRetu
             kr::KERN_INVALID_NAME
         };
     }
+    let bits = guard::entry_bits(proc, name);
     let set = match proc.ipc.lookup(name) {
         Ok(e) => {
-            if r == right::RECEIVE
-                && delta < 0
-                && e.receive
-                && e.port().is_some_and(|p| p.state.lock().unwrap().guarded())
-            {
-                guard::raise(proc, name, reason::DESTROY);
+            let guarded = e
+                .port()
+                .filter(|_| r == right::RECEIVE && delta < 0 && e.receive)
+                .map(|p| p.state.lock().unwrap())
+                .filter(|st| st.guarded())
+                .map(|st| st.context);
+            if let Some(context) = guarded {
+                guard::raise(proc, name, reason::DESTROY, context);
                 return kr::KERN_INVALID_RIGHT;
             }
             match &e.object {
@@ -215,7 +230,7 @@ pub fn mod_refs(proc: &mut Proc, name: PortName, r: u32, delta: i32) -> KernRetu
             }
         }
         Err(k) => {
-            guard::raise(proc, name, reason::INVALID_NAME);
+            guard::raise(proc, name, reason::INVALID_NAME, 0);
             return k;
         }
     };
@@ -237,8 +252,18 @@ pub fn mod_refs(proc: &mut Proc, name: PortName, r: u32, delta: i32) -> KernRetu
         }
     };
     match result {
-        kr::KERN_INVALID_RIGHT => guard::raise(proc, name, reason::INVALID_RIGHT),
-        kr::KERN_INVALID_VALUE => guard::raise(proc, name, reason::INVALID_VALUE),
+        kr::KERN_INVALID_RIGHT => guard::raise(
+            proc,
+            name,
+            reason::INVALID_RIGHT,
+            guard::payload(guard::FLAG_DELTA, r, bits),
+        ),
+        kr::KERN_INVALID_VALUE => guard::raise(
+            proc,
+            name,
+            reason::INVALID_VALUE,
+            guard::payload3(guard::FLAG_DELTA, r, delta as u16, bits as u16),
+        ),
         _ => {}
     }
     result
@@ -292,9 +317,12 @@ pub fn set_context(proc: &mut Proc, name: PortName, context: u64) -> KernReturn 
         Ok(p) => p,
         Err(k) => return k,
     };
-    let strict = p.state.lock().unwrap().strict_guard();
+    let (strict, portguard) = {
+        let st = p.state.lock().unwrap();
+        (st.strict_guard(), st.context)
+    };
     if strict {
-        guard::raise(proc, name, reason::SET_CONTEXT);
+        guard::raise(proc, name, reason::SET_CONTEXT, portguard);
         return kr::KERN_INVALID_ARGUMENT;
     }
     p.state.lock().unwrap().context = context;
@@ -797,34 +825,37 @@ pub fn destruct(proc: &mut Proc, name: PortName, srdelta: i32, g: u64) -> KernRe
     if !valid(name) {
         return kr::KERN_INVALID_NAME;
     }
+    let bits = guard::entry_bits(proc, name);
+    let invalid_right = guard::payload(guard::FLAG_DESTRUCT, 0, bits);
     let (port, send) = match proc.ipc.lookup(name) {
         Ok(e) if e.receive => (
             e.port().cloned().expect("receive entries name ports"),
             e.send,
         ),
         Ok(_) => {
-            guard::raise(proc, name, reason::INVALID_RIGHT);
+            guard::raise(proc, name, reason::INVALID_RIGHT, invalid_right);
             return kr::KERN_INVALID_RIGHT;
         }
         Err(k) => {
-            guard::raise(proc, name, reason::INVALID_NAME);
+            guard::raise(proc, name, reason::INVALID_NAME, 0);
             return k;
         }
     };
     if srdelta != 0 && send == 0 {
-        guard::raise(proc, name, reason::INVALID_RIGHT);
+        guard::raise(proc, name, reason::INVALID_RIGHT, invalid_right);
         return kr::KERN_INVALID_RIGHT;
     }
     if srdelta > 0 || (srdelta < 0 && srdelta.unsigned_abs() > send) {
-        guard::raise(proc, name, reason::INVALID_VALUE);
+        let p = guard::payload(guard::FLAG_DESTRUCT, srdelta as u32, bits & 0xffff);
+        guard::raise(proc, name, reason::INVALID_VALUE, p);
         return kr::KERN_INVALID_VALUE;
     }
     let wrong_guard = {
         let st = port.state.lock().unwrap();
-        st.guarded() && st.context != g
+        (st.guarded() && st.context != g).then_some(st.context)
     };
-    if wrong_guard {
-        guard::raise(proc, name, reason::DESTROY);
+    if let Some(context) = wrong_guard {
+        guard::raise(proc, name, reason::DESTROY, context);
         return kr::KERN_INVALID_ARGUMENT;
     }
     if srdelta < 0 {
@@ -855,18 +886,19 @@ pub fn guard(proc: &mut Proc, name: PortName, g: u64, strict: bool) -> KernRetur
     let port = match receive_port(proc, name) {
         Ok(p) => p,
         Err(k) => {
-            let r = if k == kr::KERN_INVALID_NAME {
-                reason::INVALID_NAME
+            // ipc_port_translate_receive's failures.
+            let (r, payload) = if k == kr::KERN_INVALID_NAME {
+                (reason::INVALID_NAME, 0)
             } else {
-                reason::INVALID_RIGHT
+                (reason::INVALID_RIGHT, guard::INVALID_RIGHT_RECV)
             };
-            guard::raise(proc, name, r);
+            guard::raise(proc, name, r, payload);
             return k;
         }
     };
-    let busy = port.state.lock().unwrap().context != 0;
-    if busy {
-        guard::raise(proc, name, reason::INVALID_ARGUMENT);
+    let context = port.state.lock().unwrap().context;
+    if context != 0 {
+        guard::raise(proc, name, reason::INVALID_ARGUMENT, context);
         return kr::KERN_INVALID_ARGUMENT;
     }
     let mut st = port.state.lock().unwrap();
@@ -887,12 +919,13 @@ pub fn unguard(proc: &mut Proc, name: PortName, g: u64) -> KernReturn {
     let port = match receive_port(proc, name) {
         Ok(p) => p,
         Err(k) => {
-            let r = if k == kr::KERN_INVALID_NAME {
-                reason::INVALID_NAME
+            // ipc_port_translate_receive's failures.
+            let (r, payload) = if k == kr::KERN_INVALID_NAME {
+                (reason::INVALID_NAME, 0)
             } else {
-                reason::INVALID_RIGHT
+                (reason::INVALID_RIGHT, guard::INVALID_RIGHT_RECV)
             };
-            guard::raise(proc, name, r);
+            guard::raise(proc, name, r, payload);
             return k;
         }
     };
@@ -901,11 +934,11 @@ pub fn unguard(proc: &mut Proc, name: PortName, g: u64) -> KernReturn {
         (st.guarded(), st.context)
     };
     if !guarded {
-        guard::raise(proc, name, reason::UNGUARDED);
+        guard::raise(proc, name, reason::UNGUARDED, 0);
         return kr::KERN_INVALID_ARGUMENT;
     }
     if context != g {
-        guard::raise(proc, name, reason::INCORRECT_GUARD);
+        guard::raise(proc, name, reason::INCORRECT_GUARD, context);
         return kr::KERN_INVALID_ARGUMENT;
     }
     port.state.lock().unwrap().unguard();

@@ -157,6 +157,8 @@ pub struct ThreadMach {
     pub debug_state: Vec<u32>,
     /// The exception whose handler's reply the thread waits for.
     pub exception: Option<crate::user::darwin::exception::InFlight>,
+    /// A guard violation to raise on the way back to user mode.
+    pub guard_ast: Option<crate::user::darwin::exception::GuardAst>,
 }
 
 #[cfg(test)]
