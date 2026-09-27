@@ -12,6 +12,7 @@
 //! `x86_THREAD_FULL_STATE64` (which needs a custom LDT), and the SME and
 //! SVE flavors are refused as on a machine without them.
 
+use super::abi::DarwinAbi;
 use super::arch::DarwinCpu;
 use super::signal::EntryState;
 use super::thread_state as ts;
@@ -181,6 +182,56 @@ pub fn get(v: &View<'_>, flavor: i32, count: u32) -> Result<Vec<u32>, KernReturn
     match v.cpu {
         DarwinCpu::Arm64(cpu) => get_arm64(v, cpu, flavor, count),
         DarwinCpu::X86_64(cpu) => get_x86(v, cpu, flavor, count),
+    }
+}
+
+/// `_MachineStateCount` (`osfmk/arm64/status.c`, `osfmk/i386/pcb.c`):
+/// the words of `flavor`'s state, the room the kernel gives a state it
+/// sends with an exception; 0 for a flavor it has no size for.
+pub fn machine_state_count(abi: DarwinAbi, flavor: i32) -> u32 {
+    match abi {
+        DarwinAbi::Arm64 => match flavor {
+            arm::THREAD_STATE => arm::UNIFIED_THREAD_STATE_COUNT,
+            arm::VFP_STATE => arm::VFP_STATE_COUNT,
+            arm::EXCEPTION_STATE => 3,
+            arm::DEBUG_STATE => 64,
+            arm::THREAD_STATE64 => arm::THREAD_STATE64_COUNT,
+            arm::EXCEPTION_STATE64 | arm::EXCEPTION_STATE64_V2 => arm::EXCEPTION_STATE64_COUNT,
+            // ARM_THREAD_STATE32, ARM_DEBUG_STATE32, ARM_NEON_STATE.
+            9 => 17,
+            14 => 66,
+            16 => 68,
+            arm::DEBUG_STATE64 => arm::DEBUG_STATE64_COUNT,
+            arm::NEON_STATE64 => arm::NEON_STATE64_COUNT,
+            arm::PAGEIN_STATE => 1,
+            _ => 0,
+        },
+        DarwinAbi::X86_64 => match flavor {
+            x86::THREAD_STATE32 => 16,
+            x86::FLOAT_STATE32 => 131,
+            x86::EXCEPTION_STATE32 => 3,
+            x86::THREAD_STATE64 => x86::THREAD_STATE64_COUNT,
+            x86::FLOAT_STATE64 => x86::FLOAT_STATE64_COUNT,
+            x86::EXCEPTION_STATE64 => x86::EXCEPTION_STATE64_COUNT,
+            x86::THREAD_STATE => x86::THREAD_STATE_COUNT,
+            x86::FLOAT_STATE => x86::FLOAT_STATE_COUNT,
+            x86::EXCEPTION_STATE => x86::EXCEPTION_STATE_COUNT,
+            x86::DEBUG_STATE32 => 8,
+            x86::DEBUG_STATE64 => x86::DEBUG_STATE64_COUNT,
+            x86::DEBUG_STATE => x86::DEBUG_STATE_COUNT,
+            x86::AVX_STATE32 => x86::AVX_STATE32_COUNT,
+            x86::AVX_STATE64 => x86::AVX_STATE64_COUNT,
+            x86::AVX_STATE => x86::AVX_STATE_COUNT,
+            x86::AVX512_STATE32 => x86::AVX512_STATE32_COUNT,
+            x86::AVX512_STATE64 => x86::AVX512_STATE64_COUNT,
+            x86::AVX512_STATE => x86::AVX512_STATE_COUNT,
+            x86::PAGEIN_STATE => 1,
+            // x86_THREAD_FULL_STATE64, x86_LAST_BRANCH_STATE.
+            23 => 50,
+            x86::INSTRUCTION_STATE => x86::INSTRUCTION_STATE_COUNT,
+            25 => 194,
+            _ => 0,
+        },
     }
 }
 
@@ -697,5 +748,64 @@ mod tests {
         s[0] = 0xffe0_0000;
         s[1] = 0x7fff;
         assert_eq!(set_x86_debug(&mut d, &s), Err(kr::KERN_INVALID_ARGUMENT));
+    }
+
+    /// The SDK's `*_COUNT` of every flavor with a size (printed from
+    /// `mach/thread_status.h` for each architecture).
+    #[test]
+    fn machine_state_counts_follow_the_headers() {
+        let arm: Vec<(i32, u32)> = (0..40)
+            .map(|f| (f, machine_state_count(DarwinAbi::Arm64, f)))
+            .filter(|&(_, n)| n != 0)
+            .collect();
+        assert_eq!(
+            arm,
+            [
+                (1, 70),
+                (2, 65),
+                (3, 3),
+                (4, 64),
+                (6, 68),
+                (7, 4),
+                (9, 17),
+                (10, 4),
+                (14, 66),
+                (15, 130),
+                (16, 68),
+                (17, 132),
+                (27, 1)
+            ]
+        );
+        let x86: Vec<(i32, u32)> = (0..40)
+            .map(|f| (f, machine_state_count(DarwinAbi::X86_64, f)))
+            .filter(|&(_, n)| n != 0)
+            .collect();
+        assert_eq!(
+            x86,
+            [
+                (1, 16),
+                (2, 131),
+                (3, 3),
+                (4, 42),
+                (5, 131),
+                (6, 4),
+                (7, 44),
+                (8, 133),
+                (9, 6),
+                (10, 8),
+                (11, 16),
+                (12, 18),
+                (16, 179),
+                (17, 211),
+                (18, 213),
+                (19, 259),
+                (20, 611),
+                (21, 613),
+                (22, 1),
+                (23, 50),
+                (24, 614),
+                (25, 194)
+            ]
+        );
     }
 }

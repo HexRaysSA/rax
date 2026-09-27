@@ -155,6 +155,8 @@ pub struct ThreadMach {
     /// flavor's words (`ARM_DEBUG_STATE64`, `x86_DEBUG_STATE64`); empty
     /// for none.
     pub debug_state: Vec<u32>,
+    /// The exception whose handler's reply the thread waits for.
+    pub exception: Option<crate::user::darwin::exception::InFlight>,
 }
 
 #[cfg(test)]

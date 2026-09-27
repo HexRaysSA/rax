@@ -66,24 +66,29 @@ fn exceptions_translate_as_ux_exception_does() {
 #[test]
 fn mach_exception_codes() {
     assert_eq!(
-        mach_exception(&fault(AccessFaultKind::Unmapped)),
+        mach_exception(&fault(AccessFaultKind::Unmapped), 0),
         (exc::BAD_ACCESS, exc::KERN_INVALID_ADDRESS, 0x1234)
     );
     assert_eq!(
-        mach_exception(&fault(AccessFaultKind::Permission)),
+        mach_exception(&fault(AccessFaultKind::Permission), 0),
         (exc::BAD_ACCESS, exc::KERN_PROTECTION_FAILURE, 0x1234)
     );
     assert_eq!(
-        mach_exception(&fault(AccessFaultKind::Alignment)).1,
+        mach_exception(&fault(AccessFaultKind::Alignment), 0).1,
         exc::ARM_DA_ALIGN
     );
     assert_eq!(
-        mach_exception(&x86(0, X86EventSource::Exception)),
+        mach_exception(&x86(0, X86EventSource::Exception), 0),
         (exc::ARITHMETIC, 1, 0)
     );
     assert_eq!(
-        mach_exception(&x86(6, X86EventSource::Exception)),
+        mach_exception(&x86(6, X86EventSource::Exception), 0),
         (exc::BAD_INSTRUCTION, 1, 0)
+    );
+    // INT3: EXC_I386_BPT.
+    assert_eq!(
+        mach_exception(&x86(3, X86EventSource::SoftwareInterrupt), 0),
+        (exc::BREAKPOINT, 2, 0)
     );
 }
 

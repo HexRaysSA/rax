@@ -11,6 +11,7 @@
 //! | [`abi`] | Numbering, conventions, error numbers, and machine parameters |
 //! | [`arch`] | Per-ISA registers, kernel entry, and result conventions |
 //! | [`loader`] | `exec`: mapping the image and `dyld`, the stack, the commpage |
+//! | [`exception`] | Mach exception delivery to handlers, then the host's signals |
 //! | [`exec`] | `execve` and `posix_spawn`: image activation, arguments, what a new image keeps |
 //! | [`fork`] | `fork`: the child's process, thread, and task state |
 //! | [`stack`] | The initial stack (`exec_copyout_strings`) |
@@ -29,12 +30,14 @@
 //! | [`signal`] | Signals |
 //! | [`syscall`] | System calls and Mach traps |
 //! | [`thread_state`] | Machine thread state in the kernel's exported layouts |
+//! | [`thread_status`] | Thread state by flavor (`thread_get_state`, `thread_set_state`) |
 //! | [`wait`] | Sleeping in system calls |
 //! | [`workq`] | Work queues and their threads |
 
 pub mod abi;
 pub mod arch;
 pub mod commpage;
+pub mod exception;
 pub mod exec;
 pub mod fd;
 pub mod fork;

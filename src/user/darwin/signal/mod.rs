@@ -983,8 +983,11 @@ pub mod exc {
 }
 
 /// The Mach exception a machine exception raises: type, code, subcode
-/// (`user_trap` in `osfmk/i386/trap.c`, `sleh.c` on arm64).
-pub fn mach_exception(e: &Exception) -> (i32, i64, i64) {
+/// (`user_trap` in `osfmk/i386/trap.c`, `sleh.c` on arm64). An arm64
+/// undefined instruction's subcode is its word, `insn`
+/// (`handle_uncategorized`); a breakpoint's is its PC
+/// (`handle_user_breakpoint`).
+pub fn mach_exception(e: &Exception, insn: u32) -> (i32, i64, i64) {
     match e {
         Exception::Access(f) => {
             let code = match f.kind {
@@ -995,8 +998,8 @@ pub fn mach_exception(e: &Exception) -> (i32, i64, i64) {
             };
             (exc::BAD_ACCESS, code, f.addr as i64)
         }
-        Exception::Undefined { .. } => (exc::BAD_INSTRUCTION, exc::CODE_1, 0),
-        Exception::Breakpoint { imm, .. } => (exc::BREAKPOINT, exc::CODE_1, i64::from(*imm)),
+        Exception::Undefined { .. } => (exc::BAD_INSTRUCTION, exc::CODE_1, i64::from(insn)),
+        Exception::Breakpoint { pc, .. } => (exc::BREAKPOINT, exc::CODE_1, *pc as i64),
         Exception::X86(e) => {
             let err = e.error_code.unwrap_or(0) as i64;
             match e.vector {
@@ -1045,13 +1048,13 @@ pub fn ux_exception(abi: crate::user::darwin::abi::DarwinAbi, exception: i32, co
 /// The signal a machine exception raises when no exception port takes
 /// it (before the stack-overflow correction of [`raise_exception`]).
 pub fn exception_signal(abi: crate::user::darwin::abi::DarwinAbi, e: &Exception) -> Signal {
-    let (exception, code, _) = mach_exception(e);
+    let (exception, code, _) = mach_exception(e, 0);
     ux_exception(abi, exception, code)
 }
 
 /// The exception state a machine exception leaves (`FAR`/`ESR` on arm64,
 /// trap number, error code, and `CR2` on x86-64).
-fn entry_state(e: &Exception) -> EntryState {
+pub fn entry_state(e: &Exception) -> EntryState {
     use crate::error::MemoryAccessKind;
     match e {
         Exception::Access(f) => {
@@ -1101,17 +1104,9 @@ fn entry_state(e: &Exception) -> EntryState {
 /// `MAXSSIZ`: the reservation of the main thread's stack.
 const MAXSSIZ: u64 = 64 << 20;
 
-/// Raises a machine exception on `thread` (`exception_triage` without an
-/// exception port, then `handle_ux_exception`).
-pub fn raise_exception(proc: &mut Proc, thread: &mut Thread, e: &Exception) {
-    let (exception, code, subcode) = mach_exception(e);
-    thread.sig.entry = entry_state(e);
-    raise_mach(proc, thread, exception, code, subcode);
-}
-
 /// Raises Mach exception `exception` with `code` and `subcode` on
-/// `thread`, which no exception port takes: the thread gets its signal
-/// (`handle_ux_exception`).
+/// `thread` at the host level (see [`crate::user::darwin::exception`]):
+/// the thread gets its signal (`handle_ux_exception`).
 pub fn raise_mach(proc: &mut Proc, thread: &mut Thread, exception: i32, code: i64, subcode: i64) {
     let mut sig = ux_exception(proc.abi, exception, code);
     // A stack overflow into the guard is a protection failure, but a

@@ -234,6 +234,7 @@ pub fn reap(proc: &mut Proc, thread: &mut Thread) {
         let _ = crate::user::darwin::syscall::mach::port::deallocate(proc, kport);
     }
     proc.post(WaitKey::ThreadExit(thread.tid));
+    crate::user::darwin::exception::abandon(proc, thread);
     crate::user::darwin::syscall::mach::kmsg::destroy_receive(proc, &thread.kport);
 }
 
