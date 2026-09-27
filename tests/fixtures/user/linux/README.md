@@ -14,14 +14,15 @@ runs in parallel must not see each other's queues and identifiers.
 The execution matrix is x86-64, AArch64, and RV64 for every case, and
 i386 for the cases whose programs `build.sh` builds for it: those that run
 as compatibility tasks so far (the rest need calls without a 32-bit
-conversion yet, such as AIO and `ptrace`, have
+conversion yet, such as `ptrace`, have
 64-bit-only code, or check what the oracle kernel's configuration changes;
 `build.sh` names each), and the cases of `cases-i386.txt`, whose programs
 are built for i386 alone (`sigframes`: the i386 signal frames, printed
 relative to a fixed alternate stack; `futex32`: the 32-bit robust list and
 futex timeouts; `ipc32`: System V IPC's direct calls, the `ipc`
 multiplexer's old structures, and its other forms that libc does not
-use). The i386 results come from
+use; `mq32` and `aio32`: the 32-bit structures, counts, and timeouts of
+message queues and asynchronous I/O). The i386 results come from
 Linux 6.19 for x86-64 itself (see [Kernel oracle](#kernel-oracle)); the
 library tests under `src/user/linux/tests/i386/` cover the conversions
 call by call.
@@ -112,8 +113,8 @@ call by call.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 198 binaries (54 programs × 3 architectures, and 36 for i386,
-  three of them i386-only), 7,720 KiB in total (`du -k`); each
+- Size: 201 binaries (54 programs × 3 architectures, and 39 for i386,
+  five of them i386-only), 7,820 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).

@@ -1,0 +1,17 @@
+ok open-no-create
+ok open-create-fault
+ok open-negative-maxmsg
+ok open
+ok getattr
+ok getattr-at-page-end
+ok send-time32
+ok send-time32-invalid
+ok receive-time64-padding
+ok receive-time32-empty
+ok send-time64-invalid
+ok notify-bad-kind
+ok notify
+ok send
+ok notified
+ok unlink
+PASSED

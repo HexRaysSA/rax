@@ -1173,6 +1173,12 @@ target = "x86-linux-musl"
 sha256 = "d596068d8b668349df56b94ae500324ac96588b677cdfcf35c3298590670d76b"
 
 [[fixture]]
+path = "bin/i386/aio"
+source = "src/aio.c"
+target = "x86-linux-musl"
+sha256 = "82c03db518be4f35552bce3698956d2f6fdebc6fc7be61fd0a9490c23b8f5b92"
+
+[[fixture]]
 path = "bin/i386/sigframes"
 source = "src/sigframes.c"
 target = "x86-linux-musl"
@@ -1189,4 +1195,16 @@ path = "bin/i386/ipc32"
 source = "src/ipc32.c"
 target = "x86-linux-musl"
 sha256 = "651ef234c30d2e0ec63df9be0264ae09cdf0ef77dae158cb2ffab31cc6787a45"
+
+[[fixture]]
+path = "bin/i386/mq32"
+source = "src/mq32.c"
+target = "x86-linux-musl"
+sha256 = "8c2dd4f6e666350e295deb894237230e2d3883d65fd834c8fc80fb3530455544"
+
+[[fixture]]
+path = "bin/i386/aio32"
+source = "src/aio32.c"
+target = "x86-linux-musl"
+sha256 = "6921c5c722a2dc52073666b3416f8cb9600d720836358a34de459fcfa50a967c"
 
