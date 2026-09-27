@@ -98,6 +98,9 @@ ac3fe4827e77cd0f98af117e0107e8788723435490b7b4a514d12c666b225fc3  ./bsd/vfs/vfs_
 13e798255556e07e07b438a9e71a559c34e2bc35c5602655319a6c28fc6e9845  ./config/MASTER
 2e8162981322711ca7f29e5736b80e4842661041d06bfc0658784bf39aefe244  ./config/MASTER.arm64.MacOSX
 6a5df4b44a2c6769aed121777758ee512dd8b14234cbbe86874bb6e24c83d422  ./config/MASTER.x86_64
+30f706bb8f2a260210eacbfeddaaf649e9709d76b1dcbbb9a4edd88ef8e07bec  ./libsyscall/mach/host.c
+d2b9f677f8ed2e3338c23ace865a889208a5d2a0147f05d6e0b82115703b5cfa  ./libsyscall/mach/mach_msg.c
+06bfc350c1d4f7d5fa0ff69fde3340ce9b68d86996e347a2a4332f7a227699f5  ./libsyscall/mach/mach_port.c
 37497b3bb40a62b21ef6e9b5cec2453fbd853c237a8405bf29d40b835270273e  ./libsyscall/mach/vm_reclaim.c
 5c8a771427e04c5e1d55c4cdf5a077f3b52c5be4a091683b970084bfdda76df2  ./libsyscall/wrappers/libproc/libproc.c
 37c7629819a18c5ef10d19a9bea00eb7e0bd31e0b127ecd2ae108c74f47c39e2  ./libsyscall/wrappers/libproc/libproc.h
@@ -117,6 +120,11 @@ c613043ca556468a25f51c6711efac6d98250efec64c49cc0839c4dc11d313be  ./osfmk/arm64/
 fcbead4162ad09d0f51be9ce88e5f2d6d89e89e58934975ee1aa23e506485055  ./osfmk/arm64/proc_reg.h
 4eeb208fb2510bfdc0338d1a1d7d2d702fe9eb65d332eea388720ef6574375d1  ./osfmk/arm64/sleh.c
 770eb6df762274e6379e93aed10045f2464f64836df104d405c47a97076484a0  ./osfmk/arm64/status.c
+2e90f2d9e9d255a4c65b2aaf616699f9617ebfb6373f69ab8d6439f836970995  ./osfmk/atm/atm.c
+cfeea75a00db99c63bde50093692b04e9920fad875d95d3f6cebc6d786c27b0f  ./osfmk/atm/atm_types.h
+ea477c5314c1f9920562f1d88d89758b4042adbb132d294ddc5bec79c219b1b4  ./osfmk/bank/bank.c
+58875e59a7e0a90cf4ba77c87f78e5c2b1d2ab38745f114780600f3fa151786a  ./osfmk/bank/bank_internal.h
+9263e8151ef8687da3603e49822d8e121ba97e32f343f16d70d69429979189fe  ./osfmk/bank/bank_types.h
 e03be3b79ebd1ffecbdfc6ceebc6b779be83dc48031b37438d237592a09978ab  ./osfmk/i386/bsd_i386.c
 6e737279516222d5ea8e813cf9d67abd4bf0fb664106c297639a007bbe7a16c2  ./osfmk/i386/bsd_i386_native.c
 1bb2ba9b2e0d01fe1ad2e8f54c9830421a87731278234e17d1dd1e6c16a2c4b5  ./osfmk/i386/commpage/commpage.c
@@ -135,6 +143,7 @@ ca7fe53e0e7c6bc472340f787a0fba99a7733f24c4b130e57f42ed9b815540a6  ./osfmk/i386/m
 59430e49b924e7595dd96f972b89d9eef8692399b92714eb928a5fcd78f3491c  ./osfmk/i386/trap.c
 ba2dafad57448808c7235744d8d443d92482e18393134fca1f127105eabdb1a4  ./osfmk/i386/trap.h
 2f9dab7cd077091cb178399ca0fbb59d5d159a566dea92708e43844d32b4d3d7  ./osfmk/ipc/ipc_entry.c
+ff3719d0b79b3617526ef6af26839376b43a1b132a69701385654db16847d7c5  ./osfmk/ipc/ipc_importance.c
 3f0fe0f3a8158b11b953f4473239e937aa6b382467c438a45f3a6974bb2f77a5  ./osfmk/ipc/ipc_kmsg.c
 87348221e3bd16556ad3b50d1079413fb33ea78ca1dec476e3d7d1e9117062ed  ./osfmk/ipc/ipc_mqueue.c
 c2d27eae8540bc58fa493f685a1c914867623cb3c6e401001ff7190a2dffbe86  ./osfmk/ipc/ipc_object.c
@@ -144,6 +153,8 @@ e02e2d59482f7b492541c1959a2b9dae78cd674ad0e79dfb688c2320806377e8  ./osfmk/ipc/ip
 90fff2eccfbf24bd71e819549bc312704960d86d30f2f4d79731937f6140ed58  ./osfmk/ipc/ipc_pset.c
 0d335ac400cd08665653a2b2d6827ac3d0a4e2a7077f98b0da98b99b5b8844ed  ./osfmk/ipc/ipc_right.c
 6fb613d82ae5e191db3353c8ebdafb1a51632c0fc0041ddafd3ab701528a8e7e  ./osfmk/ipc/ipc_types.h
+c2b85f39ce6aad4f5cb9ee562f654321f9ae60eb5370519210746d7e6a0dd03d  ./osfmk/ipc/ipc_voucher.c
+e3f329056c78564c0a8c5978cf8898592e726fd03c655b2b91a0215203c3b790  ./osfmk/ipc/ipc_voucher.h
 24514afae1b4b443afaaf2caedb7aafe7d171b91fa9f913392dc16e769149ffc  ./osfmk/ipc/mach_debug.c
 f5203580ad9a36c790aaa251190653546bbd198abf7186253a8dc0d9aa67ed1a  ./osfmk/ipc/mach_kernelrpc.c
 85a96ee426f6a2efb5eb12b5747e77315091d22ea330a26a88abf67883569609  ./osfmk/ipc/mach_msg.c
@@ -153,6 +164,9 @@ f5203580ad9a36c790aaa251190653546bbd198abf7186253a8dc0d9aa67ed1a  ./osfmk/ipc/ma
 375ba9e48ee7e46d203b21cf9e49c89afbe8963be6548b714196a35565fc7975  ./osfmk/kern/clock_oldops.c
 729ba3fd280fe3bbadcb2c3d88eabca8a2598eda7ff5570310043f19eb0a147d  ./osfmk/kern/exc_guard.h
 e3c3b51ca1810af00565eb1d759750a8cb861735e70752708938852e07d4b4fd  ./osfmk/kern/host.c
+8025d165c166df28ed26430a834b3992e945b134838ed5ff6a7e3b970279c9f6  ./osfmk/kern/ipc_host.c
+3d8a458723f92f098de3d231424726cc0af430a5143e3db3362b898acb408d5d  ./osfmk/kern/ipc_kobject.c
+ec1b869e4e9d9f0ec2fa2422de5667f3b045bd7fec281c05f9547df3c7189a8a  ./osfmk/kern/ipc_mig.c
 18b1c80d7abee14d92661b11c7c6a19c8a17c65bf5566b3d6ff2536ea057462c  ./osfmk/kern/ipc_tt.c
 e35c4a659309664b788505d43954a4e4156936fc4a34d9b7165f2e729cc5c321  ./osfmk/kern/kalloc.h
 83365c5b0ad0b49ba97d1f8d04f5f5dae6704268002d238cde649cf5956a8a1e  ./osfmk/kern/mk_timer.c
@@ -193,9 +207,12 @@ f75032c88c27276b5cb07ce587c9b80f145826de829faa4ceb96289cbea47c82  ./osfmk/mach/i
 580e6c1b2c2d15b6ac71d1a63c44fa0e3c8872e5da9bc0d8dd48845789706b53  ./osfmk/mach/mach_host.defs
 eb32eacc91c909cdc66a60a13f79c16cbd7b79cd33aadc9d1772fe71800d8756  ./osfmk/mach/mach_param.h
 f0a51838fbec52fe636068bf909f32edb5b5ffd3e2cc7fda2686220cd63d07f9  ./osfmk/mach/mach_port.defs
+4aa22252a52de6cbbe53d4925ab2b833a739acdcf38d22315cc171e479eca415  ./osfmk/mach/mach_traps.h
 28475124aa9482a6bf665a5f72f549c29e4dd8397ad57497963312ea58fde13f  ./osfmk/mach/mach_types.defs
 74c55e3c884f08bb3bfb29bd2bf5c952f235954af6fb65ce310e916b46de6728  ./osfmk/mach/mach_vm.defs
 fd717b78e4db8f21bdb4e1bde7b6f0112058e6e5f16b16f4074ce9fc527628d6  ./osfmk/mach/mach_voucher.defs
+256a32938e505d9e65f721b7bf85ca6da9a6405a887e80b4c53bf79883d81160  ./osfmk/mach/mach_voucher_attr_control.defs
+4929276adfbc2c80a2df1d62ff0549037536cdf3e9b93b328fb28f70a63ec261  ./osfmk/mach/mach_voucher_types.h
 75117a186aa6a2683690b487c1ce19b52b3151340dd5301877d46bbe832a11c5  ./osfmk/mach/machine.h
 a5c4ff0d4e6d243dc88b8cc150439fbf8b579ace9629b6a9263c2773b6147911  ./osfmk/mach/machine/machine_types.defs
 c3f5251c26e2bd1eaad3d57df544254e8ce4ffadde120c5394badcf24f9d6086  ./osfmk/mach/machine/thread_state.h
@@ -235,5 +252,9 @@ fcbff03b7a1f786305094a5e12132a75e5253da1f49863b1fe6c1b04cf17ec18  ./osfmk/vm/vm_
 9ccacb85ed27f49b669f68e225431f2bfaaac160af044650c8fe213479157299  ./osfmk/vm/vm_shared_region_pager.c
 1256476d00f35c90568e3fc07441ade9742b59973c82cde48e29aeffcf65740d  ./osfmk/vm/vm_shared_region_xnu.h
 c7b70d3a6711ca4c018ce90ffd1dc5bd9bd97d9836414a22711e21eb0565d933  ./osfmk/vm/vm_user.c
+35998f03111561df10dd723e369b86de6dfa6d89377a7af5a30b27967c669f85  ./osfmk/voucher/ipc_pthread_priority.c
+c94f3122051f10dc371a53fafd3f98dd947357ed6a612cb2fc0245a6b227de81  ./osfmk/voucher/ipc_pthread_priority_types.h
 c5cf8d127db7a3896b48db94fe82342cc82865d905f3c1ec9fd031ad84b7e641  ./osfmk/x86_64/idt64.s
 ef9f9f76a94596de56d84b6cc0602608063bf6cf0de741538bae8326f593f614  ./pexpert/pexpert/arm64/H13.h
+37d71d87236ebf4fc9bf16f42cf792ae1ef1f1109752cc74934b2adfcf086dd2  ./tests/voucher_entry_18826844.c
+700a4aaba592c485b740700839f5bdfc85ec1974e5cb2a41a4c6fae07ae238ba  ./tests/voucher_traps.c
