@@ -87,7 +87,12 @@ handlers run on i386 frames ([signals](signals.md#i386-frames)).
 
 Calls without a conversion return `ENOSYS`, and unsupported `ioctl` commands return
 `ENOTTY`, rather than using 64-bit layouts. Ptrace calls are not in the
-compatibility table, nor is a seccomp filter (strict mode is, with the 32-bit list).
+compatibility table.
+
+Seccomp: a filter arrives in a `struct compat_sock_fprog` (a 16-bit length and a
+32-bit pointer) through `seccomp` or `prctl`, and a 32-bit call's `struct
+seccomp_data` has `AUDIT_ARCH_I386`, the i386 call number, zero-extended arguments,
+and a 32-bit instruction pointer; strict mode allows the 32-bit list.
 
 Sockets: the direct calls and the `socketcall` multiplexer (its arguments 32-bit
 words) are the native ones with `struct compat_msghdr` and `struct compat_mmsghdr`,

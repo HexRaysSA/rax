@@ -582,7 +582,7 @@ fn epoll_events_are_packed_for_a_compatibility_task() {
 }
 
 #[test]
-fn prctl_is_native_but_for_the_seccomp_filter() {
+fn prctl_is_native() {
     let mut h = Harness::new(LinuxAbi::I386);
     let m = pages(&mut h, 1);
     // PR_GET_TSC is x86's, 32-bit tasks' too: PR_TSC_ENABLE.
@@ -594,8 +594,6 @@ fn prctl_is_native_but_for_the_seccomp_filter() {
     put(&h, m, &[0; 16]);
     assert_eq!(h.call(Sysno::Prctl, &[16, m, 0, 0, 0]), 0);
     assert_eq!(cstr(&h, m), "compat");
-    // PR_SET_SECCOMP reads a struct compat_sock_fprog: not converted yet.
-    assert_eq!(h.call(Sysno::Prctl, &[22, 2, m, 0, 0]), -i64::from(ENOSYS));
     // The 32-bit ID calls are the native ones.
     assert_eq!(
         h.call(Sysno::Getuid32, &[]),

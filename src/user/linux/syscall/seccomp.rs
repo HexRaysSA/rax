@@ -216,12 +216,23 @@ fn set_mode_strict(c: &mut Ctx<'_>) -> SysResult {
     Ok(0)
 }
 
-/// `seccomp_prepare_user_filter`: the `struct sock_fprog` at `at`, its
-/// program copied and checked.
+/// `seccomp_prepare_user_filter`: the `struct sock_fprog` at `at` (a
+/// 32-bit call's `struct compat_sock_fprog`: the length and a 32-bit
+/// pointer), its program copied and checked.
 fn prepare(c: &Ctx<'_>, at: u64) -> Result<Vec<bpf::Insn>, Errno> {
-    let fprog = c.read_mem(at, 16)?;
-    let len = u16::from_le_bytes([fprog[0], fprog[1]]) as usize;
-    let filter = u64::from_le_bytes(fprog[8..16].try_into().unwrap());
+    let (len, filter) = if c.compat {
+        let b = c.read_mem(at, 8)?;
+        (
+            u16::from_le_bytes([b[0], b[1]]) as usize,
+            u64::from(u32::from_le_bytes(b[4..8].try_into().unwrap())),
+        )
+    } else {
+        let b = c.read_mem(at, 16)?;
+        (
+            u16::from_le_bytes([b[0], b[1]]) as usize,
+            u64::from_le_bytes(b[8..16].try_into().unwrap()),
+        )
+    };
     if len == 0 || len > bpf::BPF_MAXINSNS {
         return Err(Errno(EINVAL));
     }

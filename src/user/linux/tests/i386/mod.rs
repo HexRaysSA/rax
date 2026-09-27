@@ -17,6 +17,7 @@
 //! | [`files`] | opens, offsets, status, directories, locks, `execve` |
 //! | [`mqueue`] | `struct compat_mq_attr`, `struct compat_sigevent`, `*_time32` sends and receives |
 //! | [`process`] | 16-bit IDs, limits, usage, waits, `times`, `sysinfo`, CPU masks, old `uname`s, `nice`, `arch_prctl` |
+//! | [`seccomp`] | `struct compat_sock_fprog`, the 32-bit call's `struct seccomp_data` |
 //! | [`select`] | 32-bit fd set words, `struct old_timeval32`, the old `select`, `struct compat_sigset_argpack`, `*_time32` timeouts |
 //! | [`sigcalls`] | the signal calls' 32-bit structures, `struct compat_siginfo`, restart by the low half |
 //! | [`signals`] | the i386 signal frames, `sigreturn`, `rt_sigreturn`, strict seccomp |
@@ -30,6 +31,7 @@ mod descriptors;
 mod files;
 mod mqueue;
 mod process;
+mod seccomp;
 mod select;
 mod sigcalls;
 mod signals;

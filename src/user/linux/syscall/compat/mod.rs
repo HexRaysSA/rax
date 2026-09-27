@@ -67,13 +67,6 @@ const SAME_LAYOUT_IOCTLS: &[u32] = &[
     0x5451, // FIOCLEX
 ];
 
-/// `prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER)` and `seccomp`'s
-/// `SECCOMP_SET_MODE_FILTER` read a `struct compat_sock_fprog`, which is
-/// not converted yet; strict mode reads nothing.
-const PR_SET_SECCOMP: u64 = 22;
-const SECCOMP_MODE_FILTER: u64 = 2;
-const SECCOMP_SET_MODE_FILTER: u64 = 1;
-
 /// Runs system call `s` of a compatibility task.
 pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno> {
     let r = |v: Result<u64, Errno>| v.map(Outcome::Return);
@@ -305,9 +298,8 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         | S::ArchPrctl => call_handler(c, s, a),
         // sys_waitpid: wait4 without a usage record.
         S::Waitpid => call_handler(c, S::Wait4, [a[0], a[1], a[2], 0, 0, 0]),
-        // prctl and seccomp, except a filter's struct compat_sock_fprog.
-        S::Prctl if a[0] == PR_SET_SECCOMP && a[1] == SECCOMP_MODE_FILTER => Err(Errno(ENOSYS)),
-        S::Seccomp if a[0] == SECCOMP_SET_MODE_FILTER => Err(Errno(ENOSYS)),
+        // prctl and seccomp: a filter's struct compat_sock_fprog is read
+        // where Ctx::compat is.
         S::Prctl | S::Seccomp => call_handler(c, s, a),
         // The 32-bit ID calls are the native ones.
         S::Getuid32 => call_handler(c, S::Getuid, a),
