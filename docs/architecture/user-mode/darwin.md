@@ -258,6 +258,40 @@ calls; results in guest layouts come from the host's.
 | Extended attributes: `getxattr`, `setxattr`, `removexattr`, `listxattr` and their descriptor forms, the host's attributes with the guest's memory copied in XNU's order (an option the call does not take, then the path before `getxattr`'s and `listxattr`'s name or buffer; the name, its protection, and the value's size before `setxattr`'s and `removexattr`'s path), lengths for a NULL buffer (and for a size of 0 except through `getxattr`), resource forks read at an offset | `syscall::bsd::xattr` | `getxattr`, `fgetxattr`, `setxattr`, `listxattr`, `xattr_protected` |
 | Access control lists: the `*_extended` calls set a list (`chmod_extended`, `fchmod_extended`, and at creation `open_extended`, `mkdir_extended`, `mkfifo_extended`; 1 removes it) or read it with the status (`stat64_extended`, `lstat64_extended`, `fstat64_extended`: the list's size written back, the list copied only into a buffer that holds it); a list is copied in before the path is looked up (`EINVAL` for a bad magic number or more than 128 entries); `umask_extended` is `umask` | `syscall::bsd::acl` | `kauth_copyinfilesec`, `fstatat_internal`, `chmod_extended_init` |
 
+## Sockets
+
+| Area | Module | Counterpart |
+|---|---|---|
+| Making sockets: `socket` (a descriptor first, so a full table is `EMFILE` before the protocol is looked up), `socketpair` (the protocol first; a fault storing the pair frees both), `socket_delegate`; lookup (`EBADF` without a descriptor, `ENOTSOCK` for another file) | `syscall::bsd::socket` | `socket_common`, `socketpair`, `file_socket` |
+| Addresses: `bind` (`EDESTADDRREQ` without one), `connect`, `connectx` and the send calls copy an address as XNU does (`ENAMETOOLONG` past 255 bytes; up to `sockaddr_storage`, `EINVAL` for none or one shorter than its family, then `EFAULT`); `getsockname` reads the length first, `getpeername` after its `EINVAL` and `ENOTCONN` checks; `accept`, `recvfrom`, `recvmsg`, and `recvmsg_x` copy an address cut to the caller's length and report the whole length, each with XNU's rule for a fault | `socket::conn`, `socket::io` | `getsockaddr`, `getsockaddr_s`, `copyout_sa`, `accept_nocancel` |
+| Connections: `listen`, `accept` (a blocking socket sleeps until a connection is queued; the new socket has the listening one's non-blocking and asynchronous modes; a fault writing the length leaves the descriptor open), `connect` and `connectx` (a blocking socket waits for the outcome; a signal ends the wait with `EINTR`, never a restart; the connection goes on, and another `connect` reports `EISCONN`, or `EALREADY` without blocking), `disconnectx`, `peeloff` (nothing, 0), `shutdown` | `socket::conn` | `accept_nocancel`, `connectit`, `connectitx`, `soshutdown` |
+| Data: `sendto`, `sendmsg`, `recvfrom`, `recvmsg`, and `read`, `write`, `readv`, `writev` on a socket, with the checks made before the descriptor (`MSG_SKIPCFIL`, the header and its scatter-gather list); a blocking socket sends in pieces as room appears and receives when data arrives, each wait bounded by `SO_SNDTIMEO` or `SO_RCVTIMEO` (what was moved, or `EAGAIN`, when one passes; `MSG_DONTWAIT` does not stop a send from waiting), `MSG_WAITALL` gathering a stream's whole request; the flags a receive was given come back in `msg_flags` | `socket::io` | `sendit`, `recvit`, `sosend`, `soreceive` |
+| `sendmsg_x` and `recvmsg_x`: arrays of `msghdr_x`, the host's, with the guest's memory given to it so that faults and bad counts stop the call at the same message | `socket::msgx` | `sendmsg_x`, `recvmsg_x` |
+| `SIGPIPE` for `EPIPE` from a send or a write, to the process, unless the socket has `SO_NOSIGPIPE` (or `F_SETNOSIGPIPE`) or the send `MSG_NOSIGNAL` | `socket` | `sendit`, `soo_write` |
+| Descriptors in `SCM_RIGHTS`: sent, the guest's become the host's (in the host's order of checks: `EBADF` for one not open, `EINVAL` for one that cannot be sent, such as a kqueue); received, each is installed at the lowest free descriptor without close-on-exec, whether or not the caller's buffer can report it (as XNU leaves them), control data cut at the caller's buffer with `MSG_CTRUNC`, and `EMSGSIZE` when the table cannot hold them | `socket::control` | `unp_internalize`, `unp_externalize`, `copyout_control` |
+| Options (`setsockopt`: a NULL value with a size faults first; `getsockopt`: the size read only with a value buffer, the value cut to it) and `ioctl`: those whose argument points at more memory (`SIOCGIFCONF`, `SIOCGIFMEDIA`, `SIOCGIFXMEDIA`, `SIOCGDRVSPEC`, `SIOCSDRVSPEC`, `SIOCIFGCLONERS`) get the emulator's buffers; `FIOGETOWN` copies nothing out | `socket::opt`, `socket::ioctl` | `sosetoptlock`, `sogetoptlock`, `ioctl`, `ifconf` |
+
+A guest socket is a host socket, so the host kernel implements the
+protocols and the state other processes share (on a macOS host; elsewhere
+the socket calls are `ENOSYS`). A call that would block is made to the
+host without blocking (`MSG_NBIO`; for `accept`, `connect`, and
+`connectx`, whose calls have no such flag, the socket is made
+non-blocking for the call, which another process sharing it could see),
+and the calling thread sleeps on the socket's readiness while other guest
+threads run. What the host says of a peer process (`LOCAL_PEERPID`,
+`LOCAL_PEERCRED`, `LOCAL_PEERTOKEN`) is of the host process, which for an
+emulated peer is its own identity; its executable's UUID
+(`LOCAL_PEERUUID`) is the emulator's. A receive whose buffer cannot be
+written fails before the data is taken (XNU takes a datagram's sender
+first). When the descriptors a message carries do not fit the table, the
+message's data is lost with them, where XNU keeps the data queued.
+`AF_UNIX` addresses are host paths (the root overlay does not apply to
+them). The private socket `ioctl` requests whose arguments hold pointers
+(the association, connection, agent, and protocol lists, `SIOCRSLVMULTI`,
+the old `OSIOCGIFCONF`) are refused with `EOPNOTSUPP`, and
+`SIOCIFCREATE2` (whose parameters are the interface cloner's) with
+`EPERM`, or `EOPNOTSUPP` for the superuser.
+
 ## Process information
 
 | Area | Module | Counterpart |
@@ -316,10 +350,11 @@ their kqueue and workloops (so `libdispatch`: global and serial queues,
 groups, semaphores, `dispatch_apply`, `dispatch_after`, barriers, and
 timer, read, and signal sources), `fork` with `wait4`, `waitid`, and
 `SIGCHLD`, `execve` and `posix_spawn` (scripts, fat files, file and
-port actions, spawn attributes), and process information (`proc_info`).
+port actions, spawn attributes), process information (`proc_info`), and
+sockets.
 Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
-under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`, sockets, and exception delivery
+under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl` and exception delivery
 to Mach exception ports (a machine exception becomes its signal
 directly). `kill` of the process group reaches this process only through
 host-signal forwarding, and `kill(-1, sig)` signals only this process.
@@ -347,10 +382,12 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `csr`, the volume statistics and object paths of `volumes`, the
   per-thread identity calls of `identity`, the POSIX shared memory
   objects of `shm` (shared between mappings and with a forked child), the
-  extended attributes of `xattr`, the access control lists of `acl`, and
-  the process, task, thread, descriptor, region, and control queries of
-  `procinfo`, and the deferred-reclamation ring of `reclaim` (libmalloc's,
-  and a ring of the fixture's own in a process libmalloc gives none).
+  extended attributes of `xattr`, the access control lists of `acl`, the
+  process, task, thread, descriptor, region, and control queries of
+  `procinfo`, and the calls, errors, blocking, signals, and passed
+  descriptors of `sockets`, and the deferred-reclamation ring of `reclaim`
+  (libmalloc's, and a ring of the fixture's own in a process libmalloc gives
+  none).
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

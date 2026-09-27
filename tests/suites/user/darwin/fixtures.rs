@@ -251,6 +251,16 @@ fn procinfo_x86_64() {
 }
 
 #[test]
+fn sockets_arm64() {
+    fixture("sockets", "arm64", &[], &[]);
+}
+
+#[test]
+fn sockets_x86_64() {
+    fixture("sockets", "x86_64", &[], &[]);
+}
+
+#[test]
 fn reclaim_arm64() {
     fixture("reclaim", "arm64", &[], &[]);
 }
