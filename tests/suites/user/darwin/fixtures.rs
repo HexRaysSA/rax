@@ -219,3 +219,13 @@ fn shm_arm64() {
 fn shm_x86_64() {
     fixture("shm", "x86_64", &[], &[]);
 }
+
+#[test]
+fn xattr_arm64() {
+    fixture("xattr", "arm64", &[], &[]);
+}
+
+#[test]
+fn xattr_x86_64() {
+    fixture("xattr", "x86_64", &[], &[]);
+}
