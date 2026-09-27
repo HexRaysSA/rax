@@ -28,3 +28,4 @@ Darwin personality follows the SDK and records it here.
 | Area | Files |
 |---|---|
 | `vm_region_submap_info_64` revision 3 (`pages_wired`, `wire_tag`; 21 words) returned by `mach_vm_region_recurse` | `usr/include/mach/vm_region.h` |
+| User-visible layouts of signal frames: `siginfo_t`, `ucontext_t`, `mcontext64` (arm64) and `mcontext_avx64` (x86-64), and the arm64 thread-state flags (`__DARWIN_ARM_THREAD_STATE64_FLAGS_*`, the user diversifier mask) | `usr/include/sys/signal.h`, `usr/include/sys/_types/_ucontext.h`, `usr/include/arm/_mcontext.h`, `usr/include/i386/_mcontext.h`, `usr/include/mach/arm/_structs.h`, `usr/include/mach/i386/_structs.h` |
