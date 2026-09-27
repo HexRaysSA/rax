@@ -35,6 +35,8 @@ pub const BINPRM_BUF_SIZE: usize = 256;
 pub struct ProgramImage {
     /// Its ABI.
     pub abi: LinuxAbi,
+    /// The personality it runs with ([`LinuxAbi::exec_personality`]).
+    pub persona: u32,
     /// The new address space.
     pub space: AddressSpace,
     /// The CPU in the entry state.
@@ -83,6 +85,8 @@ pub struct ImageRequest<'a> {
     pub arena_bytes: u64,
     /// CPU options.
     pub cpu: &'a CpuOptions,
+    /// The personality before `execve` (zero for a new process).
+    pub persona: u32,
 }
 
 /// The `comm` of a file name: its last component, at most 15 bytes
@@ -133,14 +137,19 @@ pub fn load_image(
     let mut cpu = GuestCpu::new(abi, &space, req.cpu);
     let image = ImageFile::new(req.bytes.clone(), req.exe_path.clone());
 
-    // setup_arg_pages() precedes the segment mappings.
-    let exec_stack = {
+    // The personality comes first (SET_PERSONALITY and
+    // elf_read_implies_exec), then setup_arg_pages(): the stack takes
+    // VM_STACK_FLAGS (executable under READ_IMPLIES_EXEC where the data
+    // default follows it), then PT_GNU_STACK's request.
+    let gnu_stack = {
         let (class, data) = abi.elf_encoding();
         crate::user::image::elf::ElfImage::parse(&image.bytes, class, data)
             .map_err(|e| SpawnError::Load(LoadError::Elf(e)))?
             .gnu_stack_executable()
-            .unwrap_or(false)
     };
+    let persona = abi.exec_personality(req.persona, gnu_stack);
+    let read_implies_exec = persona & super::abi::READ_IMPLIES_EXEC != 0;
+    let exec_stack = gnu_stack.unwrap_or(read_implies_exec && abi.data_exec_follows_persona());
     map_stack(abi, &space, req.stack_limit, exec_stack).map_err(SpawnError::Stack)?;
 
     let mut resolver = |path: &[u8]| -> std::io::Result<ImageFile> {
@@ -148,8 +157,15 @@ pub fn load_image(
         let host = vfs.host_path(&guest, true);
         Ok(ImageFile::new(std::fs::read(&host)?, guest))
     };
-    let program = load_program(abi, &space, &image, &mut resolver, req.stack_limit)
-        .map_err(SpawnError::Load)?;
+    let program = load_program(
+        abi,
+        &space,
+        &image,
+        &mut resolver,
+        req.stack_limit,
+        read_implies_exec,
+    )
+    .map_err(SpawnError::Load)?;
     // ARCH_SETUP_ADDITIONAL_PAGES follows the image and interpreter.
     let sigtramp = super::signal::frame::map_sigtramp(abi, &space, abi.mmap_base(req.stack_limit))
         .map_err(SpawnError::Memory)?;
@@ -189,6 +205,7 @@ pub fn load_image(
     cpu.start(program.entry, stack.sp);
     Ok(ProgramImage {
         abi,
+        persona,
         space,
         cpu,
         mm: MmState {
@@ -320,15 +337,7 @@ impl LinuxProcess {
             };
         }
         p.fds.close_on_exec();
-        // SET_PERSONALITY: x86-64 drops READ_IMPLIES_EXEC; arm64 and riscv
-        // keep the flags with PER_LINUX; an i386 program inherits the
-        // personality (set_personality_ia32 adds force_personality32, 0),
-        // and so does an ARM one (COMPAT_SET_PERSONALITY).
-        p.persona = match image.abi {
-            LinuxAbi::X86_64 => p.persona & !super::abi::READ_IMPLIES_EXEC,
-            LinuxAbi::I386 | LinuxAbi::Arm => p.persona,
-            LinuxAbi::Aarch64 | LinuxAbi::Riscv64 => p.persona & !0xff,
-        };
+        p.persona = image.persona;
         p.abi = image.abi;
         p.space = image.space;
         // exit_mmap: the old image's System V attaches go.

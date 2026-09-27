@@ -6,14 +6,17 @@
 //! `kernel_waitid_prepare`) and new processes being unavailable without
 //! host processes. Expectations follow those Linux 6.19 functions.
 
-use super::harness::{Harness, each_abi};
-use super::loader::{Seg, image};
-use crate::user::image::elf::{EM_AARCH64, EM_RISCV, EM_X86_64, ET_EXEC, PF_R, PF_W, PF_X};
+use super::harness::{ARM_EABI5_HARD_FLOAT, DATA, Harness, P, each_abi};
+use super::loader::{Seg, image, image32};
+use crate::user::image::elf::{
+    EM_386, EM_AARCH64, EM_ARM, EM_RISCV, EM_X86_64, ET_EXEC, PF_R, PF_W, PF_X, PT_GNU_STACK,
+};
 use crate::user::linux::abi::errno_table::*;
-use crate::user::linux::abi::{LinuxAbi, Sysno};
+use crate::user::linux::abi::{LinuxAbi, READ_IMPLIES_EXEC, Sysno};
 use crate::user::linux::exec::{ScriptError, comm_of, parse_script};
 use crate::user::linux::signal::*;
 use crate::user::linux::syscall::Outcome;
+use crate::user::mm::Perms;
 
 fn put_u64s(h: &Harness, at: u64, words: &[u64]) {
     let b: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
@@ -551,4 +554,115 @@ fn child_status_records_carry_linux_wait_statuses() {
     assert_eq!(exited_status(-1), 0xff00);
     assert_eq!(signaled_status(11, false), 11);
     assert_eq!(signaled_status(6, true), 0x86);
+}
+
+/// A 32-bit program (the harness's segments), with `PT_GNU_STACK` asking
+/// for a stack of `stack` flags if any.
+fn program32(abi: LinuxAbi, stack: Option<u32>) -> Vec<u8> {
+    let mut segs = vec![
+        Seg::load(0x40_0000, 0, 0x2000, 0x2000, PF_R | PF_X),
+        Seg::load(DATA, 0x2000, 0x1000, 0x2000, PF_R | PF_W),
+    ];
+    if let Some(flags) = stack {
+        segs.push(Seg {
+            p_type: PT_GNU_STACK,
+            vaddr: 0,
+            offset: 0,
+            filesz: 0,
+            memsz: 0,
+            flags,
+            align: 16,
+        });
+    }
+    let machine = if abi == LinuxAbi::Arm { EM_ARM } else { EM_386 };
+    let mut b = image32(machine, ET_EXEC, 0x40_1000, &segs);
+    if abi == LinuxAbi::Arm {
+        b[36..40].copy_from_slice(&ARM_EABI5_HARD_FLOAT.to_le_bytes());
+    }
+    b
+}
+
+/// Execs `bytes` (a temporary file named `name`) with its path as the only
+/// argument and no environment, and commits the new image.
+fn exec_bytes(h: &mut Harness, name: &str, bytes: &[u8]) {
+    let file = TempFile::new(name, bytes, 0o755);
+    let (path, argv) = (h.scratch, h.scratch + 0x200);
+    put_str(h, path, file.path());
+    let word = h.abi().word_size() as usize;
+    let mut v = path.to_le_bytes()[..word].to_vec();
+    v.resize(2 * word, 0);
+    h.proc.state.space.write_raw(argv, &v).unwrap();
+    let out = h.dispatch(Sysno::Execve, &[path, argv, argv + word as u64]);
+    let Outcome::Exec(image) = out else {
+        panic!("{name}: {out:?}");
+    };
+    h.proc.commit_exec(0, *image.0);
+}
+
+/// Whether the pages at `DATA` (file-backed), `DATA + P` (the
+/// zero-filled tail), the stack, and a page the break grows are
+/// executable.
+fn data_exec(h: &mut Harness) -> [bool; 4] {
+    let sp = h.proc.threads[0].cpu.sp();
+    let brk = h.ok(Sysno::Brk, &[0]);
+    assert_eq!(h.ok(Sysno::Brk, &[brk + P]), brk + P);
+    [DATA, DATA + P, sp, brk].map(|at| h.perms(at).contains(Perms::EXEC))
+}
+
+#[test]
+fn a_32_bit_program_without_gnu_stack_reads_implies_exec() {
+    // load_elf_binary: elf_read_implies_exec (x86's for an ia32 program,
+    // arm64's compat_elf_read_implies_exec) sets READ_IMPLIES_EXEC for a
+    // program without PT_GNU_STACK before anything is mapped, so do_mmap
+    // makes the readable segments executable and VM_DATA_FLAGS_TSK_EXEC the
+    // zero-filled tail, the stack, and the heap. The harness's programs
+    // have no PT_GNU_STACK.
+    for abi in [LinuxAbi::I386, LinuxAbi::Arm] {
+        let mut h = Harness::new(abi);
+        assert_ne!(h.proc.state.persona & READ_IMPLIES_EXEC, 0, "{abi:?}");
+        assert_eq!(data_exec(&mut h), [true; 4], "{abi:?}");
+        // With PT_GNU_STACK (read-write), a program that did not inherit it
+        // runs without it: only its code is executable.
+        let mut h = Harness::new(abi);
+        h.ok(Sysno::Personality, &[0]);
+        let rw = program32(abi, Some(PF_R | PF_W));
+        exec_bytes(&mut h, &format!("{abi:?}-rie-rw"), &rw);
+        assert_eq!(h.proc.state.persona & READ_IMPLIES_EXEC, 0, "{abi:?}");
+        assert_eq!(data_exec(&mut h), [false; 4], "{abi:?}");
+        // Without it, execve sets it again.
+        let mut h = Harness::new(abi);
+        h.ok(Sysno::Personality, &[0]);
+        exec_bytes(&mut h, &format!("{abi:?}-rie-none"), &program32(abi, None));
+        assert_ne!(h.proc.state.persona & READ_IMPLIES_EXEC, 0, "{abi:?}");
+        assert_eq!(data_exec(&mut h), [true; 4], "{abi:?}");
+    }
+}
+
+#[test]
+fn a_64_bit_program_reads_implies_exec_only_by_inheriting_it() {
+    // elf_read_implies_exec is false for a 64-bit program: the harness's
+    // runs without READ_IMPLIES_EXEC. Set, it makes the heap executable
+    // where VM_DATA_DEFAULT_FLAGS follows it (not RISC-V's
+    // VM_DATA_FLAGS_NON_EXEC); arm64 and RISC-V keep it across execve
+    // (x86-64's SET_PERSONALITY drops it), and then do_mmap makes the
+    // readable segments executable, and VM_DATA_DEFAULT_FLAGS the
+    // zero-filled tail and a stack PT_GNU_STACK does not choose.
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        assert_eq!(h.proc.state.persona & READ_IMPLIES_EXEC, 0);
+        let follows = abi != LinuxAbi::Riscv64;
+        h.ok(Sysno::Personality, &[u64::from(READ_IMPLIES_EXEC)]);
+        let brk = h.ok(Sysno::Brk, &[0]);
+        assert_eq!(h.ok(Sysno::Brk, &[brk + P]), brk + P);
+        assert_eq!(h.perms(brk).contains(Perms::EXEC), follows, "{abi:?}");
+        exec_bytes(&mut h, &format!("{abi:?}-rie"), &program(abi));
+        let kept = abi != LinuxAbi::X86_64;
+        assert_eq!(
+            h.proc.state.persona & READ_IMPLIES_EXEC != 0,
+            kept,
+            "{abi:?}"
+        );
+        let data = kept && follows;
+        assert_eq!(data_exec(&mut h), [kept, data, data, data], "{abi:?}");
+    });
 }

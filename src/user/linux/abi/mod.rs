@@ -137,6 +137,36 @@ impl LinuxAbi {
         }
     }
 
+    /// The personality a program of this ABI runs with after `execve`
+    /// from one with `old` (`load_elf_binary`): `SET_PERSONALITY` (x86-64's
+    /// drops `READ_IMPLIES_EXEC`; arm64's and RISC-V's keep the flags with
+    /// `PER_LINUX`; i386's and ARM's keep it all), then
+    /// `elf_read_implies_exec`, which gives a 32-bit program without
+    /// `PT_GNU_STACK` (`gnu_stack` `None`) `READ_IMPLIES_EXEC` (x86's
+    /// `mmap_is_ia32() && EXSTACK_DEFAULT`, arm64's
+    /// `compat_elf_read_implies_exec`), and a 64-bit one never.
+    pub fn exec_personality(self, old: u32, gnu_stack: Option<bool>) -> u32 {
+        let persona = match self {
+            LinuxAbi::X86_64 => old & !READ_IMPLIES_EXEC,
+            LinuxAbi::I386 | LinuxAbi::Arm => old,
+            LinuxAbi::Aarch64 | LinuxAbi::Riscv64 => old & !0xff,
+        };
+        if self.is_compat() && gnu_stack.is_none() {
+            persona | READ_IMPLIES_EXEC
+        } else {
+            persona
+        }
+    }
+
+    /// Whether the data mappings the kernel makes itself (the heap, a
+    /// segment's zero-filled tail, the stack before `PT_GNU_STACK`'s say)
+    /// are executable under `READ_IMPLIES_EXEC`: `VM_DATA_DEFAULT_FLAGS` is
+    /// `VM_DATA_FLAGS_TSK_EXEC` on x86 and arm64, `VM_DATA_FLAGS_NON_EXEC`
+    /// on RISC-V.
+    pub fn data_exec_follows_persona(self) -> bool {
+        self != LinuxAbi::Riscv64
+    }
+
     /// Whether the ABI is a 32-bit compatibility one.
     pub fn is_compat(self) -> bool {
         matches!(self, LinuxAbi::I386 | LinuxAbi::Arm)

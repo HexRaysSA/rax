@@ -213,6 +213,9 @@ views
 the byte (pointers, an empty `argv`, a script's rewritten arguments), a script named
 by a close-on-exec descriptor, the image replacement with a script and what survives
 it, the caller's robust futexes released against the old address space,
+`READ_IMPLIES_EXEC` from a 32-bit program's missing `PT_GNU_STACK` and kept or
+dropped across `execve` (readable segments, the zero-filled tail, the stack, and
+the heap executable where `VM_DATA_DEFAULT_FLAGS` follows it),
 `wait4`/`waitid` argument checks and `siginfo_t` writes on errors, children
 passing to a live thread (`__WNOTHREAD`) on thread exit and `execve`, and processes
 unavailable without host processes

@@ -177,7 +177,13 @@ pub fn brk(c: &mut Ctx<'_>, addr: u64) -> SysResult {
     if !super::mlock::future_ok(c.p, lock, new_end - old_end) {
         return Ok(cur);
     }
-    let mut heap = Mapping::anonymous(Perms::READ | Perms::WRITE).named("[heap]");
+    // do_brk_flags: VM_DATA_DEFAULT_FLAGS, executable under
+    // READ_IMPLIES_EXEC except on RISC-V.
+    let mut perms = Perms::READ | Perms::WRITE;
+    if c.p.persona & READ_IMPLIES_EXEC != 0 && c.p.abi.data_exec_follows_persona() {
+        perms |= Perms::EXEC;
+    }
+    let mut heap = Mapping::anonymous(perms).named("[heap]");
     heap.flags = lock;
     if c.p.space.map(old_end, new_end - old_end, heap).is_err() {
         return Ok(cur);

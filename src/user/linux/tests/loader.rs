@@ -165,7 +165,7 @@ fn load(
 ) -> Result<(AddressSpace, crate::user::linux::loader::LoadedProgram), LoadError> {
     let s = space(abi);
     let file = ImageFile::new(bytes, "/prog");
-    let loaded = load_program(abi, &s, &file, &mut no_interp, DEFAULT_STACK_LIMIT)?;
+    let loaded = load_program(abi, &s, &file, &mut no_interp, DEFAULT_STACK_LIMIT, false)?;
     Ok((s, loaded))
 }
 
@@ -325,6 +325,7 @@ fn pie_with_interpreter_loads_at_elf_et_dyn_base() {
         &ImageFile::new(prog, "/prog"),
         &mut resolver,
         DEFAULT_STACK_LIMIT,
+        false,
     )
     .unwrap();
     // ELF_ET_DYN_BASE = 0x7ffffffff000 / 3 * 2 = 0x555555554aaa;
@@ -362,6 +363,7 @@ fn large_alignment_rounds_the_pie_base() {
         &ImageFile::new(prog, "/p"),
         &mut resolver,
         DEFAULT_STACK_LIMIT,
+        false,
     )
     .unwrap();
     assert_eq!(l.load_bias, 0xaaaa_aaaa_0000);
@@ -534,6 +536,7 @@ fn mapping_names_carry_the_image_name() {
         &file,
         &mut no_interp,
         DEFAULT_STACK_LIMIT,
+        false,
     )
     .unwrap();
     assert_eq!(

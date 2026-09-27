@@ -301,6 +301,7 @@ pub fn execveat(
         stack_limit: stack,
         arena_bytes: c.p.config.arena_bytes,
         cpu: &c.p.config.cpu,
+        persona: c.p.persona,
     };
     let creds = c.p.creds;
     let mut image =

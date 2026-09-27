@@ -215,6 +215,8 @@ struct Loader<'a> {
     space: &'a AddressSpace,
     task_size: u64,
     mmap_base: u64,
+    /// The new personality has `READ_IMPLIES_EXEC`.
+    read_implies_exec: bool,
 }
 
 impl Loader<'_> {
@@ -276,7 +278,11 @@ impl Loader<'_> {
     ) -> Result<(), LoadError> {
         let vaddr = ph.p_vaddr.wrapping_add(bias);
         let page_off = vaddr & PAGE_MASK;
-        let perms = segment_perms(self.abi, ph.p_flags);
+        let mut perms = segment_perms(self.abi, ph.p_flags);
+        // do_mmap: READ_IMPLIES_EXEC makes a readable mapping executable.
+        if self.read_implies_exec && ph.p_flags & PF_R != 0 {
+            perms |= Perms::EXEC;
+        }
         if page_start(vaddr) < MMAP_MIN_ADDR {
             return Err(LoadError::BelowMinAddr(page_start(vaddr)));
         }
@@ -333,14 +339,16 @@ impl Loader<'_> {
             zero_start = page_start(vaddr);
         }
         if ph.p_memsz > ph.p_filesz {
-            // vm_brk_flags(): anonymous read-write pages, executable only if
-            // the segment asked for it.
+            // vm_brk_flags(): anonymous read-write pages, executable if
+            // the segment asked for it or VM_DATA_DEFAULT_FLAGS makes them
+            // so.
             let anon_start = page_align(zero_start).unwrap();
             let anon_end = page_align(mem_end)
                 .ok_or_else(|| LoadError::BadSegment("segment end overflows".into()))?;
             if anon_end > anon_start {
                 let mut anon = Perms::READ | Perms::WRITE;
-                if ph.p_flags & PF_X != 0 {
+                let data_exec = self.read_implies_exec && self.abi.data_exec_follows_persona();
+                if ph.p_flags & PF_X != 0 || data_exec {
                     anon |= Perms::EXEC;
                 }
                 self.space
@@ -395,13 +403,15 @@ impl Loader<'_> {
 /// `execve` does, resolving `PT_INTERP` through `resolver`.
 ///
 /// `stack_limit` is the `RLIMIT_STACK` soft limit, which positions the mmap
-/// base.
+/// base; `read_implies_exec` says the new personality has
+/// `READ_IMPLIES_EXEC`, which makes the readable segments executable.
 pub fn load_program(
     abi: LinuxAbi,
     space: &AddressSpace,
     file: &ImageFile,
     resolver: &mut dyn InterpreterResolver,
     stack_limit: u64,
+    read_implies_exec: bool,
 ) -> Result<LoadedProgram, LoadError> {
     let (class, data) = abi.elf_encoding();
     let image = ElfImage::parse(&file.bytes, class, data)?;
@@ -410,6 +420,7 @@ pub fn load_program(
         space,
         task_size: abi.task_size(),
         mmap_base: abi.mmap_base(stack_limit),
+        read_implies_exec,
     };
     if !loader.check_arch(&image) {
         return Err(LoadError::NotExecutable(format!(
