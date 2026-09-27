@@ -1,0 +1,6 @@
+LIBRARY observer.dll
+EXPORTS
+Log@36
+LogCount@0
+LogAt@4
+LogClear@0

@@ -769,7 +769,7 @@ mod tests {
                         true,
                         WalkState::default()
                     ),
-                    Ok(Flow::ExitProcess(STATUS_ACCESS_VIOLATION))
+                    Ok(Flow::TerminateProcess(STATUS_ACCESS_VIOLATION))
                 ));
                 if arch == WinArch::Arm64 {
                     context.set_gpr(30, context.pc());
@@ -806,7 +806,7 @@ mod tests {
                 rec.write(&c.p.space, arch, recs.record).unwrap();
                 assert!(matches!(
                     search(c, rec, recs, ctx.clone(), 0, 0, true, WalkState::default()),
-                    Ok(Flow::ExitProcess(STATUS_GUARD_PAGE_VIOLATION))
+                    Ok(Flow::TerminateProcess(STATUS_GUARD_PAGE_VIOLATION))
                 ));
                 let stored = ExceptionRecord::read(&c.p.space, arch, recs.record).unwrap();
                 assert_eq!(stored.code, STATUS_GUARD_PAGE_VIOLATION);

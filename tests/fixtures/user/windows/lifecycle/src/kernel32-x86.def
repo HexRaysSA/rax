@@ -1,0 +1,20 @@
+LIBRARY KERNEL32.dll
+EXPORTS
+GetCurrentThreadId@0
+ExitProcess@4
+GetLastError@0
+LoadLibraryA@4
+LoadLibraryW@4
+GetModuleHandleA@4
+GetModuleHandleW@4
+GetProcAddress@8
+FreeLibrary@4
+CreateEventW@16
+SetEvent@4
+CreateThread@24
+WaitForSingleObject@8
+CloseHandle@4
+CreateFileW@28
+ReadFile@20
+WriteFile@20
+VirtualQuery@12

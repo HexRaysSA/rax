@@ -14,6 +14,7 @@ mod sched;
 mod start;
 pub(crate) mod thread;
 
+pub use super::dll::libraries::LoaderState;
 pub use thread::{Thread, ThreadState};
 
 use std::collections::BTreeMap;
@@ -226,6 +227,8 @@ pub struct Proc {
     pub process_heap: u64,
     /// Loaded modules.
     pub modules: Modules,
+    /// Reentrant DLL-entrypoint serialization and normal-exit lifecycle stages.
+    pub loader: LoaderState,
     /// Trap slots of built-in DLLs.
     pub traps: Traps,
     /// Kernel objects and the handle table.

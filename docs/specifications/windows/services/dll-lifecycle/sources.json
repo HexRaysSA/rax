@@ -1,0 +1,267 @@
+{
+  "schema": 1,
+  "issuer": "Microsoft",
+  "retrieved": "2026-09-27",
+  "license": "Creative Commons Attribution 4.0 International",
+  "normalization": "Trailing blank lines normalized; terminal LF retained; Markdown content otherwise unchanged.",
+  "sources": [
+    {
+      "path": "loadlibraryw.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/libloaderapi/nf-libloaderapi-loadlibraryw.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryw",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "fe81eb70ac81b3a0f4b53ee60a2f9ca7d2f4cab79852064eb211fea30f438fd1",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "loadlibrarya.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/libloaderapi/nf-libloaderapi-loadlibrarya.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "33c401884c44b4b9841b45598011ce553c17b3bda4d1491d7ae854ce0442beb6",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "freelibrary.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/libloaderapi/nf-libloaderapi-freelibrary.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-freelibrary",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "1a3c8106e48e52830cbf4546d712db981ae5f4d37aee5ac679f6cbeb2d396d01",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "freelibraryandexitthread.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/libloaderapi/nf-libloaderapi-freelibraryandexitthread.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-freelibraryandexitthread",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "9d2f3e705c5de54bdc7be916f0a92ae1f459884df3b1862c9e86b09dff440d37",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "getmodulehandlew.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/libloaderapi/nf-libloaderapi-getmodulehandlew.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandlew",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "394873ba9f63716d8e2b0422cc92eb441bb6f1f7ad8b069217b9745be3cf63d9",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "disablethreadlibrarycalls.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/libloaderapi/nf-libloaderapi-disablethreadlibrarycalls.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-disablethreadlibrarycalls",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "c1662e6e7953da8c56e72941212b5f7e7b2424e78edf10ca0e583585ed12c49a",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "exitthread.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-exitthread.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-exitthread",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "1a33f965089486283f37b24d639d8256ee5cdac5f1a7f57716fa611e59bd1c0d",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "dllmain.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Dlls/dllmain.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/dlls/dllmain",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "24d54b5bd23802f0aced5c03a95937a7b8c5936f721136deafeba04a227e2a25",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE"
+    },
+    {
+      "path": "dynamic-link-library-entry-point-function.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Dlls/dynamic-link-library-entry-point-function.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-entry-point-function",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "bd5d5adbae341dbdfc975b9fc488aa26a6fcda123772cd16126c6531b98760f0",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE"
+    },
+    {
+      "path": "dynamic-link-library-best-practices.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Dlls/dynamic-link-library-best-practices.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-best-practices",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "98b14deb51553549e2ae906318287bf989bd68c10da14f941cffa9447589feb6",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE"
+    },
+    {
+      "path": "run-time-dynamic-linking.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Dlls/run-time-dynamic-linking.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/dlls/run-time-dynamic-linking",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "fdf51affb87f1e2d3a83e827d79efc59ca204e576ae40c7fd10bb895d7cae690",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE"
+    },
+    {
+      "path": "SDK-API-LICENSE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/LICENSE",
+      "canonical_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "WIN32-LICENSE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE",
+      "canonical_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE"
+    },
+    {
+      "path": "getmodulehandleexw.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/libloaderapi/nf-libloaderapi-getmodulehandleexw.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandleexw",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "d8f4eb33b816884368023df45a5da9f28b0e759d971eb6ba92beff9fbf3ed77b",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "getmodulehandleexa.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/libloaderapi/nf-libloaderapi-getmodulehandleexa.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandleexa",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "77cf5e4596b6f30230068a720ecbd38fdfe45ec580cb16cd3372f34de6db61b6",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "getprocaddress.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/libloaderapi/nf-libloaderapi-getprocaddress.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getprocaddress",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "cc234792dc3a39684bcd5e48f708dbbfc8eb68bbdd843d44f1cf7457f3c2e6c7",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "terminateprocess.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-terminateprocess.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "84aef124c2410151af22cd41d9e0fa475d69f549ae3c6b6241294f06ea04a55f",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "unhandledexceptionfilter.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/errhandlingapi/nf-errhandlingapi-unhandledexceptionfilter.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-unhandledexceptionfilter",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "b04927fd378b4fcbc9f01296534c47c4fd93144143de36235ccbf987926161d3",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "path": "terminating-a-process.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/ProcThread/terminating-a-process.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/procthread/terminating-a-process",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable docs branch; local SHA-256 pins retained contents)",
+      "sha256": "a79e79ed11fc03d44d5690570a802518ff183fc6c0a696a3234855435225b05c",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE"
+    },
+    {
+      "path": "fastfail.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/intrinsics/fastfail.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/intrinsics/fastfail?view=msvc-170",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable main branch; local SHA-256 pins retained contents)",
+      "sha256": "bc48b7fbeb6523351b9e053a41ce520af93db40cf765cb7d510bef1cd973e7c4",
+      "license_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE"
+    },
+    {
+      "path": "zwterminateprocess.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/ntddk/nf-ntddk-zwterminateprocess.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/nf-ntddk-zwterminateprocess",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable staging branch; local SHA-256 pins retained contents)",
+      "sha256": "0a5f5641377bc6bdd4079ec43b02552f360bf7136c202742f8b097b137832cbc",
+      "license_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/staging/LICENSE"
+    },
+    {
+      "path": "CPP-DOCS-LICENSE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/LICENSE",
+      "canonical_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable main branch; local SHA-256 pins retained contents)",
+      "sha256": "03a50105dc91319b3695398007341b9242b38831dab2e515ff4d7ba1f9826e2b",
+      "license_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE"
+    },
+    {
+      "path": "WDK-DDI-LICENSE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/LICENSE",
+      "canonical_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/staging/LICENSE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown (mutable staging branch; local SHA-256 pins retained contents)",
+      "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+      "license_url": "https://github.com/MicrosoftDocs/windows-driver-docs-ddi/blob/staging/LICENSE"
+    }
+  ],
+  "existing_retained_sources": [
+    {
+      "path": "../../microsoft-docs/pe-format.md",
+      "repository_path": "docs/specifications/windows/microsoft-docs/pe-format.md",
+      "provenance": "docs/specifications/windows/microsoft-docs/pe-format.provenance.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/debug/pe-format",
+      "sections": [
+        "The .tls Section",
+        "The TLS Directory",
+        "TLS Callback Functions",
+        "Export Address Table",
+        "Export Name Pointer Table",
+        "Export Ordinal Table"
+      ]
+    },
+    {
+      "path": "../thread-sync/exitprocess.md",
+      "repository_path": "docs/specifications/windows/services/thread-sync/exitprocess.md",
+      "provenance": "docs/specifications/windows/services/thread-sync/sources.json",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-exitprocess"
+    },
+    {
+      "path": "../thread-sync/terminatethread.md",
+      "repository_path": "docs/specifications/windows/services/thread-sync/terminatethread.md",
+      "provenance": "docs/specifications/windows/services/thread-sync/sources.json",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminatethread"
+    }
+  ]
+}

@@ -69,7 +69,7 @@ pub(super) fn run(p: &mut Proc) -> ExitStatus {
                         break;
                     }
                 }
-                Outcome::ThreadExit(code)
+                Outcome::ThreadTerminate(code)
             } else if let ThreadState::Exited(code) = t.state {
                 Outcome::ThreadExit(code)
             } else if t.suspend == 0 {
@@ -171,13 +171,74 @@ fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
     ExitStatus::Exited(code)
 }
 
-fn apply_outcome(p: &mut Proc, t: Thread, outcome: Outcome, last_exit: &mut u32) {
+fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &mut u32) {
+    if let Outcome::ProcessTerminate(code) = outcome {
+        // The address space is dying: guest rollback/LDR writes and DLL/FLS
+        // callbacks must not override forced termination or its exit status.
+        t.frames.clear();
+        sync::on_process_exit(p);
+        for other in p.threads.values_mut() {
+            other.frames.clear();
+        }
+        crate::user::windows::dll::libraries::abort_process(p);
+        p.exit_code = Some(code);
+        p.threads.insert(t.tid, t);
+        return;
+    }
+    if matches!(
+        outcome,
+        Outcome::ThreadExit(_) | Outcome::ProcessExit(_) | Outcome::ThreadTerminate(_)
+    ) {
+        // Cancellation runs before destroying the TLS/TEB needed by a loader
+        // journal. A held DLL entrypoint cannot silently escape through exit.
+        t.frames.clear();
+    }
+    if let Err(error) = crate::user::windows::dll::libraries::cleanup_abandoned(p, &mut t) {
+        outcome = Outcome::Fail(error);
+    }
+    if let Outcome::ThreadExit(code) = outcome
+        && t.attached
+        && !p.modules.list.is_empty()
+        && p.loader.exiting_threads.insert(t.tid)
+    {
+        outcome = lifecycle::thread_exit(p, &mut t, code);
+    }
+    if let Outcome::ThreadExit(code) = outcome
+        && p.threads.is_empty()
+        && p.loader.exiting_threads.contains(&t.tid)
+        && !p.modules.list.is_empty()
+    {
+        // Keep the final normally exiting caller's TLS/TEB until the process
+        // notification stage completes. Forced termination remains distinct.
+        outcome = Outcome::ProcessExit(code);
+    }
+    if let Outcome::ProcessExit(code) = outcome
+        && !p.loader.exiting_process
+        && !p.modules.list.is_empty()
+    {
+        p.loader.exiting_process = true;
+        // ExitProcess terminates other threads without DLL_THREAD_DETACH;
+        // only the caller retains its environment for PROCESS_DETACH.
+        sync::on_process_exit(p);
+        for other in p.threads.values_mut() {
+            other.frames.clear();
+        }
+        if let Err(error) = crate::user::windows::dll::libraries::cleanup_abandoned(p, &mut t) {
+            outcome = Outcome::Fail(error);
+        } else {
+            for (_, other) in std::mem::take(&mut p.threads) {
+                thread::destroy(p, other, code);
+            }
+            outcome = lifecycle::process_exit(p, &mut t, code);
+        }
+    }
     match outcome {
-        Outcome::ThreadExit(code) => {
+        Outcome::ThreadExit(code) | Outcome::ThreadTerminate(code) => {
             *last_exit = code;
+            p.loader.exiting_threads.remove(&t.tid);
             thread::destroy(p, t, code);
         }
-        Outcome::ProcessExit(code) => {
+        Outcome::ProcessExit(code) | Outcome::ProcessTerminate(code) => {
             p.exit_code = Some(code);
             p.threads.insert(t.tid, t);
         }
@@ -191,28 +252,20 @@ fn apply_outcome(p: &mut Proc, t: Thread, outcome: Outcome, last_exit: &mut u32)
     }
 }
 
-/// Startup notifications execute with the loader serialization contract:
-/// while one thread is in its initializer continuations, another thread
-/// cannot begin DLL initialization. The main process initializer precedes
-/// a created thread's entry point.
+/// The initial process attach precedes a created thread's entry point. Later
+/// entrypoint serialization is implemented by the reentrant loader lock, not
+/// by stopping already attached guest threads when its owner blocks.
 fn select(p: &Proc, previous: u32) -> Option<u32> {
-    let owner = p
-        .threads
-        .values()
-        .find(|t| !t.attached && t.frames.iter().any(|f| f.api.name == "RtlUserThreadStart"));
-    if let Some(owner) = owner {
-        return owner.runnable().then_some(owner.tid);
-    }
-    if let Some(main) = p.threads.values().find(|t| t.main && !t.attached) {
-        return main.runnable().then_some(main.tid);
-    }
+    let initial_attach = p.threads.values().any(|t| t.main && !t.attached);
     p.threads
         .range((
             std::ops::Bound::Excluded(previous),
             std::ops::Bound::Unbounded,
         ))
         .chain(p.threads.range(..=previous))
-        .find_map(|(&tid, t)| t.runnable().then_some(tid))
+        .find_map(|(&tid, t)| {
+            (t.runnable() && (!initial_attach || t.main || t.attached)).then_some(tid)
+        })
 }
 
 fn tick_timers(p: &mut Proc, now: Instant) {
@@ -502,6 +555,7 @@ mod tests {
             params: 0,
             process_heap: 0,
             modules: Default::default(),
+            loader: Default::default(),
             traps: Default::default(),
             objects: Objects::default(),
             heaps: Heaps::new(if arch.is64() { 16 } else { 8 }),
@@ -579,6 +633,152 @@ mod tests {
         t.state = ThreadState::Waiting(wait);
     }
 
+    fn terminal_fixture(arch: WinArch) -> (super::super::WindowsProcess, Thread, usize) {
+        use crate::user::windows::loader::{self, Module, ModuleKind, ModuleTls};
+        use crate::user::windows::process::WindowsProcess;
+        let image: &[u8] = match arch {
+            WinArch::X86 => {
+                include_bytes!("../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
+            }
+            WinArch::X64 => {
+                include_bytes!("../../../../tests/fixtures/user/windows/bin/x64/smoke.exe")
+            }
+            WinArch::Arm64 => {
+                include_bytes!("../../../../tests/fixtures/user/windows/bin/arm64/smoke.exe")
+            }
+        };
+        let mut config = WindowsConfig::new("forced-exit-test.exe", vec![]);
+        config.seed = Some(1);
+        config.arena_bytes = 64 << 20;
+        let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        t.attached = true;
+        t.main = false;
+        let base =
+            p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                .unwrap()
+                .0;
+        p.space
+            .wptr(base + 0x200, arch.ptr_size(), base + 0x80)
+            .unwrap();
+        p.space
+            .wptr(base + 0x200 + arch.ptr_size(), arch.ptr_size(), 0)
+            .unwrap();
+        let index = p.modules.list.len();
+        p.modules.list.push(Module {
+            name: "termination-test.dll".into(),
+            path: "termination-test.dll".into(),
+            host_path: None,
+            base,
+            size: PAGE_SIZE,
+            entry: base + 0x100,
+            kind: ModuleKind::Native,
+            timestamp: 0,
+            exports: Default::default(),
+            pdata: Default::default(),
+            no_seh: false,
+            safe_seh: None,
+            tls: Some(ModuleTls {
+                index: 0,
+                template: 0,
+                raw_size: 0,
+                zero_fill: 0,
+                callbacks: base + 0x200,
+            }),
+            ldr_entry: 0,
+            load_count: 1,
+            thread_calls: true,
+            initialized: false,
+            builtin_symbols: Default::default(),
+            builtin_ordinals: vec![],
+            text: 0,
+            stubs: Default::default(),
+        });
+        p.modules.init_order.push(index);
+        loader::attach_started(p, index, true).unwrap();
+        loader::attach_succeeded(p, index).unwrap();
+        (process, t, index)
+    }
+
+    #[test]
+    fn forced_thread_exit_skips_callbacks_but_signals_and_frees_resources_all_abis() {
+        for arch in WinArch::ALL {
+            let (mut process, t, index) = terminal_fixture(arch);
+            let p = process.state_mut();
+            let (tid, obj, stack, teb) = (t.tid, t.obj, t.stack_alloc, t.teb);
+            let handle = p.objects.open(obj, false);
+            let mut last = 0;
+            apply_outcome(p, t, Outcome::ThreadTerminate(0xDEAD_BEEF), &mut last);
+            assert_eq!(last, 0xDEAD_BEEF);
+            assert!(!p.threads.contains_key(&tid));
+            assert!(p.exit_code.is_none());
+            assert!(p.failure.is_none());
+            assert!(p.modules.list[index].initialized);
+            assert!(p.loader.is_idle());
+            assert!(matches!(
+                p.objects.get(u64::from(handle)),
+                Some(Object::Thread {
+                    exit_code: Some(0xDEAD_BEEF),
+                    ..
+                })
+            ));
+            assert_eq!(p.vm.query(stack).unwrap().state, mem::FREE);
+            assert!(p.space.probe(teb, 1, MemoryAccessKind::Read).is_err());
+
+            let (mut normal, t, index) = terminal_fixture(arch);
+            let p = normal.state_mut();
+            let tid = t.tid;
+            apply_outcome(p, t, Outcome::ThreadExit(0xDEAD_BEEF), &mut last);
+            assert_eq!(p.threads[&tid].cpu.pc(), p.modules.list[index].entry);
+            assert!(
+                !p.threads[&tid].frames.is_empty(),
+                "normal exit must await DLL_THREAD_DETACH"
+            );
+            assert!(p.exit_code.is_none());
+        }
+    }
+
+    #[test]
+    fn forced_process_exit_aborts_held_loader_without_guest_detach_all_abis() {
+        for arch in WinArch::ALL {
+            let (mut process, mut t, index) = terminal_fixture(arch);
+            let p = process.state_mut();
+            let (stack, teb) = (t.stack_alloc, t.teb);
+            assert_eq!(lifecycle::thread_exit(p, &mut t, 3), Outcome::Continue);
+            assert!(!t.frames.is_empty());
+            assert!(!p.loader.is_idle());
+            let mut peer = thread(p, 12);
+            let peer_stack = peer.stack_alloc;
+            park(
+                &mut peer,
+                sync::Wait::Sleep {
+                    deadline: None,
+                    alertable: false,
+                },
+            );
+            p.threads.insert(peer.tid, peer);
+            let mut last = 0;
+            apply_outcome(p, t, Outcome::ProcessTerminate(0xDEAD_BEEF), &mut last);
+            assert_eq!(p.exit_code, Some(0xDEAD_BEEF));
+            assert!(p.failure.is_none());
+            assert!(p.loader.is_idle());
+            assert!(p.threads.values().all(|t| t.frames.is_empty()));
+            assert!(
+                p.modules.list[index].initialized,
+                "forced termination must not run detach or guest rollback"
+            );
+            assert_eq!(run(p), ExitStatus::Exited(0xDEAD_BEEF));
+            assert!(p.threads.is_empty());
+            assert_eq!(p.objects.handle_count(), 0);
+            for address in [stack, peer_stack] {
+                assert_eq!(p.vm.query(address).unwrap().state, mem::FREE);
+            }
+            assert!(p.space.probe(teb, 1, MemoryAccessKind::Read).is_err());
+        }
+    }
+
     #[test]
     fn access_violation_parameters_distinguish_read_write_and_dep() {
         assert_eq!(access_parameter(MemoryAccessKind::Read), 0);
@@ -643,6 +843,40 @@ mod tests {
         }
         assert_eq!(floating_status(1, 0, true), STATUS_FLOAT_STACK_CHECK);
         assert_eq!(floating_status(1 | 4, 1, true), STATUS_FLOAT_DIVIDE_BY_ZERO);
+    }
+
+    #[test]
+    fn secondary_dll_notifications_do_not_freeze_attached_application_threads_all_abis() {
+        for arch in WinArch::ALL {
+            let (mut process, mut owner, _) = terminal_fixture(arch);
+            let p = process.state_mut();
+            owner.attached = false;
+            assert_eq!(lifecycle::thread_start(p, &mut owner), Outcome::Continue);
+            assert!(!p.loader.is_idle());
+            assert!(
+                owner
+                    .frames
+                    .iter()
+                    .any(|frame| frame.api.name == "RtlUserThreadStart")
+            );
+            let owner_tid = owner.tid;
+            let peer_tid = owner_tid.checked_add(4).unwrap();
+            let peer = thread(p, peer_tid);
+            assert!(peer.attached && peer.runnable());
+            p.threads.insert(owner_tid, owner);
+            p.threads.insert(peer_tid, peer);
+            assert_eq!(select(p, owner_tid), Some(peer_tid));
+            p.threads.get_mut(&owner_tid).unwrap().state =
+                ThreadState::Waiting(sync::Wait::Sleep {
+                    deadline: None,
+                    alertable: false,
+                });
+            assert_eq!(
+                select(p, 0),
+                Some(peer_tid),
+                "a parked notifier cannot freeze an attached peer"
+            );
+        }
     }
 
     #[test]
@@ -836,7 +1070,7 @@ mod tests {
             };
             assert_eq!(
                 handle_stop(&mut p, &mut t, stop),
-                Outcome::ProcessExit(STATUS_ILLEGAL_INSTRUCTION)
+                Outcome::ProcessTerminate(STATUS_ILLEGAL_INSTRUCTION)
             );
             let pc = t.cpu.pc();
             assert_eq!(
@@ -850,7 +1084,7 @@ mod tests {
                         pc
                     }
                 ),
-                Outcome::ProcessExit(STATUS_ACCESS_VIOLATION)
+                Outcome::ProcessTerminate(STATUS_ACCESS_VIOLATION)
             );
         }
     }
@@ -879,7 +1113,10 @@ mod tests {
                     pc,
                 },
             );
-            assert_eq!(outcome, Outcome::ProcessExit(STATUS_GUARD_PAGE_VIOLATION));
+            assert_eq!(
+                outcome,
+                Outcome::ProcessTerminate(STATUS_GUARD_PAGE_VIOLATION)
+            );
             assert_eq!(p.vm.query(guard).unwrap().protect, prot::READWRITE);
             p.vm.protect(t.stack_alloc, PAGE_SIZE, prot::READWRITE | prot::GUARD)
                 .unwrap();
@@ -896,7 +1133,7 @@ mod tests {
                         pc
                     }
                 ),
-                Outcome::ProcessExit(STATUS_STACK_OVERFLOW)
+                Outcome::ProcessTerminate(STATUS_STACK_OVERFLOW)
             );
         }
     }
@@ -936,7 +1173,7 @@ mod tests {
         p.vm.protect(at, PAGE_SIZE, prot::NOACCESS).unwrap();
         assert_eq!(
             access_fault(&mut p, &mut t, f),
-            Outcome::ProcessExit(STATUS_ACCESS_VIOLATION)
+            Outcome::ProcessTerminate(STATUS_ACCESS_VIOLATION)
         );
         p.vm.decommit(at, PAGE_SIZE).unwrap();
         let f = AccessFault {
@@ -945,7 +1182,7 @@ mod tests {
         };
         assert_eq!(
             access_fault(&mut p, &mut t, f),
-            Outcome::ProcessExit(STATUS_ACCESS_VIOLATION)
+            Outcome::ProcessTerminate(STATUS_ACCESS_VIOLATION)
         );
     }
 

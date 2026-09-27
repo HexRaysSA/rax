@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Rebuild only this CRT/SDK-free lifecycle fixture graph.
+set -euo pipefail
+fixture_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+task_dir="$(mktemp -d "${TMPDIR:-/tmp}/rax-windows-lifecycle.XXXXXX")"
+cleanup() {
+    # Only exact, task-generated paths; no repository inputs are removed.
+    for name in observer module empty data dynamic startup forward-miss; do rm -f "$task_dir/$name.obj"; done
+    for name in kernel32 observer leaf root missing; do rm -f "$task_dir/$name.lib"; done
+    rm -f "$task_dir/discard.lib" "$task_dir/discard.exp"
+    rmdir "$task_dir"
+}
+trap cleanup EXIT
+clang_bin="${CLANG_BIN:-clang}"
+link_bin="${LLD_LINK_BIN:-lld-link}"
+dlltool_bin="${LLVM_DLLTOOL_BIN:-llvm-dlltool}"
+flags=(-Oz -ffreestanding -fno-builtin -fno-stack-protector -fno-ident
+       -fno-vectorize -fno-slp-vectorize -fno-asynchronous-unwind-tables
+       -fno-unwind-tables -ffile-prefix-map="$fixture_dir"=.)
+cd "$fixture_dir"
+for arch in x86 x64 arm64; do
+    case "$arch" in
+        x86)
+            target=i686-pc-windows-msvc; machine=x86; dllmachine=i386; suffix=-x86
+            extra=(); tls_symbol=__tls_used; dllbase=0x10000000; forwardbase=0x14000000; database=0x500000
+            observer_exports=(/export:Log=_Log@36 /export:LogCount=_LogCount@0 /export:LogAt=_LogAt@4 /export:LogClear=_LogClear@0)
+            module_exports=(/export:Ready=_Ready@0 /export:TlsRead=_TlsRead@0 /export:TlsSet=_TlsSet@4 /export:Probe=_Probe@36)
+            leaf_export=/export:LeafReady=_Ready@0; data_export=/export:DataMarker=_DataMarker@0
+            ;;
+        x64|arm64)
+            suffix=; tls_symbol=_tls_used; dllbase=0x180000000; forwardbase=0x1c0000000; database=0x150000000
+            observer_exports=(/export:Log /export:LogCount /export:LogAt /export:LogClear)
+            module_exports=(/export:Ready /export:TlsRead /export:TlsSet /export:Probe)
+            leaf_export=/export:LeafReady=Ready; data_export=/export:DataMarker
+            if [[ "$arch" == x64 ]]; then
+                target=x86_64-pc-windows-msvc; machine=x64; dllmachine=i386:x86-64; extra=()
+            else
+                target=aarch64-pc-windows-msvc; machine=arm64; dllmachine=arm64; extra=(-mgeneral-regs-only -ffixed-x18)
+            fi
+            ;;
+    esac
+    mkdir -p "bin/$arch"
+    for library in kernel32 observer leaf root missing; do
+        "$dlltool_bin" -m "$dllmachine" -k -d "src/$library$suffix.def" -l "$task_dir/$library.lib"
+    done
+    common=(/machine:"$machine" /nodefaultlib /timestamp:0 /dynamicbase /nxcompat /implib:"$task_dir/discard.lib")
+    "$clang_bin" --target="$target" "${flags[@]}" "${extra[@]}" -c src/observer.c -o "$task_dir/observer.obj"
+    "$link_bin" "${common[@]}" /dll /noentry /base:"$dllbase" "${observer_exports[@]}" \
+        /out:"bin/$arch/observer.dll" "$task_dir/observer.obj"
+    for name in leaf root fail fail-ok; do
+        case "$name" in
+            leaf) id=1; failure=0; dep=(); additional=("$leaf_export");;
+            root) id=2; failure=0; dep=("$task_dir/leaf.lib"); additional=();;
+            fail) id=3; failure=1; dep=("$task_dir/leaf.lib"); additional=();;
+            fail-ok) id=3; failure=0; dep=("$task_dir/leaf.lib"); additional=();;
+        esac
+        "$clang_bin" --target="$target" "${flags[@]}" "${extra[@]}" \
+            -DMODULE_ID="$id" -DFAIL_ATTACH="$failure" -c src/module.c -o "$task_dir/module.obj"
+        "$link_bin" "${common[@]}" /dll /entry:DllMain /base:"$dllbase" /include:"$tls_symbol" \
+            "${module_exports[@]}" "${additional[@]}" /out:"bin/$arch/$name.dll" \
+            "$task_dir/module.obj" "$task_dir/kernel32.lib" "$task_dir/observer.lib" "${dep[@]}"
+    done
+    "$clang_bin" --target="$target" "${flags[@]}" "${extra[@]}" -c src/empty.c -o "$task_dir/empty.obj"
+    "$link_bin" "${common[@]}" /dll /noentry /base:"$forwardbase" /def:src/forward.def \
+        /out:"bin/$arch/forward.dll" "$task_dir/empty.obj"
+    "$clang_bin" --target="$target" "${flags[@]}" "${extra[@]}" -c src/data.c -o "$task_dir/data.obj"
+    "$link_bin" "${common[@]}" /entry:entry /subsystem:console /base:"$database" "$data_export" \
+        /out:"bin/$arch/data.exe" "$task_dir/data.obj" "$task_dir/kernel32.lib" \
+        "$task_dir/observer.lib" "$task_dir/missing.lib"
+    for program in dynamic startup forward-miss; do
+        define=(); rootlib=()
+        if [[ "$program" == startup ]]; then define=(-DSTATIC_ROOT); rootlib=("$task_dir/root.lib"); fi
+        if [[ "$program" == forward-miss ]]; then define=(-DFORWARD_MISS); fi
+        "$clang_bin" --target="$target" "${flags[@]}" "${extra[@]}" "${define[@]}" \
+            -c src/main.c -o "$task_dir/$program.obj"
+        "$link_bin" "${common[@]}" /entry:entry /subsystem:console /stack:1048576,4096 /heap:1048576,4096 \
+            /out:"bin/$arch/$program.exe" "$task_dir/$program.obj" "$task_dir/kernel32.lib" \
+            "$task_dir/observer.lib" "${rootlib[@]}"
+    done
+done
+{
+    printf '# Generated by lifecycle/build.sh. Native Windows execution unknown.\n'
+    printf 'clang = "%s"\n' "$("$clang_bin" --version | head -1)"
+    printf 'linker = "%s"\n' "$("$link_bin" --version)"
+    printf 'dlltool_identity = "llvm-dlltool has no version flag; executable hash below identifies the installed tool"\n'
+    printf 'dlltool_sha256 = "%s"\n' "$(shasum -a 256 "$(command -v "$dlltool_bin")" | cut -d' ' -f1)"
+    printf 'oracle = "Microsoft public API/ABI/PE contracts; labeled graph-reachability personality policy; no native differential oracle"\n'
+    printf 'expected_exit = 0\n'
+    for source in build.sh src/*.c src/*.h src/*.def; do
+        printf '\n[[source]]\npath = "%s"\n' "$source"
+        printf 'sha256 = "%s"\n' "$(shasum -a 256 "$source" | cut -d' ' -f1)"
+    done
+    for arch in x86 x64 arm64; do
+        for name in observer.dll leaf.dll root.dll fail.dll fail-ok.dll forward.dll data.exe dynamic.exe startup.exe forward-miss.exe; do
+            printf '\n[[fixture]]\narch = "%s"\npath = "bin/%s/%s"\n' "$arch" "$arch" "$name"
+            printf 'sha256 = "%s"\n' "$(shasum -a 256 "bin/$arch/$name" | cut -d' ' -f1)"
+            printf 'bytes = %s\n' "$(wc -c < "bin/$arch/$name" | tr -d ' ')"
+        done
+    done
+} > manifest.toml

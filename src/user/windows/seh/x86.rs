@@ -383,7 +383,7 @@ mod tests {
             };
             assert!(matches!(
                 then(c, disposition::CONTINUE_SEARCH.into()),
-                Ok(Flow::ExitProcess(STATUS_ACCESS_VIOLATION))
+                Ok(Flow::TerminateProcess(STATUS_ACCESS_VIOLATION))
             ));
         });
         let mut chain = ChainWalk::default();

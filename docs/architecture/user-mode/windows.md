@@ -40,10 +40,11 @@ thread/APC, synchronization, handle and synchronous file services. The
 implemented service profiles are recorded in
 [windows-services.md](windows-services.md),
 [windows-threading.md](windows-threading.md), and
-[windows-files.md](windows-files.md). API names alone do not establish complete
+[windows-files.md](windows-files.md), with checked dynamic DLL and notification
+profiles in [windows-dll-lifecycle.md](windows-dll-lifecycle.md). API names alone do not establish complete
 parameter coverage. Raw NT
-service-number tables, complete CRT/GUI/network/registry personalities, general
-dynamic native-DLL initialization/unloading, and host Windows support remain
+service-number tables, complete CRT/GUI/network/registry personalities, modern
+LoadLibraryEx/search policies, FLS callback teardown and host Windows support remain
 incomplete. ARM64EC is a distinct ABI and is not admitted as ARM64. Nonzero
 `NtContinue.TestAlert`, over-aligned static TLS, aggregate/vectorcall signatures,
 ARM64 PAC/SVE/custom unwind records, and x64 unwind versions other than 1 are
@@ -106,11 +107,11 @@ the fixture conformance tests cannot prove equivalence for all Windows binaries.
 High: the unfinished DLL/CRT/NT surfaces listed above prevent declaring the full
 Windows emulation objective complete. High: fixed-heap platform block ceilings
 are not enforced; the precise x64 ceiling is unknown because HeapAlloc's numeric
-limit and HeapCreate's architecture-dependent description differ. High: process
-and thread DLL detach/FLS teardown callbacks are incomplete. High: general
-dynamic-load failure rollback is incomplete: failed native modules retain their
-physical mapping and raw guest LDR entries, although checked module lookup hides
-them and subsequent loads preserve the original error. High: host filesystem
+limit and HeapCreate's architecture-dependent description differ. High: FLS
+teardown callbacks remain incomplete. Dynamic-load rollback and DLL
+notifications now have the bounded, tested profile described in the lifecycle
+record; native callback ordering/exception containment and private-allocation
+generation identity remain unknown or restricted. High: host filesystem
 check/unlink is not an atomic Windows namespace transaction against external
 mutation. High: synchronous host console reads can block the sole guest
 scheduler thread. Medium: admitted image
@@ -194,3 +195,22 @@ service-reference entries and all service fixture hashes passed.
 Native Windows differential execution remains unknown. Exact commands, the
 service Assumption Register, change-surface map, bounded findings and Quality
 Gates are in [Windows handle/service integration](windows-services.md).
+
+## DLL-lifecycle verification record — 2026-09-27
+
+The DLL-lifecycle group adds checked native loading, initialization, forwarding,
+failed-attach rollback/retry, counted/pinned module handles, unload, static TLS
+publication and normal-versus-forced termination for all three guest ABIs.
+The frozen portable combined run passed 6,490 library tests, all 41 Windows
+integration tests and all 10 CI contract tests. The feature-enabled library run
+passed 8,662 tests. Each library run ignored two optional microkernel tests;
+neither filtered tests. The library registry contains 218 Windows units. A
+separate serial Windows integration run passed all 41 tests, with none ignored
+or filtered. Nine lifecycle CLI cases executed at two scheduler slices, giving
+18 actual guest runs. All 81 retained service-reference entries and lifecycle
+fixture hashes passed. Both workspace all-target builds, Clippy and formatting
+passed; the doctest command executed zero tests and ignored five.
+Native Windows lifecycle equivalence remains unknown. Exact commands, the
+reconciled register, callback/ownership profiles, full change-surface map,
+bounded findings and Quality Gates are in
+[Windows DLL lifecycle integration](windows-dll-lifecycle.md).

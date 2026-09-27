@@ -28,10 +28,14 @@ pub enum Outcome {
     Yield,
     /// The thread parked on a wait.
     Park,
-    /// The thread ends with an exit code.
+    /// Normal thread exit; the scheduler delivers DLL notifications.
     ThreadExit(u32),
-    /// The process ends with an exit code.
+    /// Normal process exit; the scheduler delivers DLL notifications.
     ProcessExit(u32),
+    /// Forced thread termination; no guest termination callbacks execute.
+    ThreadTerminate(u32),
+    /// Forced process termination; no guest termination callbacks execute.
+    ProcessTerminate(u32),
     /// The emulator cannot continue.
     Fail(String),
 }
@@ -295,6 +299,14 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
         Ok(Flow::ExitProcess(code)) => {
             pop_frame(t, &site);
             Outcome::ProcessExit(code)
+        }
+        Ok(Flow::TerminateThread(code)) => {
+            pop_frame(t, &site);
+            Outcome::ThreadTerminate(code)
+        }
+        Ok(Flow::TerminateProcess(code)) => {
+            pop_frame(t, &site);
+            Outcome::ProcessTerminate(code)
         }
         Ok(Flow::Done) => {
             pop_frame(t, &site);
@@ -561,6 +573,38 @@ mod tests {
         (base, page)
     }
 
+    #[test]
+    fn normal_and_forced_terminal_flows_remain_distinct_all_abis() {
+        for arch in WinArch::ALL {
+            for (flow, expected) in [
+                (Flow::ExitThread(37), Outcome::ThreadExit(37)),
+                (Flow::ExitProcess(38), Outcome::ProcessExit(38)),
+                (Flow::TerminateThread(39), Outcome::ThreadTerminate(39)),
+                (Flow::TerminateProcess(40), Outcome::ProcessTerminate(40)),
+            ] {
+                let mut process = process(arch);
+                let p = process.state_mut();
+                let tid = *p.threads.keys().next().unwrap();
+                let mut t = p.threads.remove(&tid).unwrap();
+                t.attached = true;
+                let site = CallSite {
+                    api: &TEST_API,
+                    entry_pc: t.cpu.pc(),
+                    entry_sp: t.cpu.sp(),
+                    ret_addr: 0,
+                    cursor: t.cpu.sp(),
+                    framed: false,
+                };
+                assert_eq!(run(p, &mut t, site, |_| Ok(flow)), expected, "{arch}");
+                assert!(t.frames.is_empty());
+                assert!(
+                    t.attached,
+                    "terminal dispatch must not alter lifecycle admission"
+                );
+            }
+        }
+    }
+
     fn space() -> AddressSpace {
         let space = AddressSpace::new(SpaceConfig {
             va_limit: 1 << 32,
@@ -673,7 +717,7 @@ mod tests {
                     };
                     assert_eq!(
                         outcome,
-                        Outcome::ProcessExit(expected),
+                        Outcome::ProcessTerminate(expected),
                         "{arch}, resume={resume}"
                     );
                     if protection & prot::GUARD != 0 {
@@ -743,7 +787,7 @@ mod tests {
                 let result = Flow::call(0x4321, vec![1; 9], |_, _| Flow::void());
                 assert_eq!(
                     complete(p, &mut t, site, result),
-                    Outcome::ProcessExit(expected),
+                    Outcome::ProcessTerminate(expected),
                     "{arch}"
                 );
                 if protection & prot::GUARD != 0 {
