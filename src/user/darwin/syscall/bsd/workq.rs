@@ -257,18 +257,24 @@ fn set_self(ctx: &mut Ctx<'_>, pp: u32, voucher: u32, flags: u64) -> SysResult {
     if flags & (set_self::QOS | set_self::QOS_OVERRIDE) != 0 {
         qos_rv = set_qos(ctx, pp, flags, is_wq);
     }
-    if flags & set_self::VOUCHER != 0 && voucher != 0 {
-        // thread_set_voucher_name: a valid name must name a voucher.
-        let is_voucher = voucher != u32::MAX
-            && ctx
+    if flags & set_self::VOUCHER != 0 {
+        // thread_set_voucher_name: MACH_PORT_NULL clears the thread's
+        // voucher; any other name must be a send right to a voucher.
+        if voucher == 0 {
+            ctx.thread.mach.voucher = None;
+        } else {
+            let port = ctx
                 .proc
                 .ipc
                 .lookup(voucher)
                 .ok()
+                .filter(|e| e.send > 0 && voucher != u32::MAX)
                 .and_then(|e| e.port().cloned())
-                .is_some_and(|p| matches!(p.kobject, KObject::Voucher));
-        if !is_voucher {
-            voucher_rv = Some(Errno::ENOENT);
+                .filter(|p| matches!(p.kobject, KObject::Voucher(_)));
+            match port {
+                Some(p) => ctx.thread.mach.voucher = Some(p),
+                None => voucher_rv = Some(Errno::ENOENT),
+            }
         }
     }
     if qos_rv.is_none() && flags & (set_self::FIXEDPRIORITY | set_self::TIMESHARE) != 0 && is_wq {

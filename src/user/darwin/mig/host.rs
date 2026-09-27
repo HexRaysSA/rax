@@ -7,6 +7,7 @@ use crate::user::darwin::abi::DarwinAbi;
 use crate::user::darwin::commpage::NCPUS;
 use crate::user::darwin::mach::ipc::{KObject, Port};
 use crate::user::darwin::mach::kr::{self, KernReturn};
+use crate::user::darwin::mach::voucher;
 use crate::user::darwin::process::{MEMSIZE, memsize_usable};
 use crate::user::darwin::syscall::Ctx;
 
@@ -123,6 +124,27 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             let count = req.u32(36).min(max);
             let words = host_statistics(req.id == h::HOST_STATISTICS64, req.i32(32), count)?;
             Ok(info_reply(&words))
+        }
+        h::KERNELRPC_HOST_CREATE_MACH_VOUCHER => {
+            // recipes[recipesCnt] (at most 5120 bytes, padded to 4).
+            let max = voucher::MAX_RECIPE_ARRAY;
+            if req.complex() || req.size() < 36 || req.size() > 36 + max {
+                return Err(kr::MIG_BAD_ARGUMENTS);
+            }
+            let n = req.u32(32) as usize;
+            if n > max || req.size() != 36 + n.next_multiple_of(4) {
+                return Err(kr::MIG_BAD_ARGUMENTS);
+            }
+            if !is_host(req) {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            let recipes = req.bytes(36, n).to_vec();
+            let port =
+                match crate::user::darwin::syscall::mach::voucher::create(ctx.proc, &recipes)? {
+                    None => return Ok(Out::Complex(vec![super::null_port()], Vec::new())),
+                    Some(a) => ctx.proc.vouchers.canonical(a),
+                };
+            Ok(Out::Complex(vec![super::make_send(&port)], Vec::new()))
         }
         h::HOST_REQUEST_NOTIFICATION => {
             // host_request_notification(host, notify_type, notify_port):

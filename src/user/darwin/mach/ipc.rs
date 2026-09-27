@@ -123,8 +123,8 @@ pub enum KObject {
     Timer(u64),
     /// A clock (`host_get_clock_service`).
     Clock(u32),
-    /// A voucher.
-    Voucher,
+    /// A voucher, by its attribute values.
+    Voucher(Arc<super::voucher::Attrs>),
 }
 
 static NEXT_PORT_ID: AtomicU64 = AtomicU64::new(1);

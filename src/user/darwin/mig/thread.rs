@@ -344,16 +344,42 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             Ok(Out::Simple(Vec::new()))
         }
         t::THREAD_GET_MACH_VOUCHER => {
+            // `which` does not matter.
             req.simple(36)?;
-            with_thread(ctx, req, |_, _| ())?;
-            Ok(Out::Complex(vec![null_port()], Vec::new()))
+            let v = with_thread(ctx, req, |th, _| th.mach.voucher.clone())?;
+            Ok(Out::Complex(
+                vec![v.as_ref().map_or_else(null_port, make_send)],
+                Vec::new(),
+            ))
         }
         t::THREAD_SET_MACH_VOUCHER => {
+            // Anything but a voucher clears the thread's voucher; a thread
+            // other than the caller has started, so only the caller's own
+            // voucher can be set.
             req.complex_of(1, 40)?;
-            let v = req.take_port(28, &[disp::MOVE_SEND])?;
-            kmsg::release(ctx.proc, v);
-            with_thread(ctx, req, |_, _| ())?;
+            let right = req.take_port(28, &[disp::MOVE_SEND])?;
+            let v = right
+                .as_ref()
+                .and_then(|r| r.port())
+                .filter(|p| matches!(p.kobject, KObject::Voucher(_)))
+                .cloned();
+            kmsg::release(ctx.proc, right);
+            with_thread(ctx, req, |th, running| {
+                if running {
+                    th.mach.voucher = v;
+                    Ok(())
+                } else {
+                    Err(kr::KERN_INVALID_ARGUMENT)
+                }
+            })??;
             Ok(Out::Simple(Vec::new()))
+        }
+        t::THREAD_SWAP_MACH_VOUCHER => {
+            req.complex_of(2, 52)?;
+            let new = req.take_port(28, &[disp::MOVE_SEND])?;
+            let old = req.take_port(40, &[disp::MOVE_SEND])?;
+            kmsg::release(ctx.proc, new.into_iter().chain(old));
+            Err(kr::KERN_NOT_SUPPORTED)
         }
         _ => {
             if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {

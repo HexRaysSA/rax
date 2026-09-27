@@ -7,9 +7,11 @@
 //! | [`msg`] | Messages in transit |
 //! | [`sync`] | Semaphores |
 //! | [`task`] | Task and thread special ports, exception ports, accounting |
+//! | [`voucher`] | Vouchers and their attribute managers |
 
 pub mod ipc;
 pub mod kr;
 pub mod msg;
 pub mod sync;
 pub mod task;
+pub mod voucher;

@@ -304,3 +304,13 @@ fn kevent_data_arm64() {
 fn kevent_data_x86_64() {
     fixture("kevent_data", "x86_64", &[], &[]);
 }
+
+#[test]
+fn vouchers_arm64() {
+    fixture("vouchers", "arm64", &[], &[]);
+}
+
+#[test]
+fn vouchers_x86_64() {
+    fixture("vouchers", "x86_64", &[], &[]);
+}

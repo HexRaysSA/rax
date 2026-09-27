@@ -936,7 +936,7 @@ pub fn kobject_type(k: &KObject) -> u32 {
         KObject::TaskName => 20,
         KObject::Semaphore(_) => 23,
         KObject::Clock(_) => 25,
-        KObject::Voucher => 37,
+        KObject::Voucher(_) => 37,
         KObject::TaskInspect => 44,
         KObject::TaskRead => 45,
     }

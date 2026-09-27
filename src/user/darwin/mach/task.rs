@@ -147,6 +147,8 @@ pub struct ThreadMach {
     /// A join ulock to wake when the thread is gone, with the port name
     /// to drop then (`uus_bsdthread_terminate`).
     pub join: Option<(u64, u32)>,
+    /// The voucher the thread adopted (`ith_voucher`).
+    pub voucher: Option<std::sync::Arc<super::ipc::Port>>,
 }
 
 #[cfg(test)]
