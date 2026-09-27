@@ -374,3 +374,13 @@ fn audit_arm64() {
 fn audit_x86_64() {
     fixture("audit", "x86_64", &[], &[]);
 }
+
+#[test]
+fn protected_open_arm64() {
+    fixture("protected_open", "arm64", &[], &[]);
+}
+
+#[test]
+fn protected_open_x86_64() {
+    fixture("protected_open", "x86_64", &[], &[]);
+}

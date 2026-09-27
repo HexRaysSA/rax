@@ -108,6 +108,12 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         }
         nr::OPEN | nr::OPEN_NOCANCEL => path::openat(ctx, AT_FDCWD, a[0], u(1), u(2)),
         nr::OPENAT | nr::OPENAT_NOCANCEL => path::openat(ctx, i(0), a[1], u(2), u(3)),
+        nr::OPEN_DPROTECTED_NP => {
+            path::openat_dprotected(ctx, AT_FDCWD, a[0], u(1), i(2), i(3), u(4), None)
+        }
+        nr::OPENAT_DPROTECTED_NP => {
+            path::openat_dprotected(ctx, i(0), a[1], u(2), i(3), i(4), u(5), Some(i(6)))
+        }
         nr::CLOSE | nr::CLOSE_NOCANCEL => file::close(ctx, i(0)),
         nr::LSEEK => file::lseek(ctx, i(0), a[1] as i64, i(2)),
         nr::DUP => file::dup(ctx, i(0)),

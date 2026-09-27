@@ -267,6 +267,8 @@ calls; results in guest layouts come from the host's.
 
 | Area | Module | Counterpart |
 |---|---|---|
+| Opens check their flags before the path: where the guest's path or directory cannot be resolved, the host is handed a path that faults, so the error it reports first (`EINVAL` for both access modes or `O_EXEC` with one) is the call's | `syscall::bsd::path` | `open1`, `openat_internal` |
+| Data-protection opens: `open_dprotected_np` and `openat_dprotected_np` (and `openat_authenticated_np` through it), the host's, which keeps the class a file is created in and makes the checks: authentication only by `openat_dprotected_np` and never with `O_CREAT`, raw and authenticated opens read-only, and the authenticating descriptor a file's (`EBADF`, `ENOTSUP`) before the path is read | `syscall::bsd::path` | `open_dprotected_np`, `openat_dprotected_np`, `openat_dprotected_internal`, `vnode_getfromfd` |
 | Volume statistics: `statfs64`, `fstatfs64`, and `getfsstat64` (the count of mounted volumes with a NULL buffer, of those copied with a buffer too small for them all) | `syscall::bsd::path`, `syscall::bsd::file` | `statfs64`, `getfsstat64` |
 | `fsgetpath` and `fsgetpath_ext`: the path of an object by volume and object ID, the root overlay's prefix removed (`EINVAL` for unknown options or a size of 0 or over `MAXLONGPATHLEN`, `EFAULT` for the volume ID) | `syscall::bsd::path` | `fsgetpath_extended` |
 | Extended attributes: `getxattr`, `setxattr`, `removexattr`, `listxattr` and their descriptor forms, the host's attributes with the guest's memory copied in XNU's order (an option the call does not take, then the path before `getxattr`'s and `listxattr`'s name or buffer; the name, its protection, and the value's size before `setxattr`'s and `removexattr`'s path), lengths for a NULL buffer (and for a size of 0 except through `getxattr`), resource forks read at an offset | `syscall::bsd::xattr` | `getxattr`, `fgetxattr`, `setxattr`, `listxattr`, `xattr_protected` |
@@ -441,8 +443,9 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `sysctl` (the `machdep` subtree, which Rosetta shows as the arm64
   kernel's, on arm64 only), the flavored task ports, `task_read_for_pid`
   and `task_inspect_for_pid`, and the host's special ports in
-  `mach_info`, and the audit identity, copy rules, and refusals of
-  `audit`.
+  `mach_info`, the audit identity, copy rules, and refusals of `audit`,
+  and the protection classes, checks, and authentication of
+  `protected_open`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit
