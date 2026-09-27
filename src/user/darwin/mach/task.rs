@@ -6,8 +6,7 @@ use std::sync::Arc;
 
 use super::ipc::{Port, Right};
 
-/// `EXC_TYPES_COUNT`: exception types 1 ..= 14 index the actions.
-pub const EXC_TYPES_COUNT: usize = 15;
+pub use super::exception::EXC_TYPES_COUNT;
 
 /// `TASK_*_PORT` special-port numbers kept per task
 /// (`osfmk/mach/task_special_ports.h`).
@@ -40,6 +39,9 @@ pub mod special {
 pub struct ExcAction {
     /// The handler port (a send right the kernel holds).
     pub port: Option<Arc<Port>>,
+    /// The handler was a dead name (`IP_DEAD`), which `get` reports as
+    /// `MACH_PORT_DEAD`.
+    pub dead: bool,
     /// `exception_behavior_t`.
     pub behavior: i32,
     /// `thread_state_flavor_t`.

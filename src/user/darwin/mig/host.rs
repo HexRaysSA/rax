@@ -125,6 +125,18 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             let words = host_statistics(req.id == h::HOST_STATISTICS64, req.i32(32), count)?;
             Ok(info_reply(&words))
         }
+        // host_priv's exception ports: the guest holds only the host name
+        // port, which does not convert (convert_port_to_host_priv).
+        ids::host_priv::HOST_SET_EXCEPTION_PORTS | ids::host_priv::HOST_SWAP_EXCEPTION_PORTS => {
+            req.complex_of(1, 60)?;
+            let handler = super::exception::take_handler(req)?;
+            super::exception::release(ctx.proc, &handler);
+            Err(kr::KERN_INVALID_ARGUMENT)
+        }
+        ids::host_priv::HOST_GET_EXCEPTION_PORTS => {
+            req.simple(36)?;
+            Err(kr::KERN_INVALID_ARGUMENT)
+        }
         h::KERNELRPC_HOST_CREATE_MACH_VOUCHER => {
             // recipes[recipesCnt] (at most 5120 bytes, padded to 4).
             let max = voucher::MAX_RECIPE_ARRAY;

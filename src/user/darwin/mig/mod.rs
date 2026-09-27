@@ -16,6 +16,7 @@
 //! message, header included.
 
 pub mod clock;
+pub mod exception;
 pub mod host;
 pub mod ids;
 pub mod port;
@@ -353,7 +354,7 @@ fn dispatch(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
     let sub = |base: i32, n: i32| (base..base + n).contains(&id);
     if sub(ids::clock::BASE, 3) {
         clock::serve(ctx, req)
-    } else if sub(ids::host::BASE, 100) {
+    } else if sub(ids::host::BASE, 100) || sub(ids::host_priv::BASE, 26) {
         host::serve(ctx, req)
     } else if sub(ids::mach_port::BASE, 100) {
         port::serve(ctx, req)
