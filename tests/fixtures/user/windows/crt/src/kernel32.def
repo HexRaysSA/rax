@@ -1,0 +1,23 @@
+LIBRARY KERNEL32.dll
+EXPORTS
+ExitProcess
+GetLastError
+SetLastError
+GetCurrentThreadId
+CreateThread
+CreateEventW
+SetEvent
+WaitForSingleObject
+CloseHandle
+ConvertThreadToFiber
+ConvertFiberToThread
+CreateFiber
+SwitchToFiber
+DeleteFiber
+LoadLibraryA
+GetModuleHandleA
+GetProcAddress
+FreeLibrary
+AddVectoredExceptionHandler
+FlsAlloc
+FlsSetValue

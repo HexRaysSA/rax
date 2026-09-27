@@ -1,0 +1,345 @@
+{
+  "schema": 1,
+  "scope": "CRT allocation, thread error state and invalid-parameter contracts",
+  "baseline": "78e3abc5d932ab5bd5027e957828e88e6e401eea",
+  "retrieved": "2026-09-27",
+  "normalization": "Unmodified Microsoft raw Markdown/license bytes. Installed mingw-w64 header excerpt explicitly labeled.",
+  "native_windows_oracle": "unknown; no native Windows execution performed",
+  "sources": [
+    {
+      "sha256": "30e326809edb7dc4ee10dc9b59467bded720e7df1e8539ea35db7645325b1bf8",
+      "path": "allocation/calloc.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/calloc.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/calloc?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "38935c7af6d1dd245fce852c47bf402049d1514227db348fcec2b5e92349656d",
+      "path": "allocation/errno-constants.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/errno-constants.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-constants?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "d160ed6ce9f63d78b175f8c1044544bdba18700fd5b16b3b2ab52417b1db84e8",
+      "path": "allocation/errno-doserrno-sys-errlist-and-sys-nerr.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/errno-doserrno-sys-errlist-and-sys-nerr.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/errno-doserrno-sys-errlist-and-sys-nerr?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "74ff9670fae23ccdbf103778ac73a61818db81b668635399ac21572a7a1a330a",
+      "path": "allocation/expand.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/expand.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/expand?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "bc48b7fbeb6523351b9e053a41ce520af93db40cf765cb7d510bef1cd973e7c4",
+      "path": "allocation/fastfail.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/intrinsics/fastfail.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/intrinsics/fastfail?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "aca094a829d36617d3b64dd6f85466a9fb91b5af7be3dfb56e2073557c20471e",
+      "path": "allocation/free.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/free.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/free?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "6cd8cff5a12fcc198fbfbb5688b57173a09a598996d482e94955ffb8481c091f",
+      "path": "allocation/get-doserrno.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/get-doserrno.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/get-doserrno?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "5006aae2a388128274d96ac9a91fc42614edc415537056fdd2a99855dd46b0ed",
+      "path": "allocation/get-errno.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/get-errno.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/get-errno?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "e9cac28aca757bc08d0c8bd423e95d18ebf8d1083395d86b71a0b286a61d244a",
+      "path": "allocation/get-heap-handle.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/get-heap-handle.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/get-heap-handle?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "95d68bd20daf79c5149658d47a22865ac8df2da7958dd50d8b60d775bf270aeb",
+      "path": "allocation/get-invalid-parameter-handler-get-thread-local-invalid-parameter-handler.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/get-invalid-parameter-handler-get-thread-local-invalid-parameter-handler.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/get-invalid-parameter-handler-get-thread-local-invalid-parameter-handler?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "406f743213683af69a5bafd8eaf8474c18e5b327552772374504a6c83c6c888b",
+      "path": "allocation/heap-maxreq.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/heap-maxreq.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/heap-maxreq?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "b66631dcfef25e09e3f586718344a01f9250ba551dbf5f704123aa0f39425bb4",
+      "path": "allocation/invalid-parameter-functions.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/invalid-parameter-functions.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/invalid-parameter-functions?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "db5748974b4615fe9b70ef83e1e17e10428df2ca558dd24a0a4a3f44e4edb861",
+      "path": "allocation/malloc.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/malloc.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/malloc?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "eba6a4745c1cea7911125753892e9616f0d50da1a82573ea3993794dcb1a975c",
+      "path": "allocation/msize.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/msize.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/msize?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "ee502db41c364a0d8f4f09603c2581d2b626fc159335ecbfa6bc123f4876f307",
+      "path": "allocation/parameter-validation.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/parameter-validation.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/parameter-validation?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "4c8400d60c86d5ade2f4bb0560bce5ca41fe2cbf54e8902a347b07fa123f58e3",
+      "path": "allocation/potential-errors-passing-crt-objects-across-dll-boundaries.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/potential-errors-passing-crt-objects-across-dll-boundaries.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/potential-errors-passing-crt-objects-across-dll-boundaries?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "e1d3a6d6a580d5d7166f380d274d14c5d61bdaa8744f42800cfc01fbbd4b4ac2",
+      "path": "allocation/realloc.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/realloc.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/realloc?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "dcb56af9a9b695d6584ffd7a77c3d8ee12dcf89233c2182027ec95f1b3b233db",
+      "path": "allocation/set-doserrno.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/set-doserrno.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/set-doserrno?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "b28c956f5de27101b273fb293062a966f7eee1bc9c457b1ee8651dd6ddb1484d",
+      "path": "allocation/set-errno.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/set-errno.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/set-errno?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "5564b4701a365c1f34dc824e27d8bae132eada3f9fa59129c1a15e898d9233ba",
+      "path": "allocation/set-invalid-parameter-handler-set-thread-local-invalid-parameter-handler.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/set-invalid-parameter-handler-set-thread-local-invalid-parameter-handler.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/set-invalid-parameter-handler-set-thread-local-invalid-parameter-handler?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "sha256": "6117d31f769da8d2c79512102c72ce3530a97ac8fa3a69dfdb7146d894a9da7d",
+      "path": "allocation/strdup-wcsdup-mbsdup.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/strdup-wcsdup-mbsdup.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/strdup-wcsdup-mbsdup?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    }
+  ],
+  "auxiliary": [
+    {
+      "sha256": "9bbc1ea9fe5c96df01b311a2ac864d5b18fc87b9948bfd14770e4b44db755ee9",
+      "path": "allocation/LICENSE"
+    },
+    {
+      "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2",
+      "path": "allocation/LICENSE-CODE"
+    },
+    {
+      "sha256": "f8d7c739cfb8a7c738aba9ec44bc5183d9bc81b968f2b5bb8b932de8ba2ff7c4",
+      "path": "allocation/acquire.sh"
+    },
+    {
+      "sha256": "658dccd840a3ab8912938b5541e3787a390ddbb4313b7726fca4a1186b5d2cbe",
+      "path": "allocation/mingw-heap-maxreq.h"
+    }
+  ],
+  "sdk_width_evidence": {
+    "path": "allocation/mingw-heap-maxreq.h",
+    "origin": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/malloc.h",
+    "original_sha256": "3fa71bccd3d87abf25e47feb9c05df95cd42a578f26485e88582aab61406853a",
+    "transformation": "Retained public-domain notice and _HEAP_MAXREQ preprocessor excerpt, with acquisition annotation.",
+    "claim": "Explicit personality width profile: SIZE_MAX - 31, not proof of a pinned Microsoft binary's heap geometry."
+  },
+  "conflicts": [
+    {
+      "source": "allocation/get-errno.md YAML api_location lists msvcrt.dll",
+      "observation": "Installed mingw-w64 libmsvcrt-os.a provides _get/_set errno/doserrno via static compatibility members rather than direct IAT import objects.",
+      "resolution": "Conservative admitted named subset: pointer accessors in both built-ins; validated accessors and invalid-handler names in UCRT only. Full native Windows export inventory unknown."
+    }
+  ],
+  "profiles": [
+    "Default new-handler mode only; mode/handler setters and queries are absent exports.",
+    "Each runtime owns a distinct private heap and host ledger; invalid/double/cross-runtime blocks fail closed with STATUS_HEAP_CORRUPTION. Native invalid-pointer exact behavior unknown.",
+    "_msize reports requested size; _expand uses the shared non-LFH best-fit allocator and keeps a zero-logical-size block for size 0. Native private heap capacity and zero-size _expand geometry unknown.",
+    "Zero-operand calloc uses one requested byte; Microsoft specifies a nonzero allocation but not an exact usable size.",
+    "Lazy thread error-state establishment failure raises STATUS_NO_MEMORY when no errno cell exists. Ordinary allocator OOM after establishment returns NULL with ENOMEM.",
+    "Allocator errno write access is preflighted before mutations. Exact native CRT protection/fault ordering unknown.",
+    "FAST_FAIL_INVALID_ARG default terminates with 0xC0000409 without guest SEH/DLL/FLS callbacks; debugger-specific reason/exception parameter observation is not implemented."
+  ]
+}

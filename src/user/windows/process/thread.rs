@@ -410,6 +410,9 @@ pub fn destroy(p: &mut Proc, t: Thread, code: u32) {
         p.fail(format!("fiber teardown failed: {status:#010x}"));
     }
     let tid = t.tid;
+    if let Err(status) = super::super::dll::crt::release_thread(p, tid) {
+        p.fail(format!("CRT thread teardown failed: {status:#010x}"));
+    }
     p.modules.dynamic.tls_blocks.remove(&tid);
     let ids: Vec<ObjId> = p
         .objects

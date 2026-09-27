@@ -136,3 +136,12 @@ synchronized migration, call-preserved/FP state, normal/forced exits and demand
 stack growth. Every program runs at slices of 1 and 4,096 instructions with a
 30 s external watchdog. Source/artifact hashes and explicitly retained profiles
 are in that fixture directory; no native Windows oracle is claimed.
+
+The same target reaches `suites/user/windows/crt.rs`. Its separate
+`fixtures/user/windows/crt/build.sh` graph checks named MSVCRT, UCRTBASE and
+UCRT heap/string/runtime API-set and VCRUNTIME140 imports for x86, x64 and ARM64.
+Custom-entry programs exercise CRT allocations, checked byte/UTF-16 memory/string routines,
+thread-local error state and real invalid-parameter callbacks. They run at
+slices of 1 and 4,096 instructions under a 30 s external watchdog. These
+programs do not replace or establish ordinary compiler CRT startup or stdio;
+native Windows differential execution remains unknown.

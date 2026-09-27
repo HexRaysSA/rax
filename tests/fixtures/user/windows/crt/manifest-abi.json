@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "purpose": "Reuse retained primary Microsoft calling-convention sources and license; no native Windows execution oracle.",
+  "retrieved": "2026-09-27",
+  "revision": "Mutable MicrosoftDocs cpp-docs/main retrieval; exact content pinned by SHA-256, source commit unknown.",
+  "parent_provenance": "docs/specifications/windows/sources.json",
+  "sources": [
+    {
+      "path": "docs/specifications/windows/microsoft-docs/cdecl.md",
+      "issuer": "Microsoft",
+      "title": "__cdecl",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/cpp/cdecl",
+      "sha256": "91277cd20158904273ad45ba4b396c9a904a141fcd4725d7a05721c8516c9a0d"
+    },
+    {
+      "path": "docs/specifications/windows/microsoft-docs/stdcall.md",
+      "issuer": "Microsoft",
+      "title": "__stdcall",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/cpp/stdcall",
+      "sha256": "ffe572ec05d6172e78b8fcdacf8c5398fd7c6d0d34dcbd8fcec20670a9f4b963"
+    },
+    {
+      "path": "docs/specifications/windows/microsoft-docs/x64-calling-convention.md",
+      "issuer": "Microsoft",
+      "title": "x64 calling convention",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/build/x64-calling-convention",
+      "sha256": "043986cc9256b62c29b4b18fba978cfece03da69e8680054d210d40b625d89c0"
+    },
+    {
+      "path": "docs/specifications/windows/microsoft-docs/arm64-windows-abi-conventions.md",
+      "issuer": "Microsoft",
+      "title": "Overview of ARM64 ABI conventions",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/build/arm64-windows-abi-conventions",
+      "sha256": "ca114f82ef8d5eae781896ba95e98b5ccd2105b555360777bb6a491c1eec97aa"
+    },
+    {
+      "path": "docs/specifications/windows/microsoft-docs/LICENSE",
+      "issuer": "Microsoft",
+      "title": "MicrosoftDocs cpp-docs CC BY 4.0 license",
+      "canonical_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE",
+      "sha256": "03a50105dc91319b3695398007341b9242b38831dab2e515ff4d7ba1f9826e2b"
+    }
+  ]
+}

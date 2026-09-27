@@ -20,6 +20,9 @@ mod lifecycle;
 #[path = "fibers.rs"]
 mod fibers;
 
+#[path = "crt.rs"]
+mod crt;
+
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/user/windows")
 }
@@ -200,6 +203,32 @@ fn retained_service_primary_sources_match_their_provenance_hashes() {
                 sha256::hex(&content),
                 entry["sha256"].as_str().unwrap(),
                 "{group}/{path}"
+            );
+        }
+    }
+}
+
+#[test]
+fn retained_crt_primary_contracts_and_auxiliary_hashes_are_verified() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("docs/specifications/windows/crt-foundation");
+    for (name, primary_count) in [("manifest-alloc.json", 21), ("manifest-memory.json", 19)] {
+        let manifest: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(root.join(name)).unwrap()).unwrap();
+        assert_eq!(manifest["sources"].as_array().unwrap().len(), primary_count);
+        let mut paths = std::collections::HashSet::new();
+        for entry in manifest["sources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .chain(manifest["auxiliary"].as_array().into_iter().flatten())
+        {
+            let path = entry["path"].as_str().unwrap();
+            assert!(paths.insert(path), "{name}: duplicate retained path {path}");
+            assert_eq!(
+                sha256::hex(&std::fs::read(root.join(path)).unwrap()),
+                entry["sha256"].as_str().unwrap(),
+                "{name}: {path}"
             );
         }
     }

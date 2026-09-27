@@ -1,0 +1,812 @@
+{
+  "schema": 1,
+  "observation": "Old RAX loader baseline, not native Windows behavior",
+  "source_baseline": "78e3abc5d932ab5bd5027e957828e88e6e401eea",
+  "executable": "/tmp/rax-crt-baseline.BLhLTJ/rax-user",
+  "executable_sha256": "15d49476e26d17535b6bbca45c0ff535d04ba58c866381fa35f8a5acc7f1c32f",
+  "fixture_manifest_sha256": "6d9d159801760def6d5de1d2d173f3bad246fceb6b9cbcda35b0de058931670a",
+  "environment": {
+    "RAX_NO_JIT": "1"
+  },
+  "seed": 1,
+  "arena_bytes": 67108864,
+  "watchdog_seconds": 30,
+  "watchdog_command": "perl -e 'alarm 30; exec @ARGV'",
+  "argument_template": [
+    "--os",
+    "windows",
+    "--memory",
+    "64M",
+    "--drive",
+    "C=/Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/{arch}/{binding}",
+    "--cwd",
+    "C:\\",
+    "--slice",
+    "{slice_instructions}",
+    "--seed",
+    "1",
+    "/Users/int/dev/rax2/tests/fixtures/user/windows/crt/{path}"
+  ],
+  "runs": [
+    {
+      "arch": "x86",
+      "binding": "msvcrt",
+      "path": "bin/x86/msvcrt/foundation.exe",
+      "input_sha256": "ed3dc63025a95c446a513e4d11dbb399fc0a9088db89d4494117f49a783dec74",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/msvcrt/foundation.exe: foundation.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "msvcrt",
+      "path": "bin/x86/msvcrt/foundation.exe",
+      "input_sha256": "ed3dc63025a95c446a513e4d11dbb399fc0a9088db89d4494117f49a783dec74",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/msvcrt/foundation.exe: foundation.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "msvcrt",
+      "path": "bin/x86/msvcrt/errno.exe",
+      "input_sha256": "cc4f579c0900a9968d09a7459bcd105ae62b47fa0847c3f02585f80b87efc4bb",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/msvcrt/errno.exe: errno.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "msvcrt",
+      "path": "bin/x86/msvcrt/errno.exe",
+      "input_sha256": "cc4f579c0900a9968d09a7459bcd105ae62b47fa0847c3f02585f80b87efc4bb",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/msvcrt/errno.exe: errno.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "msvcrt",
+      "path": "bin/x86/msvcrt/module.exe",
+      "input_sha256": "57ceadd744fb56c42aa0a5fb4ed719b157d61887b8d36384e82b58ee988029ca",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/msvcrt/module.exe: module.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "msvcrt",
+      "path": "bin/x86/msvcrt/module.exe",
+      "input_sha256": "57ceadd744fb56c42aa0a5fb4ed719b157d61887b8d36384e82b58ee988029ca",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/msvcrt/module.exe: module.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/foundation.exe",
+      "input_sha256": "08048c06a6d138d90a94663c229d81fdeff057dfc9aa40fab566d3c4f34ce7d6",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/foundation.exe: foundation.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/foundation.exe",
+      "input_sha256": "08048c06a6d138d90a94663c229d81fdeff057dfc9aa40fab566d3c4f34ce7d6",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/foundation.exe: foundation.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/errno.exe",
+      "input_sha256": "ed45500f4c3d0973527a6686850c6f22b219bfbb18f916d3cc1aa49b5d14c8bd",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/errno.exe: errno.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/errno.exe",
+      "input_sha256": "ed45500f4c3d0973527a6686850c6f22b219bfbb18f916d3cc1aa49b5d14c8bd",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/errno.exe: errno.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/module.exe",
+      "input_sha256": "126564a5aa44bd6c6ded53101e1800917deb89bda57a815dee11e31634f5581d",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/module.exe: module.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/module.exe",
+      "input_sha256": "126564a5aa44bd6c6ded53101e1800917deb89bda57a815dee11e31634f5581d",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/module.exe: module.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/invalid.exe",
+      "input_sha256": "aedc75855786fbe701906aa3138d56b3d872f2d10d58fcdff6df1425afaf12da",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/invalid.exe: invalid.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/invalid.exe",
+      "input_sha256": "aedc75855786fbe701906aa3138d56b3d872f2d10d58fcdff6df1425afaf12da",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/invalid.exe: invalid.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/fatal.exe",
+      "input_sha256": "04c05f1828c2c5df88fabf4885cc5eecc6d732d32639d28369f4912f2690ff76",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/fatal.exe: fatal.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/fatal.exe",
+      "input_sha256": "04c05f1828c2c5df88fabf4885cc5eecc6d732d32639d28369f4912f2690ff76",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/ucrtbase/fatal.exe: fatal.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/foundation.exe",
+      "input_sha256": "1573ef1f1e2ad1c7ac20ca40d51508b33dd6b197344f0a5e9b656e52515654aa",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/foundation.exe: foundation.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/foundation.exe",
+      "input_sha256": "1573ef1f1e2ad1c7ac20ca40d51508b33dd6b197344f0a5e9b656e52515654aa",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/foundation.exe: foundation.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/errno.exe",
+      "input_sha256": "0f04f8de7bcf221e36f8e5e42db56c2303acf14105613b34f2008483591a4d85",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/errno.exe: errno.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/errno.exe",
+      "input_sha256": "0f04f8de7bcf221e36f8e5e42db56c2303acf14105613b34f2008483591a4d85",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/errno.exe: errno.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/module.exe",
+      "input_sha256": "148867971cdc3439196ee6a60a29d23746c692a29c321addb0bf1d1d10da8cd6",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/module.exe: module.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/module.exe",
+      "input_sha256": "148867971cdc3439196ee6a60a29d23746c692a29c321addb0bf1d1d10da8cd6",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/module.exe: module.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/invalid.exe",
+      "input_sha256": "4bb5deaa5fb94cff1c9c710bfa0dae57b15bd671e019e0f2de9442f276b9ba48",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/invalid.exe: invalid.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/invalid.exe",
+      "input_sha256": "4bb5deaa5fb94cff1c9c710bfa0dae57b15bd671e019e0f2de9442f276b9ba48",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/invalid.exe: invalid.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/fatal.exe",
+      "input_sha256": "ae87cc2b052875f06ae7b72efc693b1ab0e2a6447b1951fdc403539b62d3335c",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/fatal.exe: fatal.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/fatal.exe",
+      "input_sha256": "ae87cc2b052875f06ae7b72efc693b1ab0e2a6447b1951fdc403539b62d3335c",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x86/apiset/fatal.exe: fatal.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "msvcrt",
+      "path": "bin/x64/msvcrt/foundation.exe",
+      "input_sha256": "c7c2845dc229beccfbc89e38cc6991626f572f69dc5d9017e8954955040f3094",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/msvcrt/foundation.exe: foundation.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "msvcrt",
+      "path": "bin/x64/msvcrt/foundation.exe",
+      "input_sha256": "c7c2845dc229beccfbc89e38cc6991626f572f69dc5d9017e8954955040f3094",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/msvcrt/foundation.exe: foundation.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "msvcrt",
+      "path": "bin/x64/msvcrt/errno.exe",
+      "input_sha256": "a05d917c6593a6c9d00450252f83895ceec71ab3cc832d298fb1f9abd3f0c4a4",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/msvcrt/errno.exe: errno.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "msvcrt",
+      "path": "bin/x64/msvcrt/errno.exe",
+      "input_sha256": "a05d917c6593a6c9d00450252f83895ceec71ab3cc832d298fb1f9abd3f0c4a4",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/msvcrt/errno.exe: errno.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "msvcrt",
+      "path": "bin/x64/msvcrt/module.exe",
+      "input_sha256": "5ea89b6e410541d6af7c9f4b15ea16cbd512bdc74e36d8ec2cd0befab5cb7073",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/msvcrt/module.exe: module.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "msvcrt",
+      "path": "bin/x64/msvcrt/module.exe",
+      "input_sha256": "5ea89b6e410541d6af7c9f4b15ea16cbd512bdc74e36d8ec2cd0befab5cb7073",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/msvcrt/module.exe: module.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/foundation.exe",
+      "input_sha256": "b1f13dbc3553683af458d48f4259ce3b4fdd483666846b329f9bcbf0a338880d",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/foundation.exe: foundation.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/foundation.exe",
+      "input_sha256": "b1f13dbc3553683af458d48f4259ce3b4fdd483666846b329f9bcbf0a338880d",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/foundation.exe: foundation.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/errno.exe",
+      "input_sha256": "8bcffb8b8b7bf4b86e30bb5eabd3bb99cd56018c8d21b30d2c64a7150509ad02",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/errno.exe: errno.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/errno.exe",
+      "input_sha256": "8bcffb8b8b7bf4b86e30bb5eabd3bb99cd56018c8d21b30d2c64a7150509ad02",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/errno.exe: errno.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/module.exe",
+      "input_sha256": "aa0a0dfb471d2a8beac988c11435a2092c0d3762379deb246111e3c73fb74c8c",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/module.exe: module.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/module.exe",
+      "input_sha256": "aa0a0dfb471d2a8beac988c11435a2092c0d3762379deb246111e3c73fb74c8c",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/module.exe: module.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/invalid.exe",
+      "input_sha256": "41367dade92002eec4e64285d805b3ecef36ea2b0f95964ae54c896c5a3d4df0",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/invalid.exe: invalid.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/invalid.exe",
+      "input_sha256": "41367dade92002eec4e64285d805b3ecef36ea2b0f95964ae54c896c5a3d4df0",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/invalid.exe: invalid.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/fatal.exe",
+      "input_sha256": "a3f2dcdeb65cb8d038358d0fe61c66dfdeb2792b5abe74d7172652003af42df3",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/fatal.exe: fatal.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/fatal.exe",
+      "input_sha256": "a3f2dcdeb65cb8d038358d0fe61c66dfdeb2792b5abe74d7172652003af42df3",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/ucrtbase/fatal.exe: fatal.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/foundation.exe",
+      "input_sha256": "7cfab9b1aaf9e4e6010cda5878433cb6343b0226c6c6e9737ed90fa7a0f234c0",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/foundation.exe: foundation.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/foundation.exe",
+      "input_sha256": "7cfab9b1aaf9e4e6010cda5878433cb6343b0226c6c6e9737ed90fa7a0f234c0",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/foundation.exe: foundation.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/errno.exe",
+      "input_sha256": "cbe57d75472226986c7e56d3e77f425a85d80481496ab2b6086cc74a0c337d2c",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/errno.exe: errno.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/errno.exe",
+      "input_sha256": "cbe57d75472226986c7e56d3e77f425a85d80481496ab2b6086cc74a0c337d2c",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/errno.exe: errno.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/module.exe",
+      "input_sha256": "87f8d983493f8388410342bca2ec3d834f7347f602c3c6b110621c58d9028f41",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/module.exe: module.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/module.exe",
+      "input_sha256": "87f8d983493f8388410342bca2ec3d834f7347f602c3c6b110621c58d9028f41",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/module.exe: module.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/invalid.exe",
+      "input_sha256": "eadbe4954d5ddb150294e8544bb820c508efcd3ac10b2bcbca9841a8748d6aff",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/invalid.exe: invalid.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/invalid.exe",
+      "input_sha256": "eadbe4954d5ddb150294e8544bb820c508efcd3ac10b2bcbca9841a8748d6aff",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/invalid.exe: invalid.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/fatal.exe",
+      "input_sha256": "6f622550508b821ea94e66b8cab449b148baca9c3d957f90ef35ca1370ff16e7",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/fatal.exe: fatal.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/fatal.exe",
+      "input_sha256": "6f622550508b821ea94e66b8cab449b148baca9c3d957f90ef35ca1370ff16e7",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/x64/apiset/fatal.exe: fatal.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "msvcrt",
+      "path": "bin/arm64/msvcrt/foundation.exe",
+      "input_sha256": "692ec7eac11ee7f438e9c5f1eb5efbc0776ee7f6d64cda3a051fbd9ee97710a1",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/msvcrt/foundation.exe: foundation.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "msvcrt",
+      "path": "bin/arm64/msvcrt/foundation.exe",
+      "input_sha256": "692ec7eac11ee7f438e9c5f1eb5efbc0776ee7f6d64cda3a051fbd9ee97710a1",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/msvcrt/foundation.exe: foundation.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "msvcrt",
+      "path": "bin/arm64/msvcrt/errno.exe",
+      "input_sha256": "d5376a4644e28e4af7190654325c0fc953d3a3fbcb9b331997ce6b8cc761d425",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/msvcrt/errno.exe: errno.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "msvcrt",
+      "path": "bin/arm64/msvcrt/errno.exe",
+      "input_sha256": "d5376a4644e28e4af7190654325c0fc953d3a3fbcb9b331997ce6b8cc761d425",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/msvcrt/errno.exe: errno.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "msvcrt",
+      "path": "bin/arm64/msvcrt/module.exe",
+      "input_sha256": "3d1e5376c07db38865280d99350db86aebd768892043f6059fd6d09e35cd7e70",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/msvcrt/module.exe: module.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "msvcrt",
+      "path": "bin/arm64/msvcrt/module.exe",
+      "input_sha256": "3d1e5376c07db38865280d99350db86aebd768892043f6059fd6d09e35cd7e70",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/msvcrt/module.exe: module.exe imports msvcrt.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/foundation.exe",
+      "input_sha256": "eb892474a4ab2c9caf180adca249a3d87e36a915a68d2eab6dfe551230b43214",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/foundation.exe: foundation.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/foundation.exe",
+      "input_sha256": "eb892474a4ab2c9caf180adca249a3d87e36a915a68d2eab6dfe551230b43214",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/foundation.exe: foundation.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/errno.exe",
+      "input_sha256": "a20e46735b61e99699eca9005c4b2a10612e68fc903cf9e11efc140b64e56d65",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/errno.exe: errno.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/errno.exe",
+      "input_sha256": "a20e46735b61e99699eca9005c4b2a10612e68fc903cf9e11efc140b64e56d65",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/errno.exe: errno.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/module.exe",
+      "input_sha256": "4ec02819233861d1450a5ea53664b9acea0ab92099a92aa8694b0ba4c40c3396",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/module.exe: module.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/module.exe",
+      "input_sha256": "4ec02819233861d1450a5ea53664b9acea0ab92099a92aa8694b0ba4c40c3396",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/module.exe: module.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/invalid.exe",
+      "input_sha256": "f098d5d8ca1c9a1043b4ff04387ee899fdb7193cf52e77105e14639a11a57372",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/invalid.exe: invalid.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/invalid.exe",
+      "input_sha256": "f098d5d8ca1c9a1043b4ff04387ee899fdb7193cf52e77105e14639a11a57372",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/invalid.exe: invalid.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/fatal.exe",
+      "input_sha256": "60578469017bd813aaf7b0b501575e494104b0bcf51d01a23723fcead5efe7a5",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/fatal.exe: fatal.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/fatal.exe",
+      "input_sha256": "60578469017bd813aaf7b0b501575e494104b0bcf51d01a23723fcead5efe7a5",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/ucrtbase/fatal.exe: fatal.exe imports ucrtbase.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/foundation.exe",
+      "input_sha256": "35a78d3c930b9eca47dbc3cc91a2b1a0a886e0bea43d0a55c32af49cdb94294b",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/foundation.exe: foundation.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/foundation.exe",
+      "input_sha256": "35a78d3c930b9eca47dbc3cc91a2b1a0a886e0bea43d0a55c32af49cdb94294b",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/foundation.exe: foundation.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/errno.exe",
+      "input_sha256": "afd7f1d7cecb09a414e07fd8652f32b70c6e4f9085462cc85ce8429c543161c9",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/errno.exe: errno.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/errno.exe",
+      "input_sha256": "afd7f1d7cecb09a414e07fd8652f32b70c6e4f9085462cc85ce8429c543161c9",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/errno.exe: errno.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/module.exe",
+      "input_sha256": "e8a0e8ad0fdc3152bd219e759407ba63e5a3bf401e070eb053bb6d92e1112b6f",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/module.exe: module.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/module.exe",
+      "input_sha256": "e8a0e8ad0fdc3152bd219e759407ba63e5a3bf401e070eb053bb6d92e1112b6f",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/module.exe: module.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/invalid.exe",
+      "input_sha256": "fcaafe9d1192cff056cd3d76ad75fe0809e988d6271f2ca4f5ba8dfd6d5ec823",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/invalid.exe: invalid.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/invalid.exe",
+      "input_sha256": "fcaafe9d1192cff056cd3d76ad75fe0809e988d6271f2ca4f5ba8dfd6d5ec823",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/invalid.exe: invalid.exe imports api-ms-win-crt-heap-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/fatal.exe",
+      "input_sha256": "49ac4479eac6023e95aa8d38f6082b26dfeb7a5effc80ed274bbd6f209eea246",
+      "slice_instructions": 1,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/fatal.exe: fatal.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/fatal.exe",
+      "input_sha256": "49ac4479eac6023e95aa8d38f6082b26dfeb7a5effc80ed274bbd6f209eea246",
+      "slice_instructions": 4096,
+      "shell_exit": 53,
+      "status": "0xc0000135",
+      "stderr": "rax-user: /Users/int/dev/rax2/tests/fixtures/user/windows/crt/bin/arm64/apiset/fatal.exe: fatal.exe imports api-ms-win-crt-runtime-l1-1-0.dll, which was not found (status 0xc0000135)"
+    }
+  ]
+}
