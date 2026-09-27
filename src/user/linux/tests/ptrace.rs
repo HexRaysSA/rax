@@ -443,3 +443,50 @@ fn answers_and_what_follows_them_arrive_together() {
         assert_eq!(h.result(0), 0, "the answer that came before the end");
     });
 }
+
+/// A `SIGKILL` the tracer sends ends its tracee's stop at once
+/// (`signal_wake_up`), and a fatal signal pending keeps it from stopping
+/// again (`ptrace_stop`): neither a stop not yet waited for nor one still
+/// on its way is reported. (A real `SIGKILL` here would reach the host
+/// process running the tests; a fixture sends it.)
+#[test]
+fn a_killed_tracees_stops_are_not_reported() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let (mine, theirs) = Link::pair().unwrap();
+        h.proc.state.parent_link = Some(mine);
+        let (parent, me) = (h.proc.state.ppid, h.proc.threads[0].tid);
+        h.proc.state.tracees.add(parent, me, LinkId::Parent, false);
+        let stop = |code| Msg::Stop {
+            tid: parent,
+            code,
+            why: code::CLD_TRAPPED,
+            status: code,
+            uid: 0,
+        };
+        assert!(theirs.send(&stop(SIGSTOP)));
+        while h.proc.state.tracees.get(parent).unwrap().stopped.is_none() {
+            h.proc.collect_async(None);
+        }
+        h.proc.state.tracees.killed(|link| link == LinkId::Parent);
+        let t = h.proc.state.tracees.get(parent).unwrap();
+        assert_eq!((t.stopped, t.killed), (None, true));
+        // A stop sent before the signal arrived: not recorded.
+        assert!(theirs.send(&stop(SIGUSR1)));
+        assert!(theirs.send(&Msg::Gone {
+            tid: parent,
+            status: Some(SIGKILL),
+        }));
+        while h
+            .proc
+            .state
+            .tracees
+            .get(parent)
+            .is_some_and(|t| t.exited.is_none())
+        {
+            h.proc.collect_async(None);
+        }
+        let t = h.proc.state.tracees.get(parent);
+        assert!(t.is_none_or(|t| t.stopped.is_none()));
+    });
+}

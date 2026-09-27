@@ -647,6 +647,11 @@ pub struct Tracee {
     pub reported: bool,
     /// It exited with this wait status, for its tracer to reap.
     pub exited: Option<i32>,
+    /// This tracer sent it `SIGKILL`, which ends a traced stop at once and
+    /// keeps it from stopping again (`signal_wake_up`,
+    /// `__fatal_signal_pending` in `ptrace_stop`): no stop of it is
+    /// reported from then on.
+    pub killed: bool,
 }
 
 /// A tracer's tracees and the answer awaited on each link.
@@ -678,7 +683,19 @@ impl Tracees {
             stopped: None,
             reported: false,
             exited: None,
+            killed: false,
         });
+    }
+
+    /// The tracees of process `pid` (by the link to it) were sent
+    /// `SIGKILL`: a stop not yet waited for, or one still on its way, is
+    /// never reported.
+    pub fn killed(&mut self, peers: impl Fn(LinkId) -> bool) {
+        for t in self.list.iter_mut().filter(|t| peers(t.link)) {
+            t.killed = true;
+            t.stopped = None;
+            t.reported = false;
+        }
     }
 
     /// Drops a tracee.

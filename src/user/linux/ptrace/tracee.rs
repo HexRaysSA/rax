@@ -68,7 +68,9 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
             status,
             uid,
         } => {
-            if let Some(t) = p.tracees.get_mut(tid) {
+            if let Some(t) = p.tracees.get_mut(tid)
+                && !t.killed
+            {
                 t.stopped = Some(exit);
                 t.reported = false;
                 notify_trapped(p, th, tid, why, status, uid);

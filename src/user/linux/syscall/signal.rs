@@ -9,12 +9,12 @@ use std::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
-use super::super::process::SigAction;
+use super::super::process::{ProcState, SigAction};
 use super::super::signal::deliver::{self, Dest, restart::ERESTARTNOHAND};
 use super::super::signal::frame::{self, SigreturnError};
 use super::super::signal::info::{KERNEL_SIGINFO_SIZE, SIGINFO_SIZE};
 use super::super::signal::{
-    AltStack, KERNEL_ONLY_MASK, SIG_DFL, SIG_IGN, SIGSTOP, SigInfo, code, default_ignored,
+    AltStack, KERNEL_ONLY_MASK, SIG_DFL, SIG_IGN, SIGKILL, SIGSTOP, SigInfo, code, default_ignored,
     minsigstksz, sa, sigmask, uapi_sa_flags, valid_signal,
 };
 use super::super::wait::{Resume, Wait};
@@ -315,9 +315,47 @@ pub(super) fn other_process(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
             send(c.p, link, &m);
             return Ok(0);
         }
-        return host::send(pid, sig, (c.p.pid, c.p.creds.0)).map(|()| 0);
+        host::send(pid, sig, (c.p.pid, c.p.creds.0))?;
+    } else {
+        host::kill(pid, sig)?;
     }
-    host::kill(pid, sig).map(|()| 0)
+    if sig == SIGKILL {
+        killed_tracees(c.p, pid);
+    }
+    Ok(0)
+}
+
+/// A `SIGKILL` this process sent to process `pid` (or with `pid` < 0 to a
+/// process group): its tracees there leave their stops at once, as
+/// `signal_wake_up` wakes a `TASK_TRACED` thread for it, so their tracer
+/// sees their deaths, not stops it has not waited for.
+fn killed_tracees(p: &mut ProcState, pid: i32) {
+    use super::super::ptrace::peer_pid;
+    let peers: Vec<(super::super::ptrace::LinkId, i32)> = p
+        .tracees
+        .list
+        .iter()
+        .map(|t| (t.link, peer_pid(p, t.link)))
+        .collect();
+    let pgid = |peer: i32| {
+        p.children
+            .list
+            .iter()
+            .find(|ch| ch.pid == peer)
+            .map(|ch| ch.pgid)
+    };
+    let hit: Vec<_> = peers
+        .into_iter()
+        .filter(|&(_, peer)| {
+            if pid > 0 {
+                peer == pid
+            } else {
+                pgid(peer) == Some(-pid)
+            }
+        })
+        .map(|(link, _)| link)
+        .collect();
+    p.tracees.killed(|link| hit.contains(&link));
 }
 
 /// `tgkill`.
