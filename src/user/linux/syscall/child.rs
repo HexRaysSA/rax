@@ -207,6 +207,8 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     // pinned (the io_uring rings the child shares charge its parent's).
     p.aio = Default::default();
     p.mm.pinned_vm = Default::default();
+    // The io_uring requests waiting for their files are the parent's.
+    super::uring::forked(p);
     p.ppid = host::ppid();
     p.next_tid = pid + 1;
     p.children = Default::default();

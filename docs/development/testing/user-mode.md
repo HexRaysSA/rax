@@ -201,7 +201,18 @@ registered file holding its file open, NOP's lookups,
 `IORING_OP_FILES_UPDATE` and slot allocation within the allocation range,
 pinning checks, `VmPin`, the `RLIMIT_MEMLOCK` charge of a user without
 `CAP_IPC_LOCK`, cloning buffers between rings, the compatibility vector
-layout, and the fdinfo listings. `user_linux` `fixtures` runs the
+layout, and the fdinfo listings. `src/user/linux/tests/uring/rw.rs`: reads
+and writes (`io_uring/rw.c`) on a regular file at an offset and at the file
+position, short transfers failing their links, vectored and
+registered-buffer transfers and their refusals, the checks of the request
+and the file (in preparation and at issue), requests waiting for pipes (a
+write's wake-up, `RWF_NOWAIT`, links, room to write, deferring rings), a
+sleeping call also waking for them, a write without readers (task work,
+`SIGPIPE`, `RWF_NOSIGNAL`), registered files holding their nodes, the
+operations that run on the workers (`FSYNC`, `SYNC_FILE_RANGE`,
+`FALLOCATE`, `FADVISE`, `MADVISE`, `FTRUNCATE`: their preparation and which
+of their failures fail a link), and cancellation at exec and fork.
+`user_linux` `fixtures` runs the
 `uring` program on every architecture against results recorded on the Linux
 6.19 kernel oracles (native AArch64 and x86-64 in their `compare` runs,
 i386, ARM, and Thumb-2).

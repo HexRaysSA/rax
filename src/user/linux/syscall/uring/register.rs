@@ -215,7 +215,7 @@ fn eventfd_register(c: &mut Ctx<'_>, ring: &Ring, arg: u64, async_only: bool) ->
     }
     let fd = c.read_u32(arg)? as i32;
     // eventfd_ctx_fdget: EBADF, or EINVAL if it is no eventfd.
-    let file = c.p.fds.file(fd)?;
+    let file = ops::fget(c, fd)?;
     if !matches!(&file.object, FileObject::Anon(Anon::Event(_))) {
         return Err(Errno(EINVAL));
     }
@@ -323,7 +323,7 @@ fn ringfd_register(c: &mut Ctx<'_>, arg: u64, nr_args: u32) -> SysResult {
             (offset as usize, offset as usize + 1)
         };
         // io_ring_add_registered_fd.
-        let ring = match c.p.fds.file(data as i32) {
+        let ring = match ops::fget(c, data as i32) {
             Err(e) => Err(e),
             Ok(f) => ring_file(&f).ok_or(Errno(EOPNOTSUPP)),
         };

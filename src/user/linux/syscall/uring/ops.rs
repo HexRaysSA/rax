@@ -4,35 +4,106 @@
 //! (`io_eopnotsupp_prep`), and `IORING_REGISTER_PROBE` reports it
 //! unsupported.
 
+use std::sync::Arc;
+
 use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;
+use super::super::super::fs::fd::{FileObject, OpenFile};
 use super::super::super::uring::abi::{nop, op, setup};
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::Ctx;
-use super::rsrc;
+use super::{rsrc, rw, sync};
 
 /// How an issued request completes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub(super) enum Done {
     /// Now (`IOU_COMPLETE`).
     Inline,
     /// Through task work (`IOU_ISSUE_SKIP_COMPLETE` after
     /// `io_req_task_work_add`).
     TaskWork,
+    /// Not yet: it waits for its file to report an event of the mask
+    /// (`-EAGAIN` to `io_queue_async`, then `io_arm_poll_handler`).
+    Park(Arc<OpenFile>, u32),
 }
 
 /// Whether an operation is modelled (`io_uring_op_supported`).
 pub(super) fn supported(opcode: u8) -> bool {
-    matches!(opcode, op::NOP | op::NOP128 | op::FILES_UPDATE)
+    matches!(
+        opcode,
+        op::NOP
+            | op::NOP128
+            | op::FILES_UPDATE
+            | op::READ
+            | op::WRITE
+            | op::READV
+            | op::WRITEV
+            | op::READ_FIXED
+            | op::WRITE_FIXED
+            | op::READV_FIXED
+            | op::WRITEV_FIXED
+            | op::FSYNC
+            | op::SYNC_FILE_RANGE
+            | op::FALLOCATE
+            | op::FADVISE
+            | op::MADVISE
+            | op::FTRUNCATE
+    )
 }
 
 /// The operation's `prep`.
-pub(super) fn prep(_c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno> {
+pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno> {
     match req.sqe.opcode {
         op::NOP | op::NOP128 => nop_prep(ring, req),
         op::FILES_UPDATE => rsrc::files_update_prep(req),
+        op::READ
+        | op::WRITE
+        | op::READV
+        | op::WRITEV
+        | op::READ_FIXED
+        | op::WRITE_FIXED
+        | op::READV_FIXED
+        | op::WRITEV_FIXED => rw::prep(c, ring, req),
+        op::FSYNC
+        | op::SYNC_FILE_RANGE
+        | op::FALLOCATE
+        | op::FADVISE
+        | op::MADVISE
+        | op::FTRUNCATE => sync::prep(req),
         _ => Err(Errno(EOPNOTSUPP)),
     }
+}
+
+/// `fget` as io_uring uses it: an open descriptor, not an `O_PATH` one
+/// (`EBADF`).
+pub(super) fn fget(c: &Ctx<'_>, fd: i32) -> Result<Arc<OpenFile>, Errno> {
+    let file = c.p.fds.file(fd).map_err(|_| Errno(EBADF))?;
+    if matches!(file.object, FileObject::PathOnly) {
+        return Err(Errno(EBADF));
+    }
+    Ok(file)
+}
+
+/// `io_assign_file`: the request's file, looked up once (`EBADF` if
+/// missing): a registered one with `IOSQE_FIXED_FILE`, which the request
+/// then holds a node of, or its descriptor's.
+pub(super) fn assign_file(
+    c: &Ctx<'_>,
+    st: &mut State,
+    req: &mut Req,
+) -> Result<Arc<OpenFile>, Errno> {
+    if req.flags & rf::FIXED_FILE != 0 {
+        if let Some(id) = req.file_node {
+            return st.rsrc.node_file(id).cloned().ok_or(Errno(EBADF));
+        }
+        return rsrc::get_fixed_file(st, req, req.sqe.fd).ok_or(Errno(EBADF));
+    }
+    if let Some(f) = &req.file {
+        return Ok(f.clone());
+    }
+    let file = fget(c, req.sqe.fd)?;
+    req.file = Some(file.clone());
+    Ok(file)
 }
 
 /// The operation's `issue`: sets the request's result (and fails it, as
@@ -42,6 +113,23 @@ pub(super) fn issue(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req)
         op::NOP | op::NOP128 => nop_issue(c, st, req),
         op::FILES_UPDATE => {
             rsrc::files_update_issue(c, ring, st, req);
+            Done::Inline
+        }
+        op::READ
+        | op::WRITE
+        | op::READV
+        | op::WRITEV
+        | op::READ_FIXED
+        | op::WRITE_FIXED
+        | op::READV_FIXED
+        | op::WRITEV_FIXED => rw::issue(c, st, req),
+        op::FSYNC
+        | op::SYNC_FILE_RANGE
+        | op::FALLOCATE
+        | op::FADVISE
+        | op::MADVISE
+        | op::FTRUNCATE => {
+            sync::issue(c, st, req);
             Done::Inline
         }
         // prep refused it.
@@ -93,7 +181,7 @@ fn nop_issue(c: &Ctx<'_>, st: &mut State, req: &mut Req) -> Done {
             req.flags |= rf::FIXED_FILE;
             found
         } else {
-            req.file = c.p.fds.file(fd).ok();
+            req.file = fget(c, fd).ok();
             req.file.is_some()
         };
         if !file_ok {

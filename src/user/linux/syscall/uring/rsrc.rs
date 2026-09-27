@@ -21,7 +21,7 @@ use super::super::super::uring::rsrc::{
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::iov::iovec_from_user_as;
 use super::super::{Ctx, SysResult};
-use super::{memlock_pages, ring_file, submit};
+use super::{memlock_pages, ops, ring_file, submit};
 use crate::error::MemoryAccessKind;
 use crate::user::mm::Perms;
 
@@ -215,7 +215,7 @@ fn fill_files(c: &Ctx<'_>, st: &mut State, fds: u64, nr: u32, tags: u64) -> Resu
             }
             continue;
         }
-        let file = c.p.fds.file(fd).map_err(|_| Errno(EBADF))?;
+        let file = ops::fget(c, fd)?;
         if ring_file(&file).is_some() {
             return Err(Errno(EBADF));
         }
@@ -274,7 +274,7 @@ fn files_update(
             st.rsrc.bitmap_clear(i);
         }
         if fd != -1 {
-            let file = match c.p.fds.file(fd) {
+            let file = match ops::fget(c, fd) {
                 Ok(f) if ring_file(&f).is_none() => f,
                 _ => {
                     err = Errno(EBADF);
@@ -851,7 +851,7 @@ fn update_with_index_alloc(
             err = Errno(EFAULT);
             break;
         };
-        let Ok(file) = c.p.fds.file(fd as i32) else {
+        let Ok(file) = ops::fget(c, fd as i32) else {
             err = Errno(EBADF);
             break;
         };

@@ -202,6 +202,11 @@ fn write_bytes(c: &mut Ctx<'_>, file: &OpenFile, data: &[u8], pos: Option<u64>) 
     };
     while done < data.len() {
         if waits && !ready_now(file, true) {
+            // A write that may not sleep ends with what it wrote
+            // (IOCB_NOWAIT); none is EAGAIN.
+            if c.nowait && done > 0 {
+                return Ok(done as u64);
+            }
             if c.signal_pending() {
                 return if done > 0 {
                     Ok(done as u64)
@@ -382,28 +387,45 @@ pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
         super::notify::vectored_nothing(c, &file);
         return Ok(0);
     }
-    if matches!(file.object, FileObject::Anon(_)) {
-        return super::events::read(c, &file, &iovecs);
+    if matches!(file.object, FileObject::Anon(_) | FileObject::Socket(_)) {
+        return readv_file(c, &file, &iovecs, None);
     }
-    if matches!(file.object, FileObject::Socket(_)) {
-        return super::net::io::read(c, &file, &iovecs);
-    }
-    let mut room = iovec_room(c, &iovecs);
-    let want = total.min(MAX_RW_COUNT);
-    if file.ftype == FileType::Fifo && room < want && room > 0 {
-        room = pipe_read_room(&file, room, want);
-    }
-    if room == 0 {
-        return Err(Errno(EFAULT));
-    }
-    let data = read_bytes(c, &file, room, None)?;
-    let n = scatter(c, &iovecs, &data)?;
+    let n = readv_file(c, &file, &iovecs, None)?;
     if n == 0 {
         super::notify::vectored_nothing(c, &file);
     } else {
         super::notify::access(&file, n, true);
     }
     Ok(n)
+}
+
+/// One read from `file` scattered over `iovecs` (imported, not all
+/// empty), at `pos` on a file with positions or at the current position:
+/// what `readv` does once the descriptor and vectors are checked, without
+/// the notification.
+pub(super) fn readv_file(
+    c: &mut Ctx<'_>,
+    file: &Arc<OpenFile>,
+    iovecs: &[(u64, u64)],
+    pos: Option<u64>,
+) -> SysResult {
+    let total: u64 = iovecs.iter().map(|&(_, l)| l).sum();
+    if matches!(file.object, FileObject::Anon(_)) {
+        return super::events::read(c, file, iovecs);
+    }
+    if matches!(file.object, FileObject::Socket(_)) {
+        return super::net::io::read(c, file, iovecs);
+    }
+    let mut room = iovec_room(c, iovecs);
+    let want = total.min(MAX_RW_COUNT);
+    if file.ftype == FileType::Fifo && room < want && room > 0 {
+        room = pipe_read_room(file, room, want);
+    }
+    if room == 0 {
+        return Err(Errno(EFAULT));
+    }
+    let data = read_bytes(c, file, room, pos)?;
+    scatter(c, iovecs, &data)
 }
 
 /// `writev`: the vectors are gathered so the data reaches the file in one
@@ -418,19 +440,36 @@ pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
         return Err(Errno(EINVAL));
     }
     let vecs = import_iovec(c, iov, cnt)?;
-    if matches!(file.object, FileObject::Socket(_)) {
-        return super::net::io::write(c, &file, &vecs);
+    if matches!(file.object, FileObject::Socket(_)) || anon {
+        return writev_file(c, &file, &vecs, None);
     }
-    if anon {
+    let n = writev_file(c, &file, &vecs, None)?;
+    super::notify::modify(&file, n);
+    Ok(n)
+}
+
+/// One write to `file` of the bytes `vecs` gather (imported), at `pos` on
+/// a file with positions or at the current position: what `writev` does
+/// once the descriptor and vectors are checked, without the notification.
+pub(super) fn writev_file(
+    c: &mut Ctx<'_>,
+    file: &Arc<OpenFile>,
+    vecs: &[(u64, u64)],
+    pos: Option<u64>,
+) -> SysResult {
+    if matches!(file.object, FileObject::Socket(_)) {
+        return super::net::io::write(c, file, vecs);
+    }
+    if matches!(file.object, FileObject::Anon(_)) {
         if vecs.iter().all(|&(_, l)| l == 0) {
             return Ok(0);
         }
-        return super::events::write(c, &file, &vecs);
+        return super::events::write(c, file, vecs);
     }
     // The bytes before the first fault, up to MAX_RW_COUNT.
     let total = vecs.iter().map(|&(_, l)| l).sum::<u64>().min(MAX_RW_COUNT);
     let mut data = Vec::new();
-    for (base, len) in vecs {
+    for &(base, len) in vecs {
         let len = len.min(MAX_RW_COUNT - data.len() as u64);
         if len == 0 {
             continue;
@@ -451,9 +490,7 @@ pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
             Err(Errno(EFAULT))
         };
     }
-    let n = write_bytes(c, &file, &data, None)?;
-    super::notify::modify(&file, n);
-    Ok(n)
+    write_bytes(c, file, &data, pos)
 }
 
 /// `pread64`.
@@ -1165,6 +1202,11 @@ pub fn pselect6(
 /// `fsync`/`fdatasync`.
 pub fn fsync(c: &mut Ctx<'_>, fd: i32) -> SysResult {
     let file = c.p.fds.file(fd)?;
+    fsync_file(&file)
+}
+
+/// `vfs_fsync_range` on an open file.
+pub(super) fn fsync_file(file: &OpenFile) -> SysResult {
     match (&file.object, file.ftype) {
         // fdget: an O_PATH descriptor is none.
         (FileObject::PathOnly, _) => Err(Errno(EBADF)),
@@ -1194,6 +1236,11 @@ pub fn syncfs(c: &mut Ctx<'_>, fd: i32) -> SysResult {
 /// `fadvise64`.
 pub fn fadvise(c: &mut Ctx<'_>, fd: i32, len: i64, advice: u32) -> SysResult {
     let file = c.p.fds.file(fd)?;
+    fadvise_file(&file, len, advice)
+}
+
+/// `vfs_fadvise` (`generic_fadvise`) on an open file.
+pub(super) fn fadvise_file(file: &OpenFile, len: i64, advice: u32) -> SysResult {
     if file.ftype == FileType::Fifo {
         return Err(Errno(ESPIPE));
     }
@@ -1232,12 +1279,22 @@ pub fn sync_file_range(
     nbytes: i64,
     flags: u32,
 ) -> SysResult {
-    const WRITE: u32 = 2;
-    const VALID: u32 = 1 | WRITE | 4;
     let file = c.p.fds.file(fd)?;
     if matches!(file.object, FileObject::PathOnly) {
         return Err(Errno(EBADF));
     }
+    sync_file_range_file(&file, offset, nbytes, flags)
+}
+
+/// `sync_file_range` on an open file (not an `O_PATH` one).
+pub(super) fn sync_file_range_file(
+    file: &OpenFile,
+    offset: i64,
+    nbytes: i64,
+    flags: u32,
+) -> SysResult {
+    const WRITE: u32 = 2;
+    const VALID: u32 = 1 | WRITE | 4;
     if flags & !VALID != 0 {
         return Err(Errno(EINVAL));
     }
@@ -1270,19 +1327,24 @@ pub fn sync_file_range(
 /// `ftruncate`.
 pub fn ftruncate(c: &mut Ctx<'_>, fd: i32, len: i64) -> SysResult {
     let file = c.p.fds.file(fd)?;
+    ftruncate_file(c, &file, len)
+}
+
+/// `do_ftruncate` on an open file.
+pub(super) fn ftruncate_file(c: &mut Ctx<'_>, file: &OpenFile, len: i64) -> SysResult {
     if len < 0 {
         return Err(Errno(EINVAL));
     }
     // A pidfd's inode is a regular file to the VFS, which pidfs_setattr
     // refuses to change.
-    if super::pidfd::target_of(&file).is_some() {
+    if super::pidfd::target_of(file).is_some() {
         return Err(Errno(EOPNOTSUPP));
     }
     if !file.writable() || file.ftype != FileType::Regular {
         return Err(Errno(EINVAL));
     }
     match &file.object {
-        FileObject::Mqueue(h) => super::mqueue::truncate(&file, h, len),
+        FileObject::Mqueue(h) => super::mqueue::truncate(file, h, len),
         FileObject::Host(f) => {
             if let Some(m) = &file.memfd {
                 m.check_resize(f.metadata()?.len(), len as u64)?;
@@ -1290,7 +1352,7 @@ pub fn ftruncate(c: &mut Ctx<'_>, fd: i32, len: i64) -> SysResult {
             f.set_len(len as u64)?;
             c.p.space.truncated(fs::identity(f)?, len as u64);
             // do_truncate: ATTR_SIZE with the times.
-            super::notify::changed_file(&file, super::super::fsnotify::bits::IN_MODIFY);
+            super::notify::changed_file(file, super::super::fsnotify::bits::IN_MODIFY);
             Ok(0)
         }
         _ => Err(Errno(EINVAL)),
@@ -1301,8 +1363,13 @@ pub fn ftruncate(c: &mut Ctx<'_>, fd: i32, len: i64) -> SysResult {
 /// reserves; hole punching and range manipulation are unsupported by the
 /// emulated file system.
 pub fn fallocate(c: &mut Ctx<'_>, fd: i32, mode: u32, off: i64, len: i64) -> SysResult {
-    const FALLOC_FL_KEEP_SIZE: u32 = 1;
     let file = c.p.fds.file(fd)?;
+    fallocate_file(&file, mode, off, len)
+}
+
+/// `vfs_fallocate` on an open file.
+pub(super) fn fallocate_file(file: &OpenFile, mode: u32, off: i64, len: i64) -> SysResult {
+    const FALLOC_FL_KEEP_SIZE: u32 = 1;
     if off < 0 || len <= 0 {
         return Err(Errno(EINVAL));
     }
@@ -1310,7 +1377,7 @@ pub fn fallocate(c: &mut Ctx<'_>, fd: i32, mode: u32, off: i64, len: i64) -> Sys
         return Err(Errno(EBADF));
     }
     // A pidfd is a regular file to vfs_fallocate, without the operation.
-    if super::pidfd::target_of(&file).is_some() {
+    if super::pidfd::target_of(file).is_some() {
         return Err(Errno(EOPNOTSUPP));
     }
     if file.ftype != FileType::Regular {
@@ -1333,7 +1400,7 @@ pub fn fallocate(c: &mut Ctx<'_>, fd: i32, mode: u32, off: i64, len: i64) -> Sys
             if mode == 0 && size < end {
                 f.set_len(end)?;
             }
-            super::notify::allocated(&file);
+            super::notify::allocated(file);
             Ok(0)
         }
         _ => Err(Errno(EOPNOTSUPP)),

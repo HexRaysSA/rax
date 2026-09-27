@@ -82,16 +82,27 @@ pub fn iovec_from_user(c: &Ctx<'_>, uvec: u64, nr: u64) -> Result<Vec<(u64, u64)
 /// several, each must lie in user space at its full length, and the
 /// lengths are then capped so their total is at most `MAX_RW_COUNT`.
 pub fn import_iovec(c: &Ctx<'_>, uvec: u64, nr: u64) -> Result<Vec<(u64, u64)>, Errno> {
+    import_iovec_as(c, uvec, nr, c.compat)
+}
+
+/// [`import_iovec`] with the layout chosen by `compat` (io_uring's
+/// `io_is_compat`, the instance's rather than the call's).
+pub fn import_iovec_as(
+    c: &Ctx<'_>,
+    uvec: u64,
+    nr: u64,
+    compat: bool,
+) -> Result<Vec<(u64, u64)>, Errno> {
     let nr = u64::from(nr as u32);
     if nr == 1 {
-        let (base, len) = copy_iovec_from_user(c, uvec, 1)?[0];
+        let (base, len) = copy_iovec_in(c, uvec, 1, compat)?[0];
         let len = len.min(MAX_RW_COUNT);
         if !access_ok(c, base, len) {
             return Err(Errno(EFAULT));
         }
         return Ok(vec![(base, len)]);
     }
-    let mut iov = iovec_from_user(c, uvec, nr)?;
+    let mut iov = iovec_from_user_as(c, uvec, nr, compat)?;
     let mut total = 0u64;
     for (base, len) in iov.iter_mut() {
         if !access_ok(c, *base, *len) {

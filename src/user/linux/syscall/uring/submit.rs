@@ -22,7 +22,7 @@ use super::super::super::uring::{Chain, Req, Ring, State, Work, req_flags as rf}
 use super::super::Ctx;
 use super::super::ready::ev as ev_mask;
 use super::ops::{self, Done};
-use super::rsrc;
+use super::{poll, rsrc};
 
 /// A submission's completed requests, flushed together (`compl_reqs`).
 type Batch = Vec<Chain>;
@@ -158,6 +158,7 @@ fn queue_sqe(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, batch: &mut Batch, mu
     match ops::issue(c, ring, st, &mut chain[0]) {
         Done::Inline => batch.push(chain),
         Done::TaskWork => st.task_work.push_back(Work::Complete(chain)),
+        Done::Park(file, mask) => poll::park(c, ring, st, chain, file, mask),
     }
 }
 
@@ -296,6 +297,11 @@ fn next_work(chain: Chain) -> (Req, Option<Work>) {
     }
 }
 
+/// [`flush`] for the cancellation of parked requests.
+pub(super) fn flush_batch(ring: &Ring, st: &mut State, batch: Vec<Chain>) {
+    flush(ring, st, batch);
+}
+
 /// `__io_submit_flush_completions`: the batch's CQEs in order, committed
 /// (and counted on a registered eventfd); then its requests are freed
 /// (`io_free_batch_list`: each one's link queued, then what it held
@@ -355,7 +361,13 @@ fn run_iowq(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
     while let Some(mut chain) = st.iowq.pop_front() {
         loop {
             let done = ops::issue(c, ring, st, &mut chain[0]);
-            if lockless || done == Done::TaskWork {
+            if let Done::Park(file, mask) = done {
+                // A worker that tried without sleeping waits for the file
+                // (io_wq_submit_work's poll).
+                poll::park(c, ring, st, chain, file, mask);
+                break;
+            }
+            if lockless || matches!(done, Done::TaskWork) {
                 // The CQE and the rest of the link through task work.
                 st.task_work.push_back(Work::Complete(chain));
                 break;

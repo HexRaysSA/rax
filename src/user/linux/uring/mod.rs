@@ -23,7 +23,7 @@ pub mod rsrc;
 
 use std::collections::VecDeque;
 use std::os::unix::fs::FileExt;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 use self::abi::{Cqe, Sqe, rings, setup, sq_flags};
 use super::abi::PAGE_SIZE;
@@ -109,14 +109,20 @@ pub mod req_flags {
     /// `REQ_F_SKIP_LINK_CQES`: a skip-success request failed, and the
     /// requests its failure cancels post no CQEs.
     pub const SKIP_LINK_CQES: u32 = 1 << 9;
+    /// `REQ_F_NOWAIT`: a transfer that would wait fails with `EAGAIN`
+    /// rather than waiting for its file (`RWF_NOWAIT`).
+    pub const NOWAIT: u32 = 1 << 10;
+    /// `REQ_F_HAS_METADATA`: a transfer with protection information.
+    pub const HAS_METADATA: u32 = 1 << 11;
     /// `IO_REQ_LINK_FLAGS`.
     pub const LINKS: u32 = LINK | HARDLINK;
 }
 
 /// A request (`struct io_kiocb`): its SQE as read at submission
-/// (`IORING_FEAT_SUBMIT_STABLE`), its flags, its result, and what it holds
-/// until it is freed: a file it looked up by descriptor, and the nodes of
-/// the registered file and buffer it uses (`file_node`, `buf_node`).
+/// (`IORING_FEAT_SUBMIT_STABLE`), its flags, its result, the vectors its
+/// preparation read (`io_async_rw`), and what it holds until it is freed:
+/// a file it looked up by descriptor, and the nodes of the registered file
+/// and buffer it uses (`file_node`, `buf_node`).
 #[derive(Clone, Debug)]
 pub struct Req {
     pub sqe: Sqe,
@@ -124,6 +130,7 @@ pub struct Req {
     pub res: i32,
     pub cflags: u32,
     pub big: [u64; 2],
+    pub vecs: Vec<(u64, u64)>,
     pub file: Option<Arc<super::fs::fd::OpenFile>>,
     pub file_node: Option<rsrc::NodeId>,
     pub buf_node: Option<rsrc::NodeId>,
@@ -138,6 +145,7 @@ impl Req {
             res: 0,
             cflags: 0,
             big: [0; 2],
+            vecs: Vec::new(),
             file: None,
             file_node: None,
             buf_node: None,
@@ -190,6 +198,16 @@ pub enum Work {
     Complete(Chain),
 }
 
+/// A chain whose head waits for its file (`io_arm_poll_handler`): it is
+/// issued again once the file reports an event of `mask` (or an error or
+/// hang-up).
+#[derive(Debug)]
+pub struct Parked {
+    pub chain: Chain,
+    pub file: Arc<super::fs::fd::OpenFile>,
+    pub mask: u32,
+}
+
 /// A registered personality: the credentials a request with its identifier
 /// runs with (`IORING_REGISTER_PERSONALITY`), as the process holds them.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -236,6 +254,8 @@ pub struct State {
     pub next_personality: u16,
     /// The registered files and buffers.
     pub rsrc: rsrc::Tables,
+    /// Chains waiting for their files.
+    pub parked: Vec<Parked>,
 }
 
 /// An io_uring instance: the object behind an `anon_inode:[io_uring]`
@@ -260,6 +280,8 @@ pub struct Ring {
     /// regions charged to the user (`io_create_region`).
     pub account: rsrc::Account,
     region_pages: u64,
+    /// The instance itself, for the lists that name it without keeping it.
+    me: Weak<Ring>,
     state: Mutex<State>,
 }
 
@@ -283,6 +305,7 @@ impl Ring {
     /// `io_allocate_scq_urings`: zeroed regions with the ring masks and
     /// entry counts written, each region's pages charged to the user
     /// against `memlock` pages (`ENOMEM`).
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         flags: u32,
         sq_entries: u32,
@@ -291,7 +314,7 @@ impl Ring {
         compat: bool,
         account: rsrc::Account,
         memlock: u64,
-    ) -> Result<Self, Errno> {
+    ) -> Result<Arc<Self>, Errno> {
         let region = |size: u64| {
             SharedObject::anonymous(page_align(size))
                 .map(Arc::new)
@@ -312,7 +335,7 @@ impl Ring {
                 return Err(e);
             }
         };
-        let ring = Ring {
+        let ring = Arc::new_cyclic(|me| Ring {
             flags,
             sq_entries,
             cq_entries,
@@ -323,16 +346,22 @@ impl Ring {
             ino: NEXT_INO.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             account,
             region_pages,
+            me: me.clone(),
             state: Mutex::new(State {
                 disabled: flags & setup::R_DISABLED != 0,
                 ..State::default()
             }),
-        };
+        });
         ring.put32(rings::SQ_RING_MASK, sq_entries - 1);
         ring.put32(rings::CQ_RING_MASK, cq_entries - 1);
         ring.put32(rings::SQ_RING_ENTRIES, sq_entries);
         ring.put32(rings::CQ_RING_ENTRIES, cq_entries);
         Ok(ring)
+    }
+
+    /// A reference to the instance that does not keep it.
+    pub fn weak(&self) -> Weak<Ring> {
+        self.me.clone()
     }
 
     /// The instance's state.

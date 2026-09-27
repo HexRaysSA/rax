@@ -408,6 +408,9 @@ pub struct ProcState {
     /// user's processes; this is what this process charged.
     pub locked_vm_users:
         std::collections::BTreeMap<u32, std::sync::Arc<std::sync::atomic::AtomicU64>>,
+    /// The io_uring instances with requests waiting for their files,
+    /// looked at again as the process makes system calls.
+    pub uring_parked: Vec<std::sync::Weak<super::uring::Ring>>,
 }
 
 /// A Linux thread.
@@ -760,6 +763,7 @@ impl LinuxProcess {
             fsnotify,
             exec_keep: Vec::new(),
             locked_vm_users: Default::default(),
+            uring_parked: Vec::new(),
         };
         let mut leader = Thread::new(pid, img.cpu);
         leader.comm = state.comm.clone();

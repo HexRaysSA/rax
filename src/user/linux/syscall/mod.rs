@@ -214,6 +214,9 @@ pub struct Ctx<'a> {
     /// A compatibility task's `*_time32` call: its `timespec` is `struct
     /// old_timespec32` and its `time_t` an `old_time32_t` ([`timeabi`]).
     pub time32: bool,
+    /// The transfer may not sleep (`IOCB_NOWAIT`, as io_uring issues its
+    /// requests): where it would, [`Ctx::block`] gives `EAGAIN` instead.
+    pub nowait: bool,
     block: Option<(Wait, Resume)>,
 }
 
@@ -236,6 +239,7 @@ impl<'a> Ctx<'a> {
             nosignal: false,
             compat: false,
             time32: false,
+            nowait: false,
             block: None,
         }
     }
@@ -246,6 +250,9 @@ impl Ctx<'_> {
     /// handler passes up. The call runs again with `resume` in
     /// [`Ctx::resume`].
     pub fn block(&mut self, wait: Wait, resume: Resume) -> Errno {
+        if self.nowait {
+            return Errno(EAGAIN);
+        }
         self.block = Some((wait, resume));
         Errno(BLOCKED)
     }
@@ -1133,9 +1140,13 @@ pub fn dispatch(
     }
     c.resume = call.resume;
     c.woken = call.woken;
-    // Waiting IOCB_CMD_POLL requests are looked at as the process enters.
+    // Waiting IOCB_CMD_POLL requests are looked at as the process enters,
+    // and so are io_uring requests waiting for their files.
     if c.p.aio.polls_pending() {
         aio::poll_pending(&mut c);
+    }
+    if !c.p.uring_parked.is_empty() {
+        uring::drive(&mut c);
     }
     let result = match sysno {
         Some(s) if c.compat => compat::call(&mut c, s, args),
@@ -1146,6 +1157,18 @@ pub fn dispatch(
         }
         None => Err(Errno(ENOSYS)),
     };
+    // And again as the call returns, for what the call itself changed (a
+    // wake-up's task work runs on the return to user mode).
+    let exits = matches!(
+        result,
+        Ok(Outcome::ExitThread(_)
+            | Outcome::ExitGroup(_)
+            | Outcome::KillThread(_)
+            | Outcome::Fatal(_))
+    );
+    if !c.p.uring_parked.is_empty() && !is_blocked(&result) && !exits {
+        uring::drive(&mut c);
+    }
     // shm_open, shm_close: the calls that change System V segment
     // mappings publish them (a compatibility task's include `mmap2` and
     // the ipc multiplexer's SHMAT and SHMDT).
@@ -1175,6 +1198,10 @@ pub fn dispatch(
         // (signalling their eventfds, which it may be reading).
         if c.p.aio.polls_pending() {
             wait.fds.extend(aio::poll_pending(&mut c).fds);
+        }
+        // And for the files io_uring requests wait for.
+        if !c.p.uring_parked.is_empty() {
+            wait.fds.extend(uring::wait_fds(&c));
         }
         if strace && !resumed {
             trace_unfinished(tid, sysno, nr, &args);

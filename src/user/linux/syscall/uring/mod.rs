@@ -11,10 +11,14 @@
 //! (`IORING_SETUP_CQE_MIXED`, `IORING_SETUP_SQE_MIXED`).
 
 mod ops;
+mod poll;
 mod register;
 mod rsrc;
+mod rw;
 mod submit;
+mod sync;
 
+pub use poll::{drive, exec_cancel, forked, wait_fds};
 pub use register::io_uring_register;
 
 use std::fmt::Write as _;
@@ -56,7 +60,7 @@ const UNMODELLED: u32 = setup::SQPOLL
 /// The ring behind descriptor `fd`: `EBADF` if it is not open,
 /// `EOPNOTSUPP` if it is not a ring.
 pub(super) fn ring_of(c: &Ctx<'_>, fd: i32) -> Result<Arc<Ring>, Errno> {
-    let file = c.p.fds.file(fd)?;
+    let file = ops::fget(c, fd)?;
     ring_file(&file).ok_or(Errno(EOPNOTSUPP))
 }
 
@@ -174,7 +178,7 @@ pub fn io_uring_setup(c: &mut Ctx<'_>, entries: u32, uptr: u64) -> SysResult {
     ];
     p.cq_user_addr = 0;
     let account = account(c);
-    let ring = Arc::new(Ring::new(
+    let ring = Ring::new(
         p.flags,
         p.sq_entries,
         p.cq_entries,
@@ -182,11 +186,11 @@ pub fn io_uring_setup(c: &mut Ctx<'_>, entries: u32, uptr: u64) -> SysResult {
         c.compat,
         account,
         memlock_pages(c),
-    )?);
+    )?;
     // io_sq_offload_create: an async-worker pool to share must be another
     // ring's; a CPU for a polling thread needs one.
     if p.flags & setup::ATTACH_WQ != 0 {
-        let file = c.p.fds.file(p.wq_fd as i32).map_err(|_| Errno(ENXIO))?;
+        let file = ops::fget(c, p.wq_fd as i32).map_err(|_| Errno(ENXIO))?;
         if ring_file(&file).is_none() {
             return Err(Errno(EINVAL));
         }

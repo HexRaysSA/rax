@@ -5,6 +5,7 @@
 use std::time::{Duration, Instant};
 
 mod rsrc;
+mod rw;
 
 use super::harness::{Harness, P, each_abi};
 use crate::user::linux::abi::errno_table::*;
@@ -47,7 +48,7 @@ const NOP_TW: u32 = 1 << 4;
 const NOP_CQE32: u32 = 1 << 5;
 // Operations.
 const NOP: u8 = 0;
-const READV: u8 = 1;
+const URING_CMD: u8 = 46;
 // Registration.
 const REGISTER_EVENTFD: u64 = 4;
 const UNREGISTER_EVENTFD: u64 = 5;
@@ -106,6 +107,9 @@ struct Sqe {
     user_data: u64,
     buf_index: u16,
     personality: u16,
+    file_index: u32,
+    addr3: u64,
+    pad2: u64,
 }
 
 impl Sqe {
@@ -144,6 +148,9 @@ impl Sqe {
         b[32..40].copy_from_slice(&self.user_data.to_le_bytes());
         b[40..42].copy_from_slice(&self.buf_index.to_le_bytes());
         b[42..44].copy_from_slice(&self.personality.to_le_bytes());
+        b[44..48].copy_from_slice(&self.file_index.to_le_bytes());
+        b[48..56].copy_from_slice(&self.addr3.to_le_bytes());
+        b[56..64].copy_from_slice(&self.pad2.to_le_bytes());
         b
     }
 }
@@ -561,7 +568,7 @@ fn a_request_that_fails_its_checks_ends_the_submission() {
         ),
         (
             Sqe {
-                opcode: READV,
+                opcode: URING_CMD,
                 ..Sqe::nop(6)
             },
             EOPNOTSUPP,
@@ -799,8 +806,8 @@ fn registration_follows_io_uring_register() {
     let reg = |h: &mut Harness, fd: u64, op: u64, arg: u64, n: u64| {
         h.call(Sysno::IoUringRegister, &[fd, op, arg, n])
     };
-    // io_probe: zeroed on entry; the last opcode, the count, and NOP (the
-    // modelled operation) supported.
+    // io_probe: zeroed on entry; the last opcode, the count, NOP and
+    // READV (modelled) supported, URING_CMD (not modelled) not.
     let probe = h.scratch + PROBE;
     put(&h, probe, &[0u8; 16 + 8 * 70]);
     assert_eq!(reg(&mut h, r.fd, REGISTER_PROBE, probe, 70), 0);
@@ -808,7 +815,8 @@ fn registration_follows_io_uring_register() {
     h.proc.state.space.read_raw(probe, &mut b).unwrap();
     assert_eq!((b[0], b[1]), (64, 65));
     assert_eq!((b[16], b[18]), (0, 1));
-    assert_eq!((b[24], b[26]), (1, 0));
+    assert_eq!((b[24], b[26]), (1, 1));
+    assert_eq!((b[16 + 8 * 46], b[18 + 8 * 46]), (46, 0));
     assert_eq!(
         reg(&mut h, r.fd, REGISTER_PROBE, probe, 4),
         -(EINVAL as i64)

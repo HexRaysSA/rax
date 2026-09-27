@@ -370,8 +370,10 @@ impl LinuxProcess {
         }
         // rseq_execve: the new image has not registered.
         t.rseq = None;
-        // io_uring_task_cancel: the registered rings go.
+        // io_uring_task_cancel: the registered rings go, and the requests
+        // waiting for their files complete cancelled.
         t.uring_rings.clear();
+        super::syscall::uring::exec_cancel(p);
         t.sigpending = super::signal::deliver::recalc_sigpending(p, &t);
         // start_thread keeps the number (x86-64's orig_ax, AArch64's
         // syscallno), which a tracer sees as the call finishes.
