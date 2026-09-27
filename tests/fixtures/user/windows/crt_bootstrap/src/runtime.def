@@ -1,0 +1,8 @@
+LIBRARY ucrtbase.dll
+EXPORTS
+_set_app_type
+_query_app_type
+_fpreset
+__pxcptinfoptrs
+_set_invalid_parameter_handler
+_errno

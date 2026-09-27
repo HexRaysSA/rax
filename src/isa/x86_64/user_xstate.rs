@@ -13,6 +13,8 @@
 //!   image, refusing it exactly where the instruction would raise #GP.
 //! - [`X86_64Vcpu::init_user_xstate`] puts every enabled component in its
 //!   initial configuration, as an `XRSTOR` of init state does.
+//! - [`X86_64Vcpu::init_user_x87`] initializes only the x87 environment with
+//!   an embedder-selected control word, preserving physical register payloads.
 //!
 //! Layouts and checks follow Intel SDM Vol. 1 §§10.5.1 (`FXSAVE` area),
 //! 13.4 (XSAVE area), 13.6 (initial configurations), and 13.8 (`XRSTOR`),
@@ -225,6 +227,28 @@ impl X86_64Vcpu {
         Ok(())
     }
 
+    /// Initializes the x87 environment without changing the physical R0-R7
+    /// register payloads, then installs `control_word` as the raw 16-bit FCW.
+    /// FSW and TOP become zero, the full tag word becomes `0xFFFF` (empty),
+    /// and FIP, FDP, and the last instruction opcode become zero.
+    ///
+    /// This is an embedder state operation, not execution of `FNINIT` or
+    /// `FLDCW`: it performs no guest-memory access, waiting, availability or
+    /// pending-exception checks, and no trap delivery. The supplied control
+    /// word is neither validated nor normalized. MXCSR, vector/MMX/opmask
+    /// payloads, general-purpose registers, flags, XCR0, and execution state
+    /// are unchanged, regardless of which XCR0 components are enabled.
+    ///
+    /// The environment initialization follows Intel SDM Vol. 2A,
+    /// "FINIT/FNINIT—Initialize Floating-Point Unit"; the raw FCW assignment
+    /// follows the state operation of "FLDCW—Load x87 FPU Control Word".
+    /// Unlike [`Self::init_user_xstate`], this does not initialize register
+    /// payloads to zero. It takes constant time and does not allocate.
+    pub fn init_user_x87(&mut self, control_word: u16) {
+        self.fpu.init();
+        self.fpu.control_word = control_word;
+    }
+
     /// Puts every component in `mask & XCR0` in its initial configuration
     /// (SDM Vol. 1 §13.6): FCW = 037FH, FSW = 0, FTW = FFFFH, x87 pointers
     /// and ST0-ST7 zero, MXCSR = 1F80H, and every vector, opmask, and APX
@@ -373,3 +397,7 @@ impl X86_64Vcpu {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "user_xstate_x87_tests.rs"]
+mod x87_tests;

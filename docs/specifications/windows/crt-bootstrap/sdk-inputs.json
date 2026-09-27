@@ -1,0 +1,226 @@
+[
+  {
+    "reference_id": "microsoft-sdk/argv_data.cpp",
+    "sdk_zip_member": {
+      "member": "c/Source/10.0.26100.0/ucrt/startup/argv_data.cpp",
+      "compression_method": 8,
+      "crc32": "373998ef",
+      "compressed_bytes": 865,
+      "uncompressed_bytes": 2381,
+      "local_header_offset": 81903439,
+      "flags": 0
+    },
+    "sha256": "d6842504e923dbf581a6949e1e95d7932317907ea0d541fa5d2dc279178e852f",
+    "bytes": 2381
+  },
+  {
+    "reference_id": "microsoft-sdk/glstatus.cpp",
+    "sdk_zip_member": {
+      "member": "c/Source/10.0.26100.0/ucrt/locale/glstatus.cpp",
+      "compression_method": 8,
+      "crc32": "7eac10d8",
+      "compressed_bytes": 208,
+      "uncompressed_bytes": 395,
+      "local_header_offset": 81696634,
+      "flags": 0
+    },
+    "sha256": "ec8631d948068188e87f2316ba994dda2dbed6cc9367b364cd0d623567c4fd11",
+    "bytes": 395
+  },
+  {
+    "reference_id": "microsoft-sdk/wsetlocale.cpp",
+    "sdk_zip_member": {
+      "member": "c/Source/10.0.26100.0/ucrt/locale/wsetlocale.cpp",
+      "compression_method": 8,
+      "crc32": "cf46aa1c",
+      "compressed_bytes": 12927,
+      "uncompressed_bytes": 54698,
+      "local_header_offset": 81721065,
+      "flags": 0
+    },
+    "sha256": "68fc11d5f217289d41b35267887e0c956fdc645bdce5894cbc05087516f499af",
+    "bytes": 54698
+  },
+  {
+    "reference_id": "microsoft-sdk/locale_update.cpp",
+    "sdk_zip_member": {
+      "member": "c/Source/10.0.26100.0/ucrt/locale/locale_update.cpp",
+      "compression_method": 8,
+      "crc32": "6c65a49a",
+      "compressed_bytes": 457,
+      "uncompressed_bytes": 1828,
+      "local_header_offset": 81717754,
+      "flags": 0
+    },
+    "sha256": "5e6339fcc91f925d7331cefcfb55162da28b180e09b74035c50f14ddbe5030ca",
+    "bytes": 1828
+  },
+  {
+    "reference_id": "microsoft-sdk/locale_initializer.cpp",
+    "sdk_zip_member": {
+      "member": "c/Source/10.0.26100.0/ucrt/initializers/locale_initializer.cpp",
+      "compression_method": 8,
+      "crc32": "a3364a1e",
+      "compressed_bytes": 407,
+      "uncompressed_bytes": 769,
+      "local_header_offset": 81648108,
+      "flags": 0
+    },
+    "sha256": "6e0b714c2b377590d45220b04f0c649714bd054fdf41e2b910ac8847f466cbb4",
+    "bytes": 769
+  },
+  {
+    "reference_id": "microsoft-sdk/locale.h",
+    "sdk_zip_member": {
+      "member": "c/Include/10.0.26100.0/ucrt/locale.h",
+      "compression_method": 8,
+      "crc32": "e87ec408",
+      "compressed_bytes": 1350,
+      "uncompressed_bytes": 5109,
+      "local_header_offset": 18135540,
+      "flags": 0
+    },
+    "sha256": "877aa49e1f22814dd5634e785d305210d3c7ac0a1274e8552ce4f687a91ac4cb",
+    "bytes": 5109
+  },
+  {
+    "reference_id": "microsoft-sdk/float.h",
+    "sdk_zip_member": {
+      "member": "c/Include/10.0.26100.0/ucrt/float.h",
+      "compression_method": 8,
+      "crc32": "0d6d99cc",
+      "compressed_bytes": 3717,
+      "uncompressed_bytes": 15397,
+      "local_header_offset": 18126665,
+      "flags": 0
+    },
+    "sha256": "0fbf87532c053b666940a65360f2488f5b6bb2e601632e32a0f1a8a078d8fdcd",
+    "bytes": 15397
+  },
+  {
+    "reference_id": "microsoft-sdk/corecrt_math.h",
+    "sdk_zip_member": {
+      "member": "c/Include/10.0.26100.0/ucrt/corecrt_math.h",
+      "compression_method": 8,
+      "crc32": "d01c0efa",
+      "compressed_bytes": 6121,
+      "uncompressed_bytes": 38875,
+      "local_header_offset": 18079916,
+      "flags": 0
+    },
+    "sha256": "b3c3a0188db2bf985a5082c787ca1509cb7ce34c48a0b0613ee244f2d3192d1c",
+    "bytes": 38875
+  },
+  {
+    "reference_id": "microsoft-sdk/corecrt_internal_fltintrn.h",
+    "sdk_zip_member": {
+      "member": "c/Source/10.0.26100.0/ucrt/inc/corecrt_internal_fltintrn.h",
+      "compression_method": 8,
+      "crc32": "edfda5f8",
+      "compressed_bytes": 1894,
+      "uncompressed_bytes": 7800,
+      "local_header_offset": 81563739,
+      "flags": 0
+    },
+    "sha256": "5cf7e0374932179b9e9741deb29e0387d4d5b34f10ba2b293f2fbd68e7a5c454",
+    "bytes": 7800
+  },
+  {
+    "reference_id": "microsoft-sdk/ucrtbase-x86.dll",
+    "sdk_zip_member": {
+      "member": "c/Redist/10.0.26100.0/ucrt/DLLs/x86/ucrtbase.dll",
+      "compression_method": 8,
+      "crc32": "0e8b1889",
+      "compressed_bytes": 533431,
+      "uncompressed_bytes": 1103400,
+      "local_header_offset": 44607130,
+      "flags": 0
+    },
+    "sha256": "3d3b868ad1441c46ab0cdaf205927b1da75d458a9a0be74172256460503f49c9",
+    "bytes": 1103400
+  },
+  {
+    "reference_id": "microsoft-sdk/ucrtbase-x64.dll",
+    "sdk_zip_member": {
+      "member": "c/Redist/10.0.26100.0/ucrt/DLLs/x64/ucrtbase.dll",
+      "compression_method": 8,
+      "crc32": "52119586",
+      "compressed_bytes": 646588,
+      "uncompressed_bytes": 1357256,
+      "local_header_offset": 43576428,
+      "flags": 0
+    },
+    "sha256": "d404dc9aa843d53d7e276dd078b2cac8d7aa905e2838a1fe8385278e19ba3810",
+    "bytes": 1357256
+  },
+  {
+    "reference_id": "microsoft-sdk/ucrtbase-arm64.dll",
+    "sdk_zip_member": {
+      "member": "c/Redist/10.0.26100.0/ucrt/DLLs/arm64/ucrtbase.dll",
+      "compression_method": 8,
+      "crc32": "b4f47058",
+      "compressed_bytes": 897077,
+      "uncompressed_bytes": 2244056,
+      "local_header_offset": 42299451,
+      "flags": 0
+    },
+    "sha256": "b121f4140e1e3722cfed1cc2878cc0deb45ac00b39d98936f68699156164325e",
+    "bytes": 2244056
+  },
+  {
+    "reference_id": "microsoft-sdk/report_runtime_error.cpp",
+    "sdk_zip_member": {
+      "member": "c/Source/10.0.26100.0/ucrt/internal/report_runtime_error.cpp",
+      "compression_method": 8,
+      "crc32": "c95d1860",
+      "compressed_bytes": 2140,
+      "uncompressed_bytes": 5891,
+      "local_header_offset": 81660339,
+      "flags": 0
+    },
+    "sha256": "c062885677be56e6321616de83fcc4f5d2f386067490f8907f91ec2433c24095",
+    "bytes": 5891
+  },
+  {
+    "reference_id": "microsoft-sdk/seterrm.cpp",
+    "sdk_zip_member": {
+      "member": "c/Source/10.0.26100.0/ucrt/misc/seterrm.cpp",
+      "compression_method": 8,
+      "crc32": "6292bd10",
+      "compressed_bytes": 442,
+      "uncompressed_bytes": 1000,
+      "local_header_offset": 81887302,
+      "flags": 0
+    },
+    "sha256": "b4d52892793a5094470e270682ad906294599810f35c604cca74457634e2f2c6",
+    "bytes": 1000
+  },
+  {
+    "reference_id": "microsoft-sdk/set_error_mode.cpp",
+    "sdk_zip_member": {
+      "member": "c/Source/10.0.26100.0/ucrt/misc/set_error_mode.cpp",
+      "compression_method": 8,
+      "crc32": "fd1e80ac",
+      "compressed_bytes": 802,
+      "uncompressed_bytes": 2110,
+      "local_header_offset": 81887817,
+      "flags": 0
+    },
+    "sha256": "689932fe348e045f820fd1255126a9cb1a403c0682ef1f40baee1682d56ee0bc",
+    "bytes": 2110
+  },
+  {
+    "reference_id": "microsoft-sdk/corecrt_startup.h",
+    "sdk_zip_member": {
+      "member": "c/Include/10.0.26100.0/ucrt/corecrt_startup.h",
+      "compression_method": 8,
+      "crc32": "fb90d414",
+      "compressed_bytes": 1361,
+      "uncompressed_bytes": 5276,
+      "local_header_offset": 18090795,
+      "flags": 0
+    },
+    "sha256": "2e2e27515bfe462435f5222022e5afdc84a50f093f87ade27db8afcaea202cb7",
+    "bytes": 5276
+  }
+]

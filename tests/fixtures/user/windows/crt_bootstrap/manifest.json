@@ -1,0 +1,1626 @@
+{
+  "schema": 1,
+  "source_baseline": "9bc8ccdca85a5b0c9c74a7c446c85194efdc780d",
+  "purpose": "Custom-entry genuine UCRT startup policy and exact ABI-specific floating-point reset witnesses; no ordinary CRT startup",
+  "native_windows_oracle": "unknown; no recorded native execution",
+  "slices": [
+    1,
+    4096
+  ],
+  "rebuild_receipt_path": "rebuild.json",
+  "physical_pe_count": 6,
+  "semantic_case_count": 66,
+  "required_execution_count": 132,
+  "primary_sources_path": "../../../../../docs/specifications/windows/crt-bootstrap/sources.json",
+  "primary_sources_sha256": "85649f1c09783cdf8f65e7210f3beb754f5c33ec817e838922b3326f6e6eaadc",
+  "tools": [
+    {
+      "name": "clang",
+      "path": "/Users/int/local/bin/clang",
+      "sha256": "6acca6b9583c9270f8606d026bab0015a4f82affd5610606f97fef6e606bde00",
+      "version": "clang version 23.0.0git (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Users/int/local/bin"
+    },
+    {
+      "name": "linker",
+      "path": "/Users/int/local/bin/lld-link",
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd",
+      "version": "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d)"
+    },
+    {
+      "name": "dlltool",
+      "path": "/Users/int/local/bin/llvm-dlltool",
+      "sha256": "36566071f789a6f966ba69b05b38570f840f4d15269b76407fed7bce5711e03d",
+      "version": "No version flag; executable hash pins identity"
+    },
+    {
+      "name": "readobj",
+      "path": "/Users/int/local/bin/llvm-readobj",
+      "sha256": "903feaa9324fcedcfb80afd2e8da6248bed8e9fb3222c8476fdfb59519ec95d1",
+      "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build."
+    },
+    {
+      "name": "objdump",
+      "path": "/Users/int/local/bin/llvm-objdump",
+      "sha256": "197db7ff13ded2a74e6d961e7f492fe24251a551e86473d177e7a75622d567c7",
+      "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore"
+    }
+  ],
+  "producers": [
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "target": "i686-pc-windows-msvc",
+      "machine": "x86",
+      "compile_flags": [
+        "--target=i686-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-fno-asynchronous-unwind-tables",
+        "-fno-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "c_register_restrictions": [
+        "-mno-sse",
+        "-mno-sse2",
+        "-mno-mmx"
+      ],
+      "assembly_abi": "Manually preserved caller nonvolatile registers and complete original FP state; no compiler instructions between raw snapshots",
+      "compile_inputs": [
+        "src/graph.c",
+        "src/fp.S"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32-x86.def",
+        "src/runtime.def",
+        "src/locale.def",
+        "src/math.def"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/entry:entry",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "import_families": {
+        "runtime": "ucrtbase.dll",
+        "locale": "ucrtbase.dll",
+        "math": "ucrtbase.dll"
+      },
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "-"
+      ],
+      "instruction_observer_command": [
+        "llvm-objdump",
+        "--disassemble",
+        "--print-imm-hex",
+        "-"
+      ]
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "target": "i686-pc-windows-msvc",
+      "machine": "x86",
+      "compile_flags": [
+        "--target=i686-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-fno-asynchronous-unwind-tables",
+        "-fno-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "c_register_restrictions": [
+        "-mno-sse",
+        "-mno-sse2",
+        "-mno-mmx"
+      ],
+      "assembly_abi": "Manually preserved caller nonvolatile registers and complete original FP state; no compiler instructions between raw snapshots",
+      "compile_inputs": [
+        "src/graph.c",
+        "src/fp.S"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32-x86.def",
+        "src/runtime.def",
+        "src/locale.def",
+        "src/math.def"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/entry:entry",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "import_families": {
+        "runtime": "api-ms-win-crt-runtime-l1-1-0.dll",
+        "locale": "api-ms-win-crt-locale-l1-1-0.dll",
+        "math": "api-ms-win-crt-math-l1-1-0.dll"
+      },
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "-"
+      ],
+      "instruction_observer_command": [
+        "llvm-objdump",
+        "--disassemble",
+        "--print-imm-hex",
+        "-"
+      ]
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "target": "x86_64-pc-windows-msvc",
+      "machine": "x64",
+      "compile_flags": [
+        "--target=x86_64-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-fno-asynchronous-unwind-tables",
+        "-fno-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "c_register_restrictions": [
+        "-mno-sse",
+        "-mno-sse2",
+        "-mno-mmx"
+      ],
+      "assembly_abi": "Manually preserved caller nonvolatile registers and complete original FP state; no compiler instructions between raw snapshots",
+      "compile_inputs": [
+        "src/graph.c",
+        "src/fp.S"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32.def",
+        "src/runtime.def",
+        "src/locale.def",
+        "src/math.def"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/entry:entry",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "import_families": {
+        "runtime": "ucrtbase.dll",
+        "locale": "ucrtbase.dll",
+        "math": "ucrtbase.dll"
+      },
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "-"
+      ],
+      "instruction_observer_command": [
+        "llvm-objdump",
+        "--disassemble",
+        "--print-imm-hex",
+        "-"
+      ]
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "target": "x86_64-pc-windows-msvc",
+      "machine": "x64",
+      "compile_flags": [
+        "--target=x86_64-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-fno-asynchronous-unwind-tables",
+        "-fno-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "c_register_restrictions": [
+        "-mno-sse",
+        "-mno-sse2",
+        "-mno-mmx"
+      ],
+      "assembly_abi": "Manually preserved caller nonvolatile registers and complete original FP state; no compiler instructions between raw snapshots",
+      "compile_inputs": [
+        "src/graph.c",
+        "src/fp.S"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32.def",
+        "src/runtime.def",
+        "src/locale.def",
+        "src/math.def"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/entry:entry",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "import_families": {
+        "runtime": "api-ms-win-crt-runtime-l1-1-0.dll",
+        "locale": "api-ms-win-crt-locale-l1-1-0.dll",
+        "math": "api-ms-win-crt-math-l1-1-0.dll"
+      },
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "-"
+      ],
+      "instruction_observer_command": [
+        "llvm-objdump",
+        "--disassemble",
+        "--print-imm-hex",
+        "-"
+      ]
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "target": "aarch64-pc-windows-msvc",
+      "machine": "arm64",
+      "compile_flags": [
+        "--target=aarch64-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-fno-asynchronous-unwind-tables",
+        "-fno-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "c_register_restrictions": [
+        "-mgeneral-regs-only",
+        "-ffixed-x18"
+      ],
+      "assembly_abi": "Manually preserved caller nonvolatile registers and complete original FP state; no compiler instructions between raw snapshots",
+      "compile_inputs": [
+        "src/graph.c",
+        "src/fp.S"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32.def",
+        "src/runtime.def",
+        "src/locale.def",
+        "src/math.def"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/entry:entry",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "import_families": {
+        "runtime": "ucrtbase.dll",
+        "locale": "ucrtbase.dll",
+        "math": "ucrtbase.dll"
+      },
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "-"
+      ],
+      "instruction_observer_command": [
+        "llvm-objdump",
+        "--disassemble",
+        "--print-imm-hex",
+        "-"
+      ]
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "target": "aarch64-pc-windows-msvc",
+      "machine": "arm64",
+      "compile_flags": [
+        "--target=aarch64-pc-windows-msvc",
+        "-Oz",
+        "-ffreestanding",
+        "-fno-builtin",
+        "-fno-stack-protector",
+        "-fno-ident",
+        "-fno-vectorize",
+        "-fno-slp-vectorize",
+        "-fno-asynchronous-unwind-tables",
+        "-fno-unwind-tables",
+        "-ffile-prefix-map=FIXTURE_ROOT=.",
+        "-ffile-prefix-map=REPOSITORY=repository"
+      ],
+      "c_register_restrictions": [
+        "-mgeneral-regs-only",
+        "-ffixed-x18"
+      ],
+      "assembly_abi": "Manually preserved caller nonvolatile registers and complete original FP state; no compiler instructions between raw snapshots",
+      "compile_inputs": [
+        "src/graph.c",
+        "src/fp.S"
+      ],
+      "import_definition_inputs": [
+        "src/kernel32.def",
+        "src/runtime.def",
+        "src/locale.def",
+        "src/math.def"
+      ],
+      "link_flags": [
+        "/nodefaultlib",
+        "/timestamp:0",
+        "/dynamicbase",
+        "/nxcompat",
+        "/safeseh:no",
+        "/entry:entry",
+        "/stack:1048576,4096",
+        "/heap:1048576,4096"
+      ],
+      "import_families": {
+        "runtime": "api-ms-win-crt-runtime-l1-1-0.dll",
+        "locale": "api-ms-win-crt-locale-l1-1-0.dll",
+        "math": "api-ms-win-crt-math-l1-1-0.dll"
+      },
+      "observer_command": [
+        "llvm-readobj",
+        "--file-headers",
+        "--coff-imports",
+        "-"
+      ],
+      "instruction_observer_command": [
+        "llvm-objdump",
+        "--disassemble",
+        "--print-imm-hex",
+        "-"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "path": "build.rb",
+      "sha256": "86a06762e2f759306c3a0c0e0375bf9f3ed7c64deaef3e7b807246273690ff9c",
+      "bytes": 8892
+    },
+    {
+      "path": "baseline.rb",
+      "sha256": "2ee1597a33d7dc7e73ce185bf5e370f77bbde6f40996aa66e24fd1f24237b02a",
+      "bytes": 4337
+    },
+    {
+      "path": "verify_rebuild.rb",
+      "sha256": "bfcd9e4a11b1a17e5316f156931e59b90c5a377929ba6b1ccf5c48b32fa63850",
+      "bytes": 1827
+    },
+    {
+      "path": "README.md",
+      "sha256": "f2eb1154e77089e0f9185a59c71590f8b1b2af979e305191de4b52933e52fc73",
+      "bytes": 6796
+    },
+    {
+      "path": "src/common.h",
+      "sha256": "73a804e1fcdd6f9f82a454d76ac87e4f8909677b03e5950263c3889aa73c639e",
+      "bytes": 2053
+    },
+    {
+      "path": "src/graph.c",
+      "sha256": "e015bd0f07ece4f6d9ba56538a9e72a6157d43dfd4912ffe974a6569559ad6a3",
+      "bytes": 9123
+    },
+    {
+      "path": "src/fp.S",
+      "sha256": "a44f9cbc14d0834a6e1ffea5f17fcbe2b8baae28bea295ecb7c9c14d7c7f70e0",
+      "bytes": 3837
+    },
+    {
+      "path": "src/runtime.def",
+      "sha256": "1cdffe5d46de3550dc5b57d0609c5bb56a7069426e6ee8052d0e2fef30a4b4c5",
+      "bytes": 122
+    },
+    {
+      "path": "src/locale.def",
+      "sha256": "493f2ddd235ed6c9e2d78393af8f2f8946321503cc59ebe8103413f54b7dbdbf",
+      "bytes": 49
+    },
+    {
+      "path": "src/math.def",
+      "sha256": "3198b83b677ecba57658e18f7f600214ab95b573bce15b3f5306266a3c09cfe2",
+      "bytes": 46
+    },
+    {
+      "path": "src/kernel32.def",
+      "sha256": "9ca1ae704f403852bf248767f9ddc1accb292dcf36b6026436b82544e43dd1f8",
+      "bytes": 169
+    },
+    {
+      "path": "src/kernel32-x86.def",
+      "sha256": "986818bf723fbd17fe64797e2d39404326e3c1b33ad4083bcc51398e52a94f82",
+      "bytes": 191
+    }
+  ],
+  "fixtures": [
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "path": "bin/x86/ucrtbase/graph.exe",
+      "sha256": "d78a2b31cd9e73e661331df0f6f019e12fae8998b04e3eb104ae99d22e7ddb74",
+      "bytes": 6144,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateThread",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetExitCodeThread",
+            "GetLastError",
+            "GetStdHandle",
+            "SetLastError",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "__pxcptinfoptrs",
+            "__setusermatherr",
+            "_configthreadlocale",
+            "_errno",
+            "_fpreset",
+            "_query_app_type",
+            "_set_app_type",
+            "_set_invalid_parameter_handler"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-ucrtbase-iat.txt",
+      "iat_sha256": "02c531a2a86a8aa02bf9515c5bec69cdaa51c9d43e8faf825e2a58971ec65982",
+      "instructions_path": "observations/x86-ucrtbase-instructions.txt",
+      "instructions_sha256": "dd882a10c6e28bd0ffc77e8c64d8522ebe0c277ee1ce9fe50bd58983f551d7dd"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "path": "bin/x86/apiset/graph.exe",
+      "sha256": "69066966f49b275f6821758cfbf2733f238f5a8de166b8706021d6cac3d38a12",
+      "bytes": 6144,
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-locale-l1-1-0.dll",
+          "symbols": [
+            "_configthreadlocale"
+          ]
+        },
+        {
+          "dll": "api-ms-win-crt-math-l1-1-0.dll",
+          "symbols": [
+            "__setusermatherr"
+          ]
+        },
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "__pxcptinfoptrs",
+            "_errno",
+            "_fpreset",
+            "_query_app_type",
+            "_set_app_type",
+            "_set_invalid_parameter_handler"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateThread",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetExitCodeThread",
+            "GetLastError",
+            "GetStdHandle",
+            "SetLastError",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x86-apiset-iat.txt",
+      "iat_sha256": "c39c337493f6558b99c84624e073385acffc4c8abf18673aefc41db72c9f85ca",
+      "instructions_path": "observations/x86-apiset-instructions.txt",
+      "instructions_sha256": "90eeb665d3acd22bee0c9540da2834eee73346a40afb8976e1b7366de4ab4742"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "path": "bin/x64/ucrtbase/graph.exe",
+      "sha256": "e9a1405c79978bb27c546477e8ee9d1f855124dab77a4d14dfb1afa9397a77d1",
+      "bytes": 6144,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateThread",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetExitCodeThread",
+            "GetLastError",
+            "GetStdHandle",
+            "SetLastError",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "__pxcptinfoptrs",
+            "__setusermatherr",
+            "_configthreadlocale",
+            "_errno",
+            "_fpreset",
+            "_query_app_type",
+            "_set_app_type",
+            "_set_invalid_parameter_handler"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-ucrtbase-iat.txt",
+      "iat_sha256": "5dcc3dd32aa2eb278595f757a2666b0e93f1b2ae743d8a8ad545ee6edf22960e",
+      "instructions_path": "observations/x64-ucrtbase-instructions.txt",
+      "instructions_sha256": "d297b53436f8d3c95662d8db57fdfe2c934df2fcce1eb4e5b966e352c19f7346"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "path": "bin/x64/apiset/graph.exe",
+      "sha256": "0ac4e90532507a924e1d4004e28aed16c0ad94eb32b6b5500ac563c904350ae5",
+      "bytes": 6656,
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-locale-l1-1-0.dll",
+          "symbols": [
+            "_configthreadlocale"
+          ]
+        },
+        {
+          "dll": "api-ms-win-crt-math-l1-1-0.dll",
+          "symbols": [
+            "__setusermatherr"
+          ]
+        },
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "__pxcptinfoptrs",
+            "_errno",
+            "_fpreset",
+            "_query_app_type",
+            "_set_app_type",
+            "_set_invalid_parameter_handler"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateThread",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetExitCodeThread",
+            "GetLastError",
+            "GetStdHandle",
+            "SetLastError",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/x64-apiset-iat.txt",
+      "iat_sha256": "f83685c19611d1f8f8ff858f065c4583ea52819307ff5fcbf185be796787c6df",
+      "instructions_path": "observations/x64-apiset-instructions.txt",
+      "instructions_sha256": "2ec748d8b2ddd559cdc4aff4dad7c9549a6574626746d419b1ecc33f5fa0db06"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "path": "bin/arm64/ucrtbase/graph.exe",
+      "sha256": "9ac725b7b863fc6c0b162b4d4296070d75d23309a58fce2eed0ec6dc7c5d0aff",
+      "bytes": 7168,
+      "imports": [
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateThread",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetExitCodeThread",
+            "GetLastError",
+            "GetStdHandle",
+            "SetLastError",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        },
+        {
+          "dll": "ucrtbase.dll",
+          "symbols": [
+            "__pxcptinfoptrs",
+            "__setusermatherr",
+            "_configthreadlocale",
+            "_errno",
+            "_fpreset",
+            "_query_app_type",
+            "_set_app_type",
+            "_set_invalid_parameter_handler"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-ucrtbase-iat.txt",
+      "iat_sha256": "765ce13bfdd3153dd546fbee819b99861ad4ffc8a7ec5246fcbb322e57a1adf0",
+      "instructions_path": "observations/arm64-ucrtbase-instructions.txt",
+      "instructions_sha256": "8dc80192c21f818afc8d81e94a2c769abfb34fbaa09d1e7f07ae20cecc31be82"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "path": "bin/arm64/apiset/graph.exe",
+      "sha256": "f70fb932940236713688fb9cdad05e3fab0477469e983e8a86ac3ca4337bf5e1",
+      "bytes": 7680,
+      "imports": [
+        {
+          "dll": "api-ms-win-crt-locale-l1-1-0.dll",
+          "symbols": [
+            "_configthreadlocale"
+          ]
+        },
+        {
+          "dll": "api-ms-win-crt-math-l1-1-0.dll",
+          "symbols": [
+            "__setusermatherr"
+          ]
+        },
+        {
+          "dll": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "symbols": [
+            "__pxcptinfoptrs",
+            "_errno",
+            "_fpreset",
+            "_query_app_type",
+            "_set_app_type",
+            "_set_invalid_parameter_handler"
+          ]
+        },
+        {
+          "dll": "kernel32.dll",
+          "symbols": [
+            "CloseHandle",
+            "CreateThread",
+            "ExitProcess",
+            "GetCommandLineW",
+            "GetExitCodeThread",
+            "GetLastError",
+            "GetStdHandle",
+            "SetLastError",
+            "WaitForSingleObject",
+            "WriteFile"
+          ]
+        }
+      ],
+      "iat_path": "observations/arm64-apiset-iat.txt",
+      "iat_sha256": "e922ce16a86c1ef48a8c987bf3be60ff9b3658a324cb6f07b99b93f153481dba",
+      "instructions_path": "observations/arm64-apiset-instructions.txt",
+      "instructions_sha256": "76df8c2e46b6be199e60ace9d296e50be518975a50af0c19014e5ecd082acfd1"
+    }
+  ],
+  "cases": [
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 0,
+      "name": "control",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 0",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 1,
+      "name": "app_extrema_shared",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 1",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "app\n",
+      "baseline_missing_export": "ucrtbase.dll!_query_app_type",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 2,
+      "name": "locale_valid",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 2",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "locale\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 3,
+      "name": "locale_invalid_return",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 3",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "invalid\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 4,
+      "name": "math_no_eager_call",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 4",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "math\n",
+      "baseline_missing_export": "ucrtbase.dll!__setusermatherr",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 5,
+      "name": "fp_raw_and_scalar",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 5",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp\n",
+      "baseline_missing_export": "ucrtbase.dll!_fpreset",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 6,
+      "name": "saved_context",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "context\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 7,
+      "name": "locale_thread_isolation",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "threads\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 8,
+      "name": "locale_invalid_default",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 8",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 9,
+      "name": "exception_pointer_cell",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 9",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "cell\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "ucrtbase",
+      "mode": 10,
+      "name": "private_fp_instrumentation_control",
+      "image_path": "bin/x86/ucrtbase/graph.exe",
+      "command_line": "graph.exe 10",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp-control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 0,
+      "name": "control",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 0",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 1,
+      "name": "app_extrema_shared",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 1",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "app\n",
+      "baseline_missing_export": "ucrtbase.dll!_query_app_type",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 2,
+      "name": "locale_valid",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 2",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "locale\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 3,
+      "name": "locale_invalid_return",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 3",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "invalid\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 4,
+      "name": "math_no_eager_call",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 4",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "math\n",
+      "baseline_missing_export": "ucrtbase.dll!__setusermatherr",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 5,
+      "name": "fp_raw_and_scalar",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 5",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp\n",
+      "baseline_missing_export": "ucrtbase.dll!_fpreset",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 6,
+      "name": "saved_context",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "context\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 7,
+      "name": "locale_thread_isolation",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "threads\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 8,
+      "name": "locale_invalid_default",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 8",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 9,
+      "name": "exception_pointer_cell",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 9",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "cell\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x86",
+      "binding": "apiset",
+      "mode": 10,
+      "name": "private_fp_instrumentation_control",
+      "image_path": "bin/x86/apiset/graph.exe",
+      "command_line": "graph.exe 10",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp-control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 0,
+      "name": "control",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 0",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 1,
+      "name": "app_extrema_shared",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 1",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "app\n",
+      "baseline_missing_export": "ucrtbase.dll!_query_app_type",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 2,
+      "name": "locale_valid",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 2",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "locale\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 3,
+      "name": "locale_invalid_return",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 3",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "invalid\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 4,
+      "name": "math_no_eager_call",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 4",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "math\n",
+      "baseline_missing_export": "ucrtbase.dll!__setusermatherr",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 5,
+      "name": "fp_raw_and_scalar",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 5",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp\n",
+      "baseline_missing_export": "ucrtbase.dll!_fpreset",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 6,
+      "name": "saved_context",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "context\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 7,
+      "name": "locale_thread_isolation",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "threads\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 8,
+      "name": "locale_invalid_default",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 8",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 9,
+      "name": "exception_pointer_cell",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 9",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "cell\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "ucrtbase",
+      "mode": 10,
+      "name": "private_fp_instrumentation_control",
+      "image_path": "bin/x64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 10",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp-control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 0,
+      "name": "control",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 0",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 1,
+      "name": "app_extrema_shared",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 1",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "app\n",
+      "baseline_missing_export": "ucrtbase.dll!_query_app_type",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 2,
+      "name": "locale_valid",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 2",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "locale\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 3,
+      "name": "locale_invalid_return",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 3",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "invalid\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 4,
+      "name": "math_no_eager_call",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 4",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "math\n",
+      "baseline_missing_export": "ucrtbase.dll!__setusermatherr",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 5,
+      "name": "fp_raw_and_scalar",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 5",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp\n",
+      "baseline_missing_export": "ucrtbase.dll!_fpreset",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 6,
+      "name": "saved_context",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "context\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 7,
+      "name": "locale_thread_isolation",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "threads\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 8,
+      "name": "locale_invalid_default",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 8",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 9,
+      "name": "exception_pointer_cell",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 9",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "cell\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "x64",
+      "binding": "apiset",
+      "mode": 10,
+      "name": "private_fp_instrumentation_control",
+      "image_path": "bin/x64/apiset/graph.exe",
+      "command_line": "graph.exe 10",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp-control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 0,
+      "name": "control",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 0",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 1,
+      "name": "app_extrema_shared",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 1",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "app\n",
+      "baseline_missing_export": "ucrtbase.dll!_query_app_type",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 2,
+      "name": "locale_valid",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 2",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "locale\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 3,
+      "name": "locale_invalid_return",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 3",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "invalid\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 4,
+      "name": "math_no_eager_call",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 4",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "math\n",
+      "baseline_missing_export": "ucrtbase.dll!__setusermatherr",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 5,
+      "name": "fp_raw_and_scalar",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 5",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp\n",
+      "baseline_missing_export": "ucrtbase.dll!_fpreset",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 6,
+      "name": "saved_context",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "context\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 7,
+      "name": "locale_thread_isolation",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "threads\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 8,
+      "name": "locale_invalid_default",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 8",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 9,
+      "name": "exception_pointer_cell",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 9",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "cell\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "ucrtbase",
+      "mode": 10,
+      "name": "private_fp_instrumentation_control",
+      "image_path": "bin/arm64/ucrtbase/graph.exe",
+      "command_line": "graph.exe 10",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp-control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 0,
+      "name": "control",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 0",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 1,
+      "name": "app_extrema_shared",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 1",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "app\n",
+      "baseline_missing_export": "ucrtbase.dll!_query_app_type",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 2,
+      "name": "locale_valid",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 2",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "locale\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 3,
+      "name": "locale_invalid_return",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 3",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "invalid\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 4,
+      "name": "math_no_eager_call",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 4",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "math\n",
+      "baseline_missing_export": "ucrtbase.dll!__setusermatherr",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 5,
+      "name": "fp_raw_and_scalar",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 5",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp\n",
+      "baseline_missing_export": "ucrtbase.dll!_fpreset",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 6,
+      "name": "saved_context",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 6",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "context\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 7,
+      "name": "locale_thread_isolation",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 7",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "threads\n",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 8,
+      "name": "locale_invalid_default",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 8",
+      "expected_status": 3221226505,
+      "expected_shell_exit": 9,
+      "expected_stdout": "",
+      "baseline_missing_export": "ucrtbase.dll!_configthreadlocale",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 9,
+      "name": "exception_pointer_cell",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 9",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "cell\n",
+      "baseline_missing_export": "ucrtbase.dll!__pxcptinfoptrs",
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    },
+    {
+      "arch": "arm64",
+      "binding": "apiset",
+      "mode": 10,
+      "name": "private_fp_instrumentation_control",
+      "image_path": "bin/arm64/apiset/graph.exe",
+      "command_line": "graph.exe 10",
+      "expected_status": 0,
+      "expected_shell_exit": 0,
+      "expected_stdout": "fp-control\n",
+      "baseline_missing_export": null,
+      "oracle": "Independent assertions from pinned SDK/publisher contracts; no native Windows execution"
+    }
+  ]
+}

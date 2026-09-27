@@ -34,6 +34,11 @@ pub(crate) static UCRT_REGISTRATION_EXPORTS: &[Export] = &[
     Export::func("_crt_at_quick_exit", Cdecl, &[Ptr], quick),
 ];
 
+/// Shared actual abort behavior for getptd-based startup API failures.
+pub(super) fn abort_runtime(c: &mut Ctx, runtime: RuntimeKind) -> ApiResult {
+    fatal::abort_runtime(c, runtime)
+}
+
 fn ordinary(c: &mut Ctx) -> ApiResult {
     decode(c, runtime(c)?, Kind::Ordinary)
 }

@@ -130,7 +130,10 @@ pub(super) fn ensure_context(c: &mut Ctx, kind: RuntimeKind) -> Result<u64, ApiE
         .contexts
         .try_reserve(1)
         .map_err(|_| no_context_memory(c))?;
-    let cells = match c.p.heaps.alloc_checked(&mut c.p.vm, heap, 8, true) {
+    // Two 32-bit error cells and the pointer-width _tpxcptinfoptrs object.
+    // calloc initialization keeps that exposed slot NULL before publication.
+    let bytes = 8 + c.arch().ptr_size();
+    let cells = match c.p.heaps.alloc_checked(&mut c.p.vm, heap, bytes, true) {
         Ok(cells) => cells,
         Err(HeapError::MemoryFault(fault)) => return Err(fault.into()),
         Err(HeapError::NoMemory) => return Err(no_context_memory(c)),
@@ -142,6 +145,7 @@ pub(super) fn ensure_context(c: &mut Ctx, kind: RuntimeKind) -> Result<u64, ApiE
             cells,
             invalid_handler: 0,
             terminate_handler: 0,
+            locale_flags: 1,
         },
     );
     Ok(cells)

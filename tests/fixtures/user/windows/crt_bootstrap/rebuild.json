@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "kind": "Two complete independent producer invocations; temporary C/assembly objects recreated",
+  "manifest_sha256": "00bed39a51a6bd864d77637ebea9a3fdfc57eedf21273e661e6e36b15f3f669f",
+  "physical_pe_count": 6,
+  "pe_bytes": 39936,
+  "verified_inputs": [
+    {
+      "path": "build.rb",
+      "sha256": "86a06762e2f759306c3a0c0e0375bf9f3ed7c64deaef3e7b807246273690ff9c",
+      "bytes": 8892
+    },
+    {
+      "path": "baseline.rb",
+      "sha256": "2ee1597a33d7dc7e73ce185bf5e370f77bbde6f40996aa66e24fd1f24237b02a",
+      "bytes": 4337
+    },
+    {
+      "path": "verify_rebuild.rb",
+      "sha256": "bfcd9e4a11b1a17e5316f156931e59b90c5a377929ba6b1ccf5c48b32fa63850",
+      "bytes": 1827
+    },
+    {
+      "path": "README.md",
+      "sha256": "f2eb1154e77089e0f9185a59c71590f8b1b2af979e305191de4b52933e52fc73",
+      "bytes": 6796
+    },
+    {
+      "path": "src/common.h",
+      "sha256": "73a804e1fcdd6f9f82a454d76ac87e4f8909677b03e5950263c3889aa73c639e",
+      "bytes": 2053
+    },
+    {
+      "path": "src/graph.c",
+      "sha256": "e015bd0f07ece4f6d9ba56538a9e72a6157d43dfd4912ffe974a6569559ad6a3",
+      "bytes": 9123
+    },
+    {
+      "path": "src/fp.S",
+      "sha256": "a44f9cbc14d0834a6e1ffea5f17fcbe2b8baae28bea295ecb7c9c14d7c7f70e0",
+      "bytes": 3837
+    },
+    {
+      "path": "src/runtime.def",
+      "sha256": "1cdffe5d46de3550dc5b57d0609c5bb56a7069426e6ee8052d0e2fef30a4b4c5",
+      "bytes": 122
+    },
+    {
+      "path": "src/locale.def",
+      "sha256": "493f2ddd235ed6c9e2d78393af8f2f8946321503cc59ebe8103413f54b7dbdbf",
+      "bytes": 49
+    },
+    {
+      "path": "src/math.def",
+      "sha256": "3198b83b677ecba57658e18f7f600214ab95b573bce15b3f5306266a3c09cfe2",
+      "bytes": 46
+    },
+    {
+      "path": "src/kernel32.def",
+      "sha256": "9ca1ae704f403852bf248767f9ddc1accb292dcf36b6026436b82544e43dd1f8",
+      "bytes": 169
+    },
+    {
+      "path": "src/kernel32-x86.def",
+      "sha256": "986818bf723fbd17fe64797e2d39404326e3c1b33ad4083bcc51398e52a94f82",
+      "bytes": 191
+    },
+    {
+      "path": "bin/x86/ucrtbase/graph.exe",
+      "sha256": "d78a2b31cd9e73e661331df0f6f019e12fae8998b04e3eb104ae99d22e7ddb74"
+    },
+    {
+      "path": "observations/x86-ucrtbase-iat.txt",
+      "sha256": "02c531a2a86a8aa02bf9515c5bec69cdaa51c9d43e8faf825e2a58971ec65982"
+    },
+    {
+      "path": "observations/x86-ucrtbase-instructions.txt",
+      "sha256": "dd882a10c6e28bd0ffc77e8c64d8522ebe0c277ee1ce9fe50bd58983f551d7dd"
+    },
+    {
+      "path": "bin/x86/apiset/graph.exe",
+      "sha256": "69066966f49b275f6821758cfbf2733f238f5a8de166b8706021d6cac3d38a12"
+    },
+    {
+      "path": "observations/x86-apiset-iat.txt",
+      "sha256": "c39c337493f6558b99c84624e073385acffc4c8abf18673aefc41db72c9f85ca"
+    },
+    {
+      "path": "observations/x86-apiset-instructions.txt",
+      "sha256": "90eeb665d3acd22bee0c9540da2834eee73346a40afb8976e1b7366de4ab4742"
+    },
+    {
+      "path": "bin/x64/ucrtbase/graph.exe",
+      "sha256": "e9a1405c79978bb27c546477e8ee9d1f855124dab77a4d14dfb1afa9397a77d1"
+    },
+    {
+      "path": "observations/x64-ucrtbase-iat.txt",
+      "sha256": "5dcc3dd32aa2eb278595f757a2666b0e93f1b2ae743d8a8ad545ee6edf22960e"
+    },
+    {
+      "path": "observations/x64-ucrtbase-instructions.txt",
+      "sha256": "d297b53436f8d3c95662d8db57fdfe2c934df2fcce1eb4e5b966e352c19f7346"
+    },
+    {
+      "path": "bin/x64/apiset/graph.exe",
+      "sha256": "0ac4e90532507a924e1d4004e28aed16c0ad94eb32b6b5500ac563c904350ae5"
+    },
+    {
+      "path": "observations/x64-apiset-iat.txt",
+      "sha256": "f83685c19611d1f8f8ff858f065c4583ea52819307ff5fcbf185be796787c6df"
+    },
+    {
+      "path": "observations/x64-apiset-instructions.txt",
+      "sha256": "2ec748d8b2ddd559cdc4aff4dad7c9549a6574626746d419b1ecc33f5fa0db06"
+    },
+    {
+      "path": "bin/arm64/ucrtbase/graph.exe",
+      "sha256": "9ac725b7b863fc6c0b162b4d4296070d75d23309a58fce2eed0ec6dc7c5d0aff"
+    },
+    {
+      "path": "observations/arm64-ucrtbase-iat.txt",
+      "sha256": "765ce13bfdd3153dd546fbee819b99861ad4ffc8a7ec5246fcbb322e57a1adf0"
+    },
+    {
+      "path": "observations/arm64-ucrtbase-instructions.txt",
+      "sha256": "8dc80192c21f818afc8d81e94a2c769abfb34fbaa09d1e7f07ae20cecc31be82"
+    },
+    {
+      "path": "bin/arm64/apiset/graph.exe",
+      "sha256": "f70fb932940236713688fb9cdad05e3fab0477469e983e8a86ac3ca4337bf5e1"
+    },
+    {
+      "path": "observations/arm64-apiset-iat.txt",
+      "sha256": "e922ce16a86c1ef48a8c987bf3be60ff9b3658a324cb6f07b99b93f153481dba"
+    },
+    {
+      "path": "observations/arm64-apiset-instructions.txt",
+      "sha256": "76df8c2e46b6be199e60ace9d296e50be518975a50af0c19014e5ecd082acfd1"
+    }
+  ],
+  "second_build_exit": 0,
+  "second_build_output": "Generated 6 PEs, 66 independent mode cells; native Windows execution unknown\n",
+  "native_windows_oracle": "unknown; producer repeatability only"
+}
