@@ -163,6 +163,7 @@ f5203580ad9a36c790aaa251190653546bbd198abf7186253a8dc0d9aa67ed1a  ./osfmk/ipc/ma
 0a7781f478b3bd8d209a69f8c74fe31e4aab9ed46fdd08b88a7bacac4a665a34  ./osfmk/kern/clock.c
 375ba9e48ee7e46d203b21cf9e49c89afbe8963be6548b714196a35565fc7975  ./osfmk/kern/clock_oldops.c
 729ba3fd280fe3bbadcb2c3d88eabca8a2598eda7ff5570310043f19eb0a147d  ./osfmk/kern/exc_guard.h
+53218b29b3447cab08ae8f147050bc26efe24d6f143b632973aa835b2e06dd5d  ./osfmk/kern/exception.c
 700df4b00347b374bbfcb094f33f356b2bd3c292b1997af26a47a0183aad30da  ./osfmk/kern/exception_policy.c
 e3c3b51ca1810af00565eb1d759750a8cb861735e70752708938852e07d4b4fd  ./osfmk/kern/host.c
 8025d165c166df28ed26430a834b3992e945b134838ed5ff6a7e3b970279c9f6  ./osfmk/kern/ipc_host.c
@@ -194,6 +195,7 @@ ab91af1d14bd3ff1e028709e7d4db215eac0df620ff81ad3aa38ae295a50aed0  ./osfmk/mach/a
 7c97eebd4acbf12ad982b60a0f9b383feddf917f305c765f5d609a74a0dcf22e  ./osfmk/mach/clock.defs
 f75d2c4b312ebf55f171ad5bcf0f3d4e9d3228d8fa36f3a8a400f3928ee879c5  ./osfmk/mach/clock_types.defs
 713a82de87f460e5f03d7e29951166ebab75a387b8245ab8bff0725c04f689e3  ./osfmk/mach/clock_types.h
+57e98c00636fef68f0dd9a373e92ba15947a40ac263b036d6b94e3ae70ca727a  ./osfmk/mach/exc.defs
 3db55e989a5f098fb0fc92faa0f855fbdeaaa5ed68c0f27eb4f8d28ecb560f60  ./osfmk/mach/exception_types.h
 cd4868e7151b298ae314225d4d53d2e9e01849902e3c098f12947252a7d9fa26  ./osfmk/mach/host_info.h
 67714620eed7afb09a49ef1d55c4cee1b009f2243ac644e6d72c58ef4af1cab8  ./osfmk/mach/host_priv.defs
@@ -206,6 +208,7 @@ ec167951a952a94045359aff7d34153d32fb52af0f65f75576656d69898e0564  ./osfmk/mach/i
 aecc48c33d8e89ffbdcb8b8d6827114ecc657555f5a61859867f680ae580d2ef  ./osfmk/mach/i386/thread_status.h
 f75032c88c27276b5cb07ce587c9b80f145826de829faa4ceb96289cbea47c82  ./osfmk/mach/i386/vm_param.h
 2d4b89f7cf91cf7bffafe457cdba8884c3f2e5596a9ef7d5e4a9ea4b239558d8  ./osfmk/mach/kern_return.h
+3ddbd5d01091643dab842d6b153fe3ae0de65498f28fb4afc51dd3c6d6637b4d  ./osfmk/mach/mach_exc.defs
 580e6c1b2c2d15b6ac71d1a63c44fa0e3c8872e5da9bc0d8dd48845789706b53  ./osfmk/mach/mach_host.defs
 eb32eacc91c909cdc66a60a13f79c16cbd7b79cd33aadc9d1772fe71800d8756  ./osfmk/mach/mach_param.h
 f0a51838fbec52fe636068bf909f32edb5b5ffd3e2cc7fda2686220cd63d07f9  ./osfmk/mach/mach_port.defs
