@@ -4,4 +4,11 @@
 6003cc7f64c45d144be10f5ddb270e0133e0e94f852a98be9a78771dd442ab03  ./usr/include/mach/i386/_structs.h
 7d2b0fa4aad4d46f88243ccbbbad0dba77037b602b8838160da5a6882f14aea2  ./usr/include/mach/vm_region.h
 d67fecbd5fba1fc876b41b0a69ff080e3d47c9884f3ea4012f8a334ffda62681  ./usr/include/sys/_types/_ucontext.h
+9aca8ca87031ab7b670617e5af8b15a0cad8f34f7ab3bdb5dd799eb153b3ad0e  ./usr/include/sys/fcntl.h
 46001a703a66591b9adc873dcdfe4a545bb26cd5fc52b31ede9e0cda9ddbac7a  ./usr/include/sys/signal.h
+82f226f3d33f8afbef34c60e00c178b71ba3aef0e31626e25b36fdf431c2df54  ./usr/include/sys/syscall.h
+4f0463cea7c466850593f10341e9d57757f8570f610cfa748b5c6a3925842b76  ./usr/include/sys/unistd.h
+a7c1bbc2d5cfb78c0d1cc2f19a83987535fdb33c6db7b875440931b593f2aed5  ./usr/share/man/man2/dup.2
+9b16ec920ad681d1af2256b2c76d408c7b8506b7cad13aa00d035ba4385787a7  ./usr/share/man/man2/fcntl.2
+b49050c11356c4b8ff95db7cb867478a2066d222551ce628cdc37a7227880645  ./usr/share/man/man2/open.2
+78c3d3de2375df64dbf124ca7f40205884bc69bc565eb9dd8043872475c1de3c  ./usr/share/man/man2/pipe.2
