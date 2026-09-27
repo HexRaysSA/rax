@@ -104,6 +104,11 @@ enum { REGISTER_BUFFERS = 0, UNREGISTER_BUFFERS = 1, REGISTER_FILES = 2, UNREGIS
        REGISTER_FILES_UPDATE2 = 14, REGISTER_BUFFERS2 = 15, REGISTER_BUFFERS_UPDATE = 16,
        REGISTER_RING_FDS = 20, UNREGISTER_RING_FDS = 21, REGISTER_FILE_ALLOC_RANGE = 25,
        REGISTER_CLONE_BUFFERS = 30 };
+enum { OP_READV = 1, OP_WRITEV = 2, OP_FSYNC = 3, OP_READ_FIXED = 4, OP_WRITE_FIXED = 5,
+       OP_SYNC_FILE_RANGE = 8, OP_FALLOCATE = 17, OP_READ = 22, OP_WRITE = 23, OP_FADVISE = 24,
+       OP_MADVISE = 25, OP_FTRUNCATE = 55, OP_READV_FIXED = 60, OP_WRITEV_FIXED = 61 };
+enum { RWF_HIPRI_ = 0x1, RWF_NOWAIT_ = 0x8, RWF_APPEND_ = 0x10, RWF_NOAPPEND_ = 0x20,
+       RWF_ATOMIC_ = 0x40, RWF_NOSIGNAL_ = 0x100 };
 enum { OP_FILES_UPDATE = 20, FIXED_FILE = 1, RSRC_SPARSE = 1, SRC_REGISTERED = 1,
        DST_REPLACE = 2, FILES_SKIP = -2 };
 #define FILE_INDEX_ALLOC 0xffffffffULL
@@ -1127,6 +1132,384 @@ static void clones(void) {
     drop(&none);
 }
 
+/* A transfer's SQE. */
+static struct sqe xfer(uint8_t op, int fd, void *addr, uint32_t len, int64_t off, uint64_t data) {
+    struct sqe s = nop(data);
+    s.opcode = op;
+    s.fd = fd;
+    s.addr = PTR(addr);
+    s.len = len;
+    s.off = (uint64_t)off;
+    return s;
+}
+
+/* Queues an SQE, submits every queued one, waits for n CQEs, and reaps. */
+static char *one(struct ring *r, struct sqe s, unsigned n) {
+    push(r, s);
+    uint32_t queued = *sq_u32(r, r->p.sq_off.tail) - *sq_u32(r, r->p.sq_off.head);
+    long got = enter(r->fd, queued, n, GETEVENTS, NULL, 0);
+    if (got != (long)queued)
+        printf("  enter returned %ld errno %d\n", got, errno);
+    return reap(r);
+}
+
+#define ONE(name, r, s, n, want)                                              \
+    do {                                                                      \
+        char *got_ = one(r, s, n);                                            \
+        CHECK(name, strcmp(got_, want) == 0);                                 \
+        if (strcmp(got_, want) != 0)                                          \
+            printf("  got \"%s\" want \"%s\"\n", got_, want);                 \
+    } while (0)
+
+static int file_with(const char *text) {
+    char name[] = "/tmp/uring-rw-XXXXXX";
+    int fd = mkstemp(name);
+    unlink(name);
+    if (fd >= 0 && write(fd, text, strlen(text)) != (long)strlen(text))
+        return -1;
+    return fd;
+}
+
+static void transfers(void) {
+    struct ring r = make(8, 0, 0);
+    int fd = file_with("aaaaaaaaaa");
+    char *buf = anon(2 * PAGE, PROT_READ | PROT_WRITE);
+    char want[64];
+    CHECK("rw-file", fd >= 0 && buf != MAP_FAILED);
+    memcpy(buf, "xyz", 3);
+    ONE("rw-write", &r, xfer(OP_WRITE, fd, buf, 3, 2, 1), 1, "1:3");
+    ONE("rw-read", &r, xfer(OP_READ, fd, buf + 256, 10, 0, 2), 1, "2:10");
+    CHECK("rw-read-data", memcmp(buf + 256, "aaxyzaaaaa", 10) == 0);
+    /* Offset -1: the file position, which the transfer moves. */
+    lseek(fd, 4, SEEK_SET);
+    ONE("rw-position", &r, xfer(OP_READ, fd, buf + 512, 3, -1, 3), 1, "3:3");
+    CHECK("rw-position-moved", memcmp(buf + 512, "zaa", 3) == 0 && lseek(fd, 0, SEEK_CUR) == 7);
+    /* Fewer bytes than asked fail the request, and so its link. */
+    struct sqe s = xfer(OP_READ, fd, buf, 5, 8, 4);
+    s.flags = LINK;
+    push(&r, s);
+    ONE("rw-short", &r, nop(5), 2, "4:2 5:-125");
+    s = xfer(OP_READ, fd, buf, 0, 10, 6);
+    s.flags = LINK;
+    push(&r, s);
+    ONE("rw-nothing", &r, nop(7), 2, "6:0 7:0");
+    s = xfer(OP_READ, fd, buf, 4, 10, 8);
+    s.flags = LINK;
+    push(&r, s);
+    ONE("rw-at-end", &r, nop(9), 2, "8:0 9:-125");
+    lseek(fd, 0, SEEK_SET);
+    ONE("rw-write-position", &r, xfer(OP_WRITE, fd, buf, 3, -1, 10), 1, "10:3");
+    CHECK("rw-write-position-moved", lseek(fd, 0, SEEK_CUR) == 3);
+
+    /* Vectored: one transfer gathered and scattered. */
+    ftruncate(fd, 0);
+    memcpy(buf, "ABCDEFGH00000000", 16);
+    struct iovec iov[2] = {{buf, 3}, {buf + 5, 3}};
+    ONE("rw-writev", &r, xfer(OP_WRITEV, fd, iov, 2, 0, 11), 1, "11:6");
+    struct iovec in[2] = {{buf + 256, 4}, {buf + 512, 4}};
+    ONE("rw-readv", &r, xfer(OP_READV, fd, in, 2, 0, 12), 1, "12:6");
+    CHECK("rw-readv-data", memcmp(buf + 256, "ABCF", 4) == 0 && memcmp(buf + 512, "GH", 2) == 0);
+
+    /* A registered buffer: none is EFAULT; then within it only. */
+    s = xfer(OP_READ_FIXED, fd, buf, 4, 0, 13);
+    ONE("rw-fixed-none", &r, s, 1, "13:-14");
+    struct iovec reg_iov = {buf, PAGE};
+    CHECK("rw-fixed-register", reg(r.fd, REGISTER_BUFFERS, &reg_iov, 1) == 0);
+    s = xfer(OP_READ_FIXED, fd, buf + 10, 4, 0, 14);
+    ONE("rw-fixed", &r, s, 1, "14:4");
+    CHECK("rw-fixed-data", memcmp(buf + 10, "ABCF", 4) == 0);
+    s = xfer(OP_READ_FIXED, fd, buf - 1, 4, 0, 15);
+    ONE("rw-fixed-below", &r, s, 1, "15:-14");
+    s = xfer(OP_READ_FIXED, fd, buf + PAGE - 2, 4, 0, 16);
+    ONE("rw-fixed-past", &r, s, 1, "16:-14");
+    s = xfer(OP_WRITE_FIXED, fd, buf, 4, 0, 17);
+    s.buf_index = 1;
+    ONE("rw-fixed-index", &r, s, 1, "17:-14");
+    ONE("rw-write-fixed", &r, xfer(OP_WRITE_FIXED, fd, buf + 10, 2, 0, 18), 1, "18:2");
+    struct iovec vf[2] = {{buf + 0x300, 2}, {buf + 0x310, 2}};
+    ONE("rw-readv-fixed", &r, xfer(OP_READV_FIXED, fd, vf, 2, 0, 19), 1, "19:4");
+    CHECK("rw-readv-fixed-data", memcmp(buf + 0x300, "AB", 2) == 0 && memcmp(buf + 0x310, "CF", 2) == 0);
+    ONE("rw-writev-fixed", &r, xfer(OP_WRITEV_FIXED, fd, vf, 2, 0, 20), 1, "20:4");
+    struct iovec bad_vf[3] = {{buf, 0}, {buf + PAGE - 1, 2}, {buf, 0}};
+    bad_vf[2].iov_len = sizeof(size_t) == 8 ? (size_t)1 << 62 : 0x7fffffff;
+    ONE("rw-readv-fixed-empty", &r, xfer(OP_READV_FIXED, fd, &bad_vf[0], 1, 0, 21), 1, "21:-14");
+    ONE("rw-readv-fixed-past", &r, xfer(OP_READV_FIXED, fd, &bad_vf[1], 1, 0, 22), 1, "22:-14");
+    /* Too long to count in pages (EOVERFLOW), or, for a 32-bit length,
+     * more pages than an array kmalloc can give holds (ENOMEM). */
+    snprintf(want, sizeof want, "23:%d", sizeof(size_t) == 8 ? -EOVERFLOW : -ENOMEM);
+    ONE("rw-readv-fixed-long", &r, xfer(OP_READV_FIXED, fd, &bad_vf[2], 1, 0, 23), 1, want);
+    close(fd);
+    drop(&r);
+}
+
+static void transfer_checks(void) {
+    struct ring r = make(8, 0, 0);
+    int fd = file_with("xxxxxxxx");
+    char name[] = "/tmp/uring-ro-XXXXXX";
+    int tmp = mkstemp(name);
+    int wo = open(name, O_WRONLY);
+    int ro = open(name, O_RDONLY);
+    unlink(name);
+    close(tmp);
+    int path = open("/", O_PATH);
+    int dir = open("/", O_RDONLY | O_DIRECTORY);
+    char *buf = anon(PAGE, PROT_READ | PROT_WRITE);
+    /* Freed after the last mapping, so it stays a hole. */
+    char *hole = anon(PAGE, PROT_READ | PROT_WRITE);
+    munmap(hole, PAGE);
+    /* Protection information: rsvd zero, its buffer in user space. */
+    struct {
+        uint16_t flags, app_tag;
+        uint32_t len;
+        uint64_t addr, seed, rsvd;
+    } pi = {0, 0, 16, PTR(buf + 0x900), 0, 0};
+    struct {
+        const char *name;
+        struct sqe s;
+        int err;
+    } bad[] = {
+        {"rw-bad-fd", xfer(OP_READ, 999, buf, 4, 0, 1), EBADF},
+        {"rw-o-path", xfer(OP_READ, path, buf, 4, 0, 2), EBADF},
+        {"rw-read-write-only", xfer(OP_READ, wo, buf, 4, 0, 3), EBADF},
+        {"rw-write-read-only", xfer(OP_WRITE, ro, buf, 4, 0, 4), EBADF},
+        {"rw-hipri", xfer(OP_READ, fd, buf, 4, 0, 5), EINVAL},
+        {"rw-unknown-flag", xfer(OP_READ, fd, buf, 4, 0, 6), EOPNOTSUPP},
+        {"rw-append-noappend", xfer(OP_READ, fd, buf, 4, 0, 7), EINVAL},
+        {"rw-atomic-read", xfer(OP_READ, fd, buf, 4, 0, 8), EOPNOTSUPP},
+        {"rw-negative-offset", xfer(OP_READ, fd, buf, 4, -2, 9), EINVAL},
+        {"rw-offset-wraps", xfer(OP_READ, fd, buf, 4, INT64_MAX - 2, 10), EINVAL},
+        {"rw-directory", xfer(OP_READ, dir, buf, 4, 0, 11), EISDIR},
+        {"rw-unmapped", xfer(OP_READ, fd, hole, 4, 0, 12), EFAULT},
+        {"rw-buffer-select", xfer(OP_READ, fd, NULL, 4, 0, 13), ENOBUFS},
+        {"rw-pi", xfer(OP_READ, fd, buf, 4, 0, 14), EINVAL},
+    };
+    bad[4].s.op_flags = RWF_HIPRI_;
+    bad[5].s.op_flags = 0x1000;
+    bad[6].s.op_flags = RWF_APPEND_ | RWF_NOAPPEND_;
+    bad[7].s.op_flags = RWF_ATOMIC_;
+    bad[12].s.flags = BUFFER_SELECT;
+    bad[13].s.pad2 = 1;
+    bad[13].s.addr3 = PTR(&pi);
+    for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        char want[32];
+        snprintf(want, sizeof want, "%llu:%d", (unsigned long long)bad[i].s.user_data, -bad[i].err);
+        ONE(bad[i].name, &r, bad[i].s, 1, want);
+    }
+    /* Preparation's refusals end the submission. */
+    struct {
+        const char *name;
+        struct sqe s;
+        int err;
+    } prep[] = {
+        {"rw-ioprio", xfer(OP_READ, fd, buf, 4, 0, 21), EINVAL},
+        {"rw-attr", xfer(OP_READ, fd, buf, 4, 0, 22), EINVAL},
+        {"rw-readv-select", xfer(OP_READV, fd, buf, 2, 0, 24), EINVAL},
+        {"rw-fixed-select", xfer(OP_READ_FIXED, fd, buf, 4, 0, 25), EOPNOTSUPP},
+    };
+    prep[0].s.ioprio = 7 << 13;
+    prep[1].s.pad2 = 2;
+    prep[2].s.flags = BUFFER_SELECT;
+    prep[3].s.flags = BUFFER_SELECT;
+    for (unsigned i = 0; i < sizeof prep / sizeof prep[0]; i++) {
+        char want[32];
+        snprintf(want, sizeof want, "%llu:%d", (unsigned long long)prep[i].s.user_data,
+                 -prep[i].err);
+        push(&r, prep[i].s);
+        push(&r, nop(99));
+        CHECK(prep[i].name, enter(r.fd, 2, 0, 0, NULL, 0) == 1);
+        REAPS(prep[i].name, &r, want);
+        CHECK(prep[i].name, enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+        REAPS(prep[i].name, &r, "99:0");
+    }
+    /* A buffer past user space: import_ubuf refuses it at preparation; a
+     * 32-bit task's never is (access_ok's limit is the kernel's 64-bit
+     * one), and its copy faults at issue. */
+    ONE("rw-far-buffer", &r, xfer(OP_READ, fd, (void *)(uintptr_t)-PAGE, 4, 0, 23), 1, "23:-14");
+    close(fd);
+    close(wo);
+    close(ro);
+    close(path);
+    close(dir);
+    drop(&r);
+}
+
+static int sigpipes;
+static void on_sigpipe(int s) { (void)s; sigpipes++; }
+
+static void waiting(void) {
+    struct ring r = make(8, 0, 0);
+    char *buf = anon(PAGE, PROT_READ | PROT_WRITE);
+    int p[2];
+    /* O_NONBLOCK does not stop the wait: pipes support FMODE_NOWAIT. */
+    CHECK("wait-pipe", pipe2(p, O_NONBLOCK) == 0);
+    push(&r, xfer(OP_READ, p[0], buf, 8, -1, 1));
+    CHECK("wait-submit", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    REAPS("wait-parked", &r, "");
+    /* The write's wake-up retries the read as the write returns. */
+    CHECK("wait-write", write(p[1], "abc", 3) == 3);
+    REAPS("wait-done", &r, "1:3");
+    CHECK("wait-data", memcmp(buf, "abc", 3) == 0);
+    struct sqe s = xfer(OP_READ, p[0], buf, 8, -1, 2);
+    s.op_flags = RWF_NOWAIT_;
+    push(&r, s);
+    CHECK("wait-nowait", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    REAPS("wait-nowait-cqe", &r, "2:-11");
+    /* A link waits with its head; an offset does not matter to a pipe,
+     * unless negative. */
+    s = xfer(OP_READ, p[0], buf, 4, 0, 3);
+    s.flags = LINK;
+    push(&r, s);
+    push(&r, nop(4));
+    CHECK("wait-link", enter(r.fd, 2, 0, 0, NULL, 0) == 2);
+    REAPS("wait-link-parked", &r, "");
+    CHECK("wait-link-write", write(p[1], "wxyz", 4) == 4);
+    REAPS("wait-link-done", &r, "3:4 4:0");
+    ONE("wait-negative-offset", &r, xfer(OP_READ, p[0], buf, 4, -5, 5), 1, "5:-22");
+    /* A write waits for room. */
+    memset(buf, 'f', PAGE);
+    while (write(p[1], buf, PAGE) > 0) {
+    }
+    push(&r, xfer(OP_WRITE, p[1], buf, 10, -1, 6));
+    CHECK("wait-room", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    REAPS("wait-room-parked", &r, "");
+    CHECK("wait-room-read", read(p[0], buf, PAGE) == PAGE);
+    REAPS("wait-room-done", &r, "6:10");
+    close(p[0]);
+    close(p[1]);
+    /* A deferring ring retries only in its waits. */
+    struct ring d = make(4, SINGLE_ISSUER | DEFER_TASKRUN, 0);
+    CHECK("wait-defer-pipe", pipe(p) == 0);
+    push(&d, xfer(OP_READ, p[0], buf, 8, -1, 7));
+    CHECK("wait-defer", enter(d.fd, 1, 0, 0, NULL, 0) == 1);
+    CHECK("wait-defer-write", write(p[1], "12", 2) == 2);
+    REAPS("wait-defer-kept", &d, "");
+    CHECK("wait-defer-wait", enter(d.fd, 0, 1, GETEVENTS, NULL, 0) == 0);
+    REAPS("wait-defer-done", &d, "7:2");
+    drop(&d);
+    /* A write without readers: its error through task work, after the
+     * inline NOP; SIGPIPE unless RWF_NOSIGNAL. */
+    struct sigaction sa = {.sa_handler = on_sigpipe};
+    sigaction(SIGPIPE, &sa, NULL);
+    close(p[0]);
+    s = xfer(OP_WRITE, p[1], buf, 1, -1, 8);
+    s.op_flags = RWF_NOSIGNAL_;
+    push(&r, s);
+    push(&r, nop(9));
+    CHECK("epipe-submit", enter(r.fd, 2, 0, 0, NULL, 0) == 2);
+    REAPS("epipe-order", &r, "9:0 8:-32");
+    CHECK("epipe-nosignal", sigpipes == 0);
+    push(&r, xfer(OP_WRITE, p[1], buf, 1, -1, 10));
+    CHECK("epipe-signal-submit", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    REAPS("epipe-signal-cqe", &r, "10:-32");
+    CHECK("epipe-signal", sigpipes == 1);
+    signal(SIGPIPE, SIG_DFL);
+    close(p[1]);
+
+    /* A registered file: a parked request holds its node, so emptying the
+     * slot posts the tag once the request is done. */
+    int f = file_with("qqqqqqqq");
+    CHECK("wait-fixed-pipe", pipe(p) == 0);
+    int fds[2] = {f, p[0]}, empty = -1;
+    uint64_t tags[2] = {0, 77};
+    CHECK("wait-fixed-register", rsrc2(r.fd, REGISTER_FILES2, 2, 0, fds, tags) == 0);
+    s = xfer(OP_READ, 0, buf, 4, 0, 11);
+    s.flags = FIXED_FILE;
+    ONE("wait-fixed-read", &r, s, 1, "11:4");
+    s.fd = 2;
+    s.user_data = 12;
+    ONE("wait-fixed-missing", &r, s, 1, "12:-9");
+    s.fd = 1;
+    s.user_data = 13;
+    push(&r, s);
+    CHECK("wait-fixed-submit", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    CHECK("wait-fixed-update", update2(r.fd, REGISTER_FILES_UPDATE2, 1, &empty, NULL, 1) == 1);
+    REAPS("wait-fixed-held", &r, "");
+    CHECK("wait-fixed-write", write(p[1], "12345", 5) == 5);
+    REAPS("wait-fixed-done", &r, "13:4 77:0");
+    close(f);
+    close(p[0]);
+    close(p[1]);
+    drop(&r);
+}
+
+static off_t size_of(int fd) {
+    struct stat st;
+    return fstat(fd, &st) == 0 ? st.st_size : -1;
+}
+
+static void sync_ops(void) {
+    struct ring r = make(8, 0, 0);
+    int fd = file_with("ssssssss");
+    char name[] = "/tmp/uring-sro-XXXXXX";
+    int w = mkstemp(name);
+    int ro = open(name, O_RDONLY);
+    unlink(name);
+    int p[2];
+    CHECK("ops-pipe", pipe(p) == 0);
+    struct sqe s = xfer(OP_FSYNC, fd, NULL, 0, 0, 1);
+    ONE("ops-fsync", &r, s, 1, "1:0");
+    /* io_fsync keeps its link going even when it fails. */
+    s = xfer(OP_FSYNC, p[0], NULL, 0, 0, 2);
+    s.flags = LINK;
+    push(&r, s);
+    ONE("ops-fsync-link", &r, nop(3), 2, "2:-22 3:0");
+    struct {
+        const char *name;
+        struct sqe s;
+    } prep[] = {
+        {"ops-fsync-flags", xfer(OP_FSYNC, fd, NULL, 0, 0, 4)},
+        {"ops-fsync-addr", xfer(OP_FSYNC, fd, (void *)1, 0, 0, 5)},
+        {"ops-sfr-buf-index", xfer(OP_SYNC_FILE_RANGE, fd, NULL, 0, 0, 6)},
+        {"ops-fallocate-flags", xfer(OP_FALLOCATE, fd, NULL, 0, 0, 7)},
+        {"ops-ftruncate-len", xfer(OP_FTRUNCATE, fd, NULL, 1, 0, 8)},
+        {"ops-madvise-file-index", xfer(OP_MADVISE, 0, NULL, 0, 0, 9)},
+    };
+    prep[0].s.op_flags = 2;
+    prep[2].s.buf_index = 1;
+    prep[3].s.op_flags = 1;
+    prep[5].s.file_index = 1;
+    for (unsigned i = 0; i < sizeof prep / sizeof prep[0]; i++) {
+        char want[32];
+        snprintf(want, sizeof want, "%llu:-22", (unsigned long long)prep[i].s.user_data);
+        ONE(prep[i].name, &r, prep[i].s, 1, want);
+    }
+    /* vfs_fallocate: the length in addr, the mode in len. */
+    ONE("ops-fallocate", &r, xfer(OP_FALLOCATE, fd, (void *)100, 0, 0, 10), 1, "10:0");
+    CHECK("ops-fallocate-size", size_of(fd) == 100);
+    ONE("ops-ftruncate", &r, xfer(OP_FTRUNCATE, fd, NULL, 0, 10, 11), 1, "11:0");
+    CHECK("ops-ftruncate-size", size_of(fd) == 10);
+    ONE("ops-ftruncate-read-only", &r, xfer(OP_FTRUNCATE, ro, NULL, 0, 1, 12), 1, "12:-22");
+    ONE("ops-sfr", &r, xfer(OP_SYNC_FILE_RANGE, fd, NULL, 0, 0, 13), 1, "13:0");
+    ONE("ops-sfr-pipe", &r, xfer(OP_SYNC_FILE_RANGE, p[0], NULL, 0, 0, 14), 1, "14:-29");
+    s = xfer(OP_SYNC_FILE_RANGE, fd, NULL, 0, 0, 15);
+    s.op_flags = 8;
+    ONE("ops-sfr-flags", &r, s, 1, "15:-22");
+    /* io_fadvise: its failure fails its link. */
+    ONE("ops-fadvise", &r, xfer(OP_FADVISE, fd, NULL, 0, 0, 16), 1, "16:0");
+    s = xfer(OP_FADVISE, fd, NULL, 0, 0, 17);
+    s.op_flags = 9;
+    s.flags = LINK;
+    push(&r, s);
+    ONE("ops-fadvise-bad", &r, nop(18), 2, "17:-22 18:-125");
+    ONE("ops-fadvise-pipe", &r, xfer(OP_FADVISE, p[0], NULL, 0, 0, 19), 1, "19:-29");
+    /* do_madvise: the length in off (or len). */
+    char *page = anon(PAGE, PROT_READ | PROT_WRITE);
+    memcpy(page, "data", 4);
+    s = xfer(OP_MADVISE, 0, page, 0, PAGE, 20);
+    s.op_flags = MADV_DONTNEED;
+    ONE("ops-madvise", &r, s, 1, "20:0");
+    CHECK("ops-madvise-dropped", page[0] == 0);
+    s = xfer(OP_MADVISE, 0, page, PAGE, 0, 21);
+    s.op_flags = 1000;
+    ONE("ops-madvise-bad", &r, s, 1, "21:-22");
+    close(fd);
+    close(w);
+    close(ro);
+    close(p[0]);
+    close(p[1]);
+    drop(&r);
+}
+
 /* The fdinfo lines after the common ones (from "SqMask"). */
 static void fdinfo(void) {
     struct ring r = make(4, 0, 0);
@@ -1162,6 +1545,10 @@ int main(void) {
     file_ops();
     buffers();
     clones();
+    transfers();
+    transfer_checks();
+    waiting();
+    sync_ops();
     fdinfo();
     FINISH();
 }
