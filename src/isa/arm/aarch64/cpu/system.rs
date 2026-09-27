@@ -191,7 +191,8 @@ impl AArch64Cpu {
         // AT S1E1R/S1E1W/S1E0R/S1E0W: stage-1 address translation probe;
         // result lands in PAR_EL1.
         if (op1, crn, crm) == (0, 7, 8) && op2 < 4 {
-            let va = self.get_x(rt);
+            // The EL1&0 regime's top-byte-ignore applies, as to a data access.
+            let va = self.effective_data_address(self.get_x(rt), 1);
             let privileged = op2 < 2;
             let is_write = op2 & 1 != 0;
             let par = match self.mmu.translate(

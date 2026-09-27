@@ -65,6 +65,7 @@ impl AArch64Cpu {
             gic_irq_line,
             timer_levels: (false, false),
             last_fault_level: std::sync::atomic::AtomicU8::new(0),
+            tbi_tag: std::sync::atomic::AtomicU64::new(0),
             fault_log_budget: 64,
             pc_ring: [0; 64],
             pc_ring_idx: 0,
@@ -197,6 +198,7 @@ impl AArch64Cpu {
 
     /// Execute one instruction.
     pub(crate) fn execute_instruction(&mut self) -> Result<CpuExit, ArmError> {
+        self.tbi_tag.store(0, std::sync::atomic::Ordering::Relaxed);
         // Fetch instruction
         let insn = self.fetch_instruction()?;
 
@@ -222,10 +224,13 @@ impl AArch64Cpu {
                 self.cycle_count += 1;
                 Ok(exit)
             }
-            Err(e) => {
+            Err(mut e) => {
                 // Restore PC on error
                 self.pc = old_pc;
                 self.btype = old_btype;
+                if let ArmError::MemoryError(info) = &mut e {
+                    self.retag_fault_address(info);
+                }
                 Err(e)
             }
         }

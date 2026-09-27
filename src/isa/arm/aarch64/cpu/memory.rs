@@ -21,6 +21,15 @@ use crate::isa::arm::common::memory::ArmMemory;
 use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 use crate::vm::vcpu::Aarch64SystemRegisters;
 
+/// Bits [63:56] of an address: the tag top-byte-ignore leaves out of
+/// translation.
+const TOP_BYTE: u64 = 0xFF00_0000_0000_0000;
+
+/// `va` with its tag replaced by copies of bit 55.
+fn untag(va: u64) -> u64 {
+    (((va << 8) as i64) >> 8) as u64
+}
+
 impl AArch64Cpu {
     // =========================================================================
     // Memory Access
@@ -57,7 +66,7 @@ impl AArch64Cpu {
             .write_u8(pa, value)
             .map_err(|e| -> ArmError { e.into() })?;
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        self.jit_note_write(va);
+        self.jit_note_write(self.effective_data_address(va, self.current_el));
         Ok(())
     }
 
@@ -68,7 +77,7 @@ impl AArch64Cpu {
             .write_u16(pa, value)
             .map_err(|e| -> ArmError { e.into() })?;
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        self.jit_note_write(va);
+        self.jit_note_write(self.effective_data_address(va, self.current_el));
         Ok(())
     }
 
@@ -79,7 +88,7 @@ impl AArch64Cpu {
             .write_u32(pa, value)
             .map_err(|e| -> ArmError { e.into() })?;
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        self.jit_note_write(va);
+        self.jit_note_write(self.effective_data_address(va, self.current_el));
         Ok(())
     }
 
@@ -90,7 +99,7 @@ impl AArch64Cpu {
             .write_u64(pa, value)
             .map_err(|e| -> ArmError { e.into() })?;
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        self.jit_note_write(va);
+        self.jit_note_write(self.effective_data_address(va, self.current_el));
         Ok(())
     }
 
@@ -123,6 +132,59 @@ impl AArch64Cpu {
         )
     }
 
+    /// Whether the top byte of `va` takes no part in a data access in the
+    /// translation regime of `el` (`AddrTop` returning 55; `EffectiveTBI`
+    /// with `IsInstr` false, `docs/architecture/arm/asl/arm_defs.asl`): the
+    /// regime's `TCR_ELx.TBI` for `va`'s half (TBI0 or TBI1 by bit 55 where
+    /// the regime has two halves). `TBID` narrows TBI to data accesses, so
+    /// it does not matter here: instruction addresses never reach this.
+    pub(crate) fn top_byte_ignored(&self, va: u64, el: u8) -> bool {
+        let two_halves = |tcr: u64| (tcr >> (37 + ((va >> 55) & 1))) & 1 != 0;
+        match el {
+            0 | 1 => two_halves(self.sysregs.el1.tcr),
+            2 if self.sysregs.hcr_el2 & crate::isa::arm::aarch64::hcr::E2H != 0 => {
+                two_halves(self.sysregs.el2.tcr)
+            }
+            2 => self.sysregs.el2.tcr & (1 << 20) != 0,
+            _ => self.sysregs.el3.tcr & (1 << 20) != 0,
+        }
+    }
+
+    /// The address a data access to `va` translates: with top-byte-ignore
+    /// in effect, bits [63:56] become copies of bit 55 (so the address stays
+    /// in its half of the regime), and the tag is kept for
+    /// [`Self::retag_fault_address`].
+    fn data_address(&self, va: u64) -> u64 {
+        use std::sync::atomic::Ordering::Relaxed;
+        if !self.top_byte_ignored(va, self.current_el) {
+            self.tbi_tag.store(0, Relaxed);
+            return va;
+        }
+        self.tbi_tag.store((va & TOP_BYTE) | 1, Relaxed);
+        untag(va)
+    }
+
+    /// The address a data access to `va` in the translation regime of `el`
+    /// translates, without remembering the tag.
+    pub(crate) fn effective_data_address(&self, va: u64, el: u8) -> u64 {
+        if self.top_byte_ignored(va, el) {
+            untag(va)
+        } else {
+            va
+        }
+    }
+
+    /// Restores the tag of a data address whose top byte translation
+    /// ignored to the address its fault reports: `FAR_ELx` holds the
+    /// address as the instruction formed it.
+    pub(crate) fn retag_fault_address(&self, info: &mut MemoryFaultInfo) {
+        use crate::isa::arm::common::cpu::AccessType;
+        let tag = self.tbi_tag.load(std::sync::atomic::Ordering::Relaxed);
+        if tag != 0 && info.access != AccessType::InstructionFetch {
+            info.address = (info.address & !TOP_BYTE) | (tag & TOP_BYTE);
+        }
+    }
+
     pub(crate) fn translate_address_at(
         &self,
         va: u64,
@@ -145,6 +207,12 @@ impl AArch64Cpu {
                 stage2: false,
             }));
         }
+
+        let va = if is_execute {
+            va
+        } else {
+            self.data_address(va)
+        };
 
         // Use MMU if enabled
         match self.mmu.translate(
@@ -194,7 +262,7 @@ impl AArch64Cpu {
             .write_u64(pa, value)
             .map_err(|e| -> ArmError { e.into() })?;
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        self.jit_note_write(va);
+        self.jit_note_write(self.effective_data_address(va, self.current_el));
         Ok(())
     }
 
@@ -204,7 +272,7 @@ impl AArch64Cpu {
             .write_u8(pa, value)
             .map_err(|e| -> ArmError { e.into() })?;
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        self.jit_note_write(va);
+        self.jit_note_write(self.effective_data_address(va, self.current_el));
         Ok(())
     }
 
@@ -218,7 +286,7 @@ impl AArch64Cpu {
             .write_u16(pa, value)
             .map_err(|e| -> ArmError { e.into() })?;
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        self.jit_note_write(va);
+        self.jit_note_write(self.effective_data_address(va, self.current_el));
         Ok(())
     }
 
@@ -232,7 +300,7 @@ impl AArch64Cpu {
             .write_u32(pa, value)
             .map_err(|e| -> ArmError { e.into() })?;
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        self.jit_note_write(va);
+        self.jit_note_write(self.effective_data_address(va, self.current_el));
         Ok(())
     }
 

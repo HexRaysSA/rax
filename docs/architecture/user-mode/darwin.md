@@ -330,7 +330,9 @@ One CPU of the program's architecture: a Haswell-class Intel Mac for x86-64
 (`CPU_SUBTYPE_X86_64_H`; `XCR0` enables x87, SSE, and AVX state), an
 Apple-silicon Mac for arm64 (`CPU_SUBTYPE_ARM64E`, `PSTATE.SSBS` set for new
 threads; the implementation's pointer-authentication algorithm is the
-identity), with 16 GiB of memory. Mach absolute time, uptime, and `kern.boottime` share one
+identity; data addresses ignore their top byte, instruction addresses do
+not, as XNU's `TCR_EL1` sets `TBI0` and `TBID0`, so a fault reports the
+tagged address and a branch to one faults), with 16 GiB of memory. Mach absolute time, uptime, and `kern.boottime` share one
 clock that starts with the emulator. Process identity (pid, credentials,
 audit token) is the host process's. A thread's assumed identity
 (`settid`, `settid_with_pid`: privileged, `EPERM` otherwise) is what

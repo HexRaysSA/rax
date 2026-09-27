@@ -171,7 +171,11 @@ impl DarwinCpu {
     /// (`thread_state_initialize`). The x86-64 CPU enables the x87, SSE,
     /// and AVX state components (`XCR0` = 7), as XNU does on the Haswell
     /// machine RAX presents; the arm64 CPU starts with `PSTATE.SSBS` set
-    /// (`PSR64_USER64_DEFAULT` on cores with `FEAT_SSBS2`).
+    /// (`PSR64_USER64_DEFAULT` on cores with `FEAT_SSBS2`) and ignores the
+    /// top byte of data addresses but not of instruction addresses
+    /// (`TCR_EL1` has `TCR_TBI0_TOPBYTE_IGNORED` and, with `HAS_APPLE_PAC`,
+    /// `TCR_TBID0_TBI_DATA_ONLY`): the Objective-C runtime, for one, tags
+    /// the pointers it stores through.
     pub fn new(abi: DarwinAbi, space: &AddressSpace) -> Self {
         match abi {
             DarwinAbi::X86_64 => {
@@ -185,6 +189,7 @@ impl DarwinCpu {
                 let mut cpu = A64UserCpu::with_config(space, apple_arm64_config());
                 cpu.core_mut().set_counter_frequency(ARM64_COUNTER_HZ);
                 cpu.core_mut().set_el0_spsr(PSR64_SSBS_64);
+                cpu.core_mut().set_el0_top_byte_ignore(true, true);
                 DarwinCpu::Arm64(cpu)
             }
         }

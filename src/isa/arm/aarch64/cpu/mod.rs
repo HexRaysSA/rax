@@ -236,6 +236,12 @@ pub struct AArch64Cpu {
     /// (Atomic only for interior mutability behind `&self`; the CPU is
     /// single-threaded.)
     last_fault_level: std::sync::atomic::AtomicU8,
+    /// Bits [63:56] of the most recent data address whose top byte
+    /// translation ignored (TBI), with bit 0 set; 0 when the most recent
+    /// data address kept its top byte. A fault on that access reports the
+    /// address with its tag restored. (Atomic only for interior mutability
+    /// behind `&self`.)
+    tbi_tag: std::sync::atomic::AtomicU64,
     /// Remaining debug-log quota for delivered faults.
     fault_log_budget: u32,
     /// Ring buffer of recently executed PCs (boot debugging).
