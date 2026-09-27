@@ -1,0 +1,4 @@
+EXPORTS
+malloc
+free
+_get_heap_handle

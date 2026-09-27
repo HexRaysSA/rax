@@ -220,6 +220,17 @@ pub enum Flow {
         /// Continuation, given the guest function's return value.
         then: Cont,
     },
+    /// Call guest code while preserving the selected target, arguments and
+    /// continuation if callback-stack setup faults. Repair at the same export
+    /// frontier retries setup, not the API's already-completed effects.
+    CallChecked {
+        /// Guest address, already selected by the checked operation.
+        target: u64,
+        /// Captured integer arguments.
+        args: Vec<u64>,
+        /// Continuation retained across setup faults and guest execution.
+        then: Cont,
+    },
     /// Block the thread on `wait`, then continue with the wait's status.
     Block {
         /// The wait.
@@ -299,6 +310,21 @@ impl Flow {
         })
     }
 
+    /// Calls guest code without losing checked-operation ownership on a
+    /// callback-stack preparation fault. Unwind/context abandonment still
+    /// drops the continuation; it never fabricates a callback return.
+    pub fn call_checked(
+        target: u64,
+        args: Vec<u64>,
+        then: impl FnOnce(&mut Ctx, u64) -> ApiResult + 'static,
+    ) -> ApiResult {
+        Ok(Flow::CallChecked {
+            target,
+            args,
+            then: Box::new(then),
+        })
+    }
+
     /// Blocks on `wait`, then `then`.
     pub fn block(wait: Wait, then: impl FnOnce(&mut Ctx, u64) -> ApiResult + 'static) -> ApiResult {
         Ok(Flow::Block {
@@ -347,6 +373,10 @@ pub struct Frame {
     pub cursor: u64,
     /// The continuation awaiting a guest call or a wait.
     pub cont: Option<Cont>,
+    /// The continuation is a checked guest call, not a suspended wait. A
+    /// checked callback cannot resume at the API-entry SP, whereas an APC may
+    /// legitimately restore a blocked API at that same PC and stack height.
+    pub checked_call: bool,
     /// Checked operation waiting for exception repair, distinct from a guest
     /// callback's continuation. Pruning or abandoning the frame drops it.
     pub retry: Option<Cont>,

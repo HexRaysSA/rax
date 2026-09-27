@@ -158,6 +158,7 @@ fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
         p.fail(message.clone());
         return ExitStatus::Internal(message);
     }
+    crate::user::windows::dll::crt::onexit::discard_process(p);
     p.tls.fls_discard_all();
     for (_, object) in p.objects.iter_mut() {
         if let Object::Process { pid, exit_code } = object
@@ -187,6 +188,7 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
             other.frames.clear();
         }
         super::fiber::discard_continuations(p);
+        crate::user::windows::dll::crt::onexit::discard_process(p);
         p.tls.fls_discard_abandoned();
         crate::user::windows::dll::libraries::abort_process(p);
         p.exit_code = Some(code);
@@ -210,6 +212,12 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
         outcome,
         Outcome::ThreadExit(_) | Outcome::ProcessExit(_) | Outcome::ThreadTerminate(_)
     );
+    if let Err(error) = crate::user::windows::dll::crt::onexit::cleanup_abandoned(
+        p,
+        terminal_owner.then_some(t.tid),
+    ) {
+        outcome = Outcome::Fail(error);
+    }
     let abandoned = p.tls.fls_take_abandoned();
     if let Some(receipt) = abandoned
         .into_iter()
@@ -255,7 +263,9 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
             super::fiber::discard_thread_continuations(p, tid);
         }
         p.tls.fls_discard_abandoned();
-        if let Err(error) = crate::user::windows::dll::libraries::cleanup_abandoned(p, &mut t) {
+        let cleanup = crate::user::windows::dll::crt::onexit::retire_process_drains(p)
+            .and_then(|()| crate::user::windows::dll::libraries::cleanup_abandoned(p, &mut t));
+        if let Err(error) = cleanup {
             outcome = Outcome::Fail(error);
         } else {
             for (_, other) in std::mem::take(&mut p.threads) {
@@ -695,6 +705,7 @@ mod tests {
             ret_addr: 0,
             cursor: t.cpu.sp().saturating_sub(32),
             cont: Some(Box::new(|_, status| Ok(Flow::ExitThread(status as u32)))),
+            checked_call: false,
             retry: None,
         });
         t.state = ThreadState::Waiting(wait);
@@ -1166,6 +1177,7 @@ mod tests {
                         drop(plan);
                         Flow::void()
                     })),
+                    checked_call: false,
                     retry: None,
                 });
                 let mut last = 0;
@@ -1436,6 +1448,47 @@ mod tests {
             assert_eq!(t.cpu.sp(), sp);
             assert_eq!(t.cpu.gpr(3), 0xCC55);
             assert_eq!(t.wait_status, Some(sync::WAIT_IO_COMPLETION));
+            assert!(t.frames.is_empty());
+        }
+    }
+
+    #[test]
+    fn apc_restoration_preserves_same_height_wait_parent_all_abis() {
+        for arch in WinArch::ALL {
+            let mut p = process(arch);
+            let mut t = thread(&mut p, 8);
+            let pc = t.cpu.pc();
+            let sp = t.cpu.sp();
+            park(
+                &mut t,
+                sync::Wait::Sleep {
+                    deadline: None,
+                    alertable: true,
+                },
+            );
+            t.state = ThreadState::Ready;
+            t.apcs.push_back((0x50000, 0x1111));
+            assert_eq!(
+                begin_apcs(&mut p, &mut t, Some(sync::WAIT_IO_COMPLETION)),
+                Outcome::Continue
+            );
+            assert_eq!(t.frames.len(), 2);
+            assert_eq!(dispatch::callback_return(&mut p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.pc(), pc);
+            assert_eq!(t.cpu.sp(), sp);
+            assert_eq!(
+                t.frames.len(),
+                1,
+                "APC return must not abandon the interrupted wait"
+            );
+            assert!(!t.frames[0].checked_call);
+            assert!(t.frames[0].cont.is_some());
+            let status = t.wait_status.take().unwrap();
+            assert_eq!(status, sync::WAIT_IO_COMPLETION);
+            assert_eq!(
+                dispatch::wait_complete(&mut p, &mut t, status),
+                Outcome::ThreadExit(status as u32)
+            );
             assert!(t.frames.is_empty());
         }
     }

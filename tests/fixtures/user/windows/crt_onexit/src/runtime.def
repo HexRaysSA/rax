@@ -1,0 +1,5 @@
+EXPORTS
+_initialize_onexit_table
+_register_onexit_function
+_execute_onexit_table
+_errno

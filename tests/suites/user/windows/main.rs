@@ -29,6 +29,9 @@ mod crt_init;
 #[path = "crt_startup.rs"]
 mod crt_startup;
 
+#[path = "crt_onexit.rs"]
+mod crt_onexit;
+
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/user/windows")
 }

@@ -9,7 +9,7 @@
 //! loads a context, raises an exception, or ends the thread or process.
 
 use super::args::stdcall_bytes;
-use super::{Api, ApiErr, ApiResult, Conv, Ctx, Flow, Frame, Value};
+use super::{Api, ApiErr, ApiResult, Cont, Conv, Ctx, Flow, Frame, Value};
 use crate::user::windows::arch::{WinArch, WinCpu};
 use crate::user::windows::context::{ExceptionRecord, RegContext};
 use crate::user::windows::memory::{Mem, MemFault};
@@ -70,13 +70,15 @@ pub fn prune(t: &mut Thread, sp: u64) {
     }
 }
 
-/// A context that leaves a fault's original frontier at the same stack height
-/// has abandoned the retry. Lower handler/callback stacks retain it instead.
-fn prune_retry_frontier(t: &mut Thread, pc: u64, sp: u64) {
-    if t.frames
-        .last()
-        .is_some_and(|f| f.retry.is_some() && f.entry_sp == sp && f.entry_pc != pc)
-    {
+/// Leaving a waiting operation at its original stack height abandons it,
+/// including ARM64 callers whose SP is unchanged by return. Lower handler
+/// and callback stacks retain it instead. Never fabricate its completion.
+fn prune_same_height_frontier(t: &mut Thread, pc: u64, sp: u64) {
+    if t.frames.last().is_some_and(|f| {
+        f.entry_sp == sp
+            && ((f.cont.is_some() && (f.checked_call || f.entry_pc != pc))
+                || (f.retry.is_some() && f.entry_pc != pc))
+    }) {
         t.frames.pop();
     }
 }
@@ -85,7 +87,7 @@ fn prune_retry_frontier(t: &mut Thread, pc: u64, sp: u64) {
 pub fn enter(p: &mut Proc, t: &mut Thread, api: &'static Api, pc: u64) -> Outcome {
     let entry_sp = t.cpu.sp();
     prune(t, entry_sp);
-    prune_retry_frontier(t, pc, entry_sp);
+    prune_same_height_frontier(t, pc, entry_sp);
     if let Some(frame) = t.frames.last_mut()
         && frame.entry_sp == entry_sp
         && frame.entry_pc == pc
@@ -198,7 +200,7 @@ pub fn wait_complete(p: &mut Proc, t: &mut Thread, status: u64) -> Outcome {
 pub fn resume_return(p: &mut Proc, t: &mut Thread, api: &'static Api) -> Outcome {
     let sp = t.cpu.sp();
     prune(t, sp);
-    prune_retry_frontier(t, t.cpu.pc(), sp);
+    prune_same_height_frontier(t, t.cpu.pc(), sp);
     match p.arch {
         WinArch::Arm64 => {
             let lr = t.cpu.gpr(30);
@@ -252,12 +254,117 @@ fn frame_for<'t>(t: &'t mut Thread, site: &CallSite) -> &'t mut Frame {
             ret_addr: site.ret_addr,
             cursor: site.cursor,
             cont: None,
+            checked_call: false,
             retry: None,
         });
     }
     let f = t.frames.last_mut().expect("frame pushed");
     f.cursor = site.cursor;
     f
+}
+
+/// Integer callback frames: x86 aligns argument bytes then adds a 4-byte
+/// return address; x64 reserves at least 32 bytes of shadow space plus an
+/// 8-byte return address; ARM64 aligns only arguments beyond X0..X7.
+fn prepare_call(
+    p: &mut Proc,
+    t: &mut Thread,
+    cursor: u64,
+    argc: usize,
+) -> Result<(), super::super::process::stack::StackFault> {
+    use super::super::process::stack::{self, StackFault};
+    let bytes = match p.arch {
+        WinArch::X86 => (argc as u64)
+            .checked_mul(4)
+            .and_then(|n| n.checked_add(15))
+            .and_then(|n| (n & !15).checked_add(4)),
+        WinArch::X64 => (argc.max(4) as u64)
+            .checked_mul(8)
+            .and_then(|n| n.checked_add(15))
+            .and_then(|n| (n & !15).checked_add(8)),
+        WinArch::Arm64 => (argc.saturating_sub(8) as u64)
+            .checked_mul(8)
+            .and_then(|n| n.checked_add(15))
+            .map(|n| n & !15),
+    };
+    let (address, bytes) = bytes
+        .and_then(|n| (cursor & !15).checked_sub(n).map(|a| (a, n)))
+        .ok_or(StackFault::Access(MemFault {
+            addr: cursor,
+            write: true,
+        }))?;
+    stack::prepare(p, t, address, bytes)
+}
+
+fn retry_call(
+    p: &mut Proc,
+    t: &mut Thread,
+    site: CallSite,
+    target: u64,
+    args: Vec<u64>,
+    then: Cont,
+    fault: super::super::process::stack::StackFault,
+) -> Outcome {
+    use super::super::process::stack::StackFault;
+    // Publish ownership before entering any guest exception handler. A handler
+    // may change ABI argument registers, repair memory, or abandon this frame.
+    frame_for(t, &site).retry = Some(Box::new(move |_, _| {
+        Ok(Flow::CallChecked { target, args, then })
+    }));
+    let record = match fault {
+        StackFault::Access(fault) => memory_exception(p, t, site.entry_pc, fault),
+        StackFault::Overflow(address) => {
+            ExceptionRecord::new(STATUS_STACK_OVERFLOW, site.entry_pc, vec![1, address])
+        }
+    };
+    raise_from_site(p, t, &site, record)
+}
+
+fn complete_call(
+    p: &mut Proc,
+    t: &mut Thread,
+    site: CallSite,
+    target: u64,
+    args: Vec<u64>,
+    then: Cont,
+    checked: bool,
+) -> Outcome {
+    if let Err(fault) = prepare_call(p, t, site.cursor, args.len()) {
+        if checked {
+            return retry_call(p, t, site, target, args, then, fault);
+        }
+        // Preserve the original unchecked Call contract: dropping its unpublished
+        // continuation queues any lifecycle abandonment receipt for cleanup.
+        drop(then);
+        let error = fault.into_api(site.entry_pc);
+        return complete(p, t, site, Err(error));
+    }
+    let ret_trap = p.traps.callback_return();
+    if checked {
+        // call_guest publishes registers only after all stack writes succeed.
+        // A checked late-write failure therefore retains both owner and target.
+        match call_guest(p, &mut t.cpu, site.cursor, target, &args, ret_trap) {
+            Ok(()) => {
+                let frame = frame_for(t, &site);
+                frame.checked_call = true;
+                frame.cont = Some(then);
+                Outcome::Continue
+            }
+            Err(fault) => retry_call(p, t, site, target, args, then, fault.into()),
+        }
+    } else {
+        let frame = frame_for(t, &site);
+        frame.checked_call = false;
+        frame.cont = Some(then);
+        match call_guest(p, &mut t.cpu, site.cursor, target, &args, ret_trap) {
+            Ok(()) => Outcome::Continue,
+            Err(fault) => {
+                t.frames.pop();
+                let record = memory_exception(p, t, site.entry_pc, fault);
+                raise_at(p, t, &site, record)
+            }
+        }
+    }
 }
 
 /// Applies a built-in call's result.
@@ -277,53 +384,18 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
             Outcome::Yield
         }
         Ok(Flow::Call { target, args, then }) => {
-            let cursor = site.cursor;
-            let ret_trap = p.traps.callback_return();
-            let bytes = match p.arch {
-                WinArch::X86 => (args.len() as u64)
-                    .checked_mul(4)
-                    .and_then(|n| n.checked_add(15))
-                    .map(|n| (n & !15) + 4),
-                WinArch::X64 => (args.len().max(4) as u64)
-                    .checked_mul(8)
-                    .and_then(|n| n.checked_add(15))
-                    .map(|n| (n & !15) + 8),
-                WinArch::Arm64 => (args.len().saturating_sub(8) as u64)
-                    .checked_mul(8)
-                    .and_then(|n| n.checked_add(15))
-                    .map(|n| n & !15),
-            };
-            let prepared = bytes
-                .and_then(|n| (cursor & !15).checked_sub(n).map(|a| (a, n)))
-                .ok_or(super::super::process::stack::StackFault::Access(MemFault {
-                    addr: cursor,
-                    write: true,
-                }))
-                .and_then(|(address, bytes)| {
-                    super::super::process::stack::prepare(p, t, address, bytes)
-                });
-            if let Err(fault) = prepared {
-                // The continuation has not been published or called. Dropping
-                // it queues any loader/FLS abandonment receipt for checked cleanup.
-                drop(then);
-                let error = fault.into_api(site.entry_pc);
-                return complete(p, t, site, Err(error));
-            }
-            frame_for(t, &site).cont = Some(then);
-            match call_guest(p, &mut t.cpu, cursor, target, &args, ret_trap) {
-                Ok(()) => Outcome::Continue,
-                Err(f) => {
-                    t.frames.pop();
-                    let record = memory_exception(p, t, site.entry_pc, f);
-                    raise_at(p, t, &site, record)
-                }
-            }
+            complete_call(p, t, site, target, args, then, false)
+        }
+        Ok(Flow::CallChecked { target, args, then }) => {
+            complete_call(p, t, site, target, args, then, true)
         }
         Ok(Flow::Block { wait, then }) => {
             if let Err(error) = sync::on_block(p, t.tid, &wait) {
                 return complete(p, t, site, Err(error.into()));
             }
-            frame_for(t, &site).cont = Some(then);
+            let frame = frame_for(t, &site);
+            frame.checked_call = false;
+            frame.cont = Some(then);
             t.state = ThreadState::Waiting(wait);
             Outcome::Park
         }
@@ -336,7 +408,7 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
                 ));
             }
             prune(t, t.cpu.sp());
-            prune_retry_frontier(t, t.cpu.pc(), t.cpu.sp());
+            prune_same_height_frontier(t, t.cpu.pc(), t.cpu.sp());
             Outcome::Continue
         }
         Ok(Flow::Raise(rec)) => {
@@ -391,7 +463,7 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
         Ok(Flow::Done) => {
             pop_frame(t, &site);
             prune(t, t.cpu.sp());
-            prune_retry_frontier(t, t.cpu.pc(), t.cpu.sp());
+            prune_same_height_frontier(t, t.cpu.pc(), t.cpu.sp());
             Outcome::Continue
         }
         Err(ApiErr::Fault(fault)) => {

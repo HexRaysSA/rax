@@ -63,8 +63,12 @@ reentrant guest callbacks and first-error termination. Ordinary compiler startup
 has argument/environment dependencies covered by
 [windows-crt-startup.md](windows-crt-startup.md), including true data cells,
 CP1252-before-parse conversion, width transitions and wildcard expansion.
-Ordinary compiler startup still requires the remaining onexit/termination,
-stdio, locale and FP graph; custom-entry probes do not establish that outcome.
+Explicit UCRT on-exit table infrastructure is implemented in
+[windows-crt-onexit.md](windows-crt-onexit.md), with real guest callbacks,
+independent detached generations and checked ownership/fault continuations.
+Ordinary compiler startup still requires global registration/termination,
+stdio, locale and FP dependencies; custom-entry probes do not establish that
+outcome. Native opaque-table private behavior remains unknown.
 
 CFG enforcement and enabled mitigation-policy reporting are not implemented.
 An instrumented image may retain its own no-op CFG fallback; admitting that

@@ -20,6 +20,7 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(UCRT_INIT_EXPORTS)
         .chain(MSVCRT_STARTUP_EXPORTS)
         .chain(UCRT_STARTUP_EXPORTS)
+        .chain(UCRT_ONEXIT_EXPORTS)
         .find_map(|export| match &export.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,
