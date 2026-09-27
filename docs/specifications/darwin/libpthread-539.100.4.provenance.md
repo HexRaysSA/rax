@@ -26,5 +26,7 @@ reformat or edit the files.
 
 | Area | Files |
 |---|---|
-| The kernel side of `bsdthread_register` (registration data, features, the main thread's QoS, the stack hint) | `kern/kern_support.c`, `kern/kern_internal.h` |
+| The kernel side of `bsdthread_register` (registration data, features, the main thread's QoS, the stack hint), `bsdthread_create` (start state, TSD base, QoS, suspended start), and `bsdthread_terminate` | `kern/kern_support.c`, `kern/kern_internal.h` |
+| psynch: the kernel wait queues of mutexes, condition variables, and read-write locks, the sequence words, preposts, and interrupted wakeups (`ECVCLEARED`, `ECVPREPOST`) | `kern/kern_synch.c`, `kern/synch_internal.h`, `kern/kern_internal.h` |
+| The user side the kernel serves: thread start and exit, joins through the exit-gate ulock, cancellation after `EINTR`, the default mutex policy, and the psynch callers | `src/pthread.c`, `src/pthread_cancelable.c`, `src/pthread_mutex.c`, `src/pthread_cond.c`, `src/pthread_rwlock.c`, `src/types_internal.h` |
 | Thread QoS encodings | `private/pthread/qos_private.h` |
