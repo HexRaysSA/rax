@@ -78,3 +78,74 @@ pub fn getpriority(ctx: &mut Ctx<'_>, which: i32, who: u64) -> SysResult {
     }
     Ok(crate::user::darwin::arch::Rv::one(r as i64 as u64))
 }
+
+/// `KAUTH_UID_NONE` and `KAUTH_GID_NONE`: no identity.
+const KAUTH_ID_NONE: u32 = !0 - 100;
+
+/// `gettid(uidp, gidp)`: the calling thread's assumed identity, `ESRCH`
+/// when it has none.
+pub fn gettid(ctx: &mut Ctx<'_>, uidp: u64, gidp: u64) -> SysResult {
+    let (uid, gid) = ctx.thread.assumed.ok_or(Errno::ESRCH)?;
+    ctx.write_u32(uidp, uid)?;
+    ctx.write_u32(gidp, gid)?;
+    Ok(crate::user::darwin::arch::Rv::one(0))
+}
+
+/// `settid(uid, gid)` (`kern_settid`): a privileged thread assumes an
+/// identity, or with `KAUTH_UID_NONE` gives it up. (The assumed identity
+/// is recorded for `gettid`; the host still checks the process's.)
+pub fn settid(ctx: &mut Ctx<'_>, uid: u32, gid: u32) -> SysResult {
+    if ctx.proc.creds.1 != 0 {
+        return Err(Errno::EPERM);
+    }
+    let assumed = &mut ctx.thread.assumed;
+    if uid == KAUTH_ID_NONE {
+        if assumed.is_none() {
+            return Err(Errno::EPERM);
+        }
+        *assumed = None;
+    } else {
+        if assumed.is_some() {
+            return Err(Errno::EPERM);
+        }
+        *assumed = Some((uid, gid));
+    }
+    Ok(crate::user::darwin::arch::Rv::one(0))
+}
+
+/// `settid_with_pid(pid, assume)`: assume the effective identity of
+/// process `pid`, or give up an assumed one.
+pub fn settid_with_pid(ctx: &mut Ctx<'_>, pid: i32, assume: i32) -> SysResult {
+    let (uid, gid) = if assume != 0 {
+        if pid == 0 {
+            return Err(Errno::ESRCH);
+        }
+        effective_ids(ctx, pid).ok_or(Errno::ESRCH)?
+    } else {
+        (KAUTH_ID_NONE, KAUTH_ID_NONE)
+    };
+    settid(ctx, uid, gid)
+}
+
+/// The effective user and group of process `pid`.
+fn effective_ids(ctx: &Ctx<'_>, pid: i32) -> Option<(u32, u32)> {
+    if pid == ctx.proc.pid {
+        return Some((ctx.proc.creds.1, ctx.proc.creds.3));
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: an all-zero proc_bsdinfo is a valid value to overwrite;
+        // the call writes at most its size.
+        let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+        let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
+        // SAFETY: `info` has `size` writable bytes.
+        let n = unsafe {
+            libc::proc_pidinfo(pid, libc::PROC_PIDTBSDINFO, 0, (&raw mut info).cast(), size)
+        };
+        (n == size).then_some((info.pbi_uid, info.pbi_gid))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}

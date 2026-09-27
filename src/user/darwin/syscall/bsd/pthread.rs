@@ -150,6 +150,7 @@ pub fn bsdthread_create(
         },
         name: Vec::new(),
         pw: Default::default(),
+        assumed: None,
     };
     ctx.proc.threads.insert(tid, thread);
     Ok(Rv::one(pthread))

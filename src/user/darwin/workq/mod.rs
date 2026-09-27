@@ -601,6 +601,7 @@ fn create_thread(proc: &mut Proc) -> Option<u64> {
         },
         name: Vec::new(),
         pw: Default::default(),
+        assumed: None,
     };
     proc.threads.insert(tid, thread);
     proc.wq.threads.insert(

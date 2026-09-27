@@ -255,6 +255,8 @@ pub struct Thread {
     pub name: Vec<u8>,
     /// psynch wait state.
     pub pw: super::psynch::ThreadPsynch,
+    /// The identity the thread assumed (`settid`): user and group.
+    pub assumed: Option<(u32, u32)>,
 }
 
 impl Thread {
@@ -844,6 +846,7 @@ pub(crate) fn start(
         },
         name: Vec::new(),
         pw: Default::default(),
+        assumed: None,
     };
     let mut threads = BTreeMap::new();
     threads.insert(tid, main);
