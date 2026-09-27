@@ -46,6 +46,26 @@ mod id {
     pub const RAISE_STATE_IDENTITY: i32 = 2403;
     /// The `mach_exc` routines' offset: 64-bit codes.
     pub const CODES64: i32 = 4;
+    /// `mach_exception_raise_identity_protected`.
+    pub const RAISE_IDENTITY_PROTECTED: i32 = 2408;
+    /// `mach_exception_raise_state_identity_protected`.
+    pub const RAISE_STATE_IDENTITY_PROTECTED: i32 = 2410;
+}
+
+/// Who a request says raised the exception.
+enum Identity {
+    /// Nobody (`EXCEPTION_STATE`).
+    None,
+    /// The thread's and task's ports.
+    Ports([Arc<Port>; 2]),
+    /// The thread's ID and a task identity token (the protected
+    /// behaviors).
+    Token {
+        /// `thread_id`.
+        thread_id: u64,
+        /// The token's port.
+        token: Arc<Port>,
+    },
 }
 
 /// An exception as the kernel raises it: its type and codes.
@@ -301,14 +321,22 @@ fn send(
         .filter(|p| !p.is_dead() && !p.is_kernel())
         .ok_or(kr::KERN_FAILURE)?;
     let codes64 = action.behavior as u32 & behavior::CODES != 0;
-    let (base_id, identity, stateful) = match behavior::base(action.behavior) {
-        behavior::DEFAULT => (id::RAISE, true, false),
-        behavior::STATE => (id::RAISE_STATE, false, true),
-        behavior::STATE_IDENTITY => (id::RAISE_STATE_IDENTITY, true, true),
-        // The protected behaviors' task identity tokens are not modeled.
+    let offset = if codes64 { id::CODES64 } else { 0 };
+    // (request ID, identity ports or token, a state travels).
+    let (request_id, ports, token, stateful) = match behavior::base(action.behavior) {
+        behavior::DEFAULT => (id::RAISE + offset, true, false, false),
+        behavior::STATE => (id::RAISE_STATE + offset, false, false, true),
+        behavior::STATE_IDENTITY => (id::RAISE_STATE_IDENTITY + offset, true, false, true),
+        // The protected behaviors exist with 64-bit codes only (the
+        // handler checks refuse the others).
+        behavior::IDENTITY_PROTECTED if codes64 => {
+            (id::RAISE_IDENTITY_PROTECTED, false, true, false)
+        }
+        behavior::STATE_IDENTITY_PROTECTED if codes64 => {
+            (id::RAISE_STATE_IDENTITY_PROTECTED, false, true, true)
+        }
         _ => return Err(kr::KERN_FAILURE),
     };
-    let request_id = base_id + if codes64 { id::CODES64 } else { 0 };
     // The state the handler sees: the flavor's full size
     // (`_MachineStateCount`); a flavor the thread cannot report fails
     // the level.
@@ -324,10 +352,21 @@ fn send(
     } else {
         None
     };
+    let identity = if ports {
+        Identity::Ports([thread.kport.clone(), proc.task_port.clone()])
+    } else if token {
+        Identity::Token {
+            thread_id: thread.tid,
+            token: crate::user::darwin::mig::task::identity_token(proc),
+        }
+    } else {
+        Identity::None
+    };
+    let complex = !matches!(identity, Identity::None);
     let (body, items) = request(
         raised,
         codes64,
-        identity.then(|| [thread.kport.clone(), proc.task_port.clone()]),
+        identity,
         state.as_deref().map(|s| (action.flavor, s)),
     );
     port.state.lock().unwrap().srights += 1;
@@ -338,7 +377,7 @@ fn send(
             disp::MOVE_SEND,
             disp::MOVE_SEND_ONCE,
             0,
-            if identity { bits::COMPLEX } else { 0 },
+            if complex { bits::COMPLEX } else { 0 },
         ),
         dest: Right::Send(port),
         reply: Some(Right::SendOnce(reply.clone())),
@@ -367,19 +406,26 @@ fn send(
 
 /// The request's body (after the header, in the 64-bit layout) and its
 /// descriptors' rights: the thread's and task's ports (made send rights)
-/// for the identity behaviors, the NDR record, the exception, the codes
-/// (truncated to 32 bits without `MACH_EXCEPTION_CODES`), and the
-/// flavor and state for the state behaviors.
+/// for the identity behaviors or a task identity token for the protected
+/// ones, the NDR record, the protected behaviors' thread ID, the
+/// exception, the codes (truncated to 32 bits without
+/// `MACH_EXCEPTION_CODES`), and the flavor and state for the state
+/// behaviors.
 fn request(
     raised: &Raised,
     codes64: bool,
-    ports: Option<[Arc<Port>; 2]>,
+    identity: Identity,
     state: Option<(i32, &[u32])>,
 ) -> (Vec<u8>, Vec<(usize, Item)>) {
     let mut body = Vec::new();
     let mut items = Vec::new();
-    if let Some(ports) = ports {
-        body.extend_from_slice(&2u32.to_le_bytes());
+    let (ports, thread_id) = match identity {
+        Identity::None => (Vec::new(), None),
+        Identity::Ports(p) => (p.to_vec(), None),
+        Identity::Token { thread_id, token } => (vec![token], Some(thread_id)),
+    };
+    if !ports.is_empty() {
+        body.extend_from_slice(&(ports.len() as u32).to_le_bytes());
         for port in ports {
             {
                 let mut st = port.state.lock().unwrap();
@@ -400,6 +446,9 @@ fn request(
         }
     }
     body.extend_from_slice(&msg::NDR_RECORD);
+    if let Some(t) = thread_id {
+        body.extend_from_slice(&t.to_le_bytes());
+    }
     body.extend_from_slice(&raised.exception.to_le_bytes());
     body.extend_from_slice(&raised.ncodes.to_le_bytes());
     for &c in &raised.codes[..raised.ncodes as usize] {
@@ -580,7 +629,7 @@ mod tests {
     #[test]
     fn requests_follow_the_mig_layouts() {
         let r = raised(exc::BAD_ACCESS, [2, 0x1_2345_6789], 2);
-        let ports = || Some([Port::new(KObject::None), Port::new(KObject::None)]);
+        let ports = || Identity::Ports([Port::new(KObject::None), Port::new(KObject::None)]);
         // mach_exception_raise: 2 descriptors, NDR at 52, the exception
         // at 60, the count at 64, the 64-bit codes at 68.
         let (b, items) = request(&r, true, ports(), None);
@@ -598,7 +647,7 @@ mod tests {
         // mach_exception_raise_state with 68 words: NDR at 24, the
         // flavor at 56, the count at 60, the state at 64.
         let s = vec![7u32; 68];
-        let (b, items) = request(&r, true, None, Some((6, &s)));
+        let (b, items) = request(&r, true, Identity::None, Some((6, &s)));
         assert!(items.is_empty());
         assert_eq!(24 + b.len(), 336);
         assert_eq!(&b[56 - 24..60 - 24], &6i32.to_le_bytes());
@@ -606,13 +655,35 @@ mod tests {
         // exception_raise_state (x86_THREAD_STATE64) and the identity
         // variants.
         let s42 = vec![0u32; 42];
-        assert_eq!(24 + request(&r, false, None, Some((4, &s42))).0.len(), 224);
+        assert_eq!(
+            24 + request(&r, false, Identity::None, Some((4, &s42))).0.len(),
+            224
+        );
         assert_eq!(24 + request(&r, true, ports(), Some((6, &s))).0.len(), 364);
         assert_eq!(24 + request(&r, false, ports(), Some((6, &s))).0.len(), 356);
         // One code (EXC_SYSCALL on arm64).
         let one = raised(exc::SYSCALL, [200, 0], 1);
-        assert_eq!(24 + request(&one, true, None, Some((6, &s))).0.len(), 328);
+        assert_eq!(
+            24 + request(&one, true, Identity::None, Some((6, &s))).0.len(),
+            328
+        );
         assert_eq!(24 + request(&one, true, ports(), None).0.len(), 76);
+        // mach_exception_raise_identity_protected: the token descriptor,
+        // NDR at 40, the thread ID at 48, the exception at 56, the
+        // codes at 64; the state variant's flavor at 80.
+        let token = || Identity::Token {
+            thread_id: 0x1234,
+            token: Port::new(KObject::TaskIdToken(1)),
+        };
+        let (b, items) = request(&r, true, token(), None);
+        assert_eq!(24 + b.len(), 80);
+        assert_eq!(items.len(), 1);
+        assert_eq!(&b[0..4], &1u32.to_le_bytes());
+        assert_eq!(&b[48 - 24..56 - 24], &0x1234u64.to_le_bytes());
+        assert_eq!(&b[56 - 24..60 - 24], &1i32.to_le_bytes());
+        let (b, _) = request(&r, true, token(), Some((6, &s)));
+        assert_eq!(24 + b.len(), 360);
+        assert_eq!(&b[80 - 24..84 - 24], &6i32.to_le_bytes());
     }
 
     fn reply(id: i32, ret: i32, state: Option<(i32, &[u32])>) -> Message {
