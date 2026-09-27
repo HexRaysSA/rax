@@ -231,6 +231,15 @@ pub enum Flow {
     /// Raise an exception as `RaiseException` does: the context is the
     /// caller's state inside this export (PC at the resume trap).
     Raise(ExceptionRecord),
+    /// Raise a checked memory fault while retaining the operation's exact
+    /// continuation. Resuming the same export PC/SP retries that operation,
+    /// without reparsing argument registers clobbered by earlier callbacks.
+    RetryFault {
+        /// Access that failed, classified by the ordinary guard/SEH path.
+        fault: MemFault,
+        /// Operation to retry; its integer input is ignored.
+        retry: Cont,
+    },
     /// Return `Value` and end the thread's time slice (`Sleep(0)`,
     /// `SwitchToThread`).
     Yield(Value),
@@ -336,6 +345,9 @@ pub struct Frame {
     pub cursor: u64,
     /// The continuation awaiting a guest call or a wait.
     pub cont: Option<Cont>,
+    /// Checked operation waiting for exception repair, distinct from a guest
+    /// callback's continuation. Pruning or abandoning the frame drops it.
+    pub retry: Option<Cont>,
 }
 
 /// The execution context of a built-in function: the process, the calling

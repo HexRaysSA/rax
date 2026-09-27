@@ -1,0 +1,19 @@
+#ifdef DEF_DEBUG
+#define F_DEBUG(x) x
+#define F_NON_DEBUG(x)
+#else
+#define F_DEBUG(x)
+_Exit
+_c_exit
+_cexit
+_crt_at_quick_exit
+_crt_atexit
+_execute_onexit_table
+_exit
+_initialize_onexit_table
+_initterm
+_initterm_e
+_register_onexit_function
+_register_thread_local_exe_atexit_callback
+exit
+quick_exit

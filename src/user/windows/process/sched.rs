@@ -695,6 +695,7 @@ mod tests {
             ret_addr: 0,
             cursor: t.cpu.sp().saturating_sub(32),
             cont: Some(Box::new(|_, status| Ok(Flow::ExitThread(status as u32)))),
+            retry: None,
         });
         t.state = ThreadState::Waiting(wait);
     }
@@ -1165,6 +1166,7 @@ mod tests {
                         drop(plan);
                         Flow::void()
                     })),
+                    retry: None,
                 });
                 let mut last = 0;
                 let outcome = if forced {

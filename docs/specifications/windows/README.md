@@ -43,3 +43,7 @@ The [allocation/error manifest](crt-foundation/manifest-alloc.json),
 [memory/string manifest](crt-foundation/manifest-memory.json), and
 [binding/header evidence](crt-foundation/bindings/README.md) retain exact source
 identity, disjoint hashes, license notices and explicit native unknowns.
+
+[Constructor-table evidence](crt-initializers/README.md) retains Microsoft
+contracts, MinGW initializer/startup sources, real import-archive observations
+and the distinction between documented behavior and native-unverified profiles.

@@ -137,3 +137,11 @@ thread-local error state and real invalid-parameter callbacks. They run at
 slices of 1 and 4,096 instructions under a 30 s external watchdog. These
 programs do not replace or establish ordinary compiler CRT startup or stdio;
 native Windows differential execution remains unknown.
+
+The same target reaches `suites/user/windows/crt_init.rs`. The separate
+`fixtures/user/windows/crt_init/build.sh` graph exercises compiler-produced
+constructor tables, NULL holes, lazy future-entry mutation, nested guest calls,
+first-error termination and nonreturning callbacks on x86, x64 and ARM64.
+Custom-entry PE probes preserve the distinction from ordinary compiler startup.
+Both scheduling slices and the preserved pre-change CLI use identical hashed
+inputs; native Windows execution remains unknown.

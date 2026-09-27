@@ -11,11 +11,13 @@ use crate::user::windows::nt::status::{
 };
 use crate::user::windows::process::{WindowsConfig, WindowsProcess};
 
-fn api(name: &str) -> &'static Api {
+pub(super) fn api(name: &str) -> &'static Api {
     ALLOCATION_EXPORTS
         .iter()
         .chain(STATE_EXPORTS)
         .chain(UCRT_STATE_EXPORTS)
+        .chain(INIT_EXPORTS)
+        .chain(UCRT_INIT_EXPORTS)
         .find_map(|export| match &export.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,
@@ -23,7 +25,7 @@ fn api(name: &str) -> &'static Api {
         .unwrap()
 }
 
-fn run(mut test: impl FnMut(&mut Ctx)) {
+pub(super) fn run(mut test: impl FnMut(&mut Ctx)) {
     for arch in WinArch::ALL {
         let image: &[u8] = match arch {
             WinArch::X86 => {
@@ -61,7 +63,7 @@ fn run(mut test: impl FnMut(&mut Ctx)) {
     }
 }
 
-fn invoke(c: &mut Ctx, kind: RuntimeKind, name: &str, args: &[u64]) -> ApiResult {
+pub(super) fn invoke(c: &mut Ctx, kind: RuntimeKind, name: &str, args: &[u64]) -> ApiResult {
     let dll = match kind {
         RuntimeKind::Msvcrt => "msvcrt.dll",
         RuntimeKind::Ucrt => "ucrtbase.dll",
@@ -86,19 +88,19 @@ fn invoke(c: &mut Ctx, kind: RuntimeKind, name: &str, args: &[u64]) -> ApiResult
     (c.api.imp)(c)
 }
 
-fn int(result: ApiResult) -> u64 {
+pub(super) fn int(result: ApiResult) -> u64 {
     match result.unwrap() {
         Flow::Ret(Value::Int(value)) => value,
         _ => panic!("integer return"),
     }
 }
-fn void(result: ApiResult) {
+pub(super) fn void(result: ApiResult) {
     assert!(matches!(result.unwrap(), Flow::Ret(Value::None)));
 }
 fn terminate(result: ApiResult, status: u32) {
     assert!(matches!(result.unwrap(), Flow::TerminateProcess(actual) if actual == status));
 }
-fn area(c: &mut Ctx) -> u64 {
+pub(super) fn area(c: &mut Ctx) -> u64 {
     c.p.vm
         .allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
         .unwrap()

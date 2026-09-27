@@ -1,0 +1,8 @@
+LIBRARY kernel32.dll
+EXPORTS
+ExitProcess@4
+VirtualAlloc@16
+VirtualFree@12
+VirtualProtect@16
+AddVectoredExceptionHandler@8
+RemoveVectoredExceptionHandler@4

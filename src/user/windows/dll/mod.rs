@@ -81,6 +81,8 @@ static MSVCRT: BuiltinDll = BuiltinDll {
         crt::STATE_EXPORTS,
         crt::MEMORY_EXPORTS,
         crt::STRING_EXPORTS,
+        crt::INIT_EXPORTS,
+        crt::MSVCRT_INIT_EXPORTS,
     ],
 };
 static UCRTBASE: BuiltinDll = BuiltinDll {
@@ -94,6 +96,8 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::MEMORY_EXPORTS,
         crt::STRING_EXPORTS,
         crt::UCRT_STRING_EXPORTS,
+        crt::INIT_EXPORTS,
+        crt::UCRT_INIT_EXPORTS,
     ],
 };
 static VCRUNTIME140: BuiltinDll = BuiltinDll {
@@ -219,5 +223,40 @@ mod tests {
         assert_eq!(names.len(), 11);
         assert!(names.contains("memcpy") && names.contains("wcschr"));
         assert!(!names.contains("__CxxFrameHandler3"));
+    }
+
+    #[test]
+    fn initializer_admission_distinguishes_legacy_compatibility_from_ucrt_imports() {
+        use crate::user::windows::hle::{Arg, Conv, Item};
+        for arch in WinArch::ALL {
+            for (dll, expected) in [
+                (
+                    &MSVCRT,
+                    if arch == WinArch::Arm64 {
+                        &["_initterm", "_initterm_e"][..]
+                    } else {
+                        &["_initterm"][..]
+                    },
+                ),
+                (&UCRTBASE, &["_initterm", "_initterm_e"][..]),
+                (&VCRUNTIME140, &[][..]),
+            ] {
+                let found: Vec<_> = dll
+                    .exports
+                    .iter()
+                    .flat_map(|table| table.iter())
+                    .filter(|export| export.archs.has(arch) && export.name.starts_with("_initterm"))
+                    .map(|export| {
+                        let Item::Func(api) = &export.item else {
+                            panic!("initializer must be callable");
+                        };
+                        assert_eq!(api.conv, Conv::Cdecl);
+                        assert_eq!(api.args, &[Arg::Ptr, Arg::Ptr]);
+                        export.name
+                    })
+                    .collect();
+                assert_eq!(found, expected, "{} {arch:?}", dll.name);
+            }
+        }
     }
 }
