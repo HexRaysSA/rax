@@ -8,6 +8,7 @@
 use super::{Buf, MigResult, Out, OutDesc, Req, ids, is_task, null_port};
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::syscall::Ctx;
+use crate::user::darwin::syscall::mach::reclaim;
 use crate::user::darwin::syscall::mach::vm as mvm;
 use crate::user::darwin::vm::{self, VmFlags};
 use crate::user::mm::{Backing, Vma};
@@ -184,6 +185,38 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                 b = b.u32(*w);
             }
             Ok(Out::Simple(b.done()))
+        }
+        // The deferred-reclamation ring: a `task_t` routine takes only
+        // the task's own control port; the query also a read port.
+        m::MACH_VM_DEFERRED_RECLAMATION_BUFFER_ALLOCATE => {
+            req.simple(40)?;
+            if !writable {
+                return Err(kr::MACH_SEND_INVALID_DEST);
+            }
+            let (addr, deadline) = reclaim::allocate(ctx, req.u32(32), req.u32(36))?;
+            Ok(Out::Simple(Buf::new().u64(addr).u64(deadline).done()))
+        }
+        m::MACH_VM_DEFERRED_RECLAMATION_BUFFER_FLUSH
+        | m::MACH_VM_DEFERRED_RECLAMATION_BUFFER_RESIZE => {
+            req.simple(36)?;
+            if !writable {
+                return Err(kr::MACH_SEND_INVALID_DEST);
+            }
+            let n = req.u32(32);
+            let (bytes, deadline) = if req.id == m::MACH_VM_DEFERRED_RECLAMATION_BUFFER_FLUSH {
+                reclaim::flush(ctx, n)?
+            } else {
+                reclaim::resize(ctx, n)?
+            };
+            Ok(Out::Simple(Buf::new().u64(bytes).u64(deadline).done()))
+        }
+        m::MACH_VM_DEFERRED_RECLAMATION_BUFFER_QUERY => {
+            req.simple(24)?;
+            if req.port.kobject == crate::user::darwin::mach::ipc::KObject::TaskInspect {
+                return Err(kr::KERN_INVALID_TASK);
+            }
+            let (addr, size) = reclaim::query(ctx);
+            Ok(Out::Simple(Buf::new().u64(addr).u64(size).done()))
         }
         m::KERNELRPC_MACH_VM_PURGABLE_CONTROL | v::KERNELRPC_VM_PURGABLE_CONTROL => {
             req.simple(48)?;

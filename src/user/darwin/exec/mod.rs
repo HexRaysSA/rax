@@ -186,13 +186,15 @@ pub fn execsigs(acts: &SigActs) -> SigActs {
 /// A new task's port state from its parent's (`ipc_task_init`): the
 /// inherited special ports and exception actions, the default guard
 /// behavior (`task_set_exc_guard_default`), and no image-info
-/// registration (the task does not inherit the old address space).
+/// registration or reclamation ring (the task does not inherit the old
+/// address space).
 pub fn exec_task(parent: &TaskState) -> TaskState {
     let mut t = super::fork::inherited_task(parent);
     let fresh = TaskState::default();
     t.exc_guard = fresh.exc_guard;
     t.dyld_info = fresh.dyld_info;
     t.dyld_final = fresh.dyld_final;
+    t.reclaim = None;
     t
 }
 

@@ -249,3 +249,13 @@ fn procinfo_arm64() {
 fn procinfo_x86_64() {
     fixture("procinfo", "x86_64", &[], &[]);
 }
+
+#[test]
+fn reclaim_arm64() {
+    fixture("reclaim", "arm64", &[], &[]);
+}
+
+#[test]
+fn reclaim_x86_64() {
+    fixture("reclaim", "x86_64", &[], &[]);
+}

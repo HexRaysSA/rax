@@ -4,6 +4,7 @@ pub mod guard;
 pub mod kmsg;
 pub mod msg;
 pub mod port;
+pub mod reclaim;
 pub mod sync;
 pub mod vm;
 
@@ -122,6 +123,7 @@ fn targets_task(nr: u32) -> bool {
             | trap::KERNELRPC_MACH_PORT_UNGUARD_TRAP
             | trap::KERNELRPC_MACH_PORT_TYPE_TRAP
             | trap::KERNELRPC_MACH_PORT_REQUEST_NOTIFICATION_TRAP
+            | trap::MACH_VM_RECLAIM_UPDATE_KERNEL_ACCOUNTING_TRAP
     )
 }
 
@@ -142,6 +144,9 @@ fn call(ctx: &mut Ctx<'_>, nr: u32, a: &[u64; 9]) -> KernReturn {
     match nr {
         trap::KERNELRPC_MACH_VM_ALLOCATE_TRAP => vm::allocate(ctx, a[1], a[2], a[3] as u32),
         trap::KERNELRPC_MACH_VM_DEALLOCATE_TRAP => vm::deallocate(ctx, a[1], a[2]),
+        trap::MACH_VM_RECLAIM_UPDATE_KERNEL_ACCOUNTING_TRAP => {
+            reclaim::update_accounting_trap(ctx, a[1], a[2])
+        }
         trap::KERNELRPC_MACH_VM_PROTECT_TRAP => {
             vm::protect(ctx, a[1], a[2], a[3] as u32 != 0, a[4] as u32)
         }
