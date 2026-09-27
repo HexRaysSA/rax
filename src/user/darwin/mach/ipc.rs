@@ -246,6 +246,15 @@ impl Port {
     pub fn is_dead(&self) -> bool {
         self.state.lock().unwrap().dead
     }
+
+    /// Whether its send rights may move (`ipc_should_mark_immovable_send`
+    /// for the caller's own ports): the task read and inspect ports' may
+    /// not (their kernel objects lack `iko_op_movable_send`), nor may they
+    /// be stashed where another task could get them
+    /// (`ipc_can_stash_naked_send`).
+    pub fn movable_send(&self) -> bool {
+        !matches!(self.kobject, KObject::TaskRead | KObject::TaskInspect)
+    }
 }
 
 /// A port set.

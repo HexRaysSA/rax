@@ -4,9 +4,13 @@
 
 use std::sync::Arc;
 
+use super::exception::Handler;
 use super::ipc::{Port, Right};
 
 pub use super::exception::EXC_TYPES_COUNT;
+
+/// `TASK_PORT_REGISTER_MAX`: the ports `mach_ports_register` stashes.
+pub const PORT_REGISTER_MAX: usize = 3;
 
 /// `TASK_*_PORT` special-port numbers kept per task
 /// (`osfmk/mach/task_special_ports.h`).
@@ -73,6 +77,9 @@ pub struct TaskState {
     pub read_port: Option<Arc<Port>>,
     /// The task inspect port (`TASK_INSPECT_PORT`), made on first use.
     pub inspect_port: Option<Arc<Port>>,
+    /// `itk_registered`: the send rights (or dead names)
+    /// `mach_ports_register` stashes, which a new task inherits.
+    pub registered: [Handler; PORT_REGISTER_MAX],
     /// Task exception actions, by exception type.
     pub exc: [ExcAction; EXC_TYPES_COUNT],
     /// `task_exc_guard_behavior_t`.

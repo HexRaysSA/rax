@@ -384,3 +384,13 @@ fn protected_open_arm64() {
 fn protected_open_x86_64() {
     fixture("protected_open", "x86_64", &[], &[]);
 }
+
+#[test]
+fn registered_ports_arm64() {
+    fixture("registered_ports", "arm64", &[], &[]);
+}
+
+#[test]
+fn registered_ports_x86_64() {
+    fixture("registered_ports", "x86_64", &[], &[]);
+}

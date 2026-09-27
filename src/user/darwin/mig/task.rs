@@ -9,11 +9,11 @@ use super::{
     Buf, MigResult, Out, OutDesc, Req, copy_send, ids, info_reply, is_task, make_send, null_port,
 };
 use crate::user::darwin::abi::DarwinAbi;
-use crate::user::darwin::mach::exception::EXC_MASK_VALID;
+use crate::user::darwin::mach::exception::{EXC_MASK_VALID, Handler};
 use crate::user::darwin::mach::ipc::{KObject, Port, Right, disp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::mach::sync::Semaphore;
-use crate::user::darwin::mach::task::{RestartableRange, special};
+use crate::user::darwin::mach::task::{PORT_REGISTER_MAX, RestartableRange, special};
 use crate::user::darwin::process::Proc;
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::syscall::mach::kmsg;
@@ -89,6 +89,33 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             }
             set_special_port(ctx.proc, req.i32(48), right)?;
             Ok(Out::Simple(Vec::new()))
+        }
+        t::KERNELRPC_MACH_PORTS_REGISTER3 => {
+            req.complex_of(3, 64)?;
+            let mut rights = Vec::with_capacity(PORT_REGISTER_MAX);
+            for off in [28, 40, 52] {
+                match req.take_port(off, &[disp::MOVE_SEND]) {
+                    Ok(r) => rights.push(r),
+                    Err(e) => {
+                        kmsg::release(ctx.proc, rights.into_iter().flatten());
+                        return Err(e);
+                    }
+                }
+            }
+            register_ports(ctx.proc, task, rights)?;
+            Ok(Out::Simple(Vec::new()))
+        }
+        t::KERNELRPC_MACH_PORTS_LOOKUP3 => {
+            req.simple(24)?;
+            if !task {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            let ports = ctx.proc.task.registered.iter().map(|h| match h {
+                Handler::None => null_port(),
+                Handler::Dead => OutDesc::Port(Some(Right::Dead), disp::MOVE_SEND),
+                Handler::Port(p) => copy_send(p),
+            });
+            Ok(Out::Complex(ports.collect(), Vec::new()))
         }
         t::TASK_THREADS => {
             req.simple(24)?;
@@ -451,12 +478,55 @@ fn get_special_port(ctx: &mut Ctx<'_>, kind: &KObject, which: i32) -> Result<Out
     })
 }
 
+/// `_kernelrpc_mach_ports_register3` on the caller's task (`task`: the
+/// request came through its control port): the three rights replace the
+/// stashed ones, unless one may not move (`KERN_INVALID_RIGHT`); the rights
+/// a refused request carries are released.
+fn register_ports(
+    proc: &mut Proc,
+    task: bool,
+    rights: Vec<Option<Right>>,
+) -> Result<(), KernReturn> {
+    let refused = if !task {
+        Some(kr::KERN_INVALID_ARGUMENT)
+    } else if rights
+        .iter()
+        .flatten()
+        .any(|r| r.port().is_some_and(|p| !p.movable_send()))
+    {
+        Some(kr::KERN_INVALID_RIGHT)
+    } else {
+        None
+    };
+    if let Some(e) = refused {
+        kmsg::release(proc, rights.into_iter().flatten());
+        return Err(e);
+    }
+    let mut new: [Handler; PORT_REGISTER_MAX] = Default::default();
+    for (slot, r) in new.iter_mut().zip(rights) {
+        *slot = match r {
+            None => Handler::None,
+            Some(Right::Send(p)) => Handler::Port(p),
+            Some(_) => Handler::Dead,
+        };
+    }
+    // The old rights are released once the new ones are in place.
+    let old = std::mem::replace(&mut proc.task.registered, new);
+    for h in old {
+        if let Handler::Port(p) = h {
+            kmsg::release_send(proc, &p);
+        }
+    }
+    Ok(())
+}
+
 /// `task_set_special_port`.
 fn set_special_port(proc: &mut Proc, which: i32, right: Option<Right>) -> Result<(), KernReturn> {
     let port = match right {
         None => None,
-        Some(Right::Send(p)) => Some(p),
+        Some(Right::Send(p)) if p.movable_send() => Some(p),
         Some(Right::Dead) => None,
+        // A right that may not be stashed (ipc_can_stash_naked_send).
         Some(other) => {
             kmsg::release(proc, [other]);
             return Err(kr::KERN_INVALID_RIGHT);
