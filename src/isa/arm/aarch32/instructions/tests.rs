@@ -1077,3 +1077,239 @@ fn mrrc_reads_the_generic_counters_as_cntkctl_allows() {
     assert!(matches!(exec.execute(&dec(vct)), ExecResult::Continue));
     assert_eq!(exec.cpu.regs[0], 0x2345_6689);
 }
+
+fn thumb_cpu(pc: u32) -> Armv7Cpu {
+    let mut cpu = make_cpu();
+    cpu.regs[15] = pc;
+    cpu.cpsr.t = true;
+    cpu
+}
+
+fn t32(raw: u32) -> DecodedInsn {
+    crate::isa::arm::decoder::ThumbDecoder::decode_32bit(raw).unwrap()
+}
+
+fn a32(raw: u32) -> DecodedInsn {
+    crate::isa::arm::decoder::Aarch32Decoder::decode(raw).unwrap()
+}
+
+#[track_caller]
+fn completes(result: ExecResult) {
+    assert!(matches!(result, ExecResult::Continue), "{result:?}");
+}
+
+#[test]
+fn thumb_pc_reads_are_the_instruction_address_plus_four() {
+    // ADD r0, pc and MOV r0, pc (T16) at 0x1002 read 0x1006.
+    let t16 = |hw| crate::isa::arm::decoder::ThumbDecoder::decode_16bit(hw).unwrap();
+    for hw in [0x4478, 0x4678] {
+        let mut cpu = thumb_cpu(0x1002);
+        let mut mem = make_mem();
+        completes(Executor::new(&mut cpu, &mut mem).execute(&t16(hw)));
+        assert_eq!(cpu.regs[0], 0x1006, "{hw:#06x}");
+    }
+    // A32's MOV r0, pc at 0x1000 reads 0x1008.
+    let mut cpu = make_cpu();
+    cpu.regs[15] = 0x1000;
+    let mut mem = make_mem();
+    completes(Executor::new(&mut cpu, &mut mem).execute(&a32(0xe1a0_000f)));
+    assert_eq!(cpu.regs[0], 0x1008);
+}
+
+#[test]
+fn t32_vldr_literal_reads_from_the_aligned_pc_plus_four() {
+    // VLDR d0, [pc, #8] at 0x1002: Align(0x1006, 4) + 8 = 0x100c.
+    let mut cpu = thumb_cpu(0x1002);
+    cpu.vfp.fpexc = 0x4000_0000;
+    let mut mem = make_mem();
+    mem.write_word(0x100c, 0x5566_7788).unwrap();
+    mem.write_word(0x1010, 0x1122_3344).unwrap();
+    completes(Executor::new(&mut cpu, &mut mem).execute(&t32(0xed9f_0b02)));
+    assert_eq!(cpu.vfp.dregs[0], 0x1122_3344_5566_7788);
+}
+
+#[test]
+fn t32_coprocessor_moves_reach_the_system_registers() {
+    // MRC p15, 0, r0, c13, c0, 3 (TPIDRURO) and VMRS r0, FPSCR at PL0.
+    let mut cpu = thumb_cpu(0x1000);
+    cpu.cpsr.mode = ProcessorMode::User as u8;
+    cpu.vfp.fpexc = 0x4000_0000;
+    cpu.cp15.tpidruro = 0x1234_5678;
+    let mut mem = make_mem();
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    completes(exec.execute(&t32(0xee1d_0f70)));
+    assert_eq!(exec.cpu.regs[0], 0x1234_5678);
+    exec.cpu.vfp.fpscr = Fpscr::from_bits(0x0300_0000);
+    completes(exec.execute(&t32(0xeef1_0a10)));
+    assert_eq!(exec.cpu.regs[0], 0x0300_0000);
+}
+
+#[test]
+fn t32_advanced_simd_reads_its_u_bit_from_bit_28() {
+    // VMAX.S8 and VMAX.U8 d0, d1, d2 with lane 0 holding 0x80 and 0x01:
+    // the signed maximum is 0x01, the unsigned one 0x80.
+    for (raw, max) in [(0xef01_0602, 0x01), (0xff01_0602, 0x80)] {
+        let mut cpu = thumb_cpu(0x1000);
+        cpu.vfp.fpexc = 0x4000_0000;
+        cpu.vfp.dregs[1] = 0x80;
+        cpu.vfp.dregs[2] = 0x01;
+        let mut mem = make_mem();
+        completes(Executor::new(&mut cpu, &mut mem).execute(&t32(raw)));
+        assert_eq!(cpu.vfp.dregs[0], max, "{raw:#010x}");
+    }
+}
+
+#[test]
+fn t32_exclusives_use_the_t32_register_layout() {
+    let mut cpu = thumb_cpu(0x1000);
+    cpu.regs[1] = 0x2000;
+    let mut mem = make_mem();
+    mem.write_word(0x2004, 0xaabb_ccdd).unwrap();
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+
+    // LDREX r0, [r1, #4]; STREX r2, r0, [r1, #4] succeeds once.
+    completes(exec.execute(&t32(0xe851_0f01)));
+    assert_eq!(exec.cpu.regs[0], 0xaabb_ccdd);
+    exec.cpu.regs[0] = 0x0102_0304;
+    completes(exec.execute(&t32(0xe841_0201)));
+    assert_eq!(exec.cpu.regs[2], 0);
+    assert_eq!(exec.mem.read_word(0x2004).unwrap(), 0x0102_0304);
+    exec.cpu.regs[0] = 0xdead_beef;
+    completes(exec.execute(&t32(0xe841_0201)));
+    assert_eq!(exec.cpu.regs[2], 1);
+    assert_eq!(exec.mem.read_word(0x2004).unwrap(), 0x0102_0304);
+
+    // LDREXB r0, [r1]; STREXB r3, r0, [r1]: Rt in 15:12, Rd in 3:0.
+    exec.mem.write_word(0x2000, 0x0000_0077).unwrap();
+    completes(exec.execute(&t32(0xe8d1_0f4f)));
+    assert_eq!(exec.cpu.regs[0], 0x77);
+    exec.cpu.regs[0] = 0x66;
+    completes(exec.execute(&t32(0xe8c1_0f43)));
+    assert_eq!(exec.cpu.regs[3], 0);
+    assert_eq!(exec.mem.read_word(0x2000).unwrap(), 0x66);
+
+    // LDREXD r2, r5, [r1]; STREXD r4, r2, r5, [r1]: any two registers.
+    exec.mem.write_word(0x2000, 0x1111_1111).unwrap();
+    exec.mem.write_word(0x2004, 0x2222_2222).unwrap();
+    completes(exec.execute(&t32(0xe8d1_257f)));
+    assert_eq!(
+        (exec.cpu.regs[2], exec.cpu.regs[5]),
+        (0x1111_1111, 0x2222_2222)
+    );
+    exec.cpu.regs[2] = 0x3333_3333;
+    exec.cpu.regs[5] = 0x4444_4444;
+    completes(exec.execute(&t32(0xe8c1_2574)));
+    assert_eq!(exec.cpu.regs[4], 0);
+    assert_eq!(exec.mem.read_word(0x2000).unwrap(), 0x3333_3333);
+    assert_eq!(exec.mem.read_word(0x2004).unwrap(), 0x4444_4444);
+    // LDREXD r2, r2, [r1]: Rt == Rt2 is UNPREDICTABLE, made UNDEFINED.
+    assert!(matches!(
+        exec.execute(&t32(0xe8d1_227f)),
+        ExecResult::Undefined
+    ));
+
+    // STL r0, [r1] and LDA r0, [r1]: Rt in 15:12 for both.
+    exec.cpu.regs[0] = 0x5555_5555;
+    completes(exec.execute(&t32(0xe8c1_0faf)));
+    assert_eq!(exec.mem.read_word(0x2000).unwrap(), 0x5555_5555);
+    exec.cpu.regs[0] = 0;
+    completes(exec.execute(&t32(0xe8d1_0faf)));
+    assert_eq!(exec.cpu.regs[0], 0x5555_5555);
+
+    // CLREX drops the reservation LDREX took.
+    completes(exec.execute(&t32(0xe851_0f01)));
+    completes(exec.execute(&t32(0xf3bf_8f2f)));
+    completes(exec.execute(&t32(0xe841_0201)));
+    assert_eq!(exec.cpu.regs[2], 1);
+}
+
+#[test]
+fn t32_table_branches_index_from_the_pc_plus_four() {
+    // TBB [pc, r0] at 0x1000: the table starts at 0x1004, and entry 1 (3)
+    // branches to 0x1004 + 2 * 3.
+    let mut cpu = thumb_cpu(0x1000);
+    cpu.regs[0] = 1;
+    let mut mem = make_mem();
+    mem.write_byte(0x1005, 3).unwrap();
+    let result = Executor::new(&mut cpu, &mut mem).execute(&t32(0xe8df_f000));
+    assert!(matches!(result, ExecResult::Branch(0x100a)), "{result:?}");
+
+    // TBH [r1, r2, lsl #1]: entry 2 (0x10) of the table at 0x2000.
+    let mut cpu = thumb_cpu(0x1000);
+    cpu.regs[1] = 0x2000;
+    cpu.regs[2] = 2;
+    mem.write_halfword(0x2004, 0x10).unwrap();
+    let result = Executor::new(&mut cpu, &mut mem).execute(&t32(0xe8d1_f012));
+    assert!(matches!(result, ExecResult::Branch(0x1024)), "{result:?}");
+}
+
+#[test]
+fn t32_msr_and_mrs_move_the_apsr() {
+    let mut cpu = thumb_cpu(0x1000);
+    cpu.cpsr.mode = ProcessorMode::User as u8;
+    cpu.regs[0] = 0xf800_0000;
+    cpu.regs[1] = 0x000f_0000;
+    let mut mem = make_mem();
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    // MSR APSR_nzcvq, r0; MSR APSR_g, r1; MRS r2, APSR.
+    completes(exec.execute(&t32(0xf380_8800)));
+    completes(exec.execute(&t32(0xf381_8400)));
+    completes(exec.execute(&t32(0xf3ef_8200)));
+    let psr = &exec.cpu.cpsr;
+    assert!(psr.n && psr.z && psr.c && psr.v && psr.q);
+    assert_eq!(psr.ge, 0xf);
+    assert_eq!(exec.cpu.regs[2] & 0xf80f_0000, 0xf80f_0000);
+    assert_eq!(exec.cpu.regs[2] & 0x1f, ProcessorMode::User as u32);
+}
+
+#[test]
+fn hints_barriers_and_udf_execute_as_the_architecture_defines() {
+    let mut cpu = thumb_cpu(0x1000);
+    let mut mem = make_mem();
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    // NOP.W, SEVL.W, CSDB, DBG #5, DMB ISH, DSB SY, ISB SY, SB (T32), and
+    // A32's CSDB: the hints without an effect here execute as NOP.
+    for raw in [
+        0xf3af_8000,
+        0xf3af_8005,
+        0xf3af_8014,
+        0xf3af_80f5,
+        0xf3bf_8f5b,
+        0xf3bf_8f4f,
+        0xf3bf_8f6f,
+        0xf3bf_8f70,
+    ] {
+        completes(exec.execute(&t32(raw)));
+    }
+    exec.cpu.cpsr.t = false;
+    completes(exec.execute(&a32(0xe320_f014)));
+    exec.cpu.cpsr.t = true;
+    // WFE.W waits.
+    assert!(matches!(exec.execute(&t32(0xf3af_8002)), ExecResult::Halt));
+    // UDF.W #0.
+    assert!(matches!(
+        exec.execute(&t32(0xf7f0_a000)),
+        ExecResult::Exception(ExceptionType::UndefinedInstruction)
+    ));
+}
+
+#[test]
+fn t32_stmia_and_ldmdb_of_sp_move_it_their_own_way() {
+    let mut cpu = thumb_cpu(0x1000);
+    cpu.regs[13] = 0x3000;
+    cpu.regs[4] = 0x4444;
+    cpu.regs[5] = 0x5555;
+    let mut mem = make_mem();
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    // STMIA sp!, {r4, r5} stores upward from SP.
+    completes(exec.execute(&t32(0xe8ad_0030)));
+    assert_eq!(exec.mem.read_word(0x3000).unwrap(), 0x4444);
+    assert_eq!(exec.mem.read_word(0x3004).unwrap(), 0x5555);
+    assert_eq!(exec.cpu.regs[13], 0x3008);
+    // LDMDB sp!, {r4, r5} loads them back from below it.
+    exec.cpu.regs[4] = 0;
+    exec.cpu.regs[5] = 0;
+    completes(exec.execute(&t32(0xe93d_0030)));
+    assert_eq!((exec.cpu.regs[4], exec.cpu.regs[5]), (0x4444, 0x5555));
+    assert_eq!(exec.cpu.regs[13], 0x3000);
+}

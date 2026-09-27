@@ -137,9 +137,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         ExecResult::Exception(ExceptionType::Breakpoint(imm as u16))
     }
 
+    /// MRS: A1 keeps Rd in bits 15:12 and R in bit 22, T1 Rd in 11:8 and
+    /// R in 20.
     pub(crate) fn exec_mrs(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let r = (insn.raw >> 22) & 1;
+        let (d, r) = if insn.state.is_thumb() {
+            (((insn.raw >> 8) & 0xF) as usize, (insn.raw >> 20) & 1)
+        } else {
+            (((insn.raw >> 12) & 0xF) as usize, (insn.raw >> 22) & 1)
+        };
 
         let value = if r != 0 {
             if let Some(spsr) = self.cpu.get_current_spsr() {
@@ -155,7 +160,21 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         ExecResult::Continue
     }
 
+    /// MSR: A1 (immediate) and A1 (register) keep R in bit 22, the mask in
+    /// bits 19:16, and Rn in 3:0; T1 (register only) R in bit 20, the mask
+    /// in 11:8, and Rn in 19:16.
     pub(crate) fn exec_msr(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if insn.state.is_thumb() {
+            let r = (insn.raw >> 20) & 1;
+            let mask = (insn.raw >> 8) & 0xF;
+            let value = self.reg(((insn.raw >> 16) & 0xF) as usize);
+            if r != 0 {
+                self.write_current_spsr_by_mask(value, mask);
+            } else {
+                self.write_cpsr_by_mask(value, mask);
+            }
+            return ExecResult::Continue;
+        }
         let r = (insn.raw >> 22) & 1;
         let mask = (insn.raw >> 16) & 0xF;
 
@@ -204,15 +223,24 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Coprocessor Operations
     // =========================================================================
 
-    /// CPS: change processor state (ARMv6). NOP in user mode.
+    /// CPS: change processor state (ARMv6). NOP in user mode. A1 keeps imod
+    /// in bits 19:18, M in 17, and A, I, F in 8:6; T2 imod in 10:9, M in
+    /// 8, and A, I, F in 7:5; both the mode in 4:0.
     pub(crate) fn exec_cps(&mut self, insn: &DecodedInsn) -> ExecResult {
         if self.cpu.is_user_or_system() && self.cpu.cpsr.mode == ProcessorMode::User as u8 {
             return ExecResult::Continue;
         }
         let raw = insn.raw;
-        let imod = (raw >> 18) & 0x3;
-        let m = (raw >> 17) & 1;
-        let (a, i, f) = ((raw >> 8) & 1, (raw >> 7) & 1, (raw >> 6) & 1);
+        let (imod, m, aif) = if insn.state.is_thumb() {
+            ((raw >> 9) & 0x3, (raw >> 8) & 1, 5)
+        } else {
+            ((raw >> 18) & 0x3, (raw >> 17) & 1, 6)
+        };
+        let (a, i, f) = (
+            (raw >> (aif + 2)) & 1,
+            (raw >> (aif + 1)) & 1,
+            (raw >> aif) & 1,
+        );
         match imod {
             0b10 => {
                 // CPSIE: enable = clear mask bits

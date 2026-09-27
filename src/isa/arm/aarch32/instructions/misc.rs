@@ -25,7 +25,9 @@ use crate::isa::arm::aarch32::vfp::{
     vnmul_f64, vorn, vorr, vrev, vrint_f16_bits, vrint_f32, vrint_f64, vsqrt_f16_bits, vsqrt_f32,
     vsqrt_f64, vsub_f16_bits, vsub_f32, vsub_f64, vsub_i,
 };
-use crate::isa::arm::decoder::{Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType};
+use crate::isa::arm::decoder::{
+    Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType, ThumbDecoder,
+};
 
 impl<'a, M: ArmMemory> Executor<'a, M> {
     /// Create a new executor.
@@ -83,6 +85,23 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 ..insn.clone()
             };
             &in_it_unflagged
+        } else {
+            insn
+        };
+
+        // A T32 Advanced SIMD instruction keeps its own encoding in `raw`;
+        // the executors read the A32 one, whose U bit is bit 24.
+        let a32_view;
+        let insn = if insn.state.is_thumb()
+            && insn.size == 4
+            && let Some(a32) = ThumbDecoder::a32_equivalent(insn.raw)
+            && a32 != insn.raw
+        {
+            a32_view = DecodedInsn {
+                raw: a32,
+                ..insn.clone()
+            };
+            &a32_view
         } else {
             insn
         };
@@ -203,6 +222,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             | Mnemonic::BTI
             | Mnemonic::WFET
             | Mnemonic::WFIT => ExecResult::Continue,
+            // The other hints (CSDB, DBG, and the unallocated ones) execute
+            // as NOP.
+            Mnemonic::HINT => ExecResult::Continue,
             Mnemonic::WFI | Mnemonic::WFE => ExecResult::Halt,
             Mnemonic::CPS => self.exec_cps(insn),
             Mnemonic::SRS => self.exec_srs(insn),

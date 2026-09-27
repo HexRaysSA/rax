@@ -288,12 +288,67 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Load/Store Exclusive
     // =========================================================================
 
+    /// The registers of an exclusive or acquire/release access, and the
+    /// offset added to Rn. A32 keeps the status register Rd in bits 15:12,
+    /// a load's Rt in 15:12 and a store's in 3:0, pairs Rt with Rt+1, and
+    /// has no offset. T32 keeps Rt in bits 15:12 and Rt2 in 11:8; LDREX and
+    /// STREX (`1110 1000 010L`) add `imm8:'00'` and STREX keeps Rd in
+    /// 11:8, the other stores in 3:0.
+    fn sync_regs(insn: &DecodedInsn) -> SyncRegs {
+        let raw = insn.raw;
+        let n = ((raw >> 16) & 0xF) as usize;
+        let field = |lsb: u32| ((raw >> lsb) & 0xF) as usize;
+        if insn.state.is_thumb() {
+            if raw & 0xFFE0_0000 == 0xE840_0000 {
+                SyncRegs {
+                    d: field(8),
+                    t: field(12),
+                    t2: field(12),
+                    n,
+                    imm32: (raw & 0xFF) << 2,
+                }
+            } else {
+                SyncRegs {
+                    d: field(0),
+                    t: field(12),
+                    t2: field(8),
+                    n,
+                    imm32: 0,
+                }
+            }
+        } else {
+            let t = if (raw >> 20) & 1 == 0 {
+                field(0)
+            } else {
+                field(12)
+            };
+            SyncRegs {
+                d: field(12),
+                t,
+                t2: t + 1,
+                n,
+                imm32: 0,
+            }
+        }
+    }
+
+    /// Whether a doubleword exclusive names registers it cannot use:
+    /// UNPREDICTABLE, which this model makes UNDEFINED. A32 needs an even
+    /// Rt below r14 (Rt2 is Rt+1); T32 needs Rt and Rt2 distinct and
+    /// neither the PC.
+    fn bad_pair(insn: &DecodedInsn, r: &SyncRegs) -> bool {
+        if insn.state.is_thumb() {
+            r.t == 15 || r.t2 == 15 || r.t == r.t2
+        } else {
+            r.t & 1 != 0 || r.t == 14
+        }
+    }
+
     /// LDA, LDAB, LDAH (ARMv8): a load-acquire of `size` bytes from [Rn]
     /// into Rt, zero-extended; the address must be aligned to the size
     /// (`MemO`). Rt or Rn being PC is CONSTRAINED UNPREDICTABLE: UNDEFINED.
     pub(crate) fn exec_lda(&mut self, insn: &DecodedInsn, size: u32) -> ExecResult {
-        let t = ((insn.raw >> 12) & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
+        let SyncRegs { t, n, .. } = Self::sync_regs(insn);
         if t == 15 || n == 15 {
             return ExecResult::Undefined;
         }
@@ -318,8 +373,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// STL, STLB, STLH (ARMv8): a store-release of Rt's low `size` bytes
     /// to [Rn], which must be aligned to the size.
     pub(crate) fn exec_stl(&mut self, insn: &DecodedInsn, size: u32) -> ExecResult {
-        let t = (insn.raw & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
+        let SyncRegs { t, n, .. } = Self::sync_regs(insn);
         if t == 15 || n == 15 {
             return ExecResult::Undefined;
         }
@@ -340,9 +394,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_ldrex(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let t = ((insn.raw >> 12) & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
-        let address = self.reg(n);
+        let SyncRegs { t, n, imm32, .. } = Self::sync_regs(insn);
+        let address = self.reg(n).wrapping_add(imm32);
         if address % 4 != 0 {
             return ExecResult::MemoryFault(MemoryError::Unaligned(address));
         }
@@ -359,10 +412,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_strex(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let t = (insn.raw & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
-        let address = self.reg(n);
+        let SyncRegs { d, t, n, imm32, .. } = Self::sync_regs(insn);
+        let address = self.reg(n).wrapping_add(imm32);
         if address % 4 != 0 {
             return ExecResult::MemoryFault(MemoryError::Unaligned(address));
         }
@@ -381,14 +432,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
     }
 
-    /// LDREXD: doubleword exclusive load into an even/odd register pair.
+    /// LDREXD: doubleword exclusive load into Rt (the low word) and Rt2.
     pub(crate) fn exec_ldrexd(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let t = ((insn.raw >> 12) & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
-        if t & 1 != 0 || t == 14 {
+        let r = Self::sync_regs(insn);
+        if Self::bad_pair(insn, &r) {
             return ExecResult::Undefined;
         }
-        let address = self.reg(n);
+        let address = self.reg(r.n);
         if address % 8 != 0 {
             return ExecResult::MemoryFault(MemoryError::Unaligned(address));
         }
@@ -403,44 +453,38 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Ok(d) => d,
             Err(e) => return ExecResult::MemoryFault(e),
         };
-        self.cpu.regs[t] = lo;
-        self.cpu.regs[t + 1] = hi;
+        self.cpu.regs[r.t] = lo;
+        self.cpu.regs[r.t2] = hi;
         ExecResult::Continue
     }
 
-    /// STREXD: doubleword exclusive store from an even/odd register pair.
+    /// STREXD: doubleword exclusive store of Rt (the low word) and Rt2.
     pub(crate) fn exec_strexd(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let t = (insn.raw & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
-        if t & 1 != 0 || t == 14 {
+        let r = Self::sync_regs(insn);
+        if Self::bad_pair(insn, &r) {
             return ExecResult::Undefined;
         }
-        let address = self.reg(n);
+        let address = self.reg(r.n);
         if address % 8 != 0 {
             return ExecResult::MemoryFault(MemoryError::Unaligned(address));
         }
 
         if self.exclusive_monitor.check_and_clear(address, 8) {
-            if let Err(e) = self.mem.write_word(address, self.reg(t)) {
+            if let Err(e) = self.mem.write_word(address, self.reg(r.t)) {
                 return ExecResult::MemoryFault(e);
             }
-            if let Err(e) = self
-                .mem
-                .write_word(address.wrapping_add(4), self.reg(t + 1))
-            {
+            if let Err(e) = self.mem.write_word(address.wrapping_add(4), self.reg(r.t2)) {
                 return ExecResult::MemoryFault(e);
             }
-            self.cpu.regs[d] = 0; // Success
+            self.cpu.regs[r.d] = 0; // Success
         } else {
-            self.cpu.regs[d] = 1; // Failure
+            self.cpu.regs[r.d] = 1; // Failure
         }
         ExecResult::Continue
     }
 
     pub(crate) fn exec_ldrexb(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let t = ((insn.raw >> 12) & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
+        let SyncRegs { t, n, .. } = Self::sync_regs(insn);
         let address = self.reg(n);
 
         self.exclusive_monitor.mark_exclusive(address, 1);
@@ -455,9 +499,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_strexb(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let t = (insn.raw & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
+        let SyncRegs { d, t, n, .. } = Self::sync_regs(insn);
         let address = self.reg(n);
 
         if self.exclusive_monitor.check_and_clear(address, 1) {
@@ -475,8 +517,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_ldrexh(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let t = ((insn.raw >> 12) & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
+        let SyncRegs { t, n, .. } = Self::sync_regs(insn);
         let address = self.reg(n);
         if address % 2 != 0 {
             return ExecResult::MemoryFault(MemoryError::Unaligned(address));
@@ -494,9 +535,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_strexh(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let t = (insn.raw & 0xF) as usize;
-        let n = ((insn.raw >> 16) & 0xF) as usize;
+        let SyncRegs { d, t, n, .. } = Self::sync_regs(insn);
         let address = self.reg(n);
         if address % 2 != 0 {
             return ExecResult::MemoryFault(MemoryError::Unaligned(address));
@@ -872,4 +911,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
         ExecResult::Continue
     }
+}
+
+/// Where an exclusive or acquire/release access keeps its registers
+/// (`Executor::sync_regs`): the status register Rd of a store exclusive,
+/// Rt and the doubleword forms' Rt2, the base Rn, and the offset.
+struct SyncRegs {
+    d: usize,
+    t: usize,
+    t2: usize,
+    n: usize,
+    imm32: u32,
 }

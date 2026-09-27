@@ -20,15 +20,12 @@ impl ThumbDecoder {
             _ => Mnemonic::UNKNOWN,
         };
 
-        // Check for PUSH/POP aliases
-        let mnemonic = if rn == 13 && w == 1 {
-            if l == 1 {
-                Mnemonic::POP
-            } else {
-                Mnemonic::PUSH
-            }
-        } else {
-            mnemonic
+        // PUSH is STMDB SP! and POP is LDMIA SP!; STMIA SP! and LDMDB SP!
+        // keep their own names (they move SP the other way).
+        let mnemonic = match mnemonic {
+            Mnemonic::STMDB if rn == 13 && w == 1 => Mnemonic::PUSH,
+            Mnemonic::LDMIA if rn == 13 && w == 1 => Mnemonic::POP,
+            m => m,
         };
 
         let is_push_pop = matches!(mnemonic, Mnemonic::PUSH | Mnemonic::POP);
@@ -45,21 +42,15 @@ impl ThumbDecoder {
     }
 
     pub(super) fn decode_32bit_load_store_dual(raw: u32) -> Result<DecodedInsn, DecodeError> {
-        // LDRD/STRD (immediate): op1 = P:U:1:W (bit24..21), L = bit20. The
-        // exclusive/table-branch members of this group (op1[1]=0 => P=0,W=0) are
-        // not handled here.
+        // LDRD/STRD (immediate): op1 = P:U:1:W (bit24..21), L = bit20; P and
+        // W both clear are the exclusive, acquire/release, and table-branch
+        // members of the group.
         let p = (raw >> 24) & 1;
         let u = (raw >> 23) & 1;
         let w = (raw >> 21) & 1;
         let l = (raw >> 20) & 1;
         if p == 0 && w == 0 {
-            // LDREX/STREX/TBB/TBH — not yet implemented.
-            return Ok(DecodedInsn::new(
-                Mnemonic::UNKNOWN,
-                ExecutionState::Thumb2,
-                raw,
-                4,
-            ));
+            return Ok(Self::decode_32bit_exclusive(raw));
         }
         let rn = ((raw >> 16) & 0xF) as u8; // hw1[3:0]
         let rt = ((raw >> 12) & 0xF) as u8; // hw2[15:12]
@@ -74,22 +65,53 @@ impl ThumbDecoder {
             AddressingMode::Offset
         };
         let mnemonic = if l == 1 { Mnemonic::LDP } else { Mnemonic::STP };
-        return Ok(DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4)
+        Ok(DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4)
             .with_operand(Operand::Reg(Self::any_reg(rt)))
             .with_operand(Operand::Reg(Self::any_reg(rt2)))
             .with_operand(Operand::Mem(MemOperand {
                 base: Self::any_reg(rn),
                 offset: MemOffset::Imm(off),
                 mode,
-            })));
+            })))
+    }
 
-        #[allow(unreachable_code)]
-        Ok(DecodedInsn::new(
-            Mnemonic::UNKNOWN,
-            ExecutionState::Thumb2,
-            raw,
-            4,
-        ))
+    /// LDREX and STREX (`1110 1000 010L`, with an `imm8:'00'` offset), and
+    /// TBB, TBH, the byte, halfword, and doubleword exclusives, and the
+    /// ARMv8 load-acquires and store-releases (`1110 1000 110L`, selected
+    /// by hw2[7:4]). Named as the A32 decoder names them; the executor
+    /// reads the registers from `raw` in the T32 layout.
+    fn decode_32bit_exclusive(raw: u32) -> DecodedInsn {
+        let u = (raw >> 23) & 1;
+        let l = (raw >> 20) & 1;
+        let op3 = (raw >> 4) & 0xF;
+        let mnemonic = match (u, l, op3) {
+            (0, 0, _) => Mnemonic::STXR,
+            (0, 1, _) => Mnemonic::LDXR,
+            (1, 1, 0b0000) => Mnemonic::TBB,
+            (1, 1, 0b0001) => Mnemonic::TBH,
+            (1, 0, 0b0100) => Mnemonic::STXRB,
+            (1, 1, 0b0100) => Mnemonic::LDXRB,
+            (1, 0, 0b0101) => Mnemonic::STXRH,
+            (1, 1, 0b0101) => Mnemonic::LDXRH,
+            (1, 0, 0b0111) => Mnemonic::STXP, // STREXD
+            (1, 1, 0b0111) => Mnemonic::LDXP, // LDREXD
+            (1, 0, 0b1000) => Mnemonic::STLRB,
+            (1, 1, 0b1000) => Mnemonic::LDARB,
+            (1, 0, 0b1001) => Mnemonic::STLRH,
+            (1, 1, 0b1001) => Mnemonic::LDARH,
+            (1, 0, 0b1010) => Mnemonic::STLR, // STL
+            (1, 1, 0b1010) => Mnemonic::LDAR, // LDA
+            (1, 0, 0b1100) => Mnemonic::STLXRB,
+            (1, 1, 0b1100) => Mnemonic::LDAXRB,
+            (1, 0, 0b1101) => Mnemonic::STLXRH,
+            (1, 1, 0b1101) => Mnemonic::LDAXRH,
+            (1, 0, 0b1110) => Mnemonic::STLXR, // STLEX
+            (1, 1, 0b1110) => Mnemonic::LDAXR, // LDAEX
+            (1, 0, 0b1111) => Mnemonic::STLXP, // STLEXD
+            (1, 1, 0b1111) => Mnemonic::LDAXP, // LDAEXD
+            _ => Mnemonic::UNKNOWN,
+        };
+        DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4)
     }
 
     /// T32 data-processing (shifted register): AND/BIC/ORR/ORN/EOR/PKH/ADD/ADC/
@@ -656,30 +678,47 @@ impl ThumbDecoder {
                 .with_operand(Operand::Label(offset)));
         }
 
-        // MSR, MRS, hints, misc control
-        if op1 == 0x38 && op2 == 0 {
-            // Hints
-            let op1 = (hw2 >> 8) & 0xFF;
-            let op2 = hw2 & 0xFF;
+        Ok(Self::decode_32bit_misc_control(raw))
+    }
 
-            let mnemonic = match (op1, op2) {
-                (0, 0) => Mnemonic::NOP,
-                (0, 1) => Mnemonic::YIELD,
-                (0, 2) => Mnemonic::WFE,
-                (0, 3) => Mnemonic::WFI,
-                (0, 4) => Mnemonic::SEV,
+    /// The rest of "Branches and miscellaneous control" (op2 = 0x0 with
+    /// op1 = x111xxx, and UDF): MSR and MRS (the banked forms, hw2 bit 5
+    /// set, are not decoded), the hints and CPS, CLREX and the barriers,
+    /// and UDF. BXJ, ERET, HVC, and SMC are not decoded either.
+    fn decode_32bit_misc_control(raw: u32) -> DecodedInsn {
+        let hw1 = (raw >> 16) as u16;
+        let hw2 = raw as u16;
+        let op1 = (hw1 >> 4) & 0x7F;
+        let op2 = (hw2 >> 12) & 0x7;
+        let banked = hw2 & 0x20 != 0;
+        let insn = |m| DecodedInsn::new(m, ExecutionState::Thumb2, raw, 4);
+        match (op1, op2) {
+            (0x38 | 0x39, 0b000 | 0b010) if !banked => insn(Mnemonic::MSR),
+            (0x3A, 0b000 | 0b010) if hw2 & 0x0700 == 0 => insn(match hw2 & 0xFF {
+                0 => Mnemonic::NOP,
+                1 => Mnemonic::YIELD,
+                2 => Mnemonic::WFE,
+                3 => Mnemonic::WFI,
+                4 => Mnemonic::SEV,
+                5 => Mnemonic::SEVL,
                 _ => Mnemonic::HINT,
-            };
-
-            return Ok(DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4));
+            }),
+            (0x3A, 0b000 | 0b010) => insn(Mnemonic::CPS),
+            (0x3B, 0b000 | 0b010) => {
+                let option = Operand::Barrier(BarrierOption::from_bits((hw2 & 0xF) as u8));
+                match (hw2 >> 4) & 0xF {
+                    0b0010 => insn(Mnemonic::CLREX),
+                    0b0100 => insn(Mnemonic::DSB).with_operand(option),
+                    0b0101 => insn(Mnemonic::DMB).with_operand(option),
+                    0b0110 => insn(Mnemonic::ISB).with_operand(option),
+                    0b0111 => insn(Mnemonic::SB),
+                    _ => insn(Mnemonic::UNKNOWN),
+                }
+            }
+            (0x3E | 0x3F, 0b000 | 0b010) if !banked => insn(Mnemonic::MRS),
+            (0x7F, 0b010) => insn(Mnemonic::UDF),
+            _ => insn(Mnemonic::UNKNOWN),
         }
-
-        Ok(DecodedInsn::new(
-            Mnemonic::UNKNOWN,
-            ExecutionState::Thumb2,
-            raw,
-            4,
-        ))
     }
 
     /// T32 data-processing (register): register-controlled shifts (LSL/LSR/ASR/

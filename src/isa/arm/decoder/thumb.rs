@@ -3,7 +3,7 @@
 //! This module decodes Thumb instructions, which are either 16 or 32 bits wide.
 //! 32-bit Thumb-2 instructions are encoded as two halfwords.
 
-use super::{Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType, operand::*};
+use super::{Aarch32Decoder, Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType, operand::*};
 use crate::isa::arm::ExecutionState;
 
 mod t32;
@@ -79,8 +79,11 @@ impl ThumbDecoder {
                     Self::decode_32bit_load_store_multiple(raw)
                 } else if op2 & 0x64 == 0x04 {
                     Self::decode_32bit_load_store_dual(raw)
-                } else {
+                } else if op2 & 0x40 == 0 {
                     Self::decode_32bit_data_processing(raw)
+                } else {
+                    // Coprocessor, floating-point, and Advanced SIMD
+                    Self::decode_32bit_a32_space(raw)
                 }
             }
             0b10 => {
@@ -97,7 +100,11 @@ impl ThumbDecoder {
                 }
             }
             0b11 => {
-                if op2 & 0x70 == 0x20 {
+                if op2 & 0x40 != 0 || op2 & 0x71 == 0x10 {
+                    // Coprocessor, floating-point, and Advanced SIMD; the
+                    // Advanced SIMD element and structure loads and stores
+                    Self::decode_32bit_a32_space(raw)
+                } else if op2 & 0x70 == 0x20 {
                     // Data processing (register)
                     Self::decode_32bit_dp_register(raw)
                 } else if op2 & 0x78 == 0x30 {
@@ -134,6 +141,46 @@ impl ThumbDecoder {
                 4,
             )),
         }
+    }
+
+    /// The A32 encoding of a T32 coprocessor, floating-point, or Advanced
+    /// SIMD instruction, which decodes and executes as that A32 one (ARM
+    /// ARM, the T32 and A32 encodings of each): the same bits, the T32 top
+    /// nibble 0b1110 or 0b1111 in place of A32's `AL` condition or its
+    /// unconditional space, except that Advanced SIMD data processing moves
+    /// U from bit 28 (T32 `111U 1111`) to bit 24 (A32 `1111 001U`) and the
+    /// element and structure loads and stores are T32 `1111 1001`, A32
+    /// `1111 0100`. `None` for an instruction outside that space.
+    pub fn a32_equivalent(raw: u32) -> Option<u32> {
+        if raw & 0xEF00_0000 == 0xEF00_0000 {
+            Some(0xF200_0000 | ((raw >> 28) & 1) << 24 | raw & 0x00FF_FFFF)
+        } else if raw & 0xEC00_0000 == 0xEC00_0000 {
+            Some(raw)
+        } else if raw & 0xFF10_0000 == 0xF900_0000 {
+            Some(0xF400_0000 | raw & 0x00FF_FFFF)
+        } else {
+            None
+        }
+    }
+
+    /// A coprocessor, floating-point, or Advanced SIMD instruction, decoded
+    /// as its A32 equivalent but keeping its own encoding, state, and
+    /// length. None has a condition of its own: an IT block predicates it.
+    fn decode_32bit_a32_space(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        let Some(a32) = Self::a32_equivalent(raw) else {
+            return Ok(DecodedInsn::new(
+                Mnemonic::UNKNOWN,
+                ExecutionState::Thumb2,
+                raw,
+                4,
+            ));
+        };
+        let mut insn = Aarch32Decoder::decode(a32)?;
+        insn.raw = raw;
+        insn.state = ExecutionState::Thumb2;
+        insn.size = 4;
+        insn.cond = None;
+        Ok(insn)
     }
 
     // =========================================================================

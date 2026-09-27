@@ -696,10 +696,11 @@ impl Armv7Cpu {
         cpu
     }
 
-    /// Get PC value for instruction execution (PC + 8 due to pipeline).
+    /// The PC as an instruction reads it: its address plus 8 in A32 state,
+    /// plus 4 in Thumb state.
     #[inline]
     pub fn get_pc(&self) -> u32 {
-        self.regs[15].wrapping_add(8)
+        self.regs[15].wrapping_add(if self.cpsr.t { 4 } else { 8 })
     }
 
     /// Get register value, handling PC specially.
