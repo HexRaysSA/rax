@@ -51,6 +51,7 @@ pub mod signal;
 pub mod stack;
 pub mod syscall;
 pub mod thread_state;
+pub mod thread_status;
 pub mod vfs;
 pub mod vm;
 pub mod wait;

@@ -151,6 +151,10 @@ pub struct ThreadMach {
     pub join: Option<(u64, u32)>,
     /// The voucher the thread adopted (`ith_voucher`).
     pub voucher: Option<std::sync::Arc<super::ipc::Port>>,
+    /// The debug registers `thread_set_state` gave the thread, in its
+    /// flavor's words (`ARM_DEBUG_STATE64`, `x86_DEBUG_STATE64`); empty
+    /// for none.
+    pub debug_state: Vec<u32>,
 }
 
 #[cfg(test)]
