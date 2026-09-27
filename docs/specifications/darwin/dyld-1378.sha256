@@ -1,3 +1,5 @@
 e5881019d8766c1e88a5fe1dbca4ba40c78011d41fcb18f6e9f50df60182685b  ./APPLE_LICENSE
+0c7ecc01644fc2c771c0002bda05913a9fe08186bfeb80fee231596285cf6a2e  ./dyld/ExternallyViewableState.cpp
 5edf7835d47f6b78110da10d556cd45e2ac04c04a9d1627294522dc4aca058be  ./dyld/SharedCacheRuntime.cpp
+1d8e76dae5f2baa592b7b6a157d1f0ed04eab34c8edf0e7dc5f1bb7688e67e52  ./dyld/dyldMain.cpp
 dd6f7d9ffc5cb318988c16dbecf958d04b0c65cd9ee1892a838e374f76fd182c  ./include/mach-o/dyld_cache_format.h

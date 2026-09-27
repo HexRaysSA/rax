@@ -22,6 +22,7 @@ ecec070f1cb5139f3681d7a95167a4bfe8f034f6fd1cc58bda5d9b447d85e045  ./bsd/kern/ker
 cf8c0d8923c718bd80ec1cc569d57ea5b45f0d895123c4e1b48a51b5de2cada3  ./bsd/kern/kern_mman.c
 76f81fddf8562ae06c9229fef4be95bd9505cdd3866b2d0565b8104d2120f0c7  ./bsd/kern/kern_proc.c
 2d86bd7cf845f9402b26ace5c2881f604aede52e632d33ace10fcd5d9c4e0591  ./bsd/kern/kern_prot.c
+267d77490eb641118b078f1193e0971fe3e8a81a57d0bd02eb875f50b67a901a  ./bsd/kern/kern_resource.c
 8ce8c8d74345256e8598fc36b79976406fb165ae88d90721f3d918a3dd317495  ./bsd/kern/kern_sig.c
 015d68e07dc3975aee47b2e307d6d3a4e57541f8ab87ffc9a44034f0a1044b0a  ./bsd/kern/kern_synch.c
 e0604d026880facb9dd4ab62a27056c259c253073ede645ae5433f817470465a  ./bsd/kern/kern_time.c
@@ -31,6 +32,7 @@ f915a5b28dcdd78a06e08a7e4625e4b1e1c87f9ce3f1a32a14689ba9de46ad80  ./bsd/kern/mac
 bd44c344880e121277d33c7539c05915a030a52c4ceab7c9f88e54f373293c67  ./bsd/kern/makesyscalls.sh
 e182b402689dd89e7784ae330a0525dc5b08ce09526b0a8f0801a7adcd4b0dd8  ./bsd/kern/posix_sem.c
 3359b814c5e3a867bf41dc6b41115c88c5259c9bc5664b6e192f275d2bd6b01b  ./bsd/kern/posix_shm.c
+dc99b9a8105fc1376ba0b7d14de1aa6e065c7b13899ac9ede2fb1dccab649178  ./bsd/kern/proc_info.c
 b2518759950620d6c5964d548c6e1838eb6fa83252a78760c71826edd57c548c  ./bsd/kern/subr_xxx.c
 4d50d6beb87bd71b9dc669e9154c8250f1394ec6806f716fa1caac1f9e4c1fc6  ./bsd/kern/sys_generic.c
 b23be59e62a90ec4aa7d5400014206ab79600a6cc95d1de06702152dcf689a49  ./bsd/kern/sys_ulock.c
@@ -60,6 +62,8 @@ ba5ef541ed4851cf79397b99bf71d9604790dc1387ae125675b7af35b57090b1  ./bsd/sys/imga
 9009cb706a24501dff4f47024c63dc730618249d85dd050f2bf97515a3ca6098  ./bsd/sys/kauth.h
 278cf3c858babbe4fa4871818823cff33f122b8a132ef165e6937dbc4db855de  ./bsd/sys/mount.h
 ee6024c8fee1eb9bcd280203532cba183fb015c5549eebcd8f45f4667529ad4a  ./bsd/sys/param.h
+a4eb26cdfd3721b111f9979455d80a854625b0ef96ba4de1a4e7705f462e0f84  ./bsd/sys/proc_info.h
+4f8a8290fb644349521befe852fbaebf1a2d3a9355b0937f45ce1d89a3906a73  ./bsd/sys/proc_info_private.h
 2efb1aca5abdfa6f9e8bad155f2db319fdca1a029400cad1558e4df981d6eeea  ./bsd/sys/signal.h
 f05feb319366d6fc2948fdb728891c87bc2406a1028041382bc13251cbf0e17e  ./bsd/sys/signalvar.h
 b34765529855f41b8d3598c1443065c67fcdcb8ad734ba6d60c8d255bc5d4379  ./bsd/sys/spawn.h
@@ -70,12 +74,16 @@ d536d9aeb0735585542a8305f315309bc6892cd2672389215d9bf64acfc769cc  ./bsd/sys/user
 3a82112a1dc8025e7d3a09cb6d9d39bb60c13018052838d3f8ade1b208f83983  ./bsd/sys/wait.h
 13712c213662a486d337337bb38008e2c1b48b611123285d0d7cb7c22e4125ed  ./bsd/sys/xattr.h
 ec87d1dcfa6cdb5132ce0e219db26d5c11079bbc65a4df543bdc5e7be616b0af  ./bsd/uxkern/ux_exception.c
+7cbebc35ca10c1552140bbe89be675e8fb3a66b2596e93be5410ff5f870fcbf3  ./bsd/vfs/vfs_cache.c
 67cfe165523ac4375504241a418d3cebbb46a4a10b77b22c5d590a31ebd0235d  ./bsd/vfs/vfs_syscalls.c
 9cb3ff5b210cea7faebb916f4af9678fd01b8b8661f94243d79beaa35d980479  ./bsd/vfs/vfs_xattr.c
 822a007542978158ddc0ad13ed8d8a2bcaef35cbb61a03dbd8a01625b9776861  ./bsd/vm/vm_unix.c
 13e798255556e07e07b438a9e71a559c34e2bc35c5602655319a6c28fc6e9845  ./config/MASTER
 2e8162981322711ca7f29e5736b80e4842661041d06bfc0658784bf39aefe244  ./config/MASTER.arm64.MacOSX
 6a5df4b44a2c6769aed121777758ee512dd8b14234cbbe86874bb6e24c83d422  ./config/MASTER.x86_64
+5c8a771427e04c5e1d55c4cdf5a077f3b52c5be4a091683b970084bfdda76df2  ./libsyscall/wrappers/libproc/libproc.c
+37c7629819a18c5ef10d19a9bea00eb7e0bd31e0b127ecd2ae108c74f47c39e2  ./libsyscall/wrappers/libproc/libproc.h
+1b81a2a739ebab7ebd0b4bac8596428abe5f51158e548d85ba864f9f5a1c9d2a  ./libsyscall/wrappers/libproc/libproc_internal.h
 eab2c71e215be94781f1d12802864dfb450505406867b3e35e4432096357580b  ./libsyscall/wrappers/spawn/posix_spawn.c
 912eef3b152d9bd33db48dc6cd7b9dc517a827e0ce563093d3f543dda131591e  ./libsyscall/wrappers/spawn/spawn.h
 d3e97883a30bcde75581691294ca33b6598aac4d513e1a130b219e20a768d292  ./libsyscall/wrappers/spawn/spawn_private.h
@@ -120,6 +128,7 @@ e02e2d59482f7b492541c1959a2b9dae78cd674ad0e79dfb688c2320806377e8  ./osfmk/ipc/ip
 f5203580ad9a36c790aaa251190653546bbd198abf7186253a8dc0d9aa67ed1a  ./osfmk/ipc/mach_kernelrpc.c
 85a96ee426f6a2efb5eb12b5747e77315091d22ea330a26a88abf67883569609  ./osfmk/ipc/mach_msg.c
 00bed14856f12d6fe4db22f4fe8de4135c8150ea8ac977bc2dda21fd30187bd8  ./osfmk/ipc/mach_port.c
+3def37d877860cdf964f94349709e07f2a714ca11a23a08d7a76bbbe48536f34  ./osfmk/kern/bsd_kern.c
 0a7781f478b3bd8d209a69f8c74fe31e4aab9ed46fdd08b88a7bacac4a665a34  ./osfmk/kern/clock.c
 375ba9e48ee7e46d203b21cf9e49c89afbe8963be6548b714196a35565fc7975  ./osfmk/kern/clock_oldops.c
 e3c3b51ca1810af00565eb1d759750a8cb861735e70752708938852e07d4b4fd  ./osfmk/kern/host.c
