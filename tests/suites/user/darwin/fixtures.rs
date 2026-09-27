@@ -324,3 +324,13 @@ fn exc_ports_arm64() {
 fn exc_ports_x86_64() {
     fixture("exc_ports", "x86_64", &[], &[]);
 }
+
+#[test]
+fn busy_wait_arm64() {
+    fixture("busy_wait", "arm64", &[], &[]);
+}
+
+#[test]
+fn busy_wait_x86_64() {
+    fixture("busy_wait", "x86_64", &[], &[]);
+}
