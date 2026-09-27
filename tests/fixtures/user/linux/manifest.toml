@@ -255,6 +255,12 @@ target = "x86_64-linux-musl"
 sha256 = "d6097a5c8a01446c65bcf96ebe94f64eb5269b6c842b994a24962ef710536f1e"
 
 [[fixture]]
+path = "bin/x86_64/sendfault"
+source = "src/sendfault.c"
+target = "x86_64-linux-musl"
+sha256 = "69f44ad5c1dfd91a8323aa99155cc17147e21bb77e5c6634f466890425542202"
+
+[[fixture]]
 path = "bin/x86_64/ptrace"
 source = "src/ptrace.c"
 target = "x86_64-linux-musl"
@@ -577,6 +583,12 @@ path = "bin/aarch64/splice"
 source = "src/splice.c"
 target = "aarch64-linux-musl"
 sha256 = "2e00fe1dc7c68137eec1fbe876a0f6e6f638e9e0ca04836ae4710cbe8264637a"
+
+[[fixture]]
+path = "bin/aarch64/sendfault"
+source = "src/sendfault.c"
+target = "aarch64-linux-musl"
+sha256 = "87731af39e3d5a33536441f98a63e27547121f8d378541880d3f2112b2d0c6b2"
 
 [[fixture]]
 path = "bin/aarch64/ptrace"
@@ -903,6 +915,12 @@ target = "riscv64-linux-musl"
 sha256 = "f773eea69f7ea4404e874470b06c937f8f0695fab0d86e38e368e10f7deb8063"
 
 [[fixture]]
+path = "bin/riscv64/sendfault"
+source = "src/sendfault.c"
+target = "riscv64-linux-musl"
+sha256 = "f440765d829997b594804a83715193240bf03836a1d5860112f96ca013d40600"
+
+[[fixture]]
 path = "bin/riscv64/ptrace"
 source = "src/ptrace.c"
 target = "riscv64-linux-musl"
@@ -1141,6 +1159,12 @@ path = "bin/i386/splice"
 source = "src/splice.c"
 target = "x86-linux-musl"
 sha256 = "fc0fc966769c6f8b624b30f947b2231164e79cf2e60c949a6e44b3d12be0c2da"
+
+[[fixture]]
+path = "bin/i386/sendfault"
+source = "src/sendfault.c"
+target = "x86-linux-musl"
+sha256 = "8c62eb2dcdeaad7eb66679ddbc43c68a41b47f12e7dec1928cb19c7e96f0a2f1"
 
 [[fixture]]
 path = "bin/i386/mlock"
@@ -1507,6 +1531,13 @@ source = "src/splice.c"
 target = "arm-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
 sha256 = "f6d9c6347a649b84d9fe3ebf6958c714442112edb92033590c98d8e83957438e"
+
+[[fixture]]
+path = "bin/arm/sendfault"
+source = "src/sendfault.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "54eddafe562c47765f68ea06493e45a83b6c89c8111f338a40c6dc95a4b8e06c"
 
 [[fixture]]
 path = "bin/arm/ptracejobs"

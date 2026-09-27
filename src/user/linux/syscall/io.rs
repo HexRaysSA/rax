@@ -72,7 +72,7 @@ fn interrupted(c: &mut Ctx<'_>) -> bool {
 /// The number of bytes from `addr` the guest may write before the first
 /// fault (`copy_to_user` stops there).
 /// The bytes of `[addr, addr + len)` that can be read before a fault.
-fn readable_prefix(c: &Ctx<'_>, addr: u64, len: u64) -> u64 {
+pub(super) fn readable_prefix(c: &Ctx<'_>, addr: u64, len: u64) -> u64 {
     match c.p.space.probe(addr, len as usize, MemoryAccessKind::Read) {
         Ok(()) => len,
         Err(f) => f.address.saturating_sub(addr).min(len),

@@ -22,7 +22,7 @@ if [[ "$zig_version" != "0.16.0" ]]; then
 fi
 
 targets=(x86_64-linux-musl aarch64-linux-musl riscv64-linux-musl)
-programs=(hello fileio memory mman process signals timers hostsig threads threadexit exec fork events epoll sockets sockmsg shmem memfd pidfd fdinfo nodes xattr misc locks netlink ifreq sysvshm sysvsem sysvmsg seccomp inotify admin mqueue sched procmem kcmp iovec mlock mseal rseq aio splice ptrace ptracestops ptraceregs ptracejobs ptraceevents ptracefork ptraceseccomp ptraceblock stdin segv abort trap)
+programs=(hello fileio memory mman process signals timers hostsig threads threadexit exec fork events epoll sockets sockmsg shmem memfd pidfd fdinfo nodes xattr misc locks netlink ifreq sysvshm sysvsem sysvmsg seccomp inotify admin mqueue sched procmem kcmp iovec mlock mseal rseq aio splice sendfault ptrace ptracestops ptraceregs ptracejobs ptraceevents ptracefork ptraceseccomp ptraceblock stdin segv abort trap)
 flags=(-static -Os -s -fno-sanitize=all -fno-stack-protector -ffile-prefix-map="$here"=.)
 
 manifest="manifest.toml"
@@ -65,7 +65,7 @@ done
 # ptrace32 are i386-only programs (their cases are in cases-i386.txt). Their
 # expected results come from a real x86-64 kernel (oracle/record-kernel.sh),
 # not from Docker.
-i386_programs=(hello fileio memory mman memfd nodes signals shmem locks threads threadexit exec fork sched procmem stdin segv abort trap epoll sockmsg pidfd xattr misc netlink ifreq inotify splice mlock mseal sysvshm sysvsem sysvmsg mqueue aio ptracejobs ptraceevents ptracefork ptraceseccomp sigframes futex32 ipc32 mq32 aio32 select32 seccomp32 ptrace32)
+i386_programs=(hello fileio memory mman memfd nodes signals shmem locks threads threadexit exec fork sched procmem stdin segv abort trap epoll sockmsg pidfd xattr misc netlink ifreq inotify splice sendfault mlock mseal sysvshm sysvsem sysvmsg mqueue aio ptracejobs ptraceevents ptracefork ptraceseccomp sigframes futex32 ipc32 mq32 aio32 select32 seccomp32 ptrace32)
 mkdir -p bin/i386
 for prog in "${i386_programs[@]}"; do
     out="bin/i386/$prog"
@@ -95,7 +95,7 @@ done
 # from a real arm64 kernel (oracle/record-kernel.sh ... arm64).
 arm_target=arm-linux-musleabihf
 arm_cpu=cortex_a9-neon-d32
-arm_programs=(hello fileio memory mman process signals timers threads threadexit exec fork events epoll sockmsg shmem memfd pidfd nodes xattr misc locks netlink ifreq sysvshm sysvsem sysvmsg seccomp inotify mqueue sched procmem kcmp mlock mseal aio splice ptracejobs ptraceevents ptracefork ptraceseccomp stdin segv abort trap)
+arm_programs=(hello fileio memory mman process signals timers threads threadexit exec fork events epoll sockmsg shmem memfd pidfd nodes xattr misc locks netlink ifreq sysvshm sysvsem sysvmsg seccomp inotify mqueue sched procmem kcmp mlock mseal aio splice sendfault ptracejobs ptraceevents ptracefork ptraceseccomp stdin segv abort trap)
 mkdir -p bin/arm
 for prog in "${arm_programs[@]}"; do
     out="bin/arm/$prog"

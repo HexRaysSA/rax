@@ -1268,3 +1268,81 @@ fn ipv6_loopback_carries_whole_addresses() {
         assert_eq!(recv(&mut h, s, 8, 0, m).unwrap(), b"six");
     });
 }
+
+/// `sendmsg` of the `ok` bytes before `hole` and 5 at it, without waiting.
+fn send_to_hole(h: &mut Harness, fd: u64, hole: u64, ok: u64, m: u64) -> i64 {
+    iovec(h, m + 0x900, hole - ok, ok);
+    iovec(h, m + 0x910, hole, 5);
+    msghdr(h, m + 0x800, 0, 0, m + 0x900, 2, 0, 0);
+    h.call(Sysno::Sendmsg, &[fd, m + 0x800, MSG_DONTWAIT])
+}
+
+/// Receives everything queued on `fd` (into `m + 0x1000`): its length.
+fn drain(h: &mut Harness, fd: u64, m: u64) -> usize {
+    let mut n = 0;
+    while let Ok(d) = recv(h, fd, 8192, MSG_DONTWAIT, m + 0x1000) {
+        if d.is_empty() {
+            break;
+        }
+        n += d.len();
+    }
+    n
+}
+
+#[test]
+fn a_send_that_faults_sends_what_linux_copied_whole() {
+    // unix_stream_sendmsg copies an skb ((sk_sndbuf >> 1) - 64 bytes at
+    // most) at a time and frees the one whose copy faults; a datagram is
+    // copied whole; TCP's first copy is at most a page fragment. The
+    // results are Linux 6.19's (arm64, recorded for each size).
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = area(&mut h);
+        let hole = m + 15 * P;
+        h.ok(Sysno::Munmap, &[hole, P]);
+        let fault = -(EFAULT as i64);
+        let (a, b) = pair(&mut h, STREAM, m);
+        // The first skb faults: nothing is sent, by any call.
+        assert_eq!(send_to_hole(&mut h, a, hole, 5, m), fault, "{abi:?}");
+        iovec(&h, m + 0x900, hole - 5, 5);
+        iovec(&h, m + 0x910, hole, 5);
+        assert_eq!(h.call(Sysno::Writev, &[a, m + 0x900, 2]), fault);
+        assert_eq!(
+            h.call(Sysno::Sendto, &[a, hole - 5, 10, MSG_DONTWAIT, 0, 0]),
+            fault
+        );
+        assert_eq!(recv(&mut h, b, 64, MSG_DONTWAIT, m + 0x1000), Err(EAGAIN));
+        // SO_SNDBUF 4096 is kept as 8192: skbs of 4032 bytes. One byte
+        // short of a whole skb sends nothing; a whole one, or more, sends
+        // the whole ones.
+        assert_eq!(setopt_int(&mut h, a, SOL_SOCKET, SO_SNDBUF, 4096, m), 0);
+        assert_eq!(send_to_hole(&mut h, a, hole, 4031, m), fault);
+        assert_eq!(send_to_hole(&mut h, a, hole, 4032, m), 4032);
+        assert_eq!(drain(&mut h, b, m), 4032);
+        put(&h, hole - 5000, b"head");
+        assert_eq!(send_to_hole(&mut h, a, hole, 5000, m), 4032);
+        assert_eq!(recv(&mut h, b, 4, 0, m + 0x1000).unwrap(), b"head");
+        assert_eq!(drain(&mut h, b, m), 4028);
+        // One vector across the fault, and sendto.
+        iovec(&h, m + 0x900, hole - 4100, 4105);
+        assert_eq!(h.call(Sysno::Writev, &[a, m + 0x900, 1]), 4032);
+        assert_eq!(drain(&mut h, b, m), 4032);
+        assert_eq!(
+            h.call(Sysno::Sendto, &[a, hole - 4100, 4200, MSG_DONTWAIT, 0, 0]),
+            4032
+        );
+        assert_eq!(drain(&mut h, b, m), 4032);
+        // A datagram faults whole, from write() as from sendmsg().
+        let (c, d) = pair(&mut h, DGRAM, m);
+        assert_eq!(send_to_hole(&mut h, c, hole, 5, m), fault);
+        iovec(&h, m + 0x900, hole - 5, 5);
+        iovec(&h, m + 0x910, hole, 5);
+        assert_eq!(h.call(Sysno::Writev, &[c, m + 0x900, 2]), fault);
+        assert_eq!(recv(&mut h, d, 64, MSG_DONTWAIT, m + 0x1000), Err(EAGAIN));
+        // TCP: the first copy (at most a 32 KiB page fragment) faults.
+        let (tc, ts, _l) = tcp_pair(&mut h, m);
+        assert_eq!(send_to_hole(&mut h, tc, hole, 5, m), fault);
+        assert_eq!(send_to_hole(&mut h, tc, hole, 20000, m), fault);
+        assert_eq!(recv(&mut h, ts, 64, MSG_DONTWAIT, m + 0x1000), Err(EAGAIN));
+    });
+}

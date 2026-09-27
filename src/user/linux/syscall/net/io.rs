@@ -10,6 +10,7 @@
 //! | `MSG_TRUNC` | a datagram receive returns the datagram's whole length; TCP discards the bytes |
 //! | Addresses | TCP ignores a destination and reports no source; a Unix stream refuses one (`EISCONN`, `EOPNOTSUPP`); a Unix sender without a name reports none (`msg_namelen` 0) |
 //! | `SIGPIPE` | with `EPIPE` from a stream socket (TCP, Unix stream) that sent nothing, unless `MSG_NOSIGNAL` |
+//! | Faults | a send whose data faults part way ([`sendable`]): a Unix stream sends the skbs it filled before the fault, TCP the whole page fragments before it, any other socket nothing; with nothing sent, `EFAULT` |
 //! | Errors | TCP without a connection is `EPIPE` to send; a Unix stream is `EINVAL` to receive from unconnected and `ENOTCONN` for a Unix datagram send without a peer |
 //! | `MSG_CMSG_COMPAT` | 0, as in a kernel without `CONFIG_COMPAT` (the personality provides no 32-bit system calls): the bit is not refused |
 
@@ -23,12 +24,12 @@ use super::super::super::fs::fd::OpenFile;
 use super::super::super::net::addr::{self, Addr, UnixName};
 use super::super::super::net::msg::Out;
 use super::super::super::net::name::{self, Place};
-use super::super::super::net::opts::Timeout;
+use super::super::super::net::opts::{self, Timeout};
 use super::super::super::net::sys::{self, HostAddr};
 use super::super::super::net::{Socket, host_msg_flags, lx, netlink};
 use super::super::super::signal::deliver::restart::ERESTARTSYS;
 use super::super::super::wait::{Resume, SockWait, Wait};
-use super::super::io::{MAX_RW_COUNT, iovec_room};
+use super::super::io::{MAX_RW_COUNT, iovec_room, readable_prefix};
 use super::super::iov::import_iovec;
 use super::super::{Ctx, SysResult, is_blocked};
 use super::{nonblocking, progress, read_addr, scm, sleep, sock_of, unix_target_error, write_addr};
@@ -49,6 +50,14 @@ const MMSGHDR: u64 = 64;
 const COMPAT_MSGHDR: u64 = 28;
 /// `sizeof(struct compat_mmsghdr)`.
 const COMPAT_MMSGHDR: u64 = 32;
+/// `SKB_MAX_HEAD(0)`: a page less the cache-aligned `struct
+/// skb_shared_info` (320 bytes on the 64-bit kernels: 48 of fields and
+/// `MAX_SKB_FRAGS`, 17, fragments of 16).
+const SKB_MAX_HEAD: u64 = 4096 - 320;
+/// `UNIX_SKB_FRAGS_SZ`: 32 KiB of page fragments.
+const UNIX_SKB_FRAGS_SZ: u64 = 32 << 10;
+/// `SKB_FRAG_PAGE_ORDER`: the pages of a task's page fragment, 32 KiB.
+const FRAG_PAGE: u64 = 32 << 10;
 
 /// Where a caller's `struct msghdr` (or a 32-bit caller's `struct
 /// compat_msghdr`) keeps the fields a receive writes back, and the size of
@@ -119,7 +128,8 @@ fn scatter_at(c: &Ctx<'_>, iov: &[(u64, u64)], mut skip: u64, data: &[u8]) -> Re
     Ok(())
 }
 
-/// The bytes of the vectors `iov` up to the first unreadable one.
+/// The bytes of the vectors `iov` up to the first fault, and the length of
+/// the whole message; [`sendable`] decides what a send takes of them.
 fn gather(c: &Ctx<'_>, iov: &[(u64, u64)]) -> Result<(Vec<u8>, u64), Errno> {
     let total = iov.iter().map(|v| v.1).sum::<u64>().min(MAX_RW_COUNT);
     let mut data = Vec::new();
@@ -128,13 +138,47 @@ fn gather(c: &Ctx<'_>, iov: &[(u64, u64)]) -> Result<(Vec<u8>, u64), Errno> {
         if len == 0 {
             continue;
         }
-        match c.read_mem(base, len as usize) {
-            Ok(d) => data.extend_from_slice(&d),
-            Err(e) if data.is_empty() => return Err(e),
-            Err(_) => break,
+        let ok = readable_prefix(c, base, len);
+        if ok > 0 {
+            data.extend_from_slice(&c.read_mem(base, ok as usize)?);
+        }
+        if ok < len {
+            break;
         }
     }
     Ok((data, total))
+}
+
+/// What a send takes of a message of `total` bytes whose first
+/// `data.len()` could be read: all of a message that does not fault.
+/// Past a fault, a Unix stream (`unix_stream_sendmsg`) sends the skbs it
+/// filled before it, each `min((sk_sndbuf >> 1) - 64, SKB_MAX_HEAD(0) +
+/// UNIX_SKB_FRAGS_SZ)` bytes, and frees the one whose copy faulted. TCP
+/// (`tcp_sendmsg_locked`) copies whole chunks of at most the room left in
+/// the task's page fragment (32 KiB when fresh) and the skb size goal; the
+/// size goal follows the peer's window (on a new loopback connection,
+/// 32,741 bytes), which the host's connection does not show, so the whole
+/// 32 KiB fragments before the fault are taken. Any other socket copies a
+/// message whole. Nothing to send is `EFAULT`.
+fn sendable(s: &Socket, mut data: Vec<u8>, total: u64) -> Result<Vec<u8>, Errno> {
+    let ok = data.len() as u64;
+    if ok >= total {
+        return Ok(data);
+    }
+    let keep = if s.tcp() {
+        ok / FRAG_PAGE * FRAG_PAGE
+    } else if s.unix() && s.stream() {
+        let half = (opts::sndbuf(s) >> 1) - 64;
+        let skb = (half.max(1) as u64).min(SKB_MAX_HEAD + UNIX_SKB_FRAGS_SZ);
+        ok / skb * skb
+    } else {
+        0
+    };
+    if keep == 0 {
+        return Err(Errno(EFAULT));
+    }
+    data.truncate(keep as usize);
+    Ok(data)
 }
 
 /// The source address a receive reports.
@@ -615,7 +659,8 @@ pub fn sendto(
     } else {
         None
     };
-    let data = c.read_mem(buf, len as usize)?;
+    let ok = readable_prefix(c, buf, len);
+    let data = sendable(s, c.read_mem(buf, ok as usize)?, len)?;
     let w = progress(c, s.state.lock().unwrap().sndtimeo);
     let flags = flags & !lx::MSG_INTERNAL;
     send_message(c, &file, s, &data, flags, name.as_deref(), &[], w).map(|n| n as u64)
@@ -729,9 +774,7 @@ fn send_one(
         Vec::new()
     };
     let (data, total) = gather(c, &iov)?;
-    if !s.stream() && (data.len() as u64) < total {
-        return Err(Errno(EFAULT));
-    }
+    let data = sendable(s, data, total)?;
     let flags = (flags | (m.flags & allowed)) & !lx::MSG_INTERNAL;
     send_message(c, file, s, &data, flags, name.as_deref(), &ctl, w).map(|n| (n, total))
 }
@@ -939,7 +982,8 @@ pub fn read(c: &mut Ctx<'_>, file: &Arc<OpenFile>, iov: &[(u64, u64)]) -> SysRes
 /// sequenced-packet socket).
 pub fn write(c: &mut Ctx<'_>, file: &Arc<OpenFile>, iov: &[(u64, u64)]) -> SysResult {
     let s = sock_of(file)?;
-    let (data, _) = gather(c, iov)?;
+    let (data, total) = gather(c, iov)?;
+    let data = sendable(s, data, total)?;
     if let Some(n) = &s.netlink {
         return netlink_send(c, s, n, &data, 0, None, &[]).map(|n| n as u64);
     }

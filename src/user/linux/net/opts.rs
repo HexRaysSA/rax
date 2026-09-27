@@ -237,6 +237,17 @@ fn int(v: i32) -> Vec<u8> {
     v.to_le_bytes().to_vec()
 }
 
+/// `sk_sndbuf`: the value set (doubled, as Linux keeps it), or the
+/// protocol's default.
+pub fn sndbuf(s: &Socket) -> i32 {
+    let d = if s.protocol == lx::IPPROTO_TCP {
+        TCP_WMEM
+    } else {
+        MEM_DEFAULT
+    };
+    s.state.lock().unwrap().sndbuf.unwrap_or(d)
+}
+
 /// The value of `(level, opt)`, whole (`lv` bytes); the caller copies as
 /// much as the guest's length allows.
 pub fn get(s: &Socket, level: i32, opt: i32) -> Result<Vec<u8>, Errno> {
@@ -269,14 +280,7 @@ pub fn get(s: &Socket, level: i32, opt: i32) -> Result<Vec<u8>, Errno> {
                 };
                 return Ok(int(st().rcvbuf.unwrap_or(d)));
             }
-            so::SNDBUF => {
-                let d = if s.protocol == lx::IPPROTO_TCP {
-                    TCP_WMEM
-                } else {
-                    MEM_DEFAULT
-                };
-                return Ok(int(st().sndbuf.unwrap_or(d)));
-            }
+            so::SNDBUF => return Ok(int(sndbuf(s))),
             so::RCVTIMEO_OLD | so::RCVTIMEO_NEW => return Ok(timeval(st().rcvtimeo)),
             so::SNDTIMEO_OLD | so::SNDTIMEO_NEW => return Ok(timeval(st().sndtimeo)),
             so::PEERCRED => {

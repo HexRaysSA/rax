@@ -72,7 +72,8 @@
   `arch/arm64/include/uapi/asm/statfs.h`,
   `arch/arm64/kernel/{sys32,sys_compat,signal32,cpufeature,vdso,armv8_deprecated,entry-common,traps}.c`,
   `arch/arm64/kernel/{sigreturn32,kuser32}.S`, `arch/arm64/tools/syscall_32.tbl`,
-  and `arch/arm/tools/syscall.tbl`) came from kernel.org's
+  and `arch/arm/tools/syscall.tbl`, and the socket-buffer files
+  `include/linux/skbuff.h` and `net/ipv4/tcp.c`) came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
@@ -88,12 +89,12 @@
   25 September 2026; `kernel/regset.c` and the i386 compatibility files:
   26 September 2026; `net/compat.c`, `include/net/compat.h`,
   `include/uapi/linux/net.h`, `fs/ioctl.c`, `arch/x86/mm/pkeys.c`,
-  `ipc/syscall.c`, `ipc/compat.c`, `arch/Kconfig`, and the ARM EABI
-  compatibility files: 27 September 2026)
+  `ipc/syscall.c`, `ipc/compat.c`, `arch/Kconfig`, the ARM EABI
+  compatibility files, and the socket-buffer files: 27 September 2026)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
 - License: the files carry an SPDX identifier: `GPL-2.0` (145 files),
-  `GPL-2.0-only` (81), `GPL-2.0-or-later` (36),
+  `GPL-2.0-only` (81), `GPL-2.0-or-later` (38),
   `GPL-2.0 WITH Linux-syscall-note` (20), `GPL-2.0+` (3),
   `GPL-2.0-only WITH Linux-syscall-note` (1),
   `GPL-2.0+ WITH Linux-syscall-note` (3),
@@ -139,7 +140,7 @@ behavior it reproduces beyond what the UAPI headers
 | pidfds | `kernel/pid.c` (`pidfd_open`, `pidfd_getfd`), `fs/pidfs.c` (poll, `PIDFD_GET_INFO`, the file's name and inode), `include/linux/pidfs.h`, `kernel/fork.c` (`pidfd_prepare`, `CLONE_PIDFD`), `kernel/signal.c` (`pidfd_send_signal`), `kernel/exit.c` (`waitid` with `P_PIDFD`), `include/linux/fs.h` (`extensible_ioctl_valid`), `include/linux/uaccess.h` (`copy_struct_to_user`) |
 | `/proc/<pid>/fdinfo` | `fs/proc/fd.c` (`seq_show`), with the `show_fdinfo` operations of `fs/pidfs.c`, `fs/eventfd.c`, `fs/timerfd.c`, `fs/signalfd.c`, and `fs/eventpoll.c`, and `fs/proc/array.c` (`render_sigset_t`) |
 | `memfd_create` and file seals | `mm/memfd.c`, `include/linux/memfd.h`, `mm/shmem.c` (where seals are enforced: `shmem_setattr`, `shmem_fallocate`, `shmem_file_write_iter`, `shmem_mmap`) |
-| Sockets | `net/socket.c`, `net/unix/af_unix.c`, `net/core/sock.c`, `net/core/scm.c`, `net/ipv4/af_inet.c`, `net/ipv6/af_inet6.c`, `include/linux/socket.h`, `include/net/sock.h` |
+| Sockets | `net/socket.c`, `net/unix/af_unix.c`, `net/core/sock.c`, `net/core/scm.c`, `net/ipv4/af_inet.c`, `net/ipv6/af_inet6.c`, `include/linux/socket.h`, `include/net/sock.h`; what a send whose data faults part way sends: `net/unix/af_unix.c` (`unix_stream_sendmsg`: an skb at a time, `UNIX_SKB_FRAGS_SZ`; `unix_dgram_sendmsg`: whole), `include/linux/skbuff.h` (`SKB_MAX_HEAD`, `SKB_WITH_OVERHEAD`, `struct skb_shared_info`, `MAX_SKB_FRAGS`), `net/ipv4/tcp.c` (`tcp_sendmsg_locked`: copies of at most the page fragment's room, each whole or not at all), `include/net/sock.h` (`SKB_FRAG_PAGE_ORDER`), `net/core/sock.c` (`skb_page_frag_refill`) |
 | Blocking I/O, `poll`, and `select` | `fs/select.c`, `fs/pipe.c`, `drivers/tty/n_tty.c` |
 | Threads: creation, exit, and scheduling | `kernel/fork.c`, `kernel/exit.c`, `include/linux/sched/task.h`, `kernel/sched/syscalls.c` (`sched_yield`), `arch/x86/kernel/{process.c,process_64.c}`, `arch/arm64/kernel/process.c`, `arch/riscv/kernel/process.c` (`copy_thread`) |
 | Futexes and robust lists | `kernel/futex/{core.c,futex.h,syscalls.c,waitwake.c,requeue.c,pi.c}` |
