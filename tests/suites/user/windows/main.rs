@@ -23,6 +23,9 @@ mod fibers;
 #[path = "crt.rs"]
 mod crt;
 
+#[path = "crt_init.rs"]
+mod crt_init;
+
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/user/windows")
 }

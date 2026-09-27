@@ -1,6 +1,7 @@
-//! Checked, separately owned MSVCRT/UCRT allocation and error state.
+//! Windows CRT allocation, error, memory/string and initializer services.
 
 mod allocation;
+mod initialize;
 mod invalid;
 mod memory;
 mod state;
@@ -15,6 +16,7 @@ use super::super::hle::{ApiErr, Ctx};
 use super::super::loader::ModuleKind;
 
 pub(crate) use allocation::ALLOCATION_EXPORTS;
+pub(crate) use initialize::{INIT_EXPORTS, MSVCRT_INIT_EXPORTS, UCRT_INIT_EXPORTS};
 pub(crate) use memory::{MEMORY_EXPORTS, VCRUNTIME_MEMORY_EXPORTS};
 pub(crate) use state::{STATE_EXPORTS, UCRT_STATE_EXPORTS, release_thread};
 pub(crate) use strings::{STRING_EXPORTS, UCRT_STRING_EXPORTS, VCRUNTIME_STRING_EXPORTS};

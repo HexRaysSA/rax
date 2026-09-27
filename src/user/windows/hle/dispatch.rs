@@ -70,9 +70,38 @@ pub fn prune(t: &mut Thread, sp: u64) {
     }
 }
 
+/// A context that leaves a fault's original frontier at the same stack height
+/// has abandoned the retry. Lower handler/callback stacks retain it instead.
+fn prune_retry_frontier(t: &mut Thread, pc: u64, sp: u64) {
+    if t.frames
+        .last()
+        .is_some_and(|f| f.retry.is_some() && f.entry_sp == sp && f.entry_pc != pc)
+    {
+        t.frames.pop();
+    }
+}
+
 /// Runs export `api`, entered at trap slot `pc`.
 pub fn enter(p: &mut Proc, t: &mut Thread, api: &'static Api, pc: u64) -> Outcome {
     let entry_sp = t.cpu.sp();
+    prune(t, entry_sp);
+    prune_retry_frontier(t, pc, entry_sp);
+    if let Some(frame) = t.frames.last_mut()
+        && frame.entry_sp == entry_sp
+        && frame.entry_pc == pc
+        && std::ptr::eq(frame.api, api)
+        && let Some(retry) = frame.retry.take()
+    {
+        let site = CallSite {
+            api: frame.api,
+            entry_pc: frame.entry_pc,
+            entry_sp: frame.entry_sp,
+            ret_addr: frame.ret_addr,
+            cursor: frame.cursor,
+            framed: true,
+        };
+        return run(p, t, site, |ctx| retry(ctx, 0));
+    }
     let ret_addr = match p.arch {
         WinArch::Arm64 => t.cpu.gpr(30),
         _ => match p.space.ptr(entry_sp, p.arch.ptr_size()) {
@@ -168,6 +197,8 @@ pub fn wait_complete(p: &mut Proc, t: &mut Thread, status: u64) -> Outcome {
 /// with the registers as they are.
 pub fn resume_return(p: &mut Proc, t: &mut Thread, api: &'static Api) -> Outcome {
     let sp = t.cpu.sp();
+    prune(t, sp);
+    prune_retry_frontier(t, t.cpu.pc(), sp);
     match p.arch {
         WinArch::Arm64 => {
             let lr = t.cpu.gpr(30);
@@ -221,6 +252,7 @@ fn frame_for<'t>(t: &'t mut Thread, site: &CallSite) -> &'t mut Frame {
             ret_addr: site.ret_addr,
             cursor: site.cursor,
             cont: None,
+            retry: None,
         });
     }
     let f = t.frames.last_mut().expect("frame pushed");
@@ -304,6 +336,7 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
                 ));
             }
             prune(t, t.cpu.sp());
+            prune_retry_frontier(t, t.cpu.pc(), t.cpu.sp());
             Outcome::Continue
         }
         Ok(Flow::Raise(rec)) => {
@@ -321,6 +354,13 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
                 rec.address = site.entry_pc + RESUME_OFFSET;
             }
             seh::raise(p, t, rec, ctx)
+        }
+        Ok(Flow::RetryFault { fault, retry }) => {
+            let record = memory_exception(p, t, site.entry_pc, fault);
+            frame_for(t, &site).retry = Some(retry);
+            // The handler runs on child frames; it must not erase the checked
+            // operation waiting at the original export frontier.
+            raise_from_site(p, t, &site, record)
         }
         Ok(Flow::ExitThread(code)) => {
             pop_frame(t, &site);
@@ -351,6 +391,7 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
         Ok(Flow::Done) => {
             pop_frame(t, &site);
             prune(t, t.cpu.sp());
+            prune_retry_frontier(t, t.cpu.pc(), t.cpu.sp());
             Outcome::Continue
         }
         Err(ApiErr::Fault(fault)) => {
@@ -399,6 +440,10 @@ fn memory_exception(p: &mut Proc, t: &Thread, pc: u64, fault: MemFault) -> Excep
 /// is the export's entry and its stack is as at entry.
 fn raise_at(p: &mut Proc, t: &mut Thread, site: &CallSite, rec: ExceptionRecord) -> Outcome {
     pop_frame(t, site);
+    raise_from_site(p, t, site, rec)
+}
+
+fn raise_from_site(p: &mut Proc, t: &mut Thread, site: &CallSite, rec: ExceptionRecord) -> Outcome {
     // A persistent TEB/record fault cannot be synchronously redispatched
     // through the same broken walker: that would exhaust the host stack.
     // The caller already classified/consumed guards. This terminal diagnostic
@@ -577,14 +622,14 @@ mod tests {
     use crate::user::windows::memory::{mem, prot};
     use crate::user::windows::process::{WindowsConfig, WindowsProcess};
 
-    static TEST_API: Api = Api {
+    pub(super) static TEST_API: Api = Api {
         name: "guard-test",
         args: &[],
         conv: Conv::Stdcall,
         imp: |_| Flow::void(),
     };
 
-    fn process(arch: WinArch) -> WindowsProcess {
+    pub(super) fn process(arch: WinArch) -> WindowsProcess {
         let image: &[u8] = match arch {
             WinArch::X86 => {
                 include_bytes!("../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
@@ -932,6 +977,10 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "retry_tests.rs"]
+mod retry_tests;
 
 fn trace_entry(p: &Proc, t: &Thread, site: &CallSite) {
     let module = p
