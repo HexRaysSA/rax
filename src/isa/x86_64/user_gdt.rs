@@ -211,6 +211,26 @@ impl X86_64Vcpu {
         true
     }
 
+    /// Replaces GDT entry `index` with `descriptor`, for embedders whose
+    /// operating system lays out more of the table than Linux does (the
+    /// Windows personality uses entry 10 for its TEB, selector 0x53).
+    /// This is a synthetic layout, not a native WoW64 selector guarantee. The null
+    /// entry, the kernel and user code/data entries (1-6), and the TSS
+    /// (8-9) cannot be replaced: user mode's own selectors depend on them.
+    /// Like [`X86_64Vcpu::set_user_tls_entry`], the segment registers'
+    /// cached descriptors are unchanged until reloaded. False for a
+    /// protected or out-of-range index, or without user mode.
+    pub fn set_user_gdt_entry(&mut self, index: usize, descriptor: u64) -> bool {
+        if index >= GDT_ENTRIES || index <= 6 || index == 8 || index == 9 {
+            return false;
+        }
+        let Some(tables) = self.mmu.user_tables_mut() else {
+            return false;
+        };
+        tables.set_entry(index, descriptor);
+        true
+    }
+
     /// The selector segment register `seg` holds.
     pub fn user_selector(&self, seg: X86UserSegment) -> u16 {
         match seg {
