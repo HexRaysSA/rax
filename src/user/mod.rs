@@ -8,16 +8,19 @@
 //!
 //! | Module | Owns |
 //! |---|---|
-//! | [`image`] | Executable file formats (ELF) and their validation |
+//! | [`image`] | Executable file formats (ELF, Mach-O) and their validation |
 //! | [`mm`] | Guest address spaces: VMAs, demand-populated frames, faults |
 //! | [`cpu`] | OS-neutral CPU adapters running each ISA core unprivileged |
 //! | [`linux`] | The Linux personality (Unix hosts) |
+//! | [`darwin`] | The Darwin (macOS) personality (Unix hosts) |
 //!
 //! The subsystem is independent of `machine/`, `devices/`, and `vm/runtime`:
 //! there is no board, firmware, or device model, only a guest address space,
 //! one or more guest threads, and the personality that services them.
 
 pub mod cpu;
+#[cfg(unix)]
+pub mod darwin;
 pub mod image;
 #[cfg(unix)]
 pub mod linux;
