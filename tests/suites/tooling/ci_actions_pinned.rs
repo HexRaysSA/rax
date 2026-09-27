@@ -79,6 +79,110 @@ fn licensing_resolves_locked_dependencies_for_fresh_runners() {
 }
 
 #[test]
+fn windows_process_suite_is_registered_and_reachable_in_ci_commands() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let manifest =
+        fs::read_to_string(root.join("Cargo.toml")).expect("failed to read Cargo manifest");
+    let manifest: toml::Value = toml::from_str(&manifest).expect("invalid Cargo manifest");
+    let runner = "tests/suites/user/windows/main.rs";
+    assert!(
+        manifest["test"]
+            .as_array()
+            .expect("missing Cargo test registry")
+            .iter()
+            .any(|entry| {
+                entry["name"].as_str() == Some("user_windows")
+                    && entry["path"].as_str() == Some(runner)
+            })
+            && root.join(runner).is_file(),
+        "Windows process runner must be an explicitly registered Cargo test target"
+    );
+
+    let mut missing = Vec::new();
+    let ci = fs::read_to_string(root.join(".github/workflows/ci.yml"))
+        .expect("failed to read push CI workflow");
+    let job = workflow_block(&ci, "  test-core:");
+    let core = workflow_block(&job, "      - name: cargo test (core slice)");
+    let run = workflow_block(&core, "        run: |");
+    let mut lines = run.lines();
+    let mut line = lines
+        .find(|line| line.trim_start().starts_with("cargo test "))
+        .expect("push CI core slice must execute cargo test")
+        .split('#')
+        .next()
+        .unwrap();
+    let mut command = line.to_owned();
+    while line.trim_end().ends_with('\\') {
+        line = lines
+            .next()
+            .expect("unterminated core cargo command")
+            .split('#')
+            .next()
+            .unwrap();
+        command.push('\n');
+        command.push_str(line);
+    }
+    for target in ["user_linux", "user_windows"] {
+        if !selects_test_target(&command, target) {
+            missing.push(format!("ci.yml core command must select --test {target}"));
+        }
+    }
+
+    let full = fs::read_to_string(root.join(".github/workflows/full-suite.yml"))
+        .expect("failed to read full-suite workflow");
+    let job = workflow_block(&full, "  full:");
+    let matrix = workflow_block(&job, "      matrix:");
+    let shards = workflow_block(&matrix, "        shard:");
+    let unit = shards
+        .lines()
+        .find(|line| line.trim_start().starts_with("- { name: unit,"))
+        .expect("full-suite workflow is missing its unit shard");
+    let tests = unit
+        .split_once("tests: \"")
+        .and_then(|(_, value)| value.split_once('"'))
+        .expect("unit shard must declare its test selection")
+        .0;
+    for target in ["user_linux", "user_windows"] {
+        if !selects_test_target(tests, target) {
+            missing.push(format!(
+                "full-suite.yml unit shard must select --test {target}"
+            ));
+        }
+    }
+    let step = workflow_block(&job, "      - name: cargo test (${{ matrix.shard.name }})");
+    let run = workflow_block(&step, "        run: |");
+    assert!(
+        run.lines().any(|line| {
+            line.trim() == "cargo test $profile_flag ${{ matrix.platform.features }} ${{ matrix.shard.tests }} -- ${{ matrix.shard.harness }}"
+        }),
+        "full-suite cargo command must consume the unit shard's test selection"
+    );
+    assert!(missing.is_empty(), "{}", missing.join("\n"));
+}
+
+#[test]
+fn workflow_test_selection_excludes_comments_harness_arguments_and_name_prefixes() {
+    assert!(selects_test_target(
+        "cargo test --test user_windows -- --nocapture",
+        "user_windows"
+    ));
+    for command in [
+        "cargo test --test user_linux # --test user_windows",
+        "cargo test --test user_linux -- --test user_windows",
+        "cargo test --test user_windows_extra",
+        "cargo test --no-run --test user_windows",
+    ] {
+        assert!(
+            !selects_test_target(command, "user_windows"),
+            "false reachability: {command}"
+        );
+    }
+    let contents = "  selected:\n    run: |\n      cargo test --test user_linux\n  unrelated:\n    run: |\n      cargo test --test user_windows\n";
+    let selected = workflow_block(contents, "  selected:");
+    assert!(!selects_test_target(&selected, "user_windows"));
+}
+
+#[test]
 fn scheduled_differential_separates_oracles_diagnostics_and_assembler_capabilities() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/differential.yml");
@@ -261,6 +365,30 @@ fn scheduled_full_suite_serializes_native_jit_shards_and_preserves_diagnostics()
         cargo_step.contains("-- ${{ matrix.shard.harness }}"),
         "scheduled Full suite must apply each shard's explicit harness policy"
     );
+}
+
+// This contract accepts the workflows' current indentation and simple shell
+// continuations; unfamiliar layouts fail closed instead of matching other jobs.
+fn workflow_block(contents: &str, marker: &str) -> String {
+    let indent = marker.len() - marker.trim_start().len();
+    let prefix = " ".repeat(indent + 1);
+    let mut lines = contents.lines();
+    lines
+        .find(|line| *line == marker)
+        .unwrap_or_else(|| panic!("missing workflow block: {marker}"));
+    lines
+        .take_while(|line| line.trim().is_empty() || line.starts_with(&prefix))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn selects_test_target(command: &str, target: &str) -> bool {
+    let args = command
+        .lines()
+        .flat_map(|line| line.split('#').next().unwrap().split_whitespace())
+        .take_while(|arg| *arg != "--")
+        .collect::<Vec<_>>();
+    !args.contains(&"--no-run") && args.windows(2).any(|args| args == ["--test", target])
 }
 
 fn collect_yaml_files(dir: &Path, files: &mut Vec<PathBuf>) {

@@ -16,7 +16,7 @@ tests/
     ├── isa/        # Direct instruction-semantics tests
     ├── machine/    # Boot and platform integration
     ├── smir/       # Lift, lower, JIT, and round-trip validation
-    ├── user/       # Linux program, ABI, CLI, host-signal, and recording checks
+    ├── user/       # Linux and Windows program, ABI, memory, and process checks
     └── tooling/    # Repository and build-tool invariants
 ```
 
@@ -63,6 +63,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `smir_jit_aarch32_aarch64` | `suites/smir/jit/aarch32_aarch64.rs` |
 | `smir_jit_thumb_aarch64` | `suites/smir/jit/thumb_aarch64.rs` |
 | `user_linux` | `suites/user/linux/main.rs` |
+| `user_windows` | `suites/user/windows/main.rs` |
 | `x86_64` | `suites/isa/x86_64/main.rs` |
 | `x86_64_apx_map4_qemu_diff` | `suites/differential/x86_64/qemu_apx.rs` |
 | `x86_64_avx512_inventory` | `suites/coverage/x86_64/avx512_inventory.rs` |
@@ -101,3 +102,13 @@ Add behavioral cases beneath the matching suite domain. Add generated material
 under `generated/` and record its provenance in `generated/manifest.toml`.
 If a new executable runner is needed, add one explicit Cargo target and update
 the table above.
+
+`user_windows` reaches freestanding PE32 x86 and PE32+ x64/ARM64 programs
+through `suites/user/windows/main.rs`. It validates process startup, TEB/PEB
+state, calling conventions, heap behavior, virtual memory transitions, fixture
+hashes and imports, CLI personality selection, supplied-byte process loading,
+and rejection of malformed or unsupported process images and startup sizes.
+Its fixtures are rebuilt with `bash tests/fixtures/user/windows/build.sh` and
+require no Windows SDK or CRT. Expectations derive from Microsoft
+specifications; no native Windows oracle recording is available. Run with
+`cargo +stable test --locked --no-default-features --test user_windows -- --test-threads=1`.

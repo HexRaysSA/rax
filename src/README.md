@@ -24,7 +24,7 @@ cli -> vm/runtime -> machine -> devices
                   -> backend -> isa
                              -> smir
 oracle ---------------------> isa + smir
-rax-user -> user::linux ----> user::{image,mm,cpu} -> isa
+rax-user -> user::{linux,windows} -> user::{image,mm,cpu} -> isa
 ```
 
 This is not a strict directed acyclic graph: machine initialization exposes a

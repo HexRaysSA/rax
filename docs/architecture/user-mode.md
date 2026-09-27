@@ -4,16 +4,19 @@
 
 `rax::user` executes guest programs and their processes without constructing a
 machine. It supplies a guest address space, unprivileged CPU adapters, and an
-operating-system personality. `rax-user` is the Linux command-line front end;
-see [Linux programs](../getting-started/linux-programs.md) for build and usage.
+operating-system personality. `rax-user` selects Linux ELF or Windows PE loading;
+see [Linux programs](../getting-started/linux-programs.md) and the
+[Windows personality](user-mode/windows.md) for build, usage, and coverage.
 
 ```text
-rax-user -> user::linux -> user::{image,mm,cpu} -> ISA core
+rax-user -> user::{linux,windows} -> user::{image,mm,cpu} -> ISA core
 ```
 
 | Module | Responsibility |
 |---|---|
 | `user::image::elf` | ELF parsing and acceptance |
+| `user::image::pe` | PE32/PE32+ parsing and directory validation |
+| `user::windows` | Windows loader, ABI, process memory and DLL services |
 | `user::mm` | VMAs, page backing, faults, and code invalidation |
 | `user::cpu` | Unprivileged execution and architectural exits |
 | `user::linux` | Linux loading, ABI conversion, syscalls, scheduling, and signals |
