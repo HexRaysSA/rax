@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
-use crate::user::darwin::fd::{FileRef, OpenFile};
+use crate::user::darwin::fd::{FileKind, FileRef, OpenFile};
 use crate::user::darwin::host::{self, check, check_size};
 use crate::user::darwin::io::{self, O_NONBLOCK, O_STATUS_FLAGS};
 use crate::user::darwin::signal;
@@ -343,34 +343,80 @@ pub fn dup2(ctx: &mut Ctx<'_>, from: i32, to: i32) -> SysResult {
     if from == to {
         return Ok(Rv::one(to as u64));
     }
-    let replaced = ctx.proc.fds.install_at(to as usize, file, false);
+    replace(ctx, to, file, false, false);
+    Ok(Rv::one(to as u64))
+}
+
+/// `dup3(from, to, flags)` (macOS 27; `dup(2)`): `dup2` with the new
+/// descriptor's close-on-exec and close-on-fork flags from `O_CLOEXEC` and
+/// `O_CLOFORK`. The flags are checked first (`EINVAL` for any other), then
+/// that the descriptors differ (`EINVAL`, whether or not `from` is open),
+/// then the descriptors (`EBADF`).
+pub fn dup3(ctx: &mut Ctx<'_>, from: i32, to: i32, flags: u32) -> SysResult {
+    if flags & !(io::O_CLOEXEC | io::O_CLOFORK) != 0 || from == to {
+        return Err(Errno::EINVAL);
+    }
+    let file = ctx.proc.fds.file(from)?;
+    let limit = ctx.proc.rlimits[8].0;
+    if to < 0 || to as u64 >= limit {
+        return Err(Errno::EBADF);
+    }
+    let (cloexec, clofork) = (flags & io::O_CLOEXEC != 0, flags & io::O_CLOFORK != 0);
+    replace(ctx, to, file, cloexec, clofork);
+    Ok(Rv::one(to as u64))
+}
+
+/// Puts `file` at descriptor `to` with the given flags, closing what was
+/// there.
+fn replace(ctx: &mut Ctx<'_>, to: i32, file: FileRef, cloexec: bool, clofork: bool) {
+    let replaced = ctx.proc.fds.install_at(to as usize, file, cloexec);
+    ctx.proc.fds.get_mut(to).expect("just installed").clofork = clofork;
     if let Some(old) = replaced {
         crate::user::darwin::kevent::fd_closed(ctx.proc, to, Some(old.file));
     }
-    Ok(Rv::one(to as u64))
 }
 
 /// `pipe()`: the read and write ends in the two result words.
 pub fn pipe(ctx: &mut Ctx<'_>) -> SysResult {
+    pipe2(ctx, 0)
+}
+
+/// `pipe2(fildes, flags)` (macOS 27; `pipe(2)`): `pipe` with both
+/// descriptors close-on-exec, close-on-fork, and non-blocking as
+/// `O_CLOEXEC`, `O_CLOFORK`, and `O_NONBLOCK` say (`EINVAL` for any other
+/// flag). The descriptors are returned as `pipe` returns them; the
+/// library stores them in `fildes`.
+pub fn pipe2(ctx: &mut Ctx<'_>, flags: u32) -> SysResult {
+    if flags & !(io::O_CLOEXEC | io::O_CLOFORK | io::O_NONBLOCK) != 0 {
+        return Err(Errno::EINVAL);
+    }
     let mut fds = [0i32; 2];
     // SAFETY: `fds` has room for the two descriptors.
     check(unsafe { libc::pipe(fds.as_mut_ptr()) })?;
     for f in fds {
-        // SAFETY: setting close-on-exec on the new descriptors.
+        // SAFETY: setting close-on-exec (and the status flags) on the new
+        // descriptors.
         unsafe { libc::fcntl(f, libc::F_SETFD, libc::FD_CLOEXEC) };
+        if flags & io::O_NONBLOCK != 0 {
+            unsafe { libc::fcntl(f, libc::F_SETFL, libc::O_NONBLOCK) };
+        }
     }
     // SAFETY: both descriptors were just created and are owned here.
     let (r, w) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
     let limit = ctx.proc.rlimits[8].0;
-    let rfd = ctx.proc.fds.install(
-        Arc::new(OpenFile::host(r, io::O_RDONLY, None)),
-        false,
+    let (cloexec, clofork) = (flags & io::O_CLOEXEC != 0, flags & io::O_CLOFORK != 0);
+    let status = flags & io::O_NONBLOCK;
+    let rfd = ctx.proc.fds.install_with(
+        Arc::new(OpenFile::host(r, io::O_RDONLY | status, None)),
+        cloexec,
+        clofork,
         0,
         limit,
     )?;
-    let wfd = match ctx.proc.fds.install(
-        Arc::new(OpenFile::host(w, io::O_WRONLY, None)),
-        false,
+    let wfd = match ctx.proc.fds.install_with(
+        Arc::new(OpenFile::host(w, io::O_WRONLY | status, None)),
+        cloexec,
+        clofork,
         0,
         limit,
     ) {
@@ -490,10 +536,13 @@ pub mod cmd {
     pub const F_CHECK_LV: i32 = 98;
     pub const F_SPECULATIVE_READ: i32 = 101;
     pub const F_GETPATH_NOFIRMLINK: i32 = 102;
+    pub const F_DUPFD_CLOFORK: i32 = 115;
 }
 
 /// `FD_CLOEXEC`.
 const FD_CLOEXEC: u64 = 1;
+/// `FD_CLOFORK` (macOS 27).
+const FD_CLOFORK: u64 = 2;
 
 /// `fcntl(fd, cmd, arg)`.
 pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
@@ -501,24 +550,41 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
     let limit = ctx.proc.rlimits[8].0;
     match c {
-        F_DUPFD | F_DUPFD_CLOEXEC => {
+        F_DUPFD | F_DUPFD_CLOEXEC | F_DUPFD_CLOFORK => {
             let min = arg as i32;
             if min < 0 || min as u64 >= limit {
                 return Err(Errno::EINVAL);
             }
-            let n = ctx
-                .proc
-                .fds
-                .install(file, c == F_DUPFD_CLOEXEC, min as usize, limit)?;
+            let n = ctx.proc.fds.install_with(
+                file,
+                c == F_DUPFD_CLOEXEC,
+                c == F_DUPFD_CLOFORK,
+                min as usize,
+                limit,
+            )?;
             return Ok(Rv::one(n as u64));
         }
         F_GETFD => {
-            let cl = ctx.proc.fds.get(fd)?.cloexec;
-            return Ok(Rv::one(if cl { FD_CLOEXEC } else { 0 }));
+            let slot = ctx.proc.fds.get(fd)?;
+            let flags = if slot.cloexec { FD_CLOEXEC } else { 0 }
+                | if slot.clofork { FD_CLOFORK } else { 0 };
+            return Ok(Rv::one(flags));
         }
         F_SETFD => {
-            ctx.proc.fds.get_mut(fd)?.cloexec = arg & FD_CLOEXEC != 0;
+            let slot = ctx.proc.fds.get_mut(fd)?;
+            slot.cloexec = arg & FD_CLOEXEC != 0;
+            slot.clofork = arg & FD_CLOFORK != 0;
             return Ok(Rv::one(0));
+        }
+        // A kqueue keeps its status flags in its open file; it takes no
+        // FIONBIO (ENOTTY), which fails F_SETFL once the flags are set.
+        F_GETFL | F_SETFL if matches!(file.kind, FileKind::Kqueue(_)) => {
+            let mut fl = file.flags.lock().unwrap();
+            if c == F_SETFL {
+                *fl = (*fl & !O_STATUS_FLAGS) | (arg as u32 & O_STATUS_FLAGS);
+                return Err(Errno::ENOTTY);
+            }
+            return Ok(Rv::one(u64::from(*fl)));
         }
         _ => {}
     }

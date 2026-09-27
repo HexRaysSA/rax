@@ -26,12 +26,12 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::image::{self, Binprefs, Dir, NBINPREFS};
-use super::{Swap, args, build, build_errno, carry, exec_task, swap_or_kill, without_kqueues};
+use super::{Swap, args, build, build_errno, carry, exec_task, fdt_fork, swap_or_kill};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{FdTable, OpenFile};
 use crate::user::darwin::host::{self, check};
-use crate::user::darwin::io::O_CLOEXEC;
+use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK};
 use crate::user::darwin::mach::exception::Handler;
 use crate::user::darwin::mach::ipc::{MACH_PORT_DEAD, MACH_PORT_NULL, Port};
 use crate::user::darwin::mach::task::{EXC_TYPES_COUNT, PORT_REGISTER_MAX, TaskState, special};
@@ -408,10 +408,16 @@ fn open(
     let owned = unsafe { OwnedFd::from_raw_fd(fd) };
     let file = Arc::new(OpenFile::host(
         owned,
-        oflag & !O_CLOEXEC,
+        oflag & !(O_CLOEXEC | O_CLOFORK),
         Some(s.absolute(path)),
     ));
-    s.fds.install(file, oflag & O_CLOEXEC != 0, 0, nofile)
+    s.fds.install_with(
+        file,
+        oflag & O_CLOEXEC != 0,
+        oflag & O_CLOFORK != 0,
+        0,
+        nofile,
+    )
 }
 
 /// `dup2` in the child's table: the new descriptor is not close-on-exec.
@@ -624,7 +630,8 @@ pub fn posix_spawn(
 
     // The new process's descriptors and working directory.
     let mut scratch = Scratch {
-        fds: without_kqueues(&ctx.proc.fds),
+        // A spawn is a fork then an exec, unless it sets the exec.
+        fds: fdt_fork(&ctx.proc.fds, setexec),
         cwd: ctx.proc.cwd.clone(),
         dir: None,
         inherit: None,

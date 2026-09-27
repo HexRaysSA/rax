@@ -1085,7 +1085,7 @@ pub fn kqueue(ctx: &mut Ctx<'_>) -> SysResult {
     });
     let limit = ctx.proc.rlimits[8].0;
     // FP_CLOEXEC | FP_CLOFORK (and FG_CONFINED: never inherited).
-    match ctx.proc.fds.install(file, true, 0, limit) {
+    match ctx.proc.fds.install_with(file, true, true, 0, limit) {
         Ok(fd) => Ok(Rv::one(fd as u64)),
         Err(e) => {
             ctx.proc.kq.kqueues.remove(&kq);

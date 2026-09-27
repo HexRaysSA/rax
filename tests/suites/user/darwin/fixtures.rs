@@ -394,3 +394,13 @@ fn registered_ports_arm64() {
 fn registered_ports_x86_64() {
     fixture("registered_ports", "x86_64", &[], &[]);
 }
+
+#[test]
+fn fd_flags_arm64() {
+    fixture("fd_flags", "arm64", &[], &[]);
+}
+
+#[test]
+fn fd_flags_x86_64() {
+    fixture("fd_flags", "x86_64", &[], &[]);
+}

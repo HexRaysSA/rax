@@ -15,7 +15,7 @@ use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{FileKind, OpenFile};
 use crate::user::darwin::host;
-use crate::user::darwin::io::O_CLOEXEC;
+use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK};
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::syscall::bsd::path::put_stat;
 
@@ -294,13 +294,16 @@ pub fn open_extended(
     let file = std::sync::Arc::new(OpenFile {
         kind: FileKind::Host(owned),
         path: Some(super::path::normalize(&full)),
-        flags: std::sync::Mutex::new(flags & !O_CLOEXEC),
+        flags: std::sync::Mutex::new(flags & !(O_CLOEXEC | O_CLOFORK)),
     });
     let limit = ctx.proc.rlimits[8].0;
-    let n = ctx
-        .proc
-        .fds
-        .install(file, flags & O_CLOEXEC != 0, 0, limit)?;
+    let n = ctx.proc.fds.install_with(
+        file,
+        flags & O_CLOEXEC != 0,
+        flags & O_CLOFORK != 0,
+        0,
+        limit,
+    )?;
     Ok(Rv::one(n as u64))
 }
 

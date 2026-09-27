@@ -45,6 +45,8 @@ pub const O_SYMLINK: u32 = 0x20_0000;
 pub const O_DSYNC: u32 = 0x40_0000;
 /// `O_CLOEXEC`.
 pub const O_CLOEXEC: u32 = 0x100_0000;
+/// `O_CLOFORK`.
+pub const O_CLOFORK: u32 = 0x800_0000;
 /// `O_NOFOLLOW_ANY`.
 pub const O_NOFOLLOW_ANY: u32 = 0x2000_0000;
 /// `O_EXEC`.
@@ -54,11 +56,12 @@ pub const O_EXEC: u32 = 0x4000_0000;
 pub const O_STATUS_FLAGS: u32 = O_NONBLOCK | O_APPEND | O_ASYNC | O_SYNC | O_DSYNC;
 
 /// Host `open` flags for Darwin `flags` (access mode and the flags the host
-/// understands).
+/// understands). Close-on-fork is the guest descriptor's, never the host
+/// descriptor's: the emulator's own forks carry every host descriptor.
 pub fn guest_to_host_oflags(flags: u32) -> i32 {
     #[cfg(target_os = "macos")]
     {
-        flags as i32
+        (flags & !O_CLOFORK) as i32
     }
     #[cfg(not(target_os = "macos"))]
     {

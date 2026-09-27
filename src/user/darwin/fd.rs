@@ -79,8 +79,12 @@ pub type FileRef = Arc<OpenFile>;
 pub struct Fd {
     /// The open file.
     pub file: FileRef,
-    /// `FD_CLOEXEC`.
+    /// `FD_CLOEXEC` (`FP_CLOEXEC`): a new image does not keep the
+    /// descriptor.
     pub cloexec: bool,
+    /// `FD_CLOFORK` (`FP_CLOFORK`): a forked (or spawned) child does not
+    /// inherit the descriptor.
+    pub clofork: bool,
 }
 
 /// The descriptor table.
@@ -172,17 +176,36 @@ impl FdTable {
         min: usize,
         limit: u64,
     ) -> Result<i32, Errno> {
+        self.install_with(file, cloexec, false, min, limit)
+    }
+
+    /// Installs `file` at the lowest free descriptor (at least `min`),
+    /// close-on-exec and close-on-fork as given.
+    pub fn install_with(
+        &mut self,
+        file: FileRef,
+        cloexec: bool,
+        clofork: bool,
+        min: usize,
+        limit: u64,
+    ) -> Result<i32, Errno> {
         let i = self.lowest_free(min, limit)?;
         self.install_at(i, file, cloexec);
+        self.slots[i].as_mut().expect("just installed").clofork = clofork;
         Ok(i as i32)
     }
 
-    /// Installs `file` at descriptor `i`, returning what was there.
+    /// Installs `file` at descriptor `i` (not close-on-fork), returning
+    /// what was there.
     pub fn install_at(&mut self, i: usize, file: FileRef, cloexec: bool) -> Option<Fd> {
         if self.slots.len() <= i {
             self.slots.resize(i + 1, None);
         }
-        self.slots[i].replace(Fd { file, cloexec })
+        self.slots[i].replace(Fd {
+            file,
+            cloexec,
+            clofork: false,
+        })
     }
 
     /// Removes descriptor `fd`.
