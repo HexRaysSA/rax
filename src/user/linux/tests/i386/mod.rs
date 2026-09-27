@@ -17,6 +17,7 @@
 //! | [`process`] | 16-bit IDs, limits, usage, waits, `times`, `sysinfo`, CPU masks, old `uname`s, `nice`, `arch_prctl` |
 //! | [`sigcalls`] | the signal calls' 32-bit structures, `struct compat_siginfo`, restart by the low half |
 //! | [`signals`] | the i386 signal frames, `sigreturn`, `rt_sigreturn`, strict seccomp |
+//! | [`sockets`] | `struct compat_msghdr`, 32-bit control messages, `socketcall`, old timeouts, interface requests |
 //! | [`threads`] | `CLONE_SETTLS` descriptors, the 32-bit robust list, `futex_time32` |
 //! | [`time`] | clocks, sleeps, time setting, interval and POSIX timers, timerfds, file times |
 
@@ -25,6 +26,7 @@ mod files;
 mod process;
 mod sigcalls;
 mod signals;
+mod sockets;
 mod threads;
 mod time;
 
@@ -304,7 +306,7 @@ fn compat_calls_convert_or_refuse() {
     put(&h, at + 0x3014, &100u32.to_le_bytes());
     assert_eq!(h.call(Sysno::Mmap, &[at + 0x3000]), -i64::from(EINVAL));
     // Calls without a 32-bit conversion yet.
-    for s in [Sysno::Socketcall, Sysno::Ipc] {
+    for s in [Sysno::Ipc, Sysno::IoSetup] {
         assert_eq!(h.call(s, &[0, 0, 0, 0]), -i64::from(ENOSYS), "{s:?}");
     }
 }

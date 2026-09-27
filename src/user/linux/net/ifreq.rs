@@ -25,6 +25,11 @@ use super::netlink::{AF_INET, AF_INET6};
 
 /// `sizeof(struct ifreq)`: a 16-byte name and a 24-byte union.
 pub const IFREQ: usize = 40;
+/// `sizeof(struct compat_ifreq)`: a 32-bit caller's, whose union's
+/// largest member, `struct compat_ifmap`, takes 16 bytes.
+pub const COMPAT_IFREQ: usize = 32;
+/// `sizeof(struct compat_ifconf)`: `ifc_len`, then a 32-bit `ifcbuf`.
+pub const COMPAT_IFCONF: usize = 8;
 /// `IFNAMSIZ`.
 const IFNAMSIZ: usize = 16;
 /// `sizeof(struct ifconf)`: `ifc_len`, padding, `ifc_buf`.
@@ -136,6 +141,20 @@ pub fn shape(family: i32, req: u32) -> Shape {
         r if (SIOCDEVPRIVATE..=SIOCDEVPRIVATE + 15).contains(&r) => Shape::Indirect,
         _ => Shape::Other,
     }
+}
+
+/// `dev_getifmap` for a 32-bit caller: the `struct ifmap` answered in `ifr`
+/// (`mem_start` and `mem_end` as `unsigned long`s at 16 and 24,
+/// `base_addr`, `irq`, `dma`, `port` from 32) as `struct compat_ifmap`
+/// (32-bit addresses at 16 and 20, the rest from 24); its padding keeps the
+/// caller's bytes, `caller`.
+pub fn compat_ifmap(caller: &[u8], ifr: &mut [u8; IFREQ]) {
+    let native: [u8; 21] = ifr[16..37].try_into().unwrap();
+    let word = |at: usize| u64::from_le_bytes(native[at..at + 8].try_into().unwrap()) as u32;
+    ifr[16..20].copy_from_slice(&word(0).to_le_bytes());
+    ifr[20..24].copy_from_slice(&word(8).to_le_bytes());
+    ifr[24..29].copy_from_slice(&native[16..21]);
+    ifr[29..COMPAT_IFREQ].copy_from_slice(&caller[29..COMPAT_IFREQ]);
 }
 
 /// The device name of `ifr` as `dev_ioctl` looks it up: at most 15 bytes
@@ -381,8 +400,9 @@ pub fn in6_needs_admin(req: u32) -> bool {
 
 /// `dev_ifconf`: the `struct ifreq` of each IPv4 address (its label and
 /// address), device by device, as many whole ones as fit `room` bytes
-/// (every one, when there is no buffer), and the length they take.
-pub fn ifconf(host: &Host, room: Option<i32>) -> (Vec<u8>, i32) {
+/// (every one, when there is no buffer), and the length they take; each
+/// `size` bytes, [`IFREQ`] or a 32-bit caller's [`COMPAT_IFREQ`].
+pub fn ifconf(host: &Host, room: Option<i32>, size: usize) -> (Vec<u8>, i32) {
     let mut out = Vec::new();
     let mut total = 0i32;
     for l in &host.links {
@@ -392,12 +412,12 @@ pub fn ifconf(host: &Host, room: Option<i32>) -> (Vec<u8>, i32) {
             .filter(|a| a.index == l.index && a.family == AF_INET)
         {
             let Some(len) = room else {
-                total += IFREQ as i32;
+                total += size as i32;
                 continue;
             };
             // inet_gifconf: a device's addresses stop at the first that
             // does not fit.
-            if len - total < IFREQ as i32 {
+            if len - total < size as i32 {
                 break;
             }
             let mut ifr = [0u8; IFREQ];
@@ -406,8 +426,8 @@ pub fn ifconf(host: &Host, room: Option<i32>) -> (Vec<u8>, i32) {
             ifr[..n].copy_from_slice(&label[..n]);
             ifr[16..18].copy_from_slice(&u16::from(AF_INET).to_le_bytes());
             ifr[20..24].copy_from_slice(&a.local[..4]);
-            out.extend_from_slice(&ifr);
-            total += IFREQ as i32;
+            out.extend_from_slice(&ifr[..size]);
+            total += size as i32;
         }
     }
     (out, total)
@@ -610,17 +630,17 @@ mod tests {
     #[test]
     fn ifconf_lists_ipv4_addresses() {
         let h = host();
-        let (none, total) = ifconf(&h, None);
+        let (none, total) = ifconf(&h, None, IFREQ);
         assert_eq!((none.len(), total), (0, 120));
-        let (all, total) = ifconf(&h, Some(1000));
+        let (all, total) = ifconf(&h, Some(1000), IFREQ);
         assert_eq!((all.len(), total), (120, 120));
         assert_eq!(&all[..3], b"lo\0");
         assert_eq!(&all[40..45], b"eth0\0");
         assert_eq!(&all[100..104], &[10, 0, 1, 5]);
         // Whole entries only.
-        let (some, total) = ifconf(&h, Some(79));
+        let (some, total) = ifconf(&h, Some(79), IFREQ);
         assert_eq!((some.len(), total), (40, 40));
-        assert_eq!(ifconf(&h, Some(-1)).1, 0);
+        assert_eq!(ifconf(&h, Some(-1), IFREQ).1, 0);
     }
 
     #[test]

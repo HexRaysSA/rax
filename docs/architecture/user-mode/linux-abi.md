@@ -86,9 +86,17 @@ the one-word masks of `sigprocmask`, `sigpending`, `sigsuspend`, `sgetmask`, and
 handlers run on i386 frames ([signals](signals.md#i386-frames)).
 
 Calls without a conversion return `ENOSYS`, and unsupported `ioctl` commands return
-`ENOTTY`, rather than using 64-bit layouts. Sockets and ptrace calls are not in
-the compatibility table, nor is a seccomp filter (strict mode is, with the 32-bit
-list).
+`ENOTTY`, rather than using 64-bit layouts. Ptrace calls are not in the
+compatibility table, nor is a seccomp filter (strict mode is, with the 32-bit list).
+
+Sockets: the direct calls and the `socketcall` multiplexer (its arguments 32-bit
+words) are the native ones with `struct compat_msghdr` and `struct compat_mmsghdr`,
+control messages with a 12-byte `struct compat_cmsghdr` padded to 4 bytes (checked
+and converted before any data is sent, received with `put_cmsg_compat`'s and
+`scm_detach_fds_compat`'s layout), `recvmmsg`'s two timeout layouts, the old
+`SO_RCVTIMEO`/`SO_SNDTIMEO` as `struct old_timeval32`, and the interface requests
+`compat_sock_ioctl` passes on: `struct compat_ifconf`, 32-byte `struct compat_ifreq`
+reads and writes, and `struct compat_ifmap`.
 
 Threads: `clone` (in `sys_ia32_clone`'s argument order) and `clone3` take a `struct
 user_desc` for `CLONE_SETTLS`, filling the child's TLS entry (`set_new_tls`); the

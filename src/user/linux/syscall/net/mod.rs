@@ -654,7 +654,16 @@ pub fn getsockopt(
         if opt == opts::so::PEERNAME {
             return peer_name_opt(c, s, val, ulen, len);
         }
-        (opts::get(s, level, opt)?, len)
+        let v = opts::get(s, level, opt)?;
+        // sock_get_timeout: a 32-bit caller's old timeout is struct
+        // old_timeval32.
+        let v = if c.compat && old_timeval(opt) {
+            let w = |i: usize| i64::from_le_bytes(v[i..i + 8].try_into().unwrap()) as i32;
+            [w(0).to_le_bytes(), w(8).to_le_bytes()].concat()
+        } else {
+            v
+        };
+        (v, len)
     } else {
         let v = opts::get(s, level, opt)?;
         let len = c.read_u32(ulen)? as i32;
@@ -733,8 +742,25 @@ pub fn setsockopt(c: &mut Ctx<'_>, fd: i32, level: i32, opt: i32, val: u64, len:
         }
         return Ok(0);
     }
+    // sock_copy_user_timeval: a 32-bit caller's old timeout is struct
+    // old_timeval32, at least 8 bytes.
+    let bytes = if c.compat && level == lx::SOL_SOCKET && old_timeval(opt) {
+        if bytes.len() < 8 {
+            return Err(Errno(EINVAL));
+        }
+        let w = |i: usize| i64::from(i32::from_le_bytes(bytes[i..i + 4].try_into().unwrap()));
+        [w(0).to_le_bytes(), w(4).to_le_bytes()].concat()
+    } else {
+        bytes
+    };
     opts::set(s, level, opt, &bytes, admin(c))?;
     Ok(0)
+}
+
+/// `SO_RCVTIMEO_OLD` and `SO_SNDTIMEO_OLD`, whose `struct timeval` a
+/// 32-bit caller passes as `struct old_timeval32`.
+fn old_timeval(opt: i32) -> bool {
+    opt == opts::so::RCVTIMEO_OLD || opt == opts::so::SNDTIMEO_OLD
 }
 
 /// Socket `ioctl`s (`sock_ioctl`): `SIOCINQ` (`FIONREAD`), `SIOCOUTQ`,
@@ -780,15 +806,25 @@ fn interface(c: &mut Ctx<'_>, s: &Socket, req: u32, arg: u64, shape: Shape) -> S
     let admin = admin(c);
     match shape {
         Shape::Conf => {
-            // dev_ifconf: struct ifconf, its buffer's entries, the length.
-            let b = c.read_mem(arg, ifreq::IFCONF)?;
+            // dev_ifconf: struct ifconf, its buffer's entries, the length
+            // (struct compat_ifconf and struct compat_ifreq entries for a
+            // 32-bit caller).
+            let (b, size) = if c.compat {
+                (c.read_mem(arg, ifreq::COMPAT_IFCONF)?, ifreq::COMPAT_IFREQ)
+            } else {
+                (c.read_mem(arg, ifreq::IFCONF)?, ifreq::IFREQ)
+            };
             let len = i32::from_le_bytes(b[..4].try_into().unwrap());
-            let buf = u64::from_le_bytes(b[8..16].try_into().unwrap());
+            let buf = if c.compat {
+                u64::from(u32::from_le_bytes(b[4..8].try_into().unwrap()))
+            } else {
+                u64::from_le_bytes(b[8..16].try_into().unwrap())
+            };
             let room = (buf != 0).then_some(len);
             let (entries, total) = if emulate {
-                ifreq::ifconf(&netlink::ifaces::snapshot(), room)
+                ifreq::ifconf(&netlink::ifaces::snapshot(), room, size)
             } else {
-                host_ifconf(s, room)?
+                host_ifconf(s, room, size)?
             };
             if !entries.is_empty() {
                 c.write_mem(buf, &entries)?;
@@ -809,15 +845,27 @@ fn interface(c: &mut Ctx<'_>, s: &Socket, req: u32, arg: u64, shape: Shape) -> S
             Ok(0)
         }
         Shape::Ifreq { .. } | Shape::Indirect => {
-            let b = c.read_mem(arg, ifreq::IFREQ)?;
-            let mut ifr: [u8; ifreq::IFREQ] = b.try_into().unwrap();
+            // get_user_ifreq and put_user_ifreq: a 32-bit caller's struct
+            // compat_ifreq is read into a zeroed struct ifreq and written
+            // back as its own 32 bytes.
+            let size = if c.compat {
+                ifreq::COMPAT_IFREQ
+            } else {
+                ifreq::IFREQ
+            };
+            let b = c.read_mem(arg, size)?;
+            let mut ifr = [0u8; ifreq::IFREQ];
+            ifr[..size].copy_from_slice(&b);
             let answer = if emulate {
                 ifreq::answer(&netlink::ifaces::snapshot(), s.domain, req, &mut ifr, admin)?
             } else {
                 host_ifreq(s, req, shape, &mut ifr)?
             };
             if answer {
-                c.write_mem(arg, &ifr)?;
+                if c.compat && req == ifreq::SIOCGIFMAP {
+                    ifreq::compat_ifmap(&b, &mut ifr);
+                }
+                c.write_mem(arg, &ifr[..size])?;
             }
             Ok(0)
         }
@@ -825,15 +873,24 @@ fn interface(c: &mut Ctx<'_>, s: &Socket, req: u32, arg: u64, shape: Shape) -> S
     }
 }
 
-/// The host's `SIOCGIFCONF` (Linux hosts).
-fn host_ifconf(s: &Socket, room: Option<i32>) -> Result<(Vec<u8>, i32), Errno> {
+/// The host's `SIOCGIFCONF` (Linux hosts), as entries of `size` bytes:
+/// the host's are whole `struct ifreq`s, as many as `room` holds of
+/// `size`-byte ones, cut to their first `size` bytes.
+fn host_ifconf(s: &Socket, room: Option<i32>, size: usize) -> Result<(Vec<u8>, i32), Errno> {
     #[cfg(target_os = "linux")]
     {
-        sys::ifconf(&s.file, room)
+        let n = ifreq::IFREQ as i32;
+        let host_room = room.map(|r| if r < 0 { r } else { r / size as i32 * n });
+        let (entries, total) = sys::ifconf(&s.file, host_room)?;
+        let entries: Vec<u8> = entries
+            .chunks(ifreq::IFREQ)
+            .flat_map(|e| e[..size].to_vec())
+            .collect();
+        Ok((entries, total / n * size as i32))
     }
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = (s, room);
+        let _ = (s, room, size);
         Err(Errno(ENOTTY))
     }
 }

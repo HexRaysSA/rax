@@ -16,6 +16,7 @@
 //! |---|---|
 //! | this one | the table and the calls without a module of their own |
 //! | [`file`] | split and 32-bit offsets, `_llseek`, `fcntl`'s locks |
+//! | [`net`] | the `socketcall` multiplexer |
 //! | [`resource`] | resource limits and CPU masks |
 //! | [`signal`] | `struct compat_sigaction`, the old one-word signal calls, `compat_stack_t` |
 //! | [`stat`] | `stat`, `stat64`, the old `stat`, `statfs`, `statfs64` |
@@ -23,6 +24,7 @@
 //! | [`uid16`] | the 16-bit user- and group-ID calls |
 
 pub mod file;
+pub mod net;
 pub mod resource;
 pub mod signal;
 pub mod stat;
@@ -180,6 +182,24 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         | S::RtSigprocmask
         | S::RtSigpending
         | S::RtSigsuspend
+        // Sockets: struct compat_msghdr and its control messages, and the
+        // old timeouts' struct old_timeval32, are read where Ctx::compat is.
+        | S::Socket
+        | S::Socketpair
+        | S::Bind
+        | S::Connect
+        | S::Listen
+        | S::Accept4
+        | S::Getsockopt
+        | S::Setsockopt
+        | S::Getsockname
+        | S::Getpeername
+        | S::Sendto
+        | S::Recvfrom
+        | S::Shutdown
+        | S::Sendmsg
+        | S::Recvmsg
+        | S::Sendmmsg
         // Threads: clone's CLONE_SETTLS reads a struct user_desc
         // (`thread::NewTls`), the robust-list calls keep the 32-bit list,
         // and struct futex_waitv has one layout.
@@ -342,6 +362,10 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::Sigaltstack => r(signal::sigaltstack(c, a[0], a[1])),
         S::Sigreturn => super::signal::sigreturn(c),
         S::RtSigtimedwait => time32(c, S::RtSigtimedwait, a),
+        S::Socketcall => net::socketcall(c, a[0], a[1]),
+        // recvmmsg_time32 and recvmmsg_time64.
+        S::Recvmmsg => time32(c, S::Recvmmsg, a),
+        S::RecvmmsgTime64 => call_handler(c, S::Recvmmsg, a),
         // futex_time32 and futex_time64.
         S::Futex => time32(c, S::Futex, a),
         S::FutexTime64 => call_handler(c, S::Futex, a),
@@ -486,18 +510,22 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
 /// `compat_sys_ioctl`: the descriptor first (`EBADF`); the commands
 /// `do_vfs_ioctl` handles and the terminal ones with one layout, and every
 /// command of the files whose `compat_ioctl` is the native handler
-/// (`compat_ptr_ioctl`: pidfds and `epoll`; `inotify_ioctl`), run natively.
-/// Any other command has no 32-bit conversion here (`ENOTTY`, as for a
-/// file without `compat_ioctl`, such as a `timerfd`).
+/// (`compat_ptr_ioctl`: pidfds and `epoll`; `inotify_ioctl`) or converts
+/// in it (`compat_sock_ioctl`: a socket's interface requests read the
+/// 32-bit structures where [`Ctx::compat`] is), run natively. Any other
+/// command has no 32-bit conversion here (`ENOTTY`, as for a file without
+/// `compat_ioctl`, such as a `timerfd`).
 fn ioctl(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
     use super::super::fs::anon::Anon;
     use super::super::fs::fd::FileObject;
     let file = c.p.fds.file(a[0] as i32)?;
-    let native = SAME_LAYOUT_IOCTLS.contains(&(a[1] as u32))
-        || matches!(
-            &file.object,
-            FileObject::Anon(Anon::Pid(_) | Anon::Epoll(_) | Anon::Inotify(_))
-        );
+    let cmd = a[1] as u32;
+    let native = SAME_LAYOUT_IOCTLS.contains(&cmd)
+        || match &file.object {
+            FileObject::Anon(Anon::Pid(_) | Anon::Epoll(_) | Anon::Inotify(_)) => true,
+            FileObject::Socket(_) => net::sock_ioctl_known(cmd),
+            _ => false,
+        };
     if native {
         call_handler(c, S::Ioctl, a)
     } else {

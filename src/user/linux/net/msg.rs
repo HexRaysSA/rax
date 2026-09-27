@@ -3,7 +3,10 @@
 //!
 //! On the 64-bit ABIs a control message is a 16-byte header (`cmsg_len`
 //! as a `size_t`, `cmsg_level`, `cmsg_type`) and its data, each message
-//! padded to 8 bytes (`CMSG_ALIGN`).
+//! padded to 8 bytes (`CMSG_ALIGN`). A 32-bit caller's (`MSG_CMSG_COMPAT`,
+//! `net/compat.c`) has a 12-byte `struct compat_cmsghdr` and is padded to 4
+//! bytes (`CMSG_COMPAT_*`): [`from_compat`] converts what it sends, and an
+//! [`Out`] made with [`Out::compat`] writes what it receives.
 //!
 //! `SCM_RIGHTS` descriptors travel as host descriptors, so they reach other
 //! processes as they do on Linux. A description has more than its host
@@ -77,9 +80,53 @@ pub fn split(ctl: &[u8]) -> Result<Vec<Cmsg>, Errno> {
     Ok(out)
 }
 
+/// `sizeof(struct compat_cmsghdr)`.
+pub const COMPAT_HDR: usize = 12;
+
+/// `CMSG_COMPAT_ALIGN`.
+fn compat_align(n: usize) -> usize {
+    (n + 3) & !3
+}
+
+/// `cmsghdr_from_user_compat_to_kern`: a 32-bit caller's control data as
+/// the kernel's 64-bit messages. Each `compat_cmsghdr` must pass
+/// `CMSG_COMPAT_OK` (`EINVAL`); after a message the next header starts at
+/// its 4-byte-aligned end if any byte remains there, so trailing bytes too
+/// few for a header are refused too, and control data without a message is
+/// `EINVAL`.
+pub fn from_compat(ctl: &[u8]) -> Result<Vec<u8>, Errno> {
+    let mut out = Vec::new();
+    let mut off = 0usize;
+    // CMSG_COMPAT_FIRSTHDR, then cmsg_compat_nxthdr.
+    let mut more = ctl.len() >= COMPAT_HDR;
+    while more {
+        let rest = ctl.len() - off;
+        if rest < COMPAT_HDR {
+            return Err(Errno(EINVAL));
+        }
+        let word = |at: usize| u32::from_le_bytes(ctl[off + at..off + at + 4].try_into().unwrap());
+        let len = word(0) as usize;
+        if len < COMPAT_HDR || len > rest {
+            return Err(Errno(EINVAL));
+        }
+        let data = &ctl[off + COMPAT_HDR..off + len];
+        out.extend_from_slice(&(cmsg_len(data.len()) as u64).to_le_bytes());
+        out.extend_from_slice(&word(4).to_le_bytes());
+        out.extend_from_slice(&word(8).to_le_bytes());
+        out.extend_from_slice(data);
+        out.resize(align(out.len()), 0);
+        off += compat_align(len);
+        more = off < ctl.len();
+    }
+    if out.is_empty() {
+        return Err(Errno(EINVAL));
+    }
+    Ok(out)
+}
+
 /// Control data being written back to a receiver: the bytes and the room
 /// left (`msg_controllen`), and whether anything did not fit
-/// (`MSG_CTRUNC`).
+/// (`MSG_CTRUNC`), in the native layout or a 32-bit caller's.
 #[derive(Debug, Default)]
 pub struct Out {
     /// The bytes written so far.
@@ -88,6 +135,8 @@ pub struct Out {
     pub room: usize,
     /// `MSG_CTRUNC`.
     pub truncated: bool,
+    /// `struct compat_cmsghdr` messages (`put_cmsg_compat`).
+    compat: bool,
 }
 
 impl Out {
@@ -97,36 +146,61 @@ impl Out {
             bytes: Vec::new(),
             room,
             truncated: false,
+            compat: false,
         }
     }
 
-    /// `put_cmsg`: the message, cut to the room left (setting
-    /// `MSG_CTRUNC`), or nothing when not even a header fits.
+    /// Room for `room` bytes of a 32-bit caller's messages.
+    pub fn compat(room: usize) -> Self {
+        Out {
+            compat: true,
+            ..Out::new(room)
+        }
+    }
+
+    fn hdr(&self) -> usize {
+        if self.compat { COMPAT_HDR } else { HDR }
+    }
+
+    /// `put_cmsg` (or `put_cmsg_compat`): the message, cut to the room left
+    /// (setting `MSG_CTRUNC`), or nothing when not even a header fits.
     pub fn put(&mut self, level: i32, kind: i32, data: &[u8]) {
-        if self.room < HDR {
+        let hdr = self.hdr();
+        if self.room < hdr {
             self.truncated = true;
             return;
         }
-        let mut len = cmsg_len(data.len());
+        let mut len = hdr + data.len();
         if self.room < len {
             self.truncated = true;
             len = self.room;
         }
-        self.bytes.extend_from_slice(&(len as u64).to_le_bytes());
+        if self.compat {
+            self.bytes.extend_from_slice(&(len as u32).to_le_bytes());
+        } else {
+            self.bytes.extend_from_slice(&(len as u64).to_le_bytes());
+        }
         self.bytes.extend_from_slice(&level.to_le_bytes());
         self.bytes.extend_from_slice(&kind.to_le_bytes());
-        self.bytes.extend_from_slice(&data[..len - HDR]);
-        let used = cmsg_space(data.len()).min(self.room);
+        self.bytes.extend_from_slice(&data[..len - hdr]);
+        let space = if self.compat {
+            hdr + compat_align(data.len())
+        } else {
+            cmsg_space(data.len())
+        };
+        let used = space.min(self.room);
         self.bytes.resize(self.bytes.len() + (used - len), 0);
         self.room -= used;
     }
 
-    /// `scm_max_fds`: the descriptors the room left can take.
+    /// `scm_max_fds` (`scm_max_fds_compat`): the descriptors the room left
+    /// can take.
     pub fn max_fds(&self) -> usize {
-        if self.room <= HDR {
+        let hdr = self.hdr();
+        if self.room <= hdr {
             0
         } else {
-            (self.room - HDR) / 4
+            (self.room - hdr) / 4
         }
     }
 }
@@ -254,5 +328,55 @@ mod tests {
         assert!(o.bytes.is_empty() && o.truncated && o.room == 15);
         assert_eq!(Out::new(16).max_fds(), 0);
         assert_eq!(Out::new(24).max_fds(), 2);
+    }
+
+    /// A `struct compat_cmsghdr` message: `len`, then 4-byte padding.
+    fn raw32(level: i32, kind: i32, data: &[u8], len: u32) -> Vec<u8> {
+        let mut b = len.to_le_bytes().to_vec();
+        b.extend_from_slice(&level.to_le_bytes());
+        b.extend_from_slice(&kind.to_le_bytes());
+        b.extend_from_slice(data);
+        b.resize(compat_align(b.len()), 0);
+        b
+    }
+
+    #[test]
+    fn compat_messages_become_kernel_ones() {
+        // Two rights messages, one of one descriptor (16 bytes) and one of
+        // three (24 bytes, no padding at 4-byte alignment).
+        let mut ctl = raw32(1, 1, &5i32.to_le_bytes(), 16);
+        let three: Vec<u8> = [6i32, 7, 8].iter().flat_map(|v| v.to_le_bytes()).collect();
+        ctl.extend(raw32(1, 1, &three, 24));
+        let k = from_compat(&ctl).unwrap();
+        let m = split(&k).unwrap();
+        assert_eq!(m.len(), 2);
+        assert_eq!(m[0].data, 5i32.to_le_bytes());
+        assert_eq!(m[1].data, three);
+        // The kernel lengths: CMSG_LEN of each, the second at an 8-byte
+        // boundary (24 bytes after 20 rounded).
+        assert_eq!(u64::from_le_bytes(k[..8].try_into().unwrap()), 20);
+        assert_eq!(u64::from_le_bytes(k[24..32].try_into().unwrap()), 28);
+        // CMSG_COMPAT_OK, trailing bytes (1 is enough), and nothing at all.
+        assert_eq!(from_compat(&raw32(1, 1, &[], 11)), Err(Errno(EINVAL)));
+        assert_eq!(from_compat(&raw32(1, 1, &[0; 4], 20)), Err(Errno(EINVAL)));
+        let mut tail = raw32(1, 1, &[], 12);
+        tail.push(0);
+        assert_eq!(from_compat(&tail), Err(Errno(EINVAL)));
+        assert_eq!(from_compat(&[0; 11]), Err(Errno(EINVAL)));
+    }
+
+    #[test]
+    fn put_cmsg_compat_uses_the_32_bit_header() {
+        let mut o = Out::compat(64);
+        o.put(1, 2, &[1; 5]);
+        // A 17-byte message padded to 20.
+        assert_eq!(o.bytes.len(), 20);
+        assert_eq!(u32::from_le_bytes(o.bytes[..4].try_into().unwrap()), 17);
+        assert_eq!(o.room, 44);
+        let mut o = Out::compat(15);
+        o.put(1, 2, &[1; 4]);
+        assert_eq!((o.bytes.len(), o.room, o.truncated), (15, 0, true));
+        assert_eq!(Out::compat(12).max_fds(), 0);
+        assert_eq!(Out::compat(20).max_fds(), 2);
     }
 }

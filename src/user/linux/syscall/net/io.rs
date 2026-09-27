@@ -45,6 +45,43 @@ const UIO_MAXIOV: u64 = 1024;
 const MSGHDR: u64 = 56;
 /// `sizeof(struct mmsghdr)`.
 const MMSGHDR: u64 = 64;
+/// `sizeof(struct compat_msghdr)`.
+const COMPAT_MSGHDR: u64 = 28;
+/// `sizeof(struct compat_mmsghdr)`.
+const COMPAT_MMSGHDR: u64 = 32;
+
+/// Where a caller's `struct msghdr` (or a 32-bit caller's `struct
+/// compat_msghdr`) keeps the fields a receive writes back, and the size of
+/// its `struct mmsghdr` (whose `msg_len` follows the header).
+struct Layout {
+    msghdr: u64,
+    mmsghdr: u64,
+    namelen: u64,
+    controllen: u64,
+    flags: u64,
+}
+
+impl Layout {
+    fn of(c: &Ctx<'_>) -> Layout {
+        if c.compat {
+            Layout {
+                msghdr: COMPAT_MSGHDR,
+                mmsghdr: COMPAT_MMSGHDR,
+                namelen: 4,
+                controllen: 20,
+                flags: 24,
+            }
+        } else {
+            Layout {
+                msghdr: MSGHDR,
+                mmsghdr: MMSGHDR,
+                namelen: 8,
+                controllen: 40,
+                flags: 48,
+            }
+        }
+    }
+}
 
 /// What a receive produced.
 pub struct Got {
@@ -617,21 +654,34 @@ struct MsgHdr {
     flags: u32,
 }
 
-/// `copy_msghdr_from_user` and `__copy_msghdr`: a negative name length is
+/// `copy_msghdr_from_user` and `__copy_msghdr` (`get_compat_msghdr` for a
+/// 32-bit caller's `struct compat_msghdr`): a negative name length is
 /// `EINVAL`, a longer one than `sockaddr_storage` is cut to it, a null name
 /// has none, and more than `UIO_MAXIOV` vectors are `EMSGSIZE`.
 fn read_msghdr(c: &Ctx<'_>, at: u64) -> Result<MsgHdr, Errno> {
-    let b = c.read_mem(at, MSGHDR as usize)?;
+    let b = c.read_mem(at, Layout::of(c).msghdr as usize)?;
     let q = |i: usize| u64::from_le_bytes(b[i..i + 8].try_into().unwrap());
     let d = |i: usize| u32::from_le_bytes(b[i..i + 4].try_into().unwrap());
-    let mut m = MsgHdr {
-        name: q(0),
-        namelen: d(8) as i32,
-        iov: q(16),
-        iovlen: q(24),
-        control: q(32),
-        controllen: q(40),
-        flags: d(48),
+    let mut m = if c.compat {
+        MsgHdr {
+            name: u64::from(d(0)),
+            namelen: d(4) as i32,
+            iov: u64::from(d(8)),
+            iovlen: u64::from(d(12)),
+            control: u64::from(d(16)),
+            controllen: u64::from(d(20)),
+            flags: d(24),
+        }
+    } else {
+        MsgHdr {
+            name: q(0),
+            namelen: d(8) as i32,
+            iov: q(16),
+            iovlen: q(24),
+            control: q(32),
+            controllen: q(40),
+            flags: d(48),
+        }
     };
     if m.name == 0 {
         m.namelen = 0;
@@ -668,7 +718,13 @@ fn send_one(
         return Err(Errno(ENOBUFS));
     }
     let ctl = if m.controllen > 0 {
-        c.read_mem(m.control, m.controllen as usize)?
+        let ctl = c.read_mem(m.control, m.controllen as usize)?;
+        // cmsghdr_from_user_compat_to_kern, before any data is copied.
+        if c.compat {
+            super::super::super::net::msg::from_compat(&ctl)?
+        } else {
+            ctl
+        }
     } else {
         Vec::new()
     };
@@ -703,7 +759,13 @@ fn recv_one(
     let iov = import_iovec(c, m.iov, m.iovlen)?;
     let got = recv(c, file, s, &iov, flags, w)?;
     let files = scm::receive(c, got.fds);
-    let mut out = Out::new(m.controllen.min(i32::MAX as u64) as usize);
+    let room = m.controllen.min(i32::MAX as u64) as usize;
+    let mut out = if c.compat {
+        Out::compat(room)
+    } else {
+        Out::new(room)
+    };
+    let lay = Layout::of(c);
     for (kind, data) in &got.netlink {
         // put_cmsg: no buffer is MSG_CTRUNC.
         if m.control == 0 {
@@ -715,7 +777,7 @@ fn recv_one(
     let cloexec = flags & lx::MSG_CMSG_CLOEXEC != 0;
     scm::deliver(c, s, &mut out, m.control == 0, files, cloexec);
     if m.name != 0 {
-        write_addr(c, &got.from, m.name, at + 8)?;
+        write_addr(c, &got.from, m.name, at + lay.namelen)?;
     }
     if !out.bytes.is_empty() {
         c.write_mem(m.control, &out.bytes)?;
@@ -724,8 +786,12 @@ fn recv_one(
     if out.truncated {
         oflags |= lx::MSG_CTRUNC;
     }
-    c.write_u32(at + 48, oflags)?;
-    c.write_u64(at + 40, out.bytes.len() as u64)?;
+    c.write_u32(at + lay.flags, oflags)?;
+    if c.compat {
+        c.write_u32(at + lay.controllen, out.bytes.len() as u32)?;
+    } else {
+        c.write_u64(at + lay.controllen, out.bytes.len() as u64)?;
+    }
     Ok((got.len, oflags))
 }
 
@@ -745,8 +811,9 @@ pub fn sendmmsg(c: &mut Ctx<'_>, fd: i32, vec: u64, vlen: u32, flags: u32) -> Sy
     let file = c.p.fds.file(fd)?;
     let s = sock_of(&file)?;
     let mut w = progress(c, s.state.lock().unwrap().sndtimeo);
+    let lay = Layout::of(c);
     while w.count < vlen {
-        let at = vec + u64::from(w.count) * MMSGHDR;
+        let at = vec + u64::from(w.count) * lay.mmsghdr;
         // A sleep inside records the batch position with the progress.
         let (len, total) = match send_one(c, &file, s, at, flags, lx::MSG_EOR, w) {
             Ok(r) => r,
@@ -754,7 +821,7 @@ pub fn sendmmsg(c: &mut Ctx<'_>, fd: i32, vec: u64, vlen: u32, flags: u32) -> Sy
             Err(e) if w.count == 0 => return Err(e),
             Err(_) => break,
         };
-        if c.write_u32(at + MSGHDR, len as u32).is_err() {
+        if c.write_u32(at + lay.msghdr, len as u32).is_err() {
             if w.count == 0 {
                 return Err(Errno(EFAULT));
             }
@@ -777,14 +844,13 @@ pub fn sendmmsg(c: &mut Ctx<'_>, fd: i32, vec: u64, vlen: u32, flags: u32) -> Sy
 pub fn recvmmsg(c: &mut Ctx<'_>, fd: i32, vec: u64, vlen: u32, flags: u32, tmo: u64) -> SysResult {
     let resumed = matches!(c.resume, Some(Resume::Socket(_)));
     let limit = if tmo != 0 && !resumed {
-        let b = c.read_mem(tmo, 16)?;
-        let sec = i64::from_le_bytes(b[..8].try_into().unwrap());
-        let nsec = i64::from_le_bytes(b[8..].try_into().unwrap());
+        // struct __kernel_timespec, or old_timespec32 for recvmmsg_time32.
+        let t = c.get_timespec(tmo)?;
         // poll_select_set_timeout.
-        if sec < 0 || !(0..1_000_000_000).contains(&nsec) {
+        if t.sec < 0 || !(0..1_000_000_000).contains(&t.nsec) {
             return Err(Errno(EINVAL));
         }
-        Some(Instant::now() + Duration::new(sec as u64, nsec as u32))
+        Some(Instant::now() + Duration::new(t.sec as u64, t.nsec as u32))
     } else {
         None
     };
@@ -801,15 +867,16 @@ pub fn recvmmsg(c: &mut Ctx<'_>, fd: i32, vec: u64, vlen: u32, flags: u32, tmo: 
         }
     }
     let mut err = None;
+    let lay = Layout::of(c);
     while w.count < vlen {
         let mut f = flags & !lx::MSG_WAITFORONE;
         if flags & lx::MSG_WAITFORONE != 0 && w.count > 0 {
             f |= lx::MSG_DONTWAIT;
         }
-        let at = vec + u64::from(w.count) * MMSGHDR;
+        let at = vec + u64::from(w.count) * lay.mmsghdr;
         match recv_one(c, &file, s, at, f, w) {
             Ok((len, oflags)) => {
-                if c.write_u32(at + MSGHDR, len as u32).is_err() {
+                if c.write_u32(at + lay.msghdr, len as u32).is_err() {
                     err = Some(Errno(EFAULT));
                     break;
                 }
@@ -835,10 +902,12 @@ pub fn recvmmsg(c: &mut Ctx<'_>, fd: i32, vec: u64, vlen: u32, flags: u32, tmo: 
         let left = w.end.map_or(Duration::ZERO, |e| {
             e.saturating_duration_since(Instant::now())
         });
-        let mut b = (left.as_secs() as i64).to_le_bytes().to_vec();
-        b.extend_from_slice(&i64::from(left.subsec_nanos()).to_le_bytes());
         if w.count > 0 {
-            c.write_mem(tmo, &b)?;
+            let t = super::super::super::abi::types::Timespec {
+                sec: left.as_secs() as i64,
+                nsec: i64::from(left.subsec_nanos()),
+            };
+            c.put_timespec(tmo, t)?;
         }
     }
     match err {
