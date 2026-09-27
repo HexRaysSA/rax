@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "purpose": "Binding/header evidence, not complete native Windows DLL export inventory or native execution oracle",
+  "retrieved": "2026-09-27",
+  "tools": {
+    "llvm_nm": "LLVM 23.0.0git",
+    "llvm_nm_path": "/Users/int/local/bin/llvm-nm",
+    "llvm_nm_sha256": "20e1aa425fda511df6d594ba6ff5298871644a6a74dea8d6da38ea0b3ad2c94f",
+    "mingw_package": "Homebrew mingw-w64 14.0.0_3",
+    "zig": "0.16.0"
+  },
+  "abi_provenance": "../../sources.json",
+  "sources": [
+    {
+      "path": "COPYING-MINGW14",
+      "sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+      "retrieved": "2026-09-27",
+      "kind": "license",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/COPYING",
+      "input_sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+      "extraction_command": "sed -n '1,200p' /opt/homebrew/Cellar/mingw-w64/14.0.0_3/COPYING",
+      "source_revision": "Homebrew MinGW-w64 14.0.0_3; exact upstream build commit unknown"
+    },
+    {
+      "path": "COPYING-ZIG-MINGW",
+      "sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+      "retrieved": "2026-09-27",
+      "kind": "license",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/COPYING",
+      "input_sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+      "extraction_command": "sed -n '1,200p' /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/COPYING",
+      "source_revision": "Zig 0.16.0 bundled MinGW; exact upstream commit unknown"
+    },
+    {
+      "path": "DISCLAIMER.PD",
+      "sha256": "87f33608570312a0f2a9745edcb2527275df813b13982e8c3b3f893d88a4141a",
+      "retrieved": "2026-09-27",
+      "kind": "license",
+      "issuer": "MinGW-w64",
+      "source_url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/v14.0.0/DISCLAIMER.PD",
+      "source_revision": "v14.0.0 tag; installed package did not retain DISCLAIMER.PD"
+    },
+    {
+      "path": "mingw-wmem-excerpt.h",
+      "sha256": "ed8cf455332b6baf5f7b705b9c68947bf90938213247c19b0d532d4afdb209b7",
+      "retrieved": "2026-09-27",
+      "kind": "installed primary source",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/wchar.h",
+      "input_sha256": "9e6e876824481acef0f1b9211108cb4dc8b37b5fdca6208a66f53548ceee4f2e",
+      "extraction_command": "sed -n '1,5p;1108,1158p' /opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/wchar.h",
+      "source_revision": "Homebrew MinGW-w64 14.0.0_3; exact upstream build commit unknown"
+    },
+    {
+      "path": "msvcrt-x64-state-symbols.txt",
+      "sha256": "776e96ff10813326444c66749eb2733e132c8babbf91bd09653b1b30aa8624af",
+      "retrieved": "2026-09-27",
+      "kind": "derived import-archive symbol observation",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libmsvcrt-os.a",
+      "input_sha256": "f6fe3366dc926f479dc847d11a2d86a97850aa095cb930c8862bf4d90dda377c",
+      "command": "/Users/int/local/bin/llvm-nm -A -g '/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libmsvcrt-os.a' | rg '( I __imp_| T | D __imp_).*(_errno|__doserrno|_get_heap_handle|_get_errno|_set_errno|_get_doserrno|_set_doserrno|_get_invalid_parameter_handler|_set_invalid_parameter_handler|_invalid_parameter|_invalid_parameter_noinfo|_invalid_parameter_noinfo_noreturn|strnlen|wcsnlen|wmemcpy|wmemmove|wmemcmp|wmemchr|wmemset)$'",
+      "source_revision": "Homebrew MinGW-w64 14.0.0_3; not a measured native DLL export table"
+    },
+    {
+      "path": "ucrtbase-x64-state-symbols.txt",
+      "sha256": "d7cf8aeb6157ad9a7259d198803e12709e2e024df18fff1b63767e35df16883b",
+      "retrieved": "2026-09-27",
+      "kind": "derived import-archive symbol observation",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libucrtbase.a",
+      "input_sha256": "ceeb7de3082aa06d6c7f121b17ebe0309877aa278bf4eeb9ba17a6dbf94a5929",
+      "command": "/Users/int/local/bin/llvm-nm -A -g '/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libucrtbase.a' | rg '( I __imp_| T | D __imp_).*(_errno|__doserrno|_get_errno|_set_errno|_get_doserrno|_set_doserrno|_get_invalid_parameter_handler|_set_invalid_parameter_handler|_get_thread_local_invalid_parameter_handler|_set_thread_local_invalid_parameter_handler|_invalid_parameter|_invalid_parameter_noinfo|_invalid_parameter_noinfo_noreturn|strnlen|wcsnlen|wmemcpy|wmemmove|wmemcmp|wmemchr|wmemset)$'",
+      "source_revision": "Homebrew MinGW-w64 14.0.0_3; not a measured native DLL export table"
+    },
+    {
+      "path": "vcruntime140-x64-iats.txt",
+      "sha256": "a2bcc821fd445dd45228aaeb4d494d67202d95ef7c18b0a18d06ddd3021cbc22",
+      "retrieved": "2026-09-27",
+      "kind": "derived import-archive symbol observation",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libvcruntime140.a",
+      "input_sha256": "a58ca74a67ba351f2adccc0ca9c92b774b2dd7d19aa1a8a4f99d7ae98d428edd",
+      "command": "/Users/int/local/bin/llvm-nm -A -g '/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libvcruntime140.a' | rg ' I __imp_(memcpy|memmove|memset|memcmp|memchr|strchr|strrchr|strstr|wcschr|wcsrchr|wcsstr)$'",
+      "source_revision": "Homebrew MinGW-w64 14.0.0_3; not a measured native DLL export table"
+    },
+    {
+      "path": "vcruntime140-x86-iats.txt",
+      "sha256": "d73a2129101fcd75c9b10447f83d53b744290107075aaef1a2dd8cea4867c375",
+      "retrieved": "2026-09-27",
+      "kind": "derived import-archive symbol observation",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libvcruntime140.a",
+      "input_sha256": "c97a78df317c071b356512712af735ee22a3a321f690b5338ef9d09c9afc7105",
+      "command": "/Users/int/local/bin/llvm-nm -A -g '/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libvcruntime140.a' | rg ' I __imp__(memcpy|memmove|memset|memcmp|memchr|strchr|strrchr|strstr|wcschr|wcsrchr|wcsstr)$'",
+      "source_revision": "Homebrew MinGW-w64 14.0.0_3; not a measured native DLL export table"
+    },
+    {
+      "path": "zig-api-ms-win-crt-heap.def",
+      "sha256": "1a5c1094b8d977e939a2a3f18a2412e19742a76ab7bbbcf5ba7e2f1cddedcfa7",
+      "retrieved": "2026-09-27",
+      "kind": "installed primary source",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/api-ms-win-crt-heap-l1-1-0.def",
+      "input_sha256": "1a5c1094b8d977e939a2a3f18a2412e19742a76ab7bbbcf5ba7e2f1cddedcfa7",
+      "extraction_command": "sed -n '1,200p' /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/api-ms-win-crt-heap-l1-1-0.def",
+      "source_revision": "Zig 0.16.0 bundled MinGW; exact upstream commit unknown"
+    },
+    {
+      "path": "zig-api-ms-win-crt-runtime.def.in",
+      "sha256": "3af1714205a00b46e72a8aa7488cc1bbe8538a0cd781039712bc5b00d8e5f0a2",
+      "retrieved": "2026-09-27",
+      "kind": "installed primary source",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/api-ms-win-crt-runtime-l1-1-0.def.in",
+      "input_sha256": "3af1714205a00b46e72a8aa7488cc1bbe8538a0cd781039712bc5b00d8e5f0a2",
+      "extraction_command": "sed -n '1,200p' /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/api-ms-win-crt-runtime-l1-1-0.def.in",
+      "source_revision": "Zig 0.16.0 bundled MinGW; exact upstream commit unknown"
+    },
+    {
+      "path": "zig-api-ms-win-crt-string.def",
+      "sha256": "59ac413fbb8366dd61d59de836b13d124f0fe82e3877ca29ba5d8ebd90f34c84",
+      "retrieved": "2026-09-27",
+      "kind": "installed primary source",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/api-ms-win-crt-string-l1-1-0.def",
+      "input_sha256": "59ac413fbb8366dd61d59de836b13d124f0fe82e3877ca29ba5d8ebd90f34c84",
+      "extraction_command": "sed -n '1,300p' /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/api-ms-win-crt-string-l1-1-0.def",
+      "source_revision": "Zig 0.16.0 bundled MinGW; exact upstream commit unknown"
+    },
+    {
+      "path": "zig-vcruntime140-common.def.in",
+      "sha256": "376bb42b1ad24effab6d66a1149142789d25a92f30f010b7037c48ca1255ef1b",
+      "retrieved": "2026-09-27",
+      "kind": "installed primary source",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/vcruntime140-common.def.in",
+      "input_sha256": "376bb42b1ad24effab6d66a1149142789d25a92f30f010b7037c48ca1255ef1b",
+      "extraction_command": "sed -n '1,200p' /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/vcruntime140-common.def.in",
+      "source_revision": "Zig 0.16.0 bundled MinGW; exact upstream commit unknown"
+    }
+  ]
+}

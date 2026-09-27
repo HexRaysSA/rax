@@ -31,3 +31,15 @@ Executable public layout probes and compiler/header versions are recorded in
 `tests/fixtures/user/windows/layout/`. Private PEB/TEB/LDR field offsets are a
 supplied compatibility profile; no modern Windows private-symbol verification
 is implied. Native Windows differential results remain unknown.
+
+The CRT foundation's allocation/error and memory/string references are retained
+under `crt-foundation/`, with separate content-hash manifests for disjoint
+semantic ownership. ABI references remain the existing `microsoft-docs/`
+copies; the fixture graph records which exact retained inputs it uses. These
+are primary contract references, not native Windows execution recordings or a
+complete DLL export/ordinal inventory.
+
+The [allocation/error manifest](crt-foundation/manifest-alloc.json),
+[memory/string manifest](crt-foundation/manifest-memory.json), and
+[binding/header evidence](crt-foundation/bindings/README.md) retain exact source
+identity, disjoint hashes, license notices and explicit native unknowns.

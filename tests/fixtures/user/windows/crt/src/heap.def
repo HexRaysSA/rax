@@ -1,0 +1,8 @@
+EXPORTS
+malloc
+calloc
+realloc
+free
+_msize
+_expand
+_get_heap_handle

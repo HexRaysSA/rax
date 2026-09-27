@@ -3,11 +3,18 @@
 //! an import of one to the DLL implementing it, and API sets never appear
 //! in the module list.
 //!
-//! The mapping follows the host assignments of Windows 10/11's API set
-//! schema for the families this personality implements: the C runtime
-//! sets to `ucrtbase.dll`, the core Win32 sets to `kernelbase.dll`, and
-//! the rest to the DLLs named below. Matching is by family prefix, so
-//! every version of a family (`-l1-1-0`, `-l1-2-0`, ...) resolves alike.
+//! This is the personality's host-selection profile, not a verified native
+//! Windows schema. Exact CRT foundation contracts are named below. The existing
+//! family-prefix fallback also redirects other versions/families; redirecting
+//! a name does not establish that its exports or that native contract version
+//! are implemented. Unknown exports retain explicit failure diagnostics.
+
+/// CRT contracts exercised by the independently compiled foundation fixtures.
+const CRT_FOUNDATION: &[&str] = &[
+    "api-ms-win-crt-heap-l1-1-0.dll",
+    "api-ms-win-crt-string-l1-1-0.dll",
+    "api-ms-win-crt-runtime-l1-1-0.dll",
+];
 
 /// Family prefixes and their host DLL; the first match wins.
 const FAMILIES: &[(&str, &str)] = &[
@@ -40,6 +47,9 @@ pub fn host(name: &str) -> Option<&'static str> {
     if !is_api_set(name) {
         return None;
     }
+    if CRT_FOUNDATION.contains(&name) {
+        return Some("ucrtbase.dll");
+    }
     FAMILIES
         .iter()
         .find(|(prefix, _)| name.starts_with(prefix))
@@ -71,5 +81,21 @@ mod tests {
         assert_eq!(host("api-ms-win-core-com-l1-1-0.dll"), Some("combase.dll"));
         assert_eq!(host("kernel32.dll"), None);
         assert!(is_api_set("ext-ms-win-foo-l1-1-0.dll"));
+    }
+
+    #[test]
+    fn crt_foundation_contracts_share_one_live_builtin_host() {
+        for name in CRT_FOUNDATION {
+            let dll = host(name).unwrap();
+            assert_eq!(
+                super::super::super::dll::find(dll).unwrap().name,
+                "ucrtbase.dll"
+            );
+        }
+        assert_eq!(
+            host("api-ms-win-crt-unknown-l99-99-99.dll"),
+            Some("ucrtbase.dll")
+        );
+        assert_eq!(host("api-ms-win-unknown-l1-1-0.dll"), None);
     }
 }

@@ -51,6 +51,12 @@ ARM64 PAC/SVE/custom unwind records, and x64 unwind versions other than 1 are
 explicitly outside the admitted implementation. API parameter branches must be
 checked individually; available exports do not imply complete Windows coverage.
 
+The named MSVCRT/UCRT allocation, error-state and locale-independent memory/string
+foundation, plus the stateless VCRUNTIME140 buffer/search subset, is recorded in
+[windows-crt.md](windows-crt.md).
+Its custom-entry import fixtures do not establish normal compiler CRT startup,
+standard I/O, complete runtime export/ordinal ABI, or native CRT equivalence.
+
 CFG enforcement and enabled mitigation-policy reporting are not implemented.
 An instrumented image may retain its own no-op CFG fallback; admitting that
 image does not mean CFG target validation ran. Microsoft documents compatibility

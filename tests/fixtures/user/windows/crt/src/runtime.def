@@ -1,0 +1,13 @@
+EXPORTS
+_errno
+__doserrno
+_get_errno
+_set_errno
+_get_doserrno
+_set_doserrno
+_set_invalid_parameter_handler
+_get_invalid_parameter_handler
+_set_thread_local_invalid_parameter_handler
+_get_thread_local_invalid_parameter_handler
+_invalid_parameter_noinfo
+_invalid_parameter_noinfo_noreturn

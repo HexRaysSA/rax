@@ -1,0 +1,12 @@
+; Direct MSVCRT/UCRTBASE or VCRUNTIME140 imports; not CRT string API-set exports.
+EXPORTS
+memcpy
+memmove
+memcmp
+memchr
+strchr
+strrchr
+strstr
+wcschr
+wcsrchr
+wcsstr
