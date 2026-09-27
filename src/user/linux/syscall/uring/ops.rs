@@ -12,7 +12,7 @@ use super::super::super::fs::fd::{FileObject, OpenFile};
 use super::super::super::uring::abi::{nop, op, setup};
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::Ctx;
-use super::{fs, openclose, rsrc, rw, sync};
+use super::{fs, openclose, rsrc, rw, sync, xattr};
 
 /// How an issued request completes.
 #[derive(Clone, Debug)]
@@ -59,6 +59,10 @@ pub(super) fn supported(opcode: u8) -> bool {
             | op::MKDIRAT
             | op::SYMLINKAT
             | op::LINKAT
+            | op::FGETXATTR
+            | op::GETXATTR
+            | op::FSETXATTR
+            | op::SETXATTR
     )
 }
 
@@ -88,6 +92,7 @@ pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno>
         op::STATX | op::RENAMEAT | op::UNLINKAT | op::MKDIRAT | op::SYMLINKAT | op::LINKAT => {
             fs::prep(c, req)
         }
+        op::FGETXATTR | op::GETXATTR | op::FSETXATTR | op::SETXATTR => xattr::prep(c, req),
         _ => Err(Errno(EOPNOTSUPP)),
     }
 }
@@ -189,6 +194,10 @@ fn issue_op(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done
         }
         op::STATX | op::RENAMEAT | op::UNLINKAT | op::MKDIRAT | op::SYMLINKAT | op::LINKAT => {
             fs::issue(c, req);
+            Done::Inline
+        }
+        op::FGETXATTR | op::GETXATTR | op::FSETXATTR | op::SETXATTR => {
+            xattr::issue(c, st, req);
             Done::Inline
         }
         // prep refused it.

@@ -272,7 +272,7 @@ fn node_for_name(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<No
 }
 
 /// `import_xattr_name`.
-fn import_name(c: &Ctx<'_>, addr: u64) -> Result<Vec<u8>, Errno> {
+pub(super) fn import_name(c: &Ctx<'_>, addr: u64) -> Result<Vec<u8>, Errno> {
     match c.p.space.read_cstr(addr, NAME_MAX) {
         Ok(Some(n)) if !n.is_empty() => Ok(n),
         Ok(_) => Err(Errno(ERANGE)),
@@ -395,7 +395,20 @@ fn setxattr_at(
     flags: u32,
 ) -> SysResult {
     check_at_flags(at_flags)?;
-    // setxattr_copy.
+    let (name, data) = setxattr_copy(c, uname, value, size, flags)?;
+    let node = node_for_value(c, dirfd, path, at_flags)?;
+    set_node(c, &node, &name, &data, flags)
+}
+
+/// `setxattr_copy`: the flags (`XATTR_CREATE`, `XATTR_REPLACE`: `EINVAL`),
+/// the name, and the value (at most `XATTR_SIZE_MAX`: `E2BIG`).
+pub(super) fn setxattr_copy(
+    c: &Ctx<'_>,
+    uname: u64,
+    value: u64,
+    size: u64,
+    flags: u32,
+) -> Result<(Vec<u8>, Vec<u8>), Errno> {
     if flags & !(xattr::CREATE | xattr::REPLACE) != 0 {
         return Err(Errno(EINVAL));
     }
@@ -408,19 +421,24 @@ fn setxattr_at(
     } else {
         Vec::new()
     };
-    let node = node_for_value(c, dirfd, path, at_flags)?;
-    if is_acl(&name) {
+    Ok((name, data))
+}
+
+/// `do_setxattr` on a node: the name's handler and permission, then the
+/// value stored.
+fn set_node(c: &Ctx<'_>, node: &Node, name: &[u8], data: &[u8], flags: u32) -> SysResult {
+    if is_acl(name) {
         return Err(Errno(EOPNOTSUPP));
     }
-    permission(c, &node, &name, true)?;
-    resolve_name(&node, &name)?;
+    permission(c, node, name, true)?;
+    resolve_name(node, name)?;
     match node.obj() {
-        Some(o) => xattr::set(o, &name, &data, flags)?,
+        Some(o) => xattr::set(o, name, data, flags)?,
         // sockfs's security handler defers to a security module, of which
         // there is none; the others keep nothing.
         None => return Err(Errno(EOPNOTSUPP)),
     }
-    changed(c, &node);
+    changed(c, node);
     Ok(0)
 }
 
@@ -450,14 +468,20 @@ fn getxattr_at(
     check_at_flags(at_flags)?;
     let name = import_name(c, uname)?;
     let node = node_for_value(c, dirfd, path, at_flags)?;
+    get_node(c, &node, &name, value, size)
+}
+
+/// `do_getxattr` on a node: the value's length, the value copied to
+/// `value` when `size` is not 0 (at most `XATTR_SIZE_MAX` is read).
+fn get_node(c: &Ctx<'_>, node: &Node, name: &[u8], value: u64, size: u64) -> SysResult {
     let size = (size as usize).min(SIZE_MAX);
-    if is_acl(&name) {
+    if is_acl(name) {
         return Err(Errno(EOPNOTSUPP));
     }
-    permission(c, &node, &name, false)?;
+    permission(c, node, name, false)?;
     // Without a security module, security.* is the file system's.
-    resolve_name(&node, &name)?;
-    let data = match (&node, node.obj()) {
+    resolve_name(node, name)?;
+    let data = match (node, node.obj()) {
         (Node::Pseudo(Pseudo::Socket(proto), _), _) if name == b"system.sockprotoname" => {
             let mut v = proto.as_bytes().to_vec();
             v.push(0);
@@ -465,7 +489,7 @@ fn getxattr_at(
         }
         (_, Some(o)) => {
             let mut buf = vec![0u8; size];
-            let n = match xattr::get(o, &name, (size > 0).then_some(&mut buf[..])) {
+            let n = match xattr::get(o, name, (size > 0).then_some(&mut buf[..])) {
                 Err(Errno(ERANGE)) if size >= SIZE_MAX => return Err(Errno(E2BIG)),
                 r => r?,
             };
@@ -486,6 +510,50 @@ fn getxattr_at(
         }
     }
     Ok(data.len() as u64)
+}
+
+/// io_uring's `file_setxattr` (a file it holds) and `filename_setxattr`
+/// (`path`, followed, from the working directory), with the name and value
+/// read as the request was prepared.
+pub(super) fn file_setxattr(
+    c: &Ctx<'_>,
+    file: Arc<OpenFile>,
+    name: &[u8],
+    data: &[u8],
+    flags: u32,
+) -> SysResult {
+    set_node(c, &file_node(file, true)?, name, data, flags)
+}
+
+pub(super) fn filename_setxattr(
+    c: &Ctx<'_>,
+    path: u64,
+    name: &[u8],
+    data: &[u8],
+    flags: u32,
+) -> SysResult {
+    set_node(c, &lookup_path(c, AT_FDCWD, path, 0)?, name, data, flags)
+}
+
+/// io_uring's `file_getxattr` and `filename_getxattr`, as the sets.
+pub(super) fn file_getxattr(
+    c: &Ctx<'_>,
+    file: Arc<OpenFile>,
+    name: &[u8],
+    value: u64,
+    size: u64,
+) -> SysResult {
+    get_node(c, &file_node(file, true)?, name, value, size)
+}
+
+pub(super) fn filename_getxattr(
+    c: &Ctx<'_>,
+    path: u64,
+    name: &[u8],
+    value: u64,
+    size: u64,
+) -> SysResult {
+    get_node(c, &lookup_path(c, AT_FDCWD, path, 0)?, name, value, size)
 }
 
 /// The names `vfs_listxattr` shows for the node, each with its NUL.

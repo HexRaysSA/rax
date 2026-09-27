@@ -123,10 +123,10 @@ pub mod req_flags {
 /// A request (`struct io_kiocb`): its SQE as read at submission
 /// (`IORING_FEAT_SUBMIT_STABLE`), its flags, its result, what its
 /// preparation read (the vectors of `io_async_rw`, the names of `struct
-/// filename`s by address, and the operation's own values), and what it
-/// holds until it is freed: a file it looked up by descriptor, and the
-/// nodes of the registered file and buffer it uses (`file_node`,
-/// `buf_node`).
+/// filename`s by address, a value it copied, and the operation's own
+/// values), and what it holds until it is freed: a file it looked up by
+/// descriptor, and the nodes of the registered file and buffer it uses
+/// (`file_node`, `buf_node`).
 #[derive(Clone, Debug)]
 pub struct Req {
     pub sqe: Sqe,
@@ -136,6 +136,7 @@ pub struct Req {
     pub big: [u64; 2],
     pub vecs: Vec<(u64, u64)>,
     pub names: Vec<(u64, Vec<u8>)>,
+    pub data: Vec<u8>,
     pub how: [u64; 4],
     pub file: Option<Arc<super::fs::fd::OpenFile>>,
     pub file_node: Option<rsrc::NodeId>,
@@ -153,6 +154,7 @@ impl Req {
             big: [0; 2],
             vecs: Vec::new(),
             names: Vec::new(),
+            data: Vec::new(),
             how: [0; 4],
             file: None,
             file_node: None,

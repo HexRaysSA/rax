@@ -217,8 +217,9 @@ descriptors (the lowest free one, taken before the lookup, `O_LARGEFILE`,
 the `O_NONBLOCK` try, `EMFILE` by the limit, `ENXIO` for a FIFO without a
 reader, the name read at preparation), `OPENAT2`'s structure and flags,
 direct descriptors, `FIXED_FD_INSTALL`, `CLOSE`, `PIPE` (into slots too),
-and the path operations (`io_uring/fs.c`, `statx.c`), whose failures keep
-their links. `user_linux` `fixtures` runs the
+the path operations (`io_uring/fs.c`, `statx.c`), whose failures keep
+their links, and extended attributes (`io_uring/xattr.c`: of a file and a
+path, their preparation, the value read at preparation). `user_linux` `fixtures` runs the
 `uring` and `uringio` programs on every architecture against results recorded on the Linux
 6.19 kernel oracles (native AArch64 and x86-64 in their `compare` runs,
 i386, ARM, and Thumb-2).

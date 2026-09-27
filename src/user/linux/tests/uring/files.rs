@@ -547,3 +547,134 @@ fn path_operations_run_on_the_workers_and_keep_their_links() {
     assert_eq!(run(&mut h, &r, &[by_fd]), [(17, 0, 0)]);
     assert_eq!(u64_at(&h, stx + 40), 3);
 }
+
+// IORING_OP_FSETXATTR, _SETXATTR, _FGETXATTR, _GETXATTR.
+const FSETXATTR: u8 = 41;
+const SETXATTR: u8 = 42;
+const FGETXATTR: u8 = 43;
+const GETXATTR: u8 = 44;
+const XATTR_CREATE: u32 = 1;
+
+#[test]
+fn xattrs_are_read_and_set() {
+    let mut h = Harness::new(LinuxAbi::X86_64);
+    let r = setup(&mut h, 8, 0, 0);
+    let d = Dir::new("xattr");
+    std::fs::write(d.path("x"), b"x").unwrap();
+    let buf = h.anon(P, RW, false);
+    let path = d.put(&h, buf, "x");
+    let name = buf + 0x200;
+    put(&h, name, b"user.k\0");
+    let value = buf + 0x300;
+    let fd = open_via(&mut h, &d, buf + 0x800, "x");
+    let set = |opcode: u8, fd: i32, v: &[u8], flags: u32, ud: u64| Sqe {
+        opcode,
+        fd,
+        addr: name,
+        off: value,
+        len: v.len() as u32,
+        addr3: path,
+        op_flags: flags,
+        user_data: ud,
+        ..Sqe::default()
+    };
+    let get = |opcode: u8, fd: i32, size: u32, ud: u64| Sqe {
+        opcode,
+        fd,
+        addr: name,
+        off: value + 0x100,
+        len: size,
+        addr3: path,
+        user_data: ud,
+        ..Sqe::default()
+    };
+    put(&h, value, b"v1");
+    assert_eq!(
+        run(&mut h, &r, &[set(FSETXATTR, fd, b"v1", 0, 1)]),
+        [(1, 0, 0)]
+    );
+    assert_eq!(run(&mut h, &r, &[get(FGETXATTR, fd, 16, 2)]), [(2, 2, 0)]);
+    assert_eq!(bytes_at(&h, value + 0x100, 2), b"v1");
+    // By path, from the working directory; a size of 0 asks the length.
+    assert_eq!(run(&mut h, &r, &[get(GETXATTR, 0, 0, 3)]), [(3, 2, 0)]);
+    put(&h, value, b"v22");
+    assert_eq!(
+        run(&mut h, &r, &[set(SETXATTR, 0, b"v22", 0, 4)]),
+        [(4, 0, 0)]
+    );
+    assert_eq!(run(&mut h, &r, &[get(GETXATTR, 0, 16, 5)]), [(5, 3, 0)]);
+    // vfs_setxattr's XATTR_CREATE; a failure keeps the link going.
+    let exists = Sqe {
+        flags: LINK,
+        ..set(FSETXATTR, fd, b"v22", XATTR_CREATE, 6)
+    };
+    assert_eq!(
+        run(&mut h, &r, &[exists, Sqe::nop(7)]),
+        [(6, neg(EEXIST), 0), (7, 0, 0)]
+    );
+    // Preparation: a path form takes no registered file; a get no flags;
+    // setxattr_copy's flags, name, and size.
+    put(&h, buf + 0x280, b"\0");
+    for (s, e) in [
+        (
+            Sqe {
+                flags: FIXED_FILE,
+                ..get(GETXATTR, 0, 16, 8)
+            },
+            EBADF,
+        ),
+        (
+            Sqe {
+                op_flags: 1,
+                ..get(FGETXATTR, fd, 16, 9)
+            },
+            EINVAL,
+        ),
+        (set(FSETXATTR, fd, b"v", 4, 10), EINVAL),
+        (
+            Sqe {
+                addr: buf + 0x280,
+                ..get(FGETXATTR, fd, 16, 11)
+            },
+            ERANGE,
+        ),
+        (
+            Sqe {
+                len: 65537,
+                ..set(FSETXATTR, fd, b"", 0, 12)
+            },
+            E2BIG,
+        ),
+    ] {
+        r.push(&h, s);
+        assert_eq!(r.enter(&mut h, 1, 0, 0), 1, "{s:?}");
+        assert_eq!(r.reap(&h), [(s.user_data, neg(e), 0)], "{s:?}");
+    }
+    // setxattr_copy: the value is the one at preparation; a read linked
+    // ahead rewrites it before the set runs.
+    let src = h.file("uring-xattr-src", 0, 0, 2);
+    put(&h, buf + 0x900, b"new");
+    h.ok(Sysno::Pwrite64, &[src, buf + 0x900, 3, 0]);
+    put(&h, value, b"old");
+    let rewrite = Sqe {
+        opcode: READ,
+        fd: src as i32,
+        addr: value,
+        len: 3,
+        flags: LINK,
+        user_data: 13,
+        ..Sqe::default()
+    };
+    assert_eq!(
+        run(&mut h, &r, &[rewrite, set(FSETXATTR, fd, b"old", 0, 14)]),
+        [(13, 3, 0), (14, 0, 0)]
+    );
+    assert_eq!(run(&mut h, &r, &[get(FGETXATTR, fd, 16, 15)]), [(15, 3, 0)]);
+    assert_eq!(bytes_at(&h, value + 0x100, 3), b"old");
+}
+
+/// Opens `name` in `d` through the guest.
+fn open_via(h: &mut Harness, d: &Dir, at: u64, name: &str) -> i32 {
+    let p = d.put(h, at, name);
+    h.ok(Sysno::Openat, &[AT_FDCWD as u64, p, 2, 0]) as i32
+}

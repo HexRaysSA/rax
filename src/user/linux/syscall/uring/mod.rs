@@ -19,6 +19,7 @@ mod rsrc;
 mod rw;
 mod submit;
 mod sync;
+mod xattr;
 
 pub use poll::{drive, exec_cancel, forked, wait_fds};
 pub use register::io_uring_register;
