@@ -182,6 +182,22 @@ Linux 6.19 for arm64, configured as the modelled compatibility task, under
 `qemu-system-aarch64` (`tests/fixtures/user/linux/oracle/`); the morok
 program corpus has no ARM builds.
 
+### io_uring
+
+`src/user/linux/tests/uring.rs`: `io_uring_setup`'s checks, rounding, ring
+offsets, and descriptor; the ring and SQE mappings and what they refuse;
+submission order and the SQ head; the NOP flags; links, hard links,
+`IOSQE_CQE_SKIP_SUCCESS`, and the failure of a link's request; requests
+failing `io_init_req`'s checks (with and without `IORING_SETUP_SUBMIT_ALL`);
+a dropped SQ index; CQ overflow and its flush; the task work of deferring and
+ordinary rings; drains and async requests; waits (timeouts, a signal);
+`poll` of the ring; registration (probe, personalities, eventfds, enabling a
+disabled ring, registered ring descriptors); and `/proc/<pid>/fdinfo`, each
+following the Linux 6.19 function it names. `user_linux` `fixtures` runs the
+`uring` program on every architecture against results recorded on the Linux
+6.19 kernel oracles (native AArch64 and x86-64 in their `compare` runs,
+i386, ARM, and Thumb-2).
+
 ### Syscall and errno numbering
 
 `user_linux` `abi_tables` against the vendored UAPI headers

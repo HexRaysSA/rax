@@ -14,7 +14,13 @@
 # A source is either another architecture, whose recorded result is copied,
 # or qemu-<arch>: the case runs under that QEMU user-mode emulator in the
 # container instead of the registered handler, for architectures whose
-# handler (Rosetta for x86-64) diverges from Linux where QEMU does not.
+# handler (Rosetta for x86-64) diverges from Linux where QEMU does not; or
+# kernel: the case's result for its own architecture comes from the Linux
+# 6.19 kernel oracle (oracle/record-kernel.sh ... compare, which writes it
+# and expected/ORACLE-kernel-<arch>), for calls whose behavior changed after
+# Linux 6.19 (the Docker kernel is 7.0) or that no binfmt handler
+# translates. Run record-kernel.sh before record-expected.sh, which copies
+# such a result where another architecture names that one as its source.
 #
 # Columns: architecture  case  source  reason...
 riscv64  mman  aarch64  mm/madvise.c and mm/mprotect.c are generic; QEMU 'target_madvise' ignores most advice and QEMU validates mprotect's prot before its length
@@ -77,3 +83,6 @@ x86_64   ptraceseccomp aarch64  Rosetta refuses seccomp, so the tracee's filter 
 riscv64  ptraceseccomp aarch64  qemu-riscv64 lacks ptrace (ENOSYS) and the case then hangs; kernel/ptrace.c and kernel/seccomp.c are architecture-independent, and the native aarch64 run passes every check
 x86_64   ptraceblock aarch64  Rosetta traces its translated processes itself: the tracer sees the arm64 kernel's register sets (no NT_386_IOPERM or NT_X86_SHSTK: EINVAL) and PTRACE_SINGLEBLOCK is unknown to it (EIO); kernel/ptrace.c is architecture-independent, the fixture checks the x86-64 answers (fpu/regset.c, ptrace.c, kernel/regset.c) and block steps (step.c, traps.c, Intel SDM Vol. 3B 19.4.3) itself, and the native aarch64 run passes every check
 riscv64  ptraceblock aarch64  qemu-riscv64 lacks ptrace (ENOSYS) and the case then hangs; kernel/ptrace.c is architecture-independent, and the native aarch64 run passes every check
+aarch64  uring    kernel   io_uring changed after Linux 6.19 (7.0's struct io_rings offsets and a failed NOP's CQE result differ from io_uring/io_uring.c and io_uring/nop.c of 6.19, which rax-user models), so the Docker kernel is no oracle for it
+x86_64   uring    kernel   Rosetta returns ENOSYS for the io_uring calls, and io_uring changed after Linux 6.19 (see aarch64)
+riscv64  uring    aarch64  qemu-riscv64 returns ENOSYS for the io_uring calls; io_uring/ is architecture-independent and the native aarch64 run on Linux 6.19 passes every check

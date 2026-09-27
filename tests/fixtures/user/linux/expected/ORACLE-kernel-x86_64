@@ -1,7 +1,8 @@
-i386 oracle: Linux on qemu-system-x86_64 (TCG), not Docker
+x86_64 oracle for the cases below: Linux on qemu-system-x86_64 (TCG), not Docker
 kernel: 6.19.0 (root@3c36427bb13a) #3 SMP PREEMPT_DYNAMIC Sun Sep 27 19:31:24 UTC 2026
 build: oracle/build-kernel.sh from tag v6.19 (x86_64_defconfig with CONFIG_IA32_EMULATION)
 kernel-sha256: c1bf028f08806348ad6e43af4e4722264dc1f32c2af6610b008902a88db0fa8d
 qemu: QEMU emulator version 11.1.1
 machine: q35, -cpu max, 2 CPUs, 1 GiB; kernel command line: nopku
 recorded: 2026-09-27T19:35:22Z
+case: uring

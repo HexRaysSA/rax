@@ -5,8 +5,9 @@
 //! on Linux by `record-expected.sh` (x86-64, AArch64, RV64, through Docker)
 //! and `oracle/record-kernel.sh` (i386 on an x86-64 kernel under
 //! `qemu-system-x86_64`, ARM EABI, as A32 and as Thumb-2 code, on an arm64
-//! kernel under `qemu-system-aarch64`); every case must match them byte for
-//! byte under `rax-user`.
+//! kernel under `qemu-system-aarch64`, and the native cases
+//! `oracle-overrides.txt` gives the `kernel` source); every case must match
+//! them byte for byte under `rax-user`.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -263,6 +264,16 @@ fn oracle_overrides_are_consistent() {
             cases().iter().any(|c| c.name == case),
             "unknown case {case}"
         );
+        // The Linux 6.19 kernel oracle's own recording, which names it.
+        if source == "kernel" {
+            let o = std::fs::read_to_string(root.join(format!("ORACLE-kernel-{arch}"))).unwrap();
+            assert!(o.contains("kernel: 6.19.0 "), "{o}");
+            assert!(
+                o.lines().any(|l| l == format!("case: {case}")),
+                "expected/ORACLE-kernel-{arch} records {case}"
+            );
+            continue;
+        }
         if let Some(qemu_arch) = source.strip_prefix("qemu-") {
             assert_eq!(qemu_arch, arch, "{arch}/{case} must run under its own QEMU");
             assert!(
@@ -435,6 +446,16 @@ fn live_docker_oracle() {
             // Same container setup and oracle substitutions as
             // record-expected.sh.
             let source = overrides.get(&(arch.to_string(), case.name.clone()));
+            // The kernel oracle's cases, and copies of them, are not
+            // Docker's to reproduce.
+            let kernel = |a: &str| {
+                overrides
+                    .get(&(a.to_string(), case.name.clone()))
+                    .is_some_and(|s| s == "kernel")
+            };
+            if kernel(arch) || source.is_some_and(|s| kernel(s)) {
+                continue;
+            }
             let oracle_arch = match source {
                 Some(s) if !s.starts_with("qemu-") => s.as_str(),
                 _ => arch,

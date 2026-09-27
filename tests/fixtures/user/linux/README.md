@@ -51,7 +51,7 @@ boots.
 | `cases-arm.txt` | The same for the ARM-only programs. |
 | `input/` | Standard-input files referenced by `cases.txt`. |
 | `record-expected.sh` | Records `expected/` on Linux through Docker. |
-| `oracle-overrides.txt` | Cases whose expectation for one architecture is another architecture's real-kernel result, with the reason. |
+| `oracle-overrides.txt` | Cases whose expectation for one architecture is another architecture's real-kernel result, a QEMU user-mode run, or the Linux 6.19 kernel oracle's, with the reason. |
 | `expected/<arch>/<case>.{stdout,status}` | Recorded results. |
 | `expected/ORACLE` | Kernel, Docker server, binfmt handlers, overrides, and recording time of the oracle run. |
 | `expected/ORACLE-i386`, `expected/ORACLE-arm`, `expected/ORACLE-thumb` | Kernel, its build, QEMU, machine, and recording time of the i386, ARM, and Thumb-2 recordings. |
@@ -101,6 +101,7 @@ boots.
 | `mseal` | Memory sealing: `mseal`'s checks in order (flags, alignment, the rounded length, holes) and what a seal refuses: `munmap` and the unmapping behind `mmap(MAP_FIXED)`, `shmat(SHM_REMAP)`, and `mremap(MREMAP_FIXED)` (nothing changed), `mremap` of the sealed VMA, `mprotect` VMA by VMA, and discarding advice on private anonymous memory that cannot be written; a shrinking `brk` keeps the break, `shmdt` leaves a sealed attach mapped, and `mlock`, harmless advice, file mappings, and a child's copy behave as usual |
 | `rseq` | Restartable sequences: registration's checks (the flags, the size and alignment, a second registration, the signature), the fields it writes and the IDs the return to user mode fills in, unregistering, a critical section aborted by a signal delivered while it runs and by a preemption by another thread on the same CPU (each resuming at the abort handler, `rseq_cs` cleared), an interrupted IP outside the section only clearing `rseq_cs`, a wrong signature killing the task with `SIGSEGV`, no registration in a new thread, and a forked child keeping it. The critical sections are inline assembly for each architecture; the checks Linux 7.0 changed (it accepts flag 2, writes `flags`, and resets `cpu_id_start` to 0) are left out |
 | `aio` | Linux AIO: `io_setup`'s checks (the limit read from `/proc/sys/fs/aio-max-nr`) and the ring it maps (header, `/proc/self/maps`, never locked, `aio-nr`), `io_submit`'s checks in order (descriptors, `IOCB_FLAG_RESFD`, `RWF_*` flags, files without reads, buffer and vector ranges, positions, the count before a failure), reads, writes, vectors, and syncs, a buffer that faults only in the transfer, pipes without data (`O_NONBLOCK`, a signal), `-EPIPE` with and without `RWF_NOSIGNAL`, `IOCB_CMD_POLL` at once, waiting (completing with a pipe's and a socket's wake-up key, or with the events of a hang-up) and cancelled, `io_getevents` and `io_pgetevents` (checks, a timeout, a fault leaving events in the ring), the ring's capacity and reaping by the process, a clobbered ring ID, `mremap` of the ring (refused growth, duplication, and `MREMAP_DONTUNMAP`; a move moving the context, which a forked child cannot do), and `io_destroy`. The ring's size and slot count depend on the CPUs and are not printed |
+| `uring` | io_uring through its calls, with NOP requests only: `io_uring_setup`'s checks and rounding (`IORING_SETUP_CQSIZE`, `CLAMP`, `NO_SQARRAY`, `CQE32`, `ATTACH_WQ`, the flags that need others, the reserved words), the ring offsets and features it reports, the descriptor (`O_RDWR`, close-on-exec, `anon_inode:[io_uring]`, an inode of its own), the ring mappings and what they refuse (an address, an unknown offset, a short SQE mapping), no `read`/`write`/`lseek`; submission order, the NOP flags (injected results, a missing file or buffer failing the request, 32-byte CQEs), links, hard links, `IOSQE_CQE_SKIP_SUCCESS`, requests failing `io_init_req`'s checks (alone and in a link, with and without `IORING_SETUP_SUBMIT_ALL`), a dropped SQ index, CQ overflow and its flush, deferred task work, drains and async requests, waits (a timeout, an absolute one, a signal, the argument's size, the count before the wait's error), `poll` of the ring, registration (probe, personalities, eventfds, enabling a disabled ring, registered ring descriptors), and `/proc/self/fdinfo`; recorded on the Linux 6.19 kernel oracle (see `oracle-overrides.txt`) |
 | `splice` | `splice` and `vmsplice`: the checks in order (a zero length before anything, the flags, the descriptors, a pipe's offsets before either offset is read, `*off_out` before `*off_in`, the access modes, two files, a pipe to itself, `O_APPEND`, positions where a file has none, `rw_verify_area`, an eventfd, a directory, `/dev/null` as a source), transfers from a file to a pipe and back at an offset or the file's position, pipe to pipe, sockets both ways, `/dev/zero` and `/dev/null`, each moving what there is; `SPLICE_F_NONBLOCK` and `O_NONBLOCK` on either end, a full pipe, a transfer sleeping until a child writes and one a signal ends, the end of a pipe's data, `EPIPE` with `SIGPIPE`; `vmsplice` into and out of a pipe with faults. Byte counts stay below any pipe's capacity; `tee` is left out (the unit tests cover it) |
 | `sendfault` | A send whose data faults part way: a Unix stream sends the skbs it copied whole before the fault (`SO_SNDBUF` sizing them) and none of the one the fault cut short, from `sendmsg`, `writev`, and `sendto`; a Unix datagram faults whole, from `writev` as from `sendmsg`; TCP's first copy faults whole; nothing sent is `EFAULT` |
 | `ptrace` | Process tracing between parent and child: the checks in order (a missing task, the caller's own process, a task not traced or not stopped, `PTRACE_SEIZE`'s address and options, a resumption's signal, register sets, signal masks, options), `PTRACE_TRACEME` once and `TracerPid`, a signal-delivery-stop reported by `waitpid` without `WUNTRACED` and by `SIGCHLD` with `CLD_TRAPPED`, `PTRACE_GETSIGINFO`, `PEEKDATA` and `POKEDATA` (into read-only text too), the general registers (checked per architecture, not printed), the signal mask, `PTRACE_CONT` cancelling or changing the signal, a fatal signal stopped before it kills, `PTRACE_ATTACH`'s `SIGSTOP` and `PTRACE_DETACH`, a running tracee killed with `PTRACE_KILL`, `execve`'s `SIGTRAP` and `PTRACE_EVENT_EXEC` stop, and a child attaching to its parent while the parent waits for it |
@@ -132,9 +133,9 @@ boots.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 312 binaries (55 programs × 3 architectures, 48 for i386, eight
-  of them i386-only, 50 for ARM, one of them ARM-only, and 49 for
-  Thumb-2), 11,448 KiB in total (`du -k`); each
+- Size: 318 binaries (56 programs × 3 architectures, 49 for i386, eight
+  of them i386-only, 51 for ARM, one of them ARM-only, and 50 for
+  Thumb-2), 11,824 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -238,6 +239,13 @@ boots.
   `rseq` critical section there, as they do on the Docker kernel. The
   ARM matrix leaves those programs out, and `iovec` (64-bit-only code;
   `build.sh` names each).
+- The `uring` case's native results come from the Linux 6.19 kernel
+  oracles' `compare` runs (`expected/ORACLE-kernel-aarch64` and
+  `expected/ORACLE-kernel-x86_64`; RV64's copied from AArch64): io_uring
+  changed after 6.19 (the Docker kernel, 7.0, reports other ring offsets
+  and puts a failed NOP's error in its CQE), and neither the x86-64 nor the
+  RV64 binfmt handler translates its calls (`ENOSYS`). All five of its
+  recordings (the native two, i386, ARM, and Thumb-2) are identical.
 - The Thumb-2 results were recorded in the same boots of a rebuilt kernel
   (same script and configuration; `expected/ORACLE-thumb`), which
   reproduced every ARM recording byte for byte; four recordings in a row
@@ -258,8 +266,13 @@ boots.
 ## Updating
 
 1. Edit `src/`, then run `./build.sh` (requires Zig 0.16.0).
-2. Run `./record-expected.sh` on a host with Docker able to execute all
-   three architectures, and review the diff under `expected/`.
+2. Record the kernel oracle's cases first (step 3, with `compare`, which
+   also records the native cases `oracle-overrides.txt` gives the `kernel`
+   source, into `expected/<arch>` with `expected/ORACLE-kernel-<arch>`).
+   Then run `./record-expected.sh` on a host with Docker able to execute
+   all three architectures, which leaves those cases alone and copies them
+   where another architecture names them, and review the diff under
+   `expected/`.
 3. For the i386 cases, build the kernel once with
    `oracle/build-kernel.sh <linux-v6.19-checkout> <out>` (Docker), then run
    `oracle/record-kernel.sh <out>/bzImage` (`qemu-system-x86_64`, Zig) and
@@ -276,5 +289,6 @@ boots.
 
 A case added to `cases.txt` is picked up by the test automatically; a new
 program must also be added to `build.sh`. An override must name its source
-architecture and a reason; the test checks that the overridden files equal
-the source architecture's recording.
+and a reason; the test checks that the overridden files equal the source
+architecture's recording, that a QEMU run's version is recorded, and that
+`expected/ORACLE-kernel-<arch>` names the kernel and the case.

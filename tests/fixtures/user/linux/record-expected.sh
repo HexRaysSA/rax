@@ -71,6 +71,8 @@ grep -v '^#' cases.txt | while read -r name prog input args; do
         out="expected/$arch/$name"
         runner=-
         source="$(override "$arch" "$name")"
+        # The kernel oracle recorded it (oracle/record-kernel.sh).
+        [[ "$source" == kernel ]] && continue
         [[ "$source" == qemu-* ]] && runner="$source"
         status=0
         # shellcheck disable=SC2086
@@ -85,6 +87,9 @@ done
 grep -v '^#' oracle-overrides.txt | while read -r arch name source reason; do
     [[ -z "$arch" ]] && continue
     case "$source" in
+        kernel)
+            echo "override: $arch/$name from the Linux 6.19 kernel oracle, expected/ORACLE-kernel-$arch ($reason)" >> expected/ORACLE
+            ;;
         qemu-*)
             version="$(docker run --rm "$image" sh -c \
                 "apk add -q $source >/dev/null 2>&1 && $source --version" | head -1)"

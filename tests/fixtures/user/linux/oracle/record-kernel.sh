@@ -18,8 +18,9 @@
 # input/; vminit runs each case and writes its output to the serial
 # console, which this script decodes into expected/<arch>/<case>.{stdout,
 # status} (i386, arm, thumb), or into oracle-<arch>/ (the comparison run,
-# not committed). expected/ORACLE-<arch> records the kernel, QEMU, and
-# recording time.
+# not committed; its cases oracle-overrides.txt gives the `kernel` source go
+# into expected/<arch> too, with expected/ORACLE-kernel-<arch>).
+# expected/ORACLE-<arch> records the kernel, QEMU, and recording time.
 #
 # Requirements: Zig 0.16.0 (to build vminit), qemu-system-x86_64 or
 # qemu-system-aarch64, cpio.
@@ -115,16 +116,36 @@ case "$machine" in
 x86_64) config="x86_64_defconfig with CONFIG_IA32_EMULATION" ;;
 arm64) config="arm64 defconfig with CONFIG_COMPAT and the compat-task options" ;;
 esac
+# The kernel, its build, QEMU, the machine, and the time.
+describe() {
+    # bzImage's setup header holds the version; an Image, linux_banner
+    # (after init/version.c's placeholder, which has no build number).
+    echo "kernel: $(strings "$kernel" | sed -nE 's/^(Linux version )?([0-9]+\.[0-9]+\.[0-9]+ \(.*#[0-9]+ .*)/\2/p' | head -1)"
+    echo "build: oracle/build-kernel.sh from tag v6.19 ($config)"
+    echo "kernel-sha256: $(shasum -a 256 "$kernel" | cut -d' ' -f1)"
+    echo "qemu: $("$qemu" --version | head -1)"
+    echo "machine: $machine_desc"
+    echo "recorded: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
 for arch in "${compat[@]}"; do
     {
         echo "$arch oracle: Linux on $qemu (TCG), not Docker"
-        # bzImage's setup header holds the version; an Image, linux_banner
-        # (after init/version.c's placeholder, which has no build number).
-        echo "kernel: $(strings "$kernel" | sed -nE 's/^(Linux version )?([0-9]+\.[0-9]+\.[0-9]+ \(.*#[0-9]+ .*)/\2/p' | head -1)"
-        echo "build: oracle/build-kernel.sh from tag v6.19 ($config)"
-        echo "kernel-sha256: $(shasum -a 256 "$kernel" | cut -d' ' -f1)"
-        echo "qemu: $("$qemu" --version | head -1)"
-        echo "machine: $machine_desc"
-        echo "recorded: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        describe
     } > "expected/ORACLE-$arch"
 done
+# With `compare`, the native cases oracle-overrides.txt gives this oracle
+# (source `kernel`) are recorded too.
+if [[ -n "$compare" ]]; then
+    kernel_cases=($(grep -v '^#' oracle-overrides.txt |
+        awk -v a="$native" '$1 == a && $3 == "kernel" { print $2 }'))
+    if ((${#kernel_cases[@]})); then
+        for name in "${kernel_cases[@]}"; do
+            cp "oracle-$native/$name.stdout" "oracle-$native/$name.status" "expected/$native/"
+        done
+        {
+            echo "$native oracle for the cases below: Linux on $qemu (TCG), not Docker"
+            describe
+            printf 'case: %s\n' "${kernel_cases[@]}"
+        } > "expected/ORACLE-kernel-$native"
+    fi
+fi
