@@ -30,8 +30,15 @@ use super::mem::{PAGE_MASK, map_err, mman, page_align, perms, unmapped_area};
 use super::{Ctx, SysResult};
 use crate::user::mm::{Backing, Mapping, SharedObject};
 
-/// `SHMLBA`: a page on every supported ABI.
-const SHMLBA: u64 = PAGE_SIZE;
+/// `SHMLBA` (`COMPAT_SHMLBA` for a compatibility task): a page, except
+/// that arm64 keeps ARM's 16 KiB for an ARM task
+/// (`arch/arm64/include/asm/shmparam.h`).
+fn shmlba(abi: super::super::abi::LinuxAbi) -> u64 {
+    match abi {
+        super::super::abi::LinuxAbi::Arm => 4 * PAGE_SIZE,
+        _ => PAGE_SIZE,
+    }
+}
 /// `RLIMIT_MEMLOCK`.
 const RLIMIT_MEMLOCK: usize = 8;
 
@@ -61,13 +68,17 @@ pub fn shmat(c: &mut Ctx<'_>, id: i32, addr: u64, flags: i32) -> SysResult {
     }
     let mut addr = addr;
     let fixed = addr != 0;
+    let shmlba = shmlba(c.p.abi);
     if fixed {
-        if addr & (SHMLBA - 1) != 0 {
-            if flags & SHM_RND == 0 {
-                return Err(Errno(EINVAL));
-            }
-            addr &= !(SHMLBA - 1);
-            if addr == 0 && flags & SHM_REMAP != 0 {
+        // Without __ARCH_FORCE_SHMLBA, an address the alignment rounds
+        // needs SHM_RND only when it is not page-aligned either.
+        if addr & (shmlba - 1) != 0 {
+            if flags & SHM_RND != 0 {
+                addr &= !(shmlba - 1);
+                if addr == 0 && flags & SHM_REMAP != 0 {
+                    return Err(Errno(EINVAL));
+                }
+            } else if addr & (PAGE_SIZE - 1) != 0 {
                 return Err(Errno(EINVAL));
             }
         }

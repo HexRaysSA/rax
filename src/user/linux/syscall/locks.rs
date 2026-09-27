@@ -84,6 +84,10 @@ pub enum FlockLayout {
     /// `struct compat_flock64` (24 bytes, packed on x86: 64-bit start and
     /// length at offsets 4 and 12).
     Compat64,
+    /// `struct compat_flock64` without `__ARCH_NEED_COMPAT_FLOCK64_PACKED`
+    /// (arm64's for an ARM task: 32 bytes, the native offsets), written
+    /// whole (`put_compat_flock64`).
+    Compat64Aligned,
 }
 
 /// `COMPAT_OFF_T_MAX`.
@@ -101,7 +105,7 @@ struct Flock {
 impl Flock {
     fn read(c: &Ctx<'_>, addr: u64, layout: FlockLayout) -> Result<Self, Errno> {
         let size = match layout {
-            FlockLayout::Native => 32,
+            FlockLayout::Native | FlockLayout::Compat64Aligned => 32,
             FlockLayout::Compat => 16,
             FlockLayout::Compat64 => 24,
         };
@@ -109,7 +113,9 @@ impl Flock {
         let i32_at = |at: usize| i32::from_le_bytes(b[at..at + 4].try_into().unwrap());
         let i64_at = |at: usize| i64::from_le_bytes(b[at..at + 8].try_into().unwrap());
         let (start, len, pid) = match layout {
-            FlockLayout::Native => (i64_at(8), i64_at(16), i32_at(24)),
+            FlockLayout::Native | FlockLayout::Compat64Aligned => {
+                (i64_at(8), i64_at(16), i32_at(24))
+            }
             FlockLayout::Compat => (i64::from(i32_at(4)), i64::from(i32_at(8)), i32_at(12)),
             FlockLayout::Compat64 => (i64_at(4), i64_at(12), i32_at(20)),
         };
@@ -127,11 +133,12 @@ impl Flock {
             FlockLayout::Native => c.read_mem(addr, 32)?,
             FlockLayout::Compat => vec![0; 16],
             FlockLayout::Compat64 => vec![0; 24],
+            FlockLayout::Compat64Aligned => vec![0; 32],
         };
         b[0..2].copy_from_slice(&self.kind.to_le_bytes());
         b[2..4].copy_from_slice(&self.whence.to_le_bytes());
         match layout {
-            FlockLayout::Native => {
+            FlockLayout::Native | FlockLayout::Compat64Aligned => {
                 b[8..16].copy_from_slice(&self.start.to_le_bytes());
                 b[16..24].copy_from_slice(&self.len.to_le_bytes());
                 b[24..28].copy_from_slice(&self.pid.to_le_bytes());

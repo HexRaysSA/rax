@@ -2,12 +2,14 @@
 b1e108fc1770dd7504e39b9f6d90b38e2761319c9d427f772c847ab394265f93  ./arch/arm/tools/syscall.tbl
 b9a69d00a02ec0c6f179088d2858a8aeae2cb1e1de89b19fc75df5f43d51ee16  ./arch/arm64/Kconfig
 ce0202a3effa863e1854dad366eda72035aa433379702e4cb8b9ad1ebb70c212  ./arch/arm64/include/asm/compat.h
+9132266e51fe376bd24329cfcfe13b6d6fe3905f67b9dd154f4d84d954d3435c  ./arch/arm64/include/asm/debug-monitors.h
 ffa8943c2940a5ada36b4fe312420b0904f2483abfbab48786bc1f58b1e74fc9  ./arch/arm64/include/asm/elf.h
 431f672e70e79e3a966f461af2c7365667b13fbbfc0664979e7e42e39b011ab5  ./arch/arm64/include/asm/fpsimd.h
 7f21d0359db1e9efbdea70ba1c00b04a4bbfdbd4e52bce651030e585b08af72b  ./arch/arm64/include/asm/hwcap.h
 6a2791679a51c3287dbaf8fead5982221a2703e9728f94b8998c0bef295b1e2b  ./arch/arm64/include/asm/mman.h
 6cad451a1bda70574aefaa74c7f6e403c91e0e486bc7633819da507b136bf585  ./arch/arm64/include/asm/processor.h
 00607db99e25299e448cf467620778f6a3e1f4c0ca85f53ac6ad2f8c3e3de9f8  ./arch/arm64/include/asm/ptrace.h
+fd302be30f222f17fe66f9559e7b6905a7df27aa8eb79ac96e9994db4bcbec48  ./arch/arm64/include/asm/shmparam.h
 272b4b95818a812095ea3bd4261b1dc4cb6acc8798ceb98604d45342122146cc  ./arch/arm64/include/asm/signal32.h
 3e1e5bbe53af35841f44e321aff427c82e8f37e345b1bfa79aaf94f690e156c7  ./arch/arm64/include/asm/stat.h
 b3349fa05a664d0821ee309f09ad6a6b2cf6c9ba44ed8afa982efd7afb020562  ./arch/arm64/include/asm/syscall.h

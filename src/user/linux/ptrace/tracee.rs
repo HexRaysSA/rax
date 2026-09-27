@@ -292,6 +292,28 @@ fn serve(
         Ok(()) => (0, Vec::new()),
         Err(e) => fail(e.0),
     };
+    // An AArch32 thread's register views (compat_arch_ptrace, the compat
+    // regsets) are not implemented yet: their requests are EIO.
+    if matches!(t.cpu, GuestCpu::Arm(_))
+        && matches!(
+            request,
+            req::PEEKUSR
+                | req::POKEUSR
+                | req::GETREGS
+                | req::SETREGS
+                | req::GETREGSET
+                | req::SETREGSET
+                | req::GETFPREGS
+                | req::SETFPREGS
+                | req::GETFPXREGS
+                | req::SETFPXREGS
+                | req::GET_THREAD_AREA
+                | req::SET_THREAD_AREA
+                | req::ARCH_PRCTL
+        )
+    {
+        return fail(EIO);
+    }
     // ia32_arch_ptrace's requests of the i386 view.
     if compat
         && matches!(
@@ -844,10 +866,11 @@ fn take_resumed(t: &mut Thread) -> Option<(Stopped, i32, i32)> {
     if tracer < 0 {
         t.ptrace = None;
     }
-    if let Some(x7) = s.saved
-        && let GuestCpu::Aarch64(c) = &mut t.cpu
-    {
-        c.core_mut().set_x(7, x7);
+    // The direction register (x7, an ARM task's r12) gets its value back.
+    match (s.saved, &mut t.cpu) {
+        (Some(x7), GuestCpu::Aarch64(c)) => c.core_mut().set_x(7, x7),
+        (Some(r12), GuestCpu::Arm(c)) => c.core_mut().regs[12] = r12 as u32,
+        _ => {}
     }
     Some((s, sig, tracer))
 }

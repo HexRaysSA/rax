@@ -123,6 +123,8 @@ pub mod code {
     pub const ILL_ILLOPC: i32 = 1;
     /// Illegal operand.
     pub const ILL_ILLOPN: i32 = 2;
+    /// Illegal trap.
+    pub const ILL_ILLTRP: i32 = 4;
     /// Privileged opcode.
     pub const ILL_PRVOPC: i32 = 5;
     /// Privileged register.
@@ -311,11 +313,11 @@ pub mod ss {
 
 /// `MINSIGSTKSZ`, the smallest stack `sigaltstack` accepts: 5120 bytes on
 /// arm64 (`arch/arm64/include/uapi/asm/signal.h`), 2048 on x86-64, i386,
-/// and riscv.
+/// and riscv, and arm64's `COMPAT_MINSIGSTKSZ` (2048) for an ARM task.
 pub fn minsigstksz(abi: LinuxAbi) -> u64 {
     match abi {
         LinuxAbi::Aarch64 => 5120,
-        LinuxAbi::X86_64 | LinuxAbi::I386 | LinuxAbi::Riscv64 => 2048,
+        LinuxAbi::X86_64 | LinuxAbi::I386 | LinuxAbi::Riscv64 | LinuxAbi::Arm => 2048,
     }
 }
 

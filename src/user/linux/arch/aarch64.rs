@@ -59,8 +59,9 @@ pub fn caps() -> ArchCaps {
     ArchCaps {
         hwcap: FP | ASIMD | AES | SHA1 | SHA2 | CRC32 | ATOMICS | CPUID,
         hwcap2: Some(0),
+        hwcap3: None,
         platform: Some("aarch64"),
-        minsigstksz: MINSIGSTKSZ,
+        minsigstksz: Some(MINSIGSTKSZ),
     }
 }
 

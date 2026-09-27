@@ -65,6 +65,8 @@ pub mod at {
     pub const AT_RSEQ_FEATURE_SIZE: u64 = 27;
     /// rseq alignment.
     pub const AT_RSEQ_ALIGN: u64 = 28;
+    /// Hardware capabilities, third word.
+    pub const AT_HWCAP3: u64 = 29;
     /// Executed filename.
     pub const AT_EXECFN: u64 = 31;
     /// vDSO base.
@@ -120,10 +122,12 @@ pub struct AuxInfo {
     pub hwcap: u64,
     /// `AT_HWCAP2`, for ABIs that define `ELF_HWCAP2`.
     pub hwcap2: Option<u64>,
+    /// `AT_HWCAP3`, for ABIs that define `ELF_HWCAP3`.
+    pub hwcap3: Option<u64>,
     /// `AT_PLATFORM` string, for ABIs that define `ELF_PLATFORM`.
     pub platform: Option<&'static str>,
-    /// `AT_MINSIGSTKSZ`.
-    pub minsigstksz: u64,
+    /// `AT_MINSIGSTKSZ`, where `ARCH_DLINFO` gives it.
+    pub minsigstksz: Option<u64>,
     /// `AT_SYSINFO_EHDR`, when a vDSO is mapped.
     pub vdso: Option<u64>,
 }
@@ -194,7 +198,9 @@ fn arch_dlinfo(abi: LinuxAbi, aux: &AuxInfo) -> Vec<(u64, u64)> {
             v.push((tag, 0));
         }
     }
-    v.push((AT_MINSIGSTKSZ, aux.minsigstksz));
+    if let Some(size) = aux.minsigstksz {
+        v.push((AT_MINSIGSTKSZ, size));
+    }
     v
 }
 
@@ -319,6 +325,9 @@ pub fn write_initial_stack(
     ]);
     if let Some(hwcap2) = aux.hwcap2 {
         auxv.push((AT_HWCAP2, hwcap2));
+    }
+    if let Some(hwcap3) = aux.hwcap3 {
+        auxv.push((AT_HWCAP3, hwcap3));
     }
     auxv.push((AT_EXECFN, execfn_addr));
     if let Some(platform) = platform {

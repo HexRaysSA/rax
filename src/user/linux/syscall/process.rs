@@ -185,16 +185,18 @@ pub fn uname(c: &mut Ctx<'_>, buf: u64) -> SysResult {
 /// `PER_LINUX32`: the personality whose `uname` shows the 32-bit machine.
 const PER_LINUX32: u32 = 0x0008;
 
-/// The fields of `struct new_utsname`. On x86, `override_architecture`
-/// shows `COMPAT_UTS_MACHINE` (`i686`) to a task whose personality is
-/// `PER_LINUX32`, 64-bit or not.
+/// The fields of `struct new_utsname`. `override_architecture` shows
+/// `COMPAT_UTS_MACHINE` to a task whose personality is `PER_LINUX32`,
+/// 64-bit or not: `i686` on x86-64, `armv8l` on arm64
+/// (`arch/arm64/include/asm/compat.h`). RISC-V has none.
 fn utsname(c: &Ctx<'_>) -> [String; 6] {
-    let machine =
-        if c.p.abi.isa() == crate::user::cpu::Isa::X86_64 && c.p.persona & 0xff == PER_LINUX32 {
-            "i686"
-        } else {
-            c.p.abi.machine()
-        };
+    use crate::user::cpu::Isa;
+    let machine = match c.p.abi.isa() {
+        _ if c.p.persona & 0xff != PER_LINUX32 => c.p.abi.machine(),
+        Isa::X86_64 => "i686",
+        Isa::Aarch64 | Isa::Arm => "armv8l",
+        Isa::Riscv64 => c.p.abi.machine(),
+    };
     [
         "Linux".into(),
         host::hostname(),

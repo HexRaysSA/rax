@@ -7,6 +7,7 @@
 //! trap handlers send.
 
 pub mod aarch64;
+pub mod arm;
 pub mod riscv64;
 pub mod x86_64;
 
@@ -16,6 +17,7 @@ use super::signal::frame::FaultUpdate;
 use crate::isa::arm::common::cpu::ArmCpu;
 use crate::isa::riscv::RiscVConfig;
 use crate::user::cpu::aarch64::A64UserCpu;
+use crate::user::cpu::arm::A32UserCpu;
 use crate::user::cpu::riscv64::RvUserCpu;
 use crate::user::cpu::x86_64::X86UserCpu;
 use crate::user::cpu::{AccessFault, AccessFaultKind};
@@ -76,10 +78,13 @@ pub struct ArchCaps {
     pub hwcap: u64,
     /// `AT_HWCAP2`, if the ABI defines `ELF_HWCAP2`.
     pub hwcap2: Option<u64>,
+    /// `AT_HWCAP3`, if the ABI defines `ELF_HWCAP3`.
+    pub hwcap3: Option<u64>,
     /// `ELF_PLATFORM`.
     pub platform: Option<&'static str>,
-    /// `AT_MINSIGSTKSZ`: the signal frame size this implementation needs.
-    pub minsigstksz: u64,
+    /// `AT_MINSIGSTKSZ`, the signal frame size this implementation needs,
+    /// if the ABI's `ARCH_DLINFO` gives it.
+    pub minsigstksz: Option<u64>,
 }
 
 /// A guest thread's CPU with its Linux ABI.
@@ -90,6 +95,8 @@ pub enum GuestCpu {
     Aarch64(A64UserCpu),
     /// RV64.
     Riscv64(RvUserCpu),
+    /// ARM EABI (AArch32) on arm64.
+    Arm(A32UserCpu),
 }
 
 /// Maps an access fault to its Linux signal (`do_page_fault` and the
@@ -115,6 +122,8 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => cpu.discard_native_code(),
             GuestCpu::Aarch64(cpu) => cpu.discard_native_code(),
             GuestCpu::Riscv64(cpu) => cpu.discard_native_code(),
+            // The AArch32 core is interpreted.
+            GuestCpu::Arm(_) => {}
         }
     }
 
@@ -129,6 +138,7 @@ impl GuestCpu {
                 GuestCpu::X86_64(cpu)
             }
             LinuxAbi::Aarch64 => GuestCpu::Aarch64(A64UserCpu::new(space)),
+            LinuxAbi::Arm => GuestCpu::Arm(A32UserCpu::new(space)),
             LinuxAbi::Riscv64 => {
                 let mut cpu = RvUserCpu::new(space, options.riscv_config);
                 cpu.set_jit(options.riscv_jit);
@@ -144,6 +154,7 @@ impl GuestCpu {
             GuestCpu::X86_64(_) => LinuxAbi::X86_64,
             GuestCpu::Aarch64(_) => LinuxAbi::Aarch64,
             GuestCpu::Riscv64(_) => LinuxAbi::Riscv64,
+            GuestCpu::Arm(_) => LinuxAbi::Arm,
         }
     }
 
@@ -153,6 +164,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => x86_64::caps(cpu),
             GuestCpu::Aarch64(_) => aarch64::caps(),
             GuestCpu::Riscv64(cpu) => riscv64::caps(cpu),
+            GuestCpu::Arm(_) => arm::caps(),
         }
     }
 
@@ -163,6 +175,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => x86_64::start(cpu, entry, sp),
             GuestCpu::Aarch64(cpu) => aarch64::start(cpu, entry, sp),
             GuestCpu::Riscv64(cpu) => riscv64::start(cpu, entry, sp),
+            GuestCpu::Arm(cpu) => arm::start(cpu, entry, sp),
         }
     }
 
@@ -172,6 +185,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => x86_64::run(cpu),
             GuestCpu::Aarch64(cpu) => aarch64::run(cpu, budget),
             GuestCpu::Riscv64(cpu) => riscv64::run(cpu, budget),
+            GuestCpu::Arm(cpu) => arm::run(cpu, budget),
         }
     }
 
@@ -182,6 +196,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => x86_64::step(cpu),
             GuestCpu::Aarch64(cpu) => aarch64::run(cpu, 1),
             GuestCpu::Riscv64(cpu) => riscv64::run(cpu, 1),
+            GuestCpu::Arm(cpu) => arm::run(cpu, 1),
         }
     }
 
@@ -194,30 +209,42 @@ impl GuestCpu {
         }
     }
 
-    /// Stores a system call's return value in the ABI's result register.
+    /// Stores a system call's return value in the ABI's result register
+    /// (for ARM, its low 32 bits in R0).
     pub fn set_syscall_result(&mut self, value: u64) {
         match self {
             GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rax = value,
             GuestCpu::Aarch64(cpu) => cpu.core_mut().set_x(0, value),
             GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(10, value),
+            GuestCpu::Arm(cpu) => cpu.core_mut().regs[0] = value as u32,
         }
     }
 
-    /// The system-call result register (RAX, X0, a0).
+    /// The system-call result register (RAX, X0, a0; ARM's R0
+    /// sign-extended, as `syscall_get_return_value` reads a compat task's).
     pub fn syscall_return_value(&self) -> u64 {
         match self {
             GuestCpu::X86_64(cpu) => cpu.vcpu().user_regs().rax,
             GuestCpu::Aarch64(cpu) => cpu.core().get_x(0),
             GuestCpu::Riscv64(cpu) => cpu.core().x(10),
+            GuestCpu::Arm(cpu) => cpu.core().regs[0] as i32 as i64 as u64,
         }
     }
 
     /// Length of the system-call instruction (`SYSCALL` 2, `SVC`/`ECALL`
-    /// 4 bytes).
+    /// 4 bytes; ARM's `SVC` 2 bytes in Thumb state, as the restart code's
+    /// `compat_thumb_mode(regs) ? 2 : 4`).
     pub fn syscall_insn_len(&self) -> u64 {
         match self {
             GuestCpu::X86_64(_) => 2,
             GuestCpu::Aarch64(_) | GuestCpu::Riscv64(_) => 4,
+            GuestCpu::Arm(cpu) => {
+                if cpu.thumb() {
+                    2
+                } else {
+                    4
+                }
+            }
         }
     }
 
@@ -241,15 +268,20 @@ impl GuestCpu {
                 cpu.core_mut().set_x(10, arg0);
                 cpu.core_mut().set_pc(pc);
             }
+            GuestCpu::Arm(cpu) => {
+                cpu.core_mut().regs[0] = arg0 as u32;
+                cpu.set_pc(pc);
+            }
         }
     }
 
-    /// Sets the system-call number register (RAX, X8, a7).
+    /// Sets the system-call number register (RAX, X8, a7, R7).
     pub fn set_syscall_number(&mut self, nr: u64) {
         match self {
             GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rax = nr,
             GuestCpu::Aarch64(cpu) => cpu.core_mut().set_x(8, nr),
             GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(17, nr),
+            GuestCpu::Arm(cpu) => cpu.core_mut().regs[7] = nr as u32,
         }
     }
 
@@ -259,6 +291,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rip = pc,
             GuestCpu::Aarch64(cpu) => cpu.core_mut().set_pc(pc),
             GuestCpu::Riscv64(cpu) => cpu.core_mut().set_pc(pc),
+            GuestCpu::Arm(cpu) => cpu.set_pc(pc),
         }
     }
 
@@ -268,6 +301,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => cpu.pc(),
             GuestCpu::Aarch64(cpu) => cpu.pc(),
             GuestCpu::Riscv64(cpu) => cpu.pc(),
+            GuestCpu::Arm(cpu) => cpu.pc(),
         }
     }
 
@@ -277,6 +311,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => cpu.vcpu().user_regs().rsp,
             GuestCpu::Aarch64(cpu) => cpu.sp(),
             GuestCpu::Riscv64(cpu) => cpu.core().x(2),
+            GuestCpu::Arm(cpu) => cpu.sp(),
         }
     }
 
@@ -286,15 +321,18 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rsp = sp,
             GuestCpu::Aarch64(cpu) => cpu.set_sp(sp),
             GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(2, sp),
+            GuestCpu::Arm(cpu) => cpu.set_sp(sp),
         }
     }
 
-    /// The thread pointer (x86-64 FS base, `TPIDR_EL0`, RISC-V `tp`).
+    /// The thread pointer (x86-64 FS base, `TPIDR_EL0`, RISC-V `tp`, and
+    /// an ARM task's `tp_value`, TPIDRURO).
     pub fn thread_pointer(&self) -> u64 {
         match self {
             GuestCpu::X86_64(cpu) => cpu.vcpu().fs_base(),
             GuestCpu::Aarch64(cpu) => cpu.core().tpidr_el0(),
             GuestCpu::Riscv64(cpu) => cpu.core().x(4),
+            GuestCpu::Arm(cpu) => u64::from(cpu.core().cp15.tpidruro),
         }
     }
 
@@ -304,6 +342,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => cpu.vcpu_mut().set_fs_base(tp),
             GuestCpu::Aarch64(cpu) => cpu.core_mut().set_tpidr_el0(tp),
             GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(4, tp),
+            GuestCpu::Arm(cpu) => cpu.core_mut().cp15.tpidruro = tp as u32,
         }
     }
 
@@ -321,6 +360,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => GuestCpu::X86_64(cpu.clone_thread()),
             GuestCpu::Aarch64(cpu) => GuestCpu::Aarch64(cpu.clone_thread()),
             GuestCpu::Riscv64(cpu) => GuestCpu::Riscv64(cpu.clone_thread()),
+            GuestCpu::Arm(cpu) => GuestCpu::Arm(cpu.clone_thread()),
         }
     }
 
@@ -330,6 +370,7 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => cpu.space(),
             GuestCpu::Aarch64(cpu) => cpu.space(),
             GuestCpu::Riscv64(cpu) => cpu.space(),
+            GuestCpu::Arm(cpu) => cpu.space(),
         }
     }
 }

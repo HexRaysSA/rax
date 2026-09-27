@@ -140,6 +140,7 @@ fn make_call(h: &mut Harness, s: Sysno, args: [u64; 6]) -> u64 {
                 c.core_mut().set_x(10 + i as u8, a);
             }
         }
+        GuestCpu::Arm(_) => unreachable!("each_abi yields the 64-bit ABIs"),
     }
     h.proc.enter_syscall(0, nr, args);
     nr
@@ -449,7 +450,7 @@ fn nop(abi: LinuxAbi) -> (&'static [u8], u64) {
     match abi {
         LinuxAbi::X86_64 => (&[0x90], 1),
         LinuxAbi::Aarch64 => (&[0x1f, 0x20, 0x03, 0xd5], 4),
-        LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
+        LinuxAbi::I386 | LinuxAbi::Arm => unreachable!("each_abi yields the 64-bit ABIs"),
         LinuxAbi::Riscv64 => (&[0x13, 0, 0, 0], 4),
     }
 }
@@ -459,7 +460,7 @@ fn syscall_insn(abi: LinuxAbi) -> &'static [u8] {
     match abi {
         LinuxAbi::X86_64 => &[0x0f, 0x05],
         LinuxAbi::Aarch64 => &[0x01, 0x00, 0x00, 0xd4],
-        LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
+        LinuxAbi::I386 | LinuxAbi::Arm => unreachable!("each_abi yields the 64-bit ABIs"),
         LinuxAbi::Riscv64 => &[0x73, 0, 0, 0],
     }
 }

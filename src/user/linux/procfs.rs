@@ -311,7 +311,9 @@ pub fn cpuinfo(abi: LinuxAbi) -> Vec<u8> {
         )
         .as_bytes()
         .to_vec(),
-        LinuxAbi::Aarch64 => concat!(
+        // arm64's c_show: an ARM task sees the native format unless its
+        // personality is PER_LINUX32.
+        LinuxAbi::Aarch64 | LinuxAbi::Arm => concat!(
             "processor\t: 0\n",
             "BogoMIPS\t: 125.00\n",
             "Features\t: fp asimd aes sha1 sha2 crc32 atomics cpuid\n",

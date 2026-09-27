@@ -39,8 +39,9 @@ pub fn caps(cpu: &X86UserCpu) -> ArchCaps {
     ArchCaps {
         hwcap: u64::from(edx),
         hwcap2: Some(HWCAP2_FSGSBASE),
+        hwcap3: None,
         platform: Some(if cpu.compat() { "i686" } else { "x86_64" }),
-        minsigstksz: frame.div_ceil(16) * 16,
+        minsigstksz: Some(frame.div_ceil(16) * 16),
     }
 }
 

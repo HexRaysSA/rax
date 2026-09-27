@@ -1,15 +1,17 @@
 //! File status in a compatibility task's layouts: `struct compat_stat`
 //! (`stat`, `lstat`, `fstat`: `cp_compat_stat`, `fs/stat.c`), `struct
-//! stat64` (`stat64`, `lstat64`, `fstat64`, `fstatat64`: `cp_stat64`,
-//! `arch/x86/kernel/sys_ia32.c`), `struct __old_kernel_stat` (`oldstat`,
+//! stat64` (`stat64`, `lstat64`, `fstat64`, `fstatat64`: i386's through
+//! `cp_stat64`, `arch/x86/kernel/sys_ia32.c`, ARM EABI's through
+//! `cp_new_stat64`, `fs/stat.c`), `struct __old_kernel_stat` (`oldstat`,
 //! `oldlstat`, `oldfstat`: `cp_old_stat`), and `struct compat_statfs` and
 //! `struct compat_statfs64` (`fs/statfs.c`). Each looks the file up as the
 //! native call does, then converts; a value the layout cannot hold is
 //! `EOVERFLOW`.
 
+use super::super::super::abi::LinuxAbi;
 use super::super::super::abi::compat::{
     COMPAT_STATFS64_SIZE, STAT64_PADS, encode_compat_statfs, encode_compat_statfs64,
-    encode_old_stat, encode_stat64,
+    encode_old_stat, encode_stat64, encode_stat64_eabi,
 };
 use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;
@@ -64,10 +66,15 @@ pub fn stat(c: &mut Ctx<'_>, of: Of, buf: u64) -> SysResult {
     Ok(0)
 }
 
-/// `stat64`, `lstat64`, `fstat64`, and `fstatat64`. `cp_stat64` stores
-/// the fields one by one, so the pads keep what the buffer held.
+/// `stat64`, `lstat64`, `fstat64`, and `fstatat64`. i386's `cp_stat64`
+/// stores the fields one by one, so the pads keep what the buffer held;
+/// ARM's `cp_new_stat64` writes the whole structure.
 pub fn stat64(c: &mut Ctx<'_>, of: Of, buf: u64) -> SysResult {
     let st = of.stat(c)?;
+    if c.p.abi == LinuxAbi::Arm {
+        c.write_mem(buf, &encode_stat64_eabi(&st))?;
+        return Ok(0);
+    }
     let mut image = encode_stat64(&st);
     let old = c.read_mem(buf, image.len())?;
     for pad in STAT64_PADS {

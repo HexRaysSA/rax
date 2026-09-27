@@ -150,6 +150,29 @@ against results recorded on Linux 6.19 for x86-64 under `qemu-system-x86_64`
 (`tests/fixtures/user/linux/oracle/`); the morok program corpus has no i386
 builds.
 
+### ARM EABI compatibility tasks
+
+`src/user/linux/tests/arm/`: EABI admission, the arm64 compat layout
+(`TASK_SIZE_32`, `STACK_TOP` at the vectors page, `mmap_base`) and numbering,
+`compat_start_thread` and the initial stack with the compat capabilities and
+`AT_PLATFORM`, the `[vectors]` kuser helpers and `[sigpage]` return code (their
+bytes from `kuser32.S` and `sigreturn32.S`), `SVC` with R7, the AArch32
+exceptions' signals and fault records (`BKPT`'s and the aborts' ESR values from
+the Arm ARM's exception classes, the `AARCH32_BREAK_*` encodings, the emulated A32
+CP15 barriers, PC alignment), the private calls past the table, the `aarch32_*`
+wrappers' register pairs, the EABI `struct stat64` and `struct compat_flock64`,
+`statfs64`'s size fixup, the direct System V IPC calls with `IPC_64` and the
+16 KiB `COMPAT_SHMLBA`, `accept`/`send`/`recv`, `uname` under `PER_LINUX32`,
+`CLONE_SETTLS`, and the AArch32 signal frames and returns (layouts from
+`asm/signal32.h`, the handler's entry state from `compat_setup_return`, bad
+frames from `valid_compat_regs`); `src/user/cpu/tests.rs`: the AArch32 adapter
+(User mode, `SVC`/`BKPT`/UNDEFINED reporting, precise faults, PL0 CP15 and FP
+system-register access, the exclusive monitor, interworking and IT blocks);
+`src/user/linux/tests/stack.rs`: the compat auxiliary vector's order;
+`user_linux` `abi_tables`: numbering against `unistd-eabi.h` and arm64's
+`syscall_32.tbl`. No fixtures are recorded for ARM EABI yet: they need an arm64
+kernel oracle.
+
 ### Syscall and errno numbering
 
 `user_linux` `abi_tables` against the vendored UAPI headers

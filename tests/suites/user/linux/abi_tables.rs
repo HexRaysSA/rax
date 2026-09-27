@@ -110,18 +110,7 @@ fn i386_syscall_numbers_match_unistd_32() {
 /// same call at every number.
 #[test]
 fn arm_syscall_numbers_match_unistd_eabi_and_the_arm64_compat_table() {
-    let number = |s: Sysno| {
-        syscalls::ARM_TABLE
-            .iter()
-            .find(|(_, t)| *t == s)
-            .map(|(n, _)| *n)
-    };
-    check_numbers(
-        "arm",
-        "arm-linux-any/asm/unistd-eabi.h",
-        syscalls::arm_sysno,
-        number,
-    );
+    check_table(LinuxAbi::Arm, "arm-linux-any/asm/unistd-eabi.h");
     let tbl = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("docs/specifications/linux/kernel-6.19/arch/arm64/tools/syscall_32.tbl");
     let text = std::fs::read_to_string(tbl).expect("vendored syscall_32.tbl");
@@ -132,7 +121,9 @@ fn arm_syscall_numbers_match_unistd_eabi_and_the_arm64_compat_table() {
     {
         let cols: Vec<&str> = line.split_whitespace().collect();
         let nr: u64 = cols[0].parse().expect("a number");
-        let s = syscalls::arm_sysno(nr).unwrap_or_else(|| panic!("arm: {nr} is unknown"));
+        let s = LinuxAbi::Arm
+            .sysno(nr)
+            .unwrap_or_else(|| panic!("arm: {nr} is unknown"));
         assert_eq!(s.name(), cols[2], "arm: syscall_32.tbl number {nr}");
         rows += 1;
     }

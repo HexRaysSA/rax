@@ -29,7 +29,7 @@ This page consolidates the current project boundary. It is intentionally conserv
 | RV64 | software emulator plus selected SMIR/native paths | none | bare-metal ELF machine | scalar/vector QEMU differential tests, lift/JIT tests, boot test | no privileged/Sv39 Linux-capable machine |
 
 This matrix describes machines. [Linux process execution](#user-mode-linux-program-status)
-is a separate path for x86-64, AArch64, RV64, and partial i386 compatibility;
+is a separate path for x86-64, AArch64, RV64, and partial i386 and ARM EABI compatibility;
 it does not require a Linux-capable machine or provide an SMP runtime.
 
 ## x86-64 status
@@ -122,20 +122,25 @@ TOML exposes profile selectors for AArch64, AArch32, Cortex-M, and Cortex-R. The
 ## User-mode (Linux program) status
 
 `rax-user` runs Linux ELF programs for x86-64, AArch64, and RV64, plus
-partial ELF32 i386 compatibility tasks, on Linux or macOS hosts ([usage](../getting-started/linux-programs.md),
+partial ELF32 i386 and ARM EABI compatibility tasks, on Linux or macOS hosts ([usage](../getting-started/linux-programs.md),
 [architecture](../architecture/user-mode.md)).
 
 ### Established user-mode surfaces
 
 The following signal, thread, IPC, tracing, and syscall evidence applies to
-the three 64-bit ABIs (`LinuxAbi::ALL`). i386 coverage is listed separately;
-the three-ISA recorded fixture/program matrices do not include it.
+the three 64-bit ABIs (`LinuxAbi::ALL`). i386 and ARM EABI coverage is listed
+separately; the three-ISA recorded fixture/program matrices do not include them.
 
 ELF32 i386 loading, compatibility-mode entry, Linux GDT TLS, and the partial
 32-bit syscall conversion table are implemented. Their library tests exercise
 file/path and memory conversions, register-pair offsets, status/statistics,
 directory/lock layouts, exec vectors, and unsupported-call refusals. These
 cases are distinct from the recorded 64-bit corpora.
+
+ELF32 ARM EABI loading, AArch32 User-mode entry as an arm64 kernel's compat
+task, the `[vectors]` and `[sigpage]` pages, TPIDRURO TLS, the AArch32 signal
+frames, and the ARM conversions of the compatibility table are implemented and
+unit-tested (`src/user/linux/tests/arm/`); no fixtures are recorded for them.
 
 - `binfmt_elf`-equivalent loading, initial stack, and auxiliary vector (unit-tested against hand-derived kernel layouts);
 - exact page-permission enforcement and Linux fault classification (unit-tested, including a model-based differential);
@@ -178,8 +183,9 @@ cases are distinct from the recorded 64-bit corpora.
 
 - `ITIMER_VIRTUAL`/`ITIMER_PROF` and CPU-time POSIX timers count the emulator's host CPU time, including emulation overhead, and other processes' CPU clocks are refused; the alarm clocks need root; `TFD_TIMER_CANCEL_ON_SET` never cancels (host clock changes are not observed); `/proc/<pid>/fdinfo` mount IDs only tell file systems apart, file locks and sockets' `scm_fds` are not shown, and `epoll` items are listed in insertion order; an `epoll` instance is copied by `fork`, readiness from outside the emulator reaches edge-triggered items once per growth and in insertion order, and the watch and wake-up-path limits are not enforced;
 - a `CLONE_VM` child process is a copy (`vfork` parent sleeps correctly but does not see the child's stores); processes sharing tables with their parent, `CLONE_PARENT`, `CLONE_INTO_CGROUP`, namespaces, and the requeue-PI futex operations are unsupported; a pidfd sees another process's zombie as gone and names no thread of another process, `pidfd_getfd` reaches only the caller's descriptors, and `PIDFD_GET_INFO` has no cgroup ID, the host's credentials for another process, and exit information only for the caller's threads and reaped children; signals to other processes are host signals (no `sigqueue` values, real-time signals only to the sender, `kill(-1)` limited to children, and on macOS hosts a signal from a process outside `rax-user` may lose its sender when it arrives while the target forks or one of its children exits) and `PR_SET_PDEATHSIG` is never delivered; a thread must share the descriptor table and file-system context (so `unshare` of either is `EINVAL` while other threads exist, and namespaces are `EPERM`); all threads of a process share one emulated CPU;
-- no vDSO image (AArch64 and RV64 map a `[vdso]` page holding only the signal-return trampoline, and no `AT_SYSINFO_EHDR` is given); an x86-64 process's `INT 0x80` calls return `-ENOSYS` (after seccomp has checked the call);
+- no vDSO image (AArch64 and RV64 map a `[vdso]` page holding only the signal-return trampoline, an ARM EABI task has the `[vectors]` kuser helpers and a `[sigpage]` with the return code, and no `AT_SYSINFO_EHDR` is given); an x86-64 process's `INT 0x80` calls return `-ENOSYS` (after seccomp has checked the call);
 - i386 (ELF32) compatibility is partial: matching-layout calls and explicit conversions cover file/path operations, split offsets, stat/statfs variants, directory entries, record locks, exec vectors, TLS, mapping, 32-bit IDs, `time32`/`time64` clocks and timers, process and resource layouts, signal dispositions, masks, alternate stacks, and `struct compat_siginfo`, i386 signal frames with `sigreturn` and `rt_sigreturn`, threads (`clone`/`clone3` with `struct user_desc` TLS, 32-bit robust lists, `futex_time32`), sockets (`socketcall`, `struct compat_msghdr` and 32-bit control messages, old timeouts, interface requests), System V IPC (the `ipc` multiplexer with the old and `*64` structures), POSIX message queues, asynchronous I/O, `select`/`pselect6`/`ppoll` (32-bit fd set words and timeouts), seccomp filters (`struct compat_sock_fprog`), tracing (a 32-bit tracer's words, structures, and i386 register view; the i386 register sets of a 32-bit tracee), and selected memory/event controls. The owning `src/user/linux/syscall/compat/` table determines exact support; unconverted calls return `ENOSYS` and unsupported `ioctl`s `ENOTTY`. `SYSENTER` raises `SIGILL`, there is no ELF 32-bit vDSO (a `[vdso]` page holds only the signal-return trampolines), and compatibility code is interpreted. Unit coverage is under `src/user/linux/tests/i386/` and `src/user/linux/abi/compat_tests.rs`; the fixture comparison includes an i386 subset recorded on Linux 6.19 for x86-64 under QEMU, while the program corpus is 64-bit only;
+- ARM EABI (ELF32 `EM_ARM`) compatibility is partial: it follows an arm64 kernel's `CONFIG_COMPAT` (arm64's `syscall_32.tbl`, `SVC` with R7, `AT_PLATFORM` `v8l`, no compat vDSO), with the `aarch32_*` register-pair wrappers, the EABI `struct stat64` and `struct compat_flock64`, `statfs64`'s size fixup, direct System V IPC calls with `IPC_64` and a 16 KiB `COMPAT_SHMLBA`, the private calls `cacheflush` and `set_tls`, and the AArch32 signal frames; the rest is i386's table where the layouts agree (`src/user/linux/syscall/compat/arm.rs`). `ptrace` register requests on or by an AArch32 thread are `EIO`. The AArch32 core's Thumb-2 decoder lacks the coprocessor and exclusive-access encodings (T32 code reading TLS with `MRC` does not run), its NEON coverage has gaps (the register shifts reject 64-bit lanes), and it has no ARMv8 load-acquire/store-release instructions (the kuser `cmpxchg` helpers use `STLEX`). Unit coverage is under `src/user/linux/tests/arm/`; no fixtures are recorded yet;
 - the emulated inotify backend (all hosts but Linux) reports only what `rax-user` processes of the host user do (another host program's changes are not seen), follows an open file's renames only within its own process, ends an inode another process removed while it was open here at once rather than at the last close, never reports `IN_UNMOUNT`, shows no file handles in `fdinfo`, and counts against the limits of a fresh kernel (128 instances, 1048576 watches, 16384 queued events); a forked process's shared closes are lost if `rax-user` itself is killed; with the host's inotify, a directory listing is read through a separate host description and `sendfile` or `copy_file_range` past 1 MiB report an access and a modification per MiB, and synthesized `/proc` entries are watched through stand-in files that report nothing;
 - seccomp has no user notification (`SECCOMP_FILTER_FLAG_NEW_LISTENER` is `EINVAL`, as on a kernel without it, so `SECCOMP_RET_USER_NOTIF` is `ENOSYS`) (`SECCOMP_RET_TRACE` is `ENOSYS` unless a tracer asked for the event); `SECCOMP_RET_LOG` and `SECCOMP_FILTER_FLAG_LOG` log nothing, `SECCOMP_FILTER_FLAG_SPEC_ALLOW` changes nothing, and `CAP_SYS_ADMIN` is being root;
 - scheduling attributes are recorded and reported, not acted on (the threads share one emulated CPU); the kernel modelled has one CPU, `CONFIG_HZ=250`, no utilization clamping (`EOPNOTSUPP`), and no `SCHED_EXT`; another process's tasks are not reachable (`ESRCH`), so process groups and users hold the caller's threads only (root always having tasks another user may not give an I/O priority); deadline admission counts only the caller's threads; a child process made with `CLONE_IO` gets a copy of the I/O context rather than sharing it (threads share it);

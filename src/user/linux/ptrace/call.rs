@@ -59,6 +59,13 @@ pub fn set_nr(cpu: &mut GuestCpu, syscall: &mut Option<SyscallEntry>, nr: i32) {
                 c.core_mut().set_x(0, Errno(ENOSYS).as_return());
             }
         }
+        // arm64's syscall_set_nr, for a compat task too.
+        GuestCpu::Arm(c) => {
+            *syscall = Some(SyscallEntry { nr: wide, arg0 });
+            if nr == -1 {
+                c.core_mut().regs[0] = Errno(ENOSYS).as_return() as u32;
+            }
+        }
         GuestCpu::Riscv64(c) => c.core_mut().set_x(17, wide),
     }
 }
@@ -98,6 +105,19 @@ pub fn args(cpu: &GuestCpu, syscall: Option<SyscallEntry>, compat: bool) -> [u64
                 core.x(15),
             ]
         }
+        // orig_x0 and r1-r5, zero-extended.
+        GuestCpu::Arm(c) => {
+            let r = &c.core().regs;
+            let arg0 = syscall.map_or(u64::from(r[0]), |s| s.arg0);
+            [
+                arg0,
+                u64::from(r[1]),
+                u64::from(r[2]),
+                u64::from(r[3]),
+                u64::from(r[4]),
+                u64::from(r[5]),
+            ]
+        }
     }
 }
 
@@ -133,6 +153,12 @@ pub fn set_args(cpu: &mut GuestCpu, syscall: &mut Option<SyscallEntry>, compat: 
         GuestCpu::Riscv64(c) => {
             for (r, &v) in a.iter().enumerate().skip(1) {
                 c.core_mut().set_x(10 + r as u8, v);
+            }
+            keep_arg0();
+        }
+        GuestCpu::Arm(c) => {
+            for (r, v) in a.into_iter().enumerate() {
+                c.core_mut().regs[r] = v as u32;
             }
             keep_arg0();
         }

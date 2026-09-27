@@ -12,6 +12,7 @@ emulators (`qemu-x86_64`, `qemu-aarch64`, `qemu-riscv64`).
 | Guest ABI | ELF `e_machine` | CPU core |
 |---|---|---|
 | i386 Linux compatibility (partial) | `EM_386` (3) or `EM_486` (6), ELFCLASS32 | RAX x86 core in IA-32e compatibility mode; interpreter only |
+| ARM EABI Linux compatibility (partial) | `EM_ARM` (40), ELFCLASS32, an EABI version in `e_flags` | RAX AArch32 core in User mode (A32 and T32); interpreter only |
 | x86-64 Linux | `EM_X86_64` (62) | RAX x86-64 interpreter with the SMIR JIT on x86-64 hosts |
 | AArch64 Linux | `EM_AARCH64` (183) | RAX AArch64 interpreter at EL0 |
 | RV64 Linux | `EM_RISCV` (243), ELFCLASS64 | RAX RISC-V interpreter in U-mode (optional SMIR JIT) |
@@ -33,7 +34,7 @@ The checked-in `hello` fixture prints its arguments/environment and returns
 returns 41. These nonzero values test exit-status propagation.
 
 The guest ABI comes from the ELF header, so the same command selects x86-64,
-AArch64, RV64, or the partial i386 compatibility path. Standard input, output,
+AArch64, RV64, or the partial i386 or ARM EABI compatibility path. Standard input, output,
 and error are the host's. The exit status is the guest's:
 
 | Status | Meaning |
@@ -71,7 +72,7 @@ bytes, not host timing, I/O, or the complete thread interleaving.
 ## What the 64-bit guest sees
 
 The following describes the x86-64, AArch64, and RV64 ABIs. The narrower
-i386 path is described separately below. The behavioral reference is the
+i386 and ARM EABI paths are described separately below. The behavioral reference is the
 vendored Linux 6.19 source; supported operations and deviations are enumerated
 in the [user-mode topic references](../architecture/user-mode.md#runtime-topics).
 
@@ -115,8 +116,8 @@ in the [user-mode topic references](../architecture/user-mode.md#runtime-topics)
   continuations with Linux statuses; `SIGCHLD` carries the child's
   `siginfo`, honors `SA_NOCLDSTOP`, and an ignored `SIGCHLD` or
   `SA_NOCLDWAIT` reaps children automatically. `execve` and `execveat`
-  load ELF programs for the supported ABIs, including partial i386
-  compatibility, and `#!` scripts, and
+  load ELF programs for the supported ABIs, including the partial i386 and
+  ARM EABI compatibility ones, and `#!` scripts, and
   keep, reset, and close what Linux does. A forked child that dies prints
   no diagnostic; its parent sees its status.
 - **Host signals.** `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGUSR1`, `SIGUSR2`,
@@ -238,13 +239,47 @@ file status/statistics, directory entries, `fcntl` record locks, and
 [`syscall::compat`](../../src/user/linux/syscall/compat/mod.rs); support
 must be checked there for the exact syscall and layout.
 
-This is a partial ABI: signal-handler installation/return, thread creation,
-sockets and `ptrace` calls lack a compatibility path.
-Calls without a conversion return `ENOSYS`; unsupported compatibility
-`ioctl`s return `ENOTTY`. `SYSENTER` raises `SIGILL`, no 32-bit vDSO is
-provided, and compatibility code does not use the JIT. A 64-bit process's
-`INT 0x80` is still refused with `ENOSYS` after seccomp checks. The recorded
-three-ISA fixture and whole-program corpora below do not exercise i386.
+Signals use the i386 frames and their returns, threads get GDT TLS through
+`CLONE_SETTLS`, sockets have the `socketcall` multiplexer and the 32-bit
+message and control structures, System V IPC the `ipc` multiplexer, and a
+32-bit tracer the compatibility `ptrace` requests and the i386 register sets.
+This is still a partial ABI: calls without a conversion return `ENOSYS`;
+unsupported compatibility `ioctl`s return `ENOTTY`. `SYSENTER` raises
+`SIGILL`, no 32-bit vDSO is provided, and compatibility code does not use the
+JIT. A 64-bit process's `INT 0x80` is still refused with `ENOSYS` after
+seccomp checks. An i386 subset of the fixture programs (and some i386-only
+ones) is recorded on a Linux 6.19 kernel; the whole-program corpus does not
+exercise i386.
+
+## ARM EABI compatibility tasks
+
+ELF32 `EM_ARM` programs with an EABI version run as an arm64 kernel runs
+AArch32 tasks (`CONFIG_COMPAT`): the AArch32 core in User mode, `SVC` with
+the number in R7 and arm64's `syscall_32.tbl` numbering, 32-bit stack words
+with `AT_PLATFORM=v8l` and the compat hardware capabilities (no
+`AT_MINSIGSTKSZ` and no vDSO). User addresses end at `0xFFFFF000`; the stack
+top and the `[vectors]` page of kuser helpers are at `0xFFFF0000`, a
+`[sigpage]` holds the signal return code, and a PIE starts at `0x400000`.
+The thread pointer is TPIDRURO (`set_tls`, `CLONE_SETTLS`). The kernel
+modelled is a distribution's: kuser helpers, no compat vDSO, and the A32 CP15
+barriers emulated (`CONFIG_CP15_BARRIER_EMULATION`).
+
+The ARM dispatcher ([`syscall::compat::arm`](../../src/user/linux/syscall/compat/arm.rs))
+applies arm64's `aarch32_*` wrappers (64-bit arguments in register pairs,
+the reordered `arm_fadvise64_64` and `arm_sync_file_range`, `statfs64`'s
+size fixup), the direct System V IPC calls with `IPC_64` in the command and
+the 16 KiB `COMPAT_SHMLBA`, and the private calls `cacheflush` and
+`set_tls`; the rest of the compatibility table is i386's where the layouts
+agree, and the EABI `struct stat64` and `struct compat_flock64` otherwise.
+Signals use the AArch32 frames with their VFP record.
+
+Limitations: register requests of `ptrace` on or by an AArch32 thread are
+`EIO`; `SWP` and `SETEND` raise `SIGILL`, as on an arm64 CPU without
+mixed-endian EL0. The AArch32 core's Thumb-2 decoder lacks the coprocessor
+and exclusive-access encodings (so T32 code that reads TLS with `MRC` does
+not run), its NEON coverage has gaps, and it has no ARMv8 load-acquire and
+store-release instructions (which the kuser `cmpxchg` helpers use). No
+recorded fixtures cover ARM EABI yet.
 
 ## Current limitations
 
@@ -293,7 +328,8 @@ corpus. Some expectations use an explicit architecture override when Rosetta
 or QEMU cannot exercise the kernel interface; `oracle-overrides.txt` records
 those cases. Whole-program output passes through declared noise filters, and
 `known-divergences.txt` is enforced exactly. Neither corpus is exhaustive
-Linux or ISA conformance, and neither covers i386 compatibility tasks.
+Linux or ISA conformance; the whole-program corpus does not cover i386, and
+neither covers ARM EABI compatibility tasks.
 Both runners use UTF-8 lossy decoding, so this evidence does not establish
 equality of arbitrary binary output.
 

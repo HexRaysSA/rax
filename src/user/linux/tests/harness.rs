@@ -2,7 +2,9 @@
 //! without executing guest code, plus helpers to write guest code and run.
 
 use super::loader::{Seg, image, image32};
-use crate::user::image::elf::{EM_386, EM_AARCH64, EM_RISCV, EM_X86_64, ET_EXEC, PF_R, PF_W, PF_X};
+use crate::user::image::elf::{
+    EM_386, EM_AARCH64, EM_ARM, EM_RISCV, EM_X86_64, ET_EXEC, PF_R, PF_W, PF_X,
+};
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::loader::ImageFile;
 use crate::user::linux::syscall::Outcome;
@@ -22,6 +24,10 @@ const AT_FDCWD: u64 = -100i64 as u64;
 pub(crate) const CODE: u64 = 0x40_0000;
 /// Base of the program's writable data segment (`[DATA, DATA + 8 KiB)`).
 pub(crate) const DATA: u64 = 0x60_0000;
+
+/// `e_flags` of an ARM EABI version 5 image with the hard-float ABI
+/// (`EF_ARM_EABI_VER5 | EF_ARM_ABI_FLOAT_HARD`), as toolchains emit.
+pub(crate) const ARM_EABI5_HARD_FLOAT: u32 = 0x0500_0400;
 
 pub(crate) struct Harness {
     pub proc: LinuxProcess,
@@ -61,6 +67,11 @@ impl Harness {
             LinuxAbi::Aarch64 => image(EM_AARCH64, ET_EXEC, 0x40_1000, &segs, None),
             LinuxAbi::Riscv64 => image(EM_RISCV, ET_EXEC, 0x40_1000, &segs, None),
             LinuxAbi::I386 => image32(EM_386, ET_EXEC, 0x40_1000, &segs),
+            LinuxAbi::Arm => {
+                let mut b = image32(EM_ARM, ET_EXEC, 0x40_1000, &segs);
+                b[36..40].copy_from_slice(&ARM_EABI5_HARD_FLOAT.to_le_bytes());
+                b
+            }
         };
         let mut config = LinuxConfig::new("/prog", vec![b"prog".to_vec()], vec![]);
         config.arena_bytes = 256 << 20;
@@ -86,8 +97,9 @@ impl Harness {
             scratch: 0,
             files: Vec::new(),
         };
-        // i386 has mmap2 (the old mmap takes a structure); fd -1 as its
-        // 32-bit register holds it.
+        // The compatibility ABIs have mmap2 (i386's old mmap takes a
+        // structure, ARM EABI has none); fd -1 as a 32-bit register holds
+        // it.
         h.scratch = if abi.is_compat() {
             h.ok(
                 Sysno::Mmap2,

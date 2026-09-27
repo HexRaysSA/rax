@@ -177,8 +177,8 @@ Then reproduce with a catchable exit and report the signal/exit path.
 For `rax-user`, first identify the ELF class/machine and use `--strace` to
 find the failing guest syscall. A missing interpreter/library needs the
 appropriate `--sysroot`; a path absent from the overlay falls back to the host.
-An i386 `ENOSYS` can indicate a missing compatibility conversion even when the
-64-bit handler exists. `INT 0x80` from a 64-bit process remains `ENOSYS`.
+An i386 or ARM EABI `ENOSYS` can indicate a missing compatibility conversion
+even when the 64-bit handler exists. `INT 0x80` from a 64-bit process remains `ENOSYS`.
 Machine GDB/checkpoint options do not apply to this binary. Compare with the
 checked-in fixture using the same ELF, inputs, and execution mode; see
 [Linux programs](getting-started/linux-programs.md) for the ABI boundary.

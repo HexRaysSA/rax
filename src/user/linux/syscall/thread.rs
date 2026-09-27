@@ -120,11 +120,12 @@ pub enum NewTls {
 
 impl NewTls {
     /// `set_new_tls`'s checks, made by `copy_thread` before the child has
-    /// a TID: a 32-bit call's `tls` is a `struct user_desc` pointer
-    /// (`do_set_thread_area` without allocation), and x86-64's
-    /// `ARCH_SET_FS` refuses a kernel address.
+    /// a TID: an i386 call's `tls` is a `struct user_desc` pointer
+    /// (`do_set_thread_area` without allocation), x86-64's `ARCH_SET_FS`
+    /// refuses a kernel address, and an ARM task's is the value of its
+    /// `tp_value` (TPIDRURO).
     pub fn new(c: &mut Ctx<'_>, tls: u64) -> Result<NewTls, Errno> {
-        if c.compat {
+        if c.compat && c.p.abi == LinuxAbi::I386 {
             let (index, descriptor) = super::compat::tls::new_tls(c, tls)?;
             return Ok(NewTls::Descriptor { index, descriptor });
         }
@@ -162,7 +163,7 @@ struct CloneArgs {
 }
 
 /// `clone`. x86-64 passes `(flags, newsp, parent_tid, child_tid, tls)`;
-/// arm64 and riscv (`CONFIG_CLONE_BACKWARDS`) swap the last two. Only the
+/// arm64, riscv, and ARM (`CONFIG_CLONE_BACKWARDS`) swap the last two. Only the
 /// low 32 bits of `flags` count; their low byte is the exit signal.
 pub fn clone(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
     match c.resume.take() {
@@ -172,8 +173,9 @@ pub fn clone(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
     }
     let (child_tid, tls) = match c.p.abi {
         LinuxAbi::X86_64 => (a[3], a[4]),
-        // compat_sys_ia32_clone has the same order.
-        LinuxAbi::Aarch64 | LinuxAbi::Riscv64 | LinuxAbi::I386 => (a[4], a[3]),
+        // compat_sys_ia32_clone has the same order, and so does an ARM
+        // task's sys_clone.
+        LinuxAbi::Aarch64 | LinuxAbi::Riscv64 | LinuxAbi::I386 | LinuxAbi::Arm => (a[4], a[3]),
     };
     let low = a[0] & CLONE_LEGACY_FLAGS;
     let args = CloneArgs {

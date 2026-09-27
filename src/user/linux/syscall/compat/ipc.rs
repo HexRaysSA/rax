@@ -43,7 +43,7 @@ pub use op::{SHMAT, SHMDT};
 
 /// `compat_ipc_parse_version`: the command without `IPC_64`, and whether it
 /// had it.
-fn parse_version(cmd: i32) -> (i32, bool) {
+pub(super) fn parse_version(cmd: i32) -> (i32, bool) {
     (cmd & !IPC_64, cmd & IPC_64 != 0)
 }
 

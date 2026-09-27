@@ -1122,6 +1122,10 @@ pub fn dispatch(
     let result = match sysno {
         Some(s) if c.compat => compat::call(&mut c, s, args),
         Some(s) => call_handler(&mut c, s, args),
+        // do_ni_syscall: an ARM task's number past the table.
+        None if abi == super::abi::LinuxAbi::Arm && nr >= compat::arm::compat32_syscalls() => {
+            compat::arm::past_table(&mut c, nr, args)
+        }
         None => Err(Errno(ENOSYS)),
     };
     // shm_open, shm_close: the calls that change System V segment

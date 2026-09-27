@@ -108,9 +108,9 @@ fn a_compatibility_task_has_the_i386_layout_and_numbers() {
     // uname -m of a compatibility task without PER_LINUX32.
     assert_eq!(a.machine(), "x86_64");
     // elf_check_arch_ia32: EM_386 or EM_486, as ELFCLASS32.
-    assert_eq!(LinuxAbi::from_elf(3, Some(ElfClass::Elf32)), Some(a));
-    assert_eq!(LinuxAbi::from_elf(6, Some(ElfClass::Elf32)), Some(a));
-    assert_eq!(LinuxAbi::from_elf(3, Some(ElfClass::Elf64)), None);
+    assert_eq!(LinuxAbi::from_elf(3, Some(ElfClass::Elf32), 0), Some(a));
+    assert_eq!(LinuxAbi::from_elf(6, Some(ElfClass::Elf32), 0), Some(a));
+    assert_eq!(LinuxAbi::from_elf(3, Some(ElfClass::Elf64), 0), None);
     // unistd_32.h.
     for (nr, s) in [
         (1, Sysno::Exit),

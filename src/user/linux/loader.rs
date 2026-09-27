@@ -225,7 +225,8 @@ impl Loader<'_> {
     /// `elf_check_arch`.
     fn check_arch(&self, image: &ElfImage<'_>) -> bool {
         let class = identify(image.bytes()).ok().and_then(|i| i.elf_class());
-        LinuxAbi::from_elf(image.header().e_machine, class) == Some(self.abi)
+        let flags = image.header().e_flags;
+        LinuxAbi::from_elf(image.header().e_machine, class, flags) == Some(self.abi)
     }
 
     /// The per-segment checks of `load_elf_binary`/`load_elf_interp`:

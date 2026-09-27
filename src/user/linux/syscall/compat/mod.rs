@@ -1,6 +1,7 @@
-//! The system calls of an i386 compatibility task
+//! The system calls of a compatibility task: an i386 one
 //! (`arch/x86/entry/syscalls/syscall_32.tbl` on an x86-64 kernel with
-//! `CONFIG_IA32_EMULATION`).
+//! `CONFIG_IA32_EMULATION`), and an ARM EABI one on arm64, whose calls
+//! [`arm`] converts where they differ from i386's.
 //!
 //! A call the table gives a native entry point whose arguments and memory
 //! layouts are the same for a 32-bit caller goes to the native handler with
@@ -15,6 +16,7 @@
 //! | Module | Contents |
 //! |---|---|
 //! | this one | the table and the calls without a module of their own |
+//! | [`arm`] | ARM EABI's calls that differ from i386's, and those past the table |
 //! | [`file`] | split and 32-bit offsets, `_llseek`, `fcntl`'s locks |
 //! | [`ipc`] | the `ipc` multiplexer and System V IPC's 32-bit structures |
 //! | [`net`] | the `socketcall` multiplexer |
@@ -24,6 +26,7 @@
 //! | [`tls`] | `set_thread_area`, `get_thread_area` |
 //! | [`uid16`] | the 16-bit user- and group-ID calls |
 
+pub mod arm;
 pub mod file;
 pub mod ipc;
 pub mod net;
@@ -69,6 +72,11 @@ const SAME_LAYOUT_IOCTLS: &[u32] = &[
 
 /// Runs system call `s` of a compatibility task.
 pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno> {
+    if c.p.abi == super::super::abi::LinuxAbi::Arm
+        && let Some(outcome) = arm::call(c, s, a)
+    {
+        return outcome;
+    }
     let r = |v: Result<u64, Errno>| v.map(Outcome::Return);
     let fd = |x: u64| x as i32;
     match s {

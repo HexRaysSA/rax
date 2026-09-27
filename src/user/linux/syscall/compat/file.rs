@@ -91,7 +91,13 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, command: u32, arg: u64, is64: bool) -> Sy
     use cmd::*;
     use locks::{getlk, setlk};
     let (process, ofd) = (Owner::Process, Owner::Description);
-    let (short, long) = (FlockLayout::Compat, FlockLayout::Compat64);
+    // struct compat_flock64: packed on x86 only.
+    let long = if c.p.abi == super::super::super::abi::LinuxAbi::Arm {
+        FlockLayout::Compat64Aligned
+    } else {
+        FlockLayout::Compat64
+    };
+    let short = FlockLayout::Compat;
     match command {
         F_GETLK64 | F_SETLK64 | F_SETLKW64 | F_OFD_GETLK | F_OFD_SETLK | F_OFD_SETLKW if !is64 => {
             Err(Errno(EINVAL))

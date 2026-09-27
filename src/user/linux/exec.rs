@@ -112,12 +112,13 @@ pub fn load_image(
 ) -> Result<ProgramImage, SpawnError> {
     let ident = identify(&req.bytes)
         .map_err(|e| SpawnError::Unsupported(format!("{}: {e}", req.exe_path)))?;
-    let abi = LinuxAbi::from_elf(ident.e_machine, ident.elf_class()).ok_or_else(|| {
-        SpawnError::Unsupported(format!(
-            "{}: ELF machine {} (class {}) is not a supported Linux ABI",
-            req.exe_path, ident.e_machine, ident.class
-        ))
-    })?;
+    let abi =
+        LinuxAbi::from_elf(ident.e_machine, ident.elf_class(), ident.e_flags).ok_or_else(|| {
+            SpawnError::Unsupported(format!(
+                "{}: ELF machine {} (class {}) is not a supported Linux ABI",
+                req.exe_path, ident.e_machine, ident.class
+            ))
+        })?;
     let reserved = if abi.isa() == crate::user::cpu::Isa::X86_64 {
         RESERVED_PHYS.to_vec()
     } else {
@@ -169,6 +170,7 @@ pub fn load_image(
         secure: false,
         hwcap: caps.hwcap,
         hwcap2: caps.hwcap2,
+        hwcap3: caps.hwcap3,
         platform: caps.platform,
         minsigstksz: caps.minsigstksz,
         vdso: None,
@@ -320,10 +322,11 @@ impl LinuxProcess {
         p.fds.close_on_exec();
         // SET_PERSONALITY: x86-64 drops READ_IMPLIES_EXEC; arm64 and riscv
         // keep the flags with PER_LINUX; an i386 program inherits the
-        // personality (set_personality_ia32 adds force_personality32, 0).
+        // personality (set_personality_ia32 adds force_personality32, 0),
+        // and so does an ARM one (COMPAT_SET_PERSONALITY).
         p.persona = match image.abi {
             LinuxAbi::X86_64 => p.persona & !super::abi::READ_IMPLIES_EXEC,
-            LinuxAbi::I386 => p.persona,
+            LinuxAbi::I386 | LinuxAbi::Arm => p.persona,
             LinuxAbi::Aarch64 | LinuxAbi::Riscv64 => p.persona & !0xff,
         };
         p.abi = image.abi;

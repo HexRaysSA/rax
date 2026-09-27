@@ -43,7 +43,7 @@ Continue with [Getting started](docs/getting-started/overview.md) for host prere
 | **AArch64 / AArch32 / Thumb / Cortex-M/R** | software Arm cores; AArch64 HVF on Apple Silicon; selected AArch64-host native lowerers | AArch64 Linux virtual machine, DT-based and profile-specific 32-bit paths, SoC and microcontroller work | native AArch64 EL0 or QEMU comparisons, generated Arm cases, machine tests, microkernel, SMIR tests | AArch64 Linux is established; no general AArch32 Linux-to-shell result is claimed |
 | **Qualcomm Hexagon** | packet-aware software emulator | bare-metal ELF machine with UART/halt integration | scalar, control-flow, floating-point, memory, HVX, HVX-memory, bare-metal, and lift targets | public ISA selector currently ends at `v69`; no general-purpose OS machine |
 | **RISC-V RV64** | software emulator; selected state-backed SMIR/native paths | bare-metal ELF machine with UART/halt integration | scalar and vector QEMU comparisons, boot test, lift tests, x86-64/AArch64-host native tests | no complete privileged architecture or Sv39 Linux-capable machine |
-| **Linux programs (`rax-user`)** | x86-64, AArch64, and RV64 software CPUs; partial i386 compatibility; admitted x86-64 regions and optional RV64 JIT | static and dynamic ELF programs, threads and child processes, guest `ptrace` | Linux-source-derived unit tests, recorded syscall fixtures and whole-program comparisons, CLI and host-signal tests | Linux/macOS hosts; one emulated CPU per process; per-ABI syscall and host-resource limits |
+| **Linux programs (`rax-user`)** | x86-64, AArch64, and RV64 software CPUs; partial i386 and ARM EABI compatibility; admitted x86-64 regions and optional RV64 JIT | static and dynamic ELF programs, threads and child processes, guest `ptrace` | Linux-source-derived unit tests, recorded syscall fixtures and whole-program comparisons, CLI and host-signal tests | Linux/macOS hosts; one emulated CPU per process; per-ABI syscall and host-resource limits |
 
 The source and executable tests define current implementation state. The detailed pages below explain what is present, what is publicly selectable, what has a registered test, what can self-skip, and what remains unsupported.
 
@@ -56,7 +56,7 @@ This root `README.md` is the **single complete documentation entrypoint**. There
 - [Getting started](docs/getting-started/overview.md) — choose the smallest path for a Linux guest, bare-metal program, bootable ISO, hardware backend, or development task.
 - [Building](docs/getting-started/building.md) — prerequisites, supported build shapes, host tuning, Make targets, PGO, C API build, release-profile consequences, and common failures.
 - [Linux guests](docs/getting-started/linux-guests.md) — checked-in AArch64 boot, AArch64 HVF, x86 software Linux, x86 KVM, image-format distinctions, serial milestones, and reproducibility records.
-- [Linux programs (`rax-user`)](docs/getting-started/linux-programs.md) — run Linux x86-64, AArch64, RV64, or partial i386 ELF programs: options, sysroot, exit statuses, processes, tracing, IPC, and ABI/host limitations.
+- [Linux programs (`rax-user`)](docs/getting-started/linux-programs.md) — run Linux x86-64, AArch64, RV64, or partial i386 and ARM EABI ELF programs: options, sysroot, exit statuses, processes, tracing, IPC, and ABI/host limitations.
 - [Bare-metal programs and bootable ISOs](docs/getting-started/bare-metal-and-iso.md) — RV64, Hexagon, microkernel, x86 real-mode/El Torito, machine-specific Arm images, stop conditions, and evidence requirements.
 - [Troubleshooting](docs/troubleshooting.md) — known baselines and targeted checks for builds, image loading, consoles, hypervisors, external oracles, JIT admission, and checkpoints.
 
@@ -144,7 +144,7 @@ External-reference and host-specific tests can self-skip when `/dev/kvm`, a requ
 - The software x86 Linux path is deliberately constrained and is not interchangeable with arbitrary KVM boot.
 - AArch64 Linux is the established Arm Linux machine; the 32-bit Arm work does not currently justify a general Linux-to-shell claim.
 - RISC-V and Hexagon are bare-metal machine paths, not general OS platforms.
-- `rax-user` runs RV64 Linux programs without a privileged RISC-V machine. Its i386 compatibility table is partial, and the three-ISA recorded corpora do not establish equivalent i386 coverage.
+- `rax-user` runs RV64 Linux programs without a privileged RISC-V machine. Its i386 and ARM EABI compatibility tables are partial: the i386 fixture subset is recorded on a Linux kernel, and ARM EABI has unit tests but no recorded fixtures yet.
 - Guest threads share one emulated CPU per process; child processes are host processes. The sysroot is a path overlay, and file/network operations can reach host resources.
 - The public Hexagon ISA selector currently reaches `v69`, despite broader historical prose.
 - Native JIT coverage is partial, host-specific, and designed to fall back to interpretation.

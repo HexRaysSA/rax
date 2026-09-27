@@ -52,8 +52,9 @@ pub fn caps(cpu: &RvUserCpu) -> ArchCaps {
     ArchCaps {
         hwcap,
         hwcap2: None,
+        hwcap3: None,
         platform: None,
-        minsigstksz: frame.div_ceil(16) * 16,
+        minsigstksz: Some(frame.div_ceil(16) * 16),
     }
 }
 

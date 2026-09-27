@@ -1,15 +1,18 @@
-//! Structures of the i386 compatibility ABI (`CONFIG_IA32_EMULATION`)
-//! without a native structure of the same layout, as a 64-bit kernel fills
-//! them. i386 aligns 64-bit fields to 4 bytes.
+//! Structures of the compatibility ABIs (i386's `CONFIG_IA32_EMULATION` and
+//! ARM EABI on arm64) without a native structure of the same layout, as a
+//! 64-bit kernel fills them. i386 aligns 64-bit fields to 4 bytes, ARM EABI
+//! to 8.
 //!
 //! | Structure | Layout | Filled by |
 //! |---|---|---|
 //! | `struct stat64` (96 bytes) | `arch/x86/include/uapi/asm/stat.h` | `cp_stat64` (`arch/x86/kernel/sys_ia32.c`) |
+//! | ARM EABI `struct stat64` (104 bytes) | `arch/arm64/include/asm/stat.h` | `cp_new_stat64` (`fs/stat.c`) |
 //! | `struct __old_kernel_stat` (32 bytes) | `asm/stat.h`, the 64-bit branch | `cp_old_stat` (`fs/stat.c`) |
 //! | `struct compat_statfs` (64 bytes) | `arch/x86/include/asm/compat.h` | `put_compat_statfs` (`fs/statfs.c`) |
 //! | `struct compat_statfs64` (84 bytes, packed) | `asm-generic/statfs.h` | `put_compat_statfs64` |
 //!
-//! `struct compat_stat` is [`Stat::encode`] for [`super::LinuxAbi::I386`].
+//! `struct compat_stat`, the same for both, is [`Stat::encode`] for
+//! [`super::LinuxAbi::I386`] and [`super::LinuxAbi::Arm`].
 
 use super::types::{Encoder, Kstatfs, Stat, encode_dev, low_id};
 
@@ -43,6 +46,38 @@ pub fn encode_stat64(st: &Stat) -> Vec<u8> {
         .u32(st.ctime.nsec as u32)
         .u64(st.ino);
     debug_assert_eq!(e.len(), 96);
+    e.finish()
+}
+
+/// ARM EABI's `struct stat64` as `cp_new_stat64` fills it: the whole
+/// structure, zeroed first (`INIT_STRUCT_STAT64_PADDING`), the device
+/// numbers in 64-bit fields (`huge_encode_dev`), the inode number both
+/// truncated (`__st_ino`) and whole (`st_ino`, so never `EOVERFLOW`),
+/// 32-bit IDs and times, and the 64-bit fields at 8-byte offsets.
+pub fn encode_stat64_eabi(st: &Stat) -> Vec<u8> {
+    let mut e = Encoder::new();
+    e.u64(encode_dev(st.dev_major, st.dev_minor))
+        .zeros(4)
+        .u32(st.ino as u32)
+        .u32(st.mode)
+        .u32(st.nlink as u32)
+        .u32(st.uid)
+        .u32(st.gid)
+        .u64(encode_dev(st.rdev_major, st.rdev_minor))
+        .zeros(4)
+        .align(8)
+        .i64(st.size)
+        .u32(st.blksize as u32)
+        .align(8)
+        .i64(st.blocks)
+        .u32(st.atime.sec as u32)
+        .u32(st.atime.nsec as u32)
+        .u32(st.mtime.sec as u32)
+        .u32(st.mtime.nsec as u32)
+        .u32(st.ctime.sec as u32)
+        .u32(st.ctime.nsec as u32)
+        .u64(st.ino);
+    debug_assert_eq!(e.len(), 104);
     e.finish()
 }
 

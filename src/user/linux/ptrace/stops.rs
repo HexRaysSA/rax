@@ -40,14 +40,23 @@ use super::{EVENT_SECCOMP, Exiting, StopKind, call};
 /// number outside the table is no call at all.
 const RISCV_NR_SYSCALLS: i32 = 471;
 
-/// `report_syscall`: while stopped at a system call, AArch64's `x7` holds
-/// the direction; its own value is put back as the thread goes on.
+/// `report_syscall`: while stopped at a system call, AArch64's `x7` (an
+/// ARM task's `r12`) holds the direction; its own value is put back as the
+/// thread goes on.
 fn show_direction(t: &mut Thread, dir: u64) {
-    if let GuestCpu::Aarch64(c) = &mut t.cpu
-        && let Some(s) = t.ptrace.as_mut().and_then(|tr| tr.stop.as_mut())
-    {
-        s.saved = Some(c.core().get_x(7));
-        c.core_mut().set_x(7, dir);
+    let Some(s) = t.ptrace.as_mut().and_then(|tr| tr.stop.as_mut()) else {
+        return;
+    };
+    match &mut t.cpu {
+        GuestCpu::Aarch64(c) => {
+            s.saved = Some(c.core().get_x(7));
+            c.core_mut().set_x(7, dir);
+        }
+        GuestCpu::Arm(c) => {
+            s.saved = Some(u64::from(c.core().regs[12]));
+            c.core_mut().regs[12] = dir as u32;
+        }
+        _ => {}
     }
 }
 
@@ -99,7 +108,8 @@ impl LinuxProcess {
     /// `syscall(-1)`, whose `x0` would otherwise come back.
     fn entry_view(&mut self, idx: usize) {
         let t = &mut self.threads[idx];
-        if self.state.abi != LinuxAbi::Aarch64 || call::nr(&t.cpu, t.syscall) == -1 {
+        let arm64 = matches!(self.state.abi, LinuxAbi::Aarch64 | LinuxAbi::Arm);
+        if !arm64 || call::nr(&t.cpu, t.syscall) == -1 {
             t.cpu.set_syscall_result(Errno(ENOSYS).as_return());
         }
     }
@@ -339,8 +349,8 @@ impl LinuxProcess {
                 }
             }
             // syscall_trace_exit: stepping reports in place of the exit
-            // stop, whatever the entry was.
-            LinuxAbi::Aarch64 => {
+            // stop, whatever the entry was (arm64, a compat task's too).
+            LinuxAbi::Aarch64 | LinuxAbi::Arm => {
                 if mode.step {
                     self.step_report(idx);
                     return false;

@@ -280,8 +280,9 @@ impl Stat {
     }
 
     /// Encodes `struct stat` for `abi`: 144 bytes on x86-64, 128 bytes in the
-    /// asm-generic layout used by arm64 and riscv, and i386's 64-byte
-    /// `struct compat_stat` as `cp_compat_stat` fills it (the caller checks
+    /// asm-generic layout used by arm64 and riscv, and the 64-byte `struct
+    /// compat_stat` of i386 and of ARM on arm64 (the same fields) as
+    /// `cp_compat_stat` fills it (the caller checks
     /// [`Stat::compat_overflow`] first).
     pub fn encode(&self, abi: LinuxAbi) -> Vec<u8> {
         let dev = encode_dev(self.dev_major, self.dev_minor);
@@ -332,7 +333,7 @@ impl Stat {
                     .u32(0);
                 debug_assert_eq!(e.len(), 128);
             }
-            LinuxAbi::I386 => {
+            LinuxAbi::I386 | LinuxAbi::Arm => {
                 e.u32(dev as u32)
                     .u32(self.ino as u32)
                     .u16(self.mode as u16)

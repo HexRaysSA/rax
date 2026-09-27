@@ -86,6 +86,7 @@ fn put_vector(cpu: &mut GuestCpu, n: u8, v: u128) {
         }
         GuestCpu::Aarch64(c) => c.core_mut().set_simd(n, v),
         GuestCpu::Riscv64(c) => c.core_mut().set_f(n, v as u64),
+        GuestCpu::Arm(_) => unreachable!("each_abi yields the 64-bit ABIs"),
     }
 }
 
@@ -99,7 +100,7 @@ fn floating_point_registers_as_each_architecture_lays_them_out() {
             // user_fpsimd_state: v0 at 0, fpsr at 512, fpcr at 516.
             LinuxAbi::Aarch64 => (4, 528, 0, 516),
             // __riscv_d_ext_state: f0 at 0, fcsr at 256.
-            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
+            LinuxAbi::I386 | LinuxAbi::Arm => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::Riscv64 => (8, 264, 0, 256),
         };
         assert_eq!(
@@ -117,7 +118,7 @@ fn floating_point_registers_as_each_architecture_lays_them_out() {
         let tail = match abi {
             LinuxAbi::X86_64 => 416,
             LinuxAbi::Aarch64 => 520,
-            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
+            LinuxAbi::I386 | LinuxAbi::Arm => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::Riscv64 => 260,
         };
         assert!(b[tail..].iter().all(|&x| x == 0));
@@ -127,7 +128,7 @@ fn floating_point_registers_as_each_architecture_lays_them_out() {
         let rounding: u32 = match abi {
             LinuxAbi::X86_64 => 0x3f80,   // MXCSR round down.
             LinuxAbi::Aarch64 => 1 << 22, // FPCR.RMode: +inf.
-            LinuxAbi::I386 => unreachable!("each_abi yields the 64-bit ABIs"),
+            LinuxAbi::I386 | LinuxAbi::Arm => unreachable!("each_abi yields the 64-bit ABIs"),
             LinuxAbi::Riscv64 => 2 << 5, // frm: round down.
         };
         w[ctl..ctl + 4].copy_from_slice(&rounding.to_le_bytes());

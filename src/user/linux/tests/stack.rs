@@ -19,8 +19,9 @@ fn aux(platform: Option<&'static str>, hwcap2: Option<u64>) -> AuxInfo {
         secure: false,
         hwcap: 0xabcd,
         hwcap2,
+        hwcap3: None,
         platform,
-        minsigstksz: 3216,
+        minsigstksz: Some(3216),
         vdso: None,
     }
 }
@@ -191,6 +192,27 @@ fn riscv_has_cache_entries_and_no_platform() {
     assert!(!tags.contains(&AT_PLATFORM));
     assert!(!tags.contains(&AT_HWCAP2));
     assert_eq!(*tags.last().unwrap(), AT_NULL);
+}
+
+#[test]
+fn an_arm_task_has_no_arch_dlinfo_and_hwcap3_after_hwcap2() {
+    let mut a = aux(Some("v8l"), Some(0));
+    a.hwcap3 = Some(0);
+    a.minsigstksz = None;
+    let (_, st) = build(LinuxAbi::Arm, &["p"], &[], "p", &a);
+    let tags: Vec<u64> = st.auxv.iter().map(|&(t, _)| t).collect();
+    use at::*;
+    // COMPAT_ARCH_DLINFO without a compat vDSO is empty: AT_HWCAP first.
+    assert_eq!(tags[0], AT_HWCAP);
+    assert!(!tags.contains(&AT_MINSIGSTKSZ));
+    // create_elf_tables: AT_RANDOM, AT_HWCAP2, AT_HWCAP3, AT_EXECFN.
+    let at = tags.iter().position(|&t| t == AT_RANDOM).unwrap();
+    assert_eq!(
+        tags[at..at + 5],
+        [AT_RANDOM, AT_HWCAP2, AT_HWCAP3, AT_EXECFN, AT_PLATFORM]
+    );
+    // Four-byte words, 8-byte-aligned: argc, argv, NULL, NULL, the pairs.
+    assert_eq!(st.sp % 8, 0);
 }
 
 #[test]

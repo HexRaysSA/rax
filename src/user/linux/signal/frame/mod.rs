@@ -12,12 +12,14 @@
 //! | [`ia32`] | `arch/x86/kernel/signal_32.c`, `fpu/signal.c`, `fpu/regset.c` |
 //! | [`aarch64`] | `arch/arm64/kernel/signal.c`, `ptrace.c` (`valid_user_regs`) |
 //! | [`riscv64`] | `arch/riscv/kernel/signal.c` |
+//! | [`arm`] | `arch/arm64/kernel/signal32.c`, `ptrace.c` (`valid_compat_regs`) |
 //!
 //! Frames are written with the permission checks of `copy_to_user`: a store
 //! the page tables forbid makes frame setup fail, and the caller forces
 //! `SIGSEGV` as `signal_setup_done` does.
 
 pub mod aarch64;
+pub mod arm;
 pub mod ia32;
 pub mod riscv64;
 pub mod x86_64;
@@ -223,6 +225,8 @@ pub fn map_sigtramp(
     let words = |code: &[u32]| -> Vec<u8> { code.iter().flat_map(|w| w.to_le_bytes()).collect() };
     let (bytes, entry): (Vec<u8>, u64) = match abi {
         LinuxAbi::X86_64 => return Ok(0),
+        // The [vectors] page and the [sigpage].
+        LinuxAbi::Arm => return arm::map_pages(space, mmap_base),
         LinuxAbi::I386 => (ia32::vdso_code().to_vec(), 0),
         LinuxAbi::Aarch64 => (words(&[0xd503_201f, 0xd280_1168, 0xd400_0001]), 4),
         LinuxAbi::Riscv64 => (words(&[0x08b0_0893, 0x0000_0073]), 0),
@@ -263,6 +267,7 @@ pub fn setup_rt_frame(
         GuestCpu::X86_64(cpu) => x86_64::setup_rt_frame(cpu, &alt, &fault, space, d),
         GuestCpu::Aarch64(cpu) => aarch64::setup_rt_frame(cpu, &alt, &fault, space, d, sigtramp),
         GuestCpu::Riscv64(cpu) => riscv64::setup_rt_frame(cpu, &alt, space, d, sigtramp),
+        GuestCpu::Arm(cpu) => arm::setup_frame(cpu, &alt, &fault, space, d, sigtramp),
     }
 }
 
@@ -285,11 +290,12 @@ pub fn rt_sigreturn(
         GuestCpu::X86_64(cpu) => x86_64::rt_sigreturn(cpu, &mut st, space),
         GuestCpu::Aarch64(cpu) => aarch64::rt_sigreturn(cpu, &mut st, space),
         GuestCpu::Riscv64(cpu) => riscv64::rt_sigreturn(cpu, &mut st, space),
+        GuestCpu::Arm(cpu) => arm::sigreturn(cpu, &mut st, space, true),
     }
 }
 
-/// `sigreturn`, the non-RT frame's return: only the 32-bit x86 call
-/// (`compat_sys_sigreturn`) exists.
+/// `sigreturn`, the non-RT frame's return: only the 32-bit x86 and ARM
+/// calls (`compat_sys_sigreturn`) exist.
 pub fn sigreturn(
     t: &mut Thread,
     space: &AddressSpace,
@@ -302,8 +308,9 @@ pub fn sigreturn(
     };
     match &mut t.cpu {
         GuestCpu::X86_64(cpu) => ia32::sigreturn(cpu, &mut st, space),
+        GuestCpu::Arm(cpu) => arm::sigreturn(cpu, &mut st, space, false),
         _ => Err(SigreturnError::Unsupported(
-            "sigreturn outside the i386 ABI",
+            "sigreturn outside the i386 and ARM ABIs",
         )),
     }
 }

@@ -59,8 +59,11 @@ fn affinity_checks_the_length_before_the_task() {
     });
 }
 
+/// `override_architecture` (`kernel/sys.c`): `COMPAT_UTS_MACHINE` for
+/// `PER_LINUX32`, `i686` on x86-64 and `armv8l` on arm64
+/// (`asm/compat.h`); RISC-V defines none.
 #[test]
-fn per_linux32_shows_the_32_bit_machine_on_x86() {
+fn per_linux32_shows_the_32_bit_machine() {
     each_abi(|abi| {
         let mut h = Harness::new(abi);
         let m = h.scratch;
@@ -69,10 +72,10 @@ fn per_linux32_shows_the_32_bit_machine_on_x86() {
         let mut b = [0u8; 8];
         h.proc.state.space.read_raw(m + 4 * 65, &mut b).unwrap();
         let machine = std::str::from_utf8(&b).unwrap().trim_end_matches('\0');
-        let want = if abi == LinuxAbi::X86_64 {
-            "i686"
-        } else {
-            abi.machine()
+        let want = match abi {
+            LinuxAbi::X86_64 => "i686",
+            LinuxAbi::Aarch64 => "armv8l",
+            _ => abi.machine(),
         };
         assert_eq!(machine, want, "{abi:?}");
     });

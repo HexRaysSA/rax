@@ -17,7 +17,7 @@ pub mod types;
 pub use syscalls::Sysno;
 
 use crate::user::cpu::Isa;
-use crate::user::image::elf::{EM_386, EM_AARCH64, EM_RISCV, EM_X86_64, ElfClass, ElfData};
+use crate::user::image::elf::{EM_386, EM_AARCH64, EM_ARM, EM_RISCV, EM_X86_64, ElfClass, ElfData};
 
 /// A Linux user ABI.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -32,6 +32,11 @@ pub enum LinuxAbi {
     /// compatibility task, `int $0x80` with the `syscall_32.tbl` numbering,
     /// a 4 GiB address space, and 32-bit structure layouts.
     I386,
+    /// ARM EABI on an arm64 kernel (`CONFIG_COMPAT`): a 32-bit AArch32
+    /// compatibility task, `svc #0` with `r7` and the `syscall_32.tbl`
+    /// numbering, the address space below the `[vectors]` page, and the
+    /// EABI's 32-bit structure layouts (64-bit fields 8-byte aligned).
+    Arm,
 }
 
 /// `EM_486`, which `elf_check_arch_ia32` accepts too.
@@ -97,11 +102,14 @@ impl LinuxAbi {
     /// Every supported 64-bit ABI.
     pub const ALL: [LinuxAbi; 3] = [LinuxAbi::X86_64, LinuxAbi::Aarch64, LinuxAbi::Riscv64];
 
-    /// The ABI for an ELF machine and class, if supported.
-    pub fn from_elf(machine: u16, class: Option<ElfClass>) -> Option<LinuxAbi> {
+    /// The ABI for an ELF machine, class, and `e_flags`, if supported.
+    pub fn from_elf(machine: u16, class: Option<ElfClass>, flags: u32) -> Option<LinuxAbi> {
         match (machine, class) {
             // compat_binfmt_elf: an ELFCLASS32 image for elf_check_arch_ia32.
             (EM_386 | EM_486, Some(ElfClass::Elf32)) => Some(LinuxAbi::I386),
+            // compat_elf_check_arch: an EABI image (any EABI version in
+            // EF_ARM_EABI_MASK; arm64 runs no OABI program).
+            (EM_ARM, Some(ElfClass::Elf32)) if flags & EF_ARM_EABI_MASK != 0 => Some(LinuxAbi::Arm),
             (EM_X86_64, _) => Some(LinuxAbi::X86_64),
             (EM_AARCH64, _) => Some(LinuxAbi::Aarch64),
             // arch/riscv elf_check_arch() also requires ELFCLASS64 for RV64.
@@ -116,18 +124,22 @@ impl LinuxAbi {
             LinuxAbi::X86_64 | LinuxAbi::I386 => Isa::X86_64,
             LinuxAbi::Aarch64 => Isa::Aarch64,
             LinuxAbi::Riscv64 => Isa::Riscv64,
+            LinuxAbi::Arm => Isa::Arm,
         }
     }
 
     /// `uname -m`: the kernel's machine (a compatibility task sees
-    /// `x86_64` unless its personality is `PER_LINUX32`).
+    /// `x86_64` or `aarch64` unless its personality is `PER_LINUX32`).
     pub fn machine(self) -> &'static str {
-        self.isa().name()
+        match self {
+            LinuxAbi::Arm => Isa::Aarch64.name(),
+            _ => self.isa().name(),
+        }
     }
 
     /// Whether the ABI is a 32-bit compatibility one.
     pub fn is_compat(self) -> bool {
-        matches!(self, LinuxAbi::I386)
+        matches!(self, LinuxAbi::I386 | LinuxAbi::Arm)
     }
 
     /// `sizeof(long)` and of a pointer in the ABI, in bytes.
@@ -142,6 +154,7 @@ impl LinuxAbi {
             LinuxAbi::Aarch64 => EM_AARCH64,
             LinuxAbi::Riscv64 => EM_RISCV,
             LinuxAbi::I386 => EM_386,
+            LinuxAbi::Arm => EM_ARM,
         }
     }
 
@@ -164,6 +177,7 @@ impl LinuxAbi {
             LinuxAbi::I386 => syscalls::i386_sysno(u64::from(nr as u32)),
             LinuxAbi::Aarch64 => syscalls::aarch64_sysno(u64::from(nr as u32)),
             LinuxAbi::Riscv64 => syscalls::riscv64_sysno(nr),
+            LinuxAbi::Arm => syscalls::arm_sysno(u64::from(nr as u32)),
         }
     }
 
@@ -174,6 +188,7 @@ impl LinuxAbi {
             LinuxAbi::Aarch64 => syscalls::AARCH64_TABLE,
             LinuxAbi::Riscv64 => syscalls::RISCV64_TABLE,
             LinuxAbi::I386 => syscalls::I386_TABLE,
+            LinuxAbi::Arm => syscalls::ARM_TABLE,
         };
         table.iter().find(|(_, s)| *s == sysno).map(|(n, _)| *n)
     }
@@ -187,12 +202,16 @@ impl LinuxAbi {
     /// - riscv: Sv48 `TASK_SIZE_64 = PGDIR_SIZE * PTRS_PER_PGD / 2 = 1 << 47`.
     /// - i386: `IA32_PAGE_OFFSET = 0xFFFFE000` (`page_64_types.h`, without
     ///   `ADDR_LIMIT_3GB`).
+    /// - ARM on arm64: `TASK_SIZE_32 = 0x100000000 - PAGE_SIZE` (4 KiB
+    ///   pages), which leaves room for the `[vectors]` page at
+    ///   [`AARCH32_VECTORS_BASE`].
     pub fn task_size(self) -> u64 {
         match self {
             LinuxAbi::X86_64 => (1 << 47) - PAGE_SIZE,
             LinuxAbi::Aarch64 => 1 << 48,
             LinuxAbi::Riscv64 => 1 << 47,
             LinuxAbi::I386 => 0xFFFF_E000,
+            LinuxAbi::Arm => 0x1_0000_0000 - PAGE_SIZE,
         }
     }
 
@@ -204,15 +223,22 @@ impl LinuxAbi {
     pub fn user_ptr_max(self) -> u64 {
         match self {
             LinuxAbi::I386 => LinuxAbi::X86_64.task_size(),
+            // arm64's TASK_SIZE_MAX, whatever the task.
+            LinuxAbi::Arm => LinuxAbi::Aarch64.task_size(),
             _ => self.task_size(),
         }
     }
 
     /// `STACK_TOP` (and the default mmap window end) without randomization:
     /// `DEFAULT_MAP_WINDOW` on x86-64 and riscv, `TASK_SIZE_64` on arm64,
-    /// `TASK_SIZE_LOW = IA32_PAGE_OFFSET` for i386.
+    /// `TASK_SIZE_LOW = IA32_PAGE_OFFSET` for i386, and
+    /// [`AARCH32_VECTORS_BASE`] for ARM on arm64 (`STACK_TOP` of a
+    /// `TIF_32BIT` task).
     pub fn stack_top(self) -> u64 {
-        self.task_size()
+        match self {
+            LinuxAbi::Arm => AARCH32_VECTORS_BASE,
+            _ => self.task_size(),
+        }
     }
 
     /// `ELF_ET_DYN_BASE`, the load address of a PIE with an interpreter
@@ -220,12 +246,14 @@ impl LinuxAbi {
     /// mmap window (`DEFAULT_MAP_WINDOW / 3 * 2` on x86-64 and riscv,
     /// `2 * DEFAULT_MAP_WINDOW_64 / 3` on arm64); for i386
     /// `COMPAT_ELF_ET_DYN_BASE = TASK_UNMAPPED_BASE + 0x1000000`, with
-    /// `TASK_UNMAPPED_BASE = PAGE_ALIGN(TASK_SIZE_LOW / 3)` (0x56555000).
+    /// `TASK_UNMAPPED_BASE = PAGE_ALIGN(TASK_SIZE_LOW / 3)` (0x56555000);
+    /// for ARM on arm64 `COMPAT_ELF_ET_DYN_BASE = 0x400000`, as on arm.
     pub fn elf_et_dyn_base(self) -> u64 {
         match self {
             LinuxAbi::X86_64 | LinuxAbi::Riscv64 => self.stack_top() / 3 * 2,
             LinuxAbi::Aarch64 => 2 * self.stack_top() / 3,
             LinuxAbi::I386 => (self.stack_top() / 3).div_ceil(PAGE_SIZE) * PAGE_SIZE + 0x100_0000,
+            LinuxAbi::Arm => 0x40_0000,
         }
     }
 
@@ -248,11 +276,11 @@ impl LinuxAbi {
 
     /// The architecture's `O_DIRECTORY`, `O_NOFOLLOW`, `O_DIRECT`, and
     /// `O_LARGEFILE` encodings; every other open flag is shared
-    /// (`asm-generic/fcntl.h`). arm64 overrides these four in
-    /// `arch/arm64/include/uapi/asm/fcntl.h`.
+    /// (`asm-generic/fcntl.h`). arm64 and arm override these four in
+    /// `arch/arm{64,}/include/uapi/asm/fcntl.h`.
     pub fn open_flags(self) -> OpenFlagLayout {
         match self {
-            LinuxAbi::Aarch64 => OpenFlagLayout {
+            LinuxAbi::Aarch64 | LinuxAbi::Arm => OpenFlagLayout {
                 directory: 0o40000,
                 nofollow: 0o100000,
                 direct: 0o200000,
@@ -289,9 +317,23 @@ impl LinuxAbi {
             LinuxAbi::Aarch64 => 0xC000_00B7,
             LinuxAbi::Riscv64 => 0xC000_00F3,
             LinuxAbi::I386 => AUDIT_ARCH_I386,
+            LinuxAbi::Arm => AUDIT_ARCH_ARM,
         }
     }
 }
+
+/// `EF_ARM_EABI_MASK` (`arch/arm64/include/asm/elf.h`): the EABI version
+/// of an ARM image, zero for the old ABI.
+pub const EF_ARM_EABI_MASK: u32 = 0xff00_0000;
+
+/// `AARCH32_VECTORS_BASE` (`arch/arm64/include/asm/processor.h`): the
+/// `[vectors]` page of the kuser helpers, and a compatibility task's
+/// `STACK_TOP`.
+pub const AARCH32_VECTORS_BASE: u64 = 0xffff_0000;
+
+/// `AUDIT_ARCH_ARM` (`EM_ARM | __AUDIT_ARCH_LE`): an arm64 thread's
+/// AArch32 calls.
+pub const AUDIT_ARCH_ARM: u32 = 0x4000_0028;
 
 /// `AUDIT_ARCH_I386`: the architecture of an x86-64 thread's `INT 0x80`
 /// calls.

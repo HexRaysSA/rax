@@ -2,6 +2,7 @@
 
 mod admin;
 mod aio;
+mod arm;
 mod entry;
 mod epoll;
 mod events;

@@ -82,6 +82,8 @@ pub fn prstatus_size(cpu: &GuestCpu) -> usize {
         GuestCpu::Aarch64(_) => 34 * 8,
         // user_regs_struct: pc, then x1-x31.
         GuestCpu::Riscv64(_) => 32 * 8,
+        // compat_elf_gregset_t: r0-r15, cpsr, orig_r0.
+        GuestCpu::Arm(_) => 18 * 4,
     }
 }
 
@@ -90,6 +92,9 @@ pub fn prstatus_size(cpu: &GuestCpu) -> usize {
 /// when `i386` (`x86_32_regsets`), `EINVAL` for one it does not have
 /// (`find_regset`).
 pub fn layout(cpu: &GuestCpu, i386: bool, nt: u64) -> Result<(u64, u64), Errno> {
+    if matches!(cpu, GuestCpu::Arm(_)) {
+        return Err(Errno(EIO));
+    }
     if let (true, GuestCpu::X86_64(c)) = (i386, cpu) {
         return Ok(match nt {
             NT_PRSTATUS => (4, regs32::REGS32 as u64),
@@ -232,6 +237,8 @@ pub fn fpregs(cpu: &GuestCpu) -> Vec<u8> {
             b.extend_from_slice(&[0; 4]);
             b
         }
+        // Not reached: an AArch32 thread's register requests are EIO.
+        GuestCpu::Arm(_) => Vec::new(),
     }
 }
 
@@ -241,6 +248,8 @@ pub fn fpregs(cpu: &GuestCpu) -> Vec<u8> {
 /// reserved words and padding are not kept).
 pub fn set_fpregs(cpu: &mut GuestCpu, bytes: &[u8]) -> Result<(), Errno> {
     match cpu {
+        // An AArch32 thread's register views are not implemented.
+        GuestCpu::Arm(_) => Err(Errno(EIO)),
         GuestCpu::X86_64(c) => {
             if bytes.len() != X86_FXSAVE {
                 return Err(Errno(EINVAL));
@@ -342,6 +351,8 @@ fn orig(syscall: Option<SyscallEntry>) -> u64 {
 /// thread is in (x86-64's `orig_rax`).
 pub fn prstatus(cpu: &GuestCpu, syscall: Option<SyscallEntry>) -> Vec<u8> {
     let words: Vec<u64> = match cpu {
+        // Not reached: an AArch32 thread's register requests are EIO.
+        GuestCpu::Arm(_) => Vec::new(),
         GuestCpu::X86_64(c) => {
             let v = c.vcpu();
             let r = v.user_regs();
@@ -412,6 +423,8 @@ pub fn set_prstatus(
         .map(|c| u64::from_le_bytes(c.try_into().unwrap()))
         .collect();
     let pc = match cpu {
+        // An AArch32 thread's register views are not implemented.
+        GuestCpu::Arm(_) => return Err(Errno(EIO)),
         GuestCpu::X86_64(_) => {
             for (i, &w) in words.iter().enumerate() {
                 poke_user(cpu, syscall, 8 * i as u64, w)?;
