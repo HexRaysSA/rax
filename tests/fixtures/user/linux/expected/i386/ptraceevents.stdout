@@ -1,0 +1,15 @@
+ok clone-event
+ok clone-thread-stop
+ok thread-exit-event
+ok exit-event
+ok thread-reaped
+ok exited
+ok fatal-signal-stop
+ok fatal-exit-event
+ok fatal-died
+ok seccomp-event
+ok seccomp-info
+ok seccomp-again
+ok seccomp-skip
+ok seccomp-results
+PASSED

@@ -13,18 +13,19 @@ runs in parallel must not see each other's queues and identifiers.
 
 The execution matrix is x86-64, AArch64, and RV64 for every case, and
 i386 for the cases whose programs `build.sh` builds for it: those that run
-as compatibility tasks so far (the rest need calls without a 32-bit
-conversion yet, such as `ptrace`, have
-64-bit-only code, or check what the oracle kernel's configuration changes;
-`build.sh` names each), and the cases of `cases-i386.txt`, whose programs
-are built for i386 alone (`sigframes`: the i386 signal frames, printed
+as compatibility tasks (the rest have 64-bit-only code, take a branch meant
+for another architecture, or check what the oracle kernel's configuration
+changes; `build.sh` names each), and the cases of `cases-i386.txt`, whose
+programs are built for i386 alone (`sigframes`: the i386 signal frames, printed
 relative to a fixed alternate stack; `futex32`: the 32-bit robust list and
 futex timeouts; `ipc32`: System V IPC's direct calls, the `ipc`
 multiplexer's old structures, and its other forms that libc does not
 use; `mq32`, `aio32`, and `select32`: the 32-bit structures, counts, and
 timeouts of message queues, asynchronous I/O, and `select`, `pselect6`, and
 `ppoll`; `seccomp32`: `struct compat_sock_fprog` and the `struct
-seccomp_data` of a 32-bit call). The i386 results come from
+seccomp_data` of a 32-bit call; `ptrace32`: a 32-bit tracer's words and
+structures, the i386 register view, and a stop ended by `SIGKILL`). The i386
+results come from
 Linux 6.19 for x86-64 itself (see [Kernel oracle](#kernel-oracle)); the
 library tests under `src/user/linux/tests/i386/` cover the conversions
 call by call.
@@ -115,8 +116,8 @@ call by call.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 204 binaries (54 programs × 3 architectures, and 42 for i386,
-  seven of them i386-only), 7,912 KiB in total (`du -k`); each
+- Size: 209 binaries (54 programs × 3 architectures, and 47 for i386,
+  eight of them i386-only), 8,052 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).

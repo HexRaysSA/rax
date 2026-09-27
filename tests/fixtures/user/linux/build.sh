@@ -54,16 +54,18 @@ for target in "${targets[@]}"; do
 done
 
 # i386 (x86-linux-musl) builds of the programs whose cases run as
-# compatibility tasks so far. The rest need calls without a 32-bit
-# conversion yet (ptrace), have 64-bit-only code (iovec's `1UL << 62`
-# lengths and kernel addresses), or check behavior the oracle kernel's
+# compatibility tasks. The rest have 64-bit-only code (iovec's `1UL << 62`
+# lengths and kernel addresses; ptrace, ptracestops, and ptraceregs do not
+# build for i386), take a branch meant for another architecture
+# (ptraceblock's i386 build assumes no block stepping, and its next check
+# then races the resumed tracee), or check behavior the oracle kernel's
 # configuration changes: sockets (its HZ=250 rounds socket timeouts up to
 # 4 ms jiffies) and fdinfo (its timerfd check races on the emulated
-# machine). sigframes, futex32, ipc32, mq32, aio32, select32, and
-# seccomp32 are i386-only programs (their cases are in cases-i386.txt). Their expected
-# results come from a real x86-64 kernel (oracle/record-kernel.sh), not from
-# Docker.
-i386_programs=(hello fileio memory mman memfd nodes signals shmem locks threads threadexit exec fork sched procmem stdin segv abort trap epoll sockmsg pidfd xattr misc netlink ifreq inotify splice mlock mseal sysvshm sysvsem sysvmsg mqueue aio sigframes futex32 ipc32 mq32 aio32 select32 seccomp32)
+# machine). sigframes, futex32, ipc32, mq32, aio32, select32, seccomp32, and
+# ptrace32 are i386-only programs (their cases are in cases-i386.txt). Their
+# expected results come from a real x86-64 kernel (oracle/record-kernel.sh),
+# not from Docker.
+i386_programs=(hello fileio memory mman memfd nodes signals shmem locks threads threadexit exec fork sched procmem stdin segv abort trap epoll sockmsg pidfd xattr misc netlink ifreq inotify splice mlock mseal sysvshm sysvsem sysvmsg mqueue aio ptracejobs ptraceevents ptracefork ptraceseccomp sigframes futex32 ipc32 mq32 aio32 select32 seccomp32 ptrace32)
 mkdir -p bin/i386
 for prog in "${i386_programs[@]}"; do
     out="bin/i386/$prog"

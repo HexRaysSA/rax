@@ -1185,6 +1185,30 @@ target = "x86-linux-musl"
 sha256 = "82c03db518be4f35552bce3698956d2f6fdebc6fc7be61fd0a9490c23b8f5b92"
 
 [[fixture]]
+path = "bin/i386/ptracejobs"
+source = "src/ptracejobs.c"
+target = "x86-linux-musl"
+sha256 = "5dcb5848c5d276e8c5cffa550c865302a01006b2d59cdc682804cd2d2638dd9c"
+
+[[fixture]]
+path = "bin/i386/ptraceevents"
+source = "src/ptraceevents.c"
+target = "x86-linux-musl"
+sha256 = "512e9551eeb1136198023c18120ebec24edeb6558a71c1f0d243e0e9a9e63960"
+
+[[fixture]]
+path = "bin/i386/ptracefork"
+source = "src/ptracefork.c"
+target = "x86-linux-musl"
+sha256 = "df72596f9b0d6955621b658c145fd87414d061cdacdece4975d9f6d63cf0d24a"
+
+[[fixture]]
+path = "bin/i386/ptraceseccomp"
+source = "src/ptraceseccomp.c"
+target = "x86-linux-musl"
+sha256 = "ae5ca88bc6d5ddc2cf1d1ee9c9a851b42f5d0ec91897c87ade665c8b2a07c692"
+
+[[fixture]]
 path = "bin/i386/sigframes"
 source = "src/sigframes.c"
 target = "x86-linux-musl"
@@ -1225,4 +1249,10 @@ path = "bin/i386/seccomp32"
 source = "src/seccomp32.c"
 target = "x86-linux-musl"
 sha256 = "c1c8adb15fdfade49eced618d6cba38981ade741a941b92016df577bd150e915"
+
+[[fixture]]
+path = "bin/i386/ptrace32"
+source = "src/ptrace32.c"
+target = "x86-linux-musl"
+sha256 = "03eef1e695c52e9476e6b29c01fc0216c2ed1542f836ff4d318843f4643bd0ec"
 
