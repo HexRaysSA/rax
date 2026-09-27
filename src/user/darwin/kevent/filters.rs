@@ -7,6 +7,7 @@
 //!   set with a message, received directly with `MACH_RCV_MSG`;
 //! - `EVFILT_READ` on a kqueue descriptor (`kqread_filtops`);
 //! - descriptor filters and `EVFILT_PROC` through the host ([`super::host`]);
+//! - `EVFILT_WORKLOOP` on workloops ([`super::workloop`]);
 //! - `EVFILT_FS` and `EVFILT_MEMORYSTATUS`, which attach and never fire;
 //! - the rest are not supported (`ENOTSUP`, `bad_filtops`).
 
@@ -39,6 +40,8 @@ pub enum State {
     Kqueue(u64),
     /// A knote the host kernel carries.
     Host(host::HostKnote),
+    /// A workloop's thread request, waiter, or sync IPC knote.
+    Workloop,
     /// Attached, never fires.
     Inert,
 }
@@ -218,7 +221,7 @@ pub fn earliest_timer(proc: &Proc) -> Option<u64> {
 }
 
 /// `f_attach`: returns the filter result (errors are left on the knote).
-pub fn attach(ctx: &mut Ctx<'_>, kq: u64, knote: u64, kev: &Kev) -> i32 {
+pub fn attach(ctx: &mut Ctx<'_>, kq: u64, knote: u64, kev: &mut Kev) -> i32 {
     let abi = ctx.proc.abi;
     match kev.filter {
         evfilt::TIMER => match timer_validate(abi, kev) {
@@ -296,9 +299,8 @@ pub fn attach(ctx: &mut Ctx<'_>, kq: u64, knote: u64, kev: &Kev) -> i32 {
             0
         }
         evfilt::WORKLOOP => {
-            // Workloop knotes attach only to workloops.
-            knote_mut(ctx.proc, kq, knote).set_error(Errno::EINVAL);
-            0
+            knote_mut(ctx.proc, kq, knote).state = State::Workloop;
+            super::workloop::attach(ctx, kq, knote, kev)
         }
         _ => {
             knote_mut(ctx.proc, kq, knote).set_error(Errno::ENOTSUP);
@@ -420,6 +422,7 @@ pub fn touch(ctx: &mut Ctx<'_>, kq: u64, knote: u64, kev: &mut Kev) -> i32 {
                 _ => 0,
             }
         }
+        evfilt::WORKLOOP => super::workloop::touch(ctx, kq, knote, kev),
         _ => {
             let state = knote_mut(ctx.proc, kq, knote).state.clone();
             match state {
@@ -501,6 +504,7 @@ pub fn process(ctx: &mut Ctx<'_>, kq: u64, knote: u64, data: &mut DataArea) -> (
             )
         }
         State::Host(_) => host::process(ctx.proc, kq, knote),
+        State::Workloop => super::workloop::process(ctx.proc, kq, knote),
         State::None | State::Detached | State::Inert => (Kev::default(), 0),
     }
 }
@@ -608,6 +612,7 @@ pub fn detach(proc: &mut Proc, kq: u64, knote: u64) {
             }
         }
         State::Host(_) => host::detach(proc, kq, knote),
+        State::Workloop => super::workloop::detach(proc, kq, knote),
         _ => {}
     }
 }

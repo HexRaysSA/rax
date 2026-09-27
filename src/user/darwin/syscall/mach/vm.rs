@@ -128,6 +128,40 @@ pub fn allocate_kernel(
     Ok(at)
 }
 
+/// Maps zero-filled, read/write memory for the kernel in `proc`'s map:
+/// the first fit at or above `hint` aligned to `mask + 1`, tagged `tag`
+/// (`mach_vm_map` with `VM_FLAGS_ANYWHERE`, as for workqueue stacks).
+pub fn map_anywhere(
+    proc: &mut crate::user::darwin::process::Proc,
+    hint: u64,
+    size: u64,
+    mask: u64,
+    tag: u32,
+) -> Result<u64, KernReturn> {
+    let vmx = proc.vm;
+    let page_mask = vmx.page - 1;
+    let size = size
+        .checked_add(page_mask)
+        .ok_or(kr::KERN_RESOURCE_SHORTAGE)?
+        & !page_mask;
+    let align = (mask | page_mask) + 1;
+    let from = (hint & !page_mask).max(vmx.min);
+    let at = proc
+        .space
+        .find_free_bottom_up(size, align, from, vmx.max)
+        .or_else(|| {
+            proc.space
+                .find_free_bottom_up(size, align, vmx.min, vmx.max)
+        })
+        .ok_or(kr::KERN_NO_SPACE)?;
+    let mapping = Mapping {
+        flags: VmFlags::new(vm::VM_PROT_ALL, vm::VM_INHERIT_COPY, tag).bits(),
+        ..Mapping::anonymous(vm::perms(vm::VM_PROT_DEFAULT))
+    };
+    proc.space.map(at, size, mapping).map_err(mm_kr)?;
+    Ok(at)
+}
+
 /// `mach_vm_allocate`: the address it chose (`addr` itself when fixed).
 pub fn allocate_at(ctx: &mut Ctx<'_>, addr: u64, size: u64, flags: u32) -> Result<u64, KernReturn> {
     if flags & !VM_FLAGS_USER_ALLOCATE != 0 {

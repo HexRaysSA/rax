@@ -211,7 +211,7 @@ pub fn default_action(sig: Signal) -> DefaultAction {
 }
 
 /// `sigmask(sig)`.
-pub fn bit(sig: Signal) -> u32 {
+pub const fn bit(sig: Signal) -> u32 {
     1 << (sig - 1)
 }
 

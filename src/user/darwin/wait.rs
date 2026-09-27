@@ -34,6 +34,10 @@ pub enum WaitKey {
     ThreadExit(u64),
     /// A kqueue gained an event (by kqueue identity).
     Kqueue(u64),
+    /// A parked workqueue thread is given a request (by thread ID).
+    WorkqPark(u64),
+    /// A workloop waiter knote is woken (by knote identity).
+    Knote(u64),
 }
 
 /// What a sleeping call waits for.

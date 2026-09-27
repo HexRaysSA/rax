@@ -68,15 +68,18 @@ pub fn bsdthread_register(ctx: &mut Ctx<'_>, a: &[u64; 8]) -> SysResult {
     let clamp = |v: u32| if v > max_tsd { 0 } else { v };
     reg.return_to_kernel_offset = clamp(u32_at(&data, 28));
     reg.mach_thread_self_offset = clamp(u32_at(&data, 32));
+    // stack_addr_hint: above the nano zone on x86-64; on arm64 where the
+    // (slid) main thread stack ends.
+    let stack_hint = match ctx.proc.abi {
+        crate::user::darwin::abi::DarwinAbi::X86_64 => 0x7000_0000_0000u64,
+        crate::user::darwin::abi::DarwinAbi::Arm64 => {
+            ctx.proc.program.stack.top & !(ctx.proc.vm.page - 1)
+        }
+    };
+    ctx.proc.pthread.stack_addr_hint = stack_hint;
     if sz > 0 {
         // Reply: the consumed version, the main thread's QoS, the stack
         // address hint, and the default mutex policy.
-        let stack_hint = match ctx.proc.abi {
-            crate::user::darwin::abi::DarwinAbi::X86_64 => 0x7000_0000_0000u64,
-            crate::user::darwin::abi::DarwinAbi::Arm64 => {
-                ctx.proc.program.stack.top & !(ctx.proc.vm.page - 1)
-            }
-        };
         data[0..8].copy_from_slice(&REG_DATA_SIZE.to_le_bytes());
         data[16..24].copy_from_slice(&MAIN_QOS_LEGACY.to_le_bytes());
         data[36..44].copy_from_slice(&stack_hint.to_le_bytes());

@@ -17,8 +17,8 @@ rax-user --arch x86_64 ./program args...
 
 The kernel behavior reproduced is XNU 12377.121.6
 ([provenance](../../specifications/darwin/xnu-12377.121.6.provenance.md)),
-with dyld 1378, libpthread 539.100.4, and Libc 1752.120.2 for the user-side
-contracts the kernel serves. The user space the programs run is newer
+with dyld 1378, libpthread 539.100.4, Libc 1752.120.2, and libdispatch
+1542.100.32 for the user-side contracts the kernel serves. The user space the programs run is newer
 (macOS 27, kernel `xnu-13432`, unpublished). Where that kernel's published
 interface extends an XNU 12377 structure, the personality follows the SDK
 ([macOS 27.0 SDK headers](../../specifications/darwin/MacOSX27.0.sdk.provenance.md))
@@ -112,6 +112,37 @@ another process is not supported.
 Closing a descriptor drops its knotes (or reports `EV_VANISHED` for those
 that asked); closing a kqueue's last descriptor drops the kqueue.
 
+## Work queues
+
+| Area | Module | Counterpart |
+|---|---|---|
+| `workq_open` and `workq_kernreturn`: dispatch configuration (`WQOPS_SETUP_DISPATCH`, `WQOPS_QUEUE_NEWSPISUPP`), thread requests (`WQOPS_QUEUE_REQTHREADS`, the cooperative `WQOPS_QUEUE_REQTHREADS2`), the event manager's priority, `WQOPS_SHOULD_NARROW`, and a thread's return (`WQOPS_THREAD_RETURN`, and the kevent and workloop returns that first hand back pending changes) | `workq` | `pthread_workqueue.c` |
+| Admission by pool: overcommit requests always, the event manager one thread at a time, constrained requests while fewer active threads than CPUs run at or above their QoS (at most 64 scheduled), the cooperative pool while it has room; the manager's request first, then QoS | `workq` | `workq_threadreq_select`, `workq_constrained_allowance`, `workq_cooperative_allowance` |
+| Workqueue threads: a kernel-allocated stack (guard page, 512 KiB, the `pthread_t` above, 12 KiB into its last page on arm64), a pinned thread port, the TSD base, the `workq_threadmask` signal mask (reset on return), and `_pthread_wqthread(self, kport, stacklowaddr, keventlist, flags, nkevents)` with the upcall flags; idle threads park and are reused | `workq` | `workq_setup_thread`, `workq_set_register_state`, `workq_thread_return` |
+| The workqueue kqueue (`kevent_qos` with `KEVENT_FLAG_WORKQ`): knotes queued by QoS in seven buckets (the last the event manager's, for knotes without a QoS), each bucket's thread request, and its servicer receiving that bucket's events and data on its stack | `kevent::workq`, `kevent::call` | `kqworkq_*`, `kevent_workq_internal` |
+| Workloops (`kevent_id`): made by ID on first use and freed with their last reference, one thread request made when an event arrives with neither a servicer nor an owner, the servicer's events with the workloop's ID below them, rebinding or unbinding as the servicer parks | `kevent::workq`, `kevent::call` | `kqworkloop_*`, `kevent_id` |
+| `EVFILT_WORKLOOP`: the thread request, synchronous waiters (`NOTE_WL_SYNC_WAIT` sleeps in `kevent_id` until a `NOTE_WL_SYNC_WAKE` or a delete, or a signal: `EINTR` in the event), ownership (`NOTE_WL_DISCOVER_OWNER`, `NOTE_WL_END_OWNERSHIP`), and the debounce check (`ESTALE`, `NOTE_WL_IGNORE_ESTALE`) | `kevent::workloop` | `filt_wl*` |
+| `bsdthread_ctl`: `BSDTHREAD_CTL_SET_SELF` (kevent unbind, QoS with pool moves for workqueue threads, voucher, scheduling policy), QoS overrides, `BSDTHREAD_CTL_QOS_MAX_PARALLELISM`, `BSDTHREAD_CTL_WORKQ_ALLOW_KILL` and `_ALLOW_SIGMASK` (and `__pthread_kill`'s `ENOTSUP` for workqueue threads without them), `BSDTHREAD_CTL_DISPATCH_APPLY_ATTR` | `syscall::bsd::workq` | `bsdthread_ctl` |
+| Priority encoding: QoS classes, relative priorities, normalization and combination of `pthread_priority_t` | `workq::priority` | `priority_private.h`, `pthread_priority.c` |
+
+One host thread runs every guest thread, so the kernel's creator thread,
+thread calls, and scheduler callbacks become the scheduler's work between
+time slices: it fires the timers and takes the host events of the
+workqueue kqueue and the workloops (which no thread waits in), binds
+admitted requests to idle or new threads, and a bound thread performs its
+unpark continuation (`workq_setup_and_run`, collecting its kqueue's
+events) in its own context when it next runs. A thread counts as active
+unless it sleeps; the kernel's 200 µs stall window, turnstile priority
+pushes, QoS overrides of servicers, and the return-to-kernel notification
+are not modeled (they change timing, not results). Idle threads are kept
+rather than reaped after five seconds. `kqueue_workloop_ctl` (workloops
+with scheduling parameters or bound threads) and sync IPC links to special
+reply ports (`NOTE_WL_SYNC_IPC` attaches fail with `ENOENT`, as they do for
+ports outside an IPC chain) are not provided.
+
+On an x86_64 kernel `PTHREAD_T_OFFSET` is 0; Rosetta's x86_64 processes run
+on an arm64 kernel, whose workqueue stacks carry the 12 KiB offset.
+
 ## Signals
 
 | Area | Module | XNU counterpart |
@@ -156,12 +187,13 @@ Single-threaded programs linked against libSystem run on both
 architectures: `dyld` and libSystem initialization, file and path calls,
 memory calls, `sysctl`, Mach messaging with the kernel servers above,
 semaphores and sleeping, signals, POSIX threads with their mutexes,
-condition variables, and read-write locks, and kqueues. Not yet implemented, and answered
+condition variables, and read-write locks, kqueues, and work queues with
+their kqueue and workloops (so `libdispatch`: global and serial queues,
+groups, semaphores, `dispatch_apply`, `dispatch_after`, barriers, and
+timer, read, and signal sources). Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
-under `--strace` or `RAX_DARWIN_WARN`: work queues (`workq_open`,
-`workq_kernreturn`, the work-queue kqueue of `kevent_qos`, workloops and
-`kevent_id`: so `libdispatch`'s queues), `fork`/`execve`/`posix_spawn`,
-sockets, `proc_info`, and exception delivery
+under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`,
+`fork`/`execve`/`posix_spawn`, sockets, `proc_info`, and exception delivery
 to Mach exception ports (a machine exception becomes its signal
 directly). `kill` of the process group reaches this process only through
 host-signal forwarding, and `kill(-1, sig)` signals only this process.
@@ -176,7 +208,10 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `EXC_GUARD` of `guard_fatal`, the handlers, frames, masks, timers,
   faults, and final `SIGTERM` of `signals`, and the thread creation,
   joins, cancellation, and contended synchronization of `threads` and
-  `threads_sync`, and the filters and delivery protocol of `kqueue`.
+  `threads_sync`, the filters and delivery protocol of `kqueue`, the
+  workqueue and workloop calls, errors, servicers, synchronous waiters,
+  and ownership of `workq` (driven through libpthread's SPI and the raw
+  calls), and libdispatch's queues and sources in `dispatch`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise.
 - `generators`: the checked-in tables equal what the generators produce
@@ -190,4 +225,5 @@ no oracle and report themselves skipped. Library tests under
 stack layout, slide info, sysctl nodes, the host-information flavors,
 exception-to-signal translation, signal actions, interval-timer
 arithmetic, the thread-state flavors, psynch sequence arithmetic and queue
-order, and thread QoS requests.
+order, thread QoS requests, the pthread priority encoding, and work-queue
+admission and request selection.

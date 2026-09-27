@@ -11,18 +11,30 @@
 //! sources — Mach ports, signals, timers, user events, other kqueues — and
 //! passed to the host kernel for descriptors and other processes
 //! ([`host`]).
+//!
+//! Besides the kqueues of `kqueue()` descriptors, which a thread scans in
+//! `kevent`, a process has a workqueue kqueue and workloops whose events
+//! workqueue threads are started to service ([`workq`], [`workloop`]).
+//! Their timers and host events are watched by the scheduler
+//! ([`pump`], [`autonomous_wait`]).
 
+mod call;
 pub mod filters;
 pub mod host;
+pub mod workloop;
+pub mod workq;
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use super::abi::Errno;
 use super::arch::{Rv, SysResult};
 use super::process::Proc;
 use super::syscall::Ctx;
-use super::wait::{Resume, Wait, WaitKey};
+use super::wait::WaitKey;
+use super::workq::priority;
+
+pub use call::{Call, kevent, kevent_id, kevent_workq_internal};
 
 /// Filters (`EVFILT_*`).
 pub mod evfilt {
@@ -78,6 +90,10 @@ pub mod kflag {
     pub const DYNAMIC_KQ_MUST_NOT_EXIST: u32 = 0x040000;
     pub const LEGACY32: u32 = 0x0040;
     pub const LEGACY64: u32 = 0x0080;
+    pub const PROC64: u32 = 0x0100;
+    pub const KERNEL: u32 = 0x1000;
+    pub const DYNAMIC_KQUEUE: u32 = 0x2000;
+    pub const NEEDS_END_PROCESSING: u32 = 0x4000;
     /// `KEVENT_FLAG_USER`: the flags user space may pass.
     pub const USER: u32 = IMMEDIATE
         | ERROR_EVENTS
@@ -105,6 +121,7 @@ pub mod kn {
 /// Filter results (`FILTER_*`).
 pub mod fr {
     pub const ACTIVE: i32 = 0x01;
+    pub const REGISTER_WAIT: i32 = 0x02;
     pub const UPDATE_REQ_QOS: i32 = 0x04;
     pub const RESET_EVENT_QOS: i32 = 0x08;
 }
@@ -240,7 +257,7 @@ pub struct Knote {
     pub filter: i16,
     /// `kn_flags`: the registration's flags (returned with events).
     pub flags: u16,
-    /// `kn_qos`.
+    /// `kn_qos`: the normalized pthread priority.
     pub qos: i32,
     /// `kn_udata`.
     pub udata: u64,
@@ -256,6 +273,12 @@ pub struct Knote {
     pub status: u16,
     /// Whether the knote hangs off a descriptor (`kn_is_fd`).
     pub is_fd: bool,
+    /// `kn_qos_index`: the bucket it queues in.
+    pub qos_index: u8,
+    /// `kn_qos_override`.
+    pub qos_override: u8,
+    /// `kn_thread`: the thread sleeping on a workloop waiter knote.
+    pub thread: Option<u64>,
     /// The filter's state.
     pub state: filters::State,
 }
@@ -300,6 +323,10 @@ impl Knote {
 pub enum KqKind {
     /// A `kqueue()` descriptor's kqueue (`struct kqfile`).
     File,
+    /// The process's workqueue kqueue (`struct kqworkq`).
+    Workq,
+    /// A workloop (`struct kqworkloop`).
+    Workloop,
 }
 
 /// `KQ_KEV32`, `KQ_KEV64`, `KQ_KEV_QOS`: the interface a file kqueue was
@@ -325,15 +352,21 @@ pub struct Kqueue {
     pub api: Option<KevApi>,
     /// Knotes by identity.
     pub knotes: BTreeMap<u64, Knote>,
-    /// Queued (active) knotes in activation order.
-    pub queue: VecDeque<u64>,
-    /// Knotes suppressed during a delivery pass.
-    pub suppressed: Vec<u64>,
+    /// Queued (active) knotes in activation order, by QoS bucket (one
+    /// bucket for a file kqueue).
+    pub queues: Vec<VecDeque<u64>>,
+    /// Knotes suppressed during a delivery pass, by bucket (the
+    /// workqueue kqueue's per bucket, the others' in one).
+    pub suppressed: Vec<Vec<u64>>,
+    /// `KQ_PROCESSING`: a servicer is delivering its events.
+    pub processing: bool,
     /// Knotes on other kqueues watching this one (`EVFILT_READ` on its
     /// descriptor).
     pub watchers: Vec<(u64, u64)>,
     /// The host kqueue carrying the descriptor and process knotes.
     pub host: Option<host::HostKq>,
+    /// The workqueue kqueue's or workloop's state.
+    pub ext: workq::Ext,
 }
 
 /// A process's kqueues and the event sources' knote lists.
@@ -350,6 +383,12 @@ pub struct State {
     pub signal_knotes: Vec<(u64, u64)>,
     /// Armed timer knotes and their deadlines (Mach absolute time).
     pub timers: Vec<(u64, u64, u64)>,
+    /// The workqueue kqueue (`fd_wqkqueue`).
+    pub workq: Option<u64>,
+    /// Workloops by ID (`fd_kqhash`).
+    pub workloops: HashMap<u64, u64>,
+    /// Threads sleeping in a workloop registration, by thread ID.
+    pub register_waits: HashMap<u64, workloop::RegisterWait>,
 }
 
 impl State {
@@ -357,6 +396,11 @@ impl State {
     pub fn create(&mut self, kind: KqKind) -> u64 {
         self.next_kq += 1;
         let id = self.next_kq;
+        let (nq, ns) = match kind {
+            KqKind::File => (1, 1),
+            KqKind::Workq => (workq::KQWQ_NBUCKETS, workq::KQWQ_NBUCKETS),
+            KqKind::Workloop => (workq::KQWL_NBUCKETS, 1),
+        };
         self.kqueues.insert(
             id,
             Kqueue {
@@ -364,10 +408,12 @@ impl State {
                 kind,
                 api: None,
                 knotes: BTreeMap::new(),
-                queue: VecDeque::new(),
-                suppressed: Vec::new(),
+                queues: vec![VecDeque::new(); nq],
+                suppressed: vec![Vec::new(); ns],
+                processing: false,
                 watchers: Vec::new(),
                 host: None,
+                ext: workq::Ext::File,
             },
         );
         id
@@ -380,18 +426,36 @@ impl State {
 
     /// `kq_count`.
     pub fn count(&self, kq: u64) -> usize {
-        self.kqueues.get(&kq).map_or(0, |k| k.queue.len())
+        self.kqueues
+            .get(&kq)
+            .map_or(0, |k| k.queues.iter().map(VecDeque::len).sum())
+    }
+}
+
+/// `knote_get_tailq`: the queue a knote belongs in.
+fn queue_index(q: &Kqueue, k: &Knote) -> usize {
+    match q.kind {
+        KqKind::File => 0,
+        _ => (usize::from(k.qos_index).max(1) - 1).min(q.queues.len() - 1),
+    }
+}
+
+/// The suppression list a knote belongs in (`kqueue_get_suppressed_queue`).
+fn suppressed_index(q: &Kqueue, k: &Knote) -> usize {
+    match q.kind {
+        KqKind::Workq => queue_index(q, k),
+        _ => 0,
     }
 }
 
 /// `knote_enqueue`: an active knote that is not disabled, suppressed,
-/// dropping, or queued goes to the back of its kqueue's queue; a queue
-/// that becomes non-empty wakes its waiters and watchers.
+/// dropping, or queued goes to the back of its queue; a queue that
+/// becomes non-empty wakes the kqueue.
 pub fn enqueue(proc: &mut Proc, kq: u64, knote: u64) {
     let Some(q) = proc.kq.kqueues.get_mut(&kq) else {
         return;
     };
-    let Some(k) = q.knotes.get_mut(&knote) else {
+    let Some(k) = q.knotes.get(&knote) else {
         return;
     };
     if k.status & kn::ACTIVE == 0
@@ -399,11 +463,19 @@ pub fn enqueue(proc: &mut Proc, kq: u64, knote: u64) {
     {
         return;
     }
-    k.status |= kn::QUEUED;
-    let wakeup = q.queue.is_empty();
-    q.queue.push_back(knote);
+    let (i, qos_index) = (queue_index(q, k), k.qos_index);
+    let wakeup = q.queues[i].is_empty();
+    q.queues[i].push_back(knote);
+    let kind = q.kind;
+    if let Some(k) = q.knotes.get_mut(&knote) {
+        k.status |= kn::QUEUED;
+    }
     if wakeup {
-        wake(proc, kq);
+        match kind {
+            KqKind::File => wake(proc, kq),
+            KqKind::Workq => workq::kqworkq_wakeup(proc, kq, qos_index),
+            KqKind::Workloop => workq::kqworkloop_wakeup(proc, kq, qos_index.max(1)),
+        }
     }
 }
 
@@ -424,13 +496,23 @@ fn wake(proc: &mut Proc, kq: u64) {
 
 /// `knote_dequeue`.
 fn dequeue(q: &mut Kqueue, knote: u64) {
-    if let Some(k) = q.knotes.get_mut(&knote)
-        && k.status & kn::QUEUED != 0
-    {
-        k.status &= !kn::QUEUED;
-        if let Some(i) = q.queue.iter().position(|&n| n == knote) {
-            q.queue.remove(i);
+    let Some(k) = q.knotes.get(&knote) else {
+        return;
+    };
+    if k.status & kn::QUEUED == 0 {
+        return;
+    }
+    let i = queue_index(q, k);
+    if let Some(p) = q.queues[i].iter().position(|&n| n == knote) {
+        q.queues[i].remove(p);
+    } else {
+        // Its bucket changed while queued: find it.
+        for queue in &mut q.queues {
+            queue.retain(|&n| n != knote);
         }
+    }
+    if let Some(k) = q.knotes.get_mut(&knote) {
+        k.status &= !kn::QUEUED;
     }
 }
 
@@ -452,21 +534,39 @@ pub fn activate(proc: &mut Proc, kq: u64, knote: u64) {
 /// `knote_suppress`: off the queue and inactive until the pass ends.
 fn suppress(q: &mut Kqueue, knote: u64) {
     dequeue(q, knote);
-    if let Some(k) = q.knotes.get_mut(&knote) {
-        k.status &= !kn::ACTIVE;
-        k.status |= kn::SUPPRESSED;
-    }
-    q.suppressed.push(knote);
+    let Some(k) = q.knotes.get_mut(&knote) else {
+        return;
+    };
+    k.status &= !kn::ACTIVE;
+    k.status |= kn::SUPPRESSED;
+    let k = &q.knotes[&knote];
+    let s = suppressed_index(q, k);
+    q.suppressed[s].push(knote);
 }
 
-/// `knote_unsuppress_noqueue`.
+/// `knote_unsuppress_noqueue`: an inactive knote's QoS resynchronizes.
 fn unsuppress_noqueue(q: &mut Kqueue, knote: u64) {
-    if let Some(k) = q.knotes.get_mut(&knote) {
-        k.status &= !kn::SUPPRESSED;
+    let Some(k) = q.knotes.get(&knote) else {
+        return;
+    };
+    let s = suppressed_index(q, k);
+    if let Some(i) = q.suppressed[s].iter().position(|&n| n == knote) {
+        q.suppressed[s].remove(i);
+    } else {
+        for list in &mut q.suppressed {
+            list.retain(|&n| n != knote);
+        }
     }
-    if let Some(i) = q.suppressed.iter().position(|&n| n == knote) {
-        q.suppressed.remove(i);
+    let kind = q.kind;
+    let k = q.knotes.get_mut(&knote).expect("listed knote");
+    k.status &= !kn::SUPPRESSED;
+    if k.status & kn::ACTIVE == 0 && kind != KqKind::File {
+        let qos = priority::thread_qos_fast(k.qos as u32);
+        if qos != 0 {
+            k.qos_override = qos;
+        }
     }
+    k.qos_index = k.qos_override;
 }
 
 /// `knote_unsuppress`.
@@ -477,7 +577,8 @@ fn unsuppress(proc: &mut Proc, kq: u64, knote: u64) {
     enqueue(proc, kq, knote);
 }
 
-/// `knote_drop`: detaches the knote from its source and frees it.
+/// `knote_drop`: detaches the knote from its source and frees it; a
+/// workloop's knote gives back its reference (`kq_remove_knote`).
 fn drop_knote(proc: &mut Proc, kq: u64, knote: u64) {
     let Some(q) = proc.kq.kqueues.get_mut(&kq) else {
         return;
@@ -491,9 +592,50 @@ fn drop_knote(proc: &mut Proc, kq: u64, knote: u64) {
     } else {
         dequeue(q, knote);
     }
+    let kind = q.kind;
     filters::detach(proc, kq, knote);
     if let Some(q) = proc.kq.kqueues.get_mut(&kq) {
         q.knotes.remove(&knote);
+    }
+    if kind == KqKind::Workloop {
+        workq::release(proc, kq);
+    }
+}
+
+/// `knote_reset_priority`: the knote's priority as its kqueue keeps it
+/// (none on a file kqueue; the manager for no QoS on the workqueue
+/// kqueue), and its bucket.
+fn reset_priority(q: &mut Kqueue, knote: u64, pp: u32) {
+    let kind = q.kind;
+    let Some(k) = q.knotes.get(&knote) else {
+        return;
+    };
+    let mut qos = priority::thread_qos(pp);
+    let pp = match kind {
+        KqKind::Workloop => priority::normalize(pp),
+        KqKind::Workq => {
+            if qos == 0 {
+                qos = workq::KQWQ_QOS_MANAGER;
+                priority::EVENT_MANAGER_FLAG
+            } else {
+                priority::normalize(pp)
+            }
+        }
+        KqKind::File => {
+            qos = 0;
+            0
+        }
+    };
+    let suppressed = k.status & kn::SUPPRESSED != 0;
+    let changed = k.qos_index != qos;
+    if !suppressed && changed {
+        dequeue(q, knote);
+    }
+    let k = q.knotes.get_mut(&knote).expect("live knote");
+    k.qos = pp as i32;
+    k.qos_override = qos;
+    if !suppressed {
+        k.qos_index = qos;
     }
 }
 
@@ -501,28 +643,26 @@ fn drop_knote(proc: &mut Proc, kq: u64, knote: u64) {
 fn apply_touch(proc: &mut Proc, kq: u64, knote: u64, kev: &Kev, result: i32) {
     if let Some(q) = proc.kq.kqueues.get_mut(&kq)
         && let Some(k) = q.knotes.get_mut(&knote)
+        && kev.flags & ev::ENABLE != 0
+        && k.status & kn::DISABLED != 0
     {
-        if kev.flags & ev::ENABLE != 0 && k.status & kn::DISABLED != 0 {
-            k.status &= !kn::DISABLED;
-            filters::enabled(proc, kq, knote, true);
-            if let Some(q) = proc.kq.kqueues.get_mut(&kq)
-                && q.knotes
-                    .get(&knote)
-                    .is_some_and(|k| k.status & kn::SUPPRESSED != 0)
-            {
-                unsuppress_noqueue(q, knote);
-            }
+        k.status &= !kn::DISABLED;
+        filters::enabled(proc, kq, knote, true);
+        if let Some(q) = proc.kq.kqueues.get_mut(&kq)
+            && q.knotes
+                .get(&knote)
+                .is_some_and(|k| k.status & kn::SUPPRESSED != 0)
+            && !q.processing
+        {
+            unsuppress_noqueue(q, knote);
         }
-        if result & fr::UPDATE_REQ_QOS != 0 && kev.qos != 0 {
-            if let Some(k) = proc
-                .kq
-                .kqueues
-                .get_mut(&kq)
-                .and_then(|q| q.knotes.get_mut(&knote))
-            {
-                k.qos = kev.qos;
-            }
-        }
+    }
+    if result & fr::UPDATE_REQ_QOS != 0
+        && kev.qos != 0
+        && let Some(q) = proc.kq.kqueues.get_mut(&kq)
+        && q.knotes.get(&knote).is_some_and(|k| k.qos != kev.qos)
+    {
+        reset_priority(q, knote, kev.qos as u32);
     }
     if result & fr::ACTIVE != 0 {
         activate(proc, kq, knote);
@@ -562,16 +702,21 @@ fn find(q: &Kqueue, kev: &Kev) -> Option<u64> {
 }
 
 /// `kevent_register`: applies one change to `kq`. Errors come back in
-/// `kev` (`EV_ERROR` with the errno in `data`).
-pub fn register(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) {
-    let error = register_inner(ctx, kq, kev);
-    if let Err(e) = error {
-        kev.flags |= ev::ERROR;
-        kev.data = i64::from(e.0);
+/// `kev` (`EV_ERROR` with the errno in `data`). Returns the filter
+/// result, with the knote when the caller must sleep on it
+/// (`FILTER_REGISTER_WAIT`).
+pub fn register(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> (i32, Option<u64>) {
+    match register_inner(ctx, kq, kev) {
+        Ok(r) => r,
+        Err(e) => {
+            kev.flags |= ev::ERROR;
+            kev.data = i64::from(e.0);
+            (0, None)
+        }
     }
 }
 
-fn register_inner(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(), Errno> {
+fn register_inner(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(i32, Option<u64>), Errno> {
     if !(kev.filter < 0 && kev.filter + evfilt::SYSCOUNT >= 0) {
         return Err(Errno::EINVAL);
     }
@@ -581,21 +726,42 @@ fn register_inner(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(), Errno
     {
         return Err(Errno::EINVAL);
     }
+    let requested = kev.flags;
     if kev.flags & ev::DELETE != 0 {
         kev.flags &= !ev::ADD;
     }
     if kev.flags & ev::DISABLE != 0 {
         kev.flags &= !ev::ENABLE;
     }
-    let found = find(&ctx.proc.kq.kqueues[&kq], kev);
+    let q = &ctx.proc.kq.kqueues[&kq];
+    let kind = q.kind;
+    let found = find(q, kev);
+    // kevent_register_validate_priority: enabled workloop knotes need a
+    // QoS.
+    if kind == KqKind::Workloop && kev.flags & (ev::DISABLE | ev::DELETE) == 0 {
+        let pp = found.map_or(kev.qos, |id| q.knotes[&id].qos);
+        if priority::thread_qos(pp as u32) == 0 {
+            return Err(Errno::ERANGE);
+        }
+    }
     let Some(id) = found else {
         if kev.flags & ev::ADD == 0 {
+            // A workloop takes EV_ADD | EV_DELETE as a delete that does
+            // not care whether the knote exists.
+            if kind == KqKind::Workloop
+                && requested & (ev::ADD | ev::DELETE) == ev::ADD | ev::DELETE
+            {
+                return Ok((0, None));
+            }
             return Err(Errno::ENOENT);
         }
         return add(ctx, kq, kev);
     };
-    let proc = &mut *ctx.proc;
     if kev.flags & ev::DELETE != 0 {
+        if kev.filter == evfilt::WORKLOOP && !workloop::allow_drop(ctx, kq, id, kev) {
+            return Ok((0, None));
+        }
+        let proc = &mut *ctx.proc;
         let k = &proc.kq.kqueues[&kq].knotes[&id];
         if kev.flags & ev::ENABLE == 0
             && k.flags & ev::DISPATCH2 == ev::DISPATCH2
@@ -611,9 +777,9 @@ fn register_inner(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(), Errno
             return Err(Errno::EINPROGRESS);
         }
         drop_knote(proc, kq, id);
-        return Ok(());
+        return Ok((0, None));
     }
-    let status = proc.kq.kqueues[&kq].knotes[&id].status;
+    let status = ctx.proc.kq.kqueues[&kq].knotes[&id].status;
     let result = if status & (kn::DEFERDELETE | kn::VANISHED) != 0 {
         if kev.flags & ev::ENABLE != 0 {
             fr::ACTIVE
@@ -624,7 +790,7 @@ fn register_inner(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(), Errno
         filters::touch(ctx, kq, id, kev)
     };
     if kev.flags & ev::ERROR != 0 {
-        return Ok(());
+        return Ok((0, None));
     }
     let proc = &mut *ctx.proc;
     if let Some(q) = proc.kq.kqueues.get_mut(&kq) {
@@ -639,11 +805,12 @@ fn register_inner(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(), Errno
         }
     }
     apply_touch(proc, kq, id, kev, result);
-    Ok(())
+    let wait = (result & fr::REGISTER_WAIT != 0).then_some(id);
+    Ok((result, wait))
 }
 
 /// A new knote (the `kn == NULL` branch of `kevent_register`).
-fn add(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(), Errno> {
+fn add(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(i32, Option<u64>), Errno> {
     let is_fd = is_fd_filter(kev.filter);
     if is_fd {
         // fp_lookup.
@@ -666,7 +833,7 @@ fn add(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(), Errno> {
         ident: kev.ident,
         filter: kev.filter,
         flags: kev.flags,
-        qos: kev.qos,
+        qos: 0,
         udata: kev.udata,
         fflags: 0,
         sfflags: kev.fflags,
@@ -674,27 +841,42 @@ fn add(ctx: &mut Ctx<'_>, kq: u64, kev: &mut Kev) -> Result<(), Errno> {
         ext: kev.ext,
         status,
         is_fd,
+        qos_index: 0,
+        qos_override: 0,
+        thread: None,
         state: filters::State::None,
     };
-    ctx.proc
-        .kq
-        .kqueues
-        .get_mut(&kq)
-        .expect("live kqueue")
-        .knotes
-        .insert(id, k);
+    let q = ctx.proc.kq.kqueues.get_mut(&kq).expect("live kqueue");
+    let kind = q.kind;
+    q.knotes.insert(id, k);
+    reset_priority(q, id, kev.qos as u32);
+    if kind == KqKind::Workloop {
+        // kq_add_knote: a reference on the workloop.
+        workq::retain(ctx.proc, kq);
+    }
     let result = filters::attach(ctx, kq, id, kev);
     let proc = &mut *ctx.proc;
     let k = &proc.kq.kqueues[&kq].knotes[&id];
     if k.flags & ev::ERROR != 0 {
+        // Failed to attach: drop it (an error of 0 is silent).
         let e = Errno(k.sdata as i32);
-        if let Some(q) = proc.kq.kqueues.get_mut(&kq) {
-            q.knotes.remove(&id);
+        if let Some(k) = proc
+            .kq
+            .kqueues
+            .get_mut(&kq)
+            .and_then(|q| q.knotes.get_mut(&id))
+        {
+            k.state = filters::State::Detached;
         }
-        return Err(e);
+        drop_knote(proc, kq, id);
+        return if e.0 == 0 { Ok((0, None)) } else { Err(e) };
+    }
+    if kind == KqKind::Workloop && k.qos as u32 & priority::OVERCOMMIT_FLAG != 0 {
+        workq::set_overcommit(proc, kq);
     }
     apply_touch(proc, kq, id, kev, result);
-    Ok(())
+    let wait = (result & fr::REGISTER_WAIT != 0).then_some(id);
+    Ok((result, wait))
 }
 
 /// `knote_process`: hands one queued knote to its filter and applies the
@@ -707,7 +889,7 @@ fn process(ctx: &mut Ctx<'_>, kq: u64, knote: u64, data: &mut DataArea) -> Optio
     }
     suppress(q, knote);
     let k = q.knotes.get_mut(&knote).expect("queued knote");
-    let (kev, result) = if k.status & (kn::DEFERDELETE | kn::VANISHED) != 0 {
+    let (mut kev, result) = if k.status & (kn::DEFERDELETE | kn::VANISHED) != 0 {
         let mut flags = ev::DISPATCH2 | ev::ONESHOT;
         flags |= if k.status & kn::DEFERDELETE != 0 {
             ev::DELETE
@@ -738,6 +920,7 @@ fn process(ctx: &mut Ctx<'_>, kq: u64, knote: u64, data: &mut DataArea) -> Optio
         }
         return None;
     }
+    kev.qos = priority::combine(k.qos as u32, k.qos_override) as i32;
     let mut drop = false;
     if kev.flags & ev::ONESHOT != 0 {
         if k.flags & ev::DISPATCH2 == ev::DISPATCH2 && k.status & kn::DEFERDELETE == 0 {
@@ -761,12 +944,20 @@ fn process(ctx: &mut Ctx<'_>, kq: u64, knote: u64, data: &mut DataArea) -> Optio
 }
 
 /// `kqfile_end_processing`: suppressed knotes return to their queue.
-fn end_processing(proc: &mut Proc, kq: u64) {
+fn file_end_processing(proc: &mut Proc, kq: u64) {
     loop {
-        let Some(&first) = proc.kq.kqueues.get(&kq).and_then(|q| q.suppressed.first()) else {
+        let Some(&first) = proc
+            .kq
+            .kqueues
+            .get(&kq)
+            .and_then(|q| q.suppressed[0].first())
+        else {
             break;
         };
         unsuppress(proc, kq, first);
+    }
+    if let Some(q) = proc.kq.kqueues.get_mut(&kq) {
+        q.processing = false;
     }
 }
 
@@ -784,21 +975,92 @@ pub struct DataArea {
     pub stack: bool,
 }
 
-/// `kqueue_process`: delivers up to `nevents` events of `kq`.
-fn scan_once(ctx: &mut Ctx<'_>, kq: u64, nevents: usize, data: &mut DataArea) -> Vec<Kev> {
+/// `kqueue_process`: delivers up to `nevents` events of `kq` — a file
+/// kqueue's, the calling servicer's workqueue bucket, or its workloop's
+/// buckets from the highest. A parking servicer with nothing to deliver
+/// unbinds.
+fn kqueue_process(
+    ctx: &mut Ctx<'_>,
+    kq: u64,
+    flags: u32,
+    nevents: usize,
+    data: &mut DataArea,
+) -> Vec<Kev> {
     filters::fire_timers(ctx.proc);
     host::harvest(ctx.proc, kq);
-    let mut out = Vec::new();
-    while out.len() < nevents {
-        let Some(&first) = ctx.proc.kq.kqueues.get(&kq).and_then(|q| q.queue.front()) else {
-            break;
-        };
-        if let Some(kev) = process(ctx, kq, first, data) {
-            out.push(kev);
+    let kind = match ctx.proc.kq.kqueues.get(&kq) {
+        Some(q) => q.kind,
+        None => return Vec::new(),
+    };
+    let tid = ctx.thread.tid;
+    let bound = ctx.proc.wq.threads.get(&tid).and_then(|w| w.bound);
+    let mut flags = flags;
+    let rc = match kind {
+        KqKind::File => {
+            if ctx.proc.kq.count(kq) == 0 {
+                -1
+            } else {
+                if let Some(q) = ctx.proc.kq.kqueues.get_mut(&kq) {
+                    q.processing = true;
+                }
+                0
+            }
         }
+        KqKind::Workq => match bound {
+            Some(r) if r.kq == kq => {
+                workq::kqworkq_acknowledge(ctx.proc, r, flags, workq::Ack::BeginProcessing)
+            }
+            _ => -1,
+        },
+        KqKind::Workloop => workq::workloop_begin_processing(ctx.proc, kq, flags),
+    };
+    let mut out = Vec::new();
+    if rc == -1 {
+        return out;
     }
-    end_processing(ctx.proc, kq);
-    out
+    loop {
+        let buckets: Vec<usize> = match kind {
+            KqKind::File => vec![0],
+            KqKind::Workq => bound.map_or(Vec::new(), |r| vec![usize::from(r.idx) - 1]),
+            KqKind::Workloop => (0..workq::KQWL_NBUCKETS).rev().collect(),
+        };
+        'fill: for b in buckets {
+            while out.len() < nevents {
+                let Some(&first) = ctx
+                    .proc
+                    .kq
+                    .kqueues
+                    .get(&kq)
+                    .and_then(|q| q.queues[b].front())
+                else {
+                    continue 'fill;
+                };
+                if let Some(kev) = process(ctx, kq, first, data) {
+                    out.push(kev);
+                }
+            }
+            break;
+        }
+        if !out.is_empty() {
+            // Events returned: end processing does not fail.
+            flags &= !kflag::PARKING;
+        }
+        let rc = match kind {
+            KqKind::File => {
+                file_end_processing(ctx.proc, kq);
+                0
+            }
+            KqKind::Workq => match bound {
+                Some(r) => workq::kqworkq_end_processing(ctx.proc, r, flags),
+                None => 0,
+            },
+            KqKind::Workloop => workq::workloop_end_processing(ctx.proc, kq, flags),
+        };
+        if rc == 0 || !out.is_empty() {
+            return out;
+        }
+        // Events came in while parking: process again.
+    }
 }
 
 /// The earliest armed timer deadline of `kq`, as an instant.
@@ -811,127 +1073,6 @@ fn next_timer(proc: &Proc, kq: u64) -> Option<Instant> {
         .map(|t| t.2)
         .min()
         .map(|d| Instant::now() + filters::abs_to_duration(proc.abi, d.saturating_sub(now)))
-}
-
-/// The arguments of a `kevent` family call.
-#[derive(Clone, Copy, Debug)]
-pub struct Call {
-    pub fd: i32,
-    pub changelist: u64,
-    pub nchanges: i32,
-    pub eventlist: u64,
-    pub nevents: i32,
-    pub flags: u32,
-    pub layout: Layout,
-    /// The relative timeout (`None`: forever).
-    pub timeout: Option<Duration>,
-    pub data_out: u64,
-    pub data_available: u64,
-}
-
-/// `kevent_internal` for a file kqueue: registers the changes, then scans
-/// and waits for events. Returns the number of records written.
-pub fn kevent(ctx: &mut Ctx<'_>, c: Call) -> SysResult {
-    let file = ctx.proc.fds.file(c.fd)?;
-    let super::fd::FileKind::Kqueue(kq) = file.kind else {
-        return Err(Errno::EBADF);
-    };
-    // kqfiles cannot be used through kevent() and the others at once.
-    let api = match c.layout {
-        Layout::Kevent => KevApi::Kev32,
-        Layout::Kevent64 => KevApi::Kev64,
-        Layout::Qos => KevApi::Qos,
-    };
-    let q = ctx.proc.kq.kqueues.get_mut(&kq).ok_or(Errno::EBADF)?;
-    let bound = *q.api.get_or_insert(api);
-    if (bound == KevApi::Kev32) != (api == KevApi::Kev32) {
-        return Err(Errno::EINVAL);
-    }
-    let mut data = DataArea::default();
-    if c.data_out != 0 && c.data_available != 0 {
-        let avail = ctx.read_u64(c.data_available)?;
-        data = DataArea {
-            out: c.data_out,
-            resid: avail,
-            size: avail,
-            stack: c.flags & kflag::STACK_DATA != 0,
-        };
-    }
-    let resumed = ctx.thread.resume.is_some_and(|r| r.step == 1);
-    let mut noutputs = 0usize;
-    let mut out_addr = c.eventlist;
-    let rec = c.layout.size();
-    if !resumed {
-        let mut changes = c.changelist;
-        for _ in 0..c.nchanges.max(0) {
-            let b = ctx.read(changes, rec as usize)?;
-            changes += rec;
-            let mut kev = Kev::decode(&b, c.layout);
-            register(ctx, kq, &mut kev);
-            if (noutputs as i32) < c.nevents && kev.flags & (ev::ERROR | ev::RECEIPT) != 0 {
-                if kev.flags & ev::ERROR == 0 {
-                    kev.flags |= ev::ERROR;
-                    kev.data = 0;
-                }
-                ctx.write(out_addr, &kev.encode(c.layout))?;
-                out_addr += rec;
-                noutputs += 1;
-            } else if kev.flags & ev::ERROR != 0 {
-                return Err(Errno(kev.data as i32));
-            }
-        }
-    }
-    if c.flags & kflag::ERROR_EVENTS != 0 || c.nevents <= 0 || noutputs != 0 {
-        return Ok(Rv::one(noutputs as u64));
-    }
-    let events = scan_once(ctx, kq, c.nevents as usize, &mut data);
-    if !events.is_empty() {
-        for e in &events {
-            ctx.write(out_addr, &e.encode(c.layout))?;
-            out_addr += rec;
-        }
-        if data.resid != data.size {
-            let _ = ctx.write_u64(c.data_available, data.resid);
-        }
-        return Ok(Rv::one(events.len() as u64));
-    }
-    if c.flags & kflag::IMMEDIATE != 0 {
-        return Ok(Rv::one(0));
-    }
-    // Wait for an event (THREAD_ABORTSAFE), the timeout, or a signal.
-    let deadline = match ctx.thread.resume.filter(|_| resumed) {
-        Some(r) => r.deadline,
-        None => c.timeout.map(|d| Instant::now() + d),
-    };
-    if deadline.is_some_and(|d| d <= Instant::now()) {
-        return Ok(Rv::one(0));
-    }
-    if let Some(e) = super::signal::sleep_interruption(ctx.proc, ctx.thread) {
-        // kevent is not restarted after signals.
-        let _ = e;
-        ctx.thread.resume = None;
-        return Err(Errno::EINTR);
-    }
-    let timer = next_timer(ctx.proc, kq);
-    let wake_at = match (deadline, timer) {
-        (Some(a), Some(b)) => Some(a.min(b)),
-        (a, b) => a.or(b),
-    };
-    let fds = host::wait_fds(ctx.proc, kq);
-    ctx.thread.resume = Some(Resume {
-        pc: ctx.pc,
-        call: ctx.nr,
-        deadline,
-        step: 1,
-    });
-    ctx.thread.wait = Some(Wait {
-        keys: vec![WaitKey::Kqueue(kq)],
-        fds,
-        deadline: wake_at,
-        interruptible: true,
-        seq: super::wait::next_seq(),
-    });
-    Err(Errno::ERESTART)
 }
 
 /// `kqueue()`: a new kqueue descriptor.
@@ -992,19 +1133,58 @@ pub fn fd_closed(proc: &mut Proc, fd: i32, file: Option<super::fd::FileRef>) {
     }
 }
 
-/// `kqueue_dealloc`: drops every knote of a closed kqueue.
+/// `kqueue_dealloc`: drops every knote of a kqueue that goes away.
 pub fn destroy(proc: &mut Proc, kq: u64) {
-    let ids: Vec<u64> = proc
-        .kq
-        .kqueues
-        .get(&kq)
-        .map(|q| q.knotes.keys().copied().collect())
-        .unwrap_or_default();
+    let Some(q) = proc.kq.kqueues.get_mut(&kq) else {
+        return;
+    };
+    // The knotes' workloop references go with the workloop.
+    q.kind = match q.kind {
+        KqKind::Workloop => KqKind::File,
+        k => k,
+    };
+    let ids: Vec<u64> = q.knotes.keys().copied().collect();
     for id in ids {
         drop_knote(proc, kq, id);
     }
     proc.kq.kqueues.remove(&kq);
     proc.post(WaitKey::Kqueue(kq));
+}
+
+/// The kqueues no thread scans: the workqueue kqueue and the workloops.
+fn autonomous(proc: &Proc) -> Vec<u64> {
+    proc.kq
+        .kqueues
+        .values()
+        .filter(|q| q.kind != KqKind::File)
+        .map(|q| q.id)
+        .collect()
+}
+
+/// The kernel's event sources for kqueues serviced by workqueue threads:
+/// fires due timers and takes the host's events, activating their knotes
+/// (which may request threads).
+pub fn pump(proc: &mut Proc) {
+    filters::fire_timers(proc);
+    for kq in autonomous(proc) {
+        if proc.kq.kqueues.get(&kq).is_some_and(|q| q.host.is_some()) {
+            host::harvest(proc, kq);
+        }
+    }
+}
+
+/// What the scheduler waits for on behalf of those kqueues when every
+/// thread sleeps: their host descriptors and the earliest armed timer.
+pub fn autonomous_wait(proc: &Proc) -> (Vec<(i32, bool, bool)>, Option<Instant>) {
+    let mut fds = Vec::new();
+    let mut deadline = None;
+    for kq in autonomous(proc) {
+        fds.extend(host::wait_fds(proc, kq));
+        if let Some(t) = next_timer(proc, kq) {
+            deadline = Some(deadline.map_or(t, |d: Instant| d.min(t)));
+        }
+    }
+    (fds, deadline)
 }
 
 #[cfg(test)]

@@ -72,10 +72,6 @@ pub fn kevent(ctx: &mut Ctx<'_>, a: &[u64; 8], api: Api) -> SysResult {
         data_out,
         data_available,
     };
-    if flags & kflag::WORKQ != 0 {
-        // The process's work-queue kqueue: not provided yet.
-        return Err(Errno::ENOTSUP);
-    }
     kevent::kevent(ctx, call)
 }
 
