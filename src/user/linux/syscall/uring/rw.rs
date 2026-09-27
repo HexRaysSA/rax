@@ -264,7 +264,6 @@ fn issue_rw(c: &mut Ctx<'_>, st: &mut State, req: &mut Req, write: bool) -> Resu
         return Err(Errno(EISDIR));
     }
     let anon = matches!(file.object, FileObject::Anon(_));
-    c.nowait = true;
     c.nosignal = u64::from(flags) & rwf::NOSIGNAL != 0;
     c.sigpipe_decided = false;
     let r = if count == 0 && !anon {
@@ -276,7 +275,6 @@ fn issue_rw(c: &mut Ctx<'_>, st: &mut State, req: &mut Req, write: bool) -> Resu
     } else {
         readv_file(c, &file, &req.vecs, pos)
     };
-    c.nowait = false;
     // pipe_write's SIGPIPE (the socket protocols send their own).
     if write && matches!(r, Err(Errno(EPIPE))) && !c.sigpipe_decided {
         c.send_sigpipe();

@@ -217,6 +217,10 @@ pub struct Ctx<'a> {
     /// The transfer may not sleep (`IOCB_NOWAIT`, as io_uring issues its
     /// requests): where it would, [`Ctx::block`] gives `EAGAIN` instead.
     pub nowait: bool,
+    /// Names already read from user memory (the `struct filename`s io_uring
+    /// takes as it prepares a request), by address: a path read there
+    /// returns the name, not what the memory now holds.
+    pub names: Vec<(u64, Vec<u8>)>,
     block: Option<(Wait, Resume)>,
 }
 
@@ -240,6 +244,7 @@ impl<'a> Ctx<'a> {
             compat: false,
             time32: false,
             nowait: false,
+            names: Vec::new(),
             block: None,
         }
     }
@@ -382,6 +387,13 @@ impl Ctx<'_> {
 
     /// Reads a NUL-terminated string of at most `max` bytes.
     pub fn read_cstr_raw(&self, addr: u64, max: usize) -> Result<Vec<u8>, Errno> {
+        if let Some((_, name)) = self.names.iter().find(|(at, _)| *at == addr) {
+            return if name.len() > max {
+                Err(Errno(ENAMETOOLONG))
+            } else {
+                Ok(name.clone())
+            };
+        }
         match self.p.space.read_cstr(addr, max) {
             Ok(Some(s)) => Ok(s),
             Ok(None) => Err(Errno(ENAMETOOLONG)),

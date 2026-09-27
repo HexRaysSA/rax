@@ -136,7 +136,7 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
 /// created stay non-blocking on the host whatever the guest sets: their
 /// blocking is emulated, so one thread's transfer never stops the host
 /// thread that runs the others.
-fn set_host_nonblocking(file: &OpenFile, on: bool) -> Result<(), Errno> {
+pub(super) fn set_host_nonblocking(file: &OpenFile, on: bool) -> Result<(), Errno> {
     match &file.object {
         FileObject::Host(f) => host::set_nonblocking(f, on),
         FileObject::PipeRead(_) | FileObject::PipeWrite(_) => Ok(()),

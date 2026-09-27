@@ -4,6 +4,7 @@
 
 use std::time::{Duration, Instant};
 
+mod files;
 mod rsrc;
 mod rw;
 

@@ -8,6 +8,7 @@
 
 use super::harness::{Harness, each_abi};
 use crate::user::linux::abi::Sysno;
+use crate::user::linux::abi::errno_table::{EINVAL, ENOPKG};
 use crate::user::linux::abi::open::*;
 
 const F_GETFL: u64 = 3;
@@ -71,6 +72,11 @@ fn status_flags_are_those_the_kernel_records() {
             O_WRONLY | O_NONBLOCK,
             "{abi:?}: pipe"
         );
+        // create_pipe_files: O_NOTIFICATION_PIPE (O_EXCL) needs
+        // CONFIG_WATCH_QUEUE, which the kernel modelled lacks; other
+        // flags are pipe2's EINVAL.
+        assert_eq!(h.err(Sysno::Pipe2, &[fds, 0o200]), ENOPKG, "{abi:?}");
+        assert_eq!(h.err(Sysno::Pipe2, &[fds, 0o100]), EINVAL, "{abi:?}");
         let ev = h.ok(Sysno::Eventfd2, &[0, u64::from(O_NONBLOCK | O_CLOEXEC)]);
         assert_eq!(getfl(&mut h, ev), O_RDWR | O_NONBLOCK, "{abi:?}: eventfd");
     });

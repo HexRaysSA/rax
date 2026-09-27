@@ -212,8 +212,14 @@ sleeping call also waking for them, a write without readers (task work,
 operations that run on the workers (`FSYNC`, `SYNC_FILE_RANGE`,
 `FALLOCATE`, `FADVISE`, `MADVISE`, `FTRUNCATE`: their preparation and which
 of their failures fail a link), and cancellation at exec and fork.
-`user_linux` `fixtures` runs the
-`uring` program on every architecture against results recorded on the Linux
+`src/user/linux/tests/uring/files.rs`: opens (`io_uring/openclose.c`) into
+descriptors (the lowest free one, taken before the lookup, `O_LARGEFILE`,
+the `O_NONBLOCK` try, `EMFILE` by the limit, `ENXIO` for a FIFO without a
+reader, the name read at preparation), `OPENAT2`'s structure and flags,
+direct descriptors, `FIXED_FD_INSTALL`, `CLOSE`, `PIPE` (into slots too),
+and the path operations (`io_uring/fs.c`, `statx.c`), whose failures keep
+their links. `user_linux` `fixtures` runs the
+`uring` and `uringio` programs on every architecture against results recorded on the Linux
 6.19 kernel oracles (native AArch64 and x86-64 in their `compare` runs,
 i386, ARM, and Thumb-2).
 

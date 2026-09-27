@@ -732,9 +732,40 @@ pub fn dup3(c: &mut Ctx<'_>, old: i32, new: i32, flags: u32) -> SysResult {
 
 /// `pipe`/`pipe2`.
 pub fn pipe2(c: &mut Ctx<'_>, fds: u64, flags: u32) -> SysResult {
+    let (rf, wf) = pipe_files(c, flags)?;
+    let cloexec = flags & O_CLOEXEC != 0;
+    let limit = nofile(c);
+    let rfd = c.p.fds.install(rf, cloexec, limit)?;
+    let wfd = match c.p.fds.install(wf, cloexec, limit) {
+        Ok(fd) => fd,
+        Err(e) => {
+            let _ = c.p.fds.close(rfd);
+            return Err(e);
+        }
+    };
+    let mut b = [0u8; 8];
+    b[..4].copy_from_slice(&rfd.to_le_bytes());
+    b[4..].copy_from_slice(&wfd.to_le_bytes());
+    if let Err(e) = c.write_mem(fds, &b) {
+        let _ = c.p.fds.close(rfd);
+        let _ = c.p.fds.close(wfd);
+        return Err(e);
+    }
+    Ok(0)
+}
+
+/// `__do_pipe_flags` and `create_pipe_files`: the read and write ends of
+/// a new pipe, for `O_CLOEXEC`, `O_NONBLOCK`, `O_DIRECT`, and
+/// `O_NOTIFICATION_PIPE` (others are `EINVAL`). A notification pipe needs
+/// `CONFIG_WATCH_QUEUE`, which the kernel modelled lacks (`ENOPKG`).
+pub(super) fn pipe_files(c: &Ctx<'_>, flags: u32) -> Result<(Arc<OpenFile>, Arc<OpenFile>), Errno> {
     let direct = c.p.abi.open_flags().direct;
-    if flags & !(O_CLOEXEC | O_NONBLOCK | direct) != 0 {
+    let notification = O_EXCL;
+    if flags & !(O_CLOEXEC | O_NONBLOCK | direct | notification) != 0 {
         return Err(Errno(EINVAL));
+    }
+    if flags & notification != 0 {
+        return Err(Errno(ENOPKG));
     }
     let (r, w) = std::io::pipe()?;
     // The guest's O_NONBLOCK lives in the status flags; the host ends
@@ -758,25 +789,7 @@ pub fn pipe2(c: &mut Ctx<'_>, fds: u64, flags: u32) -> SysResult {
     );
     *rf.peer.lock().unwrap() = Arc::downgrade(&wf);
     *wf.peer.lock().unwrap() = Arc::downgrade(&rf);
-    let cloexec = flags & O_CLOEXEC != 0;
-    let limit = nofile(c);
-    let rfd = c.p.fds.install(rf, cloexec, limit)?;
-    let wfd = match c.p.fds.install(wf, cloexec, limit) {
-        Ok(fd) => fd,
-        Err(e) => {
-            let _ = c.p.fds.close(rfd);
-            return Err(e);
-        }
-    };
-    let mut b = [0u8; 8];
-    b[..4].copy_from_slice(&rfd.to_le_bytes());
-    b[4..].copy_from_slice(&wfd.to_le_bytes());
-    if let Err(e) = c.write_mem(fds, &b) {
-        let _ = c.p.fds.close(rfd);
-        let _ = c.p.fds.close(wfd);
-        return Err(e);
-    }
-    Ok(0)
+    Ok((rf, wf))
 }
 
 /// `poll` event bits.

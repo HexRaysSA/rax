@@ -10,6 +10,8 @@
 //! `IORING_SETUP_REGISTERED_FD_ONLY`), and mixed-size entries
 //! (`IORING_SETUP_CQE_MIXED`, `IORING_SETUP_SQE_MIXED`).
 
+mod fs;
+mod openclose;
 mod ops;
 mod poll;
 mod register;

@@ -12,7 +12,7 @@ use super::super::super::fs::fd::{FileObject, OpenFile};
 use super::super::super::uring::abi::{nop, op, setup};
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::Ctx;
-use super::{rsrc, rw, sync};
+use super::{fs, openclose, rsrc, rw, sync};
 
 /// How an issued request completes.
 #[derive(Clone, Debug)]
@@ -48,6 +48,17 @@ pub(super) fn supported(opcode: u8) -> bool {
             | op::FADVISE
             | op::MADVISE
             | op::FTRUNCATE
+            | op::OPENAT
+            | op::OPENAT2
+            | op::CLOSE
+            | op::FIXED_FD_INSTALL
+            | op::PIPE
+            | op::STATX
+            | op::RENAMEAT
+            | op::UNLINKAT
+            | op::MKDIRAT
+            | op::SYMLINKAT
+            | op::LINKAT
     )
 }
 
@@ -70,8 +81,27 @@ pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno>
         | op::FADVISE
         | op::MADVISE
         | op::FTRUNCATE => sync::prep(req),
+        op::OPENAT | op::OPENAT2 => openclose::open_prep(c, req),
+        op::CLOSE => openclose::close_prep(req),
+        op::FIXED_FD_INSTALL => openclose::install_prep(req),
+        op::PIPE => openclose::pipe_prep(c, req),
+        op::STATX | op::RENAMEAT | op::UNLINKAT | op::MKDIRAT | op::SYMLINKAT | op::LINKAT => {
+            fs::prep(c, req)
+        }
         _ => Err(Errno(EOPNOTSUPP)),
     }
+}
+
+/// `getname` (`getname_uflags` with `empty`): the name at `addr`, kept for
+/// the issue: `EFAULT`, `ENAMETOOLONG` past `PATH_MAX - 1` bytes, `ENOENT`
+/// if empty unless `empty`.
+pub(super) fn getname(c: &Ctx<'_>, req: &mut Req, addr: u64, empty: bool) -> Result<(), Errno> {
+    let raw = c.read_cstr_raw(addr, super::super::super::fs::PATH_MAX - 1)?;
+    if raw.is_empty() && !empty {
+        return Err(Errno(ENOENT));
+    }
+    req.names.push((addr, raw));
+    Ok(())
 }
 
 /// `fget` as io_uring uses it: an open descriptor, not an `O_PATH` one
@@ -107,8 +137,17 @@ pub(super) fn assign_file(
 }
 
 /// The operation's `issue`: sets the request's result (and fails it, as
-/// the operation's `req_set_fail` does).
+/// the operation's `req_set_fail` does). An issue never sleeps: where the
+/// call it makes would, it gets `EAGAIN` ([`Ctx::nowait`]).
 pub(super) fn issue(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done {
+    let nowait = c.nowait;
+    c.nowait = true;
+    let done = issue_op(c, ring, st, req);
+    c.nowait = nowait;
+    done
+}
+
+fn issue_op(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done {
     match req.sqe.opcode {
         op::NOP | op::NOP128 => nop_issue(c, st, req),
         op::FILES_UPDATE => {
@@ -130,6 +169,26 @@ pub(super) fn issue(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req)
         | op::MADVISE
         | op::FTRUNCATE => {
             sync::issue(c, st, req);
+            Done::Inline
+        }
+        op::OPENAT | op::OPENAT2 => {
+            openclose::open_issue(c, ring, st, req);
+            Done::Inline
+        }
+        op::CLOSE => {
+            openclose::close_issue(c, ring, st, req);
+            Done::Inline
+        }
+        op::FIXED_FD_INSTALL => {
+            openclose::install_issue(c, st, req);
+            Done::Inline
+        }
+        op::PIPE => {
+            openclose::pipe_issue(c, ring, st, req);
+            Done::Inline
+        }
+        op::STATX | op::RENAMEAT | op::UNLINKAT | op::MKDIRAT | op::SYMLINKAT | op::LINKAT => {
+            fs::issue(c, req);
             Done::Inline
         }
         // prep refused it.

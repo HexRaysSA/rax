@@ -90,8 +90,11 @@ fn init(
     if !def.iopoll && ring.flags & setup::IOPOLL != 0 {
         return Err(Errno(EINVAL));
     }
-    if req.sqe.personality != 0 && !st.personalities.contains_key(&req.sqe.personality) {
-        return Err(Errno(EINVAL));
+    if req.sqe.personality != 0 {
+        if !st.personalities.contains_key(&req.sqe.personality) {
+            return Err(Errno(EINVAL));
+        }
+        req.flags |= rf::CREDS;
     }
     ops::prep(c, ring, req)
 }

@@ -461,10 +461,22 @@ pub fn compat_openat(
 }
 
 fn open_at(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, create_mode: u32) -> SysResult {
+    let file = open_file(c, dirfd, path, flags, create_mode)?;
+    super::io::install(c, file, flags & O_CLOEXEC != 0)
+}
+
+/// `do_filp_open`: the file `path` names, opened with `flags` (as they
+/// stand: no `O_LARGEFILE` is added) but not installed.
+pub(super) fn open_file(
+    c: &mut Ctx<'_>,
+    dirfd: i32,
+    path: u64,
+    flags: u32,
+    create_mode: u32,
+) -> Result<Arc<OpenFile>, Errno> {
     let nofollow = flags & c.p.abi.open_flags().nofollow != 0;
     let target = resolve(c, dirfd, path, 0, !nofollow)?;
-    let file = open_target(c, target, flags, create_mode)?;
-    super::io::install(c, file, flags & O_CLOEXEC != 0)
+    open_target(c, target, flags, create_mode)
 }
 
 /// `openat2` with `struct open_how` (resolution restrictions are not
@@ -481,6 +493,20 @@ pub fn openat2(c: &mut Ctx<'_>, dirfd: i32, path: u64, how: u64, size: u64) -> S
     let flags = u64::from_le_bytes(raw[..8].try_into().unwrap());
     let mode = u64::from_le_bytes(raw[8..16].try_into().unwrap());
     let resolve_flags = u64::from_le_bytes(raw[16..24].try_into().unwrap());
+    let (flags, mode) = open_how_flags(c, flags, mode, resolve_flags)?;
+    openat(c, dirfd, path, flags, mode)
+}
+
+/// `build_open_flags` for a `struct open_how`: known flags only, a mode
+/// only with `O_CREAT` or `O_TMPFILE` and only permission bits, and no
+/// resolution restrictions (not supported); the flags and mode to open
+/// with.
+pub(super) fn open_how_flags(
+    c: &Ctx<'_>,
+    flags: u64,
+    mode: u64,
+    resolve_flags: u64,
+) -> Result<(u32, u32), Errno> {
     let layout = c.p.abi.open_flags();
     let valid = u64::from(
         O_ACCMODE
@@ -511,7 +537,7 @@ pub fn openat2(c: &mut Ctx<'_>, dirfd: i32, path: u64, how: u64, size: u64) -> S
     if resolve_flags != 0 {
         return Err(Errno(EINVAL));
     }
-    openat(c, dirfd, path, flags as u32, mode as u32)
+    Ok((flags as u32, mode as u32))
 }
 
 /// `vfs_fstatat`: the status of `path` relative to `dirfd`.

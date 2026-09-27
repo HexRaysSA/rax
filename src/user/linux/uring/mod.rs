@@ -114,15 +114,19 @@ pub mod req_flags {
     pub const NOWAIT: u32 = 1 << 10;
     /// `REQ_F_HAS_METADATA`: a transfer with protection information.
     pub const HAS_METADATA: u32 = 1 << 11;
+    /// `REQ_F_CREDS`: the request runs with a registered personality.
+    pub const CREDS: u32 = 1 << 12;
     /// `IO_REQ_LINK_FLAGS`.
     pub const LINKS: u32 = LINK | HARDLINK;
 }
 
 /// A request (`struct io_kiocb`): its SQE as read at submission
-/// (`IORING_FEAT_SUBMIT_STABLE`), its flags, its result, the vectors its
-/// preparation read (`io_async_rw`), and what it holds until it is freed:
-/// a file it looked up by descriptor, and the nodes of the registered file
-/// and buffer it uses (`file_node`, `buf_node`).
+/// (`IORING_FEAT_SUBMIT_STABLE`), its flags, its result, what its
+/// preparation read (the vectors of `io_async_rw`, the names of `struct
+/// filename`s by address, and the operation's own values), and what it
+/// holds until it is freed: a file it looked up by descriptor, and the
+/// nodes of the registered file and buffer it uses (`file_node`,
+/// `buf_node`).
 #[derive(Clone, Debug)]
 pub struct Req {
     pub sqe: Sqe,
@@ -131,6 +135,8 @@ pub struct Req {
     pub cflags: u32,
     pub big: [u64; 2],
     pub vecs: Vec<(u64, u64)>,
+    pub names: Vec<(u64, Vec<u8>)>,
+    pub how: [u64; 4],
     pub file: Option<Arc<super::fs::fd::OpenFile>>,
     pub file_node: Option<rsrc::NodeId>,
     pub buf_node: Option<rsrc::NodeId>,
@@ -146,6 +152,8 @@ impl Req {
             cflags: 0,
             big: [0; 2],
             vecs: Vec::new(),
+            names: Vec::new(),
+            how: [0; 4],
             file: None,
             file_node: None,
             buf_node: None,
