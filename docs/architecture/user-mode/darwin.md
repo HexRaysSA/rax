@@ -72,6 +72,7 @@ CPU, `hw.ncpu` = 1).
 | `_kernelrpc_mach_port_*` traps and the `mach_port` routines | `syscall::mach::port`, `mig::port` | `mach_port.c`, `mach_kernelrpc.c` |
 | Port guards: the guard is the port's context; misuse of a guarded or immovable port is a fatal `EXC_GUARD` (`SIGKILL`) | `syscall::mach::guard` | `mach_port_guard_exception` |
 | Semaphores and `__semwait_signal` | `syscall::mach::sync` | `sync_sema.c`, `kern_sig.c` |
+| Mach timers (`mk_timer_create`, `_destroy`, `_arm`, `_arm_leeway`, `_cancel`): a receive right to a user port the kernel holds a send right to; at the deadline one 48-byte expiration message (id 0) is queued unless the last is still queued; the deadline a cancel reports carries the kernel's coalescing slop (a quarter of the time left, at most 5 ms; none for a critical timer; the leeway where larger) | `syscall::mach::timer` | `mk_timer.c`, `thread_call.c` (`thread_call_enter_delayed_internal`), `timer_call.c` (`timer_call_slop`), `arm_timer.c`, `i386_timer.c` |
 
 Kernel objects (task, thread, host, clock, semaphore ports) answer messages
 through MIG servers (`mig`), dispatched by message ID from the table

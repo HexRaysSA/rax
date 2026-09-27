@@ -117,7 +117,9 @@ pub enum KObject {
     HostPriv,
     /// A semaphore.
     Semaphore(Arc<super::sync::Semaphore>),
-    /// A Mach timer (`mk_timer_create`).
+    /// A Mach timer (`mk_timer_create`), by timer number. A timer's port
+    /// is a labelled user port, not a kernel object's: messages to it
+    /// queue like any others.
     Timer(u64),
     /// A clock (`host_get_clock_service`).
     Clock(u32),
@@ -217,7 +219,7 @@ pub struct Port {
 impl Port {
     /// A new port for `kobject`.
     pub fn new(kobject: KObject) -> Arc<Self> {
-        let qlimit = if kobject == KObject::None {
+        let qlimit = if matches!(kobject, KObject::None | KObject::Timer(_)) {
             QLIMIT_DEFAULT
         } else {
             QLIMIT_KERNEL
@@ -234,7 +236,7 @@ impl Port {
 
     /// Whether the kernel receives this port's messages.
     pub fn is_kernel(&self) -> bool {
-        self.kobject != KObject::None
+        !matches!(self.kobject, KObject::None | KObject::Timer(_))
     }
 
     /// Whether the port is dead.

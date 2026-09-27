@@ -338,6 +338,8 @@ pub struct Proc {
     pub sigacts: signal::SigActs,
     /// Interval timers.
     pub itimers: signal::timer::ITimers,
+    /// Mach timers.
+    pub mk_timers: syscall::mach::timer::Timers,
     /// libpthread's registration.
     pub pthread: PthreadRegistration,
     /// psynch wait queues.
@@ -530,6 +532,7 @@ impl DarwinProcess {
                 signal::psignal(&mut self.proc, None, sig, origin);
             }
             signal::timer::expire_real(&mut self.proc);
+            syscall::mach::timer::expire(&mut self.proc);
             // Kernel event sources of the workqueue kqueue and workloops,
             // then threads for the work queue's requests.
             super::kevent::pump(&mut self.proc);
@@ -653,6 +656,9 @@ impl DarwinProcess {
     fn idle(&mut self) {
         let mut fds = Vec::new();
         let mut deadline: Option<Instant> = self.proc.itimers.real_at;
+        if let Some(d) = self.proc.mk_timers.next_deadline() {
+            deadline = Some(deadline.map_or(d, |c| c.min(d)));
+        }
         for t in self.proc.threads.values() {
             if let Some(w) = &t.wait {
                 fds.extend_from_slice(&w.fds);
@@ -882,6 +888,7 @@ pub(crate) fn start(
             umask: c.umask,
             sigacts: c.sigacts,
             itimers: c.itimers,
+            mk_timers: Default::default(),
             pthread: PthreadRegistration::default(),
             psynch: Default::default(),
             kq: Default::default(),
@@ -942,6 +949,7 @@ pub(crate) fn start(
                 umask,
                 sigacts,
                 itimers: signal::timer::ITimers::default(),
+                mk_timers: Default::default(),
                 pthread: PthreadRegistration::default(),
                 psynch: Default::default(),
                 kq: Default::default(),

@@ -284,3 +284,13 @@ fn attrs_x86_64() {
 fn tbi_arm64() {
     fixture("tbi", "arm64", &[], &[]);
 }
+
+#[test]
+fn mk_timer_arm64() {
+    fixture("mk_timer", "arm64", &[], &[]);
+}
+
+#[test]
+fn mk_timer_x86_64() {
+    fixture("mk_timer", "x86_64", &[], &[]);
+}
