@@ -1,0 +1,60 @@
+{
+  "command_argv": [
+    "/Users/int/local/bin/llvm-readobj",
+    "--file-headers",
+    "--coff-exports",
+    "-"
+  ],
+  "input_sha256": "3d3b868ad1441c46ab0cdaf205927b1da75d458a9a0be74172256460503f49c9",
+  "input_bytes": 1103400,
+  "full_output_sha256": "5a76c9bb2da0bbd18381cd698d122f65c6b542ba621f9cc3d3791b8c6a4bf9ab",
+  "selected_exports": [
+    {
+      "table": "native",
+      "Ordinal": "132",
+      "Name": "__pxcptinfoptrs",
+      "RVA": "0x887B0"
+    },
+    {
+      "table": "native",
+      "Ordinal": "134",
+      "Name": "__setusermatherr",
+      "RVA": "0xCC920"
+    },
+    {
+      "table": "native",
+      "Ordinal": "225",
+      "Name": "_configthreadlocale",
+      "RVA": "0x81EB0"
+    },
+    {
+      "table": "native",
+      "Ordinal": "321",
+      "Name": "_fpreset",
+      "RVA": "0x58180"
+    },
+    {
+      "table": "native",
+      "Ordinal": "1823",
+      "Name": "_query_app_type",
+      "RVA": "0x8CF90"
+    },
+    {
+      "table": "native",
+      "Ordinal": "1847",
+      "Name": "_set_app_type",
+      "RVA": "0x85990"
+    }
+  ],
+  "header_identity_lines": [
+    "Format: COFF-i386",
+    "Arch: i386",
+    "AddressSize: 32bit",
+    "Machine: IMAGE_FILE_MACHINE_I386 (0x14C)"
+  ],
+  "selected_absent_names": [
+    "__set_app_type",
+    "_matherr"
+  ],
+  "interpretation": "Genuine names in these exact publisher DLLs, not Windows execution. ARM64X includes a secondary ARM64EC EAT; the first/native RVAs are used for AArch64 disassembly."
+}

@@ -1,0 +1,34 @@
+{
+  "sdk_source_member_count": 511,
+  "source_subdirectories": [
+    "conio",
+    "convert",
+    "dll",
+    "env",
+    "exec",
+    "filesystem",
+    "heap",
+    "inc",
+    "initializers",
+    "internal",
+    "locale",
+    "lowio",
+    "mbstring",
+    "misc",
+    "startup",
+    "stdio",
+    "stdlib",
+    "string",
+    "time"
+  ],
+  "math_directory_members": [
+
+  ],
+  "fpreset_matherr_name_matches": [
+
+  ],
+  "internal_shared_header_name_matches": [
+
+  ],
+  "interpretation": "ZIP member-name survey, not a proof that no mathematical implementation exists under unrelated names. No recovered Microsoft math source is claimed."
+}

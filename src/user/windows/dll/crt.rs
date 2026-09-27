@@ -1,6 +1,7 @@
 //! Windows CRT allocation, error, memory/string and initializer services.
 
 mod allocation;
+mod bootstrap;
 mod initialize;
 mod invalid;
 mod memory;
@@ -20,6 +21,7 @@ use super::super::hle::{ApiErr, Ctx};
 use super::super::loader::ModuleKind;
 
 pub(crate) use allocation::ALLOCATION_EXPORTS;
+pub(crate) use bootstrap::UCRT_BOOTSTRAP_EXPORTS;
 pub(crate) use initialize::{INIT_EXPORTS, MSVCRT_INIT_EXPORTS, UCRT_INIT_EXPORTS};
 pub(crate) use memory::{MEMORY_EXPORTS, VCRUNTIME_MEMORY_EXPORTS};
 pub(crate) use onexit::UCRT_ONEXIT_EXPORTS;
@@ -74,6 +76,8 @@ struct RuntimeState {
     /// No new-handler registration export is admitted yet. With the primary
     /// documented default of no handler, mode 1 retains ordinary OOM behavior.
     new_mode: u32,
+    /// Version-selected startup policy, separate from argument construction.
+    bootstrap: bootstrap::BootstrapState,
     /// Explicit tables own detached callback generations independently of
     /// process-global CRT exit and ordinary caller allocations.
     onexit: onexit::OnExitState,
@@ -88,10 +92,13 @@ struct RuntimeState {
 }
 
 struct ThreadState {
-    /// Two guest-authoritative 32-bit cells: errno and _doserrno.
+    /// errno/_doserrno followed by a distinct guest-authoritative pointer slot.
+    /// This allocation is not a public native PTD layout.
     cells: u64,
     invalid_handler: u64,
     terminate_handler: u64,
+    /// SDK _own_locale: GLOBAL bit initially set, PER_THREAD bit initially clear.
+    locale_flags: u32,
 }
 
 /// State whose lifetime is the guest process.

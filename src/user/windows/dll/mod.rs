@@ -102,6 +102,7 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::INIT_EXPORTS,
         crt::UCRT_INIT_EXPORTS,
         crt::UCRT_STARTUP_EXPORTS,
+        crt::UCRT_BOOTSTRAP_EXPORTS,
         crt::UCRT_ONEXIT_EXPORTS,
         crt::UCRT_REGISTRATION_EXPORTS,
         crt::UCRT_EXIT_EXPORTS,

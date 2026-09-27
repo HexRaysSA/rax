@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "verified": "2026-09-27",
+  "baseline_head": "9bc8ccdca85a5b0c9c74a7c446c85194efdc780d",
+  "sources_json_sha256": "85649f1c09783cdf8f65e7210f3beb754f5c33ec817e838922b3326f6e6eaadc",
+  "acquisition_script_sha256": "2e13fbf871d56c69dbff9addcbb11fe96e64fd81d96ed0775c237c0860fb3e6f",
+  "readme_sha256": "43c179f1073d230ce51e55650ee35bb57b76c94b8032b8cb6d231321d1072852",
+  "indexed_records": 65,
+  "record_classes": {
+    "local_path_inputs": 22,
+    "local_path_input_bytes": 133268,
+    "reused_path_inputs": 22,
+    "reused_path_input_bytes": 26347314,
+    "sdk_metadata_only_inputs": 21,
+    "sdk_metadata_reference_bytes": 5181570,
+    "inspected_sdk_seed_members": 16,
+    "publisher_disassembly_spans": { "x86": 14, "x64": 8, "native_arm64": 9 }
+  },
+  "physical_files_excluding_this_receipt": 25,
+  "physical_bytes_excluding_this_receipt": 243711,
+  "acquisition_command_argv": ["ruby", "docs/specifications/windows/crt-bootstrap/acquire.rb"],
+  "final_acquisitions": [
+    {
+      "exit_status": 0,
+      "indexed_records": 65,
+      "inspection_directory": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-crt-bootstrap-sdk.20260927-42018-12lz4sd",
+      "sources_json_sha256": "85649f1c09783cdf8f65e7210f3beb754f5c33ec817e838922b3326f6e6eaadc"
+    },
+    {
+      "exit_status": 0,
+      "indexed_records": 65,
+      "inspection_directory": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-crt-bootstrap-sdk.20260927-43652-yk0bzu",
+      "sources_json_sha256": "85649f1c09783cdf8f65e7210f3beb754f5c33ec817e838922b3326f6e6eaadc"
+    }
+  ],
+  "reproduction_comparison": "Both successful final acquisitions reproduced identical source-index bytes and all 65 indexed hash/size/metadata identities; temporary inspection-directory names are not inputs.",
+  "offline_verifier": {
+    "command_argv": ["ruby", "docs/specifications/windows/crt-bootstrap/acquire.rb", "--verify"],
+    "exit_status": 0,
+    "result": {
+      "retained_hash_size_checks": 44,
+      "sdk_metadata_receipts": 21,
+      "installed_input_hashes": 19,
+      "copy_replays": 5,
+      "command_replays": 10,
+      "network_source_replays": 0,
+      "publisher_observation_replays": 0,
+      "tool_hash_checks": 5,
+      "unavailable_inputs_or_tools": [],
+      "raw_sdk_bytes_committed": false,
+      "native_windows_execution_oracle": "unknown",
+      "nuget_signature_verified": false
+    }
+  },
+  "network_verifier": {
+    "command_argv": ["ruby", "docs/specifications/windows/crt-bootstrap/acquire.rb", "--verify-network"],
+    "exit_status": 0,
+    "result": {
+      "retained_hash_size_checks": 44,
+      "sdk_metadata_receipts": 21,
+      "installed_input_hashes": 19,
+      "copy_replays": 5,
+      "command_replays": 10,
+      "network_source_replays": 36,
+      "publisher_observation_replays": 7,
+      "tool_hash_checks": 5,
+      "unavailable_inputs_or_tools": [],
+      "raw_sdk_bytes_committed": false,
+      "native_windows_execution_oracle": "unknown",
+      "nuget_signature_verified": false
+    }
+  },
+  "license_and_document_links": {
+    "readme_local_links": 30,
+    "missing_readme_local_links": [],
+    "all_source_license_paths_exist": true,
+    "raw_proprietary_sdk_source_header_license_dll_bytes_retained": false
+  },
+  "scope": "No Cargo, Git, guest execution, native Windows oracle, signature verification or implementation change was performed for this archive. Scoped publisher instruction observations are not recovered raw mathematical source."
+}

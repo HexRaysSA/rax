@@ -1,0 +1,35 @@
+---
+title: "__setusermatherr"
+description: "Learn more about: __setusermatherr"
+ms.date: 11/04/2016
+api_name: ["__setusermatherr"]
+api_location: ["msvcr80.dll", "msvcr90.dll", "msvcrt.dll", "msvcr110.dll", "msvcr110_clr0400.dll", "msvcr120.dll", "msvcr100.dll", "api-ms-win-crt-math-l1-1-0.dll"]
+api_type: ["DLLExport"]
+topic_type: ["apiref"]
+f1_keywords: ["__setusermatherr"]
+helpviewer_keywords: ["__setusermatherr"]
+---
+# `__setusermatherr`
+
+Specifies a user-supplied routine to handle math errors, instead of the [`_matherr`](./reference/matherr.md) routine.
+
+## Syntax
+
+```cpp
+void __setusermatherr(
+   _HANDLE_MATH_ERROR pf
+   )
+```
+
+#### Parameters
+
+*`pf`*\
+Pointer to an implementation of `_matherr` that is supplied by the user.
+
+The type of the *`pf`* parameter is declared as `typedef int (__cdecl * _HANDLE_MATH_ERROR)(struct _exception *)`.
+
+## Requirements
+
+| Routine | Required header |
+|---|---|
+| **`__setusermatherr`** | `matherr.c` |

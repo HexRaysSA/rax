@@ -20,6 +20,7 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(UCRT_INIT_EXPORTS)
         .chain(MSVCRT_STARTUP_EXPORTS)
         .chain(UCRT_STARTUP_EXPORTS)
+        .chain(UCRT_BOOTSTRAP_EXPORTS)
         .chain(UCRT_ONEXIT_EXPORTS)
         .chain(UCRT_REGISTRATION_EXPORTS)
         .chain(UCRT_EXIT_EXPORTS)

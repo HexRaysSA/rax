@@ -1,0 +1,144 @@
+{
+  "arch": "arm64",
+  "input_sha256": "b121f4140e1e3722cfed1cc2878cc0deb45ac00b39d98936f68699156164325e",
+  "input_bytes": 2244056,
+  "image_base": 6442450944,
+  "interpretation": "Static publisher function/dependent-helper observation only. Nearest-export labels on unexported helpers are disassembler annotations, not genuine helper symbol identities. No proprietary DLL bytes retained.",
+  "spans": [
+    {
+      "label": "set_app_type",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "--disassemble",
+        "--start-address=0x180021110",
+        "--stop-address=0x18002111c",
+        "--print-imm-hex",
+        "-"
+      ],
+      "start_address": 6442586384,
+      "stop_address_exclusive": 6442586396,
+      "output_sha256": "f5564e1367f6e78cc34237d86277d3c642802cfdcc85860687738653070478ea",
+      "output": "\n<stdin>:\tfile format coff-arm64x\n\nDisassembly of section .text:\n\n0000000180021110 <_set_app_type>:\n180021110: 90000f88    \tadrp\tx8, 0x180211000\n180021114: b90c4100    \tstr\tw0, [x8, #0xc40]\n180021118: d65f03c0    \tret\n"
+    },
+    {
+      "label": "query_app_type",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "--disassemble",
+        "--start-address=0x180077b70",
+        "--stop-address=0x180077b7c",
+        "--print-imm-hex",
+        "-"
+      ],
+      "start_address": 6442941296,
+      "stop_address_exclusive": 6442941308,
+      "output_sha256": "3052e5015cfa0721bdb2b2abc54a90cdde0880292d6bd21b205c7981fce53088",
+      "output": "\n<stdin>:\tfile format coff-arm64x\n\nDisassembly of section .text:\n\n0000000180077b70 <_query_app_type>:\n180077b70: d0000cc8    \tadrp\tx8, 0x180211000\n180077b74: b94c4100    \tldr\tw0, [x8, #0xc40]\n180077b78: d65f03c0    \tret\n"
+    },
+    {
+      "label": "configthreadlocale",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "--disassemble",
+        "--start-address=0x180026e70",
+        "--stop-address=0x180026ef0",
+        "--print-imm-hex",
+        "-"
+      ],
+      "start_address": 6442610288,
+      "stop_address_exclusive": 6442610416,
+      "output_sha256": "e80c96646b07e2fb343ad6142b4702a51c042649d174d894d94e7c58c439963a",
+      "output": "\n<stdin>:\tfile format coff-arm64x\n\nDisassembly of section .text:\n\n0000000180026e70 <_configthreadlocale>:\n180026e70: d503237f    \tpacibsp\n180026e74: f81f0ff3    \tstr\tx19, [sp, #-0x10]!\n180026e78: a9bf7bfd    \tstp\tx29, x30, [sp, #-0x10]!\n180026e7c: 910003fd    \tmov\tx29, sp\n180026e80: 2a0003f3    \tmov\tw19, w0\n180026e84: 97ffe7fb    \tbl\t0x180020e70 <_unlock_locales+0x500>\n180026e88: aa0003e8    \tmov\tx8, x0\n180026e8c: b943a90a    \tldr\tw10, [x8, #0x3a8]\n180026e90: 52800029    \tmov\tw9, #0x1                // =1\n180026e94: 721f015f    \ttst\tw10, #0x2\n180026e98: 1a891520    \tcinc\tw0, w9, eq\n180026e9c: 350000b3    \tcbnz\tw19, 0x180026eb0 <_configthreadlocale+0x40>\n180026ea0: a8c17bfd    \tldp\tx29, x30, [sp], #0x10\n180026ea4: f84107f3    \tldr\tx19, [sp], #0x10\n180026ea8: d50323ff    \tautibsp\n180026eac: d65f03c0    \tret\n180026eb0: 3100067f    \tcmn\tw19, #0x1\n180026eb4: 540000a1    \tb.ne\t0x180026ec8 <_configthreadlocale+0x58>\n180026eb8: 12800008    \tmov\tw8, #-0x1               // =-1\n180026ebc: b0000f49    \tadrp\tx9, 0x18020f000\n180026ec0: b9063928    \tstr\tw8, [x9, #0x638]\n180026ec4: 17fffff7    \tb\t0x180026ea0 <_configthreadlocale+0x30>\n180026ec8: 7100067f    \tcmp\tw19, #0x1\n180026ecc: 54540600    \tb.eq\t0x1800cef8c <memchr+0x60ec>\n180026ed0: 71000a7f    \tcmp\tw19, #0x2\n180026ed4: 54540560    \tb.eq\t0x1800cef80 <memchr+0x60e0>\n180026ed8: 940007b6    \tbl\t0x180028db0 <_errno>\n180026edc: 528002c8    \tmov\tw8, #0x16               // =22\n180026ee0: b9000008    \tstr\tw8, [x0]\n180026ee4: 9400082f    \tbl\t0x180028fa0 <_set_errno+0x60>\n180026ee8: 12800000    \tmov\tw0, #-0x1               // =-1\n180026eec: 17ffffed    \tb\t0x180026ea0 <_configthreadlocale+0x30>\n"
+    },
+    {
+      "label": "configthreadlocale_cold",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "--disassemble",
+        "--start-address=0x1800cef80",
+        "--stop-address=0x1800cefa0",
+        "--print-imm-hex",
+        "-"
+      ],
+      "start_address": 6443298688,
+      "stop_address_exclusive": 6443298720,
+      "output_sha256": "8da05e65610458317400e43427e45294930a417eefe887427d1dbe5b8b215383",
+      "output": "\n<stdin>:\tfile format coff-arm64x\n\nDisassembly of section .text:\n\n00000001800c8ea0 <memchr>:\n1800cef80: 121e7949    \tand\tw9, w10, #0xfffffffd\n1800cef84: b903a909    \tstr\tw9, [x8, #0x3a8]\n1800cef88: 17fd5fc6    \tb\t0x180026ea0 <_configthreadlocale+0x30>\n1800cef8c: 321f0149    \torr\tw9, w10, #0x2\n1800cef90: b903a909    \tstr\tw9, [x8, #0x3a8]\n1800cef94: 17fd5fc3    \tb\t0x180026ea0 <_configthreadlocale+0x30>\n1800cef98: 97fd4f30    \tbl\t0x180022c58 <__pctype_func+0xf28>\n1800cef9c: 34ac0940    \tcbz\tw0, 0x1800270c4 <_create_locale+0x1d4>\n"
+    },
+    {
+      "label": "pxcptinfoptrs",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "--disassemble",
+        "--start-address=0x18007ae40",
+        "--stop-address=0x18007ae60",
+        "--print-imm-hex",
+        "-"
+      ],
+      "start_address": 6442954304,
+      "stop_address_exclusive": 6442954336,
+      "output_sha256": "f882e0735d72e041a56f137e462a53dfef3d703ffd8a3eb47d8b48f4ac185f93",
+      "output": "\n<stdin>:\tfile format coff-arm64x\n\nDisassembly of section .text:\n\n000000018007ae40 <__pxcptinfoptrs>:\n18007ae40: d503237f    \tpacibsp\n18007ae44: a9bf7bfd    \tstp\tx29, x30, [sp, #-0x10]!\n18007ae48: 910003fd    \tmov\tx29, sp\n18007ae4c: 97fe9809    \tbl\t0x180020e70 <_unlock_locales+0x500>\n18007ae50: 91002000    \tadd\tx0, x0, #0x8\n18007ae54: a8c17bfd    \tldp\tx29, x30, [sp], #0x10\n18007ae58: d50323ff    \tautibsp\n18007ae5c: d65f03c0    \tret\n"
+    },
+    {
+      "label": "getptd",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "--disassemble",
+        "--start-address=0x180020e70",
+        "--stop-address=0x180020ed0",
+        "--print-imm-hex",
+        "-"
+      ],
+      "start_address": 6442585712,
+      "stop_address_exclusive": 6442585808,
+      "output_sha256": "51e75d61ea99d63e0e22c54844ecc7cdbaac226449d8f75669b28cedaae36096",
+      "output": "\n<stdin>:\tfile format coff-arm64x\n\nDisassembly of section .text:\n\n0000000180020970 <_unlock_locales>:\n180020e70: d503237f    \tpacibsp\n180020e74: a9bf53f3    \tstp\tx19, x20, [sp, #-0x10]!\n180020e78: a9be7bfd    \tstp\tx29, x30, [sp, #-0x20]!\n180020e7c: 910003fd    \tmov\tx29, sp\n180020e80: 92800030    \tmov\tx16, #-0x2              // =-2\n180020e84: f9000bb0    \tstr\tx16, [x29, #0x10]\n180020e88: b0000f88    \tadrp\tx8, 0x180211000\n180020e8c: 3942b108    \tldrb\tw8, [x8, #0xac]\n180020e90: 340001a8    \tcbz\tw8, 0x180020ec4 <_unlock_locales+0x554>\n180020e94: f0000f68    \tadrp\tx8, 0x18020f000\n180020e98: b9463500    \tldr\tw0, [x8, #0x634]\n180020e9c: 3100041f    \tcmn\tw0, #0x1\n180020ea0: 540006c0    \tb.eq\t0x180020f78 <_unlock_locales+0x608>\n180020ea4: 94015c4b    \tbl\t0x180077fd0 <_query_app_type+0x460>\n180020ea8: f100001f    \tcmp\tx0, #0x0\n180020eac: 9a9f1000    \tcsel\tx0, x0, xzr, ne\n180020eb0: b100041f    \tcmn\tx0, #0x1\n180020eb4: 540006e0    \tb.eq\t0x180020f90 <_unlock_locales+0x620>\n180020eb8: b40004e0    \tcbz\tx0, 0x180020f54 <_unlock_locales+0x5e4>\n180020ebc: aa0003f3    \tmov\tx19, x0\n180020ec0: 14000028    \tb\t0x180020f60 <_unlock_locales+0x5f0>\n180020ec4: 9402cca1    \tbl\t0x1800d4148 <memchr+0xb2a8>\n180020ec8: 2a0003f3    \tmov\tw19, w0\n180020ecc: 9402ccf9    \tbl\t0x1800d42b0 <memchr+0xb410>\n"
+    },
+    {
+      "label": "setusermatherr",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "--disassemble",
+        "--start-address=0x18009d7f0",
+        "--stop-address=0x18009d838",
+        "--print-imm-hex",
+        "-"
+      ],
+      "start_address": 6443096048,
+      "stop_address_exclusive": 6443096120,
+      "output_sha256": "8004c912c7e5abae204d440084c55b131f9c2fc89dc7cd50fa7ea53096f09f60",
+      "output": "\n<stdin>:\tfile format coff-arm64x\n\nDisassembly of section .text:\n\n000000018009d7f0 <__setusermatherr>:\n18009d7f0: d503237f    \tpacibsp\n18009d7f4: f81f0ff3    \tstr\tx19, [sp, #-0x10]!\n18009d7f8: a9bf7bfd    \tstp\tx29, x30, [sp, #-0x10]!\n18009d7fc: 910003fd    \tmov\tx29, sp\n18009d800: d0000b88    \tadrp\tx8, 0x18020f000\n18009d804: f9400109    \tldr\tx9, [x8]\n18009d808: 52800808    \tmov\tw8, #0x40               // =64\n18009d80c: 4b090108    \tsub\tw8, w8, w9\n18009d810: 9ac82c08    \tror\tx8, x0, x8\n18009d814: ca090113    \teor\tx19, x8, x9\n18009d818: 97fe08d2    \tbl\t0x18001fb60 <_msize+0x10>\n18009d81c: 90000ba8    \tadrp\tx8, 0x180211000\n18009d820: 9112c108    \tadd\tx8, x8, #0x4b0\n18009d824: f8207913    \tstr\tx19, [x8, x0, lsl #3]\n18009d828: a8c17bfd    \tldp\tx29, x30, [sp], #0x10\n18009d82c: f84107f3    \tldr\tx19, [sp], #0x10\n18009d830: d50323ff    \tautibsp\n18009d834: d65f03c0    \tret\n"
+    },
+    {
+      "label": "math_state_index",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "--disassemble",
+        "--start-address=0x18001fb60",
+        "--stop-address=0x18001fbd0",
+        "--print-imm-hex",
+        "-"
+      ],
+      "start_address": 6442580832,
+      "stop_address_exclusive": 6442580944,
+      "output_sha256": "57dbb08008f56175d37dbb4d9a1550004bb94392faef9f956cba60016ad406d8",
+      "output": "\n<stdin>:\tfile format coff-arm64x\n\nDisassembly of section .text:\n\n000000018001fb50 <_msize>:\n18001fb60: d503237f    \tpacibsp\n18001fb64: a9bf53f3    \tstp\tx19, x20, [sp, #-0x10]!\n18001fb68: a9bf7bfd    \tstp\tx29, x30, [sp, #-0x10]!\n18001fb6c: 910003fd    \tmov\tx29, sp\n18001fb70: 9402d1d0    \tbl\t0x1800d42b0 <memchr+0xb410>\n18001fb74: 35000060    \tcbnz\tw0, 0x18001fb80 <_msize+0x30>\n18001fb78: f94c1240    \tldr\tx0, [x18, #0x1820]\n18001fb7c: 14000011    \tb\t0x18001fbc0 <_msize+0x70>\n18001fb80: d0000f88    \tadrp\tx8, 0x180211000\n18001fb84: 3942b108    \tldrb\tw8, [x8, #0xac]\n18001fb88: 340000a8    \tcbz\tw8, 0x18001fb9c <_msize+0x4c>\n18001fb8c: 90000f88    \tadrp\tx8, 0x18020f000\n18001fb90: b9463100    \tldr\tw0, [x8, #0x630]\n18001fb94: 9401610f    \tbl\t0x180077fd0 <_query_app_type+0x460>\n18001fb98: 1400000a    \tb\t0x18001fbc0 <_msize+0x70>\n18001fb9c: 9402d16b    \tbl\t0x1800d4148 <memchr+0xb2a8>\n18001fba0: 2a0003f4    \tmov\tw20, w0\n18001fba4: 90000f88    \tadrp\tx8, 0x18020f000\n18001fba8: b9463100    \tldr\tw0, [x8, #0x630]\n18001fbac: 9402d1af    \tbl\t0x1800d4268 <memchr+0xb3c8>\n18001fbb0: aa0003f3    \tmov\tx19, x0\n18001fbb4: 2a1403e0    \tmov\tw0, w20\n18001fbb8: 9402d161    \tbl\t0x1800d413c <memchr+0xb29c>\n18001fbbc: aa1303e0    \tmov\tx0, x19\n18001fbc0: a8c17bfd    \tldp\tx29, x30, [sp], #0x10\n18001fbc4: a8c153f3    \tldp\tx19, x20, [sp], #0x10\n18001fbc8: d50323ff    \tautibsp\n18001fbcc: d65f03c0    \tret\n"
+    },
+    {
+      "label": "fpreset",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "--disassemble",
+        "--start-address=0x180153800",
+        "--stop-address=0x180153810",
+        "--print-imm-hex",
+        "-"
+      ],
+      "start_address": 6443841536,
+      "stop_address_exclusive": 6443841552,
+      "output_sha256": "fdf9801d09dc341c8011ff2075d10bf9bec7f1dd7cf2cb36567422413c1b601b",
+      "output": "\n<stdin>:\tfile format coff-arm64x\n\nDisassembly of section .text:\n\n0000000180153800 <_fpreset>:\n180153800: d2800008    \tmov\tx8, #0x0                // =0\n180153804: d51b4408    \tmsr\tFPCR, x8\n180153808: d51b4428    \tmsr\tFPSR, x8\n18015380c: d65f03c0    \tret\n"
+    }
+  ]
+}
