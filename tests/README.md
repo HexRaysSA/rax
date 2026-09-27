@@ -162,3 +162,14 @@ transitions, environment snapshots, new-mode state and actual wildcard
 enumeration. All 45 images execute on the matching x86/x64/ARM64 guest at both
 slice sizes; environment images also run with an empty environment. These are
 custom-entry probes, not ordinary linked CRT startup or a native Windows oracle.
+
+The same target reaches `suites/user/windows/crt_onexit.rs`. Its separate
+`fixtures/user/windows/crt_onexit/` graph exercises genuine UCRTBASE/runtime
+API-set explicit table imports on x86, x64 and ARM64, including reverse callback
+order, nested generations, lazy slot mutation, actual pending-slot VEH repair,
+OOM-preserving registration and nonreturning callbacks. Companion DLLs execute
+tables during actual DLL_PROCESS_DETACH. The terminal witness deliberately
+overrides requested status 88 with forced status 0 only after a successful
+detach-time drain; missing notification remains observable. Both slice sizes,
+hashed prechange inputs and explicitly retained private profiles are distinct
+from a native Windows oracle or complete CRT termination/stdio.

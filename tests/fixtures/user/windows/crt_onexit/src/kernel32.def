@@ -1,0 +1,20 @@
+LIBRARY kernel32.dll
+EXPORTS
+ExitProcess
+ExitThread
+VirtualAlloc
+VirtualFree
+VirtualProtect
+AddVectoredExceptionHandler
+RemoveVectoredExceptionHandler
+CreateThread
+WaitForSingleObject
+GetExitCodeThread
+CloseHandle
+HeapAlloc
+HeapFree
+GetLastError
+SetLastError
+LoadLibraryW
+GetProcAddress
+TerminateProcess

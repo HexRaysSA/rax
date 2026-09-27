@@ -4,6 +4,7 @@ mod allocation;
 mod initialize;
 mod invalid;
 mod memory;
+pub(crate) mod onexit;
 pub(crate) mod startup;
 mod state;
 mod strings;
@@ -19,6 +20,7 @@ use super::super::loader::ModuleKind;
 pub(crate) use allocation::ALLOCATION_EXPORTS;
 pub(crate) use initialize::{INIT_EXPORTS, MSVCRT_INIT_EXPORTS, UCRT_INIT_EXPORTS};
 pub(crate) use memory::{MEMORY_EXPORTS, VCRUNTIME_MEMORY_EXPORTS};
+pub(crate) use onexit::UCRT_ONEXIT_EXPORTS;
 pub(crate) use startup::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(crate) use state::{STATE_EXPORTS, UCRT_STATE_EXPORTS, release_thread};
 pub(crate) use strings::{STRING_EXPORTS, UCRT_STRING_EXPORTS, VCRUNTIME_STRING_EXPORTS};
@@ -64,6 +66,9 @@ struct RuntimeState {
     /// No new-handler registration export is admitted yet. With the primary
     /// documented default of no handler, mode 1 retains ordinary OOM behavior.
     new_mode: u32,
+    /// Explicit tables own detached callback generations independently of
+    /// process-global CRT exit and ordinary caller allocations.
+    onexit: onexit::OnExitState,
 }
 
 struct ThreadState {

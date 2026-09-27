@@ -100,6 +100,7 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::INIT_EXPORTS,
         crt::UCRT_INIT_EXPORTS,
         crt::UCRT_STARTUP_EXPORTS,
+        crt::UCRT_ONEXIT_EXPORTS,
     ],
 };
 static VCRUNTIME140: BuiltinDll = BuiltinDll {
