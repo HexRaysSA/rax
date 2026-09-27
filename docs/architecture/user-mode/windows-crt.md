@@ -8,7 +8,7 @@ the continuing Windows userland objective, not a complete C/C++ runtime.
 
 The authoritative export lists are in `src/user/windows/dll/crt/`. Unsupported
 functions retain the loader's explicit missing-export execution diagnostic.
-Normal compiler CRT startup, argument/environment data exports,
+Normal compiler CRT startup,
 onexit tables, standard I/O, formatted I/O, locale, math, C++ exceptions, debug
 CRT and over-aligned allocation remain required subsequent groups. No success
 stub substitutes for them. In particular, a custom-entry PE testing CRT imports
@@ -20,6 +20,13 @@ named counts below exclude that subsequent group; the combined current source
 adds `_initterm` to MSVCRT and both initializer functions to UCRT.
 MSVCRT also admits `_initterm_e` on ARM64 only, following the retained primary
 ARM-specific binding declaration rather than x86/x64 compatibility shims.
+
+Argument/environment startup and genuine per-ABI data/accessor bindings are
+implemented in [windows-crt-startup.md](windows-crt-startup.md), including
+CP1252 conversion, configuration, wildcard enumeration and new-mode state.
+That successor supersedes C6's default-mode-only boundary: handler registration
+is still unsupported, and the documented default is no new handler. The
+foundation-only export counts below do not include either successor group.
 
 ## Acceptance criteria and ownership
 

@@ -14,6 +14,7 @@ const CRT_FOUNDATION: &[&str] = &[
     "api-ms-win-crt-heap-l1-1-0.dll",
     "api-ms-win-crt-string-l1-1-0.dll",
     "api-ms-win-crt-runtime-l1-1-0.dll",
+    "api-ms-win-crt-environment-l1-1-0.dll",
 ];
 
 /// Family prefixes and their host DLL; the first match wins.

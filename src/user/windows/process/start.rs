@@ -43,6 +43,21 @@ pub fn quote_arg(arg: &str) -> String {
     out
 }
 
+/// argv[0] follows the distinct Microsoft C program-name rule: quotes toggle
+/// grouping, but backslashes are literal, including before the closing quote.
+fn quote_program(arg: &str) -> Result<String, SpawnError> {
+    if arg.contains(['"', '\0']) {
+        return Err(SpawnError::BadImage(
+            "program argument cannot contain a quotation mark or NUL".into(),
+        ));
+    }
+    Ok(if arg.is_empty() || arg.contains([' ', '\t']) {
+        format!("\"{arg}\"")
+    } else {
+        arg.to_owned()
+    })
+}
+
 impl WindowsConfig {
     /// Default guest environment independent of the host's Unix environment.
     pub fn default_environment(&self, arch: WinArch) -> Vec<(String, String)> {
@@ -118,13 +133,16 @@ fn params(p: &mut Proc, image_path: &str) -> Result<(), SpawnError> {
     let cwd = String::from_utf16_lossy(&p.cwd);
     unicode(p, at + o.pp_current_directory, &cwd)?;
     unicode(p, at + o.pp_image_path_name, image_path)?;
-    let command = p.cfg.command_line.clone().unwrap_or_else(|| {
-        std::iter::once(p.cfg.argv0.as_deref().unwrap_or(image_path))
-            .chain(p.cfg.args.iter().map(String::as_str))
-            .map(quote_arg)
-            .collect::<Vec<_>>()
-            .join(" ")
-    });
+    let command = if let Some(command) = &p.cfg.command_line {
+        command.clone()
+    } else {
+        let mut command = quote_program(p.cfg.argv0.as_deref().unwrap_or(image_path))?;
+        for argument in &p.cfg.args {
+            command.push(' ');
+            command.push_str(&quote_arg(argument));
+        }
+        command
+    };
     unicode(p, at + o.pp_command_line, &command)?;
     unicode(p, at + o.pp_dll_path, loader::system_dir(p.arch))?;
     let env = p
@@ -377,7 +395,7 @@ pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc,
 
 #[cfg(test)]
 mod tests {
-    use super::quote_arg;
+    use super::{quote_arg, quote_program};
     #[test]
     fn quotes_empty_spaces_quotes_and_trailing_backslashes() {
         assert_eq!(quote_arg(""), "\"\"");
@@ -385,5 +403,15 @@ mod tests {
         assert_eq!(quote_arg("a b"), "\"a b\"");
         assert_eq!(quote_arg("a\"b"), "\"a\\\"b\"");
         assert_eq!(quote_arg("a b\\"), "\"a b\\\\\"");
+    }
+
+    #[test]
+    fn program_quoting_does_not_double_literal_trailing_backslashes() {
+        assert_eq!(quote_program("a b\\").unwrap(), "\"a b\\\"");
+        assert_eq!(quote_program("a b\\\\").unwrap(), "\"a b\\\\\"");
+        assert_eq!(quote_program("").unwrap(), "\"\"");
+        assert_eq!(quote_program("plain\\").unwrap(), "plain\\");
+        assert!(quote_program("a\"b").is_err());
+        assert!(quote_program("a\0b").is_err());
     }
 }

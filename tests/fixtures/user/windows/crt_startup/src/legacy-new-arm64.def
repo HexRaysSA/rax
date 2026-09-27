@@ -1,0 +1,4 @@
+EXPORTS
+?_set_new_mode@@YAHH@Z
+malloc
+free

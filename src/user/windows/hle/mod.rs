@@ -104,6 +104,8 @@ impl Archs {
     pub const ARM64: Archs = Archs(4);
     /// x64 and ARM64 (table-based exception handling).
     pub const WIN64: Archs = Archs(6);
+    /// x86 and x64, excluding ARM64.
+    pub const X86_FAMILY: Archs = Archs(3);
 
     /// Whether `arch` is included.
     pub fn has(self, arch: WinArch) -> bool {

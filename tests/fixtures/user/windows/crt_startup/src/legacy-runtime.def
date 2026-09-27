@@ -1,0 +1,10 @@
+EXPORTS
+__getmainargs
+__wgetmainargs
+__argc DATA
+__argv DATA
+__wargv DATA
+_acmdln DATA
+_wcmdln DATA
+_pgmptr DATA
+_wpgmptr DATA

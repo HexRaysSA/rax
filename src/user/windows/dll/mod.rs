@@ -83,6 +83,7 @@ static MSVCRT: BuiltinDll = BuiltinDll {
         crt::STRING_EXPORTS,
         crt::INIT_EXPORTS,
         crt::MSVCRT_INIT_EXPORTS,
+        crt::MSVCRT_STARTUP_EXPORTS,
     ],
 };
 static UCRTBASE: BuiltinDll = BuiltinDll {
@@ -98,6 +99,7 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::UCRT_STRING_EXPORTS,
         crt::INIT_EXPORTS,
         crt::UCRT_INIT_EXPORTS,
+        crt::UCRT_STARTUP_EXPORTS,
     ],
 };
 static VCRUNTIME140: BuiltinDll = BuiltinDll {
@@ -107,8 +109,58 @@ static VCRUNTIME140: BuiltinDll = BuiltinDll {
     exports: &[crt::VCRUNTIME_MEMORY_EXPORTS, crt::VCRUNTIME_STRING_EXPORTS],
 };
 
-/// Initializes data exports. Current built-ins contain only function exports.
+/// Legacy compatibility hook; it has always performed no initialization.
+///
+/// Built-in data is now initialized transactionally by the loader before
+/// publication. This retained public function does not repeat or bypass that
+/// transaction, and calling it after loading leaves guest-owned cells intact.
+#[deprecated(note = "built-in data initialization is owned by the loader transaction")]
 pub fn init_data_exports(_: &mut super::process::Proc, _: usize) {}
+
+/// Unpublished, loader-local ownership of a built-in's initialized data.
+/// Successful CRT storage belongs to the process, not a native importer's
+/// dynamic load journal. Failure before publication must abort this receipt.
+pub(crate) enum PreparedDataExports {
+    None,
+    Crt(crt::startup::PreparedStartup),
+}
+
+impl PreparedDataExports {
+    /// Commits only host ownership after all fallible loader links succeed.
+    pub(crate) fn commit(self, p: &mut super::process::Proc) {
+        match self {
+            Self::None => {}
+            Self::Crt(startup) => startup.commit(p),
+        }
+    }
+
+    /// Releases unpublished storage without consulting guest pointer cells.
+    pub(crate) fn abort(
+        self,
+        p: &mut super::process::Proc,
+    ) -> Result<(), super::loader::LoadError> {
+        match self {
+            Self::None => Ok(()),
+            Self::Crt(startup) => startup.abort(p),
+        }
+    }
+}
+
+/// Prepares data after image mapping, before module/LDR/trap publication.
+/// The CRT preparer owns cleanup of partial work when returning an error.
+pub(crate) fn prepare_data_exports(
+    p: &mut super::process::Proc,
+    dll: &'static BuiltinDll,
+    base: u64,
+    symbols: &[(&'static str, super::loader::builtin::BuiltinSym)],
+) -> Result<PreparedDataExports, super::loader::LoadError> {
+    match dll.name {
+        "msvcrt.dll" | "ucrtbase.dll" => {
+            crt::startup::prepare(p, dll, base, symbols).map(PreparedDataExports::Crt)
+        }
+        _ => Ok(PreparedDataExports::None),
+    }
+}
 
 /// Finds a built-in DLL by case-folded import name.
 pub fn find(name: &str) -> Option<&'static BuiltinDll> {
