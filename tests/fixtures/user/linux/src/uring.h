@@ -1,4 +1,4 @@
-/* Shared helpers for the io_uring fixtures (uring.c, uringio.c): the
+/* Shared helpers for the io_uring fixtures (uring.c, uringio.c, uringpoll.c): the
  * io_uring structures and constants (include/uapi/linux/io_uring.h), the
  * system calls, a ring mapped as liburing maps it, SQE builders, CQE
  * reaping, and the checks they share. */
@@ -108,7 +108,7 @@ enum { OP_READV = 1, OP_WRITEV = 2, OP_FSYNC = 3, OP_READ_FIXED = 4, OP_WRITE_FI
        OP_OPENAT = 18, OP_CLOSE = 19, OP_STATX = 21, OP_OPENAT2 = 28, OP_RENAMEAT = 35,
        OP_UNLINKAT = 36, OP_MKDIRAT = 37, OP_SYMLINKAT = 38, OP_LINKAT = 39,
        OP_FIXED_FD_INSTALL = 54, OP_PIPE = 62, OP_FSETXATTR = 41, OP_SETXATTR = 42,
-       OP_FGETXATTR = 43, OP_GETXATTR = 44 };
+       OP_FGETXATTR = 43, OP_GETXATTR = 44, OP_POLL_ADD = 6, OP_POLL_REMOVE = 7 };
 #if defined(__aarch64__) || defined(__arm__)
 #define RAW_LARGEFILE 0400000
 #else
@@ -215,6 +215,34 @@ static char *reap(struct ring *r) {
     return buf;
 }
 
+/* Reaps every CQE as "data:res" pairs, with "/flags" when the flags are
+ * not zero. */
+static char *reapf(struct ring *r) {
+    static char buf[1024];
+    char *p = buf;
+    *p = 0;
+    uint32_t head = *sq_u32(r, r->p.cq_off.head);
+    uint32_t tail = __atomic_load_n(sq_u32(r, r->p.cq_off.tail), __ATOMIC_ACQUIRE);
+    while (head != tail) {
+        struct cqe *c = (void *)(r->rings + r->p.cq_off.cqes +
+                                 r->cqe_size * (head & (r->p.cq_entries - 1)));
+        p += sprintf(p, "%s%llu:%d", p == buf ? "" : " ", (unsigned long long)c->user_data, c->res);
+        if (c->flags)
+            p += sprintf(p, "/%x", c->flags);
+        head++;
+    }
+    __atomic_store_n(sq_u32(r, r->p.cq_off.head), head, __ATOMIC_RELEASE);
+    return buf;
+}
+
+#define REAPF(name, r, want)                                                  \
+    do {                                                                      \
+        char *got_ = reapf(r);                                                \
+        CHECK(name, strcmp(got_, want) == 0);                                 \
+        if (strcmp(got_, want) != 0)                                          \
+            printf("  got \"%s\" want \"%s\"\n", got_, want);                 \
+    } while (0)
+
 #define REAPS(name, r, want)                                                  \
     do {                                                                      \
         char *got_ = reap(r);                                                 \
@@ -228,8 +256,9 @@ static int cmpu(const void *a, const void *b) {
     return (x > y) - (x < y);
 }
 
-/* The fdinfo lines from "UserFiles" up to "PollList". */
-static char *user_rsrc(int ring) {
+/* The fdinfo lines of ring from the one starting with "from" up to the one
+ * starting with "to" ("" if either is missing). */
+static char *fdinfo_part(int ring, const char *from, const char *to) {
     static char buf[16384], out[4096];
     char path[64];
     snprintf(path, sizeof path, "/proc/self/fdinfo/%d", ring);
@@ -240,13 +269,22 @@ static char *user_rsrc(int ring) {
     if (fd >= 0)
         close(fd);
     buf[n] = 0;
-    char *a = strstr(buf, "UserFiles:"), *b = strstr(buf, "PollList:");
+    char *a = strstr(buf, from), *b = strstr(buf, to);
     out[0] = 0;
     if (a && b && b > a && (size_t)(b - a) < sizeof out) {
         memcpy(out, a, b - a);
         out[b - a] = 0;
     }
     return out;
+}
+
+/* The fdinfo lines from "UserFiles" up to "PollList". */
+static char *user_rsrc(int ring) { return fdinfo_part(ring, "UserFiles:", "PollList:"); }
+
+/* The fdinfo lines of the poll table. */
+static char *poll_list(int ring) {
+    char *s = fdinfo_part(ring, "PollList:\n", "CqOverflowList:");
+    return *s ? s + strlen("PollList:\n") : s;
 }
 
 #define TEXT(name, got, want)                                                 \

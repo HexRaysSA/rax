@@ -261,6 +261,12 @@ target = "x86_64-linux-musl"
 sha256 = "2cbca69b6033bc252570832aba602ad177148e68d7387ca3d80ce228a3b2a87a"
 
 [[fixture]]
+path = "bin/x86_64/uringpoll"
+source = "src/uringpoll.c"
+target = "x86_64-linux-musl"
+sha256 = "9a1ae26026de59ba72c905f66b9f8fd8b2713241bca14c92d01d31ca3d96fedf"
+
+[[fixture]]
 path = "bin/x86_64/splice"
 source = "src/splice.c"
 target = "x86_64-linux-musl"
@@ -601,6 +607,12 @@ path = "bin/aarch64/uringio"
 source = "src/uringio.c"
 target = "aarch64-linux-musl"
 sha256 = "c3b2b6ad4aedca23f35a19a1927befd2e7cb476c0d8bedf988636a09ed2bcd77"
+
+[[fixture]]
+path = "bin/aarch64/uringpoll"
+source = "src/uringpoll.c"
+target = "aarch64-linux-musl"
+sha256 = "8a9fa82f9ed703b1a120ec2b408b4bcf525b6e31b2d733b38aa1d49b03f7e751"
 
 [[fixture]]
 path = "bin/aarch64/splice"
@@ -945,6 +957,12 @@ target = "riscv64-linux-musl"
 sha256 = "3cf54b36ae40106f2d1afcf99db4a6b4304bf4a0d53c01f7a88eee6605d6cf94"
 
 [[fixture]]
+path = "bin/riscv64/uringpoll"
+source = "src/uringpoll.c"
+target = "riscv64-linux-musl"
+sha256 = "c088827437f7b8030ad563a1ffad39686fe5371865c8f337f20ba27a91bf8b1b"
+
+[[fixture]]
 path = "bin/riscv64/splice"
 source = "src/splice.c"
 target = "riscv64-linux-musl"
@@ -1255,6 +1273,12 @@ path = "bin/i386/uringio"
 source = "src/uringio.c"
 target = "x86-linux-musl"
 sha256 = "22c42552cbde0dc01e79792a03b3c3f97a9d8e30ab1a6d5011d0f53aba46e609"
+
+[[fixture]]
+path = "bin/i386/uringpoll"
+source = "src/uringpoll.c"
+target = "x86-linux-musl"
+sha256 = "1fee9012aba92dab10217ab686132926ea6b9a6533942308d557ed8443403477"
 
 [[fixture]]
 path = "bin/i386/ptracejobs"
@@ -1586,6 +1610,13 @@ source = "src/uringio.c"
 target = "arm-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
 sha256 = "5053b068a034c66af261de82ad96f095c5c1b65df4e6def0aa3f3ff69850b2a6"
+
+[[fixture]]
+path = "bin/arm/uringpoll"
+source = "src/uringpoll.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "a8165c866d772d8180a169782ed352bddded3560ee2f27853daf6b321a1ff8c7"
 
 [[fixture]]
 path = "bin/arm/splice"
@@ -1950,6 +1981,13 @@ source = "src/uringio.c"
 target = "thumb-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
 sha256 = "5ce7e5df2847f3a12343958e0ab2da49a9776e873cd9728a7e7dcd6353795646"
+
+[[fixture]]
+path = "bin/thumb/uringpoll"
+source = "src/uringpoll.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "24c01343a3dae33abed7ad264661c62f9e65934a15dce2a092412786ad7f2299"
 
 [[fixture]]
 path = "bin/thumb/splice"

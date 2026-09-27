@@ -47,6 +47,7 @@ rseq     rseq     -
 aio      aio      -
 uring    uring    -
 uringio  uringio  -
+uringpoll uringpoll -
 splice   splice   -
 sendfault sendfault -
 ptrace   ptrace   -

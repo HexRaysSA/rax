@@ -89,3 +89,6 @@ riscv64  uring    aarch64  qemu-riscv64 returns ENOSYS for the io_uring calls; i
 aarch64  uringio  kernel   as uring: io_uring changed after Linux 6.19, so the Docker kernel is no oracle for it
 x86_64   uringio  kernel   as uring: Rosetta returns ENOSYS for the io_uring calls
 riscv64  uringio  aarch64  as uring: qemu-riscv64 returns ENOSYS for the io_uring calls, and the native aarch64 run on Linux 6.19 passes every check
+aarch64  uringpoll kernel   as uring: io_uring changed after Linux 6.19, so the Docker kernel is no oracle for it
+x86_64   uringpoll kernel   as uring: Rosetta returns ENOSYS for the io_uring calls
+riscv64  uringpoll aarch64  as uring: qemu-riscv64 returns ENOSYS for the io_uring calls, and the native aarch64 run on Linux 6.19 passes every check
