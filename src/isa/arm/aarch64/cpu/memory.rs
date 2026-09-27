@@ -1292,6 +1292,50 @@ impl AArch64Cpu {
         Ok(CpuExit::Continue)
     }
 
+    /// `LDRAA`/`LDRAB Xt, [Xn|SP, #simm]{!}`: authenticate the base with
+    /// data key A (M=0) or B (M=1) and a zero modifier, add the scaled
+    /// 10-bit offset (`S:imm9 << 3`), load 64 bits, and with W=1 write the
+    /// address back. UNDEFINED without FEAT_PAuth. The implementation's
+    /// PAC algorithm leaves pointers unchanged (see `exec_br_reg_pauth`),
+    /// so the authenticated base is the base.
+    fn exec_ldraa(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        if !self.config.features.contains(ArmFeatures::PACA) {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        let s = (insn >> 22) & 1;
+        let imm9 = (insn >> 12) & 0x1FF;
+        let wback = (insn >> 11) & 1 == 1;
+        let rn = ((insn >> 5) & 0x1F) as u8;
+        let rt = (insn & 0x1F) as u8;
+        let s10 = ((s << 9) | imm9) as i32;
+        let offset = (((s10 << 22) >> 22) as i64) << 3;
+        let base = if rn == 31 {
+            let sp = self.current_sp();
+            if sp & 0xF != 0 {
+                return Err(ArmError::MemoryError(MemoryFaultInfo {
+                    address: sp,
+                    access: crate::isa::arm::common::cpu::AccessType::Read,
+                    fault_type: MemoryFaultType::Alignment,
+                    stage2: false,
+                }));
+            }
+            sp
+        } else {
+            self.get_x(rn)
+        };
+        let address = (base as i64).wrapping_add(offset) as u64;
+        let data = self.mem_read_u64(address)?;
+        self.set_x(rt, data);
+        if wback {
+            if rn == 31 {
+                self.set_current_sp(address);
+            } else {
+                self.set_x(rn, address);
+            }
+        }
+        Ok(CpuExit::Continue)
+    }
+
     pub(crate) fn exec_ldst_reg(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
         let size = (insn >> 30) & 0x3;
         let v = (insn >> 26) & 1;
@@ -1302,6 +1346,17 @@ impl AArch64Cpu {
         // Atomic memory operations (FEAT_LSE): bit24=0, bit21=1, bits[11:10]=00.
         if v == 0 && (insn >> 24) & 1 == 0 && (insn >> 21) & 1 == 1 && (insn >> 10) & 0x3 == 0 {
             return self.exec_atomic_memop(insn);
+        }
+
+        // Load register (pac): LDRAA/LDRAB, size=11, bit24=0, bit21=1,
+        // bits[11:10]=W1.
+        if v == 0
+            && size == 0b11
+            && (insn >> 24) & 1 == 0
+            && (insn >> 21) & 1 == 1
+            && (insn >> 10) & 1 == 1
+        {
+            return self.exec_ldraa(insn);
         }
 
         if v != 0 {

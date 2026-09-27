@@ -199,3 +199,112 @@ fn test_ret_xn() {
     cpu.step().unwrap();
     assert_eq!(cpu.get_pc(), 0x3000);
 }
+
+// -------------------------------------------------------------------------
+// FEAT_PAuth branches (register). Encodings from the Apple LLVM assembler
+// (`clang -arch arm64e`); the implementation's PAC algorithm leaves
+// pointers unchanged, so the authenticated target is the register value.
+// -------------------------------------------------------------------------
+
+fn pauth_cpu_with_insn(insn: u32) -> AArch64Cpu {
+    use crate::isa::arm::common::features::ArmFeatures;
+    use crate::isa::arm::common::memory::FlatMemory;
+    let config = AArch64Config {
+        features: ArmFeatures::armv8_3_base(),
+        ..AArch64Config::default()
+    };
+    let mut cpu = AArch64Cpu::new(config, Box::new(FlatMemory::new(0, 0x1000_0000)));
+    cpu.write_memory(0, &insn.to_le_bytes()).unwrap();
+    cpu
+}
+
+#[test]
+fn test_pauth_branches_jump_to_the_register() {
+    // (insn, Rn, links)
+    let cases: [(u32, u8, bool); 8] = [
+        (0xd71f0822, 1, false), // braa x1, x2
+        (0xd71f0c7f, 3, false), // brab x3, sp
+        (0xd61f089f, 4, false), // braaz x4
+        (0xd61f0cbf, 5, false), // brabz x5
+        (0xd73f08c7, 6, true),  // blraa x6, x7
+        (0xd73f0d09, 8, true),  // blrab x8, x9
+        (0xd63f095f, 10, true), // blraaz x10
+        (0xd63f0d7f, 11, true), // blrabz x11
+    ];
+    for (insn, rn, links) in cases {
+        let mut cpu = pauth_cpu_with_insn(insn);
+        cpu.set_x(rn, 0x4000);
+        cpu.set_x(30, 0x1234);
+        // Modifiers that must not affect the target.
+        cpu.set_x(2, 0xdead_beef);
+        cpu.set_x(7, 0xfeed);
+        cpu.set_x(9, 0x77);
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue, "{insn:#010x}");
+        assert_eq!(cpu.get_pc(), 0x4000, "{insn:#010x}");
+        assert_eq!(
+            cpu.get_x(30),
+            if links { 4 } else { 0x1234 },
+            "{insn:#010x}"
+        );
+    }
+}
+
+#[test]
+fn test_pauth_returns_use_the_link_register() {
+    for insn in [0xd65f0bffu32, 0xd65f0fff] {
+        // retaa, retab
+        let mut cpu = pauth_cpu_with_insn(insn);
+        cpu.set_x(30, 0x8888);
+        cpu.step().unwrap();
+        assert_eq!(cpu.get_pc(), 0x8888, "{insn:#010x}");
+    }
+}
+
+#[test]
+fn test_pauth_eret_is_undefined_at_el0() {
+    for insn in [0xd69f0bffu32, 0xd69f0fff] {
+        // eretaa, eretab
+        let mut cpu = pauth_cpu_with_insn(insn);
+        cpu.enter_el0();
+        assert!(
+            matches!(cpu.step(), Err(ArmError::InvalidExceptionLevel(0))),
+            "{insn:#010x}"
+        );
+    }
+}
+
+#[test]
+fn test_pauth_branch_reserved_forms_are_undefined() {
+    for insn in [
+        0xd61f0880u32, // braaz x4 with Rm != 11111
+        0xd63f0940,    // blraaz x10 with Rm != 11111
+        0xd65f0be0,    // retaa with Rn != 11111
+        0xd65f0bfe,    // retaa with Rm != 11111
+        0xd69f0be0,    // eretaa with Rn != 11111
+        0xd61f1080,    // op3 = 000100
+    ] {
+        let mut cpu = pauth_cpu_with_insn(insn);
+        assert!(
+            matches!(cpu.step(), Err(ArmError::UndefinedInstruction(_))),
+            "{insn:#010x}"
+        );
+    }
+}
+
+#[test]
+fn test_pauth_branches_need_feat_pauth() {
+    for insn in [
+        0xd71f0822u32,
+        0xd61f089f,
+        0xd63f095f,
+        0xd65f0bff,
+        0xd65f0fff,
+    ] {
+        let mut cpu = create_cpu_with_insn(insn);
+        cpu.set_x(1, 0x4000);
+        assert!(
+            matches!(cpu.step(), Err(ArmError::UndefinedInstruction(_))),
+            "{insn:#010x} executed without FEAT_PAuth"
+        );
+    }
+}

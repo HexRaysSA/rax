@@ -98,8 +98,10 @@ impl AArch64Cpu {
             }
         }
 
-        // Unconditional branch (register): bits[31:25] = 1101011 -> bits[31:24] = 0xD6
-        if bits_31_24 == 0xD6 {
+        // Unconditional branch (register): bits[31:25] = 1101011 -> bits[31:24]
+        // = 0xD6, or 0xD7 for the FEAT_PAuth forms with opc<3> set (BRAA,
+        // BRAB, BLRAA, BLRAB).
+        if bits_31_24 == 0xD6 || bits_31_24 == 0xD7 {
             return self.exec_br_reg(insn);
         }
 
