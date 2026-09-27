@@ -6,6 +6,7 @@ pub mod msg;
 pub mod port;
 pub mod reclaim;
 pub mod sync;
+pub mod timer;
 pub mod vm;
 
 use std::sync::Arc;
@@ -326,6 +327,11 @@ fn call(ctx: &mut Ctx<'_>, nr: u32, a: &[u64; 9]) -> KernReturn {
             kr::KERN_SUCCESS
         }
         trap::MACH_WAIT_UNTIL_TRAP => wait_until(ctx, a[0]),
+        trap::MK_TIMER_CREATE_TRAP => timer::create(ctx),
+        trap::MK_TIMER_DESTROY_TRAP => timer::destroy(ctx, name(0)),
+        trap::MK_TIMER_ARM_TRAP => timer::arm(ctx, name(0), 0, a[1], 0),
+        trap::MK_TIMER_ARM_LEEWAY_TRAP => timer::arm(ctx, name(0), a[1], a[2], a[3]),
+        trap::MK_TIMER_CANCEL_TRAP => timer::cancel(ctx, name(0), a[1]),
         _ => {
             if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {
                 eprintln!(
