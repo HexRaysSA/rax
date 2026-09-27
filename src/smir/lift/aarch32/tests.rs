@@ -901,3 +901,25 @@ fn a32_exception_generating_instructions_are_not_lifted() {
         ControlFlow::IndirectBranch { target } if target == Aarch32Lifter::reg(3)
     ));
 }
+
+/// ARMv8's LDA/STL and LDAEX/STLEX, which the decoder now recognizes, stay
+/// rejected: the lifter models no acquire/release ordering or exclusive
+/// monitor.
+#[test]
+fn a32_acquire_release_accesses_are_not_lifted() {
+    for raw in [
+        0xe191_0c9f_u32,
+        0xe181_fc90,
+        0xe191_0e9f,
+        0xe181_9e90,
+        0xe1b8_6e9f,
+    ] {
+        let mut lifter = Aarch32Lifter::new();
+        let mut ctx = LiftContext::new(SourceArch::Aarch32);
+        let result = lifter.lift_insn(0x1000, &raw.to_le_bytes(), &mut ctx);
+        assert!(
+            matches!(result, Err(LiftError::Unsupported { .. })),
+            "{raw:#010x}: {result:?}"
+        );
+    }
+}

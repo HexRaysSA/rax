@@ -276,9 +276,9 @@ Signals use the AArch32 frames with their VFP record.
 Limitations: register requests of `ptrace` on or by an AArch32 thread are
 `EIO`; `SWP` and `SETEND` raise `SIGILL`, as on an arm64 CPU without
 mixed-endian EL0. The AArch32 core's Thumb-2 decoder lacks the coprocessor
-and exclusive-access encodings (so T32 code that reads TLS with `MRC` does
-not run), its NEON coverage has gaps, and it has no ARMv8 load-acquire and
-store-release instructions (which the kuser `cmpxchg` helpers use). No
+and exclusive-access encodings, ARMv8's load-acquire and store-release ones
+among them (so T32 code that reads TLS with `MRC` does not run; A32 code
+has them all), and its NEON coverage has gaps. No
 recorded fixtures cover ARM EABI yet.
 
 ## Current limitations

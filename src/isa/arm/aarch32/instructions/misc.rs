@@ -163,14 +163,22 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::STP => self.exec_strd(insn),
 
             // Load/Store Exclusive
-            Mnemonic::LDXR => self.exec_ldrex(insn),
-            Mnemonic::STXR => self.exec_strex(insn),
-            Mnemonic::LDXRB => self.exec_ldrexb(insn),
-            Mnemonic::STXRB => self.exec_strexb(insn),
-            Mnemonic::LDXRH => self.exec_ldrexh(insn),
-            Mnemonic::STXRH => self.exec_strexh(insn),
-            Mnemonic::LDXP => self.exec_ldrexd(insn),
-            Mnemonic::STXP => self.exec_strexd(insn),
+            // The acquire/release exclusives order accesses no differently
+            // for one thread.
+            Mnemonic::LDXR | Mnemonic::LDAXR => self.exec_ldrex(insn),
+            Mnemonic::STXR | Mnemonic::STLXR => self.exec_strex(insn),
+            Mnemonic::LDXRB | Mnemonic::LDAXRB => self.exec_ldrexb(insn),
+            Mnemonic::STXRB | Mnemonic::STLXRB => self.exec_strexb(insn),
+            Mnemonic::LDXRH | Mnemonic::LDAXRH => self.exec_ldrexh(insn),
+            Mnemonic::STXRH | Mnemonic::STLXRH => self.exec_strexh(insn),
+            Mnemonic::LDXP | Mnemonic::LDAXP => self.exec_ldrexd(insn),
+            Mnemonic::STXP | Mnemonic::STLXP => self.exec_strexd(insn),
+            Mnemonic::LDAR => self.exec_lda(insn, 4),
+            Mnemonic::LDARB => self.exec_lda(insn, 1),
+            Mnemonic::LDARH => self.exec_lda(insn, 2),
+            Mnemonic::STLR => self.exec_stl(insn, 4),
+            Mnemonic::STLRB => self.exec_stl(insn, 1),
+            Mnemonic::STLRH => self.exec_stl(insn, 2),
             Mnemonic::CLREX => self.exec_clrex(insn),
 
             // Load/Store Multiple

@@ -326,3 +326,33 @@ fn bit_field_encodings_check_op2_and_udf_is_undefined() {
         assert_eq!(insn.mnemonic, mnemonic, "{raw:#010x}");
     }
 }
+
+/// The synchronization space's bits 9:8: ARMv7's exclusives (11), ARMv8's
+/// acquire/release exclusives (10) and non-exclusive LDA/STL (00), and 01
+/// UNDEFINED (`llvm-mc -triple=armv8a`).
+#[test]
+fn load_acquire_and_store_release_forms() {
+    for (raw, mnemonic) in [
+        (0xe191_0c9f, Mnemonic::LDAR),
+        (0xe1d3_2c9f, Mnemonic::LDARB),
+        (0xe1f5_4c9f, Mnemonic::LDARH),
+        (0xe181_fc90, Mnemonic::STLR),
+        (0xe1c3_fc92, Mnemonic::STLRB),
+        (0xe1e5_fc94, Mnemonic::STLRH),
+        (0xe191_0e9f, Mnemonic::LDAXR),
+        (0xe1d3_2e9f, Mnemonic::LDAXRB),
+        (0xe1f5_4e9f, Mnemonic::LDAXRH),
+        (0xe1b8_6e9f, Mnemonic::LDAXP),
+        (0xe181_9e90, Mnemonic::STLXR),
+        (0xe1c3_9e92, Mnemonic::STLXRB),
+        (0xe1e5_9e94, Mnemonic::STLXRH),
+        (0xe1a8_9e96, Mnemonic::STLXP),
+        (0xe191_0f9f, Mnemonic::LDXR),
+        (0xe181_2f90, Mnemonic::STXR),
+        (0xe191_0d9f, Mnemonic::UNKNOWN), // bits 9:8 = 01
+        (0xe1b8_6c9f, Mnemonic::UNKNOWN), // no doubleword LDA
+    ] {
+        let insn = Aarch32Decoder::decode(raw).unwrap();
+        assert_eq!(insn.mnemonic, mnemonic, "{raw:#010x}");
+    }
+}

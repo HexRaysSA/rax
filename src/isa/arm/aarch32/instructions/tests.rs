@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::isa::arm::ExecutionState;
-use crate::isa::arm::aarch32::cpu::FlatMemory;
+use crate::isa::arm::aarch32::cpu::{FlatMemory, MemoryError};
 
 fn make_cpu() -> Armv7Cpu {
     Armv7Cpu::new()
@@ -413,6 +413,64 @@ fn svc_and_bkpt_immediates_follow_the_instruction_set() {
         exec.execute(&t16(0xbe34)),
         ExecResult::Exception(ExceptionType::Breakpoint(0x34))
     ));
+}
+
+/// ARMv8's LDA/STL and LDAEX/STLEX (one thread sees plain loads, stores,
+/// and exclusives), and the natural alignment every exclusive and ordered
+/// access requires whatever SCTLR.A says.
+#[test]
+fn acquire_release_and_exclusive_accesses_are_aligned() {
+    let dec = |raw| crate::isa::arm::decoder::Aarch32Decoder::decode(raw).unwrap();
+    let mut cpu = make_cpu();
+    let mut mem = make_mem();
+    mem.write_word(0x100, 0x8765_4321).unwrap();
+    cpu.regs[1] = 0x100;
+    cpu.regs[3] = 0x101;
+    cpu.regs[5] = 0x102;
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    // lda r0, [r1]; ldab r2, [r3]; ldah r4, [r5]
+    for raw in [0xe191_0c9f, 0xe1d3_2c9f, 0xe1f5_4c9f] {
+        assert!(matches!(exec.execute(&dec(raw)), ExecResult::Continue));
+    }
+    assert_eq!(
+        (exec.cpu.regs[0], exec.cpu.regs[2], exec.cpu.regs[4]),
+        (0x8765_4321, 0x43, 0x8765)
+    );
+    // stlh r4, [r5]: the halfword at 0x102.
+    exec.cpu.regs[4] = 0xAAAA_1234;
+    assert!(matches!(
+        exec.execute(&dec(0xe1e5_fc94)),
+        ExecResult::Continue
+    ));
+    // ldaex r0, [r1]; stlex r9, r0, [r1]: the pair succeeds.
+    assert!(matches!(
+        exec.execute(&dec(0xe191_0e9f)),
+        ExecResult::Continue
+    ));
+    assert!(matches!(
+        exec.execute(&dec(0xe181_9e90)),
+        ExecResult::Continue
+    ));
+    assert_eq!(exec.cpu.regs[9], 0);
+    // Unaligned: lda r0, [r3]; stl r0, [r3]; ldrex r0, [r3]; strex r2,
+    // r0, [r3]; ldah r4, [r3].
+    for raw in [
+        0xe193_0c9f,
+        0xe183_fc90,
+        0xe193_0f9f,
+        0xe183_2f90,
+        0xe1f3_4c9f,
+    ] {
+        assert_eq!(
+            match exec.execute(&dec(raw)) {
+                ExecResult::MemoryFault(e) => Some(e),
+                _ => None,
+            },
+            Some(MemoryError::Unaligned(0x101)),
+            "{raw:#010x}"
+        );
+    }
+    assert_eq!(mem.read_word(0x100).unwrap(), 0x1234_4321);
 }
 
 /// VMRS and VMSR reach only FPSCR at PL0; FPSID, MVFR0-2, and FPEXC need

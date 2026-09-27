@@ -228,6 +228,49 @@ fn execve_maps_the_vectors_page_and_the_sigpage() {
     assert_eq!(arm(&mut h).core().regs[0], 0x1234_5678);
 }
 
+/// The kuser helpers run as `kuser32.S` writes them (their ARMv8
+/// `STLEX`/`STLEXD` included): `__kuser_cmpxchg` and `__kuser_cmpxchg64`
+/// store the new value when memory holds the old one and return 0 (C set),
+/// else leave it and return nonzero (C clear).
+#[test]
+fn the_kuser_cmpxchg_helpers_compare_and_exchange() {
+    let mut h = Harness::new(LinuxAbi::Arm);
+    let s = h.scratch;
+    put(&h, CODE, &words(&[MOV_R7_20, SVC_0]));
+    let call = |h: &mut Harness, entry: u64, r: [u32; 3]| {
+        let core = arm(h).core_mut();
+        core.regs[..3].copy_from_slice(&r);
+        core.regs[14] = CODE as u32;
+        arm(h).set_pc(entry);
+        assert!(matches!(
+            h.proc.threads[0].cpu.run(100),
+            CpuEvent::Syscall { nr: 20, .. }
+        ));
+        let core = arm(h).core();
+        (core.regs[0], core.cpsr.c)
+    };
+    // __kuser_cmpxchg (0xffff0fc0): r0 old, r1 new, r2 the word.
+    put(&h, s, &7u32.to_le_bytes());
+    assert_eq!(call(&mut h, 0xFFFF_0FC0, [7, 9, s as u32]), (0, true));
+    assert_eq!(u32_at(&h, s), 9);
+    let (r0, c) = call(&mut h, 0xFFFF_0FC0, [7, 11, s as u32]);
+    assert!(r0 != 0 && !c);
+    assert_eq!(u32_at(&h, s), 9);
+    // __kuser_cmpxchg64 (0xffff0f60): r0 and r1 point at the old and new
+    // doublewords, r2 at the target.
+    let (old, new, target) = (s + 0x10, s + 0x18, s + 0x20);
+    put(&h, old, &0x1111_2222_3333_4444u64.to_le_bytes());
+    put(&h, new, &0x5555_6666_7777_8888u64.to_le_bytes());
+    put(&h, target, &0x1111_2222_3333_4444u64.to_le_bytes());
+    let r = [old as u32, new as u32, target as u32];
+    assert_eq!(call(&mut h, 0xFFFF_0F60, r), (0, true));
+    assert_eq!(get(&h, target, 8), 0x5555_6666_7777_8888u64.to_le_bytes());
+    let (r0, c) = call(&mut h, 0xFFFF_0F60, r);
+    assert!(r0 != 0 && !c);
+    // __kuser_memory_barrier returns.
+    let _ = call(&mut h, 0xFFFF_0FA0, [0, 0, 0]);
+}
+
 #[test]
 fn svc_is_the_system_call_with_the_number_in_r7() {
     let mut h = Harness::new(LinuxAbi::Arm);
@@ -315,6 +358,18 @@ fn the_aarch32_exceptions_become_their_signals() {
     assert_eq!(
         run_code(&mut h, &words(&[STR_R0_R1]), false),
         sig(SIGSEGV, code::SEGV_MAPERR, 0x1000, fault)
+    );
+    // An unaligned exclusive load: do_alignment_fault's SIGBUS, the ESR's
+    // alignment fault status (0x21).
+    arm(&mut h).core_mut().regs[1] = (h.scratch + 2) as u32;
+    let esr = (0x24 << 26) | (1 << 25) | 0x21;
+    let fault = FaultUpdate::Arm64 {
+        address: h.scratch + 2,
+        esr,
+    };
+    assert_eq!(
+        run_code(&mut h, &words(&[0xe191_0f9f]), false),
+        sig(SIGBUS, code::BUS_ADRALN, h.scratch + 2, fault)
     );
     // A branch to an A32 address that is not word-aligned: a PC alignment
     // fault, SIGBUS at the PC.

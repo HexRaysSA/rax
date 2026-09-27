@@ -281,10 +281,64 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Load/Store Exclusive
     // =========================================================================
 
+    /// LDA, LDAB, LDAH (ARMv8): a load-acquire of `size` bytes from [Rn]
+    /// into Rt, zero-extended; the address must be aligned to the size
+    /// (`MemO`). Rt or Rn being PC is CONSTRAINED UNPREDICTABLE: UNDEFINED.
+    pub(crate) fn exec_lda(&mut self, insn: &DecodedInsn, size: u32) -> ExecResult {
+        let t = ((insn.raw >> 12) & 0xF) as usize;
+        let n = ((insn.raw >> 16) & 0xF) as usize;
+        if t == 15 || n == 15 {
+            return ExecResult::Undefined;
+        }
+        let address = self.reg(n);
+        if address % size != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
+        let value = match size {
+            1 => self.mem.read_byte(address).map(u32::from),
+            2 => self.mem.read_halfword(address).map(u32::from),
+            _ => self.mem.read_word(address),
+        };
+        match value {
+            Ok(v) => {
+                self.cpu.regs[t] = v;
+                ExecResult::Continue
+            }
+            Err(e) => ExecResult::MemoryFault(e),
+        }
+    }
+
+    /// STL, STLB, STLH (ARMv8): a store-release of Rt's low `size` bytes
+    /// to [Rn], which must be aligned to the size.
+    pub(crate) fn exec_stl(&mut self, insn: &DecodedInsn, size: u32) -> ExecResult {
+        let t = (insn.raw & 0xF) as usize;
+        let n = ((insn.raw >> 16) & 0xF) as usize;
+        if t == 15 || n == 15 {
+            return ExecResult::Undefined;
+        }
+        let address = self.reg(n);
+        if address % size != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
+        let value = self.reg(t);
+        let stored = match size {
+            1 => self.mem.write_byte(address, value as u8),
+            2 => self.mem.write_halfword(address, value as u16),
+            _ => self.mem.write_word(address, value),
+        };
+        match stored {
+            Ok(()) => ExecResult::Continue,
+            Err(e) => ExecResult::MemoryFault(e),
+        }
+    }
+
     pub(crate) fn exec_ldrex(&mut self, insn: &DecodedInsn) -> ExecResult {
         let t = ((insn.raw >> 12) & 0xF) as usize;
         let n = ((insn.raw >> 16) & 0xF) as usize;
         let address = self.reg(n);
+        if address % 4 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
 
         self.exclusive_monitor.mark_exclusive(address, 4);
 
@@ -302,6 +356,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let t = (insn.raw & 0xF) as usize;
         let n = ((insn.raw >> 16) & 0xF) as usize;
         let address = self.reg(n);
+        if address % 4 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
 
         if self.exclusive_monitor.check_and_clear(address, 4) {
             match self.mem.write_word(address, self.reg(t)) {
@@ -325,6 +382,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
         let address = self.reg(n);
+        if address % 8 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
 
         self.exclusive_monitor.mark_exclusive(address, 8);
 
@@ -350,6 +410,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
         let address = self.reg(n);
+        if address % 8 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
 
         if self.exclusive_monitor.check_and_clear(address, 8) {
             if let Err(e) = self.mem.write_word(address, self.reg(t)) {
@@ -408,6 +471,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let t = ((insn.raw >> 12) & 0xF) as usize;
         let n = ((insn.raw >> 16) & 0xF) as usize;
         let address = self.reg(n);
+        if address % 2 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
 
         self.exclusive_monitor.mark_exclusive(address, 2);
 
@@ -425,6 +491,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let t = (insn.raw & 0xF) as usize;
         let n = ((insn.raw >> 16) & 0xF) as usize;
         let address = self.reg(n);
+        if address % 2 != 0 {
+            return ExecResult::MemoryFault(MemoryError::Unaligned(address));
+        }
 
         if self.exclusive_monitor.check_and_clear(address, 2) {
             match self.mem.write_halfword(address, self.reg(t) as u16) {

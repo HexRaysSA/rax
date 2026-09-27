@@ -487,6 +487,28 @@ fn a32_exclusive_monitor_is_cleared_between_runs() {
 }
 
 #[test]
+fn a32_unaligned_exclusives_are_alignment_faults() {
+    // ldrex r0, [r1] and strex r2, r0, [r1] at DATA + 2.
+    for (insn, access) in [
+        (A32_LDREX_R0_R1, MemoryAccessKind::Read),
+        (A32_STREX_R2_R0_R1, MemoryAccessKind::Write),
+    ] {
+        let mut cpu = a32(&words(&[insn]));
+        cpu.core_mut().regs[1] = DATA as u32 + 2;
+        assert_eq!(
+            cpu.run(10),
+            A32Exit::Fault(AccessFault {
+                addr: DATA + 2,
+                access,
+                kind: AccessFaultKind::Alignment,
+                pc: CODE,
+            })
+        );
+        assert_eq!(cpu.pc(), CODE);
+    }
+}
+
+#[test]
 fn a32_interworks_with_thumb_and_it_blocks() {
     // adr r0, . + 9 ; bx r0 ; then T32 at CODE + 8: movs r1, #5 ;
     // cmp r1, #5 ; ite eq ; moveq r2, #1 ; movne r2, #2 ; svc #0x12.

@@ -24,8 +24,10 @@
 //! Memory accesses go through [`UserA32Memory`], which translates every
 //! access with the address space's page permissions; unaligned word and
 //! halfword accesses are permitted (Linux runs EL0 with `SCTLR_EL1.A`
-//! clear). The core has no code cache, so code written through the address
-//! space is seen at its next fetch.
+//! clear), while the exclusive and ordered accesses, which must be aligned
+//! whatever `SCTLR.A` says, raise alignment faults. The core has no code
+//! cache, so code written through the address space is seen at its next
+//! fetch.
 
 use std::cell::Cell;
 
@@ -364,9 +366,21 @@ impl A32UserCpu {
                 next(&mut self.cpu);
                 Some(A32Exit::Yield)
             }
-            ExecResult::MemoryFault(e) => Some(match self.mem.take_fault() {
-                Some(f) => A32Exit::Fault(AccessFault::from_memory(f, u64::from(pc))),
-                None => A32Exit::Internal(format!("{e} at {pc:#x} without an access fault")),
+            ExecResult::MemoryFault(e) => Some(match (self.mem.take_fault(), e) {
+                (Some(f), _) => A32Exit::Fault(AccessFault::from_memory(f, u64::from(pc))),
+                // An alignment fault the executor raises itself (exclusive
+                // and ordered accesses must be naturally aligned).
+                (None, MemoryError::Unaligned(addr)) => A32Exit::Fault(AccessFault {
+                    addr: u64::from(addr),
+                    access: if is_store(decoded.mnemonic) {
+                        MemoryAccessKind::Write
+                    } else {
+                        MemoryAccessKind::Read
+                    },
+                    kind: AccessFaultKind::Alignment,
+                    pc: u64::from(pc),
+                }),
+                (None, e) => A32Exit::Internal(format!("{e} at {pc:#x} without an access fault")),
             }),
             ExecResult::Exception(other) => Some(A32Exit::Internal(format!(
                 "unexpected AArch32 exception {other:?} at {pc:#x}"
@@ -383,4 +397,22 @@ fn is_setend(insn: u32, thumb: bool, len: u32) -> bool {
         (true, 2) => insn & 0xFFF7 == 0xB650,
         (true, _) => false,
     }
+}
+
+/// The stores among the instructions whose alignment the executor checks.
+fn is_store(m: Mnemonic) -> bool {
+    matches!(
+        m,
+        Mnemonic::STXR
+            | Mnemonic::STXRB
+            | Mnemonic::STXRH
+            | Mnemonic::STXP
+            | Mnemonic::STLXR
+            | Mnemonic::STLXRB
+            | Mnemonic::STLXRH
+            | Mnemonic::STLXP
+            | Mnemonic::STLR
+            | Mnemonic::STLRB
+            | Mnemonic::STLRH
+    )
 }

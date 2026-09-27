@@ -27,22 +27,39 @@ impl Aarch32Decoder {
             return Self::decode_unconditional(raw);
         }
 
-        // Synchronization primitives (LDREX/STREX and byte/half/double
-        // variants): cccc 0001 1xxL Rn Rd 1111 1001 Rm. Same bits[7:4]=1001
-        // as the multiply space, so peel them off first. The executor reads
-        // the registers straight from `raw` (A32 layout).
-        if raw & 0x0F80_0FF0 == 0x0180_0F90 {
-            let op = (raw >> 20) & 0x7; // L:sz
-            let mnemonic = match op {
-                0b000 => Some(Mnemonic::STXR),
-                0b001 => Some(Mnemonic::LDXR),
-                0b010 => Some(Mnemonic::STXP), // STREXD
-                0b011 => Some(Mnemonic::LDXP), // LDREXD
-                0b100 => Some(Mnemonic::STXRB),
-                0b101 => Some(Mnemonic::LDXRB),
-                0b110 => Some(Mnemonic::STXRH),
-                0b111 => Some(Mnemonic::LDXRH),
-                _ => None,
+        // Synchronization primitives: cccc 0001 1 sz L Rn Rt 11 ex ord 1001
+        // Rm, sharing bits[7:4]=1001 with the multiply space, so peeled off
+        // first. Bits 9:8 select ARMv7's LDREX/STREX (11), ARMv8's
+        // load-acquire/store-release exclusives LDAEX/STLEX (10, the same
+        // register layout), or the non-exclusive LDA/STL (00; no
+        // doubleword form); 01 is UNDEFINED. The executor reads the
+        // registers straight from `raw` (A32 layout).
+        if raw & 0x0F80_0CF0 == 0x0180_0C90 {
+            let op = (raw >> 20) & 0x7; // sz:L
+            let mnemonic = match ((raw >> 8) & 0b11, op) {
+                (0b11, 0b000) => Some(Mnemonic::STXR),
+                (0b11, 0b001) => Some(Mnemonic::LDXR),
+                (0b11, 0b010) => Some(Mnemonic::STXP), // STREXD
+                (0b11, 0b011) => Some(Mnemonic::LDXP), // LDREXD
+                (0b11, 0b100) => Some(Mnemonic::STXRB),
+                (0b11, 0b101) => Some(Mnemonic::LDXRB),
+                (0b11, 0b110) => Some(Mnemonic::STXRH),
+                (0b11, 0b111) => Some(Mnemonic::LDXRH),
+                (0b10, 0b000) => Some(Mnemonic::STLXR), // STLEX
+                (0b10, 0b001) => Some(Mnemonic::LDAXR), // LDAEX
+                (0b10, 0b010) => Some(Mnemonic::STLXP), // STLEXD
+                (0b10, 0b011) => Some(Mnemonic::LDAXP), // LDAEXD
+                (0b10, 0b100) => Some(Mnemonic::STLXRB),
+                (0b10, 0b101) => Some(Mnemonic::LDAXRB),
+                (0b10, 0b110) => Some(Mnemonic::STLXRH),
+                (0b10, 0b111) => Some(Mnemonic::LDAXRH),
+                (0b00, 0b000) => Some(Mnemonic::STLR), // STL
+                (0b00, 0b001) => Some(Mnemonic::LDAR), // LDA
+                (0b00, 0b100) => Some(Mnemonic::STLRB),
+                (0b00, 0b101) => Some(Mnemonic::LDARB),
+                (0b00, 0b110) => Some(Mnemonic::STLRH),
+                (0b00, 0b111) => Some(Mnemonic::LDARH),
+                _ => Some(Mnemonic::UNKNOWN),
             };
             if let Some(m) = mnemonic {
                 let insn = DecodedInsn::new(m, ExecutionState::Aarch32, raw, 4);
