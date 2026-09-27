@@ -68,6 +68,25 @@ fn run_event(v: &mut X86_64Vcpu) -> X86UserEvent {
 /// `int $0x80`, the end of each program.
 const INT80: [u8; 2] = [0xCD, 0x80];
 
+#[test]
+fn embedding_gdt_entries_preserve_reserved_selectors_and_cache() {
+    let (mut v, _) = vcpu(&INT80, true);
+    let data = super::gdt_entry(0x40F3, DATA as u32, 0xFFF);
+    for index in [0, 1, 2, 3, 4, 5, 6, 8, 9, usize::MAX] {
+        assert!(!v.set_user_gdt_entry(index, data), "entry {index}");
+    }
+    assert!(v.set_user_gdt_entry(10, data));
+    v.load_user_segment(super::X86UserSegment::Fs, 0x53)
+        .unwrap();
+    assert_eq!(v.fs_base(), DATA);
+    let replacement = super::gdt_entry(0x40F3, (DATA + 0x100) as u32, 0xFFF);
+    assert!(v.set_user_gdt_entry(10, replacement));
+    assert_eq!(v.fs_base(), DATA);
+    v.load_user_segment(super::X86UserSegment::Fs, 0x53)
+        .unwrap();
+    assert_eq!(v.fs_base(), DATA + 0x100);
+}
+
 fn ended_at_int80(e: X86UserEvent) {
     assert_eq!(
         (e.vector, e.source),

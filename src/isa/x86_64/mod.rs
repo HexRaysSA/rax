@@ -24,7 +24,7 @@ pub use cpu::{CURRENT_RIP, RIP_HISTORY, RIP_IDX, X86_64Vcpu, get_total_instructi
 pub use memory::{AccessType, Mmu};
 pub use user_gdt::{
     GDT_ENTRY_CPUNODE, GDT_ENTRY_TLS_MAX, GDT_ENTRY_TLS_MIN, USER_GDT_BASE, X86SegmentFault,
-    X86UserSegment,
+    X86UserSegment, gdt_entry,
 };
 pub use user_mode::{
     LINUX_USER_CS, LINUX_USER_DS, LINUX_USER32_CS, X86EventSource, X86SyscallInsn, X86UserEvent,
