@@ -36,3 +36,5 @@ mod memory;
 pub(crate) use memory::*;
 mod ops;
 pub(crate) use ops::*;
+mod shift;
+pub(crate) use shift::*;
