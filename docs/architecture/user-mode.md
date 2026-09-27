@@ -21,7 +21,7 @@ rax-user -> user::linux  -> user::{image,mm,cpu} -> ISA core
 | `user::mm` | VMAs, page backing, faults, and code invalidation |
 | `user::cpu` | Unprivileged execution and architectural exits |
 | `user::linux` | Linux loading, ABI conversion, syscalls, scheduling, and signals |
-| `user::darwin` | macOS loading, BSD system calls, Mach traps and messages, MIG kernel servers, threads and psynch, signals |
+| `user::darwin` | macOS loading, BSD system calls, Mach traps and messages, MIG kernel servers, threads and psynch, kqueues, signals |
 
 ## Runtime topics
 
@@ -34,7 +34,7 @@ rax-user -> user::linux  -> user::{image,mm,cpu} -> ISA core
 | Files and notifications | [Descriptions, metadata, attributes, locks, and inotify](user-mode/files.md) |
 | Descriptor I/O | [Event descriptors, epoll, splicing, and Linux AIO](user-mode/io.md) |
 | Networking and IPC | [Sockets, netlink, interfaces, System V IPC, and message queues](user-mode/networking-ipc.md) |
-| macOS programs | [Darwin personality: exec, kernel entry, Mach IPC, MIG servers, threads, signals](user-mode/darwin.md) |
+| macOS programs | [Darwin personality: exec, kernel entry, Mach IPC, MIG servers, threads, kqueues, signals](user-mode/darwin.md) |
 | Tracing and seccomp | [Tracer links, stops, register sets, stepping, events, and filters](user-mode/tracing.md) |
 
 ## Address spaces

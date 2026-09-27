@@ -507,16 +507,55 @@ fn do_receive(
             });
         }
     };
-    let Some(port) = ports
+    match receive_from(ctx, &ports, options, r) {
+        Some(got) => Ok(got.kr),
+        None => {
+            let deadline = timeout_deadline(options, opt::RCV_TIMEOUT, timeout, kept);
+            if deadline.is_some_and(|d| d <= Instant::now()) {
+                return Ok(kr::MACH_RCV_TIMED_OUT);
+            }
+            Err(Wait::key(key, deadline))
+        }
+    }
+}
+
+/// The outcome of a receive (`mach_msg_recv_result_t`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Received {
+    /// The receive's result.
+    pub kr: KernReturn,
+    /// The message size (without trailer).
+    pub msg_size: u32,
+    /// The trailer size.
+    pub trailer_size: u32,
+    /// The auxiliary data size.
+    pub aux_size: u32,
+    /// The name of the port the message was queued on.
+    pub name: PortName,
+}
+
+/// Receives the first queued message of `ports` into `r`
+/// (`ipc_mqueue_select_on_thread_locked`, `mach_msg_receive_results`);
+/// `None` when nothing is queued.
+fn receive_from(
+    ctx: &mut Ctx<'_>,
+    ports: &[std::sync::Arc<crate::user::darwin::mach::ipc::Port>],
+    options: u64,
+    r: &Recv,
+) -> Option<Received> {
+    let port = ports
         .iter()
         .find(|p| !p.state.lock().unwrap().queue.is_empty())
-        .cloned()
-    else {
-        let deadline = timeout_deadline(options, opt::RCV_TIMEOUT, timeout, kept);
-        if deadline.is_some_and(|d| d <= Instant::now()) {
-            return Ok(kr::MACH_RCV_TIMED_OUT);
-        }
-        return Err(Wait::key(key, deadline));
+        .cloned()?;
+    let name = ctx.proc.ipc.name_of(&port).unwrap_or(MACH_PORT_NULL);
+    let done = |kr: KernReturn, msg_size: usize, trailer_size: usize, aux_size: usize| {
+        Some(Received {
+            kr,
+            msg_size: msg_size as u32,
+            trailer_size: trailer_size as u32,
+            aux_size: aux_size as u32,
+            name,
+        })
     };
 
     // ipc_mqueue_select_on_thread_locked: the size check.
@@ -531,7 +570,6 @@ fn do_receive(
         // mach_msg_receive_too_large: report the size, keep the message.
         let mut mr = kr::MACH_RCV_TOO_LARGE;
         if options & opt::RCV_LARGE_IDENTITY != 0 && r.size >= 16 {
-            let name = ctx.proc.ipc.name_of(&port).unwrap_or(MACH_PORT_NULL);
             if ctx.write_u32(r.addr + 12, name).is_err() {
                 mr = kr::MACH_RCV_INVALID_DATA;
             }
@@ -539,7 +577,7 @@ fn do_receive(
         if r.size >= 8 && ctx.write_u32(r.addr + 4, msize as u32).is_err() {
             mr = kr::MACH_RCV_INVALID_DATA;
         }
-        return Ok(mr);
+        return done(mr, msize, tsize, 0);
     }
     let m = {
         let mut st = port.state.lock().unwrap();
@@ -568,7 +606,7 @@ fn do_receive(
 
     // ipc_kmsg_put_to_user
     if bytes.len() > r.size as usize {
-        return Ok(kr::MACH_RCV_INVALID_DATA);
+        return done(kr::MACH_RCV_INVALID_DATA, msize, tsize, 0);
     }
     let mut out = bytes;
     let trailer = msg::trailer(options, seqno, &sender, context);
@@ -588,8 +626,9 @@ fn do_receive(
             out.len()
         );
     }
+    let trailer_len = out.len() - msize.min(out.len());
     if ctx.write(r.addr, &out).is_err() {
-        return Ok(kr::MACH_RCV_INVALID_DATA);
+        return done(kr::MACH_RCV_INVALID_DATA, msize, trailer_len, 0);
     }
     if r.aux_addr != 0 {
         if aux.is_empty() {
@@ -600,5 +639,57 @@ fn do_receive(
             mr = kr::MACH_RCV_INVALID_DATA;
         }
     }
-    Ok(mr)
+    done(mr, msize, trailer_len, aux.len())
+}
+
+/// A port or port set a knote watches.
+#[derive(Clone, Debug)]
+pub enum Watched {
+    /// A receive right's port.
+    Port(std::sync::Arc<crate::user::darwin::mach::ipc::Port>),
+    /// A port set.
+    Set(std::sync::Arc<crate::user::darwin::mach::ipc::PortSet>),
+}
+
+impl Watched {
+    /// The port or set's identity (its knote list key).
+    pub fn id(&self) -> u64 {
+        match self {
+            Watched::Port(p) => p.id,
+            Watched::Set(s) => s.id,
+        }
+    }
+
+    fn ports(&self) -> Vec<std::sync::Arc<crate::user::darwin::mach::ipc::Port>> {
+        match self {
+            Watched::Port(p) => vec![p.clone()],
+            Watched::Set(s) => s.members.lock().unwrap().clone(),
+        }
+    }
+
+    /// Whether a message is queued.
+    pub fn has_message(&self) -> bool {
+        self.ports()
+            .iter()
+            .any(|p| !p.state.lock().unwrap().queue.is_empty())
+    }
+}
+
+/// Receives without waiting from `w` into `addr` (`size` bytes) with
+/// `options` (`filt_machportprocess`); `None` when nothing is queued.
+pub fn receive_object(
+    ctx: &mut Ctx<'_>,
+    w: &Watched,
+    options: u64,
+    addr: u64,
+    size: u32,
+) -> Option<Received> {
+    let r = Recv {
+        addr,
+        size,
+        aux_addr: 0,
+        aux_size: 0,
+        name: MACH_PORT_NULL,
+    };
+    receive_from(ctx, &w.ports(), options, &r)
 }

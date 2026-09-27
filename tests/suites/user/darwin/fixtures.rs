@@ -99,3 +99,13 @@ fn threads_sync_arm64() {
 fn threads_sync_x86_64() {
     fixture("threads_sync", "x86_64", &[], &[]);
 }
+
+#[test]
+fn kqueue_arm64() {
+    fixture("kqueue", "arm64", &[], &[]);
+}
+
+#[test]
+fn kqueue_x86_64() {
+    fixture("kqueue", "x86_64", &[], &[]);
+}

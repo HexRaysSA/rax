@@ -334,6 +334,8 @@ pub struct Proc {
     pub pthread: PthreadRegistration,
     /// psynch wait queues.
     pub psynch: super::psynch::Table,
+    /// kqueues and knote lists.
+    pub kq: super::kevent::State,
     /// Machine facts.
     pub machine: MachineInfo,
     /// The shared region, once mapped.
@@ -589,6 +591,7 @@ impl DarwinProcess {
                 itimers: signal::timer::ITimers::default(),
                 pthread: PthreadRegistration::default(),
                 psynch: Default::default(),
+                kq: Default::default(),
                 machine,
                 shared_region: None,
                 started: Instant::now(),

@@ -22,6 +22,8 @@ pub const NOFILE_HARD: u64 = 10_240;
 pub enum FileKind {
     /// A host file, directory, pipe, socket, or device.
     Host(OwnedFd),
+    /// A kqueue, by its identity in the process's kqueues.
+    Kqueue(u64),
 }
 
 /// An open file description.
@@ -50,6 +52,7 @@ impl OpenFile {
     pub fn host_fd(&self) -> Option<RawFd> {
         match &self.kind {
             FileKind::Host(fd) => Some(fd.as_raw_fd()),
+            FileKind::Kqueue(_) => None,
         }
     }
 }

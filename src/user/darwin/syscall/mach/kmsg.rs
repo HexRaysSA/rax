@@ -303,8 +303,10 @@ pub fn enqueue(proc: &mut Proc, m: Message) {
         st.pset
     };
     proc.post(WaitKey::Port(port.id));
+    crate::user::darwin::kevent::filters::post_machport(proc, port.id);
     if let Some(set) = pset {
         proc.post(WaitKey::Port(set));
+        crate::user::darwin::kevent::filters::post_machport(proc, set);
     }
 }
 
