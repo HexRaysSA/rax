@@ -72,8 +72,12 @@
   `arch/arm64/include/uapi/asm/statfs.h`,
   `arch/arm64/kernel/{sys32,sys_compat,signal32,cpufeature,vdso,armv8_deprecated,entry-common,traps}.c`,
   `arch/arm64/kernel/{sigreturn32,kuser32}.S`, `arch/arm64/tools/syscall_32.tbl`,
-  and `arch/arm/tools/syscall.tbl`, and the socket-buffer files
-  `include/linux/skbuff.h` and `net/ipv4/tcp.c`) came from kernel.org's
+  and `arch/arm/tools/syscall.tbl`, the socket-buffer files
+  `include/linux/skbuff.h` and `net/ipv4/tcp.c`, and the io_uring files:
+  the whole `io_uring/` directory (78 files),
+  `include/linux/{io_uring,io_uring_types}.h`,
+  `include/linux/io_uring/{cmd,net}.h`, `include/uapi/linux/io_uring.h`,
+  and `include/uapi/linux/io_uring/{mock_file,query}.h`) came from kernel.org's
   `https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/<path>?h=v6.19`
   (byte-identical to the mirror for the files compared).
 - Retrieved: 24 September 2026 (`drivers/perf/riscv_pmu_sbi.c`,
@@ -90,16 +94,20 @@
   26 September 2026; `net/compat.c`, `include/net/compat.h`,
   `include/uapi/linux/net.h`, `fs/ioctl.c`, `arch/x86/mm/pkeys.c`,
   `ipc/syscall.c`, `ipc/compat.c`, `arch/Kconfig`, the ARM EABI
-  compatibility files, and the socket-buffer files: 27 September 2026)
+  compatibility files, the socket-buffer files, and the io_uring files:
+  27 September 2026; each io_uring file is byte-identical to a local
+  checkout of the tag, commit `05f7e89ab9731565d8a62e3b5d1ec206485eeb0b`)
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: the files carry an SPDX identifier: `GPL-2.0` (145 files),
-  `GPL-2.0-only` (81), `GPL-2.0-or-later` (38),
+- License: the files carry an SPDX identifier: `GPL-2.0` (212 files),
+  `GPL-2.0-only` (82), `GPL-2.0-or-later` (41),
   `GPL-2.0 WITH Linux-syscall-note` (20), `GPL-2.0+` (3),
   `GPL-2.0-only WITH Linux-syscall-note` (1),
   `GPL-2.0+ WITH Linux-syscall-note` (3),
   `LGPL-2.1+ WITH Linux-syscall-note` (1, `include/uapi/linux/mqueue.h`),
-  or `GPL-1.0+` (1). Eleven have none: `mm/memfd.c`, `mm/shmem.c`, and
+  `(GPL-2.0 WITH Linux-syscall-note) OR MIT` (2,
+  `include/uapi/linux/io_uring.h` and `include/uapi/linux/io_uring/query.h`),
+  or `GPL-1.0+` (1). Twenty-three have none: `mm/memfd.c`, `mm/shmem.c`, and
   `ipc/mqueue.c` state "This file is released under the GPL." in their
   headers; `fs/aio.c` refers to the kernel's `COPYING` ("See ../COPYING
   for licensing terms."); `include/uapi/linux/aio_abi.h` may be
@@ -109,7 +117,10 @@
   `include/linux/timex.h` and `include/uapi/linux/timex.h` carry David L.
   Mills's 1993 permission notice (University of Delaware) ahead of the
   kernel's changes; and `include/uapi/linux/mount.h`,
-  `arch/x86/kernel/traps.c`, and `include/linux/time32.h` state no license, so the kernel's `COPYING`
+  `arch/x86/kernel/traps.c`, `include/linux/time32.h`, and twelve io_uring
+  files (`io_uring/{alloc_cache,eventfd,io-wq,io_uring,memmap,refs,slist}.h`,
+  `io_uring/{cmd_net,mock_file,notif}.c`, `include/linux/io_uring_types.h`,
+  and `include/uapi/linux/io_uring/mock_file.h`) state no license, so the kernel's `COPYING`
   applies (GPL-2.0, with the Linux-syscall-note for UAPI headers). The license texts are the kernel tree's
   `LICENSES/preferred/GPL-2.0`, `LICENSES/preferred/LGPL-2.1`,
   `LICENSES/deprecated/GPL-1.0`, and
