@@ -30,19 +30,19 @@ sha256 = "8618c84b395d1848f4e788bc173e577ef517e34d19676a0b334956c39c04617a"
 path = "bin/x86_64/process"
 source = "src/process.c"
 target = "x86_64-linux-musl"
-sha256 = "ccaae81ede7f6bc3b7650ea8cbddba8f45b74b53a3b6cf37181523cbfb31508c"
+sha256 = "303d59c115b6517c3d9da699ab67b0182adf7864f01f3d45b80c3dc7cd8e8c8b"
 
 [[fixture]]
 path = "bin/x86_64/signals"
 source = "src/signals.c"
 target = "x86_64-linux-musl"
-sha256 = "00496209f4c1a3f2ef52ca5c09ae4650942b221b7f82adfdd85fea8ad4909388"
+sha256 = "a1e1e046e31238d3a9733b3c7a449c2de500e11925effbbac6b69c8c7d6886e4"
 
 [[fixture]]
 path = "bin/x86_64/timers"
 source = "src/timers.c"
 target = "x86_64-linux-musl"
-sha256 = "cb9c8406fcd34063555ffb8e10e06c0d0a2e5782ede1622f83bbbf73e62a481c"
+sha256 = "8429fcaabc6ac5ca2e8346fe91e6a38ccc0d41c192bddf2e580ce410bda62836"
 
 [[fixture]]
 path = "bin/x86_64/hostsig"
@@ -72,13 +72,13 @@ sha256 = "73b92160e3cdeb8a353340063a6f19f5d3521d884be42a234ff58d12cc8ea3fe"
 path = "bin/x86_64/fork"
 source = "src/fork.c"
 target = "x86_64-linux-musl"
-sha256 = "bdc9f5c9ac668671b41e5f93ec6b8e4edb81eb4e25e383a25162d53c252f252a"
+sha256 = "f6c14a7aacd7c3209f66eea08a810252234ef101f7e6bbafd6e43fad76a69b33"
 
 [[fixture]]
 path = "bin/x86_64/events"
 source = "src/events.c"
 target = "x86_64-linux-musl"
-sha256 = "ac7e7fb7a99a960267314e9855a92705e90174df023a3712ed176e960c4e7f85"
+sha256 = "e26fb8d65d995920ebaa00df741f9e8c9e3018e03a1784259f3d544486583d2a"
 
 [[fixture]]
 path = "bin/x86_64/epoll"
@@ -114,7 +114,7 @@ sha256 = "6d978beffd2552e47bd19328ab9d8856ecd6d5b1804fdca90b4c0875ae6f2bd8"
 path = "bin/x86_64/pidfd"
 source = "src/pidfd.c"
 target = "x86_64-linux-musl"
-sha256 = "bee3681529461335fafd9fa456ddf4b53e2b9c5c02e02391d26448b52b0172cf"
+sha256 = "7b477d574b63164dd3bf4a349dc7652eac6963e2ccc26e668081bd6fff4d1535"
 
 [[fixture]]
 path = "bin/x86_64/fdinfo"
@@ -126,7 +126,7 @@ sha256 = "7c6491a33b961a5415318c725053b1ea442349093a0b12a8191db47beef94352"
 path = "bin/x86_64/nodes"
 source = "src/nodes.c"
 target = "x86_64-linux-musl"
-sha256 = "fa7c0602b91c5ca401ca2441ac08fee23ebdc45d491f1b731963569093a6726a"
+sha256 = "a7d6e3e757cc04e31751dad6bbccbc98182f295596e73e6373c6700a13ae46b6"
 
 [[fixture]]
 path = "bin/x86_64/xattr"
@@ -162,7 +162,7 @@ sha256 = "63f306c1adffbed4ddacb7f543afb213c305fc61f366cae9a49cfefe460d0aac"
 path = "bin/x86_64/sysvshm"
 source = "src/sysvshm.c"
 target = "x86_64-linux-musl"
-sha256 = "73ca8cc808cdd350829bc68e60629714b5e7a7afc58ca1f265da531b90d2e8c1"
+sha256 = "f224f319e9c6032e7d8840b93ec4ecf95d78e8558c71bd783450984015b0d61f"
 
 [[fixture]]
 path = "bin/x86_64/sysvsem"
@@ -180,7 +180,7 @@ sha256 = "e8eb67c027e8df9891f744a5e32b001e5b159ad25509ff27da3645df720343e7"
 path = "bin/x86_64/seccomp"
 source = "src/seccomp.c"
 target = "x86_64-linux-musl"
-sha256 = "3097f83ab79351ac8e9bddc7cba41f7f9efd4c982f3af7e0dd3bd5e6026b413b"
+sha256 = "c025cc6f599882d64602c687e86e88f5624d37bcc6ac92696b79b1e0366ed92b"
 
 [[fixture]]
 path = "bin/x86_64/inotify"
@@ -192,7 +192,7 @@ sha256 = "443f0af5a376f8a529bdfdef53c4904db3d1ee365d8be66a3ff5e00184f33747"
 path = "bin/x86_64/admin"
 source = "src/admin.c"
 target = "x86_64-linux-musl"
-sha256 = "b78f4458bbdbba1c11d622aaa5a02e95a903cc59cf3e65f97f67d588bd96fcd5"
+sha256 = "88149d5472870bd2c32c29e4db4ab3ac0223fcdf247d65d2789c410580205fdd"
 
 [[fixture]]
 path = "bin/x86_64/mqueue"
@@ -228,7 +228,7 @@ sha256 = "895fbe0b6e19526d218a72deae63e2cdefdf5d3c0cf6033a9604b02d7e5da9fb"
 path = "bin/x86_64/mlock"
 source = "src/mlock.c"
 target = "x86_64-linux-musl"
-sha256 = "a308be708781b093da5a7feba61c6e2a64dab0b3fef88fe99168673de030d0fb"
+sha256 = "5e3a1b0ae891d27ceb23cb5f6e3a4f16c50e731777960add1cf5cdc6cf583233"
 
 [[fixture]]
 path = "bin/x86_64/mseal"
@@ -240,7 +240,7 @@ sha256 = "d33127003260eef360824fed4945c760bd4fb609056973f32b506b2eefc12bcd"
 path = "bin/x86_64/rseq"
 source = "src/rseq.c"
 target = "x86_64-linux-musl"
-sha256 = "f754b957dde7b579df2bade7695d01b5388be3974d83210dbc12fb67f8b8ade3"
+sha256 = "3ebed3b7a7dd13a061c309ed2293424a20c1056147a260abadab48ada602e110"
 
 [[fixture]]
 path = "bin/x86_64/aio"
@@ -354,19 +354,19 @@ sha256 = "ac97760434195e8964e76ea91f2c89fef1f17e89235a60cd31534695ea84afad"
 path = "bin/aarch64/process"
 source = "src/process.c"
 target = "aarch64-linux-musl"
-sha256 = "4538394131a5f270d4510025ba97054d62deb3013fbf5868652f9a9aa80bb62b"
+sha256 = "00b8d458a083546629f87f5d85ea78b928c94fabe9f37ab189429c0c9e3cff6a"
 
 [[fixture]]
 path = "bin/aarch64/signals"
 source = "src/signals.c"
 target = "aarch64-linux-musl"
-sha256 = "c2bcd957ec0235c2369abb26053ea21e9027fd6479dcbd03963bb06f8793f8cc"
+sha256 = "094ad946e1cb7346cfd44918a2c2b17bb3c0db19cf1c247ec38777911b1a6a64"
 
 [[fixture]]
 path = "bin/aarch64/timers"
 source = "src/timers.c"
 target = "aarch64-linux-musl"
-sha256 = "adb9860cea372a698da8461eef450e16b10421af87bf8ff44e3265c1a4908736"
+sha256 = "cfdd9cb5f7b0ff695ba54940c1bb6cc4d334fe12e29275fee790a2d3b400461d"
 
 [[fixture]]
 path = "bin/aarch64/hostsig"
@@ -396,13 +396,13 @@ sha256 = "bbbab2f7ae7ba2a8575c5b201d6b2c1134124379fccfc03ab0f229c7b70a5cb7"
 path = "bin/aarch64/fork"
 source = "src/fork.c"
 target = "aarch64-linux-musl"
-sha256 = "6ad809e6390e314047581643211e3bd0d8a10005ee0751a74a9c6a69a33aaf21"
+sha256 = "05c35990e9275f7eab164660e4df9327177cca501eeae77020832de351403732"
 
 [[fixture]]
 path = "bin/aarch64/events"
 source = "src/events.c"
 target = "aarch64-linux-musl"
-sha256 = "43a661c8107d3786e95fb65b4b42299fe80b22f987a7e88c4f453b005a06c04f"
+sha256 = "9e7a9821e00fb036c8927b9e10863c824fe7818d99f0608e9f17c9fc6597beb6"
 
 [[fixture]]
 path = "bin/aarch64/epoll"
@@ -438,7 +438,7 @@ sha256 = "5ba4c960d42d74d9b1f3544836ccc4b69652bb94d5dcea9b31cc692d6b9bcd7b"
 path = "bin/aarch64/pidfd"
 source = "src/pidfd.c"
 target = "aarch64-linux-musl"
-sha256 = "97ae8b4792c0b784237d6babc21df5df42af71848c3a4a1b2183244c25e4f8e4"
+sha256 = "9bd7a55025c66fdd1e3e849d55fa53b024bfbf1a4318e3f7c8f9c8323beae228"
 
 [[fixture]]
 path = "bin/aarch64/fdinfo"
@@ -450,7 +450,7 @@ sha256 = "9e862528412fbdae982c8dd59a5b4fb9741c508fcb98eafc0c169c872c83a013"
 path = "bin/aarch64/nodes"
 source = "src/nodes.c"
 target = "aarch64-linux-musl"
-sha256 = "ded9e4136ef56072f63e7ebedc857ed641d4ec1536704ed4a2ef3123f87f04d3"
+sha256 = "a4d45401ed55091c62ba5618f336f1f22a9c884a6bf61d5982242e986c4a6243"
 
 [[fixture]]
 path = "bin/aarch64/xattr"
@@ -486,7 +486,7 @@ sha256 = "93f534c7252a78a83317f6201f954e5a89150cdf21a67eb769949480721a308f"
 path = "bin/aarch64/sysvshm"
 source = "src/sysvshm.c"
 target = "aarch64-linux-musl"
-sha256 = "20dcbc5826191c5a2974040f57495dd7c433e33ebed47932070341aa94173544"
+sha256 = "9b38c464e5ebf7ccc6a40753456b8edd087641899faac90485c9ee330c46ab84"
 
 [[fixture]]
 path = "bin/aarch64/sysvsem"
@@ -504,7 +504,7 @@ sha256 = "eb84f2c220ccc4e555582f2fc611c63e1b705fc76405a15e645c9be33bcfe97e"
 path = "bin/aarch64/seccomp"
 source = "src/seccomp.c"
 target = "aarch64-linux-musl"
-sha256 = "f1aaf2172681c014aa29d76f78f4e48de03f482f98947c02328eb736cb6e4db5"
+sha256 = "cab064739f37ecbab4d475ac16981c39b6520dc52d6d3936f83941d183add5c3"
 
 [[fixture]]
 path = "bin/aarch64/inotify"
@@ -516,7 +516,7 @@ sha256 = "4236186604183f8e49295154985143791e1bef6400dc37ce5be77769068230c0"
 path = "bin/aarch64/admin"
 source = "src/admin.c"
 target = "aarch64-linux-musl"
-sha256 = "defc82fb698c4865cd021d7b23ec4f2c94fbd521017a4658852e72b654beffe1"
+sha256 = "b5047f84fad17740257f37e600070070159038b0aeb6f7a3dd7b74ea38808780"
 
 [[fixture]]
 path = "bin/aarch64/mqueue"
@@ -552,7 +552,7 @@ sha256 = "0ec745a9619c4487b1ee764cdf18ff5f2d4644a9f0e59fbd92f6f5f3de9a8278"
 path = "bin/aarch64/mlock"
 source = "src/mlock.c"
 target = "aarch64-linux-musl"
-sha256 = "cb819b44d0ecd86a2a8ebaf1da3e86002f3476304fdb8758ed87b76455df34d6"
+sha256 = "baa54aeee3b596fe97d1fe069b2cc2deda6b25fce386d07ac706ac3512cc2fe7"
 
 [[fixture]]
 path = "bin/aarch64/mseal"
@@ -564,7 +564,7 @@ sha256 = "daf2165ac59e151e0b7ce3f5db56306b88686635e7e9c353aeeb9291a27d9f94"
 path = "bin/aarch64/rseq"
 source = "src/rseq.c"
 target = "aarch64-linux-musl"
-sha256 = "c6e582740679457ecba186ef5e945facc592a67b816f9f733a3a7b384d2ce13a"
+sha256 = "333c0d3bd592ffcc89bf6aa38f223263ccf733e0e601d514eeb74b1e723fc93e"
 
 [[fixture]]
 path = "bin/aarch64/aio"
@@ -678,19 +678,19 @@ sha256 = "fdfbbaded3714c75ac7736e211b9ac9768ad7f011094b377ca55f52142133383"
 path = "bin/riscv64/process"
 source = "src/process.c"
 target = "riscv64-linux-musl"
-sha256 = "1a9b2ef5d3aa6f9bc46de64f6ce945c016dde793cdaca8f5768387143ab594d8"
+sha256 = "e8e2069f1946164b4f83d67479488d90d63e428971f6aa7bd15fdf907e3ffac9"
 
 [[fixture]]
 path = "bin/riscv64/signals"
 source = "src/signals.c"
 target = "riscv64-linux-musl"
-sha256 = "2acf83c15cdbfb94065bd3747dafc224784a959f0e8dc471d10a6723c4be7ddb"
+sha256 = "bf5d251b5385aca5fff30ba8a20ac7209793b59e19aca94930be89636ce2368d"
 
 [[fixture]]
 path = "bin/riscv64/timers"
 source = "src/timers.c"
 target = "riscv64-linux-musl"
-sha256 = "90e13a9ea5a187a10f9361492474f443e764c9c29967e6ff4312977d4830f8c0"
+sha256 = "02d1f9c2b3a529cba14e1f4a294bf992b17e30cc4876fa08411091e3a483d8ca"
 
 [[fixture]]
 path = "bin/riscv64/hostsig"
@@ -720,13 +720,13 @@ sha256 = "2f9bb5ecbf0debc4cb6fdc4d883e6be1078c5e8f8d354cb61fc7ac2cd71da9ad"
 path = "bin/riscv64/fork"
 source = "src/fork.c"
 target = "riscv64-linux-musl"
-sha256 = "ac7d9684c86cfd217d59cec8345eaea97a3a1f8c7d64306993eeca4e538ced13"
+sha256 = "44b07dcb9f64b3e2ac1b33db4cc46d7df7eacd9f2c2a1744bf948bad874be1c3"
 
 [[fixture]]
 path = "bin/riscv64/events"
 source = "src/events.c"
 target = "riscv64-linux-musl"
-sha256 = "f791595779d181e0463ddf5d4768eb28dedc7c157a0f00820c9f9a8df2856e72"
+sha256 = "5a12f3cf9881094c816f023fce2b30c04eb679e8071f27bc9186ef2010f09519"
 
 [[fixture]]
 path = "bin/riscv64/epoll"
@@ -762,7 +762,7 @@ sha256 = "7be9e94c3ee6ac78f7e006c782e917d90c986e4f5a24b6996c0b718528f28f40"
 path = "bin/riscv64/pidfd"
 source = "src/pidfd.c"
 target = "riscv64-linux-musl"
-sha256 = "04ac2e0c4e12b905670067e2edd4eab67bb49f63076819255d60094366a523ea"
+sha256 = "d1222e64afea50fb055d7de1ccf767f351da7450d63ad82817e6ef1e84646b52"
 
 [[fixture]]
 path = "bin/riscv64/fdinfo"
@@ -774,7 +774,7 @@ sha256 = "44053b496bf9c111ec8006994391e6cf8ae29710c071859632202f07d4b1a253"
 path = "bin/riscv64/nodes"
 source = "src/nodes.c"
 target = "riscv64-linux-musl"
-sha256 = "d34dc632492559dda4e1b9f59e5c4456176757fb33cd48e247ac97b668cc3d15"
+sha256 = "b9c339d3772302f28d481aec973b995a23cb0fb233322b46f59c1afec7f89bfe"
 
 [[fixture]]
 path = "bin/riscv64/xattr"
@@ -810,7 +810,7 @@ sha256 = "e72298b3fc4a2a285a65a49b530383c1ed43d30cd55d058d0780acc7577923ba"
 path = "bin/riscv64/sysvshm"
 source = "src/sysvshm.c"
 target = "riscv64-linux-musl"
-sha256 = "12914292a214cdc694cf36aa21d14fa18bda3d928725dec9d6a28e92f87aee55"
+sha256 = "debdc5495ae047a275ad9eb9afa8a2bd5ee5f0a4c6a1acd56037d08d6873023a"
 
 [[fixture]]
 path = "bin/riscv64/sysvsem"
@@ -828,7 +828,7 @@ sha256 = "cd7ab426392e83dafd726e99209ad846d118a6c2003368df749bc2ebb1054c39"
 path = "bin/riscv64/seccomp"
 source = "src/seccomp.c"
 target = "riscv64-linux-musl"
-sha256 = "2679a20e7a8790892323b07fd93bbe7eb505e20d1ed4c8ef709eb650a6168a32"
+sha256 = "6461e30f838e9d44b68bc7721ea6460fbd9debd1f609ca46d08326a38d2b9bd1"
 
 [[fixture]]
 path = "bin/riscv64/inotify"
@@ -840,7 +840,7 @@ sha256 = "baaf24dd949abe7bbbea45e0b9bcb4a4fc4441de6b7f36fa277263a7cb0508bc"
 path = "bin/riscv64/admin"
 source = "src/admin.c"
 target = "riscv64-linux-musl"
-sha256 = "cd31ec17c80282f0f999fa49d38de980654cc859882e7eab3b5f3a4a0aa0a797"
+sha256 = "2236b1571310e65bda9f967d840e99d33eac6ac595b66c2c65275414c3f202fd"
 
 [[fixture]]
 path = "bin/riscv64/mqueue"
@@ -876,7 +876,7 @@ sha256 = "7c1ed304d08fcee96f58a4af7c1a28128e588d6214d6a95c43d3b77e94c7acfa"
 path = "bin/riscv64/mlock"
 source = "src/mlock.c"
 target = "riscv64-linux-musl"
-sha256 = "c578ed3eb0f10ad5d91040b1f3f080082777f3e6aefbe6b49940c4d24b46d308"
+sha256 = "6e4e8dbdeff1b3eb59b65aa01a2524a34bdc7b9b474ba117e6c253f6fc55ebdc"
 
 [[fixture]]
 path = "bin/riscv64/mseal"
@@ -888,7 +888,7 @@ sha256 = "7bd2b1d6dae2f8078c9aa90b36d45554b4e66562865ea3c60704cc81aa534b93"
 path = "bin/riscv64/rseq"
 source = "src/rseq.c"
 target = "riscv64-linux-musl"
-sha256 = "fee405244b4e172be65e4c677466134ae64b97587efcb4aee3c0339933ec85de"
+sha256 = "21d0351d51b0173e24b611ee131164d2bc540fce165d82a71765cf4089780f72"
 
 [[fixture]]
 path = "bin/riscv64/aio"
@@ -1008,13 +1008,13 @@ sha256 = "a6ecb2702c9f24f683ccc1ff09171d1ad96c2fc3a00d4a8c9e63e341c4633d37"
 path = "bin/i386/nodes"
 source = "src/nodes.c"
 target = "x86-linux-musl"
-sha256 = "e608c4a5a9df9da338c1017f46cf9b416ab5fd3272e42720fa9ede26ae29b5f5"
+sha256 = "0ea6a3b6b9750788f8c970bb384f6c9ace012ca740a3edaa12efa52bebe4699a"
 
 [[fixture]]
 path = "bin/i386/signals"
 source = "src/signals.c"
 target = "x86-linux-musl"
-sha256 = "ae11d3dd95b7ed72a33bbc05bf9c3f3a54ed5de45b0fd0536634f1c5b1471b15"
+sha256 = "fa114d02bb3cf05e428846f3b29dfdd508f86fafc1658a33cd5f487a079aa10b"
 
 [[fixture]]
 path = "bin/i386/shmem"
@@ -1050,7 +1050,7 @@ sha256 = "6f2938c1d07c992e4bbf6185bcfd901f7f07f41f881f28a64d8c9384684db269"
 path = "bin/i386/fork"
 source = "src/fork.c"
 target = "x86-linux-musl"
-sha256 = "cbc26b7668acc1bbdf5f1752179f09c69b83be8d098c5b293799477ed9563739"
+sha256 = "ed2ea0a38e23a4acde7da70c2063ec6904da9f2389576c1234c8b703fcadac0e"
 
 [[fixture]]
 path = "bin/i386/sched"
@@ -1104,7 +1104,7 @@ sha256 = "077c902fad223705a778599592f1087b739631867ed84a68c9e3fe54bafa8762"
 path = "bin/i386/pidfd"
 source = "src/pidfd.c"
 target = "x86-linux-musl"
-sha256 = "06aa06e941dfbc3735970a66ae9b9bdbeac312b79e7fbdaa4efdddd9e2bcc639"
+sha256 = "46f3a46ffffda57943a4b5ed3e3f7a0c2e88f589d44c6d999c4a8fb5d601c634"
 
 [[fixture]]
 path = "bin/i386/xattr"
@@ -1146,7 +1146,7 @@ sha256 = "fc0fc966769c6f8b624b30f947b2231164e79cf2e60c949a6e44b3d12be0c2da"
 path = "bin/i386/mlock"
 source = "src/mlock.c"
 target = "x86-linux-musl"
-sha256 = "cbecd296447f7059bc78cb9103e0d8ada4c2029dec70d2235b8af9f50e0496d5"
+sha256 = "9c973348d3fbc1240575b19cd23ce04c06bb1cbbfd46c12bf9e8383f3053e2d0"
 
 [[fixture]]
 path = "bin/i386/mseal"
@@ -1158,7 +1158,7 @@ sha256 = "a9af84c35b3c1f99d1a45cc628b347cd3cc4024e685184f374ea181b8bd5d6a4"
 path = "bin/i386/sysvshm"
 source = "src/sysvshm.c"
 target = "x86-linux-musl"
-sha256 = "ae980aafaa0b48fadb8fe9f182dac088f018250f66212c39885d112aa7463d54"
+sha256 = "65eadcdcdb94695fc36434452e8d4407f3f67d4b46c3ebe37290b8fa68bb761f"
 
 [[fixture]]
 path = "bin/i386/sysvsem"
@@ -1255,4 +1255,312 @@ path = "bin/i386/ptrace32"
 source = "src/ptrace32.c"
 target = "x86-linux-musl"
 sha256 = "03eef1e695c52e9476e6b29c01fc0216c2ed1542f836ff4d318843f4643bd0ec"
+
+[[fixture]]
+path = "bin/arm/hello"
+source = "src/hello.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "05e196ec1e43f530928ccca604e0fa223cf43d05d0308746488fbd5d472243de"
+
+[[fixture]]
+path = "bin/arm/fileio"
+source = "src/fileio.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "d839417b296b8baae9285d86daba37c8f77dd850d78cb22f481b55dc15503bce"
+
+[[fixture]]
+path = "bin/arm/memory"
+source = "src/memory.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "2ff927c721b9789b39953a747a6b927e079577c8142d917633cdb6062f70c507"
+
+[[fixture]]
+path = "bin/arm/mman"
+source = "src/mman.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "20d690c7b2905e1ffc5dfd835960350198762e223abd630f60dae41d13cc6cb0"
+
+[[fixture]]
+path = "bin/arm/process"
+source = "src/process.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "0b0e97675b8ecbb3d8a5bc992f9566022474b74cf63a50e97a68083bd98e744c"
+
+[[fixture]]
+path = "bin/arm/signals"
+source = "src/signals.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "1e75e3de7b7695f44a246f849274a04be52990d0a691f7de02b1feb24b62c47a"
+
+[[fixture]]
+path = "bin/arm/timers"
+source = "src/timers.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "ac1f5320a5842d3499cb1ee2c0331ded9fecb2be85f8cd64e4e9766fdeba4bef"
+
+[[fixture]]
+path = "bin/arm/threads"
+source = "src/threads.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "36b0c4115441a5910426e67c65661b434518febab7efb231f8f4b11aeef06f3f"
+
+[[fixture]]
+path = "bin/arm/threadexit"
+source = "src/threadexit.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "2a82d990da5a1d3953981395d7f919199c5bc0429688b507f56efdabfee2a4aa"
+
+[[fixture]]
+path = "bin/arm/exec"
+source = "src/exec.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "f47170648243e4b32ff668992f7ff87cbaaaf59f172245656fa52e2002f6b1c0"
+
+[[fixture]]
+path = "bin/arm/fork"
+source = "src/fork.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "babdeaba5a3b0ef3320a6064ee0d7077b4760e75f72ebf227aa6436ea9607bad"
+
+[[fixture]]
+path = "bin/arm/events"
+source = "src/events.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "f0e570799c5085c8ba07bad33e2be6e81b2f162dbfa1c6b4c4feb6ef60e99a4b"
+
+[[fixture]]
+path = "bin/arm/epoll"
+source = "src/epoll.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "3c4cbd80d80118411866347c4332cd501707b38878d621f934f6949e12c22d59"
+
+[[fixture]]
+path = "bin/arm/sockmsg"
+source = "src/sockmsg.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "c8f0d273230c33668ac2f4253844425e645465f90db0ebc15ca6ae6ca3082c58"
+
+[[fixture]]
+path = "bin/arm/shmem"
+source = "src/shmem.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "59361cff489b3b19a12457f285938061ffdf092a9b59a30f0830c9ce15e3ab7d"
+
+[[fixture]]
+path = "bin/arm/memfd"
+source = "src/memfd.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "ffb00f28a17b65e7f973e8f2b766f528448f0d94d0c657288cb2de6f2bb767d0"
+
+[[fixture]]
+path = "bin/arm/pidfd"
+source = "src/pidfd.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "da3a607fcaf4ec9dd87ba42272ab9d5d9004089f342f0526211317286c1f1aed"
+
+[[fixture]]
+path = "bin/arm/nodes"
+source = "src/nodes.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "ef13524115f36e45c1e2ec8fae42a22ff4fbd31506f6d50a15323662fb84201b"
+
+[[fixture]]
+path = "bin/arm/xattr"
+source = "src/xattr.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "f45329356655a6b38a45b75cee1455fb508e373a33d0b78cf76b9a491efa0005"
+
+[[fixture]]
+path = "bin/arm/misc"
+source = "src/misc.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "bc57ffb7af81e355a390f029f6683a19f03618ad496fd1f3617af0093d06e016"
+
+[[fixture]]
+path = "bin/arm/locks"
+source = "src/locks.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "e2d8d83001774ea5dbf826e51e50bb80fa492dd05082be53024d38a0829e159b"
+
+[[fixture]]
+path = "bin/arm/netlink"
+source = "src/netlink.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "9bef2090a975e1ef7aa06585fc1a6012d75bac7a286b06761590655571e14877"
+
+[[fixture]]
+path = "bin/arm/ifreq"
+source = "src/ifreq.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "79923afb52b48f7fb7abaf4cabdf03484a617706c921175e632aac0b5dd42200"
+
+[[fixture]]
+path = "bin/arm/sysvshm"
+source = "src/sysvshm.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "8c793403c083f71f35a2fcb933f8b3f1f1514e7718cd59000afe7339734123c0"
+
+[[fixture]]
+path = "bin/arm/sysvsem"
+source = "src/sysvsem.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "59e0c5eb3fc9f6f49fc195c73d6682fb0cec6a776ae738037dc67c87c442277a"
+
+[[fixture]]
+path = "bin/arm/sysvmsg"
+source = "src/sysvmsg.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "785d2c1bfee6f94adfa863e5376c957876597e12dd444eff151a7034eb49d833"
+
+[[fixture]]
+path = "bin/arm/seccomp"
+source = "src/seccomp.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "2851f11743ab879382fcaa3c626c4a9d362dde0b7b60bf692cc26b6b1e9cd86f"
+
+[[fixture]]
+path = "bin/arm/inotify"
+source = "src/inotify.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "fa29f7ca82cf77ef64b1bfc0ee1579541920d8917c81dd5df1244eb8361a1898"
+
+[[fixture]]
+path = "bin/arm/mqueue"
+source = "src/mqueue.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "14d1c415301c097f5a02b2d78a3acdc378d83870a4129bae0f492a2437076958"
+
+[[fixture]]
+path = "bin/arm/sched"
+source = "src/sched.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "eded4357d1ea98b83d963c58b763c4acc2786ae33c5cb01d1577e3c110917661"
+
+[[fixture]]
+path = "bin/arm/procmem"
+source = "src/procmem.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "8d30a0cae2805d72aa274aa53765d3b13f1e6dbc16e20c8b21137111cd0fcd28"
+
+[[fixture]]
+path = "bin/arm/kcmp"
+source = "src/kcmp.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "3db3ec358e5a718fc6e6b57ee2e3c753cff82410fefe05cc5c1bf2b1be3b5e50"
+
+[[fixture]]
+path = "bin/arm/mlock"
+source = "src/mlock.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "6118a45fc0988811a8a0aec179a1b66ea0ab82a8aaeefeb8e3d7ed6ab97d81c6"
+
+[[fixture]]
+path = "bin/arm/mseal"
+source = "src/mseal.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "abe3ac5eab50bb5a039e195b18419965c28020f4127f95edae6a9beed143c177"
+
+[[fixture]]
+path = "bin/arm/aio"
+source = "src/aio.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "df0d61801970031611396de87f15559d7368f56cd1c2974d8f9e802f6570bde8"
+
+[[fixture]]
+path = "bin/arm/splice"
+source = "src/splice.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "f6d9c6347a649b84d9fe3ebf6958c714442112edb92033590c98d8e83957438e"
+
+[[fixture]]
+path = "bin/arm/ptracejobs"
+source = "src/ptracejobs.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "ce17f9d821cad95745336152bc823f499ba95cf6534f937301be53202f6daede"
+
+[[fixture]]
+path = "bin/arm/ptraceevents"
+source = "src/ptraceevents.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "f2319cf05ab54714b6e41a0b9e0a6197df2e223aa67e967ab6c61d456e78fa32"
+
+[[fixture]]
+path = "bin/arm/ptracefork"
+source = "src/ptracefork.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "b17294cd4de510bd9d4697c7219b8dd2491bcb692fdf105279ed016d88676947"
+
+[[fixture]]
+path = "bin/arm/ptraceseccomp"
+source = "src/ptraceseccomp.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "95ad2e3ca6aafbdfb6a48907b21a7be14672409fb9605335479eda617bccc993"
+
+[[fixture]]
+path = "bin/arm/stdin"
+source = "src/stdin.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "fef55869c62cb36a5733f93e79aaa45a7a451f48f2605e68f595cd5da0ae0af8"
+
+[[fixture]]
+path = "bin/arm/segv"
+source = "src/segv.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "280fe619a4fe98c3e9ac3dc899fdacb741fa76c78d1855d433574ec98f05127f"
+
+[[fixture]]
+path = "bin/arm/abort"
+source = "src/abort.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "ee33d8aba5a3cfcd1f6170eef9b549fc8ed30c8b43c04e8951f4c2a1c694a8ed"
+
+[[fixture]]
+path = "bin/arm/trap"
+source = "src/trap.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "d8b51583ba4099871c4f51980a5e5432ed92258dbf8494f8fc5d2b0caf339e4f"
 

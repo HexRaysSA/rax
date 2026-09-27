@@ -6,6 +6,7 @@
  * x86-64 calls where they exist); and new files' modes under umask 0. */
 #define _GNU_SOURCE
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/eventfd.h>
@@ -17,6 +18,20 @@
 #include <unistd.h>
 #include <utime.h>
 #include "check.h"
+
+#if defined(SYS_clock_settime64)
+/* A 32-bit C library with a 64-bit time_t: the raw time32 calls' struct
+ * old_timeval32 and struct old_utimbuf32. */
+typedef struct {
+    int32_t tv_sec, tv_usec;
+} raw_timeval;
+typedef struct {
+    int32_t actime, modtime;
+} raw_utimbuf;
+#else
+typedef struct timeval raw_timeval;
+typedef struct utimbuf raw_utimbuf;
+#endif
 
 static char dir[64];
 
@@ -129,24 +144,34 @@ static void times(void) {
     struct utimbuf ub = {300, 400};
     CHECK("utime", utime(f, &ub) == 0 && times_are(f, 300, 0, 400, 0));
 #ifdef SYS_utimes
-    /* The system calls themselves (x86-64). */
-    tv[1].tv_usec = 1000000;
-    CHECK_ERR("raw-utimes-usec", syscall(SYS_utimes, f, tv), EINVAL);
-    tv[1].tv_usec = -1;
-    CHECK_ERR("raw-utimes-negative", syscall(SYS_utimes, f, tv), EINVAL);
-    tv[1].tv_usec = 9;
-    CHECK("raw-utimes", syscall(SYS_utimes, f, tv) == 0 && times_are(f, 100, 5000, 200, 9000));
+    /* The system calls themselves: time32 calls on a 32-bit C library with
+     * a 64-bit time_t (musl on i386 and ARM), which take struct
+     * old_timeval32 and struct old_utimbuf32. */
+    raw_timeval rtv[2] = {{100, 5}, {200, 7}};
+    rtv[1].tv_usec = 1000000;
+    CHECK_ERR("raw-utimes-usec", syscall(SYS_utimes, f, rtv), EINVAL);
+    rtv[1].tv_usec = -1;
+    CHECK_ERR("raw-utimes-negative", syscall(SYS_utimes, f, rtv), EINVAL);
+    rtv[1].tv_usec = 9;
+    CHECK("raw-utimes", syscall(SYS_utimes, f, rtv) == 0 && times_are(f, 100, 5000, 200, 9000));
     int dirfd = open(dir, O_RDONLY | O_DIRECTORY);
-    tv[0].tv_sec = 11;
-    CHECK("raw-futimesat", syscall(SYS_futimesat, dirfd, "t", tv) == 0 &&
+    rtv[0].tv_sec = 11;
+    CHECK("raw-futimesat", syscall(SYS_futimesat, dirfd, "t", rtv) == 0 &&
                                times_are(f, 11, 5000, 200, 9000));
-    tv[0].tv_sec = 12;
-    CHECK("raw-futimesat-fd", syscall(SYS_futimesat, fd, 0, tv) == 0 &&
+    rtv[0].tv_sec = 12;
+    CHECK("raw-futimesat-fd", syscall(SYS_futimesat, fd, 0, rtv) == 0 &&
                                   times_are(f, 12, 5000, 200, 9000));
-    ub.actime = 13;
-    CHECK("raw-utime", syscall(SYS_utime, f, &ub) == 0 && times_are(f, 13, 0, 400, 0));
+#ifdef SYS_utime
+    raw_utimbuf rub = {13, 400};
+    CHECK("raw-utime", syscall(SYS_utime, f, &rub) == 0 && times_are(f, 13, 0, 400, 0));
     CHECK_ERR("raw-utime-fault", syscall(SYS_utime, f, (void *)8), EFAULT);
-    CHECK_ERR("raw-utime-missing", syscall(SYS_utime, at("none"), &ub), ENOENT);
+    CHECK_ERR("raw-utime-missing", syscall(SYS_utime, at("none"), &rub), ENOENT);
+#else
+    /* ARM EABI has no utime. */
+    CHECK("raw-utime", 1);
+    CHECK("raw-utime-fault", 1);
+    CHECK("raw-utime-missing", 1);
+#endif
     close(dirfd);
 #else
     CHECK("raw-utimes-usec", 1);

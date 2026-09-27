@@ -1,0 +1,20 @@
+ok seize
+ok interrupt
+ok interrupt-sigchld
+ok interrupt-again
+ok listen
+ok listen-hidden
+ok listen-no-requests
+ok listen-interrupt
+ok stop-signal
+ok listen-signal-stop
+ok group-stop
+ok group-stop-sigchld
+ok listen-stopped
+ok continued-trap
+ok continue-signal
+ok read-restarted
+ok attached-interrupt
+ok attached-listen
+ok attached-exit
+PASSED

@@ -128,11 +128,17 @@ int main(int argc, char **argv) {
     CHECK("waitpid-segv", waitpid(p, &st, 0) == p && WIFSIGNALED(st) && WTERMSIG(st) == SIGSEGV &&
                               !WCOREDUMP(st));
 
-    /* Stop and continue, reported once each; SIGCHLD reports them too. */
+    /* Stop and continue, reported once each; SIGCHLD reports them too. The
+     * continued child exits when told to, so that its exit cannot overtake
+     * the report of its continuation. */
     chld_count = 0;
+    int go[2];
+    pipe(go);
     p = fork();
     if (p == 0) {
         raise(SIGSTOP);
+        char g;
+        read(go[0], &g, 1);
         _exit(3);
     }
     CHECK("waitpid-stopped", waitpid(p, &st, WUNTRACED) == p && WIFSTOPPED(st) &&
@@ -142,6 +148,9 @@ int main(int argc, char **argv) {
     CHECK("stop-reported-once", waitpid(p, &st, WUNTRACED | WNOHANG) == 0);
     kill(p, SIGCONT);
     CHECK("waitpid-continued", waitpid(p, &st, WCONTINUED) == p && WIFCONTINUED(st));
+    write(go[1], "x", 1);
+    close(go[0]);
+    close(go[1]);
     CHECK("waitpid-after-continue", waitpid(p, &st, 0) == p && WEXITSTATUS(st) == 3);
 
     /* waitid with WNOWAIT leaves the child to reap. */

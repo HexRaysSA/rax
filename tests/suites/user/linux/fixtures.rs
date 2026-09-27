@@ -3,8 +3,9 @@
 //! Fixtures, sources, and the case table live in `tests/fixtures/user/linux`
 //! (see its README). `expected/<arch>/<case>.{stdout,status}` were recorded
 //! on Linux by `record-expected.sh` (x86-64, AArch64, RV64, through Docker)
-//! and `oracle/record-kernel.sh` (i386, on an x86-64 kernel under
-//! `qemu-system-x86_64`); every case must match them byte for byte under
+//! and `oracle/record-kernel.sh` (i386 on an x86-64 kernel under
+//! `qemu-system-x86_64`, ARM EABI on an arm64 kernel under
+//! `qemu-system-aarch64`); every case must match them byte for byte under
 //! `rax-user`.
 
 use std::collections::BTreeMap;
@@ -16,8 +17,10 @@ use super::sha256;
 use super::support::{fixtures, run};
 
 const ARCHES: [&str; 3] = ["x86_64", "aarch64", "riscv64"];
-/// The compatibility architecture, built for the cases `build.sh` lists.
+/// The compatibility architectures, built for the cases `build.sh` lists.
 const I386: &str = "i386";
+const ARM: &str = "arm";
+const COMPAT: [&str; 2] = [I386, ARM];
 
 struct Case {
     name: String,
@@ -77,14 +80,20 @@ fn manifest() -> BTreeMap<String, String> {
     out
 }
 
-/// The cases with an i386 build: those whose program `manifest.toml` lists
-/// under `bin/i386`, and the i386-only ones.
-fn i386_cases() -> Vec<Case> {
+/// The cases with a build for compatibility architecture `arch`: those
+/// whose program `manifest.toml` lists under `bin/<arch>`, and for i386
+/// the i386-only ones.
+fn compat_cases(arch: &str) -> Vec<Case> {
     let m = manifest();
+    let only = if arch == I386 {
+        i386_only_cases()
+    } else {
+        Vec::new()
+    };
     cases()
         .into_iter()
-        .chain(i386_only_cases())
-        .filter(|c| m.contains_key(&format!("bin/{I386}/{}", c.program)))
+        .chain(only)
+        .filter(|c| m.contains_key(&format!("bin/{arch}/{}", c.program)))
         .collect()
 }
 
@@ -135,13 +144,15 @@ fn fixture_binaries_match_manifest() {
         0,
         "every program is built for every 64-bit architecture"
     );
-    // The i386 subset: each build is a program with a case.
-    for path in m.keys().filter(|p| p.starts_with(&format!("bin/{I386}/"))) {
-        let program = path.rsplit('/').next().unwrap();
-        assert!(
-            i386_cases().iter().any(|c| c.program == program),
-            "{path} has no case"
-        );
+    // The compatibility subsets: each build is a program with a case.
+    for arch in COMPAT {
+        for path in m.keys().filter(|p| p.starts_with(&format!("bin/{arch}/"))) {
+            let program = path.rsplit('/').next().unwrap();
+            assert!(
+                compat_cases(arch).iter().any(|c| c.program == program),
+                "{path} has no case"
+            );
+        }
     }
     // An i386-only program has an i386 build and no other, and no case in
     // the shared table.
@@ -152,12 +163,49 @@ fn fixture_binaries_match_manifest() {
                 .iter()
                 .any(|c| c.name == case.name || c.program == case.program)
         );
-        for arch in ARCHES {
+        for arch in ARCHES.iter().chain(&[ARM]) {
             let path = format!("bin/{arch}/{}", case.program);
             assert!(!m.contains_key(&path), "{path}: the program is i386-only");
         }
     }
-    assert!(m.len() == full + m.keys().filter(|p| p.starts_with("bin/i386/")).count());
+    let compat = m
+        .keys()
+        .filter(|p| COMPAT.iter().any(|a| p.starts_with(&format!("bin/{a}/"))))
+        .count();
+    assert_eq!(
+        m.len(),
+        full + compat,
+        "every binary is in a known directory"
+    );
+}
+
+/// A compatibility architecture's results come from a real kernel booted
+/// under `qemu` (see [`i386_expectations_come_from_an_x86_64_kernel`] and
+/// [`arm_expectations_come_from_an_arm64_kernel`]): `expected/<arch>` holds
+/// exactly its cases, no case is overridden, and `ORACLE-<arch>` names the
+/// kernel and the emulator.
+fn check_kernel_oracle(arch: &str, qemu: &str) {
+    let root = fixtures().join("expected");
+    let oracle = std::fs::read_to_string(root.join(format!("ORACLE-{arch}"))).unwrap();
+    assert!(oracle.contains("kernel: 6.19.0 "), "{oracle}");
+    assert!(oracle.contains(qemu), "{oracle}");
+    let cases = compat_cases(arch);
+    assert!(!cases.is_empty());
+    let mut want: Vec<String> = cases
+        .iter()
+        .flat_map(|c| [format!("{}.status", c.name), format!("{}.stdout", c.name)])
+        .collect();
+    want.sort();
+    let mut got: Vec<String> = std::fs::read_dir(root.join(arch))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    got.sort();
+    assert_eq!(got, want, "expected/{arch} holds exactly the {arch} cases");
+    assert!(
+        !overrides().keys().any(|(a, _)| a == arch),
+        "{arch} results are the kernel's own"
+    );
 }
 
 #[test]
@@ -165,28 +213,17 @@ fn i386_expectations_come_from_an_x86_64_kernel() {
     // Docker here has no x86-64 kernel to run i386 programs on (Rosetta
     // has no 32-bit mode; QEMU user mode emulates a 32-bit kernel), so
     // every i386 case was recorded on Linux 6.19 for x86-64 with
-    // CONFIG_IA32_EMULATION, and nothing else is in expected/i386.
-    let root = fixtures().join("expected");
-    let oracle = std::fs::read_to_string(root.join("ORACLE-i386")).unwrap();
-    assert!(oracle.contains("kernel: 6.19.0 "), "{oracle}");
-    assert!(oracle.contains("qemu-system-x86_64"), "{oracle}");
-    let cases = i386_cases();
-    assert!(!cases.is_empty());
-    let mut want: Vec<String> = cases
-        .iter()
-        .flat_map(|c| [format!("{}.status", c.name), format!("{}.stdout", c.name)])
-        .collect();
-    want.sort();
-    let mut got: Vec<String> = std::fs::read_dir(root.join(I386))
-        .unwrap()
-        .map(|e| e.unwrap().file_name().into_string().unwrap())
-        .collect();
-    got.sort();
-    assert_eq!(got, want, "expected/i386 holds exactly the i386 cases");
-    assert!(
-        !overrides().keys().any(|(arch, _)| arch == I386),
-        "i386 results are the kernel's own"
-    );
+    // CONFIG_IA32_EMULATION.
+    check_kernel_oracle(I386, "qemu-system-x86_64");
+}
+
+#[test]
+fn arm_expectations_come_from_an_arm64_kernel() {
+    // Apple silicon has no AArch32 state and QEMU user mode emulates a
+    // 32-bit kernel, so every ARM EABI case was recorded on Linux 6.19 for
+    // arm64 with CONFIG_COMPAT, configured as the compatibility task
+    // rax-user models (oracle/build-kernel.sh).
+    check_kernel_oracle(ARM, "qemu-system-aarch64");
 }
 
 #[test]
@@ -319,8 +356,16 @@ fn riscv64_fixtures_match_linux_with_jit() {
 fn i386_fixtures_match_linux() {
     // Compatibility-mode code runs in the interpreter (the JIT is not
     // admitted there).
-    for case in i386_cases() {
+    for case in compat_cases(I386) {
         check_case(I386, &case, &[], &[]);
+    }
+}
+
+#[test]
+fn arm_fixtures_match_linux() {
+    // AArch32 code runs in the interpreter.
+    for case in compat_cases(ARM) {
+        check_case(ARM, &case, &[], &[]);
     }
 }
 

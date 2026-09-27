@@ -24,6 +24,11 @@
 #include <unistd.h>
 #include "check.h"
 
+/* musl on ARM names timer_gettime by its 64-bit time form. */
+#if !defined(SYS_timer_gettime) && defined(SYS_timer_gettime64)
+#define SYS_timer_gettime SYS_timer_gettime64
+#endif
+
 #ifndef TFD_IOC_SET_TICKS
 #define TFD_IOC_SET_TICKS _IOW('T', 0, uint64_t)
 #endif

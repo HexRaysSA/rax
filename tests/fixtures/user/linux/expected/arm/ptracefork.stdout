@@ -1,0 +1,16 @@
+ok fork-event
+ok fork-traced
+ok fork-reaped
+ok fork-parent-told
+ok fork-parent
+ok vfork-event
+ok vfork-traced
+ok vfork-done
+ok vfork-reaped
+ok vfork-parent-told
+ok vfork-parent
+ok clone-event
+ok clone-traced
+ok clone-reaped
+ok clone-parent
+PASSED

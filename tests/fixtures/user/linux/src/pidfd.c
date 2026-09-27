@@ -205,9 +205,16 @@ static void threads(void) {
     struct pidfd_info info;
     CHECK("thread-info", get_info(fd, 0, &info) == 0 && info.pid == (uint32_t)thread_tid &&
                              info.tgid == (uint32_t)getpid());
-    /* A sleeping poll wakes when the thread exits. */
+    /* A sleeping poll wakes when the thread exits; POLLHUP follows when
+     * the task is released, which can be after the wake-up. */
     write(thread_go[1], "x", 1);
-    CHECK("thread-exit", revents(fd, 5000) == (POLLIN | POLLRDNORM | POLLHUP));
+    int woke = revents(fd, 5000), ev = woke;
+    for (int i = 0; i < 5000 && !(ev & POLLHUP); i++) {
+        usleep(1000);
+        ev = revents(fd, 0);
+    }
+    CHECK("thread-exit", (woke & ~POLLHUP) == (POLLIN | POLLRDNORM) &&
+                             ev == (POLLIN | POLLRDNORM | POLLHUP));
     pthread_join(t, 0);
     CHECK_ERR("thread-gone-signal", psend(fd, 0, 0, 0), ESRCH);
     CHECK_ERR("thread-gone-info", get_info(fd, PIDFD_INFO_PID, &info), ESRCH);

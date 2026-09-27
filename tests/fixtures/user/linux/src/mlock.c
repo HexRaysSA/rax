@@ -18,6 +18,11 @@
 #include <unistd.h>
 #include "check.h"
 
+/* ARM EABI maps with mmap2 (the offset in pages; zero here). */
+#if !defined(SYS_mmap) && defined(SYS_mmap2)
+#define SYS_mmap SYS_mmap2
+#endif
+
 #define P 4096UL
 #ifndef MLOCK_ONFAULT
 #define MLOCK_ONFAULT 1

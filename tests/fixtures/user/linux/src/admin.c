@@ -52,6 +52,21 @@
 #define FSCONFIG_SET_STRING 1
 #define FSCONFIG_SET_BINARY 2
 #define FSCONFIG_CMD_CREATE 6
+/* A 32-bit C library with a 64-bit time_t (musl on ARM) names the time
+ * calls by their forms: clock_settime's 64-bit time one, and settimeofday,
+ * which has only the time32 form, with struct old_timeval32. */
+#if !defined(SYS_clock_settime) && defined(SYS_clock_settime64)
+#define SYS_clock_settime SYS_clock_settime64
+#endif
+#if !defined(SYS_settimeofday) && defined(SYS_settimeofday_time32)
+#define SYS_settimeofday SYS_settimeofday_time32
+typedef struct {
+    int32_t tv_sec, tv_usec;
+} tod_timeval;
+#else
+typedef struct timeval tod_timeval;
+#endif
+
 /* linux/time64.h: TIME_SETTOD_SEC_MAX. */
 #define SETTOD_SEC_MAX (9223372036LL - 946080000LL)
 /* linux/timex.h: the adjtime bits as the kernel splits them. */
@@ -108,24 +123,30 @@ static void machine(void) {
 }
 
 static void clocks(void *ro) {
-    struct timeval tv;
+    tod_timeval tv;
     struct timezone tz = {15 * 60 + 1, 0};
     CHECK_ERR("settimeofday-nothing", syscall(SYS_settimeofday, NULL, NULL), EPERM);
     CHECK_ERR("settimeofday-fault", syscall(SYS_settimeofday, BAD, NULL), EFAULT);
-    tv = (struct timeval){1, -1};
+    tv = (tod_timeval){1, -1};
     CHECK_ERR("settimeofday-negative-usec", syscall(SYS_settimeofday, &tv, BAD), EINVAL);
-    tv = (struct timeval){1, 1000001};
+    tv = (tod_timeval){1, 1000001};
     CHECK_ERR("settimeofday-usec-over", syscall(SYS_settimeofday, &tv, BAD), EINVAL);
-    tv = (struct timeval){1, 999999};
+    tv = (tod_timeval){1, 999999};
     CHECK_ERR("settimeofday-zone-fault", syscall(SYS_settimeofday, &tv, BAD), EFAULT);
-    tv = (struct timeval){1, 1000000};
+    tv = (tod_timeval){1, 1000000};
     CHECK_ERR("settimeofday-whole-second", syscall(SYS_settimeofday, &tv, NULL), EINVAL);
-    tv = (struct timeval){-1, 0};
+    tv = (tod_timeval){-1, 0};
     CHECK_ERR("settimeofday-negative", syscall(SYS_settimeofday, &tv, NULL), EINVAL);
-    tv = (struct timeval){SETTOD_SEC_MAX, 0};
-    CHECK_ERR("settimeofday-too-late", syscall(SYS_settimeofday, &tv, NULL), EINVAL);
-    tv = (struct timeval){SETTOD_SEC_MAX - 1, 0};
-    CHECK_ERR("settimeofday-latest", syscall(SYS_settimeofday, &tv, NULL), EPERM);
+    if (sizeof tv.tv_sec == 8) {
+        tv = (tod_timeval){SETTOD_SEC_MAX, 0};
+        CHECK_ERR("settimeofday-too-late", syscall(SYS_settimeofday, &tv, NULL), EINVAL);
+        tv = (tod_timeval){SETTOD_SEC_MAX - 1, 0};
+        CHECK_ERR("settimeofday-latest", syscall(SYS_settimeofday, &tv, NULL), EPERM);
+    } else {
+        /* A 32-bit tv_sec cannot reach the bound. */
+        CHECK("settimeofday-too-late", 1);
+        CHECK("settimeofday-latest", 1);
+    }
     CHECK_ERR("settimeofday-zone-after-capability", syscall(SYS_settimeofday, NULL, &tz), EPERM);
 
     struct timespec ts = {1700000000, 0};

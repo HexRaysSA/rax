@@ -278,8 +278,8 @@ Limitations: register requests of `ptrace` on or by an AArch32 thread are
 mixed-endian EL0. The AArch32 core's Thumb-2 decoder lacks the coprocessor
 and exclusive-access encodings, ARMv8's load-acquire and store-release ones
 among them (so T32 code that reads TLS with `MRC` does not run; A32 code
-has them all), and its NEON coverage has gaps. No
-recorded fixtures cover ARM EABI yet.
+has them all), and its NEON coverage has gaps. The recorded fixtures cover
+ARM EABI with A32 code for ARMv7-A and VFPv3-D16, without Advanced SIMD.
 
 ## Current limitations
 

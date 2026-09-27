@@ -27,7 +27,7 @@ ok segv-accerr
 ok longjmp-restored-mask
 ok sigbus-adrerr
 trap caught: signal 4 code 2
-FAIL edited-context: last_signo == SIGSEGV && last_addr == (uintptr_t)(ro + 16) (errno 4 Interrupted system call) at line 263
+FAIL edited-context: last_signo == SIGSEGV && last_addr == (uintptr_t)(ro + 16) (errno 4 Interrupted system call) at line 270
 ok epipe
 ok sigpipe
 aborting

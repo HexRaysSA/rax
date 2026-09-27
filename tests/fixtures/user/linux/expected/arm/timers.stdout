@@ -1,0 +1,17 @@
+ok pause
+ok alarm-fired
+ok alarm-code-kernel
+ok periodic
+ok getitimer
+ok disarmed
+ok nanosleep-eintr
+ok nanosleep-remaining
+ok read-eintr
+ok read-restarted
+ok poll-eintr
+ok pselect-eintr
+FAIL pselect-time-left: ts_left > 900000 && ts_left < 1500000 (errno 4 Interrupted system call) at line 126
+ok sigtimedwait-timer
+ok clock-nanosleep-thread-cpu
+ok clock-nanosleep-mono
+FAILED

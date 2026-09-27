@@ -32,6 +32,8 @@
 #define ARCH AUDIT_ARCH_AARCH64
 #elif defined(__riscv) && __riscv_xlen == 64
 #define ARCH AUDIT_ARCH_RISCV64
+#elif defined(__arm__)
+#define ARCH AUDIT_ARCH_ARM
 #endif
 
 #define NR offsetof(struct seccomp_data, nr)

@@ -144,7 +144,7 @@ External-reference and host-specific tests can self-skip when `/dev/kvm`, a requ
 - The software x86 Linux path is deliberately constrained and is not interchangeable with arbitrary KVM boot.
 - AArch64 Linux is the established Arm Linux machine; the 32-bit Arm work does not currently justify a general Linux-to-shell claim.
 - RISC-V and Hexagon are bare-metal machine paths, not general OS platforms.
-- `rax-user` runs RV64 Linux programs without a privileged RISC-V machine. Its i386 and ARM EABI compatibility tables are partial: the i386 fixture subset is recorded on a Linux kernel, and ARM EABI has unit tests but no recorded fixtures yet.
+- `rax-user` runs RV64 Linux programs without a privileged RISC-V machine. Its i386 and ARM EABI compatibility tables are partial; their fixture subsets are recorded on Linux kernels (x86-64 and arm64) under QEMU.
 - Guest threads share one emulated CPU per process; child processes are host processes. The sysroot is a path overlay, and file/network operations can reach host resources.
 - The public Hexagon ISA selector currently reaches `v69`, despite broader historical prose.
 - Native JIT coverage is partial, host-specific, and designed to fall back to interpretation.

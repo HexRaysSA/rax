@@ -21,6 +21,9 @@
 #define MACHINE "aarch64"
 #elif defined(__riscv) && __riscv_xlen == 64
 #define MACHINE "riscv64"
+#elif defined(__arm__)
+/* An arm64 kernel's compatibility task sees the 64-bit machine. */
+#define MACHINE "aarch64"
 #endif
 
 int main(int argc, char **argv) {

@@ -1,0 +1,5 @@
+argc=3
+argv[1]=one
+argv[2]=two
+RAX_FIXTURE_VAR=set
+environ-nonempty=1

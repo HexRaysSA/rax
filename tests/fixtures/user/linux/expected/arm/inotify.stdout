@@ -1,0 +1,138 @@
+ok init-flags
+ok init
+ok init-cloexec
+ok init-flags-shown
+ok mask-zero
+ok mask-unknown
+ok fd-bad
+ok add-and-create
+ok fd-not-inotify
+ok path-fault
+ok path-missing
+ok only-dir
+ok wd-first
+ok wd-same-inode
+ok mask-create
+ok wd-isdir-only
+ok rm
+ok rm-again
+ok rm-not-inotify
+ok wd-not-reused
+rm: wd=2 IGNORED
+ok read-empty
+ok fionread
+ok read-small
+ok poll
+open: wd=3 OPEN
+ok poll-empty
+ok fdinfo-order
+ok fdinfo-masks
+ok readv
+ok setnextwd-zero
+ok setnextwd
+ok setnextwd-used
+setnextwd: wd=1 OPEN n
+setnextwd: wd=9 IGNORED
+ok seek
+create: wd=1 CREATE g
+create: wd=1 OPEN g
+create: wd=1 MODIFY g
+create: wd=1 CLOSE_WRITE g
+ok read
+ok read-eof
+ok readv-eof
+read: wd=1 OPEN g
+read: wd=1 ACCESS g
+read: wd=1 ATTRIB g
+read: wd=1 ACCESS g
+read: wd=1 CLOSE_NOWRITE g
+truncate: wd=1 OPEN g
+truncate: wd=1 MODIFY g
+truncate: wd=1 CLOSE_WRITE g
+dir: wd=1 CREATE|ISDIR s
+dir: wd=1 OPEN|ISDIR s
+dir: wd=1 ACCESS|ISDIR s
+dir: wd=1 CLOSE_NOWRITE|ISDIR s
+ok chown-nothing
+names: wd=1 MOVED_FROM g cookie
+names: wd=1 MOVED_TO h same
+names: wd=1 CREATE l
+names: wd=1 ATTRIB h
+names: wd=1 MODIFY h
+names: wd=1 ACCESS h
+names: wd=1 ATTRIB h
+names: wd=1 MODIFY h
+names: wd=1 CREATE sym
+names: wd=1 CREATE p
+names: wd=1 DELETE l
+names: wd=1 DELETE sym
+names: wd=1 DELETE|ISDIR s
+names: wd=1 ATTRIB|ISDIR
+fifo: wd=1 OPEN p
+fifo: wd=1 CLOSE_WRITE p
+fifo: wd=1 CLOSE_NOWRITE p
+fifo: wd=1 DELETE p
+fifo: wd=1 DELETE h
+self-open: wd=1 OPEN f2
+self-open: wd=2 OPEN
+self-open: wd=1 MODIFY f2
+self-open: wd=2 MODIFY
+self-unlink-open: wd=2 ATTRIB
+self-unlink-open: wd=1 DELETE f2
+self-close: wd=1 CLOSE_WRITE f2
+self-close: wd=2 CLOSE_WRITE
+self-close: wd=2 DELETE_SELF
+self-close: wd=2 IGNORED
+self-made: wd=1 CREATE g2
+self-made: wd=1 OPEN g2
+self-made: wd=1 CLOSE_WRITE g2
+self-made: wd=1 CREATE t2
+self-made: wd=1 OPEN t2
+self-made: wd=1 CLOSE_WRITE t2
+self-rename: wd=1 MOVED_FROM g2 cookie
+self-rename: wd=1 MOVED_TO k2 same
+self-rename: wd=3 MOVE_SELF
+self-rename-over: wd=1 MOVED_FROM k2 cookie
+self-rename-over: wd=1 MOVED_TO t2 same
+self-rename-over: wd=4 ATTRIB
+self-rename-over: wd=3 MOVE_SELF
+self-rename-over: wd=4 DELETE_SELF
+self-rename-over: wd=4 IGNORED
+self-unlink: wd=3 ATTRIB
+self-unlink: wd=3 DELETE_SELF
+self-unlink: wd=3 IGNORED
+self-unlink: wd=1 DELETE t2
+oneshot: wd=1 OPEN
+oneshot: wd=1 IGNORED
+mask-add: wd=2 OPEN
+mask-add: wd=2 CLOSE_NOWRITE
+no-excl-unlink: wd=1 DELETE u
+no-excl-unlink: wd=1 MODIFY u
+no-excl-unlink: wd=1 CLOSE_WRITE u
+excl-unlink: wd=1 DELETE u
+dup-first: wd=1 OPEN
+dup-last: wd=1 CLOSE_NOWRITE
+mapped-closed: wd=1 OPEN
+unmapped: wd=1 CLOSE_NOWRITE
+fork-parent-closed: wd=1 OPEN
+fork-child-exited: wd=1 CLOSE_WRITE
+exit-without-close: wd=1 OPEN
+exit-without-close: wd=1 CLOSE_NOWRITE
+forked-child: wd=1 CREATE child
+forked-child: wd=1 OPEN child
+forked-child: wd=1 MODIFY child
+forked-child: wd=1 CLOSE_WRITE child
+ok exec-child
+exec-child: wd=1 CREATE written
+exec-child: wd=1 OPEN written
+exec-child: wd=1 MODIFY written
+exec-child: wd=1 CLOSE_WRITE written
+children-cleanup: wd=1 DELETE child
+children-cleanup: wd=1 DELETE written
+ok exec-ran
+exec: wd=1 OPEN
+exec: wd=1 CLOSE_NOWRITE
+ok woken-by-child
+ok interrupted
+ok cleanup
+PASSED

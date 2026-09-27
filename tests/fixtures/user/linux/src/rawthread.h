@@ -81,6 +81,31 @@ static long raw_thread(unsigned long flags, void *stack_top, raw_thread_fn fn, v
                      : "r"(a7), "r"(a1), "r"(a2), "r"(a3), "r"(a4), "r"(t0), "r"(t1)
                      : "memory");
     return a0;
+#elif defined(__arm__)
+    /* clone(flags, stack, ptid, tls, ctid) with the number in r7, which is
+     * saved (Thumb code may keep its frame pointer there); r5 and r6
+     * carry the function and argument. */
+    register long r0 __asm__("r0") = (long)flags;
+    register long r1 __asm__("r1") = (long)stack_top;
+    register long r2 __asm__("r2") = 0;
+    register long r3 __asm__("r3") = 0;
+    register long r4 __asm__("r4") = (long)ctid;
+    register long r5 __asm__("r5") = (long)fn;
+    register long r6 __asm__("r6") = (long)arg;
+    __asm__ volatile("push {r7}\n\t"
+                     "mov r7, #120\n\t"
+                     "svc #0\n\t"
+                     "cmp r0, #0\n\t"
+                     "bne 1f\n\t"
+                     "mov r0, r6\n\t"
+                     "blx r5\n\t"
+                     "mov r7, #1\n\t"
+                     "svc #0\n"
+                     "1: pop {r7}"
+                     : "+r"(r0)
+                     : "r"(r1), "r"(r2), "r"(r3), "r"(r4), "r"(r5), "r"(r6)
+                     : "r12", "lr", "cc", "memory");
+    return r0;
 #else
 #error "raw_thread: unsupported architecture"
 #endif

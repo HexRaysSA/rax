@@ -26,15 +26,18 @@ timeouts of message queues, asynchronous I/O, and `select`, `pselect6`, and
 seccomp_data` of a 32-bit call; `ptrace32`: a 32-bit tracer's words and
 structures, the i386 register view, and a stop ended by `SIGKILL`). The i386
 results come from
-Linux 6.19 for x86-64 itself (see [Kernel oracle](#kernel-oracle)); the
+Linux 6.19 for x86-64 itself (see [Provenance](#provenance)); the
 library tests under `src/user/linux/tests/i386/` cover the conversions
-call by call.
+call by call. ARM EABI (hard-float, A32 code) runs the cases whose programs
+`build.sh` builds for it, as compatibility tasks of Linux 6.19 for arm64,
+which recorded them; `src/user/linux/tests/arm/` covers its conversions and
+signal frames call by call.
 
 | Path | Content |
 |---|---|
 | `src/*.c` | Self-checking C sources. Each check prints `ok <name>` or `FAIL <name>: ...`. |
 | `build.sh` | Rebuilds `bin/` and `manifest.toml`. |
-| `bin/<arch>/<program>` | Static, stripped executables for `x86_64`, `aarch64`, and `riscv64`, and for `i386` (a subset). |
+| `bin/<arch>/<program>` | Static, stripped executables for `x86_64`, `aarch64`, and `riscv64`, and for `i386` and `arm` (subsets). |
 | `manifest.toml` | Toolchain, flags, and SHA-256 of every binary (checked by the test). |
 | `cases.txt` | Case table: program, standard-input file, and arguments. |
 | `cases-i386.txt` | The same for the i386-only programs, which have no 64-bit builds. |
@@ -43,8 +46,8 @@ call by call.
 | `oracle-overrides.txt` | Cases whose expectation for one architecture is another architecture's real-kernel result, with the reason. |
 | `expected/<arch>/<case>.{stdout,status}` | Recorded results. |
 | `expected/ORACLE` | Kernel, Docker server, binfmt handlers, overrides, and recording time of the oracle run. |
-| `expected/ORACLE-i386` | Kernel, its build, QEMU, machine, and recording time of the i386 recording. |
-| `oracle/` | The kernel oracle: `build-kernel.sh` (Linux 6.19 for x86-64 with `CONFIG_IA32_EMULATION`), `vminit.c` (its init: one container-like run per case), and `record-kernel.sh` (records `expected/i386`). |
+| `expected/ORACLE-i386`, `expected/ORACLE-arm` | Kernel, its build, QEMU, machine, and recording time of the i386 and ARM recordings. |
+| `oracle/` | The kernel oracle: `build-kernel.sh` (Linux 6.19 for x86-64 with `CONFIG_IA32_EMULATION`, or for arm64 with `CONFIG_COMPAT`), `vminit.c` (its init: one container-like run per case), and `record-kernel.sh` (records `expected/i386` or `expected/arm`). |
 | `programs/` | The morok program corpus: 97 whole C and C++ programs with their own build, recordings, and README. |
 
 ## Programs
@@ -104,7 +107,7 @@ call by call.
 | `stdin` | Reading standard input to end of file |
 | `segv` | Fatal `SIGSEGV` (status 139) |
 | `abort` | `abort()` → `tgkill(SIGABRT)` (status 134) |
-| `trap` | `__builtin_trap()`: `SIGILL` on x86-64 and RISC-V (132), `SIGTRAP` on AArch64 (`BRK`, 133) |
+| `trap` | `__builtin_trap()`: `SIGILL` on x86-64, RISC-V, and ARM (`UDF`) (132), `SIGTRAP` on AArch64 (`BRK`, 133) |
 
 ## Provenance
 
@@ -112,12 +115,14 @@ call by call.
   bottle `zig 0.16.0_1` on macOS 27 arm64.
 - Flags: `-static -Os -s -fno-sanitize=all -fno-stack-protector
   -ffile-prefix-map=<dir>=.`, targets `x86_64-linux-musl`,
-  `aarch64-linux-musl`, `riscv64-linux-musl`, and `x86-linux-musl` (i386).
+  `aarch64-linux-musl`, `riscv64-linux-musl`, `x86-linux-musl` (i386), and
+  `arm-linux-musleabihf` with `-mcpu=cortex_a9-neon-d32` (ARM EABI: ARMv7-A
+  with VFPv3-D16 and no Advanced SIMD; the manifest records the CPU).
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 209 binaries (54 programs × 3 architectures, and 47 for i386,
-  eight of them i386-only), 8,052 KiB in total (`du -k`); each
+- Size: 253 binaries (54 programs × 3 architectures, 47 for i386, eight
+  of them i386-only, and 44 for ARM), 9,732 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -201,6 +206,25 @@ call by call.
   on the emulated machine), and one kernel difference: Linux 6.19
   refuses `MSG_CMSG_COMPAT` from a 64-bit `recvmsg` (`EINVAL`), which the
   Docker kernel (7.0.14) does not.
+- The ARM results were recorded the same way on Linux 6.19 for arm64
+  (`CONFIG_COMPAT`), built by `oracle/build-kernel.sh ... arm64` as the
+  compatibility task `rax-user` models: kuser helpers, no compat vDSO,
+  CP15 barrier instructions emulated, `SWP` emulation built but off, no
+  `SETEND`, and no event stream; booted under `qemu-system-aarch64` (TCG,
+  `virt`, Cortex-A72); `expected/ORACLE-arm` names the kernel, its hash,
+  and QEMU. Apple silicon has no AArch32 state, and the registered
+  `qemu-arm` handler emulates a 32-bit kernel. Four recordings in a row
+  were identical. Run over the AArch64 cases, the oracle reproduces 51
+  of the 56 Docker recordings byte for byte; the five others differ
+  through its configuration (no modules, `HZ` 250), a race (`fdinfo`),
+  `MSG_CMSG_COMPAT` (as above), and one defect of Linux 6.19 for arm64:
+  its entry code never notes an interrupt from user mode
+  (`el0_interrupt` calls `enter_from_user_mode`, not
+  `irqentry_enter_from_user_mode`), so no signal or preemption aborts an
+  `rseq` critical section there, as they do on the Docker kernel. The
+  ARM matrix leaves those programs out, and `iovec` (64-bit-only code)
+  and the `ptrace` programs whose register requests `rax-user` does not
+  yet model for compatibility tasks (`build.sh` names each).
 - Containers ran with `--init` so the fixture was not the PID-namespace
   init (the kernel ignores default-action signals sent to an init, which
   would make `abort()` loop), and with `--security-opt seccomp=unconfined`
@@ -219,7 +243,10 @@ call by call.
    `oracle/record-kernel.sh <out>/bzImage` (`qemu-system-x86_64`, Zig) and
    review the diff under `expected/i386`. Adding a program to
    `build.sh`'s `i386_programs` adds its cases to the i386 matrix; an
-   i386-only program's cases go in `cases-i386.txt`.
+   i386-only program's cases go in `cases-i386.txt`. For the ARM cases,
+   build `oracle/build-kernel.sh <linux-v6.19-checkout> <out> arm64` and
+   run `oracle/record-kernel.sh <out>/Image arm64`
+   (`qemu-system-aarch64`); `arm_programs` is the ARM matrix.
 4. Run `cargo test --no-default-features --features x86_64-suite,smir-jit
    --test user_linux`.
 

@@ -123,6 +123,39 @@ static long rseq(void *a, uint32_t len, int flags, uint32_t sig) {
                          : "t0", "t1", "memory");                                     \
         return aborted;                                                               \
     }
+#elif defined(__arm__) && !defined(__thumb__)
+/* rseq_cs's 64-bit fields are two words, the low one first; the pointer is
+ * stored high word first, so the kernel never sees half of it. The
+ * section's address is PC-relative (A32 reads the PC 8 bytes ahead). */
+#define CS(name, SIGWORD)                                                             \
+    static int name(struct rseq_area *rs, volatile int *flag, volatile int *ready) { \
+        int aborted;                                                                  \
+        __asm__ volatile(".pushsection .data, \"aw\"\n\t"                             \
+                         ".balign 32\n\t"                                             \
+                         "3: .long 0, 0\n\t"                                          \
+                         ".long 1f, 0, 2f - 1f, 0, 4f, 0\n\t"                         \
+                         ".popsection\n\t"                                            \
+                         "mov r3, #0\n\t"                                             \
+                         "str r3, [%[rs], #12]\n\t"                                   \
+                         "ldr r12, 6f\n\t"                                            \
+                         "7: add r12, pc, r12\n\t"                                    \
+                         "str r12, [%[rs], #8]\n\t"                                   \
+                         "mov r3, #1\n\t"                                             \
+                         "str r3, [%[ready]]\n\t"                                     \
+                         "1: ldr r3, [%[flag]]\n\t"                                   \
+                         "cmp r3, #0\n\t"                                             \
+                         "beq 1b\n\t"                                                 \
+                         "2: mov %[ab], #0\n\t"                                       \
+                         "b 5f\n\t"                                                   \
+                         "6: .long 3b - (7b + 8)\n\t"                                 \
+                         ".long " #SIGWORD "\n\t"                                     \
+                         "4: mov %[ab], #1\n\t"                                       \
+                         "5:\n\t"                                                     \
+                         : [ab] "=&r"(aborted)                                        \
+                         : [rs] "r"(rs), [flag] "r"(flag), [ready] "r"(ready)         \
+                         : "r3", "r12", "memory", "cc");                              \
+        return aborted;                                                               \
+    }
 #endif
 
 CS(cs_good, 0x53053053)

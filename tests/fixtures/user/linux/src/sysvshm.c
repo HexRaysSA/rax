@@ -95,9 +95,11 @@ static void lifecycle(void) {
     CHECK_ERR("read-only-stays", mprotect(r, PAGE, PROT_READ | PROT_WRITE), EACCES);
     shmdt(r);
 
-    /* Placement. */
-    char *hole = mmap(NULL, 8 * PAGE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    munmap(hole, 8 * PAGE);
+    /* Placement, in a hole aligned to every architecture's SHMLBA (an ARM
+     * task's is 4 pages), so that SHM_RND rounds to it wherever it lands. */
+    char *area = mmap(NULL, 12 * PAGE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    munmap(area, 12 * PAGE);
+    char *hole = (char *)(((uintptr_t)area + 4 * PAGE - 1) & ~(uintptr_t)(4 * PAGE - 1));
     CHECK_ERR("unaligned", (long)shmat(id, hole + 1, 0), EINVAL);
     CHECK("rounded", shmat(id, hole + 1, SHM_RND) == hole);
     CHECK_ERR("occupied", (long)shmat(id, hole, 0), EINVAL);

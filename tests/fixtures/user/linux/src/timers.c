@@ -12,6 +12,11 @@
 #include <unistd.h>
 #include "check.h"
 
+/* musl on ARM names clock_nanosleep by its 64-bit time form. */
+#if !defined(SYS_clock_nanosleep) && defined(SYS_clock_nanosleep_time64)
+#define SYS_clock_nanosleep SYS_clock_nanosleep_time64
+#endif
+
 static volatile sig_atomic_t ticks;
 static volatile int wake_fd = -1, wake_at, alrm_code;
 

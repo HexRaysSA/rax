@@ -79,6 +79,10 @@ static void skip_store(int sig, siginfo_t *si, void *ucv) {
     uc->uc_mcontext.pc += 4; /* str wzr, [x0] */
 #elif defined(__riscv)
     uc->uc_mcontext.__gregs[0] += 4; /* sw zero, 0(a0) */
+#elif defined(__arm__) && defined(__thumb__)
+    uc->uc_mcontext.arm_pc += 2; /* str r0, [r0] (T1) */
+#elif defined(__arm__)
+    uc->uc_mcontext.arm_pc += 4; /* str r0, [r0] */
 #endif
 }
 
@@ -91,6 +95,9 @@ static void faulting_store(volatile int *p) {
 #elif defined(__riscv)
     register volatile int *a0 __asm__("a0") = p;
     __asm__ volatile("sw zero, 0(a0)" : : "r"(a0) : "memory");
+#elif defined(__arm__)
+    register volatile int *r0 __asm__("r0") = p;
+    __asm__ volatile("str r0, [r0]" : : "r"(r0) : "memory");
 #endif
 }
 

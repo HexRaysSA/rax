@@ -11,7 +11,7 @@ ok mlock-over-limit
 ok mlock-again
 ok mlock-overlap-counted-once
 ok munlock-whole-pages
-FAIL mlock-size-max: mlock(m + 20 * P, (size_t)-1) == 0 && vmlck() == 56 (errno 12 Out of memory) at line 81
+FAIL mlock-size-max: mlock(m + 20 * P, (size_t)-1) == 0 && vmlck() == 56 (errno 12 Out of memory) at line 86
 ok munlock-all-of-it
 ok mlock-hole-first
 ok mlock-hole-first-nothing

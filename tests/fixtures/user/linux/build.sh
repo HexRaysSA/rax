@@ -6,8 +6,8 @@
 #
 #     tests/fixtures/user/linux/build.sh
 #
-# Binaries are static, stripped, position-dependent executables (i386 for
-# a subset, listed below). The
+# Binaries are static, stripped, position-dependent executables (i386 and
+# ARM EABI for subsets, listed below). The
 # manifest records the toolchain, flags, and SHA-256 of every output; the
 # user_linux test verifies the hashes before running anything.
 set -euo pipefail
@@ -80,4 +80,35 @@ for prog in "${i386_programs[@]}"; do
         echo
     } >> "$manifest"
 done
-echo "built ${#targets[@]} targets x ${#programs[@]} programs, and ${#i386_programs[@]} i386 programs"
+
+# ARM EABI (hard-float) builds, run as an arm64 kernel's compatibility
+# tasks. -mcpu=cortex_a9-neon-d32 is an ARMv7-A core with VFPv3-D16 and no
+# Advanced SIMD: code the emulated core runs completely (Zig's generic ARM
+# CPU vectorizes with Advanced SIMD). Left out: ptrace, ptracestops,
+# ptraceregs, and ptraceblock (register requests by and on compatibility
+# tasks, which rax-user refuses with EIO; the kernel's compat_arch_ptrace
+# is not modelled yet); iovec (64-bit-only code, as for i386); rseq (Linux
+# 6.19's arm64 entry code never notes an interrupt from user mode, so the
+# oracle aborts no critical section; later kernels do); and admin, sockets,
+# and fdinfo (the oracle kernel's configuration: no modules and HZ=250; the
+# timerfd check races on the emulated machine). Their expected results come
+# from a real arm64 kernel (oracle/record-kernel.sh ... arm64).
+arm_target=arm-linux-musleabihf
+arm_cpu=cortex_a9-neon-d32
+arm_programs=(hello fileio memory mman process signals timers threads threadexit exec fork events epoll sockmsg shmem memfd pidfd nodes xattr misc locks netlink ifreq sysvshm sysvsem sysvmsg seccomp inotify mqueue sched procmem kcmp mlock mseal aio splice ptracejobs ptraceevents ptracefork ptraceseccomp stdin segv abort trap)
+mkdir -p bin/arm
+for prog in "${arm_programs[@]}"; do
+    out="bin/arm/$prog"
+    zig cc -target "$arm_target" -mcpu="$arm_cpu" "${flags[@]}" -o "$out" "src/$prog.c"
+    sum="$(shasum -a 256 "$out" | cut -d' ' -f1)"
+    {
+        echo "[[fixture]]"
+        echo "path = \"$out\""
+        echo "source = \"src/$prog.c\""
+        echo "target = \"$arm_target\""
+        echo "cpu = \"$arm_cpu\""
+        echo "sha256 = \"$sum\""
+        echo
+    } >> "$manifest"
+done
+echo "built ${#targets[@]} targets x ${#programs[@]} programs, ${#i386_programs[@]} i386 programs, and ${#arm_programs[@]} ARM programs"
