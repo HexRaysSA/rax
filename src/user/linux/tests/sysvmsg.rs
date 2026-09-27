@@ -186,6 +186,14 @@ fn messages_follow_do_msgsnd_and_do_msgrcv() {
         }
         put(&h, s + 88, &100u64.to_le_bytes());
         assert_eq!(h.call(Sysno::Msgctl, &[id, IPC_SET, s]), 0);
+        // msgctl_down's msg_qbytes is an int: the upper half is dropped.
+        put(&h, s + 88, &0x1_0000_0064u64.to_le_bytes());
+        assert_eq!(h.call(Sysno::Msgctl, &[id, IPC_SET, s]), 0);
+        assert_eq!(h.call(Sysno::Msgctl, &[id, IPC_STAT, s]), 0);
+        assert_eq!(
+            u64::from_le_bytes(get(&h, s + 88, 8).try_into().unwrap()),
+            100
+        );
         assert_eq!(h.err(Sysno::Msgctl, &[id, 99, s]), EINVAL);
         assert_eq!(h.call(Sysno::Msgctl, &[id, IPC_RMID, 0]), 0);
         assert_eq!(h.err(Sysno::Msgctl, &[id, IPC_STAT, s]), EINVAL);

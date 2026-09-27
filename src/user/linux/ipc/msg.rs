@@ -454,17 +454,20 @@ pub fn info(ns: &Namespace, cmd: i32) -> Result<([u8; MSGINFO], i32), Errno> {
 /// `IPC_SET` (`msgctl_down`): the owner, group, permissions, and the
 /// queue's size (past `MSGMNB` only with `CAP_SYS_RESOURCE`).
 pub fn set(ns: &Namespace, id: i32, ds: &[u8], who: &Caller) -> Result<(), Errno> {
-    let qbytes = u64::from_le_bytes(ds[88..96].try_into().unwrap());
+    // msgctl_down's msg_qbytes is an int: compared with the unsigned int
+    // msg_ctlmnb as unsigned, and stored in the unsigned long q_qbytes
+    // sign-extended.
+    let qbytes = u64::from_le_bytes(ds[88..96].try_into().unwrap()) as i32;
     ns.with_table::<MsgTable, _>(TABLE, |t| {
         let q = t.by_id(id)?;
         if !q.perm.owned_by(who) {
             return Err(Errno(EPERM));
         }
-        if qbytes > MSGMNB && !who.capable() {
+        if qbytes as u32 > MSGMNB as u32 && !who.capable() {
             return Err(Errno(EPERM));
         }
         q.perm.update(&ds[..super::IPC64_PERM])?;
-        q.qbytes = qbytes;
+        q.qbytes = i64::from(qbytes) as u64;
         q.ctime = now();
         Ok(())
     })
