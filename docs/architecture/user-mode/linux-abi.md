@@ -122,6 +122,12 @@ array of 32-bit iocb pointers and an `int` count (a vectored request's vectors a
 and `io_pgetevents` reads `struct __compat_aio_sigset` with `compat_long_t` counts
 and either timeout layout.
 
+Readiness: `select` (the old one with its `struct compat_sel_arg_struct`, and
+`_newselect`), `pselect6`, and `ppoll` read and write fd sets in 32-bit words, take
+and write back `struct old_timeval32` or the `*_time32` calls' `struct
+old_timespec32` (the `*_time64` ones a `struct __kernel_timespec`), and read
+`pselect6`'s mask through `struct compat_sigset_argpack`.
+
 Threads: `clone` (in `sys_ia32_clone`'s argument order) and `clone3` take a `struct
 user_desc` for `CLONE_SETTLS`, filling the child's TLS entry (`set_new_tls`); the
 robust list a 32-bit call registers is a separate head of 12 bytes, released with

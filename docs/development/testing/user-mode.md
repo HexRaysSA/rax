@@ -135,8 +135,9 @@ timeouts, interface requests), System V IPC (the `ipc` multiplexer, the old and
 `*64` structures, whole commands, 32-bit message types, `old_timespec32`
 timeouts), POSIX message queues (`struct compat_mq_attr`, `struct
 compat_sigevent`, the `*_time32` calls), asynchronous I/O (32-bit contexts and iocb
-pointers, `io_getevents_time32`, `struct __compat_aio_sigset`), and rejection of
-unconverted calls;
+pointers, `io_getevents_time32`, `struct __compat_aio_sigset`), `select`,
+`pselect6`, and `ppoll` (32-bit fd set words, `struct old_timeval32`, the old
+`select`, `struct compat_sigset_argpack`), and rejection of unconverted calls;
 `src/user/linux/abi/compat_tests.rs`: 32-bit layout and overflow checks;
 `src/isa/x86_64/user_gdt_tests.rs`: GDT selector/TLS behavior; `user_linux`
 `abi_tables`: numbering against `unistd_32.h`. `user_linux` `fixtures` runs an i386

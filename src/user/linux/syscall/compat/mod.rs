@@ -398,6 +398,21 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
             call_handler(c, s, aio_counts(a))
         }
         S::IoPgeteventsTime64 => call_handler(c, S::IoPgetevents, aio_counts(a)),
+        // select, pselect6, and ppoll: fd sets of 32-bit words, struct
+        // old_timeval32, struct compat_sigset_argpack, and the *_time32
+        // timeouts beside the *_time64 ones. The old select takes its
+        // arguments in a struct compat_sel_arg_struct.
+        S::Select => {
+            let b = c.read_mem(a[0], 20)?;
+            let w = |i: usize| u64::from(u32::from_le_bytes(b[i * 4..i * 4 + 4].try_into().unwrap()));
+            call_handler(c, S::Select, [w(0), w(1), w(2), w(3), w(4), 0])
+        }
+        S::Newselect => call_handler(c, S::Select, a),
+        S::Pselect6 | S::Ppoll => time32(c, s, a),
+        S::Pselect6Time64 => call_handler(c, S::Pselect6, a),
+        S::PpollTime64 => call_handler(c, S::Ppoll, a),
+        // struct mount_attr has one layout.
+        S::OpenTree | S::OpenTreeAttr | S::MountSetattr => call_handler(c, s, a),
         // recvmmsg_time32 and recvmmsg_time64.
         S::Recvmmsg => time32(c, S::Recvmmsg, a),
         S::RecvmmsgTime64 => call_handler(c, S::Recvmmsg, a),

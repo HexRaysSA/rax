@@ -917,8 +917,10 @@ enum TimeFormat {
 
 /// `poll_select_finish`: restores a temporary mask unless a signal
 /// interrupted the call (the handler frame saves it), and writes the time
-/// left back to `user` for a nonzero timeout. If that write faults the call
-/// cannot be restarted, so `-ERESTARTNOHAND` becomes `-EINTR`.
+/// left back to `user` for a nonzero timeout (a 32-bit caller's `struct
+/// old_timeval32`, or its `timespec` as [`Ctx::put_timespec`] writes it). If
+/// that write faults the call cannot be restarted, so `-ERESTARTNOHAND`
+/// becomes `-EINTR`.
 fn poll_select_finish(
     c: &mut Ctx<'_>,
     deadline: Option<Instant>,
@@ -938,14 +940,29 @@ fn poll_select_finish(
         return result;
     };
     let left = deadline.saturating_duration_since(Instant::now());
-    let mut b = [0u8; 16];
-    b[..8].copy_from_slice(&(left.as_secs() as i64).to_le_bytes());
-    let frac = match format {
-        TimeFormat::Timeval => i64::from(left.subsec_micros()),
-        TimeFormat::Timespec => i64::from(left.subsec_nanos()),
+    let secs = left.as_secs() as i64;
+    let written = match format {
+        TimeFormat::Timeval if c.compat => {
+            let mut b = [0u8; 8];
+            b[..4].copy_from_slice(&(secs as i32).to_le_bytes());
+            b[4..].copy_from_slice(&(left.subsec_micros() as i32).to_le_bytes());
+            c.write_mem(user, &b)
+        }
+        TimeFormat::Timeval => {
+            let mut b = [0u8; 16];
+            b[..8].copy_from_slice(&secs.to_le_bytes());
+            b[8..].copy_from_slice(&i64::from(left.subsec_micros()).to_le_bytes());
+            c.write_mem(user, &b)
+        }
+        TimeFormat::Timespec => c.put_timespec(
+            user,
+            super::super::abi::types::Timespec {
+                sec: secs,
+                nsec: i64::from(left.subsec_nanos()),
+            },
+        ),
     };
-    b[8..].copy_from_slice(&frac.to_le_bytes());
-    if c.write_mem(user, &b).is_ok() {
+    if written.is_ok() {
         return result;
     }
     if interrupted {
@@ -953,6 +970,20 @@ fn poll_select_finish(
     } else {
         result
     }
+}
+
+/// A `timespec` timeout (`struct __kernel_timespec`, or for a `*_time32`
+/// call `struct old_timespec32`) as a deadline, and whether it is zero;
+/// none without a pointer.
+fn timespec_deadline(c: &Ctx<'_>, tsp: u64) -> Result<(Option<Instant>, bool), Errno> {
+    if tsp == 0 {
+        return Ok((None, false));
+    }
+    let ts = c.get_timespec(tsp)?;
+    Ok((
+        Some(timeout_deadline(ts.sec, ts.nsec).ok_or(Errno(EINVAL))?),
+        ts.sec == 0 && ts.nsec == 0,
+    ))
 }
 
 /// `ppoll`: `poll` with a timespec timeout and a temporary signal mask; an
@@ -968,16 +999,7 @@ pub fn ppoll(
     let (deadline, zero) = match resumed_deadline(c) {
         Some(d) => (d, false),
         None => {
-            let (deadline, zero) = if tsp == 0 {
-                (None, false)
-            } else {
-                let b = c.read_mem(tsp, 16)?;
-                let ts = super::super::abi::types::Timespec::decode(&b.try_into().unwrap());
-                (
-                    Some(timeout_deadline(ts.sec, ts.nsec).ok_or(Errno(EINVAL))?),
-                    ts.sec == 0 && ts.nsec == 0,
-                )
-            };
+            let (deadline, zero) = timespec_deadline(c, tsp)?;
             set_user_sigmask(c, mask, size)?;
             (deadline, zero)
         }
@@ -988,7 +1010,9 @@ pub fn ppoll(
 
 /// `core_sys_select`: `nfds` is clamped to the descriptor table size; a set
 /// bit for a descriptor that is not open is `EBADF`. An interrupted select
-/// leaves the sets as they were.
+/// leaves the sets as they were. The sets are read and written in whole
+/// `long`s, a 32-bit caller's 4 bytes each (`compat_core_sys_select`,
+/// `compat_get_bitmap`).
 fn core_sys_select(
     c: &mut Ctx<'_>,
     nfds: i32,
@@ -1001,18 +1025,17 @@ fn core_sys_select(
         return Err(Errno(EINVAL));
     }
     let n = (nfds as usize).min(c.p.fds.max_fds());
-    let words = n.div_ceil(64);
-    let read_set = |c: &Ctx<'_>, addr: u64| -> Result<Vec<u64>, Errno> {
+    // The sets as little-endian bitmaps of whole longs.
+    let long = if c.compat { 4 } else { 8 };
+    let bytes = n.div_ceil(long * 8) * long;
+    let read_set = |c: &Ctx<'_>, addr: u64| -> Result<Vec<u8>, Errno> {
         if addr == 0 {
-            return Ok(vec![0; words]);
+            return Ok(vec![0; bytes]);
         }
-        let b = c.read_mem(addr, words * 8)?;
-        Ok(b.chunks_exact(8)
-            .map(|w| u64::from_le_bytes(w.try_into().unwrap()))
-            .collect())
+        c.read_mem(addr, bytes)
     };
     let (rs, ws, es) = (read_set(c, rd)?, read_set(c, wr)?, read_set(c, ex)?);
-    let bit = |set: &[u64], fd: usize| set[fd / 64] >> (fd % 64) & 1 != 0;
+    let bit = |set: &[u8], fd: usize| set[fd / 8] >> (fd % 8) & 1 != 0;
     let mut req = Vec::new();
     for fd in 0..n {
         let mut ev = 0u16;
@@ -1037,10 +1060,10 @@ fn core_sys_select(
         Polled::Done(rev) => rev,
         Polled::Interrupted => return Err(Errno(ERESTARTNOHAND)),
     };
-    let (mut ro, mut wo, mut eo) = (vec![0u64; words], vec![0u64; words], vec![0u64; words]);
+    let (mut ro, mut wo, mut eo) = (vec![0u8; bytes], vec![0u8; bytes], vec![0u8; bytes]);
     let mut count = 0;
     for (&(fd, ev), r) in req.iter().zip(rev) {
-        let set = |v: &mut Vec<u64>| v[fd as usize / 64] |= 1 << (fd % 64);
+        let set = |v: &mut Vec<u8>| v[fd as usize / 8] |= 1 << (fd % 8);
         if ev & pe::POLLIN != 0 && r & (pe::POLLIN | pe::POLLHUP | pe::POLLERR) != 0 {
             set(&mut ro);
             count += 1;
@@ -1056,15 +1079,15 @@ fn core_sys_select(
     }
     for (addr, v) in [(rd, &ro), (wr, &wo), (ex, &eo)] {
         if addr != 0 {
-            let b: Vec<u8> = v.iter().flat_map(|w| w.to_le_bytes()).collect();
-            c.write_mem(addr, &b)?;
+            c.write_mem(addr, v)?;
         }
     }
     Ok(Outcome::Return(count))
 }
 
-/// `select` (`struct timeval` timeout; microseconds beyond a second are
-/// carried into seconds, as `kern_select` does).
+/// `select` (`struct timeval` timeout, a 32-bit caller's `struct
+/// old_timeval32`; microseconds beyond a second are carried into seconds,
+/// as `kern_select` and `do_compat_select` do).
 pub fn select(
     c: &mut Ctx<'_>,
     nfds: i32,
@@ -1078,9 +1101,17 @@ pub fn select(
     } else if tvp == 0 {
         (None, false)
     } else {
-        let b = c.read_mem(tvp, 16)?;
-        let sec = i64::from_le_bytes(b[..8].try_into().unwrap());
-        let usec = i64::from_le_bytes(b[8..].try_into().unwrap());
+        let (sec, usec) = if c.compat {
+            let b = c.read_mem(tvp, 8)?;
+            let w = |i: usize| i64::from(i32::from_le_bytes(b[i..i + 4].try_into().unwrap()));
+            (w(0), w(4))
+        } else {
+            let b = c.read_mem(tvp, 16)?;
+            (
+                i64::from_le_bytes(b[..8].try_into().unwrap()),
+                i64::from_le_bytes(b[8..].try_into().unwrap()),
+            )
+        };
         let (sec, nsec) = (
             sec.checked_add(usec / 1_000_000).ok_or(Errno(EINVAL))?,
             (usec % 1_000_000) * 1000,
@@ -1095,7 +1126,8 @@ pub fn select(
 }
 
 /// `pselect6`: `select` with a timespec timeout and a temporary signal mask
-/// passed as `{const sigset_t *ss; size_t ss_len;}`.
+/// passed as `{const sigset_t *ss; size_t ss_len;}` (a 32-bit caller's
+/// `struct compat_sigset_argpack` of two words).
 pub fn pselect6(
     c: &mut Ctx<'_>,
     nfds: i32,
@@ -1105,28 +1137,23 @@ pub fn pselect6(
     tsp: u64,
     sig: u64,
 ) -> Result<Outcome, Errno> {
-    let (mask, size) = if sig != 0 && c.resume.is_none() {
+    let (mask, size) = if sig == 0 || c.resume.is_some() {
+        (0, 0)
+    } else if c.compat {
+        let b = c.read_mem(sig, 8)?;
+        let w = |i: usize| u64::from(u32::from_le_bytes(b[i..i + 4].try_into().unwrap()));
+        (w(0), w(4))
+    } else {
         let b = c.read_mem(sig, 16)?;
         (
             u64::from_le_bytes(b[..8].try_into().unwrap()),
             u64::from_le_bytes(b[8..].try_into().unwrap()),
         )
-    } else {
-        (0, 0)
     };
     let (deadline, zero) = match resumed_deadline(c) {
         Some(d) => (d, false),
         None => {
-            let (deadline, zero) = if tsp == 0 {
-                (None, false)
-            } else {
-                let b = c.read_mem(tsp, 16)?;
-                let ts = super::super::abi::types::Timespec::decode(&b.try_into().unwrap());
-                (
-                    Some(timeout_deadline(ts.sec, ts.nsec).ok_or(Errno(EINVAL))?),
-                    ts.sec == 0 && ts.nsec == 0,
-                )
-            };
+            let (deadline, zero) = timespec_deadline(c, tsp)?;
             set_user_sigmask(c, mask, size)?;
             (deadline, zero)
         }
