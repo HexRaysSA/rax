@@ -62,6 +62,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `smir_jit_x86_aarch64` | `suites/smir/jit/x86_64_aarch64.rs` |
 | `smir_jit_aarch32_aarch64` | `suites/smir/jit/aarch32_aarch64.rs` |
 | `smir_jit_thumb_aarch64` | `suites/smir/jit/thumb_aarch64.rs` |
+| `user_darwin` | `suites/user/darwin/main.rs` |
 | `user_linux` | `suites/user/linux/main.rs` |
 | `x86_64` | `suites/isa/x86_64/main.rs` |
 | `x86_64_apx_map4_qemu_diff` | `suites/differential/x86_64/qemu_apx.rs` |
@@ -96,6 +97,12 @@ i386 subset recorded on an x86-64 Linux kernel under `qemu-system-x86_64`
 compatibility conversions have library tests under
 `src/user/linux/tests/i386/`. The ignored live Docker comparison requires
 `RAX_USER_DOCKER_ORACLE=1`; checked-in recordings need no live oracle.
+
+`user_darwin` compares `rax-user` runs of the C fixtures in
+`fixtures/user/darwin/src` and of system programs with their native runs on
+a macOS host (x86_64 through Rosetta), and checks the generated Darwin tables
+with their generators' `--check` mode. Without a macOS host the comparisons
+report themselves skipped.
 
 Add behavioral cases beneath the matching suite domain. Add generated material
 under `generated/` and record its provenance in `generated/manifest.toml`.
