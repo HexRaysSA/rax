@@ -29,6 +29,12 @@ use crate::user::mm::AddressSpace;
 /// `mach_timebase_info` reports as 125/3.
 pub const ARM64_COUNTER_HZ: u64 = 24_000_000;
 
+/// `XCR0` of the emulated Intel Mac: x87, SSE, and AVX state.
+const XCR0_HASWELL: u64 = 0b111;
+
+/// `PSR64_SSBS_64`: `PSTATE.SSBS` in an AArch64 `SPSR`.
+const PSR64_SSBS_64: u64 = 1 << 12;
+
 /// x86-64 `RFLAGS.CF`.
 const EFL_CF: u64 = 1 << 0;
 /// arm64 `PSTATE.C` in the four-bit NZCV field.
@@ -162,13 +168,23 @@ pub fn apple_arm64_config() -> AArch64Config {
 
 impl DarwinCpu {
     /// A CPU for `abi` over `space`, every register zero
-    /// (`thread_state_initialize`).
+    /// (`thread_state_initialize`). The x86-64 CPU enables the x87, SSE,
+    /// and AVX state components (`XCR0` = 7), as XNU does on the Haswell
+    /// machine RAX presents; the arm64 CPU starts with `PSTATE.SSBS` set
+    /// (`PSR64_USER64_DEFAULT` on cores with `FEAT_SSBS2`).
     pub fn new(abi: DarwinAbi, space: &AddressSpace) -> Self {
         match abi {
-            DarwinAbi::X86_64 => DarwinCpu::X86_64(X86UserCpu::new(space)),
+            DarwinAbi::X86_64 => {
+                let mut cpu = X86UserCpu::new(space);
+                cpu.vcpu_mut()
+                    .set_xcr0(XCR0_HASWELL)
+                    .expect("x87, SSE, and AVX are a valid XCR0");
+                DarwinCpu::X86_64(cpu)
+            }
             DarwinAbi::Arm64 => {
                 let mut cpu = A64UserCpu::with_config(space, apple_arm64_config());
                 cpu.core_mut().set_counter_frequency(ARM64_COUNTER_HZ);
+                cpu.core_mut().set_el0_spsr(PSR64_SSBS_64);
                 DarwinCpu::Arm64(cpu)
             }
         }
@@ -246,9 +262,10 @@ impl DarwinCpu {
                 r.r14 = regs[14];
                 r.r15 = regs[15];
                 r.rip = regs[16];
-                // set_thread_state64: (rflags & ~EFL_USER_CLEAR) | EFL_USER_SET.
-                const EFL_USER_SET: u64 = 0x202;
-                const EFL_USER_CLEAR: u64 = 0x3000 | 0x4000 | 0x2_0000 | 0x8_0000 | 0x10_0000;
+                // set_thread_state64: (rflags & ~EFL_USER_CLEAR) | EFL_USER_SET,
+                // with EFL_USER_CLEAR = IOPL | NT | RF and EFL_USER_SET = IF.
+                const EFL_USER_SET: u64 = 0x200;
+                const EFL_USER_CLEAR: u64 = 0x3000 | 0x4000 | 0x1_0000;
                 cpu.vcpu_mut()
                     .set_user_rflags((regs[17] & !EFL_USER_CLEAR) | EFL_USER_SET);
             }

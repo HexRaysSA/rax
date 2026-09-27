@@ -16,6 +16,7 @@ use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{FileRef, OpenFile};
 use crate::user::darwin::host::{self, check, check_size};
 use crate::user::darwin::io::{self, O_NONBLOCK, O_STATUS_FLAGS};
+use crate::user::darwin::signal;
 use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{self, Wait};
 
@@ -95,6 +96,48 @@ pub fn read(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64
 
 /// `write(fd, cbuf, nbyte)` and `pwrite` (`offset` given).
 pub fn write(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64>) -> SysResult {
+    let r = write_file(ctx, fd, buf, nbyte, offset);
+    sigpipe(ctx, fd, r)
+}
+
+/// `dofilewrite`'s `EPIPE` rule: a write to a broken pipe (not a socket,
+/// whose layer has its own rule) sends `SIGPIPE` to the process unless the
+/// descriptor has `F_SETNOSIGPIPE`.
+fn sigpipe(ctx: &mut Ctx<'_>, fd: i32, r: SysResult) -> SysResult {
+    if r == Err(Errno::EPIPE)
+        && let Ok((_, h)) = host_fd(ctx, fd)
+        && !is_socket(h)
+        && !nosigpipe(h)
+    {
+        let own = signal::Origin::own(ctx.proc);
+        signal::psignal(ctx.proc, Some(ctx.thread), signal::SIGPIPE, own);
+    }
+    r
+}
+
+fn is_socket(h: i32) -> bool {
+    // SAFETY: `st` is written by fstat on success only.
+    let mut st: libc::stat = unsafe { std::mem::zeroed() };
+    // SAFETY: fstat on a live descriptor with a valid stat buffer.
+    unsafe { libc::fstat(h, &mut st) == 0 && st.st_mode & libc::S_IFMT == libc::S_IFSOCK }
+}
+
+/// Whether the descriptor's open file has `FG_NOSIGPIPE` (kept by the host
+/// kernel on a Mac; other hosts have no such flag).
+fn nosigpipe(h: i32) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: F_GETNOSIGPIPE takes no argument.
+        unsafe { libc::fcntl(h, cmd::F_GETNOSIGPIPE) > 0 }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = h;
+        false
+    }
+}
+
+fn write_file(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64>) -> SysResult {
     let (_, h) = host_fd(ctx, fd)?;
     if nbyte > IO_MAX {
         return Err(Errno::EINVAL);
@@ -191,6 +234,11 @@ pub fn readv(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>
 
 /// `writev(fd, iov, cnt)` and `pwritev`.
 pub fn writev(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
+    let r = writev_file(ctx, fd, iov, cnt, offset);
+    sigpipe(ctx, fd, r)
+}
+
+fn writev_file(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
     let (_, h) = host_fd(ctx, fd)?;
     let v = iovecs(ctx, iov, cnt)?;
     let mut buf = Vec::new();
@@ -747,7 +795,8 @@ pub fn poll(ctx: &mut Ctx<'_>, fds: u64, nfds: u32, timeout: i32) -> SysResult {
             )
         })
         .collect();
-    syscall::sleep(ctx, Wait::fds(wait, deadline))
+    // Neither poll nor select restarts after a handler.
+    syscall::sleep_no_restart(ctx, Wait::fds(wait, deadline))
 }
 
 /// The absolute deadline of a timed call: the one computed when the call
@@ -873,7 +922,8 @@ pub fn select(ctx: &mut Ctx<'_>, nfds: i32, rd: u64, wr: u64, ex: u64, timeout: 
             )
         })
         .collect();
-    syscall::sleep(ctx, Wait::fds(wait, deadline))
+    // Neither poll nor select restarts after a handler.
+    syscall::sleep_no_restart(ctx, Wait::fds(wait, deadline))
 }
 
 /// `fstatfs64(fd, buf)`.

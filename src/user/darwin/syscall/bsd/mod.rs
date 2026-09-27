@@ -156,11 +156,17 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::SEMWAIT_SIGNAL | nr::SEMWAIT_SIGNAL_NOCANCEL => thread::semwait_signal(ctx, a),
 
         nr::SIGACTION => sig::sigaction(ctx, i(0), a[1], a[2]),
-        nr::SIGPROCMASK | nr::PTHREAD_SIGMASK => sig::sigprocmask(ctx, i(0), a[1], a[2]),
+        nr::SIGPROCMASK => sig::sigprocmask(ctx, i(0), a[1], a[2]),
+        nr::PTHREAD_SIGMASK => sig::pthread_sigmask(ctx, i(0), a[1], a[2]),
         nr::SIGPENDING => sig::sigpending(ctx, a[0]),
+        nr::SIGSUSPEND | nr::SIGSUSPEND_NOCANCEL => sig::sigsuspend(ctx, u(0)),
+        nr::SIGWAIT | nr::SIGWAIT_NOCANCEL => sig::sigwait(ctx, a[0], a[1]),
         nr::SIGALTSTACK => sig::sigaltstack(ctx, a[0], a[1]),
+        nr::SIGRETURN => sig::sigreturn(ctx, a[0], u(1), a[2]),
         nr::KILL => sig::kill(ctx, i(0), i(1), i(2)),
         nr::PTHREAD_KILL => sig::pthread_kill(ctx, u(0), i(1)),
+        nr::SETITIMER => sig::setitimer(ctx, u(0), a[1], a[2]),
+        nr::GETITIMER => sig::getitimer(ctx, u(0), a[1]),
         nr::DISABLE_THREADSIGNAL => Ok(Rv::one(0)),
         _ => {
             if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {

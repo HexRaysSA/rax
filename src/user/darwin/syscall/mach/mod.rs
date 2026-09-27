@@ -86,9 +86,14 @@ pub const JUST_RETURN: KernReturn = i32::MIN;
 /// wakes" (the handler registered the wait with [`sleep`]).
 pub const RESTART: KernReturn = i32::MIN + 1;
 
-/// Parks the running thread on `wait` for a Mach trap.
+/// Parks the running thread on `wait` for a Mach trap; `KERN_ABORTED`
+/// (the wait's `THREAD_INTERRUPTED`) without parking when a signal is
+/// deliverable.
 pub fn sleep(ctx: &mut Ctx<'_>, wait: crate::user::darwin::wait::Wait) -> KernReturn {
-    let _ = crate::user::darwin::syscall::sleep(ctx, wait);
+    let r = crate::user::darwin::syscall::sleep(ctx, wait);
+    if crate::user::darwin::syscall::interrupted(ctx, &r) {
+        return kr::KERN_ABORTED;
+    }
     RESTART
 }
 

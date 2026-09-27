@@ -199,8 +199,7 @@ pub fn wait(
         return r;
     }
     let deadline = tmo.map(|d| Instant::now() + d);
-    let _ = sleep(ctx, Wait::key(WaitKey::Semaphore(s.id), deadline));
-    RESTART
+    sleep(ctx, Wait::key(WaitKey::Semaphore(s.id), deadline))
 }
 
 /// Destroys a semaphore (`semaphore_destroy_internal`): its waiters

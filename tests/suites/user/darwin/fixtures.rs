@@ -69,3 +69,13 @@ fn guard_fatal_arm64() {
 fn guard_fatal_x86_64() {
     fixture("guard_fatal", "x86_64", &[], &[]);
 }
+
+#[test]
+fn signals_arm64() {
+    fixture("signals", "arm64", &[], &[]);
+}
+
+#[test]
+fn signals_x86_64() {
+    fixture("signals", "x86_64", &[], &[]);
+}

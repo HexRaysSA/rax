@@ -24,6 +24,7 @@
 //! | [`process`] | Processes, threads, and scheduling |
 //! | [`signal`] | Signals |
 //! | [`syscall`] | System calls and Mach traps |
+//! | [`thread_state`] | Machine thread state in the kernel's exported layouts |
 //! | [`wait`] | Sleeping in system calls |
 
 pub mod abi;
@@ -40,6 +41,7 @@ pub mod shared_region;
 pub mod signal;
 pub mod stack;
 pub mod syscall;
+pub mod thread_state;
 pub mod vfs;
 pub mod vm;
 pub mod wait;

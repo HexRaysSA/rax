@@ -13,6 +13,7 @@ use super::kmsg::{self, UserHeader};
 use crate::user::darwin::mach::ipc::{MACH_PORT_NULL, Object, PortName, disp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::mach::msg::{self, HEADER_SIZE, Message, Sender, bits, opt};
+use crate::user::darwin::signal;
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::wait::{Resume, Wait, WaitKey};
 
@@ -323,8 +324,12 @@ fn run(
     }
 }
 
-/// Parks the thread on `wait`, recording `step`.
+/// Parks the thread on `wait`, recording `step`; a deliverable signal
+/// interrupts the receive instead (`MACH_RCV_INTERRUPTED`).
 fn park(ctx: &mut Ctx<'_>, mut wait: Wait, step: u32) -> KernReturn {
+    if step == 1 && wait.interruptible && signal::cursig(ctx.proc, ctx.thread).is_some() {
+        return kr::MACH_RCV_INTERRUPTED;
+    }
     wait.seq = crate::user::darwin::wait::next_seq();
     ctx.thread.resume = Some(Resume {
         pc: ctx.pc,
@@ -417,15 +422,20 @@ fn do_send(
         .lookup(h.remote)
         .ok()
         .and_then(|e| e.port().cloned());
-    let mut timed_out = false;
+    // A send that cannot wait: its timeout expired, or a signal
+    // interrupts the wait (MACH_SEND_INTERRUPTED).
+    let mut failed = None;
     if let Some(port) = &dest_port
         && kmsg::queue_full(port, disp::copyin_type(bits::remote(h.bits)))
     {
         let deadline = timeout_deadline(options, opt::SEND_TIMEOUT, timeout, kept);
-        if !deadline.is_some_and(|d| d <= Instant::now()) {
+        failed = if deadline.is_some_and(|d| d <= Instant::now()) {
+            Some(kr::MACH_SEND_TIMED_OUT)
+        } else if signal::cursig(ctx.proc, ctx.thread).is_some() {
+            Some(kr::MACH_SEND_INTERRUPTED)
+        } else {
             return Sent::Wait(Wait::key(WaitKey::PortSpace(port.id), deadline));
-        }
-        timed_out = true;
+        };
     }
 
     let sender = sender(ctx);
@@ -433,13 +443,13 @@ fn do_send(
         Ok(m) => m,
         Err(mr) => return Sent::Failed(mr),
     };
-    if timed_out {
+    if let Some(why) = failed {
         let (bytes, status) = kmsg::copyout_pseudo(ctx.proc, m, s.addr);
         let n = bytes.len().min(s.size as usize);
         let mr = if ctx.write(s.addr, &bytes[..n]).is_err() {
             kr::MACH_RCV_INVALID_DATA
         } else {
-            kr::MACH_SEND_TIMED_OUT | status
+            why | status
         };
         return Sent::Failed(mr);
     }

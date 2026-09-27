@@ -22,8 +22,29 @@ use super::wait::{Resume, Wait};
 
 pub use util::Ctx;
 
+/// `ESR_EL1` of `SVC #0x80` from AArch64 EL0: EC 0x15, IL, the immediate.
+const ESR_SVC_0X80: u32 = (0x15 << 26) | (1 << 25) | 0x80;
+
+/// `T_SYSCALL`: the x86-64 trap number of a `SYSCALL` entry
+/// (`osfmk/i386/trap.h`, `hndl_syscall`).
+const T_SYSCALL: u32 = 0x85;
+
+/// Records a system-call entry in `thread`'s exception state (FAR and
+/// CR2 keep the last fault's).
+pub fn entered(abi: abi::DarwinAbi, thread: &mut Thread) {
+    let entry = &mut thread.sig.entry;
+    match abi {
+        abi::DarwinAbi::Arm64 => entry.esr = ESR_SVC_0X80,
+        abi::DarwinAbi::X86_64 => {
+            entry.trapno = T_SYSCALL;
+            entry.err = 0;
+        }
+    }
+}
+
 /// Handles one kernel entry of `thread`.
 pub fn dispatch(proc: &mut Proc, thread: &mut Thread, trap: Trap) {
+    entered(proc.abi, thread);
     match trap {
         Trap::Unix { code } => unix(proc, thread, code),
         Trap::Mach { nr } => mach::trap(proc, thread, nr),
@@ -59,7 +80,8 @@ fn unix(proc: &mut Proc, thread: &mut Thread, code: u32) {
             if proc.config.strace {
                 eprintln!("[{:#x}] nosys({nr})", thread.tid);
             }
-            super::signal::terminate(proc, thread, super::signal::SIGSYS, pc);
+            let (tid, origin) = (thread.tid, super::signal::Origin::own(proc));
+            super::signal::psignal_thread(proc, Some(thread), tid, super::signal::SIGSYS, origin);
             Err(Errno::ENOSYS)
         }
         Kind::Enosys => Err(Errno::ENOSYS),
@@ -100,7 +122,18 @@ fn finish(thread: &mut Thread, ret: abi::Ret, result: SysResult) {
 }
 
 /// Parks the running thread on `wait`, keeping `deadline` for the restart.
+///
+/// An interruptible wait does not begin while a signal is deliverable
+/// (`msleep` with `PCATCH`): the call fails with `EINTR`, or returns
+/// `ERESTART` without a wait so that it runs again after the handler when
+/// the action has `SA_RESTART` (see [`interrupted`]).
 pub fn sleep(ctx: &mut Ctx<'_>, mut wait: Wait) -> SysResult {
+    if wait.interruptible
+        && let Some(e) = super::signal::interruption(ctx.proc, ctx.thread)
+    {
+        ctx.thread.resume = None;
+        return Err(e);
+    }
     wait.seq = crate::user::darwin::wait::next_seq();
     ctx.thread.resume = Some(Resume {
         pc: ctx.pc,
@@ -110,4 +143,24 @@ pub fn sleep(ctx: &mut Ctx<'_>, mut wait: Wait) -> SysResult {
     });
     ctx.thread.wait = Some(wait);
     Err(Errno::ERESTART)
+}
+
+/// Whether a [`sleep`] result is a signal's interruption rather than a
+/// parked wait.
+pub fn interrupted(ctx: &Ctx<'_>, r: &SysResult) -> bool {
+    match r {
+        Err(Errno::EINTR) => true,
+        Err(Errno::ERESTART) => ctx.thread.wait.is_none(),
+        _ => false,
+    }
+}
+
+/// [`sleep`] for calls that are never restarted after a handler
+/// (`select`, `poll`: "not restarted after signals"): `ERESTART` becomes
+/// `EINTR`.
+pub fn sleep_no_restart(ctx: &mut Ctx<'_>, wait: Wait) -> SysResult {
+    match sleep(ctx, wait) {
+        Err(Errno::ERESTART) if ctx.thread.wait.is_none() => Err(Errno::EINTR),
+        r => r,
+    }
 }
