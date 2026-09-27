@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "verified_date": "2026-09-27",
+  "scope": "Reference receipt integrity and acquisition replay only; runtime verification belongs to the feature's test runner",
+  "source_baseline": "06e90d4bb41e0390a877819ed41ed98e369558a3",
+  "acquisition_script_sha256": "09300dada01d906063cd04372c85d1249464283189039f23d342a066ee672a6d",
+  "source_manifest_sha256": "8eb3cf9b4cc47d6ab65a6f3f436ea9558ff556e01a6a2850ba7592b32c82af8c",
+  "offline_replay": {
+    "command": "ruby docs/specifications/windows/crt-termination/acquire.rb --verify",
+    "exit_status": 0,
+    "retained_hash_size_checks": 58,
+    "publisher_source_receipts": 20,
+    "installed_input_hashes": 18,
+    "exact_copy_or_extraction_replays": 4,
+    "command_replays": 12,
+    "network_sdk_member_replays": 0,
+    "unavailable_inputs_or_tools": []
+  },
+  "network_replays": [
+    {
+      "command": "ruby docs/specifications/windows/crt-termination/acquire.rb --verify-network",
+      "exit_status": 0,
+      "retained_hash_size_checks": 58,
+      "publisher_source_receipts": 20,
+      "installed_input_hashes": 18,
+      "exact_copy_or_extraction_replays": 4,
+      "command_replays": 15,
+      "network_sdk_member_replays": 19,
+      "unavailable_inputs_or_tools": [],
+      "full_package_sha512_verified": true,
+      "full_package_bytes_verified": 155613545
+    },
+    {
+      "command": "ruby docs/specifications/windows/crt-termination/acquire.rb --verify-network",
+      "exit_status": 0,
+      "retained_hash_size_checks": 58,
+      "publisher_source_receipts": 20,
+      "installed_input_hashes": 18,
+      "exact_copy_or_extraction_replays": 4,
+      "command_replays": 15,
+      "network_sdk_member_replays": 19,
+      "unavailable_inputs_or_tools": [],
+      "full_package_sha512_verified": true,
+      "full_package_bytes_verified": 155613545
+    }
+  ],
+  "fixture_producer": {
+    "manifest_path": "../../../../tests/fixtures/user/windows/crt_termination/manifest.json",
+    "manifest_sha256": "c7fd08783bb27e8032af84b3bfa7d3e1b23ca7474476849e333e7fc1575a1d73",
+    "baseline_path": "../../../../tests/fixtures/user/windows/crt_termination/baseline.json",
+    "baseline_sha256": "b11c4aad038e75d04dda2b851e60136ac39b8670d0ebeb160d49edb0e1fecdfd",
+    "independent_identical_builds": 2,
+    "source_hashes_checked": 10,
+    "pe_hashes_checked": 30,
+    "parsed_iat_hashes_checked": 30,
+    "pe_bytes_total": 77824,
+    "observed_old_rax_rejections": 60,
+    "old_rax_executable_sha256": "690e076e084a3590005fe0aec2d8723e9095954afee2531a227e0bb9e4eaf924",
+    "scheduling_slices_instructions": [1, 4096],
+    "watchdog_seconds_per_run": 30,
+    "timeouts": 0
+  },
+  "native_windows_execution_oracle": "unknown",
+  "raw_sdk_source_committed": false,
+  "nuget_signature_verification": "not performed"
+}

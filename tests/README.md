@@ -185,3 +185,15 @@ import graph as separate observations, not ordinary-startup success evidence.
 Native Windows differential behavior and complete CRT termination/Unicode
 stdio remain unproven. Primary provenance and exact private profiles are
 recorded in `docs/architecture/user-mode/windows-crt-stdio.md`.
+
+The same target reaches `suites/user/windows/crt_termination.rs`. Its separate
+`fixtures/user/windows/crt_termination/` graph tests the genuine UCRT/runtime
+API-set `_crt_atexit` and `_crt_at_quick_exit` registrars for x86, x64 and ARM64,
+including NULL/duplicate callbacks, growth beyond 1024 pointers, registration
+inside explicit callbacks, and another thread waiting on the shared exit lock.
+Raw `ExitProcess` must not execute the executable's global CRT callbacks.
+The 30 custom-entry programs run at slices of 1 and 4096 guest instructions;
+they do not establish ordinary CRT startup or admit CRT termination/TLS APIs.
+Source, IAT, binary, and retained baseline receipts are checked by the same
+test binary. Native Windows differential execution remains unknown. See
+`docs/architecture/user-mode/windows-crt-global-registration.md`.

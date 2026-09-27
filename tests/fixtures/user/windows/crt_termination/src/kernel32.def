@@ -1,0 +1,12 @@
+LIBRARY kernel32.dll
+EXPORTS
+ExitProcess
+GetStdHandle
+WriteFile
+CreateEventW
+SetEvent
+WaitForSingleObject
+Sleep
+CreateThread
+GetExitCodeThread
+CloseHandle

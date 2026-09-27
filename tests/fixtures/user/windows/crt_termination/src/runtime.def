@@ -1,0 +1,6 @@
+EXPORTS
+_crt_atexit
+_crt_at_quick_exit
+_initialize_onexit_table
+_register_onexit_function
+_execute_onexit_table

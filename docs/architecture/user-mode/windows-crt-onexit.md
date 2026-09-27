@@ -22,6 +22,13 @@ require subsequent implementation and verification.
 
 ## Assumption register
 
+Subsequent global-registration work shares a recursive per-runtime exit lock
+with this explicit-table registration/execution facade; its initializer remains
+unlocked as in the SDK. The retained SDK source supplies a different
+mutable live-table traversal; this group's detached-generation behavior remains
+an explicit compatibility profile, not native reentrancy equivalence. See
+[global registration](windows-crt-global-registration.md).
+
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 |---|---|---|---|---|---|---|
 | O1 | Guest representation is three plain pointer-width fields; host ownership is not derived from guest values | Retained MinGW declaration; Microsoft explicitly calls representation opaque | Interoperability profile and checked ownership | Corrupt/copy fields; detached future-slot mutation | Pinned native UCRT layout/encoding probe | Retained profile; native representation unknown |

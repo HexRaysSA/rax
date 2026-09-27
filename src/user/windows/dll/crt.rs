@@ -9,6 +9,7 @@ pub(crate) mod startup;
 mod state;
 pub(crate) mod stdio;
 mod strings;
+pub(crate) mod termination;
 
 #[cfg(test)]
 mod tests;
@@ -26,6 +27,7 @@ pub(crate) use startup::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(crate) use state::{STATE_EXPORTS, UCRT_STATE_EXPORTS, release_thread};
 pub(crate) use stdio::{MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_STDIO_EXPORTS};
 pub(crate) use strings::{STRING_EXPORTS, UCRT_STRING_EXPORTS, VCRUNTIME_STRING_EXPORTS};
+pub(crate) use termination::UCRT_REGISTRATION_EXPORTS;
 
 /// A runtime namespace; a module's trap address, not its caller, selects it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,6 +75,10 @@ struct RuntimeState {
     /// Explicit tables own detached callback generations independently of
     /// process-global CRT exit and ordinary caller allocations.
     onexit: onexit::OnExitState,
+    /// Genuine UCRT global registries are not DLL startup's explicit tables.
+    termination: termination::TerminationState,
+    /// Registration and table execution share a recursive runtime exit lock.
+    exit_lock: termination::ExitLockState,
 }
 
 struct ThreadState {
