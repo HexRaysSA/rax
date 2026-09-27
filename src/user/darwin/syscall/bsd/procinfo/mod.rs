@@ -17,6 +17,8 @@ mod fdinfo;
 mod pidinfo;
 mod selfctl;
 
+pub(crate) use pidinfo::image_name;
+
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::syscall::Ctx;

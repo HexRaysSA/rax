@@ -1,6 +1,7 @@
 //! The generated Darwin tables are what their generators produce from the
-//! vendored sources: `tools/darwin/gen_abi.py --check` and
-//! `tools/darwin/gen_mig.py --check` regenerate in memory and compare.
+//! vendored sources: `tools/darwin/gen_abi.py --check`,
+//! `tools/darwin/gen_mig.py --check`, and `tools/darwin/gen_sysctl.py
+//! --check` regenerate in memory and compare.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -41,4 +42,9 @@ fn abi_tables_are_current() {
 #[test]
 fn mig_ids_are_current() {
     check("gen_mig.py", true);
+}
+
+#[test]
+fn sysctl_tables_are_current() {
+    check("gen_sysctl.py", false);
 }
