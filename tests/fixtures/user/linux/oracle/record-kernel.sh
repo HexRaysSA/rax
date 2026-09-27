@@ -46,9 +46,13 @@ done > "$root/cases.txt"
 (cd "$root" && find . | LC_ALL=C sort | cpio -o -H newc --quiet) > "$work/initramfs.cpio"
 
 console="$work/console.txt"
+# nopku: rax-user's tasks run without CR4.PKE (CPUID reports PKU but not
+# OSPKE, and XCR0 has no PKRU state), as under a kernel that leaves
+# protection keys off; with them on, the kernel makes PROT_EXEC-only
+# mappings execute-only (arch/x86/mm/pkeys.c), which mlock cannot fault in.
 qemu-system-x86_64 -machine q35 -cpu max -smp 2 -m 1024 \
     -kernel "$kernel" -initrd "$work/initramfs.cpio" \
-    -append "console=ttyS0 quiet loglevel=0 panic=-1 rdinit=/init" \
+    -append "console=ttyS0 quiet loglevel=0 panic=-1 rdinit=/init nopku" \
     -display none -monitor none -serial "file:$console" -no-reboot
 
 grep -q '^@@done' <(tr -d '\r' < "$console") || {
@@ -75,6 +79,6 @@ tr -d '\r' < "$console" | awk -v here="$here" '
     echo "build: oracle/build-kernel.sh from tag v6.19 (x86_64_defconfig with CONFIG_IA32_EMULATION)"
     echo "kernel-sha256: $(shasum -a 256 "$kernel" | cut -d' ' -f1)"
     echo "qemu: $(qemu-system-x86_64 --version | head -1)"
-    echo "machine: q35, -cpu max, 2 CPUs, 1 GiB"
+    echo "machine: q35, -cpu max, 2 CPUs, 1 GiB; kernel command line: nopku"
     echo "recorded: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > expected/ORACLE-i386

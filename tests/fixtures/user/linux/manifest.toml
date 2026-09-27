@@ -1089,6 +1089,66 @@ target = "x86-linux-musl"
 sha256 = "be292d06c261b3aae312a9f7447babd546daf503a289be2f2af438e21e24e032"
 
 [[fixture]]
+path = "bin/i386/epoll"
+source = "src/epoll.c"
+target = "x86-linux-musl"
+sha256 = "00e792167a33302210ca671d3318399f3f5cc2983eb4f0f0c40568192ee3344a"
+
+[[fixture]]
+path = "bin/i386/sockmsg"
+source = "src/sockmsg.c"
+target = "x86-linux-musl"
+sha256 = "077c902fad223705a778599592f1087b739631867ed84a68c9e3fe54bafa8762"
+
+[[fixture]]
+path = "bin/i386/pidfd"
+source = "src/pidfd.c"
+target = "x86-linux-musl"
+sha256 = "06aa06e941dfbc3735970a66ae9b9bdbeac312b79e7fbdaa4efdddd9e2bcc639"
+
+[[fixture]]
+path = "bin/i386/xattr"
+source = "src/xattr.c"
+target = "x86-linux-musl"
+sha256 = "b2630929ff0f840b23abef0b8ed91e00e5cf05e4a4e98938f42d3b6a4d2a8fe4"
+
+[[fixture]]
+path = "bin/i386/misc"
+source = "src/misc.c"
+target = "x86-linux-musl"
+sha256 = "ed5846e9237afa92ec6793a48f4f9f9920d115ce705691e3172ac8a0ccbda6a6"
+
+[[fixture]]
+path = "bin/i386/netlink"
+source = "src/netlink.c"
+target = "x86-linux-musl"
+sha256 = "7b498c89dc8ebae51472befa402d1a1ddf33c23548a0a9eb37868b78ab70663c"
+
+[[fixture]]
+path = "bin/i386/ifreq"
+source = "src/ifreq.c"
+target = "x86-linux-musl"
+sha256 = "170165d26e9ab6ed9a28e948b0c4e53f00e36947fdf967de75e6e7713aa686f4"
+
+[[fixture]]
+path = "bin/i386/inotify"
+source = "src/inotify.c"
+target = "x86-linux-musl"
+sha256 = "8dae7c931219ff95d27f43c48e79f4e011934975ff4fe444160cf63936f4a2fa"
+
+[[fixture]]
+path = "bin/i386/splice"
+source = "src/splice.c"
+target = "x86-linux-musl"
+sha256 = "fc0fc966769c6f8b624b30f947b2231164e79cf2e60c949a6e44b3d12be0c2da"
+
+[[fixture]]
+path = "bin/i386/mlock"
+source = "src/mlock.c"
+target = "x86-linux-musl"
+sha256 = "cbecd296447f7059bc78cb9103e0d8ada4c2029dec70d2235b8af9f50e0496d5"
+
+[[fixture]]
 path = "bin/i386/sigframes"
 source = "src/sigframes.c"
 target = "x86-linux-musl"

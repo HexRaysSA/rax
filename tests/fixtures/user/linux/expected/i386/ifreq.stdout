@@ -1,0 +1,68 @@
+ok ifconf-length
+ok ifconf-entries
+ok ifconf-loopback
+ok ifconf-whole-entries
+ok ifconf-negative-length
+-- inet
+ok index
+FAIL index-rest-untouched: raw[20] == 0xaa && raw[39] == 0xaa (errno 0 No error information) at line 70
+ok name
+ok name-no-device
+ok flags
+ok mtu
+ok metric
+FAIL map: ioctl(fd, SIOCGIFMAP, &r) == 0 && r.ifr_map.mem_start == 0 && r.ifr_map.base_addr == 0 && r.ifr_map.irq == 0 && raw[37] == 0xaa (errno 19 No such device) at line 87
+ok hwaddr
+ok alias
+ok no-device
+FAIL slave: ioctl(fd, SIOCGIFSLAVE, &r) returned -1 errno 25, want errno 22
+ok mem
+ok set-mtu-needs-net-admin
+ok bad-pointer
+ok addr
+ok netmask
+ok dstaddr
+ok brdaddr
+ok alias-no-address
+ok addr-no-device
+ok pflags
+ok set-addr-needs-net-admin
+ok set-flags-needs-net-admin
+-- unix
+ok index
+FAIL index-rest-untouched: raw[20] == 0xaa && raw[39] == 0xaa (errno 1 Operation not permitted) at line 70
+ok name
+ok name-no-device
+ok flags
+ok mtu
+ok metric
+FAIL map: ioctl(fd, SIOCGIFMAP, &r) == 0 && r.ifr_map.mem_start == 0 && r.ifr_map.base_addr == 0 && r.ifr_map.irq == 0 && raw[37] == 0xaa (errno 19 No such device) at line 87
+ok hwaddr
+ok alias
+ok no-device
+FAIL slave: ioctl(fd, SIOCGIFSLAVE, &r) returned -1 errno 25, want errno 22
+ok mem
+ok set-mtu-needs-net-admin
+ok bad-pointer
+ok addr-not-inet
+-- netlink
+ok index
+FAIL index-rest-untouched: raw[20] == 0xaa && raw[39] == 0xaa (errno 25 Not a tty) at line 70
+ok name
+ok name-no-device
+ok flags
+ok mtu
+ok metric
+FAIL map: ioctl(fd, SIOCGIFMAP, &r) == 0 && r.ifr_map.mem_start == 0 && r.ifr_map.base_addr == 0 && r.ifr_map.irq == 0 && raw[37] == 0xaa (errno 19 No such device) at line 87
+ok hwaddr
+ok alias
+ok no-device
+FAIL slave: ioctl(fd, SIOCGIFSLAVE, &r) returned -1 errno 25, want errno 22
+ok mem
+ok set-mtu-needs-net-admin
+ok bad-pointer
+ok addr-not-inet
+ok if-nametoindex
+ok if-indextoname
+ok if-nametoindex-missing
+FAILED

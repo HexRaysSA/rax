@@ -14,8 +14,10 @@ runs in parallel must not see each other's queues and identifiers.
 The execution matrix is x86-64, AArch64, and RV64 for every case, and
 i386 for the cases whose programs `build.sh` builds for it: those that run
 as compatibility tasks so far (the rest need calls without a 32-bit
-conversion yet, such as sockets, System V IPC, AIO, and `ptrace`, or have
-64-bit-only code), and the cases of `cases-i386.txt`, whose programs are
+conversion yet, such as System V IPC, POSIX message queues, AIO, and
+`ptrace`, have 64-bit-only code, or check what the oracle kernel's
+configuration changes; `build.sh` names each), and the cases of
+`cases-i386.txt`, whose programs are
 built for i386 alone (`sigframes`: the i386 signal frames, printed relative
 to a fixed alternate stack; `futex32`: the 32-bit robust list and futex
 timeouts). The i386 results come from
@@ -109,8 +111,8 @@ call by call.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 183 binaries (54 programs × 3 architectures, and 21 for i386, two
-  of them i386-only), 7,112 KiB in total (`du -k`); each
+- Size: 193 binaries (54 programs × 3 architectures, and 31 for i386, two
+  of them i386-only), 7,532 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -172,8 +174,11 @@ call by call.
   AArch64 result.
 - The i386 results were recorded with `oracle/record-kernel.sh` on Linux
   6.19 for x86-64 (`CONFIG_IA32_EMULATION`), built by
-  `oracle/build-kernel.sh` and booted under `qemu-system-x86_64` (TCG);
-  `expected/ORACLE-i386` names the kernel, its hash, and QEMU. No Docker
+  `oracle/build-kernel.sh` and booted under `qemu-system-x86_64` (TCG)
+  with `nopku`, so that protection keys look as they do to `rax-user`'s
+  tasks (CPUID's PKU without OSPKE; with them on, the kernel makes
+  `PROT_EXEC`-only mappings execute-only); `expected/ORACLE-i386` names
+  the kernel, its hash, QEMU, and the command line. No Docker
   host here runs i386 programs on an x86-64 kernel: Rosetta has no 32-bit
   mode, and the registered `qemu-i386` user-mode handler emulates a 32-bit
   kernel on the arm64 one, which differs from a compatibility task where
@@ -186,8 +191,9 @@ call by call.
   environment. Run over the x86-64 cases, it reproduces 50 of the 56
   Docker recordings byte for byte, including many that Rosetta cannot run
   (so those take the AArch64 result); the six others differ through the
-  oracle's configuration (no modules; `HZ` 250), its CPU model (shadow
-  stacks, `XSTATE`), `RLIMIT_MEMLOCK`, and one kernel difference: Linux 6.19
+  oracle's configuration (no modules; `HZ` 250), its emulated CPU (shadow
+  stacks, `XSTATE`, block stepping), a race (`fdinfo`'s `timerfd` check
+  on the emulated machine), and one kernel difference: Linux 6.19
   refuses `MSG_CMSG_COMPAT` from a 64-bit `recvmsg` (`EINVAL`), which the
   Docker kernel (7.0.14) does not.
 - Containers ran with `--init` so the fixture was not the PID-namespace
