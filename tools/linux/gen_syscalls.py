@@ -9,7 +9,7 @@ and review the diff:
 
     python3 tools/linux/gen_syscalls.py
 
-`tests/suites/user/linux_abi_tables.rs` re-parses the same headers and fails
+`tests/suites/user/linux/abi_tables.rs` re-parses the same headers and fails
 if the checked-in tables disagree with them.
 """
 
@@ -34,9 +34,11 @@ TABLES = [
     ("aarch64", "aarch64-linux-any/asm/unistd_64.h", "AArch64 (asm-generic numbering)"),
     ("riscv64", "riscv-linux-any/asm/unistd_64.h", "RV64 (asm-generic numbering plus RISC-V calls)"),
     ("i386", "x86-linux-any/asm/unistd_32.h", "i386 (`arch/x86/entry/syscalls/syscall_32.tbl`, the `int $0x80` table)"),
+    ("arm", "arm-linux-any/asm/unistd-eabi.h", "ARM EABI (`arch/arm/tools/syscall.tbl`; a compatibility task's on arm64, `arch/arm64/tools/syscall_32.tbl`)"),
 ]
 
-DEFINE = re.compile(r"^#define __NR_(\w+)\s+(\d+)\s*$")
+# A number, or ARM EABI's `(__NR_SYSCALL_BASE + n)` with a base of 0.
+DEFINE = re.compile(r"^#define __NR_(\w+)\s+(?:\(__NR_SYSCALL_BASE\s*\+\s*(\d+)\)|(\d+))\s*$")
 
 
 def parse(path):
@@ -45,7 +47,7 @@ def parse(path):
         for line in f:
             m = DEFINE.match(line)
             if m:
-                table.append((m.group(1), int(m.group(2))))
+                table.append((m.group(1), int(m.group(2) or m.group(3))))
     if not table:
         sys.exit(f"no syscall definitions in {path}")
     nums = [n for _, n in table]
