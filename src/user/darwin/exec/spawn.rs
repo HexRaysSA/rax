@@ -32,8 +32,9 @@ use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{FdTable, OpenFile};
 use crate::user::darwin::host::{self, check};
 use crate::user::darwin::io::O_CLOEXEC;
+use crate::user::darwin::mach::exception::Handler;
 use crate::user::darwin::mach::ipc::{MACH_PORT_DEAD, MACH_PORT_NULL, Port};
-use crate::user::darwin::mach::task::{EXC_TYPES_COUNT, TaskState, special};
+use crate::user::darwin::mach::task::{EXC_TYPES_COUNT, PORT_REGISTER_MAX, TaskState, special};
 use crate::user::darwin::process::{self, Proc};
 use crate::user::darwin::signal::{self, SigAction};
 use crate::user::darwin::syscall::Ctx;
@@ -73,8 +74,7 @@ const COALITION_INFO_SIZE: u64 = 48;
 /// `POSIX_SPAWN_PROC_TYPE_MASK` and `POSIX_SPAWN_PROC_TYPE_DRIVER`.
 const PROC_TYPE_MASK: i32 = 0xf00;
 const PROC_TYPE_DRIVER: i32 = 0x700;
-/// `TASK_PORT_REGISTER_MAX`, `TASK_MAX_WATCHPORT_COUNT`.
-const TASK_PORT_REGISTER_MAX: u32 = 3;
+/// `TASK_MAX_WATCHPORT_COUNT`.
 const TASK_MAX_WATCHPORT_COUNT: u32 = 128;
 
 /// `PS_ACTION_SIZE`: a header and `count` entries (0 on overflow).
@@ -460,10 +460,10 @@ fn is_vnode(h: RawFd, st: &libc::stat) -> bool {
 }
 
 /// `exec_handle_port_actions` and `exec_handle_exception_port_actions`:
-/// ports named in the caller's space become the new task's special ports
-/// and exception handlers. (Registered, watch, audit-session, and
-/// pointer-authentication ports are checked and otherwise have no effect
-/// here.)
+/// ports named in the caller's space become the new task's special ports,
+/// exception handlers, and (in order, the rest null) registered ports.
+/// (Watch, audit-session, and pointer-authentication ports are checked and
+/// otherwise have no effect here.)
 fn port_actions(ctx: &Ctx<'_>, task: &mut TaskState, actions: &[PortAction]) -> Result<(), Errno> {
     let (mut exc, mut watch, mut registered, mut ptrauth) = (0, 0, 0, 0);
     for a in actions {
@@ -471,7 +471,7 @@ fn port_actions(ctx: &Ctx<'_>, task: &mut TaskState, actions: &[PortAction]) -> 
             pspa::SPECIAL | pspa::AU_SESSION => continue,
             pspa::EXCEPTION => (&mut exc, EXC_TYPES_COUNT as u32),
             pspa::IMP_WATCHPORTS => (&mut watch, TASK_MAX_WATCHPORT_COUNT),
-            pspa::REGISTERED_PORTS => (&mut registered, TASK_PORT_REGISTER_MAX),
+            pspa::REGISTERED_PORTS => (&mut registered, PORT_REGISTER_MAX as u32),
             pspa::PTRAUTH_TASK_PORT => (&mut ptrauth, 1),
             _ => return Err(Errno::EINVAL),
         };
@@ -480,31 +480,56 @@ fn port_actions(ctx: &Ctx<'_>, task: &mut TaskState, actions: &[PortAction]) -> 
             return Err(Errno::EINVAL);
         }
     }
+    let mut stash: [Handler; PORT_REGISTER_MAX] = Default::default();
+    let mut stashed = 0;
     for a in actions {
-        let port = if a.port != MACH_PORT_NULL && a.port != MACH_PORT_DEAD {
-            // ipc_typed_port_copyin_send: a send right, made from a receive
-            // right if need be.
-            let e = ctx.proc.ipc.lookup(a.port).map_err(|_| Errno::EINVAL)?;
-            if e.send == 0 && !e.receive {
-                return Err(Errno::EINVAL);
+        // ipc_typed_port_copyin_send: a send right (made from a receive
+        // right if need be), or a dead name, which stays dead (as
+        // CAST_MACH_NAME_TO_PORT keeps MACH_PORT_DEAD).
+        let held = match a.port {
+            MACH_PORT_NULL => Handler::None,
+            MACH_PORT_DEAD => Handler::Dead,
+            name => {
+                let e = ctx.proc.ipc.lookup(name).map_err(|_| Errno::EINVAL)?;
+                if e.dead > 0 {
+                    Handler::Dead
+                } else if e.send == 0 && !e.receive {
+                    return Err(Errno::EINVAL);
+                } else {
+                    match e.port() {
+                        Some(p) if p.is_dead() => Handler::Dead,
+                        Some(p) => Handler::Port(p.clone()),
+                        None => return Err(Errno::EINVAL),
+                    }
+                }
             }
-            Some(e.port().cloned().ok_or(Errno::EINVAL)?)
-        } else {
-            None
         };
         match a.kind {
-            pspa::SPECIAL => set_special_port(task, a.which, port)?,
+            // A special port keeps no dead name (as task_set_special_port).
+            pspa::SPECIAL => set_special_port(task, a.which, held.port().cloned())?,
             pspa::EXCEPTION => {
                 // task_set_exception_ports on the new task.
-                use crate::user::darwin::mach::exception::Handler;
                 use crate::user::darwin::mig::exception;
-                let handler = port.map_or(Handler::None, Handler::Port);
-                exception::validate(ctx.proc.abi, a.mask, &handler, a.behavior, a.flavor)
+                exception::validate(ctx.proc.abi, a.mask, &held, a.behavior, a.flavor)
                     .map_err(|_| Errno::EINVAL)?;
-                exception::install(&mut task.exc, a.mask, &handler, a.behavior, a.flavor);
+                exception::install(&mut task.exc, a.mask, &held, a.behavior, a.flavor);
+            }
+            pspa::REGISTERED_PORTS => {
+                stash[stashed] = held;
+                stashed += 1;
             }
             _ => {}
         }
+    }
+    if stashed > 0 {
+        // _kernelrpc_mach_ports_register3 on the new task.
+        if stash
+            .iter()
+            .any(|h| h.port().is_some_and(|p| !p.movable_send()))
+        {
+            return Err(Errno::EINVAL);
+        }
+        task.registered = stash;
     }
     Ok(())
 }
@@ -515,6 +540,10 @@ fn set_special_port(
     which: i32,
     port: Option<Arc<Port>>,
 ) -> Result<(), Errno> {
+    // ipc_can_stash_naked_send.
+    if port.as_ref().is_some_and(|p| !p.movable_send()) {
+        return Err(Errno::EINVAL);
+    }
     match which {
         special::ACCESS if task.special[special::ACCESS as usize].is_some() => Err(Errno::EINVAL),
         special::BOOTSTRAP

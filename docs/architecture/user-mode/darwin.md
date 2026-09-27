@@ -85,12 +85,20 @@ version, page size), `task` (`task_info`, special and exception ports,
 threads, semaphores, policies, restartable ranges, dyld registration,
 identity tokens and the task ports of each flavor they give; the read
 and inspect ports, like the name port, are one port per task, made on
-first use),
+first use; the three registered ports of `mach_ports_register` and
+`mach_ports_lookup`, send rights or dead names the kernel holds and a new
+task inherits; the read and inspect ports, whose send rights may not
+move, may be neither registered nor made special ports,
+`KERN_INVALID_RIGHT`),
 `thread_act` (`thread_info`, policies, exception ports, suspension),
 `host_priv`'s special ports (refused, `KERN_INVALID_ARGUMENT`, to a caller
 without the privileged host port, the right a set carries released),
 `mach_vm`/`vm_map` (allocation, protection, regions, reads and writes), and
 `clock`.
+
+There is no `launchd`: the first process has no bootstrap port, so its
+registered ports, which natively begin with the bootstrap port
+`launchd` registers, are all null.
 
 ## Threads
 
@@ -129,10 +137,10 @@ that asked); closing a kqueue's last descriptor drops the kqueue.
 
 | Area | Module | Counterpart |
 |---|---|---|
-| `fork`: the host process forks (the child is a copy of the emulator with its guest; private memory copied on write, shared mappings shared), and the child becomes XNU's forked process: the caller's thread only, with a new thread ID and the caller's signal mask; a new task whose space holds its control port then the thread's, keeping the bootstrap, access, and host special ports and the exception actions; descriptors without kqueues (`FG_CONFINED`); no pending signals, interval timers, alternate stack, work queue, psynch, or kqueue state, and not `SA_NOCLDSTOP` or `SA_NOCLDWAIT` (process flags; the actions stay); `VM_INHERIT_NONE` regions unmapped. The child's call returns its own pid with 1 in the second return register | `fork` | `kern_fork.c`, `ipc_task_init`, `fdt_fork`, `thread_set_child` |
+| `fork`: the host process forks (the child is a copy of the emulator with its guest; private memory copied on write, shared mappings shared), and the child becomes XNU's forked process: the caller's thread only, with a new thread ID and the caller's signal mask; a new task whose space holds its control port then the thread's, keeping the bootstrap, access, and host special ports, the registered ports, and the exception actions; descriptors without kqueues (`FG_CONFINED`); no pending signals, interval timers, alternate stack, work queue, psynch, or kqueue state, and not `SA_NOCLDSTOP` or `SA_NOCLDWAIT` (process flags; the actions stay); `VM_INHERIT_NONE` regions unmapped. The child's call returns its own pid with 1 in the second return register | `fork` | `kern_fork.c`, `ipc_task_init`, `fdt_fork`, `thread_set_child` |
 | `execve`: the path saved and looked up (following links; `ENAMETOOLONG`, `EFAULT`, `ENOENT`, `ENOTDIR`), the permission checks (a regular file with an execute bit, `EACCES`; not empty, `ENOEXEC`), then the activators in XNU's order at most three times: a thin Mach-O executable graded for the machine (`EBADARCH` for another CPU, a 32-bit or reverse-endian image; another file type is not claimed), a fat file's slice (`EBADMACHO` for a bad table), a `#!` script (the first 512 bytes: the interpreter and its words, `ENOEXEC` without one or without an end of line, and no script as interpreter); nothing claimed is `ENOEXEC`. The arguments and environment are then copied within `NCARGS` (`E2BIG`, `EFAULT`; a NULL vector is empty; a script's `argv` is the interpreter's words, the path, and the caller's `argv` less its first) | `exec`, `exec::image`, `exec::args` | `exec_activate_image`, `exec_mach_imgact`, `exec_fat_imgact`, `exec_shell_imgact`, `exec_extract_strings` |
 | The new image: past the point of no return a new process image is built (a failure to load it kills the process with `SIGKILL`) and replaces the old when the call returns. It keeps the pid, parent, credentials, working directory, file-creation mask, limits, children, start time, interval timers, the descriptors less close-on-exec ones and kqueues, the caller's signal mask and pending signals, ignored signals, and the task's inherited special ports and exception actions; caught signals return to their defaults, and the alternate stack, `SA_ONSTACK`, `sigreturn` validation, `SA_NOCLDSTOP`/`SA_NOCLDWAIT`, other threads, the address space, port names, and the guard-exception behavior are new. Thread and task ports are again `0x103` and `0x203` | `exec`, `process` | `proc_exec_switch_task`, `execsigs`, `fdt_exec`, `ipc_task_init`, `proc_inherit_itimers` |
-| `posix_spawn`: the argument descriptor and attribute layouts (`EINVAL` for file- or port-action sizes that disagree with their counts), file actions in order on the child's descriptor table (`OPEN` at the lowest descriptor then moved, `CLOSE`, `DUP2` clearing close-on-exec, `INHERIT`, `CHDIR`, and `FCHDIR` of the caller's descriptor; the first failure fails the spawn), `POSIX_SPAWN_CLOEXEC_DEFAULT`, port actions (special ports and exception handlers of the new task; `EINVAL` for bad names or kinds), `RESETIDS`, binary preferences (`EBADARCH`, and `EBADEXEC` when four preferences all miss a fat file), then the child's process group and session, signal mask, and default actions; `POSIX_SPAWN_SETEXEC` runs the image in the caller; `POSIX_SPAWN_START_SUSPENDED` stops the child before it runs. A failed spawn writes no pid, leaves no child, and sends no `SIGCHLD` | `exec::spawn` | `posix_spawn`, `exec_handle_file_actions`, `exec_handle_port_actions` |
+| `posix_spawn`: the argument descriptor and attribute layouts (`EINVAL` for file- or port-action sizes that disagree with their counts), file actions in order on the child's descriptor table (`OPEN` at the lowest descriptor then moved, `CLOSE`, `DUP2` clearing close-on-exec, `INHERIT`, `CHDIR`, and `FCHDIR` of the caller's descriptor; the first failure fails the spawn), `POSIX_SPAWN_CLOEXEC_DEFAULT`, port actions (special ports, exception handlers, and registered ports of the new task, a dead name kept dead; `EINVAL` for bad names or kinds, and for a right that may not be stashed), `RESETIDS`, binary preferences (`EBADARCH`, and `EBADEXEC` when four preferences all miss a fat file), then the child's process group and session, signal mask, and default actions; `POSIX_SPAWN_SETEXEC` runs the image in the caller; `POSIX_SPAWN_START_SUSPENDED` stops the child before it runs. A failed spawn writes no pid, leaves no child, and sends no `SIGCHLD` | `exec::spawn` | `posix_spawn`, `exec_handle_file_actions`, `exec_handle_port_actions` |
 | `task_read_for_pid` and `task_inspect_for_pid`: the caller's own task port of that flavor; another process's refused (`EPERM`, as for pid 0; `ESRCH` for none) and a target that is not the caller's task control port refused (`EINVAL`), with a null name written back | `syscall::bsd::proc` | `task_read_for_pid`, `task_inspect_for_pid` (`kern_proc.c`) |
 | `waitid`: options (`EINVAL` for none or unknown ones) and id types, `WNOWAIT`, `WNOHANG` leaving the `siginfo_t` untouched, and the `siginfo_t` of an exit (the status), a signal death, a stop (the signal), and a continue (`SIGCONT`, the child's pid) | `syscall::bsd::wait` | `waitid_nocancel` |
 | `wait4`: the host's wait for the guest's children (host processes), XNU's status encoding (a continue is `W_STOPCODE(SIGCONT)`), `struct rusage`, `WNOHANG`, sleeping until a child changes state with signal interruption, and the pending `SIGCHLD` cleared when the last child is reaped with `SIGCHLD` blocked | `syscall::bsd::wait` | `wait4_nocancel` |
@@ -444,8 +452,9 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   kernel's, on arm64 only), the flavored task ports, `task_read_for_pid`
   and `task_inspect_for_pid`, and the host's special ports in
   `mach_info`, the audit identity, copy rules, and refusals of `audit`,
-  and the protection classes, checks, and authentication of
-  `protected_open`.
+  the protection classes, checks, and authentication of
+  `protected_open`, and the stash, rights, refusals, and inheritance of
+  `registered_ports`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

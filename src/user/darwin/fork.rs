@@ -154,6 +154,7 @@ pub(crate) fn inherited_task(parent: &TaskState) -> TaskState {
         dyld_info: parent.dyld_info,
         dyld_final: parent.dyld_final,
         reclaim: parent.reclaim,
+        registered: parent.registered.clone(),
         ..Default::default()
     };
     for s in [special::HOST, special::BOOTSTRAP, special::ACCESS] {
