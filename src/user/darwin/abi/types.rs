@@ -252,7 +252,7 @@ impl Statfs {
             fstypename: cstr(&s.f_fstypename),
             mntonname: cstr(&s.f_mntonname),
             mntfromname: cstr(&s.f_mntfromname),
-            flags_ext: 0,
+            flags_ext: s.f_flags_ext,
         }
     }
 }

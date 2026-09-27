@@ -217,6 +217,16 @@ protection, inheritance, user tag) in each VMA's personality flags
 cache from the host's cache files; slid mappings (slide info v2 and v5) are
 rebased page by page on first touch, as XNU's shared-region pager does.
 
+## Files and volumes
+
+Paths resolve through the root overlay (`vfs`) and the host performs the
+calls; results in guest layouts come from the host's.
+
+| Area | Module | Counterpart |
+|---|---|---|
+| Volume statistics: `statfs64`, `fstatfs64`, and `getfsstat64` (the count of mounted volumes with a NULL buffer, of those copied with a buffer too small for them all) | `syscall::bsd::path`, `syscall::bsd::file` | `statfs64`, `getfsstat64` |
+| `fsgetpath` and `fsgetpath_ext`: the path of an object by volume and object ID, the root overlay's prefix removed (`EINVAL` for unknown options or a size of 0 or over `MAXLONGPATHLEN`, `EFAULT` for the volume ID) | `syscall::bsd::path` | `fsgetpath_extended` |
+
 ## Emulated machine
 
 One CPU of the program's architecture: a Haswell-class Intel Mac for x86-64
@@ -269,8 +279,8 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   state a new image keeps in `exec`, an arm64 process running the x86_64
   build (thin, and fat beside x86_64h slices) in `exec_translated`, the
   file actions, attributes, port
-  actions, failures, and `waitid` views of `spawn`, and the SIP queries of
-  `csr`.
+  actions, failures, and `waitid` views of `spawn`, the SIP queries of
+  `csr`, and the volume statistics and object paths of `volumes`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

@@ -189,3 +189,13 @@ fn csr_arm64() {
 fn csr_x86_64() {
     fixture("csr", "x86_64", &[], &[]);
 }
+
+#[test]
+fn volumes_arm64() {
+    fixture("volumes", "arm64", &[], &[]);
+}
+
+#[test]
+fn volumes_x86_64() {
+    fixture("volumes", "x86_64", &[], &[]);
+}

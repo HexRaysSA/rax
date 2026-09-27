@@ -954,6 +954,46 @@ pub fn fstatfs64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
     }
 }
 
+/// `getfsstat64(buf, bufsize, flags)`: the statistics of every mounted
+/// volume that fits in `buf` (none with a NULL buffer), and how many there
+/// are (as many as were copied when they did not all fit).
+pub fn getfsstat64(ctx: &mut Ctx<'_>, buf: u64, bufsize: i32, flags: i32) -> SysResult {
+    use crate::user::darwin::abi::types::{STATFS64_SIZE, Statfs};
+    #[cfg(target_os = "macos")]
+    {
+        let max = if buf == 0 {
+            0
+        } else {
+            usize::try_from(bufsize).unwrap_or(0) / STATFS64_SIZE
+        };
+        // A non-NULL buffer, even one too small for a structure, gets the
+        // count copied rather than the count mounted.
+        // SAFETY: an all-zero statfs is valid to overwrite.
+        let mut host: Vec<libc::statfs> = vec![unsafe { std::mem::zeroed() }; max.max(1)];
+        let size = (max * std::mem::size_of::<libc::statfs>()) as i32;
+        let ptr = if buf == 0 {
+            std::ptr::null_mut()
+        } else {
+            host.as_mut_ptr()
+        };
+        // SAFETY: `ptr` is NULL or has room for `max` structures (`size`
+        // bytes).
+        let n = check(unsafe { libc::getfsstat(ptr, size, flags) })?;
+        for (i, s) in host.iter().take((n as usize).min(max)).enumerate() {
+            ctx.write(
+                buf + (i * STATFS64_SIZE) as u64,
+                &Statfs::from_host(s).bytes(),
+            )?;
+        }
+        Ok(Rv::one(n as u64))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (buf, bufsize, flags, STATFS64_SIZE, Statfs::default());
+        Err(Errno::ENOSYS)
+    }
+}
+
 /// Whether a descriptor is in non-blocking mode (for callers outside).
 pub fn is_nonblocking(file: &FileRef) -> bool {
     *file.flags.lock().unwrap() & O_NONBLOCK != 0
