@@ -20,8 +20,11 @@ pub const NOFILE_HARD: u64 = 10_240;
 /// What an open file is.
 #[derive(Debug)]
 pub enum FileKind {
-    /// A host file, directory, pipe, socket, or device.
+    /// A host file, directory, pipe, or device (or a socket the process
+    /// was started with).
     Host(OwnedFd),
+    /// A host socket.
+    Socket(OwnedFd),
     /// A kqueue, by its identity in the process's kqueues.
     Kqueue(u64),
     /// A POSIX shared memory object (`shm_open`), the host's.
@@ -50,10 +53,19 @@ impl OpenFile {
         }
     }
 
+    /// A description of a host socket.
+    pub fn socket(fd: OwnedFd, flags: u32) -> Self {
+        OpenFile {
+            kind: FileKind::Socket(fd),
+            path: None,
+            flags: Mutex::new(flags),
+        }
+    }
+
     /// The host descriptor, if this is a host file.
     pub fn host_fd(&self) -> Option<RawFd> {
         match &self.kind {
-            FileKind::Host(fd) | FileKind::Shm(fd) => Some(fd.as_raw_fd()),
+            FileKind::Host(fd) | FileKind::Socket(fd) | FileKind::Shm(fd) => Some(fd.as_raw_fd()),
             FileKind::Kqueue(_) => None,
         }
     }
@@ -105,11 +117,14 @@ impl FdTable {
             } else {
                 super::io::host_to_guest_oflags(fl)
             };
-            t.install_at(
-                fd as usize,
-                Arc::new(OpenFile::host(owned, flags, None)),
-                false,
-            );
+            let socket =
+                super::host::fstat(dup).is_ok_and(|st| st.st_mode & libc::S_IFMT == libc::S_IFSOCK);
+            let file = if socket {
+                OpenFile::socket(owned, flags)
+            } else {
+                OpenFile::host(owned, flags, None)
+            };
+            t.install_at(fd as usize, Arc::new(file), false);
         }
         t
     }

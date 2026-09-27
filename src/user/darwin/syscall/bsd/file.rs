@@ -36,6 +36,12 @@ fn host_fd(ctx: &Ctx<'_>, fd: i32) -> Result<(FileRef, i32), Errno> {
     Ok((file, h))
 }
 
+/// Whether the open file is a socket, whose reads and writes are
+/// receives and sends (`soo_read`, `soo_write`).
+fn socket(file: &FileRef) -> bool {
+    cfg!(target_os = "macos") && matches!(file.kind, crate::user::darwin::fd::FileKind::Socket(_))
+}
+
 fn nonblocking(h: i32) -> bool {
     // SAFETY: F_GETFL on a live descriptor takes no pointers.
     let fl = unsafe { libc::fcntl(h, libc::F_GETFL) };
@@ -53,9 +59,13 @@ fn block_until_ready(ctx: &mut Ctx<'_>, h: i32, read: bool) -> Option<SysResult>
 
 /// `read(fd, cbuf, nbyte)` and `pread` (`offset` given).
 pub fn read(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64>) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
+    let (file, h) = host_fd(ctx, fd)?;
     if nbyte > IO_MAX {
         return Err(Errno::EINVAL);
+    }
+    if offset.is_none() && socket(&file) {
+        #[cfg(target_os = "macos")]
+        return super::socket::read(ctx, fd, buf, nbyte);
     }
     if offset.is_none()
         && let Some(r) = block_until_ready(ctx, h, true)
@@ -96,6 +106,10 @@ pub fn read(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64
 
 /// `write(fd, cbuf, nbyte)` and `pwrite` (`offset` given).
 pub fn write(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64>) -> SysResult {
+    if offset.is_none() && nbyte <= IO_MAX && ctx.proc.fds.file(fd).is_ok_and(|f| socket(&f)) {
+        #[cfg(target_os = "macos")]
+        return super::socket::write(ctx, fd, buf, nbyte);
+    }
     let r = write_file(ctx, fd, buf, nbyte, offset);
     sigpipe(ctx, fd, r)
 }
@@ -204,8 +218,12 @@ fn iovecs(ctx: &Ctx<'_>, iov: u64, cnt: i32) -> Result<Vec<(u64, u64)>, Errno> {
 
 /// `readv(fd, iov, cnt)` and `preadv`.
 pub fn readv(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
+    let (file, h) = host_fd(ctx, fd)?;
     let v = iovecs(ctx, iov, cnt)?;
+    if offset.is_none() && socket(&file) {
+        #[cfg(target_os = "macos")]
+        return super::socket::readv(ctx, fd, v);
+    }
     let total: u64 = v.iter().map(|x| x.1).sum();
     if offset.is_none()
         && let Some(r) = block_until_ready(ctx, h, true)
@@ -239,8 +257,12 @@ pub fn writev(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64
 }
 
 fn writev_file(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
+    let (file, h) = host_fd(ctx, fd)?;
     let v = iovecs(ctx, iov, cnt)?;
+    if offset.is_none() && socket(&file) {
+        #[cfg(target_os = "macos")]
+        return super::socket::writev(ctx, fd, v);
+    }
     let mut buf = Vec::new();
     for (base, len) in v {
         buf.extend_from_slice(&ctx.read(base, len as usize)?);
@@ -680,7 +702,13 @@ pub fn ioctl(ctx: &mut Ctx<'_>, fd: i32, request: u64, arg: u64) -> SysResult {
         }
         _ => {}
     }
-    let (_, h) = host_fd(ctx, fd)?;
+    let (file, h) = host_fd(ctx, fd)?;
+    if socket(&file) {
+        #[cfg(target_os = "macos")]
+        if let Some(r) = super::socket::ioctl(ctx, h, req, arg) {
+            return r;
+        }
+    }
     let size = ((req >> 16) & 0x1fff) as usize;
     let dir = req & (IOC_VOID | IOC_OUT | IOC_IN);
     #[cfg(target_os = "macos")]

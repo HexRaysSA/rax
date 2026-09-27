@@ -18,6 +18,8 @@ pub mod pthread;
 pub mod region;
 pub mod shm;
 pub mod sig;
+#[cfg(target_os = "macos")]
+pub mod socket;
 pub mod sysctl;
 pub mod thread;
 pub mod wait;
@@ -261,6 +263,51 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         }
         nr::SYSCTL => sysctl::sysctl(ctx, a),
         nr::SYSCTLBYNAME => sysctl::sysctlbyname(ctx, a),
+
+        #[cfg(target_os = "macos")]
+        nr::SOCKET => socket::socket(ctx, i(0), i(1), i(2)),
+        #[cfg(target_os = "macos")]
+        nr::SOCKETPAIR => socket::socketpair(ctx, i(0), i(1), i(2), a[3]),
+        #[cfg(target_os = "macos")]
+        nr::BIND => socket::bind(ctx, i(0), a[1], u(2)),
+        #[cfg(target_os = "macos")]
+        nr::LISTEN => socket::listen(ctx, i(0), i(1)),
+        #[cfg(target_os = "macos")]
+        nr::ACCEPT | nr::ACCEPT_NOCANCEL => socket::accept(ctx, i(0), a[1], a[2]),
+        #[cfg(target_os = "macos")]
+        nr::CONNECT | nr::CONNECT_NOCANCEL => socket::connect(ctx, i(0), a[1], u(2)),
+        #[cfg(target_os = "macos")]
+        nr::SHUTDOWN => socket::shutdown(ctx, i(0), i(1)),
+        #[cfg(target_os = "macos")]
+        nr::GETSOCKNAME => socket::getsockname(ctx, i(0), a[1], a[2]),
+        #[cfg(target_os = "macos")]
+        nr::GETPEERNAME => socket::getpeername(ctx, i(0), a[1], a[2]),
+        #[cfg(target_os = "macos")]
+        nr::SETSOCKOPT => socket::setsockopt(ctx, i(0), i(1), i(2), a[3], u(4)),
+        #[cfg(target_os = "macos")]
+        nr::GETSOCKOPT => socket::getsockopt(ctx, i(0), i(1), i(2), a[3], a[4]),
+        #[cfg(target_os = "macos")]
+        nr::SENDTO | nr::SENDTO_NOCANCEL => socket::sendto(ctx, i(0), a[1], a[2], i(3), a[4], u(5)),
+        #[cfg(target_os = "macos")]
+        nr::SENDMSG | nr::SENDMSG_NOCANCEL => socket::sendmsg(ctx, i(0), a[1], i(2)),
+        #[cfg(target_os = "macos")]
+        nr::RECVFROM | nr::RECVFROM_NOCANCEL => {
+            socket::recvfrom(ctx, i(0), a[1], a[2], i(3), a[4], a[5])
+        }
+        #[cfg(target_os = "macos")]
+        nr::RECVMSG | nr::RECVMSG_NOCANCEL => socket::recvmsg(ctx, i(0), a[1], i(2)),
+        #[cfg(target_os = "macos")]
+        nr::RECVMSG_X => socket::recvmsg_x(ctx, i(0), a[1], u(2), i(3)),
+        #[cfg(target_os = "macos")]
+        nr::SENDMSG_X => socket::sendmsg_x(ctx, i(0), a[1], u(2), i(3)),
+        #[cfg(target_os = "macos")]
+        nr::CONNECTX => socket::connectx(ctx, i(0), a[1], u(2), u(3), a[4], u(5), a[6], a[7]),
+        #[cfg(target_os = "macos")]
+        nr::DISCONNECTX => socket::disconnectx(ctx, i(0), u(1), u(2)),
+        #[cfg(target_os = "macos")]
+        nr::PEELOFF => socket::peeloff(),
+        #[cfg(target_os = "macos")]
+        nr::SOCKET_DELEGATE => socket::socket_delegate(ctx, i(0), i(1), i(2), i(3)),
 
         nr::KQUEUE => kevent::kqueue(ctx),
         nr::KEVENT => event::kevent(ctx, a, event::Api::Kevent),

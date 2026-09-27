@@ -58,6 +58,7 @@ pub fn dtype(file: &FileRef) -> u32 {
     match &file.kind {
         FileKind::Kqueue(_) => dtype::KQUEUE,
         FileKind::Shm(_) => dtype::PSXSHM,
+        FileKind::Socket(_) => dtype::SOCKET,
         FileKind::Host(fd) => {
             use std::os::fd::AsRawFd;
             let h = fd.as_raw_fd();
@@ -123,7 +124,7 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
     };
     match &file.kind {
         FileKind::Kqueue(kq) => kqueue(ctx, a, *kq, Some(flags)),
-        FileKind::Host(h) | FileKind::Shm(h) => {
+        FileKind::Host(h) | FileKind::Socket(h) | FileKind::Shm(h) => {
             use std::os::fd::AsRawFd;
             let h = h.as_raw_fd();
             let mut buf = vec![0u8; size as usize];
