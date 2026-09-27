@@ -12,13 +12,16 @@
 //! has been received. A deadline already past expires at once; arming
 //! again moves the deadline. The deadline a cancelled timer reports carries
 //! the slop the kernel added when it armed the timer (`timer_call_slop`,
-//! `thread_call_enter_delayed_internal`): for a normal timer a quarter of
-//! the time left, at most 5 ms (the latency-QoS tier 1 row of the
-//! coalescing parameters, `latency_qos_scale[1]` and `latency_qos_ns_max[1]`
-//! in `osfmk/arm/arm_timer.c` and `osfmk/i386/i386_timer.c`, the tier the
-//! processes of a login session run with), none for a critical one, and the
-//! caller's leeway where that is larger. The emulator fires at the
-//! deadline itself, the earliest time the kernel may.
+//! `thread_call_enter_delayed_internal`): none for a critical one, the
+//! caller's leeway where that is larger, and otherwise a share of the time
+//! left bounded by the latency-QoS tier of the process (its row of the
+//! coalescing parameters, `latency_qos_scale` and `latency_qos_ns_max` in
+//! `osfmk/arm/arm_timer.c` and `osfmk/i386/i386_timer.c`). The process is a
+//! host process, whose tier the host kernel decides from its role and the
+//! system's state: on a macOS host the slop is what the host gives a timer
+//! armed the same way; elsewhere it is tier 1's (a quarter of the time
+//! left, at most 5 ms), the tier of a login session's processes. The
+//! emulator fires at the deadline itself, the earliest time the kernel may.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Weak};
@@ -81,6 +84,82 @@ fn slop_max(abi: DarwinAbi) -> u64 {
             let hz = u128::from(crate::user::darwin::arch::ARM64_COUNTER_HZ);
             (u128::from(SLOP_MAX_NS) * hz / 1_000_000_000) as u64
         }
+    }
+}
+
+/// `abi`'s absolute-time units as nanoseconds, and back.
+fn to_ns(abi: DarwinAbi, t: u64) -> u64 {
+    match abi {
+        DarwinAbi::X86_64 => t,
+        DarwinAbi::Arm64 => {
+            let hz = u128::from(crate::user::darwin::arch::ARM64_COUNTER_HZ);
+            (u128::from(t) * 1_000_000_000 / hz).min(u128::from(u64::MAX)) as u64
+        }
+    }
+}
+
+fn from_ns(abi: DarwinAbi, ns: u64) -> u64 {
+    match abi {
+        DarwinAbi::X86_64 => ns,
+        DarwinAbi::Arm64 => {
+            let hz = u128::from(crate::user::darwin::arch::ARM64_COUNTER_HZ);
+            (u128::from(ns) * hz / 1_000_000_000) as u64
+        }
+    }
+}
+
+/// The slop, in `abi`'s units, the host kernel gives a timer of this
+/// process armed `delta` ahead with `flags` and `leeway`: a host timer
+/// armed so and cancelled reports its deadline. `None` without a macOS
+/// host.
+fn host_slop(abi: DarwinAbi, delta: u64, flags: u64, leeway: u64) -> Option<u64> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::sync::OnceLock;
+        unsafe extern "C" {
+            fn mk_timer_create() -> u32;
+            fn mk_timer_arm_leeway(name: u32, flags: u64, expire: u64, leeway: u64) -> i32;
+            fn mk_timer_cancel(name: u32, result: *mut u64) -> i32;
+        }
+        static TIMER: OnceLock<u32> = OnceLock::new();
+        static TIMEBASE: OnceLock<(u64, u64)> = OnceLock::new();
+        // SAFETY: mk_timer_create takes no arguments; the name is kept for
+        // the process's life.
+        let name = *TIMER.get_or_init(|| unsafe { mk_timer_create() });
+        if name == 0 {
+            return None;
+        }
+        let (numer, denom) = *TIMEBASE.get_or_init(|| {
+            let mut tb = libc::mach_timebase_info { numer: 0, denom: 0 };
+            // SAFETY: `tb` is a live mach_timebase_info.
+            unsafe { libc::mach_timebase_info(&mut tb) };
+            (u64::from(tb.numer), u64::from(tb.denom))
+        });
+        if numer == 0 {
+            return None;
+        }
+        let to_host = |ns: u64| (u128::from(ns) * u128::from(denom) / u128::from(numer)) as u64;
+        let from_host = |t: u64| (u128::from(t) * u128::from(numer) / u128::from(denom)) as u64;
+        // SAFETY: mach_absolute_time reads the host's clock.
+        let expire =
+            unsafe { libc::mach_absolute_time() }.saturating_add(to_host(to_ns(abi, delta)));
+        let mut result = 0u64;
+        // SAFETY: `name` is a host timer and `result` a live u64.
+        let ok = unsafe {
+            mk_timer_arm_leeway(
+                name,
+                flags & MK_TIMER_CRITICAL,
+                expire,
+                to_host(to_ns(abi, leeway)),
+            ) == 0
+                && mk_timer_cancel(name, &mut result) == 0
+        };
+        (ok && result >= expire).then(|| from_ns(abi, from_host(result - expire)))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (abi, delta, flags, leeway);
+        None
     }
 }
 
@@ -166,14 +245,14 @@ pub fn arm(ctx: &mut Ctx<'_>, name: PortName, flags: u64, expire: u64, leeway: u
     let abi = ctx.proc.abi;
     let now = super::absolute_time(abi);
     let armed = if expire > now {
-        let mut slop = if flags & MK_TIMER_CRITICAL != 0 {
-            0
-        } else {
-            ((expire - now) >> SLOP_SHIFT).min(slop_max(abi))
-        };
-        if leeway > slop {
-            slop = leeway;
-        }
+        let slop = host_slop(abi, expire - now, flags, leeway).unwrap_or_else(|| {
+            let slop = if flags & MK_TIMER_CRITICAL != 0 {
+                0
+            } else {
+                ((expire - now) >> SLOP_SHIFT).min(slop_max(abi))
+            };
+            slop.max(leeway)
+        });
         Armed {
             at: Instant::now().checked_add(super::until_absolute(abi, expire)),
             deadline: expire.saturating_add(slop),
@@ -265,6 +344,32 @@ pub fn expire(proc: &mut Proc) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn time_units_convert_both_ways() {
+        // 24 MHz: 20 ms is 480 000 ticks.
+        assert_eq!(to_ns(DarwinAbi::Arm64, 480_000), 20_000_000);
+        assert_eq!(from_ns(DarwinAbi::Arm64, 20_000_000), 480_000);
+        assert_eq!(to_ns(DarwinAbi::X86_64, 7), 7);
+    }
+
+    /// The host's slop: none for a critical timer, a larger leeway kept,
+    /// and for a normal timer at most a quarter of the time left under
+    /// any latency tier of an application (tiers 0 to 2 shift by 3, 2,
+    /// and 1, bounded by 20 ms).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_host_computes_the_slop() {
+        let ms = 1_000_000;
+        assert_eq!(
+            host_slop(DarwinAbi::X86_64, 200 * ms, MK_TIMER_CRITICAL, 0),
+            Some(0)
+        );
+        let leeway = host_slop(DarwinAbi::X86_64, 200 * ms, 0, 150 * ms).unwrap();
+        assert!((150 * ms..150 * ms + 100).contains(&leeway), "{leeway}");
+        let slop = host_slop(DarwinAbi::Arm64, 480_000, 0, 0).unwrap();
+        assert!(slop <= 240_000, "{slop}");
+    }
 
     #[test]
     fn slop_limit_is_five_milliseconds_in_each_timebase() {
