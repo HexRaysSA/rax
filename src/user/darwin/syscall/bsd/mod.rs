@@ -18,6 +18,8 @@ pub mod sysctl;
 pub mod thread;
 pub mod wait;
 pub mod workq;
+#[cfg(target_os = "macos")]
+pub mod xattr;
 
 use super::Ctx;
 use crate::user::darwin::abi::Errno;
@@ -167,6 +169,22 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GETATTRLISTAT => {
             path::getattrlistat(ctx, Some(i(0)), Some(a[1]), a[2], a[3], a[4], a[5])
         }
+        #[cfg(target_os = "macos")]
+        nr::GETXATTR => xattr::getxattr(ctx, a[0], a[1], a[2], a[3], u(4), u(5)),
+        #[cfg(target_os = "macos")]
+        nr::FGETXATTR => xattr::fgetxattr(ctx, i(0), a[1], a[2], a[3], u(4), u(5)),
+        #[cfg(target_os = "macos")]
+        nr::SETXATTR => xattr::setxattr(ctx, a[0], a[1], a[2], a[3], u(4), u(5)),
+        #[cfg(target_os = "macos")]
+        nr::FSETXATTR => xattr::fsetxattr(ctx, i(0), a[1], a[2], a[3], u(4), u(5)),
+        #[cfg(target_os = "macos")]
+        nr::REMOVEXATTR => xattr::removexattr(ctx, a[0], a[1], u(2)),
+        #[cfg(target_os = "macos")]
+        nr::FREMOVEXATTR => xattr::fremovexattr(ctx, i(0), a[1], u(2)),
+        #[cfg(target_os = "macos")]
+        nr::LISTXATTR => xattr::listxattr(ctx, a[0], a[1], a[2], u(3)),
+        #[cfg(target_os = "macos")]
+        nr::FLISTXATTR => xattr::flistxattr(ctx, i(0), a[1], a[2], u(3)),
         nr::GETDTABLESIZE => Ok(Rv::one(ctx.proc.rlimits[8].0)),
 
         nr::MMAP => super::mem::mmap(ctx, a[0], a[1], u(2), u(3), i(4), a[5]),
