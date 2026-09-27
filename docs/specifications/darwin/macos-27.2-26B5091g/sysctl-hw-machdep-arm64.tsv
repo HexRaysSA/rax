@@ -1,0 +1,255 @@
+hw	6	0xc0e00001	N	hardware
+hw.machine	6,1	0x84e00003	A	
+hw.model	6,2	0x84e00003	A	
+hw.ncpu	6,3	0x81e00002	I	
+hw.byteorder	6,4	0x81e00002	I	
+hw.physmem	6,5	0x84e00002	IU	
+hw.usermem	6,6	0x84e00002	I	
+hw.pagesize_compat	6,7	0x84e00002	I	
+hw.epoch	6,10	0x84e00002	I	
+hw.vectorunit	6,13	0x84e00002	I	
+hw.busfrequency_compat	6,14	0x84e00002	I	
+hw.cpufrequency_compat	6,15	0x84e00002	I	
+hw.cachelinesize_compat	6,16	0x84e00002	I	
+hw.l1icachesize_compat	6,17	0x84e00002	I	
+hw.l1dcachesize_compat	6,18	0x84e00002	I	
+hw.l2settings	6,19	0x84e00002	I	
+hw.l2cachesize_compat	6,20	0x84e00002	I	
+hw.l3settings	6,21	0x84e00002	I	
+hw.l3cachesize_compat	6,22	0x84e00002	I	
+hw.tbfrequency_compat	6,23	0x84e00002	I	
+hw.memsize	6,24	0x81e00004	Q	
+hw.activecpu	6,25	0x81e00002	I	
+hw.target	6,26	0x84e00003	A	
+hw.product	6,27	0x84e00003	A	
+hw.features	6,100	0x80e00001	N	hardware features
+hw.features.allows_security_research	6,100,100	0x80400002	I	Security research enabled
+hw.optional	6,101	0xc0e00001	N	optional features
+hw.optional.arm	6,101,100	0xc0e00001	N	optional features for ARM processors
+hw.optional.arm.FEAT_FP8	6,101,100,100	0x81e00002	I	
+hw.optional.arm.FEAT_CRC32	6,101,100,101	0x81e00002	I	
+hw.optional.arm.FEAT_FlagM	6,101,100,102	0x81e00002	I	
+hw.optional.arm.FEAT_FlagM2	6,101,100,103	0x81e00002	I	
+hw.optional.arm.FEAT_FHM	6,101,100,104	0x81e00002	I	
+hw.optional.arm.FEAT_DotProd	6,101,100,105	0x81e00002	I	
+hw.optional.arm.FEAT_SHA3	6,101,100,106	0x81e00002	I	
+hw.optional.arm.FEAT_RDM	6,101,100,107	0x81e00002	I	
+hw.optional.arm.FEAT_LSE	6,101,100,108	0x81e00002	I	
+hw.optional.arm.FEAT_SHA256	6,101,100,109	0x81e00002	I	
+hw.optional.arm.FEAT_SHA512	6,101,100,110	0x81e00002	I	
+hw.optional.arm.FEAT_SHA1	6,101,100,111	0x81e00002	I	
+hw.optional.arm.FEAT_AES	6,101,100,112	0x81e00002	I	
+hw.optional.arm.FEAT_PMULL	6,101,100,113	0x81e00002	I	
+hw.optional.arm.FEAT_SPECRES	6,101,100,114	0x81e00002	I	
+hw.optional.arm.FEAT_SPECRES2	6,101,100,115	0x81e00002	I	
+hw.optional.arm.FEAT_SB	6,101,100,116	0x81e00002	I	
+hw.optional.arm.FEAT_FRINTTS	6,101,100,117	0x81e00002	I	
+hw.optional.arm.FEAT_PACIMP	6,101,100,118	0x81e00002	I	
+hw.optional.arm.FEAT_LRCPC	6,101,100,119	0x81e00002	I	
+hw.optional.arm.FEAT_LRCPC2	6,101,100,120	0x81e00002	I	
+hw.optional.arm.FEAT_FCMA	6,101,100,121	0x81e00002	I	
+hw.optional.arm.FEAT_JSCVT	6,101,100,122	0x81e00002	I	
+hw.optional.arm.FEAT_PAuth	6,101,100,123	0x81e00002	I	
+hw.optional.arm.FEAT_PAuth2	6,101,100,124	0x81e00002	I	
+hw.optional.arm.FEAT_FPAC	6,101,100,125	0x81e00002	I	
+hw.optional.arm.FEAT_FPACCOMBINE	6,101,100,126	0x81e00002	I	
+hw.optional.arm.FEAT_PAuth_LR	6,101,100,127	0x81e00002	I	
+hw.optional.arm.FEAT_DPB	6,101,100,128	0x81e00002	I	
+hw.optional.arm.FEAT_DPB2	6,101,100,129	0x81e00002	I	
+hw.optional.arm.FEAT_BF16	6,101,100,130	0x81e00002	I	
+hw.optional.arm.FEAT_EBF16	6,101,100,131	0x81e00002	I	
+hw.optional.arm.FEAT_I8MM	6,101,100,132	0x81e00002	I	
+hw.optional.arm.FEAT_WFxT	6,101,100,133	0x81e00002	I	
+hw.optional.arm.FEAT_RPRES	6,101,100,134	0x81e00002	I	
+hw.optional.arm.FEAT_CSSC	6,101,100,135	0x81e00002	I	
+hw.optional.arm.FEAT_HBC	6,101,100,136	0x81e00002	I	
+hw.optional.arm.FEAT_LUT	6,101,100,137	0x81e00002	I	
+hw.optional.arm.FEAT_FAMINMAX	6,101,100,138	0x81e00002	I	
+hw.optional.arm.FEAT_CPA	6,101,100,139	0x81e00002	I	
+hw.optional.arm.FEAT_CPA2	6,101,100,140	0x81e00002	I	
+hw.optional.arm.FEAT_ECV	6,101,100,141	0x81e00002	I	
+hw.optional.arm.FEAT_AFP	6,101,100,142	0x81e00002	I	
+hw.optional.arm.FEAT_LSE2	6,101,100,143	0x81e00002	I	
+hw.optional.arm.FEAT_CSV2	6,101,100,144	0x81e00002	I	
+hw.optional.arm.FEAT_CSV3	6,101,100,145	0x81e00002	I	
+hw.optional.arm.FEAT_DIT	6,101,100,146	0x81e00002	I	
+hw.optional.arm.AdvSIMD	6,101,100,147	0x81e00002	I	
+hw.optional.arm.AdvSIMD_HPFPCvt	6,101,100,148	0x81e00002	I	
+hw.optional.arm.FEAT_FP16	6,101,100,149	0x81e00002	I	
+hw.optional.arm.FEAT_SSBS	6,101,100,150	0x81e00002	I	
+hw.optional.arm.FEAT_BTI	6,101,100,151	0x81e00002	I	
+hw.optional.arm.FEAT_SME	6,101,100,152	0x81e00002	I	
+hw.optional.arm.FEAT_SME2	6,101,100,153	0x81e00002	I	
+hw.optional.arm.FEAT_SME2p1	6,101,100,154	0x81e00002	I	
+hw.optional.arm.FEAT_MTE	6,101,100,155	0x81e00002	I	
+hw.optional.arm.FEAT_MTE2	6,101,100,156	0x81e00002	I	
+hw.optional.arm.FEAT_MTE3	6,101,100,157	0x81e00002	I	
+hw.optional.arm.FEAT_MTE4	6,101,100,158	0x81e00002	I	
+hw.optional.arm.FEAT_MTE_ASYNC	6,101,100,159	0x81e00002	I	
+hw.optional.arm.FEAT_MTE_STORE_ONLY	6,101,100,160	0x81e00002	I	
+hw.optional.arm.FEAT_FPMR	6,101,100,161	0x81e00002	I	
+hw.optional.arm.SME_F32F32	6,101,100,162	0x81e00002	I	
+hw.optional.arm.SME_BI32I32	6,101,100,163	0x81e00002	I	
+hw.optional.arm.SME_B16F32	6,101,100,164	0x81e00002	I	
+hw.optional.arm.SME_F16F32	6,101,100,165	0x81e00002	I	
+hw.optional.arm.SME_I8I32	6,101,100,166	0x81e00002	I	
+hw.optional.arm.SME_I16I32	6,101,100,167	0x81e00002	I	
+hw.optional.arm.FEAT_SME_F64F64	6,101,100,168	0x81e00002	I	
+hw.optional.arm.FEAT_SME_I16I64	6,101,100,169	0x81e00002	I	
+hw.optional.arm.FEAT_SME_F16F16	6,101,100,170	0x81e00002	I	
+hw.optional.arm.FEAT_SME_B16B16	6,101,100,171	0x81e00002	I	
+hw.optional.arm.FEAT_SME_LUTv2	6,101,100,172	0x81e00002	I	
+hw.optional.arm.FEAT_SME_F8F16	6,101,100,173	0x81e00002	I	
+hw.optional.arm.FEAT_SME_F8F32	6,101,100,174	0x81e00002	I	
+hw.optional.arm.FP_SyncExceptions	6,101,100,175	0x81e00002	I	
+hw.optional.arm.FEAT_SVE_B16B16	6,101,100,176	0x81e00002	I	
+hw.optional.arm.FEAT_MTE_CANONICAL_TAGS	6,101,100,177	0x81e00002	I	
+hw.optional.arm.FEAT_MTE_NO_ADDRESS_TAGS	6,101,100,178	0x81e00002	I	
+hw.optional.arm.caps	6,101,100,179	0x81e00004	Q	
+hw.optional.arm.sme_max_svl_b	6,101,100,180	0x81e00002	I	
+hw.optional.floatingpoint	6,101,101	0x81e00002	I	
+hw.optional.mmx	6,101,102	0x81e00002	I	
+hw.optional.sse	6,101,103	0x81e00002	I	
+hw.optional.sse2	6,101,104	0x81e00002	I	
+hw.optional.sse3	6,101,105	0x81e00002	I	
+hw.optional.supplementalsse3	6,101,106	0x81e00002	I	
+hw.optional.sse4_1	6,101,107	0x81e00002	I	
+hw.optional.sse4_2	6,101,108	0x81e00002	I	
+hw.optional.x86_64	6,101,109	0x81e00002	I	
+hw.optional.aes	6,101,110	0x81e00002	I	
+hw.optional.avx1_0	6,101,111	0x81e00002	I	
+hw.optional.rdrand	6,101,112	0x81e00002	I	
+hw.optional.f16c	6,101,113	0x81e00002	I	
+hw.optional.enfstrg	6,101,114	0x81e00002	I	
+hw.optional.fma	6,101,115	0x81e00002	I	
+hw.optional.avx2_0	6,101,116	0x81e00002	I	
+hw.optional.bmi1	6,101,117	0x81e00002	I	
+hw.optional.bmi2	6,101,118	0x81e00002	I	
+hw.optional.rtm	6,101,119	0x81e00002	I	
+hw.optional.hle	6,101,120	0x81e00002	I	
+hw.optional.adx	6,101,121	0x81e00002	I	
+hw.optional.mpx	6,101,122	0x81e00002	I	
+hw.optional.sgx	6,101,123	0x81e00002	I	
+hw.optional.avx512f	6,101,124	0x81e00002	I	
+hw.optional.avx512cd	6,101,125	0x81e00002	I	
+hw.optional.avx512dq	6,101,126	0x81e00002	I	
+hw.optional.avx512bw	6,101,127	0x81e00002	I	
+hw.optional.avx512vl	6,101,128	0x81e00002	I	
+hw.optional.avx512ifma	6,101,129	0x81e00002	I	
+hw.optional.avx512vbmi	6,101,130	0x81e00002	I	
+hw.optional.neon	6,101,131	0x81e00002	I	
+hw.optional.neon_hpfp	6,101,132	0x81e00002	I	
+hw.optional.neon_fp16	6,101,133	0x81e00002	I	
+hw.optional.armv8_crc32	6,101,134	0x81e00002	I	
+hw.optional.armv8_gpi	6,101,135	0x81e00002	I	
+hw.optional.armv8_1_atomics	6,101,136	0x81e00002	I	
+hw.optional.armv8_2_fhm	6,101,137	0x81e00002	I	
+hw.optional.armv8_2_sha512	6,101,138	0x81e00002	I	
+hw.optional.armv8_2_sha3	6,101,139	0x81e00002	I	
+hw.optional.armv8_3_compnum	6,101,140	0x81e00002	I	
+hw.optional.watchpoint	6,101,141	0x81e00002	I	
+hw.optional.breakpoint	6,101,142	0x81e00002	I	
+hw.optional.ucnormal_mem	6,101,143	0x81e00002	I	
+hw.optional.arm64	6,101,144	0x81e00002	I	
+hw.perflevel2	6,102	0x81e00001	N	Perf level 2 topology and cache geometry parameters
+hw.perflevel2.physicalcpu	6,102,100	0x81e00002	I	Currently active physical CPUs in perflevel2
+hw.perflevel2.physicalcpu_max	6,102,101	0x81e00002	I	Maximum number of physical CPUs in perflevel2
+hw.perflevel2.logicalcpu	6,102,102	0x81e00002	I	Currently active logical CPUs in perflevel2
+hw.perflevel2.logicalcpu_max	6,102,103	0x81e00002	I	Maximum number of logical CPUs in perflevel2
+hw.perflevel2.l1icachesize	6,102,104	0x81e00002	I	L1 instruction cache size in bytes for perflevel2
+hw.perflevel2.l1dcachesize	6,102,105	0x81e00002	I	L1 data cache size in bytes for perflevel2
+hw.perflevel2.l2cachesize	6,102,106	0x81e00002	I	L2 cache size in bytes for perflevel2
+hw.perflevel2.cpusperl2	6,102,107	0x81e00002	I	Number of CPUs sharing an L2 cache for perflevel2
+hw.perflevel2.l3cachesize	6,102,108	0x81e00002	I	L3 cache size in bytes for perflevel2
+hw.perflevel2.cpusperl3	6,102,109	0x81e00002	I	Number of CPUs sharing an L3 cache for perflevel2
+hw.perflevel2.name	6,102,110	0x81e00003	A	Name of perflevel2
+hw.perflevel2.sharesl2	6,102,111	0x81e00002	I	Bitmap of other perflevels sharing L2 cache
+hw.perflevel1	6,103	0x81e00001	N	Perf level 1 topology and cache geometry parameters
+hw.perflevel1.physicalcpu	6,103,100	0x81e00002	I	Currently active physical CPUs in perflevel1
+hw.perflevel1.physicalcpu_max	6,103,101	0x81e00002	I	Maximum number of physical CPUs in perflevel1
+hw.perflevel1.logicalcpu	6,103,102	0x81e00002	I	Currently active logical CPUs in perflevel1
+hw.perflevel1.logicalcpu_max	6,103,103	0x81e00002	I	Maximum number of logical CPUs in perflevel1
+hw.perflevel1.l1icachesize	6,103,104	0x81e00002	I	L1 instruction cache size in bytes for perflevel1
+hw.perflevel1.l1dcachesize	6,103,105	0x81e00002	I	L1 data cache size in bytes for perflevel1
+hw.perflevel1.l2cachesize	6,103,106	0x81e00002	I	L2 cache size in bytes for perflevel1
+hw.perflevel1.cpusperl2	6,103,107	0x81e00002	I	Number of CPUs sharing an L2 cache for perflevel1
+hw.perflevel1.l3cachesize	6,103,108	0x81e00002	I	L3 cache size in bytes for perflevel1
+hw.perflevel1.cpusperl3	6,103,109	0x81e00002	I	Number of CPUs sharing an L3 cache for perflevel1
+hw.perflevel1.name	6,103,110	0x81e00003	A	Name of perflevel1
+hw.perflevel1.sharesl2	6,103,111	0x81e00002	I	Bitmap of other perflevels sharing L2 cache
+hw.perflevel0	6,104	0x81e00001	N	Perf level 0 topology and cache geometry parameters
+hw.perflevel0.physicalcpu	6,104,100	0x81e00002	I	Currently active physical CPUs in perflevel0
+hw.perflevel0.physicalcpu_max	6,104,101	0x81e00002	I	Maximum number of physical CPUs in perflevel0
+hw.perflevel0.logicalcpu	6,104,102	0x81e00002	I	Currently active logical CPUs in perflevel0
+hw.perflevel0.logicalcpu_max	6,104,103	0x81e00002	I	Maximum number of logical CPUs in perflevel0
+hw.perflevel0.l1icachesize	6,104,104	0x81e00002	I	L1 instruction cache size in bytes for perflevel0
+hw.perflevel0.l1dcachesize	6,104,105	0x81e00002	I	L1 data cache size in bytes for perflevel0
+hw.perflevel0.l2cachesize	6,104,106	0x81e00002	I	L2 cache size in bytes for perflevel0
+hw.perflevel0.cpusperl2	6,104,107	0x81e00002	I	Number of CPUs sharing an L2 cache for perflevel0
+hw.perflevel0.l3cachesize	6,104,108	0x81e00002	I	L3 cache size in bytes for perflevel0
+hw.perflevel0.cpusperl3	6,104,109	0x81e00002	I	Number of CPUs sharing an L3 cache for perflevel0
+hw.perflevel0.name	6,104,110	0x81e00003	A	Name of perflevel0
+hw.perflevel0.sharesl2	6,104,111	0x81e00002	I	Bitmap of other perflevels sharing L2 cache
+hw.physicalcpu	6,105	0x81e00002	I	
+hw.physicalcpu_max	6,106	0x81e00002	I	
+hw.logicalcpu	6,107	0x81e00002	I	
+hw.logicalcpu_max	6,108	0x81e00002	I	
+hw.cputype	6,109	0x81e00002	I	
+hw.cpusubtype	6,110	0x81e00002	I	
+hw.cpu64bit_capable	6,111	0x81e00002	I	
+hw.cpufamily	6,112	0x81e00002	I	
+hw.cpusubfamily	6,113	0x81e00002	I	
+hw.cacheconfig	6,114	0x80e00005	Q	
+hw.cachesize	6,115	0x80e00005	Q	
+hw.pagesize	6,116	0x81e00004	Q	
+hw.pagesize32	6,117	0x81e00004	Q	
+hw.busfrequency	6,118	0x81e00004	Q	
+hw.busfrequency_min	6,119	0x81e00004	Q	
+hw.busfrequency_max	6,120	0x81e00004	Q	
+hw.cpufrequency	6,121	0x81e00004	Q	
+hw.cpufrequency_min	6,122	0x81e00004	Q	
+hw.cpufrequency_max	6,123	0x81e00004	Q	
+hw.cachelinesize	6,124	0x81e00004	Q	
+hw.l1icachesize	6,125	0x81e00004	Q	
+hw.l1dcachesize	6,126	0x81e00004	Q	
+hw.l2cachesize	6,127	0x81e00004	Q	
+hw.l3cachesize	6,128	0x81e00004	Q	
+hw.tbfrequency	6,129	0x81e00004	Q	
+hw.memsize_usable	6,130	0x81e00004	Q	
+hw.packages	6,131	0x81e00002	I	
+hw.osenvironment	6,132	0x81e00003	A	
+hw.ephemeral_storage	6,133	0x81e00002	I	
+hw.use_recovery_securityd	6,134	0x81e00002	I	
+hw.use_kernelmanagerd	6,135	0x81e00002	I	
+hw.serialdebugmode	6,136	0x80e00002	I	
+hw.mempath	6,137	0xc0e00003	A	
+hw.nperflevels	6,138	0x81e00002	I	Number of performance levels supported by this system
+hw.engineering_sample	6,139	0x80e00002		
+hw.targettype	6,140	0x81e00003	A	targettype
+hw.jetsam_properties_product_type	6,141	0x81e00003	A	jetsam_properties_product_type
+machdep	7	0xc0e00001	N	machine dependent
+machdep.remotetime	7,100	0x80e00001	N	Remote time api
+machdep.remotetime.conversion_params	7,100,100	0x80e00005	S,bt_params	
+machdep.cpu	7,101	0xc0e00001	N	CPU info
+machdep.cpu.cores_per_package	7,101,100	0x80e00002	I	CPU cores per package
+machdep.cpu.core_count	7,101,101	0x80e00002	I	Number of enabled cores per package
+machdep.cpu.logical_per_package	7,101,102	0x80e00002	I	CPU logical cpus per package
+machdep.cpu.thread_count	7,101,103	0x80e00002	I	Number of enabled threads per package
+machdep.cpu.brand_string	7,101,104	0x80e00003	A	CPU brand string
+machdep.cpu.features	7,101,105	0x80e00003	A	CPU feature names
+machdep.cpu.feature_bits	7,101,106	0x80e00004	IU	CPU features
+machdep.cpu.family	7,101,107	0x80e00002	I	CPU family
+machdep.wake_abstime	7,102	0x80600004	Q	Absolute Time at the last wakeup
+machdep.time_since_reset	7,103	0x80e00004	I	Continuous time since last SOC boot/wake started
+machdep.wake_conttime	7,104	0x80e00004	I	Continuous Time at the last wakeup
+machdep.deferred_ipi_timeout	7,105	0x80e00002	I	Deferred IPI timeout (nanoseconds)
+machdep.virtual_address_size	7,106	0x80e00002	I	Number of addressable bits in userspace virtual addresses
+machdep.report_phy_read_delay	7,107	0x81e00004	Q	Maximum time before io/phys read gets reported or panics
+machdep.report_phy_write_delay	7,108	0x81e00004	Q	Maximum time before io/phys write gets reported or panics
+machdep.trace_phy_read_delay	7,109	0x81e00004	Q	Maximum time before io/phys read gets ktraced
+machdep.trace_phy_write_delay	7,110	0x81e00004	Q	Maximum time before io/phys write gets ktraced
+machdep.phy_read_delay_panic	7,111	0xc1e00002	I	if set, report-phy-read-delay timeout panics
+machdep.phy_write_delay_panic	7,112	0xc1e00002	I	if set, report-phy-write-delay timeout panics
+machdep.ptrauth_enabled	7,113	0x81600002	I	
+machdep.ctrr_type	7,114	0x81e00003	A	CTRR type supported by hardware/kernel
+machdep.user_idle_level	7,115	0xc0e00002	I	User idle level heuristic, 0-128
