@@ -160,6 +160,7 @@ fafb5acd5ce478f16c81a50a064b4f1583a61718bfaa89a74163fcabd8f4cf87  ./include/linu
 3c32ae8a9ad1d9c819c1605a799021927cc3185d2b9ad3baa760fde4737edbd3  ./include/linux/fs.h
 58b8a17276f75032117d2ab660a08eac2549705f4a269b4015b0a2c5ffdb3eee  ./include/linux/fsnotify.h
 5803ed9d0c062f8cda21728c772b037d860952a89020718733b16acafacbe909  ./include/linux/fsnotify_backend.h
+3619d01cd90fdaa882cccd85e1dfefe200de0578f7e2f5ccccb8cda9add4629c  ./include/linux/hash.h
 cf83180733c5f9283367c990224ffef7de7526f132d23061337e8e04534aa7e5  ./include/linux/highuid.h
 66f6303261a8ce43e65be60f522d98a7028cab645c954bb95f31abf9dd7e0996  ./include/linux/io_uring.h
 817c11042aa5337f86488f918af15ba7822b7598b0451938adfc3e66419e1ada  ./include/linux/io_uring/cmd.h
@@ -176,6 +177,7 @@ b65a8e4c21cfafcf13c99b25775f5e9b6f1c123ae993092064a178b867364fd6  ./include/linu
 fa1231cb6aa22d773fba76ea474b86dec09a80efb602d37cd9d450041f70e732  ./include/linux/moduleparam.h
 336b9be0f4a2d1112bd385eb50a76370a2ec9ddbf1eb78cb3f7f39c416f31faa  ./include/linux/msg.h
 d2b599da6d7e2c7c944b8205f672d6bc20fb07f80fc44e2adc951a1ec652b7af  ./include/linux/pidfs.h
+2e9d66ec3a6ae91ae35d1e2065e90f42116e48081c68456da56594656b6022eb  ./include/linux/poll.h
 5aa804807519b6f26918c7dab72a3e22bd50e898763f434ab51b2c58c275988c  ./include/linux/posix-timers.h
 1150f9a6c9e4dea3247183c16995f8ef4420cdfdb91bf3e4281cfc52e5f9c04c  ./include/linux/ptrace.h
 bb78534d4212776381b3b849ad6ce1009b9d3fdfb87e19f51e5e9449e7f03e22  ./include/linux/rbtree_types.h
@@ -204,6 +206,7 @@ bc152e162f8ca79b088bcdf35584860a8ff4618fe2294158de0f439609eb31d4  ./include/linu
 ef8f43d0d3587fbab1896b11bd30b53560bbdfa9975812a57fe575abcf07d91b  ./include/linux/timerfd.h
 cd3b5c33208c1b3ded9a6fc793837e1d1d83d98b8c884e2b314bbc2d6e89052f  ./include/linux/timex.h
 6d7d11d81d2049bbd91a98a303a80dc4dfef2556b1ab92ada56d82ea510e8535  ./include/linux/uaccess.h
+e58d60cd21588656486a1a018dda13a53288f252bcf7f58a78dc07eb4b9f384f  ./include/linux/wait.h
 bef5576039262e5351a9db0c10eb6f9c38076532ae205e7d3b18aacc1c17430b  ./include/linux/watch_queue.h
 54685c4d7999d0113a0c727a675e0f59b77a202981eae74769573a231584deb5  ./include/linux/xattr.h
 b9ef143ff953974bd282ed7baabb3969bac53c24585ac8bd175407fe762507cb  ./include/net/compat.h
@@ -347,6 +350,7 @@ e2483a7bbe80d279676806adc320b558f73ba4edfdbb916c4f58b14dfc441d03  ./kernel/sched
 13abcd81d4a10a1e5f08701e02a8aa15db306991bc93ebbc20711af992cf82a1  ./kernel/sched/rt.c
 0ca4d3e8cdcd320717c6b8169faf26b34e05040ab318ca775ab938fa0f65521f  ./kernel/sched/sched.h
 18dcd244faf9f5930fcfe89dcf47ce13ad86158a554d079bb68866502903f9ea  ./kernel/sched/syscalls.c
+1f3be3b6ce51b6248cadf17ad56a520e12ea87d733c3606f0525bc626e400a49  ./kernel/sched/wait.c
 b1dcfea06e6c4665bbf362622949bd6485415724206e7ded1b2f8d9eb356f1fb  ./kernel/seccomp.c
 0e89f25fefc4b230d68d500fad076d7fdcdb5bb84fba6e83e1228c3019f71ca1  ./kernel/signal.c
 0b656f8809d781b7e684a1a4c4144d925684c69e9f6050c41c6374c5206d2c8d  ./kernel/sys.c
