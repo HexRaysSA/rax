@@ -184,6 +184,14 @@ pub fn raise(p: &mut Proc, t: &mut Thread, rec: ExceptionRecord, ctx: RegContext
         cursor: sp.saturating_sub(32) & !0xF,
         framed: false,
     };
+    // A callback belonging to this pseudo-export has no guest return address.
+    // Retain the actual exception caller so nested exception search can cross
+    // the dispatcher without a fabricated return-to-zero or callback return.
+    dispatch::frame_for(t, &site).exception_caller = Some(Box::new(ctx));
+    let site = CallSite {
+        framed: true,
+        ..site
+    };
     let first = rec.clone();
     dispatch::run(p, t, site, move |c| vectored(c, first, recs, 0))
 }

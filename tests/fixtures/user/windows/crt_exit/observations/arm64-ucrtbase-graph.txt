@@ -1,0 +1,626 @@
+
+File: <stdin>
+Format: COFF-ARM64
+Arch: aarch64
+AddressSize: 64bit
+ImageFileHeader {
+  Machine: IMAGE_FILE_MACHINE_ARM64 (0xAA64)
+  SectionCount: 4
+  TimeDateStamp: 1970-01-01 00:00:00 (0x0)
+  PointerToSymbolTable: 0x0
+  SymbolCount: 0
+  StringTableSize: 0
+  OptionalHeaderSize: 240
+  Characteristics [ (0x22)
+    IMAGE_FILE_EXECUTABLE_IMAGE (0x2)
+    IMAGE_FILE_LARGE_ADDRESS_AWARE (0x20)
+  ]
+}
+ImageOptionalHeader {
+  Magic: 0x20B
+  MajorLinkerVersion: 14
+  MinorLinkerVersion: 0
+  SizeOfCode: 4096
+  SizeOfInitializedData: 2048
+  SizeOfUninitializedData: 0
+  AddressOfEntryPoint: 0x113C
+  BaseOfCode: 0x1000
+  ImageBase: 0x140000000
+  SectionAlignment: 4096
+  FileAlignment: 512
+  MajorOperatingSystemVersion: 6
+  MinorOperatingSystemVersion: 0
+  MajorImageVersion: 0
+  MinorImageVersion: 0
+  MajorSubsystemVersion: 6
+  MinorSubsystemVersion: 0
+  SizeOfImage: 20480
+  SizeOfHeaders: 1024
+  CheckSum: 0x0
+  Subsystem: IMAGE_SUBSYSTEM_WINDOWS_CUI (0x3)
+  Characteristics [ (0x8160)
+    IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE (0x40)
+    IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA (0x20)
+    IMAGE_DLL_CHARACTERISTICS_NX_COMPAT (0x100)
+    IMAGE_DLL_CHARACTERISTICS_TERMINAL_SERVER_AWARE (0x8000)
+  ]
+  SizeOfStackReserve: 1048576
+  SizeOfStackCommit: 4096
+  SizeOfHeapReserve: 1048576
+  SizeOfHeapCommit: 4096
+  NumberOfRvaAndSize: 16
+  DataDirectory {
+    ExportTableRVA: 0x0
+    ExportTableSize: 0x0
+    ImportTableRVA: 0x206C
+    ImportTableSize: 0x3C
+    ResourceTableRVA: 0x0
+    ResourceTableSize: 0x0
+    ExceptionTableRVA: 0x4000
+    ExceptionTableSize: 0xE0
+    CertificateTableRVA: 0x0
+    CertificateTableSize: 0x0
+    BaseRelocationTableRVA: 0x0
+    BaseRelocationTableSize: 0x0
+    DebugRVA: 0x0
+    DebugSize: 0x0
+    ArchitectureRVA: 0x0
+    ArchitectureSize: 0x0
+    GlobalPtrRVA: 0x0
+    GlobalPtrSize: 0x0
+    TLSTableRVA: 0x0
+    TLSTableSize: 0x0
+    LoadConfigTableRVA: 0x0
+    LoadConfigTableSize: 0x0
+    BoundImportRVA: 0x0
+    BoundImportSize: 0x0
+    IATRVA: 0x21B8
+    IATSize: 0x110
+    DelayImportDescriptorRVA: 0x0
+    DelayImportDescriptorSize: 0x0
+    CLRRuntimeHeaderRVA: 0x0
+    CLRRuntimeHeaderSize: 0x0
+    ReservedRVA: 0x0
+    ReservedSize: 0x0
+  }
+}
+DOSHeader {
+  Magic: MZ
+  UsedBytesInTheLastPage: 120
+  FileSizeInPages: 1
+  NumberOfRelocationItems: 0
+  HeaderSizeInParagraphs: 4
+  MinimumExtraParagraphs: 0
+  MaximumExtraParagraphs: 0
+  InitialRelativeSS: 0
+  InitialSP: 0
+  Checksum: 0
+  InitialIP: 0
+  InitialRelativeCS: 0
+  AddressOfRelocationTable: 64
+  OverlayNumber: 0
+  OEMid: 0
+  OEMinfo: 0
+  AddressOfNewExeHeader: 120
+}
+UnwindInformation [
+  RuntimeFunction {
+    Function: 0x140001000
+    ExceptionRecord: 0x1400024CC
+    ExceptionData {
+      FunctionLength: 24
+      Version: 0
+      ExceptionData: No
+      EpiloguePacked: No
+      EpilogueScopes: 0
+      ByteCodeLength: 4
+      Prologue [
+        0xd561              ; str x30, [sp, #-16]!
+        0xe4                ; end
+      ]
+      EpilogueScopes [
+      ]
+    }
+  }
+  RuntimeFunction {
+    Function: 0x140001018
+    Fragment: No
+    FunctionLength: 88
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001070
+    ExceptionRecord: 0x1400024D4
+    ExceptionData {
+      FunctionLength: 28
+      Version: 0
+      ExceptionData: No
+      EpiloguePacked: No
+      EpilogueScopes: 0
+      ByteCodeLength: 4
+      Prologue [
+        0xd561              ; str x30, [sp, #-16]!
+        0xe4                ; end
+      ]
+      EpilogueScopes [
+      ]
+    }
+  }
+  RuntimeFunction {
+    Function: 0x14000108C
+    Fragment: No
+    FunctionLength: 76
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x1400010D8
+    ExceptionRecord: 0x1400024DC
+    ExceptionData {
+      FunctionLength: 28
+      Version: 0
+      ExceptionData: No
+      EpiloguePacked: No
+      EpilogueScopes: 1
+      ByteCodeLength: 4
+      Prologue [
+        0xd561              ; str x30, [sp, #-16]!
+        0xe4                ; end
+      ]
+      EpilogueScopes [
+        EpilogueScope {
+          StartOffset: 2
+          EpilogueStartIndex: 0
+          Opcodes [
+            0xd561              ; ldr x30, [sp], #16
+            0xe4                ; end
+          ]
+        }
+      ]
+    }
+  }
+  RuntimeFunction {
+    Function: 0x1400010F4
+    Fragment: No
+    FunctionLength: 72
+    RegF: 0
+    RegI: 1
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      stp x19, lr, [sp]
+      sub sp, sp, #16
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x14000113C
+    ExceptionRecord: 0x1400024E8
+    ExceptionData {
+      FunctionLength: 184
+      Version: 0
+      ExceptionData: No
+      EpiloguePacked: No
+      EpilogueScopes: 0
+      ByteCodeLength: 4
+      Prologue [
+        0xd600              ; stp x19, lr, [sp, #0]
+        0x01                ; sub sp, #16
+        0xe4                ; end
+      ]
+      EpilogueScopes [
+      ]
+    }
+  }
+  RuntimeFunction {
+    Function: 0x1400011F4
+    Fragment: No
+    FunctionLength: 420
+    RegF: 0
+    RegI: 2
+    HomedParameters: No
+    CR: 1
+    FrameSize: 32
+    Prologue [
+      str lr, [sp, #16]
+      stp x19, x20, [sp, #-32]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001398
+    ExceptionRecord: 0x1400024F0
+    ExceptionData {
+      FunctionLength: 1156
+      Version: 0
+      ExceptionData: No
+      EpiloguePacked: No
+      EpilogueScopes: 0
+      ByteCodeLength: 4
+      Prologue [
+        0xd2c2              ; str x30, [sp, #16]
+        0x24                ; stp x19, x20, [sp, #-32]!
+        0xe4                ; end
+      ]
+      EpilogueScopes [
+      ]
+    }
+  }
+  RuntimeFunction {
+    Function: 0x14000181C
+    Fragment: No
+    FunctionLength: 156
+    RegF: 0
+    RegI: 1
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      stp x19, lr, [sp]
+      sub sp, sp, #16
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x1400018B8
+    ExceptionRecord: 0x1400024F8
+    ExceptionData {
+      FunctionLength: 40
+      Version: 0
+      ExceptionData: No
+      EpiloguePacked: No
+      EpilogueScopes: 0
+      ByteCodeLength: 4
+      Prologue [
+        0xd561              ; str x30, [sp, #-16]!
+        0xe4                ; end
+      ]
+      EpilogueScopes [
+      ]
+    }
+  }
+  RuntimeFunction {
+    Function: 0x1400018E0
+    Fragment: No
+    FunctionLength: 56
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001920
+    Fragment: No
+    FunctionLength: 56
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001958
+    Fragment: No
+    FunctionLength: 100
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x1400019BC
+    ExceptionRecord: 0x140002500
+    ExceptionData {
+      FunctionLength: 548
+      Version: 0
+      ExceptionData: No
+      EpiloguePacked: No
+      EpilogueScopes: 1
+      ByteCodeLength: 4
+      Prologue [
+        0xd642              ; stp x21, lr, [sp, #16]
+        0x24                ; stp x19, x20, [sp, #-32]!
+        0xe4                ; end
+      ]
+      EpilogueScopes [
+        EpilogueScope {
+          StartOffset: 126
+          EpilogueStartIndex: 0
+          Opcodes [
+            0xd642              ; ldp x21, lr, [sp, #16]
+            0x24                ; ldp x19, x20, [sp], #32
+            0xe4                ; end
+          ]
+        }
+      ]
+    }
+  }
+  RuntimeFunction {
+    Function: 0x140001BE0
+    Fragment: No
+    FunctionLength: 80
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001C30
+    Fragment: No
+    FunctionLength: 36
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001C5C
+    Fragment: No
+    FunctionLength: 36
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001C80
+    Fragment: No
+    FunctionLength: 36
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001CA4
+    Fragment: No
+    FunctionLength: 52
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001CE0
+    Fragment: No
+    FunctionLength: 52
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001D24
+    Fragment: No
+    FunctionLength: 124
+    RegF: 0
+    RegI: 1
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      stp x19, lr, [sp]
+      sub sp, sp, #16
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001DA0
+    Fragment: No
+    FunctionLength: 48
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001DD0
+    Fragment: No
+    FunctionLength: 64
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001E10
+    Fragment: No
+    FunctionLength: 84
+    RegF: 0
+    RegI: 0
+    HomedParameters: No
+    CR: 1
+    FrameSize: 16
+    Prologue [
+      str lr, [sp, #-16]!
+      end
+    ]
+  }
+  RuntimeFunction {
+    Function: 0x140001EA4
+    ExceptionRecord: 0x14000250C
+    ExceptionData {
+      FunctionLength: 24
+      Version: 0
+      ExceptionData: Yes
+      EpiloguePacked: Yes
+      EpilogueOffset: 1
+      ByteCodeLength: 4
+      Prologue [
+        0xe1                ; mov fp, sp
+        0x81                ; stp x29, x30, [sp, #-16]!
+        0xe4                ; end
+      ]
+      Epilogue [
+        0x81                ; ldp x29, x30, [sp], #16
+        0xe4                ; end
+      ]
+      ExceptionHandler [
+        Routine: 0x140001000
+        Parameter: 0x0
+      ]
+    }
+  }
+  RuntimeFunction {
+    Function: 0x140001EBC
+    ExceptionRecord: 0x14000251C
+    ExceptionData {
+      FunctionLength: 24
+      Version: 0
+      ExceptionData: Yes
+      EpiloguePacked: Yes
+      EpilogueOffset: 1
+      ByteCodeLength: 4
+      Prologue [
+        0xe1                ; mov fp, sp
+        0x81                ; stp x29, x30, [sp, #-16]!
+        0xe4                ; end
+      ]
+      Epilogue [
+        0x81                ; ldp x29, x30, [sp], #16
+        0xe4                ; end
+      ]
+      ExceptionHandler [
+        Routine: 0x14000108C
+        Parameter: 0x0
+      ]
+    }
+  }
+  RuntimeFunction {
+    Function: 0x140001ED4
+    ExceptionRecord: 0x14000252C
+    ExceptionData {
+      FunctionLength: 24
+      Version: 0
+      ExceptionData: Yes
+      EpiloguePacked: Yes
+      EpilogueOffset: 1
+      ByteCodeLength: 4
+      Prologue [
+        0xe1                ; mov fp, sp
+        0x81                ; stp x29, x30, [sp, #-16]!
+        0xe4                ; end
+      ]
+      Epilogue [
+        0x81                ; ldp x29, x30, [sp], #16
+        0xe4                ; end
+      ]
+      ExceptionHandler [
+        Routine: 0x1400010F4
+        Parameter: 0x0
+      ]
+    }
+  }
+]
+Import {
+  Name: kernel32.dll
+  ImportLookupTableRVA: 0x20A8
+  ImportAddressTableRVA: 0x21B8
+  Symbol: CreateFileW (0)
+  Symbol: ExitProcess (0)
+  Symbol: GetCommandLineW (0)
+  Symbol: GetFileSizeEx (0)
+  Symbol: GetProcAddress (0)
+  Symbol: GetStdHandle (0)
+  Symbol: LoadLibraryW (0)
+  Symbol: RaiseException (0)
+  Symbol: TerminateProcess (0)
+  Symbol: WriteFile (0)
+}
+Import {
+  Name: ucrtbase.dll
+  ImportLookupTableRVA: 0x2100
+  ImportAddressTableRVA: 0x2210
+  Symbol: _Exit (0)
+  Symbol: _c_exit (0)
+  Symbol: _cexit (0)
+  Symbol: _crt_at_quick_exit (0)
+  Symbol: _crt_atexit (0)
+  Symbol: _errno (0)
+  Symbol: _exit (0)
+  Symbol: _get_terminate (0)
+  Symbol: _open_osfhandle (0)
+  Symbol: _register_thread_local_exe_atexit_callback (0)
+  Symbol: _set_abort_behavior (0)
+  Symbol: _set_invalid_parameter_handler (0)
+  Symbol: _wfdopen (0)
+  Symbol: abort (0)
+  Symbol: exit (0)
+  Symbol: fwrite (0)
+  Symbol: quick_exit (0)
+  Symbol: raise (0)
+  Symbol: set_terminate (0)
+  Symbol: setvbuf (0)
+  Symbol: signal (0)
+  Symbol: terminate (0)
+}

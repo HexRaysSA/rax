@@ -27,7 +27,9 @@ pub(crate) use startup::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(crate) use state::{STATE_EXPORTS, UCRT_STATE_EXPORTS, release_thread};
 pub(crate) use stdio::{MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_STDIO_EXPORTS};
 pub(crate) use strings::{STRING_EXPORTS, UCRT_STRING_EXPORTS, VCRUNTIME_STRING_EXPORTS};
-pub(crate) use termination::UCRT_REGISTRATION_EXPORTS;
+pub(crate) use termination::{
+    UCRT_EXIT_EXPORTS, UCRT_FATAL_EXPORTS, UCRT_REGISTRATION_EXPORTS, UCRT_SIGNAL_EXPORTS,
+};
 
 /// A runtime namespace; a module's trap address, not its caller, selects it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,6 +79,10 @@ struct RuntimeState {
     onexit: onexit::OnExitState,
     /// Genuine UCRT global registries are not DLL startup's explicit tables.
     termination: termination::TerminationState,
+    /// Dynamic cleanup state is independent of the OS process-exit lifecycle.
+    exit: termination::ExitState,
+    /// Global software signal actions: SIGABRT (including alias 6), SIGTERM.
+    signals: [u64; 2],
     /// Registration and table execution share a recursive runtime exit lock.
     exit_lock: termination::ExitLockState,
 }
@@ -85,6 +91,7 @@ struct ThreadState {
     /// Two guest-authoritative 32-bit cells: errno and _doserrno.
     cells: u64,
     invalid_handler: u64,
+    terminate_handler: u64,
 }
 
 /// State whose lifetime is the guest process.
@@ -94,7 +101,7 @@ struct ThreadState {
 /// unavailable; no tracked consumer uses that construction form.
 #[derive(Default)]
 pub struct CrtState {
-    /// Dormant compatibility field; this group does not implement CRT exit.
+    /// Dormant compatibility field; global queues are runtime-private.
     pub atexit: Vec<u64>,
     /// Dormant compatibility field, not the runtime's thread-local errno.
     pub errno: u64,

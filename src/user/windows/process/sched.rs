@@ -728,7 +728,10 @@ mod tests {
             cursor: t.cpu.sp().saturating_sub(32),
             cont: Some(Box::new(|_, status| Ok(Flow::ExitThread(status as u32)))),
             checked_call: false,
+            callback_sp: None,
             retry: None,
+            exception: Vec::new(),
+            exception_caller: None,
         });
         t.state = ThreadState::Waiting(wait);
     }
@@ -1200,7 +1203,10 @@ mod tests {
                         Flow::void()
                     })),
                     checked_call: false,
+                    callback_sp: None,
                     retry: None,
+                    exception: Vec::new(),
+                    exception_caller: None,
                 });
                 let mut last = 0;
                 let outcome = if forced {

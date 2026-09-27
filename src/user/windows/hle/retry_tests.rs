@@ -19,7 +19,10 @@ fn retry_frame(t: &Thread, retry: super::super::Cont) -> Frame {
         cursor: t.cpu.sp() - 64,
         cont: None,
         checked_call: false,
+        callback_sp: None,
         retry: Some(retry),
+        exception: Vec::new(),
+        exception_caller: None,
     }
 }
 

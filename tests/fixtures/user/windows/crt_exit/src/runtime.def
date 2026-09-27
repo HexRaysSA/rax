@@ -1,0 +1,20 @@
+LIBRARY ucrtbase.dll
+EXPORTS
+_crt_atexit
+_crt_at_quick_exit
+exit
+quick_exit
+_exit
+_Exit
+_cexit
+_c_exit
+_register_thread_local_exe_atexit_callback
+set_terminate
+_get_terminate
+terminate
+abort
+_set_abort_behavior
+signal
+raise
+_errno
+_set_invalid_parameter_handler

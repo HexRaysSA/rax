@@ -1,0 +1,6 @@
+LIBRARY ucrtbase.dll
+EXPORTS
+_open_osfhandle
+_wfdopen
+fwrite
+setvbuf

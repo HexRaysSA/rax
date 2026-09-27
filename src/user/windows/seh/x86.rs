@@ -85,6 +85,7 @@ fn set_exception_list(c: &Ctx, value: u64) -> Result<(), MemFault> {
 #[derive(Default)]
 struct ChainWalk {
     seen: BTreeSet<u64>,
+    exception: crate::user::windows::hle::exception::Search,
 }
 
 impl ChainWalk {
@@ -111,6 +112,20 @@ fn walk(
     record: u64,
     mut chain: ChainWalk,
 ) -> ApiResult {
+    let frontier = if record == CHAIN_END || record == 0 {
+        u64::MAX
+    } else {
+        record
+    };
+    if let Some(selected) =
+        crate::user::windows::hle::exception::x86(c, &rec, frontier, &mut chain.exception)?
+    {
+        let dc = c.stack_alloc_checked(4, 4)?;
+        c.p.space.w32(dc, 0)?;
+        c.p.space
+            .w32(recs.record + 4, rec.flags | EXCEPTION_UNWINDING)?;
+        return unwind_selected(c, recs, dc, selected, ChainWalk::default());
+    }
     if record == CHAIN_END || record == 0 {
         return unhandled(c, rec, recs);
     }
@@ -155,6 +170,59 @@ fn walk(
                     params: Vec::new(),
                 })),
             }
+        },
+    )
+}
+
+/// Unwind only guest registrations inside the selected synthetic scope. The
+/// TEB is reread after every callback; no caller registration is consumed.
+/// A changed current link/head or collided unwind is rejected explicitly,
+/// rather than fabricating a completed cleanup or repeating a handler.
+fn unwind_selected(
+    c: &mut Ctx,
+    recs: Records,
+    dc: u64,
+    selected: crate::user::windows::hle::exception::Selected,
+    mut chain: ChainWalk,
+) -> ApiResult {
+    let record = exception_list(c)?;
+    if record == CHAIN_END || record == 0 || record >= selected.cursor {
+        return selected.invoke(c);
+    }
+    chain.visit(record)?;
+    if !record_valid(c, record) {
+        return Err(ApiErr::Internal(format!(
+            "synthetic SEH unwind has invalid registration {record:#x}"
+        )));
+    }
+    let next = u64::from(c.p.space.u32(record)?);
+    let handler = u64::from(c.p.space.u32(record + 4)?);
+    if !handler_valid(c, handler) {
+        return Err(ApiErr::Internal(format!(
+            "synthetic SEH unwind has invalid handler {handler:#x}"
+        )));
+    }
+    let flags = c.p.space.u32(recs.record + 4)?;
+    c.p.space
+        .w32(recs.record + 4, flags | EXCEPTION_UNWINDING)?;
+    Flow::call_checked(
+        handler,
+        vec![recs.record, record, recs.context, dc],
+        move |c, ret| {
+            if ret as u32 != disposition::CONTINUE_SEARCH {
+                return Err(ApiErr::Internal(format!(
+                    "synthetic SEH unwind unsupported disposition {ret:#x}"
+                )));
+            }
+            // A handler may mutate guest memory. Validate both links before
+            // removing exactly the registration whose cleanup just completed.
+            if exception_list(c)? != record || u64::from(c.p.space.u32(record)?) != next {
+                return Err(ApiErr::Internal(
+                    "synthetic SEH unwind registration changed during cleanup".into(),
+                ));
+            }
+            set_exception_list(c, next)?;
+            unwind_selected(c, recs, dc, selected, chain)
         },
     )
 }

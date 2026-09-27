@@ -141,6 +141,7 @@ pub(super) fn ensure_context(c: &mut Ctx, kind: RuntimeKind) -> Result<u64, ApiE
         ThreadState {
             cells,
             invalid_handler: 0,
+            terminate_handler: 0,
         },
     );
     Ok(cells)

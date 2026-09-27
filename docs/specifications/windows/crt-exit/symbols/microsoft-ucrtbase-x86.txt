@@ -1,0 +1,14 @@
+  Name: _Exit
+  Name: _c_exit
+  Name: _cexit
+  Name: _exit
+  Name: _get_terminate
+  Name: _register_thread_local_exe_atexit_callback
+  Name: _set_abort_behavior
+  Name: abort
+  Name: exit
+  Name: quick_exit
+  Name: raise
+  Name: set_terminate
+  Name: signal
+  Name: terminate

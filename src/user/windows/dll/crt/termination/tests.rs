@@ -72,7 +72,7 @@ fn table(c: &mut Ctx, target: u64) -> u64 {
 }
 
 #[test]
-fn genuine_named_bindings_and_unadmitted_termination_all_abis() {
+fn genuine_named_bindings_and_unadmitted_legacy_names_all_abis() {
     run(|c| {
         for dll in [
             "ucrtbase.dll",
@@ -90,13 +90,7 @@ fn genuine_named_bindings_and_unadmitted_termination_all_abis() {
                 "atexit",
                 "at_quick_exit",
                 "_onexit",
-                "exit",
-                "_exit",
-                "_Exit",
-                "_cexit",
-                "_c_exit",
-                "quick_exit",
-                "_register_thread_local_exe_atexit_callback",
+                "_is_c_termination_complete",
             ] {
                 assert!(
                     loader::lookup(c.p, index, &SymRef::Name(name.as_bytes().to_vec(), None))

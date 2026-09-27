@@ -163,6 +163,7 @@ pub fn callback_return(p: &mut Proc, t: &mut Thread) -> Outcome {
             frame.api.name
         ));
     };
+    frame.callback_sp = None;
     let site = CallSite {
         api: frame.api,
         entry_pc: frame.entry_pc,
@@ -184,6 +185,7 @@ pub fn wait_complete(p: &mut Proc, t: &mut Thread, status: u64) -> Outcome {
     let Some(cont) = frame.cont.take() else {
         return Outcome::Fail(format!("{} was not waiting", frame.api.name));
     };
+    frame.callback_sp = None;
     let site = CallSite {
         api: frame.api,
         entry_pc: frame.entry_pc,
@@ -199,6 +201,7 @@ pub fn wait_complete(p: &mut Proc, t: &mut Thread, status: u64) -> Outcome {
 /// with the registers as they are.
 pub fn resume_return(p: &mut Proc, t: &mut Thread, api: &'static Api) -> Outcome {
     let sp = t.cpu.sp();
+    let pc = t.cpu.pc();
     prune(t, sp);
     prune_same_height_frontier(t, t.cpu.pc(), sp);
     match p.arch {
@@ -225,6 +228,13 @@ pub fn resume_return(p: &mut Proc, t: &mut Thread, api: &'static Api) -> Outcome
         }
     }
     prune(t, t.cpu.sp());
+    if t.frames.last().is_some_and(|frame| {
+        frame.entry_sp == sp
+            && std::ptr::eq(frame.api, api)
+            && frame.entry_pc.checked_add(RESUME_OFFSET) == Some(pc)
+    }) {
+        t.frames.pop();
+    }
     Outcome::Continue
 }
 
@@ -241,7 +251,7 @@ fn pop_frame(t: &mut Thread, site: &CallSite) {
 
 /// Makes sure `site` has a frame on top of the thread's frames and
 /// returns it.
-fn frame_for<'t>(t: &'t mut Thread, site: &CallSite) -> &'t mut Frame {
+pub(crate) fn frame_for<'t>(t: &'t mut Thread, site: &CallSite) -> &'t mut Frame {
     let on_top = site.framed
         && t.frames
             .last()
@@ -255,7 +265,10 @@ fn frame_for<'t>(t: &'t mut Thread, site: &CallSite) -> &'t mut Frame {
             cursor: site.cursor,
             cont: None,
             checked_call: false,
+            callback_sp: None,
+            exception_caller: None,
             retry: None,
+            exception: Vec::new(),
         });
     }
     let f = t.frames.last_mut().expect("frame pushed");
@@ -329,6 +342,15 @@ fn complete_call(
     then: Cont,
     checked: bool,
 ) -> Outcome {
+    // A protected operation must not drop its owner merely because an
+    // otherwise unchecked callback's stack setup faults inside the scope.
+    let checked = checked
+        || (site.framed
+            && t.frames.last().is_some_and(|frame| {
+                frame.entry_sp == site.entry_sp
+                    && std::ptr::eq(frame.api, site.api)
+                    && !frame.exception.is_empty()
+            }));
     if let Err(fault) = prepare_call(p, t, site.cursor, args.len()) {
         if checked {
             return retry_call(p, t, site, target, args, then, fault);
@@ -345,8 +367,10 @@ fn complete_call(
         // A checked late-write failure therefore retains both owner and target.
         match call_guest(p, &mut t.cpu, site.cursor, target, &args, ret_trap) {
             Ok(()) => {
+                let callback_sp = t.cpu.sp();
                 let frame = frame_for(t, &site);
                 frame.checked_call = true;
+                frame.callback_sp = Some(callback_sp);
                 frame.cont = Some(then);
                 Outcome::Continue
             }
@@ -357,7 +381,16 @@ fn complete_call(
         frame.checked_call = false;
         frame.cont = Some(then);
         match call_guest(p, &mut t.cpu, site.cursor, target, &args, ret_trap) {
-            Ok(()) => Outcome::Continue,
+            Ok(()) => {
+                let callback_sp = t.cpu.sp();
+                // The unchecked branch already published its continuation.
+                // An unframed site must not create a second, empty owner here.
+                t.frames
+                    .last_mut()
+                    .expect("callback owner published")
+                    .callback_sp = Some(callback_sp);
+                Outcome::Continue
+            }
             Err(fault) => {
                 t.frames.pop();
                 let record = memory_exception(p, t, site.entry_pc, fault);
@@ -389,12 +422,35 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
         Ok(Flow::CallChecked { target, args, then }) => {
             complete_call(p, t, site, target, args, then, true)
         }
+        Ok(Flow::Protected {
+            code,
+            handler,
+            then,
+        }) => {
+            let frame = frame_for(t, &site);
+            if frame.exception.try_reserve(1).is_err() {
+                return Outcome::Fail("synthetic SEH scope allocation failed".into());
+            }
+            frame
+                .exception
+                .push(super::exception::ExceptionBoundary::new(
+                    code,
+                    site.cursor,
+                    handler,
+                ));
+            let site = CallSite {
+                framed: true,
+                ..site
+            };
+            run(p, t, site, |c| then(c, 0))
+        }
         Ok(Flow::Block { wait, then }) => {
             if let Err(error) = sync::on_block(p, t.tid, &wait) {
                 return complete(p, t, site, Err(error.into()));
             }
             let frame = frame_for(t, &site);
             frame.checked_call = false;
+            frame.callback_sp = None;
             frame.cont = Some(then);
             t.state = ThreadState::Waiting(wait);
             Outcome::Park
@@ -412,7 +468,7 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
             Outcome::Continue
         }
         Ok(Flow::Raise(rec)) => {
-            pop_frame(t, &site);
+            pop_unprotected_frame(t, &site);
             // The context is the caller's state inside the export: PC at
             // its resume trap, the stack as at entry.
             let mut ctx = RegContext::capture(&t.cpu);
@@ -511,8 +567,18 @@ fn memory_exception(p: &mut Proc, t: &Thread, pc: u64, fault: MemFault) -> Excep
 /// Raises `rec` as a fault inside the export at `site`: the context's PC
 /// is the export's entry and its stack is as at entry.
 fn raise_at(p: &mut Proc, t: &mut Thread, site: &CallSite, rec: ExceptionRecord) -> Outcome {
-    pop_frame(t, site);
+    pop_unprotected_frame(t, site);
     raise_from_site(p, t, site, rec)
+}
+
+fn pop_unprotected_frame(t: &mut Thread, site: &CallSite) {
+    if !site.framed
+        || t.frames
+            .last()
+            .is_none_or(|frame| frame.exception.is_empty())
+    {
+        pop_frame(t, site);
+    }
 }
 
 fn raise_from_site(p: &mut Proc, t: &mut Thread, site: &CallSite, rec: ExceptionRecord) -> Outcome {
