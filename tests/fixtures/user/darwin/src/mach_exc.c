@@ -89,6 +89,7 @@ struct level {
 };
 
 static mach_port_t faulter, guard_target;
+static uint64_t faulter_id;
 static uintptr_t fault_fn, fault_addr;
 static long fault_len;
 static void *protnone, *readonly;
@@ -209,6 +210,15 @@ static void *handler(void *arg) {
             off = 28 + 12 * (int)nd;
         }
         off += 8; // NDR
+        if (id == 2408 || id == 2410) {
+            // The protected behaviors: the thread's ID and a token of the
+            // task.
+            mach_port_t task = MACH_PORT_NULL;
+            kern_return_t tk = task_identity_token_get_task_port(thread, TASK_FLAVOR_CONTROL, &task);
+            out("    thread ID matches %d, the token's task: kr=%d the task %d\n", *(uint64_t *)(b + off) == faulter_id,
+                tk, task == mach_task_self());
+            off += 8;
+        }
         int wide = id >= 2405;
         int exc = *(int *)(b + off);
         uint32_t ncodes = *(uint32_t *)(b + off + 4);
@@ -232,7 +242,7 @@ static void *handler(void *arg) {
         }
         out("\n");
         off += (int)*(uint32_t *)(b + off - 4) * (wide ? 8 : 4);
-        int stateful = id == 2402 || id == 2403 || id == 2406 || id == 2407;
+        int stateful = id == 2402 || id == 2403 || id == 2406 || id == 2407 || id == 2410;
         int flavor = 0;
         uint32_t n = 0, *s = NULL;
         if (stateful) {
@@ -354,6 +364,10 @@ static void unhandle(void) {
 
 static void fire(enum fault f) {
     faulter = mach_thread_self();
+    thread_identifier_info_data_t ti;
+    mach_msg_type_number_t tn = THREAD_IDENTIFIER_INFO_COUNT;
+    thread_info(faulter, THREAD_IDENTIFIER_INFO, (thread_info_t)&ti, &tn);
+    faulter_id = ti.thread_id;
     long v = -1;
     fault_addr = 0;
     if (sigsetjmp(jb, 1) == 0) {
@@ -462,6 +476,35 @@ int main(void) {
     readonly = mmap(NULL, 16384, PROT_READ, MAP_ANON | MAP_PRIVATE, -1, 0);
     const int T = THREAD_FLAVOR;
 
+    // Task identity tokens: a new one each time, the task's ports by
+    // flavor, and the targets they need.
+    {
+        task_id_token_t t = MACH_PORT_NULL, t2 = MACH_PORT_NULL;
+        out("identity token: %d\n", task_create_identity_token(mach_task_self(), &t));
+        out("another: %d, the same %d\n", task_create_identity_token(mach_task_self(), &t2), t == t2);
+        natural_t type = 0;
+        mach_vm_address_t addr = 0;
+        mach_port_type_t pt = 0;
+        out("kobject: %d type %u\n", mach_port_kobject(mach_task_self(), t, &type, &addr), type);
+        out("port type: %d %#x\n", mach_port_type(mach_task_self(), t, &pt), pt);
+        for (int f = 0; f <= 4; f++) {
+            mach_port_t p = MACH_PORT_NULL;
+            kern_return_t kr = task_identity_token_get_task_port(t, f, &p);
+            type = 0;
+            if (p) mach_port_kobject(mach_task_self(), p, &type, &addr);
+            out("flavor %d: %d %s kobject %u\n", f, kr, !p ? "null" : p == mach_task_self() ? "the task" : "other",
+                type);
+        }
+        mach_port_t rd = MACH_PORT_NULL, p = MACH_PORT_NULL;
+        task_get_special_port(mach_task_self(), TASK_READ_PORT, &rd);
+        out("token of the read port: %d\n", task_create_identity_token(rd, &t2));
+        out("token of a thread port: %d\n", task_create_identity_token(mach_thread_self(), &t2));
+        out("task port of the task port: %d\n", task_identity_token_get_task_port(mach_task_self(), 0, &p));
+        out("task port of null: %#x\n", task_identity_token_get_task_port(MACH_PORT_NULL, 0, &p));
+        mach_port_deallocate(mach_task_self(), t);
+        mach_port_deallocate(mach_task_self(), t2);
+    }
+
     // The behaviors' requests; the state a reply returns resumes the thread.
     one("state, 64-bit codes: null load", EXCEPTION_STATE | CODES, T, LOAD_NULL, SKIP);
     one("state: null load", EXCEPTION_STATE, T, LOAD_NULL, SKIP);
@@ -539,6 +582,12 @@ int main(void) {
     one("flavor 0: null load", EXCEPTION_STATE | CODES, 0, LOAD_NULL, SKIP);
     one("the handler replies later", EXCEPTION_STATE | CODES, T, LOAD_NULL, DEFER);
     one("breakpoint 0xc471", EXCEPTION_STATE | CODES, T, BRKC471, SKIP);
+    // Rosetta refuses the protected behaviors.
+    one("identity protected: inaccessible page, made accessible", EXCEPTION_IDENTITY_PROTECTED | CODES, 0,
+        LOAD_PROTNONE, SKIP);
+    one("state and identity protected: null load", EXCEPTION_STATE_IDENTITY_PROTECTED | CODES, T, LOAD_NULL, SKIP);
+    one("state and identity protected, refused: null load", EXCEPTION_STATE_IDENTITY_PROTECTED | CODES, T,
+        LOAD_NULL, FAIL);
     out("\ndead handler: null load\n");
     {
         mach_port_t p = new_port();

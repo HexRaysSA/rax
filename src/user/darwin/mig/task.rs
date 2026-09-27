@@ -229,6 +229,43 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                 Some(o) => Ok(exception::ports_reply(&o)),
             }
         }
+        t::TASK_CREATE_IDENTITY_TOKEN => {
+            // A new token for the task, a send right to its port
+            // (task_ident.c); the target is the control port.
+            req.simple(24)?;
+            if !task {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            Ok(Out::Complex(
+                vec![make_send(&identity_token(ctx.proc))],
+                Vec::new(),
+            ))
+        }
+        t::TASK_IDENTITY_TOKEN_GET_TASK_PORT => {
+            // The token's task port of a flavor: the control port, then
+            // the read, inspect, and name ports. A token outlives the
+            // image it names (KERN_NOT_FOUND).
+            req.simple(36)?;
+            let KObject::TaskIdToken(id) = req.port.kobject else {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            };
+            let which = match req.i32(32) {
+                0 => special::KERNEL,
+                1 => special::READ,
+                2 => special::INSPECT,
+                3 => special::NAME,
+                _ => return Err(kr::KERN_INVALID_ARGUMENT),
+            };
+            if id != ctx.proc.task_port.id {
+                return Err(kr::KERN_NOT_FOUND);
+            }
+            let port = if which == special::KERNEL {
+                make_send(&ctx.proc.task_port)
+            } else {
+                get_special_port(ctx, &KObject::Task, which)?
+            };
+            Ok(Out::Complex(vec![port], Vec::new()))
+        }
         t::TASK_GET_EXCEPTION_PORTS | t::TASK_GET_EXCEPTION_PORTS_INFO => {
             // The info variant takes a read port; the plain one the
             // control port only.
@@ -345,6 +382,11 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             Err(kr::MIG_BAD_ID)
         }
     }
+}
+
+/// A new identity token of the calling task (`task_create_identity_token`).
+pub fn identity_token(proc: &Proc) -> Arc<Port> {
+    Port::new(KObject::TaskIdToken(proc.task_port.id))
 }
 
 /// `task_get_special_port_internal`.

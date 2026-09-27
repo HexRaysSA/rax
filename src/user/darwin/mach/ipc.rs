@@ -125,6 +125,9 @@ pub enum KObject {
     Clock(u32),
     /// A voucher, by its attribute values.
     Voucher(Arc<super::voucher::Attrs>),
+    /// A task identity token (`task_create_identity_token`), by the
+    /// identity of its task's control port.
+    TaskIdToken(u64),
 }
 
 static NEXT_PORT_ID: AtomicU64 = AtomicU64::new(1);
