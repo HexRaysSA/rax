@@ -16,6 +16,7 @@ use crate::user::darwin::mach::ipc::{
 };
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::mach::msg::{self, HEADER_SIZE, Item, Message, Sender, bits, desc, opt};
+use crate::user::darwin::mach::voucher;
 use crate::user::darwin::process::Proc;
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::wait::WaitKey;
@@ -282,7 +283,35 @@ pub fn deliver(ctx: &mut Ctx<'_>, m: Message) {
         }
         return;
     }
+    let mut m = m;
+    if let Some(v) = m.voucher.take() {
+        m.voucher = Some(revoucher(ctx.proc, v, voucher::sent));
+    }
     enqueue(ctx.proc, m);
+}
+
+/// The right to the voucher `change` makes of the voucher `v` a message
+/// carries (the send right to the old one released), or `v` itself when
+/// nothing changes.
+fn revoucher(
+    proc: &mut Proc,
+    v: Right,
+    change: impl Fn(&voucher::Attrs) -> Option<voucher::Attrs>,
+) -> Right {
+    let new = match v
+        .port()
+        .and_then(|p| voucher::attrs_of(p))
+        .and_then(|a| change(a))
+    {
+        Some(a) => proc.vouchers.canonical(a),
+        None => return v,
+    };
+    if v.port().is_some_and(|p| Arc::ptr_eq(p, &new)) {
+        return v;
+    }
+    new.state.lock().unwrap().srights += 1;
+    release(proc, [v]);
+    Right::Send(new)
 }
 
 /// Queues `m` on its (user) destination port and wakes its receivers.
@@ -543,10 +572,11 @@ pub fn copyin(
     }
     let port_rights = ipc::ptype::SEND | ipc::ptype::RECEIVE | ipc::ptype::SEND_ONCE;
     if voucher_name != MACH_PORT_NULL {
-        let ok =
-            ctx.proc.ipc.lookup(voucher_name).is_ok_and(|e| {
-                e.send > 0 && e.port().is_some_and(|p| p.kobject == KObject::Voucher)
-            });
+        let ok = ctx.proc.ipc.lookup(voucher_name).is_ok_and(|e| {
+            e.send > 0
+                && e.port()
+                    .is_some_and(|p| matches!(p.kobject, KObject::Voucher(_)))
+        });
         if !ok {
             return Err(kr::MACH_SEND_INVALID_VOUCHER);
         }
@@ -811,7 +841,11 @@ pub fn copyout(
     // Header: reply right, voucher, then the destination.
     let reply_name = copyout_right(proc, m.reply.take());
     let voucher_name = match m.voucher.take() {
-        Some(v) if options & opt::RCV_VOUCHER != 0 => copyout_right(proc, Some(v)),
+        Some(v) if options & opt::RCV_VOUCHER != 0 => {
+            // ipc_importance_receive, ipc_voucher_receive_postprocessing.
+            let v = revoucher(proc, v, |a| Some(voucher::received(a)));
+            copyout_right(proc, Some(v))
+        }
         Some(v) => {
             voucher_type = 0;
             release(proc, [v]);

@@ -22,6 +22,7 @@ pub mod port;
 pub mod task;
 pub mod thread;
 pub mod vm;
+pub mod voucher;
 
 use std::sync::Arc;
 
@@ -362,6 +363,8 @@ fn dispatch(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
         thread::serve(ctx, req)
     } else if sub(ids::mach_vm::BASE, 100) || sub(ids::vm_map::BASE, 100) {
         vm::serve(ctx, req)
+    } else if sub(ids::mach_voucher::BASE, 5) {
+        voucher::serve(ctx, req)
     } else {
         Err(kr::MIG_BAD_ID)
     }

@@ -8,6 +8,7 @@ pub mod reclaim;
 pub mod sync;
 pub mod timer;
 pub mod vm;
+pub mod voucher;
 
 use std::sync::Arc;
 
@@ -327,6 +328,13 @@ fn call(ctx: &mut Ctx<'_>, nr: u32, a: &[u64; 9]) -> KernReturn {
             kr::KERN_SUCCESS
         }
         trap::MACH_WAIT_UNTIL_TRAP => wait_until(ctx, a[0]),
+        trap::HOST_CREATE_MACH_VOUCHER_TRAP => {
+            voucher::host_create(ctx, name(0), a[1], a[2] as i32, a[3])
+        }
+        trap::MACH_VOUCHER_EXTRACT_ATTR_RECIPE_TRAP => {
+            voucher::extract_recipe(ctx, name(0), a[1] as u32, a[2], a[3])
+        }
+        trap::MACH_GENERATE_ACTIVITY_ID => voucher::generate_activity_id(ctx, a[1] as i32, a[2]),
         trap::MK_TIMER_CREATE_TRAP => timer::create(ctx),
         trap::MK_TIMER_DESTROY_TRAP => timer::destroy(ctx, name(0)),
         trap::MK_TIMER_ARM_TRAP => timer::arm(ctx, name(0), 0, a[1], 0),

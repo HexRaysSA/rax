@@ -122,6 +122,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     proc.itimers = Default::default();
     // The timers' receive rights stayed in the parent's space.
     proc.mk_timers = Default::default();
+    proc.vouchers.fork();
     proc.psynch = Default::default();
     proc.wq = Default::default();
     // The host kqueues behind guest kqueues are not inherited by the host

@@ -340,6 +340,8 @@ pub struct Proc {
     pub itimers: signal::timer::ITimers,
     /// Mach timers.
     pub mk_timers: syscall::mach::timer::Timers,
+    /// Vouchers.
+    pub vouchers: super::mach::voucher::Vouchers,
     /// libpthread's registration.
     pub pthread: PthreadRegistration,
     /// psynch wait queues.
@@ -889,6 +891,7 @@ pub(crate) fn start(
             sigacts: c.sigacts,
             itimers: c.itimers,
             mk_timers: Default::default(),
+            vouchers: Default::default(),
             pthread: PthreadRegistration::default(),
             psynch: Default::default(),
             kq: Default::default(),
@@ -950,6 +953,7 @@ pub(crate) fn start(
                 sigacts,
                 itimers: signal::timer::ITimers::default(),
                 mk_timers: Default::default(),
+                vouchers: Default::default(),
                 pthread: PthreadRegistration::default(),
                 psynch: Default::default(),
                 kq: Default::default(),

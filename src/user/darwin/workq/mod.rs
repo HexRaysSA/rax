@@ -720,6 +720,10 @@ pub fn run_pending(proc: &mut Proc, thread: &mut Thread) {
 /// `workq_setup_and_run`.
 fn setup_and_run(ctx: &mut Ctx<'_>, setup_flags: u32) {
     let tid = ctx.thread.tid;
+    if setup_flags & setup::CLEAR_VOUCHER != 0 {
+        // The previous work item's voucher does not follow the thread.
+        ctx.thread.mach.voucher = None;
+    }
     let Some(w) = ctx.proc.wq.threads.get(&tid).cloned() else {
         return;
     };
@@ -1015,11 +1019,12 @@ fn select_or_park(ctx: &mut Ctx<'_>) {
         setup_and_run(ctx, setup::CLEAR_VOUCHER);
         return;
     }
-    // workq_park_and_unlock.
+    // workq_park_and_unlock: a parked thread holds no voucher.
     if let Some(w) = ctx.proc.wq.threads.get_mut(&tid) {
         w.sched = None;
         w.bound = None;
     }
+    ctx.thread.mach.voucher = None;
     ctx.proc.wq.idle.insert(0, tid);
     ctx.thread.wait = Some(park_wait(tid));
 }

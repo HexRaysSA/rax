@@ -293,6 +293,31 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             }
             Ok(Out::Simple(Vec::new()))
         }
+        // Task vouchers are placeholders (`task.c`): none to get, a set
+        // that keeps nothing, and no swap.
+        t::TASK_GET_MACH_VOUCHER => {
+            req.simple(36)?;
+            if !(task || req.port.kobject == KObject::TaskRead) {
+                return Err(kr::KERN_INVALID_TASK);
+            }
+            Ok(Out::Complex(vec![null_port()], Vec::new()))
+        }
+        t::TASK_SET_MACH_VOUCHER => {
+            req.complex_of(1, 40)?;
+            let v = req.take_port(28, &[disp::MOVE_SEND])?;
+            kmsg::release(ctx.proc, v);
+            if !task {
+                return Err(kr::KERN_INVALID_TASK);
+            }
+            Ok(Out::Simple(Vec::new()))
+        }
+        t::TASK_SWAP_MACH_VOUCHER => {
+            req.complex_of(2, 52)?;
+            let new = req.take_port(28, &[disp::MOVE_SEND])?;
+            let old = req.take_port(40, &[disp::MOVE_SEND])?;
+            kmsg::release(ctx.proc, new.into_iter().chain(old));
+            Err(kr::KERN_NOT_SUPPORTED)
+        }
         _ => {
             if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {
                 eprintln!(
