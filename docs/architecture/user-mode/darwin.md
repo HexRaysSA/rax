@@ -192,7 +192,11 @@ Apple-silicon Mac for arm64 (`CPU_SUBTYPE_ARM64E`, `PSTATE.SSBS` set for new
 threads; the implementation's pointer-authentication algorithm is the
 identity), with 16 GiB of memory. Mach absolute time, uptime, and `kern.boottime` share one
 clock that starts with the emulator. Process identity (pid, credentials,
-audit token) is the host process's.
+audit token) is the host process's. The System Integrity Protection
+configuration `csrctl` reports and checks against is the host's on a macOS
+host (none of its exceptions elsewhere), with the Intel rule that device
+configuration needs a configuration boot on x86-64; `crossarch_trap`
+offers no service (`ENOTSUP`, `EINVAL` for an unknown namespace).
 
 ## Status
 
@@ -225,8 +229,9 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `threads_sync`, the filters and delivery protocol of `kqueue`, the
   workqueue and workloop calls, errors, servicers, synchronous waiters,
   and ownership of `workq` (driven through libpthread's SPI and the raw
-  calls), libdispatch's queues and sources in `dispatch`, and the
-  inheritance, statuses, and `SIGCHLD` of `fork`.
+  calls), libdispatch's queues and sources in `dispatch`, the
+  inheritance, statuses, and `SIGCHLD` of `fork`, and the SIP queries of
+  `csr`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise.
 - `generators`: the checked-in tables equal what the generators produce

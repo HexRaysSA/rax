@@ -178,3 +178,85 @@ pub fn mac_syscall(ctx: &mut Ctx<'_>, policy: u64, call: i32, arg: u64) -> SysRe
 pub fn kdebug(_ctx: &mut Ctx<'_>) -> SysResult {
     Ok(Rv::one(0))
 }
+
+/// `csrctl` operations (`CSR_SYSCALL_*`).
+mod csr {
+    pub const CHECK: u32 = 0;
+    pub const GET_ACTIVE_CONFIG: u32 = 1;
+    pub const ALLOW_UNTRUSTED_KEXTS: u32 = 1 << 0;
+    pub const ALLOW_KERNEL_DEBUGGER: u32 = 1 << 3;
+    pub const ALLOW_APPLE_INTERNAL: u32 = 1 << 4;
+    pub const ALLOW_DEVICE_CONFIGURATION: u32 = 1 << 7;
+    /// `CSR_VALID_FLAGS`.
+    pub const VALID_FLAGS: u32 = 0x1fff;
+}
+
+/// The machine's System Integrity Protection configuration
+/// (`csr_get_active_config`): the host's on a macOS host, else fully
+/// enabled (no exceptions).
+fn csr_active_config() -> u32 {
+    #[cfg(target_os = "macos")]
+    {
+        let mut config: u32 = 0;
+        // SAFETY: csrctl(CSR_SYSCALL_GET_ACTIVE_CONFIG) writes 4 bytes to
+        // `config`, whose address and size it is given.
+        let r = unsafe {
+            libc::syscall(
+                483,
+                csr::GET_ACTIVE_CONFIG,
+                &mut config as *mut u32,
+                std::mem::size_of::<u32>(),
+            )
+        };
+        if r == 0 {
+            return config & csr::VALID_FLAGS;
+        }
+    }
+    0
+}
+
+/// `csrctl(op, useraddr, usersize)`: the SIP configuration, or whether it
+/// allows every flag of a mask (`EPERM` if not). With SIP off
+/// (`CSR_ALLOW_UNTRUSTED_KEXTS` or `CSR_ALLOW_APPLE_INTERNAL`) the kernel
+/// debugger is allowed too; on an Intel Mac device configuration needs the
+/// configuration boot mode, which a running system is not in.
+pub fn csrctl(ctx: &mut Ctx<'_>, op: u32, addr: u64, size: u64) -> SysResult {
+    let intel = ctx.proc.abi == crate::user::darwin::abi::DarwinAbi::X86_64;
+    match op {
+        csr::CHECK | csr::GET_ACTIVE_CONFIG => {}
+        _ => return Err(Errno::ENOSYS),
+    }
+    if addr == 0 || size != 4 {
+        return Err(Errno::EINVAL);
+    }
+    let mut config = csr_active_config();
+    if op == csr::GET_ACTIVE_CONFIG {
+        ctx.write(addr, &config.to_le_bytes())?;
+        return Ok(Rv::one(0));
+    }
+    let b = ctx.read(addr, 4)?;
+    let mask = u32::from_le_bytes(b.try_into().expect("4 bytes"));
+    if intel && mask & csr::ALLOW_DEVICE_CONFIGURATION != 0 {
+        return Err(Errno::EPERM);
+    }
+    if config & (csr::ALLOW_UNTRUSTED_KEXTS | csr::ALLOW_APPLE_INTERNAL) != 0 {
+        config |= csr::ALLOW_KERNEL_DEBUGGER;
+    }
+    if config & mask == mask {
+        Ok(Rv::one(0))
+    } else {
+        Err(Errno::EPERM)
+    }
+}
+
+/// `CROSSARCH_MAX_VALID_NAMESPACE` (`CROSSARCH_ROSETTA`).
+const CROSSARCH_MAX_VALID_NAMESPACE: u32 = 0;
+
+/// `crossarch_trap(name)`: no cross-architecture service is provided to
+/// a process (`ENOTSUP`); an unknown namespace is `EINVAL`.
+pub fn crossarch_trap(name: u32) -> SysResult {
+    if name > CROSSARCH_MAX_VALID_NAMESPACE {
+        return Err(Errno::EINVAL);
+    }
+    Err(Errno::ENOTSUP)
+}
