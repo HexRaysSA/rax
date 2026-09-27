@@ -81,6 +81,7 @@ ec87d1dcfa6cdb5132ce0e219db26d5c11079bbc65a4df543bdc5e7be616b0af  ./bsd/uxkern/u
 13e798255556e07e07b438a9e71a559c34e2bc35c5602655319a6c28fc6e9845  ./config/MASTER
 2e8162981322711ca7f29e5736b80e4842661041d06bfc0658784bf39aefe244  ./config/MASTER.arm64.MacOSX
 6a5df4b44a2c6769aed121777758ee512dd8b14234cbbe86874bb6e24c83d422  ./config/MASTER.x86_64
+37497b3bb40a62b21ef6e9b5cec2453fbd853c237a8405bf29d40b835270273e  ./libsyscall/mach/vm_reclaim.c
 5c8a771427e04c5e1d55c4cdf5a077f3b52c5be4a091683b970084bfdda76df2  ./libsyscall/wrappers/libproc/libproc.c
 37c7629819a18c5ef10d19a9bea00eb7e0bd31e0b127ecd2ae108c74f47c39e2  ./libsyscall/wrappers/libproc/libproc.h
 1b81a2a739ebab7ebd0b4bac8596428abe5f51158e548d85ba864f9f5a1c9d2a  ./libsyscall/wrappers/libproc/libproc_internal.h
@@ -131,6 +132,7 @@ f5203580ad9a36c790aaa251190653546bbd198abf7186253a8dc0d9aa67ed1a  ./osfmk/ipc/ma
 3def37d877860cdf964f94349709e07f2a714ca11a23a08d7a76bbbe48536f34  ./osfmk/kern/bsd_kern.c
 0a7781f478b3bd8d209a69f8c74fe31e4aab9ed46fdd08b88a7bacac4a665a34  ./osfmk/kern/clock.c
 375ba9e48ee7e46d203b21cf9e49c89afbe8963be6548b714196a35565fc7975  ./osfmk/kern/clock_oldops.c
+729ba3fd280fe3bbadcb2c3d88eabca8a2598eda7ff5570310043f19eb0a147d  ./osfmk/kern/exc_guard.h
 e3c3b51ca1810af00565eb1d759750a8cb861735e70752708938852e07d4b4fd  ./osfmk/kern/host.c
 18b1c80d7abee14d92661b11c7c6a19c8a17c65bf5566b3d6ff2536ea057462c  ./osfmk/kern/ipc_tt.c
 e35c4a659309664b788505d43954a4e4156936fc4a34d9b7165f2e729cc5c321  ./osfmk/kern/kalloc.h
@@ -196,12 +198,16 @@ cd6ba7987c82173c98727ed74f5fc651b04719fbeb36e292949618610f7c8c3a  ./osfmk/mach/t
 e721e36e652826189f90425c7e6ba62b7f932e3a42201a0e7a7d44a82a1dab94  ./osfmk/mach/vm_behavior.h
 db0db4c2ca0627076fab369bab78820d16dc156c83fcd62181c4fcf30507dacd  ./osfmk/mach/vm_inherit.h
 713c655e6ed6b79141161bb19c50a209aa1dc7e0032c0fb8fb211bc0c1735887  ./osfmk/mach/vm_map.defs
+1de8271564be821abc945fa5aae483cde4ae949e0095066865abb69354eeced4  ./osfmk/mach/vm_reclaim.h
+34b9c2ad3710837e53c5a2db298e459ddef870f83a947c0b51416bc2184c895e  ./osfmk/mach/vm_reclaim_private.h
 7f7538a6bb2fbff412ec57a518c11ba21556ba62f912e06e93792be185945dc6  ./osfmk/mach/vm_region.h
 47bc5404b7d21b27a6a6b30c8f94c9c21bf217bcc8d167f27f3a3f8c85be384f  ./osfmk/mach/vm_statistics.h
+78229ab12fce5873e9b92618d7762554b17e255bde1e8b51fe72e2c8dd95c0f3  ./osfmk/mach/vm_types.h
 99cc388f6be292feea3ecf344dacb5d0e43f9eae10eb7e3957dee679fc929828  ./osfmk/mach_debug/ipc_info.h
 c020656db89b907e13b636d9aa1a6fe97f7cf812c0f2ca7e8e968e937adbc47e  ./osfmk/mach_debug/mach_debug_types.defs
 64934aabe377b26f020010b38fb976f4e845b9d0198707a82789e6868c31c531  ./osfmk/vm/vm_kern.c
 10bcbdaec50dbedc6b8f6d8348c640d773cd506609998825202dfe7f823fa784  ./osfmk/vm/vm_map.c
+59410239be2d28e5b59c1eb4683d5ea7296ecc4a62955ac8662201d4dfd26d34  ./osfmk/vm/vm_reclaim.c
 fcbff03b7a1f786305094a5e12132a75e5253da1f49863b1fe6c1b04cf17ec18  ./osfmk/vm/vm_shared_region.c
 9ccacb85ed27f49b669f68e225431f2bfaaac160af044650c8fe213479157299  ./osfmk/vm/vm_shared_region_pager.c
 1256476d00f35c90568e3fc07441ade9742b59973c82cde48e29aeffcf65740d  ./osfmk/vm/vm_shared_region_xnu.h
