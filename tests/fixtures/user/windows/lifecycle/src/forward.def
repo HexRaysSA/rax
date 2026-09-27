@@ -1,0 +1,4 @@
+LIBRARY forward.dll
+EXPORTS
+Probe=leaf.Probe
+Missing=leaf.NoSuchExport

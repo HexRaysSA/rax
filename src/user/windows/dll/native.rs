@@ -41,14 +41,14 @@ fn terminate_process(c: &mut Ctx) -> ApiResult {
     if !self_process(c, handle) && handle != 0 {
         return Flow::ret(STATUS_INVALID_HANDLE.into());
     }
-    Ok(Flow::ExitProcess(status))
+    Ok(Flow::TerminateProcess(status))
 }
 fn terminate_thread(c: &mut Ctx) -> ApiResult {
     let (handle, status) = (c.ptr(0)?, c.u32(1)?);
     if handle != c.arch().ptr(u64::MAX - 1) && handle != 0 {
         return Flow::ret(STATUS_INVALID_HANDLE.into());
     }
-    Ok(Flow::ExitThread(status))
+    Ok(Flow::TerminateThread(status))
 }
 fn close(c: &mut Ctx) -> ApiResult {
     let handle = c.ptr(0)?;
@@ -175,9 +175,92 @@ fn capture_context(c: &mut Ctx) -> ApiResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::user::windows::arch::WinArch;
     use crate::user::windows::context::{INTEGER, RegContext};
     use crate::user::windows::hle::{ApiErr, Item, Value};
     use crate::user::windows::process::{WindowsConfig, WindowsProcess};
+
+    #[test]
+    fn nt_termination_self_paths_are_forced_all_abis() {
+        for arch in WinArch::ALL {
+            let image: &[u8] = match arch {
+                WinArch::X86 => {
+                    include_bytes!("../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
+                }
+                WinArch::X64 => {
+                    include_bytes!("../../../../tests/fixtures/user/windows/bin/x64/smoke.exe")
+                }
+                WinArch::Arm64 => {
+                    include_bytes!("../../../../tests/fixtures/user/windows/bin/arm64/smoke.exe")
+                }
+            };
+            let mut config = WindowsConfig::new("terminate-test.exe", vec![]);
+            config.seed = Some(1);
+            config.arena_bytes = 64 << 20;
+            let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
+            let p = process.state_mut();
+            let tid = *p.threads.keys().next().unwrap();
+            let mut t = p.threads.remove(&tid).unwrap();
+            let sp = t.cpu.sp();
+            for (name, pseudo, process_exit) in [
+                ("NtTerminateProcess", arch.ptr(u64::MAX), true),
+                ("NtTerminateThread", arch.ptr(u64::MAX - 1), false),
+            ] {
+                let api = EXPORTS
+                    .iter()
+                    .find_map(|e| match &e.item {
+                        Item::Func(api) if api.name == name => Some(api),
+                        _ => None,
+                    })
+                    .unwrap();
+                for handle in [pseudo, 0, 0x1234] {
+                    match arch {
+                        WinArch::X86 => {
+                            p.space.w32(sp + 4, handle as u32).unwrap();
+                            p.space.w32(sp + 8, 0xDEAD_BEEF).unwrap();
+                        }
+                        WinArch::X64 => {
+                            t.cpu.set_gpr(1, handle);
+                            t.cpu.set_gpr(2, 0xDEAD_BEEF);
+                        }
+                        WinArch::Arm64 => {
+                            t.cpu.set_gpr(0, handle);
+                            t.cpu.set_gpr(1, 0xDEAD_BEEF);
+                        }
+                    }
+                    let mut c = Ctx {
+                        p,
+                        t: &mut t,
+                        api,
+                        entry_pc: 0,
+                        entry_sp: sp,
+                        ret_addr: 0,
+                        cursor: sp,
+                    };
+                    c.set_last_error(0x7654_3210).unwrap();
+                    let flow = (api.imp)(&mut c).unwrap();
+                    if handle == 0x1234 {
+                        assert!(
+                            matches!(flow, Flow::Ret(Value::Int(status))
+                            if status == u64::from(STATUS_INVALID_HANDLE)),
+                            "{arch}: {name}"
+                        );
+                    } else if process_exit {
+                        assert!(
+                            matches!(flow, Flow::TerminateProcess(0xDEAD_BEEF)),
+                            "{arch}: {name}"
+                        );
+                    } else {
+                        assert!(
+                            matches!(flow, Flow::TerminateThread(0xDEAD_BEEF)),
+                            "{arch}: {name}"
+                        );
+                    }
+                    assert_eq!(c.last_error().unwrap(), 0x7654_3210);
+                }
+            }
+        }
+    }
 
     #[test]
     fn ntcontinue_rejects_invalid_state_and_explicitly_rejects_alert_delivery() {

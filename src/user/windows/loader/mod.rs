@@ -31,7 +31,13 @@
 
 pub mod apiset;
 pub mod builtin;
+mod dynamic;
 pub mod ldr;
+pub(crate) use dynamic::{
+    LoadPlan, LookupPlan, UnloadPlan, attach_started, attach_succeeded, begin_load, begin_lookup,
+    begin_rollback, begin_unload, commit_load, detach_completed, detach_started,
+    discard_transactions, finish_rollback, finish_unload, reference_module,
+};
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -52,6 +58,21 @@ use crate::user::image::pe::imports::{self, ImportRef};
 use crate::user::image::pe::loadcfg::LoadConfig;
 use crate::user::image::pe::tls::TlsDirectory;
 use crate::user::image::pe::{DataDirectory, PeImage, RvaFault, RvaSource, dir, relocs};
+
+/// RAX admission profile: stable module IDs retain at most this many historical
+/// slots, including EXE, built-ins, live native/data images and tombstones.
+/// This finite host bookkeeping bound is not a native Windows loader limit.
+pub(crate) const MAX_MODULE_HISTORY: usize = 4096;
+
+fn admit_new_module(p: &Proc) -> Result<(), LoadError> {
+    if p.modules.list.len() >= MAX_MODULE_HISTORY {
+        return Err(LoadError::new(
+            STATUS_NO_MEMORY,
+            "RAX module history limit reached",
+        ));
+    }
+    Ok(())
+}
 
 /// A load failure: the `NTSTATUS` the loader reports and a description.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -84,6 +105,8 @@ pub enum ModuleKind {
     Exe,
     /// A DLL mapped from a file.
     Native,
+    /// Executable loaded as an image without resolving imports or calling entry.
+    Data,
     /// A built-in DLL.
     Builtin(&'static BuiltinDll),
 }
@@ -134,8 +157,8 @@ pub struct Module {
     pub tls: Option<ModuleTls>,
     /// `LDR_DATA_TABLE_ENTRY` address.
     pub ldr_entry: u64,
-    /// Load count (`LoadLibrary` references); `u32::MAX` for static
-    /// dependencies of the executable, which never unload.
+    /// Explicit `LoadLibrary` references; EXE/built-in roots use `u32::MAX`.
+    /// Import dependency ownership is tracked separately.
     pub load_count: u32,
     /// `DisableThreadLibraryCalls` has not been called.
     pub thread_calls: bool,
@@ -182,9 +205,26 @@ pub struct Modules {
     /// Index-based admission prevents aliases or explicit paths from
     /// exposing a failed module through address or symbol lookup.
     failed_indices: HashMap<usize, LoadError>,
+    pub(crate) dynamic: dynamic::DynamicState,
 }
 
 impl Modules {
+    /// A stable module index that has not failed or been unloaded.
+    pub fn is_live(&self, idx: usize) -> bool {
+        idx < self.list.len()
+            && !self.failed_indices.contains_key(&idx)
+            && !self.dynamic.unloaded.contains(&idx)
+    }
+    /// Successfully attached native modules in actual completion order.
+    /// Separate from mapping post-order so nested callback loads are retained.
+    pub(crate) fn ready_order(&self) -> Vec<usize> {
+        self.dynamic
+            .attached_order
+            .iter()
+            .copied()
+            .filter(|&idx| self.is_live(idx) && self.list[idx].initialized)
+            .collect()
+    }
     /// The executable.
     pub fn exe(&self) -> &Module {
         &self.list[0]
@@ -195,14 +235,15 @@ impl Modules {
         self.list
             .iter()
             .enumerate()
-            .find(|(idx, m)| !self.failed_indices.contains_key(idx) && m.contains(addr))
+            .find(|(idx, m)| self.is_live(*idx) && m.contains(addr))
     }
 
     /// The module whose base is `base`.
     pub fn by_base(&self, base: u64) -> Option<usize> {
-        self.list.iter().enumerate().find_map(|(idx, m)| {
-            (!self.failed_indices.contains_key(&idx) && m.base == base).then_some(idx)
-        })
+        self.list
+            .iter()
+            .enumerate()
+            .find_map(|(idx, m)| (self.is_live(idx) && m.base == base).then_some(idx))
     }
 
     /// The module whose base name matches `name` (case-insensitive, with
@@ -210,8 +251,7 @@ impl Modules {
     pub fn by_name(&self, name: &str) -> Option<usize> {
         let want = name.to_ascii_lowercase();
         self.list.iter().enumerate().find_map(|(idx, m)| {
-            (!self.failed_indices.contains_key(&idx) && m.name.to_ascii_lowercase() == want)
-                .then_some(idx)
+            (self.is_live(idx) && m.name.to_ascii_lowercase() == want).then_some(idx)
         })
     }
 }
@@ -548,12 +588,27 @@ fn setup_tls(p: &mut Proc, pe: &PeImage, base: u64) -> Result<Option<ModuleTls>,
         )
         .map_err(|_| LoadError::new(STATUS_INVALID_IMAGE_FORMAT, "malformed TLS callback array"))?;
     }
-    let index = p.modules.next_tls_index;
-    let next = index
-        .checked_add(1)
-        .ok_or_else(|| LoadError::new(STATUS_INVALID_IMAGE_FORMAT, "TLS index overflow"))?;
-    p.vm.poke(dirv.address_of_index, &index.to_le_bytes())
-        .map_err(|_| LoadError::new(STATUS_INVALID_IMAGE_FORMAT, "unwritable TLS index"))?;
+    let recycled = p.modules.dynamic.free_tls.pop_first();
+    let index = recycled.unwrap_or(p.modules.next_tls_index);
+    let next = if recycled.is_some() {
+        p.modules.next_tls_index
+    } else {
+        index
+            .checked_add(1)
+            .ok_or_else(|| LoadError::new(STATUS_INVALID_IMAGE_FORMAT, "TLS index overflow"))?
+    };
+    if p.vm
+        .poke(dirv.address_of_index, &index.to_le_bytes())
+        .is_err()
+    {
+        if recycled.is_some() {
+            p.modules.dynamic.free_tls.insert(index);
+        }
+        return Err(LoadError::new(
+            STATUS_INVALID_IMAGE_FORMAT,
+            "unwritable TLS index",
+        ));
+    }
     p.modules.next_tls_index = next;
     Ok(Some(ModuleTls {
         index,
@@ -646,6 +701,7 @@ fn builtin_base(p: &mut Proc, size: u64) -> Result<u64, LoadError> {
 
 /// Maps built-in DLL `dll`.
 fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadError> {
+    admit_new_module(p)?;
     let specials: &[SlotKind] = if dll.name == "ntdll.dll" {
         &[SlotKind::CallbackReturn, SlotKind::ThreadStart]
     } else {
@@ -666,29 +722,41 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
         Some(label),
     )
     .map_err(|e| LoadError::new(e.status(), format!("{}: cannot map", dll.display)))?;
-    p.vm.commit(base, size, prot::READWRITE)
-        .map_err(|e| LoadError::new(e.status(), format!("{}: cannot commit", dll.display)))?;
-    p.vm.poke(base, &img.bytes)
-        .map_err(|_| LoadError::new(STATUS_NO_MEMORY, format!("{}: cannot write", dll.display)))?;
+    let mapped: Result<(), LoadError> = (|| {
+        p.vm.commit(base, size, prot::READWRITE)
+            .map_err(|e| LoadError::new(e.status(), format!("{}: cannot commit", dll.display)))?;
+        p.vm.poke(base, &img.bytes).map_err(|_| {
+            LoadError::new(STATUS_NO_MEMORY, format!("{}: cannot write", dll.display))
+        })?;
+        let text = base + u64::from(img.text_rva);
+        p.vm.protect(base, 0x1000, prot::READONLY)
+            .map_err(|e| LoadError::new(e.status(), "cannot protect built-in headers"))?;
+        p.vm.protect(text, u64::from(img.text_size), prot::READONLY)
+            .map_err(|e| LoadError::new(e.status(), "cannot protect built-in code"))?;
+        p.vm.set_reported(text, u64::from(img.text_size), prot::EXECUTE_READ);
+        p.vm.protect(
+            base + u64::from(img.rdata.0),
+            u64::from(img.rdata.1),
+            prot::READONLY,
+        )
+        .map_err(|e| LoadError::new(e.status(), "cannot protect built-in read-only data"))?;
+        p.vm.protect(
+            base + u64::from(img.data.0),
+            u64::from(img.data.1),
+            prot::READWRITE,
+        )
+        .map_err(|e| LoadError::new(e.status(), "cannot protect built-in data"))?;
+        Ok(())
+    })();
+    if let Err(error) = mapped {
+        if let Err(cleanup) = p.vm.release(base) {
+            p.fail(format!(
+                "built-in mapping cleanup failed: {cleanup:?}; original: {error}"
+            ));
+        }
+        return Err(error);
+    }
     let text = base + u64::from(img.text_rva);
-    p.vm.protect(base, 0x1000, prot::READONLY)
-        .map_err(|e| LoadError::new(e.status(), "cannot protect built-in headers"))?;
-    p.vm.protect(text, u64::from(img.text_size), prot::READONLY)
-        .map_err(|e| LoadError::new(e.status(), "cannot protect built-in code"))?;
-    p.vm.set_reported(text, u64::from(img.text_size), prot::EXECUTE_READ);
-    p.vm.protect(
-        base + u64::from(img.rdata.0),
-        u64::from(img.rdata.1),
-        prot::READONLY,
-    )
-    .map_err(|e| LoadError::new(e.status(), "cannot protect built-in read-only data"))?;
-    p.vm.protect(
-        base + u64::from(img.data.0),
-        u64::from(img.data.1),
-        prot::READWRITE,
-    )
-    .map_err(|e| LoadError::new(e.status(), "cannot protect built-in data"))?;
-    p.traps.add(text, img.slots, img.capacity);
     let mut symbols = HashMap::new();
     let mut ordinals = Vec::new();
     for (name, sym) in &img.symbols {
@@ -723,8 +791,20 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
     };
     p.modules.list.push(module);
     let idx = p.modules.list.len() - 1;
-    ldr::add_entry(p, idx)?;
-    ldr::link_init_order(p, idx)?;
+    if let Err(error) = ldr::add_entry(p, idx).and_then(|_| ldr::link_init_order(p, idx)) {
+        p.modules.failed_indices.insert(idx, error.clone());
+        if let Err(cleanup) = ldr::remove_entry(p, idx).and_then(|_| {
+            p.vm.release(base)
+                .map_err(|e| LoadError::new(e.status(), "cannot release failed built-in"))
+        }) {
+            p.fail(format!(
+                "built-in cleanup failed: {cleanup}; original: {error}"
+            ));
+        }
+        p.modules.dynamic.unloaded.insert(idx);
+        return Err(error);
+    }
+    p.traps.add(text, img.slots, img.capacity);
     dll::init_data_exports(p, idx);
     Ok(idx)
 }
@@ -772,7 +852,11 @@ fn search_native(p: &Proc, name: &str) -> Option<PathBuf> {
     }
     let app_only = dirs.len();
     dirs.extend(p.cfg.dll_paths.iter().cloned());
-    if let Ok(cwd) = std::env::current_dir() {
+    if let Some(cwd) = p
+        .cfg
+        .drives
+        .to_host(&String::from_utf16_lossy(&p.cwd), &p.cwd)
+    {
         dirs.push(cwd);
     }
     let lower = name.to_ascii_lowercase();
@@ -788,10 +872,66 @@ fn search_native(p: &Proc, name: &str) -> Option<PathBuf> {
     None
 }
 
+fn loaded_path(p: &Proc, path: &Path) -> Option<usize> {
+    let key = p.cfg.drives.to_windows(path);
+    p.modules.list.iter().enumerate().find_map(|(idx, m)| {
+        (p.modules.is_live(idx) && m.path.eq_ignore_ascii_case(&key)).then_some(idx)
+    })
+}
+
 /// Loads DLL `name` (as named by an import or `LoadLibrary`), returning its
-/// module index. `static_load` marks a dependency of the executable.
+/// module index. Import/forwarder callers record their dependency separately.
 pub fn load_dll(p: &mut Proc, name: &str) -> Result<usize, LoadError> {
     let mut norm = normalize_name(name);
+    let explicit =
+        name.contains('\\') || name.contains('/') || name.as_bytes().get(1) == Some(&b':');
+    if explicit {
+        let prefix = name.rfind(['\\', '/']).map_or("", |at| &name[..at + 1]);
+        let requested = if prefix.is_empty() && name.as_bytes().get(1) == Some(&b':') {
+            format!("{}{}", &name[..2], normalize_name(&name[2..]))
+        } else {
+            format!("{prefix}{norm}")
+        };
+        let absolute =
+            requested.starts_with(['\\', '/']) || requested.as_bytes().get(1) == Some(&b':');
+        let file = if absolute {
+            p.cfg
+                .drives
+                .to_host(&requested, &p.cwd)
+                .filter(|path| path.is_file() || loaded_path(p, path).is_some())
+        } else {
+            // A relative path is appended to each directory, not reduced to
+            // its basename. Configured search directories are host paths.
+            let mut dirs = Vec::new();
+            if let Some(parent) = p.cfg.exe_host_path.parent() {
+                dirs.push(parent.to_path_buf());
+            }
+            dirs.extend(p.cfg.dll_paths.iter().cloned());
+            if let Some(cwd) = p
+                .cfg
+                .drives
+                .to_host(&String::from_utf16_lossy(&p.cwd), &p.cwd)
+            {
+                dirs.push(cwd);
+            }
+            dirs.into_iter().find_map(|dir| {
+                let guest = format!("{}\\{}", p.cfg.drives.to_windows(&dir), requested);
+                p.cfg
+                    .drives
+                    .to_host(&guest, &p.cwd)
+                    .filter(|path| path.is_file() || loaded_path(p, path).is_some())
+            })
+        }
+        .ok_or_else(|| LoadError::new(STATUS_DLL_NOT_FOUND, format!("{name} was not found")))?;
+        let key = p.cfg.drives.to_windows(&file).to_ascii_lowercase();
+        if let Some(error) = p.modules.failures.get(&key) {
+            return Err(error.clone());
+        }
+        if let Some(idx) = loaded_path(p, &file) {
+            return Ok(idx);
+        }
+        return load_native(p, &file, &key);
+    }
     let lower = norm.to_ascii_lowercase();
     if apiset::is_api_set(&lower) {
         match apiset::host(&lower) {
@@ -817,14 +957,7 @@ pub fn load_dll(p: &mut Proc, name: &str) -> Result<usize, LoadError> {
     {
         return load_builtin(p, b);
     }
-    // An absolute or relative path in the name selects that file.
-    let explicit = name.contains('\\') || name.contains('/');
-    let file = if explicit {
-        let host = p.cfg.drives.to_host(name, &p.cwd);
-        host.filter(|h| h.is_file())
-    } else {
-        search_native(p, &norm)
-    };
+    let file = search_native(p, &norm);
     match (file, builtin) {
         (Some(path), _) => load_native(p, &path, &norm),
         (None, Some(b)) => load_builtin(p, b),
@@ -837,6 +970,7 @@ pub fn load_dll(p: &mut Proc, name: &str) -> Result<usize, LoadError> {
 
 /// Maps a DLL file.
 fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError> {
+    admit_new_module(p)?;
     let bytes = std::fs::read(path)
         .map_err(|e| LoadError::new(STATUS_DLL_NOT_FOUND, format!("{}: {e}", path.display())))?;
     let pe = PeImage::parse(bytes).map_err(|e| {
@@ -873,7 +1007,11 @@ fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError
         } else {
             0
         },
-        kind: ModuleKind::Native,
+        kind: if h.is_dll() {
+            ModuleKind::Native
+        } else {
+            ModuleKind::Data
+        },
         timestamp: h.time_date_stamp,
         exports: h.directory(dir::EXPORT),
         pdata: h.directory(dir::EXCEPTION),
@@ -882,9 +1020,9 @@ fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError
         safe_seh: None,
         tls: None,
         ldr_entry: 0,
-        load_count: 1,
+        load_count: 0,
         thread_calls: true,
-        initialized: false,
+        initialized: !h.is_dll(),
         builtin_symbols: HashMap::new(),
         builtin_ordinals: Vec::new(),
         text: 0,
@@ -894,12 +1032,16 @@ fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError
     let idx = p.modules.list.len() - 1;
     let result: Result<usize, LoadError> = (|| {
         ldr::add_entry(p, idx)?;
-        init_security_cookie(p, &pe, base)?;
-        p.modules.list[idx].safe_seh = safe_seh(p, &pe, base)?;
-        p.modules.list[idx].tls = setup_tls(p, &pe, base)?;
-        bind_imports(p, idx, &pe)?;
+        if h.is_dll() {
+            init_security_cookie(p, &pe, base)?;
+            p.modules.list[idx].safe_seh = safe_seh(p, &pe, base)?;
+            p.modules.list[idx].tls = setup_tls(p, &pe, base)?;
+            bind_imports(p, idx, &pe)?;
+        }
         protect_sections(p, &pe, base)?;
-        p.modules.init_order.push(idx);
+        if h.is_dll() {
+            p.modules.init_order.push(idx);
+        }
         Ok(idx)
     })();
     if let Err(error) = &result {
@@ -945,6 +1087,12 @@ fn lookup_depth(
 ) -> Result<Option<u64>, LoadError> {
     if let Some(error) = p.modules.failed_indices.get(&idx) {
         return Err(error.clone());
+    }
+    if !p.modules.is_live(idx) {
+        return Err(LoadError::new(
+            STATUS_INVALID_PARAMETER,
+            "unloaded module index",
+        ));
     }
     if depth > 32 {
         return Err(LoadError::new(
@@ -1005,6 +1153,7 @@ fn lookup_depth(
             })?;
             let module = String::from_utf8_lossy(&fwd.module).into_owned();
             let target_idx = load_dll(p, &module)?;
+            dynamic::dependency(p, idx, target_idx);
             let sym = match fwd.symbol {
                 ForwardSymbol::Name(n) => SymRef::Name(n, None),
                 ForwardSymbol::Ordinal(o) => SymRef::Ordinal(o),
@@ -1088,6 +1237,7 @@ fn bind_imports(p: &mut Proc, idx: usize, pe: &PeImage) -> Result<(), LoadError>
                 e
             }
         })?;
+        dynamic::dependency(p, idx, dep);
         for t in thunks {
             let sym = match &t.symbol {
                 ImportRef::Name { hint, name } => SymRef::Name(name.clone(), Some(*hint)),

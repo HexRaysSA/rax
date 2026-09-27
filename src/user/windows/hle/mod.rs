@@ -234,10 +234,14 @@ pub enum Flow {
     /// Return `Value` and end the thread's time slice (`Sleep(0)`,
     /// `SwitchToThread`).
     Yield(Value),
-    /// End the calling thread with an exit code.
+    /// Normal thread exit, including DLL_THREAD_DETACH notifications.
     ExitThread(u32),
-    /// End the process with an exit code.
+    /// Normal process exit, including DLL_PROCESS_DETACH notifications.
     ExitProcess(u32),
+    /// Forced thread termination without guest DLL/FLS cleanup callbacks.
+    TerminateThread(u32),
+    /// Forced process termination without guest DLL/FLS cleanup callbacks.
+    TerminateProcess(u32),
     /// The implementation set every register itself ([`Conv::Custom`]).
     Done,
 }

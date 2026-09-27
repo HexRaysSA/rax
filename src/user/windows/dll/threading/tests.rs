@@ -223,7 +223,7 @@ fn termination_signals_thread_object_and_apcs_fail_while_terminating() {
             assert_eq!(c.last_error().unwrap(), ERROR_GEN_FAILURE);
             assert!(matches!(
                 invoke(c, "TerminateThread", &[arch.ptr(u64::MAX - 1), 42]),
-                Ok(Flow::ExitThread(42))
+                Ok(Flow::TerminateThread(42))
             ));
         });
     }

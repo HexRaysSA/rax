@@ -133,7 +133,7 @@ pub struct Records {
 /// Ends the process for fail-fast code `code` (the first exception
 /// parameter).
 pub fn fail_fast(_code: u64) -> Outcome {
-    Outcome::ProcessExit(STATUS_STACK_BUFFER_OVERRUN)
+    Outcome::ProcessTerminate(STATUS_STACK_BUFFER_OVERRUN)
 }
 
 /// Dispatches exception `rec` raised on `t` in context `ctx`.
@@ -157,7 +157,7 @@ pub fn raise(p: &mut Proc, t: &mut Thread, rec: ExceptionRecord, ctx: RegContext
         .and_then(|_| p.space.wptr(pointers + psize, psize, context_addr));
     if writes.is_err() {
         // No stack left to dispatch on: Windows terminates the process.
-        return Outcome::ProcessExit(if rec.code == STATUS_STACK_OVERFLOW {
+        return Outcome::ProcessTerminate(if rec.code == STATUS_STACK_OVERFLOW {
             STATUS_STACK_OVERFLOW
         } else {
             STATUS_BAD_STACK
@@ -254,13 +254,13 @@ fn noncontinuable(rec: &ExceptionRecord, recs: Records) -> ApiResult {
 pub fn unhandled(c: &mut Ctx, rec: ExceptionRecord, recs: Records) -> ApiResult {
     let filter = c.p.seh.unhandled_filter;
     if filter == 0 {
-        return Ok(Flow::ExitProcess(rec.code));
+        return Ok(Flow::TerminateProcess(rec.code));
     }
     Flow::call(filter, vec![recs.pointers], move |c, ret| {
         if ret as u32 as i32 == EXCEPTION_CONTINUE_EXECUTION {
             continue_execution(c, recs)
         } else {
-            Ok(Flow::ExitProcess(rec.code))
+            Ok(Flow::TerminateProcess(rec.code))
         }
     })
 }
@@ -331,6 +331,44 @@ mod tests {
                 && rec.flags == EXCEPTION_NONCONTINUABLE
                 && rec.nested == recs.record
                 && rec.address == 0x1234));
+    }
+
+    #[test]
+    fn terminal_exception_paths_are_forced_all_abis() {
+        assert_eq!(
+            fail_fast(7),
+            Outcome::ProcessTerminate(STATUS_STACK_BUFFER_OVERRUN)
+        );
+        for arch in WinArch::ALL {
+            with_records(arch, |c, rec, recs| {
+                let code = rec.code;
+                assert!(matches!(unhandled(c, rec.clone(), recs).unwrap(),
+                    Flow::TerminateProcess(status) if status == code));
+                c.p.seh.unhandled_filter = 0x5678;
+                let Flow::Call { then, .. } = unhandled(c, rec, recs).unwrap() else {
+                    panic!("expected filter callback");
+                };
+                assert!(matches!(then(c, 1).unwrap(),
+                    Flow::TerminateProcess(status) if status == code));
+                for (raised, expected) in [
+                    (STATUS_STACK_OVERFLOW, STATUS_STACK_OVERFLOW),
+                    (STATUS_ACCESS_VIOLATION, STATUS_BAD_STACK),
+                ] {
+                    let mut context = RegContext::capture(&c.t.cpu);
+                    context.set_sp(0);
+                    assert_eq!(
+                        raise(
+                            c.p,
+                            c.t,
+                            ExceptionRecord::new(raised, 0x1234, vec![]),
+                            context
+                        ),
+                        Outcome::ProcessTerminate(expected),
+                        "{arch}"
+                    );
+                }
+            });
+        }
     }
 
     #[test]

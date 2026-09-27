@@ -33,6 +33,9 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{ObjId, Object};
 use crate::user::windows::sync::Wait;
 
+mod dynamic_tls;
+pub(crate) use dynamic_tls::{install_dynamic_tls, remove_dynamic_tls};
+
 /// A thread's scheduling state.
 #[derive(Clone, Debug)]
 pub enum ThreadState {
@@ -123,7 +126,14 @@ fn alloc_static_tls(p: &mut Proc) -> Result<(u64, Vec<u64>), u32> {
         .alloc(&mut p.vm, heap, psize * u64::from(count), true)
         .ok_or(STATUS_NO_MEMORY)?;
     let mut blocks = Vec::new();
-    let tls: Vec<_> = p.modules.list.iter().filter_map(|m| m.tls).collect();
+    let tls: Vec<_> = p
+        .modules
+        .list
+        .iter()
+        .enumerate()
+        .filter(|(idx, _)| p.modules.is_live(*idx))
+        .filter_map(|(_, m)| m.tls)
+        .collect();
     let result = (|| {
         for t in tls {
             if t.index >= count {
@@ -344,6 +354,17 @@ fn create_inner(
         .ok_or(STATUS_NO_MEMORY)?;
     p.objects.retain(obj);
 
+    let owned = p
+        .modules
+        .list
+        .iter()
+        .enumerate()
+        .filter(|(idx, m)| p.modules.is_live(*idx) && m.tls.is_some())
+        .map(|(idx, _)| idx)
+        .zip(tls_blocks.iter().copied())
+        .collect();
+    p.modules.dynamic.tls_blocks.insert(tid, owned);
+
     p.threads.insert(
         tid,
         Thread {
@@ -376,6 +397,7 @@ fn create_inner(
 /// are freed.
 pub fn destroy(p: &mut Proc, t: Thread, code: u32) {
     let tid = t.tid;
+    p.modules.dynamic.tls_blocks.remove(&tid);
     let ids: Vec<ObjId> = p
         .objects
         .iter_mut()

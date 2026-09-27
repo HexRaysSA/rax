@@ -120,3 +120,11 @@ Its fixtures are rebuilt with `bash tests/fixtures/user/windows/build.sh` and
 require no Windows SDK or CRT. Expectations derive from Microsoft
 specifications; no native Windows oracle recording is available. Run with
 `cargo +stable test --locked --no-default-features --test user_windows -- --test-threads=1`.
+
+The same target reaches `suites/user/windows/lifecycle.rs`, whose separate
+`fixtures/user/windows/lifecycle/build.sh` graph tests dynamic/static DLL
+notifications, TLS installation/isolation, forwarding and missing-export
+rollback, failed-attach retry, reference ownership, unload and EXE data mapping
+on all three guest ABIs. Controlled CLI runs use scheduling slices of 1 and
+4,096 instructions and an external 30 s watchdog. Public-contract checks and
+labeled personality policies are not recorded native differential results.

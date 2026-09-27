@@ -398,7 +398,7 @@ fn terminate_thread(c: &mut Ctx) -> ApiResult {
         Err(error) => return failure(c, error, 0),
     };
     if id == c.t.obj {
-        return Ok(Flow::ExitThread(code));
+        return Ok(Flow::TerminateThread(code));
     }
     match live_thread(c, id) {
         Ok(target) => {

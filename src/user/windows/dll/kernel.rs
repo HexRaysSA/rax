@@ -3,13 +3,13 @@
 use super::super::heap::{HEAP_GENERATE_EXCEPTIONS, HeapError};
 use super::super::hle::{ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
 use super::super::layout::offsets;
-use super::super::loader;
 use super::super::memory::Mem;
 use super::super::nt::error::*;
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func("ExitProcess", Stdcall, &[I32], exit_process),
     Export::func("ExitThread", Stdcall, &[I32], exit_thread),
+    Export::func("TerminateProcess", Stdcall, &[Ptr, I32], terminate_process),
     Export::func("GetLastError", Stdcall, &[], get_last_error),
     Export::func("SetLastError", Stdcall, &[I32], set_last_error),
     Export::func("GetCurrentProcess", Stdcall, &[], current_process),
@@ -47,11 +47,6 @@ pub(super) static EXPORTS: &[Export] = &[
     Export::func("SetStdHandle", Stdcall, &[I32, Ptr], set_std_handle),
     Export::func("GetCommandLineW", Stdcall, &[], command_line_w),
     Export::func("GetCommandLineA", Stdcall, &[], command_line_a),
-    Export::func("GetModuleHandleW", Stdcall, &[Ptr], module_handle_w),
-    Export::func("GetModuleHandleA", Stdcall, &[Ptr], module_handle_a),
-    Export::func("LoadLibraryW", Stdcall, &[Ptr], load_library_w),
-    Export::func("LoadLibraryA", Stdcall, &[Ptr], load_library_a),
-    Export::func("GetProcAddress", Stdcall, &[Ptr, Ptr], get_proc_address),
     Export::func("TlsAlloc", Stdcall, &[], tls_alloc),
     Export::func("TlsFree", Stdcall, &[I32], tls_free),
     Export::func("TlsGetValue", Stdcall, &[I32], tls_get),
@@ -92,6 +87,21 @@ fn exit_process(c: &mut Ctx) -> ApiResult {
 }
 fn exit_thread(c: &mut Ctx) -> ApiResult {
     Ok(Flow::ExitThread(c.u32(0)?))
+}
+fn terminate_process(c: &mut Ctx) -> ApiResult {
+    let (handle, code) = (c.ptr(0)?, c.u32(1)?);
+    if handle == c.arch().ptr(u64::MAX) {
+        return Ok(Flow::TerminateProcess(code));
+    }
+    match c.p.objects.get(handle) {
+        Some(super::super::objects::Object::Process { pid, exit_code }) if *pid == c.p.pid => {
+            if exit_code.is_some() || c.p.objects.access(handle).unwrap_or(0) & 1 == 0 {
+                return c.fail(ERROR_ACCESS_DENIED, 0);
+            }
+            Ok(Flow::TerminateProcess(code))
+        }
+        _ => c.fail(ERROR_INVALID_HANDLE, 0),
+    }
 }
 fn get_last_error(c: &mut Ctx) -> ApiResult {
     Flow::ret(u64::from(c.last_error()?))
@@ -209,7 +219,7 @@ fn heap_alloc(c: &mut Ctx) -> ApiResult {
     match result {
         Ok(addr) => Flow::ret(addr),
         Err(HeapError::MemoryFault(fault)) => Err(fault.into()),
-        Err(HeapError::BadHeap | HeapError::BadBlock) => Ok(Flow::ExitProcess(
+        Err(HeapError::BadHeap | HeapError::BadBlock) => Ok(Flow::TerminateProcess(
             super::super::nt::status::STATUS_HEAP_CORRUPTION,
         )),
         Err(HeapError::NoMemory) => heap_failure(c, handle, flags),
@@ -235,7 +245,7 @@ fn heap_free(c: &mut Ctx) -> ApiResult {
     }
     match c.p.heaps.free(heap, addr) {
         Ok(()) => Flow::bool(true),
-        Err(_) => Ok(Flow::ExitProcess(
+        Err(_) => Ok(Flow::TerminateProcess(
             super::super::nt::status::STATUS_HEAP_CORRUPTION,
         )),
     }
@@ -256,7 +266,7 @@ fn heap_realloc(c: &mut Ctx) -> ApiResult {
     ) {
         Ok(value) => Flow::ret(value),
         Err(HeapError::MemoryFault(fault)) => Err(fault.into()),
-        Err(HeapError::BadHeap | HeapError::BadBlock) => Ok(Flow::ExitProcess(
+        Err(HeapError::BadHeap | HeapError::BadBlock) => Ok(Flow::TerminateProcess(
             super::super::nt::status::STATUS_HEAP_CORRUPTION,
         )),
         Err(HeapError::NoMemory) => heap_failure(c, heap, flags),
@@ -305,64 +315,6 @@ fn command_line_a(c: &mut Ctx) -> ApiResult {
     };
     c.mem().put_cstr(out, text.as_bytes())?;
     Flow::ret(out)
-}
-fn module_handle(c: &mut Ctx, wide: bool) -> ApiResult {
-    let addr = c.ptr(0)?;
-    if addr == 0 {
-        return Flow::ret(c.p.modules.exe().base);
-    }
-    let name = if wide {
-        String::from_utf16_lossy(&c.mem().wstr(addr, 32768)?)
-    } else {
-        String::from_utf8_lossy(&c.mem().cstr(addr, 32768)?).into_owned()
-    };
-    match c.p.modules.by_name(&loader::normalize_name(&name)) {
-        Some(idx) => Flow::ret(c.p.modules.list[idx].base),
-        None => c.fail(ERROR_MOD_NOT_FOUND, 0),
-    }
-}
-fn module_handle_w(c: &mut Ctx) -> ApiResult {
-    module_handle(c, true)
-}
-fn module_handle_a(c: &mut Ctx) -> ApiResult {
-    module_handle(c, false)
-}
-fn load_library(c: &mut Ctx, wide: bool) -> ApiResult {
-    let addr = c.ptr(0)?;
-    let name = if wide {
-        String::from_utf16_lossy(&c.mem().wstr(addr, 32768)?)
-    } else {
-        String::from_utf8_lossy(&c.mem().cstr(addr, 32768)?).into_owned()
-    };
-    match loader::load_dll(c.p, &name) {
-        Ok(idx) if matches!(c.p.modules.list[idx].kind, loader::ModuleKind::Builtin(_)) => {
-            Flow::ret(c.p.modules.list[idx].base)
-        }
-        Ok(_) => Err(c.unsupported("dynamic native DLL initialization")),
-        Err(e) => c.fail(super::super::nt::status_to_error(e.status), 0),
-    }
-}
-fn load_library_w(c: &mut Ctx) -> ApiResult {
-    load_library(c, true)
-}
-fn load_library_a(c: &mut Ctx) -> ApiResult {
-    load_library(c, false)
-}
-fn get_proc_address(c: &mut Ctx) -> ApiResult {
-    let (base, name) = (c.ptr(0)?, c.ptr(1)?);
-    let Some(idx) = c.p.modules.by_base(base) else {
-        return c.fail(ERROR_INVALID_HANDLE, 0);
-    };
-    let sym = if name <= 0xFFFF {
-        loader::SymRef::Ordinal(name as u32)
-    } else {
-        loader::SymRef::Name(c.mem().cstr(name, 32768)?, None)
-    };
-    match loader::lookup(c.p, idx, &sym) {
-        Ok(Some(addr)) => Flow::ret(addr),
-        Ok(None) => c.fail(ERROR_PROC_NOT_FOUND, 0),
-        Err(e) => c.fail(super::super::nt::status_to_error(e.status), 0),
-    }
 }
 fn tls_alloc(c: &mut Ctx) -> ApiResult {
     Flow::ret(c.p.tls.alloc().map_or(0xFFFF_FFFF, u64::from))
@@ -549,6 +501,127 @@ mod tests {
     use super::*;
     use crate::user::windows::hle::{Item, Value};
     use crate::user::windows::process::{WindowsConfig, WindowsProcess};
+
+    #[test]
+    fn terminate_process_checks_current_handles_and_remains_distinct_from_exit_all_abis() {
+        use crate::user::windows::arch::WinArch;
+        use crate::user::windows::objects::Object;
+        for arch in WinArch::ALL {
+            let image: &[u8] = match arch {
+                WinArch::X86 => {
+                    include_bytes!("../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
+                }
+                WinArch::X64 => {
+                    include_bytes!("../../../../tests/fixtures/user/windows/bin/x64/smoke.exe")
+                }
+                WinArch::Arm64 => {
+                    include_bytes!("../../../../tests/fixtures/user/windows/bin/arm64/smoke.exe")
+                }
+            };
+            let mut config = WindowsConfig::new("terminate-test.exe", vec![]);
+            config.seed = Some(1);
+            config.arena_bytes = 64 << 20;
+            let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
+            let p = process.state_mut();
+            let tid = *p.threads.keys().next().unwrap();
+            let mut t = p.threads.remove(&tid).unwrap();
+            let sp = t.cpu.sp();
+            let current = p.objects.create(Object::Process {
+                pid: p.pid,
+                exit_code: None,
+            });
+            let granted = p.objects.open_access(current, false, 1).unwrap();
+            let denied = p.objects.open_access(current, false, 0).unwrap();
+            let dead = p.objects.insert(Object::Process {
+                pid: p.pid,
+                exit_code: Some(1),
+            });
+            let foreign = p.objects.insert(Object::Process {
+                pid: p.pid + 1,
+                exit_code: None,
+            });
+            let wrong = p.objects.insert(Object::Event {
+                manual: true,
+                signaled: false,
+            });
+            let api = |name| {
+                EXPORTS
+                    .iter()
+                    .find_map(|e| match &e.item {
+                        Item::Func(api) if api.name == name => Some(api),
+                        _ => None,
+                    })
+                    .unwrap()
+            };
+            for (handle, error) in [
+                (arch.ptr(u64::MAX), None),
+                (u64::from(granted), None),
+                (u64::from(denied), Some(ERROR_ACCESS_DENIED)),
+                (u64::from(dead), Some(ERROR_ACCESS_DENIED)),
+                (u64::from(foreign), Some(ERROR_INVALID_HANDLE)),
+                (u64::from(wrong), Some(ERROR_INVALID_HANDLE)),
+                (0, Some(ERROR_INVALID_HANDLE)),
+            ] {
+                match arch {
+                    WinArch::X86 => {
+                        p.space.w32(sp + 4, handle as u32).unwrap();
+                        p.space.w32(sp + 8, 0xDEAD_BEEF).unwrap();
+                    }
+                    WinArch::X64 => {
+                        t.cpu.set_gpr(1, handle);
+                        t.cpu.set_gpr(2, 0xDEAD_BEEF);
+                    }
+                    WinArch::Arm64 => {
+                        t.cpu.set_gpr(0, handle);
+                        t.cpu.set_gpr(1, 0xDEAD_BEEF);
+                    }
+                }
+                let mut c = Ctx {
+                    p,
+                    t: &mut t,
+                    api: api("TerminateProcess"),
+                    entry_pc: 0,
+                    entry_sp: sp,
+                    ret_addr: 0,
+                    cursor: sp,
+                };
+                c.set_last_error(0x1234_5678).unwrap();
+                let flow = terminate_process(&mut c).unwrap();
+                if let Some(error) = error {
+                    assert!(matches!(flow, Flow::Ret(Value::Int(0))), "{arch}");
+                    assert_eq!(c.last_error().unwrap(), error);
+                } else {
+                    assert!(
+                        matches!(flow, Flow::TerminateProcess(0xDEAD_BEEF)),
+                        "{arch}"
+                    );
+                    assert_eq!(c.last_error().unwrap(), 0x1234_5678);
+                }
+            }
+            match arch {
+                WinArch::X86 => p.space.w32(sp + 4, 0xDEAD_BEEF).unwrap(),
+                WinArch::X64 => t.cpu.set_gpr(1, 0xDEAD_BEEF),
+                WinArch::Arm64 => t.cpu.set_gpr(0, 0xDEAD_BEEF),
+            }
+            let mut c = Ctx {
+                p,
+                t: &mut t,
+                api: api("ExitProcess"),
+                entry_pc: 0,
+                entry_sp: sp,
+                ret_addr: 0,
+                cursor: sp,
+            };
+            assert!(
+                matches!(
+                    exit_process(&mut c).unwrap(),
+                    Flow::ExitProcess(0xDEAD_BEEF)
+                ),
+                "{arch}"
+            );
+            assert!(c.p.exit_code.is_none());
+        }
+    }
 
     #[test]
     fn tls_expansion_address_uses_guest_width_and_checked_64_bit_addition() {

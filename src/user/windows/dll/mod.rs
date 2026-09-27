@@ -5,6 +5,7 @@ pub mod crt;
 mod files;
 mod handles;
 mod kernel;
+pub(crate) mod libraries;
 mod locks;
 mod native;
 mod threading;
@@ -45,6 +46,7 @@ static KERNEL32: BuiltinDll = BuiltinDll {
     subsystem: 3,
     exports: &[
         kernel::EXPORTS,
+        libraries::EXPORTS,
         handles::EXPORTS,
         threading::EXPORTS,
         locks::EXPORTS,
@@ -57,6 +59,7 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
     subsystem: 3,
     exports: &[
         kernel::EXPORTS,
+        libraries::EXPORTS,
         handles::EXPORTS,
         threading::EXPORTS,
         locks::EXPORTS,

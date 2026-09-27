@@ -48,3 +48,13 @@ synchronous file I/O, duplicated-handle shared cursors, deferred deletion and NU
 The runner maps C: to a unique temporary directory, imposes a 30 s external
 deadline, and tests scheduling slices of 1 and 4,096 guest instructions.
 Native Windows differential execution remains unknown.
+
+## DLL lifecycle fixtures
+
+The separately generated [lifecycle graph](lifecycle/README.md) exercises checked
+native loading, forwarding, failed attachment/retry, static TLS across existing
+and new threads, normal notifications, balanced unloading and EXE data mapping
+for x86, x64 and ARM64. Its generator, source/artifact hashes and labeled profile
+assumptions are independent of the smoke/service manifests. The existing
+user_windows target reaches the lifecycle runner; native Windows differential
+execution remains unknown.

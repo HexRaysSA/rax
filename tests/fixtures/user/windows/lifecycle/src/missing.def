@@ -1,0 +1,3 @@
+LIBRARY absent-lifecycle.dll
+EXPORTS
+DeliberatelyMissing
