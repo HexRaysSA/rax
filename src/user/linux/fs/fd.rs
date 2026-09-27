@@ -455,8 +455,10 @@ impl OpenFile {
                 }
                 Ok(target as u64)
             }
-            // pidfs has no llseek operation.
-            FileObject::Anon(super::anon::Anon::Pid(_)) => Err(Errno(ESPIPE)),
+            // pidfs and io_uring have no llseek operation.
+            FileObject::Anon(super::anon::Anon::Pid(_) | super::anon::Anon::Uring(_)) => {
+                Err(Errno(ESPIPE))
+            }
             // default_llseek, against the queue file's size.
             FileObject::Mqueue(h) => {
                 const SEEK_DATA: u32 = 3;

@@ -428,7 +428,7 @@ fn rw(c: &mut Ctx<'_>, file: &OpenFile, iocb: &Iocb) -> Result<i64, Err2> {
     let unsupported = file.ftype == FileType::Directory
         || matches!(
             file.object,
-            FileObject::Anon(Anon::Epoll(_) | Anon::Pid(_) | Anon::Inotify(_))
+            FileObject::Anon(Anon::Epoll(_) | Anon::Pid(_) | Anon::Inotify(_) | Anon::Uring(_))
                 | FileObject::Mqueue(_)
         );
     if unsupported {
@@ -560,7 +560,8 @@ fn wake_key(file: &OpenFile, ready: u32) -> Option<u32> {
     }
     let (reads, writes) = match &file.object {
         FileObject::Anon(Anon::Event(_)) => (IN, OUT),
-        FileObject::Anon(Anon::Timer(_) | Anon::Epoll(_)) => (IN, 0),
+        // io_poll_wq_wake: EPOLL_URING_WAKE | EPOLLIN.
+        FileObject::Anon(Anon::Timer(_) | Anon::Epoll(_) | Anon::Uring(_)) => (IN, 0),
         FileObject::Socket(_) => (IN | PRI | RDNORM | RDBAND, OUT | WRNORM | WRBAND),
         _ if file.ftype == FileType::Fifo => (IN | RDNORM, OUT | WRNORM),
         _ => return None,

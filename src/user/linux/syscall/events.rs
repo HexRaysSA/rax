@@ -269,7 +269,7 @@ pub fn read(c: &mut Ctx<'_>, file: &OpenFile, vecs: &[(u64, u64)]) -> SysResult 
                 n => Ok(n),
             }
         }
-        Anon::Epoll(_) | Anon::Pid(_) => Err(Errno(EINVAL)),
+        Anon::Epoll(_) | Anon::Pid(_) | Anon::Uring(_) => Err(Errno(EINVAL)),
         Anon::Inotify(_) => super::inotify::read(c, file, vecs),
         Anon::Signal(s) => {
             let count = len / SIGNALFD_SIZE;
@@ -341,7 +341,10 @@ pub fn write_call(c: &mut Ctx<'_>, file: &OpenFile, buf: u64, count: u64) -> Sys
 
 /// Whether the file has a read operation (`FMODE_CAN_READ`).
 pub fn can_read(file: &OpenFile) -> bool {
-    !matches!(file.object, FileObject::Anon(Anon::Epoll(_) | Anon::Pid(_)))
+    !matches!(
+        file.object,
+        FileObject::Anon(Anon::Epoll(_) | Anon::Pid(_) | Anon::Uring(_))
+    )
 }
 
 /// Whether the file has a write operation (`FMODE_CAN_WRITE`).
@@ -486,6 +489,7 @@ pub fn poll(c: &Ctx<'_>, anon: &Anon, events: u32) -> (Polled, Wait) {
         Anon::Epoll(ep) => return super::epoll::poll_instance(c, ep, events),
         Anon::Pid(t) => return super::pidfd::poll(c, t),
         Anon::Inotify(i) => return super::inotify::poll(i, events),
+        Anon::Uring(r) => return super::uring::poll(r, events),
         Anon::Event(ev) => {
             let (r, w, err) = ev.poll();
             if r {

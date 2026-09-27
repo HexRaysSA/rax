@@ -117,6 +117,8 @@ pub enum Resume {
         /// Its transfer's progress.
         inner: Box<Resume>,
     },
+    /// `io_uring_enter` waiting for completions.
+    Uring(super::uring::Waiting),
     /// A `ptrace` request awaiting the answer on this link.
     Ptrace {
         /// The link.

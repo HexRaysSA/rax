@@ -398,6 +398,9 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
             call_handler(c, s, aio_counts(a))
         }
         S::IoPgeteventsTime64 => call_handler(c, S::IoPgetevents, aio_counts(a)),
+        // io_uring: the native calls (the ring records that a 32-bit call
+        // set it up, and its requests use the compatibility layouts).
+        S::IoUringSetup | S::IoUringEnter | S::IoUringRegister => call_handler(c, s, a),
         // select, pselect6, and ppoll: fd sets of 32-bit words, struct
         // old_timeval32, struct compat_sigset_argpack, and the *_time32
         // timeouts beside the *_time64 ones. The old select takes its

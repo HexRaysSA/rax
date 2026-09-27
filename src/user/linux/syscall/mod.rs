@@ -75,6 +75,7 @@ pub mod thread;
 pub mod time;
 pub mod timeabi;
 pub mod timer;
+pub mod uring;
 pub mod utimes;
 pub mod xattr;
 
@@ -684,6 +685,23 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[3],
             a[4],
             a[5],
+        )),
+        S::IoUringSetup => r(uring::io_uring_setup(c, a[0] as u32, a[1])),
+        S::IoUringEnter => r(uring::io_uring_enter(
+            c,
+            a[0] as u32,
+            a[1] as u32,
+            a[2] as u32,
+            a[3] as u32,
+            a[4],
+            a[5],
+        )),
+        S::IoUringRegister => r(uring::io_uring_register(
+            c,
+            a[0] as u32,
+            a[1] as u32,
+            a[2],
+            a[3] as u32,
         )),
         S::Mincore => r(mem::mincore(c, a[0], a[1], a[2])),
         S::RiscvFlushIcache => r(Ok(0)),

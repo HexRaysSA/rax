@@ -167,6 +167,9 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             if flags & CLONE_VM != 0 {
                 c.t.rseq = None;
             }
+            // copy_process: the child has no io_uring task context, so no
+            // registered rings.
+            c.t.uring_rings.clear();
             become_child(c, &args);
             // Traced as its forker is, from its first instruction.
             if let Some(trace) = trace {

@@ -38,6 +38,8 @@ pub enum Anon {
     Pid(std::sync::Arc<super::pidfd::Target>),
     /// An inotify instance.
     Inotify(super::super::fsnotify::Instance),
+    /// An io_uring instance.
+    Uring(std::sync::Arc<super::super::uring::Ring>),
 }
 
 impl Anon {
@@ -50,6 +52,7 @@ impl Anon {
             Anon::Epoll(_) => "[eventpoll]",
             Anon::Pid(_) => "[pidfd]",
             Anon::Inotify(_) => "inotify",
+            Anon::Uring(_) => "[io_uring]",
         }
     }
 }

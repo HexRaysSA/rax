@@ -328,6 +328,14 @@ pub fn mmap(
                     (backing, name) = shmem(len)?;
                 }
             }
+            // io_uring_mmap: the ring or SQE region itself, shared
+            // (VM_DONTEXPAND, VM_MIXEDMAP).
+            (FileObject::Anon(super::super::fs::anon::Anon::Uring(r)), _) => {
+                let fixed = flags & (MAP_FIXED | MAP_FIXED_NOREPLACE) != 0;
+                backing = super::uring::mmap_region(r, addr, fixed, off, len)?;
+                name = Some("anon_inode:[io_uring]".into());
+                vm_flags |= vma_flags::SPECIAL;
+            }
             (FileObject::Synthetic(d), FileType::Regular) => {
                 backing = Backing::Source {
                     source: Arc::new(crate::user::mm::BytesSource::new(d.clone())),

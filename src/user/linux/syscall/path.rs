@@ -165,6 +165,18 @@ pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
             blksize: 4096,
             ..Default::default()
         }),
+        // anon_inode_create_getfile: an io_uring's own anon_inode_fs inode,
+        // otherwise as below.
+        FileObject::Anon(super::super::fs::anon::Anon::Uring(r)) => Ok(Stat {
+            dev_minor: 0x10,
+            ino: r.ino,
+            mode: 0o600,
+            nlink: 1,
+            uid: ids.0,
+            gid: ids.1,
+            blksize: 4096,
+            ..Default::default()
+        }),
         // alloc_anon_inode: mode 0600 without a file type, one link, the
         // caller's IDs; the one anon_inode_fs inode all of them share (its
         // device and inode numbers are fixed at boot).

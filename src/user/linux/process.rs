@@ -464,6 +464,9 @@ pub struct Thread {
     pub rseq: Option<super::rseq::Rseq>,
     /// Its tracer and the stop it is in (`task->ptrace`, `last_siginfo`).
     pub ptrace: Option<super::ptrace::Traced>,
+    /// Its registered io_uring rings (`tctx->registered_rings`), empty
+    /// until `IORING_REGISTER_RING_FDS`.
+    pub uring_rings: Vec<Option<std::sync::Arc<super::uring::Ring>>>,
 }
 
 impl Thread {
@@ -496,6 +499,7 @@ impl Thread {
             sysvsem: None,
             rseq: None,
             ptrace: None,
+            uring_rings: Vec::new(),
         }
     }
 }

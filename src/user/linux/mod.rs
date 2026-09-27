@@ -62,6 +62,7 @@ pub mod signal;
 pub mod stack;
 pub mod syscall;
 pub mod timers;
+pub mod uring;
 pub mod wait;
 
 #[cfg(test)]
