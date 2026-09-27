@@ -237,6 +237,7 @@ cd6ba7987c82173c98727ed74f5fc651b04719fbeb36e292949618610f7c8c3a  ./osfmk/mach/t
 90eeb14514697e9a765848cf7583ff38903ea65b3db91edfd291d4913d9c8d4d  ./osfmk/mach/thread_act.defs
 331d64126eec283f88dedb84a69561ebf8ed44c54306b58d941576ff6aa2215f  ./osfmk/mach/thread_info.h
 745d86aaf62b50c495fe946e3387f0b1e5de455a911d7ef75896d840685a0dc0  ./osfmk/mach/thread_policy_private.h
+ebffe87f2b535072fb6d6da945fbcdd6da7e6eab26bcb5383807d34e0299162b  ./osfmk/mach/thread_status.h
 e721e36e652826189f90425c7e6ba62b7f932e3a42201a0e7a7d44a82a1dab94  ./osfmk/mach/vm_behavior.h
 db0db4c2ca0627076fab369bab78820d16dc156c83fcd62181c4fcf30507dacd  ./osfmk/mach/vm_inherit.h
 713c655e6ed6b79141161bb19c50a209aa1dc7e0032c0fb8fb211bc0c1735887  ./osfmk/mach/vm_map.defs
