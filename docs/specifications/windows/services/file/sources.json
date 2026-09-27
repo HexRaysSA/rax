@@ -1,0 +1,191 @@
+{
+  "schema": 1,
+  "purpose": "Primary Microsoft synchronous file-service contracts; no native Windows execution oracle.",
+  "retrieved": "2026-09-27",
+  "sources": [
+    {
+      "file": "createfilew.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-createfilew.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "72b74eb8d8f467ec40c23edc37bca41c757d4c008a07127b8dab77acf0b87255"
+    },
+    {
+      "file": "createfilea.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilea",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-createfilea.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "77daa19e701fdaae9a13b4083340f3100cb5ff34fe13444474d78721833f7752"
+    },
+    {
+      "file": "readfile.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-readfile",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-readfile.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "4d8a1e2d1f923325073386a7f552eb8ab03bd520b1faa7ebcca2d4815d9a70bc"
+    },
+    {
+      "file": "writefile.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-writefile",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-writefile.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "4723098a79d6bce560de95cc752bdb5d140d328782a7e1cda7825d73ad19dff1"
+    },
+    {
+      "file": "getfilesizeex.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfilesizeex",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-getfilesizeex.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "64bc5c89c03b72ecd03a67fe9cf787697ede05fa14d67008531eada777177d4f"
+    },
+    {
+      "file": "setfilepointerex.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfilepointerex",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-setfilepointerex.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "7e4c6a4d82e4a7966c2823e94022d62a5636beacc711c00297bf60cab2bb6823"
+    },
+    {
+      "file": "setendoffile.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setendoffile",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-setendoffile.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "0cdb409a6731aff9f58730fe13d8a5a4525ea2b17afabea7bd58f7e0fbc30876"
+    },
+    {
+      "file": "flushfilebuffers.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-flushfilebuffers.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "efdbb0616059f8ee25f549c51ca0a264faad82342f7f3ef6fe10a0e0ec489d9f"
+    },
+    {
+      "file": "getfiletype.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfiletype",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-getfiletype.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "1934682ed0d03480f838af4ade8d6f3113fc593e19caa4fc6046a9ab676fcc5a"
+    },
+    {
+      "file": "deletefilew.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-deletefilew",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-deletefilew.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "89d9b9786bb1a22b2274a97953aedb9a674c70074ab0d65db3380a784c6ca492"
+    },
+    {
+      "file": "deletefilea.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-deletefilea",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/fileapi/nf-fileapi-deletefilea.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "2f1777cc5cadacf997fceedc38c844084e09713cddb5bac106b984a5da24c186"
+    },
+    {
+      "file": "closehandle.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/handleapi/nf-handleapi-closehandle.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "211308020f2d02a8b639edbcd09c7184848e876674668c444506dfe6625a3d20"
+    },
+    {
+      "file": "duplicatehandle.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-duplicatehandle",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/handleapi/nf-handleapi-duplicatehandle.md",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "sha256": "06a16e0a81df22d14b0c5dac120bb5a663f025313777bd139e84f9541c3d87e9"
+    },
+    {
+      "file": "testing-for-the-end-of-a-file.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/fileio/testing-for-the-end-of-a-file",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/e103fa4e8810bd8d42c4777e17081e24dbe62dbd/desktop-src/FileIO/testing-for-the-end-of-a-file.md",
+      "revision": "e103fa4e8810bd8d42c4777e17081e24dbe62dbd",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/e103fa4e8810bd8d42c4777e17081e24dbe62dbd/LICENSE",
+      "sha256": "2201fc54c4006ca9ba2ae3cca32f15d956eaf20f15c460b03f20b6fb7d35934e"
+    },
+    {
+      "file": "file-access-rights-constants.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/fileio/file-access-rights-constants",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/e103fa4e8810bd8d42c4777e17081e24dbe62dbd/desktop-src/FileIO/file-access-rights-constants.md",
+      "revision": "e103fa4e8810bd8d42c4777e17081e24dbe62dbd",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/e103fa4e8810bd8d42c4777e17081e24dbe62dbd/LICENSE",
+      "sha256": "2d2cf29b5cc47acd1576a916e12a671dee79e01d2de9ca91c4b68807c8d78f0b"
+    },
+    {
+      "file": "naming-a-file.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/e103fa4e8810bd8d42c4777e17081e24dbe62dbd/desktop-src/FileIO/naming-a-file.md",
+      "revision": "e103fa4e8810bd8d42c4777e17081e24dbe62dbd",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/e103fa4e8810bd8d42c4777e17081e24dbe62dbd/LICENSE",
+      "sha256": "bf2485c9f36d278b7d96f947869e36247ff8c56eacda6b65124ad0418d7bdcec"
+    },
+    {
+      "file": "file-security-and-access-rights.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/fileio/file-security-and-access-rights",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/e103fa4e8810bd8d42c4777e17081e24dbe62dbd/desktop-src/FileIO/file-security-and-access-rights.md",
+      "revision": "e103fa4e8810bd8d42c4777e17081e24dbe62dbd",
+      "retrieved": "2026-09-27",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/e103fa4e8810bd8d42c4777e17081e24dbe62dbd/LICENSE",
+      "sha256": "7b51546732c19518ebfebfb1a4bb861dcfe70c73ee719eac5f648f8f278c0b7a"
+    }
+  ],
+  "license": {
+    "file": "LICENSE",
+    "issuer": "Microsoft",
+    "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+    "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE"
+  },
+  "additional_licenses": [
+    {
+      "file": "WIN32-LICENSE",
+      "issuer": "Microsoft",
+      "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/e103fa4e8810bd8d42c4777e17081e24dbe62dbd/LICENSE"
+    }
+  ]
+}

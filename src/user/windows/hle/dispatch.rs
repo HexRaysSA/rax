@@ -254,8 +254,10 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
             }
         }
         Ok(Flow::Block { wait, then }) => {
+            if let Err(error) = sync::on_block(p, t.tid, &wait) {
+                return complete(p, t, site, Err(error.into()));
+            }
             frame_for(t, &site).cont = Some(then);
-            sync::on_block(p, t.tid, &wait);
             t.state = ThreadState::Waiting(wait);
             Outcome::Park
         }
@@ -307,6 +309,23 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
         Err(ApiErr::Unimplemented(what)) => Outcome::Fail(format!("unimplemented: {what}")),
         Err(ApiErr::Internal(msg)) => Outcome::Fail(msg),
     }
+}
+
+/// A parked synchronization primitive failed before its continuation could
+/// resume. Preserve its original export frontier for fault classification.
+pub fn wait_failed(p: &mut Proc, t: &mut Thread, error: sync::SyncError) -> Outcome {
+    let Some(frame) = t.frames.last() else {
+        return Outcome::Fail(format!("wait failed without an export frame: {error:?}"));
+    };
+    let site = CallSite {
+        api: frame.api,
+        entry_pc: frame.entry_pc,
+        entry_sp: frame.entry_sp,
+        ret_addr: frame.ret_addr,
+        cursor: frame.cursor,
+        framed: true,
+    };
+    complete(p, t, site, Err(error.into()))
 }
 
 /// Every checked access made by built-in code follows the same one-shot guard

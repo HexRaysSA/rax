@@ -313,6 +313,17 @@ pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc,
         .w32(p.peb + o.peb_os_platform_id, 2)
         .map_err(|e| memory(format!("{e:?}")))?;
     params(&mut p, &image_path)?;
+    // Pseudo process handles must resolve independently of whether a real
+    // process handle has ever been duplicated. The internal reference keeps
+    // this object alive until the entire table is drained at shutdown.
+    let process_object = p
+        .objects
+        .try_create(Object::Process {
+            pid: p.pid,
+            exit_code: None,
+        })
+        .ok_or_else(|| memory("process object capacity exhausted"))?;
+    p.objects.retain(process_object);
     loader::ldr::init(&mut p).map_err(|e| SpawnError::Load {
         status: e.status,
         message: e.message,

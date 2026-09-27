@@ -35,8 +35,13 @@ allocating an image-sized host buffer. Heap reservations commit pages lazily;
 failed initialization/reallocation preserves allocation metadata and old blocks.
 
 The current DLL surface is defined by `src/user/windows/dll/`, including core
-process, memory, heap, console handle, loader, exception registration, and TLS
-services. API names alone do not establish complete parameter coverage. Raw NT
+process, memory, heap, console handle, loader, exception registration, TLS,
+thread/APC, synchronization, handle and synchronous file services. The
+implemented service profiles are recorded in
+[windows-services.md](windows-services.md),
+[windows-threading.md](windows-threading.md), and
+[windows-files.md](windows-files.md). API names alone do not establish complete
+parameter coverage. Raw NT
 service-number tables, complete CRT/GUI/network/registry personalities, general
 dynamic native-DLL initialization/unloading, and host Windows support remain
 incomplete. ARM64EC is a distinct ABI and is not admitted as ARM64. Nonzero
@@ -105,15 +110,15 @@ limit and HeapCreate's architecture-dependent description differ. High: process
 and thread DLL detach/FLS teardown callbacks are incomplete. High: general
 dynamic-load failure rollback is incomplete: failed native modules retain their
 physical mapping and raw guest LDR entries, although checked module lookup hides
-them and subsequent loads preserve the original error. High: dormant critical
-section/SRW helper paths do not propagate every guest-memory fault; current
-built-in DLL tables do not expose these synchronization APIs, and their helpers
-are outside the admitted guest API profile. Medium: admitted image
+them and subsequent loads preserve the original error. High: host filesystem
+check/unlink is not an atomic Windows namespace transaction against external
+mutation. High: synchronous host console reads can block the sole guest
+scheduler thread. Medium: admitted image
 materialization still uses O(SizeOfImage) host memory; checking guest commitment
 first does not establish a separate host-allocation limit. Medium: exact
 Unicode case folding, ANSI code-page conversion, and verbatim path edge cases
-are not a native path-resolution oracle; host-to-guest path conversion also
-does not correctly resolve parent components in every input path. Medium:
+are not a native path-resolution oracle. Host-to-guest parent components now
+normalize lexically; this does not establish symlink-resolution equivalence. Medium:
 interpreter-only stepping limits
 throughput; performance is unmeasured. These findings do not prevent validating
 the PE, ABI, virtual-memory and startup groups independently.
@@ -147,9 +152,10 @@ the synthetic user selector `(10 * 8) | 3 = 0x53`; this is not a native WoW64
 selector guarantee. These are exact integer calculations with no rounding-error
 interval beyond the specified page/granularity ceiling.
 
-## Verification record — 2026-09-27
+## Initial core verification record — 2026-09-27
 
-Host: AArch64 macOS; Rust stable 1.98.1. The final portable combined run,
+Host: AArch64 macOS; Rust stable 1.98.1. The initial core group's combined run
+(semantic commit 77e09436),
 `cargo +stable test --locked --no-default-features --lib --test user_windows --test ci_actions_pinned -- --test-threads=4 --quiet`,
 passed 6,403 library tests, all 25 Windows integration tests, and all 10 CI
 contract tests. The library
@@ -172,3 +178,19 @@ used the recorded MinGW-w64 headers, not a native Windows SDK or private symbol
 oracle. All 205 declared u32 NTSTATUS/Win32 constants matched the installed
 MinGW-w64 headers. All 26 retained specification/header SHA-256 values matched
 their provenance manifest. `cargo fmt --all --check` passed.
+
+## Service-group verification record — 2026-09-27
+
+The service group adds thread/APC/object waits, address-keyed synchronization,
+handle duplication/flags and synchronous files for all three guest ABIs.
+The frozen combined tree passed 6,454 library tests (two optional microkernel
+tests ignored), all 30 Windows integration tests and all 10 CI contract tests.
+The library registry contains 182 Windows unit tests. No Windows integration
+test was ignored or filtered; a separate serial run also passed all 30 tests.
+Three compiled service PE fixtures each executed at scheduler slices of 1 and
+4,096 instructions; all six runs passed. Both workspace all-target
+configurations above passed again for this group. All 58 retained
+service-reference entries and all service fixture hashes passed.
+Native Windows differential execution remains unknown. Exact commands, the
+service Assumption Register, change-surface map, bounded findings and Quality
+Gates are in [Windows handle/service integration](windows-services.md).

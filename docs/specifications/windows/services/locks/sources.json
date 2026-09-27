@@ -1,0 +1,114 @@
+{
+  "retrieved_utc_date": "2026-09-27",
+  "attribution": "Microsoft Corporation and MicrosoftDocs contributors",
+  "upstream_branch": "docs (mutable; exact commit unknown)",
+  "source_classification": "Primary Microsoft API/concept documentation; not a native Windows execution oracle",
+  "files": [
+    {
+      "file": "critical-section-objects.md",
+      "raw_sha256": "407fd3c3bb85135ae9223c3a564d960a978e55c268b49a039859ab8feaaddcb3",
+      "sha256": "3ee78dea2dcc238db495a6336030c56be9a7813b535288cacacf1e1109a00031",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/sync/critical-section-objects",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Sync/critical-section-objects.md",
+      "license": "CC-BY-4.0",
+      "source_commit": "unknown",
+      "retained_modifications": "trailing blank/non-breaking-space-only lines removed"
+    },
+    {
+      "file": "srw-locks.md",
+      "raw_sha256": "36d6bd314b51a4c60445446b9f490de282008107503f371923f56c4abfa9d820",
+      "sha256": "95d27cf0f65b13d16263060cc96b0f974cbfba91ccf2bc8cc527fc8757be3859",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/sync/slim-reader-writer--srw--locks",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Sync/slim-reader-writer--srw--locks.md",
+      "license": "CC-BY-4.0",
+      "source_commit": "unknown",
+      "retained_modifications": "trailing blank/non-breaking-space-only lines removed"
+    },
+    {
+      "file": "condition-variables.md",
+      "raw_sha256": "f1796678396ce07444a06771a5d21643ed9bf0b099d0759e9235201567a163f9",
+      "sha256": "971c37067307b4007f8e4f1915459a14934c2bec0884920eac64a5fbb1096514",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/sync/condition-variables",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Sync/condition-variables.md",
+      "license": "CC-BY-4.0",
+      "source_commit": "unknown",
+      "retained_modifications": "trailing blank/non-breaking-space-only lines removed"
+    },
+    {
+      "file": "waitonaddress.md",
+      "raw_sha256": "c39cd3bfcbd1018e351bf29b3bbf1253946fa44f379ad304f8a7195530f6bd53",
+      "sha256": "c39cd3bfcbd1018e351bf29b3bbf1253946fa44f379ad304f8a7195530f6bd53",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitonaddress",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/synchapi/nf-synchapi-waitonaddress.md",
+      "license": "CC-BY-4.0",
+      "source_commit": "unknown",
+      "retained_modifications": "none"
+    },
+    {
+      "file": "sleepconditionvariablecs.md",
+      "raw_sha256": "dcf7f7caba7033ba6445ffea34bb15e9965d310a3f230a883b1f3da041318441",
+      "sha256": "dcf7f7caba7033ba6445ffea34bb15e9965d310a3f230a883b1f3da041318441",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-sleepconditionvariablecs",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/synchapi/nf-synchapi-sleepconditionvariablecs.md",
+      "license": "CC-BY-4.0",
+      "source_commit": "unknown",
+      "retained_modifications": "none"
+    },
+    {
+      "file": "sleepconditionvariablesrw.md",
+      "raw_sha256": "8cc95801d1910b674acf3bd90983ca75bfaac37fddda8b7a7d835f086f4b4fff",
+      "sha256": "8cc95801d1910b674acf3bd90983ca75bfaac37fddda8b7a7d835f086f4b4fff",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-sleepconditionvariablesrw",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/synchapi/nf-synchapi-sleepconditionvariablesrw.md",
+      "license": "CC-BY-4.0",
+      "source_commit": "unknown",
+      "retained_modifications": "none"
+    },
+    {
+      "file": "initializecriticalsectionex.md",
+      "raw_sha256": "73041cf6a44d1f0c850649ae147f2d86f6a7973177341bec0d3b173002bb8702",
+      "sha256": "73041cf6a44d1f0c850649ae147f2d86f6a7973177341bec0d3b173002bb8702",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-initializecriticalsectionex",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/synchapi/nf-synchapi-initializecriticalsectionex.md",
+      "license": "CC-BY-4.0",
+      "source_commit": "unknown",
+      "retained_modifications": "none"
+    },
+    {
+      "file": "wakebyaddresssingle.md",
+      "raw_sha256": "604df40b567679b7c53ceca44c046a080c1fc512ba3e7e820613b1700f99d679",
+      "sha256": "604df40b567679b7c53ceca44c046a080c1fc512ba3e7e820613b1700f99d679",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-wakebyaddresssingle",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/synchapi/nf-synchapi-wakebyaddresssingle.md",
+      "license": "CC-BY-4.0",
+      "source_commit": "unknown",
+      "retained_modifications": "none"
+    },
+    {
+      "file": "waitformultipleobjectsex.md",
+      "raw_sha256": "b497fcdeaa6017ea9b4f3175a0188a31991913c4dc36f85fa8fe2cf0a4944c8a",
+      "sha256": "4812faee688503c849de8fced00a3277de34630ae039c9fae5b03705bec7366c",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitformultipleobjectsex",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/synchapi/nf-synchapi-waitformultipleobjectsex.md",
+      "license": "CC-BY-4.0",
+      "source_commit": "unknown",
+      "retained_modifications": "terminal LF added"
+    }
+  ],
+  "licenses": [
+    {
+      "repository": "MicrosoftDocs/sdk-api",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/LICENSE",
+      "raw_sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+      "retained_file": "LICENSE",
+      "retained_sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e"
+    },
+    {
+      "repository": "MicrosoftDocs/win32",
+      "raw_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE",
+      "raw_sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+      "retained_file": "LICENSE",
+      "retained_sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e"
+    }
+  ]
+}

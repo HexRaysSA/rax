@@ -45,8 +45,7 @@ pub(super) fn run(p: &mut Proc) -> ExitStatus {
             return ExitStatus::Internal(message.clone());
         }
         if let Some(code) = p.exit_code {
-            signal_process_exit(p, code);
-            return ExitStatus::Exited(code);
+            return shutdown(p, code);
         }
         if p.threads.is_empty() {
             p.exit_code = Some(last_exit);
@@ -64,7 +63,11 @@ pub(super) fn run(p: &mut Proc) -> ExitStatus {
             };
             let outcome = if let Some(code) = t.terminate.take() {
                 if let ThreadState::Waiting(wait) = &t.state {
-                    sync::on_cancel(p, tid, wait);
+                    if let Err(error) = sync::on_cancel(p, tid, wait) {
+                        p.threads.insert(tid, t);
+                        p.fail(format!("thread cancellation failed: {error:?}"));
+                        break;
+                    }
                 }
                 Outcome::ThreadExit(code)
             } else if let ThreadState::Exited(code) = t.state {
@@ -73,7 +76,12 @@ pub(super) fn run(p: &mut Proc) -> ExitStatus {
                 if let ThreadState::Waiting(wait) = &t.state {
                     let wait = wait.clone();
                     match sync::poll(p, tid, &wait, now, !t.apcs.is_empty()) {
-                        Some(status) => {
+                        Ok(Some(status)) => {
+                            if let Err(error) = sync::on_cancel(p, tid, &wait) {
+                                p.threads.insert(tid, t);
+                                p.fail(format!("completed wait cleanup failed: {error:?}"));
+                                break;
+                            }
                             t.state = ThreadState::Ready;
                             if status == sync::WAIT_IO_COMPLETION && !t.apcs.is_empty() {
                                 begin_apcs(p, &mut t, Some(status))
@@ -81,7 +89,18 @@ pub(super) fn run(p: &mut Proc) -> ExitStatus {
                                 dispatch::wait_complete(p, &mut t, status)
                             }
                         }
-                        None => Outcome::Park,
+                        Ok(None) => Outcome::Park,
+                        Err(error) => {
+                            if let Err(cleanup) = sync::on_cancel(p, tid, &wait) {
+                                p.threads.insert(tid, t);
+                                p.fail(format!(
+                                    "faulted wait cleanup failed: {cleanup:?}; original: {error:?}"
+                                ));
+                                break;
+                            }
+                            t.state = ThreadState::Ready;
+                            dispatch::wait_failed(p, &mut t, error)
+                        }
                     }
                 } else {
                     Outcome::Continue
@@ -126,7 +145,14 @@ pub(super) fn run(p: &mut Proc) -> ExitStatus {
     }
 }
 
-fn signal_process_exit(p: &mut Proc, code: u32) {
+fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
+    // A terminated address space must not be written merely to unregister
+    // dormant lock waiters. Drop host registrations/pins before thread teardown.
+    sync::on_process_exit(p);
+    for (_, thread) in std::mem::take(&mut p.threads) {
+        // ExitProcess documents the supplied code for the process/all threads.
+        thread::destroy(p, thread, code);
+    }
     for (_, object) in p.objects.iter_mut() {
         if let Object::Process { pid, exit_code } = object
             && *pid == p.pid
@@ -134,6 +160,15 @@ fn signal_process_exit(p: &mut Proc, code: u32) {
             *exit_code = Some(code);
         }
     }
+    let objects: Vec<_> = p.objects.drain().collect();
+    for object in objects {
+        if let Err(error) = crate::user::windows::dll::finish_close(Some(object)) {
+            let message = format!("process file cleanup failed with Win32 error {error}");
+            p.fail(message.clone());
+            return ExitStatus::Internal(message);
+        }
+    }
+    ExitStatus::Exited(code)
 }
 
 fn apply_outcome(p: &mut Proc, t: Thread, outcome: Outcome, last_exit: &mut u32) {
@@ -215,9 +250,15 @@ fn next_deadline(p: &mut Proc) -> Option<Instant> {
             _ => None,
         })
         .min();
-    // Objects exposes a mutable iterator but no immutable one; timer state
-    // is polled every millisecond even when no thread deadline is known.
-    thread_deadline
+    let timer_deadline = p
+        .objects
+        .iter()
+        .filter_map(|(_, object)| match object {
+            Object::Timer { due, .. } => *due,
+            _ => None,
+        })
+        .min();
+    thread_deadline.into_iter().chain(timer_deadline).min()
 }
 
 fn access_parameter(access: MemoryAccessKind) -> u64 {
@@ -484,8 +525,13 @@ mod tests {
             p.vm.allocate(None, 0x10000, mem::RESERVE | mem::COMMIT, prot::READWRITE)
                 .unwrap();
         let (teb, _) =
-            p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
-                .unwrap();
+            p.vm.allocate(
+                None,
+                crate::user::windows::layout::teb_stride(p.arch),
+                mem::RESERVE | mem::COMMIT,
+                prot::READWRITE,
+            )
+            .unwrap();
         if p.arch == WinArch::X86 {
             p.space.w32(teb, u32::MAX).unwrap();
         }
@@ -538,6 +584,47 @@ mod tests {
         assert_eq!(access_parameter(MemoryAccessKind::Read), 0);
         assert_eq!(access_parameter(MemoryAccessKind::Write), 1);
         assert_eq!(access_parameter(MemoryAccessKind::Fetch), 8);
+    }
+
+    #[test]
+    fn process_exit_cancels_wait_pins_destroys_threads_and_closes_protected_handles() {
+        for arch in WinArch::ALL {
+            let mut p = process(arch);
+            let mut t = thread(&mut p, 8);
+            let stack = t.stack_alloc;
+            let teb = t.teb;
+            let handle = p.objects.insert(Object::Event {
+                manual: true,
+                signaled: false,
+            });
+            let id = p.objects.id(u64::from(handle)).unwrap();
+            let wait = sync::Wait::Objects {
+                objs: vec![id],
+                all: false,
+                deadline: None,
+                alertable: false,
+            };
+            sync::on_block(&mut p, t.tid, &wait).unwrap();
+            p.objects.close(u64::from(handle)).unwrap();
+            park(&mut t, wait);
+            p.threads.insert(t.tid, t);
+            let protected = p.objects.insert(Object::Null);
+            p.objects.set_flags(u64::from(protected), 2, 2);
+            let t = thread(&mut p, 12);
+            p.threads.insert(t.tid, t);
+            p.exit_code = Some(0x1234_5678);
+            assert_eq!(run(&mut p), ExitStatus::Exited(0x1234_5678));
+            assert!(p.threads.is_empty());
+            assert_eq!(p.objects.handle_count(), 0);
+            assert_eq!(p.objects.iter().count(), 0);
+            assert_eq!(p.vm.query(stack).unwrap().state, mem::FREE);
+            assert!(p.space.probe(teb, 1, MemoryAccessKind::Read).is_err());
+            assert_eq!(
+                run(&mut p),
+                ExitStatus::Exited(0x1234_5678),
+                "shutdown is idempotent"
+            );
+        }
     }
 
     #[test]
@@ -615,16 +702,27 @@ mod tests {
                 alertable: false,
             },
         );
+        if let ThreadState::Waiting(wait) = &t.state {
+            sync::on_block(&mut p, t.tid, wait).unwrap();
+        }
+        t.frames.last_mut().unwrap().cont = Some(Box::new(move |c, status| {
+            assert_eq!(status, 0);
+            assert!(matches!(
+                c.p.objects.obj(obj),
+                Some(Object::Timer {
+                    signaled: false,
+                    due: None,
+                    ..
+                })
+            ));
+            Ok(Flow::ExitThread(0))
+        }));
         p.threads.insert(8, t);
         assert_eq!(run(&mut p), ExitStatus::Exited(0));
-        assert!(matches!(
-            p.objects.obj(obj),
-            Some(Object::Timer {
-                signaled: false,
-                due: None,
-                ..
-            })
-        ));
+        assert!(
+            p.objects.obj(obj).is_none(),
+            "process shutdown drains local objects"
+        );
     }
 
     #[test]
@@ -662,14 +760,32 @@ mod tests {
         t.suspend = 1;
         t.terminate = Some(37);
         p.threads.insert(8, t);
-        assert_eq!(run(&mut p), ExitStatus::Exited(37));
-        assert!(matches!(
-            p.objects.obj(obj),
-            Some(Object::Thread {
-                exit_code: Some(37),
-                ..
-            })
-        ));
+        let mut observer = thread(&mut p, 12);
+        let wait = sync::Wait::Objects {
+            objs: vec![obj],
+            all: false,
+            deadline: None,
+            alertable: false,
+        };
+        sync::on_block(&mut p, observer.tid, &wait).unwrap();
+        park(&mut observer, wait);
+        observer.frames.last_mut().unwrap().cont = Some(Box::new(move |c, status| {
+            assert_eq!(status, 0);
+            assert!(matches!(
+                c.p.objects.obj(obj),
+                Some(Object::Thread {
+                    exit_code: Some(37),
+                    ..
+                })
+            ));
+            Ok(Flow::ExitThread(44))
+        }));
+        p.threads.insert(observer.tid, observer);
+        assert_eq!(run(&mut p), ExitStatus::Exited(44));
+        assert!(
+            p.objects.obj(obj).is_none(),
+            "signal observed before process teardown"
+        );
     }
 
     #[test]

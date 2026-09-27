@@ -14,6 +14,148 @@
 //! case-insensitively against its directory.
 
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+/// Identity used by process-local sharing and deferred deletion.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FileIdentity {
+    /// Unix host device and inode numbers (also detect hard-link aliases).
+    Unix(u64, u64),
+    /// Canonical host path on hosts without a supported stable file identity.
+    Path(PathBuf),
+    /// The NUL character device, which has no host pathname.
+    Null,
+}
+
+impl FileIdentity {
+    /// Identifies an existing host file.
+    pub fn of(path: &Path, metadata: &std::fs::Metadata) -> std::io::Result<Self> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let _ = path;
+            Ok(Self::Unix(metadata.dev(), metadata.ino()))
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = metadata;
+            Ok(Self::Path(path.canonicalize()?))
+        }
+    }
+
+    /// Whether replacement-safe deferred unlink is available on this host.
+    pub fn supports_deferred_delete(&self) -> bool {
+        matches!(self, Self::Unix(_, _))
+    }
+}
+
+#[derive(Debug, Default)]
+struct Deletion {
+    paths: Vec<PathBuf>,
+    block_opens: bool,
+    attempted: bool,
+    error: Option<(std::io::ErrorKind, String)>,
+}
+
+/// Shared lifetime of independent opens of one host file.
+///
+/// Duplicate handles already share one `FileObj`. Independent opens clone this
+/// lifetime but retain separate host file cursors. Deferred deletion therefore
+/// waits for every file object, including those retained by internal references.
+#[derive(Debug)]
+pub struct FileLifetime {
+    /// Stable host identity (canonical-path fallback is not an inode oracle).
+    pub identity: FileIdentity,
+    deletion: Mutex<Deletion>,
+}
+
+impl FileLifetime {
+    /// A file not marked for deletion.
+    pub fn new(identity: FileIdentity) -> Self {
+        Self {
+            identity,
+            deletion: Mutex::new(Deletion::default()),
+        }
+    }
+
+    /// Records a pathname to unlink after final close. `DeleteFile` additionally
+    /// blocks subsequent opens; `FILE_FLAG_DELETE_ON_CLOSE` does not.
+    pub fn mark_delete(&self, path: PathBuf, block_opens: bool) -> std::io::Result<()> {
+        if !self.identity.supports_deferred_delete() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "stable host file identity unavailable",
+            ));
+        }
+        let mut d = self.deletion.lock().unwrap_or_else(|e| e.into_inner());
+        if !d.paths.contains(&path) {
+            d.paths.push(path);
+        }
+        d.block_opens |= block_opens;
+        Ok(())
+    }
+
+    /// A prior `DeleteFile` prevents new opens, even with delete sharing.
+    pub fn blocks_opens(&self) -> bool {
+        self.deletion
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .block_opens
+    }
+
+    /// Whether an existing delete-on-close request requires delete sharing.
+    pub fn delete_requested(&self) -> bool {
+        !self
+            .deletion
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .paths
+            .is_empty()
+    }
+
+    /// Performs final-close deletion once, preserving the original error.
+    ///
+    /// The identity is revalidated immediately before unlink. Replacement or
+    /// concurrent renaming is not modeled as successful deletion of the original
+    /// object. The host filesystem's check/unlink race remains a documented
+    /// external-mutation boundary, not a Windows namespace transaction.
+    pub fn finish_delete(&self) -> std::io::Result<()> {
+        let mut d = self.deletion.lock().unwrap_or_else(|e| e.into_inner());
+        if !d.attempted && !d.paths.is_empty() {
+            d.attempted = true;
+            for path in &d.paths {
+                let result = (|| {
+                    let metadata = std::fs::symlink_metadata(path)?;
+                    if FileIdentity::of(path, &metadata)? != self.identity {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            "deferred-delete pathname was replaced",
+                        ));
+                    }
+                    std::fs::remove_file(path)
+                })();
+                if let Err(error) = result {
+                    d.error = Some((error.kind(), error.to_string()));
+                    break;
+                }
+            }
+        }
+        match &d.error {
+            Some((kind, error)) => Err(std::io::Error::new(*kind, error.clone())),
+            None => Ok(()),
+        }
+    }
+}
+
+impl Drop for FileLifetime {
+    fn drop(&mut self) {
+        if let Err(error) = self.finish_delete() {
+            // Explicit final CloseHandle reports the error. Process destruction
+            // has no caller to return it to; retain diagnostic observability.
+            tracing::warn!(%error, identity = ?self.identity, "deferred Windows file deletion failed");
+        }
+    }
+}
 
 /// Drive letters and the host directories they map to.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -89,13 +231,21 @@ impl DriveMap {
                 .map(|c| c.join(host))
                 .unwrap_or_else(|_| host.to_path_buf())
         };
+        // Normalize lexically, including nonexistent paths. Canonicalization
+        // would instead change the meaning of `..` following a symbolic link.
+        let host = lexical_path(&host);
         let best = self
             .drives
             .iter()
-            .filter(|(_, root)| host.starts_with(root))
-            .max_by_key(|(_, root)| root.components().count());
+            .filter(|(_, root)| host.starts_with(lexical_path(root)))
+            .max_by_key(|(_, root)| lexical_path(root).components().count());
         let (letter, rest) = match best {
-            Some((l, root)) => (*l, host.strip_prefix(root).unwrap_or(&host).to_path_buf()),
+            Some((l, root)) => (
+                *l,
+                host.strip_prefix(lexical_path(root))
+                    .unwrap_or(&host)
+                    .to_path_buf(),
+            ),
             None => (
                 self.drives.first().map_or('C', |d| d.0),
                 host.strip_prefix("/").unwrap_or(&host).to_path_buf(),
@@ -138,6 +288,28 @@ impl DriveMap {
         }
         Some(host)
     }
+}
+
+fn lexical_path(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if matches!(
+                    normalized.components().next_back(),
+                    Some(Component::Normal(_))
+                ) {
+                    normalized.pop();
+                } else if !normalized.has_root() {
+                    normalized.push(component.as_os_str());
+                }
+            }
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    normalized
 }
 
 /// Finds `name` in host directory `dir`, exactly or case-insensitively.
@@ -251,9 +423,15 @@ pub fn dos_device(path: &str) -> Option<String> {
     let is_device = matches!(
         stem.as_str(),
         "CON" | "NUL" | "PRN" | "AUX" | "CONIN$" | "CONOUT$"
-    ) || ((stem.starts_with("COM") || stem.starts_with("LPT"))
-        && stem.len() == 4
-        && matches!(stem.as_bytes()[3], b'1'..=b'9'));
+    ) || stem
+        .strip_prefix("COM")
+        .or_else(|| stem.strip_prefix("LPT"))
+        .is_some_and(|n| {
+            matches!(
+                n,
+                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
+            )
+        });
     is_device.then_some(stem)
 }
 
@@ -311,6 +489,11 @@ mod tests {
         assert_eq!(dos_device("com1").as_deref(), Some("COM1"));
         assert_eq!(dos_device("com0"), None);
         assert_eq!(dos_device("console.txt"), None);
+        assert_eq!(dos_device("COM¹.txt").as_deref(), Some("COM¹"));
+        assert_eq!(dos_device("LPT²").as_deref(), Some("LPT²"));
+        assert_eq!(dos_device("COM³").as_deref(), Some("COM³"));
+        assert_eq!(dos_device("COM⁴"), None);
+        assert_eq!(dos_device("COM10"), None);
     }
 
     #[test]
@@ -328,6 +511,30 @@ mod tests {
         assert_eq!(
             m.to_host("E:\\x", &"C:\\".encode_utf16().collect::<Vec<_>>()),
             None
+        );
+    }
+
+    #[test]
+    fn host_parent_components_are_lexical_before_drive_selection() {
+        let mut m = DriveMap::empty();
+        m.set('C', "/");
+        m.set('D', "/mapped/work");
+        assert_eq!(
+            m.to_windows(Path::new("/mapped/work/dir/../file")),
+            "D:\\file"
+        );
+        assert_eq!(
+            m.to_windows(Path::new("/mapped/work/../../outside")),
+            "C:\\outside"
+        );
+        assert_eq!(m.to_windows(Path::new("/../../file")), "C:\\file");
+        assert_eq!(
+            m.to_windows(Path::new("/mapped/work/nonexistent/../file")),
+            "D:\\file"
+        );
+        assert_eq!(
+            lexical_path(Path::new("../../a/../b")),
+            PathBuf::from("../../b")
         );
     }
 }
