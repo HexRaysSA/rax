@@ -22,6 +22,7 @@
 //! | [`mach`] | Ports, messages, and kernel objects |
 //! | [`mig`] | The kernel's MIG servers (host, task, thread, port, VM, clock) |
 //! | [`process`] | Processes, threads, and scheduling |
+//! | [`psynch`] | Kernel wait queues of pthread mutexes, condition variables, and read-write locks |
 //! | [`signal`] | Signals |
 //! | [`syscall`] | System calls and Mach traps |
 //! | [`thread_state`] | Machine thread state in the kernel's exported layouts |
@@ -37,6 +38,7 @@ pub mod loader;
 pub mod mach;
 pub mod mig;
 pub mod process;
+pub mod psynch;
 pub mod shared_region;
 pub mod signal;
 pub mod stack;

@@ -9,6 +9,7 @@ pub mod file;
 pub mod misc;
 pub mod path;
 pub mod proc;
+pub mod pthread;
 pub mod region;
 pub mod sig;
 pub mod sysctl;
@@ -19,11 +20,56 @@ use crate::user::darwin::abi::Errno;
 use crate::user::darwin::abi::tables::nr;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::host::AT_FDCWD;
+use crate::user::darwin::psynch;
+
+/// The calls that are cancellation points (`__pthread_testcancel(1)`
+/// before their work): a pending, enabled cancellation fails them with
+/// `EINTR`. Their `_nocancel` variants are not.
+const CANCELLATION_POINTS: &[u32] = &[
+    nr::READ,
+    nr::WRITE,
+    nr::OPEN,
+    nr::CLOSE,
+    nr::WAIT4,
+    nr::RECVMSG,
+    nr::SENDMSG,
+    nr::RECVFROM,
+    nr::ACCEPT,
+    nr::MSYNC,
+    nr::CONNECT,
+    nr::SELECT,
+    nr::FSYNC,
+    nr::SENDTO,
+    nr::READV,
+    nr::WRITEV,
+    nr::FCNTL,
+    nr::SIGSUSPEND,
+    nr::WAITID,
+    nr::FDATASYNC,
+    nr::PREAD,
+    nr::PWRITE,
+    nr::MSGSND,
+    nr::MSGRCV,
+    nr::SEM_WAIT,
+    nr::AIO_SUSPEND,
+    nr::SIGWAIT,
+    nr::POLL,
+    nr::PSELECT,
+    nr::PREADV,
+    nr::PWRITEV,
+    nr::OPENAT,
+    nr::CONNECTX,
+    nr::DISCONNECTX,
+    nr::PEELOFF,
+];
 
 /// Runs BSD call `number` with `a` (its arguments in 64-bit words).
 pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
     let i = |n: usize| a[n] as i32;
     let u = |n: usize| a[n] as u32;
+    if CANCELLATION_POINTS.contains(&number) {
+        pthread::testcancel(ctx)?;
+    }
     match number {
         nr::EXIT => proc::exit(ctx, i(0)),
         nr::READ | nr::READ_NOCANCEL => file::read(ctx, i(0), a[1], a[2], None),
@@ -149,6 +195,26 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::SYSCTLBYNAME => sysctl::sysctlbyname(ctx, a),
 
         nr::THREAD_SELFID => thread::thread_selfid(ctx),
+        nr::BSDTHREAD_CREATE => pthread::bsdthread_create(ctx, a[0], a[1], a[2], a[3], u(4)),
+        nr::BSDTHREAD_TERMINATE => pthread::bsdthread_terminate(ctx, a[0], a[1], u(2), a[3]),
+        nr::PTHREAD_MARKCANCEL => pthread::markcancel(ctx, u(0)),
+        nr::PTHREAD_CANCELED => pthread::canceled(ctx, i(0)),
+        nr::PSYNCH_MUTEXWAIT => psynch::mutex::mutexwait(ctx, a[0], u(1), u(2), a[3], u(4)),
+        nr::PSYNCH_MUTEXDROP => psynch::mutex::mutexdrop(ctx, a[0], u(1), u(2), u(4)),
+        nr::PSYNCH_CVBROAD => psynch::cond::cvbroad(ctx, a[0], a[1], a[2], u(3)),
+        nr::PSYNCH_CVSIGNAL => psynch::cond::cvsignal_call(ctx, a[0], a[1], u(2), u(3), u(7)),
+        nr::PSYNCH_CVWAIT => {
+            psynch::cond::cvwait(ctx, a[0], a[1], u(2), a[3], a[4], u(5), a[6] as i64, u(7))
+        }
+        nr::PSYNCH_CVCLRPREPOST => {
+            psynch::cond::cvclrprepost(ctx, a[0], u(1), u(2), u(3), u(5), u(6))
+        }
+        nr::PSYNCH_RW_RDLOCK => psynch::rwlock::lock(ctx, false, a[0], u(1), u(2), u(3)),
+        nr::PSYNCH_RW_WRLOCK => psynch::rwlock::lock(ctx, true, a[0], u(1), u(2), u(3)),
+        nr::PSYNCH_RW_UNLOCK => psynch::rwlock::unlock_call(ctx, a[0], u(1), u(2), u(3)),
+        nr::PSYNCH_RW_LONGRDLOCK | nr::PSYNCH_RW_YIELDWRLOCK => Err(Errno::ESRCH),
+        nr::PSYNCH_RW_UNLOCK2 => Err(Errno::ENOTSUP),
+        nr::PSYNCH_RW_UPGRADE | nr::PSYNCH_RW_DOWNGRADE => Ok(Rv::one(0)),
         nr::BSDTHREAD_REGISTER => thread::bsdthread_register(ctx, a),
         nr::ULOCK_WAIT => thread::ulock_wait(ctx, u(0), a[1], a[2], (a[3] as u32 as u64) * 1000),
         nr::ULOCK_WAIT2 => thread::ulock_wait(ctx, u(0), a[1], a[2], a[3]),
@@ -167,7 +233,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::PTHREAD_KILL => sig::pthread_kill(ctx, u(0), i(1)),
         nr::SETITIMER => sig::setitimer(ctx, u(0), a[1], a[2]),
         nr::GETITIMER => sig::getitimer(ctx, u(0), a[1]),
-        nr::DISABLE_THREADSIGNAL => Ok(Rv::one(0)),
+        nr::DISABLE_THREADSIGNAL => pthread::disable_threadsignal(ctx),
         _ => {
             if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {
                 eprintln!(

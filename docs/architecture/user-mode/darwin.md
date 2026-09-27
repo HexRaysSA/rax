@@ -83,6 +83,23 @@ threads, semaphores, policies, restartable ranges, dyld registration),
 `mach_vm`/`vm_map` (allocation, protection, regions, reads and writes), and
 `clock`.
 
+## Threads
+
+| Area | Module | Counterpart |
+|---|---|---|
+| `bsdthread_create`: a thread with its own control port, the TSD base, and libpthread's `thread_start(pthread, kport, func, arg, stack, flags)` state; QoS requests validated; `PTHREAD_START_SUSPENDED` | `syscall::bsd::pthread` | libpthread `kern_support.c` |
+| `bsdthread_terminate`: the stack freed (the main thread's made inaccessible), the joiner's semaphore signalled or its ulock woken once the thread is gone, the control port dead | `syscall::bsd::pthread` | `pthread_shims.c`, `uthread_joiner_wake` |
+| Cancellation: `__pthread_markcancel`, `__pthread_canceled`, `__disable_threadsignal`, and the calls that are cancellation points (`EINTR` when a cancellation is pending) | `syscall::bsd::pthread` | `kern_sig.c` |
+| psynch: kernel wait queues per object address for contended mutexes (first-fit and fair-share), condition variables (signals, broadcasts, directed signals, timed waits, preposts), and read-write locks (overlapping readers, writer hand-off) | `psynch` | libpthread `kern_synch.c` |
+
+A new thread inherits its creator's signal mask. Threads share the one
+emulated CPU in round-robin time slices; a thread parked in a psynch wait
+finishes its call in the operation's continuation when a waker grants it,
+its timeout passes, or a signal or cancellation interrupts it, as
+`ksyn_wait` and the `psynch_*continue` functions do. Queues of
+`PTHREAD_PROCESS_SHARED` objects are keyed by address: sharing them with
+another process is not supported.
+
 ## Signals
 
 | Area | Module | XNU counterpart |
@@ -126,10 +143,11 @@ audit token) is the host process's.
 Single-threaded programs linked against libSystem run on both
 architectures: `dyld` and libSystem initialization, file and path calls,
 memory calls, `sysctl`, Mach messaging with the kernel servers above,
-semaphores and sleeping, and signals. Not yet implemented, and answered
+semaphores and sleeping, signals, and POSIX threads with their mutexes,
+condition variables, and read-write locks. Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
-under `--strace` or `RAX_DARWIN_WARN`: thread creation (`bsdthread_create`,
-work queues), `kqueue`/`kevent`, `psynch` synchronization,
+under `--strace` or `RAX_DARWIN_WARN`: work queues (`workq_open`,
+`workq_kernreturn`, so `libdispatch`'s global queues), `kqueue`/`kevent`,
 `fork`/`execve`/`posix_spawn`, sockets, `proc_info`, and exception delivery
 to Mach exception ports (a machine exception becomes its signal
 directly). `kill` of the process group reaches this process only through
@@ -142,8 +160,10 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
 - `fixtures`: the C programs in `tests/fixtures/user/darwin/src` are built
   for arm64 and x86_64 and must produce the standard output and exit status
   of their native runs (x86_64 through Rosetta), including the fatal
-  `EXC_GUARD` of `guard_fatal` and the handlers, frames, masks, timers,
-  faults, and final `SIGTERM` of `signals`.
+  `EXC_GUARD` of `guard_fatal`, the handlers, frames, masks, timers,
+  faults, and final `SIGTERM` of `signals`, and the thread creation,
+  joins, cancellation, and contended synchronization of `threads` and
+  `threads_sync`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise.
 - `generators`: the checked-in tables equal what the generators produce
@@ -156,4 +176,5 @@ no oracle and report themselves skipped. Library tests under
 `src/user/darwin/` cover the name space, message trailers, commpage and
 stack layout, slide info, sysctl nodes, the host-information flavors,
 exception-to-signal translation, signal actions, interval-timer
-arithmetic, and the thread-state flavors.
+arithmetic, the thread-state flavors, psynch sequence arithmetic and queue
+order, and thread QoS requests.

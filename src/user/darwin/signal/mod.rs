@@ -565,6 +565,37 @@ pub struct ThreadSig {
     pub diversifier: u32,
     /// The last kernel entry's exception state.
     pub entry: EntryState,
+    /// Cancellation and signal flags (`uu_flag`: [`uflag`]).
+    pub uflags: u32,
+    /// A `thread_abort_safely` for the thread's next interruptible wait.
+    pub abort: bool,
+}
+
+/// `uu_flag` bits (`bsd/sys/user.h`).
+pub mod uflag {
+    /// `UT_CANCEL`: cancellation requested.
+    pub const CANCEL: u32 = 0x0000_0008;
+    /// `UT_CANCELED`: the thread acted on its cancellation.
+    pub const CANCELED: u32 = 0x0000_0010;
+    /// `UT_CANCELDISABLE`: cancellation is disabled.
+    pub const CANCELDISABLE: u32 = 0x0000_0020;
+    /// `UT_NO_SIGMASK`: no signal is delivered to the thread.
+    pub const NO_SIGMASK: u32 = 0x0000_0002;
+    /// `UT_NOTCANCELPT`: in a call that is not a cancellation point.
+    pub const NOTCANCELPT: u32 = 0x0000_0004;
+}
+
+impl ThreadSig {
+    /// Whether a cancellation is pending and enabled
+    /// (`uthread_is_cancelled`).
+    pub fn cancelled(&self) -> bool {
+        self.uflags & (uflag::CANCELDISABLE | uflag::CANCEL | uflag::CANCELED) == uflag::CANCEL
+    }
+
+    /// Takes a pending `thread_abort_safely`.
+    pub fn take_abort(&mut self) -> bool {
+        std::mem::take(&mut self.abort)
+    }
 }
 
 /// The process's threads in creation order, `running` (not in the
@@ -645,7 +676,11 @@ fn post(
     }
     let acts = &mut proc.sigacts;
     let mut threads = threads_in_order(&mut proc.threads, running);
-    let takes = |t: &Thread| !t.exited && (t.sig.mask & b == 0 || t.sig.waiting & b != 0);
+    let takes = |t: &Thread| {
+        !t.exited
+            && t.sig.uflags & uflag::NO_SIGMASK == 0
+            && (t.sig.mask & b == 0 || t.sig.waiting & b != 0)
+    };
     let index = match target {
         Target::Thread(tid) => threads.iter().position(|t| t.tid == tid && !t.exited),
         Target::TryThread(tid) => threads
@@ -776,6 +811,20 @@ pub fn interruption(proc: &Proc, thread: &Thread) -> Option<crate::user::darwin:
     } else {
         Errno::ERESTART
     })
+}
+
+/// How a sleep about to begin ends at once: a deliverable signal
+/// ([`interruption`]), or a pending `thread_abort_safely` for a thread
+/// being cancelled (`EINTR`; the abort is spent either way).
+pub fn sleep_interruption(
+    proc: &Proc,
+    thread: &mut Thread,
+) -> Option<crate::user::darwin::abi::Errno> {
+    if let Some(e) = interruption(proc, thread) {
+        return Some(e);
+    }
+    (thread.sig.take_abort() && thread.sig.cancelled())
+        .then_some(crate::user::darwin::abi::Errno::EINTR)
 }
 
 /// The next signal to act on (`issignal_locked`): discarded signals are
