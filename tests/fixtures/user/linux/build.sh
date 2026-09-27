@@ -55,14 +55,14 @@ done
 
 # i386 (x86-linux-musl) builds of the programs whose cases run as
 # compatibility tasks so far. The rest need calls without a 32-bit
-# conversion yet (POSIX message queues, AIO, ptrace), have 64-bit-only code
+# conversion yet (AIO, ptrace), have 64-bit-only code
 # (iovec's `1UL << 62` lengths and kernel addresses), or check behavior the
 # oracle kernel's configuration changes: sockets (its HZ=250 rounds socket
 # timeouts up to 4 ms jiffies) and fdinfo (its timerfd check races on the
 # emulated machine). sigframes, futex32, and ipc32 are i386-only programs
 # (their cases are in cases-i386.txt). Their expected results come from a
 # real x86-64 kernel (oracle/record-kernel.sh), not from Docker.
-i386_programs=(hello fileio memory mman memfd nodes signals shmem locks threads threadexit exec fork sched procmem stdin segv abort trap epoll sockmsg pidfd xattr misc netlink ifreq inotify splice mlock sysvshm sysvsem sysvmsg sigframes futex32 ipc32)
+i386_programs=(hello fileio memory mman memfd nodes signals shmem locks threads threadexit exec fork sched procmem stdin segv abort trap epoll sockmsg pidfd xattr misc netlink ifreq inotify splice mlock sysvshm sysvsem sysvmsg mqueue sigframes futex32 ipc32)
 mkdir -p bin/i386
 for prog in "${i386_programs[@]}"; do
     out="bin/i386/$prog"

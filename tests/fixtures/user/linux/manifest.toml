@@ -1167,6 +1167,12 @@ target = "x86-linux-musl"
 sha256 = "a9ee5eeb454c815fb39b2b6cb92e0a1ff3b7ae269574accb5eb61719fa62c3af"
 
 [[fixture]]
+path = "bin/i386/mqueue"
+source = "src/mqueue.c"
+target = "x86-linux-musl"
+sha256 = "d596068d8b668349df56b94ae500324ac96588b677cdfcf35c3298590670d76b"
+
+[[fixture]]
 path = "bin/i386/sigframes"
 source = "src/sigframes.c"
 target = "x86-linux-musl"
