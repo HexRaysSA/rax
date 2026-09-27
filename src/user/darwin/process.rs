@@ -561,9 +561,18 @@ impl DarwinProcess {
             // A workqueue thread given a request sets itself up first.
             super::workq::run_pending(&mut self.proc, &mut thread);
             let t0 = thread_cpu_ns();
-            let trap = thread.cpu.run(self.proc.config.slice_insns);
+            // A thread whose exception a handler had goes on with the
+            // handler's reply first.
+            let trap = if thread.mach.exception.is_some() {
+                None
+            } else {
+                Some(thread.cpu.run(self.proc.config.slice_insns))
+            };
             let t1 = thread_cpu_ns();
-            self.handle(&mut thread, trap);
+            match trap {
+                Some(trap) => self.handle(&mut thread, trap),
+                None => super::exception::resume(&mut self.proc, &mut thread),
+            }
             if let Some(swap) = self.proc.exec.take() {
                 // The call ran a new image: the process continues as it,
                 // and the calling thread went with the old one.
@@ -758,22 +767,14 @@ impl DarwinProcess {
                 if self.proc.config.strace {
                     eprintln!("[{:#x}] exception {exc:?}", thread.tid);
                 }
-                signal::raise_exception(&mut self.proc, thread, &exc);
+                super::exception::raise_fault(&mut self.proc, thread, &exc);
             }
             Trap::BadSyscall { number } => {
                 if self.proc.config.strace {
                     eprintln!("[{:#x}] invalid system call {number:#x}", thread.tid);
                 }
-                // EXC_SYSCALL with the number and 1 (i386_exception,
-                // mach_syscall): SIGSYS.
                 syscall::entered(self.proc.abi, thread);
-                signal::raise_mach(
-                    &mut self.proc,
-                    thread,
-                    signal::exc::SYSCALL,
-                    number as i64,
-                    1,
-                );
+                super::exception::raise_syscall(&mut self.proc, thread, number);
             }
             other => syscall::dispatch(&mut self.proc, thread, other),
         }

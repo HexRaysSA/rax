@@ -203,7 +203,8 @@ on an arm64 kernel, whose workqueue stacks carry the 12 KiB offset.
 |---|---|---|
 | Actions (`sigaction`), process-wide `sigprocmask`, per-thread `__pthread_sigmask`, `sigpending`, `sigsuspend`, `__sigwait`, `sigaltstack`, `kill`, `__pthread_kill`, `setitimer`/`getitimer` | `syscall::bsd::sig` | `kern_sig.c`, `kern_time.c` |
 | Posting to a thread (the first in creation order that does not block the signal), `sigwait` hand-off, discarding ignored signals, delivery on the way back to user mode (`issignal`, `postsig`), `SA_RESETHAND`, `SA_NODEFER` | `signal` | `psignal_internal`, `bsd_ast` |
-| Machine exceptions: Mach exception type, code, and subcode, then the signal (`SIGSEGV` for `KERN_INVALID_ADDRESS`, `SIGBUS` for protection failures, `SIGSEGV` on the stack guard) | `signal` | `user_trap`, `sleh.c`, `ux_exception.c` |
+| Machine exceptions: Mach exception type and codes (arm64: a breakpoint's PC, an undefined instruction's word; x86-64: `INT3` a trap, `EXC_I386_BPT` with the state past it), and an invalid Mach trap's `EXC_SYSCALL` (the trap number alone on arm64, `RAX` and 1 on x86-64); a `BRK` of 0xB000-0xBFFF kills the process with no message or signal | `exception`, `signal` | `user_trap`, `sleh.c`, `mach_syscall`, `mach_call_munger64` |
+| Exception delivery: the thread's handler, then the task's, then the host's (`ux_handler`: the signal, with `SIGSEGV` for `KERN_INVALID_ADDRESS`, `SIGBUS` for protection failures, `SIGSEGV` on the stack guard). A handler gets its behavior's request (`exception_raise`, `_state`, `_state_identity`, and their 64-bit-code `mach_exc` forms, with the thread's and task's control ports and the flavor's full state), and the thread waits for the reply, which neither a signal nor `thread_abort_safely` ends, on a port of its own; the reply is checked as MIG checks it, and one that takes the exception resumes the thread with the state it returns. A refusal, a reply that fails its checks or whose state cannot be installed, a destroyed reply right, a dead handler, or a flavor the thread cannot report passes the exception to the next level. The protected behaviors (identity tokens) are not delivered | `exception` | `exception_triage`, `exception_deliver`, `mach_msg_rpc_from_kernel`, `exc.defs`, `mach_exc.defs`, `ux_exception.c` |
 | Signal frames: `siginfo_t`, `ucontext_t`, and the machine context (arm64 `mcontext64`, 816 bytes; x86-64 `mcontext_avx64`, 1032 bytes), alternate stacks, and `sigreturn` with its token | `signal::frame`, `thread_state` | `unix_signal.c`, `status.c`, `fpu.c`, `pcb.c` |
 | Interrupted sleeps: `EINTR`, or a restart after the handler for `SA_RESTART` (never for `select`, `poll`, `sigsuspend`, `__semwait_signal`); `MACH_RCV_INTERRUPTED`, `MACH_SEND_INTERRUPTED`, `KERN_ABORTED` | `syscall`, `syscall::mach` | `kern_synch.c`, `sys_generic.c`, `ipc_mqueue.c` |
 | `SIGPIPE` for a write to a broken pipe (unless `F_SETNOSIGPIPE`) | `syscall::bsd::file` | `dofilewrite` |
@@ -364,9 +365,7 @@ port actions, spawn attributes), process information (`proc_info`), and
 sockets.
 Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
-under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl` and exception delivery
-to Mach exception ports (a machine exception becomes its signal
-directly). `kill` of the process group reaches this process only through
+under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`. `kill` of the process group reaches this process only through
 host-signal forwarding, and `kill(-1, sig)` signals only this process.
 
 ## Evidence
@@ -396,9 +395,11 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   process, task, thread, descriptor, region, and control queries of
   `procinfo`, and the calls, errors, blocking, signals, and passed
   descriptors of `sockets`, the attribute lists, clones, and access tables
-  of `attrs`, and the deferred-reclamation ring of `reclaim`
+  of `attrs`, the deferred-reclamation ring of `reclaim`
   (libmalloc's, and a ring of the fixture's own in a process libmalloc gives
-  none).
+  none), and the requests, replies, levels, codes, and fallen-through
+  signals of `mach_exc` (the failure paths Rosetta handles differently
+  on arm64 only).
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit
@@ -412,7 +413,8 @@ Without a macOS host (or without Rosetta, for x86_64) the comparisons have
 no oracle and report themselves skipped. Library tests under
 `src/user/darwin/` cover the name space, message trailers, commpage and
 stack layout, slide info, sysctl nodes, the host-information flavors,
-exception-to-signal translation, signal actions, interval-timer
+exception-to-signal translation, exception requests and reply checks,
+signal actions, interval-timer
 arithmetic, the thread-state flavors, psynch sequence arithmetic and queue
 order, thread QoS requests, the pthread priority encoding, work-queue
 admission and request selection, interpreter-line parsing, fat and thin

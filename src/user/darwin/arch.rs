@@ -68,11 +68,11 @@ pub enum Exception {
         /// Why the core rejected it.
         reason: String,
     },
-    /// `BRK #imm` or `INT3` (`EXC_BREAKPOINT`).
+    /// `BRK #imm` (`EXC_BREAKPOINT`).
     Breakpoint {
         /// Address of the instruction.
         pc: u64,
-        /// The `BRK` immediate (zero for `INT3`).
+        /// The `BRK` immediate.
         imm: u16,
     },
     /// Another x86-64 exception vector.
@@ -542,10 +542,12 @@ fn x86_trap(cpu: &mut X86UserCpu, exit: X86Exit) -> Trap {
             }
         }
         X86Exit::Event(event) => match (event.vector, event.source) {
-            (3, X86EventSource::SoftwareInterrupt) => Trap::Exception(Exception::Breakpoint {
-                pc: event.insn_rip,
-                imm: 0,
-            }),
+            // INT3 traps: the thread's state is past it (T_INT3 in
+            // user_trap).
+            (3, X86EventSource::SoftwareInterrupt) => {
+                cpu.vcpu_mut().user_regs_mut().rip = event.return_rip;
+                Trap::Exception(Exception::X86(event))
+            }
             (6, _) => Trap::Exception(Exception::Undefined {
                 pc: event.insn_rip,
                 reason: "#UD".into(),

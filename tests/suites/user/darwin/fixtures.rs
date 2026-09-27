@@ -344,3 +344,13 @@ fn thread_state_arm64() {
 fn thread_state_x86_64() {
     fixture("thread_state", "x86_64", &[], &[]);
 }
+
+#[test]
+fn mach_exc_arm64() {
+    fixture("mach_exc", "arm64", &[], &[]);
+}
+
+#[test]
+fn mach_exc_x86_64() {
+    fixture("mach_exc", "x86_64", &[], &[]);
+}
