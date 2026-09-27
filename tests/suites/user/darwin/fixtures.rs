@@ -139,3 +139,13 @@ fn fork_arm64() {
 fn fork_x86_64() {
     fixture("fork", "x86_64", &[], &[]);
 }
+
+#[test]
+fn csr_arm64() {
+    fixture("csr", "arm64", &[], &[]);
+}
+
+#[test]
+fn csr_x86_64() {
+    fixture("csr", "x86_64", &[], &[]);
+}
