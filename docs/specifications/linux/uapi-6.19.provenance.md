@@ -13,9 +13,10 @@
 - Upstream source: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
   (tag `v6.19`), paths `include/uapi/`, `arch/*/include/uapi/`, and the
   generated `asm/unistd_{32,64}.h` tables.
-- Retrieved: 24 September 2026
+- Retrieved: 24 September 2026 (`arm-linux-any/asm/{unistd,ptrace,statfs,posix_types}.h`:
+  27 September 2026)
 - Integrity: `uapi-6.19.sha256` lists the SHA-256 of every imported file.
-- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (90 files),
+- License: the headers carry `GPL-2.0 WITH Linux-syscall-note` (94 files),
   `GPL-2.0-only WITH Linux-syscall-note` (5 files), or
   `GPL-2.0+ WITH Linux-syscall-note` (11 files) SPDX identifiers. Thirteen
   files have no SPDX line: the six generated syscall tables and the
@@ -36,7 +37,7 @@ These headers are the normative reference for:
 
 - system-call numbers per guest ABI (`asm/unistd_64.h` for x86-64, AArch64,
   and RV64; `asm/unistd_32.h` for i386 and RV32; `asm/unistd-eabi.h` for
-  ARM EABI);
+  ARM EABI, with `asm/unistd.h`'s ARM private calls such as `set_tls`);
 - `errno` values (`asm-generic/errno-base.h`, `asm-generic/errno.h`);
 - open, `fcntl`, `mmap`, `clone`, `futex`, `prctl`, timer/event/signal
   descriptor (`timerfd.h`, `eventfd.h`, `signalfd.h`), `memfd.h`, `pidfd.h`, `xattr.h` (with the `limits.h` bounds), and signal constant

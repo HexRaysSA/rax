@@ -91,10 +91,14 @@ ddf570736a12697914b459f883e211d2eeaa557783b35c7854fd2078e61dc926  ./any-linux-an
 91e5bd4e5104a2b40cedf3a6979dee3964085d289b549128969b9c82e34e0976  ./arm-linux-any/asm/auxvec.h
 725834493bfa6a98756635dd4b549b8ac0d6f8a936401206eca2576f24edfcae  ./arm-linux-any/asm/fcntl.h
 60a2b76f60060e024c000293b660313a4815b479283c849e817ba98387c50699  ./arm-linux-any/asm/hwcap.h
+27f688356fc0fe4d4869138323d29069d0348bfb04e343572fe8d7848c9cc17c  ./arm-linux-any/asm/posix_types.h
+977e3e82ec6da714a805e678ceff276cb14eccce6d4cd07c8d7f0ef0b3c2f552  ./arm-linux-any/asm/ptrace.h
 b0a508970e7979c19ed258a204680addba586606df61f7f166e6102d4574426d  ./arm-linux-any/asm/sigcontext.h
 a36ea2a8b7a8b052bba89c7e146f5e7832942e8f906a2114462d40b5545228a9  ./arm-linux-any/asm/signal.h
 3823cf3ce2859203ec5e6d10e5cca80d53117b3d125189e28e4132df537404e2  ./arm-linux-any/asm/stat.h
+26856bdf544fac751e79d9260e70e65db32de6955d1c732adf9e5629750d0df5  ./arm-linux-any/asm/statfs.h
 fa5dea2554ca6cefadc3639fc2283d77063ae9d0793ae449638a42bc46a01366  ./arm-linux-any/asm/unistd-eabi.h
+8d866435576629ab7cb585700a7fa6d43e9f496b4ee6ebb86e59b397dc4e1abb  ./arm-linux-any/asm/unistd.h
 1151da538b3cb16bc27f8b1e3386ed2484d184b9cd6186a648caa0652ea1099d  ./riscv-linux-any/asm/auxvec.h
 5d0db677465b0686068d5379b88007bb66212659a65368d0ff19627ddbfc9430  ./riscv-linux-any/asm/hwcap.h
 180ba2c6118fdbc457619c2bdccff0049351f91753b0d91dc54e095542e3a88c  ./riscv-linux-any/asm/hwprobe.h
