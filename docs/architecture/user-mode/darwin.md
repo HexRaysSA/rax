@@ -100,6 +100,18 @@ its timeout passes, or a signal or cancellation interrupts it, as
 `PTHREAD_PROCESS_SHARED` objects are keyed by address: sharing them with
 another process is not supported.
 
+## kqueues
+
+| Area | Module | Counterpart |
+|---|---|---|
+| `kqueue`, `kevent`, `kevent64`, `kevent_qos` on kqueue descriptors: registration with receipts and errors as events, activation-order delivery, `EV_ONESHOT`, `EV_CLEAR`, `EV_DISPATCH`, deferred deletes, `EV_UDATA_SPECIFIC`, `EV_VANISHED`, timeouts, interrupted waits, one interface per kqueue | `kevent` | `kern_event.c` |
+| `EVFILT_TIMER` (units, absolute, repeating counts), `EVFILT_USER` (triggers, filter-flag operations), `EVFILT_SIGNAL` (counts of process-directed signals, ignored ones included), `EVFILT_READ` on a kqueue | `kevent::filters` | `kern_event.c`, `kern_sig.c` |
+| `EVFILT_MACHPORT` on receive rights and port sets, reporting the port or receiving the message into the knote's buffer or the call's data area (`MACH_RCV_MSG`) | `kevent::filters`, `syscall::mach::msg` | `ipc_pset.c` |
+| Descriptor filters (`EVFILT_READ`, `EVFILT_WRITE`, `EVFILT_VNODE`, `EVFILT_EXCEPT`, ...) and `EVFILT_PROC`: carried by a host kqueue per guest kqueue on a macOS host, whose events give the data, flags, and `EV_EOF`; elsewhere reads and writes are emulated with `poll` | `kevent::host` | `kern_event.c` |
+
+Closing a descriptor drops its knotes (or reports `EV_VANISHED` for those
+that asked); closing a kqueue's last descriptor drops the kqueue.
+
 ## Signals
 
 | Area | Module | XNU counterpart |
@@ -143,12 +155,13 @@ audit token) is the host process's.
 Single-threaded programs linked against libSystem run on both
 architectures: `dyld` and libSystem initialization, file and path calls,
 memory calls, `sysctl`, Mach messaging with the kernel servers above,
-semaphores and sleeping, signals, and POSIX threads with their mutexes,
-condition variables, and read-write locks. Not yet implemented, and answered
+semaphores and sleeping, signals, POSIX threads with their mutexes,
+condition variables, and read-write locks, and kqueues. Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
 under `--strace` or `RAX_DARWIN_WARN`: work queues (`workq_open`,
-`workq_kernreturn`, so `libdispatch`'s global queues), `kqueue`/`kevent`,
-`fork`/`execve`/`posix_spawn`, sockets, `proc_info`, and exception delivery
+`workq_kernreturn`, the work-queue kqueue of `kevent_qos`, workloops and
+`kevent_id`: so `libdispatch`'s queues), `fork`/`execve`/`posix_spawn`,
+sockets, `proc_info`, and exception delivery
 to Mach exception ports (a machine exception becomes its signal
 directly). `kill` of the process group reaches this process only through
 host-signal forwarding, and `kill(-1, sig)` signals only this process.
@@ -163,7 +176,7 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `EXC_GUARD` of `guard_fatal`, the handlers, frames, masks, timers,
   faults, and final `SIGTERM` of `signals`, and the thread creation,
   joins, cancellation, and contended synchronization of `threads` and
-  `threads_sync`.
+  `threads_sync`, and the filters and delivery protocol of `kqueue`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise.
 - `generators`: the checked-in tables equal what the generators produce

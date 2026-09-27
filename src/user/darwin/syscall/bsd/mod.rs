@@ -5,6 +5,7 @@
 //! cancellable counterparts (thread cancellation is delivered only at
 //! explicit cancellation points in libpthread).
 
+pub mod event;
 pub mod file;
 pub mod misc;
 pub mod path;
@@ -20,6 +21,7 @@ use crate::user::darwin::abi::Errno;
 use crate::user::darwin::abi::tables::nr;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::host::AT_FDCWD;
+use crate::user::darwin::kevent;
 use crate::user::darwin::psynch;
 
 /// The calls that are cancellation points (`__pthread_testcancel(1)`
@@ -194,6 +196,10 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::SYSCTL => sysctl::sysctl(ctx, a),
         nr::SYSCTLBYNAME => sysctl::sysctlbyname(ctx, a),
 
+        nr::KQUEUE => kevent::kqueue(ctx),
+        nr::KEVENT => event::kevent(ctx, a, event::Api::Kevent),
+        nr::KEVENT64 => event::kevent(ctx, a, event::Api::Kevent64),
+        nr::KEVENT_QOS => event::kevent(ctx, a, event::Api::Qos),
         nr::THREAD_SELFID => thread::thread_selfid(ctx),
         nr::BSDTHREAD_CREATE => pthread::bsdthread_create(ctx, a[0], a[1], a[2], a[3], u(4)),
         nr::BSDTHREAD_TERMINATE => pthread::bsdthread_terminate(ctx, a[0], a[1], u(2), a[3]),

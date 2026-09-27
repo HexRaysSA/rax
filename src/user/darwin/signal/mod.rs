@@ -671,6 +671,11 @@ fn post(
     debug_assert!((1..NSIG).contains(&sig));
     let b = bit(sig);
     let p = props(sig);
+    if !matches!(target, Target::Thread(_)) {
+        // proc_knote(NOTE_SIGNAL | sig): EVFILT_SIGNAL counts every
+        // process-directed signal, ignored or not.
+        crate::user::darwin::kevent::filters::post_signal(proc, sig);
+    }
     if proc.sigacts.ignore & b != 0 || proc.exit.is_some() {
         return;
     }

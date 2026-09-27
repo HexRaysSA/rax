@@ -298,7 +298,8 @@ fn host_seek_data() -> i32 {
 
 /// `close(fd)`.
 pub fn close(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
-    ctx.proc.fds.remove(fd)?;
+    let removed = ctx.proc.fds.remove(fd)?;
+    crate::user::darwin::kevent::fd_closed(ctx.proc, fd, Some(removed.file));
     Ok(Rv::one(0))
 }
 
@@ -320,7 +321,10 @@ pub fn dup2(ctx: &mut Ctx<'_>, from: i32, to: i32) -> SysResult {
     if from == to {
         return Ok(Rv::one(to as u64));
     }
-    ctx.proc.fds.install_at(to as usize, file, false);
+    let replaced = ctx.proc.fds.install_at(to as usize, file, false);
+    if let Some(old) = replaced {
+        crate::user::darwin::kevent::fd_closed(ctx.proc, to, Some(old.file));
+    }
     Ok(Rv::one(to as u64))
 }
 

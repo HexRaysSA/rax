@@ -19,6 +19,7 @@
 //! | [`fd`] | Descriptor tables |
 //! | [`host`] | The host side of file and descriptor calls |
 //! | [`io`] | Open-file flags |
+//! | [`kevent`] | kqueues, knotes, and filters |
 //! | [`mach`] | Ports, messages, and kernel objects |
 //! | [`mig`] | The kernel's MIG servers (host, task, thread, port, VM, clock) |
 //! | [`process`] | Processes, threads, and scheduling |
@@ -34,6 +35,7 @@ pub mod commpage;
 pub mod fd;
 pub mod host;
 pub mod io;
+pub mod kevent;
 pub mod loader;
 pub mod mach;
 pub mod mig;
