@@ -5,6 +5,8 @@
 //! cancellable counterparts (thread cancellation is delivered only at
 //! explicit cancellation points in libpthread).
 
+#[cfg(target_os = "macos")]
+pub mod acl;
 pub mod event;
 pub mod file;
 pub mod misc;
@@ -169,6 +171,23 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GETATTRLISTAT => {
             path::getattrlistat(ctx, Some(i(0)), Some(a[1]), a[2], a[3], a[4], a[5])
         }
+        #[cfg(target_os = "macos")]
+        nr::STAT64_EXTENDED => acl::stat64_extended(ctx, true, a[0], a[1], a[2], a[3]),
+        #[cfg(target_os = "macos")]
+        nr::LSTAT64_EXTENDED => acl::stat64_extended(ctx, false, a[0], a[1], a[2], a[3]),
+        #[cfg(target_os = "macos")]
+        nr::FSTAT64_EXTENDED => acl::fstat64_extended(ctx, i(0), a[1], a[2], a[3]),
+        #[cfg(target_os = "macos")]
+        nr::CHMOD_EXTENDED => acl::chmod_extended(ctx, a[0], u(1), u(2), i(3), a[4]),
+        #[cfg(target_os = "macos")]
+        nr::FCHMOD_EXTENDED => acl::fchmod_extended(ctx, i(0), u(1), u(2), i(3), a[4]),
+        #[cfg(target_os = "macos")]
+        nr::MKDIR_EXTENDED => acl::mknode_extended(ctx, false, a[0], u(1), u(2), i(3), a[4]),
+        #[cfg(target_os = "macos")]
+        nr::MKFIFO_EXTENDED => acl::mknode_extended(ctx, true, a[0], u(1), u(2), i(3), a[4]),
+        #[cfg(target_os = "macos")]
+        nr::OPEN_EXTENDED => acl::open_extended(ctx, a[0], u(1), u(2), u(3), i(4), a[5]),
+        nr::UMASK_EXTENDED => misc::umask(ctx, u(0)),
         #[cfg(target_os = "macos")]
         nr::GETXATTR => xattr::getxattr(ctx, a[0], a[1], a[2], a[3], u(4), u(5)),
         #[cfg(target_os = "macos")]

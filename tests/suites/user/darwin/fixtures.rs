@@ -229,3 +229,13 @@ fn xattr_arm64() {
 fn xattr_x86_64() {
     fixture("xattr", "x86_64", &[], &[]);
 }
+
+#[test]
+fn acl_arm64() {
+    fixture("acl", "arm64", &[], &[]);
+}
+
+#[test]
+fn acl_x86_64() {
+    fixture("acl", "x86_64", &[], &[]);
+}
