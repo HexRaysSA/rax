@@ -2,15 +2,21 @@
 //! language, whose leaves are data entries (PE specification, "The .rsrc
 //! Section"). All offsets inside the tree are relative to the start of the
 //! resource directory; data entries hold RVAs.
+//!
+//! This format-level decoder follows the PE specification's 32-bit Integer
+//! ID and case-sensitive name ordering, preserving exact UTF-16 code units.
+//! The SDK's `winnt.h` instead declares a 16-bit `Id` union member and describes
+//! case-insensitive names. This API does not implement or claim equivalence
+//! to the Windows `FindResource` name-matching policy.
 
 use super::{DataDirectory, RvaFault, RvaSource};
 
 /// `RT_MANIFEST`.
-pub const RT_MANIFEST: u16 = 24;
+pub const RT_MANIFEST: u32 = 24;
 /// `RT_STRING`.
-pub const RT_STRING: u16 = 6;
+pub const RT_STRING: u32 = 6;
 /// `RT_VERSION`.
-pub const RT_VERSION: u16 = 16;
+pub const RT_VERSION: u32 = 16;
 
 /// Upper bound on the entries of one directory table.
 const MAX_ENTRIES: u32 = 1 << 16;
@@ -21,9 +27,8 @@ const MAX_NAME: usize = 1024;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ResId {
     /// An integer identifier.
-    Id(u16),
-    /// A name, compared case-insensitively (names are stored upper-cased by
-    /// resource compilers).
+    Id(u32),
+    /// A name, matched by exact UTF-16 code units, without case folding.
     Name(Vec<u16>),
 }
 
@@ -37,7 +42,7 @@ pub struct ResourceData {
     /// `Codepage`.
     pub codepage: u32,
     /// The language identifier of the leaf.
-    pub language: u16,
+    pub language: u32,
 }
 
 /// One directory entry.
@@ -47,18 +52,6 @@ struct Entry {
     /// Offset (from the tree root) of the subdirectory or data entry.
     target: u32,
     subdirectory: bool,
-}
-
-fn upper(c: u16) -> u16 {
-    if (u16::from(b'a')..=u16::from(b'z')).contains(&c) {
-        c - 32
-    } else {
-        c
-    }
-}
-
-fn same_name(a: &[u16], b: &[u16]) -> bool {
-    a.len() == b.len() && a.iter().zip(b).all(|(&x, &y)| upper(x) == upper(y))
 }
 
 /// The resource tree of an image.
@@ -92,7 +85,10 @@ impl ResourceTree {
             let e = at + 16 + 8 * i;
             let name = src.u32_at(e)?;
             let target = src.u32_at(e + 4)?;
-            let id = if name & 0x8000_0000 != 0 {
+            // The PE format specifies that named entries precede integer
+            // entries, selected by the directory counts. Do not interpret
+            // an integer's bit 31 as a string flag or truncate it to WORD.
+            let id = if i < u64::from(named) {
                 let off = u64::from(name & 0x7FFF_FFFF);
                 let s = self.range.extent_at(off, 2)?;
                 let len = usize::from(src.u16_at(s)?);
@@ -106,7 +102,7 @@ impl ResourceTree {
                 }
                 ResId::Name(units)
             } else {
-                ResId::Id(name as u16)
+                ResId::Id(name)
             };
             out.push(Entry {
                 id,
@@ -118,21 +114,14 @@ impl ResourceTree {
     }
 
     fn find(entries: &[Entry], id: &ResId) -> Option<Entry> {
-        entries
-            .iter()
-            .find(|e| match (&e.id, id) {
-                (ResId::Id(a), ResId::Id(b)) => a == b,
-                (ResId::Name(a), ResId::Name(b)) => same_name(a, b),
-                _ => false,
-            })
-            .cloned()
+        entries.iter().find(|e| &e.id == id).cloned()
     }
 
     fn leaf(
         &self,
         src: &(impl RvaSource + ?Sized),
         e: &Entry,
-        language: u16,
+        language: u32,
     ) -> Result<ResourceData, RvaFault> {
         let at = self.range.extent_at(u64::from(e.target), 16)?;
         Ok(ResourceData {
@@ -146,12 +135,14 @@ impl ResourceTree {
     /// Finds resource `name` of type `kind`. With `language`, only that
     /// language matches; without, the language-neutral entry (0) is
     /// preferred, then U.S. English (0x409), then the first entry.
+    /// Names use exact UTF-16 equality, not Windows API case folding.
+    /// This numeric-language API rejects named language identifiers.
     pub fn find_resource(
         &self,
         src: &(impl RvaSource + ?Sized),
         kind: &ResId,
         name: &ResId,
-        language: Option<u16>,
+        language: Option<u32>,
     ) -> Result<Option<ResourceData>, RvaFault> {
         let types = self.entries(src, 0)?;
         let Some(t) = Self::find(&types, kind).filter(|e| e.subdirectory) else {
@@ -162,6 +153,11 @@ impl ResourceTree {
             return Ok(None);
         };
         let langs = self.entries(src, n.target)?;
+        if langs.iter().any(|e| matches!(e.id, ResId::Name(_))) {
+            return Err(RvaFault {
+                rva: u64::from(self.range.rva) + u64::from(n.target),
+            });
+        }
         let leaf_lang = |e: &Entry| match e.id {
             ResId::Id(l) => l,
             ResId::Name(_) => 0,

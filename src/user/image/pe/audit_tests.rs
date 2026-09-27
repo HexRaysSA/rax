@@ -3,6 +3,153 @@
 use super::*;
 
 #[test]
+fn legacy_delay_descriptors_do_not_silently_discard_imports() {
+    let descriptor = imports::DelayDescriptor {
+        attributes: 0,
+        name_rva: 0x0040_0300,
+        module_handle_rva: 0x0040_0350,
+        iat_rva: 0x0040_0400,
+        name_table_rva: 0x0040_0500,
+        bound_iat_rva: 0,
+        unload_iat_rva: 0,
+        time_date_stamp: 0,
+    };
+    let m = Mem::new(0x1000);
+    assert!(descriptor.thunks(&m.0, PeKind::Pe32).is_err());
+}
+
+#[test]
+fn delay_descriptor_reserved_attributes_are_not_accepted_as_rvas() {
+    let descriptor = imports::DelayDescriptor {
+        attributes: 3,
+        name_rva: 0x300,
+        module_handle_rva: 0x350,
+        iat_rva: 0x400,
+        name_table_rva: 0x500,
+        bound_iat_rva: 0,
+        unload_iat_rva: 0,
+        time_date_stamp: 0,
+    };
+    let m = Mem::new(0x1000);
+    assert!(descriptor.thunks(&m.0, PeKind::Pe32).is_err());
+}
+
+fn resource_id_tree(type_id: u32, name_id: u32, language_id: u32) -> (Mem, ResourceTree) {
+    let mut m = Mem::new(0x1000);
+    for (offset, id, target) in [
+        (0x100, type_id, 0x8000_0040),
+        (0x140, name_id, 0x8000_0080),
+        (0x180, language_id, 0xC0),
+    ] {
+        m.u16(offset + 14, 1);
+        m.u32(offset + 16, id);
+        m.u32(offset + 20, target);
+    }
+    m.u32(0x1C0, 0x800);
+    m.u32(0x1C4, 4);
+    let tree = ResourceTree::new(DataDirectory {
+        rva: 0x100,
+        size: 0x400,
+    })
+    .unwrap();
+    (m, tree)
+}
+
+#[test]
+fn resource_ids_are_not_aliases_of_their_low_16_bits() {
+    let (m, tree) = resource_id_tree(0x0001_0018, 1, 0);
+    assert_eq!(
+        tree.find_resource(&m.0, &ResId::Id(24), &ResId::Id(1), None)
+            .unwrap(),
+        None
+    );
+    assert!(
+        tree.find_resource(&m.0, &ResId::Id(0x0001_0018), &ResId::Id(1), None)
+            .unwrap()
+            .is_some()
+    );
+    let (m, tree) = resource_id_tree(24, 0x0001_0001, 0);
+    assert_eq!(
+        tree.names_of_type(&m.0, &ResId::Id(24)).unwrap(),
+        vec![ResId::Id(0x0001_0001)]
+    );
+}
+
+#[test]
+fn resource_integer_ids_use_the_full_word_even_when_bit_31_is_set() {
+    let (m, tree) = resource_id_tree(24, 0x8000_0001, 0);
+    assert_eq!(
+        tree.names_of_type(&m.0, &ResId::Id(24)).unwrap(),
+        vec![ResId::Id(0x8000_0001)]
+    );
+}
+
+#[test]
+fn resource_language_ids_are_not_truncated() {
+    let (m, tree) = resource_id_tree(24, 1, 0x0001_0409);
+    let data = tree
+        .find_resource(&m.0, &ResId::Id(24), &ResId::Id(1), None)
+        .unwrap()
+        .unwrap();
+    assert_eq!(data.language, 0x0001_0409);
+    assert!(
+        tree.find_resource(&m.0, &ResId::Id(24), &ResId::Id(1), Some(0x409))
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        tree.find_resource(&m.0, &ResId::Id(24), &ResId::Id(1), Some(0x0001_0409))
+            .unwrap()
+            .is_some()
+    );
+}
+
+#[test]
+fn named_language_identifiers_are_not_treated_as_numeric_neutral() {
+    let (mut m, tree) = resource_id_tree(24, 1, 0);
+    m.u16(0x18C, 1);
+    m.u16(0x18E, 0);
+    m.u32(0x190, 0x8000_0100);
+    m.u16(0x200, 1);
+    m.u16(0x202, u16::from(b'X'));
+    for language in [None, Some(0)] {
+        assert!(
+            tree.find_resource(&m.0, &ResId::Id(24), &ResId::Id(1), language)
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn resource_names_match_exact_utf16_code_units_without_ascii_case_folding() {
+    let (mut m, tree) = resource_id_tree(24, 1, 0);
+    m.u16(0x10C, 1);
+    m.u16(0x10E, 0);
+    m.u32(0x110, 0x8000_0100);
+    let name = vec![u16::from(b'A'), 0x00C4, 0xD83D, 0xDE00];
+    m.u16(0x200, name.len() as u16);
+    for (i, &unit) in name.iter().enumerate() {
+        m.u16(0x202 + 2 * i, unit);
+    }
+    assert!(
+        tree.find_resource(&m.0, &ResId::Name(name.clone()), &ResId::Id(1), None)
+            .unwrap()
+            .is_some()
+    );
+    for changed in [
+        vec![u16::from(b'a'), 0x00C4, 0xD83D, 0xDE00],
+        vec![u16::from(b'A'), 0x00E4, 0xD83D, 0xDE00],
+        vec![u16::from(b'A'), 0x00C4, 0xD83D, 0xDE01],
+    ] {
+        assert_eq!(
+            tree.find_resource(&m.0, &ResId::Name(changed), &ResId::Id(1), None)
+                .unwrap(),
+            None
+        );
+    }
+}
+
+#[test]
 fn image_alignment_cannot_expand_sections_beyond_the_allocated_buffer() {
     let mut b = Builder::new(PeKind::Pe32Plus);
     b.section_alignment = 0x1_0000;

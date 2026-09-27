@@ -1006,7 +1006,7 @@ fn resource_lookup_by_id_name_and_language() {
         size: 0x400,
     })
     .unwrap();
-    let name: Vec<u16> = "mytype".encode_utf16().collect();
+    let name: Vec<u16> = "MYTYPE".encode_utf16().collect();
     let r = tree
         .find_resource(&m.0, &ResId::Name(name), &ResId::Id(7), None)
         .unwrap()
