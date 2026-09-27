@@ -13,6 +13,8 @@
 //! - `generators`: the checked-in generated tables equal what
 //!   `tools/darwin/gen_abi.py` and `gen_mig.py` produce from the vendored
 //!   sources.
+//! - `layouts`: the signal-frame and thread-state layouts the personality
+//!   writes equal the SDK's (a probe compiled with the SDK's `clang`).
 //!
 //! Run with:
 //!
@@ -23,5 +25,6 @@
 
 mod fixtures;
 mod generators;
+mod layouts;
 mod programs;
 mod support;

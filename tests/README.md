@@ -100,8 +100,9 @@ compatibility conversions have library tests under
 
 `user_darwin` compares `rax-user` runs of the C fixtures in
 `fixtures/user/darwin/src` and of system programs with their native runs on
-a macOS host (x86_64 through Rosetta), and checks the generated Darwin tables
-with their generators' `--check` mode. Without a macOS host the comparisons
+a macOS host (x86_64 through Rosetta), checks the generated Darwin tables
+with their generators' `--check` mode, and checks the signal-frame layouts
+against a probe compiled with the SDK. Without a macOS host the comparisons
 report themselves skipped.
 
 Add behavioral cases beneath the matching suite domain. Add generated material

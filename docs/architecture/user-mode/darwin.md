@@ -83,6 +83,26 @@ threads, semaphores, policies, restartable ranges, dyld registration),
 `mach_vm`/`vm_map` (allocation, protection, regions, reads and writes), and
 `clock`.
 
+## Signals
+
+| Area | Module | XNU counterpart |
+|---|---|---|
+| Actions (`sigaction`), process-wide `sigprocmask`, per-thread `__pthread_sigmask`, `sigpending`, `sigsuspend`, `__sigwait`, `sigaltstack`, `kill`, `__pthread_kill`, `setitimer`/`getitimer` | `syscall::bsd::sig` | `kern_sig.c`, `kern_time.c` |
+| Posting to a thread (the first in creation order that does not block the signal), `sigwait` hand-off, discarding ignored signals, delivery on the way back to user mode (`issignal`, `postsig`), `SA_RESETHAND`, `SA_NODEFER` | `signal` | `psignal_internal`, `bsd_ast` |
+| Machine exceptions: Mach exception type, code, and subcode, then the signal (`SIGSEGV` for `KERN_INVALID_ADDRESS`, `SIGBUS` for protection failures, `SIGSEGV` on the stack guard) | `signal` | `user_trap`, `sleh.c`, `ux_exception.c` |
+| Signal frames: `siginfo_t`, `ucontext_t`, and the machine context (arm64 `mcontext64`, 816 bytes; x86-64 `mcontext_avx64`, 1032 bytes), alternate stacks, and `sigreturn` with its token | `signal::frame`, `thread_state` | `unix_signal.c`, `status.c`, `fpu.c`, `pcb.c` |
+| Interrupted sleeps: `EINTR`, or a restart after the handler for `SA_RESTART` (never for `select`, `poll`, `sigsuspend`, `__semwait_signal`); `MACH_RCV_INTERRUPTED`, `MACH_SEND_INTERRUPTED`, `KERN_ABORTED` | `syscall`, `syscall::mach` | `kern_synch.c`, `sys_generic.c`, `ipc_mqueue.c` |
+| `SIGPIPE` for a write to a broken pipe (unless `F_SETNOSIGPIPE`) | `syscall::bsd::file` | `dofilewrite` |
+| Interval timers: `ITIMER_REAL` deadlines, `ITIMER_VIRTUAL` and `ITIMER_PROF` charged per time slice | `signal::timer` | `realitexpire`, `itimerdecr`, `bsd_ast` |
+| Host signals: asynchronous host signals are the guest's (`rax-user` forwards them), a stop signal's default action stops the host process, and the state inherited across `exec` (ignored signals, action flags, mask) is the host process's | `signal::host` | `execsigs` |
+
+Pointer authentication uses RAX's identity algorithm, so the arm64 thread
+state of a process with the pointer-authentication ABI carries the
+kernel-signed flags, the thread's diversifier, and `sigreturn` tokens
+derived from the thread's secret without a key. Rosetta, the x86-64 test
+oracle, keeps an `SA_RESETHAND` action installed after the handler runs;
+the personality resets it, as XNU does on an Intel Mac.
+
 ## Memory
 
 Mach VM calls and `mmap` share one VMA map with the Mach attributes (maximum
@@ -94,9 +114,10 @@ rebased page by page on first touch, as XNU's shared-region pager does.
 ## Emulated machine
 
 One CPU of the program's architecture: a Haswell-class Intel Mac for x86-64
-(`CPU_SUBTYPE_X86_64_H`), an Apple-silicon Mac for arm64 (`CPU_SUBTYPE_ARM64E`;
-the implementation's pointer-authentication algorithm is the identity), with
-16 GiB of memory. Mach absolute time, uptime, and `kern.boottime` share one
+(`CPU_SUBTYPE_X86_64_H`; `XCR0` enables x87, SSE, and AVX state), an
+Apple-silicon Mac for arm64 (`CPU_SUBTYPE_ARM64E`, `PSTATE.SSBS` set for new
+threads; the implementation's pointer-authentication algorithm is the
+identity), with 16 GiB of memory. Mach absolute time, uptime, and `kern.boottime` share one
 clock that starts with the emulator. Process identity (pid, credentials,
 audit token) is the host process's.
 
@@ -105,12 +126,14 @@ audit token) is the host process's.
 Single-threaded programs linked against libSystem run on both
 architectures: `dyld` and libSystem initialization, file and path calls,
 memory calls, `sysctl`, Mach messaging with the kernel servers above,
-semaphores and sleeping. Not yet implemented, and answered with `ENOSYS`
-(or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning under `--strace`
-or `RAX_DARWIN_WARN`: thread creation (`bsdthread_create`, work queues),
-`kqueue`/`kevent`, `psynch` synchronization, signal handler delivery and
-`sigreturn`, `fork`/`execve`/`posix_spawn`, sockets, `proc_info`, and
-exception delivery to Mach exception ports.
+semaphores and sleeping, and signals. Not yet implemented, and answered
+with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
+under `--strace` or `RAX_DARWIN_WARN`: thread creation (`bsdthread_create`,
+work queues), `kqueue`/`kevent`, `psynch` synchronization,
+`fork`/`execve`/`posix_spawn`, sockets, `proc_info`, and exception delivery
+to Mach exception ports (a machine exception becomes its signal
+directly). `kill` of the process group reaches this process only through
+host-signal forwarding, and `kill(-1, sig)` signals only this process.
 
 ## Evidence
 
@@ -119,13 +142,18 @@ exception delivery to Mach exception ports.
 - `fixtures`: the C programs in `tests/fixtures/user/darwin/src` are built
   for arm64 and x86_64 and must produce the standard output and exit status
   of their native runs (x86_64 through Rosetta), including the fatal
-  `EXC_GUARD` of `guard_fatal`.
+  `EXC_GUARD` of `guard_fatal` and the handlers, frames, masks, timers,
+  faults, and final `SIGTERM` of `signals`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise.
 - `generators`: the checked-in tables equal what the generators produce
   from the vendored sources (`--check`).
+- `layouts`: the signal-frame and thread-state sizes the personality uses
+  equal the SDK's, measured by a probe compiled against it.
 
 Without a macOS host (or without Rosetta, for x86_64) the comparisons have
 no oracle and report themselves skipped. Library tests under
 `src/user/darwin/` cover the name space, message trailers, commpage and
-stack layout, slide info, sysctl nodes, and the host-information flavors.
+stack layout, slide info, sysctl nodes, the host-information flavors,
+exception-to-signal translation, signal actions, interval-timer
+arithmetic, and the thread-state flavors.

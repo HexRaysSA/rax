@@ -67,6 +67,14 @@ pub struct DarwinConfig {
     pub arena_bytes: u64,
     /// Instructions per slice (arm64).
     pub slice_insns: u64,
+    /// The host process is the guest's and takes its job control: a stop
+    /// signal's default action stops the host process
+    /// ([`signal::host::stop`]). Off by default (a library caller's
+    /// process must not stop).
+    pub host_job_control: bool,
+    /// Signal state inherited across `exec` (`None`: a process's initial
+    /// state, `siginit`).
+    pub inherited: Option<signal::Inherited>,
 }
 
 impl DarwinConfig {
@@ -87,6 +95,8 @@ impl DarwinConfig {
             stack_limit: None,
             arena_bytes: DEFAULT_ARENA_BYTES,
             slice_insns: DEFAULT_SLICE_INSNS,
+            host_job_control: false,
+            inherited: None,
         }
     }
 }
@@ -220,10 +230,8 @@ pub struct Thread {
     pub kport: Arc<Port>,
     /// The CPU.
     pub cpu: DarwinCpu,
-    /// Blocked signals.
-    pub sigmask: u32,
-    /// Signals pending for this thread.
-    pub pending: u32,
+    /// Signal state.
+    pub sig: signal::ThreadSig,
     /// The wait a sleeping call registered.
     pub wait: Option<Wait>,
     /// Progress of a restarted call.
@@ -238,8 +246,6 @@ pub struct Thread {
     /// A targeted wake (`ulock_wake`, a semaphore signal) ended the wait:
     /// the restarted call returns success.
     pub wake_event: bool,
-    /// The alternate signal stack: `(ss_sp, ss_size, ss_flags)`.
-    pub altstack: (u64, u64, u32),
     /// Mach thread state.
     pub mach: ThreadMach,
     /// The thread's name (`PROC_SELFSET_THREADNAME`).
@@ -317,10 +323,10 @@ pub struct Proc {
     pub rlimits: Rlimits,
     /// File-creation mask.
     pub umask: u32,
-    /// Signal dispositions, indexed by signal number minus one.
-    pub sigactions: [signal::SigAction; 32],
-    /// Signals pending for the process.
-    pub pending: u32,
+    /// Signal actions.
+    pub sigacts: signal::SigActs,
+    /// Interval timers.
+    pub itimers: signal::timer::ITimers,
     /// libpthread's registration.
     pub pthread: PthreadRegistration,
     /// Machine facts.
@@ -528,20 +534,25 @@ impl DarwinProcess {
             port: thread_port,
             kport,
             cpu,
-            sigmask: 0,
-            pending: 0,
+            sig: signal::ThreadSig {
+                mask: config.inherited.map_or(0, |i| i.mask),
+                ..Default::default()
+            },
             wait: None,
             resume: None,
             pthread: 0,
             exited: false,
             woken: false,
             wake_event: false,
-            altstack: (0, 0, 4),
             mach: ThreadMach::default(),
             name: Vec::new(),
         };
         let mut threads = BTreeMap::new();
         threads.insert(tid, main);
+        let sigacts = config
+            .inherited
+            .as_ref()
+            .map_or_else(signal::SigActs::default, signal::SigActs::inherited);
         Ok(DarwinProcess {
             proc: Proc {
                 abi,
@@ -565,8 +576,8 @@ impl DarwinProcess {
                 entropy,
                 rlimits,
                 umask,
-                sigactions: [signal::SigAction::default(); 32],
-                pending: 0,
+                sigacts,
+                itimers: signal::timer::ITimers::default(),
                 pthread: PthreadRegistration::default(),
                 machine,
                 shared_region: None,
@@ -585,6 +596,10 @@ impl DarwinProcess {
             if let Some(status) = self.proc.exit.clone() {
                 return status;
             }
+            for (sig, origin) in signal::host::take() {
+                signal::psignal(&mut self.proc, None, sig, origin);
+            }
+            signal::timer::expire_real(&mut self.proc);
             self.deliver_posted();
             let Some(tid) = self.next_runnable() else {
                 if self.proc.threads.values().all(|t| t.exited) {
@@ -608,8 +623,14 @@ impl DarwinProcess {
             let t1 = thread_cpu_ns();
             self.handle(&mut thread, trap);
             let t2 = thread_cpu_ns();
-            thread.mach.user_ns += t1.saturating_sub(t0);
-            thread.mach.system_ns += t2.saturating_sub(t1);
+            let (user, system) = (t1.saturating_sub(t0), t2.saturating_sub(t1));
+            thread.mach.user_ns += user;
+            thread.mach.system_ns += system;
+            signal::timer::charge(&mut self.proc, &mut thread, user, system);
+            // Back to user mode: deliver the thread's signals (bsd_ast).
+            if thread.wait.is_none() {
+                signal::ast(&mut self.proc, &mut thread);
+            }
             if thread.exited {
                 self.proc.task.dead_times.0 += thread.mach.user_ns;
                 self.proc.task.dead_times.1 += thread.mach.system_ns;
@@ -655,7 +676,7 @@ impl DarwinProcess {
     /// Sleeps until some thread's wait may be over.
     fn idle(&mut self) {
         let mut fds = Vec::new();
-        let mut deadline: Option<Instant> = None;
+        let mut deadline: Option<Instant> = self.proc.itimers.real_at;
         for t in self.proc.threads.values() {
             if let Some(w) = &t.wait {
                 fds.extend_from_slice(&w.fds);
@@ -663,6 +684,11 @@ impl DarwinProcess {
                     deadline = Some(deadline.map_or(d, |c| c.min(d)));
                 }
             }
+        }
+        // Forwarded host signals wake the process too.
+        let wake = signal::host::wake_fd();
+        if let Some(fd) = wake {
+            fds.push((fd, true, false));
         }
         if fds.is_empty() && deadline.is_none() {
             // Nothing can ever wake a thread: every thread waits for an
@@ -673,6 +699,11 @@ impl DarwinProcess {
             return;
         }
         let ready = wait::sleep(&fds, deadline);
+        if wake.is_some() && ready.last() == Some(&true) {
+            // A forwarded host signal (or a stale wake byte): the next pass
+            // takes the signal.
+            signal::host::drain();
+        }
         let now = Instant::now();
         for t in self.proc.threads.values_mut() {
             if let Some(w) = &t.wait {
@@ -690,7 +721,16 @@ impl DarwinProcess {
     /// Handles the trap that ended a slice.
     fn handle(&mut self, thread: &mut Thread, trap: Trap) {
         match trap {
-            Trap::Yield => {}
+            Trap::Yield => {
+                // The time slice ended with a timer interrupt: on x86-64 its
+                // vector (LAPIC_DEFAULT_INTERRUPT_BASE + LAPIC_TIMER_INTERRUPT)
+                // is the entry's trap number; arm64 keeps the last
+                // synchronous exception's syndrome.
+                if self.proc.abi == DarwinAbi::X86_64 {
+                    thread.sig.entry.trapno = 0xdd;
+                    thread.sig.entry.err = 0;
+                }
+            }
             Trap::Internal(why) => self.proc.exit_with(ExitStatus::Internal(why)),
             Trap::Exception(exc) => {
                 if self.proc.config.strace {
@@ -702,13 +742,15 @@ impl DarwinProcess {
                 if self.proc.config.strace {
                     eprintln!("[{:#x}] invalid system call {number:#x}", thread.tid);
                 }
-                signal::raise_exception(
+                // EXC_SYSCALL with the number and 1 (i386_exception,
+                // mach_syscall): SIGSYS.
+                syscall::entered(self.proc.abi, thread);
+                signal::raise_mach(
                     &mut self.proc,
                     thread,
-                    &super::arch::Exception::Undefined {
-                        pc: thread.cpu.pc(),
-                        reason: format!("EXC_SYSCALL {number:#x}"),
-                    },
+                    signal::exc::SYSCALL,
+                    number as i64,
+                    1,
                 );
             }
             other => syscall::dispatch(&mut self.proc, thread, other),

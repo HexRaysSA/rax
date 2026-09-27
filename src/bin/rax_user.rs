@@ -280,6 +280,18 @@ mod darwin {
         if let Some(n) = cli.slice {
             config.slice_insns = n.max(1);
         }
+        // What the guest inherits across exec is what this process
+        // inherited (before its own handlers go in).
+        config.inherited = Some(rax::user::darwin::signal::host::inherited());
+        if !cli.no_signal_forwarding {
+            // The guest is this process: host signals are its signals, and
+            // its stops stop this process.
+            if let Err(e) = rax::user::darwin::signal::host::forward() {
+                eprintln!("rax-user: cannot forward host signals: {e:?}");
+                return 125;
+            }
+            config.host_job_control = true;
+        }
         let mut process = match DarwinProcess::spawn(config, image) {
             Ok(p) => p,
             Err(e) => {
