@@ -177,6 +177,25 @@ pub fn exception_signal(exc: &Exception) -> Signal {
     }
 }
 
+/// Terminates the calling host process with Darwin signal `sig`'s host
+/// counterpart, so that its parent sees the guest's signal death. Returns
+/// when the host has no such signal.
+pub fn die_by_signal(sig: Signal) {
+    let Some(host) = to_host(sig).filter(|&h| h != 0) else {
+        return;
+    };
+    // SAFETY: integer arguments and a fully initialized sigset; the process
+    // is about to terminate.
+    unsafe {
+        libc::signal(host, libc::SIG_DFL);
+        let mut set: libc::sigset_t = std::mem::zeroed();
+        libc::sigemptyset(&mut set);
+        libc::sigaddset(&mut set, host);
+        libc::pthread_sigmask(libc::SIG_UNBLOCK, &set, std::ptr::null_mut());
+        libc::raise(host);
+    }
+}
+
 /// The host's number for signal `sig` (the same numbers on a macOS host).
 pub fn to_host(sig: Signal) -> Option<i32> {
     #[cfg(target_os = "macos")]

@@ -1,11 +1,14 @@
-//! `rax-user`: run a Linux user-space program on RAX's software CPUs.
+//! `rax-user`: run a Linux or macOS user-space program on RAX's software
+//! CPUs.
 //!
 //! ```text
 //! rax-user [OPTIONS] <PROGRAM> [ARGS]...
 //! ```
 //!
-//! The guest ABI (x86-64, AArch64, RV64, or partial i386 compatibility)
-//! is taken from the ELF header.
+//! The personality follows the executable's format: an ELF file runs under
+//! the Linux personality (x86-64, AArch64, RV64, or partial i386
+//! compatibility, from the ELF header), a Mach-O or fat file under the
+//! Darwin personality (x86-64 or arm64; `--arch` picks a fat file's slice).
 //! The exit status is the guest's: its `exit` code; when a signal killed it,
 //! death by the same signal, or `128 + N` for a signal whose default action
 //! dumps core (so the host records no crash of the emulator) or that the
@@ -49,66 +52,73 @@ mod unix {
     #[command(
         name = "rax-user",
         version,
-        about = "Run a Linux user-space program (x86-64, AArch64, RV64; partial i386) on RAX's software CPUs",
+        about = "Run a Linux (x86-64, AArch64, RV64; partial i386) or macOS (x86-64, arm64) user-space program on RAX's software CPUs",
         long_about = "rax-user loads a Linux ELF executable as the kernel's binfmt_elf would \
 (with address-space randomization disabled), executes it on RAX's x86-64, AArch64, or RISC-V \
 CPU in user mode, and services its system calls on the host. ELF32 i386 programs use a partial \
 compatibility syscall table and interpreter-only execution. Dynamically linked programs find \
-their interpreter and libraries through --sysroot, as with QEMU's -L.",
+their interpreter and libraries through --sysroot, as with QEMU's -L. A Mach-O program runs \
+under the Darwin personality: rax-user maps it and /usr/lib/dyld as XNU's exec does, and dyld \
+maps the dyld shared cache through the emulated shared-region calls; --sysroot supplies dyld and \
+the cache on a host that is not a Mac.",
         trailing_var_arg = true
     )]
-    struct Cli {
+    pub struct Cli {
         /// Guest root overlay: absolute guest paths that exist under DIR
         /// resolve there (QEMU -L semantics).
         #[arg(short = 'L', long, value_name = "DIR")]
-        sysroot: Option<PathBuf>,
+        pub sysroot: Option<PathBuf>,
         /// Set an environment variable (repeatable).
         #[arg(short = 'E', long = "env", value_name = "VAR=VALUE")]
-        set_env: Vec<String>,
+        pub set_env: Vec<String>,
         /// Remove an environment variable (repeatable).
         #[arg(short = 'U', long = "unset-env", value_name = "VAR")]
-        unset_env: Vec<String>,
+        pub unset_env: Vec<String>,
         /// Start from an empty environment instead of rax-user's own.
         #[arg(long)]
-        clear_env: bool,
+        pub clear_env: bool,
         /// Use NAME as argv[0] instead of PROGRAM.
         #[arg(short = '0', long, value_name = "NAME")]
         argv0: Option<String>,
         /// Guest working directory (default: the current directory).
         #[arg(short = 'C', long, value_name = "DIR")]
-        cwd: Option<String>,
+        pub cwd: Option<String>,
         /// Log every system call to standard error.
         #[arg(long)]
-        strace: bool,
+        pub strace: bool,
         /// Deterministic seed for AT_RANDOM and getrandom (default: host entropy).
         #[arg(long, value_name = "N")]
-        seed: Option<u64>,
+        pub seed: Option<u64>,
         /// RLIMIT_STACK soft limit and [stack] mapping size (default 8M).
         #[arg(short = 's', long, value_name = "SIZE", value_parser = parse_size)]
-        stack_size: Option<u64>,
+        pub stack_size: Option<u64>,
         /// Guest memory arena size; committed on demand (default 16G).
         #[arg(long, value_name = "SIZE", value_parser = parse_size)]
-        memory: Option<u64>,
+        pub memory: Option<u64>,
         /// Execute RISC-V guests through the SMIR JIT where available.
         #[arg(long)]
-        riscv_jit: bool,
+        pub riscv_jit: bool,
         /// Kernel release reported by uname (default 6.19.0).
         #[arg(long, value_name = "RELEASE")]
-        kernel_release: Option<String>,
+        pub kernel_release: Option<String>,
         /// Instructions per scheduling slice for AArch64 and RV64 guests.
         #[arg(long, value_name = "N")]
-        slice: Option<u64>,
+        pub slice: Option<u64>,
+        /// Architecture to run a universal (fat) Mach-O file as:
+        /// `x86_64` or `arm64` (default: the host's).
+        #[arg(long, value_name = "ARCH")]
+        pub arch: Option<String>,
         /// Leave host signals at their host dispositions instead of
         /// forwarding them to the guest, and report every guest killed by a
         /// signal with exit status 128 + N.
         #[arg(long)]
-        no_signal_forwarding: bool,
+        pub no_signal_forwarding: bool,
         /// The Linux executable.
         #[arg(value_name = "PROGRAM")]
-        program: PathBuf,
+        pub program: PathBuf,
         /// Arguments passed to the program.
         #[arg(value_name = "ARGS", allow_hyphen_values = true)]
-        args: Vec<String>,
+        pub args: Vec<String>,
     }
 
     fn environment(cli: &Cli) -> Vec<Vec<u8>> {
@@ -156,6 +166,9 @@ their interpreter and libraries through --sysroot, as with QEMU's -L.",
             .chain(cli.args.iter().cloned())
             .map(String::into_bytes)
             .collect();
+        if rax::user::image::macho::is_macho(&bytes) {
+            return crate::darwin::run(&cli, &program, argv, environment(&cli));
+        }
         let mut config = LinuxConfig::new(program.clone(), argv, environment(&cli));
         config.sysroot = cli.sysroot.clone();
         if let Some(cwd) = &cli.cwd {
@@ -207,6 +220,89 @@ their interpreter and libraries through --sysroot, as with QEMU's -L.",
             let _ = std::io::stdout().flush();
             let _ = std::io::stderr().flush();
             rax::user::linux::host::die_by_signal(info.signo);
+        }
+        status.shell_code()
+    }
+}
+
+/// The Darwin personality's front end.
+#[cfg(unix)]
+mod darwin {
+    use rax::user::darwin::abi::DarwinAbi;
+    use rax::user::darwin::loader::ImageFile;
+    use rax::user::darwin::{DarwinConfig, DarwinProcess, ExitStatus};
+
+    pub fn run(
+        cli: &super::unix::Cli,
+        program: &str,
+        argv: Vec<Vec<u8>>,
+        envp: Vec<Vec<u8>>,
+    ) -> i32 {
+        let abi = match cli.arch.as_deref() {
+            None => None,
+            Some("x86_64") => Some(DarwinAbi::X86_64),
+            Some("arm64") | Some("arm64e") | Some("aarch64") => Some(DarwinAbi::Arm64),
+            Some(other) => {
+                eprintln!("rax-user: unknown --arch {other:?} (x86_64 or arm64)");
+                return 125;
+            }
+        };
+        let host = match &cli.sysroot {
+            Some(root) if program.starts_with('/') => {
+                let under = root.join(program.trim_start_matches('/'));
+                if under.exists() {
+                    under
+                } else {
+                    program.into()
+                }
+            }
+            _ => std::path::PathBuf::from(program),
+        };
+        let image = match ImageFile::read(program, &host) {
+            Ok(i) => i,
+            Err(e) => {
+                eprintln!("rax-user: {program}: {e}");
+                return 126;
+            }
+        };
+        let mut config = DarwinConfig::new(program, argv, envp);
+        config.root = cli.sysroot.clone();
+        config.abi = abi;
+        if let Some(cwd) = &cli.cwd {
+            config.cwd = cwd.clone();
+        }
+        config.strace = cli.strace;
+        config.seed = cli.seed;
+        config.stack_limit = cli.stack_size;
+        if let Some(m) = cli.memory {
+            config.arena_bytes = m;
+        }
+        if let Some(n) = cli.slice {
+            config.slice_insns = n.max(1);
+        }
+        let mut process = match DarwinProcess::spawn(config, image) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("rax-user: {program}: {e}");
+                return 126;
+            }
+        };
+        let status = process.run();
+        if !matches!(status, ExitStatus::Exited(_)) {
+            eprintln!("rax-user: {program}: {status}");
+        }
+        if let ExitStatus::Signaled {
+            signo, core: false, ..
+        } = status
+            && !cli.no_signal_forwarding
+        {
+            // Die by the guest's signal so the parent sees a signal death;
+            // core-dumping signals are reported as 128 + N instead, so the
+            // host records no crash of the emulator.
+            use std::io::Write;
+            let _ = std::io::stdout().flush();
+            let _ = std::io::stderr().flush();
+            rax::user::darwin::signal::die_by_signal(signo);
         }
         status.shell_code()
     }
