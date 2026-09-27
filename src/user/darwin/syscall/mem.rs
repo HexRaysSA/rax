@@ -7,7 +7,7 @@ use std::sync::Arc;
 use super::Ctx;
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
-use crate::user::darwin::io::{O_ACCMODE, O_RDWR, O_WRONLY};
+use crate::user::darwin::io::{O_ACCMODE, O_RDONLY, O_RDWR, O_WRONLY};
 use crate::user::darwin::vm::{self, VmFlags};
 use crate::user::mm::{Backing, HostFileSource, Mapping, MmError, SharedObject};
 
@@ -124,6 +124,65 @@ pub fn map_at(
     };
     ctx.proc.space.map(addr, len, mapping).map_err(mm_errno)?;
     Ok(addr)
+}
+
+/// `pshm_mmap`: a shared mapping of a POSIX shared memory object (`EINVAL`
+/// unless shared, or for a range the object does not cover or an object
+/// not yet sized; `EPERM` to write through a read-only descriptor), with
+/// read and write as its maximum protection.
+#[allow(clippy::too_many_arguments)]
+fn mmap_shm(
+    ctx: &mut Ctx<'_>,
+    shm: i32,
+    writable: bool,
+    fixed: Option<u64>,
+    addr: u64,
+    size: u64,
+    prot: u32,
+    flags: u32,
+    file_pos: u64,
+    pageoff: u64,
+) -> SysResult {
+    if size == 0 {
+        return Ok(Rv::one(0));
+    }
+    if flags & MAP_SHARED == 0 {
+        return Err(Errno::EINVAL);
+    }
+    let mut maxprot = vm::VM_PROT_READ | vm::VM_PROT_WRITE;
+    if !writable {
+        if prot & vm::VM_PROT_WRITE != 0 {
+            return Err(Errno::EPERM);
+        }
+        maxprot &= !vm::VM_PROT_WRITE;
+    }
+    // The object's size, rounded to a page (pshm_length already is, to
+    // the host's; the object is mapped in the guest's pages).
+    let length = host_fstat(shm)?.st_size as u64;
+    let page = ctx.proc.vm.page;
+    let shm_size = length.div_ceil(page) * page;
+    if length == 0 || size > shm_size || file_pos.checked_add(size).is_none_or(|e| e > shm_size) {
+        return Err(Errno::EINVAL);
+    }
+    // SAFETY: fcntl(F_DUPFD_CLOEXEC) on a live descriptor takes no pointers.
+    let dup = unsafe { libc::fcntl(shm, libc::F_DUPFD_CLOEXEC, 3) };
+    if dup < 0 {
+        return Err(Errno::last());
+    }
+    // SAFETY: `dup` is a new descriptor this process owns exclusively.
+    let owned = unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(dup) };
+    let mapping = Mapping {
+        perms: vm::perms(prot),
+        backing: Backing::Shared {
+            object: Arc::new(SharedObject::fixed(owned, writable, length)),
+            offset: file_pos,
+        },
+        shared: true,
+        name: None,
+        flags: VmFlags::new(maxprot, vm::VM_INHERIT_SHARE, 0).bits(),
+    };
+    let a = map_at(ctx, fixed, addr, size, mapping)?;
+    Ok(Rv::one(a + pageoff))
 }
 
 /// `mmap(addr, len, prot, flags, fd, pos)`.
@@ -256,6 +315,23 @@ pub fn mmap(
         return Err(Errno::EINVAL);
     }
     let file = ctx.proc.fds.file(fd)?;
+    if let crate::user::darwin::fd::FileKind::Shm(shm) = &file.kind {
+        use std::os::fd::AsRawFd;
+        let shm = shm.as_raw_fd();
+        let writable = *file.flags.lock().unwrap() & O_ACCMODE != O_RDONLY;
+        return mmap_shm(
+            ctx,
+            shm,
+            writable,
+            fixed,
+            addr,
+            size,
+            prot,
+            flags,
+            pos & !mask,
+            pos & mask,
+        );
+    }
     let host = file.host_fd().ok_or(Errno::EINVAL)?;
     let meta = host_fstat(host)?;
     let kind = meta.st_mode as u32 & 0o170000;

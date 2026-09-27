@@ -12,6 +12,7 @@ pub mod path;
 pub mod proc;
 pub mod pthread;
 pub mod region;
+pub mod shm;
 pub mod sig;
 pub mod sysctl;
 pub mod thread;
@@ -153,6 +154,8 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GETDIRENTRIES64 => file::getdirentries64(ctx, i(0), a[1], a[2], a[3]),
         nr::FSTATFS64 => file::fstatfs64(ctx, i(0), a[1]),
         nr::STATFS64 => path::statfs64(ctx, a[0], a[1]),
+        nr::SHM_OPEN => shm::shm_open(ctx, a[0], u(1), u(2)),
+        nr::SHM_UNLINK => shm::shm_unlink(ctx, a[0]),
         nr::GETFSSTAT64 => file::getfsstat64(ctx, a[0], i(1), i(2)),
         nr::POLL | nr::POLL_NOCANCEL => file::poll(ctx, a[0], u(1), i(2)),
         nr::SELECT | nr::SELECT_NOCANCEL => file::select(ctx, i(0), a[1], a[2], a[3], a[4]),

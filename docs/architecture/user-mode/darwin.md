@@ -217,6 +217,16 @@ protection, inheritance, user tag) in each VMA's personality flags
 cache from the host's cache files; slid mappings (slide info v2 and v5) are
 rebased page by page on first touch, as XNU's shared-region pager does.
 
+POSIX shared memory objects (`shm_open`, `shm_unlink`) are the host's, shared
+by name with every other process: the host checks names, flags, and
+permissions and fixes an object's size at its first `ftruncate`. Their
+descriptors are close-on-exec, and whether undocumented `shm_open` flags are
+refused follows the guest program's SDK (26.4 or later refuses them), not the
+emulator's. A mapping must be shared and lie within the object's size
+(`EINVAL`), and may write only through a writable descriptor (`EPERM`); the
+host maps the object no further than its end, and each mapping's object has
+an identity of its own, since the host reports none for these objects.
+
 ## Files and volumes
 
 Paths resolve through the root overlay (`vfs`) and the host performs the
@@ -282,8 +292,9 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   build (thin, and fat beside x86_64h slices) in `exec_translated`, the
   file actions, attributes, port
   actions, failures, and `waitid` views of `spawn`, the SIP queries of
-  `csr`, the volume statistics and object paths of `volumes`, and the
-  per-thread identity calls of `identity`.
+  `csr`, the volume statistics and object paths of `volumes`, the
+  per-thread identity calls of `identity`, and the POSIX shared memory
+  objects of `shm` (shared between mappings and with a forked child).
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

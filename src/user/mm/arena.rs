@@ -173,31 +173,36 @@ impl FrameArena {
             .expect("arena address lies inside the arena")
     }
 
-    /// Lays `len` bytes of the host file `fd` from `offset` (a multiple of
-    /// [`EXTENT`]) over extent `pa`, shared, writable when `writable`.
+    /// Lays `len` bytes (at most [`EXTENT`], a multiple of the host page)
+    /// of the host file `fd` from `offset` (a multiple of [`EXTENT`]) over
+    /// extent `pa`, shared, writable when `writable`; the rest of the extent
+    /// is left as it was.
     #[cfg(unix)]
     pub fn attach(
         &self,
         pa: u64,
         fd: std::os::fd::RawFd,
         offset: u64,
+        len: u64,
         writable: bool,
     ) -> std::io::Result<()> {
         debug_assert_eq!(pa & (EXTENT - 1), 0);
         debug_assert_eq!(offset & (EXTENT - 1), 0);
+        debug_assert!(len > 0 && len <= EXTENT);
         let prot = libc::PROT_READ | if writable { libc::PROT_WRITE } else { 0 };
         let offset = libc::off_t::try_from(offset)
             .map_err(|_| std::io::Error::from_raw_os_error(libc::EOVERFLOW))?;
         // SAFETY: the extent is EXTENT bytes of the arena's own mapping,
         // host-page aligned (the arena starts on a host page and EXTENT is
-        // a multiple of every host page size); no frame, and no reference
-        // into the arena, covers it (the extent allocator hands it out
-        // once, and every access copies through vm-memory); MAP_FIXED
-        // replaces exactly those bytes; `fd` is open for the call.
+        // a multiple of every host page size), and `len` bytes of it lie
+        // inside it; no frame, and no reference into the arena, covers it
+        // (the extent allocator hands it out once, and every access copies
+        // through vm-memory); MAP_FIXED replaces exactly those bytes; `fd`
+        // is open for the call.
         let p = unsafe {
             libc::mmap(
                 self.host_address(pa).cast(),
-                EXTENT as usize,
+                len as usize,
                 prot,
                 libc::MAP_SHARED | libc::MAP_FIXED,
                 fd,

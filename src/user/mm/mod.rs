@@ -1003,11 +1003,18 @@ fn attach(arena: &FrameArena, base: u64, object: &SharedObject, start: u64) -> R
     #[cfg(unix)]
     {
         use std::os::fd::AsRawFd;
+        // SAFETY: sysconf takes an integer argument.
+        let host_page = u64::try_from(unsafe { libc::sysconf(libc::_SC_PAGESIZE) }).unwrap_or(4096);
+        let len = object.extent_len(start, arena::EXTENT, host_page);
+        if len == 0 {
+            return Err(MmError::OutOfMemory);
+        }
         arena
             .attach(
                 base,
                 object.host_file().as_raw_fd(),
                 start,
+                len,
                 object.writable(),
             )
             .map_err(|_| MmError::OutOfMemory)
