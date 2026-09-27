@@ -242,6 +242,8 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         }
 
         nr::GETPID => Ok(Rv::one(ctx.proc.pid as u64)),
+        nr::TASK_READ_FOR_PID => proc::task_flavor_for_pid(ctx, a[0] as u32, i(1), a[2], true),
+        nr::TASK_INSPECT_FOR_PID => proc::task_flavor_for_pid(ctx, a[0] as u32, i(1), a[2], false),
         nr::GETPPID => Ok(Rv::one(ctx.proc.ppid as u64)),
         nr::GETUID => Ok(Rv::one(u64::from(ctx.proc.creds.0))),
         nr::GETEUID => Ok(Rv::one(u64::from(ctx.proc.creds.1))),

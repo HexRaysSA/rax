@@ -149,3 +149,43 @@ fn effective_ids(ctx: &Ctx<'_>, pid: i32) -> Option<(u32, u32)> {
         None
     }
 }
+
+/// `task_read_for_pid` and `task_inspect_for_pid` (`kern_proc.c`): the
+/// read (or inspect) port of the calling process; another process's is
+/// refused as it is to an unentitled caller (`EPERM`, or `ESRCH` when
+/// there is no such process), the kernel's (pid 0) always. `target` must
+/// name the caller's task control port (`EINVAL`). The port's name, or
+/// `MACH_PORT_NULL`, is stored at `t` (a failed store is ignored).
+pub fn task_flavor_for_pid(
+    ctx: &mut Ctx<'_>,
+    target: u32,
+    pid: i32,
+    t: u64,
+    read: bool,
+) -> SysResult {
+    use crate::user::darwin::mig::task::{inspect_port, read_port};
+    let result = if pid == 0 {
+        Err(Errno::EPERM)
+    } else if !crate::user::darwin::syscall::mach::port::is_self_task(ctx.proc, target) {
+        Err(Errno::EINVAL)
+    } else if pid == ctx.proc.pid {
+        Ok(())
+    } else {
+        // SAFETY: kill with signal 0 only checks that the process exists.
+        let exists = unsafe { libc::kill(pid, 0) } == 0
+            || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM);
+        Err(if exists { Errno::EPERM } else { Errno::ESRCH })
+    };
+    let name = if result.is_ok() {
+        let port = if read {
+            read_port(ctx.proc)
+        } else {
+            inspect_port(ctx.proc)
+        };
+        ctx.proc.insert_send(&port)
+    } else {
+        0
+    };
+    let _ = ctx.write_u32(t, name);
+    result.map(|()| crate::user::darwin::arch::Rv::one(0))
+}
