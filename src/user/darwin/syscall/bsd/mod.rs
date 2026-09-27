@@ -7,6 +7,8 @@
 
 #[cfg(target_os = "macos")]
 pub mod acl;
+#[cfg(target_os = "macos")]
+pub mod attr;
 pub mod event;
 pub mod file;
 pub mod misc;
@@ -172,6 +174,22 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         #[cfg(target_os = "macos")]
         nr::FGETATTRLIST => path::getattrlistat(ctx, Some(i(0)), None, a[1], a[2], a[3], a[4]),
         #[cfg(target_os = "macos")]
+        #[cfg(target_os = "macos")]
+        nr::GETATTRLISTBULK => attr::getattrlistbulk(ctx, i(0), a[1], a[2], a[3], a[4]),
+        #[cfg(target_os = "macos")]
+        nr::SETATTRLIST => attr::setattrlist(ctx, a[0], a[1], a[2], a[3], a[4]),
+        #[cfg(target_os = "macos")]
+        nr::FSETATTRLIST => attr::fsetattrlist(ctx, i(0), a[1], a[2], a[3], a[4]),
+        #[cfg(target_os = "macos")]
+        nr::SETATTRLISTAT => attr::setattrlistat(ctx, i(0), a[1], a[2], a[3], a[4], u(5)),
+        #[cfg(target_os = "macos")]
+        nr::CLONEFILEAT => attr::clonefileat(ctx, i(0), a[1], i(2), a[3], u(4)),
+        #[cfg(target_os = "macos")]
+        nr::FCLONEFILEAT => attr::fclonefileat(ctx, i(0), i(1), a[2], u(3)),
+        #[cfg(target_os = "macos")]
+        nr::EXCHANGEDATA => attr::exchangedata(ctx, a[0], a[1], u(2)),
+        #[cfg(target_os = "macos")]
+        nr::ACCESS_EXTENDED => attr::access_extended(ctx, a[0], a[1], a[2], u(3)),
         nr::GETATTRLISTAT => {
             path::getattrlistat(ctx, Some(i(0)), Some(a[1]), a[2], a[3], a[4], a[5])
         }

@@ -257,6 +257,7 @@ calls; results in guest layouts come from the host's.
 | `fsgetpath` and `fsgetpath_ext`: the path of an object by volume and object ID, the root overlay's prefix removed (`EINVAL` for unknown options or a size of 0 or over `MAXLONGPATHLEN`, `EFAULT` for the volume ID) | `syscall::bsd::path` | `fsgetpath_extended` |
 | Extended attributes: `getxattr`, `setxattr`, `removexattr`, `listxattr` and their descriptor forms, the host's attributes with the guest's memory copied in XNU's order (an option the call does not take, then the path before `getxattr`'s and `listxattr`'s name or buffer; the name, its protection, and the value's size before `setxattr`'s and `removexattr`'s path), lengths for a NULL buffer (and for a size of 0 except through `getxattr`), resource forks read at an offset | `syscall::bsd::xattr` | `getxattr`, `fgetxattr`, `setxattr`, `listxattr`, `xattr_protected` |
 | Access control lists: the `*_extended` calls set a list (`chmod_extended`, `fchmod_extended`, and at creation `open_extended`, `mkdir_extended`, `mkfifo_extended`; 1 removes it) or read it with the status (`stat64_extended`, `lstat64_extended`, `fstat64_extended`: the list's size written back, the list copied only into a buffer that holds it); a list is copied in before the path is looked up (`EINVAL` for a bad magic number or more than 128 entries); `umask_extended` is `umask` | `syscall::bsd::acl` | `kauth_copyinfilesec`, `fstatat_internal`, `chmod_extended_init` |
+| Attribute lists and clones: `getattrlistbulk` (records copied out up to the last one the host wrote, the directory offset the host's), `setattrlist`, `fsetattrlist`, `setattrlistat`, `clonefileat`, `fclonefileat`, `exchangedata`, and `access_extended`, the host's, with the guest's memory given to it in XNU's order: a path or buffer the guest cannot supply is given as memory the host cannot read (or a path too long), so a failed lookup is still reported before a bad attribute list | `syscall::bsd::attr` | `getattrlistbulk`, `setattrlist_internal`, `clonefileat`, `access_extended` |
 
 ## Sockets
 
@@ -385,7 +386,8 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   extended attributes of `xattr`, the access control lists of `acl`, the
   process, task, thread, descriptor, region, and control queries of
   `procinfo`, and the calls, errors, blocking, signals, and passed
-  descriptors of `sockets`, and the deferred-reclamation ring of `reclaim`
+  descriptors of `sockets`, the attribute lists, clones, and access tables
+  of `attrs`, and the deferred-reclamation ring of `reclaim`
   (libmalloc's, and a ring of the fixture's own in a process libmalloc gives
   none).
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`

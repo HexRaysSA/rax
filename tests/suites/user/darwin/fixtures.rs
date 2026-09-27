@@ -269,3 +269,13 @@ fn reclaim_arm64() {
 fn reclaim_x86_64() {
     fixture("reclaim", "x86_64", &[], &[]);
 }
+
+#[test]
+fn attrs_arm64() {
+    fixture("attrs", "arm64", &[], &[]);
+}
+
+#[test]
+fn attrs_x86_64() {
+    fixture("attrs", "x86_64", &[], &[]);
+}
