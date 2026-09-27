@@ -237,6 +237,7 @@ calls; results in guest layouts come from the host's.
 | Volume statistics: `statfs64`, `fstatfs64`, and `getfsstat64` (the count of mounted volumes with a NULL buffer, of those copied with a buffer too small for them all) | `syscall::bsd::path`, `syscall::bsd::file` | `statfs64`, `getfsstat64` |
 | `fsgetpath` and `fsgetpath_ext`: the path of an object by volume and object ID, the root overlay's prefix removed (`EINVAL` for unknown options or a size of 0 or over `MAXLONGPATHLEN`, `EFAULT` for the volume ID) | `syscall::bsd::path` | `fsgetpath_extended` |
 | Extended attributes: `getxattr`, `setxattr`, `removexattr`, `listxattr` and their descriptor forms, the host's attributes with the guest's memory copied in XNU's order (an option the call does not take, then the path before `getxattr`'s and `listxattr`'s name or buffer; the name, its protection, and the value's size before `setxattr`'s and `removexattr`'s path), lengths for a NULL buffer (and for a size of 0 except through `getxattr`), resource forks read at an offset | `syscall::bsd::xattr` | `getxattr`, `fgetxattr`, `setxattr`, `listxattr`, `xattr_protected` |
+| Access control lists: the `*_extended` calls set a list (`chmod_extended`, `fchmod_extended`, and at creation `open_extended`, `mkdir_extended`, `mkfifo_extended`; 1 removes it) or read it with the status (`stat64_extended`, `lstat64_extended`, `fstat64_extended`: the list's size written back, the list copied only into a buffer that holds it); a list is copied in before the path is looked up (`EINVAL` for a bad magic number or more than 128 entries); `umask_extended` is `umask` | `syscall::bsd::acl` | `kauth_copyinfilesec`, `fstatat_internal`, `chmod_extended_init` |
 
 ## Emulated machine
 
@@ -295,8 +296,8 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   actions, failures, and `waitid` views of `spawn`, the SIP queries of
   `csr`, the volume statistics and object paths of `volumes`, the
   per-thread identity calls of `identity`, the POSIX shared memory
-  objects of `shm` (shared between mappings and with a forked child), and
-  the extended attributes of `xattr`.
+  objects of `shm` (shared between mappings and with a forked child), the
+  extended attributes of `xattr`, and the access control lists of `acl`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit
