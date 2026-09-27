@@ -188,6 +188,23 @@ int main(void) {
     usleep(200000);
     errno = 0;
     printf("ignored: %d errno=%d\n", waitpid(c, &st, WNOHANG), errno);
+    // A child keeps the ignored action but not the no-zombies flag: its
+    // own children are waited for.
+    c = fork();
+    if (c == 0) {
+        pid_t g = fork();
+        if (g == 0) {
+            _exit(3);
+        }
+        usleep(200000);
+        struct sigaction cur;
+        sigaction(SIGCHLD, NULL, &cur);
+        pid_t w = waitpid(g, &st, WNOHANG);
+        printf("child of ignoring parent: ign=%d zombie=%d status=%d\n", cur.sa_handler == SIG_IGN,
+               w == g, w == g ? WEXITSTATUS(st) : -1);
+        _exit(0);
+    }
+    usleep(500000);
     printf("invalid pid: %d errno=%d\n", wait4(-2147483647 - 1, &st, 0, NULL), errno);
     return 0;
 }
