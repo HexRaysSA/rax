@@ -1,4 +1,9 @@
 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  ./LICENSE
+bbf7433f103cb5d9e1637c94c81e8f9287e530434345627173bd20d7bf230a67  ./os/voucher_activity_private.h
+3e8f810f36a2ce4e0132d5a5edecde513a34dd4043a93068701df5b5571c3cae  ./os/voucher_private.h
+ee8466bf62cda759b12f196ba297d585ae0e6fe86727f5949dcc1fc6148042cb  ./src/event/event_config.h
 d05ec2746c336a10560c96ae5b893ebca8acd652781e4ebdeb9d7a7e22474bc6  ./src/event/event_kevent.c
 8cdbf3141fa3bd023b546fde72a990db8851c37ad370254e7a220a9528071054  ./src/internal.h
 f6e1b1d1a1dfbf1b41971ebbabda24086b9f0ea8f4a5c04e73fced6019d253b9  ./src/queue.c
+1af4046b7a0b528b15ab4593ee45816b0f1e2e943e34ff1bb85c89956ed8dac0  ./src/voucher.c
+eecfb0d54d94073dcade71b80b64847d4693c4c46d98ce29afdad4060a922ece  ./src/voucher_internal.h
