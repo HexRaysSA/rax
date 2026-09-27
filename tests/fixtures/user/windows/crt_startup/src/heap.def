@@ -1,0 +1,5 @@
+EXPORTS
+_set_new_mode
+_query_new_mode
+malloc
+free

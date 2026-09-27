@@ -1,0 +1,3 @@
+EXPORTS
+_get_environ
+_get_wenviron

@@ -18,6 +18,8 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(UCRT_STATE_EXPORTS)
         .chain(INIT_EXPORTS)
         .chain(UCRT_INIT_EXPORTS)
+        .chain(MSVCRT_STARTUP_EXPORTS)
+        .chain(UCRT_STARTUP_EXPORTS)
         .find_map(|export| match &export.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,
@@ -468,11 +470,9 @@ fn first_error_context_oom_is_an_explicit_admission_exception() {
 }
 
 #[test]
-fn unsupported_new_handler_mode_and_legacy_compat_wrappers_are_not_exports() {
+fn unsupported_new_handler_registration_and_legacy_compat_wrappers_are_not_exports() {
     run(|c| {
         for name in [
-            "_set_new_mode",
-            "_query_new_mode",
             "_set_new_handler",
             "_query_new_handler",
             "printf",
@@ -488,6 +488,24 @@ fn unsupported_new_handler_mode_and_legacy_compat_wrappers_are_not_exports() {
             }
         }
         let legacy = c.p.modules.by_name("msvcrt.dll").unwrap();
+        // Universal plain mode names are genuine new startup exports. Legacy
+        // mode functions retain decorated names; do not promote local shims.
+        for name in ["_set_new_mode", "_query_new_mode"] {
+            assert_eq!(
+                loader::lookup(c.p, legacy, &SymRef::Name(name.as_bytes().to_vec(), None)).unwrap(),
+                None
+            );
+            let universal = c.p.modules.by_name("ucrtbase.dll").unwrap();
+            assert!(
+                loader::lookup(
+                    c.p,
+                    universal,
+                    &SymRef::Name(name.as_bytes().to_vec(), None)
+                )
+                .unwrap()
+                .is_some()
+            );
+        }
         assert_eq!(
             loader::lookup(
                 c.p,

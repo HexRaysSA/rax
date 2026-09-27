@@ -1,0 +1,8 @@
+EXPORTS
+__p___argc
+__p___argv
+__p___wargv
+__p___initenv
+__p___winitenv
+__p__environ
+__p__wenviron

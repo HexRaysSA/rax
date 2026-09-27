@@ -60,7 +60,11 @@ standard I/O, complete runtime export/ordinal ABI, or native CRT equivalence.
 The required `_initterm` / `_initterm_e` constructor-table dependency is covered
 by [windows-crt-initializers.md](windows-crt-initializers.md), including lazy,
 reentrant guest callbacks and first-error termination. Ordinary compiler startup
-still requires the remaining argument, onexit/termination, stdio and FP graph.
+has argument/environment dependencies covered by
+[windows-crt-startup.md](windows-crt-startup.md), including true data cells,
+CP1252-before-parse conversion, width transitions and wildcard expansion.
+Ordinary compiler startup still requires the remaining onexit/termination,
+stdio, locale and FP graph; custom-entry probes do not establish that outcome.
 
 CFG enforcement and enabled mitigation-policy reporting are not implemented.
 An instrumented image may retain its own no-op CFG fallback; admitting that

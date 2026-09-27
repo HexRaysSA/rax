@@ -1,0 +1,10 @@
+LIBRARY kernel32.dll
+EXPORTS
+ExitProcess
+LoadLibraryA
+GetProcAddress
+VirtualAlloc
+VirtualFree
+VirtualProtect
+AddVectoredExceptionHandler
+RemoveVectoredExceptionHandler

@@ -760,6 +760,20 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
         }
         return Err(error);
     }
+    // Data writes and their allocation receipts must exist before an image
+    // becomes a callable module. Trap registration has no removal operation;
+    // do not publish traps before a fallible data initializer has completed.
+    let prepared = match dll::prepare_data_exports(p, dll, base, &img.symbols) {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            if let Err(cleanup) = p.vm.release(base) {
+                p.fail(format!(
+                    "built-in data mapping cleanup failed: {cleanup:?}; original: {error}"
+                ));
+            }
+            return Err(error);
+        }
+    };
     let text = base + u64::from(img.text_rva);
     let mut symbols = HashMap::new();
     let mut ordinals = Vec::new();
@@ -797,6 +811,13 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
     let idx = p.modules.list.len() - 1;
     if let Err(error) = ldr::add_entry(p, idx).and_then(|_| ldr::link_init_order(p, idx)) {
         p.modules.failed_indices.insert(idx, error.clone());
+        // This local receipt is not part of dynamic rollback (built-ins are
+        // pinned roots). Abort it even if subsequent LDR cleanup also fails.
+        if let Err(cleanup) = prepared.abort(p) {
+            p.fail(format!(
+                "built-in data cleanup failed: {cleanup}; original: {error}"
+            ));
+        }
         if let Err(cleanup) = ldr::remove_entry(p, idx).and_then(|_| {
             p.vm.release(base)
                 .map_err(|e| LoadError::new(e.status(), "cannot release failed built-in"))
@@ -808,8 +829,8 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
         p.modules.dynamic.unloaded.insert(idx);
         return Err(error);
     }
+    prepared.commit(p);
     p.traps.add(text, img.slots, img.capacity);
-    dll::init_data_exports(p, idx);
     Ok(idx)
 }
 
@@ -1297,3 +1318,6 @@ pub fn load_system_dlls(p: &mut Proc) -> Result<(), LoadError> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod data_init_tests;

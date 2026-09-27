@@ -145,3 +145,12 @@ first-error termination and nonreturning callbacks on x86, x64 and ARM64.
 Custom-entry PE probes preserve the distinction from ordinary compiler startup.
 Both scheduling slices and the preserved pre-change CLI use identical hashed
 inputs; native Windows execution remains unknown.
+
+The same target reaches `suites/user/windows/crt_startup.rs`. Its independently
+compiled `fixtures/user/windows/crt_startup/` probes exercise genuine per-ABI
+legacy data/functions and UCRT startup leaves, including the unmodified static
+MinGW UCRT getter wrappers, CP1252-before-parse conversion, narrow/wide argument
+transitions, environment snapshots, new-mode state and actual wildcard
+enumeration. All 45 images execute on the matching x86/x64/ARM64 guest at both
+slice sizes; environment images also run with an empty environment. These are
+custom-entry probes, not ordinary linked CRT startup or a native Windows oracle.

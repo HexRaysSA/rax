@@ -1,0 +1,5 @@
+EXPORTS
+_environ DATA
+_wenviron DATA
+__initenv DATA
+__winitenv DATA
