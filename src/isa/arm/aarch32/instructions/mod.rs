@@ -51,6 +51,8 @@ use crate::isa::arm::decoder::{Condition, DecodeError, DecodedInsn, Mnemonic, Sh
 // ---- module tree (auto-split) ----
 mod control;
 pub use control::*;
+mod coproc;
+pub use coproc::*;
 mod data;
 pub use data::*;
 mod decode;
