@@ -86,3 +86,6 @@ riscv64  ptraceblock aarch64  qemu-riscv64 lacks ptrace (ENOSYS) and the case th
 aarch64  uring    kernel   io_uring changed after Linux 6.19 (7.0's struct io_rings offsets and a failed NOP's CQE result differ from io_uring/io_uring.c and io_uring/nop.c of 6.19, which rax-user models), so the Docker kernel is no oracle for it
 x86_64   uring    kernel   Rosetta returns ENOSYS for the io_uring calls, and io_uring changed after Linux 6.19 (see aarch64)
 riscv64  uring    aarch64  qemu-riscv64 returns ENOSYS for the io_uring calls; io_uring/ is architecture-independent and the native aarch64 run on Linux 6.19 passes every check
+aarch64  uringio  kernel   as uring: io_uring changed after Linux 6.19, so the Docker kernel is no oracle for it
+x86_64   uringio  kernel   as uring: Rosetta returns ENOSYS for the io_uring calls
+riscv64  uringio  aarch64  as uring: qemu-riscv64 returns ENOSYS for the io_uring calls, and the native aarch64 run on Linux 6.19 passes every check
