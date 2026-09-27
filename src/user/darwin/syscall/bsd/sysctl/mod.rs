@@ -20,6 +20,7 @@
 
 mod arm64;
 mod host;
+mod intel;
 mod machine;
 pub mod tree;
 
