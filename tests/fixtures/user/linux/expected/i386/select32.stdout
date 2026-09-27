@@ -1,0 +1,15 @@
+ok pipe
+ok newselect-word
+ok newselect-writes-one-word
+ok newselect-two-words-fault
+ok newselect-timeout
+ok newselect-bad-timeval
+ok old-select
+ok pselect6-time32
+ok pselect6-argpack-at-page-end
+ok pselect6-mask-size
+ok pselect6-time64-padding
+ok ppoll-time32
+ok ppoll-time32-invalid
+ok ppoll-time64-padding
+PASSED

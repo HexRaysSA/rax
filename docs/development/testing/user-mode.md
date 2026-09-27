@@ -142,7 +142,7 @@ pointers, `io_getevents_time32`, `struct __compat_aio_sigset`), `select`,
 `src/isa/x86_64/user_gdt_tests.rs`: GDT selector/TLS behavior; `user_linux`
 `abi_tables`: numbering against `unistd_32.h`. `user_linux` `fixtures` runs an i386
 subset of the fixture programs, and the i386-only `sigframes`, `futex32`, `ipc32`,
-`mq32`, and `aio32` (`cases-i386.txt`),
+`mq32`, `aio32`, and `select32` (`cases-i386.txt`),
 against results recorded on Linux 6.19 for x86-64 under `qemu-system-x86_64`
 (`tests/fixtures/user/linux/oracle/`); the morok program corpus has no i386
 builds.

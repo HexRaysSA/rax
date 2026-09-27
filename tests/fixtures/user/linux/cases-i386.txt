@@ -6,3 +6,4 @@ futex32 futex32 -
 ipc32 ipc32 -
 mq32 mq32 -
 aio32 aio32 -
+select32 select32 -

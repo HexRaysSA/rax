@@ -1149,6 +1149,12 @@ target = "x86-linux-musl"
 sha256 = "cbecd296447f7059bc78cb9103e0d8ada4c2029dec70d2235b8af9f50e0496d5"
 
 [[fixture]]
+path = "bin/i386/mseal"
+source = "src/mseal.c"
+target = "x86-linux-musl"
+sha256 = "a9af84c35b3c1f99d1a45cc628b347cd3cc4024e685184f374ea181b8bd5d6a4"
+
+[[fixture]]
 path = "bin/i386/sysvshm"
 source = "src/sysvshm.c"
 target = "x86-linux-musl"
@@ -1207,4 +1213,10 @@ path = "bin/i386/aio32"
 source = "src/aio32.c"
 target = "x86-linux-musl"
 sha256 = "6921c5c722a2dc52073666b3416f8cb9600d720836358a34de459fcfa50a967c"
+
+[[fixture]]
+path = "bin/i386/select32"
+source = "src/select32.c"
+target = "x86-linux-musl"
+sha256 = "7051c236e4af486f4a28eb99e446564e89ec6031b70cc214b2543864464abd8b"
 
