@@ -109,3 +109,23 @@ fn kqueue_arm64() {
 fn kqueue_x86_64() {
     fixture("kqueue", "x86_64", &[], &[]);
 }
+
+#[test]
+fn workq_arm64() {
+    fixture("workq", "arm64", &[], &[]);
+}
+
+#[test]
+fn workq_x86_64() {
+    fixture("workq", "x86_64", &[], &[]);
+}
+
+#[test]
+fn dispatch_arm64() {
+    fixture("dispatch", "arm64", &[], &[]);
+}
+
+#[test]
+fn dispatch_x86_64() {
+    fixture("dispatch", "x86_64", &[], &[]);
+}

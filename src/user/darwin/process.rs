@@ -280,6 +280,9 @@ pub struct PthreadRegistration {
     /// Offset of the dispatch queue pointer from a thread's TSD base
     /// (`dispatch_queue_offset`).
     pub dispatch_queue_offset: u64,
+    /// Where workqueue thread stacks are placed from
+    /// (`p_stack_addr_hint`).
+    pub stack_addr_hint: u64,
     /// Whether registration happened.
     pub registered: bool,
 }
@@ -336,6 +339,8 @@ pub struct Proc {
     pub psynch: super::psynch::Table,
     /// kqueues and knote lists.
     pub kq: super::kevent::State,
+    /// The work queue.
+    pub wq: super::workq::Workqueue,
     /// Machine facts.
     pub machine: MachineInfo,
     /// The shared region, once mapped.
@@ -592,6 +597,7 @@ impl DarwinProcess {
                 pthread: PthreadRegistration::default(),
                 psynch: Default::default(),
                 kq: Default::default(),
+                wq: Default::default(),
                 machine,
                 shared_region: None,
                 started: Instant::now(),
@@ -613,6 +619,10 @@ impl DarwinProcess {
                 signal::psignal(&mut self.proc, None, sig, origin);
             }
             signal::timer::expire_real(&mut self.proc);
+            // Kernel event sources of the workqueue kqueue and workloops,
+            // then threads for the work queue's requests.
+            super::kevent::pump(&mut self.proc);
+            super::workq::redrive(&mut self.proc);
             self.deliver_posted();
             let Some(tid) = self.next_runnable() else {
                 if self.proc.threads.values().all(|t| t.exited) {
@@ -631,6 +641,8 @@ impl DarwinProcess {
             thread.woken = false;
             thread.wait = None;
             thread.mach.csw += 1;
+            // A workqueue thread given a request sets itself up first.
+            super::workq::run_pending(&mut self.proc, &mut thread);
             let t0 = thread_cpu_ns();
             let trap = thread.cpu.run(self.proc.config.slice_insns);
             let t1 = thread_cpu_ns();
@@ -712,6 +724,12 @@ impl DarwinProcess {
                     deadline = Some(deadline.map_or(d, |c| c.min(d)));
                 }
             }
+        }
+        // The workqueue kqueue's and workloops' sources.
+        let (kfds, kdeadline) = super::kevent::autonomous_wait(&self.proc);
+        fds.extend(kfds);
+        if let Some(d) = kdeadline {
+            deadline = Some(deadline.map_or(d, |c| c.min(d)));
         }
         // Forwarded host signals wake the process too.
         let wake = signal::host::wake_fd();

@@ -15,6 +15,7 @@ pub mod region;
 pub mod sig;
 pub mod sysctl;
 pub mod thread;
+pub mod workq;
 
 use super::Ctx;
 use crate::user::darwin::abi::Errno;
@@ -200,6 +201,10 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::KEVENT => event::kevent(ctx, a, event::Api::Kevent),
         nr::KEVENT64 => event::kevent(ctx, a, event::Api::Kevent64),
         nr::KEVENT_QOS => event::kevent(ctx, a, event::Api::Qos),
+        nr::KEVENT_ID => kevent::kevent_id(ctx, a),
+        nr::WORKQ_OPEN => crate::user::darwin::workq::workq_open(ctx),
+        nr::WORKQ_KERNRETURN => crate::user::darwin::workq::workq_kernreturn(ctx, a),
+        nr::BSDTHREAD_CTL => workq::bsdthread_ctl(ctx, a),
         nr::THREAD_SELFID => thread::thread_selfid(ctx),
         nr::BSDTHREAD_CREATE => pthread::bsdthread_create(ctx, a[0], a[1], a[2], a[3], u(4)),
         nr::BSDTHREAD_TERMINATE => pthread::bsdthread_terminate(ctx, a[0], a[1], u(2), a[3]),

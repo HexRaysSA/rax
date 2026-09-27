@@ -341,6 +341,18 @@ pub fn pthread_kill(ctx: &mut Ctx<'_>, port: u32, sig: i32) -> SysResult {
     if !(0..NSIG).contains(&sig) {
         return Err(Errno::EINVAL);
     }
+    let uflags = if tid == ctx.thread.tid {
+        ctx.thread.sig.uflags
+    } else {
+        ctx.proc.threads.get(&tid).map_or(0, |t| t.sig.uflags)
+    };
+    if uflags & signal::uflag::NO_SIGMASK != 0 {
+        return Err(Errno::ESRCH);
+    }
+    // Workqueue threads must have allowed kills.
+    if crate::user::darwin::workq::kill_denied(ctx.proc, tid) {
+        return Err(Errno::ENOTSUP);
+    }
     if sig != 0 {
         let own = Origin::own(ctx.proc);
         signal::psignal_thread(ctx.proc, Some(ctx.thread), tid, sig, own);
