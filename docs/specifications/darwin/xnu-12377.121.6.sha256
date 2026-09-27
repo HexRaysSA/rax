@@ -10,6 +10,7 @@ c93a7f65f755f4654c6a30dc6a37ec04f2b46043134ff2d8a0de0cc0fbb5d00f  ./bsd/dev/i386
 5a4f6cea3e5c744eab3a427cfb22a7c15477eb7a2368f2dddd8471397ac9153e  ./bsd/dev/i386/unix_signal.c
 f2692d8ff64204af8d07882231d9ca81fbbc75197cc9ad8607aa582ccf9b8703  ./bsd/i386/vmparam.h
 b21411f1606e26a4d7d8b9995d50bd238cb2571af0cc85a586b99a0ad8c0f57f  ./bsd/kern/kern_aio.c
+6909f51300732fe195252b9de1ce0a2fb5d086af9072dc5746269a8ffeb2e249  ./bsd/kern/kern_authorization.c
 07bfe90e3036a36bb0dcfb978dc0f11b218981b7a67d4834ac150b2f5c271a91  ./bsd/kern/kern_crossarch.c
 1ca6675b64d7eb73c0002a35b9273b27fa71fc23d696b644568d7fd3b5da0a99  ./bsd/kern/kern_csr.c
 5ec7c4392f60733bb44c8d2df61870bbabf9b4d7c474032e30eac129b3f2d258  ./bsd/kern/kern_descrip.c
