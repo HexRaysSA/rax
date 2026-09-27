@@ -5,6 +5,7 @@ ebd6b80cdee0703ee5fdf2f964a0dac4eb5d014e5c8b7af853031cd76afc78bf  ./bsd/arm/vmpa
 4f75797ad48f5d36d7c8860459477a2417ddf4702517ac3647ed33dc57dc1c42  ./bsd/dev/arm/kern_machdep.c
 7eb44232e6da37c8e6f5d2317ed5cf1d55d02032410b0ddf7007e4ca7b495df4  ./bsd/dev/arm/systemcalls.c
 6a56ca89d11ebd7c2ef41f19f4e388388a24dd6e2324e11106a4df1ce75c4e49  ./bsd/dev/arm/unix_signal.c
+8b5d695593987ac4b896f6087fc57894a11b9a64442efaf8a8d072dfc8eed502  ./bsd/dev/arm64/sysctl.c
 c93a7f65f755f4654c6a30dc6a37ec04f2b46043134ff2d8a0de0cc0fbb5d00f  ./bsd/dev/i386/kern_machdep.c
 7822b31e4f62fcd5f2baeb7fc41fde518b1f44b98fab3908594e18ee2c48426f  ./bsd/dev/i386/systemcalls.c
 5a4f6cea3e5c744eab3a427cfb22a7c15477eb7a2368f2dddd8471397ac9153e  ./bsd/dev/i386/unix_signal.c
@@ -20,11 +21,13 @@ ecec070f1cb5139f3681d7a95167a4bfe8f034f6fd1cc58bda5d9b447d85e045  ./bsd/kern/ker
 145c0b61c2e6e6288d65166a987869a60c1bb8aa4fbf9bd0700eae842f32bfdd  ./bsd/kern/kern_fork.c
 44c4406e8b18c35f5fcc6a6b6013db4121e7b6913a758fe824fee15e95a4b8f7  ./bsd/kern/kern_mib.c
 cf8c0d8923c718bd80ec1cc569d57ea5b45f0d895123c4e1b48a51b5de2cada3  ./bsd/kern/kern_mman.c
+0ef65bc8a7648216d3120f5b8c74863d99a0ce82e4365411c06393046f101a4f  ./bsd/kern/kern_newsysctl.c
 76f81fddf8562ae06c9229fef4be95bd9505cdd3866b2d0565b8104d2120f0c7  ./bsd/kern/kern_proc.c
 2d86bd7cf845f9402b26ace5c2881f604aede52e632d33ace10fcd5d9c4e0591  ./bsd/kern/kern_prot.c
 267d77490eb641118b078f1193e0971fe3e8a81a57d0bd02eb875f50b67a901a  ./bsd/kern/kern_resource.c
 8ce8c8d74345256e8598fc36b79976406fb165ae88d90721f3d918a3dd317495  ./bsd/kern/kern_sig.c
 015d68e07dc3975aee47b2e307d6d3a4e57541f8ab87ffc9a44034f0a1044b0a  ./bsd/kern/kern_synch.c
+e9afd60d06752d2eaa7fada1316f293c342c3666f54d3c7e94d82d5ab55c851a  ./bsd/kern/kern_sysctl.c
 e0604d026880facb9dd4ab62a27056c259c253073ede645ae5433f817470465a  ./bsd/kern/kern_time.c
 56b8f4cfe7de6c0bb6aedcbdec36afd2411f5fb0d39514f5a215f70d0dbf9b7e  ./bsd/kern/mach_fat.c
 234fe095dd92cbea6135d56781619b44ccf17fe6ffd95c9c8fa06f7bb1fd4e30  ./bsd/kern/mach_loader.c
@@ -82,6 +85,7 @@ f05feb319366d6fc2948fdb728891c87bc2406a1028041382bc13251cbf0e17e  ./bsd/sys/sign
 3f20bba0ba3e68dae34c4d3a66e1db5aaf7a4827e318bc4b3fc39dce20d91c3f  ./bsd/sys/sockio_private.h
 b34765529855f41b8d3598c1443065c67fcdcb8ad734ba6d60c8d255bc5d4379  ./bsd/sys/spawn.h
 9c7a4e919053b0991784784c2da71cba60b7366a5e279edca630df66896d5eb3  ./bsd/sys/spawn_internal.h
+7149cf776a82e9a301e55aa922a4eeb9c0688836faa4cd4cbdaee86e6ff2bc36  ./bsd/sys/sysctl.h
 c82fe60eac5d7864220e1468e6b75740b07d2ad6d18fe923b495059e48c2f100  ./bsd/sys/syslimits.h
 2e073d2d2e06290755a5a9a7e9ded52974f32727fb27cf9d769e831e74f06499  ./bsd/sys/ulock.h
 3a45612e83bd6182ffe78fe7ab40a346bd5ad773cc11590de00b2b7f467b9838  ./bsd/sys/un.h
@@ -98,6 +102,7 @@ ac3fe4827e77cd0f98af117e0107e8788723435490b7b4a514d12c666b225fc3  ./bsd/vfs/vfs_
 13e798255556e07e07b438a9e71a559c34e2bc35c5602655319a6c28fc6e9845  ./config/MASTER
 2e8162981322711ca7f29e5736b80e4842661041d06bfc0658784bf39aefe244  ./config/MASTER.arm64.MacOSX
 6a5df4b44a2c6769aed121777758ee512dd8b14234cbbe86874bb6e24c83d422  ./config/MASTER.x86_64
+2dff047ecfb18cdedcdc6f9f97c8fa6f730e088176598865c586b91545f74a56  ./iokit/Kernel/IOPlatformExpert.cpp
 30f706bb8f2a260210eacbfeddaaf649e9709d76b1dcbbb9a4edd88ef8e07bec  ./libsyscall/mach/host.c
 d2b9f677f8ed2e3338c23ace865a889208a5d2a0147f05d6e0b82115703b5cfa  ./libsyscall/mach/mach_msg.c
 06bfc350c1d4f7d5fa0ff69fde3340ce9b68d86996e347a2a4332f7a227699f5  ./libsyscall/mach/mach_port.c
@@ -108,9 +113,11 @@ d2b9f677f8ed2e3338c23ace865a889208a5d2a0147f05d6e0b82115703b5cfa  ./libsyscall/m
 eab2c71e215be94781f1d12802864dfb450505406867b3e35e4432096357580b  ./libsyscall/wrappers/spawn/posix_spawn.c
 912eef3b152d9bd33db48dc6cd7b9dc517a827e0ce563093d3f543dda131591e  ./libsyscall/wrappers/spawn/spawn.h
 d3e97883a30bcde75581691294ca33b6598aac4d513e1a130b219e20a768d292  ./libsyscall/wrappers/spawn/spawn_private.h
+3c9b158bb9bfc9a3b292968ae4157ce86b9f72efa13017d2360fe3737e390538  ./osfmk/arm/arm_features.inc
 74b459e9845ee005fbe06ab885e43d874320a9a517afb2a734cc5f3ab7a4a700  ./osfmk/arm/arm_timer.c
 064ba89d18ad116d002adffffd5b0c4f4f783e7fd66f0b722fccbde673ae0080  ./osfmk/arm/commpage/commpage.c
 8936b19289b96b6249719fa641c29d31a2050cd7db39e4dc0e8b741b14f2975d  ./osfmk/arm/cpu_capabilities.h
+bef083d65ab587df19611f4749f33a449d8a9169d8075001bf81b309a5c216ed  ./osfmk/arm/cpu_capabilities_public.h
 004fc5eaccccdb57cd5e73137b16233cbd68731326222d1dc4f38ea045964263  ./osfmk/arm/machdep_call.c
 0daa6e6d9e1c6143d129ea45c73cad57aa06ba28fbf722e21c1486e6ca3c986b  ./osfmk/arm/machine_routines_common.c
 9e17da181e72144d27df4ce256988226bfef0e41c0744fc9ef6466f0844c2a32  ./osfmk/arm64/arm_vm_init.c
@@ -129,6 +136,7 @@ e03be3b79ebd1ffecbdfc6ceebc6b779be83dc48031b37438d237592a09978ab  ./osfmk/i386/b
 6e737279516222d5ea8e813cf9d67abd4bf0fb664106c297639a007bbe7a16c2  ./osfmk/i386/bsd_i386_native.c
 1bb2ba9b2e0d01fe1ad2e8f54c9830421a87731278234e17d1dd1e6c16a2c4b5  ./osfmk/i386/commpage/commpage.c
 d2684c2d160db02a8347f02dd6ac0bfba8b8220292a1c474a7468523cdd4099c  ./osfmk/i386/cpu_capabilities.h
+f51e8d46fc229e31d1317470010129bf9ccbf2d5506b3557cd8fffe44f53e806  ./osfmk/i386/cpu_topology.c
 bbc0182e3c0ad0c7a1d3af410863c360aebc84dd75c80a1c4aba17375e7232e4  ./osfmk/i386/cpuid.c
 443b68f584255f7f9942bd3f7579375e734e43a71351791fdde2d1e7255b6d73  ./osfmk/i386/eflags.h
 6b5715461048c7de9a999007b172d31f31b87b89803f20f6a36f402f5cad1316  ./osfmk/i386/fpu.c
@@ -137,6 +145,7 @@ be75fc800ccfa2b0e81aef66ffaba412d2d5ab2f506d3e59978638f162ec59cc  ./osfmk/i386/i
 34e4d8e271757c29da09397ae289adc471798fa4ee0170a8f1b76d50ebb47286  ./osfmk/i386/i386_vm_init.c
 4ddcfb003cd5f55870afd2b6d7c8bdcfd760474f40175896856e246f9a227763  ./osfmk/i386/lapic.h
 ca7fe53e0e7c6bc472340f787a0fba99a7733f24c4b130e57f42ed9b815540a6  ./osfmk/i386/machdep_call.c
+83bda913f3eb6013bdd32783ebd51328e6d561fa6083bb405f81e57e1ae3fc03  ./osfmk/i386/machine_routines.c
 10a746109fb76855a2f3b47a538f707746d47a19f524f7b4dc6166b884755b46  ./osfmk/i386/pcb.c
 35b7a702088301b1fb5be50adeae45b7c6f117888ff147ba13a37d9bd3144377  ./osfmk/i386/pcb_native.c
 17561bc9c6f9ce4c8f8be582e3d8ac61aa29aecd3cb6d17e815991176ee862fd  ./osfmk/i386/seg.h
