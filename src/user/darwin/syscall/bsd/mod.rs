@@ -137,6 +137,8 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::FCHOWNAT => path::fchownat(ctx, i(0), a[1], u(2), u(3), u(4)),
         nr::FCHOWN => file::fchown(ctx, i(0), u(1), u(2)),
         nr::CHDIR => path::chdir(ctx, a[0]),
+        nr::FSGETPATH => path::fsgetpath(ctx, a[0], a[1], a[2], a[3], 0),
+        nr::FSGETPATH_EXT => path::fsgetpath(ctx, a[0], a[1], a[2], a[3], u(4)),
         nr::FCHDIR => path::fchdir(ctx, i(0)),
         nr::TRUNCATE => path::truncate(ctx, a[0], a[1] as i64),
         nr::FTRUNCATE => file::ftruncate(ctx, i(0), a[1] as i64),
@@ -150,6 +152,8 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::FLOCK => file::flock(ctx, i(0), i(1)),
         nr::GETDIRENTRIES64 => file::getdirentries64(ctx, i(0), a[1], a[2], a[3]),
         nr::FSTATFS64 => file::fstatfs64(ctx, i(0), a[1]),
+        nr::STATFS64 => path::statfs64(ctx, a[0], a[1]),
+        nr::GETFSSTAT64 => file::getfsstat64(ctx, a[0], i(1), i(2)),
         nr::POLL | nr::POLL_NOCANCEL => file::poll(ctx, a[0], u(1), i(2)),
         nr::SELECT | nr::SELECT_NOCANCEL => file::select(ctx, i(0), a[1], a[2], a[3], a[4]),
         #[cfg(target_os = "macos")]

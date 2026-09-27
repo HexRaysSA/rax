@@ -427,3 +427,108 @@ pub fn getattrlistat(
     ctx.write(buf, &out)?;
     Ok(Rv::one(0))
 }
+
+/// `fsgetpath` options (`FSOPT_NOFIRMLINKPATH`, `FSOPT_ISREALFSID`).
+const FSGETPATH_OPTIONS: u32 = 0x0080 | 0x0200;
+
+/// `MAXLONGPATHLEN`.
+const MAXLONGPATHLEN: u64 = 8192;
+
+/// `fsgetpath_ext(buf, bufsize, fsid, objid, options)` (`fsgetpath` with
+/// no options): the path of the file system object `objid` on the volume
+/// `fsid`, which the host names; a root overlay's prefix is removed. The
+/// result is the path's length with its NUL.
+pub fn fsgetpath(
+    ctx: &mut Ctx<'_>,
+    buf: u64,
+    bufsize: u64,
+    fsid: u64,
+    objid: u64,
+    options: u32,
+) -> SysResult {
+    if options & !FSGETPATH_OPTIONS != 0 {
+        return Err(Errno::EINVAL);
+    }
+    let fsid: [u8; 8] = ctx.read(fsid, 8)?.try_into().expect("8 bytes");
+    if bufsize == 0 || bufsize > MAXLONGPATHLEN {
+        return Err(Errno::EINVAL);
+    }
+    let path = host_fsgetpath(fsid, objid, bufsize as usize, options)?;
+    let path = match &ctx.proc.vfs.root {
+        Some(root) => {
+            use std::os::unix::ffi::OsStrExt;
+            let root = root.as_os_str().as_bytes();
+            match path.strip_prefix(root) {
+                Some(rest) if rest.first() == Some(&b'/') => rest.to_vec(),
+                _ => path,
+            }
+        }
+        None => path,
+    };
+    let mut out = path;
+    out.push(0);
+    if out.len() as u64 > bufsize {
+        return Err(Errno::ENOSPC);
+    }
+    ctx.write(buf, &out)?;
+    Ok(Rv::one(out.len() as u64))
+}
+
+/// The host's `fsgetpath_ext`: the path without its NUL.
+#[cfg(target_os = "macos")]
+fn host_fsgetpath(fsid: [u8; 8], objid: u64, size: usize, options: u32) -> Result<Vec<u8>, Errno> {
+    /// `SYS_fsgetpath_ext`.
+    const SYS_FSGETPATH_EXT: libc::c_int = 217;
+    let mut out = vec![0u8; size];
+    // SAFETY: `out` has `size` writable bytes and `fsid` is the 8-byte
+    // fsid_t the call reads.
+    let n = unsafe {
+        libc::syscall(
+            SYS_FSGETPATH_EXT,
+            out.as_mut_ptr(),
+            size,
+            fsid.as_ptr(),
+            objid,
+            options,
+        )
+    };
+    if n < 0 {
+        return Err(Errno::last());
+    }
+    let n = (n as usize).min(size);
+    let end = out[..n].iter().position(|&b| b == 0).unwrap_or(n);
+    out.truncate(end);
+    Ok(out)
+}
+
+/// Other hosts have no volume-and-object lookup.
+#[cfg(not(target_os = "macos"))]
+fn host_fsgetpath(_: [u8; 8], _: u64, _: usize, _: u32) -> Result<Vec<u8>, Errno> {
+    Err(Errno::ENOTSUP)
+}
+
+/// `statfs64(path, buf)`: the host's statistics of the volume holding
+/// `path` (following symbolic links).
+pub fn statfs64(ctx: &mut Ctx<'_>, path: u64, buf: u64) -> SysResult {
+    let (_, cpath) = guest_path(ctx, path)?;
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: `cpath` is NUL-terminated; statfs writes a complete
+        // struct on success.
+        let s = unsafe {
+            let mut s: libc::statfs = std::mem::zeroed();
+            check(libc::statfs(cpath.as_ptr(), &mut s))?;
+            s
+        };
+        ctx.write(
+            buf,
+            &crate::user::darwin::abi::types::Statfs::from_host(&s).bytes(),
+        )?;
+        Ok(Rv::one(0))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (cpath, buf);
+        Err(Errno::ENOSYS)
+    }
+}
