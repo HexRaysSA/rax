@@ -373,7 +373,13 @@ the two walks. Writes are refused (`EPERM`) once the node is found.
 
 Mach absolute time, uptime, and `kern.boottime` share one
 clock that starts with the emulator. Process identity (pid, credentials,
-audit token) is the host process's. A thread's assumed identity
+audit token) is the host process's, and so is its audit state: `getauid`,
+`getaudit_addr`, `auditon`, and the privileged `setauid`,
+`setaudit_addr`, `audit`, and `auditctl` are the host's, with the guest's
+memory given to them in XNU's order (lengths and privilege before a
+buffer is read, a buffer the guest cannot supply as memory the host
+cannot read, and a query whose result cannot be written back failing
+with `ENOSYS`, as `auditon`'s copy-out does). A thread's assumed identity
 (`settid`, `settid_with_pid`: privileged, `EPERM` otherwise) is what
 `gettid` reports (`ESRCH` without one); the host still checks access with
 the process's. The System Integrity Protection configuration `csrctl` reports and checks against is the host's on a macOS
@@ -433,9 +439,10 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   behaviors, and guard exceptions, which Rosetta handles differently, on
   arm64 only), and the metadata, copy-out rules, lookups, and walks of
   `sysctl` (the `machdep` subtree, which Rosetta shows as the arm64
-  kernel's, on arm64 only), and the flavored task ports,
-  `task_read_for_pid` and `task_inspect_for_pid`, and the host's special
-  ports in `mach_info`.
+  kernel's, on arm64 only), the flavored task ports, `task_read_for_pid`
+  and `task_inspect_for_pid`, and the host's special ports in
+  `mach_info`, and the audit identity, copy rules, and refusals of
+  `audit`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit
