@@ -1,12 +1,27 @@
 /* Host, task, thread, and VM kernel interfaces. Only machine-independent
  * facts are printed: result codes, counts, and relations. */
+#include <errno.h>
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
+
+extern kern_return_t task_read_for_pid(mach_port_t, int, mach_port_t *);
+extern kern_return_t task_inspect_for_pid(mach_port_t, int, mach_port_t *);
+
+/* task_read_for_pid or task_inspect_for_pid on `pid`: the result, the
+ * error, and whether a name came back. */
+static void flavor_for_pid(const char *what, mach_port_t target, int pid, int read) {
+    mach_port_t t = 0xdead;
+    errno = 0;
+    int r = read ? task_read_for_pid(target, pid, &t) : task_inspect_for_pid(target, pid, &t);
+    printf("%s: %d errno=%d name=%s\n", what, r, r ? errno : 0,
+           t == 0xdead ? "untouched" : t == MACH_PORT_NULL ? "null" : "set");
+}
 
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -113,6 +128,50 @@ int main(void) {
     printf("special host port: kr=%#x is_host=%d\n", kr, sp == host);
     kr = task_get_special_port(task, 99, &sp);
     printf("special bad: kr=%#x\n", kr);
+
+    /* Flavored task ports: one port per flavor, so the same name each
+     * time; for a pid, the caller's own and no other. */
+    mach_port_t r1, r2, i1, i2, nm1, nm2, fp;
+    kr = task_get_special_port(task, TASK_READ_PORT, &r1);
+    task_get_special_port(task, TASK_READ_PORT, &r2);
+    printf("read port: kr=%#x same=%d is_task=%d\n", kr, r1 == r2, r1 == task);
+    kr = task_get_special_port(task, TASK_INSPECT_PORT, &i1);
+    task_get_special_port(task, TASK_INSPECT_PORT, &i2);
+    printf("inspect port: kr=%#x same=%d is_read=%d\n", kr, i1 == i2, i1 == r1);
+    kr = task_get_special_port(task, TASK_NAME_PORT, &nm1);
+    task_get_special_port(task, TASK_NAME_PORT, &nm2);
+    printf("name port: kr=%#x same=%d\n", kr, nm1 == nm2);
+    kr = task_read_for_pid(task, getpid(), &fp);
+    printf("task_read_for_pid(self): kr=%d is_read=%d\n", kr, fp == r1);
+    kr = task_inspect_for_pid(task, getpid(), &fp);
+    printf("task_inspect_for_pid(self): kr=%d is_inspect=%d\n", kr, fp == i1);
+    pid_t gone = fork();
+    if (gone == 0) _exit(0);
+    waitpid(gone, NULL, 0);
+    for (int read = 1; read >= 0; read--) {
+        printf("%s:\n", read ? "read" : "inspect");
+        flavor_for_pid(" pid 0", task, 0, read);
+        flavor_for_pid(" launchd", task, 1, read);
+        flavor_for_pid(" parent", task, getppid(), read);
+        flavor_for_pid(" reaped", task, gone, read);
+        flavor_for_pid(" null target", MACH_PORT_NULL, getpid(), read);
+        flavor_for_pid(" read port as target", r1, getpid(), read);
+    }
+
+    /* The host's special ports: the host port itself, the rest privileged
+     * (a host_priv port is needed to set one). */
+    sp = MACH_PORT_NULL;
+    kr = host_get_special_port(host, HOST_LOCAL_NODE, HOST_PORT, &sp);
+    printf("host special HOST_PORT: kr=%#x is_host=%d\n", kr, sp == host);
+    for (int which = 2; which <= 12; which++) {
+        sp = MACH_PORT_NULL;
+        kr = host_get_special_port(host, HOST_LOCAL_NODE, which, &sp);
+        printf(" host special %d: kr=%#x %s\n", which, kr, sp ? "set" : "null");
+    }
+    kr = host_get_special_port(host, 1, HOST_PORT, &sp);
+    printf("host special on node 1: kr=%#x\n", kr);
+    kr = host_set_special_port(host, 8, task);
+    printf("host_set_special_port: kr=%#x\n", kr);
 
     /* VM. */
     mach_vm_address_t a = 0;

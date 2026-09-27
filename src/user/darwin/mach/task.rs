@@ -69,6 +69,10 @@ pub struct TaskState {
     pub special: [Option<Arc<Port>>; special::MAX as usize + 1],
     /// The task name port (`TASK_NAME_PORT`), made on first use.
     pub name_port: Option<Arc<Port>>,
+    /// The task read port (`TASK_READ_PORT`), made on first use.
+    pub read_port: Option<Arc<Port>>,
+    /// The task inspect port (`TASK_INSPECT_PORT`), made on first use.
+    pub inspect_port: Option<Arc<Port>>,
     /// Task exception actions, by exception type.
     pub exc: [ExcAction; EXC_TYPES_COUNT],
     /// `task_exc_guard_behavior_t`.

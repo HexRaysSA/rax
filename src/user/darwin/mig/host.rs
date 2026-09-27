@@ -137,6 +137,18 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             req.simple(36)?;
             Err(kr::KERN_INVALID_ARGUMENT)
         }
+        // host_get_special_port and host_set_special_port refuse the host
+        // name port the same way (host_priv NULL).
+        ids::host_priv::HOST_GET_SPECIAL_PORT => {
+            req.simple(40)?;
+            Err(kr::KERN_INVALID_ARGUMENT)
+        }
+        ids::host_priv::HOST_SET_SPECIAL_PORT => {
+            req.complex_of(1, 52)?;
+            let right = req.take_port(28, &[crate::user::darwin::mach::ipc::disp::MOVE_SEND])?;
+            crate::user::darwin::syscall::mach::kmsg::release(ctx.proc, right);
+            Err(kr::KERN_INVALID_ARGUMENT)
+        }
         h::KERNELRPC_HOST_CREATE_MACH_VOUCHER => {
             // recipes[recipesCnt] (at most 5120 bytes, padded to 4).
             let max = voucher::MAX_RECIPE_ARRAY;

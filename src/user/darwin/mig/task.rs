@@ -384,6 +384,22 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
     }
 }
 
+/// The task's read port (`convert_task_read_to_port`).
+pub fn read_port(proc: &mut Proc) -> Arc<Port> {
+    proc.task
+        .read_port
+        .get_or_insert_with(|| Port::new(KObject::TaskRead))
+        .clone()
+}
+
+/// The task's inspect port (`convert_task_inspect_to_port`).
+pub fn inspect_port(proc: &mut Proc) -> Arc<Port> {
+    proc.task
+        .inspect_port
+        .get_or_insert_with(|| Port::new(KObject::TaskInspect))
+        .clone()
+}
+
 /// A new identity token of the calling task (`task_create_identity_token`).
 pub fn identity_token(proc: &Proc) -> Arc<Port> {
     Port::new(KObject::TaskIdToken(proc.task_port.id))
@@ -421,14 +437,9 @@ fn get_special_port(ctx: &mut Ctx<'_>, kind: &KObject, which: i32) -> Result<Out
                 .clone();
             make_send(&p)
         }
-        special::READ | special::INSPECT => {
-            let kind = if which == special::READ {
-                KObject::TaskRead
-            } else {
-                KObject::TaskInspect
-            };
-            make_send(&Port::new(kind))
-        }
+        // One read and one inspect port per task.
+        special::READ => make_send(&read_port(ctx.proc)),
+        special::INSPECT => make_send(&inspect_port(ctx.proc)),
         special::BOOTSTRAP
         | special::ACCESS
         | special::DEBUG_CONTROL
