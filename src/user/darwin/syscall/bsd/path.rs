@@ -274,7 +274,8 @@ pub fn chdir(ctx: &mut Ctx<'_>, path: u64) -> SysResult {
 /// `fchdir(fd)`.
 pub fn fchdir(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
-    let h = file.host_fd().ok_or(Errno::ENOTDIR)?;
+    // A kqueue is not a vnode (file_vnode).
+    let h = file.host_fd().ok_or(Errno::EINVAL)?;
     // SAFETY: fchdir on a live host descriptor.
     check(unsafe { libc::fchdir(h) })?;
     ctx.proc.cwd = match file.path.clone() {

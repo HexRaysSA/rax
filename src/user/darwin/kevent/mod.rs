@@ -1084,7 +1084,8 @@ pub fn kqueue(ctx: &mut Ctx<'_>) -> SysResult {
         flags: std::sync::Mutex::new(super::io::O_RDWR),
     });
     let limit = ctx.proc.rlimits[8].0;
-    match ctx.proc.fds.install(file, false, 0, limit) {
+    // FP_CLOEXEC | FP_CLOFORK (and FG_CONFINED: never inherited).
+    match ctx.proc.fds.install(file, true, 0, limit) {
         Ok(fd) => Ok(Rv::one(fd as u64)),
         Err(e) => {
             ctx.proc.kq.kqueues.remove(&kq);

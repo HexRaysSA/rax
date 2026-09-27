@@ -400,12 +400,12 @@ fn set_special_port(proc: &mut Proc, which: i32, right: Option<Right>) -> Result
 
 /// `EXC_MASK_VALID`: exception types 1 ..= 14 (`EXC_MASK_ALL` plus
 /// `EXC_MASK_CORPSE_NOTIFY`).
-fn valid_exc_mask() -> u32 {
+pub(crate) fn valid_exc_mask() -> u32 {
     ((1u32 << EXC_TYPES_COUNT) - 1) & !1
 }
 
 /// `EXCEPTION_*` behaviors with optional `MACH_EXCEPTION_*` flags.
-fn valid_behavior(b: i32) -> bool {
+pub(crate) fn valid_behavior(b: i32) -> bool {
     // EXCEPTION_DEFAULT 1, STATE 2, STATE_IDENTITY 3, IDENTITY_PROTECTED
     // 4, STATE_IDENTITY_PROTECTED 5; flags MACH_EXCEPTION_CODES
     // 0x80000000, ERRORS 0x40000000, BACKTRACE_PREFERRED 0x20000000.

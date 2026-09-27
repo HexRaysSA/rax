@@ -40,3 +40,26 @@ fn cat_a_file() {
         program("/bin/cat", arch, &["missing-file"], Some(&dir));
     }
 }
+
+#[test]
+fn env_runs_a_program() {
+    for arch in ["arm64", "x86_64"] {
+        program("/usr/bin/env", arch, &["/bin/echo", "via", "env"], None);
+        program(
+            "/usr/bin/env",
+            arch,
+            &["-i", "A=1", "/usr/bin/printenv"],
+            None,
+        );
+        program("/usr/bin/env", arch, &["/nonexistent/program"], None);
+    }
+}
+
+#[test]
+fn sh_runs_commands() {
+    let script = "echo one; /bin/echo two; x=$(/bin/echo three); echo \"$x\"; \
+                  /usr/bin/false || echo \"false=$?\"; exit 3";
+    for arch in ["arm64", "x86_64"] {
+        program("/bin/sh", arch, &["-c", script], None);
+    }
+}

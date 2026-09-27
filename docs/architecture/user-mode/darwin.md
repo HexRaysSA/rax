@@ -117,6 +117,10 @@ that asked); closing a kqueue's last descriptor drops the kqueue.
 | Area | Module | Counterpart |
 |---|---|---|
 | `fork`: the host process forks (the child is a copy of the emulator with its guest; private memory copied on write, shared mappings shared), and the child becomes XNU's forked process: the caller's thread only, with a new thread ID and the caller's signal mask; a new task whose space holds its control port then the thread's, keeping the bootstrap, access, and host special ports and the exception actions; descriptors without kqueues (`FG_CONFINED`); no pending signals, interval timers, alternate stack, work queue, psynch, or kqueue state, and not `SA_NOCLDSTOP` or `SA_NOCLDWAIT` (process flags; the actions stay); `VM_INHERIT_NONE` regions unmapped. The child's call returns its own pid with 1 in the second return register | `fork` | `kern_fork.c`, `ipc_task_init`, `fdt_fork`, `thread_set_child` |
+| `execve`: the path saved and looked up (following links; `ENAMETOOLONG`, `EFAULT`, `ENOENT`, `ENOTDIR`), the permission checks (a regular file with an execute bit, `EACCES`; not empty, `ENOEXEC`), then the activators in XNU's order at most three times: a thin Mach-O executable graded for the machine (`EBADARCH` for another CPU, a 32-bit or reverse-endian image; another file type is not claimed), a fat file's slice (`EBADMACHO` for a bad table), a `#!` script (the first 512 bytes: the interpreter and its words, `ENOEXEC` without one or without an end of line, and no script as interpreter); nothing claimed is `ENOEXEC`. The arguments and environment are then copied within `NCARGS` (`E2BIG`, `EFAULT`; a NULL vector is empty; a script's `argv` is the interpreter's words, the path, and the caller's `argv` less its first) | `exec`, `exec::image`, `exec::args` | `exec_activate_image`, `exec_mach_imgact`, `exec_fat_imgact`, `exec_shell_imgact`, `exec_extract_strings` |
+| The new image: past the point of no return a new process image is built (a failure to load it kills the process with `SIGKILL`) and replaces the old when the call returns. It keeps the pid, parent, credentials, working directory, file-creation mask, limits, children, start time, interval timers, the descriptors less close-on-exec ones and kqueues, the caller's signal mask and pending signals, ignored signals, and the task's inherited special ports and exception actions; caught signals return to their defaults, and the alternate stack, `SA_ONSTACK`, `sigreturn` validation, `SA_NOCLDSTOP`/`SA_NOCLDWAIT`, other threads, the address space, port names, and the guard-exception behavior are new. Thread and task ports are again `0x103` and `0x203` | `exec`, `process` | `proc_exec_switch_task`, `execsigs`, `fdt_exec`, `ipc_task_init`, `proc_inherit_itimers` |
+| `posix_spawn`: the argument descriptor and attribute layouts (`EINVAL` for file- or port-action sizes that disagree with their counts), file actions in order on the child's descriptor table (`OPEN` at the lowest descriptor then moved, `CLOSE`, `DUP2` clearing close-on-exec, `INHERIT`, `CHDIR`, and `FCHDIR` of the caller's descriptor; the first failure fails the spawn), `POSIX_SPAWN_CLOEXEC_DEFAULT`, port actions (special ports and exception handlers of the new task; `EINVAL` for bad names or kinds), `RESETIDS`, binary preferences (`EBADARCH`, and `EBADEXEC` when four preferences all miss a fat file), then the child's process group and session, signal mask, and default actions; `POSIX_SPAWN_SETEXEC` runs the image in the caller; `POSIX_SPAWN_START_SUSPENDED` stops the child before it runs. A failed spawn writes no pid, leaves no child, and sends no `SIGCHLD` | `exec::spawn` | `posix_spawn`, `exec_handle_file_actions`, `exec_handle_port_actions` |
+| `waitid`: options (`EINVAL` for none or unknown ones) and id types, `WNOWAIT`, `WNOHANG` leaving the `siginfo_t` untouched, and the `siginfo_t` of an exit (the status), a signal death, a stop (the signal), and a continue (`SIGCONT`, the child's pid) | `syscall::bsd::wait` | `waitid_nocancel` |
 | `wait4`: the host's wait for the guest's children (host processes), XNU's status encoding (a continue is `W_STOPCODE(SIGCONT)`), `struct rusage`, `WNOHANG`, sleeping until a child changes state with signal interruption, and the pending `SIGCHLD` cleared when the last child is reaped with `SIGCHLD` blocked | `syscall::bsd::wait` | `wait4_nocancel` |
 | `SIGCHLD`: the host's `SIGCHLD` wakes waiters and becomes the guest's with the child's pid, user, code, and status; `SA_NOCLDSTOP` suppresses it for stops, a process that ignores `SIGCHLD` or sets `SA_NOCLDWAIT` leaves no zombies and gets no signal for exits, and continues send none | `signal`, `signal::host` | `proc_exit`, `psignal_internal` |
 
@@ -124,6 +128,35 @@ A guest killed by a signal whose default action dumps core makes
 `rax-user` exit with status 128 + N rather than die by the signal (so the
 host records no crash of the emulator); a parent waiting for such a child
 sees an exit.
+
+An exec happens inside the emulator: the host process keeps running
+`rax-user`, which swaps in the new guest image. Everything that can fail
+before XNU's point of no return is checked first, including a spawn's
+file actions, which work on a copy of the caller's descriptor table with a
+directory descriptor for a changed working directory, and the new image
+is built in the caller. So a failed spawn (`posix_spawnp` tries each
+`PATH` entry) forks nothing, and the host fork carries a finished image
+into the child. Setting a spawned child's process group or session can
+still fail in the child; the child then reports the error through a pipe,
+the caller reaps it, and the host's `SIGCHLD` for it is dropped. The
+machine an image runs on follows the caller: an arm64 process may exec
+x86-64 images as well as arm64 ones (translated, as by Rosetta, which
+runs x86_64 slices but refuses x86_64h ones with `EBADARCH`; a fat file
+without an arm64 slice runs its x86_64 one), and an x86-64 process only
+x86-64 ones (preferring x86_64h). The slice activation chooses is the one
+loaded.
+
+Host-level effects of a native exec are not reproduced. The host sees
+`rax-user` throughout, so a watcher of the host process gets no
+`NOTE_EXEC`, and `setpgid` on a child that has exec'd is not refused. A
+start-suspended child is stopped with `SIGSTOP` (as any stop is, with host
+job control), so its parent may get a `CLD_STOPPED` `SIGCHLD` and a stop
+status that XNU's suspended child does not produce. A child stopped by `SIGTSTP`, `SIGTTIN`, or `SIGTTOU` stops
+the host with `SIGSTOP` and is reported so. An exit status keeps only its
+low eight bits. Port actions set the new task's ports, but no Mach message
+crosses to another emulated process. Persona and credential attributes
+(`EPERM`), coalitions (`EPERM`), and fileports (`EINVAL`) are refused as
+for an unprivileged, unentitled caller.
 
 ## Work queues
 
@@ -207,11 +240,12 @@ semaphores and sleeping, signals, POSIX threads with their mutexes,
 condition variables, and read-write locks, kqueues, and work queues with
 their kqueue and workloops (so `libdispatch`: global and serial queues,
 groups, semaphores, `dispatch_apply`, `dispatch_after`, barriers, and
-timer, read, and signal sources), and `fork` with `wait4` and `SIGCHLD`.
-Not yet implemented, and answered
+timer, read, and signal sources), `fork` with `wait4`, `waitid`, and
+`SIGCHLD`, and `execve` and `posix_spawn` (scripts, fat files, file and
+port actions, spawn attributes). Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
-under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`,
-`execve`/`posix_spawn`, sockets, `proc_info`, and exception delivery
+under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`, sockets,
+`proc_info`, and exception delivery
 to Mach exception ports (a machine exception becomes its signal
 directly). `kill` of the process group reaches this process only through
 host-signal forwarding, and `kill(-1, sig)` signals only this process.
@@ -230,10 +264,17 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   workqueue and workloop calls, errors, servicers, synchronous waiters,
   and ownership of `workq` (driven through libpthread's SPI and the raw
   calls), libdispatch's queues and sources in `dispatch`, the
-  inheritance, statuses, and `SIGCHLD` of `fork`, and the SIP queries of
+  inheritance, statuses, and `SIGCHLD` of `fork`, every `execve`
+  refusal, the `SIGKILL` past the point of no return, scripts, and the
+  state a new image keeps in `exec`, an arm64 process running the x86_64
+  build (thin, and fat beside x86_64h slices) in `exec_translated`, the
+  file actions, attributes, port
+  actions, failures, and `waitid` views of `spawn`, and the SIP queries of
   `csr`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
-  likewise.
+  likewise, `/usr/bin/env` running a program (and failing to), and
+  `/bin/sh -c` with external commands, a command substitution, and an exit
+  status (`/bin/sh` itself execs the shell it stands for).
 - `generators`: the checked-in tables equal what the generators produce
   from the vendored sources (`--check`).
 - `layouts`: the signal-frame and thread-state sizes the personality uses
@@ -245,5 +286,7 @@ no oracle and report themselves skipped. Library tests under
 stack layout, slide info, sysctl nodes, the host-information flavors,
 exception-to-signal translation, signal actions, interval-timer
 arithmetic, the thread-state flavors, psynch sequence arithmetic and queue
-order, thread QoS requests, the pthread priority encoding, and work-queue
-admission and request selection.
+order, thread QoS requests, the pthread priority encoding, work-queue
+admission and request selection, interpreter-line parsing, fat and thin
+grading with binary preferences, `NCARGS` accounting, `execsigs`,
+`fdt_exec`, and the spawn layouts.

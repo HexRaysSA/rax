@@ -63,8 +63,14 @@ pub fn x86_64_native() -> bool {
 
 /// Compiles fixture `name` for `arch` (`arm64` or `x86_64`).
 pub fn build(name: &str, arch: &str) -> PathBuf {
+    build_as(name, arch, name)
+}
+
+/// Compiles fixture `name` for `arch` into a file of its own named after
+/// `output` (so tests building the same fixture do not race).
+pub fn build_as(name: &str, arch: &str, output: &str) -> PathBuf {
     let src = sources().join(format!("{name}.c"));
-    let out = build_dir().join(format!("{name}.{arch}"));
+    let out = build_dir().join(format!("{output}.{arch}"));
     let status = Command::new("xcrun")
         .args(["clang", "-isysroot"])
         .arg(sdk().expect("oracle checked"))

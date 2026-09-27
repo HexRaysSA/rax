@@ -45,6 +45,9 @@ pub struct ImageFile {
     pub bytes: Arc<[u8]>,
     /// `(st_dev, st_ino)` of the file.
     pub file_id: (u64, u64),
+    /// The offset and size of the fat slice `exec` chose, when it chose
+    /// one (`None`: the loader grades the file itself).
+    pub slice: Option<(u64, u64)>,
 }
 
 impl fmt::Debug for ImageFile {
@@ -67,6 +70,7 @@ impl ImageFile {
             host_path: host_path.to_path_buf(),
             bytes: bytes.into(),
             file_id: (meta.dev(), meta.ino()),
+            slice: None,
         })
     }
 }
@@ -195,7 +199,16 @@ pub fn parse_executable(
     image: &ImageFile,
     abi: DarwinAbi,
 ) -> Result<(u64, MachOImage), MachOError> {
-    let (offset, slice) = macho::select_slice(&image.bytes, abi.host_cpu())?;
+    let (offset, slice) = match image.slice {
+        Some((offset, size)) => {
+            let range = usize::try_from(offset).ok().zip(usize::try_from(size).ok());
+            let slice = range
+                .and_then(|(o, n)| image.bytes.get(o..o.checked_add(n)?))
+                .ok_or(MachOError::NotMachO)?;
+            (offset, slice)
+        }
+        None => macho::select_slice(&image.bytes, abi.host_cpu())?,
+    };
     let img = MachOImage::parse(
         slice,
         &LoadOptions {
