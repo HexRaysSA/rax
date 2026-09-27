@@ -145,11 +145,17 @@ pub struct A64UserCpu {
 impl A64UserCpu {
     /// Creates a CPU at EL0 with zeroed registers over `space`.
     pub fn new(space: &AddressSpace) -> Self {
+        Self::with_config(space, AArch64Config::v8_2())
+    }
+
+    /// Creates a CPU of the given architecture configuration at EL0 with
+    /// zeroed registers over `space`. The configuration's interrupt
+    /// controller is dropped: user mode has no asynchronous interrupts, and
+    /// the GIC would be locked on every step.
+    pub fn with_config(space: &AddressSpace, config: AArch64Config) -> Self {
         let config = AArch64Config {
-            // No interrupt controller: user mode has no asynchronous
-            // interrupts, and the GIC would be locked on every step.
             gic_config: None,
-            ..AArch64Config::v8_2()
+            ..config
         };
         let mut cpu = AArch64Cpu::new(config, Box::new(UserArmMemory::new(space.clone())));
         cpu.enter_el0();
@@ -163,7 +169,10 @@ impl A64UserCpu {
     /// register state (X0-X30, SP, PC, NZCV, V0-V31, FPCR, FPSR, TPIDR_EL0,
     /// TPIDRRO_EL0).
     pub fn clone_thread(&self) -> Self {
-        let mut child = A64UserCpu::new(&self.space);
+        let mut child = A64UserCpu::with_config(&self.space, self.cpu.config().clone());
+        child
+            .cpu
+            .set_counter_frequency(self.cpu.counter_frequency());
         for r in 0..31 {
             child.cpu.set_x(r, self.cpu.get_x(r));
         }
