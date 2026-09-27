@@ -1,0 +1,3 @@
+EXPORTS
+_errno
+_set_invalid_parameter_handler

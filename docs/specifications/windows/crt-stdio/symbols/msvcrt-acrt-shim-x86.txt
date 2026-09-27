@@ -1,0 +1,13 @@
+
+<stdin>:	file format coff-i386
+
+Disassembly of section .text:
+
+00000000 <___acrt_iob_func>:
+       0: e8 00 00 00 00               	calll	0x5 <___acrt_iob_func+0x5>
+			00000001:  IMAGE_REL_I386_REL32	___iob_func
+       5: 8b 54 24 04                  	movl	0x4(%esp), %edx
+       9: c1 e2 05                     	shll	$0x5, %edx
+       c: 01 d0                        	addl	%edx, %eax
+       e: c3                           	retl
+       f: 90                           	nop

@@ -1,0 +1,193 @@
+
+File: bin/x64/ordinary/main.exe
+Format: COFF-x86-64
+Arch: x86_64
+AddressSize: 64bit
+ImageFileHeader {
+  Machine: IMAGE_FILE_MACHINE_AMD64 (0x8664)
+  SectionCount: 9
+  TimeDateStamp: 1970-01-01 00:00:00 (0x0)
+  PointerToSymbolTable: 0x0
+  SymbolCount: 0
+  StringTableSize: 0
+  OptionalHeaderSize: 240
+  Characteristics [ (0x22E)
+    IMAGE_FILE_DEBUG_STRIPPED (0x200)
+    IMAGE_FILE_EXECUTABLE_IMAGE (0x2)
+    IMAGE_FILE_LARGE_ADDRESS_AWARE (0x20)
+    IMAGE_FILE_LINE_NUMS_STRIPPED (0x4)
+    IMAGE_FILE_LOCAL_SYMS_STRIPPED (0x8)
+  ]
+}
+ImageOptionalHeader {
+  Magic: 0x20B
+  MajorLinkerVersion: 2
+  MinorLinkerVersion: 47
+  SizeOfCode: 6656
+  SizeOfInitializedData: 8192
+  SizeOfUninitializedData: 512
+  AddressOfEntryPoint: 0x1440
+  BaseOfCode: 0x1000
+  ImageBase: 0x140000000
+  SectionAlignment: 4096
+  FileAlignment: 512
+  MajorOperatingSystemVersion: 4
+  MinorOperatingSystemVersion: 0
+  MajorImageVersion: 0
+  MinorImageVersion: 0
+  MajorSubsystemVersion: 5
+  MinorSubsystemVersion: 2
+  SizeOfImage: 45056
+  SizeOfHeaders: 1024
+  CheckSum: 0x10D8D
+  Subsystem: IMAGE_SUBSYSTEM_WINDOWS_CUI (0x3)
+  Characteristics [ (0x160)
+    IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE (0x40)
+    IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA (0x20)
+    IMAGE_DLL_CHARACTERISTICS_NX_COMPAT (0x100)
+  ]
+  SizeOfStackReserve: 2097152
+  SizeOfStackCommit: 4096
+  SizeOfHeapReserve: 1048576
+  SizeOfHeapCommit: 4096
+  NumberOfRvaAndSize: 16
+  DataDirectory {
+    ExportTableRVA: 0x0
+    ExportTableSize: 0x0
+    ImportTableRVA: 0x8000
+    ImportTableSize: 0x858
+    ResourceTableRVA: 0x0
+    ResourceTableSize: 0x0
+    ExceptionTableRVA: 0x5000
+    ExceptionTableSize: 0x21C
+    CertificateTableRVA: 0x0
+    CertificateTableSize: 0x0
+    BaseRelocationTableRVA: 0xA000
+    BaseRelocationTableSize: 0x60
+    DebugRVA: 0x0
+    DebugSize: 0x0
+    ArchitectureRVA: 0x0
+    ArchitectureSize: 0x0
+    GlobalPtrRVA: 0x0
+    GlobalPtrSize: 0x0
+    TLSTableRVA: 0x4020
+    TLSTableSize: 0x28
+    LoadConfigTableRVA: 0x0
+    LoadConfigTableSize: 0x0
+    BoundImportRVA: 0x0
+    BoundImportSize: 0x0
+    IATRVA: 0x8258
+    IATSize: 0x190
+    DelayImportDescriptorRVA: 0x0
+    DelayImportDescriptorSize: 0x0
+    CLRRuntimeHeaderRVA: 0x0
+    CLRRuntimeHeaderSize: 0x0
+    ReservedRVA: 0x0
+    ReservedSize: 0x0
+  }
+}
+DOSHeader {
+  Magic: MZ
+  UsedBytesInTheLastPage: 144
+  FileSizeInPages: 3
+  NumberOfRelocationItems: 0
+  HeaderSizeInParagraphs: 4
+  MinimumExtraParagraphs: 0
+  MaximumExtraParagraphs: 65535
+  InitialRelativeSS: 0
+  InitialSP: 184
+  Checksum: 0
+  InitialIP: 0
+  InitialRelativeCS: 0
+  AddressOfRelocationTable: 64
+  OverlayNumber: 0
+  OEMid: 0
+  OEMinfo: 0
+  AddressOfNewExeHeader: 128
+}
+Import {
+  Name: KERNEL32.dll
+  ImportLookupTableRVA: 0x80C8
+  ImportAddressTableRVA: 0x8258
+  Symbol: DeleteCriticalSection (295)
+  Symbol: EnterCriticalSection (333)
+  Symbol: GetLastError (648)
+  Symbol: InitializeCriticalSection (918)
+  Symbol: LeaveCriticalSection (1012)
+  Symbol: SetUnhandledExceptionFilter (1433)
+  Symbol: Sleep (1449)
+  Symbol: TlsGetValue (1485)
+  Symbol: VirtualProtect (1533)
+  Symbol: VirtualQuery (1535)
+}
+Import {
+  Name: api-ms-win-crt-environment-l1-1-0.dll
+  ImportLookupTableRVA: 0x8120
+  ImportAddressTableRVA: 0x82B0
+  Symbol: __p__environ (0)
+}
+Import {
+  Name: api-ms-win-crt-heap-l1-1-0.dll
+  ImportLookupTableRVA: 0x8130
+  ImportAddressTableRVA: 0x82C0
+  Symbol: _set_new_mode (23)
+  Symbol: calloc (24)
+  Symbol: free (25)
+  Symbol: malloc (26)
+}
+Import {
+  Name: api-ms-win-crt-locale-l1-1-0.dll
+  ImportLookupTableRVA: 0x8158
+  ImportAddressTableRVA: 0x82E8
+  Symbol: _configthreadlocale (8)
+}
+Import {
+  Name: api-ms-win-crt-math-l1-1-0.dll
+  ImportLookupTableRVA: 0x8168
+  ImportAddressTableRVA: 0x82F8
+  Symbol: __setusermatherr (9)
+}
+Import {
+  Name: api-ms-win-crt-private-l1-1-0.dll
+  ImportLookupTableRVA: 0x8178
+  ImportAddressTableRVA: 0x8308
+  Symbol: __C_specific_handler (12)
+  Symbol: memcpy (1088)
+}
+Import {
+  Name: api-ms-win-crt-runtime-l1-1-0.dll
+  ImportLookupTableRVA: 0x8190
+  ImportAddressTableRVA: 0x8320
+  Symbol: __p___argc (5)
+  Symbol: __p___argv (6)
+  Symbol: _cexit (22)
+  Symbol: _configure_narrow_argv (24)
+  Symbol: _crt_atexit (30)
+  Symbol: _exit (35)
+  Symbol: _initialize_narrow_environment (52)
+  Symbol: _initterm (55)
+  Symbol: _initterm_e (56)
+  Symbol: _set_app_type (67)
+  Symbol: _set_invalid_parameter_handler (73)
+  Symbol: abort (86)
+  Symbol: exit (87)
+  Symbol: signal (101)
+}
+Import {
+  Name: api-ms-win-crt-stdio-l1-1-0.dll
+  ImportLookupTableRVA: 0x8208
+  ImportAddressTableRVA: 0x8398
+  Symbol: __acrt_iob_func (0)
+  Symbol: __p__commode (1)
+  Symbol: __p__fmode (2)
+  Symbol: __stdio_common_vfprintf (3)
+  Symbol: fflush (156)
+  Symbol: setvbuf (196)
+}
+Import {
+  Name: api-ms-win-crt-string-l1-1-0.dll
+  ImportLookupTableRVA: 0x8240
+  ImportAddressTableRVA: 0x83D0
+  Symbol: strlen (168)
+  Symbol: strncmp (171)
+}

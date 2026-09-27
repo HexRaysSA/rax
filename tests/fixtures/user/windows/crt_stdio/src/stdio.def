@@ -1,0 +1,17 @@
+EXPORTS
+fread
+fwrite
+fclose
+fflush
+setvbuf
+feof
+ferror
+clearerr
+_fileno
+_wfdopen
+_open_osfhandle
+_get_osfhandle
+_close
+_read
+_write
+_setmode

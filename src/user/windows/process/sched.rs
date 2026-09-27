@@ -159,6 +159,7 @@ fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
         return ExitStatus::Internal(message);
     }
     crate::user::windows::dll::crt::onexit::discard_process(p);
+    let stdio_failure = crate::user::windows::dll::crt::stdio::discard_process(p).err();
     p.tls.fls_discard_all();
     for (_, object) in p.objects.iter_mut() {
         if let Object::Process { pid, exit_code } = object
@@ -175,7 +176,12 @@ fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
             return ExitStatus::Internal(message);
         }
     }
-    ExitStatus::Exited(code)
+    if let Some(message) = stdio_failure {
+        p.fail(message.clone());
+        ExitStatus::Internal(message)
+    } else {
+        ExitStatus::Exited(code)
+    }
 }
 
 fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &mut u32) {
@@ -189,6 +195,11 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
         }
         super::fiber::discard_continuations(p);
         crate::user::windows::dll::crt::onexit::discard_process(p);
+        if let Err(error) = crate::user::windows::dll::crt::stdio::discard_process(p) {
+            // Forced termination retains its deliberate supplied status. The
+            // attempted host cleanup failure remains a trace diagnostic.
+            tracing::debug!("forced CRT stdio teardown: {error}");
+        }
         p.tls.fls_discard_abandoned();
         crate::user::windows::dll::libraries::abort_process(p);
         p.exit_code = Some(code);

@@ -1,0 +1,1629 @@
+
+/Users/int/.cache/zig/o/4b749e87f6f1f674c001a5d5245c0543/crtexewin.obj:
+         U WinMain
+         U __ImageBase
+         U __imp_GetStartupInfoA
+         U __p__acmdln
+         U _ismbblead
+
+/Users/int/.cache/zig/o/b739a35ee9ada85a4bd11f787cd26c2a/dll_argv.obj:
+         U _dowildcard
+
+/Users/int/.cache/zig/o/ebcb780d05a07e04aa520ba89a2ba6eb/gccmain.obj:
+         U __CTOR_LIST__
+         U __DTOR_LIST__
+         U atexit
+
+/Users/int/.cache/zig/o/b4226a7781eb62abb4fdca5a953a7275/natstart.obj:
+
+/Users/int/.cache/zig/o/e9ced3f6a1eb726c71683e1ef7d2cf58/pseudo-reloc-list.obj:
+
+/Users/int/.cache/zig/o/434b316f6fea1cbaa4be2d1f2bd001e6/wildcard.obj:
+
+/Users/int/.cache/zig/o/7cb495d29a231b7a8d0110341fc64507/charmax.obj:
+         U __imp___lconv_init
+
+/Users/int/.cache/zig/o/edb38c2a31563cc66231f0d89d00ea24/ucrtexewin.obj:
+         U __ImageBase
+         U __imp_GetStartupInfoW
+         U __p__wcmdln
+         U wWinMain
+
+/Users/int/.cache/zig/o/987023da7224b7421310c9cb6c8385ba/dllargv.obj:
+
+/Users/int/.cache/zig/o/f97cf44ef10cc062ba0fdc2729949f58/_newmode.obj:
+
+/Users/int/.cache/zig/o/a4e1beddad5b2f3533e2fbc3f46815df/tlssup.obj:
+         U _CRT_MT
+         U __mingw_TLScallback
+
+/Users/int/.cache/zig/o/c401bf9c4233ea6034994ed01be44083/xncommod.obj:
+
+/Users/int/.cache/zig/o/b9730c906f864327639d9e60d59aa531/cinitexe.obj:
+
+/Users/int/.cache/zig/o/753c6b41fd762be9dd2d2f3a318fa800/merr.obj:
+         U __acrt_iob_func
+         U fprintf
+
+/Users/int/.cache/zig/o/6e212aaa41913a032668fae2e31fd0d4/usermatherr.obj:
+         U __setusermatherr
+
+/Users/int/.cache/zig/o/2dc415023f1f5614a72e55d2f36a3126/pesect.obj:
+         U __ImageBase
+         U strlen
+         U strncmp
+
+/Users/int/.cache/zig/o/dfcd5c700738c5e735cac79da9aeab8f/udllargc.obj:
+
+/Users/int/.cache/zig/o/808efbcb0f23dbe77eeeaa38c751694f/xthdloc.obj:
+
+/Users/int/.cache/zig/o/42717d2e68aaf280747addbf405cd4fc/mingw_helpers.obj:
+
+/Users/int/.cache/zig/o/ea79e16c123184bbca0232d6df43bac1/pseudo-reloc.obj:
+         U _GetPEImageBase
+         U __ImageBase
+         U __RUNTIME_PSEUDO_RELOC_LIST_END__
+         U __RUNTIME_PSEUDO_RELOC_LIST__
+         U __acrt_iob_func
+         U __chkstk
+         U __imp_GetLastError
+         U __imp_VirtualProtect
+         U __imp_VirtualQuery
+         U __mingw_GetSectionCount
+         U __mingw_GetSectionForAddress
+         U abort
+         U fwrite
+         U memcpy
+         U vfprintf
+
+/Users/int/.cache/zig/o/97e82bdf50bca3a462080f7c3e659766/udll_argv.obj:
+         U _dowildcard
+
+/Users/int/.cache/zig/o/db203d9cad2340e71abeac7ee8f20acd/xtxtmode.obj:
+
+/Users/int/.cache/zig/o/85d4d0ad8f26efe441b556107556501c/crt_handler.obj:
+         U _fpreset
+         U signal
+
+/Users/int/.cache/zig/o/6462628509f761aef41fb310aaa2117f/tlsthrd.obj:
+         U __imp_DeleteCriticalSection
+         U __imp_EnterCriticalSection
+         U __imp_GetLastError
+         U __imp_InitializeCriticalSection
+         U __imp_LeaveCriticalSection
+         U __imp_TlsGetValue
+         U _fpreset
+         U calloc
+         U free
+
+/Users/int/.cache/zig/o/a18d1b0c3789baccfecd5b9a7b64b070/tlsmthread.obj:
+         U ___w64_mingwthr_add_key_dtor
+         U ___w64_mingwthr_remove_key_dtor
+
+/Users/int/.cache/zig/o/a87c864c5823d5052748cc3739b60a08/tlsmcrt.obj:
+
+/Users/int/.cache/zig/o/0e88a7e7f49ce498e6e5e717290df7be/cxa_atexit.obj:
+         U __mingw_cxa_atexit
+
+/Users/int/.cache/zig/o/eb0a2d6b41a0145f6f870927ce0c308f/cxa_thread_atexit.obj:
+         U __mingw_cxa_thread_atexit
+
+/Users/int/.cache/zig/o/618f749787b034ac069f4c2294bef143/tls_atexit.obj:
+         U __imp_DeleteCriticalSection
+         U __imp_EnterCriticalSection
+         U __imp_InitializeCriticalSection
+         U __imp_LeaveCriticalSection
+         U __imp_TlsAlloc
+         U __imp_TlsFree
+         U __imp_TlsGetValue
+         U __imp_TlsSetValue
+         U __mingw_module_is_dll
+         U _register_thread_local_exe_atexit_callback
+         U calloc
+         U free
+
+/Users/int/.cache/zig/o/9def84d58c80e302e492265f444c3e9e/RtlSecureZeroMemory.obj:
+
+/Users/int/.cache/zig/o/a55f70908900aae6d1ae928ac90b26d6/mingw_cfguard_support.obj:
+
+/Users/int/.cache/zig/o/642a460df678b5d220ec466e195e69b5/_cabs.obj:
+         U hypot
+
+/Users/int/.cache/zig/o/5bd85844364d338a2884e6b512ed9849/arithchk.obj:
+
+/Users/int/.cache/zig/o/82bad5033eb55fec4b150863df58ac65/dmisc.obj:
+         U __Balloc_D2A
+         U __Bfree_D2A
+         U __cmp_D2A
+
+/Users/int/.cache/zig/o/5f94fbb872cecfaa9e516b9f9f9bfc02/dtoa.obj:
+         U __Balloc_D2A
+         U __Bfree_D2A
+         U __bigtens_D2A
+         U __cmp_D2A
+         U __d2b_D2A
+         U __diff_D2A
+         U __i2b_D2A
+         U __lshift_D2A
+         U __mult_D2A
+         U __multadd_D2A
+         U __nrv_alloc_D2A
+         U __pow5mult_D2A
+         U __quorem_D2A
+         U __rv_alloc_D2A
+         U __tens_D2A
+         U memcpy
+
+/Users/int/.cache/zig/o/0c66aa08e9429eb3d414cd953c918dc4/g__fmt.obj:
+         U __freedtoa
+         U localeconv
+         U memset
+         U strlen
+
+/Users/int/.cache/zig/o/0f970bda11b02ea28cd12ad946de56c5/g_dfmt.obj:
+         U __g__fmt
+         U __gdtoa
+         U __strcp_D2A
+
+/Users/int/.cache/zig/o/d835dbaf6fa4d3e50d7069d480026926/g_ffmt.obj:
+         U __g__fmt
+         U __gdtoa
+         U __strcp_D2A
+
+/Users/int/.cache/zig/o/a422ca3ebb50fce359e7b8622a068345/g_xfmt.obj:
+         U __g__fmt
+         U __gdtoa
+         U strlen
+         U strncpy
+
+/Users/int/.cache/zig/o/014f1f4cf81b198d488e6f48b20a885e/gdtoa.obj:
+         U __Balloc_D2A
+         U __Bfree_D2A
+         U __b2d_D2A
+         U __cmp_D2A
+         U __diff_D2A
+         U __i2b_D2A
+         U __lshift_D2A
+         U __mult_D2A
+         U __multadd_D2A
+         U __nrv_alloc_D2A
+         U __pow5mult_D2A
+         U __quorem_D2A
+         U __rshift_D2A
+         U __rv_alloc_D2A
+         U __tens_D2A
+         U __trailz_D2A
+         U memcpy
+
+/Users/int/.cache/zig/o/52887e6e2815cbbd8614f580df09d9f6/gethex.obj:
+         U __Balloc_D2A
+         U __Bfree_D2A
+         U __any_on_D2A
+         U __hexdig_D2A
+         U __increment_D2A
+         U __lshift_D2A
+         U __rshift_D2A
+         U _errno
+         U localeconv
+         U memset
+         U strlen
+
+/Users/int/.cache/zig/o/36c347aee1017595485948ade74d797e/gmisc.obj:
+
+/Users/int/.cache/zig/o/0bf10aeb9ef5bfdc444333cc6279175b/hd_init.obj:
+
+/Users/int/.cache/zig/o/b4c8db4fe0764498a4bac8aa2181ff83/hexnan.obj:
+         U __hexdig_D2A
+
+/Users/int/.cache/zig/o/c480876c4e54ba87042e88b2a7460be7/misc.obj:
+         U __imp_DeleteCriticalSection
+         U __imp_EnterCriticalSection
+         U __imp_InitializeCriticalSection
+         U __imp_LeaveCriticalSection
+         U __imp_Sleep
+         U atexit
+         U free
+         U malloc
+         U memcpy
+         U memset
+
+/Users/int/.cache/zig/o/d9df1e2f9514217552154ed462cd44fa/qnan.obj:
+
+/Users/int/.cache/zig/o/02d1f254b6439b9adbdd96989aeeb15a/smisc.obj:
+         U __Balloc_D2A
+         U __b2d_D2A
+         U __multadd_D2A
+         U memset
+
+/Users/int/.cache/zig/o/036ac77f8e5700ea3455bb32bf0925f9/strtodg.obj:
+         U __Balloc_D2A
+         U __Bfree_D2A
+         U __any_on_D2A
+         U __bigtens_D2A
+         U __cmp_D2A
+         U __copybits_D2A
+         U __d2b_D2A
+         U __diff_D2A
+         U __gethex_D2A
+         U __hexnan_D2A
+         U __i2b_D2A
+         U __lshift_D2A
+         U __match_D2A
+         U __mult_D2A
+         U __pow5mult_D2A
+         U __ratio_D2A
+         U __rshift_D2A
+         U __s2b_D2A
+         U __sum_D2A
+         U __tens_D2A
+         U __tinytens_D2A
+         U __trailz_D2A
+         U _errno
+         U localeconv
+         U memcpy
+         U memset
+         U strlen
+
+/Users/int/.cache/zig/o/7a4e2754675bd197753c26c5afdeba31/strtodnrp.obj:
+         U __strtodg
+
+/Users/int/.cache/zig/o/3facf182f90525af08689342f468155e/strtof.obj:
+         U __strtodg
+
+/Users/int/.cache/zig/o/664964cbad4fd84f585e42e46cd587a4/strtopx.obj:
+         U __mingw_strtod
+
+/Users/int/.cache/zig/o/ef548a94add200c81862f012ae3b242b/sum.obj:
+         U __Balloc_D2A
+         U __Bfree_D2A
+         U memcpy
+
+/Users/int/.cache/zig/o/5002b2105777b8711e8638d36588d53c/ulp.obj:
+
+/Users/int/.cache/zig/o/b7ed73e4240dc26011f1a7d8b0b5c384/coshl.obj:
+         U cosh
+
+/Users/int/.cache/zig/o/305ec3d7d2bad50b45f4ec7a73de6b72/fpclassify.obj:
+
+/Users/int/.cache/zig/o/15a7be49c7ebaedbc7d9d51595b94529/fpclassifyf.obj:
+
+/Users/int/.cache/zig/o/ea1b063e844e969b0ed81245bb203629/fpclassifyl.obj:
+         U __fpclassify
+
+/Users/int/.cache/zig/o/4766093ce6894ac50c8e44b3543e2d8e/ldexpf.obj:
+         U ldexp
+
+/Users/int/.cache/zig/o/b94d6756517d28c23f85bdd5ad8e6952/lgamma.obj:
+         U _errno
+         U log
+         U signgam
+         U sin
+
+/Users/int/.cache/zig/o/b27e1b04d102527fcb78190f33e1d284/lgammaf.obj:
+         U _errno
+         U logf
+         U signgam
+         U sinf
+
+/Users/int/.cache/zig/o/615069deea727cc9c7ff053298d96944/lgammal.obj:
+         U lgamma
+
+/Users/int/.cache/zig/o/cc0987e3ab3533508bf45ebeee725299/powi.obj:
+         U __mingw_raise_matherr
+         U _errno
+
+/Users/int/.cache/zig/o/9a6d8d8f5b25b51d327de32111974b1d/powif.obj:
+         U __mingw_raise_matherr
+         U _errno
+
+/Users/int/.cache/zig/o/7e6abac344706e73cb9ce08f88e08625/powil.obj:
+         U __mingw_raise_matherr
+         U _errno
+
+/Users/int/.cache/zig/o/74934e0076619fc4c62a2279672e7b4f/signbit.obj:
+
+/Users/int/.cache/zig/o/75fc8acbadc62590cd3728c19c20153e/signbitf.obj:
+
+/Users/int/.cache/zig/o/a8b348fd07b11cb97a96d816bc7d7a5b/signbitl.obj:
+
+/Users/int/.cache/zig/o/30f1658b6a925e4dbc973c907114f0d9/signgam.obj:
+
+/Users/int/.cache/zig/o/aa1327a52f8a77f8e70632ec1e15de2a/sinhl.obj:
+         U sinh
+
+/Users/int/.cache/zig/o/904053705e2391e79d2a09030b8c3082/tanhl.obj:
+         U tanh
+
+/Users/int/.cache/zig/o/b911918f670f546a7299370978e2f40d/alarm.obj:
+
+/Users/int/.cache/zig/o/74b7cc53cc5af4082e40dd8d1b03164a/delay-f.obj:
+
+/Users/int/.cache/zig/o/5b721e8e3577c6fba66e08320b71a2a6/delay-n.obj:
+
+/Users/int/.cache/zig/o/88f60dfc42929f86ec29793a54a09d81/delayimp.obj:
+         U __ImageBase
+         U __imp_FreeLibrary
+         U __imp_GetLastError
+         U __imp_GetProcAddress
+         U __imp_LoadLibraryA
+         U __imp_LocalAlloc
+         U __imp_LocalFree
+         U __imp_RaiseException
+         U __pfnDliFailureHook2
+         U __pfnDliNotifyHook2
+         U strlen
+
+/Users/int/.cache/zig/o/7553938086f703e7dc185b041253c5b9/dirent.obj:
+         U __imp_GetFileAttributesA
+         U __imp_GetLastError
+         U _errno
+         U _findclose
+         U _findfirst64
+         U _findnext64
+         U _fullpath
+         U free
+         U malloc
+         U strcpy
+         U strlen
+         U strncpy
+
+/Users/int/.cache/zig/o/e807a252a762518523ba19083a9f4c4a/dirname.obj:
+         U __imp_AreFileApisANSI
+         U __imp_IsDBCSLeadByteEx
+         U memcpy
+         U realloc
+
+/Users/int/.cache/zig/o/675329474fc5dd36e0abc451cea8f98a/dllmain.obj:
+
+/Users/int/.cache/zig/o/02f033f46cb8524a1dec54c0c6f3a019/feclearexcept.obj:
+         U fegetenv
+         U fesetenv
+
+/Users/int/.cache/zig/o/09e34ae0a71b1f2fcad0d8bf48f938c5/fegetenv.obj:
+         U __mingw_controlfp
+         U __mingw_setfp
+
+/Users/int/.cache/zig/o/a7574aa071ee3a4d2655f7286b8259f4/fegetexceptflag.obj:
+         U __mingw_setfp
+
+/Users/int/.cache/zig/o/70fcd78650ea66aa6f2b054d9ad7854e/fegetround.obj:
+         U __mingw_controlfp
+
+/Users/int/.cache/zig/o/9f57c1bf35821907833cd7467a6f42f8/feholdexcept.obj:
+         U feclearexcept
+         U fegetenv
+
+/Users/int/.cache/zig/o/0c826433cbe51ae26e7f0170cb65c847/feraiseexcept.obj:
+         U fegetenv
+         U fesetenv
+
+/Users/int/.cache/zig/o/5e70cbf65dc350f1e15633fc14bc6d11/fesetenv.obj:
+         U __mingw_setfp
+         U _fpreset
+
+/Users/int/.cache/zig/o/5eca14b9fe934fde5b05ec36def970b2/fesetexceptflag.obj:
+         U fegetenv
+         U fesetenv
+
+/Users/int/.cache/zig/o/0105936a74641ff7c30ec6c78251dc1f/fesetround.obj:
+         U __mingw_controlfp
+
+/Users/int/.cache/zig/o/b79d64c0b3bf9f95c7d818902dee6009/fetestexcept.obj:
+         U __mingw_setfp
+
+/Users/int/.cache/zig/o/f1d3befb1fdd872108c8aebb0a3a3123/mingw_controlfp.obj:
+         U __mingw_setfp
+
+/Users/int/.cache/zig/o/3845e2098814277dd9aa047facc6502c/mingw_setfp.obj:
+
+/Users/int/.cache/zig/o/1f9d2accccc772eb1bd8a8e9a687c3db/feupdateenv.obj:
+         U feraiseexcept
+         U fesetenv
+         U fetestexcept
+
+/Users/int/.cache/zig/o/0f8111ed486fb7f48bf569c843bf2da0/ftruncate.obj:
+         U _chsize
+
+/Users/int/.cache/zig/o/aba1fbaea470718779ef1a5545052940/ftw32.obj:
+         U __chkstk
+         U _errno
+         U closedir
+         U free
+         U malloc
+         U memchr
+         U memcpy
+         U memset
+         U opendir
+         U readdir
+         U realloc
+         U stat32
+         U strcpy
+         U strlen
+
+/Users/int/.cache/zig/o/f73846a006081fc347cdcf62b90857fb/ftw32i64.obj:
+         U __chkstk
+         U _errno
+         U closedir
+         U free
+         U malloc
+         U memchr
+         U memcpy
+         U memset
+         U opendir
+         U readdir
+         U realloc
+         U stat32i64
+         U strcpy
+         U strlen
+
+/Users/int/.cache/zig/o/2b39e17ae8fcacb6103ea66afd18c15f/ftw64.obj:
+         U __chkstk
+         U _errno
+         U closedir
+         U free
+         U malloc
+         U memchr
+         U memcpy
+         U memset
+         U opendir
+         U readdir
+         U realloc
+         U stat64
+         U strcpy
+         U strlen
+
+/Users/int/.cache/zig/o/4af056250109b983ea0353b54e4ec2ef/ftw64i32.obj:
+         U __chkstk
+         U _errno
+         U closedir
+         U free
+         U malloc
+         U memchr
+         U memcpy
+         U memset
+         U opendir
+         U readdir
+         U realloc
+         U stat64i32
+         U strcpy
+         U strlen
+
+/Users/int/.cache/zig/o/1984ffcdb1c65c9c6e6b3a23627f8f82/fwide.obj:
+
+/Users/int/.cache/zig/o/d2b482f706e38edb626adfc82dcc1b31/getlogin.obj:
+         U __imp_GetUserNameA
+
+/Users/int/.cache/zig/o/278f175416f78c6b86819b587e60817d/getopt.obj:
+         U __acrt_iob_func
+         U __imp_GetEnvironmentVariableW
+         U fprintf
+         U fputc
+         U strchr
+         U strlen
+         U strncmp
+         U vfprintf
+
+/Users/int/.cache/zig/o/80a7deb44cd12044e72305f292d23c78/gettimeofday.obj:
+         U __imp_GetModuleHandleA
+         U __imp_GetProcAddress
+         U __imp_GetSystemTimeAsFileTime
+         U __imp_GetTimeZoneInformation
+
+/Users/int/.cache/zig/o/c43d4c1265c0f10becb6d49fe55d15e0/mingw-access.obj:
+         U __imp_GetFileAttributesA
+         U __imp_GetLastError
+         U _errno
+
+/Users/int/.cache/zig/o/bdd568da26942dc26f6579b1139791a2/mingw-aligned-malloc.obj:
+         U _errno
+         U _msize
+         U free
+         U malloc
+         U memmove
+         U realloc
+
+/Users/int/.cache/zig/o/d8b019c5f767e88ddd673f8006464dc8/mingw_getsp.obj:
+
+/Users/int/.cache/zig/o/740ccd1626face38811df8d97119e986/mingw_longjmp.obj:
+
+/Users/int/.cache/zig/o/b0cd79c09c91bccd51e2bcf67fd89711/mingw_matherr.obj:
+
+/Users/int/.cache/zig/o/9bcaa3633f5dea19119fdd6ef1f32a98/mingw_mbwc_convert.obj:
+         U __imp_MultiByteToWideChar
+         U __imp_WideCharToMultiByte
+         U calloc
+         U free
+
+/Users/int/.cache/zig/o/951fa2930320a6e22a6e0801b54819d9/mingw_usleep.obj:
+         U __imp_Sleep
+
+/Users/int/.cache/zig/o/1c224dc10d06d8f64a7ae735a69e8921/mingw_wcstod.obj:
+         U __mingw_wcstold
+         U _errno
+
+/Users/int/.cache/zig/o/699e04920db5c7efa87456a330664402/mingw_wcstof.obj:
+         U __chkstk
+         U __imp_MultiByteToWideChar
+         U __imp_WideCharToMultiByte
+         U __mingw_strtof
+
+/Users/int/.cache/zig/o/481fef9f4502ebcf4af14d1bf8f4cbba/mingw_wcstold.obj:
+         U ___lc_codepage_func
+         U ___mb_cur_max_func
+         U __imp_MultiByteToWideChar
+         U __imp_WideCharToMultiByte
+         U free
+         U malloc
+         U strtold
+         U wcslen
+
+/Users/int/.cache/zig/o/9400992af62fb0494c9eecb269592636/mkstemp.obj:
+         U __imp_rand_s
+         U _errno
+         U _sopen
+         U rand
+         U strlen
+
+/Users/int/.cache/zig/o/77fa264f3036cfbdc2542f1cba4c1a24/sleep.obj:
+         U __imp_Sleep
+
+/Users/int/.cache/zig/o/b9a8292ba70fdfa78ed85045c821e710/strsafe.obj:
+         U __acrt_iob_func
+         U _vsnprintf
+         U _vsnwprintf
+         U fgetwc
+         U getc
+         U memset
+
+/Users/int/.cache/zig/o/60dfa95f1d5b6383c07281914985a998/tdelete.obj:
+         U free
+
+/Users/int/.cache/zig/o/9854576e3f47b75d18f298ddbc7f3466/tdestroy.obj:
+         U free
+
+/Users/int/.cache/zig/o/81330c4cee18f1154a51c697d2dd398f/tfind.obj:
+
+/Users/int/.cache/zig/o/733f18bff6e81d926ce5c59d7d26e148/tsearch.obj:
+         U malloc
+
+/Users/int/.cache/zig/o/6695af62890f7fe9a495075ddd43fb85/twalk.obj:
+
+/Users/int/.cache/zig/o/b429bf94697da9026c95b594800abc76/wdirent.obj:
+         U __imp_GetFileAttributesW
+         U __imp_GetLastError
+         U _errno
+         U _findclose
+         U _wfindfirst64i32
+         U _wfindnext64i32
+         U _wfullpath
+         U free
+         U malloc
+         U memset
+         U wcscat
+         U wcscpy
+         U wcslen
+
+/Users/int/.cache/zig/o/a9d760b286505ab46118a5d5ba00ff21/__mingw_fix_stat_path.obj:
+         U malloc
+         U memcpy
+         U strlen
+
+/Users/int/.cache/zig/o/20cb73d11153ec799ec27ca92a36ebed/__mingw_fix_wstat_path.obj:
+         U malloc
+         U memcpy
+         U wcslen
+
+/Users/int/.cache/zig/o/10e7f59d7604356fe97c5fc2aac982e3/asprintf.obj:
+         U _vscprintf
+         U _vsnprintf
+         U malloc
+
+/Users/int/.cache/zig/o/e14aa3aa2d698dcedb3a9a23219551df/fopen64.obj:
+         U fopen
+
+/Users/int/.cache/zig/o/60bc5940a46066973ff83638ea0a12be/fseeko32.obj:
+         U fseeko64
+
+/Users/int/.cache/zig/o/cf630ab3dbfe4c27aed76a344fc6b460/fseeko64.obj:
+         U _errno
+         U _filelengthi64
+         U _fileno
+         U fflush
+         U fgetpos
+         U fsetpos
+
+/Users/int/.cache/zig/o/b80e824cf4e26e0c1943ff9cbefed375/ftello.obj:
+         U ftello64
+
+/Users/int/.cache/zig/o/48ac06a76f9b2acf55a014c58571776b/ftello64.obj:
+         U fgetpos
+
+/Users/int/.cache/zig/o/daf8da03b44784f76310ba6010e637ff/ftruncate64.obj:
+         U __imp_FindFirstVolumeW
+         U __imp_FindNextVolumeW
+         U __imp_FindVolumeClose
+         U __imp_GetDiskFreeSpaceExW
+         U __imp_GetFileInformationByHandle
+         U __imp_GetFileSizeEx
+         U __imp_GetFileType
+         U __imp_GetLastError
+         U __imp_GetVolumeInformationW
+         U __imp_SetEndOfFile
+         U __imp_SetFilePointer
+         U _errno
+         U _get_osfhandle
+         U _lseeki64
+         U _telli64
+         U calloc
+         U free
+
+/Users/int/.cache/zig/o/86c2b5bb65cca5a9cc6a59c3a08f4862/lltoa.obj:
+         U _i64toa
+
+/Users/int/.cache/zig/o/eed64589b4fe7b1b8423e2fb90d6209e/lltow.obj:
+         U _i64tow
+
+/Users/int/.cache/zig/o/befc15d0f46f98f822395f87eed233b3/lseek64.obj:
+         U _lseeki64
+
+/Users/int/.cache/zig/o/dcce0d2095f83f96837f92ae33ca0e3b/mingw_asprintf.obj:
+         U __mingw_vsnprintf
+         U malloc
+
+/Users/int/.cache/zig/o/85a1f78adbc8681aeaf0a89b4b89b192/mingw_fprintf.obj:
+         U __mingw_pformat
+         U _lock_file
+         U _unlock_file
+
+/Users/int/.cache/zig/o/5d29da2a69c9eb6acb2623bddf5eecf7/mingw_fwprintf.obj:
+         U __mingw_wpformat
+         U _lock_file
+         U _unlock_file
+
+/Users/int/.cache/zig/o/94e5953a1c62764fd95a9f725e255808/mingw_fscanf.obj:
+         U __mingw_vfscanf
+
+/Users/int/.cache/zig/o/28cde2869eb2fefe43a939649a33fdd9/mingw_fwscanf.obj:
+         U __mingw_vfwscanf
+
+/Users/int/.cache/zig/o/7eab98bdbea1d374ab4f8ccb267eb949/mingw_pformat.obj:
+         U __chkstk
+         U __freedtoa
+         U __gdtoa
+         U _errno
+         U fputc
+         U localeconv
+         U mbrtowc
+         U memset
+         U strerror
+         U strlen
+         U strnlen
+         U wcrtomb
+         U wcslen
+         U wcsnlen
+
+/Users/int/.cache/zig/o/de0a56b34e64fd3a9939c574299dc32d/mingw_sformat.obj:
+         U __mingw_strtof
+         U __mingw_strtold
+         U _errno
+         U free
+         U getc
+         U isspace
+         U isxdigit
+         U localeconv
+         U malloc
+         U mbrlen
+         U mbrtowc
+         U realloc
+         U strlen
+         U strtol
+         U strtoll
+         U strtoul
+         U strtoull
+         U tolower
+         U ungetc
+
+/Users/int/.cache/zig/o/297d1c44aaa69b67cbf53a0360cd434b/mingw_swformat.obj:
+         U ___mb_cur_max_func
+         U __mingw_wcstod
+         U __mingw_wcstof
+         U __mingw_wcstold
+         U _errno
+         U fgetwc
+         U free
+         U iswctype
+         U localeconv
+         U malloc
+         U mbrtowc
+         U memcpy
+         U realloc
+         U towlower
+         U ungetwc
+         U wcrtomb
+         U wcstol
+         U wcstoll
+         U wcstoul
+         U wcstoull
+
+/Users/int/.cache/zig/o/b0d3969b0d63ffda474b9126b6c6f30b/mingw_wpformat.obj:
+         U __chkstk
+         U __freedtoa
+         U __gdtoa
+         U __ms_fwprintf
+         U _errno
+         U fputwc
+         U localeconv
+         U mbrtowc
+         U memset
+         U strerror
+         U strlen
+         U strnlen
+         U wcslen
+         U wcsnlen
+
+/Users/int/.cache/zig/o/fa885a0c111488953ab75a50259cc391/mingw_printf.obj:
+         U __acrt_iob_func
+         U __mingw_pformat
+         U _lock_file
+         U _unlock_file
+
+/Users/int/.cache/zig/o/fff3597a9da64b7de358ff42a13b1727/mingw_wprintf.obj:
+         U __acrt_iob_func
+         U __mingw_wpformat
+         U _lock_file
+         U _unlock_file
+
+/Users/int/.cache/zig/o/3c9889164849bd93d588277909c02dfb/mingw_scanf.obj:
+         U __acrt_iob_func
+         U __mingw_vfscanf
+
+/Users/int/.cache/zig/o/96e06ca9a534ecb6c22943f668993ef9/mingw_snprintf.obj:
+         U __mingw_vsnprintf
+
+/Users/int/.cache/zig/o/7e62e6c795d2b88ae2ee654316dd27af/mingw_snwprintf.obj:
+         U __mingw_vsnwprintf
+
+/Users/int/.cache/zig/o/15f8c9921b7ca8e120e6199d6f97f002/mingw_sprintf.obj:
+         U __mingw_pformat
+
+/Users/int/.cache/zig/o/a3c9a2b932261976b31ee1504dddb5cc/mingw_swprintf.obj:
+         U __mingw_vswprintf
+
+/Users/int/.cache/zig/o/31a4edc5de9da6a0ae572a6feeb3939d/mingw_sscanf.obj:
+         U __mingw_vsscanf
+
+/Users/int/.cache/zig/o/f747a7c1a41a702b07e14e87cef63288/mingw_swscanf.obj:
+         U __mingw_vswscanf
+
+/Users/int/.cache/zig/o/6fcd0963c98b11bfb849ca2d7bc464c3/mingw_vasprintf.obj:
+         U __mingw_vsnprintf
+         U malloc
+
+/Users/int/.cache/zig/o/0e9dc5afd115617819faf775192ed11b/mingw_vfprintf.obj:
+         U __mingw_pformat
+         U _lock_file
+         U _unlock_file
+
+/Users/int/.cache/zig/o/72db3a5a681c7b1b52aa4b43c5184b5b/mingw_vfwprintf.obj:
+         U __mingw_wpformat
+         U _lock_file
+         U _unlock_file
+
+/Users/int/.cache/zig/o/f89b43c5c45f5edd08d70fdf2c81ce13/mingw_vfscanf.obj:
+         U __chkstk
+         U __mingw_sformat
+         U memset
+
+/Users/int/.cache/zig/o/38558607c517050fa5ea93b4d72054f6/mingw_vprintf.obj:
+         U __acrt_iob_func
+         U __mingw_pformat
+         U _lock_file
+         U _unlock_file
+
+/Users/int/.cache/zig/o/fffe19a502202978c79747f6601fb0f4/mingw_vsscanf.obj:
+         U __chkstk
+         U __mingw_sformat
+         U memset
+
+/Users/int/.cache/zig/o/b0b749cc0158df38c9b4417da49e9766/mingw_vwprintf.obj:
+         U __acrt_iob_func
+         U __mingw_wpformat
+         U _lock_file
+         U _unlock_file
+
+/Users/int/.cache/zig/o/097c3e260383a226c8bcc19402c76c92/mingw_vsnprintf.obj:
+         U __mingw_pformat
+
+/Users/int/.cache/zig/o/da11166cfd6e56ff280dabd866e1700f/mingw_vsnwprintf.obj:
+         U __mingw_wpformat
+
+/Users/int/.cache/zig/o/54f145d47b434b4d14be29d5219d633e/mingw_vsprintf.obj:
+         U __mingw_pformat
+
+/Users/int/.cache/zig/o/9c14dec987a88920e4acf203e95aef9b/mingw_vswprintf.obj:
+         U __mingw_wpformat
+
+/Users/int/.cache/zig/o/07243d227230a37739a0fa2b313da2b8/mingw_wscanf.obj:
+         U __acrt_iob_func
+         U __mingw_vfwscanf
+
+/Users/int/.cache/zig/o/4c70daf51494d8954ea04f2e502d1911/mingw_vfwscanf.obj:
+         U __chkstk
+         U __mingw_swformat
+         U memset
+
+/Users/int/.cache/zig/o/b716cae3a908c869426959233d8f4c0e/mingw_vswscanf.obj:
+         U __chkstk
+         U __mingw_swformat
+         U memset
+
+/Users/int/.cache/zig/o/3b2e22eb715f681fcf180fb5b48a3b3e/snprintf.obj:
+         U __ms_vsnprintf
+
+/Users/int/.cache/zig/o/e9b7883483431a02c48f6830498ddaa9/snwprintf.obj:
+         U __ms_vsnwprintf
+
+/Users/int/.cache/zig/o/4101a0f469e34c5b0350e809221d8fe1/truncate.obj:
+         U _chsize
+         U _close
+         U _errno
+         U _open
+         U ftruncate64
+
+/Users/int/.cache/zig/o/af3851b27c58ad8bfa765f20ca015b54/ulltoa.obj:
+         U _ui64toa
+
+/Users/int/.cache/zig/o/797ef1a52b3b6bd57b659ef78aa59729/ulltow.obj:
+         U _ui64tow
+
+/Users/int/.cache/zig/o/103f2d23661b7a53c7c27db27f32241c/vasprintf.obj:
+         U _vscprintf
+         U _vsnprintf
+         U malloc
+
+/Users/int/.cache/zig/o/667a1037396576d6a2a181a405efc230/vsnprintf.obj:
+         U _vscprintf
+         U _vsnprintf
+
+/Users/int/.cache/zig/o/ef32b62e707145bdf45fe6d1d064cfaa/vsnwprintf.obj:
+         U _vscwprintf
+         U _vsnwprintf
+
+/Users/int/.cache/zig/o/806c4de679ff79402cc43e7efeb8bc84/wtoll.obj:
+         U _wtoi64
+
+/Users/int/.cache/zig/o/227dfd35ecc9226a67eec942675c3e69/mingwthrd_mt.obj:
+
+/Users/int/.cache/zig/o/f829a141b4402e83cd0f1536f2929483/_huge.obj:
+
+/Users/int/.cache/zig/o/da0da79234770ee9e00729f5b3e1b884/__initenv.obj:
+
+/Users/int/.cache/zig/o/ce5d15d3d77b9488f8d8b71e931a18df/__winitenv.obj:
+
+/Users/int/.cache/zig/o/3f3fd4823e25f4e2143eb2c81b650f2b/__p___initenv.obj:
+         U __imp___initenv
+
+/Users/int/.cache/zig/o/447b9a2c7127e3b1f735c534c2a0de47/__p___winitenv.obj:
+         U __imp___winitenv
+
+/Users/int/.cache/zig/o/e5dd96688e5cce1266562d97b2d9cff4/_onexit.obj:
+         U atexit
+
+/Users/int/.cache/zig/o/e0478aa202b068fe20dedcc75390f7c0/ucrt-access.obj:
+         U __mingw_access
+
+/Users/int/.cache/zig/o/a6dafab96a28866d1e62002dd3fae001/ucrt__getmainargs.obj:
+         U __p___argc
+         U __p___argv
+         U __p__environ
+         U _configure_narrow_argv
+         U _initialize_narrow_environment
+         U _set_new_mode
+
+/Users/int/.cache/zig/o/b653aa054b8088eb331df42ad7699d83/ucrt__wgetmainargs.obj:
+         U __p___argc
+         U __p___wargv
+         U __p__wenviron
+         U _configure_wide_argv
+         U _initialize_wide_environment
+         U _set_new_mode
+
+/Users/int/.cache/zig/o/0b8fcc47e7f4142e6ff75ab08fb01b6f/ucrt_amsg_exit.obj:
+         U __acrt_iob_func
+         U _exit
+         U fprintf
+
+/Users/int/.cache/zig/o/0a87cd9e745be7baefda7f1e07a12123/ucrt_at_quick_exit.obj:
+         U __mingw_module_is_dll
+         U _crt_at_quick_exit
+
+/Users/int/.cache/zig/o/4efcc29038f5569cbe917f91b60c5dfc/ucrt_tzset.obj:
+         U __daylight
+         U __imp__tzset
+         U __timezone
+         U __tzname
+
+/Users/int/.cache/zig/o/0a65b6bc72274c7c29b97119e79f61d3/ucrt__scprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vsprintf
+
+/Users/int/.cache/zig/o/6867714e44b6f03288c7c386c11ad8eb/ucrt__snprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vsprintf
+
+/Users/int/.cache/zig/o/0dc9644256911e6b42375fc439a1cc44/ucrt__snscanf.obj:
+         U __local_stdio_scanf_options
+         U __stdio_common_vsscanf
+
+/Users/int/.cache/zig/o/6a6c3534340ef8bd5ba1571614e90fe3/ucrt__snwprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vswprintf
+
+/Users/int/.cache/zig/o/b5477b871629ef43be8f24fdf2cbef13/ucrt__vscprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vsprintf
+
+/Users/int/.cache/zig/o/29bf8aa4774710a91da409c5fbc8458c/ucrt__vsnprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vsprintf
+
+/Users/int/.cache/zig/o/27764cd86fed4cc3b48744cb314fef7c/ucrt__vsnwprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vswprintf
+
+/Users/int/.cache/zig/o/b3e6450a62d07fde1b5bab8e728a5471/ucrt___local_stdio_printf_options.obj:
+
+/Users/int/.cache/zig/o/0f7b89c6ef7adf55b615e806083b9980/ucrt___local_stdio_scanf_options.obj:
+
+/Users/int/.cache/zig/o/4fb8fcda0b45e82afd118c4aabf149c0/ucrt_fprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vfprintf
+
+/Users/int/.cache/zig/o/0a967a15edb97db533039afdbb37c060/ucrt_fscanf.obj:
+         U __local_stdio_scanf_options
+         U __stdio_common_vfscanf
+
+/Users/int/.cache/zig/o/908477830e733a8808cb8b8845d34428/ucrt_fwprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vfwprintf
+
+/Users/int/.cache/zig/o/286ca92ef021a4b7cca91068d7af2037/ucrt_fwscanf.obj:
+         U __local_stdio_scanf_options
+         U __stdio_common_vfwscanf
+
+/Users/int/.cache/zig/o/88c767f73af07cc6c32838bdc2e527c4/ucrt_ms_fwprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vfwprintf
+
+/Users/int/.cache/zig/o/fc35a7e83486e57d4a8278aac2b9ecd6/ucrt_printf.obj:
+         U __acrt_iob_func
+         U __local_stdio_printf_options
+         U __stdio_common_vfprintf
+
+/Users/int/.cache/zig/o/81d36a4d97b8ca291af6fe19f31db047/ucrt_scanf.obj:
+         U __acrt_iob_func
+         U __local_stdio_scanf_options
+         U __stdio_common_vfscanf
+
+/Users/int/.cache/zig/o/d8b2e33397fb01c206abca36d92c3a06/ucrt_snprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vsprintf
+
+/Users/int/.cache/zig/o/c49b2feb399832182fec7d658519f74a/ucrt_snwprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vswprintf
+
+/Users/int/.cache/zig/o/1e9665b6e5e329907bd1bccd245f62e8/ucrt_sprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vsprintf
+
+/Users/int/.cache/zig/o/2843f21015b633434044e3aa39beccf6/ucrt_sscanf.obj:
+         U __local_stdio_scanf_options
+         U __stdio_common_vsscanf
+
+/Users/int/.cache/zig/o/98a299e205fd639fda9dd04a6f17d284/ucrt_swscanf.obj:
+         U __local_stdio_scanf_options
+         U __stdio_common_vswscanf
+
+/Users/int/.cache/zig/o/c741d4422bd740531f7c1007fcba5e26/ucrt_swprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vswprintf
+
+/Users/int/.cache/zig/o/f68cab58f8e0f277d5418038432e290d/ucrt_vfprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vfprintf
+
+/Users/int/.cache/zig/o/0ee5dafe06a1a84be0052fb73555af42/ucrt_vfscanf.obj:
+         U __local_stdio_scanf_options
+         U __stdio_common_vfscanf
+
+/Users/int/.cache/zig/o/51671dab54ac7c630ef74cb60705e07a/ucrt_vfwscanf.obj:
+         U __local_stdio_scanf_options
+         U __stdio_common_vfwscanf
+
+/Users/int/.cache/zig/o/cfe4cee400ed997f27d8cb42c55ce655/ucrt_vfwprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vfwprintf
+
+/Users/int/.cache/zig/o/2ecc217f8adb5446a334a96032e11d3e/ucrt_vprintf.obj:
+         U __acrt_iob_func
+         U __local_stdio_printf_options
+         U __stdio_common_vfprintf
+
+/Users/int/.cache/zig/o/86401a68284be8e52e1c9537b3e69feb/ucrt_vscanf.obj:
+         U __acrt_iob_func
+         U __local_stdio_scanf_options
+         U __stdio_common_vfscanf
+
+/Users/int/.cache/zig/o/2bf1cd4b47f60054325dc4e9139b40e7/ucrt_vsnprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vsprintf
+
+/Users/int/.cache/zig/o/6de02d2868857bc21f1fa4c40f36279f/ucrt_vsnwprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vswprintf
+
+/Users/int/.cache/zig/o/f667d8dbcd58ac6fa35793b269410b23/ucrt_vsprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vsprintf
+
+/Users/int/.cache/zig/o/05f13f83e4febe4209e4726d877e5d8f/ucrt_vswprintf.obj:
+         U __local_stdio_printf_options
+         U __stdio_common_vswprintf
+
+/Users/int/.cache/zig/o/127984db3adc5ccdf9e97cc4172cd79f/ucrt_vsscanf.obj:
+         U __local_stdio_scanf_options
+         U __stdio_common_vsscanf
+
+/Users/int/.cache/zig/o/9333c6f7c1073930d8e8d7f20ba2a389/ucrt_vwscanf.obj:
+         U __acrt_iob_func
+         U __local_stdio_scanf_options
+         U __stdio_common_vfwscanf
+
+/Users/int/.cache/zig/o/b426390cbc355881ef1e4dac6908232e/ucrt_wscanf.obj:
+         U __acrt_iob_func
+         U __local_stdio_scanf_options
+         U __stdio_common_vfwscanf
+
+/Users/int/.cache/zig/o/421a58846609cd9170d36a83110e3234/ucrt_vwprintf.obj:
+         U __acrt_iob_func
+         U __local_stdio_printf_options
+         U __stdio_common_vfwprintf
+
+/Users/int/.cache/zig/o/ba71548dc6675e268d2acd094954f54c/ucrt_wprintf.obj:
+         U __acrt_iob_func
+         U __local_stdio_printf_options
+         U __stdio_common_vfwprintf
+
+/Users/int/.cache/zig/o/e7051a39dc77b095f62d797377c14973/ucrt__wcstok.obj:
+         U wcstok
+
+/Users/int/.cache/zig/o/585a957883784b269f9c9377c527ab82/ativscp-uuid.obj:
+
+/Users/int/.cache/zig/o/2aaffb5f9617157278dd9bcdf0505462/atsmedia-uuid.obj:
+
+/Users/int/.cache/zig/o/8ba209ea0b1fda4a3ac2c57a8eed02a5/bth-uuid.obj:
+
+/Users/int/.cache/zig/o/18f7a59801cc7b54aa3a9989509adba8/cguid-uuid.obj:
+
+/Users/int/.cache/zig/o/f4648a754e6df776f01ce46d21570aae/comcat-uuid.obj:
+
+/Users/int/.cache/zig/o/592d1120c5151e43bf59614290f6bcb5/ctxtcall-uuid.obj:
+
+/Users/int/.cache/zig/o/9578ed80b301fdfd9453a4ae6790ec27/devguid.obj:
+
+/Users/int/.cache/zig/o/fc84e37876d09c5b453bfc07e5217c3c/docobj-uuid.obj:
+
+/Users/int/.cache/zig/o/687f47bdb74b46fefc13855ae9a5dcf5/dxva-uuid.obj:
+
+/Users/int/.cache/zig/o/c66580b008db44715c7e1d7e9793d766/exdisp-uuid.obj:
+
+/Users/int/.cache/zig/o/74989488729b0193f0fd43b8fa692f49/extras-uuid.obj:
+
+/Users/int/.cache/zig/o/239e4dbc8911fd1e549daf01cbeb63f9/fwp-uuid.obj:
+
+/Users/int/.cache/zig/o/9ffe8afdf05ec106baf0af1fe0036280/guid_nul.obj:
+
+/Users/int/.cache/zig/o/7d39f8a92840f2353e30b71d8b0cbf25/hlguids-uuid.obj:
+
+/Users/int/.cache/zig/o/95d52be3b44772a5761c2bef7921cdeb/hlink-uuid.obj:
+
+/Users/int/.cache/zig/o/47f10b637df1a0529d5c2d4f01252e47/mlang-uuid.obj:
+
+/Users/int/.cache/zig/o/565aa88857e3a3430c3567aefa46ae61/msctf-uuid.obj:
+
+/Users/int/.cache/zig/o/70db36af2ff44319f5659840a709596d/mshtmhst-uuid.obj:
+
+/Users/int/.cache/zig/o/dfa44fb47ab1fcfdd4f4ea9626c70621/mshtml-uuid.obj:
+
+/Users/int/.cache/zig/o/f6816f347f9a6a44e335ed1c5f018dbb/msxml-uuid.obj:
+
+/Users/int/.cache/zig/o/e67021f58e3d35fcbb94db9f0446d7ec/netcfg-uuid.obj:
+
+/Users/int/.cache/zig/o/88f38bf023bdc9b35add511528499fcd/netcon-uuid.obj:
+
+/Users/int/.cache/zig/o/317be0e1497d45f7c4c87c6c71ce70c3/ntddkbd-uuid.obj:
+
+/Users/int/.cache/zig/o/00274ae8acaeb8fe5659d0028ab9cbef/ntddmou-uuid.obj:
+
+/Users/int/.cache/zig/o/66dc043740a91d126d75dc8064b386d0/ntddpar-uuid.obj:
+
+/Users/int/.cache/zig/o/fb917e465ba6457193eaedc1548e7d40/ntddscsi-uuid.obj:
+
+/Users/int/.cache/zig/o/2e740deec13a4450963d01c9dd061a04/ntddser-uuid.obj:
+
+/Users/int/.cache/zig/o/57cb8324b10ef53c067a1cd4f2a841a6/ntddstor-uuid.obj:
+
+/Users/int/.cache/zig/o/4bfe720e44b6cfc347c099028dee0a81/ntddvdeo-uuid.obj:
+
+/Users/int/.cache/zig/o/6a0580f17648092880319f176c437431/oaidl-uuid.obj:
+
+/Users/int/.cache/zig/o/20c0e37c755a783ca1b51fc282999dcf/objidl-uuid.obj:
+
+/Users/int/.cache/zig/o/7094dacd7ca04f3a951c3f472950063f/objsafe-uuid.obj:
+
+/Users/int/.cache/zig/o/20028e702f4dd0dab23cb05e9cf8474c/ocidl-uuid.obj:
+
+/Users/int/.cache/zig/o/97357ef975392b0f860a7b6b450ca6ef/oleacc-uuid.obj:
+
+/Users/int/.cache/zig/o/6c2c1f39098c074f49b37c4138fd7358/olectlid-uuid.obj:
+
+/Users/int/.cache/zig/o/66156eefe12d1f1f86e94eb1495784dd/oleidl-uuid.obj:
+
+/Users/int/.cache/zig/o/3af34c69608b4b9c8865a26b363449be/power-uuid.obj:
+
+/Users/int/.cache/zig/o/1a740cbafe07abdfbf8d1221403f6c34/powrprof-uuid.obj:
+
+/Users/int/.cache/zig/o/388784848786edab77598c37e447194b/uianimation-uuid.obj:
+
+/Users/int/.cache/zig/o/5b8c621913b37c35d3985f2811898e72/usbcamdi-uuid.obj:
+
+/Users/int/.cache/zig/o/edbda141d988acfc05c80b3ea313c97d/usbiodef-uuid.obj:
+
+/Users/int/.cache/zig/o/0283c709d4449a4edc59718ed2776e10/uuid.obj:
+
+/Users/int/.cache/zig/o/37d0e5fa392baabb4d3f1581f65a5fcd/vds-uuid.obj:
+
+/Users/int/.cache/zig/o/fa8e578eb4d5863bbf8b44e8acafd619/virtdisk-uuid.obj:
+
+/Users/int/.cache/zig/o/7993ebd1fca7edc206d70957908bfb29/vss-uuid.obj:
+
+/Users/int/.cache/zig/o/5555f2646170f5c9653e81a840456f8c/wia-uuid.obj:
+
+/Users/int/.cache/zig/o/229c420c81d1a57096b075b91db6142f/windowscodecs.obj:
+
+/Users/int/.cache/zig/o/1ab022fc62f37e40f5fc07b197f451bc/ws2_32.obj:
+
+/Users/int/.cache/zig/o/f6df555f40c62e247b21a3f2c142b5a7/in6_addr_equal.obj:
+
+/Users/int/.cache/zig/o/90cc35e41ef86a3bb063535e511a1ede/in6addr_isany.obj:
+
+/Users/int/.cache/zig/o/0b4f3ec02dfd71319c10765e22138b87/in6addr_isloopback.obj:
+
+/Users/int/.cache/zig/o/9efd5ee5e17409dd66dcaaf0bd28a75f/in6addr_setany.obj:
+
+/Users/int/.cache/zig/o/ae6e0ec17f83d390cf61f97c873256d2/in6addr_setloopback.obj:
+
+/Users/int/.cache/zig/o/b9537435dfa65a978ab2c3c4fc43e5d3/in6_is_addr_linklocal.obj:
+
+/Users/int/.cache/zig/o/a611d04d79662d5015f749f88d970909/in6_is_addr_loopback.obj:
+
+/Users/int/.cache/zig/o/75783bba2284ce10aa721f2deae31252/in6_is_addr_mc_global.obj:
+
+/Users/int/.cache/zig/o/a3fc1495a17af784183537f5e52b6884/in6_is_addr_mc_linklocal.obj:
+
+/Users/int/.cache/zig/o/39316a4794a44178a3a450983ffd2ea5/in6_is_addr_mc_nodelocal.obj:
+
+/Users/int/.cache/zig/o/28464c58f3e51d7fda4678461baf0d04/in6_is_addr_mc_orglocal.obj:
+
+/Users/int/.cache/zig/o/b6dc6e9f2d8cfdc2443050d9447c87fd/in6_is_addr_mc_sitelocal.obj:
+
+/Users/int/.cache/zig/o/0aa2ca5493d7eacd4bdf3543e9719737/in6_is_addr_multicast.obj:
+
+/Users/int/.cache/zig/o/2a5427fff03a79b3d40127cc2bfd8193/in6_is_addr_sitelocal.obj:
+
+/Users/int/.cache/zig/o/f2491b27fa06a021202aa9f837f8beb4/in6_is_addr_unspecified.obj:
+
+/Users/int/.cache/zig/o/1ee7974acfa7be524a377f57d47bd842/in6_is_addr_v4compat.obj:
+
+/Users/int/.cache/zig/o/c3ac2e6160f54289692c4cb5885a0e2e/in6_is_addr_v4mapped.obj:
+
+/Users/int/.cache/zig/o/7d081ae3f37ca90b024a7d98b31f6532/in6_set_addr_loopback.obj:
+
+/Users/int/.cache/zig/o/6279dc56ca3ef95ce60cbbc1f80bdc84/in6_set_addr_unspecified.obj:
+
+/Users/int/.cache/zig/o/d0bc5761e57a6950ac0209bba74b0b58/gai_strerrorA.obj:
+         U gai_strerrorW
+         U wcstombs
+
+/Users/int/.cache/zig/o/203771d0cf710cc40f4a40360a5cc63e/gai_strerrorW.obj:
+         U __imp_FormatMessageW
+
+/Users/int/.cache/zig/o/aaa348040432424b78586dbd87aa7889/WspiapiStrdup.obj:
+         U calloc
+         U strcpy
+         U strlen
+
+/Users/int/.cache/zig/o/8e43172880a2fac33733eb989b982c6b/WspiapiParseV4Address.obj:
+         U __imp_inet_addr
+
+/Users/int/.cache/zig/o/a0ccaac650af36fbebc0467ce9b371a2/WspiapiNewAddrInfo.obj:
+         U calloc
+         U free
+
+/Users/int/.cache/zig/o/db57111a81936e6dc67416f8434c43de/WspiapiQueryDNS.obj:
+         U WspiapiNewAddrInfo
+         U __imp_WSAGetLastError
+         U __imp_gethostbyname
+         U strncpy
+
+/Users/int/.cache/zig/o/18bff2f8732e4e056b97819ed99a1ce0/WspiapiLookupNode.obj:
+         U WspiapiQueryDNS
+         U WspiapiStrdup
+         U memset
+         U strcmp
+         U strncpy
+
+/Users/int/.cache/zig/o/36d3db2f86daeb091a06b9ef930d41a0/WspiapiClone.obj:
+         U WspiapiNewAddrInfo
+
+/Users/int/.cache/zig/o/aa2b4137e70db68cdc05e05c0fadd8d2/WspiapiLegacyFreeAddrInfo.obj:
+         U free
+
+/Users/int/.cache/zig/o/9625fc760f5126307fe73c836ea024c1/WspiapiLegacyGetAddrInfo.obj:
+         U WspiapiClone
+         U WspiapiLegacyFreeAddrInfo
+         U WspiapiLookupNode
+         U WspiapiNewAddrInfo
+         U WspiapiParseV4Address
+         U WspiapiStrdup
+         U __imp_getservbyname
+         U __imp_htonl
+         U __imp_htons
+         U __imp_inet_ntoa
+         U strtoul
+
+/Users/int/.cache/zig/o/989ea3d01fa2fc0740a6ffe5f1fce1b2/WspiapiLegacyGetNameInfo.obj:
+         U __imp_WSAGetLastError
+         U __imp_gethostbyaddr
+         U __imp_getservbyport
+         U __imp_inet_ntoa
+         U __imp_ntohs
+         U sprintf
+         U strchr
+         U strcpy
+         U strlen
+
+/Users/int/.cache/zig/o/7b5d035ee7b416c8086523dbf6a3eae4/WspiapiLoad.obj:
+         U WspiapiLegacyFreeAddrInfo
+         U WspiapiLegacyGetAddrInfo
+         U WspiapiLegacyGetNameInfo
+         U __imp_FreeLibrary
+         U __imp_GetProcAddress
+         U __imp_GetSystemDirectoryA
+         U __imp_LoadLibraryA
+         U strcpy
+         U strlen
+
+/Users/int/.cache/zig/o/9b90fd3bbb5e89360b3892f162203582/WspiapiGetAddrInfo.obj:
+         U WspiapiLoad
+         U __imp_WSASetLastError
+
+/Users/int/.cache/zig/o/e2fbff6b894704fac0b169297c16c447/WspiapiGetNameInfo.obj:
+         U WspiapiLoad
+         U __imp_WSASetLastError
+
+/Users/int/.cache/zig/o/0ba69b932bae792a29d4ed170b71cf16/WspiapiFreeAddrInfo.obj:
+         U WspiapiLoad
+
+/Users/int/.cache/zig/o/fd21e0650075072473ec17778cd3c944/dinput_kbd.obj:
+         U GUID_Key
+
+/Users/int/.cache/zig/o/2057d35867225d89ef3f965982c67753/dinput_joy.obj:
+         U GUID_POV
+         U GUID_RxAxis
+         U GUID_RyAxis
+         U GUID_RzAxis
+         U GUID_Slider
+         U GUID_XAxis
+         U GUID_YAxis
+         U GUID_ZAxis
+
+/Users/int/.cache/zig/o/342f715fe98d332525971919a979ac97/dinput_joy2.obj:
+         U GUID_POV
+         U GUID_RxAxis
+         U GUID_RyAxis
+         U GUID_RzAxis
+         U GUID_Slider
+         U GUID_XAxis
+         U GUID_YAxis
+         U GUID_ZAxis
+
+/Users/int/.cache/zig/o/52aef9b7b7ba0e60921bbb09299a6c98/dinput_mouse.obj:
+         U GUID_XAxis
+         U GUID_YAxis
+         U GUID_ZAxis
+
+/Users/int/.cache/zig/o/adcf63b89c57dbbacdd62aa44357d100/dinput_mouse2.obj:
+         U GUID_XAxis
+         U GUID_YAxis
+         U GUID_ZAxis
+
+/Users/int/.cache/zig/o/f65c56e12dcf5eddebb902b80b159c87/dloadhelper.obj:
+         U __ImageBase
+         U __imp_DelayLoadFailureHook
+         U __imp_ResolveDelayLoadedAPI
+         U __imp_ResolveDelayLoadsFromDll
+         U __pfnDliFailureHook2
+
+/Users/int/.cache/zig/o/74b7cc53cc5af4082e40dd8d1b03164a/delay-f.obj:
+
+/Users/int/.cache/zig/o/27401c581df252c0b825a1b3d12c42cb/bits.obj:
+
+/Users/int/.cache/zig/o/60c9f59246125266edaaab745e208f86/shell32.obj:
+
+/Users/int/.cache/zig/o/453abd5c60fa0731e98b6bac29362424/dmoguids.obj:
+
+/Users/int/.cache/zig/o/156533881ca13632c22976b085af012b/dxerr8.obj:
+         U __chkstk
+         U __imp_DebugBreak
+         U __imp_MessageBoxA
+         U __imp_OutputDebugStringA
+         U __imp_wsprintfA
+
+/Users/int/.cache/zig/o/2a1c603032144992d12fb72f1726e6cd/dxerr8w.obj:
+         U __chkstk
+         U __imp_DebugBreak
+         U __imp_MessageBoxW
+         U __imp_OutputDebugStringW
+         U __imp_wsprintfW
+
+/Users/int/.cache/zig/o/e175502f5b8efd563ee9922aae0403a4/dxerr9.obj:
+         U __chkstk
+         U __imp_DebugBreak
+         U __imp_MessageBoxA
+         U __imp_OutputDebugStringA
+         U __imp_wsprintfA
+
+/Users/int/.cache/zig/o/dc9af011fcd75474d57a23fbd74a2185/dxerr9w.obj:
+         U __chkstk
+         U __imp_DebugBreak
+         U __imp_MessageBoxW
+         U __imp_OutputDebugStringW
+         U __imp_wsprintfW
+
+/Users/int/.cache/zig/o/bf419bd95942d948ffe372a7a0f76951/mfuuid.obj:
+
+/Users/int/.cache/zig/o/cd4571e4e71578a2b6a1722e49a209f6/msxml2.obj:
+
+/Users/int/.cache/zig/o/6d8115847c06bd97aa415c01850506f7/msxml6.obj:
+
+/Users/int/.cache/zig/o/96875d795f8c4b28dc364e010947a0e8/amstrmid.obj:
+
+/Users/int/.cache/zig/o/cab74bd9e567f341e3fbc294e4fe186f/wbemuuid.obj:
+
+/Users/int/.cache/zig/o/95f1ee9cc7b8b19ecc7a66f25214d745/wmcodecdspuuid.obj:
+
+/Users/int/.cache/zig/o/229c420c81d1a57096b075b91db6142f/windowscodecs.obj:
+
+/Users/int/.cache/zig/o/4d162e225ca12769568c4b7f49613849/dxguid.obj:
+
+/Users/int/.cache/zig/o/df7aecb170979b09df83b7c26b3502f7/ksuser.obj:
+
+/Users/int/.cache/zig/o/21c15ff3be237903e5dd7112368bb317/largeint.obj:
+
+/Users/int/.cache/zig/o/08eb48edcfff3cbad0a23e09248a07b3/locationapi.obj:
+
+/Users/int/.cache/zig/o/83f782f7e2e08ae67444122b20af1fc5/sapi.obj:
+
+/Users/int/.cache/zig/o/733d5f0868a982f3ced267ea94892276/sensorsapi.obj:
+
+/Users/int/.cache/zig/o/31ff48c642325ec27159e45cca0f9692/portabledeviceguids.obj:
+
+/Users/int/.cache/zig/o/0529d37cf194bc3ba9a96f4b45e16075/taskschd.obj:
+
+/Users/int/.cache/zig/o/03a448e77d420e3e18d4035243cce302/strmiids.obj:
+
+/Users/int/.cache/zig/o/8991bc8597052614af2a5f7facf9db84/gdiplus.obj:
+
+/Users/int/.cache/zig/o/be3bdf03d06c0d99b2a65352408ae83b/activeds-uuid.obj:
+
+/Users/int/.cache/zig/o/cf98a8718f814568279d2bd71e124ecd/ldexpl.obj:
+         U ldexp
+
+/Users/int/.cache/zig/o/3eb641ecac87d529f480c75c0c6ee02c/barrier.obj:
+         U __imp_Sleep
+         U calloc
+         U free
+         U pthread_mutex_destroy
+         U pthread_mutex_init
+         U pthread_mutex_lock
+         U pthread_mutex_unlock
+         U pthread_spin_lock
+         U pthread_spin_unlock
+         U sem_destroy
+         U sem_init
+         U sem_post_multiple
+         U sem_wait
+
+/Users/int/.cache/zig/o/9e9d2496ff8c308584055005cb088aac/clock.obj:
+         U __imp_FileTimeToSystemTime
+         U __imp_GetCurrentProcess
+         U __imp_GetCurrentThread
+         U __imp_GetProcessTimes
+         U __imp_GetSystemTimeAdjustment
+         U __imp_GetSystemTimeAsFileTime
+         U __imp_GetThreadTimes
+         U __imp_QueryPerformanceCounter
+         U __imp_QueryPerformanceFrequency
+         U __imp_SetSystemTime
+         U __imp__errno
+         U _pthread_get_system_time_best_as_file_time
+         U _set_errno
+         U nanosleep64
+
+/Users/int/.cache/zig/o/5c7c9fec45b833ae97269f678d3ab92f/cond.obj:
+         U __imp_CloseHandle
+         U __imp_CreateSemaphoreA
+         U __imp_DeleteCriticalSection
+         U __imp_EnterCriticalSection
+         U __imp_InitializeCriticalSection
+         U __imp_LeaveCriticalSection
+         U __imp_ReleaseSemaphore
+         U __imp_ResetEvent
+         U __imp_TryEnterCriticalSection
+         U __imp_WaitForSingleObject
+         U __pthread_shallcancel
+         U _pthread_rel_time_in_ms
+         U _pthread_time_in_ms_from_timespec
+         U _pthread_wait_for_multiple_objects
+         U _pthread_wait_for_single_object
+         U calloc
+         U free
+         U pthread_getclean
+         U pthread_getevent
+         U pthread_mutex_lock
+         U pthread_mutex_unlock
+         U pthread_spin_lock
+         U pthread_spin_unlock
+         U pthread_testcancel
+         U sched_yield
+
+/Users/int/.cache/zig/o/cb480526aef1883d16ab8cc79e316ee2/misc.obj:
+         U __imp_GetModuleHandleA
+         U __imp_GetProcAddress
+         U __imp_GetSystemTimeAsFileTime
+         U __imp_GetTickCount
+         U __imp_QueryPerformanceCounter
+         U __imp_QueryPerformanceFrequency
+         U __imp_WaitForMultipleObjects
+         U __imp_WaitForSingleObject
+
+/Users/int/.cache/zig/o/b14210c246d12b89b497de569276007a/mutex.obj:
+         U __imp_CloseHandle
+         U __imp_CreateEventA
+         U __imp_GetCurrentThreadId
+         U __imp_GetLastError
+         U __imp_SetEvent
+         U _pthread_time_in_ms
+         U _pthread_time_in_ms_from_timespec
+         U _pthread_wait_for_single_object
+         U free
+         U malloc
+
+/Users/int/.cache/zig/o/91e64c2feca4fb2c5998694329089aa8/nanosleep.obj:
+         U __imp_GetSystemTimeAsFileTime
+         U __imp__errno
+         U _pthread_delay_np_ms
+
+/Users/int/.cache/zig/o/29912f6af6788484feb112be8f46d6b4/rwlock.obj:
+         U calloc
+         U free
+         U pthread_cond_destroy
+         U pthread_cond_init
+         U pthread_cond_signal
+         U pthread_cond_timedwait64
+         U pthread_cond_wait
+         U pthread_getclean
+         U pthread_mutex_destroy
+         U pthread_mutex_init
+         U pthread_mutex_lock
+         U pthread_mutex_timedlock64
+         U pthread_mutex_trylock
+         U pthread_mutex_unlock
+         U pthread_spin_lock
+         U pthread_spin_unlock
+
+/Users/int/.cache/zig/o/525b7fe34d4fac18ebb4ba7cc45e6afe/sched.obj:
+         U __imp_CloseHandle
+         U __imp_GetCurrentProcessId
+         U __imp_GetHandleInformation
+         U __imp_GetLastError
+         U __imp_OpenProcess
+         U __imp_SetThreadPriority
+         U __imp_Sleep
+         U __imp__errno
+         U __pth_gpointer_locked
+
+/Users/int/.cache/zig/o/3aebda52e3b8325ba6d13fdeb3e2c1e4/sem.obj:
+         U __imp_CloseHandle
+         U __imp_CreateSemaphoreA
+         U __imp_ReleaseSemaphore
+         U __imp_Sleep
+         U __imp_WaitForSingleObject
+         U __imp__errno
+         U _pthread_rel_time_in_ms
+         U calloc
+         U do_sema_b_wait_intern
+         U free
+         U pthread_getclean
+         U pthread_mutex_destroy
+         U pthread_mutex_init
+         U pthread_mutex_lock
+         U pthread_mutex_unlock
+         U pthread_testcancel
+
+/Users/int/.cache/zig/o/ef91b78187a5941adfe204b889d72550/spinlock.obj:
+
+/Users/int/.cache/zig/o/a692b67abbfe5d6ea7d745c507c2e576/thread.obj:
+         U StringCchCopyNA
+         U __imp_CloseHandle
+         U __imp_CreateEventA
+         U __imp_DuplicateHandle
+         U __imp_GetCurrentProcess
+         U __imp_GetCurrentThread
+         U __imp_GetCurrentThreadId
+         U __imp_GetHandleInformation
+         U __imp_GetLastError
+         U __imp_GetModuleHandleA
+         U __imp_GetProcAddress
+         U __imp_GetProcessAffinityMask
+         U __imp_GetThreadContext
+         U __imp_GetThreadPriority
+         U __imp_IsDebuggerPresent
+         U __imp_OutputDebugStringA
+         U __imp_RaiseException
+         U __imp_ResetEvent
+         U __imp_ResumeThread
+         U __imp_SetEvent
+         U __imp_SetLastError
+         U __imp_SetProcessAffinityMask
+         U __imp_SetThreadContext
+         U __imp_SetThreadPriority
+         U __imp_Sleep
+         U __imp_SuspendThread
+         U __imp_TlsAlloc
+         U __imp_TlsGetValue
+         U __imp_TlsSetValue
+         U __imp_WaitForSingleObject
+         U __imp___acrt_iob_func
+         U __imp__beginthreadex
+         U __imp__endthreadex
+         U __imp_longjmp
+         U __intrinsic_setjmpex
+         U _fpreset
+         U _pthread_set_thread_description
+         U _pthread_time_in_ms_from_timespec
+         U _pthread_wait_for_single_object
+         U abort
+         U calloc
+         U fprintf
+         U free
+         U malloc
+         U mbsrtowcs
+         U memmove
+         U memset
+         U pthread_mutex_destroy
+         U pthread_mutex_init
+         U pthread_mutex_lock
+         U pthread_mutex_unlock
+         U pthread_rwlock_rdlock
+         U pthread_rwlock_unlock
+         U pthread_rwlock_wrlock
+         U pthread_spin_destroy
+         U pthread_spin_lock
+         U pthread_spin_unlock
+         U realloc
+         U snprintf
+         U strdup
+         U strlen
