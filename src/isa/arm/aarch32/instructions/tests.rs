@@ -348,6 +348,73 @@ fn msr_writes_ge_by_its_byte_mask() {
     assert_eq!(cpu.get_current_spsr().map(|s| s.ge), Some(0xA));
 }
 
+/// Runs T16 halfwords as the instruction cycle does: the IT state advances
+/// after each instruction in an IT block.
+fn run_t16(cpu: &mut Armv7Cpu, mem: &mut FlatMemory, code: &[u16]) -> Vec<ExecResult> {
+    code.iter()
+        .map(|&hw| {
+            let insn = crate::isa::arm::decoder::ThumbDecoder::decode_16bit(hw).unwrap();
+            let in_it = cpu.cpsr.in_it_block();
+            let result = Executor::new(cpu, mem).execute(&insn);
+            if in_it {
+                cpu.cpsr.advance_it_state();
+            }
+            result
+        })
+        .collect()
+}
+
+/// Inside an IT block a 16-bit data-processing instruction leaves the flags
+/// (`setflags = !InITBlock()`), so `itt eq; moveq; moveq` runs both; CMP
+/// still sets them, and outside the block the same encodings do.
+#[test]
+fn t16_data_processing_in_an_it_block_leaves_the_flags() {
+    let mut cpu = make_cpu();
+    let mut mem = make_mem();
+    cpu.cpsr.t = true;
+    cpu.cpsr.z = true;
+    // itt eq; moveq r2, #1; moveq r3, #7
+    let results = run_t16(&mut cpu, &mut mem, &[0xbf04, 0x2201, 0x2307]);
+    assert!(results.iter().all(|r| matches!(r, ExecResult::Continue)));
+    assert_eq!((cpu.regs[2], cpu.regs[3]), (1, 7));
+    assert!(cpu.cpsr.z && !cpu.cpsr.in_it_block());
+    // it eq; cmpeq r2, #2 (1 - 2: N, not Z or C); it ne; addne r4, r2, #1
+    run_t16(&mut cpu, &mut mem, &[0xbf08, 0x2a02, 0xbf18, 0x1c54]);
+    assert_eq!(cpu.regs[4], 2);
+    assert_eq!((cpu.cpsr.n, cpu.cpsr.z, cpu.cpsr.c), (true, false, false));
+    // movs r5, #0 outside a block.
+    run_t16(&mut cpu, &mut mem, &[0x2500]);
+    assert_eq!((cpu.cpsr.n, cpu.cpsr.z), (false, true));
+}
+
+/// SVC and BKPT immediates: A1's imm24 and imm12:imm4, T1's imm8
+/// (`llvm-mc`: `svc #0x123456` = 0xef123456, `bkpt #0x1234` = 0xe1212374,
+/// `svc #0x12` = 0xdf12, `bkpt #0x34` = 0xbe34).
+#[test]
+fn svc_and_bkpt_immediates_follow_the_instruction_set() {
+    let mut cpu = make_cpu();
+    let mut mem = make_mem();
+    let a32 = |raw| crate::isa::arm::decoder::Aarch32Decoder::decode(raw).unwrap();
+    let t16 = |hw| crate::isa::arm::decoder::ThumbDecoder::decode_16bit(hw).unwrap();
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    assert!(matches!(
+        exec.execute(&a32(0xef12_3456)),
+        ExecResult::Exception(ExceptionType::SupervisorCall(0x12_3456))
+    ));
+    assert!(matches!(
+        exec.execute(&a32(0xe121_2374)),
+        ExecResult::Exception(ExceptionType::Breakpoint(0x1234))
+    ));
+    assert!(matches!(
+        exec.execute(&t16(0xdf12)),
+        ExecResult::Exception(ExceptionType::SupervisorCall(0x12))
+    ));
+    assert!(matches!(
+        exec.execute(&t16(0xbe34)),
+        ExecResult::Exception(ExceptionType::Breakpoint(0x34))
+    ));
+}
+
 /// VMRS and VMSR reach only FPSCR at PL0; FPSID, MVFR0-2, and FPEXC need
 /// PL1.
 #[test]

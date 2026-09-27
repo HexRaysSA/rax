@@ -117,13 +117,23 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // System Operations
     // =========================================================================
 
+    /// SVC: A1's imm24, T1's imm8.
     pub(crate) fn exec_svc(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let imm = insn.raw & 0x00FFFFFF;
+        let imm = if insn.state.is_thumb() {
+            insn.raw & 0xFF
+        } else {
+            insn.raw & 0x00FF_FFFF
+        };
         ExecResult::Exception(ExceptionType::SupervisorCall(imm))
     }
 
+    /// BKPT: A1's imm12:imm4 (bits 19:8 and 3:0), T1's imm8.
     pub(crate) fn exec_bkpt(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let imm = ((insn.raw >> 8) & 0xFFF0) | (insn.raw & 0xF);
+        let imm = if insn.state.is_thumb() {
+            insn.raw & 0xFF
+        } else {
+            ((insn.raw >> 4) & 0xFFF0) | (insn.raw & 0xF)
+        };
         ExecResult::Exception(ExceptionType::Breakpoint(imm as u16))
     }
 

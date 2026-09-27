@@ -68,6 +68,25 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             }
         }
 
+        // A 16-bit Thumb data-processing instruction sets the flags only
+        // outside an IT block (`setflags = !InITBlock()`); the comparisons
+        // always set them.
+        let in_it_unflagged;
+        let insn = if insn.state.is_thumb()
+            && insn.size == 2
+            && insn.sets_flags
+            && self.cpu.cpsr.in_it_block()
+            && !matches!(insn.mnemonic, Mnemonic::CMP | Mnemonic::CMN | Mnemonic::TST)
+        {
+            in_it_unflagged = DecodedInsn {
+                sets_flags: false,
+                ..insn.clone()
+            };
+            &in_it_unflagged
+        } else {
+            insn
+        };
+
         // Dispatch based on mnemonic
         match insn.mnemonic {
             // Data Processing - Arithmetic
