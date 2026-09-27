@@ -1149,6 +1149,24 @@ target = "x86-linux-musl"
 sha256 = "cbecd296447f7059bc78cb9103e0d8ada4c2029dec70d2235b8af9f50e0496d5"
 
 [[fixture]]
+path = "bin/i386/sysvshm"
+source = "src/sysvshm.c"
+target = "x86-linux-musl"
+sha256 = "ae980aafaa0b48fadb8fe9f182dac088f018250f66212c39885d112aa7463d54"
+
+[[fixture]]
+path = "bin/i386/sysvsem"
+source = "src/sysvsem.c"
+target = "x86-linux-musl"
+sha256 = "bbb578225ed2a5d62580945fc28cc377bf9a5786e0549ad9a156492bb4f5d1d8"
+
+[[fixture]]
+path = "bin/i386/sysvmsg"
+source = "src/sysvmsg.c"
+target = "x86-linux-musl"
+sha256 = "a9ee5eeb454c815fb39b2b6cb92e0a1ff3b7ae269574accb5eb61719fa62c3af"
+
+[[fixture]]
 path = "bin/i386/sigframes"
 source = "src/sigframes.c"
 target = "x86-linux-musl"
@@ -1159,4 +1177,10 @@ path = "bin/i386/futex32"
 source = "src/futex32.c"
 target = "x86-linux-musl"
 sha256 = "5552cdc57c0a6d1428d3ee57cae0228815e9b480d2e31bd6cb4f98f599f4d2d3"
+
+[[fixture]]
+path = "bin/i386/ipc32"
+source = "src/ipc32.c"
+target = "x86-linux-musl"
+sha256 = "651ef234c30d2e0ec63df9be0264ae09cdf0ef77dae158cb2ffab31cc6787a45"
 

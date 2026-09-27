@@ -137,8 +137,8 @@ timeouts), and rejection of unconverted calls;
 `src/user/linux/abi/compat_tests.rs`: 32-bit layout and overflow checks;
 `src/isa/x86_64/user_gdt_tests.rs`: GDT selector/TLS behavior; `user_linux`
 `abi_tables`: numbering against `unistd_32.h`. `user_linux` `fixtures` runs an i386
-subset of the fixture programs, and the i386-only `sigframes` and `futex32`
-(`cases-i386.txt`),
+subset of the fixture programs, and the i386-only `sigframes`, `futex32`, and
+`ipc32` (`cases-i386.txt`),
 against results recorded on Linux 6.19 for x86-64 under `qemu-system-x86_64`
 (`tests/fixtures/user/linux/oracle/`); the morok program corpus has no i386
 builds.

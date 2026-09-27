@@ -3,3 +3,4 @@
 # Their expected results come from the kernel oracle like every i386 case.
 sigframes sigframes -
 futex32 futex32 -
+ipc32 ipc32 -
