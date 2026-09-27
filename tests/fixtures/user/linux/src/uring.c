@@ -1,9 +1,11 @@
 /* io_uring through its system calls (io_uring/, include/uapi/linux/io_uring.h):
  * setup and its parameters, the ring mappings, NOP submission and its
  * flags, links, request checks, dropped SQ indices, CQ overflow, deferred
- * task work, drains, waits, polling the ring, registration, and fdinfo.
- * Only NOP requests are used, and only what does not depend on how fast an
- * async worker runs is checked. */
+ * task work, drains, waits, polling the ring, registration, registered
+ * files and buffers (their tags, updates, allocation, cloning, and the
+ * memory charged for them), and fdinfo. Only NOP and FILES_UPDATE requests
+ * are used, and only what does not depend on how fast an async worker runs
+ * is checked. */
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <poll.h>
@@ -12,9 +14,12 @@
 #include <stdlib.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
+#include <sys/uio.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 #include "check.h"
@@ -64,6 +69,22 @@ struct rsrc_update {
     uint32_t offset, resv;
     uint64_t data;
 };
+struct rsrc_register {
+    uint32_t nr, flags;
+    uint64_t resv2, data, tags;
+};
+struct rsrc_update2 {
+    uint32_t offset, resv;
+    uint64_t data, tags;
+    uint32_t nr, resv2;
+};
+struct index_range {
+    uint32_t off, len;
+    uint64_t resv;
+};
+struct clone_buffers {
+    uint32_t src_fd, flags, src_off, dst_off, nr, pad[3];
+};
 
 enum {
     CQSIZE = 1 << 3, CLAMP = 1 << 4, ATTACH_WQ = 1 << 5, R_DISABLED = 1 << 6,
@@ -76,9 +97,18 @@ enum { DRAIN = 1 << 1, LINK = 1 << 2, HARDLINK = 1 << 3, ASYNC = 1 << 4,
        BUFFER_SELECT = 1 << 5, SKIP = 1 << 6 };
 enum { INJECT = 1, NOP_FILE = 1 << 1, NOP_FIXED_FILE = 1 << 2, NOP_FIXED_BUFFER = 1 << 3,
        NOP_TW = 1 << 4, NOP_CQE32 = 1 << 5 };
-enum { REGISTER_EVENTFD = 4, UNREGISTER_EVENTFD = 5, REGISTER_EVENTFD_ASYNC = 7,
-       REGISTER_PROBE = 8, REGISTER_PERSONALITY = 9, UNREGISTER_PERSONALITY = 10,
-       REGISTER_ENABLE_RINGS = 12, REGISTER_RING_FDS = 20, UNREGISTER_RING_FDS = 21 };
+enum { REGISTER_BUFFERS = 0, UNREGISTER_BUFFERS = 1, REGISTER_FILES = 2, UNREGISTER_FILES = 3,
+       REGISTER_EVENTFD = 4, UNREGISTER_EVENTFD = 5, REGISTER_FILES_UPDATE = 6,
+       REGISTER_EVENTFD_ASYNC = 7, REGISTER_PROBE = 8, REGISTER_PERSONALITY = 9,
+       UNREGISTER_PERSONALITY = 10, REGISTER_ENABLE_RINGS = 12, REGISTER_FILES2 = 13,
+       REGISTER_FILES_UPDATE2 = 14, REGISTER_BUFFERS2 = 15, REGISTER_BUFFERS_UPDATE = 16,
+       REGISTER_RING_FDS = 20, UNREGISTER_RING_FDS = 21, REGISTER_FILE_ALLOC_RANGE = 25,
+       REGISTER_CLONE_BUFFERS = 30 };
+enum { OP_FILES_UPDATE = 20, FIXED_FILE = 1, RSRC_SPARSE = 1, SRC_REGISTERED = 1,
+       DST_REPLACE = 2, FILES_SKIP = -2 };
+#define FILE_INDEX_ALLOC 0xffffffffULL
+#define PTR(p) ((uint64_t)(uintptr_t)(p))
+#define PAGE 4096
 #define USE_REGISTERED_RING (1u << 31)
 #define OFF_SQ_RING 0ULL
 #define OFF_CQ_RING 0x8000000ULL
@@ -610,6 +640,493 @@ static void registration(void) {
     drop(&r);
 }
 
+/* The fdinfo lines from "UserFiles" up to "PollList". */
+static char *user_rsrc(int ring) {
+    static char buf[16384], out[4096];
+    char path[64];
+    snprintf(path, sizeof path, "/proc/self/fdinfo/%d", ring);
+    int fd = open(path, O_RDONLY);
+    long n = 0, got;
+    while (fd >= 0 && n < (long)sizeof buf - 1 && (got = read(fd, buf + n, sizeof buf - 1 - n)) > 0)
+        n += got;
+    if (fd >= 0)
+        close(fd);
+    buf[n] = 0;
+    char *a = strstr(buf, "UserFiles:"), *b = strstr(buf, "PollList:");
+    out[0] = 0;
+    if (a && b && b > a && (size_t)(b - a) < sizeof out) {
+        memcpy(out, a, b - a);
+        out[b - a] = 0;
+    }
+    return out;
+}
+
+#define TEXT(name, got, want)                                                 \
+    do {                                                                      \
+        const char *g_ = (got), *w_ = (want);                                 \
+        CHECK(name, strcmp(g_, w_) == 0);                                     \
+        if (strcmp(g_, w_) != 0)                                              \
+            printf("  got \"%s\" want \"%s\"\n", g_, w_);                     \
+    } while (0)
+
+/* The path /proc/self/fd/<fd> links to, escaped as seq_file_path escapes
+ * " \t\n\\". */
+static char *fd_path(int fd) {
+    static char bufs[4][1024];
+    static int next;
+    char path[64], link[256] = {0};
+    snprintf(path, sizeof path, "/proc/self/fd/%d", fd);
+    if (readlink(path, link, sizeof link - 1) < 0)
+        link[0] = 0;
+    char *out = bufs[next++ & 3], *o = out;
+    for (const char *c = link; *c; c++) {
+        if (*c == ' ' || *c == '\t' || *c == '\n' || *c == '\\')
+            o += sprintf(o, "\\%03o", (unsigned char)*c);
+        else
+            *o++ = *c;
+    }
+    *o = 0;
+    return out;
+}
+
+/* VmPin of /proc/self/status, in kB (-1 if missing). */
+static long vm_pin(void) {
+    static char b[4096];
+    int fd = open("/proc/self/status", O_RDONLY);
+    long n = fd >= 0 ? read(fd, b, sizeof b - 1) : -1;
+    if (fd >= 0)
+        close(fd);
+    b[n > 0 ? n : 0] = 0;
+    char *l = strstr(b, "\nVmPin:");
+    return l ? strtol(l + 7, NULL, 10) : -1;
+}
+
+static char *anon(size_t len, int prot) {
+    return mmap(NULL, len, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+}
+
+static long rsrc2(int fd, unsigned op, uint32_t nr, uint32_t flags, void *data, void *tags) {
+    struct rsrc_register rr = {nr, flags, 0, PTR(data), PTR(tags)};
+    return reg(fd, op, &rr, sizeof rr);
+}
+static long update2(int fd, unsigned op, uint32_t off, void *data, void *tags, uint32_t nr) {
+    struct rsrc_update2 u = {off, 0, PTR(data), PTR(tags), nr, 0};
+    return reg(fd, op, &u, sizeof u);
+}
+
+/* Run first, before any ring: a user without CAP_IPC_LOCK is charged its
+ * rings' regions and pinned buffers against RLIMIT_MEMLOCK. */
+static void memlock(void) {
+    fflush(stdout);
+    pid_t c = fork();
+    if (c == 0) {
+        struct rlimit rl = {4 * PAGE, 4 * PAGE};
+        if (setrlimit(RLIMIT_MEMLOCK, &rl) != 0 ||
+            (getuid() == 0 && (setgid(65534) != 0 || setuid(65534) != 0))) {
+            printf("FAIL memlock-drop-privileges\n");
+            exit(1);
+        }
+        /* A ring of 4 entries: a page of rings and one of SQEs. */
+        struct ring r = make(4, 0, 0);
+        CHECK("memlock-ring", r.fd >= 0);
+        char *buf = anon(3 * PAGE, PROT_READ | PROT_WRITE);
+        long pin = vm_pin();
+        struct iovec iov = {buf, 3 * PAGE};
+        CHECK_ERR("memlock-buffer-over", reg(r.fd, REGISTER_BUFFERS, &iov, 1), ENOMEM);
+        CHECK("memlock-buffer-over-unpinned", vm_pin() == pin);
+        iov.iov_len = 2 * PAGE;
+        CHECK("memlock-buffer", reg(r.fd, REGISTER_BUFFERS, &iov, 1) == 0 && vm_pin() - pin == 8);
+        struct params p;
+        memset(&p, 0, sizeof p);
+        CHECK_ERR("memlock-second-ring", setup_raw(4, &p), ENOMEM);
+        fflush(stdout);
+        exit(failures ? 1 : 0);
+    }
+    int st = 0;
+    waitpid(c, &st, 0);
+    CHECK("memlock", WIFEXITED(st) && WEXITSTATUS(st) == 0);
+}
+
+static void files(void) {
+    struct ring r = make(8, 0, 0);
+    int p[2];
+    CHECK("files-pipe", pipe(p) == 0);
+    int fds[3] = {p[0], -1, p[1]};
+    CHECK_ERR("files-no-array", reg(r.fd, REGISTER_FILES, NULL, 3), EFAULT);
+    CHECK_ERR("files-none", reg(r.fd, REGISTER_FILES, fds, 0), EINVAL);
+    CHECK_ERR("files-too-many", reg(r.fd, REGISTER_FILES, fds, (1u << 20) + 1), EMFILE);
+    struct rlimit rl, low;
+    getrlimit(RLIMIT_NOFILE, &rl);
+    low = rl;
+    low.rlim_cur = 2;
+    setrlimit(RLIMIT_NOFILE, &low);
+    CHECK_ERR("files-nofile", reg(r.fd, REGISTER_FILES, fds, 3), EMFILE);
+    setrlimit(RLIMIT_NOFILE, &rl);
+    CHECK("files", reg(r.fd, REGISTER_FILES, fds, 3) == 0);
+    CHECK_ERR("files-busy", reg(r.fd, REGISTER_FILES, fds, 3), EBUSY);
+    char want[1024];
+    snprintf(want, sizeof want, "UserFiles:\t3\n    0: %s\n    2: %s\nUserBufs:\t0\n",
+             fd_path(p[0]), fd_path(p[1]));
+    TEXT("files-fdinfo", user_rsrc(r.fd), want);
+    CHECK_ERR("files-unregister-arg", reg(r.fd, UNREGISTER_FILES, NULL, 1), EINVAL);
+    CHECK("files-unregister", reg(r.fd, UNREGISTER_FILES, NULL, 0) == 0);
+    CHECK_ERR("files-unregister-none", reg(r.fd, UNREGISTER_FILES, NULL, 0), ENXIO);
+    TEXT("files-fdinfo-none", user_rsrc(r.fd), "UserFiles:\t0\nUserBufs:\t0\n");
+    int ringy[2] = {p[0], r.fd}, bad[2] = {p[0], 999}, sparse[2] = {p[0], -1};
+    CHECK_ERR("files-ring", reg(r.fd, REGISTER_FILES, ringy, 2), EBADF);
+    CHECK_ERR("files-ring-gone", reg(r.fd, UNREGISTER_FILES, NULL, 0), ENXIO);
+    CHECK_ERR("files-bad-fd", reg(r.fd, REGISTER_FILES, bad, 2), EBADF);
+    uint64_t tags[3] = {5, 6, 0};
+    CHECK_ERR("files-empty-tag", rsrc2(r.fd, REGISTER_FILES2, 2, 0, sparse, tags), EINVAL);
+    REAPS("files-empty-tag-none", &r, "");
+    CHECK_ERR("files-empty-tag-gone", reg(r.fd, UNREGISTER_FILES, NULL, 0), ENXIO);
+    struct rsrc_register rr = {2, 0, 0, PTR(fds), 0};
+    CHECK_ERR("files2-size", reg(r.fd, REGISTER_FILES2, &rr, 24), EINVAL);
+    CHECK_ERR("files2-none", rsrc2(r.fd, REGISTER_FILES2, 0, 0, fds, NULL), EINVAL);
+    CHECK_ERR("files2-flag", rsrc2(r.fd, REGISTER_FILES2, 2, 2, fds, NULL), EINVAL);
+    CHECK_ERR("files2-sparse-data", rsrc2(r.fd, REGISTER_FILES2, 2, RSRC_SPARSE, fds, NULL), EINVAL);
+    rr.resv2 = 1;
+    CHECK_ERR("files2-resv", reg(r.fd, REGISTER_FILES2, &rr, sizeof rr), EINVAL);
+    CHECK("files2-sparse", rsrc2(r.fd, REGISTER_FILES2, 3, RSRC_SPARSE, NULL, NULL) == 0);
+    TEXT("files2-sparse-fdinfo", user_rsrc(r.fd), "UserFiles:\t3\nUserBufs:\t0\n");
+    CHECK("files2-sparse-unregister", reg(r.fd, UNREGISTER_FILES, NULL, 0) == 0);
+
+    /* Tags post as their nodes go: replaced, emptied, or unregistered
+     * (from the last slot down); a skipped or emptied slot takes none. */
+    int three[3] = {p[0], p[1], p[0]}, one[1] = {p[1]}, skip[2] = {FILES_SKIP, -1};
+    int two[2] = {p[0], p[0]};
+    uint64_t t3[3] = {16, 32, 0}, t1[1] = {48}, t00[2] = {0, 0}, t7[1] = {7}, t2[2] = {64, 80};
+    CHECK("tags", rsrc2(r.fd, REGISTER_FILES2, 3, 0, three, t3) == 0);
+    REAPS("tags-none", &r, "");
+    CHECK("tags-replace", update2(r.fd, REGISTER_FILES_UPDATE2, 0, one, t1, 1) == 1);
+    REAPS("tags-replace-cqe", &r, "16:0");
+    CHECK("tags-skip-empty", update2(r.fd, REGISTER_FILES_UPDATE2, 0, skip, t00, 2) == 2);
+    REAPS("tags-skip-empty-cqe", &r, "32:0");
+    CHECK_ERR("tags-skip-tagged", update2(r.fd, REGISTER_FILES_UPDATE2, 0, skip, t7, 1), EINVAL);
+    CHECK("tags-fill", update2(r.fd, REGISTER_FILES_UPDATE2, 1, two, t2, 2) == 2);
+    REAPS("tags-fill-none", &r, "");
+    CHECK("tags-unregister", reg(r.fd, UNREGISTER_FILES, NULL, 0) == 0);
+    REAPS("tags-unregister-cqes", &r, "80:0 64:0 48:0");
+
+    struct rsrc_update u = {0, 0, PTR(fds)};
+    CHECK_ERR("update-none", reg(r.fd, REGISTER_FILES_UPDATE, &u, 0), EINVAL);
+    CHECK_ERR("update-no-table", reg(r.fd, REGISTER_FILES_UPDATE, &u, 1), ENXIO);
+    u.resv = 1;
+    CHECK_ERR("update-resv", reg(r.fd, REGISTER_FILES_UPDATE, &u, 1), EINVAL);
+    CHECK("update-sparse", rsrc2(r.fd, REGISTER_FILES2, 2, RSRC_SPARSE, NULL, NULL) == 0);
+    u.resv = 0;
+    u.offset = 1;
+    CHECK("update", reg(r.fd, REGISTER_FILES_UPDATE, &u, 1) == 1);
+    CHECK_ERR("update-past", reg(r.fd, REGISTER_FILES_UPDATE, &u, 2), EINVAL);
+    u.offset = ~0u;
+    CHECK_ERR("update-wrap", reg(r.fd, REGISTER_FILES_UPDATE, &u, 2), EOVERFLOW);
+    struct rsrc_update2 u2 = {0, 0, PTR(fds), 0, 1, 0};
+    CHECK_ERR("update2-size", reg(r.fd, REGISTER_FILES_UPDATE2, &u2, 16), EINVAL);
+    u2.nr = 0;
+    CHECK_ERR("update2-none", reg(r.fd, REGISTER_FILES_UPDATE2, &u2, sizeof u2), EINVAL);
+    u2.nr = 1;
+    u2.resv2 = 1;
+    CHECK_ERR("update2-resv", reg(r.fd, REGISTER_FILES_UPDATE2, &u2, sizeof u2), EINVAL);
+    /* A bad descriptor ends an update; its slot was emptied first. */
+    CHECK("update-bad-second", update2(r.fd, REGISTER_FILES_UPDATE2, 0, bad, NULL, 2) == 1);
+    snprintf(want, sizeof want, "UserFiles:\t2\n    0: %s\nUserBufs:\t0\n", fd_path(p[0]));
+    TEXT("update-bad-second-fdinfo", user_rsrc(r.fd), want);
+    CHECK_ERR("update-bad", update2(r.fd, REGISTER_FILES_UPDATE2, 0, bad + 1, NULL, 1), EBADF);
+    TEXT("update-bad-emptied", user_rsrc(r.fd), "UserFiles:\t2\nUserBufs:\t0\n");
+    CHECK("update-unregister", reg(r.fd, UNREGISTER_FILES, NULL, 0) == 0);
+
+    /* seq_file_path's escapes. */
+    char name[] = "/tmp/uring a\\b XXXXXX";
+    int f = mkstemp(name);
+    CHECK("files-escape", f >= 0 && reg(r.fd, REGISTER_FILES, &f, 1) == 0);
+    snprintf(want, sizeof want, "UserFiles:\t1\n    0: %s\nUserBufs:\t0\n", fd_path(f));
+    TEXT("files-escape-fdinfo", user_rsrc(r.fd), want);
+    CHECK("files-escaped", strstr(want, "uring\\040a\\134b\\040") != NULL);
+    unlink(name);
+    close(f);
+    close(p[0]);
+    close(p[1]);
+    drop(&r);
+}
+
+static void file_ops(void) {
+    /* A registered file stays open while its node lives. */
+    struct ring r = make(8, 0, 0);
+    int p[2];
+    CHECK("held-pipe", pipe2(p, O_NONBLOCK) == 0);
+    CHECK("held", reg(r.fd, REGISTER_FILES, &p[1], 1) == 0);
+    close(p[1]);
+    char c;
+    CHECK_ERR("held-open", read(p[0], &c, 1), EAGAIN);
+    CHECK("held-unregister", reg(r.fd, UNREGISTER_FILES, NULL, 0) == 0);
+    CHECK("held-closed", read(p[0], &c, 1) == 0);
+
+    /* io_nop's lookups: a missing file or buffer fails the request. */
+    CHECK("lookup-files", reg(r.fd, REGISTER_FILES, &p[0], 1) == 0);
+    struct sqe s = nopf(1, LINK);
+    s.op_flags = NOP_FILE | NOP_FIXED_FILE;
+    push(&r, s);
+    push(&r, nop(2));
+    s.user_data = 3;
+    s.fd = 1;
+    push(&r, s);
+    push(&r, nop(4));
+    CHECK("lookup-file", enter(r.fd, 4, 0, 0, NULL, 0) == 4);
+    REAPS("lookup-file-cqes", &r, "1:0 3:0 2:0 4:-125");
+    char *buf = anon(PAGE, PROT_READ | PROT_WRITE);
+    struct iovec iov = {buf, PAGE};
+    CHECK("lookup-buffers", reg(r.fd, REGISTER_BUFFERS, &iov, 1) == 0);
+    s = nopf(5, LINK);
+    s.op_flags = NOP_FIXED_BUFFER;
+    push(&r, s);
+    push(&r, nop(6));
+    s.user_data = 7;
+    s.buf_index = 1;
+    push(&r, s);
+    push(&r, nop(8));
+    CHECK("lookup-buffer", enter(r.fd, 4, 0, 0, NULL, 0) == 4);
+    REAPS("lookup-buffer-cqes", &r, "5:0 7:0 6:0 8:-125");
+    drop(&r);
+
+    /* A node a request uses goes, and posts its tag, when the request is
+     * freed: on this ring, as its task work runs in a wait. */
+    r = make(4, SINGLE_ISSUER | DEFER_TASKRUN, 0);
+    uint64_t tag = 119;
+    int empty = -1;
+    CHECK("in-use", rsrc2(r.fd, REGISTER_FILES2, 1, 0, &p[0], &tag) == 0);
+    s = nop(1);
+    s.op_flags = NOP_FILE | NOP_FIXED_FILE | NOP_TW;
+    push(&r, s);
+    CHECK("in-use-submit", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    CHECK("in-use-update", update2(r.fd, REGISTER_FILES_UPDATE2, 0, &empty, NULL, 1) == 1);
+    REAPS("in-use-held", &r, "");
+    CHECK("in-use-wait", enter(r.fd, 0, 1, GETEVENTS, NULL, 0) == 0);
+    REAPS("in-use-released", &r, "1:0 119:0");
+    drop(&r);
+
+    /* IORING_OP_FILES_UPDATE. */
+    r = make(8, 0, 0);
+    int fds[4] = {p[0], p[0], p[0], p[0]};
+    struct sqe up = nop(1);
+    up.opcode = OP_FILES_UPDATE;
+    up.addr = PTR(fds);
+    push(&r, up);
+    CHECK("op-update-no-slots", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    up.user_data = 2;
+    up.len = 1;
+    up.flags = FIXED_FILE;
+    push(&r, up);
+    CHECK("op-update-fixed", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    up.user_data = 3;
+    up.flags = 0;
+    up.op_flags = 1;
+    push(&r, up);
+    CHECK("op-update-flags", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    REAPS("op-update-prep", &r, "1:-22 2:-22 3:-22");
+    up.user_data = 4;
+    up.op_flags = 0;
+    up.flags = LINK;
+    push(&r, up);
+    push(&r, nop(5));
+    CHECK("op-update-no-table", enter(r.fd, 2, 0, 0, NULL, 0) == 2);
+    REAPS("op-update-no-table-cqes", &r, "4:-6 5:-125");
+    CHECK("op-update-sparse", rsrc2(r.fd, REGISTER_FILES2, 4, RSRC_SPARSE, NULL, NULL) == 0);
+    up.user_data = 6;
+    up.flags = 0;
+    up.off = 1;
+    up.len = 2;
+    push(&r, up);
+    CHECK("op-update", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    REAPS("op-update-cqe", &r, "6:2");
+    /* The hint is past slot 2: slot 3, then from the start slot 0, then
+     * none. */
+    up.user_data = 7;
+    up.off = FILE_INDEX_ALLOC;
+    up.len = 3;
+    push(&r, up);
+    CHECK("op-alloc", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    REAPS("op-alloc-cqe", &r, "7:2");
+    CHECK("op-alloc-slots", fds[0] == 3 && fds[1] == 0 && fds[2] == p[0]);
+    up.user_data = 8;
+    up.len = 1;
+    fds[0] = p[0];
+    push(&r, up);
+    CHECK("op-alloc-full", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    REAPS("op-alloc-full-cqe", &r, "8:-23");
+
+    /* IORING_REGISTER_FILE_ALLOC_RANGE. */
+    struct index_range range = {0, 0, 0};
+    CHECK_ERR("range-no-arg", reg(r.fd, REGISTER_FILE_ALLOC_RANGE, NULL, 0), EINVAL);
+    CHECK_ERR("range-nr", reg(r.fd, REGISTER_FILE_ALLOC_RANGE, &range, 1), EINVAL);
+    CHECK("range-unregister", reg(r.fd, UNREGISTER_FILES, NULL, 0) == 0);
+    CHECK("range-empty", reg(r.fd, REGISTER_FILE_ALLOC_RANGE, &range, 0) == 0);
+    range.len = 1;
+    CHECK_ERR("range-no-table", reg(r.fd, REGISTER_FILE_ALLOC_RANGE, &range, 0), EINVAL);
+    CHECK("range-sparse", rsrc2(r.fd, REGISTER_FILES2, 8, RSRC_SPARSE, NULL, NULL) == 0);
+    range = (struct index_range){~0u, 2, 0};
+    CHECK_ERR("range-wrap", reg(r.fd, REGISTER_FILE_ALLOC_RANGE, &range, 0), EOVERFLOW);
+    range = (struct index_range){6, 3, 0};
+    CHECK_ERR("range-past", reg(r.fd, REGISTER_FILE_ALLOC_RANGE, &range, 0), EINVAL);
+    range = (struct index_range){2, 3, 1};
+    CHECK_ERR("range-resv", reg(r.fd, REGISTER_FILE_ALLOC_RANGE, &range, 0), EINVAL);
+    range.resv = 0;
+    CHECK("range", reg(r.fd, REGISTER_FILE_ALLOC_RANGE, &range, 0) == 0);
+    up.user_data = 9;
+    up.len = 4;
+    for (int i = 0; i < 4; i++)
+        fds[i] = p[0];
+    push(&r, up);
+    CHECK("range-alloc", enter(r.fd, 1, 0, 0, NULL, 0) == 1);
+    REAPS("range-alloc-cqe", &r, "9:3");
+    CHECK("range-alloc-slots", fds[0] == 2 && fds[1] == 3 && fds[2] == 4 && fds[3] == p[0]);
+    close(p[0]);
+    drop(&r);
+}
+
+static void buffers(void) {
+    struct ring r = make(8, 0, 0);
+    char *buf = anon(3 * PAGE, PROT_READ | PROT_WRITE);
+    char *ro = anon(PAGE, PROT_READ);
+    /* Pages 1 and 3 unmapped: a hole, and a range running into one. */
+    char *holes = anon(4 * PAGE, PROT_READ | PROT_WRITE);
+    munmap(holes + PAGE, PAGE);
+    munmap(holes + 3 * PAGE, PAGE);
+    long pin = vm_pin();
+    struct iovec iov[2] = {{buf + 16, 0x1ff0}, {NULL, 0}};
+    CHECK_ERR("bufs-no-array", reg(r.fd, REGISTER_BUFFERS, NULL, 1), EFAULT);
+    CHECK_ERR("bufs-none", reg(r.fd, REGISTER_BUFFERS, iov, 0), EINVAL);
+    CHECK_ERR("bufs-too-many", reg(r.fd, REGISTER_BUFFERS, iov, (1u << 14) + 1), EINVAL);
+    CHECK("bufs", reg(r.fd, REGISTER_BUFFERS, iov, 2) == 0);
+    CHECK_ERR("bufs-busy", reg(r.fd, REGISTER_BUFFERS, iov, 2), EBUSY);
+    char want[512];
+    snprintf(want, sizeof want, "UserFiles:\t0\nUserBufs:\t2\n    0: 0x%llx/8176\n    1: <none>\n",
+             (unsigned long long)PTR(buf + 16));
+    TEXT("bufs-fdinfo", user_rsrc(r.fd), want);
+    CHECK("bufs-pinned", vm_pin() - pin == 8);
+    CHECK_ERR("bufs-unregister-arg", reg(r.fd, UNREGISTER_BUFFERS, NULL, 1), EINVAL);
+    CHECK("bufs-unregister", reg(r.fd, UNREGISTER_BUFFERS, NULL, 0) == 0);
+    CHECK_ERR("bufs-unregister-none", reg(r.fd, UNREGISTER_BUFFERS, NULL, 0), ENXIO);
+    CHECK("bufs-unpinned", vm_pin() == pin);
+    struct {
+        const char *name;
+        void *base;
+        size_t len;
+        int err;
+    } bad[] = {
+        {"bufs-len-no-base", NULL, 5, EFAULT},
+        {"bufs-base-no-len", buf, 0, EFAULT},
+        {"bufs-over-1g", buf, (1u << 30) + 1, EFAULT},
+        /* A 32-bit address cannot wrap the kernel's unsigned long. */
+        {"bufs-wrap", (void *)(uintptr_t)-PAGE, 1, sizeof(void *) == 8 ? EOVERFLOW : EFAULT},
+        {"bufs-read-only", ro, PAGE, EFAULT},
+        {"bufs-unmapped", holes + PAGE, PAGE, EFAULT},
+        {"bufs-into-hole", holes + 2 * PAGE, 2 * PAGE, EFAULT},
+        {"bufs-negative", buf, (size_t)1 << (8 * sizeof(size_t) - 1), EINVAL},
+    };
+    for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        struct iovec two[2] = {{buf, PAGE}, {bad[i].base, bad[i].len}};
+        CHECK_ERR(bad[i].name, reg(r.fd, REGISTER_BUFFERS, two, 2), bad[i].err);
+        CHECK_ERR(bad[i].name, reg(r.fd, UNREGISTER_BUFFERS, NULL, 0), ENXIO);
+        CHECK(bad[i].name, vm_pin() == pin);
+    }
+
+    struct iovec two[2] = {{buf, PAGE}, {buf + PAGE, PAGE}};
+    struct iovec third = {buf + 2 * PAGE, PAGE}, none = {NULL, 0};
+    struct iovec mixed[2] = {{buf, PAGE}, {NULL, 1}};
+    uint64_t tags[2] = {256, 0}, tag = 512;
+    CHECK_ERR("bufs2-sparse-data", rsrc2(r.fd, REGISTER_BUFFERS2, 2, RSRC_SPARSE, two, tags), EINVAL);
+    CHECK("bufs2", rsrc2(r.fd, REGISTER_BUFFERS2, 2, 0, two, tags) == 0 && vm_pin() - pin == 8);
+    CHECK("bufs-replace", update2(r.fd, REGISTER_BUFFERS_UPDATE, 0, &third, &tag, 1) == 1);
+    REAPS("bufs-replace-cqe", &r, "256:0");
+    CHECK("bufs-replace-pinned", vm_pin() - pin == 8);
+    CHECK_ERR("bufs-empty-tagged", update2(r.fd, REGISTER_BUFFERS_UPDATE, 1, &none, &tag, 1), EINVAL);
+    CHECK("bufs-empty", update2(r.fd, REGISTER_BUFFERS_UPDATE, 1, &none, NULL, 1) == 1 &&
+                            vm_pin() - pin == 4);
+    snprintf(want, sizeof want, "UserFiles:\t0\nUserBufs:\t2\n    0: 0x%llx/4096\n    1: <none>\n",
+             (unsigned long long)PTR(buf + 2 * PAGE));
+    TEXT("bufs-update-fdinfo", user_rsrc(r.fd), want);
+    CHECK_ERR("bufs-update-past", update2(r.fd, REGISTER_BUFFERS_UPDATE, 2, &none, NULL, 1), EINVAL);
+    CHECK("bufs-update-bad-second", update2(r.fd, REGISTER_BUFFERS_UPDATE, 0, mixed, NULL, 2) == 1);
+    REAPS("bufs-update-bad-second-cqe", &r, "512:0");
+    CHECK("bufs2-unregister", reg(r.fd, UNREGISTER_BUFFERS, NULL, 0) == 0 && vm_pin() == pin);
+    REAPS("bufs2-unregister-none", &r, "");
+    drop(&r);
+}
+
+static void clones(void) {
+    struct ring src = make(4, 0, 0), dst = make(4, 0, 0), none = make(4, 0, 0);
+    char *buf = anon(2 * PAGE, PROT_READ | PROT_WRITE);
+    long pin = vm_pin();
+    struct iovec two[2] = {{buf, PAGE}, {buf + PAGE, PAGE}};
+    uint64_t tags[2] = {1, 2};
+    CHECK("clone-source", rsrc2(src.fd, REGISTER_BUFFERS2, 2, 0, two, tags) == 0);
+    struct clone_buffers cb = {src.fd};
+    CHECK_ERR("clone-no-arg", reg(dst.fd, REGISTER_CLONE_BUFFERS, NULL, 1), EINVAL);
+    CHECK_ERR("clone-nr", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 0), EINVAL);
+    cb.flags = 4;
+    CHECK_ERR("clone-flag", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1), EINVAL);
+    cb.flags = 0;
+    cb.pad[2] = 1;
+    CHECK_ERR("clone-pad", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1), EINVAL);
+    cb.pad[2] = 0;
+    int p[2];
+    CHECK("clone-pipe", pipe(p) == 0);
+    cb.src_fd = p[0];
+    CHECK_ERR("clone-not-ring", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1), EOPNOTSUPP);
+    cb.src_fd = 999;
+    CHECK_ERR("clone-bad-fd", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1), EBADF);
+    cb.src_fd = none.fd;
+    CHECK_ERR("clone-no-buffers", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1), ENXIO);
+    struct {
+        const char *name;
+        uint32_t src_off, dst_off, nr;
+        int err;
+    } bad[] = {
+        {"clone-offsets-no-count", 1, 0, 0, EINVAL},
+        {"clone-too-many", 0, 0, 3, EINVAL},
+        {"clone-past-source", 1, 0, 2, EOVERFLOW},
+        {"clone-past-max", 0, 1u << 14, 1, EINVAL},
+    };
+    for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        cb = (struct clone_buffers){src.fd, 0, bad[i].src_off, bad[i].dst_off, bad[i].nr};
+        CHECK_ERR(bad[i].name, reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1), bad[i].err);
+    }
+    /* All of them, pinned once, without tags. */
+    cb = (struct clone_buffers){src.fd};
+    CHECK("clone", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1) == 0 && vm_pin() - pin == 8);
+    char want[512];
+    snprintf(want, sizeof want, "%s", user_rsrc(src.fd));
+    TEXT("clone-fdinfo", user_rsrc(dst.fd), want);
+    CHECK_ERR("clone-busy", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1), EBUSY);
+    cb = (struct clone_buffers){src.fd, DST_REPLACE, 0, 1, 1};
+    CHECK("clone-replace", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1) == 0);
+    snprintf(want, sizeof want,
+             "UserFiles:\t0\nUserBufs:\t2\n    0: 0x%llx/4096\n    1: 0x%llx/4096\n",
+             (unsigned long long)PTR(buf), (unsigned long long)PTR(buf));
+    TEXT("clone-replace-fdinfo", user_rsrc(dst.fd), want);
+    /* A buffer goes as its last holder lets go. */
+    CHECK("clone-source-unregister", reg(src.fd, UNREGISTER_BUFFERS, NULL, 0) == 0 &&
+                                         vm_pin() - pin == 4);
+    REAPS("clone-source-tags", &src, "2:0 1:0");
+    CHECK("clone-unregister", reg(dst.fd, UNREGISTER_BUFFERS, NULL, 0) == 0 && vm_pin() == pin);
+    REAPS("clone-no-tags", &dst, "");
+    /* By registered index; and a ring into itself. */
+    struct iovec one = {buf, PAGE};
+    CHECK("clone-source-again", reg(src.fd, REGISTER_BUFFERS, &one, 1) == 0);
+    struct rsrc_update u = {5, 0, (uint64_t)src.fd};
+    CHECK("clone-ring-fd", reg(src.fd, REGISTER_RING_FDS, &u, 1) == 1);
+    cb = (struct clone_buffers){5, SRC_REGISTERED};
+    CHECK("clone-registered", reg(dst.fd, REGISTER_CLONE_BUFFERS, &cb, 1) == 0);
+    cb = (struct clone_buffers){src.fd, DST_REPLACE, 0, 1, 1};
+    CHECK("clone-self", reg(src.fd, REGISTER_CLONE_BUFFERS, &cb, 1) == 0 && vm_pin() - pin == 4);
+    TEXT("clone-self-fdinfo", user_rsrc(src.fd), want);
+    close(p[0]);
+    close(p[1]);
+    drop(&src);
+    drop(&dst);
+    drop(&none);
+}
+
 /* The fdinfo lines after the common ones (from "SqMask"). */
 static void fdinfo(void) {
     struct ring r = make(4, 0, 0);
@@ -631,6 +1148,7 @@ static void fdinfo(void) {
 }
 
 int main(void) {
+    memlock();
     setup_params();
     mappings();
     nops();
@@ -640,6 +1158,10 @@ int main(void) {
     task_work();
     waits();
     registration();
+    files();
+    file_ops();
+    buffers();
+    clones();
     fdinfo();
     FINISH();
 }
