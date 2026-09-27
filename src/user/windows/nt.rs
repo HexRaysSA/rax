@@ -156,6 +156,10 @@ pub mod error {
     pub const ERROR_BAD_NETPATH: u32 = 53;
     pub const ERROR_FILE_EXISTS: u32 = 80;
     pub const ERROR_INVALID_PARAMETER: u32 = 87;
+    /// System Error Codes (1000–1299).
+    pub const ERROR_ALREADY_FIBER: u32 = 1280;
+    /// System Error Codes (1000–1299).
+    pub const ERROR_ALREADY_THREAD: u32 = 1281;
     pub const ERROR_BROKEN_PIPE: u32 = 109;
     pub const ERROR_DISK_FULL: u32 = 112;
     pub const ERROR_CALL_NOT_IMPLEMENTED: u32 = 120;

@@ -242,6 +242,9 @@ pub enum Flow {
     TerminateThread(u32),
     /// Forced process termination without guest DLL/FLS cleanup callbacks.
     TerminateProcess(u32),
+    /// Return from SwitchToFiber in the old context, then select the target
+    /// context. Its dormant CPU, stack and built-in frames become current.
+    SwitchFiber(u64),
     /// The implementation set every register itself ([`Conv::Custom`]).
     Done,
 }
@@ -385,6 +388,24 @@ impl<'a> Ctx<'a> {
     pub fn stack_alloc(&mut self, size: u64, align: u64) -> u64 {
         self.cursor = self.cursor.saturating_sub(size) & !(align.max(1) - 1);
         self.cursor
+    }
+
+    /// Checked stack allocation with guard-frontier growth before publication.
+    /// The historical planning-only stack_alloc API remains available.
+    pub fn stack_alloc_checked(&mut self, size: u64, align: u64) -> Result<u64, ApiErr> {
+        let fault = MemFault {
+            addr: self.cursor,
+            write: true,
+        };
+        if !align.is_power_of_two() {
+            return Err(fault.into());
+        }
+        let address = self.cursor.checked_sub(size).ok_or(fault)? & !(align - 1);
+        let bytes = self.cursor.checked_sub(address).ok_or(fault)?;
+        super::process::stack::prepare(self.p, self.t, address, bytes)
+            .map_err(|fault| fault.into_api(self.entry_pc))?;
+        self.cursor = address;
+        Ok(address)
     }
 
     /// Sets the thread's last-error value (`TEB.LastErrorValue`).

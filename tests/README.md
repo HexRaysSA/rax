@@ -120,3 +120,11 @@ rollback, failed-attach retry, reference ownership, unload and EXE data mapping
 on all three guest ABIs. Controlled CLI runs use scheduling slices of 1 and
 4,096 instructions and an external 30 s watchdog. Public-contract checks and
 labeled personality policies are not recorded native differential results.
+
+The same target reaches `suites/user/windows/fibers.rs`. Its independent
+`fixtures/user/windows/fibers/build.sh` produces eight CRT/SDK-free PE programs
+for each of x86, x64 and ARM64, checking conversion, FLS/TLS isolation,
+synchronized migration, call-preserved/FP state, normal/forced exits and demand
+stack growth. Every program runs at slices of 1 and 4,096 instructions with a
+30 s external watchdog. Source/artifact hashes and explicitly retained profiles
+are in that fixture directory; no native Windows oracle is claimed.

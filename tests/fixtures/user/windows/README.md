@@ -58,3 +58,14 @@ for x86, x64 and ARM64. Its generator, source/artifact hashes and labeled profil
 assumptions are independent of the smoke/service manifests. The existing
 user_windows target reaches the lifecycle runner; native Windows differential
 execution remains unknown.
+
+## Fiber/FLS fixtures
+
+The separate [fiber graph](fibers/README.md) checks conversion/reconversion,
+fiber-local storage versus thread-local storage, synchronized migration,
+call-preserved and floating-point state, normal/forced teardown, and demand
+stack growth on x86, x64 and ARM64. Its source/artifact manifest and generator
+are independent of the smoke/service/lifecycle inputs. The existing user_windows
+target executes each of its 24 programs at two scheduler slices. Exact native
+callback ordering, private fiber state and mixed floating-switch flags remain
+unknown; fixtures check the explicitly documented RAX profiles.

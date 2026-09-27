@@ -9,12 +9,16 @@
 //! `ntdll!RtlUserThreadStart`, which runs the DLL and TLS initializers and
 //! then the image's entry point.
 
+pub(crate) mod fiber;
+mod fls_exit;
 mod lifecycle;
 mod sched;
+pub(crate) mod stack;
 mod start;
 pub(crate) mod thread;
 
 pub use super::dll::libraries::LoaderState;
+pub use fiber::FiberState;
 pub use thread::{Thread, ThreadState};
 
 use std::collections::BTreeMap;
@@ -229,6 +233,8 @@ pub struct Proc {
     pub modules: Modules,
     /// Reentrant DLL-entrypoint serialization and normal-exit lifecycle stages.
     pub loader: LoaderState,
+    /// Fiber execution contexts and their host-owned stack/object ledgers.
+    pub fibers: FiberState,
     /// Trap slots of built-in DLLs.
     pub traps: Traps,
     /// Kernel objects and the handle table.
@@ -260,6 +266,8 @@ pub struct Proc {
     pub cwd: Vec<u16>,
     /// The executable's `SizeOfStackReserve` (the default thread stack).
     pub exe_stack_reserve: u64,
+    /// The executable's `SizeOfStackCommit` (default fiber commitment).
+    pub exe_stack_commit: u64,
 }
 
 impl Proc {

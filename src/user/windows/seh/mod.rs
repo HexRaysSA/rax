@@ -150,6 +150,14 @@ pub fn raise(p: &mut Proc, t: &mut Thread, rec: ExceptionRecord, ctx: RegContext
     let record_addr = sp;
     sp = sp.saturating_sub(2 * psize) & !0xF;
     let pointers = sp;
+    let prepared = super::process::stack::prepare(p, t, sp, ctx.sp().saturating_sub(sp));
+    if prepared.is_err() {
+        return Outcome::ProcessTerminate(if rec.code == STATUS_STACK_OVERFLOW {
+            STATUS_STACK_OVERFLOW
+        } else {
+            STATUS_BAD_STACK
+        });
+    }
     let writes = ctx
         .write(&p.space, context_addr)
         .and_then(|_| rec.write(&p.space, arch, record_addr))

@@ -427,8 +427,8 @@ fn in_stack(c: &Ctx, sp: u64) -> bool {
 /// Dispatches to language handlers found by virtual unwinding.
 pub fn dispatch(c: &mut Ctx, rec: ExceptionRecord, recs: Records) -> ApiResult {
     let ctx = RegContext::read(&c.p.space, c.p.arch, recs.context)?;
-    let frame_ctx = c.stack_alloc(RegContext::size(c.p.arch) as u64, 16);
-    let dc = c.stack_alloc(dispatcher_context_size(c.p.arch), 16);
+    let frame_ctx = c.stack_alloc_checked(RegContext::size(c.p.arch) as u64, 16)?;
+    let dc = c.stack_alloc_checked(dispatcher_context_size(c.p.arch), 16)?;
     search(c, rec, recs, ctx, frame_ctx, dc, true, WalkState::default())
 }
 
@@ -547,12 +547,12 @@ pub fn rtl_unwind_ex(c: &mut Ctx) -> ApiResult {
     let rec_addr = if rec_arg != 0 {
         rec_arg
     } else {
-        let a = c.stack_alloc(ExceptionRecord::size(arch), 16);
+        let a = c.stack_alloc_checked(ExceptionRecord::size(arch), 16)?;
         ExceptionRecord::new(STATUS_UNWIND, c.ret_addr, Vec::new()).write(&c.p.space, arch, a)?;
         a
     };
-    let frame_ctx = c.stack_alloc(RegContext::size(arch) as u64, 16);
-    let dc = c.stack_alloc(dispatcher_context_size(arch), 16);
+    let frame_ctx = c.stack_alloc_checked(RegContext::size(arch) as u64, 16)?;
+    let dc = c.stack_alloc_checked(dispatcher_context_size(arch), 16)?;
     let st = UnwindState {
         target_frame,
         target_ip,

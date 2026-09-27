@@ -130,7 +130,7 @@ fn walk(
     }
     // DispatcherContext: a word receiving the establisher of a nested
     // exception.
-    let dc = c.stack_alloc(4, 4);
+    let dc = c.stack_alloc_checked(4, 4)?;
     c.p.space.w32(dc, 0)?;
     Flow::call(
         handler,
@@ -173,7 +173,7 @@ pub fn rtl_unwind(c: &mut Ctx) -> ApiResult {
     ctx.set_pc(c.ret_addr);
     ctx.set_sp(c.entry_sp + 4 + 16);
     ctx.set_gpr(0, ret_value);
-    let ctx_addr = c.stack_alloc(RegContext::size(arch) as u64, 4);
+    let ctx_addr = c.stack_alloc_checked(RegContext::size(arch) as u64, 4)?;
     ctx.write(&c.p.space, ctx_addr)?;
 
     let mut flags = EXCEPTION_UNWINDING;
@@ -185,13 +185,13 @@ pub fn rtl_unwind(c: &mut Ctx) -> ApiResult {
         c.p.space.w32(rec_arg + 4, old | flags)?;
         rec_arg
     } else {
-        let a = c.stack_alloc(ExceptionRecord::size(arch), 4);
+        let a = c.stack_alloc_checked(ExceptionRecord::size(arch), 4)?;
         let mut r = ExceptionRecord::new(STATUS_UNWIND, c.ret_addr, Vec::new());
         r.flags = flags;
         r.write(&c.p.space, arch, a)?;
         a
     };
-    let dc = c.stack_alloc(psize, 4);
+    let dc = c.stack_alloc_checked(psize, 4)?;
     unwind_step(
         c,
         target,

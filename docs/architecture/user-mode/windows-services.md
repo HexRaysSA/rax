@@ -31,7 +31,7 @@ escalation and custom security descriptors remain explicit rejected branches.
 | S1 | Guest mappings remain stable through HLE preflight/copy | Serialized scheduler/AddressSpace contract | Lock/file publication | Cross-page read-only output | Concurrent embedding clone mutation falsifies contract | Retained |
 | S2 | One client session and process-local objects are admitted | Proc owns Objects | Exact-case Local/default alias and distinct Global | Prefix/case/type collisions | Name tests; separate processes cannot share Objects | Confirmed profile |
 | S3 | Non-file access escalation needs unmodeled tokens/ACLs | Microsoft DuplicateHandle permits object-dependent escalation | Explicit unsupported branch | Request rights absent from source | Verified token/access-check implementation; native comparison | Retained |
-| S4 | Stacks commit usable reservation above a terminal guard | Existing fixed-stack/no demand-growth contract | CreateThread size adaptation | Rounding/overflow/invalid ID output | Stack/rollback tests; native VirtualQuery unknown | Retained |
+| S4 | Ordinary CreateThread commits usable reservation above a terminal guard | Original thread-creation profile; later fiber stacks have initial commitment and controlled guard growth | CreateThread size adaptation | Rounding/overflow/invalid ID output | Stack/rollback tests; native VirtualQuery unknown | Retained; scope revised to ordinary thread creation |
 | S5 | Unix device/inode identity distinguishes live files | Host metadata | Sharing/deferred deletion | Hard links, replacement, symlinks | Concurrent replacement between final check/unlink falsifies atomicity | Retained; atomic namespace not claimed |
 | S6 | Expected guest results are specification-based | Retained Microsoft contracts; no native recording | Conformance conclusions | Execute same PE on Windows builds | Native run may falsify expectation | Retained; native result unknown |
 | S7 | Fixtures reach guest behavior, not just imports | Exit checks, import counts, deadline, scheduling variation | Integration coverage | Slices 1/4096 and failure codes | Run whole user_windows binary and inspect counts/results | Confirmed: all 30 tests passed; six service executions cover three ISAs and both slices |
@@ -58,8 +58,11 @@ N <= 64. I/O uses O(B) buffer space for B <= 16,777,216 bytes.
 
 High, non-blocking for admitted profile: host check/unlink is not atomic against
 external filesystem mutation; identity revalidation detects replacement but
-does not implement Windows namespace transactions. High: demand stack growth,
-thread/process detach and FLS cleanup remain incomplete. High: host console
+does not implement Windows namespace transactions. High: ordinary thread
+creation retains eager commitment; later DLL lifecycle and
+[fiber/FLS](windows-fibers.md) groups implement normal notification/cleanup and
+controlled fiber guard growth under explicit profiles, not complete native
+private-state equivalence. High: host console
 reads can block the sole scheduler thread; asynchronous console/pipe dispatch
 is not claimed. Medium: native private lock-word encodings/fairness and full
 ANSI/Unicode conversion are unknown. Low: slice-1 performance is unmeasured.

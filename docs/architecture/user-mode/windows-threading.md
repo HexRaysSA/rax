@@ -149,9 +149,11 @@ rejects queuing with the documented `ERROR_GEN_FAILURE`.
 
 External `TerminateThread` requests are applied at the next scheduling
 frontier, including for suspended/waiting threads. It does not run
-`DLL_THREAD_DETACH` or FLS callbacks. The existing normal thread-exit path also
-does not yet deliver detach/FLS callbacks; that pre-existing lifecycle
-limitation remains outside this group. Mutexes owned by an ended thread are
+`DLL_THREAD_DETACH` or FLS callbacks. The normal thread-exit path now delivers
+the DLL lifecycle stage, followed by the caller's FLS cleanup before resource
+release; see the later [DLL lifecycle](windows-dll-lifecycle.md) and
+[fiber/FLS](windows-fibers.md) feature records. Their exact native relative
+ordering remains unknown. Mutexes owned by an ended thread are
 abandoned, its thread object becomes signaled, and its TEB, stack and static TLS
 resources are released. Successfully published dynamic TLS expansion arrays
 are tracked by host-owned allocation addresses and freed at teardown without
@@ -164,8 +166,9 @@ without attempting guest critical-section/SRW storage updates, destroys the
 remaining threads and signals their objects. The process exit code is assigned
 to every remaining thread, as specified by the `ExitProcess` parameter
 contract. Shutdown then closes all guest handles, including protected handles,
-and drains the object table. No process or thread DLL/FLS detach-callback
-completion is claimed by this shutdown path.
+and drains the object table. This raw shutdown cleanup does not itself invoke
+callbacks: normal exit's preceding lifecycle/FLS stages do, whereas forced
+termination skips those stages. The later feature records define that distinction.
 
 Suspend counts are bounded at the SDK's `MAXIMUM_SUSPEND_COUNT == 0x7F`.
 Attempts above it leave the count unchanged and return `(DWORD)-1`.
@@ -214,15 +217,17 @@ construction; cost depends on reservation pages and loaded TLS template bytes.
 
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 |---|---|---|---|---|---|---|
-| A1 | Existing fixed-stack profile is retained | No scheduler demand-growth contract exists | Commitment/reservation behavior | Boundary requests `0xFF000`, `0x100000`, `u64::MAX` | Native query of initial stack commitment would disprove native equivalence, which is not claimed | Retained, explicit limitation |
+| A1 | Ordinary CreateThread retains the original eager usable-reservation commitment profile | Current thread creation; the later fiber group adds controlled guard growth for partially committed fiber stacks | CreateThread commitment/reservation behavior | Boundary requests `0xFF000`, `0x100000`, `u64::MAX` | Native query of initial stack commitment would disprove native equivalence, which is not claimed | Retained; scope revised to ordinary thread creation |
 | A2 | One guest processor, equal priorities, one host execution thread | Scheduler/configuration source | Yield and atomic wait semantics | Suspended peers and loader initialization | Introducing affinity, priorities or concurrent guest execution requires a changed contract | Confirmed |
 | A3 | One principal/session/process-local object table; no ACL/token state | Object table and absence of token/security implementation | Explicit access grants and namespace scope | Reduced-grant open/set/wait | Cross-instance named sharing or token/ACL APIs would falsify this scope | Retained; custom security rejected |
 | A4 | Undefined duplicate-alias/pending-close input can have an explicit RAX result | Public contracts prohibit repeated handles and leave pending closure undefined | Alias rejection and pinned references | Alias wait leaves state unchanged; close-last-handle while parked | Native results would characterize undefined/native-specific behavior, not prove RAX equivalence | Retained profile extension |
 | A5 | Consulted public contracts do not resolve simultaneous readiness or exact boundary-error values | No native Windows execution oracle used | Tie-breaking and suspend/repeat-termination errors | Explicit tests for the RAX branches | Native probes at those exact frontiers | Unknown native results labeled |
 | A6 | ASCII `A` and valid-scalar `W` names are the admitted encoding subset | No ACP or UTF-16-code-unit object-key model exists | Exact-case string keys | Non-ASCII byte and unpaired-surrogate rejection | Native ACP/UTF-16 probes plus a broader implementation | Retained; excluded encodings rejected |
 
-High-impact retained limitations: no demand stack growth, no custom ACL/token
-semantics, and incomplete normal-exit DLL/FLS notification. These prevent
+High-impact retained limitations: eager commitment for ordinary thread creation
+and no custom ACL/token semantics. Later lifecycle/fiber groups provide normal
+DLL/FLS notifications and controlled fiber-stack growth with explicit profiles;
+their private state/ordering is not a native equivalence claim. These prevent
 claims of general Windows thread compatibility but do not prevent execution
 within the explicit profile. Medium-impact limitations: polling cost scales
 with all parked threads, host-clock timeout behavior, process-local Global

@@ -44,7 +44,7 @@ implemented service profiles are recorded in
 profiles in [windows-dll-lifecycle.md](windows-dll-lifecycle.md). API names alone do not establish complete
 parameter coverage. Raw NT
 service-number tables, complete CRT/GUI/network/registry personalities, modern
-LoadLibraryEx/search policies, FLS callback teardown and host Windows support remain
+LoadLibraryEx/search policies and host Windows support remain
 incomplete. ARM64EC is a distinct ABI and is not admitted as ARM64. Nonzero
 `NtContinue.TestAlert`, over-aligned static TLS, aggregate/vectorcall signatures,
 ARM64 PAC/SVE/custom unwind records, and x64 unwind versions other than 1 are
@@ -56,8 +56,10 @@ An instrumented image may retain its own no-op CFG fallback; admitting that
 image does not mean CFG target validation ran. Microsoft documents compatibility
 with CFG-unaware systems in [Control Flow Guard](https://learn.microsoft.com/en-us/windows/win32/secbp/control-flow-guard).
 
-The current stack commits the reserved stack above a fixed bottom guard; demand
-stack growth is not yet modeled. x64 unwind version 1 and supported ARM64 unwind
+Ordinary-thread creation retains its eager-commit stack profile. Fiber stacks
+now honor initial commitment and checked guard growth, including HLE/SEH setup;
+exact native private margins and growth quantum remain unknown. See
+[Windows fibers/FLS](windows-fibers.md). x64 unwind version 1 and supported ARM64 unwind
 records have explicit decoders; unsupported metadata must fail before applying
 an invented context. See source and tests for admitted operations. Native
 Windows differential coverage is unknown.
@@ -107,8 +109,10 @@ the fixture conformance tests cannot prove equivalence for all Windows binaries.
 High: the unfinished DLL/CRT/NT surfaces listed above prevent declaring the full
 Windows emulation objective complete. High: fixed-heap platform block ceilings
 are not enforced; the precise x64 ceiling is unknown because HeapAlloc's numeric
-limit and HeapCreate's architecture-dependent description differ. High: FLS
-teardown callbacks remain incomplete. Dynamic-load rollback and DLL
+limit and HeapCreate's architecture-dependent description differ. High: native
+FLS callback ordering/reentrancy, mixed-flag FP state and private fiber teardown
+remain unknown; restricted profiles are recorded in the fiber feature record.
+Dynamic-load rollback and DLL
 notifications now have the bounded, tested profile described in the lifecycle
 record; native callback ordering/exception containment and private-allocation
 generation identity remain unknown or restricted. High: host filesystem
@@ -214,3 +218,23 @@ Native Windows lifecycle equivalence remains unknown. Exact commands, the
 reconciled register, callback/ownership profiles, full change-surface map,
 bounded findings and Quality Gates are in
 [Windows DLL lifecycle integration](windows-dll-lifecycle.md).
+
+## Fiber/FLS verification record — 2026-09-27
+
+The fiber group adds conversion, creation, switching, synchronized migration,
+deletion and FLS callbacks for all three guest ABIs. Fiber stacks honor initial
+commitment, controlled guard growth and an exhausted emergency dispatch page;
+ordinary-thread creation retains eager commitment. The frozen portable library
+passed 6,517 tests and the feature-enabled library passed 8,689. Each ignored
+two optional microkernel tests and filtered none. The library includes 245
+Windows units. All 66 Windows integration tests and 10 CI contract tests passed
+without skips/filters; the final serial Windows run also passed all 66.
+The independent fiber graph executed 48 actual PE cases across three ABIs and
+two slices. Both all-target workspace builds, Clippy and formatting passed;
+doctests executed zero cases and ignored five. All 113 registered service-reference
+entries and 35 fiber fixture checks passed. The observed emergency-page reversal
+failed before restoration. Native Windows execution, exact private state and
+callback ordering remain unknown; the full Windows objective is not complete.
+Commands, seven-field F1–F9 register, affected/unaffected execution planes,
+bounded findings, ownership and Quality Gates are in
+[Windows fiber/FLS integration](windows-fibers.md).
