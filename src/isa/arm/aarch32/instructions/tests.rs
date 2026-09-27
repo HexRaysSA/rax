@@ -315,6 +315,39 @@ fn pl0_cp15_reaches_only_the_thread_ids_and_enabled_barriers() {
     }
 }
 
+/// MSR's byte mask selects GE[3:0] (bits 19:16) at any privilege
+/// (`CPSRWriteByInstr`, `SPSRWriteByInstr`); at PL0 the mode and the
+/// interrupt masks stay.
+#[test]
+fn msr_writes_ge_by_its_byte_mask() {
+    // MSR CPSR_<mask>, r0; bit 22 selects the SPSR.
+    let msr = |mask: u32| make_insn(Mnemonic::MSR, 0xE120_F000 | (mask << 16), false);
+    let mut cpu = make_cpu();
+    let mut mem = make_mem();
+    cpu.cpsr.mode = ProcessorMode::User as u8;
+    // N, Z, C, V, GE = 0b1010; System mode with I, F, and E clear.
+    cpu.regs[0] = 0xF00A_001F;
+    let mut exec = Executor::new(&mut cpu, &mut mem);
+    assert!(matches!(exec.execute(&msr(0b0100)), ExecResult::Continue));
+    assert_eq!((exec.cpu.cpsr.ge, exec.cpu.cpsr.n), (0xA, false));
+    // At PL0 only NZCVQ (31:27), GE (19:16), and E (9) are written.
+    let before = exec.cpu.cpsr.to_u32();
+    assert!(matches!(exec.execute(&msr(0b1111)), ExecResult::Continue));
+    let written = 0xF80F_0200;
+    assert_eq!(
+        cpu.cpsr.to_u32(),
+        (before & !written) | (0xF00A_001F & written)
+    );
+    assert_eq!(cpu.cpsr.mode, ProcessorMode::User as u8);
+
+    cpu.cpsr.mode = ProcessorMode::Supervisor as u8;
+    let mut spsr_g = msr(0b0100);
+    spsr_g.raw |= 1 << 22;
+    let result = Executor::new(&mut cpu, &mut mem).execute(&spsr_g);
+    assert!(matches!(result, ExecResult::Continue));
+    assert_eq!(cpu.get_current_spsr().map(|s| s.ge), Some(0xA));
+}
+
 /// VMRS and VMSR reach only FPSCR at PL0; FPSID, MVFR0-2, and FPEXC need
 /// PL1.
 #[test]

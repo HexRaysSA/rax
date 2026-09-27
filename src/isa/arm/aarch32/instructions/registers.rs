@@ -101,6 +101,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 spsr.v = ((value >> 28) & 1) != 0;
                 spsr.q = ((value >> 27) & 1) != 0;
             }
+            if (mask & 4) != 0 {
+                spsr.ge = ((value >> 16) & 0xF) as u8;
+            }
             if (mask & 2) != 0 {
                 spsr.e = ((value >> 9) & 1) != 0;
                 spsr.a = ((value >> 8) & 1) != 0;
@@ -121,6 +124,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             self.cpu.cpsr.c = ((value >> 29) & 1) != 0;
             self.cpu.cpsr.v = ((value >> 28) & 1) != 0;
             self.cpu.cpsr.q = ((value >> 27) & 1) != 0;
+        }
+        // CPSRWriteByInstr: GE[3:0] at any privilege.
+        if (mask & 4) != 0 {
+            self.cpu.cpsr.ge = ((value >> 16) & 0xF) as u8;
         }
         if (mask & 2) != 0 {
             self.cpu.cpsr.e = ((value >> 9) & 1) != 0;
