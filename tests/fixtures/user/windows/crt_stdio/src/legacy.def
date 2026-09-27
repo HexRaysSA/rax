@@ -1,0 +1,4 @@
+EXPORTS
+__iob_func
+_fmode DATA
+_commode DATA

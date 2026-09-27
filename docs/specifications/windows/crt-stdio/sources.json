@@ -1,0 +1,1543 @@
+{
+  "schema": 1,
+  "retrieved": "2026-09-27",
+  "baseline_head": "9b73397628567e675f129ecf38896ee50f601576",
+  "baseline_receipt": "Root verified tracked tree/index clean and reserved this new archive; archive agent performed no Git operations",
+  "purpose": "Genuine CRT mode and standard-stream/byte-I/O public contracts and compiler compatibility evidence; native private FILE internals unknown",
+  "reuse_policy": "Prior inputs are verified by hash/size and not rewritten; their original producer/extraction/license metadata is retained",
+  "acquisition_script_sha256": "33cbc93581798c740cb3a60ef1e2594de1e57a39adce6d3c461035b3e6666ec3",
+  "tools": [
+    {
+      "path": "/Users/int/local/bin/llvm-nm",
+      "version": "llvm-nm, compatible with GNU nm\nLLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.",
+      "sha256": "20e1aa425fda511df6d594ba6ff5298871644a6a74dea8d6da38ea0b3ad2c94f"
+    },
+    {
+      "path": "/Users/int/local/bin/llvm-ar",
+      "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.",
+      "sha256": "36566071f789a6f966ba69b05b38570f840f4d15269b76407fed7bce5711e03d"
+    },
+    {
+      "path": "/Users/int/local/bin/llvm-readobj",
+      "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.",
+      "sha256": "903feaa9324fcedcfb80afd2e8da6248bed8e9fb3222c8476fdfb59519ec95d1"
+    },
+    {
+      "path": "/Users/int/local/bin/llvm-objdump",
+      "version": "LLVM (http://llvm.org/):\n  LLVM version 23.0.0git\n  Optimized build.\n\n\n  Registered Targets:\n    aarch64     - AArch64 (little endian)\n    aarch64_32  - AArch64 (little endian ILP32)\n    aarch64_be  - AArch64 (big endian)\n    amdgcn      - AMD GCN GPUs\n    arm         - ARM\n    arm64       - ARM64 (little endian)\n    arm64_32    - ARM64 (little endian ILP32)\n    armeb       - ARM (big endian)\n    avr         - Atmel AVR Microcontroller\n    bpf         - BPF (host endian)\n    bpfeb       - BPF (big endian)\n    bpfel       - BPF (little endian)\n    hexagon     - Hexagon\n    lanai       - Lanai\n    loongarch32 - 32-bit LoongArch\n    loongarch64 - 64-bit LoongArch\n    mips        - MIPS (32-bit big endian)\n    mips64      - MIPS (64-bit big endian)\n    mips64el    - MIPS (64-bit little endian)\n    mipsel      - MIPS (32-bit little endian)\n    msp430      - MSP430 [experimental]\n    nvptx       - NVIDIA PTX 32-bit\n    nvptx64     - NVIDIA PTX 64-bit\n    ppc32       - PowerPC 32\n    ppc32le     - PowerPC 32 LE\n    ppc64       - PowerPC 64\n    ppc64le     - PowerPC 64 LE\n    r600        - AMD GPUs HD2XXX-HD6XXX\n    riscv32     - 32-bit RISC-V\n    riscv32be   - 32-bit big endian RISC-V\n    riscv64     - 64-bit RISC-V\n    riscv64be   - 64-bit big endian RISC-V\n    sparc       - Sparc\n    sparcel     - Sparc LE\n    sparcv9     - Sparc V9\n    spirv       - SPIR-V Logical\n    spirv32     - SPIR-V 32-bit\n    spirv64     - SPIR-V 64-bit\n    systemz     - SystemZ\n    thumb       - Thumb\n    thumbeb     - Thumb (big endian)\n    ve          - VE\n    wasm32      - WebAssembly 32-bit\n    wasm64      - WebAssembly 64-bit\n    x86         - 32-bit X86: Pentium-Pro and above\n    x86-64      - 64-bit X86: EM64T and AMD64\n    xcore       - XCore",
+      "sha256": "197db7ff13ded2a74e6d961e7f492fe24251a551e86473d177e7a75622d567c7"
+    },
+    {
+      "path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/bin/i686-w64-mingw32-gcc",
+      "version": "i686-w64-mingw32-gcc (GCC) 16.2.0\nCopyright (C) 2026 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+      "sha256": "9fccf68680eac18e4dc367ed9babc715836e69eaf297b96688b1c97dbdea9cc4"
+    },
+    {
+      "path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/bin/x86_64-w64-mingw32-gcc",
+      "version": "x86_64-w64-mingw32-gcc (GCC) 16.2.0\nCopyright (C) 2026 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+      "sha256": "012ac93959d40444ddc8c67d23d348c062acbe977e6384ca6fe45c0648e97301"
+    }
+  ],
+  "sources": [
+    {
+      "kind": "license",
+      "issuer": "MicrosoftDocs",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/LICENSE",
+      "normalization": "None",
+      "path": "../crt-initializers/microsoft/LICENSE",
+      "retrieved": "2026-09-27",
+      "sha256": "9bbc1ea9fe5c96df01b311a2ac864d5b18fc87b9948bfd14770e4b44db755ee9",
+      "bytes": 18653,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "license",
+      "issuer": "MicrosoftDocs",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/LICENSE-CODE",
+      "normalization": "None",
+      "path": "../crt-initializers/microsoft/LICENSE-CODE",
+      "retrieved": "2026-09-27",
+      "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2",
+      "bytes": 1090,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/internal-crt-globals-and-functions?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/internal-crt-globals-and-functions.md",
+      "normalization": "None",
+      "title": "Internal CRT Globals and Functions",
+      "document_date": "1/14/2021",
+      "path": "../crt-initializers/microsoft/internal-crt-globals-and-functions.md",
+      "retrieved": "2026-09-27",
+      "sha256": "08a46ae431b8165ba0f5bf0b1977851708412ba34bfde5160597f227691e627f",
+      "bytes": 32732,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/exit-exit-exit?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/exit-exit-exit.md",
+      "normalization": "None",
+      "title": "exit, _Exit, _exit",
+      "document_date": "4/2/2020",
+      "path": "../crt-initializers/microsoft/exit-exit-exit.md",
+      "retrieved": "2026-09-27",
+      "sha256": "7adaa29a316b47fd635ab2b442aa7cbf9ccdb2288403973dd98b72ceb6b7f05f",
+      "bytes": 5427,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/cexit-c-exit?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/cexit-c-exit.md",
+      "normalization": "None",
+      "title": "_cexit, _c_exit",
+      "document_date": "4/2/2020",
+      "path": "../crt-initializers/microsoft/cexit-c-exit.md",
+      "retrieved": "2026-09-27",
+      "sha256": "356409287775fb6a44d39d6415eabeadf61169c6e2d250b62cecabbb2aa3792c",
+      "bytes": 3059,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/atexit?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/atexit.md",
+      "normalization": "None",
+      "title": "atexit",
+      "document_date": "8/18/2026",
+      "path": "../crt-initializers/microsoft/atexit.md",
+      "retrieved": "2026-09-27",
+      "sha256": "ded640339af6d9148269e14b070475690853d43a39953a4b15979f9c8d5f51b6",
+      "bytes": 2590,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/onexit-onexit-m?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/onexit-onexit-m.md",
+      "normalization": "None",
+      "title": "_onexit, _onexit_m",
+      "document_date": "11/04/2016",
+      "path": "../crt-initializers/microsoft/onexit-onexit-m.md",
+      "retrieved": "2026-09-27",
+      "sha256": "3ac0de2d653906bf7c3363df3e3ab19061c7a735426bd4b74e68eb55f01a61bb",
+      "bytes": 2692,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "upstream import definition; not a measured native DLL export table",
+      "issuer": "MinGW-w64",
+      "revision": "9b3dd0125792fe94d16cacdc596dbd42fca1b369",
+      "release": "v14.0.0",
+      "license": "MinGW-w64 COPYING and input notices",
+      "source_url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/9b3dd0125792fe94d16cacdc596dbd42fca1b369/mingw-w64-crt/lib-common/msvcrt.def.in",
+      "normalization": "None",
+      "path": "../crt-initializers/mingw14/msvcrt.def.in",
+      "retrieved": "2026-09-27",
+      "sha256": "6499368b543e4d0136465c6846ebe57870f8cee5303587e43ee41c9aa9b61d32",
+      "bytes": 54225,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "upstream import definition; not a measured native DLL export table",
+      "issuer": "MinGW-w64",
+      "revision": "9b3dd0125792fe94d16cacdc596dbd42fca1b369",
+      "release": "v14.0.0",
+      "license": "MinGW-w64 COPYING and input notices",
+      "source_url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/9b3dd0125792fe94d16cacdc596dbd42fca1b369/mingw-w64-crt/def-include/func.def.in",
+      "normalization": "None",
+      "path": "../crt-initializers/mingw14/func.def.in",
+      "retrieved": "2026-09-27",
+      "sha256": "ed7f96c09b1b2c4e50822d64c4f3dc092b06888a0bafac749fad3d87ece86736",
+      "bytes": 2298,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "license",
+      "issuer": "MinGW-w64",
+      "revision": "9b3dd0125792fe94d16cacdc596dbd42fca1b369",
+      "source_url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/9b3dd0125792fe94d16cacdc596dbd42fca1b369/COPYING",
+      "normalization": "None",
+      "path": "../crt-initializers/mingw14/COPYING",
+      "retrieved": "2026-09-27",
+      "sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+      "bytes": 2326,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "license",
+      "issuer": "MinGW-w64",
+      "revision": "9b3dd0125792fe94d16cacdc596dbd42fca1b369",
+      "source_url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/9b3dd0125792fe94d16cacdc596dbd42fca1b369/DISCLAIMER.PD",
+      "normalization": "None",
+      "path": "../crt-initializers/mingw14/DISCLAIMER.PD",
+      "retrieved": "2026-09-27",
+      "sha256": "87f33608570312a0f2a9745edcb2527275df813b13982e8c3b3f893d88a4141a",
+      "bytes": 454,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "installed public header excerpt",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact upstream build commit unknown",
+      "license": "Public Domain header notice; COPYING and DISCLAIMER.PD retained",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/stdlib.h",
+      "input_sha256": "735f32c04c624b98932ca968e9a0d4704896699fe78f5b389da84aadac2cff28",
+      "extraction_command": "sed -n '1,5p;160,236p' /opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/stdlib.h",
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "../crt-initializers/mingw14/stdlib-startup-excerpt.h",
+      "retrieved": "2026-09-27",
+      "sha256": "a8a48259b434b95bb00ca758778a993a514ae5bc76b87236a40bef7ee15a31be",
+      "bytes": 2216,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "license",
+      "issuer": "MinGW-w64 bundled with Zig",
+      "revision": "Zig 0.16.0 Homebrew 0.16.0_1; bundled MinGW exact upstream commit unknown",
+      "license": "Input notice plus owning zig/COPYING",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/COPYING",
+      "input_sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+      "extraction_command": "complete byte copy of /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/COPYING",
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "../crt-initializers/zig/COPYING",
+      "retrieved": "2026-09-27",
+      "sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+      "bytes": 2326,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "installed implementation source; not native Microsoft CRT oracle",
+      "issuer": "MinGW-w64 bundled with Zig",
+      "revision": "Zig 0.16.0 Homebrew 0.16.0_1; bundled MinGW exact upstream commit unknown",
+      "license": "Input notice plus owning zig/COPYING",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/crt/crtexe.c",
+      "input_sha256": "ad2a60429a5495ac942daa5d9ef493edbe58ce532c1df1669a0547d6aa3ebf10",
+      "extraction_command": "complete byte copy of /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/crt/crtexe.c",
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "../crt-initializers/zig/crtexe.c",
+      "retrieved": "2026-09-27",
+      "sha256": "ad2a60429a5495ac942daa5d9ef493edbe58ce532c1df1669a0547d6aa3ebf10",
+      "bytes": 8418,
+      "reuse_manifest": "../crt-initializers/sources.json"
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/global-state?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; retained ../crt-initializers/microsoft licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/global-state.md",
+      "normalization": "None",
+      "title": "Global state in the CRT",
+      "document_date": "10/02/2020",
+      "path": "../crt-startup/microsoft/global-state.md",
+      "retrieved": "2026-09-27",
+      "sha256": "cddb1a073830e01be51ef6f2c2f1c5c5576e35b086757fda050bd32d3d81c048",
+      "bytes": 4140,
+      "reuse_manifest": "../crt-startup/sources.json"
+    },
+    {
+      "issuer": "MinGW-w64 bundled with Zig",
+      "revision": "Zig 0.16.0 Homebrew 0.16.0_1; bundled upstream commit unknown",
+      "license": "Input notice plus owning ../crt-initializers/zig/COPYING",
+      "kind": "installed import definition; not measured native export table",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/ucrtbase-common.def.in",
+      "input_sha256": "c61fae48aca020393e222df1d8d8c9dd897cb3e7f5d023cf27d3b0ebe62a677a",
+      "extraction_command": "complete byte copy of /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/ucrtbase-common.def.in",
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "../crt-startup/zig/ucrtbase-common.def.in",
+      "retrieved": "2026-09-27",
+      "sha256": "c61fae48aca020393e222df1d8d8c9dd897cb3e7f5d023cf27d3b0ebe62a677a",
+      "bytes": 43151,
+      "reuse_manifest": "../crt-startup/sources.json"
+    },
+    {
+      "sha256": "ee502db41c364a0d8f4f09603c2581d2b626fc159335ecbfa6bc123f4876f307",
+      "path": "../crt-foundation/allocation/parameter-validation.md",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/parameter-validation.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/parameter-validation?view=msvc-170",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "retrieved": "2026-09-27",
+      "license": "CC-BY-4.0; code examples MIT",
+      "license_paths": [
+        "../crt-initializers/microsoft/LICENSE",
+        "../crt-initializers/microsoft/LICENSE-CODE"
+      ],
+      "bytes": 3208,
+      "reuse_manifest": "../crt-foundation/manifest-alloc.json",
+      "original_license_paths_in_reuse_manifest": [
+        "allocation/LICENSE",
+        "allocation/LICENSE-CODE"
+      ]
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/p-fmode?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/p-fmode.md",
+      "normalization": "None",
+      "title": "__p__fmode",
+      "document_date": "4/2/2020",
+      "path": "microsoft/p-fmode.md",
+      "retrieved": "2026-09-27",
+      "sha256": "5470e078fe5cca9b3926afb097c5e60e39986d85de4191a3de9ebe6554039773",
+      "bytes": 1280
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/p-commode?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/p-commode.md",
+      "normalization": "None",
+      "title": "__p__commode",
+      "document_date": "4/2/2020",
+      "path": "microsoft/p-commode.md",
+      "retrieved": "2026-09-27",
+      "sha256": "b8814e6aaafdb6bc86fc037bca4736aedd49b4272b236b309b37d2092dac094c",
+      "bytes": 1216
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/fmode?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/fmode.md",
+      "normalization": "None",
+      "title": "_fmode",
+      "document_date": "11/04/2016",
+      "path": "microsoft/fmode.md",
+      "retrieved": "2026-09-27",
+      "sha256": "aae99ff62c26b320e66e3bc980d44707cff295d83f60a2f813be68e1704a48aa",
+      "bytes": 1353
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/stdin-stdout-stderr?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/stdin-stdout-stderr.md",
+      "normalization": "None",
+      "title": "stdin, stdout, stderr",
+      "document_date": "7/24/2023",
+      "path": "microsoft/stdin-stdout-stderr.md",
+      "retrieved": "2026-09-27",
+      "sha256": "c49f05511c4ae965573a3d65036f2c2e412ded76eede35120df06ef3a21ef13a",
+      "bytes": 1673
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/stream-i-o?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/stream-i-o.md",
+      "normalization": "None",
+      "title": "Stream I/O",
+      "document_date": "11/04/2016",
+      "path": "microsoft/stream-i-o.md",
+      "retrieved": "2026-09-27",
+      "sha256": "a05f652f77b79916e646b8c3925e2138c5f26aa49f3082c5ab7f0a7302d01911",
+      "bytes": 10427
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/text-and-binary-mode-file-i-o?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/text-and-binary-mode-file-i-o.md",
+      "normalization": "None",
+      "title": "Text and Binary Mode File I/O",
+      "document_date": "04/11/2018",
+      "path": "microsoft/text-and-binary-mode-file-i-o.md",
+      "retrieved": "2026-09-27",
+      "sha256": "fe7cbc379b848728753cded87715cda5a52c0ce2dd7b3477f46d11e5882a56ed",
+      "bytes": 2220
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/set-fmode?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/set-fmode.md",
+      "normalization": "None",
+      "title": "_set_fmode",
+      "document_date": "4/2/2020",
+      "path": "microsoft/set-fmode.md",
+      "retrieved": "2026-09-27",
+      "sha256": "cb99fa73e95ef5b6128e80e75290a044da5df4a7f03e6f9642c611f55c422a8e",
+      "bytes": 3384
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/get-fmode?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/get-fmode.md",
+      "normalization": "None",
+      "title": "_get_fmode",
+      "document_date": "4/2/2020",
+      "path": "microsoft/get-fmode.md",
+      "retrieved": "2026-09-27",
+      "sha256": "617be4ea881fe2cfdc1614a34042fd35fdee8664fa858659cb8adb48b9d5c60a",
+      "bytes": 2025
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setvbuf?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/setvbuf.md",
+      "normalization": "None",
+      "title": "setvbuf",
+      "document_date": "4/2/2020",
+      "path": "microsoft/setvbuf.md",
+      "retrieved": "2026-09-27",
+      "sha256": "0aba48cc5357b408f75c57e5247e9957bdfa5c74c3b46a35dfaef4ef69a89306",
+      "bytes": 4142
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/fflush?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/fflush.md",
+      "normalization": "None",
+      "title": "fflush",
+      "document_date": "4/2/2020",
+      "path": "microsoft/fflush.md",
+      "retrieved": "2026-09-27",
+      "sha256": "8c15f3108e73bb2389793030030024aeeaeb56a6da8276fc1eaaa0a4a9caa52d",
+      "bytes": 4586
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/fread?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/fread.md",
+      "normalization": "None",
+      "title": "fread",
+      "document_date": "4/2/2020",
+      "path": "microsoft/fread.md",
+      "retrieved": "2026-09-27",
+      "sha256": "0dbcb0aeb3a779750f37e302b0d20f37f3c57706a0d3baf348d674ebd84ccdff",
+      "bytes": 5114
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/fwrite?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/fwrite.md",
+      "normalization": "None",
+      "title": "fwrite",
+      "document_date": "4/2/2020",
+      "path": "microsoft/fwrite.md",
+      "retrieved": "2026-09-27",
+      "sha256": "b3946ce74012d72e9c6d6f4f79703ba93de416d6ee6512dedde29604c232841d",
+      "bytes": 3038
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/fclose-fcloseall?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/fclose-fcloseall.md",
+      "normalization": "None",
+      "title": "fclose, _fcloseall",
+      "document_date": "4/2/2020",
+      "path": "microsoft/fclose-fcloseall.md",
+      "retrieved": "2026-09-27",
+      "sha256": "cb9522b8be41ebb3c4580870cbbcb5cacea9eab5b45577087c1c74c527b42f03",
+      "bytes": 3212
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/feof?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/feof.md",
+      "normalization": "None",
+      "title": "feof",
+      "document_date": "4/2/2020",
+      "path": "microsoft/feof.md",
+      "retrieved": "2026-09-27",
+      "sha256": "3865df928af447b5037ce4987a14a874f4ca27b9bec8c4bf248ec78cfb787288",
+      "bytes": 3296
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/ferror?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/ferror.md",
+      "normalization": "None",
+      "title": "ferror",
+      "document_date": "4/2/2020",
+      "path": "microsoft/ferror.md",
+      "retrieved": "2026-09-27",
+      "sha256": "58a41f8bdc54a7f5bdaaf07162e1a86181cd751a2c9a82e3dc4db44d72cf9e52",
+      "bytes": 2153
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/clearerr?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/clearerr.md",
+      "normalization": "None",
+      "title": "clearerr",
+      "document_date": "4/2/2020",
+      "path": "microsoft/clearerr.md",
+      "retrieved": "2026-09-27",
+      "sha256": "2b632f86779aaf4c58ee8d2788b605b4f6505307bc614de7e9cffe657de54610",
+      "bytes": 2865
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/fileno?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/fileno.md",
+      "normalization": "None",
+      "title": "_fileno",
+      "document_date": "4/2/2020",
+      "path": "microsoft/fileno.md",
+      "retrieved": "2026-09-27",
+      "sha256": "664953d720cedd9f90536431651bb3ca58d29880477c2c8b993a333e048bc281",
+      "bytes": 3100
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/open-osfhandle?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/open-osfhandle.md",
+      "normalization": "None",
+      "title": "_open_osfhandle",
+      "document_date": "4/2/2020",
+      "path": "microsoft/open-osfhandle.md",
+      "retrieved": "2026-09-27",
+      "sha256": "8f6aec68854be0259861f1981df3bf34bba672d40a076a33089a377029014651",
+      "bytes": 2896
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/get-osfhandle?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/get-osfhandle.md",
+      "normalization": "None",
+      "title": "_get_osfhandle",
+      "document_date": "4/2/2020",
+      "path": "microsoft/get-osfhandle.md",
+      "retrieved": "2026-09-27",
+      "sha256": "14f62a0064247a717f1e9b4867684622507acaa933d13d1836d6a566e027547f",
+      "bytes": 3270
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/fdopen-wfdopen?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/fdopen-wfdopen.md",
+      "normalization": "None",
+      "title": "_fdopen, _wfdopen",
+      "document_date": "05/18/2022",
+      "path": "microsoft/fdopen-wfdopen.md",
+      "retrieved": "2026-09-27",
+      "sha256": "57cb95f555539b013f4899d8bbcd7440614de6c198d6b56169741ae920a76abf",
+      "bytes": 8099
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/close?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/close.md",
+      "normalization": "None",
+      "title": "_close",
+      "document_date": "4/2/2020",
+      "path": "microsoft/close.md",
+      "retrieved": "2026-09-27",
+      "sha256": "a8d0afb0ccdbf82ffc426f5cd12de4d5051fdb6de36ccd1b02119119ccb419dd",
+      "bytes": 2050
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmode?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/setmode.md",
+      "normalization": "None",
+      "title": "_setmode",
+      "document_date": "4/2/2020",
+      "path": "microsoft/setmode.md",
+      "retrieved": "2026-09-27",
+      "sha256": "5548cc2ddee3355ead62a5b88809f2ed0453dd8acf5f3227e553095a2ce60841",
+      "bytes": 4385
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/read?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/read.md",
+      "normalization": "None",
+      "title": "_read",
+      "document_date": "4/2/2020",
+      "path": "microsoft/read.md",
+      "retrieved": "2026-09-27",
+      "sha256": "b5245ce3a9373912ff426e5761c065105ef40b5524acc48e3e0358b9ac58e70f",
+      "bytes": 4020
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/write?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/write.md",
+      "normalization": "None",
+      "title": "_write",
+      "document_date": "4/2/2020",
+      "path": "microsoft/write.md",
+      "retrieved": "2026-09-27",
+      "sha256": "a1e4696f61fb148fd2d014d865c90be9287e4e7630eb74a3798bbd4b572ce514",
+      "bytes": 4931
+    },
+    {
+      "kind": "publisher documentation",
+      "issuer": "Microsoft",
+      "revision": "f2355df9f7136d8a2097193fc507882a7caeb5f5",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/fopen-wfopen?view=msvc-170",
+      "license": "CC-BY-4.0 prose; MIT code samples; owning reused MicrosoftDocs licenses",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/f2355df9f7136d8a2097193fc507882a7caeb5f5/docs/c-runtime-library/reference/fopen-wfopen.md",
+      "normalization": "None",
+      "title": "fopen, _wfopen",
+      "document_date": "04/27/2023",
+      "path": "microsoft/fopen-wfopen.md",
+      "retrieved": "2026-09-27",
+      "sha256": "362a7921bb8261c7bef1a9134ce64d4bbdc5fdbf010bb7efa62fb044ab74d29f",
+      "bytes": 18215
+    },
+    {
+      "kind": "upstream import aliases; not measured native DLL exports",
+      "issuer": "MinGW-w64",
+      "revision": "9b3dd0125792fe94d16cacdc596dbd42fca1b369",
+      "release": "v14.0.0",
+      "license": "Input notices plus reused MinGW-w64 COPYING and DISCLAIMER.PD",
+      "source_url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/9b3dd0125792fe94d16cacdc596dbd42fca1b369/mingw-w64-crt/def-include/crt-aliases.def.in",
+      "normalization": "None",
+      "path": "mingw14/crt-aliases.def.in",
+      "retrieved": "2026-09-27",
+      "sha256": "bf003e1736358dd8cb7f61c0ec4df7cc90f944ae4cc0cde8c1b5854a9212b78f",
+      "bytes": 17151
+    },
+    {
+      "kind": "installed public header excerpt",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "license": "Public Domain input notice; reused MinGW COPYING and DISCLAIMER.PD",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/include/stdio.h",
+      "input_sha256": "0fe29d230290e2f0efbc5f3fa6e7644effdda000e3671fd93975ccb17f6c9055",
+      "input_bytes": 55507,
+      "extraction_command": "sed -n '1,144p;542,558p;571p;576p;599p;640p;1164,1165p;1206,1216p' /opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/include/stdio.h",
+      "line_ranges_1based_inclusive": [
+        [
+          1,
+          144
+        ],
+        [
+          542,
+          558
+        ],
+        [
+          571,
+          571
+        ],
+        [
+          576,
+          576
+        ],
+        [
+          599,
+          599
+        ],
+        [
+          640,
+          640
+        ],
+        [
+          1164,
+          1165
+        ],
+        [
+          1206,
+          1216
+        ]
+      ],
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "mingw14/stdio-x86-excerpt.h",
+      "retrieved": "2026-09-27",
+      "sha256": "f0c42147392f4bec7bd70630fee16b72459257a20f49d398a1429d690d1da305",
+      "bytes": 4612
+    },
+    {
+      "kind": "installed public header excerpt",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "license": "Public Domain input notice; reused MinGW COPYING and DISCLAIMER.PD",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/stdio.h",
+      "input_sha256": "0fe29d230290e2f0efbc5f3fa6e7644effdda000e3671fd93975ccb17f6c9055",
+      "input_bytes": 55507,
+      "extraction_command": "sed -n '1,144p;542,558p;571p;576p;599p;640p;1164,1165p;1206,1216p' /opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/stdio.h",
+      "line_ranges_1based_inclusive": [
+        [
+          1,
+          144
+        ],
+        [
+          542,
+          558
+        ],
+        [
+          571,
+          571
+        ],
+        [
+          576,
+          576
+        ],
+        [
+          599,
+          599
+        ],
+        [
+          640,
+          640
+        ],
+        [
+          1164,
+          1165
+        ],
+        [
+          1206,
+          1216
+        ]
+      ],
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "mingw14/stdio-x64-excerpt.h",
+      "retrieved": "2026-09-27",
+      "sha256": "f0c42147392f4bec7bd70630fee16b72459257a20f49d398a1429d690d1da305",
+      "bytes": 4612
+    },
+    {
+      "kind": "installed public header excerpt",
+      "issuer": "MinGW-w64 bundled with Zig",
+      "revision": "Zig 0.16.0 Homebrew 0.16.0_1; bundled MinGW exact upstream commit unknown",
+      "license": "Input notices plus reused installed Zig-bundled MinGW COPYING",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/include/any-windows-any/stdio.h",
+      "input_sha256": "3c70213ff6908fd37bc1f7b52e85c84fb571a906a989dc3df620dcc13865b127",
+      "input_bytes": 59961,
+      "extraction_command": "sed -n '1,144p;542,558p;571p;576p;622p;660p;1254,1255p;1296,1313p' /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/include/any-windows-any/stdio.h",
+      "line_ranges_1based_inclusive": [
+        [
+          1,
+          144
+        ],
+        [
+          542,
+          558
+        ],
+        [
+          571,
+          571
+        ],
+        [
+          576,
+          576
+        ],
+        [
+          622,
+          622
+        ],
+        [
+          660,
+          660
+        ],
+        [
+          1254,
+          1255
+        ],
+        [
+          1296,
+          1313
+        ]
+      ],
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "zig/stdio-excerpt.h",
+      "retrieved": "2026-09-27",
+      "sha256": "3cd658a71f645d916536ca1671b3a01f09fbd5515deb026ee83bc2bc5b4b40b7",
+      "bytes": 4981
+    },
+    {
+      "kind": "installed public header excerpt",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "license": "Public Domain input notice; reused MinGW COPYING and DISCLAIMER.PD",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/corecrt.h",
+      "input_sha256": "982f65070be268f488846bbc1bba32d2bfff64d333b2bbad47b78b21ac2188b2",
+      "input_bytes": 21716,
+      "extraction_command": "sed -n '1,25p' /opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/corecrt.h",
+      "line_ranges_1based_inclusive": [
+        [
+          1,
+          25
+        ]
+      ],
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "mingw14/corecrt-packing-excerpt.h",
+      "retrieved": "2026-09-27",
+      "sha256": "8ee7f53342484a0cd210296b95c6df69e4cdc387f82fa839eeb3635af506a4ce",
+      "bytes": 520
+    },
+    {
+      "kind": "installed public header excerpt",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "license": "Public Domain input notice; reused MinGW COPYING and DISCLAIMER.PD",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/io.h",
+      "input_sha256": "4e94ee12a2ecb1a7adf99ba616b975e01f7626e978d24855408b8de4bc081bbb",
+      "input_bytes": 18805,
+      "extraction_command": "sed -n '1,8p;212p;243p;311,312p' /opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/io.h",
+      "line_ranges_1based_inclusive": [
+        [
+          1,
+          8
+        ],
+        [
+          212,
+          212
+        ],
+        [
+          243,
+          243
+        ],
+        [
+          311,
+          312
+        ]
+      ],
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "mingw14/io-excerpt.h",
+      "retrieved": "2026-09-27",
+      "sha256": "7847a10891e5445e7b17587f94183c1b6896423a066d1536b39b17427c6ceedd",
+      "bytes": 487
+    },
+    {
+      "kind": "installed public header excerpt",
+      "issuer": "MinGW-w64 bundled with Zig",
+      "revision": "Zig 0.16.0 Homebrew 0.16.0_1; bundled MinGW exact upstream commit unknown",
+      "license": "Input notices plus reused installed Zig-bundled MinGW COPYING",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/include/any-windows-any/io.h",
+      "input_sha256": "1b20caaf24dd19588ebac478831431877440743787a5d775a11e728e3fcbcaed",
+      "input_bytes": 19733,
+      "extraction_command": "sed -n '1,8p;200p;231p;338,339p' /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/include/any-windows-any/io.h",
+      "line_ranges_1based_inclusive": [
+        [
+          1,
+          8
+        ],
+        [
+          200,
+          200
+        ],
+        [
+          231,
+          231
+        ],
+        [
+          338,
+          339
+        ]
+      ],
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "zig/io-excerpt.h",
+      "retrieved": "2026-09-27",
+      "sha256": "7847a10891e5445e7b17587f94183c1b6896423a066d1536b39b17427c6ceedd",
+      "bytes": 487
+    },
+    {
+      "kind": "installed public header excerpt",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "license": "Public Domain input notice; reused MinGW COPYING and DISCLAIMER.PD",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/fcntl.h",
+      "input_sha256": "d5f509a50ca32e344a88a8dbab1d657ca0f035cb636e5f71a1ecb099d857fdaf",
+      "input_bytes": 1273,
+      "extraction_command": "sed -n '1,52p' /opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/include/fcntl.h",
+      "line_ranges_1based_inclusive": [
+        [
+          1,
+          52
+        ]
+      ],
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "mingw14/fcntl-excerpt.h",
+      "retrieved": "2026-09-27",
+      "sha256": "d5f509a50ca32e344a88a8dbab1d657ca0f035cb636e5f71a1ecb099d857fdaf",
+      "bytes": 1273
+    },
+    {
+      "kind": "installed implementation header excerpt; not native UCRT internals",
+      "issuer": "MinGW-w64 bundled with Zig",
+      "revision": "Zig 0.16.0 Homebrew 0.16.0_1; bundled MinGW exact upstream commit unknown",
+      "license": "Input notices plus reused installed Zig-bundled MinGW COPYING",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/include/internal.h",
+      "input_sha256": "10866e69edbe2bcb6f13f5cdcbb287d86afade177867f6b5f020b6ceb41b0b40",
+      "input_bytes": 9881,
+      "extraction_command": "sed -n '1,5p;72,95p' /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/include/internal.h",
+      "line_ranges_1based_inclusive": [
+        [
+          1,
+          5
+        ],
+        [
+          72,
+          95
+        ]
+      ],
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "zig/internal-file-excerpt.h",
+      "retrieved": "2026-09-27",
+      "sha256": "fb0afdbd48870bd211ec31548a0aa33670c4ee9b4733f880a2b9f3c31188d513",
+      "bytes": 648
+    },
+    {
+      "kind": "installed compatibility startup implementation; not native Microsoft CRT oracle",
+      "issuer": "MinGW-w64 bundled with Zig",
+      "revision": "Zig 0.16.0 Homebrew 0.16.0_1; bundled MinGW exact upstream commit unknown",
+      "license": "Input notices plus reused installed Zig-bundled MinGW COPYING",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/crt/xtxtmode.c",
+      "input_sha256": "a1c826ee8a440cf86dbb1ae6db80e727af5f079b5797f93a3e3a616b3db2bdb9",
+      "input_bytes": 232,
+      "extraction_command": "complete byte copy of /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/crt/xtxtmode.c",
+      "line_ranges_1based_inclusive": null,
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "zig/xtxtmode.c",
+      "retrieved": "2026-09-27",
+      "sha256": "a1c826ee8a440cf86dbb1ae6db80e727af5f079b5797f93a3e3a616b3db2bdb9",
+      "bytes": 232
+    },
+    {
+      "kind": "installed compatibility startup implementation; not native Microsoft CRT oracle",
+      "issuer": "MinGW-w64 bundled with Zig",
+      "revision": "Zig 0.16.0 Homebrew 0.16.0_1; bundled MinGW exact upstream commit unknown",
+      "license": "Input notices plus reused installed Zig-bundled MinGW COPYING",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/crt/xncommod.c",
+      "input_sha256": "011050a8ff748ea000d630892a16dff86ab9ffc43503befe52c1c0b79cb25479",
+      "input_bytes": 235,
+      "extraction_command": "complete byte copy of /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/crt/xncommod.c",
+      "line_ranges_1based_inclusive": null,
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "zig/xncommod.c",
+      "retrieved": "2026-09-27",
+      "sha256": "011050a8ff748ea000d630892a16dff86ab9ffc43503befe52c1c0b79cb25479",
+      "bytes": 235
+    },
+    {
+      "kind": "installed import definition; not measured native DLL exports",
+      "issuer": "MinGW-w64 bundled with Zig",
+      "revision": "Zig 0.16.0 Homebrew 0.16.0_1; bundled MinGW exact upstream commit unknown",
+      "license": "Input notices plus reused installed Zig-bundled MinGW COPYING",
+      "input_path": "/opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/api-ms-win-crt-stdio-l1-1-0.def",
+      "input_sha256": "d0e9e6be2755ad3ee4bcd209bf443f37ee61b464526d852c23eb23fb5deedc43",
+      "input_bytes": 2462,
+      "extraction_command": "complete byte copy of /opt/homebrew/Cellar/zig/0.16.0_1/lib/zig/libc/mingw/lib-common/api-ms-win-crt-stdio-l1-1-0.def",
+      "line_ranges_1based_inclusive": null,
+      "normalization": "None; complete input or exact line subsequence",
+      "path": "zig/api-ms-win-crt-stdio.def",
+      "retrieved": "2026-09-27",
+      "sha256": "d0e9e6be2755ad3ee4bcd209bf443f37ee61b464526d852c23eb23fb5deedc43",
+      "bytes": 2462
+    },
+    {
+      "kind": "derived archive symbol observation; not native DLL export oracle",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libmsvcrt-os.a",
+      "input_sha256": "7748aac8fd4af5ab444c10cf295879bb41ddcaa763f67650eaaef7fa9401a59f",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-A",
+        "-g",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libmsvcrt-os.a"
+      ],
+      "selection_regex": "( I __imp_| T | D __imp_)(_(__p__fmode|__p__commode|__p__iob|__iob_func|__acrt_iob_func|_fmode|_commode|_iob|_get_fmode|_set_fmode|setvbuf|fflush|fread|fwrite|fclose|feof|ferror|clearerr|_fileno|_open_osfhandle|_get_osfhandle|_fdopen|_wfdopen|_close|_setmode|_read|_write|fopen|_wfopen))$",
+      "normalization": "Complete selected output lines; no text changes",
+      "interpretation": "T plus D __imp_ is a local compatibility body. I __imp_ establishes an import member, but PE import spelling can differ through aliases; inspect .idata$6.",
+      "path": "symbols/msvcrt-os-x86.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "6a73de106ddeb34970b981e558a815c1a16dbf1a5de480c7f35437facbd31a2c",
+      "bytes": 7697
+    },
+    {
+      "kind": "derived archive symbol observation; not native DLL export oracle",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libucrtbase.a",
+      "input_sha256": "306faa1f7a3315193a1c73301fb517dab1d290b567f6b3157459e4e4ccbdd03d",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-A",
+        "-g",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libucrtbase.a"
+      ],
+      "selection_regex": "( I __imp_| T | D __imp_)(_(__p__fmode|__p__commode|__p__iob|__iob_func|__acrt_iob_func|_fmode|_commode|_iob|_get_fmode|_set_fmode|setvbuf|fflush|fread|fwrite|fclose|feof|ferror|clearerr|_fileno|_open_osfhandle|_get_osfhandle|_fdopen|_wfdopen|_close|_setmode|_read|_write|fopen|_wfopen))$",
+      "normalization": "Complete selected output lines; no text changes",
+      "interpretation": "T plus D __imp_ is a local compatibility body. I __imp_ establishes an import member, but PE import spelling can differ through aliases; inspect .idata$6.",
+      "path": "symbols/ucrtbase-x86.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "ef0eb8640d0044b0e703bb12989bcd49a8668cf48d851bc6c8fa66f28e7d7354",
+      "bytes": 6674
+    },
+    {
+      "kind": "derived archive symbol observation; not native DLL export oracle",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libmsvcrt-os.a",
+      "input_sha256": "f6fe3366dc926f479dc847d11a2d86a97850aa095cb930c8862bf4d90dda377c",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-A",
+        "-g",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libmsvcrt-os.a"
+      ],
+      "selection_regex": "( I __imp_| T | D __imp_)((__p__fmode|__p__commode|__p__iob|__iob_func|__acrt_iob_func|_fmode|_commode|_iob|_get_fmode|_set_fmode|setvbuf|fflush|fread|fwrite|fclose|feof|ferror|clearerr|_fileno|_open_osfhandle|_get_osfhandle|_fdopen|_wfdopen|_close|_setmode|_read|_write|fopen|_wfopen))$",
+      "normalization": "Complete selected output lines; no text changes",
+      "interpretation": "T plus D __imp_ is a local compatibility body. I __imp_ establishes an import member, but PE import spelling can differ through aliases; inspect .idata$6.",
+      "path": "symbols/msvcrt-os-x64.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "0ca1e10f074fb4eb6071ad52defbd0cca260aef5bc24040a00d7373df018e5d5",
+      "bytes": 7926
+    },
+    {
+      "kind": "derived archive symbol observation; not native DLL export oracle",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libucrtbase.a",
+      "input_sha256": "ceeb7de3082aa06d6c7f121b17ebe0309877aa278bf4eeb9ba17a6dbf94a5929",
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-A",
+        "-g",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libucrtbase.a"
+      ],
+      "selection_regex": "( I __imp_| T | D __imp_)((__p__fmode|__p__commode|__p__iob|__iob_func|__acrt_iob_func|_fmode|_commode|_iob|_get_fmode|_set_fmode|setvbuf|fflush|fread|fwrite|fclose|feof|ferror|clearerr|_fileno|_open_osfhandle|_get_osfhandle|_fdopen|_wfdopen|_close|_setmode|_read|_write|fopen|_wfopen))$",
+      "normalization": "Complete selected output lines; no text changes",
+      "interpretation": "T plus D __imp_ is a local compatibility body. I __imp_ establishes an import member, but PE import spelling can differ through aliases; inspect .idata$6.",
+      "path": "symbols/ucrtbase-x64.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "40e668cdc53045b52bb2299fbf0867f176235804ffe6f15bc60de9763293d48a",
+      "bytes": 6818
+    },
+    {
+      "kind": "derived exact archive-member section observation; not native DLL export oracle",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libmsvcrt-os.a",
+      "input_sha256": "7748aac8fd4af5ab444c10cf295879bb41ddcaa763f67650eaaef7fa9401a59f",
+      "member": "libmsvcrt_defs00210.o",
+      "member_sha256": "e04f4dcf70998002dfd8bbe5459ad4b902f2467ff9d1417aed38348a798abe65",
+      "producer_argv": [
+        "/Users/int/local/bin/llvm-ar",
+        "p",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libmsvcrt-os.a",
+        "libmsvcrt_defs00210.o"
+      ],
+      "command_argv": [
+        "/Users/int/local/bin/llvm-readobj",
+        "--sections",
+        "--section-data",
+        "-"
+      ],
+      "stdin": "exact extracted member bytes",
+      "c_symbol_name": "__iob_func",
+      "pe_import_name": "__p__iob",
+      "normalization": "None; complete llvm-readobj stdout",
+      "path": "symbols/msvcrt-iob-alias-x86.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "6ef379eafb679966780cef508156b748b4e4dd5f0b44c4dd4fb72e1b7bbb3317",
+      "bytes": 3648
+    },
+    {
+      "kind": "derived exact archive-member section observation; not native DLL export oracle",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libmsvcrt-os.a",
+      "input_sha256": "f6fe3366dc926f479dc847d11a2d86a97850aa095cb930c8862bf4d90dda377c",
+      "member": "libmsvcrt_defs00132.o",
+      "member_sha256": "2538262fd2d74d0f5f9b9f84b50c3c91c688b7bced0319c0a54ab39bdfced2d3",
+      "producer_argv": [
+        "/Users/int/local/bin/llvm-ar",
+        "p",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libmsvcrt-os.a",
+        "libmsvcrt_defs00132.o"
+      ],
+      "command_argv": [
+        "/Users/int/local/bin/llvm-readobj",
+        "--sections",
+        "--section-data",
+        "-"
+      ],
+      "stdin": "exact extracted member bytes",
+      "c_symbol_name": "__p__iob",
+      "pe_import_name": "__iob_func",
+      "normalization": "None; complete llvm-readobj stdout",
+      "path": "symbols/msvcrt-iob-alias-x64.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "885ff3609ac74ef4a7723b15fc79f3d0decbb56946d1dc649432f78d695739ae",
+      "bytes": 3662
+    },
+    {
+      "kind": "derived compatibility-body disassembly; not native Microsoft DLL implementation",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libmsvcrt-os.a",
+      "input_sha256": "7748aac8fd4af5ab444c10cf295879bb41ddcaa763f67650eaaef7fa9401a59f",
+      "member": "lib32_libmsvcrt_common_a-acrt_iob_func.o",
+      "member_sha256": "b43853382a86e769bf0e217b718094e64fedc7fba235a055fc0f3d2e152b2b9b",
+      "producer_argv": [
+        "/Users/int/local/bin/llvm-ar",
+        "p",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/libmsvcrt-os.a",
+        "lib32_libmsvcrt_common_a-acrt_iob_func.o"
+      ],
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "-dr",
+        "-"
+      ],
+      "stdin": "exact extracted member bytes",
+      "normalization": "None; complete llvm-objdump stdout",
+      "path": "symbols/msvcrt-acrt-shim-x86.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "3ac12c0c9767bf902963633bdea3d6803fd75a35d7e145ba62b8b221ea8f9565",
+      "bytes": 475
+    },
+    {
+      "kind": "derived compatibility-body disassembly; not native Microsoft DLL implementation",
+      "issuer": "MinGW-w64",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libmsvcrt-os.a",
+      "input_sha256": "f6fe3366dc926f479dc847d11a2d86a97850aa095cb930c8862bf4d90dda377c",
+      "member": "lib64_libmsvcrt_common_a-acrt_iob_func.o",
+      "member_sha256": "3ef93ab027bacc0a21a56718ea8d067504a7c1e96a47be7eabef204295d34585",
+      "producer_argv": [
+        "/Users/int/local/bin/llvm-ar",
+        "p",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/libmsvcrt-os.a",
+        "lib64_libmsvcrt_common_a-acrt_iob_func.o"
+      ],
+      "command_argv": [
+        "/Users/int/local/bin/llvm-objdump",
+        "-dr",
+        "-"
+      ],
+      "stdin": "exact extracted member bytes",
+      "normalization": "None; complete llvm-objdump stdout",
+      "path": "symbols/msvcrt-acrt-shim-x64.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "c9236c754db6b69296c0e6ac3b8d7d2c0ba49a3675c9e6b18a18bc0f918ffbee",
+      "bytes": 821
+    },
+    {
+      "kind": "derived undefined-symbol observation; not complete linked PE import graph",
+      "issuer": "installed MinGW-w64 GCC",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/crt2.o",
+      "input_sha256": "06b5ef5cc991c1252e8778f0c3bdedf75226800a6f25507b3b8d2bfb97fc50ba",
+      "input_bytes": 20964,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-u",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/crt2.o"
+      ],
+      "normalization": "None; complete llvm-nm stdout",
+      "interpretation": "Undefined object symbols may resolve to local archive bodies or genuine IAT imports; final linked PE is a separate observation.",
+      "path": "producer/gcc-x86-crt2.o.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "a20564f1bf3ffbaf7cedbc40bfd353e6c66cb0c3ae6b533474bbddd0352b6cfa",
+      "bytes": 1298
+    },
+    {
+      "kind": "derived undefined-symbol observation; not complete linked PE import graph",
+      "issuer": "installed MinGW-w64 GCC",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/crt2u.o",
+      "input_sha256": "a231bf7d5b44fbfb2746cf6749aed9fafd0317b923e3427224ebb3ce5b26efef",
+      "input_bytes": 20981,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-u",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/i686-w64-mingw32/lib/crt2u.o"
+      ],
+      "normalization": "None; complete llvm-nm stdout",
+      "interpretation": "Undefined object symbols may resolve to local archive bodies or genuine IAT imports; final linked PE is a separate observation.",
+      "path": "producer/gcc-x86-crt2u.o.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "80d4013513c46355aa83bc32c395c5f96a6003a8998412f2cf0fbfdea0c656ac",
+      "bytes": 1302
+    },
+    {
+      "kind": "derived compiler-driver dry run; no compilation or linking executed",
+      "issuer": "installed GCC",
+      "revision": "GCC 16.2.0; exact package build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/bin/i686-w64-mingw32-gcc",
+      "input_sha256": "9fccf68680eac18e4dc367ed9babc715836e69eaf297b96688b1c97dbdea9cc4",
+      "input_bytes": 2198504,
+      "command_argv": [
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/bin/i686-w64-mingw32-gcc",
+        "-###",
+        "-save-temps=obj",
+        "-x",
+        "c",
+        "/dev/null",
+        "-o",
+        "/dev/null"
+      ],
+      "observation_stream": "combined stdout/stderr",
+      "normalization": "None",
+      "interpretation": "-### only prints driver actions. -save-temps=obj stabilizes printed temporary names; it does not execute those actions. Empty input is not an ordinary application acceptance test.",
+      "path": "producer/gcc-x86-main-dryrun.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "ed9fc4b1b53e44d44c8f817629afb6167589aad744126e5fcbfd1f48cd57064c",
+      "bytes": 5241
+    },
+    {
+      "kind": "derived compiler-driver dry run; no compilation or linking executed",
+      "issuer": "installed GCC",
+      "revision": "GCC 16.2.0; exact package build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/bin/i686-w64-mingw32-gcc",
+      "input_sha256": "9fccf68680eac18e4dc367ed9babc715836e69eaf297b96688b1c97dbdea9cc4",
+      "input_bytes": 2198504,
+      "command_argv": [
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-i686/bin/i686-w64-mingw32-gcc",
+        "-###",
+        "-save-temps=obj",
+        "-municode",
+        "-x",
+        "c",
+        "/dev/null",
+        "-o",
+        "/dev/null"
+      ],
+      "observation_stream": "combined stdout/stderr",
+      "normalization": "None",
+      "interpretation": "-### only prints driver actions. -save-temps=obj stabilizes printed temporary names; it does not execute those actions. Empty input is not an ordinary application acceptance test.",
+      "path": "producer/gcc-x86-wmain-dryrun.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "6c6485c6dfa40ef6d7dea55e8acc07d99e070afdf3bf9f673150557df25bfaea",
+      "bytes": 5332
+    },
+    {
+      "kind": "derived undefined-symbol observation; not complete linked PE import graph",
+      "issuer": "installed MinGW-w64 GCC",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/crt2.o",
+      "input_sha256": "7f9b066ae28189f06b4ed7c56ed5aa42287642f5e8aa964bcb32b3993544c8b4",
+      "input_bytes": 27428,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-u",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/crt2.o"
+      ],
+      "normalization": "None; complete llvm-nm stdout",
+      "interpretation": "Undefined object symbols may resolve to local archive bodies or genuine IAT imports; final linked PE is a separate observation.",
+      "path": "producer/gcc-x64-crt2.o.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "aef936b143333bfb9437eb99784730fd6e612245e1a1d9c063605bb24ce14873",
+      "bytes": 1275
+    },
+    {
+      "kind": "derived undefined-symbol observation; not complete linked PE import graph",
+      "issuer": "installed MinGW-w64 GCC",
+      "revision": "Homebrew MinGW-w64 14.0.0_3; exact build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/crt2u.o",
+      "input_sha256": "0436dc96aa830ea1baaea41448c3cac20641954c17029485d9460495fdbb1532",
+      "input_bytes": 27450,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-u",
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/x86_64-w64-mingw32/lib/crt2u.o"
+      ],
+      "normalization": "None; complete llvm-nm stdout",
+      "interpretation": "Undefined object symbols may resolve to local archive bodies or genuine IAT imports; final linked PE is a separate observation.",
+      "path": "producer/gcc-x64-crt2u.o.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "6050aa84a2a46183a9557bcf0fa5ab7d8c9d613795731a018bc2e944b8159b93",
+      "bytes": 1279
+    },
+    {
+      "kind": "derived compiler-driver dry run; no compilation or linking executed",
+      "issuer": "installed GCC",
+      "revision": "GCC 16.2.0; exact package build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/bin/x86_64-w64-mingw32-gcc",
+      "input_sha256": "012ac93959d40444ddc8c67d23d348c062acbe977e6384ca6fe45c0648e97301",
+      "input_bytes": 2198504,
+      "command_argv": [
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/bin/x86_64-w64-mingw32-gcc",
+        "-###",
+        "-save-temps=obj",
+        "-x",
+        "c",
+        "/dev/null",
+        "-o",
+        "/dev/null"
+      ],
+      "observation_stream": "combined stdout/stderr",
+      "normalization": "None",
+      "interpretation": "-### only prints driver actions. -save-temps=obj stabilizes printed temporary names; it does not execute those actions. Empty input is not an ordinary application acceptance test.",
+      "path": "producer/gcc-x64-main-dryrun.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "f9df63ffed92c32c1855209e1b2d35794cac67ce261ee53913fe17dcbad80139",
+      "bytes": 5344
+    },
+    {
+      "kind": "derived compiler-driver dry run; no compilation or linking executed",
+      "issuer": "installed GCC",
+      "revision": "GCC 16.2.0; exact package build commit unknown",
+      "input_path": "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/bin/x86_64-w64-mingw32-gcc",
+      "input_sha256": "012ac93959d40444ddc8c67d23d348c062acbe977e6384ca6fe45c0648e97301",
+      "input_bytes": 2198504,
+      "command_argv": [
+        "/opt/homebrew/Cellar/mingw-w64/14.0.0_3/toolchain-x86_64/bin/x86_64-w64-mingw32-gcc",
+        "-###",
+        "-save-temps=obj",
+        "-municode",
+        "-x",
+        "c",
+        "/dev/null",
+        "-o",
+        "/dev/null"
+      ],
+      "observation_stream": "combined stdout/stderr",
+      "normalization": "None",
+      "interpretation": "-### only prints driver actions. -save-temps=obj stabilizes printed temporary names; it does not execute those actions. Empty input is not an ordinary application acceptance test.",
+      "path": "producer/gcc-x64-wmain-dryrun.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "7446bdb4524dea84eabb86a7818dc463dd20fef6535dc1bc02eb3311fca402b3",
+      "bytes": 5435
+    },
+    {
+      "kind": "derived cached object/archive undefined-symbol observation",
+      "issuer": "local Zig cache; producer invocation and source revision unknown",
+      "revision": "unknown",
+      "input_path": "/Users/int/.cache/zig/o/152791cf652f60c4402bea4673565078/crt2.obj",
+      "input_sha256": "b81ecf66656acdb094f8638dfe37c7da31085e915b1138808d59b1f7ef8248f4",
+      "input_bytes": 29171,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-u",
+        "/Users/int/.cache/zig/o/152791cf652f60c4402bea4673565078/crt2.obj"
+      ],
+      "normalization": "None; complete llvm-nm stdout",
+      "interpretation": "Observed bytes are identified by hash only. Do not equate cache producers with a retained source revision or infer final PE imports from archive undefined symbols.",
+      "path": "producer/zig-arm64-crt2.obj.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "8ca13f59854a5671d73196535e1fe0ba373a9e0840640c37cd55f7147edfe586",
+      "bytes": 1131
+    },
+    {
+      "kind": "derived cached object/archive undefined-symbol observation",
+      "issuer": "local Zig cache; producer invocation and source revision unknown",
+      "revision": "unknown",
+      "input_path": "/Users/int/.cache/zig/o/afae1d826d2eb237b5dc8152fbe13fae/libmingw32.lib",
+      "input_sha256": "cfa99d0e24c31ac598406d2ac0f9c7e930a1c9965b4916ebe4fb52a13fde1dba",
+      "input_bytes": 10116742,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-nm",
+        "-u",
+        "/Users/int/.cache/zig/o/afae1d826d2eb237b5dc8152fbe13fae/libmingw32.lib"
+      ],
+      "normalization": "None; complete llvm-nm stdout",
+      "interpretation": "Observed bytes are identified by hash only. Do not equate cache producers with a retained source revision or infer final PE imports from archive undefined symbols.",
+      "path": "producer/zig-arm64-libmingw32.lib.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "d806664525a29c5fb343d827a2063287c76b87250d0760695d6c38997f269a97",
+      "bytes": 50247
+    },
+    {
+      "kind": "derived final compiler-produced ordinary PE import observation",
+      "issuer": "repository fixture producer; genuine linked IAT observation, not native execution oracle",
+      "revision": "fixture bytes identified by input hash; final producer recipe and source provenance belong to fixture manifest",
+      "input_path": "/Users/int/dev/rax2/tests/fixtures/user/windows/crt_stdio/bin/x86/ordinary/main.exe",
+      "input_sha256": "a2946699ba20ab85211ac665553f30eb6a8f31ec6e2ff9573c9c0e91cc3c3bd2",
+      "input_bytes": 13312,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-readobj",
+        "--coff-imports",
+        "-"
+      ],
+      "stdin_source": "input_path",
+      "normalization": "None; complete llvm-readobj stdout",
+      "fixture_manifest": "../../../../tests/fixtures/user/windows/crt_stdio/manifest.toml",
+      "interpretation": "An actual linked import graph is not evidence all its leaves are implemented or ordinary startup accepted. No binary fixture is copied by this archive.",
+      "path": "producer/ordinary-x86-main-imports.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "704b4f6994a26f03e22d02a624eb385ef7e19e42c59cc88dca737c83fb3fd464",
+      "bytes": 2241
+    },
+    {
+      "kind": "derived final compiler-produced ordinary PE import observation",
+      "issuer": "repository fixture producer; genuine linked IAT observation, not native execution oracle",
+      "revision": "fixture bytes identified by input hash; final producer recipe and source provenance belong to fixture manifest",
+      "input_path": "/Users/int/dev/rax2/tests/fixtures/user/windows/crt_stdio/bin/x86/ordinary/wmain.exe",
+      "input_sha256": "6e129d6620098c5ddbf390a09e53d30e3433b347d84641767fefbbbd7a1ed63d",
+      "input_bytes": 13312,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-readobj",
+        "--coff-imports",
+        "-"
+      ],
+      "stdin_source": "input_path",
+      "normalization": "None; complete llvm-readobj stdout",
+      "fixture_manifest": "../../../../tests/fixtures/user/windows/crt_stdio/manifest.toml",
+      "interpretation": "An actual linked import graph is not evidence all its leaves are implemented or ordinary startup accepted. No binary fixture is copied by this archive.",
+      "path": "producer/ordinary-x86-wmain-imports.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "72cc74a433a3238cc623e400c99d57283aebc9cdfe5e20da7fd4d6c6b3a1f14f",
+      "bytes": 2262
+    },
+    {
+      "kind": "derived final compiler-produced ordinary PE import observation",
+      "issuer": "repository fixture producer; genuine linked IAT observation, not native execution oracle",
+      "revision": "fixture bytes identified by input hash; final producer recipe and source provenance belong to fixture manifest",
+      "input_path": "/Users/int/dev/rax2/tests/fixtures/user/windows/crt_stdio/bin/x64/ordinary/main.exe",
+      "input_sha256": "3d316e10700e288a7736db9bd86ebd30da715d462eed6b1e6cc2c478f78d560e",
+      "input_bytes": 15872,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-readobj",
+        "--coff-imports",
+        "-"
+      ],
+      "stdin_source": "input_path",
+      "normalization": "None; complete llvm-readobj stdout",
+      "fixture_manifest": "../../../../tests/fixtures/user/windows/crt_stdio/manifest.toml",
+      "interpretation": "An actual linked import graph is not evidence all its leaves are implemented or ordinary startup accepted. No binary fixture is copied by this archive.",
+      "path": "producer/ordinary-x64-main-imports.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "244dcb5013a87bc66362820529538f294d63d9143a58ffd57964c248117f0581",
+      "bytes": 2281
+    },
+    {
+      "kind": "derived final compiler-produced ordinary PE import observation",
+      "issuer": "repository fixture producer; genuine linked IAT observation, not native execution oracle",
+      "revision": "fixture bytes identified by input hash; final producer recipe and source provenance belong to fixture manifest",
+      "input_path": "/Users/int/dev/rax2/tests/fixtures/user/windows/crt_stdio/bin/x64/ordinary/wmain.exe",
+      "input_sha256": "cbaeddb50cc4f0c35c25fe2d99f78894b5ddafca67c6d7abacb1772aa0678531",
+      "input_bytes": 15872,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-readobj",
+        "--coff-imports",
+        "-"
+      ],
+      "stdin_source": "input_path",
+      "normalization": "None; complete llvm-readobj stdout",
+      "fixture_manifest": "../../../../tests/fixtures/user/windows/crt_stdio/manifest.toml",
+      "interpretation": "An actual linked import graph is not evidence all its leaves are implemented or ordinary startup accepted. No binary fixture is copied by this archive.",
+      "path": "producer/ordinary-x64-wmain-imports.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "c4cd23829dee702c44029086d1bcdf175edb6daa9e3e811bc5afb988009d587e",
+      "bytes": 2302
+    },
+    {
+      "kind": "derived final compiler-produced ordinary PE import observation",
+      "issuer": "repository fixture producer; genuine linked IAT observation, not native execution oracle",
+      "revision": "fixture bytes identified by input hash; final producer recipe and source provenance belong to fixture manifest",
+      "input_path": "/Users/int/dev/rax2/tests/fixtures/user/windows/crt_stdio/bin/arm64/ordinary/main.exe",
+      "input_sha256": "09f183bd43f3e1e102355f0914b82c78ff5ed0dc3347965d50f1eacd1c0301d6",
+      "input_bytes": 15872,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-readobj",
+        "--coff-imports",
+        "-"
+      ],
+      "stdin_source": "input_path",
+      "normalization": "None; complete llvm-readobj stdout",
+      "fixture_manifest": "../../../../tests/fixtures/user/windows/crt_stdio/manifest.toml",
+      "interpretation": "An actual linked import graph is not evidence all its leaves are implemented or ordinary startup accepted. No binary fixture is copied by this archive.",
+      "path": "producer/ordinary-arm64-main-imports.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "f26e4d3ac9f69e7830cae860b7916960e05132f0cffc8f927d6d444dbab07aad",
+      "bytes": 1878
+    },
+    {
+      "kind": "derived final compiler-produced ordinary PE import observation",
+      "issuer": "repository fixture producer; genuine linked IAT observation, not native execution oracle",
+      "revision": "fixture bytes identified by input hash; final producer recipe and source provenance belong to fixture manifest",
+      "input_path": "/Users/int/dev/rax2/tests/fixtures/user/windows/crt_stdio/bin/arm64/ordinary/wmain.exe",
+      "input_sha256": "9e0aba38f20924600cf555423f5fea10c4c0423c393ec13516fee240e2237eaa",
+      "input_bytes": 15872,
+      "command_argv": [
+        "/Users/int/local/bin/llvm-readobj",
+        "--coff-imports",
+        "-"
+      ],
+      "stdin_source": "input_path",
+      "normalization": "None; complete llvm-readobj stdout",
+      "fixture_manifest": "../../../../tests/fixtures/user/windows/crt_stdio/manifest.toml",
+      "interpretation": "An actual linked import graph is not evidence all its leaves are implemented or ordinary startup accepted. No binary fixture is copied by this archive.",
+      "path": "producer/ordinary-arm64-wmain-imports.txt",
+      "retrieved": "2026-09-27",
+      "sha256": "b55a294bf82ab8415b892192ff59a9766a08fe20b2235c343aa0c98286ffc369",
+      "bytes": 2012
+    }
+  ]
+}

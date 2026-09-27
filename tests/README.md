@@ -165,3 +165,15 @@ overrides requested status 88 with forced status 0 only after a successful
 detach-time drain; missing notification remains observable. Both slice sizes,
 hashed prechange inputs and explicitly retained private profiles are distinct
 from a native Windows oracle or complete CRT termination/stdio.
+
+The same target reaches `suites/user/windows/crt_stdio.rs`. Its independently
+compiled `fixtures/user/windows/crt_stdio/` programs exercise real CRT FILE
+storage, descriptor/HANDLE ownership, actual caller/automatic buffers, bounded
+binary/ANSI-text byte I/O, flush/close, sticky status and captured VEH repair
+across x86, x64 and ARM64. MSVCRT, UCRTBASE and the stdio API-set retain their
+genuine producer binding differences. Sixty semantic PEs run at both scheduling
+slices; six unmodified ordinary main/wmain PEs preserve the remaining startup
+import graph as separate observations, not ordinary-startup success evidence.
+Native Windows differential behavior and complete CRT termination/Unicode
+stdio remain unproven. Primary provenance and exact private profiles are
+recorded in `docs/architecture/user-mode/windows-crt-stdio.md`.

@@ -1,0 +1,82 @@
+
+File: <stdin>
+Format: COFF-ARM64
+Arch: aarch64
+AddressSize: 64bit
+Import {
+  Name: api-ms-win-crt-heap-l1-1-0.dll
+  ImportLookupTableRVA: 0x44B0
+  ImportAddressTableRVA: 0x4618
+  Symbol: _set_new_mode (0)
+  Symbol: free (0)
+  Symbol: malloc (0)
+}
+Import {
+  Name: api-ms-win-crt-private-l1-1-0.dll
+  ImportLookupTableRVA: 0x44D0
+  ImportAddressTableRVA: 0x4638
+  Symbol: __C_specific_handler (0)
+}
+Import {
+  Name: api-ms-win-crt-runtime-l1-1-0.dll
+  ImportLookupTableRVA: 0x44E0
+  ImportAddressTableRVA: 0x4648
+  Symbol: __p___argc (0)
+  Symbol: __p___wargv (0)
+  Symbol: _cexit (0)
+  Symbol: _configure_wide_argv (0)
+  Symbol: _crt_atexit (0)
+  Symbol: _exit (0)
+  Symbol: _fpreset (0)
+  Symbol: _initialize_wide_environment (0)
+  Symbol: _initterm (0)
+  Symbol: _initterm_e (0)
+  Symbol: _set_app_type (0)
+  Symbol: _set_invalid_parameter_handler (0)
+  Symbol: abort (0)
+  Symbol: exit (0)
+  Symbol: signal (0)
+}
+Import {
+  Name: api-ms-win-crt-stdio-l1-1-0.dll
+  ImportLookupTableRVA: 0x4560
+  ImportAddressTableRVA: 0x46C8
+  Symbol: __acrt_iob_func (0)
+  Symbol: __p__commode (0)
+  Symbol: __p__fmode (0)
+  Symbol: __stdio_common_vfprintf (0)
+  Symbol: fwrite (0)
+}
+Import {
+  Name: api-ms-win-crt-string-l1-1-0.dll
+  ImportLookupTableRVA: 0x4590
+  ImportAddressTableRVA: 0x46F8
+  Symbol: wcslen (0)
+}
+Import {
+  Name: KERNEL32.dll
+  ImportLookupTableRVA: 0x45A0
+  ImportAddressTableRVA: 0x4708
+  Symbol: DeleteCriticalSection (0)
+  Symbol: EnterCriticalSection (0)
+  Symbol: GetLastError (0)
+  Symbol: InitializeCriticalSection (0)
+  Symbol: LeaveCriticalSection (0)
+  Symbol: SetUnhandledExceptionFilter (0)
+  Symbol: Sleep (0)
+  Symbol: TlsGetValue (0)
+  Symbol: VirtualProtect (0)
+  Symbol: VirtualQuery (0)
+}
+Import {
+  Name: api-ms-win-crt-math-l1-1-0.dll
+  ImportLookupTableRVA: 0x45F8
+  ImportAddressTableRVA: 0x4760
+  Symbol: __setusermatherr (0)
+}
+Import {
+  Name: api-ms-win-crt-environment-l1-1-0.dll
+  ImportLookupTableRVA: 0x4608
+  ImportAddressTableRVA: 0x4770
+  Symbol: __p__wenviron (0)
+}

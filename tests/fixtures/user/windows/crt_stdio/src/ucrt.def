@@ -1,0 +1,4 @@
+EXPORTS
+__acrt_iob_func
+__p__fmode
+__p__commode

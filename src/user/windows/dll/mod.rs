@@ -84,6 +84,8 @@ static MSVCRT: BuiltinDll = BuiltinDll {
         crt::INIT_EXPORTS,
         crt::MSVCRT_INIT_EXPORTS,
         crt::MSVCRT_STARTUP_EXPORTS,
+        crt::STDIO_EXPORTS,
+        crt::MSVCRT_STDIO_EXPORTS,
     ],
 };
 static UCRTBASE: BuiltinDll = BuiltinDll {
@@ -101,6 +103,8 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::UCRT_INIT_EXPORTS,
         crt::UCRT_STARTUP_EXPORTS,
         crt::UCRT_ONEXIT_EXPORTS,
+        crt::STDIO_EXPORTS,
+        crt::UCRT_STDIO_EXPORTS,
     ],
 };
 static VCRUNTIME140: BuiltinDll = BuiltinDll {
@@ -123,7 +127,10 @@ pub fn init_data_exports(_: &mut super::process::Proc, _: usize) {}
 /// dynamic load journal. Failure before publication must abort this receipt.
 pub(crate) enum PreparedDataExports {
     None,
-    Crt(crt::startup::PreparedStartup),
+    Crt {
+        startup: crt::startup::PreparedStartup,
+        stdio: crt::stdio::PreparedStdio,
+    },
 }
 
 impl PreparedDataExports {
@@ -131,7 +138,10 @@ impl PreparedDataExports {
     pub(crate) fn commit(self, p: &mut super::process::Proc) {
         match self {
             Self::None => {}
-            Self::Crt(startup) => startup.commit(p),
+            Self::Crt { startup, stdio } => {
+                startup.commit(p);
+                stdio.commit(p);
+            }
         }
     }
 
@@ -142,7 +152,12 @@ impl PreparedDataExports {
     ) -> Result<(), super::loader::LoadError> {
         match self {
             Self::None => Ok(()),
-            Self::Crt(startup) => startup.abort(p),
+            Self::Crt { startup, stdio } => {
+                // Attempt both releases even if one detects invalid ownership.
+                let a = stdio.abort(p);
+                let b = startup.abort(p);
+                a.and(b)
+            }
         }
     }
 }
@@ -157,7 +172,18 @@ pub(crate) fn prepare_data_exports(
 ) -> Result<PreparedDataExports, super::loader::LoadError> {
     match dll.name {
         "msvcrt.dll" | "ucrtbase.dll" => {
-            crt::startup::prepare(p, dll, base, symbols).map(PreparedDataExports::Crt)
+            let startup = crt::startup::prepare(p, dll, base, symbols)?;
+            match crt::stdio::prepare(p, dll, base, symbols) {
+                Ok(stdio) => Ok(PreparedDataExports::Crt { startup, stdio }),
+                Err(error) => {
+                    if let Err(cleanup) = startup.abort(p) {
+                        p.fail(format!(
+                            "CRT startup rollback: {cleanup:?}; original: {error:?}"
+                        ));
+                    }
+                    Err(error)
+                }
+            }
         }
         _ => Ok(PreparedDataExports::None),
     }

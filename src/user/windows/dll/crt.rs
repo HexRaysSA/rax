@@ -7,6 +7,7 @@ mod memory;
 pub(crate) mod onexit;
 pub(crate) mod startup;
 mod state;
+pub(crate) mod stdio;
 mod strings;
 
 #[cfg(test)]
@@ -23,6 +24,7 @@ pub(crate) use memory::{MEMORY_EXPORTS, VCRUNTIME_MEMORY_EXPORTS};
 pub(crate) use onexit::UCRT_ONEXIT_EXPORTS;
 pub(crate) use startup::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(crate) use state::{STATE_EXPORTS, UCRT_STATE_EXPORTS, release_thread};
+pub(crate) use stdio::{MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_STDIO_EXPORTS};
 pub(crate) use strings::{STRING_EXPORTS, UCRT_STRING_EXPORTS, VCRUNTIME_STRING_EXPORTS};
 
 /// A runtime namespace; a module's trap address, not its caller, selects it.
@@ -59,6 +61,8 @@ struct RuntimeState {
     contexts: HashMap<u32, ThreadState>,
     invalid_handler: u64,
     startup: Option<startup::StartupState>,
+    /// FILE/descriptor ownership is separate from malloc and onexit tables.
+    stdio: Option<stdio::StdioState>,
     argv_modes: [Option<i32>; 2],
     /// Both vectors share one architectural C int count. Reusing an inactive
     /// width must not pair its vector with the other width's count.

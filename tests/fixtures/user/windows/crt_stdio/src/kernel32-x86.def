@@ -1,0 +1,17 @@
+LIBRARY kernel32.dll
+EXPORTS
+ExitProcess@4
+CreateFileW@28
+CloseHandle@4
+ReadFile@20
+WriteFile@20
+GetFileSizeEx@8
+GetFileType@4
+GetStdHandle@4
+GetLastError@0
+SetLastError@4
+VirtualAlloc@16
+VirtualFree@12
+VirtualProtect@16
+AddVectoredExceptionHandler@8
+RemoveVectoredExceptionHandler@4

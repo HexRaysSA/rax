@@ -66,8 +66,12 @@ CP1252-before-parse conversion, width transitions and wildcard expansion.
 Explicit UCRT on-exit table infrastructure is implemented in
 [windows-crt-onexit.md](windows-crt-onexit.md), with real guest callbacks,
 independent detached generations and checked ownership/fault continuations.
+Real CRT stream/descriptor storage and bounded binary/ANSI-text byte I/O are
+implemented in [windows-crt-stdio.md](windows-crt-stdio.md), with genuine
+per-ABI bindings, actual guest buffers, flush/close and captured I/O frontiers.
 Ordinary compiler startup still requires global registration/termination,
-stdio, locale and FP dependencies; custom-entry probes do not establish that
+formatted/Unicode stdio, exception-personality, locale and FP dependencies;
+custom-entry probes do not establish that
 outcome. Native opaque-table private behavior remains unknown.
 
 CFG enforcement and enabled mitigation-policy reporting are not implemented.

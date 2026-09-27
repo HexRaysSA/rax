@@ -1,0 +1,90 @@
+
+File: <stdin>
+Format: COFF-i386
+Arch: i386
+AddressSize: 32bit
+Import {
+  Name: KERNEL32.dll
+  ImportLookupTableRVA: 0x60C8
+  ImportAddressTableRVA: 0x618C
+  Symbol: DeleteCriticalSection (287)
+  Symbol: EnterCriticalSection (322)
+  Symbol: GetLastError (631)
+  Symbol: InitializeCriticalSection (897)
+  Symbol: LeaveCriticalSection (984)
+  Symbol: SetUnhandledExceptionFilter (1387)
+  Symbol: Sleep (1403)
+  Symbol: TlsGetValue (1440)
+  Symbol: VirtualProtect (1486)
+  Symbol: VirtualQuery (1488)
+}
+Import {
+  Name: api-ms-win-crt-environment-l1-1-0.dll
+  ImportLookupTableRVA: 0x60F4
+  ImportAddressTableRVA: 0x61B8
+  Symbol: __p__environ (0)
+}
+Import {
+  Name: api-ms-win-crt-heap-l1-1-0.dll
+  ImportLookupTableRVA: 0x60FC
+  ImportAddressTableRVA: 0x61C0
+  Symbol: _set_new_mode (23)
+  Symbol: calloc (24)
+  Symbol: free (25)
+  Symbol: malloc (26)
+}
+Import {
+  Name: api-ms-win-crt-locale-l1-1-0.dll
+  ImportLookupTableRVA: 0x6110
+  ImportAddressTableRVA: 0x61D4
+  Symbol: _configthreadlocale (8)
+}
+Import {
+  Name: api-ms-win-crt-math-l1-1-0.dll
+  ImportLookupTableRVA: 0x6118
+  ImportAddressTableRVA: 0x61DC
+  Symbol: __setusermatherr (46)
+}
+Import {
+  Name: api-ms-win-crt-private-l1-1-0.dll
+  ImportLookupTableRVA: 0x6120
+  ImportAddressTableRVA: 0x61E4
+  Symbol: memcpy (1121)
+}
+Import {
+  Name: api-ms-win-crt-runtime-l1-1-0.dll
+  ImportLookupTableRVA: 0x6128
+  ImportAddressTableRVA: 0x61EC
+  Symbol: __p___argc (5)
+  Symbol: __p___argv (6)
+  Symbol: _cexit (23)
+  Symbol: _configure_narrow_argv (25)
+  Symbol: _crt_atexit (31)
+  Symbol: _exit (37)
+  Symbol: _initialize_narrow_environment (54)
+  Symbol: _initterm (57)
+  Symbol: _initterm_e (58)
+  Symbol: _set_app_type (69)
+  Symbol: _set_invalid_parameter_handler (75)
+  Symbol: abort (89)
+  Symbol: exit (90)
+  Symbol: signal (104)
+}
+Import {
+  Name: api-ms-win-crt-stdio-l1-1-0.dll
+  ImportLookupTableRVA: 0x6164
+  ImportAddressTableRVA: 0x6228
+  Symbol: __acrt_iob_func (0)
+  Symbol: __p__commode (1)
+  Symbol: __p__fmode (2)
+  Symbol: __stdio_common_vfprintf (3)
+  Symbol: fflush (156)
+  Symbol: setvbuf (196)
+}
+Import {
+  Name: api-ms-win-crt-string-l1-1-0.dll
+  ImportLookupTableRVA: 0x6180
+  ImportAddressTableRVA: 0x6244
+  Symbol: strlen (168)
+  Symbol: strncmp (171)
+}

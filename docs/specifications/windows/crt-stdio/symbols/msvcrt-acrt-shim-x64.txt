@@ -1,0 +1,19 @@
+
+<stdin>:	file format coff-x86-64
+
+Disassembly of section .text:
+
+0000000000000000 <__acrt_iob_func>:
+       0: 53                           	pushq	%rbx
+       1: 48 83 ec 20                  	subq	$0x20, %rsp
+       5: 89 cb                        	movl	%ecx, %ebx
+       7: e8 00 00 00 00               	callq	0xc <__acrt_iob_func+0xc>
+		0000000000000008:  IMAGE_REL_AMD64_REL32	__iob_func
+       c: 89 d9                        	movl	%ebx, %ecx
+       e: 48 8d 14 49                  	leaq	(%rcx,%rcx,2), %rdx
+      12: 48 c1 e2 04                  	shlq	$0x4, %rdx
+      16: 48 01 d0                     	addq	%rdx, %rax
+      19: 48 83 c4 20                  	addq	$0x20, %rsp
+      1d: 5b                           	popq	%rbx
+      1e: c3                           	retq
+      1f: 90                           	nop

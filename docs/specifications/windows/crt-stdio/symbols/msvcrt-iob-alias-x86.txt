@@ -1,0 +1,146 @@
+
+File: <stdin>
+Format: COFF-i386
+Arch: i386
+AddressSize: 32bit
+Sections [
+  Section {
+    Number: 1
+    Name: .text (2E 74 65 78 74 00 00 00)
+    VirtualSize: 0x0
+    VirtualAddress: 0x0
+    RawDataSize: 8
+    PointerToRawData: 0x12C
+    PointerToRelocations: 0x14C
+    PointerToLineNumbers: 0x0
+    RelocationCount: 1
+    LineNumberCount: 0
+    Characteristics [ (0x60300020)
+      IMAGE_SCN_ALIGN_4BYTES (0x300000)
+      IMAGE_SCN_CNT_CODE (0x20)
+      IMAGE_SCN_MEM_EXECUTE (0x20000000)
+      IMAGE_SCN_MEM_READ (0x40000000)
+    ]
+    SectionData (
+      0000: FF250000 00009090                    |.%......|
+    )
+  }
+  Section {
+    Number: 2
+    Name: .data (2E 64 61 74 61 00 00 00)
+    VirtualSize: 0x0
+    VirtualAddress: 0x0
+    RawDataSize: 0
+    PointerToRawData: 0x0
+    PointerToRelocations: 0x0
+    PointerToLineNumbers: 0x0
+    RelocationCount: 0
+    LineNumberCount: 0
+    Characteristics [ (0xC0300040)
+      IMAGE_SCN_ALIGN_4BYTES (0x300000)
+      IMAGE_SCN_CNT_INITIALIZED_DATA (0x40)
+      IMAGE_SCN_MEM_READ (0x40000000)
+      IMAGE_SCN_MEM_WRITE (0x80000000)
+    ]
+    SectionData (
+    )
+  }
+  Section {
+    Number: 3
+    Name: .bss (2E 62 73 73 00 00 00 00)
+    VirtualSize: 0x0
+    VirtualAddress: 0x0
+    RawDataSize: 0
+    PointerToRawData: 0x0
+    PointerToRelocations: 0x0
+    PointerToLineNumbers: 0x0
+    RelocationCount: 0
+    LineNumberCount: 0
+    Characteristics [ (0xC0300080)
+      IMAGE_SCN_ALIGN_4BYTES (0x300000)
+      IMAGE_SCN_CNT_UNINITIALIZED_DATA (0x80)
+      IMAGE_SCN_MEM_READ (0x40000000)
+      IMAGE_SCN_MEM_WRITE (0x80000000)
+    ]
+  }
+  Section {
+    Number: 4
+    Name: .idata$7 (2E 69 64 61 74 61 24 37)
+    VirtualSize: 0x0
+    VirtualAddress: 0x0
+    RawDataSize: 4
+    PointerToRawData: 0x134
+    PointerToRelocations: 0x156
+    PointerToLineNumbers: 0x0
+    RelocationCount: 1
+    LineNumberCount: 0
+    Characteristics [ (0xC0300000)
+      IMAGE_SCN_ALIGN_4BYTES (0x300000)
+      IMAGE_SCN_MEM_READ (0x40000000)
+      IMAGE_SCN_MEM_WRITE (0x80000000)
+    ]
+    SectionData (
+      0000: 00000000                             |....|
+    )
+  }
+  Section {
+    Number: 5
+    Name: .idata$5 (2E 69 64 61 74 61 24 35)
+    VirtualSize: 0x0
+    VirtualAddress: 0x0
+    RawDataSize: 4
+    PointerToRawData: 0x138
+    PointerToRelocations: 0x160
+    PointerToLineNumbers: 0x0
+    RelocationCount: 1
+    LineNumberCount: 0
+    Characteristics [ (0xC0300000)
+      IMAGE_SCN_ALIGN_4BYTES (0x300000)
+      IMAGE_SCN_MEM_READ (0x40000000)
+      IMAGE_SCN_MEM_WRITE (0x80000000)
+    ]
+    SectionData (
+      0000: 00000000                             |....|
+    )
+  }
+  Section {
+    Number: 6
+    Name: .idata$4 (2E 69 64 61 74 61 24 34)
+    VirtualSize: 0x0
+    VirtualAddress: 0x0
+    RawDataSize: 4
+    PointerToRawData: 0x13C
+    PointerToRelocations: 0x16A
+    PointerToLineNumbers: 0x0
+    RelocationCount: 1
+    LineNumberCount: 0
+    Characteristics [ (0xC0300000)
+      IMAGE_SCN_ALIGN_4BYTES (0x300000)
+      IMAGE_SCN_MEM_READ (0x40000000)
+      IMAGE_SCN_MEM_WRITE (0x80000000)
+    ]
+    SectionData (
+      0000: 00000000                             |....|
+    )
+  }
+  Section {
+    Number: 7
+    Name: .idata$6 (2E 69 64 61 74 61 24 36)
+    VirtualSize: 0x0
+    VirtualAddress: 0x0
+    RawDataSize: 12
+    PointerToRawData: 0x140
+    PointerToRelocations: 0x0
+    PointerToLineNumbers: 0x0
+    RelocationCount: 0
+    LineNumberCount: 0
+    Characteristics [ (0xC0200000)
+      IMAGE_SCN_ALIGN_2BYTES (0x200000)
+      IMAGE_SCN_MEM_READ (0x40000000)
+      IMAGE_SCN_MEM_WRITE (0x80000000)
+    ]
+    SectionData (
+      0000: D2005F5F 705F5F69 6F620000           |..__p__iob..|
+    )
+  }
+]

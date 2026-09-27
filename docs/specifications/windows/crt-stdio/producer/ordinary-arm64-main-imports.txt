@@ -1,0 +1,76 @@
+
+File: <stdin>
+Format: COFF-ARM64
+Arch: aarch64
+AddressSize: 64bit
+Import {
+  Name: api-ms-win-crt-heap-l1-1-0.dll
+  ImportLookupTableRVA: 0x4498
+  ImportAddressTableRVA: 0x45F0
+  Symbol: _set_new_mode (0)
+  Symbol: free (0)
+  Symbol: malloc (0)
+}
+Import {
+  Name: api-ms-win-crt-private-l1-1-0.dll
+  ImportLookupTableRVA: 0x44B8
+  ImportAddressTableRVA: 0x4610
+  Symbol: __C_specific_handler (0)
+}
+Import {
+  Name: api-ms-win-crt-runtime-l1-1-0.dll
+  ImportLookupTableRVA: 0x44C8
+  ImportAddressTableRVA: 0x4620
+  Symbol: __p___argc (0)
+  Symbol: __p___argv (0)
+  Symbol: _cexit (0)
+  Symbol: _configure_narrow_argv (0)
+  Symbol: _crt_atexit (0)
+  Symbol: _exit (0)
+  Symbol: _fpreset (0)
+  Symbol: _initialize_narrow_environment (0)
+  Symbol: _initterm (0)
+  Symbol: _initterm_e (0)
+  Symbol: _set_app_type (0)
+  Symbol: _set_invalid_parameter_handler (0)
+  Symbol: abort (0)
+  Symbol: exit (0)
+  Symbol: signal (0)
+}
+Import {
+  Name: api-ms-win-crt-stdio-l1-1-0.dll
+  ImportLookupTableRVA: 0x4548
+  ImportAddressTableRVA: 0x46A0
+  Symbol: __acrt_iob_func (0)
+  Symbol: __p__commode (0)
+  Symbol: __p__fmode (0)
+  Symbol: __stdio_common_vfprintf (0)
+  Symbol: fwrite (0)
+}
+Import {
+  Name: KERNEL32.dll
+  ImportLookupTableRVA: 0x4578
+  ImportAddressTableRVA: 0x46D0
+  Symbol: DeleteCriticalSection (0)
+  Symbol: EnterCriticalSection (0)
+  Symbol: GetLastError (0)
+  Symbol: InitializeCriticalSection (0)
+  Symbol: LeaveCriticalSection (0)
+  Symbol: SetUnhandledExceptionFilter (0)
+  Symbol: Sleep (0)
+  Symbol: TlsGetValue (0)
+  Symbol: VirtualProtect (0)
+  Symbol: VirtualQuery (0)
+}
+Import {
+  Name: api-ms-win-crt-environment-l1-1-0.dll
+  ImportLookupTableRVA: 0x45D0
+  ImportAddressTableRVA: 0x4728
+  Symbol: __p__environ (0)
+}
+Import {
+  Name: api-ms-win-crt-math-l1-1-0.dll
+  ImportLookupTableRVA: 0x45E0
+  ImportAddressTableRVA: 0x4738
+  Symbol: __setusermatherr (0)
+}
