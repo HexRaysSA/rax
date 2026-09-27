@@ -147,6 +147,7 @@ jobs:
             --test isa_oracle \
             --test user_linux \
             --test user_darwin \
+            --test user_windows \
             -- --include-ignored --test-threads=1 --nocapture
       # The x86-64 JIT suite executes transient native mappings and intentionally
       # exercises host feature-specific encodings. Run it serially so a native

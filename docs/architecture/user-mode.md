@@ -7,17 +7,19 @@ machine. It supplies a guest address space, unprivileged CPU adapters, and an
 operating-system personality. `rax-user` is the command-line front end: an ELF
 program runs under the Linux personality (see
 [Linux programs](../getting-started/linux-programs.md) for build and usage), a
-Mach-O program under the [Darwin personality](user-mode/darwin.md).
+Mach-O program under the [Darwin personality](user-mode/darwin.md), and a PE
+program under the [Windows personality](user-mode/windows.md).
 
 ```text
-rax-user -> user::linux  -> user::{image,mm,cpu} -> ISA core
-         -> user::darwin -> user::{image,mm,cpu} -> ISA core
+rax-user -> user::{linux,darwin,windows} -> user::{image,mm,cpu} -> ISA core
 ```
 
 | Module | Responsibility |
 |---|---|
 | `user::image::elf` | ELF parsing and acceptance |
 | `user::image::macho` | Mach-O and fat-file parsing, slice grading, and XNU load planning |
+| `user::image::pe` | PE32/PE32+ parsing and directory validation |
+| `user::windows` | Windows loader, ABI, process memory and DLL services |
 | `user::mm` | VMAs, page backing, faults, and code invalidation |
 | `user::cpu` | Unprivileged execution and architectural exits |
 | `user::linux` | Linux loading, ABI conversion, syscalls, scheduling, and signals |
@@ -35,6 +37,7 @@ rax-user -> user::linux  -> user::{image,mm,cpu} -> ISA core
 | Descriptor I/O | [Event descriptors, epoll, splicing, and Linux AIO](user-mode/io.md) |
 | Networking and IPC | [Sockets, netlink, interfaces, System V IPC, and message queues](user-mode/networking-ipc.md) |
 | macOS programs | [Darwin personality: exec, fork and spawn, kernel entry, Mach IPC, MIG servers, threads, kqueues, work queues, signals, process information, sockets](user-mode/darwin.md) |
+| Windows programs | [Windows personality: PE loading, ABI, process services, DLLs, and exceptions](user-mode/windows.md) |
 | Tracing and seccomp | [Tracer links, stops, register sets, stepping, events, and filters](user-mode/tracing.md) |
 
 ## Address spaces

@@ -9,7 +9,7 @@ build sweep over many more ISAs via cross-compilation.
 | Workflow | Trigger | What it does |
 |---|---|---|
 | [`licensing.yml`](licensing.yml) | push, PR, dispatch | Resolves locked Cargo dependencies, then checks crate contents, license/notice synchronization and packaging regressions on Linux/macOS/Windows. |
-| [`ci.yml`](ci.yml) | push, PR | Fast gate. Required `rustfmt` + `clippy`, then **build all targets** and run a **core test slice**, including EVEX masking/JIT regressions and Linux process recordings, on the declared native platforms. |
+| [`ci.yml`](ci.yml) | push, PR | Fast gate. Required `rustfmt` + `clippy`, then **build all targets** and run a **core test slice**, including EVEX masking/JIT regressions, Linux process recordings, and Windows process fixtures, on the declared native platforms. |
 | [`full-suite.yml`](full-suite.yml) | nightly, dispatch | The registered suite, sharded by test binary across parallel jobs, on the declared Linux/macOS native platforms; runtime prerequisites can still cause self-skips. |
 | [`cross.yml`](cross.yml) | push, PR, nightly | **Cross-compile** the core to many CPU architectures (build-only) to guard portability. |
 | [`differential.yml`](differential.yml) | nightly, dispatch | Installs the **QEMU/llvm-mc/clang oracles** so the differential harnesses actually diff (they skip otherwise). One job per guest arch. |
@@ -73,6 +73,23 @@ reports `NOT RUN` unless `RAX_USER_DOCKER_ORACLE` is present. Recorded
 comparisons run without a live Docker oracle. See the
 [test-target registry](../../tests/README.md) for the current
 Cargo target inventory.
+
+## Windows process validation
+
+Both workflows select `user_windows` alongside `user_linux`: `ci.yml` in
+the serial core slice and `full-suite.yml` in the serial unit shard. Existing
+feature selections are unchanged: Linux and Apple Silicon use
+`--no-default-features --features x86_64-suite,smir-jit`; Intel macOS uses
+`--no-default-features --features x86_64-suite`. The
+registered runner executes checked-in freestanding x86, x64, and ARM64 PE
+fixtures under the Windows personality on the declared Linux/macOS hosts;
+no Windows SDK, CRT, or native Windows runner is required. It checks startup,
+TEB/PEB state, calling conventions, heap and virtual-memory behavior, CLI
+selection, and malformed-image rejection. Fixture provenance and the
+specification-derived expectations are documented in the
+[fixture reference](../../tests/fixtures/user/windows/README.md); native
+Windows oracle coverage remains unavailable. The `ci_actions_pinned` contract
+checks Cargo registration and selection in both workflow commands.
 
 ## C API binary releases
 

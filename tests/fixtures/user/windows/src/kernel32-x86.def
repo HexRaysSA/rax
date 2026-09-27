@@ -1,0 +1,14 @@
+LIBRARY KERNEL32.dll
+EXPORTS
+ExitProcess@4
+GetCurrentProcessId@0
+GetCurrentThreadId@0
+SetLastError@4
+GetLastError@0
+GetProcessHeap@0
+HeapAlloc@12
+HeapFree@12
+VirtualAlloc@16
+VirtualQuery@12
+VirtualProtect@16
+VirtualFree@12

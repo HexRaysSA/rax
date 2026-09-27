@@ -1,5 +1,5 @@
-//! `rax-user`: run a Linux or macOS user-space program on RAX's software
-//! CPUs.
+//! `rax-user`: run Linux ELF, macOS Mach-O, or Windows PE programs on RAX's
+//! software CPUs.
 //!
 //! ```text
 //! rax-user [OPTIONS] <PROGRAM> [ARGS]...
@@ -9,8 +9,9 @@
 //! the Linux personality (x86-64, AArch64, RV64, or the partial i386 and ARM
 //! EABI compatibility ones, from the ELF header), a Mach-O or fat file under
 //! the Darwin personality (x86-64 or arm64; `--arch` picks a fat file's
-//! slice), and a `#!` script whose interpreter is a Mach-O program runs that
-//! interpreter under the Darwin personality as `execve` would.
+//! slice), and a PE file under the Windows personality (x86, x64, or ARM64).
+//! A `#!` script whose interpreter is a Mach-O program runs that interpreter
+//! under the Darwin personality as `execve` would.
 //! The exit status is the guest's: its `exit` code; when a signal killed it,
 //! death by the same signal, or `128 + N` for a signal whose default action
 //! dumps core (so the host records no crash of the emulator) or that the
@@ -26,6 +27,14 @@ mod unix {
     use clap::Parser;
     use rax::user::linux::loader::ImageFile;
     use rax::user::linux::{ExitStatus, LinuxConfig, LinuxProcess};
+    use rax::user::windows::{WindowsConfig, WindowsProcess};
+
+    #[derive(clap::ValueEnum, Clone, Copy, Debug)]
+    enum Personality {
+        Auto,
+        Linux,
+        Windows,
+    }
 
     /// Parses a byte size with an optional `K`, `M`, `G`, or `T` suffix
     /// (binary multiples).
@@ -54,20 +63,30 @@ mod unix {
     #[command(
         name = "rax-user",
         version,
-        about = "Run a Linux (x86-64, AArch64, RV64; partial i386 and ARM EABI) or macOS (x86-64, arm64) user-space program on RAX's software CPUs",
-        long_about = "rax-user loads a Linux ELF executable as the kernel's binfmt_elf would \
-(with address-space randomization disabled), executes it on RAX's x86-64, AArch64, AArch32, or \
-RISC-V CPU in user mode, and services its system calls on the host. ELF32 i386 programs, and \
-ARM EABI programs as an arm64 kernel runs them, use a partial compatibility syscall table and \
-interpreter-only execution. Dynamically linked programs find their interpreter and libraries \
-through --sysroot, as with QEMU's -L. A Mach-O program runs under the Darwin personality: \
-rax-user maps it and /usr/lib/dyld as XNU's exec does, and dyld maps the dyld shared cache \
-through the emulated shared-region calls; --sysroot supplies dyld and the cache on a host that \
-is not a Mac. A #! script whose interpreter is a Mach-O program runs that interpreter as execve \
-would.",
+        about = "Run a Linux ELF, macOS Mach-O, or Windows PE program on RAX's software CPUs",
+        long_about = "rax-user selects Linux for ELF, Darwin for Mach-O, and Windows for PE images. \
+Windows guests use x86, x64, or ARM64 instructions with emulated DLL services. Linux guests \
+load as the kernel's binfmt_elf would (with address-space randomization disabled); ELF32 i386 \
+and ARM EABI use partial compatibility syscall tables and interpreter-only execution. \
+Dynamically linked Linux programs find their interpreter and libraries through --sysroot. \
+Darwin guests map Mach-O images and /usr/lib/dyld as XNU's exec does; dyld maps its shared \
+cache through emulated shared-region calls. --sysroot supplies dyld and the cache when needed. \
+A #! script with a Mach-O interpreter runs that interpreter as execve would.",
         override_usage = "rax-user [OPTIONS] <PROGRAM> [ARGS]..."
     )]
     pub struct Cli {
+        /// OS personality; auto selects from the executable file signature.
+        #[arg(long, value_enum, default_value_t = Personality::Auto)]
+        os: Personality,
+        /// Map a Windows drive letter to a host directory (repeatable C=/dir).
+        #[arg(long, value_name = "LETTER=DIR")]
+        drive: Vec<String>,
+        /// Additional Windows DLL search directory (repeatable).
+        #[arg(long, value_name = "DIR")]
+        dll_path: Vec<PathBuf>,
+        /// Exact Windows command line, overriding the generated argument string.
+        #[arg(long, value_name = "TEXT")]
+        command_line: Option<String>,
         /// Guest root overlay: absolute guest paths that exist under DIR
         /// resolve there (QEMU -L semantics).
         #[arg(short = 'L', long, value_name = "DIR")]
@@ -117,7 +136,7 @@ would.",
         /// signal with exit status 128 + N.
         #[arg(long)]
         pub no_signal_forwarding: bool,
-        /// The executable (ELF or Mach-O), then the arguments passed to
+        /// The executable (ELF, Mach-O, or PE), then the arguments passed to
         /// it: everything after PROGRAM is the program's, options included.
         #[arg(value_name = "PROGRAM", required = true, trailing_var_arg = true)]
         command: Vec<String>,
@@ -175,19 +194,94 @@ would.",
                 };
             }
         };
+        if matches!(cli.os, Personality::Windows)
+            || matches!(cli.os, Personality::Auto) && bytes.starts_with(b"MZ")
+        {
+            let mut config = WindowsConfig::new(cli.program(), cli.args().to_vec());
+            config.argv0 = cli.argv0.clone();
+            config.command_line = cli.command_line.clone();
+            config.cwd = cli.cwd.clone();
+            config.dll_paths = cli.dll_path.clone();
+            config.trace = cli.strace;
+            config.seed = cli.seed;
+            if let Some(size) = cli.memory {
+                config.arena_bytes = size;
+            }
+            if let Some(slice) = cli.slice {
+                config.slice_insns = slice.max(1);
+            }
+            if cli.clear_env {
+                config.env = Some(Vec::new());
+            }
+            if !cli.unset_env.is_empty() {
+                let arch = rax::user::image::pe::PeImage::parse(bytes.clone())
+                    .ok()
+                    .and_then(|p| rax::user::windows::WinArch::from_machine(p.headers().machine));
+                if let Some(arch) = arch {
+                    let mut env = config
+                        .env
+                        .clone()
+                        .unwrap_or_else(|| config.default_environment(arch));
+                    env.retain(|(key, _)| {
+                        !cli.unset_env
+                            .iter()
+                            .any(|unset| key.eq_ignore_ascii_case(unset))
+                    });
+                    config.env = Some(env);
+                }
+            }
+            for pair in &cli.set_env {
+                let (name, value) = pair.split_once('=').unwrap_or((pair, ""));
+                config
+                    .env_overrides
+                    .push((name.to_owned(), value.to_owned()));
+            }
+            for drive in &cli.drive {
+                let Some((letter, root)) = drive.split_once('=') else {
+                    eprintln!("rax-user: invalid drive mapping {drive:?}: expected LETTER=DIR");
+                    return 126;
+                };
+                let letter = letter.strip_suffix(':').unwrap_or(letter);
+                if letter.len() != 1
+                    || !letter.as_bytes()[0].is_ascii_alphabetic()
+                    || root.is_empty()
+                {
+                    eprintln!("rax-user: invalid drive mapping {drive:?}");
+                    return 126;
+                }
+                config.drives.set(
+                    letter.chars().next().expect("one ASCII letter"),
+                    PathBuf::from(root),
+                );
+            }
+            let mut process = match WindowsProcess::spawn_image(config, bytes) {
+                Ok(process) => process,
+                Err(e) => {
+                    eprintln!("rax-user: {program}: {e}");
+                    return (e.exit_code() & 0xFF) as i32;
+                }
+            };
+            let status = process.run();
+            if !matches!(status, rax::user::windows::ExitStatus::Exited(0)) {
+                eprintln!("rax-user: {program}: {status}");
+            }
+            return status.shell_code();
+        }
         let argv0 = cli.argv0.clone().unwrap_or_else(|| program.clone());
         let argv: Vec<Vec<u8>> = std::iter::once(argv0)
             .chain(cli.args().iter().cloned())
             .map(String::into_bytes)
             .collect();
-        if rax::user::image::macho::is_macho(&bytes) {
+        if !matches!(cli.os, Personality::Linux) && rax::user::image::macho::is_macho(&bytes) {
             return crate::darwin::run(&cli, &program, argv, environment(&cli));
         }
         // A `#!` script whose interpreter is a Mach-O program runs that
         // interpreter as execve does (exec_shell_imgact): the interpreter
         // line's words, the script's path, then the arguments after
         // argv[0].
-        if let Some(line) = rax::user::darwin::exec::image::shell_imgact(&bytes) {
+        if !matches!(cli.os, Personality::Linux)
+            && let Some(line) = rax::user::darwin::exec::image::shell_imgact(&bytes)
+        {
             let Ok(words) = line else {
                 eprintln!("rax-user: {program}: malformed interpreter line");
                 return 126;

@@ -11,6 +11,11 @@
 
 `rax-user` runs Linux user-space ELF programs on Linux or macOS without booting a guest kernel. The Linux personality implements process and thread creation, signals, file and socket I/O, IPC, memory controls, and guest process tracing for x86-64, AArch64, and RV64. ELF32 i386 compatibility tasks use the x86 core in compatibility mode with a partial 32-bit syscall table. This process execution path is independent of the machine boot paths.
 
+Windows PE programs select an additional [Windows personality](docs/architecture/user-mode/windows.md)
+for x86, x64, and ARM64 guests on Unix hosts. The current surface covers PE
+loading, process startup, calling conventions, and core DLL/memory services;
+complete Windows application compatibility remains in development.
+
 The project uses differential testing extensively. A harness initializes `rax` and a reference engine or host CPU from corresponding state, executes selected instructions or sequences, and compares the state that each side exposes. That is strong evidence for the cases, states, tools, and projections that actually run. It is not formal verification, exhaustive ISA conformance, or proof that the reference has no defect.
 
 `rax` is a research project. It is not an official Hex-Rays product and it is not a production hypervisor or hardened security sandbox.
