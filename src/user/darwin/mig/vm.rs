@@ -398,7 +398,7 @@ fn entry_at_or_after(ctx: &Ctx<'_>, addr: u64) -> Result<Vma, KernReturn> {
 }
 
 /// Resident pages of `v`.
-fn resident(ctx: &Ctx<'_>, v: &Vma) -> u32 {
+pub(crate) fn resident(ctx: &Ctx<'_>, v: &Vma) -> u32 {
     let page = crate::user::mm::PAGE_SIZE;
     let mut n = 0u32;
     let mut a = v.start;
@@ -413,7 +413,7 @@ fn resident(ctx: &Ctx<'_>, v: &Vma) -> u32 {
     n.div_ceil(ratio.max(1))
 }
 
-fn share_mode(v: &Vma, resident: u32) -> u32 {
+pub(crate) fn share_mode(v: &Vma, resident: u32) -> u32 {
     if v.shared {
         sm::SHARED
     } else {
@@ -425,7 +425,7 @@ fn share_mode(v: &Vma, resident: u32) -> u32 {
     }
 }
 
-fn backing_offset(v: &Vma) -> u64 {
+pub(crate) fn backing_offset(v: &Vma) -> u64 {
     match &v.backing {
         Backing::Anonymous => 0,
         Backing::Source { offset, .. } | Backing::Shared { offset, .. } => *offset,

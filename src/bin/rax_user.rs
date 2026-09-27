@@ -258,7 +258,8 @@ mod darwin {
             }
             _ => std::path::PathBuf::from(program),
         };
-        let image = match ImageFile::read(program, &host) {
+        let vfs = rax::user::darwin::vfs::Vfs::new(cli.sysroot.clone());
+        let image = match ImageFile::read(program, &host, &vfs) {
             Ok(i) => i,
             Err(e) => {
                 eprintln!("rax-user: {program}: {e}");

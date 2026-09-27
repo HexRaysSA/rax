@@ -378,10 +378,11 @@ pub fn mmap(
     // SAFETY: `dup` is a new descriptor this process owns exclusively.
     let owned = unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(dup) };
     let file_start = pos & !mask;
-    let name: Option<Arc<str>> = file
-        .path
-        .as_ref()
-        .map(|p| Arc::from(String::from_utf8_lossy(p).as_ref()));
+    // Named as the kernel names the mapped vnode.
+    let name: Option<Arc<str>> = crate::user::darwin::host::fd_path(host)
+        .map(|p| ctx.proc.vfs.guest_path(&p))
+        .or_else(|| file.path.clone())
+        .map(|p| Arc::from(String::from_utf8_lossy(&p).as_ref()));
     let backing = if flags & MAP_SHARED != 0 {
         let obj = SharedObject::file(owned, writable).map_err(Errno::from)?;
         Backing::Shared {

@@ -441,6 +441,43 @@ fn may_start_manager(proc: &Proc, uth: Option<u64>) -> bool {
     proc.wq.may_start_manager(uth)
 }
 
+/// `fill_procworkqueue`: the work queue's threads, how many of those
+/// scheduled are running and how many blocked, and the limits it has
+/// reached (`WQ_EXCEEDED_*`); `cur` is the calling thread.
+pub fn info(proc: &Proc, cur: u64) -> [u32; 4] {
+    let wq = &proc.wq;
+    let scheduled: Vec<(u64, Sched)> = wq
+        .threads
+        .iter()
+        .filter_map(|(t, w)| w.sched.map(|s| (*t, s)))
+        .collect();
+    let running = scheduled
+        .iter()
+        .filter(|(t, _)| active(proc, *t, Some(cur)))
+        .count();
+    let in_pool = |p: Pool| scheduled.iter().filter(|(_, s)| s.pool == p).count();
+    let mut state = 0;
+    if in_pool(Pool::Constrained) >= MAX_CONSTRAINED {
+        state |= 0x1; // CONSTRAINED_THREAD_LIMIT
+    }
+    if wq.threads.len() >= MAX_THREADS {
+        state |= 0x2; // TOTAL_THREAD_LIMIT
+    }
+    let coop_waiting = wq
+        .queue
+        .iter()
+        .any(|&r| req_info(proc, r).is_some_and(|(_, f, _)| is_cooperative(f)));
+    if in_pool(Pool::Cooperative) == parallelism() && coop_waiting {
+        state |= 0x8; // COOPERATIVE_THREAD_LIMIT
+    }
+    [
+        wq.threads.len() as u32,
+        running as u32,
+        (scheduled.len() - running) as u32,
+        state,
+    ]
+}
+
 /// The request `uth` (or a new thread) should run.
 fn select(proc: &Proc, uth: Option<u64>, cur: Option<u64>) -> Option<ReqRef> {
     let reqs: Vec<Candidate> = proc

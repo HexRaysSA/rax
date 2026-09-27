@@ -691,7 +691,7 @@ fn task_info(ctx: &Ctx<'_>, f: i32, count: u32) -> Result<Vec<u32>, KernReturn> 
         flavor::DYLD_INFO => {
             // TASK_LEGACY_DYLD_INFO_COUNT 4, TASK_DYLD_INFO_COUNT 5.
             need(4)?;
-            let (addr, size) = ctx.proc.program.all_image_info.unwrap_or((0, 0));
+            let (addr, size) = ctx.proc.task.dyld_info;
             w.extend_from_slice(&u64s(addr));
             w.extend_from_slice(&u64s(size));
             if count >= 5 {

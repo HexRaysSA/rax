@@ -49,6 +49,20 @@ impl Vfs {
         host
     }
 
+    /// The guest path of an absolute host path: below the root overlay,
+    /// the part under it.
+    pub fn guest_path(&self, host: &[u8]) -> Vec<u8> {
+        if let Some(root) = &self.root {
+            let root = std::fs::canonicalize(root).unwrap_or_else(|_| root.clone());
+            if let Some(rest) = host.strip_prefix(root.as_os_str().as_bytes())
+                && rest.first() == Some(&b'/')
+            {
+                return rest.to_vec();
+            }
+        }
+        host.to_vec()
+    }
+
     /// The host path of an absolute guest path that must come from the root
     /// when there is one (the dynamic linker, the shared cache).
     pub fn system_path(&self, path: &str) -> PathBuf {
@@ -62,6 +76,21 @@ impl Vfs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn host_paths_under_the_root_are_guest_paths() {
+        let dir = std::env::temp_dir().join(format!("rax-vfs-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("usr")).unwrap();
+        let root = std::fs::canonicalize(&dir).unwrap();
+        let v = Vfs::new(Some(dir.clone()));
+        let under = root.join("usr/lib");
+        assert_eq!(v.guest_path(under.as_os_str().as_bytes()), b"/usr/lib");
+        assert_eq!(v.guest_path(b"/etc/hosts"), b"/etc/hosts");
+        // A sibling sharing the root's prefix is not under it.
+        let sibling = format!("{}x/a", root.display());
+        assert_eq!(v.guest_path(sibling.as_bytes()), sibling.as_bytes());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn relative_paths_join_the_working_directory() {

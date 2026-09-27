@@ -79,6 +79,10 @@ pub struct TaskState {
     pub clock_ports: [Option<Arc<Port>>; 2],
     /// `dyld_state` from `task_register_dyld_set_dyld_state`.
     pub dyld_state: u8,
+    /// dyld's all-image-info address and size (`TASK_DYLD_INFO`).
+    pub dyld_info: (u64, u64),
+    /// `TF_DYLD_ALL_IMAGE_FINAL`: `dyld_info` no longer changes.
+    pub dyld_final: bool,
     /// CPU time of terminated threads: (user, system) nanoseconds.
     pub dead_times: (u64, u64),
     /// Messages sent and received (`task_events_info`).
@@ -87,6 +91,23 @@ pub struct TaskState {
     pub syscalls: (u64, u64),
     /// `task_policy_set` state: `TASK_CATEGORY_POLICY` role.
     pub role: i32,
+}
+
+impl TaskState {
+    /// `task_set_dyld_info`: records dyld's all-image-info range unless
+    /// it is final, making it final when a non-zero range replaces a
+    /// non-zero one or when `finalize`; whether it was recorded.
+    pub fn set_dyld_info(&mut self, addr: u64, size: u64, finalize: bool) -> bool {
+        if addr.checked_add(size).is_none() || self.dyld_final {
+            return false;
+        }
+        let current = self.dyld_info != (0, 0);
+        self.dyld_info = (addr, size);
+        if (addr, size) != (0, 0) && current || finalize {
+            self.dyld_final = true;
+        }
+        true
+    }
 }
 
 /// Mach thread state kept outside the CPU.
@@ -107,4 +128,41 @@ pub struct ThreadMach {
     /// A join ulock to wake when the thread is gone, with the port name
     /// to drop then (`uus_bsdthread_terminate`).
     pub join: Option<(u64, u32)>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dyld_info_becomes_final_once_replaced() {
+        // exec: cleared, then the loader's registration (not final).
+        let mut t = TaskState::default();
+        assert!(t.set_dyld_info(0, 0, false));
+        assert!(t.set_dyld_info(0x1000, 0x170, false));
+        assert!(!t.dyld_final);
+        // dyld's own registration replaces it and is final.
+        assert!(t.set_dyld_info(0x2000, 0x170, false));
+        assert!(t.dyld_final);
+        assert!(!t.set_dyld_info(0x2000, 0x170, false));
+        assert_eq!(t.dyld_info, (0x2000, 0x170));
+    }
+
+    #[test]
+    fn dyld_info_without_a_dynamic_linker_is_final() {
+        let mut t = TaskState::default();
+        assert!(t.set_dyld_info(0, 0, true));
+        assert!(t.dyld_final);
+        assert!(!t.set_dyld_info(0x1000, 0x10, false));
+    }
+
+    #[test]
+    fn dyld_info_ranges_must_not_wrap() {
+        let mut t = TaskState::default();
+        assert!(!t.set_dyld_info(u64::MAX, 2, false));
+        assert_eq!(t.dyld_info, (0, 0));
+        // A zero range over a zero range is not final.
+        assert!(t.set_dyld_info(0, 0, false));
+        assert!(!t.dyld_final);
+    }
 }

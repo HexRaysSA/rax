@@ -239,3 +239,13 @@ fn acl_arm64() {
 fn acl_x86_64() {
     fixture("acl", "x86_64", &[], &[]);
 }
+
+#[test]
+fn procinfo_arm64() {
+    fixture("procinfo", "arm64", &[], &[]);
+}
+
+#[test]
+fn procinfo_x86_64() {
+    fixture("procinfo", "x86_64", &[], &[]);
+}

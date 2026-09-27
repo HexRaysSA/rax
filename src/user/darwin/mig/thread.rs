@@ -28,8 +28,8 @@ const TH_STATE_WAITING: u32 = 3;
 /// `POLICY_TIMESHARE`.
 const POLICY_TIMESHARE: u32 = 1;
 /// `BASEPRI_DEFAULT` and `MAXPRI_USER`.
-const BASEPRI_DEFAULT: u32 = 31;
-const MAXPRI_USER: u32 = 63;
+pub(crate) const BASEPRI_DEFAULT: u32 = 31;
+pub(crate) const MAXPRI_USER: u32 = 63;
 /// `KERN_INVALID_POLICY`.
 const KERN_INVALID_POLICY: KernReturn = 16;
 
@@ -60,7 +60,7 @@ fn time_value(ns: u64) -> [u32; 2] {
 }
 
 /// `retrieve_thread_basic_info`.
-fn basic_info(t: &Thread, running: bool) -> [u32; 10] {
+pub(crate) fn basic_info(t: &Thread, running: bool) -> [u32; 10] {
     let run_state = if running || t.runnable() {
         TH_STATE_RUNNING
     } else if t.mach.suspend_count > 0 {

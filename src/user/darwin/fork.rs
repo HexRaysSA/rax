@@ -70,6 +70,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     proc.posted.clear();
     proc.children.clear();
     proc.hidden.clear();
+    proc.execed = false;
 
     // The caller is the only thread (the others were never copied).
     proc.threads.clear();
@@ -140,11 +141,14 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
 
 /// The child's task state (`ipc_task_init` with a parent,
 /// `task_create_internal`): the inherited special ports, registered
-/// ports, exception actions, and guard behavior.
+/// ports, exception actions, guard behavior, and dyld's image-info
+/// registration.
 pub(crate) fn inherited_task(parent: &TaskState) -> TaskState {
     let mut t = TaskState {
         exc: parent.exc.clone(),
         exc_guard: parent.exc_guard,
+        dyld_info: parent.dyld_info,
+        dyld_final: parent.dyld_final,
         ..Default::default()
     };
     for s in [special::HOST, special::BOOTSTRAP, special::ACCESS] {

@@ -96,6 +96,23 @@ pub fn at_flags(flags: u32) -> Result<i32, Errno> {
     }
 }
 
+/// The path of a host descriptor's vnode (`F_GETPATH`: symbolic links
+/// resolved, as `vn_getpath` names it), where the host can say.
+pub fn fd_path(fd: i32) -> Option<Vec<u8>> {
+    #[cfg(target_vendor = "apple")]
+    {
+        let mut buf = [0u8; 1024];
+        // SAFETY: F_GETPATH writes at most MAXPATHLEN (1024) bytes into
+        // `buf`.
+        if unsafe { libc::fcntl(fd, libc::F_GETPATH, buf.as_mut_ptr()) } == 0 {
+            let n = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
+            return Some(buf[..n].to_vec());
+        }
+    }
+    let _ = fd;
+    None
+}
+
 /// `fstat` on a host descriptor.
 pub fn fstat(fd: i32) -> Result<libc::stat, Errno> {
     // SAFETY: fstat writes a complete struct on success; `fd` is live.

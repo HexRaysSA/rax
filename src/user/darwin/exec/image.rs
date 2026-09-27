@@ -449,11 +449,12 @@ fn open_checked(ctx: &Ctx<'_>, guest: &[u8], dir: Dir) -> Result<ImageFile, Errn
         libc::faccessat(dir.raw(), cpath.as_ptr(), libc::X_OK, libc::AT_EACCESS)
     })
     .map_err(|_| Errno::EACCES)?;
-    read_image(guest, &cpath, dir, &st)
+    read_image(&ctx.proc.vfs, guest, &cpath, dir, &st)
 }
 
 /// Reads the whole executable.
 fn read_image(
+    vfs: &crate::user::darwin::vfs::Vfs,
     guest: &[u8],
     cpath: &CString,
     dir: Dir,
@@ -465,6 +466,11 @@ fn read_image(
     })?;
     // SAFETY: `fd` was just returned by the host and is owned here.
     let mut file = std::fs::File::from(unsafe { OwnedFd::from_raw_fd(fd) });
+    let vnode_path = crate::user::darwin::loader::vnode_path(
+        vfs,
+        fd,
+        std::path::Path::new(std::ffi::OsStr::from_bytes(cpath.as_bytes())),
+    );
     let mut bytes = Vec::with_capacity(st.st_size as usize);
     file.read_to_end(&mut bytes)
         .map_err(|e| Errno::from_io(&e))?;
@@ -479,6 +485,7 @@ fn read_image(
     Ok(ImageFile {
         path: String::from_utf8_lossy(guest).into_owned(),
         host_path,
+        vnode_path,
         bytes: Arc::from(bytes),
         file_id: (st.st_dev as u64, st.st_ino as u64),
         slice: None,
