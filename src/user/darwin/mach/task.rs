@@ -91,6 +91,25 @@ pub struct TaskState {
     pub syscalls: (u64, u64),
     /// `task_policy_set` state: `TASK_CATEGORY_POLICY` role.
     pub role: i32,
+    /// The deferred-reclamation ring, once allocated.
+    pub reclaim: Option<Ring>,
+}
+
+/// A task's deferred-reclamation ring as the kernel keeps it
+/// (`vm_deferred_reclamation_metadata_s`).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Ring {
+    /// The ring's address and mapping size.
+    pub addr: u64,
+    pub size: u64,
+    /// The kernel's copy of the ring's length (slots are taken modulo it).
+    pub len: u32,
+    /// When the ring was last sampled (`mach_absolute_time`; 0: never).
+    pub last_sample: u64,
+    /// The moving average of the idle minimum (`VMDR_WMA_UNIT` units).
+    pub wma: u64,
+    /// The task's peak footprint seen at a sample, in bytes.
+    pub peak: u64,
 }
 
 impl TaskState {

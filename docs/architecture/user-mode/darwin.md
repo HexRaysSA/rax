@@ -17,8 +17,9 @@ rax-user --arch x86_64 ./program args...
 
 The kernel behavior reproduced is XNU 12377.121.6
 ([provenance](../../specifications/darwin/xnu-12377.121.6.provenance.md)),
-with dyld 1378, libpthread 539.100.4, Libc 1752.120.2, and libdispatch
-1542.100.32 for the user-side contracts the kernel serves. The user space the programs run is newer
+with dyld 1378, libpthread 539.100.4, Libc 1752.120.2, libdispatch
+1542.100.32, and libmalloc 812.100.31 for the user-side contracts the kernel
+serves. The user space the programs run is newer
 (macOS 27, kernel `xnu-13432`, unpublished). Where that kernel's published
 interface extends an XNU 12377 structure, the personality follows the SDK
 ([macOS 27.0 SDK headers](../../specifications/darwin/MacOSX27.0.sdk.provenance.md))
@@ -227,6 +228,24 @@ emulator's. A mapping must be shared and lie within the object's size
 host maps the object no further than its end, and each mapping's object has
 an identity of its own, since the host reports none for these objects.
 
+Deferred reclamation (`mach_vm_deferred_reclamation_buffer_allocate`,
+`_flush`, `_resize`, `_query`, and the accounting trap): libmalloc's xzone
+allocator (arm64) keeps a ring of freed regions shared with the kernel, which
+the emulator reclaims as XNU does. The ring is guest memory (tag
+`VM_MEMORY_VM_RECLAIM`, read-write, inherited by a forked child, gone after an
+exec, one per task); userspace enters regions and moves `tail`, the kernel
+reclaims from the head in chunks of 16, advancing `head` and `busy` in the
+ring and taking slots modulo its own copy of the length. A deallocated
+region is unmapped (a hole anywhere in it reclaims nothing, the ring stays
+where it was, and the task dies only with `TASK_EXC_GUARD_VM_FATAL`); a freed
+one keeps its mapping and contents. A fault on the ring, a corrupted index,
+or an unknown action kills the task (`SIGKILL`, a virtual-memory guard
+exception). The accounting trap samples the ring at most every 10 s of the
+guest clock and trims its oldest entries when an idle minimum persists, as
+the kernel does without memory pressure, against the task's peak resident
+size as seen at the samples. The ring's mapping is not permanent: a program
+that unmaps it frees the addresses, where XNU keeps an inaccessible region.
+
 ## Files and volumes
 
 Paths resolve through the root overlay (`vfs`) and the host performs the
@@ -330,7 +349,8 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   objects of `shm` (shared between mappings and with a forked child), the
   extended attributes of `xattr`, the access control lists of `acl`, and
   the process, task, thread, descriptor, region, and control queries of
-  `procinfo`.
+  `procinfo`, and the deferred-reclamation ring of `reclaim` (libmalloc's,
+  and a ring of the fixture's own in a process libmalloc gives none).
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit
