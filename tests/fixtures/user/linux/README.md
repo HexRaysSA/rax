@@ -23,7 +23,8 @@ futex timeouts; `ipc32`: System V IPC's direct calls, the `ipc`
 multiplexer's old structures, and its other forms that libc does not
 use; `mq32`, `aio32`, and `select32`: the 32-bit structures, counts, and
 timeouts of message queues, asynchronous I/O, and `select`, `pselect6`, and
-`ppoll`). The i386 results come from
+`ppoll`; `seccomp32`: `struct compat_sock_fprog` and the `struct
+seccomp_data` of a 32-bit call). The i386 results come from
 Linux 6.19 for x86-64 itself (see [Kernel oracle](#kernel-oracle)); the
 library tests under `src/user/linux/tests/i386/` cover the conversions
 call by call.
@@ -114,8 +115,8 @@ call by call.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 203 binaries (54 programs × 3 architectures, and 41 for i386,
-  six of them i386-only), 7,892 KiB in total (`du -k`); each
+- Size: 204 binaries (54 programs × 3 architectures, and 42 for i386,
+  seven of them i386-only), 7,912 KiB in total (`du -k`); each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).

@@ -59,11 +59,11 @@ done
 # lengths and kernel addresses), or check behavior the oracle kernel's
 # configuration changes: sockets (its HZ=250 rounds socket timeouts up to
 # 4 ms jiffies) and fdinfo (its timerfd check races on the emulated
-# machine). sigframes, futex32, ipc32, mq32, aio32, and select32 are
-# i386-only programs (their cases are in cases-i386.txt). Their expected
+# machine). sigframes, futex32, ipc32, mq32, aio32, select32, and
+# seccomp32 are i386-only programs (their cases are in cases-i386.txt). Their expected
 # results come from a real x86-64 kernel (oracle/record-kernel.sh), not from
 # Docker.
-i386_programs=(hello fileio memory mman memfd nodes signals shmem locks threads threadexit exec fork sched procmem stdin segv abort trap epoll sockmsg pidfd xattr misc netlink ifreq inotify splice mlock mseal sysvshm sysvsem sysvmsg mqueue aio sigframes futex32 ipc32 mq32 aio32 select32)
+i386_programs=(hello fileio memory mman memfd nodes signals shmem locks threads threadexit exec fork sched procmem stdin segv abort trap epoll sockmsg pidfd xattr misc netlink ifreq inotify splice mlock mseal sysvshm sysvsem sysvmsg mqueue aio sigframes futex32 ipc32 mq32 aio32 select32 seccomp32)
 mkdir -p bin/i386
 for prog in "${i386_programs[@]}"; do
     out="bin/i386/$prog"

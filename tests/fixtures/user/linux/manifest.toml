@@ -1220,3 +1220,9 @@ source = "src/select32.c"
 target = "x86-linux-musl"
 sha256 = "7051c236e4af486f4a28eb99e446564e89ec6031b70cc214b2543864464abd8b"
 
+[[fixture]]
+path = "bin/i386/seccomp32"
+source = "src/seccomp32.c"
+target = "x86-linux-musl"
+sha256 = "c1c8adb15fdfade49eced618d6cba38981ade741a941b92016df577bd150e915"
+

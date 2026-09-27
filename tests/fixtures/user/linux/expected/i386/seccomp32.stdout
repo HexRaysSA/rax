@@ -1,0 +1,8 @@
+ok no-new-privs
+ok empty-program
+ok install
+ok zero-extended-argument
+ok trap
+ok prctl-install
+ok prctl-filter
+PASSED
