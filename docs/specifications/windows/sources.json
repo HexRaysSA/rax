@@ -1,0 +1,263 @@
+{
+  "schema": 1,
+  "purpose": "Reference copies used for PE, ABI, unwind, virtual memory, and HLE contracts. Not a native Windows execution oracle.",
+  "sources": [
+    {
+      "file": "microsoft-docs/x64-calling-convention.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/build/x64-calling-convention",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/build/x64-calling-convention.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "043986cc9256b62c29b4b18fba978cfece03da69e8680054d210d40b625d89c0",
+      "license_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/arm64-windows-abi-conventions.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/build/arm64-windows-abi-conventions",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/build/arm64-windows-abi-conventions.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "ca114f82ef8d5eae781896ba95e98b5ccd2105b555360777bb6a491c1eec97aa",
+      "license_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/arm64-exception-handling.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/build/arm64-exception-handling",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/build/arm64-exception-handling.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "e9152234e6207448d132285ae4bb6b106c7a5cc812ef32a5e4636feab1a683e4",
+      "license_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/exception-handling-x64.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/build/exception-handling-x64",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/build/exception-handling-x64.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "27e90966096db5da3740c22955e2bc9b89a65835294bf403fe53581723b2263d",
+      "license_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/stdcall.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/cpp/stdcall",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/cpp/stdcall.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "ffe572ec05d6172e78b8fcdacf8c5398fd7c6d0d34dcbd8fcec20670a9f4b963",
+      "license_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/cdecl.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/cpp/cdecl",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/cpp/cdecl.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "91277cd20158904273ad45ba4b396c9a904a141fcd4725d7a05721c8516c9a0d",
+      "license_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/main-function-command-line-args.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/cpp/cpp/main-function-command-line-args",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/docs/cpp/main-function-command-line-args.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "889673963f533b1319a85ccc4660829dff89012a9f6aa9629a2a6a8ab863b542",
+      "license_url": "https://github.com/MicrosoftDocs/cpp-docs/blob/main/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/virtualalloc.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-virtualalloc.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "7053b2cbcd0a363f851916e5f7bb16f90d4f4308ca7e1458efe31c49d644e411",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/virtualfree.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualfree",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-virtualfree.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "44c1adf649562c75611b5c4e6c02bee09a74ffbaba6a3a56117cbb9bccb422c3",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/virtualprotect.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualprotect",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-virtualprotect.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "47fccf94d420f28d5e9498a53aacf5be1c88f7ff82471894d1f9c32124cc6763",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/virtualquery.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualquery",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-virtualquery.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "66b0f3b408333034435668396eac377809d8fbf539d6249f077d11f38f89e579",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/heapalloc.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/heapapi/nf-heapapi-heapalloc.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "32c0e0bb66b77af69952e6afe08b5b46a4e8d7d1fc71045a6d23e423262c8e57",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/heapfree.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapfree",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/heapapi/nf-heapapi-heapfree.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "63ed03cd89bf7f636ce4b65f5c2668d05e6c013307ab2d6184ce00281cc05c4c",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/ns-winnt-memory_basic_information.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-memory_basic_information",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winnt/ns-winnt-memory_basic_information.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "9b2036c8748127fb975f2a5dc23ebec2fc64be95564157ae356e6dfe8ebd9763",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/rtlvirtualunwind.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/nf-winnt-rtlvirtualunwind",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winnt/nf-winnt-rtlvirtualunwind.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "581323e0f352ef612672a481282a2856ecf81d923502911158c6397ee955abf3",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/exception_record.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-exception_record",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winnt/ns-winnt-exception_record.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "7f184188a03b4b5da11d725e5c340f42ac485e2b5bee1cbbc2ae0197b69edb13",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/queueuserapc.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-queueuserapc",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-queueuserapc.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "4977d18d7f4dafcd1a05012aff79e3ba2283551cf0bab68c67c9ebacf8ac04c9",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/rtlvirtualunwind2.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/devnotes/rtlvirtualunwind2",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/DevNotes/rtlvirtualunwind2.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "36d43cc71510f6ec96923b17fef94ce73429adb39f2a5b91b9e6731449d47aea",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/pe-format.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/debug/pe-format",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Debug/pe-format.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "a4e729294562932c5911c5aa554731279846cb51e1db25f1cb6c3d882d41307a",
+      "license_url": "https://github.com/MicrosoftDocs/win32/blob/docs/LICENSE"
+    },
+    {
+      "file": "mingw-w64-headers/ntstatus.h",
+      "issuer": "mingw-w64",
+      "source_url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/v14.0.0/mingw-w64-headers/include/ntstatus.h",
+      "retrieved": "2026-09-27",
+      "revision": "tag v14.0.0",
+      "sha256": "d0e4906fa33a4f56ce3d90814d9177b9eff6f91515278038a4f46973eb86eff3",
+      "license": "Public Domain; retained file notice"
+    },
+    {
+      "file": "mingw-w64-headers/winerror.h",
+      "issuer": "mingw-w64",
+      "source_url": "https://raw.githubusercontent.com/mingw-w64/mingw-w64/v14.0.0/mingw-w64-headers/include/winerror.h",
+      "retrieved": "2026-09-27",
+      "revision": "tag v14.0.0",
+      "sha256": "8d9557ea7c589ff0e52005d3ce08c0bbf8d189a6c37a1b31b977a5ac07d3e431",
+      "license": "Public Domain; retained file notice"
+    },
+    {
+      "file": "microsoft-docs/LICENSE",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/cpp-docs/main/LICENSE",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "03a50105dc91319b3695398007341b9242b38831dab2e515ff4d7ba1f9826e2b",
+      "license": "CC-BY-4.0"
+    },
+    {
+      "file": "microsoft-docs/heapcreate.md",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapcreate",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/heapapi/nf-heapapi-heapcreate.md",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE",
+      "issuer": "Microsoft",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; retained bytes pinned by SHA-256",
+      "sha256": "c9d35ed9d59fee9584770290b55101dd0fe90a28b38e0f503e05ae443fd1ff99"
+    },
+    {
+      "file": "microsoft-docs/resource-directory-entry.h",
+      "source_url": "https://raw.githubusercontent.com/microsoft/win32metadata/main/generation/WinSDK/RecompiledIdlHeaders/um/winnt.h",
+      "license_url": "https://github.com/microsoft/win32metadata/blob/main/LICENSE",
+      "issuer": "Microsoft",
+      "fragment": "Exact Resource Format excerpt through IMAGE_RESOURCE_DIRECTORY_ENTRY; surrounding file not retained.",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; retained bytes pinned by SHA-256",
+      "sha256": "833b55e1e89367f6577cc6ab713fcd0439fa6c62bf721237b0cec75d10c97a3e"
+    },
+    {
+      "file": "microsoft-docs/setthreadcontext.md",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreadcontext",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-setthreadcontext.md",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; content pinned by SHA-256",
+      "sha256": "2a4801d0bdcf066fa4b700bf69fba4c88222888ca72f5e662a900dbe11ebc218",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/docs/LICENSE"
+    },
+    {
+      "file": "microsoft-docs/tls-characteristics.h",
+      "issuer": "Microsoft",
+      "source_url": "https://raw.githubusercontent.com/microsoft/win32metadata/main/generation/WinSDK/RecompiledIdlHeaders/um/winnt.h",
+      "retrieved": "2026-09-27",
+      "revision": "unknown: mutable branch retrieval; retained fragment pinned by SHA-256",
+      "fragment": "Exact TLS Characteristic Flags comment and IMAGE_SCN_SCALE_INDEX definition.",
+      "sha256": "d57a8f7ad959adf7243cf4969517797230111c990a0fc37fa8ad88965ff0933f",
+      "license_url": "https://github.com/microsoft/win32metadata/blob/main/LICENSE"
+    }
+  ]
+}
