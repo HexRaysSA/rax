@@ -199,3 +199,13 @@ fn volumes_arm64() {
 fn volumes_x86_64() {
     fixture("volumes", "x86_64", &[], &[]);
 }
+
+#[test]
+fn identity_arm64() {
+    fixture("identity", "arm64", &[], &[]);
+}
+
+#[test]
+fn identity_x86_64() {
+    fixture("identity", "x86_64", &[], &[]);
+}

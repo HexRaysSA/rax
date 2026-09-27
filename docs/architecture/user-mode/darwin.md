@@ -235,8 +235,10 @@ Apple-silicon Mac for arm64 (`CPU_SUBTYPE_ARM64E`, `PSTATE.SSBS` set for new
 threads; the implementation's pointer-authentication algorithm is the
 identity), with 16 GiB of memory. Mach absolute time, uptime, and `kern.boottime` share one
 clock that starts with the emulator. Process identity (pid, credentials,
-audit token) is the host process's. The System Integrity Protection
-configuration `csrctl` reports and checks against is the host's on a macOS
+audit token) is the host process's. A thread's assumed identity
+(`settid`, `settid_with_pid`: privileged, `EPERM` otherwise) is what
+`gettid` reports (`ESRCH` without one); the host still checks access with
+the process's. The System Integrity Protection configuration `csrctl` reports and checks against is the host's on a macOS
 host (none of its exceptions elsewhere), with the Intel rule that device
 configuration needs a configuration boot on x86-64; `crossarch_trap`
 offers no service (`ENOTSUP`, `EINVAL` for an unknown namespace).
@@ -280,7 +282,8 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   build (thin, and fat beside x86_64h slices) in `exec_translated`, the
   file actions, attributes, port
   actions, failures, and `waitid` views of `spawn`, the SIP queries of
-  `csr`, and the volume statistics and object paths of `volumes`.
+  `csr`, the volume statistics and object paths of `volumes`, and the
+  per-thread identity calls of `identity`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

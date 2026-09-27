@@ -106,6 +106,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     };
     thread.name.clear();
     thread.pw = Default::default();
+    thread.assumed = None;
     thread.wait = None;
     thread.resume = None;
     thread.woken = false;
