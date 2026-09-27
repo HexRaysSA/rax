@@ -375,7 +375,7 @@ fn file_actions(
                     .path
                     .clone()
                     .map(|p| normalize(&p))
-                    .or_else(|| descriptor_path(h))
+                    .or_else(|| host::fd_path(h))
                     .unwrap_or_else(|| s.cwd.clone());
             }
             FileAction::Unknown => return Err(Errno::EINVAL),
@@ -454,24 +454,9 @@ fn is_vnode(h: RawFd, st: &libc::stat) -> bool {
         libc::S_IFSOCK => false,
         // A pipe and a named pipe look alike; only the named one has a
         // path.
-        libc::S_IFIFO => descriptor_path(h).is_some(),
+        libc::S_IFIFO => host::fd_path(h).is_some(),
         _ => true,
     }
-}
-
-/// The path of a descriptor's vnode, where the host can say.
-fn descriptor_path(h: RawFd) -> Option<Vec<u8>> {
-    #[cfg(target_vendor = "apple")]
-    {
-        let mut buf = [0u8; MAXPATHLEN];
-        // SAFETY: F_GETPATH writes at most MAXPATHLEN bytes into `buf`.
-        if unsafe { libc::fcntl(h, libc::F_GETPATH, buf.as_mut_ptr()) } == 0 {
-            let n = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
-            return Some(buf[..n].to_vec());
-        }
-    }
-    let _ = h;
-    None
 }
 
 /// `exec_handle_port_actions` and `exec_handle_exception_port_actions`:

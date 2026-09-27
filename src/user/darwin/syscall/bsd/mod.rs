@@ -12,6 +12,8 @@ pub mod file;
 pub mod misc;
 pub mod path;
 pub mod proc;
+#[cfg(target_os = "macos")]
+pub mod procinfo;
 pub mod pthread;
 pub mod region;
 pub mod shm;
@@ -237,6 +239,12 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::SETTID => proc::settid(ctx, u(0), u(1)),
         nr::SETTID_WITH_PID => proc::settid_with_pid(ctx, i(0), i(1)),
         nr::UMASK => misc::umask(ctx, u(0)),
+        #[cfg(target_os = "macos")]
+        nr::PROC_INFO => procinfo::proc_info(ctx, i(0), i(1), u(2), a[3], a[4], i(5)),
+        #[cfg(target_os = "macos")]
+        nr::PROC_INFO_EXTENDED_ID => {
+            procinfo::proc_info_extended_id(ctx, i(0), i(1), u(2), u(3), a[4], a[5], a[6], i(7))
+        }
         nr::GETRLIMIT => misc::getrlimit(ctx, u(0), a[1]),
         nr::SETRLIMIT => misc::setrlimit(ctx, u(0), a[1]),
         nr::GETRUSAGE => misc::getrusage(ctx, i(0), a[1]),

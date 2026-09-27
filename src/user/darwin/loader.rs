@@ -16,6 +16,7 @@ use std::sync::Arc;
 use super::abi::DarwinAbi;
 use super::commpage::{self, MachineInfo};
 use super::stack::{self, StackError, StackStrings};
+use super::vfs::Vfs;
 use super::vm::{self, VmFlags};
 use crate::user::image::macho::{
     self, EntryCommand, ImageRole, LoadOptions, MachOError, MachOImage, ThreadState,
@@ -41,6 +42,9 @@ pub struct ImageFile {
     pub path: String,
     /// Host path it was read from.
     pub host_path: PathBuf,
+    /// The guest path the kernel names the file by (`vn_getpath`: its
+    /// canonical path), which names its mappings.
+    pub vnode_path: String,
     /// Contents.
     pub bytes: Arc<[u8]>,
     /// `(st_dev, st_ino)` of the file.
@@ -60,19 +64,40 @@ impl fmt::Debug for ImageFile {
 }
 
 impl ImageFile {
-    /// Reads `host_path` as the executable at guest path `path`.
-    pub fn read(path: impl Into<String>, host_path: &Path) -> std::io::Result<Self> {
+    /// Reads `host_path` as the executable at guest path `path`, seen
+    /// through `vfs`.
+    pub fn read(path: impl Into<String>, host_path: &Path, vfs: &Vfs) -> std::io::Result<Self> {
+        use std::io::Read;
+        use std::os::fd::AsRawFd;
         use std::os::unix::fs::MetadataExt;
-        let meta = std::fs::metadata(host_path)?;
-        let bytes = std::fs::read(host_path)?;
+        let mut file = std::fs::File::open(host_path)?;
+        let meta = file.metadata()?;
+        let mut bytes = Vec::with_capacity(meta.len() as usize);
+        file.read_to_end(&mut bytes)?;
+        let vnode_path = vnode_path(vfs, file.as_raw_fd(), host_path);
         Ok(ImageFile {
             path: path.into(),
             host_path: host_path.to_path_buf(),
+            vnode_path,
             bytes: bytes.into(),
             file_id: (meta.dev(), meta.ino()),
             slice: None,
         })
     }
+}
+
+/// The guest path of the file open at host descriptor `fd` (read from
+/// `host_path`) as the kernel names it.
+pub fn vnode_path(vfs: &Vfs, fd: i32, host_path: &Path) -> String {
+    use std::os::unix::ffi::OsStrExt;
+    let real = super::host::fd_path(fd).unwrap_or_else(|| {
+        std::fs::canonicalize(host_path)
+            .unwrap_or_else(|_| host_path.to_path_buf())
+            .as_os_str()
+            .as_bytes()
+            .to_vec()
+    });
+    String::from_utf8_lossy(&vfs.guest_path(&real)).into_owned()
 }
 
 /// Why a program could not be loaded.
@@ -261,7 +286,7 @@ fn map_segments(
     let source = Arc::new(BytesSource::new(file.bytes.clone()));
     for m in &img.mappings {
         let flags = VmFlags::new(m.maxprot, vm::VM_INHERIT_COPY, 0).bits();
-        let name: Arc<str> = Arc::from(file.path.as_str());
+        let name: Arc<str> = Arc::from(file.vnode_path.as_str());
         if m.file_len > 0 {
             space.map(
                 m.vm_start,

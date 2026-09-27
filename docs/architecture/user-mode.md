@@ -34,7 +34,7 @@ rax-user -> user::linux  -> user::{image,mm,cpu} -> ISA core
 | Files and notifications | [Descriptions, metadata, attributes, locks, and inotify](user-mode/files.md) |
 | Descriptor I/O | [Event descriptors, epoll, splicing, and Linux AIO](user-mode/io.md) |
 | Networking and IPC | [Sockets, netlink, interfaces, System V IPC, and message queues](user-mode/networking-ipc.md) |
-| macOS programs | [Darwin personality: exec, fork and spawn, kernel entry, Mach IPC, MIG servers, threads, kqueues, work queues, signals](user-mode/darwin.md) |
+| macOS programs | [Darwin personality: exec, fork and spawn, kernel entry, Mach IPC, MIG servers, threads, kqueues, work queues, signals, process information](user-mode/darwin.md) |
 | Tracing and seccomp | [Tracer links, stops, register sets, stepping, events, and filters](user-mode/tracing.md) |
 
 ## Address spaces
@@ -91,7 +91,8 @@ The behavior reference is the vendored
 programs run against the host's macOS user space. The
 [Darwin reference](user-mode/darwin.md) describes process construction,
 `fork`, `execve`, and `posix_spawn`, kernel entry, Mach IPC and the MIG
-servers, the shared region, the emulated machine, and the current status.
+servers, the shared region, process information, the emulated machine,
+and the current status.
 
 ## Evidence
 

@@ -239,6 +239,37 @@ calls; results in guest layouts come from the host's.
 | Extended attributes: `getxattr`, `setxattr`, `removexattr`, `listxattr` and their descriptor forms, the host's attributes with the guest's memory copied in XNU's order (an option the call does not take, then the path before `getxattr`'s and `listxattr`'s name or buffer; the name, its protection, and the value's size before `setxattr`'s and `removexattr`'s path), lengths for a NULL buffer (and for a size of 0 except through `getxattr`), resource forks read at an offset | `syscall::bsd::xattr` | `getxattr`, `fgetxattr`, `setxattr`, `listxattr`, `xattr_protected` |
 | Access control lists: the `*_extended` calls set a list (`chmod_extended`, `fchmod_extended`, and at creation `open_extended`, `mkdir_extended`, `mkfifo_extended`; 1 removes it) or read it with the status (`stat64_extended`, `lstat64_extended`, `fstat64_extended`: the list's size written back, the list copied only into a buffer that holds it); a list is copied in before the path is looked up (`EINVAL` for a bad magic number or more than 128 entries); `umask_extended` is `umask` | `syscall::bsd::acl` | `kauth_copyinfilesec`, `fstatat_internal`, `chmod_extended_init` |
 
+## Process information
+
+| Area | Module | Counterpart |
+|---|---|---|
+| `proc_info` and `proc_info_extended_id` about another process: the host kernel's answer (the guest's processes are host processes), with its checks in XNU's order; the host writes into a copy of the guest's buffer, so bytes it leaves alone stay as they were | `syscall::bsd::procinfo` | `proc_info_internal` |
+| `PROC_INFO_CALL_PIDINFO` about the calling process: the flavor and size checks (`EINVAL`, `ENOMEM`, `EOVERFLOW` for a path buffer over 4096 bytes) and the identifier checks of `proc_info_extended_id` (`ESRCH`), then the emulated process: its names (the executed path's last component), `PROC_FLAG_EXEC`, and descriptor-table size in the process record (the session, terminal, start time, and unique identifiers the host's); the executable's UUID, CPU type, and platform; the task's memory, CPU times in Mach units, counters, and threads; thread records by TSD base or identifier with the thread's name and run state, and the thread lists; memory regions and the files mapped; the working directory; the executable's path (the whole buffer written, 0 returned); descriptors and their types; knote user data; workloop identifiers; the work queue's threads (`ESRCH` before it exists) | `procinfo::pidinfo` | `proc_pidinfo` |
+| `PROC_INFO_CALL_PIDFDINFO` about the calling process's descriptors (`EBADF` for none, the flavor's error for another type): a file, pipe, or shared memory object is the host's record of the host descriptor with the descriptor's status the guest's (close-on-exec; shared when another guest descriptor, or as the host says another process, holds the open file); a kqueue is the emulated kqueue's state, pending events, event size, and knotes; descriptor -1 names the work queue's kqueue | `procinfo::fdinfo` | `proc_pidfdinfo`, `fill_kqueueinfo`, `pid_kqueue_extinfo` |
+| The calling process's controls: a thread's name (`PROC_SELFSET_THREADNAME`, at most 63 characters, `ENAMETOOLONG`; the name Mach `thread_info` reports too), the other controls the host's; dyld's image-information registration (`TASK_DYLD_INFO`: final once a registration replaces another, `EINVAL` after); resource usage the host's with the executable's UUID (a whole record whatever the buffer size); its fileports (none) and workloops (`PIDDYNKQUEUEINFO`) | `procinfo::selfctl` | `proc_setcontrol`, `proc_set_dyld_images`, `task_set_dyld_info` |
+
+Paths are the kernel's names for the files (`vn_getpath`): symbolic
+links resolved, the root overlay's prefix removed, and laid out as
+`vn_getpath` leaves them, the path at the start of its field and the copy
+it was built as at the end. An image and a mapped file are named when
+they are mapped.
+
+Another emulated process is a host process running `rax-user`, so what
+the host says of it beyond its identity, credentials, status, and
+resource usage (its name and path, descriptors, memory, and threads) is
+the emulator's. A region's share mode and shared flag follow the kind of
+mapping rather than the reference counts of its memory objects: two parts
+of one private mapping split by `munmap`, or a region copied by `fork`, are
+reported as private, and a shared mapping is shared before any fork. A
+descriptor whose file the guest has mapped is reported as shared (the
+mapping holds a duplicate of the host descriptor). dyld does not move to
+its copy in the shared cache (the kernel maps the shared region at exec,
+the emulator when dyld asks, so dyld finds none), so it makes no
+registration of its own and the registration the loader records stays
+open, where a native arm64 process's is final. A thread's CPU usage,
+flags, and sleep time are 0 and its priority the default (31);
+`kqueue_dyninfo`'s servicing state is 0.
+
 ## Emulated machine
 
 One CPU of the program's architecture: a Haswell-class Intel Mac for x86-64
@@ -265,11 +296,11 @@ condition variables, and read-write locks, kqueues, and work queues with
 their kqueue and workloops (so `libdispatch`: global and serial queues,
 groups, semaphores, `dispatch_apply`, `dispatch_after`, barriers, and
 timer, read, and signal sources), `fork` with `wait4`, `waitid`, and
-`SIGCHLD`, and `execve` and `posix_spawn` (scripts, fat files, file and
-port actions, spawn attributes). Not yet implemented, and answered
+`SIGCHLD`, `execve` and `posix_spawn` (scripts, fat files, file and
+port actions, spawn attributes), and process information (`proc_info`).
+Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
-under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`, sockets,
-`proc_info`, and exception delivery
+under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`, sockets, and exception delivery
 to Mach exception ports (a machine exception becomes its signal
 directly). `kill` of the process group reaches this process only through
 host-signal forwarding, and `kill(-1, sig)` signals only this process.
@@ -297,7 +328,9 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `csr`, the volume statistics and object paths of `volumes`, the
   per-thread identity calls of `identity`, the POSIX shared memory
   objects of `shm` (shared between mappings and with a forked child), the
-  extended attributes of `xattr`, and the access control lists of `acl`.
+  extended attributes of `xattr`, the access control lists of `acl`, and
+  the process, task, thread, descriptor, region, and control queries of
+  `procinfo`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

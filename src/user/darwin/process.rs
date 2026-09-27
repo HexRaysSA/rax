@@ -366,6 +366,9 @@ pub struct Proc {
     pub audit: [u32; 8],
     /// A new image to run once the current call returns (`execve`).
     pub exec: Option<Box<super::exec::Swap>>,
+    /// `P_EXEC`: the process has executed an image (not so for a forked
+    /// child until it does).
+    pub execed: bool,
 }
 
 impl Proc {
@@ -775,16 +778,17 @@ pub(crate) fn start(
     ipc.insert(Right::Send(task_port.clone()))
         .expect("a fresh space has room");
 
-    let dyld_file =
-        match loader::parse_executable(&image, abi) {
-            Ok((_, main)) if main.dylinker.is_some() => {
-                let host = vfs.system_path(loader::DYLD_PATH);
-                Some(ImageFile::read(loader::DYLD_PATH, &host).map_err(|e| {
+    let dyld_file = match loader::parse_executable(&image, abi) {
+        Ok((_, main)) if main.dylinker.is_some() => {
+            let host = vfs.system_path(loader::DYLD_PATH);
+            Some(
+                ImageFile::read(loader::DYLD_PATH, &host, &vfs).map_err(|e| {
                     SpawnError::Load(LoadError::Dylinker(loader::DYLD_PATH.into(), e))
-                })?)
-            }
-            _ => None,
-        };
+                })?,
+            )
+        }
+        _ => None,
+    };
     let (mut entropy, rlimits) = match &carried {
         Some(c) => (c.entropy.clone(), c.rlimits),
         None => (Entropy::new(config.seed), default_rlimits(&config, abi)),
@@ -854,7 +858,7 @@ pub(crate) fn start(
         Some(c) => c.cwd.clone(),
         None => config.cwd.clone().into_bytes(),
     };
-    let proc = match carried {
+    let mut proc = match carried {
         Some(c) => Proc {
             abi,
             space,
@@ -891,6 +895,7 @@ pub(crate) fn start(
             task: c.task,
             audit: c.audit,
             exec: None,
+            execed: true,
         },
         None => {
             // SAFETY: the credential getters take no arguments.
@@ -950,8 +955,16 @@ pub(crate) fn start(
                 task: TaskState::default(),
                 audit: host_audit_token(pid, creds),
                 exec: None,
+                execed: true,
             }
         }
+    };
+    // `activate_exec_state` clears the image-info registration; the
+    // loader records dyld's, or with no dynamic linker it is final.
+    proc.task.set_dyld_info(0, 0, false);
+    match proc.program.all_image_info {
+        Some((addr, size)) => proc.task.set_dyld_info(addr, size, false),
+        None => proc.task.set_dyld_info(0, 0, true),
     };
     Ok(proc)
 }
