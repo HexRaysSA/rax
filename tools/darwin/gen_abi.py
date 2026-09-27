@@ -21,6 +21,7 @@ whose files keyword is not ALL becomes nosys, as there.
 
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -231,8 +232,19 @@ def kern_returns_source():
     return "\n".join(o)
 
 
+def rustfmt(text):
+    """`text` as rustfmt (edition 2024) formats it, so that the checked-in
+    files are both generated and formatted."""
+    return subprocess.run(
+        ["rustfmt", "--edition", "2024", "--emit", "stdout"],
+        input=text, capture_output=True, text=True, check=True,
+    ).stdout
+
+
 def emit(path, text, check):
-    """Writes `text` to `path`, or with `check` verifies the file holds it."""
+    """Writes `text` (formatted) to `path`, or with `check` verifies the
+    file holds it."""
+    text = rustfmt(text)
     if check:
         with open(path) as f:
             if f.read() != text:

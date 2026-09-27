@@ -119,7 +119,11 @@ def main():
     out.append("    NAMES.binary_search_by_key(&id, |e| e.0).ok().map(|i| NAMES[i].1)")
     out.append("}")
     out.append("")
-    text = "\n".join(out)
+    # Formatted as rustfmt (edition 2024) formats the checked-in file.
+    text = subprocess.run(
+        ["rustfmt", "--edition", "2024", "--emit", "stdout"],
+        input="\n".join(out), capture_output=True, text=True, check=True,
+    ).stdout
     if "--check" in sys.argv[1:]:
         with open(OUT) as f:
             if f.read() != text:
