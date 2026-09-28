@@ -587,6 +587,71 @@ fn read_cstr_crosses_pages_and_bounds_length() {
 }
 
 #[test]
+fn accesses_within_a_page_and_across_pages_check_the_same_way() {
+    let s = space();
+    s.map(0x10000, 2 * P, Mapping::anonymous(RW)).unwrap();
+    s.map(0x12000, P, Mapping::anonymous(Perms::READ)).unwrap();
+    s.map(0x13000, P, Mapping::anonymous(RX)).unwrap();
+    // Nothing to move: no page is looked at, mapped or not.
+    s.read(0x40000, &mut []).unwrap();
+    s.write(0x40000, &[]).unwrap();
+    s.fetch(0x40000, &mut []).unwrap();
+    assert_eq!(s.resident_pages(), 0);
+    // Ending at the page's last byte touches that page alone; one byte
+    // further touches the next.
+    s.write(0x10ffc, b"abcd").unwrap();
+    assert_eq!(s.resident_pages(), 1);
+    s.write(0x10ffd, b"abcd").unwrap();
+    assert_eq!(s.resident_pages(), 2);
+    let mut b = [0u8; 5];
+    s.read(0x10ffc, &mut b).unwrap();
+    assert_eq!(&b, b"aabcd");
+    // Each kind of access faults at its address with its kind, and a
+    // refused write changes nothing.
+    let e = s.read(0x14010, &mut [0u8; 8]).unwrap_err();
+    assert_eq!(
+        (e.address, e.kind, e.access),
+        (0x14010, MemoryFaultKind::Unmapped, MemoryAccessKind::Read)
+    );
+    let e = s.write(0x12010, b"xy").unwrap_err();
+    assert_eq!(
+        (e.address, e.kind, e.access),
+        (
+            0x12010,
+            MemoryFaultKind::Permission,
+            MemoryAccessKind::Write
+        )
+    );
+    let mut two = [0xFFu8; 2];
+    s.read(0x12010, &mut two).unwrap();
+    assert_eq!(two, [0, 0]);
+    let e = s.fetch(0x10000, &mut [0u8; 4]).unwrap_err();
+    assert_eq!(
+        (e.address, e.kind, e.access),
+        (
+            0x10000,
+            MemoryFaultKind::Permission,
+            MemoryAccessKind::Fetch
+        )
+    );
+    s.fetch(0x13ffc, &mut [0u8; 4]).unwrap();
+    // A crossing access faults at the first page it may not touch, before
+    // any byte moves.
+    let e = s.write(0x11ffe, b"wxyz").unwrap_err();
+    assert_eq!((e.address, e.kind), (0x12000, MemoryFaultKind::Permission));
+    s.read(0x11ffe, &mut two).unwrap();
+    assert_eq!(two, [0, 0]);
+    // A write into an executable page logs a code change either way.
+    s.protect(0x13000, P, Perms::all()).unwrap();
+    let e0 = s.code_epoch();
+    s.write(0x13010, &[0x90]).unwrap();
+    assert_eq!(
+        s.code_changes_since(e0).0,
+        CodeChanges::Ranges(vec![(0x13000, P)])
+    );
+}
+
+#[test]
 fn code_log_tracks_changes_that_invalidate_translations() {
     let s = space();
     let e0 = s.code_epoch();

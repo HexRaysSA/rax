@@ -859,8 +859,22 @@ impl AddressSpace {
         }
     }
 
+    /// Whether `[addr, addr + len)` is non-empty and lies in one page: the
+    /// common case of a CPU's access, which [`AddressSpace::chunks`] would
+    /// walk as a single chunk, translated here without building the list.
+    #[inline]
+    fn in_one_page(addr: u64, len: usize) -> bool {
+        len != 0 && (addr & PAGE_MASK) as usize + len <= PAGE_SIZE as usize
+    }
+
     /// Reads guest memory with user-access permission checks.
+    #[inline]
     pub fn read(&self, addr: u64, buf: &mut [u8]) -> Result<(), GuestMemoryFault> {
+        if Self::in_one_page(addr, buf.len()) {
+            let pa = self.translate(addr, MemoryAccessKind::Read)?;
+            self.inner.arena.read(pa, buf);
+            return Ok(());
+        }
         let chunks = self.chunks(addr, buf.len(), MemoryAccessKind::Read, false)?;
         self.copy_out(&chunks, buf);
         Ok(())
@@ -868,14 +882,26 @@ impl AddressSpace {
 
     /// Writes guest memory with user-access permission checks. On a fault no
     /// byte is written.
+    #[inline]
     pub fn write(&self, addr: u64, data: &[u8]) -> Result<(), GuestMemoryFault> {
+        if Self::in_one_page(addr, data.len()) {
+            let pa = self.translate(addr, MemoryAccessKind::Write)?;
+            self.inner.arena.write(pa, data);
+            return Ok(());
+        }
         let chunks = self.chunks(addr, data.len(), MemoryAccessKind::Write, false)?;
         self.copy_in(&chunks, data);
         Ok(())
     }
 
     /// Reads instruction bytes, requiring execute permission.
+    #[inline]
     pub fn fetch(&self, addr: u64, buf: &mut [u8]) -> Result<(), GuestMemoryFault> {
+        if Self::in_one_page(addr, buf.len()) {
+            let pa = self.translate(addr, MemoryAccessKind::Fetch)?;
+            self.inner.arena.read(pa, buf);
+            return Ok(());
+        }
         let chunks = self.chunks(addr, buf.len(), MemoryAccessKind::Fetch, false)?;
         self.copy_out(&chunks, buf);
         Ok(())
