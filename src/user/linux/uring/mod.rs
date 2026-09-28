@@ -129,6 +129,17 @@ pub mod req_flags {
     /// `REQ_F_APOLL_MULTISHOT`: the request goes on completing as its file
     /// becomes ready, each time posting with `IORING_CQE_F_MORE`.
     pub const APOLL_MULTISHOT: u32 = 1 << 16;
+    /// `REQ_F_BL_EMPTY`: the buffer the request selected was its group's
+    /// last.
+    pub const BL_EMPTY: u32 = 1 << 17;
+    /// `REQ_F_BL_NO_RECYCLE`: the request's buffer was used in part, and
+    /// is not handed back as it waits.
+    pub const BL_NO_RECYCLE: u32 = 1 << 18;
+    /// `IOU_REQUEUE`: a multishot request that retried as often as it may
+    /// runs again from its poll's task work, though no wake-up came.
+    pub const REQUEUE: u32 = 1 << 19;
+    /// `REQ_F_MULTISHOT`: a bundle send, which posts more than once.
+    pub const MULTISHOT: u32 = 1 << 20;
     /// `IO_REQ_LINK_FLAGS`.
     pub const LINKS: u32 = LINK | HARDLINK;
 }
@@ -141,9 +152,7 @@ pub mod req_flags {
 /// holds until it is freed: a file it looked up by descriptor, and the
 /// nodes of the registered file and buffer it uses (`file_node`,
 /// `buf_node`); the key of its armed linked timeout, the cancellation pass
-/// that last matched it (`work.cancel_seq`), and the completions a
-/// multishot issue posted (with `IORING_CQE_F_MORE`), for its caller to
-/// post.
+/// that last matched it (`work.cancel_seq`), and the buffer it selected.
 #[derive(Clone, Debug)]
 pub struct Req {
     pub sqe: Sqe,
@@ -162,15 +171,61 @@ pub struct Req {
     pub buf_node: Option<rsrc::NodeId>,
     pub ltimeout: u64,
     pub cancel_seq: Option<u32>,
-    pub posts: Vec<(i32, u32)>,
+    pub kbuf: Option<Kbuf>,
+}
+
+/// A provided buffer (`struct io_buffer`): its address, length, and ID.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Buf {
+    pub addr: u64,
+    pub len: u32,
+    pub bid: u16,
+}
+
+/// The buffer a request selected (`REQ_F_BUFFER_SELECTED`,
+/// `REQ_F_BUFFER_RING`): a provided one it holds, or the one at its ring's
+/// head, whose taking is committed as the request completes
+/// (`REQ_F_BUFFERS_COMMIT`) unless it was at once.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kbuf {
+    Legacy { bgid: u16, buf: Buf },
+    Ring { bgid: u16, bid: u16, commit: bool },
+}
+
+/// A buffer group (`struct io_buffer_list`): buffers provided with
+/// `IORING_OP_PROVIDE_BUFFERS`, handed out in order, or a ring of them
+/// the process fills (`IORING_REGISTER_PBUF_RING`).
+#[derive(Debug)]
+pub enum BufList {
+    Legacy(VecDeque<Buf>),
+    Ring(BufRing),
+}
+
+/// A buffer ring: its entries in a region of its own the process maps
+/// (`IOU_PBUF_RING_MMAP`) or in the process's memory at `addr`; its
+/// size, the head consumed up to, whether buffers are consumed in part
+/// (`IOU_PBUF_RING_INC`), and the pages charged for it.
+#[derive(Debug)]
+pub struct BufRing {
+    pub object: Option<Arc<SharedObject>>,
+    pub addr: u64,
+    pub entries: u32,
+    pub head: u16,
+    pub inc: bool,
+    pub pages: u64,
 }
 
 /// A socket request's own values (`struct io_sr_msg`, `struct io_connect`):
-/// its flags (`IORING_RECVSEND_*`, `IORING_ACCEPT_*`), its message flags,
-/// its buffer or header and the length left (moved on as `MSG_WAITALL`
-/// progress is made), the bytes already moved (`done_io`), a header's name,
-/// control buffer, and their lengths as read at preparation, and a
-/// connection's progress.
+/// its flags (`IORING_RECVSEND_*`, `IORING_ACCEPT_*`, and the kernel's own
+/// `IORING_RECV_*` above them), its message flags, its buffer or header
+/// and the length asked for, the bytes already moved (`done_io`), a
+/// header's name, control buffer, and their lengths as read at
+/// preparation, a multishot receive's length for each report and its
+/// limit on the whole (`mshot_len`, `mshot_total_len`) and its immediate
+/// retries (`nr_multishot_loops`), a bundle's flags so far, a
+/// connection's progress, and whether it holds its message state
+/// (`struct io_async_msghdr`) and the length of the vector array that
+/// keeps (`vec.nr`, 0 for none).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Net {
     pub flags: u32,
@@ -182,8 +237,15 @@ pub struct Net {
     pub namelen: i32,
     pub control: u64,
     pub controllen: u64,
+    pub mshot_len: u64,
+    pub mshot_total: u64,
+    pub loops: u32,
+    pub cflags: u32,
+    pub inq: i64,
     pub in_progress: bool,
     pub aborted: bool,
+    pub msg: bool,
+    pub vec_nr: u32,
 }
 
 /// A timeout's own values (`struct io_timeout`, `struct io_timeout_data`):
@@ -220,7 +282,7 @@ impl Req {
             buf_node: None,
             ltimeout: 0,
             cancel_seq: None,
-            posts: Vec::new(),
+            kbuf: None,
         }
     }
 
@@ -241,10 +303,19 @@ impl Req {
         self.cflags = 0;
     }
 
-    /// `io_req_defer_failed`: fails the request with `res`, a transfer on a
-    /// socket that moved bytes reporting those (`io_sendrecv_fail`).
+    /// `io_req_defer_failed`: fails the request with `res`, reporting the
+    /// buffer it selected (`io_put_kbuf`, which consumes a provided one and
+    /// leaves a ring's head as it was), and a transfer on a socket that
+    /// moved bytes reporting those (`io_sendrecv_fail`).
     pub fn defer_failed(&mut self, res: i32) {
         self.fail(res);
+        if let Some(k) = self.kbuf.take() {
+            let bid = match k {
+                Kbuf::Legacy { buf, .. } => buf.bid,
+                Kbuf::Ring { bid, .. } => bid,
+            };
+            self.cflags = abi::cqe_flags::BUFFER | u32::from(bid) << 16;
+        }
         let io = matches!(
             self.sqe.opcode,
             abi::op::SEND | abi::op::RECV | abi::op::SENDMSG | abi::op::RECVMSG
@@ -412,6 +483,17 @@ pub struct State {
     /// `cq_flush`: CQEs were posted outside a batch, to commit with the
     /// next flush.
     pub cq_flush: bool,
+    /// The buffer groups (`io_bl_xa`), by group ID.
+    pub bufs: std::collections::BTreeMap<u16, BufList>,
+    /// An async worker is issuing (`IO_URING_F_UNLOCKED`).
+    pub in_worker: bool,
+    /// `compl_reqs`: the requests completed since the last flush.
+    pub compl: Vec<Chain>,
+    /// A poll's task work issues a multishot request (`IO_URING_F_MULTISHOT`).
+    pub reissuing: bool,
+    /// `netmsg_cache`: the message states completed requests left, last
+    /// first, as the length of the vector array each keeps (0 for none).
+    pub netmsg: Vec<u32>,
 }
 
 impl State {
@@ -450,9 +532,19 @@ pub struct Ring {
 }
 
 impl Drop for Ring {
-    /// `io_free_region`: the regions' pages are uncharged.
+    /// `io_free_region`: the regions' pages are uncharged, the buffer
+    /// rings' too (`io_destroy_buffers`).
     fn drop(&mut self) {
-        self.account.uncharge_user(self.region_pages);
+        let rings: u64 = self
+            .state()
+            .bufs
+            .values()
+            .map(|b| match b {
+                BufList::Ring(r) => r.pages,
+                BufList::Legacy(_) => 0,
+            })
+            .sum();
+        self.account.uncharge_user(self.region_pages + rings);
     }
 }
 
@@ -654,6 +746,13 @@ impl Ring {
             self.sq_flags_update(sq_flags::CQ_OVERFLOW, 0);
         }
         st.overflow.push_back(cqe);
+    }
+
+    /// `io_fill_cqe_aux` alone (`io_req_post_cqe`): into the ring if it
+    /// has room and no completion waits on the overflow list; whether it
+    /// did. Its first 16 bytes, as `post_aux`.
+    pub fn try_post(&self, st: &mut State, user_data: u64, res: i32, flags: u32) -> bool {
+        st.overflow.is_empty() && self.fill(st, &Cqe::new(user_data, res, flags), false)
     }
 
     /// `io_post_aux_cqe`: a completion no request posts (a released

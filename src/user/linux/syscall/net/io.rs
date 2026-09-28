@@ -854,25 +854,9 @@ pub(in super::super) fn recv_msg(
     flags: u32,
     w: SockWait,
 ) -> Result<(usize, u32), Errno> {
-    let got = recv(c, file, s, iov, flags, w)?;
-    let files = scm::receive(c, got.fds);
-    let room = m.controllen.min(i32::MAX as u64) as usize;
-    let mut out = if c.compat {
-        Out::compat(room)
-    } else {
-        Out::new(room)
-    };
+    let mut got = recv(c, file, s, iov, flags, w)?;
+    let out = control_out(c, s, &mut got, m.control, m.controllen, flags);
     let lay = Layout::of(c);
-    for (kind, data) in &got.netlink {
-        // put_cmsg: no buffer is MSG_CTRUNC.
-        if m.control == 0 {
-            out.truncated = true;
-        } else {
-            out.put(lx::SOL_NETLINK, *kind, data);
-        }
-    }
-    let cloexec = flags & lx::MSG_CMSG_CLOEXEC != 0;
-    scm::deliver(c, s, &mut out, m.control == 0, files, cloexec);
     if m.name != 0 {
         write_addr(c, &got.from, m.name, at + lay.namelen)?;
     }
@@ -890,6 +874,63 @@ pub(in super::super) fn recv_msg(
         c.write_u64(at + lay.controllen, out.bytes.len() as u64)?;
     }
     Ok((got.len, oflags))
+}
+
+/// The control data of a receive for a buffer at `control` of `room`
+/// bytes: the protocol's own messages, then the descriptors and
+/// credentials passed (`put_cmsg`: no buffer is `MSG_CTRUNC`).
+fn control_out(
+    c: &mut Ctx<'_>,
+    s: &Socket,
+    got: &mut Got,
+    control: u64,
+    room: u64,
+    flags: u32,
+) -> Out {
+    let files = scm::receive(c, std::mem::take(&mut got.fds));
+    let room = room.min(i32::MAX as u64) as usize;
+    let mut out = if c.compat {
+        Out::compat(room)
+    } else {
+        Out::new(room)
+    };
+    for (kind, data) in &got.netlink {
+        if control == 0 {
+            out.truncated = true;
+        } else {
+            out.put(lx::SOL_NETLINK, *kind, data);
+        }
+    }
+    let cloexec = flags & lx::MSG_CMSG_CLOEXEC != 0;
+    scm::deliver(c, s, &mut out, control == 0, files, cloexec);
+    out
+}
+
+/// A multishot receive's `sock_recvmsg` (io_uring's
+/// `io_recvmsg_multishot`): the data into `iov`, the control data written
+/// at `control` (`room` bytes); the length, the source, `msg_flags`, and the
+/// control data's length.
+#[allow(clippy::too_many_arguments)]
+pub(in super::super) fn recv_parts(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    s: &Socket,
+    iov: &[(u64, u64)],
+    flags: u32,
+    control: u64,
+    room: u64,
+    w: SockWait,
+) -> Result<(usize, Vec<u8>, u32, u64), Errno> {
+    let mut got = recv(c, file, s, iov, flags, w)?;
+    let out = control_out(c, s, &mut got, control, room, flags);
+    if !out.bytes.is_empty() {
+        c.write_mem(control, &out.bytes)?;
+    }
+    let mut oflags = (flags & lx::MSG_CMSG_CLOEXEC) | got.flags;
+    if out.truncated {
+        oflags |= lx::MSG_CTRUNC;
+    }
+    Ok((got.len, got.from, oflags, out.bytes.len() as u64))
 }
 
 /// `recvmsg`.

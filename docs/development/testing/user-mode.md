@@ -251,8 +251,17 @@ waiting, `MSG_DONTWAIT`), `MSG_WAITALL` in parts and cancelled, messages
 `ENOTSOCK`, buffer selection, `IORING_RECVSEND_POLL_FIRST`, `SHUTDOWN`'s
 link, Unix sockets made, bound, listened, connected, and accepted, accepts
 into slots and multishot ones, and TCP connecting in the background and
-accepting with a queue. `user_linux` `fixtures` runs the
-`uring`, `uringio`, `uringpoll`, `uringtimeout`, and `uringnet` programs on every architecture against results recorded on the Linux
+accepting with a queue. `src/user/linux/tests/uring/kbuf.rs`: provided
+buffers (`io_uring/kbuf.c`): `PROVIDE_BUFFERS` and `REMOVE_BUFFERS` (their
+checks, the 65535-buffer limit), selection by reads (a read keeping its
+buffer while it waits, reporting it as it fails), receives (handing it
+back) and sends (keeping it), buffer rings (registration and its checks,
+mappings, status, the memlock charge, the head moving as requests
+complete or at once for files without a wait queue, incremental rings),
+bundles (the message state a ring caches sizing the next), multishot
+`RECV` and `RECVMSG` (their ends: no buffer, a full CQ, a header that
+does not fit), and `READ_MULTISHOT`. `user_linux` `fixtures` runs the
+`uring`, `uringio`, `uringpoll`, `uringtimeout`, `uringnet`, and `uringbuf` programs on every architecture against results recorded on the Linux
 6.19 kernel oracles (native AArch64 and x86-64 in their `compare` runs,
 i386, ARM, and Thumb-2).
 

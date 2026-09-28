@@ -22,6 +22,7 @@ use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;
 use super::super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::super::signal::deliver::restart::{ERESTARTNOHAND, ERESTARTNOINTR, ERESTARTSYS};
+use super::super::super::uring::abi::cqe_flags;
 use super::super::super::uring::abi::op;
 use super::super::super::uring::rsrc::Imu;
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
@@ -30,7 +31,7 @@ use super::super::iov::{import_iovec_as, iovec_from_user_as};
 use super::super::ready::ev;
 use super::super::{Ctx, events, notify};
 use super::ops::{Done, assign_file};
-use super::rsrc;
+use super::{kbuf, poll, rsrc, submit};
 
 /// `IORING_RW_ATTR_FLAG_PI` and `sizeof(struct io_uring_attr_pi)`.
 const ATTR_FLAG_PI: u64 = 1;
@@ -108,7 +109,7 @@ pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno>
                 if sqe.len != 1 {
                     return Err(Errno(EINVAL));
                 }
-                iovec_from_user_as(c, sqe.addr, 1, ring.compat)?;
+                req.how[0] = iovec_from_user_as(c, sqe.addr, 1, ring.compat)?[0].1;
             }
         }
         op::READV_FIXED | op::WRITEV_FIXED => {
@@ -197,17 +198,27 @@ fn can_transfer(file: &OpenFile, write: bool) -> bool {
 /// `io_write_fixed`).
 pub(super) fn issue(c: &mut Ctx<'_>, st: &mut State, req: &mut Req) -> Done {
     let write = is_write(req.sqe.opcode);
-    match issue_rw(c, st, req, write) {
+    let done = match issue_rw(c, st, req, write) {
         Ok(done) => done,
+        // io_read: a ring's buffer not taken yet goes back; then
         // io_req_defer_failed (io_rw_fail keeps the error: nothing was
-        // moved before it).
-        Err(e) => {
-            req.res = -e.0;
-            req.cflags = 0;
-            req.set_fail();
-            Done::Inline
+        // moved before it), which reports a buffer still held.
+        Err(Errno(e)) => {
+            kbuf::recycle_ring(st, req);
+            req.defer_failed(-e);
+            return Done::Inline;
         }
+    };
+    match done {
+        // io_read's -EAGAIN: the buffer as for an error, the request waiting.
+        Done::Park(..) => kbuf::recycle_ring(st, req),
+        // kiocb_done: the buffer reported.
+        Done::Inline if req.res >= 0 => {
+            req.cflags |= kbuf::put(c, st, req, i64::from(req.res), 1);
+        }
+        _ => {}
     }
+    done
 }
 
 fn issue_rw(c: &mut Ctx<'_>, st: &mut State, req: &mut Req, write: bool) -> Result<Done, Errno> {
@@ -223,9 +234,19 @@ fn issue_rw(c: &mut Ctx<'_>, st: &mut State, req: &mut Req, write: bool) -> Resu
         op::READV_FIXED | op::WRITEV_FIXED => import_reg_vec(st, req)?,
         _ => {}
     }
-    // io_buffer_select: no buffer group is ever provided.
-    if req.flags & rf::BUFFER_SELECT != 0 {
-        return Err(Errno(ENOBUFS));
+    // io_import_rw_buffer: a buffer of the group (ENOBUFS without one),
+    // taken at once in a worker or from a file without a wait queue
+    // (io_should_commit); kept, as its vectors, across a wait.
+    if req.flags & rf::BUFFER_SELECT != 0 && req.kbuf.is_none() {
+        let mut len = if req.sqe.opcode == op::READV {
+            req.how[0]
+        } else {
+            u64::from(req.sqe.len)
+        };
+        let now = st.in_worker || !poll::pollable(&file);
+        let group = req.sqe.buf_index;
+        let addr = kbuf::select(c, st, req, &mut len, group, now).ok_or(Errno(ENOBUFS))?;
+        req.vecs = vec![import_ubuf(c, addr, len)?];
     }
     // io_rw_init_file.
     let allowed = if write {
@@ -282,8 +303,9 @@ fn issue_rw(c: &mut Ctx<'_>, st: &mut State, req: &mut Req, write: bool) -> Resu
     c.nosignal = false;
     match r {
         Ok(n) => {
-            // kiocb_done: __io_complete_rw_common, io_req_io_end.
-            if n != count {
+            // kiocb_done: __io_complete_rw_common, io_req_io_end (not for a
+            // multishot read, whose reads read what there is).
+            if n != count && req.sqe.opcode != op::READ_MULTISHOT {
                 req.set_fail();
             }
             if write {
@@ -313,6 +335,73 @@ fn issue_rw(c: &mut Ctx<'_>, st: &mut State, req: &mut Req, write: bool) -> Resu
         Err(e) if !write => Err(e),
         Err(Errno(e)) => Ok(write_failed(req, &file, e)),
     }
+}
+
+/// `io_read_mshot_prep`: a provided buffer (`EINVAL` without), then
+/// `__io_prep_rw`, no address or length of its own (`EINVAL`); multishot.
+pub(super) fn mshot_prep(c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno> {
+    if req.flags & rf::BUFFER_SELECT == 0 {
+        return Err(Errno(EINVAL));
+    }
+    prep(c, ring, req)?;
+    if req.sqe.addr != 0 || req.sqe.len != 0 {
+        return Err(Errno(EINVAL));
+    }
+    req.flags |= rf::APOLL_MULTISHOT;
+    Ok(())
+}
+
+/// `io_read_mshot`: a file with a wait queue (`EBADFD`), then reads into
+/// provided buffers without waiting, each posted with
+/// `IORING_CQE_F_MORE` (in its poll's task work the next read comes at
+/// once: `io_poll_multishot_retry`); nothing to read waits, its buffer
+/// handed back; nothing read, an error (the buffer handed back, none
+/// reported), or a ring without room ends it.
+pub(super) fn mshot_issue(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done {
+    let file = match assign_file(c, st, req) {
+        Ok(f) => f,
+        Err(Errno(e)) => {
+            req.defer_failed(-e);
+            return Done::Inline;
+        }
+    };
+    if !poll::pollable(&file) {
+        req.defer_failed(-EBADFD);
+        return Done::Inline;
+    }
+    let ret = match issue_rw(c, st, req, false) {
+        Ok(Done::Inline) => req.res,
+        Ok(done) => {
+            kbuf::recycle(st, req);
+            return done;
+        }
+        Err(Errno(EAGAIN)) => {
+            kbuf::recycle(st, req);
+            req.defer_failed(-EAGAIN);
+            return Done::Inline;
+        }
+        Err(Errno(e)) => -e,
+    };
+    let mut cflags = 0;
+    if ret <= 0 {
+        kbuf::recycle(st, req);
+        if ret < 0 {
+            req.set_fail();
+        }
+    } else {
+        cflags = kbuf::put(c, st, req, i64::from(ret), 1);
+        if req.flags & rf::APOLL_MULTISHOT != 0
+            && submit::post_cqe(ring, st, req.sqe.user_data, ret, cflags | cqe_flags::MORE)
+        {
+            if st.reissuing {
+                req.flags |= rf::REQUEUE;
+            }
+            return Done::Park(file, ev::IN | ev::RDNORM);
+        }
+    }
+    req.res = ret;
+    req.cflags = cflags;
+    Done::Inline
 }
 
 /// `kiocb_done` for a write's own error: `io_rw_done` completes it

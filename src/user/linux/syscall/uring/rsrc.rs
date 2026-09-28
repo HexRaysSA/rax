@@ -322,7 +322,7 @@ fn buffer_validate(base: u64, len: u64) -> Result<(), Errno> {
 /// `io_pin_pages`: the pages `[addr, addr + len)` touches, each mapped
 /// writable and faulted in (`pin_user_pages_fast` with `FOLL_WRITE`);
 /// `EFAULT` if one is not, `EOVERFLOW` if the range wraps.
-fn pin_pages(c: &Ctx<'_>, addr: u64, len: u64) -> Result<u64, Errno> {
+pub(super) fn pin_pages(c: &Ctx<'_>, addr: u64, len: u64) -> Result<u64, Errno> {
     let end = addr
         .checked_add(len)
         .and_then(|e| e.checked_add(P - 1))

@@ -12,7 +12,7 @@ use super::super::super::fs::fd::{FileObject, OpenFile};
 use super::super::super::uring::abi::{nop, op, setup};
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::Ctx;
-use super::{cancel, fs, net, openclose, poll, rsrc, rw, sync, timeout, xattr};
+use super::{cancel, fs, kbuf, net, openclose, poll, rsrc, rw, sync, timeout, xattr};
 
 /// How an issued request completes.
 #[derive(Clone, Debug)]
@@ -84,11 +84,14 @@ pub(super) fn supported(opcode: u8) -> bool {
             | op::BIND
             | op::LISTEN
             | op::SHUTDOWN
+            | op::PROVIDE_BUFFERS
+            | op::REMOVE_BUFFERS
+            | op::READ_MULTISHOT
     )
 }
 
 /// The operation's `prep`.
-pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno> {
+pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Result<(), Errno> {
     match req.sqe.opcode {
         op::NOP | op::NOP128 => nop_prep(ring, req),
         op::FILES_UPDATE => rsrc::files_update_prep(req),
@@ -120,11 +123,13 @@ pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno>
         op::LINK_TIMEOUT => timeout::prep(c, req, true),
         op::TIMEOUT_REMOVE => timeout::remove_prep(c, req),
         op::ASYNC_CANCEL => cancel::prep(req),
-        op::SEND | op::RECV | op::SENDMSG | op::RECVMSG => net::sr_prep(c, ring, req),
+        op::SEND | op::RECV | op::SENDMSG | op::RECVMSG => net::sr_prep(c, ring, st, req),
         op::ACCEPT => net::accept_prep(c, req),
         op::SOCKET => net::socket_prep(c, req),
-        op::CONNECT | op::BIND | op::LISTEN => net::addr_prep(c, req),
+        op::CONNECT | op::BIND | op::LISTEN => net::addr_prep(c, st, req),
         op::SHUTDOWN => net::shutdown_prep(req),
+        op::PROVIDE_BUFFERS | op::REMOVE_BUFFERS => kbuf::prep(c, req),
+        op::READ_MULTISHOT => rw::mshot_prep(c, ring, req),
         _ => Err(Errno(EOPNOTSUPP)),
     }
 }
@@ -243,12 +248,17 @@ fn issue_op(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done
             cancel::issue(c, ring, st, req);
             Done::Inline
         }
-        op::SEND | op::RECV | op::SENDMSG | op::RECVMSG => net::sr(c, st, req),
+        op::SEND | op::RECV | op::SENDMSG | op::RECVMSG => net::sr(c, ring, st, req),
         op::ACCEPT => net::accept(c, ring, st, req),
         op::SOCKET => net::socket(c, ring, st, req),
         op::CONNECT => net::connect(c, st, req),
         op::BIND | op::LISTEN => net::bind_listen(c, st, req),
         op::SHUTDOWN => net::shutdown(c, st, req),
+        op::PROVIDE_BUFFERS | op::REMOVE_BUFFERS => {
+            kbuf::issue(st, req);
+            Done::Inline
+        }
+        op::READ_MULTISHOT => rw::mshot_issue(c, ring, st, req),
         // io_no_issue: a linked timeout is never issued.
         op::LINK_TIMEOUT => {
             req.fail(-ECANCELED);

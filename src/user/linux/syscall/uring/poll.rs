@@ -31,12 +31,13 @@ use super::super::super::abi::errno_table::*;
 use super::super::super::fs::anon::Anon;
 use super::super::super::fs::epoll::{EPOLLET, EPOLLEXCLUSIVE, EPOLLONESHOT};
 use super::super::super::fs::fd::{FileObject, FileType, OpenFile};
+use super::super::super::uring::abi::cqe_flags;
 use super::super::super::uring::{Chain, Poll, Req, Ring, State, Work, req_flags as rf};
 use super::super::Ctx;
 use super::super::ready::{Polled, ev, poll_files};
 use super::cancel::{self, Match};
 use super::ops::{Done, assign_file};
-use super::{task, timeout};
+use super::{submit, task, timeout};
 
 /// `IORING_POLL_*`: a poll request's `len`.
 const ADD_MULTI: u32 = 1 << 0;
@@ -340,6 +341,17 @@ pub(super) fn rearm(c: &Ctx<'_>, st: &mut State, mut p: Poll) {
     st.polls.push(p);
 }
 
+/// `__io_poll_execute` without a wake-up: the entry's task work, queued.
+pub(super) fn requeue(st: &mut State, id: u64) {
+    queue(st, id);
+}
+
+/// Whether the file reports an event [`park`] would wait for with `mask`.
+pub(super) fn ready(c: &Ctx<'_>, file: &OpenFile, mask: u32) -> bool {
+    let events = mask | ev::PRI | ev::ERR | UNMASK;
+    look(c, file, events).mask & events != 0
+}
+
 /// Whether the file has a wait queue to poll on ([`can_poll`]).
 pub(super) fn pollable(file: &OpenFile) -> bool {
     can_poll(file)
@@ -391,9 +403,6 @@ pub(super) enum Fired {
     Complete(Chain),
     /// Its head is issued again (`io_req_task_submit`).
     Issue(Chain),
-    /// A multishot poll's report, posted with `IORING_CQE_F_MORE`
-    /// (`io_req_post_cqe`): its user data and events.
-    Post(u64, i32),
     /// A multishot request's issue in place (`io_poll_issue`): the key of
     /// its entry.
     Reissue(u64),
@@ -401,11 +410,12 @@ pub(super) enum Fired {
 
 /// `io_poll_task_func` for entry `id`: a cancelled entry completes with
 /// `-ECANCELED`; otherwise the file is polled again. A multishot poll with
-/// nothing to report waits on, and reports what there is otherwise; a
-/// one-shot entry leaves the table, a retry to be issued again, a poll to
-/// complete with its events or, with none left, to be issued again
-/// (`IOU_POLL_REISSUE`).
-pub(super) fn task(c: &Ctx<'_>, st: &mut State, id: u64) -> Option<Fired> {
+/// nothing to report waits on, and posts what there is otherwise with
+/// `IORING_CQE_F_MORE` (`io_req_post_cqe`; without room in the ring it
+/// completes with it instead); a one-shot entry leaves the table, a retry
+/// to be issued again, a poll to complete with its events or, with none
+/// left, to be issued again (`IOU_POLL_REISSUE`).
+pub(super) fn task(c: &Ctx<'_>, ring: &Ring, st: &mut State, id: u64) -> Option<Fired> {
     let pos = st.polls.iter().position(|p| p.id == id)?;
     let p = &mut st.polls[pos];
     p.queued = false;
@@ -424,10 +434,16 @@ pub(super) fn task(c: &Ctx<'_>, st: &mut State, id: u64) -> Option<Fired> {
         if p.retry {
             return Some(Fired::Reissue(id));
         }
-        return Some(Fired::Post(
-            p.chain[0].sqe.user_data,
-            (mask & EVENTS) as i32,
-        ));
+        let (user_data, res) = (p.chain[0].sqe.user_data, (mask & EVENTS) as i32);
+        if submit::post_cqe(ring, st, user_data, res, cqe_flags::MORE) {
+            return None;
+        }
+        // IOU_POLL_REMOVE_POLL_USE_RES.
+        let pos = st.polls.iter().position(|p| p.id == id)?;
+        let mut p = st.polls.remove(pos);
+        p.chain[0].res = res;
+        p.chain[0].cflags = 0;
+        return Some(Fired::Complete(p.chain));
     }
     let mut p = st.polls.remove(pos);
     if p.retry || mask == 0 {

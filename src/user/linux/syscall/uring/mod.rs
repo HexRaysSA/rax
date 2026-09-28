@@ -12,6 +12,7 @@
 
 mod cancel;
 mod fs;
+mod kbuf;
 mod net;
 mod openclose;
 mod ops;
@@ -242,19 +243,25 @@ pub(super) fn mmap_region(
         return Err(Errno(EINVAL));
     }
     let object = match off & self::off::MMAP_MASK {
-        self::off::SQ_RING | self::off::CQ_RING => &ring.rings,
-        self::off::SQES => {
-            if len < ring.sqes.len() {
-                return Err(Errno(EFAULT));
-            }
-            &ring.sqes
+        self::off::SQ_RING | self::off::CQ_RING => ring.rings.clone(),
+        self::off::SQES => ring.sqes.clone(),
+        // A buffer ring's own pages (io_pbuf_get_region): none for a group
+        // without them or a ring in the process's memory.
+        self::off::PBUF_RING => {
+            let bgid = (off & !self::off::MMAP_MASK) >> self::off::PBUF_SHIFT;
+            u16::try_from(bgid)
+                .ok()
+                .and_then(|g| kbuf::region(ring, g))
+                .ok_or(Errno(ENOMEM))?
         }
         _ => return Err(Errno(ENOMEM)),
     };
-    Ok(Backing::Shared {
-        object: object.clone(),
-        offset: 0,
-    })
+    // io_region_mmap: every page of any other region goes in (EFAULT past
+    // the mapping's end).
+    if off & self::off::MMAP_MASK > self::off::CQ_RING && len < object.len() {
+        return Err(Errno(EFAULT));
+    }
+    Ok(Backing::Shared { object, offset: 0 })
 }
 
 /// `io_uring_poll`: writable while the SQ has room, readable while the CQ

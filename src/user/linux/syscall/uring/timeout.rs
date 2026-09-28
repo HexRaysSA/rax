@@ -24,13 +24,14 @@ use std::time::{Duration, Instant};
 use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;
 use super::super::super::posix_timers::{Base, clock_now};
+use super::super::super::uring::abi::cqe_flags;
 use super::super::super::uring::abi::op;
 use super::super::super::uring::{
     Chain, LinkTimeout, Req, Ring, State, Timeout, Timer, Work, req_flags as rf,
 };
 use super::super::Ctx;
 use super::cancel::Match;
-use super::{cancel, task};
+use super::{cancel, submit, task};
 
 /// `IORING_TIMEOUT_*`.
 const ABS: u32 = 1 << 0;
@@ -239,15 +240,16 @@ pub(super) fn next(st: &State) -> Option<Instant> {
 
 /// What an expired timeout's task work leads to ([`expired`]).
 pub(super) enum Expired {
-    /// A multishot timeout's report, with the user data (armed again).
-    Again(u64),
+    /// A multishot timeout reported and was armed again.
+    Again,
     /// The chain completes.
     Done(Chain),
 }
 
 /// `io_timeout_complete`: a multishot timeout with expiries left (or no
-/// count) reports and is armed again at the list's end, relative to now;
-/// any other completes.
+/// count) posts `-ETIME` with `IORING_CQE_F_MORE` (`io_req_post_cqe`) and
+/// is armed again at the list's end, relative to now; any other, or one
+/// the ring has no room for, completes.
 pub(super) fn expired(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, mut chain: Chain) -> Expired {
     let t = &mut chain[0].timer;
     let finish = if t.flags & MULTISHOT == 0 {
@@ -265,6 +267,9 @@ pub(super) fn expired(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, mut chain: C
     }
     let (flags, ns) = (t.flags, t.ns);
     let user_data = chain[0].sqe.user_data;
+    if !submit::post_cqe(ring, st, user_data, -ETIME, cqe_flags::MORE) {
+        return Expired::Done(chain);
+    }
     let key = st.next_timer;
     st.next_timer += 1;
     st.timeouts.push(Timeout {
@@ -273,7 +278,7 @@ pub(super) fn expired(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, mut chain: C
         deadline: deadline(flags, ns, false),
     });
     task::note(c, ring);
-    Expired::Again(user_data)
+    Expired::Again
 }
 
 /// `__io_prep_linked_timeout` as a chain's head is issued: its linked
