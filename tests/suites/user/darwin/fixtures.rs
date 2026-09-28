@@ -486,3 +486,13 @@ fn workloop_ctl_arm64() {
 fn workloop_ctl_x86_64() {
     fixture("workloop_ctl", "x86_64", &[], &[]);
 }
+
+#[test]
+fn workloop_bound_arm64() {
+    fixture("workloop_bound", "arm64", &[], &[]);
+}
+
+#[test]
+fn workloop_bound_x86_64() {
+    fixture("workloop_bound", "x86_64", &[], &[]);
+}

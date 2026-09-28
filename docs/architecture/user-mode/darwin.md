@@ -231,10 +231,10 @@ for an unprivileged, unentitled caller.
 |---|---|---|
 | `workq_open` and `workq_kernreturn`: dispatch configuration (`WQOPS_SETUP_DISPATCH`, `WQOPS_QUEUE_NEWSPISUPP`), thread requests (`WQOPS_QUEUE_REQTHREADS`, the cooperative `WQOPS_QUEUE_REQTHREADS2`), the event manager's priority, `WQOPS_SHOULD_NARROW`, and a thread's return (`WQOPS_THREAD_RETURN`, and the kevent and workloop returns that first hand back pending changes) | `workq` | `pthread_workqueue.c` |
 | Admission by pool: overcommit requests always, the event manager one thread at a time, constrained requests while fewer active threads than CPUs run at or above their QoS (at most 64 scheduled), the cooperative pool while it has room; the manager's request first, then QoS | `workq` | `workq_threadreq_select`, `workq_constrained_allowance`, `workq_cooperative_allowance` |
-| Workqueue threads: a kernel-allocated stack (guard page, 512 KiB, the `pthread_t` above, 12 KiB into its last page on arm64), a pinned thread port, the TSD base, the `workq_threadmask` signal mask (reset on return), and `_pthread_wqthread(self, kport, stacklowaddr, keventlist, flags, nkevents)` with the upcall flags; idle threads park and are reused | `workq` | `workq_setup_thread`, `workq_set_register_state`, `workq_thread_return` |
+| Workqueue threads: a kernel-allocated stack (guard page, 512 KiB, the `pthread_t` above, 12 KiB into its last page on arm64), a pinned thread port, the TSD base, the `workq_threadmask` signal mask (reset on return), and `_pthread_wqthread(self, kport, stacklowaddr, keventlist, flags, nkevents)` with the upcall flags (a servicer of a workloop with a scheduler priority outside the QoS classes, `WQ_FLAG_THREAD_OUTSIDEQOS`); idle threads park and are reused | `workq` | `workq_setup_thread`, `workq_set_register_state`, `workq_thread_reset_pri`, `workq_thread_return` |
 | The workqueue kqueue (`kevent_qos` with `KEVENT_FLAG_WORKQ`): knotes queued by QoS in seven buckets (the last the event manager's, for knotes without a QoS), each bucket's thread request, and its servicer receiving that bucket's events and data on its stack | `kevent::workq`, `kevent::call` | `kqworkq_*`, `kevent_workq_internal` |
 | Workloops (`kevent_id`): made by ID on first use and freed with their last reference, one thread request made when an event arrives with neither a servicer nor an owner, the servicer's events with the workloop's ID below them, rebinding or unbinding as the servicer parks | `kevent::workq`, `kevent::call` | `kqworkloop_*`, `kevent_id` |
-| `kqueue_workloop_ctl`: the parameters' size (`EINVAL` below their version), copy, and version (their size) checked before the command; `KQ_WORKLOOP_CREATE` checks the scheduling priority (1 to 63), policy (timeshare, round robin, FIFO), CPU percent and refill period, then the ID (`EINVAL` for 0 and -1, `EEXIST` for a live workloop), and the workloop it makes with those parameters (its thread request outside the QoS bands for a priority) keeps its reference until `KQ_WORKLOOP_DESTROY` releases it, once (`EINVAL` again, or for a workloop `kevent_id` made; `ENOENT` for none); another command does nothing | `kevent::workq`, `kevent::call` | `kqueue_workloop_ctl_internal`, `kqworkloop_get_or_create` |
+| `kqueue_workloop_ctl`: the parameters' size (`EINVAL` below their version), copy, and version (their size) checked before the command; `KQ_WORKLOOP_CREATE` checks the scheduling priority (1 to 63), policy (timeshare, round robin, FIFO), CPU percent and refill period, then the ID (`EINVAL` for 0 and -1, `EEXIST` for a live workloop), and the workloop it makes with those parameters (its thread request outside the QoS bands for a priority) keeps its reference until `KQ_WORKLOOP_DESTROY` releases it, once (`EINVAL` again, or for a workloop `kevent_id` made; `ENOENT` for none); another command does nothing. With `KQ_WORKLOOP_CREATE_WITH_BOUND_THREAD` the workloop has a thread of its own from the start (`EDOM` past the thread limit), parked until the workloop's events wake it (at the request's QoS, or its priority's band), which services them, parks on the workloop again when it finds none, and ends (the exit upcall) once the workloop is destroyed | `kevent::workq`, `kevent::call`, `workq` | `kqueue_workloop_ctl_internal`, `kqworkloop_get_or_create`, `workq_kern_threadreq_permanent_bind`, `kqworkloop_bound_thread_*`, `workq_kern_bound_thread_*` |
 | `EVFILT_WORKLOOP`: the thread request, synchronous waiters (`NOTE_WL_SYNC_WAIT` sleeps in `kevent_id` until a `NOTE_WL_SYNC_WAKE` or a delete, or a signal: `EINTR` in the event), ownership (`NOTE_WL_DISCOVER_OWNER`, `NOTE_WL_END_OWNERSHIP`), and the debounce check (`ESTALE`, `NOTE_WL_IGNORE_ESTALE`) | `kevent::workloop` | `filt_wl*` |
 | `bsdthread_ctl`: `BSDTHREAD_CTL_SET_SELF` (kevent unbind, QoS with pool moves for workqueue threads, voucher, scheduling policy), QoS overrides, `BSDTHREAD_CTL_QOS_MAX_PARALLELISM`, `BSDTHREAD_CTL_WORKQ_ALLOW_KILL` and `_ALLOW_SIGMASK` (and `__pthread_kill`'s `ENOTSUP` for workqueue threads without them), `BSDTHREAD_CTL_DISPATCH_APPLY_ATTR` | `syscall::bsd::workq` | `bsdthread_ctl` |
 | Priority encoding: QoS classes, relative priorities, normalization and combination of `pthread_priority_t` | `workq::priority` | `priority_private.h`, `pthread_priority.c` |
@@ -251,11 +251,10 @@ pushes, QoS overrides of servicers, and the return-to-kernel notification
 are not modeled (they change timing, not results). Idle threads are kept
 rather than reaped after five seconds. A workloop's scheduling policy and
 CPU limit are kept but change nothing (one emulated CPU runs every thread).
-Workloops with a permanently bound thread
-(`KQ_WORKLOOP_CREATE_WITH_BOUND_THREAD`, `ENOTSUP`), work intervals (no
-port names one: `KQ_WORKLOOP_CREATE_WORK_INTERVAL` is `EINVAL`), and sync
-IPC links to special reply ports (`NOTE_WL_SYNC_IPC` attaches fail with
-`ENOENT`, as they do for ports outside an IPC chain) are not provided.
+Work intervals (no port names one:
+`KQ_WORKLOOP_CREATE_WORK_INTERVAL` is `EINVAL`) and sync IPC links to
+special reply ports (`NOTE_WL_SYNC_IPC` attaches fail with `ENOENT`, as
+they do for ports outside an IPC chain) are not provided.
 
 On an x86_64 kernel `PTHREAD_T_OFFSET` is 0; Rosetta's x86_64 processes run
 on an arm64 kernel, whose workqueue stacks carry the 12 KiB offset.
@@ -549,7 +548,10 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `coreservicesd` maps into the task, Launch Services lookups, and the
   session's shared memory page Launch Services maps and remaps, and the
   checks, lifetime, and SPI of `kqueue_workloop_ctl` and libdispatch
-  workloops with a scheduler priority in `workloop_ctl`.
+  workloops with a scheduler priority in `workloop_ctl`, and the bound
+  threads of workloops (made, woken, parked, ended), the QoS their
+  servicers run at, and libdispatch's bound and priority workloops in
+  `workloop_bound`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

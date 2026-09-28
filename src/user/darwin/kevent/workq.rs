@@ -91,6 +91,9 @@ pub struct Kqwl {
     pub retains: u32,
     /// `kqwl_request`.
     pub request: Kqr,
+    /// `KQ_SLEEP` of a workloop with a permanently bound thread: the
+    /// thread is parked.
+    pub sleeping: bool,
 }
 
 /// What distinguishes the kinds of kqueue.
@@ -233,6 +236,7 @@ pub fn workloop_get_or_create(
         params: p,
         retains: 1,
         request: Kqr::new(tr, 0),
+        sleeping: false,
     }));
     proc.kq.workloops.insert(id, kq);
     Ok(kq)
@@ -257,6 +261,70 @@ pub fn release(proc: &mut Proc, kq: u64) {
         proc.kq.workloops.remove(&id);
         super::destroy(proc, kq);
     }
+}
+
+/// Makes and binds the permanently bound thread of workloop `kq`
+/// (`workq_kern_threadreq_permanent_bind`), which parks until the
+/// workloop wakes it.
+fn bind_thread(proc: &mut Proc, kq: u64) -> Result<(), Errno> {
+    let r = KqrRef { kq, idx: 0 };
+    let q = *kqr(proc, r).expect("a workloop's request");
+    let mut qos = q.qos;
+    if q.flags & trflag::WL_OUTSIDE_QOS != 0 {
+        // A request outside the QoS classes gets the band of its priority.
+        let params = kqwl(proc, kq).map_or(0, |w| w.params);
+        qos = qos_for_pri((params >> 16) as u8);
+        if qos == 0 {
+            qos = QOS_ABOVEUI;
+        }
+    }
+    let tid = workq::permanent_bind(proc, r, qos, q.flags)?;
+    if let Some(q) = kqr_mut(proc, r) {
+        q.qos = qos;
+    }
+    threadreq_bind(proc, r, tid);
+    if let Some(wl) = kqwl_mut(proc, kq) {
+        wl.sleeping = true;
+    }
+    Ok(())
+}
+
+/// Whether workloop `kq` has a permanently bound thread.
+fn permanently_bound(proc: &Proc, kq: u64) -> bool {
+    kqwl(proc, kq).is_some_and(|w| {
+        w.request.flags & trflag::PERMANENT_BIND != 0 && w.request.thread.is_some()
+    })
+}
+
+/// `kqworkloop_bound_thread_wakeup`: a parked bound thread runs the
+/// workloop's events, or ends once the workloop is destroyed.
+fn bound_thread_wakeup(proc: &mut Proc, kq: u64) {
+    let Some(wl) = kqwl_mut(proc, kq) else {
+        return;
+    };
+    if !wl.sleeping {
+        return;
+    }
+    wl.sleeping = false;
+    let dying = wl.params as u16 & trp::RELEASED != 0;
+    let q = wl.request;
+    if let Some(tid) = q.thread {
+        workq::bound_thread_wakeup(proc, tid, q.qos, q.flags, dying);
+    }
+}
+
+/// `kqworkloop_bound_thread_park`: the bound thread of workloop `kq`
+/// found nothing to do. Returns whether it ends (the workloop was
+/// destroyed); otherwise it parks until woken.
+pub fn bound_thread_park(proc: &mut Proc, kq: u64) -> bool {
+    let Some(wl) = kqwl_mut(proc, kq) else {
+        return true;
+    };
+    if wl.params as u16 & trp::RELEASED != 0 {
+        return true;
+    }
+    wl.sleeping = true;
+    false
 }
 
 /// `kqueue_workloop_ctl` commands (`KQ_WORKLOOP_*`) and creation flags
@@ -286,8 +354,9 @@ const MAXPRI_USER: i32 = 63;
 /// does nothing. The parameters are copied in first: `sz` bytes of them,
 /// at most their size, whose version must be `sz`.
 ///
-/// No port names a work interval here (`EINVAL`), and a workloop with a
-/// permanently bound thread is not provided (`ENOTSUP`).
+/// A workloop made with a bound thread (`KQ_WORKLOOP_CREATE_WITH_BOUND_THREAD`)
+/// has a thread of its own from the start. No port names a work interval
+/// here (`EINVAL`).
 pub fn workloop_ctl(proc: &mut Proc, cmd: u64, params: &[u8], sz: u64) -> Result<(), Errno> {
     let mut p = [0u8; WORKLOOP_PARAMS_SIZE];
     p[..params.len()].copy_from_slice(params);
@@ -336,19 +405,17 @@ pub fn workloop_ctl(proc: &mut Proc, cmd: u64, params: &[u8], sz: u64) -> Result
             }
             let must_not_exist =
                 kflag::WORKLOOP | kflag::DYNAMIC_KQUEUE | kflag::DYNAMIC_KQ_MUST_NOT_EXIST;
-            if value as u16 & trp::BOUND_THREAD != 0 {
-                // What kqworkloop_get_or_create refuses first, then the
-                // bound thread this emulation does not provide.
-                if id == 0 || id == u64::MAX {
-                    return Err(Errno::EINVAL);
-                }
-                if proc.kq.workloops.contains_key(&id) {
-                    return Err(Errno::EEXIST);
-                }
-                return Err(Errno::ENOTSUP);
-            }
             // The creation's reference is the workloop's live one.
-            workloop_get_or_create(proc, id, Some(value), must_not_exist)?;
+            let kq = workloop_get_or_create(proc, id, Some(value), must_not_exist)?;
+            if value as u16 & trp::BOUND_THREAD != 0 {
+                // The bound thread's reference, released when it ends.
+                retain(proc, kq);
+                if let Err(e) = bind_thread(proc, kq) {
+                    release(proc, kq);
+                    release(proc, kq);
+                    return Err(e);
+                }
+            }
             Ok(())
         }
         wlctl::DESTROY => {
@@ -358,8 +425,12 @@ pub fn workloop_ctl(proc: &mut Proc, cmd: u64, params: &[u8], sz: u64) -> Result
             let f = wl.params as u16;
             let r = if f != 0 && f & trp::RELEASED == 0 {
                 wl.params |= u64::from(trp::RELEASED);
-                // kqworkloop_release_live: the lookup's reference remains.
-                wl.retains -= 1;
+                // The lookup's reference remains.
+                release_live(proc, kq);
+                if f & trp::BOUND_THREAD != 0 {
+                    // The bound thread ends.
+                    bound_thread_wakeup(proc, kq);
+                }
                 Ok(())
             } else {
                 Err(Errno::EINVAL)
@@ -639,8 +710,15 @@ pub fn update_threads_qos(proc: &mut Proc, kq: u64, op: Utq, qos: u8, rebind: Op
             threadreq_initiate(proc, r, new_override, rebind);
         }
     } else if req.thread.is_some() || new_override == 0 {
-        // A servicer takes the difference as an override; a request
-        // without events is left for its servicer to discover.
+        // A servicer takes the difference as an override (a parked bound
+        // thread, as the QoS it wakes at); a request without events is
+        // left for its servicer to discover.
+        if req.flags & trflag::PERMANENT_BIND != 0
+            && let Some(wl) = kqwl_mut(proc, kq)
+            && wl.sleeping
+        {
+            wl.request.qos = new_override;
+        }
     } else if old_override != new_override {
         threadreq_modify(proc, r, new_override, false);
     }
@@ -659,6 +737,10 @@ pub fn kqworkloop_wakeup(proc: &mut Proc, kq: u64, qos: u8) {
         return;
     }
     update_threads_qos(proc, kq, Utq::UpdateWakeupQos, qos, None);
+    // A permanently bound thread takes the events.
+    if permanently_bound(proc, kq) {
+        bound_thread_wakeup(proc, kq);
+    }
 }
 
 /// `kqworkloop_set_overcommit`: an overcommit knote makes the workloop's
@@ -745,8 +827,12 @@ pub fn workloop_end_processing(proc: &mut Proc, kq: u64, kevent_flags: u32) -> i
         if wakeup != 0 && owner.is_none() {
             return -1;
         }
-        unbind_locked(proc, r);
-        release_live(proc, kq);
+        // A permanently bound thread stays bound: it parks on the workloop
+        // (kqworkloop_bound_thread_park) when the call returns.
+        if !permanently_bound(proc, kq) {
+            unbind_locked(proc, r);
+            release_live(proc, kq);
+        }
         if let Some(q) = proc.kq.kqueues.get_mut(&kq) {
             q.processing = false;
         }

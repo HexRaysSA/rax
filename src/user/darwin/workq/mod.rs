@@ -193,6 +193,9 @@ pub struct ThreadWorkq {
     pub kill_allowed: bool,
     /// `uu_workq_pri.qos_override`: a dispatch override.
     pub qos_override: u8,
+    /// `UT_WORKQ_PERMANENT_BIND`: bound for good to a workloop, whose
+    /// events wake it and on which it parks.
+    pub permanent: bool,
 }
 
 /// A queued thread request.
@@ -579,6 +582,12 @@ fn run_request(proc: &mut Proc, tid: u64, r: ReqRef) {
     if flags & trflag::WORKLOOP != 0 {
         up |= upcall::WORKLOOP | upcall::KEVENT;
     }
+    // workq_thread_reset_pri: a workloop's scheduler priority puts its
+    // servicer outside the QoS classes.
+    let outside_qos = match r {
+        ReqRef::Kq(k) => outside_qos(proc, k, flags),
+        ReqRef::Anon(_) => false,
+    };
     if let Some(w) = proc.wq.threads.get_mut(&tid) {
         w.sched = Some(Sched {
             qos_req: qos,
@@ -586,12 +595,85 @@ fn run_request(proc: &mut Proc, tid: u64, r: ReqRef) {
             pool,
         });
         w.park_qos = qos;
-        w.outside_qos = false;
+        w.outside_qos = outside_qos;
         w.upcall_flags = up;
     }
     if let ReqRef::Kq(k) = r {
         // kqueue_threadreq_bind_prepost and _commit.
         super::kevent::workq::threadreq_bind(proc, k, tid);
+    }
+}
+
+/// Whether the servicer of kqueue request `r` (with flags `flags`) runs
+/// outside the QoS classes: a workloop created with a scheduler priority
+/// (`TRP_PRIORITY` of `WORKQ_TR_FLAG_WL_PARAMS`).
+fn outside_qos(proc: &Proc, r: KqrRef, flags: u8) -> bool {
+    use super::kevent::workq::{kqwl, trp};
+    flags & trflag::WL_PARAMS != 0
+        && kqwl(proc, r.kq).is_some_and(|w| w.params as u16 & trp::PRIORITY != 0)
+}
+
+/// The upcall flags of a permanently bound thread going to its workloop
+/// (`workq_bound_thread_setup_and_run`).
+fn bound_upcall(flags: u8) -> u32 {
+    let mut up = upcall::NEWSPI | upcall::WORKLOOP | upcall::KEVENT;
+    if is_overcommit(flags) {
+        up |= upcall::OVERCOMMIT;
+    }
+    up
+}
+
+/// `workq_kern_threadreq_permanent_bind`: a new thread for workloop
+/// request `r` (at QoS `qos`, with flags `flags`), parked until the
+/// workloop wakes it; `EDOM` when the work queue has its most threads.
+/// The caller binds it.
+pub fn permanent_bind(proc: &mut Proc, r: KqrRef, qos: u8, flags: u8) -> Result<u64, Errno> {
+    if proc.wq.threads.len() >= MAX_THREADS {
+        return Err(Errno::EDOM);
+    }
+    let tid = create_thread(proc).ok_or(Errno::EDOM)?;
+    let outside = outside_qos(proc, r, flags);
+    if let Some(w) = proc.wq.threads.get_mut(&tid) {
+        w.permanent = true;
+        w.park_qos = qos;
+        w.outside_qos = outside;
+        w.upcall_flags = bound_upcall(flags);
+    }
+    Ok(tid)
+}
+
+/// `workq_kern_bound_thread_wakeup`: the parked bound thread `tid` of
+/// request `r` (flags `flags`) runs its workloop's events, or (`dying`,
+/// the workloop destroyed) ends (`workq_kern_bound_thread_terminate`);
+/// it sets itself up when it next runs.
+pub fn bound_thread_wakeup(proc: &mut Proc, tid: u64, qos: u8, flags: u8, dying: bool) {
+    let Some(w) = proc.wq.threads.get_mut(&tid) else {
+        return;
+    };
+    let setup = if dying {
+        // The exit upcall: NEWSPI and the QoS the thread had.
+        w.upcall_flags = upcall::NEWSPI;
+        w.outside_qos = false;
+        setup::EXIT_THREAD | if w.new { setup::FIRST_USE } else { 0 }
+    } else {
+        w.upcall_flags = bound_upcall(flags);
+        // workq_kern_bound_thread_reset_pri: the request's QoS, unless
+        // the thread runs outside the QoS classes.
+        if !w.outside_qos {
+            w.park_qos = qos;
+        }
+        w.sched = Some(Sched {
+            qos_req: qos,
+            qos_bucket: qos,
+            pool: Pool::Overcommit,
+        });
+        if w.new { setup::FIRST_USE } else { 0 }
+    };
+    w.new = false;
+    w.pending = Some(setup);
+    if let Some(t) = proc.threads.get_mut(&tid) {
+        t.wait = None;
+        t.woken = true;
     }
 }
 
@@ -985,7 +1067,13 @@ fn thread_return(ctx: &mut Ctx<'_>, eventlist: u64, nevents: i32) -> SysResult {
         match w.sched {
             Some(s) if s.qos_bucket == QOS_MANAGER => up |= upcall::EVENT_MANAGER,
             s => {
-                if s.is_some_and(|s| s.pool == Pool::Overcommit) {
+                // A bound thread is overcommit when its request is.
+                let overcommit = if w.permanent {
+                    w.upcall_flags & upcall::OVERCOMMIT != 0
+                } else {
+                    s.is_some_and(|s| s.pool == Pool::Overcommit)
+                };
+                if overcommit {
                     up |= upcall::OVERCOMMIT;
                 }
                 if w.outside_qos {
@@ -1003,6 +1091,24 @@ fn thread_return(ctx: &mut Ctx<'_>, eventlist: u64, nevents: i32) -> SysResult {
         let (list, count) = workq_kevent(ctx, &mut a, eventlist, nevents, flags)?;
         if count != 0 {
             set_register_state(ctx, &a, w.thport, list, up, count);
+            return Err(Errno::EJUSTRETURN);
+        }
+        if w.permanent {
+            // kqworkloop_bound_thread_park: the thread parks on its
+            // workloop, or ends with it.
+            if super::kevent::workq::bound_thread_park(ctx.proc, r.kq) {
+                if let Some(w) = ctx.proc.wq.threads.get_mut(&tid) {
+                    w.upcall_flags = upcall::NEWSPI;
+                    w.outside_qos = false;
+                }
+                setup_and_run(ctx, setup::EXIT_THREAD);
+                return Err(Errno::EJUSTRETURN);
+            }
+            if let Some(w) = ctx.proc.wq.threads.get_mut(&tid) {
+                w.sched = None;
+            }
+            ctx.thread.mach.voucher = None;
+            ctx.thread.wait = Some(park_wait(tid));
             return Err(Errno::EJUSTRETURN);
         }
         // No events: the request was unbound.
