@@ -132,6 +132,21 @@ pub fn kevent_id(ctx: &mut Ctx<'_>, a: &[u64; 8]) -> SysResult {
     Ok(Rv::one(n as u64))
 }
 
+/// `kqueue_workloop_ctl(cmd, options, addr, sz)`: the parameters are
+/// checked for their size (`EINVAL` below the version's), and `sz` bytes of
+/// them (at most their size) copied in, before the command is looked at
+/// ([`workq::workloop_ctl`]).
+pub fn kqueue_workloop_ctl(ctx: &mut Ctx<'_>, a: &[u64; 8]) -> SysResult {
+    let (cmd, addr, sz) = (a[0], a[2], a[3]);
+    if sz < 4 {
+        return Err(Errno::EINVAL);
+    }
+    let n = sz.min(36) as usize;
+    let params = ctx.read(addr, n)?;
+    workq::workloop_ctl(ctx.proc, cmd, &params, sz)?;
+    Ok(Rv::one(0))
+}
+
 /// `kevent_workq_internal`: a workqueue thread's kqueue request is
 /// serviced into its stack (`changes` are its pending changes when it
 /// returns). A workloop's ID goes just below the event list. Returns the

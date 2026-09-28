@@ -233,6 +233,7 @@ for an unprivileged, unentitled caller.
 | Workqueue threads: a kernel-allocated stack (guard page, 512 KiB, the `pthread_t` above, 12 KiB into its last page on arm64), a pinned thread port, the TSD base, the `workq_threadmask` signal mask (reset on return), and `_pthread_wqthread(self, kport, stacklowaddr, keventlist, flags, nkevents)` with the upcall flags; idle threads park and are reused | `workq` | `workq_setup_thread`, `workq_set_register_state`, `workq_thread_return` |
 | The workqueue kqueue (`kevent_qos` with `KEVENT_FLAG_WORKQ`): knotes queued by QoS in seven buckets (the last the event manager's, for knotes without a QoS), each bucket's thread request, and its servicer receiving that bucket's events and data on its stack | `kevent::workq`, `kevent::call` | `kqworkq_*`, `kevent_workq_internal` |
 | Workloops (`kevent_id`): made by ID on first use and freed with their last reference, one thread request made when an event arrives with neither a servicer nor an owner, the servicer's events with the workloop's ID below them, rebinding or unbinding as the servicer parks | `kevent::workq`, `kevent::call` | `kqworkloop_*`, `kevent_id` |
+| `kqueue_workloop_ctl`: the parameters' size (`EINVAL` below their version), copy, and version (their size) checked before the command; `KQ_WORKLOOP_CREATE` checks the scheduling priority (1 to 63), policy (timeshare, round robin, FIFO), CPU percent and refill period, then the ID (`EINVAL` for 0 and -1, `EEXIST` for a live workloop), and the workloop it makes with those parameters (its thread request outside the QoS bands for a priority) keeps its reference until `KQ_WORKLOOP_DESTROY` releases it, once (`EINVAL` again, or for a workloop `kevent_id` made; `ENOENT` for none); another command does nothing | `kevent::workq`, `kevent::call` | `kqueue_workloop_ctl_internal`, `kqworkloop_get_or_create` |
 | `EVFILT_WORKLOOP`: the thread request, synchronous waiters (`NOTE_WL_SYNC_WAIT` sleeps in `kevent_id` until a `NOTE_WL_SYNC_WAKE` or a delete, or a signal: `EINTR` in the event), ownership (`NOTE_WL_DISCOVER_OWNER`, `NOTE_WL_END_OWNERSHIP`), and the debounce check (`ESTALE`, `NOTE_WL_IGNORE_ESTALE`) | `kevent::workloop` | `filt_wl*` |
 | `bsdthread_ctl`: `BSDTHREAD_CTL_SET_SELF` (kevent unbind, QoS with pool moves for workqueue threads, voucher, scheduling policy), QoS overrides, `BSDTHREAD_CTL_QOS_MAX_PARALLELISM`, `BSDTHREAD_CTL_WORKQ_ALLOW_KILL` and `_ALLOW_SIGMASK` (and `__pthread_kill`'s `ENOTSUP` for workqueue threads without them), `BSDTHREAD_CTL_DISPATCH_APPLY_ATTR` | `syscall::bsd::workq` | `bsdthread_ctl` |
 | Priority encoding: QoS classes, relative priorities, normalization and combination of `pthread_priority_t` | `workq::priority` | `priority_private.h`, `pthread_priority.c` |
@@ -247,10 +248,13 @@ events) in its own context when it next runs. A thread counts as active
 unless it sleeps; the kernel's 200 µs stall window, turnstile priority
 pushes, QoS overrides of servicers, and the return-to-kernel notification
 are not modeled (they change timing, not results). Idle threads are kept
-rather than reaped after five seconds. `kqueue_workloop_ctl` (workloops
-with scheduling parameters or bound threads) and sync IPC links to special
-reply ports (`NOTE_WL_SYNC_IPC` attaches fail with `ENOENT`, as they do for
-ports outside an IPC chain) are not provided.
+rather than reaped after five seconds. A workloop's scheduling policy and
+CPU limit are kept but change nothing (one emulated CPU runs every thread).
+Workloops with a permanently bound thread
+(`KQ_WORKLOOP_CREATE_WITH_BOUND_THREAD`, `ENOTSUP`), work intervals (no
+port names one: `KQ_WORKLOOP_CREATE_WORK_INTERVAL` is `EINVAL`), and sync
+IPC links to special reply ports (`NOTE_WL_SYNC_IPC` attaches fail with
+`ENOENT`, as they do for ports outside an IPC chain) are not provided.
 
 On an x86_64 kernel `PTHREAD_T_OFFSET` is 0; Rosetta's x86_64 processes run
 on an arm64 kernel, whose workqueue stacks carry the 12 KiB offset.
@@ -487,9 +491,10 @@ pasteboard, power management, IOKit, CoreServices' file IDs, and Launch
 Services: `id`, `whoami`, `defaults`, `security`, `pbcopy`, `pbpaste`,
 `pmset`, `ioreg`, `mdls`, `sips`, `textutil`, and `osascript` behave as
 natively).
-Not yet implemented, and answered
-with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
-under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`. `kill` of the process group reaches this process only through
+Calls not implemented are answered with `ENOSYS` (or `KERN_FAILURE` /
+`MIG_BAD_ID` for Mach) with a warning under `--strace` or
+`RAX_DARWIN_WARN`; among them are `map_with_linking_np` (dyld then applies
+its fixups itself) and `work_interval_ctl`. `kill` of the process group reaches this process only through
 host-signal forwarding, and `kill(-1, sig)` signals only this process.
 
 ## Evidence
@@ -541,7 +546,9 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `mach_vm_remap` and `mach_vm_remap_new` in `remap`, and in
   `coreservices` (in the parent and a spawned child) the file-ID universe
   `coreservicesd` maps into the task, Launch Services lookups, and the
-  session's shared memory page Launch Services maps and remaps.
+  session's shared memory page Launch Services maps and remaps, and the
+  checks, lifetime, and SPI of `kqueue_workloop_ctl` and libdispatch
+  workloops with a scheduler priority in `workloop_ctl`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

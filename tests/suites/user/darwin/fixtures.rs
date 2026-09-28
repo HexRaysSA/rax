@@ -476,3 +476,13 @@ fn coreservices_arm64() {
 fn coreservices_x86_64() {
     fixture("coreservices", "x86_64", &[], &[]);
 }
+
+#[test]
+fn workloop_ctl_arm64() {
+    fixture("workloop_ctl", "arm64", &[], &[]);
+}
+
+#[test]
+fn workloop_ctl_x86_64() {
+    fixture("workloop_ctl", "x86_64", &[], &[]);
+}

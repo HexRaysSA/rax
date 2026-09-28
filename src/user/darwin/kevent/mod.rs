@@ -34,7 +34,7 @@ use super::syscall::Ctx;
 use super::wait::WaitKey;
 use super::workq::priority;
 
-pub use call::{Call, kevent, kevent_id, kevent_workq_internal};
+pub use call::{Call, kevent, kevent_id, kevent_workq_internal, kqueue_workloop_ctl};
 
 /// Filters (`EVFILT_*`).
 pub mod evfilt {

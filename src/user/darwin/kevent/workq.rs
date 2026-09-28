@@ -259,6 +259,118 @@ pub fn release(proc: &mut Proc, kq: u64) {
     }
 }
 
+/// `kqueue_workloop_ctl` commands (`KQ_WORKLOOP_*`) and creation flags
+/// (`KQ_WORKLOOP_CREATE_*`), `bsd/pthread/workqueue_syscalls.h`.
+pub mod wlctl {
+    pub const CREATE: u64 = 0x01;
+    pub const DESTROY: u64 = 0x02;
+    pub const SCHED_PRI: i32 = 0x01;
+    pub const SCHED_POL: i32 = 0x02;
+    pub const CPU_PERCENT: i32 = 0x04;
+    pub const WORK_INTERVAL: i32 = 0x08;
+    pub const WITH_BOUND_THREAD: i32 = 0x10;
+}
+
+/// `sizeof(struct kqueue_workloop_params)` (packed): version, flags, ID,
+/// scheduler priority and policy, CPU percent and refill period, and
+/// work-interval port.
+const WORKLOOP_PARAMS_SIZE: usize = 36;
+
+/// `MAXPRI_USER`.
+const MAXPRI_USER: i32 = 63;
+
+/// `kqueue_workloop_ctl(cmd, options, addr, sz)`: makes a workloop with
+/// scheduling parameters, which lives until it is destroyed
+/// (`KQ_WORKLOOP_CREATE` keeps its reference), or destroys one
+/// (`KQ_WORKLOOP_DESTROY`, releasing that reference); another command
+/// does nothing. The parameters are copied in first: `sz` bytes of them,
+/// at most their size, whose version must be `sz`.
+///
+/// No port names a work interval here (`EINVAL`), and a workloop with a
+/// permanently bound thread is not provided (`ENOTSUP`).
+pub fn workloop_ctl(proc: &mut Proc, cmd: u64, params: &[u8], sz: u64) -> Result<(), Errno> {
+    let mut p = [0u8; WORKLOOP_PARAMS_SIZE];
+    p[..params.len()].copy_from_slice(params);
+    let int = |o: usize| i32::from_le_bytes(p[o..o + 4].try_into().expect("4 bytes"));
+    // params.kqwlp_version != (int)uap->sz
+    if int(0) != sz as i32 {
+        return Err(Errno::EINVAL);
+    }
+    let (flags, id) = (
+        int(4),
+        u64::from_le_bytes(p[8..16].try_into().expect("8 bytes")),
+    );
+    let (pri, pol, percent, refill) = (int(16), int(20), int(24), int(28));
+    match cmd {
+        wlctl::CREATE => {
+            use wlctl::*;
+            if flags == 0
+                || (flags & SCHED_PRI != 0 && !(1..=MAXPRI_USER).contains(&pri))
+                // invalid_policy: POLICY_TIMESHARE, POLICY_RR, POLICY_FIFO
+                || (flags & SCHED_POL != 0 && !matches!(pol, 1 | 2 | 4))
+                || (flags & CPU_PERCENT != 0
+                    && (!(1..=100).contains(&percent) || !(1..=0x00ff_ffff).contains(&refill)))
+                // kern_port_name_to_work_interval: no port is one.
+                || flags & WORK_INTERVAL != 0
+            {
+                return Err(Errno::EINVAL);
+            }
+            // workq_threadreq_param_t: flags, priority, policy, CPU
+            // percent, refill period.
+            let mut value = 0u64;
+            if flags & WITH_BOUND_THREAD != 0 {
+                value |= u64::from(trp::BOUND_THREAD);
+            }
+            if flags & SCHED_PRI != 0 {
+                value |= u64::from(trp::PRIORITY) | (pri as u64) << 16;
+            }
+            if flags & SCHED_POL != 0 {
+                value |= u64::from(trp::POLICY) | (pol as u64) << 24;
+            }
+            if flags & CPU_PERCENT != 0 {
+                value |=
+                    u64::from(trp::CPUPERCENT) | (percent as u64) << 32 | (refill as u64) << 40;
+            }
+            if value as u16 == 0 {
+                return Err(Errno::EINVAL);
+            }
+            let must_not_exist =
+                kflag::WORKLOOP | kflag::DYNAMIC_KQUEUE | kflag::DYNAMIC_KQ_MUST_NOT_EXIST;
+            if value as u16 & trp::BOUND_THREAD != 0 {
+                // What kqworkloop_get_or_create refuses first, then the
+                // bound thread this emulation does not provide.
+                if id == 0 || id == u64::MAX {
+                    return Err(Errno::EINVAL);
+                }
+                if proc.kq.workloops.contains_key(&id) {
+                    return Err(Errno::EEXIST);
+                }
+                return Err(Errno::ENOTSUP);
+            }
+            // The creation's reference is the workloop's live one.
+            workloop_get_or_create(proc, id, Some(value), must_not_exist)?;
+            Ok(())
+        }
+        wlctl::DESTROY => {
+            let must_exist = kflag::WORKLOOP | kflag::DYNAMIC_KQUEUE | kflag::DYNAMIC_KQ_MUST_EXIST;
+            let kq = workloop_get_or_create(proc, id, None, must_exist)?;
+            let wl = kqwl_mut(proc, kq).expect("a workloop");
+            let f = wl.params as u16;
+            let r = if f != 0 && f & trp::RELEASED == 0 {
+                wl.params |= u64::from(trp::RELEASED);
+                // kqworkloop_release_live: the lookup's reference remains.
+                wl.retains -= 1;
+                Ok(())
+            } else {
+                Err(Errno::EINVAL)
+            };
+            release(proc, kq);
+            r
+        }
+        _ => Ok(()),
+    }
+}
+
 /// `thread_workq_qos_for_pri`: the QoS band a scheduler priority maps
 /// up to (the bands' base priorities are 46, 37, 31, 20, and 4); above
 /// user-interactive is none.

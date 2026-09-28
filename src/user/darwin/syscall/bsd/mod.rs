@@ -364,6 +364,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::KEVENT64 => event::kevent(ctx, a, event::Api::Kevent64),
         nr::KEVENT_QOS => event::kevent(ctx, a, event::Api::Qos),
         nr::KEVENT_ID => kevent::kevent_id(ctx, a),
+        nr::KQUEUE_WORKLOOP_CTL => kevent::kqueue_workloop_ctl(ctx, a),
         nr::WORKQ_OPEN => crate::user::darwin::workq::workq_open(ctx),
         nr::WORKQ_KERNRETURN => crate::user::darwin::workq::workq_kernreturn(ctx, a),
         nr::BSDTHREAD_CTL => workq::bsdthread_ctl(ctx, a),
