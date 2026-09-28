@@ -16,6 +16,8 @@ pub mod file;
 pub mod mac;
 pub mod misc;
 pub mod path;
+#[cfg(target_os = "macos")]
+pub mod persona;
 pub mod proc;
 #[cfg(target_os = "macos")]
 pub mod procinfo;
@@ -288,6 +290,8 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::CSOPS | nr::CSOPS_AUDITTOKEN => misc::csops(ctx, i(0), u(1), a[2], a[3]),
         nr::MAC_SYSCALL => mac::mac_syscall(ctx, a[0], i(1), a[2]),
         nr::GETHOSTUUID => misc::gethostuuid(ctx, a[0], a[1]),
+        #[cfg(target_os = "macos")]
+        nr::PERSONA => persona::persona(ctx, u(0), u(1), a[2], a[3], a[4], a[5]),
         nr::CSRCTL => misc::csrctl(ctx, u(0), a[1], a[2]),
         nr::CROSSARCH_TRAP => misc::crossarch_trap(u(0)),
         nr::KDEBUG_TRACE64 | nr::KDEBUG_TRACE | nr::KDEBUG_TRACE_STRING | nr::KDEBUG_TYPEFILTER => {

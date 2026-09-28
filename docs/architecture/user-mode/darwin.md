@@ -413,7 +413,9 @@ the two walks. Writes are refused (`EPERM`) once the node is found.
 
 Mach absolute time, uptime, and `kern.boottime` share one
 clock that starts with the emulator. Process identity (pid, credentials,
-audit token) is the host process's, and so is its audit state: `getauid`,
+audit token) is the host process's, and so are its persona (`persona`,
+the host's operations with the guest's buffers copied through: none for a
+process started without one, `ESRCH`) and its audit state: `getauid`,
 `getaudit_addr`, `auditon`, and the privileged `setauid`,
 `setaudit_addr`, `audit`, and `auditctl` are the host's, with the guest's
 memory given to them in XNU's order (lengths and privilege before a
@@ -468,7 +470,7 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   file actions, attributes, port
   actions, failures, and `waitid` views of `spawn`, the SIP queries of
   `csr`, the volume statistics and object paths of `volumes`, the
-  per-thread identity calls of `identity`, the POSIX shared memory
+  per-thread identity and persona calls of `identity`, the POSIX shared memory
   objects of `shm` (shared between mappings and with a forked child), the
   extended attributes of `xattr`, the access control lists of `acl`, the
   process, task, thread, descriptor, region, and control queries of
