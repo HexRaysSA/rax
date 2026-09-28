@@ -48,6 +48,7 @@ aio      aio      -
 uring    uring    -
 uringio  uringio  -
 uringpoll uringpoll -
+uringtimeout uringtimeout -
 splice   splice   -
 sendfault sendfault -
 ptrace   ptrace   -

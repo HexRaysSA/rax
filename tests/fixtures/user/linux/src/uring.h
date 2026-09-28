@@ -1,7 +1,7 @@
-/* Shared helpers for the io_uring fixtures (uring.c, uringio.c, uringpoll.c): the
- * io_uring structures and constants (include/uapi/linux/io_uring.h), the
- * system calls, a ring mapped as liburing maps it, SQE builders, CQE
- * reaping, and the checks they share. */
+/* Shared helpers for the io_uring fixtures (uring.c, uringio.c, uringpoll.c,
+ * uringtimeout.c): the io_uring structures and constants
+ * (include/uapi/linux/io_uring.h), the system calls, a ring mapped as
+ * liburing maps it, SQE builders, CQE reaping, and the checks they share. */
 #ifndef RAX_FIXTURE_URING_H
 #define RAX_FIXTURE_URING_H
 #define _GNU_SOURCE
@@ -100,7 +100,8 @@ enum { REGISTER_BUFFERS = 0, UNREGISTER_BUFFERS = 1, REGISTER_FILES = 2, UNREGIS
        REGISTER_EVENTFD_ASYNC = 7, REGISTER_PROBE = 8, REGISTER_PERSONALITY = 9,
        UNREGISTER_PERSONALITY = 10, REGISTER_ENABLE_RINGS = 12, REGISTER_FILES2 = 13,
        REGISTER_FILES_UPDATE2 = 14, REGISTER_BUFFERS2 = 15, REGISTER_BUFFERS_UPDATE = 16,
-       REGISTER_RING_FDS = 20, UNREGISTER_RING_FDS = 21, REGISTER_FILE_ALLOC_RANGE = 25,
+       REGISTER_RING_FDS = 20, UNREGISTER_RING_FDS = 21, REGISTER_SYNC_CANCEL = 24,
+       REGISTER_FILE_ALLOC_RANGE = 25,
        REGISTER_CLONE_BUFFERS = 30 };
 enum { OP_READV = 1, OP_WRITEV = 2, OP_FSYNC = 3, OP_READ_FIXED = 4, OP_WRITE_FIXED = 5,
        OP_SYNC_FILE_RANGE = 8, OP_FALLOCATE = 17, OP_READ = 22, OP_WRITE = 23, OP_FADVISE = 24,
@@ -108,7 +109,8 @@ enum { OP_READV = 1, OP_WRITEV = 2, OP_FSYNC = 3, OP_READ_FIXED = 4, OP_WRITE_FI
        OP_OPENAT = 18, OP_CLOSE = 19, OP_STATX = 21, OP_OPENAT2 = 28, OP_RENAMEAT = 35,
        OP_UNLINKAT = 36, OP_MKDIRAT = 37, OP_SYMLINKAT = 38, OP_LINKAT = 39,
        OP_FIXED_FD_INSTALL = 54, OP_PIPE = 62, OP_FSETXATTR = 41, OP_SETXATTR = 42,
-       OP_FGETXATTR = 43, OP_GETXATTR = 44, OP_POLL_ADD = 6, OP_POLL_REMOVE = 7 };
+       OP_FGETXATTR = 43, OP_GETXATTR = 44, OP_POLL_ADD = 6, OP_POLL_REMOVE = 7,
+       OP_TIMEOUT = 11, OP_TIMEOUT_REMOVE = 12, OP_ASYNC_CANCEL = 14, OP_LINK_TIMEOUT = 15 };
 #if defined(__aarch64__) || defined(__arm__)
 #define RAW_LARGEFILE 0400000
 #else

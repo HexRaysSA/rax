@@ -267,6 +267,12 @@ target = "x86_64-linux-musl"
 sha256 = "9a1ae26026de59ba72c905f66b9f8fd8b2713241bca14c92d01d31ca3d96fedf"
 
 [[fixture]]
+path = "bin/x86_64/uringtimeout"
+source = "src/uringtimeout.c"
+target = "x86_64-linux-musl"
+sha256 = "265ead796aa8adc3fc8e2d873286f75a72920730fd4693fe315f1ad52b3e40a3"
+
+[[fixture]]
 path = "bin/x86_64/splice"
 source = "src/splice.c"
 target = "x86_64-linux-musl"
@@ -613,6 +619,12 @@ path = "bin/aarch64/uringpoll"
 source = "src/uringpoll.c"
 target = "aarch64-linux-musl"
 sha256 = "8a9fa82f9ed703b1a120ec2b408b4bcf525b6e31b2d733b38aa1d49b03f7e751"
+
+[[fixture]]
+path = "bin/aarch64/uringtimeout"
+source = "src/uringtimeout.c"
+target = "aarch64-linux-musl"
+sha256 = "a2c1d34a23e1a5a9967574acc2df74f442bd657a1025adea380c36f00bf0d634"
 
 [[fixture]]
 path = "bin/aarch64/splice"
@@ -963,6 +975,12 @@ target = "riscv64-linux-musl"
 sha256 = "c088827437f7b8030ad563a1ffad39686fe5371865c8f337f20ba27a91bf8b1b"
 
 [[fixture]]
+path = "bin/riscv64/uringtimeout"
+source = "src/uringtimeout.c"
+target = "riscv64-linux-musl"
+sha256 = "dfdeb4e834806ae6fa1d64b8a6a39ab9f48b1122585cb41588ce6667051b469c"
+
+[[fixture]]
 path = "bin/riscv64/splice"
 source = "src/splice.c"
 target = "riscv64-linux-musl"
@@ -1279,6 +1297,12 @@ path = "bin/i386/uringpoll"
 source = "src/uringpoll.c"
 target = "x86-linux-musl"
 sha256 = "1fee9012aba92dab10217ab686132926ea6b9a6533942308d557ed8443403477"
+
+[[fixture]]
+path = "bin/i386/uringtimeout"
+source = "src/uringtimeout.c"
+target = "x86-linux-musl"
+sha256 = "dc2d54bb5db29e23d6c52c1a8992d75ac96b57d477a2df5c5b107e39538fcbd1"
 
 [[fixture]]
 path = "bin/i386/ptracejobs"
@@ -1617,6 +1641,13 @@ source = "src/uringpoll.c"
 target = "arm-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
 sha256 = "a8165c866d772d8180a169782ed352bddded3560ee2f27853daf6b321a1ff8c7"
+
+[[fixture]]
+path = "bin/arm/uringtimeout"
+source = "src/uringtimeout.c"
+target = "arm-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "927bcd402e7077e399a8b7344086fb3c5df97cbfa93b7f368327486f77a1bc98"
 
 [[fixture]]
 path = "bin/arm/splice"
@@ -1988,6 +2019,13 @@ source = "src/uringpoll.c"
 target = "thumb-linux-musleabihf"
 cpu = "cortex_a9-neon-d32"
 sha256 = "24c01343a3dae33abed7ad264661c62f9e65934a15dce2a092412786ad7f2299"
+
+[[fixture]]
+path = "bin/thumb/uringtimeout"
+source = "src/uringtimeout.c"
+target = "thumb-linux-musleabihf"
+cpu = "cortex_a9-neon-d32"
+sha256 = "b6eb5999670bb78461f812c13aa84cdc1f8b4223bc87d3fe658667641d4b64d5"
 
 [[fixture]]
 path = "bin/thumb/splice"
