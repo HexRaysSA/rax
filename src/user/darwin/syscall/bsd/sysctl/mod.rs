@@ -22,6 +22,7 @@ mod arm64;
 mod host;
 mod intel;
 mod machine;
+mod procargs;
 pub mod tree;
 
 use crate::user::darwin::abi::Errno;
@@ -268,6 +269,13 @@ fn emit(ctx: &mut Ctx<'_>, req: &mut Req, v: Value, name: &str) -> Result<(), Er
 /// A node of the operating system: one the emulation decides, or the
 /// host's.
 fn system(ctx: &mut Ctx<'_>, oid: &[i32], req: &mut Req) -> Result<(), Errno> {
+    // The calling process's arguments are in its own memory.
+    if procargs::own(ctx, oid) {
+        if req.newptr != 0 {
+            return Err(Errno::EPERM);
+        }
+        return procargs::procargs(ctx, oid[1] == procargs::KERN_PROCARGS2, req);
+    }
     let name = host::name_of(oid).or_else(|| {
         OVERRIDES
             .iter()

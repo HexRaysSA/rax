@@ -506,3 +506,13 @@ fn codesign_arm64() {
 fn codesign_x86_64() {
     fixture("codesign", "x86_64", &[], &[]);
 }
+
+#[test]
+fn procargs_arm64() {
+    fixture("procargs", "arm64", &["one", "two words"], &[]);
+}
+
+#[test]
+fn procargs_x86_64() {
+    fixture("procargs", "x86_64", &["one", "two words"], &[]);
+}

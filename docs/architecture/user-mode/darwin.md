@@ -418,8 +418,8 @@ they are mapped.
 
 Another emulated process is a host process running `rax-user`, so what
 the host says of it beyond its identity, credentials, status, and
-resource usage (its name and path, descriptors, memory, and threads) is
-the emulator's. A region's share mode and shared flag follow the kind of
+resource usage (its name and path, arguments, descriptors, memory, and
+threads) is the emulator's. A region's share mode and shared flag follow the kind of
 mapping rather than the reference counts of its memory objects: two parts
 of one private mapping split by `munmap`, or a region copied by `fork`, are
 reported as private, and a shared mapping is shared before any fork. A
@@ -460,8 +460,12 @@ as its kernel handler does it (an exact copy, or `sysctl_io_number`, which
 gives a 32-bit buffer a 64-bit value that fits); the platform's identity
 and configuration (model, target, brand string) are the host's on arm64.
 The other subtrees are the host's, answered with the guest's buffer, except
-the boot time, the stack top, the argument limit, the process name, and a
-few constants the emulation decides. The metadata nodes (`sysctl.name`,
+the boot time, the stack top, the argument limit, the process name, the
+calling process's arguments (`kern.procargs` and `kern.procargs2`: the
+string area below the stack top as `sysctl_procargsx` copies it, from the
+guest's memory as it is now, with its buffer rules, the zeros a short
+buffer gets, and the path `procargs` appends), and a few constants the
+emulation decides. The metadata nodes (`sysctl.name`,
 `.next`, `.name2oid`, `.oidfmt`, `.oiddescr`) cover both, `next` merging
 the two walks. Writes are refused (`EPERM`) once the node is found.
 
@@ -566,7 +570,10 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   each size rule), the flags it changes, audit tokens, another process's
   answers, a killable process invalidated, and a copy `codesign` re-signs
   with an identifier, entitlements, and the hardened runtime, reporting on
-  itself.
+  itself, and in `procargs` the calling process's `kern.procargs2` and
+  `kern.procargs` (count, path, arguments, environment, size queries,
+  buffer rules, a short buffer, the appended path, an argument changed in
+  place, a forked child).
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit
