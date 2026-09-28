@@ -49,6 +49,7 @@ uring    uring    -
 uringio  uringio  -
 uringpoll uringpoll -
 uringtimeout uringtimeout -
+uringnet uringnet -
 splice   splice   -
 sendfault sendfault -
 ptrace   ptrace   -
