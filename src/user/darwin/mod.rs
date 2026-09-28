@@ -16,6 +16,7 @@
 //! | [`fork`] | `fork`: the child's process, thread, and task state |
 //! | [`stack`] | The initial stack (`exec_copyout_strings`) |
 //! | [`commpage`] | The commpage |
+//! | [`codesign`] | The executable's code signature as `csops` reports it |
 //! | [`shared_region`] | The dyld shared cache |
 //! | [`vm`] | Mach VM attributes and address selection |
 //! | [`vfs`] | Guest paths and the root overlay |
@@ -37,6 +38,7 @@
 pub mod abi;
 pub mod arch;
 pub mod bridge;
+pub mod codesign;
 pub mod commpage;
 pub mod exception;
 pub mod exec;

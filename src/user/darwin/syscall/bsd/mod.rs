@@ -287,7 +287,11 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::SETPRIORITY => Ok(Rv::one(0)),
         nr::GETENTROPY => misc::getentropy(ctx, a[0], a[1]),
         nr::GETTIMEOFDAY => misc::gettimeofday(ctx, a[0], a[1], a[2]),
-        nr::CSOPS | nr::CSOPS_AUDITTOKEN => misc::csops(ctx, i(0), u(1), a[2], a[3]),
+        nr::CSOPS => crate::user::darwin::codesign::csops(ctx, i(0), u(1), a[2], a[3], None),
+        nr::CSOPS_AUDITTOKEN => match a[4] {
+            0 => Err(Errno::EINVAL),
+            t => crate::user::darwin::codesign::csops(ctx, i(0), u(1), a[2], a[3], Some(t)),
+        },
         nr::MAC_SYSCALL => mac::mac_syscall(ctx, a[0], i(1), a[2]),
         nr::GETHOSTUUID => misc::gethostuuid(ctx, a[0], a[1]),
         #[cfg(target_os = "macos")]

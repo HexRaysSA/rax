@@ -381,6 +381,8 @@ pub struct Proc {
     pub guard_ast: Option<super::exception::GuardAst>,
     /// The bridge to the host's Mach services.
     pub bridge: super::bridge::Bridge,
+    /// The code signing of the image, learned on first use.
+    pub codesign: Option<super::codesign::CodeSign>,
 }
 
 impl Proc {
@@ -974,6 +976,7 @@ pub(crate) fn start(
             exec: None,
             execed: true,
             bridge: Default::default(),
+            codesign: None,
         },
         None => {
             // SAFETY: the credential getters take no arguments.
@@ -1038,6 +1041,7 @@ pub(crate) fn start(
                 exec: None,
                 execed: true,
                 bridge: Default::default(),
+                codesign: None,
             };
             super::bridge::start(&mut proc.bridge, &mut proc.task);
             proc

@@ -106,49 +106,6 @@ pub fn getrusage(ctx: &mut Ctx<'_>, who: i32, out: u64) -> SysResult {
     Ok(Rv::one(0))
 }
 
-/// Code-signing status flags (`bsd/sys/codesign.h`).
-pub mod cs {
-    pub const CS_VALID: u32 = 0x0000_0001;
-    pub const CS_ADHOC: u32 = 0x0000_0002;
-    pub const CS_LINKER_SIGNED: u32 = 0x0002_0000;
-    pub const CS_SIGNED: u32 = 0x2000_0000;
-}
-
-/// `csops(pid, ops, useraddr, usersize)` and `csops_audittoken`.
-pub fn csops(ctx: &mut Ctx<'_>, pid: i32, ops: u32, addr: u64, size: u64) -> SysResult {
-    const CS_OPS_STATUS: u32 = 0;
-    const CS_OPS_CDHASH: u32 = 5;
-    const CS_OPS_PIDOFFSET: u32 = 6;
-    const CS_OPS_ENTITLEMENTS_BLOB: u32 = 7;
-    const CS_OPS_IDENTITY: u32 = 11;
-    const CS_OPS_TEAMID: u32 = 14;
-    const CS_OPS_DER_ENTITLEMENTS_BLOB: u32 = 16;
-    if pid != 0 && pid != ctx.proc.pid {
-        return Err(Errno::ESRCH);
-    }
-    match ops {
-        CS_OPS_STATUS => {
-            if size < 4 {
-                return Err(Errno::EINVAL);
-            }
-            let flags = cs::CS_VALID | cs::CS_ADHOC | cs::CS_LINKER_SIGNED | cs::CS_SIGNED;
-            ctx.write(addr, &flags.to_le_bytes())?;
-            Ok(Rv::one(0))
-        }
-        CS_OPS_PIDOFFSET => {
-            ctx.write(addr, &0u64.to_le_bytes())?;
-            Ok(Rv::one(0))
-        }
-        // No embedded entitlements, identity, or team.
-        CS_OPS_ENTITLEMENTS_BLOB
-        | CS_OPS_DER_ENTITLEMENTS_BLOB
-        | CS_OPS_IDENTITY
-        | CS_OPS_TEAMID
-        | CS_OPS_CDHASH => Err(Errno::ENOENT),
-        _ => Err(Errno::EINVAL),
-    }
-}
-
 /// `gethostuuid(uuid_buf, timeoutp)` (`sys_generic.c`): the machine's
 /// UUID, the host's; the timeout is read first (`EFAULT`), and without a
 /// UUID the call fails `EWOULDBLOCK`.

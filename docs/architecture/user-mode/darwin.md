@@ -399,6 +399,16 @@ the old `OSIOCGIFCONF`) are refused with `EOPNOTSUPP`, and
 | `PROC_INFO_CALL_PIDINFO` about the calling process: the flavor and size checks (`EINVAL`, `ENOMEM`, `EOVERFLOW` for a path buffer over 4096 bytes) and the identifier checks of `proc_info_extended_id` (`ESRCH`), then the emulated process: its names (the executed path's last component), `PROC_FLAG_EXEC`, and descriptor-table size in the process record (the session, terminal, start time, and unique identifiers the host's); the executable's UUID, CPU type, and platform; the task's memory, CPU times in Mach units, counters, and threads; thread records by TSD base or identifier with the thread's name and run state, and the thread lists; memory regions and the files mapped; the working directory; the executable's path (the whole buffer written, 0 returned); descriptors and their types; knote user data; workloop identifiers; the work queue's threads (`ESRCH` before it exists) | `procinfo::pidinfo` | `proc_pidinfo` |
 | `PROC_INFO_CALL_PIDFDINFO` about the calling process's descriptors (`EBADF` for none, the flavor's error for another type): a file, pipe, or shared memory object is the host's record of the host descriptor with the descriptor's status the guest's (close-on-exec; shared when another guest descriptor, or as the host says another process, holds the open file); a kqueue is the emulated kqueue's state, pending events, event size, and knotes; descriptor -1 names the work queue's kqueue | `procinfo::fdinfo` | `proc_pidfdinfo`, `fill_kqueueinfo`, `pid_kqueue_extinfo` |
 | The calling process's controls: a thread's name (`PROC_SELFSET_THREADNAME`, at most 63 characters, `ENAMETOOLONG`; the name Mach `thread_info` reports too), the other controls the host's; dyld's image-information registration (`TASK_DYLD_INFO`: final once a registration replaces another, `EINVAL` after); resource usage the host's with the executable's UUID (a whole record whatever the buffer size); its fileports (none) and workloops (`PIDDYNKQUEUEINFO`) | `procinfo::selfctl` | `proc_setcontrol`, `proc_set_dyld_images`, `task_set_dyld_info` |
+| Code signing (`csops`, `csops_audittoken`) of the calling process: XNU's checks in order (a change to another process refused without root, `EPERM`; the audit token's pid and pid version, `ESRCH`), then what the host kernel concluded of the executable at exec (status flags, code-directory hash, slice offset, identity and team, entitlements in XML and DER, the signature blob, validation category), with each operation's size rules (the 8-byte header with the length and `ERANGE` for a short buffer) and `EINVAL` once the process is invalid; and the flags the process changes (invalid, hard, killable, restricted, those `CS_OPS_SET_STATUS` may set, the installer's and library validation's cleared as XNU allows), a killable process dying of `SIGKILL` when it becomes invalid. Of another process, the host's answer | `codesign` | `csops_internal`, `csops_copy_token` |
+
+The executable's signature is the host kernel's verdict: the first
+`csops` of an image spawns the executable (the slice the emulator loaded)
+suspended on the host, asks it every question, and kills it before it
+runs; its `SIGCHLD` is not the guest's. Without a macOS host the process
+is an ad hoc, linker-signed program without entitlements. The macOS 27
+kernel refuses `CS_OPS_CDHASH_WITH_INFO` (`EINVAL`) at every size, so the
+emulated process does too. `CS_ENFORCEMENT` and library validation are
+reported, not enforced on the emulated process's memory and libraries.
 
 Paths are the kernel's names for the files (`vn_getpath`): symbolic
 links resolved, the root overlay's prefix removed, and laid out as
@@ -490,7 +500,7 @@ group lookups, preferences, the keychain list, notifications, the
 pasteboard, power management, IOKit, CoreServices' file IDs, and Launch
 Services: `id`, `whoami`, `defaults`, `security`, `pbcopy`, `pbpaste`,
 `pmset`, `ioreg`, `mdls`, `sips`, `textutil`, and `osascript` behave as
-natively).
+natively), and the code-signing queries (`codesign` signs and verifies).
 Calls not implemented are answered with `ENOSYS` (or `KERN_FAILURE` /
 `MIG_BAD_ID` for Mach) with a warning under `--strace` or
 `RAX_DARWIN_WARN`; among them are `map_with_linking_np` (dyld then applies
@@ -551,7 +561,12 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   workloops with a scheduler priority in `workloop_ctl`, and the bound
   threads of workloops (made, woken, parked, ended), the QoS their
   servicers run at, and libdispatch's bound and priority workloops in
-  `workloop_bound`.
+  `workloop_bound`, and in `codesign` what `csops` reports of the process
+  (flags, hash, offset, identity, team, entitlements, blob, category, and
+  each size rule), the flags it changes, audit tokens, another process's
+  answers, a killable process invalidated, and a copy `codesign` re-signs
+  with an identifier, entitlements, and the hardened runtime, reporting on
+  itself.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit
@@ -573,4 +588,4 @@ arithmetic, the thread-state flavors, psynch sequence arithmetic and queue
 order, thread QoS requests, the pthread priority encoding, work-queue
 admission and request selection, interpreter-line parsing, fat and thin
 grading with binary preferences, `NCARGS` accounting, `execsigs`,
-`fdt_exec`, and the spawn layouts.
+`fdt_exec`, the spawn layouts, and entitlement lookup in a signature.

@@ -496,3 +496,13 @@ fn workloop_bound_arm64() {
 fn workloop_bound_x86_64() {
     fixture("workloop_bound", "x86_64", &[], &[]);
 }
+
+#[test]
+fn codesign_arm64() {
+    fixture("codesign", "arm64", &[], &[]);
+}
+
+#[test]
+fn codesign_x86_64() {
+    fixture("codesign", "x86_64", &[], &[]);
+}
