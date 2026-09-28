@@ -2,6 +2,10 @@
 
 mod dispatch;
 
+#[cfg(test)]
+#[path = "fpu_addr_tests.rs"]
+mod fpu_addr_tests;
+
 use crate::error::{Error, Result};
 use crate::isa::x86_64::apx::rex2_reserved_opcode_len;
 use crate::isa::x86_64::cpu::{InsnContext, Rex2Prefix, X86_64Vcpu};
@@ -1325,10 +1329,15 @@ impl X86_64Vcpu {
                 _ => {}
             }
         } else if rm_field == 5 && mod_bits == 0 {
-            // RIP-relative addressing (64-bit mode)
+            // ModR/M disp32 is RIP-relative only when CS.L=1. In compatibility
+            // and legacy modes it is an absolute 32-bit offset.
             let disp = ctx.consume_u32()? as i32 as i64;
-            let rip_after = self.regs.rip as i64 + ctx.cursor as i64;
-            addr = rip_after.wrapping_add(disp) as u64;
+            addr = if self.sregs.cs.l {
+                let rip_after = self.regs.rip as i64 + ctx.cursor as i64;
+                rip_after.wrapping_add(disp) as u64
+            } else {
+                disp as u64
+            };
         } else {
             // Regular register indirect
             default_ss = Self::modrm_base_defaults_to_ss(rm);
