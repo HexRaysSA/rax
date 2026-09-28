@@ -22,6 +22,8 @@ use crate::vm::vcpu::VcpuExit;
 const CR0_EM: u64 = 1 << 2;
 const CR0_NE: u64 = 1 << 5;
 const CR0_TS: u64 = 1 << 3;
+const EFER_LME: u64 = 1 << 8;
+const EFER_LMA: u64 = 1 << 10;
 const FSW_ES: u16 = 1 << 7;
 
 const RFLAGS_CF: u64 = 1 << 0;
@@ -93,15 +95,42 @@ fn is_non_waiting(kind: X86X87ControlKind) -> bool {
     )
 }
 
+#[inline]
+fn is_canonical_48(addr: u64) -> bool {
+    ((addr as i64) << 16 >> 16) as u64 == addr
+}
+
+/// The MMU checks individual translated pages, but its noncanonical error is
+/// always #GP. Classify the entire x87 operand before translation so an SS
+/// reference raises #SS even when only a later byte is noncanonical.
+#[inline]
+fn noncanonical_operand(vcpu: &X86_64Vcpu, addr: u64, len: usize) -> bool {
+    if vcpu.sregs.efer & (EFER_LME | EFER_LMA) != (EFER_LME | EFER_LMA) || len == 0 {
+        return false;
+    }
+    let Some(last) = u64::try_from(len - 1)
+        .ok()
+        .and_then(|offset| addr.checked_add(offset))
+    else {
+        return true;
+    };
+    !is_canonical_48(addr) || !is_canonical_48(last)
+}
+
 /// Guest memory for the shared x87 core. A fault is kept as the engine's own
 /// error, which the escape returns exactly as a direct memory access would.
 struct DirectMemory<'a> {
     vcpu: &'a mut X86_64Vcpu,
     fault: Option<Error>,
+    noncanonical: bool,
 }
 
 impl X87Memory for DirectMemory<'_> {
     fn read_x87(&mut self, addr: u64, buf: &mut [u8]) -> std::result::Result<(), MemoryError> {
+        if noncanonical_operand(self.vcpu, addr, buf.len()) {
+            self.noncanonical = true;
+            return Err(MemoryError::AccessViolation { addr, write: false });
+        }
         match self.vcpu.read_bytes(addr, buf.len()) {
             Ok(bytes) => {
                 buf.copy_from_slice(&bytes);
@@ -115,6 +144,10 @@ impl X87Memory for DirectMemory<'_> {
     }
 
     fn write_x87(&mut self, addr: u64, data: &[u8]) -> std::result::Result<(), MemoryError> {
+        if noncanonical_operand(self.vcpu, addr, data.len()) {
+            self.noncanonical = true;
+            return Err(MemoryError::AccessViolation { addr, write: true });
+        }
         self.vcpu.write_bytes(addr, data).map_err(|error| {
             self.fault = Some(error);
             MemoryError::AccessViolation { addr, write: true }
@@ -153,7 +186,7 @@ fn escape(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, opcode: u8) -> Result<Op
     let modrm = ctx.consume_u8()?;
     let is_memory = modrm >> 6 != 3;
     let addr = if is_memory {
-        Some(vcpu.decode_fpu_modrm_addr(ctx, modrm)?)
+        Some(vcpu.decode_fpu_modrm_addr_with_stack_segment(ctx, modrm)?)
     } else {
         None
     };
@@ -187,13 +220,17 @@ fn escape(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, opcode: u8) -> Result<Op
             let mut state = vcpu.fpu.to_x87();
             let guest_pc = vcpu.regs.rip;
             let fop = (u16::from(opcode & 7) << 8) | u16::from(modrm);
-            let mut memory = DirectMemory { vcpu, fault: None };
+            let mut memory = DirectMemory {
+                vcpu,
+                fault: None,
+                noncanonical: false,
+            };
             let result = SmirInterpreter::x86_x87_data_step(
                 &mut state,
                 &mut memory,
                 guest_pc,
                 kind,
-                addr,
+                addr.map(|(linear, _)| linear),
                 modrm & 7,
                 fop,
                 condition,
@@ -201,6 +238,13 @@ fn escape(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, opcode: u8) -> Result<Op
             let eflags = match result {
                 Ok(eflags) => eflags,
                 Err(error) => {
+                    if memory.noncanonical {
+                        let stack_segment = addr.is_some_and(|(_, ss)| ss);
+                        memory
+                            .vcpu
+                            .inject_exception(if stack_segment { 12 } else { 13 }, Some(0))?;
+                        return Ok(None);
+                    }
                     return Err(memory.fault.take().unwrap_or_else(|| {
                         Error::Emulator(format!("x87 memory access failed: {error}"))
                     }));
@@ -235,7 +279,9 @@ fn escape(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, opcode: u8) -> Result<Op
             if !available {
                 return Ok(None);
             }
-            control(vcpu, kind, addr)?;
+            if !control(vcpu, kind, addr)? {
+                return Ok(None);
+            }
         }
     }
     vcpu.regs.rip += ctx.cursor as u64;
@@ -245,9 +291,35 @@ fn escape(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, opcode: u8) -> Result<Op
 /// Execute an environment or control operation. Memory is read in full
 /// before any state changes, and stores complete before FNSTENV masks the
 /// exceptions or FNSAVE reinitializes, so a fault changes nothing.
-fn control(vcpu: &mut X86_64Vcpu, kind: X86X87ControlKind, addr: Option<u64>) -> Result<()> {
-    let address =
-        || addr.ok_or_else(|| Error::Emulator(format!("x87 {kind:?} requires a memory operand")));
+fn control(
+    vcpu: &mut X86_64Vcpu,
+    kind: X86X87ControlKind,
+    addr: Option<(u64, bool)>,
+) -> Result<bool> {
+    let address = || {
+        addr.map(|(linear, _)| linear)
+            .ok_or_else(|| Error::Emulator(format!("x87 {kind:?} requires a memory operand")))
+    };
+    let len = match kind {
+        X86X87ControlKind::StoreStatusWord
+        | X86X87ControlKind::StoreControlWord
+        | X86X87ControlKind::LoadControlWord => Some(2),
+        X86X87ControlKind::LoadEnvironment(width) | X86X87ControlKind::StoreEnvironment(width) => {
+            Some(SmirInterpreter::x86_x87_environment_len(width))
+        }
+        X86X87ControlKind::RestoreState(width) | X86X87ControlKind::SaveState(width) => {
+            Some(SmirInterpreter::x86_x87_environment_len(width) + 80)
+        }
+        _ => None,
+    };
+    if let Some(len) = len {
+        let (linear, stack_segment) =
+            addr.ok_or_else(|| Error::Emulator(format!("x87 {kind:?} requires a memory operand")))?;
+        if noncanonical_operand(vcpu, linear, len) {
+            vcpu.inject_exception(if stack_segment { 12 } else { 13 }, Some(0))?;
+            return Ok(false);
+        }
+    }
     let mut state = vcpu.fpu.to_x87();
     match kind {
         X86X87ControlKind::Init => state.init(),
@@ -293,5 +365,5 @@ fn control(vcpu: &mut X86_64Vcpu, kind: X86X87ControlKind, addr: Option<u64>) ->
         }
     }
     vcpu.fpu.load_x87(&state);
-    Ok(())
+    Ok(true)
 }

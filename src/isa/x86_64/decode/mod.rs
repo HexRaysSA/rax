@@ -1261,10 +1261,22 @@ impl X86_64Vcpu {
         }
     }
 
-    /// Decode ModR/M address when modrm byte has already been consumed.
-    /// Used by FPU instructions where the modrm byte determines the operation.
-    /// This reads any SIB/displacement bytes from ctx and updates cursor.
+    /// Decode an x87 ModR/M address when its byte has already been consumed.
+    /// Retained for callers that need only the linear address.
     pub(super) fn decode_fpu_modrm_addr(&self, ctx: &mut InsnContext, modrm: u8) -> Result<u64> {
+        self.decode_fpu_modrm_addr_with_stack_segment(ctx, modrm)
+            .map(|(addr, _)| addr)
+    }
+
+    /// Decode an x87 ModR/M address and retain whether the memory reference
+    /// uses SS for noncanonical-address fault classification. In 64-bit mode,
+    /// CS/DS/ES/SS overrides do not change that classification; only FS/GS
+    /// overrides replace a default stack reference (SDM Vol. 1, 3.3.7.1).
+    pub(super) fn decode_fpu_modrm_addr_with_stack_segment(
+        &self,
+        ctx: &mut InsnContext,
+        modrm: u8,
+    ) -> Result<(u64, bool)> {
         let mod_bits = modrm >> 6;
         let rm_field = modrm & 0x07;
         let rm = rm_field | ctx.any_rex_b();
@@ -1279,7 +1291,8 @@ impl X86_64Vcpu {
         if addr_size == ModrmAddressSize::Addr16 {
             let (addr, default_ss) = self.decode_fpu_modrm_addr16(ctx, mod_bits, rm_field)?;
             let seg_base = self.get_segment_base_with_default(ctx.segment_override, default_ss);
-            return Ok(self.segment_linear(seg_base, addr));
+            let stack_segment = self.fpu_effective_stack_segment(ctx, default_ss);
+            return Ok((self.segment_linear(seg_base, addr), stack_segment));
         }
 
         let addr_size_32 = addr_size == ModrmAddressSize::Addr32;
@@ -1366,6 +1379,21 @@ impl X86_64Vcpu {
         let seg_base = self.get_segment_base_with_default(ctx.segment_override, default_ss);
         addr = self.segment_linear(seg_base, addr);
 
-        Ok(addr)
+        Ok((addr, self.fpu_effective_stack_segment(ctx, default_ss)))
+    }
+
+    #[inline]
+    fn fpu_effective_stack_segment(&self, ctx: &InsnContext, default_ss: bool) -> bool {
+        if self.sregs.cs.l {
+            // The legacy CS/DS/ES/SS prefixes are ignored for canonical-fault
+            // selection in 64-bit mode, even when the prefix is SS itself.
+            default_ss && !matches!(ctx.segment_override, Some(0x64 | 0x65))
+        } else {
+            match ctx.segment_override {
+                Some(0x36) => true,
+                Some(_) => false,
+                None => default_ss,
+            }
+        }
     }
 }

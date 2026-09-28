@@ -261,6 +261,234 @@ fn non_canonical_access_raises_gp0_not_a_page_fault() {
     assert_eq!(e.insn_rip, CODE + 10);
 }
 
+/// The complete x87 image must not change when an operand fault prevents the
+/// instruction from retiring, including physical binary80 stack payloads.
+fn x87_image(vcpu: &X86_64Vcpu) -> (u16, u16, u16, u64, u64, u16, [[u8; 10]; 8], u8) {
+    let f = &vcpu.fpu;
+    (
+        f.control_word,
+        f.status_word,
+        f.tag_word,
+        f.data_ptr,
+        f.instr_ptr,
+        f.last_opcode,
+        f.st,
+        f.top,
+    )
+}
+
+fn assert_x87_exception(h: &mut Harness, vector: u8, error_code: Option<u64>) {
+    let before = x87_image(&h.vcpu);
+    let flags = h.vcpu.user_rflags();
+    let e = run_event(h);
+    assert_eq!(
+        (e.vector, e.error_code, e.source, e.insn_rip, e.return_rip),
+        (vector, error_code, X86EventSource::Exception, CODE, CODE,)
+    );
+    assert_eq!(h.vcpu.regs.rip, CODE);
+    assert_eq!(h.vcpu.user_rflags(), flags);
+    assert_eq!(x87_image(&h.vcpu), before, "fault committed x87 state");
+}
+
+#[test]
+fn x87_noncanonical_fault_class_tracks_effective_segment() {
+    // Intel SDM Vol. 1 §3.3.7.1: stack-base registers default to SS; only
+    // FS/GS overrides change that choice in 64-bit mode. SS:[RAX] remains a
+    // non-SS access. R12 requires SIB+REX.B; R13 requires disp8=0 because
+    // mod=00/rm=101 is RIP-relative even with REX.B.
+    const BAD: u64 = 0x0000_8000_0000_0000;
+    for (name, code, vector) in [
+        ("FLDCW [RBP]", &[0xD9, 0x6D, 0x00][..], 12),
+        ("FLDCW [R12]", &[0x41, 0xD9, 0x2C, 0x24][..], 12),
+        ("FLDCW [R13]", &[0x41, 0xD9, 0x6D, 0x00][..], 12),
+        ("FNSTCW [RBP]", &[0xD9, 0x7D, 0x00][..], 12),
+        ("SS:FLDCW [RAX]", &[0x36, 0xD9, 0x28][..], 13),
+        ("DS:FLDCW [RBP]", &[0x3E, 0xD9, 0x6D, 0x00][..], 12),
+        ("FS:FLDCW [RBP]", &[0x64, 0xD9, 0x6D, 0x00][..], 13),
+    ] {
+        let mut h = harness(code);
+        h.vcpu.regs.rbp = BAD;
+        h.vcpu.regs.rax = BAD;
+        h.vcpu.regs.r12 = BAD;
+        h.vcpu.regs.r13 = BAD;
+        let before = x87_image(&h.vcpu);
+        let e = run_event(&mut h);
+        assert_eq!(
+            (e.vector, e.error_code, e.source, e.insn_rip, e.return_rip),
+            (vector, Some(0), X86EventSource::Exception, CODE, CODE),
+            "{name}"
+        );
+        assert_eq!(h.vcpu.regs.rip, CODE, "{name} retired");
+        assert_eq!(x87_image(&h.vcpu), before, "{name} committed state");
+    }
+}
+
+#[test]
+fn x87_noncanonical_tail_of_two_and_ten_byte_operands_is_ss0() {
+    // First byte(s) reside in a mapped canonical page; the last byte lies in
+    // the noncanonical hole. Classification must cover the whole operand.
+    const LAST_CANONICAL: u64 = 0x0000_7FFF_FFFF_FFFF;
+    let first_page = LAST_CANONICAL & !0xFFF;
+    let mut h = harness(&[0xD9, 0x6D, 0x00]); // FLDCW m16 [RBP]
+    h.space.map(first_page, 0x4000, R);
+    h.mem.write_slice(&[0x7F], GuestAddress(0x4FFF)).unwrap();
+    h.vcpu.regs.rbp = LAST_CANONICAL;
+    assert_x87_exception(&mut h, 12, Some(0));
+    let mut first_byte = [0; 1];
+    h.mem
+        .read_slice(&mut first_byte, GuestAddress(0x4FFF))
+        .unwrap();
+    assert_eq!(first_byte, [0x7F]);
+
+    let mut h = harness(&[0xDB, 0x7D, 0x00]); // FSTP m80 [RBP]
+    h.space.map(first_page, 0x4000, R | W);
+    h.mem.write_slice(&[0xA5; 8], GuestAddress(0x4FF8)).unwrap();
+    h.vcpu.fpu.push(1.5);
+    h.vcpu.regs.rbp = LAST_CANONICAL - 7; // 10-byte operand crosses at byte 8.
+    assert_x87_exception(&mut h, 12, Some(0));
+    let mut prefix = [0; 8];
+    h.mem.read_slice(&mut prefix, GuestAddress(0x4FF8)).unwrap();
+    assert_eq!(prefix, [0xA5; 8], "faulting FSTP made a partial store");
+}
+
+#[test]
+fn x87_control_images_crossing_noncanonical_tail_are_ss0_and_noncommitting() {
+    // Intel SDM Vol. 1 §8.1.10: the operand-size attribute selects 14/28 B
+    // environment and 94/108 B saved-state images. In 64-bit code, 66h
+    // selects the shorter image. Keep this separate from 16-bit-code rules.
+    const LAST_CANONICAL: u64 = 0x0000_7FFF_FFFF_FFFF;
+    for (name, code, width) in [
+        ("FNSTENV m28", &[0xD9, 0x75, 0x00][..], 28usize),
+        ("66 FNSTENV m14", &[0x66, 0xD9, 0x75, 0x00][..], 14),
+        ("FNSAVE m108", &[0xDD, 0x75, 0x00][..], 108),
+        ("66 FNSAVE m94", &[0x66, 0xDD, 0x75, 0x00][..], 94),
+    ] {
+        let mut h = harness(code);
+        h.space.map(LAST_CANONICAL & !0xFFF, 0x4000, R | W);
+        let start = LAST_CANONICAL - (width as u64 - 2);
+        let physical_start = 0x4000 | (start & 0xFFF);
+        let original = vec![0xA5; width - 1];
+        h.mem
+            .write_slice(&original, GuestAddress(physical_start))
+            .unwrap();
+        h.vcpu.fpu.push(1.5);
+        h.vcpu.fpu.control_word = 0x037E;
+        h.vcpu.regs.rbp = start;
+        let before = x87_image(&h.vcpu);
+        let e = run_event(&mut h);
+        assert_eq!(
+            (e.vector, e.error_code, e.source, e.insn_rip, e.return_rip),
+            (12, Some(0), X86EventSource::Exception, CODE, CODE),
+            "{name}"
+        );
+        assert_eq!(h.vcpu.regs.rip, CODE, "{name} retired");
+        assert_eq!(x87_image(&h.vcpu), before, "{name} changed x87 state");
+        let mut after = vec![0; width - 1];
+        h.mem
+            .read_slice(&mut after, GuestAddress(physical_start))
+            .unwrap();
+        assert_eq!(after, original, "{name} made a partial store");
+    }
+}
+
+#[test]
+fn x87_control_image_66_prefix_selects_shorter_store_width() {
+    // At the end of a mapped page the 14/94 B image fits, while its 28/108 B
+    // counterpart crosses into an unmapped (but canonical) page. This
+    // distinguishes the actual transfer width, not merely the opcode label.
+    for (name, opcode, short_width) in [("FNSTENV", 0xD9, 14usize), ("FNSAVE", 0xDD, 94)] {
+        let address = DATA + 0x1000 - short_width as u64;
+        let frame = 0x1000 + 0x1000 - short_width as u64;
+        let original = vec![0xA5; short_width];
+
+        let mut short = harness(&[0x66, opcode, 0x75, 0x00]);
+        short.vcpu.regs.rbp = address;
+        short.vcpu.fpu.push(1.5);
+        short.vcpu.fpu.control_word = 0x037E;
+        short
+            .mem
+            .write_slice(&original, GuestAddress(frame))
+            .unwrap();
+        assert!(
+            short.vcpu.step().unwrap().is_none(),
+            "{name} m{short_width}"
+        );
+        assert_eq!(short.vcpu.regs.rip, CODE + 4, "{name} m{short_width}");
+        let mut stored = vec![0; short_width];
+        short
+            .mem
+            .read_slice(&mut stored, GuestAddress(frame))
+            .unwrap();
+        assert_ne!(stored, original, "{name} m{short_width} stored nothing");
+
+        let mut long = harness(&[opcode, 0x75, 0x00]);
+        long.vcpu.regs.rbp = address;
+        long.vcpu.fpu.push(1.5);
+        long.vcpu.fpu.control_word = 0x037E;
+        long.mem
+            .write_slice(&original, GuestAddress(frame))
+            .unwrap();
+        let before = x87_image(&long.vcpu);
+        match run(&mut long.vcpu) {
+            Err(Error::GuestAccess(fault)) => {
+                assert_eq!(fault.address, DATA + 0x1000, "{name} long image");
+                assert_eq!(fault.access, MemoryAccessKind::Write, "{name}");
+                assert_eq!(fault.kind, MemoryFaultKind::Unmapped, "{name}");
+            }
+            other => panic!("{name} long image should cross the page: {other:?}"),
+        }
+        assert_eq!(long.vcpu.regs.rip, CODE, "{name} long image retired");
+        assert_eq!(x87_image(&long.vcpu), before, "{name} changed x87 state");
+        let mut after = vec![0; short_width];
+        long.mem
+            .read_slice(&mut after, GuestAddress(frame))
+            .unwrap();
+        assert_eq!(after, original, "{name} made a partial long store");
+    }
+}
+
+#[test]
+fn x87_nm_and_mf_take_priority_over_noncanonical_ss_operand() {
+    // Waiting FLDCW checks device availability, then pending x87 error,
+    // before the memory operand. CR0.NE is enabled by the user-mode harness.
+    for (name, unavailable, vector) in [
+        ("CR0.TS", 1 << 3, 7),
+        ("CR0.EM", 1 << 2, 7),
+        ("pending #MF", 0, 16),
+    ] {
+        let mut h = harness(&[0xD9, 0x6D, 0x00]); // FLDCW m16 [RBP]
+        h.vcpu.regs.rbp = 0x0000_8000_0000_0000;
+        h.vcpu.sregs.cr0 |= unavailable;
+        h.vcpu.fpu.control_word &= !1; // unmask invalid operation
+        h.vcpu.fpu.status_word |= 0x8081; // IE | ES | B: pending unmasked error
+        assert_x87_exception(&mut h, vector, None);
+        assert_eq!(h.vcpu.regs.rbp, 0x0000_8000_0000_0000, "{name}");
+    }
+}
+
+#[test]
+fn x87_canonical_unmapped_ss_operand_remains_guest_access_not_ss() {
+    for (name, code, access) in [
+        ("FLDCW", &[0xD9, 0x6D, 0x00][..], MemoryAccessKind::Read),
+        ("FNSTCW", &[0xD9, 0x7D, 0x00][..], MemoryAccessKind::Write),
+    ] {
+        let mut h = harness(code);
+        h.vcpu.regs.rbp = DATA + 0x2000; // canonical, absent from TestSpace
+        let before = x87_image(&h.vcpu);
+        match run(&mut h.vcpu) {
+            Err(Error::GuestAccess(fault)) => {
+                assert_eq!(fault.address, DATA + 0x2000, "{name}");
+                assert_eq!(fault.access, access, "{name}");
+                assert_eq!(fault.kind, MemoryFaultKind::Unmapped, "{name}");
+            }
+            other => panic!("{name}: expected an unmapped guest access, got {other:?}"),
+        }
+        assert_eq!(h.vcpu.regs.rip, CODE, "{name}");
+        assert_eq!(x87_image(&h.vcpu), before, "{name}");
+        assert_eq!(h.vcpu.take_user_trap(), None, "{name}");
+    }
+}
+
 #[test]
 fn permission_faults_are_precise() {
     // mov [rbx], rax with RBX in a read-only page.
