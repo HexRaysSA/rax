@@ -227,8 +227,18 @@ each write and not by reads, removals (none, a waiting request, the newest
 of two) and their event and user-data updates, `EALREADY` for a poll whose
 task work a deferring ring holds, links, the async workers, exec and fork,
 fdinfo's `PollList` by hash bucket, and a wake-up of io_uring's own ending a
-multishot poll. `user_linux` `fixtures` runs the
-`uring`, `uringio`, and `uringpoll` programs on every architecture against results recorded on the Linux
+multishot poll. `src/user/linux/tests/uring/timeout.rs`: timeouts
+(`io_uring/timeout.c`): expiry, the count of completions (a timeout's own
+CQE left out, the list's order), a wait an expiry ends, links and
+`IORING_TIMEOUT_ETIME_SUCCESS`, multishot ones, preparation, removals and
+updates (a count dropped, an absolute time past, the link-timeout flag
+alone), linked timeouts (expiring or cancelled first, the rest of the
+link, their update); cancellation (`io_uring/cancel.c`) of polls, waiting
+requests, timeouts, and requests queued for the workers, by user data,
+all, any (the table's order, then the timeouts), file, and operation, its
+preparation, `IORING_REGISTER_SYNC_CANCEL`; exec and fork, and a sleeping
+call's wake-up for a timer. `user_linux` `fixtures` runs the
+`uring`, `uringio`, `uringpoll`, and `uringtimeout` programs on every architecture against results recorded on the Linux
 6.19 kernel oracles (native AArch64 and x86-64 in their `compare` runs,
 i386, ARM, and Thumb-2).
 

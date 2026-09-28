@@ -1,14 +1,13 @@
 //! Polling (`io_uring/poll.c`, Linux 6.19): `IORING_OP_POLL_ADD`,
 //! `IORING_OP_POLL_REMOVE`, the requests waiting for their files
-//! (`io_arm_poll_handler`), and the poll table they share (`cancel_table`),
-//! which `/proc/<pid>/fdinfo` lists; and their cancellation as the task
-//! execs (`io_uring_task_cancel`).
+//! (`io_arm_poll_handler`), the poll table they share (`cancel_table`),
+//! which `/proc/<pid>/fdinfo` lists, and its part in cancellations.
 //!
 //! Nothing wakes an entry here as a file's wait queue does: the process's
 //! rings with entries are noted, and the entries looked at as each system
-//! call of the process begins and ends (a call that sleeps also wakes for
-//! their files). An entry whose file then reports an event it waits for is
-//! woken: its task work is queued (`io_poll_wake`), which an ordinary ring
+//! call of the process begins and ends ([`task`](super::task); a call that
+//! sleeps also wakes for their files). An entry whose file then reports an
+//! event it waits for is woken: its task work is queued (`io_poll_wake`), which an ordinary ring
 //! runs at once, as on the return to user mode after a wake-up, and a
 //! deferring ring in its next wait. A one-shot entry wakes while its file
 //! reports the event; a multishot poll, which is edge-triggered, when a
@@ -25,20 +24,19 @@
 
 use std::cmp::Reverse;
 use std::fmt::Write as _;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;
 use super::super::super::fs::anon::Anon;
 use super::super::super::fs::epoll::{EPOLLET, EPOLLEXCLUSIVE, EPOLLONESHOT};
 use super::super::super::fs::fd::{FileObject, FileType, OpenFile};
-use super::super::super::process::ProcState;
-use super::super::super::uring::abi::setup;
 use super::super::super::uring::{Chain, Poll, Req, Ring, State, Work, req_flags as rf};
 use super::super::Ctx;
 use super::super::ready::{Polled, ev, poll_files};
+use super::cancel::{self, Match};
 use super::ops::{Done, assign_file};
-use super::submit;
+use super::{task, timeout};
 
 /// `IORING_POLL_*`: a poll request's `len`.
 const ADD_MULTI: u32 = 1 << 0;
@@ -241,6 +239,7 @@ fn remove(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, how: [u64; 4]) -> Result
         }
         if flags & UPDATE_USER_DATA != 0 {
             p.chain[0].sqe.user_data = new;
+            timeout::relink(st, &p.chain[0]);
         }
         match arm_handler(c, p.file.clone(), p.events) {
             Armed::Waiting(armed) => {
@@ -306,7 +305,7 @@ pub(super) fn arm(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, chain: Chain, ar
     if arm.execute {
         queue(st, id);
     }
-    note(c, ring);
+    task::note(c, ring);
 }
 
 /// `io_arm_poll_handler`: `chain`, whose head `file` cannot serve now,
@@ -322,7 +321,7 @@ pub(super) fn park(
 ) {
     let events = mask | ev::PRI | ev::ERR | UNMASK | EPOLLET | EPOLLONESHOT;
     insert(st, chain, file, events, true, Polled::default());
-    note(c, ring);
+    task::note(c, ring);
 }
 
 /// Queues an entry's task work (it takes `poll_refs`).
@@ -333,19 +332,11 @@ fn queue(st: &mut State, id: u64) {
     }
 }
 
-/// Notes `ring` in the process's list of rings with entries.
-fn note(c: &mut Ctx<'_>, ring: &Ring) {
-    let w = ring.weak();
-    if !c.p.uring_parked.iter().any(|x| x.ptr_eq(&w)) {
-        c.p.uring_parked.push(w);
-    }
-}
-
 /// `io_poll_wake`: the entries whose files report what they wait for (a
 /// multishot poll: newly) are woken, the newest first, as a wait queue
 /// wakes the pollers `add_wait_queue` put at its head; a wake-up of
 /// io_uring's own takes the entry off its wait queue.
-fn wake(c: &Ctx<'_>, st: &mut State) {
+pub(super) fn wake(c: &Ctx<'_>, st: &mut State) {
     let mut woken = Vec::new();
     for p in st.polls.iter_mut().rev() {
         if p.queued || p.detached {
@@ -415,67 +406,11 @@ pub(super) fn task(c: &Ctx<'_>, st: &mut State, id: u64) -> Option<Fired> {
     Some(Fired::Complete(p.chain))
 }
 
-/// Looks at every ring with entries: those whose files report what they
-/// wait for are woken, and an ordinary ring's task work runs at once. The
-/// call's own progress ([`Ctx::resume`]) is kept aside meanwhile.
-pub fn drive(c: &mut Ctx<'_>) {
-    let rings: Vec<Arc<Ring>> = std::mem::take(&mut c.p.uring_parked)
-        .iter()
-        .filter_map(Weak::upgrade)
-        .collect();
-    // The call's own progress and SIGPIPE decision are kept aside.
-    let resume = c.resume.take();
-    let (decided, nosignal) = (c.sigpipe_decided, c.nosignal);
-    for ring in rings {
-        {
-            let mut st = ring.state();
-            wake(c, &mut st);
-            if ring.flags & setup::DEFER_TASKRUN == 0 {
-                submit::run_task_work(c, &ring, &mut st);
-            }
-            if !st.polls.is_empty() {
-                note(c, &ring);
-            }
-        }
-        ring.reap();
-    }
-    c.resume = resume;
-    (c.sigpipe_decided, c.nosignal) = (decided, nosignal);
-}
-
-/// What a sleeping call also waits on: the files of the entries a wake-up
-/// could reach.
-pub fn wait_fds(c: &Ctx<'_>) -> Vec<(i32, bool, bool)> {
-    let mut fds = Vec::new();
-    for ring in c.p.uring_parked.iter().filter_map(Weak::upgrade) {
-        let st = ring.state();
-        for p in st.polls.iter().filter(|p| !p.queued && !p.detached) {
-            let (_, wait) = poll_files(c, &[(&p.file, p.events)]);
-            fds.extend(wait.fds);
-        }
-    }
-    fds
-}
-
-/// In a new process: the entries are its parent's (a forked child shares a
-/// ring's memory, not its requests), so none waits here.
-pub fn forked(p: &mut ProcState) {
-    for ring in std::mem::take(&mut p.uring_parked)
-        .iter()
-        .filter_map(Weak::upgrade)
-    {
-        let mut st = ring.state();
-        let dropped: u64 = st.polls.iter().map(|x| x.chain.len() as u64).sum();
-        st.polls.clear();
-        st.live -= dropped;
-    }
-}
-
 /// The table in its order: by hash bucket of the user data
 /// (`hash_long(user_data, hash_bits)`: `hash_64`'s golden-ratio multiply,
 /// with `hash_bits` the CQ's `ilog2` less 5, from 1 to 8), the newest
 /// first in each (`hlist_add_head`).
-fn table_order(ring: &Ring, st: &State) -> Vec<usize> {
+pub(super) fn table_order(ring: &Ring, st: &State) -> Vec<usize> {
     let bits = (ring.cq_entries.ilog2() as i32 - 5).clamp(1, 8) as u32;
     let bucket = |data: u64| data.wrapping_mul(0x61c8_8646_80b5_83eb) >> (64 - bits);
     let mut order: Vec<usize> = (0..st.polls.len()).collect();
@@ -496,50 +431,32 @@ pub(super) fn poll_list(ring: &Ring, st: &State) -> String {
     s
 }
 
-/// `io_uring_task_cancel` as the task execs (`io_poll_remove_all`): each
-/// entry, in the table's order, completes with `-ECANCELED`, and the
-/// requests linked after it fail with it.
-pub fn exec_cancel(p: &mut ProcState) {
-    for ring in std::mem::take(&mut p.uring_parked)
-        .iter()
-        .filter_map(Weak::upgrade)
-    {
-        {
-            let mut st = ring.state();
-            let order = table_order(&ring, &st);
-            let mut polls: Vec<Option<Poll>> = std::mem::take(&mut st.polls)
-                .into_iter()
-                .map(Some)
-                .collect();
-            for i in order {
-                let entry = polls[i].take().expect("each entry once");
-                cancel(&ring, &mut st, entry.chain);
-            }
-        }
-        ring.reap();
+/// `io_poll_cancel`: by file, operation, or any, the first entry of the
+/// table in its order `cd` matches (`io_poll_file_find`), and otherwise the
+/// newest with the user data (`io_poll_find`; with
+/// `IORING_ASYNC_CANCEL_ALL`, not one this pass matched), is cancelled: its
+/// task work, queued now if it is not already, completes it with
+/// `-ECANCELED` (`io_poll_cancel_req`). `ENOENT` if there is none.
+pub(super) fn cancel(ring: &Ring, st: &mut State, cd: &Match) -> Result<(), Errno> {
+    let pos = if cd.by_file_or_op() {
+        table_order(ring, st).into_iter().find(|&i| {
+            let p = &mut st.polls[i];
+            cancel::matches(&mut p.chain[0], Some(&p.file), cd)
+        })
+    } else {
+        let mut order: Vec<usize> = (0..st.polls.len())
+            .filter(|&i| st.polls[i].chain[0].sqe.user_data == cd.data)
+            .collect();
+        order.sort_by_key(|&i| Reverse(st.polls[i].id));
+        order
+            .into_iter()
+            .find(|&i| !cd.all() || !cancel::seen(&mut st.polls[i].chain[0], cd.seq))
+    };
+    let p = &mut st.polls[pos.ok_or(Errno(ENOENT))?];
+    p.cancelled = true;
+    if !p.queued {
+        let id = p.id;
+        queue(st, id);
     }
-}
-
-/// Completes a cancelled chain: its head with `-ECANCELED`, the rest as
-/// `io_fail_links` fails them, in one batch.
-fn cancel(ring: &Ring, st: &mut State, mut chain: Chain) {
-    let mut head = chain.pop_front().expect("a request");
-    head.fail(-ECANCELED);
-    head.flags &= !rf::LINKS;
-    let ignore = head.flags & rf::SKIP_LINK_CQES != 0;
-    let mut batch = vec![Chain::from([head])];
-    for mut r in chain {
-        if ignore {
-            r.flags |= rf::CQE_SKIP;
-        } else {
-            r.flags &= !rf::CQE_SKIP;
-        }
-        if r.flags & rf::FAIL == 0 {
-            r.res = -ECANCELED;
-        }
-        r.cflags = 0;
-        r.flags &= !rf::LINKS;
-        batch.push(Chain::from([r]));
-    }
-    submit::flush_batch(ring, st, batch);
+    Ok(())
 }

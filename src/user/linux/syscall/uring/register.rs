@@ -34,6 +34,7 @@ mod reg {
     pub const REGISTER_BUFFERS_UPDATE: u32 = 16;
     pub const REGISTER_RING_FDS: u32 = 20;
     pub const UNREGISTER_RING_FDS: u32 = 21;
+    pub const REGISTER_SYNC_CANCEL: u32 = 24;
     pub const REGISTER_FILE_ALLOC_RANGE: u32 = 25;
     pub const REGISTER_CLONE_BUFFERS: u32 = 30;
     pub const LAST: u32 = 37;
@@ -191,6 +192,12 @@ fn register(c: &mut Ctx<'_>, ring: &Arc<Ring>, opcode: u32, arg: u64, nr_args: u
                 return Err(Errno(EINVAL));
             }
             enable_rings(c, ring)
+        }
+        reg::REGISTER_SYNC_CANCEL => {
+            if arg == 0 || nr_args != 1 {
+                return Err(Errno(EINVAL));
+            }
+            super::cancel::sync_cancel(c, ring, arg)
         }
         reg::REGISTER_RING_FDS => ringfd_register(c, arg, nr_args),
         reg::UNREGISTER_RING_FDS => ringfd_unregister(c, arg, nr_args),

@@ -8,6 +8,7 @@ mod files;
 mod poll;
 mod rsrc;
 mod rw;
+mod timeout;
 
 use super::harness::{Harness, P, each_abi};
 use crate::user::linux::abi::errno_table::*;

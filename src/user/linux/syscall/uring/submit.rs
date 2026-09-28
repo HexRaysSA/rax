@@ -26,6 +26,7 @@ use super::super::ready::ev as ev_mask;
 use super::ops::{self, Done};
 use super::poll::{self, Fired};
 use super::rsrc;
+use super::timeout::{self, Expired};
 
 /// A submission's completed requests, flushed together (`compl_reqs`).
 type Batch = Vec<Chain>;
@@ -99,7 +100,11 @@ fn init(
         }
         req.flags |= rf::CREDS;
     }
-    ops::prep(c, ring, req)
+    ops::prep(c, ring, req)?;
+    if req.sqe.opcode == op::LINK_TIMEOUT {
+        timeout::link_prep(link)?;
+    }
+    Ok(())
 }
 
 /// `io_req_defer_failed`: completes a request that failed before issue,
@@ -157,15 +162,36 @@ fn queue_fallback(st: &mut State, batch: &mut Batch, mut chain: Chain) {
     }
 }
 
+/// `__io_issue_sqe`: issues a chain's head, arming the timeout linked to
+/// it once it was (`io_queue_linked_timeout`).
+fn issue(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, chain: &mut Chain) -> Done {
+    let linked = timeout::prep_linked(chain);
+    let done = ops::issue(c, ring, st, &mut chain[0]);
+    if linked {
+        timeout::queue_linked(c, ring, st, chain);
+    }
+    done
+}
+
+/// Where an issued chain goes when its head did not complete: to wait
+/// for its file, as a poll, or as a timeout.
+fn wait(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, chain: Chain, done: Done) {
+    match done {
+        Done::Park(file, mask) => poll::park(c, ring, st, chain, file, mask),
+        Done::Poll(arm) => poll::arm(c, ring, st, chain, arm),
+        Done::Timeout => timeout::arm(c, ring, st, chain),
+        Done::Inline | Done::TaskWork => unreachable!("completed"),
+    }
+}
+
 /// `io_queue_sqe`: issues a chain's head inline; it completes into the
 /// batch (`io_req_complete_defer`) or, if its operation says so, through
 /// task work.
 fn queue_sqe(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, batch: &mut Batch, mut chain: Chain) {
-    match ops::issue(c, ring, st, &mut chain[0]) {
+    match issue(c, ring, st, &mut chain) {
         Done::Inline => batch.push(chain),
         Done::TaskWork => st.task_work.push_back(Work::Complete(chain)),
-        Done::Park(file, mask) => poll::park(c, ring, st, chain, file, mask),
-        Done::Poll(arm) => poll::arm(c, ring, st, chain, arm),
+        done => wait(c, ring, st, chain, done),
     }
 }
 
@@ -281,13 +307,15 @@ fn post(ring: &Ring, st: &mut State, req: &Req) {
 }
 
 /// `io_req_find_next` and `io_disarm_next` for a completed chain: its head,
-/// and its next request as task work, or, if it failed through a soft
-/// link, the rest cancelled as task work.
-fn next_work(chain: Chain) -> (Req, Option<Work>) {
+/// its linked timeout, cancelled, to complete as task work, and its next
+/// request as task work, or, if it failed through a soft link, the rest
+/// cancelled as task work.
+fn next_work(st: &mut State, chain: Chain) -> (Req, Option<Work>, Option<Work>) {
     let mut rest = chain;
-    let head = rest.pop_front().expect("a request");
+    let mut head = rest.pop_front().expect("a request");
+    let lt = timeout::disarm(st, &mut head, &mut rest).map(|lt| Work::Complete(Chain::from([lt])));
     if rest.is_empty() {
-        return (head, None);
+        return (head, lt, None);
     }
     if head.flags & rf::FAIL != 0 && head.flags & rf::HARDLINK == 0 {
         let ignore = head.flags & rf::SKIP_LINK_CQES != 0;
@@ -298,9 +326,9 @@ fn next_work(chain: Chain) -> (Req, Option<Work>) {
                 r.flags &= !rf::CQE_SKIP;
             }
         }
-        (head, Some(Work::FailLinks(rest)))
+        (head, lt, Some(Work::FailLinks(rest)))
     } else {
-        (head, Some(Work::Issue(rest)))
+        (head, lt, Some(Work::Issue(rest)))
     }
 }
 
@@ -323,14 +351,21 @@ fn flush(ring: &Ring, st: &mut State, batch: Batch) {
     commit(ring, st, false);
     for chain in batch {
         st.live -= 1;
-        let (head, next) = next_work(chain);
-        if let Some(w) = next {
-            st.task_work.push_back(w);
-        }
+        let (head, lt, next) = next_work(st, chain);
+        st.task_work.extend(lt.into_iter().chain(next));
         rsrc::free_req(ring, st, head);
     }
     if st.drain_active {
         queue_deferred(st);
+    }
+}
+
+/// `__io_cqring_overflow_flush`: overflowed CQEs into the ring while it
+/// has room, committed as any posting is (`io_cq_unlock_post`).
+pub(super) fn flush_overflow(ring: &Ring, st: &mut State) {
+    if !st.overflow.is_empty() {
+        ring.flush_overflow(st);
+        commit(ring, st, false);
     }
 }
 
@@ -340,6 +375,10 @@ fn flush(ring: &Ring, st: &mut State, batch: Batch) {
 /// the tail moved.
 pub(super) fn commit(ring: &Ring, st: &mut State, from_worker: bool) {
     ring.commit_cq(st);
+    // __io_commit_cqring_flush.
+    if st.off_timeout_used {
+        timeout::flush(st);
+    }
     let Some(ev) = st.eventfd.as_ref() else {
         return;
     };
@@ -367,15 +406,11 @@ fn run_iowq(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
     let lockless = ring.flags & (setup::DEFER_TASKRUN | setup::IOPOLL) != 0;
     while let Some(mut chain) = st.iowq.pop_front() {
         loop {
-            let done = ops::issue(c, ring, st, &mut chain[0]);
-            if let Done::Park(file, mask) = done {
-                // A worker that tried without sleeping waits for the file
-                // (io_wq_submit_work's poll).
-                poll::park(c, ring, st, chain, file, mask);
-                break;
-            }
-            if let Done::Poll(arm) = done {
-                poll::arm(c, ring, st, chain, arm);
+            let done = issue(c, ring, st, &mut chain);
+            // A worker that tried without sleeping waits for the file
+            // (io_wq_submit_work's poll); a poll or timeout waits alike.
+            if matches!(done, Done::Park(..) | Done::Poll(_) | Done::Timeout) {
+                wait(c, ring, st, chain, done);
                 break;
             }
             if lockless || matches!(done, Done::TaskWork) {
@@ -388,7 +423,8 @@ fn run_iowq(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
             // through task work (io_free_req), posting nothing more.
             post(ring, st, &chain[0]);
             commit(ring, st, true);
-            let (head, next) = next_work(chain);
+            let (head, lt, next) = next_work(st, chain);
+            st.task_work.extend(lt);
             let free = |st: &mut State, mut head: Req| {
                 head.flags |= rf::CQE_SKIP;
                 st.task_work.push_back(Work::Complete(Chain::from([head])));
@@ -458,6 +494,17 @@ pub(super) fn run_task_work(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
                         cq_flush = true;
                     }
                 },
+                Work::Timeout(chain) => match timeout::expired(c, ring, st, chain) {
+                    Expired::Done(chain) => batch.push(chain),
+                    Expired::Again(user_data) => {
+                        flush(ring, st, std::mem::take(&mut batch));
+                        ring.post_aux(st, user_data, -ETIME, cqe_flags::MORE);
+                        cq_flush = true;
+                    }
+                },
+                Work::LinkTimeout(lt, prev) => {
+                    batch.push(Chain::from([timeout::link_expired(ring, st, *lt, prev)]));
+                }
             }
         }
         flush(ring, st, batch);

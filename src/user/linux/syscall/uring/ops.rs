@@ -12,7 +12,7 @@ use super::super::super::fs::fd::{FileObject, OpenFile};
 use super::super::super::uring::abi::{nop, op, setup};
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::Ctx;
-use super::{fs, openclose, poll, rsrc, rw, sync, xattr};
+use super::{cancel, fs, openclose, poll, rsrc, rw, sync, timeout, xattr};
 
 /// How an issued request completes.
 #[derive(Clone, Debug)]
@@ -28,6 +28,8 @@ pub(super) enum Done {
     /// Armed on its file (`IOU_ISSUE_SKIP_COMPLETE` after `io_poll_add`):
     /// the poll completes it.
     Poll(poll::Arm),
+    /// A timeout to arm (`IOU_ISSUE_SKIP_COMPLETE` after `io_timeout`).
+    Timeout,
 }
 
 /// Whether an operation is modelled (`io_uring_op_supported`).
@@ -68,6 +70,10 @@ pub(super) fn supported(opcode: u8) -> bool {
             | op::SETXATTR
             | op::POLL_ADD
             | op::POLL_REMOVE
+            | op::TIMEOUT
+            | op::TIMEOUT_REMOVE
+            | op::LINK_TIMEOUT
+            | op::ASYNC_CANCEL
     )
 }
 
@@ -100,6 +106,10 @@ pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, req: &mut Req) -> Result<(), Errno>
         op::FGETXATTR | op::GETXATTR | op::FSETXATTR | op::SETXATTR => xattr::prep(c, req),
         op::POLL_ADD => poll::add_prep(req),
         op::POLL_REMOVE => poll::remove_prep(req),
+        op::TIMEOUT => timeout::prep(c, req, false),
+        op::LINK_TIMEOUT => timeout::prep(c, req, true),
+        op::TIMEOUT_REMOVE => timeout::remove_prep(c, req),
+        op::ASYNC_CANCEL => cancel::prep(req),
         _ => Err(Errno(EOPNOTSUPP)),
     }
 }
@@ -209,6 +219,20 @@ fn issue_op(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done
         }
         op::POLL_ADD => poll::add_issue(c, st, req),
         op::POLL_REMOVE => poll::remove_issue(c, ring, st, req),
+        op::TIMEOUT => Done::Timeout,
+        op::TIMEOUT_REMOVE => {
+            timeout::remove_issue(c, ring, st, req);
+            Done::Inline
+        }
+        op::ASYNC_CANCEL => {
+            cancel::issue(c, ring, st, req);
+            Done::Inline
+        }
+        // io_no_issue: a linked timeout is never issued.
+        op::LINK_TIMEOUT => {
+            req.fail(-ECANCELED);
+            Done::Inline
+        }
         // prep refused it.
         _ => {
             req.res = -EOPNOTSUPP;

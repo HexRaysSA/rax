@@ -77,7 +77,8 @@ impl Layout {
 
 /// A wait for completions that slept (`struct io_wait_queue`): what the
 /// call submitted before it, the CQ tail that ends it, the tail when it
-/// began (for the minimum wait), and its deadlines.
+/// began (for the minimum wait), its deadlines, and the timeouts that had
+/// expired or been satisfied as it began (`nr_timeouts`: another ends it).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Waiting {
     pub submitted: i64,
@@ -85,6 +86,7 @@ pub struct Waiting {
     pub min_tail: u32,
     pub deadline: Option<std::time::Instant>,
     pub min_deadline: Option<std::time::Instant>,
+    pub nr_timeouts: u32,
 }
 
 /// An eventfd registered to count completions (`IORING_REGISTER_EVENTFD`,
@@ -117,6 +119,11 @@ pub mod req_flags {
     pub const HAS_METADATA: u32 = 1 << 11;
     /// `REQ_F_CREDS`: the request runs with a registered personality.
     pub const CREDS: u32 = 1 << 12;
+    /// `REQ_F_ARM_LTIMEOUT`: an `IORING_OP_LINK_TIMEOUT` follows the
+    /// request, to be armed as the request is issued.
+    pub const ARM_LTIMEOUT: u32 = 1 << 13;
+    /// `REQ_F_LINK_TIMEOUT`: the request's linked timeout is armed.
+    pub const LINK_TIMEOUT: u32 = 1 << 14;
     /// `IO_REQ_LINK_FLAGS`.
     pub const LINKS: u32 = LINK | HARDLINK;
 }
@@ -125,9 +132,11 @@ pub mod req_flags {
 /// (`IORING_FEAT_SUBMIT_STABLE`), its flags, its result, what its
 /// preparation read (the vectors of `io_async_rw`, the names of `struct
 /// filename`s by address, a value it copied, and the operation's own
-/// values), and what it holds until it is freed: a file it looked up by
-/// descriptor, and the nodes of the registered file and buffer it uses
-/// (`file_node`, `buf_node`).
+/// values, a timeout's among them), and what it holds until it is freed: a
+/// file it looked up by descriptor, and the nodes of the registered file
+/// and buffer it uses (`file_node`, `buf_node`); and the key of its armed
+/// linked timeout, and the cancellation pass that last matched it
+/// (`work.cancel_seq`).
 #[derive(Clone, Debug)]
 pub struct Req {
     pub sqe: Sqe,
@@ -139,9 +148,26 @@ pub struct Req {
     pub names: Vec<(u64, Vec<u8>)>,
     pub data: Vec<u8>,
     pub how: [u64; 4],
+    pub timer: Timer,
     pub file: Option<Arc<super::fs::fd::OpenFile>>,
     pub file_node: Option<rsrc::NodeId>,
     pub buf_node: Option<rsrc::NodeId>,
+    pub ltimeout: u64,
+    pub cancel_seq: Option<u32>,
+}
+
+/// A timeout's own values (`struct io_timeout`, `struct io_timeout_data`):
+/// its flags (`IORING_TIMEOUT_*`), its time in nanoseconds
+/// (`timespec64_to_ktime`), the completions it waits for (`off`, 0 for
+/// none) and the sequence that satisfies them, and a multishot one's
+/// remaining expiries.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Timer {
+    pub flags: u32,
+    pub ns: i64,
+    pub off: u32,
+    pub target_seq: u32,
+    pub repeats: u32,
 }
 
 impl Req {
@@ -157,9 +183,12 @@ impl Req {
             names: Vec::new(),
             data: Vec::new(),
             how: [0; 4],
+            timer: Timer::default(),
             file: None,
             file_node: None,
             buf_node: None,
+            ltimeout: 0,
+            cancel_seq: None,
         }
     }
 
@@ -210,6 +239,33 @@ pub enum Work {
     /// A poll's task work (`io_poll_task_func`): the entry of the poll
     /// table with this key, woken or cancelled.
     Poll(u64),
+    /// An expired timeout's task work (`io_timeout_complete`): a multishot
+    /// one reports and is armed again, any other completes.
+    Timeout(Chain),
+    /// An expired linked timeout's task work (`io_req_task_link_timeout`):
+    /// the timeout and the user data of the request it was linked to,
+    /// which it cancels.
+    LinkTimeout(Box<Req>, u64),
+}
+
+/// A timeout on the ring's list (`timeout_list`): its key, the chain it
+/// heads, and when it expires.
+#[derive(Debug)]
+pub struct Timeout {
+    pub key: u64,
+    pub chain: Chain,
+    pub deadline: std::time::Instant,
+}
+
+/// An armed linked timeout (`ltimeout_list`): its key, the timeout itself
+/// (taken from the chain of the request it was linked to), that request's
+/// user data, and when it expires.
+#[derive(Debug)]
+pub struct LinkTimeout {
+    pub key: u64,
+    pub req: Req,
+    pub prev: u64,
+    pub deadline: std::time::Instant,
 }
 
 /// An entry of the poll table (`cancel_table`): a chain whose head polls
@@ -293,6 +349,29 @@ pub struct State {
     /// The poll table, and the key the next entry takes.
     pub polls: Vec<Poll>,
     pub next_poll: u64,
+    /// The timeouts in the kernel's list order (those that wait for
+    /// completions first, by their sequence), the armed linked timeouts,
+    /// and the key the next of either takes.
+    pub timeouts: Vec<Timeout>,
+    pub ltimeouts: Vec<LinkTimeout>,
+    pub next_timer: u64,
+    /// `cq_timeouts`: the timeouts that expired or were satisfied, whose
+    /// CQEs a timeout's count leaves out; `cq_last_tm_flush`, the sequence
+    /// last looked at; `off_timeout_used`, set once a timeout waits for
+    /// completions.
+    pub cq_timeouts: u32,
+    pub cq_last_tm_flush: u32,
+    pub off_timeout_used: bool,
+    /// `cancel_seq`: the number of the last cancellation pass.
+    pub cancel_seq: u32,
+}
+
+impl State {
+    /// Whether anything waits for a wake-up or a time: poll table entries
+    /// or timeouts.
+    pub fn waiting(&self) -> bool {
+        !self.polls.is_empty() || !self.timeouts.is_empty() || !self.ltimeouts.is_empty()
+    }
 }
 
 /// An io_uring instance: the object behind an `anon_inode:[io_uring]`

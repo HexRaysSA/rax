@@ -1211,9 +1211,11 @@ pub fn dispatch(
         if c.p.aio.polls_pending() {
             wait.fds.extend(aio::poll_pending(&mut c).fds);
         }
-        // And for the files io_uring requests wait for.
+        // And for the files io_uring requests wait for, and as their next
+        // timer expires.
         if !c.p.uring_parked.is_empty() {
             wait.fds.extend(uring::wait_fds(&c));
+            wait.deadline = ready::earlier(wait.deadline, uring::next_deadline(&c));
         }
         if strace && !resumed {
             trace_unfinished(tid, sysno, nr, &args);

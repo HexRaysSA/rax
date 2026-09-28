@@ -10,6 +10,7 @@
 //! `IORING_SETUP_REGISTERED_FD_ONLY`), and mixed-size entries
 //! (`IORING_SETUP_CQE_MIXED`, `IORING_SETUP_SQE_MIXED`).
 
+mod cancel;
 mod fs;
 mod openclose;
 mod ops;
@@ -19,10 +20,12 @@ mod rsrc;
 mod rw;
 mod submit;
 mod sync;
+mod task;
+mod timeout;
 mod xattr;
 
-pub use poll::{drive, exec_cancel, forked, wait_fds};
 pub use register::io_uring_register;
+pub use task::{drive, exec_cancel, forked, next_deadline, wait_fds};
 
 use std::fmt::Write as _;
 use std::sync::Arc;
@@ -566,9 +569,7 @@ fn start_wait(
         return Err(Errno(EEXIST));
     }
     submit::run_task_work(c, ring, st);
-    if !st.overflow.is_empty() {
-        ring.flush_overflow(st);
-    }
+    submit::flush_overflow(ring, st);
     if ring.cq_ready() >= min_events {
         return Ok(0);
     }
@@ -589,6 +590,7 @@ fn start_wait(
         min_tail: ring.get32(rings::CQ_TAIL),
         deadline,
         min_deadline: (min_ns != 0).then(|| now + Duration::from_nanos(min_ns)),
+        nr_timeouts: st.cq_timeouts,
     };
     check_wait(c, ring, st, w)
 }
@@ -605,9 +607,10 @@ fn wait_again(c: &mut Ctx<'_>, ring: &Ring, w: Waiting) -> SysResult {
     ret.map(|v| v as u64)
 }
 
-/// `io_should_wake`: the CQ tail reached the target.
-fn should_wake(ring: &Ring, w: &Waiting) -> bool {
-    ring.get32(rings::CQ_TAIL).wrapping_sub(w.target) as i32 >= 0
+/// `io_should_wake`: the CQ tail reached the target, or a timeout expired
+/// or was satisfied since the wait began.
+fn should_wake(ring: &Ring, st: &State, w: &Waiting) -> bool {
+    ring.get32(rings::CQ_TAIL).wrapping_sub(w.target) as i32 >= 0 || st.cq_timeouts != w.nr_timeouts
 }
 
 /// One pass of `io_cqring_wait`'s loop: task work and the overflow list
@@ -620,10 +623,8 @@ fn check_wait(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, mut w: Waiting) -> R
     submit::run_task_work(c, ring, st);
     let now = Instant::now();
     let mut result = None;
-    if !st.overflow.is_empty() {
-        ring.flush_overflow(st);
-    }
-    if should_wake(ring, &w) {
+    submit::flush_overflow(ring, st);
+    if should_wake(ring, st, &w) {
         result = Some(Ok(0));
     } else if c.signal_pending() {
         result = Some(Err(Errno(EINTR)));
@@ -645,7 +646,8 @@ fn check_wait(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, mut w: Waiting) -> R
     }
     let Some(r) = result else {
         let next = w.min_deadline.or(w.deadline);
-        let recheck = Instant::now() + RECHECK;
+        // Another ring's timer: the recheck; this one's: as it expires.
+        let recheck = (Instant::now() + RECHECK).min(timeout::next(st).unwrap_or(now + RECHECK));
         let deadline = Some(next.map_or(recheck, |d| d.min(recheck)));
         let mut wait = Wait::until(deadline);
         wait.interruptible = true;
