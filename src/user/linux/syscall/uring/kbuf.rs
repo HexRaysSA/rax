@@ -156,7 +156,9 @@ fn ring_write(c: &Ctx<'_>, r: &BufRing, off: u64, data: &[u8]) {
     match &r.object {
         Some(o) => {
             use std::os::unix::fs::FileExt;
-            let _ = o.host_file().write_all_at(data, off);
+            if let Some(f) = o.host_file() {
+                let _ = f.write_all_at(data, off);
+            }
         }
         None => {
             let _ = c.p.space.write_raw(r.addr + off, data);

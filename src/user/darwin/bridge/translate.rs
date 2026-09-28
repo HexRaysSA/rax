@@ -115,8 +115,15 @@ fn to_host(bridge: &mut Bridge, right: Right) -> Result<Moved, (KernReturn, Righ
                 // Kernel objects the host has too: the emulator's task and
                 // its flavors, the host, and the task's identity (a token of
                 // the host task, which the guest's task is).
-                KObject::Task => host::task_port(),
-                KObject::TaskIdToken(_) => host::identity_token(),
+                // A service holding the task may map memory into it.
+                KObject::Task => {
+                    bridge.mirror.arm();
+                    host::task_port()
+                }
+                KObject::TaskIdToken(_) => {
+                    bridge.mirror.arm();
+                    host::identity_token()
+                }
                 KObject::Host => Some(host::host_port()),
                 KObject::TaskName | KObject::TaskRead | KObject::TaskInspect => {
                     let which = match p.kobject {
@@ -408,6 +415,9 @@ fn send(
     } else {
         None
     };
+    // Where a service may map memory into the task, the host is kept from
+    // choosing the guest's addresses.
+    super::mirror::before_send(proc);
     // SAFETY: `buf` holds the message (and room for the reply); `regions`
     // and `arrays` hold the memory its descriptors point at, alive until the
     // call returns.
@@ -538,6 +548,9 @@ fn u64_at(b: &[u8], o: usize) -> u64 {
 
 /// Handles one received host message.
 fn received(proc: &mut Proc, raw: &[u8]) {
+    // What the sender mapped into the task before sending is the guest's
+    // before the guest sees the message.
+    super::mirror::after_receive(proc);
     let local = u32_at(raw, 12);
     let id = u32_at(raw, 20) as i32;
     if proc.config.strace {

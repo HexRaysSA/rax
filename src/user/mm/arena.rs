@@ -215,6 +215,26 @@ impl FrameArena {
         Ok(())
     }
 
+    /// Lays `len` bytes (at most [`EXTENT`], a multiple of the host page)
+    /// of host memory `memory` from `offset` (a multiple of [`EXTENT`])
+    /// over extent `pa`, as [`FrameArena::attach`] lays a file's.
+    pub fn attach_memory(
+        &self,
+        pa: u64,
+        memory: &dyn super::HostMemory,
+        offset: u64,
+        len: u64,
+        writable: bool,
+    ) -> std::io::Result<()> {
+        debug_assert_eq!(pa & (EXTENT - 1), 0);
+        debug_assert_eq!(offset & (EXTENT - 1), 0);
+        debug_assert!(len > 0 && len <= EXTENT);
+        // SAFETY: as for `attach`: the extent is EXTENT host-page-aligned
+        // bytes of the arena's own mapping that no frame and no reference
+        // into the arena covers, and `len` bytes of it lie inside it.
+        unsafe { memory.map_at(self.host_address(pa), offset, len, writable) }
+    }
+
     /// Lays anonymous memory back over extent `pa`.
     #[cfg(unix)]
     pub fn detach(&self, pa: u64) {

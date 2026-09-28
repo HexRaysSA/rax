@@ -50,7 +50,7 @@ mod tests;
 pub use arena::{EXTENT, FrameArena};
 pub use backing::{Backing, BytesSource, HostFileSource, PageSource, SourceIdentity};
 pub use mapped_file::{Keep, set_retire};
-pub use shared::{SharedObject, anonymous_file};
+pub use shared::{HostMemory, SharedObject, anonymous_file};
 pub use vma::{Vma, VmaMap};
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
@@ -1009,15 +1009,12 @@ fn attach(arena: &FrameArena, base: u64, object: &SharedObject, start: u64) -> R
         if len == 0 {
             return Err(MmError::OutOfMemory);
         }
-        arena
-            .attach(
-                base,
-                object.host_file().as_raw_fd(),
-                start,
-                len,
-                object.writable(),
-            )
-            .map_err(|_| MmError::OutOfMemory)
+        let attached = match (object.host_file(), object.memory()) {
+            (Some(f), _) => arena.attach(base, f.as_raw_fd(), start, len, object.writable()),
+            (None, Some(m)) => arena.attach_memory(base, m.as_ref(), start, len, object.writable()),
+            (None, None) => return Err(MmError::OutOfMemory),
+        };
+        attached.map_err(|_| MmError::OutOfMemory)
     }
     #[cfg(not(unix))]
     {

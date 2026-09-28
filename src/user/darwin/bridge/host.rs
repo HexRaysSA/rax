@@ -161,7 +161,40 @@ unsafe extern "C" {
         max: i32,
         inheritance: u32,
     ) -> i32;
+    fn mach_vm_region_recurse(
+        task: Name,
+        address: *mut u64,
+        size: *mut u64,
+        depth: *mut u32,
+        info: *mut i32,
+        count: *mut u32,
+    ) -> i32;
+    fn task_info(task: Name, flavor: i32, info: *mut i32, count: *mut u32) -> i32;
 }
+
+/// `VM_FLAGS_*` of `mach_vm_map` (`osfmk/mach/vm_statistics.h`).
+pub mod vmflags {
+    pub const FIXED: i32 = 0;
+    pub const ANYWHERE: i32 = 1;
+    pub const OVERWRITE: i32 = 0x4000;
+}
+
+/// `VM_INHERIT_*`.
+pub mod inherit {
+    pub const SHARE: u32 = 0;
+    pub const NONE: u32 = 2;
+}
+
+/// `SM_*`: how a region's memory is shared (`osfmk/mach/vm_region.h`).
+pub mod share {
+    pub const SHARED: u8 = 4;
+    pub const TRUESHARED: u8 = 5;
+    pub const PRIVATE_ALIASED: u8 = 6;
+    pub const SHARED_ALIASED: u8 = 7;
+}
+
+/// `MAP_MEM_VM_SHARE`: a memory entry of the memory itself, not a copy.
+const MAP_MEM_VM_SHARE: i32 = 0x40_0000;
 
 /// The emulator's task port.
 pub fn task() -> Name {
@@ -465,6 +498,251 @@ pub fn map_copy(
         }
     };
     Ok((data, keep(cur, got_cur), keep(max, got_max)))
+}
+
+/// A region of the emulator's address space, as
+/// `mach_vm_region_recurse` reports it at depth 0
+/// (`VM_REGION_SUBMAP_INFO_64`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Region {
+    pub start: u64,
+    pub end: u64,
+    /// `VM_PROT_*` now, and at most.
+    pub prot: u32,
+    pub max: u32,
+    pub inheritance: u32,
+    pub tag: u32,
+    /// `SM_*`.
+    pub share_mode: u8,
+    pub submap: bool,
+}
+
+/// The region at or after `addr`.
+pub fn region_from(addr: u64) -> Option<Region> {
+    let (mut a, mut size, mut depth) = (addr, 0u64, 0u32);
+    // vm_region_submap_info_64 (V3, 21 words, packed to 4 bytes).
+    let mut info = [0i32; 21];
+    let mut count = info.len() as u32;
+    // SAFETY: `info` holds VM_REGION_SUBMAP_INFO_COUNT_64 words; the other
+    // pointers receive the answer.
+    let kr = unsafe {
+        mach_vm_region_recurse(
+            task(),
+            &mut a,
+            &mut size,
+            &mut depth,
+            info.as_mut_ptr(),
+            &mut count,
+        )
+    };
+    if kr != 0 || size == 0 {
+        return None;
+    }
+    Some(Region {
+        start: a,
+        end: a.saturating_add(size),
+        prot: info[0] as u32,
+        max: info[1] as u32,
+        inheritance: info[2] as u32,
+        tag: info[5] as u32,
+        // share_mode is byte 47, the last of word 11.
+        share_mode: (info[11] as u32 >> 24) as u8,
+        submap: info[12] != 0,
+    })
+}
+
+/// Every region of the emulator's address space, in address order.
+pub fn regions() -> Vec<Region> {
+    let mut out = Vec::new();
+    let mut at = 0;
+    while let Some(r) = region_from(at) {
+        at = r.end;
+        out.push(r);
+    }
+    out
+}
+
+/// The emulator's virtual size and region count (`TASK_VM_INFO`), which
+/// change when a region is made.
+pub fn vm_stamp() -> (u64, u32) {
+    // task_vm_info_data_t, packed to 4 bytes: virtual_size, region_count.
+    let mut info = [0i32; 128];
+    let mut count = info.len() as u32;
+    // SAFETY: `info` holds `count` words; TASK_VM_INFO is 22.
+    let kr = unsafe { task_info(task(), 22, info.as_mut_ptr(), &mut count) };
+    if kr != 0 {
+        return (0, 0);
+    }
+    let size = u64::from(info[0] as u32) | (u64::from(info[1] as u32) << 32);
+    (size, info[2] as u32)
+}
+
+/// Reserves `[addr, addr + len)` (free host pages) with an inaccessible
+/// mapping tagged `tag`, which a host child does not inherit.
+pub fn reserve(addr: u64, len: u64, tag: u32) -> bool {
+    let mut a = addr;
+    // SAFETY: a fixed mapping of free address space, no memory object.
+    let kr = unsafe {
+        mach_vm_map(
+            task(),
+            &mut a,
+            len,
+            0,
+            vmflags::FIXED | (tag << 24) as i32,
+            NULL,
+            0,
+            0,
+            0,
+            0,
+            inherit::NONE,
+        )
+    };
+    kr == 0 && a == addr
+}
+
+/// A memory entry of the emulator's memory `[addr, addr + len)` itself
+/// (`MAP_MEM_VM_SHARE`), allowing `prot`.
+pub fn share_entry(addr: u64, len: u64, prot: u32) -> Result<Name, i32> {
+    let mut size = len;
+    let mut h = NULL;
+    // SAFETY: `size` and `h` receive the answer.
+    let kr = unsafe {
+        mach_make_memory_entry_64(
+            task(),
+            &mut size,
+            addr,
+            prot as i32 | MAP_MEM_VM_SHARE,
+            &mut h,
+            NULL,
+        )
+    };
+    if kr != 0 { Err(kr) } else { Ok(h) }
+}
+
+/// A memory entry of `len` bytes of entry `parent` from `offset`, allowing
+/// `prot`.
+pub fn sub_entry(parent: Name, offset: u64, len: u64, prot: u32) -> Result<Name, i32> {
+    let mut size = len;
+    let mut h = NULL;
+    // SAFETY: `size` and `h` receive the answer.
+    let kr = unsafe {
+        mach_make_memory_entry_64(task(), &mut size, offset, prot as i32, &mut h, parent)
+    };
+    if kr != 0 { Err(kr) } else { Ok(h) }
+}
+
+/// Maps `len` bytes of memory entry `entry` from `offset` over `at`,
+/// replacing what is there, shared (and with a host child), with `prot`.
+///
+/// # Safety
+/// `[at, at + len)` must be the caller's own host-page-aligned memory that
+/// nothing references while it is replaced.
+pub unsafe fn map_entry_at(at: u64, entry: Name, offset: u64, len: u64, prot: u32) -> i32 {
+    let mut a = at;
+    // SAFETY: as the caller promises; the entry is a right of this task.
+    let kr = unsafe {
+        mach_vm_map(
+            task(),
+            &mut a,
+            len,
+            0,
+            vmflags::FIXED | vmflags::OVERWRITE,
+            entry,
+            offset,
+            0,
+            prot as i32,
+            prot as i32,
+            inherit::SHARE,
+        )
+    };
+    if kr == 0 && a != at { 3 } else { kr }
+}
+
+/// Reads up to `buf.len()` bytes of memory entry `entry` of `size` bytes
+/// from `offset`, through a mapping of it made for the read.
+pub fn read_entry(entry: Name, size: u64, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
+    let n = (buf.len() as u64).min(size.saturating_sub(offset));
+    if n == 0 {
+        return Ok(0);
+    }
+    // SAFETY: sysconf takes no pointers.
+    let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) } as u64;
+    let (base, skip) = (offset & !(page - 1), offset & (page - 1));
+    let span = (skip + n).div_ceil(page) * page;
+    let mut a = 0u64;
+    // SAFETY: a new read-only mapping anywhere, unmapped below.
+    let kr = unsafe {
+        mach_vm_map(
+            task(),
+            &mut a,
+            span,
+            0,
+            vmflags::ANYWHERE,
+            entry,
+            base,
+            0,
+            1,
+            1,
+            inherit::NONE,
+        )
+    };
+    if kr != 0 {
+        return Err(std::io::Error::other(format!("mach_vm_map: {kr:#x}")));
+    }
+    // SAFETY: the mapping made above holds `span` readable bytes.
+    let src = unsafe { std::slice::from_raw_parts((a + skip) as *const u8, n as usize) };
+    buf[..n as usize].copy_from_slice(src);
+    free(a, span);
+    Ok(n as usize)
+}
+
+/// A shared mapping into the emulator of `size` bytes of the memory
+/// object behind host right `object` from `offset` (with the guest's
+/// maximum protection `max`, `VM_PROT_IS_MASK` included, made readable, as
+/// the host's entry allows it, and that current protection; inherited as a
+/// copy): its address, and the protections the guest's mapping of it gets
+/// (`cur`, `max` as the guest asked).
+pub fn map_shared(
+    object: Name,
+    size: u64,
+    offset: u64,
+    cur: u32,
+    max: u32,
+) -> Result<(u64, u32, u32), i32> {
+    let mut addr = 0u64;
+    // SAFETY: `addr` receives the mapping's address.
+    let kr = unsafe {
+        mach_vm_map(
+            task(),
+            &mut addr,
+            size,
+            0,
+            vmflags::ANYWHERE,
+            object,
+            offset,
+            0,
+            (max | 1) as i32,
+            (max | 1) as i32,
+            1,
+        )
+    };
+    if kr != 0 {
+        return Err(kr);
+    }
+    // The entry allowed at most what the mapping got (the guest's current
+    // protection is within its maximum).
+    let (got_cur, got_max) = match region_from(addr) {
+        Some(r) if r.start == addr => (r.max, r.max),
+        _ => (cur & 7, max & 7),
+    };
+    let keep = |asked: u32, got: u32| {
+        if asked & 0x40 != 0 {
+            asked & 7 & got
+        } else {
+            asked & 7
+        }
+    };
+    Ok((addr, keep(cur, got_cur), keep(max, got_max)))
 }
 
 /// Reads `len` bytes of host memory at `addr` (a received out-of-line

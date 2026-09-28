@@ -114,7 +114,8 @@ them over Mach:
 | Exports: a guest port whose right the guest gives a host service is a host receive right of the process's, whose messages the scheduler receives (without blocking, and in its `poll` when every thread sleeps) and queues on the guest port with their rights, memory, and sender's audit token; a send-once right in a message's reply field is made from a host reply port (`MPO_REPLY_PORT`), as services enforcing reply-port semantics require (a violation is a fatal guard exception on the host). While the host holds send rights to an export, the guest port keeps one that stands for them, released at the host's no-senders notification | `bridge`, `bridge::translate` | `ipc_validate_local_port`, `mach_port_construct` |
 | Kernel objects of the host: IOKit's main port (`host_get_io_main`) is the host's, and the guest's sends to a proxy travel in the guest's own call class (`MACH64_SEND_KOBJECT_CALL` or `MACH64_SEND_MQ_CALL`), which the host kernel checks; a kernel object's call is sent and its reply received in one call, as the host requires of a call that names a reply port. The calls that name memory of the calling task (IOKit's property reads into a buffer, and `io_connect_method`'s out-of-line input and output) are given host buffers, copied from the guest's memory before the call and into it after as the reply says; mapping memory into a task or unmapping it is answered `kIOReturnUnsupported` without reaching the host. Rights to the emulator's own task or to the host that a service hands the guest are the guest's own | `bridge::kernel`, `bridge::translate`, `mig::host` | `ipc_validate_kmsg_dest_from_user`, `device.defs` |
 | Moved receive rights: a receive right the guest sends a host service is the export's (or a new host receive right), and the guest port then sends on to the host what the guest sends it or had queued on it; the right coming back makes it the guest port's again | `bridge::translate` | `ipc_right_copyin` (`MACH_MSG_TYPE_MOVE_RECEIVE`) |
-| Memory entries: an entry of the guest's memory (`mach_make_memory_entry`) is a host memory entry over a host file the range becomes a shared mapping of (its contents kept; `MAP_MEM_VM_COPY` makes one of a copy, `MAP_MEM_NAMED_CREATE` one of new memory), so a service that maps it shares it; `vm_map` of such an entry maps the file shared (or a copy), and of an entry a service made maps a copy of its contents; `VM_PROT_IS_MASK` asks for the protections the entry allows | `syscall::mach::entry`, `mig::vm` | `mach_make_memory_entry_internal`, `vm_map_enter_mem_object` |
+| Memory entries: an entry of the guest's memory (`mach_make_memory_entry`) is a host memory entry over a host file the range becomes a shared mapping of (its contents kept; `MAP_MEM_VM_COPY` makes one of a copy, `MAP_MEM_NAMED_CREATE` one of new memory), so a service that maps it shares it; `vm_map` of such an entry maps the file shared (or a copy), and of an entry a service made maps the service's memory itself (or, with `copy`, a copy of its contents): the guest's pages are the host memory, which the emulator maps too (a host child makes its own entry of that mapping); `VM_PROT_IS_MASK` asks for the protections the entry allows | `syscall::mach::entry`, `mig::vm`, `bridge::mirror` | `mach_make_memory_entry_internal`, `vm_map_enter_mem_object` |
+| Memory a service maps into the task: a service the guest hands its task control port or identity token may map memory into the task (`coreservicesd` maps the session's file-ID universe into a client "via identity-token", returns its address, and later maps segments whose addresses it publishes in that memory). The guest's task is the emulator's, so the memory lands in the emulator's address space: from the first such hand-over, what the guest maps is reserved on the host (inaccessible mappings) before each send, so the host picks addresses the guest leaves free, and after each message from the host a region that is new, accessible, shared with another task, and outside the frame arena is mapped at the same address in the guest as the same memory (through an entry of it, `MAP_MEM_VM_SHARE`, allowing what the region allows now) | `bridge::mirror` | `mach_make_memory_entry_share`, `vm_map_region_walk` (share modes) |
 | Policy calls (`__mac_syscall`): AMFI's dyld policy for an unrestricted process; the Sandbox policy's checks (`sandbox_check` and its variants) and container queries, the host's answers with the guest's strings, buffers, and filter blocks copied through; other calls of a registered policy `ENOTSUP`, an unregistered policy `ENOPOLICY` | `syscall::bsd::mac` | `mac_syscall` (`security/mac_base.c`) |
 | `gethostuuid`: the host's UUID (`EFAULT` for the timeout, `EWOULDBLOCK` without one) | `syscall::bsd::misc` | `gethostuuid` (`sys_generic.c`) |
 
@@ -129,6 +130,16 @@ guest would guard), thread ports, and other kernel objects but the task
 send right, and a send the host must wait to queue holds the whole
 process. `RAX_DARWIN_NO_HOST_SERVICES` turns the bridge off: the process
 then has no bootstrap port and its registered ports are null.
+
+What a service maps into the task is found by looking at the emulator's
+regions, so a shared mapping the emulator's own libraries make meanwhile
+(a notification page, say) appears in the guest too, and a region the host
+places where the guest has memory is not mirrored (`--strace` reports it):
+memory another guest thread mapped after the send, or a range that was the
+emulator's own when the guest's was reserved and that the emulator has
+freed since. A region mirrored at its first touch in
+the parent is shared with a forked child; one touched first in the child
+is the child's copy of the host region, as the host fork gives it.
 
 ## Threads
 
@@ -472,8 +483,9 @@ timer, read, and signal sources), `fork` with `wait4`, `waitid`, and
 port actions, spawn attributes), process information (`proc_info`),
 sockets, and the host's services over the bootstrap port (so user and
 group lookups, preferences, the keychain list, notifications, the
-pasteboard, power management, and IOKit: `id`, `whoami`, `defaults`,
-`security`, `pbcopy`, `pbpaste`, `pmset`, and `ioreg` behave as
+pasteboard, power management, IOKit, CoreServices' file IDs, and Launch
+Services: `id`, `whoami`, `defaults`, `security`, `pbcopy`, `pbpaste`,
+`pmset`, `ioreg`, `mdls`, `sips`, `textutil`, and `osascript` behave as
 natively).
 Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
@@ -524,9 +536,12 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `fd_flags`, and the bootstrap lookups, directory service, notifications,
   Sandbox checks, memory entries, and host UUID of `host_services` (in the
   parent and its forked and spawned children), the IOKit registry,
-  matching, and property reads of `iokit`, and the shared aliases,
-  copies, reported and given protections, rounding, placement, and
-  refusals of `mach_vm_remap` and `mach_vm_remap_new` in `remap`.
+  matching, and property reads of `iokit`, the shared aliases, copies,
+  reported and given protections, rounding, placement, and refusals of
+  `mach_vm_remap` and `mach_vm_remap_new` in `remap`, and in
+  `coreservices` (in the parent and a spawned child) the file-ID universe
+  `coreservicesd` maps into the task, Launch Services lookups, and the
+  session's shared memory page Launch Services maps and remaps.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit
@@ -540,7 +555,8 @@ Without a macOS host (or without Rosetta, for x86_64) the comparisons have
 no oracle and report themselves skipped. Library tests under
 `src/user/darwin/` cover the name space, message trailers, commpage and
 stack layout, slide info, sysctl walks, values, and copy-out, the
-host-information flavors,
+host-information flavors, the host regions a service maps into the task
+and the memory entries of them,
 exception-to-signal translation, exception requests and reply checks,
 signal actions, interval-timer
 arithmetic, the thread-state flavors, psynch sequence arithmetic and queue

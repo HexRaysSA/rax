@@ -1048,6 +1048,92 @@ mod shared_objects {
         assert_eq!(s.attached_extents(), 1);
     }
 
+    /// Host memory that maps itself: here a host file laid over the extent
+    /// with its own `mmap`, counting the extents it was asked for.
+    #[derive(Debug)]
+    struct Memory {
+        file: std::fs::File,
+        size: u64,
+        maps: std::sync::atomic::AtomicUsize,
+    }
+
+    impl HostMemory for Memory {
+        fn size(&self) -> u64 {
+            self.size
+        }
+
+        unsafe fn map_at(
+            &self,
+            at: *mut u8,
+            offset: u64,
+            len: u64,
+            writable: bool,
+        ) -> std::io::Result<()> {
+            use std::os::fd::AsRawFd;
+            self.maps.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let prot = libc::PROT_READ | if writable { libc::PROT_WRITE } else { 0 };
+            // SAFETY: as the caller promises of `[at, at + len)`.
+            let p = unsafe {
+                libc::mmap(
+                    at.cast(),
+                    len as usize,
+                    prot,
+                    libc::MAP_SHARED | libc::MAP_FIXED,
+                    self.file.as_raw_fd(),
+                    offset as libc::off_t,
+                )
+            };
+            if p == libc::MAP_FAILED {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        }
+
+        fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
+            self.file.read_at(buf, offset)
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn host_memory_is_attached_by_the_object() {
+        let (path, f) = file("memory", &[0x5c; 2 * P as usize]);
+        let memory = Arc::new(Memory {
+            file: f.try_clone().unwrap(),
+            size: 2 * P,
+            maps: Default::default(),
+        });
+        let obj = Arc::new(SharedObject::host_memory(memory.clone(), true));
+        assert!(obj.host_file().is_none());
+        assert_eq!(obj.len(), 2 * P);
+        assert!(obj.zero_range(0, P).is_err());
+        let s = space();
+        s.map(0x10000, 2 * P, shared(&obj, 0, RW)).unwrap();
+        s.map(0x40000, P, shared(&obj, P, Perms::READ)).unwrap();
+        assert_eq!(byte(&s, 0x10000 + P), 0x5c);
+        // Stores reach the memory, and its changes reach the mappings.
+        s.write(0x10000 + P, &[0xa5]).unwrap();
+        assert_eq!(byte(&s, 0x40000), 0xa5);
+        let mut b = [0u8];
+        f.read_at(&mut b, P).unwrap();
+        assert_eq!(b[0], 0xa5);
+        f.write_all_at(&[0x77], 0).unwrap();
+        assert_eq!(byte(&s, 0x10000), 0x77);
+        // One extent, mapped once; nothing past the object's end.
+        assert_eq!(s.attached_extents(), 1);
+        assert_eq!(memory.maps.load(std::sync::atomic::Ordering::Relaxed), 1);
+        let mut buf = [0u8; 2];
+        assert_eq!(obj.read_at(P - 1, &mut buf).unwrap(), 2);
+        assert_eq!(buf, [0x5c, 0xa5]);
+        s.unmap(0x10000, 2 * P).unwrap();
+        s.unmap(0x40000, P).unwrap();
+        assert_eq!(s.attached_extents(), 0);
+        let _ = std::fs::remove_file(path);
+    }
+
     #[test]
     fn extents_and_frames_share_the_arena_without_overlap() {
         let arena = FrameArena::new(2 * EXTENT, &[]).unwrap();

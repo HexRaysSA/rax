@@ -144,6 +144,21 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                                 copy.then(|| entry::contents(&e, offset, size)),
                             )
                         }
+                        // A service's entry: its memory, or a copy.
+                        None if !copy => {
+                            let (object, cur, max) =
+                                crate::user::darwin::bridge::map_object_shared(
+                                    ctx.proc, h, size, offset, cur, max,
+                                )?;
+                            let mapping = Mapping {
+                                perms: vm::perms(cur),
+                                backing: Backing::Shared { object, offset: 0 },
+                                shared: true,
+                                name: None,
+                                flags: VmFlags::new(max, inh, flags >> 24).bits(),
+                            };
+                            (mapping, None)
+                        }
                         None => {
                             let (data, cur, max) =
                                 crate::user::darwin::bridge::map_object(h, size, offset, cur, max)?;

@@ -641,7 +641,9 @@ impl Ring {
 
     /// Writes a word of the ring region.
     pub fn put32(&self, off: u64, v: u32) {
-        let _ = self.rings.host_file().write_all_at(&v.to_le_bytes(), off);
+        if let Some(f) = self.rings.host_file() {
+            let _ = f.write_all_at(&v.to_le_bytes(), off);
+        }
     }
 
     /// Sets or clears bits of `sq_flags` (`atomic_or`, `atomic_andnot`).
@@ -723,10 +725,9 @@ impl Ring {
         let size = abi::CQE_SIZE * if self.cqe32() { 2 } else { 1 };
         let bytes = cqe.encode();
         let len = if whole { size } else { abi::CQE_SIZE };
-        let _ = self
-            .rings
-            .host_file()
-            .write_all_at(&bytes[..len as usize], rings::CQES + u64::from(slot) * size);
+        if let Some(f) = self.rings.host_file() {
+            let _ = f.write_all_at(&bytes[..len as usize], rings::CQES + u64::from(slot) * size);
+        }
         st.cached_cq_tail = st.cached_cq_tail.wrapping_add(1);
         true
     }

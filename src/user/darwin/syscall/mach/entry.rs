@@ -9,7 +9,8 @@
 //! contents kept) unless one already backs it; `MAP_MEM_NAMED_CREATE`
 //! makes one of new zero-filled memory, and `MAP_MEM_VM_COPY` one of a
 //! copy. Mapping an entry the bridge made maps its file shared (or a copy
-//! of it); an entry a service made is mapped as a copy of its contents.
+//! of it); an entry a service made maps the service's memory itself (see
+//! `bridge::mirror`), or a copy of its contents.
 
 use std::os::unix::fs::FileExt;
 use std::sync::Arc;
@@ -162,6 +163,7 @@ fn of_guest(
     let object = SharedObject::anonymous(len).map_err(|_| kr::KERN_RESOURCE_SHORTAGE)?;
     object
         .host_file()
+        .ok_or(kr::KERN_RESOURCE_SHORTAGE)?
         .write_all_at(&data, 0)
         .map_err(|_| kr::KERN_RESOURCE_SHORTAGE)?;
     let object = Arc::new(object);

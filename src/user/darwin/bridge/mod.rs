@@ -31,6 +31,8 @@ pub mod host;
 #[cfg(target_os = "macos")]
 pub mod kernel;
 #[cfg(target_os = "macos")]
+pub mod mirror;
+#[cfg(target_os = "macos")]
 pub mod translate;
 
 use std::collections::HashMap;
@@ -155,6 +157,9 @@ pub struct Bridge {
     moved: HashMap<u32, Weak<Port>>,
     /// The memory entries the bridge made, by their proxies' identity.
     entries: HashMap<u64, (Weak<Port>, super::syscall::mach::entry::Entry)>,
+    /// Memory host services map into the task.
+    #[cfg(target_os = "macos")]
+    mirror: mirror::Mirror,
     /// The receive buffer.
     buf: Vec<u8>,
 }
@@ -299,12 +304,17 @@ impl Bridge {
         }
     }
 
-    /// Before a new image replaces the guest: its ports' exports end.
+    /// Before a new image replaces the guest: its ports' exports end, and
+    /// the new task has handed itself to no service.
     pub fn exec(&mut self) {
         let ids: Vec<u64> = self.exports.keys().copied().collect();
         for id in ids {
             let e = self.exports.remove(&id).expect("listed");
             self.end(e);
+        }
+        #[cfg(target_os = "macos")]
+        {
+            self.mirror = mirror::Mirror::default();
         }
     }
 }
@@ -416,6 +426,26 @@ pub fn map_object(
     Err(super::mach::kr::KERN_INVALID_OBJECT)
 }
 
+/// A shared mapping of the host memory object behind proxy `h` (a
+/// service's memory entry): `size` bytes from `offset`, which stores on
+/// either side reach, with the mapping's protections (`cur`, `max` as the
+/// guest asked, `VM_PROT_IS_MASK` included, as the host's entry allows).
+pub fn map_object_shared(
+    proc: &mut Proc,
+    h: &HostRight,
+    size: u64,
+    offset: u64,
+    cur: u32,
+    max: u32,
+) -> Result<(Arc<crate::user::mm::SharedObject>, u32, u32), i32> {
+    #[cfg(target_os = "macos")]
+    if let Some(n) = h.name() {
+        return mirror::map_service(proc, n, size, offset, cur, max);
+    }
+    let _ = (proc, h, size, offset, cur, max);
+    Err(super::mach::kr::KERN_INVALID_OBJECT)
+}
+
 /// A host memory entry for `entry` with protection `prot`, as a proxy
 /// holding one send right for the caller.
 pub fn make_entry(
@@ -426,8 +456,12 @@ pub fn make_entry(
     #[cfg(target_os = "macos")]
     {
         use std::os::fd::AsRawFd;
-        let fd = entry.object.host_file().as_raw_fd();
-        let name = host::memory_entry(fd, entry.offset, entry.len, prot)?;
+        let name = match (entry.object.host_file(), entry.object.memory()) {
+            (Some(f), _) => host::memory_entry(f.as_raw_fd(), entry.offset, entry.len, prot)?,
+            // Host memory a service mapped: an entry of its entry.
+            (None, Some(m)) => mirror::sub_entry(m, entry.offset, entry.len, prot)?,
+            (None, None) => return Err(super::mach::kr::KERN_INVALID_ARGUMENT),
+        };
         let b = &mut proc.bridge;
         b.entries.retain(|_, (w, _)| w.strong_count() > 0);
         let p = b.proxy(name);

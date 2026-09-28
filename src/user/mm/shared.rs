@@ -9,14 +9,55 @@
 //! Anonymous shared memory (`MAP_SHARED | MAP_ANONYMOUS`, a shared mapping
 //! of `/dev/zero`) is an object of its own: a Linux `memfd`, or an unlinked
 //! temporary file on other hosts, as Linux backs it with a `shmem` file.
+//! Host memory that is no file (a [`HostMemory`], such as a Mach memory
+//! entry) is attached the same way, mapped by the object itself.
 
 use std::fmt;
+use std::sync::Arc;
 
 use super::backing::SourceIdentity;
 
+/// Host memory that is not a file: an object the host maps directly (a
+/// Mach memory entry on macOS), which a personality provides. The frame
+/// arena lays its extents over the arena with [`HostMemory::map_at`].
+pub trait HostMemory: Send + Sync + fmt::Debug {
+    /// Its size in bytes, a multiple of the host page.
+    fn size(&self) -> u64;
+
+    /// Maps `len` bytes of it from `offset` (host-page aligned, within
+    /// [`HostMemory::size`]) over the host memory at `at`, replacing what
+    /// is there, shared and writable when `writable`.
+    ///
+    /// # Safety
+    /// `[at, at + len)` must be host-page-aligned memory of the caller's
+    /// own mapping that nothing references while it is replaced (an arena
+    /// extent).
+    unsafe fn map_at(
+        &self,
+        at: *mut u8,
+        offset: u64,
+        len: u64,
+        writable: bool,
+    ) -> std::io::Result<()>;
+
+    /// Reads up to `buf.len()` bytes at `offset` (short only at the end).
+    fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize>;
+
+    /// The object itself, for the personality that made it.
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
+/// What holds a shared object's contents.
+enum Store {
+    /// A host file.
+    File(super::mapped_file::MappedFile),
+    /// Host memory that is no file.
+    Memory(Arc<dyn HostMemory>),
+}
+
 /// A host object backing shared mappings.
 pub struct SharedObject {
-    file: super::mapped_file::MappedFile,
+    store: Store,
     identity: SourceIdentity,
     writable: bool,
     anonymous: bool,
@@ -70,7 +111,7 @@ impl SharedObject {
     ) -> std::io::Result<Self> {
         Ok(SharedObject {
             identity: identity_of(&file)?,
-            file: super::mapped_file::MappedFile::keeping(file, keep),
+            store: Store::File(super::mapped_file::MappedFile::keeping(file, keep)),
             writable,
             anonymous: false,
             sysv: None,
@@ -83,7 +124,7 @@ impl SharedObject {
     pub fn sysv(file: std::fs::File, writable: bool, id: i32) -> std::io::Result<Self> {
         Ok(SharedObject {
             identity: identity_of(&file)?,
-            file: super::mapped_file::MappedFile::new(file),
+            store: Store::File(super::mapped_file::MappedFile::new(file)),
             writable,
             anonymous: true,
             sysv: Some(id),
@@ -103,7 +144,7 @@ impl SharedObject {
         file.set_len(len)?;
         Ok(SharedObject {
             identity: identity_of(&file)?,
-            file: super::mapped_file::MappedFile::new(file),
+            store: Store::File(super::mapped_file::MappedFile::new(file)),
             writable: true,
             anonymous: true,
             sysv: None,
@@ -117,14 +158,23 @@ impl SharedObject {
     /// taken for another object's, and is mapped no further than `len`
     /// rounded up to a host page.
     pub fn fixed(file: std::fs::File, writable: bool, len: u64) -> Self {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static NEXT: AtomicU64 = AtomicU64::new(1);
         SharedObject {
-            identity: SourceIdentity {
-                dev: u64::MAX,
-                ino: NEXT.fetch_add(1, Ordering::Relaxed),
-            },
-            file: super::mapped_file::MappedFile::new(file),
+            identity: own_identity(),
+            store: Store::File(super::mapped_file::MappedFile::new(file)),
+            writable,
+            anonymous: false,
+            sysv: None,
+            limit: Some(len),
+        }
+    }
+
+    /// Host memory `memory`, mapped for writing when `writable`: of fixed
+    /// size, with an identity of its own (as [`SharedObject::fixed`]).
+    pub fn host_memory(memory: Arc<dyn HostMemory>, writable: bool) -> Self {
+        let len = memory.size();
+        SharedObject {
+            identity: own_identity(),
+            store: Store::Memory(memory),
             writable,
             anonymous: false,
             sysv: None,
@@ -148,7 +198,10 @@ impl SharedObject {
 
     /// Current size in bytes.
     pub fn len(&self) -> u64 {
-        self.file.metadata().map(|m| m.len()).unwrap_or(0)
+        match &self.store {
+            Store::File(f) => f.metadata().map(|m| m.len()).unwrap_or(0),
+            Store::Memory(m) => m.size(),
+        }
     }
 
     /// Whether the object is empty.
@@ -171,14 +224,31 @@ impl SharedObject {
         self.anonymous
     }
 
-    /// The host file.
-    pub fn host_file(&self) -> &std::fs::File {
-        &self.file
+    /// The host file, unless the object is host memory.
+    pub fn host_file(&self) -> Option<&std::fs::File> {
+        match &self.store {
+            Store::File(f) => Some(f),
+            Store::Memory(_) => None,
+        }
+    }
+
+    /// The host memory, if the object is not a file.
+    pub fn memory(&self) -> Option<&Arc<dyn HostMemory>> {
+        match &self.store {
+            Store::File(_) => None,
+            Store::Memory(m) => Some(m),
+        }
     }
 
     /// Zeroes `len` bytes from `offset`, within the object's size (a hole
-    /// punched with the size kept, as readers see it).
+    /// punched with the size kept, as readers see it); host memory cannot
+    /// be written this way.
     pub fn zero_range(&self, offset: u64, len: u64) -> std::io::Result<()> {
+        let Store::File(file) = &self.store else {
+            return Err(std::io::ErrorKind::Unsupported.into());
+        };
+        #[cfg(not(unix))]
+        let _ = file;
         let end = offset.saturating_add(len).min(self.len());
         let zeros = vec![0u8; 64 << 10];
         let mut at = offset;
@@ -187,7 +257,7 @@ impl SharedObject {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::FileExt;
-                self.file.write_all_at(&zeros[..n], at)?;
+                file.write_all_at(&zeros[..n], at)?;
             }
             at += n as u64;
         }
@@ -196,12 +266,16 @@ impl SharedObject {
 
     /// Reads up to `buf.len()` bytes at `offset` (short only at the end).
     pub fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
+        let file = match &self.store {
+            Store::File(f) => f,
+            Store::Memory(m) => return m.read_at(offset, buf),
+        };
         #[cfg(unix)]
         {
             use std::os::unix::fs::FileExt;
             let mut done = 0;
             while done < buf.len() {
-                let n = self.file.read_at(&mut buf[done..], offset + done as u64)?;
+                let n = file.read_at(&mut buf[done..], offset + done as u64)?;
                 if n == 0 {
                     break;
                 }
@@ -211,9 +285,19 @@ impl SharedObject {
         }
         #[cfg(not(unix))]
         {
-            let _ = (offset, buf);
+            let _ = (file, offset, buf);
             Ok(0)
         }
+    }
+}
+
+/// A new identity no host object has (device `u64::MAX`).
+fn own_identity() -> SourceIdentity {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+    SourceIdentity {
+        dev: u64::MAX,
+        ino: NEXT.fetch_add(1, Ordering::Relaxed),
     }
 }
 

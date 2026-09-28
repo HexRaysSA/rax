@@ -466,3 +466,13 @@ fn remap_arm64() {
 fn remap_x86_64() {
     fixture("remap", "x86_64", &[], &[]);
 }
+
+#[test]
+fn coreservices_arm64() {
+    fixture("coreservices", "arm64", &[], &[]);
+}
+
+#[test]
+fn coreservices_x86_64() {
+    fixture("coreservices", "x86_64", &[], &[]);
+}

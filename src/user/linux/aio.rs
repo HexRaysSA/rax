@@ -164,7 +164,9 @@ impl Context {
     }
 
     fn put(&self, off: u64, v: u32) {
-        let _ = self.ring.host_file().write_at(&v.to_le_bytes(), off);
+        if let Some(f) = self.ring.host_file() {
+            let _ = f.write_at(&v.to_le_bytes(), off);
+        }
     }
 
     fn get(&self, off: u64) -> u32 {
@@ -232,10 +234,9 @@ impl Context {
     /// `aio_complete`: the event goes after the tail.
     pub fn complete(&mut self, ev: Event) {
         let pos = u64::from(self.tail) + 1;
-        let _ = self
-            .ring
-            .host_file()
-            .write_at(&ev.encode(), pos * EVENT_SIZE);
+        if let Some(f) = self.ring.host_file() {
+            let _ = f.write_at(&ev.encode(), pos * EVENT_SIZE);
+        }
         self.tail += 1;
         if self.tail >= self.nr_events {
             self.tail = 0;
