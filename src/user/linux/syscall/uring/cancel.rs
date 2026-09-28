@@ -113,7 +113,7 @@ fn cancel_queued(st: &mut State, cd: &Match) -> Result<(), Errno> {
         let file = chain[0].file.clone();
         if (all || !found) && matches(&mut chain[0], file.as_ref(), cd) {
             found = true;
-            chain[0].fail(-ECANCELED);
+            chain[0].defer_failed(-ECANCELED);
             st.task_work.push_back(Work::Complete(chain));
         } else {
             kept.push_back(chain);

@@ -124,6 +124,11 @@ pub mod req_flags {
     pub const ARM_LTIMEOUT: u32 = 1 << 13;
     /// `REQ_F_LINK_TIMEOUT`: the request's linked timeout is armed.
     pub const LINK_TIMEOUT: u32 = 1 << 14;
+    /// `REQ_F_POLLED`: the request waited for its file at least once.
+    pub const POLLED: u32 = 1 << 15;
+    /// `REQ_F_APOLL_MULTISHOT`: the request goes on completing as its file
+    /// becomes ready, each time posting with `IORING_CQE_F_MORE`.
+    pub const APOLL_MULTISHOT: u32 = 1 << 16;
     /// `IO_REQ_LINK_FLAGS`.
     pub const LINKS: u32 = LINK | HARDLINK;
 }
@@ -132,11 +137,13 @@ pub mod req_flags {
 /// (`IORING_FEAT_SUBMIT_STABLE`), its flags, its result, what its
 /// preparation read (the vectors of `io_async_rw`, the names of `struct
 /// filename`s by address, a value it copied, and the operation's own
-/// values, a timeout's among them), and what it holds until it is freed: a
-/// file it looked up by descriptor, and the nodes of the registered file
-/// and buffer it uses (`file_node`, `buf_node`); and the key of its armed
-/// linked timeout, and the cancellation pass that last matched it
-/// (`work.cancel_seq`).
+/// values, a timeout's and a socket request's among them), and what it
+/// holds until it is freed: a file it looked up by descriptor, and the
+/// nodes of the registered file and buffer it uses (`file_node`,
+/// `buf_node`); the key of its armed linked timeout, the cancellation pass
+/// that last matched it (`work.cancel_seq`), and the completions a
+/// multishot issue posted (with `IORING_CQE_F_MORE`), for its caller to
+/// post.
 #[derive(Clone, Debug)]
 pub struct Req {
     pub sqe: Sqe,
@@ -149,11 +156,34 @@ pub struct Req {
     pub data: Vec<u8>,
     pub how: [u64; 4],
     pub timer: Timer,
+    pub net: Net,
     pub file: Option<Arc<super::fs::fd::OpenFile>>,
     pub file_node: Option<rsrc::NodeId>,
     pub buf_node: Option<rsrc::NodeId>,
     pub ltimeout: u64,
     pub cancel_seq: Option<u32>,
+    pub posts: Vec<(i32, u32)>,
+}
+
+/// A socket request's own values (`struct io_sr_msg`, `struct io_connect`):
+/// its flags (`IORING_RECVSEND_*`, `IORING_ACCEPT_*`), its message flags,
+/// its buffer or header and the length left (moved on as `MSG_WAITALL`
+/// progress is made), the bytes already moved (`done_io`), a header's name,
+/// control buffer, and their lengths as read at preparation, and a
+/// connection's progress.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Net {
+    pub flags: u32,
+    pub msg_flags: u32,
+    pub buf: u64,
+    pub len: u64,
+    pub done: u64,
+    pub name: u64,
+    pub namelen: i32,
+    pub control: u64,
+    pub controllen: u64,
+    pub in_progress: bool,
+    pub aborted: bool,
 }
 
 /// A timeout's own values (`struct io_timeout`, `struct io_timeout_data`):
@@ -184,11 +214,13 @@ impl Req {
             data: Vec::new(),
             how: [0; 4],
             timer: Timer::default(),
+            net: Net::default(),
             file: None,
             file_node: None,
             buf_node: None,
             ltimeout: 0,
             cancel_seq: None,
+            posts: Vec::new(),
         }
     }
 
@@ -207,6 +239,19 @@ impl Req {
         self.set_fail();
         self.res = res;
         self.cflags = 0;
+    }
+
+    /// `io_req_defer_failed`: fails the request with `res`, a transfer on a
+    /// socket that moved bytes reporting those (`io_sendrecv_fail`).
+    pub fn defer_failed(&mut self, res: i32) {
+        self.fail(res);
+        let io = matches!(
+            self.sqe.opcode,
+            abi::op::SEND | abi::op::RECV | abi::op::SENDMSG | abi::op::RECVMSG
+        );
+        if io && self.net.done != 0 {
+            self.res = self.net.done as i32;
+        }
     }
 
     /// Its completion.
@@ -364,6 +409,9 @@ pub struct State {
     pub off_timeout_used: bool,
     /// `cancel_seq`: the number of the last cancellation pass.
     pub cancel_seq: u32,
+    /// `cq_flush`: CQEs were posted outside a batch, to commit with the
+    /// next flush.
+    pub cq_flush: bool,
 }
 
 impl State {

@@ -184,11 +184,27 @@ fn wait(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, chain: Chain, done: Done) 
     }
 }
 
+/// `io_req_post_cqe` for what a multishot issue posted: the completions
+/// the batch holds first, then each with the head's user data, committed
+/// with the next flush (`cq_flush`).
+fn post_more(ring: &Ring, st: &mut State, batch: &mut Batch, head: &mut Req) {
+    if head.posts.is_empty() {
+        return;
+    }
+    flush(ring, st, std::mem::take(batch));
+    for (res, cflags) in std::mem::take(&mut head.posts) {
+        ring.post_aux(st, head.sqe.user_data, res, cflags);
+    }
+    st.cq_flush = true;
+}
+
 /// `io_queue_sqe`: issues a chain's head inline; it completes into the
 /// batch (`io_req_complete_defer`) or, if its operation says so, through
 /// task work.
 fn queue_sqe(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, batch: &mut Batch, mut chain: Chain) {
-    match issue(c, ring, st, &mut chain) {
+    let done = issue(c, ring, st, &mut chain);
+    post_more(ring, st, batch, &mut chain[0]);
+    match done {
         Done::Inline => batch.push(chain),
         Done::TaskWork => st.task_work.push_back(Work::Complete(chain)),
         done => wait(c, ring, st, chain, done),
@@ -342,7 +358,7 @@ pub(super) fn flush_batch(ring: &Ring, st: &mut State, batch: Vec<Chain>) {
 /// (`io_free_batch_list`: each one's link queued, then what it held
 /// released), and drained chains looked at again.
 fn flush(ring: &Ring, st: &mut State, batch: Batch) {
-    if batch.is_empty() {
+    if batch.is_empty() && !st.cq_flush {
         return;
     }
     for chain in &batch {
@@ -375,6 +391,7 @@ pub(super) fn flush_overflow(ring: &Ring, st: &mut State) {
 /// the tail moved.
 pub(super) fn commit(ring: &Ring, st: &mut State, from_worker: bool) {
     ring.commit_cq(st);
+    st.cq_flush = false;
     // __io_commit_cqring_flush.
     if st.off_timeout_used {
         timeout::flush(st);
@@ -405,6 +422,21 @@ pub(super) fn commit(ring: &Ring, st: &mut State, from_worker: bool) {
 fn run_iowq(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
     let lockless = ring.flags & (setup::DEFER_TASKRUN | setup::IOPOLL) != 0;
     while let Some(mut chain) = st.iowq.pop_front() {
+        // io_wq_submit_work: a multishot request never runs in a worker; it
+        // waits for its file (EBADFD if it has no wait queue).
+        if chain[0].flags & rf::APOLL_MULTISHOT != 0 {
+            match ops::assign_file(c, st, &mut chain[0]) {
+                Ok(f) if poll::pollable(&f) => {
+                    poll::park(c, ring, st, chain, f, ev_mask::IN | ev_mask::RDNORM);
+                }
+                r => {
+                    let e = r.err().map_or(EBADFD, |e| e.0);
+                    chain[0].defer_failed(-e);
+                    st.task_work.push_back(Work::Complete(chain));
+                }
+            }
+            continue;
+        }
         loop {
             let done = issue(c, ring, st, &mut chain);
             // A worker that tried without sleeping waits for the file
@@ -466,7 +498,6 @@ fn task_submit(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, batch: &mut Batch, 
 pub(super) fn run_task_work(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
     while !st.task_work.is_empty() {
         let mut batch = Batch::new();
-        let mut cq_flush = false;
         while let Some(w) = st.task_work.pop_front() {
             match w {
                 Work::Issue(chain) => task_submit(c, ring, st, &mut batch, chain),
@@ -491,15 +522,16 @@ pub(super) fn run_task_work(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
                     Some(Fired::Post(user_data, res)) => {
                         flush(ring, st, std::mem::take(&mut batch));
                         ring.post_aux(st, user_data, res, cqe_flags::MORE);
-                        cq_flush = true;
+                        st.cq_flush = true;
                     }
+                    Some(Fired::Reissue(id)) => reissue(c, ring, st, &mut batch, id),
                 },
                 Work::Timeout(chain) => match timeout::expired(c, ring, st, chain) {
                     Expired::Done(chain) => batch.push(chain),
                     Expired::Again(user_data) => {
                         flush(ring, st, std::mem::take(&mut batch));
                         ring.post_aux(st, user_data, -ETIME, cqe_flags::MORE);
-                        cq_flush = true;
+                        st.cq_flush = true;
                     }
                 },
                 Work::LinkTimeout(lt, prev) => {
@@ -508,9 +540,24 @@ pub(super) fn run_task_work(c: &mut Ctx<'_>, ring: &Ring, st: &mut State) {
             }
         }
         flush(ring, st, batch);
-        if cq_flush {
-            commit(ring, st, false);
-        }
         run_iowq(c, ring, st);
+    }
+}
+
+/// `io_poll_issue` for a multishot request's entry: its head issued again
+/// in place, what it posted posted; still waiting, it stays in the table,
+/// and otherwise completes (`IOU_POLL_REMOVE_POLL_USE_RES`).
+fn reissue(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, batch: &mut Batch, id: u64) {
+    let Some(pos) = st.polls.iter().position(|p| p.id == id) else {
+        return;
+    };
+    let mut entry = st.polls.remove(pos);
+    let done = issue(c, ring, st, &mut entry.chain);
+    post_more(ring, st, batch, &mut entry.chain[0]);
+    match done {
+        Done::Park(..) => poll::rearm(c, st, entry),
+        Done::Inline => batch.push(entry.chain),
+        Done::TaskWork => st.task_work.push_back(Work::Complete(entry.chain)),
+        done => wait(c, ring, st, entry.chain, done),
     }
 }

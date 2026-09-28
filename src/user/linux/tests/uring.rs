@@ -5,6 +5,7 @@
 use std::time::{Duration, Instant};
 
 mod files;
+mod net;
 mod poll;
 mod rsrc;
 mod rw;

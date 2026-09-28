@@ -244,8 +244,15 @@ link, their update); cancellation (`io_uring/cancel.c`) of polls, waiting
 requests, timeouts, and requests queued for the workers, by user data,
 all, any (the table's order, then the timeouts), file, and operation, its
 preparation, `IORING_REGISTER_SYNC_CANCEL`; exec and fork, and a sleeping
-call's wake-up for a timer. `user_linux` `fixtures` runs the
-`uring`, `uringio`, `uringpoll`, and `uringtimeout` programs on every architecture against results recorded on the Linux
+call's wake-up for a timer. `src/user/linux/tests/uring/net.rs`: socket
+requests (`io_uring/net.c`): sends and receives on a pair (data left,
+waiting, `MSG_DONTWAIT`), `MSG_WAITALL` in parts and cancelled, messages
+(vectors, `MSG_TRUNC`, the header read at preparation), preparation,
+`ENOTSOCK`, buffer selection, `IORING_RECVSEND_POLL_FIRST`, `SHUTDOWN`'s
+link, Unix sockets made, bound, listened, connected, and accepted, accepts
+into slots and multishot ones, and TCP connecting in the background and
+accepting with a queue. `user_linux` `fixtures` runs the
+`uring`, `uringio`, `uringpoll`, `uringtimeout`, and `uringnet` programs on every architecture against results recorded on the Linux
 6.19 kernel oracles (native AArch64 and x86-64 in their `compare` runs,
 i386, ARM, and Thumb-2).
 

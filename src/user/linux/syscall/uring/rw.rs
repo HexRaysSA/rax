@@ -60,7 +60,7 @@ fn le64(b: &[u8], at: usize) -> u64 {
 
 /// `import_ubuf`: one buffer, capped at `MAX_RW_COUNT`, within user space
 /// (`EFAULT`).
-fn import_ubuf(c: &Ctx<'_>, addr: u64, len: u64) -> Result<(u64, u64), Errno> {
+pub(super) fn import_ubuf(c: &Ctx<'_>, addr: u64, len: u64) -> Result<(u64, u64), Errno> {
     let len = len.min(MAX_RW_COUNT);
     if !events::access_ok(c, addr, len) {
         return Err(Errno(EFAULT));

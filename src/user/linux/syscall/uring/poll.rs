@@ -310,18 +310,39 @@ pub(super) fn arm(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, chain: Chain, ar
 
 /// `io_arm_poll_handler`: `chain`, whose head `file` cannot serve now,
 /// waits for an event of `mask` (or `EPOLLPRI`, an error, or a hang-up),
-/// one-shot and edge-triggered, to be issued again.
+/// edge-triggered, to be issued again: once, or for a multishot request
+/// (`REQ_F_APOLL_MULTISHOT`) each time the file reports it anew.
 pub(super) fn park(
     c: &mut Ctx<'_>,
     ring: &Ring,
     st: &mut State,
-    chain: Chain,
+    mut chain: Chain,
     file: Arc<OpenFile>,
     mask: u32,
 ) {
-    let events = mask | ev::PRI | ev::ERR | UNMASK | EPOLLET | EPOLLONESHOT;
+    let head = &mut chain[0];
+    head.flags |= rf::POLLED;
+    let oneshot = if head.flags & rf::APOLL_MULTISHOT == 0 {
+        EPOLLONESHOT
+    } else {
+        0
+    };
+    let events = mask | ev::PRI | ev::ERR | UNMASK | EPOLLET | oneshot;
     insert(st, chain, file, events, true, Polled::default());
     task::note(c, ring);
+}
+
+/// A multishot request's entry, issued again and still waiting, goes back
+/// to the table under its key, its file's state noted as it is now.
+pub(super) fn rearm(c: &Ctx<'_>, st: &mut State, mut p: Poll) {
+    p.seen = look(c, &p.file, p.events);
+    p.queued = false;
+    st.polls.push(p);
+}
+
+/// Whether the file has a wait queue to poll on ([`can_poll`]).
+pub(super) fn pollable(file: &OpenFile) -> bool {
+    can_poll(file)
 }
 
 /// Queues an entry's task work (it takes `poll_refs`).
@@ -373,6 +394,9 @@ pub(super) enum Fired {
     /// A multishot poll's report, posted with `IORING_CQE_F_MORE`
     /// (`io_req_post_cqe`): its user data and events.
     Post(u64, i32),
+    /// A multishot request's issue in place (`io_poll_issue`): the key of
+    /// its entry.
+    Reissue(u64),
 }
 
 /// `io_poll_task_func` for entry `id`: a cancelled entry completes with
@@ -387,14 +411,23 @@ pub(super) fn task(c: &Ctx<'_>, st: &mut State, id: u64) -> Option<Fired> {
     p.queued = false;
     if p.cancelled {
         let mut p = st.polls.remove(pos);
-        p.chain[0].fail(-ECANCELED);
+        p.chain[0].defer_failed(-ECANCELED);
         return Some(Fired::Complete(p.chain));
     }
     let now = look(c, &p.file, p.events);
     p.seen = now;
     let mask = now.mask & p.events;
     if p.events & EPOLLONESHOT == 0 {
-        return (mask != 0).then(|| Fired::Post(p.chain[0].sqe.user_data, (mask & EVENTS) as i32));
+        if mask == 0 {
+            return None;
+        }
+        if p.retry {
+            return Some(Fired::Reissue(id));
+        }
+        return Some(Fired::Post(
+            p.chain[0].sqe.user_data,
+            (mask & EVENTS) as i32,
+        ));
     }
     let mut p = st.polls.remove(pos);
     if p.retry || mask == 0 {

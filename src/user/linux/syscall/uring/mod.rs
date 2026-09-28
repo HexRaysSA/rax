@@ -12,6 +12,7 @@
 
 mod cancel;
 mod fs;
+mod net;
 mod openclose;
 mod ops;
 mod poll;

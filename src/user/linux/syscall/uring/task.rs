@@ -136,7 +136,7 @@ fn cancel_chains(ring: &Ring, st: &mut State, chains: Vec<Chain>) {
     let mut after = Vec::new();
     for mut chain in chains {
         let mut head = chain.pop_front().expect("a request");
-        head.fail(-ECANCELED);
+        head.defer_failed(-ECANCELED);
         if let Some(lt) = timeout::disarm(st, &mut head, &mut chain) {
             after.push(Chain::from([lt]));
         }
