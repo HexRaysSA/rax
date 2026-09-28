@@ -1,11 +1,17 @@
 // Per-thread identities: gettid without one (ESRCH), and settid and
 // settid_with_pid, which need privilege (EPERM) after their own checks
 // (ESRCH for no process).
+// Personas (the process's, and queries of others'): a process started
+// without one has none (ESRCH), info blocks are checked by version, and an
+// unknown operation is not a system call (ENOSYS).
 #include <errno.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
+#define SYS_persona 494
 #define SYS_settid 285
 #define SYS_gettid 286
 #define SYS_settid_with_pid 311
@@ -52,5 +58,41 @@ int main(void) {
     pthread_t t;
     pthread_create(&t, NULL, other, NULL);
     pthread_join(t, NULL);
+
+    // Personas.
+    uint32_t id = 7;
+    errno = 0;
+    show("persona get", syscall(SYS_persona, 4, 0, NULL, &id, NULL, NULL));
+    unsigned char info[348];
+    for (int v = 0; v <= 3; v++) {
+        memset(info, 0, sizeof info);
+        info[0] = (unsigned char)v;
+        errno = 0;
+        char what[32];
+        snprintf(what, sizeof what, "persona pidinfo v%d", v);
+        show(what, syscall(SYS_persona, 6, 0, info, (uint32_t[]){getpid()}, NULL, NULL));
+    }
+    memset(info, 0, sizeof info);
+    info[0] = 2;
+    errno = 0;
+    show("persona pidinfo launchd", syscall(SYS_persona, 6, 0, info, (uint32_t[]){1}, NULL, NULL));
+    errno = 0;
+    show("persona pidinfo none", syscall(SYS_persona, 6, 0, info, (uint32_t[]){99999999}, NULL, NULL));
+    errno = 0;
+    show("persona info 0", syscall(SYS_persona, 5, 0, info, (uint32_t[]){0}, NULL, NULL));
+    uint32_t ids[4];
+    size_t n = 4;
+    memset(info, 0, sizeof info);
+    info[0] = 2;
+    errno = 0;
+    long fr = syscall(SYS_persona, 7, 0, info, ids, &n, NULL);
+    printf("persona find: %ld errno=%d count=%zu\n", fr, fr ? errno : 0, n);
+    char path[1024];
+    errno = 0;
+    show("persona getpath 0", syscall(SYS_persona, 8, 0, NULL, (uint32_t[]){0}, NULL, path));
+    errno = 0;
+    show("persona op 99", syscall(SYS_persona, 99, 0, NULL, NULL, NULL, NULL));
+    errno = 0;
+    show("persona alloc", syscall(SYS_persona, 1, 0, info, &id, NULL, NULL));
     return 0;
 }
