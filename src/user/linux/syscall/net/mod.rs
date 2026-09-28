@@ -206,12 +206,22 @@ fn create(c: &Ctx<'_>, family: i32, kind: i32, protocol: i32) -> Result<Socket, 
 
 /// `socket`.
 pub fn socket(c: &mut Ctx<'_>, family: i32, stype: i32, protocol: i32) -> SysResult {
+    let (file, cloexec) = new_socket(c, family, stype, protocol)?;
+    let limit = nofile(c);
+    c.p.fds.install(file, cloexec, limit).map(|n| n as u64)
+}
+
+/// `__sys_socket_file`: a new socket's description, and whether its type
+/// asked for close-on-exec.
+pub(in super::super) fn new_socket(
+    c: &Ctx<'_>,
+    family: i32,
+    stype: i32,
+    protocol: i32,
+) -> Result<(Arc<OpenFile>, bool), Errno> {
     let (kind, nonblock, cloexec) = split_type(stype)?;
     let s = create(c, family, kind, protocol)?;
-    let limit = nofile(c);
-    c.p.fds
-        .install(socket_file(s, nonblock), cloexec, limit)
-        .map(|n| n as u64)
+    Ok((socket_file(s, nonblock), cloexec))
 }
 
 /// `socketpair`: the descriptors are reserved and written out before the
@@ -249,14 +259,20 @@ fn privileged(c: &Ctx<'_>, port: u16) -> bool {
 /// `bind`.
 pub fn bind(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
     let file = c.p.fds.file(fd)?;
-    let s = sock_of(&file)?;
+    sock_of(&file)?;
     let b = read_addr(c, uaddr, len)?;
+    bind_file(c, &file, &b)
+}
+
+/// `__sys_bind_socket`: binds the socket of `file` to the address `b`.
+pub(in super::super) fn bind_file(c: &mut Ctx<'_>, file: &OpenFile, b: &[u8]) -> SysResult {
+    let s = sock_of(file)?;
     match s.domain {
-        lx::AF_UNIX => bind_unix(c, s, &b),
+        lx::AF_UNIX => bind_unix(c, s, b),
         lx::AF_INET => {
             // inet_bind_sk: the size first, then the family (AF_UNSPEC
             // with the any address for compatibility).
-            let a = addr::parse_v4(&b, true)?;
+            let a = addr::parse_v4(b, true)?;
             if let Addr::V4 { port, .. } = a
                 && privileged(c, port)
             {
@@ -266,7 +282,7 @@ pub fn bind(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
             Ok(0)
         }
         lx::AF_INET6 => {
-            let a = addr::parse_v6(&b)?;
+            let a = addr::parse_v6(b)?;
             if let Addr::V6 { port, .. } = a
                 && privileged(c, port)
             {
@@ -277,9 +293,9 @@ pub fn bind(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
         }
         lx::AF_NETLINK => {
             if let Some(n) = &s.netlink {
-                n.bind(&b, c.p.pid, admin(c))?;
+                n.bind(b, c.p.pid, admin(c))?;
             } else {
-                let (pid, groups) = netlink::parse_addr(&b)?;
+                let (pid, groups) = netlink::parse_addr(b)?;
                 sys::bind(&s.file, &HostAddr::Netlink(pid, groups))?;
             }
             Ok(0)
@@ -344,7 +360,12 @@ fn bind_unix(c: &mut Ctx<'_>, s: &Socket, b: &[u8]) -> SysResult {
 /// `listen`: the backlog capped at `somaxconn` (a negative one is large).
 pub fn listen(c: &mut Ctx<'_>, fd: i32, backlog: i32) -> SysResult {
     let file = c.p.fds.file(fd)?;
-    let s = sock_of(&file)?;
+    listen_file(&file, backlog)
+}
+
+/// `__sys_listen_socket` on the socket of `file`.
+pub(in super::super) fn listen_file(file: &OpenFile, backlog: i32) -> SysResult {
+    let s = sock_of(file)?;
     let backlog = if backlog as u32 > SOMAXCONN as u32 {
         SOMAXCONN
     } else {
@@ -413,9 +434,29 @@ pub fn accept4(c: &mut Ctx<'_>, fd: i32, uaddr: u64, ulen: u64, flags: i32) -> S
     if flags & !(lx::SOCK_CLOEXEC | lx::SOCK_NONBLOCK) != 0 {
         return Err(Errno(EINVAL));
     }
-    let s = sock_of(&file)?;
+    sock_of(&file)?;
     let limit = nofile(c);
     let newfd = c.p.fds.free_fds(1, limit)?[0];
+    let (new, _) = accept_file(c, &file, uaddr, ulen, flags, false)?;
+    c.p.fds
+        .install_at(newfd, new, flags & lx::SOCK_CLOEXEC != 0, limit)?;
+    Ok(newfd as u64)
+}
+
+/// `do_accept` on the socket of `file` (without waiting with `nonblock`,
+/// `proto_accept_arg`'s `O_NONBLOCK`): the new socket's description with
+/// the flags asked for, its peer written to `uaddr`; and whether the
+/// listener has no more connections queued, as TCP says
+/// (`inet_csk_accept`) and a Unix socket does not (`None`).
+pub(in super::super) fn accept_file(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    uaddr: u64,
+    ulen: u64,
+    flags: i32,
+    nonblock: bool,
+) -> Result<(Arc<OpenFile>, Option<bool>), Errno> {
+    let s = sock_of(file)?;
     if !s.connected_type() {
         return Err(Errno(EOPNOTSUPP));
     }
@@ -425,11 +466,14 @@ pub fn accept4(c: &mut Ctx<'_>, fd: i32, uaddr: u64, ulen: u64, flags: i32) -> S
         match sys::accept(&s.file) {
             Ok(r) => break r,
             Err(Errno(EINTR | ECONNABORTED)) => continue,
-            Err(Errno(EAGAIN)) if nonblocking(&file, timeout) => return Err(Errno(EAGAIN)),
+            Err(Errno(EAGAIN)) if nonblock || nonblocking(file, timeout) => {
+                return Err(Errno(EAGAIN));
+            }
             Err(Errno(EAGAIN)) => return Err(sleep(c, s, false, w, timeout, EAGAIN)),
             Err(e) => return Err(e),
         }
     };
+    let empty = (!s.unix()).then(|| !sys::readiness(&s.file).readable);
     let new = Socket::new(fd, s.domain, s.stype, s.protocol);
     {
         let from = s.state.lock().unwrap();
@@ -450,14 +494,7 @@ pub fn accept4(c: &mut Ctx<'_>, fd: i32, uaddr: u64, ulen: u64, flags: i32) -> S
         let a = name::guest_addr(&c.p.vfs, peer);
         write_addr(c, &a.encode(), uaddr, ulen)?;
     }
-    let nonblock = flags & lx::SOCK_NONBLOCK != 0;
-    c.p.fds.install_at(
-        newfd,
-        socket_file(new, nonblock),
-        flags & lx::SOCK_CLOEXEC != 0,
-        limit,
-    )?;
-    Ok(newfd as u64)
+    Ok((socket_file(new, flags & lx::SOCK_NONBLOCK != 0), empty))
 }
 
 /// The guest address a `connect` of socket `s` names, `None` for a
@@ -509,9 +546,20 @@ pub(super) fn unix_target_error(target: &Addr, e: Errno) -> Errno {
 pub fn connect(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
     let file = c.p.fds.file(fd)?;
     let b = read_addr(c, uaddr, len)?;
-    let s = sock_of(&file)?;
+    connect_file(c, &file, &b, false)
+}
+
+/// `__sys_connect_file` of the socket of `file` to the address `b`, not
+/// waiting with `nonblock` (io_uring's `O_NONBLOCK`).
+pub(in super::super) fn connect_file(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    b: &[u8],
+    nonblock: bool,
+) -> SysResult {
+    let s = sock_of(file)?;
     if let Some(n) = &s.netlink {
-        n.connect(&b, c.p.pid, admin(c))?;
+        n.connect(b, c.p.pid, admin(c))?;
         return Ok(0);
     }
     let timeout = s.state.lock().unwrap().sndtimeo;
@@ -520,7 +568,7 @@ pub fn connect(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
     if resumed && !s.unix() {
         return finish_connect(c, s, w, timeout);
     }
-    let Some(target) = connect_target(s, &b)? else {
+    let Some(target) = connect_target(s, b)? else {
         // A disconnect: the host dissolves the association (and may
         // report the unspecified family it was given).
         return match sys::connect(&s.file, &HostAddr::Unspec) {
@@ -534,7 +582,9 @@ pub fn connect(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
             s.state.lock().unwrap().connecting = false;
             Ok(0)
         }
-        Err(Errno(EINPROGRESS | EALREADY)) if !nonblocking(&file, timeout) && !s.unix() => {
+        Err(Errno(EINPROGRESS | EALREADY))
+            if !nonblock && !nonblocking(file, timeout) && !s.unix() =>
+        {
             s.state.lock().unwrap().connecting = true;
             finish_connect(c, s, w, timeout)
         }
@@ -544,7 +594,7 @@ pub fn connect(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
         }
         Err(Errno(EISCONN)) if std::mem::take(&mut s.state.lock().unwrap().connecting) => Ok(0),
         // A Unix listener with a full backlog: retry shortly.
-        Err(Errno(EAGAIN)) if s.unix() && !nonblocking(&file, timeout) => {
+        Err(Errno(EAGAIN)) if s.unix() && !nonblock && !nonblocking(file, timeout) => {
             if w.deadline.is_some_and(|d| Instant::now() >= d) {
                 return Err(Errno(EAGAIN));
             }
@@ -561,6 +611,24 @@ pub fn connect(c: &mut Ctx<'_>, fd: i32, uaddr: u64, len: i32) -> SysResult {
         }
         Err(e) => Err(unix_target_error(&target, e)),
     }
+}
+
+/// `sock_error`: the pending error of the socket of `file` (`SO_ERROR`),
+/// which reading clears, as the result of a connection.
+pub(in super::super) fn sock_error(file: &OpenFile) -> Result<(), Errno> {
+    let s = sock_of(file)?;
+    let e = sys::getsockopt_int(&s.file, libc::SOL_SOCKET, libc::SO_ERROR)?;
+    s.state.lock().unwrap().connecting = false;
+    if e == 0 {
+        Ok(())
+    } else {
+        Err(Errno(from_host(e)))
+    }
+}
+
+/// Whether the socket of `file` reports an error (`EPOLLERR`).
+pub(in super::super) fn has_error(file: &OpenFile) -> bool {
+    sock_of(file).is_ok_and(|s| sys::readiness(&s.file).error)
 }
 
 /// Waits for a TCP connection under way: its result once the host socket
@@ -612,7 +680,12 @@ pub fn getname(c: &mut Ctx<'_>, fd: i32, uaddr: u64, ulen: u64, peer: bool) -> S
 /// without a peer shuts down without error (`unix_shutdown`).
 pub fn shutdown(c: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
     let file = c.p.fds.file(fd)?;
-    let s = sock_of(&file)?;
+    shutdown_file(&file, how)
+}
+
+/// `__sys_shutdown_sock` on the socket of `file`.
+pub(in super::super) fn shutdown_file(file: &OpenFile, how: i32) -> SysResult {
+    let s = sock_of(file)?;
     // Netlink has no shutdown (sock_no_shutdown).
     if s.domain == lx::AF_NETLINK {
         return Err(Errno(EOPNOTSUPP));

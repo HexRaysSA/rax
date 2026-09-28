@@ -651,7 +651,6 @@ pub fn sendto(
     uaddr: u64,
     alen: i32,
 ) -> SysResult {
-    let len = len.min(MAX_RW_COUNT);
     let file = c.p.fds.file(fd)?;
     let s = sock_of(&file)?;
     let name = if uaddr != 0 {
@@ -659,11 +658,27 @@ pub fn sendto(
     } else {
         None
     };
+    let w = progress(c, s.state.lock().unwrap().sndtimeo);
+    send_buf(c, &file, buf, len, flags, name.as_deref(), w).map(|n| n as u64)
+}
+
+/// The send of `len` bytes at `buf` on the socket of `file` to `name` (read
+/// before), continuing the progress `w`.
+pub(in super::super) fn send_buf(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    buf: u64,
+    len: u64,
+    flags: u32,
+    name: Option<&[u8]>,
+    w: SockWait,
+) -> Result<usize, Errno> {
+    let s = sock_of(file)?;
+    let len = len.min(MAX_RW_COUNT);
     let ok = readable_prefix(c, buf, len);
     let data = sendable(s, c.read_mem(buf, ok as usize)?, len)?;
-    let w = progress(c, s.state.lock().unwrap().sndtimeo);
     let flags = flags & !lx::MSG_INTERNAL;
-    send_message(c, &file, s, &data, flags, name.as_deref(), &[], w).map(|n| n as u64)
+    send_message(c, file, s, &data, flags, name, &[], w)
 }
 
 /// `recvfrom` (and `recv`).
@@ -689,21 +704,21 @@ pub fn recvfrom(
 }
 
 /// A guest `struct msghdr`.
-struct MsgHdr {
-    name: u64,
-    namelen: i32,
-    iov: u64,
-    iovlen: u64,
-    control: u64,
-    controllen: u64,
-    flags: u32,
+pub(in super::super) struct MsgHdr {
+    pub name: u64,
+    pub namelen: i32,
+    pub iov: u64,
+    pub iovlen: u64,
+    pub control: u64,
+    pub controllen: u64,
+    pub flags: u32,
 }
 
 /// `copy_msghdr_from_user` and `__copy_msghdr` (`get_compat_msghdr` for a
 /// 32-bit caller's `struct compat_msghdr`): a negative name length is
 /// `EINVAL`, a longer one than `sockaddr_storage` is cut to it, a null name
 /// has none, and more than `UIO_MAXIOV` vectors are `EMSGSIZE`.
-fn read_msghdr(c: &Ctx<'_>, at: u64) -> Result<MsgHdr, Errno> {
+pub(in super::super) fn read_msghdr(c: &Ctx<'_>, at: u64) -> Result<MsgHdr, Errno> {
     let b = c.read_mem(at, Layout::of(c).msghdr as usize)?;
     let q = |i: usize| u64::from_le_bytes(b[i..i + 8].try_into().unwrap());
     let d = |i: usize| u32::from_le_bytes(b[i..i + 4].try_into().unwrap());
@@ -753,12 +768,35 @@ fn send_one(
     w: SockWait,
 ) -> Result<(usize, u64), Errno> {
     let m = read_msghdr(c, at)?;
-    let name = if m.namelen > 0 {
+    let name = msg_name(c, &m)?;
+    let iov = import_iovec(c, m.iov, m.iovlen)?;
+    let flags = (flags | (m.flags & allowed)) & !lx::MSG_INTERNAL;
+    send_msg(c, file, s, &m, name.as_deref(), &iov, flags, w)
+}
+
+/// A send's `msg_name` (`move_addr_to_kernel`), if it has one.
+pub(in super::super) fn msg_name(c: &Ctx<'_>, m: &MsgHdr) -> Result<Option<Vec<u8>>, Errno> {
+    Ok(if m.namelen > 0 {
         Some(c.read_mem(m.name, m.namelen as usize)?)
     } else {
         None
-    };
-    let iov = import_iovec(c, m.iov, m.iovlen)?;
+    })
+}
+
+/// `____sys_sendmsg` of a header read before, with its name and vectors:
+/// the control data (`ENOBUFS` past `INT_MAX`), then the data; the bytes
+/// sent and asked for.
+#[allow(clippy::too_many_arguments)]
+pub(in super::super) fn send_msg(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    s: &Socket,
+    m: &MsgHdr,
+    name: Option<&[u8]>,
+    iov: &[(u64, u64)],
+    flags: u32,
+    w: SockWait,
+) -> Result<(usize, u64), Errno> {
     if m.controllen > i32::MAX as u64 {
         return Err(Errno(ENOBUFS));
     }
@@ -773,10 +811,9 @@ fn send_one(
     } else {
         Vec::new()
     };
-    let (data, total) = gather(c, &iov)?;
+    let (data, total) = gather(c, iov)?;
     let data = sendable(s, data, total)?;
-    let flags = (flags | (m.flags & allowed)) & !lx::MSG_INTERNAL;
-    send_message(c, file, s, &data, flags, name.as_deref(), &ctl, w).map(|n| (n, total))
+    send_message(c, file, s, &data, flags, name, &ctl, w).map(|n| (n, total))
 }
 
 /// `sendmsg`.
@@ -800,7 +837,24 @@ fn recv_one(
 ) -> Result<(usize, u32), Errno> {
     let m = read_msghdr(c, at)?;
     let iov = import_iovec(c, m.iov, m.iovlen)?;
-    let got = recv(c, file, s, &iov, flags, w)?;
+    recv_msg(c, file, s, at, &m, &iov, flags, w)
+}
+
+/// `____sys_recvmsg` into the vectors of the header `m` read before from
+/// `at`: the data, then the source, control data, `msg_flags`, and
+/// `msg_controllen` written back.
+#[allow(clippy::too_many_arguments)]
+pub(in super::super) fn recv_msg(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    s: &Socket,
+    at: u64,
+    m: &MsgHdr,
+    iov: &[(u64, u64)],
+    flags: u32,
+    w: SockWait,
+) -> Result<(usize, u32), Errno> {
+    let got = recv(c, file, s, iov, flags, w)?;
     let files = scm::receive(c, got.fds);
     let room = m.controllen.min(i32::MAX as u64) as usize;
     let mut out = if c.compat {
@@ -995,4 +1049,24 @@ pub fn write(c: &mut Ctx<'_>, file: &Arc<OpenFile>, iov: &[(u64, u64)]) -> SysRe
     let w = progress(c, s.state.lock().unwrap().sndtimeo);
     let (r, _) = send(c, file, s, &data, flags, None, &[], w);
     r.map(|n| n as u64)
+}
+
+/// `msg_inq` after a receive that asked for it (`msg_get_inq`): what a TCP
+/// socket has left to read (1 once the peer finished and nothing is left:
+/// `tcp_inq_hint`) or a Unix stream socket (`inq_len`); the other protocols
+/// report nothing.
+pub(in super::super) fn inq(s: &Socket) -> Option<u64> {
+    if s.tcp() {
+        let n = sys::inq(&s.file, true).ok()?.max(0) as u64;
+        let r = sys::readiness(&s.file);
+        Some(if n == 0 && (r.readable || r.hangup) {
+            1
+        } else {
+            n
+        })
+    } else if s.unix() && s.stream() {
+        Some(sys::inq(&s.file, true).ok()?.max(0) as u64)
+    } else {
+        None
+    }
 }
