@@ -17,6 +17,9 @@ use vm_memory::{Bytes, GuestAddress};
 // VEX.256.66 0F 29 /r    VMOVAPD ymm2/m256, ymm1   - Move aligned packed double from ymm1 to ymm2/mem
 
 const ALIGNED_ADDR: u64 = 0x3000; // 32-byte aligned address for testing
+// A RIP-relative operand is relative to the end of the instruction (Intel
+// SDM Vol. 2A 2.2.1.6): from 0x1000, an 8-byte two-byte-VEX form reaches
+// 0x3000 with disp32 0x1FF8 and a 9-byte three-byte-VEX form with 0x1FF7.
 
 // ============================================================================
 // VMOVAPS Tests - Packed Single Precision (8x float32 - 256-bit)
@@ -184,7 +187,7 @@ fn test_vmovaps_ymm15_to_ymm0() {
 fn test_vmovaps_mem_to_ymm0_aligned() {
     // VMOVAPS YMM0, [aligned_addr]
     let code = [
-        0xc5, 0xfc, 0x28, 0x05, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPS YMM0, [rip + 0x4000]
+        0xc5, 0xfc, 0x28, 0x05, 0xf8, 0x1f, 0x00, 0x00, // VMOVAPS YMM0, [rip+disp32] = 0x3000
         0xf4, // HLT
     ];
     let (mut vcpu, mem) = setup_vm(&code, None);
@@ -210,7 +213,7 @@ fn test_vmovaps_mem_to_ymm0_aligned() {
 fn test_vmovaps_mem_to_ymm1_aligned() {
     // VMOVAPS YMM1, [aligned_addr]
     let code = [
-        0xc5, 0xfc, 0x28, 0x0d, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPS YMM1, [rip + 0x4000]
+        0xc5, 0xfc, 0x28, 0x0d, 0xf8, 0x1f, 0x00, 0x00, // VMOVAPS YMM1, [rip+disp32] = 0x3000
         0xf4, // HLT
     ];
     let (mut vcpu, mem) = setup_vm(&code, None);
@@ -230,7 +233,7 @@ fn test_vmovaps_mem_to_ymm1_aligned() {
 fn test_vmovaps_mem_to_ymm8_aligned() {
     // VMOVAPS YMM8, [aligned_addr]
     let code = [
-        0xc4, 0xc1, 0x7c, 0x28, 0x05, 0xf6, 0x1f, 0x00, 0x00, // VMOVAPS YMM8, [rip + 0x4000]
+        0xc4, 0xc1, 0x7c, 0x28, 0x05, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPS YMM8, [rip+disp32] = 0x3000
         0xf4, // HLT
     ];
     let (mut vcpu, mem) = setup_vm(&code, None);
@@ -254,7 +257,7 @@ fn test_vmovaps_mem_to_ymm8_aligned() {
 fn test_vmovaps_ymm0_to_mem_aligned() {
     // VMOVAPS [aligned_addr], YMM0
     let code = [
-        0xc5, 0xfc, 0x29, 0x05, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPS [rip + 0x4000], YMM0
+        0xc5, 0xfc, 0x29, 0x05, 0xf8, 0x1f, 0x00, 0x00, // VMOVAPS [rip+disp32] = 0x3000, YMM0
         0xf4, // HLT
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
@@ -265,7 +268,7 @@ fn test_vmovaps_ymm0_to_mem_aligned() {
 fn test_vmovaps_ymm1_to_mem_aligned() {
     // VMOVAPS [aligned_addr], YMM1
     let code = [
-        0xc5, 0xfc, 0x29, 0x0d, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPS [rip + 0x4000], YMM1
+        0xc5, 0xfc, 0x29, 0x0d, 0xf8, 0x1f, 0x00, 0x00, // VMOVAPS [rip+disp32] = 0x3000, YMM1
         0xf4, // HLT
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
@@ -276,7 +279,7 @@ fn test_vmovaps_ymm1_to_mem_aligned() {
 fn test_vmovaps_ymm15_to_mem_aligned() {
     // VMOVAPS [aligned_addr], YMM15
     let code = [
-        0xc4, 0xc1, 0x7c, 0x29, 0x3d, 0xf6, 0x1f, 0x00, 0x00, // VMOVAPS [rip + 0x4000], YMM15
+        0xc4, 0xc1, 0x7c, 0x29, 0x3d, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPS [rip+disp32] = 0x3000, YMM15
         0xf4, // HLT
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
@@ -416,7 +419,7 @@ fn test_vmovapd_ymm14_to_ymm15() {
 fn test_vmovapd_mem_to_ymm0_aligned() {
     // VMOVAPD YMM0, [aligned_addr]
     let code = [
-        0xc5, 0xfd, 0x28, 0x05, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPD YMM0, [rip + 0x4000]
+        0xc5, 0xfd, 0x28, 0x05, 0xf8, 0x1f, 0x00, 0x00, // VMOVAPD YMM0, [rip+disp32] = 0x3000
         0xf4, // HLT
     ];
     let (mut vcpu, mem) = setup_vm(&code, None);
@@ -438,7 +441,7 @@ fn test_vmovapd_mem_to_ymm0_aligned() {
 fn test_vmovapd_mem_to_ymm8_aligned() {
     // VMOVAPD YMM8, [aligned_addr]
     let code = [
-        0xc4, 0xc1, 0xfd, 0x28, 0x05, 0xf6, 0x1f, 0x00, 0x00, // VMOVAPD YMM8, [rip + 0x4000]
+        0xc4, 0xc1, 0xfd, 0x28, 0x05, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPD YMM8, [rip+disp32] = 0x3000
         0xf4, // HLT
     ];
     let (mut vcpu, mem) = setup_vm(&code, None);
@@ -462,7 +465,7 @@ fn test_vmovapd_mem_to_ymm8_aligned() {
 fn test_vmovapd_ymm0_to_mem_aligned() {
     // VMOVAPD [aligned_addr], YMM0
     let code = [
-        0xc5, 0xfd, 0x29, 0x05, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPD [rip + 0x4000], YMM0
+        0xc5, 0xfd, 0x29, 0x05, 0xf8, 0x1f, 0x00, 0x00, // VMOVAPD [rip+disp32] = 0x3000, YMM0
         0xf4, // HLT
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
@@ -473,7 +476,7 @@ fn test_vmovapd_ymm0_to_mem_aligned() {
 fn test_vmovapd_ymm8_to_mem_aligned() {
     // VMOVAPD [aligned_addr], YMM8
     let code = [
-        0xc4, 0xc1, 0xfd, 0x29, 0x05, 0xf6, 0x1f, 0x00, 0x00, // VMOVAPD [rip + 0x4000], YMM8
+        0xc4, 0xc1, 0xfd, 0x29, 0x05, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPD [rip+disp32] = 0x3000, YMM8
         0xf4, // HLT
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
@@ -484,7 +487,7 @@ fn test_vmovapd_ymm8_to_mem_aligned() {
 fn test_vmovapd_ymm15_to_mem_aligned() {
     // VMOVAPD [aligned_addr], YMM15
     let code = [
-        0xc4, 0xc1, 0xfd, 0x29, 0x3d, 0xf6, 0x1f, 0x00, 0x00, // VMOVAPD [rip + 0x4000], YMM15
+        0xc4, 0xc1, 0xfd, 0x29, 0x3d, 0xf7, 0x1f, 0x00, 0x00, // VMOVAPD [rip+disp32] = 0x3000, YMM15
         0xf4, // HLT
     ];
     let (mut vcpu, _) = setup_vm(&code, None);

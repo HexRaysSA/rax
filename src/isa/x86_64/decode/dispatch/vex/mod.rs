@@ -47,7 +47,7 @@ impl X86_64Vcpu {
         let rex = 0x40 | (rex_r << 2);
         ctx.rex = Some(rex);
         ctx.op_size = 4; // W=0 implies 32-bit operand size
-        ctx.rip_relative_offset = 1;
+        ctx.rip_relative_offset = super::immediate_len(m_mmmm, opcode);
 
         self.execute_vex_common(ctx, m_mmmm, vex_pp, vex_l, vex_w, vvvv, opcode)
     }
@@ -85,7 +85,7 @@ impl X86_64Vcpu {
         }
         ctx.rex = Some(rex);
         ctx.op_size = if vex_w != 0 { 8 } else { 4 };
-        ctx.rip_relative_offset = 1;
+        ctx.rip_relative_offset = super::immediate_len(m_mmmm, opcode);
 
         // VEX.vvvv register (inverted in VEX encoding)
         let vvvv = ((vex2 >> 3) & 0x0F) ^ 0x0F;

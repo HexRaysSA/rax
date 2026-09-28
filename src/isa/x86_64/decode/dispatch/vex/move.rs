@@ -426,10 +426,6 @@ impl X86_64Vcpu {
         if vvvv != 0 {
             return self.inject_undefined_instruction();
         }
-        // VMOVNTDQA has no trailing immediate. The VEX dispatcher starts with
-        // a one-byte immediate bias for the opcodes that do, so remove it
-        // before RIP-relative ModR/M address calculation.
-        ctx.rip_relative_offset = 0;
         let (reg, _rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
         if !is_memory {
             return self.inject_undefined_instruction();

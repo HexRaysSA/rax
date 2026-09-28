@@ -17,11 +17,6 @@ pub fn vmovdqa_load(
     ctx: &mut InsnContext,
     vex_l: u8,
 ) -> Result<Option<VcpuExit>> {
-    // VMOVDQA has no trailing immediate.  The VEX dispatcher cannot assume an
-    // imm8 for every opcode: RIP-relative addressing is based on the byte after
-    // the complete instruction, so adding one here turns an aligned operand
-    // into an unaligned operand and spuriously raises #GP.
-    ctx.rip_relative_offset = 0;
     let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
 
     let xmm_dst = reg as usize;
@@ -144,8 +139,6 @@ pub fn vmovdqa_store(
     ctx: &mut InsnContext,
     vex_l: u8,
 ) -> Result<Option<VcpuExit>> {
-    // VMOVDQA has no trailing immediate; see `vmovdqa_load`.
-    ctx.rip_relative_offset = 0;
     let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
     let xmm_src = reg as usize;
 

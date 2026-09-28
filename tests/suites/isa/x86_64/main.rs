@@ -812,6 +812,8 @@ mod x86_64_simd_avx2_vpunpckhbw_vpunpckhwd_vpunpckhdq_vpunpckhqdq;
 mod x86_64_simd_avx2_vpunpcklbw_vpunpcklwd_vpunpckldq_vpunpcklqdq;
 #[path = "simd/avx512/evex_rex_prefix_ud.rs"]
 mod x86_64_simd_avx512_evex_rex_prefix_ud;
+#[path = "simd/avx512/evex_rip_relative.rs"]
+mod x86_64_simd_avx512_evex_rip_relative;
 #[path = "simd/avx512/evex_rm_reg_ext.rs"]
 mod x86_64_simd_avx512_evex_rm_reg_ext;
 #[path = "simd/avx512_extended.rs"]
@@ -900,6 +902,8 @@ mod x86_64_simd_avx_vdppd;
 mod x86_64_simd_avx_vdpps;
 #[path = "simd/avx/vex_legacy_prefix_ud.rs"]
 mod x86_64_simd_avx_vex_legacy_prefix_ud;
+#[path = "simd/avx/vex_rip_relative.rs"]
+mod x86_64_simd_avx_vex_rip_relative;
 #[path = "simd/avx/vextractf128.rs"]
 mod x86_64_simd_avx_vextractf128;
 #[path = "simd/avx/vextractf128_vinsertf128.rs"]

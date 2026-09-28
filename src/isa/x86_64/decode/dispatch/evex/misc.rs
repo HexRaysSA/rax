@@ -16,6 +16,10 @@ impl X86_64Vcpu {
         mm: u8,
     ) -> Result<Option<VcpuExit>> {
         let opcode = ctx.consume_u8()?;
+        if mm != 4 {
+            ctx.rip_relative_offset =
+                crate::isa::x86_64::decode::dispatch::immediate_len(mm, opcode);
+        }
 
         // Record precise opcode key for profiling
         #[cfg(feature = "profiling")]
