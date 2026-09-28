@@ -6,6 +6,7 @@ pub mod kmsg;
 pub mod msg;
 pub mod port;
 pub mod reclaim;
+pub mod remap;
 pub mod sync;
 pub mod timer;
 pub mod vm;

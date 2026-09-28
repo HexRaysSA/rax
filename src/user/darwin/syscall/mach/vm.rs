@@ -95,6 +95,22 @@ pub fn enter_mapping(
     flags: u32,
     mapping: Mapping,
 ) -> Result<u64, KernReturn> {
+    let (at, size) = locate(ctx, addr, size, mask, flags)?;
+    ctx.proc.space.map(at, size, mapping).map_err(mm_kr)?;
+    Ok(at)
+}
+
+/// Where [`enter`] enters `size` bytes, and their size in whole pages:
+/// the first fit at or above `addr` (aligned to `mask + 1`) for
+/// `VM_FLAGS_ANYWHERE`, else `addr` itself, which must be free unless
+/// `VM_FLAGS_OVERWRITE` replaces what is there.
+pub fn locate(
+    ctx: &Ctx<'_>,
+    addr: u64,
+    size: u64,
+    mask: u64,
+    flags: u32,
+) -> Result<(u64, u64), KernReturn> {
     let vmx = ctx.proc.vm;
     let page_mask = vmx.page - 1;
     let size = (size
@@ -121,8 +137,7 @@ pub fn enter_mapping(
         }
         start
     };
-    ctx.proc.space.map(at, size, mapping).map_err(mm_kr)?;
-    Ok(at)
+    Ok((at, size))
 }
 
 /// `VM_MEMORY_MACH_MSG`: memory the kernel allocates for out-of-line

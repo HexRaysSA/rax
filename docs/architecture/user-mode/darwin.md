@@ -283,6 +283,31 @@ emulator's. A mapping must be shared and lie within the object's size
 host maps the object no further than its end, and each mapping's object has
 an identity of its own, since the host reports none for these objects.
 
+`mach_vm_remap` and `mach_vm_remap_new` (and their `vm_remap` forms) map
+the task's own memory a second time (`syscall::mach::remap`, after
+`vm_map_remap` and `vm_map_remap_extract`). A shared remap maps the memory
+itself: a part of the source that is a shared mapping maps its object, and
+a private part first becomes a shared mapping of a new object holding its
+contents (as XNU shares an entry's object, shadowing a copy-on-write one
+first), so stores through either mapping are seen through the other; a
+copy maps private memory holding the contents. The new mapping takes the
+source's user tag and the given inheritance. `mach_vm_remap` keeps each
+part's protections and reports the strictest of them, rounding the source
+as the legacy path does (the start truncated, the size rounded on its
+own); `mach_vm_remap_new` returns the data's address (the source's offset
+in its page kept, every page the range touches covered), gives the
+protections asked for when every part allows them (a copy needs only
+readable memory; `KERN_PROTECTION_FAILURE` otherwise, and for a maximum
+both writable and executable), and takes the task's read port as the
+source for a copy or for memory mapped at most readable. Flags outside
+`VM_FLAGS_USER_REMAP`, an empty range, a bad inheritance, and
+`VM_FLAGS_RESILIENT_MEDIA` without a copy are `KERN_INVALID_ARGUMENT`; a
+range with a hole is `KERN_INVALID_ADDRESS`. Another task's memory is not
+reachable. A store through a mapping that is not executable does not make
+the emulator drop code it decoded from an executable mapping of the same
+memory elsewhere (so a JIT that writes code through such an alias is not
+supported).
+
 Deferred reclamation (`mach_vm_deferred_reclamation_buffer_allocate`,
 `_flush`, `_resize`, `_query`, and the accounting trap): libmalloc's xzone
 allocator (arm64) keeps a ring of freed regions shared with the kernel, which
@@ -498,8 +523,10 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `registered_ports`, the descriptor flags and their inheritance in
   `fd_flags`, and the bootstrap lookups, directory service, notifications,
   Sandbox checks, memory entries, and host UUID of `host_services` (in the
-  parent and its forked and spawned children), and the IOKit registry,
-  matching, and property reads of `iokit`.
+  parent and its forked and spawned children), the IOKit registry,
+  matching, and property reads of `iokit`, and the shared aliases,
+  copies, reported and given protections, rounding, placement, and
+  refusals of `mach_vm_remap` and `mach_vm_remap_new` in `remap`.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

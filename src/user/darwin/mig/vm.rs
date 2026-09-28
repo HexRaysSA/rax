@@ -5,6 +5,8 @@
 //! entries rather than a nested submap, so `mach_vm_region_recurse`
 //! reports them at depth 0 with `is_submap` clear.
 
+use std::sync::Arc;
+
 use super::{Buf, MigResult, Out, OutDesc, Req, ids, is_task, null_port};
 use crate::user::darwin::mach::ipc::{KObject, Right, disp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
@@ -178,6 +180,58 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             Ok(Out::Complex(
                 vec![OutDesc::Port(Some(Right::Send(port)), disp::MOVE_SEND)],
                 Buf::new().u64(len).done(),
+            ))
+        }
+        m::KERNELRPC_MACH_VM_REMAP
+        | v::KERNELRPC_VM_REMAP
+        | m::KERNELRPC_MACH_VM_REMAP_NEW
+        | v::KERNELRPC_VM_REMAP_NEW => {
+            use crate::user::darwin::syscall::mach::remap::{self, Protections, Source};
+            let new = matches!(
+                req.id,
+                m::KERNELRPC_MACH_VM_REMAP_NEW | v::KERNELRPC_VM_REMAP_NEW
+            );
+            req.complex_of(1, if new { 100 } else { 92 })?;
+            let src_task = req.take_port(28, &[17, 18, 16, 0])?;
+            let from = match src_task.as_ref().and_then(|r| r.port()) {
+                Some(p) if p.kobject == KObject::Task && Arc::ptr_eq(p, &ctx.proc.task_port) => {
+                    Source::Control
+                }
+                Some(p) if p.kobject == KObject::TaskRead => Source::Read,
+                _ => Source::Other,
+            };
+            if let Some(r) = src_task {
+                crate::user::darwin::syscall::mach::kmsg::release(ctx.proc, [r]);
+            }
+            // The target is a vm_map_t: only the task's control port.
+            if !writable {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            let (prot, inheritance) = if new {
+                (
+                    Protections::New {
+                        cur: req.u32(88),
+                        max: req.u32(92),
+                    },
+                    req.u32(96),
+                )
+            } else {
+                (Protections::Legacy, req.u32(88))
+            };
+            let r = remap::remap(
+                ctx,
+                req.u64(48),
+                req.u64(56),
+                req.u64(64),
+                req.u32(72),
+                from,
+                req.u64(76),
+                req.u32(84) != 0,
+                prot,
+                inheritance,
+            )?;
+            Ok(Out::Simple(
+                Buf::new().u64(r.addr).u32(r.cur).u32(r.max).done(),
             ))
         }
         m::MACH_VM_INHERIT | v::VM_INHERIT => {

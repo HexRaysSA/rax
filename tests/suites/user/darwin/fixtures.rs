@@ -456,3 +456,13 @@ fn iokit_arm64() {
 fn iokit_x86_64() {
     fixture("iokit", "x86_64", &[], &[]);
 }
+
+#[test]
+fn remap_arm64() {
+    fixture("remap", "arm64", &[], &[]);
+}
+
+#[test]
+fn remap_x86_64() {
+    fixture("remap", "x86_64", &[], &[]);
+}
