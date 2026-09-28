@@ -4,7 +4,7 @@ linker = "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f1
 machine = "IMAGE_FILE_MACHINE_AMD64"
 exception_directory_size = 0
 expected_exit = 0
-imports = ["ExitProcess", "VirtualAlloc", "VirtualProtect", "RaiseException", "RtlAddFunctionTable", "RtlDeleteFunctionTable"]
+imports = ["ExitProcess", "VirtualAlloc", "VirtualProtect", "RaiseException", "RtlAddFunctionTable", "RtlDeleteFunctionTable", "RtlLookupFunctionEntry"]
 template_rva_in_copied_blob = 0x0
 function_begin_rva = 0x0
 function_end_rva = 0x37
@@ -20,11 +20,11 @@ nm_sha256 = "20e1aa425fda511df6d594ba6ff5298871644a6a74dea8d6da38ea0b3ad2c94f"
 
 [[source]]
 path = "build.sh"
-sha256 = "c77845a9f0afca747fa78d13f962d40f47cb24cfc8daf9092aafc42e7c336af7"
+sha256 = "dc4b2bebc1c3b99a5b40d4d3bfb5564bb9b4b4105179a993b33d640c6da9e78e"
 
 [[source]]
 path = "src/probe.c"
-sha256 = "ce6024cefc2c69c2ea4147a90ac9d4a0e4694dff662c73d471f2449fc3d3f2ca"
+sha256 = "e9d2dfa265d8b1e83bb7de60acc23ef049eabf34fd5c9715ad4568a344d1920d"
 
 [[source]]
 path = "src/dynamic.S"
@@ -32,9 +32,9 @@ sha256 = "eabb045dbb7a3c069dbfa505c6bf074e342a7086285751005241f029ec85d8ab"
 
 [[source]]
 path = "src/kernel32.def"
-sha256 = "68bcf62124b29f1ca6d8d41ba702ae51a31a8fef5ab7a332a05d2836f5500b06"
+sha256 = "ae0abb94d6952d77a75feddbc68836066d1800242120bf3a599b1272a5945afc"
 
 [[fixture]]
 path = "bin/dynamic_unwind.exe"
-sha256 = "013ac89e2ee5f8e00653a61ce7e2d1571da153d1b4589c5d0f258e8d7d7a6a4e"
+sha256 = "a734a3dd78ccaa7f35d9c547ac53a88cd0fa9ebcdca91b0c7b270e7be1dc83f9"
 bytes = 2560

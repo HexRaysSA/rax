@@ -15,11 +15,12 @@ __declspec(dllimport) __declspec(noreturn) void ExitProcess(U32);
 __declspec(dllimport) void RaiseException(U32, U32, U32, const U64 *);
 __declspec(dllimport) U8 RtlAddFunctionTable(RuntimeFunction *, U32, U64);
 __declspec(dllimport) U8 RtlDeleteFunctionTable(RuntimeFunction *);
+__declspec(dllimport) RuntimeFunction *RtlLookupFunctionEntry(U64, U64 *, void *);
 __declspec(dllimport) void *VirtualAlloc(void *, SIZE, U32, U32);
 __declspec(dllimport) int VirtualProtect(void *, SIZE, U32, U32 *);
 
 extern const U8 jit_template_start[], jit_template_end[], jit_handler[];
-extern const U8 jit_handler_data[], jit_marker_pointer[];
+extern const U8 jit_handler_data[], jit_marker_pointer[], jit_lookup_pc[];
 
 static U32 load32(const U8 *p) {
     return (U32)p[0] | ((U32)p[1] << 8) | ((U32)p[2] << 16) | ((U32)p[3] << 24);
@@ -39,8 +40,10 @@ void entry(void) {
     const U64 template_size = (U64)jit_template_end - (U64)jit_template_start;
     const U64 handler_offset = (U64)jit_handler - (U64)jit_template_start;
     const U64 marker_offset = (U64)jit_marker_pointer - (U64)jit_template_start;
+    const U64 lookup_offset = (U64)jit_lookup_pc - (U64)jit_template_start;
     if (template_size == 0 || template_size > 4096 || handler_offset >= template_size ||
-        marker_offset + 8 > template_size || handler_offset > 0xffffffffULL)
+        marker_offset + 8 > template_size || handler_offset > 0xffffffffULL ||
+        lookup_offset >= template_size || (lookup_offset & 3) != 0)
         fail(10);
 
     /* The pinned assembler emits one 4-byte header, one 4-byte code word,
@@ -50,6 +53,7 @@ void entry(void) {
     const U32 header = load32(source_xdata);
     if (((header >> 18) & 3) != 0 || !(header & (1UL << 20)) ||
         !(header & (1UL << 21)) || ((header >> 27) & 31) != 1 ||
+        lookup_offset >= (U64)(header & 0x3ffff) * 4 ||
         load32(jit_handler_data) != 0)
         fail(11);
 
@@ -75,10 +79,22 @@ void entry(void) {
     if (!VirtualProtect(code, 0x1000, 0x20, &old_code) ||
         !VirtualProtect(xdata_page, 0x1000, 2, &old_xdata))
         fail(14);
+    const U64 probe_pc = (U64)code + lookup_offset;
+    const U64 sentinel = 0xa55a112233447788ULL;
+    U64 image_base = sentinel;
+    if (RtlLookupFunctionEntry(probe_pc, &image_base, 0) != 0 || image_base != sentinel)
+        fail(18);
     if (!RtlAddFunctionTable(table, 1, (U64)code)) fail(15);
+    image_base = sentinel;
+    if (RtlLookupFunctionEntry(probe_pc, &image_base, 0) != table ||
+        image_base != (U64)code)
+        fail(19);
     /* This cast is the selected Windows ARM64 machine-ABI code-pointer probe. */
     U32 returned = ((Jit)(void *)code)(RaiseException);
     if (returned != 7 || *marker != 1) fail(16);
     if (!RtlDeleteFunctionTable(table)) fail(17);
+    image_base = sentinel;
+    if (RtlLookupFunctionEntry(probe_pc, &image_base, 0) != 0 || image_base != sentinel)
+        fail(20);
     ExitProcess(0);
 }

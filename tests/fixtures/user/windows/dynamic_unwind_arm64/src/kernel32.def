@@ -4,5 +4,6 @@ EXPORTS
     RaiseException
     RtlAddFunctionTable
     RtlDeleteFunctionTable
+    RtlLookupFunctionEntry
     VirtualAlloc
     VirtualProtect

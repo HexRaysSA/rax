@@ -11,18 +11,18 @@ sha256 = "649606b65dbb6206ca220e702b8c0e23e134e4f556a7e6375b5285f29d0374de"
 
 [[source]]
 path = "src/kernel32.def"
-sha256 = "fbf66f9d0ba37579e6f2e83a2b8f29021c599218a73fc12a4a00a066af3eb7d4"
+sha256 = "37378c386d92dc3ce4fb230f316bf89555f227362eeee353de86635273b36133"
 
 [[source]]
 path = "src/entry.c"
-sha256 = "e0fc5bcc7b07694cf16a8eb583284ccad50c1f04d15b1e5e60f7dc4825f60f73"
+sha256 = "eaa46470c336f37d7b07cfa24853b160fae195d7daabcae5b1dcaf94d1dd984a"
 
 [[source]]
 path = "src/jit.S"
-sha256 = "fc2c09112e7796ba159addb32dc4848bfea851713fe38b6e5ae7892b3adbaa15"
+sha256 = "45ac7732df99d50ba43e952585e9f8d997f8914e80a0f2bb8c91a722e3910ff0"
 
 [[fixture]]
 path = "bin/arm64/dynamic.exe"
-sha256 = "fcf961b3d67a75f4f03eef4eebc276e4b0338df5387b64c6ce11d2e7b6b74f32"
-bytes = 3072
+sha256 = "bbad2b50597a47934470a6c78d9c080ecbe78bbc96c8b62e78bd0727f6deba29"
+bytes = 3584
 expected_exit = 0

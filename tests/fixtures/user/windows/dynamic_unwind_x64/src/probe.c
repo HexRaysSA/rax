@@ -9,6 +9,7 @@ typedef struct {
     U32 EndAddress;
     U32 UnwindData;
 } RUNTIME_FUNCTION;
+typedef struct _UNWIND_HISTORY_TABLE UNWIND_HISTORY_TABLE;
 _Static_assert(sizeof(U32) == 4 && sizeof(U64) == 8 && sizeof(UPTR) == 8,
                "PE32+ widths");
 _Static_assert(sizeof(RUNTIME_FUNCTION) == 12, "x64 RUNTIME_FUNCTION layout");
@@ -26,6 +27,7 @@ DLL int VirtualProtect(void *, UPTR, U32, U32 *);
 DLL void RaiseException(U32, U32, U32, const UPTR *);
 DLL U8 RtlAddFunctionTable(const RUNTIME_FUNCTION *, U32, U64);
 DLL U8 RtlDeleteFunctionTable(const RUNTIME_FUNCTION *);
+DLL RUNTIME_FUNCTION *RtlLookupFunctionEntry(U64, U64 *, UNWIND_HISTORY_TABLE *);
 
 extern const U8 dyn_template, dyn_code, dyn_code_end, dyn_unwind;
 extern const U8 dyn_raise_ptr, dyn_marker_ptr, dyn_template_end;
@@ -71,11 +73,25 @@ void entry(void) {
     put_u64_le(page + marker_slot, (U64)(UPTR)&marker);
 
     RUNTIME_FUNCTION table = {(U32)code_begin, (U32)code_end, (U32)unwind};
+    U64 control_pc = (U64)(UPTR)(page + code_begin + 5);
+    const U64 image_base_sentinel = 0x51a7c00e51a7c00eULL;
     U32 old_protection = 0;
     if (!VirtualProtect(page, PAGE_BYTES, PAGE_EXECUTE_READ, &old_protection))
         finish(12); /* copied code was not executable */
+    U64 image_base = image_base_sentinel;
+    if (RtlLookupFunctionEntry(control_pc, &image_base,
+                               (UNWIND_HISTORY_TABLE *)0))
+        finish(17); /* unregistered JIT code unexpectedly has a table entry */
+    if (image_base != image_base_sentinel)
+        finish(18); /* RAX miss policy unexpectedly changed ImageBase */
     if (!RtlAddFunctionTable(&table, 1, (U64)(UPTR)page))
         finish(13); /* registration */
+    image_base = image_base_sentinel;
+    if (RtlLookupFunctionEntry(control_pc, &image_base,
+                               (UNWIND_HISTORY_TABLE *)0) != &table)
+        finish(19); /* hit did not return original guest table pointer */
+    if (image_base != (U64)(UPTR)page)
+        finish(20); /* hit did not report registered base address */
 
     U32 result = ((DYNAMIC_FUNCTION)(void *)(page + code_begin))(&marker);
     if (result != 0x42u)
@@ -84,5 +100,11 @@ void entry(void) {
         finish(15); /* missing, repeated, or wrong-establisher handler */
     if (!RtlDeleteFunctionTable(&table))
         finish(16); /* exact-pointer deregistration */
+    image_base = image_base_sentinel;
+    if (RtlLookupFunctionEntry(control_pc, &image_base,
+                               (UNWIND_HISTORY_TABLE *)0))
+        finish(21); /* deleted table remained discoverable */
+    if (image_base != image_base_sentinel)
+        finish(22); /* RAX miss policy unexpectedly changed ImageBase */
     finish(0);
 }

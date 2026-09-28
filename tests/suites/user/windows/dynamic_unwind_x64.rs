@@ -94,7 +94,7 @@ fn x64_dynamic_unwind_fixture_identity_and_imports() {
         .map(|name| name.as_str().unwrap().to_owned())
         .collect();
     assert_eq!(symbols, declared);
-    assert_eq!(symbols.len(), 6);
+    assert_eq!(symbols.len(), 7);
 }
 
 #[test]

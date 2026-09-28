@@ -35,13 +35,13 @@ headers="$("$readobj_bin" --file-headers bin/dynamic_unwind.exe)"
 symbols="$("$nm_bin" -f posix "$work_dir/dynamic.obj")"
 [[ "$imports" == *"Name: KERNEL32.dll"* ]]
 for symbol in ExitProcess VirtualAlloc VirtualProtect RaiseException \
-              RtlAddFunctionTable RtlDeleteFunctionTable; do
+              RtlAddFunctionTable RtlDeleteFunctionTable RtlLookupFunctionEntry; do
     [[ "$imports" == *"Symbol: $symbol ("* ]] || {
         printf 'missing PE import: %s\n' "$symbol" >&2
         exit 1
     }
 done
-[[ "$(printf '%s\n' "$imports" | grep -c 'Symbol: ')" == 6 ]] || {
+[[ "$(printf '%s\n' "$imports" | grep -c 'Symbol: ')" == 7 ]] || {
     printf 'unexpected extra PE import\n' >&2
     exit 1
 }
@@ -68,7 +68,7 @@ binary_hex="$(od -An -v -tx1 bin/dynamic_unwind.exe | tr -d ' \n')"
     printf 'machine = "IMAGE_FILE_MACHINE_AMD64"\n'
     printf 'exception_directory_size = 0\n'
     printf 'expected_exit = 0\n'
-    printf 'imports = ["ExitProcess", "VirtualAlloc", "VirtualProtect", "RaiseException", "RtlAddFunctionTable", "RtlDeleteFunctionTable"]\n'
+    printf 'imports = ["ExitProcess", "VirtualAlloc", "VirtualProtect", "RaiseException", "RtlAddFunctionTable", "RtlDeleteFunctionTable", "RtlLookupFunctionEntry"]\n'
     printf 'template_rva_in_copied_blob = 0x0\n'
     printf 'function_begin_rva = 0x0\n'
     printf 'function_end_rva = 0x37\n'

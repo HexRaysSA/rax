@@ -154,6 +154,19 @@ include sorted and unsorted dynamic tables. Callback, growable and history-table
 interfaces remain unsupported. Native overlap precedence and mutation semantics
 are unknown.
 
+For x64 and ARM64, the public `RtlLookupFunctionEntry` HLE consults the same
+active image and fixed dynamic tables used by exception search. A hit returns
+the original guest address of its architecture-specific function-table record
+and writes the 64-bit image or registered base to `ImageBase`. A miss returns
+NULL without changing `ImageBase`; this no-write miss behavior is an explicit
+RAX profile, since the published contract does not specify that output on a
+miss. Only a NULL `HistoryTable` is admitted; non-NULL history-table behavior
+remains unknown and is rejected with a diagnostic. Ambiguous matches and
+malformed or inaccessible live entries retain the existing fail-closed lookup
+policy. The public [lookup contract](https://learn.microsoft.com/en-us/windows/win32/api/winnt/nf-winnt-rtllookupfunctionentry)
+specifies a pointer to the matching record or NULL; the dynamic-base output is
+inferred from the [registration base contract](https://learn.microsoft.com/en-us/windows/win32/api/winnt/nf-winnt-rtladdfunctiontable).
+
 Exception walks retain visited registration/frame states across guest handler
 continuations and stop explicitly on cycles or after 4,096 distinct states.
 This ceiling and malformed-walk diagnostics are personality policies, not
@@ -183,6 +196,7 @@ Function-table binary search still requires sorted `.pdata` input.
 | A12 | The Windows ARM64 guest CPU remains ARMv8.2 without FEAT_PAuth; PACIBSP/AUTIBSP are hint-space no-ops | `WinCpu::new(Arm64)` selects `A64UserCpu::new`, whose v8.2 feature set excludes PACA/PACG | Admit `0xFC` and packed `CR=2` unwind markers as counted no-ops | Exception in a partially executed PAC prolog/epilog, full and packed records | CPU-profile unit assertion and compiled-PE unwind tests; enabling PACA/PACG without propagating feature state to the unwinder falsifies this admission | Confirmed in the fixed Windows profile; future configurable PAuth unsupported |
 | A13 | The admitted x86 `RtlUnwind` continuation uses post-stdcall caller ESP; the public API contract does not expose native ESP restoration details | Existing HLE x86 `Stdcall` callsite and Microsoft `RtlUnwind` TargetIp/ReturnValue contract | Guest continuation stack and EAX after unwinding inner records | Inner handler mutates context or registration links; unreadable/cross-page target; caller has nested frames | Compiled PE32 callback/ESP witness, target preflight and post-callback fault tests; native Windows context trace would falsify ESP equivalence | Retained RAX continuation profile; native ESP equivalence unknown |
 | A14 | Fixed dynamic function tables retain the original guest array pointer and live entry bytes until deletion; ambiguous overlap and malformed mutation are rejected instead of selecting an undocumented native winner | Public `RtlAddFunctionTable`/`RtlDeleteFunctionTable` pointer contracts and documented sorted/unsorted table classes; native precedence is not specified | x64/ARM64 dynamic lookup, unwind provenance and deletion | Unsorted entries, duplicate pointer, code inside a PE with no static match, mutated or inaccessible entry, two matching tables | Unit and compiled-PE tests for registration, guest-owned metadata, handler continuation, deletion and failure paths; a native Windows differential for overlap/mutation would distinguish this RAX policy from native behavior | Retained RAX admission policy; native overlap/mutation behavior unknown |
+| A15 | Public lookup with NULL `HistoryTable` writes the registered base for a dynamic hit, preserves caller `ImageBase` bytes on a miss, and rejects non-NULL history tables | Microsoft documents hit/miss pointer and `ImageBase` output but not miss-side effects; `RtlAddFunctionTable` defines the dynamic RVA base; no verified non-NULL history-table layout is available | x64/ARM64 `RtlLookupFunctionEntry` HLE and compiled lookup witnesses | Static versus dynamic hit; deleted-table miss with sentinel; invalid output pointer; non-NULL history table; overlapping tables | Unit and compiled-PE lookup tests establish the RAX profile; a native Windows differential with sentinel outputs and a history table would falsify claimed native equivalence | Retained RAX profile; native miss-side effects and history-table behavior unknown |
 
 ## Change-surface map
 
@@ -214,7 +228,7 @@ check/unlink is not an atomic Windows namespace transaction against external
 mutation. High: synchronous host console reads can block the sole guest
 scheduler thread. High: x86 exit/collided unwinds remain unsupported;
 dynamic callback/growable function tables, native dynamic-overlap precedence,
-and `RtlLookupFunctionEntry` are not implemented. High: ARM64
+and non-NULL `RtlLookupFunctionEntry` history tables are not implemented. High: ARM64
 authenticated-return handling remains unsupported if a PAuth-enabled CPU
 profile is introduced. High: the internal x64/ARM64 `RtlUnwindEx` termination
 walk uses an unchecked guest-handler continuation and does not validate the
@@ -371,3 +385,23 @@ the final green run. The feature-enabled workspace all-target check and all
 `--no-default-features --features x86_64-suite,smir-jit`; formatting and
 fixture-script syntax checks passed. These are software-interpreter runs on
 an AArch64 macOS host, not native Windows or native JIT equivalence evidence.
+
+## Public function-table lookup verification record — 2026-09-28
+
+The x64/ARM64 `RtlLookupFunctionEntry` HLE returns the original guest record
+pointer and writes the 8-byte base on a hit. Five focused units passed after
+an export-absent negative control failed all five. They cover image and
+dynamic entries, Add/Delete transitions, a cross-page atomic output fault,
+non-NULL history-table rejection, and x86 export exclusion. The x64 and ARM64
+compiled fixtures each exercise misses before registration and after deletion,
+and exact record/base output while registered; all four fixture tests passed,
+including guest execution at slices of 1 and 4,096 instructions. Source,
+binary, import and unwind-metadata provenance checks passed.
+
+The final portable run passed 7,272 library tests (two optional microkernel
+cases ignored) and 536 Windows integration tests, with no tests filtered. The
+feature-enabled workspace all-target check and all 536 feature-enabled Windows
+integration tests passed with `--no-default-features --features
+x86_64-suite,smir-jit`; formatting, fixture-script syntax and diff checks
+passed. These tests establish the documented NULL-history-table/RAX miss-output
+profile, not non-NULL history-table support or native Windows equivalence.

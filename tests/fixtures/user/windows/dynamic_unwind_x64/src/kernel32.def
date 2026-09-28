@@ -6,3 +6,4 @@ VirtualProtect
 RaiseException
 RtlAddFunctionTable
 RtlDeleteFunctionTable
+RtlLookupFunctionEntry

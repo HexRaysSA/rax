@@ -7,6 +7,7 @@
 .globl jit_handler
 .globl jit_handler_data
 .globl jit_marker_pointer
+.globl jit_lookup_pc
 .seh_proc jit_template_start
 jit_template_start:
     stp x29, x30, [sp, #-16]!
@@ -20,6 +21,7 @@ jit_template_start:
     mov w1, #0
     mov w2, #0
     mov x3, xzr
+jit_lookup_pc:
     blr x16
     nop                            /* continuation PC remains in the body */
     mov w0, #7

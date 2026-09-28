@@ -93,6 +93,10 @@ fn anonymous_arm64_fixture_provenance_and_metadata() {
             },
             imports::ImportRef::Name {
                 hint: 0,
+                name: b"RtlLookupFunctionEntry".to_vec()
+            },
+            imports::ImportRef::Name {
+                hint: 0,
                 name: b"VirtualAlloc".to_vec()
             },
             imports::ImportRef::Name {
