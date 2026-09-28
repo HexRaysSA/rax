@@ -34,6 +34,9 @@ use super::vm::VmLayout;
 use super::wait::{self, Resume, Wait, WaitKey};
 use crate::user::mm::{AddressSpace, MmError, SpaceConfig};
 
+#[cfg(test)]
+mod exclusive_tests;
+
 /// Instructions per scheduling slice for arm64 threads (x86-64 threads
 /// yield on the core's own ~1 ms timer).
 pub const DEFAULT_SLICE_INSNS: u64 = 1 << 20;
@@ -455,6 +458,18 @@ pub struct DarwinProcess {
     last: u64,
 }
 
+/// A different selected guest thread discards its Arm local reservation,
+/// including when it is selected only to complete kernel work. A budget yield
+/// followed by selection of the same thread is not a context switch.
+fn clear_exclusive_on_switch(previous: u64, selected: u64, cpu: &mut DarwinCpu) {
+    if previous == selected {
+        return;
+    }
+    if let DarwinCpu::Arm64(cpu) = cpu {
+        cpu.core_mut().clear_exclusive_monitor();
+    }
+}
+
 /// Physical memory the emulated Mac reports (`hw.memsize`,
 /// `max_mem_actual`).
 pub const MEMSIZE: u64 = 16 << 30;
@@ -556,12 +571,14 @@ impl DarwinProcess {
                 self.idle();
                 continue;
             };
+            let previous = self.last;
             self.last = tid;
             let mut thread = self
                 .proc
                 .threads
                 .remove(&tid)
                 .expect("runnable thread exists");
+            clear_exclusive_on_switch(previous, tid, &mut thread.cpu);
             thread.woken = false;
             thread.wait = None;
             thread.mach.csw += 1;

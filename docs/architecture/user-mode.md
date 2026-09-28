@@ -65,9 +65,11 @@ conventions (`SYSCALL` with a class in `RAX[31:24]`; `SVC #0x80` with the
 call in `X16`).
 
 Adapters expose architectural exits to the personality and use the process
-address space for memory. They clear exclusive reservations when leaving
-guest code. [CPU contracts](user-mode/core.md#cpu-adapters) specify register
-state, exception reporting, execute permissions, and host-time counters.
+address space for memory. AArch64 retains an exclusive reservation across a
+pure instruction-budget yield, but clears it on a synchronous exception,
+actual guest-thread switch, or successful asynchronous signal entry.
+[CPU contracts](user-mode/core.md#cpu-adapters) specify register state,
+exception reporting, execute permissions, and host-time counters.
 
 ## Linux personality
 

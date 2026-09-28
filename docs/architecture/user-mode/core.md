@@ -82,11 +82,12 @@ is bypassed and every exception or software interrupt is reported as an
 architectural frame would have held, and `HLT` raises #GP at CPL 3 as the
 SDM specifies. System emulation is unchanged when user mode is not enabled.
 
-Adapters clear LL/SC reservations (AArch64 exclusive monitor, RISC-V `LR`
-reservation) whenever they leave guest code, as exception entry and return
-do on hardware, so an interrupted `LDXR`/`STXR` or `LR`/`SC` sequence fails
-and retries. The AArch64 generic timer and the RISC-V `time` CSR follow
-host time (62.5 MHz and 10 MHz).
+Reservation lifetime depends on the ISA and exit cause. AArch64 preserves its
+exclusive monitor across a pure instruction-budget yield in the same guest
+thread; synchronous exception entry, an actual guest-thread switch, and
+successful asynchronous signal-handler entry clear it. Other CPU adapters
+retain their own reservation policies. The AArch64 generic timer and the
+RISC-V `time` CSR follow host time (62.5 MHz and 10 MHz).
 
 ## Process memory and kernel objects
 

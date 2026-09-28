@@ -340,6 +340,9 @@ fn sendsig_arm64(
         unreachable!("an arm64 process runs arm64 threads");
     };
     let core = cpu.core_mut();
+    // Installing a handler is an asynchronous guest exception. Discard the
+    // interrupted thread's reservation only after its frame is committed.
+    core.clear_exclusive_monitor();
     core.set_x(0, catcher);
     core.set_x(1, u64::from(infostyle));
     core.set_x(2, sig as u64);
