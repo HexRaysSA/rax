@@ -214,6 +214,19 @@ preflights or consumes a stack guard merely because the chosen SP lies below
 `StackLimit`; a subsequent guest memory access can still fault or grow the
 stack. Native dispatcher SP/growth and private retry semantics are unknown.
 
+The x86 frame search also initializes a 4-byte `DispatcherContext` scratch
+word before either a TEB frame handler or a selected synthetic-scope unwind.
+RAX now retains that already-selected operation if the word's checked
+allocation or zero write faults. It publishes the scratch cursor only after
+the write succeeds, so a repaired guard retries the same address without
+revisiting the registration or re-offering the disabled scope. An exhausted
+stack guard keeps `STATUS_STACK_OVERFLOW` rather than being reclassified after
+guard consumption. The existing private retry PC/SP, ownership check and
+four-fault cap apply. This is a bounded RAX dispatch policy: the retained
+[Microsoft guard-page reference](../../specifications/windows/services/fibers/creating-guard-pages.md)
+specifies one-shot consumption, but does not specify this x86 scratch layout
+or private retry behavior.
+
 Checked callback setup and the guest-call writer now share
 `call_stack_layout`: the reserved ABI frame determines SP, but checked
 preflight requests only the stacked-argument bytes and return slot actually
@@ -282,6 +295,7 @@ Function-table binary search still requires sorted `.pdata` input.
 | A20 | ARM64 callbacks with at most eight integer/pointer arguments perform no setup write and need no write preflight, even when the chosen SP is below the current stack limit | Windows ARM64 register-argument ABI and current `call_guest_on`/zero-byte `prepare_call` branches | VEH/VCH/filter and four-argument `EHANDLER` reachability, one-shot guard and `StackLimit` preservation | Put an armed guard immediately below the original records; place SP below `StackLimit`; cross from eight to nine arguments | `arm64_veh_register_only_callback_does_not_preflight_untouched_stack_guard`, `arm64_veh_register_argument_setup_does_not_touch_guard_below_records`, `arm64_four_register_callback_args_need_no_stack_write`, and the nine-argument `callback_stack_writes_classify_protection_and_both_guard_types`; a native dispatcher trace would test SP/growth equivalence | Confirmed for current register-only setup and nine-argument write boundary; native dispatcher SP/growth unknown |
 | A21 | Checked callback preflight should cover exactly the byte spans written by `call_guest_on`, not all reserved ABI shadow/alignment bytes | Shared `call_stack_layout` supplies the writer and preflight; x64 calling convention requires but does not itself write the shadow store; x86/ARM64 alignment is a reserved layout property | Guard classification, callback admission and original continuation ownership on all three ABIs | Guard x64 unused shadow while keeping return slot writable; put fifth x64 argument in a guarded page; guard x86/x64 arguments while denying the earlier return-slot page; vary x86 argument counts 1–4 and ARM64 stacked counts 1–2 to expose padding | `x64_checked_callback_does_not_probe_unused_shadow_guard`, `x64_fifth_callback_argument_faults_at_actual_guarded_stack_slot`, and `callback_preflight_preserves_first_actual_write_fault_order`; inspect `call_stack_layout`/`call_guest_on` for x86/ARM64 padding and add direct layout assertions, because 4,096-byte page protection cannot isolate their trailing padding | Retained source contract; x64 direct boundary and x86/x64 first-write-priority tests exist, isolated x86/ARM64 padding guard tests do not; native preflight ordering unknown |
 | A22 | VCH and VEH use process-scoped opaque, nonzero handles from one checked pointer-width-bounded sequence; NULL handlers and exhausted/colliding handles fail without registration, while removal is family-specific | Microsoft Add/Remove VCH signatures and first/last contract; `SehState` ownership, `add_vectored`/`remove_vectored` and guest pointer-width conversion; native handle encoding and NULL-handler behavior are undocumented in the retained pages | Public VCH/VEH registration identity, x86 return/removal ABI and fail-closed boundaries | Duplicate callback pointers, alternating VEH/VCH registration, both cross-family removals, NULL handler, x86 `0xffff_fffc + 4 = 0x1_0000_0000`, 64-bit counter overflow and injected occupied handle | Focused VCH HLE and compiled PE tests establish the RAX profile; a native Windows probe of duplicate/NULL/boundary registration and cross-family removal would test equivalence | Retained RAX policy; native handle representation, NULL-handler result and exhaustion behavior unknown |
+| A23 | The RAX x86 dispatcher may retry only its selected 4-byte `DispatcherContext` initialization at the owned private PC/SP after a repairable guard or stack-overflow setup fault, without replaying registration/scope selection | The current x86 HLE word layout, `stack::prepare`, existing private dispatcher retry owner and Microsoft's one-shot guard contract; no verified native x86 private-scratch rule | Exact callback identity, scratch address, nested fault status and cumulative four-fault limit | Lower-page one-shot guard, selected synthetic scope, changed TEB handler pointer, exhausted stack guard, repeated rearm and context abandonment | Focused metadata retry tests and existing dispatcher frontier/cap tests establish the RAX profile; a native Windows x86 context/handler trace would falsify native-equivalence claims | Retained RAX policy; native x86 scratch, frontier and precedence unknown |
 
 ## Change-surface map
 
@@ -308,6 +322,16 @@ Function-table binary search still requires sorted `.pdata` input.
 | SMIR lift/IR/interpreter/optimizer/native lowering/JIT runtime; backend/machine/device | Unchanged: Windows user mode still steps the direct ISA interpreters and does not alter native admission or board devices |
 | Oracle/analysis and host C ABI | Unchanged: no ISA analysis output or `rax-capi` surface change; the added ABI is guest-visible Win32 |
 | Tests/docs | Affected: focused registration units, a three-ABI compiled public-import VCH fixture and runner, retained primary references, fixture provenance and this profile |
+
+### x86 dispatcher-metadata retry group
+
+| Plane | Status and reason |
+|---|---|
+| Direct decode/execute and CPU state | Unchanged: the x86 interpreter and context representation are reused; the private retry PC/SP is existing HLE state |
+| Memory/MMU | Existing checked guard growth and one-shot classification are reused; the 4-byte dispatcher word's cursor is published only after preflight and zero write succeed |
+| Windows HLE/SEH/traps | Affected: `RetryFault` and a distinct overflow retry share the bounded owned dispatcher frontier with checked callbacks; x86 frame and selected-scope searches retain their post-selection continuation across word setup faults |
+| Loader/scheduler and SMIR/native/backend/device/oracle/C ABI | Unchanged: no new guest export, ISA operation, JIT admission, backend, device or host C ABI |
+| Tests/docs | Affected: focused x86 metadata-fault witnesses and this profile; compiled PE32/native-Windows equivalence is not established |
 
 ## Bounded findings and completion boundary
 
@@ -338,9 +362,10 @@ continuation, but native nested-dispatch precedence, dispatcher SP/growth and
 private retry behavior remain unknown. High: other synthetic dispatcher
 callback paths require separate admission and fault-path audits before
 claiming universal callback containment.
-High: x86 frame search allocates and zeroes `DispatcherContext` before the
-checked handler call; a fault in that metadata write remains terminal, not a
-repairable callback-setup fault.
+High: checked x86 `DispatcherContext` setup now retains its selected operation,
+but a later selected-scope exception-record flags write can still fault and
+terminate dispatch. Its all-ABI fail-closed policy is tested separately; native
+nested handling and repairability are unknown.
 High: a repaired dispatcher that subsequently needs `Flow::Raise` halts
 emulation with a diagnostic. Guest handling of that nested exception is not
 admitted; its native context is unknown.
@@ -350,6 +375,9 @@ no tracked consumer constructs it directly, while external usage is unknown.
 Medium: public `hle::Frame` gained a private-policy retry counter field; no
 tracked external struct-literal consumer was found, but external source
 compatibility is unknown.
+Medium: public `hle::Flow` gained `RetryOverflow` for checked emergency-stack
+setup faults; no tracked exhaustive external match was found, while external
+source compatibility is unknown.
 Medium: callback-repair unit tests simulate guest callback returns; no compiled
 PE32/PE32+ guard-repair fixture exercises those returns through the scheduler.
 Medium: exact-write preflight has direct x64 guard tests, but no dedicated
@@ -614,3 +642,29 @@ Clippy passed. Formatting, diff, fixture-script ShellCheck, five retained
 reference SHA-256 checks and two byte-identical fixture rebuilds passed.
 Native Windows handle encoding, NULL-handler result, in-flight mutation
 precedence and differential fixture execution remain unknown.
+
+## x86 dispatcher-metadata retry verification record — 2026-09-28
+
+With the original x86 ESP at `B + 0x350`, the offsets in bytes are
+`0x350 - 0x2cc = 0x84` for the 0x2cc-byte `CONTEXT`,
+`align_down_16(0x84 - 0x50) = 0x30` for the 0x50-byte `EXCEPTION_RECORD`,
+and `align_down_16(0x30 - 0x8) = 0x20` for the two 4-byte pointers.
+Subtracting the 0x20-byte dispatcher gap gives cursor `B`; initializing the
+4-byte dispatcher word touches `B - 4`. A focused pre-fix regression ran one
+test and failed at the
+pseudo-dispatcher's terminal `STATUS_GUARD_PAGE_VIOLATION` path. After the
+change, six `dispatcher_context`-selected unit tests passed, including three
+new witnesses for retained TEB-handler identity despite registration mutation,
+the selected synthetic scope, and preserved `STATUS_STACK_OVERFLOW` at the
+consumed emergency guard. The latter two witnesses were added after the core
+change and have green-only evidence. The unchanged selected-scope record-flags
+write fault remains terminal, as tested by the existing all-ABI unit.
+
+The final portable run passed 7,309 library tests with two optional tests
+ignored and all 540 Windows integration tests; neither binary filtered tests.
+The feature-enabled workspace all-target check, Clippy and all 540 Windows
+integration tests passed with `--no-default-features --features
+x86_64-suite,smir-jit`. Formatting and diff checks passed. No compiled PE32
+guard-repair witness or native Windows x86 comparison was run; the scratch
+layout, private retry frontier, nested-handler precedence and overflow recovery
+are a tested RAX policy, not an established native equivalence claim.

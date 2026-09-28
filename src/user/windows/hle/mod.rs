@@ -260,11 +260,20 @@ pub enum Flow {
     /// caller's state inside this export (PC at the resume trap).
     Raise(ExceptionRecord),
     /// Raise a checked memory fault while retaining the operation's exact
-    /// continuation. Resuming the same export PC/SP retries that operation,
-    /// without reparsing argument registers clobbered by earlier callbacks.
+    /// continuation. Resuming its owned export or private dispatcher PC/SP
+    /// retries that operation without reparsing callback-clobbered registers.
     RetryFault {
         /// Access that failed, classified by the ordinary guard/SEH path.
         fault: MemFault,
+        /// Operation to retry; its integer input is ignored.
+        retry: Cont,
+    },
+    /// Raise a checked stack-overflow setup fault while retaining the exact
+    /// operation. The consumed emergency guard must not be reclassified as an
+    /// ordinary memory access when the exception is dispatched.
+    RetryOverflow {
+        /// Address of the exhausted stack guard.
+        address: u64,
         /// Operation to retry; its integer input is ignored.
         retry: Cont,
     },
@@ -402,8 +411,8 @@ pub struct Frame {
     /// Checked operation waiting for exception repair, distinct from a guest
     /// callback's continuation. Pruning or abandoning the frame drops it.
     pub retry: Option<Cont>,
-    /// Number of checked pseudo-dispatcher callback-setup faults retained by
-    /// this frame. Repeatedly rearming a guard must not create an unbounded
+    /// Number of checked pseudo-dispatcher setup faults retained by this
+    /// frame. Repeatedly rearming a guard must not create an unbounded
     /// internal redispatch loop.
     pub dispatcher_setup_retries: u8,
     /// Owned synthetic exception scopes, innermost last. Frame completion,

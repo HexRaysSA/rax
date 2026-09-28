@@ -1,5 +1,8 @@
 //! PE32 callback-setup fault ownership at the synthetic exception dispatcher.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
 use super::*;
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::layout::offsets;
@@ -86,6 +89,240 @@ fn callback_pointers(p: &Proc, t: &Thread) -> (u64, u64, u64) {
     let record = u64::from(p.space.u32(pointers).unwrap());
     let context = u64::from(p.space.u32(pointers + 4).unwrap());
     (pointers, record, context)
+}
+
+#[test]
+fn x86_dispatcher_context_guard_fault_retains_selected_frame_handler() {
+    let mut process = super::tests::process(WinArch::X86);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    // ESP = page + 0x350 puts the original EXCEPTION_RECORD at +0x30,
+    // EXCEPTION_POINTERS at +0x20, and dispatcher cursor at the page edge.
+    // The 4-byte DispatcherContext initialization therefore touches page - 4.
+    let (page, original_pc, original_sp) =
+        stack_fixture(p, &mut t, 0x350, prot::READWRITE | prot::GUARD);
+    let (registration, handler) = frame_handler(p, &t, page);
+    let original_record_at = page + 0x30;
+    let original_context_at = page + 0x84;
+
+    // There is no initial VEH: its own return slot would touch this guard.
+    // The registration handler can handle the nested one-shot guard fault after
+    // guard consumption, then must be selected again for the original record.
+    assert_eq!(
+        original_exception(p, &mut t, original_pc),
+        Outcome::Continue
+    );
+    assert_eq!(t.cpu.pc(), handler, "nested frame handler must start");
+    assert_eq!(t.frames[0].dispatcher_setup_retries, 1);
+    assert!(t.frames[0].retry.is_some());
+    assert_eq!(t.frames[0].entry_sp, page);
+    let nested_sp = t.cpu.sp();
+    let nested_record_at = u64::from(p.space.u32(nested_sp + 4).unwrap());
+    let nested_context_at = u64::from(p.space.u32(nested_sp + 12).unwrap());
+    assert_eq!(p.space.u32(nested_sp + 8).unwrap(), registration as u32);
+    let nested = ExceptionRecord::read(&p.space, WinArch::X86, nested_record_at).unwrap();
+    assert_eq!(nested.code, STATUS_GUARD_PAGE_VIOLATION);
+    assert_eq!(nested.params, [1, page - 4]);
+    assert_eq!(nested.address, p.traps.dispatcher_retry());
+    let nested_context = RegContext::read(&p.space, WinArch::X86, nested_context_at).unwrap();
+    assert_eq!(nested_context.pc(), p.traps.dispatcher_retry());
+    assert_eq!(nested_context.sp(), page);
+    assert_eq!(
+        p.vm.query(page - PAGE_SIZE).unwrap().protect,
+        prot::READWRITE
+    );
+    let original = ExceptionRecord::read(&p.space, WinArch::X86, original_record_at).unwrap();
+    assert_eq!(original.code, ORIGINAL_CODE);
+    let original_context = RegContext::read(&p.space, WinArch::X86, original_context_at).unwrap();
+    assert_eq!(
+        (original_context.pc(), original_context.sp()),
+        (original_pc, original_sp)
+    );
+
+    // The original frame handler was selected before the metadata fault.
+    // Mutating its TEB registration during nested dispatch must not retarget
+    // the already-selected continuation when the metadata write is retried.
+    let replacement_handler = p.modules.exe().base + 0x600;
+    assert_ne!(handler, replacement_handler);
+    p.space
+        .w32(registration + 4, replacement_handler as u32)
+        .unwrap();
+
+    assert_eq!(
+        return_callback(p, &mut t, seh::disposition::CONTINUE_EXECUTION.into(), 0),
+        Outcome::Continue
+    );
+    let retry_pc = p.traps.dispatcher_retry();
+    assert_eq!((t.cpu.pc(), t.cpu.sp()), (retry_pc, page));
+    assert_eq!(dispatcher_retry(p, &mut t, retry_pc), Outcome::Continue);
+    assert_eq!(t.cpu.pc(), handler, "original selected handler must start");
+    let callback_sp = t.cpu.sp();
+    assert_eq!(
+        p.space.u32(callback_sp + 4).unwrap(),
+        original_record_at as u32
+    );
+    assert_eq!(p.space.u32(callback_sp + 8).unwrap(), registration as u32);
+    assert_eq!(
+        p.space.u32(callback_sp + 12).unwrap(),
+        original_context_at as u32
+    );
+    assert_eq!(p.space.u32(callback_sp + 16).unwrap(), (page - 4) as u32);
+    assert_eq!(p.space.u32(page - 4).unwrap(), 0);
+    assert!(t.frames[0].retry.is_none());
+    assert!(t.frames[0].cont.is_some());
+
+    assert_eq!(
+        return_callback(p, &mut t, seh::disposition::CONTINUE_EXECUTION.into(), 0),
+        Outcome::Continue
+    );
+    assert_eq!((t.cpu.pc(), t.cpu.sp()), (original_pc, original_sp));
+    assert!(t.frames.is_empty());
+}
+
+#[test]
+fn x86_dispatcher_context_exhausted_stack_guard_preserves_overflow_classification() {
+    let mut process = super::tests::process(WinArch::X86);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    let (page, original_pc, original_sp) =
+        stack_fixture(p, &mut t, 0x350, prot::READWRITE | prot::GUARD);
+    let (registration, handler) = frame_handler(p, &t, page);
+    // Unlike the non-stack guard case, this is the selected stack's current
+    // guard. The fully committed lower reservation has no next reserved page.
+    t.stack_limit = page;
+    p.space
+        .w32(t.teb + offsets(WinArch::X86).teb_stack_limit, page as u32)
+        .unwrap();
+
+    assert_eq!(
+        original_exception(p, &mut t, original_pc),
+        Outcome::Continue
+    );
+    assert_eq!(t.cpu.pc(), handler);
+    assert_eq!(t.frames[0].dispatcher_setup_retries, 1);
+    assert!(t.frames[0].retry.is_some());
+    assert_eq!(t.frames[0].entry_sp, page);
+    let nested_sp = t.cpu.sp();
+    let nested_record_at = u64::from(p.space.u32(nested_sp + 4).unwrap());
+    let nested_context_at = u64::from(p.space.u32(nested_sp + 12).unwrap());
+    assert_eq!(p.space.u32(nested_sp + 8).unwrap(), registration as u32);
+    let nested = ExceptionRecord::read(&p.space, WinArch::X86, nested_record_at).unwrap();
+    assert_eq!(nested.code, STATUS_STACK_OVERFLOW);
+    assert_eq!(nested.params, [1, page - PAGE_SIZE]);
+    assert_eq!(nested.address, p.traps.dispatcher_retry());
+    let nested_context = RegContext::read(&p.space, WinArch::X86, nested_context_at).unwrap();
+    assert_eq!(
+        (nested_context.pc(), nested_context.sp()),
+        (p.traps.dispatcher_retry(), page)
+    );
+    assert_eq!(t.stack_limit, page - PAGE_SIZE);
+    assert_eq!(
+        u64::from(
+            p.space
+                .u32(t.teb + offsets(WinArch::X86).teb_stack_limit)
+                .unwrap()
+        ),
+        page - PAGE_SIZE
+    );
+    assert_eq!(
+        p.vm.query(page - PAGE_SIZE).unwrap().protect,
+        prot::READWRITE
+    );
+
+    assert_eq!(
+        return_callback(p, &mut t, seh::disposition::CONTINUE_EXECUTION.into(), 0),
+        Outcome::Continue
+    );
+    let retry_pc = p.traps.dispatcher_retry();
+    assert_eq!((t.cpu.pc(), t.cpu.sp()), (retry_pc, page));
+    assert_eq!(dispatcher_retry(p, &mut t, retry_pc), Outcome::Continue);
+    assert_eq!(t.cpu.pc(), handler);
+    assert_eq!(p.space.u32(t.cpu.sp() + 16).unwrap(), (page - 4) as u32);
+    assert_eq!(
+        return_callback(p, &mut t, seh::disposition::CONTINUE_EXECUTION.into(), 0),
+        Outcome::Continue
+    );
+    assert_eq!((t.cpu.pc(), t.cpu.sp()), (original_pc, original_sp));
+    assert!(t.frames.is_empty());
+}
+
+#[test]
+fn x86_selected_scope_dispatcher_context_guard_fault_retains_taken_handler() {
+    let mut process = super::tests::process(WinArch::X86);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    let (page, original_pc, _) = stack_fixture(p, &mut t, 0x350, prot::READWRITE | prot::GUARD);
+    let (registration, guest_handler) = frame_handler(p, &t, page);
+    let selected_calls = Rc::new(Cell::new(0));
+    let calls = selected_calls.clone();
+    let scope_cursor = page + 0x400;
+    t.frames.push(Frame {
+        api: &super::tests::TEST_API,
+        entry_pc: 0xAB00,
+        entry_sp: page + 0x500,
+        ret_addr: original_pc,
+        cursor: scope_cursor,
+        cont: Some(Box::new(|_, _| {
+            panic!("protected operation is still pending")
+        })),
+        checked_call: true,
+        callback_sp: None,
+        exception_caller: None,
+        retry: None,
+        dispatcher_setup_retries: 0,
+        exception: vec![super::super::exception::ExceptionBoundary::new(
+            Some(ORIGINAL_CODE),
+            scope_cursor,
+            Box::new(move |c, code| {
+                assert_eq!(code, u64::from(ORIGINAL_CODE));
+                assert!(c.t.frames[0].cont.is_some());
+                calls.set(calls.get() + 1);
+                Ok(Flow::TerminateProcess(91))
+            }),
+        )],
+    });
+
+    // The scope is selected before the outer TEB registration, but its
+    // DispatcherContext falls on the guarded lower page. The nested fault
+    // must visit the TEB handler without re-offering the taken scope.
+    assert_eq!(
+        original_exception(p, &mut t, original_pc),
+        Outcome::Continue
+    );
+    assert_eq!(selected_calls.get(), 0);
+    assert_eq!(t.cpu.pc(), guest_handler);
+    assert_eq!(t.frames[1].entry_sp, page);
+    assert!(t.frames[1].retry.is_some());
+    let nested_sp = t.cpu.sp();
+    let nested_record_at = u64::from(p.space.u32(nested_sp + 4).unwrap());
+    let nested_context_at = u64::from(p.space.u32(nested_sp + 12).unwrap());
+    assert_eq!(p.space.u32(nested_sp + 8).unwrap(), registration as u32);
+    let nested = ExceptionRecord::read(&p.space, WinArch::X86, nested_record_at).unwrap();
+    assert_eq!(nested.code, STATUS_GUARD_PAGE_VIOLATION);
+    assert_eq!(nested.params, [1, page - 4]);
+    assert_eq!(nested.address, p.traps.dispatcher_retry());
+    let nested_context = RegContext::read(&p.space, WinArch::X86, nested_context_at).unwrap();
+    assert_eq!(
+        (nested_context.pc(), nested_context.sp()),
+        (p.traps.dispatcher_retry(), page)
+    );
+
+    assert_eq!(
+        return_callback(p, &mut t, seh::disposition::CONTINUE_EXECUTION.into(), 0),
+        Outcome::Continue
+    );
+    let retry_pc = p.traps.dispatcher_retry();
+    assert_eq!((t.cpu.pc(), t.cpu.sp()), (retry_pc, page));
+    assert_eq!(
+        dispatcher_retry(p, &mut t, retry_pc),
+        Outcome::ProcessTerminate(91)
+    );
+    assert_eq!(selected_calls.get(), 1);
+    assert_eq!(t.frames.len(), 1, "protected owner remains pending");
+    assert!(t.frames[0].cont.is_some());
 }
 
 #[test]

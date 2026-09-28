@@ -29,6 +29,7 @@ use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::layout::offsets;
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
+use crate::user::windows::process::stack::{self, StackFault};
 use std::collections::BTreeSet;
 
 /// End of the registration chain.
@@ -100,6 +101,41 @@ impl ChainWalk {
     }
 }
 
+/// Initialize the four-byte callback scratch without publishing a new cursor
+/// until both the write preflight and zero write have succeeded. A late write
+/// fault therefore retries the same word, not a second allocation below it.
+fn dispatcher_context(c: &mut Ctx) -> Result<u64, StackFault> {
+    let fault = MemFault {
+        addr: c.cursor,
+        write: true,
+    };
+    let dc = c.cursor.checked_sub(4).ok_or(StackFault::Access(fault))? & !3;
+    stack::prepare(c.p, c.t, dc, c.cursor - dc)?;
+    c.p.space.w32(dc, 0)?;
+    c.cursor = dc;
+    Ok(dc)
+}
+
+/// Preserve the already-selected handler and chain-search state if its
+/// DispatcherContext word faults. Re-entering `walk` would offer a selected
+/// synthetic scope twice or report a false registration cycle.
+fn with_dispatcher_context(
+    c: &mut Ctx,
+    then: impl FnOnce(&mut Ctx, u64) -> ApiResult + 'static,
+) -> ApiResult {
+    match dispatcher_context(c) {
+        Ok(dc) => then(c, dc),
+        Err(StackFault::Access(fault)) => Ok(Flow::RetryFault {
+            fault,
+            retry: Box::new(move |c, _| with_dispatcher_context(c, then)),
+        }),
+        Err(StackFault::Overflow(address)) => Ok(Flow::RetryOverflow {
+            address,
+            retry: Box::new(move |c, _| with_dispatcher_context(c, then)),
+        }),
+    }
+}
+
 /// Dispatches to the registration chain.
 pub fn dispatch(c: &mut Ctx, rec: ExceptionRecord, recs: Records) -> ApiResult {
     let first = exception_list(c)?;
@@ -121,11 +157,11 @@ fn walk(
     if let Some(selected) =
         crate::user::windows::hle::exception::x86(c, &rec, frontier, &mut chain.exception)?
     {
-        let dc = c.stack_alloc_checked(4, 4)?;
-        c.p.space.w32(dc, 0)?;
-        c.p.space
-            .w32(recs.record + 4, rec.flags | EXCEPTION_UNWINDING)?;
-        return unwind_selected(c, recs, dc, selected, ChainWalk::default());
+        return with_dispatcher_context(c, move |c, dc| {
+            c.p.space
+                .w32(recs.record + 4, rec.flags | EXCEPTION_UNWINDING)?;
+            unwind_selected(c, recs, dc, selected, ChainWalk::default())
+        });
     }
     if record == CHAIN_END || record == 0 {
         return unhandled(c, rec, recs);
@@ -146,33 +182,33 @@ fn walk(
     }
     // DispatcherContext: a word receiving the establisher of a nested
     // exception.
-    let dc = c.stack_alloc_checked(4, 4)?;
-    c.p.space.w32(dc, 0)?;
-    Flow::call_checked(
-        handler,
-        vec![recs.record, record, recs.context, dc],
-        move |c, ret| {
-            let rec = ExceptionRecord::read(&c.p.space, c.p.arch, recs.record)?;
-            match ret as u32 {
-                disposition::CONTINUE_EXECUTION => handler_continue(c, &rec, recs),
-                disposition::CONTINUE_SEARCH | disposition::NESTED_EXCEPTION => {
-                    let mut rec = rec;
-                    if ret as u32 == disposition::NESTED_EXCEPTION {
-                        rec.flags |= EXCEPTION_NESTED_CALL;
+    with_dispatcher_context(c, move |c, dc| {
+        Flow::call_checked(
+            handler,
+            vec![recs.record, record, recs.context, dc],
+            move |c, ret| {
+                let rec = ExceptionRecord::read(&c.p.space, c.p.arch, recs.record)?;
+                match ret as u32 {
+                    disposition::CONTINUE_EXECUTION => handler_continue(c, &rec, recs),
+                    disposition::CONTINUE_SEARCH | disposition::NESTED_EXCEPTION => {
+                        let mut rec = rec;
+                        if ret as u32 == disposition::NESTED_EXCEPTION {
+                            rec.flags |= EXCEPTION_NESTED_CALL;
+                        }
+                        let next = u64::from(c.p.space.u32(record)?);
+                        walk(c, rec, recs, next, chain)
                     }
-                    let next = u64::from(c.p.space.u32(record)?);
-                    walk(c, rec, recs, next, chain)
+                    _ => Ok(Flow::Raise(ExceptionRecord {
+                        code: STATUS_INVALID_DISPOSITION,
+                        flags: EXCEPTION_NONCONTINUABLE,
+                        nested: recs.record,
+                        address: rec.address,
+                        params: Vec::new(),
+                    })),
                 }
-                _ => Ok(Flow::Raise(ExceptionRecord {
-                    code: STATUS_INVALID_DISPOSITION,
-                    flags: EXCEPTION_NONCONTINUABLE,
-                    nested: recs.record,
-                    address: rec.address,
-                    params: Vec::new(),
-                })),
-            }
-        },
-    )
+            },
+        )
+    })
 }
 
 /// Unwind only guest registrations inside the selected synthetic scope. The
@@ -452,7 +488,7 @@ mod tests {
     }
 
     #[test]
-    fn record_flags_and_dispatcher_word_write_faults_are_reported() {
+    fn record_flags_fault_and_dispatcher_word_retry_are_reported() {
         with_context(|c| {
             let (rec, recs, at) = records(c);
             registration(c, at, CHAIN_END);
@@ -467,9 +503,13 @@ mod tests {
             let dc_page = c.t.stack_limit + 0x6000;
             c.cursor = dc_page + 4;
             c.p.vm.protect(dc_page, 0x1000, prot::NOACCESS).unwrap();
-            assert!(
-                matches!(dispatch(c, rec, recs), Err(ApiErr::Fault(MemFault { addr, write: true })) if addr == dc_page)
-            );
+            assert!(matches!(
+                dispatch(c, rec, recs),
+                Ok(Flow::RetryFault {
+                    fault: MemFault { addr, write: true },
+                    ..
+                }) if addr == dc_page
+            ));
         });
     }
 

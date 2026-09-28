@@ -134,7 +134,7 @@ pub fn enter(p: &mut Proc, t: &mut Thread, api: &'static Api, pc: u64) -> Outcom
     run(p, t, site, |ctx| (api.imp)(ctx))
 }
 
-/// Re-enters only a previously saved pseudo-dispatcher callback setup. This
+/// Re-enters only a previously saved pseudo-dispatcher checked operation. This
 /// trap is private to `ntdll` and is not an export: a fresh guest jump cannot
 /// synthesize a dispatcher frame or invoke its no-op implementation.
 pub(crate) fn dispatcher_retry(p: &mut Proc, t: &mut Thread, pc: u64) -> Outcome {
@@ -379,6 +379,24 @@ fn retry_call(
     then: Cont,
     fault: super::super::process::stack::StackFault,
 ) -> Outcome {
+    retry_operation(
+        p,
+        t,
+        site,
+        Box::new(move |_, _| Ok(Flow::CallChecked { target, args, then })),
+        fault,
+    )
+}
+
+/// Keeps a checked operation owned across a setup fault. The pseudo-dispatcher
+/// uses a private PC/SP frontier; ordinary exports retain their entry frontier.
+fn retry_operation(
+    p: &mut Proc,
+    t: &mut Thread,
+    site: CallSite,
+    retry: Cont,
+    fault: super::super::process::stack::StackFault,
+) -> Outcome {
     use super::super::process::stack::StackFault;
     let dispatcher = std::ptr::eq(site.api, &seh::DISPATCHER);
     let fault_pc = if dispatcher {
@@ -422,9 +440,7 @@ fn retry_call(
         frame.entry_pc = fault_pc;
         frame.entry_sp = site.cursor;
     }
-    frame.retry = Some(Box::new(move |_, _| {
-        Ok(Flow::CallChecked { target, args, then })
-    }));
+    frame.retry = Some(retry);
     if dispatcher {
         let mut ctx = RegContext::capture(&t.cpu);
         ctx.set_pc(fault_pc);
@@ -601,13 +617,20 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
             }
             seh::raise(p, t, rec, ctx)
         }
-        Ok(Flow::RetryFault { fault, retry }) => {
-            let record = memory_exception(p, t, site.entry_pc, fault);
-            frame_for(t, &site).retry = Some(retry);
-            // The handler runs on child frames; it must not erase the checked
-            // operation waiting at the original export frontier.
-            raise_from_site(p, t, &site, record)
-        }
+        Ok(Flow::RetryFault { fault, retry }) => retry_operation(
+            p,
+            t,
+            site,
+            retry,
+            super::super::process::stack::StackFault::Access(fault),
+        ),
+        Ok(Flow::RetryOverflow { address, retry }) => retry_operation(
+            p,
+            t,
+            site,
+            retry,
+            super::super::process::stack::StackFault::Overflow(address),
+        ),
         Ok(Flow::ExitThread(code)) => {
             pop_frame(t, &site);
             Outcome::ThreadExit(code)
