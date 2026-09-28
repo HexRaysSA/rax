@@ -40,6 +40,7 @@ e182b402689dd89e7784ae330a0525dc5b08ce09526b0a8f0801a7adcd4b0dd8  ./bsd/kern/pos
 dc99b9a8105fc1376ba0b7d14de1aa6e065c7b13899ac9ede2fb1dccab649178  ./bsd/kern/proc_info.c
 b2518759950620d6c5964d548c6e1838eb6fa83252a78760c71826edd57c548c  ./bsd/kern/subr_xxx.c
 4d50d6beb87bd71b9dc669e9154c8250f1394ec6806f716fa1caac1f9e4c1fc6  ./bsd/kern/sys_generic.c
+7f510639d4c4f11c6f416952c7b12b46ad073f303dc52c83fc6a155e8a61fda5  ./bsd/kern/sys_persona.c
 32423bf6b4cef5bd6b260023279052a74478a28eb2ce28ff484047b30a3c2cbc  ./bsd/kern/sys_socket.c
 b23be59e62a90ec4aa7d5400014206ab79600a6cc95d1de06702152dcf689a49  ./bsd/kern/sys_ulock.c
 7e866891439ad5b3464777d2cacc3b82fc2e7f439fb5a8686c3e6f160d5aeab5  ./bsd/kern/syscalls.master
@@ -77,6 +78,7 @@ ba5ef541ed4851cf79397b99bf71d9604790dc1387ae125675b7af35b57090b1  ./bsd/sys/imga
 9009cb706a24501dff4f47024c63dc730618249d85dd050f2bf97515a3ca6098  ./bsd/sys/kauth.h
 278cf3c858babbe4fa4871818823cff33f122b8a132ef165e6937dbc4db855de  ./bsd/sys/mount.h
 ee6024c8fee1eb9bcd280203532cba183fb015c5549eebcd8f45f4667529ad4a  ./bsd/sys/param.h
+ea9c0c538c723009c22976b62f85cf8f05aec3606b431bf6e94c35e4e7040b10  ./bsd/sys/persona.h
 a4eb26cdfd3721b111f9979455d80a854625b0ef96ba4de1a4e7705f462e0f84  ./bsd/sys/proc_info.h
 4f8a8290fb644349521befe852fbaebf1a2d3a9355b0937f45ce1d89a3906a73  ./bsd/sys/proc_info_private.h
 2efb1aca5abdfa6f9e8bad155f2db319fdca1a029400cad1558e4df981d6eeea  ./bsd/sys/signal.h
