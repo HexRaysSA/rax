@@ -166,6 +166,7 @@ c2d27eae8540bc58fa493f685a1c914867623cb3c6e401001ff7190a2dffbe86  ./osfmk/ipc/ip
 8f2552aa1b6f232de5ae5e0a8028b904bb27bfc0a7d7f3e348ca78cb82fd14a2  ./osfmk/ipc/ipc_policy.c
 d4d121b05110362dc95669ce35badfe0493c8e1d465b6ba086ce60633c895098  ./osfmk/ipc/ipc_policy.h
 e02e2d59482f7b492541c1959a2b9dae78cd674ad0e79dfb688c2320806377e8  ./osfmk/ipc/ipc_port.c
+fcbf45d2f0c3f60615022a204805a71d1373306211d0fecd35f267c1e0465132  ./osfmk/ipc/ipc_port.h
 90fff2eccfbf24bd71e819549bc312704960d86d30f2f4d79731937f6140ed58  ./osfmk/ipc/ipc_pset.c
 0d335ac400cd08665653a2b2d6827ac3d0a4e2a7077f98b0da98b99b5b8844ed  ./osfmk/ipc/ipc_right.c
 6fb613d82ae5e191db3353c8ebdafb1a51632c0fc0041ddafd3ab701528a8e7e  ./osfmk/ipc/ipc_types.h
@@ -241,6 +242,7 @@ fd717b78e4db8f21bdb4e1bde7b6f0112058e6e5f16b16f4074ce9fc527628d6  ./osfmk/mach/m
 a5c4ff0d4e6d243dc88b8cc150439fbf8b579ace9629b6a9263c2773b6147911  ./osfmk/mach/machine/machine_types.defs
 c3f5251c26e2bd1eaad3d57df544254e8ce4ffadde120c5394badcf24f9d6086  ./osfmk/mach/machine/thread_state.h
 27617c3f2057e512b9f1a8331a97b3ea9ab17033c3e83d990f91ef9bb531ebb5  ./osfmk/mach/memory_entry.defs
+36ee8a97db3a6c75bea294e81516c99af2479ef5c21530ea0c76c6a8874d4939  ./osfmk/mach/memory_object_types.h
 ce1b7c102909919c8a15e984ab4279c2a54f09301c3641b0a3151dd4d7242465  ./osfmk/mach/message.h
 5f9b82c31996cb2929d7bca5acb91ff5ffb1959e74da7e47deef1e25033a89c6  ./osfmk/mach/mig_errors.h
 1c4616668ece336aeb2e728e35a7ecb445263872218013887dbe4dc2c913617c  ./osfmk/mach/mk_timer.h
@@ -272,6 +274,7 @@ db0db4c2ca0627076fab369bab78820d16dc156c83fcd62181c4fcf30507dacd  ./osfmk/mach/v
 c020656db89b907e13b636d9aa1a6fe97f7cf812c0f2ca7e8e968e937adbc47e  ./osfmk/mach_debug/mach_debug_types.defs
 64934aabe377b26f020010b38fb976f4e845b9d0198707a82789e6868c31c531  ./osfmk/vm/vm_kern.c
 10bcbdaec50dbedc6b8f6d8348c640d773cd506609998825202dfe7f823fa784  ./osfmk/vm/vm_map.c
+13a3739374e09512ab216a73519a43f63649d18ebb963b9c3bc306d38de16564  ./osfmk/vm/vm_memory_entry.c
 59410239be2d28e5b59c1eb4683d5ea7296ecc4a62955ac8662201d4dfd26d34  ./osfmk/vm/vm_reclaim.c
 fcbff03b7a1f786305094a5e12132a75e5253da1f49863b1fe6c1b04cf17ec18  ./osfmk/vm/vm_shared_region.c
 9ccacb85ed27f49b669f68e225431f2bfaaac160af044650c8fe213479157299  ./osfmk/vm/vm_shared_region_pager.c
@@ -281,5 +284,6 @@ c7b70d3a6711ca4c018ce90ffd1dc5bd9bd97d9836414a22711e21eb0565d933  ./osfmk/vm/vm_
 c94f3122051f10dc371a53fafd3f98dd947357ed6a612cb2fc0245a6b227de81  ./osfmk/voucher/ipc_pthread_priority_types.h
 c5cf8d127db7a3896b48db94fe82342cc82865d905f3c1ec9fd031ad84b7e641  ./osfmk/x86_64/idt64.s
 ef9f9f76a94596de56d84b6cc0602608063bf6cf0de741538bae8326f593f614  ./pexpert/pexpert/arm64/H13.h
+b50b830ede821960d7e6dbfaea851af6ebdbccbcd097f1f7a161a43f08ced37d  ./security/mac_base.c
 37d71d87236ebf4fc9bf16f42cf792ae1ef1f1109752cc74934b2adfcf086dd2  ./tests/voucher_entry_18826844.c
 700a4aaba592c485b740700839f5bdfc85ec1974e5cb2a41a4c6fae07ae238ba  ./tests/voucher_traps.c
