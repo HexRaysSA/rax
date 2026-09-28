@@ -3,8 +3,8 @@
 //! Each built-in DLL image has a code section of 16-byte slots mapped
 //! without execute permission. [`Traps`] maps a faulting fetch address to
 //! what it means: slot offset 0 is an export's entry, offset 8 its resume
-//! point; three slots at the start of `ntdll`'s section are the
-//! callback-return, thread-start and fiber-start traps.
+//! point; four private slots at the start of `ntdll`'s section are the
+//! callback-return, thread-start, fiber-start and dispatcher-retry traps.
 
 use std::sync::Arc;
 
@@ -29,6 +29,8 @@ pub enum SlotKind {
     ThreadStart,
     /// A newly selected fiber begins its application start routine.
     FiberStart,
+    /// A checked exception-dispatch callback resumes after a setup fault.
+    DispatcherRetry,
 }
 
 /// A decoded trap.
@@ -46,6 +48,8 @@ pub enum Trap {
     ThreadStart,
     /// A newly created fiber starts.
     FiberStart,
+    /// A checked exception-dispatch callback retries at its saved frontier.
+    DispatcherRetry,
 }
 
 #[derive(Debug)]
@@ -63,6 +67,7 @@ pub struct Traps {
     callback_return: u64,
     thread_start: u64,
     fiber_start: u64,
+    dispatcher_retry: u64,
 }
 
 impl Traps {
@@ -75,6 +80,7 @@ impl Traps {
                 SlotKind::CallbackReturn => self.callback_return = at,
                 SlotKind::ThreadStart => self.thread_start = at,
                 SlotKind::FiberStart => self.fiber_start = at,
+                SlotKind::DispatcherRetry => self.dispatcher_retry = at,
                 _ => {}
             }
         }
@@ -114,6 +120,7 @@ impl Traps {
             (0, SlotKind::CallbackReturn) => Some(Trap::CallbackReturn),
             (0, SlotKind::ThreadStart) => Some(Trap::ThreadStart),
             (0, SlotKind::FiberStart) => Some(Trap::FiberStart),
+            (0, SlotKind::DispatcherRetry) => Some(Trap::DispatcherRetry),
             _ => None,
         }
     }
@@ -140,6 +147,12 @@ impl Traps {
     /// The first-entry trap for a created fiber.
     pub fn fiber_start(&self) -> u64 {
         self.fiber_start
+    }
+
+    /// The private checked-dispatcher retry frontier, or 0 before `ntdll`
+    /// trap publication. The resume half-slot is intentionally invalid.
+    pub(crate) fn dispatcher_retry(&self) -> u64 {
+        self.dispatcher_retry
     }
 
     /// The entry address of `api` in the first range that holds it.

@@ -708,6 +708,7 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
             SlotKind::CallbackReturn,
             SlotKind::ThreadStart,
             SlotKind::FiberStart,
+            SlotKind::DispatcherRetry,
         ]
     } else {
         &[]

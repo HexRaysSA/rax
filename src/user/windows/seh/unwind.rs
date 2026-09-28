@@ -621,7 +621,7 @@ fn search(
         }
         .write(&c.p.space, c.p.arch, dc)?;
         let next = ctx;
-        return Flow::call(
+        return Flow::call_checked(
             handler,
             vec![recs.record, u.establisher, recs.context, dc],
             move |c, ret| {

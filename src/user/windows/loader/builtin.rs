@@ -81,7 +81,7 @@ fn put64(b: &mut [u8], at: usize, v: u64) {
 }
 
 /// Builds the image of `dll` for `arch` at `base`, with `specials` slots
-/// (the `ntdll` callback-return and thread-start traps) before the
+/// (the private `ntdll` callback-return, thread/fiber-start and retry traps) before the
 /// function exports.
 pub fn build(dll: &BuiltinDll, arch: WinArch, base: u64, specials: &[SlotKind]) -> BuiltinImage {
     // Exports for this architecture, first definition of a name winning.

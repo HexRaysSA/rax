@@ -204,6 +204,7 @@ fn fiber_continuations_seh_and_fls_follow_context_not_thread_all_abis() {
             checked_call: false,
             callback_sp: None,
             retry: None,
+            dispatcher_setup_retries: 0,
             exception: Vec::new(),
             exception_caller: None,
         });

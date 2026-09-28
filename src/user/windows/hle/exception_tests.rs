@@ -65,6 +65,7 @@ fn owner(sp: u64, cursor: u64, callback_sp: Option<u64>) -> Frame {
         callback_sp,
         exception_caller: None,
         retry: None,
+        dispatcher_setup_retries: 0,
         exception: Vec::new(),
     }
 }
@@ -362,6 +363,54 @@ fn table_sentinel_bridges_unprotected_owner_without_fabricating_callback_return(
 }
 
 #[test]
+fn table_bridges_only_exact_pending_dispatcher_retry_frontier() {
+    for arch in [WinArch::X64, WinArch::Arm64] {
+        with_context(arch, |c| {
+            let retry_pc = c.p.traps.dispatcher_retry();
+            assert_ne!(retry_pc, 0);
+            let retry_sp = c.t.cpu.sp() - 0x100;
+            let caller = RegContext::capture(&c.t.cpu);
+            let mut frame = owner(retry_sp, retry_sp, None);
+            frame.api = &seh::DISPATCHER;
+            frame.entry_pc = retry_pc;
+            frame.ret_addr = 0;
+            frame.cont = None;
+            frame.retry = Some(Box::new(|_, _| Flow::void()));
+            frame.exception_caller = Some(Box::new(caller.clone()));
+            c.t.frames.push(frame);
+            let rec = ExceptionRecord::new(STATUS_ACCESS_VIOLATION, retry_pc, Vec::new());
+            let mut ctx = caller.clone();
+            ctx.set_pc(retry_pc);
+            ctx.set_sp(retry_sp);
+            assert!(matches!(
+                table(c, &rec, &mut ctx, &mut Search::default()).unwrap(),
+                Crossing::Bridged
+            ));
+            assert_eq!(ctx, caller);
+
+            for pc in [retry_pc + 8, retry_pc - 8] {
+                let mut wrong = caller.clone();
+                wrong.set_pc(pc);
+                wrong.set_sp(retry_sp);
+                assert!(matches!(
+                    table(c, &rec, &mut wrong, &mut Search::default()).unwrap(),
+                    Crossing::None
+                ));
+                assert_eq!(wrong.pc(), pc);
+                assert_eq!(wrong.sp(), retry_sp);
+            }
+            let mut wrong = caller;
+            wrong.set_pc(retry_pc);
+            wrong.set_sp(retry_sp + 16);
+            assert!(matches!(
+                table(c, &rec, &mut wrong, &mut Search::default()).unwrap(),
+                Crossing::None
+            ));
+        });
+    }
+}
+
+#[test]
 fn table_inner_language_handler_precedes_synthetic_boundary() {
     for arch in [WinArch::X64, WinArch::Arm64] {
         with_context(arch, |c| {
@@ -407,7 +456,8 @@ fn table_inner_language_handler_precedes_synthetic_boundary() {
                 context.set_gpr(30, c.p.traps.callback_return());
             }
             let (rec, recs) = records(c, CPP, &context);
-            let Flow::Call { target, then, .. } = seh::unwind::dispatch(c, rec, recs).unwrap()
+            let Flow::CallChecked { target, then, .. } =
+                seh::unwind::dispatch(c, rec, recs).unwrap()
             else {
                 panic!("inner language handler first")
             };
@@ -908,8 +958,10 @@ fn selected_unwind_runs_inner_cleanup_before_handler_and_preserves_outer_all_abi
                 seh::unwind::dispatch(c, rec, recs)
             }
             .unwrap();
-            let Flow::Call { target, then, .. } = first else {
-                panic!("guest inner search first")
+            let (target, then) = match first {
+                Flow::Call { target, then, .. } if arch == WinArch::X86 => (target, then),
+                Flow::CallChecked { target, then, .. } if arch != WinArch::X86 => (target, then),
+                _ => panic!("guest inner search first"),
             };
             assert_eq!(target, inner);
             trace.borrow_mut().push(1);
@@ -932,23 +984,20 @@ fn selected_unwind_runs_inner_cleanup_before_handler_and_preserves_outer_all_abi
                 seh::unwind::dispatch(c, nested, nested_recs)
             }
             .unwrap();
-            let Flow::Call {
-                target,
-                then: nested_then,
-                ..
-            } = nested
-            else {
-                panic!("recursive inner search")
+            let (target, nested_then) = match nested {
+                Flow::Call { target, then, .. } if arch == WinArch::X86 => (target, then),
+                Flow::CallChecked { target, then, .. } if arch != WinArch::X86 => (target, then),
+                _ => panic!("recursive inner search"),
             };
             assert_eq!(target, inner);
-            let Flow::Call {
-                target,
-                args: nested_args,
-                ..
-            } = nested_then(c, u64::from(disposition::CONTINUE_SEARCH)).unwrap()
-            else {
-                panic!("disabled catch must permit outer search")
-            };
+            let (target, nested_args) =
+                match nested_then(c, u64::from(disposition::CONTINUE_SEARCH)).unwrap() {
+                    Flow::Call { target, args, .. } if arch == WinArch::X86 => (target, args),
+                    Flow::CallChecked { target, args, .. } if arch != WinArch::X86 => {
+                        (target, args)
+                    }
+                    _ => panic!("disabled catch must permit outer search"),
+                };
             assert_eq!(target, outer);
             if arch == WinArch::X86 {
                 assert_eq!(nested_args[1], outer_record);
@@ -1139,8 +1188,10 @@ fn selected_unwind_rejects_nonsearch_dispositions_without_handler_or_owner_drop_
                     seh::unwind::dispatch(c, rec, recs)
                 }
                 .unwrap();
-                let Flow::Call { then, .. } = first else {
-                    panic!("first-pass handler")
+                let then = match first {
+                    Flow::Call { then, .. } if arch == WinArch::X86 => then,
+                    Flow::CallChecked { then, .. } if arch != WinArch::X86 => then,
+                    _ => panic!("first-pass handler"),
                 };
                 let Flow::CallChecked { target, then, .. } =
                     then(c, u64::from(disposition::CONTINUE_SEARCH)).unwrap()

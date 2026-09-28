@@ -62,6 +62,11 @@ pub struct CallSite {
 /// alignment slack).
 const FRAME_GAP: u64 = 32;
 
+/// Maximum setup faults retained by one synthetic dispatcher frame. A guest
+/// handler can re-arm the same guard on every continuation; that loop is
+/// diagnosed instead of recursively redispatching indefinitely.
+const MAX_DISPATCHER_SETUP_RETRIES: u8 = 4;
+
 /// Discards frames abandoned by a `longjmp`, unwind, or context load:
 /// those whose entry stack pointer lies below `sp`.
 pub fn prune(t: &mut Thread, sp: u64) {
@@ -127,6 +132,28 @@ pub fn enter(p: &mut Proc, t: &mut Thread, api: &'static Api, pc: u64) -> Outcom
         trace_entry(p, t, &site);
     }
     run(p, t, site, |ctx| (api.imp)(ctx))
+}
+
+/// Re-enters only a previously saved pseudo-dispatcher callback setup. This
+/// trap is private to `ntdll` and is not an export: a fresh guest jump cannot
+/// synthesize a dispatcher frame or invoke its no-op implementation.
+pub(crate) fn dispatcher_retry(p: &mut Proc, t: &mut Thread, pc: u64) -> Outcome {
+    let sp = t.cpu.sp();
+    prune(t, sp);
+    prune_same_height_frontier(t, pc, sp);
+    if pc == 0
+        || pc != p.traps.dispatcher_retry()
+        || !t.frames.last().is_some_and(|f| {
+            std::ptr::eq(f.api, &seh::DISPATCHER)
+                && f.entry_pc == pc
+                && f.entry_sp == sp
+                && f.retry.is_some()
+                && f.exception_caller.is_some()
+        })
+    {
+        return Outcome::Fail("dispatcher retry trap has no matching checked callback".into());
+    }
+    enter(p, t, &seh::DISPATCHER, pc)
 }
 
 /// Runs `f` as built-in code at `site`, then applies its result.
@@ -268,6 +295,7 @@ pub(crate) fn frame_for<'t>(t: &'t mut Thread, site: &CallSite) -> &'t mut Frame
             callback_sp: None,
             exception_caller: None,
             retry: None,
+            dispatcher_setup_retries: 0,
             exception: Vec::new(),
         });
     }
@@ -319,17 +347,60 @@ fn retry_call(
     fault: super::super::process::stack::StackFault,
 ) -> Outcome {
     use super::super::process::stack::StackFault;
-    // Publish ownership before entering any guest exception handler. A handler
-    // may change ABI argument registers, repair memory, or abandon this frame.
-    frame_for(t, &site).retry = Some(Box::new(move |_, _| {
-        Ok(Flow::CallChecked { target, args, then })
-    }));
+    let dispatcher = std::ptr::eq(site.api, &seh::DISPATCHER);
+    let fault_pc = if dispatcher {
+        p.traps.dispatcher_retry()
+    } else {
+        site.entry_pc
+    };
+    if dispatcher
+        && (fault_pc == 0
+            || !site.framed
+            || !t.frames.last().is_some_and(|frame| {
+                std::ptr::eq(frame.api, &seh::DISPATCHER)
+                    && frame.entry_pc == site.entry_pc
+                    && frame.entry_sp == site.entry_sp
+                    && frame.exception_caller.is_some()
+            }))
+    {
+        return Outcome::Fail("checked dispatcher callback has no owned retry frontier".into());
+    }
     let record = match fault {
-        StackFault::Access(fault) => memory_exception(p, t, site.entry_pc, fault),
+        StackFault::Access(fault) => memory_exception(p, t, fault_pc, fault),
         StackFault::Overflow(address) => {
-            ExceptionRecord::new(STATUS_STACK_OVERFLOW, site.entry_pc, vec![1, address])
+            ExceptionRecord::new(STATUS_STACK_OVERFLOW, fault_pc, vec![1, address])
         }
     };
+    // Publish ownership before entering any guest exception handler. A handler
+    // may change ABI argument registers, repair memory, or abandon this frame.
+    let frame = frame_for(t, &site);
+    if dispatcher {
+        if frame.dispatcher_setup_retries >= MAX_DISPATCHER_SETUP_RETRIES {
+            return Outcome::Fail(format!(
+                "dispatcher callback setup exceeded {MAX_DISPATCHER_SETUP_RETRIES} retries: status {:#010x}, address {:#x}",
+                record.code, record.address
+            ));
+        }
+        frame.dispatcher_setup_retries += 1;
+        // The original dispatcher records and language-handler scratch occupy
+        // [cursor, original entry_sp). Rebase the waiting frame to its private
+        // retry frontier so nested records are allocated strictly below them.
+        // Existing same-height pruning then discards an abandoned retry.
+        frame.entry_pc = fault_pc;
+        frame.entry_sp = site.cursor;
+    }
+    frame.retry = Some(Box::new(move |_, _| {
+        Ok(Flow::CallChecked { target, args, then })
+    }));
+    if dispatcher {
+        let mut ctx = RegContext::capture(&t.cpu);
+        ctx.set_pc(fault_pc);
+        ctx.set_sp(site.cursor);
+        if p.arch == WinArch::Arm64 {
+            ctx.set_gpr(30, site.ret_addr);
+        }
+        return seh::raise(p, t, record, ctx);
+    }
     raise_from_site(p, t, &site, record)
 }
 
@@ -468,6 +539,20 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
             Outcome::Continue
         }
         Ok(Flow::Raise(rec)) => {
+            // The repaired pseudo-dispatcher has no guest return address at
+            // its private +8 half-slot. Raising from the generic export
+            // frontier would unwind its scratch as a fabricated guest frame.
+            // The native nested-raise context for this case is not established;
+            // stop rather than dispatch from a synthetic address.
+            if std::ptr::eq(site.api, &seh::DISPATCHER)
+                && site.entry_pc != 0
+                && site.entry_pc == p.traps.dispatcher_retry()
+            {
+                return Outcome::Fail(format!(
+                    "repaired dispatcher cannot raise from its private retry frontier: status {:#010x}",
+                    rec.code
+                ));
+            }
             pop_unprotected_frame(t, &site);
             // The context is the caller's state inside the export: PC at
             // its resume trap, the stack as at entry.

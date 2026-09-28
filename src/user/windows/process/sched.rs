@@ -478,6 +478,7 @@ fn access_fault(p: &mut Proc, t: &mut Thread, f: AccessFault) -> Outcome {
             Trap::CallbackReturn => dispatch::callback_return(p, t),
             Trap::ThreadStart => lifecycle::thread_start(p, t),
             Trap::FiberStart => crate::user::windows::dll::fibers::fiber_start(p, t),
+            Trap::DispatcherRetry => dispatch::dispatcher_retry(p, t, f.pc),
             Trap::Missing(name) => Outcome::Fail(format!(
                 "unimplemented Windows export: {name} at {:#x}",
                 f.pc
@@ -755,6 +756,7 @@ mod tests {
             checked_call: false,
             callback_sp: None,
             retry: None,
+            dispatcher_setup_retries: 0,
             exception: Vec::new(),
             exception_caller: None,
         });
@@ -1172,6 +1174,7 @@ mod tests {
                     checked_call: false,
                     callback_sp: None,
                     retry: None,
+                    dispatcher_setup_retries: 0,
                     exception: Vec::new(),
                     exception_caller: None,
                 });
@@ -1418,6 +1421,43 @@ mod tests {
             access_fault(&mut p, &mut t, f),
             Outcome::ProcessTerminate(STATUS_ACCESS_VIOLATION)
         );
+    }
+
+    #[test]
+    fn private_dispatcher_retry_fetch_requires_an_owned_checked_call() {
+        for arch in [WinArch::X64, WinArch::Arm64] {
+            let mut p = process(arch);
+            let mut t = thread(&mut p, 8);
+            let at =
+                p.vm.reserve(
+                    None,
+                    PAGE_SIZE,
+                    prot::EXECUTE_READ,
+                    crate::user::windows::memory::AllocKind::Image,
+                    false,
+                    None,
+                )
+                .unwrap();
+            p.vm.commit(at, PAGE_SIZE, prot::READONLY).unwrap();
+            p.vm.set_reported(at, PAGE_SIZE, prot::EXECUTE_READ);
+            p.traps.add(
+                at,
+                vec![crate::user::windows::traps::SlotKind::DispatcherRetry],
+                1,
+            );
+            t.cpu.set_pc(at);
+            let f = AccessFault {
+                addr: at,
+                access: MemoryAccessKind::Fetch,
+                kind: AccessFaultKind::Permission,
+                pc: at,
+            };
+            assert!(
+                matches!(access_fault(&mut p, &mut t, f), Outcome::Fail(reason)
+                if reason.contains("no matching checked callback"))
+            );
+            assert!(t.frames.is_empty());
+        }
     }
 
     #[test]

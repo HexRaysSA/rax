@@ -402,6 +402,10 @@ pub struct Frame {
     /// Checked operation waiting for exception repair, distinct from a guest
     /// callback's continuation. Pruning or abandoning the frame drops it.
     pub retry: Option<Cont>,
+    /// Number of checked pseudo-dispatcher callback-setup faults retained by
+    /// this frame. Repeatedly rearming a guard must not create an unbounded
+    /// internal redispatch loop.
+    pub dispatcher_setup_retries: u8,
     /// Owned synthetic exception scopes, innermost last. Frame completion,
     /// pruning and fiber lifetime move/drop these with their continuations.
     pub exception: Vec<exception::ExceptionBoundary>,

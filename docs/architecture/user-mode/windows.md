@@ -173,9 +173,35 @@ This ceiling and malformed-walk diagnostics are personality policies, not
 measured native Windows limits or error-status equivalence. Guest record/TEB
 faults remain checked; a failed table read must not become an invented leaf
 frame. Failed frame restoration marks the stack invalid and follows the checked
-unhandled path with the original classified exception. Faults in active
-dispatcher-record/TEB access or callback setup stop with a diagnostic after
-guard classification instead of recursively exhausting the host stack.
+unhandled path with the original classified exception. Active dispatcher-record
+or TEB access faults remain terminal after guard classification rather than
+recursively redispatching through the broken walker.
+
+An x64 table-search `EHANDLER` callback now uses checked guest-call setup. If
+setup faults before the callback starts, the selected continuation remains in
+its pseudo-dispatcher frame. RAX classifies the fault, places the nested
+exception below the retained dispatcher scratch, and saves a synthetic retry
+context at a private `ntdll` trap. A guest handler that repairs the fault can
+resume at that exact PC and stack pointer; the trap admits the retry only while
+the matching dispatcher frame still owns it. A mismatched trap PC/SP is
+rejected; same-height diversion to another PC abandons the pending call,
+while a lower nested-handler stack retains it. The adjacent `+8` resume
+half-slot is not a retry entry. At most four callback-setup faults are admitted
+cumulatively per dispatcher frame; a fifth fails with a diagnostic before
+another nested dispatch. This limit and the private frontier are RAX policies,
+not measured native Windows behavior. The four arguments of the ARM64
+`EHANDLER` call use registers without a callback-stack write in the current
+ABI path, so the x64 guard-write witness does not establish an analogous
+ARM64 fault. Vectored, vectored-continue, unhandled-filter, and x86
+frame-search callbacks still use unchecked setup. Native nested-handler
+precedence and private retry semantics are unknown.
+
+If a repaired dispatcher later needs to raise another exception, such as for
+an invalid `EHANDLER` disposition or continuing a noncontinuable exception,
+RAX fails closed with a diagnostic. It does not unwind from the private trap's
+invalid `+8` half-slot or reinterpret its scratch as a guest return frame.
+The precise native nested-raise context is unknown.
+
 Function-table binary search still requires sorted `.pdata` input.
 
 ## Assumption Register
@@ -197,18 +223,23 @@ Function-table binary search still requires sorted `.pdata` input.
 | A13 | The admitted x86 `RtlUnwind` continuation uses post-stdcall caller ESP; the public API contract does not expose native ESP restoration details | Existing HLE x86 `Stdcall` callsite and Microsoft `RtlUnwind` TargetIp/ReturnValue contract | Guest continuation stack and EAX after unwinding inner records | Inner handler mutates context or registration links; unreadable/cross-page target; caller has nested frames | Compiled PE32 callback/ESP witness, target preflight and post-callback fault tests; native Windows context trace would falsify ESP equivalence | Retained RAX continuation profile; native ESP equivalence unknown |
 | A14 | Fixed dynamic function tables retain the original guest array pointer and live entry bytes until deletion; ambiguous overlap and malformed mutation are rejected instead of selecting an undocumented native winner | Public `RtlAddFunctionTable`/`RtlDeleteFunctionTable` pointer contracts and documented sorted/unsorted table classes; native precedence is not specified | x64/ARM64 dynamic lookup, unwind provenance and deletion | Unsorted entries, duplicate pointer, code inside a PE with no static match, mutated or inaccessible entry, two matching tables | Unit and compiled-PE tests for registration, guest-owned metadata, handler continuation, deletion and failure paths; a native Windows differential for overlap/mutation would distinguish this RAX policy from native behavior | Retained RAX admission policy; native overlap/mutation behavior unknown |
 | A15 | Public lookup with NULL `HistoryTable` writes the registered base for a dynamic hit, preserves caller `ImageBase` bytes on a miss, and rejects non-NULL history tables | Microsoft documents hit/miss pointer and `ImageBase` output but not miss-side effects; `RtlAddFunctionTable` defines the dynamic RVA base; no verified non-NULL history-table layout is available | x64/ARM64 `RtlLookupFunctionEntry` HLE and compiled lookup witnesses | Static versus dynamic hit; deleted-table miss with sentinel; invalid output pointer; non-NULL history table; overlapping tables | Unit and compiled-PE lookup tests establish the RAX profile; a native Windows differential with sentinel outputs and a history table would falsify claimed native equivalence | Retained RAX profile; native miss-side effects and history-table behavior unknown |
+| A16 | A repairable x64 `EHANDLER` setup fault may resume a retained callback only at the private retry PC and its saved scratch SP; four setup faults per dispatcher frame are admitted cumulatively | Checked `Flow::CallChecked` table search, dispatcher frame ownership and retry trap; no verified native private-frontier or retry-limit contract | Nested fault dispatch, exact continuation identity, abandonment and bounded rearm behavior | One-shot and repeatedly rearmed guards; fresh trap, `+8` half-slot, changed PC/SP, nested handler declining the fault | `x64_ehandler_callback_guard_fault_veh_repair_preserves_selected_handler`, `x64_rearmed_dispatcher_callback_guard_faults_stop_before_fifth_nested_dispatch`, `x64_dispatcher_retry_is_abandoned_when_nested_veh_changes_context_pc_or_sp`, and exact-frontier bridge tests; native Windows context trace would test equivalence | Retained RAX policy; native retry frontier, limit and nested precedence unknown |
+| A17 | The current ARM64 four-argument `EHANDLER` setup uses register arguments and performs no guest callback-stack write | `call_guest_on` ARM64 argument branch and four-argument table-search call | Reachability of the x64 guard-write regression on ARM64 | Protect the would-be callback stack; add more than eight arguments or a checked stack allocation | `arm64_four_register_callback_args_need_no_stack_write`; an added stack store for the four-argument call would falsify this bounded claim | Confirmed for the current four-argument path; other ARM64 callback faults remain possible |
+| A18 | A post-repair pseudo-dispatcher `Flow::Raise` cannot safely use the generic export `+8` frontier as a guest nested-raise context | The private retry slot has no resume half-slot or guest return frame; no verified native context rule | Invalid-disposition and noncontinuable-continuation handling after repair | Return both invalid and noncontinuable dispositions after a repaired callback; attempt outer VEH catch | `x64_repaired_dispatcher_rejects_unsupported_ehandler_raise_without_scratch_search`; a native context trace could establish a different supported continuation | Retained fail-closed RAX policy; native nested-raise context unknown |
 
 ## Change-surface map
 
 | Plane | Status and reason |
 |---|---|
-| Direct decode/execute | Existing ISA semantics reused; Windows guest programs exercise these cores |
-| CPU state | Affected: x86 compatibility FS descriptor, x64 GS, ARM64 X18, FP state and context transfer |
-| Memory/MMU | Affected: checked guest access, Windows allocation/protection and executable-write epochs |
-| SMIR lift/IR/interpreter/optimizer/native lowering/JIT runtime | No new operations or admission; Windows CPU path steps existing direct interpreters |
+| Direct decode/execute | Unchanged by dispatcher retry; existing ISA semantics are reused |
+| CPU state | Synthetic retry PC/SP use the existing `RegContext` transfer; no CPU-state representation change in this group |
+| Memory/MMU | Existing checked guest access and guard classification handle callback setup faults; no mapping model change in this group |
+| Windows loader/traps/scheduler | Affected: one private `ntdll` trap slot, exact-PC trap lookup and scheduler routing; no new export |
+| Windows HLE/SEH | Affected: retained frame retry/count, exact nested-search bridge and checked table-search `EHANDLER` call |
+| SMIR lift/IR/interpreter/optimizer/native lowering/JIT runtime | Unchanged: Windows CPU path steps existing direct interpreters |
 | Backend/machine/device | Unaffected: no guest kernel, board, KVM/HVF backend or devices |
-| Oracle/analysis/C ABI | Unaffected: personality API is Rust and CLI; ISA analysis/layout interfaces unchanged |
-| Tests/docs | Affected: library unit suites, explicit `user_windows` target, compiled PE fixtures, CLI and source references |
+| Oracle/analysis/C ABI | Unchanged: no ISA analysis or C ABI surface change |
+| Tests/docs | Affected: focused HLE/SEH unit tests and this architecture profile; no new compiled PE fixture in this group |
 
 ## Bounded findings and completion boundary
 
@@ -234,11 +265,19 @@ profile is introduced. High: the internal x64/ARM64 `RtlUnwindEx` termination
 walk uses an unchecked guest-handler continuation and does not validate the
 returned disposition; it is not a guest export or Add/Delete call path today
 and must be hardened before exposure. High: x64/ARM64 exception-search
-EHANDLER callbacks also use an unchecked setup path; a callback-stack fault
-can lose a repairable continuation. This predates dynamic-table registration.
+`EHANDLER` callbacks now retain a checked setup continuation, but VEH/VCH and
+unhandled-filter callbacks and x86 frame search remain unchecked. A fault in
+those callback setup paths can still lose a repairable continuation. Native
+nested-dispatch precedence and private retry behavior remain unknown.
+High: a repaired dispatcher that subsequently needs `Flow::Raise` halts
+emulation with a diagnostic. Guest handling of that nested exception is not
+admitted; its native context is unknown.
 High: `SehState` is public and adding its private dynamic-table field can
 break external struct-literal construction;
 no tracked consumer constructs it directly, while external usage is unknown.
+Medium: public `hle::Frame` gained a private-policy retry counter field; no
+tracked external struct-literal consumer was found, but external source
+compatibility is unknown.
 Medium: admitted image materialization still uses O(SizeOfImage) host memory;
 checking guest commitment
 first does not establish a separate host-allocation limit. Medium: dynamic
@@ -405,3 +444,23 @@ integration tests passed with `--no-default-features --features
 x86_64-suite,smir-jit`; formatting, fixture-script syntax and diff checks
 passed. These tests establish the documented NULL-history-table/RAX miss-output
 profile, not non-NULL history-table support or native Windows equivalence.
+
+## Checked EHANDLER callback-setup verification record — 2026-09-28
+
+The x64 one-shot-guard witness failed on the prior dispatcher path: one
+filtered test ran and the selected callback was lost after the setup fault.
+After the checked-call change, the focused retry suite passed 14 tests,
+including nested `ContinueSearch`, exact private-frontier admission, context
+abandonment, repeated guard rearming, persistent protection failure and the
+ARM64 no-stack-write control. A separate post-repair invalid-disposition
+negative control failed before the fail-closed guard; its two disposition
+cases passed afterward. The 15 focused synthetic-SEH tests and the scheduler
+private-trap fetch test passed.
+
+The final portable run passed 7,282 library tests (two optional microkernel
+cases ignored) and all 536 Windows integration tests, with none filtered. The
+feature-enabled workspace all-target check and all 536 feature-enabled Windows
+integration tests passed with `--no-default-features --features
+x86_64-suite,smir-jit`; formatting and diff checks passed. These are
+software-interpreter tests on an AArch64 macOS host. They do not establish
+native Windows nested-exception ordering, status, or context equivalence.

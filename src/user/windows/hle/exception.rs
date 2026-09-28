@@ -212,6 +212,7 @@ fn table_owner(c: &Ctx, ctx: &RegContext) -> Result<Option<usize>, ApiErr> {
         return Err(ApiErr::Internal("x86 synthetic table SEH search".into()));
     }
     let sentinel = ctx.pc() == c.p.traps.callback_return();
+    let dispatcher_retry = c.p.traps.dispatcher_retry();
     let owner = c.t.frames.iter().enumerate().rev().find_map(|(i, f)| {
         let callback = sentinel
             && f.cont.is_some()
@@ -222,10 +223,16 @@ fn table_owner(c: &Ctx, ctx: &RegContext) -> Result<Option<usize>, ApiErr> {
                     sp == ctx.sp()
                 }
             });
-        let frontier = !sentinel
-            && !f.exception.is_empty()
-            && ctx.sp() == f.entry_sp
+        let private_retry = dispatcher_retry != 0
+            && std::ptr::eq(f.api, &crate::user::windows::seh::DISPATCHER)
+            && f.entry_pc == dispatcher_retry
+            && f.retry.is_some()
+            && f.exception_caller.is_some();
+        let protected_frontier = !f.exception.is_empty()
             && (ctx.pc() == f.entry_pc || f.entry_pc.checked_add(RESUME_OFFSET) == Some(ctx.pc()));
+        let frontier = !sentinel
+            && ctx.sp() == f.entry_sp
+            && (protected_frontier || (private_retry && ctx.pc() == f.entry_pc));
         (callback || frontier).then_some(i)
     });
     let Some(owner) = owner else {
