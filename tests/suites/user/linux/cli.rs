@@ -29,7 +29,10 @@ fn missing_program_is_status_127() {
 
 #[test]
 fn non_elf_file_is_status_126() {
-    let p = temp_file("not-elf", b"#!/bin/sh\necho hi\n");
+    // Neither an executable nor a script: a `#!` script whose interpreter
+    // is a Mach-O program (`/bin/sh` on a Mac) runs under the Darwin
+    // personality.
+    let p = temp_file("not-elf", b"plain text, not a program\n");
     let r = run(&[p.to_str().unwrap()], &[], None, T);
     assert_eq!(r.status, Some(126));
     assert!(r.stderr.contains("bad magic"), "{}", r.stderr);
