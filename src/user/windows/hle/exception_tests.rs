@@ -278,7 +278,7 @@ fn x86_inner_guest_registration_precedes_boundary_and_outer_record_follows_decli
             c.t.frames.push(frame);
             let context = RegContext::capture(&c.t.cpu);
             let (rec, recs) = records(c, code, &context);
-            let Flow::Call {
+            let Flow::CallChecked {
                 target: handler,
                 args,
                 then,
@@ -313,7 +313,9 @@ fn x86_inner_guest_registration_precedes_boundary_and_outer_record_follows_decli
                 );
                 assert!(c.t.frames[0].cont.is_some());
             } else {
-                assert!(matches!(result, Flow::Call { args, .. } if args[1] == outer_record));
+                assert!(
+                    matches!(result, Flow::CallChecked { args, .. } if args[1] == outer_record)
+                );
                 assert!(c.t.frames[0].exception[0].handler.is_some());
             }
         });
@@ -959,8 +961,7 @@ fn selected_unwind_runs_inner_cleanup_before_handler_and_preserves_outer_all_abi
             }
             .unwrap();
             let (target, then) = match first {
-                Flow::Call { target, then, .. } if arch == WinArch::X86 => (target, then),
-                Flow::CallChecked { target, then, .. } if arch != WinArch::X86 => (target, then),
+                Flow::CallChecked { target, then, .. } => (target, then),
                 _ => panic!("guest inner search first"),
             };
             assert_eq!(target, inner);
@@ -985,17 +986,13 @@ fn selected_unwind_runs_inner_cleanup_before_handler_and_preserves_outer_all_abi
             }
             .unwrap();
             let (target, nested_then) = match nested {
-                Flow::Call { target, then, .. } if arch == WinArch::X86 => (target, then),
-                Flow::CallChecked { target, then, .. } if arch != WinArch::X86 => (target, then),
+                Flow::CallChecked { target, then, .. } => (target, then),
                 _ => panic!("recursive inner search"),
             };
             assert_eq!(target, inner);
             let (target, nested_args) =
                 match nested_then(c, u64::from(disposition::CONTINUE_SEARCH)).unwrap() {
-                    Flow::Call { target, args, .. } if arch == WinArch::X86 => (target, args),
-                    Flow::CallChecked { target, args, .. } if arch != WinArch::X86 => {
-                        (target, args)
-                    }
+                    Flow::CallChecked { target, args, .. } => (target, args),
                     _ => panic!("disabled catch must permit outer search"),
                 };
             assert_eq!(target, outer);
@@ -1189,8 +1186,7 @@ fn selected_unwind_rejects_nonsearch_dispositions_without_handler_or_owner_drop_
                 }
                 .unwrap();
                 let then = match first {
-                    Flow::Call { then, .. } if arch == WinArch::X86 => then,
-                    Flow::CallChecked { then, .. } if arch != WinArch::X86 => then,
+                    Flow::CallChecked { then, .. } => then,
                     _ => panic!("first-pass handler"),
                 };
                 let Flow::CallChecked { target, then, .. } =

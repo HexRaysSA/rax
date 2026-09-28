@@ -204,7 +204,7 @@ fn vectored(c: &mut Ctx, rec: ExceptionRecord, recs: Records, i: usize) -> ApiRe
     let Some(&(_, handler)) = c.p.seh.veh.get(i) else {
         return frames(c, rec, recs);
     };
-    Flow::call(handler, vec![recs.pointers], move |c, ret| {
+    Flow::call_checked(handler, vec![recs.pointers], move |c, ret| {
         if ret as u32 as i32 == EXCEPTION_CONTINUE_EXECUTION {
             continue_execution(c, recs)
         } else {
@@ -225,7 +225,7 @@ pub fn continue_execution(c: &mut Ctx, recs: Records) -> ApiResult {
 
 fn continue_handlers(c: &mut Ctx, recs: Records, i: usize) -> ApiResult {
     if let Some(&(_, handler)) = c.p.seh.vch.get(i) {
-        return Flow::call(handler, vec![recs.pointers], move |c, ret| {
+        return Flow::call_checked(handler, vec![recs.pointers], move |c, ret| {
             if ret as u32 as i32 == EXCEPTION_CONTINUE_EXECUTION {
                 resume_context(c, recs)
             } else {
@@ -275,7 +275,7 @@ pub fn unhandled(c: &mut Ctx, rec: ExceptionRecord, recs: Records) -> ApiResult 
     if filter == 0 {
         return Ok(Flow::TerminateProcess(rec.code));
     }
-    Flow::call(filter, vec![recs.pointers], move |c, ret| {
+    Flow::call_checked(filter, vec![recs.pointers], move |c, ret| {
         if ret as u32 as i32 == EXCEPTION_CONTINUE_EXECUTION {
             continue_execution(c, recs)
         } else {
@@ -364,7 +364,7 @@ mod tests {
                 assert!(matches!(unhandled(c, rec.clone(), recs).unwrap(),
                     Flow::TerminateProcess(status) if status == code));
                 c.p.seh.unhandled_filter = 0x5678;
-                let Flow::Call { then, .. } = unhandled(c, rec, recs).unwrap() else {
+                let Flow::CallChecked { then, .. } = unhandled(c, rec, recs).unwrap() else {
                     panic!("expected filter callback");
                 };
                 assert!(matches!(then(c, 1).unwrap(),
@@ -405,7 +405,7 @@ mod tests {
                         c.p.seh.veh.push((1, 0x5678));
                         vectored(c, rec, recs, 0)
                     };
-                    let Flow::Call { then, .. } = call.unwrap() else {
+                    let Flow::CallChecked { then, .. } = call.unwrap() else {
                         panic!("expected guest handler call");
                     };
                     assert_noncontinuable(then(c, u64::from(u32::MAX)), recs);

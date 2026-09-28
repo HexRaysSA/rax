@@ -177,24 +177,59 @@ unhandled path with the original classified exception. Active dispatcher-record
 or TEB access faults remain terminal after guard classification rather than
 recursively redispatching through the broken walker.
 
-An x64 table-search `EHANDLER` callback now uses checked guest-call setup. If
-setup faults before the callback starts, the selected continuation remains in
-its pseudo-dispatcher frame. RAX classifies the fault, places the nested
-exception below the retained dispatcher scratch, and saves a synthetic retry
-context at a private `ntdll` trap. A guest handler that repairs the fault can
-resume at that exact PC and stack pointer; the trap admits the retry only while
-the matching dispatcher frame still owns it. A mismatched trap PC/SP is
-rejected; same-height diversion to another PC abandons the pending call,
-while a lower nested-handler stack retains it. The adjacent `+8` resume
-half-slot is not a retry entry. At most four callback-setup faults are admitted
-cumulatively per dispatcher frame; a fifth fails with a diagnostic before
-another nested dispatch. This limit and the private frontier are RAX policies,
-not measured native Windows behavior. The four arguments of the ARM64
-`EHANDLER` call use registers without a callback-stack write in the current
-ABI path, so the x64 guard-write witness does not establish an analogous
-ARM64 fault. Vectored, vectored-continue, unhandled-filter, and x86
-frame-search callbacks still use unchecked setup. Native nested-handler
-precedence and private retry semantics are unknown.
+Dispatcher-originated guest callbacks now use checked guest-call setup for
+vectored exception handlers (VEH), vectored continue handlers (VCH), the
+unhandled-exception filter, x86 frame-search handlers, and x64/ARM64 table
+`EHANDLER` search. If setup faults before the callback starts, the selected
+continuation remains in its pseudo-dispatcher frame. RAX classifies the fault,
+places the nested exception below the retained dispatcher scratch, and saves
+a synthetic retry context at a private `ntdll` trap. A guest handler that
+repairs the fault can resume at that exact PC and stack pointer; the trap
+admits the retry only while the matching dispatcher frame still owns it. A
+mismatched trap PC/SP is rejected; same-height diversion to another PC
+abandons the pending call, while a lower nested-handler stack retains it. The
+adjacent `+8` resume half-slot is not a retry entry. At most four
+callback-setup faults are admitted cumulatively per dispatcher frame; a fifth
+fails with a diagnostic before another nested dispatch. This limit and the
+private frontier are RAX policies, not measured native Windows behavior.
+
+For a one-pointer VEH/VCH/filter callback, the current x86
+[`__stdcall` setup](../../specifications/windows/microsoft-docs/stdcall.md)
+reserves 16 bytes for arguments, writes one 4-byte argument and a 4-byte
+return slot; the
+[x64 calling convention](../../specifications/windows/microsoft-docs/x64-calling-convention.md)
+requires 32 bytes of shadow space and the setup writes an 8-byte return slot.
+A [one-shot guard](../../specifications/windows/services/fibers/creating-guard-pages.md)
+on that return slot can therefore fault after the exception records are
+written but before the selected callback starts. The checked path retains
+that callback across one-shot guard consumption, including x86 frame-search
+`EHANDLER` callbacks with four pointer arguments. The VCH guard-rearm test
+explicitly models an interleaving between a VEH return and its
+callback-return trap; it does not establish native Windows scheduling or
+nested-handler precedence. Under the
+[Windows ARM64 ABI](../../specifications/windows/microsoft-docs/arm64-windows-abi-conventions.md),
+the one-pointer callbacks and four-pointer table `EHANDLER` call fit in
+registers and write no callback-stack bytes. Zero-byte setup no longer
+preflights or consumes a stack guard merely because the chosen SP lies below
+`StackLimit`; a subsequent guest memory access can still fault or grow the
+stack. Native dispatcher SP/growth and private retry semantics are unknown.
+
+Checked callback setup and the guest-call writer now share
+`call_stack_layout`: the reserved ABI frame determines SP, but checked
+preflight requests only the stacked-argument bytes and return slot actually
+written by the setup, in writer order. For one to four x64 pointer arguments,
+only the 8-byte return slot is written; an armed guard confined to the unused
+32-byte shadow area is not consumed. A fifth argument adds an 8-byte stack write,
+which is probed at its actual address and can fault there. On x86, up to
+12 bytes of 16-byte alignment padding after the stacked arguments are not
+written or probed; on ARM64, a single argument beyond X0–X7 leaves 8 bytes
+of unwritten alignment padding. A later guest access to any such reserved
+space retains normal memory-fault behavior. With 4,096-byte pages and
+16-byte-aligned callback frames, the x86 and ARM64 trailing padding shares
+a page with the final actual argument write, so an isolated guard-on-padding
+test is unavailable; those two padding cases are source-derived rather than
+independently guarded. Native dispatcher preflight and partial-write ordering
+are unknown.
 
 If a repaired dispatcher later needs to raise another exception, such as for
 an invalid `EHANDLER` disposition or continuing a noncontinuable exception,
@@ -226,20 +261,23 @@ Function-table binary search still requires sorted `.pdata` input.
 | A16 | A repairable x64 `EHANDLER` setup fault may resume a retained callback only at the private retry PC and its saved scratch SP; four setup faults per dispatcher frame are admitted cumulatively | Checked `Flow::CallChecked` table search, dispatcher frame ownership and retry trap; no verified native private-frontier or retry-limit contract | Nested fault dispatch, exact continuation identity, abandonment and bounded rearm behavior | One-shot and repeatedly rearmed guards; fresh trap, `+8` half-slot, changed PC/SP, nested handler declining the fault | `x64_ehandler_callback_guard_fault_veh_repair_preserves_selected_handler`, `x64_rearmed_dispatcher_callback_guard_faults_stop_before_fifth_nested_dispatch`, `x64_dispatcher_retry_is_abandoned_when_nested_veh_changes_context_pc_or_sp`, and exact-frontier bridge tests; native Windows context trace would test equivalence | Retained RAX policy; native retry frontier, limit and nested precedence unknown |
 | A17 | The current ARM64 four-argument `EHANDLER` setup uses register arguments and performs no guest callback-stack write | `call_guest_on` ARM64 argument branch and four-argument table-search call | Reachability of the x64 guard-write regression on ARM64 | Protect the would-be callback stack; add more than eight arguments or a checked stack allocation | `arm64_four_register_callback_args_need_no_stack_write`; an added stack store for the four-argument call would falsify this bounded claim | Confirmed for the current four-argument path; other ARM64 callback faults remain possible |
 | A18 | A post-repair pseudo-dispatcher `Flow::Raise` cannot safely use the generic export `+8` frontier as a guest nested-raise context | The private retry slot has no resume half-slot or guest return frame; no verified native context rule | Invalid-disposition and noncontinuable-continuation handling after repair | Return both invalid and noncontinuable dispositions after a repaired callback; attempt outer VEH catch | `x64_repaired_dispatcher_rejects_unsupported_ehandler_raise_without_scratch_search`; a native context trace could establish a different supported continuation | Retained fail-closed RAX policy; native nested-raise context unknown |
+| A19 | Checked x86/x64 VEH, VCH and unhandled-filter setup, plus x86 frame-search setup, can retain a selected callback at the existing private dispatcher retry frontier after a callback-stack write fault | One-pointer x86/x64 callback layouts, four-pointer x86 frame-handler layout, checked `Flow::CallChecked` paths and dispatcher frame ownership; no verified native private-frontier contract | Guard-fault repair, selected callback identity, nested search and abandonment | One-shot guard; persistent read-only page; rearmed guard; registration mutation; nested `ContinueSearch`; changed context PC/SP; fresh private trap and `+8` half-slot | Run the complete library test binary, including `x86_frame_handler_guard_setup_fault_is_repaired_by_veh`, `x86_veh_guard_setup_fault_retries_original_vectored_slot`, `x64_veh_callback_guard_fault_repair_preserves_selected_handler`, `x64_vch_callback_guard_fault_repair_preserves_selected_handler`, and `x64_unhandled_filter_callback_guard_fault_repair_preserves_selected_filter`; native Windows context trace would test equivalence | Retained RAX policy; native nested precedence and retry equivalence unknown |
+| A20 | ARM64 callbacks with at most eight integer/pointer arguments perform no setup write and need no write preflight, even when the chosen SP is below the current stack limit | Windows ARM64 register-argument ABI and current `call_guest_on`/zero-byte `prepare_call` branches | VEH/VCH/filter and four-argument `EHANDLER` reachability, one-shot guard and `StackLimit` preservation | Put an armed guard immediately below the original records; place SP below `StackLimit`; cross from eight to nine arguments | `arm64_veh_register_only_callback_does_not_preflight_untouched_stack_guard`, `arm64_veh_register_argument_setup_does_not_touch_guard_below_records`, `arm64_four_register_callback_args_need_no_stack_write`, and the nine-argument `callback_stack_writes_classify_protection_and_both_guard_types`; a native dispatcher trace would test SP/growth equivalence | Confirmed for current register-only setup and nine-argument write boundary; native dispatcher SP/growth unknown |
+| A21 | Checked callback preflight should cover exactly the byte spans written by `call_guest_on`, not all reserved ABI shadow/alignment bytes | Shared `call_stack_layout` supplies the writer and preflight; x64 calling convention requires but does not itself write the shadow store; x86/ARM64 alignment is a reserved layout property | Guard classification, callback admission and original continuation ownership on all three ABIs | Guard x64 unused shadow while keeping return slot writable; put fifth x64 argument in a guarded page; guard x86/x64 arguments while denying the earlier return-slot page; vary x86 argument counts 1–4 and ARM64 stacked counts 1–2 to expose padding | `x64_checked_callback_does_not_probe_unused_shadow_guard`, `x64_fifth_callback_argument_faults_at_actual_guarded_stack_slot`, and `callback_preflight_preserves_first_actual_write_fault_order`; inspect `call_stack_layout`/`call_guest_on` for x86/ARM64 padding and add direct layout assertions, because 4,096-byte page protection cannot isolate their trailing padding | Retained source contract; x64 direct boundary and x86/x64 first-write-priority tests exist, isolated x86/ARM64 padding guard tests do not; native preflight ordering unknown |
 
 ## Change-surface map
 
 | Plane | Status and reason |
 |---|---|
-| Direct decode/execute | Unchanged by dispatcher retry; existing ISA semantics are reused |
+| Direct decode/execute | Unchanged by checked dispatcher setup; existing ISA semantics are reused |
 | CPU state | Synthetic retry PC/SP use the existing `RegContext` transfer; no CPU-state representation change in this group |
-| Memory/MMU | Existing checked guest access and guard classification handle callback setup faults; no mapping model change in this group |
-| Windows loader/traps/scheduler | Affected: one private `ntdll` trap slot, exact-PC trap lookup and scheduler routing; no new export |
-| Windows HLE/SEH | Affected: retained frame retry/count, exact nested-search bridge and checked table-search `EHANDLER` call |
+| Memory/MMU | Existing checked access and guard classification remain; `prepare_call` requests only actual stacked-argument/return write spans, and zero-byte ARM64 setup skips stack growth/probing, without changing the mapping model |
+| Windows loader/traps/scheduler | The existing private `ntdll` retry trap and scheduler route are reused; no new export in the checked-callback group |
+| Windows HLE/SEH | Affected: VEH/VCH/filter and x86 frame-search calls now use checked setup; the guest-call writer and preflight share `call_stack_layout`, while selected callbacks use the retained frame retry/count and exact nested-search bridge |
 | SMIR lift/IR/interpreter/optimizer/native lowering/JIT runtime | Unchanged: Windows CPU path steps existing direct interpreters |
 | Backend/machine/device | Unaffected: no guest kernel, board, KVM/HVF backend or devices |
 | Oracle/analysis/C ABI | Unchanged: no ISA analysis or C ABI surface change |
-| Tests/docs | Affected: focused HLE/SEH unit tests and this architecture profile; no new compiled PE fixture in this group |
+| Tests/docs | Affected: focused x86/x64 dispatcher guard-repair, x64 exact-write preflight and ARM64 zero-byte-preflight unit tests plus this architecture profile; no new compiled PE fixture in this group |
 
 ## Bounded findings and completion boundary
 
@@ -264,11 +302,18 @@ authenticated-return handling remains unsupported if a PAuth-enabled CPU
 profile is introduced. High: the internal x64/ARM64 `RtlUnwindEx` termination
 walk uses an unchecked guest-handler continuation and does not validate the
 returned disposition; it is not a guest export or Add/Delete call path today
-and must be hardened before exposure. High: x64/ARM64 exception-search
-`EHANDLER` callbacks now retain a checked setup continuation, but VEH/VCH and
-unhandled-filter callbacks and x86 frame search remain unchecked. A fault in
-those callback setup paths can still lose a repairable continuation. Native
-nested-dispatch precedence and private retry behavior remain unknown.
+and must be hardened before exposure. High: x86/x64 VEH/VCH,
+unhandled-filter and x86 frame-search callbacks now retain a checked setup
+continuation, but native nested-dispatch precedence, dispatcher SP/growth and
+private retry behavior remain unknown. High: public
+`AddVectoredContinueHandler` and `RemoveVectoredContinueHandler` exports are
+absent even though the internal VCH list and dispatch path exist; guest code
+cannot register a VCH through the public API. High: other synthetic dispatcher
+callback paths require separate admission and fault-path audits before
+claiming universal callback containment.
+High: x86 frame search allocates and zeroes `DispatcherContext` before the
+checked handler call; a fault in that metadata write remains terminal, not a
+repairable callback-setup fault.
 High: a repaired dispatcher that subsequently needs `Flow::Raise` halts
 emulation with a diagnostic. Guest handling of that nested exception is not
 admitted; its native context is unknown.
@@ -278,6 +323,13 @@ no tracked consumer constructs it directly, while external usage is unknown.
 Medium: public `hle::Frame` gained a private-policy retry counter field; no
 tracked external struct-literal consumer was found, but external source
 compatibility is unknown.
+Medium: callback-repair unit tests simulate guest callback returns; no compiled
+PE32/PE32+ guard-repair fixture exercises those returns through the scheduler.
+Medium: exact-write preflight has direct x64 guard tests, but no dedicated
+x86/ARM64 padding-layout assertions. Their trailing padding cannot be isolated
+with a page guard because it shares a 4,096-byte page with the final written
+argument in the aligned callback frame; source inspection is the current
+evidence for those two padding cases.
 Medium: admitted image materialization still uses O(SizeOfImage) host memory;
 checking guest commitment
 first does not establish a separate host-allocation limit. Medium: dynamic
@@ -464,3 +516,28 @@ integration tests passed with `--no-default-features --features
 x86_64-suite,smir-jit`; formatting and diff checks passed. These are
 software-interpreter tests on an AArch64 macOS host. They do not establish
 native Windows nested-exception ordering, status, or context equivalence.
+
+## Checked dispatcher callbacks and exact-write preflight — 2026-09-28
+
+VEH, VCH, unhandled-filter and x86 frame-search callbacks now use the retained
+checked dispatcher-call continuation. Before the change, each focused x64
+VEH/VCH/filter guard-setup witness failed at the pseudo-dispatcher terminal
+path; seven of eight initial x86 retry tests failed for the same reason.
+The ARM64 register-only VEH boundary also failed because a zero-byte stack
+probe reported overflow. Two additional x64 preflight witnesses failed before
+the shared-layout change: unused shadow-space guard setup terminated, and a
+fifth stacked-argument fault was reported at the page boundary instead of its
+actual write address. The focused retry selection passed 30 tests with 7,270
+other library tests filtered; a separate x86/x64 first-write-priority selection
+passed one test with 7,300 filtered.
+
+The final portable run, `cargo +stable test --locked --no-default-features
+--lib --test user_windows -- --test-threads=4 --quiet`, passed 7,299 library
+tests, ignored two optional tests, and passed all 536 Windows integration
+tests; neither binary filtered tests. The feature-enabled Windows integration
+binary passed all 536 tests, and the feature-enabled workspace all-target
+check passed, both with `--no-default-features --features
+x86_64-suite,smir-jit`. Formatting and diff checks passed. No native Windows
+comparison or compiled PE32/PE32+ guard-repair execution was performed; native
+dispatcher precedence, SP/growth, preflight and private retry equivalence
+remain unknown.

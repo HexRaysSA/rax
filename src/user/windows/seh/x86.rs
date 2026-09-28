@@ -148,7 +148,7 @@ fn walk(
     // exception.
     let dc = c.stack_alloc_checked(4, 4)?;
     c.p.space.w32(dc, 0)?;
-    Flow::call(
+    Flow::call_checked(
         handler,
         vec![recs.record, record, recs.context, dc],
         move |c, ret| {
@@ -478,13 +478,13 @@ mod tests {
         with_context(|c| {
             let (rec, recs, at) = records(c);
             registration(c, at, at);
-            let Flow::Call { then, .. } = dispatch(c, rec.clone(), recs).unwrap() else {
+            let Flow::CallChecked { then, .. } = dispatch(c, rec.clone(), recs).unwrap() else {
                 panic!("handler call expected");
             };
             assert!(
                 matches!(then(c, disposition::CONTINUE_SEARCH.into()), Err(ApiErr::Internal(message)) if message.contains("cyclic"))
             );
-            let Flow::Call { then, .. } = dispatch(c, rec.clone(), recs).unwrap() else {
+            let Flow::CallChecked { then, .. } = dispatch(c, rec.clone(), recs).unwrap() else {
                 panic!("handler call expected");
             };
             c.p.vm.protect(recs.record, 0x1000, prot::NOACCESS).unwrap();
@@ -495,7 +495,7 @@ mod tests {
             c.p.vm
                 .protect(recs.record, 0x1000, prot::READWRITE)
                 .unwrap();
-            let Flow::Call { then, .. } = dispatch(c, rec, recs).unwrap() else {
+            let Flow::CallChecked { then, .. } = dispatch(c, rec, recs).unwrap() else {
                 panic!("handler call expected");
             };
             c.p.vm.protect(at, 0x1000, prot::NOACCESS).unwrap();
@@ -511,7 +511,7 @@ mod tests {
         with_context(|c| {
             let (rec, recs, at) = records(c);
             registration(c, at, CHAIN_END);
-            let Flow::Call { then, .. } = dispatch(c, rec, recs).unwrap() else {
+            let Flow::CallChecked { then, .. } = dispatch(c, rec, recs).unwrap() else {
                 panic!("handler call expected");
             };
             assert!(matches!(

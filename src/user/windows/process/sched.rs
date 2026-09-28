@@ -1425,7 +1425,7 @@ mod tests {
 
     #[test]
     fn private_dispatcher_retry_fetch_requires_an_owned_checked_call() {
-        for arch in [WinArch::X64, WinArch::Arm64] {
+        for arch in WinArch::ALL {
             let mut p = process(arch);
             let mut t = thread(&mut p, 8);
             let at =

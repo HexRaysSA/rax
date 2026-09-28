@@ -8,10 +8,12 @@ use super::*;
 use crate::user::image::pe::DataDirectory;
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::context::EXCEPTION_NONCONTINUABLE;
+use crate::user::windows::layout::offsets;
 use crate::user::windows::memory::{mem, prot};
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_VIOLATION, STATUS_BAD_STACK, STATUS_GUARD_PAGE_VIOLATION, STATUS_STACK_OVERFLOW,
 };
+use crate::user::windows::process::stack::StackFault;
 
 fn retry_frame(t: &Thread, retry: super::super::Cont) -> Frame {
     Frame {
@@ -374,6 +376,382 @@ fn return_x64_callback(p: &mut Proc, t: &mut Thread, value: u64) -> Outcome {
     t.cpu.set_sp(t.cpu.sp() + 8);
     t.cpu.set_pc(p.traps.callback_return());
     callback_return(p, t)
+}
+
+/// The one-argument x64 callback writes its return address at `cursor - 40`.
+/// At `sp_offset == 0x5C0`, the original dispatcher cursor is `page + 0x20`;
+/// at `sp_offset == 0xAE0`, table-search scratch leaves that same cursor for
+/// the unhandled filter. Both return-address writes land at `page - 8`.
+fn x64_one_argument_dispatch_stack(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp_offset: u64,
+    lower_protection: u32,
+) -> u64 {
+    let (stack, size) =
+        p.vm.allocate(None, 0x1_0000, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap();
+    let page = stack + 0x8000;
+    t.stack_alloc = stack;
+    t.stack_base = stack + size;
+    t.stack_limit = stack;
+    let original_sp = page + sp_offset;
+    t.cpu.set_sp(original_sp);
+    t.cpu.set_pc(p.modules.exe().base + 0x40);
+    p.space.w64(original_sp, 0).unwrap();
+    p.vm.protect(page - PAGE_SIZE, PAGE_SIZE, lower_protection)
+        .unwrap();
+    page
+}
+
+/// Only the x64 callback's unused shadow area is guarded. The return slot
+/// below `page` stays writable, and the caller's entry stack is elsewhere.
+fn x64_guarded_shadow_site(p: &mut Proc, t: &mut Thread) -> (u64, CallSite) {
+    let (stack, size) =
+        p.vm.allocate(None, 0x1_0000, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap();
+    let page = stack + 0x8000;
+    t.stack_alloc = stack;
+    t.stack_limit = stack;
+    t.stack_base = stack + size;
+    let entry_sp = stack + 0xF000;
+    t.cpu.set_sp(entry_sp);
+    t.cpu.set_pc(0xAB00);
+    p.space.w64(entry_sp, 0).unwrap();
+    p.vm.protect(page, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+        .unwrap();
+    (
+        page,
+        CallSite {
+            api: &TEST_API,
+            entry_pc: 0xAB00,
+            entry_sp,
+            ret_addr: 0,
+            cursor: page + 0x20,
+            framed: false,
+        },
+    )
+}
+
+#[test]
+fn x64_checked_callback_does_not_probe_unused_shadow_guard() {
+    let mut process = process(WinArch::X64);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    let (page, site) = x64_guarded_shadow_site(p, &mut t);
+    let target = 0x4321;
+
+    assert_eq!(
+        complete(
+            p,
+            &mut t,
+            site,
+            Flow::call_checked(target, vec![0x1234], |_, _| Flow::void())
+        ),
+        Outcome::Continue,
+        "unused shadow space must not fault before the callback starts"
+    );
+    assert_eq!(t.cpu.pc(), target);
+    assert_eq!(t.cpu.sp(), page - 8);
+    assert_eq!(t.cpu.gpr(1), 0x1234);
+    assert_eq!(p.space.u64(page - 8).unwrap(), p.traps.callback_return());
+    assert_eq!(
+        p.vm.query(page).unwrap().protect,
+        prot::READWRITE | prot::GUARD,
+        "no shadow-space access occurred"
+    );
+    assert_eq!(t.frames.len(), 1);
+    assert!(t.frames[0].cont.is_some());
+    assert!(t.frames[0].retry.is_none());
+}
+
+#[test]
+fn x64_fifth_callback_argument_faults_at_actual_guarded_stack_slot() {
+    let mut process = process(WinArch::X64);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    let (page, site) = x64_guarded_shadow_site(p, &mut t);
+
+    // Five arguments reserve 48 bytes below the aligned cursor. Argument 5
+    // is written at (cursor - 48) + 32 = page + 0x10, while the return slot
+    // is at cursor - 56 = page - 0x18 and remains writable.
+    let Err(StackFault::Access(fault)) = prepare_call(p, &mut t, site.cursor, 5) else {
+        panic!("the fifth argument must fault on the guarded page")
+    };
+    assert_eq!((fault.addr, fault.write), (page + 0x10, true));
+    assert_eq!(
+        p.vm.query(page).unwrap().protect,
+        prot::READWRITE | prot::GUARD,
+        "preflight does not consume the one-shot guard"
+    );
+}
+
+#[test]
+fn x64_veh_callback_guard_fault_repair_preserves_selected_handler() {
+    let mut process = process(WinArch::X64);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    let page = x64_one_argument_dispatch_stack(p, &mut t, 0x5C0, prot::READWRITE | prot::GUARD);
+    let original = RegContext::capture(&t.cpu);
+    let veh = p.modules.exe().base + 0x500;
+    p.seh.veh.push((1, veh));
+    let original_code = 0xE123_4501;
+
+    assert_eq!(
+        seh::raise(
+            p,
+            &mut t,
+            ExceptionRecord::new(original_code, original.pc(), Vec::new()),
+            original.clone()
+        ),
+        Outcome::Continue,
+        "one-shot guard must dispatch a nested repairable exception"
+    );
+    assert_eq!(t.cpu.pc(), veh, "nested VEH sees callback setup fault");
+    assert_eq!(t.frames.len(), 2);
+    assert_eq!(t.frames[0].entry_sp, page + 0x20);
+    assert_eq!(t.frames[0].entry_pc, p.traps.dispatcher_retry());
+    assert!(t.frames[0].retry.is_some());
+    let pointers = t.cpu.gpr(1);
+    let nested =
+        ExceptionRecord::read(&p.space, WinArch::X64, p.space.u64(pointers).unwrap()).unwrap();
+    assert_eq!(nested.code, STATUS_GUARD_PAGE_VIOLATION);
+    assert_eq!(nested.params, vec![1, page - 8]);
+    assert_eq!(nested.address, p.traps.dispatcher_retry());
+    assert_eq!(p.space.u32(page + 0x50).unwrap(), original_code);
+    assert_eq!(
+        p.vm.query(page - PAGE_SIZE).unwrap().protect,
+        prot::READWRITE
+    );
+
+    // The first VEH was selected before its call faulted. A nested handler may
+    // change registrations, but the retained target is not reselected.
+    p.seh.veh[0].1 = veh + 0x20;
+    assert_eq!(return_x64_callback(p, &mut t, u64::MAX), Outcome::Continue);
+    let retry_pc = t.cpu.pc();
+    assert_eq!(retry_pc, p.traps.dispatcher_retry());
+    assert_eq!(dispatcher_retry(p, &mut t, retry_pc), Outcome::Continue);
+    assert_eq!(t.cpu.pc(), veh);
+    assert_eq!(return_x64_callback(p, &mut t, u64::MAX), Outcome::Continue);
+    assert_eq!((t.cpu.pc(), t.cpu.sp()), (original.pc(), original.sp()));
+    assert!(t.frames.is_empty());
+}
+
+#[test]
+fn x64_vch_callback_guard_fault_repair_preserves_selected_handler() {
+    let mut process = process(WinArch::X64);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    let page = x64_one_argument_dispatch_stack(p, &mut t, 0x5C0, prot::READWRITE);
+    let original = RegContext::capture(&t.cpu);
+    let veh = p.modules.exe().base + 0x500;
+    let vch = p.modules.exe().base + 0x600;
+    p.seh.veh.push((1, veh));
+    p.seh.vch.push((2, vch));
+
+    assert_eq!(
+        seh::raise(
+            p,
+            &mut t,
+            ExceptionRecord::new(0xE123_4502, original.pc(), Vec::new()),
+            original.clone()
+        ),
+        Outcome::Continue
+    );
+    assert_eq!(t.cpu.pc(), veh);
+    // Model an interleaving after the VEH's RET loaded the return address but
+    // before the callback-return trap executes. Its VCH uses the same stack
+    // slot, which another guest thread may re-arm as a one-shot guard.
+    t.cpu.set_gpr(0, u64::MAX);
+    t.cpu.set_sp(t.cpu.sp() + 8);
+    t.cpu.set_pc(p.traps.callback_return());
+    p.vm.protect(page - PAGE_SIZE, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+        .unwrap();
+    assert_eq!(callback_return(p, &mut t), Outcome::Continue);
+    assert_eq!(t.cpu.pc(), veh, "nested VEH sees VCH setup fault");
+    assert_eq!(t.frames[0].entry_sp, page + 0x20);
+    assert!(t.frames[0].retry.is_some());
+    let pointers = t.cpu.gpr(1);
+    let nested =
+        ExceptionRecord::read(&p.space, WinArch::X64, p.space.u64(pointers).unwrap()).unwrap();
+    assert_eq!(nested.code, STATUS_GUARD_PAGE_VIOLATION);
+    assert_eq!(nested.params, vec![1, page - 8]);
+
+    // ContinueExecution of the nested fault also runs its own VCH. Only then
+    // does the saved outer VCH setup resume at the private retry frontier.
+    assert_eq!(return_x64_callback(p, &mut t, u64::MAX), Outcome::Continue);
+    assert_eq!(t.cpu.pc(), vch);
+    p.seh.vch[0].1 = vch + 0x20;
+    assert_eq!(return_x64_callback(p, &mut t, 0), Outcome::Continue);
+    let retry_pc = t.cpu.pc();
+    assert_eq!(retry_pc, p.traps.dispatcher_retry());
+    assert_eq!(dispatcher_retry(p, &mut t, retry_pc), Outcome::Continue);
+    assert_eq!(t.cpu.pc(), vch, "outer selected VCH target is retained");
+    assert_eq!(return_x64_callback(p, &mut t, 0), Outcome::Continue);
+    assert_eq!((t.cpu.pc(), t.cpu.sp()), (original.pc(), original.sp()));
+    assert!(t.frames.is_empty());
+}
+
+#[test]
+fn x64_unhandled_filter_callback_guard_fault_repair_preserves_selected_filter() {
+    let mut process = process(WinArch::X64);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    let page = x64_one_argument_dispatch_stack(p, &mut t, 0xAE0, prot::READWRITE | prot::GUARD);
+    let original = RegContext::capture(&t.cpu);
+    let original_code = 0xE123_4503;
+    let veh = p.modules.exe().base + 0x500;
+    let filter = p.modules.exe().base + 0x600;
+    p.seh.veh.push((1, veh));
+    p.seh.unhandled_filter = filter;
+
+    assert_eq!(
+        seh::raise(
+            p,
+            &mut t,
+            ExceptionRecord::new(original_code, original.pc(), Vec::new()),
+            original.clone()
+        ),
+        Outcome::Continue
+    );
+    assert_eq!(t.cpu.pc(), veh, "first VEH sees original exception");
+    let pointers = t.cpu.gpr(1);
+    let original_record = p.space.u64(pointers).unwrap();
+    let original_bytes = p
+        .space
+        .bytes(
+            original_record,
+            ExceptionRecord::size(WinArch::X64) as usize,
+        )
+        .unwrap();
+
+    assert_eq!(return_x64_callback(p, &mut t, 0), Outcome::Continue);
+    assert_eq!(t.cpu.pc(), veh, "nested VEH sees filter setup fault");
+    assert_eq!(t.frames[0].entry_sp, page + 0x20);
+    assert!(t.frames[0].retry.is_some());
+    let pointers = t.cpu.gpr(1);
+    let nested =
+        ExceptionRecord::read(&p.space, WinArch::X64, p.space.u64(pointers).unwrap()).unwrap();
+    assert_eq!(nested.code, STATUS_GUARD_PAGE_VIOLATION);
+    assert_eq!(nested.params, vec![1, page - 8]);
+    assert_eq!(
+        p.space
+            .bytes(
+                original_record,
+                ExceptionRecord::size(WinArch::X64) as usize
+            )
+            .unwrap(),
+        original_bytes
+    );
+    p.seh.unhandled_filter = filter + 0x20;
+    assert_eq!(return_x64_callback(p, &mut t, u64::MAX), Outcome::Continue);
+    let retry_pc = t.cpu.pc();
+    assert_eq!(retry_pc, p.traps.dispatcher_retry());
+    assert_eq!(dispatcher_retry(p, &mut t, retry_pc), Outcome::Continue);
+    assert_eq!(t.cpu.pc(), filter, "original filter target is retained");
+    assert_eq!(
+        return_x64_callback(p, &mut t, 0),
+        Outcome::ProcessTerminate(original_code)
+    );
+    assert!(t.frames.is_empty());
+}
+
+#[test]
+fn arm64_veh_register_argument_setup_does_not_touch_guard_below_records() {
+    let mut process = process(WinArch::Arm64);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    let (stack, size) =
+        p.vm.allocate(None, 0x1_0000, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap();
+    let page = stack + 0x8000;
+    t.stack_alloc = stack;
+    t.stack_base = stack + size;
+    t.stack_limit = stack;
+    t.cpu.set_sp(page + 0x460);
+    t.cpu.set_pc(p.modules.exe().base + 0x40);
+    let original = RegContext::capture(&t.cpu);
+    let veh = p.modules.exe().base + 0x500;
+    p.seh.veh.push((1, veh));
+    p.vm.protect(page - PAGE_SIZE, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+        .unwrap();
+
+    assert_eq!(
+        seh::raise(
+            p,
+            &mut t,
+            ExceptionRecord::new(0xE123_4504, original.pc(), Vec::new()),
+            original
+        ),
+        Outcome::Continue
+    );
+    assert_eq!(t.cpu.pc(), veh);
+    assert_eq!(t.cpu.sp(), page - 0x10);
+    assert_eq!(t.cpu.gpr(0), page + 0x10);
+    assert_eq!(t.frames.len(), 1);
+    assert!(t.frames[0].cont.is_some());
+    assert!(t.frames[0].retry.is_none());
+    assert_eq!(
+        p.vm.query(page - PAGE_SIZE).unwrap().protect,
+        prot::READWRITE | prot::GUARD,
+        "one ARM64 register argument requires no callback-stack write"
+    );
+}
+
+#[test]
+fn arm64_veh_register_only_callback_does_not_preflight_untouched_stack_guard() {
+    let mut process = process(WinArch::Arm64);
+    let p = process.state_mut();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut t = p.threads.remove(&tid).unwrap();
+    let (stack, size) =
+        p.vm.allocate(None, 0x1_0000, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap();
+    let page = stack + 0x8000;
+    let guard = page - PAGE_SIZE;
+    t.stack_alloc = stack;
+    t.stack_base = stack + size;
+    t.stack_limit = page;
+    let teb_stack_limit = t.teb + offsets(WinArch::Arm64).teb_stack_limit;
+    p.space.w64(teb_stack_limit, page).unwrap();
+    t.cpu.set_sp(page + 0x460);
+    t.cpu.set_pc(p.modules.exe().base + 0x40);
+    let original = RegContext::capture(&t.cpu);
+    let veh = p.modules.exe().base + 0x500;
+    p.seh.veh.push((1, veh));
+    p.vm.protect(guard, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+        .unwrap();
+
+    // The original CONTEXT, record and pointers fit above `page`; the
+    // dispatcher cursor becomes `page - 0x10`. One ARM64 register argument
+    // needs no guest stack write, so merely setting SP must not touch the
+    // current lower guard or advance StackLimit.
+    assert_eq!(
+        seh::raise(
+            p,
+            &mut t,
+            ExceptionRecord::new(0xE123_4505, original.pc(), Vec::new()),
+            original
+        ),
+        Outcome::Continue
+    );
+    assert_eq!(t.cpu.pc(), veh);
+    assert_eq!(t.cpu.sp(), page - 0x10);
+    assert_eq!(t.stack_limit, page);
+    assert_eq!(p.space.u64(teb_stack_limit).unwrap(), page);
+    assert_eq!(
+        p.vm.query(guard).unwrap().protect,
+        prot::READWRITE | prot::GUARD
+    );
+    assert_eq!(t.frames.len(), 1);
+    assert!(t.frames[0].cont.is_some());
+    assert!(t.frames[0].retry.is_none());
 }
 
 #[test]

@@ -304,9 +304,55 @@ pub(crate) fn frame_for<'t>(t: &'t mut Thread, site: &CallSite) -> &'t mut Frame
     f
 }
 
-/// Integer callback frames: x86 aligns argument bytes then adds a 4-byte
-/// return address; x64 reserves at least 32 bytes of shadow space plus an
-/// 8-byte return address; ARM64 aligns only arguments beyond X0..X7.
+/// Layout shared by checked preflight and the guest-call writer. Reserved ABI
+/// padding and x64 shadow space are not writes by the call setup itself.
+struct CallStackLayout {
+    sp: u64,
+    stack_args: u64,
+    stack_arg_bytes: u64,
+    return_bytes: u64,
+}
+
+fn call_stack_layout(arch: WinArch, cursor: u64, argc: usize) -> Result<CallStackLayout, MemFault> {
+    let fault = MemFault {
+        addr: cursor,
+        write: true,
+    };
+    let count = u64::try_from(argc).map_err(|_| fault)?;
+    let align16 = |v: u64| v.checked_add(15).map(|n| n & !15).ok_or(fault);
+    let aligned = cursor & !15;
+    let (reserved, return_bytes, stack_arg_bytes) = match arch {
+        WinArch::X86 => {
+            let args = count.checked_mul(4).ok_or(fault)?;
+            (align16(args)?, 4, args)
+        }
+        WinArch::X64 => {
+            let args = count.max(4).checked_mul(8).ok_or(fault)?;
+            let stacked = count.saturating_sub(4).checked_mul(8).ok_or(fault)?;
+            (align16(args)?, 8, stacked)
+        }
+        WinArch::Arm64 => {
+            let stacked = count.saturating_sub(8).checked_mul(8).ok_or(fault)?;
+            (align16(stacked)?, 0, stacked)
+        }
+    };
+    let arg_base = aligned.checked_sub(reserved).ok_or(fault)?;
+    let sp = arg_base.checked_sub(return_bytes).ok_or(fault)?;
+    let stack_args = if arch == WinArch::X64 {
+        arg_base.checked_add(32).ok_or(fault)?
+    } else {
+        arg_base
+    };
+    Ok(CallStackLayout {
+        sp,
+        stack_args,
+        stack_arg_bytes,
+        return_bytes,
+    })
+}
+
+/// Probe only the argument and return-slot bytes that `call_guest_on` writes,
+/// in the same order. A register-only ARM64 call probes no guest memory.
 fn prepare_call(
     p: &mut Proc,
     t: &mut Thread,
@@ -314,27 +360,14 @@ fn prepare_call(
     argc: usize,
 ) -> Result<(), super::super::process::stack::StackFault> {
     use super::super::process::stack::{self, StackFault};
-    let bytes = match p.arch {
-        WinArch::X86 => (argc as u64)
-            .checked_mul(4)
-            .and_then(|n| n.checked_add(15))
-            .and_then(|n| (n & !15).checked_add(4)),
-        WinArch::X64 => (argc.max(4) as u64)
-            .checked_mul(8)
-            .and_then(|n| n.checked_add(15))
-            .and_then(|n| (n & !15).checked_add(8)),
-        WinArch::Arm64 => (argc.saturating_sub(8) as u64)
-            .checked_mul(8)
-            .and_then(|n| n.checked_add(15))
-            .map(|n| n & !15),
-    };
-    let (address, bytes) = bytes
-        .and_then(|n| (cursor & !15).checked_sub(n).map(|a| (a, n)))
-        .ok_or(StackFault::Access(MemFault {
-            addr: cursor,
-            write: true,
-        }))?;
-    stack::prepare(p, t, address, bytes)
+    let layout = call_stack_layout(p.arch, cursor, argc).map_err(StackFault::Access)?;
+    if layout.stack_arg_bytes != 0 {
+        stack::prepare(p, t, layout.stack_args, layout.stack_arg_bytes)?;
+    }
+    if layout.return_bytes != 0 {
+        stack::prepare(p, t, layout.sp, layout.return_bytes)?;
+    }
+    Ok(())
 }
 
 fn retry_call(
@@ -788,44 +821,26 @@ fn call_guest_on(
     args: &[u64],
     ret_trap: u64,
 ) -> Result<(), MemFault> {
-    let failure = MemFault {
-        addr: cursor,
-        write: true,
-    };
-    let align16 = |v: u64| v.checked_add(15).map(|n| n & !15).ok_or(failure);
-    let mut sp = cursor & !0xF;
+    let layout = call_stack_layout(cpu.arch(), cursor, args.len())?;
     match cpu.arch() {
         WinArch::X64 => {
-            let slots = args.len().max(4) as u64;
-            sp = sp
-                .checked_sub(align16(slots.checked_mul(8).ok_or(failure)?)?)
-                .ok_or(failure)?;
-            for (i, &a) in args.iter().enumerate().skip(4) {
-                mem.w64(sp + 8 * i as u64, a)?;
+            for (i, &a) in args.iter().skip(4).enumerate() {
+                mem.w64(layout.stack_args + 8 * i as u64, a)?;
             }
-            sp = sp.checked_sub(8).ok_or(failure)?;
-            mem.w64(sp, ret_trap)?;
+            mem.w64(layout.sp, ret_trap)?;
             for (i, reg) in [1usize, 2, 8, 9].iter().enumerate() {
                 cpu.set_gpr(*reg, args.get(i).copied().unwrap_or(0));
             }
         }
         WinArch::X86 => {
-            sp = sp
-                .checked_sub(align16((args.len() as u64).checked_mul(4).ok_or(failure)?)?)
-                .ok_or(failure)?;
             for (i, &a) in args.iter().enumerate() {
-                mem.w32(sp + 4 * i as u64, a as u32)?;
+                mem.w32(layout.stack_args + 4 * i as u64, a as u32)?;
             }
-            sp = sp.checked_sub(4).ok_or(failure)?;
-            mem.w32(sp, ret_trap as u32)?;
+            mem.w32(layout.sp, ret_trap as u32)?;
         }
         WinArch::Arm64 => {
-            let stacked = args.len().saturating_sub(8) as u64;
-            sp = sp
-                .checked_sub(align16(stacked.checked_mul(8).ok_or(failure)?)?)
-                .ok_or(failure)?;
             for (j, &a) in args.iter().skip(8).enumerate() {
-                mem.w64(sp + 8 * j as u64, a)?;
+                mem.w64(layout.stack_args + 8 * j as u64, a)?;
             }
             for i in 0..8 {
                 cpu.set_gpr(i, args.get(i).copied().unwrap_or(0));
@@ -833,7 +848,7 @@ fn call_guest_on(
             cpu.set_gpr(30, ret_trap);
         }
     }
-    cpu.set_sp(sp);
+    cpu.set_sp(layout.sp);
     cpu.set_pc(target);
     Ok(())
 }
@@ -1107,6 +1122,42 @@ mod tests {
     }
 
     #[test]
+    fn callback_preflight_preserves_first_actual_write_fault_order() {
+        for (arch, cursor, argc, arg_fault_offset) in
+            [(WinArch::X86, 0x10, 4, 0), (WinArch::X64, 0x20, 5, 0x10)]
+        {
+            let mut process = process(arch);
+            let p = process.state_mut();
+            let tid = *p.threads.keys().next().unwrap();
+            let mut t = p.threads.remove(&tid).unwrap();
+            let (_, page) = alternate_stack(p, &mut t, false);
+            p.vm.protect(page - 0x1000, 0x1000, prot::NOACCESS).unwrap();
+            p.vm.protect(page, 0x1000, prot::READWRITE | prot::GUARD)
+                .unwrap();
+
+            // Argument writes precede the return-slot write. The argument
+            // page must fault first, despite the return slot lying on the
+            // inaccessible preceding page.
+            assert_eq!(
+                prepare_call(p, &mut t, page + cursor, argc),
+                Err(super::super::super::process::stack::StackFault::Access(
+                    MemFault {
+                        addr: page + arg_fault_offset,
+                        write: true,
+                    }
+                )),
+                "{arch}"
+            );
+            // This direct preflight call reports the fault; the caller's
+            // exception-classification path consumes a non-stack guard.
+            assert_eq!(
+                p.vm.query(page).unwrap().protect,
+                prot::READWRITE | prot::GUARD
+            );
+        }
+    }
+
+    #[test]
     fn memory_exception_preserves_direction_and_fault_address() {
         for arch in WinArch::ALL {
             let mut process = process(arch);
@@ -1204,6 +1255,10 @@ mod tests {
 #[cfg(test)]
 #[path = "retry_tests.rs"]
 mod retry_tests;
+
+#[cfg(test)]
+#[path = "x86_retry_tests.rs"]
+mod x86_retry_tests;
 
 fn trace_entry(p: &Proc, t: &Thread, site: &CallSite) {
     let module = p
