@@ -211,3 +211,14 @@ normal raw ExitProcess exposes the pre-feature flush defect. These custom-entry
 probes do not establish ordinary compiler startup, complete C++ exception
 personality or native Windows equivalence. See
 `docs/architecture/user-mode/windows-crt-exit.md`.
+
+The same target reaches `suites/user/windows/dynamic_unwind_x64.rs` and
+`suites/user/windows/arm64_dynamic_unwind.rs`. Their independent freestanding
+PE32+ fixtures import the public fixed-table APIs, allocate guest-owned
+executable code and a separate function table, raise a continuable exception
+inside a nonleaf frame, check that a language handler ran, resume, and remove
+the registration by its original pointer. The ARM64 fixture also separates
+`.xdata` into its own mapping. Each executes at scheduling slices of 1 and
+4,096 instructions; source, binary, PE imports and unwind metadata have
+provenance checks. Native Windows differential results and undocumented
+overlap or mutation behavior remain unknown.

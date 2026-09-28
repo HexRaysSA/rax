@@ -1,0 +1,8 @@
+LIBRARY KERNEL32.dll
+EXPORTS
+    ExitProcess
+    RaiseException
+    RtlAddFunctionTable
+    RtlDeleteFunctionTable
+    VirtualAlloc
+    VirtualProtect

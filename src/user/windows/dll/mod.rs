@@ -5,6 +5,7 @@ pub mod crt;
 pub(crate) mod fibers;
 mod files;
 pub(crate) mod fls;
+mod function_table;
 mod handles;
 mod kernel;
 pub(crate) mod libraries;
@@ -48,6 +49,7 @@ static KERNEL32: BuiltinDll = BuiltinDll {
     subsystem: 3,
     exports: &[
         kernel::EXPORTS,
+        function_table::EXPORTS,
         kernel::X86_SEH_EXPORTS,
         libraries::EXPORTS,
         fibers::EXPORTS,
@@ -64,6 +66,7 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
     subsystem: 3,
     exports: &[
         kernel::EXPORTS,
+        function_table::EXPORTS,
         libraries::EXPORTS,
         fibers::EXPORTS,
         fls::EXPORTS,

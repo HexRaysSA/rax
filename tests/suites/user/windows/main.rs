@@ -53,6 +53,12 @@ mod seh_x86_unwind;
 #[path = "arm64_pac_unwind.rs"]
 mod arm64_pac_unwind;
 
+#[path = "dynamic_unwind_x64.rs"]
+mod dynamic_unwind_x64;
+
+#[path = "arm64_dynamic_unwind.rs"]
+mod arm64_dynamic_unwind;
+
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/user/windows")
 }

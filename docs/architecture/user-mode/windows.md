@@ -132,6 +132,28 @@ does not specify that private ESP formula. Exit unwind and collided unwind
 remain unsupported. A compiled PE32 fixture imports the public export and
 checks the inner callback, chain head, EAX, ESP, and non-returning continuation.
 
+`RtlAddFunctionTable` and `RtlDeleteFunctionTable` admit fixed, guest-owned
+function tables for x64 and ARM64. The table pointer is the deletion identity;
+entries remain in guest memory and are read again during lookup, so code,
+table, and unwind metadata may reside in separate mappings. `BaseAddress` is
+added to 32-bit relative fields with checked arithmetic. A dynamic table can
+supply a match when PE `.pdata` misses, including a PC inside a loaded image;
+overlap between static and dynamic matches is rejected because native
+precedence has not been established. Unsorted dynamic entries are scanned
+linearly. A malformed live entry, inaccessible
+guest metadata, or ambiguous dynamic match fails closed instead of creating
+a leaf frame. The RAX registration profile rejects zero-length arrays,
+duplicate table pointers, and registrations that would exceed 65,536 total
+entries across tables; these are admission policies, not asserted native-Windows
+return behavior. The public
+[add](https://learn.microsoft.com/en-us/windows/win32/api/winnt/nf-winnt-rtladdfunctiontable)
+and [delete](https://learn.microsoft.com/en-us/windows/win32/api/winnt/nf-winnt-rtldeletefunctiontable)
+contracts define fixed-array registration and pointer-based deletion;
+[Microsoft's function-table types](https://learn.microsoft.com/en-us/windows/win32/devnotes/function_table_type_enum)
+include sorted and unsorted dynamic tables. Callback, growable and history-table
+interfaces remain unsupported. Native overlap precedence and mutation semantics
+are unknown.
+
 Exception walks retain visited registration/frame states across guest handler
 continuations and stop explicitly on cycles or after 4,096 distinct states.
 This ceiling and malformed-walk diagnostics are personality policies, not
@@ -154,12 +176,13 @@ Function-table binary search still requires sorted `.pdata` input.
 | A5 | Reported Windows version is configuration, not proof of service-number compatibility | Version object and missing verified numeric service tables | Version fields and raw-syscall rejection | Direct SYSCALL/SVC for each guest | Scheduler raw-service diagnostic tests | Confirmed by explicit rejection |
 | A6 | Malformed context groups, alignment, selectors, or MXCSR use a configured rejection policy, not a native NTSTATUS oracle | SetThreadContext documentation and checked ISA restoration APIs | NtContinue and continuation restoration | Late selector/FP rejection after integer changes | Context transaction tests and NtContinue unit test; native malformed-context run would falsify status equivalence | Confirmed transactionality; exact native status unknown |
 | A7 | Guest mappings remain stable through memory preflight and bounded-buffer initialization/copy | One-host-thread scheduler; AddressSpace::probe populates every checked page | Heap rollback and guest-byte preservation | Fault on last page; source/destination protections differ; partial commitment exhaustion | Heap adversarial tests; concurrent mapping mutation would falsify this contract | Confirmed within serialized process execution |
-| A8 | Compiler-profile TLS storage, IAT, SafeSEH, cookie and unwind metadata/handler locations belong to the owning image | PE typed VA/RVA fields and explicit RAX admission policy | Restricted image acceptance, initialization and unwind reads | Foreign but mapped PEB/other-image pointers | Loader/unwind negatives; compare identical patched images under native Windows | Retained admission restriction; native cross-image acceptance unknown |
+| A8 | Compiler-profile TLS storage, IAT, SafeSEH, cookie and PE-owned unwind metadata/handler locations belong to the owning image; dynamically registered tables follow A14 instead | PE typed VA/RVA fields and explicit RAX admission policy | Restricted image acceptance, initialization and unwind reads | Foreign but mapped PEB/other-image pointers | Loader/unwind negatives; compare identical patched images under native Windows | Retained PE admission restriction; native cross-image acceptance unknown |
 | A9 | Exception function tables are sorted by function address as the PE Format requires | PE Format .pdata section and binary-search parser | Function-table absence and lookup | Reordered or overlapping entries in otherwise bounded directories | Full-table order validation or a reordered-table regression would falsify sorted-input conformance | Retained format prerequisite; global order validation is incomplete |
 | A10 | CI reachability checks consume the inspected indentation and simple shell forms | Current ci.yml/full-suite.yml commands | Workflow target-selection regression | Commented flags, harness arguments, unrelated jobs, --no-run | Matcher-negative tests; alternate workflow syntax requires re-audit | Confirmed current forms; retained syntax prerequisite |
 | A11 | The process code-page profile is fixed at Windows-1252, and a successfully materialized ANSI command line remains process-owned | Retained Microsoft `GetCommandLineA`/best-fit mapping evidence and the current code-page table | Narrow command-line bytes and repeated-call pointer | Best-fit syntax changes, unmappable BMP character, failed first read/write, repeated call | Three-ABI kernel tests; a native process configured for another ACP falsifies universal-1252 interpretation | Retained fixed-ACP profile; tested within RAX |
 | A12 | The Windows ARM64 guest CPU remains ARMv8.2 without FEAT_PAuth; PACIBSP/AUTIBSP are hint-space no-ops | `WinCpu::new(Arm64)` selects `A64UserCpu::new`, whose v8.2 feature set excludes PACA/PACG | Admit `0xFC` and packed `CR=2` unwind markers as counted no-ops | Exception in a partially executed PAC prolog/epilog, full and packed records | CPU-profile unit assertion and compiled-PE unwind tests; enabling PACA/PACG without propagating feature state to the unwinder falsifies this admission | Confirmed in the fixed Windows profile; future configurable PAuth unsupported |
 | A13 | The admitted x86 `RtlUnwind` continuation uses post-stdcall caller ESP; the public API contract does not expose native ESP restoration details | Existing HLE x86 `Stdcall` callsite and Microsoft `RtlUnwind` TargetIp/ReturnValue contract | Guest continuation stack and EAX after unwinding inner records | Inner handler mutates context or registration links; unreadable/cross-page target; caller has nested frames | Compiled PE32 callback/ESP witness, target preflight and post-callback fault tests; native Windows context trace would falsify ESP equivalence | Retained RAX continuation profile; native ESP equivalence unknown |
+| A14 | Fixed dynamic function tables retain the original guest array pointer and live entry bytes until deletion; ambiguous overlap and malformed mutation are rejected instead of selecting an undocumented native winner | Public `RtlAddFunctionTable`/`RtlDeleteFunctionTable` pointer contracts and documented sorted/unsorted table classes; native precedence is not specified | x64/ARM64 dynamic lookup, unwind provenance and deletion | Unsorted entries, duplicate pointer, code inside a PE with no static match, mutated or inaccessible entry, two matching tables | Unit and compiled-PE tests for registration, guest-owned metadata, handler continuation, deletion and failure paths; a native Windows differential for overlap/mutation would distinguish this RAX policy from native behavior | Retained RAX admission policy; native overlap/mutation behavior unknown |
 
 ## Change-surface map
 
@@ -189,13 +212,25 @@ record; native callback ordering/exception containment and private-allocation
 generation identity remain unknown or restricted. High: host filesystem
 check/unlink is not an atomic Windows namespace transaction against external
 mutation. High: synchronous host console reads can block the sole guest
-scheduler thread. High: x86 exit/collided unwinds remain unsupported and
-x64/ARM64 dynamic function tables are absent; these leave structured exception
-handling incomplete. High: ARM64 authenticated-return handling remains
-unsupported if a PAuth-enabled CPU profile is introduced. Medium: admitted image
-materialization still uses O(SizeOfImage) host memory; checking guest commitment
-first does not establish a separate host-allocation limit. Medium: exact
-Unicode case folding, ANSI code-page conversion, and verbatim path edge cases
+scheduler thread. High: x86 exit/collided unwinds remain unsupported;
+dynamic callback/growable function tables, native dynamic-overlap precedence,
+and `RtlLookupFunctionEntry` are not implemented. High: ARM64
+authenticated-return handling remains unsupported if a PAuth-enabled CPU
+profile is introduced. High: the internal x64/ARM64 `RtlUnwindEx` termination
+walk uses an unchecked guest-handler continuation and does not validate the
+returned disposition; it is not a guest export or Add/Delete call path today
+and must be hardened before exposure. High: x64/ARM64 exception-search
+EHANDLER callbacks also use an unchecked setup path; a callback-stack fault
+can lose a repairable continuation. This predates dynamic-table registration.
+High: `SehState` is public and adding its private dynamic-table field can
+break external struct-literal construction;
+no tracked consumer constructs it directly, while external usage is unknown.
+Medium: admitted image materialization still uses O(SizeOfImage) host memory;
+checking guest commitment
+first does not establish a separate host-allocation limit. Medium: dynamic
+registration scans live guest entries on every unwind lookup; its aggregate
+65,536-entry ceiling bounds but does not eliminate O(d) per-frame work.
+Medium: exact Unicode case folding, ANSI code-page conversion, and verbatim path edge cases
 are not a native path-resolution oracle. Host-to-guest parent components now
 normalize lexically; this does not establish symlink-resolution equivalence. Medium:
 interpreter-only stepping limits
@@ -219,8 +254,13 @@ resident pages before failing; rollback claims concern allocations, commitment,
 indexes, and old guest bytes, not identical host frame residency.
 
 Exception-walk state tracking costs O(f log f) time and O(f) space for f visited
-states, bounded by 4,096. Function-table binary lookup is O(log n) in n entries;
-individual unwind decoding additionally traverses its bounded metadata stream.
+states, bounded by 4,096. PE function-table binary lookup is O(log n) in n
+entries. Dynamic registration validates O(k) live entries for a new k-entry
+table. Lookup scans O(d) live entries and uses O(1) additional space for d
+registered entries; all tables together admit at most 65,536 entries. Deletion
+searches O(t) registered table pointers for t tables; table descriptors occupy
+O(t) process memory.
+Individual unwind decoding additionally traverses its bounded metadata stream.
 Global `.pdata` ordering validation is not implied by binary lookup.
 
 Page rounding uses checked `(bytes + 4095) & !4095`; stack reservations use
@@ -312,3 +352,22 @@ callback ordering remain unknown; the full Windows objective is not complete.
 Commands, seven-field F1–F9 register, affected/unaffected execution planes,
 bounded findings, ownership and Quality Gates are in
 [Windows fiber/FLS integration](windows-fibers.md).
+
+## Dynamic unwind-table verification record — 2026-09-28
+
+The fixed-table group registers guest-owned x64 and ARM64 unwind records with
+`RtlAddFunctionTable`, consults them during exception search, and removes them
+by original pointer with `RtlDeleteFunctionTable`. The final portable command,
+`cargo +stable test --locked --no-default-features --lib --test user_windows -- --test-threads=4 --quiet`,
+passed 7,256 library tests (two optional microkernel cases ignored) and all
+536 Windows integration tests; no tests were filtered. Seven focused dynamic
+unit tests and four compiled-PE integration tests passed; two of those
+integration tests executed each guest at slices of 1 and 4,096 instructions.
+A negative control that
+suppressed dynamic lookup left the two fixture-identity tests green but made
+both guest-execution tests fail; the source was restored byte-for-byte before
+the final green run. The feature-enabled workspace all-target check and all
+536 feature-enabled Windows integration tests passed with
+`--no-default-features --features x86_64-suite,smir-jit`; formatting and
+fixture-script syntax checks passed. These are software-interpreter runs on
+an AArch64 macOS host, not native Windows or native JIT equivalence evidence.

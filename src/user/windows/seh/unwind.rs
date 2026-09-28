@@ -49,9 +49,9 @@ pub const UNW_FLAG_UHANDLER: u32 = 2;
 /// A function table entry found for a PC.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FunctionEntry {
-    /// Image base of the module.
+    /// Image base or registered dynamic `BaseAddress`.
     pub image_base: u64,
-    /// Address of the `RUNTIME_FUNCTION` (x64) or `.pdata` record (ARM64).
+    /// Guest address of the `RUNTIME_FUNCTION`/ARM64 record.
     pub entry: u64,
     /// Function start RVA.
     pub begin: u32,
@@ -75,8 +75,56 @@ pub struct Unwound {
     pub establisher: u64,
 }
 
+#[derive(Clone, Copy)]
+enum Provenance {
+    Image { base: u64, size: u64 },
+    Dynamic,
+}
+
+#[derive(Clone, Copy)]
+struct ResolvedFunction {
+    entry: FunctionEntry,
+    provenance: Provenance,
+}
+
+/// Looks up one active entry, retaining its metadata provenance internally.
+/// Overlapping image/dynamic or dynamic/dynamic matches fail closed because
+/// their native precedence is not established.
+fn lookup_resolved(p: &Proc, pc: u64) -> Result<Option<ResolvedFunction>, MemFault> {
+    let image = lookup_image(p, pc)?;
+    let dynamic = super::dynamic::lookup(p, pc)?;
+    match (image, dynamic) {
+        (Some(_), Some(_)) => Err(MemFault {
+            addr: pc,
+            write: false,
+        }),
+        (Some(entry), None) => {
+            let (_, module) = p.modules.by_address(pc).ok_or(MemFault {
+                addr: pc,
+                write: false,
+            })?;
+            Ok(Some(ResolvedFunction {
+                entry,
+                provenance: Provenance::Image {
+                    base: module.base,
+                    size: module.size,
+                },
+            }))
+        }
+        (None, Some(entry)) => Ok(Some(ResolvedFunction {
+            entry,
+            provenance: Provenance::Dynamic,
+        })),
+        (None, None) => Ok(None),
+    }
+}
+
 /// Looks up the function table entry containing `pc` (`RtlLookupFunctionEntry`).
 pub fn lookup(p: &Proc, pc: u64) -> Result<Option<FunctionEntry>, MemFault> {
+    Ok(lookup_resolved(p, pc)?.map(|resolved| resolved.entry))
+}
+
+fn lookup_image(p: &Proc, pc: u64) -> Result<Option<FunctionEntry>, MemFault> {
     let Some((_, m)) = p.modules.by_address(pc) else {
         return Ok(None);
     };
@@ -179,20 +227,55 @@ pub fn virtual_unwind(
     f: &FunctionEntry,
     ctx: &mut RegContext,
 ) -> Result<Unwound, MemFault> {
-    let (_, module) = p.modules.by_address(ctx.pc()).ok_or(MemFault {
-        addr: ctx.pc(),
-        write: false,
-    })?;
-    if module.base != f.image_base {
-        return Err(MemFault {
-            addr: f.entry,
-            write: false,
-        });
-    }
-    let metadata = ImageMem {
-        mem: &p.space,
-        base: module.base,
-        size: module.size,
+    let resolved = match lookup_resolved(p, ctx.pc())? {
+        Some(resolved) if resolved.entry == *f => resolved,
+        Some(_) => {
+            return Err(MemFault {
+                addr: f.entry,
+                write: false,
+            });
+        }
+        None => {
+            // Preserve the earlier public API's ability to virtually unwind
+            // an explicitly supplied image entry without requiring that it
+            // be published in the module's `.pdata` directory. Dynamic
+            // entries, in contrast, require a live registration.
+            let (_, module) = p.modules.by_address(ctx.pc()).ok_or(MemFault {
+                addr: ctx.pc(),
+                write: false,
+            })?;
+            if module.base != f.image_base {
+                return Err(MemFault {
+                    addr: f.entry,
+                    write: false,
+                });
+            }
+            ResolvedFunction {
+                entry: *f,
+                provenance: Provenance::Image {
+                    base: module.base,
+                    size: module.size,
+                },
+            }
+        }
+    };
+    virtual_unwind_resolved(p, handler_type, resolved, ctx)
+}
+
+fn virtual_unwind_resolved(
+    p: &Proc,
+    handler_type: u32,
+    resolved: ResolvedFunction,
+    ctx: &mut RegContext,
+) -> Result<Unwound, MemFault> {
+    let f = &resolved.entry;
+    let metadata = match resolved.provenance {
+        Provenance::Image { base, size } => MetadataMem::Image(ImageMem {
+            mem: &p.space,
+            base,
+            size,
+        }),
+        Provenance::Dynamic => MetadataMem::Dynamic(&p.space),
     };
     let mut next = ctx.clone();
     let result = match p.arch {
@@ -217,19 +300,22 @@ pub fn virtual_unwind(
             });
         }
     };
-    if result
-        .handler
-        .is_some_and(|handler| !module.contains(handler))
-        || (result.handler.is_some()
+    if let Provenance::Image { base, size } = resolved.provenance {
+        if result.handler.is_some_and(|handler| {
+            handler
+                .checked_sub(base)
+                .is_none_or(|offset| offset >= size)
+        }) || (result.handler.is_some()
             && result
                 .handler_data
-                .checked_sub(module.base)
-                .is_none_or(|offset| offset > module.size))
-    {
-        return Err(MemFault {
-            addr: result.handler.unwrap_or(f.entry),
-            write: false,
-        });
+                .checked_sub(base)
+                .is_none_or(|offset| offset > size))
+        {
+            return Err(MemFault {
+                addr: result.handler.unwrap_or(f.entry),
+                write: false,
+            });
+        }
     }
     *ctx = next;
     Ok(result)
@@ -239,6 +325,24 @@ struct ImageMem<'a> {
     mem: &'a dyn Mem,
     base: u64,
     size: u64,
+}
+
+enum MetadataMem<'a> {
+    Image(ImageMem<'a>),
+    Dynamic(&'a dyn Mem),
+}
+
+impl Mem for MetadataMem<'_> {
+    fn rd(&self, addr: u64, bytes: &mut [u8]) -> Result<(), MemFault> {
+        match self {
+            Self::Image(image) => image.rd(addr, bytes),
+            Self::Dynamic(mem) => mem.rd(addr, bytes),
+        }
+    }
+
+    fn wr(&self, addr: u64, _: &[u8]) -> Result<(), MemFault> {
+        Err(MemFault { addr, write: true })
+    }
 }
 
 impl Mem for ImageMem<'_> {
@@ -299,8 +403,11 @@ pub fn step(
     ctx: &mut RegContext,
 ) -> Result<(Option<FunctionEntry>, Unwound), MemFault> {
     let mut next = ctx.clone();
-    let result = match lookup(p, ctx.pc())? {
-        Some(f) => (Some(f), virtual_unwind(p, handler_type, &f, &mut next)?),
+    let result = match lookup_resolved(p, ctx.pc())? {
+        Some(resolved) => (
+            Some(resolved.entry),
+            virtual_unwind_resolved(p, handler_type, resolved, &mut next)?,
+        ),
         None => {
             let establisher = ctx.sp();
             unwind_leaf(p, &mut next)?;

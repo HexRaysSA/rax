@@ -23,6 +23,7 @@
 //! handlers are invoked").
 
 pub mod arm64;
+pub(crate) mod dynamic;
 pub mod unwind;
 pub mod x64;
 pub mod x86;
@@ -65,6 +66,8 @@ pub struct SehState {
     pub unhandled_filter: u64,
     /// Next registration handle.
     pub next_handle: u64,
+    /// Guest-owned dynamic unwind tables, registered by their original array pointer.
+    pub(crate) dynamic_tables: Vec<dynamic::Table>,
 }
 
 /// The `STATUS_*` name of an exception code, when it is one.
