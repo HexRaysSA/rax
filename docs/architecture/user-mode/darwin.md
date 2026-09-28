@@ -145,6 +145,7 @@ is the child's copy of the host region, as the host fork gives it.
 
 | Area | Module | Counterpart |
 |---|---|---|
+| `bsdthread_register`: the main thread's QoS is the one the host kernel gave the emulator's own primordial thread at its exec (from the task's application type and QoS clamp, which fork and exec keep; a host fork's thread is not given it again), legacy when it has none | `syscall::bsd::thread` | libpthread `kern_support.c` (`_bsdthread_register`), `task_set_main_thread_qos` |
 | `bsdthread_create`: a thread with its own control port, the TSD base, and libpthread's `thread_start(pthread, kport, func, arg, stack, flags)` state; QoS requests validated; `PTHREAD_START_SUSPENDED` | `syscall::bsd::pthread` | libpthread `kern_support.c` |
 | `bsdthread_terminate`: the stack freed (the main thread's made inaccessible), the joiner's semaphore signalled or its ulock woken once the thread is gone, the control port dead | `syscall::bsd::pthread` | `pthread_shims.c`, `uthread_joiner_wake` |
 | Thread state by flavor (`thread_get_state`, `thread_set_state`): the flavors a 64-bit thread has and their counts, the flavor lists, the unified states with their headers, the exception state (set: accepted and ignored on arm64, refused on x86-64), NEON, VFP, float, and AVX state (a float state clears the upper YMM halves; no AVX-512 on the emulated Haswell); the debug registers are checked, masked, and kept but not applied (the CPUs have no hardware breakpoints); the saved-state, full-state, SME, and SVE flavors are refused | `thread_status`, `mig::thread` | `status.c`, `pcb.c`, `fpu.c`, `thread_act.c` |
@@ -506,8 +507,8 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   of their native runs (x86_64 through Rosetta), including the fatal
   `EXC_GUARD` of `guard_fatal`, the handlers, frames, masks, timers,
   faults, and final `SIGTERM` of `signals`, and the thread creation,
-  joins, cancellation, and contended synchronization of `threads` and
-  `threads_sync`, the filters and delivery protocol of `kqueue`, the
+  joins, cancellation, contended synchronization, and main thread's QoS
+  of `threads` and `threads_sync`, the filters and delivery protocol of `kqueue`, the
   workqueue and workloop calls, errors, servicers, synchronous waiters,
   and ownership of `workq` (driven through libpthread's SPI and the raw
   calls), libdispatch's queues and sources in `dispatch`, the

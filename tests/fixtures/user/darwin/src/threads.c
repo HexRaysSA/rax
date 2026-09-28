@@ -1,8 +1,9 @@
 // POSIX threads: creation with attributes, joining and return values,
 // detached threads, mutexes (normal, recursive, error-checking, try-lock),
 // condition variables (signal, broadcast, timed waits), read-write locks,
-// once, thread-specific data, thread identity, signal masks and
-// pthread_kill between threads, cancellation, and a lock-contended counter.
+// once, thread-specific data, thread identity and the main thread's QoS,
+// signal masks and pthread_kill between threads, cancellation, and a
+// lock-contended counter.
 // Everything printed is independent of scheduling order.
 #include <errno.h>
 #include <mach/mach.h>
@@ -112,6 +113,8 @@ int main(void) {
 
     pthread_key_create(&key, dtor);
     printf("main is main: %d\n", pthread_main_np());
+    // The main thread runs at the QoS the process was started with.
+    printf("main thread qos: %#x %#x\n", qos_class_self(), qos_class_main());
     printf("self equal: %d\n", pthread_equal(pthread_self(), pthread_self()));
 
     // Workers contend for one mutex.

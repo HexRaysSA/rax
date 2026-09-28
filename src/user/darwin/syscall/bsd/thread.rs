@@ -20,9 +20,62 @@ const PTHREAD_FEATURES: u64 = 0x01 | 0x02 | 0x04 | 0x08 | 0x10 | 0x40 | 0x80 | 0
 const MAX_PTHREAD_SIZE: i64 = 64 * 1024;
 /// `sizeof(struct _pthread_registration_data)` (packed).
 const REG_DATA_SIZE: u64 = 56;
-/// `_pthread_priority_make_from_thread_qos(THREAD_QOS_LEGACY, 0, 0)`:
-/// the main thread's QoS when none was requested.
-const MAIN_QOS_LEGACY: u64 = (1 << (8 + 4 - 1)) | 0xff;
+/// `THREAD_QOS_LEGACY`: the main thread's QoS when none was requested.
+const THREAD_QOS_LEGACY: u32 = 4;
+
+/// The QoS tier (`THREAD_QOS_*`) of a new image's main thread, 0 when
+/// unspecified: what the host kernel gave the emulator's own primordial
+/// thread (`task_set_main_thread_qos` at its exec, from the task's
+/// application type and QoS clamp). The emulated process is the host
+/// process, started as the native program would have been; its tasks keep
+/// that type across fork and exec, while a host fork's thread is not given
+/// it again, so the value is taken once, at the first image's start, and
+/// forked children inherit it.
+fn host_qos_tier() -> u32 {
+    static PRIMORDIAL: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *PRIMORDIAL.get_or_init(current_qos_tier)
+}
+
+/// The QoS tier the calling host thread has requested
+/// (`THREAD_QOS_POLICY`), 0 when unspecified or unknown.
+fn current_qos_tier() -> u32 {
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            static mach_task_self_: u32;
+            fn mach_thread_self() -> u32;
+            fn mach_port_deallocate(task: u32, name: u32) -> i32;
+            fn thread_policy_get(
+                thread: u32,
+                flavor: u32,
+                info: *mut i32,
+                count: *mut u32,
+                get_default: *mut u32,
+            ) -> i32;
+        }
+        // thread_qos_policy_data_t: qos_tier, tier_importance.
+        let mut policy = [0i32; 2];
+        let (mut count, mut get_default) = (2u32, 0u32);
+        // SAFETY: mach_thread_self returns a send right this function
+        // releases; `policy` holds THREAD_QOS_POLICY_COUNT words;
+        // THREAD_QOS_POLICY is 9.
+        let kr = unsafe {
+            let th = mach_thread_self();
+            let kr = thread_policy_get(th, 9, policy.as_mut_ptr(), &mut count, &mut get_default);
+            mach_port_deallocate(mach_task_self_, th);
+            kr
+        };
+        if kr == 0 && (1..=6).contains(&policy[0]) {
+            return policy[0] as u32;
+        }
+    }
+    0
+}
+
+/// `_pthread_priority_make_from_thread_qos(tier, 0, 0)`.
+fn priority_of_tier(tier: u32) -> u64 {
+    (1u64 << (8 + tier - 1)) | 0xff
+}
 
 /// `bsdthread_register(threadstart, wqthread, pthsize, init_data,
 /// init_data_size, dispatchqueue_offset)` (`_bsdthread_register`).
@@ -78,10 +131,15 @@ pub fn bsdthread_register(ctx: &mut Ctx<'_>, a: &[u64; 8]) -> SysResult {
     };
     ctx.proc.pthread.stack_addr_hint = stack_hint;
     if sz > 0 {
-        // Reply: the consumed version, the main thread's QoS, the stack
-        // address hint, and the default mutex policy.
+        // Reply: the consumed version, the main thread's QoS (legacy when
+        // it requested none), the stack address hint, and the default
+        // mutex policy.
+        let tier = match host_qos_tier() {
+            0 => THREAD_QOS_LEGACY,
+            t => t,
+        };
         data[0..8].copy_from_slice(&REG_DATA_SIZE.to_le_bytes());
-        data[16..24].copy_from_slice(&MAIN_QOS_LEGACY.to_le_bytes());
+        data[16..24].copy_from_slice(&priority_of_tier(tier).to_le_bytes());
         data[36..44].copy_from_slice(&stack_hint.to_le_bytes());
         data[44..48].copy_from_slice(&0u32.to_le_bytes());
         ctx.write(data_addr, &data[..sz])?;
