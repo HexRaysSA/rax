@@ -521,6 +521,7 @@ mod tests {
             pid: 4,
             peb: 0,
             params: 0,
+            ansi_command_line: None,
             process_heap: 0,
             modules: Default::default(),
             loader: Default::default(),

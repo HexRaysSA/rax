@@ -21,6 +21,18 @@ occupy readable non-executable trap slots; the CPU's fetch fault enters checked
 host implementations with the guest's original calling-convention state.
 Unknown DLLs and imports produce explicit loader or execution failures.
 
+`GetCommandLineA` converts the process's UTF-16 command line with the named
+Windows-1252 best-fit process-code-page profile and returns one process-owned
+guest buffer on repeated calls. This includes mappings that can change narrow
+command-line syntax (U+FF02 to `0x22`, for example); it does not imply that
+every host Windows process uses code page 1252. The retained
+[GetCommandLineA contract and mapping evidence](../../specifications/windows/crt-startup/README.md)
+identify the conversion profile and its unknown surrogate-pair behavior.
+For at most 32,768 scanned UTF-16 code units, the single-byte profile writes
+at most 32,768 encoded bytes plus one NUL byte. Initial conversion costs
+O(N log 698) time and O(N) guest bytes for N code units; later calls reuse
+the pointer in O(1) time without another guest allocation.
+
 `VirtualMemory` distinguishes reserved and committed pages, allocation
 granularity (65,536 bytes), page size (4,096 bytes), guard consumption,
 decommit/recommit zero filling, protection, and `MEMORY_BASIC_INFORMATION`
@@ -126,6 +138,7 @@ Function-table binary search still requires sorted `.pdata` input.
 | A8 | Compiler-profile TLS storage, IAT, SafeSEH, cookie and unwind metadata/handler locations belong to the owning image | PE typed VA/RVA fields and explicit RAX admission policy | Restricted image acceptance, initialization and unwind reads | Foreign but mapped PEB/other-image pointers | Loader/unwind negatives; compare identical patched images under native Windows | Retained admission restriction; native cross-image acceptance unknown |
 | A9 | Exception function tables are sorted by function address as the PE Format requires | PE Format .pdata section and binary-search parser | Function-table absence and lookup | Reordered or overlapping entries in otherwise bounded directories | Full-table order validation or a reordered-table regression would falsify sorted-input conformance | Retained format prerequisite; global order validation is incomplete |
 | A10 | CI reachability checks consume the inspected indentation and simple shell forms | Current ci.yml/full-suite.yml commands | Workflow target-selection regression | Commented flags, harness arguments, unrelated jobs, --no-run | Matcher-negative tests; alternate workflow syntax requires re-audit | Confirmed current forms; retained syntax prerequisite |
+| A11 | The process code-page profile is fixed at Windows-1252, and a successfully materialized ANSI command line remains process-owned | Retained Microsoft `GetCommandLineA`/best-fit mapping evidence and the current code-page table | Narrow command-line bytes and repeated-call pointer | Best-fit syntax changes, unmappable BMP character, failed first read/write, repeated call | Three-ABI kernel tests; a native process configured for another ACP falsifies universal-1252 interpretation | Retained fixed-ACP profile; tested within RAX |
 
 ## Change-surface map
 
@@ -155,7 +168,9 @@ record; native callback ordering/exception containment and private-allocation
 generation identity remain unknown or restricted. High: host filesystem
 check/unlink is not an atomic Windows namespace transaction against external
 mutation. High: synchronous host console reads can block the sole guest
-scheduler thread. Medium: admitted image
+scheduler thread. High: x86 `RtlUnwind` is not exported, x64 dynamic
+function tables are absent, and ARM64 PAC-marked unwind metadata is rejected;
+these leave structured exception handling incomplete. Medium: admitted image
 materialization still uses O(SizeOfImage) host memory; checking guest commitment
 first does not establish a separate host-allocation limit. Medium: exact
 Unicode case folding, ANSI code-page conversion, and verbatim path edge cases

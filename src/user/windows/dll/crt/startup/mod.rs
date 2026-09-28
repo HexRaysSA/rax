@@ -20,6 +20,11 @@ use super::{RuntimeKind, invalid, runtime, state};
 pub(crate) use exports::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(super) use storage::StartupState;
 
+/// The process ACP profile shared by CRT narrow startup and GetCommandLineA.
+pub(crate) fn encode_process_ansi(units: &[u16]) -> Vec<u8> {
+    codepage::encode(units)
+}
+
 const ARGC: usize = 0;
 const ARGV: usize = 1;
 const WARGV: usize = 2;

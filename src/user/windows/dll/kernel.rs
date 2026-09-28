@@ -1,7 +1,7 @@
 //! Win32 process, virtual-memory, heap, loader, console, and TLS services.
 
 use super::super::heap::{HEAP_GENERATE_EXCEPTIONS, HeapError};
-use super::super::hle::{ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
+use super::super::hle::{ApiErr, ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
 use super::super::layout::offsets;
 use super::super::memory::Mem;
 use super::super::nt::error::*;
@@ -300,20 +300,28 @@ fn command_line_w(c: &mut Ctx) -> ApiResult {
     Flow::ret(c.read_ptr(c.p.params + offsets(c.arch()).pp_command_line + c.psize())?)
 }
 fn command_line_a(c: &mut Ctx) -> ApiResult {
+    if let Some(address) = c.p.ansi_command_line {
+        return Flow::ret(address);
+    }
     let address = c.read_ptr(c.p.params + offsets(c.arch()).pp_command_line + c.psize())?;
     let wide = c.mem().wstr(address, 32768)?;
-    // The personality's current ANSI code page is Windows-1252.
-    let text = String::from_utf16_lossy(&wide);
-    if !text.is_ascii() {
-        return Err(c.unsupported("non-ASCII ANSI command line conversion"));
-    }
+    // The personality's named process ACP profile is Windows-1252 best fit.
+    let bytes = super::crt::startup::encode_process_ansi(&wide);
     let Some(out) =
         c.p.heaps
-            .alloc(&mut c.p.vm, c.p.process_heap, text.len() as u64 + 1, false)
+            .alloc(&mut c.p.vm, c.p.process_heap, bytes.len() as u64 + 1, false)
     else {
         return c.fail(ERROR_NOT_ENOUGH_MEMORY, 0);
     };
-    c.mem().put_cstr(out, text.as_bytes())?;
+    if let Err(fault) = c.mem().put_cstr(out, &bytes) {
+        // A committed heap free block can retain guest-changed protection.
+        // Do not publish or leak the block when that write faults.
+        c.p.heaps.free(c.p.process_heap, out).map_err(|error| {
+            ApiErr::Internal(format!("GetCommandLineA heap rollback failed: {error:?}"))
+        })?;
+        return Err(fault.into());
+    }
+    c.p.ansi_command_line = Some(out);
     Flow::ret(out)
 }
 fn tls_alloc(c: &mut Ctx) -> ApiResult {
@@ -499,8 +507,148 @@ fn remove_veh(c: &mut Ctx) -> ApiResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::user::mm::PAGE_SIZE;
     use crate::user::windows::hle::{Item, Value};
+    use crate::user::windows::memory::prot;
     use crate::user::windows::process::{WindowsConfig, WindowsProcess};
+
+    fn command_line_trial(
+        arch: crate::user::windows::arch::WinArch,
+        command: &str,
+        expected: &[u8],
+    ) {
+        use crate::user::windows::arch::WinArch;
+        let image: &[u8] = match arch {
+            WinArch::X86 => {
+                include_bytes!("../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
+            }
+            WinArch::X64 => {
+                include_bytes!("../../../../tests/fixtures/user/windows/bin/x64/smoke.exe")
+            }
+            WinArch::Arm64 => {
+                include_bytes!("../../../../tests/fixtures/user/windows/bin/arm64/smoke.exe")
+            }
+        };
+        let mut config = WindowsConfig::new("command-line-test.exe", vec![]);
+        config.command_line = Some(command.into());
+        config.seed = Some(1);
+        config.arena_bytes = 64 << 20;
+        let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let api = EXPORTS
+            .iter()
+            .find_map(|export| match &export.item {
+                Item::Func(api) if api.name == "GetCommandLineA" => Some(api),
+                _ => None,
+            })
+            .unwrap();
+        let sp = t.cpu.sp();
+        let mut c = Ctx {
+            p,
+            t: &mut t,
+            api,
+            entry_pc: 0,
+            entry_sp: sp,
+            ret_addr: 0,
+            cursor: sp,
+        };
+        c.set_last_error(0x1234_5678).unwrap();
+        let pointer = |flow| match flow {
+            Flow::Ret(Value::Int(pointer)) => pointer,
+            _ => panic!("GetCommandLineA must return a pointer"),
+        };
+        let field = c.p.params + offsets(arch).pp_command_line + c.psize();
+        let wide = c.read_ptr(field).unwrap();
+        let before = c.p.heaps.blocks(c.p.process_heap);
+        c.write_ptr(field, 0).unwrap();
+        assert!(matches!(
+            command_line_a(&mut c),
+            Err(crate::user::windows::hle::ApiErr::Fault(_))
+        ));
+        assert!(c.p.ansi_command_line.is_none());
+        assert_eq!(c.p.heaps.blocks(c.p.process_heap), before);
+        c.write_ptr(field, wide).unwrap();
+        let heap = c.p.process_heap;
+        let _pad =
+            c.p.heaps
+                .alloc(&mut c.p.vm, heap, 2 * PAGE_SIZE, false)
+                .unwrap();
+        let _lower = c.p.heaps.alloc(&mut c.p.vm, heap, 16, false).unwrap();
+        let target =
+            c.p.heaps
+                .alloc(&mut c.p.vm, heap, expected.len() as u64 + 1, false)
+                .unwrap();
+        let _upper = c.p.heaps.alloc(&mut c.p.vm, heap, 16, false).unwrap();
+        assert_ne!(
+            target / PAGE_SIZE,
+            wide / PAGE_SIZE,
+            "{arch}: protected target aliases source"
+        );
+        c.p.heaps.free(heap, target).unwrap();
+        let before = c.p.heaps.blocks(heap);
+        c.p.vm
+            .protect(target, expected.len() as u64 + 1, prot::NOACCESS)
+            .unwrap();
+        assert!(matches!(
+            command_line_a(&mut c),
+            Err(crate::user::windows::hle::ApiErr::Fault(fault)) if fault.addr == target && fault.write
+        ));
+        assert!(c.p.ansi_command_line.is_none());
+        assert_eq!(
+            c.p.heaps.blocks(heap),
+            before,
+            "{arch}: failed write leaked a block"
+        );
+        c.p.vm
+            .protect(target, expected.len() as u64 + 1, prot::READWRITE)
+            .unwrap();
+        let first = pointer(command_line_a(&mut c).unwrap());
+        assert_eq!(
+            first, target,
+            "{arch}: retry did not reuse the rolled-back block"
+        );
+        assert_eq!(
+            c.mem().cstr(first, expected.len() + 1).unwrap(),
+            expected,
+            "{arch}"
+        );
+        assert_eq!(
+            c.mem().bytes(first + expected.len() as u64, 1).unwrap(),
+            [0]
+        );
+        let blocks = c.p.heaps.blocks(c.p.process_heap);
+        let second = pointer(command_line_a(&mut c).unwrap());
+        assert_eq!(
+            second, first,
+            "{arch}: process-owned pointer must be stable"
+        );
+        assert_eq!(
+            c.p.heaps.blocks(c.p.process_heap),
+            blocks,
+            "{arch}: repeated call allocated"
+        );
+        assert_eq!(c.last_error().unwrap(), 0x1234_5678);
+    }
+
+    #[test]
+    fn get_command_line_a_ascii_pointer_is_process_owned_all_abis() {
+        for arch in crate::user::windows::arch::WinArch::ALL {
+            command_line_trial(arch, "p.exe plain", b"p.exe plain");
+        }
+    }
+
+    #[test]
+    fn get_command_line_a_cp1252_best_fit_all_abis() {
+        for arch in crate::user::windows::arch::WinArch::ALL {
+            command_line_trial(
+                arch,
+                "p.exe \u{0100}\u{FF02}\u{2010}\u{20AC}\u{4E00}",
+                b"p.exe A\"-\x80?",
+            );
+        }
+    }
 
     #[test]
     fn terminate_process_checks_current_handles_and_remains_distinct_from_exit_all_abis() {

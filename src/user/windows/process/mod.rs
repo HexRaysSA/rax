@@ -227,6 +227,8 @@ pub struct Proc {
     pub peb: u64,
     /// `RTL_USER_PROCESS_PARAMETERS`.
     pub params: u64,
+    /// Process-owned ANSI command line, materialized on first request.
+    pub ansi_command_line: Option<u64>,
     /// The process heap handle.
     pub process_heap: u64,
     /// Loaded modules.
