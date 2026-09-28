@@ -394,6 +394,12 @@ int main(int argc, char **argv) {
     sigaction(SIGCHLD, &sa, NULL);
     signal(SIGUSR2, SIG_IGN);
 
+    if (argc > 1 && strcmp(argv[1], "bridge-smoke") == 0) {
+        spawn_wait("bridge-smoke", self, NULL, NULL);
+        rmdir(dir);
+        return 0;
+    }
+
     spawn_wait("plain", self, NULL, NULL);
     file_actions();
     failures();

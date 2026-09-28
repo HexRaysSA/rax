@@ -762,6 +762,10 @@ fn fork_child(
             new.ppid = parent;
             new.audit = process::host_audit_token(pid, new.creds);
             new.next_tid = ((pid as u64) << 20) | 1;
+            // The child owns the parent's bridge state, but its kqueue was
+            // not inherited. `rebind` forgets that stale descriptor before
+            // creating child-local host rights; the old Proc must not drop it.
+            new.bridge = std::mem::take(&mut ctx.proc.bridge);
             crate::user::darwin::bridge::rebind(&mut new.bridge, &mut new.task);
             if let Err(e) = set_session(pgroup, setsid) {
                 let b = e.0.to_le_bytes();

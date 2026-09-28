@@ -181,6 +181,38 @@ fn spawn_x86_64() {
 }
 
 #[test]
+fn spawn_bridge_arm64() {
+    if !comparable("spawn bridge", "arm64") {
+        return;
+    }
+    let program = build_as("spawn", "arm64", "spawn_bridge_smoke");
+    compare(
+        "spawn bridge",
+        &program,
+        "arm64",
+        &["bridge-smoke"],
+        &[],
+        None,
+    );
+}
+
+#[test]
+fn spawn_bridge_x86_64() {
+    if !comparable("spawn bridge", "x86_64") {
+        return;
+    }
+    let program = build_as("spawn", "x86_64", "spawn_bridge_smoke");
+    compare(
+        "spawn bridge",
+        &program,
+        "x86_64",
+        &["bridge-smoke"],
+        &[],
+        None,
+    );
+}
+
+#[test]
 fn csr_arm64() {
     fixture("csr", "arm64", &[], &[]);
 }

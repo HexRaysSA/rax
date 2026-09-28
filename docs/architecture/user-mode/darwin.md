@@ -187,12 +187,15 @@ file actions, which work on a copy of the caller's descriptor table with a
 directory descriptor for a changed working directory, and the new image
 is built in the caller. So a failed spawn (`posix_spawnp` tries each
 `PATH` entry) forks nothing, and the host fork carries a finished image
-into the child. Setting a spawned child's process group or session can
-still fail in the child; the child then reports the error through a pipe,
-the caller reaps it, and the host's `SIGCHLD` for it is dropped. The
-machine an image runs on follows the caller: an arm64 process may exec
-x86-64 images as well as arm64 ones (translated, as by Rosetta, which
-runs x86_64 slices but refuses x86_64h ones with `EBADARCH`; a fat file
+into the child. In a spawned child, the old image's host-service bridge
+is transferred to the new image before rebinding: the inherited kqueue
+descriptor is not valid after the host fork, so rebinding forgets it
+before the old image is dropped. Setting a spawned child's process group
+or session can still fail in the child; the child then reports the error
+through a pipe, the caller reaps it, and the host's `SIGCHLD` for it is
+dropped. The machine an image runs on follows the caller: an arm64 process
+may exec x86-64 images as well as arm64 ones (translated, as by Rosetta,
+which runs x86_64 slices but refuses x86_64h ones with `EBADARCH`; a fat file
 without an arm64 slice runs its x86_64 one), and an x86-64 process only
 x86-64 ones (preferring x86_64h). The slice activation chooses is the one
 loaded.
@@ -468,7 +471,8 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   state a new image keeps in `exec`, an arm64 process running the x86_64
   build (thin, and fat beside x86_64h slices) in `exec_translated`, the
   file actions, attributes, port
-  actions, failures, and `waitid` views of `spawn`, the SIP queries of
+  actions, failures, and `waitid` views of `spawn` (with a short
+  single-child bridge-ownership regression), the SIP queries of
   `csr`, the volume statistics and object paths of `volumes`, the
   per-thread identity and persona calls of `identity`, the POSIX shared memory
   objects of `shm` (shared between mappings and with a forked child), the
