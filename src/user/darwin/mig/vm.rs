@@ -91,12 +91,33 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             );
             // The object's port: its right goes with the request.
             let port = object.as_ref().and_then(|o| o.port().cloned());
+            if ctx.proc.config.strace {
+                eprintln!(
+                    "[{:#x}]   vm_map addr {addr:#x} size {size:#x} mask {mask:#x} flags {flags:#x} \
+                     object {:?} offset {offset:#x} copy {copy} prot {cur}/{max} inherit {inh}",
+                    ctx.thread.tid,
+                    port.as_ref().map(|p| &p.kobject)
+                );
+            }
             if let Some(o) = object {
                 crate::user::darwin::syscall::mach::kmsg::release(ctx.proc, [o]);
             }
-            if max & !vm::VM_PROT_ALL != 0 || inh > 2 || cur & !max != 0 {
+            // VM_PROT_IS_MASK is taken for an object's mapping (and dropped
+            // for anonymous memory).
+            let (plain_cur, plain_max) =
+                (cur & !entry::VM_PROT_IS_MASK, max & !entry::VM_PROT_IS_MASK);
+            if plain_max & !vm::VM_PROT_ALL != 0
+                || plain_cur & !vm::VM_PROT_ALL != 0
+                || inh > 2
+                || plain_cur & !plain_max != 0
+            {
                 return Err(kr::KERN_INVALID_ARGUMENT);
             }
+            let (cur, max) = if port.is_none() {
+                (plain_cur, plain_max)
+            } else {
+                (cur, max)
+            };
             match port {
                 None => {
                     let a = mvm::map_at(ctx, addr, size, mask, flags, cur)?;
@@ -114,12 +135,16 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                     };
                     let (mapping, data) = match crate::user::darwin::bridge::entry_of(ctx.proc, &p)
                     {
-                        Some(e) => (
-                            entry::mapping(&e, offset, copy, cur, max, inh, flags >> 24),
-                            copy.then(|| entry::contents(&e, offset, size)),
-                        ),
+                        Some(e) => {
+                            let (cur, max) = entry::protections(&e, cur, max)?;
+                            (
+                                entry::mapping(&e, offset, copy, cur, max, inh, flags >> 24),
+                                copy.then(|| entry::contents(&e, offset, size)),
+                            )
+                        }
                         None => {
-                            let data = crate::user::darwin::bridge::map_object(h, size, offset)?;
+                            let (data, cur, max) =
+                                crate::user::darwin::bridge::map_object(h, size, offset, cur, max)?;
                             let mapping = Mapping {
                                 flags: VmFlags::new(max, inh, flags >> 24).bits(),
                                 ..Mapping::anonymous(vm::perms(cur))

@@ -29,6 +29,8 @@
 #[cfg(target_os = "macos")]
 pub mod host;
 #[cfg(target_os = "macos")]
+pub mod kernel;
+#[cfg(target_os = "macos")]
 pub mod translate;
 
 use std::collections::HashMap;
@@ -396,13 +398,21 @@ pub fn kobject_type(h: &HostRight) -> u32 {
 
 /// The contents a `vm_map` of the host memory object behind proxy `h`
 /// gives the guest: `size` bytes from `offset`, as the mapping reads them
-/// now (a later change by another mapper is not seen).
-pub fn map_object(h: &HostRight, size: u64, offset: u64) -> Result<Vec<u8>, i32> {
+/// now (a later change by another mapper is not seen), with the mapping's
+/// protections (`cur`, `max` as the guest asked, `VM_PROT_IS_MASK`
+/// included, as the host's entry allows).
+pub fn map_object(
+    h: &HostRight,
+    size: u64,
+    offset: u64,
+    cur: u32,
+    max: u32,
+) -> Result<(Vec<u8>, u32, u32), i32> {
     #[cfg(target_os = "macos")]
     if let Some(n) = h.name() {
-        return host::map_copy(n, size, offset);
+        return host::map_copy(n, size, offset, cur, max);
     }
-    let _ = (h, size, offset);
+    let _ = (h, size, offset, cur, max);
     Err(super::mach::kr::KERN_INVALID_OBJECT)
 }
 
@@ -437,6 +447,26 @@ pub fn entry_of(proc: &Proc, port: &Port) -> Option<super::syscall::mach::entry:
     proc.bridge.entries.get(&port.id).map(|(_, e)| e.clone())
 }
 
+/// A proxy of IOKit's main port (`host_get_io_main`), holding one send
+/// right for the caller; `None` without the bridge.
+pub fn io_main(proc: &mut Proc) -> Option<Arc<Port>> {
+    if !enabled() {
+        return None;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let name = host::io_main()?;
+        let p = proc.bridge.proxy(name);
+        p.state.lock().unwrap().srights += 1;
+        Some(p)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = proc;
+        None
+    }
+}
+
 /// Releases a proxy's host right.
 pub fn release(name: u32) {
     #[cfg(target_os = "macos")]
@@ -449,23 +479,29 @@ pub fn release(name: u32) {
 /// destroys it (a kernel-sent message has no sender to tell).
 pub fn forward(proc: &mut Proc, m: super::mach::msg::Message) {
     #[cfg(target_os = "macos")]
-    let _ = translate::forward(proc, m, None);
+    let _ = translate::forward(proc, m, None, host::opt64::ANY);
     #[cfg(not(target_os = "macos"))]
     super::syscall::mach::kmsg::destroy(proc, m);
 }
 
 /// Sends `m`, a guest's message to a proxy, on the host, waiting
-/// `timeout` milliseconds for queue space when given.
+/// `timeout` milliseconds for queue space when given, in the guest's call
+/// class (`MACH64_SEND_*_CALL` bits of its options; none for the legacy
+/// trap, which is sent as `MACH64_SEND_ANY`).
 pub fn send(
     proc: &mut Proc,
     m: super::mach::msg::Message,
     timeout: Option<u32>,
+    class: u64,
 ) -> Result<(), super::mach::kr::KernReturn> {
     #[cfg(target_os = "macos")]
-    return translate::forward(proc, m, timeout);
+    {
+        let class = if class == 0 { host::opt64::ANY } else { class };
+        translate::forward(proc, m, timeout, class)
+    }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = timeout;
+        let _ = (timeout, class);
         super::syscall::mach::kmsg::destroy(proc, m);
         Err(super::mach::kr::MACH_SEND_INVALID_DEST)
     }

@@ -77,6 +77,22 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             let words = host_info(ctx.proc.abi, req.i32(32), count)?;
             Ok(info_reply(&words))
         }
+        h::HOST_GET_IO_MAIN => {
+            req.simple(24)?;
+            if !is_host(req) {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            // IOKit's main port is the host's: its calls go to the host
+            // kernel through the proxy.
+            let port = crate::user::darwin::bridge::io_main(ctx.proc).ok_or(kr::KERN_FAILURE)?;
+            Ok(Out::Complex(
+                vec![super::OutDesc::Port(
+                    Some(crate::user::darwin::mach::ipc::Right::Send(port)),
+                    crate::user::darwin::mach::ipc::disp::MOVE_SEND,
+                )],
+                Vec::new(),
+            ))
+        }
         h::HOST_KERNEL_VERSION => {
             req.simple(24)?;
             if !is_host(req) {

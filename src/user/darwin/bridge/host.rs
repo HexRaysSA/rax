@@ -50,6 +50,20 @@ pub mod opt {
     pub const TRAILER_AUDIT: i32 = 3 << 24;
 }
 
+/// `mach_msg2` options (`MACH64_*`): the 32-bit ones, and the call class
+/// the destination must match.
+pub mod opt64 {
+    pub const SEND_MSG: u64 = 0x1;
+    pub const RCV_MSG: u64 = 0x2;
+    pub const RCV_LARGE: u64 = 0x4;
+    pub const SEND_TIMEOUT: u64 = 0x10;
+    /// `MACH_RCV_TRAILER_AUDIT` in `MACH_RCV_TRAILER_FORMAT_0`.
+    pub const TRAILER_AUDIT: u64 = 3 << 24;
+    pub const KOBJECT_CALL: u64 = 0x2_0000_0000;
+    pub const MQ_CALL: u64 = 0x4_0000_0000;
+    pub const ANY: u64 = 0x8_0000_0000;
+}
+
 /// `mach_msg` results.
 pub mod mr {
     pub const SUCCESS: i32 = 0;
@@ -71,6 +85,16 @@ unsafe extern "C" {
         rcv_name: Name,
         timeout: u32,
         notify: Name,
+    ) -> i32;
+    fn mach_msg2_internal(
+        data: *mut u8,
+        option64: u64,
+        bits_and_send_size: u64,
+        remote_and_local: u64,
+        voucher_and_id: u64,
+        desc_count_and_rcv_name: u64,
+        rcv_size_and_priority: u64,
+        timeout: u64,
     ) -> i32;
     fn mach_port_allocate(task: Name, right: u32, name: *mut Name) -> i32;
     fn mach_port_construct(task: Name, options: *const u8, context: u64, name: *mut Name) -> i32;
@@ -112,7 +136,18 @@ unsafe extern "C" {
         parent: Name,
     ) -> i32;
     fn mach_host_self() -> Name;
+    fn host_get_io_main(host: Name, io_main: *mut Name) -> i32;
+    fn task_create_identity_token(task: Name, token: *mut Name) -> i32;
     fn vm_deallocate(task: Name, address: usize, size: usize) -> i32;
+    fn mach_vm_region(
+        task: Name,
+        address: *mut u64,
+        size: *mut u64,
+        flavor: i32,
+        info: *mut i32,
+        count: *mut u32,
+        object: *mut Name,
+    ) -> i32;
     fn mach_vm_map(
         task: Name,
         address: *mut u64,
@@ -142,6 +177,46 @@ pub fn task() -> Name {
 pub unsafe fn msg(buf: *mut u8, option: i32, send: u32, rcv: u32, from: Name, timeout: u32) -> i32 {
     // SAFETY: as the caller promises.
     unsafe { mach_msg(buf, option, send, rcv, from, timeout, NULL) }
+}
+
+/// A message's header fields for [`msg2`].
+pub struct Header {
+    pub bits: u32,
+    pub size: u32,
+    pub remote: Name,
+    pub local: Name,
+    pub id: i32,
+    /// The descriptor count (0 for a simple message).
+    pub descs: u32,
+}
+
+/// `mach_msg2` of the message in `buf` with `option64`, receiving into
+/// `buf` (`rcv_size` bytes) from `rcv_name` when it asks to.
+///
+/// # Safety
+/// As [`msg`].
+pub unsafe fn msg2(
+    buf: *mut u8,
+    option64: u64,
+    h: &Header,
+    rcv_name: Name,
+    rcv_size: u32,
+    timeout: u32,
+) -> i32 {
+    let pair = |lo: u32, hi: u32| u64::from(lo) | (u64::from(hi) << 32);
+    // SAFETY: as the caller promises.
+    unsafe {
+        mach_msg2_internal(
+            buf,
+            option64,
+            pair(h.bits, h.size),
+            pair(h.remote, h.local),
+            pair(0, h.id as u32),
+            pair(h.descs, rcv_name),
+            pair(rcv_size, 0),
+            u64::from(timeout),
+        )
+    }
 }
 
 /// A new right of kind `right` (receive, port set).
@@ -253,6 +328,22 @@ pub fn host_port() -> Name {
     unsafe { mach_host_self() }
 }
 
+/// A new identity token of the emulator's own task.
+pub fn identity_token() -> Option<Name> {
+    let mut t = NULL;
+    // SAFETY: `t` receives the token's send right.
+    let kr = unsafe { task_create_identity_token(task(), &mut t) };
+    (kr == 0 && t != NULL).then_some(t)
+}
+
+/// A send right to IOKit's main port.
+pub fn io_main() -> Option<Name> {
+    let mut p = NULL;
+    // SAFETY: `p` receives the right.
+    let kr = unsafe { host_get_io_main(host_port(), &mut p) };
+    (kr == 0 && p != NULL).then_some(p)
+}
+
 /// A send right to the emulator's own task port.
 pub fn task_port() -> Option<Name> {
     mod_refs(task(), right::SEND, 1).then(task)
@@ -307,18 +398,73 @@ pub fn memory_entry(fd: i32, offset: u64, len: u64, prot: u32) -> Result<Name, i
 }
 
 /// The contents of `size` bytes of the memory object behind host right
-/// `object` from `offset`, mapped into the emulator and copied out.
-pub fn map_copy(object: Name, size: u64, offset: u64) -> Result<Vec<u8>, i32> {
+/// `object` from `offset`, mapped into the emulator (readable, with the
+/// guest's protections `cur` and `max`, `VM_PROT_IS_MASK` included, as the
+/// host's entry allows them) and copied out, with the protections the
+/// mapping got.
+pub fn map_copy(
+    object: Name,
+    size: u64,
+    offset: u64,
+    cur: u32,
+    max: u32,
+) -> Result<(Vec<u8>, u32, u32), i32> {
     let mut addr = 0u64;
-    // VM_FLAGS_ANYWHERE, a copy, readable; VM_INHERIT_NONE.
+    // VM_FLAGS_ANYWHERE, a copy; VM_INHERIT_NONE.
     // SAFETY: `addr` receives the mapping's address.
-    let kr = unsafe { mach_vm_map(task(), &mut addr, size, 0, 1, object, offset, 1, 1, 1, 2) };
+    let kr = unsafe {
+        mach_vm_map(
+            task(),
+            &mut addr,
+            size,
+            0,
+            1,
+            object,
+            offset,
+            1,
+            (cur | 1) as i32,
+            (max | 1) as i32,
+            2,
+        )
+    };
     if kr != 0 {
         return Err(kr);
     }
+    // VM_REGION_BASIC_INFO_64: protection, max_protection, ...
+    let (mut raddr, mut rsize, mut obj) = (addr, 0u64, NULL);
+    let mut info = [0i32; 9];
+    let mut count = info.len() as u32;
+    // SAFETY: `info` holds VM_REGION_BASIC_INFO_COUNT_64 words.
+    let kr = unsafe {
+        mach_vm_region(
+            task(),
+            &mut raddr,
+            &mut rsize,
+            9,
+            info.as_mut_ptr(),
+            &mut count,
+            &mut obj,
+        )
+    };
+    if obj != NULL {
+        deallocate(obj);
+    }
+    let (got_cur, got_max) = if kr == 0 {
+        (info[0] as u32, info[1] as u32)
+    } else {
+        (cur & 7, max & 7)
+    };
     let data = read(addr, size);
     free(addr, size);
-    Ok(data)
+    // The guest's own protections, masked by what the entry allowed.
+    let keep = |asked: u32, got: u32| {
+        if asked & 0x40 != 0 {
+            asked & 7 & got
+        } else {
+            asked & 7
+        }
+    };
+    Ok((data, keep(cur, got_cur), keep(max, got_max)))
 }
 
 /// Reads `len` bytes of host memory at `addr` (a received out-of-line

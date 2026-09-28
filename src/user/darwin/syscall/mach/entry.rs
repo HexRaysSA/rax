@@ -49,6 +49,31 @@ pub struct Entry {
     pub offset: u64,
     /// Its size.
     pub len: u64,
+    /// The protection it allows (`named_entry->protection`).
+    pub prot: u32,
+}
+
+/// `VM_PROT_IS_MASK`: a mapping's protections are those asked for that the
+/// entry allows.
+pub const VM_PROT_IS_MASK: u32 = 0x40;
+
+/// `vm_map_enter_mem_object`'s protections for a mapping of entry `e`:
+/// masked by the entry's where `IS_MASK` asks (`cur`, `max` still carry
+/// it), then allowed by the entry (`KERN_INVALID_RIGHT` otherwise).
+pub fn protections(e: &Entry, cur: u32, max: u32) -> Result<(u32, u32), KernReturn> {
+    let strip = |p: u32| {
+        let p2 = p & !VM_PROT_IS_MASK;
+        if p & VM_PROT_IS_MASK != 0 {
+            p2 & e.prot
+        } else {
+            p2
+        }
+    };
+    let (cur, max) = (strip(cur), strip(max));
+    if e.prot & max != max || e.prot & cur != cur {
+        return Err(kr::KERN_INVALID_RIGHT);
+    }
+    Ok((cur, max))
 }
 
 /// `mach_make_memory_entry_64(target, size, offset, permission, parent)`
@@ -78,9 +103,10 @@ pub fn make(
             object: Arc::new(object),
             offset: 0,
             len,
+            prot,
         }
     } else {
-        of_guest(ctx, offset, size, perm & VM_COPY != 0)?
+        of_guest(ctx, offset, size, perm & VM_COPY != 0, prot)?
     };
     let len = entry.len;
     let port = crate::user::darwin::bridge::make_entry(ctx.proc, entry, prot)?;
@@ -91,7 +117,13 @@ pub fn make(
 /// which must be mapped: its own backing file when one file backs it all,
 /// else a new file with its contents, which then backs the range too
 /// unless `copy` asks for a copy only.
-fn of_guest(ctx: &mut Ctx<'_>, offset: u64, size: u64, copy: bool) -> Result<Entry, KernReturn> {
+fn of_guest(
+    ctx: &mut Ctx<'_>,
+    offset: u64,
+    size: u64,
+    copy: bool,
+    prot: u32,
+) -> Result<Entry, KernReturn> {
     let page = ctx.proc.vm.page;
     let start = offset & !(page - 1);
     let end = offset
@@ -119,6 +151,7 @@ fn of_guest(ctx: &mut Ctx<'_>, offset: u64, size: u64, copy: bool) -> Result<Ent
             object: object.clone(),
             offset: o + (start - vmas[0].start),
             len,
+            prot,
         });
     }
     let mut data = vec![0u8; len as usize];
@@ -157,6 +190,7 @@ fn of_guest(ctx: &mut Ctx<'_>, offset: u64, size: u64, copy: bool) -> Result<Ent
         object,
         offset: 0,
         len,
+        prot,
     })
 }
 

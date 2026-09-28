@@ -67,10 +67,17 @@ pub fn build(name: &str, arch: &str) -> PathBuf {
 }
 
 /// Compiles fixture `name` for `arch` into a file of its own named after
-/// `output` (so tests building the same fixture do not race).
+/// `output` (so tests building the same fixture do not race). A source
+/// line `// link: FLAGS` adds linker flags (frameworks, libraries).
 pub fn build_as(name: &str, arch: &str, output: &str) -> PathBuf {
     let src = sources().join(format!("{name}.c"));
     let out = build_dir().join(format!("{output}.{arch}"));
+    let text = std::fs::read_to_string(&src).expect("fixture source");
+    let link: Vec<&str> = text
+        .lines()
+        .filter_map(|l| l.strip_prefix("// link:"))
+        .flat_map(str::split_whitespace)
+        .collect();
     let status = Command::new("xcrun")
         .args(["clang", "-isysroot"])
         .arg(sdk().expect("oracle checked"))
@@ -84,6 +91,7 @@ pub fn build_as(name: &str, arch: &str, output: &str) -> PathBuf {
         ])
         .arg(&out)
         .arg(&src)
+        .args(&link)
         .status()
         .expect("run clang");
     assert!(status.success(), "compiling {name} for {arch}");

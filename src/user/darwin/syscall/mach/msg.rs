@@ -480,7 +480,8 @@ fn do_send(
     }) {
         // A host port's: the host's send decides.
         let wait = (options & opt::SEND_TIMEOUT != 0).then_some(timeout);
-        return match crate::user::darwin::bridge::send(ctx.proc, m, wait) {
+        let class = options & opt::CFI_MASK;
+        return match crate::user::darwin::bridge::send(ctx.proc, m, wait, class) {
             Ok(()) => Sent::Done,
             Err(mr) => Sent::Failed(mr),
         };

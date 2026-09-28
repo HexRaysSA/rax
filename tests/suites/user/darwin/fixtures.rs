@@ -446,3 +446,13 @@ fn host_services_arm64() {
 fn host_services_x86_64() {
     fixture("host_services", "x86_64", &[], &[]);
 }
+
+#[test]
+fn iokit_arm64() {
+    fixture("iokit", "arm64", &[], &[]);
+}
+
+#[test]
+fn iokit_x86_64() {
+    fixture("iokit", "x86_64", &[], &[]);
+}

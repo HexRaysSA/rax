@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use super::host::{self, Name};
+use super::kernel;
 use super::{Bridge, Import};
 use crate::user::darwin::mach::ipc::{KObject, Port, Right, disp as gdisp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
@@ -112,8 +113,10 @@ fn to_host(bridge: &mut Bridge, right: Right) -> Result<Moved, (KernReturn, Righ
                     });
                 }
                 // Kernel objects the host has too: the emulator's task and
-                // its flavors, and the host.
+                // its flavors, the host, and the task's identity (a token of
+                // the host task, which the guest's task is).
                 KObject::Task => host::task_port(),
+                KObject::TaskIdToken(_) => host::identity_token(),
                 KObject::Host => Some(host::host_port()),
                 KObject::TaskName | KObject::TaskRead | KObject::TaskInspect => {
                     let which = match p.kobject {
@@ -224,13 +227,29 @@ fn unmake(moved: &[Moved]) {
 
 /// Sends guest message `m`, whose destination is a proxy, on the host
 /// (waiting `timeout` milliseconds for queue space when given, else for
-/// as long as it takes).
-pub fn forward(proc: &mut Proc, mut m: Message, timeout: Option<u32>) -> Result<(), KernReturn> {
+/// as long as it takes), in call class `class` (`MACH64_SEND_*_CALL`, or
+/// `MACH64_SEND_ANY`): the guest's, for the host to check against the
+/// port as the kernel checks the guest's own sends.
+pub fn forward(
+    proc: &mut Proc,
+    mut m: Message,
+    timeout: Option<u32>,
+    class: u64,
+) -> Result<(), KernReturn> {
     // Notifications first: a proxy the host knows dead is dead here.
     pump(proc);
+    // Kernel calls that map memory into the caller's task, or that name its
+    // memory without a reply to finish them, are answered here.
+    if class == host::opt64::KOBJECT_CALL
+        && (kernel::refused(m.id)
+            || (kernel::names_memory(m.id) && !matches!(m.reply, Some(Right::SendOnce(_)))))
+    {
+        answer(proc, m, kernel::IO_RETURN_UNSUPPORTED);
+        return Ok(());
+    }
     let dest_port = m.dest.port().cloned();
     let mut moved: Vec<Moved> = Vec::new();
-    match send(proc, &mut m, timeout, &mut moved) {
+    match send(proc, &mut m, timeout, class, &mut moved) {
         Ok(()) => {
             for mv in moved {
                 if let Some(p) = mv.release {
@@ -274,6 +293,7 @@ fn send(
     proc: &mut Proc,
     m: &mut Message,
     timeout: Option<u32>,
+    class: u64,
     moved: &mut Vec<Moved>,
 ) -> Result<(), KernReturn> {
     if m.dest.port().is_none_or(|p| p.is_dead()) {
@@ -351,18 +371,93 @@ fn send(
             }
         }
     }
-    let (option, t) = match timeout {
-        Some(t) => (host::opt::SEND_MSG | host::opt::SEND_TIMEOUT, t),
-        None => (host::opt::SEND_MSG, host::TIMEOUT_NONE),
+    let (mut option, t) = match timeout {
+        Some(t) => (host::opt64::SEND_MSG | host::opt64::SEND_TIMEOUT, t),
+        None => (host::opt64::SEND_MSG, host::TIMEOUT_NONE),
     };
-    // SAFETY: `buf` holds the message; `regions` and `arrays` hold the
-    // memory its descriptors point at, alive until the call returns.
-    let mr = unsafe { host::msg(buf.as_mut_ptr(), option, size, 0, host::NULL, t) };
+    option |= class;
+    let descs = if hb & bits::COMPLEX != 0 && m.body.len() >= 4 {
+        u32::from_le_bytes(m.body[0..4].try_into().expect("4 bytes"))
+    } else {
+        0
+    };
+    let header = host::Header {
+        bits: hb,
+        size,
+        remote,
+        local,
+        id: m.id,
+        descs,
+    };
+    // A kernel object's call names its reply port and is a send and
+    // receive in one (a send alone is refused): the reply is received here
+    // and queued on the guest port as a message from the host would be.
+    let combined = class == host::opt64::KOBJECT_CALL && local_disp == host::disp::MAKE_SEND_ONCE;
+    let rcv_size = if combined {
+        option |= host::opt64::RCV_MSG | host::opt64::RCV_LARGE | host::opt64::TRAILER_AUDIT;
+        let n = RECEIVE_BUFFER.max(buf.len());
+        buf.resize(n, 0);
+        n as u32
+    } else {
+        0
+    };
+    let rcv_name = if combined { local } else { host::NULL };
+    // Guest memory the call names: host buffers stand in for it.
+    let fixup = if combined && kernel::names_memory(m.id) {
+        Some(kernel::prepare(proc, m.id, &mut buf)?)
+    } else {
+        None
+    };
+    // SAFETY: `buf` holds the message (and room for the reply); `regions`
+    // and `arrays` hold the memory its descriptors point at, alive until the
+    // call returns.
+    let mr = unsafe { host::msg2(buf.as_mut_ptr(), option, &header, rcv_name, rcv_size, t) };
+    if proc.config.strace {
+        eprintln!(
+            "rax-user: bridge: sent id {} ({} bytes, {descs} descriptors, class {class:#x}) to host {remote:#x} reply {local:#x}: {mr:#x}",
+            header.id, header.size
+        );
+    }
     drop((regions, arrays));
+    if combined && mr == host::mr::SUCCESS {
+        if let Some(f) = fixup {
+            kernel::finish(proc, m.id, f, &buf);
+        }
+        received(proc, &buf);
+        return Ok(());
+    }
     match mr {
         host::mr::SUCCESS => Ok(()),
+        // Sent, but the reply did not fit: it waits for the pump.
+        host::mr::RCV_TOO_LARGE if combined => Ok(()),
+        _ if combined && mr & 0x0000_4000 != 0 => Ok(()),
         _ => Err(mr as KernReturn),
     }
+}
+
+/// Answers kernel call `m` with a MIG error reply of `code` on its reply
+/// right, as the kernel answers a call it refuses; the call goes no
+/// further.
+fn answer(proc: &mut Proc, mut m: Message, code: KernReturn) {
+    if let Some(r) = m.reply.take() {
+        let mut body = Vec::with_capacity(12);
+        body.extend_from_slice(&crate::user::darwin::mach::msg::NDR_RECORD);
+        body.extend_from_slice(&code.to_le_bytes());
+        let reply = Message {
+            bits: bits::set(gdisp::MOVE_SEND_ONCE, 0, 0, 0),
+            dest: r,
+            reply: None,
+            voucher: None,
+            voucher_name: 0,
+            id: m.id + 100,
+            body,
+            items: Vec::new(),
+            sender: Sender::KERNEL,
+            aux: Vec::new(),
+        };
+        kmsg::enqueue(proc, reply);
+    }
+    kmsg::destroy(proc, m);
 }
 
 /// Guest port `p`'s receive right moved to the host as host right `name`:
@@ -375,7 +470,7 @@ fn moved_away(proc: &mut Proc, p: &Arc<Port>, name: Name) {
     }
     let queued = std::mem::take(&mut p.state.lock().unwrap().queue);
     for m in queued {
-        let _ = forward(proc, m, Some(0));
+        let _ = forward(proc, m, Some(0), host::opt64::ANY);
     }
 }
 
@@ -445,6 +540,18 @@ fn u64_at(b: &[u8], o: usize) -> u64 {
 fn received(proc: &mut Proc, raw: &[u8]) {
     let local = u32_at(raw, 12);
     let id = u32_at(raw, 20) as i32;
+    if proc.config.strace {
+        let bits = u32_at(raw, 0);
+        let descs = if bits & bits::COMPLEX != 0 {
+            u32_at(raw, HEADER_SIZE)
+        } else {
+            0
+        };
+        eprintln!(
+            "rax-user: bridge: received id {id} ({} bytes, {descs} descriptors) on host {local:#x}",
+            u32_at(raw, 4)
+        );
+    }
     match proc.bridge.imports.get(&local) {
         Some(Import::Control) => {
             if id == host::notify::DEAD_NAME {
@@ -470,7 +577,8 @@ fn received(proc: &mut Proc, raw: &[u8]) {
         }
         Some(Import::Port(p)) => {
             let p = p.clone();
-            let m = to_guest(&mut proc.bridge, raw, p);
+            let own = (proc.task_port.clone(), proc.host_port.clone());
+            let m = to_guest(&mut proc.bridge, raw, p, &own);
             kmsg::enqueue(proc, m);
         }
         None => destroy_host(raw),
@@ -504,7 +612,12 @@ fn destroy_host(raw: &[u8]) {
 
 /// The guest right standing for host right `name` of type `d`
 /// (`MACH_MSG_TYPE_PORT_*`) a message brought.
-fn from_host(bridge: &mut Bridge, name: Name, d: u32) -> Option<Right> {
+fn from_host(
+    bridge: &mut Bridge,
+    name: Name,
+    d: u32,
+    own: &(Arc<Port>, Arc<Port>),
+) -> Option<Right> {
     if name == host::NULL {
         return None;
     }
@@ -547,6 +660,17 @@ fn from_host(bridge: &mut Bridge, name: Name, d: u32) -> Option<Right> {
                 p.state.lock().unwrap().srights += 1;
                 return Some(Right::Send(p));
             }
+            // The emulator's own task and the host are the guest's task and
+            // host (their memory and state are the guest's, not the
+            // emulator's).
+            if !bridge.proxies.contains_key(&name)
+                && let Some(task) = kernel::own(name)
+            {
+                host::deallocate(name);
+                let p = if task { own.0.clone() } else { own.1.clone() };
+                p.state.lock().unwrap().srights += 1;
+                return Some(Right::Send(p));
+            }
             let p = bridge.proxy(name);
             p.state.lock().unwrap().srights += 1;
             Some(Right::Send(p))
@@ -555,7 +679,12 @@ fn from_host(bridge: &mut Bridge, name: Name, d: u32) -> Option<Right> {
 }
 
 /// The guest message a host message to guest port `dest` becomes.
-fn to_guest(bridge: &mut Bridge, raw: &[u8], dest: Arc<Port>) -> Message {
+fn to_guest(
+    bridge: &mut Bridge,
+    raw: &[u8],
+    dest: Arc<Port>,
+    own: &(Arc<Port>, Arc<Port>),
+) -> Message {
     let hbits = u32_at(raw, 0);
     let size = (u32_at(raw, 4) as usize).min(raw.len());
     let reply_name = u32_at(raw, 8);
@@ -574,7 +703,7 @@ fn to_guest(bridge: &mut Bridge, raw: &[u8], dest: Arc<Port>) -> Message {
         dest.state.lock().unwrap().srights += 1;
         Right::Send(dest)
     };
-    let reply = from_host(bridge, reply_name, reply_disp);
+    let reply = from_host(bridge, reply_name, reply_disp, own);
     let complex = hbits & bits::COMPLEX;
     let body = raw[HEADER_SIZE..size].to_vec();
     let mut items = Vec::new();
@@ -593,7 +722,7 @@ fn to_guest(bridge: &mut Bridge, raw: &[u8], dest: Arc<Port>) -> Message {
             match t {
                 desc::PORT => {
                     let d = u32::from(body[off + 10]);
-                    let right = from_host(bridge, u32_at(&body, off), d);
+                    let right = from_host(bridge, u32_at(&body, off), d, own);
                     items.push((off, Item::Port { right, disp: d }));
                 }
                 desc::OOL | desc::OOL_VOLATILE => {
@@ -616,7 +745,9 @@ fn to_guest(bridge: &mut Bridge, raw: &[u8], dest: Arc<Port>) -> Message {
                     host::free(addr, n * 4);
                     let rights = names
                         .chunks(4)
-                        .map(|c| from_host(bridge, u32::from_le_bytes(c.try_into().unwrap()), d))
+                        .map(|c| {
+                            from_host(bridge, u32::from_le_bytes(c.try_into().unwrap()), d, own)
+                        })
                         .collect();
                     items.push((off, Item::OolPorts { rights, disp: d }));
                 }
