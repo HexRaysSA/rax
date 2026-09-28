@@ -237,6 +237,23 @@ RAX fails closed with a diagnostic. It does not unwind from the private trap's
 invalid `+8` half-slot or reinterpret its scratch as a guest return frame.
 The precise native nested-raise context is unknown.
 
+Public `AddVectoredContinueHandler` and `RemoveVectoredContinueHandler`
+are exposed by the synthetic KERNEL32 and KERNELBASE DLLs. A zero
+`ULONG First` appends a VCH; any nonzero value prepends it. VCH and VEH registrations
+share one process-scoped, monotonically increasing opaque-handle sequence.
+Registration fails without mutation for a NULL callback, an exhausted
+64-bit counter, a handle that would truncate to NULL or another value on
+x86, or a collision with either family. Removal affects only the family
+that issued the handle and returns nonzero on success, zero otherwise.
+The NULL-handler and handle-exhaustion behavior is an explicit RAX admission
+policy; the [retained Microsoft Add, Remove and callback references](../../specifications/windows/services/vch/README.md)
+do not establish native handle encoding or those boundary results. Registered
+handlers remain in the process list after their containing DLL unloads, as
+the Add contract states. The VCH export table is appended after the existing
+KERNEL32/KERNELBASE tables: since synthetic ordinals and function trap slots
+are assigned in enumeration order, earlier exports retain their indices.
+This does not claim native DLL ordinal equivalence.
+
 Function-table binary search still requires sorted `.pdata` input.
 
 ## Assumption Register
@@ -264,6 +281,7 @@ Function-table binary search still requires sorted `.pdata` input.
 | A19 | Checked x86/x64 VEH, VCH and unhandled-filter setup, plus x86 frame-search setup, can retain a selected callback at the existing private dispatcher retry frontier after a callback-stack write fault | One-pointer x86/x64 callback layouts, four-pointer x86 frame-handler layout, checked `Flow::CallChecked` paths and dispatcher frame ownership; no verified native private-frontier contract | Guard-fault repair, selected callback identity, nested search and abandonment | One-shot guard; persistent read-only page; rearmed guard; registration mutation; nested `ContinueSearch`; changed context PC/SP; fresh private trap and `+8` half-slot | Run the complete library test binary, including `x86_frame_handler_guard_setup_fault_is_repaired_by_veh`, `x86_veh_guard_setup_fault_retries_original_vectored_slot`, `x64_veh_callback_guard_fault_repair_preserves_selected_handler`, `x64_vch_callback_guard_fault_repair_preserves_selected_handler`, and `x64_unhandled_filter_callback_guard_fault_repair_preserves_selected_filter`; native Windows context trace would test equivalence | Retained RAX policy; native nested precedence and retry equivalence unknown |
 | A20 | ARM64 callbacks with at most eight integer/pointer arguments perform no setup write and need no write preflight, even when the chosen SP is below the current stack limit | Windows ARM64 register-argument ABI and current `call_guest_on`/zero-byte `prepare_call` branches | VEH/VCH/filter and four-argument `EHANDLER` reachability, one-shot guard and `StackLimit` preservation | Put an armed guard immediately below the original records; place SP below `StackLimit`; cross from eight to nine arguments | `arm64_veh_register_only_callback_does_not_preflight_untouched_stack_guard`, `arm64_veh_register_argument_setup_does_not_touch_guard_below_records`, `arm64_four_register_callback_args_need_no_stack_write`, and the nine-argument `callback_stack_writes_classify_protection_and_both_guard_types`; a native dispatcher trace would test SP/growth equivalence | Confirmed for current register-only setup and nine-argument write boundary; native dispatcher SP/growth unknown |
 | A21 | Checked callback preflight should cover exactly the byte spans written by `call_guest_on`, not all reserved ABI shadow/alignment bytes | Shared `call_stack_layout` supplies the writer and preflight; x64 calling convention requires but does not itself write the shadow store; x86/ARM64 alignment is a reserved layout property | Guard classification, callback admission and original continuation ownership on all three ABIs | Guard x64 unused shadow while keeping return slot writable; put fifth x64 argument in a guarded page; guard x86/x64 arguments while denying the earlier return-slot page; vary x86 argument counts 1–4 and ARM64 stacked counts 1–2 to expose padding | `x64_checked_callback_does_not_probe_unused_shadow_guard`, `x64_fifth_callback_argument_faults_at_actual_guarded_stack_slot`, and `callback_preflight_preserves_first_actual_write_fault_order`; inspect `call_stack_layout`/`call_guest_on` for x86/ARM64 padding and add direct layout assertions, because 4,096-byte page protection cannot isolate their trailing padding | Retained source contract; x64 direct boundary and x86/x64 first-write-priority tests exist, isolated x86/ARM64 padding guard tests do not; native preflight ordering unknown |
+| A22 | VCH and VEH use process-scoped opaque, nonzero handles from one checked pointer-width-bounded sequence; NULL handlers and exhausted/colliding handles fail without registration, while removal is family-specific | Microsoft Add/Remove VCH signatures and first/last contract; `SehState` ownership, `add_vectored`/`remove_vectored` and guest pointer-width conversion; native handle encoding and NULL-handler behavior are undocumented in the retained pages | Public VCH/VEH registration identity, x86 return/removal ABI and fail-closed boundaries | Duplicate callback pointers, alternating VEH/VCH registration, both cross-family removals, NULL handler, x86 `0xffff_fffc + 4 = 0x1_0000_0000`, 64-bit counter overflow and injected occupied handle | Focused VCH HLE and compiled PE tests establish the RAX profile; a native Windows probe of duplicate/NULL/boundary registration and cross-family removal would test equivalence | Retained RAX policy; native handle representation, NULL-handler result and exhaustion behavior unknown |
 
 ## Change-surface map
 
@@ -278,6 +296,18 @@ Function-table binary search still requires sorted `.pdata` input.
 | Backend/machine/device | Unaffected: no guest kernel, board, KVM/HVF backend or devices |
 | Oracle/analysis/C ABI | Unchanged: no ISA analysis or C ABI surface change |
 | Tests/docs | Affected: focused x86/x64 dispatcher guard-repair, x64 exact-write preflight and ARM64 zero-byte-preflight unit tests plus this architecture profile; no new compiled PE fixture in this group |
+
+### Public VCH registration group
+
+| Plane | Status and reason |
+|---|---|
+| Direct decode/execute and CPU state | Unchanged: existing guest interpreters and register state implement the declared Windows scalar ABIs |
+| Memory/MMU | Unchanged: callback dispatch continues through checked guest-memory and exception paths |
+| Windows loader/traps/scheduler | Affected: KERNEL32 and KERNELBASE append two public VCH exports; pre-existing synthetic ordinal and trap indices remain stable |
+| Windows HLE/SEH | Affected: shared VEH/VCH registration/removal uses checked pointer-width handles, family-specific removal, NULL-handler rejection and first/last list ordering; the existing VCH callback dispatcher is reused |
+| SMIR lift/IR/interpreter/optimizer/native lowering/JIT runtime; backend/machine/device | Unchanged: Windows user mode still steps the direct ISA interpreters and does not alter native admission or board devices |
+| Oracle/analysis and host C ABI | Unchanged: no ISA analysis output or `rax-capi` surface change; the added ABI is guest-visible Win32 |
+| Tests/docs | Affected: focused registration units, a three-ABI compiled public-import VCH fixture and runner, retained primary references, fixture provenance and this profile |
 
 ## Bounded findings and completion boundary
 
@@ -305,10 +335,7 @@ returned disposition; it is not a guest export or Add/Delete call path today
 and must be hardened before exposure. High: x86/x64 VEH/VCH,
 unhandled-filter and x86 frame-search callbacks now retain a checked setup
 continuation, but native nested-dispatch precedence, dispatcher SP/growth and
-private retry behavior remain unknown. High: public
-`AddVectoredContinueHandler` and `RemoveVectoredContinueHandler` exports are
-absent even though the internal VCH list and dispatch path exist; guest code
-cannot register a VCH through the public API. High: other synthetic dispatcher
+private retry behavior remain unknown. High: other synthetic dispatcher
 callback paths require separate admission and fault-path audits before
 claiming universal callback containment.
 High: x86 frame search allocates and zeroes `DispatcherContext` before the
@@ -330,6 +357,13 @@ x86/ARM64 padding-layout assertions. Their trailing padding cannot be isolated
 with a page guard because it shares a 4,096-byte page with the final written
 argument in the aligned callback frame; source inspection is the current
 evidence for those two padding cases.
+Medium: both VEH and VCH search read their live registration vectors by
+index, then resume at the next index after a callback. Self-removal can
+therefore skip the former successor, while prepending during dispatch can
+revisit the active callback. The retained public Microsoft pages specify
+first/last insertion and removal but not in-flight mutation precedence;
+native behavior is unknown. This does not block the stable-list registration
+profile or imply a native equivalence claim.
 Medium: admitted image materialization still uses O(SizeOfImage) host memory;
 checking guest commitment
 first does not establish a separate host-allocation limit. Medium: dynamic
@@ -367,6 +401,14 @@ searches O(t) registered table pointers for t tables; table descriptors occupy
 O(t) process memory.
 Individual unwind decoding additionally traverses its bounded metadata stream.
 Global `.pdata` ordering validation is not implied by binary lookup.
+
+For h active VEH and VCH registrations, shared-handle collision checking and
+family-specific removal each cost O(h) time and O(1) auxiliary space; prepending
+also shifts up to O(h) vector elements. The unsigned handle counter advances
+by four with checked arithmetic. On x86, `0xffff_fffc` is the last representable
+multiple-of-four handle; its next candidate is `0x1_0000_0000`, which cannot
+round-trip through a 32-bit guest pointer and is rejected. On 64-bit guests,
+`0xffff_ffff_ffff_fffc + 4` overflows u64 and is rejected before mutation.
 
 Page rounding uses checked `(bytes + 4095) & !4095`; stack reservations use
 checked `(bytes + 65535) & !65535`. Overflow is an error, not wrapping host
@@ -541,3 +583,34 @@ x86_64-suite,smir-jit`. Formatting and diff checks passed. No native Windows
 comparison or compiled PE32/PE32+ guard-repair execution was performed; native
 dispatcher precedence, SP/growth, preflight and private retry equivalence
 remain unknown.
+
+## Public VCH registration verification record — 2026-09-28
+
+The public VCH group exposes Add/Remove imports through KERNEL32 and
+KERNELBASE and reuses the existing process-owned continue-handler dispatch.
+Focused HLE tests cover both export hosts and all three guest scalar ABIs,
+first/last ordering, duplicate callbacks, family-specific removal, NULL
+callbacks, x86 and 64-bit allocator exhaustion, and injected cross-family
+handle collisions. The [compiled PE fixture](../../../tests/fixtures/user/windows/vch/README.md)
+checks the actual KERNEL32 imports and callback sequence for x86, x64 and
+ARM64 at scheduler slices of 1 and 4,096 instructions; its provenance test
+checks source, tool and binary hashes and the exact import set. The
+[retained primary references](../../specifications/windows/services/vch/README.md)
+pin the consulted Microsoft API pages and publisher notices.
+
+Before implementation, all five focused public-API units failed on the absent
+VCH export, and each of the three compiled guests stopped at the unimplemented
+`KERNEL32!AddVectoredContinueHandler` import. After implementation, seven
+focused HLE units passed (7,301 other library tests filtered); the focused
+four-test VCH integration selection passed, including six guest executions
+and fixture-provenance verification (536 other Windows tests filtered).
+The final portable run, `cargo +stable test --locked --no-default-features
+--lib --test user_windows -- --test-threads=4 --quiet`, passed 7,306 library
+tests, ignored two optional tests, and passed all 540 Windows integration
+tests; neither binary filtered tests. The feature-enabled Windows integration
+run passed all 540 tests with `--no-default-features --features
+x86_64-suite,smir-jit`. The feature-enabled workspace all-target check and
+Clippy passed. Formatting, diff, fixture-script ShellCheck, five retained
+reference SHA-256 checks and two byte-identical fixture rebuilds passed.
+Native Windows handle encoding, NULL-handler result, in-flight mutation
+precedence and differential fixture execution remain unknown.

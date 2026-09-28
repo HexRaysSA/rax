@@ -69,3 +69,15 @@ are independent of the smoke/service/lifecycle inputs. The existing user_windows
 target executes each of its 24 programs at two scheduler slices. Exact native
 callback ordering, private fiber state and mixed floating-switch flags remain
 unknown; fixtures check the explicitly documented RAX profiles.
+
+## Vectored continue handler fixture
+
+The separate [VCH fixture](vch/README.md) imports public KERNEL32
+`AddVectoredContinueHandler` and `RemoveVectoredContinueHandler` alongside
+VEH and `RaiseException` on x86, x64 and ARM64. It checks first/last
+callback order, continuation, removal/repeated removal and cross-family
+handle separation at scheduler slices of 1 and 4,096 guest instructions.
+Its own manifest records source, tool and binary hashes. The
+[retained Microsoft VCH references](../../../../docs/specifications/windows/services/vch/README.md)
+define the public API surface; native Windows execution and in-flight
+registration-mutation equivalence remain unknown.

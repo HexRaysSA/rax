@@ -82,6 +82,13 @@ pub(super) static EXPORTS: &[Export] = &[
     ),
 ];
 
+/// Appended after the existing KERNEL32/KERNELBASE export tables so their
+/// synthetic ordinals and function trap slots retain their previous indices.
+pub(super) static VCH_EXPORTS: &[Export] = &[
+    Export::func("AddVectoredContinueHandler", Stdcall, &[I32, Ptr], add_vch),
+    Export::func("RemoveVectoredContinueHandler", Stdcall, &[Ptr], remove_vch),
+];
+
 /// Public PE32 x86 `KERNEL32!RtlUnwind`; not implicitly exposed by KERNELBASE.
 pub(super) static X86_SEH_EXPORTS: &[Export] = &[Export::func(
     "RtlUnwind",
@@ -496,22 +503,69 @@ fn set_filter(c: &mut Ctx) -> ApiResult {
     Flow::ret(prev)
 }
 fn add_veh(c: &mut Ctx) -> ApiResult {
+    add_vectored(c, false)
+}
+fn add_vch(c: &mut Ctx) -> ApiResult {
+    add_vectored(c, true)
+}
+fn add_vectored(c: &mut Ctx, continuing: bool) -> ApiResult {
     let (first, handler) = (c.u32(0)? != 0, c.ptr(1)?);
-    c.p.seh.next_handle += 4;
-    let handle = c.p.seh.next_handle;
-    if first {
-        c.p.seh.veh.insert(0, (handle, handler));
+    if handler == 0 {
+        return Flow::ret(0);
+    }
+    // Handles are opaque guest pointers. Never publish a handle that wraps,
+    // truncates on x86, or collides with either registration family.
+    let Some(handle) = c.p.seh.next_handle.checked_add(4).filter(|&handle| {
+        handle != 0
+            && c.arch().ptr(handle) == handle
+            && c.p
+                .seh
+                .veh
+                .iter()
+                .chain(&c.p.seh.vch)
+                .all(|(registered, _)| *registered != handle)
+    }) else {
+        return Flow::ret(0);
+    };
+    c.p.seh.next_handle = handle;
+    let registrations = if continuing {
+        &mut c.p.seh.vch
     } else {
-        c.p.seh.veh.push((handle, handler));
+        &mut c.p.seh.veh
+    };
+    if first {
+        registrations.insert(0, (handle, handler));
+    } else {
+        registrations.push((handle, handler));
     }
     Flow::ret(handle)
 }
 fn remove_veh(c: &mut Ctx) -> ApiResult {
-    let handle = c.ptr(0)?;
-    let old = c.p.seh.veh.len();
-    c.p.seh.veh.retain(|(h, _)| *h != handle);
-    Flow::bool(c.p.seh.veh.len() != old)
+    remove_vectored(c, false)
 }
+fn remove_vch(c: &mut Ctx) -> ApiResult {
+    remove_vectored(c, true)
+}
+fn remove_vectored(c: &mut Ctx, continuing: bool) -> ApiResult {
+    let handle = c.ptr(0)?;
+    let registrations = if continuing {
+        &mut c.p.seh.vch
+    } else {
+        &mut c.p.seh.veh
+    };
+    let Some(index) = registrations
+        .iter()
+        .position(|(registered, _)| *registered == handle)
+    else {
+        return Flow::bool(false);
+    };
+    registrations.remove(index);
+    Flow::bool(true)
+}
+
+#[cfg(test)]
+#[path = "kernel/vch_tests.rs"]
+mod vch_tests;
 
 #[cfg(test)]
 mod tests {

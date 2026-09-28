@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "issuer": "Microsoft",
+  "retrieved": "2026-09-28",
+  "revision": "MicrosoftDocs/sdk-api docs commit a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+  "license": "CC-BY-4.0 (documentation prose); MIT (code samples)",
+  "normalization": "Three source Markdown files are byte-identical to immutable raw URLs. License notices gained only a terminal LF; original SHA-256 hashes are recorded.",
+  "sources": [
+    {
+      "path": "addvectoredcontinuehandler.md",
+      "title": "AddVectoredContinueHandler function (errhandlingapi.h)",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-addvectoredcontinuehandler",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/errhandlingapi/nf-errhandlingapi-addvectoredcontinuehandler.md",
+      "retrieved": "2026-09-28",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "sha256": "51ed60602b7efd27a0b9a97e5cf88dd7d094d210fddc35df9c6828ea68e40c99",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE-CODE"
+    },
+    {
+      "path": "removevectoredcontinuehandler.md",
+      "title": "RemoveVectoredContinueHandler function (errhandlingapi.h)",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-removevectoredcontinuehandler",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/errhandlingapi/nf-errhandlingapi-removevectoredcontinuehandler.md",
+      "retrieved": "2026-09-28",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "sha256": "d735198fdafff369f23c22c6e9d5ac0e03036ca2d74ad764d232b8cc09e05915",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE-CODE"
+    },
+    {
+      "path": "pvectored_exception_handler.md",
+      "title": "PVECTORED_EXCEPTION_HANDLER (winnt.h)",
+      "issuer": "Microsoft",
+      "canonical_url": "https://learn.microsoft.com/en-us/windows/win32/api/winnt/nc-winnt-pvectored_exception_handler",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/sdk-api-src/content/winnt/nc-winnt-pvectored_exception_handler.md",
+      "retrieved": "2026-09-28",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "sha256": "9617c843a48b253ea46e483d4404cd0a041ce7d373868e38103a44e67325f1af",
+      "license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "code_license_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE-CODE"
+    },
+    {
+      "path": "SDK-API-LICENSE",
+      "title": "Creative Commons Attribution 4.0 International Public License",
+      "issuer": "MicrosoftDocs/sdk-api",
+      "canonical_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE",
+      "retrieved": "2026-09-28",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+      "original_sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e",
+      "normalization": "terminal LF added"
+    },
+    {
+      "path": "SDK-API-LICENSE-CODE",
+      "title": "MIT License",
+      "issuer": "MicrosoftDocs/sdk-api",
+      "canonical_url": "https://github.com/MicrosoftDocs/sdk-api/blob/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE-CODE",
+      "source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021/LICENSE-CODE",
+      "retrieved": "2026-09-28",
+      "revision": "a4fd3f7efe2e3378a96c6fe5a6a9455eba9fa021",
+      "sha256": "5c124ba1707e9edeae4fa704df5c46b922a38b194b563c86650237bd172069ae",
+      "original_sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2",
+      "normalization": "terminal LF added"
+    }
+  ]
+}

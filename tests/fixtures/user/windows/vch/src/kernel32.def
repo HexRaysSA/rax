@@ -1,0 +1,8 @@
+LIBRARY kernel32.dll
+EXPORTS
+ExitProcess
+RaiseException
+AddVectoredExceptionHandler
+RemoveVectoredExceptionHandler
+AddVectoredContinueHandler
+RemoveVectoredContinueHandler

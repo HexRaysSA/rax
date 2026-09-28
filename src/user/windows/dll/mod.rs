@@ -58,6 +58,7 @@ static KERNEL32: BuiltinDll = BuiltinDll {
         threading::EXPORTS,
         locks::EXPORTS,
         files::EXPORTS,
+        kernel::VCH_EXPORTS,
     ],
 };
 static KERNELBASE: BuiltinDll = BuiltinDll {
@@ -74,6 +75,7 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         threading::EXPORTS,
         locks::EXPORTS,
         files::EXPORTS,
+        kernel::VCH_EXPORTS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {
