@@ -973,6 +973,8 @@ pub fn kobject_type(k: &KObject) -> u32 {
         KObject::TaskIdToken(_) => 50,
         KObject::TaskInspect => 44,
         KObject::TaskRead => 45,
+        // What the host says of the port behind it.
+        KObject::Proxy(h) => crate::user::darwin::bridge::kobject_type(h),
     }
 }
 

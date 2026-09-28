@@ -762,6 +762,7 @@ fn fork_child(
             new.ppid = parent;
             new.audit = process::host_audit_token(pid, new.creds);
             new.next_tid = ((pid as u64) << 20) | 1;
+            crate::user::darwin::bridge::rebind(&mut new.bridge, &mut new.task);
             if let Err(e) = set_session(pgroup, setsid) {
                 let b = e.0.to_le_bytes();
                 // SAFETY: `b` is valid for its length; the process ends at

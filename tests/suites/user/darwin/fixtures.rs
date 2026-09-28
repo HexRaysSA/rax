@@ -404,3 +404,13 @@ fn fd_flags_arm64() {
 fn fd_flags_x86_64() {
     fixture("fd_flags", "x86_64", &[], &[]);
 }
+
+#[test]
+fn host_services_arm64() {
+    fixture("host_services", "arm64", &[], &[]);
+}
+
+#[test]
+fn host_services_x86_64() {
+    fixture("host_services", "x86_64", &[], &[]);
+}

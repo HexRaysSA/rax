@@ -376,6 +376,8 @@ pub struct Proc {
     /// A guard violation the running thread raised, for its way back to
     /// user mode.
     pub guard_ast: Option<super::exception::GuardAst>,
+    /// The bridge to the host's Mach services.
+    pub bridge: super::bridge::Bridge,
 }
 
 impl Proc {
@@ -541,6 +543,8 @@ impl DarwinProcess {
             // Kernel event sources of the workqueue kqueue and workloops,
             // then threads for the work queue's requests.
             super::kevent::pump(&mut self.proc);
+            // Messages the host sent the guest's exported ports.
+            super::bridge::pump(&mut self.proc);
             super::workq::redrive(&mut self.proc);
             self.deliver_posted();
             self.poll_waits();
@@ -692,6 +696,10 @@ impl DarwinProcess {
         fds.extend(kfds);
         if let Some(d) = kdeadline {
             deadline = Some(deadline.map_or(d, |c| c.min(d)));
+        }
+        // So do messages from the host's services.
+        if let Some(fd) = self.proc.bridge.fd() {
+            fds.push((fd, true, false));
         }
         // Forwarded host signals wake the process too.
         let wake = signal::host::wake_fd();
@@ -948,6 +956,7 @@ pub(crate) fn start(
             audit: c.audit,
             exec: None,
             execed: true,
+            bridge: Default::default(),
         },
         None => {
             // SAFETY: the credential getters take no arguments.
@@ -970,7 +979,7 @@ pub(crate) fn start(
                 .inherited
                 .as_ref()
                 .map_or_else(signal::SigActs::default, signal::SigActs::inherited);
-            Proc {
+            let mut proc = Proc {
                 abi,
                 space,
                 vm,
@@ -1011,7 +1020,10 @@ pub(crate) fn start(
                 audit: host_audit_token(pid, creds),
                 exec: None,
                 execed: true,
-            }
+                bridge: Default::default(),
+            };
+            super::bridge::start(&mut proc.bridge, &mut proc.task);
+            proc
         }
     };
     // `activate_exec_state` clears the image-info registration; the

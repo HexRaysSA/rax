@@ -99,9 +99,35 @@ without the privileged host port, the right a set carries released),
 `mach_vm`/`vm_map` (allocation, protection, regions, reads and writes), and
 `clock`.
 
-There is no `launchd`: the first process has no bootstrap port, so its
-registered ports, which natively begin with the bootstrap port
-`launchd` registers, are all null.
+## Host services
+
+The emulated process is a host process, which the system's services
+(`launchd`, and the directory, preference, keychain, and notification
+services it names) know by its pid, credentials, and audit token as they
+would know the native program. The bridge (`bridge`) lets the guest reach
+them over Mach:
+
+| Area | Module | Counterpart |
+|---|---|---|
+| The bootstrap port: the host's, the task's bootstrap special port and first registered port (as `launchd` registers it); a forked or spawned child (a host fork) has the host's again, and no other proxy of its parent's | `bridge` | `ipc_task_init`, `launchd` |
+| Proxies: a host send or send-once right the process holds appears in the guest as a port of its own (one per host right, so that names compare); a message the guest sends to one is sent on the host, its rights and out-of-line memory translated, the send's result the guest's (`MACH_SEND_INVALID_DEST` when the host port died); `mach_port_kobject` reports the host port's type. The host's dead-name notification kills a proxy: the guest's rights become dead names, with their notifications | `bridge::translate` | `ipc_kmsg_copyin_body`, `ipc_right_copyin` |
+| Exports: a guest port whose right the guest gives a host service is a host receive right of the process's, whose messages the scheduler receives (without blocking, and in its `poll` when every thread sleeps) and queues on the guest port with their rights, memory, and sender's audit token; a send-once right in a message's reply field is made from a host reply port (`MPO_REPLY_PORT`), as services enforcing reply-port semantics require (a violation is a fatal guard exception on the host). While the host holds send rights to an export, the guest port keeps one that stands for them, released at the host's no-senders notification | `bridge`, `bridge::translate` | `ipc_validate_local_port`, `mach_port_construct` |
+| Moved receive rights: a receive right the guest sends a host service is the export's (or a new host receive right), and the guest port then sends on to the host what the guest sends it or had queued on it; the right coming back makes it the guest port's again | `bridge::translate` | `ipc_right_copyin` (`MACH_MSG_TYPE_MOVE_RECEIVE`) |
+| Memory entries: an entry of the guest's memory (`mach_make_memory_entry`) is a host memory entry over a host file the range becomes a shared mapping of (its contents kept; `MAP_MEM_VM_COPY` makes one of a copy, `MAP_MEM_NAMED_CREATE` one of new memory), so a service that maps it shares it; `vm_map` of such an entry maps the file shared (or a copy), and of an entry a service made maps a copy of its contents | `syscall::mach::entry`, `mig::vm` | `mach_make_memory_entry_internal`, `vm_map_enter_mem_object` |
+| Policy calls (`__mac_syscall`): AMFI's dyld policy for an unrestricted process; the Sandbox policy's checks (`sandbox_check` and its variants) and container queries, the host's answers with the guest's strings, buffers, and filter blocks copied through; other calls of a registered policy `ENOTSUP`, an unregistered policy `ENOPOLICY` | `syscall::bsd::mac` | `mac_syscall` (`security/mac_base.c`) |
+| `gethostuuid`: the host's UUID (`EFAULT` for the timeout, `EWOULDBLOCK` without one) | `syscall::bsd::misc` | `gethostuuid` (`sys_generic.c`) |
+
+The Sandbox policy's argument blocks are private: their layout (the
+result, the operation's name, the filter's kernel type and value, and
+which types carry a string or a 16-byte block) is the host's
+`libsystem_sandbox` as macOS 27.2 builds them (`sandbox_check_common`).
+Not bridged: vouchers (dropped), guarded descriptors (receive rights the
+guest would guard), thread ports, and other kernel objects but the task
+(and its flavors) and the host, whose sends fail
+`MACH_SEND_INVALID_RIGHT`. A send-once right to a moved port travels as a
+send right, and a send the host must wait to queue holds the whole
+process. `RAX_DARWIN_NO_HOST_SERVICES` turns the bridge off: the process
+then has no bootstrap port and its registered ports are null.
 
 ## Threads
 
@@ -412,8 +438,10 @@ their kqueue and workloops (so `libdispatch`: global and serial queues,
 groups, semaphores, `dispatch_apply`, `dispatch_after`, barriers, and
 timer, read, and signal sources), `fork` with `wait4`, `waitid`, and
 `SIGCHLD`, `execve` and `posix_spawn` (scripts, fat files, file and
-port actions, spawn attributes), process information (`proc_info`), and
-sockets.
+port actions, spawn attributes), process information (`proc_info`),
+sockets, and the host's services over the bootstrap port (so user and
+group lookups, preferences, the keychain list, and notifications: `id`,
+`whoami`, `defaults`, and `security` behave as natively).
 Not yet implemented, and answered
 with `ENOSYS` (or `KERN_FAILURE` / `MIG_BAD_ID` for Mach) with a warning
 under `--strace` or `RAX_DARWIN_WARN`: `kqueue_workloop_ctl`. `kill` of the process group reaches this process only through
@@ -458,8 +486,10 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   `mach_info`, the audit identity, copy rules, and refusals of `audit`,
   the protection classes, checks, and authentication of
   `protected_open`, the stash, rights, refusals, and inheritance of
-  `registered_ports`, and the descriptor flags and their inheritance in
-  `fd_flags`.
+  `registered_ports`, the descriptor flags and their inheritance in
+  `fd_flags`, and the bootstrap lookups, directory service, notifications,
+  Sandbox checks, memory entries, and host UUID of `host_services` (in the
+  parent and its forked and spawned children).
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

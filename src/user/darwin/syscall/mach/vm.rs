@@ -35,7 +35,7 @@ const VM_FLAGS_USER_MAP: u32 = VM_FLAGS_USER_ALLOCATE | 0x80_0000 | 0x10_0000;
 /// `VM_PROT_COPY`.
 const VM_PROT_COPY: u32 = 0x10;
 
-fn mm_kr(e: MmError) -> KernReturn {
+pub(crate) fn mm_kr(e: MmError) -> KernReturn {
     match e {
         MmError::OutOfMemory => kr::KERN_RESOURCE_SHORTAGE,
         MmError::OutOfRange | MmError::NotMapped { .. } => kr::KERN_INVALID_ADDRESS,
@@ -63,17 +63,44 @@ fn enter(
     flags: u32,
     cur: u32,
 ) -> Result<u64, KernReturn> {
+    let tag = flags >> 24;
+    let mapping = Mapping {
+        flags: VmFlags::new(vm::VM_PROT_ALL, vm::VM_INHERIT_COPY, tag).bits(),
+        ..Mapping::anonymous(vm::perms(cur))
+    };
+    enter_mapping(ctx, addr, size, mask, flags, mapping)
+}
+
+/// [`map_at`] for `mapping` instead of zero-fill memory.
+pub fn map_mapping(
+    ctx: &mut Ctx<'_>,
+    addr: u64,
+    size: u64,
+    mask: u64,
+    flags: u32,
+    mapping: Mapping,
+) -> Result<u64, KernReturn> {
+    if flags & !VM_FLAGS_USER_MAP != 0 || size == 0 {
+        return Err(kr::KERN_INVALID_ARGUMENT);
+    }
+    enter_mapping(ctx, addr, size, mask, flags, mapping)
+}
+
+/// Enters `mapping` where [`enter`] would enter zero-fill memory.
+pub fn enter_mapping(
+    ctx: &mut Ctx<'_>,
+    addr: u64,
+    size: u64,
+    mask: u64,
+    flags: u32,
+    mapping: Mapping,
+) -> Result<u64, KernReturn> {
     let vmx = ctx.proc.vm;
     let page_mask = vmx.page - 1;
     let size = (size
         .checked_add(page_mask)
         .ok_or(kr::KERN_INVALID_ARGUMENT)?)
         & !page_mask;
-    let tag = flags >> 24;
-    let mapping = Mapping {
-        flags: VmFlags::new(vm::VM_PROT_ALL, vm::VM_INHERIT_COPY, tag).bits(),
-        ..Mapping::anonymous(vm::perms(cur))
-    };
     let at = if flags & VM_FLAGS_ANYWHERE != 0 {
         let align = (mask | page_mask) + 1;
         let from = (addr & !page_mask).max(vmx.min);

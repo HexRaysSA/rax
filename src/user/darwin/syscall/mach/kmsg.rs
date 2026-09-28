@@ -96,6 +96,16 @@ pub fn consume_dest(proc: &mut Proc, dest: Right) {
 /// Destroys a send-once right: a live port receives
 /// `MACH_NOTIFY_SEND_ONCE` through it (`ipc_notify_send_once_and_unlock`).
 pub fn release_send_once(proc: &mut Proc, port: Arc<Port>) {
+    // A proxy's host right goes back to the host, whose kernel notifies
+    // the receiver.
+    if let KObject::Proxy(h) = &port.kobject {
+        if let Some(n) = h.take() {
+            crate::user::darwin::bridge::release(n);
+        }
+        let mut st = port.state.lock().unwrap();
+        st.sorights = st.sorights.saturating_sub(1);
+        return;
+    }
     if port.is_dead() || port.is_kernel() {
         let mut st = port.state.lock().unwrap();
         st.sorights = st.sorights.saturating_sub(1);
@@ -194,6 +204,8 @@ pub fn destroy_receive(proc: &mut Proc, port: &Arc<Port>) {
     if pset.is_some() {
         leave_sets(proc, port);
     }
+    // The host's rights to an exported port die with it.
+    proc.bridge.unexport(port);
     proc.ipc.port_died(port);
     for m in queue {
         destroy(proc, m);
@@ -321,6 +333,12 @@ pub fn enqueue(proc: &mut Proc, m: Message) {
         .port()
         .cloned()
         .expect("a message's destination is a port");
+    if matches!(port.kobject, KObject::Proxy(_)) || port.state.lock().unwrap().host.is_some() {
+        // A message the kernel sends to a proxy (a notification, a reply),
+        // or to a port whose receive right moved to the host, goes there.
+        crate::user::darwin::bridge::forward(proc, m);
+        return;
+    }
     let pset = {
         let mut st = port.state.lock().unwrap();
         if st.dead {

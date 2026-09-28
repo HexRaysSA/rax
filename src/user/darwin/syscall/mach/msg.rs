@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use super::RESTART;
 use super::kmsg::{self, UserHeader};
-use crate::user::darwin::mach::ipc::{MACH_PORT_NULL, Object, PortName, disp};
+use crate::user::darwin::mach::ipc::{KObject, MACH_PORT_NULL, Object, PortName, disp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::mach::msg::{self, HEADER_SIZE, Message, Sender, bits, opt};
 use crate::user::darwin::signal;
@@ -475,6 +475,16 @@ fn do_send(
         }
     }
     ctx.proc.task.messages.0 += 1;
+    if m.dest.port().is_some_and(|p| {
+        matches!(p.kobject, KObject::Proxy(_)) || p.state.lock().unwrap().host.is_some()
+    }) {
+        // A host port's: the host's send decides.
+        let wait = (options & opt::SEND_TIMEOUT != 0).then_some(timeout);
+        return match crate::user::darwin::bridge::send(ctx.proc, m, wait) {
+            Ok(()) => Sent::Done,
+            Err(mr) => Sent::Failed(mr),
+        };
+    }
     kmsg::deliver(ctx, m);
     Sent::Done
 }
@@ -484,6 +494,10 @@ fn check_call_class(m: &Message, options: u64) -> Result<(), KernReturn> {
         return Ok(());
     }
     let port = m.dest.port().expect("a message's destination is a port");
+    if matches!(port.kobject, KObject::Proxy(_)) {
+        // The host checks its own port's class.
+        return Ok(());
+    }
     if port.is_kernel() {
         if options & opt::SEND_KOBJECT_CALL == 0 {
             return Err(kr::MACH_SEND_INVALID_OPTIONS);

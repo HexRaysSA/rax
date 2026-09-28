@@ -13,6 +13,7 @@ pub mod attr;
 pub mod audit;
 pub mod event;
 pub mod file;
+pub mod mac;
 pub mod misc;
 pub mod path;
 pub mod proc;
@@ -285,7 +286,8 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GETENTROPY => misc::getentropy(ctx, a[0], a[1]),
         nr::GETTIMEOFDAY => misc::gettimeofday(ctx, a[0], a[1], a[2]),
         nr::CSOPS | nr::CSOPS_AUDITTOKEN => misc::csops(ctx, i(0), u(1), a[2], a[3]),
-        nr::MAC_SYSCALL => misc::mac_syscall(ctx, a[0], i(1), a[2]),
+        nr::MAC_SYSCALL => mac::mac_syscall(ctx, a[0], i(1), a[2]),
+        nr::GETHOSTUUID => misc::gethostuuid(ctx, a[0], a[1]),
         nr::CSRCTL => misc::csrctl(ctx, u(0), a[1], a[2]),
         nr::CROSSARCH_TRAP => misc::crossarch_trap(u(0)),
         nr::KDEBUG_TRACE64 | nr::KDEBUG_TRACE | nr::KDEBUG_TRACE_STRING | nr::KDEBUG_TYPEFILTER => {

@@ -92,6 +92,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     proc.ipc = ipc;
     proc.task_port = task_port;
     proc.task = inherited_task(&proc.task);
+    super::bridge::rebind(&mut proc.bridge, &mut proc.task);
 
     let mask = thread.sig.oldmask.unwrap_or(thread.sig.mask);
     thread.tid = tid;

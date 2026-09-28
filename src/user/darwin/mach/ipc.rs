@@ -128,6 +128,10 @@ pub enum KObject {
     /// A task identity token (`task_create_identity_token`), by the
     /// identity of its task's control port.
     TaskIdToken(u64),
+    /// A proxy of a host send or send-once right: messages to it are sent
+    /// on the host ([`crate::user::darwin::bridge`]). It is a message
+    /// queue's, not a kernel object's, as the guest sees it.
+    Proxy(Arc<crate::user::darwin::bridge::HostRight>),
 }
 
 static NEXT_PORT_ID: AtomicU64 = AtomicU64::new(1);
@@ -163,6 +167,10 @@ pub struct PortState {
     pub sp_requests: Vec<(PortName, Arc<Port>)>,
     /// Status flags (`MACH_PORT_STATUS_FLAG_*`, see [`status`]).
     pub flags: u32,
+    /// The host port the receive right moved to (sent to a host service):
+    /// messages to the port go there
+    /// ([`crate::user::darwin::bridge`]).
+    pub host: Option<Arc<crate::user::darwin::bridge::HostRight>>,
 }
 
 impl PortState {
@@ -239,7 +247,10 @@ impl Port {
 
     /// Whether the kernel receives this port's messages.
     pub fn is_kernel(&self) -> bool {
-        !matches!(self.kobject, KObject::None | KObject::Timer(_))
+        !matches!(
+            self.kobject,
+            KObject::None | KObject::Timer(_) | KObject::Proxy(_)
+        )
     }
 
     /// Whether the port is dead.
