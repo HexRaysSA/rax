@@ -10,9 +10,10 @@
 //!
 //! Every adapter keeps the core's code caches coherent with the address
 //! space by applying [`AddressSpace::code_changes_since`] before it resumes
-//! execution, clears LL/SC reservations whenever it leaves the guest (as an
-//! exception return does on real hardware), and restores the unprivileged
-//! execution state after any trap the core models architecturally.
+//! execution and restores the unprivileged execution state after any trap the
+//! core models architecturally. AArch64 preserves an exclusive reservation
+//! across a pure host budget yield; synchronous exception exits and OS-level
+//! thread switches or asynchronous deliveries clear it.
 
 pub mod aarch64;
 pub mod riscv64;

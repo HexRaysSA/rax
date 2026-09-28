@@ -21,6 +21,10 @@ use crate::isa::arm::common::memory::ArmMemory;
 use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 use crate::vm::vcpu::Aarch64SystemRegisters;
 
+#[cfg(test)]
+#[path = "system_clrex_tests.rs"]
+mod clrex_tests;
+
 impl AArch64Cpu {
     // =========================================================================
     // Exception Handling
@@ -359,7 +363,11 @@ impl AArch64Cpu {
                 return Err(ArmError::UndefinedInstruction(insn));
             }
             match op2 {
-                0b010 => Ok(CpuExit::Continue),             // CLREX
+                0b010 => {
+                    // CLREX invalidates this PE's local exclusive reservation.
+                    self.memory.clear_exclusive();
+                    Ok(CpuExit::Continue)
+                }
                 0b100 => Ok(CpuExit::Continue),             // DSB
                 0b101 => Ok(CpuExit::Continue),             // DMB
                 0b110 => Ok(CpuExit::Continue),             // ISB

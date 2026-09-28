@@ -30,6 +30,7 @@ use super::{
 };
 use crate::user::linux::abi::LinuxAbi;
 use crate::user::linux::abi::errno_table::EINTR;
+use crate::user::linux::arch::GuestCpu;
 use crate::user::linux::posix_timers::{self, Firing, Notify};
 use crate::user::linux::process::{ExitStatus, LinuxProcess, ProcState, Thread, Threads};
 
@@ -673,6 +674,11 @@ impl LinuxProcess {
             return false;
         }
         let t = th.current().expect("running thread");
+        // Installing the handler is a guest exception/return-to-user event,
+        // even when the preceding adapter exit was only a budget yield.
+        if let GuestCpu::Aarch64(cpu) = &mut t.cpu {
+            cpu.core_mut().clear_exclusive_monitor();
+        }
         // signal_delivered.
         t.saved_sigmask = None;
         let mut blocked = t.sigmask | d.action.mask;

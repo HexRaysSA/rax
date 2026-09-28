@@ -231,9 +231,14 @@ impl A64UserCpu {
         self.cpu.set_generic_counter(ticks);
 
         let exit = self.run_inner(budget);
-        // Leaving the guest is an exception entry, which clears the local
-        // exclusive monitor.
-        self.cpu.clear_exclusive_monitor();
+        // A host instruction-budget yield (or completed EL0 WFI/WFE) is not
+        // an architectural exception or a guest thread switch. Preserve the
+        // reservation for the next slice of the same thread. OS personalities
+        // clear it when they actually switch guest threads or deliver an
+        // asynchronous event; synchronous exits clear it here.
+        if !matches!(&exit, A64Exit::Yield) {
+            self.cpu.clear_exclusive_monitor();
+        }
         exit
     }
 

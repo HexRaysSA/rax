@@ -16,7 +16,7 @@
 
 use std::time::Instant;
 
-use super::arch::CpuEvent;
+use super::arch::{CpuEvent, GuestCpu};
 use super::children::{exited_status, signaled_status};
 use super::futex::{self, BITSET_MATCH_ANY, FutexKey};
 use super::process::{ExitStatus, LinuxProcess, Peers, Threads};
@@ -52,6 +52,10 @@ impl LinuxProcess {
     pub fn run(&mut self) -> ExitStatus {
         let slice = self.state.config.slice_insns;
         let mut current = 0usize;
+        // Includes a peer selected only to finish a blocked syscall or
+        // ptrace continuation, without entering user mode. `last_user` below
+        // deliberately retains its separate rseq meaning.
+        let mut last_selected = None;
         loop {
             if self.state.exit.is_some() {
                 // do_exit of the threads the process's end takes with it
@@ -86,6 +90,9 @@ impl LinuxProcess {
                 }
                 continue;
             };
+            let tid = self.threads[idx].tid;
+            clear_exclusive_on_switch(&mut self.threads[idx], last_selected);
+            last_selected = Some(tid);
             current = idx;
             // A system call its tracer stopped goes on once resumed.
             if super::ptrace::tracee::resumed_in_call(&self.threads[idx]) {
@@ -98,7 +105,6 @@ impl LinuxProcess {
             }
             // The return to user mode: restart processing and signals,
             // then restartable sequences.
-            let tid = self.threads[idx].tid;
             if self.state.last_user != Some(tid) {
                 super::rseq::switched(&mut self.threads[idx]);
             }
@@ -532,6 +538,23 @@ impl LinuxProcess {
             self.state.leader_exit = Some(mask);
         }
     }
+}
+
+/// A host instruction-budget boundary is not an Arm exception return. Only a
+/// different guest thread being selected clears a retained AArch64 local
+/// monitor; reselecting the same thread leaves its reservation intact. This
+/// includes a peer selected for kernel-side work without a user-mode run.
+pub(super) fn clear_exclusive_on_switch(
+    t: &mut super::process::Thread,
+    last_selected: Option<i32>,
+) -> bool {
+    if last_selected == Some(t.tid) {
+        return false;
+    }
+    if let GuestCpu::Aarch64(cpu) = &mut t.cpu {
+        cpu.core_mut().clear_exclusive_monitor();
+    }
+    true
 }
 
 /// Ends a forked emulator process as its guest process ended: the Linux
