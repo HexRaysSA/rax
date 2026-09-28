@@ -1,0 +1,4 @@
+LIBRARY KERNEL32.dll
+EXPORTS
+ExitProcess@4
+RtlUnwind@16

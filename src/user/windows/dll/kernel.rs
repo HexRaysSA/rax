@@ -1,7 +1,7 @@
 //! Win32 process, virtual-memory, heap, loader, console, and TLS services.
 
 use super::super::heap::{HEAP_GENERATE_EXCEPTIONS, HeapError};
-use super::super::hle::{ApiErr, ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
+use super::super::hle::{ApiErr, ApiResult, Archs, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
 use super::super::layout::offsets;
 use super::super::memory::Mem;
 use super::super::nt::error::*;
@@ -81,6 +81,15 @@ pub(super) static EXPORTS: &[Export] = &[
         remove_veh,
     ),
 ];
+
+/// Public PE32 x86 `KERNEL32!RtlUnwind`; not implicitly exposed by KERNELBASE.
+pub(super) static X86_SEH_EXPORTS: &[Export] = &[Export::func(
+    "RtlUnwind",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr],
+    crate::user::windows::seh::x86::rtl_unwind,
+)
+.only(Archs::X86)];
 
 fn exit_process(c: &mut Ctx) -> ApiResult {
     Ok(Flow::ExitProcess(c.u32(0)?))

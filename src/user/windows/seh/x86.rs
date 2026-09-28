@@ -13,18 +13,19 @@
 //! image marked `IMAGE_DLLCHARACTERISTICS_NO_SEH`, and, in an image with a
 //! SafeSEH table, listed in it.
 //!
-//! `RtlUnwind(TargetFrame, TargetIp, ExceptionRecord, ReturnValue)` calls
-//! the handlers of the records above `TargetFrame` with
-//! `EXCEPTION_UNWINDING` (plus `EXCEPTION_EXIT_UNWIND` when `TargetFrame`
-//! is NULL), removing each record from the list, then returns to its
-//! caller with `ReturnValue` in EAX.
+//! The admitted `RtlUnwind(TargetFrame, TargetIp, ExceptionRecord,
+//! ReturnValue)` profile has a non-null target record and continuation PC.
+//! It calls each inner handler with `EXCEPTION_UNWINDING`, removes that
+//! record only after `ExceptionContinueSearch`, then resumes at `TargetIp`
+//! with `ReturnValue` in EAX. Exit and collided unwinds reject explicitly.
 
 use super::{Records, disposition, handler_continue, unhandled};
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::context::{
-    EXCEPTION_EXIT_UNWIND, EXCEPTION_NESTED_CALL, EXCEPTION_NONCONTINUABLE,
-    EXCEPTION_STACK_INVALID, EXCEPTION_UNWINDING, ExceptionRecord, RegContext,
+    EXCEPTION_NESTED_CALL, EXCEPTION_NONCONTINUABLE, EXCEPTION_STACK_INVALID, EXCEPTION_UNWINDING,
+    ExceptionRecord, RegContext,
 };
-use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow, Value};
+use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::layout::offsets;
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
@@ -229,33 +230,51 @@ fn unwind_selected(
 
 /// `RtlUnwind` (x86, `__stdcall`, 4 arguments).
 pub fn rtl_unwind(c: &mut Ctx) -> ApiResult {
+    if c.arch() != WinArch::X86 {
+        return Err(c.unsupported("RtlUnwind on non-x86 guest"));
+    }
     let target = c.ptr(0)?;
-    let _target_ip = c.ptr(1)?;
+    let target_ip = c.ptr(1)?;
     let rec_arg = c.ptr(2)?;
     let ret_value = c.arg(3)?;
     let psize = c.psize();
     let arch = c.p.arch;
+    if target == 0 {
+        return Err(c.unsupported("RtlUnwind exit unwind"));
+    }
+    if target_ip == 0 {
+        return Err(c.unsupported("RtlUnwind null target IP"));
+    }
+    if !record_valid(c, target) {
+        return Err(unwind_status(c, STATUS_INVALID_UNWIND_TARGET));
+    }
+    // Even when the target is already the TEB head, its complete registration
+    // must be readable before any callback or synthetic-context allocation.
+    // The target handler is not invoked, so its address is not validated here.
+    c.p.space.u32(target)?;
+    c.p.space.u32(target + 4)?;
 
-    // The context: the caller's state as this function returns.
+    // The post-stdcall caller state is the RAX x86 continuation profile.
+    // The handler receives this guest context and may update it before resume.
     let mut ctx = RegContext::capture(&c.t.cpu);
     ctx.set_pc(c.ret_addr);
-    ctx.set_sp(c.entry_sp + 4 + 16);
+    let caller_sp = c
+        .entry_sp
+        .checked_add(4 + 16)
+        .ok_or_else(|| c.unsupported("RtlUnwind caller stack overflow"))?;
+    ctx.set_sp(caller_sp);
     ctx.set_gpr(0, ret_value);
     let ctx_addr = c.stack_alloc_checked(RegContext::size(arch) as u64, 4)?;
     ctx.write(&c.p.space, ctx_addr)?;
 
-    let mut flags = EXCEPTION_UNWINDING;
-    if target == 0 {
-        flags |= EXCEPTION_EXIT_UNWIND;
-    }
     let rec_addr = if rec_arg != 0 {
         let old = c.p.space.u32(rec_arg + 4)?;
-        c.p.space.w32(rec_arg + 4, old | flags)?;
+        c.p.space.w32(rec_arg + 4, old | EXCEPTION_UNWINDING)?;
         rec_arg
     } else {
         let a = c.stack_alloc_checked(ExceptionRecord::size(arch), 4)?;
         let mut r = ExceptionRecord::new(STATUS_UNWIND, c.ret_addr, Vec::new());
-        r.flags = flags;
+        r.flags = EXCEPTION_UNWINDING;
         r.write(&c.p.space, arch, a)?;
         a
     };
@@ -263,6 +282,7 @@ pub fn rtl_unwind(c: &mut Ctx) -> ApiResult {
     unwind_step(
         c,
         target,
+        target_ip,
         rec_addr,
         ctx_addr,
         dc,
@@ -271,9 +291,32 @@ pub fn rtl_unwind(c: &mut Ctx) -> ApiResult {
     )
 }
 
+fn unwind_status(c: &Ctx, code: u32) -> ApiErr {
+    ApiErr::Raise(ExceptionRecord {
+        code,
+        flags: EXCEPTION_NONCONTINUABLE,
+        nested: 0,
+        address: c.entry_pc,
+        params: Vec::new(),
+    })
+}
+
+/// A guest callback has completed. Re-entering this export after a repairable
+/// fault would call that cleanup a second time; stop without replay instead.
+fn after_unwind_callback(result: ApiResult) -> ApiResult {
+    match result {
+        Err(ApiErr::Fault(fault)) => Err(ApiErr::Internal(format!(
+            "RtlUnwind post-handler memory fault at {:#x} (write={})",
+            fault.addr, fault.write
+        ))),
+        other => other,
+    }
+}
+
 fn unwind_step(
     c: &mut Ctx,
     target: u64,
+    target_ip: u64,
     rec: u64,
     ctx: u64,
     dc: u64,
@@ -281,34 +324,48 @@ fn unwind_step(
     mut chain: ChainWalk,
 ) -> ApiResult {
     let record = exception_list(c)?;
-    if record == target || record == CHAIN_END || record == 0 {
-        if target != 0 && record != target {
-            // The target frame is not on the chain.
-            return Err(crate::user::windows::hle::ApiErr::Raise(ExceptionRecord {
-                code: STATUS_INVALID_UNWIND_TARGET,
-                flags: EXCEPTION_NONCONTINUABLE,
-                nested: 0,
-                address: c.entry_pc,
-                params: Vec::new(),
-            }));
-        }
-        return Ok(Flow::Ret(Value::Int(ret)));
+    if record == target {
+        let mut resume = RegContext::read(&c.p.space, c.p.arch, ctx)?;
+        resume.set_flags(RegContext::all_flags(c.p.arch));
+        resume.set_pc(target_ip);
+        resume.set_gpr(0, ret);
+        resume.validate(&c.t.cpu).map_err(|status| {
+            ApiErr::Internal(format!(
+                "RtlUnwind target context rejected with status {status:#010x}"
+            ))
+        })?;
+        return Ok(Flow::Resume(Box::new(resume)));
+    }
+    if record == CHAIN_END || record == 0 || record > target {
+        return Err(unwind_status(c, STATUS_INVALID_UNWIND_TARGET));
     }
     chain.visit(record)?;
     if !record_valid(c, record) {
-        return Err(crate::user::windows::hle::ApiErr::Raise(ExceptionRecord {
-            code: STATUS_BAD_STACK,
-            flags: EXCEPTION_NONCONTINUABLE,
-            nested: 0,
-            address: c.entry_pc,
-            params: Vec::new(),
-        }));
+        return Err(unwind_status(c, STATUS_BAD_STACK));
     }
     let handler = u64::from(c.p.space.u32(record + 4)?);
-    Flow::call(handler, vec![rec, record, ctx, dc], move |c, _| {
-        let next = u64::from(c.p.space.u32(record)?);
-        set_exception_list(c, next)?;
-        unwind_step(c, target, rec, ctx, dc, ret, chain)
+    if !handler_valid(c, handler) {
+        return Err(unwind_status(c, STATUS_BAD_STACK));
+    }
+    let next = u64::from(c.p.space.u32(record)?);
+    Flow::call_checked(handler, vec![rec, record, ctx, dc], move |c, value| {
+        let continuation = (|| {
+            match value as u32 {
+                disposition::CONTINUE_SEARCH => {}
+                disposition::COLLIDED_UNWIND => {
+                    return Err(c.unsupported("RtlUnwind collided unwind"));
+                }
+                _ => return Err(unwind_status(c, STATUS_INVALID_DISPOSITION)),
+            }
+            if exception_list(c)? != record || u64::from(c.p.space.u32(record)?) != next {
+                return Err(ApiErr::Internal(
+                    "RtlUnwind registration changed during cleanup".into(),
+                ));
+            }
+            set_exception_list(c, next)?;
+            unwind_step(c, target, target_ip, rec, ctx, dc, ret, chain)
+        })();
+        after_unwind_callback(continuation)
     })
 }
 
@@ -316,8 +373,16 @@ fn unwind_step(
 mod tests {
     use super::*;
     use crate::user::windows::arch::WinArch;
+    use crate::user::windows::hle::{Api, Arg, Conv};
     use crate::user::windows::memory::prot;
     use crate::user::windows::process::{WindowsConfig, WindowsProcess};
+
+    static RTL_UNWIND_API: Api = Api {
+        name: "RtlUnwind",
+        args: &[Arg::Ptr, Arg::Ptr, Arg::Ptr, Arg::Ptr],
+        conv: Conv::Stdcall,
+        imp: rtl_unwind,
+    };
 
     fn with_context(test: impl FnOnce(&mut Ctx)) {
         let image = include_bytes!("../../../../tests/fixtures/user/windows/bin/x86/smoke.exe");
@@ -460,5 +525,195 @@ mod tests {
         }
         assert!(chain.visit(4 * 4097).is_err());
         assert_eq!(chain.seen.len(), 4096);
+    }
+
+    #[test]
+    fn rtl_unwind_rejects_invalid_disposition_before_unlinking() {
+        with_context(|c| {
+            let (_rec, recs, inner) = records(c);
+            let outer = inner + 0x10;
+            registration(c, inner, outer);
+            c.p.space.w32(outer, CHAIN_END as u32).unwrap();
+            let Flow::CallChecked { then, .. } = unwind_step(
+                c,
+                outer,
+                0x1234,
+                recs.record,
+                recs.context,
+                recs.pointers,
+                0x1234,
+                ChainWalk::default(),
+            )
+            .unwrap() else {
+                panic!("inner unwind handler call expected");
+            };
+            assert!(matches!(
+                then(c, disposition::CONTINUE_EXECUTION.into()),
+                Err(ApiErr::Raise(ExceptionRecord {
+                    code: STATUS_INVALID_DISPOSITION,
+                    ..
+                }))
+            ));
+            assert_eq!(exception_list(c).unwrap(), inner);
+        });
+    }
+
+    #[test]
+    fn rtl_unwind_rejects_exit_and_null_ip_before_changing_the_chain() {
+        with_context(|c| {
+            c.api = &RTL_UNWIND_API;
+            let at = c.t.stack_limit + 0x4000;
+            registration(c, at, CHAIN_END);
+            let sp = c.entry_sp;
+            c.p.space.w32(sp + 8, 0x1234).unwrap();
+            c.p.space.w32(sp + 12, 0).unwrap();
+            c.p.space.w32(sp + 16, 0x5678).unwrap();
+
+            c.p.space.w32(sp + 4, 0).unwrap();
+            assert!(matches!(
+                rtl_unwind(c),
+                Err(ApiErr::Unimplemented(message)) if message.contains("exit unwind")
+            ));
+            assert_eq!(exception_list(c).unwrap(), at);
+
+            c.p.space.w32(sp + 4, at as u32).unwrap();
+            c.p.space.w32(sp + 8, 0).unwrap();
+            assert!(matches!(
+                rtl_unwind(c),
+                Err(ApiErr::Unimplemented(message)) if message.contains("null target IP")
+            ));
+            assert_eq!(exception_list(c).unwrap(), at);
+        });
+    }
+
+    #[test]
+    fn rtl_unwind_rejects_unreadable_head_target_before_allocating() {
+        for crosses_page in [false, true] {
+            with_context(|c| {
+                c.api = &RTL_UNWIND_API;
+                let target = c.t.stack_limit + if crosses_page { 0x5000 - 4 } else { 0x4000 };
+                registration(c, target, CHAIN_END);
+                let sp = c.entry_sp;
+                c.p.space.w32(sp + 4, target as u32).unwrap();
+                c.p.space
+                    .w32(sp + 8, c.p.modules.exe().entry as u32)
+                    .unwrap();
+                c.p.space.w32(sp + 12, 0).unwrap();
+                c.p.space.w32(sp + 16, 0).unwrap();
+                let fault_at = if crosses_page { target + 4 } else { target };
+                c.p.vm.protect(fault_at, 0x1000, prot::NOACCESS).unwrap();
+                assert!(matches!(
+                    rtl_unwind(c),
+                    Err(ApiErr::Fault(MemFault { addr, write: false })) if addr == fault_at
+                ));
+                assert_eq!(exception_list(c).unwrap(), target);
+                assert_eq!(c.cursor, sp);
+            });
+        }
+    }
+
+    #[test]
+    fn rtl_unwind_rejects_collided_without_fabricating_a_pop() {
+        with_context(|c| {
+            let (_rec, recs, inner) = records(c);
+            let outer = inner + 0x10;
+            registration(c, inner, outer);
+            let Flow::CallChecked { then, .. } = unwind_step(
+                c,
+                outer,
+                0x1234,
+                recs.record,
+                recs.context,
+                recs.pointers,
+                0x5678,
+                ChainWalk::default(),
+            )
+            .unwrap() else {
+                panic!("inner unwind handler call expected");
+            };
+            assert!(matches!(
+                then(c, disposition::COLLIDED_UNWIND.into()),
+                Err(ApiErr::Unimplemented(message)) if message.contains("collided unwind")
+            ));
+            assert_eq!(exception_list(c).unwrap(), inner);
+        });
+    }
+
+    #[test]
+    fn rtl_unwind_post_handler_fault_is_terminal_without_unlinking() {
+        for fault_teb in [true, false] {
+            with_context(|c| {
+                let (_rec, recs, inner) = records(c);
+                let outer = inner + 0x10;
+                registration(c, inner, outer);
+                let Flow::CallChecked { then, .. } = unwind_step(
+                    c,
+                    outer,
+                    0x1234,
+                    recs.record,
+                    recs.context,
+                    recs.pointers,
+                    0x5678,
+                    ChainWalk::default(),
+                )
+                .unwrap() else {
+                    panic!("inner unwind handler call expected");
+                };
+                let page = if fault_teb { c.t.teb } else { inner } & !0xfff;
+                c.p.vm.protect(page, 0x1000, prot::NOACCESS).unwrap();
+                assert!(matches!(
+                    then(c, disposition::CONTINUE_SEARCH.into()),
+                    Err(ApiErr::Internal(message)) if message.contains("post-handler memory fault")
+                ));
+                c.p.vm.protect(page, 0x1000, prot::READWRITE).unwrap();
+                assert_eq!(exception_list(c).unwrap(), inner);
+            });
+        }
+    }
+
+    #[test]
+    fn rtl_unwind_rejects_changed_link_and_self_cycle() {
+        with_context(|c| {
+            let (_rec, recs, inner) = records(c);
+            let outer = inner + 0x10;
+            registration(c, inner, outer);
+            let Flow::CallChecked { then, .. } = unwind_step(
+                c,
+                outer,
+                0x1234,
+                recs.record,
+                recs.context,
+                recs.pointers,
+                0x5678,
+                ChainWalk::default(),
+            )
+            .unwrap() else {
+                panic!("inner unwind handler call expected");
+            };
+            c.p.space.w32(inner, inner as u32).unwrap();
+            assert!(matches!(
+                then(c, disposition::CONTINUE_SEARCH.into()),
+                Err(ApiErr::Internal(message)) if message.contains("registration changed")
+            ));
+            assert_eq!(exception_list(c).unwrap(), inner);
+            let Flow::CallChecked { then, .. } = unwind_step(
+                c,
+                outer,
+                0x1234,
+                recs.record,
+                recs.context,
+                recs.pointers,
+                0x5678,
+                ChainWalk::default(),
+            )
+            .unwrap() else {
+                panic!("inner unwind handler call expected");
+            };
+            assert!(matches!(
+                then(c, disposition::CONTINUE_SEARCH.into()),
+                Err(ApiErr::Internal(message)) if message.contains("cyclic")
+            ));
+            assert_eq!(exception_list(c).unwrap(), inner);
+        });
     }
 }

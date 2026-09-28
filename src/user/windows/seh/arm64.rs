@@ -4,6 +4,11 @@
 //! partially executed prologs/epilogs follow Microsoft's "ARM64 exception
 //! handling". SVE state, authenticated return addresses, and custom kernel
 //! stack records need state not represented by `RegContext` and are rejected.
+//! Windows currently selects a non-PAuth ARMv8.2 guest CPU: PACIBSP and
+//! AUTIBSP are hint-space no-ops on that CPU. Their unwind markers still count
+//! as instructions for partial prolog/epilog selection. If Windows gains a
+//! configurable PAuth CPU, its feature state must reach this unwinder and
+//! authenticated returns must be implemented or rejected before admission.
 //! All memory/metadata failures leave the caller's context unchanged.
 //! Complexity is O(unwind bytes + epilog scopes), with O(unwind bytes) space.
 
@@ -31,6 +36,8 @@ enum Op {
     },
     Frame(u64),
     Nop,
+    /// PACIBSP/AUTIBSP, a counted hint on the selected non-PAuth guest CPU.
+    PacHint,
     Boundary,
 }
 
@@ -85,7 +92,7 @@ fn execute(mem: &impl Mem, ops: &[Op], ctx: &mut RegContext) -> Result<(), MemFa
                     .checked_sub(offset)
                     .ok_or_else(|| bad(ctx.gpr(29)))?,
             ),
-            Op::Nop | Op::Boundary => {}
+            Op::Nop | Op::PacHint | Op::Boundary => {}
             Op::Save {
                 kind,
                 first,
@@ -233,8 +240,9 @@ fn decode(bytes: &[u8], start: usize, at: u64) -> Result<Vec<Op>, MemFault> {
                     if post { offset + scale } else { 0 },
                 )
             }
-            // PAC needs an authentication key and SVE/custom-stack records
-            // require architectural state absent from this CONTEXT model.
+            0xFC => Op::PacHint,
+            // SVE/custom-stack records require architectural state absent
+            // from this CONTEXT model. Other PAC encodings are reserved.
             _ => return Err(bad(code_at)),
         };
         if let Op::Save {
@@ -386,7 +394,7 @@ fn packed(mem: &impl Mem, f: &FunctionEntry, ctx: &mut RegContext) -> Result<Unw
     let regf = ((value >> 13) & 7) as usize;
     let cr = (value >> 21) & 3;
     let homes = value & (1 << 20) != 0;
-    if regi > 10 || cr == 2 {
+    if regi > 10 {
         return Err(bad(f.entry));
     }
     let start = add(f.image_base, u64::from(f.begin))?;
@@ -402,6 +410,12 @@ fn packed(mem: &impl Mem, f: &FunctionEntry, ctx: &mut RegContext) -> Result<Unw
     let mut forward = Vec::new();
     let mut allocated = false;
     let mut i = 0;
+    if cr == 2 {
+        // Packed CR=2 begins with PACIBSP. Keep its unwind operation even
+        // when constructing the epilog: AUTIBSP occupies one instruction,
+        // unlike the synthetic NOP used for set_fp and argument homing.
+        forward.push(Op::PacHint);
+    }
     // RegI=1 with LR uses an explicit allocation followed by STP X19,LR;
     // the pre-indexed LR pair has no matching packed scalar unwind code.
     if regi == 1 && cr == 1 {
@@ -455,7 +469,7 @@ fn packed(mem: &impl Mem, f: &FunctionEntry, ctx: &mut RegContext) -> Result<Unw
             forward.extend([Op::Nop; 4]);
         }
     }
-    if cr == 3 {
+    if cr == 2 || cr == 3 {
         if local_size < 16 {
             return Err(bad(f.entry));
         }
@@ -506,7 +520,9 @@ fn packed(mem: &impl Mem, f: &FunctionEntry, ctx: &mut RegContext) -> Result<Unw
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::isa::arm::common::ArmFeatures;
     use crate::user::mm::{AddressSpace, Mapping, PAGE_SIZE, Perms, SpaceConfig};
+    use crate::user::windows::arch::WinCpu;
     const BASE: u64 = 0x10000;
     const STACK: u64 = 0x20000;
     fn setup() -> (AddressSpace, FunctionEntry, RegContext) {
@@ -536,6 +552,13 @@ mod tests {
         ctx.set_sp(STACK);
         ctx.set_gpr(30, 0x1234);
         (mem, f, ctx)
+    }
+    #[test]
+    fn arm64_windows_cpu_keeps_pac_unwind_in_hint_profile() {
+        let (mem, _, _) = setup();
+        let cpu = WinCpu::new(WinArch::Arm64, &mem);
+        let features = cpu.a64().unwrap().core().config().features;
+        assert!(!features.intersects(ArmFeatures::PACA | ArmFeatures::PACG));
     }
     #[test]
     fn arm64_full_frame_pair_restores_caller_and_handler() {
@@ -579,6 +602,92 @@ mod tests {
         virtual_unwind(&mem, 0, &f, &mut ctx).unwrap();
         assert_eq!(
             (ctx.gpr(29), ctx.pc(), ctx.sp()),
+            (0x9876, 0x5678, STACK + 64)
+        );
+    }
+    #[test]
+    fn arm64_full_pac_hint_counts_partial_prolog_and_epilog() {
+        // Microsoft ARM64 unwind code FC denotes PACIBSP in the prolog and
+        // AUTIBSP in the epilog. On this personality's non-PAuth v8.2 CPU,
+        // both instructions are architectural hints, but each still counts
+        // as one instruction when selecting partial unwind operations.
+        let (mem, f, mut ctx) = setup();
+        mem.w32(BASE + 0x100, 64 | (1 << 21) | (1 << 27)).unwrap();
+        mem.wr(BASE + 0x104, &[0xE1, 0x87, 0xFC, 0xE4]).unwrap();
+        mem.w64(STACK, 0x9876).unwrap();
+        mem.w64(STACK + 8, 0x5678).unwrap();
+
+        ctx.set_gpr(29, STACK);
+        virtual_unwind(&mem, 0, &f, &mut ctx).unwrap();
+        assert_eq!(
+            (ctx.gpr(29), ctx.pc(), ctx.sp()),
+            (0x9876, 0x5678, STACK + 64)
+        );
+
+        for offset in [0, 4] {
+            let (_, _, mut partial) = setup();
+            partial.set_pc(BASE + 0x200 + offset);
+            partial.set_sp(STACK + 64);
+            partial.set_gpr(29, 0xABCD);
+            virtual_unwind(&mem, 0, &f, &mut partial).unwrap();
+            assert_eq!(
+                (partial.gpr(29), partial.pc(), partial.sp()),
+                (0xABCD, 0x1234, STACK + 64)
+            );
+        }
+
+        let (_, _, mut after_save) = setup();
+        after_save.set_pc(BASE + 0x208);
+        virtual_unwind(&mem, 0, &f, &mut after_save).unwrap();
+        assert_eq!(
+            (after_save.gpr(29), after_save.pc(), after_save.sp()),
+            (0x9876, 0x5678, STACK + 64)
+        );
+
+        let (_, _, mut after_epilog_restore) = setup();
+        after_epilog_restore.set_pc(BASE + 0x2F8);
+        after_epilog_restore.set_sp(STACK + 64);
+        after_epilog_restore.set_gpr(30, 0x5678);
+        virtual_unwind(&mem, 0, &f, &mut after_epilog_restore).unwrap();
+        assert_eq!(
+            (after_epilog_restore.pc(), after_epilog_restore.sp()),
+            (0x5678, STACK + 64)
+        );
+    }
+    #[test]
+    fn arm64_packed_pac_hint_chained_and_fragment_frames() {
+        let (mem, mut f, mut ctx) = setup();
+        f.unwind = 1 | (64 << 2) | (2 << 21) | (4 << 23);
+        mem.w64(STACK, 0x9876).unwrap();
+        mem.w64(STACK + 8, 0x5678).unwrap();
+        virtual_unwind(&mem, 0, &f, &mut ctx).unwrap();
+        assert_eq!(
+            (ctx.gpr(29), ctx.pc(), ctx.sp()),
+            (0x9876, 0x5678, STACK + 64)
+        );
+
+        let (_, _, mut after_pac) = setup();
+        after_pac.set_pc(BASE + 0x204);
+        after_pac.set_sp(STACK + 64);
+        virtual_unwind(&mem, 0, &f, &mut after_pac).unwrap();
+        assert_eq!((after_pac.pc(), after_pac.sp()), (0x1234, STACK + 64));
+
+        let (_, _, mut after_epilog_restore) = setup();
+        after_epilog_restore.set_pc(BASE + 0x2F8);
+        after_epilog_restore.set_sp(STACK + 64);
+        after_epilog_restore.set_gpr(30, 0x5678);
+        virtual_unwind(&mem, 0, &f, &mut after_epilog_restore).unwrap();
+        assert_eq!(
+            (after_epilog_restore.pc(), after_epilog_restore.sp()),
+            (0x5678, STACK + 64)
+        );
+
+        let (_, _, mut fragment) = setup();
+        fragment.set_pc(BASE + 0x240);
+        f.unwind = (f.unwind & !3) | 2;
+        virtual_unwind(&mem, 0, &f, &mut fragment).unwrap();
+        assert_eq!(
+            (fragment.gpr(29), fragment.pc(), fragment.sp()),
             (0x9876, 0x5678, STACK + 64)
         );
     }
@@ -627,14 +736,22 @@ mod tests {
     fn arm64_reserved_and_faulting_unwind_leave_context_unchanged() {
         let (mem, f, mut ctx) = setup();
         mem.w32(BASE + 0x100, 64 | (1 << 27)).unwrap();
-        mem.wr(BASE + 0x104, &[0xFF, 0xE4, 0, 0]).unwrap();
-        let before = ctx.clone();
-        assert!(virtual_unwind(&mem, 0, &f, &mut ctx).is_err());
-        assert_eq!(ctx, before);
+        for reserved in [0xFD, 0xFE, 0xFF] {
+            mem.wr(BASE + 0x104, &[reserved, 0xE4, 0, 0]).unwrap();
+            let before = ctx.clone();
+            assert!(virtual_unwind(&mem, 0, &f, &mut ctx).is_err());
+            assert_eq!(ctx, before);
+        }
         mem.wr(BASE + 0x104, &[0x87, 0xE4, 0, 0]).unwrap();
         ctx.set_sp(STACK + PAGE_SIZE - 8);
         let before = ctx.clone();
         assert!(virtual_unwind(&mem, 0, &f, &mut ctx).is_err());
+        assert_eq!(ctx, before);
+
+        let (_, mut malformed, mut ctx) = setup();
+        malformed.unwind = 1 | (64 << 2) | (2 << 21); // CR=2 requires FP/LR space.
+        let before = ctx.clone();
+        assert!(virtual_unwind(&mem, 0, &malformed, &mut ctx).is_err());
         assert_eq!(ctx, before);
     }
 }

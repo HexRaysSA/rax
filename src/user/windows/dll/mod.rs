@@ -48,6 +48,7 @@ static KERNEL32: BuiltinDll = BuiltinDll {
     subsystem: 3,
     exports: &[
         kernel::EXPORTS,
+        kernel::X86_SEH_EXPORTS,
         libraries::EXPORTS,
         fibers::EXPORTS,
         fls::EXPORTS,

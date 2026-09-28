@@ -47,6 +47,12 @@ mod crt_bootstrap;
 #[path = "crt_normal_exit.rs"]
 mod crt_normal_exit;
 
+#[path = "seh_x86_unwind.rs"]
+mod seh_x86_unwind;
+
+#[path = "arm64_pac_unwind.rs"]
+mod arm64_pac_unwind;
+
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/user/windows")
 }

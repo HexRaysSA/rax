@@ -1,6 +1,6 @@
 //! Native DLL services whose numbers are independent of an NT syscall table.
 
-use super::super::hle::{ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
+use super::super::hle::{ApiResult, Archs, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
 use super::super::memory::Mem;
 use super::super::nt::status::*;
 
@@ -29,6 +29,13 @@ pub(super) static EXPORTS: &[Export] = &[
     ),
     Export::func("NtContinue", Stdcall, &[Ptr, I32], continue_context),
     Export::func("RtlCaptureContext", Stdcall, &[Ptr], capture_context),
+    Export::func(
+        "RtlUnwind",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr],
+        crate::user::windows::seh::x86::rtl_unwind,
+    )
+    .only(Archs::X86),
 ];
 fn status_error(c: &mut Ctx) -> ApiResult {
     Flow::ret(u64::from(super::super::nt::status_to_error(c.u32(0)?)))

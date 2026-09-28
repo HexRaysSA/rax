@@ -59,9 +59,10 @@ service-number tables, complete CRT/GUI/network/registry personalities, modern
 LoadLibraryEx/search policies and host Windows support remain
 incomplete. ARM64EC is a distinct ABI and is not admitted as ARM64. Nonzero
 `NtContinue.TestAlert`, over-aligned static TLS, aggregate/vectorcall signatures,
-ARM64 PAC/SVE/custom unwind records, and x64 unwind versions other than 1 are
-explicitly outside the admitted implementation. API parameter branches must be
-checked individually; available exports do not imply complete Windows coverage.
+ARM64 authenticated-return behavior under FEAT_PAuth, SVE/custom unwind records,
+and x64 unwind versions other than 1 are explicitly outside the admitted
+implementation. API parameter branches must be checked individually; available
+exports do not imply complete Windows coverage.
 
 The named MSVCRT/UCRT allocation, error-state and locale-independent memory/string
 foundation, plus the stateless VCRUNTIME140 buffer/search subset, is recorded in
@@ -110,8 +111,26 @@ now honor initial commitment and checked guard growth, including HLE/SEH setup;
 exact native private margins and growth quantum remain unknown. See
 [Windows fibers/FLS](windows-fibers.md). x64 unwind version 1 and supported ARM64 unwind
 records have explicit decoders; unsupported metadata must fail before applying
-an invented context. See source and tests for admitted operations. Native
-Windows differential coverage is unknown.
+an invented context. The fixed ARM64 Windows CPU is ARMv8.2 without FEAT_PAuth:
+`pacibsp` and `autibsp` execute as hints. Its unwinder admits full `.xdata`
+`0xFC` and packed `CR=2` records, counting the PAC instruction in partial
+prolog and epilog selection without claiming authenticated-return support. The
+[Microsoft ARM64 unwind format](../../specifications/windows/microsoft-docs/arm64-exception-handling.md)
+defines both records. A compiled PE fixture exercises exception search and
+resume across full and packed PAC-marked frames. Native Windows differential
+coverage is unknown.
+
+PE32 x86 `KERNEL32!RtlUnwind` admits a non-null target registration and
+continuation PC. It calls handlers on inner records with
+`EXCEPTION_UNWINDING`, unlinks each only after `ExceptionContinueSearch`, and
+resumes at the target PC with `ReturnValue` in EAX. It checks both target-record
+words before any callback or synthetic allocation, including a page crossing.
+The continuation stack pointer is the post-stdcall caller ESP in this bounded
+profile; the public
+[Microsoft RtlUnwind contract](../../specifications/windows/microsoft-docs/rtlunwind.md)
+does not specify that private ESP formula. Exit unwind and collided unwind
+remain unsupported. A compiled PE32 fixture imports the public export and
+checks the inner callback, chain head, EAX, ESP, and non-returning continuation.
 
 Exception walks retain visited registration/frame states across guest handler
 continuations and stop explicitly on cycles or after 4,096 distinct states.
@@ -139,6 +158,8 @@ Function-table binary search still requires sorted `.pdata` input.
 | A9 | Exception function tables are sorted by function address as the PE Format requires | PE Format .pdata section and binary-search parser | Function-table absence and lookup | Reordered or overlapping entries in otherwise bounded directories | Full-table order validation or a reordered-table regression would falsify sorted-input conformance | Retained format prerequisite; global order validation is incomplete |
 | A10 | CI reachability checks consume the inspected indentation and simple shell forms | Current ci.yml/full-suite.yml commands | Workflow target-selection regression | Commented flags, harness arguments, unrelated jobs, --no-run | Matcher-negative tests; alternate workflow syntax requires re-audit | Confirmed current forms; retained syntax prerequisite |
 | A11 | The process code-page profile is fixed at Windows-1252, and a successfully materialized ANSI command line remains process-owned | Retained Microsoft `GetCommandLineA`/best-fit mapping evidence and the current code-page table | Narrow command-line bytes and repeated-call pointer | Best-fit syntax changes, unmappable BMP character, failed first read/write, repeated call | Three-ABI kernel tests; a native process configured for another ACP falsifies universal-1252 interpretation | Retained fixed-ACP profile; tested within RAX |
+| A12 | The Windows ARM64 guest CPU remains ARMv8.2 without FEAT_PAuth; PACIBSP/AUTIBSP are hint-space no-ops | `WinCpu::new(Arm64)` selects `A64UserCpu::new`, whose v8.2 feature set excludes PACA/PACG | Admit `0xFC` and packed `CR=2` unwind markers as counted no-ops | Exception in a partially executed PAC prolog/epilog, full and packed records | CPU-profile unit assertion and compiled-PE unwind tests; enabling PACA/PACG without propagating feature state to the unwinder falsifies this admission | Confirmed in the fixed Windows profile; future configurable PAuth unsupported |
+| A13 | The admitted x86 `RtlUnwind` continuation uses post-stdcall caller ESP; the public API contract does not expose native ESP restoration details | Existing HLE x86 `Stdcall` callsite and Microsoft `RtlUnwind` TargetIp/ReturnValue contract | Guest continuation stack and EAX after unwinding inner records | Inner handler mutates context or registration links; unreadable/cross-page target; caller has nested frames | Compiled PE32 callback/ESP witness, target preflight and post-callback fault tests; native Windows context trace would falsify ESP equivalence | Retained RAX continuation profile; native ESP equivalence unknown |
 
 ## Change-surface map
 
@@ -168,9 +189,10 @@ record; native callback ordering/exception containment and private-allocation
 generation identity remain unknown or restricted. High: host filesystem
 check/unlink is not an atomic Windows namespace transaction against external
 mutation. High: synchronous host console reads can block the sole guest
-scheduler thread. High: x86 `RtlUnwind` is not exported, x64 dynamic
-function tables are absent, and ARM64 PAC-marked unwind metadata is rejected;
-these leave structured exception handling incomplete. Medium: admitted image
+scheduler thread. High: x86 exit/collided unwinds remain unsupported and
+x64/ARM64 dynamic function tables are absent; these leave structured exception
+handling incomplete. High: ARM64 authenticated-return handling remains
+unsupported if a PAuth-enabled CPU profile is introduced. Medium: admitted image
 materialization still uses O(SizeOfImage) host memory; checking guest commitment
 first does not establish a separate host-allocation limit. Medium: exact
 Unicode case folding, ANSI code-page conversion, and verbatim path edge cases
