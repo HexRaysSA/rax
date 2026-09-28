@@ -131,6 +131,7 @@ pub(super) fn run(p: &mut Proc) -> ExitStatus {
             }
             continue;
         };
+        clear_on_thread_switch(p, previous, tid);
         previous = tid;
         let mut t = p.threads.remove(&tid).expect("selected thread");
         let outcome = if let Some(status) = t.wait_status.take() {
@@ -348,6 +349,16 @@ fn select(p: &Proc, previous: u32) -> Option<u32> {
         .find_map(|(&tid, t)| {
             (t.runnable() && (!initial_attach || t.main || t.attached)).then_some(tid)
         })
+}
+
+fn clear_on_thread_switch(p: &mut Proc, previous: u32, next: u32) {
+    // A budget yield can resume the same guest thread without an exception.
+    // Only switching away invalidates that ARM64 thread's local reservation.
+    if previous != next
+        && let Some(cpu) = p.threads.get_mut(&previous).and_then(|t| t.cpu.a64_mut())
+    {
+        cpu.core_mut().clear_exclusive_monitor();
+    }
 }
 
 fn tick_timers(p: &mut Proc, now: Instant) {
@@ -640,6 +651,9 @@ mod tests {
 
     #[path = "exit_tests.rs"]
     mod exit_tests;
+
+    #[path = "monitor_tests.rs"]
+    mod monitor_tests;
 
     fn process(arch: WinArch) -> Proc {
         let space = AddressSpace::new(SpaceConfig {
@@ -951,25 +965,6 @@ mod tests {
                 "a parked notifier cannot freeze an attached peer"
             );
         }
-    }
-
-    #[test]
-    fn round_robin_selection_excludes_suspended_and_blocked_threads() {
-        let mut p = process(WinArch::X64);
-        let t1 = thread(&mut p, 8);
-        let t2 = thread(&mut p, 12);
-        p.threads.insert(8, t1);
-        p.threads.insert(12, t2);
-        assert_eq!(select(&p, 0), Some(8));
-        assert_eq!(select(&p, 8), Some(12));
-        assert_eq!(select(&p, 12), Some(8));
-        p.threads.get_mut(&8).unwrap().suspend = 1;
-        assert_eq!(select(&p, 12), Some(12));
-        p.threads.get_mut(&12).unwrap().state = ThreadState::Waiting(sync::Wait::Sleep {
-            deadline: None,
-            alertable: false,
-        });
-        assert_eq!(select(&p, 12), None);
     }
 
     #[test]

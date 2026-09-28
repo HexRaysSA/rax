@@ -6,6 +6,7 @@ mod arm;
 mod entry;
 mod epoll;
 mod events;
+mod exclusive;
 mod exec;
 mod fdinfo;
 mod files;

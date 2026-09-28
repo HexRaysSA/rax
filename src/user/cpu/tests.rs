@@ -68,6 +68,7 @@ const A64_MRS_X0_CNTVCT: u32 = 0xd53b_e040;
 const A64_LDXR_X0_X1: u32 = 0xc85f_7c20;
 const A64_STXR_W2_X0_X1: u32 = 0xc802_7c20;
 const A64_HVC_0: u32 = 0xd400_0002;
+const A64_WFE: u32 = 0xd503_205f;
 const A64_WFI: u32 = 0xd503_207f;
 const A64_FMOV_D0_1: u32 = 0x1e6e_1000;
 const A64_FADD_D1_D0_D0: u32 = 0x1e60_2801;
@@ -210,22 +211,58 @@ fn a64_virtual_counter_follows_host_time() {
 }
 
 #[test]
-fn a64_exclusive_monitor_is_cleared_between_runs() {
-    // ldxr x0,[x1]; stxr w2,x0,[x1]; svc -- in one run the store succeeds.
-    let mut cpu = a64(&[A64_LDXR_X0_X1, A64_STXR_W2_X0_X1, A64_SVC_0]);
-    cpu.core_mut().set_x(1, DATA);
-    assert!(matches!(cpu.run(10), A64Exit::Svc { .. }));
-    assert_eq!(
-        cpu.core().get_x(2),
-        0,
-        "STXR succeeds with the monitor held"
-    );
-    // Split across a run boundary (a context switch), the store fails.
+fn a64_exclusive_monitor_survives_same_thread_budget_yields() {
+    // LDXR and STXR are separate host slices of the same guest thread.
     let mut cpu = a64(&[A64_LDXR_X0_X1, A64_STXR_W2_X0_X1, A64_SVC_0]);
     cpu.core_mut().set_x(1, DATA);
     assert_eq!(cpu.run(1), A64Exit::Yield);
-    assert!(matches!(cpu.run(10), A64Exit::Svc { .. }));
-    assert_eq!(cpu.core().get_x(2), 1, "STXR fails after exception return");
+    assert_eq!(cpu.run(1), A64Exit::Yield);
+    assert_eq!(cpu.core().get_x(2), 0, "STXR succeeds after budget yield");
+    assert!(matches!(cpu.run(1), A64Exit::Svc { .. }));
+}
+
+#[test]
+fn a64_exclusive_monitor_survives_completed_wait_hint() {
+    for (hint, name) in [(A64_WFI, "WFI"), (A64_WFE, "WFE")] {
+        let mut cpu = a64(&[A64_LDXR_X0_X1, hint, A64_STXR_W2_X0_X1, A64_SVC_0]);
+        cpu.core_mut().set_x(1, DATA);
+        assert_eq!(cpu.run(1), A64Exit::Yield);
+        assert_eq!(cpu.run(1), A64Exit::Yield, "{name}");
+        assert_eq!(cpu.run(1), A64Exit::Yield);
+        assert_eq!(
+            cpu.core().get_x(2),
+            0,
+            "{name} completion is not an exception"
+        );
+    }
+}
+
+#[test]
+fn a64_exclusive_monitor_clears_on_explicit_thread_switch() {
+    // The OS scheduler clears the outgoing thread's local monitor on an
+    // actual guest TID switch; a host budget yield alone does not do so.
+    let mut cpu = a64(&[A64_LDXR_X0_X1, A64_STXR_W2_X0_X1, A64_SVC_0]);
+    cpu.core_mut().set_x(1, DATA);
+    assert_eq!(cpu.run(1), A64Exit::Yield);
+    cpu.core_mut().clear_exclusive_monitor();
+    assert_eq!(cpu.run(1), A64Exit::Yield);
+    assert_eq!(cpu.core().get_x(2), 1, "STXR fails after a guest switch");
+}
+
+#[test]
+fn a64_exclusive_monitor_clears_on_synchronous_exit() {
+    for exit_insn in [A64_SVC_0, A64_UDF_0] {
+        let mut cpu = a64(&[A64_LDXR_X0_X1, exit_insn, A64_STXR_W2_X0_X1]);
+        cpu.core_mut().set_x(1, DATA);
+        assert_eq!(cpu.run(1), A64Exit::Yield);
+        match exit_insn {
+            A64_SVC_0 => assert!(matches!(cpu.run(1), A64Exit::Svc { .. })),
+            _ => assert!(matches!(cpu.run(1), A64Exit::Undefined { .. })),
+        }
+        cpu.core_mut().set_pc(CODE + 8);
+        assert_eq!(cpu.run(1), A64Exit::Yield);
+        assert_eq!(cpu.core().get_x(2), 1, "exit {exit_insn:#010x} must clear");
+    }
 }
 
 #[test]
