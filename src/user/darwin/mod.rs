@@ -36,6 +36,7 @@
 
 pub mod abi;
 pub mod arch;
+pub mod bridge;
 pub mod commpage;
 pub mod exception;
 pub mod exec;

@@ -6,12 +6,14 @@
 //! reports them at depth 0 with `is_submap` clear.
 
 use super::{Buf, MigResult, Out, OutDesc, Req, ids, is_task, null_port};
+use crate::user::darwin::mach::ipc::{KObject, Right, disp};
 use crate::user::darwin::mach::kr::{self, KernReturn};
 use crate::user::darwin::syscall::Ctx;
+use crate::user::darwin::syscall::mach::entry;
 use crate::user::darwin::syscall::mach::reclaim;
 use crate::user::darwin::syscall::mach::vm as mvm;
 use crate::user::darwin::vm::{self, VmFlags};
-use crate::user::mm::{Backing, Vma};
+use crate::user::mm::{Backing, Mapping, Vma};
 
 /// `VM_REGION_*` flavors.
 mod region {
@@ -76,29 +78,82 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
         m::KERNELRPC_MACH_VM_MAP | v::VM_MAP_64 => {
             req.complex_of(1, 100)?;
             let object = req.take_port(28, &[17, 18, 16, 0])?;
-            if let Some(o) = object {
-                // Memory-entry and pager objects are not modelled.
-                crate::user::darwin::syscall::mach::kmsg::release(ctx.proc, [o]);
-                return Err(kr::KERN_INVALID_OBJECT);
-            }
-            let (addr, size, mask, flags, cur, max, inh) = (
+            let (addr, size, mask, flags, offset, copy, cur, max, inh) = (
                 req.u64(48),
                 req.u64(56),
                 req.u64(64),
                 req.u32(72),
+                req.u64(76),
+                req.u32(84) != 0,
                 req.u32(88),
                 req.u32(92),
                 req.u32(96),
             );
+            // The object's port: its right goes with the request.
+            let port = object.as_ref().and_then(|o| o.port().cloned());
+            if let Some(o) = object {
+                crate::user::darwin::syscall::mach::kmsg::release(ctx.proc, [o]);
+            }
             if max & !vm::VM_PROT_ALL != 0 || inh > 2 || cur & !max != 0 {
                 return Err(kr::KERN_INVALID_ARGUMENT);
             }
-            let a = mvm::map_at(ctx, addr, size, mask, flags, cur)?;
-            let page = ctx.proc.vm.page;
-            let len = (size + page - 1) & !(page - 1);
-            let f = VmFlags::new(max, inh, flags >> 24);
-            let _ = ctx.proc.space.set_flags(a, len, 0x3f, f.bits() & 0x3f);
-            Ok(Out::Simple(Buf::new().u64(a).done()))
+            match port {
+                None => {
+                    let a = mvm::map_at(ctx, addr, size, mask, flags, cur)?;
+                    let page = ctx.proc.vm.page;
+                    let len = (size + page - 1) & !(page - 1);
+                    let f = VmFlags::new(max, inh, flags >> 24);
+                    let _ = ctx.proc.space.set_flags(a, len, 0x3f, f.bits() & 0x3f);
+                    Ok(Out::Simple(Buf::new().u64(a).done()))
+                }
+                // A memory entry behind a proxy; other memory-entry and
+                // pager objects are not modelled.
+                Some(p) => {
+                    let KObject::Proxy(h) = &p.kobject else {
+                        return Err(kr::KERN_INVALID_OBJECT);
+                    };
+                    let (mapping, data) = match crate::user::darwin::bridge::entry_of(ctx.proc, &p)
+                    {
+                        Some(e) => (
+                            entry::mapping(&e, offset, copy, cur, max, inh, flags >> 24),
+                            copy.then(|| entry::contents(&e, offset, size)),
+                        ),
+                        None => {
+                            let data = crate::user::darwin::bridge::map_object(h, size, offset)?;
+                            let mapping = Mapping {
+                                flags: VmFlags::new(max, inh, flags >> 24).bits(),
+                                ..Mapping::anonymous(vm::perms(cur))
+                            };
+                            (mapping, Some(data))
+                        }
+                    };
+                    let a = mvm::map_mapping(ctx, addr, size, mask, flags, mapping)?;
+                    if let Some(d) = data {
+                        ctx.proc
+                            .space
+                            .write_raw(a, &d)
+                            .map_err(|_| kr::KERN_INVALID_ADDRESS)?;
+                    }
+                    Ok(Out::Simple(Buf::new().u64(a).done()))
+                }
+            }
+        }
+        m::MACH_MAKE_MEMORY_ENTRY | v::MACH_MAKE_MEMORY_ENTRY | v::MACH_MAKE_MEMORY_ENTRY_64 => {
+            req.complex_of(1, 68)?;
+            let parent = req.take_port(28, &[17, 18, 16, 0])?;
+            if let Some(p) = parent {
+                // Entries of entries are not modelled.
+                crate::user::darwin::syscall::mach::kmsg::release(ctx.proc, [p]);
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            if !writable {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            let (port, len) = entry::make(ctx, req.u64(48), req.u64(56), req.i32(64))?;
+            Ok(Out::Complex(
+                vec![OutDesc::Port(Some(Right::Send(port)), disp::MOVE_SEND)],
+                Buf::new().u64(len).done(),
+            ))
         }
         m::MACH_VM_INHERIT | v::VM_INHERIT => {
             req.simple(52)?;

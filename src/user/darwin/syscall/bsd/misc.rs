@@ -149,28 +149,31 @@ pub fn csops(ctx: &mut Ctx<'_>, pid: i32, ops: u32, addr: u64, size: u64) -> Sys
     }
 }
 
-/// AMFI's dyld policy call (`amfi_check_dyld_policy_self` through
-/// `__mac_syscall("AMFI", 0x5a, {in_flags, out_ptr})`).
-const AMFI_CHECK_DYLD_POLICY_SELF: i32 = 0x5a;
-
-/// AMFI output flags granted to programs: `@`-paths, `DYLD_*` path and
-/// print variables, fallback paths, failed insertion, and interposing (an
-/// unrestricted, unsigned-developer process).
-const AMFI_DYLD_OUTPUT: u64 = (1 << 0) | (1 << 1) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6);
-
-/// `__mac_syscall(policy, call, arg)`.
-pub fn mac_syscall(ctx: &mut Ctx<'_>, policy: u64, call: i32, arg: u64) -> SysResult {
-    let name = ctx.cstr(policy, 32)?;
-    match (name.as_slice(), call) {
-        (b"AMFI", AMFI_CHECK_DYLD_POLICY_SELF) => {
-            let out = ctx.read_u64(arg + 8)?;
-            ctx.write_u64(out, AMFI_DYLD_OUTPUT)?;
-            Ok(Rv::one(0))
-        }
-        // No policy module answers: ENOSYS, as mac_syscall reports an
-        // unregistered policy.
-        _ => Err(Errno::ENOSYS),
-    }
+/// `gethostuuid(uuid_buf, timeoutp)` (`sys_generic.c`): the machine's
+/// UUID, the host's; the timeout is read first (`EFAULT`), and without a
+/// UUID the call fails `EWOULDBLOCK`.
+pub fn gethostuuid(ctx: &mut Ctx<'_>, buf: u64, timeout: u64) -> SysResult {
+    let t = ctx.read(timeout, 16)?;
+    let sec = i64::from_le_bytes(t[0..8].try_into().expect("8 bytes"));
+    let nsec = i64::from_le_bytes(t[8..16].try_into().expect("8 bytes"));
+    #[cfg(target_os = "macos")]
+    let uuid = {
+        let ts = libc::timespec {
+            tv_sec: sec as libc::time_t,
+            tv_nsec: nsec as libc::c_long,
+        };
+        let mut u = [0u8; 16];
+        // SAFETY: `u` holds a uuid_t and `ts` is a live timespec.
+        (unsafe { libc::gethostuuid(u.as_mut_ptr(), &ts) } == 0).then_some(u)
+    };
+    #[cfg(not(target_os = "macos"))]
+    let uuid: Option<[u8; 16]> = {
+        let _ = (sec, nsec);
+        None
+    };
+    let u = uuid.ok_or(Errno::EWOULDBLOCK)?;
+    ctx.write(buf, &u)?;
+    Ok(Rv::one(0))
 }
 
 /// `kdebug_trace*`, `kdebug_typefilter`: tracing is disabled (the

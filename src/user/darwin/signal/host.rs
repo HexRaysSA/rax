@@ -402,7 +402,9 @@ pub fn fork_host() -> Result<Option<i32>, Errno> {
         restore();
         return Ok(Some(pid));
     }
-    // The child: nothing received yet, and its own wake pipe.
+    // The child: no host Mach rights of the parent's.
+    crate::user::darwin::bridge::forked();
+    // Nothing received yet, and its own wake pipe.
     PENDING.store(0, Ordering::SeqCst);
     CHILD_WHO.store(0, Ordering::SeqCst);
     for s in &SENDER {

@@ -82,7 +82,11 @@ fn swap_or_kill(
     suspend: bool,
 ) -> SysResult {
     match built {
-        Ok(proc) => {
+        Ok(mut proc) => {
+            // The same host process: its host rights stay; the old image's
+            // exported ports go with it.
+            proc.bridge = std::mem::take(&mut ctx.proc.bridge);
+            proc.bridge.exec();
             ctx.proc.exec = Some(Box::new(Swap {
                 proc,
                 chdir,

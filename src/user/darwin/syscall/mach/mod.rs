@@ -1,5 +1,6 @@
 //! Mach traps.
 
+pub mod entry;
 pub mod guard;
 pub mod kmsg;
 pub mod msg;
