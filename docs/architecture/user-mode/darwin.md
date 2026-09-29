@@ -301,6 +301,19 @@ emulator's. A mapping must be shared and lie within the object's size
 host maps the object no further than its end, and each mapping's object has
 an identity of its own, since the host reports none for these objects.
 
+POSIX named semaphores (`sem_open`, `sem_close`, `sem_unlink`, `sem_wait`,
+`sem_trywait`, `sem_post`; `bsd/kern/posix_sem.c`) are the host's too,
+shared by name with every other process, the host checking flags, value,
+existence, and permissions. The name's length (`ENAMETOOLONG` from 31
+bytes with its NUL) and the descriptor table (`EMFILE`) are checked first,
+as XNU does. An open semaphore is a descriptor, not close-on-exec, whose
+number is the `sem_t *`; the other calls refuse a descriptor of another
+kind (`EBADF`). Since the host thread must not block, `sem_wait` takes the
+semaphore when it can and otherwise sleeps, looking again every
+millisecond; a signal ends the wait with `EINTR` whatever `SA_RESTART`
+says, as a Mach semaphore wait aborted by a signal does, and it is a
+cancellation point.
+
 `mach_vm_remap` and `mach_vm_remap_new` (and their `vm_remap` forms) map
 the task's own memory a second time (`syscall::mach::remap`, after
 `vm_map_remap` and `vm_map_remap_extract`). A shared remap maps the memory
@@ -576,7 +589,10 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   itself, and in `procargs` the calling process's `kern.procargs2` and
   `kern.procargs` (count, path, arguments, environment, size queries,
   buffer rules, a short buffer, the appended path, an argument changed in
-  place, a forked child), and in `shared_wait` threads sleeping on the
+  place, a forked child), the POSIX named semaphores of `psem` (the name
+  limit, flags, value, and errors; counting; waits woken by another thread
+  and another process, interrupted by signals, and cancelled; descriptors
+  of another kind; unlinking), and in `shared_wait` threads sleeping on the
   same descriptor (in `poll` and `read`, woken by this process or a child)
   and a kqueue watching one socket both ways.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`

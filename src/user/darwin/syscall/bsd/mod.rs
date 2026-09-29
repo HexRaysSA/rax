@@ -23,6 +23,8 @@ pub mod proc;
 pub mod procinfo;
 pub mod pthread;
 pub mod region;
+#[cfg(target_os = "macos")]
+pub mod sem;
 pub mod shm;
 pub mod sig;
 #[cfg(target_os = "macos")]
@@ -178,6 +180,18 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::FSTATFS64 => file::fstatfs64(ctx, i(0), a[1]),
         nr::STATFS64 => path::statfs64(ctx, a[0], a[1]),
         nr::SHM_OPEN => shm::shm_open(ctx, a[0], u(1), u(2)),
+        #[cfg(target_os = "macos")]
+        nr::SEM_OPEN => sem::sem_open(ctx, a[0], u(1), u(2), u(3)),
+        #[cfg(target_os = "macos")]
+        nr::SEM_CLOSE => sem::sem_close(ctx, a[0]),
+        #[cfg(target_os = "macos")]
+        nr::SEM_UNLINK => sem::sem_unlink(ctx, a[0]),
+        #[cfg(target_os = "macos")]
+        nr::SEM_WAIT | nr::SEM_WAIT_NOCANCEL => sem::sem_wait(ctx, a[0]),
+        #[cfg(target_os = "macos")]
+        nr::SEM_TRYWAIT => sem::sem_trywait(ctx, a[0]),
+        #[cfg(target_os = "macos")]
+        nr::SEM_POST => sem::sem_post(ctx, a[0]),
         nr::SHM_UNLINK => shm::shm_unlink(ctx, a[0]),
         nr::GETFSSTAT64 => file::getfsstat64(ctx, a[0], i(1), i(2)),
         nr::POLL | nr::POLL_NOCANCEL => file::poll(ctx, a[0], u(1), i(2)),

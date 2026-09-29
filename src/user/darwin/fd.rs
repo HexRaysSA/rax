@@ -29,6 +29,8 @@ pub enum FileKind {
     Kqueue(u64),
     /// A POSIX shared memory object (`shm_open`), the host's.
     Shm(OwnedFd),
+    /// A POSIX named semaphore (`sem_open`), the host's.
+    Sem(OwnedFd),
 }
 
 /// An open file description.
@@ -65,7 +67,9 @@ impl OpenFile {
     /// The host descriptor, if this is a host file.
     pub fn host_fd(&self) -> Option<RawFd> {
         match &self.kind {
-            FileKind::Host(fd) | FileKind::Socket(fd) | FileKind::Shm(fd) => Some(fd.as_raw_fd()),
+            FileKind::Host(fd) | FileKind::Socket(fd) | FileKind::Shm(fd) | FileKind::Sem(fd) => {
+                Some(fd.as_raw_fd())
+            }
             FileKind::Kqueue(_) => None,
         }
     }

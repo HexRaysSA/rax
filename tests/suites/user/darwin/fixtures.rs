@@ -518,6 +518,16 @@ fn procargs_x86_64() {
 }
 
 #[test]
+fn psem_arm64() {
+    fixture("psem", "arm64", &[], &[]);
+}
+
+#[test]
+fn psem_x86_64() {
+    fixture("psem", "x86_64", &[], &[]);
+}
+
+#[test]
 fn shared_wait_arm64() {
     fixture("shared_wait", "arm64", &[], &[]);
 }

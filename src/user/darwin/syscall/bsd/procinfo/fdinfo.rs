@@ -34,6 +34,7 @@ pub mod dtype {
     pub const VNODE: u32 = 1;
     pub const SOCKET: u32 = 2;
     pub const PSXSHM: u32 = 3;
+    pub const PSXSEM: u32 = 4;
     pub const KQUEUE: u32 = 5;
     pub const PIPE: u32 = 6;
 }
@@ -58,6 +59,7 @@ pub fn dtype(file: &FileRef) -> u32 {
     match &file.kind {
         FileKind::Kqueue(_) => dtype::KQUEUE,
         FileKind::Shm(_) => dtype::PSXSHM,
+        FileKind::Sem(_) => dtype::PSXSEM,
         FileKind::Socket(_) => dtype::SOCKET,
         FileKind::Host(fd) => {
             use std::os::fd::AsRawFd;
@@ -79,7 +81,7 @@ fn flavor(flavor: i32, null: bool) -> Option<(u32, Option<(u32, Errno)>)> {
         f::VNODEINFO => (176, Some((dtype::VNODE, Errno::EBADF))),
         f::VNODEPATHINFO => (1200, Some((dtype::VNODE, Errno::EBADF))),
         f::SOCKETINFO => (792, Some((dtype::SOCKET, Errno::ENOTSOCK))),
-        f::PSEMINFO => (1184, Some((4, Errno::EBADF))),
+        f::PSEMINFO => (1184, Some((dtype::PSXSEM, Errno::EBADF))),
         f::PSHMINFO => (1192, Some((dtype::PSXSHM, Errno::EBADF))),
         f::PIPEINFO => (184, Some((dtype::PIPE, Errno::EBADF))),
         f::KQUEUEINFO => (168, Some((dtype::KQUEUE, Errno::EBADF))),
@@ -125,7 +127,7 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
     };
     match &file.kind {
         FileKind::Kqueue(kq) => kqueue(ctx, a, *kq, Some(flags)),
-        FileKind::Host(h) | FileKind::Socket(h) | FileKind::Shm(h) => {
+        FileKind::Host(h) | FileKind::Socket(h) | FileKind::Shm(h) | FileKind::Sem(h) => {
             use std::os::fd::AsRawFd;
             let h = h.as_raw_fd();
             let mut buf = vec![0u8; size as usize];

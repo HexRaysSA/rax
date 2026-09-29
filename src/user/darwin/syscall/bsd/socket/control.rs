@@ -73,8 +73,14 @@ fn kind(h: OwnedFd) -> FileKind {
     {
         return FileKind::Socket(h);
     }
-    // A POSIX shared memory object answers PROC_PIDFDPSHMINFO (5).
+    // A POSIX semaphore answers PROC_PIDFDPSEMINFO (4).
     let mut info = [0u8; 1192];
+    // SAFETY: `info` holds more than the 1184 bytes of `struct psem_fdinfo`.
+    let n = unsafe { libc::proc_pidfdinfo(libc::getpid(), raw, 4, info.as_mut_ptr().cast(), 1184) };
+    if n > 0 {
+        return FileKind::Sem(h);
+    }
+    // A POSIX shared memory object answers PROC_PIDFDPSHMINFO (5).
     // SAFETY: `info` holds the 1192 bytes of `struct pshm_fdinfo`.
     let n = unsafe {
         libc::proc_pidfdinfo(
