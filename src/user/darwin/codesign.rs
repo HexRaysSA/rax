@@ -470,15 +470,25 @@ fn harvest(proc: &mut Proc) -> Option<Signature> {
         // Its SIGCHLD is not the guest's.
         proc.hidden.insert(pid);
         let sig = ask(pid);
-        // SAFETY: `pid` is the suspended child spawned above.
-        unsafe {
-            libc::kill(pid, libc::SIGKILL);
-            // Reaped here, never the guest's to wait for: the emulator's
-            // signal handlers (its SIGCHLD's among them) interrupt the wait.
-            let mut status = 0;
-            while libc::waitpid(pid, &mut status, 0) < 0
-                && std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR)
-            {}
+        // Reaped here, never the guest's to wait for. A SIGKILL can race
+        // the new process's suspension and be lost (psignal's SIGKILL case
+        // notes such races), leaving it suspended forever, so the signal
+        // is sent again until the child is gone; the unreaped child keeps
+        // its pid, so every signal reaches it. The emulator's signal
+        // handlers (its SIGCHLD's among them) may interrupt the wait.
+        let mut status = 0;
+        loop {
+            // SAFETY: `pid` is the unreaped child spawned above.
+            let r = unsafe {
+                libc::kill(pid, libc::SIGKILL);
+                libc::waitpid(pid, &mut status, libc::WNOHANG)
+            };
+            if r == pid
+                || (r < 0 && std::io::Error::last_os_error().raw_os_error() != Some(libc::EINTR))
+            {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
         }
         sig
     }
