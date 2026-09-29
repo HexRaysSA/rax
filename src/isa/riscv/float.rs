@@ -450,9 +450,12 @@ pub fn add<F: Sf>(a: F, b: F, mode: RoundingMode, flags: &mut u32) -> F {
             return F::ZERO.neg();
         }
     }
-    // 2Sum exact residual: a + b == r + e.
-    let bv = r.sub(a);
-    let e = a.sub(r.sub(bv)).add(b.sub(bv));
+    // Fast2Sum exact residual: a + b == r + e requires |a| >= |b|; without
+    // the ordering, r - a can overflow the finite range (e.g. near
+    // ±max_finite midpoints) and poison the residual with a NaN.
+    let (hi, lo) = if a.abs() >= b.abs() { (a, b) } else { (b, a) };
+    let bv = r.sub(hi);
+    let e = hi.sub(r.sub(bv)).add(lo.sub(bv));
     correct(r, e, mode, true, flags)
 }
 
@@ -2231,5 +2234,60 @@ mod tests {
         let x64: u64 = 0x0123_4567_89AB_CDEF;
         assert_eq!(bits_to_u64::<f64>(x64), x64);
         assert_eq!(u64_to_bits::<f64>(x64), x64);
+    }
+
+    #[test]
+    fn add_directed_rounding_is_exact_at_max_finite_midpoints() {
+        // a + (-max_finite) is a half-ulp tie in the top binade: the host
+        // 2Sum residual r - a overflows to +/-inf, so the residual becomes
+        // NaN unless the addends are ordered by magnitude first. Without the
+        // ordering, RTZ/RUP return the RNE tie value and RDN returns one ulp
+        // beyond the tie.
+        let a = f32::from_bits(0x7eee_250f);
+        let b = f32::from_bits(0xff7f_ffff); // -max_finite
+        let mut flags = 0;
+        // Exact sum is -(8973687.5)*2^104: RTZ and RUP round to -8973687*2^104.
+        assert_eq!(
+            add(a, b, RoundingMode::Rtz, &mut flags).to_bits(),
+            0xff08_ed77,
+            "RTZ must round toward zero at the midpoint"
+        );
+        assert_eq!(
+            add(a, b, RoundingMode::Rup, &mut flags).to_bits(),
+            0xff08_ed77,
+            "RUP must round toward +inf at the midpoint"
+        );
+        // RDN and RNE round to -8973688*2^104 (ties-to-even picks the even
+        // significand for RNE; RDN goes one ulp below the midpoint).
+        assert_eq!(
+            add(a, b, RoundingMode::Rdn, &mut flags).to_bits(),
+            0xff08_ed78,
+            "RDN must round toward -inf at the midpoint"
+        );
+        assert_eq!(
+            add(a, b, RoundingMode::Rne, &mut flags).to_bits(),
+            0xff08_ed78,
+            "RNE must resolve the tie to the even significand"
+        );
+        assert_eq!(flags & fflags::NX, fflags::NX, "midpoint rounds set NX");
+    }
+
+    #[test]
+    fn add_d_directed_rounding_is_exact_at_max_finite_midpoints() {
+        // Double-precision variant of the same midpoint defect.
+        let a = f64::from_bits(0x7fdf_2bae_0789_dc8b);
+        let b = f64::from_bits(0xffef_ffff_ffff_ffff); // -max_finite
+        let mut flags = 0;
+        assert_eq!(
+            add(a, b, RoundingMode::Rtz, &mut flags).to_bits(),
+            0xffe0_6a28_fc3b_11b9,
+            "RTZ must round toward zero at the midpoint"
+        );
+        assert_eq!(
+            add(a, b, RoundingMode::Rne, &mut flags).to_bits(),
+            0xffe0_6a28_fc3b_11ba,
+            "RNE must resolve the tie to the even significand"
+        );
+        assert_eq!(flags & fflags::NX, fflags::NX, "midpoint rounds set NX");
     }
 }
