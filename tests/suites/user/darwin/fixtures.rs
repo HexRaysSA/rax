@@ -516,3 +516,13 @@ fn procargs_arm64() {
 fn procargs_x86_64() {
     fixture("procargs", "x86_64", &["one", "two words"], &[]);
 }
+
+#[test]
+fn shared_wait_arm64() {
+    fixture("shared_wait", "arm64", &[], &[]);
+}
+
+#[test]
+fn shared_wait_x86_64() {
+    fixture("shared_wait", "x86_64", &[], &[]);
+}

@@ -62,7 +62,10 @@ on x86-64, `TPIDRRO_EL0` on arm64). Results follow each call's
 `sy_return_type`. A call that must sleep records a `Wait` and returns
 `ERESTART`, which backs the PC up over the trap so the call runs again when
 its thread wakes; all guest threads run on one host thread (one emulated
-CPU, `hw.ncpu` = 1).
+CPU, `hw.ncpu` = 1). The host descriptors the sleeping threads wait on are
+polled together, each once for every readiness asked of it (the host
+answers a descriptor listed twice in only one entry), and each waiter is
+woken for the direction it waits for.
 
 ## Mach IPC
 
@@ -573,7 +576,9 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   itself, and in `procargs` the calling process's `kern.procargs2` and
   `kern.procargs` (count, path, arguments, environment, size queries,
   buffer rules, a short buffer, the appended path, an argument changed in
-  place, a forked child).
+  place, a forked child), and in `shared_wait` threads sleeping on the
+  same descriptor (in `poll` and `read`, woken by this process or a child)
+  and a kqueue watching one socket both ways.
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

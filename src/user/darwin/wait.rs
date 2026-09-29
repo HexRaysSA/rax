@@ -123,13 +123,30 @@ pub fn sleep(fds: &[(i32, bool, bool)], deadline: Option<Instant>) -> Vec<bool> 
     poll(fds, timeout)
 }
 
+/// Polls `fds` (each `(fd, read, write)`), answering every entry.
+///
+/// Each descriptor is polled once for every readiness asked of it: the
+/// host reports a descriptor listed more than once in only one of its
+/// entries, which would leave the others (other threads waiting on it)
+/// unanswered. An entry is ready when its descriptor is ready for what the
+/// entry asks, or has hung up, failed, or is not open.
 fn poll(fds: &[(i32, bool, bool)], timeout: Option<Duration>) -> Vec<bool> {
-    let mut pfds: Vec<libc::pollfd> = fds
+    let mut pfds: Vec<libc::pollfd> = Vec::with_capacity(fds.len());
+    let mut index = std::collections::HashMap::with_capacity(fds.len());
+    let slots: Vec<usize> = fds
         .iter()
-        .map(|&(fd, r, w)| libc::pollfd {
-            fd,
-            events: (if r { libc::POLLIN } else { 0 }) | (if w { libc::POLLOUT } else { 0 }),
-            revents: 0,
+        .map(|&(fd, r, w)| {
+            let events = (if r { libc::POLLIN } else { 0 }) | (if w { libc::POLLOUT } else { 0 });
+            let i = *index.entry(fd).or_insert_with(|| {
+                pfds.push(libc::pollfd {
+                    fd,
+                    events: 0,
+                    revents: 0,
+                });
+                pfds.len() - 1
+            });
+            pfds[i].events |= events;
+            i
         })
         .collect();
     let ms = match timeout {
@@ -145,11 +162,13 @@ fn poll(fds: &[(i32, bool, bool)], timeout: Option<Duration>) -> Vec<bool> {
     if n <= 0 {
         return vec![false; fds.len()];
     }
-    pfds.iter()
-        .map(|p| {
-            p.revents
-                & (libc::POLLIN | libc::POLLOUT | libc::POLLHUP | libc::POLLERR | libc::POLLNVAL)
-                != 0
+    fds.iter()
+        .zip(slots)
+        .map(|(&(_, r, w), i)| {
+            let got = pfds[i].revents;
+            got & (libc::POLLHUP | libc::POLLERR | libc::POLLNVAL) != 0
+                || (r && got & libc::POLLIN != 0)
+                || (w && got & libc::POLLOUT != 0)
         })
         .collect()
 }
@@ -175,6 +194,29 @@ mod tests {
         unsafe {
             libc::close(fds[0]);
             libc::close(fds[1]);
+        }
+    }
+
+    #[test]
+    fn every_entry_for_a_descriptor_is_answered_for_its_direction() {
+        let mut sv = [0i32; 2];
+        // SAFETY: `sv` has room for the two descriptors socketpair writes.
+        assert_eq!(
+            unsafe { libc::socketpair(libc::AF_UNIX, libc::SOCK_STREAM, 0, sv.as_mut_ptr()) },
+            0
+        );
+        let s = sv[0];
+        // Two waiters reading and one writing: the socket is writable only.
+        let entries = [(s, true, false), (s, true, false), (s, false, true)];
+        assert_eq!(ready_now(&entries), vec![false, false, true]);
+        // SAFETY: writing one byte from a live buffer to our socket.
+        assert_eq!(unsafe { libc::write(sv[1], b"x".as_ptr().cast(), 1) }, 1);
+        assert_eq!(ready_now(&entries), vec![true, true, true]);
+        assert_eq!(sleep(&entries[..2], None), vec![true, true]);
+        // SAFETY: closing the descriptors this test created.
+        unsafe {
+            libc::close(sv[0]);
+            libc::close(sv[1]);
         }
     }
 }
