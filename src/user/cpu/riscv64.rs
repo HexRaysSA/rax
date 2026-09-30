@@ -202,6 +202,9 @@ impl RvUserCpu {
     /// Runs at most `budget` instructions, stopping at the first operating
     /// system event.
     pub fn run(&mut self, budget: u64) -> RvExit {
+        if !self.space.available() {
+            return RvExit::Internal("guest memory arena is inaccessible".into());
+        }
         // `ticks = ns * 10 MHz / 1e9 = ns / 100`.
         self.cpu
             .set_time(host_nanos() / (1_000_000_000 / TIMEBASE_HZ));

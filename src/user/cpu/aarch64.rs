@@ -232,6 +232,9 @@ impl A64UserCpu {
     /// Runs at most `budget` instructions, stopping at the first operating
     /// system event.
     pub fn run(&mut self, budget: u64) -> A64Exit {
+        if !self.space.available() {
+            return A64Exit::Internal("guest memory arena is inaccessible".into());
+        }
         // The system counter advances with host time: CNTFRQ_EL0 ticks per
         // second. `ticks = ns * freq / 1e9`, computed in 128 bits so neither
         // factor overflows.

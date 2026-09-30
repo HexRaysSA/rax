@@ -7,11 +7,14 @@ use super::PAGE_SIZE;
 use super::shared::SharedObject;
 
 /// Identity of a mapped object, shown in `/proc/self/maps`.
+/// Windows file identities use a process-local token that remains stable
+/// while any mapping source of that file lives; native 192-bit identities
+/// are compared in full, rather than truncated into these two words.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SourceIdentity {
-    /// Device number (`st_dev`).
+    /// Device number (`st_dev` on Unix), or a synthetic identity namespace.
     pub dev: u64,
-    /// Inode number (`st_ino`).
+    /// Inode number (`st_ino` on Unix), or the namespace's object token.
     pub ino: u64,
 }
 
@@ -90,27 +93,10 @@ impl HostFileSource {
 
     /// [`HostFileSource::new`], keeping `keep` while it lives.
     pub fn keeping(file: std::fs::File, keep: Option<super::Keep>) -> std::io::Result<Self> {
-        let identity = file_identity(&file)?;
-        Ok(HostFileSource {
-            file: super::mapped_file::MappedFile::keeping(file, keep),
-            identity,
-        })
+        let file = super::mapped_file::MappedFile::keeping(file, keep);
+        let identity = file.identity()?;
+        Ok(HostFileSource { file, identity })
     }
-}
-
-#[cfg(unix)]
-fn file_identity(file: &std::fs::File) -> std::io::Result<SourceIdentity> {
-    use std::os::unix::fs::MetadataExt;
-    let m = file.metadata()?;
-    Ok(SourceIdentity {
-        dev: m.dev(),
-        ino: m.ino(),
-    })
-}
-
-#[cfg(not(unix))]
-fn file_identity(_file: &std::fs::File) -> std::io::Result<SourceIdentity> {
-    Ok(SourceIdentity::default())
 }
 
 impl PageSource for HostFileSource {
@@ -119,25 +105,7 @@ impl PageSource for HostFileSource {
     }
 
     fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
-        let mut done = 0;
-        while done < buf.len() {
-            #[cfg(unix)]
-            let n = {
-                use std::os::unix::fs::FileExt;
-                self.file.read_at(&mut buf[done..], offset + done as u64)?
-            };
-            #[cfg(windows)]
-            let n = {
-                use std::os::windows::fs::FileExt;
-                self.file
-                    .seek_read(&mut buf[done..], offset + done as u64)?
-            };
-            if n == 0 {
-                break;
-            }
-            done += n;
-        }
-        Ok(done)
+        self.file.read_at(offset, buf)
     }
 
     fn identity(&self) -> SourceIdentity {

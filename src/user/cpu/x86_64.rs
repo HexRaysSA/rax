@@ -124,6 +124,9 @@ impl X86UserCpu {
 
     /// Runs until an operating-system event or the end of the time slice.
     pub fn run(&mut self) -> X86Exit {
+        if !self.space.available() {
+            return X86Exit::Internal(Error::Emulator("guest memory arena is inaccessible".into()));
+        }
         self.sync_code();
         let result = self.vcpu.run();
         self.exit(result)
@@ -132,6 +135,9 @@ impl X86UserCpu {
     /// Runs exactly one instruction with the core's precise step (never
     /// native code); [`X86Exit::Yield`] when it retired without an event.
     pub fn step(&mut self) -> X86Exit {
+        if !self.space.available() {
+            return X86Exit::Internal(Error::Emulator("guest memory arena is inaccessible".into()));
+        }
         self.sync_code();
         let result = self
             .vcpu

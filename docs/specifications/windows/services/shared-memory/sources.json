@@ -1,0 +1,162 @@
+[
+  {
+    "file": "nf-memoryapi-mapviewoffile3.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-mapviewoffile3.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "e6d244db311666117ad3aac02e864c61ce01f2b6216e8045f1f18347f0e6ed7b"
+  },
+  {
+    "file": "nf-memoryapi-virtualalloc2.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-virtualalloc2.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "76f877755a1222097e5a3a050379418f4a69bf0233cdee46269b9541a9a41422"
+  },
+  {
+    "file": "nf-memoryapi-mapviewoffile.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-mapviewoffile.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "db647358c46781f8a4344ab74b80fafa7942b14fce597b279a51aca7360603ab"
+  },
+  {
+    "file": "ns-winbase-file_id_info.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/ns-winbase-file_id_info.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "010d7f24b1bdafc79f80bd6225775f5df2eb22ee2ea093d105c588cbaca61929"
+  },
+  {
+    "file": "nf-winbase-getfileinformationbyhandleex.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/nf-winbase-getfileinformationbyhandleex.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "f25628d27879e3d67c3ce2bacf97d9044109087f0723f6c3794f1a81158a7cbf"
+  },
+  {
+    "file": "ne-minwinbase-file_info_by_handle_class.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/minwinbase/ne-minwinbase-file_info_by_handle_class.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "e78be7f0edcd63c924f9ddc5070c613bbced74a469c1e0c111927d8301fceede"
+  },
+  {
+    "file": "LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/LICENSE",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "vm-memory-0.17.1-windows.rs",
+    "source": "https://github.com/rust-vmm/vm-memory/blob/75f3b2c96dc75920ae7e9171ee0eef4b0adb2d21/src/mmap/windows.rs",
+    "publisher": "rust-vmm",
+    "version": "0.17.1",
+    "retrieved": "2026-09-30",
+    "sha256": "04ce38cdc7dbaba13bca64240618b19a9a70d18c09d62f694360b291e176d670",
+    "crate": "https://crates.io/api/v1/crates/vm-memory/0.17.1/download"
+  },
+  {
+    "file": "vm-memory-LICENSE-APACHE",
+    "source": "https://github.com/rust-vmm/vm-memory/blob/75f3b2c96dc75920ae7e9171ee0eef4b0adb2d21/LICENSE-APACHE",
+    "publisher": "rust-vmm",
+    "version": "0.17.1",
+    "retrieved": "2026-09-30",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "crate": "https://crates.io/api/v1/crates/vm-memory/0.17.1/download"
+  },
+  {
+    "file": "vm-memory-LICENSE-BSD-3-Clause",
+    "source": "https://github.com/rust-vmm/vm-memory/blob/75f3b2c96dc75920ae7e9171ee0eef4b0adb2d21/LICENSE-BSD-3-Clause",
+    "publisher": "rust-vmm",
+    "version": "0.17.1",
+    "retrieved": "2026-09-30",
+    "sha256": "a6d3ebd1c2f37d4fd83d0676621f695fc0cc2d8c6e646cdbb831b46e0650c208",
+    "crate": "https://crates.io/api/v1/crates/vm-memory/0.17.1/download"
+  },
+  {
+    "file": "nf-memoryapi-createfilemappingw.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-createfilemappingw.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "15ccc42fc6c97f3039e21a8a5c9ea45b04d5a53692ae20ac48b0c6927d644f56"
+  },
+  {
+    "file": "nf-memoryapi-unmapviewoffile.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-unmapviewoffile.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "b2ee1e9c6e22363f36ec0a4c7ba8c220721d08a8b8260dc58c13db254d6c579f"
+  },
+  {
+    "file": "nf-memoryapi-readprocessmemory.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-readprocessmemory.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "b79bd9aea5bd69eb59ce791f4aa3cfa8933bb0403184cfdfdb6fa059ea9422d5"
+  },
+  {
+    "file": "nf-memoryapi-writeprocessmemory.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-writeprocessmemory.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "2ca1a4ffa61d571c746a71992302565f1c7468417e49ece9827f60e49ac0d231"
+  },
+  {
+    "file": "nf-memoryapi-flushviewoffile.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-flushviewoffile.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "3a52b71f1ef2690e9bb360e37ee8d8f1ed58fae5346ac1deeefb3136ae8fd261"
+  },
+  {
+    "file": "nf-sysinfoapi-getsysteminfo.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/sysinfoapi/nf-sysinfoapi-getsysteminfo.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "627144edbf140b7d75a933c563cfbd8a559c09548058ca2e52e323687792f787"
+  },
+  {
+    "file": "ns-sysinfoapi-system_info.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/sysinfoapi/ns-sysinfoapi-system_info.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "fce1914f8c7f3464b5ef56f0a0e8272a15f1c11a45d3ebe56c43a9cadde0d9a6"
+  },
+  {
+    "file": "nf-processthreadsapi-openprocess.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-openprocess.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "7201ba3494356422dfd75d102c601ef9d74ab57784de84c9acfbd07f71fdc427"
+  },
+  {
+    "file": "nf-synchapi-waitforsingleobject.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/synchapi/nf-synchapi-waitforsingleobject.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "29474b87ad9e518fbb7e7bc1d2169646f8f3b00c7e6d332f64309c16a8b038dd"
+  },
+  {
+    "file": "ns-winbase-file_standard_info.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/ns-winbase-file_standard_info.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "89eeff1db5614695b29965e6be0e1e270b2e22f3cb5f10df507a743c87e3588b"
+  },
+  {
+    "file": "nf-memoryapi-virtualfree.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-virtualfree.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "d49c1933b5a0b65b855e684610172b269c6c9b075616765d53ee8e2cb96168ae"
+  },
+  {
+    "file": "nf-memoryapi-unmapviewoffile2.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/memoryapi/nf-memoryapi-unmapviewoffile2.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "39d735dec115fd449a85e17acb0e83d0a1fb19b6ba6f06296cee12316d836e11"
+  }
+]

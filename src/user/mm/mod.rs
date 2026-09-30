@@ -44,6 +44,12 @@ pub mod pagetable;
 mod shared;
 mod shared_words;
 mod vma;
+#[cfg(windows)]
+mod windows_arena;
+#[cfg(windows)]
+mod windows_file;
+#[cfg(any(windows, test))]
+mod windows_identity;
 
 #[cfg(test)]
 mod tests;
@@ -529,7 +535,7 @@ impl AddressSpace {
             let key = a.key;
             ext.at.remove(&base);
             ext.by_key.remove(&key);
-            #[cfg(unix)]
+            #[cfg(any(unix, windows))]
             self.inner.arena.detach(base);
             self.inner.arena.free_extent(base);
         }
@@ -615,7 +621,7 @@ impl AddressSpace {
                     bases.insert((pte & PTE_FRAME) & !(EXTENT - 1));
                 }
             });
-        #[cfg(unix)]
+        #[cfg(any(unix, windows))]
         for base in bases {
             arena.sync(base)?;
         }
@@ -694,6 +700,9 @@ impl AddressSpace {
     /// on first touch. Returns the guest-physical address in the arena.
     #[inline]
     pub fn translate(&self, addr: u64, access: MemoryAccessKind) -> Result<u64, GuestMemoryFault> {
+        if !self.available() {
+            return Err(fault(addr, access, MemoryFaultKind::Other));
+        }
         if addr >= self.inner.va_limit {
             return Err(fault(addr, access, MemoryFaultKind::Unmapped));
         }
@@ -718,6 +727,9 @@ impl AddressSpace {
         addr: u64,
         access: MemoryAccessKind,
     ) -> Result<u64, GuestMemoryFault> {
+        if !self.available() {
+            return Err(fault(addr, access, MemoryFaultKind::Other));
+        }
         if addr >= self.inner.va_limit {
             return Err(fault(addr, access, MemoryFaultKind::Unmapped));
         }
@@ -1002,6 +1014,13 @@ impl AddressSpace {
             .store(log.base + log.entries.len() as u64, Ordering::Release);
     }
 
+    /// Whether the physical arena remains accessible after host mapping operations.
+    /// CPU adapters must check this before using cached host pointers.
+    #[inline]
+    pub fn available(&self) -> bool {
+        self.inner.arena.available()
+    }
+
     /// The current code-change epoch.
     #[inline]
     pub fn code_epoch(&self) -> u64 {
@@ -1044,7 +1063,15 @@ fn attach(arena: &FrameArena, base: u64, object: &SharedObject, start: u64) -> R
         };
         attached.map_err(|_| MmError::OutOfMemory)
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    {
+        let len = object.extent_len(start, arena::EXTENT, PAGE_SIZE);
+        let file = object.host_file().ok_or(MmError::OutOfMemory)?;
+        arena
+            .attach(base, file, start, len, object.writable())
+            .map_err(|_| MmError::OutOfMemory)
+    }
+    #[cfg(not(any(unix, windows)))]
     {
         let _ = (arena, base, object, start);
         Err(MmError::OutOfMemory)

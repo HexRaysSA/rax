@@ -49,6 +49,8 @@ pub const EXTENT: u64 = 256 << 10;
 #[derive(Debug)]
 pub struct FrameArena {
     mem: Arc<GuestMemoryMmap>,
+    #[cfg(windows)]
+    windows: Option<Arc<super::windows_arena::WindowsArena>>,
     size: u64,
     reserved: Vec<(u64, u64)>,
     state: Mutex<ArenaState>,
@@ -62,10 +64,37 @@ impl FrameArena {
         if size < PAGE_SIZE || size > usize::MAX as u64 {
             return Err(MmError::InvalidArgument("arena size"));
         }
+        #[cfg(windows)]
+        let windows = super::windows_arena::WindowsArena::new(size as usize)
+            .map_err(|_| MmError::OutOfMemory)?;
+        #[cfg(windows)]
+        let mem = if let Some(owner) = &windows {
+            // SAFETY: owner retains the entire reservation through all memory
+            // clones. Mapping changes are serialized with guest execution;
+            // failed rollback revokes both checked access and CPU entry.
+            let region = unsafe {
+                vm_memory::MmapRegion::<()>::from_raw_with_access(
+                    owner.as_ptr(),
+                    size as usize,
+                    owner.clone(),
+                    owner.clone(),
+                )
+            }
+            .map_err(|_| MmError::OutOfMemory)?;
+            let region = vm_memory::GuestRegionMmap::new(region, GuestAddress(0))
+                .ok_or(MmError::OutOfMemory)?;
+            GuestMemoryMmap::from_regions(vec![region]).map_err(|_| MmError::OutOfMemory)?
+        } else {
+            GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), size as usize)])
+                .map_err(|_| MmError::OutOfMemory)?
+        };
+        #[cfg(not(windows))]
         let mem = GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), size as usize)])
             .map_err(|_| MmError::OutOfMemory)?;
         Ok(FrameArena {
             mem: Arc::new(mem),
+            #[cfg(windows)]
+            windows,
             size,
             reserved: reserved.to_vec(),
             state: Mutex::new(ArenaState {
@@ -81,6 +110,26 @@ impl FrameArena {
     /// The guest-physical memory holding every frame.
     pub fn memory(&self) -> &Arc<GuestMemoryMmap> {
         &self.mem
+    }
+
+    /// False only when a host mapping replacement could not be restored.
+    #[inline]
+    pub fn available(&self) -> bool {
+        #[cfg(windows)]
+        {
+            self.windows.as_ref().is_none_or(|owner| owner.available())
+        }
+        #[cfg(not(windows))]
+        {
+            true
+        }
+    }
+
+    #[cfg(all(windows, test))]
+    pub(super) fn windows_owner(&self) -> &Arc<super::windows_arena::WindowsArena> {
+        self.windows
+            .as_ref()
+            .expect("native test requires placeholder APIs")
     }
 
     /// Arena capacity in bytes.
@@ -101,6 +150,9 @@ impl FrameArena {
 
     /// Allocates a zero-filled frame and returns its guest-physical address.
     pub fn alloc_zeroed(&self) -> Result<u64, MmError> {
+        if !self.available() {
+            return Err(MmError::OutOfMemory);
+        }
         let mut st = self.state.lock().unwrap();
         if let Some(frame) = st.free.pop() {
             st.in_use += 1;
@@ -134,6 +186,9 @@ impl FrameArena {
     /// Allocates an extent for a shared mapping and returns its
     /// guest-physical address (a multiple of [`EXTENT`]).
     pub fn alloc_extent(&self) -> Result<u64, MmError> {
+        if !self.available() {
+            return Err(MmError::OutOfMemory);
+        }
         let mut st = self.state.lock().unwrap();
         if let Some(pa) = st.free_extents.pop() {
             return Ok(pa);
@@ -213,6 +268,47 @@ impl FrameArena {
             return Err(std::io::Error::last_os_error());
         }
         Ok(())
+    }
+
+    /// Attaches a file view while retaining the arena's virtual reservation.
+    #[cfg(windows)]
+    pub fn attach(
+        &self,
+        pa: u64,
+        file: &std::fs::File,
+        offset: u64,
+        len: u64,
+        writable: bool,
+    ) -> std::io::Result<()> {
+        self.windows
+            .as_ref()
+            .ok_or(std::io::ErrorKind::Unsupported)?
+            .attach(
+                usize::try_from(pa).map_err(|_| std::io::ErrorKind::InvalidInput)?,
+                file,
+                offset,
+                usize::try_from(len).map_err(|_| std::io::ErrorKind::InvalidInput)?,
+                writable,
+            )
+    }
+
+    /// Restores private pages. Failed restoration quarantines the arena.
+    #[cfg(windows)]
+    pub fn detach(&self, pa: u64) {
+        if let Some(owner) = &self.windows {
+            // A restored old view is still reserved and replaceable. A failed
+            // rollback makes available() false and prevents allocator reuse.
+            let _ = owner.detach(pa as usize);
+        }
+    }
+
+    /// Flushes the mapped shared portions of this extent.
+    #[cfg(windows)]
+    pub fn sync(&self, pa: u64) -> std::io::Result<()> {
+        self.windows
+            .as_ref()
+            .ok_or(std::io::ErrorKind::Unsupported)?
+            .sync(pa as usize)
     }
 
     /// Lays `len` bytes (at most [`EXTENT`], a multiple of the host page)

@@ -45,12 +45,19 @@ use crate::user::mm::AddressSpace;
 /// Memory operations required by the AArch32 user-mode executor. Embedders
 /// may supply their own mapped storage while retaining the same CPU semantics.
 pub trait A32AddressSpace: Clone + std::fmt::Debug {
+    /// Whether execution may use this memory. Custom storage defaults to live.
+    fn available(&self) -> bool {
+        true
+    }
     fn read(&self, addr: u64, bytes: &mut [u8]) -> Result<(), GuestMemoryFault>;
     fn write(&self, addr: u64, bytes: &[u8]) -> Result<(), GuestMemoryFault>;
     fn fetch(&self, addr: u64, bytes: &mut [u8]) -> Result<(), GuestMemoryFault>;
 }
 
 impl A32AddressSpace for AddressSpace {
+    fn available(&self) -> bool {
+        AddressSpace::available(self)
+    }
     fn read(&self, addr: u64, bytes: &mut [u8]) -> Result<(), GuestMemoryFault> {
         AddressSpace::read(self, addr, bytes)
     }
@@ -251,6 +258,11 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
     /// a thread switch. The monitor survives ordinary instruction boundaries
     /// and is cleared when an architectural event is returned.
     pub fn step_instruction(&mut self) -> Option<A32Exit> {
+        if !self.mem.space.available() {
+            return Some(A32Exit::Internal(
+                "guest memory arena is inaccessible".into(),
+            ));
+        }
         let freq = u128::from(self.cpu.cp15.cntfrq);
         self.cpu.cp15.cntpct = (u128::from(super::host_nanos()) * freq / 1_000_000_000) as u64;
         let exit = self.step();
@@ -291,6 +303,9 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
     /// Runs at most `budget` instructions, stopping at the first operating
     /// system event.
     pub fn run(&mut self, budget: u64) -> A32Exit {
+        if !self.mem.space.available() {
+            return A32Exit::Internal("guest memory arena is inaccessible".into());
+        }
         // Returning to the thread is an exception return, which takes the
         // PC's bit 0 (T32) or bits 1:0 (A32) as zero
         // (AArch64.ExceptionReturn).

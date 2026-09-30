@@ -233,3 +233,9 @@ overlap or mutation behavior remain unknown.
 rejected ranges, and access rejection for unavailable memory. Its four tests
 run in the Windows C API CI lane. Other hosts compile an empty target; that
 result is not Windows runtime coverage.
+
+The native C API CI job also runs the complete `user::mm::` library slice on
+all three operating systems. Windows-only `windows_arena::tests` cover shared
+partial views, read-only upgrades, extent reuse, memory-owner lifetime, rollback,
+and revocation of checked access plus all CPU entry points after failed rollback.
+See `docs/development/windows-user-memory.md` for ownership and platform limits.

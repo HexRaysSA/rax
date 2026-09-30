@@ -79,23 +79,6 @@ impl fmt::Debug for SharedObject {
     }
 }
 
-fn identity_of(file: &std::fs::File) -> std::io::Result<SourceIdentity> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        let m = file.metadata()?;
-        Ok(SourceIdentity {
-            dev: m.dev(),
-            ino: m.ino(),
-        })
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = file;
-        Ok(SourceIdentity::default())
-    }
-}
-
 impl SharedObject {
     /// A host file, mapped for writing when `writable` (the file must then
     /// be open for reading and writing).
@@ -109,9 +92,10 @@ impl SharedObject {
         writable: bool,
         keep: Option<super::Keep>,
     ) -> std::io::Result<Self> {
+        let file = super::mapped_file::MappedFile::keeping(file, keep);
         Ok(SharedObject {
-            identity: identity_of(&file)?,
-            store: Store::File(super::mapped_file::MappedFile::keeping(file, keep)),
+            identity: file.identity()?,
+            store: Store::File(file),
             writable,
             anonymous: false,
             sysv: None,
@@ -122,9 +106,10 @@ impl SharedObject {
     /// The host file of System V shared memory segment `id` (a shmem
     /// object, as `/proc/<pid>/maps` shows it).
     pub fn sysv(file: std::fs::File, writable: bool, id: i32) -> std::io::Result<Self> {
+        let file = super::mapped_file::MappedFile::new(file);
         Ok(SharedObject {
-            identity: identity_of(&file)?,
-            store: Store::File(super::mapped_file::MappedFile::new(file)),
+            identity: file.identity()?,
+            store: Store::File(file),
             writable,
             anonymous: true,
             sysv: Some(id),
@@ -142,9 +127,10 @@ impl SharedObject {
     pub fn anonymous(len: u64) -> std::io::Result<Self> {
         let file = anonymous_file()?;
         file.set_len(len)?;
+        let file = super::mapped_file::MappedFile::new(file);
         Ok(SharedObject {
-            identity: identity_of(&file)?,
-            store: Store::File(super::mapped_file::MappedFile::new(file)),
+            identity: file.identity()?,
+            store: Store::File(file),
             writable: true,
             anonymous: true,
             sysv: None,
@@ -240,53 +226,53 @@ impl SharedObject {
         }
     }
 
+    /// Writes bytes within this writable object's current size. The
+    /// operation does not grow the object or move a backing file's cursor.
+    /// Empty writes are no-ops; an invalid range is rejected before writing.
+    /// Host-memory objects without a file do not support this operation.
+    pub fn write_all_at(&self, offset: u64, data: &[u8]) -> std::io::Result<()> {
+        if data.is_empty() {
+            return Ok(());
+        }
+        if !self.writable {
+            return Err(std::io::ErrorKind::PermissionDenied.into());
+        }
+        let end = offset
+            .checked_add(data.len() as u64)
+            .ok_or(std::io::ErrorKind::InvalidInput)?;
+        if end > self.len() {
+            return Err(std::io::ErrorKind::InvalidInput.into());
+        }
+        match &self.store {
+            Store::File(file) => file.write_all_at(offset, data),
+            Store::Memory(_) => Err(std::io::ErrorKind::Unsupported.into()),
+        }
+    }
+
     /// Zeroes `len` bytes from `offset`, within the object's size (a hole
     /// punched with the size kept, as readers see it); host memory cannot
-    /// be written this way.
+    /// be written this way. Work uses a bounded 64 KiB buffer.
     pub fn zero_range(&self, offset: u64, len: u64) -> std::io::Result<()> {
-        let Store::File(file) = &self.store else {
+        if !matches!(self.store, Store::File(_)) {
             return Err(std::io::ErrorKind::Unsupported.into());
-        };
-        #[cfg(not(unix))]
-        let _ = file;
+        }
         let end = offset.saturating_add(len).min(self.len());
         let zeros = vec![0u8; 64 << 10];
         let mut at = offset;
         while at < end {
-            let n = ((end - at) as usize).min(zeros.len());
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::FileExt;
-                file.write_all_at(&zeros[..n], at)?;
-            }
+            let n = (end - at).min(zeros.len() as u64) as usize;
+            self.write_all_at(at, &zeros[..n])?;
             at += n as u64;
         }
         Ok(())
     }
 
-    /// Reads up to `buf.len()` bytes at `offset` (short only at the end).
+    /// Reads up to `buf.len()` bytes at `offset` (short only at the end),
+    /// without moving a backing file's shared cursor.
     pub fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
-        let file = match &self.store {
-            Store::File(f) => f,
-            Store::Memory(m) => return m.read_at(offset, buf),
-        };
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::FileExt;
-            let mut done = 0;
-            while done < buf.len() {
-                let n = file.read_at(&mut buf[done..], offset + done as u64)?;
-                if n == 0 {
-                    break;
-                }
-                done += n;
-            }
-            Ok(done)
-        }
-        #[cfg(not(unix))]
-        {
-            let _ = (file, offset, buf);
-            Ok(0)
+        match &self.store {
+            Store::File(file) => file.read_at(offset, buf),
+            Store::Memory(memory) => memory.read_at(offset, buf),
         }
     }
 }
@@ -356,6 +342,7 @@ pub fn anonymous_file() -> std::io::Result<std::fs::File> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Seek, SeekFrom};
 
     fn temp() -> std::fs::File {
         let f = anonymous_file().unwrap();
@@ -378,5 +365,88 @@ mod tests {
         // An object that can grow maps whole extents.
         let file = SharedObject::file(temp(), true).unwrap();
         assert_eq!(file.extent_len(0, extent, 4096), extent);
+    }
+
+    #[test]
+    fn positional_data_crosses_view_boundaries_without_moving_shared_cursor() {
+        let offset = 65531;
+        let bytes: Vec<u8> = (0..(1 << 20) + 17).map(|i| (i % 251) as u8).collect();
+        let object = SharedObject::anonymous(offset + bytes.len() as u64 + 3).unwrap();
+        let mut cursor = object.host_file().unwrap();
+        cursor.seek(SeekFrom::Start(37)).unwrap();
+        object.write_all_at(offset, &bytes).unwrap();
+        assert_eq!(cursor.stream_position().unwrap(), 37);
+        let mut result = vec![0xcc; bytes.len() + 10];
+        let got = object.read_at(offset, &mut result).unwrap();
+        assert_eq!(got, bytes.len() + 3);
+        assert_eq!(&result[..bytes.len()], &bytes);
+        assert_eq!(&result[bytes.len()..got], &[0; 3]);
+        assert_eq!(&result[got..], &[0xcc; 7]);
+        assert_eq!(cursor.stream_position().unwrap(), 37);
+
+        // Ordinary file I/O sees the write, and a private page source reads
+        // the same bytes without moving this duplicate handle's cursor.
+        cursor.seek(SeekFrom::Start(offset)).unwrap();
+        let mut direct = [0; 17];
+        cursor.read_exact(&mut direct).unwrap();
+        assert_eq!(&direct, &bytes[..17]);
+        let saved = cursor.stream_position().unwrap();
+        let source = crate::user::mm::HostFileSource::new(cursor.try_clone().unwrap()).unwrap();
+        use crate::user::mm::PageSource;
+        assert_eq!(source.read_at(offset + 1, &mut direct).unwrap(), 17);
+        assert_eq!(&direct, &bytes[1..18]);
+        assert_eq!(cursor.stream_position().unwrap(), saved);
+    }
+
+    #[test]
+    fn positional_bounds_and_readonly_errors_do_not_mutate_the_object() {
+        let object = SharedObject::anonymous(8).unwrap();
+        object.write_all_at(0, b"12345678").unwrap();
+        for (offset, bytes) in [(7, &b"xx"[..]), (u64::MAX - 1, &b"xxx"[..])] {
+            assert_eq!(
+                object.write_all_at(offset, bytes).unwrap_err().kind(),
+                std::io::ErrorKind::InvalidInput
+            );
+        }
+        object.write_all_at(u64::MAX, &[]).unwrap();
+        let readonly =
+            SharedObject::file(object.host_file().unwrap().try_clone().unwrap(), false).unwrap();
+        assert_eq!(
+            readonly.write_all_at(0, b"x").unwrap_err().kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+        assert_eq!(
+            readonly.zero_range(0, 1).unwrap_err().kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+        let mut bytes = [0; 8];
+        assert_eq!(object.read_at(0, &mut bytes).unwrap(), 8);
+        assert_eq!(&bytes, b"12345678");
+        assert_eq!(object.len(), 8);
+        assert_eq!(object.read_at(8, &mut bytes).unwrap(), 0);
+        assert_eq!(&bytes, b"12345678");
+        assert_eq!(
+            object.read_at(u64::MAX, &mut bytes).unwrap_err().kind(),
+            std::io::ErrorKind::InvalidInput
+        );
+        assert_eq!(object.read_at(u64::MAX, &mut []).unwrap(), 0);
+    }
+
+    #[test]
+    fn zeroing_clamps_at_end_and_preserves_prefix_cursor_and_size() {
+        let size = (128 << 10) + 7;
+        let object = SharedObject::anonymous(size).unwrap();
+        object.write_all_at(0, &vec![0x5a; size as usize]).unwrap();
+        let mut cursor = object.host_file().unwrap();
+        cursor.seek(SeekFrom::Start(5)).unwrap();
+        object.zero_range(3, u64::MAX).unwrap();
+        object.zero_range(u64::MAX, 9).unwrap();
+        assert_eq!(cursor.stream_position().unwrap(), 5);
+        assert_eq!(object.len(), size);
+        let mut bytes = vec![0xff; size as usize];
+        assert_eq!(object.read_at(0, &mut bytes).unwrap(), bytes.len());
+        assert_eq!(&bytes[..3], &[0x5a; 3]);
+        assert!(bytes[3..].iter().all(|&b| b == 0));
+        assert_eq!(cursor.stream_position().unwrap(), 5);
     }
 }
