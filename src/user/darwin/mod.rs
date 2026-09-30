@@ -63,4 +63,4 @@ pub mod vm;
 pub mod wait;
 pub mod workq;
 
-pub use process::{DarwinConfig, DarwinProcess, ExitStatus, SpawnError};
+pub use process::{DarwinConfig, DarwinProcess, ExitStatus, RunStatus, SpawnError};

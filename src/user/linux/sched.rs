@@ -14,6 +14,7 @@
 //! process ends with a deadlock diagnostic (with host signals forwarded, a
 //! signal can always arrive, so the process waits as it would on Linux).
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use super::arch::{CpuEvent, GuestCpu};
@@ -47,16 +48,61 @@ impl After {
     }
 }
 
+/// Result of a bounded scheduling call. Nonterminal results keep all threads
+/// and kernel continuations available to the next call.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RunStatus {
+    /// The requested scheduler turns were consumed (not retired instructions).
+    BudgetExhausted,
+    /// No thread is ready after polling; the scheduler did not sleep on the host.
+    Blocked,
+    /// Cancellation was observed at a scheduler boundary.
+    Cancelled,
+    /// Cached terminal status; repeated calls do not repeat exit cleanup.
+    Complete(ExitStatus),
+}
+
+#[derive(Default)]
+pub(super) struct Scheduler {
+    current: usize,
+    // A blocked syscall or ptrace continuation also selects a guest thread.
+    // This differs from ProcState::last_user, which governs rseq transitions.
+    last_selected: Option<i32>,
+    terminal: Option<ExitStatus>,
+}
+
 impl LinuxProcess {
-    /// Runs until the process exits.
+    /// Runs until the process exits, sleeping on the host while guests wait.
     pub fn run(&mut self) -> ExitStatus {
+        match self.drive(None, None) {
+            RunStatus::Complete(status) => status,
+            _ => unreachable!("unbounded scheduler only returns a terminal status"),
+        }
+    }
+
+    /// Runs at most `max_turns` scheduler turns, preserving scheduling order
+    /// across calls. A turn may execute instructions or a kernel continuation;
+    /// this is not an instruction budget or a hard host-time limit. Existing
+    /// host-service handlers may block. A zero budget does no work, even when
+    /// cancelled; an already finalized process returns its cached status.
+    pub fn run_slice(&mut self, max_turns: u64, cancelled: &AtomicBool) -> RunStatus {
+        if max_turns == 0 {
+            return self
+                .scheduler
+                .terminal
+                .clone()
+                .map(RunStatus::Complete)
+                .unwrap_or(RunStatus::BudgetExhausted);
+        }
+        self.drive(Some(max_turns), Some(cancelled))
+    }
+
+    fn drive(&mut self, mut turns: Option<u64>, cancelled: Option<&AtomicBool>) -> RunStatus {
         let slice = self.state.config.slice_insns;
-        let mut current = 0usize;
-        // Includes a peer selected only to finish a blocked syscall or
-        // ptrace continuation, without entering user mode. `last_user` below
-        // deliberately retains its separate rseq meaning.
-        let mut last_selected = None;
         loop {
+            if let Some(status) = &self.scheduler.terminal {
+                return RunStatus::Complete(status.clone());
+            }
             if self.state.exit.is_some() {
                 // do_exit of the threads the process's end takes with it
                 // (exit_group, a fatal signal): exit_mm releases each
@@ -78,29 +124,42 @@ impl LinuxProcess {
                 if let Some(me) = self.state.forked.take() {
                     finish_forked(me, status);
                 }
-                return status.clone();
+                self.scheduler.terminal = Some(status.clone());
+                return RunStatus::Complete(status.clone());
+            }
+            if turns == Some(0) {
+                return RunStatus::BudgetExhausted;
+            }
+            if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+                return RunStatus::Cancelled;
+            }
+            if let Some(remaining) = &mut turns {
+                *remaining -= 1;
             }
             self.collect_async(None);
             if self.state.exit.is_some() {
                 continue;
             }
-            let Some(idx) = self.pick(current) else {
+            let Some(idx) = self.pick(self.scheduler.current) else {
+                if turns.is_some() {
+                    return RunStatus::Blocked;
+                }
                 if let Err(dead) = self.idle() {
                     self.state.exit = Some(ExitStatus::Internal(dead.message()));
                 }
                 continue;
             };
             let tid = self.threads[idx].tid;
-            clear_exclusive_on_switch(&mut self.threads[idx], last_selected);
-            last_selected = Some(tid);
-            current = idx;
+            clear_exclusive_on_switch(&mut self.threads[idx], self.scheduler.last_selected);
+            self.scheduler.last_selected = Some(tid);
+            self.scheduler.current = idx;
             // A system call its tracer stopped goes on once resumed.
             if super::ptrace::tracee::resumed_in_call(&self.threads[idx]) {
-                current = self.resume_in_call(idx).from(idx);
+                self.scheduler.current = self.resume_in_call(idx).from(idx);
                 continue;
             }
             if self.threads[idx].blocked.is_some() {
-                current = self.resume(idx).from(idx);
+                self.scheduler.current = self.resume(idx).from(idx);
                 continue;
             }
             // The return to user mode: restart processing and signals,
@@ -116,10 +175,10 @@ impl LinuxProcess {
             let Some(idx) = self.threads.iter().position(|t| t.tid == tid) else {
                 continue;
             };
-            current = idx;
+            self.scheduler.current = idx;
             // Stopped for its tracer: it runs again once resumed.
             if super::ptrace::tracee::parked(&self.threads[idx]) {
-                current = idx + 1;
+                self.scheduler.current = idx + 1;
                 continue;
             }
             if !self.rseq_exit(idx) {
@@ -143,14 +202,14 @@ impl LinuxProcess {
             super::rseq::left_user(&mut self.threads[idx], irq);
             match event {
                 CpuEvent::Syscall { nr, args } => {
-                    current = self.enter_syscall(idx, nr, args).from(idx);
+                    self.scheduler.current = self.enter_syscall(idx, nr, args).from(idx);
                 }
                 CpuEvent::CompatSyscall { nr, args } => {
-                    current = self.enter_compat(idx, nr, args).from(idx);
+                    self.scheduler.current = self.enter_compat(idx, nr, args).from(idx);
                 }
                 CpuEvent::Signal(info, update) => self.trap_signal(idx, info, update),
                 CpuEvent::Yield if trap => self.step_trap(idx),
-                CpuEvent::Yield => current = idx + 1,
+                CpuEvent::Yield => self.scheduler.current = idx + 1,
                 CpuEvent::Internal(why) => {
                     let pc = self.threads[idx].cpu.pc();
                     self.state.exit = Some(ExitStatus::Internal(format!("{why} (pc {pc:#x})")));

@@ -255,3 +255,25 @@ fn async_signal_handler_entry_clears_reservation_after_budget_yield() {
     assert_eq!(cpu.run(1), A64Exit::Yield);
     assert_eq!(cpu.core().get_x(9), 1, "handler STXR must fail");
 }
+
+#[test]
+fn bounded_calls_preserve_round_robin_and_exclusive_monitor_lifetime() {
+    for peer in [None, Some(Peer::User), Some(Peer::KernelOnly)] {
+        let mut process = process();
+        let other = peer.map(|kind| add_peer(&mut process, kind));
+        let cancelled = AtomicBool::new(false);
+        let mut result = RunStatus::BudgetExhausted;
+        for _ in 0..32 {
+            result = process.run_slice(1, &cancelled);
+            if matches!(result, RunStatus::Complete(_)) {
+                break;
+            }
+            assert_eq!(result, RunStatus::BudgetExhausted);
+        }
+        assert_eq!(result, RunStatus::Complete(ExitStatus::Exited(0)));
+        assert_eq!(status(&process), u32::from(other.is_some()));
+        if let Some(tid) = other {
+            assert!(process.proc.threads[&tid].mach.csw > 0);
+        }
+    }
+}

@@ -638,6 +638,7 @@ pub struct LinuxProcess {
     pub state: ProcState,
     /// Live threads.
     pub threads: Vec<Thread>,
+    pub(super) scheduler: super::sched::Scheduler,
 }
 
 /// Wraps an inherited host descriptor as a guest standard stream with the
@@ -771,6 +772,7 @@ impl LinuxProcess {
         Ok(LinuxProcess {
             state,
             threads: vec![leader],
+            scheduler: Default::default(),
         })
     }
 

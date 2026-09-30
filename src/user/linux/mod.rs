@@ -69,3 +69,5 @@ pub mod wait;
 mod tests;
 
 pub use process::{ExitStatus, LinuxConfig, LinuxProcess, SpawnError};
+
+pub use sched::RunStatus;

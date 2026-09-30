@@ -33,6 +33,49 @@ to the embedder (see [User-mode execution](#user-mode-execution)). ABI 1.8 separ
 exports the Windows personality through `rax_process_*` and `rax::Process`, using
 the closed host-service profile documented below.
 
+## Rust process scheduling boundaries
+
+`LinuxProcess::run_slice(max_turns, &AtomicBool)` and
+`DarwinProcess::run_slice(max_turns, &AtomicBool)` provide the same four boundary
+kinds as `WindowsProcess::run_slice`: `BudgetExhausted`, `Blocked`, `Cancelled`,
+and `Complete(ExitStatus)`. A turn includes thread selection, asynchronous
+bookkeeping, and either a user slice or a kernel continuation. It does not
+count retired instructions. Zero turns executes no work. A terminal result is
+cached; repeated calls cannot repeat process-exit cleanup. The caller owns the
+cancellation flag and clears it before resumption.
+
+Bounded calls poll existing waits and return `Blocked` instead of entering the
+scheduler's host sleep. They preserve round-robin position, pending syscalls,
+ptrace continuations, rseq ownership, and Arm exclusive-monitor switch state.
+The existing `run()` still waits on host events and runs until termination.
+Host-service handlers can themselves block: these Rust scheduling boundaries
+do not establish a hard wall-clock deadline or remove host I/O.
+
+The Linux and Darwin modules still require Unix hosts. They are not yet exposed
+through `rax_process_*`; adding scheduling boundaries alone does not establish
+a closed embedding profile or Windows-host support for these personalities.
+The Windows C ABI behavior and ABI version are unchanged by these Rust APIs.
+
+| ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
+| --- | --- | --- | --- | --- | --- |
+| S1 | A scheduling boundary occurs between complete personality dispatches. | Existing Linux/Darwin schedulers retain parked syscall/exception state. | Resumption does not restart a partially executed handler. | Indefinite futex/Mach wait, cancellation, posted wake, and real guest exit through repeated one-turn calls. | Confirmed for tested paths. |
+| S2 | Host-service handlers retain their existing blocking and side-effect behavior. | Existing host adapters remain in the dispatch path. | A turn bound is not a hard time bound or a closed-service profile. | Trace a blocking host syscall; it may exceed the caller's desired wall time. | Retained until an explicit embedding profile replaces those services. |
+
+Affected planes are process scheduler state, Rust process constructors, tests,
+and this embedding contract. No ISA decoder, executor, memory/MMU, SMIR,
+optimizer, native lowering, machine, oracle, or C ABI behavior is added. Guest
+instruction execution and syscall dispatch still use their existing paths.
+The Linux/Darwin tests run on Linux and macOS; the existing Windows-personality
+scheduler and C ABI retain native Windows coverage. Windows hosting of the
+Linux/Darwin personalities remains unfinished and is not advertised as present.
+
+Boundary bookkeeping adds O(1) state and work per call, apart from cloning a
+terminal diagnostic. Existing per-turn costs (thread/wait polling and guest
+execution) remain unchanged. High-impact remaining work: explicit host-service
+isolation and portable Linux/Darwin adapters are required before exposing these
+personalities in Assist. Bounded scheduling is a prerequisite, not that
+complete embedding contract.
+
 ## Build
 
 ```sh

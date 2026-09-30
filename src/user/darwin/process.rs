@@ -18,6 +18,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use super::abi::DarwinAbi;
@@ -34,6 +35,8 @@ use super::vm::VmLayout;
 use super::wait::{self, Resume, Wait, WaitKey};
 use crate::user::mm::{AddressSpace, MmError, SpaceConfig};
 
+#[cfg(test)]
+mod bounded_tests;
 #[cfg(test)]
 mod exclusive_tests;
 
@@ -105,6 +108,20 @@ impl DarwinConfig {
             inherited: None,
         }
     }
+}
+
+/// Result of a bounded scheduling call; nonterminal results retain all guest
+/// threads and kernel continuations for resumption.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RunStatus {
+    /// The requested scheduler turns were consumed (not retired instructions).
+    BudgetExhausted,
+    /// No thread is ready after polling; no idle host sleep was performed.
+    Blocked,
+    /// Cancellation was observed at a scheduler boundary.
+    Cancelled,
+    /// Cached terminal status; no further guest work will execute.
+    Complete(ExitStatus),
 }
 
 /// How a process ended.
@@ -458,6 +475,7 @@ pub struct DarwinProcess {
     pub proc: Proc,
     /// The thread that ran last (the scheduler continues after it).
     last: u64,
+    terminal: Option<ExitStatus>,
 }
 
 /// A different selected guest thread discards its Arm local reservation,
@@ -534,14 +552,51 @@ impl DarwinProcess {
         Ok(DarwinProcess {
             proc: start(config, image, None)?,
             last: 0,
+            terminal: None,
         })
     }
 
-    /// Runs the process until it exits.
+    /// Runs the process until it exits, sleeping on the host while guests wait.
     pub fn run(&mut self) -> ExitStatus {
+        match self.drive(None, None) {
+            RunStatus::Complete(status) => status,
+            _ => unreachable!("unbounded scheduler only returns a terminal status"),
+        }
+    }
+
+    /// Runs at most `max_turns` scheduler turns without sleeping in the idle
+    /// scheduler. Thread order and continuations survive each return. Turns
+    /// are not retired instructions and host-service handlers may block; this
+    /// is a cooperative boundary, not a hard host-time limit. Zero does no
+    /// work and only reports an already finalized terminal status.
+    pub fn run_slice(&mut self, max_turns: u64, cancelled: &AtomicBool) -> RunStatus {
+        if max_turns == 0 {
+            return self
+                .terminal
+                .clone()
+                .map(RunStatus::Complete)
+                .unwrap_or(RunStatus::BudgetExhausted);
+        }
+        self.drive(Some(max_turns), Some(cancelled))
+    }
+
+    fn drive(&mut self, mut turns: Option<u64>, cancelled: Option<&AtomicBool>) -> RunStatus {
         loop {
+            if let Some(status) = &self.terminal {
+                return RunStatus::Complete(status.clone());
+            }
             if let Some(status) = self.proc.exit.clone() {
-                return status;
+                self.terminal = Some(status.clone());
+                return RunStatus::Complete(status);
+            }
+            if turns == Some(0) {
+                return RunStatus::BudgetExhausted;
+            }
+            if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+                return RunStatus::Cancelled;
+            }
+            if let Some(remaining) = &mut turns {
+                *remaining -= 1;
             }
             for (sig, origin) in signal::host::take() {
                 if sig == signal::SIGCHLD {
@@ -569,6 +624,9 @@ impl DarwinProcess {
                 if self.proc.threads.values().all(|t| t.exited) {
                     self.proc.exit_with(ExitStatus::Exited(0));
                     continue;
+                }
+                if turns.is_some() {
+                    return RunStatus::Blocked;
                 }
                 self.idle();
                 continue;
