@@ -415,8 +415,6 @@ mod tests {
     #[test]
     fn a_service_mapping_is_found_as_a_new_shared_region() {
         // Memory another object shares: a memory entry mapped twice.
-        let before: HashSet<(u64, u64)> =
-            host::regions().iter().map(|r| (r.start, r.end)).collect();
         let page = 16384;
         let mut a = 0u64;
         // SAFETY: allocates fresh anonymous memory anywhere.
@@ -424,30 +422,23 @@ mod tests {
             unsafe extern "C" {
                 fn mach_vm_allocate(task: Name, addr: *mut u64, size: u64, flags: i32) -> i32;
             }
-            mach_vm_allocate(host::task(), &mut a, page, 1)
+            mach_vm_allocate(host::task(), &mut a, 2 * page, 1)
         };
         assert_eq!(kr, 0);
+        // Own both pages before taking the snapshot. Replacing the second
+        // page then creates a new region boundary within this reservation;
+        // another test cannot free and reuse this address between snapshots.
+        let before: HashSet<(u64, u64)> =
+            host::regions().iter().map(|r| (r.start, r.end)).collect();
+        // Materialize the source page before inspecting sharing. An untouched
+        // anonymous allocation need not yet have resident shared storage.
+        // SAFETY: the first page is writable and exclusively owned here.
+        unsafe { (a as *mut u8).write_volatile(0) };
         let e = host::share_entry(a, page, 3).expect("entry");
-        let mut b = 0u64;
-        // SAFETY: a fresh mapping anywhere of the entry.
-        let kr = unsafe {
-            unsafe extern "C" {
-                fn mach_vm_map(
-                    task: Name,
-                    address: *mut u64,
-                    size: u64,
-                    mask: u64,
-                    flags: i32,
-                    object: Name,
-                    offset: u64,
-                    copy: i32,
-                    cur: i32,
-                    max: i32,
-                    inheritance: u32,
-                ) -> i32;
-            }
-            mach_vm_map(host::task(), &mut b, page, 0, 1, e, 0, 0, 3, 3, 1)
-        };
+        let b = a + page;
+        // SAFETY: the second host-page-aligned page is owned by this test,
+        // and no references point into it while it is replaced.
+        let kr = unsafe { host::map_entry_at(b, e, 0, page, 3) };
         assert_eq!(kr, 0);
         let now = host::regions();
         let r = now.iter().find(|r| r.start == b).expect("the new region");
