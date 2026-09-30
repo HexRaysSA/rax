@@ -91,8 +91,8 @@ sharing contract survives the extraction; it does not claim Windows fork support
 
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| SW1 | The mapping remains alive after closing its Windows section handle. | Microsoft documents that mapped views retain internal references and that view and handle can be closed in either order. | Atomic word lifetime. | Writes from four threads after handle closure, followed by destruction. | Native Windows `user::mm::shared_words::` tests fail or fault. | Documented; native CI validation required. |
-| SW2 | Extracting allocation leaves Unix fork sharing intact. | Same anonymous shared mmap flags; all consumers retain atomic access. | Linux open-description state after fork. | Child stores a word, parent waits and observes the store. | `unix_mapping_remains_shared_after_fork` fails. | Tested on macOS; native Linux CI validation required. |
+| SW1 | The mapping remains alive after closing its Windows section handle. | Microsoft documents that mapped views retain internal references and that view and handle can be closed in either order. | Atomic word lifetime. | Writes from four threads after handle closure, followed by destruction. | Native Windows `user::mm::shared_words::` tests fail or fault. | Confirmed by native Windows CI, run `36745388401`, job `109990658327`. |
+| SW2 | Extracting allocation leaves Unix fork sharing intact. | Same anonymous shared mmap flags; all consumers retain atomic access. | Linux open-description state after fork. | Child stores a word, parent waits and observes the store. | `unix_mapping_remains_shared_after_fork` fails. | Confirmed by native Linux/macOS CI, run `36745388401`, jobs `109990658203` and `109990658438`. |
 
 High-impact remaining requirement: this adapter alone does not provide the Linux
 personality on a Windows host. Descriptor readiness, external-service adapters and
@@ -124,9 +124,48 @@ Primary contracts:
 
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| CK1 | Native CPU-clock domains distinguish the calling thread from the process. | Separate POSIX clock IDs and separate Windows accounting APIs. | Thread CPU timers and process CPU timers retain distinct sources. | A joining thread remains idle while another thread consumes at least 50 ms CPU. | `native_thread_clock_excludes_another_threads_work` charges worker time to the joining thread. | Confirmed on macOS; Windows/Linux CI validation required. |
+| CK1 | Native CPU-clock domains distinguish the calling thread from the process. | Separate POSIX clock IDs and separate Windows accounting APIs. | Thread CPU timers and process CPU timers retain distinct sources. | A joining thread remains idle while another thread consumes at least 50 ms CPU. | `native_thread_clock_excludes_another_threads_work` charges worker time to the joining thread. | Confirmed by native Windows, Linux and macOS CI in run `36746486842`. |
 | CK2 | Integer conversion covers the entire native counter domains. | Widened arithmetic and positive-frequency validation. | Normalized timestamps without overflow or sign loss. | Both signed counter extrema, maximal FILETIME sums, fractional division and pre-epoch timestamps. | Conversion regressions fail or a result has nanoseconds outside `[0, 10⁹)`. | Covered by host-independent boundary tests. |
 
 The clock adapter changes no guest syscall IDs, guest time layouts, CPU execution,
 C ABI, persistence, or Assist tool schema. It is another dependency of the Windows
 host port, not a claim that the full Linux personality is available there.
+
+## Portable readiness levels
+
+Anonymous-object readiness uses `user::readiness::LevelPair`: two independent,
+persistent levels. Unix retains nonblocking, close-on-exec socket-pair directions;
+Windows uses two unnamed, non-inheritable manual-reset events. The object's shared
+atomic lock and flag bits serialize transitions, including across Unix fork. A
+transition failure is explicit and does not commit the corresponding state bit.
+No guest descriptor number is interpreted as a native handle.
+
+The Windows level wait deduplicates handles before calling
+[WaitForMultipleObjects](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitformultipleobjects)
+and preserves repeated positions in the result. For more than 64 unique events it
+scans every event with a nominal 1 ms sleep between scans; no event is omitted.
+This has O(n) work per scan and host scheduling latency, and is not a general
+Windows file/socket readiness implementation. The event lifetime and persistence
+contract follows
+[CreateEventW](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createeventw).
+
+A five-ABI closed Linux regression creates two blocked eventfd semaphore readers,
+checks that polling wakes both, and verifies that each reads one count.
+
+The Unix poll adapter also combines duplicate descriptors, unions their requested
+interests, and projects each native result back to every original request with
+its own read/write mask. This fixes an observed macOS duplicate-descriptor case:
+for a signalled socket, the uncoalesced request `[fd, other_fd, fd]` returned
+`[false, false, true]`. Multiple guest waiters on one object must all see readiness.
+The coalescing implementation takes O(n log(u + 1)) time and O(n + u) space for n
+requests and u unique descriptors; native polling uses u entries.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| RD1 | A manual-reset event and an unread socket byte provide the same persistent readable level. | Native API contracts and serialized transitions. | Eventfd and timer wakeups. | Both levels set/cleared independently, repeated probes, delayed wake, duplicate descriptors, 65 events, Unix fork. | `user::readiness::` loses a level, consumes it on probe, or misses the 65th event. | Confirmed on macOS; Windows/Linux native CI validation required. |
+| RD2 | Native poll independently fills every duplicate request. | Previously inherited from the direct host poll wrapper. | Readiness of several guest waiters on one descriptor. | One ready descriptor occurs twice in the array. | Direct native poll leaves the first repeated entry unready. | Falsified on macOS; coalescing and per-request projection replace this assumption. |
+
+Medium-impact performance boundary: Windows waits over 64 events scan at a nominal
+1 ms interval instead of registering per-event thread-pool callbacks. This does
+not block the embedding port; it bounds the current adapter's efficiency, not the
+number of supported events. Full Windows-host Linux dispatch remains required.

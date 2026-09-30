@@ -1,7 +1,8 @@
 //! Host operating-system services the Linux personality needs beyond `std`.
 //!
-//! Every `unsafe` foreign call of the personality lives here behind a safe
-//! wrapper, so the rest of the subsystem is safe Rust. Each wrapper passes
+//! Filesystem and process operations here use safe wrappers over native calls.
+//! Clock sampling, shared atomic storage, and readiness polling delegate to
+//! the common userland adapters. Each wrapper passes
 //! only valid, initialized, properly sized objects and NUL-terminated
 //! strings owned for the duration of the call; none of the called functions
 //! retain pointers, call back into Rust, or unwind.
@@ -249,52 +250,13 @@ pub fn tee(fd_in: i32, fd_out: i32, len: usize) -> Result<usize, Errno> {
     }
 }
 
-/// Readiness of one descriptor, as `poll(2)` reports it.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Readiness {
-    /// `POLLIN`.
-    pub readable: bool,
-    /// `POLLOUT`.
-    pub writable: bool,
-    /// `POLLHUP`.
-    pub hangup: bool,
-    /// `POLLERR`.
-    pub error: bool,
-}
+pub use crate::user::readiness::Readiness;
 
-impl Readiness {
-    /// Whether any condition is reported.
-    pub fn any(&self) -> bool {
-        self.readable || self.writable || self.hangup || self.error
-    }
-}
-
-/// Polls host descriptors for readiness, waiting at most `timeout_ms`
-/// milliseconds (negative waits indefinitely).
+/// Poll host descriptors, retaining one result per request even when several
+/// requests name the same descriptor. Timeout is in milliseconds; negative
+/// waits indefinitely.
 pub fn poll(fds: &[(i32, bool, bool)], timeout_ms: i32) -> Result<Vec<Readiness>, Errno> {
-    let mut pfds: Vec<libc::pollfd> = fds
-        .iter()
-        .map(|&(fd, r, w)| libc::pollfd {
-            fd,
-            events: (if r { libc::POLLIN } else { 0 }) | (if w { libc::POLLOUT } else { 0 }),
-            revents: 0,
-        })
-        .collect();
-    // SAFETY: `pfds` is a valid array of `pollfd` of the given length; the
-    // descriptors are host descriptors owned by open files the caller holds.
-    let rc = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, timeout_ms) };
-    if rc < 0 {
-        return Err(last_errno());
-    }
-    Ok(pfds
-        .iter()
-        .map(|p| Readiness {
-            readable: p.revents & libc::POLLIN != 0,
-            writable: p.revents & libc::POLLOUT != 0,
-            hangup: p.revents & libc::POLLHUP != 0,
-            error: p.revents & (libc::POLLERR | libc::POLLNVAL) != 0,
-        })
-        .collect())
+    crate::user::readiness::poll_descriptors(fds, timeout_ms).map_err(Errno::from)
 }
 
 /// Resident-set and CPU usage of the emulator process (`getrusage`):

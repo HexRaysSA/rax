@@ -203,3 +203,58 @@ fn closed_linux_threads_and_futex_continuations_remain_guest_local() {
     assert_eq!(h.proc.run_slice(4, &cancel), RunStatus::Blocked);
     assert_eq!(h.proc.threads.len(), 2);
 }
+
+#[test]
+fn closed_linux_eventfd_wakes_every_reader_of_the_same_level_all_abis() {
+    use crate::user::linux::fs::anon::Anon;
+    use crate::user::linux::fs::fd::FileObject;
+    use crate::user::linux::syscall::thread::cf::*;
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        // Semaphore reads each take one count, so both readers can finish.
+        let fd = h.ok(Sysno::Eventfd2, &[0, 1]);
+        let flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD;
+        assert_eq!(h.ok(Sysno::Clone, &[flags, 0, 0, 0, 0]), 101);
+        let at = h.scratch;
+        assert_eq!(h.start(0, Sysno::Read, &[fd, at, 8]), None);
+        assert_eq!(h.start(1, Sysno::Read, &[fd, at + 8, 8]), None);
+        let file = h.proc.state.fds.file(fd as i32).unwrap();
+        let FileObject::Anon(Anon::Event(event)) = &file.object else {
+            panic!()
+        };
+        assert!(event.write(2));
+        crate::user::linux::wait::poll_ready(
+            h.proc
+                .threads
+                .iter_mut()
+                .filter_map(|thread| thread.blocked.as_mut()),
+        );
+        assert!(
+            h.proc
+                .threads
+                .iter()
+                .all(|thread| thread.blocked.as_ref().unwrap().ready),
+            "{abi:?}"
+        );
+        for idx in 0..2 {
+            // The scheduler takes the saved continuation before retrying the
+            // blocked read. A fresh Harness::start does not take it for us.
+            h.proc.threads[idx].blocked.take().unwrap();
+            assert_eq!(
+                h.start(idx, Sysno::Read, &[fd, at + idx as u64 * 8, 8]),
+                Some(8)
+            );
+            let mut bytes = [0; 8];
+            h.proc
+                .space()
+                .read(at + idx as u64 * 8, &mut bytes)
+                .unwrap();
+            assert_eq!(u64::from_le_bytes(bytes), 1);
+        }
+        assert_eq!(event.count(), 0);
+        assert!(
+            !crate::user::linux::host::poll(&[(event.readable_fd(), true, false)], 0).unwrap()[0]
+                .readable
+        );
+    }
+}

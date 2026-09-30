@@ -18,6 +18,7 @@
 //! ([`forward_host_signals`](super::host::forward_host_signals)), and the
 //! nearest deadline of a wait or interval timer.
 
+use crate::user::readiness::Descriptor;
 use std::time::{Duration, Instant};
 
 use super::futex::FutexWait;
@@ -29,7 +30,7 @@ use super::host::{self, Readiness};
 pub struct Wait {
     /// Host descriptors, each with the readiness it waits for
     /// (`(fd, readable, writable)`).
-    pub fds: Vec<(i32, bool, bool)>,
+    pub fds: Vec<(Descriptor, bool, bool)>,
     /// When the call's timeout expires.
     pub deadline: Option<Instant>,
     /// A signal ends the wait (`TASK_INTERRUPTIBLE`); otherwise only the
@@ -57,7 +58,7 @@ impl Wait {
     }
 
     /// A wait for readiness of host descriptors, a signal, or `deadline`.
-    pub fn fds(fds: Vec<(i32, bool, bool)>, deadline: Option<Instant>) -> Self {
+    pub fn fds(fds: Vec<(Descriptor, bool, bool)>, deadline: Option<Instant>) -> Self {
         Wait {
             fds,
             deadline,
@@ -67,7 +68,7 @@ impl Wait {
     }
 
     /// A wait for readiness of one host descriptor or a signal.
-    pub fn fd(fd: i32, read: bool, write: bool) -> Self {
+    pub fn fd(fd: Descriptor, read: bool, write: bool) -> Self {
         Wait::fds(vec![(fd, read, write)], None)
     }
 
@@ -206,7 +207,7 @@ pub fn poll_ready<'a>(blocked: impl Iterator<Item = &'a mut Blocked>) {
     if owners.is_empty() {
         return;
     }
-    let fds: Vec<(i32, bool, bool)> = owners
+    let fds: Vec<(Descriptor, bool, bool)> = owners
         .iter()
         .flat_map(|b| b.wait.fds.iter().copied())
         .collect();
@@ -244,7 +245,7 @@ const PRECISE_SLEEP: Duration = Duration::from_millis(2);
 /// Sleeps the host until one of `fds` is ready, `deadline` passes, or a
 /// forwarded host signal arrives (its wake-pipe byte is drained). Returns
 /// early, without error, when the host `poll` is interrupted.
-pub fn sleep(fds: &[(i32, bool, bool)], deadline: Option<Instant>) -> Result<(), Deadlock> {
+pub fn sleep(fds: &[(Descriptor, bool, bool)], deadline: Option<Instant>) -> Result<(), Deadlock> {
     let wake = host::wake_fd();
     if fds.is_empty() && wake.is_none() && deadline.is_none() {
         return Err(Deadlock);

@@ -15,13 +15,13 @@
 //! A `signalfd` reports the calling thread's pending signals, so its
 //! readiness is evaluated by the reader; only its mask is shared.
 
-use std::os::fd::{AsRawFd, OwnedFd};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use super::super::abi::errno::Errno;
-use super::super::host::{self, SharedWords};
+use super::super::host::SharedWords;
 use super::super::posix_timers::{Base, Setting, instant_at};
+use crate::user::readiness::{Descriptor, LevelPair};
 
 /// An anonymous-inode object.
 #[derive(Debug)]
@@ -96,48 +96,28 @@ impl Drop for Locked<'_> {
     }
 }
 
-/// Two levels in one connected socket pair: level `0` is a byte from the
-/// second socket to the first (wait for the first to be readable), level
-/// `1` the other way.
+/// Two kernel-backed readiness levels, synchronized with the object's shared
+/// flags while its atomic lock is held.
 #[derive(Debug)]
-struct Levels {
-    a: OwnedFd,
-    b: OwnedFd,
-}
+struct Levels(LevelPair);
 
 impl Levels {
     fn new() -> Result<Self, Errno> {
-        let (a, b) = host::level_pair()?;
-        Ok(Levels { a, b })
+        Ok(Self(LevelPair::new()?))
     }
 
-    /// The descriptor that is readable while level `which` is set.
-    fn fd(&self, which: usize) -> i32 {
-        if which == 0 {
-            self.a.as_raw_fd()
-        } else {
-            self.b.as_raw_fd()
-        }
+    fn fd(&self, which: usize) -> Descriptor {
+        self.0.descriptor(which)
     }
 
-    /// Sets or clears level `which`, whose current state is bit `bit` of
-    /// word `flags` (updated), under the object's lock.
     fn update(&self, l: &Locked<'_>, flags: usize, bit: u64, which: usize, on: bool) {
         let bits = l.get(flags);
-        let set = bits & bit != 0;
-        if on == set {
+        if on == (bits & bit != 0) {
             return;
         }
-        let (write_to, read_from) = if which == 0 {
-            (self.b.as_raw_fd(), self.a.as_raw_fd())
-        } else {
-            (self.a.as_raw_fd(), self.b.as_raw_fd())
-        };
-        if on {
-            host::put_byte(write_to);
-        } else {
-            host::take_byte(read_from);
-        }
+        self.0
+            .transition(which, on)
+            .expect("anonymous-object readiness transition failed");
         l.set(flags, bits ^ bit);
     }
 }
@@ -285,12 +265,12 @@ impl EventFd {
     }
 
     /// The host descriptor readable while the counter is not zero.
-    pub fn readable_fd(&self) -> i32 {
+    pub fn readable_fd(&self) -> Descriptor {
         self.levels.fd(0)
     }
 
     /// The host descriptor readable while a write of 1 fits.
-    pub fn writable_fd(&self) -> i32 {
+    pub fn writable_fd(&self) -> Descriptor {
         self.levels.fd(1)
     }
 }
@@ -516,7 +496,7 @@ impl TimerFd {
     }
 
     /// The host descriptor readable while ticks are pending.
-    pub fn readable_fd(&self) -> i32 {
+    pub fn readable_fd(&self) -> Descriptor {
         self.levels.fd(0)
     }
 
