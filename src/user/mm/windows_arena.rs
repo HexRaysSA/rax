@@ -356,7 +356,10 @@ impl WindowsArena {
         let ok = unsafe {
             match part.kind {
                 Kind::Placeholder => return Ok(()),
-                Kind::Private => VirtualFree(self.at(start), 0, RELEASE | PRESERVE),
+                // PRESERVE operates on the exact replacement range. The zero
+                // size convention belongs to an ordinary MEM_RELEASE; using
+                // zero here is rejected by native Windows with ERROR_INVALID_PARAMETER.
+                Kind::Private => VirtualFree(self.at(start), part.len, RELEASE | PRESERVE),
                 Kind::View { .. } | Kind::PrivateView(_) => {
                     (self.api.unmap)(GetCurrentProcess(), self.at(start), PRESERVE)
                 }
@@ -537,6 +540,24 @@ mod tests {
     use super::super::{AddressSpace, Backing, Mapping, Perms, SharedObject, SpaceConfig};
     use super::*;
     use vm_memory::{Bytes, GuestAddress, GuestMemory};
+
+    #[test]
+    fn private_replacement_returns_to_exact_placeholder_and_recommits() {
+        let arena = WindowsArena::new(2 * EXTENT as usize)
+            .unwrap()
+            .expect("placeholder APIs");
+        let mut parts = arena.parts.lock().unwrap();
+        for _ in 0..3 {
+            arena.clear(&mut parts, EXTENT as usize).unwrap();
+            assert!(matches!(parts[&(EXTENT as usize)].kind, Kind::Placeholder));
+            assert_eq!(parts[&(EXTENT as usize)].len, EXTENT as usize);
+            assert!(matches!(parts[&0].kind, Kind::Private));
+            arena
+                .install(&mut parts, EXTENT as usize, Kind::Private)
+                .unwrap();
+        }
+        assert!(arena.available());
+    }
 
     fn space() -> AddressSpace {
         AddressSpace::new(SpaceConfig {
