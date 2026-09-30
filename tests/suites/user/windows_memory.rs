@@ -133,13 +133,47 @@ fn inaccessible_external_ranges_reject_access_without_touching_memory() {
         }
     }
 
+    // Primary API contract: https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualprotect
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn VirtualProtect(
+            base: *mut std::ffi::c_void,
+            size: usize,
+            protection: u32,
+            old: *mut u32,
+        ) -> i32;
+    }
+    struct NoAccess<'a> {
+        owner: &'a Allocation,
+        previous: u32,
+    }
+    impl Drop for NoAccess<'_> {
+        fn drop(&mut self) {
+            let mut discarded = 0;
+            // SAFETY: this guard borrows the live allocation; the whole mapping
+            // is one committed VirtualAlloc region with no outstanding slices.
+            // Restore the protection obtained from the successful earlier call.
+            assert_ne!(
+                unsafe {
+                    VirtualProtect(
+                        self.owner.region.as_ptr().cast(),
+                        self.owner.region.size(),
+                        self.previous,
+                        &mut discarded,
+                    )
+                },
+                0
+            );
+        }
+    }
+
     let drops = Arc::new(AtomicUsize::new(0));
     let owner = Allocation::new(&drops);
     let access = Arc::new(AccessiblePrefix(AtomicUsize::new(65536)));
-    // SAFETY: owner retains initialized read/write memory for the full range.
-    // Accesses and validity changes below are serialized. No native mapping or
-    // retained borrowed slice is used across a validity change, and no aliasing
-    // Rust references into this allocation exist.
+    // SAFETY: owner retains the full allocation. Accepted subranges are
+    // initialized and read/write. Accesses, protection changes, and validity
+    // changes below are serialized; no borrowed slice crosses such a change,
+    // and no aliasing Rust references into this allocation exist.
     let region = unsafe {
         MmapRegion::<()>::from_raw_with_access(
             owner.region.as_ptr(),
@@ -170,6 +204,25 @@ fn inaccessible_external_ranges_reject_access_without_touching_memory() {
         .unwrap();
     assert_eq!(last_valid, [0]); // Failed writes do not touch the valid prefix.
     access.0.store(0, Ordering::Release);
+    let mut previous = 0;
+    // SAFETY: the full 64 KiB range is one committed native allocation. No
+    // borrow into its bytes remains, and all mapped access is now rejected.
+    // PAGE_NOACCESS=1 makes a missed validity check an actual native fault.
+    assert_ne!(
+        unsafe {
+            VirtualProtect(
+                owner.region.as_ptr().cast(),
+                owner.region.size(),
+                1,
+                &mut previous,
+            )
+        },
+        0
+    );
+    let protected = NoAccess {
+        owner: &owner,
+        previous,
+    };
     {
         let region = memory.find_region(GuestAddress(0)).unwrap();
         assert!(region.get_slice(65536, 0).is_ok());
@@ -180,6 +233,8 @@ fn inaccessible_external_ranges_reject_access_without_touching_memory() {
     }
     assert!(memory.get_host_address(GuestAddress(0)).is_err());
     assert!(memory.read_slice(&mut last_valid, GuestAddress(0)).is_err());
+    assert!(memory.write_slice(&[0xff], GuestAddress(0)).is_err());
+    drop(protected); // Restore native access before advertising validity again.
     access.0.store(65536, Ordering::Release);
     memory
         .read_slice(&mut last_valid, GuestAddress(65535))
