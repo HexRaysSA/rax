@@ -103,3 +103,36 @@ fn round_robin_selection_excludes_suspended_and_blocked_threads() {
     });
     assert_eq!(select(&p, 12), None);
 }
+
+#[test]
+fn bounded_process_calls_preserve_reservations_until_an_actual_thread_switch() {
+    use std::sync::atomic::AtomicBool;
+    for with_peer in [false, true] {
+        let (mut p, _, data) = fixture(with_peer);
+        Arc::make_mut(&mut p.cfg).slice_insns = 1;
+        let mut scheduler = Scheduler::default();
+        let cancelled = AtomicBool::new(false);
+        assert_eq!(
+            scheduler.run_slice(&mut p, 1, &cancelled),
+            RunStatus::BudgetExhausted
+        );
+        if with_peer {
+            assert_eq!(
+                scheduler.run_slice(&mut p, 1, &cancelled),
+                RunStatus::BudgetExhausted
+            );
+            p.threads.get_mut(&12).unwrap().suspend = 1;
+        }
+        for _ in 0..2 {
+            assert_eq!(
+                scheduler.run_slice(&mut p, 1, &cancelled),
+                RunStatus::BudgetExhausted
+            );
+        }
+        assert_eq!(p.threads[&8].cpu.gpr(2), u64::from(with_peer));
+        assert_eq!(
+            p.space.ptr(data, 8).unwrap(),
+            INITIAL + u64::from(!with_peer)
+        );
+    }
+}

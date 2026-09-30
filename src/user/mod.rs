@@ -13,7 +13,7 @@
 //! | [`cpu`] | OS-neutral CPU adapters running each ISA core unprivileged |
 //! | [`linux`] | The Linux personality (Unix hosts) |
 //! | [`darwin`] | The Darwin (macOS) personality (Unix hosts) |
-//! | [`windows`] | The Windows personality (Unix hosts) |
+//! | [`windows`] | The Windows personality |
 //!
 //! The subsystem is independent of `machine/`, `devices/`, and `vm/runtime`:
 //! there is no board, firmware, or device model, only a guest address space,
@@ -26,5 +26,4 @@ pub mod image;
 #[cfg(unix)]
 pub mod linux;
 pub mod mm;
-#[cfg(unix)]
 pub mod windows;

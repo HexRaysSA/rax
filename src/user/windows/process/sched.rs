@@ -14,6 +14,7 @@
 //! verified service table is present. Such calls stop with a diagnostic
 //! instead of assigning an invented service or forwarding to the host.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use super::{ExitStatus, Proc, Thread, ThreadState, lifecycle, thread};
@@ -35,115 +36,187 @@ const IDLE_POLL: Duration = Duration::from_millis(1);
 // underlying source error, so the third exception parameter is generic.
 const STATUS_IN_PAGE_ERROR: u32 = 0xC000_0006;
 
-/// Runs all threads until a guest process exit or an explicit emulation
-/// failure. An indefinitely blocked guest remains blocked, as on Windows.
-pub(super) fn run(p: &mut Proc) -> ExitStatus {
-    let mut previous = 0;
-    let mut last_exit = 0;
-    loop {
-        if let Some(message) = &p.failure {
-            return ExitStatus::Internal(message.clone());
-        }
-        if let Some(code) = p.exit_code {
-            return shutdown(p, code);
-        }
-        if p.threads.is_empty() {
-            p.exit_code = Some(last_exit);
-            continue;
-        }
+/// Result of a bounded process scheduling call. Nonterminal results retain
+/// every guest thread and continuation so the caller can resume the process.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RunStatus {
+    /// The requested number of scheduler turns has been consumed.
+    BudgetExhausted,
+    /// No thread is runnable after polling waits. No host sleep was performed.
+    Blocked,
+    /// The caller's cancellation flag was observed at a turn boundary.
+    Cancelled,
+    /// Terminal result, cached so repeated calls do not repeat teardown.
+    Complete(ExitStatus),
+}
 
-        let now = Instant::now();
-        tick_timers(p, now);
-        // Extract each thread while invoking personality code so a guest
-        // callback may create/modify other threads without borrow aliases.
-        let tids: Vec<u32> = p.threads.keys().copied().collect();
-        for tid in tids {
-            let Some(mut t) = p.threads.remove(&tid) else {
+#[derive(Default)]
+pub(super) struct Scheduler {
+    previous: u32,
+    last_exit: u32,
+    terminal: Option<ExitStatus>,
+}
+
+impl Scheduler {
+    pub(super) fn run(&mut self, p: &mut Proc) -> ExitStatus {
+        match self.drive(p, None, None) {
+            RunStatus::Complete(status) => status,
+            _ => unreachable!("unbounded scheduler only returns a terminal status"),
+        }
+    }
+
+    pub(super) fn run_slice(
+        &mut self,
+        p: &mut Proc,
+        turns: u64,
+        cancelled: &AtomicBool,
+    ) -> RunStatus {
+        if turns == 0 {
+            return self
+                .terminal
+                .clone()
+                .map(RunStatus::Complete)
+                .unwrap_or(RunStatus::BudgetExhausted);
+        }
+        self.drive(p, Some(turns), Some(cancelled))
+    }
+
+    fn finish(&mut self, status: ExitStatus) -> RunStatus {
+        self.terminal = Some(status.clone());
+        RunStatus::Complete(status)
+    }
+
+    fn drive(
+        &mut self,
+        p: &mut Proc,
+        mut turns: Option<u64>,
+        cancelled: Option<&AtomicBool>,
+    ) -> RunStatus {
+        loop {
+            if let Some(status) = &self.terminal {
+                return RunStatus::Complete(status.clone());
+            }
+            if let Some(message) = &p.failure {
+                return self.finish(ExitStatus::Internal(message.clone()));
+            }
+            if let Some(code) = p.exit_code {
+                return self.finish(shutdown(p, code));
+            }
+            if p.threads.is_empty() {
+                p.exit_code = Some(self.last_exit);
                 continue;
-            };
-            let outcome = if let Some(code) = t.terminate.take() {
-                if let ThreadState::Waiting(wait) = &t.state {
-                    if let Err(error) = sync::on_cancel(p, tid, wait) {
-                        p.threads.insert(tid, t);
-                        p.fail(format!("thread cancellation failed: {error:?}"));
-                        break;
-                    }
-                }
-                Outcome::ThreadTerminate(code)
-            } else if let ThreadState::Exited(code) = t.state {
-                Outcome::ThreadExit(code)
-            } else if t.suspend == 0 {
-                if let ThreadState::Waiting(wait) = &t.state {
-                    let wait = wait.clone();
-                    match sync::poll(p, tid, &wait, now, !t.apcs.is_empty()) {
-                        Ok(Some(status)) => {
-                            if let Err(error) = sync::on_cancel(p, tid, &wait) {
-                                p.threads.insert(tid, t);
-                                p.fail(format!("completed wait cleanup failed: {error:?}"));
-                                break;
-                            }
-                            t.state = ThreadState::Ready;
-                            if status == sync::WAIT_IO_COMPLETION && !t.apcs.is_empty() {
-                                begin_apcs(p, &mut t, Some(status))
-                            } else {
-                                dispatch::wait_complete(p, &mut t, status)
-                            }
+            }
+            if turns == Some(0) {
+                return RunStatus::BudgetExhausted;
+            }
+            if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+                return RunStatus::Cancelled;
+            }
+            if let Some(remaining) = &mut turns {
+                *remaining -= 1;
+            }
+
+            let now = Instant::now();
+            tick_timers(p, now);
+            // Extract each thread while invoking personality code so a guest
+            // callback may create/modify other threads without borrow aliases.
+            let tids: Vec<u32> = p.threads.keys().copied().collect();
+            for tid in tids {
+                let Some(mut t) = p.threads.remove(&tid) else {
+                    continue;
+                };
+                let outcome = if let Some(code) = t.terminate.take() {
+                    if let ThreadState::Waiting(wait) = &t.state {
+                        if let Err(error) = sync::on_cancel(p, tid, wait) {
+                            p.threads.insert(tid, t);
+                            p.fail(format!("thread cancellation failed: {error:?}"));
+                            break;
                         }
-                        Ok(None) => Outcome::Park,
-                        Err(error) => {
-                            if let Err(cleanup) = sync::on_cancel(p, tid, &wait) {
-                                p.threads.insert(tid, t);
-                                p.fail(format!(
+                    }
+                    Outcome::ThreadTerminate(code)
+                } else if let ThreadState::Exited(code) = t.state {
+                    Outcome::ThreadExit(code)
+                } else if t.suspend == 0 {
+                    if let ThreadState::Waiting(wait) = &t.state {
+                        let wait = wait.clone();
+                        match sync::poll(p, tid, &wait, now, !t.apcs.is_empty()) {
+                            Ok(Some(status)) => {
+                                if let Err(error) = sync::on_cancel(p, tid, &wait) {
+                                    p.threads.insert(tid, t);
+                                    p.fail(format!("completed wait cleanup failed: {error:?}"));
+                                    break;
+                                }
+                                t.state = ThreadState::Ready;
+                                if status == sync::WAIT_IO_COMPLETION && !t.apcs.is_empty() {
+                                    begin_apcs(p, &mut t, Some(status))
+                                } else {
+                                    dispatch::wait_complete(p, &mut t, status)
+                                }
+                            }
+                            Ok(None) => Outcome::Park,
+                            Err(error) => {
+                                if let Err(cleanup) = sync::on_cancel(p, tid, &wait) {
+                                    p.threads.insert(tid, t);
+                                    p.fail(format!(
                                     "faulted wait cleanup failed: {cleanup:?}; original: {error:?}"
                                 ));
-                                break;
+                                    break;
+                                }
+                                t.state = ThreadState::Ready;
+                                dispatch::wait_failed(p, &mut t, error)
                             }
-                            t.state = ThreadState::Ready;
-                            dispatch::wait_failed(p, &mut t, error)
                         }
+                    } else {
+                        Outcome::Continue
                     }
                 } else {
                     Outcome::Continue
+                };
+                apply_outcome(p, t, outcome, &mut self.last_exit);
+                if p.exit_code.is_some() || p.failure.is_some() {
+                    break;
                 }
-            } else {
-                Outcome::Continue
-            };
-            apply_outcome(p, t, outcome, &mut last_exit);
-            if p.exit_code.is_some() || p.failure.is_some() {
-                break;
             }
-        }
-        if p.exit_code.is_some() || p.failure.is_some() {
-            continue;
-        }
-
-        let Some(tid) = select(p, previous) else {
-            if p.threads.is_empty() {
+            if p.exit_code.is_some() || p.failure.is_some() {
                 continue;
             }
-            let deadline = next_deadline(p);
-            let delay = deadline
-                .map(|d| d.saturating_duration_since(Instant::now()))
-                .unwrap_or(IDLE_POLL)
-                .min(IDLE_POLL);
-            if !delay.is_zero() {
-                std::thread::sleep(delay);
-            }
-            continue;
-        };
-        clear_on_thread_switch(p, previous, tid);
-        previous = tid;
-        let mut t = p.threads.remove(&tid).expect("selected thread");
-        let outcome = if let Some(status) = t.wait_status.take() {
-            dispatch::wait_complete(p, &mut t, status)
-        } else if t.cpu.pc() == p.traps.thread_start() && !t.apcs.is_empty() {
-            begin_apcs(p, &mut t, None)
-        } else {
-            let stop = t.cpu.run(p.cfg.slice_insns.max(1));
-            handle_stop(p, &mut t, stop)
-        };
-        apply_outcome(p, t, outcome, &mut last_exit);
+
+            let Some(tid) = select(p, self.previous) else {
+                if p.threads.is_empty() {
+                    continue;
+                }
+                if turns.is_some() {
+                    return RunStatus::Blocked;
+                }
+                let deadline = next_deadline(p);
+                let delay = deadline
+                    .map(|d| d.saturating_duration_since(Instant::now()))
+                    .unwrap_or(IDLE_POLL)
+                    .min(IDLE_POLL);
+                if !delay.is_zero() {
+                    std::thread::sleep(delay);
+                }
+                continue;
+            };
+            clear_on_thread_switch(p, self.previous, tid);
+            self.previous = tid;
+            let mut t = p.threads.remove(&tid).expect("selected thread");
+            let outcome = if let Some(status) = t.wait_status.take() {
+                dispatch::wait_complete(p, &mut t, status)
+            } else if t.cpu.pc() == p.traps.thread_start() && !t.apcs.is_empty() {
+                begin_apcs(p, &mut t, None)
+            } else {
+                let stop = t.cpu.run(p.cfg.slice_insns.max(1));
+                handle_stop(p, &mut t, stop)
+            };
+            apply_outcome(p, t, outcome, &mut self.last_exit);
+        }
     }
+}
+
+#[cfg(test)]
+fn run(p: &mut Proc) -> ExitStatus {
+    Scheduler::default().run(p)
 }
 
 fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
@@ -655,6 +728,9 @@ mod tests {
 
     #[path = "monitor_tests.rs"]
     mod monitor_tests;
+
+    #[path = "bounded_tests.rs"]
+    mod bounded_tests;
 
     fn process(arch: WinArch) -> Proc {
         let space = AddressSpace::new(SpaceConfig {

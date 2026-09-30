@@ -19,6 +19,7 @@ pub(crate) mod thread;
 
 pub use super::dll::libraries::LoaderState;
 pub use fiber::FiberState;
+pub use sched::RunStatus;
 pub use thread::{Thread, ThreadState};
 
 use std::collections::BTreeMap;
@@ -306,18 +307,25 @@ impl Proc {
 /// A running Windows process.
 pub struct WindowsProcess {
     proc: Proc,
+    scheduler: sched::Scheduler,
 }
 
 impl WindowsProcess {
     /// Creates the process for `config`.
     pub fn spawn(config: WindowsConfig) -> Result<Self, SpawnError> {
-        start::spawn(config).map(|proc| WindowsProcess { proc })
+        start::spawn(config).map(|proc| WindowsProcess {
+            proc,
+            scheduler: Default::default(),
+        })
     }
 
     /// Starts from supplied executable bytes while retaining the configured
     /// host path for DLL search and guest process parameters.
     pub fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Self, SpawnError> {
-        start::spawn_image(config, bytes).map(|proc| WindowsProcess { proc })
+        start::spawn_image(config, bytes).map(|proc| WindowsProcess {
+            proc,
+            scheduler: Default::default(),
+        })
     }
 
     /// The architecture.
@@ -329,7 +337,25 @@ impl WindowsProcess {
     /// through a retained address-space clone concurrently with execution;
     /// see [`crate::user::mm::AddressSpace`]'s concurrency contract.
     pub fn run(&mut self) -> ExitStatus {
-        sched::run(&mut self.proc)
+        self.scheduler.run(&mut self.proc)
+    }
+
+    /// Runs at most `max_turns` scheduler turns without sleeping for guest waits.
+    /// Each turn polls pending waits and executes at most `config.slice_insns`
+    /// guest instructions (with a minimum configured slice of one instruction).
+    /// Zero turns leave a live process unchanged. Cancellation is checked between
+    /// turns and does not terminate the guest; clear the flag to resume.
+    ///
+    /// This bounds scheduling work, not elapsed time: a built-in host service
+    /// can still block. The caller must supply an appropriate host-I/O policy.
+    /// The address-space concurrency contract of [`Self::run`] also applies.
+    pub fn run_slice(
+        &mut self,
+        max_turns: u64,
+        cancelled: &std::sync::atomic::AtomicBool,
+    ) -> RunStatus {
+        self.scheduler
+            .run_slice(&mut self.proc, max_turns, cancelled)
     }
 
     /// Process state (for tests and embedders). Retained address-space clones

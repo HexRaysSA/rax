@@ -396,3 +396,34 @@ A downstream release should test:
 - [Architecture overview](architecture/overview.md)
 - [SMIR and native execution](architecture/smir.md)
 - [Status and limitations](reference/status-and-limitations.md)
+
+## Resumable Windows processes (Rust)
+
+`rax::user::windows::WindowsProcess::run_slice(max_turns, &cancelled)`
+retains the loader, threads, pending callbacks, and scheduler position between
+calls. Each turn polls waits and runs at most one CPU slice; `slice_insns` in
+`WindowsConfig` limits that slice (zero is clamped to one). This is a scheduling
+bound, not a retired-instruction count or a wall-clock deadline. Host-backed DLL
+services can still block: this API alone does not isolate filesystem or console
+access and is not yet a closed-host process embedding API.
+
+`RunStatus` distinguishes budget exhaustion, blocked guest threads, caller
+cancellation, and a terminal `ExitStatus`. A blocked result performs no host
+sleep; the caller chooses when to poll timers or provide an external event.
+Cancellation is checked at turn boundaries and is resumable after clearing the
+atomic flag. Zero turns do not mutate a live process. Terminal results are
+cached, including failures, and repeated `run`/`run_slice` calls do not repeat
+process teardown. The existing `run()` API continues waiting until completion.
+
+Round-robin position and ARM64 exclusive-monitor ownership survive yields.
+Per-turn scheduler bookkeeping uses O(T) temporary thread identifiers and
+O(T log T) map operations for T live threads, excluding personality service and
+CPU execution costs. No mappings may be changed concurrently through retained
+address-space clones.
+
+The Windows personality is compiled on Windows as well as Unix hosts; native
+scheduler tests run on Linux, macOS, and Windows. Host file identity and deferred
+deletion on Windows still use the existing unsupported-path result where stable
+identity is unavailable; enabling the module does not establish host-filesystem
+semantic parity. This limitation must be resolved before exposing unrestricted
+host filesystem services through process embedding.
