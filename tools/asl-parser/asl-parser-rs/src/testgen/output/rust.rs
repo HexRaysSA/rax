@@ -16,16 +16,20 @@ use std::cell::RefCell;
 
 thread_local! {
     /// Reused emulator instance for the A64 allocation oracle. The 256MB flat
-    /// memory is allocated once; `reset()` restores the default `create_test_cpu`
+    /// memory is allocated once; `reset()` restores the generated `create_test_cpu`
     /// state before each query (cheap; memory contents are irrelevant to the
     /// allocated-vs-UNDEFINED verdict).
     static ORACLE_CPU: RefCell<rax::isa::arm::AArch64Cpu> = RefCell::new(rax::isa::arm::AArch64Cpu::new(
-        rax::isa::arm::AArch64Config::default(),
+        {
+            let mut config = rax::isa::arm::AArch64Config::default();
+            config.features |= rax::isa::arm::ArmFeatures::PACA;
+            config
+        },
         Box::new(rax::isa::arm::FlatMemory::new(0, 0x1000_0000)),
     ));
 }
 
-/// Run an A64 encoding through the real rax emulator (default config, mirroring
+/// Run an A64 encoding through the real rax emulator (PAuth enabled, mirroring
 /// `create_test_cpu`) and return the matching expected result. Generated A64
 /// encoding tests use this so they characterize the verified-correct decoder
 /// (the arm_diff hardware-differential suite remains the independent check),
@@ -128,7 +132,8 @@ fn characterize_a64_execution(test: &ExecutionTest) -> A64ExecOutcome {
                                 AssertionValue::Bool(b)
                             }
                             AssertionCheck::Memory { address, size } => AssertionValue::Bytes(
-                                cpu.read_memory(*address, *size as usize).unwrap_or_default(),
+                                cpu.read_memory(*address, *size as usize)
+                                    .unwrap_or_default(),
                             ),
                             AssertionCheck::Unchanged(_) => a.expected.clone(),
                         };
@@ -181,10 +186,14 @@ use rax::isa::arm::{AArch64Config, AArch64Cpu, ArmCpu, ArmError, CpuExit, FlatMe
 // Test Helpers
 // ============================================================================
 
-/// Create a test CPU with default configuration
+/// Create a CPU with the features required by allocated-encoding smoke tests.
 fn create_test_cpu() -> AArch64Cpu {
     let memory = FlatMemory::new(0, 0x1000_0000);
-    AArch64Cpu::new(AArch64Config::default(), Box::new(memory))
+    let mut config = AArch64Config::default();
+    // ASL Load register (pac) requires HavePACExt(). Feature-absence behavior
+    // is checked by the dedicated direct-ISA tests, not this allocated corpus.
+    config.features |= rax::isa::arm::ArmFeatures::PACA;
+    AArch64Cpu::new(config, Box::new(memory))
 }
 
 /// Write an instruction to memory
@@ -1461,6 +1470,18 @@ fn extract_instruction_class(name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn pointer_authenticated_load_allocation_survives_oracle_reset() {
+        for _ in 0..2 {
+            for encoding in [0xf820_0400, 0xf820_1400, 0xf8a0_0420] {
+                assert!(matches!(
+                    super::emulator_expected_a64(encoding),
+                    super::ExpectedResult::Pass
+                ));
+            }
+        }
+    }
+
     use super::*;
 
     #[test]

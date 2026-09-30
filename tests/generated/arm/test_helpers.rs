@@ -11,10 +11,14 @@ use rax::isa::arm::{AArch64Config, AArch64Cpu, FlatMemory};
 // Re-export types so tests can use them directly
 pub use rax::isa::arm::{ArmCpu, ArmError, CpuExit};
 
-/// Create a test CPU with default configuration
+/// Create a CPU with the features required by allocated-encoding smoke tests.
 pub fn create_test_cpu() -> AArch64Cpu {
     let memory = FlatMemory::new(0, 0x1000_0000);
-    AArch64Cpu::new(AArch64Config::default(), Box::new(memory))
+    let mut config = AArch64Config::default();
+    // ASL Load register (pac) requires HavePACExt(). Feature-absence behavior
+    // is checked by the dedicated direct-ISA tests, not this allocated corpus.
+    config.features |= rax::isa::arm::ArmFeatures::PACA;
+    AArch64Cpu::new(config, Box::new(memory))
 }
 
 /// Write an instruction to memory

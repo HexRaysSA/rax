@@ -87,6 +87,31 @@ The Linux software-machine path includes:
 
 The same AArch64 Linux image can use the software backend on supported hosts. On Apple Silicon it can use Hypervisor.framework after building the `hvf` feature and signing the binary with the project entitlement.
 
+## Generated A64 corpus configuration
+
+The generated allocated-encoding smoke tests enable `ArmFeatures::PACA`, as do
+both Rust-output templates and the generator's emulator characterization CPU.
+The primary ASL `aarch64_memory_single_general_immediate_signed_pac` decode in
+`asl/arm_instrs.asl` requires `HavePACExt()` and `size == 0b11`. The production
+CPU default remains ARMv8.0-A; dedicated `test_ldraa_needs_feat_pauth_and_an_aligned_sp`
+coverage checks rejection without the feature. These corpus checks characterize
+RAX behavior and do not establish independent architectural correctness.
+
+Assumption PA1: the corpus configuration and generation-time characterization
+must expose the same features. The previous default-only helper violated this
+for the three generated `LDRAA` cases `0xf8200400` and `0xf8201400` after the
+production feature gate was added. Probe: run `cargo test --no-default-features
+--test arm` and the ASL parser's `pointer_authenticated_load_allocation_survives_oracle_reset`
+test. A generated allocation mismatch falsifies this assumption. Status: confirmed
+by the full 46,850-test ARM corpus and repeated oracle-reset test on macOS. The helper is
+portable Rust with identical Windows, macOS, and Linux configuration; native CI
+results are tracked separately.
+
+Medium-impact existing limitation: this generated corpus uses emulator-derived
+expectations; the independent architectural checks remain in the direct-ISA and
+differential suites. No assertion is skipped or relaxed by enabling the required
+feature.
+
 ## Advanced SIMD, VFP, and floating point
 
 The checked-in generated corpus and differential harnesses cover broad NEON/Advanced SIMD and scalar floating-point behavior, including FP16 and crypto families. The relevant state projection includes general registers, SP, NZCV, vector registers, and—where the harness supports it—predicate and control state.
