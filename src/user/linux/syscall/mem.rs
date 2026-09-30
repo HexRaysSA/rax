@@ -240,6 +240,18 @@ pub fn mmap(
     if off & PAGE_MASK != 0 {
         return Err(Errno(EINVAL));
     }
+    // ksys_mmap_pgoff obtains the file before vm_mmap_pgoff validates the
+    // length/map type. fget excludes FMODE_PATH descriptions (fs/file.c).
+    let anonymous = flags & MAP_ANONYMOUS != 0;
+    let file = if anonymous {
+        None
+    } else {
+        let file = c.p.fds.file(fd)?;
+        if file.flags() & super::super::abi::open::O_PATH != 0 {
+            return Err(Errno(EBADF));
+        }
+        Some(file)
+    };
     if len == 0 {
         return Err(Errno(EINVAL));
     }
@@ -258,7 +270,6 @@ pub fn mmap(
         _ => return Err(Errno(EINVAL)),
     }
     let shared = map_type != MAP_PRIVATE;
-    let anonymous = flags & MAP_ANONYMOUS != 0;
     let mut prot = prot;
     if prot & PROT_READ != 0 && c.p.persona & READ_IMPLIES_EXEC != 0 {
         prot |= PROT_EXEC;
@@ -267,8 +278,7 @@ pub fn mmap(
     let mut backing = Backing::Anonymous;
     let mut name: Option<Arc<str>> = None;
     let mut vm_flags = 0;
-    if !anonymous {
-        let file = c.p.fds.file(fd)?;
+    if let Some(file) = file {
         match (&file.object, file.ftype) {
             (FileObject::Host(f), FileType::Regular | FileType::BlockDevice) => {
                 if !file.readable() {
@@ -337,6 +347,16 @@ pub fn mmap(
                 vm_flags |= vma_flags::SPECIAL;
             }
             (FileObject::Synthetic(d), FileType::Regular) => {
+                if !file.readable() {
+                    return Err(Errno(EACCES));
+                }
+                if shared && !file.writable() {
+                    if prot & PROT_WRITE != 0 {
+                        return Err(Errno(EACCES));
+                    }
+                    // A read-only shared file cannot become writable later.
+                    vm_flags |= vma_flags::DENY_WRITE;
+                }
                 backing = Backing::Source {
                     source: Arc::new(crate::user::mm::BytesSource::new(d.clone())),
                     offset: off,

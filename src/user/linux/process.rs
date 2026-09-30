@@ -46,6 +46,10 @@ pub struct LinuxConfig {
     pub exec_path: String,
     /// Guest root overlay (QEMU `-L`).
     pub sysroot: Option<PathBuf>,
+    /// A closed immutable file namespace, with the main image added at spawn.
+    /// `None` preserves the host/sysroot filesystem. Other host services are
+    /// controlled separately; this field alone is not process isolation.
+    pub supplied_files: Option<crate::user::supplied_fs::Files>,
     /// Absolute guest working directory.
     pub cwd: String,
     /// `RLIMIT_STACK` soft limit in bytes.
@@ -91,6 +95,7 @@ impl LinuxConfig {
             envp,
             exec_path: exec_path.into(),
             sysroot: None,
+            supplied_files: None,
             cwd,
             stack_limit: DEFAULT_STACK_LIMIT,
             arena_bytes: DEFAULT_ARENA_BYTES,
@@ -666,14 +671,30 @@ fn stdio(fd: i32, host: std::io::Result<std::os::fd::OwnedFd>) -> Option<Arc<Ope
 impl LinuxProcess {
     /// Performs `execve` of `image` as the process's initial program.
     pub fn spawn(config: LinuxConfig, image: ImageFile) -> Result<Self, SpawnError> {
-        let vfs = Vfs::new(config.sysroot.clone(), config.cwd.clone());
-        // /proc/self/exe and the mapping names carry the absolute, symlink-
-        // resolved path (d_path of the executable), whatever path execve got.
         let exe_guest = super::fs::join_guest(&config.cwd, &config.exec_path);
-        let exe_host = vfs.host_path(&exe_guest, true);
-        let exe_path = std::fs::canonicalize(&exe_host)
-            .map(|p| vfs.guest_path_of(&p))
-            .unwrap_or(exe_guest);
+        let (vfs, exe_path, exe_host) = if let Some(files) = &config.supplied_files {
+            if config.sysroot.is_some() {
+                return Err(SpawnError::Unsupported(
+                    "supplied files and a host sysroot are mutually exclusive".into(),
+                ));
+            }
+            let files = files
+                .with_file(exe_guest.clone(), image.bytes.clone())
+                .map_err(|e| SpawnError::Unsupported(e.to_string()))?;
+            let vfs = Vfs::closed(files, config.cwd.clone())
+                .map_err(|e| SpawnError::Unsupported(e.to_string()))?;
+            (vfs, exe_guest, None)
+        } else {
+            let vfs = Vfs::new(config.sysroot.clone(), config.cwd.clone());
+            // Host /proc/self/exe carries the symlink-resolved executable path.
+            let host = vfs
+                .host_path(&exe_guest, true)
+                .map_err(|e| SpawnError::Unsupported(e.to_string()))?;
+            let path = std::fs::canonicalize(&host)
+                .map(|p| vfs.guest_path_of(&p))
+                .unwrap_or(exe_guest);
+            (vfs, path, Some(host))
+        };
         let creds = super::host::credentials();
         let mut entropy = Entropy::new(config.seed);
         let img = super::exec::load_image(

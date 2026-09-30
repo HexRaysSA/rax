@@ -18,6 +18,63 @@ flags with `O_CLOEXEC`, a mount ID per file system, the inode number) and the li
 of the pidfd, `eventfd`, `timerfd`, `signalfd`, and `epoll` `show_fdinfo`
 operations.
 
+## Supplied immutable files
+
+`LinuxConfig::supplied_files = Some(supplied_fs::Files)` selects a closed file
+namespace. The executable bytes passed to `LinuxProcess::spawn` are inserted at
+its guest executable path; a duplicate supplied path is rejected. A host
+`sysroot` cannot be combined with this namespace. `cwd` must name an inferred
+supplied directory (use `/` for a fresh namespace).
+
+File keys are canonical absolute UTF-8 POSIX guest paths, independent of the
+host's separators and case rules: no empty, `.` or `..` components, trailing
+slash, or embedded NUL. Keys and lookup paths are at most 4095 bytes, and each
+component at most 255 bytes. Invalid UTF-8 executable names, `PT_INTERP`, and
+script-interpreter names return `EINVAL` instead of aliasing a replacement-
+character key. Lookup accepts redundant separators and `.`/`..`,
+but checks each intermediate directory first: `/regular/../other` is
+`ENOTDIR`, and `/missing/../other` is `ENOENT`. Inferred directories and supplied
+files have distinct deterministic inode numbers within the immutable namespace.
+Files/directories are root-owned with mode `0555`; their times are zero.
+
+The ELF `PT_INTERP` resolver, ordinary opens, positional reads, directory
+enumeration, metadata, `chdir`, and private file mappings all use this namespace.
+`execve`/`execveat`, including `#!` interpreters and open supplied-file
+descriptors, retain it across image replacement. Payloads are shared `Arc`
+references, so opening or mapping a file does not copy its complete input.
+Guest modifications to private mappings do not change supplied bytes.
+Read-only shared mappings cannot gain write permission through `mprotect`;
+`O_PATH` descriptors return `EBADF` before mapping-length validation, following
+[`ksys_mmap_pgoff`](https://github.com/torvalds/linux/blob/master/mm/mmap.c) and
+[`fget`](https://github.com/torvalds/linux/blob/master/fs/file.c); positioned reads of directories return
+`EISDIR`. Supplied `statfs` reports read-only
+[`RAMFS_MAGIC`](https://github.com/torvalds/linux/blob/master/include/uapi/linux/magic.h).
+Supplied files have no xattrs or inotify watch support.
+
+`Vfs::host_path` returns `EPERM` for this namespace, including when an identical
+host filename exists. A missing supplied path returns `ENOENT`; it never falls
+back to the host. Existing synthesized `/proc` entries remain available from
+guest state when no supplied entry resolves the name. Main/interpreter image
+records carry no host path, and file metadata/bytes do not come from a host
+object. Default CLI configurations retain their original host/sysroot behavior.
+
+This is a filesystem component of embedding, not the closed process profile:
+console routing, host identity, signals, networking, process creation, IPC,
+notifications, and asynchronous syscall services require their separate gates.
+The portable CI lane runs the shared `supplied_fs` tests on Windows, macOS,
+and Linux; native validation is tracked separately. Linux process integration is currently
+Unix-host-only. Windows-host Linux execution and Darwin integration remain
+separate work. No C ABI, packaging format, or Assist tool schema changes here.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| SF1 | A closed filesystem can resolve every image and file solely from supplied immutable bytes. | ELF/image and descriptor layers already accept shared byte sources. | Linux supplied namespace and loader route. | Host and supplied files with the same path; a valid host ELF interpreter omitted from supplied inputs; `..` after regular/missing components; scripts and private/shared mappings. | Run `user::supplied_fs::` and `user::linux::tests::supplied::`; host bytes returned, a host interpreter loaded, or supplied bytes changed falsify the invariant. | Confirmed on macOS; native CI validation tracked separately. |
+| SF2 | Existing synthetic mmap permission checks already match read-only host file checks. | Previously inferred from the common mmap handler. | Immutable supplied mappings. | Request `MAP_SHARED | PROT_WRITE`, then attempt upgrading a read-only shared mapping. | The initial supplied-file test returned a mapping instead of `EACCES`. | Falsified and fixed: synthetic mappings now check descriptor readability and preserve `DENY_WRITE`. |
+
+High-impact boundary: this filesystem alone does not restrict unrelated host
+services. The supplied-file configuration is not exposed as a closed Linux
+process through the C API until those gates and portable runtime adapters exist.
+
 ## Nodes, times, and the umask
 
 Implementation: `nodes`.

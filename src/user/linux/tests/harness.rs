@@ -58,20 +58,36 @@ impl Harness {
         abi: LinuxAbi,
         backend: Option<crate::user::linux::fsnotify::Backend>,
     ) -> Self {
-        Self::configured(abi, backend, Default::default())
+        Self::configured(abi, backend, Default::default(), None)
     }
 
     pub(crate) fn with_console(
         abi: LinuxAbi,
         console: crate::user::console::CapturedConsole,
     ) -> Self {
-        Self::configured(abi, None, crate::user::console::Console::Captured(console))
+        Self::configured(
+            abi,
+            None,
+            crate::user::console::Console::Captured(console),
+            None,
+        )
+    }
+
+    pub(crate) fn with_supplied(abi: LinuxAbi, files: crate::user::supplied_fs::Files) -> Self {
+        let console = crate::user::console::CapturedConsole::new(Vec::new(), 1 << 20).unwrap();
+        Self::configured(
+            abi,
+            None,
+            crate::user::console::Console::Captured(console),
+            Some(files),
+        )
     }
 
     fn configured(
         abi: LinuxAbi,
         backend: Option<crate::user::linux::fsnotify::Backend>,
         console: crate::user::console::Console,
+        files: Option<crate::user::supplied_fs::Files>,
     ) -> Self {
         let segs = [
             Seg::load(CODE, 0, 0x2000, 0x2000, PF_R | PF_X),
@@ -90,6 +106,10 @@ impl Harness {
         };
         let mut config = LinuxConfig::new("/prog", vec![b"prog".to_vec()], vec![]);
         config.console = console;
+        if files.is_some() {
+            config.cwd = "/".into();
+        }
+        config.supplied_files = files;
         config.arena_bytes = 256 << 20;
         config.seed = Some(1);
         // A System V IPC namespace of its own: harnesses run in parallel in

@@ -51,6 +51,9 @@ fn notify_mask(t: &[SetTime; 2]) -> u32 {
 
 /// Sets the times of an open file (`vfs_utimes` on its path).
 fn file_times(c: &Ctx<'_>, file: &OpenFile, t: [SetTime; 2]) -> SysResult {
+    if file.supplied_stat.is_some() {
+        return Err(Errno(EROFS));
+    }
     match &file.object {
         FileObject::Host(f) => {
             host::set_fd_times(f, t)?;
@@ -120,6 +123,7 @@ fn do_utimes(
             Ok(0)
         }
         Target::Fd(file) => file_times(c, &file, t),
+        Target::Supplied(..) => Err(Errno(EROFS)),
         Target::Proc(..) => Ok(0),
     }
 }

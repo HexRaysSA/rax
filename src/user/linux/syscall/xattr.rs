@@ -149,6 +149,9 @@ fn proto_name(s: &super::super::net::Socket) -> &'static str {
 /// The node of an open file; `by_fd` for `fdget`, which refuses `O_PATH`.
 fn file_node(file: Arc<OpenFile>, by_fd: bool) -> Result<Node, Errno> {
     let pseudo = |p, m| Ok(Node::Pseudo(p, m));
+    if let Some(stat) = file.supplied_stat {
+        return pseudo(Pseudo::Anon, stat.mode);
+    }
     match &file.object {
         FileObject::Host(f) => {
             let m = f.metadata()?;
@@ -213,6 +216,14 @@ fn lookup_path(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<Node
                 uid: m.uid(),
             })
         }
+        Target::Supplied(entry, _) => Ok(Node::Pseudo(
+            Pseudo::Anon,
+            if entry.is_dir() {
+                mode::S_IFDIR | 0o555
+            } else {
+                mode::S_IFREG | 0o555
+            },
+        )),
         Target::Fd(file) => file_node(file, false),
         Target::Proc(ProcEntry::Dir(_), _) => Ok(Node::Pseudo(Pseudo::Proc, mode::S_IFDIR | 0o555)),
         Target::Proc(ProcEntry::Link(_), _) => {

@@ -27,4 +27,5 @@ pub mod image;
 #[cfg(unix)]
 pub mod linux;
 pub mod mm;
+pub mod supplied_fs;
 pub mod windows;

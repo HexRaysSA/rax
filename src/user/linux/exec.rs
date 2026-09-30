@@ -70,7 +70,7 @@ pub struct ImageRequest<'a> {
     /// Absolute, resolved guest path of the file (`d_path`).
     pub exe_path: String,
     /// Its host path.
-    pub exe_host: PathBuf,
+    pub exe_host: Option<PathBuf>,
     /// `AT_EXECFN`: the file name as `execve` got it.
     pub execfn: &'a [u8],
     /// `comm`: the file name's last component (at most 15 bytes).
@@ -153,9 +153,8 @@ pub fn load_image(
     map_stack(abi, &space, req.stack_limit, exec_stack).map_err(SpawnError::Stack)?;
 
     let mut resolver = |path: &[u8]| -> std::io::Result<ImageFile> {
-        let guest = String::from_utf8_lossy(path).into_owned();
-        let host = vfs.host_path(&guest, true);
-        Ok(ImageFile::new(std::fs::read(&host)?, guest))
+        let guest = vfs.executable_name(path).map_err(std::io::Error::other)?;
+        Ok(ImageFile::new(vfs.read_image(&guest)?, guest))
     };
     let program = load_program(
         abi,
@@ -223,7 +222,7 @@ pub fn load_image(
         cmdline: join0(req.argv),
         environ: join0(req.envp),
         exe_path: req.exe_path,
-        exe_host_path: Some(req.exe_host),
+        exe_host_path: req.exe_host,
         comm: req.comm,
         keep: Vec::new(),
     })

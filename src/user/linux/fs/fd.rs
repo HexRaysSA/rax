@@ -125,6 +125,8 @@ pub struct OpenFile {
     pub path: String,
     /// Host path, when the object came from the host file system.
     pub host_path: Option<std::path::PathBuf>,
+    /// Immutable metadata for a caller-supplied file or inferred directory.
+    pub supplied_stat: Option<super::super::abi::types::Stat>,
     /// Mutable state.
     pub state: Mutex<FileState>,
     /// The other end of a pipe the guest created, whose readers or writers
@@ -187,6 +189,7 @@ impl OpenFile {
             ftype,
             path: path.into(),
             host_path,
+            supplied_stat: None,
             state: Mutex::new(FileState {
                 flags,
                 ..Default::default()
@@ -384,6 +387,9 @@ impl OpenFile {
     pub fn read_at(&self, buf: &mut [u8], offset: u64) -> Result<usize, Errno> {
         if !self.readable() {
             return Err(Errno(EBADF));
+        }
+        if self.ftype == FileType::Directory {
+            return Err(Errno(EISDIR));
         }
         match &self.object {
             FileObject::Host(f) if self.ftype == FileType::Regular => {

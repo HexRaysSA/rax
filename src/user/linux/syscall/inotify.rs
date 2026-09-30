@@ -157,6 +157,7 @@ pub fn add_watch(c: &mut Ctx<'_>, fd: i32, path: u64, mask: u32) -> SysResult {
             };
             (obj, None, guest)
         }
+        Target::Supplied(..) => return Err(Errno(EOPNOTSUPP)),
         Target::Fd(_) => return Err(Errno(ENOENT)),
     };
     if mask & IN_ONLYDIR != 0 && !obj.dir {

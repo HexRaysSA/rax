@@ -45,6 +45,7 @@ mod signals;
 mod sockets;
 mod splice;
 mod stack;
+mod supplied;
 mod syscall_mm;
 mod sysvmsg;
 mod sysvsem;

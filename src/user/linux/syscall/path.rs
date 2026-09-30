@@ -35,6 +35,8 @@ pub const AT_STATX_SYNC_TYPE: u32 = 0x6000;
 pub enum Target {
     /// A synthesized `/proc` or `/sys` entry.
     Proc(ProcEntry, String),
+    /// Immutable caller-supplied bytes or an inferred guest directory.
+    Supplied(crate::user::supplied_fs::Entry, String),
     /// A host file-system object.
     Host {
         /// Guest path (absolute, lexically joined).
@@ -63,11 +65,26 @@ fn base_dir(c: &Ctx<'_>, dirfd: i32) -> Result<String, Errno> {
 
 /// Resolves a guest path string relative to `dirfd`.
 pub fn resolve_str(c: &Ctx<'_>, dirfd: i32, path: &str, follow: bool) -> Result<Target, Errno> {
-    let guest = if path.starts_with('/') {
+    // Preserve components until the closed namespace has checked directory
+    // traversal. Lexically erasing `.` would mis-handle `/regular-file/.`.
+    let guest = if c.p.vfs.supplied().is_some() {
+        if path.starts_with('/') {
+            path.to_string()
+        } else {
+            format!("{}/{path}", base_dir(c, dirfd)?.trim_end_matches('/'))
+        }
+    } else if path.starts_with('/') {
         join_guest("/", path)
     } else {
         join_guest(&base_dir(c, dirfd)?, path)
     };
+    if let Some(files) = c.p.vfs.supplied() {
+        match files.lookup(&guest) {
+            Ok((canonical, entry)) => return Ok(Target::Supplied(entry, canonical)),
+            Err(crate::user::supplied_fs::Error::NotFound) => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
     let threads = c.thread_refs();
     if let Some(entry) = procfs::lookup(c.p, c.t, &threads, &guest) {
         return Ok(Target::Proc(entry, guest));
@@ -75,7 +92,10 @@ pub fn resolve_str(c: &Ctx<'_>, dirfd: i32, path: &str, follow: bool) -> Result<
     if procfs::owned(c.p, &threads, &guest) {
         return Err(Errno(ENOENT));
     }
-    let host = c.p.vfs.host_path(&guest, follow);
+    if c.p.vfs.supplied().is_some() {
+        return Err(Errno(ENOENT));
+    }
+    let host = c.p.vfs.host_path(&guest, follow)?;
     Ok(Target::Host { guest, host })
 }
 
@@ -131,6 +151,30 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
     }
 }
 
+/// Metadata of an immutable supplied entry. All entries are readable and
+/// executable/searchable; no guest identity has write permission.
+fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
+    let size = match &entry.kind {
+        crate::user::supplied_fs::Kind::File(bytes) => bytes.len() as i64,
+        crate::user::supplied_fs::Kind::Directory => 0,
+    };
+    Stat {
+        ino: entry.ino,
+        mode: if entry.is_dir() {
+            mode::S_IFDIR | 0o555
+        } else {
+            mode::S_IFREG | 0o555
+        },
+        nlink: if entry.is_dir() { 2 } else { 1 },
+        uid: 0,
+        gid: 0,
+        size,
+        blksize: 4096,
+        blocks: (size as u64).div_ceil(512) as i64,
+        ..Default::default()
+    }
+}
+
 /// Metadata of an open file.
 pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
     stat_open(file, (c.p.creds.1, c.p.creds.3))
@@ -139,6 +183,9 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
 /// Metadata of an open file of a process whose effective UID and GID are
 /// `ids` (the owner of the inodes it creates).
 pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
+    if let Some(stat) = file.supplied_stat {
+        return Ok(stat);
+    }
     match &file.object {
         FileObject::Console { stream, .. } => Ok(Stat {
             ino: 0x5241_5810
@@ -231,6 +278,7 @@ pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
 pub(super) fn stat_target(c: &Ctx<'_>, t: &Target, follow: bool) -> Result<Stat, Errno> {
     match t {
         Target::Fd(f) => stat_file(c, f),
+        Target::Supplied(entry, _) => Ok(supplied_stat(entry)),
         Target::Proc(ProcEntry::Link(link), _) if follow => {
             let target = resolve_str(c, AT_FDCWD, link, true)?;
             stat_target(c, &target, true)
@@ -285,6 +333,56 @@ pub(super) fn open_target(
     };
     match target {
         Target::Fd(file) => Ok(file),
+        Target::Supplied(entry, guest) => {
+            if flags & (O_CREAT | O_EXCL) == (O_CREAT | O_EXCL) {
+                return Err(Errno(EEXIST));
+            }
+            if flags & O_PATH == 0
+                && (accmode != O_RDONLY || flags & (O_TRUNC | O_TMPFILE_BIT) != 0)
+            {
+                return Err(Errno(EROFS));
+            }
+            if flags & layout.directory != 0 && !entry.is_dir() {
+                return Err(Errno(ENOTDIR));
+            }
+            let mut directory = None;
+            let (data, kind) = if entry.is_dir() {
+                let files = c.p.vfs.supplied().expect("supplied target has a namespace");
+                let parent = files.lookup(&format!("{guest}/.."))?.1;
+                let mut entries = vec![
+                    fs::fd::DirEntry {
+                        ino: entry.ino,
+                        dtype: fs::fd::dt::DT_DIR,
+                        name: b".".to_vec(),
+                    },
+                    fs::fd::DirEntry {
+                        ino: parent.ino,
+                        dtype: fs::fd::dt::DT_DIR,
+                        name: b"..".to_vec(),
+                    },
+                ];
+                entries.extend(files.children(&guest)?.into_iter().map(|(name, entry)| {
+                    fs::fd::DirEntry {
+                        ino: entry.ino,
+                        dtype: if entry.is_dir() {
+                            fs::fd::dt::DT_DIR
+                        } else {
+                            fs::fd::dt::DT_REG
+                        },
+                        name: name.into_bytes(),
+                    }
+                }));
+                directory = Some((entries, 0));
+                (Arc::from([]), FileType::Directory)
+            } else {
+                (entry.bytes()?, FileType::Regular)
+            };
+            let mut file = OpenFile::new(FileObject::Synthetic(data), kind, guest, None, status);
+            let unique = Arc::get_mut(&mut file).expect("new unpublished file");
+            unique.supplied_stat = Some(supplied_stat(&entry));
+            unique.state.get_mut().unwrap().dir = directory;
+            Ok(file)
+        }
         Target::Proc(ProcEntry::File(data), guest) => {
             if accmode != O_RDONLY {
                 return Err(Errno(EACCES));
@@ -614,7 +712,21 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             }
             Ok(0)
         }
+        Target::Supplied(..) => {
+            if amode & 2 != 0 {
+                Err(Errno(EACCES))
+            } else {
+                Ok(0)
+            }
+        }
         Target::Proc(..) => Ok(0),
+        Target::Fd(f) if f.supplied_stat.is_some() => {
+            if amode & 2 != 0 {
+                Err(Errno(EACCES))
+            } else {
+                Ok(0)
+            }
+        }
         Target::Fd(f) => match &f.host_path {
             Some(h) => {
                 super::super::host::access(h, amode, flags & AT_EACCESS != 0, follow).map(|_| 0)
@@ -634,7 +746,7 @@ pub fn readlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64) -
     }
     let bytes = match resolve(c, dirfd, path, AT_EMPTY_PATH, false)? {
         Target::Proc(ProcEntry::Link(t), _) => t.into_bytes(),
-        Target::Proc(..) | Target::Fd(_) => return Err(Errno(EINVAL)),
+        Target::Proc(..) | Target::Fd(_) | Target::Supplied(..) => return Err(Errno(EINVAL)),
         Target::Host { host, .. } => {
             use std::os::unix::ffi::OsStrExt;
             std::fs::read_link(&host)?.as_os_str().as_bytes().to_vec()
@@ -658,6 +770,13 @@ pub fn getcwd(c: &mut Ctx<'_>, buf: u64, size: u64) -> SysResult {
 
 fn set_cwd_from(c: &mut Ctx<'_>, target: Target) -> SysResult {
     match target {
+        Target::Supplied(entry, guest) => {
+            if !entry.is_dir() {
+                return Err(Errno(ENOTDIR));
+            }
+            c.p.vfs.set_cwd(guest);
+            Ok(0)
+        }
         Target::Host { host, .. } => {
             let m = std::fs::metadata(&host)?;
             if !m.is_dir() {
@@ -711,6 +830,7 @@ fn host_target(c: &Ctx<'_>, dirfd: i32, path: u64, follow: bool) -> Result<PathB
     match resolve(c, dirfd, path, 0, follow)? {
         Target::Host { host, .. } => Ok(host),
         // Synthesized entries are read-only.
+        Target::Supplied(..) => Err(Errno(EROFS)),
         Target::Proc(..) | Target::Fd(_) => Err(Errno(EACCES)),
     }
 }
@@ -887,6 +1007,7 @@ pub fn fchmodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, flags: u32) -
     let host = match resolve(c, dirfd, path, flags, follow)? {
         Target::Host { host, .. } => host,
         Target::Fd(f) => f.host_path.clone().ok_or(Errno(EBADF))?,
+        Target::Supplied(..) => return Err(Errno(EROFS)),
         Target::Proc(..) => return Err(Errno(EPERM)),
     };
     if !follow && std::fs::symlink_metadata(&host)?.file_type().is_symlink() {
@@ -938,6 +1059,7 @@ pub fn fchownat(
     let host = match resolve(c, dirfd, path, flags, follow)? {
         Target::Host { host, .. } => host,
         Target::Fd(f) => f.host_path.clone().ok_or(Errno(EBADF))?,
+        Target::Supplied(..) => return Err(Errno(EROFS)),
         Target::Proc(..) => return Err(Errno(EPERM)),
     };
     if follow {
@@ -1008,6 +1130,8 @@ pub fn truncate(c: &mut Ctx<'_>, path: u64, len: i64) -> SysResult {
 const EXT4_SUPER_MAGIC: u64 = 0xEF53;
 /// `PROC_SUPER_MAGIC`.
 const PROC_SUPER_MAGIC: u64 = 0x9fa0;
+/// `RAMFS_MAGIC` (`include/uapi/linux/magic.h`), mounted read-only here.
+const RAMFS_MAGIC: u64 = 0x8584_58f6;
 /// `ST_VALID` (`f_flags` is meaningful).
 const ST_VALID: u64 = 0x20;
 
@@ -1038,9 +1162,16 @@ fn synthetic_fs() -> super::super::host::FsStats {
     }
 }
 
+fn supplied_statfs() -> Kstatfs {
+    let mut stat = kstatfs(RAMFS_MAGIC, &synthetic_fs());
+    stat.flags |= 1; // ST_RDONLY
+    stat
+}
+
 /// `user_statfs`: the statistics of the file system holding `path`.
 pub(super) fn statfs_path(c: &mut Ctx<'_>, path: u64) -> Result<Kstatfs, Errno> {
     match resolve(c, AT_FDCWD, path, 0, true)? {
+        Target::Supplied(..) => Ok(supplied_statfs()),
         Target::Proc(..) => Ok(kstatfs(PROC_SUPER_MAGIC, &synthetic_fs())),
         Target::Host { host, .. } => Ok(kstatfs(
             EXT4_SUPER_MAGIC,
@@ -1053,6 +1184,9 @@ pub(super) fn statfs_path(c: &mut Ctx<'_>, path: u64) -> Result<Kstatfs, Errno> 
 /// `fd_statfs`: the statistics of the file system holding `fd`'s file.
 pub(super) fn statfs_fd(c: &Ctx<'_>, fd: i32) -> Result<Kstatfs, Errno> {
     let file = c.p.fds.file(fd)?;
+    if file.supplied_stat.is_some() {
+        return Ok(supplied_statfs());
+    }
     Ok(match &file.host_path {
         Some(h) => kstatfs(EXT4_SUPER_MAGIC, &super::super::host::statvfs(h)?),
         None if super::pidfd::target_of(&file).is_some() => {

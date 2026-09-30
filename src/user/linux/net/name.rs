@@ -42,7 +42,7 @@ pub enum Place {
 pub fn unix_path(vfs: &Vfs, path: &[u8], create: bool) -> Result<PathBuf, Errno> {
     let s = Vfs::path_str(path)?;
     let guest = join_guest(vfs.cwd(), &s);
-    Ok(vfs.host_path(&guest, !create))
+    vfs.host_path(&guest, !create)
 }
 
 /// The place of host path `host`: itself when it fits in `sun_path`, else

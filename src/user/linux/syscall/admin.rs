@@ -308,6 +308,13 @@ fn searchable(c: &Ctx<'_>, t: Target) -> Result<(), Errno> {
             }
             super::super::host::access(&host, X_OK, true, true)
         }
+        Target::Supplied(entry, _) => {
+            if entry.is_dir() {
+                Ok(())
+            } else {
+                Err(Errno(ENOTDIR))
+            }
+        }
         Target::Proc(ProcEntry::Dir(_), _) => Ok(()),
         Target::Proc(ProcEntry::Link(link), _) => {
             searchable(c, path::resolve_str(c, AT_FDCWD, &link, true)?)

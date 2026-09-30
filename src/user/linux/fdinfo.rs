@@ -41,6 +41,9 @@ mod mnt {
 
 /// The mount ID of the file system `file` lives on.
 fn mount_id(file: &OpenFile) -> i32 {
+    if file.supplied_stat.is_some() {
+        return mnt::ROOT;
+    }
     match &file.object {
         FileObject::Host(_) if file.memfd.is_some() => mnt::SHM,
         FileObject::Host(_) | FileObject::PathOnly | FileObject::Console { .. } => mnt::ROOT,

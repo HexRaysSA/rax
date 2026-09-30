@@ -185,12 +185,16 @@ jobs:
         with:
           toolchain: stable
           cache-key: test-capi-${{ matrix.name }}
-      - name: Portable Windows process and console regressions
+      - name: Portable process, console, and supplied-file regressions
         run: |
           cargo test --locked --no-default-features --lib user::windows::process
           cargo test --locked --no-default-features --lib user::console
+          cargo test --locked --no-default-features --lib user::supplied_fs::
           cargo test --locked --no-default-features --lib captured_
           cargo test --locked --no-default-features --lib closed_
+      - name: Unix supplied-file process regressions
+        if: runner.os != 'Windows'
+        run: cargo test --locked --no-default-features --lib user::linux::tests::supplied::
       - name: C API semantic regressions
         run: cargo test --locked -p rax-capi --no-default-features
       - name: Configure native SDK

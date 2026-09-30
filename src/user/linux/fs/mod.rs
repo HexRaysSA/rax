@@ -36,6 +36,7 @@ pub const MAX_SYMLINKS: usize = 40;
 pub struct Vfs {
     sysroot: Option<PathBuf>,
     cwd: String,
+    supplied: Option<crate::user::supplied_fs::Files>,
 }
 
 /// Lexically joins `path` onto the absolute guest directory `base` and
@@ -72,7 +73,50 @@ fn host_only(guest: &str) -> bool {
 impl Vfs {
     /// A view with the given sysroot and absolute guest working directory.
     pub fn new(sysroot: Option<PathBuf>, cwd: String) -> Self {
-        Vfs { sysroot, cwd }
+        Vfs {
+            sysroot,
+            cwd,
+            supplied: None,
+        }
+    }
+
+    /// A closed guest namespace, without sysroot or host fallback.
+    pub fn closed(files: crate::user::supplied_fs::Files, cwd: String) -> Result<Self, Errno> {
+        let (cwd, entry) = files.lookup(&cwd)?;
+        if !entry.is_dir() {
+            return Err(Errno(ENOTDIR));
+        }
+        Ok(Self {
+            sysroot: None,
+            cwd,
+            supplied: Some(files),
+        })
+    }
+
+    pub fn supplied(&self) -> Option<&crate::user::supplied_fs::Files> {
+        self.supplied.as_ref()
+    }
+
+    /// Decodes executable/interpreter names. Supplied keys are exact UTF-8;
+    /// malformed bytes must not alias a replacement-character filename.
+    /// The legacy host route retains its existing lossy conversion.
+    pub fn executable_name(&self, bytes: &[u8]) -> Result<String, Errno> {
+        if self.supplied.is_some() {
+            std::str::from_utf8(bytes)
+                .map(str::to_owned)
+                .map_err(|_| Errno(EINVAL))
+        } else {
+            Ok(String::from_utf8_lossy(bytes).into_owned())
+        }
+    }
+
+    /// Reads an executable/interpreter from the selected namespace.
+    pub fn read_image(&self, guest: &str) -> std::io::Result<std::sync::Arc<[u8]>> {
+        if let Some(files) = &self.supplied {
+            return files.read(guest).map_err(std::io::Error::other);
+        }
+        let host = self.host_path(guest, true).map_err(std::io::Error::other)?;
+        Ok(std::fs::read(host)?.into())
     }
 
     /// The sysroot, if any.
@@ -105,13 +149,16 @@ impl Vfs {
 
     /// The host path for an absolute guest path. `follow_last` selects
     /// whether a final symbolic link inside the sysroot is resolved.
-    pub fn host_path(&self, guest: &str, follow_last: bool) -> PathBuf {
-        match &self.sysroot {
+    pub fn host_path(&self, guest: &str, follow_last: bool) -> Result<PathBuf, Errno> {
+        if self.supplied.is_some() {
+            return Err(Errno(EPERM));
+        }
+        Ok(match &self.sysroot {
             Some(root) if !host_only(guest) => self
                 .resolve_in_sysroot(root, guest, follow_last)
                 .unwrap_or_else(|| PathBuf::from(guest)),
             _ => PathBuf::from(guest),
-        }
+        })
     }
 
     /// Resolves `guest` inside `root`, returning `None` when some component
@@ -353,17 +400,29 @@ mod tests {
         std::os::unix::fs::symlink("libc.so", root.join("lib/rel.so")).unwrap();
         let vfs = Vfs::new(Some(root.clone()), "/".into());
         // An absolute link inside the sysroot resolves inside it.
-        assert_eq!(vfs.host_path("/lib/ld.so", true), root.join("lib/libc.so"));
-        assert_eq!(vfs.host_path("/lib/rel.so", true), root.join("lib/libc.so"));
+        assert_eq!(
+            vfs.host_path("/lib/ld.so", true).unwrap(),
+            root.join("lib/libc.so")
+        );
+        assert_eq!(
+            vfs.host_path("/lib/rel.so", true).unwrap(),
+            root.join("lib/libc.so")
+        );
         // Without following, the link itself is returned.
-        assert_eq!(vfs.host_path("/lib/ld.so", false), root.join("lib/ld.so"));
+        assert_eq!(
+            vfs.host_path("/lib/ld.so", false).unwrap(),
+            root.join("lib/ld.so")
+        );
         // Missing paths fall back to the host (QEMU -L semantics).
         assert_eq!(
-            vfs.host_path("/lib/missing.so", true),
+            vfs.host_path("/lib/missing.so", true).unwrap(),
             PathBuf::from("/lib/missing.so")
         );
         // /dev is always the host's.
-        assert_eq!(vfs.host_path("/dev/null", true), PathBuf::from("/dev/null"));
+        assert_eq!(
+            vfs.host_path("/dev/null", true).unwrap(),
+            PathBuf::from("/dev/null")
+        );
         assert_eq!(vfs.guest_path_of(&root.join("lib/libc.so")), "/lib/libc.so");
         std::fs::remove_dir_all(&root).unwrap();
     }

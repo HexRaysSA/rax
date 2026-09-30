@@ -36,7 +36,9 @@ const ARG_MAX: u64 = 32 * 4096;
 /// A file opened for execution (`do_open_execat`).
 struct ExecFile {
     /// Host path.
-    host: PathBuf,
+    host: Option<PathBuf>,
+    /// Caller-supplied immutable bytes, if the file has no host backing.
+    bytes: Option<std::sync::Arc<[u8]>>,
     /// Absolute guest path (`d_path`, for `/proc/self/exe`).
     guest: String,
 }
@@ -79,15 +81,38 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
             open_target(c, next, true, depth + 1)
         }
         Target::Proc(ProcEntry::Link(_), _) => Err(Errno(ELOOP)),
-        // Synthesized files are neither regular executables nor
-        // executable.
+        Target::Supplied(entry, guest) => {
+            if entry.is_dir() {
+                return Err(Errno(EACCES));
+            }
+            Ok(ExecFile {
+                host: None,
+                bytes: Some(entry.bytes()?),
+                guest,
+            })
+        }
+        // Synthesized proc files are not executable.
         Target::Proc(..) => Err(Errno(EACCES)),
         Target::Fd(file) => {
+            if file.supplied_stat.is_some() {
+                if file.ftype != super::super::fs::fd::FileType::Regular {
+                    return Err(Errno(EACCES));
+                }
+                if let super::super::fs::fd::FileObject::Synthetic(bytes) = &file.object {
+                    return Ok(ExecFile {
+                        host: None,
+                        bytes: Some(bytes.clone()),
+                        guest: file.path.clone(),
+                    });
+                }
+                return Err(Errno(EACCES));
+            }
             let host = file.host_path.clone().ok_or(Errno(EACCES))?;
             check_exec(c, &host, true)?;
             Ok(ExecFile {
                 guest: c.p.vfs.guest_path_of(&host),
-                host,
+                host: Some(host),
+                bytes: None,
             })
         }
         Target::Host { guest: _, host } => {
@@ -95,7 +120,8 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
             let real = std::fs::canonicalize(&host).unwrap_or_else(|_| host.clone());
             Ok(ExecFile {
                 guest: c.p.vfs.guest_path_of(&real),
-                host,
+                host: Some(host),
+                bytes: None,
             })
         }
     }
@@ -201,7 +227,7 @@ pub fn execveat(
     if raw.is_empty() && flags & AT_EMPTY_PATH == 0 {
         return Err(Errno(ENOENT));
     }
-    let name = String::from_utf8_lossy(&raw).into_owned();
+    let name = c.p.vfs.executable_name(&raw)?;
     // alloc_bprm: the name the program sees (AT_EXECFN) and takes its
     // comm from.
     let by_fd = !(dirfd == AT_FDCWD || name.starts_with('/'));
@@ -243,19 +269,25 @@ pub fn execveat(
     let mut interp = filename.clone().into_bytes();
     let mut depth = 0;
     // open_exec: each file the handlers read is opened for execution.
-    let mut opened = super::notify::exec_open(c, &file.host);
+    let mut opened = file
+        .host
+        .as_ref()
+        .and_then(|host| super::notify::exec_open(c, host));
     let bytes: std::sync::Arc<[u8]> = loop {
         if depth > 5 {
             return Err(Errno(ELOOP));
         }
         depth += 1;
-        let data = std::fs::read(&file.host)?;
+        let data: std::sync::Arc<[u8]> = match &file.bytes {
+            Some(bytes) => bytes.clone(),
+            None => std::fs::read(file.host.as_ref().expect("host executable has a path"))?.into(),
+        };
         // prepare_binprm's read (and the handlers' after it).
         if let Some(t) = &opened {
             t.event(IN_ACCESS);
         }
         match exec::parse_script(&data[..data.len().min(BINPRM_BUF_SIZE)]) {
-            Err(ScriptError::NotScript) => break data.into(),
+            Err(ScriptError::NotScript) => break data,
             Err(ScriptError::Bad) => return Err(Errno(ENOEXEC)),
             Ok((i_name, i_arg)) => {
                 // The interpreter would not find the script.
@@ -276,11 +308,14 @@ pub fn execveat(
                 front.push(interp.clone());
                 args.splice(0..0, front);
                 interp = i_name.clone();
-                let path = String::from_utf8_lossy(&i_name).into_owned();
+                let path = c.p.vfs.executable_name(&i_name)?;
                 file = open_exec(c, AT_FDCWD, &path, 0)?;
                 // load_script opens the interpreter, then exec_binprm
                 // releases the script.
-                let next = super::notify::exec_open(c, &file.host);
+                let next = file
+                    .host
+                    .as_ref()
+                    .and_then(|host| super::notify::exec_open(c, host));
                 drop(std::mem::replace(&mut opened, next));
             }
         }
@@ -308,8 +343,10 @@ pub fn execveat(
         exec::load_image(request, &c.p.vfs, creds, &mut c.p.entropy).map_err(|e| load_errno(&e))?;
     // load_elf_binary opens and reads the interpreter.
     let interp_path = image.mm.program.interp_path.clone();
-    if let Some(p) = interp_path {
-        let host = c.p.vfs.host_path(&String::from_utf8_lossy(&p), true);
+    if let Some(p) = interp_path
+        && c.p.vfs.supplied().is_none()
+    {
+        let host = c.p.vfs.host_path(&String::from_utf8_lossy(&p), true)?;
         if let Some(t) = super::notify::exec_open(c, &host) {
             t.event(IN_ACCESS);
             image.keep.push(t);

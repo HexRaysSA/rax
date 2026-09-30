@@ -29,6 +29,22 @@ impl std::fmt::Display for Errno {
     }
 }
 
+impl std::error::Error for Errno {}
+
+impl From<crate::user::supplied_fs::Error> for Errno {
+    fn from(error: crate::user::supplied_fs::Error) -> Self {
+        use crate::user::supplied_fs::Error as E;
+        Self(match error {
+            E::InvalidPath => linux::EINVAL,
+            E::TooLong => linux::ENAMETOOLONG,
+            E::Exists => linux::EEXIST,
+            E::NotFound => linux::ENOENT,
+            E::NotDirectory => linux::ENOTDIR,
+            E::IsDirectory => linux::EISDIR,
+        })
+    }
+}
+
 impl From<std::io::Error> for Errno {
     fn from(e: std::io::Error) -> Self {
         Errno(from_io_error(&e))
@@ -37,6 +53,15 @@ impl From<std::io::Error> for Errno {
 
 /// Linux errno for a host `std::io::Error`.
 pub fn from_io_error(e: &std::io::Error) -> i32 {
+    if let Some(error) = e
+        .get_ref()
+        .and_then(|e| e.downcast_ref::<crate::user::supplied_fs::Error>())
+    {
+        return Errno::from(*error).0;
+    }
+    if let Some(error) = e.get_ref().and_then(|e| e.downcast_ref::<Errno>()) {
+        return error.0;
+    }
     if let Some(raw) = e.raw_os_error() {
         return from_host(raw);
     }
