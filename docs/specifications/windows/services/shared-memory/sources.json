@@ -158,5 +158,19 @@
     "publisher": "Microsoft",
     "retrieved": "2026-09-30",
     "sha256": "39d735dec115fd449a85e17acb0e83d0a1fb19b6ba6f06296cee12316d836e11"
+  },
+  {
+    "file": "nf-wdm-zwmapviewofsection.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/wdm/nf-wdm-zwmapviewofsection.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "415aecdf66cd1fdc022840949449784bcc9cdbeb04ba7a74b83dc97a558c459c"
+  },
+  {
+    "file": "nf-winternl-rtlntstatustodoserror.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winternl/nf-winternl-rtlntstatustodoserror.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "b6f71306e052e9a573c4ef0b1ce5b5cd7623f70945ebfe6629d455385610ed92"
   }
 ]
