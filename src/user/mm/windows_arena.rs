@@ -630,6 +630,16 @@ mod tests {
 
     #[test]
     fn short_file_maps_its_last_partial_page_without_growing_the_file() {
+        // Exercise the adapter directly first: AddressSpace intentionally
+        // translates allocation errors into guest faults, losing the native
+        // operation and GetLastError value needed to diagnose a regression.
+        let arena = super::super::FrameArena::new(2 * EXTENT, &[]).unwrap();
+        let pa = arena.alloc_extent().unwrap();
+        let file = super::super::anonymous_file().unwrap();
+        file.set_len(4097).unwrap();
+        arena.attach(pa, &file, 0, 8192, true).unwrap();
+        assert_eq!(file.metadata().unwrap().len(), 4097);
+
         let space = space();
         let object = Arc::new(SharedObject::anonymous(4097).unwrap());
         let rw = Perms::READ | Perms::WRITE;
