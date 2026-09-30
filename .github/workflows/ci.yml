@@ -185,17 +185,10 @@ jobs:
         with:
           toolchain: stable
           cache-key: test-capi-${{ matrix.name }}
+      - name: Regression runner failure propagation
+        run: python -m unittest discover -s tools/ci
       - name: Portable process, console, and supplied-file regressions
-        run: |
-          cargo test --locked --no-default-features --lib user::windows::process
-          cargo test --locked --no-default-features --test user_windows_memory
-          cargo test --locked --no-default-features --lib user::mm::
-          cargo test --locked --no-default-features --lib user::readiness::
-          cargo test --locked --no-default-features --lib user::clock::
-          cargo test --locked --no-default-features --lib user::console
-          cargo test --locked --no-default-features --lib user::supplied_fs::
-          cargo test --locked --no-default-features --lib captured_
-          cargo test --locked --no-default-features --lib closed_
+        run: python tools/ci/process_embedding.py
       - name: Unix supplied-file and io_uring buffer regressions
         if: runner.os != 'Windows'
         run: |

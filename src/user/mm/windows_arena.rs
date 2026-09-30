@@ -122,6 +122,7 @@ struct Section {
 enum Kind {
     Placeholder,
     Private,
+    PrivateView(Arc<OwnedHandle>),
     View {
         section: Arc<Section>,
         offset: u64,
@@ -159,6 +160,10 @@ impl ExternalMappingAccess for WindowsArena {
 }
 
 impl WindowsArena {
+    pub(super) fn supported() -> bool {
+        Api::get().is_some()
+    }
+
     /// None means the OS lacks placeholder APIs. Other failures are real
     /// allocation failures, not evidence that the capability is absent.
     pub(super) fn new(size: usize) -> io::Result<Option<Arc<Self>>> {
@@ -220,6 +225,14 @@ impl WindowsArena {
         (self.base + offset) as *mut c_void
     }
 
+    fn os_error(&self, operation: &str, offset: usize, len: usize) -> io::Error {
+        let error = io::Error::last_os_error();
+        io::Error::new(
+            error.kind(),
+            format!("{operation} at arena offset {offset:#x}, size {len:#x}: {error}"),
+        )
+    }
+
     /// Splits one placeholder, preserving both resulting reservations.
     fn split(&self, parts: &mut BTreeMap<usize, Part>, start: usize, len: usize) -> io::Result<()> {
         let part = parts.get(&start).ok_or(io::ErrorKind::InvalidInput)?;
@@ -232,7 +245,7 @@ impl WindowsArena {
         let tail = part.len - len;
         // SAFETY: [start,start+len) is a strict prefix of this owned placeholder.
         if unsafe { VirtualFree(self.at(start), len, RELEASE | PRESERVE) } == 0 {
-            return Err(io::Error::last_os_error());
+            return Err(self.os_error("split placeholder", start, len));
         }
         parts.get_mut(&start).unwrap().len = len;
         parts.insert(
@@ -249,7 +262,7 @@ impl WindowsArena {
         &self,
         parts: &mut BTreeMap<usize, Part>,
         start: usize,
-        kind: Kind,
+        mut kind: Kind,
     ) -> io::Result<()> {
         let part = parts.get(&start).ok_or(io::ErrorKind::InvalidInput)?;
         if !matches!(part.kind, Kind::Placeholder) {
@@ -263,6 +276,30 @@ impl WindowsArena {
         {
             return Err(io::Error::other("injected mapping failure"));
         }
+        // VirtualAlloc2 private allocations require allocation-granularity
+        // alignment even when replacing a placeholder. A file view prefix can
+        // leave a tail at a 4 KiB offset. MapViewOfFile3 explicitly permits
+        // page-aligned placeholder replacement, so use a private pagefile
+        // section for tails instead of a misaligned VirtualAlloc2 allocation.
+        if matches!(kind, Kind::Private) && start % EXTENT as usize != 0 {
+            // SAFETY: INVALID_HANDLE_VALUE selects the pagefile; the positive
+            // size is bounded by one extent. No name or inheritance is used.
+            let handle = unsafe {
+                CreateFileMappingW(
+                    (-1isize) as Handle,
+                    std::ptr::null(),
+                    READWRITE,
+                    0,
+                    part.len as u32,
+                    std::ptr::null(),
+                )
+            };
+            if handle.is_null() {
+                return Err(self.os_error("create private tail", start, part.len));
+            }
+            // SAFETY: the new section handle has unique ownership.
+            kind = Kind::PrivateView(Arc::new(unsafe { OwnedHandle::from_raw_handle(handle) }));
+        }
         // SAFETY: exact base/size of an owned placeholder; all pointers into
         // the extent are quiescent. Sections remain owned across replacement.
         let result = unsafe {
@@ -273,6 +310,17 @@ impl WindowsArena {
                     self.at(start),
                     part.len,
                     RESERVE | COMMIT | REPLACE,
+                    READWRITE,
+                    std::ptr::null_mut(),
+                    0,
+                ),
+                Kind::PrivateView(section) => (self.api.map)(
+                    section.as_raw_handle(),
+                    GetCurrentProcess(),
+                    self.at(start),
+                    0,
+                    part.len,
+                    REPLACE,
                     READWRITE,
                     std::ptr::null_mut(),
                     0,
@@ -295,7 +343,7 @@ impl WindowsArena {
             }
         };
         if result.is_null() {
-            return Err(io::Error::last_os_error());
+            return Err(self.os_error("replace placeholder", start, part.len));
         }
         parts.get_mut(&start).unwrap().kind = kind;
         Ok(())
@@ -309,13 +357,13 @@ impl WindowsArena {
             match part.kind {
                 Kind::Placeholder => return Ok(()),
                 Kind::Private => VirtualFree(self.at(start), 0, RELEASE | PRESERVE),
-                Kind::View { .. } => {
+                Kind::View { .. } | Kind::PrivateView(_) => {
                     (self.api.unmap)(GetCurrentProcess(), self.at(start), PRESERVE)
                 }
             }
         };
         if ok == 0 {
-            return Err(io::Error::last_os_error());
+            return Err(self.os_error("preserve allocation", start, part.len));
         }
         part.kind = Kind::Placeholder;
         Ok(())
@@ -336,7 +384,7 @@ impl WindowsArena {
             // SAFETY: all adjacent placeholders cover exactly this extent;
             // these are the original bases, never subranges of private memory.
             if unsafe { VirtualFree(self.at(start), EXTENT as usize, RELEASE | COALESCE) } == 0 {
-                return Err(io::Error::last_os_error());
+                return Err(self.os_error("coalesce placeholders", start, EXTENT as usize));
             }
             for &at in &keys[1..] {
                 parts.remove(&at);
@@ -472,7 +520,7 @@ impl Drop for WindowsArena {
             // have gone. Each original allocation/view base is released once.
             unsafe {
                 match part.kind {
-                    Kind::View { .. } => {
+                    Kind::View { .. } | Kind::PrivateView(_) => {
                         (self.api.unmap)(GetCurrentProcess(), address, 0);
                     }
                     Kind::Private | Kind::Placeholder => {
