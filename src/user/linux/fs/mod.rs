@@ -17,6 +17,7 @@ pub mod fd;
 pub mod locks;
 pub mod memfd;
 pub mod pidfd;
+#[cfg(unix)]
 pub mod xattr;
 
 use std::path::{Component, Path, PathBuf};

@@ -18,7 +18,9 @@
 //! `system.sockprotoname`, its protocol's name; a pidfd has `pidfs`'s
 //! `trusted.*` handler, whose attributes are not kept.
 
+#[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
+#[cfg(unix)]
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -27,6 +29,7 @@ use super::super::abi::errno_table::*;
 use super::super::abi::types::mode;
 use super::super::fs::anon::Anon;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
+#[cfg(unix)]
 use super::super::fs::xattr::{self, Obj};
 use super::super::procfs::ProcEntry;
 use super::path::{AT_EMPTY_PATH, AT_FDCWD, AT_SYMLINK_NOFOLLOW, Target, resolve, resolve_str};
@@ -92,6 +95,7 @@ enum Pseudo {
 enum Node {
     /// A host object, by path (following a final link or not) or by
     /// descriptor, with its type and permission bits and owner.
+    #[cfg(unix)]
     Host {
         path: Option<(PathBuf, bool)>,
         file: Option<Arc<OpenFile>>,
@@ -103,6 +107,7 @@ enum Node {
 }
 
 impl Node {
+    #[cfg(unix)]
     fn obj(&self) -> Option<Obj<'_>> {
         match self {
             Node::Host {
@@ -118,7 +123,9 @@ impl Node {
 
     fn mode(&self) -> u32 {
         match self {
-            Node::Host { mode, .. } | Node::Pseudo(_, mode) => *mode,
+            #[cfg(unix)]
+            Node::Host { mode, .. } => *mode,
+            Node::Pseudo(_, mode) => *mode,
         }
     }
 }
@@ -153,6 +160,7 @@ fn file_node(file: Arc<OpenFile>, by_fd: bool) -> Result<Node, Errno> {
         return pseudo(Pseudo::Anon, stat.mode);
     }
     match &file.object {
+        #[cfg(unix)]
         FileObject::Host(f) => {
             let m = f.metadata()?;
             Ok(Node::Host {
@@ -162,7 +170,10 @@ fn file_node(file: Arc<OpenFile>, by_fd: bool) -> Result<Node, Errno> {
                 file: Some(file.clone()),
             })
         }
+        #[cfg(not(unix))]
+        FileObject::Host(_) => Err(Errno(EPERM)),
         FileObject::PathOnly if by_fd => Err(Errno(EBADF)),
+        #[cfg(unix)]
         FileObject::PathOnly => {
             let h = file.host_path.clone().ok_or(Errno(EBADF))?;
             let follow = file.ftype != FileType::Symlink;
@@ -178,6 +189,8 @@ fn file_node(file: Arc<OpenFile>, by_fd: bool) -> Result<Node, Errno> {
                 uid: m.uid(),
             })
         }
+        #[cfg(not(unix))]
+        FileObject::PathOnly => Err(Errno(EPERM)),
         FileObject::PipeRead(_) | FileObject::PipeWrite(_) => {
             pseudo(Pseudo::Pipe, mode::S_IFIFO | 0o600)
         }
@@ -203,6 +216,7 @@ fn lookup_path(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<Node
         target = resolve_str(c, AT_FDCWD, link, true)?;
     }
     match target {
+        #[cfg(unix)]
         Target::Host { host, .. } => {
             let m = if follow {
                 std::fs::metadata(&host)?
@@ -216,6 +230,8 @@ fn lookup_path(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<Node
                 uid: m.uid(),
             })
         }
+        #[cfg(not(unix))]
+        Target::Host { .. } => Err(Errno(EPERM)),
         Target::Supplied(entry, _) => Ok(Node::Pseudo(
             Pseudo::Anon,
             if entry.is_dir() {
@@ -259,6 +275,7 @@ fn node_for_value(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<N
         let cwd = c.p.vfs.cwd().to_string();
         let t = resolve_str(c, AT_FDCWD, &cwd, true)?;
         return match t {
+            #[cfg(unix)]
             Target::Host { host, .. } => {
                 let m = std::fs::metadata(&host)?;
                 Ok(Node::Host {
@@ -268,6 +285,8 @@ fn node_for_value(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<N
                     uid: m.uid(),
                 })
             }
+            #[cfg(not(unix))]
+            Target::Host { .. } => Err(Errno(EPERM)),
             _ => Ok(Node::Pseudo(Pseudo::Proc, mode::S_IFDIR | 0o555)),
         };
     }
@@ -301,6 +320,7 @@ fn privileged(c: &Ctx<'_>) -> bool {
 /// check for us.
 fn inode_permission(c: &Ctx<'_>, node: &Node, write: bool) -> Result<(), Errno> {
     match node {
+        #[cfg(unix)]
         Node::Host { path, file, .. } => {
             let p = path
                 .as_ref()
@@ -339,6 +359,7 @@ fn permission(c: &Ctx<'_>, node: &Node, name: &[u8], write: bool) -> Result<(), 
             if t != mode::S_IFREG && t != mode::S_IFDIR {
                 return Err(refuse());
             }
+            #[cfg(unix)]
             if let Node::Host { mode: m, uid, .. } = node
                 && t == mode::S_IFDIR
                 && m & 0o1000 != 0
@@ -348,7 +369,8 @@ fn permission(c: &Ctx<'_>, node: &Node, name: &[u8], write: bool) -> Result<(), 
             {
                 return Err(Errno(EPERM));
             }
-            if !matches!(node, Node::Host { .. }) {
+            let pseudo = matches!(node, Node::Pseudo(..));
+            if pseudo {
                 inode_permission(c, node, write)?;
             }
         }
@@ -366,6 +388,7 @@ fn permission(c: &Ctx<'_>, node: &Node, name: &[u8], write: bool) -> Result<(), 
 fn resolve_name(node: &Node, name: &[u8]) -> Result<(), Errno> {
     let (sp, rest) = space(name);
     let handled = match node {
+        #[cfg(unix)]
         Node::Host { .. } => matches!(sp, Space::User | Space::Trusted | Space::Security),
         Node::Pseudo(Pseudo::Socket(_), _) => {
             if name == b"system.sockprotoname" {
@@ -421,7 +444,8 @@ pub(super) fn setxattr_copy(
     size: u64,
     flags: u32,
 ) -> Result<(Vec<u8>, Vec<u8>), Errno> {
-    if flags & !(xattr::CREATE | xattr::REPLACE) != 0 {
+    // Linux XATTR_CREATE = 1, XATTR_REPLACE = 2 (uapi/linux/xattr.h).
+    if flags & !(1 | 2) != 0 {
         return Err(Errno(EINVAL));
     }
     let name = import_name(c, uname)?;
@@ -444,17 +468,21 @@ fn set_node(c: &Ctx<'_>, node: &Node, name: &[u8], data: &[u8], flags: u32) -> S
     }
     permission(c, node, name, true)?;
     resolve_name(node, name)?;
-    match node.obj() {
-        Some(o) => xattr::set(o, name, data, flags)?,
-        // sockfs's security handler defers to a security module, of which
-        // there is none; the others keep nothing.
-        None => return Err(Errno(EOPNOTSUPP)),
+    match node {
+        #[cfg(unix)]
+        Node::Host { .. } => {
+            let o = node.obj().ok_or(Errno(EOPNOTSUPP))?;
+            xattr::set(o, name, data, flags)?;
+            changed(c, node);
+            Ok(0)
+        }
+        // Pseudo file systems do not store attribute values.
+        _ => Err(Errno(EOPNOTSUPP)),
     }
-    changed(c, node);
-    Ok(0)
 }
 
 /// `fsnotify_xattr`: an attribute change of the node's file.
+#[cfg(unix)]
 fn changed(c: &Ctx<'_>, node: &Node) {
     use super::super::fsnotify::bits::IN_ATTRIB;
     if let Node::Host { path, file, .. } = node {
@@ -493,13 +521,15 @@ fn get_node(c: &Ctx<'_>, node: &Node, name: &[u8], value: u64, size: u64) -> Sys
     permission(c, node, name, false)?;
     // Without a security module, security.* is the file system's.
     resolve_name(node, name)?;
-    let data = match (node, node.obj()) {
-        (Node::Pseudo(Pseudo::Socket(proto), _), _) if name == b"system.sockprotoname" => {
+    let data = match node {
+        Node::Pseudo(Pseudo::Socket(proto), _) if name == b"system.sockprotoname" => {
             let mut v = proto.as_bytes().to_vec();
             v.push(0);
             v
         }
-        (_, Some(o)) => {
+        #[cfg(unix)]
+        Node::Host { .. } => {
+            let o = node.obj().ok_or(Errno(EOPNOTSUPP))?;
             let mut buf = vec![0u8; size];
             let n = match xattr::get(o, name, (size > 0).then_some(&mut buf[..])) {
                 Err(Errno(ERANGE)) if size >= SIZE_MAX => return Err(Errno(E2BIG)),
@@ -511,7 +541,7 @@ fn get_node(c: &Ctx<'_>, node: &Node, name: &[u8], value: u64, size: u64) -> Sys
             buf.truncate(n);
             buf
         }
-        (_, None) => return Err(Errno(EOPNOTSUPP)),
+        _ => return Err(Errno(EOPNOTSUPP)),
     };
     if size > 0 {
         if data.len() > size {
@@ -571,9 +601,11 @@ pub(super) fn filename_getxattr(
 /// The names `vfs_listxattr` shows for the node, each with its NUL.
 fn names(c: &Ctx<'_>, node: &Node) -> Result<Vec<u8>, Errno> {
     let mut out = Vec::new();
-    match (node, node.obj()) {
-        (Node::Pseudo(Pseudo::Socket(_), _), _) => out.extend_from_slice(b"system.sockprotoname\0"),
-        (_, Some(o)) => {
+    match node {
+        Node::Pseudo(Pseudo::Socket(_), _) => out.extend_from_slice(b"system.sockprotoname\0"),
+        #[cfg(unix)]
+        Node::Host { .. } => {
+            let Some(o) = node.obj() else { return Ok(out) };
             for n in xattr::list(o)? {
                 let (sp, rest) = space(&n);
                 // The host's own names, and trusted.* for the unprivileged
@@ -590,7 +622,7 @@ fn names(c: &Ctx<'_>, node: &Node) -> Result<Vec<u8>, Errno> {
                 }
             }
         }
-        (_, None) => {}
+        _ => {}
     }
     Ok(out)
 }
@@ -631,12 +663,16 @@ fn removexattr_at(c: &mut Ctx<'_>, dirfd: i32, path: u64, at_flags: u32, uname: 
     }
     permission(c, &node, &name, true)?;
     resolve_name(&node, &name)?;
-    match node.obj() {
-        Some(o) => xattr::remove(o, &name)?,
-        None => return Err(Errno(EOPNOTSUPP)),
+    match node {
+        #[cfg(unix)]
+        Node::Host { .. } => {
+            let o = node.obj().ok_or(Errno(EOPNOTSUPP))?;
+            xattr::remove(o, &name)?;
+            changed(c, &node);
+            Ok(0)
+        }
+        _ => Err(Errno(EOPNOTSUPP)),
     }
-    changed(c, &node);
-    Ok(0)
 }
 
 /// `setxattr`, `lsetxattr`: `at_flags` 0 or `AT_SYMLINK_NOFOLLOW`.

@@ -258,3 +258,51 @@ fn closed_linux_eventfd_wakes_every_reader_of_the_same_level_all_abis() {
         );
     }
 }
+
+#[test]
+fn closed_linux_xattrs_use_supplied_nodes_and_preserve_validation_all_abis() {
+    const AT_FDCWD: u64 = -100i64 as u64;
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let path = h.scratch;
+        let name = path + 64;
+        let output = path + 512;
+        h.proc.space().write_raw(path, b"/\0").unwrap();
+        h.proc.space().write_raw(name, b"user.test\0").unwrap();
+        h.proc.space().write_raw(output, &[0xa5; 16]).unwrap();
+        let fd = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+        for syscall in [Sysno::Getxattr, Sysno::Lgetxattr] {
+            assert_eq!(
+                h.call(syscall, &[path, name, output, 16]),
+                -(EOPNOTSUPP as i64),
+                "{abi:?} {syscall:?}"
+            );
+            assert_eq!(h.call(syscall, &[path, 8, output, 16]), -(EFAULT as i64));
+        }
+        assert_eq!(
+            h.call(Sysno::Fgetxattr, &[fd, name, output, 16]),
+            -(EOPNOTSUPP as i64)
+        );
+        assert_eq!(
+            h.call(Sysno::Fgetxattr, &[9999, name, output, 16]),
+            -(EBADF as i64)
+        );
+        for syscall in [Sysno::Listxattr, Sysno::Llistxattr] {
+            assert_eq!(h.call(syscall, &[path, output, 16]), 0);
+        }
+        assert_eq!(h.call(Sysno::Flistxattr, &[fd, output, 16]), 0);
+        assert_eq!(
+            h.call(Sysno::Flistxattr, &[9999, output, 16]),
+            -(EBADF as i64)
+        );
+        // Reading an empty list does not write into the caller's buffer.
+        let mut bytes = [0; 16];
+        h.proc.space().read(output, &mut bytes).unwrap();
+        assert_eq!(bytes, [0xa5; 16]);
+        // Host attribute mutation remains outside the closed profile, even
+        // with malformed pointers. The policy gate owns this ordering.
+        for syscall in [Sysno::Setxattr, Sysno::Fsetxattr, Sysno::Removexattr] {
+            assert_eq!(h.call(syscall, &[0; 6]), -(EPERM as i64));
+        }
+    }
+}
