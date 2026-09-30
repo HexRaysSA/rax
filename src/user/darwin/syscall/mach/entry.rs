@@ -12,7 +12,6 @@
 //! of it); an entry a service made maps the service's memory itself (see
 //! `bridge::mirror`), or a copy of its contents.
 
-use std::os::unix::fs::FileExt;
 use std::sync::Arc;
 
 use crate::user::darwin::mach::ipc::Port;
@@ -162,9 +161,7 @@ fn of_guest(
         .map_err(|_| kr::KERN_INVALID_ADDRESS)?;
     let object = SharedObject::anonymous(len).map_err(|_| kr::KERN_RESOURCE_SHORTAGE)?;
     object
-        .host_file()
-        .ok_or(kr::KERN_RESOURCE_SHORTAGE)?
-        .write_all_at(&data, 0)
+        .write_all_at(0, &data)
         .map_err(|_| kr::KERN_RESOURCE_SHORTAGE)?;
     let object = Arc::new(object);
     if !copy {

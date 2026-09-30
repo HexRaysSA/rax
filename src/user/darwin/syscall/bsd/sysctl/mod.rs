@@ -10,6 +10,8 @@
 //! Writes are refused (`EPERM`) once the node is found: the emulated
 //! machine's settings are fixed and the host's are not the guest's to
 //! change.
+//! Embedded processes resolve only emulated nodes and explicit overrides;
+//! host node discovery, enumeration, and value queries are disabled.
 //!
 //! The metadata nodes (`sysctl.name`, `.next`, `.name2oid`, `.oidfmt`,
 //! `.oiddescr`) cover both, `next` merging the two walks. Copy-out follows
@@ -259,6 +261,7 @@ fn emit(ctx: &mut Ctx<'_>, req: &mut Req, v: Value, name: &str) -> Result<(), Er
             }
         }
         Value::Err(e) => Err(e),
+        Value::Host if !ctx.proc.config.host_services => Err(Errno::ENOENT),
         Value::Host => match host::oid_of(name) {
             Ok(oid) => passthrough(ctx, &oid, req),
             Err(_) => Err(Errno::ENOENT),
@@ -276,7 +279,12 @@ fn system(ctx: &mut Ctx<'_>, oid: &[i32], req: &mut Req) -> Result<(), Errno> {
         }
         return procargs::procargs(ctx, oid[1] == procargs::KERN_PROCARGS2, req);
     }
-    let name = host::name_of(oid).or_else(|| {
+    let name = if ctx.proc.config.host_services {
+        host::name_of(oid)
+    } else {
+        None
+    }
+    .or_else(|| {
         OVERRIDES
             .iter()
             .find(|o| o.oid == oid)
@@ -288,6 +296,9 @@ fn system(ctx: &mut Ctx<'_>, oid: &[i32], req: &mut Req) -> Result<(), Errno> {
         }
         let v = (o.value)(ctx);
         return emit(ctx, req, v, o.name);
+    }
+    if !ctx.proc.config.host_services {
+        return Err(Errno::ENOENT);
     }
     if req.newptr != 0 {
         // Whether the node exists decides the error.
@@ -302,6 +313,9 @@ fn system(ctx: &mut Ctx<'_>, oid: &[i32], req: &mut Req) -> Result<(), Errno> {
 
 /// The host answers `oid` into the caller's buffer.
 fn passthrough(ctx: &Ctx<'_>, oid: &[i32], req: &mut Req) -> Result<(), Errno> {
+    if !ctx.proc.config.host_services {
+        return Err(Errno::ENOENT);
+    }
     let room = (req.oldptr != 0).then(|| req.oldlen.min(HOST_ROOM_MAX));
     let r = host::sysctl(oid, room, None).ok_or(Errno::ENOENT)?;
     if req.oldptr != 0 && !r.data.is_empty() {
@@ -319,7 +333,12 @@ fn oid_of_name(ctx: &Ctx<'_>, name: &str) -> Result<Vec<i32>, Errno> {
     if tree::owns_name(name) {
         return tree::oid_of(tree::rows(ctx.proc.abi), name).map(<[i32]>::to_vec);
     }
-    host::oid_of(name).or_else(|e| {
+    let host_oid = if ctx.proc.config.host_services {
+        host::oid_of(name)
+    } else {
+        Err(Errno::ENOENT)
+    };
+    host_oid.or_else(|e| {
         let n = name.strip_suffix('.').unwrap_or(name);
         OVERRIDES
             .iter()
@@ -349,7 +368,7 @@ fn meta_next(ctx: &Ctx<'_>, args: &[i32], req: &mut Req) -> Result<(), Errno> {
         return Err(Errno::EPERM);
     }
     let emulated = tree::next(tree::rows(ctx.proc.abi), args).map(<[i32]>::to_vec);
-    let system = system_next(args);
+    let system = system_next(args, ctx.proc.config.host_services);
     let next = match (emulated, system) {
         (Some(a), Some(b)) => Some(a.min(b)),
         (a, b) => a.or(b),
@@ -358,8 +377,8 @@ fn meta_next(ctx: &Ctx<'_>, args: &[i32], req: &mut Req) -> Result<(), Errno> {
 }
 
 /// The operating system's leaf after `oid`, past the emulated subtrees.
-fn system_next(oid: &[i32]) -> Option<Vec<i32>> {
-    if !host::AVAILABLE {
+fn system_next(oid: &[i32], host_services: bool) -> Option<Vec<i32>> {
+    if !host_services || !host::AVAILABLE {
         let mut own: Vec<&[i32]> = OVERRIDES.iter().map(|o| o.oid).collect();
         own.sort();
         return own.into_iter().find(|o| *o > oid).map(<[i32]>::to_vec);

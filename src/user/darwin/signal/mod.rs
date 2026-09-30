@@ -19,6 +19,7 @@
 //! emulator process ([`host::stop`]), which the host continues.
 
 pub mod frame;
+#[cfg(unix)]
 pub mod host;
 pub mod timer;
 
@@ -29,6 +30,7 @@ use super::process::{ExitStatus, Proc, Thread};
 use crate::isa::x86_64::X86EventSource;
 use crate::user::cpu::AccessFaultKind;
 
+#[cfg(unix)]
 pub use host::{die_by_signal, to_host};
 
 /// A signal number.
@@ -631,12 +633,25 @@ enum Target {
     TryThread(u64),
 }
 
+/// Apply the optional host job-control policy. Closed processes reject this
+/// policy at construction; their stop signals never stop the embedding host.
+pub(crate) fn stop(proc: &mut Proc) {
+    #[cfg(unix)]
+    host::stop(proc);
+    #[cfg(not(unix))]
+    assert!(
+        !proc.config.host_job_control,
+        "host job control requires Unix"
+    );
+}
+
 /// A host `SIGCHLD` reported a child's state change: whether the process
 /// gets its `SIGCHLD`. A process that does not wait for its children
 /// (`SIGCHLD` ignored or `SA_NOCLDWAIT`: `P_NOCLDWAIT`) leaves no zombies
 /// and gets no signal for an exit (`proc_exit` hands the child to the
 /// kernel); `SA_NOCLDSTOP` suppresses the signal for a stop; XNU sends
 /// none for a continue.
+#[cfg(unix)]
 pub fn child_changed(proc: &mut Proc, origin: &Origin) -> bool {
     use frame::code::{CLD_CONTINUED, CLD_STOPPED};
     let post = match origin.code {
@@ -783,7 +798,7 @@ fn post(
                 // The process stops now.
                 t.sig.pending &= !b;
                 drop(threads);
-                host::stop(proc);
+                stop(proc);
             } else if sig == SIGKILL {
                 abort_wait(t, true);
             } else if sig == SIGCONT {
@@ -882,7 +897,7 @@ fn issignal(proc: &mut Proc, thread: &mut Thread) -> Option<Signal> {
             continue;
         }
         match proc.sigacts.handler[sig as usize] {
-            SIG_DFL if p & prop::STOP != 0 => host::stop(proc),
+            SIG_DFL if p & prop::STOP != 0 => stop(proc),
             SIG_DFL if p & prop::IGNORE != 0 => {}
             SIG_IGN => {}
             _ => return Some(sig),

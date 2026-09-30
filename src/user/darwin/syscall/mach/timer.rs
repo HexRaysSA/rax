@@ -262,7 +262,12 @@ pub fn arm(ctx: &mut Ctx<'_>, name: PortName, flags: u64, expire: u64, leeway: u
     let abi = ctx.proc.abi;
     let now = super::absolute_time(abi);
     let armed = if expire > now {
-        let slop = host_slop(abi, expire - now, flags, leeway).unwrap_or_else(|| {
+        let host = if ctx.proc.config.host_services {
+            host_slop(abi, expire - now, flags, leeway)
+        } else {
+            None
+        };
+        let slop = host.unwrap_or_else(|| {
             let slop = if flags & MK_TIMER_CRITICAL != 0 {
                 0
             } else {

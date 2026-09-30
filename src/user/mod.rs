@@ -12,7 +12,7 @@
 //! | [`mm`] | Guest address spaces: VMAs, demand-populated frames, faults |
 //! | [`cpu`] | OS-neutral CPU adapters running each ISA core unprivileged |
 //! | [`linux`] | The Linux personality (Unix hosts) |
-//! | [`darwin`] | The Darwin (macOS) personality (Unix hosts) |
+//! | [`darwin`] | The Darwin (macOS) personality (portable closed profile; Unix host services) |
 //! | [`windows`] | The Windows personality |
 //!
 //! The subsystem is independent of `machine/`, `devices/`, and `vm/runtime`:
@@ -22,7 +22,6 @@
 pub mod clock;
 pub mod console;
 pub mod cpu;
-#[cfg(unix)]
 pub mod darwin;
 pub mod image;
 pub mod linux;

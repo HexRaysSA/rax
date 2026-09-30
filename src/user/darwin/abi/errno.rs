@@ -86,15 +86,57 @@ impl Errno {
         }
     }
 
-    /// The guest error for a host I/O error (`EIO` when it carries no
-    /// operating-system error).
+    /// Translate supplied-file errors, Unix errno values, or platform-neutral
+    /// I/O categories. Unknown categories become `EIO`.
     pub fn from_io(e: &std::io::Error) -> Errno {
-        e.raw_os_error().map_or(Errno::EIO, Errno::from_host)
+        if let Some(error) = e
+            .get_ref()
+            .and_then(|e| e.downcast_ref::<crate::user::supplied_fs::Error>())
+        {
+            return Self::from(*error);
+        }
+        if let Some(error) = e.get_ref().and_then(|e| e.downcast_ref::<Self>()) {
+            return *error;
+        }
+        #[cfg(unix)]
+        if let Some(raw) = e.raw_os_error() {
+            return Self::from_host(raw);
+        }
+        use std::io::ErrorKind as K;
+        match e.kind() {
+            K::NotFound => Self::ENOENT,
+            K::PermissionDenied => Self::EACCES,
+            K::AlreadyExists => Self::EEXIST,
+            K::WouldBlock => Self::EAGAIN,
+            K::InvalidInput | K::InvalidData => Self::EINVAL,
+            K::Interrupted => Self::EINTR,
+            K::Unsupported => Self::ENOSYS,
+            K::OutOfMemory => Self::ENOMEM,
+            K::BrokenPipe => Self::EPIPE,
+            K::TimedOut => Self::ETIMEDOUT,
+            _ => Self::EIO,
+        }
     }
 
     /// The error of the host's last failed call.
     pub fn last() -> Errno {
         Errno::from_io(&std::io::Error::last_os_error())
+    }
+}
+
+impl std::error::Error for Errno {}
+
+impl From<crate::user::supplied_fs::Error> for Errno {
+    fn from(error: crate::user::supplied_fs::Error) -> Self {
+        use crate::user::supplied_fs::Error as E;
+        match error {
+            E::InvalidPath => Self::EINVAL,
+            E::TooLong => Self::ENAMETOOLONG,
+            E::Exists => Self::EEXIST,
+            E::NotFound => Self::ENOENT,
+            E::NotDirectory => Self::ENOTDIR,
+            E::IsDirectory => Self::EISDIR,
+        }
     }
 }
 

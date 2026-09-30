@@ -2,7 +2,9 @@
 //! calls.
 
 use crate::user::darwin::abi::Errno;
-use crate::user::darwin::abi::types::{Timeval, rusage_bytes};
+use crate::user::darwin::abi::types::Timeval;
+#[cfg(unix)]
+use crate::user::darwin::abi::types::rusage_bytes;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::syscall::Ctx;
 
@@ -54,12 +56,16 @@ pub fn setrlimit(ctx: &mut Ctx<'_>, which: u32, rlp: u64) -> SysResult {
 }
 
 /// `umask(newmask)`: the host's mask follows, so files the host creates
-/// for the guest get the guest's mask.
+/// for the guest get the guest's mask. Embedded processes change only
+/// their own mask.
 pub fn umask(ctx: &mut Ctx<'_>, mask: u32) -> SysResult {
     let old = ctx.proc.umask;
     ctx.proc.umask = mask & 0o777;
-    // SAFETY: umask takes no pointers.
-    unsafe { libc::umask(ctx.proc.umask as libc::mode_t) };
+    #[cfg(unix)]
+    if ctx.proc.config.host_services {
+        // SAFETY: umask takes no pointers.
+        unsafe { libc::umask(ctx.proc.umask as libc::mode_t) };
+    }
     Ok(Rv::one(u64::from(old)))
 }
 
@@ -89,6 +95,7 @@ pub fn gettimeofday(ctx: &mut Ctx<'_>, tp: u64, tzp: u64, abs: u64) -> SysResult
 }
 
 /// `getrusage(who, rusage)`.
+#[cfg(unix)]
 pub fn getrusage(ctx: &mut Ctx<'_>, who: i32, out: u64) -> SysResult {
     // RUSAGE_SELF (0) and RUSAGE_CHILDREN (-1).
     let hw = match who {

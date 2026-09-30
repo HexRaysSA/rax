@@ -1,10 +1,13 @@
 //! Darwin personality: runs macOS user-space programs.
 //!
 //! The personality implements the XNU user-space ABI for x86-64 and arm64
-//! programs: images are loaded as `exec_mach_imgact` loads them (ASLR
-//! disabled), `dyld` and the dyld shared cache come from the host (or a
-//! guest root), and the programs' BSD system calls, Mach traps, and Mach
-//! messages to kernel objects are serviced against the host.
+//! programs. The portable closed profile loads Mach-O images, `dyld`, and
+//! shared-cache bytes only from caller-supplied immutable files, captures
+//! standard streams, and services admitted calls against guest-owned state.
+//! The legacy Unix profile additionally exposes host filesystem, process,
+//! signal, and Mach services. `HOST_SERVICES_AVAILABLE` reports that profile's
+//! availability; constructing it on non-Unix hosts returns a configuration
+//! error before loading the image. Neither profile randomizes image addresses.
 //!
 //! | Module | Owns |
 //! |---|---|
@@ -34,6 +37,10 @@
 //! | [`thread_status`] | Thread state by flavor (`thread_get_state`, `thread_set_state`) |
 //! | [`wait`] | Sleeping in system calls |
 //! | [`workq`] | Work queues and their threads |
+
+/// Availability of the legacy Unix host-service profile. The supplied-file
+/// embedding profile does not require Unix host services.
+pub const HOST_SERVICES_AVAILABLE: bool = cfg!(unix);
 
 pub mod abi;
 pub mod arch;

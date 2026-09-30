@@ -44,7 +44,7 @@ pub struct HostKq {
     #[cfg(target_os = "macos")]
     fd: std::os::fd::OwnedFd,
     /// Knote identity to host descriptor, for `poll` emulation elsewhere.
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(unix, not(target_os = "macos")))]
     fds: Vec<(u64, i32, bool)>,
 }
 
@@ -234,7 +234,7 @@ mod imp {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(unix, not(target_os = "macos")))]
 mod imp {
     use super::*;
 
@@ -302,6 +302,26 @@ mod imp {
     }
 }
 
+// Native filters cannot be registered in the closed non-Unix profile.
+#[cfg(not(unix))]
+mod imp {
+    use super::*;
+
+    pub fn register(_: &mut Proc, _: u64, _: u64, _: Option<i32>, _: bool) -> Result<(), Errno> {
+        Err(Errno::ENOTSUP)
+    }
+
+    pub fn control(_: &mut Proc, _: u64, _: u64, _: u16) {}
+
+    pub fn collect(_: &mut Proc, _: u64) -> Vec<(u64, HostEvent)> {
+        Vec::new()
+    }
+
+    pub fn wait_fd(_: &Proc, _: u64) -> Option<i32> {
+        None
+    }
+}
+
 /// Attaches a host-carried knote (`host_fd`: the descriptor's host
 /// descriptor; `None` for `EVFILT_PROC`).
 pub fn attach(proc: &mut Proc, kq: u64, id: u64, host_fd: Option<i32>) -> i32 {
@@ -338,7 +358,7 @@ pub fn touch(proc: &mut Proc, kq: u64, id: u64, kev: &mut Kev) -> i32 {
     #[cfg(target_os = "macos")]
     let host_fd = Some(ident as i32)
         .filter(|_| knote(proc, kq, id).is_some_and(|k| k.filter != evfilt::PROC));
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(unix, not(target_os = "macos")))]
     let host_fd = {
         let _ = ident;
         proc.kq
@@ -347,6 +367,8 @@ pub fn touch(proc: &mut Proc, kq: u64, id: u64, kev: &mut Kev) -> i32 {
             .and_then(|q| q.host.as_ref())
             .and_then(|h| h.fds.iter().find(|e| e.0 == id).map(|e| e.1))
     };
+    #[cfg(not(unix))]
+    let host_fd = None;
     if let Err(e) = imp::register(proc, kq, id, host_fd, false) {
         kev.flags |= ev::ERROR;
         kev.data = i64::from(e.0);
@@ -423,7 +445,7 @@ pub fn enable(proc: &mut Proc, kq: u64, id: u64, on: bool) {
 
 /// Host descriptors whose readiness wakes a thread waiting on `kq`.
 pub fn wait_fds(proc: &Proc, kq: u64) -> Vec<(i32, bool, bool)> {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(unix, not(target_os = "macos")))]
     {
         if let Some(h) = proc.kq.kqueues.get(&kq).and_then(|q| q.host.as_ref()) {
             return h.fds.iter().map(|e| (e.1, e.2, !e.2)).collect();

@@ -36,10 +36,13 @@
 //! new. The audit token's pid version changes, as a new `proc` gets one.
 
 pub mod args;
+#[cfg(unix)]
 pub mod image;
+#[cfg(unix)]
 pub mod spawn;
 
 use std::collections::BTreeSet;
+#[cfg(unix)]
 use std::os::fd::OwnedFd;
 
 use super::abi::Errno;
@@ -49,6 +52,7 @@ use super::mach::task::TaskState;
 use super::process::{self, Carried, ExitStatus, Proc, SpawnError, Thread};
 use super::signal::{self, SIGCONT, SigActs};
 use super::syscall::Ctx;
+#[cfg(unix)]
 use image::{Activated, Binprefs, Dir};
 
 /// A new image to run in place of the process once the current call
@@ -58,12 +62,14 @@ pub struct Swap {
     pub proc: Proc,
     /// The working directory a spawn's file actions chose (a host
     /// descriptor the host's working directory moves to).
+    #[cfg(unix)]
     pub chdir: Option<OwnedFd>,
     /// `POSIX_SPAWN_START_SUSPENDED`: the process stops before it runs.
     pub suspend: bool,
 }
 
 /// `execve(path, argv, envp)`.
+#[cfg(unix)]
 pub fn execve(ctx: &mut Ctx<'_>, path: u64, argv: u64, envp: u64) -> SysResult {
     let act = image::activate(ctx, path, Dir::Cwd, &Binprefs::default())?;
     let strings = args::extract(ctx, &act.interp, &act.user_path, argv, envp)?;
@@ -75,6 +81,7 @@ pub fn execve(ctx: &mut Ctx<'_>, path: u64, argv: u64, envp: u64) -> SysResult {
 
 /// Swaps the built image in when the call returns; past the point of no
 /// return, a failure to build it kills the process.
+#[cfg(unix)]
 fn swap_or_kill(
     ctx: &mut Ctx<'_>,
     built: Result<Proc, SpawnError>,
@@ -110,6 +117,7 @@ fn swap_or_kill(
 
 /// Loads the activated image into a new process image carrying
 /// `carried` (`load_machfile` onward).
+#[cfg(unix)]
 fn build(
     old: &Proc,
     act: Activated,
@@ -126,6 +134,7 @@ fn build(
 }
 
 /// The errno a failure to build a spawned image reports.
+#[cfg(unix)]
 fn build_errno(e: &SpawnError) -> Errno {
     match e {
         SpawnError::Io(_, io) => Errno::from_io(io),
@@ -274,16 +283,16 @@ mod tests {
         assert_eq!(a.validation, signal::Validation::Default);
     }
 
-    fn devnull() -> super::super::fd::FileRef {
-        let f = std::fs::File::open("/dev/null").unwrap();
-        std::sync::Arc::new(super::super::fd::OpenFile::host(f.into(), 0, None))
+    fn input_file() -> crate::user::darwin::fd::FileRef {
+        let console = crate::user::console::CapturedConsole::new(Vec::new(), 32).unwrap();
+        FdTable::with_captured(console).get(0).unwrap().file.clone()
     }
 
     #[test]
     fn fdt_exec_closes_close_on_exec_and_uninherited_descriptors() {
         let mut t = FdTable::new();
         for cloexec in [false, true, false, false] {
-            t.install(devnull(), cloexec, 0, 256).unwrap();
+            t.install(input_file(), cloexec, 0, 256).unwrap();
         }
         let mut plain = t.clone();
         fdt_exec(&mut plain, None);
@@ -302,7 +311,8 @@ mod tests {
     fn fdt_fork_drops_kqueues_and_close_on_fork_descriptors_from_new_processes() {
         let mut t = FdTable::new();
         for (cloexec, clofork) in [(false, false), (true, false), (false, true), (true, true)] {
-            t.install_with(devnull(), cloexec, clofork, 0, 256).unwrap();
+            t.install_with(input_file(), cloexec, clofork, 0, 256)
+                .unwrap();
         }
         let kqueue = std::sync::Arc::new(super::super::fd::OpenFile {
             kind: FileKind::Kqueue(1),

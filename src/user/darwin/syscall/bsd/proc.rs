@@ -24,6 +24,7 @@ pub fn host_id(f: impl FnOnce() -> i32) -> SysResult {
 }
 
 /// `getgroups(gidsetsize, gidset)`.
+#[cfg(unix)]
 pub fn getgroups(ctx: &mut Ctx<'_>, size: u32, list: u64) -> SysResult {
     let mut groups = vec![0 as libc::gid_t; 64];
     // SAFETY: `groups` has room for 64 entries.
@@ -47,6 +48,7 @@ pub fn getgroups(ctx: &mut Ctx<'_>, size: u32, list: u64) -> SysResult {
 }
 
 /// `getlogin(namebuf, namelen)` (`__getlogin`): the session's login name.
+#[cfg(unix)]
 pub fn getlogin(ctx: &mut Ctx<'_>, buf: u64, len: u32) -> SysResult {
     // SAFETY: getlogin returns a pointer to a static string or null.
     let p = unsafe { libc::getlogin() };
@@ -65,6 +67,7 @@ pub fn getlogin(ctx: &mut Ctx<'_>, buf: u64, len: u32) -> SysResult {
 }
 
 /// `getpriority(which, who)`: the host's scheduling priority.
+#[cfg(unix)]
 pub fn getpriority(ctx: &mut Ctx<'_>, which: i32, who: u64) -> SysResult {
     let _ = ctx;
     crate::user::darwin::host::set_errno(0);
@@ -171,10 +174,19 @@ pub fn task_flavor_for_pid(
     } else if pid == ctx.proc.pid {
         Ok(())
     } else {
-        // SAFETY: kill with signal 0 only checks that the process exists.
-        let exists = unsafe { libc::kill(pid, 0) } == 0
-            || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM);
-        Err(if exists { Errno::EPERM } else { Errno::ESRCH })
+        if !ctx.proc.config.host_services {
+            Err(Errno::EPERM)
+        } else {
+            #[cfg(unix)]
+            {
+                // SAFETY: kill with signal 0 only checks that the process exists.
+                let exists = unsafe { libc::kill(pid, 0) } == 0
+                    || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM);
+                Err(if exists { Errno::EPERM } else { Errno::ESRCH })
+            }
+            #[cfg(not(unix))]
+            Err(Errno::ENOTSUP)
+        }
     };
     let name = if result.is_ok() {
         let port = if read {

@@ -35,6 +35,8 @@ use super::vm::VmLayout;
 use super::wait::{self, Resume, Wait, WaitKey};
 use crate::user::mm::{AddressSpace, MmError, SpaceConfig};
 
+pub(crate) mod embedding;
+
 #[cfg(test)]
 mod bounded_tests;
 #[cfg(test)]
@@ -54,6 +56,12 @@ const VA_LIMIT: u64 = 1 << 47;
 /// How to start a process.
 #[derive(Clone, Debug)]
 pub struct DarwinConfig {
+    /// Permit legacy host filesystem, process, signal, and Mach services.
+    pub host_services: bool,
+    /// Immutable guest namespace for a process without host services.
+    pub supplied_files: Option<crate::user::supplied_fs::Files>,
+    /// Host standard streams or caller-owned captured streams.
+    pub console: crate::user::console::Console,
     /// `argv`, including `argv[0]`.
     pub argv: Vec<Vec<u8>>,
     /// `envp`.
@@ -89,15 +97,44 @@ pub struct DarwinConfig {
 impl DarwinConfig {
     /// A configuration for `exec_path` with `argv`, `envp`, and defaults.
     pub fn new(exec_path: impl Into<String>, argv: Vec<Vec<u8>>, envp: Vec<Vec<u8>>) -> Self {
-        let cwd = std::env::current_dir()
+        let mut config = Self::base(exec_path.into(), argv, envp);
+        config.cwd = std::env::current_dir()
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_else(|_| "/".into());
+        config
+    }
+
+    /// Supplied files, captured streams, virtual identity, deterministic
+    /// entropy, and no host-service forwarding.
+    pub fn embedded(
+        exec_path: impl Into<String>,
+        argv: Vec<Vec<u8>>,
+        envp: Vec<Vec<u8>>,
+        files: crate::user::supplied_fs::Files,
+        console: crate::user::console::CapturedConsole,
+    ) -> Self {
+        let mut config = Self::base(exec_path.into(), argv, envp);
+        config.host_services = false;
+        config.supplied_files = Some(files);
+        config.console = crate::user::console::Console::Captured(console);
+        config.seed = Some(0);
+        config
+    }
+
+    pub(crate) fn warn_unhandled(&self) -> bool {
+        self.host_services && (self.strace || std::env::var_os("RAX_DARWIN_WARN").is_some())
+    }
+
+    fn base(exec_path: String, argv: Vec<Vec<u8>>, envp: Vec<Vec<u8>>) -> Self {
         DarwinConfig {
+            host_services: true,
+            supplied_files: None,
+            console: Default::default(),
             argv,
             envp,
-            exec_path: exec_path.into(),
+            exec_path,
             root: None,
-            cwd,
+            cwd: "/".into(),
             abi: None,
             strace: false,
             seed: None,
@@ -171,6 +208,8 @@ impl std::fmt::Display for ExitStatus {
 /// Why a process could not be started.
 #[derive(Debug)]
 pub enum SpawnError {
+    /// Inconsistent process profile options.
+    Configuration(&'static str),
     /// Loading failed.
     Load(LoadError),
     /// The address space could not be created.
@@ -183,9 +222,10 @@ impl SpawnError {
     /// The `errno` `execve` would report.
     pub fn errno(&self) -> i32 {
         match self {
+            SpawnError::Configuration(_) => super::abi::Errno::EINVAL.0,
             SpawnError::Load(e) => e.errno(),
             SpawnError::Memory(_) => 12,
-            SpawnError::Io(_, e) => e.raw_os_error().unwrap_or(5),
+            SpawnError::Io(_, e) => super::abi::Errno::from_io(e).0,
         }
     }
 }
@@ -193,6 +233,9 @@ impl SpawnError {
 impl std::fmt::Display for SpawnError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            SpawnError::Configuration(why) => {
+                write!(f, "invalid Darwin process configuration: {why}")
+            }
             SpawnError::Load(e) => write!(f, "{e}"),
             SpawnError::Memory(e) => write!(f, "{e}"),
             SpawnError::Io(p, e) => write!(f, "{p}: {e}"),
@@ -598,7 +641,12 @@ impl DarwinProcess {
             if let Some(remaining) = &mut turns {
                 *remaining -= 1;
             }
-            for (sig, origin) in signal::host::take() {
+            #[cfg(unix)]
+            for (sig, origin) in if self.proc.config.host_services {
+                signal::host::take()
+            } else {
+                Vec::new()
+            } {
                 if sig == signal::SIGCHLD {
                     // A child changed state: waiters look again.
                     self.proc.post(WaitKey::Child);
@@ -707,7 +755,10 @@ impl DarwinProcess {
     /// Replaces the process image with `swap`'s (the old one's threads,
     /// memory, and ports end here).
     fn swap(&mut self, swap: super::exec::Swap) {
-        if let Some(dir) = &swap.chdir {
+        #[cfg(unix)]
+        if self.proc.config.host_services
+            && let Some(dir) = &swap.chdir
+        {
             use std::os::fd::AsRawFd;
             // SAFETY: fchdir on a live directory descriptor.
             unsafe { libc::fchdir(dir.as_raw_fd()) };
@@ -717,7 +768,7 @@ impl DarwinProcess {
         self.last = 0;
         if swap.suspend {
             // POSIX_SPAWN_START_SUSPENDED: stopped before it runs.
-            signal::host::stop(&mut self.proc);
+            signal::stop(&mut self.proc);
         }
     }
 
@@ -779,7 +830,14 @@ impl DarwinProcess {
             fds.push((fd, true, false));
         }
         // Forwarded host signals wake the process too.
-        let wake = signal::host::wake_fd();
+        #[cfg(unix)]
+        let wake = if self.proc.config.host_services {
+            signal::host::wake_fd()
+        } else {
+            None
+        };
+        #[cfg(not(unix))]
+        let wake: Option<i32> = None;
         if let Some(fd) = wake {
             fds.push((fd, true, false));
         }
@@ -792,6 +850,7 @@ impl DarwinProcess {
             return;
         }
         let ready = wait::sleep(&fds, deadline);
+        #[cfg(unix)]
         if wake.is_some() && ready.last() == Some(&true) {
             // A forwarded host signal (or a stale wake byte): the next pass
             // takes the signal.
@@ -878,9 +937,15 @@ impl DarwinProcess {
 /// program), or with `carried`, the process that execs `image`.
 pub(crate) fn start(
     config: DarwinConfig,
-    image: ImageFile,
+    mut image: ImageFile,
     carried: Option<Carried>,
 ) -> Result<Proc, SpawnError> {
+    let vfs = embedding::prepare(&config, &mut image)?;
+    if !config.host_services && carried.is_some() {
+        return Err(SpawnError::Configuration(
+            "embedded exec inheritance is not implemented",
+        ));
+    }
     let abi = loader::choose_abi(&image.bytes, config.abi)
         .map_err(|e| SpawnError::Load(LoadError::Image(e)))?;
     let reserved = match abi {
@@ -893,14 +958,20 @@ pub(crate) fn start(
         reserved_phys: reserved,
     })
     .map_err(SpawnError::Memory)?;
-    let vfs = Vfs::new(config.root.clone());
 
     // The task's name space: the main thread's port first (th_port,
     // 0x103), then the task's (0x203), as on macOS.
     let mut ipc = IpcSpace::new();
-    let pid = carried
-        .as_ref()
-        .map_or(std::process::id() as i32, |c| c.pid);
+    let pid = carried.as_ref().map_or_else(
+        || {
+            if config.host_services {
+                std::process::id() as i32
+            } else {
+                1000
+            }
+        },
+        |c| c.pid,
+    );
     let tid = carried.as_ref().map_or(((pid as u64) << 20) | 1, |c| c.tid);
     let kport = Port::new(KObject::Thread(tid));
     kport.state.lock().unwrap().srights += 1;
@@ -913,14 +984,10 @@ pub(crate) fn start(
         .expect("a fresh space has room");
 
     let dyld_file = match loader::parse_executable(&image, abi) {
-        Ok((_, main)) if main.dylinker.is_some() => {
-            let host = vfs.system_path(loader::DYLD_PATH);
-            Some(
-                ImageFile::read(loader::DYLD_PATH, &host, &vfs).map_err(|e| {
-                    SpawnError::Load(LoadError::Dylinker(loader::DYLD_PATH.into(), e))
-                })?,
-            )
-        }
+        Ok((_, main)) if main.dylinker.is_some() => Some(
+            ImageFile::read_system(loader::DYLD_PATH, &vfs)
+                .map_err(|e| SpawnError::Load(LoadError::Dylinker(loader::DYLD_PATH.into(), e)))?,
+        ),
         _ => None,
     };
     let (mut entropy, rlimits) = match &carried {
@@ -1038,20 +1105,75 @@ pub(crate) fn start(
         },
         None => {
             // SAFETY: the credential getters take no arguments.
-            let creds = unsafe {
-                (
-                    libc::getuid(),
-                    libc::geteuid(),
-                    libc::getgid(),
-                    libc::getegid(),
-                )
+            #[cfg(unix)]
+            let creds = if config.host_services {
+                unsafe {
+                    (
+                        libc::getuid(),
+                        libc::geteuid(),
+                        libc::getgid(),
+                        libc::getegid(),
+                    )
+                }
+            } else {
+                (1000, 1000, 1000, 1000)
             };
+            #[cfg(not(unix))]
+            let creds = (1000, 1000, 1000, 1000);
             // SAFETY: umask(2) takes no pointers; the mask is put back at
             // once.
-            let umask = unsafe {
-                let m = libc::umask(0o022);
-                libc::umask(m);
-                m as u32
+            #[cfg(unix)]
+            let umask = if config.host_services {
+                unsafe {
+                    let m = libc::umask(0o022);
+                    libc::umask(m);
+                    m as u32
+                }
+            } else {
+                0o022
+            };
+            #[cfg(not(unix))]
+            let umask = 0o022;
+            #[cfg(unix)]
+            let ppid = if config.host_services {
+                // SAFETY: getppid takes no arguments.
+                unsafe { libc::getppid() }
+            } else {
+                0
+            };
+            #[cfg(not(unix))]
+            let ppid = 0;
+            let audit = if config.host_services {
+                host_audit_token(pid, creds)
+            } else {
+                [
+                    u32::MAX,
+                    creds.1,
+                    creds.3,
+                    creds.0,
+                    creds.2,
+                    pid as u32,
+                    0,
+                    1,
+                ]
+            };
+            let bridge = if config.host_services {
+                Default::default()
+            } else {
+                super::bridge::Bridge::isolated()
+            };
+            let fds = match &config.console {
+                #[cfg(unix)]
+                crate::user::console::Console::Host => FdTable::with_stdio(),
+                #[cfg(not(unix))]
+                crate::user::console::Console::Host => {
+                    return Err(SpawnError::Configuration(
+                        "host standard streams require Unix host services",
+                    ));
+                }
+                crate::user::console::Console::Captured(console) => {
+                    FdTable::with_captured(console.clone())
+                }
             };
             let sigacts = config
                 .inherited
@@ -1063,10 +1185,9 @@ pub(crate) fn start(
                 vm,
                 vfs,
                 cwd,
-                fds: FdTable::with_stdio(),
+                fds,
                 pid,
-                // SAFETY: getppid takes no arguments.
-                ppid: unsafe { libc::getppid() },
+                ppid,
                 creds,
                 program,
                 config,
@@ -1095,10 +1216,10 @@ pub(crate) fn start(
                 posted: Vec::new(),
                 guard_ast: None,
                 task: TaskState::default(),
-                audit: host_audit_token(pid, creds),
+                audit,
                 exec: None,
                 execed: true,
-                bridge: Default::default(),
+                bridge,
                 codesign: None,
             };
             super::bridge::start(&mut proc.bridge, &mut proc.task);
@@ -1162,16 +1283,13 @@ pub(crate) fn host_audit_token(pid: i32, creds: (u32, u32, u32, u32)) -> [u32; 8
 /// (`CLOCK_THREAD_CPUTIME_ID`): every guest thread runs on it, so the
 /// difference across a slice is that guest thread's time.
 fn thread_cpu_ns() -> u64 {
-    let mut ts = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
-    // SAFETY: `ts` is a live timespec for the call's duration.
-    let r = unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut ts) };
-    if r != 0 {
-        return 0;
-    }
-    ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
+    crate::user::clock::read(crate::user::clock::HostClock::ThreadCpu)
+        .map(|(seconds, nanos)| {
+            (seconds as u64)
+                .saturating_mul(1_000_000_000)
+                .saturating_add(nanos as u64)
+        })
+        .unwrap_or(0)
 }
 
 /// The emulated machine's boot time in microseconds since the epoch

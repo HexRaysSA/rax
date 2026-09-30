@@ -11,6 +11,7 @@ TARGETS = (
     ("--test", "user_windows_memory"),
     ("--lib", "user::mm::"),
     ("--lib", "user::linux::"),
+    ("--lib", "user::darwin::"),
     ("--lib", "user::readiness::"),
     ("--lib", "user::clock::"),
     ("--lib", "user::console"),

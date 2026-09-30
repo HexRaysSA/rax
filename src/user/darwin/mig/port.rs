@@ -312,7 +312,7 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             ))
         }
         _ => {
-            if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {
+            if ctx.proc.config.warn_unhandled() {
                 eprintln!(
                     "rax-user: unimplemented MIG routine {} ({})",
                     req.id,

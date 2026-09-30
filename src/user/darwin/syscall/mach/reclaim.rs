@@ -115,7 +115,7 @@ impl Stop {
 /// both once the call returns, which it never does to user code).
 fn kill(ctx: &mut Ctx<'_>, flavor: u64, subcode: u64) -> Stop {
     let code = guard::code(guard::GUARD_TYPE_VIRT_MEMORY, flavor as u32, 0);
-    if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {
+    if ctx.proc.config.warn_unhandled() {
         eprintln!("rax-user: EXC_GUARD (virtual memory {code:#x}, subcode {subcode:#x}): fatal");
     }
     exception::post_guard(

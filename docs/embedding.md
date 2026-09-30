@@ -63,7 +63,21 @@ explicitly rejected on Windows. Windows ELF startup also rejects missing
 placeholder mapping APIs before guest execution; private PE execution retains
 its existing fallback.
 
-Darwin still requires Unix hosts and is not yet exposed through `rax_process_*`.
+Darwin also provides a portable closed Rust profile through
+`DarwinConfig::embedded` for x86-64 and AArch64 Mach-O images. It uses a supplied
+POSIX namespace, captured streams, seeded entropy, virtual identity, and
+process-local thread, signal, Mach-port, VM, and synchronization state. Supplied
+files support read-only opens, metadata, seek, vectored reads, and private
+file-backed mappings. The supplied namespace also resolves dyld and shared-cache
+images; missing inputs never fall back to host files. BSD calls outside the
+profile's audited allowlist return `EPERM` before reading arguments. External
+Mach forwarding is disabled. Host process creation, native descriptors,
+filesystem mutation, host signal/job control, and host credentials are excluded.
+
+`HOST_SERVICES_AVAILABLE` reports availability of Darwin's legacy Unix profile;
+non-Unix construction rejects it before image loading. The closed profile is
+available on Windows, macOS, and Linux. This Rust profile is not yet exposed
+through `rax_process_*`.
 ABI 1.9 exposes closed Linux embedding for x86-64, i386, AArch64, AArch32 EABI,
 and RV64 with `personality="linux"`. The Windows profile remains the default.
 Both use the same dedicated owner thread, copied buffers, run/cancellation
@@ -78,23 +92,25 @@ provide the field and byte-size contracts.
 | ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
 | --- | --- | --- | --- | --- | --- |
 | S1 | A scheduling boundary occurs between complete personality dispatches. | Existing Linux/Darwin schedulers retain parked syscall/exception state. | Resumption does not restart a partially executed handler. | Indefinite futex/Mach wait, cancellation, posted wake, and real guest exit through repeated one-turn calls. | Confirmed for tested paths. |
-| S2 | Legacy host-service handlers retain their existing blocking and side-effect behavior. | The legacy Unix configuration keeps its host adapters. | Its turn bound is not a hard time bound. | Trace a blocking host syscall; it may exceed the caller's desired wall time. | Retained for the legacy profile; the closed Linux profile rejects those handlers. |
+| S2 | Legacy host-service handlers retain their existing blocking and side-effect behavior. | The legacy Unix configuration keeps its host adapters. | Its turn bound is not a hard time bound. | Trace a blocking host syscall; it may exceed the caller's desired wall time. | Retained for the legacy profile; the closed Linux and Darwin profiles reject those handlers. |
 | S3 | Shared mapping mutations are serialized with guest execution. | The address-space ownership contract and dedicated process scheduler thread. | Stable cached host addresses and failed-rollback quarantine. | Native Windows sharing, rollback, and CPU-entry tests; closed shared `mmap`/`mremap`/`msync` tests on all hosts. | Retained; concurrent external mapping mutation violates the contract. |
 
 Affected planes include process scheduling, host adapters, memory ownership,
 syscall dispatch availability, and Rust process construction. The portable
-Linux profile uses the same guest ISA cores and syscall handlers across hosts;
-no instruction semantics or C ABI layouts change. Native CI runs the Linux
-library tests and memory tests on Windows, macOS, and Linux. Tests that require
+Linux and Darwin profiles use the same guest ISA cores and admitted syscall
+handlers across hosts; no instruction semantics or C ABI layouts change. Native
+CI runs both personalities' library tests and memory tests on Windows, macOS,
+and Linux. Tests that require
 the legacy Unix host profile are compiled only on Unix; closed-profile tests
 run on every host and execute all five Linux guest ABIs, including supplied
-ELF interpreters.
+ELF interpreters, and both Darwin guest ABIs using static Mach-O fixtures,
+captured streams, supplied mappings, and process-local synchronization.
 
 Boundary bookkeeping adds O(1) state and work per call, apart from cloning a
 terminal diagnostic. Existing per-turn costs (thread/wait polling and guest
-execution) remain unchanged. High-impact remaining work is exporting Linux
-through the C ABI and providing the corresponding portable Darwin profile
-before extending Assist's process API to those personalities.
+execution) remain unchanged. High-impact remaining work is exporting the closed
+Darwin profile through the C ABI and integrating that personality into Assist.
+This does not change the already exported Windows and Linux process contracts.
 
 ## Build
 

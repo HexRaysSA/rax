@@ -95,8 +95,13 @@ fn write_words(process: &DarwinProcess, address: u64, words: &[u32]) {
 }
 
 fn process() -> DarwinProcess {
-    let mut config =
-        DarwinConfig::new("/exclusive-test", vec![b"/exclusive-test".to_vec()], vec![]);
+    let mut config = DarwinConfig::embedded(
+        "/exclusive-test",
+        vec![b"/exclusive-test".to_vec()],
+        vec![],
+        crate::user::supplied_fs::Files::new(BTreeMap::new()).unwrap(),
+        crate::user::console::CapturedConsole::new(Vec::new(), 4096).unwrap(),
+    );
     config.abi = Some(DarwinAbi::Arm64);
     config.seed = Some(1);
     config.arena_bytes = 64 << 20;

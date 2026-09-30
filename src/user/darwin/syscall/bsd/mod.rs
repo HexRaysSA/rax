@@ -25,12 +25,14 @@ pub mod pthread;
 pub mod region;
 #[cfg(target_os = "macos")]
 pub mod sem;
+#[cfg(unix)]
 pub mod shm;
 pub mod sig;
 #[cfg(target_os = "macos")]
 pub mod socket;
 pub mod sysctl;
 pub mod thread;
+#[cfg(unix)]
 pub mod wait;
 pub mod workq;
 #[cfg(target_os = "macos")]
@@ -87,6 +89,11 @@ const CANCELLATION_POINTS: &[u32] = &[
 
 /// Runs BSD call `number` with `a` (its arguments in 64-bit words).
 pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
+    if !ctx.proc.config.host_services
+        && !crate::user::darwin::process::embedding::bsd_allowed(number)
+    {
+        return Err(Errno::EPERM);
+    }
     let i = |n: usize| a[n] as i32;
     let u = |n: usize| a[n] as u32;
     if CANCELLATION_POINTS.contains(&number) {
@@ -94,10 +101,15 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
     }
     match number {
         nr::EXIT => proc::exit(ctx, i(0)),
+        #[cfg(unix)]
         nr::FORK => crate::user::darwin::fork::fork(ctx),
+        #[cfg(unix)]
         nr::WAIT4 | nr::WAIT4_NOCANCEL => wait::wait4(ctx, i(0), a[1], i(2), a[3]),
+        #[cfg(unix)]
         nr::WAITID | nr::WAITID_NOCANCEL => wait::waitid(ctx, i(0), u(1), a[2], i(3)),
+        #[cfg(unix)]
         nr::EXECVE => crate::user::darwin::exec::execve(ctx, a[0], a[1], a[2]),
+        #[cfg(unix)]
         nr::POSIX_SPAWN => {
             crate::user::darwin::exec::spawn::posix_spawn(ctx, a[0], a[1], a[2], a[3], a[4])
         }
@@ -179,6 +191,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GETDIRENTRIES64 => file::getdirentries64(ctx, i(0), a[1], a[2], a[3]),
         nr::FSTATFS64 => file::fstatfs64(ctx, i(0), a[1]),
         nr::STATFS64 => path::statfs64(ctx, a[0], a[1]),
+        #[cfg(unix)]
         nr::SHM_OPEN => shm::shm_open(ctx, a[0], u(1), u(2)),
         #[cfg(target_os = "macos")]
         nr::SEM_OPEN => sem::sem_open(ctx, a[0], u(1), u(2), u(3)),
@@ -192,6 +205,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::SEM_TRYWAIT => sem::sem_trywait(ctx, a[0]),
         #[cfg(target_os = "macos")]
         nr::SEM_POST => sem::sem_post(ctx, a[0]),
+        #[cfg(unix)]
         nr::SHM_UNLINK => shm::shm_unlink(ctx, a[0]),
         nr::GETFSSTAT64 => file::getfsstat64(ctx, a[0], i(1), i(2)),
         nr::POLL | nr::POLL_NOCANCEL => file::poll(ctx, a[0], u(1), i(2)),
@@ -277,12 +291,19 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GETGID => Ok(Rv::one(u64::from(ctx.proc.creds.2))),
         nr::GETEGID => Ok(Rv::one(u64::from(ctx.proc.creds.3))),
         nr::ISSETUGID => Ok(Rv::one(0)),
+        #[cfg(unix)]
         nr::GETPGRP => proc::host_id(|| unsafe { libc::getpgrp() }),
+        #[cfg(unix)]
         nr::GETPGID => proc::host_id(|| unsafe { libc::getpgid(a[0] as i32) }),
+        #[cfg(unix)]
         nr::GETSID => proc::host_id(|| unsafe { libc::getsid(a[0] as i32) }),
+        #[cfg(unix)]
         nr::SETPGID => proc::host_id(|| unsafe { libc::setpgid(a[0] as i32, a[1] as i32) }),
+        #[cfg(unix)]
         nr::SETSID => proc::host_id(|| unsafe { libc::setsid() }),
+        #[cfg(unix)]
         nr::GETGROUPS => proc::getgroups(ctx, u(0), a[1]),
+        #[cfg(unix)]
         nr::GETLOGIN => proc::getlogin(ctx, a[0], u(1)),
         nr::GETTID => proc::gettid(ctx, a[0], a[1]),
         nr::SETTID => proc::settid(ctx, u(0), u(1)),
@@ -296,7 +317,9 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         }
         nr::GETRLIMIT => misc::getrlimit(ctx, u(0), a[1]),
         nr::SETRLIMIT => misc::setrlimit(ctx, u(0), a[1]),
+        #[cfg(unix)]
         nr::GETRUSAGE => misc::getrusage(ctx, i(0), a[1]),
+        #[cfg(unix)]
         nr::GETPRIORITY => proc::getpriority(ctx, i(0), a[1]),
         nr::SETPRIORITY => Ok(Rv::one(0)),
         nr::GETENTROPY => misc::getentropy(ctx, a[0], a[1]),
@@ -427,7 +450,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GETITIMER => sig::getitimer(ctx, u(0), a[1]),
         nr::DISABLE_THREADSIGNAL => pthread::disable_threadsignal(ctx),
         _ => {
-            if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {
+            if ctx.proc.config.warn_unhandled() {
                 eprintln!(
                     "rax-user: unimplemented BSD system call {number} ({})",
                     crate::user::darwin::abi::bsd_syscall(number).name

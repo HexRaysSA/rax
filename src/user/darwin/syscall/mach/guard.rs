@@ -124,7 +124,7 @@ pub fn is_sticky(reason: u32, behavior: u32) -> bool {
 /// exception's subcode): the calling thread handles it on its way back
 /// to user mode.
 pub fn raise(proc: &mut Proc, name: PortName, reason: u32, payload: u64) {
-    if proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {
+    if proc.config.warn_unhandled() {
         eprintln!(
             "rax-user: EXC_GUARD (mach port {name:#x}, reason {reason:#x}, payload {payload:#x})"
         );

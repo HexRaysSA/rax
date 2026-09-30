@@ -7,10 +7,15 @@
 //! between duplicates exactly as the guest expects. The close-on-exec flag
 //! belongs to the descriptor slot.
 
-use std::os::fd::{AsRawFd, OwnedFd, RawFd};
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, OwnedFd};
 use std::sync::{Arc, Mutex};
 
 use super::abi::Errno;
+
+mod embedded;
+pub use embedded::EmbeddedFile;
+pub(crate) use embedded::supplied_source;
 
 /// `OPEN_MAX`-like soft limit of the table (`RLIMIT_NOFILE` soft default).
 pub const NOFILE_SOFT: u64 = 256;
@@ -20,16 +25,22 @@ pub const NOFILE_HARD: u64 = 10_240;
 /// What an open file is.
 #[derive(Debug)]
 pub enum FileKind {
+    /// An immutable supplied file or captured stream, without a host descriptor.
+    Embedded(EmbeddedFile),
     /// A host file, directory, pipe, or device (or a socket the process
     /// was started with).
+    #[cfg(unix)]
     Host(OwnedFd),
     /// A host socket.
+    #[cfg(unix)]
     Socket(OwnedFd),
     /// A kqueue, by its identity in the process's kqueues.
     Kqueue(u64),
     /// A POSIX shared memory object (`shm_open`), the host's.
+    #[cfg(unix)]
     Shm(OwnedFd),
     /// A POSIX named semaphore (`sem_open`), the host's.
+    #[cfg(unix)]
     Sem(OwnedFd),
 }
 
@@ -47,6 +58,7 @@ pub struct OpenFile {
 
 impl OpenFile {
     /// A description of a host descriptor.
+    #[cfg(unix)]
     pub fn host(fd: OwnedFd, flags: u32, path: Option<Vec<u8>>) -> Self {
         OpenFile {
             kind: FileKind::Host(fd),
@@ -56,6 +68,7 @@ impl OpenFile {
     }
 
     /// A description of a host socket.
+    #[cfg(unix)]
     pub fn socket(fd: OwnedFd, flags: u32) -> Self {
         OpenFile {
             kind: FileKind::Socket(fd),
@@ -65,12 +78,13 @@ impl OpenFile {
     }
 
     /// The host descriptor, if this is a host file.
-    pub fn host_fd(&self) -> Option<RawFd> {
+    pub fn host_fd(&self) -> Option<i32> {
         match &self.kind {
+            #[cfg(unix)]
             FileKind::Host(fd) | FileKind::Socket(fd) | FileKind::Shm(fd) | FileKind::Sem(fd) => {
                 Some(fd.as_raw_fd())
             }
-            FileKind::Kqueue(_) => None,
+            FileKind::Kqueue(_) | FileKind::Embedded(_) => None,
         }
     }
 }
@@ -106,6 +120,7 @@ impl FdTable {
     /// The table a process starts with: the emulator's standard input,
     /// output, and error duplicated as guest descriptors 0-2 (those that are
     /// open), so the guest closing one leaves the emulator's alone.
+    #[cfg(unix)]
     pub fn with_stdio() -> Self {
         let mut t = FdTable::new();
         for fd in 0..3 {
@@ -258,24 +273,24 @@ impl FdTable {
 mod tests {
     use super::*;
 
-    fn devnull() -> FileRef {
-        let f = std::fs::File::open("/dev/null").unwrap();
-        Arc::new(OpenFile::host(f.into(), 0, None))
+    fn input_file() -> crate::user::darwin::fd::FileRef {
+        let console = crate::user::console::CapturedConsole::new(Vec::new(), 32).unwrap();
+        FdTable::with_captured(console).get(0).unwrap().file.clone()
     }
 
     #[test]
     fn lowest_free_descriptor_is_reused() {
         let mut t = FdTable::new();
-        assert_eq!(t.install(devnull(), false, 0, 256), Ok(0));
-        assert_eq!(t.install(devnull(), true, 0, 256), Ok(1));
-        assert_eq!(t.install(devnull(), false, 0, 256), Ok(2));
+        assert_eq!(t.install(input_file(), false, 0, 256), Ok(0));
+        assert_eq!(t.install(input_file(), true, 0, 256), Ok(1));
+        assert_eq!(t.install(input_file(), false, 0, 256), Ok(2));
         t.remove(1).unwrap();
-        assert_eq!(t.install(devnull(), false, 0, 256), Ok(1));
-        assert_eq!(t.install(devnull(), false, 10, 256), Ok(10));
+        assert_eq!(t.install(input_file(), false, 0, 256), Ok(1));
+        assert_eq!(t.install(input_file(), false, 10, 256), Ok(10));
         assert_eq!(t.get(5).unwrap_err(), Errno::EBADF);
         assert_eq!(t.get(-1).unwrap_err(), Errno::EBADF);
         assert_eq!(
-            t.install(devnull(), false, 0, 3),
+            t.install(input_file(), false, 0, 3),
             Ok(3).and(Err(Errno::EMFILE))
         );
     }
@@ -283,8 +298,8 @@ mod tests {
     #[test]
     fn close_on_exec_closes_only_marked_descriptors() {
         let mut t = FdTable::new();
-        t.install(devnull(), false, 0, 256).unwrap();
-        t.install(devnull(), true, 0, 256).unwrap();
+        t.install(input_file(), false, 0, 256).unwrap();
+        t.install(input_file(), true, 0, 256).unwrap();
         t.close_on_exec();
         assert!(t.get(0).is_ok());
         assert!(t.get(1).is_err());

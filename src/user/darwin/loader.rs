@@ -64,30 +64,85 @@ impl fmt::Debug for ImageFile {
 }
 
 impl ImageFile {
+    /// Load a system image from the selected namespace. A host root is strict
+    /// for these images; a supplied namespace never falls back to host files.
+    pub fn read_system(path: &str, vfs: &Vfs) -> std::io::Result<Self> {
+        if vfs.is_closed() {
+            Self::from_supplied(path, vfs)
+        } else {
+            Self::read(path, &vfs.system_path(path)?, vfs)
+        }
+    }
+
+    /// An executable supplied as owned bytes, without a host-file association.
+    pub fn new(bytes: Vec<u8>, path: impl Into<String>) -> Self {
+        let path = path.into();
+        Self {
+            vnode_path: path.clone(),
+            path,
+            host_path: PathBuf::new(),
+            bytes: bytes.into(),
+            file_id: (0, 0),
+            slice: None,
+        }
+    }
+
+    /// Read only from a closed supplied namespace, including dynamic linkers.
+    /// The stable namespace inode identifies repeated reads of the same file.
+    pub fn from_supplied(path: &str, vfs: &Vfs) -> std::io::Result<Self> {
+        let (path, entry) = vfs.lookup(path.as_bytes(), b"/")?;
+        Ok(Self {
+            vnode_path: path.clone(),
+            path,
+            host_path: PathBuf::new(),
+            bytes: entry.bytes().map_err(std::io::Error::other)?,
+            file_id: (0x524158, entry.ino),
+            slice: None,
+        })
+    }
+
     /// Reads `host_path` as the executable at guest path `path`, seen
     /// through `vfs`.
     pub fn read(path: impl Into<String>, host_path: &Path, vfs: &Vfs) -> std::io::Result<Self> {
-        use std::io::Read;
-        use std::os::fd::AsRawFd;
-        use std::os::unix::fs::MetadataExt;
-        let mut file = std::fs::File::open(host_path)?;
-        let meta = file.metadata()?;
-        let mut bytes = Vec::with_capacity(meta.len() as usize);
-        file.read_to_end(&mut bytes)?;
-        let vnode_path = vnode_path(vfs, file.as_raw_fd(), host_path);
-        Ok(ImageFile {
-            path: path.into(),
-            host_path: host_path.to_path_buf(),
-            vnode_path,
-            bytes: bytes.into(),
-            file_id: (meta.dev(), meta.ino()),
-            slice: None,
-        })
+        if vfs.is_closed() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "supplied Darwin images must be read from their guest namespace",
+            ));
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = (path, host_path);
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "host-backed Darwin images require Unix host services",
+            ))
+        }
+        #[cfg(unix)]
+        {
+            use std::io::Read;
+            use std::os::fd::AsRawFd;
+            use std::os::unix::fs::MetadataExt;
+            let mut file = std::fs::File::open(host_path)?;
+            let meta = file.metadata()?;
+            let mut bytes = Vec::with_capacity(meta.len() as usize);
+            file.read_to_end(&mut bytes)?;
+            let vnode_path = vnode_path(vfs, file.as_raw_fd(), host_path);
+            Ok(ImageFile {
+                path: path.into(),
+                host_path: host_path.to_path_buf(),
+                vnode_path,
+                bytes: bytes.into(),
+                file_id: (meta.dev(), meta.ino()),
+                slice: None,
+            })
+        }
     }
 }
 
 /// The guest path of the file open at host descriptor `fd` (read from
 /// `host_path`) as the kernel names it.
+#[cfg(unix)]
 pub fn vnode_path(vfs: &Vfs, fd: i32, host_path: &Path) -> String {
     use std::os::unix::ffi::OsStrExt;
     let real = super::host::fd_path(fd).unwrap_or_else(|| {
@@ -121,7 +176,11 @@ impl LoadError {
         match self {
             LoadError::Image(e) | LoadError::DylinkerImage(e) => e.errno(),
             // get_macho_vnode: LOAD_ENOENT, otherwise LOAD_FAILURE.
-            LoadError::Dylinker(_, e) if e.kind() == std::io::ErrorKind::NotFound => 2,
+            LoadError::Dylinker(_, e)
+                if super::abi::Errno::from_io(e) == super::abi::Errno::ENOENT =>
+            {
+                2
+            }
             LoadError::Dylinker(..) => 85,
             LoadError::Memory(_) => 12,
             LoadError::Stack(StackError::TooBig) => 7,

@@ -11,6 +11,8 @@ use crate::user::darwin::io::{O_ACCMODE, O_RDONLY, O_RDWR, O_WRONLY};
 use crate::user::darwin::vm::{self, VmFlags};
 use crate::user::mm::{Backing, HostFileSource, Mapping, MmError, SharedObject};
 
+mod embedded;
+
 /// `MAP_SHARED`.
 pub const MAP_SHARED: u32 = 0x0001;
 /// `MAP_PRIVATE`.
@@ -131,6 +133,7 @@ pub fn map_at(
 /// not yet sized; `EPERM` to write through a read-only descriptor), with
 /// read and write as its maximum protection.
 #[allow(clippy::too_many_arguments)]
+#[cfg(unix)]
 fn mmap_shm(
     ctx: &mut Ctx<'_>,
     shm: i32,
@@ -199,17 +202,17 @@ pub fn mmap(
     let mask = page - 1;
     let mut prot = prot & vm::VM_PROT_ALL;
     // mmap_sanitize: the file range must not overflow.
-    if pos.checked_add(len).is_none()
-        || (pos & !mask)
-            .checked_add(len + (pos & mask) + mask)
-            .is_none()
-    {
+    let expanded = len
+        .checked_add(pos & mask)
+        .and_then(|n| n.checked_add(mask))
+        .ok_or(Errno::EINVAL)?;
+    if pos.checked_add(len).is_none() || (pos & !mask).checked_add(expanded).is_none() {
         return Err(Errno::EINVAL);
     }
     if flags & MAP_UNIX03 != 0 && (len == 0 || pos & mask != 0) {
         return Err(Errno::EINVAL);
     }
-    let size = ((pos & mask) + len + mask) & !mask;
+    let size = expanded & !mask;
     let fixed = if flags & MAP_FIXED != 0 {
         // The address must have the file offset's in-page remainder.
         if addr & mask != pos & mask {
@@ -315,101 +318,116 @@ pub fn mmap(
         return Err(Errno::EINVAL);
     }
     let file = ctx.proc.fds.file(fd)?;
-    if let crate::user::darwin::fd::FileKind::Shm(shm) = &file.kind {
-        use std::os::fd::AsRawFd;
-        let shm = shm.as_raw_fd();
-        let writable = *file.flags.lock().unwrap() & O_ACCMODE != O_RDONLY;
-        return mmap_shm(
-            ctx,
-            shm,
-            writable,
-            fixed,
-            addr,
-            size,
-            prot,
-            flags,
-            pos & !mask,
-            pos & mask,
+    if let crate::user::darwin::fd::FileKind::Embedded(object) = &file.kind {
+        return embedded::mmap(
+            ctx, &file, object, fixed, addr, size, prot, flags, pos, inherit,
         );
     }
-    let host = file.host_fd().ok_or(Errno::EINVAL)?;
-    let meta = host_fstat(host)?;
-    let kind = meta.st_mode as u32 & 0o170000;
-    if kind == 0o020000 {
-        // A character device (the /dev/zero hack is refused).
-        return Err(Errno::ENODEV);
-    }
-    if kind != 0o100000 {
-        return Err(Errno::EINVAL);
-    }
-    let acc = *file.flags.lock().unwrap() & O_ACCMODE;
-    let readable = acc != O_WRONLY;
-    let writable = acc == O_WRONLY || acc == O_RDWR;
-    let mut maxprot = vm::VM_PROT_EXECUTE;
-    if readable {
-        maxprot |= vm::VM_PROT_READ;
-    } else if prot & vm::VM_PROT_READ != 0 {
-        return Err(Errno::EACCES);
-    }
-    if flags & MAP_SHARED != 0 {
-        if writable {
-            maxprot |= vm::VM_PROT_WRITE;
-        } else if prot & vm::VM_PROT_WRITE != 0 {
+    #[cfg(unix)]
+    {
+        if let crate::user::darwin::fd::FileKind::Shm(shm) = &file.kind {
+            use std::os::fd::AsRawFd;
+            let shm = shm.as_raw_fd();
+            let writable = *file.flags.lock().unwrap() & O_ACCMODE != O_RDONLY;
+            return mmap_shm(
+                ctx,
+                shm,
+                writable,
+                fixed,
+                addr,
+                size,
+                prot,
+                flags,
+                pos & !mask,
+                pos & mask,
+            );
+        }
+        let host = file.host_fd().ok_or(Errno::EINVAL)?;
+        let meta = host_fstat(host)?;
+        let kind = meta.st_mode as u32 & 0o170000;
+        if kind == 0o020000 {
+            // A character device (the /dev/zero hack is refused).
+            return Err(Errno::ENODEV);
+        }
+        if kind != 0o100000 {
+            return Err(Errno::EINVAL);
+        }
+        let acc = *file.flags.lock().unwrap() & O_ACCMODE;
+        let readable = acc != O_WRONLY;
+        let writable = acc == O_WRONLY || acc == O_RDWR;
+        let mut maxprot = vm::VM_PROT_EXECUTE;
+        if readable {
+            maxprot |= vm::VM_PROT_READ;
+        } else if prot & vm::VM_PROT_READ != 0 {
             return Err(Errno::EACCES);
         }
-    } else {
-        maxprot |= vm::VM_PROT_WRITE;
-    }
-    if size == 0 {
-        return Ok(Rv::one(0));
-    }
-    if maxprot & (vm::VM_PROT_EXECUTE | vm::VM_PROT_WRITE) != 0 {
-        maxprot |= vm::VM_PROT_READ;
-    }
-    if flags & MAP_RESILIENT_CODESIGN != 0 {
-        maxprot &= prot;
-    }
-    // A duplicate of the descriptor keeps the file for the mapping's life.
-    // SAFETY: fcntl(F_DUPFD_CLOEXEC) on a live descriptor takes no pointers.
-    let dup = unsafe { libc::fcntl(host, libc::F_DUPFD_CLOEXEC, 3) };
-    if dup < 0 {
-        return Err(Errno::last());
-    }
-    // SAFETY: `dup` is a new descriptor this process owns exclusively.
-    let owned = unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(dup) };
-    let file_start = pos & !mask;
-    // Named as the kernel names the mapped vnode.
-    let name: Option<Arc<str>> = crate::user::darwin::host::fd_path(host)
-        .map(|p| ctx.proc.vfs.guest_path(&p))
-        .or_else(|| file.path.clone())
-        .map(|p| Arc::from(String::from_utf8_lossy(&p).as_ref()));
-    let backing = if flags & MAP_SHARED != 0 {
-        let obj = SharedObject::file(owned, writable).map_err(Errno::from)?;
-        Backing::Shared {
-            object: Arc::new(obj),
-            offset: file_start,
+        if flags & MAP_SHARED != 0 {
+            if writable {
+                maxprot |= vm::VM_PROT_WRITE;
+            } else if prot & vm::VM_PROT_WRITE != 0 {
+                return Err(Errno::EACCES);
+            }
+        } else {
+            maxprot |= vm::VM_PROT_WRITE;
         }
-    } else {
-        let src = HostFileSource::new(owned).map_err(Errno::from)?;
-        Backing::Source {
-            source: Arc::new(src),
-            offset: file_start,
+        if size == 0 {
+            return Ok(Rv::one(0));
         }
-    };
-    let mapping = Mapping {
-        perms: vm::perms(prot),
-        backing,
-        shared: flags & MAP_SHARED != 0,
-        name,
-        flags: VmFlags::new(maxprot, inherit, 0).bits(),
-    };
-    let a = match map_at(ctx, fixed, addr, size, mapping.clone()) {
-        Err(Errno::ENOMEM) if fixed.is_none() && addr != 0 => map_at(ctx, None, 0, size, mapping)?,
-        r => r?,
-    };
-    Ok(Rv::one(a + (pos & mask)))
+        if maxprot & (vm::VM_PROT_EXECUTE | vm::VM_PROT_WRITE) != 0 {
+            maxprot |= vm::VM_PROT_READ;
+        }
+        if flags & MAP_RESILIENT_CODESIGN != 0 {
+            maxprot &= prot;
+        }
+        // A duplicate of the descriptor keeps the file for the mapping's life.
+        // SAFETY: fcntl(F_DUPFD_CLOEXEC) on a live descriptor takes no pointers.
+        let dup = unsafe { libc::fcntl(host, libc::F_DUPFD_CLOEXEC, 3) };
+        if dup < 0 {
+            return Err(Errno::last());
+        }
+        // SAFETY: `dup` is a new descriptor this process owns exclusively.
+        let owned = unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(dup) };
+        let file_start = pos & !mask;
+        // Named as the kernel names the mapped vnode.
+        let name: Option<Arc<str>> = crate::user::darwin::host::fd_path(host)
+            .map(|p| ctx.proc.vfs.guest_path(&p))
+            .or_else(|| file.path.clone())
+            .map(|p| Arc::from(String::from_utf8_lossy(&p).as_ref()));
+        let backing = if flags & MAP_SHARED != 0 {
+            let obj = SharedObject::file(owned, writable).map_err(Errno::from)?;
+            Backing::Shared {
+                object: Arc::new(obj),
+                offset: file_start,
+            }
+        } else {
+            let src = HostFileSource::new(owned).map_err(Errno::from)?;
+            Backing::Source {
+                source: Arc::new(src),
+                offset: file_start,
+            }
+        };
+        let mapping = Mapping {
+            perms: vm::perms(prot),
+            backing,
+            shared: flags & MAP_SHARED != 0,
+            name,
+            flags: VmFlags::new(maxprot, inherit, 0).bits(),
+        };
+        let a = match map_at(ctx, fixed, addr, size, mapping.clone()) {
+            Err(Errno::ENOMEM) if fixed.is_none() && addr != 0 => {
+                map_at(ctx, None, 0, size, mapping)?
+            }
+            r => r?,
+        };
+        Ok(Rv::one(a + (pos & mask)))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EINVAL)
+    }
 }
 
+#[cfg(unix)]
 fn host_fstat(fd: i32) -> Result<libc::stat, Errno> {
     // SAFETY: `st` is written in full by fstat on success; the descriptor
     // is live.
@@ -577,7 +595,7 @@ pub fn msync(ctx: &mut Ctx<'_>, addr: u64, len: u64, flags: i32) -> SysResult {
     {
         return Err(Errno::EINVAL);
     }
-    let len = (len + page - 1) & !(page - 1);
+    let len = len.checked_add(page - 1).ok_or(Errno::EINVAL)? & !(page - 1);
     if len == 0 {
         return Ok(Rv::one(0));
     }
@@ -596,7 +614,7 @@ pub fn mincore(ctx: &mut Ctx<'_>, addr: u64, len: u64, vec: u64) -> SysResult {
     let page = ctx.proc.vm.page;
     let start = addr & !(page - 1);
     let end = addr.checked_add(len).ok_or(Errno::ENOMEM)?;
-    let end = (end + page - 1) & !(page - 1);
+    let end = end.checked_add(page - 1).ok_or(Errno::ENOMEM)? & !(page - 1);
     if ctx.proc.space.first_unmapped(start, end - start).is_some() {
         return Err(Errno::ENOMEM);
     }
@@ -622,7 +640,7 @@ pub fn mlock(ctx: &mut Ctx<'_>, addr: u64, len: u64) -> SysResult {
     let page = ctx.proc.vm.page;
     let start = addr & !(page - 1);
     let end = addr.checked_add(len).ok_or(Errno::EINVAL)?;
-    let end = (end + page - 1) & !(page - 1);
+    let end = end.checked_add(page - 1).ok_or(Errno::EINVAL)? & !(page - 1);
     if end > start && ctx.proc.space.first_unmapped(start, end - start).is_some() {
         return Err(Errno::ENOMEM);
     }

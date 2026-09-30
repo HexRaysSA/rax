@@ -40,6 +40,7 @@ use super::syscall::bsd::pthread::tag;
 const VM_INHERIT_NONE: u32 = 2;
 
 /// `fork()`.
+#[cfg(unix)]
 pub fn fork(ctx: &mut Ctx<'_>) -> SysResult {
     let parent = ctx.proc.pid;
     match signal::host::fork_host()? {
@@ -57,6 +58,7 @@ pub fn fork(ctx: &mut Ctx<'_>) -> SysResult {
 }
 
 /// Turns the copy of the parent into the forked child.
+#[cfg(unix)]
 fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     let proc = &mut *ctx.proc;
     let thread = &mut *ctx.thread;

@@ -158,7 +158,7 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
             let cwd = std::path::PathBuf::from(std::ffi::OsStr::new(
                 &String::from_utf8_lossy(&ctx.proc.cwd).into_owned(),
             ));
-            let host = ctx.proc.vfs.host_path(&ctx.proc.cwd, b"/");
+            let host = ctx.proc.vfs.host_path(&ctx.proc.cwd, b"/")?;
             if let Some(vi) = vnode_info(&host, false) {
                 o.bytes(0, &vi.0);
                 o.path(152, 1024, &canonical(ctx, &host));
@@ -551,7 +551,7 @@ fn file_region_on_volume(ctx: &Ctx<'_>, fsid64: u64) -> Option<Vma> {
 /// A file mapping's host path.
 fn region_host_path(ctx: &Ctx<'_>, v: &Vma) -> Option<std::path::PathBuf> {
     let name = v.name.as_ref()?;
-    Some(ctx.proc.vfs.host_path(name.as_bytes(), b"/"))
+    ctx.proc.vfs.host_path(name.as_bytes(), b"/").ok()
 }
 
 /// A file mapping's path (its vnode's, from when it was mapped).

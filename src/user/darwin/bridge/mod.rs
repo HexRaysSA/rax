@@ -24,7 +24,8 @@
 //! spawned child (a host fork) starts over, with the host's bootstrap port
 //! again and no other proxy alive. Without a macOS host, or with
 //! `RAX_DARWIN_NO_HOST_SERVICES` set, there is no bridge and no bootstrap
-//! port.
+//! port. An isolated bridge also refuses host services per instance, without
+//! changing the environment or another emulated process's bridge.
 
 #[cfg(target_os = "macos")]
 pub mod host;
@@ -36,6 +37,7 @@ pub mod mirror;
 pub mod translate;
 
 use std::collections::HashMap;
+#[cfg(target_os = "macos")]
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
@@ -139,11 +141,13 @@ struct Export {
 /// The bridge's state in a process.
 #[derive(Debug, Default)]
 pub struct Bridge {
+    isolated: bool,
     epoch: u64,
     /// The host port set of every host receive right the bridge serves
     /// (0 until first used).
     set: u32,
     /// A kqueue readable while the set holds a message.
+    #[cfg(target_os = "macos")]
     kq: Option<OwnedFd>,
     /// The receive right dead-name notifications arrive on.
     control: u32,
@@ -165,21 +169,43 @@ pub struct Bridge {
 }
 
 impl Bridge {
+    /// A bridge that never imports bootstrap/IOKit rights or exports guest
+    /// ports to host services. Reset and exec preserve this per-instance choice.
+    pub fn isolated() -> Self {
+        Self {
+            isolated: true,
+            ..Default::default()
+        }
+    }
+
+    pub fn allows_host_services(&self) -> bool {
+        !self.isolated && enabled()
+    }
+
     /// A descriptor readable when the host has a message for the guest.
     pub fn fd(&self) -> Option<i32> {
-        if self.epoch != epoch() {
+        if !self.allows_host_services() || self.epoch != epoch() {
             return None;
         }
-        self.kq.as_ref().map(|k| k.as_raw_fd())
+        #[cfg(target_os = "macos")]
+        {
+            self.kq.as_ref().map(|k| k.as_raw_fd())
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            None
+        }
     }
 
     /// Forgets everything an earlier process held (its kqueue is not this
     /// process's descriptor: kqueues are not inherited).
     fn reset(&mut self) {
+        #[cfg(target_os = "macos")]
         if let Some(kq) = self.kq.take() {
             std::mem::forget(kq);
         }
         *self = Bridge {
+            isolated: self.isolated,
             epoch: epoch(),
             ..Default::default()
         };
@@ -188,6 +214,9 @@ impl Bridge {
     /// Makes the bridge this process's, creating the port set on first use.
     #[cfg(target_os = "macos")]
     fn ensure(&mut self) -> bool {
+        if !self.allows_host_services() {
+            return false;
+        }
         if self.epoch != epoch() {
             self.reset();
         }
@@ -326,7 +355,7 @@ fn enabled() -> bool {
 
 /// The proxy of the host's bootstrap port for a new process, if any.
 fn bootstrap(bridge: &mut Bridge) -> Option<Arc<Port>> {
-    if !enabled() {
+    if !bridge.allows_host_services() {
         return None;
     }
     #[cfg(target_os = "macos")]
@@ -359,7 +388,9 @@ pub fn start(bridge: &mut Bridge, task: &mut TaskState) {
 /// port is the host's again, wherever the parent's stood; any other proxy
 /// the task holds is dead.
 pub fn rebind(bridge: &mut Bridge, task: &mut TaskState) {
-    let stale = |p: &Arc<Port>| matches!(&p.kobject, KObject::Proxy(h) if h.name().is_none());
+    let isolated = bridge.isolated;
+    let stale =
+        |p: &Arc<Port>| matches!(&p.kobject, KObject::Proxy(h) if isolated || h.name().is_none());
     let old = task.special[special::BOOTSTRAP as usize].clone();
     bridge.reset();
     let fresh = bootstrap(bridge);
@@ -438,6 +469,9 @@ pub fn map_object_shared(
     cur: u32,
     max: u32,
 ) -> Result<(Arc<crate::user::mm::SharedObject>, u32, u32), i32> {
+    if !proc.bridge.allows_host_services() {
+        return Err(super::mach::kr::KERN_INVALID_OBJECT);
+    }
     #[cfg(target_os = "macos")]
     if let Some(n) = h.name() {
         return mirror::map_service(proc, n, size, offset, cur, max);
@@ -453,6 +487,9 @@ pub fn make_entry(
     entry: super::syscall::mach::entry::Entry,
     prot: u32,
 ) -> Result<Arc<Port>, super::mach::kr::KernReturn> {
+    if !proc.bridge.allows_host_services() {
+        return Err(super::mach::kr::KERN_INVALID_ARGUMENT);
+    }
     #[cfg(target_os = "macos")]
     {
         use std::os::fd::AsRawFd;
@@ -478,13 +515,16 @@ pub fn make_entry(
 
 /// The memory entry the bridge made behind proxy `port`, if it made one.
 pub fn entry_of(proc: &Proc, port: &Port) -> Option<super::syscall::mach::entry::Entry> {
+    if !proc.bridge.allows_host_services() {
+        return None;
+    }
     proc.bridge.entries.get(&port.id).map(|(_, e)| e.clone())
 }
 
 /// A proxy of IOKit's main port (`host_get_io_main`), holding one send
 /// right for the caller; `None` without the bridge.
 pub fn io_main(proc: &mut Proc) -> Option<Arc<Port>> {
-    if !enabled() {
+    if !proc.bridge.allows_host_services() {
         return None;
     }
     #[cfg(target_os = "macos")]
@@ -512,6 +552,10 @@ pub fn release(name: u32) {
 /// Sends a message whose destination is a proxy on the host; a failure
 /// destroys it (a kernel-sent message has no sender to tell).
 pub fn forward(proc: &mut Proc, m: super::mach::msg::Message) {
+    if !proc.bridge.allows_host_services() {
+        super::syscall::mach::kmsg::destroy(proc, m);
+        return;
+    }
     #[cfg(target_os = "macos")]
     let _ = translate::forward(proc, m, None, host::opt64::ANY);
     #[cfg(not(target_os = "macos"))]
@@ -528,6 +572,10 @@ pub fn send(
     timeout: Option<u32>,
     class: u64,
 ) -> Result<(), super::mach::kr::KernReturn> {
+    if !proc.bridge.allows_host_services() {
+        super::syscall::mach::kmsg::destroy(proc, m);
+        return Err(super::mach::kr::MACH_SEND_INVALID_DEST);
+    }
     #[cfg(target_os = "macos")]
     {
         let class = if class == 0 { host::opt64::ANY } else { class };
@@ -544,6 +592,9 @@ pub fn send(
 /// Receives what the host sent the guest's exported ports and the
 /// bridge's notifications, without blocking.
 pub fn pump(proc: &mut Proc) {
+    if !proc.bridge.allows_host_services() {
+        return;
+    }
     #[cfg(target_os = "macos")]
     translate::pump(proc);
     #[cfg(not(target_os = "macos"))]
@@ -553,6 +604,28 @@ pub fn pump(proc: &mut Proc) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn isolated_bridge_stays_isolated_across_start_reset_exec_and_rebind() {
+        let mut bridge = Bridge::isolated();
+        let mut task = TaskState::default();
+        for _ in 0..2 {
+            start(&mut bridge, &mut task);
+            assert!(!bridge.allows_host_services());
+            assert!(bridge.fd().is_none());
+            assert!(task.special[special::BOOTSTRAP as usize].is_none());
+            assert!(bridge.proxies.is_empty());
+            assert!(bridge.imports.is_empty());
+            assert!(bridge.exports.is_empty());
+            assert_eq!(bridge.set, 0);
+            bridge.exec();
+            rebind(&mut bridge, &mut task);
+            assert!(bridge.isolated);
+            assert!(task.special[special::BOOTSTRAP as usize].is_none());
+        }
+        // Isolation is instance-local; no process environment mutation is used.
+        assert!(!Bridge::default().isolated);
+    }
 
     #[test]
     fn host_rights_belong_to_the_process_that_holds_them() {

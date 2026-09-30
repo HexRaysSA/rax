@@ -98,7 +98,7 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             if !is_host(req) {
                 return Err(kr::KERN_INVALID_ARGUMENT);
             }
-            let mut v = kernel_version();
+            let mut v = kernel_version(ctx.proc.config.host_services);
             v.truncate(511);
             v.push(0);
             let cnt = v.len() as u32;
@@ -213,7 +213,7 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
 }
 
 fn warn(ctx: &Ctx<'_>, id: i32) {
-    if ctx.proc.config.strace || std::env::var_os("RAX_DARWIN_WARN").is_some() {
+    if ctx.proc.config.warn_unhandled() {
         eprintln!(
             "rax-user: unimplemented MIG routine {id} ({})",
             ids::name(id).unwrap_or("?")
@@ -231,9 +231,9 @@ pub fn clock_port(ctx: &mut Ctx<'_>, id: u32) -> std::sync::Arc<Port> {
 /// The host's `kern.version` string (the userland the process runs is the
 /// host's; on a host without one, a Darwin identity built from the
 /// vendored kernel).
-fn kernel_version() -> Vec<u8> {
+fn kernel_version(_host_services: bool) -> Vec<u8> {
     #[cfg(target_os = "macos")]
-    {
+    if _host_services {
         let mut buf = vec![0u8; 512];
         let mut len = buf.len();
         let mut mib = [libc::CTL_KERN, libc::KERN_VERSION];

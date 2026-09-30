@@ -280,7 +280,11 @@ pub fn sigaltstack(ctx: &mut Ctx<'_>, nss: u64, oss: u64) -> SysResult {
 /// Posts the host signals the host delivered to this process during the
 /// call, so that they are taken on its way back to user mode as the
 /// kernel's own signals would be.
+#[cfg(unix)]
 fn take_host_signals(ctx: &mut Ctx<'_>) {
+    if !ctx.proc.config.host_services {
+        return;
+    }
     for (sig, origin) in signal::host::take() {
         signal::psignal(ctx.proc, Some(ctx.thread), sig, origin);
     }
@@ -292,36 +296,47 @@ fn take_host_signals(ctx: &mut Ctx<'_>) {
 /// host's: the host sends the signal, and a process group that includes
 /// this process reaches it through host-signal forwarding. `kill(-1)`
 /// ("every process the user may signal") signals only this process.
+/// An embedded process is its own virtual process group; other targets
+/// return `EPERM` before any host process lookup or signal forwarding.
 pub fn kill(ctx: &mut Ctx<'_>, pid: i32, sig: i32, posix: i32) -> SysResult {
     let _ = posix;
     if !(0..NSIG).contains(&sig) {
         return Err(Errno::EINVAL);
     }
     let own = Origin::own(ctx.proc);
-    if pid == ctx.proc.pid || pid == -1 {
+    let local_group = !ctx.proc.config.host_services && (pid == 0 || pid == -ctx.proc.pid);
+    if pid == ctx.proc.pid || pid == -1 || local_group {
         if sig != 0 {
             signal::psignal(ctx.proc, Some(ctx.thread), sig, own);
         }
         return Ok(Rv::one(0));
     }
-    // SAFETY: getpgrp takes no arguments.
-    let pgrp = unsafe { libc::getpgrp() };
-    let own_group = pid == 0 || pid == -pgrp;
-    if own_group && !signal::host::forwarding() {
-        // Without forwarding the host's signal would not reach the guest:
-        // signal this process only.
-        if sig != 0 {
-            signal::psignal(ctx.proc, Some(ctx.thread), sig, own);
+    if !ctx.proc.config.host_services {
+        return Err(Errno::EPERM);
+    }
+    #[cfg(unix)]
+    {
+        // SAFETY: getpgrp takes no arguments.
+        let pgrp = unsafe { libc::getpgrp() };
+        let own_group = pid == 0 || pid == -pgrp;
+        if own_group && !signal::host::forwarding() {
+            // Without forwarding the host's signal would not reach the guest:
+            // signal this process only.
+            if sig != 0 {
+                signal::psignal(ctx.proc, Some(ctx.thread), sig, own);
+            }
+            return Ok(Rv::one(0));
         }
-        return Ok(Rv::one(0));
+        let hsig = signal::to_host(sig).ok_or(Errno::EINVAL)?;
+        // SAFETY: kill takes no pointers.
+        crate::user::darwin::host::check(unsafe { libc::kill(pid, hsig) })?;
+        if own_group {
+            take_host_signals(ctx);
+        }
+        Ok(Rv::one(0))
     }
-    let hsig = signal::to_host(sig).ok_or(Errno::EINVAL)?;
-    // SAFETY: kill takes no pointers.
-    crate::user::darwin::host::check(unsafe { libc::kill(pid, hsig) })?;
-    if own_group {
-        take_host_signals(ctx);
-    }
-    Ok(Rv::one(0))
+    #[cfg(not(unix))]
+    Err(Errno::ENOTSUP)
 }
 
 /// `__pthread_kill(thread_port, sig)`.

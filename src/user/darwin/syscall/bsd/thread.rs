@@ -134,7 +134,11 @@ pub fn bsdthread_register(ctx: &mut Ctx<'_>, a: &[u64; 8]) -> SysResult {
         // Reply: the consumed version, the main thread's QoS (legacy when
         // it requested none), the stack address hint, and the default
         // mutex policy.
-        let tier = match host_qos_tier() {
+        let tier = match if ctx.proc.config.host_services {
+            host_qos_tier()
+        } else {
+            0
+        } {
             0 => THREAD_QOS_LEGACY,
             t => t,
         };

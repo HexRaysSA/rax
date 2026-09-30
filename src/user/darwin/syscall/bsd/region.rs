@@ -7,7 +7,7 @@ use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::shared_region::{SharedRegion, SlidSource, SlideInfo};
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::vm::{self, VmFlags};
-use crate::user::mm::{Backing, BytesSource, HostFileSource, Mapping};
+use crate::user::mm::{Backing, BytesSource, HostFileSource, Mapping, PageSource};
 
 /// `DYLD_VM_END_MWL`: disallow `map_with_linking_np` from now on.
 const DYLD_VM_END_MWL: u64 = u64::MAX;
@@ -90,6 +90,13 @@ pub fn map_and_slide_2(
         if m.address & (page - 1) != 0 || m.size & (page - 1) != 0 {
             return Err(Errno::EINVAL);
         }
+        if m.file_offset & (page - 1) != 0
+            || m.address.checked_add(m.size).is_none()
+            || m.file_offset.checked_add(m.size).is_none()
+            || m.slide_start.checked_add(m.slide_size).is_none()
+        {
+            return Err(Errno::EINVAL);
+        }
         mappings.push(m);
     }
     // The slide: ASLR is disabled.
@@ -117,29 +124,19 @@ pub fn map_and_slide_2(
         plan.extend(mappings[next..next + count].iter().map(|&m| (fd, m)));
         next += count;
     }
-    let mut hosts = std::collections::HashMap::new();
+    let mut sources = std::collections::HashMap::new();
     for &(fd, _) in &plan {
-        if fd == -1 || hosts.contains_key(&fd) {
+        if fd == -1 || sources.contains_key(&fd) {
             continue;
         }
         let file = ctx.proc.fds.file(fd).map_err(|_| Errno::EBADF)?;
-        let h = file.host_fd().ok_or(Errno::EINVAL)?;
         if *file.flags.lock().unwrap() & crate::user::darwin::io::O_ACCMODE
             == crate::user::darwin::io::O_WRONLY
         {
             return Err(Errno::EPERM);
         }
-        hosts.insert(fd, h);
+        sources.insert(fd, file_source(ctx, &file)?);
     }
-    let dup = |h: i32| -> Result<std::fs::File, Errno> {
-        // SAFETY: F_DUPFD_CLOEXEC on a live descriptor the table owns.
-        let d = unsafe { libc::fcntl(h, libc::F_DUPFD_CLOEXEC, 3) };
-        if d < 0 {
-            return Err(Errno::last());
-        }
-        // SAFETY: `d` is a new descriptor owned by the returned file.
-        Ok(unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(d) })
-    };
     for slid in [false, true] {
         for &(fd, m) in &plan {
             if (m.slide_size > 0) != slid {
@@ -149,6 +146,9 @@ pub fn map_and_slide_2(
             let backing = if fd == -1 {
                 // Data from the caller's own memory (dyld's dynamic
                 // config).
+                if m.size > ctx.proc.config.arena_bytes {
+                    return Err(Errno::ENOMEM);
+                }
                 let data = ctx.read(m.file_offset, m.size as usize)?;
                 Backing::Source {
                     source: Arc::new(BytesSource::new(data.into())),
@@ -162,15 +162,21 @@ pub fn map_and_slide_2(
                 }
                 let raw = ctx.read(m.slide_start, m.slide_size as usize)?;
                 let info = SlideInfo::parse(&raw).map_err(|_| Errno::EINVAL)?;
-                let src = SlidSource::new(dup(hosts[&fd])?, m.file_offset, m.size, info, slide)
-                    .map_err(Errno::from)?;
+                let src = SlidSource::from_source(
+                    sources[&fd].clone(),
+                    m.file_offset,
+                    m.size,
+                    info,
+                    slide,
+                )
+                .map_err(Errno::from)?;
                 Backing::Source {
                     source: Arc::new(src),
                     offset: m.file_offset,
                 }
             } else {
                 Backing::Source {
-                    source: Arc::new(HostFileSource::new(dup(hosts[&fd])?).map_err(Errno::from)?),
+                    source: sources[&fd].clone(),
                     offset: m.file_offset,
                 }
             };
@@ -182,6 +188,36 @@ pub fn map_and_slide_2(
     region.base = region.mappings.first().map_or(0, |m| m.0);
     ctx.proc.shared_region = Some(region);
     Ok(Rv::one(0))
+}
+
+fn file_source(
+    ctx: &Ctx<'_>,
+    file: &crate::user::darwin::fd::OpenFile,
+) -> Result<Arc<dyn PageSource>, Errno> {
+    use crate::user::darwin::fd::{EmbeddedFile, FileKind};
+    if let FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) = &file.kind {
+        if entry.is_dir() {
+            return Err(Errno::EINVAL);
+        }
+        return crate::user::darwin::fd::supplied_source(entry, ctx.proc.vm.page);
+    }
+    if !ctx.proc.config.host_services {
+        return Err(Errno::EPERM);
+    }
+    #[cfg(unix)]
+    {
+        let h = file.host_fd().ok_or(Errno::EINVAL)?;
+        // SAFETY: F_DUPFD_CLOEXEC duplicates a descriptor owned by `file`.
+        let d = unsafe { libc::fcntl(h, libc::F_DUPFD_CLOEXEC, 3) };
+        if d < 0 {
+            return Err(Errno::last());
+        }
+        // SAFETY: `d` is the new, exclusively owned descriptor.
+        let file = unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(d) };
+        Ok(Arc::new(HostFileSource::new(file).map_err(Errno::from)?))
+    }
+    #[cfg(not(unix))]
+    Err(Errno::ENOTSUP)
 }
 
 fn map_region(

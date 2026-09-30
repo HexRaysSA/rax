@@ -52,7 +52,7 @@ mod sandbox {
 
 /// The host's `__mac_syscall` (no policy is registered without a macOS
 /// host).
-fn host(policy: &std::ffi::CStr, call: i32, arg: *mut libc::c_void) -> Result<i32, Errno> {
+fn host(policy: &std::ffi::CStr, call: i32, arg: *mut std::ffi::c_void) -> Result<i32, Errno> {
     #[cfg(target_os = "macos")]
     {
         unsafe extern "C" {

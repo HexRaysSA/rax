@@ -7,6 +7,7 @@
 //! `poll`. A descriptor in non-blocking mode fails with `EAGAIN` as the
 //! host reports.
 
+#[cfg(unix)]
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -14,11 +15,15 @@ use std::time::{Duration, Instant};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{FileKind, FileRef, OpenFile};
-use crate::user::darwin::host::{self, check, check_size};
+use crate::user::darwin::host;
+#[cfg(unix)]
+use crate::user::darwin::host::{check, check_size};
 use crate::user::darwin::io::{self, O_NONBLOCK, O_STATUS_FLAGS};
 use crate::user::darwin::signal;
 use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{self, Wait};
+
+mod embedded;
 
 /// The largest single transfer (`read`/`write` fail larger `nbyte` with
 /// `EINVAL`, as `rd_uio`/`wr_uio` do).
@@ -39,9 +44,19 @@ fn host_fd(ctx: &Ctx<'_>, fd: i32) -> Result<(FileRef, i32), Errno> {
 /// Whether the open file is a socket, whose reads and writes are
 /// receives and sends (`soo_read`, `soo_write`).
 fn socket(file: &FileRef) -> bool {
-    cfg!(target_os = "macos") && matches!(file.kind, crate::user::darwin::fd::FileKind::Socket(_))
+    #[cfg(unix)]
+    {
+        cfg!(target_os = "macos")
+            && matches!(file.kind, crate::user::darwin::fd::FileKind::Socket(_))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = file;
+        false
+    }
 }
 
+#[cfg(unix)]
 fn nonblocking(h: i32) -> bool {
     // SAFETY: F_GETFL on a live descriptor takes no pointers.
     let fl = unsafe { libc::fcntl(h, libc::F_GETFL) };
@@ -50,6 +65,7 @@ fn nonblocking(h: i32) -> bool {
 
 /// Parks the thread until `h` is ready (for reading or writing) when a
 /// blocking-mode call would block; `None` when the call can proceed.
+#[cfg(unix)]
 fn block_until_ready(ctx: &mut Ctx<'_>, h: i32, read: bool) -> Option<SysResult> {
     if wait::ready_now(&[(h, read, !read)])[0] || nonblocking(h) {
         return None;
@@ -59,49 +75,61 @@ fn block_until_ready(ctx: &mut Ctx<'_>, h: i32, read: bool) -> Option<SysResult>
 
 /// `read(fd, cbuf, nbyte)` and `pread` (`offset` given).
 pub fn read(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64>) -> SysResult {
-    let (file, h) = host_fd(ctx, fd)?;
+    let file = ctx.proc.fds.file(fd)?;
     if nbyte > IO_MAX {
         return Err(Errno::EINVAL);
     }
-    if offset.is_none() && socket(&file) {
-        #[cfg(target_os = "macos")]
-        return super::socket::read(ctx, fd, buf, nbyte);
+    if let FileKind::Embedded(file) = &file.kind {
+        return embedded::read(ctx, file, buf, nbyte, offset);
     }
-    if offset.is_none()
-        && let Some(r) = block_until_ready(ctx, h, true)
+
+    #[cfg(unix)]
     {
-        return r;
-    }
-    let mut done = 0u64;
-    let mut chunk = vec![0u8; (nbyte as usize).min(CHUNK)];
-    while done < nbyte {
-        let want = ((nbyte - done) as usize).min(CHUNK);
-        // SAFETY: `chunk` holds at least `want` writable bytes.
-        let n = unsafe {
-            match offset {
-                None => libc::read(h, chunk.as_mut_ptr().cast(), want),
-                Some(o) => libc::pread(
-                    h,
-                    chunk.as_mut_ptr().cast(),
-                    want,
-                    (o + done as i64) as libc::off_t,
-                ),
+        let h = file.host_fd().ok_or(Errno::EBADF)?;
+        if offset.is_none() && socket(&file) {
+            #[cfg(target_os = "macos")]
+            return super::socket::read(ctx, fd, buf, nbyte);
+        }
+        if offset.is_none()
+            && let Some(r) = block_until_ready(ctx, h, true)
+        {
+            return r;
+        }
+        let mut done = 0u64;
+        let mut chunk = vec![0u8; (nbyte as usize).min(CHUNK)];
+        while done < nbyte {
+            let want = ((nbyte - done) as usize).min(CHUNK);
+            // SAFETY: `chunk` holds at least `want` writable bytes.
+            let n = unsafe {
+                match offset {
+                    None => libc::read(h, chunk.as_mut_ptr().cast(), want),
+                    Some(o) => libc::pread(
+                        h,
+                        chunk.as_mut_ptr().cast(),
+                        want,
+                        (o + done as i64) as libc::off_t,
+                    ),
+                }
+            };
+            if n < 0 {
+                if done > 0 {
+                    break;
+                }
+                return Err(Errno::last());
             }
-        };
-        if n < 0 {
-            if done > 0 {
+            let n = n as usize;
+            ctx.write(buf + done, &chunk[..n])?;
+            done += n as u64;
+            if n < want {
                 break;
             }
-            return Err(Errno::last());
         }
-        let n = n as usize;
-        ctx.write(buf + done, &chunk[..n])?;
-        done += n as u64;
-        if n < want {
-            break;
-        }
+        Ok(Rv::one(done))
     }
-    Ok(Rv::one(done))
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `write(fd, cbuf, nbyte)` and `pwrite` (`offset` given).
@@ -118,6 +146,7 @@ pub fn write(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i6
 /// whose layer has its own rule) sends `SIGPIPE` to the process unless the
 /// descriptor has `F_SETNOSIGPIPE`.
 fn sigpipe(ctx: &mut Ctx<'_>, fd: i32, r: SysResult) -> SysResult {
+    #[cfg(unix)]
     if r == Err(Errno::EPIPE)
         && let Ok((_, h)) = host_fd(ctx, fd)
         && !is_socket(h)
@@ -129,6 +158,7 @@ fn sigpipe(ctx: &mut Ctx<'_>, fd: i32, r: SysResult) -> SysResult {
     r
 }
 
+#[cfg(unix)]
 fn is_socket(h: i32) -> bool {
     // SAFETY: `st` is written by fstat on success only.
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
@@ -138,6 +168,7 @@ fn is_socket(h: i32) -> bool {
 
 /// Whether the descriptor's open file has `FG_NOSIGPIPE` (kept by the host
 /// kernel on a Mac; other hosts have no such flag).
+#[cfg(unix)]
 fn nosigpipe(h: i32) -> bool {
     #[cfg(target_os = "macos")]
     {
@@ -152,48 +183,60 @@ fn nosigpipe(h: i32) -> bool {
 }
 
 fn write_file(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64>) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
+    let file = ctx.proc.fds.file(fd)?;
     if nbyte > IO_MAX {
         return Err(Errno::EINVAL);
     }
-    if offset.is_none()
-        && nbyte > 0
-        && let Some(r) = block_until_ready(ctx, h, false)
-    {
-        return r;
+    if let FileKind::Embedded(file) = &file.kind {
+        return embedded::write(ctx, file, buf, nbyte, offset);
     }
-    let mut done = 0u64;
-    while done < nbyte {
-        let want = ((nbyte - done) as usize).min(CHUNK);
-        let data = match ctx.read(buf + done, want) {
-            Ok(d) => d,
-            Err(e) if done == 0 => return Err(e),
-            Err(_) => break,
-        };
-        // SAFETY: `data` holds `want` readable bytes.
-        let n = unsafe {
-            match offset {
-                None => libc::write(h, data.as_ptr().cast(), want),
-                Some(o) => libc::pwrite(
-                    h,
-                    data.as_ptr().cast(),
-                    want,
-                    (o + done as i64) as libc::off_t,
-                ),
+
+    #[cfg(unix)]
+    {
+        let h = file.host_fd().ok_or(Errno::EBADF)?;
+        if offset.is_none()
+            && nbyte > 0
+            && let Some(r) = block_until_ready(ctx, h, false)
+        {
+            return r;
+        }
+        let mut done = 0u64;
+        while done < nbyte {
+            let want = ((nbyte - done) as usize).min(CHUNK);
+            let data = match ctx.read(buf + done, want) {
+                Ok(d) => d,
+                Err(e) if done == 0 => return Err(e),
+                Err(_) => break,
+            };
+            // SAFETY: `data` holds `want` readable bytes.
+            let n = unsafe {
+                match offset {
+                    None => libc::write(h, data.as_ptr().cast(), want),
+                    Some(o) => libc::pwrite(
+                        h,
+                        data.as_ptr().cast(),
+                        want,
+                        (o + done as i64) as libc::off_t,
+                    ),
+                }
+            };
+            if n < 0 {
+                if done > 0 {
+                    break;
+                }
+                return Err(Errno::last());
             }
-        };
-        if n < 0 {
-            if done > 0 {
+            done += n as u64;
+            if (n as usize) < want {
                 break;
             }
-            return Err(Errno::last());
         }
-        done += n as u64;
-        if (n as usize) < want {
-            break;
-        }
+        Ok(Rv::one(done))
     }
-    Ok(Rv::one(done))
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// Reads a guest iovec array: `(base, len)` pairs.
@@ -218,36 +261,48 @@ fn iovecs(ctx: &Ctx<'_>, iov: u64, cnt: i32) -> Result<Vec<(u64, u64)>, Errno> {
 
 /// `readv(fd, iov, cnt)` and `preadv`.
 pub fn readv(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
-    let (file, h) = host_fd(ctx, fd)?;
-    let v = iovecs(ctx, iov, cnt)?;
-    if offset.is_none() && socket(&file) {
-        #[cfg(target_os = "macos")]
-        return super::socket::readv(ctx, fd, v);
+    let file = ctx.proc.fds.file(fd)?;
+    if let FileKind::Embedded(file) = &file.kind {
+        return embedded::vector(ctx, file, &iovecs(ctx, iov, cnt)?, offset, true);
     }
-    let total: u64 = v.iter().map(|x| x.1).sum();
-    if offset.is_none()
-        && let Some(r) = block_until_ready(ctx, h, true)
+
+    #[cfg(unix)]
     {
-        return r;
-    }
-    let mut buf = vec![0u8; total as usize];
-    // SAFETY: `buf` holds `total` writable bytes.
-    let n = check_size(unsafe {
-        match offset {
-            None => libc::read(h, buf.as_mut_ptr().cast(), buf.len()),
-            Some(o) => libc::pread(h, buf.as_mut_ptr().cast(), buf.len(), o as libc::off_t),
+        let h = file.host_fd().ok_or(Errno::EBADF)?;
+        let v = iovecs(ctx, iov, cnt)?;
+        if offset.is_none() && socket(&file) {
+            #[cfg(target_os = "macos")]
+            return super::socket::readv(ctx, fd, v);
         }
-    })?;
-    let mut off = 0usize;
-    for (base, len) in v {
-        if off >= n {
-            break;
+        let total: u64 = v.iter().map(|x| x.1).sum();
+        if offset.is_none()
+            && let Some(r) = block_until_ready(ctx, h, true)
+        {
+            return r;
         }
-        let k = (len as usize).min(n - off);
-        ctx.write(base, &buf[off..off + k])?;
-        off += k;
+        let mut buf = vec![0u8; total as usize];
+        // SAFETY: `buf` holds `total` writable bytes.
+        let n = check_size(unsafe {
+            match offset {
+                None => libc::read(h, buf.as_mut_ptr().cast(), buf.len()),
+                Some(o) => libc::pread(h, buf.as_mut_ptr().cast(), buf.len(), o as libc::off_t),
+            }
+        })?;
+        let mut off = 0usize;
+        for (base, len) in v {
+            if off >= n {
+                break;
+            }
+            let k = (len as usize).min(n - off);
+            ctx.write(base, &buf[off..off + k])?;
+            off += k;
+        }
+        Ok(Rv::one(n as u64))
     }
-    Ok(Rv::one(n as u64))
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `writev(fd, iov, cnt)` and `pwritev`.
@@ -257,48 +312,72 @@ pub fn writev(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64
 }
 
 fn writev_file(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
-    let (file, h) = host_fd(ctx, fd)?;
-    let v = iovecs(ctx, iov, cnt)?;
-    if offset.is_none() && socket(&file) {
-        #[cfg(target_os = "macos")]
-        return super::socket::writev(ctx, fd, v);
+    let file = ctx.proc.fds.file(fd)?;
+    if let FileKind::Embedded(file) = &file.kind {
+        return embedded::vector(ctx, file, &iovecs(ctx, iov, cnt)?, offset, false);
     }
-    let mut buf = Vec::new();
-    for (base, len) in v {
-        buf.extend_from_slice(&ctx.read(base, len as usize)?);
-    }
-    if offset.is_none()
-        && !buf.is_empty()
-        && let Some(r) = block_until_ready(ctx, h, false)
+
+    #[cfg(unix)]
     {
-        return r;
-    }
-    // SAFETY: `buf` holds `buf.len()` readable bytes.
-    let n = check_size(unsafe {
-        match offset {
-            None => libc::write(h, buf.as_ptr().cast(), buf.len()),
-            Some(o) => libc::pwrite(h, buf.as_ptr().cast(), buf.len(), o as libc::off_t),
+        let h = file.host_fd().ok_or(Errno::EBADF)?;
+        let v = iovecs(ctx, iov, cnt)?;
+        if offset.is_none() && socket(&file) {
+            #[cfg(target_os = "macos")]
+            return super::socket::writev(ctx, fd, v);
         }
-    })?;
-    Ok(Rv::one(n as u64))
+        let mut buf = Vec::new();
+        for (base, len) in v {
+            buf.extend_from_slice(&ctx.read(base, len as usize)?);
+        }
+        if offset.is_none()
+            && !buf.is_empty()
+            && let Some(r) = block_until_ready(ctx, h, false)
+        {
+            return r;
+        }
+        // SAFETY: `buf` holds `buf.len()` readable bytes.
+        let n = check_size(unsafe {
+            match offset {
+                None => libc::write(h, buf.as_ptr().cast(), buf.len()),
+                Some(o) => libc::pwrite(h, buf.as_ptr().cast(), buf.len(), o as libc::off_t),
+            }
+        })?;
+        Ok(Rv::one(n as u64))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `lseek(fd, offset, whence)`.
 pub fn lseek(ctx: &mut Ctx<'_>, fd: i32, offset: i64, whence: i32) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
-    // Darwin SEEK_HOLE and SEEK_DATA are 3 and 4.
-    let hw = match whence {
-        0..=2 => whence,
-        3 => host_seek_hole(),
-        4 => host_seek_data(),
-        _ => return Err(Errno::EINVAL),
-    };
-    // SAFETY: lseek on a live descriptor takes no pointers.
-    let r = unsafe { libc::lseek(h, offset as libc::off_t, hw) };
-    if r < 0 {
-        return Err(Errno::last());
+    let file = ctx.proc.fds.file(fd)?;
+    if let FileKind::Embedded(file) = &file.kind {
+        return file.seek(offset, whence).map(Rv::one);
     }
-    Ok(Rv::one(r as u64))
+
+    #[cfg(unix)]
+    {
+        let (_, h) = host_fd(ctx, fd)?;
+        // Darwin SEEK_HOLE and SEEK_DATA are 3 and 4.
+        let hw = match whence {
+            0..=2 => whence,
+            3 => host_seek_hole(),
+            4 => host_seek_data(),
+            _ => return Err(Errno::EINVAL),
+        };
+        // SAFETY: lseek on a live descriptor takes no pointers.
+        let r = unsafe { libc::lseek(h, offset as libc::off_t, hw) };
+        if r < 0 {
+            return Err(Errno::last());
+        }
+        Ok(Rv::one(r as u64))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -309,11 +388,11 @@ fn host_seek_hole() -> i32 {
 fn host_seek_data() -> i32 {
     4
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(unix, not(target_os = "macos")))]
 fn host_seek_hole() -> i32 {
     libc::SEEK_HOLE
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(unix, not(target_os = "macos")))]
 fn host_seek_data() -> i32 {
     libc::SEEK_DATA
 }
@@ -387,118 +466,187 @@ pub fn pipe(ctx: &mut Ctx<'_>) -> SysResult {
 /// flag). The descriptors are returned as `pipe` returns them; the
 /// library stores them in `fildes`.
 pub fn pipe2(ctx: &mut Ctx<'_>, flags: u32) -> SysResult {
-    if flags & !(io::O_CLOEXEC | io::O_CLOFORK | io::O_NONBLOCK) != 0 {
-        return Err(Errno::EINVAL);
-    }
-    let mut fds = [0i32; 2];
-    // SAFETY: `fds` has room for the two descriptors.
-    check(unsafe { libc::pipe(fds.as_mut_ptr()) })?;
-    for f in fds {
-        // SAFETY: setting close-on-exec (and the status flags) on the new
-        // descriptors.
-        unsafe { libc::fcntl(f, libc::F_SETFD, libc::FD_CLOEXEC) };
-        if flags & io::O_NONBLOCK != 0 {
-            unsafe { libc::fcntl(f, libc::F_SETFL, libc::O_NONBLOCK) };
+    #[cfg(unix)]
+    {
+        if flags & !(io::O_CLOEXEC | io::O_CLOFORK | io::O_NONBLOCK) != 0 {
+            return Err(Errno::EINVAL);
         }
-    }
-    // SAFETY: both descriptors were just created and are owned here.
-    let (r, w) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
-    let limit = ctx.proc.rlimits[8].0;
-    let (cloexec, clofork) = (flags & io::O_CLOEXEC != 0, flags & io::O_CLOFORK != 0);
-    let status = flags & io::O_NONBLOCK;
-    let rfd = ctx.proc.fds.install_with(
-        Arc::new(OpenFile::host(r, io::O_RDONLY | status, None)),
-        cloexec,
-        clofork,
-        0,
-        limit,
-    )?;
-    let wfd = match ctx.proc.fds.install_with(
-        Arc::new(OpenFile::host(w, io::O_WRONLY | status, None)),
-        cloexec,
-        clofork,
-        0,
-        limit,
-    ) {
-        Ok(n) => n,
-        Err(e) => {
-            let _ = ctx.proc.fds.remove(rfd);
-            return Err(e);
+        let mut fds = [0i32; 2];
+        // SAFETY: `fds` has room for the two descriptors.
+        check(unsafe { libc::pipe(fds.as_mut_ptr()) })?;
+        for f in fds {
+            // SAFETY: setting close-on-exec (and the status flags) on the new
+            // descriptors.
+            unsafe { libc::fcntl(f, libc::F_SETFD, libc::FD_CLOEXEC) };
+            if flags & io::O_NONBLOCK != 0 {
+                unsafe { libc::fcntl(f, libc::F_SETFL, libc::O_NONBLOCK) };
+            }
         }
-    };
-    Ok(Rv(rfd as u64, wfd as u64))
+        // SAFETY: both descriptors were just created and are owned here.
+        let (r, w) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
+        let limit = ctx.proc.rlimits[8].0;
+        let (cloexec, clofork) = (flags & io::O_CLOEXEC != 0, flags & io::O_CLOFORK != 0);
+        let status = flags & io::O_NONBLOCK;
+        let rfd = ctx.proc.fds.install_with(
+            Arc::new(OpenFile::host(r, io::O_RDONLY | status, None)),
+            cloexec,
+            clofork,
+            0,
+            limit,
+        )?;
+        let wfd = match ctx.proc.fds.install_with(
+            Arc::new(OpenFile::host(w, io::O_WRONLY | status, None)),
+            cloexec,
+            clofork,
+            0,
+            limit,
+        ) {
+            Ok(n) => n,
+            Err(e) => {
+                let _ = ctx.proc.fds.remove(rfd);
+                return Err(e);
+            }
+        };
+        Ok(Rv(rfd as u64, wfd as u64))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::ENOTSUP)
+    }
 }
 
 /// `fstat64(fd, buf)`.
 pub fn fstat64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
-    let st = host::fstat(h)?;
-    super::path::put_stat(ctx, buf, &st)
+    let file = ctx.proc.fds.file(fd)?;
+    if let FileKind::Embedded(file) = &file.kind {
+        ctx.write(buf, &file.stat()?.bytes())?;
+        return Ok(Rv::one(0));
+    }
+
+    #[cfg(unix)]
+    {
+        let (_, h) = host_fd(ctx, fd)?;
+        let st = host::fstat(h)?;
+        super::path::put_stat(ctx, buf, &st)
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `fsync(fd)`, `fdatasync(fd)`.
 pub fn fsync(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
-    // SAFETY: fsync on a live descriptor.
-    check(unsafe { libc::fsync(h) })?;
-    Ok(Rv::one(0))
+    #[cfg(unix)]
+    {
+        let (_, h) = host_fd(ctx, fd)?;
+        // SAFETY: fsync on a live descriptor.
+        check(unsafe { libc::fsync(h) })?;
+        Ok(Rv::one(0))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `ftruncate(fd, length)`.
 pub fn ftruncate(ctx: &mut Ctx<'_>, fd: i32, length: i64) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
-    // SAFETY: ftruncate on a live descriptor.
-    check(unsafe { libc::ftruncate(h, length as libc::off_t) })?;
-    Ok(Rv::one(0))
+    #[cfg(unix)]
+    {
+        let (_, h) = host_fd(ctx, fd)?;
+        // SAFETY: ftruncate on a live descriptor.
+        check(unsafe { libc::ftruncate(h, length as libc::off_t) })?;
+        Ok(Rv::one(0))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `flock(fd, how)`.
 pub fn flock(ctx: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
-    // SAFETY: flock on a live descriptor.
-    check(unsafe { libc::flock(h, how) })?;
-    Ok(Rv::one(0))
+    #[cfg(unix)]
+    {
+        let (_, h) = host_fd(ctx, fd)?;
+        // SAFETY: flock on a live descriptor.
+        check(unsafe { libc::flock(h, how) })?;
+        Ok(Rv::one(0))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `fchmod(fd, mode)`.
 pub fn fchmod(ctx: &mut Ctx<'_>, fd: i32, mode: u32) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
-    // SAFETY: fchmod on a live descriptor.
-    check(unsafe { libc::fchmod(h, mode as libc::mode_t) })?;
-    Ok(Rv::one(0))
+    #[cfg(unix)]
+    {
+        let (_, h) = host_fd(ctx, fd)?;
+        // SAFETY: fchmod on a live descriptor.
+        check(unsafe { libc::fchmod(h, mode as libc::mode_t) })?;
+        Ok(Rv::one(0))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `fchown(fd, uid, gid)`.
 pub fn fchown(ctx: &mut Ctx<'_>, fd: i32, uid: u32, gid: u32) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
-    // SAFETY: fchown on a live descriptor.
-    check(unsafe { libc::fchown(h, uid, gid) })?;
-    Ok(Rv::one(0))
+    #[cfg(unix)]
+    {
+        let (_, h) = host_fd(ctx, fd)?;
+        // SAFETY: fchown on a live descriptor.
+        check(unsafe { libc::fchown(h, uid, gid) })?;
+        Ok(Rv::one(0))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `futimes(fd, times)`.
 pub fn futimes(ctx: &mut Ctx<'_>, fd: i32, times: u64) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
-    let tv = super::path::read_timevals(ctx, times)?;
-    let ptr = tv.as_ref().map_or(std::ptr::null(), |t| t.as_ptr());
-    // SAFETY: `ptr` is null or two timevals; `h` is live.
-    check(unsafe { libc::futimes(h, ptr) })?;
-    Ok(Rv::one(0))
+    #[cfg(unix)]
+    {
+        let (_, h) = host_fd(ctx, fd)?;
+        let tv = super::path::read_timevals(ctx, times)?;
+        let ptr = tv.as_ref().map_or(std::ptr::null(), |t| t.as_ptr());
+        // SAFETY: `ptr` is null or two timevals; `h` is live.
+        check(unsafe { libc::futimes(h, ptr) })?;
+        Ok(Rv::one(0))
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `fpathconf(fd, name)`.
 pub fn fpathconf(ctx: &mut Ctx<'_>, fd: i32, name: i32) -> SysResult {
-    let (_, h) = host_fd(ctx, fd)?;
-    host::set_errno(0);
-    // SAFETY: fpathconf on a live descriptor.
-    let r = unsafe { libc::fpathconf(h, name) };
-    if r < 0 {
-        let e = Errno::last();
-        if e.0 != 0 {
-            return Err(e);
+    #[cfg(unix)]
+    {
+        let (_, h) = host_fd(ctx, fd)?;
+        host::set_errno(0);
+        // SAFETY: fpathconf on a live descriptor.
+        let r = unsafe { libc::fpathconf(h, name) };
+        if r < 0 {
+            let e = Errno::last();
+            if e.0 != 0 {
+                return Err(e);
+            }
         }
+        Ok(Rv::one(r as u64))
     }
-    Ok(Rv::one(r as u64))
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
+    }
 }
 
 /// `fcntl` commands.
@@ -576,6 +724,24 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
             slot.clofork = arg & FD_CLOFORK != 0;
             return Ok(Rv::one(0));
         }
+        F_GETFL | F_SETFL if matches!(file.kind, FileKind::Embedded(_)) => {
+            let mut flags = file.flags.lock().map_err(|_| Errno::EIO)?;
+            if c == F_SETFL {
+                *flags = (*flags & !O_STATUS_FLAGS) | (arg as u32 & O_STATUS_FLAGS);
+                return Ok(Rv::one(0));
+            }
+            return Ok(Rv::one(u64::from(*flags)));
+        }
+        F_GETPATH | F_GETPATH_NOFIRMLINK if matches!(file.kind, FileKind::Embedded(_)) => {
+            let path = file.path.as_ref().ok_or(Errno::ENOENT)?;
+            let mut bytes = vec![0; super::super::util::MAXPATHLEN];
+            if path.len() >= bytes.len() {
+                return Err(Errno::ENAMETOOLONG);
+            }
+            bytes[..path.len()].copy_from_slice(path);
+            ctx.write(arg, &bytes)?;
+            return Ok(Rv::one(0));
+        }
         // A kqueue keeps its status flags in its open file; it takes no
         // FIONBIO (ENOTTY), which fails F_SETFL once the flags are set.
         F_GETFL | F_SETFL if matches!(file.kind, FileKind::Kqueue(_)) => {
@@ -588,97 +754,108 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
         }
         _ => {}
     }
-    let h = file.host_fd().ok_or(Errno::EBADF)?;
-    match c {
-        F_GETFL => {
-            // SAFETY: F_GETFL takes no pointer.
-            let fl = check(unsafe { libc::fcntl(h, libc::F_GETFL) })?;
-            let access = *file.flags.lock().unwrap() & io::O_ACCMODE;
-            Ok(Rv::one(u64::from(
-                (io::host_to_guest_oflags(fl) & !io::O_ACCMODE) | access,
-            )))
-        }
-        F_SETFL => {
-            let want = arg as u32 & O_STATUS_FLAGS;
-            // SAFETY: F_GETFL/F_SETFL take no pointers.
-            let cur = check(unsafe { libc::fcntl(h, libc::F_GETFL) })?;
-            let keep = cur & !io::guest_to_host_oflags(O_STATUS_FLAGS & !io::O_ACCMODE);
-            check(unsafe { libc::fcntl(h, libc::F_SETFL, keep | io::guest_to_host_oflags(want)) })?;
-            let mut fl = file.flags.lock().unwrap();
-            *fl = (*fl & !O_STATUS_FLAGS) | want;
-            Ok(Rv::one(0))
-        }
-        F_GETLK | F_SETLK | F_SETLKW | F_OFD_GETLK | F_OFD_SETLK | F_OFD_SETLKW => {
-            flock_cmd(ctx, h, c, arg)
-        }
-        #[cfg(target_os = "macos")]
-        F_GETPATH | F_GETPATH_NOFIRMLINK => {
-            let mut buf = vec![0u8; super::super::util::MAXPATHLEN];
-            // SAFETY: `buf` holds MAXPATHLEN bytes as F_GETPATH requires.
-            check(unsafe { libc::fcntl(h, c, buf.as_mut_ptr()) })?;
-            ctx.write(arg, &buf)?;
-            Ok(Rv::one(0))
-        }
-        F_NOCACHE | F_RDAHEAD | F_FULLFSYNC | F_BARRIERFSYNC | F_SETNOSIGPIPE | F_GETNOSIGPIPE
-        | F_GETPROTECTIONCLASS | F_FLUSH_DATA => {
+
+    #[cfg(unix)]
+    {
+        let h = file.host_fd().ok_or(Errno::EBADF)?;
+        match c {
+            F_GETFL => {
+                // SAFETY: F_GETFL takes no pointer.
+                let fl = check(unsafe { libc::fcntl(h, libc::F_GETFL) })?;
+                let access = *file.flags.lock().unwrap() & io::O_ACCMODE;
+                Ok(Rv::one(u64::from(
+                    (io::host_to_guest_oflags(fl) & !io::O_ACCMODE) | access,
+                )))
+            }
+            F_SETFL => {
+                let want = arg as u32 & O_STATUS_FLAGS;
+                // SAFETY: F_GETFL/F_SETFL take no pointers.
+                let cur = check(unsafe { libc::fcntl(h, libc::F_GETFL) })?;
+                let keep = cur & !io::guest_to_host_oflags(O_STATUS_FLAGS & !io::O_ACCMODE);
+                check(unsafe {
+                    libc::fcntl(h, libc::F_SETFL, keep | io::guest_to_host_oflags(want))
+                })?;
+                let mut fl = file.flags.lock().unwrap();
+                *fl = (*fl & !O_STATUS_FLAGS) | want;
+                Ok(Rv::one(0))
+            }
+            F_GETLK | F_SETLK | F_SETLKW | F_OFD_GETLK | F_OFD_SETLK | F_OFD_SETLKW => {
+                flock_cmd(ctx, h, c, arg)
+            }
             #[cfg(target_os = "macos")]
-            {
-                // SAFETY: these commands take an int argument or none.
+            F_GETPATH | F_GETPATH_NOFIRMLINK => {
+                let mut buf = vec![0u8; super::super::util::MAXPATHLEN];
+                // SAFETY: `buf` holds MAXPATHLEN bytes as F_GETPATH requires.
+                check(unsafe { libc::fcntl(h, c, buf.as_mut_ptr()) })?;
+                ctx.write(arg, &buf)?;
+                Ok(Rv::one(0))
+            }
+            F_NOCACHE | F_RDAHEAD | F_FULLFSYNC | F_BARRIERFSYNC | F_SETNOSIGPIPE
+            | F_GETNOSIGPIPE | F_GETPROTECTIONCLASS | F_FLUSH_DATA => {
+                #[cfg(target_os = "macos")]
+                {
+                    // SAFETY: these commands take an int argument or none.
+                    let r = check(unsafe { libc::fcntl(h, c, arg as libc::c_int) })?;
+                    Ok(Rv::one(r as u64))
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    match c {
+                        F_FULLFSYNC | F_BARRIERFSYNC => {
+                            // SAFETY: fsync on a live descriptor.
+                            check(unsafe { libc::fsync(h) })?;
+                            Ok(Rv::one(0))
+                        }
+                        _ => Ok(Rv::one(0)),
+                    }
+                }
+            }
+            F_RDADVISE | F_SPECULATIVE_READ | F_PREALLOCATE => {
+                // Advisory: validate the argument's readability.
+                let len = match c {
+                    F_RDADVISE => 16,
+                    F_SPECULATIVE_READ => 24,
+                    _ => 32,
+                };
+                let raw = ctx.read(arg, len)?;
+                if c == F_PREALLOCATE {
+                    #[cfg(target_os = "macos")]
+                    {
+                        let mut st = raw.clone();
+                        // SAFETY: `st` is a 32-byte fstore_t the call updates.
+                        check(unsafe { libc::fcntl(h, c, st.as_mut_ptr()) })?;
+                        ctx.write(arg, &st)?;
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    let _ = raw;
+                }
+                Ok(Rv::one(0))
+            }
+            F_ADDFILESIGS | F_ADDFILESIGS_RETURN | F_ADDFILESIGS_FOR_DYLD_SIM => {
+                addfilesigs(ctx, h, c, arg)
+            }
+            // Library validation admits every image.
+            F_CHECK_LV => {
+                ctx.read(arg, 24)?;
+                Ok(Rv::one(0))
+            }
+            F_GETOWN | F_SETOWN => {
+                // SAFETY: int argument or none.
                 let r = check(unsafe { libc::fcntl(h, c, arg as libc::c_int) })?;
                 Ok(Rv::one(r as u64))
             }
-            #[cfg(not(target_os = "macos"))]
-            {
-                match c {
-                    F_FULLFSYNC | F_BARRIERFSYNC => {
-                        // SAFETY: fsync on a live descriptor.
-                        check(unsafe { libc::fsync(h) })?;
-                        Ok(Rv::one(0))
-                    }
-                    _ => Ok(Rv::one(0)),
-                }
-            }
+            _ => Err(Errno::EINVAL),
         }
-        F_RDADVISE | F_SPECULATIVE_READ | F_PREALLOCATE => {
-            // Advisory: validate the argument's readability.
-            let len = match c {
-                F_RDADVISE => 16,
-                F_SPECULATIVE_READ => 24,
-                _ => 32,
-            };
-            let raw = ctx.read(arg, len)?;
-            if c == F_PREALLOCATE {
-                #[cfg(target_os = "macos")]
-                {
-                    let mut st = raw.clone();
-                    // SAFETY: `st` is a 32-byte fstore_t the call updates.
-                    check(unsafe { libc::fcntl(h, c, st.as_mut_ptr()) })?;
-                    ctx.write(arg, &st)?;
-                }
-                #[cfg(not(target_os = "macos"))]
-                let _ = raw;
-            }
-            Ok(Rv::one(0))
-        }
-        F_ADDFILESIGS | F_ADDFILESIGS_RETURN | F_ADDFILESIGS_FOR_DYLD_SIM => {
-            addfilesigs(ctx, h, c, arg)
-        }
-        // Library validation admits every image.
-        F_CHECK_LV => {
-            ctx.read(arg, 24)?;
-            Ok(Rv::one(0))
-        }
-        F_GETOWN | F_SETOWN => {
-            // SAFETY: int argument or none.
-            let r = check(unsafe { libc::fcntl(h, c, arg as libc::c_int) })?;
-            Ok(Rv::one(r as u64))
-        }
-        _ => Err(Errno::EINVAL),
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::EBADF)
     }
 }
 
 /// `F_GETLK`/`F_SETLK`/`F_SETLKW` (and the OFD forms): `struct flock`
 /// is `l_start`, `l_len`, `l_pid`, `l_type`, `l_whence` (24 bytes).
+#[cfg(unix)]
 fn flock_cmd(ctx: &mut Ctx<'_>, h: i32, c: i32, arg: u64) -> SysResult {
     let raw = ctx.read(arg, 24)?;
     // SAFETY: an all-zero flock is valid; every field is set below.
@@ -728,6 +905,7 @@ fn flock_cmd(ctx: &mut Ctx<'_>, h: i32, c: i32, arg: u64) -> SysResult {
 /// (an offset into the file, relative to `fs_file_start`). On a macOS host
 /// the host kernel registers it for the file and reports the signed
 /// range's end, which `F_ADDFILESIGS_RETURN` copies out.
+#[cfg(unix)]
 fn addfilesigs(ctx: &mut Ctx<'_>, h: i32, c: i32, arg: u64) -> SysResult {
     let raw = ctx.read(arg, 32)?;
     #[cfg(target_os = "macos")]
@@ -756,6 +934,16 @@ const IOC_IN: u32 = 0x8000_0000;
 /// `FIOCLEX`, `FIONCLEX`.
 const FIOCLEX: u32 = 0x2000_6601;
 const FIONCLEX: u32 = 0x2000_6602;
+// sys/filio.h: _IOR('f', 127, int), _IOW('f', 126, int).
+const FIONREAD: u32 = 0x4004_667f;
+const FIONBIO: u32 = 0x8004_667e;
+
+#[test]
+#[cfg(target_os = "macos")]
+fn embedded_ioctl_requests_match_native_darwin_headers() {
+    assert_eq!(FIONREAD as libc::c_ulong, libc::FIONREAD);
+    assert_eq!(FIONBIO as libc::c_ulong, libc::FIONBIO);
+}
 
 /// `ioctl(fd, request, arg)`: the request encodes the argument's size and
 /// direction, so the argument is copied in and out around the host's call.
@@ -768,38 +956,65 @@ pub fn ioctl(ctx: &mut Ctx<'_>, fd: i32, request: u64, arg: u64) -> SysResult {
         }
         _ => {}
     }
-    let (file, h) = host_fd(ctx, fd)?;
-    if socket(&file) {
+    let file = ctx.proc.fds.file(fd)?;
+    if let FileKind::Embedded(object) = &file.kind {
+        match req {
+            FIONREAD => {
+                ctx.write_u32(arg, object.available()?.min(i32::MAX as u64) as u32)?;
+            }
+            FIONBIO => {
+                let enabled = ctx.read_u32(arg)? != 0;
+                let mut flags = file.flags.lock().map_err(|_| Errno::EIO)?;
+                *flags = if enabled {
+                    *flags | O_NONBLOCK
+                } else {
+                    *flags & !O_NONBLOCK
+                };
+            }
+            _ => return Err(Errno::ENOTTY),
+        }
+        return Ok(Rv::one(0));
+    }
+
+    #[cfg(unix)]
+    {
+        let h = file.host_fd().ok_or(Errno::EBADF)?;
+        if socket(&file) {
+            #[cfg(target_os = "macos")]
+            if let Some(r) = super::socket::ioctl(ctx, h, req, arg) {
+                return r;
+            }
+        }
+        let size = ((req >> 16) & 0x1fff) as usize;
+        let dir = req & (IOC_VOID | IOC_OUT | IOC_IN);
         #[cfg(target_os = "macos")]
-        if let Some(r) = super::socket::ioctl(ctx, h, req, arg) {
-            return r;
+        {
+            if dir == IOC_VOID || size == 0 {
+                // SAFETY: a void request takes an int argument or none.
+                let r = check(unsafe { libc::ioctl(h, req as libc::c_ulong, arg as libc::c_int) })?;
+                return Ok(Rv::one(r as u64));
+            }
+            let mut buf = if dir & IOC_IN != 0 {
+                ctx.read(arg, size)?
+            } else {
+                vec![0u8; size]
+            };
+            // SAFETY: `buf` holds the `size` bytes the request encodes.
+            let r = check(unsafe { libc::ioctl(h, req as libc::c_ulong, buf.as_mut_ptr()) })?;
+            if dir & IOC_OUT != 0 {
+                ctx.write(arg, &buf)?;
+            }
+            Ok(Rv::one(r as u64))
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (h, size, dir, arg);
+            Err(Errno::ENOTTY)
         }
     }
-    let size = ((req >> 16) & 0x1fff) as usize;
-    let dir = req & (IOC_VOID | IOC_OUT | IOC_IN);
-    #[cfg(target_os = "macos")]
+    #[cfg(not(unix))]
     {
-        if dir == IOC_VOID || size == 0 {
-            // SAFETY: a void request takes an int argument or none.
-            let r = check(unsafe { libc::ioctl(h, req as libc::c_ulong, arg as libc::c_int) })?;
-            return Ok(Rv::one(r as u64));
-        }
-        let mut buf = if dir & IOC_IN != 0 {
-            ctx.read(arg, size)?
-        } else {
-            vec![0u8; size]
-        };
-        // SAFETY: `buf` holds the `size` bytes the request encodes.
-        let r = check(unsafe { libc::ioctl(h, req as libc::c_ulong, buf.as_mut_ptr()) })?;
-        if dir & IOC_OUT != 0 {
-            ctx.write(arg, &buf)?;
-        }
-        Ok(Rv::one(r as u64))
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (h, size, dir, arg);
-        Err(Errno::ENOTTY)
+        Err(Errno::EBADF)
     }
 }
 
@@ -832,69 +1047,76 @@ pub fn getdirentries64(ctx: &mut Ctx<'_>, fd: i32, buf: u64, size: u64, pos: u64
 
 /// `poll(fds, nfds, timeout)`.
 pub fn poll(ctx: &mut Ctx<'_>, fds: u64, nfds: u32, timeout: i32) -> SysResult {
-    if u64::from(nfds) > ctx.proc.rlimits[8].0.max(256) {
-        return Err(Errno::EINVAL);
-    }
-    let raw = ctx.read(fds, 8 * nfds as usize)?;
-    let mut entries = Vec::with_capacity(nfds as usize);
-    for c in raw.chunks(8) {
-        let fd = i32::from_le_bytes(c[..4].try_into().expect("4 bytes"));
-        let events = i16::from_le_bytes([c[4], c[5]]);
-        entries.push((fd, events));
-    }
-    let mut pfds: Vec<libc::pollfd> = entries
-        .iter()
-        .map(|&(fd, ev)| {
-            let h = ctx
-                .proc
-                .fds
-                .file(fd)
-                .ok()
-                .and_then(|f| f.host_fd())
-                .unwrap_or(if fd < 0 { -1 } else { i32::MAX });
-            libc::pollfd {
-                fd: h,
-                events: ev,
-                revents: 0,
-            }
-        })
-        .collect();
-    // SAFETY: `pfds` is a live array of `pfds.len()` pollfd.
-    let n = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, 0) };
-    if n < 0 {
-        return Err(Errno::last());
-    }
-    if n > 0 || timeout == 0 || expired(ctx) {
-        let mut out = raw;
-        for (i, p) in pfds.iter().enumerate() {
-            // A guest descriptor that is not open reports POLLNVAL.
-            let rev = if p.fd == i32::MAX {
-                libc::POLLNVAL
-            } else {
-                p.revents
-            };
-            out[8 * i + 6..8 * i + 8].copy_from_slice(&rev.to_le_bytes());
+    #[cfg(unix)]
+    {
+        if u64::from(nfds) > ctx.proc.rlimits[8].0.max(256) {
+            return Err(Errno::EINVAL);
         }
-        ctx.write(fds, &out)?;
-        return Ok(Rv::one(n.max(0) as u64));
+        let raw = ctx.read(fds, 8 * nfds as usize)?;
+        let mut entries = Vec::with_capacity(nfds as usize);
+        for c in raw.chunks(8) {
+            let fd = i32::from_le_bytes(c[..4].try_into().expect("4 bytes"));
+            let events = i16::from_le_bytes([c[4], c[5]]);
+            entries.push((fd, events));
+        }
+        let mut pfds: Vec<libc::pollfd> = entries
+            .iter()
+            .map(|&(fd, ev)| {
+                let h = ctx
+                    .proc
+                    .fds
+                    .file(fd)
+                    .ok()
+                    .and_then(|f| f.host_fd())
+                    .unwrap_or(if fd < 0 { -1 } else { i32::MAX });
+                libc::pollfd {
+                    fd: h,
+                    events: ev,
+                    revents: 0,
+                }
+            })
+            .collect();
+        // SAFETY: `pfds` is a live array of `pfds.len()` pollfd.
+        let n = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, 0) };
+        if n < 0 {
+            return Err(Errno::last());
+        }
+        if n > 0 || timeout == 0 || expired(ctx) {
+            let mut out = raw;
+            for (i, p) in pfds.iter().enumerate() {
+                // A guest descriptor that is not open reports POLLNVAL.
+                let rev = if p.fd == i32::MAX {
+                    libc::POLLNVAL
+                } else {
+                    p.revents
+                };
+                out[8 * i + 6..8 * i + 8].copy_from_slice(&rev.to_le_bytes());
+            }
+            ctx.write(fds, &out)?;
+            return Ok(Rv::one(n.max(0) as u64));
+        }
+        let deadline = deadline(
+            ctx,
+            (timeout >= 0).then(|| Duration::from_millis(timeout as u64)),
+        );
+        let wait: Vec<(i32, bool, bool)> = pfds
+            .iter()
+            .filter(|p| p.fd >= 0 && p.fd != i32::MAX)
+            .map(|p| {
+                (
+                    p.fd,
+                    p.events & (libc::POLLIN | libc::POLLPRI | libc::POLLRDNORM) != 0,
+                    p.events & (libc::POLLOUT | libc::POLLWRNORM) != 0,
+                )
+            })
+            .collect();
+        // Neither poll nor select restarts after a handler.
+        syscall::sleep_no_restart(ctx, Wait::fds(wait, deadline))
     }
-    let deadline = deadline(
-        ctx,
-        (timeout >= 0).then(|| Duration::from_millis(timeout as u64)),
-    );
-    let wait: Vec<(i32, bool, bool)> = pfds
-        .iter()
-        .filter(|p| p.fd >= 0 && p.fd != i32::MAX)
-        .map(|p| {
-            (
-                p.fd,
-                p.events & (libc::POLLIN | libc::POLLPRI | libc::POLLRDNORM) != 0,
-                p.events & (libc::POLLOUT | libc::POLLWRNORM) != 0,
-            )
-        })
-        .collect();
-    // Neither poll nor select restarts after a handler.
-    syscall::sleep_no_restart(ctx, Wait::fds(wait, deadline))
+    #[cfg(not(unix))]
+    {
+        Err(Errno::ENOTSUP)
+    }
 }
 
 /// The absolute deadline of a timed call: the one computed when the call
@@ -917,111 +1139,119 @@ pub fn expired(ctx: &Ctx<'_>) -> bool {
 /// `select(nfds, readfds, writefds, exceptfds, timeout)`: evaluated with
 /// the host's `poll`, as the guest's descriptors need not be the host's.
 pub fn select(ctx: &mut Ctx<'_>, nfds: i32, rd: u64, wr: u64, ex: u64, timeout: u64) -> SysResult {
-    if nfds < 0 {
-        return Err(Errno::EINVAL);
-    }
-    let nfds = nfds.min(ctx.proc.fds.len().max(1) as i32 + 1024) as usize;
-    let words = nfds.div_ceil(32);
-    let read_set = |addr: u64| -> Result<Vec<u32>, Errno> {
-        if addr == 0 {
-            return Ok(vec![0; words]);
-        }
-        let b = ctx.read(addr, 4 * words)?;
-        Ok(b.chunks(4)
-            .map(|c| u32::from_le_bytes(c.try_into().expect("4 bytes")))
-            .collect())
-    };
-    let (r, w, e) = (read_set(rd)?, read_set(wr)?, read_set(ex)?);
-    let tv = if timeout == 0 {
-        None
-    } else {
-        let b: [u8; 16] = ctx.read(timeout, 16)?.try_into().expect("16 bytes");
-        let t = crate::user::darwin::abi::types::Timeval::from_bytes(&b);
-        if t.sec < 0 || !(0..1_000_000).contains(&t.usec) {
+    #[cfg(unix)]
+    {
+        if nfds < 0 {
             return Err(Errno::EINVAL);
         }
-        Some(Duration::from_secs(t.sec as u64) + Duration::from_micros(t.usec as u64))
-    };
-    let bit = |s: &[u32], i: usize| s[i / 32] & (1 << (i % 32)) != 0;
-    let mut polls = Vec::new();
-    for i in 0..nfds {
-        let (a, b, c) = (bit(&r, i), bit(&w, i), bit(&e, i));
-        if !(a || b || c) {
-            continue;
-        }
-        let h = ctx.proc.fds.file(i as i32)?.host_fd().ok_or(Errno::EBADF)?;
-        let mut ev = 0;
-        if a {
-            ev |= libc::POLLIN;
-        }
-        if b {
-            ev |= libc::POLLOUT;
-        }
-        if c {
-            ev |= libc::POLLPRI;
-        }
-        polls.push((
-            i,
-            libc::pollfd {
-                fd: h,
-                events: ev,
-                revents: 0,
-            },
-        ));
-    }
-    let mut pfds: Vec<libc::pollfd> = polls.iter().map(|p| p.1).collect();
-    // SAFETY: `pfds` is a live array of pollfd.
-    let n = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, 0) };
-    if n < 0 {
-        return Err(Errno::last());
-    }
-    let ready = pfds.iter().any(|p| p.revents != 0);
-    if ready || tv == Some(Duration::ZERO) || expired(ctx) {
-        let (mut ro, mut wo, mut eo) = (vec![0u32; words], vec![0u32; words], vec![0u32; words]);
-        let mut count = 0u64;
-        for ((i, _), p) in polls.iter().zip(&pfds) {
-            let set = |s: &mut Vec<u32>| s[i / 32] |= 1 << (i % 32);
-            let rev = p.revents;
-            if p.events & libc::POLLIN != 0
-                && rev & (libc::POLLIN | libc::POLLHUP | libc::POLLERR) != 0
-            {
-                set(&mut ro);
-                count += 1;
-            }
-            if p.events & libc::POLLOUT != 0 && rev & (libc::POLLOUT | libc::POLLERR) != 0 {
-                set(&mut wo);
-                count += 1;
-            }
-            if p.events & libc::POLLPRI != 0 && rev & libc::POLLPRI != 0 {
-                set(&mut eo);
-                count += 1;
-            }
-        }
-        let put = |addr: u64, s: &[u32]| -> Result<(), Errno> {
+        let nfds = nfds.min(ctx.proc.fds.len().max(1) as i32 + 1024) as usize;
+        let words = nfds.div_ceil(32);
+        let read_set = |addr: u64| -> Result<Vec<u32>, Errno> {
             if addr == 0 {
-                return Ok(());
+                return Ok(vec![0; words]);
             }
-            let b: Vec<u8> = s.iter().flat_map(|v| v.to_le_bytes()).collect();
-            ctx.write(addr, &b)
+            let b = ctx.read(addr, 4 * words)?;
+            Ok(b.chunks(4)
+                .map(|c| u32::from_le_bytes(c.try_into().expect("4 bytes")))
+                .collect())
         };
-        put(rd, &ro)?;
-        put(wr, &wo)?;
-        put(ex, &eo)?;
-        return Ok(Rv::one(count));
+        let (r, w, e) = (read_set(rd)?, read_set(wr)?, read_set(ex)?);
+        let tv = if timeout == 0 {
+            None
+        } else {
+            let b: [u8; 16] = ctx.read(timeout, 16)?.try_into().expect("16 bytes");
+            let t = crate::user::darwin::abi::types::Timeval::from_bytes(&b);
+            if t.sec < 0 || !(0..1_000_000).contains(&t.usec) {
+                return Err(Errno::EINVAL);
+            }
+            Some(Duration::from_secs(t.sec as u64) + Duration::from_micros(t.usec as u64))
+        };
+        let bit = |s: &[u32], i: usize| s[i / 32] & (1 << (i % 32)) != 0;
+        let mut polls = Vec::new();
+        for i in 0..nfds {
+            let (a, b, c) = (bit(&r, i), bit(&w, i), bit(&e, i));
+            if !(a || b || c) {
+                continue;
+            }
+            let h = ctx.proc.fds.file(i as i32)?.host_fd().ok_or(Errno::EBADF)?;
+            let mut ev = 0;
+            if a {
+                ev |= libc::POLLIN;
+            }
+            if b {
+                ev |= libc::POLLOUT;
+            }
+            if c {
+                ev |= libc::POLLPRI;
+            }
+            polls.push((
+                i,
+                libc::pollfd {
+                    fd: h,
+                    events: ev,
+                    revents: 0,
+                },
+            ));
+        }
+        let mut pfds: Vec<libc::pollfd> = polls.iter().map(|p| p.1).collect();
+        // SAFETY: `pfds` is a live array of pollfd.
+        let n = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, 0) };
+        if n < 0 {
+            return Err(Errno::last());
+        }
+        let ready = pfds.iter().any(|p| p.revents != 0);
+        if ready || tv == Some(Duration::ZERO) || expired(ctx) {
+            let (mut ro, mut wo, mut eo) =
+                (vec![0u32; words], vec![0u32; words], vec![0u32; words]);
+            let mut count = 0u64;
+            for ((i, _), p) in polls.iter().zip(&pfds) {
+                let set = |s: &mut Vec<u32>| s[i / 32] |= 1 << (i % 32);
+                let rev = p.revents;
+                if p.events & libc::POLLIN != 0
+                    && rev & (libc::POLLIN | libc::POLLHUP | libc::POLLERR) != 0
+                {
+                    set(&mut ro);
+                    count += 1;
+                }
+                if p.events & libc::POLLOUT != 0 && rev & (libc::POLLOUT | libc::POLLERR) != 0 {
+                    set(&mut wo);
+                    count += 1;
+                }
+                if p.events & libc::POLLPRI != 0 && rev & libc::POLLPRI != 0 {
+                    set(&mut eo);
+                    count += 1;
+                }
+            }
+            let put = |addr: u64, s: &[u32]| -> Result<(), Errno> {
+                if addr == 0 {
+                    return Ok(());
+                }
+                let b: Vec<u8> = s.iter().flat_map(|v| v.to_le_bytes()).collect();
+                ctx.write(addr, &b)
+            };
+            put(rd, &ro)?;
+            put(wr, &wo)?;
+            put(ex, &eo)?;
+            return Ok(Rv::one(count));
+        }
+        let deadline = deadline(ctx, tv);
+        let wait: Vec<(i32, bool, bool)> = pfds
+            .iter()
+            .map(|p| {
+                (
+                    p.fd,
+                    p.events & libc::POLLIN != 0,
+                    p.events & libc::POLLOUT != 0,
+                )
+            })
+            .collect();
+        // Neither poll nor select restarts after a handler.
+        syscall::sleep_no_restart(ctx, Wait::fds(wait, deadline))
     }
-    let deadline = deadline(ctx, tv);
-    let wait: Vec<(i32, bool, bool)> = pfds
-        .iter()
-        .map(|p| {
-            (
-                p.fd,
-                p.events & libc::POLLIN != 0,
-                p.events & libc::POLLOUT != 0,
-            )
-        })
-        .collect();
-    // Neither poll nor select restarts after a handler.
-    syscall::sleep_no_restart(ctx, Wait::fds(wait, deadline))
+    #[cfg(not(unix))]
+    {
+        Err(Errno::ENOTSUP)
+    }
 }
 
 /// `fstatfs64(fd, buf)`.

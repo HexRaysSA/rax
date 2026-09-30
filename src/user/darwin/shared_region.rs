@@ -23,9 +23,9 @@
 
 use std::fmt;
 use std::fs::File;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-use crate::user::mm::{PageSource, SourceIdentity};
+use crate::user::mm::{HostFileSource, PageSource, SourceIdentity};
 
 /// `DYLD_CACHE_SLIDE_PAGE_ATTR_EXTRA`.
 const V2_ATTR_EXTRA: u16 = 0x8000;
@@ -269,7 +269,7 @@ fn rebase_chain_64(
 
 /// A file mapping of the cache whose pages are slid on first touch.
 pub struct SlidSource {
-    file: File,
+    source: Arc<dyn PageSource>,
     identity: SourceIdentity,
     /// File offset of the mapping's first byte.
     map_offset: u64,
@@ -302,14 +302,32 @@ impl SlidSource {
         info: SlideInfo,
         slide: u64,
     ) -> std::io::Result<Self> {
-        use std::os::unix::fs::MetadataExt;
-        let m = file.metadata()?;
+        Self::from_source(
+            Arc::new(HostFileSource::new(file)?),
+            map_offset,
+            map_size,
+            info,
+            slide,
+        )
+    }
+
+    /// A cache mapping backed by supplied bytes or another portable page source.
+    pub fn from_source(
+        source: Arc<dyn PageSource>,
+        map_offset: u64,
+        map_size: u64,
+        info: SlideInfo,
+        slide: u64,
+    ) -> std::io::Result<Self> {
+        map_offset
+            .checked_add(map_size)
+            .ok_or(std::io::ErrorKind::InvalidInput)?;
+        if !matches!(info.page_size(), 4096 | 16384) {
+            return Err(std::io::ErrorKind::InvalidInput.into());
+        }
         Ok(SlidSource {
-            file,
-            identity: SourceIdentity {
-                dev: m.dev(),
-                ino: m.ino(),
-            },
+            identity: source.identity(),
+            source,
             map_offset,
             map_size,
             info,
@@ -319,10 +337,12 @@ impl SlidSource {
     }
 
     fn read_raw(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
-        use std::os::unix::fs::FileExt;
         let mut done = 0;
         while done < buf.len() {
-            let n = self.file.read_at(&mut buf[done..], offset + done as u64)?;
+            let at = offset
+                .checked_add(done as u64)
+                .ok_or(std::io::ErrorKind::InvalidInput)?;
+            let n = self.source.read_at(at, &mut buf[done..])?;
             if n == 0 {
                 break;
             }
@@ -356,11 +376,21 @@ impl SlidSource {
 
 impl PageSource for SlidSource {
     fn len(&self) -> u64 {
-        self.file.metadata().map(|m| m.len()).unwrap_or(0)
+        self.source.len()
     }
 
     fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
-        if offset < self.map_offset || offset >= self.map_offset + self.map_size {
+        let count = (self.len().saturating_sub(offset)).min(buf.len() as u64) as usize;
+        let buf = &mut buf[..count];
+        if offset < self.map_offset {
+            let before = (self.map_offset - offset).min(count as u64) as usize;
+            let n = self.read_raw(offset, &mut buf[..before])?;
+            if n < before || n == count {
+                return Ok(n);
+            }
+            return Ok(n + self.read_at(offset + n as u64, &mut buf[n..])?);
+        }
+        if offset >= self.map_offset + self.map_size {
             return self.read_raw(offset, buf);
         }
         let ps = u64::from(self.info.page_size());
@@ -375,7 +405,9 @@ impl PageSource for SlidSource {
             let index = rel / ps;
             let page = self.page(index)?;
             let in_page = (rel % ps) as usize;
-            let n = (page.len() - in_page).min(buf.len() - done);
+            let n = (page.len() - in_page)
+                .min(buf.len() - done)
+                .min((self.map_offset + self.map_size - at) as usize);
             buf[done..done + n].copy_from_slice(&page[in_page..in_page + n]);
             done += n;
         }
@@ -408,6 +440,51 @@ mod tests {
             b.extend_from_slice(&s.to_le_bytes());
         }
         b
+    }
+
+    #[test]
+    fn supplied_cache_pages_slide_without_host_files_or_mutating_input() {
+        use crate::user::mm::BytesSource;
+        let mut bytes = vec![0u8; 4 * 4096];
+        bytes[4096..4104].copy_from_slice(&0x10u64.to_le_bytes());
+        bytes[8192] = 0x55;
+        bytes[12288] = 0x66;
+        let bytes: Arc<[u8]> = bytes.into();
+        let backing: Arc<dyn PageSource> = Arc::new(BytesSource::new(bytes.clone()));
+        let info = SlideInfo::parse(&v2_info(&[0, V2_ATTR_NO_REBASE], &[])).unwrap();
+        let source =
+            SlidSource::from_source(backing.clone(), 4096, 8192, info.clone(), 0x1000).unwrap();
+        assert_eq!(source.len(), bytes.len() as u64);
+        assert_eq!(source.identity(), backing.identity());
+        for _ in 0..2 {
+            let mut value = [0; 8];
+            assert_eq!(source.read_at(4096, &mut value).unwrap(), 8);
+            assert_eq!(u64::from_le_bytes(value), 0x7ff8_0000_1010);
+        }
+        assert_eq!(
+            u64::from_le_bytes(bytes[4096..4104].try_into().unwrap()),
+            0x10
+        );
+        let mut before_mapping = [0; 9];
+        assert_eq!(source.read_at(4095, &mut before_mapping).unwrap(), 9);
+        assert_eq!(before_mapping[0], 0);
+        assert_eq!(
+            u64::from_le_bytes(before_mapping[1..].try_into().unwrap()),
+            0x7ff8_0000_1010
+        );
+        let mut cross_page = [0; 2];
+        assert_eq!(source.read_at(8191, &mut cross_page).unwrap(), 2);
+        assert_eq!(cross_page, [0, 0x55]);
+        assert_eq!(source.read_at(12287, &mut cross_page).unwrap(), 2);
+        assert_eq!(cross_page, [0, 0x66]);
+        assert_eq!(
+            source.read_at(bytes.len() as u64, &mut cross_page).unwrap(),
+            0
+        );
+        assert!(
+            matches!(SlidSource::from_source(backing, u64::MAX, 1, info, 0),
+            Err(e) if e.kind() == std::io::ErrorKind::InvalidInput)
+        );
     }
 
     #[test]

@@ -57,6 +57,7 @@ const KQ_WORKQ: u32 = 0x40;
 /// The type of an open file (`fg_type`).
 pub fn dtype(file: &FileRef) -> u32 {
     match &file.kind {
+        FileKind::Embedded(_) => dtype::VNODE,
         FileKind::Kqueue(_) => dtype::KQUEUE,
         FileKind::Shm(_) => dtype::PSXSHM,
         FileKind::Sem(_) => dtype::PSXSEM,
@@ -126,6 +127,7 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
         (slot.file.clone(), flags)
     };
     match &file.kind {
+        FileKind::Embedded(_) => Err(Errno::ENOTSUP),
         FileKind::Kqueue(kq) => kqueue(ctx, a, *kq, Some(flags)),
         FileKind::Host(h) | FileKind::Socket(h) | FileKind::Shm(h) | FileKind::Sem(h) => {
             use std::os::fd::AsRawFd;

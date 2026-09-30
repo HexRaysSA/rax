@@ -58,6 +58,7 @@ pub const O_STATUS_FLAGS: u32 = O_NONBLOCK | O_APPEND | O_ASYNC | O_SYNC | O_DSY
 /// Host `open` flags for Darwin `flags` (access mode and the flags the host
 /// understands). Close-on-fork is the guest descriptor's, never the host
 /// descriptor's: the emulator's own forks carry every host descriptor.
+#[cfg(unix)]
 pub fn guest_to_host_oflags(flags: u32) -> i32 {
     #[cfg(target_os = "macos")]
     {
@@ -94,6 +95,7 @@ pub fn guest_to_host_oflags(flags: u32) -> i32 {
 }
 
 /// Darwin flags for host `F_GETFL` flags.
+#[cfg(unix)]
 pub fn host_to_guest_oflags(host: i32) -> u32 {
     #[cfg(target_os = "macos")]
     {
@@ -122,7 +124,7 @@ pub fn host_to_guest_oflags(host: i32) -> u32 {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

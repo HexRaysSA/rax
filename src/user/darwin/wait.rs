@@ -130,6 +130,7 @@ pub fn sleep(fds: &[(i32, bool, bool)], deadline: Option<Instant>) -> Vec<bool> 
 /// entries, which would leave the others (other threads waiting on it)
 /// unanswered. An entry is ready when its descriptor is ready for what the
 /// entry asks, or has hung up, failed, or is not open.
+#[cfg(unix)]
 fn poll(fds: &[(i32, bool, bool)], timeout: Option<Duration>) -> Vec<bool> {
     let mut pfds: Vec<libc::pollfd> = Vec::with_capacity(fds.len());
     let mut index = std::collections::HashMap::with_capacity(fds.len());
@@ -151,10 +152,12 @@ fn poll(fds: &[(i32, bool, bool)], timeout: Option<Duration>) -> Vec<bool> {
         .collect();
     let ms = match timeout {
         None => -1,
-        Some(d) => {
-            d.as_millis().min(i32::MAX as u128) as i32
-                + i32::from(d.as_millis() == 0 && !d.is_zero())
-        }
+        // poll uses integer milliseconds: round up every fractional
+        // millisecond so an ordinary timeout cannot precede the deadline.
+        Some(d) => d
+            .as_millis()
+            .saturating_add(u128::from(d.subsec_nanos() % 1_000_000 != 0))
+            .min(i32::MAX as u128) as i32,
     };
     // SAFETY: `pfds` is a live, correctly sized array of pollfd for the
     // duration of the call.
@@ -173,10 +176,37 @@ fn poll(fds: &[(i32, bool, bool)], timeout: Option<Duration>) -> Vec<bool> {
         .collect()
 }
 
+/// The non-Unix profile has no native descriptors. Guest wait deadlines still
+/// use the host's monotonic clock; admitting a native descriptor is an internal
+/// profile invariant violation, never reported as successful readiness.
+#[cfg(not(unix))]
+fn poll(fds: &[(i32, bool, bool)], timeout: Option<Duration>) -> Vec<bool> {
+    assert!(fds.is_empty(), "Darwin host descriptors require Unix");
+    let timeout = timeout.expect("an empty wait requires a deadline");
+    std::thread::sleep(timeout);
+    Vec::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[test]
+    fn finite_empty_wait_observes_deadline() {
+        assert!(ready_now(&[]).is_empty());
+        let start = Instant::now();
+        assert!(sleep(&[], Some(start + Duration::from_millis(2))).is_empty());
+        assert!(start.elapsed() >= Duration::from_millis(2));
+    }
+
+    #[cfg(not(unix))]
+    #[test]
+    #[should_panic(expected = "Darwin host descriptors require Unix")]
+    fn native_descriptors_cannot_enter_closed_waits() {
+        ready_now(&[(0, true, false)]);
+    }
+
+    #[cfg(unix)]
     #[test]
     fn readiness_of_a_pipe() {
         let mut fds = [0i32; 2];
@@ -197,6 +227,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn every_entry_for_a_descriptor_is_answered_for_its_direction() {
         let mut sv = [0i32; 2];
