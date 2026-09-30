@@ -6,6 +6,7 @@ exclude = [
     "microkernel",
     "tools/asl-parser/asl-parser-rs",
     "_ref",
+    "vendor/vm-memory",
 ]
 
 [package]
@@ -191,6 +192,10 @@ name = "user_windows"
 path = "tests/suites/user/windows/main.rs"
 
 [[test]]
+name = "user_windows_memory"
+path = "tests/suites/user/windows_memory.rs"
+
+[[test]]
 name = "x86_64"
 path = "tests/suites/isa/x86_64/main.rs"
 required-features = ["x86_64-suite"]
@@ -324,4 +329,7 @@ libc = "0.2"
 # tree builds on Windows. Pinned to a commit for reproducibility; drop this once
 # the change is released upstream (rust-vmm/linux-loader).
 [patch.crates-io]
+# Exact upstream 0.17.1 plus a Windows external-allocation ownership constructor.
+# No upstream version, feature default, or Unix mapping behavior changes.
+vm-memory = { path = "vendor/vm-memory" }
 linux-loader = { git = "https://github.com/19h/linux-loader", rev = "f745b555942c4e840a784bca61e6f3976d101960" }

@@ -65,6 +65,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `user_darwin` | `suites/user/darwin/main.rs` |
 | `user_linux` | `suites/user/linux/main.rs` |
 | `user_windows` | `suites/user/windows/main.rs` |
+| `user_windows_memory` | `suites/user/windows_memory.rs` |
 | `x86_64` | `suites/isa/x86_64/main.rs` |
 | `x86_64_apx_map4_qemu_diff` | `suites/differential/x86_64/qemu_apx.rs` |
 | `x86_64_avx512_inventory` | `suites/coverage/x86_64/avx512_inventory.rs` |
@@ -226,3 +227,8 @@ separates `.xdata` into its own mapping. Each executes at scheduling slices of
 1 and 4,096 instructions; source, binary, PE imports and unwind metadata have
 provenance checks. Native Windows differential results and undocumented
 overlap or mutation behavior remain unknown.
+
+`user_windows_memory` tests native Windows external-mapping ownership through
+`GuestMemoryMmap`: retained snapshots, cross-thread destruction, multiple views,
+and rejected ranges. Its three tests run in the Windows C API CI lane. Other
+hosts compile an empty target; that result is not Windows runtime coverage.

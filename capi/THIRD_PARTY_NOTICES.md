@@ -63,3 +63,8 @@ crate.
 
 GPL-2.0 and LGPL-2.1 license texts are in `LICENSES/`. Rust and native
 dependencies carry their own notices with their source distributions.
+
+The vendored `vm-memory` 0.17.1 source in `vendor/vm-memory/` is
+Apache-2.0 OR BSD-3-Clause. Both upstream license texts and the original
+file notices are retained there. `UPSTREAM.json` records the exact upstream
+commit and pre-patch source hashes; `RAX-PATCHES.md` describes local changes.
