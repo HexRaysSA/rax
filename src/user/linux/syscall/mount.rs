@@ -289,6 +289,9 @@ fn vfs_open_tree(
 /// A new `O_PATH` description of `target` (`dentry_open` with `O_PATH`).
 fn path_file(c: &mut Ctx<'_>, target: Target, follow: bool) -> Result<Arc<OpenFile>, Errno> {
     match target {
+        #[cfg(not(unix))]
+        Target::Host { .. } => Err(Errno(EPERM)),
+        #[cfg(unix)]
         Target::Host { guest, host } => {
             let m = if follow {
                 std::fs::metadata(&host)?

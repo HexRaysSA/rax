@@ -246,7 +246,10 @@ const PRECISE_SLEEP: Duration = Duration::from_millis(2);
 /// forwarded host signal arrives (its wake-pipe byte is drained). Returns
 /// early, without error, when the host `poll` is interrupted.
 pub fn sleep(fds: &[(Descriptor, bool, bool)], deadline: Option<Instant>) -> Result<(), Deadlock> {
+    #[cfg(unix)]
     let wake = host::wake_fd();
+    #[cfg(windows)]
+    let wake: Option<Descriptor> = None;
     if fds.is_empty() && wake.is_none() && deadline.is_none() {
         return Err(Deadlock);
     }
@@ -270,6 +273,7 @@ pub fn sleep(fds: &[(Descriptor, bool, bool)], deadline: Option<Instant>) -> Res
         && wake.is_some()
         && r.last().is_some_and(|x| x.readable)
     {
+        #[cfg(unix)]
         host::drain_wake();
     }
     Ok(())

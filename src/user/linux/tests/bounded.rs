@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 const ENTRY: u64 = CODE + 0x1000;
 
 fn exit_image(abi: LinuxAbi) -> Harness {
-    let h = Harness::new(abi);
+    let h = Harness::embedded(abi);
     let code = match abi {
         LinuxAbi::X86_64 => vec![0xb8, 60, 0, 0, 0, 0xbf, 37, 0, 0, 0, 0x0f, 0x05],
         LinuxAbi::I386 => vec![0xb8, 1, 0, 0, 0, 0xbb, 37, 0, 0, 0, 0xcd, 0x80],
@@ -95,7 +95,7 @@ fn bounded_indefinite_wait_is_resumable_and_cancellation_keeps_continuation() {
 
 #[test]
 fn bounded_round_robin_survives_separate_calls() {
-    let mut h = Harness::new(LinuxAbi::Aarch64);
+    let mut h = Harness::embedded(LinuxAbi::Aarch64);
     h.proc.state.config.slice_insns = 1;
     h.proc
         .state
@@ -121,7 +121,7 @@ fn bounded_round_robin_survives_separate_calls() {
 fn bounded_reservation_survives_same_thread_yield_but_not_switch() {
     use crate::isa::arm::common::cpu::ArmCpu;
     for peers in [false, true] {
-        let mut h = Harness::new(LinuxAbi::Aarch64);
+        let mut h = Harness::embedded(LinuxAbi::Aarch64);
         h.proc.state.config.slice_insns = 1;
         h.proc
             .state

@@ -281,8 +281,9 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
 /// A `/proc/sys/fs/inotify` limit: the emulated backend's, or the host's
 /// when the instances are the host's.
 fn inotify_limit(p: &ProcState, path: &str) -> Vec<u8> {
-    use super::fsnotify::{hub, queue};
+    use super::fsnotify::{MAX_USER_INSTANCES, MAX_USER_WATCHES, queue};
     let name = path.rsplit('/').next().unwrap_or("");
+    #[cfg(unix)]
     if p.config.host_services
         && p.fsnotify.is_none()
         && let Ok(v) = std::fs::read(format!("/proc/sys/fs/inotify/{name}"))
@@ -290,8 +291,8 @@ fn inotify_limit(p: &ProcState, path: &str) -> Vec<u8> {
         return v;
     }
     let v = match name {
-        "max_user_instances" => hub::MAX_USER_INSTANCES as u64,
-        "max_user_watches" => hub::MAX_USER_WATCHES as u64,
+        "max_user_instances" => MAX_USER_INSTANCES as u64,
+        "max_user_watches" => MAX_USER_WATCHES as u64,
         _ => queue::MAX_QUEUED,
     };
     format!("{v}\n").into_bytes()

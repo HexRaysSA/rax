@@ -6,6 +6,23 @@ use super::process::{LinuxConfig, SpawnError};
 /// Virtual process identity; independent processes have independent namespaces.
 pub const PID: i32 = 100;
 
+/// Runtime host capability checks are distinct from the guest syscall policy.
+/// In particular, old Windows keeps private PE execution while refusing an ELF
+/// personality that promises shared mappings.
+pub(super) fn validate_host(
+    c: &LinuxConfig,
+    host_services: bool,
+    shared_mappings: bool,
+) -> Result<(), SpawnError> {
+    if c.host_services && !host_services {
+        return Err(SpawnError::Unsupported("this host supports the closed Linux embedding profile; Unix host services are unavailable".into()));
+    }
+    if !shared_mappings {
+        return Err(SpawnError::Unsupported("Linux embedding requires fixed-address shared memory; Windows hosts require VirtualAlloc2, MapViewOfFile3 and UnmapViewOfFile2 placeholder support".into()));
+    }
+    Ok(())
+}
+
 pub fn validate(c: &LinuxConfig) -> Result<(), SpawnError> {
     if c.supplied_files.is_none()
         || c.sysroot.is_some()

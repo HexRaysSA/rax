@@ -12,7 +12,9 @@ use super::super::super::fs::fd::{FileObject, OpenFile};
 use super::super::super::uring::abi::{nop, op, setup};
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::Ctx;
-use super::{cancel, fs, kbuf, net, openclose, poll, rsrc, rw, sync, timeout, xattr};
+#[cfg(unix)]
+use super::net;
+use super::{cancel, fs, kbuf, openclose, poll, rsrc, rw, sync, timeout, xattr};
 
 /// How an issued request completes.
 #[derive(Clone, Debug)]
@@ -123,10 +125,15 @@ pub(super) fn prep(c: &Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> R
         op::LINK_TIMEOUT => timeout::prep(c, req, true),
         op::TIMEOUT_REMOVE => timeout::remove_prep(c, req),
         op::ASYNC_CANCEL => cancel::prep(req),
+        #[cfg(unix)]
         op::SEND | op::RECV | op::SENDMSG | op::RECVMSG => net::sr_prep(c, ring, st, req),
+        #[cfg(unix)]
         op::ACCEPT => net::accept_prep(c, req),
+        #[cfg(unix)]
         op::SOCKET => net::socket_prep(c, req),
+        #[cfg(unix)]
         op::CONNECT | op::BIND | op::LISTEN => net::addr_prep(c, st, req),
+        #[cfg(unix)]
         op::SHUTDOWN => net::shutdown_prep(req),
         op::PROVIDE_BUFFERS | op::REMOVE_BUFFERS => kbuf::prep(c, req),
         op::READ_MULTISHOT => rw::mshot_prep(c, ring, req),
@@ -225,6 +232,7 @@ fn issue_op(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done
             openclose::install_issue(c, st, req);
             Done::Inline
         }
+        #[cfg(unix)]
         op::PIPE => {
             openclose::pipe_issue(c, ring, st, req);
             Done::Inline
@@ -248,11 +256,17 @@ fn issue_op(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) -> Done
             cancel::issue(c, ring, st, req);
             Done::Inline
         }
+        #[cfg(unix)]
         op::SEND | op::RECV | op::SENDMSG | op::RECVMSG => net::sr(c, ring, st, req),
+        #[cfg(unix)]
         op::ACCEPT => net::accept(c, ring, st, req),
+        #[cfg(unix)]
         op::SOCKET => net::socket(c, ring, st, req),
+        #[cfg(unix)]
         op::CONNECT => net::connect(c, st, req),
+        #[cfg(unix)]
         op::BIND | op::LISTEN => net::bind_listen(c, st, req),
+        #[cfg(unix)]
         op::SHUTDOWN => net::shutdown(c, st, req),
         op::PROVIDE_BUFFERS | op::REMOVE_BUFFERS => {
             kbuf::issue(st, req);

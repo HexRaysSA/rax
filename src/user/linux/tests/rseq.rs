@@ -44,7 +44,7 @@ fn descriptor(h: &Harness, at: u64, start: u64, len: u64, abort: u64, sig: u32) 
 #[test]
 fn rseq_checks_in_the_kernels_order_and_writes_its_fields() {
     each_abi(|abi| {
-        let mut h = Harness::new(abi);
+        let mut h = Harness::embedded(abi);
         let m = h.anon(P, 3, false);
         let (area, spare) = (m, m + 0x100);
         let e = |v: i32| -(v as i64);
@@ -87,7 +87,7 @@ fn rseq_checks_in_the_kernels_order_and_writes_its_fields() {
 #[test]
 fn the_return_to_user_mode_fills_in_ids_and_aborts_sections() {
     each_abi(|abi| {
-        let mut h = Harness::new(abi);
+        let mut h = Harness::embedded(abi);
         let m = h.anon(P, 3, false);
         let (area, cs) = (m, m + 0x100);
         h.ok(Sysno::Rseq, &[area, 32, 0, SIG]);
@@ -142,7 +142,7 @@ fn the_return_to_user_mode_fills_in_ids_and_aborts_sections() {
 #[test]
 fn a_bad_descriptor_or_signature_is_fatal() {
     each_abi(|abi| {
-        let mut h = Harness::new(abi);
+        let mut h = Harness::embedded(abi);
         let m = h.anon(P, 3, false);
         let (area, cs) = (m, m + 0x100);
         h.ok(Sysno::Rseq, &[area, 32, 0, SIG]);

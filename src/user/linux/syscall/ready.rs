@@ -20,6 +20,7 @@
 //! edge-triggered `epoll` item reports, and what a sleeper waits on until
 //! the file changes.
 
+#[cfg(unix)]
 use std::os::fd::AsRawFd;
 
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
@@ -59,11 +60,15 @@ pub struct Polled {
 }
 
 /// The host descriptor of a host-backed description.
-pub fn raw_fd(file: &OpenFile) -> Option<i32> {
+pub fn raw_fd(file: &OpenFile) -> Option<crate::user::readiness::Descriptor> {
     match &file.object {
+        #[cfg(unix)]
         FileObject::Host(f) => Some(f.as_raw_fd()),
+        #[cfg(unix)]
         FileObject::PipeRead(p) => Some(p.as_raw_fd()),
+        #[cfg(unix)]
         FileObject::PipeWrite(p) => Some(p.as_raw_fd()),
+        #[cfg(unix)]
         FileObject::Socket(s) => Some(s.raw()),
         _ => None,
     }
@@ -160,6 +165,7 @@ pub fn poll_files(c: &Ctx<'_>, files: &[(&OpenFile, u32)]) -> (Vec<Polled>, Wait
                 out[i] = polled;
                 wait.deadline = earlier(wait.deadline, w.deadline);
             }
+            #[cfg(unix)]
             FileObject::Socket(s) => {
                 let mask = super::super::net::poll::mask(s);
                 let level = super::super::net::sys::inq(&s.file, s.connected_type())
@@ -193,9 +199,11 @@ pub fn poll_files(c: &Ctx<'_>, files: &[(&OpenFile, u32)]) -> (Vec<Polled>, Wait
             let r = rs.get(k).copied().unwrap_or_default();
             let queued = if file.readable() {
                 match &file.object {
+                    #[cfg(unix)]
                     FileObject::Host(f) => host::bytes_readable(f).unwrap_or(0),
+                    #[cfg(unix)]
                     FileObject::PipeRead(p) => host::bytes_readable(p).unwrap_or(0),
-                    _ => 0,
+                    _ => 0i32,
                 }
                 .max(0) as u64
             } else {

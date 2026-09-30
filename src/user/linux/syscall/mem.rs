@@ -280,6 +280,9 @@ pub fn mmap(
     let mut vm_flags = 0;
     if let Some(file) = file {
         match (&file.object, file.ftype) {
+            #[cfg(not(unix))]
+            (FileObject::Host(_), _) => return Err(Errno(EPERM)),
+            #[cfg(unix)]
             (FileObject::Host(f), FileType::Regular | FileType::BlockDevice) => {
                 if !file.readable() {
                     return Err(Errno(EACCES));

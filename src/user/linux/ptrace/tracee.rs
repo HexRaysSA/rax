@@ -116,7 +116,9 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
             tid,
             parent,
             seized,
-        } => {
+        } =>
+        {
+            #[cfg(unix)]
             if let Some(fd) = link_mut(p, link).and_then(|l| l.take_fd()) {
                 p.adopted.retain(|a| a.0 != tid);
                 p.adopted.push((tid, super::Link::from_fd(fd)));
@@ -1101,6 +1103,7 @@ pub struct ForkTrace {
 /// signal other than `SIGCHLD`, else `PTRACE_EVENT_FORK`; traced when the
 /// tracer asked for it or `CLONE_PTRACE` asks, never with `CLONE_UNTRACED`
 /// (which drops the event only).
+#[cfg(unix)]
 pub fn fork_trace(
     t: &Thread,
     vfork: bool,
@@ -1134,6 +1137,7 @@ pub fn fork_trace(
 
 /// The forked process's side: traced along its end of the new link,
 /// starting with `SIGSTOP` (a trap when seized).
+#[cfg(unix)]
 pub fn forked_traced(p: &mut ProcState, t: &mut Thread, trace: ForkTrace) {
     let mut tr = Traced::new(trace.tracer, LinkId::Tracer, trace.seized, trace.options);
     if trace.seized {
@@ -1149,6 +1153,7 @@ pub fn forked_traced(p: &mut ProcState, t: &mut Thread, trace: ForkTrace) {
 
 /// The forker's side: the tracer gets its end of the link to the new
 /// process, then the forker's event (with the new PID) is due.
+#[cfg(unix)]
 pub fn forker_traced(p: &mut ProcState, t: &mut Thread, trace: ForkTrace, pid: i32) {
     let Some(tr) = t.ptrace.as_ref() else {
         return;

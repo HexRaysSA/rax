@@ -34,9 +34,9 @@ use super::sys::{self, Lock, Mapping};
 use super::{Action, Event, Hook, Key, Mark, Obj, Watched};
 
 /// `max_user_instances` of a fresh kernel.
-pub const MAX_USER_INSTANCES: usize = 128;
+pub use super::MAX_USER_INSTANCES;
 /// `max_user_watches`: the kernel's upper bound for it.
-pub const MAX_USER_WATCHES: usize = 1 << 20;
+pub use super::MAX_USER_WATCHES;
 
 const MAGIC: u64 = u64::from_le_bytes(*b"RAXFSN01");
 /// Index header words.

@@ -425,10 +425,16 @@ fn rw(c: &mut Ctx<'_>, file: &OpenFile, iocb: &Iocb) -> Result<i64, Err2> {
         return fail(EBADF);
     }
     // Files without read_iter or write_iter.
-    let unsupported = file.ftype == FileType::Directory
+    let inotify = match &file.object {
+        #[cfg(unix)]
+        FileObject::Anon(Anon::Inotify(_)) => true,
+        _ => false,
+    };
+    let unsupported = inotify
+        || file.ftype == FileType::Directory
         || matches!(
             file.object,
-            FileObject::Anon(Anon::Epoll(_) | Anon::Pid(_) | Anon::Inotify(_) | Anon::Uring(_))
+            FileObject::Anon(Anon::Epoll(_) | Anon::Pid(_) | Anon::Uring(_))
                 | FileObject::Mqueue(_)
         );
     if unsupported {
@@ -538,7 +544,9 @@ fn poll(
 fn has_poll(file: &OpenFile) -> bool {
     match &file.object {
         FileObject::Console { .. } => false,
-        FileObject::Anon(_) | FileObject::Mqueue(_) | FileObject::Socket(_) => true,
+        #[cfg(unix)]
+        FileObject::Socket(_) => true,
+        FileObject::Anon(_) | FileObject::Mqueue(_) => true,
         _ => matches!(
             file.ftype,
             FileType::Fifo | FileType::CharDevice | FileType::Socket
@@ -563,6 +571,7 @@ fn wake_key(file: &OpenFile, ready: u32) -> Option<u32> {
         FileObject::Anon(Anon::Event(_)) => (IN, OUT),
         // io_poll_wq_wake: EPOLL_URING_WAKE | EPOLLIN.
         FileObject::Anon(Anon::Timer(_) | Anon::Epoll(_) | Anon::Uring(_)) => (IN, 0),
+        #[cfg(unix)]
         FileObject::Socket(_) => (IN | PRI | RDNORM | RDBAND, OUT | WRNORM | WRBAND),
         _ if file.ftype == FileType::Fifo => (IN | RDNORM, OUT | WRNORM),
         _ => return None,

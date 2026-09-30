@@ -57,6 +57,23 @@ pub struct FrameArena {
 }
 
 impl FrameArena {
+    /// Whether this host provides the fixed-address shared-file mapping API.
+    /// This reports OS capability, not whether a particular allocation fits.
+    pub fn supports_shared_mappings() -> bool {
+        #[cfg(windows)]
+        {
+            super::windows_arena::WindowsArena::supported()
+        }
+        #[cfg(unix)]
+        {
+            true
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            false
+        }
+    }
+
     /// Creates an arena of `size` bytes (rounded down to whole pages) that
     /// never allocates frames overlapping any `(start, len)` in `reserved`.
     pub fn new(size: u64, reserved: &[(u64, u64)]) -> Result<Self, MmError> {

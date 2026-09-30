@@ -19,6 +19,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
+#[cfg(unix)]
 use super::super::host::{self, ExitWatch};
 
 /// `PIDFD_THREAD` (`O_EXCL`): the pidfd names a thread, not its thread
@@ -31,6 +32,7 @@ enum Watch {
     /// Not needed yet: the task is in this process or is its child.
     None,
     /// A host watch (made by this process, or inherited where usable).
+    #[cfg(unix)]
     Host(ExitWatch),
     /// The host cannot watch it: its PID is probed.
     Probe,
@@ -52,6 +54,13 @@ impl Target {
     /// The task `tid` of process `tgid`. `watch` watches its end through
     /// the host (a task of another process); `ESRCH` when it has ended.
     pub fn new(tgid: i32, tid: i32, watch: bool) -> Result<Arc<Self>, Errno> {
+        #[cfg(not(unix))]
+        if watch {
+            return Err(Errno(EPERM));
+        }
+        #[cfg(not(unix))]
+        let watch = Watch::None;
+        #[cfg(unix)]
         let watch = if watch {
             match ExitWatch::new(tgid) {
                 Ok(Some(w)) => Watch::Host(w),
@@ -94,6 +103,7 @@ impl Target {
     }
 
     /// Whether its process has exited, as the host sees it.
+    #[cfg(unix)]
     pub fn exited(&self) -> bool {
         let mut w = self.watch.lock().unwrap();
         if let Watch::Host(x) = &*w
@@ -115,11 +125,19 @@ impl Target {
         host::kill(self.tgid, 0) == Err(Errno(ESRCH))
     }
 
+    /// Closed embedding has only locally recorded task exits; external
+    /// watches are refused by `new` before a target can be created.
+    #[cfg(not(unix))]
+    pub fn exited(&self) -> bool {
+        self.ended().is_some()
+    }
+
     /// The host descriptor that becomes readable when its process exits,
     /// if it is watched; `None` otherwise (a watch that must be probed, or
     /// none yet).
-    pub fn watch_fd(&self) -> Option<i32> {
+    pub fn watch_fd(&self) -> Option<crate::user::readiness::Descriptor> {
         match &*self.watch.lock().unwrap() {
+            #[cfg(unix)]
             Watch::Host(x) => x.fd(),
             _ => None,
         }
@@ -171,6 +189,7 @@ impl Registry {
     /// PID has ended, and the tasks that were the parent's own or its
     /// children are now another process's, watched through the host from
     /// now.
+    #[cfg(unix)]
     pub fn forked(&self, pid: i32) {
         for t in self.live() {
             if t.tgid == pid {
@@ -199,7 +218,7 @@ mod tests {
 
     #[test]
     fn inode_numbers_name_the_task() {
-        let me = host::pid();
+        let me = crate::user::linux::host::pid();
         let a = Target::new(me, me, false).unwrap();
         let b = Target::new(me, me, false).unwrap();
         assert_eq!(a.ino(), b.ino());
@@ -228,6 +247,12 @@ mod tests {
         assert!(reg.names_process(10));
         drop(p);
         assert!(!reg.names_process(10));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fork_marks_the_old_child_task_ended() {
+        let mut reg = Registry::default();
         // After a fork, a task that had the child's PID has ended.
         let old = Target::new(20, 20, false).unwrap();
         reg.add(&old);

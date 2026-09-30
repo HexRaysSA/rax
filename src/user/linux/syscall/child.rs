@@ -190,8 +190,10 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     let pid = host::pid();
     c.p.pidfds.forked(pid);
     // copy_process: POSIX locks are not inherited.
+    #[cfg(unix)]
     super::super::fs::locks::forked();
     // Emulated netlink sockets get readiness levels of their own.
+    #[cfg(unix)]
     super::super::net::netlink::forked();
     // It holds the inotify instances its parent held.
     if let Some(h) = &c.p.fsnotify {

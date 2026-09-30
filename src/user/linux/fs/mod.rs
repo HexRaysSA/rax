@@ -225,6 +225,7 @@ impl Vfs {
 /// Gives the host object the guest just created at `path` exactly the
 /// permission bits `bits` its umask left, which the host's umask may have
 /// narrowed.
+#[cfg(unix)]
 pub fn created_mode(path: &Path, bits: u32) -> Result<(), Errno> {
     use std::os::unix::fs::PermissionsExt;
     if bits & super::host::umask() != 0 {
@@ -235,6 +236,7 @@ pub fn created_mode(path: &Path, bits: u32) -> Result<(), Errno> {
 
 /// A host file's identity (device, inode), as the address space knows the
 /// objects of shared mappings.
+#[cfg(unix)]
 pub fn identity(f: &std::fs::File) -> Result<crate::user::mm::SourceIdentity, Errno> {
     use std::os::unix::fs::MetadataExt;
     let m = f.metadata()?;
@@ -255,13 +257,14 @@ pub fn host_dev(dev: u64) -> (u32, u32) {
 
 /// Splits a host `dev_t` into major/minor numbers (BSD encoding:
 /// major in bits 24..31, minor in bits 0..23).
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 pub fn host_dev(dev: u64) -> (u32, u32) {
     (((dev >> 24) & 0xff) as u32, (dev & 0xff_ffff) as u32)
 }
 
 /// Converts host metadata to a Linux [`Stat`]. File-type and permission
 /// bits share the POSIX encoding on every supported host.
+#[cfg(unix)]
 pub fn stat_from_metadata(m: &std::fs::Metadata) -> Stat {
     use std::os::unix::fs::MetadataExt;
     let (dev_major, dev_minor) = host_dev(m.dev());
@@ -292,6 +295,7 @@ pub fn stat_from_metadata(m: &std::fs::Metadata) -> Stat {
 }
 
 /// The [`fd::FileType`] of host metadata.
+#[cfg(unix)]
 pub fn file_type_of(m: &std::fs::Metadata) -> fd::FileType {
     use std::os::unix::fs::FileTypeExt;
     let t = m.file_type();
@@ -313,6 +317,7 @@ pub fn file_type_of(m: &std::fs::Metadata) -> fd::FileType {
 }
 
 /// The `DT_*` value for host metadata.
+#[cfg(unix)]
 pub fn dtype_of(t: &std::fs::FileType) -> u8 {
     use std::os::unix::fs::FileTypeExt;
     if t.is_dir() {
@@ -336,6 +341,7 @@ pub fn dtype_of(t: &std::fs::FileType) -> u8 {
 
 /// Reads a host directory into `getdents64` entries, including `.` and
 /// `..`, which `std::fs::read_dir` omits but Linux reports.
+#[cfg(unix)]
 pub fn read_directory(host: &Path) -> Result<Vec<fd::DirEntry>, Errno> {
     use std::os::unix::fs::{DirEntryExt, MetadataExt};
     let dot = std::fs::metadata(host)?;
@@ -391,6 +397,7 @@ mod tests {
         assert_eq!(join_guest("/a", "."), "/a");
     }
 
+    #[cfg(unix)]
     #[test]
     fn sysroot_prefers_existing_paths_and_follows_links_inside() {
         let root = std::env::temp_dir().join(format!("rax-user-vfs-{}", std::process::id()));
@@ -428,6 +435,7 @@ mod tests {
         std::fs::remove_dir_all(&root).unwrap();
     }
 
+    #[cfg(unix)]
     #[test]
     fn directory_listing_includes_dot_entries() {
         let entries = read_directory(Path::new("/")).unwrap();
@@ -436,6 +444,7 @@ mod tests {
         assert!(entries.len() > 2);
     }
 
+    #[cfg(unix)]
     #[test]
     fn metadata_converts_to_linux_stat() {
         use super::super::abi::types::mode;

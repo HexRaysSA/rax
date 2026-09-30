@@ -863,7 +863,7 @@ pub enum HostWait {
 
 /// Resource use of a reaped child: user and system microseconds, maximum
 /// resident size in KiB.
-pub type ChildRusage = (u64, u64, u64);
+pub use super::children::ChildRusage;
 
 /// `wait4(pid, WNOHANG | WUNTRACED | WCONTINUED)`: the child's next state
 /// change, if any, and its resource use once it ended.

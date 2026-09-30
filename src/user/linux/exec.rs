@@ -364,6 +364,7 @@ impl LinuxProcess {
         p.leader_exit = None;
         p.exec_id += 1;
         // mm_release: a CLONE_VFORK parent runs again.
+        #[cfg(unix)]
         if let Some(me) = p.forked.as_mut() {
             me.exec();
         }

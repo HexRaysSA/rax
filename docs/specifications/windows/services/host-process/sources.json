@@ -1,0 +1,30 @@
+[
+  {
+    "file": "getprocesstimes.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/processthreadsapi/nf-processthreadsapi-getprocesstimes.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "4c62c27d32b5e0e442d7b41e62247a88fe7c2b2632fbbcdd241c86ff24e1f460"
+  },
+  {
+    "file": "getprocessmemoryinfo.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/psapi/nf-psapi-getprocessmemoryinfo.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "6750c72c7d86f7269e67c6f2540c285e2f77b53ee1037d8e7c36a7a8d522089b"
+  },
+  {
+    "file": "process-memory-counters.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/psapi/ns-psapi-process_memory_counters.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "f0fc92989684401a596fef166f3fdc63bdd655ca7c1dfe02f933754cf05d0eb2"
+  },
+  {
+    "file": "LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/LICENSE",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  }
+]

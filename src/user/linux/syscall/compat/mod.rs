@@ -29,6 +29,7 @@
 pub mod arm;
 pub mod file;
 pub mod ipc;
+#[cfg(unix)]
 pub mod net;
 pub mod resource;
 pub mod signal;
@@ -364,6 +365,7 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
         S::Sigaltstack => r(signal::sigaltstack(c, a[0], a[1])),
         S::Sigreturn => super::signal::sigreturn(c),
         S::RtSigtimedwait => time32(c, S::RtSigtimedwait, a),
+        #[cfg(unix)]
         S::Socketcall => net::socketcall(c, a[0], a[1]),
         // System V IPC: the calls whose layouts are the same, the ipc
         // multiplexer, and the compatibility entry points.
@@ -465,7 +467,9 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Result<Outcome, Errno>
             let pos = dual(a[3], a[4]);
             r(io::pwritev(c, fd(a[0]), a[1], a[2], (pos != -1).then_some(pos), a[5]))
         }
+        #[cfg(unix)]
         S::Truncate => r(path::truncate(c, a[0], sext(a[1]))),
+        #[cfg(unix)]
         S::Truncate64 => r(path::truncate(c, a[0], dual(a[1], a[2]))),
         S::Ftruncate => r(file::ftruncate(c, fd(a[0]), sext(a[1]))),
         S::Ftruncate64 => r(file::ftruncate(c, fd(a[0]), dual(a[1], a[2]))),
@@ -578,7 +582,10 @@ fn ioctl(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
     let cmd = a[1] as u32;
     let native = SAME_LAYOUT_IOCTLS.contains(&cmd)
         || match &file.object {
-            FileObject::Anon(Anon::Pid(_) | Anon::Epoll(_) | Anon::Inotify(_)) => true,
+            #[cfg(unix)]
+            FileObject::Anon(Anon::Inotify(_)) => true,
+            FileObject::Anon(Anon::Pid(_) | Anon::Epoll(_)) => true,
+            #[cfg(unix)]
             FileObject::Socket(_) => net::sock_ioctl_known(cmd),
             _ => false,
         };

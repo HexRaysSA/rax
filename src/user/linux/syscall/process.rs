@@ -26,6 +26,15 @@ pub fn for_self(c: &mut Ctx<'_>, pid: i32, value: u64) -> SysResult {
     }
 }
 
+/// `getppid`: the embedded parent is part of the virtual process identity.
+pub fn getppid(c: &Ctx<'_>) -> u64 {
+    #[cfg(unix)]
+    if c.p.config.host_services {
+        return host::ppid() as u64;
+    }
+    c.p.ppid as u64
+}
+
 /// `getresuid`/`getresgid`.
 pub fn getres(c: &mut Ctx<'_>, r: u64, e: u64, s: u64, user: bool) -> SysResult {
     let (real, eff) = if user {
@@ -152,8 +161,13 @@ pub fn getpgid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
         return for_self(c, pid, c.p.pid as u64);
     }
     // A thread of this process names the process (find_task_by_vpid).
-    let pid = if c.is_own_tid(pid) { 0 } else { pid };
-    host::getpgid(pid).map(|g| g as u64)
+    #[cfg(unix)]
+    {
+        let pid = if c.is_own_tid(pid) { 0 } else { pid };
+        host::getpgid(pid).map(|g| g as u64)
+    }
+    #[cfg(not(unix))]
+    Err(Errno(EPERM))
 }
 
 /// `getsid`.
@@ -161,11 +175,17 @@ pub fn getsid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
     if !c.p.config.host_services {
         return for_self(c, pid, c.p.pid as u64);
     }
-    let pid = if c.is_own_tid(pid) { 0 } else { pid };
-    host::getsid(pid).map(|g| g as u64)
+    #[cfg(unix)]
+    {
+        let pid = if c.is_own_tid(pid) { 0 } else { pid };
+        host::getsid(pid).map(|g| g as u64)
+    }
+    #[cfg(not(unix))]
+    Err(Errno(EPERM))
 }
 
 /// `setpgid`: a thread other than the leader is `EINVAL`.
+#[cfg(unix)]
 pub fn setpgid(c: &mut Ctx<'_>, pid: i32, pgid: i32) -> SysResult {
     if pgid < 0 {
         return Err(Errno(EINVAL));
@@ -203,13 +223,16 @@ fn utsname(c: &Ctx<'_>) -> [String; 6] {
         Isa::Aarch64 | Isa::Arm => "armv8l",
         Isa::Riscv64 => c.p.abi.machine(),
     };
+    let nodename = "rax-embedded".to_owned();
+    #[cfg(unix)]
+    let nodename = if c.p.config.host_services {
+        host::hostname()
+    } else {
+        nodename
+    };
     [
         "Linux".into(),
-        if c.p.config.host_services {
-            host::hostname()
-        } else {
-            "rax-embedded".into()
-        },
+        nodename,
         c.p.config.kernel_release.clone(),
         "#1 SMP PREEMPT_DYNAMIC rax-user".into(),
         machine.into(),

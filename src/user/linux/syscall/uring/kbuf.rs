@@ -155,10 +155,7 @@ fn ring_read(c: &Ctx<'_>, r: &BufRing, off: u64, buf: &mut [u8]) {
 fn ring_write(c: &Ctx<'_>, r: &BufRing, off: u64, data: &[u8]) {
     match &r.object {
         Some(o) => {
-            use std::os::unix::fs::FileExt;
-            if let Some(f) = o.host_file() {
-                let _ = f.write_all_at(data, off);
-            }
+            let _ = o.write_all_at(off, data);
         }
         None => {
             let _ = c.p.space.write_raw(r.addr + off, data);

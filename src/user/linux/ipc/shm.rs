@@ -528,17 +528,29 @@ pub fn ipc_info(ns: &Namespace) -> Result<(ShmInfo64, i32), Errno> {
     })
 }
 
+fn allocated_bytes(path: &std::path::Path) -> std::io::Result<u64> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        std::fs::metadata(path)?
+            .blocks()
+            .checked_mul(512)
+            .ok_or_else(|| std::io::ErrorKind::InvalidData.into())
+    }
+    #[cfg(windows)]
+    super::super::host::allocated_bytes(&std::fs::File::open(path)?)
+}
+
 /// `SHM_INFO` (`shmctl_shm_info`): `struct shm_info` and the highest
 /// index in use. Resident pages are the host files' allocated blocks.
 pub fn shm_info(ns: &Namespace) -> Result<(ShmInfo, i32), Errno> {
-    use std::os::unix::fs::MetadataExt;
     ns.with_table::<ShmTable, _>(TABLE, |t| {
         t.collect(ns);
         let rss: u64 = t
             .segs
             .iter()
-            .filter_map(|s| std::fs::metadata(ns.dir().join(&s.file)).ok())
-            .map(|m| (m.blocks() * 512).div_ceil(PAGE_SIZE))
+            .filter_map(|s| allocated_bytes(&ns.dir().join(&s.file)).ok())
+            .map(|bytes| bytes.div_ceil(PAGE_SIZE))
             .sum();
         let info = ShmInfo {
             used_ids: t.segs.len() as i32,
@@ -603,7 +615,8 @@ pub fn lock(ns: &Namespace, id: i32, cmd: i32, who: &Caller, memlock: u64) -> Re
     })
 }
 
-#[cfg(test)]
+// These fixtures exercise the native, file-backed IPC namespace.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

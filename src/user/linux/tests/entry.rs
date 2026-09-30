@@ -11,7 +11,7 @@ use crate::user::linux::syscall::Outcome;
 #[test]
 fn the_number_register_is_read_at_the_kernel_width() {
     each_abi(|abi| {
-        let mut h = Harness::new(abi);
+        let mut h = Harness::embedded(abi);
         let pid = h.proc.state.pid as u64;
         let getpid = abi.number(Sysno::Getpid).unwrap();
         let high = getpid | 0x5a5a_0000_0000_0000;

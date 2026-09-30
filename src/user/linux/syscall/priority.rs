@@ -322,6 +322,8 @@ pub fn sched_rr_get_interval(c: &mut Ctx<'_>, pid: i32, interval: u64) -> SysRes
 /// (`uid_for_zero` standing for `who` 0).
 fn targets(c: &Ctx<'_>, group: bool, who: i32, uid_for_zero: u32) -> Vec<i32> {
     if group {
+        let own = c.p.pid;
+        #[cfg(unix)]
         let own = if c.p.config.processes {
             super::super::host::getpgid(0).unwrap_or(c.p.pid)
         } else {

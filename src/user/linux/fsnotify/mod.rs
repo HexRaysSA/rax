@@ -18,8 +18,15 @@
 //! receives what `send_to_group` and `fsnotify_handle_event` give it
 //! ([`deliver`]).
 
+#[cfg(unix)]
 pub mod hub;
 pub mod queue;
+
+/// `max_user_instances` of a fresh guest kernel.
+pub const MAX_USER_INSTANCES: usize = 128;
+/// Guest kernel upper bound for `max_user_watches`.
+pub const MAX_USER_WATCHES: usize = 1 << 20;
+#[cfg(unix)]
 pub mod sys;
 
 /// Where inotify instances come from.
@@ -46,6 +53,7 @@ impl Default for Backend {
 }
 
 /// An inotify instance.
+#[cfg(unix)]
 #[derive(Debug)]
 pub enum Instance {
     /// An instance of the emulated namespace.

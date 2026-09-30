@@ -30,7 +30,7 @@ fn mapped(h: &Harness, addr: u64) -> bool {
 #[test]
 fn mseal_checks_in_the_kernels_order() {
     each_abi(|abi| {
-        let mut h = Harness::new(abi);
+        let mut h = Harness::embedded(abi);
         let m = h.anon(8 * P, RW, false);
         assert_eq!(h.err(Sysno::Mseal, &[m, P, 1]), EINVAL);
         assert_eq!(h.err(Sysno::Mseal, &[m + 1, P, 0]), EINVAL);
@@ -50,6 +50,7 @@ fn mseal_checks_in_the_kernels_order() {
     });
 }
 
+#[cfg(unix)]
 #[test]
 fn a_seal_refuses_unmapping_remapping_and_reprotecting() {
     each_abi(|abi| {
@@ -88,7 +89,7 @@ fn a_seal_keeps_what_could_not_be_written() {
     // can_madvise_modify: discarding advice on sealed private anonymous
     // memory without write permission.
     each_abi(|abi| {
-        let mut h = Harness::new(abi);
+        let mut h = Harness::embedded(abi);
         let w = h.anon(P, RW, false);
         h.fill(w, P, 1);
         h.ok(Sysno::Mseal, &[w, P, 0]);
@@ -115,6 +116,7 @@ fn a_seal_keeps_what_could_not_be_written() {
     });
 }
 
+#[cfg(unix)]
 #[test]
 fn brk_and_shmdt_keep_sealed_pages() {
     each_abi(|abi| {

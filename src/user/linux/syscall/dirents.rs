@@ -78,7 +78,10 @@ fn directory(c: &Ctx<'_>, fd: i32) -> Result<std::sync::Arc<OpenFile>, Errno> {
     let mut st = file.state.lock().unwrap();
     if st.dir.is_none() {
         let entries = match &file.host_path {
+            #[cfg(unix)]
             Some(h) => super::super::fs::read_directory(h)?,
+            #[cfg(not(unix))]
+            Some(_) => return Err(Errno(EPERM)),
             None => Vec::new(),
         };
         st.dir = Some((entries, 0));

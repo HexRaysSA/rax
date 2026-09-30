@@ -51,30 +51,42 @@ The existing `run()` still waits on host events and runs until termination.
 Host-service handlers can themselves block: these Rust scheduling boundaries
 do not establish a hard wall-clock deadline or remove host I/O.
 
-The Linux and Darwin modules still require Unix hosts. They are not yet exposed
-through `rax_process_*`; adding scheduling boundaries alone does not establish
-a closed embedding profile or Windows-host support for these personalities.
-The Windows C ABI behavior and ABI version are unchanged by these Rust APIs.
+The Linux module provides a closed Rust embedding profile on Windows, macOS,
+and Linux. `LinuxConfig::embedded` selects supplied immutable files, captured
+console, seeded entropy, virtual process identity, and guest-local threads,
+signals, clocks, timers, futexes, and shared anonymous mappings. Known calls
+outside its reviewed allowlist return `EPERM`; unknown numbers return `ENOSYS`.
+Host process creation, sockets, filesystem mutation, ptrace, external IPC,
+notifications, and file resizing are not admitted by this profile on any host.
+The legacy Unix host-service profile remains available on Unix hosts and is
+explicitly rejected on Windows. Windows ELF startup also rejects missing
+placeholder mapping APIs before guest execution; private PE execution retains
+its existing fallback.
+
+Darwin still requires Unix hosts. Linux and Darwin are not yet exposed through
+`rax_process_*`. The Windows C ABI behavior and ABI version are unchanged by
+these Rust APIs.
 
 | ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
 | --- | --- | --- | --- | --- | --- |
 | S1 | A scheduling boundary occurs between complete personality dispatches. | Existing Linux/Darwin schedulers retain parked syscall/exception state. | Resumption does not restart a partially executed handler. | Indefinite futex/Mach wait, cancellation, posted wake, and real guest exit through repeated one-turn calls. | Confirmed for tested paths. |
-| S2 | Host-service handlers retain their existing blocking and side-effect behavior. | Existing host adapters remain in the dispatch path. | A turn bound is not a hard time bound or a closed-service profile. | Trace a blocking host syscall; it may exceed the caller's desired wall time. | Retained until an explicit embedding profile replaces those services. |
+| S2 | Legacy host-service handlers retain their existing blocking and side-effect behavior. | The legacy Unix configuration keeps its host adapters. | Its turn bound is not a hard time bound. | Trace a blocking host syscall; it may exceed the caller's desired wall time. | Retained for the legacy profile; the closed Linux profile rejects those handlers. |
+| S3 | Shared mapping mutations are serialized with guest execution. | The address-space ownership contract and dedicated process scheduler thread. | Stable cached host addresses and failed-rollback quarantine. | Native Windows sharing, rollback, and CPU-entry tests; closed shared `mmap`/`mremap`/`msync` tests on all hosts. | Retained; concurrent external mapping mutation violates the contract. |
 
-Affected planes are process scheduler state, Rust process constructors, tests,
-and this embedding contract. No ISA decoder, executor, memory/MMU, SMIR,
-optimizer, native lowering, machine, oracle, or C ABI behavior is added. Guest
-instruction execution and syscall dispatch still use their existing paths.
-The Linux/Darwin tests run on Linux and macOS; the existing Windows-personality
-scheduler and C ABI retain native Windows coverage. Windows hosting of the
-Linux/Darwin personalities remains unfinished and is not advertised as present.
+Affected planes include process scheduling, host adapters, memory ownership,
+syscall dispatch availability, and Rust process construction. The portable
+Linux profile uses the same guest ISA cores and syscall handlers across hosts;
+no instruction semantics or C ABI layouts change. Native CI runs the Linux
+library tests and memory tests on Windows, macOS, and Linux. Tests that require
+the legacy Unix host profile are compiled only on Unix; closed-profile tests
+run on every host and execute all five Linux guest ABIs, including supplied
+ELF interpreters.
 
 Boundary bookkeeping adds O(1) state and work per call, apart from cloning a
 terminal diagnostic. Existing per-turn costs (thread/wait polling and guest
-execution) remain unchanged. High-impact remaining work: explicit host-service
-isolation and portable Linux/Darwin adapters are required before exposing these
-personalities in Assist. Bounded scheduling is a prerequisite, not that
-complete embedding contract.
+execution) remain unchanged. High-impact remaining work is exporting Linux
+through the C ABI and providing the corresponding portable Darwin profile
+before extending Assist's process API to those personalities.
 
 ## Build
 

@@ -54,10 +54,15 @@ pub fn find(c: &Ctx<'_>, pid: i32) -> Result<Task, Errno> {
     if !c.p.config.processes {
         return Err(Errno(ESRCH));
     }
-    match host::kill(pid, 0) {
-        Err(Errno(ESRCH)) => Err(Errno(ESRCH)),
-        _ => Ok(Task::Other { zombie: false }),
+    #[cfg(unix)]
+    {
+        match host::kill(pid, 0) {
+            Err(Errno(ESRCH)) => Err(Errno(ESRCH)),
+            _ => Ok(Task::Other { zombie: false }),
+        }
     }
+    #[cfg(not(unix))]
+    Err(Errno(ESRCH))
 }
 
 /// `pidfd_get_task`: the thread-group leader a pidfd names (the caller or

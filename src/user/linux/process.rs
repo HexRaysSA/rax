@@ -304,11 +304,7 @@ impl Entropy {
                 }
                 Ok(())
             }
-            None => {
-                use std::io::Read;
-                std::fs::File::open("/dev/urandom")?.read_exact(buf)?;
-                Ok(())
-            }
+            None => getrandom::fill(buf).map_err(|_| Errno(super::abi::errno_table::EIO)),
         }
     }
 }
@@ -446,6 +442,7 @@ pub struct ProcState {
     pub group_stop: Option<i32>,
     /// The emulated file-system notification namespace, when the backend
     /// is the emulated one and its namespace could be opened.
+    #[cfg(unix)]
     pub fsnotify: Option<std::sync::Arc<super::fsnotify::hub::Hub>>,
     /// What the running image keeps open (its executable and interpreter).
     pub exec_keep: Vec<crate::user::mm::Keep>,
@@ -689,6 +686,7 @@ pub struct LinuxProcess {
 
 /// Wraps an inherited host descriptor as a guest standard stream with the
 /// host descriptor's access mode.
+#[cfg(unix)]
 fn stdio(fd: i32, host: std::io::Result<std::os::fd::OwnedFd>) -> Option<Arc<OpenFile>> {
     let owned = host.ok()?;
     let mode = super::host::access_mode(&owned).ok()?;
@@ -709,6 +707,11 @@ fn stdio(fd: i32, host: std::io::Result<std::os::fd::OwnedFd>) -> Option<Arc<Ope
 impl LinuxProcess {
     /// Performs `execve` of `image` as the process's initial program.
     pub fn spawn(config: LinuxConfig, image: ImageFile) -> Result<Self, SpawnError> {
+        super::embedding::validate_host(
+            &config,
+            super::HOST_SERVICES_AVAILABLE,
+            crate::user::mm::FrameArena::supports_shared_mappings(),
+        )?;
         if !config.host_services {
             super::embedding::validate(&config)?;
         }
@@ -736,11 +739,17 @@ impl LinuxProcess {
                 .unwrap_or(exe_guest);
             (vfs, path, Some(host))
         };
-        let creds = if config.host_services {
-            super::host::credentials()
-        } else {
-            (0, 0, 0, 0)
-        };
+        let mut creds = (0, 0, 0, 0);
+        let mut ppid = 1;
+        let mut groups = Vec::new();
+        let mut umask = 0o022;
+        #[cfg(unix)]
+        if config.host_services {
+            creds = super::host::credentials();
+            ppid = super::host::ppid();
+            groups = super::host::groups();
+            umask = super::host::umask() & 0o777;
+        }
         let mut entropy = Entropy::new(config.seed);
         let img = super::exec::load_image(
             super::exec::ImageRequest {
@@ -787,6 +796,7 @@ impl LinuxProcess {
                         .expect("standard descriptors are below the limit");
                 }
             }
+            #[cfg(unix)]
             crate::user::console::Console::Host => {
                 use std::os::fd::AsFd;
                 for (fd, host) in [
@@ -800,6 +810,12 @@ impl LinuxProcess {
                     }
                 }
             }
+            #[cfg(windows)]
+            crate::user::console::Console::Host => {
+                return Err(SpawnError::Unsupported(
+                    "closed Linux embedding requires captured console".into(),
+                ));
+            }
         }
 
         let pid = if config.host_services {
@@ -808,8 +824,10 @@ impl LinuxProcess {
             super::embedding::PID
         };
         let config_ipc_dir = config.ipc_dir.clone();
+        #[cfg(unix)]
         let fsnotify = match &config.fsnotify {
-            super::fsnotify::Backend::Host | super::fsnotify::Backend::Disabled => None,
+            super::fsnotify::Backend::Disabled => None,
+            super::fsnotify::Backend::Host => None,
             super::fsnotify::Backend::Emulated(dir) => super::fsnotify::hub::Hub::open(
                 dir.clone()
                     .unwrap_or_else(super::fsnotify::hub::Hub::default_dir),
@@ -823,26 +841,14 @@ impl LinuxProcess {
             vfs,
             fds,
             pid,
-            ppid: if config.host_services {
-                super::host::ppid()
-            } else {
-                1
-            },
+            ppid,
             creds,
             // A new process inherits its parent's groups.
-            groups: if config.host_services {
-                super::host::groups()
-            } else {
-                vec![]
-            },
+            groups,
             mm: img.mm,
             rlimits: default_rlimits(config.stack_limit),
             // A new process inherits its parent's umask.
-            umask: if config.host_services {
-                super::host::umask() & 0o777
-            } else {
-                0o022
-            },
+            umask,
             sigactions: [SigAction::default(); 64],
             comm: img.comm,
             exe_path: img.exe_path,
@@ -870,9 +876,16 @@ impl LinuxProcess {
             pidfds: Default::default(),
             forked: None,
             exec_id: 0,
-            ipc: if host_services {
-                super::ipc::IpcState::new(config_ipc_dir)
-            } else {
+            ipc: {
+                #[cfg(unix)]
+                {
+                    if host_services {
+                        super::ipc::IpcState::new(config_ipc_dir)
+                    } else {
+                        super::ipc::IpcState::disabled()
+                    }
+                }
+                #[cfg(not(unix))]
                 super::ipc::IpcState::disabled()
             },
             aio: Default::default(),
@@ -881,6 +894,7 @@ impl LinuxProcess {
             adopted: Vec::new(),
             tracer_link: None,
             group_stop: None,
+            #[cfg(unix)]
             fsnotify,
             exec_keep: Vec::new(),
             locked_vm_users: Default::default(),

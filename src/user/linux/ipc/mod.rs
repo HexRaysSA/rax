@@ -34,6 +34,7 @@ pub mod shm;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{Read, Write};
+#[cfg(unix)]
 use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 
@@ -249,6 +250,7 @@ pub struct Namespace {
 
 impl Namespace {
     /// The namespace in `dir` (made, owner-only, if missing).
+    #[cfg(unix)]
     pub fn at(dir: PathBuf) -> Self {
         Namespace {
             dir,
@@ -258,6 +260,7 @@ impl Namespace {
 
     /// The default namespace: one per host user under the temporary
     /// directory.
+    #[cfg(unix)]
     pub fn default_dir() -> PathBuf {
         // SAFETY: geteuid has no failure mode.
         let uid = unsafe { libc::geteuid() };
@@ -269,6 +272,7 @@ impl Namespace {
         &self.dir
     }
 
+    #[cfg(unix)]
     fn ensure(&self) -> Result<(), Errno> {
         if self.disabled {
             return Err(Errno(EPERM));
@@ -283,24 +287,29 @@ impl Namespace {
 
     /// Runs `f` under type `name`'s lock.
     pub fn locked<R>(&self, name: &str, f: impl FnOnce() -> Result<R, Errno>) -> Result<R, Errno> {
-        self.ensure()?;
-        let lock = File::options()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(self.dir.join(format!("{name}.lock")))
-            .map_err(Errno::from)?;
-        // SAFETY: flock takes the descriptor and an integer operation; the
-        // lock is released when `lock` is closed.
-        while unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX) } != 0 {
-            if std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
-                return Err(Errno(EIO));
+        #[cfg(unix)]
+        {
+            self.ensure()?;
+            let lock = File::options()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(self.dir.join(format!("{name}.lock")))
+                .map_err(Errno::from)?;
+            // SAFETY: flock takes the descriptor and an integer operation; the
+            // lock is released when `lock` is closed.
+            while unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX) } != 0 {
+                if std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
+                    return Err(Errno(EIO));
+                }
             }
+            let r = f();
+            drop(lock);
+            r
         }
-        let r = f();
-        drop(lock);
-        r
+        #[cfg(not(unix))]
+        Err(Errno(EPERM))
     }
 
     /// Runs `f` on table `name` under its lock, writing back what `f`
@@ -400,6 +409,7 @@ impl IpcState {
     }
     /// The state of a process in the namespace at `dir` (the default one
     /// without).
+    #[cfg(unix)]
     pub fn new(dir: Option<PathBuf>) -> Self {
         IpcState {
             ns: Namespace::at(dir.unwrap_or_else(Namespace::default_dir)),
@@ -423,9 +433,14 @@ pub fn alive(pid: i32) -> bool {
     if pid <= 0 {
         return false;
     }
-    // SAFETY: kill with signal 0 only checks that the process exists.
-    let r = unsafe { libc::kill(pid, 0) };
-    r == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+    #[cfg(unix)]
+    {
+        // SAFETY: kill with signal 0 only checks that the process exists.
+        let r = unsafe { libc::kill(pid, 0) };
+        r == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+    }
+    #[cfg(windows)]
+    super::host::process_alive(pid)
 }
 
 /// The real time in seconds (`ktime_get_real_seconds`).

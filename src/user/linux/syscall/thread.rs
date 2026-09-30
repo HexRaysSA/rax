@@ -168,6 +168,7 @@ struct CloneArgs {
 pub fn clone(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
     match c.resume.take() {
         Some(Resume::Vfork { child }) => return vfork_done(c, child),
+        #[cfg(unix)]
         Some(Resume::VforkChild { pid }) => return super::child::vfork_wait(c, pid),
         _ => {}
     }
@@ -196,6 +197,7 @@ pub fn clone(c: &mut Ctx<'_>, a: [u64; 6]) -> Result<Outcome, Errno> {
 pub fn clone3(c: &mut Ctx<'_>, uargs: u64, size: u64) -> Result<Outcome, Errno> {
     match c.resume.take() {
         Some(Resume::Vfork { child }) => return vfork_done(c, child),
+        #[cfg(unix)]
         Some(Resume::VforkChild { pid }) => return super::child::vfork_wait(c, pid),
         _ => {}
     }
@@ -308,6 +310,9 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     }
     // A new process.
     if flags & CLONE_THREAD == 0 {
+        #[cfg(not(unix))]
+        return Err(Errno(ENOSYS));
+        #[cfg(unix)]
         return super::child::fork(
             c,
             super::child::ForkArgs {

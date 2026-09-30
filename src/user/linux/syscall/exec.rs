@@ -11,6 +11,7 @@
 //! A file readable only by its execute permission cannot be read on the
 //! host, so it fails with `EACCES` where Linux runs it.
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
@@ -45,6 +46,7 @@ struct ExecFile {
 
 /// Whether the caller may execute a file with `mode` owned by `uid`/`gid`
 /// (`generic_permission` with `MAY_EXEC`; root needs one execute bit).
+#[cfg(unix)]
 fn may_exec(c: &Ctx<'_>, meta: &std::fs::Metadata) -> bool {
     use std::os::unix::fs::MetadataExt;
     let mode = meta.permissions().mode();
@@ -107,14 +109,22 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
                 }
                 return Err(Errno(EACCES));
             }
-            let host = file.host_path.clone().ok_or(Errno(EACCES))?;
-            check_exec(c, &host, true)?;
-            Ok(ExecFile {
-                guest: c.p.vfs.guest_path_of(&host),
-                host: Some(host),
-                bytes: None,
-            })
+            #[cfg(unix)]
+            {
+                let host = file.host_path.clone().ok_or(Errno(EACCES))?;
+                check_exec(c, &host, true)?;
+                Ok(ExecFile {
+                    guest: c.p.vfs.guest_path_of(&host),
+                    host: Some(host),
+                    bytes: None,
+                })
+            }
+            #[cfg(not(unix))]
+            Err(Errno(EPERM))
         }
+        #[cfg(not(unix))]
+        Target::Host { .. } => Err(Errno(EPERM)),
+        #[cfg(unix)]
         Target::Host { guest: _, host } => {
             check_exec(c, &host, follow)?;
             let real = std::fs::canonicalize(&host).unwrap_or_else(|_| host.clone());
@@ -130,6 +140,7 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
 /// `may_open` with `MAY_EXEC`: a directory or other non-regular file is
 /// `EACCES`, as is a file without execute permission; a symbolic link that
 /// may not be followed is `ELOOP`.
+#[cfg(unix)]
 fn check_exec(c: &Ctx<'_>, host: &std::path::Path, follow: bool) -> Result<(), Errno> {
     let meta = if follow {
         std::fs::metadata(host)?
@@ -269,6 +280,7 @@ pub fn execveat(
     let mut interp = filename.clone().into_bytes();
     let mut depth = 0;
     // open_exec: each file the handlers read is opened for execution.
+    #[cfg(unix)]
     let mut opened = file
         .host
         .as_ref()
@@ -283,6 +295,7 @@ pub fn execveat(
             None => std::fs::read(file.host.as_ref().expect("host executable has a path"))?.into(),
         };
         // prepare_binprm's read (and the handlers' after it).
+        #[cfg(unix)]
         if let Some(t) = &opened {
             t.event(IN_ACCESS);
         }
@@ -312,11 +325,14 @@ pub fn execveat(
                 file = open_exec(c, AT_FDCWD, &path, 0)?;
                 // load_script opens the interpreter, then exec_binprm
                 // releases the script.
-                let next = file
-                    .host
-                    .as_ref()
-                    .and_then(|host| super::notify::exec_open(c, host));
-                drop(std::mem::replace(&mut opened, next));
+                #[cfg(unix)]
+                {
+                    let next = file
+                        .host
+                        .as_ref()
+                        .and_then(|host| super::notify::exec_open(c, host));
+                    drop(std::mem::replace(&mut opened, next));
+                }
             }
         }
     };
@@ -343,6 +359,7 @@ pub fn execveat(
         exec::load_image(request, &c.p.vfs, creds, &mut c.p.entropy).map_err(|e| load_errno(&e))?;
     // load_elf_binary opens and reads the interpreter.
     let interp_path = image.mm.program.interp_path.clone();
+    #[cfg(unix)]
     if let Some(p) = interp_path
         && c.p.vfs.supplied().is_none()
     {
@@ -352,6 +369,7 @@ pub fn execveat(
             image.keep.push(t);
         }
     }
+    #[cfg(unix)]
     if let Some(t) = opened {
         image.keep.insert(0, t);
     }

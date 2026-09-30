@@ -695,7 +695,8 @@ pub fn involved(ns: &Namespace, pid: i32) -> bool {
     .unwrap_or(false)
 }
 
-#[cfg(test)]
+// These fixtures exercise the native, file-backed IPC namespace.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 

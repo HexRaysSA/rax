@@ -382,6 +382,7 @@ pub fn force_sigsegv(p: &mut ProcState, th: &mut Threads<'_>, sig: i32) {
 /// leader, and the signals of expired POSIX timers.
 pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
     let leader = p.pid;
+    #[cfg(unix)]
     if p.config.host_services {
         // Tracing messages: a tracee's answers and stops, a tracer's requests.
         crate::user::linux::ptrace::tracee::poll_links(p, th);
@@ -643,15 +644,18 @@ impl LinuxProcess {
                 return Next::Traced;
             }
             if default_stops(sig) {
-                if !p.config.host_services {
+                if !p.config.host_services || !crate::user::linux::HOST_SERVICES_AVAILABLE {
                     p.group_stop = Some(sig);
                     return Next::Stopped;
                 }
                 // Group stop. Process groups are never treated as
                 // orphaned, so SIGTSTP/SIGTTIN/SIGTTOU stop as SIGSTOP does:
                 // the host process stops until the host continues it.
-                let _ = std::io::Write::flush(&mut std::io::stdout());
-                crate::user::linux::host::stop_self();
+                #[cfg(unix)]
+                {
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                    crate::user::linux::host::stop_self();
+                }
                 continue;
             }
             let pc = t.cpu.pc();

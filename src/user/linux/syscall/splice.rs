@@ -131,7 +131,9 @@ fn has_splice_read(f: &OpenFile) -> bool {
             FileType::CharDevice => f.path != "/dev/null",
             _ => false,
         },
-        FileObject::Socket(_) | FileObject::Synthetic(_) => true,
+        #[cfg(unix)]
+        FileObject::Socket(_) => true,
+        FileObject::Synthetic(_) => true,
         _ => false,
     }
 }
@@ -146,6 +148,7 @@ fn has_splice_write(f: &OpenFile) -> bool {
             FileType::CharDevice => f.path != "/dev/full",
             _ => false,
         },
+        #[cfg(unix)]
         FileObject::Socket(_) => true,
         _ => false,
     }
@@ -164,6 +167,7 @@ fn queued(f: &OpenFile) -> u64 {
     let n = match &f.object {
         FileObject::PipeRead(p) => host::bytes_readable(p),
         FileObject::Host(h) => host::bytes_readable(h),
+        #[cfg(unix)]
         FileObject::Socket(s) => host::bytes_readable(&s.file),
         _ => Ok(0),
     };
@@ -201,6 +205,7 @@ fn broken(r: host::Readiness) -> bool {
 fn take(f: &OpenFile, n: u64) -> Result<Vec<u8>, Errno> {
     let mut b = vec![0u8; n as usize];
     let got = match &f.object {
+        #[cfg(unix)]
         FileObject::Socket(s) => {
             super::super::net::sys::recv(&s.file, &mut b, libc::MSG_DONTWAIT).map(|(n, _)| n)?
         }
@@ -218,6 +223,7 @@ fn put(f: &OpenFile, data: &[u8], pos: Option<u64>) -> Result<usize, Errno> {
     #[cfg(not(target_os = "linux"))]
     let quiet = 0;
     match (&f.object, pos) {
+        #[cfg(unix)]
         (FileObject::Socket(s), _) => {
             super::super::net::sys::send(&s.file, data, libc::MSG_DONTWAIT | quiet, None)
         }
@@ -405,7 +411,7 @@ fn to_pipe(
             Ok(d) => d,
             Err(Errno(EAGAIN)) if moved == 0 => {
                 let own = input.flags() & O_NONBLOCK != 0;
-                let socket = matches!(input.object, FileObject::Socket(_));
+                let socket = input.is_socket();
                 if own || (socket && nonblock) {
                     return Err(Errno(EAGAIN));
                 }

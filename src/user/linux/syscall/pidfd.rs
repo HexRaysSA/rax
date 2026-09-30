@@ -367,7 +367,9 @@ fn process_group(c: &mut Ctx<'_>, pgid: i32, sig: i32, info: SigInfo) -> SysResu
         if pgid != c.p.pid {
             return Err(Errno(ESRCH));
         }
-    } else if pgid != host::getpgid(0)? {
+    }
+    #[cfg(unix)]
+    if c.p.config.processes && pgid != host::getpgid(0)? {
         return super::signal::other_process(c, -pgid, sig);
     }
     // The caller's own group: its other members through the host, the
@@ -375,6 +377,7 @@ fn process_group(c: &mut Ctx<'_>, pgid: i32, sig: i32, info: SigInfo) -> SysResu
     if !valid_signal(sig) && sig != 0 {
         return Err(Errno(EINVAL));
     }
+    #[cfg(unix)]
     if c.p.config.processes && (host::host_signal(sig).is_some() || sig == 0) {
         host::kill_group_but_self(pgid, sig)?;
     }
@@ -558,6 +561,9 @@ fn pidfd_info(c: &mut Ctx<'_>, t: &Target, usize: usize, arg: u64) -> SysResult 
         let (ppid, uids, gids) = if own {
             (c.p.ppid, (u, e, e), (g, eg, eg))
         } else {
+            #[cfg(not(unix))]
+            return Err(Errno(ESRCH));
+            #[cfg(unix)]
             match (host::proc_ids(t.tgid), st) {
                 (Ok(ids), _) => (ids.ppid, ids.uids, ids.gids),
                 // A zombie child: the host no longer has it.

@@ -68,10 +68,9 @@ fn file_times(c: &Ctx<'_>, file: &OpenFile, t: [SetTime; 2]) -> SysResult {
         }
         FileObject::Anon(_) | FileObject::Console { .. } => return Err(Errno(EOPNOTSUPP)),
         FileObject::Mqueue(h) => return super::mqueue::set_times(c, h, t),
-        FileObject::PipeRead(_)
-        | FileObject::PipeWrite(_)
-        | FileObject::Socket(_)
-        | FileObject::Synthetic(_) => {}
+        #[cfg(unix)]
+        FileObject::Socket(_) => {}
+        FileObject::PipeRead(_) | FileObject::PipeWrite(_) | FileObject::Synthetic(_) => {}
     }
     Ok(0)
 }

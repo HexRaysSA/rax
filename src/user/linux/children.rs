@@ -10,9 +10,14 @@
 //! until the guest waits for it (`wait_task_zombie`) or it is reaped
 //! automatically (`SIGCHLD` ignored, `SA_NOCLDWAIT`).
 
+#[cfg(unix)]
 use std::os::fd::{AsRawFd, OwnedFd};
 
-use super::host::{self, ChildRusage, HostWait};
+#[cfg(unix)]
+use super::host::{self, HostWait};
+
+/// User CPU microseconds, system CPU microseconds, and peak RSS in KiB.
+pub type ChildRusage = (u64, u64, u64);
 
 /// A child process.
 #[derive(Debug)]
@@ -20,7 +25,10 @@ pub struct Child {
     /// Its PID (the host PID).
     pub pid: i32,
     /// The read end of its status-record pipe.
+    #[cfg(unix)]
     status: OwnedFd,
+    #[cfg(not(unix))]
+    unavailable: std::convert::Infallible,
     /// The signal its exit sends the parent (`exit_signal`); 0 for none.
     pub exit_signal: i32,
     /// The thread that created it (`__WNOTHREAD`).
@@ -75,6 +83,7 @@ pub fn signaled_status(sig: i32, core: bool) -> i32 {
 
 impl Children {
     /// Records a new child.
+    #[cfg(unix)]
     pub fn add(
         &mut self,
         pid: i32,
@@ -121,6 +130,7 @@ impl Children {
 
     /// The status-pipe descriptors of children that have not ended, for a
     /// sleeping `wait` or `vfork`.
+    #[cfg(unix)]
     pub fn live_fds(&self, pids: impl Fn(&Child) -> bool) -> Vec<(i32, bool, bool)> {
         self.list
             .iter()
@@ -131,6 +141,7 @@ impl Children {
 
     /// Reads new status records and host state changes, returning the
     /// changes in order.
+    #[cfg(unix)]
     pub fn poll(&mut self) -> Vec<ChildEvent> {
         let mut events = Vec::new();
         for c in self.list.iter_mut().filter(|c| c.zombie.is_none()) {
@@ -181,6 +192,7 @@ impl Children {
 
 /// Reads a child's available status records: `E` (it called `execve`) and
 /// `X` followed by its little-endian Linux wait status.
+#[cfg(unix)]
 fn read_records(c: &mut Child) {
     let mut buf = [0u8; 64];
     loop {
@@ -213,7 +225,10 @@ fn read_records(c: &mut Child) {
 #[derive(Debug)]
 pub struct ForkedSelf {
     /// The write end.
+    #[cfg(unix)]
     pub status: OwnedFd,
+    #[cfg(not(unix))]
+    unavailable: std::convert::Infallible,
     /// The parent sleeps in `CLONE_VFORK` until this process calls
     /// `execve` or ends.
     pub vfork: bool,
@@ -227,6 +242,7 @@ impl PartialEq for ForkedSelf {
 
 impl Eq for ForkedSelf {}
 
+#[cfg(unix)]
 impl ForkedSelf {
     fn write(&self, rec: &[u8]) {
         // SAFETY: `rec` is readable for its length; a write of at most

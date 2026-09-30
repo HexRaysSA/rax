@@ -36,6 +36,7 @@
 
 pub mod admin;
 pub mod aio;
+#[cfg(unix)]
 pub mod child;
 pub mod compat;
 pub mod copy;
@@ -45,6 +46,7 @@ pub mod events;
 pub mod exec;
 pub mod fcntl;
 pub mod futex;
+#[cfg(unix)]
 pub mod inotify;
 pub mod io;
 pub mod iov;
@@ -57,6 +59,7 @@ pub mod mlock;
 pub mod mount;
 pub mod mqueue;
 pub mod mseal;
+#[cfg(unix)]
 pub mod net;
 pub mod notify;
 pub mod path;
@@ -64,11 +67,13 @@ pub mod pidfd;
 pub mod priority;
 pub mod process;
 pub mod procmem;
+#[cfg(unix)]
 pub mod ptrace;
 pub mod ready;
 pub mod rseq;
 pub mod seccomp;
 pub mod signal;
+#[cfg(unix)]
 pub mod splice;
 pub mod task;
 pub mod thread;
@@ -76,6 +81,7 @@ pub mod time;
 pub mod timeabi;
 pub mod timer;
 pub mod uring;
+#[cfg(unix)]
 pub mod utimes;
 pub mod xattr;
 
@@ -422,9 +428,13 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Clone3 => thread::clone3(c, a[0], a[1]),
         S::SchedYield => Ok(Outcome::Yield(0)),
         S::Execve => exec::execve(c, a[0], a[1], a[2]),
+        #[cfg(unix)]
         S::Fork => child::sys_fork(c),
+        #[cfg(unix)]
         S::Vfork => child::sys_vfork(c),
+        #[cfg(unix)]
         S::Wait4 => child::wait4(c, a[0] as i32, a[1], a[2] as u32, a[3]),
+        #[cfg(unix)]
         S::Waitid => child::waitid(c, a[0] as i32, a[1] as i32, a[2], a[3] as u32, a[4]),
         S::Execveat => exec::execveat(c, fd(a[0]), a[1], a[2], a[3], a[4] as u32),
 
@@ -447,7 +457,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Dup3 => r(io::dup3(c, fd(a[0]), fd(a[1]), a[2] as u32)),
         S::Fcntl => r(fcntl::fcntl(c, fd(a[0]), a[1] as u32, a[2])),
         S::Ioctl => r(fcntl::ioctl(c, fd(a[0]), a[1] as u32, a[2])),
+        #[cfg(unix)]
         S::Pipe => r(io::pipe2(c, a[0], 0)),
+        #[cfg(unix)]
         S::Pipe2 => r(io::pipe2(c, a[0], a[1] as u32)),
         S::Poll => io::poll(c, a[0], a[1], a[2] as i32 as i64),
         S::Ppoll => io::ppoll(c, a[0], a[1], a[2], a[3], a[4]),
@@ -474,6 +486,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[2] as i64,
             a[3] as u32,
         )),
+        #[cfg(unix)]
         S::Flock => r(locks::flock(c, fd(a[0]), a[1] as u32)),
         S::Getdents64 => r(dirents::getdents(c, fd(a[0]), a[1], a[2], Dirent::Dirent64)),
         S::Getdents => r(dirents::getdents(c, fd(a[0]), a[1], a[2], Dirent::Long)),
@@ -529,11 +542,17 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Getcwd => r(path::getcwd(c, a[0], a[1])),
         S::Chdir => r(path::chdir(c, a[0])),
         S::Fchdir => r(path::fchdir(c, fd(a[0]))),
+        #[cfg(unix)]
         S::Mkdir => r(path::mkdirat(c, path::AT_FDCWD, a[0], a[1] as u32)),
+        #[cfg(unix)]
         S::Mkdirat => r(path::mkdirat(c, fd(a[0]), a[1], a[2] as u32)),
+        #[cfg(unix)]
         S::Rmdir => r(path::unlinkat(c, path::AT_FDCWD, a[0], path::AT_REMOVEDIR)),
+        #[cfg(unix)]
         S::Unlink => r(path::unlinkat(c, path::AT_FDCWD, a[0], 0)),
+        #[cfg(unix)]
         S::Unlinkat => r(path::unlinkat(c, fd(a[0]), a[1], a[2] as u32)),
+        #[cfg(unix)]
         S::Rename => r(path::renameat2(
             c,
             path::AT_FDCWD,
@@ -542,7 +561,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[1],
             0,
         )),
+        #[cfg(unix)]
         S::Renameat => r(path::renameat2(c, fd(a[0]), a[1], fd(a[2]), a[3], 0)),
+        #[cfg(unix)]
         S::Renameat2 => r(path::renameat2(
             c,
             fd(a[0]),
@@ -551,6 +572,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[3],
             a[4] as u32,
         )),
+        #[cfg(unix)]
         S::Link => r(path::linkat(
             c,
             path::AT_FDCWD,
@@ -559,13 +581,21 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[1],
             0,
         )),
+        #[cfg(unix)]
         S::Linkat => r(path::linkat(c, fd(a[0]), a[1], fd(a[2]), a[3], a[4] as u32)),
+        #[cfg(unix)]
         S::Symlink => r(path::symlinkat(c, a[0], path::AT_FDCWD, a[1])),
+        #[cfg(unix)]
         S::Symlinkat => r(path::symlinkat(c, a[0], fd(a[1]), a[2])),
+        #[cfg(unix)]
         S::Chmod => r(path::fchmodat(c, path::AT_FDCWD, a[0], a[1] as u32, 0)),
+        #[cfg(unix)]
         S::Fchmod => r(path::fchmod(c, fd(a[0]), a[1] as u32)),
+        #[cfg(unix)]
         S::Fchmodat => r(path::fchmodat(c, fd(a[0]), a[1], a[2] as u32, 0)),
+        #[cfg(unix)]
         S::Fchmodat2 => r(path::fchmodat(c, fd(a[0]), a[1], a[2] as u32, a[3] as u32)),
+        #[cfg(unix)]
         S::Chown => r(path::fchownat(
             c,
             path::AT_FDCWD,
@@ -574,6 +604,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[2] as u32,
             0,
         )),
+        #[cfg(unix)]
         S::Lchown => r(path::fchownat(
             c,
             path::AT_FDCWD,
@@ -582,7 +613,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[2] as u32,
             path::AT_SYMLINK_NOFOLLOW,
         )),
+        #[cfg(unix)]
         S::Fchown => r(path::fchown(c, fd(a[0]), a[1] as u32, a[2] as u32)),
+        #[cfg(unix)]
         S::Fchownat => r(path::fchownat(
             c,
             fd(a[0]),
@@ -591,11 +624,17 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[3] as u32,
             a[4] as u32,
         )),
+        #[cfg(unix)]
         S::Truncate => r(path::truncate(c, a[0], a[1] as i64)),
+        #[cfg(unix)]
         S::Utimensat => r(utimes::utimensat(c, fd(a[0]), a[1], a[2], a[3] as u32)),
+        #[cfg(unix)]
         S::Futimesat => r(utimes::futimesat(c, fd(a[0]), a[1], a[2])),
+        #[cfg(unix)]
         S::Utimes => r(utimes::futimesat(c, path::AT_FDCWD, a[0], a[1])),
+        #[cfg(unix)]
         S::Utime => r(utimes::utime(c, a[0], a[1])),
+        #[cfg(unix)]
         S::Mknod => r(path::mknodat(
             c,
             path::AT_FDCWD,
@@ -603,6 +642,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[1] as u32,
             a[2] as u32,
         )),
+        #[cfg(unix)]
         S::Mknodat => r(path::mknodat(c, fd(a[0]), a[1], a[2] as u32, a[3] as u32)),
         S::Setxattr => r(xattr::setxattr(c, a[0], 0, a)),
         S::Lsetxattr => r(xattr::setxattr(c, a[0], path::AT_SYMLINK_NOFOLLOW, a)),
@@ -672,7 +712,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Munlockall => r(mlock::munlockall(c)),
         S::Mseal => r(mseal::mseal(c, a[0], a[1], a[2])),
         S::Rseq => r(rseq::rseq(c, a[0], a[1] as u32, a[2] as i32, a[3] as u32)),
+        #[cfg(unix)]
         S::Ptrace => r(ptrace::ptrace(c, a[0], a[1] as i64, a[2], a[3])),
+        #[cfg(unix)]
         S::Splice => r(splice::splice(
             c,
             a[0] as i32,
@@ -682,7 +724,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[4],
             a[5] as u32,
         )),
+        #[cfg(unix)]
         S::Vmsplice => r(splice::vmsplice(c, a[0] as i32, a[1], a[2], a[3] as u32)),
+        #[cfg(unix)]
         S::Tee => r(splice::tee(c, a[0] as i32, a[1] as i32, a[2], a[3] as u32)),
         S::IoSetup => r(aio::io_setup(c, a[0] as u32, a[1])),
         S::IoDestroy => r(aio::io_destroy(c, a[0])),
@@ -724,6 +768,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         )),
         S::Mincore => r(mem::mincore(c, a[0], a[1], a[2])),
         S::RiscvFlushIcache => r(Ok(0)),
+        #[cfg(unix)]
         S::MemfdCreate => r(memfd::memfd_create(c, a[0], a[1] as u32)),
         S::ProcessVmReadv => r(procmem::process_vm_readv(
             c,
@@ -762,11 +807,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
 
         // ------------------------------------------------------- process
         S::Getpid => r(Ok(c.p.pid as u64)),
-        S::Getppid => r(Ok(if c.p.config.host_services {
-            super::host::ppid()
-        } else {
-            c.p.ppid
-        } as u64)),
+        S::Getppid => r(Ok(process::getppid(c))),
         S::Gettid => r(Ok(c.t.tid as u64)),
         S::Getuid => r(Ok(u64::from(c.p.creds.0))),
         S::Geteuid => r(Ok(u64::from(c.p.creds.1))),
@@ -783,7 +824,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Getpgid => r(process::getpgid(c, a[0] as i32)),
         S::Getpgrp => r(process::getpgid(c, 0)),
         S::Getsid => r(process::getsid(c, a[0] as i32)),
+        #[cfg(unix)]
         S::Setpgid => r(process::setpgid(c, a[0] as i32, a[1] as i32)),
+        #[cfg(unix)]
         S::Setsid => r(super::host::setsid().map(|s| s as u64)),
         S::SetTidAddress => r(thread::set_tid_address(c, a[0])),
         S::Unshare => r(thread::unshare(c, a[0])),
@@ -883,9 +926,13 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         // ----------------------------------- event, timer, signal files
         S::Eventfd => r(events::eventfd2(c, a[0] as u32, 0)),
         S::Eventfd2 => r(events::eventfd2(c, a[0] as u32, a[1] as u32)),
+        #[cfg(unix)]
         S::InotifyInit => r(inotify::init1(c, 0)),
+        #[cfg(unix)]
         S::InotifyInit1 => r(inotify::init1(c, a[0] as u32)),
+        #[cfg(unix)]
         S::InotifyAddWatch => r(inotify::add_watch(c, fd(a[0]), a[1], a[2] as u32)),
+        #[cfg(unix)]
         S::InotifyRmWatch => r(inotify::rm_watch(c, fd(a[0]), a[1] as i32)),
         S::TimerfdCreate => r(events::timerfd_create(c, a[0] as i32, a[1] as u32)),
         S::TimerfdSettime => r(events::timerfd_settime(
@@ -946,7 +993,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::FutexRequeue => futex::futex_requeue(c, a[0], a[1] as u32, a[2] as i32, a[3] as i32),
 
         // ------------------------------------------------------- sockets
+        #[cfg(unix)]
         S::Socket => r(net::socket(c, a[0] as i32, a[1] as i32, a[2] as i32)),
+        #[cfg(unix)]
         S::Socketpair => r(net::socketpair(
             c,
             a[0] as i32,
@@ -954,13 +1003,21 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[2] as i32,
             a[3],
         )),
+        #[cfg(unix)]
         S::Bind => r(net::bind(c, fd(a[0]), a[1], a[2] as i32)),
+        #[cfg(unix)]
         S::Listen => r(net::listen(c, fd(a[0]), a[1] as i32)),
+        #[cfg(unix)]
         S::Accept => r(net::accept4(c, fd(a[0]), a[1], a[2], 0)),
+        #[cfg(unix)]
         S::Accept4 => r(net::accept4(c, fd(a[0]), a[1], a[2], a[3] as i32)),
+        #[cfg(unix)]
         S::Connect => r(net::connect(c, fd(a[0]), a[1], a[2] as i32)),
+        #[cfg(unix)]
         S::Getsockname => r(net::getname(c, fd(a[0]), a[1], a[2], false)),
+        #[cfg(unix)]
         S::Getpeername => r(net::getname(c, fd(a[0]), a[1], a[2], true)),
+        #[cfg(unix)]
         S::Sendto => r(net::io::sendto(
             c,
             fd(a[0]),
@@ -970,6 +1027,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[4],
             a[5] as i32,
         )),
+        #[cfg(unix)]
         S::Recvfrom => r(net::io::recvfrom(
             c,
             fd(a[0]),
@@ -979,8 +1037,11 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[4],
             a[5],
         )),
+        #[cfg(unix)]
         S::Sendmsg => r(net::io::sendmsg(c, fd(a[0]), a[1], a[2] as u32)),
+        #[cfg(unix)]
         S::Recvmsg => r(net::io::recvmsg(c, fd(a[0]), a[1], a[2] as u32)),
+        #[cfg(unix)]
         S::Sendmmsg => r(net::io::sendmmsg(
             c,
             fd(a[0]),
@@ -988,6 +1049,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[2] as u32,
             a[3] as u32,
         )),
+        #[cfg(unix)]
         S::Recvmmsg => r(net::io::recvmmsg(
             c,
             fd(a[0]),
@@ -996,7 +1058,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[3] as u32,
             a[4],
         )),
+        #[cfg(unix)]
         S::Shutdown => r(net::shutdown(c, fd(a[0]), a[1] as i32)),
+        #[cfg(unix)]
         S::Setsockopt => r(net::setsockopt(
             c,
             fd(a[0]),
@@ -1005,6 +1069,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[3],
             a[4] as i32,
         )),
+        #[cfg(unix)]
         S::Getsockopt => r(net::getsockopt(
             c,
             fd(a[0]),

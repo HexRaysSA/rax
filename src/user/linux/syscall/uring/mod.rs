@@ -13,6 +13,7 @@
 mod cancel;
 mod fs;
 mod kbuf;
+#[cfg(unix)]
 mod net;
 mod openclose;
 mod ops;

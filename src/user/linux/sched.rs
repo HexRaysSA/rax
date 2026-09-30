@@ -112,6 +112,7 @@ impl LinuxProcess {
                 // can see the exit.
                 super::syscall::ipc::exit(&mut self.state);
                 // exit_mm and exit_files: the process's files close.
+                #[cfg(unix)]
                 if let Some(h) = &self.state.fsnotify {
                     h.exit();
                 }
@@ -121,6 +122,7 @@ impl LinuxProcess {
                 self.report_exits();
             }
             if let Some(status) = &self.state.exit {
+                #[cfg(unix)]
                 if let Some(me) = self.state.forked.take() {
                     finish_forked(me, status);
                 }
@@ -625,6 +627,7 @@ pub(super) fn clear_exclusive_on_switch(
 /// wait status goes to the parent through the status pipe, then the host
 /// process ends the same way (by the signal when it does not dump core, so
 /// host observers see it) without running the parent's cleanup.
+#[cfg(unix)]
 fn finish_forked(me: super::children::ForkedSelf, status: &ExitStatus) -> ! {
     let (wait_status, code) = match status {
         ExitStatus::Exited(code) => (exited_status(*code), code & 0xff),

@@ -40,6 +40,7 @@ const NAME_MAX_LEN: usize = 255 - 6;
 
 /// `memfd_create`: the flags (`sanitize_flags`), then the name
 /// (`alloc_name`), then the file.
+#[cfg(unix)]
 pub fn memfd_create(c: &mut Ctx<'_>, uname: u64, flags: u32) -> SysResult {
     let allowed = if flags & mfd::HUGETLB != 0 {
         mfd::ALL | mfd::HUGE_SIZE
@@ -118,6 +119,9 @@ pub fn add_seals(c: &Ctx<'_>, file: &Arc<OpenFile>, seals: u32) -> SysResult {
     }
     // F_SEAL_EXEC on an executable object seals writes too (W^X).
     let mode = match &file.object {
+        #[cfg(not(unix))]
+        FileObject::Host(_) => return Err(Errno(EPERM)),
+        #[cfg(unix)]
         FileObject::Host(f) => {
             use std::os::unix::fs::PermissionsExt;
             f.metadata()?.permissions().mode()

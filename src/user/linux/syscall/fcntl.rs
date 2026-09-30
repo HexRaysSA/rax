@@ -138,13 +138,17 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
 /// thread that runs the others.
 pub(super) fn set_host_nonblocking(file: &OpenFile, on: bool) -> Result<(), Errno> {
     match &file.object {
+        #[cfg(not(unix))]
+        FileObject::Host(_) => Err(Errno(EPERM)),
+        #[cfg(unix)]
         FileObject::Host(f) => host::set_nonblocking(f, on),
         FileObject::PipeRead(_) | FileObject::PipeWrite(_) => Ok(()),
+        #[cfg(unix)]
+        FileObject::Socket(_) => Ok(()),
         FileObject::Console { .. }
         | FileObject::Synthetic(_)
         | FileObject::PathOnly
         | FileObject::Anon(_)
-        | FileObject::Socket(_)
         | FileObject::Mqueue(_) => Ok(()),
     }
 }
@@ -197,6 +201,7 @@ fn is_tty(file: &OpenFile) -> bool {
 pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
     use tio::*;
     let file = c.p.fds.file(fd)?;
+    #[cfg(unix)]
     if let FileObject::Socket(s) = &file.object
         && !matches!(req, FIOCLEX | FIONCLEX | FIONBIO)
     {
@@ -209,6 +214,7 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
     {
         return super::pidfd::ioctl(c, t, req, arg);
     }
+    #[cfg(unix)]
     if let FileObject::Anon(super::super::fs::anon::Anon::Inotify(i)) = &file.object
         && !matches!(req, FIOCLEX | FIONCLEX | FIONBIO)
     {
@@ -237,7 +243,9 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
                     let pos = file.seek(0, 1)?;
                     len.saturating_sub(pos).min(i32::MAX as u64) as i32
                 }
+                #[cfg(unix)]
                 FileObject::Host(f) => host::bytes_readable(f)?,
+                #[cfg(unix)]
                 FileObject::PipeRead(p) => host::bytes_readable(p)?,
                 FileObject::Console {
                     console,
@@ -268,6 +276,9 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
             match req {
                 TCGETS => c.write_mem(arg, &default_termios()).map(|_| 0),
                 TCSETS | TCSETSW | TCSETSF => c.read_mem(arg, 36).map(|_| 0),
+                #[cfg(not(unix))]
+                TIOCGWINSZ => Err(Errno(ENOTTY)),
+                #[cfg(unix)]
                 TIOCGWINSZ => {
                     let FileObject::Host(f) = &file.object else {
                         return Err(Errno(ENOTTY));

@@ -13,7 +13,7 @@ use crate::user::linux::abi::{LinuxAbi, Sysno};
 #[test]
 fn a_new_limit_is_read_before_the_resource_is_checked() {
     each_abi(|abi| {
-        let mut h = Harness::new(abi);
+        let mut h = Harness::embedded(abi);
         // x86-64 has setrlimit; every ABI has prlimit64.
         if abi == LinuxAbi::X86_64 {
             assert_eq!(h.err(Sysno::Setrlimit, &[99, 8]), EFAULT);
@@ -28,7 +28,7 @@ fn a_new_limit_is_read_before_the_resource_is_checked() {
 #[test]
 fn affinity_checks_the_length_before_the_task() {
     each_abi(|abi| {
-        let mut h = Harness::new(abi);
+        let mut h = Harness::embedded(abi);
         let m = h.scratch;
         assert_eq!(
             h.err(Sysno::SchedGetaffinity, &[99_999, 4, m]),
@@ -65,7 +65,7 @@ fn affinity_checks_the_length_before_the_task() {
 #[test]
 fn per_linux32_shows_the_32_bit_machine() {
     each_abi(|abi| {
-        let mut h = Harness::new(abi);
+        let mut h = Harness::embedded(abi);
         let m = h.scratch;
         h.ok(Sysno::Personality, &[8]);
         h.ok(Sysno::Uname, &[m]);

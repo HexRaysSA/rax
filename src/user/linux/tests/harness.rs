@@ -43,6 +43,7 @@ impl Drop for Harness {
         if !self.proc.state.ipc.ns.dir().as_os_str().is_empty() {
             let _ = std::fs::remove_dir_all(self.proc.state.ipc.ns.dir());
         }
+        #[cfg(unix)]
         if let Some(h) = &self.proc.state.fsnotify {
             let _ = std::fs::remove_dir_all(h.dir());
         }

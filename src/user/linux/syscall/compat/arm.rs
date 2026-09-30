@@ -58,6 +58,7 @@ pub(super) fn call(c: &mut Ctx<'_>, s: S, a: [u64; 6]) -> Option<Result<Outcome,
         // compat_sys_aarch32_*: the pair after a pad.
         S::Pread64 => r(io::pread(c, fd(a[0]), a[1], a[2], dual(a[4], a[5]))),
         S::Pwrite64 => r(io::pwrite(c, fd(a[0]), a[1], a[2], dual(a[4], a[5]))),
+        #[cfg(unix)]
         S::Truncate64 => r(path::truncate(c, a[0], dual(a[2], a[3]))),
         S::Ftruncate64 => r(file::ftruncate(c, fd(a[0]), dual(a[2], a[3]))),
         S::Readahead => r(io::readahead(c, fd(a[0]))),

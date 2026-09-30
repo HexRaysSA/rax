@@ -22,7 +22,9 @@ use super::super::super::uring::abi::op;
 use super::super::super::uring::rsrc::FILE_INDEX_ALLOC;
 use super::super::super::uring::{Req, Ring, State, req_flags as rf};
 use super::super::fcntl::set_host_nonblocking;
-use super::super::io::{nofile, pipe_files};
+use super::super::io::nofile;
+#[cfg(unix)]
+use super::super::io::pipe_files;
 use super::super::path::{open_file, open_how_flags};
 use super::super::{Ctx, io};
 use super::ops::{assign_file, getname};
@@ -244,11 +246,13 @@ pub(super) fn pipe_prep(c: &Ctx<'_>, req: &mut Req) -> Result<(), Errno> {
 /// named one and the next, or two allocated; not close-on-exec, `EINVAL`),
 /// their numbers written to `addr` (for named slots, 0 each, as
 /// `__io_fixed_fd_install` returns them); `EFAULT` there undoes it.
+#[cfg(unix)]
 pub(super) fn pipe_issue(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &mut Req) {
     let r = pipe(c, ring, st, req);
     complete(req, r);
 }
 
+#[cfg(unix)]
 fn pipe(c: &mut Ctx<'_>, ring: &Ring, st: &mut State, req: &Req) -> Result<i32, Errno> {
     let flags = req.sqe.op_flags;
     let (rf, wf) = pipe_files(c, flags)?;

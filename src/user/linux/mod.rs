@@ -36,6 +36,10 @@
 //! | [`host`] | The host services `std` does not expose |
 //! | [`sigmail`] | Senders of signals between `rax-user` processes |
 
+/// Whether the legacy Unix host-service profile is available. Closed
+/// embedding uses its own supplied namespace and does not require these services.
+pub const HOST_SERVICES_AVAILABLE: bool = cfg!(unix);
+
 pub mod abi;
 pub mod aio;
 pub mod arch;
@@ -46,9 +50,14 @@ pub mod fdinfo;
 pub mod fs;
 pub mod fsnotify;
 pub mod futex;
+#[cfg(unix)]
+pub mod host;
+#[cfg(windows)]
+#[path = "host_windows.rs"]
 pub mod host;
 pub mod ipc;
 pub mod loader;
+#[cfg(unix)]
 pub mod net;
 pub mod posix_timers;
 pub mod priority;
@@ -58,6 +67,7 @@ pub mod ptrace;
 pub mod rseq;
 pub mod sched;
 pub mod seccomp;
+#[cfg(unix)]
 pub mod sigmail;
 pub mod signal;
 pub mod stack;

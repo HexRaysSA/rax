@@ -302,6 +302,9 @@ pub fn chroot(c: &Ctx<'_>, dir: u64) -> SysResult {
 /// Whether `t` is a directory the caller may search.
 fn searchable(c: &Ctx<'_>, t: Target) -> Result<(), Errno> {
     match t {
+        #[cfg(not(unix))]
+        Target::Host { .. } => Err(Errno(EPERM)),
+        #[cfg(unix)]
         Target::Host { host, .. } => {
             if !std::fs::metadata(&host)?.is_dir() {
                 return Err(Errno(ENOTDIR));

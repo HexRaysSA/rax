@@ -56,7 +56,7 @@ pub fn drive(c: &mut Ctx<'_>) {
 
 /// What a sleeping call also waits on: the files of the poll entries a
 /// wake-up could reach.
-pub fn wait_fds(c: &Ctx<'_>) -> Vec<(i32, bool, bool)> {
+pub fn wait_fds(c: &Ctx<'_>) -> Vec<(crate::user::readiness::Descriptor, bool, bool)> {
     let mut fds = Vec::new();
     for ring in c.p.uring_parked.iter().filter_map(Weak::upgrade) {
         let st = ring.state();

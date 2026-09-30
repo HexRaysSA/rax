@@ -11,7 +11,6 @@
 //! given back once the process has reaped it. The limit on the requests of
 //! all contexts (`aio-max-nr`) counts this process's contexts.
 
-use std::os::unix::fs::FileExt;
 use std::sync::Arc;
 
 use crate::user::mm::SharedObject;
@@ -164,9 +163,7 @@ impl Context {
     }
 
     fn put(&self, off: u64, v: u32) {
-        if let Some(f) = self.ring.host_file() {
-            let _ = f.write_at(&v.to_le_bytes(), off);
-        }
+        let _ = self.ring.write_all_at(off, &v.to_le_bytes());
     }
 
     fn get(&self, off: u64) -> u32 {
@@ -234,9 +231,7 @@ impl Context {
     /// `aio_complete`: the event goes after the tail.
     pub fn complete(&mut self, ev: Event) {
         let pos = u64::from(self.tail) + 1;
-        if let Some(f) = self.ring.host_file() {
-            let _ = f.write_at(&ev.encode(), pos * EVENT_SIZE);
-        }
+        let _ = self.ring.write_all_at(pos * EVENT_SIZE, &ev.encode());
         self.tail += 1;
         if self.tail >= self.nr_events {
             self.tail = 0;

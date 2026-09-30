@@ -24,7 +24,7 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::os::unix::fs::FileExt;
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
 use super::super::abi::errno::Errno;
@@ -479,13 +479,19 @@ fn path(ns: &Namespace, id: u64) -> PathBuf {
 fn load(file: &File) -> Result<Queue, Errno> {
     let len = file.metadata().map_err(Errno::from)?.len() as usize;
     let mut b = vec![0u8; len];
-    file.read_exact_at(&mut b, 0).map_err(Errno::from)?;
+    // The namespace lock serializes this private table cursor; guest
+    // descriptor positions belong to OpenFile and never use it.
+    let mut file = file;
+    file.seek(SeekFrom::Start(0)).map_err(Errno::from)?;
+    file.read_exact(&mut b).map_err(Errno::from)?;
     Queue::decode(&b).ok_or(Errno(EIO))
 }
 
 fn store(file: &File, q: &Queue) -> Result<(), Errno> {
     let b = q.encode();
-    file.write_all_at(&b, 0).map_err(Errno::from)?;
+    let mut file = file;
+    file.seek(SeekFrom::Start(0)).map_err(Errno::from)?;
+    file.write_all(&b).map_err(Errno::from)?;
     file.set_len(b.len() as u64).map_err(Errno::from)
 }
 

@@ -131,6 +131,7 @@ impl Node {
 }
 
 /// `sk->sk_prot_creator->name`, the name `sockfs` gives a socket's inode.
+#[cfg(unix)]
 fn proto_name(s: &super::super::net::Socket) -> &'static str {
     use super::super::net::lx::*;
     let v6 = s.domain == AF_INET6;
@@ -194,6 +195,7 @@ fn file_node(file: Arc<OpenFile>, by_fd: bool) -> Result<Node, Errno> {
         FileObject::PipeRead(_) | FileObject::PipeWrite(_) => {
             pseudo(Pseudo::Pipe, mode::S_IFIFO | 0o600)
         }
+        #[cfg(unix)]
         FileObject::Socket(s) => pseudo(Pseudo::Socket(proto_name(s)), mode::S_IFSOCK | 0o777),
         FileObject::Anon(Anon::Pid(_)) => pseudo(Pseudo::Pid, mode::S_IFREG | 0o700),
         FileObject::Anon(_) => pseudo(Pseudo::Anon, 0o600),

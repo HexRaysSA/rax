@@ -22,7 +22,6 @@ pub mod abi;
 pub mod rsrc;
 
 use std::collections::VecDeque;
-use std::os::unix::fs::FileExt;
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 use self::abi::{Cqe, Sqe, rings, setup, sq_flags};
@@ -641,9 +640,7 @@ impl Ring {
 
     /// Writes a word of the ring region.
     pub fn put32(&self, off: u64, v: u32) {
-        if let Some(f) = self.rings.host_file() {
-            let _ = f.write_all_at(&v.to_le_bytes(), off);
-        }
+        let _ = self.rings.write_all_at(off, &v.to_le_bytes());
     }
 
     /// Sets or clears bits of `sq_flags` (`atomic_or`, `atomic_andnot`).
@@ -725,9 +722,9 @@ impl Ring {
         let size = abi::CQE_SIZE * if self.cqe32() { 2 } else { 1 };
         let bytes = cqe.encode();
         let len = if whole { size } else { abi::CQE_SIZE };
-        if let Some(f) = self.rings.host_file() {
-            let _ = f.write_all_at(&bytes[..len as usize], rings::CQES + u64::from(slot) * size);
-        }
+        let _ = self
+            .rings
+            .write_all_at(rings::CQES + u64::from(slot) * size, &bytes[..len as usize]);
         st.cached_cq_tail = st.cached_cq_tail.wrapping_add(1);
         true
     }

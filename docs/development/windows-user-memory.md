@@ -10,9 +10,10 @@ are private memory.
 The adapter dynamically resolves `VirtualAlloc2`, `MapViewOfFile3`, and
 `UnmapViewOfFile2`. Missing exports retain the pre-existing private-memory
 allocator; `FrameArena::attach` explicitly returns `Unsupported` there. The
-address-space fault interface currently classifies failed shared attachment as
-`OutOfMemory`; it does not distinguish missing placeholder APIs. This is a
-remaining capability-reporting limitation for old Windows hosts.
+address-space fault interface classifies failed shared attachment as
+`OutOfMemory`. `FrameArena::supports_shared_mappings()` exposes the OS capability
+separately, and Linux process startup explicitly rejects unavailable placeholder
+APIs before guest execution.
 
 Replacement first creates the section, retains the old section handles, then
 converts owned allocations to placeholders. It coalesces and splits placeholders
@@ -55,10 +56,10 @@ models, and hypervisor backends are unchanged. Linux/macOS retain their mmap
 adapter; the shared positional I/O and identity wrappers are tested there too.
 
 High: guest mutation must never resume execution after failed mapping rollback;
-the access and CPU-entry guards are required together. Medium: old Windows
-capability reporting is still collapsed by the address-space fault interface.
-Medium: native Windows file resizing while a section is mapped requires separate
-lifecycle handling; this adapter alone does not establish Linux ftruncate parity.
+the access and CPU-entry guards are required together. Medium: native Windows file resizing while a section is mapped requires separate
+lifecycle handling. The closed Linux profile rejects file resizing and memfd
+creation on every host; legacy Unix host-service ftruncate is unchanged. This
+adapter alone does not establish a mutable Windows-hosted Linux filesystem.
 Remote-file cross-machine coherence is not supplied by Windows file mapping.
 
 ## Verification ownership

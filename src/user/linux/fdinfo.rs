@@ -49,6 +49,7 @@ fn mount_id(file: &OpenFile) -> i32 {
         FileObject::Host(_) | FileObject::PathOnly | FileObject::Console { .. } => mnt::ROOT,
         FileObject::Synthetic(_) => mnt::PROC,
         FileObject::PipeRead(_) | FileObject::PipeWrite(_) => mnt::PIPEFS,
+        #[cfg(unix)]
         FileObject::Socket(_) => mnt::SOCKFS,
         FileObject::Anon(Anon::Pid(_)) => mnt::PIDFS,
         FileObject::Anon(_) => mnt::ANON,
@@ -98,6 +99,7 @@ pub fn fdinfo(p: &ProcState, own: &dyn Fn(i32) -> bool, fd: i32) -> Option<Vec<u
     };
     match anon {
         Anon::Pid(t) => s.push_str(&super::syscall::pidfd::fdinfo(p, own, t)),
+        #[cfg(unix)]
         Anon::Inotify(i) => s.push_str(&super::syscall::inotify::fdinfo(i)),
         Anon::Uring(r) => s.push_str(&super::syscall::uring::fdinfo(r, &|f| {
             super::procfs::file_path(p, f)

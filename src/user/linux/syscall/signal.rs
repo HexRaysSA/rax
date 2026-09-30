@@ -203,6 +203,8 @@ pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
         return Err(Errno(ESRCH));
     }
     let processes = c.p.config.processes;
+    let own_pgid = c.p.pid;
+    #[cfg(unix)]
     let own_pgid = if processes {
         super::super::host::getpgid(0)?
     } else {
@@ -236,29 +238,34 @@ pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
     if !valid_signal(sig) && sig != 0 {
         return Err(Errno(EINVAL));
     }
-    use super::super::host;
-    if pid == -1 {
-        let children: Vec<i32> = c.p.children.list.iter().map(|ch| ch.pid).collect();
-        let mut sent = false;
-        let me = (c.p.pid, c.p.creds.0);
-        for child in children {
-            sent |= host::send(child, sig, me).is_ok();
+    #[cfg(unix)]
+    {
+        use super::super::host;
+        if pid == -1 {
+            let children: Vec<i32> = c.p.children.list.iter().map(|ch| ch.pid).collect();
+            let mut sent = false;
+            let me = (c.p.pid, c.p.creds.0);
+            for child in children {
+                sent |= host::send(child, sig, me).is_ok();
+            }
+            return if sent { Ok(0) } else { Err(Errno(ESRCH)) };
         }
-        return if sent { Ok(0) } else { Err(Errno(ESRCH)) };
+        if own_group {
+            // The other members through the host, this process directly.
+            if host::host_signal(sig).is_some() || sig == 0 {
+                host::kill_group_but_self(own_pgid, sig)?;
+            }
+            if sig != 0 {
+                let info = kill_info(c, sig, code::SI_USER);
+                let me = c.p.pid;
+                send_process(c, info, me);
+            }
+            return Ok(0);
+        }
+        other_process(c, pid, sig)
     }
-    if own_group {
-        // The other members through the host, this process directly.
-        if host::host_signal(sig).is_some() || sig == 0 {
-            host::kill_group_but_self(own_pgid, sig)?;
-        }
-        if sig != 0 {
-            let info = kill_info(c, sig, code::SI_USER);
-            let me = c.p.pid;
-            send_process(c, info, me);
-        }
-        return Ok(0);
-    }
-    other_process(c, pid, sig)
+    #[cfg(not(unix))]
+    Err(Errno(EPERM))
 }
 
 /// A signal to another process (`pid > 0`) or process group (`pid < 0`)
@@ -269,60 +276,65 @@ pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
 /// still found, and the signal goes nowhere, as `group_send_sig_info` to a
 /// zombie does; it is never asked of the host.
 pub(super) fn other_process(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
-    use super::super::host;
-    let zombie = c.p.children.list.iter().any(|ch| {
-        ch.zombie.is_some()
-            && if pid > 0 {
-                ch.pid == pid
+    #[cfg(unix)]
+    {
+        use super::super::host;
+        let zombie = c.p.children.list.iter().any(|ch| {
+            ch.zombie.is_some()
+                && if pid > 0 {
+                    ch.pid == pid
+                } else {
+                    ch.pgid == -pid
+                }
+        });
+        let checked = || {
+            if !valid_signal(sig) && sig != 0 {
+                Err(Errno(EINVAL))
             } else {
-                ch.pgid == -pid
+                Ok(0)
             }
-    });
-    let checked = || {
-        if !valid_signal(sig) && sig != 0 {
-            Err(Errno(EINVAL))
-        } else {
-            Ok(0)
+        };
+        if pid > 0 && zombie {
+            return checked();
         }
-    };
-    if pid > 0 && zombie {
-        return checked();
-    }
-    let probe = host::kill(pid, 0);
-    if let Err(Errno(ESRCH)) = probe {
-        return if zombie { checked() } else { Err(Errno(ESRCH)) };
-    }
-    checked()?;
-    probe?;
-    if sig == 0 {
-        return Ok(0);
-    }
-    if pid > 0 {
-        // SIGSTOP to a linked process goes along the link, so that the
-        // receiver takes it as a guest signal (a host SIGSTOP would stop
-        // it, traced or not).
-        use super::super::ptrace::{Msg, link_to, send};
-        if sig == SIGSTOP
-            && let Some(link) = link_to(c.p, pid)
-        {
-            let m = Msg::Kill {
-                sig,
-                pid: c.p.pid,
-                uid: c.p.creds.0,
-            };
-            // The link may end as the process dies: the signal is lost with
-            // it, as it would be.
-            send(c.p, link, &m);
+        let probe = host::kill(pid, 0);
+        if let Err(Errno(ESRCH)) = probe {
+            return if zombie { checked() } else { Err(Errno(ESRCH)) };
+        }
+        checked()?;
+        probe?;
+        if sig == 0 {
             return Ok(0);
         }
-        host::send(pid, sig, (c.p.pid, c.p.creds.0))?;
-    } else {
-        host::kill(pid, sig)?;
+        if pid > 0 {
+            // SIGSTOP to a linked process goes along the link, so that the
+            // receiver takes it as a guest signal (a host SIGSTOP would stop
+            // it, traced or not).
+            use super::super::ptrace::{Msg, link_to, send};
+            if sig == SIGSTOP
+                && let Some(link) = link_to(c.p, pid)
+            {
+                let m = Msg::Kill {
+                    sig,
+                    pid: c.p.pid,
+                    uid: c.p.creds.0,
+                };
+                // The link may end as the process dies: the signal is lost with
+                // it, as it would be.
+                send(c.p, link, &m);
+                return Ok(0);
+            }
+            host::send(pid, sig, (c.p.pid, c.p.creds.0))?;
+        } else {
+            host::kill(pid, sig)?;
+        }
+        if sig == SIGKILL {
+            killed_tracees(c.p, pid);
+        }
+        Ok(0)
     }
-    if sig == SIGKILL {
-        killed_tracees(c.p, pid);
-    }
-    Ok(0)
+    #[cfg(not(unix))]
+    Err(Errno(EPERM))
 }
 
 /// A `SIGKILL` this process sent to process `pid` (or with `pid` < 0 to a

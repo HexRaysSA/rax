@@ -37,7 +37,9 @@ use super::super::abi::errno_table::*;
 use super::super::abi::open::*;
 use super::super::abi::types::{Stat, Timespec, mode};
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
-use super::super::host::{self, HostClock, SetTime};
+#[cfg(unix)]
+use super::super::host::SetTime;
+use super::super::host::{self, HostClock};
 use super::super::ipc::mqueue::{self, Create, Handle, Msg, Notify, Queue, Receiver, Sender};
 use super::super::signal::code::SI_MESGQ;
 use super::super::signal::deliver::restart::ERESTARTSYS;
@@ -127,6 +129,7 @@ fn owner(c: &Ctx<'_>, q: &Queue) -> bool {
 
 /// `utimensat` on a queue's descriptor: explicit times need its owner,
 /// the current time its owner or write access.
+#[cfg(unix)]
 pub fn set_times(c: &Ctx<'_>, h: &Handle, t: [SetTime; 2]) -> SysResult {
     let now = now();
     let euid = c.p.creds.1;
@@ -409,12 +412,15 @@ fn notify(c: &mut Ctx<'_>, n: Notify) {
         let info = SigInfo::queued(n.signo, SI_MESGQ, pid, uid, n.value);
         super::signal::send_process(c, info, pid);
     } else {
-        let sent = super::super::sigmail::Sent {
-            sender: (pid, uid),
-            code: SI_MESGQ,
-            value: n.value,
-        };
-        let _ = host::send_sent(n.owner, n.signo, sent);
+        #[cfg(unix)]
+        {
+            let sent = super::super::sigmail::Sent {
+                sender: (pid, uid),
+                code: SI_MESGQ,
+                value: n.value,
+            };
+            let _ = host::send_sent(n.owner, n.signo, sent);
+        }
     }
 }
 
@@ -612,13 +618,18 @@ pub fn mq_notify(c: &mut Ctx<'_>, fd: i32, sev: u64) -> SysResult {
             if sock.flags() & O_PATH != 0 {
                 return Err(Errno(EBADF));
             }
-            let FileObject::Socket(s) = &sock.object else {
-                return Err(Errno(ENOTSOCK));
-            };
-            if s.domain != super::super::net::lx::AF_NETLINK {
-                return Err(Errno(EINVAL));
+            #[cfg(unix)]
+            {
+                let FileObject::Socket(s) = &sock.object else {
+                    return Err(Errno(ENOTSOCK));
+                };
+                if s.domain != super::super::net::lx::AF_NETLINK {
+                    return Err(Errno(EINVAL));
+                }
+                return Err(Errno(ENOSYS));
             }
-            return Err(Errno(ENOSYS));
+            #[cfg(not(unix))]
+            return Err(Errno(ENOTSOCK));
         }
         Some(Notify {
             owner: c.p.pid,

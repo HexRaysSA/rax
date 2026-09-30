@@ -1,5 +1,6 @@
 //! Path-based system calls: opening, metadata, names, and directories.
 
+#[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -202,7 +203,11 @@ pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
             ..Default::default()
         }),
         FileObject::Mqueue(h) => Ok(super::mqueue::stat(&h.get()?)),
+        #[cfg(unix)]
         FileObject::Host(f) => Ok(fs::stat_from_metadata(&f.metadata()?)),
+        #[cfg(not(unix))]
+        FileObject::Host(_) | FileObject::PathOnly => Err(Errno(EPERM)),
+        #[cfg(unix)]
         FileObject::PathOnly => {
             let h = file.host_path.as_ref().ok_or(Errno(EBADF))?;
             Ok(fs::stat_from_metadata(&std::fs::symlink_metadata(h)?))
@@ -253,6 +258,7 @@ pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
         }),
         // sock_alloc: S_IFSOCK with every permission, the caller's IDs,
         // on sockfs.
+        #[cfg(unix)]
         FileObject::Socket(s) => Ok(Stat {
             dev_minor: 0x8,
             ino: s.ino,
@@ -284,6 +290,9 @@ pub(super) fn stat_target(c: &Ctx<'_>, t: &Target, follow: bool) -> Result<Stat,
             stat_target(c, &target, true)
         }
         Target::Proc(e, _) => Ok(proc_stat((c.p.creds.1, c.p.creds.3), e)),
+        #[cfg(not(unix))]
+        Target::Host { .. } => Err(Errno(EPERM)),
+        #[cfg(unix)]
         Target::Host { host, .. } => {
             let m = if follow {
                 std::fs::metadata(host)?
@@ -436,6 +445,9 @@ pub(super) fn open_target(
             let target = resolve_str(c, AT_FDCWD, &link, true)?;
             open_target(c, target, flags, create_mode)
         }
+        #[cfg(not(unix))]
+        Target::Host { .. } => Err(Errno(EPERM)),
+        #[cfg(unix)]
         Target::Host { guest, host } => {
             if flags & O_TMPFILE_BIT != 0 {
                 return Err(Errno(EOPNOTSUPP));
@@ -728,11 +740,17 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             }
         }
         Target::Fd(f) => match &f.host_path {
+            #[cfg(unix)]
             Some(h) => {
                 super::super::host::access(h, amode, flags & AT_EACCESS != 0, follow).map(|_| 0)
             }
+            #[cfg(not(unix))]
+            Some(_) => Err(Errno(EPERM)),
             None => Ok(0),
         },
+        #[cfg(not(unix))]
+        Target::Host { .. } => Err(Errno(EPERM)),
+        #[cfg(unix)]
         Target::Host { host, .. } => {
             super::super::host::access(&host, amode, flags & AT_EACCESS != 0, follow).map(|_| 0)
         }
@@ -747,6 +765,9 @@ pub fn readlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64) -
     let bytes = match resolve(c, dirfd, path, AT_EMPTY_PATH, false)? {
         Target::Proc(ProcEntry::Link(t), _) => t.into_bytes(),
         Target::Proc(..) | Target::Fd(_) | Target::Supplied(..) => return Err(Errno(EINVAL)),
+        #[cfg(not(unix))]
+        Target::Host { .. } => return Err(Errno(EPERM)),
+        #[cfg(unix)]
         Target::Host { host, .. } => {
             use std::os::unix::ffi::OsStrExt;
             std::fs::read_link(&host)?.as_os_str().as_bytes().to_vec()
@@ -836,6 +857,7 @@ fn host_target(c: &Ctx<'_>, dirfd: i32, path: u64, follow: bool) -> Result<PathB
 }
 
 /// `mkdirat` (and `mkdir`).
+#[cfg(unix)]
 pub fn mkdirat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32) -> SysResult {
     let host = host_target(c, dirfd, path, false)?;
     let bits = perm & 0o7777 & !c.p.umask;
@@ -853,6 +875,7 @@ pub fn mkdirat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32) -> SysResult {
 /// new one with a trailing slash), then the device privilege. A host that
 /// refuses unprivileged socket nodes (macOS) gets one by binding a socket
 /// there.
+#[cfg(unix)]
 pub fn mknodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, dev: u32) -> SysResult {
     use mode::*;
     let kind = perm & S_IFMT;
@@ -918,6 +941,7 @@ pub fn mknodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, dev: u32) -> S
 }
 
 /// `unlinkat` (and `unlink`, `rmdir`).
+#[cfg(unix)]
 pub fn unlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult {
     if flags & !AT_REMOVEDIR != 0 {
         return Err(Errno(EINVAL));
@@ -938,6 +962,7 @@ pub fn unlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult
 }
 
 /// `renameat2` (and `rename`, `renameat`).
+#[cfg(unix)]
 pub fn renameat2(
     c: &mut Ctx<'_>,
     olddir: i32,
@@ -967,6 +992,7 @@ pub fn renameat2(
 }
 
 /// `linkat` (and `link`).
+#[cfg(unix)]
 pub fn linkat(
     c: &mut Ctx<'_>,
     olddir: i32,
@@ -986,6 +1012,7 @@ pub fn linkat(
 }
 
 /// `symlinkat` (and `symlink`). The target is stored verbatim.
+#[cfg(unix)]
 pub fn symlinkat(c: &mut Ctx<'_>, target: u64, newdir: i32, linkpath: u64) -> SysResult {
     let raw = c.read_cstr_raw(target, fs::PATH_MAX - 1)?;
     if raw.is_empty() {
@@ -999,6 +1026,7 @@ pub fn symlinkat(c: &mut Ctx<'_>, target: u64, newdir: i32, linkpath: u64) -> Sy
 }
 
 /// `fchmodat`/`fchmodat2` (and `chmod`).
+#[cfg(unix)]
 pub fn fchmodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, flags: u32) -> SysResult {
     if flags & !(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH) != 0 {
         return Err(Errno(EINVAL));
@@ -1020,6 +1048,7 @@ pub fn fchmodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, flags: u32) -
 }
 
 /// `fchmod`.
+#[cfg(unix)]
 pub fn fchmod(c: &mut Ctx<'_>, fd: i32, perm: u32) -> SysResult {
     let file = c.p.fds.file(fd)?;
     match &file.object {
@@ -1044,6 +1073,7 @@ fn opt_id(id: u32) -> Option<u32> {
 }
 
 /// `fchownat` (and `chown`, `lchown`).
+#[cfg(unix)]
 pub fn fchownat(
     c: &mut Ctx<'_>,
     dirfd: i32,
@@ -1082,6 +1112,7 @@ fn owner_mask(uid: u32, gid: u32) -> u32 {
 }
 
 /// `fchown`.
+#[cfg(unix)]
 pub fn fchown(c: &mut Ctx<'_>, fd: i32, uid: u32, gid: u32) -> SysResult {
     let file = c.p.fds.file(fd)?;
     match &file.object {
@@ -1099,6 +1130,7 @@ pub fn fchown(c: &mut Ctx<'_>, fd: i32, uid: u32, gid: u32) -> SysResult {
 }
 
 /// `truncate`.
+#[cfg(unix)]
 pub fn truncate(c: &mut Ctx<'_>, path: u64, len: i64) -> SysResult {
     if len < 0 {
         return Err(Errno(EINVAL));
@@ -1136,6 +1168,7 @@ const RAMFS_MAGIC: u64 = 0x8584_58f6;
 const ST_VALID: u64 = 0x20;
 
 /// `struct kstatfs` of a file system of magic `kind`.
+#[cfg(unix)]
 fn kstatfs(kind: u64, st: &super::super::host::FsStats) -> Kstatfs {
     Kstatfs {
         kind,
@@ -1153,17 +1186,19 @@ fn kstatfs(kind: u64, st: &super::super::host::FsStats) -> Kstatfs {
 }
 
 /// The statistics of a synthesized file system.
-fn synthetic_fs() -> super::super::host::FsStats {
-    super::super::host::FsStats {
+fn synthetic_fs(kind: u64) -> Kstatfs {
+    Kstatfs {
+        kind,
         bsize: 4096,
         frsize: 4096,
-        namemax: 255,
+        namelen: 255,
+        flags: ST_VALID,
         ..Default::default()
     }
 }
 
 fn supplied_statfs() -> Kstatfs {
-    let mut stat = kstatfs(RAMFS_MAGIC, &synthetic_fs());
+    let mut stat = synthetic_fs(RAMFS_MAGIC);
     stat.flags |= 1; // ST_RDONLY
     stat
 }
@@ -1172,7 +1207,10 @@ fn supplied_statfs() -> Kstatfs {
 pub(super) fn statfs_path(c: &mut Ctx<'_>, path: u64) -> Result<Kstatfs, Errno> {
     match resolve(c, AT_FDCWD, path, 0, true)? {
         Target::Supplied(..) => Ok(supplied_statfs()),
-        Target::Proc(..) => Ok(kstatfs(PROC_SUPER_MAGIC, &synthetic_fs())),
+        Target::Proc(..) => Ok(synthetic_fs(PROC_SUPER_MAGIC)),
+        #[cfg(not(unix))]
+        Target::Host { .. } => Err(Errno(EPERM)),
+        #[cfg(unix)]
         Target::Host { host, .. } => Ok(kstatfs(
             EXT4_SUPER_MAGIC,
             &super::super::host::statvfs(&host)?,
@@ -1188,11 +1226,14 @@ pub(super) fn statfs_fd(c: &Ctx<'_>, fd: i32) -> Result<Kstatfs, Errno> {
         return Ok(supplied_statfs());
     }
     Ok(match &file.host_path {
+        #[cfg(unix)]
         Some(h) => kstatfs(EXT4_SUPER_MAGIC, &super::super::host::statvfs(h)?),
+        #[cfg(not(unix))]
+        Some(_) => return Err(Errno(EPERM)),
         None if super::pidfd::target_of(&file).is_some() => {
-            kstatfs(super::pidfd::PID_FS_MAGIC, &synthetic_fs())
+            synthetic_fs(super::pidfd::PID_FS_MAGIC)
         }
-        None => kstatfs(PROC_SUPER_MAGIC, &synthetic_fs()),
+        None => synthetic_fs(PROC_SUPER_MAGIC),
     })
 }
 

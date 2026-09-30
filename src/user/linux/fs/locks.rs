@@ -18,14 +18,22 @@
 //!
 //! A macOS host has no OFD locks, and no locks on pipes or sockets.
 
+#[cfg(unix)]
 use std::collections::HashMap;
+#[cfg(unix)]
 use std::fs::File;
+#[cfg(unix)]
 use std::os::fd::{AsRawFd, RawFd};
+#[cfg(unix)]
 use std::sync::Mutex;
+#[cfg(unix)]
 use std::sync::atomic::{AtomicBool, Ordering};
 
+#[cfg(unix)]
 use super::super::abi::errno::{Errno, from_host};
+#[cfg(unix)]
 use super::super::abi::errno_table::*;
+#[cfg(unix)]
 use super::fd::{FileObject, OpenFile};
 
 /// Linux `struct flock` lock types.
@@ -64,6 +72,7 @@ pub struct Conflict {
 
 /// The host descriptor a lock on `file` is taken through, if the host can
 /// lock that kind of object.
+#[cfg(unix)]
 pub fn host_fd(file: &OpenFile) -> Option<RawFd> {
     match &file.object {
         FileObject::Host(f) => Some(f.as_raw_fd()),
@@ -77,6 +86,7 @@ pub fn host_fd(file: &OpenFile) -> Option<RawFd> {
     }
 }
 
+#[cfg(unix)]
 fn host_errno() -> Errno {
     Errno(from_host(
         std::io::Error::last_os_error().raw_os_error().unwrap_or(0),
@@ -88,6 +98,7 @@ fn host_errno() -> Errno {
 /// conflicting lock; the description then holds no lock, as
 /// `flock_lock_inode` removes a lock of the other type before it looks for
 /// conflicts (a macOS host keeps it, so it is removed here).
+#[cfg(unix)]
 pub fn flock(fd: RawFd, op: i32) -> Result<(), Errno> {
     // SAFETY: flock only reads its integer arguments; the descriptor is
     // the caller's and a stale one fails with EBADF.
@@ -103,6 +114,7 @@ pub fn flock(fd: RawFd, op: i32) -> Result<(), Errno> {
     Err(e)
 }
 
+#[cfg(unix)]
 fn host_flock(kind: i16, range: Range) -> libc::flock {
     // SAFETY: an all-zero `struct flock` is a valid value on every host.
     let mut fl: libc::flock = unsafe { std::mem::zeroed() };
@@ -122,6 +134,7 @@ fn host_flock(kind: i16, range: Range) -> libc::flock {
 }
 
 #[cfg(target_os = "linux")]
+#[cfg(unix)]
 fn command(owner: Owner, test: bool) -> Result<i32, Errno> {
     Ok(match (owner, test) {
         (Owner::Process, false) => libc::F_SETLK,
@@ -132,6 +145,7 @@ fn command(owner: Owner, test: bool) -> Result<i32, Errno> {
 }
 
 #[cfg(not(target_os = "linux"))]
+#[cfg(unix)]
 fn command(owner: Owner, test: bool) -> Result<i32, Errno> {
     match (owner, test) {
         (Owner::Process, false) => Ok(libc::F_SETLK),
@@ -142,6 +156,7 @@ fn command(owner: Owner, test: bool) -> Result<i32, Errno> {
 
 /// Sets or clears a record lock on the host without sleeping. `EAGAIN`
 /// when another owner holds a conflicting lock.
+#[cfg(unix)]
 pub fn set(fd: RawFd, owner: Owner, kind: i16, range: Range) -> Result<(), Errno> {
     let cmd = command(owner, false)?;
     let fl = host_flock(kind, range);
@@ -159,6 +174,7 @@ pub fn set(fd: RawFd, owner: Owner, kind: i16, range: Range) -> Result<(), Errno
 
 /// The first lock another owner holds that conflicts with a `kind` lock on
 /// `range`, if any (`F_GETLK`).
+#[cfg(unix)]
 pub fn test(fd: RawFd, owner: Owner, kind: i16, range: Range) -> Result<Option<Conflict>, Errno> {
     let cmd = command(owner, true)?;
     let mut fl = host_flock(kind, range);
@@ -192,14 +208,18 @@ pub fn test(fd: RawFd, owner: Owner, kind: i16, range: Range) -> Result<Option<C
 
 /// Inodes (device, inode number) this process may hold POSIX locks on,
 /// each with the emulator's own descriptors of it kept open meanwhile.
+#[cfg(unix)]
 type Kept = HashMap<(u64, u64), Vec<File>>;
 
 /// The process's [`Kept`] inodes. POSIX locks belong to the host process,
 /// so this is per host process.
+#[cfg(unix)]
 static POSIX: Mutex<Option<Kept>> = Mutex::new(None);
+#[cfg(unix)]
 static ANY_POSIX: AtomicBool = AtomicBool::new(false);
 
 /// A host descriptor's device and inode numbers.
+#[cfg(unix)]
 pub(crate) fn identity(fd: RawFd) -> Option<(u64, u64)> {
     // SAFETY: an all-zero `struct stat` is valid and fstat fills it in.
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
@@ -211,6 +231,7 @@ pub(crate) fn identity(fd: RawFd) -> Option<(u64, u64)> {
 }
 
 /// Records that the process took a POSIX lock through `fd`.
+#[cfg(unix)]
 pub fn note_posix(fd: RawFd) {
     let Some(id) = identity(fd) else { return };
     crate::user::mm::set_retire(retire);
@@ -221,6 +242,7 @@ pub fn note_posix(fd: RawFd) {
 
 /// The mm retirement hook: keeps a descriptor of an inode the process may
 /// hold POSIX locks on, since closing it would release them.
+#[cfg(unix)]
 fn retire(file: File) {
     if ANY_POSIX.load(Ordering::Acquire)
         && let Some(id) = identity(file.as_raw_fd())
@@ -237,6 +259,7 @@ fn retire(file: File) {
 /// `locks_remove_posix` for a guest `close` of `file`: releases every
 /// POSIX lock the process holds on its inode, then closes the emulator's
 /// descriptors of it kept meanwhile.
+#[cfg(unix)]
 pub fn filp_close(file: &OpenFile) {
     if !ANY_POSIX.load(Ordering::Acquire) {
         return;
@@ -263,6 +286,7 @@ pub fn filp_close(file: &OpenFile) {
 /// Whether the process may hold POSIX locks on the inode of `fd`, and how
 /// many of the emulator's descriptors of it are kept meanwhile.
 #[cfg(test)]
+#[cfg(unix)]
 pub(crate) fn posix_state(fd: RawFd) -> Option<usize> {
     let id = identity(fd)?;
     let map = POSIX.lock().unwrap();
@@ -271,6 +295,7 @@ pub(crate) fn posix_state(fd: RawFd) -> Option<usize> {
 
 /// In a new process: it holds no POSIX locks, so the descriptors its parent
 /// kept may be closed.
+#[cfg(unix)]
 pub fn forked() {
     let kept = POSIX.lock().unwrap().take();
     ANY_POSIX.store(false, Ordering::Release);

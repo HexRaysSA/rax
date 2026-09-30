@@ -21,6 +21,11 @@ fn closed_linux_identity_console_and_external_service_denial_all_abis() {
         assert_eq!(h.proc.state.creds, (0, 0, 0, 0));
         assert!(h.proc.state.groups.is_empty());
         assert_eq!(h.proc.state.umask, 0o022);
+        assert_eq!(
+            h.proc.state.config.fsnotify,
+            crate::user::linux::fsnotify::Backend::Disabled
+        );
+        #[cfg(unix)]
         assert!(h.proc.state.fsnotify.is_none());
         assert!(h.proc.state.ipc.ns.dir().as_os_str().is_empty());
         assert_eq!(
@@ -305,4 +310,96 @@ fn closed_linux_xattrs_use_supplied_nodes_and_preserve_validation_all_abis() {
             assert_eq!(h.call(syscall, &[0; 6]), -(EPERM as i64));
         }
     }
+}
+
+#[test]
+fn closed_linux_ofd_locks_do_not_depend_on_native_lock_support_all_abis() {
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let path = h.scratch;
+        let arg = path + 64;
+        h.proc.space().write_raw(path, b"/\0").unwrap();
+        let fd = h.ok(Sysno::Openat, &[-100i64 as u64, path, 0, 0]);
+        let call = if abi.number(Sysno::Fcntl64).is_some() {
+            Sysno::Fcntl64
+        } else {
+            Sysno::Fcntl
+        };
+        // A zero-filled flock64 requests a read lock from offset 0 to EOF.
+        // Its PID is at 20 for packed i386 and 24 for the other ABIs.
+        let mut flock = [0u8; 32];
+        h.proc.space().write_raw(arg, &flock).unwrap();
+        assert_eq!(h.call(call, &[fd, 37, arg]), 0, "{abi:?}"); // F_OFD_SETLK
+        assert_eq!(h.call(call, &[fd, 36, arg]), 0, "{abi:?}"); // F_OFD_GETLK
+        let mut kind = [0; 2];
+        h.proc.space().read(arg, &mut kind).unwrap();
+        assert_eq!(u16::from_le_bytes(kind), 2); // F_UNLCK: no conflicting reader.
+        flock[0] = 1; // F_WRLCK on the read-only supplied descriptor.
+        h.proc.space().write_raw(arg, &flock).unwrap();
+        assert_eq!(h.call(call, &[fd, 37, arg]), -(EBADF as i64));
+        flock[0] = 0;
+        let pid_offset = if abi == LinuxAbi::I386 { 20 } else { 24 };
+        flock[pid_offset] = 1;
+        h.proc.space().write_raw(arg, &flock).unwrap();
+        assert_eq!(h.call(call, &[fd, 37, arg]), -(EINVAL as i64));
+        assert_eq!(h.call(call, &[9999, 37, arg]), -(EBADF as i64));
+    }
+}
+
+#[test]
+fn closed_linux_shared_anonymous_mapping_aliases_and_survives_unmapping_all_abis() {
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let mmap = if abi.is_compat() {
+            Sysno::Mmap2
+        } else {
+            Sysno::Mmap
+        };
+        let first = h.ok(mmap, &[0, 3 * 4096, 3, 0x21, u64::from(u32::MAX), 0]);
+        // old_size=0 duplicates a shared mapping, preserving the same object.
+        let alias = h.ok(Sysno::Mremap, &[first, 0, 3 * 4096, 1, 0]);
+        assert_ne!(first, alias);
+        h.proc.space().write(first + 3 * 4096 - 1, &[0x83]).unwrap();
+        let mut byte = [0];
+        h.proc
+            .space()
+            .read(alias + 3 * 4096 - 1, &mut byte)
+            .unwrap();
+        assert_eq!(byte, [0x83], "{abi:?}");
+        h.ok(Sysno::Msync, &[alias, 3 * 4096, 4]);
+        h.ok(Sysno::Munmap, &[first, 3 * 4096]);
+        h.proc
+            .space()
+            .read(alias + 3 * 4096 - 1, &mut byte)
+            .unwrap();
+        assert_eq!(byte, [0x83], "{abi:?}");
+        h.ok(Sysno::Munmap, &[alias, 3 * 4096]);
+        let fresh = h.ok(mmap, &[0, 4096, 3, 0x21, u64::from(u32::MAX), 0]);
+        h.proc.space().read(fresh, &mut byte).unwrap();
+        assert_eq!(byte, [0], "{abi:?}");
+        // The closed profile does not accidentally admit mutable host files.
+        for syscall in [Sysno::MemfdCreate, Sysno::Ftruncate] {
+            assert_eq!(
+                h.call(syscall, &[0; 6]),
+                -(EPERM as i64),
+                "{abi:?} {syscall:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn closed_linux_missing_host_capability_is_explicit() {
+    let closed = LinuxConfig::embedded("/program", vec![], vec![], vec![], 64).unwrap();
+    let result = crate::user::linux::embedding::validate_host(&closed, false, false);
+    assert!(
+        matches!(result, Err(crate::user::linux::process::SpawnError::Unsupported(ref why))
+        if why.contains("fixed-address shared memory") && why.contains("VirtualAlloc2"))
+    );
+    assert!(crate::user::linux::embedding::validate_host(&closed, false, true).is_ok());
+    let host = LinuxConfig::new("/program", vec![], vec![]);
+    assert!(
+        matches!(crate::user::linux::embedding::validate_host(&host, false, true),
+        Err(crate::user::linux::process::SpawnError::Unsupported(ref why)) if why.contains("Unix host services"))
+    );
 }

@@ -29,6 +29,7 @@ pub mod regs_a32;
 mod stops;
 pub mod tracee;
 
+#[cfg(unix)]
 use std::os::fd::{AsRawFd, OwnedFd};
 
 use super::abi::LinuxAbi;
@@ -395,14 +396,20 @@ impl Msg {
 /// do not yet make a whole frame.
 #[derive(Debug)]
 pub struct Link {
+    #[cfg(unix)]
     fd: OwnedFd,
+    /// Native tracing links cannot exist in the closed-only host profile.
+    #[cfg(not(unix))]
+    unavailable: std::convert::Infallible,
     inbox: Vec<u8>,
     /// Descriptors that arrived with the bytes (`SCM_RIGHTS`), in order.
+    #[cfg(unix)]
     fds: std::collections::VecDeque<OwnedFd>,
     /// The other end is gone.
     pub closed: bool,
 }
 
+#[cfg(unix)]
 impl Link {
     /// A new link's two ends.
     pub fn pair() -> Result<(Link, Link), Errno> {
@@ -497,9 +504,25 @@ impl Link {
     }
 }
 
+#[cfg(unix)]
 impl AsRawFd for Link {
     fn as_raw_fd(&self) -> std::os::fd::RawFd {
         self.fd.as_raw_fd()
+    }
+}
+
+// Keep shared state-machine code type-correct without fabricating a native
+// transport. Safe code cannot construct a Link on this profile.
+#[cfg(not(unix))]
+impl Link {
+    pub fn fd(&self) -> crate::user::readiness::Descriptor {
+        match self.unavailable {}
+    }
+    pub fn send(&self, _message: &Msg) -> bool {
+        match self.unavailable {}
+    }
+    pub fn recv(&mut self) -> Vec<Msg> {
+        match self.unavailable {}
     }
 }
 
@@ -809,7 +832,7 @@ pub fn link_ref(p: &ProcState, id: LinkId) -> Option<&Link> {
 }
 
 /// The descriptors of every link, for a sleep that a message must end.
-pub fn link_fds(p: &ProcState) -> Vec<(i32, bool, bool)> {
+pub fn link_fds(p: &ProcState) -> Vec<(crate::user::readiness::Descriptor, bool, bool)> {
     link_ids(p)
         .into_iter()
         .filter_map(|id| link_ref(p, id).map(|l| (l.fd(), true, false)))
@@ -879,6 +902,7 @@ pub fn stop_status(code: i32) -> i32 {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
     #[test]
     fn messages_round_trip() {
         let all = [

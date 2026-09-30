@@ -103,8 +103,10 @@ fn pipe_moved(ok: u64, total: u64) -> u64 {
 /// fault lies in the transfer only when the pipe holds more than `room`.
 /// An empty pipe keeps `room`, so the read waits for data as usual.
 fn pipe_read_room(file: &OpenFile, room: u64, count: u64) -> u64 {
-    let avail = match &file.object {
+    let avail: Result<i32, Errno> = match &file.object {
+        #[cfg(unix)]
         FileObject::PipeRead(p) => host::bytes_readable(p),
+        #[cfg(unix)]
         FileObject::Host(f) => host::bytes_readable(f),
         _ => return room,
     };
@@ -300,7 +302,8 @@ pub fn read(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     if matches!(file.object, FileObject::Anon(_)) {
         return super::events::read_call(c, &file, buf, count);
     }
-    if matches!(file.object, FileObject::Socket(_)) {
+    #[cfg(unix)]
+    if file.is_socket() {
         return super::net::io::read(c, &file, &[(buf, count.min(MAX_RW_COUNT))]);
     }
     if count == 0 {
@@ -321,7 +324,8 @@ pub fn write(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     if matches!(file.object, FileObject::Anon(_)) {
         return super::events::write_call(c, &file, buf, count);
     }
-    if matches!(file.object, FileObject::Socket(_)) {
+    #[cfg(unix)]
+    if file.is_socket() {
         return super::net::io::write(c, &file, &[(buf, count.min(MAX_RW_COUNT))]);
     }
     if count == 0 {
@@ -387,7 +391,7 @@ pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
         super::notify::vectored_nothing(c, &file);
         return Ok(0);
     }
-    if matches!(file.object, FileObject::Anon(_) | FileObject::Socket(_)) {
+    if matches!(file.object, FileObject::Anon(_)) || file.is_socket() {
         return readv_file(c, &file, &iovecs, None);
     }
     let n = readv_file(c, &file, &iovecs, None)?;
@@ -413,7 +417,8 @@ pub(super) fn readv_file(
     if matches!(file.object, FileObject::Anon(_)) {
         return super::events::read(c, file, iovecs);
     }
-    if matches!(file.object, FileObject::Socket(_)) {
+    #[cfg(unix)]
+    if file.is_socket() {
         return super::net::io::read(c, file, iovecs);
     }
     let mut room = iovec_room(c, iovecs);
@@ -440,7 +445,7 @@ pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
         return Err(Errno(EINVAL));
     }
     let vecs = import_iovec(c, iov, cnt)?;
-    if matches!(file.object, FileObject::Socket(_)) || anon {
+    if file.is_socket() || anon {
         return writev_file(c, &file, &vecs, None);
     }
     let n = writev_file(c, &file, &vecs, None)?;
@@ -457,7 +462,8 @@ pub(super) fn writev_file(
     vecs: &[(u64, u64)],
     pos: Option<u64>,
 ) -> SysResult {
-    if matches!(file.object, FileObject::Socket(_)) {
+    #[cfg(unix)]
+    if file.is_socket() {
         return super::net::io::write(c, file, vecs);
     }
     if matches!(file.object, FileObject::Anon(_)) {
@@ -737,6 +743,7 @@ pub fn dup3(c: &mut Ctx<'_>, old: i32, new: i32, flags: u32) -> SysResult {
 }
 
 /// `pipe`/`pipe2`.
+#[cfg(unix)]
 pub fn pipe2(c: &mut Ctx<'_>, fds: u64, flags: u32) -> SysResult {
     let (rf, wf) = pipe_files(c, flags)?;
     let cloexec = flags & O_CLOEXEC != 0;
@@ -764,6 +771,7 @@ pub fn pipe2(c: &mut Ctx<'_>, fds: u64, flags: u32) -> SysResult {
 /// a new pipe, for `O_CLOEXEC`, `O_NONBLOCK`, `O_DIRECT`, and
 /// `O_NOTIFICATION_PIPE` (others are `EINVAL`). A notification pipe needs
 /// `CONFIG_WATCH_QUEUE`, which the kernel modelled lacks (`ENOPKG`).
+#[cfg(unix)]
 pub(super) fn pipe_files(c: &Ctx<'_>, flags: u32) -> Result<(Arc<OpenFile>, Arc<OpenFile>), Errno> {
     let direct = c.p.abi.open_flags().direct;
     let notification = O_EXCL;
@@ -1364,6 +1372,9 @@ pub(super) fn ftruncate_file(c: &mut Ctx<'_>, file: &OpenFile, len: i64) -> SysR
     }
     match &file.object {
         FileObject::Mqueue(h) => super::mqueue::truncate(file, h, len),
+        #[cfg(not(unix))]
+        FileObject::Host(_) => Err(Errno(EPERM)),
+        #[cfg(unix)]
         FileObject::Host(f) => {
             if let Some(m) = &file.memfd {
                 m.check_resize(f.metadata()?.len(), len as u64)?;

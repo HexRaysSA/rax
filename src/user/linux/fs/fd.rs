@@ -67,6 +67,7 @@ pub enum FileObject {
     /// whose I/O the system calls perform.
     Anon(super::anon::Anon),
     /// A socket, whose transfers the socket calls perform.
+    #[cfg(unix)]
     Socket(super::super::net::Socket),
     /// A POSIX message queue (`ipc/mqueue.c`).
     Mqueue(super::super::ipc::mqueue::Handle),
@@ -138,6 +139,7 @@ pub struct OpenFile {
     pub memfd: Option<Arc<super::memfd::Memfd>>,
     /// What reports file-system events on the file, and its close when it
     /// and its mappings are gone (the emulated notification backend).
+    #[cfg(unix)]
     pub notify: std::sync::OnceLock<Arc<super::super::fsnotify::hub::Token>>,
 }
 
@@ -163,6 +165,16 @@ impl std::fmt::Debug for OpenFile {
 }
 
 impl OpenFile {
+    /// Whether this open description is a socket. Native sockets are part of
+    /// the Unix host-service profile; closed embedding cannot create them.
+    pub fn is_socket(&self) -> bool {
+        match &self.object {
+            #[cfg(unix)]
+            FileObject::Socket(_) => true,
+            _ => false,
+        }
+    }
+
     /// Creates a description with status `flags`.
     pub fn new(
         object: FileObject,
@@ -197,6 +209,7 @@ impl OpenFile {
             peer: Mutex::new(std::sync::Weak::new()),
             watchers: Mutex::new(Vec::new()),
             memfd,
+            #[cfg(unix)]
             notify: std::sync::OnceLock::new(),
         })
     }
@@ -290,6 +303,7 @@ impl OpenFile {
             }
             FileObject::PipeWrite(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
+            #[cfg(unix)]
             FileObject::Socket(s) => Ok((&s.file).read(buf)?),
             FileObject::Synthetic(data) => {
                 let mut st = self.state.lock().unwrap();
@@ -376,6 +390,7 @@ impl OpenFile {
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Synthetic(_) => Err(Errno(EACCES)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
+            #[cfg(unix)]
             FileObject::Socket(s) => Ok((&s.file).write(data)?),
             // No write operation (FMODE_CAN_WRITE is clear).
             FileObject::Mqueue(_) if !self.fmode().1 => Err(Errno(EBADF)),
@@ -392,6 +407,9 @@ impl OpenFile {
             return Err(Errno(EISDIR));
         }
         match &self.object {
+            #[cfg(not(unix))]
+            FileObject::Host(_) => Err(Errno(EPERM)),
+            #[cfg(unix)]
             FileObject::Host(f) if self.ftype == FileType::Regular => {
                 use std::os::unix::fs::FileExt;
                 Ok(f.read_at(buf, offset)?)
@@ -416,6 +434,9 @@ impl OpenFile {
             return Err(Errno(EBADF));
         }
         match &self.object {
+            #[cfg(not(unix))]
+            FileObject::Host(_) => Err(Errno(EPERM)),
+            #[cfg(unix)]
             FileObject::Host(f) if self.ftype == FileType::Regular => {
                 use std::os::unix::fs::FileExt;
                 if self.flags() & O_APPEND != 0 {
@@ -539,6 +560,7 @@ impl OpenFile {
 /// `locks_remove_posix`, and a message queue's `flush` (its notification
 /// dropped if this process registered it).
 fn filp_close(file: &OpenFile) {
+    #[cfg(unix)]
     super::locks::filp_close(file);
     if let FileObject::Mqueue(h) = &file.object {
         super::super::syscall::mqueue::flush(h, super::super::host::pid());

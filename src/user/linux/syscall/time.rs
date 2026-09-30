@@ -85,7 +85,6 @@ pub fn clock_getres(c: &mut Ctx<'_>, id: i32, res: u64) -> SysResult {
         } else {
             // hrtimer resolution is 1 ns whenever high-resolution timers
             // are active, whatever the host reports.
-            let _ = host::clock_getres(clock);
             1
         };
         c.put_timespec(res, Timespec { sec: 0, nsec: ns })?;

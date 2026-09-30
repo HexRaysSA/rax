@@ -37,6 +37,7 @@ fn wait(c: &mut Ctx<'_>) -> Errno {
 }
 
 /// `flock` (`SYSCALL_DEFINE2(flock)`).
+#[cfg(unix)]
 pub fn flock(c: &mut Ctx<'_>, fd: i32, cmd: u32) -> SysResult {
     const LOCK_SH: u32 = 1;
     const LOCK_EX: u32 = 2;
@@ -211,6 +212,10 @@ fn setup(
         return Err(Errno(EBADF));
     }
     let fl = Flock::read(c, arg, layout)?;
+    #[cfg(not(unix))]
+    if matches!(file.object, FileObject::Host(_)) {
+        return Err(Errno(EPERM));
+    }
     Ok((file, fl))
 }
 
@@ -220,7 +225,7 @@ fn setup(
 /// (`fixup_compat_flock`).
 pub fn getlk(c: &mut Ctx<'_>, fd: i32, arg: u64, owner: Owner, layout: FlockLayout) -> SysResult {
     #[cfg(not(target_os = "linux"))]
-    if owner == Owner::Description {
+    if owner == Owner::Description && c.p.config.host_services {
         return Err(Errno(EINVAL));
     }
     let (file, mut fl) = setup(c, fd, arg, layout)?;
@@ -235,11 +240,14 @@ pub fn getlk(c: &mut Ctx<'_>, fd: i32, arg: u64, owner: Owner, layout: FlockLayo
     if owner == Owner::Description && fl.pid != 0 {
         return Err(Errno(EINVAL));
     }
+    #[cfg(unix)]
     let conflict = match locks::host_fd(&file) {
         // An F_UNLCK request tests for nothing.
         Some(host) if fl.kind != F_UNLCK => locks::test(host, owner, fl.kind, range)?,
         _ => None,
     };
+    #[cfg(not(unix))]
+    let conflict: Option<locks::Conflict> = None;
     match conflict {
         Some(k) => {
             fl.kind = k.kind;
@@ -275,7 +283,7 @@ pub fn setlk(
     layout: FlockLayout,
 ) -> SysResult {
     #[cfg(not(target_os = "linux"))]
-    if owner == Owner::Description {
+    if owner == Owner::Description && c.p.config.host_services {
         return Err(Errno(EINVAL));
     }
     let (file, fl) = setup(c, fd, arg, layout)?;
@@ -290,17 +298,22 @@ pub fn setlk(
     if owner == Owner::Description && fl.pid != 0 {
         return Err(Errno(EINVAL));
     }
-    let Some(host) = locks::host_fd(&file) else {
-        return Ok(0);
-    };
-    match locks::set(host, owner, fl.kind, range) {
-        Ok(()) => {
-            if owner == Owner::Process && fl.kind != F_UNLCK {
-                locks::note_posix(host);
+    #[cfg(unix)]
+    {
+        let Some(host) = locks::host_fd(&file) else {
+            return Ok(0);
+        };
+        match locks::set(host, owner, fl.kind, range) {
+            Ok(()) => {
+                if owner == Owner::Process && fl.kind != F_UNLCK {
+                    locks::note_posix(host);
+                }
+                Ok(0)
             }
-            Ok(0)
+            Err(Errno(EAGAIN)) if sleep => Err(wait(c)),
+            Err(e) => Err(e),
         }
-        Err(Errno(EAGAIN)) if sleep => Err(wait(c)),
-        Err(e) => Err(e),
     }
+    #[cfg(not(unix))]
+    Ok(0)
 }

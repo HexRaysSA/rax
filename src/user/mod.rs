@@ -25,7 +25,6 @@ pub mod cpu;
 #[cfg(unix)]
 pub mod darwin;
 pub mod image;
-#[cfg(unix)]
 pub mod linux;
 pub mod mm;
 pub(crate) mod readiness;
