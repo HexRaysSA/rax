@@ -42,18 +42,38 @@ use crate::isa::arm::{
 };
 use crate::user::mm::AddressSpace;
 
+/// Memory operations required by the AArch32 user-mode executor. Embedders
+/// may supply their own mapped storage while retaining the same CPU semantics.
+pub trait A32AddressSpace: Clone + std::fmt::Debug {
+    fn read(&self, addr: u64, bytes: &mut [u8]) -> Result<(), GuestMemoryFault>;
+    fn write(&self, addr: u64, bytes: &[u8]) -> Result<(), GuestMemoryFault>;
+    fn fetch(&self, addr: u64, bytes: &mut [u8]) -> Result<(), GuestMemoryFault>;
+}
+
+impl A32AddressSpace for AddressSpace {
+    fn read(&self, addr: u64, bytes: &mut [u8]) -> Result<(), GuestMemoryFault> {
+        AddressSpace::read(self, addr, bytes)
+    }
+    fn write(&self, addr: u64, bytes: &[u8]) -> Result<(), GuestMemoryFault> {
+        AddressSpace::write(self, addr, bytes)
+    }
+    fn fetch(&self, addr: u64, bytes: &mut [u8]) -> Result<(), GuestMemoryFault> {
+        AddressSpace::fetch(self, addr, bytes)
+    }
+}
+
 /// The AArch32 core's memory interface over a user address space. The
 /// interface reports a failed access by address only, so the translation
 /// fault behind it is kept for the adapter to report.
 #[derive(Debug)]
-pub struct UserA32Memory {
-    space: AddressSpace,
+pub struct UserA32Memory<M: A32AddressSpace = AddressSpace> {
+    space: M,
     fault: Cell<Option<GuestMemoryFault>>,
 }
 
-impl UserA32Memory {
+impl<M: A32AddressSpace> UserA32Memory<M> {
     /// Creates a memory view of `space`.
-    pub fn new(space: AddressSpace) -> Self {
+    pub fn new(space: M) -> Self {
         UserA32Memory {
             space,
             fault: Cell::new(None),
@@ -90,7 +110,7 @@ impl UserA32Memory {
     }
 }
 
-impl ArmMemory for UserA32Memory {
+impl<M: A32AddressSpace> ArmMemory for UserA32Memory<M> {
     fn read_word(&self, addr: u32) -> Result<u32, MemoryError> {
         self.load(addr).map(u32::from_le_bytes)
     }
@@ -159,17 +179,17 @@ pub enum A32Exit {
 pub const COUNTER_HZ: u32 = 62_500_000;
 
 /// An AArch32 guest thread's CPU.
-pub struct A32UserCpu {
+pub struct A32UserCpu<M: A32AddressSpace = AddressSpace> {
     cpu: Armv7Cpu,
-    mem: UserA32Memory,
+    mem: UserA32Memory<M>,
     monitor: ExclusiveMonitor,
     decoder: Decoder,
 }
 
-impl A32UserCpu {
+impl<M: A32AddressSpace> A32UserCpu<M> {
     /// Creates a CPU in User mode (A32 state, flags and interrupt masks
     /// clear) with zeroed registers over `space`.
-    pub fn new(space: &AddressSpace) -> Self {
+    pub fn new(space: &M) -> Self {
         let mut cpu = Armv7Cpu::new();
         cpu.change_mode(ProcessorMode::User);
         cpu.cpsr = Psr::from_u32(ProcessorMode::User as u32);
@@ -213,8 +233,31 @@ impl A32UserCpu {
     }
 
     /// The address space this CPU executes in.
-    pub fn space(&self) -> &AddressSpace {
+    pub fn space(&self) -> &M {
         &self.mem.space
+    }
+
+    /// Local exclusive monitor, for a same-thread embedding checkpoint.
+    pub fn exclusive_monitor(&self) -> &ExclusiveMonitor {
+        &self.monitor
+    }
+
+    /// Restores a validated same-thread exclusive-monitor checkpoint.
+    pub fn set_exclusive_monitor(&mut self, monitor: ExclusiveMonitor) {
+        self.monitor = monitor;
+    }
+
+    /// Executes one instruction without treating an observation boundary as
+    /// a thread switch. The monitor survives ordinary instruction boundaries
+    /// and is cleared when an architectural event is returned.
+    pub fn step_instruction(&mut self) -> Option<A32Exit> {
+        let freq = u128::from(self.cpu.cp15.cntfrq);
+        self.cpu.cp15.cntpct = (u128::from(super::host_nanos()) * freq / 1_000_000_000) as u64;
+        let exit = self.step();
+        if exit.is_some() {
+            self.monitor.clear();
+        }
+        exit
     }
 
     /// Current PC (the address of the next instruction).

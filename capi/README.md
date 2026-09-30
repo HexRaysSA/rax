@@ -157,7 +157,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.6.0).
+C ABI version (currently 1.7.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -417,7 +417,7 @@ the system calls of a user‑mode engine; see below.
 | x86 / x86‑64 | `X86`        | ✅                       | ✅                              | ✅ 64‑bit and 32‑bit compatibility mode |
 | AArch64      | `ARM64`      | ✅                       | ✅                              | ✅ EL0                       |
 | RISC‑V (RV64)| `RISCV64`    | ✅                       | ✅                              | ✅ U‑mode                    |
-| AArch32 / ARMv7 | `ARM`     | ✅                       | ✅                              | —                           |
+| AArch32 / ARMv7 | `ARM`     | ✅                       | ✅                              | ✅ ARM/Thumb EL0 (ABI 1.7)   |
 | Hexagon      | `HEXAGON`    | ✅                       | ✅ (per packet)                 | —                           |
 | Cortex‑M     | `CORTEXM`    | ✅ Cortex‑M4, no FPU     | ✅                              | —                           |
 
@@ -507,7 +507,7 @@ restoration starts its count again at zero.
 
 `RAX_MODE_USER` runs guest code the way an operating system runs a process —
 x86 CPL 3 in 64‑bit (`RAX_MODE_64`) or 32‑bit compatibility (`RAX_MODE_32`)
-mode, AArch64 EL0, or RV64 U‑mode — and makes the embedder that operating
+mode, AArch64 EL0, RV64 U‑mode, or AArch32 EL0 (ABI 1.7) — and makes the embedder that operating
 system. It is the engine‑level counterpart of `rax-user`: librax traps system
 calls and exceptions; it does not implement Linux or any other OS.
 
@@ -558,6 +558,30 @@ Context format: ABI 1.5 writes context format 2, whose x86 state keeps the x87
 registers in their exact 80‑bit encoding. Contexts written by ABI 1.4 and
 earlier (format 1, binary64 x87 registers) still restore, each register
 widened exactly; ABI 1.4 libraries cannot read format 2.
+
+AArch32 user engines reuse `rax::user::cpu::arm::A32UserCpu` with the C API's
+mapped-memory adapter. ARM and Thumb interworking, IT state, SVC immediates,
+FP/SIMD, and TLS follow that executor's implemented instruction set. This does
+not imply complete Thumb-2 or NEON coverage. Big-endian user mode is rejected.
+`RAX_ARM_REG_TPIDRURW` and `RAX_ARM_REG_TPIDRURO` are 4-byte host-accessible
+registers; guest writes to TPIDRURO remain privileged. CPSR writes retain user
+flags and ARM/Thumb state but cannot select a privileged mode or big-endian data.
+BKPT reports exception class `0x38` and its immediate as the syndrome, matching
+the AArch32 exception definition used by the Linux personality.
+
+ABI 1.7 writes context format 3 only for AArch32 user engines. It adds a
+length-prefixed, 20-byte image of both TLS registers and the local exclusive
+monitor after the generic emulator image. Memory-map reconstruction and context
+restore preserve that state. Instruction-observation boundaries retain the
+monitor; a syscall or exception clears it. Other engines continue to write
+format 2, and existing format 1/2 readers remain supported. An older library
+cannot restore an AArch32 user context.
+
+| Assumption | Basis | Dependent behavior | Stress test / falsification probe | Status |
+|---|---|---|---|---|
+| A32-1: C API and process execution use the same instruction semantics. | Both use `A32UserCpu`; only memory storage differs. | ARM/Thumb execution and traps. | C API interworking/IT, privilege, SVC/BKPT tests plus existing executor tests. | Tested in the native C API suite. |
+| A32-2: A host observation boundary is not a guest context switch. | Instruction stepping must permit LDREX followed by STREX. | Exclusive-monitor persistence. | LDREX, map an unrelated page, save/restore, then STREX must succeed; a trap must clear it. | Tested in the native C API suite. |
+| A32-3: Existing context consumers retain their format. | Only the new AArch32 user mode emits format 3. | Context compatibility. | Existing format 1/2 tests plus malformed format-3 and system-to-user restore tests. | Tested in the native C API suite. |
 
 ### Native x86 instruction metadata (ABI 1.5)
 

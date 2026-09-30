@@ -1,7 +1,7 @@
 //! User-mode (process-level) execution, `RAX_MODE_USER` (ABI 1.5).
 //!
 //! A user-mode engine runs guest code unprivileged — x86-64 CPL 3 (64-bit or
-//! compatibility mode), AArch64 EL0, RV64 U-mode — while the embedder plays
+//! compatibility mode), AArch64/AArch32 EL0, RV64 U-mode — while the embedder plays
 //! the operating system. Mapped regions become the process address space:
 //! every guest access is checked against the region's `RAX_PROT_*` bits,
 //! system-call instructions stop with `RAX_STOP_SYSCALL` or call a syscall
@@ -23,7 +23,7 @@ use crate::{RaxStatus, guard};
 pub const RAX_SYSCALL_INSN_SYSCALL: u32 = 1;
 /// x86 `SYSENTER` (no register was modified).
 pub const RAX_SYSCALL_INSN_SYSENTER: u32 = 2;
-/// AArch64 `SVC #imm16`.
+/// SVC: AArch64 imm16, A32 imm24, or T32 imm8.
 pub const RAX_SYSCALL_INSN_SVC: u32 = 3;
 /// RISC-V `ECALL`.
 pub const RAX_SYSCALL_INSN_ECALL: u32 = 4;
@@ -44,7 +44,7 @@ pub const RAX_EXCEPTION_SOFTWARE: u32 = 1 << 2;
 pub struct RaxExceptionInfo {
     pub struct_size: u32,
     pub version: u32,
-    /// x86 IDT vector; AArch64 `ESR_EL1.EC`; RISC-V `mcause`.
+    /// x86 IDT vector; AArch64/AArch32 `ESR_EL1.EC`; RISC-V `mcause`.
     pub vector: u32,
     pub flags: u32,
     /// The instruction that raised the exception.

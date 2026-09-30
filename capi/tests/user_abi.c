@@ -65,6 +65,9 @@ rax_status user_abi_query(const rax_engine *engine)
 }
 
 RAX_TEST_STATIC_ASSERT(RAX_API_MINOR >= 6u, "syscall query requires ABI 1.6+");
+RAX_TEST_STATIC_ASSERT(RAX_API_MINOR >= 7u, "AArch32 user mode requires ABI 1.7+");
+RAX_TEST_STATIC_ASSERT(RAX_ARM_REG_TPIDRURW == 0x1000, "ARM TLS register id");
+RAX_TEST_STATIC_ASSERT(RAX_ARM_REG_TPIDRURO == 0x1001, "ARM TLS register id");
 RAX_TEST_STATIC_ASSERT(sizeof(rax_syscall_info) == 40u, "syscall record size");
 RAX_TEST_STATIC_ASSERT(offsetof(rax_syscall_info, pc) == 16u, "syscall PC offset");
 RAX_TEST_STATIC_ASSERT(offsetof(rax_syscall_info, resume_pc) == 24u, "syscall resume offset");

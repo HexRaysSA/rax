@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 6u
+#define RAX_API_MINOR 7u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -102,6 +102,7 @@ typedef enum rax_arch {
 #define RAX_MODE_LITTLE_ENDIAN (1u << 6) /* little-endian (default) */
 /* User-mode (process-level) execution, since API 1.5: x86 with RAX_MODE_64
  * (64-bit) or RAX_MODE_32 (32-bit compatibility mode), ARM64, or RISCV64.
+ * Since API 1.7, ARM in ARM or Thumb state is supported (little-endian only).
  * See "User-mode execution" below. Other combinations return RAX_ERR_MODE. */
 #define RAX_MODE_USER          (1u << 7)
 
@@ -480,6 +481,8 @@ RAX_API rax_status rax_context_save(const rax_engine *engine, void *buf, size_t 
  * adopts the context's mode (including RAX_MODE_USER) and memory map. API 1.5
  * writes context format 2 (exact 80-bit x87 registers) and still restores
  * format 1 from API 1.4 and earlier; older libraries cannot read format 2.
+ * API 1.7 writes format 3 only for AArch32 user-mode contexts, adding TLS
+ * and the local exclusive monitor. Other modes still write format 2.
  * Malformed data returns RAX_ERR_FORMAT and leaves the engine unchanged. */
 RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, size_t len);
 
@@ -488,7 +491,7 @@ RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, siz
  *
  * Opening with RAX_MODE_USER runs guest code unprivileged -- x86 CPL 3 in
  * 64-bit mode (RAX_MODE_64) or 32-bit compatibility mode (RAX_MODE_32),
- * AArch64 EL0, RV64 U-mode -- with the embedder acting as the operating
+ * AArch64 EL0, RV64 U-mode, or AArch32 EL0 (API 1.7) -- with the embedder acting as the operating
  * system. librax traps system calls; it does not implement any OS.
  *
  *  - Mapped regions are the process address space. Every guest load, store,
@@ -500,7 +503,7 @@ RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, siz
  *    rax_mem_map/rax_mem_protect and a retry resume it. rax_mem_translate and
  *    the *_virt accessors apply the same checks; physical host access
  *    (rax_mem_read/rax_mem_write) ignores permissions.
- *  - A system-call instruction (x86 SYSCALL or SYSENTER, AArch64 SVC, RISC-V
+ *  - A system-call instruction (x86 SYSCALL or SYSENTER, ARM/AArch64 SVC, RISC-V
  *    ECALL) completes and counts as one executed instruction, leaving the PC
  *    at its resume address. The first syscall hook services it, or the run
  *    stops with RAX_STOP_SYSCALL. x86 SYSCALL sets RCX (return RIP) and R11
@@ -526,12 +529,19 @@ RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, siz
  *    privileged instructions raise #GP; AArch64 EL1 system registers and RV64
  *    CSRs above U-mode are UNDEFINED/illegal, as are the RV64 cycle, time,
  *    and instret counters. Register writes are not privilege-checked.
+ *  - AArch32 uses the shared ARMv8-A AArch32 EL0 executor: ARM and Thumb,
+ *    FP/SIMD enabled, little-endian data. CPSR writes retain user flags, IT
+ *    state and Thumb state; mode, endian and interrupt masks stay at their
+ *    user defaults. BKPT reports ESR_EL1.EC 0x38 with its comment in syndrome;
+ *    UNDEFINED reports EC 0. TPIDRURW and TPIDRURO can be seeded by the host.
+ *    WFI/WFE complete without halting. Observation/step boundaries preserve
+ *    the local exclusive monitor; syscalls and exceptions clear it.
  * ======================================================================== */
 
 /* System-call instruction classes (rax_syscall_cb `insn`; rax_exit.port). */
 #define RAX_SYSCALL_INSN_SYSCALL  1u /* x86 SYSCALL */
 #define RAX_SYSCALL_INSN_SYSENTER 2u /* x86 SYSENTER */
-#define RAX_SYSCALL_INSN_SVC      3u /* AArch64 SVC #imm16 */
+#define RAX_SYSCALL_INSN_SVC      3u /* SVC: AArch64 imm16, A32 imm24, T32 imm8 */
 #define RAX_SYSCALL_INSN_ECALL    4u /* RISC-V ECALL */
 
 /* ===========================================================================
@@ -744,6 +754,10 @@ RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, siz
 #define RAX_ARM_REG_CPSR RAX_REG_PSTATE
 #define RAX_ARM_REG_SPSR RAX_REG_SPSR
 #define RAX_ARM_REG_FPSCR RAX_REG_FPSCR
+/* Since API 1.7; 4 bytes, user-mode engines only. Host writes can seed both;
+ * guest instructions may write TPIDRURW but may only read TPIDRURO. */
+#define RAX_ARM_REG_TPIDRURW 0x1000
+#define RAX_ARM_REG_TPIDRURO 0x1001
 
 /* ---- Cortex-M ------------------------------------------------------------ */
 /* The Cortex-M engine (since API 1.5) is a Cortex-M4 without the

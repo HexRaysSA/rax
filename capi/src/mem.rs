@@ -256,6 +256,7 @@ impl Engine {
             Err(e) => return self.fail_engine(&e),
         };
         let es = self.vcpu.get_emulator_state();
+        let arm_user = self.vcpu.arm_user_state();
         let mut v = match crate::arch::build_vcpu(
             self.arch,
             self.mode,
@@ -271,6 +272,9 @@ impl Engine {
         }
         if let Some(es) = es {
             let _ = v.set_emulator_state(&es);
+        }
+        if let Some(state) = arm_user {
+            v.set_arm_user_state(state);
         }
         if let Some(translation) = &self.translation {
             translation.set(

@@ -10,6 +10,7 @@
 //!   flags   u32  (bit0: extended emulator state present)
 //!   cpu_len u64; cpu_bytes[cpu_len]      (bincode of CpuState)
 //!   emu_len u64; emu_bytes[emu_len]      (bincode of EmulatorState; if flag)
+//!   [format 3 only: arm_len u64 = 20; TLS + exclusive-monitor bytes[20]]
 //!   nregion u64
 //!   per region: base u64, size u64, perms u32, _pad u32, bytes[size]
 //! ```
@@ -21,6 +22,9 @@
 //! x87 register is widened exactly (see [`decode_v1_emulator_state`]), and a
 //! RISC-V hart restores with the reset privilege, CSRs, and vector state
 //! (see [`decode_v1_riscv_state`]).
+//! Format 3 is used only by AArch32 user engines (ABI 1.7); existing engines
+//! still write format 2. Its five little-endian u32 words are TPIDRURW,
+//! TPIDRURO, exclusive address, exclusive size, and exclusive-present (0/1).
 
 use std::sync::Arc;
 
@@ -37,6 +41,9 @@ use crate::user::{RaxExceptionInfo, RegionTranslation};
 const CTX_MAGIC: u32 = 0x5241_5843; // "RAXC"
 /// Written by this library.
 const CTX_VERSION: u32 = 2;
+/// AArch32 user-mode contexts append TLS and exclusive-monitor state after
+/// the emulator image. Existing architectures continue to write version 2.
+const CTX_VERSION_ARM_USER: u32 = 3;
 /// ABI 1.4 and earlier: binary64 x87 registers in the extended state.
 const CTX_VERSION_V1: u32 = 1;
 const FLAG_HAS_EMU: u32 = 1 << 0;
@@ -196,9 +203,14 @@ fn decode_v1_emulator_state(bytes: &[u8]) -> Option<EmulatorState> {
 impl Engine {
     /// Serializes the full engine context into a byte vector.
     fn serialize_context(&self) -> Result<Vec<u8>, RaxStatus> {
+        let arm_user = self.vcpu.arm_user_state();
         let mut w = Writer::new();
         w.u32(CTX_MAGIC);
-        w.u32(CTX_VERSION);
+        w.u32(if arm_user.is_some() {
+            CTX_VERSION_ARM_USER
+        } else {
+            CTX_VERSION
+        });
         w.i32(self.arch as i32);
         w.u32(self.mode);
 
@@ -221,6 +233,12 @@ impl Engine {
             w.bytes(&eb);
         } else {
             w.u64(0);
+        }
+
+        if let Some(state) = arm_user {
+            let bytes = state.encode();
+            w.u64(bytes.len() as u64);
+            w.bytes(&bytes);
         }
 
         w.u64(self.regions.len() as u64);
@@ -256,7 +274,7 @@ impl Engine {
             return self.fail(RaxStatus::Format, "bad context magic");
         }
         let version = r.u32().unwrap_or(0);
-        if version != CTX_VERSION && version != CTX_VERSION_V1 {
+        if !matches!(version, CTX_VERSION | CTX_VERSION_V1 | CTX_VERSION_ARM_USER) {
             return self.fail(RaxStatus::Format, "unsupported context version");
         }
         let arch = r.i32().unwrap_or(-1);
@@ -270,10 +288,17 @@ impl Engine {
                 "context mode is invalid for its architecture",
             );
         }
+        let is_arm_user = self.arch == RaxArch::Arm && arch::is_user(mode);
+        if (version == CTX_VERSION_ARM_USER) != is_arm_user {
+            return self.fail(RaxStatus::Format, "AArch32 user contexts require format 3");
+        }
         let flags = match r.u32() {
             Some(v) => v,
             None => return self.fail(RaxStatus::Format, "truncated context"),
         };
+        if is_arm_user && flags != 0 {
+            return self.fail(RaxStatus::Format, "invalid AArch32 user context flags");
+        }
         let cpu_len = match r.u64() {
             Some(v) => v as usize,
             None => return self.fail(RaxStatus::Format, "truncated context"),
@@ -295,6 +320,12 @@ impl Engine {
             Some(v) => v as usize,
             None => return self.fail(RaxStatus::Format, "truncated context"),
         };
+        if is_arm_user && emu_len != 0 {
+            return self.fail(
+                RaxStatus::Format,
+                "unexpected AArch32 generic emulator state",
+            );
+        }
         let emu: Option<EmulatorState> = if flags & FLAG_HAS_EMU != 0 {
             let eb = match r.take(emu_len) {
                 Some(b) => b,
@@ -308,6 +339,20 @@ impl Engine {
             match decoded {
                 Some(e) => Some(e),
                 None => return self.fail(RaxStatus::Format, "bad emulator state encoding"),
+            }
+        } else {
+            None
+        };
+
+        let arm_user = if is_arm_user {
+            let len = match r.u64() {
+                Some(20) => 20,
+                _ => return self.fail(RaxStatus::Format, "invalid AArch32 user state size"),
+            };
+            let state = r.take(len).and_then(crate::arm_user::ArmUserState::decode);
+            match state {
+                Some(state) => Some(state),
+                None => return self.fail(RaxStatus::Format, "invalid AArch32 user state"),
             }
         } else {
             None
@@ -392,6 +437,9 @@ impl Engine {
             if let Err(err) = vcpu.set_emulator_state(es) {
                 return self.fail_engine(&err);
             }
+        }
+        if let Some(state) = arm_user {
+            vcpu.set_arm_user_state(state);
         }
 
         self.mode = mode;

@@ -87,7 +87,12 @@ pub fn normalize_mode(arch: RaxArch, mode: u32) -> Option<u32> {
     let bitness = mode & (RAX_MODE_16 | RAX_MODE_32 | RAX_MODE_64);
     let armstate = mode & (RAX_MODE_ARM | RAX_MODE_THUMB);
     let user = mode & RAX_MODE_USER;
-    if user != 0 && !matches!(arch, RaxArch::X86 | RaxArch::Arm64 | RaxArch::Riscv64) {
+    if user != 0
+        && !matches!(
+            arch,
+            RaxArch::X86 | RaxArch::Arm | RaxArch::Arm64 | RaxArch::Riscv64
+        )
+    {
         return None;
     }
     match arch {
@@ -112,6 +117,9 @@ pub fn normalize_mode(arch: RaxArch, mode: u32) -> Option<u32> {
             Some(RAX_MODE_THUMB | (mode & RAX_MODE_LITTLE_ENDIAN))
         }
         RaxArch::Arm => {
+            if user != 0 && mode & RAX_MODE_BIG_ENDIAN != 0 {
+                return None;
+            }
             // ARM/AArch32 default to ARM state.
             let st = if armstate == 0 {
                 RAX_MODE_ARM
@@ -120,7 +128,7 @@ pub fn normalize_mode(arch: RaxArch, mode: u32) -> Option<u32> {
             } else {
                 return None;
             };
-            Some(st | (mode & (RAX_MODE_BIG_ENDIAN | RAX_MODE_LITTLE_ENDIAN)))
+            Some(st | user | (mode & (RAX_MODE_BIG_ENDIAN | RAX_MODE_LITTLE_ENDIAN)))
         }
         RaxArch::Arm64 => Some(user | (mode & (RAX_MODE_BIG_ENDIAN | RAX_MODE_LITTLE_ENDIAN))),
         RaxArch::Hexagon => Some(mode & (RAX_MODE_BIG_ENDIAN | RAX_MODE_LITTLE_ENDIAN)),
@@ -201,6 +209,11 @@ pub(crate) fn build_vcpu(
             RaxArch::Arm64 => Vcpu::Arm64User(Box::new(
                 rax_engine::backend::emulator::aarch64::Aarch64Vcpu::new_user(0, mem, translation),
             )),
+            RaxArch::Arm => Vcpu::ArmUser(Box::new(crate::arm_user::ArmUserVcpu::new(
+                mem,
+                translation,
+                mode & RAX_MODE_THUMB != 0,
+            ))),
             RaxArch::Riscv64 => Vcpu::RiscvUser(Box::new(
                 rax_engine::backend::emulator::riscv::RiscVVcpu::new_user(
                     0,

@@ -292,11 +292,11 @@ Use:
 
 Do not interchange their files or compatibility expectations.
 
-C API contexts are versioned. ABI 1.5 writes context format 2, which stores the x86 x87 registers in their exact 80-bit encoding, and still restores format 1 contexts from ABI 1.4 and earlier. An ABI 1.4 library cannot restore a format 2 context.
+C API contexts are versioned. ABI 1.5 writes context format 2, which stores the x86 x87 registers in their exact 80-bit encoding, and still restores format 1 contexts from ABI 1.4 and earlier. An ABI 1.4 library cannot restore a format 2 context. ABI 1.7 uses format 3 only for AArch32 user engines, adding both thread-pointer registers and the local exclusive monitor; other engines continue writing format 2. Older libraries cannot restore format 3.
 
 ## User-mode execution
 
-Opening an engine with `RAX_MODE_USER` (ABI 1.5) runs x86 64-bit or 32-bit compatibility-mode, AArch64 EL0, or RV64 U-mode code unprivileged. Mapped regions become the process address space, with their `RAX_PROT_*` permissions enforced and violations reported through `rax_emu_last_fault`. System-call instructions stop with `RAX_STOP_SYSCALL` or call a syscall hook, and other exceptions are reported with `RAX_STOP_EXCEPTION`, the interrupt hook, and `rax_emu_last_exception` instead of vectoring through guest tables.
+Opening an engine with `RAX_MODE_USER` (ABI 1.5) runs x86 64-bit or 32-bit compatibility-mode, AArch64 EL0, or RV64 U-mode code unprivileged. ABI 1.7 adds little-endian AArch32 EL0 in ARM or Thumb state, sharing the process executor and exposing TPIDRURW/TPIDRURO. Mapped regions become the process address space, with their `RAX_PROT_*` permissions enforced and violations reported through `rax_emu_last_fault`. System-call instructions stop with `RAX_STOP_SYSCALL` or call a syscall hook, and other exceptions are reported with `RAX_STOP_EXCEPTION`, the interrupt hook, and `rax_emu_last_exception` instead of vectoring through guest tables.
 
 This traps system calls for the embedder to service. It does not provide `rax-user`'s Linux personality; the embedder implements whatever operating-system behavior it needs. The normative contract is the user-mode section of [`capi/README.md`](../capi/README.md) and `capi/include/rax.h`.
 
@@ -327,7 +327,7 @@ The C API README currently describes full memory/register/run/reset/context surf
 - Hexagon;
 - Cortex-M (since ABI 1.5: a Cortex-M4 without the Floating-point Extension, whose System Control Space is reached through registers rather than memory).
 
-User mode is available for x86, AArch64, and RV64.
+User mode is available for x86, AArch64, AArch32 (ABI 1.7), and RV64.
 
 Since ABI 1.5 every architecture returns true from `rax_engine_supports_stepping`, so instruction-granular stepping and code/block hooks are available everywhere (Hexagon steps whole packets). RISC-V engines also expose the vector registers, the CSRs by number, and the privilege level, and save them in contexts.
 

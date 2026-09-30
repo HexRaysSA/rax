@@ -109,6 +109,8 @@ fn user_mode_is_validated_and_reported_in_the_mode() {
         (RaxArch::X86, RAX_MODE_64),
         (RaxArch::X86, RAX_MODE_32),
         (RaxArch::Arm64, 0),
+        (RaxArch::Arm, RAX_MODE_ARM),
+        (RaxArch::Arm, crate::arch::RAX_MODE_THUMB),
         (RaxArch::Riscv64, 0),
     ] {
         let e = User::open(arch, mode);
@@ -116,7 +118,10 @@ fn user_mode_is_validated_and_reported_in_the_mode() {
     }
     for (arch, mode) in [
         (RaxArch::X86, RAX_MODE_16),
-        (RaxArch::Arm, RAX_MODE_ARM),
+        (
+            RaxArch::Arm,
+            RAX_MODE_ARM | crate::arch::RAX_MODE_BIG_ENDIAN,
+        ),
         (RaxArch::Hexagon, 0),
         (RaxArch::CortexM, 0),
     ] {
@@ -129,6 +134,9 @@ fn user_mode_is_validated_and_reported_in_the_mode() {
         assert!(e.is_null());
     }
 }
+
+#[path = "user_arm.rs"]
+mod arm;
 
 #[test]
 fn x86_syscall_stops_with_the_instruction_and_resumes_after_it() {

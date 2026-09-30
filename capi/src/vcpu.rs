@@ -26,6 +26,8 @@ pub(crate) enum Vcpu {
     X86User(Box<X86_64Vcpu>),
     /// An AArch64 user-mode core (EL0).
     Arm64User(Box<Aarch64Vcpu>),
+    /// The shared AArch32 user-mode executor in ARM or Thumb state.
+    ArmUser(Box<crate::arm_user::ArmUserVcpu>),
     /// An RV64 user-mode hart (U-mode).
     RiscvUser(Box<RiscVVcpu>),
 }
@@ -64,6 +66,7 @@ impl Vcpu {
     pub(crate) fn take_user_trap(&mut self) -> Option<UserTrap> {
         match self {
             Vcpu::System(_) => None,
+            Vcpu::ArmUser(core) => core.take_trap(),
             Vcpu::X86User(core) => {
                 let resume = core.current_pc();
                 core.take_user_trap().map(|trap| match trap {
@@ -145,6 +148,19 @@ impl Vcpu {
             core.invalidate_all_code();
         }
     }
+
+    pub(crate) fn arm_user_state(&self) -> Option<crate::arm_user::ArmUserState> {
+        match self {
+            Self::ArmUser(core) => Some(core.user_state()),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn set_arm_user_state(&mut self, state: crate::arm_user::ArmUserState) {
+        if let Self::ArmUser(core) = self {
+            core.set_user_state(state);
+        }
+    }
 }
 
 impl Deref for Vcpu {
@@ -155,6 +171,7 @@ impl Deref for Vcpu {
             Vcpu::System(core) => core.as_ref(),
             Vcpu::X86User(core) => core.as_ref(),
             Vcpu::Arm64User(core) => core.as_ref(),
+            Vcpu::ArmUser(core) => core.as_ref(),
             Vcpu::RiscvUser(core) => core.as_ref(),
         }
     }
@@ -166,6 +183,7 @@ impl DerefMut for Vcpu {
             Vcpu::System(core) => core.as_mut(),
             Vcpu::X86User(core) => core.as_mut(),
             Vcpu::Arm64User(core) => core.as_mut(),
+            Vcpu::ArmUser(core) => core.as_mut(),
             Vcpu::RiscvUser(core) => core.as_mut(),
         }
     }

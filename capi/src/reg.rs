@@ -782,11 +782,14 @@ fn arm32_set_d(r: &mut rax_engine::cpu::Aarch32Registers, i: usize, v: u64) {
     }
 }
 
+const ARM_TPIDRURW: i32 = 0x1000;
+const ARM_TPIDRURO: i32 = 0x1001;
+
 fn arm32_size(id: i32) -> Option<usize> {
     let fam = id & !0xFF;
     let idx = (id & 0xFF) as usize;
     Some(match id {
-        SC_SP | SC_LR | SC_PC | SC_PSTATE | SC_SPSR | SC_FPSCR => 4,
+        SC_SP | SC_LR | SC_PC | SC_PSTATE | SC_SPSR | SC_FPSCR | ARM_TPIDRURW | ARM_TPIDRURO => 4,
         _ => match fam {
             REG_GP if idx < 13 => 4,
             REG_VEC if idx < 32 => 4,
@@ -1205,6 +1208,28 @@ pub extern "C" fn rax_reg_read(
             return e.fail(RaxStatus::Arg, "null value buffer");
         }
         let mut tmp = [0u8; MAX_REG_BYTES];
+        if e.arch == RaxArch::Arm && matches!(regid, ARM_TPIDRURW | ARM_TPIDRURO) {
+            let Some(state) = e.vcpu.arm_user_state() else {
+                return e.fail(RaxStatus::Reg, "AArch32 TLS registers require user mode");
+            };
+            let v = if regid == ARM_TPIDRURW {
+                state.tpidrurw
+            } else {
+                state.tpidruro
+            };
+            // SAFETY: the public read contract requires a writable value buffer;
+            // this ID has size four and null was rejected above. Caller validity
+            // and capacity follow the FFI contract. The initialized local bytes
+            // cannot overlap caller storage; a non-null out_size is writable
+            // under the same contract.
+            unsafe {
+                std::ptr::copy_nonoverlapping(v.to_le_bytes().as_ptr(), value, 4);
+                if !out_size.is_null() {
+                    *out_size = 4;
+                }
+            }
+            return RaxStatus::Ok;
+        }
         if e.arch == RaxArch::X86 && x86_emu_size(regid).is_some() {
             let Some(es) = e.vcpu.get_emulator_state() else {
                 return e.fail(RaxStatus::Reg, "register state is not available");
@@ -1263,6 +1288,19 @@ pub extern "C" fn rax_reg_write(engine: *mut Engine, regid: c_int, value: *const
             None => return e.fail(RaxStatus::Reg, "invalid register id for architecture"),
         };
         let inp = unsafe { std::slice::from_raw_parts(value, size) };
+        if e.arch == RaxArch::Arm && matches!(regid, ARM_TPIDRURW | ARM_TPIDRURO) {
+            let Some(mut state) = e.vcpu.arm_user_state() else {
+                return e.fail(RaxStatus::Reg, "AArch32 TLS registers require user mode");
+            };
+            let value = get_uint(inp, 4) as u32;
+            if regid == ARM_TPIDRURW {
+                state.tpidrurw = value;
+            } else {
+                state.tpidruro = value;
+            }
+            e.vcpu.set_arm_user_state(state);
+            return RaxStatus::Ok;
+        }
         if e.arch == RaxArch::X86 && x86_emu_size(regid).is_some() {
             let Some(mut es) = e.vcpu.get_emulator_state() else {
                 return e.fail(RaxStatus::Reg, "register state is not available");
