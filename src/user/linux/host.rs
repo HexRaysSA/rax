@@ -23,36 +23,13 @@ fn cpath(p: &Path) -> Result<CString, Errno> {
     CString::new(p.as_os_str().as_bytes()).map_err(|_| Errno(super::abi::errno_table::EINVAL))
 }
 
-/// Host clock identifiers `clock_gettime` accepts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HostClock {
-    /// Wall-clock time.
-    Realtime,
-    /// Monotonic time since an unspecified point (host boot).
-    Monotonic,
-    /// CPU time consumed by the emulator process.
-    ProcessCpu,
-    /// CPU time consumed by the calling host thread.
-    ThreadCpu,
-}
+pub use crate::user::clock::HostClock;
 
-/// `clock_gettime` on the host, as `(seconds, nanoseconds)`.
+/// Host time as normalized `(seconds, nanoseconds)`. The four supported clock
+/// domains are required host services; an unexpected sampling failure must not
+/// silently substitute a zero timestamp into timers and deadlines.
 pub fn clock_gettime(clock: HostClock) -> (i64, i64) {
-    let id = match clock {
-        HostClock::Realtime => libc::CLOCK_REALTIME,
-        HostClock::Monotonic => libc::CLOCK_MONOTONIC,
-        HostClock::ProcessCpu => libc::CLOCK_PROCESS_CPUTIME_ID,
-        HostClock::ThreadCpu => libc::CLOCK_THREAD_CPUTIME_ID,
-    };
-    let mut ts = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
-    // SAFETY: `ts` is a valid, writable `timespec`; the clock IDs are ones
-    // every supported host defines, so the call cannot fail.
-    let rc = unsafe { libc::clock_gettime(id, &mut ts) };
-    debug_assert_eq!(rc, 0);
-    (ts.tv_sec as i64, ts.tv_nsec as i64)
+    crate::user::clock::read(clock).expect("required host clock unavailable")
 }
 
 /// Host clock resolution in nanoseconds.

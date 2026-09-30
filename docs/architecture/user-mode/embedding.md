@@ -97,3 +97,36 @@ sharing contract survives the extraction; it does not claim Windows fork support
 High-impact remaining requirement: this adapter alone does not provide the Linux
 personality on a Windows host. Descriptor readiness, external-service adapters and
 shared syscall compilation still require the broader port described above.
+
+## Portable host clocks
+
+`user::clock::read` separates the four host clock domains needed by the Linux
+personality from the Unix service adapter. Unix uses the corresponding
+`clock_gettime` IDs. Windows uses `GetSystemTimePreciseAsFileTime` for realtime,
+`QueryPerformanceCounter` with its boot-fixed frequency for monotonic time, and
+`GetProcessTimes`/`GetThreadTimes` for process/thread CPU time. Native errors are
+returned as `io::Error`; Linux's existing infallible host wrapper fails explicitly
+if a required host clock unexpectedly fails instead of substituting zero.
+
+Windows `FILETIME` units are 100 ns. The Unix epoch offset is
+`(369 × 365 + 89) d × 86400 s/d × 10⁷ ticks/s = 116444736000000000 ticks`.
+Signed 128-bit conversion normalizes pre-epoch dates and avoids overflow when
+adding user and kernel times. For performance-counter ticks `t` and frequency
+`f > 0` Hz, the integer result is `floor(t × 10⁹ / f)` ns; conversion error is
+less than 1 ns. The representation does not assert nanosecond clock accuracy.
+All conversions take O(1) time and space.
+
+Primary contracts:
+[precise wall time](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemtimepreciseasfiletime),
+[performance-counter frequency](https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency),
+[process accounting](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocesstimes),
+[thread accounting](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getthreadtimes).
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| CK1 | Native CPU-clock domains distinguish the calling thread from the process. | Separate POSIX clock IDs and separate Windows accounting APIs. | Thread CPU timers and process CPU timers retain distinct sources. | A joining thread remains idle while another thread consumes at least 50 ms CPU. | `native_thread_clock_excludes_another_threads_work` charges worker time to the joining thread. | Confirmed on macOS; Windows/Linux CI validation required. |
+| CK2 | Integer conversion covers the entire native counter domains. | Widened arithmetic and positive-frequency validation. | Normalized timestamps without overflow or sign loss. | Both signed counter extrema, maximal FILETIME sums, fractional division and pre-epoch timestamps. | Conversion regressions fail or a result has nanoseconds outside `[0, 10⁹)`. | Covered by host-independent boundary tests. |
+
+The clock adapter changes no guest syscall IDs, guest time layouts, CPU execution,
+C ABI, persistence, or Assist tool schema. It is another dependency of the Windows
+host port, not a claim that the full Linux personality is available there.
