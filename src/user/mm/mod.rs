@@ -1065,8 +1065,19 @@ fn attach(arena: &FrameArena, base: u64, object: &SharedObject, start: u64) -> R
     }
     #[cfg(windows)]
     {
-        let len = object.extent_len(start, arena::EXTENT, PAGE_SIZE);
         let file = object.host_file().ok_or(MmError::OutOfMemory)?;
+        // Unlike a POSIX mmap, a Windows section view cannot extend past the
+        // section's page-rounded size. Keep the rest of the arena extent private;
+        // the backing's end check rejects guest pages beyond the actual file.
+        let remaining = file
+            .metadata()
+            .map_err(|_| MmError::OutOfMemory)?
+            .len()
+            .saturating_sub(start);
+        let file_span = remaining.div_ceil(PAGE_SIZE).saturating_mul(PAGE_SIZE);
+        let len = object
+            .extent_len(start, arena::EXTENT, PAGE_SIZE)
+            .min(file_span);
         arena
             .attach(base, file, start, len, object.writable())
             .map_err(|_| MmError::OutOfMemory)

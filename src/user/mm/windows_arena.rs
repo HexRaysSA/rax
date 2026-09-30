@@ -615,6 +615,22 @@ mod tests {
     }
 
     #[test]
+    fn short_file_maps_its_last_partial_page_without_growing_the_file() {
+        let space = space();
+        let object = Arc::new(SharedObject::anonymous(4097).unwrap());
+        let rw = Perms::READ | Perms::WRITE;
+        space.map(0x10000, 3 * 4096, mapping(&object, rw)).unwrap();
+        space.write(0x11000, &[0x61]).unwrap();
+        let mut byte = [0xff];
+        space.read(0x11fff, &mut byte).unwrap();
+        assert_eq!(byte, [0]);
+        assert!(space.read(0x12000, &mut byte).is_err());
+        assert_eq!(object.len(), 4097);
+        object.read_at(4096, &mut byte).unwrap();
+        assert_eq!(byte, [0x61]);
+    }
+
+    #[test]
     fn read_only_mapping_upgrades_without_changing_physical_address() {
         let space = space();
         let file = super::super::anonymous_file().unwrap();
