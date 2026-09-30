@@ -60,7 +60,8 @@ object. Default CLI configurations retain their original host/sysroot behavior.
 
 This is a filesystem component of embedding, not the closed process profile:
 console routing, host identity, signals, networking, process creation, IPC,
-notifications, and asynchronous syscall services require their separate gates.
+notifications, and asynchronous syscall services require their separate gates
+in the [closed Linux profile](embedding.md).
 The portable CI lane runs the shared `supplied_fs` tests on Windows, macOS,
 and Linux; native validation is tracked separately. Linux process integration is currently
 Unix-host-only. Windows-host Linux execution and Darwin integration remain

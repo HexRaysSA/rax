@@ -150,6 +150,9 @@ fn prepare_signal(
     if flush != 0 {
         flush_signals(p, th, flush);
     }
+    if sig == SIGKILL && !p.config.host_services {
+        p.group_stop = None;
+    }
     if sig == SIGCONT {
         // A traced process's group stop ends, and every seized thread is
         // told (ptrace_trap_notify).
@@ -378,22 +381,24 @@ pub fn force_sigsegv(p: &mut ProcState, th: &mut Threads<'_>, sig: i32) {
 /// interval timers (`SEND_SIG_PRIV`), all aimed at the process through its
 /// leader, and the signals of expired POSIX timers.
 pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
-    // Tracing messages: a tracee's answers and stops, a tracer's requests.
-    crate::user::linux::ptrace::tracee::poll_links(p, th);
-    if crate::user::linux::host::take_child_event() {
-        crate::user::linux::syscall::child::refresh(p, th);
-    }
     let leader = p.pid;
-    for hs in crate::user::linux::host::take_host_signals() {
-        let info = match hs.sender {
-            Some((pid, uid)) if hs.code != super::code::SI_USER => {
-                SigInfo::queued(hs.sig, hs.code, pid, uid, hs.value)
-            }
-            Some((pid, uid)) => SigInfo::kill(hs.sig, super::code::SI_USER, pid, uid),
-            None => SigInfo::kernel(hs.sig),
-        };
-        let force = info.code == super::code::SI_KERNEL;
-        send_signal(p, th, info, Dest::Process(leader), force);
+    if p.config.host_services {
+        // Tracing messages: a tracee's answers and stops, a tracer's requests.
+        crate::user::linux::ptrace::tracee::poll_links(p, th);
+        if crate::user::linux::host::take_child_event() {
+            crate::user::linux::syscall::child::refresh(p, th);
+        }
+        for hs in crate::user::linux::host::take_host_signals() {
+            let info = match hs.sender {
+                Some((pid, uid)) if hs.code != super::code::SI_USER => {
+                    SigInfo::queued(hs.sig, hs.code, pid, uid, hs.value)
+                }
+                Some((pid, uid)) => SigInfo::kill(hs.sig, super::code::SI_USER, pid, uid),
+                None => SigInfo::kernel(hs.sig),
+            };
+            let force = info.code == super::code::SI_KERNEL;
+            send_signal(p, th, info, Dest::Process(leader), force);
+        }
     }
     if p.itimers.next_deadline().is_some() || p.itimers.cpu_armed() {
         let fired = p.itimers.expire(
@@ -512,6 +517,8 @@ enum Next {
     Exit,
     /// The thread stopped for its tracer.
     Traced,
+    /// A closed guest process stopped without stopping its host.
+    Stopped,
 }
 
 /// Formats a delivered signal the way `strace` does.
@@ -636,6 +643,10 @@ impl LinuxProcess {
                 return Next::Traced;
             }
             if default_stops(sig) {
+                if !p.config.host_services {
+                    p.group_stop = Some(sig);
+                    return Next::Stopped;
+                }
                 // Group stop. Process groups are never treated as
                 // orphaned, so SIGTSTP/SIGTTIN/SIGTTOU stop as SIGSTOP does:
                 // the host process stops until the host continues it.
@@ -736,7 +747,8 @@ impl LinuxProcess {
         loop {
             match self.get_signal(idx) {
                 Next::Exit => return,
-                Next::Traced => {
+                Next::Traced | Next::Stopped => {
+                    // Preserve syscall restart state across either kind of stop.
                     // The tracer sees the call as it ended (its result, the
                     // instruction after it, orig_rax); the restart is
                     // decided once the thread goes on. (A group exit that

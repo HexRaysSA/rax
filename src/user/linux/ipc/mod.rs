@@ -244,12 +244,16 @@ impl Ids {
 #[derive(Clone, Debug)]
 pub struct Namespace {
     dir: PathBuf,
+    disabled: bool,
 }
 
 impl Namespace {
     /// The namespace in `dir` (made, owner-only, if missing).
     pub fn at(dir: PathBuf) -> Self {
-        Namespace { dir }
+        Namespace {
+            dir,
+            disabled: false,
+        }
     }
 
     /// The default namespace: one per host user under the temporary
@@ -266,6 +270,9 @@ impl Namespace {
     }
 
     fn ensure(&self) -> Result<(), Errno> {
+        if self.disabled {
+            return Err(Errno(EPERM));
+        }
         use std::os::unix::fs::DirBuilderExt;
         match std::fs::DirBuilder::new().mode(0o700).create(&self.dir) {
             Ok(()) => Ok(()),
@@ -380,6 +387,17 @@ pub struct IpcState {
 }
 
 impl IpcState {
+    /// No host namespace or environment lookup; access fails before opening.
+    pub fn disabled() -> Self {
+        Self {
+            ns: Namespace {
+                dir: PathBuf::new(),
+                disabled: true,
+            },
+            shm_published: BTreeMap::new(),
+            sem_undo: false,
+        }
+    }
     /// The state of a process in the namespace at `dir` (the default one
     /// without).
     pub fn new(dir: Option<PathBuf>) -> Self {

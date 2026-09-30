@@ -46,6 +46,8 @@ pub struct LinuxConfig {
     pub exec_path: String,
     /// Guest root overlay (QEMU `-L`).
     pub sysroot: Option<PathBuf>,
+    /// Permit external host services. Embedded profiles set this false.
+    pub host_services: bool,
     /// A closed immutable file namespace, with the main image added at spawn.
     /// `None` preserves the host/sysroot filesystem. Other host services are
     /// controlled separately; this field alone is not process isolation.
@@ -85,6 +87,41 @@ pub struct LinuxConfig {
 }
 
 impl LinuxConfig {
+    /// A closed process using supplied files, bounded captured streams, virtual
+    /// identity and emulated threads. External host services are denied.
+    pub fn embedded(
+        exec_path: impl Into<String>,
+        argv: Vec<Vec<u8>>,
+        envp: Vec<Vec<u8>>,
+        input: Vec<u8>,
+        console_capacity: usize,
+    ) -> Result<Self, SpawnError> {
+        // Construct explicitly: do not read the embedding application's cwd.
+        Ok(Self {
+            argv,
+            envp,
+            exec_path: exec_path.into(),
+            sysroot: None,
+            host_services: false,
+            supplied_files: Some(Default::default()),
+            cwd: "/".into(),
+            stack_limit: DEFAULT_STACK_LIMIT,
+            arena_bytes: 128 << 20,
+            cpu: CpuOptions::default(),
+            strace: false,
+            console: crate::user::console::Console::Captured(
+                crate::user::console::CapturedConsole::new(input, console_capacity)
+                    .map_err(|e| SpawnError::Unsupported(e.to_string()))?,
+            ),
+            seed: Some(0),
+            kernel_release: DEFAULT_KERNEL_RELEASE.into(),
+            slice_insns: DEFAULT_SLICE_INSNS,
+            processes: false,
+            ipc_dir: None,
+            fsnotify: super::fsnotify::Backend::Disabled,
+        })
+    }
+
     /// A configuration for `exec_path` with `argv` and the defaults.
     pub fn new(exec_path: impl Into<String>, argv: Vec<Vec<u8>>, envp: Vec<Vec<u8>>) -> Self {
         let cwd = std::env::current_dir()
@@ -95,6 +132,7 @@ impl LinuxConfig {
             envp,
             exec_path: exec_path.into(),
             sysroot: None,
+            host_services: true,
             supplied_files: None,
             cwd,
             stack_limit: DEFAULT_STACK_LIMIT,
@@ -671,6 +709,9 @@ fn stdio(fd: i32, host: std::io::Result<std::os::fd::OwnedFd>) -> Option<Arc<Ope
 impl LinuxProcess {
     /// Performs `execve` of `image` as the process's initial program.
     pub fn spawn(config: LinuxConfig, image: ImageFile) -> Result<Self, SpawnError> {
+        if !config.host_services {
+            super::embedding::validate(&config)?;
+        }
         let exe_guest = super::fs::join_guest(&config.cwd, &config.exec_path);
         let (vfs, exe_path, exe_host) = if let Some(files) = &config.supplied_files {
             if config.sysroot.is_some() {
@@ -695,7 +736,11 @@ impl LinuxProcess {
                 .unwrap_or(exe_guest);
             (vfs, path, Some(host))
         };
-        let creds = super::host::credentials();
+        let creds = if config.host_services {
+            super::host::credentials()
+        } else {
+            (0, 0, 0, 0)
+        };
         let mut entropy = Entropy::new(config.seed);
         let img = super::exec::load_image(
             super::exec::ImageRequest {
@@ -757,30 +802,47 @@ impl LinuxProcess {
             }
         }
 
-        let pid = super::host::pid();
+        let pid = if config.host_services {
+            super::host::pid()
+        } else {
+            super::embedding::PID
+        };
         let config_ipc_dir = config.ipc_dir.clone();
         let fsnotify = match &config.fsnotify {
-            super::fsnotify::Backend::Host => None,
+            super::fsnotify::Backend::Host | super::fsnotify::Backend::Disabled => None,
             super::fsnotify::Backend::Emulated(dir) => super::fsnotify::hub::Hub::open(
                 dir.clone()
                     .unwrap_or_else(super::fsnotify::hub::Hub::default_dir),
             )
             .ok(),
         };
+        let host_services = config.host_services;
         let state = ProcState {
             abi: img.abi,
             space: img.space,
             vfs,
             fds,
             pid,
-            ppid: super::host::ppid(),
+            ppid: if config.host_services {
+                super::host::ppid()
+            } else {
+                1
+            },
             creds,
             // A new process inherits its parent's groups.
-            groups: super::host::groups(),
+            groups: if config.host_services {
+                super::host::groups()
+            } else {
+                vec![]
+            },
             mm: img.mm,
             rlimits: default_rlimits(config.stack_limit),
             // A new process inherits its parent's umask.
-            umask: super::host::umask() & 0o777,
+            umask: if config.host_services {
+                super::host::umask() & 0o777
+            } else {
+                0o022
+            },
             sigactions: [SigAction::default(); 64],
             comm: img.comm,
             exe_path: img.exe_path,
@@ -808,7 +870,11 @@ impl LinuxProcess {
             pidfds: Default::default(),
             forked: None,
             exec_id: 0,
-            ipc: super::ipc::IpcState::new(config_ipc_dir),
+            ipc: if host_services {
+                super::ipc::IpcState::new(config_ipc_dir)
+            } else {
+                super::ipc::IpcState::disabled()
+            },
             aio: Default::default(),
             parent_link: None,
             tracees: Default::default(),

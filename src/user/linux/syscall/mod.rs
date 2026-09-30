@@ -762,7 +762,11 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
 
         // ------------------------------------------------------- process
         S::Getpid => r(Ok(c.p.pid as u64)),
-        S::Getppid => r(Ok(super::host::ppid() as u64)),
+        S::Getppid => r(Ok(if c.p.config.host_services {
+            super::host::ppid()
+        } else {
+            c.p.ppid
+        } as u64)),
         S::Gettid => r(Ok(c.t.tid as u64)),
         S::Getuid => r(Ok(u64::from(c.p.creds.0))),
         S::Geteuid => r(Ok(u64::from(c.p.creds.1))),
@@ -1161,6 +1165,7 @@ pub fn dispatch(
         uring::drive(&mut c);
     }
     let result = match sysno {
+        Some(s) if !c.p.config.host_services && !super::embedding::permits(s) => Err(Errno(EPERM)),
         Some(s) if c.compat => compat::call(&mut c, s, args),
         Some(s) => call_handler(&mut c, s, args),
         // do_ni_syscall: an ARM task's number past the table.

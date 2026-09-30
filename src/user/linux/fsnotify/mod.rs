@@ -25,6 +25,8 @@ pub mod sys;
 /// Where inotify instances come from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Backend {
+    /// No file notifications or namespace resources.
+    Disabled,
     /// The host's inotify (Linux hosts): what any process does to a file
     /// is reported, as the host kernel sees it.
     Host,

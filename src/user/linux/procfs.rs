@@ -283,7 +283,8 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
 fn inotify_limit(p: &ProcState, path: &str) -> Vec<u8> {
     use super::fsnotify::{hub, queue};
     let name = path.rsplit('/').next().unwrap_or("");
-    if p.fsnotify.is_none()
+    if p.config.host_services
+        && p.fsnotify.is_none()
         && let Ok(v) = std::fs::read(format!("/proc/sys/fs/inotify/{name}"))
     {
         return v;

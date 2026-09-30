@@ -148,6 +148,9 @@ pub fn setid(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> SysResult {
 
 /// `getpgid`/`getsid`: the process is its own group and session leader.
 pub fn getpgid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
+    if !c.p.config.host_services {
+        return for_self(c, pid, c.p.pid as u64);
+    }
     // A thread of this process names the process (find_task_by_vpid).
     let pid = if c.is_own_tid(pid) { 0 } else { pid };
     host::getpgid(pid).map(|g| g as u64)
@@ -155,6 +158,9 @@ pub fn getpgid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
 
 /// `getsid`.
 pub fn getsid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
+    if !c.p.config.host_services {
+        return for_self(c, pid, c.p.pid as u64);
+    }
     let pid = if c.is_own_tid(pid) { 0 } else { pid };
     host::getsid(pid).map(|g| g as u64)
 }
@@ -199,7 +205,11 @@ fn utsname(c: &Ctx<'_>) -> [String; 6] {
     };
     [
         "Linux".into(),
-        host::hostname(),
+        if c.p.config.host_services {
+            host::hostname()
+        } else {
+            "rax-embedded".into()
+        },
         c.p.config.kernel_release.clone(),
         "#1 SMP PREEMPT_DYNAMIC rax-user".into(),
         machine.into(),

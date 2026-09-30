@@ -49,6 +49,9 @@ fn host_ioctl(fd: &std::os::fd::OwnedFd, req: u32, arg: u64) -> Result<(), Errno
 
 /// `inotify_init1` (`inotify_init` is flags 0).
 pub fn init1(c: &mut Ctx<'_>, flags: u32) -> SysResult {
+    if c.p.config.fsnotify == super::super::fsnotify::Backend::Disabled {
+        return Err(Errno(EPERM));
+    }
     if flags & !(O_CLOEXEC | O_NONBLOCK) != 0 {
         return Err(Errno(EINVAL));
     }

@@ -40,6 +40,7 @@ pub mod abi;
 pub mod aio;
 pub mod arch;
 pub mod children;
+pub mod embedding;
 pub mod exec;
 pub mod fdinfo;
 pub mod fs;

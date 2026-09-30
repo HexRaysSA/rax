@@ -168,7 +168,9 @@ impl LinuxProcess {
                 super::rseq::switched(&mut self.threads[idx]);
             }
             self.deliver_signals(idx);
-            if self.state.exit.is_some() {
+            if self.state.exit.is_some()
+                || (!self.state.config.host_services && self.state.group_stop.is_some())
+            {
                 continue;
             }
             // A group exit its tracer stopped may have ended other threads.
@@ -242,6 +244,9 @@ impl LinuxProcess {
     /// is not asleep (it continues its slice), else the first in list order
     /// that is runnable or whose sleep can end.
     fn pick(&mut self, start: usize) -> Option<usize> {
+        if !self.state.config.host_services && self.state.group_stop.is_some() {
+            return None;
+        }
         let n = self.threads.len();
         if n == 0 {
             return None;

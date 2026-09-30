@@ -55,3 +55,5 @@ mod uring;
 mod vectored;
 mod waits;
 mod xattr;
+
+mod embedded;

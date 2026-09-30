@@ -40,7 +40,9 @@ impl Drop for Harness {
         for f in &self.files {
             let _ = std::fs::remove_file(f);
         }
-        let _ = std::fs::remove_dir_all(self.proc.state.ipc.ns.dir());
+        if !self.proc.state.ipc.ns.dir().as_os_str().is_empty() {
+            let _ = std::fs::remove_dir_all(self.proc.state.ipc.ns.dir());
+        }
         if let Some(h) = &self.proc.state.fsnotify {
             let _ = std::fs::remove_dir_all(h.dir());
         }
@@ -58,7 +60,7 @@ impl Harness {
         abi: LinuxAbi,
         backend: Option<crate::user::linux::fsnotify::Backend>,
     ) -> Self {
-        Self::configured(abi, backend, Default::default(), None)
+        Self::configured(abi, backend, Default::default(), None, false)
     }
 
     pub(crate) fn with_console(
@@ -70,6 +72,7 @@ impl Harness {
             None,
             crate::user::console::Console::Captured(console),
             None,
+            false,
         )
     }
 
@@ -80,6 +83,18 @@ impl Harness {
             None,
             crate::user::console::Console::Captured(console),
             Some(files),
+            false,
+        )
+    }
+
+    pub(crate) fn embedded(abi: LinuxAbi) -> Self {
+        let console = crate::user::console::CapturedConsole::new(Vec::new(), 1 << 20).unwrap();
+        Self::configured(
+            abi,
+            None,
+            crate::user::console::Console::Captured(console),
+            Some(Default::default()),
+            true,
         )
     }
 
@@ -88,6 +103,7 @@ impl Harness {
         backend: Option<crate::user::linux::fsnotify::Backend>,
         console: crate::user::console::Console,
         files: Option<crate::user::supplied_fs::Files>,
+        embedded: bool,
     ) -> Self {
         let segs = [
             Seg::load(CODE, 0, 0x2000, 0x2000, PF_R | PF_X),
@@ -104,29 +120,37 @@ impl Harness {
                 b
             }
         };
-        let mut config = LinuxConfig::new("/prog", vec![b"prog".to_vec()], vec![]);
+        let mut config = if embedded {
+            LinuxConfig::embedded("/prog", vec![b"prog".to_vec()], vec![], vec![], 1 << 20).unwrap()
+        } else {
+            LinuxConfig::new("/prog", vec![b"prog".to_vec()], vec![])
+        };
         config.console = console;
         if files.is_some() {
             config.cwd = "/".into();
         }
         config.supplied_files = files;
-        config.arena_bytes = 256 << 20;
+        if !embedded {
+            config.arena_bytes = 256 << 20;
+        }
         config.seed = Some(1);
-        // A System V IPC namespace of its own: harnesses run in parallel in
-        // one host process.
-        static IPC: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let n = IPC.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let dir =
-            std::env::temp_dir().join(format!("rax-user-ipc-test-{}-{n}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        config.ipc_dir = Some(dir);
-        // And an emulated file-system notification namespace of its own.
-        let notify =
-            std::env::temp_dir().join(format!("rax-user-fsnotify-test-{}-{n}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&notify);
-        config.fsnotify = backend.unwrap_or(crate::user::linux::fsnotify::Backend::Emulated(Some(
-            notify,
-        )));
+        if !embedded {
+            // A System V IPC namespace of its own: harnesses run in parallel in
+            // one host process.
+            static IPC: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let n = IPC.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let dir =
+                std::env::temp_dir().join(format!("rax-user-ipc-test-{}-{n}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            config.ipc_dir = Some(dir);
+            // And an emulated file-system notification namespace of its own.
+            let notify = std::env::temp_dir()
+                .join(format!("rax-user-fsnotify-test-{}-{n}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&notify);
+            config.fsnotify = backend.unwrap_or(crate::user::linux::fsnotify::Backend::Emulated(
+                Some(notify),
+            ));
+        }
         let proc = LinuxProcess::spawn(config, ImageFile::new(bytes, "/prog")).unwrap();
         let mut h = Harness {
             proc,
