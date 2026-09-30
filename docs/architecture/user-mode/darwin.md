@@ -102,6 +102,35 @@ without the privileged host port, the right a set carries released),
 `mach_vm`/`vm_map` (allocation, protection, regions, reads and writes), and
 `clock`.
 
+### Host timer probe ownership
+
+The macOS coalescing probe creates and destroys a private Mach timer for each
+arm/cancel query. Independent emulated processes may run on different owner
+threads; they cannot share the mutable host timer between those two calls.
+Only the immutable host timebase is cached. Conversion uses 128-bit arithmetic
+and saturates at the 64-bit absolute-time bound.
+
+The concurrent regression issues 1,024 independent queries in eight threads,
+using both guest timebases and distinct deadlines/leeways. It fails with the
+former shared host timer. Critical-timer queries assert exact zero slop and
+exact explicit leeway. An ordinary query does not assume a foreground QoS tier:
+XNU's `osfmk/i386/i386_timer.c` and `osfmk/arm/arm_timer.c` define different
+coalescing bounds across tiers. The arm/cancel/destroy contract is specified
+by `osfmk/kern/mk_timer.c` and `osfmk/mach/mk_timer.h`; explicit leeway is applied
+after critical-timer slop in `thread_call_enter_delayed_internal`.
+
+| ID | Assumption / basis | Dependent result | Stress test / falsification probe | Status |
+| --- | --- | --- | --- | --- |
+| T1 | A Mach timer's arm/cancel state belongs to its receive right (`mk_timer.c`). | A query must own that right until cancellation and destruction complete. | Concurrent distinct-deadline queries on the real macOS kernel; the shared-right implementation produces missing or mixed results. | Confirmed. |
+| T2 | Host QoS is selected externally and may exceed foreground coalescing tiers. | Ordinary slop has no fixed foreground-only bound in native tests. | Intel macOS CI reported 150 ms, exceeding the former 10 ms assumption; critical plus explicit-leeway queries remain exact across tiers. | Revised. |
+
+The change affects the macOS host timer adapter and its tests; Linux continues
+to use the existing modeled coalescing rule. It adds no Windows personality,
+C ABI, ISA, CPU-state, or guest syscall-layout changes. Each query uses O(1)
+space and one temporary native timer; no timer port remains cached for the
+host process's lifetime. High-impact resolved finding: a shared probe could
+return another emulated process's coalescing result under concurrent execution.
+
 ## Host services
 
 The emulated process is a host process, which the system's services

@@ -118,28 +118,45 @@ fn host_slop(abi: DarwinAbi, delta: u64, flags: u64, leeway: u64) -> Option<u64>
         use std::sync::OnceLock;
         unsafe extern "C" {
             fn mk_timer_create() -> u32;
+            fn mk_timer_destroy(name: u32) -> i32;
             fn mk_timer_arm_leeway(name: u32, flags: u64, expire: u64, leeway: u64) -> i32;
             fn mk_timer_cancel(name: u32, result: *mut u64) -> i32;
         }
-        static TIMER: OnceLock<u32> = OnceLock::new();
+        struct HostTimer(u32);
+        impl Drop for HostTimer {
+            fn drop(&mut self) {
+                // SAFETY: this name is the live receive right created below,
+                // owned only by this query. Cancellation does not destroy it.
+                // No pointer or borrowed state crosses the native call.
+                unsafe { mk_timer_destroy(self.0) };
+            }
+        }
         static TIMEBASE: OnceLock<(u64, u64)> = OnceLock::new();
-        // SAFETY: mk_timer_create takes no arguments; the name is kept for
-        // the process's life.
-        let name = *TIMER.get_or_init(|| unsafe { mk_timer_create() });
+        // Each probe owns a timer: sharing an arm/cancel pair across owner
+        // threads can cancel another process's probe and mix its deadline.
+        // SAFETY: mk_timer_create has no arguments. A nonzero returned name
+        // owns a receive right, released by HostTimer on every exit path.
+        let name = unsafe { mk_timer_create() };
         if name == 0 {
             return None;
         }
+        let _timer = HostTimer(name);
         let (numer, denom) = *TIMEBASE.get_or_init(|| {
             let mut tb = libc::mach_timebase_info { numer: 0, denom: 0 };
             // SAFETY: `tb` is a live mach_timebase_info.
             unsafe { libc::mach_timebase_info(&mut tb) };
             (u64::from(tb.numer), u64::from(tb.denom))
         });
-        if numer == 0 {
+        if numer == 0 || denom == 0 {
             return None;
         }
-        let to_host = |ns: u64| (u128::from(ns) * u128::from(denom) / u128::from(numer)) as u64;
-        let from_host = |t: u64| (u128::from(t) * u128::from(numer) / u128::from(denom)) as u64;
+        let to_host = |ns: u64| {
+            (u128::from(ns) * u128::from(denom) / u128::from(numer)).min(u128::from(u64::MAX))
+                as u64
+        };
+        let from_host = |t: u64| {
+            (u128::from(t) * u128::from(numer) / u128::from(denom)).min(u128::from(u64::MAX)) as u64
+        };
         // SAFETY: mach_absolute_time reads the host's clock.
         let expire =
             unsafe { libc::mach_absolute_time() }.saturating_add(to_host(to_ns(abi, delta)));
@@ -353,22 +370,53 @@ mod tests {
         assert_eq!(to_ns(DarwinAbi::X86_64, 7), 7);
     }
 
-    /// The host's slop: none for a critical timer, a larger leeway kept,
-    /// and for a normal timer at most a quarter of the time left under
-    /// any latency tier of an application (tiers 0 to 2 shift by 3, 2,
-    /// and 1, bounded by 20 ms).
+    /// Critical timers suppress QoS-derived coalescing, while explicit
+    /// leeway still applies. Ordinary timer slop is chosen by the host's
+    /// current QoS tier; CI need not run as a foreground application.
     #[cfg(target_os = "macos")]
     #[test]
     fn the_host_computes_the_slop() {
-        let ms = 1_000_000;
-        assert_eq!(
-            host_slop(DarwinAbi::X86_64, 200 * ms, MK_TIMER_CRITICAL, 0),
-            Some(0)
-        );
-        let leeway = host_slop(DarwinAbi::X86_64, 200 * ms, 0, 150 * ms).unwrap();
-        assert!((150 * ms..150 * ms + 100).contains(&leeway), "{leeway}");
-        let slop = host_slop(DarwinAbi::Arm64, 480_000, 0, 0).unwrap();
-        assert!(slop <= 240_000, "{slop}");
+        for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+            let delta = from_ns(abi, 60_000_000_000);
+            assert_eq!(host_slop(abi, delta, MK_TIMER_CRITICAL, 0), Some(0));
+            // 150 ms = 150,000,000 Intel ticks = 3,600,000 Arm64 ticks.
+            // Explicit leeway overrides zero critical-timer slop.
+            let leeway = from_ns(abi, 150_000_000);
+            assert_eq!(
+                host_slop(abi, delta, MK_TIMER_CRITICAL, leeway),
+                Some(leeway)
+            );
+            assert!(host_slop(abi, delta, 0, 0).is_some());
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn concurrent_host_timer_probes_keep_their_own_deadlines() {
+        let start = std::sync::Barrier::new(8);
+        std::thread::scope(|scope| {
+            for n in 0..8u64 {
+                let start = &start;
+                scope.spawn(move || {
+                    let abi = if n % 2 == 0 {
+                        DarwinAbi::X86_64
+                    } else {
+                        DarwinAbi::Arm64
+                    };
+                    let delta = from_ns(abi, (60 + n * 10) * 1_000_000_000);
+                    let leeway = from_ns(abi, n * 5_000_000);
+                    start.wait();
+                    for _ in 0..128 {
+                        // Critical removes host-QoS-dependent coalescing, but
+                        // explicit leeway still applies (thread_call.c).
+                        assert_eq!(
+                            host_slop(abi, delta, MK_TIMER_CRITICAL, leeway),
+                            Some(leeway)
+                        );
+                    }
+                });
+            }
+        });
     }
 
     #[test]
