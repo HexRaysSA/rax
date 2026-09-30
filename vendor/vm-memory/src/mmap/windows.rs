@@ -61,6 +61,17 @@ pub const INVALID_HANDLE_VALUE: RawHandle = (-1isize) as RawHandle;
 #[allow(dead_code)]
 pub const ERROR_INVALID_PARAMETER: i32 = 87;
 
+/// Validity of an externally owned mapping's subranges.
+///
+/// The unsafe constructor's caller ensures that a successful check guarantees
+/// accessibility for the duration of the operation. Mapping mutations must be
+/// synchronized with all memory users, including users of raw host pointers.
+/// Returning false prevents safe region access without dereferencing the range.
+pub trait ExternalMappingAccess: std::fmt::Debug + Send + Sync {
+    /// Whether the complete byte range may be accessed by the current operation.
+    fn is_accessible(&self, offset: usize, count: usize) -> bool;
+}
+
 /// Helper structure for working with mmaped memory regions in Unix.
 ///
 /// The structure is used for accessing the guest's physical memory by mmapping it into
@@ -79,6 +90,7 @@ pub struct MmapRegion<B> {
     // The allocation may consist of independently replaceable native mappings.
     // Its owner, rather than VirtualFree, supplies their destruction contract.
     external_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    external_access: Option<Arc<dyn ExternalMappingAccess>>,
 }
 
 // Send and Sync aren't automatically inherited for the raw address pointer.
@@ -110,6 +122,39 @@ impl<B: NewBitmap> MmapRegion<B> {
         size: usize,
         owner: Arc<dyn std::fmt::Debug + Send + Sync>,
     ) -> io::Result<Self> {
+        Self::external(addr, size, owner, None)
+    }
+
+    /// Exposes an externally owned range with a synchronized accessibility check.
+    ///
+    /// Unlike `from_raw_with_owner`, subranges may be inaccessible. Safe volatile
+    /// accesses and host-address lookup reject such subranges. Raw pointers must
+    /// not be retained across a mapping change without independently checking
+    /// validity again. An accessibility check does not pin the range.
+    ///
+    /// # Safety
+    /// The owner must keep the full virtual-address reservation alive at `addr`
+    /// for `size` bytes. Each subrange accepted by `access` must be initialized
+    /// and accessible for all operations performed through the returned region.
+    /// Mapping changes must be synchronized with all users so an accepted range
+    /// cannot become inaccessible while an operation or borrowed slice uses it.
+    /// The lifetime, aliasing, and threading requirements of `from_raw_with_owner`
+    /// also apply. Malformed ranges are rejected without accessing memory.
+    pub unsafe fn from_raw_with_access(
+        addr: *mut u8,
+        size: usize,
+        owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+        access: Arc<dyn ExternalMappingAccess>,
+    ) -> io::Result<Self> {
+        Self::external(addr, size, owner, Some(access))
+    }
+
+    fn external(
+        addr: *mut u8,
+        size: usize,
+        owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+        access: Option<Arc<dyn ExternalMappingAccess>>,
+    ) -> io::Result<Self> {
         if addr.is_null()
             || size == 0
             || size > isize::MAX as usize
@@ -126,6 +171,7 @@ impl<B: NewBitmap> MmapRegion<B> {
             bitmap: B::with_len(size),
             file_offset: None,
             external_owner: Some(owner),
+            external_access: access,
         })
     }
 
@@ -149,6 +195,7 @@ impl<B: NewBitmap> MmapRegion<B> {
             bitmap: B::with_len(size),
             file_offset: None,
             external_owner: None,
+            external_access: None,
         })
     }
 
@@ -205,11 +252,20 @@ impl<B: NewBitmap> MmapRegion<B> {
             bitmap: B::with_len(size),
             file_offset: Some(file_offset),
             external_owner: None,
+            external_access: None,
         })
     }
 }
 
 impl<B: Bitmap> MmapRegion<B> {
+    pub(crate) fn accessible_range(&self, offset: usize, count: usize) -> bool {
+        count == 0
+            || self
+                .external_access
+                .as_ref()
+                .map_or(true, |check| check.is_accessible(offset, count))
+    }
+
     /// Returns a pointer to the beginning of the memory region. Mutable accesses performed
     /// using the resulting pointer are not automatically accounted for by the dirty bitmap
     /// tracking functionality.
@@ -250,6 +306,12 @@ impl<B: Bitmap> VolatileMemory for MmapRegion<B> {
         let end = compute_offset(offset, count)?;
         if end > self.size {
             return Err(volatile_memory::Error::OutOfBounds { addr: end });
+        }
+        if !self.accessible_range(offset, count) {
+            return Err(volatile_memory::Error::IOError(io::Error::new(
+                io::ErrorKind::Other,
+                "external mapping range is inaccessible",
+            )));
         }
 
         // Safe because we checked that offset + count was within our range and we only ever hand

@@ -45,7 +45,7 @@ pub use xen::{Error as MmapRegionError, MmapRange, MmapRegion, MmapXenFlags};
 #[cfg(target_family = "windows")]
 pub use std::io::Error as MmapRegionError;
 #[cfg(target_family = "windows")]
-pub use windows::MmapRegion;
+pub use windows::{ExternalMappingAccess, MmapRegion};
 
 /// [`GuestMemoryRegion`](trait.GuestMemoryRegion.html) implementation that mmaps the guest's
 /// memory region in the current process.
@@ -135,10 +135,15 @@ impl<B: Bitmap> GuestMemoryRegion for GuestRegionMmap<B> {
         // is safe because we've just range-checked addr using check_address.
         self.check_address(addr)
             .ok_or(guest_memory::Error::InvalidBackendAddress)
-            .map(|addr| {
-                self.mapping
+            .and_then(|addr| {
+                #[cfg(target_family = "windows")]
+                if !self.mapping.accessible_range(addr.raw_value() as usize, 1) {
+                    return Err(guest_memory::Error::InvalidBackendAddress);
+                }
+                Ok(self
+                    .mapping
                     .as_ptr()
-                    .wrapping_offset(addr.raw_value() as isize)
+                    .wrapping_offset(addr.raw_value() as isize))
             })
     }
 

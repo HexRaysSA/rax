@@ -117,3 +117,75 @@ fn invalid_external_ranges_are_rejected_without_retaining_the_owner() {
     drop(owner);
     assert_eq!(drops.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+fn inaccessible_external_ranges_reject_access_without_touching_memory() {
+    use vm_memory::mmap::ExternalMappingAccess;
+    use vm_memory::{GuestMemory, VolatileMemory};
+
+    #[derive(Debug)]
+    struct AccessiblePrefix(AtomicUsize);
+    impl ExternalMappingAccess for AccessiblePrefix {
+        fn is_accessible(&self, offset: usize, count: usize) -> bool {
+            offset
+                .checked_add(count)
+                .is_some_and(|end| end <= self.0.load(Ordering::Acquire))
+        }
+    }
+
+    let drops = Arc::new(AtomicUsize::new(0));
+    let owner = Allocation::new(&drops);
+    let access = Arc::new(AccessiblePrefix(AtomicUsize::new(65536)));
+    // SAFETY: owner retains initialized read/write memory for the full range.
+    // Accesses and validity changes below are serialized. No native mapping or
+    // retained borrowed slice is used across a validity change, and no aliasing
+    // Rust references into this allocation exist.
+    let region = unsafe {
+        MmapRegion::<()>::from_raw_with_access(
+            owner.region.as_ptr(),
+            owner.region.size(),
+            owner.clone(),
+            access.clone(),
+        )
+        .unwrap()
+    };
+    let memory =
+        GuestMemoryMmap::from_regions(vec![GuestRegionMmap::new(region, GuestAddress(0)).unwrap()])
+            .unwrap();
+    memory.write_slice(&[0xa5], GuestAddress(65535)).unwrap();
+    access.0.store(32768, Ordering::Release);
+    assert!(memory.get_host_address(GuestAddress(32767)).is_ok());
+    assert!(memory.get_host_address(GuestAddress(32768)).is_err());
+    let mut bytes = [0x19, 0x27];
+    assert!(memory.read_slice(&mut bytes, GuestAddress(32767)).is_err());
+    assert_eq!(bytes, [0x19, 0x27]);
+    assert!(
+        memory
+            .write_slice(&[0x53, 0x75], GuestAddress(32767))
+            .is_err()
+    );
+    let mut last_valid = [0xff];
+    memory
+        .read_slice(&mut last_valid, GuestAddress(32767))
+        .unwrap();
+    assert_eq!(last_valid, [0]); // Failed writes do not touch the valid prefix.
+    access.0.store(0, Ordering::Release);
+    {
+        let region = memory.find_region(GuestAddress(0)).unwrap();
+        assert!(region.get_slice(65536, 0).is_ok());
+        assert!(matches!(
+            region.get_slice(0, 1),
+            Err(vm_memory::volatile_memory::Error::IOError(_))
+        ));
+    }
+    assert!(memory.get_host_address(GuestAddress(0)).is_err());
+    assert!(memory.read_slice(&mut last_valid, GuestAddress(0)).is_err());
+    access.0.store(65536, Ordering::Release);
+    memory
+        .read_slice(&mut last_valid, GuestAddress(65535))
+        .unwrap();
+    assert_eq!(last_valid, [0xa5]);
+    drop(memory);
+    drop(owner);
+    assert_eq!(drops.load(Ordering::SeqCst), 1);
+}

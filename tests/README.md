@@ -230,5 +230,6 @@ overlap or mutation behavior remain unknown.
 
 `user_windows_memory` tests native Windows external-mapping ownership through
 `GuestMemoryMmap`: retained snapshots, cross-thread destruction, multiple views,
-and rejected ranges. Its three tests run in the Windows C API CI lane. Other
-hosts compile an empty target; that result is not Windows runtime coverage.
+rejected ranges, and access rejection for unavailable memory. Its four tests
+run in the Windows C API CI lane. Other hosts compile an empty target; that
+result is not Windows runtime coverage.
