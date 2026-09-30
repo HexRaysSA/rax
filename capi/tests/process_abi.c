@@ -2,7 +2,7 @@
 #include "rax.h"
 #include <stddef.h>
 
-_Static_assert(RAX_API_MAJOR == 1u && RAX_API_MINOR >= 8u, "process ABI version");
+_Static_assert(RAX_API_MAJOR == 1u && RAX_API_MINOR >= 9u, "process ABI version");
 _Static_assert(RAX_PROCESS_RESULT_VERSION == 1u, "result version");
 _Static_assert(sizeof(rax_process_result) == 32u, "process result size");
 _Static_assert(offsetof(rax_process_result, reason) == 8u, "process reason offset");

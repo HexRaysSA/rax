@@ -113,7 +113,7 @@ pub use user::{
 /// ABI major version. Incremented only on a breaking ABI change.
 pub const RAX_API_MAJOR: u32 = 1;
 /// ABI minor version. Incremented when backward-compatible additions are made.
-pub const RAX_API_MINOR: u32 = 8;
+pub const RAX_API_MINOR: u32 = 9;
 /// ABI patch version.
 pub const RAX_API_PATCH: u32 = 0;
 
@@ -176,7 +176,7 @@ pub extern "C" fn rax_version(major: *mut u32, minor: *mut u32, patch: *mut u32)
 #[unsafe(no_mangle)]
 pub extern "C" fn rax_version_string() -> *const c_char {
     // Static NUL-terminated string with embedded version.
-    concat!(env!("CARGO_PKG_VERSION"), " (rax-capi ABI ", "1.8.0", ")\0").as_ptr() as *const c_char
+    concat!(env!("CARGO_PKG_VERSION"), " (rax-capi ABI ", "1.9.0", ")\0").as_ptr() as *const c_char
 }
 
 /// Returns a static, NUL-terminated description for a [`RaxStatus`] code.

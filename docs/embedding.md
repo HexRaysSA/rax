@@ -18,19 +18,19 @@ The command-line `rax` application builds complete machines: guest memory, boot 
 - install code, block, interrupt, invalid-instruction, and memory hooks;
 - save and restore engine contexts;
 - run user-mode (process-level) code with system calls and exceptions returned to the embedder (ABI 1.5);
-- execute Windows PE processes with supplied dependency images, captured console I/O, bounded scheduling, and state inspection (ABI 1.8);
+- execute Windows PE (ABI 1.8) and Linux ELF (ABI 1.9) processes with supplied dependency images, captured console I/O, bounded scheduling, and state inspection;
 - decode or analyze an instruction without opening an engine.
 
 It is not automatically the same interface as the root PC/AArch64 virtual machines. Device construction, Linux boot protocols, and all root CLI backend combinations are not implied by the C ABI.
 
 The separate Rust `rax::user::linux` subsystem and `rax-user` binary supply
 Linux ELF loading, syscall servicing, processes, signals, sockets, IPC, and
-guest ptrace. `librax` does not export that Linux personality or its process
-scheduler. An engine accepting 32-bit x86 code is a different contract from
+guest ptrace. ABI 1.9 exports its closed embedding profile and bounded
+scheduler through `rax_process_*`; host-service CLI behavior is not exported. An engine accepting 32-bit x86 code is a different contract from
 `rax-user`'s partial i386 syscall compatibility. `RAX_MODE_USER` supplies only
 the CPU half: unprivileged execution with system calls and exceptions returned
 to the embedder (see [User-mode execution](#user-mode-execution)). ABI 1.8 separately
-exports the Windows personality through `rax_process_*` and `rax::Process`, using
+exports the Windows personality, extended with closed Linux ELF in ABI 1.9, through `rax_process_*` and `rax::Process`, using
 the closed host-service profile documented below.
 
 ## Rust process scheduling boundaries
@@ -63,9 +63,17 @@ explicitly rejected on Windows. Windows ELF startup also rejects missing
 placeholder mapping APIs before guest execution; private PE execution retains
 its existing fallback.
 
-Darwin still requires Unix hosts. Linux and Darwin are not yet exposed through
-`rax_process_*`. The Windows C ABI behavior and ABI version are unchanged by
-these Rust APIs.
+Darwin still requires Unix hosts and is not yet exposed through `rax_process_*`.
+ABI 1.9 exposes closed Linux embedding for x86-64, i386, AArch64, AArch32 EABI,
+and RV64 with `personality="linux"`. The Windows profile remains the default.
+Both use the same dedicated owner thread, copied buffers, run/cancellation
+contract, and captured console. Linux inspection labels its integer register
+images `linux_prstatus`; this is the guest UAPI `NT_PRSTATUS` layout, not a
+Windows CONTEXT or whole-process checkpoint. Failed context writes preserve
+both CPU registers and pending syscall metadata. Signal termination returns
+`RAX_PROCESS_FAILED` with structured Linux details; normal exit reports the
+low 8 bits. The header and [C API README](../capi/README.md#full-pe-and-elf-processes-abi-18--19)
+provide the field and byte-size contracts.
 
 | ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
 | --- | --- | --- | --- | --- | --- |

@@ -1,5 +1,6 @@
-//! ABI 1.8: bounded full-process embedding on a dedicated owner thread.
+//! ABI 1.9: bounded PE/ELF full-process embedding on a dedicated owner thread.
 //! Guest filesystem access is disabled; all images and console bytes are copied.
+mod linux;
 mod options;
 mod runtime;
 
@@ -207,6 +208,7 @@ pub extern "C" fn rax_process_open_image(
             return Err(bad("invalid supplied image array"));
         }
         let mut total = executable.len();
+        let mut supplied = std::collections::BTreeMap::new();
         for index in 0..image_count {
             // SAFETY: caller supplies image_count initialized/aligned v1 image
             // records; count is bounded to 64 and pointer arithmetic cannot wrap.
@@ -227,14 +229,11 @@ pub extern "C" fn rax_process_open_image(
                 .ok_or_else(|| {
                     Failure(RaxStatus::Bounds, "supplied images exceed 256 MiB".into())
                 })?;
-            if cfg
-                .supplied_dlls
-                .insert(path.to_owned(), Arc::from(data))
-                .is_some()
-            {
+            if supplied.insert(path.to_owned(), Arc::from(data)).is_some() {
                 return Err(bad("duplicate supplied image path"));
             }
         }
+        cfg.supply(supplied)?;
         let cancelled = Arc::new(AtomicBool::new(false));
         let signal = cancelled.clone();
         let (sender, commands) = mpsc::channel();

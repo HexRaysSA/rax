@@ -20,14 +20,14 @@ control over stop conditions and a rich set of execution hooks.
 
 ## Quick start (C)
 
-This is the CPU-engine ABI. Linux process emulation, ELF/sysroot loading,
-syscall servicing, guest processes/signals/IPC, and guest `ptrace` belong to
-the separate Rust `rax::user::linux` subsystem and `rax-user` binary; they
-are not exported by `librax`. See [Linux programs](../docs/getting-started/linux-programs.md)
-for that interface and its partial i386 compatibility. `librax` provides only
-the CPU half of process emulation: `RAX_MODE_USER` (ABI 1.5) runs unprivileged
-code and returns its system calls and exceptions to the embedder; see
-[User-mode execution](#user-mode-execution-abi-15).
+The examples below start with the CPU-engine ABI. `RAX_MODE_USER` (ABI 1.5)
+executes unprivileged code and returns system calls and exceptions to the
+embedder; see [User-mode execution](#user-mode-execution-abi-15). For complete
+processes, `rax_process_*` exports closed Windows PE and Linux ELF profiles;
+see [Full processes](#full-pe-and-elf-processes-abi-18--19). The separate
+`rax-user` CLI additionally provides Unix host-backed syscall services,
+sysroots, sockets, IPC and guest ptrace; those host services are not exported
+by this process ABI.
 
 ```c
 #include <rax.h>
@@ -157,7 +157,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.8.0).
+C ABI version (currently 1.9.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -627,12 +627,18 @@ No guest ABI argument decoding or host OS syscall forwarding is implied.
 The query copies a fixed 40-byte record in O(1) time and space. Existing
 `rax_exit` layout and syscall-hook signatures are unchanged.
 
-### Full PE processes (ABI 1.8)
+### Full PE and ELF processes (ABI 1.8 / 1.9)
 
 `rax_process_open_image` and `rax::Process` execute a Windows process using the
 existing PE loader, thread scheduler, exception handling, and built-in DLL/CRT
 services. PE32 x86 and PE32+ x64/ARM64 run on Windows, macOS, and Linux hosts.
-This API does not yet export the Linux ELF or Darwin Mach-O personalities.
+ABI 1.9 also accepts `"personality":"linux"` for ELF x86-64, i386,
+AArch64, AArch32 EABI and RV64. The closed Linux profile runs on Windows,
+macOS and Linux; Windows requires the placeholder mapping APIs. Mach-O is
+not yet exported. Linux defaults to `/program`, `/`, and an empty environment;
+`arguments` follows the executable's `argv[0]`. Supply ELF interpreters and
+read-only files through the same image records using canonical POSIX paths.
+There is no host file, socket, process, or IPC fallback.
 
 ```cpp
 rax::Process process(executable_bytes,
@@ -664,7 +670,13 @@ capabilities. Addresses are hexadecimal strings. Memory writes preserve guest
 permissions, commit no bytes on an access fault, and invalidate native code
 caches. Context writes use the existing architecture-specific validated Windows
 CONTEXT restoration; extended XSAVE components are not exposed by that format.
-No whole-process checkpoint or fork is advertised.
+Linux contexts instead use little-endian `NT_PRSTATUS` integer regsets
+(216/68/272/72/256 bytes for x86-64/i386/AArch64/AArch32/RV64), validated and
+committed transactionally. Inspection labels the format as `linux_prstatus`,
+reports the loaded program and resident bytes, and includes signal termination
+details. Signals return terminal `FAILED`; normal Linux exits retain the low
+8 bits. These contexts omit FP/vector state. No whole-process checkpoint or
+fork is advertised.
 
 Every handle owns a dedicated runtime thread, which constructs and destroys all
 thread-affine personality state. Calls may originate on different caller threads

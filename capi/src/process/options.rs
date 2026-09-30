@@ -1,7 +1,8 @@
 //! Strict and bounded process-open configuration, before any worker is started.
 use super::*;
-use rax_engine::user::windows::WindowsConfig;
+use rax_engine::user::{linux::LinuxConfig, windows::WindowsConfig};
 use serde_json::Value;
+use std::collections::BTreeMap;
 
 pub(super) const MAX_IMAGE: usize = 64 << 20;
 pub(super) const MAX_IMAGES: usize = 64;
@@ -36,7 +37,26 @@ fn text(v: &Value, key: &str, default: &str) -> Result<String> {
     Ok(value.to_owned())
 }
 
-pub(super) fn config(bytes: &[u8]) -> Result<WindowsConfig> {
+pub(super) enum Config {
+    Windows(WindowsConfig),
+    Linux(LinuxConfig),
+}
+impl Config {
+    pub(super) fn supply(&mut self, files: BTreeMap<String, Arc<[u8]>>) -> Result<()> {
+        match self {
+            Self::Windows(c) => c.supplied_dlls = files,
+            Self::Linux(c) => {
+                c.supplied_files = Some(
+                    rax_engine::user::supplied_fs::Files::new(files)
+                        .map_err(|e| bad(e.to_string()))?,
+                )
+            }
+        }
+        Ok(())
+    }
+}
+
+pub(super) fn config(bytes: &[u8]) -> Result<Config> {
     let value: Value = if bytes.is_empty() {
         serde_json::json!({})
     } else {
@@ -61,10 +81,11 @@ pub(super) fn config(bytes: &[u8]) -> Result<WindowsConfig> {
             return Err(bad(format!("unknown process option {key}")));
         }
     }
-    if text(&value, "personality", "windows")? != "windows" {
+    let personality = text(&value, "personality", "windows")?;
+    if !matches!(personality.as_str(), "windows" | "linux") {
         return Err(Failure(
             RaxStatus::Unsupported,
-            "this process ABI currently supports the Windows PE personality".into(),
+            "process personality must be windows or linux".into(),
         ));
     }
     let mut arguments = Vec::new();
@@ -86,20 +107,27 @@ pub(super) fn config(bytes: &[u8]) -> Result<WindowsConfig> {
         }
     }
     let capacity = number(&value, "console_capacity", 1 << 20, 0, MAX_TRANSFER as u64)? as usize;
-    let mut cfg = WindowsConfig::embedded(
-        text(&value, "guest_path", "C:\\program.exe")?,
-        arguments,
-        Vec::new(),
-        capacity,
-    )
-    .map_err(|e| bad(e.to_string()))?;
-    cfg.arena_bytes = number(&value, "memory_bytes", 128 << 20, 8 << 20, 1 << 30)?;
-    if cfg.arena_bytes % 4096 != 0 {
+    let guest_path = text(
+        &value,
+        "guest_path",
+        if personality == "linux" {
+            "/program"
+        } else {
+            "C:\\program.exe"
+        },
+    )?;
+    let cwd = text(
+        &value,
+        "current_directory",
+        if personality == "linux" { "/" } else { "C:\\" },
+    )?;
+    let memory = number(&value, "memory_bytes", 128 << 20, 8 << 20, 1 << 30)?;
+    if memory % 4096 != 0 {
         return Err(bad("memory_bytes must be a multiple of 4096 bytes"));
     }
-    cfg.slice_insns = number(&value, "slice_instructions", 4096, 1, 65_536)?;
-    cfg.seed = Some(number(&value, "seed", 0, 0, u64::MAX)?);
-    cfg.cwd = Some(text(&value, "current_directory", "C:\\")?);
+    let slice = number(&value, "slice_instructions", 4096, 1, 65_536)?;
+    let seed = Some(number(&value, "seed", 0, 0, u64::MAX)?);
+    let mut pairs = Vec::new();
     if let Some(environment) = value.get("environment") {
         let environment = environment
             .as_object()
@@ -107,7 +135,6 @@ pub(super) fn config(bytes: &[u8]) -> Result<WindowsConfig> {
         if environment.len() > 256 {
             return Err(bad("at most 256 environment variables are accepted"));
         }
-        let mut pairs = Vec::new();
         for (key, value) in environment {
             let value = value
                 .as_str()
@@ -122,7 +149,32 @@ pub(super) fn config(bytes: &[u8]) -> Result<WindowsConfig> {
             }
             pairs.push((key.clone(), value.to_owned()));
         }
-        cfg.env = Some(pairs);
     }
-    Ok(cfg)
+    if personality == "linux" {
+        let mut argv = vec![guest_path.as_bytes().to_vec()];
+        argv.extend(arguments.into_iter().map(String::into_bytes));
+        let envp = pairs
+            .into_iter()
+            .map(|(k, v)| format!("{k}={v}").into_bytes())
+            .collect();
+        let mut cfg = LinuxConfig::embedded(guest_path, argv, envp, Vec::new(), capacity)
+            .map_err(|e| bad(e.to_string()))?;
+        cfg.cwd = cwd;
+        cfg.arena_bytes = memory;
+        cfg.slice_insns = slice;
+        cfg.seed = seed;
+        rax_engine::user::linux::embedding::validate(&cfg).map_err(|e| bad(e.to_string()))?;
+        Ok(Config::Linux(cfg))
+    } else {
+        let mut cfg = WindowsConfig::embedded(guest_path, arguments, Vec::new(), capacity)
+            .map_err(|e| bad(e.to_string()))?;
+        cfg.cwd = Some(cwd);
+        cfg.arena_bytes = memory;
+        cfg.slice_insns = slice;
+        cfg.seed = seed;
+        if value.get("environment").is_some() {
+            cfg.env = Some(pairs);
+        }
+        Ok(Config::Windows(cfg))
+    }
 }

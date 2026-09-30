@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 8u
+#define RAX_API_MINOR 9u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -1022,8 +1022,8 @@ RAX_API rax_status rax_analyze(int arch, uint32_t mode, uint64_t pc,
 /* =========================================================================
  * Full-process embedding (since ABI 1.8)
  * =========================================================================
- * The initial personality is Windows PE32 x86 / PE32+ x64 and ARM64 on every
- * supported host. This is separate from RAX_MODE_USER's syscall frontier.
+ * Windows PE32 x86 / PE32+ x64 and ARM64, plus Linux ELF x86-64, i386,
+ * AArch64, AArch32 EABI and RV64 (since ABI 1.9), on supported hosts. This is separate from RAX_MODE_USER's syscall frontier.
  * Each process owns a dedicated runtime thread; handles may move between
  * caller threads. Serialize all operations except set_cancelled, which may
  * overlap run. Concurrent ordinary operations return RAX_ERR_STATE. Close
@@ -1032,15 +1032,16 @@ RAX_API rax_status rax_analyze(int arch, uint32_t mode, uint64_t pc,
  * Buffer/count/output-handle storage must be valid and mutually nonoverlapping.
  *
  * The embedded profile has no host filesystem access or inherited host streams.
- * Supply DLL bytes explicitly; missing dependencies do not search the host.
- * Guest disk operations return access denied. stdin is finite: empty input is
+ * Supply dependency bytes explicitly; missing dependencies do not search the
+ * host. Windows disk operations are denied; Linux has a closed immutable
+ * supplied-file namespace with guest-local descriptors and shared mappings. stdin is finite: empty input is
  * EOF, not a pending read. stdout/stderr share one bounded captured-output pool.
  * There is no process checkpoint/fork API in this version.
  */
 typedef struct rax_process rax_process;
 
 typedef struct rax_process_image {
-    const char *path;       /* UTF-8 absolute guest Windows path; not NUL-terminated */
+    const char *path;       /* UTF-8 absolute guest path; not NUL-terminated */
     size_t path_size;       /* 1..4096 bytes, excluding any terminator; no NUL */
     const uint8_t *data;
     size_t data_size;       /* 1..64 MiB */
@@ -1061,7 +1062,7 @@ typedef struct rax_process_result {
     uint32_t struct_size;    /* initialize to sizeof(rax_process_result) */
     uint32_t version;        /* initialize to RAX_PROCESS_RESULT_VERSION */
     uint32_t reason;         /* RAX_PROCESS_* */
-    uint32_t exit_code;      /* valid only for RAX_PROCESS_EXITED; full 32 bits */
+    uint32_t exit_code;      /* valid for EXITED: Windows 32 bits; Linux low 8 bits */
     uint64_t turns_started;  /* scheduler calls started, NOT retired instructions */
     uint64_t elapsed_us;     /* monotonic elapsed execution time, microseconds */
 } rax_process_result;
@@ -1072,15 +1073,19 @@ typedef struct rax_process_result {
  * UTF-8 JSON object (NULL/0 means {}), at most 64 KiB, with strict field/type
  * validation and no unknown fields:
  *
- * personality: "windows" (default; other personalities return UNSUPPORTED)
+ * personality: "windows" (default) or "linux" (ABI 1.9)
  * guest_path: "C:\\program.exe" (default)
- * arguments: string array (default [], at most 256)
+ * arguments: arguments after argv[0] (default [], at most 256)
  * environment: string-valued object (omitted: default Windows environment)
  * current_directory: "C:\\" (default)
  * memory_bytes: 128 MiB (default), 8 MiB..1 GiB, multiple of 4096
  * slice_instructions: 4096 (default), 1..65536
  * console_capacity: 1 MiB (default), 0..16 MiB
  * seed: unsigned 64-bit integer (default 0)
+ * Linux defaults: guest_path="/program", current_directory="/", environment={};
+ * argv[0] is guest_path. Linux supplied paths are canonical absolute POSIX paths
+ * (no empty, dot or dot-dot components, <=4095 bytes, <=255 per component).
+ * Missing ELF interpreters fail during open. No host service fallback occurs.
  * Strings are at most 4096 UTF-8 bytes and cannot contain NUL; environment keys
  * additionally cannot be empty or contain '='. memory_bytes bounds guest backing
  * memory, not total host allocations. Image parsing/loading happens during open;
@@ -1097,7 +1102,8 @@ RAX_API rax_status rax_process_close(rax_process *process);
  * Time/cancellation checks happen BETWEEN turns; neither is hard preemption.
  * Blocked returns without sleeping. Cancellation persists until explicitly
  * cleared. Terminal status/teardown are cached. Guest failure is a successful
- * API call with reason FAILED; inspection supplies the diagnostic.
+ * API call with reason FAILED; inspection supplies the diagnostic. Linux
+ * signal termination also returns FAILED, with signal details in inspection.
  * Validate the output header before executing; write exactly the v1 record.
  */
 RAX_API rax_status rax_process_run(const rax_process *process, uint64_t max_turns,
@@ -1112,6 +1118,13 @@ RAX_API rax_status rax_process_set_cancelled(const rax_process *process, int can
  * x86 GPRs or ARM64 X0..X30), live modules, half-open memory mappings, guest memory
  * use, pending console counts, and actual capabilities. Addresses are hex strings.
  * Inspection including its NUL is limited to 4 MiB; larger results return BOUNDS.
+ * Linux inspection replaces Windows modules/TEB/GPR/commit fields with
+ * loaded_program (path, entry, load_bias, interpreter_base), resident_bytes,
+ * and signal (null or number, code, PC, address, core-default-action flag).
+ * It reports context_format="linux_prstatus": little-endian NT_PRSTATUS bytes,
+ * x86-64 216, i386 68, AArch64 272, AArch32 72, RV64 256. These are integer
+ * regsets, not Windows CONTEXT or an FP/vector/checkpoint image. Writes require
+ * the exact size and apply transactionally, including syscall-entry metadata.
  * Base Windows CONTEXT bytes: x86 0x2cc, x64 0x4d0, ARM64 0x390; flags select
  * groups on write. Extended XSAVE state is not part of this CONTEXT API.
  */

@@ -49,6 +49,25 @@ static std::vector<uint8_t> image() {
     return bytes;
 }
 
+// ELF64 ET_EXEC with one RX PT_LOAD, executing Linux exit(37).
+static std::vector<uint8_t> elf_image() {
+    std::vector<uint8_t> bytes(8192);
+    const auto put = [&](size_t at, uint64_t value, size_t width) {
+        for (size_t i = 0; i < width; ++i) bytes[at+i] = uint8_t(value >> (8*i));
+    };
+    const uint8_t ident[] = {0x7f, 'E', 'L', 'F', 2, 1, 1};
+    std::memcpy(bytes.data(), ident, sizeof(ident));
+    put(16, 2, 2); put(18, 62, 2); put(20, 1, 4);
+    put(24, 0x401000, 8); put(32, 64, 8);
+    put(52, 64, 2); put(54, 56, 2); put(56, 1, 2);
+    put(64, 1, 4); put(68, 5, 4);
+    put(80, 0x400000, 8); put(88, 0x400000, 8);
+    put(96, 8192, 8); put(104, 8192, 8); put(112, 4096, 8);
+    const uint8_t code[] = {0xb8, 60, 0, 0, 0, 0xbf, 37, 0, 0, 0, 0x0f, 0x05};
+    std::memcpy(bytes.data()+4096, code, sizeof(code));
+    return bytes;
+}
+
 int main() {
     try {
         rax::Process first(image(), R"({"memory_bytes":67108864,"slice_instructions":1})");
@@ -70,6 +89,13 @@ int main() {
             return 5;
         if (!process.readOutput(RAX_PROCESS_STDOUT, 16).empty())
             return 6;
+        rax::Process elf(elf_image(), R"({"personality":"linux"})");
+        if (elf.infoJson().find("\"context_format\":\"linux_prstatus\"") == std::string::npos)
+            return 8;
+        result = elf.run(16);
+        if (result.reason != RAX_PROCESS_EXITED || result.exit_code != 37)
+            return 9;
+        std::puts("ELF process: exit 37; closed Linux profile OK");
         std::puts("PE process: exit 42; captured console; resumable cancellation; RAII OK");
         return 0;
     } catch (const std::exception &error) {

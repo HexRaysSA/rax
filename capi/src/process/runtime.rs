@@ -1,9 +1,9 @@
-//! Dedicated owner-thread state. No WindowsProcess or Rc crosses a channel.
+//! Dedicated owner-thread state. No personality state or Rc crosses a channel.
 use super::*;
 use rax_engine::user::console::{CapturedConsole, Console, OutputStream};
 use rax_engine::user::windows::context::RegContext;
-use rax_engine::user::windows::process::{RunStatus, ThreadState};
-use rax_engine::user::windows::{ExitStatus, SpawnError, WindowsConfig, WindowsProcess};
+use rax_engine::user::windows::process::{RunStatus as WindowsRun, ThreadState};
+use rax_engine::user::windows::{ExitStatus as WindowsExit, SpawnError, WindowsProcess};
 use serde_json::json;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
@@ -28,12 +28,63 @@ pub(super) enum Response {
 }
 pub(super) type Work = (Command, Option<mpsc::SyncSender<Result<Response>>>);
 
+pub(super) struct Termination {
+    pub(super) code: Option<u32>,
+    pub(super) diagnostic: String,
+}
+pub(super) enum Boundary {
+    BudgetExhausted,
+    Blocked,
+    Cancelled,
+    Complete(Termination),
+}
+
+enum Backend {
+    Windows(WindowsProcess),
+    Linux(super::linux::Process),
+}
+impl Backend {
+    fn run_slice(&mut self, cancelled: &AtomicBool) -> Boundary {
+        match self {
+            Self::Windows(p) => match p.run_slice(1, cancelled) {
+                WindowsRun::BudgetExhausted => Boundary::BudgetExhausted,
+                WindowsRun::Blocked => Boundary::Blocked,
+                WindowsRun::Cancelled => Boundary::Cancelled,
+                WindowsRun::Complete(status) => Boundary::Complete(Termination {
+                    code: match &status {
+                        WindowsExit::Exited(code) => Some(*code),
+                        _ => None,
+                    },
+                    diagnostic: status.to_string(),
+                }),
+            },
+            Self::Linux(p) => p.run_slice(cancelled),
+        }
+    }
+    fn space(&self) -> &rax_engine::user::mm::AddressSpace {
+        match self {
+            Self::Windows(p) => &p.state().space,
+            Self::Linux(p) => p.space(),
+        }
+    }
+    fn invalidate_code(&mut self) {
+        match self {
+            Self::Windows(p) => {
+                for t in p.state_mut().threads.values_mut() {
+                    t.cpu.discard_native_code();
+                }
+            }
+            Self::Linux(p) => p.invalidate_code(),
+        }
+    }
+}
+
 struct State {
-    process: WindowsProcess,
+    process: Backend,
     console: CapturedConsole,
     cancelled: Arc<AtomicBool>,
     last: RaxProcessResult,
-    terminal: Option<ExitStatus>,
+    terminal: Option<Termination>,
 }
 
 fn spawn_error(error: SpawnError) -> Failure {
@@ -46,23 +97,30 @@ fn spawn_error(error: SpawnError) -> Failure {
 }
 
 pub(super) fn worker(
-    config: WindowsConfig,
+    config: options::Config,
     image: Vec<u8>,
     cancelled: Arc<AtomicBool>,
     ready: mpsc::SyncSender<Result<()>>,
     commands: mpsc::Receiver<Work>,
 ) {
-    let Console::Captured(console) = config.console.clone() else {
+    let console = match &config {
+        options::Config::Windows(c) => c.console.clone(),
+        options::Config::Linux(c) => c.console.clone(),
+    };
+    let Console::Captured(console) = console else {
         let _ = ready.send(Err(bad("process requires a captured console")));
         return;
     };
-    let process = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        WindowsProcess::spawn_image(config, image)
+    let process = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match config {
+        options::Config::Windows(c) => WindowsProcess::spawn_image(c, image)
+            .map(Backend::Windows)
+            .map_err(spawn_error),
+        options::Config::Linux(c) => super::linux::Process::new(c, image).map(Backend::Linux),
     }));
     let process = match process {
         Ok(Ok(process)) => process,
         Ok(Err(error)) => {
-            let _ = ready.send(Err(spawn_error(error)));
+            let _ = ready.send(Err(error));
             return;
         }
         Err(_) => {
@@ -107,13 +165,13 @@ impl State {
         let mut result = RaxProcessResult::default();
         result.reason = RAX_PROCESS_BUDGET;
         if let Some(status) = &self.terminal {
-            result.reason = if matches!(status, ExitStatus::Exited(_)) {
+            result.reason = if status.code.is_some() {
                 RAX_PROCESS_EXITED
             } else {
                 RAX_PROCESS_FAILED
             };
-            if let ExitStatus::Exited(code) = status {
-                result.exit_code = *code;
+            if let Some(code) = status.code {
+                result.exit_code = code;
             }
             return result;
         }
@@ -127,25 +185,22 @@ impl State {
                 break;
             }
             result.turns_started += 1;
-            match self.process.run_slice(1, &self.cancelled) {
-                RunStatus::BudgetExhausted => {}
-                RunStatus::Blocked => {
+            match self.process.run_slice(&self.cancelled) {
+                Boundary::BudgetExhausted => {}
+                Boundary::Blocked => {
                     result.reason = RAX_PROCESS_BLOCKED;
                     break;
                 }
-                RunStatus::Cancelled => {
+                Boundary::Cancelled => {
                     result.reason = RAX_PROCESS_CANCELLED;
                     break;
                 }
-                RunStatus::Complete(status) => {
-                    match &status {
-                        ExitStatus::Exited(code) => {
-                            result.reason = RAX_PROCESS_EXITED;
-                            result.exit_code = *code;
-                        }
-                        ExitStatus::Internal(_) => {
-                            result.reason = RAX_PROCESS_FAILED;
-                        }
+                Boundary::Complete(status) => {
+                    if let Some(code) = status.code {
+                        result.reason = RAX_PROCESS_EXITED;
+                        result.exit_code = code;
+                    } else {
+                        result.reason = RAX_PROCESS_FAILED;
                     }
                     self.terminal = Some(status);
                     break;
@@ -158,9 +213,12 @@ impl State {
     }
 
     fn info(&self) -> Result<Vec<u8>> {
-        let p = self.process.state();
-        let hx = |v: u64| format!("0x{v:x}");
-        let threads: Vec<_> = p.threads.values().map(|t| {
+        let mut value = match &self.process {
+            Backend::Linux(p) => p.info()?,
+            Backend::Windows(process) => {
+                let p = process.state();
+                let hx = |v: u64| format!("0x{v:x}");
+                let threads: Vec<_> = p.threads.values().map(|t| {
             let registers: Vec<_> = (0..t.cpu.gpr_count()).map(|i| hx(t.cpu.gpr(i))).collect();
             let context = RegContext::capture(&t.cpu);
             json!({"id":t.tid,"pc":hx(t.cpu.pc()),"sp":hx(t.cpu.sp()),"teb":hx(t.teb),
@@ -168,20 +226,24 @@ impl State {
                 "suspend_count":t.suspend,"registers":registers,"flags":context.flags_register(),
                 "context_format":"windows_context","context_bytes":RegContext::size(p.arch)})
         }).collect();
-        let modules: Vec<_> = p.modules.list.iter().enumerate().filter(|(i,_)| p.modules.is_live(*i)).map(|(_,m)| {
+                let modules: Vec<_> = p.modules.list.iter().enumerate().filter(|(i,_)| p.modules.is_live(*i)).map(|(_,m)| {
             json!({"name":m.name,"path":m.path,"base":hx(m.base),"size":m.size,"entry":hx(m.entry)})
         }).collect();
-        let mappings: Vec<_> = p.space.vma_snapshot().into_iter().map(|v| json!({"start":hx(v.start),"end":hx(v.end),"permissions":v.perms.bits(),"name":v.name.as_deref()})).collect();
+                let mappings: Vec<_> = p.space.vma_snapshot().into_iter().map(|v| json!({"start":hx(v.start),"end":hx(v.end),"permissions":v.perms.bits(),"name":v.name.as_deref()})).collect();
+                json!({"schema_version":1,"personality":"windows","architecture":p.arch.name(),
+            "status":reason_name(self.last.reason),"exit_code":self.terminal.as_ref().and_then(|t|t.code),
+            "diagnostic":self.terminal.as_ref().map(|t|&t.diagnostic),"threads":threads,"modules":modules,"mappings":mappings,
+            "committed_bytes":p.vm.committed_bytes(),"memory_limit_bytes":p.vm.commit_limit(),
+            "capabilities":{"host_filesystem":false,"captured_console":true,"context_format":"windows_context","checkpoint":false}})
+            }
+        };
         let (input, stdout, stderr) = self
             .console
             .pending()
             .map_err(|e| internal(e.to_string()))?;
-        let value = json!({"schema_version":1,"personality":"windows","architecture":p.arch.name(),
-            "status":reason_name(self.last.reason),"exit_code":match &self.terminal { Some(ExitStatus::Exited(code)) => Some(*code),_=>None },
-            "diagnostic":self.terminal.as_ref().map(ToString::to_string),"threads":threads,"modules":modules,"mappings":mappings,
-            "committed_bytes":p.vm.committed_bytes(),"memory_limit_bytes":p.vm.commit_limit(),
-            "console":{"stdin_pending":input,"stdout_pending":stdout,"stderr_pending":stderr},
-            "capabilities":{"host_filesystem":false,"captured_console":true,"context_format":"windows_context","checkpoint":false}});
+        value["status"] = json!(reason_name(self.last.reason));
+        value["console"] =
+            json!({"stdin_pending":input,"stdout_pending":stdout,"stderr_pending":stderr});
         let mut bytes = serde_json::to_vec(&value).map_err(|e| internal(e.to_string()))?;
         if bytes.len() >= options::MAX_INFO {
             return Err(Failure(
@@ -200,27 +262,28 @@ impl State {
             Command::ReadMemory { address, size } => {
                 let mut bytes = vec![0; size];
                 self.process
-                    .state()
-                    .space
+                    .space()
                     .read(address, &mut bytes)
                     .map_err(memory_error)?;
                 Ok(Response::Bytes(bytes))
             }
             Command::WriteMemory { address, bytes } => {
                 self.process
-                    .state()
-                    .space
+                    .space()
                     .write(address, &bytes)
                     .map_err(memory_error)?;
                 // No native code is retained across caller-modified code pages.
-                for t in self.process.state_mut().threads.values_mut() {
-                    t.cpu.discard_native_code();
-                }
+                self.process.invalidate_code();
                 Ok(Response::Unit)
             }
             Command::ReadContext(tid) => {
-                let t = self
-                    .process
+                let Backend::Windows(process) = &self.process else {
+                    let Backend::Linux(p) = &self.process else {
+                        unreachable!()
+                    };
+                    return p.read_context(tid).map(Response::Bytes);
+                };
+                let t = process
                     .state()
                     .threads
                     .get(&tid)
@@ -230,7 +293,14 @@ impl State {
                 ))
             }
             Command::WriteContext { tid, bytes } => {
-                let p = self.process.state_mut();
+                let Backend::Windows(process) = &mut self.process else {
+                    let Backend::Linux(p) = &mut self.process else {
+                        unreachable!()
+                    };
+                    p.write_context(tid, &bytes)?;
+                    return Ok(Response::Unit);
+                };
+                let p = process.state_mut();
                 if bytes.len() != RegContext::size(p.arch) {
                     return Err(bad("incorrect Windows CONTEXT byte size"));
                 }
