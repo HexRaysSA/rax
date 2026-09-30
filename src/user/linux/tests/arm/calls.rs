@@ -106,11 +106,33 @@ fn stat64_is_the_eabi_layout_written_whole() {
         }
         assert_eq!(get(&h, buf + 104, 16), [0xEE; 16]);
     }
-    // fstat is struct compat_stat (64 bytes, i386's layout): st_size at 20.
+    // fstat is struct compat_stat: its inode/link fields are only 32/16
+    // bits. Host filesystems (notably some APFS volumes) need not fit.
+    let overflow =
+        u64_at(&h, buf + 96) > u64::from(u32::MAX) || u32_at(&h, buf + 20) > u32::from(u16::MAX);
     put(&h, buf, &[0xEE; 72]);
-    assert_eq!(h.call(Sysno::Fstat, &[fd, buf]), 0);
-    assert_eq!(u32_at(&h, buf + 20), 32);
-    assert_eq!(get(&h, buf + 64, 8), [0xEE; 8]);
+    assert_eq!(
+        h.call(Sysno::Fstat, &[fd, buf]),
+        if overflow { -i64::from(EOVERFLOW) } else { 0 }
+    );
+    if overflow {
+        assert_eq!(get(&h, buf, 72), [0xEE; 72]);
+    } else {
+        assert_eq!(u32_at(&h, buf + 20), 32);
+        assert_eq!(get(&h, buf + 64, 8), [0xEE; 8]);
+    }
+    // A synthesized proc inode is representable on every host, so the
+    // successful 64-byte layout is exercised even with large host inodes.
+    put(&h, path, b"/proc/self/stat\0");
+    let proc_fd = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+    for (call, arg) in [(Sysno::Stat, path), (Sysno::Fstat, proc_fd)] {
+        put(&h, buf, &[0xEE; 72]);
+        assert_eq!(h.call(call, &[arg, buf]), 0);
+        assert_eq!(u32_at(&h, buf + 4), 0x5241_5800);
+        assert_eq!(u32_at(&h, buf + 8) & 0o170000, 0o100000);
+        assert!(u32_at(&h, buf + 20) > 0);
+        assert_eq!(get(&h, buf + 64, 8), [0xEE; 8]);
+    }
 }
 
 #[test]

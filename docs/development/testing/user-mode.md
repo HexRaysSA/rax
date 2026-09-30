@@ -23,7 +23,7 @@ a particular host. The runtime mechanisms are in the
 
 ```sh
 cargo test --locked --no-default-features --features smir-jit --lib user::
-cargo test --release --locked --no-default-features --features smir-jit --test user_linux
+cargo test --release --locked --no-default-features --features smir-jit --test user_linux -- --test-threads=1
 cargo test --locked --no-default-features --features x86_64-suite,smir-jit --test user_darwin
 ```
 
@@ -33,6 +33,32 @@ Docker comparison requires `RAX_USER_DOCKER_ORACLE=1`. Record test, ignored,
 filtered, and self-skip counts separately. See
 [Verification](../verification.md#linux-process-and-whole-program-comparisons)
 for the output projection and oracle substitutions.
+
+Linux integration fixture processes share the host filesystem. Some recorded
+programs, including `uringio`, use fixed absolute `/tmp` names; `TMPDIR`
+isolation separates IPC namespaces but does not rewrite those guest paths.
+Run this target serially to keep architecture/mode comparisons from modifying
+the same fixture files concurrently.
+
+Compatibility filesystem tests do not assume host inode numbers fit in 32
+bits. `stat64` checks preserve the complete host identity; `compat_stat` checks
+expect `EOVERFLOW` and unchanged guest output when the inode or link count does
+not fit (`fs/stat.c`, `cp_compat_stat`). Synthesized proc inodes also exercise
+successful 64-byte conversion on every host. Controlled directory snapshots
+exercise both compatibility dirent layouts, the exact 32-bit inode boundary,
+valid-prefix output, unchanged output/cursor on overflow, and subsequent
+64-bit retrieval (`fs/readdir.c`, `compat_filldir`, `compat_fillonedir`).
+
+| ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
+| --- | --- | --- | --- | --- | --- |
+| F1 | Host temporary-file inode numbers fit in 32 bits. | The original success-only tests used host temporary volumes. | Unconditional successful `compat_stat` and compatibility dirent conversion. | Intel macOS CI returned `EOVERFLOW`; inspect the host inode and compare against `0xffffffff`. New tests cover both narrowing outcomes and controlled boundary identities. | Falsified; no test now relies on it. |
+
+Host metadata controls the expected narrowing outcome, and fixed guest
+identities guarantee successful-layout coverage. This changes tests and their
+execution guidance only; filesystem translation and error behavior are
+unchanged. Medium-impact finding: parallel recorded fixtures may interfere
+through absolute paths; serial execution is required until those fixtures or
+their filesystem namespaces are isolated.
 
 The Darwin target has no recordings: on a macOS host it compares each run
 with the same program's native run (x86_64 through Rosetta, which exercises

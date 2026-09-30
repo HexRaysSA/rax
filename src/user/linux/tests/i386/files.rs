@@ -180,18 +180,50 @@ fn stat64_and_compat_stat_fill_the_i386_structures() {
         h.call(Sysno::Fstatat64, &[reg(AT_FDCWD), path, buf, 1]),
         -i64::from(EINVAL)
     );
-    // struct compat_stat through the link: 32-bit fields, 16-bit IDs.
-    assert_eq!(h.call(Sysno::Stat, &[path, buf]), 0);
-    assert_eq!(u32_at(&h, buf + 4), meta.ino() as u32);
-    assert_eq!(
-        u16_at(&h, buf + 8),
-        0o100000 | (meta.mode() & 0o7777) as u16
-    );
-    assert_eq!(u32_at(&h, buf + 20), 5000);
-    assert_eq!(h.call(Sysno::Lstat, &[path, buf]), 0);
-    assert_eq!(u16_at(&h, buf + 8) & 0o170000, 0o120000);
-    assert_eq!(h.call(Sysno::Fstat, &[fd, buf]), 0);
-    assert_eq!(u32_at(&h, buf + 20), 5000);
+    // cp_compat_stat rejects an inode/link count that its 32/16-bit
+    // fields cannot hold. A host's temporary volume need not fit.
+    let link_meta = std::fs::symlink_metadata(&link).unwrap();
+    for (call, arg, expected) in [
+        (Sysno::Stat, path, &meta),
+        (Sysno::Lstat, path, &link_meta),
+        (Sysno::Fstat, fd, &meta),
+    ] {
+        let overflow = expected.ino() > u64::from(u32::MAX)
+            || expected.nlink() > u64::from(u16::MAX)
+            || expected.len() > i32::MAX as u64;
+        put(&h, buf, &[0xAA; 96]);
+        assert_eq!(
+            h.call(call, &[arg, buf]),
+            if overflow { -i64::from(EOVERFLOW) } else { 0 }
+        );
+        if overflow {
+            let mut bytes = [0u8; 96];
+            h.proc.state.space.read(buf, &mut bytes).unwrap();
+            assert_eq!(bytes, [0xAA; 96]);
+        } else {
+            assert_eq!(u32_at(&h, buf + 4), expected.ino() as u32);
+            assert_eq!(u16_at(&h, buf + 8), expected.mode() as u16);
+            assert_eq!(u16_at(&h, buf + 10), expected.nlink() as u16);
+            assert_eq!(u32_at(&h, buf + 20), expected.len() as u32);
+        }
+    }
+    // Always exercise successful compat_stat conversion using a proc inode
+    // with a fixed, representable identity, independent of the host volume.
+    put_str(&h, path, "/proc/self/stat");
+    let proc_fd = h.ok(Sysno::Open, &[path, 0, 0]);
+    for (call, arg) in [
+        (Sysno::Stat, path),
+        (Sysno::Lstat, path),
+        (Sysno::Fstat, proc_fd),
+    ] {
+        put(&h, buf, &[0xAA; 96]);
+        assert_eq!(h.call(call, &[arg, buf]), 0);
+        assert_eq!(u32_at(&h, buf + 4), 0x5241_5800);
+        assert_eq!(u16_at(&h, buf + 8) & 0o170000, 0o100000);
+        assert_eq!(u16_at(&h, buf + 10), 1);
+        assert!(u32_at(&h, buf + 20) > 0);
+        assert_eq!(u32_at(&h, buf + 64), 0xAAAA_AAAA);
+    }
     // A size past MAX_NON_LFS: EOVERFLOW for compat_stat, not for stat64.
     let big = d.file("big", 3 * GIB);
     put_str(&h, path, &big);
@@ -242,16 +274,42 @@ fn statfs_fills_compat_statfs_and_statfs64_checks_its_size() {
     assert_eq!(h.call(Sysno::Fstatfs64, &[999, 84, buf]), -i64::from(EBADF));
 }
 
+/// A directory snapshot with controlled inode widths. Host-directory
+/// lookup is covered separately; this fixture isolates the compat layout.
+fn guest_directory(h: &mut Harness, entries: Vec<crate::user::linux::fs::fd::DirEntry>) -> u64 {
+    use crate::user::linux::fs::fd::{FileObject, FileType, NOFILE_HARD, OpenFile};
+    let file = OpenFile::new(
+        FileObject::Synthetic(Vec::new().into()),
+        FileType::Directory,
+        "/compat-directory",
+        None,
+        0,
+    );
+    file.state.lock().unwrap().dir = Some((entries, 0));
+    h.proc.state.fds.install(file, false, NOFILE_HARD).unwrap() as u64
+}
+
 #[test]
 fn getdents_fills_compat_linux_dirent_and_readdir_one_entry() {
     let mut h = Harness::new(LinuxAbi::I386);
     let m = pages(&mut h, 2);
-    let (path, buf) = (m, m + 0x1000);
-    let d = Dir::new("dirents");
-    d.file("a", 1);
-    d.file("bb", 1);
-    std::fs::create_dir(d.path("ccc")).unwrap();
-    let fd = open(&mut h, path, d.0.to_str().unwrap(), O_DIRECTORY) as u64;
+    let buf = m + 0x1000;
+    let entries = || {
+        [".", "..", "a", "bb", "ccc"]
+            .into_iter()
+            .enumerate()
+            .map(|(index, name)| crate::user::linux::fs::fd::DirEntry {
+                ino: 100 + index as u64,
+                dtype: if name.starts_with('.') || name == "ccc" {
+                    4
+                } else {
+                    8
+                },
+                name: name.as_bytes().to_vec(),
+            })
+            .collect()
+    };
+    let fd = guest_directory(&mut h, entries());
     // Room for none: EINVAL.
     assert_eq!(h.call(Sysno::Getdents, &[fd, buf, 8]), -i64::from(EINVAL));
     let n = h.ok(Sysno::Getdents, &[fd, buf, 0x1000]);
@@ -268,8 +326,7 @@ fn getdents_fills_compat_linux_dirent_and_readdir_one_entry() {
             "{name}"
         );
         let ino = u32_at(&h, rec);
-        let host = std::fs::symlink_metadata(d.0.join(&name)).unwrap().ino();
-        assert_eq!(u64::from(ino), host, "{name}: d_ino");
+        assert_eq!(ino, 100 + seen.len() as u32, "{name}: d_ino");
         assert_eq!(
             u32_at(&h, rec + 4),
             seen.len() as u32 + 1,
@@ -289,7 +346,7 @@ fn getdents_fills_compat_linux_dirent_and_readdir_one_entry() {
     assert_eq!(seen, [".", "..", "a", "bb", "ccc"]);
     assert_eq!(h.ok(Sysno::Getdents, &[fd, buf, 0x1000]), 0, "the end");
     // compat_sys_old_readdir: one entry a call, its own offset, then 0.
-    let fd = open(&mut h, path, d.0.to_str().unwrap(), O_DIRECTORY) as u64;
+    let fd = guest_directory(&mut h, entries());
     let mut names = Vec::new();
     for i in 0..5u32 {
         assert_eq!(h.call(Sysno::Readdir, &[fd, buf, 1]), 1);
@@ -302,8 +359,54 @@ fn getdents_fills_compat_linux_dirent_and_readdir_one_entry() {
     names.sort();
     assert_eq!(names, [".", "..", "a", "bb", "ccc"]);
     assert_eq!(h.call(Sysno::Readdir, &[999, buf, 1]), -i64::from(EBADF));
-    let file = open(&mut h, path, &d.path("a"), 0) as u64;
+    let file = h.file("compat-dirent-not-directory", 1, b'x', 0);
     assert_eq!(h.call(Sysno::Readdir, &[file, buf, 1]), -i64::from(ENOTDIR));
+}
+
+#[test]
+fn compat_directory_inode_overflow_keeps_the_cursor_and_valid_prefix() {
+    use crate::user::linux::fs::fd::DirEntry;
+    // ARM EABI has no old_readdir syscall entry; getdents/getdents64
+    // remain available and exercise the same narrowing boundary.
+    assert_eq!(LinuxAbi::Arm.number(Sysno::Readdir), None);
+    for (abi, old) in [
+        (LinuxAbi::I386, false),
+        (LinuxAbi::I386, true),
+        (LinuxAbi::Arm, false),
+    ] {
+        let mut h = Harness::new(abi);
+        let buf = h.scratch;
+        let entries = || {
+            vec![
+                DirEntry {
+                    ino: u64::from(u32::MAX),
+                    dtype: 8,
+                    name: b"fit".to_vec(),
+                },
+                DirEntry {
+                    ino: u64::from(u32::MAX) + 1,
+                    dtype: 8,
+                    name: b"overflow".to_vec(),
+                },
+            ]
+        };
+        let fd = guest_directory(&mut h, entries());
+        let call = if old { Sysno::Readdir } else { Sysno::Getdents };
+        assert_eq!(h.call(call, &[fd, buf, 256]), if old { 1 } else { 16 });
+        assert_eq!(u32_at(&h, buf), u32::MAX);
+        assert_eq!(cstr(&h, buf + 10), "fit");
+        put(&h, buf, &[0xAA; 256]);
+        assert_eq!(h.call(call, &[fd, buf, 256]), -i64::from(EOVERFLOW));
+        let mut bytes = [0; 256];
+        h.proc.state.space.read(buf, &mut bytes).unwrap();
+        assert_eq!(bytes, [0xAA; 256]);
+        // The failed 32-bit conversion did not consume the next inode;
+        // getdents64 can still deliver it in its complete representation.
+        assert!(h.call(Sysno::Getdents64, &[fd, buf, 256]) > 0);
+        assert_eq!(u64_at(&h, buf), u64::from(u32::MAX) + 1);
+        assert_eq!(cstr(&h, buf + 19), "overflow");
+        assert_eq!(h.call(Sysno::Getdents64, &[fd, buf, 256]), 0);
+    }
 }
 
 #[test]
