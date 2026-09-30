@@ -209,11 +209,22 @@ jobs:
       - name: Run shared and static consumers
         run: ctest --test-dir capi-consumers -C Release --output-on-failure --no-tests=error
 
+  # A short native API probe provides mapping diagnostics independently of
+  # the Rust compilation and process tests.
+  test-windows-section-api:
+    name: Windows section API diagnostics
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Measure partial-section placeholder views
+        run: python tools/ci/windows_section_probe.py
+
   # Aggregate gate: a single required check that depends on the whole matrix.
   ci-success:
     name: CI success
     if: always()
-    needs: [lint, build, test-core, test-capi]
+    needs: [lint, build, test-core, test-capi, test-windows-section-api]
     runs-on: ubuntu-24.04
     steps:
       - name: Verify all matrix jobs succeeded
