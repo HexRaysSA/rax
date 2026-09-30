@@ -70,23 +70,6 @@ unsafe extern "system" {
     fn FlushViewOfFile(base: *const c_void, bytes: usize) -> i32;
 }
 
-#[link(name = "ntdll")]
-unsafe extern "system" {
-    fn NtMapViewOfSection(
-        section: Handle,
-        process: Handle,
-        base: *mut *mut c_void,
-        zero_bits: usize,
-        commit_size: usize,
-        offset: *mut i64,
-        size: *mut usize,
-        inherit: u32,
-        allocation: u32,
-        protection: u32,
-    ) -> i32;
-    fn RtlNtStatusToDosError(status: i32) -> u32;
-}
-
 #[derive(Clone, Copy, Debug)]
 struct Api {
     alloc: Alloc,
@@ -348,43 +331,6 @@ impl WindowsArena {
                     offset,
                     view_size,
                     writable,
-                } if *view_size != part.len => {
-                    let mut base = self.at(start);
-                    let mut offset =
-                        i64::try_from(*offset).map_err(|_| io::ErrorKind::InvalidInput)?;
-                    let mut size = *view_size;
-                    // Unlike MapViewOfFile3, the native interface accepts the
-                    // logical byte count and rounds it to pages. This keeps
-                    // the input within the section while replacing exactly
-                    // the page-rounded placeholder. ViewUnmap prevents child
-                    // inheritance; the section and all in/out values are live.
-                    let status = NtMapViewOfSection(
-                        section.handle.as_raw_handle(),
-                        GetCurrentProcess(),
-                        &raw mut base,
-                        0,
-                        0,
-                        &raw mut offset,
-                        &raw mut size,
-                        2,
-                        REPLACE,
-                        if *writable { READWRITE } else { WRITECOPY },
-                    );
-                    if status < 0 {
-                        return Err(io::Error::other(format!(
-                            "native placeholder replacement at {start:#x}, size {:#x}, NTSTATUS {:#x}: {}",
-                            part.len,
-                            status as u32,
-                            io::Error::from_raw_os_error(RtlNtStatusToDosError(status) as i32)
-                        )));
-                    }
-                    base
-                }
-                Kind::View {
-                    section,
-                    offset,
-                    view_size,
-                    writable,
                 } => (self.api.map)(
                     section.handle.as_raw_handle(),
                     GetCurrentProcess(),
@@ -497,9 +443,10 @@ impl WindowsArena {
             return Err(io::ErrorKind::InvalidInput.into());
         }
         let remaining = file.metadata()?.len().saturating_sub(offset);
-        // Retain the logical count for a partial last page. The native mapping
-        // interface rounds it to the exact placeholder size without extending
-        // the file; MapViewOfFile3 rejects a zero-size placeholder replacement.
+        // Retain the logical count for a partial last page. Native Windows
+        // MapViewOfFile3 rounds this count to the placeholder pages. Zero
+        // returns error 87; a page-rounded count past EOF returns error 5.
+        // See the independent windows_section_probe.py and archived evidence.
         let view_size = if remaining < len as u64
             && remaining.div_ceil(4096).saturating_mul(4096) == len as u64
         {
@@ -687,12 +634,14 @@ mod tests {
         // Exercise the adapter directly first: AddressSpace intentionally
         // translates allocation errors into guest faults, losing the native
         // operation and GetLastError value needed to diagnose a regression.
-        let arena = super::super::FrameArena::new(2 * EXTENT, &[]).unwrap();
-        let pa = arena.alloc_extent().unwrap();
-        let file = super::super::anonymous_file().unwrap();
-        file.set_len(4097).unwrap();
-        arena.attach(pa, &file, 0, 8192, true).unwrap();
-        assert_eq!(file.metadata().unwrap().len(), 4097);
+        for offset in [0, EXTENT] {
+            let arena = super::super::FrameArena::new(2 * EXTENT, &[]).unwrap();
+            let pa = arena.alloc_extent().unwrap();
+            let file = super::super::anonymous_file().unwrap();
+            file.set_len(offset + 4097).unwrap();
+            arena.attach(pa, &file, offset, 8192, true).unwrap();
+            assert_eq!(file.metadata().unwrap().len(), offset + 4097);
+        }
 
         let space = space();
         let object = Arc::new(SharedObject::anonymous(4097).unwrap());

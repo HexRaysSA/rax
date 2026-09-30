@@ -1,0 +1,188 @@
+{
+  "host": "GitHub Actions windows-2025 x64",
+  "observed": "2026-09-30",
+  "probe_commit": "55b9805bc6a47686130e879a484a4146435492c9",
+  "job_url": "https://github.com/HexRaysSA/rax/actions/runs/36775338677/job/110092058126",
+  "rows": [
+    {
+      "method": "MapViewOfFile3",
+      "file_bytes": 4096,
+      "placeholder_bytes": 4096,
+      "requested_bytes": 0,
+      "error": 87,
+      "same_address": false,
+      "file_bytes_after": 4096
+    },
+    {
+      "method": "MapViewOfFile3",
+      "file_bytes": 4096,
+      "placeholder_bytes": 4096,
+      "requested_bytes": 4096,
+      "error": 0,
+      "same_address": true,
+      "file_bytes_after": 4096
+    },
+    {
+      "method": "MapViewOfFile3",
+      "file_bytes": 4096,
+      "placeholder_bytes": 4096,
+      "requested_bytes": 4096,
+      "error": 0,
+      "same_address": true,
+      "file_bytes_after": 4096
+    },
+    {
+      "method": "NtMapViewOfSection",
+      "file_bytes": 4096,
+      "placeholder_bytes": 4096,
+      "requested_bytes": 0,
+      "status": "0xc000000d",
+      "error": 87,
+      "mapped_bytes": 0,
+      "same_address": false,
+      "file_bytes_after": 4096
+    },
+    {
+      "method": "NtMapViewOfSection",
+      "file_bytes": 4096,
+      "placeholder_bytes": 4096,
+      "requested_bytes": 4096,
+      "status": "0xc000000d",
+      "error": 87,
+      "mapped_bytes": 4096,
+      "same_address": false,
+      "file_bytes_after": 4096
+    },
+    {
+      "method": "NtMapViewOfSection",
+      "file_bytes": 4096,
+      "placeholder_bytes": 4096,
+      "requested_bytes": 4096,
+      "status": "0xc000000d",
+      "error": 87,
+      "mapped_bytes": 4096,
+      "same_address": false,
+      "file_bytes_after": 4096
+    },
+    {
+      "method": "MapViewOfFile3",
+      "file_bytes": 4097,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 0,
+      "error": 87,
+      "same_address": false,
+      "file_bytes_after": 4097
+    },
+    {
+      "method": "MapViewOfFile3",
+      "file_bytes": 4097,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 4097,
+      "error": 0,
+      "same_address": true,
+      "file_bytes_after": 4097
+    },
+    {
+      "method": "MapViewOfFile3",
+      "file_bytes": 4097,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 8192,
+      "error": 5,
+      "same_address": false,
+      "file_bytes_after": 4097
+    },
+    {
+      "method": "NtMapViewOfSection",
+      "file_bytes": 4097,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 0,
+      "status": "0xc000000d",
+      "error": 87,
+      "mapped_bytes": 0,
+      "same_address": false,
+      "file_bytes_after": 4097
+    },
+    {
+      "method": "NtMapViewOfSection",
+      "file_bytes": 4097,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 4097,
+      "status": "0xc000000d",
+      "error": 87,
+      "mapped_bytes": 4097,
+      "same_address": false,
+      "file_bytes_after": 4097
+    },
+    {
+      "method": "NtMapViewOfSection",
+      "file_bytes": 4097,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 8192,
+      "status": "0xc000000d",
+      "error": 87,
+      "mapped_bytes": 8192,
+      "same_address": false,
+      "file_bytes_after": 4097
+    },
+    {
+      "method": "MapViewOfFile3",
+      "file_bytes": 8192,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 0,
+      "error": 87,
+      "same_address": false,
+      "file_bytes_after": 8192
+    },
+    {
+      "method": "MapViewOfFile3",
+      "file_bytes": 8192,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 8192,
+      "error": 0,
+      "same_address": true,
+      "file_bytes_after": 8192
+    },
+    {
+      "method": "MapViewOfFile3",
+      "file_bytes": 8192,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 8192,
+      "error": 0,
+      "same_address": true,
+      "file_bytes_after": 8192
+    },
+    {
+      "method": "NtMapViewOfSection",
+      "file_bytes": 8192,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 0,
+      "status": "0xc000000d",
+      "error": 87,
+      "mapped_bytes": 0,
+      "same_address": false,
+      "file_bytes_after": 8192
+    },
+    {
+      "method": "NtMapViewOfSection",
+      "file_bytes": 8192,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 8192,
+      "status": "0xc000000d",
+      "error": 87,
+      "mapped_bytes": 8192,
+      "same_address": false,
+      "file_bytes_after": 8192
+    },
+    {
+      "method": "NtMapViewOfSection",
+      "file_bytes": 8192,
+      "placeholder_bytes": 8192,
+      "requested_bytes": 8192,
+      "status": "0xc000000d",
+      "error": 87,
+      "mapped_bytes": 8192,
+      "same_address": false,
+      "file_bytes_after": 8192
+    }
+  ]
+}

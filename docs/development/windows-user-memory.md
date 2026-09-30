@@ -47,6 +47,20 @@ The adapter tracks n allocation fragments in a `BTreeMap`: storage O(n), lookup
 O(log n), and extent replacement O(k log n) for k fragments. Current extent
 layouts have at most two fragments. Arena construction takes O(n log n).
 
+### Partial section lengths
+
+The native Windows probe records a distinction not expressed by the
+`MapViewOfFile3` documentation's page-multiple wording: a 4097-byte file maps
+into an 8192-byte placeholder when `ViewSize=4097`. `ViewSize=0` fails with
+error 87; `ViewSize=8192` fails with error 5. The file remains 4097 bytes long.
+The adapter therefore retains both the logical view count and the page-rounded
+placeholder length. Archived [native observations](windows-section-observations.json)
+identify the probe commit, OS runner and job; `tools/ci/windows_section_probe.py`
+independently checks the accepted request, including a nonzero file offset.
+The arena regression additionally exercises guest access and the EOF boundary.
+The attempted legacy `NtMapViewOfSection` replacement was rejected even for a
+page-sized file on that host; it is not used by the adapter.
+
 ## Change surface and bounded findings
 
 Affected: host memory ownership, shared backing I/O/identity, address-space

@@ -37,7 +37,7 @@ def main():
                   c.POINTER(c.c_int64), c.POINTER(size), uint, uint, uint)
     dos_error = bind(ntdll, "RtlNtStatusToDosError", uint, c.c_int32)
     process = pointer(-1)
-    for length in (4096, 4097, 8192):
+    for length, file_offset in ((4096, 0), (4097, 0), (8192, 0), (266241, 262144)):
         with tempfile.TemporaryFile() as file:
             file.truncate(length)
             file.flush()
@@ -47,8 +47,9 @@ def main():
                 raise c.WinError(c.get_last_error())
             try:
                 for method in ("MapViewOfFile3", "NtMapViewOfSection"):
-                    for requested in (0, length, (length + 4095) & ~4095):
-                        extent = (length + 4095) & ~4095
+                    remaining = length - file_offset
+                    for requested in (0, remaining, (remaining + 4095) & ~4095):
+                        extent = (remaining + 4095) & ~4095
                         base = alloc(None, None, 65536, 0x42000, 1, None, 0)
                         if not base:
                             raise c.WinError(c.get_last_error())
@@ -59,15 +60,16 @@ def main():
                         mapped = None
                         try:
                             row = {"method": method, "file_bytes": length,
+                                   "file_offset": file_offset,
                                    "placeholder_bytes": extent,
                                    "requested_bytes": requested}
                             if method == "MapViewOfFile3":
-                                mapped = map3(section, process, base, 0,
+                                mapped = map3(section, process, base, file_offset,
                                               requested, 0x4000, 4, None, 0)
                                 row["error"] = 0 if mapped else c.get_last_error()
                             else:
                                 address = pointer(base)
-                                offset = c.c_int64(0)
+                                offset = c.c_int64(file_offset)
                                 count = size(requested)
                                 status = native(section, process, c.byref(address),
                                                 0, 0, c.byref(offset), c.byref(count),
@@ -80,6 +82,11 @@ def main():
                             row["same_address"] = mapped == base
                             row["file_bytes_after"] = file.seek(0, 2)
                             print(json.dumps(row), flush=True)
+                            if method == "MapViewOfFile3" and requested == remaining:
+                                if not row["same_address"] or row["error"] != 0:
+                                    raise RuntimeError("logical section view must replace the exact placeholder")
+                                if row["file_bytes_after"] != length:
+                                    raise RuntimeError("mapping must not change file length")
                         finally:
                             if mapped:
                                 if not unmap(mapped):
