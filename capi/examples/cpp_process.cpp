@@ -68,6 +68,28 @@ static std::vector<uint8_t> elf_image() {
     return bytes;
 }
 
+// Static Mach-O x86-64 image with LC_UNIXTHREAD, executing Darwin exit(41).
+static std::vector<uint8_t> macho_image() {
+    std::vector<uint8_t> bytes(0x4000);
+    const auto put = [&](size_t at, uint64_t value, size_t width) {
+        for (size_t i = 0; i < width; ++i) bytes[at+i] = uint8_t(value >> (8*i));
+    };
+    put(0, 0xfeedfacf, 4); put(4, 0x01000007, 4); put(8, 3, 4);
+    put(12, 2, 4); put(16, 3, 4); put(20, 328, 4);
+    put(32, 0x19, 4); put(36, 72, 4);
+    std::memcpy(bytes.data()+40, "__PAGEZERO", 10);
+    put(64, 0x100000000ULL, 8);
+    put(104, 0x19, 4); put(108, 72, 4);
+    std::memcpy(bytes.data()+112, "__TEXT", 6);
+    put(128, 0x100000000ULL, 8); put(136, 0x4000, 8); put(152, 0x4000, 8);
+    put(160, 5, 4); put(164, 5, 4);
+    put(176, 5, 4); put(180, 184, 4); put(184, 4, 4); put(188, 42, 4);
+    put(320, 0x100001000ULL, 8);
+    const uint8_t code[] = {0xb8, 1, 0, 0, 2, 0xbf, 41, 0, 0, 0, 0x0f, 0x05};
+    std::memcpy(bytes.data()+4096, code, sizeof(code));
+    return bytes;
+}
+
 int main() {
     try {
         rax::Process first(image(), R"({"memory_bytes":67108864,"slice_instructions":1})");
@@ -95,6 +117,13 @@ int main() {
         result = elf.run(16);
         if (result.reason != RAX_PROCESS_EXITED || result.exit_code != 37)
             return 9;
+        rax::Process macho(macho_image(), R"({"personality":"darwin"})");
+        if (macho.infoJson().find("\"context_format\":\"darwin_thread_state64\"") == std::string::npos)
+            return 10;
+        result = macho.run(16);
+        if (result.reason != RAX_PROCESS_EXITED || result.exit_code != 41)
+            return 11;
+        std::puts("Mach-O process: exit 41; closed Darwin profile OK");
         std::puts("ELF process: exit 37; closed Linux profile OK");
         std::puts("PE process: exit 42; captured console; resumable cancellation; RAII OK");
         return 0;

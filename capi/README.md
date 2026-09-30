@@ -157,7 +157,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.9.0).
+C ABI version (currently 1.10.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -627,18 +627,24 @@ No guest ABI argument decoding or host OS syscall forwarding is implied.
 The query copies a fixed 40-byte record in O(1) time and space. Existing
 `rax_exit` layout and syscall-hook signatures are unchanged.
 
-### Full PE and ELF processes (ABI 1.8 / 1.9)
+### Full processes
 
 `rax_process_open_image` and `rax::Process` execute a Windows process using the
 existing PE loader, thread scheduler, exception handling, and built-in DLL/CRT
 services. PE32 x86 and PE32+ x64/ARM64 run on Windows, macOS, and Linux hosts.
 ABI 1.9 also accepts `"personality":"linux"` for ELF x86-64, i386,
 AArch64, AArch32 EABI and RV64. The closed Linux profile runs on Windows,
-macOS and Linux; Windows requires the placeholder mapping APIs. Mach-O is
-not yet exported. Linux defaults to `/program`, `/`, and an empty environment;
+macOS and Linux; Windows requires the placeholder mapping APIs. ABI 1.10 adds
+`"personality":"darwin"` for x86-64 and AArch64 Mach-O images on all three hosts.
+Darwin accepts `"architecture":"x86_64"` or `"aarch64"` to select a Mach-O
+slice. Omitted selection prefers x86-64 when present, then AArch64, identically
+on every host. The architecture option is rejected for other personalities.
+Linux and Darwin default to `/program`, `/`, and an empty environment;
 `arguments` follows the executable's `argv[0]`. Supply ELF interpreters and
 read-only files through the same image records using canonical POSIX paths.
-There is no host file, socket, process, or IPC fallback.
+Darwin uses those records for `/usr/lib/dyld` and shared caches too. Missing
+interpreters fail during open. There is no host file, socket, process, or IPC
+fallback.
 
 ```cpp
 rax::Process process(executable_bytes,
@@ -675,8 +681,15 @@ Linux contexts instead use little-endian `NT_PRSTATUS` integer regsets
 committed transactionally. Inspection labels the format as `linux_prstatus`,
 reports the loaded program and resident bytes, and includes signal termination
 details. Signals return terminal `FAILED`; normal Linux exits retain the low
-8 bits. These contexts omit FP/vector state. No whole-process checkpoint or
-fork is advertised.
+8 bits. Darwin uses `darwin_thread_state64`: Mach integer thread-state flavor
+4 (168 bytes) for x86-64 or flavor 6 (272 bytes) for AArch64. Its inspection
+reports the loaded Mach-O entry/header, thread suspend counts and control ports,
+resident bytes, and signal number/PC/core flag. Darwin context writes are
+transactional and retain Mach flag-validation semantics. Guest thread IDs must
+fit the process API's 32-bit ID field; inspection returns `BOUNDS` on overflow.
+Normal Darwin exits also retain the low 8 bits; signals report `FAILED`.
+These contexts omit FP/vector state. No whole-process checkpoint or fork is
+advertised.
 
 Every handle owns a dedicated runtime thread, which constructs and destroys all
 thread-affine personality state. Calls may originate on different caller threads

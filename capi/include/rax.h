@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 9u
+#define RAX_API_MINOR 10u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -1023,7 +1023,9 @@ RAX_API rax_status rax_analyze(int arch, uint32_t mode, uint64_t pc,
  * Full-process embedding (since ABI 1.8)
  * =========================================================================
  * Windows PE32 x86 / PE32+ x64 and ARM64, plus Linux ELF x86-64, i386,
- * AArch64, AArch32 EABI and RV64 (since ABI 1.9), on supported hosts. This is separate from RAX_MODE_USER's syscall frontier.
+ * AArch64, AArch32 EABI and RV64 (since ABI 1.9), and Darwin Mach-O x86-64 and
+ * AArch64 (since ABI 1.10). All run on Windows, macOS, and Linux hosts. This is
+ * separate from RAX_MODE_USER's syscall frontier.
  * Each process owns a dedicated runtime thread; handles may move between
  * caller threads. Serialize all operations except set_cancelled, which may
  * overlap run. Concurrent ordinary operations return RAX_ERR_STATE. Close
@@ -1033,8 +1035,9 @@ RAX_API rax_status rax_analyze(int arch, uint32_t mode, uint64_t pc,
  *
  * The embedded profile has no host filesystem access or inherited host streams.
  * Supply dependency bytes explicitly; missing dependencies do not search the
- * host. Windows disk operations are denied; Linux has a closed immutable
- * supplied-file namespace with guest-local descriptors and shared mappings. stdin is finite: empty input is
+ * host. Windows disk operations are denied; Linux and Darwin use closed
+ * immutable supplied-file namespaces with guest-local descriptors. stdin is
+ * finite: empty input is
  * EOF, not a pending read. stdout/stderr share one bounded captured-output pool.
  * There is no process checkpoint/fork API in this version.
  */
@@ -1062,7 +1065,7 @@ typedef struct rax_process_result {
     uint32_t struct_size;    /* initialize to sizeof(rax_process_result) */
     uint32_t version;        /* initialize to RAX_PROCESS_RESULT_VERSION */
     uint32_t reason;         /* RAX_PROCESS_* */
-    uint32_t exit_code;      /* valid for EXITED: Windows 32 bits; Linux low 8 bits */
+    uint32_t exit_code;      /* valid for EXITED: Windows 32 bits; Linux/Darwin low 8 bits */
     uint64_t turns_started;  /* scheduler calls started, NOT retired instructions */
     uint64_t elapsed_us;     /* monotonic elapsed execution time, microseconds */
 } rax_process_result;
@@ -1073,7 +1076,9 @@ typedef struct rax_process_result {
  * UTF-8 JSON object (NULL/0 means {}), at most 64 KiB, with strict field/type
  * validation and no unknown fields:
  *
- * personality: "windows" (default) or "linux" (ABI 1.9)
+ * personality: "windows" (default), "linux" (ABI 1.9), "darwin" (ABI 1.10)
+ * architecture: Darwin only, "x86_64" or "aarch64"; omitted selects x86-64
+ *   first when present, then AArch64, independent of the host architecture
  * guest_path: "C:\\program.exe" (default)
  * arguments: arguments after argv[0] (default [], at most 256)
  * environment: string-valued object (omitted: default Windows environment)
@@ -1082,10 +1087,12 @@ typedef struct rax_process_result {
  * slice_instructions: 4096 (default), 1..65536
  * console_capacity: 1 MiB (default), 0..16 MiB
  * seed: unsigned 64-bit integer (default 0)
- * Linux defaults: guest_path="/program", current_directory="/", environment={};
- * argv[0] is guest_path. Linux supplied paths are canonical absolute POSIX paths
+ * Linux/Darwin defaults: guest_path="/program", current_directory="/", environment={};
+ * argv[0] is guest_path. Their supplied paths are canonical absolute POSIX paths
  * (no empty, dot or dot-dot components, <=4095 bytes, <=255 per component).
- * Missing ELF interpreters fail during open. No host service fallback occurs.
+ * Missing ELF interpreters or Darwin dyld fail during open. Darwin requires
+ * dyld at /usr/lib/dyld when the executable names it. Shared caches are also
+ * supplied explicitly. No host service fallback occurs.
  * Strings are at most 4096 UTF-8 bytes and cannot contain NUL; environment keys
  * additionally cannot be empty or contain '='. memory_bytes bounds guest backing
  * memory, not total host allocations. Image parsing/loading happens during open;
@@ -1102,8 +1109,8 @@ RAX_API rax_status rax_process_close(rax_process *process);
  * Time/cancellation checks happen BETWEEN turns; neither is hard preemption.
  * Blocked returns without sleeping. Cancellation persists until explicitly
  * cleared. Terminal status/teardown are cached. Guest failure is a successful
- * API call with reason FAILED; inspection supplies the diagnostic. Linux
- * signal termination also returns FAILED, with signal details in inspection.
+ * API call with reason FAILED; inspection supplies the diagnostic. Linux and
+ * Darwin signal termination also returns FAILED, with signal details in inspection.
  * Validate the output header before executing; write exactly the v1 record.
  */
 RAX_API rax_status rax_process_run(const rax_process *process, uint64_t max_turns,
@@ -1125,6 +1132,14 @@ RAX_API rax_status rax_process_set_cancelled(const rax_process *process, int can
  * x86-64 216, i386 68, AArch64 272, AArch32 72, RV64 256. These are integer
  * regsets, not Windows CONTEXT or an FP/vector/checkpoint image. Writes require
  * the exact size and apply transactionally, including syscall-entry metadata.
+ * Darwin reports context_format="darwin_thread_state64": little-endian Mach
+ * integer thread states, x86-64 flavor 4 (168 bytes), AArch64 flavor 6 (272 bytes).
+ * It reports loaded_program (path, entry, mach_header, has_dyld), resident_bytes,
+ * and signal (null or number, PC, core-default-action flag). Context writes
+ * require the exact size and preserve thread state on validation failure; flags
+ * follow Mach thread_set_state semantics. No FP/vector or checkpoint is included.
+ * Thread IDs are exact guest IDs; inspection returns BOUNDS if an ID exceeds
+ * this API's uint32_t range rather than truncating it.
  * Base Windows CONTEXT bytes: x86 0x2cc, x64 0x4d0, ARM64 0x390; flags select
  * groups on write. Extended XSAVE state is not part of this CONTEXT API.
  */

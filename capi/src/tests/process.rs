@@ -484,5 +484,7 @@ fn process_personality_failure_has_a_terminal_diagnostic() {
     assert_eq!(result.turns_started, 0);
 }
 
+#[path = "process/darwin.rs"]
+mod darwin;
 #[path = "process/linux.rs"]
 mod linux;

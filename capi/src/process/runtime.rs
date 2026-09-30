@@ -42,6 +42,7 @@ pub(super) enum Boundary {
 enum Backend {
     Windows(WindowsProcess),
     Linux(super::linux::Process),
+    Darwin(super::darwin::Process),
 }
 impl Backend {
     fn run_slice(&mut self, cancelled: &AtomicBool) -> Boundary {
@@ -59,12 +60,14 @@ impl Backend {
                 }),
             },
             Self::Linux(p) => p.run_slice(cancelled),
+            Self::Darwin(p) => p.run_slice(cancelled),
         }
     }
     fn space(&self) -> &rax_engine::user::mm::AddressSpace {
         match self {
             Self::Windows(p) => &p.state().space,
             Self::Linux(p) => p.space(),
+            Self::Darwin(p) => p.space(),
         }
     }
     fn invalidate_code(&mut self) {
@@ -75,6 +78,7 @@ impl Backend {
                 }
             }
             Self::Linux(p) => p.invalidate_code(),
+            Self::Darwin(p) => p.invalidate_code(),
         }
     }
 }
@@ -106,6 +110,7 @@ pub(super) fn worker(
     let console = match &config {
         options::Config::Windows(c) => c.console.clone(),
         options::Config::Linux(c) => c.console.clone(),
+        options::Config::Darwin(c) => c.console.clone(),
     };
     let Console::Captured(console) = console else {
         let _ = ready.send(Err(bad("process requires a captured console")));
@@ -116,6 +121,7 @@ pub(super) fn worker(
             .map(Backend::Windows)
             .map_err(spawn_error),
         options::Config::Linux(c) => super::linux::Process::new(c, image).map(Backend::Linux),
+        options::Config::Darwin(c) => super::darwin::Process::new(c, image).map(Backend::Darwin),
     }));
     let process = match process {
         Ok(Ok(process)) => process,
@@ -215,6 +221,7 @@ impl State {
     fn info(&self) -> Result<Vec<u8>> {
         let mut value = match &self.process {
             Backend::Linux(p) => p.info()?,
+            Backend::Darwin(p) => p.info()?,
             Backend::Windows(process) => {
                 let p = process.state();
                 let hx = |v: u64| format!("0x{v:x}");
@@ -278,10 +285,12 @@ impl State {
             }
             Command::ReadContext(tid) => {
                 let Backend::Windows(process) = &self.process else {
-                    let Backend::Linux(p) = &self.process else {
-                        unreachable!()
-                    };
-                    return p.read_context(tid).map(Response::Bytes);
+                    return match &self.process {
+                        Backend::Linux(p) => p.read_context(tid),
+                        Backend::Darwin(p) => p.read_context(tid),
+                        Backend::Windows(_) => unreachable!(),
+                    }
+                    .map(Response::Bytes);
                 };
                 let t = process
                     .state()
@@ -294,10 +303,11 @@ impl State {
             }
             Command::WriteContext { tid, bytes } => {
                 let Backend::Windows(process) = &mut self.process else {
-                    let Backend::Linux(p) = &mut self.process else {
-                        unreachable!()
-                    };
-                    p.write_context(tid, &bytes)?;
+                    match &mut self.process {
+                        Backend::Linux(p) => p.write_context(tid, &bytes),
+                        Backend::Darwin(p) => p.write_context(tid, &bytes),
+                        Backend::Windows(_) => unreachable!(),
+                    }?;
                     return Ok(Response::Unit);
                 };
                 let p = process.state_mut();

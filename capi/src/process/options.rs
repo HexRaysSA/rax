@@ -1,6 +1,6 @@
 //! Strict and bounded process-open configuration, before any worker is started.
 use super::*;
-use rax_engine::user::{linux::LinuxConfig, windows::WindowsConfig};
+use rax_engine::user::{darwin::DarwinConfig, linux::LinuxConfig, windows::WindowsConfig};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -40,11 +40,18 @@ fn text(v: &Value, key: &str, default: &str) -> Result<String> {
 pub(super) enum Config {
     Windows(WindowsConfig),
     Linux(LinuxConfig),
+    Darwin(DarwinConfig),
 }
 impl Config {
     pub(super) fn supply(&mut self, files: BTreeMap<String, Arc<[u8]>>) -> Result<()> {
         match self {
             Self::Windows(c) => c.supplied_dlls = files,
+            Self::Darwin(c) => {
+                c.supplied_files = Some(
+                    rax_engine::user::supplied_fs::Files::new(files)
+                        .map_err(|e| bad(e.to_string()))?,
+                );
+            }
             Self::Linux(c) => {
                 c.supplied_files = Some(
                     rax_engine::user::supplied_fs::Files::new(files)
@@ -67,6 +74,7 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
         .ok_or_else(|| bad("process options must be an object"))?;
     const FIELDS: &[&str] = &[
         "personality",
+        "architecture",
         "guest_path",
         "arguments",
         "environment",
@@ -82,12 +90,26 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
         }
     }
     let personality = text(&value, "personality", "windows")?;
-    if !matches!(personality.as_str(), "windows" | "linux") {
+    if !matches!(personality.as_str(), "windows" | "linux" | "darwin") {
         return Err(Failure(
             RaxStatus::Unsupported,
-            "process personality must be windows or linux".into(),
+            "process personality must be windows, linux, or darwin".into(),
         ));
     }
+    let darwin_abi = if object.contains_key("architecture") {
+        if personality != "darwin" {
+            return Err(bad(
+                "architecture selection is only available for Darwin Mach-O images",
+            ));
+        }
+        Some(match text(&value, "architecture", "")?.as_str() {
+            "x86_64" => rax_engine::user::darwin::abi::DarwinAbi::X86_64,
+            "aarch64" => rax_engine::user::darwin::abi::DarwinAbi::Arm64,
+            _ => return Err(bad("Darwin architecture must be x86_64 or aarch64")),
+        })
+    } else {
+        None
+    };
     let mut arguments = Vec::new();
     if let Some(array) = value.get("arguments") {
         let array = array
@@ -110,7 +132,7 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
     let guest_path = text(
         &value,
         "guest_path",
-        if personality == "linux" {
+        if personality != "windows" {
             "/program"
         } else {
             "C:\\program.exe"
@@ -119,7 +141,11 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
     let cwd = text(
         &value,
         "current_directory",
-        if personality == "linux" { "/" } else { "C:\\" },
+        if personality != "windows" {
+            "/"
+        } else {
+            "C:\\"
+        },
     )?;
     let memory = number(&value, "memory_bytes", 128 << 20, 8 << 20, 1 << 30)?;
     if memory % 4096 != 0 {
@@ -150,13 +176,26 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
             pairs.push((key.clone(), value.to_owned()));
         }
     }
-    if personality == "linux" {
+    if personality != "windows" {
         let mut argv = vec![guest_path.as_bytes().to_vec()];
         argv.extend(arguments.into_iter().map(String::into_bytes));
         let envp = pairs
             .into_iter()
             .map(|(k, v)| format!("{k}={v}").into_bytes())
             .collect();
+        if personality == "darwin" {
+            let console = rax_engine::user::console::CapturedConsole::new(Vec::new(), capacity)
+                .map_err(|e| bad(e.to_string()))?;
+            let files = rax_engine::user::supplied_fs::Files::new(BTreeMap::new())
+                .map_err(|e| bad(e.to_string()))?;
+            let mut cfg = DarwinConfig::embedded(guest_path, argv, envp, files, console);
+            cfg.abi = darwin_abi;
+            cfg.cwd = cwd;
+            cfg.arena_bytes = memory;
+            cfg.slice_insns = slice;
+            cfg.seed = seed;
+            return Ok(Config::Darwin(cfg));
+        }
         let mut cfg = LinuxConfig::embedded(guest_path, argv, envp, Vec::new(), capacity)
             .map_err(|e| bad(e.to_string()))?;
         cfg.cwd = cwd;

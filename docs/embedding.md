@@ -18,7 +18,7 @@ The command-line `rax` application builds complete machines: guest memory, boot 
 - install code, block, interrupt, invalid-instruction, and memory hooks;
 - save and restore engine contexts;
 - run user-mode (process-level) code with system calls and exceptions returned to the embedder (ABI 1.5);
-- execute Windows PE (ABI 1.8) and Linux ELF (ABI 1.9) processes with supplied dependency images, captured console I/O, bounded scheduling, and state inspection;
+- execute Windows PE (ABI 1.8), Linux ELF (ABI 1.9), and Darwin Mach-O (ABI 1.10) processes with supplied dependency images, captured console I/O, bounded scheduling, and state inspection;
 - decode or analyze an instruction without opening an engine.
 
 It is not automatically the same interface as the root PC/AArch64 virtual machines. Device construction, Linux boot protocols, and all root CLI backend combinations are not implied by the C ABI.
@@ -30,7 +30,7 @@ scheduler through `rax_process_*`; host-service CLI behavior is not exported. An
 `rax-user`'s partial i386 syscall compatibility. `RAX_MODE_USER` supplies only
 the CPU half: unprivileged execution with system calls and exceptions returned
 to the embedder (see [User-mode execution](#user-mode-execution)). ABI 1.8 separately
-exports the Windows personality, extended with closed Linux ELF in ABI 1.9, through `rax_process_*` and `rax::Process`, using
+exports the Windows personality, extended with closed Linux ELF in ABI 1.9 and Darwin Mach-O in ABI 1.10, through `rax_process_*` and `rax::Process`, using
 the closed host-service profile documented below.
 
 ## Rust process scheduling boundaries
@@ -76,8 +76,13 @@ filesystem mutation, host signal/job control, and host credentials are excluded.
 
 `HOST_SERVICES_AVAILABLE` reports availability of Darwin's legacy Unix profile;
 non-Unix construction rejects it before image loading. The closed profile is
-available on Windows, macOS, and Linux. This Rust profile is not yet exposed
-through `rax_process_*`.
+available on Windows, macOS, and Linux. ABI 1.10 exposes this profile through
+`rax_process_*` with `personality="darwin"`, using the same owner-thread and
+copied-buffer contract. Inspection labels its integer contexts
+`darwin_thread_state64` and reports Mach flavor 4/168 bytes for x86-64 or
+flavor 6/272 bytes for AArch64. Failed context writes preserve the thread;
+normal exits retain the low 8 bits and signal termination reports `FAILED`
+with structured signal information.
 ABI 1.9 exposes closed Linux embedding for x86-64, i386, AArch64, AArch32 EABI,
 and RV64 with `personality="linux"`. The Windows profile remains the default.
 Both use the same dedicated owner thread, copied buffers, run/cancellation
@@ -86,7 +91,7 @@ images `linux_prstatus`; this is the guest UAPI `NT_PRSTATUS` layout, not a
 Windows CONTEXT or whole-process checkpoint. Failed context writes preserve
 both CPU registers and pending syscall metadata. Signal termination returns
 `RAX_PROCESS_FAILED` with structured Linux details; normal exit reports the
-low 8 bits. The header and [C API README](../capi/README.md#full-pe-and-elf-processes-abi-18--19)
+low 8 bits. The header and [C API README](../capi/README.md#full-processes)
 provide the field and byte-size contracts.
 
 | ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
@@ -108,9 +113,9 @@ captured streams, supplied mappings, and process-local synchronization.
 
 Boundary bookkeeping adds O(1) state and work per call, apart from cloning a
 terminal diagnostic. Existing per-turn costs (thread/wait polling and guest
-execution) remain unchanged. High-impact remaining work is exporting the closed
-Darwin profile through the C ABI and integrating that personality into Assist.
-This does not change the already exported Windows and Linux process contracts.
+execution) remain unchanged. The closed profiles do not expose mutable guest
+disks, external native services, or whole-process checkpoints. These limitations
+are explicit capability boundaries, independent of the host operating system.
 
 ## Build
 
