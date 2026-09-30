@@ -266,20 +266,34 @@ fn dispatch_user_trap(
     intr: &[SimpleHook<crate::hook::IntrCb>],
 ) -> Action {
     match trap {
-        UserTrap::Syscall { pc, len, insn, imm } => match syscall.first() {
-            Some(h) => {
-                (h.cb)(eptr, pc, insn, imm, h.user);
-                Action::Continue
+        UserTrap::Syscall { pc, len, insn, imm } => {
+            {
+                let e = unsafe { &mut *eptr };
+                e.last_syscall = crate::user::RaxSyscallInfo {
+                    flags: crate::user::RAX_SYSCALL_VALID,
+                    instruction: insn,
+                    pc,
+                    resume_pc: e.vcpu.current_pc(),
+                    size: len,
+                    immediate: imm,
+                    ..Default::default()
+                };
             }
-            None => {
-                let mut e = ExitInfo::stop(RAX_STOP_SYSCALL);
-                e.address = pc;
-                e.size = len;
-                e.port = insn;
-                e.intno = imm;
-                Action::Stop(e)
+            match syscall.first() {
+                Some(h) => {
+                    (h.cb)(eptr, pc, insn, imm, h.user);
+                    Action::Continue
+                }
+                None => {
+                    let mut e = ExitInfo::stop(RAX_STOP_SYSCALL);
+                    e.address = pc;
+                    e.size = len;
+                    e.port = insn;
+                    e.intno = imm;
+                    Action::Stop(e)
+                }
             }
-        },
+        }
         UserTrap::Exception {
             vector,
             pc,
@@ -375,6 +389,7 @@ fn run_emulation(
         e.last_exit = ExitInfo::none();
         e.last_fault = crate::fault::RaxFaultInfo::default();
         e.last_exception = RaxExceptionInfo::default();
+        e.last_syscall = crate::user::RaxSyscallInfo::default();
         e.stop_flag.set(false);
         e.running = true;
         if let Some(b) = set_begin {

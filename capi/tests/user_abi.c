@@ -63,3 +63,16 @@ rax_status user_abi_query(const rax_engine *engine)
     info.version = RAX_EXCEPTION_INFO_VERSION;
     return rax_emu_last_exception(engine, &info);
 }
+
+RAX_TEST_STATIC_ASSERT(RAX_API_MINOR >= 6u, "syscall query requires ABI 1.6+");
+RAX_TEST_STATIC_ASSERT(sizeof(rax_syscall_info) == 40u, "syscall record size");
+RAX_TEST_STATIC_ASSERT(offsetof(rax_syscall_info, pc) == 16u, "syscall PC offset");
+RAX_TEST_STATIC_ASSERT(offsetof(rax_syscall_info, resume_pc) == 24u, "syscall resume offset");
+RAX_TEST_STATIC_ASSERT(offsetof(rax_syscall_info, size) == 32u, "syscall length offset");
+
+rax_status user_abi_syscall_query(const rax_engine *engine) {
+    rax_syscall_info info = {0};
+    info.struct_size = (uint32_t)sizeof(info);
+    info.version = RAX_SYSCALL_INFO_VERSION;
+    return rax_emu_last_syscall(engine, &info);
+}

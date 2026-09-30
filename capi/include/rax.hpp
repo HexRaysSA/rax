@@ -66,6 +66,7 @@ enum class Status : int {
 using Exit = rax_exit;
 using FaultInfo = rax_fault_info;
 using ExceptionInfo = rax_exception_info;
+using SyscallInfo = rax_syscall_info;
 using MemRegion = rax_mem_region;
 using Decoded = rax_decoded;
 
@@ -356,6 +357,14 @@ public:
         x.struct_size = sizeof(x);
         x.version = RAX_EXCEPTION_INFO_VERSION;
         check(rax_emu_last_exception(h_, &x), "emu_last_exception");
+        return x;
+    }
+    /// Last syscall in this run/step; check RAX_SYSCALL_VALID.
+    SyscallInfo lastSyscall() const {
+        SyscallInfo x{};
+        x.struct_size = sizeof(x);
+        x.version = RAX_SYSCALL_INFO_VERSION;
+        check(rax_emu_last_syscall(h_, &x), "emu_last_syscall");
         return x;
     }
     uint64_t icount() const noexcept { return rax_emu_icount(h_); }

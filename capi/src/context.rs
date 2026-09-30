@@ -402,6 +402,7 @@ impl Engine {
         self.last_exit = crate::run::ExitInfo::none();
         self.last_fault = crate::fault::RaxFaultInfo::default();
         self.last_exception = RaxExceptionInfo::default();
+        self.last_syscall = crate::user::RaxSyscallInfo::default();
         self.icount_base = 0;
         self.stop_flag.set(false);
         RaxStatus::Ok

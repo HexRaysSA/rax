@@ -47,6 +47,11 @@ int main() {
         engine.start(0x10000);
         const auto exit = engine.lastExit();
         const auto brk = engine.lastException();
+        const auto syscall = engine.lastSyscall();
+        if (syscall.flags != RAX_SYSCALL_VALID || syscall.pc != 0x10008 ||
+            syscall.resume_pc != 0x1000C || syscall.size != 4 ||
+            syscall.instruction != RAX_SYSCALL_INSN_SVC || syscall.immediate != 0)
+            return 4;
         std::printf("stopped: reason %d vector 0x%x syndrome %llu at 0x%llx\n", exit.reason,
                     brk.vector, (unsigned long long)brk.syndrome, (unsigned long long)brk.pc);
         if (calls != 1 || engine.regU64(RAX_ARM64_X(0)) != 4242 ||

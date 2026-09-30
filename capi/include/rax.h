@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 5u
+#define RAX_API_MINOR 6u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -279,6 +279,30 @@ typedef struct rax_exception_info {
  * RAX_ERR_UNSUPPORTED, and the output is unchanged on failure. A record without
  * RAX_EXCEPTION_VALID means no exception was reported. */
 RAX_API rax_status rax_emu_last_exception(const rax_engine *engine, rax_exception_info *out);
+
+/* Typed syscall query (ABI 1.6). Captured before the syscall hook can modify
+ * registers. Contains the most recent call in the current/last run or step,
+ * including hook-serviced calls. Cleared on run/step entry, reset, and context
+ * restore; not persisted in contexts. No host system call is performed.
+ * Initialize struct_size/version. NULL or short output returns RAX_ERR_ARG;
+ * unknown version returns RAX_ERR_UNSUPPORTED. Errors leave output unchanged;
+ * success writes only the v1 bytes (larger caller tails are preserved).
+ * The usual engine single-thread and hook re-entry rules apply. */
+#define RAX_SYSCALL_INFO_VERSION 1u
+#define RAX_SYSCALL_VALID 1u
+
+typedef struct rax_syscall_info {
+    uint32_t struct_size;
+    uint32_t version;
+    uint32_t flags;       /* RAX_SYSCALL_VALID, or zero if none */
+    uint32_t instruction; /* RAX_SYSCALL_INSN_* */
+    uint64_t pc;          /* address of the syscall instruction */
+    uint64_t resume_pc;   /* architectural PC before the hook */
+    uint32_t size;        /* encoded instruction length in bytes */
+    uint32_t immediate;   /* instruction immediate; zero if absent */
+} rax_syscall_info;
+
+RAX_API rax_status rax_emu_last_syscall(const rax_engine *engine, rax_syscall_info *out);
 
 /* ===========================================================================
  * Hook callback types

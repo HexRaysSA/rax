@@ -54,6 +54,7 @@ pub struct Engine {
     pub(crate) last_fault: crate::fault::RaxFaultInfo,
     /// The exception the last run/step reported (`rax_emu_last_exception`).
     pub(crate) last_exception: RaxExceptionInfo,
+    pub(crate) last_syscall: crate::user::RaxSyscallInfo,
     pub(crate) icount_base: u64,
     /// Cooperative stop flag honoured by the run loop.
     pub(crate) stop_flag: std::cell::Cell<bool>,
@@ -188,6 +189,7 @@ fn open_internal(
         last_exit: ExitInfo::none(),
         last_fault: crate::fault::RaxFaultInfo::default(),
         last_exception: RaxExceptionInfo::default(),
+        last_syscall: crate::user::RaxSyscallInfo::default(),
         icount_base: 0,
         stop_flag: std::cell::Cell::new(false),
         running: false,
@@ -389,6 +391,7 @@ pub extern "C" fn rax_engine_reset(engine: *mut Engine) -> RaxStatus {
         e.last_exit = ExitInfo::none();
         e.last_fault = crate::fault::RaxFaultInfo::default();
         e.last_exception = RaxExceptionInfo::default();
+        e.last_syscall = crate::user::RaxSyscallInfo::default();
         e.icount_base = 0;
         e.stop_flag.set(false);
         RaxStatus::Ok

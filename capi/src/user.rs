@@ -157,3 +157,66 @@ pub extern "C" fn rax_emu_last_exception(
         RaxStatus::Ok
     })
 }
+
+/// Version of the typed system-call record.
+pub const RAX_SYSCALL_INFO_VERSION: u32 = 1;
+/// A system call was observed in the current or most recent run/step.
+pub const RAX_SYSCALL_VALID: u32 = 1;
+
+/// Mirrors `rax_syscall_info`; captured before calling the embedder's hook.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RaxSyscallInfo {
+    pub struct_size: u32,
+    pub version: u32,
+    pub flags: u32,
+    pub instruction: u32,
+    pub pc: u64,
+    pub resume_pc: u64,
+    pub size: u32,
+    pub immediate: u32,
+}
+
+impl Default for RaxSyscallInfo {
+    fn default() -> Self {
+        Self {
+            struct_size: std::mem::size_of::<Self>() as u32,
+            version: RAX_SYSCALL_INFO_VERSION,
+            flags: 0,
+            instruction: 0,
+            pc: 0,
+            resume_pc: 0,
+            size: 0,
+            immediate: 0,
+        }
+    }
+}
+
+/// Copies the last system call of this run/step, including hook-serviced calls.
+/// The caller initializes the size/version header; failures leave it unchanged.
+#[unsafe(no_mangle)]
+pub extern "C" fn rax_emu_last_syscall(
+    engine: *const Engine,
+    out: *mut RaxSyscallInfo,
+) -> RaxStatus {
+    guard(|| {
+        let Some(engine) = (unsafe { engine_ref(engine) }) else {
+            return RaxStatus::Handle;
+        };
+        if out.is_null() {
+            return RaxStatus::Arg;
+        }
+        // SAFETY: the caller provides aligned writable storage of its declared
+        // size. Read only the header before checking the supported record size.
+        unsafe {
+            if (*out).struct_size < std::mem::size_of::<RaxSyscallInfo>() as u32 {
+                return RaxStatus::Arg;
+            }
+            if (*out).version != RAX_SYSCALL_INFO_VERSION {
+                return RaxStatus::Unsupported;
+            }
+            out.write(engine.last_syscall);
+        }
+        RaxStatus::Ok
+    })
+}

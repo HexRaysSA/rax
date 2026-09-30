@@ -157,7 +157,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.5.0).
+C ABI version (currently 1.6.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -585,3 +585,19 @@ The C API tests exercise prefixes, modes, truncation, memory/register branch
 operands and size/version negotiation. The installed SDK consumer builds the C
 layout guard and executes the C++ example with both static and shared libraries
 on the existing platform matrix.
+
+### Syscall observation (ABI 1.6)
+
+`rax_emu_last_syscall` (`Engine::lastSyscall()` in C++) returns a versioned
+`rax_syscall_info` record. Initialize `struct_size` and `version` to
+`sizeof(rax_syscall_info)` and `RAX_SYSCALL_INFO_VERSION`. Check
+`RAX_SYSCALL_VALID` before using the fields. The record captures the instruction
+class, immediate, instruction address and length in bytes, and the architectural
+resume PC before a syscall hook modifies registers. It describes the most recent
+syscall in the current or last run/step, even when a hook serviced the call and
+execution later stopped for another reason. A new run/step, reset, or successful
+context restore clears it. It is transient observation state, not context data.
+No guest ABI argument decoding or host OS syscall forwarding is implied.
+
+The query copies a fixed 40-byte record in O(1) time and space. Existing
+`rax_exit` layout and syscall-hook signatures are unchanged.

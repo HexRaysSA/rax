@@ -701,3 +701,133 @@ fn arm64_and_rv64_user_contexts_restore_unprivileged() {
     assert_eq!(r.start(BASE), RaxStatus::Ok);
     assert_eq!(r.exit().reason, RAX_STOP_SYSCALL);
 }
+
+fn syscall_info(e: &User) -> RaxSyscallInfo {
+    let mut info = RaxSyscallInfo::default();
+    assert_eq!(rax_emu_last_syscall(e.0, &mut info), RaxStatus::Ok);
+    info
+}
+
+#[test]
+fn syscall_record_covers_architectures_and_lifecycle() {
+    for (arch, mode, bytes, instruction, immediate) in [
+        (
+            RaxArch::X86,
+            RAX_MODE_64,
+            vec![0x0f, 0x05],
+            RAX_SYSCALL_INSN_SYSCALL,
+            0,
+        ),
+        (
+            RaxArch::X86,
+            RAX_MODE_32,
+            vec![0x0f, 0x34],
+            RAX_SYSCALL_INSN_SYSENTER,
+            0,
+        ),
+        (
+            RaxArch::Arm64,
+            0,
+            0xd4001001u32.to_le_bytes().to_vec(),
+            RAX_SYSCALL_INSN_SVC,
+            0x80,
+        ),
+        (
+            RaxArch::Riscv64,
+            0,
+            0x00000073u32.to_le_bytes().to_vec(),
+            RAX_SYSCALL_INSN_ECALL,
+            0,
+        ),
+    ] {
+        let e = User::open(arch, mode);
+        assert_eq!(syscall_info(&e), RaxSyscallInfo::default());
+        e.code(&bytes);
+        let context = save_context(e.0);
+        assert_eq!(e.start(BASE), RaxStatus::Ok);
+        let info = syscall_info(&e);
+        assert_eq!(
+            (info.flags, info.instruction, info.immediate),
+            (RAX_SYSCALL_VALID, instruction, immediate)
+        );
+        assert_eq!(
+            (info.pc, info.resume_pc, info.size),
+            (BASE, BASE + bytes.len() as u64, bytes.len() as u32)
+        );
+        assert_eq!(
+            rax_context_restore(e.0, context.as_ptr(), context.len()),
+            RaxStatus::Ok
+        );
+        assert_eq!(syscall_info(&e), RaxSyscallInfo::default());
+        assert_eq!(e.start(BASE), RaxStatus::Ok);
+        assert_eq!(rax_engine_reset(e.0), RaxStatus::Ok);
+        assert_eq!(syscall_info(&e), RaxSyscallInfo::default());
+    }
+}
+
+extern "C" fn redirect_syscall(e: *mut Engine, pc: u64, _: u32, _: u32, user: *mut c_void) {
+    let mut info = RaxSyscallInfo::default();
+    assert_eq!(rax_emu_last_syscall(e, &mut info), RaxStatus::Ok);
+    unsafe {
+        *(user as *mut RaxSyscallInfo) = info;
+    }
+    assert_eq!(rax_reg_write_u64(e, RIP, pc + 3), RaxStatus::Ok);
+    assert_eq!(rax_emu_stop(e), RaxStatus::Ok);
+}
+
+#[test]
+fn syscall_record_survives_hook_redirect_and_clears_on_next_run() {
+    let e = User::x86();
+    e.code(&[0x0f, 0x05, 0x90, 0xcc]);
+    let mut observed = RaxSyscallInfo::default();
+    assert_eq!(
+        rax_hook_add_syscall(
+            e.0,
+            Some(redirect_syscall),
+            &mut observed as *mut _ as *mut c_void,
+            ptr::null_mut()
+        ),
+        RaxStatus::Ok
+    );
+    assert_eq!(e.start(BASE), RaxStatus::Ok);
+    assert_eq!(observed.resume_pc, BASE + 2);
+    assert_eq!(syscall_info(&e), observed);
+    assert_eq!(e.pc(), BASE + 3);
+    assert_eq!(e.start(BASE + 3), RaxStatus::Ok);
+    assert_eq!(syscall_info(&e), RaxSyscallInfo::default());
+}
+
+#[test]
+fn syscall_query_validates_header_and_preserves_tail() {
+    let e = User::x86();
+    assert_eq!(rax_emu_last_syscall(e.0, ptr::null_mut()), RaxStatus::Arg);
+    assert_eq!(
+        rax_emu_last_syscall(ptr::null(), &mut RaxSyscallInfo::default()),
+        RaxStatus::Handle
+    );
+    for (size, version, status) in [(8, 1, RaxStatus::Arg), (40, 99, RaxStatus::Unsupported)] {
+        let mut info = RaxSyscallInfo {
+            struct_size: size,
+            version,
+            ..Default::default()
+        };
+        let before = info;
+        assert_eq!(rax_emu_last_syscall(e.0, &mut info), status);
+        assert_eq!(info, before);
+    }
+    #[repr(C)]
+    struct Extended {
+        info: RaxSyscallInfo,
+        tail: [u8; 16],
+    }
+    let mut out = Extended {
+        info: RaxSyscallInfo {
+            struct_size: 56,
+            ..Default::default()
+        },
+        tail: [0xa5; 16],
+    };
+    assert_eq!(rax_emu_last_syscall(e.0, &mut out.info), RaxStatus::Ok);
+    assert_eq!(out.info, RaxSyscallInfo::default());
+    assert_eq!(out.tail, [0xa5; 16]);
+}

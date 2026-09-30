@@ -102,14 +102,15 @@ pub use run::{
 };
 pub use user::{
     RAX_EXCEPTION_INFO_VERSION, RAX_EXCEPTION_SOFTWARE, RAX_EXCEPTION_SYNDROME,
-    RAX_EXCEPTION_VALID, RAX_SYSCALL_INSN_ECALL, RAX_SYSCALL_INSN_SVC, RAX_SYSCALL_INSN_SYSCALL,
-    RAX_SYSCALL_INSN_SYSENTER, RaxExceptionInfo, rax_emu_last_exception,
+    RAX_EXCEPTION_VALID, RAX_SYSCALL_INFO_VERSION, RAX_SYSCALL_INSN_ECALL, RAX_SYSCALL_INSN_SVC,
+    RAX_SYSCALL_INSN_SYSCALL, RAX_SYSCALL_INSN_SYSENTER, RAX_SYSCALL_VALID, RaxExceptionInfo,
+    RaxSyscallInfo, rax_emu_last_exception, rax_emu_last_syscall,
 };
 
 /// ABI major version. Incremented only on a breaking ABI change.
 pub const RAX_API_MAJOR: u32 = 1;
 /// ABI minor version. Incremented when backward-compatible additions are made.
-pub const RAX_API_MINOR: u32 = 5;
+pub const RAX_API_MINOR: u32 = 6;
 /// ABI patch version.
 pub const RAX_API_PATCH: u32 = 0;
 
@@ -172,7 +173,7 @@ pub extern "C" fn rax_version(major: *mut u32, minor: *mut u32, patch: *mut u32)
 #[unsafe(no_mangle)]
 pub extern "C" fn rax_version_string() -> *const c_char {
     // Static NUL-terminated string with embedded version.
-    concat!(env!("CARGO_PKG_VERSION"), " (rax-capi ABI ", "1.5.0", ")\0").as_ptr() as *const c_char
+    concat!(env!("CARGO_PKG_VERSION"), " (rax-capi ABI ", "1.6.0", ")\0").as_ptr() as *const c_char
 }
 
 /// Returns a static, NUL-terminated description for a [`RaxStatus`] code.
