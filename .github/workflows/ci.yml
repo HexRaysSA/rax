@@ -194,7 +194,8 @@ jobs:
           cargo test --locked --no-default-features --lib closed_
       - name: Unix supplied-file process regressions
         if: runner.os != 'Windows'
-        run: cargo test --locked --no-default-features --lib user::linux::tests::supplied::
+        run: |
+          cargo test --locked --no-default-features --lib user::linux::tests::supplied::
       - name: C API semantic regressions
         run: cargo test --locked -p rax-capi --no-default-features
       - name: Configure native SDK
