@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 7u
+#define RAX_API_MINOR 8u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -1018,6 +1018,126 @@ RAX_API rax_status rax_analyze(int arch, uint32_t mode, uint64_t pc,
                                rax_analysis *out,
                                rax_analysis_effect *effects, size_t effect_cap,
                                size_t *out_effect_count);
+
+/* =========================================================================
+ * Full-process embedding (since ABI 1.8)
+ * =========================================================================
+ * The initial personality is Windows PE32 x86 / PE32+ x64 and ARM64 on every
+ * supported host. This is separate from RAX_MODE_USER's syscall frontier.
+ * Each process owns a dedicated runtime thread; handles may move between
+ * caller threads. Serialize all operations except set_cancelled, which may
+ * overlap run. Concurrent ordinary operations return RAX_ERR_STATE. Close
+ * requires every caller (including cancellation callers) to be quiescent.
+ * All input buffers are copied; no callbacks or caller pointers are retained.
+ * Buffer/count/output-handle storage must be valid and mutually nonoverlapping.
+ *
+ * The embedded profile has no host filesystem access or inherited host streams.
+ * Supply DLL bytes explicitly; missing dependencies do not search the host.
+ * Guest disk operations return access denied. stdin is finite: empty input is
+ * EOF, not a pending read. stdout/stderr share one bounded captured-output pool.
+ * There is no process checkpoint/fork API in this version.
+ */
+typedef struct rax_process rax_process;
+
+typedef struct rax_process_image {
+    const char *path;       /* UTF-8 absolute guest Windows path; not NUL-terminated */
+    size_t path_size;       /* 1..4096 bytes, excluding any terminator; no NUL */
+    const uint8_t *data;
+    size_t data_size;       /* 1..64 MiB */
+} rax_process_image;
+
+#define RAX_PROCESS_RESULT_VERSION 1u
+#define RAX_PROCESS_READY 0u
+#define RAX_PROCESS_BUDGET 1u
+#define RAX_PROCESS_BLOCKED 2u
+#define RAX_PROCESS_CANCELLED 3u
+#define RAX_PROCESS_EXITED 4u
+#define RAX_PROCESS_FAILED 5u
+#define RAX_PROCESS_TIMEOUT 6u
+#define RAX_PROCESS_STDOUT 1u
+#define RAX_PROCESS_STDERR 2u
+
+typedef struct rax_process_result {
+    uint32_t struct_size;    /* initialize to sizeof(rax_process_result) */
+    uint32_t version;        /* initialize to RAX_PROCESS_RESULT_VERSION */
+    uint32_t reason;         /* RAX_PROCESS_* */
+    uint32_t exit_code;      /* valid only for RAX_PROCESS_EXITED; full 32 bits */
+    uint64_t turns_started;  /* scheduler calls started, NOT retired instructions */
+    uint64_t elapsed_us;     /* monotonic elapsed execution time, microseconds */
+} rax_process_result;
+
+/* Open executable bytes, at most 64 supplied dependency images, and at most
+ * 256 MiB of executable+dependency bytes total. out is required and is set to
+ * NULL on failure. The main image must contain 1..64 MiB. Options are an optional
+ * UTF-8 JSON object (NULL/0 means {}), at most 64 KiB, with strict field/type
+ * validation and no unknown fields:
+ *
+ * personality: "windows" (default; other personalities return UNSUPPORTED)
+ * guest_path: "C:\\program.exe" (default)
+ * arguments: string array (default [], at most 256)
+ * environment: string-valued object (omitted: default Windows environment)
+ * current_directory: "C:\\" (default)
+ * memory_bytes: 128 MiB (default), 8 MiB..1 GiB, multiple of 4096
+ * slice_instructions: 4096 (default), 1..65536
+ * console_capacity: 1 MiB (default), 0..16 MiB
+ * seed: unsigned 64-bit integer (default 0)
+ * Strings are at most 4096 UTF-8 bytes and cannot contain NUL; environment keys
+ * additionally cannot be empty or contain '='. memory_bytes bounds guest backing
+ * memory, not total host allocations. Image parsing/loading happens during open;
+ * guest initialization code starts only when run is called.
+ */
+RAX_API rax_status rax_process_open_image(const uint8_t *image, size_t image_size,
+    const char *options_json, size_t options_size,
+    const rax_process_image *images, size_t image_count, rax_process **out);
+RAX_API rax_status rax_process_close(rax_process *process);
+
+/* Run at most 1000000 scheduler turns. One turn executes at most the configured
+ * slice_instructions and may instead poll waits or service a DLL call. Zero turns
+ * execute no guest work. timeout_us is 0 (no deadline) or at most 60000000.
+ * Time/cancellation checks happen BETWEEN turns; neither is hard preemption.
+ * Blocked returns without sleeping. Cancellation persists until explicitly
+ * cleared. Terminal status/teardown are cached. Guest failure is a successful
+ * API call with reason FAILED; inspection supplies the diagnostic.
+ * Validate the output header before executing; write exactly the v1 record.
+ */
+RAX_API rax_status rax_process_run(const rax_process *process, uint64_t max_turns,
+    uint64_t timeout_us, rax_process_result *out);
+RAX_API rax_status rax_process_set_cancelled(const rax_process *process, int cancelled);
+
+/* Query/fill APIs: required is mandatory. NULL/0 output queries required bytes.
+ * Insufficient capacity returns BOUNDS and leaves output unchanged. JSON/text
+ * sizes INCLUDE the terminating NUL; context sizes do not. A changed process
+ * between query/fill may require another query. Inspection is schema_version 1:
+ * status, architecture, exit_code/diagnostic, threads (PC/SP/TEB and ModR/M-order
+ * x86 GPRs or ARM64 X0..X30), live modules, half-open memory mappings, guest memory
+ * use, pending console counts, and actual capabilities. Addresses are hex strings.
+ * Inspection including its NUL is limited to 4 MiB; larger results return BOUNDS.
+ * Base Windows CONTEXT bytes: x86 0x2cc, x64 0x4d0, ARM64 0x390; flags select
+ * groups on write. Extended XSAVE state is not part of this CONTEXT API.
+ */
+RAX_API rax_status rax_process_info_json(const rax_process *process,
+    char *out, size_t capacity, size_t *required);
+RAX_API rax_status rax_process_context_read(const rax_process *process, uint32_t tid,
+    uint8_t *out, size_t capacity, size_t *required);
+RAX_API rax_status rax_process_context_write(const rax_process *process, uint32_t tid,
+    const uint8_t *data, size_t size);
+/* The last process-API failure on this caller thread; preserved across success. */
+RAX_API rax_status rax_process_last_error(char *out, size_t capacity, size_t *required);
+
+/* Guest memory transfers are limited to 16 MiB, obey guest permissions, and
+ * change no bytes on a fault. Empty transfers permit NULL buffers. Guest range
+ * wrap is BOUNDS. Editing code invalidates every thread's native code cache. */
+RAX_API rax_status rax_process_mem_read(const rax_process *process, uint64_t address,
+    uint8_t *out, size_t size);
+RAX_API rax_status rax_process_mem_write(const rax_process *process, uint64_t address,
+    const uint8_t *data, size_t size);
+/* Append stdin atomically within its capacity, or return BOUNDS unchanged. */
+RAX_API rax_status rax_process_stdin_feed(const rax_process *process,
+    const uint8_t *data, size_t size);
+/* Drain at most capacity bytes (<=16 MiB) from STDOUT/STDERR. written is required.
+ * NULL/0 consumes no bytes; use inspection to query pending byte counts. */
+RAX_API rax_status rax_process_output_read(const rax_process *process, uint32_t stream,
+    uint8_t *out, size_t capacity, size_t *written);
 
 #ifdef __cplusplus
 } /* extern "C" */

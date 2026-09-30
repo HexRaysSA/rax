@@ -133,3 +133,25 @@ fn exception_record_layout_matches_the_header() {
     assert_eq!(offset_of!(RaxExceptionInfo, return_pc), 24);
     assert_eq!(offset_of!(RaxExceptionInfo, syndrome), 32);
 }
+
+#[test]
+fn process_abi_constants_match_the_header() {
+    use crate::process::*;
+    for (name, value) in [
+        ("RAX_PROCESS_RESULT_VERSION", RAX_PROCESS_RESULT_VERSION),
+        ("RAX_PROCESS_READY", RAX_PROCESS_READY),
+        ("RAX_PROCESS_BUDGET", RAX_PROCESS_BUDGET),
+        ("RAX_PROCESS_BLOCKED", RAX_PROCESS_BLOCKED),
+        ("RAX_PROCESS_CANCELLED", RAX_PROCESS_CANCELLED),
+        ("RAX_PROCESS_EXITED", RAX_PROCESS_EXITED),
+        ("RAX_PROCESS_FAILED", RAX_PROCESS_FAILED),
+        ("RAX_PROCESS_TIMEOUT", RAX_PROCESS_TIMEOUT),
+        ("RAX_PROCESS_STDOUT", RAX_PROCESS_STDOUT),
+        ("RAX_PROCESS_STDERR", RAX_PROCESS_STDERR),
+    ] {
+        assert_eq!(define(name), u64::from(value), "{name}");
+    }
+    assert_eq!(std::mem::size_of::<RaxProcessResult>(), 32);
+    assert_eq!(std::mem::offset_of!(RaxProcessResult, turns_started), 16);
+    assert_eq!(std::mem::offset_of!(RaxProcessResult, elapsed_us), 24);
+}

@@ -27,6 +27,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace rax {
@@ -544,6 +545,104 @@ private:
     static void syscallTramp(rax_engine*, uint64_t pc, uint32_t insn, uint32_t imm, void* u) {
         auto& h = hk(u);
         if (h.syscall) h.syscall(*h.owner, pc, insn, imm);
+    }
+};
+
+// Full-process RAII wrapper. See rax_process_* for the closed host-service
+// profile and threading contract. Serialize calls except setCancelled().
+class Process {
+public:
+    struct Image { std::string path; std::vector<uint8_t> bytes; };
+
+    Process(const void* image, size_t size, const std::string& optionsJson = "{}",
+            const std::vector<Image>& dependencies = {}) {
+        std::vector<rax_process_image> images;
+        images.reserve(dependencies.size());
+        for (const auto& entry : dependencies)
+            images.push_back({entry.path.data(), entry.path.size(), entry.bytes.data(), entry.bytes.size()});
+        processCheck(rax_process_open_image(static_cast<const uint8_t*>(image), size,
+            optionsJson.data(), optionsJson.size(), images.data(), images.size(), &h_));
+    }
+    explicit Process(const std::vector<uint8_t>& image, const std::string& optionsJson = "{}",
+                     const std::vector<Image>& dependencies = {})
+        : Process(image.data(), image.size(), optionsJson, dependencies) {}
+    ~Process() { if (h_) rax_process_close(h_); }
+    Process(const Process&) = delete;
+    Process& operator=(const Process&) = delete;
+    Process(Process&& other) noexcept : h_(std::exchange(other.h_, nullptr)) {}
+    Process& operator=(Process&& other) noexcept {
+        if (this != &other) {
+            if (h_) rax_process_close(h_);
+            h_ = std::exchange(other.h_, nullptr);
+        }
+        return *this;
+    }
+
+    rax_process_result run(uint64_t maxTurns, uint64_t timeoutUs = 0) {
+        rax_process_result result{};
+        result.struct_size = sizeof(result);
+        result.version = RAX_PROCESS_RESULT_VERSION;
+        processCheck(rax_process_run(h_, maxTurns, timeoutUs, &result));
+        return result;
+    }
+    void setCancelled(bool cancelled = true) {
+        processCheck(rax_process_set_cancelled(h_, cancelled ? 1 : 0));
+    }
+    std::string infoJson() const {
+        size_t required = 0;
+        processCheck(rax_process_info_json(h_, nullptr, 0, &required));
+        std::vector<char> bytes(required);
+        processCheck(rax_process_info_json(h_, bytes.data(), bytes.size(), &required));
+        return std::string(bytes.data(), required ? required - 1 : 0);
+    }
+    std::vector<uint8_t> context(uint32_t tid) const {
+        size_t required = 0;
+        processCheck(rax_process_context_read(h_, tid, nullptr, 0, &required));
+        std::vector<uint8_t> bytes(required);
+        processCheck(rax_process_context_read(h_, tid, bytes.data(), bytes.size(), &required));
+        bytes.resize(required);
+        return bytes;
+    }
+    void setContext(uint32_t tid, const std::vector<uint8_t>& bytes) {
+        processCheck(rax_process_context_write(h_, tid, bytes.data(), bytes.size()));
+    }
+    std::vector<uint8_t> readMemory(uint64_t address, size_t size) const {
+        transferBound(size);
+        std::vector<uint8_t> bytes(size);
+        processCheck(rax_process_mem_read(h_, address, bytes.data(), bytes.size()));
+        return bytes;
+    }
+    void writeMemory(uint64_t address, const void* data, size_t size) {
+        processCheck(rax_process_mem_write(h_, address, static_cast<const uint8_t*>(data), size));
+    }
+    void feedStdin(const void* data, size_t size) {
+        processCheck(rax_process_stdin_feed(h_, static_cast<const uint8_t*>(data), size));
+    }
+    std::vector<uint8_t> readOutput(uint32_t stream, size_t capacity) {
+        transferBound(capacity);
+        std::vector<uint8_t> bytes(capacity);
+        size_t written = 0;
+        processCheck(rax_process_output_read(h_, stream, bytes.data(), bytes.size(), &written));
+        bytes.resize(written);
+        return bytes;
+    }
+    rax_process* handle() const noexcept { return h_; }
+
+private:
+    rax_process* h_ = nullptr;
+    static void transferBound(size_t size) {
+        if (size > (size_t(16) << 20)) throw Error(Status::Bounds, "process transfer exceeds 16 MiB");
+    }
+    static void processCheck(rax_status status) {
+        if (status == RAX_OK) return;
+        size_t required = 0;
+        std::string message = "process operation";
+        if (rax_process_last_error(nullptr, 0, &required) == RAX_OK && required) {
+            std::vector<char> text(required);
+            if (rax_process_last_error(text.data(), text.size(), &required) == RAX_OK)
+                message.assign(text.data(), required - 1);
+        }
+        throw Error(static_cast<Status>(status), message);
     }
 };
 

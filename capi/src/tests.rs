@@ -94,7 +94,7 @@ fn version_and_strerror() {
     let (mut a, mut b, mut c) = (0u32, 0u32, 0u32);
     let v = crate::rax_version(&mut a, &mut b, &mut c);
     assert_eq!(v, (a << 16) | (b << 8) | c);
-    assert_eq!((a, b, c), (1, 7, 0));
+    assert_eq!((a, b, c), (1, 8, 0));
     let s = crate::rax_strerror(0);
     assert!(!s.is_null());
     let version_string = unsafe { std::ffi::CStr::from_ptr(crate::rax_version_string()) };
@@ -102,7 +102,7 @@ fn version_and_strerror() {
         version_string
             .to_bytes()
             .windows(5)
-            .any(|part| part == b"1.7.0")
+            .any(|part| part == b"1.8.0")
     );
 }
 
@@ -744,3 +744,6 @@ mod arm_engines;
 
 #[path = "tests/riscv_state.rs"]
 mod riscv_state;
+
+#[path = "tests/process.rs"]
+mod process;

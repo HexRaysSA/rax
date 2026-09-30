@@ -18,6 +18,7 @@ The command-line `rax` application builds complete machines: guest memory, boot 
 - install code, block, interrupt, invalid-instruction, and memory hooks;
 - save and restore engine contexts;
 - run user-mode (process-level) code with system calls and exceptions returned to the embedder (ABI 1.5);
+- execute Windows PE processes with supplied dependency images, captured console I/O, bounded scheduling, and state inspection (ABI 1.8);
 - decode or analyze an instruction without opening an engine.
 
 It is not automatically the same interface as the root PC/AArch64 virtual machines. Device construction, Linux boot protocols, and all root CLI backend combinations are not implied by the C ABI.
@@ -28,7 +29,9 @@ guest ptrace. `librax` does not export that Linux personality or its process
 scheduler. An engine accepting 32-bit x86 code is a different contract from
 `rax-user`'s partial i386 syscall compatibility. `RAX_MODE_USER` supplies only
 the CPU half: unprivileged execution with system calls and exceptions returned
-to the embedder (see [User-mode execution](#user-mode-execution)).
+to the embedder (see [User-mode execution](#user-mode-execution)). ABI 1.8 separately
+exports the Windows personality through `rax_process_*` and `rax::Process`, using
+the closed host-service profile documented below.
 
 ## Build
 
@@ -438,7 +441,7 @@ absolute guest Windows paths. The loader uses the same mapping, relocation,
 import, TLS, and DLL lifecycle implementation for supplied and host-backed images.
 Supplied images are searched in the guest application directory and current
 directory; explicit DLL paths resolve in that namespace. Known built-in system
-DLL precedence is preserved. Keys are normalized and case-colliding keys fail
+DLL precedence is preserved. Keys are normalized using ASCII case folding; colliding keys fail
 before process construction.
 
 This profile disables filesystem-backed executable and DLL loading, guest disk

@@ -157,7 +157,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.7.0).
+C ABI version (currently 1.8.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -509,7 +509,8 @@ restoration starts its count again at zero.
 x86 CPL 3 in 64‑bit (`RAX_MODE_64`) or 32‑bit compatibility (`RAX_MODE_32`)
 mode, AArch64 EL0, RV64 U‑mode, or AArch32 EL0 (ABI 1.7) — and makes the embedder that operating
 system. It is the engine‑level counterpart of `rax-user`: librax traps system
-calls and exceptions; it does not implement Linux or any other OS.
+calls and exceptions through that engine API. Full-process execution uses the
+separate `rax_process_*` API described below.
 
 ```c
 rax_engine_config cfg = {sizeof cfg, RAX_ARCH_ARM64, RAX_MODE_USER};
@@ -625,3 +626,58 @@ No guest ABI argument decoding or host OS syscall forwarding is implied.
 
 The query copies a fixed 40-byte record in O(1) time and space. Existing
 `rax_exit` layout and syscall-hook signatures are unchanged.
+
+### Full PE processes (ABI 1.8)
+
+`rax_process_open_image` and `rax::Process` execute a Windows process using the
+existing PE loader, thread scheduler, exception handling, and built-in DLL/CRT
+services. PE32 x86 and PE32+ x64/ARM64 run on Windows, macOS, and Linux hosts.
+This API does not yet export the Linux ELF or Darwin Mach-O personalities.
+
+```cpp
+rax::Process process(executable_bytes,
+    R"({"guest_path":"C:\\sample.exe","memory_bytes":134217728,
+         "slice_instructions":4096,"console_capacity":1048576})");
+process.feedStdin(input.data(), input.size());
+auto result = process.run(10000, 1000000); // turns and microseconds
+std::string snapshot = process.infoJson();
+auto output = process.readOutput(RAX_PROCESS_STDOUT, 1048576);
+```
+
+See `examples/cpp_process.cpp` for a complete executable example. Supplied DLLs
+use `rax_process_image` records (or `rax::Process::Image`), containing guest paths
+and copied bytes. The profile denies guest disk operations and host dependency
+searches. stdin/stdout/stderr are bounded captured streams. Input exhaustion is
+EOF. The guest can receive input again after the caller appends it; pending
+asynchronous console reads are not implemented by this finite-input profile.
+
+`run` reports budget exhaustion, blocked threads, persistent cancellation,
+timeout, process exit, or an emulator/personality failure. The last two are
+terminal and cached. A nonzero guest exit code is distinct from an API error.
+Turn and time limits are checked at scheduler boundaries: a turn is not an
+instruction, and the deadline is cooperative rather than hard preemption.
+`setCancelled(true)` may overlap execution; clear it explicitly to resume.
+
+Inspection schema 1 contains threads, base Windows CONTEXT availability, modules,
+half-open memory mappings, guest committed-memory use, console counts, and
+capabilities. Addresses are hexadecimal strings. Memory writes preserve guest
+permissions, commit no bytes on an access fault, and invalidate native code
+caches. Context writes use the existing architecture-specific validated Windows
+CONTEXT restoration; extended XSAVE components are not exposed by that format.
+No whole-process checkpoint or fork is advertised.
+
+Every handle owns a dedicated runtime thread, which constructs and destroys all
+thread-affine personality state. Calls may originate on different caller threads
+but must be serialized except cancellation. Concurrent ordinary calls fail with
+`RAX_ERR_STATE`; close requires all calls to have returned. No native caller
+callback or caller buffer is retained. API failures have thread-local diagnostic
+text available through `rax_process_last_error`; guest failures have a diagnostic
+in inspection JSON. Query/fill lengths include a trailing NUL for text/JSON and
+exclude it for binary context data. Failed short fills preserve the destination.
+
+Limits and defaults are specified beside the C declarations in `include/rax.h`.
+The guest memory bound excludes parser buffers, supplied image storage, runtime
+bookkeeping, and the owner thread's host stack. Loading is bounded by input sizes,
+not by the later run deadline. The full-process ABI assumes finite console input
+and immutable supplied dependencies (P1/P2 in `docs/embedding.md`); mutation of a
+virtual disk and persistent asynchronous console reads require additional APIs.
