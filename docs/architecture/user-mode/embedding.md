@@ -70,3 +70,30 @@ profile are not yet exposed through the C API. Medium-impact limitation: dynamic
 programs requiring writable files, pipes, child processes or denied services
 cannot complete under this immutable profile. Their denial is explicit; it is
 not reported as successful emulation.
+
+## Portable atomic object storage
+
+`user::mm::SharedWords` owns anonymous atomic storage independently of a guest
+personality. Linux `eventfd`, timer, memfd-seal and signal-mailbox objects use this
+adapter. Unix uses `MAP_SHARED | MAP_ANON`; Windows uses an unnamed, non-inheritable
+paging-file section and closes its handle after mapping the view. No filesystem
+path is created. Windows section lifetime and zero initialization follow
+[CreateFileMappingW](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-createfilemappingw)
+and [MapViewOfFile](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile).
+
+For `n` words, the allocation size is `max(n, 1) × sizeof(AtomicU64)` bytes.
+Checked multiplication and the `isize::MAX` slice bound reject oversized requests
+before any allocation. Zero words expose an empty slice while retaining a valid
+mapping pointer. Access is O(1); mapped storage is O(n). Native CI runs the adapter's
+zero-initialization, overflow, alignment and concurrent-increment tests on Windows,
+macOS and Linux. A Unix-only fork test validates that the original cross-process
+sharing contract survives the extraction; it does not claim Windows fork support.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| SW1 | The mapping remains alive after closing its Windows section handle. | Microsoft documents that mapped views retain internal references and that view and handle can be closed in either order. | Atomic word lifetime. | Writes from four threads after handle closure, followed by destruction. | Native Windows `user::mm::shared_words::` tests fail or fault. | Documented; native CI validation required. |
+| SW2 | Extracting allocation leaves Unix fork sharing intact. | Same anonymous shared mmap flags; all consumers retain atomic access. | Linux open-description state after fork. | Child stores a word, parent waits and observes the store. | `unix_mapping_remains_shared_after_fork` fails. | Tested on macOS; native Linux CI validation required. |
+
+High-impact remaining requirement: this adapter alone does not provide the Linux
+personality on a Windows host. Descriptor readiness, external-service adapters and
+shared syscall compilation still require the broader port described above.

@@ -1102,71 +1102,7 @@ pub fn kill_group_but_self(pgid: i32, sig: i32) -> Result<(), Errno> {
     }
 }
 
-/// Anonymous memory shared with every process forked from this one
-/// (`MAP_SHARED | MAP_ANONYMOUS`), as 64-bit atomic words: the state of an
-/// object that stays one object across `fork`, as a Linux open file
-/// description does.
-pub struct SharedWords {
-    ptr: std::ptr::NonNull<std::sync::atomic::AtomicU64>,
-    len: usize,
-}
-
-// SAFETY: the words are only ever accessed through atomic operations, from
-// any thread or process.
-unsafe impl Send for SharedWords {}
-// SAFETY: as above.
-unsafe impl Sync for SharedWords {}
-
-impl SharedWords {
-    /// Maps `len` zeroed words.
-    pub fn new(len: usize) -> Result<Self, Errno> {
-        let bytes = len.max(1) * 8;
-        // SAFETY: an anonymous mapping with no address hint and no file;
-        // the result is checked before use.
-        let p = unsafe {
-            libc::mmap(
-                std::ptr::null_mut(),
-                bytes,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_SHARED | libc::MAP_ANON,
-                -1,
-                0,
-            )
-        };
-        if p == libc::MAP_FAILED {
-            return Err(last_errno());
-        }
-        let ptr = std::ptr::NonNull::new(p.cast()).ok_or(Errno(super::abi::errno_table::ENOMEM))?;
-        Ok(SharedWords { ptr, len })
-    }
-
-    /// The words.
-    pub fn words(&self) -> &[std::sync::atomic::AtomicU64] {
-        // SAFETY: the mapping is page-aligned (so aligned for `AtomicU64`,
-        // which has `u64`'s size and alignment), `len` words long,
-        // zero-filled when created (a valid value), and unmapped only when
-        // `self` drops. Other processes change it only atomically.
-        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
-    }
-}
-
-impl Drop for SharedWords {
-    fn drop(&mut self) {
-        // SAFETY: the mapping `new` created, unmapped once; no reference
-        // from `words` outlives `self`.
-        unsafe {
-            libc::munmap(self.ptr.as_ptr().cast(), self.len.max(1) * 8);
-        }
-    }
-}
-
-impl std::fmt::Debug for SharedWords {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SharedWords")
-            .field("len", &self.len)
-            .finish_non_exhaustive()
-    }
-}
+pub use crate::user::mm::SharedWords;
 
 /// A connected pair of non-blocking, close-on-exec host stream sockets. A
 /// byte written to one end makes the other readable, so each direction can

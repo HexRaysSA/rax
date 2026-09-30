@@ -188,6 +188,7 @@ jobs:
       - name: Portable process, console, and supplied-file regressions
         run: |
           cargo test --locked --no-default-features --lib user::windows::process
+          cargo test --locked --no-default-features --lib user::mm::shared_words::
           cargo test --locked --no-default-features --lib user::console
           cargo test --locked --no-default-features --lib user::supplied_fs::
           cargo test --locked --no-default-features --lib captured_

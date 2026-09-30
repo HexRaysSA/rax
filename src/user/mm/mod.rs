@@ -42,6 +42,7 @@ mod backing;
 mod mapped_file;
 pub mod pagetable;
 mod shared;
+mod shared_words;
 mod vma;
 
 #[cfg(test)]
@@ -51,6 +52,7 @@ pub use arena::{EXTENT, FrameArena};
 pub use backing::{Backing, BytesSource, HostFileSource, PageSource, SourceIdentity};
 pub use mapped_file::{Keep, set_retire};
 pub use shared::{HostMemory, SharedObject, anonymous_file};
+pub use shared_words::SharedWords;
 pub use vma::{Vma, VmaMap};
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
