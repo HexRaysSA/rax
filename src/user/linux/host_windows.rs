@@ -276,6 +276,27 @@ mod tests {
         // Allocation is a filesystem quantity. Do not equate it with logical
         // length: sparse/compressed volumes can allocate fewer physical bytes.
         file.set_len(0).unwrap();
+        assert_eq!(file.metadata().unwrap().len(), 0);
+        // Setting EOF need not discard an open file's allocation immediately.
+        // Explicitly release allocation before asserting reclaimed storage.
+        use std::ffi::c_void;
+        use std::os::windows::io::AsRawHandle;
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn SetFileInformationByHandle(
+                file: *mut c_void,
+                class: i32,
+                data: *const c_void,
+                size: u32,
+            ) -> i32;
+        }
+        let allocation: i64 = 0;
+        // SAFETY: borrowed file and initialized FILE_ALLOCATION_INFO (one
+        // LARGE_INTEGER), class FileAllocationInfo=5. No pointer is retained.
+        let ok = unsafe {
+            SetFileInformationByHandle(file.as_raw_handle(), 5, (&raw const allocation).cast(), 8)
+        };
+        assert_ne!(ok, 0, "{}", std::io::Error::last_os_error());
         file.sync_all().unwrap();
         assert_eq!(allocated_bytes(&file).unwrap(), 0);
     }

@@ -40,7 +40,7 @@ no hash or truncated file ID can alias two live mapping objects.
 | ID | Assumption and basis | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
 | W1 | Mapping mutations and guest execution are serialized, as required by `mm/mod.rs` | Cached pointers remain usable between API calls | Concurrent mutation would violate the owning address-space contract; test every CPU entry after injected rollback failure | retained |
-| W2 | Placeholder replacement and preservation follow the archived Microsoft memoryapi contracts | Stable addresses, rollback, cleanup | Native Windows partial-view, rollback, and lifetime tests in `windows_arena::tests` | native validation required |
+| W2 | Placeholder replacement follows the archived API contracts plus the observed logical-length rounding described below | Stable addresses, rollback, cleanup | Native Windows partial-view, rollback, and lifetime tests in `windows_arena::tests` | 51/51 memory tests passed in [native run 72203e68](https://github.com/HexRaysSA/rax/actions/runs/36775887842/job/110094233345); other Linux-adapter tests in that job failed separately |
 | W3 | Mapping identity lasts while a mapping source retains its file | Extent deduplication and read-only upgrade | Full-width identity collision partitions, concurrent registration, last-owner removal, upgrade test | covered by executable tests |
 
 The adapter tracks n allocation fragments in a `BTreeMap`: storage O(n), lookup

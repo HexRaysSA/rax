@@ -62,6 +62,9 @@ pub fn from_io_error(e: &std::io::Error) -> i32 {
     if let Some(error) = e.get_ref().and_then(|e| e.downcast_ref::<Errno>()) {
         return error.0;
     }
+    // Windows raw values are Win32 errors, not Unix errno numbers. Let std's
+    // platform adapter classify them before translating to the guest ABI.
+    #[cfg(unix)]
     if let Some(raw) = e.raw_os_error() {
         return from_host(raw);
     }
@@ -228,7 +231,24 @@ mod tests {
 
     #[test]
     fn missing_file_maps_through_the_os_error() {
-        let err = std::fs::metadata("/nonexistent/rax-user-errno-probe").unwrap_err();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("rax-user-missing-{}-{nonce}", std::process::id()));
+        let err = std::fs::metadata(path).unwrap_err();
         assert_eq!(Errno::from(err), Errno(linux::ENOENT));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn win32_errors_are_not_interpreted_as_unix_errno_numbers() {
+        for (host, guest) in [(2, linux::ENOENT), (3, linux::ENOENT), (5, linux::EACCES)] {
+            assert_eq!(
+                from_io_error(&std::io::Error::from_raw_os_error(host)),
+                guest
+            );
+        }
     }
 }

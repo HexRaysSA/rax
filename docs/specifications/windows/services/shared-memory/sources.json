@@ -172,5 +172,19 @@
     "publisher": "Microsoft",
     "retrieved": "2026-09-30",
     "sha256": "b6f71306e052e9a573c4ef0b1ce5b5cd7623f70945ebfe6629d455385610ed92"
+  },
+  {
+    "file": "ns-winbase-file_allocation_info.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winbase/ns-winbase-file_allocation_info.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "94a83f25195ec5ae7f2b103e66d167841e52a3f7e31ea07e23aca915f51c1442"
+  },
+  {
+    "file": "nf-fileapi-setfileinformationbyhandle.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/fileapi/nf-fileapi-setfileinformationbyhandle.md",
+    "publisher": "Microsoft",
+    "retrieved": "2026-09-30",
+    "sha256": "3954ae6cc59d816e499aedeeb330db9d7d99ec56baf01542a531eab3f9d16c75"
   }
 ]
