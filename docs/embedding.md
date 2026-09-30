@@ -427,3 +427,45 @@ deletion on Windows still use the existing unsupported-path result where stable
 identity is unavailable; enabling the module does not establish host-filesystem
 semantic parity. This limitation must be resolved before exposing unrestricted
 host filesystem services through process embedding.
+
+### Supplied PE images and captured console
+
+`WindowsConfig::embedded(guest_path, args, stdin_bytes, console_capacity)` creates
+an explicit process profile for embedding with a 128 MiB guest-memory arena
+(configurable through `arena_bytes`). Use `WindowsProcess::spawn_image`
+with executable bytes and add dependency images to `config.supplied_dlls` using
+absolute guest Windows paths. The loader uses the same mapping, relocation,
+import, TLS, and DLL lifecycle implementation for supplied and host-backed images.
+Supplied images are searched in the guest application directory and current
+directory; explicit DLL paths resolve in that namespace. Known built-in system
+DLL precedence is preserved. Keys are normalized and case-colliding keys fail
+before process construction.
+
+This profile disables filesystem-backed executable and DLL loading, guest disk
+file APIs, wildcard enumeration of host directories, and host trace output.
+Unprovided dependencies fail instead of falling back to a host path. `spawn`
+rejects this profile; use `spawn_image`. A deterministic seed of zero is selected
+and can be replaced explicitly. Ordinary host-backed configurations retain their
+CLI behavior and obtain host entropy through `getrandom` on Windows, macOS, and
+Linux. Guest disk requests in the embedded profile return access denied; a
+mutable virtual disk filesystem is not implemented by this profile.
+
+`config.console` is a `Console::Captured(CapturedConsole)` in this profile.
+Retain its clone to feed finite stdin or drain `OutputStream::Stdout` and
+`OutputStream::Stderr`. Input and combined pending output each have a separate
+`console_capacity` byte bound. Empty input reads as EOF; it does not block waiting
+for future input. Captured output writes either fit in full or fail without
+accepting bytes. CRT transfers retain their existing per-chunk accepted-prefix
+accounting. Draining releases capacity. No captured console operation accesses
+host standard streams; zero capacity accepts only empty transfers.
+
+The profile controls guest host-service routing. Trusted Rust callers can still
+modify process state or supply a different configuration; it is not a native-code
+isolation boundary. Bounded execution uses `run_slice` as described above.
+
+Assumption register for this profile:
+
+| ID | Assumption and basis | Dependent result | Stress test / falsification probe | Status |
+|---|---|---|---|---|
+| P1 | Input supplied by the embedder is a finite stream, as defined by this API. | Empty captured input returns EOF. | Empty reads, refill after EOF, zero capacity, and input-overflow tests. A caller requiring a pending asynchronous read needs an additional wait contract. | Confirmed for the finite-input profile. |
+| P2 | Supplied dependencies have immutable contents for a process configuration. | Loader retries use supplied bytes; guest disk mutation is denied. | Actual static initialization and dynamic forwarder rollback on x86/x64/ARM64; case collisions and absent DLLs beside real host dependencies. | Confirmed for immutable supplied images; mutable virtual files remain outside this profile. |

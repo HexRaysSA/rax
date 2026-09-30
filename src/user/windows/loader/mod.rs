@@ -33,6 +33,8 @@ pub mod apiset;
 pub mod builtin;
 mod dynamic;
 pub mod ldr;
+mod supplied;
+
 pub(crate) use dynamic::{
     LoadPlan, LookupPlan, UnloadPlan, attach_started, attach_succeeded, begin_load, begin_lookup,
     begin_rollback, begin_unload, commit_load, detach_completed, detach_started,
@@ -637,7 +639,7 @@ pub fn load_exe(
     let module = Module {
         name,
         path: win_path,
-        host_path: Some(host_path.to_path_buf()),
+        host_path: p.cfg.host_filesystem.then(|| host_path.to_path_buf()),
         base,
         size: u64::from(pe.mapped_size()),
         entry: if h.entry_rva != 0 {
@@ -886,6 +888,9 @@ fn known_dll(name: &str) -> bool {
 
 /// Finds a DLL file for `name` in the search path.
 fn search_native(p: &Proc, name: &str) -> Option<PathBuf> {
+    if !p.cfg.host_filesystem {
+        return None;
+    }
     let mut dirs: Vec<PathBuf> = Vec::new();
     if let Some(parent) = p.cfg.exe_host_path.parent() {
         dirs.push(parent.to_path_buf());
@@ -913,7 +918,10 @@ fn search_native(p: &Proc, name: &str) -> Option<PathBuf> {
 }
 
 fn loaded_path(p: &Proc, path: &Path) -> Option<usize> {
-    let key = p.cfg.drives.to_windows(path);
+    loaded_guest_path(p, &p.cfg.drives.to_windows(path))
+}
+
+fn loaded_guest_path(p: &Proc, key: &str) -> Option<usize> {
     p.modules.list.iter().enumerate().find_map(|(idx, m)| {
         (p.modules.is_live(idx) && m.path.eq_ignore_ascii_case(&key)).then_some(idx)
     })
@@ -932,6 +940,15 @@ pub fn load_dll(p: &mut Proc, name: &str) -> Result<usize, LoadError> {
         } else {
             format!("{prefix}{norm}")
         };
+        if let Some(result) = supplied::load(p, &requested, true) {
+            return result;
+        }
+        if !p.cfg.host_filesystem {
+            return Err(LoadError::new(
+                STATUS_DLL_NOT_FOUND,
+                format!("{name}: DLL not supplied; host filesystem disabled"),
+            ));
+        }
         let absolute =
             requested.starts_with(['\\', '/']) || requested.as_bytes().get(1) == Some(&b':');
         let file = if absolute {
@@ -997,6 +1014,9 @@ pub fn load_dll(p: &mut Proc, name: &str) -> Result<usize, LoadError> {
     {
         return load_builtin(p, b);
     }
+    if let Some(result) = supplied::load(p, &norm, false) {
+        return result;
+    }
     let file = search_native(p, &norm);
     match (file, builtin) {
         (Some(path), _) => load_native(p, &path, &norm),
@@ -1013,33 +1033,41 @@ fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError
     admit_new_module(p)?;
     let bytes = std::fs::read(path)
         .map_err(|e| LoadError::new(STATUS_DLL_NOT_FOUND, format!("{}: {e}", path.display())))?;
-    let pe = PeImage::parse(bytes).map_err(|e| {
-        LoadError::new(
-            STATUS_INVALID_IMAGE_FORMAT,
-            format!("{}: {e}", path.display()),
-        )
-    })?;
+    load_image(
+        p,
+        bytes,
+        name,
+        p.cfg.drives.to_windows(path),
+        Some(path.to_path_buf()),
+    )
+}
+
+fn load_image(
+    p: &mut Proc,
+    bytes: Vec<u8>,
+    name: &str,
+    path: String,
+    host_path: Option<PathBuf>,
+) -> Result<usize, LoadError> {
+    admit_new_module(p)?;
+    let pe = PeImage::parse(bytes)
+        .map_err(|e| LoadError::new(STATUS_INVALID_IMAGE_FORMAT, format!("{}: {e}", path)))?;
     let h = pe.headers();
     if WinArch::from_machine(h.machine) != Some(p.arch) {
         return Err(LoadError::new(
             STATUS_INVALID_IMAGE_FORMAT,
             format!(
                 "{}: machine {:#06x} does not match a {} process",
-                path.display(),
-                h.machine,
-                p.arch
+                path, h.machine, p.arch
             ),
         ));
     }
     let base = map_pe(p, &pe, name)?;
-    let file_name = path
-        .file_name()
-        .map(|f| f.to_string_lossy().into_owned())
-        .unwrap_or_else(|| name.to_string());
+    let file_name = path.rsplit('\\').next().unwrap_or(name).to_owned();
     let module = Module {
         name: file_name,
-        path: p.cfg.drives.to_windows(path),
-        host_path: Some(path.to_path_buf()),
+        path,
+        host_path,
         base,
         size: u64::from(pe.mapped_size()),
         entry: if h.entry_rva != 0 {

@@ -320,7 +320,11 @@ fn expanded(
 pub(super) fn expand(p: &Proc, args: Vec<Argument>, narrow: bool) -> Result<Vec<Vec<u16>>, ApiErr> {
     let mut result = Vec::new();
     for (index, argument) in args.into_iter().enumerate() {
-        if index == 0 || argument.leading_quote || !has_wildcard(&argument.units) {
+        if !p.cfg.host_filesystem
+            || index == 0
+            || argument.leading_quote
+            || !has_wildcard(&argument.units)
+        {
             result.push(argument.units);
         } else {
             result.extend(expanded(&p.cfg.drives, &p.cwd, &argument.units, narrow)?);
@@ -512,6 +516,30 @@ mod tests {
             expanded(&drives, &wide("C:\\"), &wide("absent\\*.txt"), false).unwrap(),
             vec![wide("absent\\*.txt")]
         );
+    }
+
+    #[test]
+    fn closed_process_does_not_expand_host_directory_entries_all_abis() {
+        crate::user::windows::dll::crt::tests::run(|c| {
+            let cfg = std::sync::Arc::make_mut(&mut c.p.cfg);
+            cfg.host_filesystem = false;
+            cfg.drives.set('C', Path::new(env!("CARGO_MANIFEST_DIR")));
+            c.p.cwd = wide("C:\\");
+            let args = vec![
+                Argument {
+                    units: wide("program"),
+                    leading_quote: false,
+                },
+                Argument {
+                    units: wide("*.toml"),
+                    leading_quote: false,
+                },
+            ];
+            assert_eq!(
+                expand(c.p, args, false).unwrap(),
+                vec![wide("program"), wide("*.toml")]
+            );
+        });
     }
 
     #[cfg(unix)]

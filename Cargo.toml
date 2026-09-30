@@ -280,6 +280,8 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 # vm-memory versions that fail to build. Exact-pinning keeps a single 0.17.1.
 vm-memory = { version = "=0.17.1", default-features = false, features = ["backend-mmap"] }
 goblin = "0.8.2"
+# Portable host entropy for process-personality startup. Already lockfile-pinned.
+getrandom = "=0.4.3"
 
 # Profiling JSON export (optional)
 serde_json = "1.0"

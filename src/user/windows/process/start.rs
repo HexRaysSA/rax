@@ -1,7 +1,6 @@
 //! PE process construction and Windows process parameters.
 
 use std::collections::BTreeMap;
-use std::io::Read;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -183,11 +182,45 @@ fn params(p: &mut Proc, image_path: &str) -> Result<(), SpawnError> {
 }
 
 pub(super) fn spawn(config: WindowsConfig) -> Result<Proc, SpawnError> {
+    if !config.host_filesystem {
+        return Err(SpawnError::Io(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "host filesystem disabled; supply executable bytes",
+        )));
+    }
     let bytes = std::fs::read(&config.exe_host_path).map_err(SpawnError::Io)?;
     spawn_image(config, bytes)
 }
 
-pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc, SpawnError> {
+pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc, SpawnError> {
+    if !config.host_filesystem
+        && (config.seed.is_none()
+            || config.trace
+            || config.guest_image_path.is_none()
+            || !matches!(config.console, crate::user::console::Console::Captured(_)))
+    {
+        return Err(SpawnError::BadImage("closed filesystem configuration requires a seed, guest image path, captured console, and disabled host trace".into()));
+    }
+    let mut images = BTreeMap::new();
+    for (name, bytes) in std::mem::take(&mut config.supplied_dlls) {
+        let path = crate::user::windows::fs::full_path(&name, "C:\\")
+            .filter(|_| {
+                name.as_bytes().get(1) == Some(&b':')
+                    && matches!(name.as_bytes().get(2), Some(b'\\' | b'/'))
+                    && !name.contains('\0')
+            })
+            .ok_or_else(|| {
+                SpawnError::BadImage("supplied DLL keys must be absolute Windows paths".into())
+            })?
+            .to_string_path()
+            .to_ascii_lowercase();
+        if images.insert(path, bytes).is_some() {
+            return Err(SpawnError::BadImage(
+                "case-colliding supplied DLL paths".into(),
+            ));
+        }
+    }
+    config.supplied_dlls = images;
     let pe = PeImage::parse(bytes).map_err(|e| SpawnError::BadImage(e.to_string()))?;
     let h = pe.headers();
     let arch = WinArch::from_machine(h.machine)
@@ -247,8 +280,19 @@ pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc,
     .map_err(memory)?;
     vm.commit(layout::KUSER_SHARED_DATA, 0x1000, prot::READONLY)
         .map_err(memory)?;
-    let image_path = config.drives.to_windows(&config.exe_host_path);
+    let image_path = match &config.guest_image_path {
+        Some(path) => crate::user::windows::fs::full_path(path, "C:\\")
+            .ok_or_else(|| SpawnError::BadImage("invalid guest image path".into()))?
+            .to_string_path(),
+        None => config.drives.to_windows(&config.exe_host_path),
+    };
+    if config.guest_image_path.is_some() {
+        config.guest_image_path = Some(image_path.clone());
+    }
     let cwd = config.cwd.clone().unwrap_or_else(|| {
+        if !config.host_filesystem {
+            return "C:\\".into();
+        }
         config
             .drives
             .to_windows(&std::env::current_dir().unwrap_or_default())
@@ -265,9 +309,8 @@ pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc,
         Some(seed) => seed,
         None => {
             let mut bytes = [0; 8];
-            std::fs::File::open("/dev/urandom")
-                .and_then(|mut f| f.read_exact(&mut bytes))
-                .map_err(SpawnError::Io)?;
+            getrandom::fill(&mut bytes)
+                .map_err(|e| SpawnError::Io(std::io::Error::other(e.to_string())))?;
             u64::from_le_bytes(bytes)
         }
     };

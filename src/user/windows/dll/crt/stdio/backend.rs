@@ -4,6 +4,7 @@
 //! RefCell borrow, retry of already accepted bytes, or O(request-size) allocation
 //! occurs here. Host filesystem effects are not an atomic guest transaction.
 
+use crate::user::console::{Console, OutputStream};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 
 use crate::user::windows::objects::{ObjId, Object, StdStream};
@@ -108,7 +109,10 @@ pub(super) fn read(p: &mut Proc, object: ObjId, output: &mut [u8]) -> io::Result
                 .ok_or_else(|| unsupported("metadata-only file"))?;
             read_chunk(host, output)
         }
-        Some(Object::Console(StdStream::In)) => read_chunk(&mut io::stdin(), output),
+        Some(Object::Console(StdStream::In)) => match &p.cfg.console {
+            Console::Host => read_chunk(&mut io::stdin(), output),
+            console => console.read(output),
+        },
         Some(Object::Null) => Ok(0),
         Some(Object::Pipe { .. }) => Err(unsupported("CRT pipe I/O")),
         _ => Err(unsupported("CRT input object")),
@@ -126,6 +130,22 @@ pub(super) fn write(p: &mut Proc, object: ObjId, input: &[u8], append: bool) -> 
         bytes: 0,
         error: Some(error),
     };
+    if let Console::Captured(_) = &p.cfg.console {
+        let stream = match p.objects.obj(object) {
+            Some(Object::Console(StdStream::Out)) => Some(OutputStream::Stdout),
+            Some(Object::Console(StdStream::Err)) => Some(OutputStream::Stderr),
+            _ => None,
+        };
+        if let Some(stream) = stream {
+            return match p.cfg.console.write_all(stream, input) {
+                Ok(()) => Written {
+                    bytes: input.len(),
+                    error: None,
+                },
+                Err(error) => fail(error),
+            };
+        }
+    }
     match p.objects.obj_mut(object) {
         Some(Object::File(file)) if file.null => Written {
             bytes: input.len(),

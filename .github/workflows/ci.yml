@@ -185,8 +185,12 @@ jobs:
         with:
           toolchain: stable
           cache-key: test-capi-${{ matrix.name }}
-      - name: Resumable Windows process scheduler
-        run: cargo test --locked --no-default-features --lib user::windows::process::sched
+      - name: Portable Windows process and console regressions
+        run: |
+          cargo test --locked --no-default-features --lib user::windows::process
+          cargo test --locked --no-default-features --lib user::console
+          cargo test --locked --no-default-features --lib captured_
+          cargo test --locked --no-default-features --lib closed_
       - name: C API semantic regressions
         run: cargo test --locked -p rax-capi --no-default-features
       - name: Configure native SDK

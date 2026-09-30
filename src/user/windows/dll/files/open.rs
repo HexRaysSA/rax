@@ -46,6 +46,9 @@ pub(super) fn resolve(c: &Ctx, path: &str) -> Result<(String, PathBuf), NameErro
             "DOS device component in disk pathname",
         ));
     }
+    if !c.p.cfg.host_filesystem {
+        return Err(NameError::Error(ERROR_ACCESS_DENIED));
+    }
     let host =
         c.p.cfg
             .drives

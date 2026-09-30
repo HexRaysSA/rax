@@ -127,3 +127,28 @@ fn exact_bounded_read_advances_only_the_read_prefix() {
     assert!(output[3..].iter().all(|&byte| byte == 0xAA));
     assert_eq!(read_chunk(&mut reader, &mut output).unwrap(), 0);
 }
+
+#[test]
+fn captured_crt_backend_preserves_bounds_and_finite_input_all_abis() {
+    use crate::user::console::CapturedConsole;
+    crate::user::windows::dll::crt::tests::run(|c| {
+        let capture = CapturedConsole::new(b"abc".to_vec(), 4).unwrap();
+        std::sync::Arc::make_mut(&mut c.p.cfg).console = Console::Captured(capture.clone());
+        let input = c.p.objects.create(Object::Console(StdStream::In));
+        let output = c.p.objects.create(Object::Console(StdStream::Out));
+        let error = c.p.objects.create(Object::Console(StdStream::Err));
+        let mut bytes = [0; 4];
+        assert_eq!(read(c.p, input, &mut bytes).unwrap(), 3);
+        assert_eq!(&bytes[..3], b"abc");
+        assert_eq!(read(c.p, input, &mut bytes).unwrap(), 0);
+        let first = write(c.p, output, b"abcd", false);
+        assert_eq!(first.bytes, 4);
+        assert!(first.error.is_none());
+        let overflow = write(c.p, error, b"e", false);
+        assert_eq!(overflow.bytes, 0);
+        assert!(overflow.error.is_some());
+        assert_eq!(capture.drain(OutputStream::Stdout, &mut bytes).unwrap(), 4);
+        assert_eq!(&bytes, b"abcd");
+        assert_eq!(write(c.p, error, b"e", false).bytes, 1);
+    });
+}

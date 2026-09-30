@@ -44,6 +44,8 @@ use crate::user::mm::AddressSpace;
 pub const DEFAULT_SLICE_INSNS: u64 = 1 << 20;
 /// Default guest-memory arena: 16 GiB, committed as pages are touched.
 pub const DEFAULT_ARENA_BYTES: u64 = 16 << 30;
+/// Default embedding arena: 128 MiB; independent of the CLI arena default.
+pub const DEFAULT_EMBEDDED_ARENA_BYTES: u64 = 128 << 20;
 
 /// The Windows version the process observes.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -75,6 +77,15 @@ impl Default for WinVersion {
 pub struct WindowsConfig {
     /// Host path of the executable.
     pub exe_host_path: PathBuf,
+    /// Guest executable name override, independent of a host filename.
+    pub guest_image_path: Option<String>,
+    /// Permit filesystem-backed executable, DLL, and guest file access.
+    pub host_filesystem: bool,
+    /// Explicit console routing (host streams for the CLI by default).
+    pub console: crate::user::console::Console,
+    /// Supplied DLL bytes indexed by normalized absolute Windows path.
+    /// Keys are normalized and checked for case collisions at spawn.
+    pub supplied_dlls: BTreeMap<String, Arc<[u8]>>,
     /// Arguments after the program name.
     pub args: Vec<String>,
     /// The program name as it appears in the command line (default: the
@@ -113,10 +124,39 @@ pub struct WindowsConfig {
 }
 
 impl WindowsConfig {
+    /// Creates an embedding configuration with no host filesystem access,
+    /// finite captured input, bounded output, and a deterministic seed of zero.
+    /// Start it with `spawn_image`; DLL bytes may be added to `supplied_dlls`.
+    /// The caller can retain a clone of `console` to feed/drain it between runs.
+    pub fn embedded(
+        guest_image_path: impl Into<String>,
+        args: Vec<String>,
+        input: Vec<u8>,
+        console_capacity: usize,
+    ) -> Result<Self, SpawnError> {
+        let path = guest_image_path.into();
+        let mut config = Self::new(PathBuf::new(), args);
+        config.guest_image_path = Some(path);
+        config.host_filesystem = false;
+        config.arena_bytes = DEFAULT_EMBEDDED_ARENA_BYTES;
+        config.console = crate::user::console::Console::Captured(
+            crate::user::console::CapturedConsole::new(input, console_capacity)
+                .map_err(SpawnError::Io)?,
+        );
+        config.drives = DriveMap::empty();
+        config.cwd = Some("C:\\".into());
+        config.seed = Some(0);
+        Ok(config)
+    }
+
     /// A configuration for the executable at `exe` with `args`.
     pub fn new(exe: impl Into<PathBuf>, args: Vec<String>) -> Self {
         WindowsConfig {
             exe_host_path: exe.into(),
+            guest_image_path: None,
+            host_filesystem: true,
+            console: Default::default(),
+            supplied_dlls: BTreeMap::new(),
             args,
             argv0: None,
             command_line: None,
@@ -369,3 +409,6 @@ impl WindowsProcess {
         &mut self.proc
     }
 }
+
+#[cfg(test)]
+mod embedded_tests;

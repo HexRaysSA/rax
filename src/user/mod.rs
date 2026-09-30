@@ -19,6 +19,7 @@
 //! there is no board, firmware, or device model, only a guest address space,
 //! one or more guest threads, and the personality that services them.
 
+pub mod console;
 pub mod cpu;
 #[cfg(unix)]
 pub mod darwin;

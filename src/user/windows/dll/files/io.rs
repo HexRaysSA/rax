@@ -1,4 +1,5 @@
 use super::*;
+use crate::user::console::OutputStream;
 use crate::user::windows::hle::Flow;
 use crate::user::windows::objects::{Object, StdStream};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -94,12 +95,18 @@ fn transfer(c: &mut Ctx, write: bool) -> ApiResult {
             }
             None => return c.fail(ERROR_INVALID_HANDLE, 0),
         },
-        Some(Object::Console(StdStream::In)) => std::io::stdin().read(&mut bytes),
+        Some(Object::Console(StdStream::In)) => c.p.cfg.console.read(&mut bytes),
         Some(Object::Console(StdStream::Out)) => {
-            write_all(&mut std::io::stdout(), &bytes).map(|_| count)
+            c.p.cfg
+                .console
+                .write_all(OutputStream::Stdout, &bytes)
+                .map(|_| count)
         }
         Some(Object::Console(StdStream::Err)) => {
-            write_all(&mut std::io::stderr(), &bytes).map(|_| count)
+            c.p.cfg
+                .console
+                .write_all(OutputStream::Stderr, &bytes)
+                .map(|_| count)
         }
         Some(Object::Null) => Ok(if write { count } else { 0 }),
         _ => unreachable!("validated object cannot change during synchronous transfer"),

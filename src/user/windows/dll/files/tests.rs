@@ -843,3 +843,49 @@ fn signed_seek_boundaries_security_attributes_and_directory_admission_all_abis()
         h.close(directory);
     }
 }
+
+#[test]
+fn closed_filesystem_denies_existing_paths_and_captures_console_all_abis() {
+    use crate::user::console::{CapturedConsole, Console, OutputStream};
+    use crate::user::windows::objects::{Object, StdStream};
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let path = h.directory.0.join("untouched.bin");
+        std::fs::write(&path, b"original").unwrap();
+        let capture = CapturedConsole::new(b"input".to_vec(), 8).unwrap();
+        let cfg = std::sync::Arc::make_mut(&mut h.process.state_mut().cfg);
+        cfg.host_filesystem = false;
+        cfg.console = Console::Captured(capture.clone());
+        assert_eq!(h.open("untouched.bin", GENERIC_WRITE, 7, 2, 0), h.invalid());
+        assert_eq!(h.error(), ERROR_ACCESS_DENIED);
+        h.filename("untouched.bin", true);
+        assert_eq!(h.value("DeleteFileW", &[h.memory]), 0);
+        assert_eq!(h.error(), ERROR_ACCESS_DENIED);
+        assert_eq!(std::fs::read(&path).unwrap(), b"original");
+        let stdin = h
+            .process
+            .state_mut()
+            .objects
+            .insert(Object::Console(StdStream::In)) as u64;
+        let stdout = h
+            .process
+            .state_mut()
+            .objects
+            .insert(Object::Console(StdStream::Out)) as u64;
+        let stderr = h
+            .process
+            .state_mut()
+            .objects
+            .insert(Object::Console(StdStream::Err)) as u64;
+        assert_eq!(h.read(stdin, 8), b"input");
+        assert!(h.read(stdin, 8).is_empty());
+        assert_eq!(h.write(stdout, b"hello"), 1);
+        assert_eq!(h.write(stderr, b"err"), 1);
+        assert_eq!(h.write(stdout, b"!"), 0);
+        assert_eq!(capture.pending().unwrap(), (0, 5, 3));
+        let mut bytes = [0; 8];
+        assert_eq!(capture.drain(OutputStream::Stdout, &mut bytes).unwrap(), 5);
+        assert_eq!(&bytes[..5], b"hello");
+        assert_eq!(h.write(stdout, b"!"), 1);
+    }
+}
