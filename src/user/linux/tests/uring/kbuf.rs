@@ -427,7 +427,16 @@ fn receives_hand_back_provided_buffers_and_sends_keep_them() {
     // io_send keeps its buffer while it waits for room: with a full
     // socket, only the other buffer is left to remove.
     let big = h.anon(1 << 16, RW, false);
-    while h.call(Sysno::Write, &[a, big, 1 << 16]) > 0 {}
+    let mut queued = 0u64;
+    loop {
+        let written = h.call(Sysno::Write, &[a, big, 1 << 16]);
+        if written == -i64::from(EAGAIN) {
+            break;
+        }
+        assert!(written > 0 && written <= 1 << 16, "fill: {written}");
+        queued = queued.checked_add(written as u64).unwrap();
+    }
+    assert!(queued > 0);
     put(&h, mem, b"0123456789abcdef");
     assert_eq!(
         run(
@@ -438,8 +447,18 @@ fn receives_hand_back_provided_buffers_and_sends_keep_them() {
         [(4, 0, 0)]
     );
     assert_eq!(run(&mut h, &r, &[remove(8, 2, 6)]), [(6, 1, 0)]);
-    // Room: the send completes with the buffer it kept, whole.
-    while h.call(Sysno::Read, &[b, big, 1 << 16]) == 1 << 16 {}
+    // Room: the send completes with the buffer it kept, whole. Each read
+    // also drives pending io_uring work. Stop at the known queued byte count:
+    // draining until a short read could consume that send's new payload too.
+    while queued != 0 {
+        let want = queued.min(1 << 16);
+        let got = h.call(Sysno::Read, &[b, big, want]);
+        assert!(
+            got > 0 && got as u64 <= want,
+            "drain: {got}, requested {want}"
+        );
+        queued -= got as u64;
+    }
     assert_eq!(r.reap(&h), [(5, 16, buf(40))]);
     assert_eq!(read(&mut h, b, 64), b"0123456789abcdef");
 }

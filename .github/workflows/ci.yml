@@ -196,10 +196,11 @@ jobs:
           cargo test --locked --no-default-features --lib user::supplied_fs::
           cargo test --locked --no-default-features --lib captured_
           cargo test --locked --no-default-features --lib closed_
-      - name: Unix supplied-file process regressions
+      - name: Unix supplied-file and io_uring buffer regressions
         if: runner.os != 'Windows'
         run: |
           cargo test --locked --no-default-features --lib user::linux::tests::supplied::
+          cargo test --locked --no-default-features --lib user::linux::tests::uring::kbuf::
       - name: C API semantic regressions
         run: cargo test --locked -p rax-capi --no-default-features
       - name: Configure native SDK
