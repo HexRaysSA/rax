@@ -126,6 +126,7 @@ enum Kind {
     View {
         section: Arc<Section>,
         offset: u64,
+        view_size: usize,
         writable: bool,
     },
 }
@@ -328,13 +329,14 @@ impl WindowsArena {
                 Kind::View {
                     section,
                     offset,
+                    view_size,
                     writable,
                 } => (self.api.map)(
                     section.handle.as_raw_handle(),
                     GetCurrentProcess(),
                     self.at(start),
                     *offset,
-                    part.len,
+                    *view_size,
                     REPLACE,
                     if *writable { READWRITE } else { WRITECOPY },
                     std::ptr::null_mut(),
@@ -440,6 +442,17 @@ impl WindowsArena {
         if len == 0 || len > EXTENT as usize || len % 4096 != 0 || offset % EXTENT != 0 {
             return Err(io::ErrorKind::InvalidInput.into());
         }
+        let remaining = file.metadata()?.len().saturating_sub(offset);
+        // A section can end within a page. An explicit page-rounded ViewSize
+        // then exceeds the section's logical size. Zero requests the remaining
+        // section; Windows rounds the resulting view to the placeholder pages.
+        let view_size = if remaining < len as u64
+            && remaining.div_ceil(4096).saturating_mul(4096) == len as u64
+        {
+            0
+        } else {
+            len
+        };
         let retained_file = file.try_clone()?;
         // SAFETY: borrowed file, unnamed non-inheritable section sized from
         // the file. Create it before replacing any existing arena memory.
@@ -468,6 +481,7 @@ impl WindowsArena {
             kind: Kind::View {
                 section,
                 offset,
+                view_size,
                 writable,
             },
         }];
