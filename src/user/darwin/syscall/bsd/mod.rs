@@ -201,7 +201,6 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         #[cfg(target_os = "macos")]
         nr::FGETATTRLIST => path::getattrlistat(ctx, Some(i(0)), None, a[1], a[2], a[3], a[4]),
         #[cfg(target_os = "macos")]
-        #[cfg(target_os = "macos")]
         nr::GETATTRLISTBULK => attr::getattrlistbulk(ctx, i(0), a[1], a[2], a[3], a[4]),
         #[cfg(target_os = "macos")]
         nr::SETATTRLIST => attr::setattrlist(ctx, a[0], a[1], a[2], a[3], a[4]),
@@ -217,6 +216,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::EXCHANGEDATA => attr::exchangedata(ctx, a[0], a[1], u(2)),
         #[cfg(target_os = "macos")]
         nr::ACCESS_EXTENDED => attr::access_extended(ctx, a[0], a[1], a[2], u(3)),
+        #[cfg(target_os = "macos")]
         nr::GETATTRLISTAT => {
             path::getattrlistat(ctx, Some(i(0)), Some(a[1]), a[2], a[3], a[4], a[5])
         }

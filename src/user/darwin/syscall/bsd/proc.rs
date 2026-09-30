@@ -189,3 +189,11 @@ pub fn task_flavor_for_pid(
     let _ = ctx.write_u32(t, name);
     result.map(|()| crate::user::darwin::arch::Rv::one(0))
 }
+
+/// The emulated process's image name (`p_comm`, `p_name`): the last
+/// component of the path it was executed by.
+pub(crate) fn image_name(ctx: &Ctx<'_>) -> Vec<u8> {
+    let path = ctx.proc.program.image.path.as_bytes();
+    let name = path.rsplit(|&c| c == b'/').next().unwrap_or(path);
+    name.to_vec()
+}

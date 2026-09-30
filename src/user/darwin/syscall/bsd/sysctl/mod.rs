@@ -461,7 +461,7 @@ static OVERRIDES: &[Override] = &[
         name: "kern.procname",
         oid: &[1, 62],
         value: |c| {
-            let mut n = crate::user::darwin::syscall::bsd::procinfo::image_name(c);
+            let mut n = crate::user::darwin::syscall::bsd::proc::image_name(c);
             n.truncate(32);
             Value::Truncated(n)
         },

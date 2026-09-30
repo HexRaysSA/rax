@@ -5,6 +5,7 @@ use crate::user::darwin::abi::{DarwinAbi, Errno};
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::process::Thread;
 use crate::user::darwin::syscall::Ctx;
+use crate::user::darwin::syscall::bsd::proc::image_name;
 use crate::user::darwin::vm::VmFlags;
 use crate::user::mm::{Backing, Vma};
 
@@ -309,14 +310,6 @@ fn listfds(ctx: &Ctx<'_>, a: &Args) -> SysResult {
     }
     ctx.write(a.buffer, &out)?;
     Ok(Rv::one(out.len() as u64))
-}
-
-/// The emulated process's image name (`p_comm`, `p_name`): the last
-/// component of the path it was executed by.
-pub(crate) fn image_name(ctx: &Ctx<'_>) -> Vec<u8> {
-    let path = ctx.proc.program.image.path.as_bytes();
-    let name = path.rsplit(|&c| c == b'/').next().unwrap_or(path);
-    name.to_vec()
 }
 
 /// `PROC_PIDTBSDINFO` (`proc_pidbsdinfo`): the host's record of this
