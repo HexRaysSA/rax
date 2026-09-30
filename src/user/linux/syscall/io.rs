@@ -588,7 +588,10 @@ pub fn preadv(
     }
     let file = c.p.fds.file(fd)?;
     check_rw_flags(&file, flags)?;
-    if matches!(file.object, FileObject::Anon(_)) {
+    if matches!(
+        file.object,
+        FileObject::Anon(_) | FileObject::Console { .. }
+    ) {
         return if pos.is_some() {
             Err(Errno(positional(&file)))
         } else {
@@ -640,7 +643,10 @@ pub fn pwritev(
     let file = c.p.fds.file(fd)?;
     check_rw_flags(&file, flags)?;
     c.nosignal = flags & rwf::NOSIGNAL != 0;
-    if matches!(file.object, FileObject::Anon(_)) {
+    if matches!(
+        file.object,
+        FileObject::Anon(_) | FileObject::Console { .. }
+    ) {
         return if pos.is_some() {
             Err(Errno(positional(&file)))
         } else {

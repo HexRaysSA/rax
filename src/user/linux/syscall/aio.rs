@@ -537,6 +537,7 @@ fn poll(
 /// directories, or block devices.
 fn has_poll(file: &OpenFile) -> bool {
     match &file.object {
+        FileObject::Console { .. } => false,
         FileObject::Anon(_) | FileObject::Mqueue(_) | FileObject::Socket(_) => true,
         _ => matches!(
             file.ftype,

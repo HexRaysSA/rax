@@ -63,7 +63,7 @@ fn file_times(c: &Ctx<'_>, file: &OpenFile, t: [SetTime; 2]) -> SysResult {
             host::set_times(h, t, follow)?;
             super::notify::changed(c, h, follow, notify_mask(&t));
         }
-        FileObject::Anon(_) => return Err(Errno(EOPNOTSUPP)),
+        FileObject::Anon(_) | FileObject::Console { .. } => return Err(Errno(EOPNOTSUPP)),
         FileObject::Mqueue(h) => return super::mqueue::set_times(c, h, t),
         FileObject::PipeRead(_)
         | FileObject::PipeWrite(_)

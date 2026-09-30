@@ -183,6 +183,7 @@ fn file_node(file: Arc<OpenFile>, by_fd: bool) -> Result<Node, Errno> {
         FileObject::Anon(_) => pseudo(Pseudo::Anon, 0o600),
         // mqueue has no attribute handlers either.
         FileObject::Mqueue(_) => pseudo(Pseudo::Anon, mode::S_IFREG | 0o600),
+        FileObject::Console { .. } => pseudo(Pseudo::Anon, mode::S_IFCHR | 0o600),
         FileObject::Synthetic(_) if file.ftype == FileType::Directory => {
             pseudo(Pseudo::Proc, mode::S_IFDIR | 0o555)
         }

@@ -140,6 +140,20 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
 /// `ids` (the owner of the inodes it creates).
 pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
     match &file.object {
+        FileObject::Console { stream, .. } => Ok(Stat {
+            ino: 0x5241_5810
+                + match stream {
+                    None => 0,
+                    Some(crate::user::console::OutputStream::Stdout) => 1,
+                    Some(crate::user::console::OutputStream::Stderr) => 2,
+                },
+            mode: mode::S_IFCHR | 0o600,
+            nlink: 1,
+            uid: ids.0,
+            gid: ids.1,
+            blksize: 4096,
+            ..Default::default()
+        }),
         FileObject::Mqueue(h) => Ok(super::mqueue::stat(&h.get()?)),
         FileObject::Host(f) => Ok(fs::stat_from_metadata(&f.metadata()?)),
         FileObject::PathOnly => {

@@ -49,6 +49,12 @@ pub mod dt {
 pub enum FileObject {
     /// A host file, directory, or device.
     Host(std::fs::File),
+    /// Bounded embedded stream. `None` is finite stdin; outputs are write-only.
+    /// No host descriptor is held, including after `dup` or `fork`.
+    Console {
+        console: crate::user::console::CapturedConsole,
+        stream: Option<crate::user::console::OutputStream>,
+    },
     /// The read end of a pipe.
     PipeRead(std::io::PipeReader),
     /// The write end of a pipe.
@@ -268,6 +274,11 @@ impl OpenFile {
         }
         match &self.object {
             FileObject::Host(f) => Ok((&*f).read(buf)?),
+            FileObject::Console {
+                console,
+                stream: None,
+            } => Ok(crate::user::console::Console::Captured(console.clone()).read(buf)?),
+            FileObject::Console { .. } => Err(Errno(EBADF)),
             FileObject::PipeRead(p) => {
                 let n = (&*p).read(buf)?;
                 // Room for writers (EPOLLOUT | EPOLLWRNORM).
@@ -337,6 +348,15 @@ impl OpenFile {
             return Err(Errno(EBADF));
         }
         match &self.object {
+            FileObject::Console {
+                console,
+                stream: Some(stream),
+            } => {
+                crate::user::console::Console::Captured(console.clone())
+                    .write_all(*stream, data)?;
+                Ok(data.len())
+            }
+            FileObject::Console { .. } => Err(Errno(EBADF)),
             FileObject::Host(f) => {
                 if self.flags() & O_APPEND != 0 && self.ftype == FileType::Regular {
                     (&*f).seek(SeekFrom::End(0))?;

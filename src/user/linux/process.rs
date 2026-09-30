@@ -56,6 +56,8 @@ pub struct LinuxConfig {
     pub cpu: CpuOptions,
     /// Log every system call to standard error (`strace` format).
     pub strace: bool,
+    /// Standard streams: inherited host descriptors or bounded captured buffers.
+    pub console: crate::user::console::Console,
     /// Seed for `AT_RANDOM` and `getrandom`; `None` reads the host's
     /// entropy source.
     pub seed: Option<u64>,
@@ -94,6 +96,7 @@ impl LinuxConfig {
             arena_bytes: DEFAULT_ARENA_BYTES,
             cpu: CpuOptions::default(),
             strace: false,
+            console: Default::default(),
             seed: None,
             kernel_release: DEFAULT_KERNEL_RELEASE.into(),
             slice_insns: DEFAULT_SLICE_INSNS,
@@ -692,15 +695,44 @@ impl LinuxProcess {
             &mut entropy,
         )?;
         let mut fds = FdTable::new();
-        use std::os::fd::AsFd;
-        for (fd, host) in [
-            (0, std::io::stdin().as_fd().try_clone_to_owned()),
-            (1, std::io::stdout().as_fd().try_clone_to_owned()),
-            (2, std::io::stderr().as_fd().try_clone_to_owned()),
-        ] {
-            if let Some(file) = stdio(fd, host) {
-                fds.install_at(fd, file, false, NOFILE_HARD)
-                    .expect("standard descriptors are below the limit");
+        match &config.console {
+            crate::user::console::Console::Captured(console) => {
+                use crate::user::console::OutputStream;
+                for (fd, stream) in [
+                    (0, None),
+                    (1, Some(OutputStream::Stdout)),
+                    (2, Some(OutputStream::Stderr)),
+                ] {
+                    let file = OpenFile::new(
+                        FileObject::Console {
+                            console: console.clone(),
+                            stream,
+                        },
+                        FileType::CharDevice,
+                        format!("/dev/fd/{fd}"),
+                        None,
+                        if stream.is_none() {
+                            super::abi::open::O_RDONLY
+                        } else {
+                            super::abi::open::O_WRONLY
+                        },
+                    );
+                    fds.install_at(fd, file, false, NOFILE_HARD)
+                        .expect("standard descriptors are below the limit");
+                }
+            }
+            crate::user::console::Console::Host => {
+                use std::os::fd::AsFd;
+                for (fd, host) in [
+                    (0, std::io::stdin().as_fd().try_clone_to_owned()),
+                    (1, std::io::stdout().as_fd().try_clone_to_owned()),
+                    (2, std::io::stderr().as_fd().try_clone_to_owned()),
+                ] {
+                    if let Some(file) = stdio(fd, host) {
+                        fds.install_at(fd, file, false, NOFILE_HARD)
+                            .expect("standard descriptors are below the limit");
+                    }
+                }
             }
         }
 

@@ -101,3 +101,44 @@ contexts.
 record the unit, differential, and host-specific evidence for these contracts.
 
 See also [Linux processes and scheduling](processes.md).
+
+## Captured Linux standard streams
+
+`LinuxConfig::console` defaults to `Console::Host`, preserving inherited CLI
+standard descriptors. `Console::Captured(CapturedConsole)` instead creates
+three `FileObject::Console` descriptions with no host descriptor or host path.
+Cloned configurations and duplicated guest descriptors share the same bounded
+buffers. Closing or reassigning a descriptor does not discard queued output.
+
+Captured stdin is finite: an empty buffer reads as EOF, and the caller can feed
+more input between runs. Stdout and stderr share the configured output bound;
+a descriptor write either retains all its bytes or returns `EIO`. The syscall
+layer gathers ordinary vectors and may split the transfer into chunks: it
+returns the retained prefix length if a later chunk fails. The unpositioned
+`preadv2`/`pwritev2` forms use the same readv/writev routes, as the Linux
+[`fs/read_write.c`](https://github.com/torvalds/linux/blob/master/fs/read_write.c)
+`preadv2`/`pwritev2` offset −1 branches require. Input and combined output each have an
+independent capacity of `C` bytes, so their aggregate queued payload is at most
+`2C` bytes. Reads/writes take O(n) time for n transferred bytes; storage is O(C).
+
+These are non-seekable character streams, not terminal emulation: positioned
+I/O returns `ESPIPE`, terminal ioctls return `ENOTTY`, and input `FIONREAD`
+reports the queued byte count (saturated at `INT_MAX`). `poll`/`select` observe
+immediate input/EOF or output/error completion. There is no wait-queue-backed
+poll operation, so epoll, AIO poll, and io_uring poll registration reject these
+descriptions. Regular read/write and vectored operations use the common Linux
+syscall paths, including guest-memory validation and native/compat ABI decoding.
+
+This console route does not close the Linux host filesystem or other host
+services. The Linux personality remains Unix-host-only; Windows process
+capture uses the same portable `CapturedConsole`, with its existing Win32
+adapter. Linux Windows-host support and the closed Linux/Darwin host profile
+remain separate embedding work. No C ABI or Assist interface changes here.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| LC1 | Finite captured input and immediate bounded-output errors need no host descriptor or blocking wait. | `CapturedConsole` owns in-memory queues; `FileObject::Console` has no native handle. | Linux standard-stream routing and readiness. | Empty/refilled input, full/zero capacity, bad guest pointers, duplicates, closure, partial vectored/chunked output on all five guest ABIs. | Run `cargo test --locked --no-default-features --lib user::linux::tests::console::`; any host handle, lost bytes, blocked readiness, or incorrect prefix falsifies this contract. | Confirmed by adapter tests on macOS; native Linux validation tracked separately. |
+
+High-impact scope boundary: console capture alone is not host isolation.
+Startup, paths, process services, and asynchronous operations still require the
+closed embedding profile before exposing Linux processes through the C API.

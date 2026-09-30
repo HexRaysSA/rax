@@ -140,6 +140,20 @@ pub fn poll_files(c: &Ctx<'_>, files: &[(&OpenFile, u32)]) -> (Vec<Polled>, Wait
                 wait.signals |= w.signals;
                 wait.deadline = earlier(wait.deadline, w.deadline);
             }
+            // Finite input is ready even at EOF; bounded output returns
+            // either a complete write or an immediate error. No host wait.
+            FileObject::Console { console, stream } => {
+                out[i].mask = if stream.is_none() {
+                    ev::IN | ev::RDNORM
+                } else {
+                    ev::OUT | ev::WRNORM
+                };
+                out[i].level = if stream.is_none() {
+                    console.pending().map_or(0, |p| p.0 as u64)
+                } else {
+                    0
+                };
+            }
             FileObject::PathOnly => out[i].mask = ev::NVAL,
             FileObject::Mqueue(h) => {
                 let (polled, w) = super::mqueue::poll(h);

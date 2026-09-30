@@ -4,6 +4,7 @@ mod admin;
 mod aio;
 mod arm;
 mod bounded;
+mod console;
 mod entry;
 mod epoll;
 mod events;

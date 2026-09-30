@@ -155,7 +155,8 @@ fn host_fd(f: &OpenFile) -> Option<RawFd> {
         // which no other process may read.
         FileObject::Socket(s) if s.netlink.is_some() => None,
         FileObject::Socket(s) => Some(s.raw()),
-        FileObject::Synthetic(_)
+        FileObject::Console { .. }
+        | FileObject::Synthetic(_)
         | FileObject::PathOnly
         | FileObject::Anon(_)
         | FileObject::Mqueue(_) => None,

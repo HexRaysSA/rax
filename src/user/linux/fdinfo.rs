@@ -43,7 +43,7 @@ mod mnt {
 fn mount_id(file: &OpenFile) -> i32 {
     match &file.object {
         FileObject::Host(_) if file.memfd.is_some() => mnt::SHM,
-        FileObject::Host(_) | FileObject::PathOnly => mnt::ROOT,
+        FileObject::Host(_) | FileObject::PathOnly | FileObject::Console { .. } => mnt::ROOT,
         FileObject::Synthetic(_) => mnt::PROC,
         FileObject::PipeRead(_) | FileObject::PipeWrite(_) => mnt::PIPEFS,
         FileObject::Socket(_) => mnt::SOCKFS,
