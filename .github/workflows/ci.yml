@@ -124,7 +124,8 @@ jobs:
       # execute raw host instructions. Serialize every selected test binary so
       # a native signal or state mismatch is attributable to its exact test;
       # nocapture preserves earlier assertion context if a later signal aborts
-      # the process.
+      # the process. On these macOS 15 hosts user_darwin's native comparisons
+      # report themselves skipped; test-user-darwin runs them on macOS 27.
       - name: cargo test (core slice)
         shell: bash
         run: |
@@ -209,6 +210,40 @@ jobs:
       - name: Run shared and static consumers
         run: ctest --test-dir capi-consumers -C Release --output-on-failure --no-tests=error
 
+  # The Darwin personality reproduces the macOS 27 kernel, and user_darwin
+  # compares every fixture with its native run, so only a macOS 27 host is an
+  # oracle; elsewhere (the macos-15 core lanes) those comparisons report
+  # themselves skipped. `xcode-27` is GitHub's macOS 27 arm64 image (preview);
+  # x86_64 fixtures run natively through Rosetta. The require switch turns any
+  # skipped comparison into a failure, so a changed image cannot pass as a skip.
+  test-user-darwin:
+    name: test-user-darwin (macos-27-arm64)
+    runs-on: xcode-27
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: test-user-darwin-macos-27-arm64
+      - name: Host release and Rosetta
+        shell: bash
+        run: |
+          sw_vers
+          xcrun --show-sdk-version
+          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
+          arch -x86_64 /usr/bin/true
+      - name: cargo test (user_darwin, native oracle required)
+        shell: bash
+        env:
+          RAX_USER_DARWIN_REQUIRE_ORACLE: "1"
+        run: |
+          cargo test --locked --no-default-features --features x86_64-suite,smir-jit \
+            --test user_darwin \
+            -- --include-ignored --test-threads=1 --nocapture
+
   # A short native API probe provides mapping diagnostics independently of
   # the Rust compilation and process tests.
   test-windows-section-api:
@@ -224,7 +259,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [lint, build, test-core, test-capi, test-windows-section-api]
+    needs: [lint, build, test-core, test-capi, test-user-darwin, test-windows-section-api]
     runs-on: ubuntu-24.04
     steps:
       - name: Verify all matrix jobs succeeded

@@ -293,6 +293,44 @@ fn push_ci_runs_host_specific_scalar_and_evex_jit_regressions() {
 }
 
 #[test]
+fn push_ci_runs_darwin_fixtures_against_a_required_native_oracle() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let ci = fs::read_to_string(root.join(".github/workflows/ci.yml"))
+        .expect("failed to read push CI workflow");
+    let job = workflow_block(&ci, "  test-user-darwin:");
+    // The suite's native runs are an oracle only on the macOS release the
+    // personality reproduces (tests/suites/user/darwin/support.rs).
+    assert!(
+        job.lines().any(|line| line.trim() == "runs-on: xcode-27"),
+        "user_darwin must run on the macOS 27 image"
+    );
+    let step = workflow_block(
+        &job,
+        "      - name: cargo test (user_darwin, native oracle required)",
+    );
+    assert!(
+        step.lines()
+            .any(|line| line.trim() == "RAX_USER_DARWIN_REQUIRE_ORACLE: \"1\""),
+        "a skipped Darwin comparison must fail the lane"
+    );
+    let run = workflow_block(&step, "        run: |");
+    assert!(
+        selects_test_target(&run, "user_darwin"),
+        "the Darwin lane must select --test user_darwin"
+    );
+    let gate = workflow_block(&ci, "  ci-success:");
+    let needs = gate
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("needs: ["))
+        .and_then(|line| line.strip_suffix(']'))
+        .expect("the aggregate gate must list its needs");
+    assert!(
+        needs.split(',').any(|job| job.trim() == "test-user-darwin"),
+        "the aggregate gate must require the Darwin lane"
+    );
+}
+
+#[test]
 fn scheduled_full_suite_runs_every_host_specific_jit_regression_binary() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/full-suite.yml");

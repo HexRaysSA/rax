@@ -91,6 +91,19 @@ specification-derived expectations are documented in the
 Windows oracle coverage remains unavailable. The `ci_actions_pinned` contract
 checks Cargo registration and selection in both workflow commands.
 
+## Darwin process validation
+
+`user_darwin` compares each fixture's run under the Darwin personality with
+its native run, so the host kernel is the oracle, and the personality
+reproduces the macOS 27 kernel. `ci.yml` therefore runs the target in its own
+`test-user-darwin` job on `xcode-27`, GitHub's macOS 27 arm64 image (a
+preview image; x86_64 fixtures run through Rosetta, installed when absent),
+with `RAX_USER_DARWIN_REQUIRE_ORACLE=1` so that a skipped comparison fails.
+The `macos-15` and `macos-15-intel` core lanes and the full-suite unit shard
+still select the target: there it builds, checks the generated tables and
+SDK layouts, and reports its native comparisons skipped. No macOS 27 Intel
+image exists.
+
 ## C API binary releases
 
 See [the C API distribution contract](../../capi/README.md#binary-distributions)

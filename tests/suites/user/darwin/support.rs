@@ -5,11 +5,35 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
 /// Emulated programs run for seconds in a debug build (dyld and libSystem
-/// initialization); this bounds a hang.
+/// initialization); this bounds a hang, the output pipes included.
 pub const TIMEOUT: Duration = Duration::from_secs(600);
+
+/// How long output may take to end once a run's process group is killed.
+const DRAIN: Duration = Duration::from_secs(10);
+
+/// The macOS release whose kernel the Darwin personality reproduces
+/// (`docs/architecture/user-mode/darwin.md`, "Behavior references"). A
+/// native run on another release shows another kernel (and its SDK may lack
+/// calls the fixtures make), so it is no oracle.
+pub const MODELED_MACOS: u32 = 27;
+
+/// When set, a comparison or probe that cannot run fails instead of
+/// skipping: CI sets it on a host of the modeled release, where a missing
+/// oracle must not pass as a skip.
+pub const REQUIRE_ORACLE: &str = "RAX_USER_DARWIN_REQUIRE_ORACLE";
+
+/// Reports why `what` (`arch`) does not run: a skip, or a failure under
+/// [`REQUIRE_ORACLE`].
+pub fn skip(what: &str, arch: &str, why: &str) {
+    if std::env::var_os(REQUIRE_ORACLE).is_some() {
+        panic!("{what} ({arch}) did not run and {REQUIRE_ORACLE} is set: {why}");
+    }
+    eprintln!("skipped {what} ({arch}): {why}");
+}
 
 /// The fixture sources.
 pub fn sources() -> PathBuf {
@@ -35,6 +59,31 @@ pub fn oracle_missing() -> Option<&'static str> {
         }
         None
     })
+}
+
+/// Why the host's kernel is not the one the personality reproduces, or
+/// `None` when it is.
+fn release_mismatch() -> Option<&'static str> {
+    static WHY: OnceLock<Option<String>> = OnceLock::new();
+    WHY.get_or_init(|| {
+        let version = Command::new("sw_vers")
+            .arg("-productVersion")
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned());
+        let major = version
+            .as_deref()
+            .and_then(|v| v.split('.').next()?.parse::<u32>().ok());
+        match (major, version) {
+            (Some(major), _) if major == MODELED_MACOS => None,
+            (_, Some(v)) => Some(format!(
+                "the host runs macOS {v}, not the macOS {MODELED_MACOS} kernel the personality reproduces"
+            )),
+            (_, None) => Some("the host's macOS release is unknown (sw_vers failed)".to_owned()),
+        }
+    })
+    .as_deref()
 }
 
 fn sdk() -> Option<String> {
@@ -107,41 +156,113 @@ pub struct Run {
     pub status: Option<i32>,
 }
 
-fn wait(mut cmd: Command, stdin: Option<&Path>) -> (Run, String) {
+/// One past the highest descriptor a run is spawned with open.
+fn descriptor_limit() -> i32 {
+    // SAFETY: sysconf takes no pointers and only reads a limit (-1 when it
+    // is indeterminate).
+    let max = unsafe { libc::sysconf(libc::_SC_OPEN_MAX) };
+    if max < 0 {
+        1 << 16
+    } else {
+        max.clamp(3, 1 << 16) as i32
+    }
+}
+
+/// Kills process group `pgid`.
+fn kill_group(pgid: libc::pid_t) {
+    // SAFETY: kill takes no pointers. A group that has ended fails with
+    // ESRCH, and its ID is not reused while a member remains.
+    unsafe { libc::kill(-pgid, libc::SIGKILL) };
+}
+
+fn wait(cmd: Command, stdin: Option<&Path>) -> (Run, String) {
+    wait_within(cmd, stdin, TIMEOUT)
+}
+
+/// Runs `cmd` to completion or for `limit`, whichever is first; returns the
+/// run and its standard error.
+fn wait_within(mut cmd: Command, stdin: Option<&Path>, limit: Duration) -> (Run, String) {
+    use std::os::unix::process::{CommandExt, ExitStatusExt};
     cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(match stdin {
             Some(p) => Stdio::from(std::fs::File::open(p).expect("stdin file")),
             None => Stdio::null(),
         });
+    // A guest starts with the emulator's standard input, output, and error
+    // alone, so descriptors this process inherited (a CI runner leaves some
+    // open) would reach only the native run; every run drops them at exec.
+    let open_max = descriptor_limit();
+    // SAFETY: the closure runs in the forked child before exec. It calls only
+    // fcntl, which is async-signal-safe and allocates nothing; a descriptor
+    // that is not open fails with EBADF and is left alone.
+    unsafe {
+        cmd.pre_exec(move || {
+            for fd in 3..open_max {
+                libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC);
+            }
+            Ok(())
+        });
+    }
+    // A process group of its own, so a hang ends with the processes it made.
+    cmd.process_group(0);
     let mut child = cmd.spawn().expect("spawn");
-    let mut out = child.stdout.take().unwrap();
-    let mut err = child.stderr.take().unwrap();
-    let out_t = std::thread::spawn(move || {
-        let mut v = Vec::new();
-        out.read_to_end(&mut v).ok();
-        v
-    });
-    let err_t = std::thread::spawn(move || {
-        let mut v = Vec::new();
-        err.read_to_end(&mut v).ok();
-        v
-    });
-    let start = Instant::now();
-    let status = loop {
+    let pgid = child.id() as libc::pid_t;
+    let (tx, rx) = mpsc::channel();
+    let pipes: [Box<dyn Read + Send>; 2] = [
+        Box::new(child.stdout.take().unwrap()),
+        Box::new(child.stderr.take().unwrap()),
+    ];
+    for (i, mut pipe) in pipes.into_iter().enumerate() {
+        let tx = tx.clone();
+        std::thread::spawn(move || {
+            let mut v = Vec::new();
+            pipe.read_to_end(&mut v).ok();
+            let _ = tx.send((i, v));
+        });
+    }
+    drop(tx);
+    let deadline = Instant::now() + limit;
+    let mut status = loop {
         if let Some(s) = child.try_wait().expect("wait") {
-            use std::os::unix::process::ExitStatusExt;
             break s.code().or_else(|| s.signal().map(|n| 128 + n));
         }
-        if start.elapsed() > TIMEOUT {
-            let _ = child.kill();
+        if Instant::now() > deadline {
+            kill_group(pgid);
             let _ = child.wait();
             break None;
         }
         std::thread::sleep(Duration::from_millis(5));
     };
-    let stdout = out_t.join().unwrap();
-    let stderr = String::from_utf8_lossy(&err_t.join().unwrap()).into_owned();
+    // The output ends once every process holding the pipes has closed them,
+    // the program's descendants included. Those still holding them at the
+    // deadline are killed with the group, and the run counts as timed out;
+    // output a process outside the group keeps open is abandoned.
+    let mut output: [Option<Vec<u8>>; 2] = [None, None];
+    let mut killed = false;
+    while output.iter().any(Option::is_none) {
+        let left = if killed {
+            DRAIN
+        } else {
+            deadline.saturating_duration_since(Instant::now())
+        };
+        match rx.recv_timeout(left) {
+            Ok((i, v)) => output[i] = Some(v),
+            Err(RecvTimeoutError::Timeout) if !killed => {
+                kill_group(pgid);
+                killed = true;
+                status = None;
+            }
+            Err(_) => break,
+        }
+    }
+    let [stdout, stderr] = output.map(Option::unwrap_or_default);
+    let mut stderr = String::from_utf8_lossy(&stderr).into_owned();
+    if status.is_none() {
+        stderr.push_str(&format!(
+            "(the run or a process holding its output outlived {limit:?})\n"
+        ));
+    }
     (Run { stdout, status }, stderr)
 }
 
@@ -184,21 +305,26 @@ pub fn emulated(
     wait(cmd, None)
 }
 
-/// Whether `arch` can be compared on this host; prints the reason when not.
+/// Whether `arch` can be compared on this host; reports the reason when not
+/// (see [`skip`]).
 pub fn comparable(what: &str, arch: &str) -> bool {
-    if let Some(why) = oracle_missing() {
-        eprintln!("skipped {what} ({arch}): {why}");
-        return false;
+    let why = oracle_missing()
+        .or_else(release_mismatch)
+        .or_else(|| {
+            (arch == "x86_64" && !x86_64_native())
+                .then_some("x86_64 programs do not run natively (no Rosetta)")
+        })
+        .or_else(|| {
+            (arch == "arm64" && std::env::consts::ARCH != "aarch64")
+                .then_some("arm64 programs do not run on this host")
+        });
+    match why {
+        Some(why) => {
+            skip(what, arch, why);
+            false
+        }
+        None => true,
     }
-    if arch == "x86_64" && !x86_64_native() {
-        eprintln!("skipped {what} ({arch}): x86_64 programs do not run natively (no Rosetta)");
-        return false;
-    }
-    if arch == "arm64" && std::env::consts::ARCH != "aarch64" {
-        eprintln!("skipped {what} ({arch}): arm64 programs do not run on this host");
-        return false;
-    }
-    true
 }
 
 /// Runs `program` both ways and asserts the runs agree.
@@ -226,4 +352,41 @@ pub fn compare(
             diag
         );
     }
+}
+
+/// A process the run leaves holding its output cannot outlast the limit,
+/// which a hung `rax-user` descendant once did for the whole CI job.
+#[test]
+fn a_descendant_holding_the_output_is_ended_at_the_limit() {
+    let mut cmd = Command::new("/bin/sh");
+    cmd.args(["-c", "echo early; sleep 120 & exit 0"]);
+    let start = Instant::now();
+    let (run, diag) = wait_within(cmd, None, Duration::from_secs(2));
+    assert!(start.elapsed() < Duration::from_secs(60), "{diag}");
+    assert_eq!(run.status, None, "{diag}");
+    assert_eq!(run.stdout, b"early\n");
+}
+
+/// A descriptor this process inherited does not reach a run, as it does not
+/// reach an emulated guest.
+#[test]
+fn a_run_starts_without_inherited_descriptors() {
+    // SAFETY: F_DUPFD takes no pointers; the duplicate of standard error is
+    // inheritable (not close-on-exec) and closed below.
+    let fd = unsafe { libc::fcntl(2, libc::F_DUPFD, 20) };
+    assert!(fd >= 20, "dup: {}", std::io::Error::last_os_error());
+    let probe = format!("[ -e /dev/fd/{fd} ] && echo open || echo closed");
+    let plain = Command::new("/bin/sh").args(["-c", &probe]).output();
+    let mut cmd = Command::new("/bin/sh");
+    cmd.args(["-c", &probe]);
+    let (run, diag) = wait_within(cmd, None, TIMEOUT);
+    // SAFETY: `fd` is the descriptor duplicated above, closed once.
+    unsafe { libc::close(fd) };
+    assert_eq!(
+        plain.expect("probe").stdout,
+        b"open\n",
+        "the probe sees inherited descriptors"
+    );
+    assert_eq!(run.status, Some(0), "{diag}");
+    assert_eq!(run.stdout, b"closed\n");
 }

@@ -60,10 +60,13 @@ unchanged. Medium-impact finding: parallel recorded fixtures may interfere
 through absolute paths; serial execution is required until those fixtures or
 their filesystem namespaces are isolated.
 
-The Darwin target has no recordings: on a macOS host it compares each run
-with the same program's native run (x86_64 through Rosetta, which exercises
-the host's x86-64 user space but is not a physical-x86 oracle), and
-elsewhere its comparisons report themselves skipped. See
+The Darwin target has no recordings: on a macOS 27 host, the release whose
+kernel the personality reproduces, it compares each run with the same
+program's native run (x86_64 through Rosetta, which exercises the host's
+x86-64 user space but is not a physical-x86 oracle). On another macOS release
+or another OS its comparisons report themselves skipped;
+`RAX_USER_DARWIN_REQUIRE_ORACLE=1` makes each skip a failure, as push CI's
+macOS 27 lane does. See
 [Darwin evidence](../../architecture/user-mode/darwin.md#evidence).
 
 ## Memory and CPU contracts

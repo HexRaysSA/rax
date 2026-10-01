@@ -3,22 +3,22 @@
 use rax::user::darwin::signal::frame;
 use rax::user::darwin::thread_state as ts;
 
-use super::support::{build, native, oracle_missing};
+use super::support::{build, native, oracle_missing, skip};
 
 fn check(arch: &str, expected: &[(&str, usize)]) {
     if let Some(why) = oracle_missing() {
-        eprintln!("skipped layouts ({arch}): {why}");
+        skip("layouts", arch, why);
         return;
     }
     let program = build("layouts", arch);
     // Only the compiler matters here: the probe runs natively on the host
     // (x86_64 through Rosetta when present, else it is not run).
     if arch == "x86_64" && !super::support::x86_64_native() {
-        eprintln!("skipped layouts ({arch}): x86_64 programs do not run natively");
+        skip("layouts", arch, "x86_64 programs do not run natively");
         return;
     }
     if arch == "arm64" && std::env::consts::ARCH != "aarch64" {
-        eprintln!("skipped layouts ({arch}): arm64 programs do not run on this host");
+        skip("layouts", arch, "arm64 programs do not run on this host");
         return;
     }
     let run = native(&program, arch, &[], &[], None);

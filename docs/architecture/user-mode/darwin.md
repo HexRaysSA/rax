@@ -633,8 +633,16 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
 - `layouts`: the signal-frame and thread-state sizes the personality uses
   equal the SDK's, measured by a probe compiled against it.
 
-Without a macOS host (or without Rosetta, for x86_64) the comparisons have
-no oracle and report themselves skipped. Library tests under
+The native run is an oracle only on the release whose kernel the personality
+reproduces: on a host of another macOS release (whose SDK may also lack calls
+the fixtures make) the comparisons report themselves skipped, as they do
+without a macOS host or, for x86_64, without Rosetta. With
+`RAX_USER_DARWIN_REQUIRE_ORACLE` set each such skip fails instead; push CI
+runs the target that way on a macOS 27 runner. Both runs of a comparison start
+with standard input, output, and error alone (inherited descriptors are closed
+at exec, as a guest starts with the emulator's three standard descriptors)
+in a process group of their own, which is killed when the run, or a process
+still holding its output, outlives the timeout. Library tests under
 `src/user/darwin/` cover the name space, message trailers, commpage and
 stack layout, slide info, sysctl walks, values, and copy-out, the
 host-information flavors, the host regions a service maps into the task

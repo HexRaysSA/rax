@@ -104,8 +104,10 @@ compatibility conversions have library tests under
 `fixtures/user/darwin/src` and of system programs with their native runs on
 a macOS host (x86_64 through Rosetta), checks the generated Darwin tables
 with their generators' `--check` mode, and checks the signal-frame layouts
-against a probe compiled with the SDK. Without a macOS host the comparisons
-report themselves skipped.
+against a probe compiled with the SDK. The native runs are an oracle only on
+the macOS release the personality reproduces (macOS 27); without a macOS host,
+or on another release, the comparisons report themselves skipped, and
+`RAX_USER_DARWIN_REQUIRE_ORACLE=1` turns every such skip into a failure.
 
 Add behavioral cases beneath the matching suite domain. Add generated material
 under `generated/` and record its provenance in `generated/manifest.toml`.
