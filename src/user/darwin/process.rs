@@ -642,6 +642,14 @@ impl DarwinProcess {
                 *remaining -= 1;
             }
             #[cfg(unix)]
+            if self.proc.config.host_services {
+                // The host catches SIGCONT only while the guest does (after
+                // a sigaction, an exec, or a spawn's defaults).
+                signal::host::sync_sigcont(
+                    self.proc.sigacts.catch & signal::bit(signal::SIGCONT) != 0,
+                );
+            }
+            #[cfg(unix)]
             for (sig, origin) in if self.proc.config.host_services {
                 signal::host::take()
             } else {

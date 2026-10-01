@@ -1,6 +1,9 @@
 //! The C fixtures behave under `rax-user` as they do natively.
 
-use super::support::{build, build_as, comparable, compare, compare_clamped};
+use super::support::{
+    build, build_as, comparable, compare, compare_clamped, emulated_cmd, native, native_cmd,
+    while_ready,
+};
 
 fn fixture(name: &str, arch: &str, args: &[&str], env: &[(&str, &str)]) {
     if !comparable(name, arch) {
@@ -577,4 +580,41 @@ fn shared_wait_arm64() {
 #[test]
 fn shared_wait_x86_64() {
     fixture("shared_wait", "x86_64", &[], &[]);
+}
+
+/// The process a guest runs in catches SIGCONT on the host only while the
+/// guest catches it, as a native process does: a kernel need not report the
+/// continue of a process that catches SIGCONT to its parent's
+/// `waitid(WCONTINUED)` (macOS 27.0 reports none), so a host handler the
+/// guest never installed would hide its continues.
+fn sigcont_caught_only_with_the_guest(arch: &str) {
+    let what = "sigcont_catch";
+    if !comparable(what, arch) {
+        return;
+    }
+    let program = build(what, arch);
+    let caught = |pid: u32| {
+        let r = native(&program, arch, &["query", &pid.to_string()], &[], None);
+        assert_eq!(r.status, Some(0), "query {pid}");
+        r.stdout == b"1\n"
+    };
+    for (mode, catches) in [("default", false), ("catch", true)] {
+        let native = while_ready(native_cmd(&program, arch, &[mode], &[], None), caught);
+        let emulated = while_ready(emulated_cmd(&program, arch, &[mode], &[], None), caught);
+        assert_eq!(
+            (native, emulated),
+            (catches, catches),
+            "{arch} {mode}: native, emulated"
+        );
+    }
+}
+
+#[test]
+fn sigcont_caught_only_with_the_guest_arm64() {
+    sigcont_caught_only_with_the_guest("arm64");
+}
+
+#[test]
+fn sigcont_caught_only_with_the_guest_x86_64() {
+    sigcont_caught_only_with_the_guest("x86_64");
 }

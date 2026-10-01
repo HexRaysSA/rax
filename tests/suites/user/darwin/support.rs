@@ -302,7 +302,7 @@ fn wait_within(mut cmd: Command, stdin: Option<&Path>, limit: Duration) -> (Run,
 }
 
 /// The command running `program` natively as `arch`.
-fn native_cmd(
+pub fn native_cmd(
     program: &Path,
     arch: &str,
     args: &[&str],
@@ -321,7 +321,7 @@ fn native_cmd(
 }
 
 /// The command running `program` under `rax-user` as `arch`.
-fn emulated_cmd(
+pub fn emulated_cmd(
     program: &Path,
     arch: &str,
     args: &[&str],
@@ -359,6 +359,22 @@ fn clamped(cmd: Command, qos: Option<&str>) -> Command {
         c.current_dir(d);
     }
     c
+}
+
+/// Starts `cmd`, waits for its first line of output (`ready`), runs `probe`
+/// with its process ID, and ends it; returns what `probe` returned.
+pub fn while_ready<T>(mut cmd: Command, probe: impl FnOnce(u32) -> T) -> T {
+    use std::io::BufRead;
+    cmd.stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .stdin(Stdio::null());
+    let mut child = cmd.spawn().expect("spawn");
+    let mut line = String::new();
+    let read = std::io::BufReader::new(child.stdout.take().unwrap()).read_line(&mut line);
+    let r = (read.is_ok() && line == "ready\n").then(|| probe(child.id()));
+    let _ = child.kill();
+    let _ = child.wait();
+    r.unwrap_or_else(|| panic!("the run ended before it was ready: {line:?}"))
 }
 
 /// Runs `program` natively as `arch`.

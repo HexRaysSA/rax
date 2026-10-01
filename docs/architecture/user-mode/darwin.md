@@ -305,7 +305,7 @@ on an arm64 kernel, whose workqueue stacks carry the 12 KiB offset.
 | Interrupted sleeps: `EINTR`, or a restart after the handler for `SA_RESTART` (never for `select`, `poll`, `sigsuspend`, `__semwait_signal`); `MACH_RCV_INTERRUPTED`, `MACH_SEND_INTERRUPTED`, `KERN_ABORTED` | `syscall`, `syscall::mach` | `kern_synch.c`, `sys_generic.c`, `ipc_mqueue.c` |
 | `SIGPIPE` for a write to a broken pipe (unless `F_SETNOSIGPIPE`) | `syscall::bsd::file` | `dofilewrite` |
 | Interval timers: `ITIMER_REAL` deadlines, `ITIMER_VIRTUAL` and `ITIMER_PROF` charged per time slice | `signal::timer` | `realitexpire`, `itimerdecr`, `bsd_ast` |
-| Host signals: asynchronous host signals are the guest's (`rax-user` forwards them), a stop signal's default action stops the host process, and the state inherited across `exec` (ignored signals, action flags, mask) is the host process's | `signal::host` | `execsigs` |
+| Host signals: asynchronous host signals are the guest's (`rax-user` forwards them), a stop signal's default action stops the host process, and the state inherited across `exec` (ignored signals, action flags, mask) is the host process's. The host catches `SIGCONT` only while the guest does, and otherwise takes its default action as the guest would: a kernel need not report the continue of a process that catches `SIGCONT` to its parent's `waitid(WCONTINUED)` (macOS 27.0 reports none), so a handler the guest never installed would hide its continues; a guest at the default then keeps a blocked stop signal still pending across a continue | `signal::host` | `execsigs`, `psignal_internal` |
 
 Pointer authentication uses RAX's identity algorithm, so the arm64 thread
 state of a process with the pointer-authentication ABI carries the

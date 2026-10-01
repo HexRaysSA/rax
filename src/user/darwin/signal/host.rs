@@ -167,6 +167,9 @@ static WAKE_READ: AtomicI32 = AtomicI32::new(-1);
 static WAKE_WRITE: AtomicI32 = AtomicI32::new(-1);
 /// Whether [`forward`] ran.
 static FORWARDING: AtomicBool = AtomicBool::new(false);
+/// Whether the host's `SIGCONT` runs the forwarding handler (see
+/// [`sync_sigcont`]).
+static CATCHING_CONT: AtomicBool = AtomicBool::new(false);
 /// The last host `SIGCHLD`'s child: `1 << 63 | si_code << 32 | si_pid`,
 /// and `si_uid << 32 | si_status` (0 before one arrives).
 static CHILD_WHO: AtomicU64 = AtomicU64::new(0);
@@ -264,6 +267,10 @@ pub fn forward() -> Result<(), Errno> {
     WAKE_READ.store(fds[0], Ordering::SeqCst);
     WAKE_WRITE.store(fds[1], Ordering::SeqCst);
     for &sig in FORWARDED {
+        // SIGCONT is caught only while the guest catches it (sync_sigcont).
+        if sig == SIGCONT {
+            continue;
+        }
         let Some(host) = to_host(sig) else {
             continue;
         };
@@ -285,6 +292,37 @@ pub fn forward() -> Result<(), Errno> {
         libc::signal(libc::SIGPIPE, libc::SIG_IGN);
     }
     Ok(())
+}
+
+/// Has the host catch `SIGCONT` (to forward it) only while the guest
+/// catches it; otherwise the host takes the default action the guest does.
+/// A kernel need not report the continue of a process that catches
+/// `SIGCONT` to its parent's `waitid(WCONTINUED)` (macOS 27.0 reports none),
+/// so a handler the guest did not install would hide its continues. The
+/// default action continues the process on the host and has no effect a
+/// guest at the default could see, but for clearing blocked stop signals
+/// still pending.
+pub fn sync_sigcont(caught: bool) {
+    if !forwarding() || CATCHING_CONT.load(Ordering::Relaxed) == caught {
+        return;
+    }
+    // SAFETY: `sa` is fully initialized (zeroed, then the handler or
+    // SIG_DFL, the flags, and an empty mask); the handler has the SA_SIGINFO
+    // signature.
+    let r = unsafe {
+        let mut sa: libc::sigaction = std::mem::zeroed();
+        if caught {
+            sa.sa_sigaction = on_host_signal as usize;
+            sa.sa_flags = libc::SA_SIGINFO;
+        } else {
+            sa.sa_sigaction = libc::SIG_DFL;
+        }
+        libc::sigemptyset(&mut sa.sa_mask);
+        libc::sigaction(libc::SIGCONT, &sa, std::ptr::null_mut())
+    };
+    if r == 0 {
+        CATCHING_CONT.store(caught, Ordering::Relaxed);
+    }
 }
 
 /// Whether host signals are forwarded.

@@ -53,6 +53,12 @@ pub fn sigaction(ctx: &mut Ctx<'_>, sig: i32, nsa: u64, osa: u64) -> SysResult {
         if acts.set(sig, &action) {
             signal::clear_pending(ctx.proc, Some(ctx.thread), sig);
         }
+        // A SIGCONT handler is the host's from now on, for continues that
+        // arrive before the scheduler's next turn.
+        #[cfg(unix)]
+        if sig == signal::SIGCONT && ctx.proc.config.host_services {
+            signal::host::sync_sigcont(ctx.proc.sigacts.catch & bit(signal::SIGCONT) != 0);
+        }
     }
     Ok(Rv::one(0))
 }
