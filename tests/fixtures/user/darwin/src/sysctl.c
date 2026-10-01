@@ -3,7 +3,10 @@
 // 32-bit buffers for 64-bit values), lookups that miss, reads of
 // interior nodes, and writes. Machine values (CPU counts, sizes, the
 // model) are not printed: the emulated machine is not the host; their
-// sizes, kinds, formats, and OIDs are. Rosetta shows the arm64 kernel's
+// sizes, kinds, formats, and OIDs are, except what depends on the machine
+// too: an OID_AUTO number (the order the kernel registered the node in)
+// prints as "auto", and a string under hw (a performance level's name) as
+// its presence, not its length. Rosetta shows the arm64 kernel's
 // machdep subtree, which is not an Intel kernel's: machdep runs on arm64
 // only.
 #include <errno.h>
@@ -12,8 +15,17 @@
 #include <string.h>
 #include <sys/sysctl.h>
 
+// OID_AUTO_START: numbers from here on are assigned at registration.
+#define AUTO_START 100
+
 static void oid_print(const int *oid, size_t n) {
-    for (size_t i = 0; i < n; i++) printf(i ? ",%d" : "[%d", oid[i]);
+    for (size_t i = 0; i < n; i++) {
+        printf(i ? "," : "[");
+        if (oid[i] >= AUTO_START)
+            printf("auto");
+        else
+            printf("%d", oid[i]);
+    }
     printf("]");
 }
 
@@ -37,7 +49,7 @@ static void describe(const char *name) {
     oid_print(oid, (size_t)n);
     int q[CTL_MAXNAME + 2] = {0, 4};
     memcpy(q + 2, oid, (size_t)n * sizeof(int));
-    char f[256];
+    char f[256] = {0};
     size_t len = sizeof f;
     if (sysctl(q, (u_int)n + 2, f, &len, 0, 0) == 0) {
         uint32_t kind;
@@ -60,10 +72,13 @@ static void describe(const char *name) {
         printf(" name \"%s\" (%zu)", nm, len);
     else
         printf(" name errno %d", errno);
-    // The value's size.
+    // The value's size (a machine string's only as present or not).
     len = 0;
     int r = sysctl(oid, (u_int)n, NULL, &len, NULL, 0);
-    printf(" size %d/%d %zu\n", r, r ? errno : 0, len);
+    if (strncmp(name, "hw.", 3) == 0 && strcmp(f + 4, "A") == 0)
+        printf(" size %d/%d %s\n", r, r ? errno : 0, len > 1 ? "non-empty" : "empty");
+    else
+        printf(" size %d/%d %zu\n", r, r ? errno : 0, len);
 }
 
 // A read of `name` into a buffer of `room` bytes: result, errno, the

@@ -35,6 +35,50 @@ const POLICY_TIMESHARE: u32 = 1;
 /// `BASEPRI_DEFAULT` and `MAXPRI_USER`.
 pub(crate) const BASEPRI_DEFAULT: u32 = 31;
 pub(crate) const MAXPRI_USER: u32 = 63;
+
+/// The highest priority this process's threads may run at: `MAXPRI_USER`,
+/// or the ceiling of a QoS clamp or of darwinbg the process inherited
+/// (utility's 20, background's 4), which lowers every thread's base,
+/// current, and maximum priority and the task's. Asked of the host for the
+/// emulator's own thread, the guest being that host process; without a
+/// macOS host, `MAXPRI_USER`.
+pub(crate) fn priority_ceiling() -> u32 {
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            fn mach_port_deallocate(task: u32, name: u32) -> i32;
+        }
+        // SAFETY: an all-zero thread_extended_info is a valid value for
+        // thread_info to overwrite.
+        let mut info: libc::thread_extended_info = unsafe { std::mem::zeroed() };
+        let mut count = libc::THREAD_EXTENDED_INFO_COUNT;
+        // SAFETY: `info` is valid for `count` words, which thread_info
+        // writes at most; the thread name mach_thread_self gives is released
+        // once.
+        let r = unsafe {
+            let me = libc::mach_thread_self();
+            let r = libc::thread_info(
+                me,
+                libc::THREAD_EXTENDED_INFO as u32,
+                (&raw mut info).cast(),
+                &mut count,
+            );
+            mach_port_deallocate(libc::mach_task_self(), me);
+            r
+        };
+        if r == 0 && (1..=MAXPRI_USER as i32).contains(&info.pth_maxpriority) {
+            return info.pth_maxpriority as u32;
+        }
+    }
+    MAXPRI_USER
+}
+
+/// A thread's (and the task's) base priority: `BASEPRI_DEFAULT` under the
+/// [`priority_ceiling`].
+pub(crate) fn base_priority() -> u32 {
+    BASEPRI_DEFAULT.min(priority_ceiling())
+}
+
 /// `KERN_INVALID_POLICY`.
 const KERN_INVALID_POLICY: KernReturn = 16;
 
@@ -141,9 +185,9 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                             b[6],
                             b[7],
                             b[9],
-                            BASEPRI_DEFAULT,
-                            BASEPRI_DEFAULT,
-                            MAXPRI_USER,
+                            base_priority(),
+                            base_priority(),
+                            priority_ceiling(),
                         ]);
                         let mut name = [0u8; 64];
                         let n = th.name.len().min(63);
@@ -157,7 +201,13 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                         // policy_timeshare_info: max_priority, base_priority,
                         // cur_priority, depressed, depress_priority.
                         need(5)?;
-                        vec![MAXPRI_USER, BASEPRI_DEFAULT, BASEPRI_DEFAULT, 0, u32::MAX]
+                        vec![
+                            priority_ceiling(),
+                            base_priority(),
+                            base_priority(),
+                            0,
+                            u32::MAX,
+                        ]
                     }
                     flavor::SCHED_RR_INFO => {
                         need(5)?;

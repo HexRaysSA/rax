@@ -254,6 +254,12 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
             copyout(ctx, a, &[0u8; 8])
         }
         f::THREADCOUNTS => {
+            // Counting by performance level needs the machine's counters: a
+            // host without them (a virtual machine) refuses any thread
+            // first, as asking it about no thread shows.
+            if host_self(ctx.proc.pid, f::THREADCOUNTS, 8).err() == Some(Errno::ENOTSUP) {
+                return Err(Errno::ENOTSUP);
+            }
             let o = with_thread(ctx, a.arg, true, |t, abi, _| threadcounts(t, abi))
                 .ok_or(Errno::ESRCH)?;
             let n = o.0.len().min(a.size as usize);
@@ -420,7 +426,7 @@ fn taskinfo(ctx: &Ctx<'_>) -> Out {
         .u32(80, clamp(csw))
         .u32(84, live.len() as u32)
         .u32(88, running as u32)
-        .u32(92, 31);
+        .u32(92, crate::user::darwin::mig::thread::base_priority());
     o
 }
 
@@ -459,9 +465,9 @@ fn threadinfo(t: &Thread, _: DarwinAbi, running: bool) -> Out {
         .u32(24, b[6])
         .u32(28, b[7])
         .u32(32, b[9])
-        .u32(36, mt::BASEPRI_DEFAULT)
-        .u32(40, mt::BASEPRI_DEFAULT)
-        .u32(44, mt::MAXPRI_USER)
+        .u32(36, mt::base_priority())
+        .u32(40, mt::base_priority())
+        .u32(44, mt::priority_ceiling())
         .str(48, 64, &t.name);
     o
 }

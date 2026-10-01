@@ -22,6 +22,23 @@
 
 extern char **environ;
 
+// csrctl(CSR_SYSCALL_CHECK, CSR_ALLOW_KERNEL_DEBUGGER).
+#define SYS_csrctl 483
+#define CSR_ALLOW_KERNEL_DEBUGGER (1u << 3)
+
+// Whether this host lets a task set its own kernel port in a child: the
+// task's control port must be movable (the MAC policy hands it out) and
+// SIP must allow the kernel debugger (task_set_special_port, "for
+// Mach-on-Mach emulation"). The child then runs with its parent's task as
+// its own and crashes, so the case is spawned only where it is refused.
+static int kernel_port_settable(void) {
+    mach_port_t p = MACH_PORT_NULL;
+    int movable = task_get_special_port(mach_task_self(), TASK_KERNEL_PORT, &p) == KERN_SUCCESS;
+    if (movable) mach_port_deallocate(mach_task_self(), p);
+    uint32_t mask = CSR_ALLOW_KERNEL_DEBUGGER;
+    return movable && syscall(SYS_csrctl, 0, &mask, sizeof mask) == 0;
+}
+
 static char self[PATH_MAX];
 static char dir[PATH_MAX];
 static volatile sig_atomic_t chld;
@@ -229,7 +246,10 @@ static void failures(void) {
 
     posix_spawnattr_init(&attr);
     posix_spawnattr_setspecialport_np(&attr, mach_task_self(), TASK_KERNEL_PORT);
-    spawn_wait("kernel port", self, NULL, &attr);
+    if (kernel_port_settable())
+        printf("kernel port: settable here, not spawned\n");
+    else
+        spawn_wait("kernel port", self, NULL, &attr);
     posix_spawnattr_destroy(&attr);
     posix_spawnattr_init(&attr);
     posix_spawnattr_setspecialport_np(&attr, 0x12345678, TASK_BOOTSTRAP_PORT);

@@ -95,7 +95,9 @@ first use; the three registered ports of `mach_ports_register` and
 `mach_ports_lookup`, send rights or dead names the kernel holds and a new
 task inherits; the read and inspect ports, whose send rights may not
 move, may be neither registered nor made special ports,
-`KERN_INVALID_RIGHT`),
+`KERN_INVALID_RIGHT`; a task's own movable control port, its
+`TASK_KERNEL_PORT`, as the host's MAC policy decides for the emulator's
+task, `KERN_DENIED` unless a relaxed host gives it),
 `thread_act` (`thread_info`, policies, exception ports, suspension),
 `host_priv`'s special ports (refused, `KERN_INVALID_ARGUMENT`, to a caller
 without the privileged host port, the right a set carries released),
@@ -474,8 +476,15 @@ its copy in the shared cache (the kernel maps the shared region at exec,
 the emulator when dyld asks, so dyld finds none), so it makes no
 registration of its own and the registration the loader records stays
 open, where a native arm64 process's is final. A thread's CPU usage,
-flags, and sleep time are 0 and its priority the default (31);
-`kqueue_dyninfo`'s servicing state is 0.
+flags, and sleep time are 0 and its priority the default (31) under the
+ceiling a QoS clamp or darwinbg the process inherited sets (the host's for
+the emulator's own thread: utility's 20, background's 4), which also lowers
+its maximum (63) and the task's priority; `PROC_PIDTHREADCOUNTS` is
+`ENOTSUP`, before any thread is looked up, on a host without performance
+counters (a virtual machine); `kqueue_dyninfo`'s servicing state is 0.
+Setting a child's `TASK_KERNEL_PORT` or `TASK_HOST_PORT` by a spawn port
+action, which XNU allows when SIP permits the kernel debugger (for
+Mach-on-Mach emulation), is refused (`EINVAL`) on every host.
 
 ## Emulated machine
 
@@ -623,7 +632,11 @@ host-signal forwarding, and `kill(-1, sig)` signals only this process.
   and another process, interrupted by signals, and cancelled; descriptors
   of another kind; unlinking), and in `shared_wait` threads sleeping on the
   same descriptor (in `poll` and `read`, woken by this process or a child)
-  and a kqueue watching one socket both ways.
+  and a kqueue watching one socket both ways. `procinfo`, `kqueue`, and
+  `mk_timer` run a second time with both runs clamped to utility QoS, as
+  GitHub's macOS runners start jobs (priorities follow the clamp; timers
+  and sleeps are coalesced, which the timer fixtures' critical timers and
+  windows absorb).
 - `programs`: `/bin/echo`, `/usr/bin/true`, `/usr/bin/false`, and `/bin/cat`
   likewise, `/usr/bin/env` running a program (and failing to), and
   `/bin/sh -c` with external commands, a command substitution, and an exit

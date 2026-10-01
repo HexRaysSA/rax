@@ -1,6 +1,6 @@
 //! The C fixtures behave under `rax-user` as they do natively.
 
-use super::support::{build, build_as, comparable, compare};
+use super::support::{build, build_as, comparable, compare, compare_clamped};
 
 fn fixture(name: &str, arch: &str, args: &[&str], env: &[(&str, &str)]) {
     if !comparable(name, arch) {
@@ -8,6 +8,18 @@ fn fixture(name: &str, arch: &str, args: &[&str], env: &[(&str, &str)]) {
     }
     let program = build(name, arch);
     compare(name, &program, arch, args, env, None);
+}
+
+/// `name` with both runs at utility QoS, as GitHub's macOS runners start
+/// jobs: thread and task priorities follow the clamp's ceiling, and the
+/// host coalesces timers and sleeps far more.
+fn fixture_at_utility(name: &str, arch: &str) {
+    let what = format!("{name} at utility QoS");
+    if !comparable(&what, arch) {
+        return;
+    }
+    let program = build_as(name, arch, &format!("{name}_utility"));
+    compare_clamped("utility", &what, &program, arch);
 }
 
 #[test]
@@ -108,6 +120,16 @@ fn kqueue_arm64() {
 #[test]
 fn kqueue_x86_64() {
     fixture("kqueue", "x86_64", &[], &[]);
+}
+
+#[test]
+fn kqueue_at_utility_arm64() {
+    fixture_at_utility("kqueue", "arm64");
+}
+
+#[test]
+fn kqueue_at_utility_x86_64() {
+    fixture_at_utility("kqueue", "x86_64");
 }
 
 #[test]
@@ -283,6 +305,16 @@ fn procinfo_x86_64() {
 }
 
 #[test]
+fn procinfo_at_utility_arm64() {
+    fixture_at_utility("procinfo", "arm64");
+}
+
+#[test]
+fn procinfo_at_utility_x86_64() {
+    fixture_at_utility("procinfo", "x86_64");
+}
+
+#[test]
 fn sockets_arm64() {
     fixture("sockets", "arm64", &[], &[]);
 }
@@ -325,6 +357,16 @@ fn mk_timer_arm64() {
 #[test]
 fn mk_timer_x86_64() {
     fixture("mk_timer", "x86_64", &[], &[]);
+}
+
+#[test]
+fn mk_timer_at_utility_arm64() {
+    fixture_at_utility("mk_timer", "arm64");
+}
+
+#[test]
+fn mk_timer_at_utility_x86_64() {
+    fixture_at_utility("mk_timer", "x86_64");
 }
 
 #[test]

@@ -47,12 +47,43 @@ mod flavor {
 
 /// `POLICY_TIMESHARE`.
 const POLICY_TIMESHARE: u32 = 1;
-/// `BASEPRI_DEFAULT`: a user task's base priority.
-const BASEPRI_DEFAULT: u32 = 31;
 /// `KERN_INVALID_POLICY`.
 const KERN_INVALID_POLICY: KernReturn = 16;
 /// `KERN_DENIED`.
 const KERN_DENIED: KernReturn = kr::KERN_DENIED;
+
+/// Whether the MAC policy gives a task its own movable control port
+/// (`mac_task_check_get_movable_control_port`): asked of the host for the
+/// emulator's own task, the guest being that host process. macOS refuses
+/// it to an unentitled process unless the host relaxes the policy (a
+/// virtual machine with SIP disabled gives it); without a macOS host it is
+/// refused.
+fn movable_control_port() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        static GIVEN: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *GIVEN.get_or_init(|| {
+            unsafe extern "C" {
+                fn task_get_special_port(task: u32, which: i32, port: *mut u32) -> i32;
+                fn mach_port_deallocate(task: u32, name: u32) -> i32;
+            }
+            let mut port = 0u32;
+            // SAFETY: `port` is valid for the one name the call writes;
+            // mach_task_self reads the process's own task name.
+            let given = unsafe {
+                task_get_special_port(libc::mach_task_self(), special::KERNEL, &mut port)
+            } == kr::KERN_SUCCESS;
+            if given && port != 0 {
+                // SAFETY: `port` is the send right the call just gave this
+                // task; it is released once.
+                unsafe { mach_port_deallocate(libc::mach_task_self(), port) };
+            }
+            given
+        })
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
+}
 
 /// Serves the task and task-restartable subsystems.
 pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
@@ -451,10 +482,11 @@ fn get_special_port(ctx: &mut Ctx<'_>, kind: &KObject, which: i32) -> Result<Out
     let t = &mut ctx.proc.task;
     Ok(match which {
         // task_get_special_port_from_user: a task asking for its own
-        // movable control port is refused by the MAC policy
-        // (mac_task_check_get_movable_control_port), as macOS refuses it
-        // to unentitled processes.
-        special::KERNEL if matches!(kind, KObject::Task) => return Err(KERN_DENIED),
+        // movable control port is refused unless the MAC policy gives it
+        // (mac_task_check_get_movable_control_port).
+        special::KERNEL if matches!(kind, KObject::Task) && !movable_control_port() => {
+            return Err(KERN_DENIED);
+        }
         special::KERNEL => copy_send(&ctx.proc.task_port),
         special::HOST => copy_send(&ctx.proc.host_port),
         special::NAME => {
@@ -751,7 +783,7 @@ fn task_info(ctx: &Ctx<'_>, f: i32, count: u32) -> Result<Vec<u32>, KernReturn> 
         }
         flavor::SCHED_TIMESHARE_INFO => {
             need(1)?;
-            w.push(BASEPRI_DEFAULT);
+            w.push(super::thread::base_priority());
         }
         flavor::SECURITY_TOKEN => {
             need(2)?;

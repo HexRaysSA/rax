@@ -9,9 +9,13 @@ machine/machine_types.defs, machine/thread_state.h, mach_debug/
 mach_debug_types.defs).
 
 Each file is compiled with the host's `mig` (bootstrap_cmds; macOS only) as
-a user of the interface would compile it (no KERNEL_SERVER), and the
-generated server's routine table gives every routine's message ID: the
-subsystem base plus its index, `skip` entries included.
+a user of the interface would compile it (no KERNEL_SERVER) for an LP64
+target, as both guest architectures are, and the generated server's routine
+table gives every routine's message ID: the subsystem base plus its index,
+`skip` entries included. The target is given (MIG_ARCH) because `mig`
+otherwise preprocesses for `/usr/bin/arch`, which is `i386` on an Intel host,
+where `!defined(__LP64__)` renames routines (mach_vm.defs'
+`_mach_make_memory_entry`).
 
 Output: src/user/darwin/mig/ids.rs (overwritten). With --check, nothing is
 written and the script fails if the file differs from what it would write.
@@ -26,6 +30,9 @@ import tempfile
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 XNU = os.path.join(ROOT, "docs/specifications/darwin/xnu-12377.121.6")
 OUT = os.path.join(ROOT, "src/user/darwin/mig/ids.rs")
+
+# Any LP64 target gives the same table; arm64 and x86_64 both do.
+MIG_ARCH = "arm64"
 
 # (defs file under osfmk/mach, Rust module name)
 SUBSYSTEMS = [
@@ -54,6 +61,7 @@ def routines(defs, sysroot, tmp):
     subprocess.check_call(
         [
             "mig",
+            "-arch", MIG_ARCH,
             "-isysroot", sysroot,
             "-I" + os.path.join(XNU, "osfmk"),
             "-server", server,

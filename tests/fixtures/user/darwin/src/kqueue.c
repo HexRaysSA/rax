@@ -107,8 +107,11 @@ int main(void) {
     unlink(path);
     close(f);
 
-    // Timers.
-    EV_SET(&ch[0], 10, EVFILT_TIMER, EV_ADD | EV_ONESHOT, 0, 20, NULL);
+    // Timers. The one-shot timer's data counts the intervals that passed by
+    // the time it is delivered: a critical timer (no coalescing, which a
+    // QoS-clamped host stretches to several 20 ms intervals) of 200 ms
+    // makes that one wherever the fixture runs.
+    EV_SET(&ch[0], 10, EVFILT_TIMER, EV_ADD | EV_ONESHOT, NOTE_CRITICAL, 200, NULL);
     kevent(kq, ch, 1, NULL, 0, &zero);
     n = kevent(kq, NULL, 0, ev, 8, &zero);
     printf("timer early: n=%d\n", n);
@@ -118,7 +121,7 @@ int main(void) {
     n = kevent(kq, ch, 1, ev, 8, &zero);
     printf("oneshot deleted: n=%d flags=%#x data=%ld\n", n, n ? ev[0].flags : 0,
            n ? (long)ev[0].data : 0);
-    EV_SET(&ch[0], 11, EVFILT_TIMER, EV_ADD, NOTE_USECONDS, 5000, NULL);
+    EV_SET(&ch[0], 11, EVFILT_TIMER, EV_ADD, NOTE_USECONDS | NOTE_CRITICAL, 5000, NULL);
     kevent(kq, ch, 1, NULL, 0, &zero);
     usleep(30000);
     n = kevent(kq, NULL, 0, ev, 8, &zero);

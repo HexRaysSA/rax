@@ -320,8 +320,10 @@ static void threads(void) {
     printf("  threads %d running %d\n", ti.pti_threadnum, ti.pti_numrunning);
     printf("  listed threads %d\n", pi("listthreads count", CALL_PIDINFO, self, PROC_PIDLISTTHREADS, 0, list,
                                          sizeof list) / 8);
+    // A host without performance counters (a virtual machine) has none to
+    // report; the buffer is then not written.
     n = pi("threadcounts", CALL_PIDINFO, self, F_THREADCOUNTS, me, counts, sizeof counts);
-    printf("  levels %u\n", *(uint16_t *)counts);
+    if (n > 0) printf("  levels %u\n", *(uint16_t *)counts);
 #endif
 
     // SETCONTROL's thread name: at most 63 characters, only for the

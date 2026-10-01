@@ -175,6 +175,37 @@ fn kill_group(pgid: libc::pid_t) {
     unsafe { libc::kill(-pgid, libc::SIGKILL) };
 }
 
+/// The stacks of the processes in group `pgid` (`sample`'s call graphs,
+/// on macOS), so that a run killed at its limit shows where it waited.
+fn group_stacks(pgid: libc::pid_t) -> String {
+    if !cfg!(target_os = "macos") {
+        return String::new();
+    }
+    let Ok(pids) = Command::new("pgrep")
+        .args(["-g", &pgid.to_string()])
+        .output()
+    else {
+        return String::new();
+    };
+    let mut text = String::new();
+    for pid in String::from_utf8_lossy(&pids.stdout).split_whitespace() {
+        let Ok(report) = Command::new("/usr/bin/sample").args([pid, "1"]).output() else {
+            continue;
+        };
+        let report = String::from_utf8_lossy(&report.stdout);
+        let graph: Vec<&str> = report
+            .lines()
+            .skip_while(|l| !l.starts_with("Call graph:"))
+            .take(150)
+            .collect();
+        text.push_str(&format!(
+            "--- stacks of process {pid}\n{}\n",
+            graph.join("\n")
+        ));
+    }
+    text
+}
+
 fn wait(cmd: Command, stdin: Option<&Path>) -> (Run, String) {
     wait_within(cmd, stdin, TIMEOUT)
 }
@@ -223,11 +254,13 @@ fn wait_within(mut cmd: Command, stdin: Option<&Path>, limit: Duration) -> (Run,
     }
     drop(tx);
     let deadline = Instant::now() + limit;
+    let mut stacks = None;
     let mut status = loop {
         if let Some(s) = child.try_wait().expect("wait") {
             break s.code().or_else(|| s.signal().map(|n| 128 + n));
         }
         if Instant::now() > deadline {
+            stacks = Some(group_stacks(pgid));
             kill_group(pgid);
             let _ = child.wait();
             break None;
@@ -249,6 +282,7 @@ fn wait_within(mut cmd: Command, stdin: Option<&Path>, limit: Duration) -> (Run,
         match rx.recv_timeout(left) {
             Ok((i, v)) => output[i] = Some(v),
             Err(RecvTimeoutError::Timeout) if !killed => {
+                stacks.get_or_insert_with(|| group_stacks(pgid));
                 kill_group(pgid);
                 killed = true;
                 status = None;
@@ -262,8 +296,69 @@ fn wait_within(mut cmd: Command, stdin: Option<&Path>, limit: Duration) -> (Run,
         stderr.push_str(&format!(
             "(the run or a process holding its output outlived {limit:?})\n"
         ));
+        stderr.push_str(&stacks.unwrap_or_default());
     }
     (Run { stdout, status }, stderr)
+}
+
+/// The command running `program` natively as `arch`.
+fn native_cmd(
+    program: &Path,
+    arch: &str,
+    args: &[&str],
+    env: &[(&str, &str)],
+    cwd: Option<&Path>,
+) -> Command {
+    let mut cmd = Command::new("arch");
+    cmd.arg(format!("-{arch}")).arg(program).args(args);
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    if let Some(d) = cwd {
+        cmd.current_dir(d);
+    }
+    cmd
+}
+
+/// The command running `program` under `rax-user` as `arch`.
+fn emulated_cmd(
+    program: &Path,
+    arch: &str,
+    args: &[&str],
+    env: &[(&str, &str)],
+    cwd: Option<&Path>,
+) -> Command {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rax-user"));
+    cmd.args(["--arch", arch]).arg(program).args(args);
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    if let Some(d) = cwd {
+        cmd.current_dir(d);
+    }
+    cmd
+}
+
+/// `cmd` under the QoS clamp `qos` (`taskpolicy -c`), which its process
+/// and every process it starts inherit, or `cmd` itself.
+fn clamped(cmd: Command, qos: Option<&str>) -> Command {
+    let Some(qos) = qos else {
+        return cmd;
+    };
+    let mut c = Command::new("/usr/sbin/taskpolicy");
+    c.args(["-c", qos])
+        .arg(cmd.get_program())
+        .args(cmd.get_args());
+    for (k, v) in cmd.get_envs() {
+        match v {
+            Some(v) => c.env(k, v),
+            None => c.env_remove(k),
+        };
+    }
+    if let Some(d) = cmd.get_current_dir() {
+        c.current_dir(d);
+    }
+    c
 }
 
 /// Runs `program` natively as `arch`.
@@ -274,15 +369,7 @@ pub fn native(
     env: &[(&str, &str)],
     cwd: Option<&Path>,
 ) -> Run {
-    let mut cmd = Command::new("arch");
-    cmd.arg(format!("-{arch}")).arg(program).args(args);
-    for (k, v) in env {
-        cmd.env(k, v);
-    }
-    if let Some(d) = cwd {
-        cmd.current_dir(d);
-    }
-    wait(cmd, None).0
+    wait(native_cmd(program, arch, args, env, cwd), None).0
 }
 
 /// Runs `program` under `rax-user` as `arch`; returns the run and the
@@ -294,15 +381,7 @@ pub fn emulated(
     env: &[(&str, &str)],
     cwd: Option<&Path>,
 ) -> (Run, String) {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_rax-user"));
-    cmd.args(["--arch", arch]).arg(program).args(args);
-    for (k, v) in env {
-        cmd.env(k, v);
-    }
-    if let Some(d) = cwd {
-        cmd.current_dir(d);
-    }
-    wait(cmd, None)
+    wait(emulated_cmd(program, arch, args, env, cwd), None)
 }
 
 /// Whether `arch` can be compared on this host; reports the reason when not
@@ -336,8 +415,34 @@ pub fn compare(
     env: &[(&str, &str)],
     cwd: Option<&Path>,
 ) {
-    let expected = native(program, arch, args, env, cwd);
-    let (got, diag) = emulated(program, arch, args, env, cwd);
+    compare_in(None, what, program, arch, args, env, cwd);
+}
+
+/// Runs `program` both ways under the QoS clamp `qos`, as a host that
+/// starts its jobs clamped does (GitHub's macOS runners run them at
+/// utility QoS), and asserts the runs agree.
+pub fn compare_clamped(qos: &str, what: &str, program: &Path, arch: &str) {
+    compare_in(Some(qos), what, program, arch, &[], &[], None);
+}
+
+fn compare_in(
+    qos: Option<&str>,
+    what: &str,
+    program: &Path,
+    arch: &str,
+    args: &[&str],
+    env: &[(&str, &str)],
+    cwd: Option<&Path>,
+) {
+    let expected = wait(
+        clamped(native_cmd(program, arch, args, env, cwd), qos),
+        None,
+    )
+    .0;
+    let (got, diag) = wait(
+        clamped(emulated_cmd(program, arch, args, env, cwd), qos),
+        None,
+    );
     assert!(
         expected.status.is_some(),
         "{what} ({arch}): the native run timed out"
@@ -365,6 +470,10 @@ fn a_descendant_holding_the_output_is_ended_at_the_limit() {
     assert!(start.elapsed() < Duration::from_secs(60), "{diag}");
     assert_eq!(run.status, None, "{diag}");
     assert_eq!(run.stdout, b"early\n");
+    // The descendant's stacks come with the diagnostics.
+    if cfg!(target_os = "macos") {
+        assert!(diag.contains("--- stacks of process"), "{diag}");
+    }
 }
 
 /// A descriptor this process inherited does not reach a run, as it does not

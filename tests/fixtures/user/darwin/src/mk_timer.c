@@ -113,12 +113,14 @@ static void expiry(mach_port_t t) {
     sleep_ms(30);
     printf("two expirations unreceived: %u queued\n", status(t).mps_msgcount);
     drain(t);
-    mk_timer_arm(t, mach_absolute_time() + ms(10));
-    mk_timer_arm(t, mach_absolute_time() + ms(40));
-    sleep_ms(20);
-    printf("re-armed before expiry, at 20 ms: %u queued\n", status(t).mps_msgcount);
-    sleep_ms(60);
-    printf("at 80 ms: %u queued\n", status(t).mps_msgcount);
+    // Critical timers and windows wider than the coalescing slop a
+    // QoS-clamped host gives the sleeps between the checks.
+    mk_timer_arm_leeway(t, MK_TIMER_CRITICAL, mach_absolute_time() + ms(100), 0);
+    mk_timer_arm_leeway(t, MK_TIMER_CRITICAL, mach_absolute_time() + ms(400), 0);
+    sleep_ms(200);
+    printf("re-armed before expiry, at 200 ms: %u queued\n", status(t).mps_msgcount);
+    sleep_ms(600);
+    printf("at 800 ms: %u queued\n", status(t).mps_msgcount);
     drain(t);
     printf("seqno after 5 receives: %u\n", status(t).mps_seqno);
 }
@@ -231,8 +233,8 @@ static void destruction(mach_port_t t) {
     printf("mach_port_destroy with a message queued: %d\n", mach_port_destroy(mach_task_self(), b));
     mach_port_t c = mk_timer_create(), d = mk_timer_create();
     printf("two more timers: distinct %d\n", c != d && c && d);
-    mk_timer_arm(c, mach_absolute_time() + ms(40));
-    mk_timer_arm(d, mach_absolute_time() + ms(20));
+    mk_timer_arm_leeway(c, MK_TIMER_CRITICAL, mach_absolute_time() + ms(400), 0);
+    mk_timer_arm_leeway(d, MK_TIMER_CRITICAL, mach_absolute_time() + ms(200), 0);
     expire_msg m;
     kern_return_t kr = recv(d, &m, 2000);
     printf("second armed later fires first: %#x, first still pending %u\n", kr, status(c).mps_msgcount);
