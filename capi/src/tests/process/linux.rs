@@ -137,6 +137,13 @@ fn elf_rejected_late_selector_does_not_apply_prefix() {
         rax_process_context_write(p.0, tid, invalid.as_ptr(), invalid.len()),
         RaxStatus::Arg
     );
+    // The refusal names its errno, as `EINVAL (22)` does, not as a Rust value.
+    let refusal = error();
+    assert!(
+        refusal.starts_with("invalid Linux NT_PRSTATUS: E"),
+        "{refusal}"
+    );
+    assert!(!refusal.contains("Errno("), "{refusal}");
     assert_eq!(context(&p, tid), original);
 }
 #[test]
@@ -146,6 +153,8 @@ fn elf_signal_is_terminal_failure_with_linux_details() {
     assert_eq!(rax_process_run(p.0, 16, 0, &mut result), RaxStatus::Ok);
     assert_eq!(result.reason, RAX_PROCESS_FAILED);
     assert_eq!(info(&p)["signal"]["number"], 4); // SIGILL
+    assert_eq!(info(&p)["signal"]["name"], "SIGILL");
+    assert_eq!(info(&p)["signal"]["code_name"], "ILL_ILLOPN"); // ud2's si_code 2
     assert!(info(&p)["exit_code"].is_null());
     assert_eq!(rax_process_run(p.0, 1, 0, &mut result), RaxStatus::Ok);
     assert_eq!(result.reason, RAX_PROCESS_FAILED);

@@ -137,6 +137,13 @@ fn process_open_inspect_context_memory_run_and_repeat_all_abis() {
             rax_process_mem_write(p.0, base, b"XX".as_ptr(), 2),
             RaxStatus::Perm
         );
+        // A refused access reads as a sentence with a hex address.
+        assert_eq!(
+            error(),
+            format!(
+                "guest memory fault: failed to write at {base:#x}: memory permission violation"
+            )
+        );
         let sp = address(&before["threads"][0]["sp"]);
         let at = sp - 128;
         assert_eq!(

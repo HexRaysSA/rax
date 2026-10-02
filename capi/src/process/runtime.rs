@@ -352,7 +352,7 @@ fn memory_error(error: rax_engine::error::GuestMemoryFault) -> Failure {
         } else {
             RaxStatus::Map
         },
-        format!("guest memory fault: {error:?}"),
+        format!("guest memory fault: {error}"),
     )
 }
 

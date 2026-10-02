@@ -223,6 +223,52 @@ pub fn signal_name(sig: i32) -> String {
     name.to_string()
 }
 
+/// The conventional name of a `si_code` (`ILL_ILLOPN`, `SEGV_MAPERR`, ...).
+///
+/// A positive code means something only for the signal it came with; codes
+/// at or below zero, and `SI_KERNEL`, say who sent the signal instead. Codes
+/// this module does not model have no name.
+pub fn si_code_name(sig: i32, code: i32) -> Option<&'static str> {
+    match code {
+        code::SI_USER => return Some("SI_USER"),
+        code::SI_KERNEL => return Some("SI_KERNEL"),
+        code::SI_QUEUE => return Some("SI_QUEUE"),
+        code::SI_TIMER => return Some("SI_TIMER"),
+        code::SI_MESGQ => return Some("SI_MESGQ"),
+        code::SI_TKILL => return Some("SI_TKILL"),
+        _ => {}
+    }
+    Some(match (sig, code) {
+        (SIGILL, code::ILL_ILLOPC) => "ILL_ILLOPC",
+        (SIGILL, code::ILL_ILLOPN) => "ILL_ILLOPN",
+        (SIGILL, code::ILL_ILLTRP) => "ILL_ILLTRP",
+        (SIGILL, code::ILL_PRVOPC) => "ILL_PRVOPC",
+        (SIGILL, code::ILL_PRVREG) => "ILL_PRVREG",
+        (SIGFPE, code::FPE_INTDIV) => "FPE_INTDIV",
+        (SIGFPE, code::FPE_INTOVF) => "FPE_INTOVF",
+        (SIGFPE, code::FPE_FLTDIV) => "FPE_FLTDIV",
+        (SIGFPE, code::FPE_FLTOVF) => "FPE_FLTOVF",
+        (SIGFPE, code::FPE_FLTUND) => "FPE_FLTUND",
+        (SIGFPE, code::FPE_FLTRES) => "FPE_FLTRES",
+        (SIGFPE, code::FPE_FLTINV) => "FPE_FLTINV",
+        (SIGFPE, code::FPE_FLTUNK) => "FPE_FLTUNK",
+        (SIGSEGV, code::SEGV_MAPERR) => "SEGV_MAPERR",
+        (SIGSEGV, code::SEGV_ACCERR) => "SEGV_ACCERR",
+        (SIGBUS, code::BUS_ADRALN) => "BUS_ADRALN",
+        (SIGBUS, code::BUS_ADRERR) => "BUS_ADRERR",
+        (SIGTRAP, code::TRAP_BRKPT) => "TRAP_BRKPT",
+        (SIGTRAP, code::TRAP_TRACE) => "TRAP_TRACE",
+        (SIGCHLD, code::CLD_EXITED) => "CLD_EXITED",
+        (SIGCHLD, code::CLD_KILLED) => "CLD_KILLED",
+        (SIGCHLD, code::CLD_DUMPED) => "CLD_DUMPED",
+        (SIGCHLD, code::CLD_TRAPPED) => "CLD_TRAPPED",
+        (SIGCHLD, code::CLD_STOPPED) => "CLD_STOPPED",
+        (SIGCHLD, code::CLD_CONTINUED) => "CLD_CONTINUED",
+        (SIGSYS, code::SYS_SECCOMP) => "SYS_SECCOMP",
+        _ => return None,
+    })
+}
+
 /// The bit for `sig` in a kernel `sigset_t` (`sigmask()`).
 pub const fn sigmask(sig: i32) -> u64 {
     1u64 << (sig - 1)

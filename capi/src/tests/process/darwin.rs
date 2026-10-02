@@ -304,6 +304,7 @@ fn macho_signal_failure_is_inspectable() {
     assert_eq!(run(&p).reason, RAX_PROCESS_FAILED);
     let state = info(&p);
     assert_eq!(state["signal"]["number"], 4);
+    assert_eq!(state["signal"]["name"], "SIGILL");
     assert_eq!(address(&state["signal"]["pc"]), ENTRY);
     assert!(state["diagnostic"].as_str().unwrap().contains("SIGILL"));
 }

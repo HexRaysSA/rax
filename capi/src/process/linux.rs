@@ -56,7 +56,7 @@ impl Process {
             Ok(regs_a32::gregs(&t.cpu, t.syscall))
         } else {
             regs::get(&t.cpu, t.syscall, regs::NT_PRSTATUS)
-                .map_err(|e| internal(format!("Linux register read: {e:?}")))
+                .map_err(|e| internal(format!("Linux register read: {e}")))
         }
     }
     pub(super) fn read_context(&self, tid: u32) -> Result<Vec<u8>> {
@@ -87,7 +87,7 @@ impl Process {
         } else {
             regs::set(&mut cpu, &mut syscall, regs::NT_PRSTATUS, bytes)
         };
-        applied.map_err(|e| bad(format!("invalid Linux NT_PRSTATUS: {e:?}")))?;
+        applied.map_err(|e| bad(format!("invalid Linux NT_PRSTATUS: {e}")))?;
         cpu.discard_native_code();
         t.cpu = cpu;
         t.syscall = syscall;
@@ -112,7 +112,10 @@ impl Process {
         };
         let signal = match &p.exit {
             Some(ExitStatus::Signaled { info, pc, core }) => {
-                json!({"number":info.signo,"code":info.code,"pc":hx(*pc),"address":if info.code > 0 && info.code != rax_engine::user::linux::signal::code::SI_KERNEL {Some(hx(info.addr()))} else {None},"core":core})
+                use rax_engine::user::linux::signal::{code::SI_KERNEL, si_code_name, signal_name};
+                json!({"number":info.signo,"name":signal_name(info.signo),"code":info.code,
+                    "code_name":si_code_name(info.signo, info.code),"pc":hx(*pc),
+                    "address":if info.code > 0 && info.code != SI_KERNEL {Some(hx(info.addr()))} else {None},"core":core})
             }
             _ => Value::Null,
         };

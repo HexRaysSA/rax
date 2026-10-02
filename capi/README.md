@@ -680,11 +680,12 @@ Linux contexts instead use little-endian `NT_PRSTATUS` integer regsets
 (216/68/272/72/256 bytes for x86-64/i386/AArch64/AArch32/RV64), validated and
 committed transactionally. Inspection labels the format as `linux_prstatus`,
 reports the loaded program and resident bytes, and includes signal termination
-details. Signals return terminal `FAILED`; normal Linux exits retain the low
+details: the signal's number and name, its `si_code` and that code's name, the
+PC, and the fault address. Signals return terminal `FAILED`; normal Linux exits retain the low
 8 bits. Darwin uses `darwin_thread_state64`: Mach integer thread-state flavor
 4 (168 bytes) for x86-64 or flavor 6 (272 bytes) for AArch64. Its inspection
 reports the loaded Mach-O entry/header, thread suspend counts and control ports,
-resident bytes, and signal number/PC/core flag. Darwin context writes are
+resident bytes, and signal number/name/PC/core flag. Darwin context writes are
 transactional and retain Mach flag-validation semantics. Guest thread IDs must
 fit the process API's 32-bit ID field; inspection returns `BOUNDS` on overflow.
 Normal Darwin exits also retain the low 8 bits; signals report `FAILED`.

@@ -147,7 +147,7 @@ impl Process {
             "start":hx(v.start),"end":hx(v.end),"permissions":v.perms.bits(),"name":v.name.as_deref()})).collect();
         let signal = match &p.exit {
             Some(ExitStatus::Signaled { signo, core, pc }) => {
-                json!({"number":signo,"core":core,"pc":hx(*pc)})
+                json!({"number":signo,"name":rax_engine::user::darwin::signal::name(*signo),"core":core,"pc":hx(*pc)})
             }
             _ => Value::Null,
         };

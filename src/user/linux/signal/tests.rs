@@ -266,3 +266,22 @@ fn uapi_flags_depend_on_sa_restorer() {
     assert_eq!(uapi_sa_flags(LinuxAbi::Riscv64) & sa::RESTORER, 0);
     assert_eq!(uapi_sa_flags(LinuxAbi::X86_64) & 0x400, 0, "SA_UNSUPPORTED");
 }
+
+#[test]
+fn si_code_names_depend_on_the_signal() {
+    // Values from include/uapi/asm-generic/siginfo.h.
+    assert_eq!(si_code_name(SIGILL, 2), Some("ILL_ILLOPN"));
+    assert_eq!(si_code_name(SIGSEGV, 1), Some("SEGV_MAPERR"));
+    assert_eq!(si_code_name(SIGSEGV, 2), Some("SEGV_ACCERR"));
+    assert_eq!(si_code_name(SIGBUS, 1), Some("BUS_ADRALN"));
+    assert_eq!(si_code_name(SIGFPE, 1), Some("FPE_INTDIV"));
+    assert_eq!(si_code_name(SIGTRAP, 1), Some("TRAP_BRKPT"));
+    // The sender codes mean the same thing for every signal.
+    assert_eq!(si_code_name(SIGSEGV, 0), Some("SI_USER"));
+    assert_eq!(si_code_name(SIGILL, 0x80), Some("SI_KERNEL"));
+    assert_eq!(si_code_name(SIGTERM, -6), Some("SI_TKILL"));
+    // A code another signal defines, or none defines, has no name here.
+    assert_eq!(si_code_name(SIGTERM, 2), None);
+    assert_eq!(si_code_name(SIGILL, 3), None);
+    assert_eq!(si_code_name(SIGSEGV, -42), None);
+}

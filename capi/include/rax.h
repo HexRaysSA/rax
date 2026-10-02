@@ -1127,7 +1127,8 @@ RAX_API rax_status rax_process_set_cancelled(const rax_process *process, int can
  * Inspection including its NUL is limited to 4 MiB; larger results return BOUNDS.
  * Linux inspection replaces Windows modules/TEB/GPR/commit fields with
  * loaded_program (path, entry, load_bias, interpreter_base), resident_bytes,
- * and signal (null or number, code, PC, address, core-default-action flag).
+ * and signal (null or number, name, code, code_name, PC, address,
+ * core-default-action flag; code_name is null for a code it does not model).
  * It reports context_format="linux_prstatus": little-endian NT_PRSTATUS bytes,
  * x86-64 216, i386 68, AArch64 272, AArch32 72, RV64 256. These are integer
  * regsets, not Windows CONTEXT or an FP/vector/checkpoint image. Writes require
@@ -1135,7 +1136,7 @@ RAX_API rax_status rax_process_set_cancelled(const rax_process *process, int can
  * Darwin reports context_format="darwin_thread_state64": little-endian Mach
  * integer thread states, x86-64 flavor 4 (168 bytes), AArch64 flavor 6 (272 bytes).
  * It reports loaded_program (path, entry, mach_header, has_dyld), resident_bytes,
- * and signal (null or number, PC, core-default-action flag). Context writes
+ * and signal (null or number, name, PC, core-default-action flag). Context writes
  * require the exact size and preserve thread state on validation failure; flags
  * follow Mach thread_set_state semantics. No FP/vector or checkpoint is included.
  * Thread IDs are exact guest IDs; inspection returns BOUNDS if an ID exceeds
