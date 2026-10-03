@@ -2450,7 +2450,9 @@ fn decode_amo(w: u32, rv64: bool, isa: &Isa) -> Insn {
     let funct5 = (w >> 27) & 0x1f;
     let width = match f3 {
         0b010 => 4, // .W
-        0b011 if rv64 => 8,
+        // Only Zacas AMOCAS.D is legal as an RV32 register-pair operation;
+        // the other 64-bit AMOs remain RV64-only.
+        0b011 if rv64 || (funct5 == 0b00101 && isa.zacas) => 8,
         0b100 if rv64 => 16,
         _ => return Insn::illegal(w, 4),
     };
@@ -2484,6 +2486,10 @@ fn decode_amo(w: u32, rv64: bool, isa: &Isa) -> Insn {
     };
     // LR requires rs2 == 0.
     if matches!(op, Op::LrW | Op::LrD) && rs2(w) != 0 {
+        return Insn::illegal(w, 4);
+    }
+    // Zacas RV32: amocas.d uses even register pairs for rd and rs2.
+    if matches!(op, Op::AmocasD) && !rv64 && (rd(w) & 1 != 0 || rs2(w) & 1 != 0) {
         return Insn::illegal(w, 4);
     }
     if matches!(op, Op::AmocasQ) && (rd(w) & 1 != 0 || rs2(w) & 1 != 0) {
