@@ -1,0 +1,16 @@
+LIBRARY kernel32.dll
+EXPORTS
+ExitProcess@4
+InitializeSListHead@4
+InterlockedPushEntrySList@8
+InterlockedPopEntrySList@4
+InterlockedFlushSList@4
+QueryDepthSList@4
+InterlockedPushListSListEx@16
+IsProcessorFeaturePresent@4
+GetSystemTimeAsFileTime@4
+GetModuleHandleA@4
+GetProcAddress@8
+CreateThread@24
+WaitForSingleObject@8
+CloseHandle@4

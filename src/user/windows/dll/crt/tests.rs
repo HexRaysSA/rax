@@ -29,6 +29,8 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(STDIO_EXPORTS)
         .chain(MSVCRT_STDIO_EXPORTS)
         .chain(UCRT_STDIO_EXPORTS)
+        .chain(UCRT_EXCEPTION_FILTER_EXPORTS)
+        .chain(NEW_HANDLER_EXPORTS)
         .find_map(|export| match &export.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,
@@ -523,6 +525,46 @@ fn unsupported_new_handler_registration_and_legacy_compat_wrappers_are_not_expor
                     b"_set_thread_local_invalid_parameter_handler".to_vec(),
                     None
                 )
+            )
+            .unwrap(),
+            None
+        );
+    });
+}
+
+#[test]
+fn handler_queries_answer_from_what_a_guest_can_install() {
+    run(|c| {
+        // No new handler can be installed (_set_new_handler is not exported),
+        // so none runs, in either runtime.
+        for kind in [RuntimeKind::Msvcrt, RuntimeKind::Ucrt] {
+            assert_eq!(int(invoke(c, kind, "_callnewh", &[64])), 0, "{kind:?}");
+        }
+        // The exception-class signal actions cannot leave the default, so the
+        // filter keeps searching; it never reads its pointer argument.
+        for code in [0xC000_0005u64, 0xC000_001D, 0xC000_0094, 0x8000_0003] {
+            assert_eq!(
+                int(invoke(
+                    c,
+                    RuntimeKind::Ucrt,
+                    "_seh_filter_exe",
+                    &[code, 0x10]
+                )),
+                0
+            );
+        }
+        // That claim holds only while installing such an action is refused.
+        assert!(matches!(
+            invoke(c, RuntimeKind::Ucrt, "signal", &[11, 0x1000]),
+            Err(ApiErr::Unimplemented(_))
+        ));
+        // msvcrt.dll exports _XcptFilter, not the UCRT filter.
+        let legacy = c.p.modules.by_name("msvcrt.dll").unwrap();
+        assert_eq!(
+            loader::lookup(
+                c.p,
+                legacy,
+                &SymRef::Name(b"_seh_filter_exe".to_vec(), None)
             )
             .unwrap(),
             None

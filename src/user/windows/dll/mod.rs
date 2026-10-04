@@ -11,6 +11,8 @@ mod kernel;
 pub(crate) mod libraries;
 mod locks;
 mod native;
+mod slist;
+mod sysinfo;
 mod threading;
 
 use super::hle::Export;
@@ -41,7 +43,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
     name: "ntdll.dll",
     display: "ntdll.dll",
     subsystem: 3,
-    exports: &[native::EXPORTS],
+    exports: &[native::EXPORTS, slist::NTDLL_EXPORTS],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {
     name: "kernel32.dll",
@@ -59,6 +61,9 @@ static KERNEL32: BuiltinDll = BuiltinDll {
         locks::EXPORTS,
         files::EXPORTS,
         kernel::VCH_EXPORTS,
+        slist::KERNEL_FORWARDS,
+        sysinfo::EXPORTS,
+        sysinfo::KERNEL32_FORWARDS,
     ],
 };
 static KERNELBASE: BuiltinDll = BuiltinDll {
@@ -76,6 +81,8 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         locks::EXPORTS,
         files::EXPORTS,
         kernel::VCH_EXPORTS,
+        slist::KERNEL_FORWARDS,
+        sysinfo::EXPORTS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {
@@ -92,6 +99,7 @@ static MSVCRT: BuiltinDll = BuiltinDll {
         crt::MSVCRT_STARTUP_EXPORTS,
         crt::STDIO_EXPORTS,
         crt::MSVCRT_STDIO_EXPORTS,
+        crt::NEW_HANDLER_EXPORTS,
     ],
 };
 static UCRTBASE: BuiltinDll = BuiltinDll {
@@ -116,6 +124,8 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::UCRT_SIGNAL_EXPORTS,
         crt::STDIO_EXPORTS,
         crt::UCRT_STDIO_EXPORTS,
+        crt::UCRT_EXCEPTION_FILTER_EXPORTS,
+        crt::NEW_HANDLER_EXPORTS,
     ],
 };
 static VCRUNTIME140: BuiltinDll = BuiltinDll {
@@ -242,6 +252,81 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    /// Every forwarder names a built-in DLL that exports a function by that
+    /// name on each architecture the forwarder exists on.
+    #[test]
+    fn builtin_forwarders_resolve_to_builtin_functions() {
+        use crate::user::windows::hle::Item;
+        let mut checked = 0;
+        for dll in [
+            &NTDLL,
+            &KERNEL32,
+            &KERNELBASE,
+            &MSVCRT,
+            &UCRTBASE,
+            &VCRUNTIME140,
+        ] {
+            for export in dll.exports.iter().flat_map(|table| table.iter()) {
+                let Item::Forward(to) = export.item else {
+                    continue;
+                };
+                let (module, symbol) = to.split_once('.').expect("MODULE.Symbol");
+                let target = find(&format!("{}.dll", module.to_ascii_lowercase()))
+                    .unwrap_or_else(|| panic!("{}: {} forwards to a missing DLL", dll.name, to));
+                for arch in WinArch::ALL {
+                    if !export.archs.has(arch) {
+                        continue;
+                    }
+                    let found = target.exports.iter().flat_map(|t| t.iter()).any(|e| {
+                        e.name == symbol && e.archs.has(arch) && matches!(e.item, Item::Func(_))
+                    });
+                    assert!(
+                        found,
+                        "{} {arch:?}: {} -> {to} dangles",
+                        dll.name, export.name
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 0);
+    }
+
+    /// A KERNEL32 forwarder binds to the NTDLL function itself, as
+    /// GetProcAddress does on Windows.
+    #[test]
+    fn kernel32_forwarders_bind_to_the_ntdll_addresses() {
+        use crate::user::windows::loader::{self, SymRef};
+        use crate::user::windows::process::{WindowsConfig, WindowsProcess};
+        let mut config = WindowsConfig::new("forward-test.exe", vec![]);
+        config.seed = Some(1);
+        config.arena_bytes = 64 << 20;
+        let mut process = WindowsProcess::spawn_image(
+            config,
+            include_bytes!("../../../../tests/fixtures/user/windows/bin/x64/smoke.exe").to_vec(),
+        )
+        .unwrap();
+        let p = process.state_mut();
+        let kernel32 = loader::load_dll(p, "kernel32.dll").unwrap();
+        let ntdll = loader::load_dll(p, "ntdll.dll").unwrap();
+        let mut address = |module: usize, name: &str| {
+            loader::lookup(p, module, &SymRef::Name(name.as_bytes().to_vec(), None))
+                .unwrap()
+                .unwrap_or_else(|| panic!("{name} is not exported"))
+        };
+        for (kernel_name, ntdll_name) in [
+            ("RtlCaptureContext", "RtlCaptureContext"),
+            ("InitializeSListHead", "RtlInitializeSListHead"),
+            ("InterlockedPopEntrySList", "RtlInterlockedPopEntrySList"),
+        ] {
+            assert_eq!(
+                address(kernel32, kernel_name),
+                address(ntdll, ntdll_name),
+                "{kernel_name}"
+            );
         }
     }
 

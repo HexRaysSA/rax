@@ -150,6 +150,14 @@ behavior. Existing initializer, startup, allocation, and onexit infrastructure
 does not by itself implement CRT `exit`, global atexit draining, stream flushing
 at every termination path, or complete ordinary producer startup.
 
+Ordinary MSVC startup — `mainCRTStartup` through `__scrt_common_main_seh`,
+CRT initialization (including `InitializeSListHead`), `main`, and `exit` — is
+now demonstrated for x64 and ARM64 by
+[`msvc-startup-check.sh`](../../../../tests/fixtures/user/windows/msvc-startup-check.sh),
+which builds against the downloaded Microsoft CRT outside the repository. x86
+stops at `ucrtbase.dll!_controlfp_s`. C++ exceptions and SEH dispatch through
+`__C_specific_handler` remain outside the demonstrated path.
+
 ## Ordinary producer evidence
 
 [producer](producer/) contains four installed GCC startup-object undefined-symbol

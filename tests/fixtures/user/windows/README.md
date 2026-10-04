@@ -81,3 +81,35 @@ Its own manifest records source, tool and binary hashes. The
 [retained Microsoft VCH references](../../../../docs/specifications/windows/services/vch/README.md)
 define the public API surface; native Windows execution and in-flight
 registration-mutation equivalence remain unknown.
+
+## SList, processor-feature and system-time fixture
+
+The separate [SList fixture](slist/README.md) imports the public KERNEL32
+SList functions, `IsProcessorFeaturePresent`, `GetSystemTimeAsFileTime`,
+`GetProcAddress` and two-thread `CreateThread`/`WaitForSingleObject` on x86,
+x64 and ARM64. It checks LIFO order, depth, flush, list push, KERNEL32-to-NTDLL
+forwarding identity, fast-fail availability, a CPUID-consistent SSE2 answer,
+wall-clock plausibility and conserved depth under contention, at scheduler
+slices of 1 and 4,096 guest instructions. Its own manifest records source,
+tool and binary hashes. The
+[retained Microsoft references](../../../../docs/specifications/windows/services/slist/README.md)
+define the public API surface; native Windows execution remains unknown.
+
+## Ordinary MSVC startup check
+
+[`msvc-startup-check.sh`](msvc-startup-check.sh) is the only file this check
+keeps in the repository. Run with `--accept-msvc-license`, it downloads
+Microsoft's CRT and Windows SDK with xwin into a cache outside the tree
+(`$RAX_MSVC_CACHE`, default `~/.cache/rax-msvc-startup`), compiles a console
+program with `clang-cl /MD /GS` — the dynamic UCRT and VCRUNTIME140, as MSVC
+links by default — for x86, x64 and ARM64 in a temporary directory, checks
+the imports, and runs each executable under `rax-user` at scheduler slices of
+1 and 4,096. Every run must exit 42 with `msvc-startup ok` and CRLF on
+stdout. No Microsoft binary, header or library is committed. The script fails
+when a prerequisite is missing rather than skipping; `--arch` selects a
+subset.
+
+As of this check's introduction, x64 and ARM64 start through
+`__scrt_common_main_seh`, run `main` and exit through the CRT. x86 stops at
+`ucrtbase.dll!_controlfp_s`, which the x86 CRT calls during startup to set
+the default floating-point precision and which RAX does not implement.

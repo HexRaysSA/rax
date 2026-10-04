@@ -62,6 +62,9 @@ mod arm64_dynamic_unwind;
 #[path = "vch.rs"]
 mod vch;
 
+#[path = "slist.rs"]
+mod slist;
+
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/user/windows")
 }

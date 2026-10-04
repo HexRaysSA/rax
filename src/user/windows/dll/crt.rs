@@ -2,6 +2,7 @@
 
 mod allocation;
 mod bootstrap;
+mod handlers;
 mod initialize;
 mod invalid;
 mod memory;
@@ -22,6 +23,7 @@ use super::super::loader::ModuleKind;
 
 pub(crate) use allocation::ALLOCATION_EXPORTS;
 pub(crate) use bootstrap::UCRT_BOOTSTRAP_EXPORTS;
+pub(crate) use handlers::{NEW_HANDLER_EXPORTS, UCRT_EXCEPTION_FILTER_EXPORTS};
 pub(crate) use initialize::{INIT_EXPORTS, MSVCRT_INIT_EXPORTS, UCRT_INIT_EXPORTS};
 pub(crate) use memory::{MEMORY_EXPORTS, VCRUNTIME_MEMORY_EXPORTS};
 pub(crate) use onexit::UCRT_ONEXIT_EXPORTS;
