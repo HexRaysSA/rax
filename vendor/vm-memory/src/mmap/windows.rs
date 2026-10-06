@@ -302,7 +302,7 @@ impl<B: Bitmap> VolatileMemory for MmapRegion<B> {
         &self,
         offset: usize,
         count: usize,
-    ) -> volatile_memory::Result<VolatileSlice<BS<Self::B>>> {
+    ) -> volatile_memory::Result<VolatileSlice<'_, BS<'_, Self::B>>> {
         let end = compute_offset(offset, count)?;
         if end > self.size {
             return Err(volatile_memory::Error::OutOfBounds { addr: end });

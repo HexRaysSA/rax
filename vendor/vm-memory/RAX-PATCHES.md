@@ -33,3 +33,10 @@ and raw-pointer user. In particular, a cached CPU pointer is not automatically
 revoked by the validator. The original owned constructor remains unguarded.
 The additional source changes are confined to `src/mmap/windows.rs` and the
 Windows branch of host-address validation in `src/mmap/mod.rs`.
+
+Rust 1.89 and later warn `mismatched_lifetime_syntaxes` when a signature
+elides a lifetime on `&self` / `&mut self` and hides that same lifetime
+inside a type path (`WithBitmapSlice`, `VolatileSlice`, `VolatileRef`,
+`VolatileArrayRef`, `BS`, `MS`). Those return types now spell the lifetime
+as `'_`. The types are unchanged. The same signatures are adjusted on the
+Unix, Windows, and Xen mmap backends so each target builds without the lint.
