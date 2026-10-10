@@ -58,6 +58,98 @@ fn program(abi: LinuxAbi) -> Vec<u8> {
 }
 
 #[test]
+fn selected_host_files_use_demand_reads_and_guest_local_descriptors_all_abis() {
+    let fixture =
+        crate::user::supplied_fs::test_backing::TestFile::new(b"native-library", (64 << 20) + 1);
+    for abi in ABIS {
+        let files = Files::default()
+            .with_host_file("/lib/native.so".into(), &fixture.path)
+            .unwrap();
+        let mut h = Harness::with_supplied(abi, files);
+        let (name, buf) = (h.scratch, h.scratch + 512);
+        path(&h, name, "/lib/native.so");
+        let fd = h.ok(Sysno::Openat, &[AT_FDCWD, name, 0, 0]);
+        let file = h.proc.state.fds.file(fd as i32).unwrap();
+        assert!(file.host_path.is_none());
+        assert!(crate::user::linux::syscall::ready::raw_fd(&file).is_none());
+        assert!(matches!(
+            h.proc.state.vfs.read_image("/lib/native.so"),
+            Err(_)
+        ));
+        assert_eq!(h.ok(Sysno::Ioctl, &[fd, 0x541b, buf]), 0);
+        assert_eq!(
+            u32::from_le_bytes(get(&h, buf, 4).try_into().unwrap()),
+            (64 << 20) + 1
+        );
+        let duplicate = h.ok(Sysno::Dup, &[fd]);
+        assert_eq!(h.ok(Sysno::Read, &[fd, buf, 6]), 6);
+        assert_eq!(get(&h, buf, 6), b"native");
+        assert_eq!(h.ok(Sysno::Read, &[duplicate, buf, 8]), 8);
+        assert_eq!(get(&h, buf, 8), b"-library");
+        assert_eq!(h.ok(Sysno::Pread64, &[fd, buf, 14, 0, 0, 0]), 14);
+        assert_eq!(get(&h, buf, 14), b"native-library");
+        assert_eq!(h.ok(Sysno::Lseek, &[duplicate, 0, 1]), 14);
+        assert_eq!(h.ok(Sysno::Lseek, &[fd, 0, 2]), (64 << 20) + 1);
+        assert_eq!(h.ok(Sysno::Read, &[fd, buf, 1]), 0);
+        assert_eq!(h.ok(Sysno::Lseek, &[fd, 0, 0]), 0);
+        let private = mmap(&mut h, fd, 3, 2);
+        assert!(private > 0);
+        assert_eq!(get(&h, private as u64, 14), b"native-library");
+        put(&h, private as u64, b"private");
+        assert_eq!(h.ok(Sysno::Pread64, &[fd, buf, 14, 0, 0, 0]), 14);
+        assert_eq!(get(&h, buf, 14), b"native-library");
+        assert_eq!(mmap(&mut h, fd, 3, 1), -i64::from(EACCES));
+        let shared = mmap(&mut h, fd, 1, 1);
+        assert!(shared > 0);
+        assert_eq!(h.err(Sysno::Mprotect, &[shared as u64, 4096, 3]), EACCES);
+        assert_eq!(h.err(Sysno::Write, &[fd, buf, 1]), EBADF);
+        assert_eq!(h.ok(Sysno::Close, &[fd]), 0);
+        assert_eq!(h.ok(Sysno::Close, &[duplicate]), 0);
+        assert_eq!(get(&h, shared as u64, 14), b"native-library");
+        assert_eq!(
+            crate::user::linux::syscall::path::stat_open(&file, (0, 0))
+                .unwrap()
+                .size,
+            (64 << 20) + 1
+        );
+    }
+}
+
+#[test]
+fn selected_file_stats_observe_live_truncation_all_abis() {
+    for abi in ABIS {
+        let fixture = crate::user::supplied_fs::test_backing::TestFile::new(b"library", 7);
+        let files = Files::default()
+            .with_host_file("/lib/native.so".into(), &fixture.path)
+            .unwrap();
+        let mut h = Harness::with_supplied(abi, files);
+        let (name, buf) = (h.scratch, h.scratch + 512);
+        path(&h, name, "/lib/native.so");
+        let fd = h.ok(Sysno::Openat, &[AT_FDCWD, name, 0, 0]);
+        let file = h.proc.state.fds.file(fd as i32).unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&fixture.path)
+            .unwrap()
+            .set_len(3)
+            .unwrap();
+        assert_eq!(
+            crate::user::linux::syscall::path::stat_open(&file, (0, 0))
+                .unwrap()
+                .size,
+            3
+        );
+        assert_eq!(h.ok(Sysno::Statx, &[AT_FDCWD, name, 0, 0x7ff, buf]), 0);
+        assert_eq!(
+            u64::from_le_bytes(get(&h, buf + 40, 8).try_into().unwrap()),
+            3
+        );
+        assert_eq!(h.ok(Sysno::Read, &[fd, buf, 16]), 3);
+        assert_eq!(get(&h, buf, 3), b"lib");
+    }
+}
+
+#[test]
 fn supplied_files_read_seek_stat_map_and_enumerate_all_abis() {
     for abi in ABIS {
         let data: Arc<[u8]> = Arc::from(&b"provided bytes"[..]);

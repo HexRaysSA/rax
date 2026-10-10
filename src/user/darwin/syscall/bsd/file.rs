@@ -7,6 +7,7 @@
 //! `poll`. A descriptor in non-blocking mode fails with `EAGAIN` as the
 //! host reports.
 
+use crate::user::darwin::fd::EmbeddedFile;
 #[cfg(unix)]
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::sync::Arc;
@@ -741,6 +742,29 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
             bytes[..path.len()].copy_from_slice(path);
             ctx.write(arg, &bytes)?;
             return Ok(Rv::one(0));
+        }
+        F_ADDFILESIGS | F_ADDFILESIGS_RETURN | F_ADDFILESIGS_FOR_DYLD_SIM
+            if matches!(file.kind, FileKind::Embedded(_)) =>
+        {
+            if let FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) = &file.kind {
+                #[cfg(unix)]
+                if let Some(selected) = entry.host_file() {
+                    use std::os::fd::AsRawFd;
+                    return addfilesigs(ctx, selected.as_raw_fd(), c, arg);
+                }
+            }
+            return Err(Errno::ENOTSUP);
+        }
+        F_CHECK_LV if matches!(file.kind, FileKind::Embedded(_)) => {
+            if let FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) = &file.kind
+                && entry.host_file().is_some()
+            {
+                // Same emulated library-validation policy as the host profile:
+                // admit the selected image, validate the guest argument buffer.
+                ctx.read(arg, 24)?;
+                return Ok(Rv::one(0));
+            }
+            return Err(Errno::ENOTSUP);
         }
         // A kqueue keeps its status flags in its open file; it takes no
         // FIONBIO (ENOTTY), which fails F_SETFL once the flags are set.

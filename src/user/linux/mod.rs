@@ -65,6 +65,7 @@ pub mod process;
 pub mod procfs;
 pub mod ptrace;
 pub mod rseq;
+pub mod runtime_files;
 pub mod sched;
 pub mod seccomp;
 #[cfg(unix)]

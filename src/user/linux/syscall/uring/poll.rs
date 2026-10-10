@@ -78,7 +78,10 @@ enum Armed {
 fn can_poll(file: &OpenFile) -> bool {
     match &file.object {
         FileObject::Host(_) => !matches!(file.ftype, FileType::Regular | FileType::Directory),
-        FileObject::Synthetic(_) | FileObject::PathOnly | FileObject::Console { .. } => false,
+        FileObject::Synthetic(_)
+        | FileObject::Supplied(_)
+        | FileObject::PathOnly
+        | FileObject::Console { .. } => false,
         _ => true,
     }
 }

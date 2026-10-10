@@ -91,6 +91,11 @@ impl HostFileSource {
         Self::keeping(file, None)
     }
 
+    /// Retained file for narrowly scoped native metadata operations.
+    pub(crate) fn file(&self) -> &std::fs::File {
+        &self.file
+    }
+
     /// [`HostFileSource::new`], keeping `keep` while it lives.
     pub fn keeping(file: std::fs::File, keep: Option<super::Keep>) -> std::io::Result<Self> {
         let file = super::mapped_file::MappedFile::keeping(file, keep);

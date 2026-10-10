@@ -61,6 +61,9 @@ pub enum FileObject {
     PipeWrite(std::io::PipeWriter),
     /// Synthesized read-only content (`/proc` files and directories).
     Synthetic(Arc<[u8]>),
+    /// Read-only guest namespace entry, including demand-read selected backing.
+    /// Its host handle is never an ordinary guest descriptor.
+    Supplied(crate::user::supplied_fs::Entry),
     /// An `O_PATH` reference: identifies a file without I/O capability.
     PathOnly,
     /// An anonymous-inode object (`eventfd`, `timerfd`, `signalfd`),
@@ -305,6 +308,12 @@ impl OpenFile {
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             #[cfg(unix)]
             FileObject::Socket(s) => Ok((&s.file).read(buf)?),
+            FileObject::Supplied(entry) => {
+                let mut st = self.state.lock().unwrap();
+                let n = entry.source()?.read_at(st.synth_pos, buf)?;
+                st.synth_pos = st.synth_pos.checked_add(n as u64).ok_or(Errno(EOVERFLOW))?;
+                Ok(n)
+            }
             FileObject::Synthetic(data) => {
                 let mut st = self.state.lock().unwrap();
                 let pos = st.synth_pos.min(data.len() as u64) as usize;
@@ -388,7 +397,7 @@ impl OpenFile {
                 Ok(n)
             }
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
-            FileObject::Synthetic(_) => Err(Errno(EACCES)),
+            FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             #[cfg(unix)]
             FileObject::Socket(s) => Ok((&s.file).write(data)?),
@@ -415,6 +424,7 @@ impl OpenFile {
                 Ok(f.read_at(buf, offset)?)
             }
             FileObject::Host(_) if self.ftype == FileType::Directory => Err(Errno(EISDIR)),
+            FileObject::Supplied(entry) => Ok(entry.source()?.read_at(offset, buf)?),
             FileObject::Synthetic(data) => {
                 let pos = offset.min(data.len() as u64) as usize;
                 let n = buf.len().min(data.len() - pos);
@@ -447,7 +457,7 @@ impl OpenFile {
                 let n = self.sealed_len(f, Some(offset), data.len())?;
                 Ok(f.write_at(&data[..n], offset)?)
             }
-            FileObject::Synthetic(_) => Err(Errno(EACCES)),
+            FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Mqueue(_) if !self.fmode().1 => Err(Errno(EBADF)),
             FileObject::Mqueue(_) => Err(Errno(EINVAL)),
             FileObject::PathOnly => Err(Errno(EBADF)),
@@ -480,7 +490,9 @@ impl OpenFile {
                 };
                 Ok((&*f).seek(pos)?)
             }
-            FileObject::Host(_) | FileObject::Synthetic(_) if self.ftype == FileType::Directory => {
+            FileObject::Host(_) | FileObject::Synthetic(_) | FileObject::Supplied(_)
+                if self.ftype == FileType::Directory =>
+            {
                 // Directories support rewinding and absolute cursor positions
                 // (the d_off values getdents64 returned).
                 let mut st = self.state.lock().unwrap();
@@ -528,6 +540,21 @@ impl OpenFile {
             }
             // noop_llseek: the position stays 0.
             FileObject::Anon(_) => Ok(0),
+            FileObject::Supplied(entry) => {
+                let mut st = self.state.lock().unwrap();
+                let base = match whence {
+                    SEEK_SET => 0,
+                    SEEK_CUR => i64::try_from(st.synth_pos).map_err(|_| Errno(EOVERFLOW))?,
+                    SEEK_END => i64::try_from(entry.len()).map_err(|_| Errno(EOVERFLOW))?,
+                    _ => return Err(Errno(EINVAL)),
+                };
+                let target = base
+                    .checked_add(offset)
+                    .filter(|t| *t >= 0)
+                    .ok_or(Errno(EINVAL))?;
+                st.synth_pos = target as u64;
+                Ok(st.synth_pos)
+            }
             FileObject::Synthetic(data) => {
                 let mut st = self.state.lock().unwrap();
                 let base = match whence {

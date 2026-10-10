@@ -136,6 +136,8 @@ impl From<crate::user::supplied_fs::Error> for Errno {
             E::NotFound => Self::ENOENT,
             E::NotDirectory => Self::ENOTDIR,
             E::IsDirectory => Self::EISDIR,
+            E::Io => Self::EIO,
+            E::TooLarge => Self::EFBIG,
         }
     }
 }

@@ -106,7 +106,7 @@ fn has_positions(f: &OpenFile) -> bool {
             FileType::CharDevice => !is_tty(f),
             _ => false,
         },
-        FileObject::Synthetic(_) | FileObject::Mqueue(_) => true,
+        FileObject::Synthetic(_) | FileObject::Supplied(_) | FileObject::Mqueue(_) => true,
         _ => false,
     }
 }
@@ -116,7 +116,7 @@ fn has_positions(f: &OpenFile) -> bool {
 fn positioned(f: &OpenFile) -> bool {
     match &f.object {
         FileObject::Host(_) => f.ftype == FileType::Regular,
-        FileObject::Synthetic(_) => true,
+        FileObject::Synthetic(_) | FileObject::Supplied(_) => true,
         _ => false,
     }
 }
@@ -133,7 +133,7 @@ fn has_splice_read(f: &OpenFile) -> bool {
         },
         #[cfg(unix)]
         FileObject::Socket(_) => true,
-        FileObject::Synthetic(_) => true,
+        FileObject::Synthetic(_) | FileObject::Supplied(_) => true,
         _ => false,
     }
 }

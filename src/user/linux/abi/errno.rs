@@ -41,6 +41,8 @@ impl From<crate::user::supplied_fs::Error> for Errno {
             E::NotFound => linux::ENOENT,
             E::NotDirectory => linux::ENOTDIR,
             E::IsDirectory => linux::EISDIR,
+            E::Io => linux::EIO,
+            E::TooLarge => linux::EFBIG,
         })
     }
 }

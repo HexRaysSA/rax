@@ -47,7 +47,7 @@ fn mount_id(file: &OpenFile) -> i32 {
     match &file.object {
         FileObject::Host(_) if file.memfd.is_some() => mnt::SHM,
         FileObject::Host(_) | FileObject::PathOnly | FileObject::Console { .. } => mnt::ROOT,
-        FileObject::Synthetic(_) => mnt::PROC,
+        FileObject::Synthetic(_) | FileObject::Supplied(_) => mnt::PROC,
         FileObject::PipeRead(_) | FileObject::PipeWrite(_) => mnt::PIPEFS,
         #[cfg(unix)]
         FileObject::Socket(_) => mnt::SOCKFS,
@@ -63,7 +63,7 @@ fn position(file: &OpenFile) -> i64 {
     let dir = file.state.lock().unwrap().dir.as_ref().map(|d| d.1);
     match &file.object {
         _ if file.ftype == FileType::Directory => dir.unwrap_or(0) as i64,
-        FileObject::Synthetic(_) | FileObject::Mqueue(_) => {
+        FileObject::Synthetic(_) | FileObject::Supplied(_) | FileObject::Mqueue(_) => {
             file.state.lock().unwrap().synth_pos as i64
         }
         FileObject::Host(_) if matches!(file.ftype, FileType::Regular | FileType::BlockDevice) => {

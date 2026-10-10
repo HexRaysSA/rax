@@ -567,6 +567,73 @@ fn supplied_mmap_preserves_copy_on_write_eof_and_guest_page_granularity() {
 }
 
 #[test]
+fn selected_runtime_metadata_controls_do_not_admit_copied_files_or_bad_buffers() {
+    use crate::user::darwin::{
+        abi::Errno,
+        arch::Rv,
+        fd::OpenFile,
+        syscall::{
+            Ctx,
+            bsd::file::{self, cmd},
+        },
+    };
+    for selected in [false, true] {
+        let fixture = crate::user::supplied_fs::test_backing::TestFile::new(b"runtime", 7);
+        let files = if selected {
+            crate::user::supplied_fs::Files::default()
+                .with_host_file("/runtime".into(), &fixture.path)
+                .unwrap()
+        } else {
+            crate::user::supplied_fs::Files::default()
+                .with_file("/runtime".into(), Arc::from(&b"runtime"[..]))
+                .unwrap()
+        };
+        let mut process = process(DarwinAbi::Arm64);
+        let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+        let buffer = thread.cpu.sp() - 256;
+        let mut ctx = Ctx {
+            proc: &mut process.proc,
+            thread: &mut thread,
+            nr: 92,
+            pc: ENTRY,
+        };
+        let (path, entry) = files.lookup("/runtime").unwrap();
+        let fd = ctx
+            .proc
+            .fds
+            .install(Arc::new(OpenFile::supplied(path, entry)), false, 0, 256)
+            .unwrap();
+        ctx.write(buffer, &[0; 32]).unwrap();
+        assert_eq!(
+            file::fcntl(&mut ctx, fd, cmd::F_CHECK_LV, buffer),
+            if selected {
+                Ok(Rv::one(0))
+            } else {
+                Err(Errno::ENOTSUP)
+            }
+        );
+        assert_eq!(
+            file::fcntl(&mut ctx, fd, cmd::F_CHECK_LV, 0),
+            if selected {
+                Err(Errno::EFAULT)
+            } else {
+                Err(Errno::ENOTSUP)
+            }
+        );
+        assert_eq!(
+            file::fcntl(&mut ctx, fd, cmd::F_ADDFILESIGS_RETURN, 0),
+            if selected && cfg!(unix) {
+                Err(Errno::EFAULT)
+            } else {
+                Err(Errno::ENOTSUP)
+            }
+        );
+        assert!(!ctx.proc.config.host_services);
+        assert!(ctx.proc.fds.file(fd).unwrap().host_fd().is_none());
+    }
+}
+
+#[test]
 fn isolated_bridge_denies_guest_forwarding_and_releases_consumed_rights() {
     use crate::user::darwin::{
         bridge,

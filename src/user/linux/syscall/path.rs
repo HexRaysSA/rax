@@ -152,13 +152,10 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
     }
 }
 
-/// Metadata of an immutable supplied entry. All entries are readable and
+/// Metadata of a read-only supplied entry. All entries are readable and
 /// executable/searchable; no guest identity has write permission.
 fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
-    let size = match &entry.kind {
-        crate::user::supplied_fs::Kind::File(bytes) => bytes.len() as i64,
-        crate::user::supplied_fs::Kind::Directory => 0,
-    };
+    let size = entry.len().min(i64::MAX as u64) as i64;
     Stat {
         ino: entry.ino,
         mode: if entry.is_dir() {
@@ -184,6 +181,9 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
 /// Metadata of an open file of a process whose effective UID and GID are
 /// `ids` (the owner of the inodes it creates).
 pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
+    if let FileObject::Supplied(entry) = &file.object {
+        return Ok(supplied_stat(entry));
+    }
     if let Some(stat) = file.supplied_stat {
         return Ok(stat);
     }
@@ -269,6 +269,7 @@ pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
             blksize: 4096,
             ..Default::default()
         }),
+        FileObject::Supplied(entry) => Ok(supplied_stat(entry)),
         FileObject::Synthetic(d) => Ok(proc_stat(
             ids,
             &if file.ftype == FileType::Directory {
@@ -355,7 +356,7 @@ pub(super) fn open_target(
                 return Err(Errno(ENOTDIR));
             }
             let mut directory = None;
-            let (data, kind) = if entry.is_dir() {
+            let (object, kind) = if entry.is_dir() {
                 let files = c.p.vfs.supplied().expect("supplied target has a namespace");
                 let parent = files.lookup(&format!("{guest}/.."))?.1;
                 let mut entries = vec![
@@ -382,11 +383,11 @@ pub(super) fn open_target(
                     }
                 }));
                 directory = Some((entries, 0));
-                (Arc::from([]), FileType::Directory)
+                (FileObject::Synthetic(Arc::from([])), FileType::Directory)
             } else {
-                (entry.bytes()?, FileType::Regular)
+                (FileObject::Supplied(entry.clone()), FileType::Regular)
             };
-            let mut file = OpenFile::new(FileObject::Synthetic(data), kind, guest, None, status);
+            let mut file = OpenFile::new(object, kind, guest, None, status);
             let unique = Arc::get_mut(&mut file).expect("new unpublished file");
             unique.supplied_stat = Some(supplied_stat(&entry));
             unique.state.get_mut().unwrap().dir = directory;

@@ -157,6 +157,7 @@ fn host_fd(f: &OpenFile) -> Option<RawFd> {
         FileObject::Socket(s) => Some(s.raw()),
         FileObject::Console { .. }
         | FileObject::Synthetic(_)
+        | FileObject::Supplied(_)
         | FileObject::PathOnly
         | FileObject::Anon(_)
         | FileObject::Mqueue(_) => None,

@@ -349,6 +349,22 @@ pub fn mmap(
                 name = Some("anon_inode:[io_uring]".into());
                 vm_flags |= vma_flags::SPECIAL;
             }
+            (FileObject::Supplied(entry), FileType::Regular) => {
+                if !file.readable() {
+                    return Err(Errno(EACCES));
+                }
+                if shared && !file.writable() {
+                    if prot & PROT_WRITE != 0 {
+                        return Err(Errno(EACCES));
+                    }
+                    vm_flags |= vma_flags::DENY_WRITE;
+                }
+                backing = Backing::Source {
+                    source: entry.source()?,
+                    offset: off,
+                };
+                name = Some(file.path.as_str().into());
+            }
             (FileObject::Synthetic(d), FileType::Regular) => {
                 if !file.readable() {
                     return Err(Errno(EACCES));

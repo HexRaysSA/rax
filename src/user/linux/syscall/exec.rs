@@ -100,6 +100,13 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
                 if file.ftype != super::super::fs::fd::FileType::Regular {
                     return Err(Errno(EACCES));
                 }
+                if let super::super::fs::fd::FileObject::Supplied(entry) = &file.object {
+                    return Ok(ExecFile {
+                        host: None,
+                        bytes: Some(entry.bytes()?),
+                        guest: file.path.clone(),
+                    });
+                }
                 if let super::super::fs::fd::FileObject::Synthetic(bytes) = &file.object {
                     return Ok(ExecFile {
                         host: None,

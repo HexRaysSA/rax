@@ -147,6 +147,7 @@ pub(super) fn set_host_nonblocking(file: &OpenFile, on: bool) -> Result<(), Errn
         FileObject::Socket(_) => Ok(()),
         FileObject::Console { .. }
         | FileObject::Synthetic(_)
+        | FileObject::Supplied(_)
         | FileObject::PathOnly
         | FileObject::Anon(_)
         | FileObject::Mqueue(_) => Ok(()),
@@ -251,6 +252,10 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
                     console,
                     stream: None,
                 } => console.pending()?.0.min(i32::MAX as usize) as i32,
+                FileObject::Supplied(entry) => {
+                    let pos = file.state.lock().unwrap().synth_pos;
+                    entry.len().saturating_sub(pos).min(i32::MAX as u64) as i32
+                }
                 FileObject::Synthetic(d) => {
                     let pos = file.state.lock().unwrap().synth_pos;
                     (d.len() as u64).saturating_sub(pos) as i32

@@ -70,7 +70,10 @@ fn file_times(c: &Ctx<'_>, file: &OpenFile, t: [SetTime; 2]) -> SysResult {
         FileObject::Mqueue(h) => return super::mqueue::set_times(c, h, t),
         #[cfg(unix)]
         FileObject::Socket(_) => {}
-        FileObject::PipeRead(_) | FileObject::PipeWrite(_) | FileObject::Synthetic(_) => {}
+        FileObject::PipeRead(_)
+        | FileObject::PipeWrite(_)
+        | FileObject::Synthetic(_)
+        | FileObject::Supplied(_) => {}
     }
     Ok(0)
 }

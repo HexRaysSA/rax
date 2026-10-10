@@ -1287,8 +1287,10 @@ pub fn readahead(c: &mut Ctx<'_>, fd: i32) -> SysResult {
     if matches!(file.object, FileObject::PathOnly) || !file.readable() {
         return Err(Errno(EBADF));
     }
-    let cached = matches!(file.object, FileObject::Host(_) | FileObject::Synthetic(_))
-        && matches!(file.ftype, FileType::Regular | FileType::BlockDevice);
+    let cached = matches!(
+        file.object,
+        FileObject::Host(_) | FileObject::Synthetic(_) | FileObject::Supplied(_)
+    ) && matches!(file.ftype, FileType::Regular | FileType::BlockDevice);
     if !cached {
         return Err(Errno(EINVAL));
     }
@@ -1333,7 +1335,7 @@ pub(super) fn sync_file_range_file(
     // is a regular file to the VFS; /proc's are regular files and
     // directories).
     let data = match &file.object {
-        FileObject::Host(_) | FileObject::Synthetic(_) => matches!(
+        FileObject::Host(_) | FileObject::Synthetic(_) | FileObject::Supplied(_) => matches!(
             file.ftype,
             FileType::Regular | FileType::BlockDevice | FileType::Directory | FileType::Symlink
         ),

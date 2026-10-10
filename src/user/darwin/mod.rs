@@ -59,6 +59,7 @@ pub mod mach;
 pub mod mig;
 pub mod process;
 pub mod psynch;
+pub mod runtime_files;
 pub mod shared_region;
 pub mod signal;
 pub mod stack;

@@ -21,8 +21,12 @@ impl EmbeddedFile {
     pub fn available(&self) -> Result<u64, Errno> {
         match self {
             Self::Supplied { entry, cursor } => {
-                let bytes = entry.bytes()?;
-                Ok((bytes.len() as u64).saturating_sub(*cursor.lock().map_err(|_| Errno::EIO)?))
+                if entry.is_dir() {
+                    return Err(Errno::EISDIR);
+                }
+                Ok(entry
+                    .len()
+                    .saturating_sub(*cursor.lock().map_err(|_| Errno::EIO)?))
             }
             Self::Input(console) => Ok(console.pending()?.0 as u64),
             Self::Output(..) => Ok(0),
@@ -42,7 +46,7 @@ impl EmbeddedFile {
                     (
                         entry.ino,
                         0o100555,
-                        i64::try_from(entry.bytes()?.len()).map_err(|_| Errno::EOVERFLOW)?,
+                        i64::try_from(entry.len()).map_err(|_| Errno::EOVERFLOW)?,
                     )
                 }
             }
@@ -71,15 +75,13 @@ impl EmbeddedFile {
     pub fn read(&self, out: &mut [u8], offset: Option<i64>) -> Result<usize, Errno> {
         match self {
             Self::Supplied { entry, cursor } => {
-                let bytes = entry.bytes()?;
+                let source = entry.source()?;
                 let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
                 let start = match offset {
                     Some(n) => u64::try_from(n).map_err(|_| Errno::EINVAL)?,
                     None => *cursor,
                 };
-                let start_index = start.min(bytes.len() as u64) as usize;
-                let n = out.len().min(bytes.len() - start_index);
-                out[..n].copy_from_slice(&bytes[start_index..start_index + n]);
+                let n = source.read_at(start, out).map_err(Errno::from)?;
                 if offset.is_none() {
                     *cursor = start.checked_add(n as u64).ok_or(Errno::EOVERFLOW)?;
                 }
@@ -117,12 +119,14 @@ impl EmbeddedFile {
         let Self::Supplied { entry, cursor } = self else {
             return Err(Errno::ESPIPE);
         };
-        let bytes = entry.bytes()?;
+        if entry.is_dir() {
+            return Err(Errno::EISDIR);
+        }
         let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
         let base = match whence {
             0 => 0,
             1 => i64::try_from(*cursor).map_err(|_| Errno::EOVERFLOW)?,
-            2 => i64::try_from(bytes.len()).map_err(|_| Errno::EOVERFLOW)?,
+            2 => i64::try_from(entry.len()).map_err(|_| Errno::EOVERFLOW)?,
             _ => return Err(Errno::EINVAL),
         };
         let result = base.checked_add(offset).ok_or(Errno::EOVERFLOW)?;
@@ -180,6 +184,53 @@ mod tests {
             panic!("not embedded")
         };
         file
+    }
+
+    #[test]
+    fn selected_large_runtime_file_uses_demand_reads_and_guest_page_eof_padding() {
+        let fixture =
+            crate::user::supplied_fs::test_backing::TestFile::new(b"dyld-cache", (64 << 20) + 1);
+        let files = Files::default()
+            .with_host_file("/cache".into(), &fixture.path)
+            .unwrap();
+        let (path, entry) = files.lookup("/cache").unwrap();
+        assert!(entry.bytes().is_err());
+        let source = supplied_source(&entry, 16384).unwrap();
+        assert_eq!(source.len(), (64 << 20) + 16384);
+        assert_eq!(source.identity().ino, entry.ino);
+        let file = OpenFile::supplied(path, entry);
+        assert!(file.host_fd().is_none());
+        let f = embedded(&file);
+        assert_eq!(f.stat().unwrap().size, (64 << 20) + 1);
+        assert_eq!(f.available().unwrap(), (64 << 20) + 1);
+        let mut out = [0xaa; 10];
+        assert_eq!(f.read(&mut out, None), Ok(10));
+        assert_eq!(&out, b"dyld-cache");
+        assert_eq!(f.seek(0, 1), Ok(10));
+        assert_eq!(f.read(&mut out, Some(0)), Ok(10));
+        assert_eq!(f.seek(0, 1), Ok(10));
+        assert_eq!(f.seek(-1, 2), Ok(64 << 20));
+        assert_eq!(f.read(&mut out, None), Ok(1));
+        assert_eq!(f.read(&mut out, None), Ok(0));
+        assert_eq!(f.write(b"x", None), Err(Errno::EBADF));
+        let mut page = [0xaa; 16384];
+        assert_eq!(source.read_at(64 << 20, &mut page).unwrap(), page.len());
+        assert!(page.iter().all(|&b| b == 0));
+        assert_eq!(source.read_at(source.len(), &mut page).unwrap(), 0);
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&fixture.path)
+            .unwrap()
+            .set_len(10)
+            .unwrap();
+        assert_eq!(source.len(), 16384);
+        assert_eq!(source.read_at(16384, &mut page).unwrap(), 0);
+        for page in [0, 3, u64::MAX] {
+            assert_eq!(
+                supplied_source(&files.lookup("/cache").unwrap().1, page).unwrap_err(),
+                Errno::EINVAL
+            );
+        }
     }
 
     #[test]
@@ -250,14 +301,18 @@ mod tests {
 
 #[derive(Debug)]
 struct SuppliedSource {
-    bytes: Arc<[u8]>,
-    extent: u64,
+    source: Arc<dyn PageSource>,
+    page: u64,
     ino: u64,
 }
 
 impl PageSource for SuppliedSource {
     fn len(&self) -> u64 {
-        self.extent
+        self.source
+            .len()
+            .checked_add(self.page - 1)
+            .map(|end| end & !(self.page - 1))
+            .unwrap_or(0)
     }
     fn identity(&self) -> SourceIdentity {
         SourceIdentity {
@@ -266,29 +321,36 @@ impl PageSource for SuppliedSource {
         }
     }
     fn read_at(&self, offset: u64, out: &mut [u8]) -> std::io::Result<usize> {
-        let n = (self.extent.saturating_sub(offset)).min(out.len() as u64) as usize;
+        let n = (self.len().saturating_sub(offset)).min(out.len() as u64) as usize;
         out[..n].fill(0);
-        if offset < self.bytes.len() as u64 {
-            let count = n.min(self.bytes.len() - offset as usize);
-            out[..count].copy_from_slice(&self.bytes[offset as usize..offset as usize + count]);
+        let len = self.source.len();
+        if offset < len {
+            let count = (len - offset).min(n as u64) as usize;
+            let mut done = 0;
+            while done < count {
+                let got = self
+                    .source
+                    .read_at(offset + done as u64, &mut out[done..count])?;
+                if got == 0 || got > count - done {
+                    return Err(std::io::ErrorKind::UnexpectedEof.into());
+                }
+                done += got;
+            }
         }
         Ok(n)
     }
 }
 
-/// Immutable mapping source with stable guest identity and guest-page EOF padding.
+/// Read-only mapping source with stable guest identity and guest-page EOF padding.
 pub(crate) fn supplied_source(entry: &Entry, page: u64) -> Result<Arc<dyn PageSource>, Errno> {
     if !page.is_power_of_two() {
         return Err(Errno::EINVAL);
     }
-    let bytes = entry.bytes()?;
-    let extent = (bytes.len() as u64)
-        .checked_add(page - 1)
-        .ok_or(Errno::EINVAL)?
-        & !(page - 1);
+    let source = entry.source()?;
+    source.len().checked_add(page - 1).ok_or(Errno::EINVAL)?;
     Ok(Arc::new(SuppliedSource {
-        bytes,
-        extent,
+        source,
+        page,
         ino: entry.ino,
     }))
 }

@@ -96,7 +96,7 @@ fn as_epoll(file: &OpenFile) -> &Epoll {
 /// watched.
 fn can_poll(file: &OpenFile) -> bool {
     match &file.object {
-        FileObject::Synthetic(_) | FileObject::Console { .. } => false,
+        FileObject::Synthetic(_) | FileObject::Supplied(_) | FileObject::Console { .. } => false,
         FileObject::Host(_) => !matches!(file.ftype, FileType::Regular | FileType::Directory),
         _ => true,
     }
