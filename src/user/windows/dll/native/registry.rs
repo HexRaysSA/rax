@@ -1,4 +1,4 @@
-//! Snapshot-backed NLS registry reads. Native64 and WoW64 capture/probe order
+//! Snapshot-backed runtime registry reads. Native64 and WoW64 capture/probe order
 //! follows the build29683 observations retained under docs/specifications.
 //! No guest path, access mask or handle reaches a host registry service.
 use super::query::{guard_result, probe_write};
@@ -144,7 +144,7 @@ fn grant(c: &Ctx, access: u32) -> Checked<u32> {
     if c.arch() == WinArch::X86 && access & 0x300 == 0x300 {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let access = access & !0x300; // Both views select the same immutable system NLS record.
+    let access = access & !0x300; // Fixed SYSTEM keys are shared between views.
     if access == 0 || access & !(READ_ACCESS | 0xA200_0000) != 0 {
         return status(STATUS_ACCESS_DENIED);
     }
@@ -199,7 +199,7 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
         c.p.registry.key(&attrs.name.units).ok_or_else(|| {
-            Failure::Api(c.unsupported("registry key outside selected NLS snapshot"))
+            Failure::Api(c.unsupported("registry key outside selected runtime snapshot"))
         })?
     };
     let access = grant(c, access)?;

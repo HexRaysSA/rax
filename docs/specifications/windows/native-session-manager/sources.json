@@ -1,0 +1,170 @@
+[
+  {
+    "file": "native-session-manager-probe.cpp",
+    "source": "original read-only fixed Session Manager query oracle or native installed-snapshot regression",
+    "title": "native-session-manager-probe.cpp",
+    "revision": "Windows10.0.29683.1000 ARM64 native and compatibility x86/x64; baseline9bc58e43 then selected runtime namespace",
+    "retrieved": "2026-10-10",
+    "sha256": "7cb3c5ee32784cc448792f3e9c76bf1bc49b958f40d52ca02dd33d3279e3d451",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "native-session-manager-arm64.log",
+    "source": "original read-only fixed Session Manager query oracle or native installed-snapshot regression",
+    "title": "native-session-manager-arm64.log",
+    "revision": "Windows10.0.29683.1000 ARM64 native and compatibility x86/x64; baseline9bc58e43 then selected runtime namespace",
+    "retrieved": "2026-10-10",
+    "sha256": "59d6e8a464a9545f7c3190c9fd7952def96f9494cd9b512f979c0476604a73d9",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "native-session-manager-x86.log",
+    "source": "original read-only fixed Session Manager query oracle or native installed-snapshot regression",
+    "title": "native-session-manager-x86.log",
+    "revision": "Windows10.0.29683.1000 ARM64 native and compatibility x86/x64; baseline9bc58e43 then selected runtime namespace",
+    "retrieved": "2026-10-10",
+    "sha256": "eaaddee79b1abc851e8a49796115d9a5a599d64f4bc2358e32b97a3107164612",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "native-session-manager-x64.log",
+    "source": "original read-only fixed Session Manager query oracle or native installed-snapshot regression",
+    "title": "native-session-manager-x64.log",
+    "revision": "Windows10.0.29683.1000 ARM64 native and compatibility x86/x64; baseline9bc58e43 then selected runtime namespace",
+    "retrieved": "2026-10-10",
+    "sha256": "59927010abe20609048dad15a45afa22d90f0577910b561372bcbe4172296210",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "native-session-manager-before.log",
+    "source": "original read-only fixed Session Manager query oracle or native installed-snapshot regression",
+    "title": "native-session-manager-before.log",
+    "revision": "Windows10.0.29683.1000 ARM64 native and compatibility x86/x64; baseline9bc58e43 then selected runtime namespace",
+    "retrieved": "2026-10-10",
+    "sha256": "55bf5a7f2ecee1685f364a88f60121a69189daf54f0d520fde9f033f82f84d8e",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "native-session-manager-initial-after.log",
+    "source": "original read-only fixed Session Manager query oracle or native installed-snapshot regression",
+    "title": "native-session-manager-initial-after.log",
+    "revision": "Windows10.0.29683.1000 ARM64 native and compatibility x86/x64; baseline9bc58e43 then selected runtime namespace",
+    "retrieved": "2026-10-10",
+    "sha256": "e97b1a5800d91ea284953456fdd7d00d274d429c4709fce5e62d3395758da837",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "../native-nls-registry/phnt-ntregapi.h",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntregapi.h",
+    "title": "System Informer PHNT native registry declarations",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "sha256": "1ee828f4eb5d97f00a6442c51896365689b4763790c26c417bf9008d37e58191",
+    "license": "../native-processor-features/phnt-LICENSE"
+  },
+  {
+    "file": "../native-working-set/native-ldr-working-set-frontier-after.log",
+    "source": "retained primary source/license or previous current-archive loader frontier",
+    "title": "native-ldr-working-set-frontier-after.log",
+    "revision": "retained exact original",
+    "retrieved": "2026-10-10",
+    "sha256": "09894aa98153685f49be1c5e3ca73c61b4d60b9562a5c3adbf9372388f77cce3",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "shared-registry-keys.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/WinProg64/shared-registry-keys.md",
+    "title": "Registry Keys Affected by WOW64 - Microsoft primary source",
+    "revision": "mutable docs branch; exact commit unknown",
+    "retrieved": "2026-10-10",
+    "sha256": "115f4c34f4814c093008e1a3b1784d2fbf737a77f1e9cc28ba7ac342decdc7e5",
+    "license": "microsoft-win32-LICENSE"
+  },
+  {
+    "file": "microsoft-win32-LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE",
+    "title": "MicrosoftDocs/win32 LICENSE",
+    "revision": "mutable docs branch; exact revision unknown",
+    "retrieved": "2026-10-10",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "microsoft-win32-LICENSE-CODE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE-CODE",
+    "title": "MicrosoftDocs/win32 LICENSE-CODE",
+    "revision": "mutable docs branch; exact revision unknown",
+    "retrieved": "2026-10-10",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "check-oracle.py",
+    "source": "original independent native observation checker",
+    "title": "check-oracle.py",
+    "revision": "2026-10-10 selected registry profile",
+    "retrieved": "2026-10-10",
+    "sha256": "9f56db4424d329b027f55cbbf2f01784067b2f9625d256f9cdeb674a28baaade",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "native-session-manager-storage-before.log",
+    "source": "original native installed-capture retained-storage regression",
+    "title": "native-session-manager-storage-before.log",
+    "revision": "current Session Manager extension before allocation correction",
+    "retrieved": "2026-10-10",
+    "sha256": "382813667db3b82fa398349cfad630481e0435e926cae18962a52af89a9b51c1",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "native-ldr-session-manager-frontier.rs",
+    "source": "original current owning-archive isolated loader diagnostic",
+    "title": "native-ldr-session-manager-frontier.rs",
+    "revision": "saved context and cleared PEB.ProcessHeap; production bootstrap not claimed",
+    "retrieved": "2026-10-10",
+    "sha256": "a869338f67630f2714b47a3c6eaccdf18f714ccbea23c366b95d64e4c69c93b4",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "../native-processor-features/phnt-LICENSE",
+    "source": "previously retained license accompanying pinned PHNT declarations",
+    "title": "PHNT LICENSE",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "sha256": "ad2ab542c56c606e4c19d66a7f3cdcd3ef83beffb638e7c3893b22c7a6a6c0df"
+  },
+  {
+    "file": "oracle-check.log",
+    "source": "original independent checker output",
+    "title": "153 native observation validation",
+    "revision": "2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "0cfddceac7ff7862b3b67a8613f1382ccb0adbce19c92f399bed5fa788becd7d"
+  },
+  {
+    "file": "accessing-an-alternate-registry-view.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/WinProg64/accessing-an-alternate-registry-view.md",
+    "title": "Accessing an Alternate Registry View - Microsoft primary source",
+    "revision": "mutable docs branch; exact commit unknown",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-win32-LICENSE",
+    "sha256": "d9b48482cf841c56169270d7e698eba531a596d161c7d54e48701a0ed307bed6"
+  },
+  {
+    "file": "validation-summary.json",
+    "source": "original project validation or diagnostic evidence",
+    "title": "Exact source and final validation log hashes/counts",
+    "revision": "2026-10-10 selected namespace and tight native capture storage",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "a9e34f125cbbf8264b998289a46ef6b52b275c1770c11d1bd7ac5aa3b3ec4405"
+  },
+  {
+    "file": "native-ldr-session-manager-frontier-after.log",
+    "source": "original project validation or diagnostic evidence",
+    "title": "Original current owning-archive isolated loader trace",
+    "revision": "2026-10-10 selected namespace and tight native capture storage",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "e53544779e5c795527ba0400a2dea25efd6d0fc065dfab5528d79f03b346807f"
+  }
+]

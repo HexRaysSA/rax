@@ -146,5 +146,48 @@ fn installed_ntdll_registry_leaves_open_query_close_selected_snapshot() {
             invoke(p, &mut t, module, "NtQueryValueKey", &[h, vn, 2, 0, 64, 0]),
             STATUS_INVALID_HANDLE
         );
+        let path = crate::user::windows::registry::SESSION_MANAGER_KEY;
+        unicode(p, vn, base + 256, path);
+        attributes(p, attrs, vn, 0, 0x240);
+        assert_eq!(
+            invoke(p, &mut t, module, "NtOpenKey", &[base + 8, 1, attrs]),
+            STATUS_SUCCESS
+        );
+        let handle = p.space.ptr(base + 8, arch.ptr_size()).unwrap();
+        let key = p
+            .registry
+            .key(&path.encode_utf16().collect::<Vec<_>>())
+            .unwrap();
+        for name in ["GlobalFlag", "CriticalSectionTimeout", "missing-rax-value"] {
+            let value = key.value(&name.encode_utf16().collect::<Vec<_>>());
+            unicode(p, vn, base + 256, name);
+            assert_eq!(
+                invoke(
+                    p,
+                    &mut t,
+                    module,
+                    "NtQueryValueKey",
+                    &[handle, vn, 2, base + 512, PAGE_SIZE, base + 16]
+                ),
+                if value.is_some() {
+                    STATUS_SUCCESS
+                } else {
+                    STATUS_OBJECT_NAME_NOT_FOUND
+                }
+            );
+            if let Some(value) = value {
+                assert_eq!(p.space.u32(base + 516).unwrap(), value.kind);
+                assert_eq!(p.space.u32(base + 520).unwrap(), value.data.len() as u32);
+                assert_eq!(
+                    p.space.bytes(base + 524, value.data.len()).unwrap(),
+                    value.data
+                );
+            }
+        }
+        assert_eq!(
+            invoke(p, &mut t, module, "NtClose", &[handle]),
+            STATUS_SUCCESS
+        );
+        assert_eq!((p.objects.handle_count(), p.objects.iter().count()), before);
     }
 }

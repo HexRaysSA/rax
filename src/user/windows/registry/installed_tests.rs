@@ -96,3 +96,86 @@ fn installed_nls_snapshot_matches_independent_raw_queries_and_rtl_case_compariso
         );
     }
 }
+
+#[test]
+fn installed_runtime_snapshot_includes_session_manager_raw_values() {
+    let registry = snapshot().unwrap();
+    // The byte budget must bound retained storage, not only truncated lengths.
+    // A short value must not retain the maximum-sized enumeration scratch.
+    for path in [NLS_KEY, SESSION_MANAGER_KEY] {
+        let captured = registry
+            .key(&path.encode_utf16().collect::<Vec<_>>())
+            .unwrap();
+        for value in captured.values.values() {
+            assert_eq!(
+                value.name.capacity(),
+                value.name.len(),
+                "{path}: name storage"
+            );
+            assert_eq!(
+                value.data.capacity(),
+                value.data.len(),
+                "{path}: data storage"
+            );
+        }
+    }
+    let key = registry
+        .key(
+            &"\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Session Manager"
+                .encode_utf16()
+                .collect::<Vec<_>>(),
+        )
+        .expect("selected native loader Session Manager key");
+    let path: Vec<u16> = "SYSTEM\\CurrentControlSet\\Control\\Session Manager\0"
+        .encode_utf16()
+        .collect();
+    let mut handle = null_mut();
+    // SAFETY: fixed terminated system path, KEY_QUERY_VALUE, exclusive handle
+    // destination; no guest-provided name or retained native pointer.
+    assert_eq!(
+        unsafe {
+            RegOpenKeyExW(
+                (-2_147_483_646isize) as Hkey,
+                path.as_ptr(),
+                0,
+                1,
+                &mut handle,
+            )
+        },
+        0
+    );
+    let handle = OwnedKey(handle);
+    for text in [
+        "GlobalFlag",
+        "CriticalSectionTimeout",
+        "HeapSegmentReserve",
+        "missing-rax-value",
+    ] {
+        let name: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
+        let mut data = vec![0; MAX_VALUE_BYTES];
+        let (mut length, mut kind) = (data.len() as u32, 0);
+        // SAFETY: live query-only handle, fixed terminated name and exclusive
+        // bounded output bytes/DWORDs. Returned byte count is checked below.
+        let status = unsafe {
+            RegQueryValueExW(
+                handle.0,
+                name.as_ptr(),
+                null_mut(),
+                &mut kind,
+                data.as_mut_ptr(),
+                &mut length,
+            )
+        };
+        let selected = key.value(&text.encode_utf16().collect::<Vec<_>>());
+        if status == 2 {
+            assert!(selected.is_none(), "{text}");
+        } else {
+            assert_eq!(status, 0, "{text}");
+            assert!(length as usize <= data.len());
+            data.truncate(length as usize);
+            let selected = selected.expect("independently present native value");
+            assert_eq!(selected.kind, kind, "{text}");
+            assert_eq!(selected.data, data, "{text}");
+        }
+    }
+}

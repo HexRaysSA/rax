@@ -922,3 +922,60 @@ Wider native NT/registry/bootstrap, POSIX process/symlink and native IDA/package
 application matrices remain high-impact blockers for the overall goal. C API
 1.11.0/layouts/dependencies/locks/defaults, permissions/discovery/schema/package
 wiring and all ISA/SMIR/JIT/other-guest implementations remain unchanged.
+
+
+## 2026-10-10: Session Manager registry snapshot
+
+Native runtime selection now captures two fixed SYSTEM keys: NLS CodePage and
+Session Manager. Portable lookup shares one immutable 65,536-unit UTF-16 upcase
+table. Keys retain raw value types/bytes and survive through typed guest handles
+when the namespace drops; codepage discovery is explicitly scoped to NLS.
+Unknown keys/subkeys remain unsupported. Capture opens query-only host HKEYs
+sequentially, samples metadata/two identical enumerations with three bounded
+attempts, closes each native handle before returning, and retains no host
+callback. The keys are not acquired in a cross-key transaction.
+
+The constructor bounds aggregate count to 4,096, raw names/data to 16 MiB,
+names to 16,383 UTF-16 units and value data to 1 MiB. Enumeration now reuses
+scratch and retains only returned bytes after budget checks. An original native
+regression detects the inherited truncation/capacity defect (five-unit name,
+18-unit capacity); current native assertions pass. Capture transient raw payload
+can reach 48 MiB plus at most 1,081,344 scratch bytes and O(N) metadata; final
+raw payload is 16 MiB maximum plus folded-name copies/table/metadata. For N
+values, B raw bytes, maximum name length L and U=65,536 table entries, work is
+O(U+B+N*L*log(N+1)) plus host calls; storage O(U+B+N).
+
+The source/provenance/assumption register is
+[docs/specifications/windows/native-session-manager/README.md](../../../docs/specifications/windows/native-session-manager/README.md).
+It retains 153 original Windows 10.0.29683.1000 opens/query observations across
+ARM64 native and x86/x64 compatibility, independent checker, primary declarations/
+Microsoft shared-key and alternate-view sources/licenses, two observed native
+regressions, exact source/log hashes and the current loader diagnostic. Two new
+portable model cases, one all-guest-ABI NT case and one native acquisition case
+pass; the existing installed NTDLL case now opens/queries/closes both keys using
+actual selected ARM64/x86 leaves. Other releases/native32/physical Intel remain
+unverified, and sampled capture cannot exclude restored concurrent mutations.
+
+Final unfiltered library: macOS 7,528 passed/0 failed/2 ignored, Linux
+7,520/2/2, Windows 6,910/5/2; selections 7,530/7,524/6,917, all 0 filtered.
+Linux retains remove-timeout/readiness failures; Windows retains four BZHI and
+host-unavailable FP16. The prior source's Windows thread-clock assertion fails
+at 15,625,000*4 = 62,500,000 ns versus 62,500,000 ns; final absence is not
+remediation. No timing/lowerer assertions or skips changed. C API 168 passes
+on all three, all-target builds pass, registered Unix integration 544 passes
+on macOS/Linux (cfg(unix) Windows exclusion), and native external memory 4
+passes (cfg(windows) exclusion elsewhere). Current locked owning Assist archives
+recompile RAX and pass five production C++ checks on every OS. Compiled CLI
+manifest regeneration and both macOS manifest checks pass; current description
+discloses fixed registry scope. Windows-only final storage/test changes do not
+alter the portable compiled source; corrected Windows gates/hash checks pass.
+
+The private cleared-PEB-heap/saved-context current-archive loader opens Session
+Manager at turn 3,237, queries absent RaiseExceptionOnPossibleDeadlock at 3,248,
+and reaches Image File Execution Options at 3,405, service 0x12,
+PC 0x180001130, access 9. Delta 168 is scheduler calls, not retired instructions.
+All four ordinary native Windows probes remain STATUS_ACCESS_VIOLATION.
+Production native loader/RTL heap/CRT, wider NT/registry, POSIX/process/symlink
+and complete native application/package/IDA matrices still block the full goal.
+C API 1.11.0/layouts/options/schema/dependencies/locks/defaults/permissions/package
+wiring and ISA/SMIR/JIT/other guest semantics are unchanged.

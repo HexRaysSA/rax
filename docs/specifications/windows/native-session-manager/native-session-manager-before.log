@@ -1,0 +1,41 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+warning: "stdcall" is not a supported ABI for the current target
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\src)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 41.17s
+     Running unittests src\lib.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\rax-d861ee8f992d7cb6.exe)
+
+running 1 test
+
+thread 'user::windows::registry::installed::tests::installed_runtime_snapshot_includes_session_manager_raw_values' (2340) panicked at src\user\windows\registry\installed_tests.rs:109:10:
+selected native loader Session Manager key
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test user::windows::registry::installed::tests::installed_runtime_snapshot_includes_session_manager_raw_values ... FAILED
+
+failures:
+
+failures:
+    user::windows::registry::installed::tests::installed_runtime_snapshot_includes_session_manager_raw_values
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6913 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

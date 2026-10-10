@@ -1,7 +1,10 @@
-//! Fixed system NLS metadata acquisition during native runtime selection only.
+//! Two fixed SYSTEM-key captures during native runtime selection only.
 //! No guest name reaches a host registry operation. All HKEYs close before
 //! selection returns, and the kernel reads the resulting immutable records.
-use super::{MAX_NAME_UNITS, MAX_VALUE_BYTES, MAX_VALUES, Registry, Value, invalid};
+use super::{
+    MAX_NAME_UNITS, MAX_VALUE_BYTES, MAX_VALUES, NLS_KEY, Registry, SESSION_MANAGER_KEY,
+    SelectedKey, Value, invalid,
+};
 use std::ffi::c_void;
 use std::io;
 use std::ptr::null_mut;
@@ -91,16 +94,20 @@ fn info(key: &OwnedKey) -> io::Result<Info> {
         || i.max_name as usize > MAX_NAME_UNITS
         || i.max_data as usize > MAX_VALUE_BYTES
     {
-        return Err(invalid("installed NLS registry metadata exceeds bounds"));
+        return Err(invalid(
+            "installed runtime registry metadata exceeds bounds",
+        ));
     }
     Ok(i)
 }
 fn values(key: &OwnedKey, i: &Info) -> io::Result<Vec<Value>> {
     let mut result = Vec::new();
     let mut total = 0usize;
+    // Reuse bounded enumeration scratch. Retained values copy only returned
+    // units/bytes, so truncation cannot multiply maximum capacity by count.
+    let mut name = vec![0u16; i.max_name as usize + 1];
+    let mut data = vec![0u8; i.max_data as usize];
     for index in 0..i.values {
-        let mut name = vec![0u16; i.max_name as usize + 1];
-        let mut data = vec![0u8; i.max_data as usize];
         let (mut name_len, mut data_len, mut kind) = (name.len() as u32, data.len() as u32, 0);
         // SAFETY: exclusive output buffers with exact capacities in WCHARs
         // and bytes, live query-only key, and no retained pointers.
@@ -120,31 +127,37 @@ fn values(key: &OwnedKey, i: &Info) -> io::Result<Vec<Value>> {
             return Err(io::Error::from_raw_os_error(s));
         }
         if name_len as usize >= name.len() || data_len as usize > data.len() {
-            return Err(invalid("installed NLS enumeration exceeded its buffers"));
+            return Err(invalid(
+                "installed registry enumeration exceeded its buffers",
+            ));
         }
-        name.truncate(name_len as usize);
-        data.truncate(data_len as usize);
         total = total
-            .checked_add(name.len() * 2 + data.len())
-            .ok_or_else(|| invalid("installed NLS snapshot size overflow"))?;
+            .checked_add(name_len as usize * 2 + data_len as usize)
+            .ok_or_else(|| invalid("installed registry snapshot size overflow"))?;
         if total > super::MAX_TOTAL_BYTES {
-            return Err(invalid("installed NLS snapshot too large"));
+            return Err(invalid("installed registry snapshot too large"));
         }
-        result.push(Value { name, kind, data });
+        result.push(Value {
+            name: name[..name_len as usize].to_vec(),
+            kind,
+            data: data[..data_len as usize].to_vec(),
+        });
     }
     result.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(result)
 }
-pub(crate) fn snapshot() -> io::Result<Registry> {
-    const PATH: &str = "SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage";
-    let path: Vec<u16> = PATH.encode_utf16().chain(Some(0)).collect();
+fn capture(path: &'static str) -> io::Result<SelectedKey> {
+    let host = path
+        .strip_prefix("\\Registry\\Machine\\")
+        .ok_or_else(|| invalid("fixed registry path lacks HKLM root"))?;
+    let name: Vec<u16> = host.encode_utf16().chain(Some(0)).collect();
     let mut handle = null_mut();
     // SAFETY: the predefined HKLM value is pointer-width sign extended;
     // path is terminated and fixed, output is exclusive, KEY_QUERY_VALUE=1.
     let s = unsafe {
         RegOpenKeyExW(
             (-2_147_483_646isize) as Hkey,
-            path.as_ptr(),
+            name.as_ptr(),
             0,
             1,
             &mut handle,
@@ -168,17 +181,31 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
         };
         let after = info(&key)?;
         if before == after && first == second {
-            // SAFETY: pure one-WCHAR NTDLL case lookup, no pointers, retention
-            // or mutation. Capture every UTF-16 code unit, including surrogates.
-            let upcase = (0..=u16::MAX)
-                .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
-                .collect();
-            return Registry::nls(upcase, first, before.children);
+            return Ok(SelectedKey {
+                path,
+                children: before.children,
+                values: first,
+            });
         }
     }
     Err(invalid(
-        "installed NLS registry changed during bounded snapshot",
+        "installed runtime registry key changed during bounded snapshot",
     ))
+}
+
+pub(crate) fn snapshot() -> io::Result<Registry> {
+    // Fixed shared SYSTEM keys only. All native handles close in capture,
+    // including error/retry paths; no native operation survives selection.
+    let selected = [NLS_KEY, SESSION_MANAGER_KEY]
+        .into_iter()
+        .map(capture)
+        .collect::<io::Result<Vec<_>>>()?;
+    // SAFETY: pure one-WCHAR NTDLL lookup, no retained pointers or mutation.
+    // One immutable table is shared by both keys, including surrogate units.
+    let upcase = (0..=u16::MAX)
+        .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
+        .collect();
+    Registry::selected(upcase, selected)
 }
 
 #[cfg(test)]

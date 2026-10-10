@@ -77,3 +77,149 @@ fn registry_snapshot_rejects_table_count_name_data_total_and_case_collisions() {
         .is_ok()
     );
 }
+
+fn selected(path: &'static str, values: Vec<Value>) -> SelectedKey {
+    SelectedKey {
+        path,
+        values,
+        children: 3,
+    }
+}
+
+#[test]
+fn selected_runtime_registry_namespace_is_scoped_shares_collation_and_retains_owners() {
+    let registry = Registry::selected(
+        upcase(),
+        vec![
+            selected(NLS_KEY, vec![value(&[49, 50, 53, 50], vec![1])]),
+            selected(
+                SESSION_MANAGER_KEY,
+                vec![
+                    value(&[49, 50, 51, 52], vec![2]),
+                    value(&[0xD800, 97], vec![0xFF, 0]),
+                ],
+            ),
+        ],
+    )
+    .unwrap();
+    let nls = registry
+        .key(&NLS_KEY.to_lowercase().encode_utf16().collect::<Vec<_>>())
+        .unwrap();
+    let session = registry
+        .key(
+            &SESSION_MANAGER_KEY
+                .to_lowercase()
+                .encode_utf16()
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+    assert!(Arc::ptr_eq(&nls.upcase, &session.upcase));
+    assert_eq!(
+        registry.codepages().into_iter().collect::<Vec<_>>(),
+        vec![1252]
+    );
+    assert_eq!(session.value(&[0xD800, 65]).unwrap().data, vec![0xFF, 0]);
+    assert!(
+        registry
+            .key(
+                &"\\Registry\\Machine\\unknown"
+                    .encode_utf16()
+                    .collect::<Vec<_>>()
+            )
+            .is_none()
+    );
+    let weak = Arc::downgrade(&session);
+    let collation = Arc::downgrade(&session.upcase);
+    drop(registry);
+    drop(nls);
+    assert!(weak.upgrade().is_some());
+    assert!(collation.upgrade().is_some());
+    drop(session);
+    assert!(weak.upgrade().is_none());
+    assert!(collation.upgrade().is_none());
+}
+
+#[test]
+fn selected_runtime_registry_rejects_key_scope_duplicates_and_aggregate_exhaustion() {
+    assert!(
+        Registry::selected(
+            upcase(),
+            vec![selected("\\Registry\\Machine\\arbitrary", vec![])]
+        )
+        .is_err()
+    );
+    assert!(
+        Registry::selected(
+            upcase(),
+            vec![selected(NLS_KEY, vec![]), selected(NLS_KEY, vec![])]
+        )
+        .is_err()
+    );
+    assert!(
+        Registry::selected(
+            upcase(),
+            vec![
+                selected(NLS_KEY, vec![]),
+                selected(SESSION_MANAGER_KEY, vec![]),
+                selected(NLS_KEY, vec![])
+            ]
+        )
+        .is_err()
+    );
+    let values = |count: usize| {
+        (0..count)
+            .map(|i| value(&[0x8000 + i as u16], vec![]))
+            .collect()
+    };
+    assert!(
+        Registry::selected(
+            upcase(),
+            vec![
+                selected(NLS_KEY, values(MAX_VALUES)),
+                selected(SESSION_MANAGER_KEY, values(1))
+            ]
+        )
+        .is_err()
+    );
+    assert!(
+        Registry::selected(
+            upcase(),
+            vec![
+                selected(NLS_KEY, values(MAX_VALUES / 2)),
+                selected(SESSION_MANAGER_KEY, values(MAX_VALUES / 2))
+            ]
+        )
+        .is_ok()
+    );
+    let payloads = |count: usize| {
+        (0..count)
+            .map(|i| value(&[0x8000 + i as u16], vec![0; MAX_VALUE_BYTES]))
+            .collect()
+    };
+    assert!(
+        Registry::selected(
+            upcase(),
+            vec![
+                selected(NLS_KEY, payloads(8)),
+                selected(SESSION_MANAGER_KEY, payloads(9))
+            ]
+        )
+        .is_err()
+    );
+    assert!(
+        Registry::selected(
+            upcase(),
+            vec![
+                selected(NLS_KEY, vec![value(&[97], vec![1])]),
+                selected(SESSION_MANAGER_KEY, vec![value(&[65], vec![2])])
+            ]
+        )
+        .is_ok()
+    ); // Same value name belongs to distinct keys.
+    assert!(
+        Registry::selected(upcase(), vec![])
+            .unwrap()
+            .key(&[])
+            .is_none()
+    );
+}

@@ -1,0 +1,4 @@
+arm64: fixed read-only open and 50 value query observations verified
+x86: fixed read-only open and 50 value query observations verified
+x64: fixed read-only open and 50 value query observations verified
+153 native observations verified; captured values are build/profile observations, not guest defaults

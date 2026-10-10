@@ -1,0 +1,171 @@
+{
+  "baseline_rax": "9bc58e434469d286ba51051f310b789d029e14c0",
+  "baseline_assist": "c01ea005b1b55169d36a66e5b5779e82fb987c22",
+  "source_sha256": {
+    "src/user/windows/registry.rs": "690369dd1bb98fd79439b9c8f4f9bf745e925bb350a040ee03d106dee5691586",
+    "src/user/windows/registry/installed.rs": "712c19294d8cae925988b7eef91c981433ce91bc7c2539c6802a1b6e4d6fa129",
+    "src/user/windows/registry/tests.rs": "ca058b6807c20c863e670faa74b35021cb51c7648fb2097adb5ba6330f03655d",
+    "src/user/windows/registry/installed_tests.rs": "283d12a847bd0a3a85ecec0ef6a8899900ad90c146a0f424e140cefee7762ff7",
+    "src/user/windows/dll/native/registry.rs": "25b5be672b9d2e006085583fc6e5143c7d72bb8328af5e89dfcb3ddeac2f7498",
+    "src/user/windows/process/sched/tests/services_tests/registry_tests.rs": "498c8f75c17a9854dbeb8023707b093abe363eb28a0d988ec4dee3f4b88c7ede",
+    "src/user/windows/process/sched/tests/services_tests/registry_leaf_tests.rs": "624f4cda0404e1b5a238a9110e2dd6ddfb7d857df92b2507f6f4206442858623"
+  },
+  "validation": {
+    "macos_library": {
+      "log": "/tmp/assist-native-session-manager-final-full-macos.log",
+      "sha256": "7f2ffe6d75946a1d54a11d23930da612d376ef01a87de555ef48c616fef918c0",
+      "results": [
+        "test result: ok. 7528 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 58.70s"
+      ]
+    },
+    "macos_capi": {
+      "log": "/tmp/assist-native-session-manager-final-capi-macos.log",
+      "sha256": "97c0071966949cb9cb085023b8fda09cfd1aeb8fa0b5b6f561f38b379faa1f76",
+      "results": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.58s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "macos_all_targets": {
+      "log": "/tmp/assist-native-session-manager-final-all-targets-macos.log",
+      "sha256": "a55e69a952c856ffa9ee5995e55f123f41dca50d8359da886bd4cd011a96b086",
+      "results": []
+    },
+    "macos_integration": {
+      "log": "/tmp/assist-native-session-manager-final-integration-macos.log",
+      "sha256": "4044cb42c8d5bdd03e577122ce87b8073e94ae8dd2a37b2708635170e8e6dda5",
+      "results": [
+        "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.12s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "macos_assist_ctest": {
+      "log": "/tmp/assist-native-session-manager-root-macos-ctest.log",
+      "sha256": "343925ceae10689f08031ee9673f0d829040519db2df22e586f52fe043b62750",
+      "results": [
+        "100% tests passed out of 7"
+      ]
+    },
+    "macos_manifest_cli_rebuild": {
+      "log": "/tmp/assist-native-session-manager-final-cli-rebuild.log",
+      "sha256": "0c6d33513dfa12d89f9f39924910c01885c14e0bcdd2151d2e72757f4d2c98c2",
+      "results": []
+    },
+    "linux_library": {
+      "log": "/tmp/assist-native-root-cpp-linux/native-session-manager-final-full.log",
+      "sha256": "5dba2dc096f633f774223ca5e785ff4ac37564d17bf3dc945ba2910df92160a2",
+      "results": [
+        "test result: FAILED. 7520 passed; 2 failed; 2 ignored; 0 measured; 0 filtered out; finished in 99.24s"
+      ]
+    },
+    "linux_capi": {
+      "log": "/tmp/assist-native-root-cpp-linux/native-session-manager-final-capi.log",
+      "sha256": "02a2d2a98999245b268299cc200cb9a59710a6b6ece4e281343d0d1047dc9336",
+      "results": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.69s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "linux_all_targets": {
+      "log": "/tmp/assist-native-root-cpp-linux/native-session-manager-final-all-targets.log",
+      "sha256": "a8982cfdaee6ad33d4d8519d2110955fc5936cec910cf16e3e13f47adb7fd5c3",
+      "results": []
+    },
+    "linux_integration": {
+      "log": "/tmp/assist-native-root-cpp-linux/native-session-manager-final-integration.log",
+      "sha256": "0658ae3f90608f97420c863d757ff22dc12594d02d54ae2789e917a5d4b13c56",
+      "results": [
+        "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.76s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "linux_assist_archive": {
+      "log": "/tmp/assist-native-root-cpp-linux/native-session-manager-final-shipping.log",
+      "sha256": "316a893d1f2964631abfe27042566564408867cc2583eb188ae6d1ec31946f24",
+      "results": []
+    },
+    "linux_assist_cpp": {
+      "log": "/tmp/assist-native-root-cpp-linux/native-session-manager-final-cpp.log",
+      "sha256": "654c261ed7378aaed6990c140445dd6a20067dae86e5f2e0b446b80ee64f8497",
+      "results": [
+        "process tool: 184 checks passed",
+        "RAX process: 162 checks passed; PE, five ELF, and two Mach-O ABIs executed"
+      ]
+    },
+    "windows_library": {
+      "log": "/tmp/assist-native-windows-29683/native-session-manager-final-full.log",
+      "sha256": "2b0c7fe0d01cd56d122f1526c3c136b423bf07e9bdc1c01b71df01adde8e495f",
+      "results": [
+        "test result: FAILED. 6910 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 78.80s"
+      ]
+    },
+    "windows_capi": {
+      "log": "/tmp/assist-native-windows-29683/native-session-manager-final-capi.log",
+      "sha256": "645f3a7784fa1e15db7eb468806aac9f990c8587dcf44409c9d7df1e408a07d0",
+      "results": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.19s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "windows_assist_archive": {
+      "log": "/tmp/assist-native-windows-29683/assist-native-session-manager-final-shipping.log",
+      "sha256": "fae6bf1f767d1deb0949913a2a7690fa02a1333139ecaac46836bc3d3a21398d",
+      "results": []
+    },
+    "windows_assist_cpp": {
+      "log": "/tmp/assist-native-windows-29683/assist-native-session-manager-final-cpp.log",
+      "sha256": "c833549626d89aa935bfdab0505d0e4aca716d9470118c2759ad56f91373da54",
+      "results": [
+        "process tool: 182 checks passed",
+        "RAX process: 162 checks passed; PE, five ELF, and two Mach-O ABIs executed"
+      ]
+    },
+    "windows_previous_source_library": {
+      "log": "/tmp/assist-native-windows-29683/native-session-manager-before-storage-bound-full.log",
+      "sha256": "9fc65931815a3803967c4870de37fb7de0f5c056df069c3c231aa1560a9ccb9a",
+      "results": [
+        "test result: FAILED. 6909 passed; 6 failed; 2 ignored; 0 measured; 0 filtered out; finished in 79.12s"
+      ]
+    },
+    "windows_all_targets": {
+      "log": "/tmp/assist-native-windows-29683/native-session-manager-final-all-targets.log",
+      "sha256": "a1317ea8318b2d4365270d9315d47748c90ae660d42cc9e91a8864d1932ff3f9",
+      "results": [
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 50.39s"
+      ]
+    },
+    "windows_integration": {
+      "log": "/tmp/assist-native-windows-29683/native-session-manager-final-integration.log",
+      "sha256": "b207b7467d193ebfb867cbbc3e19468532e78c50228c9099d3513ad1cf051264",
+      "results": [
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "windows_current_source_transfer": {
+      "log": "/tmp/assist-native-windows-29683/run-session-manager-current-final-validation.log",
+      "sha256": "d483fc08393c3ee0c4cf24869c00c7ff5890f8675b31fb5c0c21c3d4d57f5e53",
+      "results": [
+        "test result: FAILED. 6910 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 78.80s",
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.19s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 23.09s"
+      ]
+    },
+    "windows_current_archive_loader": {
+      "log": "/tmp/assist-native-windows-29683/native-session-manager-trace-output.log",
+      "sha256": "e53544779e5c795527ba0400a2dea25efd6d0fc065dfab5528d79f03b346807f",
+      "results": [
+        "terminal turn=3405 Complete(Internal(\"native NTDLL service NtOpenKey: Unimplemented(\\\"NtOpenKey: registry key outside selected runtime snapshot\\\")\"))"
+      ]
+    },
+    "windows_retained_storage_before": {
+      "log": "/tmp/assist-native-windows-29683/native-session-manager-storage-before.log",
+      "sha256": "382813667db3b82fa398349cfad630481e0435e926cae18962a52af89a9b51c1",
+      "results": [
+        "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6916 filtered out; finished in 0.00s"
+      ]
+    }
+  },
+  "scope_note": "macOS/Linux compiled portable source is unchanged by the final Windows-only scratch and native-test correction; Windows final gates recompile that adapter. Full goal remains incomplete."
+}

@@ -3,6 +3,96 @@ use super::*;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::registry::{NLS_KEY, Registry, Value};
 
+#[test]
+fn native_registry_selected_namespace_query_and_handle_lifetime_all_abis() {
+    use crate::user::windows::registry::{SESSION_MANAGER_KEY, SelectedKey};
+    for arch in WinArch::ALL {
+        let (mut process, mut t, base) = setup(arch);
+        let p = process.state_mut();
+        let upcase = (0..=u16::MAX)
+            .map(|u| if (97..=122).contains(&u) { u - 32 } else { u })
+            .collect();
+        let entries = [
+            (
+                NLS_KEY,
+                "ACP",
+                1,
+                "1252\0"
+                    .encode_utf16()
+                    .flat_map(u16::to_le_bytes)
+                    .collect::<Vec<_>>(),
+            ),
+            (
+                SESSION_MANAGER_KEY,
+                "CriticalSectionTimeout",
+                4,
+                2_592_000u32.to_le_bytes().to_vec(),
+            ),
+        ];
+        p.registry = Registry::selected(
+            upcase,
+            entries
+                .iter()
+                .map(|(path, name, kind, data)| SelectedKey {
+                    path,
+                    children: 3,
+                    values: vec![Value {
+                        name: name.encode_utf16().collect(),
+                        kind: *kind,
+                        data: data.clone(),
+                    }],
+                })
+                .collect(),
+        )
+        .unwrap();
+        let attrs = base + PAGE_SIZE * 2;
+        let mut handles = Vec::new();
+        for (path, name, kind, data) in entries {
+            for view in [0, 0x100, 0x200] {
+                unicode(p, attrs + 64, attrs + 128, &path.to_lowercase());
+                attributes(p, attrs, attrs + 64, 0, 0x240);
+                assert_eq!(
+                    call(p, &mut t, "NtOpenKey", &[base, 1 | view, attrs]),
+                    STATUS_SUCCESS
+                );
+                let handle = p.space.ptr(base, arch.ptr_size()).unwrap();
+                handles.push((handle, name, kind, data.clone()));
+            }
+        }
+        // A key object owns immutable data after the selection namespace drops.
+        p.registry = Registry::default();
+        for (handle, name, kind, data) in handles {
+            unicode(p, attrs + 64, attrs + 128, &name.to_lowercase());
+            assert_eq!(
+                call(
+                    p,
+                    &mut t,
+                    "NtQueryValueKey",
+                    &[handle, attrs + 64, 2, base + 128, 64, base + PAGE_SIZE]
+                ),
+                STATUS_SUCCESS
+            );
+            assert_eq!(p.space.u32(base + 132).unwrap(), kind);
+            assert_eq!(p.space.u32(base + 136).unwrap(), data.len() as u32);
+            assert_eq!(p.space.bytes(base + 140, data.len()).unwrap(), data);
+            assert_eq!(
+                p.space.u32(base + PAGE_SIZE).unwrap(),
+                12 + data.len() as u32
+            );
+            assert_eq!(call(p, &mut t, "NtClose", &[handle]), STATUS_SUCCESS);
+            assert_eq!(
+                call(
+                    p,
+                    &mut t,
+                    "NtQueryValueKey",
+                    &[handle, attrs + 64, 2, base + 128, 64, base + PAGE_SIZE]
+                ),
+                STATUS_INVALID_HANDLE
+            );
+        }
+    }
+}
+
 #[cfg(windows)]
 #[path = "registry_leaf_tests.rs"]
 mod installed;
@@ -832,7 +922,7 @@ fn native_registry_snapshot_scope_relative_roots_type_and_access_all_abis() {
         attributes(p, attrs, vn, 0, 0x40);
         arguments(p, &mut t, &[base, 1, attrs]);
         assert!(
-            matches!(dispatch(p, &mut t), Outcome::Fail(reason) if reason.contains("outside selected NLS snapshot"))
+            matches!(dispatch(p, &mut t), Outcome::Fail(reason) if reason.contains("outside selected runtime snapshot"))
         );
         assert_eq!(p.space.ptr(base, arch.ptr_size()).unwrap(), 0);
     }
