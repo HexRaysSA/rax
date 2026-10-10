@@ -2,6 +2,7 @@
 //!
 //! Layout is decoded from the installed `.apiset` section. Contract semantics:
 //! <https://learn.microsoft.com/windows/win32/apiindex/windows-apisets>.
+//! Lookup uses the schema's hash identity, excluding the numeric final revision.
 //! Parent aliases take precedence over the default value; no family inference.
 
 use std::collections::BTreeMap;
@@ -54,6 +55,11 @@ fn wide(bytes: &[u8], at: u32, len: u32) -> std::io::Result<String> {
     Ok(value.to_ascii_lowercase())
 }
 
+fn identity(name: &str) -> Option<&str> {
+    let (prefix, revision) = name.rsplit_once('-')?;
+    (!revision.is_empty() && revision.bytes().all(|b| b.is_ascii_digit())).then_some(prefix)
+}
+
 impl ApiSetSchema {
     pub(crate) fn parse(bytes: &[u8]) -> std::io::Result<Self> {
         if bytes.len() < 28 || u32_at(bytes, 0)? != 6 {
@@ -94,6 +100,13 @@ impl ApiSetSchema {
             if hashed % 2 != 0 || hashed > u32_at(entry, 8)? {
                 return Err(malformed());
             }
+            let key = identity(&name).ok_or_else(malformed)?;
+            // Installed version-6 namespaces hash the full contract except its
+            // numeric final revision. Honor that recorded extent, rather than
+            // guessing a neighboring major/minor contract from the basename.
+            if key.encode_utf16().count() * 2 != hashed as usize {
+                return Err(malformed());
+            }
             let values = u32_at(entry, 20)?;
             total_values = total_values
                 .checked_add(values as usize)
@@ -121,7 +134,7 @@ impl ApiSetSchema {
                     return Err(malformed());
                 }
             }
-            if contracts.insert(name, hosts).is_some() {
+            if contracts.insert(key.to_owned(), hosts).is_some() {
                 return Err(malformed());
             }
         }
@@ -134,7 +147,7 @@ impl ApiSetSchema {
     pub(crate) fn host(&self, name: &str, parent: Option<&str>) -> Option<&str> {
         let lower = name.to_ascii_lowercase();
         let contract = lower.strip_suffix(".dll").unwrap_or(&lower);
-        let hosts = self.contracts.get(contract)?;
+        let hosts = self.contracts.get(identity(contract)?)?;
         let parent = parent.map(str::to_ascii_lowercase);
         let host = parent
             .as_ref()
@@ -165,7 +178,7 @@ mod tests {
         let name = "api-test-core-l1-1-0";
         let name_bytes: Vec<_> = name.encode_utf16().flat_map(u16::to_le_bytes).collect();
         b[36..40].copy_from_slice(&(name_bytes.len() as u32).to_le_bytes());
-        b[40..44].copy_from_slice(&(name_bytes.len() as u32).to_le_bytes());
+        b[40..44].copy_from_slice(&((identity(name).unwrap().len() * 2) as u32).to_le_bytes());
         b.extend(name_bytes);
         for (slot, alias, host) in [
             (52, "", "default.dll"),
@@ -186,7 +199,7 @@ mod tests {
         b
     }
     #[test]
-    fn exact_contract_default_alias_and_unavailable_paths() {
+    fn schema_identity_default_alias_and_unavailable_paths() {
         let b = fixture();
         let s = ApiSetSchema::parse(&b).unwrap();
         assert_eq!(
@@ -199,6 +212,23 @@ mod tests {
         );
         assert_eq!(s.host("api-test-core-l1-1-0", Some("absent.dll")), None);
         assert_eq!(s.host("api-test-core-l1-2-0", None), None);
+        assert_eq!(
+            s.host("api-test-core-l1-1-65535", None),
+            Some("default.dll")
+        );
+        assert_eq!(
+            s.host("api-test-core-l1-1-0", Some("CALLER.DLL")),
+            Some("redirect.dll")
+        );
+        assert_eq!(s.host("api-test-core-l1-1-999", Some("absent.dll")), None);
+        for name in [
+            "api-test-core-l1-1-banana",
+            "api-test-core-l1-1-",
+            "api-test-core-l2-1-0",
+            "api-test-core-l1-1-0.dll:stream",
+        ] {
+            assert_eq!(s.host(name, None), None, "accepted {name}");
+        }
         assert_eq!(&*s.bytes, &b);
     }
     #[test]
@@ -214,6 +244,9 @@ mod tests {
             (16, u32::MAX),
             (32, u32::MAX),
             (36, 1),
+            (40, 0),
+            (40, 2),
+            (40, u32::MAX),
             (48, u32::MAX),
         ] {
             let mut b = valid.clone();
@@ -226,5 +259,28 @@ mod tests {
         let mut b = valid.clone();
         b[112..114].copy_from_slice(&0xD800u16.to_le_bytes());
         assert!(ApiSetSchema::parse(&b).is_err());
+    }
+
+    #[test]
+    fn duplicate_schema_hash_identity_is_rejected_even_when_full_names_differ() {
+        let mut bytes = fixture();
+        let first = bytes[28..52].to_vec();
+        let entries = bytes.len() as u32;
+        bytes.extend(&first);
+        let mut second = first.clone();
+        let name = "api-test-core-l1-1-1";
+        let text = name
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect::<Vec<_>>();
+        let name_at = bytes.len() as u32 + 24;
+        second[4..8].copy_from_slice(&name_at.to_le_bytes());
+        bytes.extend(second);
+        bytes.extend(text);
+        let size = bytes.len() as u32;
+        bytes[4..8].copy_from_slice(&size.to_le_bytes());
+        bytes[12..16].copy_from_slice(&2u32.to_le_bytes());
+        bytes[16..20].copy_from_slice(&entries.to_le_bytes());
+        assert!(ApiSetSchema::parse(&bytes).is_err());
     }
 }

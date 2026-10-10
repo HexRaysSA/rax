@@ -287,7 +287,7 @@ mod tests {
     }
     #[cfg(windows)]
     #[test]
-    fn installed_schema_preserves_exact_versions_and_parent_redirects() {
+    fn installed_schema_preserves_hash_identities_and_parent_redirects() {
         let arch = if cfg!(target_arch = "aarch64") {
             WinArch::Arm64
         } else if cfg!(target_arch = "x86_64") {
@@ -329,6 +329,70 @@ mod tests {
             "/ntdll.dll",
         ] {
             assert!(runtime.dll(name).is_err());
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn installed_numeric_revisions_match_native_windows_loader_resolution() {
+        use std::ffi::c_void;
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn LoadLibraryExW(name: *const u16, file: *mut c_void, flags: u32) -> *mut c_void;
+            fn GetModuleFileNameW(module: *mut c_void, path: *mut u16, size: u32) -> u32;
+            fn FreeLibrary(module: *mut c_void) -> i32;
+        }
+        let arch = if cfg!(target_arch = "aarch64") {
+            WinArch::Arm64
+        } else if cfg!(target_arch = "x86_64") {
+            WinArch::X64
+        } else {
+            WinArch::X86
+        };
+        let runtime = NativeRuntime::select(arch).unwrap();
+        for revision in ["0", "1", "65535"] {
+            let name = format!("api-ms-win-core-rtlsupport-l1-1-{revision}.dll");
+            let wide = name.encode_utf16().chain(Some(0)).collect::<Vec<_>>();
+            // SAFETY: the UTF-16 name is terminated and retained for this call,
+            // the reserved file handle is null, and 0x800 limits search to the
+            // system directory. The resulting loader reference is released below.
+            let module = unsafe { LoadLibraryExW(wide.as_ptr(), std::ptr::null_mut(), 0x800) };
+            assert!(!module.is_null(), "native loader refused {name}");
+            let mut path = vec![0u16; 32768];
+            // SAFETY: module is the live reference obtained above; path contains
+            // 32,768 writable initialized UTF-16 units and remains live in the call.
+            let count = unsafe { GetModuleFileNameW(module, path.as_mut_ptr(), path.len() as u32) };
+            // SAFETY: release precisely the loader reference acquired above;
+            // no module pointer is used after this call.
+            assert_ne!(unsafe { FreeLibrary(module) }, 0);
+            assert!(count != 0 && (count as usize) < path.len());
+            let host = String::from_utf16(&path[..count as usize]).unwrap();
+            assert_eq!(
+                host.rsplit(['\\', '/'])
+                    .next()
+                    .unwrap()
+                    .to_ascii_lowercase(),
+                "ntdll.dll"
+            );
+            assert_eq!(runtime.apisets.host(&name, None), Some("ntdll.dll"));
+        }
+        for name in [
+            "api-ms-win-core-rtlsupport-l1-1-banana.dll",
+            "api-ms-win-core-rtlsupport-l65535-65535-0.dll",
+        ] {
+            let wide = name.encode_utf16().chain(Some(0)).collect::<Vec<_>>();
+            // SAFETY: terminated UTF-16 input and null reserved handle, as above.
+            let module = unsafe { LoadLibraryExW(wide.as_ptr(), std::ptr::null_mut(), 0x800) };
+            // Balance even an unexpected native success before reporting failure.
+            if !module.is_null() {
+                // SAFETY: this is the live loader reference just acquired.
+                unsafe { FreeLibrary(module) };
+            }
+            assert!(
+                module.is_null(),
+                "native loader unexpectedly resolved {name}"
+            );
+            assert_eq!(runtime.apisets.host(name, None), None);
         }
     }
 }
