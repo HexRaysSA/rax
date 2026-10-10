@@ -1043,3 +1043,48 @@ native loader/RTL heap/CRT, wider native services, POSIX process/symlink and ful
 native application/package/IDA matrices still block the overall goal. C API
 1.11.0/layouts/defaults/options/schema/dependencies/locks/permissions/package
 wiring and ISA/SMIR/JIT/other guest semantics remain unchanged.
+
+
+### Optional fixed Segment Heap snapshot (2026-10-10)
+
+Native Windows selection captures optional fixed Session Manager\Segment Heap
+values or records actual root absence. Only fixed RegOpenKeyExW error2 means
+absence; other open/later capture errors fail selection. Metadata/double matching
+raw value samples obey remaining shared4,096-value/16 MiB limits, with three
+bounded attempts. A parent-owned selected child and immutable shared value maps
+preserve absolute/relative opens and old namespace/parent-handle lifetimes,
+without cloning parent raw payload or charging child values twice. Unknown
+siblings/subkeys stay unsupported; a present child under a parent reporting
+zero children is rejected. Guest key strings never reach the native adapter.
+No ABI1.11.0/layout/options/defaults/schema/permission/dependency/package/ISA change.
+
+The independent query-only oracle observes9 paired native/Win32 opens (18
+operations), all absent, on Windows29683 nativeARM64/compatibilityx86/x64 and
+view0/0x100/0x200. Actual configured-present profile is unknown. Two model and
+two all-guest-ABI NT cases pass across hosts; three native acquisition cases
+include a controlled real query-only Session Manager HKEY and independent
+RegQueryValueExW comparison, without modifying registry settings. Final Windows
+focused7 and installed NTDLL leaf1 pass; baseline absence regression failed
+before implementation. Parent/child cross-key transactions and ABA exclusion
+are not claimed. Assumptions, bounds, complexity, planes, raw original sources,
+primary licenses and exact phase/source/log hashes are in [Segment Heap evidence](../../../docs/specifications/windows/native-segment-heap-registry/README.md).
+
+Unfiltered library pass/fail/ignore/filter is macOS7,539/0/2/0,
+Linux7,531/2/2/0, Windows6,926/5/2/0; selections7,541/7,535/6,933.
+Linux retains two known io_uring timeout assertions; Windows retains four BZHI
+assertions and one FP16 assertion; historical readiness/clock evidence remains unresolved. Full suites
+precede only strengthening an independent Windows-native query assertion;
+production/shared sources are identical. All-target builds/CAPI168/current
+locked owning Assist archives/five production C++ checks pass all three.
+RegisteredUnix544 passes macOS/Linux and is cfg-excluded Windows; native memory4
+passes Windows and is cfg-excluded elsewhere. macOS seven relevant CTests,
+CLI-generated description-only manifest and protected CLI/MCP scans pass.
+Container Linux evidence is distinct from physical native x86-64 proof.
+
+Private saved-context/cleared-PEB-heap current owning-archive trace returns
+Segment Heap NAME_NOT_FOUND at turn4,462 and reaches NtQuerySystemInformation
+class62 at turn11,206, service0x36, PC0x1800013a0, supplied64 bytes; it remains
+explicitly unsupported. Delta6,744 is scheduler calls, not instructions. Four
+ordinary native Windows programs still return STATUS_ACCESS_VIOLATION. Native
+production Ldr/RTL heap/CRT, wider NT/POSIX and full application/package/IDA
+matrices still block the overall goal; this group claims only its bounded scope.

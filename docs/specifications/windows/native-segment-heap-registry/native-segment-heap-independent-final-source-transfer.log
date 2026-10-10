@@ -1,0 +1,16 @@
+batch source transfer 0
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\fixed.rs 8A4BF62128A789733B58C20D34CF622EAE92BB54C3FF0DF8D299716949096996
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\fixed_tests.rs C9D280858C3CBEA76729BE0AD46E4338214B250AD4DF7F13689342F6624B20AC
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\process\sched\tests\services_tests\registry_fixed_tests.rs 8B36E329929C14670F50154A5F12D99928129077258E4649EC97A63440AB8267
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry.rs BDD4B5D578B655D318D19FBC56C93CD05AD89EC704FD2FE80F558645CB283964
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\tree.rs 23E1F01C3EF83EA92C9DED45F8042AC078E7ACDEAC0C0510815AC73D776E8E7F
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\tree_tests.rs B009B91F1B5DB239F73FAE58C5D3299A7B1F1FEBDF8A29485F7C178B3938E654
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\installed.rs AD8C4C50CF9701F9719BA9335C57534A187AF57B10DA19D2D7D5E036B104917D
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\installed\tree.rs D100FF535F6971A9462B4DA7A82BFD460B28E1A9482DEE2597C9E85F001974D0
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\installed_tests.rs 20D0C4E2BB4DE54265F251E4F6997CEC8DB2492124A4117B5639E68247781F42
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\dll\native\registry.rs 0C92DDEC377BA8B27A6CBE1BDB48EC725544DF0D42C412522749E5DBE584D529
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\process\sched\tests\services_tests\registry_tests.rs B1037C01576A55177A4000B366D8852564A5BF4966F5C6556262523F366E991E
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\process\sched\tests\services_tests\registry_tree_tests.rs 42E532B00BF49006E852B2C666FD8AFBEABF79EFB2CBF0A2ADF6657592884DDD
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\process\sched\tests\services_tests\registry_leaf_tests.rs 9E9C7EAE203682E4949664139D22FD908BAFADE21BA440767D1D9EA92B20BAE8
+
+

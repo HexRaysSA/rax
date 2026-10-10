@@ -246,6 +246,30 @@ fn installed_ntdll_registry_leaves_open_query_close_selected_snapshot() {
                 crate::user::windows::registry::Lookup::Missing
             ));
         }
+        let path = crate::user::windows::registry::SEGMENT_HEAP_KEY;
+        let present = p
+            .registry
+            .key(&path.encode_utf16().collect::<Vec<_>>())
+            .is_some();
+        unicode(p, vn, base + 256, path);
+        attributes(p, attrs, vn, 0, 0x240);
+        assert_eq!(
+            invoke(p, &mut t, module, "NtOpenKey", &[base + 8, 1, attrs]),
+            if present {
+                STATUS_SUCCESS
+            } else {
+                STATUS_OBJECT_NAME_NOT_FOUND
+            }
+        );
+        if present {
+            let handle = p.space.ptr(base + 8, arch.ptr_size()).unwrap();
+            assert_eq!(
+                invoke(p, &mut t, module, "NtClose", &[handle]),
+                STATUS_SUCCESS
+            );
+        } else {
+            assert_eq!(p.space.ptr(base + 8, arch.ptr_size()).unwrap(), 0);
+        }
         assert_eq!((p.objects.handle_count(), p.objects.iter().count()), before);
         assert_eq!(
             invoke(p, &mut t, module, "NtQueryValueKey", &[h, vn, 2, 0, 64, 0]),

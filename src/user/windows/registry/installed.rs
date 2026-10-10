@@ -3,6 +3,7 @@
 //! selection returns, and the kernel reads the resulting immutable records.
 #[path = "installed/tree.rs"]
 mod tree;
+use super::SEGMENT_HEAP_KEY;
 use super::{
     MAX_NAME_UNITS, MAX_VALUE_BYTES, MAX_VALUES, NLS_KEY, Registry, SESSION_MANAGER_KEY,
     SelectedKey, Value, invalid,
@@ -161,6 +162,12 @@ fn values(key: &OwnedKey, i: &Info, limit: usize) -> io::Result<Vec<Value>> {
     Ok(result)
 }
 fn capture(path: &'static str) -> io::Result<SelectedKey> {
+    capture_values(path, open_fixed(path)?, MAX_VALUES, super::MAX_TOTAL_BYTES)
+}
+fn open_fixed(path: &'static str) -> io::Result<OwnedKey> {
+    if !matches!(path, NLS_KEY | SESSION_MANAGER_KEY | SEGMENT_HEAP_KEY) {
+        return Err(invalid("native registry path outside fixed selection"));
+    }
     let host = path
         .strip_prefix("\\Registry\\Machine\\")
         .ok_or_else(|| invalid("fixed registry path lacks HKLM root"))?;
@@ -180,15 +187,27 @@ fn capture(path: &'static str) -> io::Result<SelectedKey> {
     if s != 0 {
         return Err(io::Error::from_raw_os_error(s));
     }
-    let key = OwnedKey(handle);
+    Ok(OwnedKey(handle))
+}
+fn capture_values(
+    path: &'static str,
+    key: OwnedKey,
+    count_limit: usize,
+    byte_limit: usize,
+) -> io::Result<SelectedKey> {
     for _ in 0..3 {
         let before = info(&key)?;
-        let first = match values(&key, &before, super::MAX_TOTAL_BYTES) {
+        if before.values as usize > count_limit {
+            return Err(invalid(
+                "installed fixed registry value count exceeds remaining budget",
+            ));
+        }
+        let first = match values(&key, &before, byte_limit) {
             Ok(values) => values,
             Err(error) if matches!(error.raw_os_error(), Some(234 | 259)) => continue,
             Err(error) => return Err(error),
         };
-        let second = match values(&key, &before, super::MAX_TOTAL_BYTES) {
+        let second = match values(&key, &before, byte_limit) {
             Ok(values) => values,
             Err(error) if matches!(error.raw_os_error(), Some(234 | 259)) => continue,
             Err(error) => return Err(error),
@@ -207,6 +226,28 @@ fn capture(path: &'static str) -> io::Result<SelectedKey> {
     ))
 }
 
+fn segment_heap(registry: &Registry) -> io::Result<Option<SelectedKey>> {
+    segment_heap_with(registry, open_fixed)
+}
+fn segment_heap_with(
+    registry: &Registry,
+    mut opener: impl FnMut(&'static str) -> io::Result<OwnedKey>,
+) -> io::Result<Option<SelectedKey>> {
+    let key = match opener(SEGMENT_HEAP_KEY) {
+        Ok(key) => key,
+        Err(error) if error.raw_os_error() == Some(2) => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let budget = registry.value_budget()?;
+    capture_values(
+        SEGMENT_HEAP_KEY,
+        key,
+        MAX_VALUES - budget.count,
+        super::MAX_TOTAL_BYTES - budget.bytes,
+    )
+    .map(Some)
+}
+
 pub(crate) fn snapshot() -> io::Result<Registry> {
     // Fixed shared SYSTEM keys and the complete IFEO subtree. Handles close in capture,
     // including error/retry paths; no native operation survives selection.
@@ -220,6 +261,8 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
         .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
         .collect();
     let registry = Registry::selected(upcase, selected)?;
+    let segment = segment_heap(&registry)?;
+    let registry = registry.with_segment_heap(segment)?;
     match tree::capture(&registry)? {
         Some(tree) => registry.with_ifeo(tree),
         None => registry.with_absent_ifeo(),

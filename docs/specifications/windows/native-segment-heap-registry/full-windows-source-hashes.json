@@ -1,0 +1,20 @@
+{
+  "phase": "unfiltered suites and owning archives before independent native query assertion strengthening",
+  "sources": {
+    "src/src/user/windows/registry/fixed.rs": "8a4bf62128a789733b58c20d34cf622eae92bb54c3ff0df8d299716949096996",
+    "src/src/user/windows/registry/fixed_tests.rs": "c9d280858c3cbea76729be0ad46e4338214b250ad4df7f13689342f6624b20ac",
+    "src/src/user/windows/process/sched/tests/services_tests/registry_fixed_tests.rs": "8b36e329929c14670f50154a5f12d99928129077258e4649ec97a63440ab8267",
+    "src/src/user/windows/registry.rs": "bdd4b5d578b655d318d19fbc56c93cd05ad89ec704fd2fe80f558645cb283964",
+    "src/src/user/windows/registry/tree.rs": "23e1f01c3ef83ea92c9ded45f8042ac078e7acdeac0c0510815ac73d776e8e7f",
+    "src/src/user/windows/registry/tree_tests.rs": "b009b91f1b5db239f73fae58c5d3299a7b1f1febdf8a29485f7c178b3938e654",
+    "src/src/user/windows/registry/installed.rs": "ad8c4c50cf9701f9719ba9335c57534a187af57b10da19d2d7d5e036b104917d",
+    "src/src/user/windows/registry/installed/tree.rs": "d100ff535f6971a9462b4da7a82bfd460b28e1a9482dee2597c9e85f001974d0",
+    "src/src/user/windows/registry/installed_tests.rs": "267a198eb2f718bfe360a87ac648330e8c66f6145c7fcc876bdd97366377a753",
+    "src/src/user/windows/dll/native/registry.rs": "0c92ddec377ba8b27a6cbe1bdb48ec725544df0d42c412522749e5dbe584d529",
+    "src/src/user/windows/process/sched/tests/services_tests/registry_tests.rs": "b1037c01576a55177a4000b366d8852564a5bf4966f5c6556262523f366e991e",
+    "src/src/user/windows/process/sched/tests/services_tests/registry_tree_tests.rs": "42e532b00bf49006e852b2c666fd8afbeabf79efb2cbf0a2adf6657592884ddd",
+    "src/src/user/windows/process/sched/tests/services_tests/registry_leaf_tests.rs": "9e9c7eae203682e4949664139d22fd908bafade21ba440767d1d9ea92b20bae8",
+    "assist/resources/static-text/metadata-emulation.json": "cee01f21b2712f5c993af76a2e1b88da3d183f0d55cb561cb4692e9208c57ed8",
+    "assist/resources/mcp/tool_manifest.json": "b3405e88711523b92f7d9159c14ff9772dd0485c1fd4bfa4376e3dd59141750d"
+  }
+}

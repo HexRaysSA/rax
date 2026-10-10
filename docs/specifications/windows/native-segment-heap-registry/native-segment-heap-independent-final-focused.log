@@ -1,0 +1,33 @@
+warning: "stdcall" is not a supported ABI for the current target
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\src)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 18s
+     Running unittests src\lib.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\rax-d861ee8f992d7cb6.exe)
+
+running 7 tests
+test user::windows::registry::installed::tests::installed_segment_heap_root_absence_is_distinct_from_other_open_errors ... ok
+test user::windows::registry::installed::tests::installed_segment_heap_present_capture_adapter_reads_controlled_native_key ... ok
+test user::windows::registry::installed::tests::installed_segment_heap_snapshot_matches_optional_native_root_presence ... ok
+test user::windows::registry::fixed::tests::segment_heap_partial_selection_preserves_present_absent_scope_and_old_parent ... ok
+test user::windows::registry::fixed::tests::segment_heap_rejects_invalid_parent_scope_duplicate_and_shared_value_exhaustion ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::fixed::native_segment_heap_present_raw_values_and_descendant_handle_lifetime_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::fixed::native_segment_heap_absent_absolute_relative_and_partial_parent_all_abis ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 6926 filtered out; finished in 0.05s
+

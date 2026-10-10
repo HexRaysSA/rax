@@ -1,5 +1,145 @@
 use super::*;
 
+fn check_raw_values<'a>(host: &OwnedKey, values: impl IntoIterator<Item = &'a Value>) {
+    for value in values {
+        let name: Vec<_> = value.name.iter().copied().chain(Some(0)).collect();
+        let mut data = vec![0; MAX_VALUE_BYTES];
+        let (mut kind, mut length) = (0, data.len() as u32);
+        // SAFETY: live read-only HKEY, terminated captured native value name,
+        // exclusive bounded outputs; returned byte count validated below.
+        assert_eq!(
+            unsafe {
+                RegQueryValueExW(
+                    host.0,
+                    name.as_ptr(),
+                    null_mut(),
+                    &mut kind,
+                    data.as_mut_ptr(),
+                    &mut length,
+                )
+            },
+            0
+        );
+        assert!(length as usize <= data.len());
+        data.truncate(length as usize);
+        assert_eq!((kind, data), (value.kind, value.data.clone()));
+    }
+}
+
+#[test]
+fn installed_segment_heap_present_capture_adapter_reads_controlled_native_key() {
+    // Controlled opener supplies a live query-only Session Manager handle:
+    // this exercises present-key acquisition without creating a Segment Heap
+    // key or claiming this host has a configured present Segment Heap profile.
+    let host: Vec<_> = "SYSTEM\\CurrentControlSet\\Control\\Session Manager\0"
+        .encode_utf16()
+        .collect();
+    let mut handle = null_mut();
+    // SAFETY: fixed terminated fixture path, query-only access, exclusive HKEY.
+    assert_eq!(
+        unsafe {
+            RegOpenKeyExW(
+                (-2_147_483_646isize) as Hkey,
+                host.as_ptr(),
+                0,
+                1,
+                &mut handle,
+            )
+        },
+        0
+    );
+    let independent = OwnedKey(handle);
+    let metadata = info(&independent).unwrap();
+    let registry = Registry::selected(vec![0; 65_536], vec![]).unwrap();
+    let captured = segment_heap_with(&registry, |path| {
+        assert_eq!(path, super::super::SEGMENT_HEAP_KEY);
+        let mut handle = null_mut();
+        // SAFETY: controlled fixed fixture, query-only access, exclusive HKEY.
+        let status = unsafe {
+            RegOpenKeyExW(
+                (-2_147_483_646isize) as Hkey,
+                host.as_ptr(),
+                0,
+                1,
+                &mut handle,
+            )
+        };
+        if status != 0 {
+            return Err(io::Error::from_raw_os_error(status));
+        }
+        Ok(OwnedKey(handle))
+    })
+    .unwrap()
+    .expect("controlled present native fixture");
+    assert_eq!(captured.path, super::super::SEGMENT_HEAP_KEY);
+    assert_eq!(captured.children, metadata.children);
+    assert_eq!(captured.values.len(), metadata.values as usize);
+    check_raw_values(&independent, &captured.values);
+}
+
+#[test]
+fn installed_segment_heap_root_absence_is_distinct_from_other_open_errors() {
+    let registry = Registry::selected(vec![0; 65_536], vec![]).unwrap();
+    let mut opens = 0;
+    assert!(
+        segment_heap_with(&registry, |path| {
+            opens += 1;
+            assert_eq!(path, super::super::SEGMENT_HEAP_KEY);
+            Err(io::Error::from_raw_os_error(2))
+        })
+        .unwrap()
+        .is_none()
+    );
+    assert_eq!(opens, 1);
+    for status in [5, 234, 259] {
+        let error = segment_heap_with(&registry, |_| Err(io::Error::from_raw_os_error(status)))
+            .err()
+            .expect("only the fixed root error 2 is known absence");
+        assert_eq!(error.raw_os_error(), Some(status));
+    }
+}
+
+#[test]
+fn installed_segment_heap_snapshot_matches_optional_native_root_presence() {
+    let registry = snapshot().unwrap();
+    let path =
+        "\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Segment Heap";
+    let guest: Vec<_> = path.encode_utf16().collect();
+    let host: Vec<_> = "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Segment Heap\0"
+        .encode_utf16()
+        .collect();
+    for view in [0, 0x100, 0x200] {
+        let mut handle = null_mut();
+        // SAFETY: fixed terminated system path, query-only native access and
+        // exclusive HKEY output. No mutation or guest-provided key string.
+        let status = unsafe {
+            RegOpenKeyExW(
+                (-2_147_483_646isize) as Hkey,
+                host.as_ptr(),
+                0,
+                1 | view,
+                &mut handle,
+            )
+        };
+        if status == 2 {
+            assert!(matches!(
+                registry.lookup(&guest),
+                super::super::Lookup::Missing
+            ));
+        } else {
+            assert_eq!(status, 0);
+            let host = OwnedKey(handle);
+            let captured = registry
+                .key(&guest)
+                .expect("independently present fixed key");
+            let metadata = info(&host).unwrap();
+            assert_eq!(captured.children, metadata.children);
+            assert_eq!(captured.values.len(), metadata.values as usize);
+            check_raw_values(&host, captured.values.values());
+        }
+    }
+}
+
 #[test]
 fn installed_ifeo_only_root_not_found_is_known_absence() {
     let registry = Registry::selected(vec![0; 65_536], vec![]).unwrap();

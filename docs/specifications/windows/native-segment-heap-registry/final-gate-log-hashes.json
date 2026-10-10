@@ -1,0 +1,150 @@
+[
+  {
+    "file": "/tmp/assist-native-segment-heap-final-full-macos.log",
+    "sha256": "6eb5dc41ff81e87c1cf3ecf5e445e3c974bfed120e0f425336ff1694f635daaf",
+    "bytes": 762241,
+    "test_results": [
+      "test result: ok. 7539 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 60.73s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-segment-heap-final-capi-macos.log",
+    "sha256": "b96ea79e5890bd2f4109cb8eb6fe21f4efda8ce03984d577e88b07e92bcd7e5d",
+    "bytes": 12927,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.12s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-segment-heap-final-all-targets-macos.log",
+    "sha256": "f48ad5f55adbfa5de8e221533a60cfdb922d5406a22f430624a32936e8ce1a2f",
+    "bytes": 136,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-segment-heap-final-integration-macos.log",
+    "sha256": "dc19c8ac51731703561abf26a1541de3fff6185b9817adf8c42ac127cadd33b1",
+    "bytes": 35757,
+    "test_results": [
+      "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.27s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-segment-heap-final-full.log",
+    "sha256": "d30b017a52a61e16be6cf07cd1636f16e6392f71ea8fefb83867df9b8d0c8ff3",
+    "bytes": 763624,
+    "test_results": [
+      "test result: FAILED. 7531 passed; 2 failed; 2 ignored; 0 measured; 0 filtered out; finished in 106.48s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-segment-heap-final-capi.log",
+    "sha256": "3b211575bd9807bcad71d6c1dc3e681687ab150a9a0a7906727aa59dd69ba9db",
+    "bytes": 13057,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.80s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-segment-heap-final-all-targets.log",
+    "sha256": "f086ecbbe3828bbb3b608a802b82fe79a58311671803d8aada9b9693ca3db68a",
+    "bytes": 293,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-segment-heap-final-integration.log",
+    "sha256": "78e8a1d9185b55049606b0abfa31c93dfe843bc9e14f7f3ee6e631dfac66b60e",
+    "bytes": 35937,
+    "test_results": [
+      "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.40s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-segment-heap-final-full.log",
+    "sha256": "32a5f15c819aa770f5d344eac55558bc61afcd421415ebba93b55e0bb19a45af",
+    "bytes": 715674,
+    "test_results": [
+      "test result: FAILED. 6926 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 259.88s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-segment-heap-final-capi.log",
+    "sha256": "578423b768f541a1f5f790733354a9b56267b7b6ae46908cf3c1affbe7de6e58",
+    "bytes": 13816,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.53s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-segment-heap-final-all-targets.log",
+    "sha256": "e126795d30c207a0afd39448d1ca17db819ec01559779db82d4c4d536df196b9",
+    "bytes": 986,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-segment-heap-final-integration.log",
+    "sha256": "e6c3d925e5576116c9b6981b90291c2e43f370df80ad44f42e2b562c183e178d",
+    "bytes": 1752,
+    "test_results": [
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/assist-native-segment-heap-final-shipping.log",
+    "sha256": "625a86ae6551b02720556389a448fc880c1cf773a3f88bcde92bf430c088721f",
+    "bytes": 1584,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/assist-native-segment-heap-final-cpp.log",
+    "sha256": "b0f277678bc54485cf58c6295345a12235df27c7d420c5085b93ab253e75e214",
+    "bytes": 2946,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-segment-heap-final-cli-cpp-macos.log",
+    "sha256": "ab079a9bc762493bf6d06c0cd9165721897138293bb9d3b43bca324c730591db",
+    "bytes": 24333,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-segment-heap-final-ctest-macos.log",
+    "sha256": "1cd27d9e07c2af3d56fccfd6bd24be6b3fd61ffa2645e8bc6362952b38182c31",
+    "bytes": 1202,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-segment-heap-root-linux-driver.log",
+    "sha256": "a02490851028c737790b8043220c3c3c04837f310fc58c87148ec12510299252",
+    "bytes": 17,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-segment-heap-final-archive-output.log",
+    "sha256": "a6dfe89870dbe2ae548f73d87b507be95e9fd578d46586e25a730417a36a71ea",
+    "bytes": 13351,
+    "test_results": [
+      "test result: FAILED. 6926 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 259.88s\r",
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.53s\r",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\r",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\r",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\r"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-segment-heap-final-shipping.log",
+    "sha256": "ce900bb3be7bd555e905c559ca3e316b3d05202b75078d6178eeb04254b8b8a5",
+    "bytes": 399
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-segment-heap-final-cpp.log",
+    "sha256": "654c261ed7378aaed6990c140445dd6a20067dae86e5f2e0b446b80ee64f8497",
+    "bytes": 1623
+  }
+]

@@ -16,6 +16,9 @@ const MAX_TOTAL_BYTES: usize = 16 << 20;
 #[path = "registry/tree.rs"]
 mod tree;
 pub(crate) use tree::{IFEO_KEY, IfeoTree, Lookup};
+#[path = "registry/fixed.rs"]
+mod fixed;
+pub(crate) use fixed::SEGMENT_HEAP_KEY;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Value {
@@ -37,8 +40,9 @@ pub struct Key {
     pub(crate) path: Vec<u16>,
     pub(crate) children: u32,
     upcase: Arc<[u16]>,
-    values: BTreeMap<Vec<u16>, Value>,
+    values: Arc<BTreeMap<Vec<u16>, Value>>,
     subkeys: Option<BTreeMap<Vec<u16>, Arc<Key>>>,
+    selected_child: Option<(Vec<u16>, Option<Arc<Key>>)>,
 }
 impl Key {
     #[cfg(test)]
@@ -89,8 +93,13 @@ impl Registry {
                 path: selected.path.encode_utf16().collect(),
                 children: selected.children,
                 upcase: result.upcase.clone(),
-                values: bounded_values(&result.upcase, selected.values, &mut budget)?,
+                values: Arc::new(bounded_values(
+                    &result.upcase,
+                    selected.values,
+                    &mut budget,
+                )?),
                 subkeys: None,
+                selected_child: None,
             };
             if result
                 .keys
@@ -135,7 +144,10 @@ impl Registry {
         if let Some(key) = self.keys.get(&folded) {
             return Lookup::Present(key.clone());
         }
-        self.ifeo_lookup(&folded, name)
+        match self.ifeo_lookup(&folded, name) {
+            Lookup::Unselected => self.segment_heap_lookup(&folded, name),
+            selected => selected,
+        }
     }
 }
 

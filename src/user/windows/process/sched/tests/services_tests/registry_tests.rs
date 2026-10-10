@@ -100,6 +100,9 @@ mod installed;
 #[path = "registry_tree_tests.rs"]
 mod tree;
 
+#[path = "registry_fixed_tests.rs"]
+mod fixed;
+
 fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);

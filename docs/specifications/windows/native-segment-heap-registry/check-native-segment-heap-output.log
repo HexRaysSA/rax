@@ -1,0 +1,2 @@
+PASS: 9 ABI/view pairs, 18 native opens, all STATUS_OBJECT_NAME_NOT_FOUND / ERROR_FILE_NOT_FOUND
+Scope: Windows 10.0.29683.1000 ARM64 with native ARM64 and compatibility x86/x64; configured-present profiles unobserved

@@ -117,6 +117,9 @@ fn charge_key(key: &Key, budget: &mut ValueBudget) -> io::Result<()> {
     for value in key.values.values() {
         budget.charge(value)?;
     }
+    if let Some((_, Some(child))) = &key.selected_child {
+        charge_key(child, budget)?;
+    }
     if let Some(children) = &key.subkeys {
         for child in children.values() {
             charge_key(child, budget)?;
@@ -130,6 +133,16 @@ impl Key {
         // Native registry opens ignore repeated and trailing separators.
         // Dot components and '/' remain literal registry names.
         for component in name.split(|u| *u == 92).filter(|part| !part.is_empty()) {
+            let folded = key.fold(component);
+            if let Some((selected, child)) = &key.selected_child {
+                if selected == &folded {
+                    let Some(child) = child.clone() else {
+                        return Lookup::Missing;
+                    };
+                    key = child;
+                    continue;
+                }
+            }
             let Some(children) = &key.subkeys else {
                 return if key.children == 0 {
                     Lookup::Missing
@@ -137,7 +150,7 @@ impl Key {
                     Lookup::Unselected
                 };
             };
-            let Some(child) = children.get(&key.fold(component)) else {
+            let Some(child) = children.get(&folded) else {
                 return Lookup::Missing;
             };
             key = child.clone();
@@ -162,8 +175,9 @@ fn build(
         path,
         children: tree.children.len() as u32,
         upcase,
-        values: raw_values,
+        values: Arc::new(raw_values),
         subkeys: None,
+        selected_child: None,
     };
     let mut children = BTreeMap::new();
     for (name, child) in tree.children {
