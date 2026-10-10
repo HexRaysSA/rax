@@ -540,6 +540,7 @@ mod tests {
             failure: None,
             start_time: Instant::now(),
             rng: 1,
+            process_cookie: 0xA5A5_5A5B,
             cwd: vec![],
             exe_stack_reserve: 0x10000,
             exe_stack_commit: PAGE_SIZE,

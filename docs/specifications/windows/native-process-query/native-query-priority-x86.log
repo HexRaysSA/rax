@@ -1,0 +1,23 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+native-query-priority-probe.cpp
+pointer=4 class=0 role=0 len=44 status=C0000005 output_protect=00000004 returned_protect=00000004
+pointer=4 class=0 role=1 len=44 status=80000001 output_protect=00000004 returned_protect=00000004
+pointer=4 class=0 role=2 len=44 status=80000001 output_protect=00000004 returned_protect=00000002
+pointer=4 class=0 role=3 len=43 status=80000001 output_protect=00000004 returned_protect=00000004
+pointer=4 class=0 role=4 len=0 status=C0000005 output_protect=00000004 returned_protect=00000004
+pointer=4 class=0 role=5 len=43 status=C0000004 output_protect=00000002 returned_protect=00000004
+pointer=4 class=50 role=0 len=4 status=C0000005 output_protect=00000004 returned_protect=00000004
+pointer=4 class=50 role=1 len=4 status=80000001 output_protect=00000004 returned_protect=00000004
+pointer=4 class=50 role=2 len=4 status=80000001 output_protect=00000004 returned_protect=00000002
+pointer=4 class=50 role=3 len=3 status=80000001 output_protect=00000004 returned_protect=00000004
+pointer=4 class=50 role=4 len=0 status=C0000005 output_protect=00000004 returned_protect=00000004
+pointer=4 class=50 role=5 len=3 status=C0000004 output_protect=00000002 returned_protect=00000004
+pointer=4 class=36 role=0 len=4 status=80000002 output_protect=00000004 returned_protect=00000004
+pointer=4 class=36 role=1 len=4 status=80000002 output_protect=00000004 returned_protect=00000104
+pointer=4 class=36 role=2 len=4 status=C0000005 output_protect=00000104 returned_protect=00000002
+pointer=4 class=36 role=3 len=3 status=80000001 output_protect=00000004 returned_protect=00000004
+pointer=4 class=36 role=4 len=0 status=C0000005 output_protect=00000004 returned_protect=00000004
+pointer=4 class=36 role=5 len=3 status=C0000004 output_protect=00000002 returned_protect=00000004

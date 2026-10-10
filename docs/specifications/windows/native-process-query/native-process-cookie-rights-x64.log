@@ -1,0 +1,30 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+native-process-cookie-rights-probe.cpp
+access=00000008 opened=1 status=C0000022 out=A5A5A5A5 returned=A5A5A5A5
+access=00000020 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00000028 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00000030 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00000038 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00000410 opened=1 status=C0000022 out=A5A5A5A5 returned=A5A5A5A5
+access=00000420 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00000428 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00000430 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00000438 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00001020 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00001030 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00001420 opened=1 status=00000000 out=E561D641 returned=00000004
+access=00001430 opened=1 status=00000000 out=E561D641 returned=00000004
+access=001FFFDF opened=1 status=C0000022 out=A5A5A5A5 returned=A5A5A5A5
+access=001FFFEF opened=1 status=00000000 out=E561D641 returned=00000004
+access=001FFBFF opened=1 status=00000000 out=E561D641 returned=00000004
+foreign-created-process status=00000000 out=E933CDEF returned=00000004
+guard=0 status=80000001 exception=00000000 protection=00000004 out=A5A5A5A5 returned=A5A5A5A5
+guard=1 status=80000001 exception=00000000 protection=00000004 out=A5A5A5A5 returned=A5A5A5A5
+alias=0 status=00000000 bytes=04000000a5a5a5a5
+alias=1 status=00000000 bytes=4104000000a5a5a5
+alias=2 status=00000000 bytes=41d604000000a5a5
+alias=3 status=00000000 bytes=41d66104000000a5
+alias=4 status=00000000 bytes=41d661e504000000

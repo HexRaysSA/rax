@@ -1,0 +1,20 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+native-process-cookie-policy-probe.cpp
+access=00000000 opened=0 status=C0000008 out=A5A5A5A5 returned=A5A5A5A5
+access=00000010 opened=1 status=C0000022 out=A5A5A5A5 returned=A5A5A5A5
+access=00000040 opened=1 status=C0000022 out=A5A5A5A5 returned=A5A5A5A5
+access=00000400 opened=1 status=C0000022 out=A5A5A5A5 returned=A5A5A5A5
+access=00001000 opened=1 status=C0000022 out=A5A5A5A5 returned=A5A5A5A5
+access=00001400 opened=1 status=C0000022 out=A5A5A5A5 returned=A5A5A5A5
+access=001FFFFF opened=1 status=00000000 out=B9309DF2 returned=00000004
+foreign-created-process status=00000000 out=EAC9E25D returned=00000004
+guard=0 status=80000001 exception=00000000 protection=00000004 out=A5A5A5A5 returned=A5A5A5A5
+guard=1 status=80000001 exception=00000000 protection=00000004 out=A5A5A5A5 returned=A5A5A5A5
+alias=0 status=00000000 bytes=04000000a5a5a5a5
+alias=1 status=00000000 bytes=f204000000a5a5a5
+alias=2 status=00000000 bytes=f29d04000000a5a5
+alias=3 status=00000000 bytes=f29d3004000000a5
+alias=4 status=00000000 bytes=f29d30b904000000

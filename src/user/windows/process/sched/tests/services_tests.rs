@@ -1,6 +1,9 @@
 use super::*;
 use crate::user::windows::loader::services::tests::table;
 
+#[path = "services_tests/process_query_tests.rs"]
+mod process_query_tests;
+
 fn fixture(
     arch: WinArch,
     name: &str,
@@ -759,6 +762,49 @@ fn native_basic_query_readonly_destinations_and_output_aliases_preserve_write_or
                 expected,
                 "{arch}/{offset}"
             );
+            assert!(t.frames.is_empty());
+        }
+    }
+}
+
+#[test]
+fn native_system_query_combined_faults_probe_output_before_returned_all_abis() {
+    for arch in WinArch::ALL {
+        for class in [0, 50] {
+            let required = if class == 0 {
+                if arch == WinArch::X86 { 44 } else { 64 }
+            } else {
+                arch.ptr_size() as u32
+            };
+            let (mut process, mut t, scratch) = query_fixture(arch);
+            let p = process.state_mut();
+            query_arguments(p, &mut t, class, scratch + 1, required, 1);
+            assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+            assert_eq!(
+                t.cpu.gpr(0),
+                u64::from(if arch == WinArch::X86 {
+                    STATUS_ACCESS_VIOLATION
+                } else {
+                    STATUS_DATATYPE_MISALIGNMENT
+                })
+            );
+
+            let (mut process, mut t, scratch) = query_fixture(arch);
+            let p = process.state_mut();
+            let returned =
+                p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                    .unwrap()
+                    .0;
+            p.space.w32(returned, 0xA5A5_A5A5).unwrap();
+            p.vm.protect(scratch, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+                .unwrap();
+            p.vm.protect(returned, PAGE_SIZE, prot::READONLY).unwrap();
+            query_arguments(p, &mut t, class, scratch, required, returned);
+            assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.gpr(0), u64::from(STATUS_GUARD_PAGE_VIOLATION));
+            assert_eq!(p.vm.query(scratch).unwrap().protect, prot::READWRITE);
+            assert_eq!(p.space.bytes(scratch, 80).unwrap(), [0xA5; 80]);
+            assert_eq!(p.space.u32(returned).unwrap(), 0xA5A5_A5A5);
             assert!(t.frames.is_empty());
         }
     }

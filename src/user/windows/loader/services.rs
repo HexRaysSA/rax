@@ -95,10 +95,16 @@ impl ServiceTable {
             };
             if arch == WinArch::X86 {
                 let Some(slot) = wow64_slot else { continue };
-                let Some(target) = x86_call_target(bytes) else {
+                let Some(entry) = x86_entry(bytes) else {
                     continue;
                 };
-                let Some(thunk) = u64::from(target)
+                if entry
+                    .conditional_base
+                    .is_some_and(|base| u64::from(base) != preferred)
+                {
+                    continue;
+                }
+                let Some(thunk) = u64::from(entry.thunk)
                     .checked_sub(preferred)
                     .and_then(|rva| usize::try_from(rva).ok())
                 else {
@@ -167,7 +173,7 @@ fn stub_number(arch: WinArch, bytes: &[u8]) -> Option<u32> {
             .then_some(number)
         }
         WinArch::X86 => {
-            if bytes.first()? != &0xB8 || x86_call_target(bytes).is_none() {
+            if bytes.first()? != &0xB8 || x86_entry(bytes).is_none() {
                 return None;
             }
             Some(u32::from_le_bytes(bytes.get(1..5)?.try_into().ok()?))
@@ -175,16 +181,40 @@ fn stub_number(arch: WinArch, bytes: &[u8]) -> Option<u32> {
     }
 }
 
-fn x86_call_target(bytes: &[u8]) -> Option<u32> {
+struct X86Entry {
+    thunk: u32,
+    conditional_base: Option<u32>,
+}
+
+fn x86_entry(bytes: &[u8]) -> Option<X86Entry> {
     // Installed WoW64 leaf: MOV EAX, encoded service; MOV EDX, thunk;
     // CALL EDX; RET imm16. High service bits encode WoW64 marshaling and
     // remain part of identity rather than being masked to 16 bits.
     let tail = bytes.get(5..)?;
     if tail.first()? == &0xBA && tail.get(5..8)? == [0xFF, 0xD2, 0xC2] && tail.len() >= 10 {
-        Some(u32::from_le_bytes(tail[1..5].try_into().ok()?))
-    } else {
-        None
+        return Some(X86Entry {
+            thunk: u32::from_le_bytes(tail[1..5].try_into().ok()?),
+            conditional_base: None,
+        });
     }
+    // Installed conditional leaf: CALL $+5; POP EDX; compare the high byte
+    // of its relocatable image-base marker; then CALL FS:[0xC0] or the same
+    // exported transition thunk. Both branches must have identical RET imm16.
+    // No arbitrary branch scan, TEB offset, or alternative transport is admitted.
+    let code = bytes.get(..41)?;
+    if code[5..14] != [0xE8, 0, 0, 0, 0, 0x5A, 0x80, 0x7A, 0x14]
+        || code[15..25] != [0x75, 0x0E, 0x64, 0xFF, 0x15, 0xC0, 0, 0, 0, 0xC2]
+        || code[31] != 0xBA
+        || code[36..39] != [0xFF, 0xD2, 0xC2]
+        || code[25..27] != code[39..41]
+        || code[14] != code[30]
+    {
+        return None;
+    }
+    Some(X86Entry {
+        thunk: u32::from_le_bytes(code[32..36].try_into().ok()?),
+        conditional_base: Some(u32::from_le_bytes(code[27..31].try_into().ok()?)),
+    })
 }
 
 #[cfg(test)]
@@ -299,6 +329,76 @@ pub(crate) mod tests {
             )
             .unwrap()
             .is_none()
+        );
+    }
+
+    #[test]
+    fn conditional_wow64_leaf_requires_complete_matching_branches_marker_and_thunk() {
+        let (_, mut image) = x86_image_table("NtQueryInformationProcess", 0x19);
+        let code = [
+            vec![0xB8],
+            0x19u32.to_le_bytes().to_vec(),
+            vec![
+                0xE8, 0, 0, 0, 0, 0x5A, 0x80, 0x7A, 0x14, 0x10, 0x75, 0x0E, 0x64, 0xFF, 0x15, 0xC0,
+                0, 0, 0, 0xC2, 20, 0,
+            ],
+            0x1000_0000u32.to_le_bytes().to_vec(),
+            vec![0xBA],
+            0x1000_0240u32.to_le_bytes().to_vec(),
+            vec![0xFF, 0xD2, 0xC2, 20, 0],
+        ]
+        .concat();
+        assert_eq!(code.len(), 41);
+        image[0x200..0x200 + code.len()].copy_from_slice(&code);
+        let read = |image: &[u8], preferred| {
+            ServiceTable::read(
+                WinArch::X86,
+                image,
+                DataDirectory {
+                    rva: 0x100,
+                    size: 40,
+                },
+                preferred,
+            )
+            .unwrap()
+        };
+        let table = read(&image, 0x1000_0000).unwrap();
+        assert_eq!(
+            table.name(WinArch::X86, 0x19),
+            Some("NtQueryInformationProcess")
+        );
+        assert_eq!(table.wow64_slot, Some(0x300));
+        for end in 0..41 {
+            assert!(stub_number(WinArch::X86, &code[..end]).is_none());
+        }
+        for at in [
+            0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+            30, 31, 36, 37, 38, 39, 40,
+        ] {
+            let mut bad = image.clone();
+            bad[0x200 + at] ^= 1;
+            assert!(
+                read(&bad, 0x1000_0000).is_none(),
+                "changed instruction/cleanup byte {at}"
+            );
+        }
+        for at in [27, 28, 29] {
+            let mut bad = image.clone();
+            bad[0x200 + at] ^= 1;
+            assert!(
+                read(&bad, 0x1000_0000).is_none(),
+                "changed image marker byte {at}"
+            );
+        }
+        let mut bad = image.clone();
+        bad[0x242..0x246].copy_from_slice(&0x1000_0304u32.to_le_bytes());
+        assert!(
+            read(&bad, 0x1000_0000).is_none(),
+            "fallback must use exported transition slot"
+        );
+        assert!(
+            read(&image, 0x2000_0000).is_none(),
+            "marker must name this image base"
         );
     }
 

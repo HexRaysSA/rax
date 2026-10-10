@@ -4,6 +4,7 @@ use super::super::hle::{ApiResult, Archs, Arg::*, Conv::Stdcall, Ctx, Export, Fl
 use super::super::memory::Mem;
 use super::super::nt::status::*;
 
+mod process_query;
 mod query;
 
 pub(super) static EXPORTS: &[Export] = &[
@@ -43,6 +44,12 @@ pub(super) static EXPORTS: &[Export] = &[
         Stdcall,
         &[I32, Ptr, I32, Ptr],
         query::system_information,
+    ),
+    Export::func(
+        "NtQueryInformationProcess",
+        Stdcall,
+        &[Ptr, I32, Ptr, I32, Ptr],
+        process_query::information,
     ),
 ];
 fn status_error(c: &mut Ctx) -> ApiResult {

@@ -53,10 +53,11 @@ unimplemented NT operations stop explicitly. The adapter executes no host NT
 syscall for guest requests.
 
 Supported kernel operations include checked NtClose, memory allocation/free/
-protection, context continuation, forced termination and the installed startup
-range query (`NtQuerySystemInformation`, class 50). Other system-query classes
-remain explicit unsupported operations.
-WoW64's alternate conditional encodings, native RTL heap/bootstrap requirements,
+protection, context continuation, forced termination, installed startup system
+queries (`NtQuerySystemInformation`, classes 0 and 50), and the process-cookie
+query (`NtQueryInformationProcess`, class 36). Other query classes remain
+explicit unsupported operations.
+Unrecognized WoW64 encodings, native RTL heap/bootstrap requirements,
 the broader NT object/file/section/query surface and ordinary Win32/CRT startup
 remain incomplete. Native-subsystem images load NTDLL without inventing the
 Win32 KERNEL32/KERNELBASE roots; Win32 images select those installed DLLs too.
@@ -281,8 +282,11 @@ probe inaccessible trailing padding. Native crossing-page probes with 40
 accessible output bytes leave all output unchanged on failure; 41 accessible
 bytes succeed in WoW64. Null exact WoW64 output returns
 `STATUS_ACCESS_VIOLATION` with observed error ReturnLength 0xFFFFFFEC. A bad
-WoW64 ReturnLength can fault after output publication; 64-bit ReturnLength
-is probed first. Optional/unaligned/overlapping ReturnLength, read-only output,
+WoW64 ReturnLength can fault after output publication. Native 64-bit output
+alignment and the supplied output span are probed first, then ReturnLength,
+before either output is written. Combined-fault probes in the process-cookie
+group below corrected the previous ReturnLength-first initial probe order.
+Optional/unaligned/overlapping ReturnLength, read-only output,
 one-shot guards and installed RET/RET imm16 caller cleanup have explicit tests.
 No guest call forwards to a host kernel query.
 
@@ -343,3 +347,123 @@ The wider kernel/RTL bootstrap and full application/package acceptance remain
 incomplete. Quality review records material assumptions, current full counts,
 explicit prior failures, width/length/fault/padding/guard/alias/PE-flag cases,
 retained primary/native provenance and bounded remaining limitations.
+
+## Installed process-cookie query and system-probe correction
+
+The installed startup's `NtQueryInformationProcess` class 36 (0x24,
+`ProcessCookie`) has a checked four-byte guest result. The public Microsoft API
+establishes its five arguments and optional `ULONG *ReturnLength`; class 36,
+its handle right and its first-fault behavior are private observations on
+Windows 10.0.29683.1000, not a public SDK guarantee. The primary document and
+four independent native probe programs with ARM64/x64/x86 outputs
+and the installed x86 NTDLL signature inspection are retained
+under `docs/specifications/windows/native-process-query/`; `sources.json`
+records provenance and byte-exact SHA-256 checksums. Compile each with MSVC
+`/std:c++20 /EHsc`, using `-Arch arm64`, `-Arch amd64` or `-Arch x86` in the
+ARM64-host VS developer shell. The policy probe creates, queries and terminates
+only its own suspended child; it does not query arbitrary host processes.
+
+| Step | ProcessCookie, all three guest ABIs | System classes 0/50, native 64-bit entry |
+|---|---|---|
+| 1 | For nonzero supplied length, require four-byte output alignment. | Require four-byte output alignment and probe the entire supplied output span. |
+| 2 | Probe optional four-byte ReturnLength for writing, with unaligned storage allowed. | Probe optional four-byte ReturnLength for writing. |
+| 3 | Require implemented class 36 and exact four-byte length; wrong length leaves ReturnLength unchanged. | Dispatch class/length; wrong length publishes the class-specific required length. |
+| 4 | Validate current-process pseudo-handle or real current-process handle with PROCESS_VM_WRITE (0x20). | Validate/serialize the requested guest system fields. |
+| 5 | Probe four output bytes, publish the process cookie, then publish ReturnLength=4. | Publish output, then ReturnLength. |
+
+WoW64 system queries retain their separate conversion path. ProcessCookie's
+output alignment applies to WoW64 too. Unknown process-query classes and
+queries of unmodeled peer processes remain explicit unsupported operations.
+Measured native queries of a real suspended child succeed with sufficient
+rights; this personality owns only the current guest process's cookie.
+
+Combined-fault probes falsified the previous system-query initial probe order:
+misaligned output plus invalid ReturnLength must report
+`STATUS_DATATYPE_MISALIGNMENT` on native 64-bit entry. Output guard plus read-only
+ReturnLength must report `STATUS_GUARD_PAGE_VIOLATION` and consume the output
+guard. The corrected handler probes output before ReturnLength. ProcessCookie
+has a different measured order: the same guard/read-only combination reports
+`STATUS_ACCESS_VIOLATION` and leaves the output guard armed. The new shared
+regression failed against the previous system handler and passes after the
+correction. Successful aliases publish output before ReturnLength; either
+query's consumed guard returns a status without creating a guest SEH frame.
+
+`Proc.process_cookie` is an eagerly initialized opaque 32-bit compatibility
+value: `low32(seed XOR (seed >> 32)) XOR 0xA5A55A5A`. It remains stable for the
+process lifetime, reproduces for an identical seed and does not consume or
+change the existing PRNG stream. It is not a cryptographic guarantee and does
+not claim uniqueness across processes. No guest query reads a host cookie or
+forwards to a host NT service. Fixed four-byte output and ReturnLength probing
+checks at most two pages each, taking O(1) additional work and storage; existing
+system-query supplied-span bounds remain unchanged.
+
+The selected x86 `NtQueryInformationProcess` has a measured 41-byte
+conditional leaf. Its `CALL $+5; POP EDX` obtains the comparison location;
+an image-base high-byte marker chooses `CALL FS:[0xC0]` or the conventional
+exported WoW64 thunk. Both branches use `RET 20`; the five-argument caller's
+stack advance is 4 + 20 = 24 bytes. Admission validates every fixed instruction,
+the marker against the image's preferred base, identical cleanup counts and
+the fallback thunk's exact reference to exported `Wow64Transition`. Partial,
+hooked and mismatched patterns are rejected. Recognition uses O(1) work and
+storage within the existing 64-byte stub window. The production thread
+constructor already initializes FS:0xC0 when the selected NTDLL is loaded;
+no host kernel transition or new TEB policy was added.
+
+The native integration test creates a fresh installed-DLL process before
+removing its thread for isolated calls. A previous test fixture loaded NTDLL
+into a thread created in the built-in profile, leaving FS:0xC0 uninitialized;
+its null fetch was rejected as evidence. The final test checks the actual
+fresh-native TEB transition and executes the installed cookie leaf and
+`RtlEncodePointer`/`RtlDecodePointer` round-trips, including zero, one,
+0x12345678 and the ABI's maximum pointer. No RTL helper is replaced with HLE.
+The full signatures and installed binary hash are retained; the DLL binary
+is not redistributed.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+|---|---|---|---|---|---|---|
+| P1 | The recorded installed startup requires class 36 with a four-byte current-process output. | Four shipping C++ startup probes stopped at service 0x19/class0x24 after system queries. | Appended NT query and installed startup progress. | Actual DLL kernel entry and RET cleanup on each selected guest ABI. | Run a different installed DLL/build and capture the next boundary. | Confirmed for the recorded Windows installation; other kernels/builds unknown. |
+| P2 | Class-36 length, alignment, handle-right and first-fault behavior follow the retained native probes. | Native ARM64/x64/x86 length, rights, alias, guard and combined-fault outputs. | Status and output publication order; system-query correction. | Wrong/huge length, null/invalid/unaligned/read-only destinations, guards, aliases and query-only handles. | Repeat native probes on another kernel/build; compare both system/process query fault combinations. | Revised: PROCESS_VM_WRITE required; output alignment first, ReturnLength probe before output pages; native system output-span probe first. |
+| P3 | A process-owned deterministic opaque value suffices for this guest profile's cookie query. | Existing per-process seed/PRNG ownership; explicit no-host-query profile. | Stable guest value without altering prior random sequences. | Repeated queries, PRNG consumption, identical seeds and peer handles. | Observe a changed cookie, consumed random state, shared global value or host-cookie forwarding. | Retained compatibility assumption; no cryptographic or cross-process uniqueness claim. |
+| P4 | The recorded conditional WoW64 leaf's two complete entry paths have the measured 41-byte form and matching caller cleanup. | Installed x86 NTDLL signatures and actual native execution. | Strict service-table admission for class 36. | Truncation, changed opcode/branch/TEB offset, unequal RET counts, wrong marker/base or fallback slot. | A changed pattern is admitted, or fresh-native selected NTDLL cannot execute the leaf. | Confirmed for the recorded installation; alternate encodings remain unknown and rejected. |
+
+| Plane | Change / evidence |
+|---|---|
+| Windows personality / loader kernel frontier | Appended NtQueryInformationProcess export without shifting old indices; shared class-36 handler; corrected system initial probe order; complete conditional WoW64 leaf admission. |
+| Process lifecycle / memory | Proc owns a stable cookie; main constructor and both isolated test constructors initialize it; checked guest writes and existing one-shot guard handling. |
+| CPU/lifter/IR/optimizer/lowerers/JIT/hypervisors | No instruction or execution representation changes; installed DLL instructions execute through the existing interpreter. |
+| C ABI / Assist products / packages | ABI stays 1.11.0; no new dependencies, lockfile changes, exported C prototypes, schema/default selection or package layout. Existing Rust archive membership compiles the same personality on Windows/macOS/Linux. |
+| Tests / provenance | Five shared cookie tests, combined system-fault regression, conditional admission corruption/truncation tests, native installed-leaf/pointer round-trip test and byte-exact Microsoft/native references. |
+
+High: wider NT/RTL heap, loader bootstrap and ordinary Win32/CRT startup remain
+incomplete and block the full native-runtime goal. Peer-process query support
+is explicitly unavailable, rather than publishing an invented peer cookie.
+Medium: private Windows query behavior remains build-specific; physical x64/x86
+kernels and other Windows builds have not supplied native oracle evidence.
+Native IDA plugin/CLI/Qt harness execution and packaging remain separate from
+pure Rust, C API, archive linkage and private Windows probes.
+
+### Process-cookie validation
+
+| Gate | Result | Evidence |
+|---|---|---|
+| macOS complete RAX library binary | 7,467 passed; 0 failed; 2 ignored; 0 filtered | `/tmp/assist-native-process-query-complete-full-macos.log` |
+| Linux complete RAX library binary | 7,461 passed; 0 failed; 2 ignored; 0 filtered | `/tmp/assist-native-root-cpp-linux/native-process-query-complete-full.log` |
+| Windows ARM64 complete RAX library binary | 6,839 passed; 5 failed; 2 ignored; 0 filtered | `/tmp/assist-native-windows-29683/native-process-query-complete-full.log`; same four BZHI lowerer assertions and FP16 host-feature failure |
+| Five shared cookie tests, combined system-fault regression, conditional-leaf admission | All passed on all three OSes, in the owning unfiltered binaries | Same complete library logs |
+| Installed NTDLL leaf and pointer encoding | Passed on Windows ARM64 and x86, with native-profile TEB, actual RET cleanup and pointer inverse checks | Same Windows complete library log |
+| Complete C API packages | 168 passed; 0 failed; 0 ignored; 0 filtered on each OS | `/tmp/assist-native-process-query-complete-capi-macos.log`; `/tmp/assist-native-root-cpp-linux/native-process-query-complete-capi.log`; `/tmp/assist-native-windows-29683/native-process-query-complete-capi.log` |
+| macOS current shipping archive / Assist | Locked build and 5/5 CTests passed | `/tmp/assist-native-process-query-complete-root-macos-{build,ctest}.log` |
+| Linux current shipping archive / Assist | Locked build; tool 184 checks, adapter 162 checks, disabled factory, ABI 2/2, one-archive link passed | `/tmp/assist-native-root-cpp-linux/native-process-query-complete-{shipping,cpp}.log` |
+| Windows current shipping archive / Assist | Locked static-CRT build; tool 182 checks, adapter 162 checks, disabled factory, ABI 2/2, one-archive link passed | `/tmp/assist-native-windows-29683/assist-native-process-query-complete-{shipping,cpp}.log` |
+| Current installed-DLL startup | All four open and now exit with guest STATUS_ACCESS_VIOLATION (0xC0000005), rather than the previous unimplemented class-36 diagnostic; no ordinary program completion | `/tmp/assist-native-windows-29683/native-process-query-complete-archive-output.log`; fault instruction/address unknown; next falsification probe is boundary tracing before thread teardown |
+
+The three complete library binaries ran without filters. The Windows complete
+suite remains failing; passing the affected tests, C API packages and archive
+checks does not make it green. Earlier Linux runs exhibited timeout/readiness
+failures; their absence in this final run is not evidence of remediation.
+The initial installed-x86 test's access violation and a diagnostic compile
+failure were rejected; the final native-profile fixture and full binaries
+establish the recorded results. Quality review covers exact input widths,
+probe order, handles, aliases, guards, guest lifetime/PRNG, complete stub
+admission, all three OS configurations, primary/native provenance, material
+assumptions and bounded unresolved startup/application/platform proof.

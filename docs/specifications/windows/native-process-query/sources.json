@@ -1,0 +1,158 @@
+[
+  {
+    "file": "ntqueryinformationprocess.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winternl/nf-winternl-ntqueryinformationprocess.md",
+    "canonical": "https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntqueryinformationprocess",
+    "publisher": "Microsoft",
+    "retrieved": "2026-10-10",
+    "revision": "unknown; mutable docs branch",
+    "sha256": "640f38d34949399e88eec39f2e8992faa4c1ef84fe3a9848750018fd67926b46",
+    "license": "../services/shared-memory/LICENSE",
+    "code_license": "../crt-startup/sdk-api/LICENSE-CODE",
+    "title": "NtQueryInformationProcess function (winternl.h)"
+  },
+  {
+    "file": "native-process-query-extra-probe.cpp",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "0075818ed4dc94a7bfc95f931489d01af40d86310aa0ca7b05255539b1bdaec4"
+  },
+  {
+    "file": "native-process-cookie-policy-probe.cpp",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "a876e17f4a103bdb5cb5a768cfa0b45b42d0b31002dc988844fc485f0889c494"
+  },
+  {
+    "file": "native-process-cookie-rights-probe.cpp",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "7a70ae0013109baf2e3afbb7c82b06a3190953fb01b068ce34435fd098cfe781"
+  },
+  {
+    "file": "native-query-priority-probe.cpp",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "6c6410d6b2c686bf4777cfef87811ab6e8c36b4447b040dd32b3edf0c7bf5238"
+  },
+  {
+    "file": "native-process-query-extra-arm64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "58e1d64a6932fa66d6b2479712ce48922e848c9d57d8390d85571c804747eb86"
+  },
+  {
+    "file": "native-process-query-extra-x86.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "5ce2098d9673838056e1d515709f350ec795e3143df64960f46806daef114a7b"
+  },
+  {
+    "file": "native-process-query-extra-x64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "fad48759df743f6e10a4d2850e64226086513fee73bfe1cf8533edbb7d7a24ae"
+  },
+  {
+    "file": "native-process-cookie-policy-arm64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "7c7b83a386a94144611fcde8cc3d61ac301cb7ebf368de9e04a015e941fbfae6"
+  },
+  {
+    "file": "native-process-cookie-policy-x86.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "ece1b272dae0e371d674136ba5bba18885691cd18eff48e73b40ea05cad23fb4"
+  },
+  {
+    "file": "native-process-cookie-policy-x64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "81dfbe3fd010764c61e85e456d39800e7754a0c7ab28d6d605c34f73d45f1d97"
+  },
+  {
+    "file": "native-process-cookie-rights-arm64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "3d08a455d705ba62b701fb70dbd9315f0c38ed738dab88754b964405b76ad6e7"
+  },
+  {
+    "file": "native-process-cookie-rights-x86.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "925bdaf1cdcc03ce6561ec25b884aebe8bea41d8979a2f61a09315a2838a211e"
+  },
+  {
+    "file": "native-process-cookie-rights-x64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "9bb25003c63845e2ce9f97f96451f920f8f6803e6e1fd34d8286377c16f164a4"
+  },
+  {
+    "file": "native-query-priority-arm64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "4fe045bf66dbe39263adad2724c590230080337f62e855c85462ae87fa754383"
+  },
+  {
+    "file": "native-query-priority-x86.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "7c84da4bd6764831a2704ad0aebe04f13a65ded4888aede4296cd95c13143488"
+  },
+  {
+    "file": "native-query-priority-x64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "4fe045bf66dbe39263adad2724c590230080337f62e855c85462ae87fa754383"
+  },
+  {
+    "file": "inspect-native-ntdll-x86.py",
+    "publisher": "Local native Windows image inspection",
+    "source": "Bytes read from Windows 10.0.29683.1000 ARM64 SysWOW64 NTDLL; x86 PE signatures parsed with Python on macOS; installed binary not redistributed",
+    "retrieved": "2026-10-10",
+    "image_sha256": "ffd2b7ff39889c5599c8a8451eef5c852acee9101da5ce5a6def8b8e60a6627e",
+    "sha256": "c7e03fcc11aec1609c19707eb5fa3fb0d7caa8c1423d2414d5e856b91539b828"
+  },
+  {
+    "file": "native-ntdll-x86-signatures.log",
+    "publisher": "Local native Windows image inspection",
+    "source": "Bytes read from Windows 10.0.29683.1000 ARM64 SysWOW64 NTDLL; x86 PE signatures parsed with Python on macOS; installed binary not redistributed",
+    "retrieved": "2026-10-10",
+    "image_sha256": "ffd2b7ff39889c5599c8a8451eef5c852acee9101da5ce5a6def8b8e60a6627e",
+    "sha256": "02f4e5fd842d59e9ef33c61650733b72e371e090ad4acfaadbb07fd5d9742ee6"
+  }
+]

@@ -367,6 +367,8 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         failure: None,
         start_time: Instant::now(),
         rng: seed,
+        // Keep cookie derivation independent of the existing random stream.
+        process_cookie: (seed ^ (seed >> 32)) as u32 ^ 0xA5A5_5A5A,
         cwd: cwd.encode_utf16().collect(),
         exe_stack_reserve: h.stack_reserve,
         exe_stack_commit: h.stack_commit,

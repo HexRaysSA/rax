@@ -311,6 +311,9 @@ pub struct Proc {
     pub start_time: Instant,
     /// Deterministic pseudo-random state.
     pub rng: u64,
+    /// Seed-derived opaque ProcessCookie value, stable across queries/threads.
+    /// This compatibility value does not provide a cryptographic guarantee.
+    pub(crate) process_cookie: u32,
     /// Current directory (Windows path, with a trailing backslash).
     pub cwd: Vec<u16>,
     /// The executable's `SizeOfStackReserve` (the default thread stack).

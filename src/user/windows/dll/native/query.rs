@@ -21,7 +21,7 @@ const SYSTEM_BASIC_INFORMATION: u32 = 0;
 const SYSTEM_RANGE_START_INFORMATION: u32 = 50;
 const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
 
-fn probe_write(c: &Ctx, address: u64, bytes: usize) -> Result<(), MemFault> {
+pub(super) fn probe_write(c: &Ctx, address: u64, bytes: usize) -> Result<(), MemFault> {
     c.mem()
         .probe(address, bytes, MemoryAccessKind::Write)
         .map_err(|fault| MemFault {
@@ -30,7 +30,7 @@ fn probe_write(c: &Ctx, address: u64, bytes: usize) -> Result<(), MemFault> {
         })
 }
 
-fn return_length(c: &Ctx, address: u64, bytes: u32) -> Result<(), MemFault> {
+pub(super) fn return_length(c: &Ctx, address: u64, bytes: u32) -> Result<(), MemFault> {
     if address != 0 {
         c.mem().w32(address, bytes)?;
     }
@@ -39,6 +39,10 @@ fn return_length(c: &Ctx, address: u64, bytes: u32) -> Result<(), MemFault> {
 
 pub(super) fn system_information(c: &mut Ctx) -> ApiResult {
     let result = query(c);
+    guard_result(c, result)
+}
+
+pub(super) fn guard_result(c: &mut Ctx, result: ApiResult) -> ApiResult {
     if let Err(ApiErr::Fault(fault)) = &result
         && c.p.vm.take_guard(fault.addr)
     {
@@ -53,14 +57,14 @@ fn query(c: &mut Ctx) -> ApiResult {
     // Its output alignment is ULONG alignment (4), not pointer alignment (8).
     // The installed WoW64 wrapper instead copies its converted output first.
     if c.arch() != WinArch::X86 {
-        if returned != 0 {
-            probe_write(c, returned, 4)?;
-        }
         if length != 0 {
             if output % 4 != 0 {
                 return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
             }
             probe_write(c, output, length as usize)?;
+        }
+        if returned != 0 {
+            probe_write(c, returned, 4)?;
         }
     }
     match class {
