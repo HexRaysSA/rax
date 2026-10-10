@@ -519,6 +519,7 @@ mod tests {
                 vec!["ignored-config-argument".into()],
             )),
             native: None,
+            registry: Default::default(),
             pid: 4,
             peb: 0,
             params: 0,

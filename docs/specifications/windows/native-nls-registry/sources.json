@@ -1,0 +1,335 @@
+[
+  {
+    "file": "zwopenkey.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/wdm/nf-wdm-zwopenkey.md",
+    "title": "ZwOpenKey function (wdm.h)",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-ddi-LICENSE",
+    "sha256": "5c0fa0d20ac50781c6082d4f9dc34bbf7f599a8c861993617210c7f0824d86df"
+  },
+  {
+    "file": "zwqueryvaluekey.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/wdm/nf-wdm-zwqueryvaluekey.md",
+    "title": "ZwQueryValueKey function (wdm.h)",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-ddi-LICENSE",
+    "sha256": "8c31c76a16f4b1a561bfc441cf0c29dbf22dc58502aad3f8fec96558195d9eda"
+  },
+  {
+    "file": "rtlequalunicodestring.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/wdm/nf-wdm-rtlequalunicodestring.md",
+    "title": "RtlEqualUnicodeString function (wdm.h)",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-ddi-LICENSE",
+    "sha256": "e1d2218f95b4f1ca252445de3462d0c7e7203e51ad1423fb6bf0cfeadadf9163"
+  },
+  {
+    "file": "regenumvaluew.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winreg/nf-winreg-regenumvaluew.md",
+    "title": "regenumvaluew function (winreg.h)",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-sdk-LICENSE",
+    "sha256": "be01414ea08850fd93417112d06f02ed616b08d4bef88504af8f158ca3e3c308"
+  },
+  {
+    "file": "regqueryinfokeyw.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winreg/nf-winreg-regqueryinfokeyw.md",
+    "title": "regqueryinfokeyw function (winreg.h)",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-sdk-LICENSE",
+    "sha256": "a245545bb2664f31e99199d238e1fbb571426604ddd7d9099e91537407794312"
+  },
+  {
+    "file": "regqueryvalueexw.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winreg/nf-winreg-regqueryvalueexw.md",
+    "title": "regqueryvalueexw function (winreg.h)",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-sdk-LICENSE",
+    "sha256": "428cf596c21030330d18702ceaee6954a41b0519615ddcfb16bcfc9efc60de74"
+  },
+  {
+    "file": "phnt-ntregapi.h",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntregapi.h",
+    "title": "System Informer PHNT native registry declarations",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "license": "../native-processor-features/phnt-LICENSE",
+    "sha256": "1ee828f4eb5d97f00a6442c51896365689b4763790c26c417bf9008d37e58191"
+  },
+  {
+    "file": "native-registry-probe.cpp",
+    "source": "original controlled Windows 10.0.29683.1000 read-only NLS-key oracle",
+    "title": "native-registry-probe.cpp",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "9b1b32dcb137b1d16f693f6f336b956e865563780e13852f4f709b5a38020653"
+  },
+  {
+    "file": "native-registry-align-probe.cpp",
+    "source": "original controlled Windows 10.0.29683.1000 read-only NLS-key oracle",
+    "title": "native-registry-align-probe.cpp",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "9b012277bcb2cd13971209e81f629c4ed37d0b3eea6827d75c5f315f25651c59"
+  },
+  {
+    "file": "native-registry-arm64.log",
+    "source": "original controlled Windows 10.0.29683.1000 read-only NLS-key oracle",
+    "title": "native-registry-arm64.log",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "9931af624a055dfe6d17552577cc1dcccab133db91512ced6c3d4269732dc130"
+  },
+  {
+    "file": "native-registry-x86.log",
+    "source": "original controlled Windows 10.0.29683.1000 read-only NLS-key oracle",
+    "title": "native-registry-x86.log",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "ddb9934066931f4749d402ea6ae246a9124c4156df66ff9b37b98ea36bb3f5fc"
+  },
+  {
+    "file": "native-registry-x64.log",
+    "source": "original controlled Windows 10.0.29683.1000 read-only NLS-key oracle",
+    "title": "native-registry-x64.log",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "04707d10b9c91426aeae97c1a556b853d5ffb564f36789e9e5e1c69c584eb645"
+  },
+  {
+    "file": "native-registry-align-arm64.log",
+    "source": "original controlled Windows 10.0.29683.1000 read-only NLS-key oracle",
+    "title": "native-registry-align-arm64.log",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "9b14f00179b0c288f713ceb09b1dde507c4061c72fcc219faa71c5f60294cd75"
+  },
+  {
+    "file": "native-registry-align-x86.log",
+    "source": "original controlled Windows 10.0.29683.1000 read-only NLS-key oracle",
+    "title": "native-registry-align-x86.log",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "49079c992171ec8e93e6901ca0ea5d633ff9f367e7986cd492c41e10d662cdb9"
+  },
+  {
+    "file": "native-registry-align-x64.log",
+    "source": "original controlled Windows 10.0.29683.1000 read-only NLS-key oracle",
+    "title": "native-registry-align-x64.log",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "7b4635d2b021ad4417e7ea27f6b2c6b6a7bc0214d205f39ce46c1672cbe3c72a"
+  },
+  {
+    "file": "regressions-before.log",
+    "source": "original controlled macOS RAX regression capture",
+    "title": "regressions-before.log",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "2096bf44de14420b177d9f4b7db4c591d441c3f9dbbea20eb0a7730fe14fc5af"
+  },
+  {
+    "file": "regressions-after.log",
+    "source": "original controlled macOS RAX regression capture",
+    "title": "regressions-after.log",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "256376f11dd408a4970706d073ac94c5419d4347c75a4b8fc25913768a1fb7ed"
+  },
+  {
+    "file": "shared-matrix-after.log",
+    "source": "original controlled macOS RAX regression capture",
+    "title": "shared-matrix-after.log",
+    "revision": "Assist 9ca01cceb8ab81c79f6864012b03944683cb60a2 / RAX ce276738bddcd7fc31f6159bd98655a519ef7d7d with owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "84b849851a83a38b0912b84cf96ac25f99a92d2cdb592535fbe5dd6eab33fba6"
+  },
+  {
+    "file": "../native-events/microsoft-ddi-LICENSE",
+    "source": "previously retained accompanying primary-source license",
+    "title": "../native-events/microsoft-ddi-LICENSE",
+    "revision": "retained bytes",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-ddi-LICENSE",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "../native-events/microsoft-ddi-LICENSE-CODE",
+    "source": "previously retained accompanying primary-source license",
+    "title": "../native-events/microsoft-ddi-LICENSE-CODE",
+    "revision": "retained bytes",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-ddi-LICENSE-CODE",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "../native-events/microsoft-sdk-LICENSE",
+    "source": "previously retained accompanying primary-source license",
+    "title": "../native-events/microsoft-sdk-LICENSE",
+    "revision": "retained bytes",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-sdk-LICENSE",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "../native-events/microsoft-sdk-LICENSE-CODE",
+    "source": "previously retained accompanying primary-source license",
+    "title": "../native-events/microsoft-sdk-LICENSE-CODE",
+    "revision": "retained bytes",
+    "retrieved": "2026-10-10",
+    "license": "../native-events/microsoft-sdk-LICENSE-CODE",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "../native-processor-features/phnt-LICENSE",
+    "source": "previously retained accompanying primary-source license",
+    "title": "../native-processor-features/phnt-LICENSE",
+    "revision": "retained bytes",
+    "retrieved": "2026-10-10",
+    "license": "../native-processor-features/phnt-LICENSE",
+    "sha256": "ad2ab542c56c606e4c19d66a7f3cdcd3ef83beffb638e7c3893b22c7a6a6c0df"
+  },
+  {
+    "file": "truncated-name-before.log",
+    "source": "original controlled registry regression/oracle or isolated ARM64 loader diagnostic",
+    "title": "truncated-name-before.log",
+    "revision": "2026-10-10; owned registry change; selected Windows 10.0.29683.1000 where native",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "16d552be76425241c1fa1173ab20fe2566f7b4f2e92c066577612c72c40b0643"
+  },
+  {
+    "file": "truncated-name-after.log",
+    "source": "original controlled registry regression/oracle or isolated ARM64 loader diagnostic",
+    "title": "truncated-name-after.log",
+    "revision": "2026-10-10; owned registry change; selected Windows 10.0.29683.1000 where native",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "11c51ca7caf8552e7eb72a303214909a773f981f6e60c14f4187f885831f255a"
+  },
+  {
+    "file": "oracle-check.log",
+    "source": "original controlled registry regression/oracle or isolated ARM64 loader diagnostic",
+    "title": "oracle-check.log",
+    "revision": "2026-10-10; owned registry change; selected Windows 10.0.29683.1000 where native",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "5a898d08d1c5ccb5eab2dc2efc042e9a3361d7f449d91c754c4aef375fe4e7b4"
+  },
+  {
+    "file": "native-ldr-registry-frontier.rs",
+    "source": "original controlled registry regression/oracle or isolated ARM64 loader diagnostic",
+    "title": "native-ldr-registry-frontier.rs",
+    "revision": "2026-10-10; owned registry change; selected Windows 10.0.29683.1000 where native",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "1a0f1bee061b81ffc79cc312f79ea75cb96065b53675f3d8e19b8180b6714207"
+  },
+  {
+    "file": "native-ldr-registry-frontier-after.log",
+    "source": "original controlled registry regression/oracle or isolated ARM64 loader diagnostic",
+    "title": "native-ldr-registry-frontier-after.log",
+    "revision": "2026-10-10; owned registry change; selected Windows 10.0.29683.1000 where native",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "fd8b563cda6d2c393c46ac1b64b4e6c619adb6c659fbd2d6f30c30d27ddeb9a9"
+  },
+  {
+    "file": "native-ldr-registry-frontier-before.log",
+    "source": "original controlled registry regression/oracle or isolated ARM64 loader diagnostic",
+    "title": "native-ldr-registry-frontier-before.log",
+    "revision": "2026-10-10; owned registry change; selected Windows 10.0.29683.1000 where native",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "d2ed6f04f19c9c8c5e260e1699f524c8ba478b40941dd2f3b8cd9c85dd160cc7"
+  },
+  {
+    "file": "check-oracle.py",
+    "source": "original portable independent validation of retained build29683 query matrix",
+    "title": "check-oracle.py",
+    "revision": "2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "e3cf6944f9ef8657ac39179cd47f4785282bcedec31149ad5e4fc599036667e7"
+  },
+  {
+    "file": "native-registry-name-probe.cpp",
+    "source": "original controlled native three-ABI descriptor/text/odd-length priority oracle or RAX regression",
+    "title": "native-registry-name-probe.cpp",
+    "revision": "2026-10-10; Windows 10.0.29683.1000 for native observations; owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "fafd204e1f733b2817ad5f640ea7e7395e5f84926a00c094d56b7c88e8e25748"
+  },
+  {
+    "file": "native-registry-name-arm64.log",
+    "source": "original controlled native three-ABI descriptor/text/odd-length priority oracle or RAX regression",
+    "title": "native-registry-name-arm64.log",
+    "revision": "2026-10-10; Windows 10.0.29683.1000 for native observations; owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "10c8c34d0afb4a66cdfcf82370271bd7ba3ccce9dbf4f21626b7a257a7f9bbf0"
+  },
+  {
+    "file": "native-registry-name-x86.log",
+    "source": "original controlled native three-ABI descriptor/text/odd-length priority oracle or RAX regression",
+    "title": "native-registry-name-x86.log",
+    "revision": "2026-10-10; Windows 10.0.29683.1000 for native observations; owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "955ca0562a5fe7128438d56bf68b62a668b9900dfeee5b24e2eaabffc86a025d"
+  },
+  {
+    "file": "native-registry-name-x64.log",
+    "source": "original controlled native three-ABI descriptor/text/odd-length priority oracle or RAX regression",
+    "title": "native-registry-name-x64.log",
+    "revision": "2026-10-10; Windows 10.0.29683.1000 for native observations; owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "bb88387bd1288e00153d36426d752371a923c63dbd8c213f46e536ac3b1edaa8"
+  },
+  {
+    "file": "name-capture-before.log",
+    "source": "original controlled native three-ABI descriptor/text/odd-length priority oracle or RAX regression",
+    "title": "name-capture-before.log",
+    "revision": "2026-10-10; Windows 10.0.29683.1000 for native observations; owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "01bb76f2b8301198821e4b22fa8fa770b6f09b80d03b56a2921b391d784b3c57"
+  },
+  {
+    "file": "odd-open-before.log",
+    "source": "original controlled native three-ABI descriptor/text/odd-length priority oracle or RAX regression",
+    "title": "odd-open-before.log",
+    "revision": "2026-10-10; Windows 10.0.29683.1000 for native observations; owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "bd8de522e9fb21623ab6871b1158df3621ef835effeeab53f08d430a90d72050"
+  },
+  {
+    "file": "name-capture-after.log",
+    "source": "original controlled native three-ABI descriptor/text/odd-length priority oracle or RAX regression",
+    "title": "name-capture-after.log",
+    "revision": "2026-10-10; Windows 10.0.29683.1000 for native observations; owned registry change",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "18999382d0b9b17b3e4243c590b2e3efd2463ce980f214cbbf20b4d9e70d8525"
+  }
+]

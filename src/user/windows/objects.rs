@@ -142,6 +142,8 @@ pub enum Object {
         /// Queued packets: (bytes, key, overlapped).
         queue: std::collections::VecDeque<(u32, u64, u64)>,
     },
+    /// A private immutable runtime registry key shared by opened handles.
+    Key(std::sync::Arc<super::registry::Key>),
     /// An object this implementation only needs to name (tokens,
     /// registry keys, window stations).
     Opaque(&'static str),
@@ -161,6 +163,7 @@ impl Object {
             Object::Mapping { .. } => "Section",
             Object::Pipe { .. } => "File",
             Object::CompletionPort { .. } => "IoCompletion",
+            Object::Key(_) => "Key",
             Object::Opaque(t) => t,
         }
     }

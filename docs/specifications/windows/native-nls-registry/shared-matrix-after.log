@@ -1,0 +1,20 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.47s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 12 tests
+test user::linux::fs::pidfd::tests::ends_are_recorded_through_the_registry ... ok
+test user::windows::registry::tests::registry_preserves_raw_type_bytes_surrogates_and_snapshot_handle_ownership ... ok
+test user::windows::registry::tests::registry_snapshot_rejects_table_count_name_data_total_and_case_collisions ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_open_null_output_returns_nt_status_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_invalid_key_precedes_unreadable_value_name_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_snapshot_scope_relative_roots_type_and_access_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_query_alignment_conversion_and_short_buffer_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::builtin_registry_probe_faults_return_nt_status_without_guest_seh_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_value_layout_lengths_case_and_defined_prefix_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_read_grants_typed_handles_close_and_nonwaitable_lifetime_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_open_capture_order_output_zeroing_and_read_only_policy_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_query_fault_order_guards_alias_and_cross_page_prefix_all_abis ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 7484 filtered out; finished in 0.29s
+

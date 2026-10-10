@@ -1,0 +1,10 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 38.02s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 2 tests
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_invalid_key_precedes_unreadable_value_name_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_open_null_output_returns_nt_status_all_abis ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 7485 filtered out; finished in 0.01s
+

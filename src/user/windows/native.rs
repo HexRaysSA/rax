@@ -19,6 +19,7 @@ pub(crate) struct NativeRuntime {
     pub(crate) guest_directory: String,
     pub(crate) version: WinVersion,
     pub(crate) apisets: ApiSetSchema,
+    pub(crate) registry: super::registry::Registry,
 }
 
 fn invalid(message: impl Into<String>) -> io::Error {
@@ -74,12 +75,13 @@ impl NativeRuntime {
                 .get(start..end)
                 .ok_or_else(|| invalid("API-set section outside image"))?,
         )?;
-        let runtime = Self {
+        let mut runtime = Self {
             directory,
             guest_root,
             guest_directory,
             version,
             apisets,
+            registry: Default::default(),
         };
         let ntdll = PeImage::parse(read_image(
             &runtime
@@ -93,6 +95,7 @@ impl NativeRuntime {
                 "installed NTDLL architecture does not match the guest",
             ));
         }
+        runtime.registry = super::registry::snapshot()?;
         Ok(runtime)
     }
 

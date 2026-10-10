@@ -82,7 +82,8 @@ pub struct WindowsConfig {
     pub guest_image_path: Option<String>,
     /// Permit filesystem-backed executable, DLL, and guest file access.
     pub host_filesystem: bool,
-    /// Select read-only installed DLLs and API-set redirects on Windows.
+    /// Select read-only installed DLLs, API-set redirects, and a private
+    /// snapshot of the fixed system NLS CodePage key on Windows.
     /// This does not permit general guest host-file access. Defaults to false.
     pub native_libraries: bool,
     /// Explicit console routing (host streams for the CLI by default).
@@ -268,6 +269,7 @@ pub struct Proc {
     /// Configuration.
     pub cfg: Arc<WindowsConfig>,
     pub(crate) native: Option<super::native::NativeRuntime>,
+    pub(crate) registry: super::registry::Registry,
     /// Process identifier.
     pub pid: u32,
     /// The PEB.

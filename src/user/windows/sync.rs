@@ -412,7 +412,7 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
         // Files and console handles are signaled when no I/O is pending,
         // which is always here (I/O completes synchronously).
         Some(Object::File(_) | Object::Console(_) | Object::Null | Object::Pipe { .. }) => true,
-        Some(Object::Mapping { .. } | Object::Opaque(_)) | None => false,
+        Some(Object::Mapping { .. } | Object::Key(_) | Object::Opaque(_)) | None => false,
     }
 }
 

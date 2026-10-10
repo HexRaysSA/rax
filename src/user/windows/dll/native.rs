@@ -8,6 +8,7 @@ mod events;
 mod hotpatch;
 mod process_query;
 mod query;
+mod registry;
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func("RtlNtStatusToDosError", Stdcall, &[I32], status_error),
@@ -66,6 +67,13 @@ pub(super) static EXPORTS: &[Export] = &[
         Stdcall,
         &[I32, Ptr, I32, Ptr],
         hotpatch::manage,
+    ),
+    Export::func("NtOpenKey", Stdcall, &[Ptr, I32, Ptr], registry::open),
+    Export::func(
+        "NtQueryValueKey",
+        Stdcall,
+        &[Ptr, Ptr, I32, Ptr, I32, Ptr],
+        registry::query,
     ),
 ];
 fn status_error(c: &mut Ctx) -> ApiResult {

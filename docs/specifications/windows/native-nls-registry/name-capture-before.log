@@ -1,0 +1,21 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 24.66s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 1 test
+
+thread 'user::windows::process::sched::tests::services_tests::registry_tests::native_registry_query_captures_descriptor_before_handle_but_text_after_validation_all_abis' (4962529) panicked at src/user/windows/process/sched/tests/services_tests/registry_tests.rs:908:13:
+assertion `left == right` failed: x86/role0
+  left: 3221225477
+ right: 3221225485
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_query_captures_descriptor_before_handle_but_text_after_validation_all_abis ... FAILED
+
+failures:
+
+failures:
+    user::windows::process::sched::tests::services_tests::registry_tests::native_registry_query_captures_descriptor_before_handle_but_text_after_validation_all_abis
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7498 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

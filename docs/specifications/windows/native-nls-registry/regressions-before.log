@@ -1,0 +1,28 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 25.28s
+     Running unittests src/lib.rs (vendor/rax/target/debug/deps/rax-754f4d2a527a4423)
+
+running 2 tests
+
+thread 'user::windows::process::sched::tests::services_tests::registry_tests::native_registry_open_null_output_returns_nt_status_all_abis' (4839687) panicked at src/user/windows/process/sched/tests/services_tests/registry_tests.rs:51:9:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtOpenKey (0x12) at 0x12340000 is not implemented")
+ right: Continue
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'user::windows::process::sched::tests::services_tests::registry_tests::native_registry_invalid_key_precedes_unreadable_value_name_all_abis' (4839686) panicked at src/user/windows/process/sched/tests/services_tests/registry_tests.rs:63:9:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtQueryValueKey (0x12) at 0x12340000 is not implemented")
+ right: Continue
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_invalid_key_precedes_unreadable_value_name_all_abis ... FAILED
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_open_null_output_returns_nt_status_all_abis ... FAILED
+
+failures:
+
+failures:
+    user::windows::process::sched::tests::services_tests::registry_tests::native_registry_invalid_key_precedes_unreadable_value_name_all_abis
+    user::windows::process::sched::tests::services_tests::registry_tests::native_registry_open_null_output_returns_nt_status_all_abis
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 7485 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

@@ -1,7 +1,8 @@
 # Installed Windows runtime selection
 
-`WindowsConfig::native_libraries = true` selects read-only installed DLLs and
-the installed version-6 API-set namespace on a Windows host. Its default is
+`WindowsConfig::native_libraries = true` selects read-only installed DLLs,
+the installed version-6 API-set namespace, and an immutable snapshot of the
+fixed system NLS CodePage registry key on a Windows host. Its default is
 false. `host_filesystem = false` still denies general guest host-file access;
 native library selection is a separate, explicit input grant. A different host
 OS or unmatched installed NTDLL architecture returns an error.
@@ -600,3 +601,98 @@ All four ordinary installed-DLL startups still fault. Assumptions P1-P5 and
 high/medium limits are reconciled in the linked record. Full native startup,
 NT registry/security/namespaces, full POSIX process behavior and the required
 application/package matrix remain incomplete; the full goal remains active.
+
+
+## Snapshot-backed NLS key services, 2026-10-10
+
+The explicit selector reads only
+`HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage`, with query-only
+access, after installed NTDLL architecture validation. Two matching enumerations
+and unchanged metadata fence observed instability, with three bounded attempts.
+Raw names/types/data and the selected ordinal UTF-16 upcase table become private
+immutable records; the host HKEY closes before selection returns. The default
+supplied-only profile remains empty. Guest calls never forward names or access
+masks to the host registry. The read-only guest grant is an explicit model,
+not copied host token/DACL authorization. [The profile and assumption register](../../../docs/specifications/windows/native-nls-registry/README.md)
+record bounds, private priority, unsupported scope and fidelity limits.
+
+Appended native metadata selects `NtOpenKey` (3 arguments) and `NtQueryValueKey`
+(6 arguments) from actual installed service stubs. No prior export index changes.
+`Object::Key(Arc<Key>)` extends the Rust-visible object model; handles share
+snapshot lifetime and close through the existing table. Native reads validate
+class/type/access, capture counted UTF-16, publish ResultLength, and copy only
+the defined output extent in page order. A later page fault retains earlier
+writes. WoW64 captures query descriptors before class/handle checks, then reads text;
+its open attribute conversion captures name text before output and private output
+conversion. Its undefined scratch/error bytes are represented by private zeros,
+not host allocator contents. Native output alignment is observed as 4 bytes even
+for Align64 classes. Unaligned UNICODE_STRING descriptors are accepted. A short
+name copy ending between UTF-16 bytes zeroes the incomplete byte. Raw data is
+preserved without adding terminators. Synthetic NTDLL entries return NT fault
+statuses with ordinary RET cleanup rather than invoking guest SEH.
+
+The independent retained oracle performs 4,428 queries and 111 opens through
+ARM64, x86 and x64 processes on the Windows ARM64 kernel. Its portable checker
+verifies 3,402 aligned matrix rows, including status, required length, all defined
+bytes and untouched tails. Five observed regressions pass after implementation:
+two initially missing services, odd-name truncation, query descriptor/text capture
+priority, and native odd-length rejection before text probing. Fourteen new
+shared tests run all guest ABIs; two additional native Windows
+tests compare actual raw metadata/all 65,536 case units and execute installed
+ARM64/x86 NTDLL open/query/close leaves. Selected leaf success is separate from
+native loader, heap and CRT startup.
+
+| Final check | Result | Evidence |
+|---|---|---|
+| Complete macOS library | 7,497 passed, 0 failed, 2 ignored, 0 filtered | `/tmp/assist-native-registry-verified-full-macos.log` |
+| Complete Linux library | 7,489 passed, 2 failed, 2 ignored, 0 filtered | `/tmp/assist-native-root-cpp-linux/native-registry-verified-full.log` |
+| Complete Windows library | 6,874 passed, 5 failed, 2 ignored, 0 filtered | `/tmp/assist-native-windows-29683/native-registry-verified-full.log` |
+| Complete C API | 168 passed per OS; no failures/ignored/filtered | Final C API logs on all three hosts |
+| Current locked owning Assist archives and five production C++ checks | Passed on all three hosts | Final owning build/CTest/CPP logs |
+| Compiled discovery checks | Both manifest tests pass; rebuilt macOS bridge plaintext scan passes | `/tmp/assist-native-registry-manifest-checks.log`, `/tmp/assist-native-registry-mcp-build.log` |
+| Native metadata/case and NTDLL leaves | Passed on Windows ARM64 and x86 guest profiles | Windows complete library log |
+| Ordinary Windows startup | Four controlled probes still end with STATUS_ACCESS_VIOLATION | `/tmp/assist-native-windows-29683/native-registry-verified-archive-output.log` |
+
+The Linux final failures are `a_timeout_is_removed_or_updated` and
+`finite_empty_and_expired_waits`. An exact-parent full run passes 7,477 tests;
+an attempted switch back reused that parent binary and reproduced those same
+two failures with the parent test count. That run is **not current-tree proof**.
+The source was rebuilt after `cargo clean -p rax`, then the final two capture-order
+corrections triggered another rebuild selecting 7,493 total tests, including all
+fourteen new shared tests. The first pre-correction Linux
+run also failed `a_multishot_timeout_reports_each_expiry` and
+`timers_do_not_outlive_exec_or_cross_fork`; the latter was not reproduced by the
+single passing parent run and is not claimed as confirmed pre-existing.
+No Linux implementation/test assertion was changed. Retry results are not
+remediation evidence. Windows failures are the same four BZHI assertions and
+host-unavailable FP16 case recorded for the parent. The first Windows validation
+attempt stopped during a private resource transfer before tests; the subsequent
+complete and final runs are separately recorded.
+
+The isolated ARM64 loader trace returns success from NtOpenKey at slice 709,
+publishes guest handle `0x18`, queries ACP at slice 749 (`REG_SZ`, raw `1252\0`,
+22-byte partial result), queries OEMCP at slice 928 (`437\0`, 20-byte result),
+and closes at slice 1056. It next stops at slice 1101 on NtGetNlsSectionPtr,
+service `0x101`, PC `0x180002050`, with arguments
+`[11, 1252, 0, 0x1803BDD00, 0]`. PHNT declares five arguments, and the observed
+loader passes a null SectionSize despite its declared required output.
+No NLS-section result is fabricated. The 392-slice delta from 709 to 1101 counts
+one-instruction scheduler calls, not proven retired instructions. This private
+probe clears PEB.ProcessHeap and invokes LdrInitializeThunk with saved guest
+context; it is not exact native-kernel entry or production RTL heap evidence.
+The original trace source, before/after captures and checksums are retained.
+
+| Plane | Effect or reason unaffected |
+|---|---|
+| Runtime selection, kernel, objects, memory, scheduling | Fixed NLS acquisition; typed guest key lifetime/access; counted query serialization, guard/status/copy priorities and native service metadata |
+| Public Rust/C API and persistence | Additive public Rust object variant; stable C ABI 1.11.0/layout unchanged; no persisted schema/checkpoint or dependency/lock/default change |
+| Assist tool/schema/rendering/UI/context/agent/conversation | Existing option and worker ownership; description discloses fixed metadata; schema, backend requests, transcript, widget/IDA dispatch unchanged |
+| Permissions/mesh/MCP/transport/crypto | Existing native-runtime read_files_outside gate precedes selection; regenerated encrypted discovery description; no guest host-registry forwarding, permission-policy, route or transport change |
+| Windows/macOS/Linux and products | Shared kernel/model tests compile/run on all three; Windows adapter runs natively; current owning archives link production C++ adapter/factory/ABI checks on all three. Same archive membership reaches plugin, CLI and Qt harness. Full plugin/harness/package/application matrix remains overall-goal work |
+| ISA/SMIR/JIT/optional engines/release | No touched contracts, source or wiring; no dependency/default/ABI-version/packaging changes or release publication |
+
+Assumptions R1-R6 are reconciled in the linked register. High-impact remaining
+work is full native loader/RTL heap/CRT startup and wider NT/NLS/security/registry
+coverage, plus the complete application/package/native-platform goal matrix.
+Medium limits are arbitrary host snapshot concurrency and exact undefined WoW64
+scratch lifecycle. No nonblocking adjacent implementation was added.

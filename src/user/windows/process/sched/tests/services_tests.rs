@@ -13,6 +13,9 @@ mod event_tests;
 #[path = "services_tests/hotpatch_tests.rs"]
 mod hotpatch_tests;
 
+#[path = "services_tests/registry_tests.rs"]
+mod registry_tests;
+
 fn fixture(
     arch: WinArch,
     name: &str,

@@ -17,6 +17,7 @@ pub(crate) mod native;
 pub mod nt;
 pub mod objects;
 pub mod process;
+pub mod registry;
 pub mod seh;
 pub mod sync;
 pub mod tls;

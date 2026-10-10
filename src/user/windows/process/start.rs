@@ -340,12 +340,17 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
             u64::from_le_bytes(bytes)
         }
     };
+    let registry = native
+        .as_ref()
+        .map(|r| r.registry.clone())
+        .unwrap_or_default();
     let mut p = Proc {
         arch,
         space,
         vm,
         cfg: Arc::new(config),
         native,
+        registry,
         pid: 4,
         peb: layout::PEB_ADDRESS,
         params: 0,

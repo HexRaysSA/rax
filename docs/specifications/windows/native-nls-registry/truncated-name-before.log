@@ -1,0 +1,21 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 30.29s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 1 test
+
+thread 'user::windows::process::sched::tests::services_tests::registry_tests::native_registry_truncated_name_zeroes_incomplete_code_unit_all_abis' (4920479) panicked at src/user/windows/process/sched/tests/services_tests/registry_tests.rs:852:13:
+assertion `left == right` failed: x86/0/13
+  left: 65
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test user::windows::process::sched::tests::services_tests::registry_tests::native_registry_truncated_name_zeroes_incomplete_code_unit_all_abis ... FAILED
+
+failures:
+
+failures:
+    user::windows::process::sched::tests::services_tests::registry_tests::native_registry_truncated_name_zeroes_incomplete_code_unit_all_abis
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7496 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`
