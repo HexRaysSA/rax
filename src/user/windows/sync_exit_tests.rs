@@ -83,7 +83,7 @@ fn normal_exit_releases_peer_object_pin_once_and_discards_address_waits_all_abis
             let address_peer = peer(p);
             let event = p.objects.create(Object::Event {
                 manual: false,
-                signaled: false,
+                signaled: 0,
             });
             let handle = p.objects.open(event, false);
             let objects = Wait::Objects {
@@ -268,7 +268,7 @@ fn normal_exit_does_not_consume_completed_peer_waits_twice_all_abis() {
 
             let event = p.objects.create(Object::Event {
                 manual: false,
-                signaled: false,
+                signaled: 0,
             });
             let handle = p.objects.open(event, false);
             let objects = Wait::Objects {
@@ -283,7 +283,7 @@ fn normal_exit_does_not_consume_completed_peer_waits_twice_all_abis() {
             let Some(Object::Event { signaled, .. }) = p.objects.obj_mut(event) else {
                 panic!("parked wait must pin its event");
             };
-            *signaled = true;
+            *signaled = 1;
             assert_eq!(poll(p, object_peer, &objects, now, false).unwrap(), Some(0));
             assert!(p.sync.completed.contains(&object_peer));
             assert!(p.objects.obj(event).is_some());

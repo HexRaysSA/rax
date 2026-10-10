@@ -74,8 +74,9 @@ pub enum Object {
     Event {
         /// Manual-reset.
         manual: bool,
-        /// Signaled.
-        signaled: bool,
+        /// Native signal state (LONG): zero is nonsignaled. NtCreateEvent
+        /// retains the low BOOLEAN byte, including noncanonical 2..=255.
+        signaled: i32,
     },
     /// A mutex (mutant).
     Mutex {
@@ -453,7 +454,7 @@ mod tests {
         let mut o = Objects::default();
         let h = o.insert(Object::Event {
             manual: true,
-            signaled: false,
+            signaled: 0,
         });
         let d = o.duplicate(u64::from(h), false).unwrap();
         assert!(o.close(u64::from(h)).unwrap().is_none());

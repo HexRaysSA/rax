@@ -1,0 +1,155 @@
+[
+  {
+    "file": "zwcreateevent.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/ntifs/nf-ntifs-zwcreateevent.md",
+    "title": "ZwCreateEvent function (ntifs.h)",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-ddi-LICENSE",
+    "sha256": "f21b6ccc28f0fa99c319d60ad1d3cbf5b1617c0bb0b5bf37b142f4e5c509a404"
+  },
+  {
+    "file": "zwsetevent.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/ntifs/nf-ntifs-zwsetevent.md",
+    "title": "ZwSetEvent function (ntifs.h)",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-ddi-LICENSE",
+    "sha256": "83ed9d375c3a4afcd5fa4195bcb6e56d744869c26fecf956f25045d10524a989"
+  },
+  {
+    "file": "object-attributes.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/ntdef/ns-ntdef-_object_attributes.md",
+    "title": "OBJECT_ATTRIBUTES structure (ntdef.h)",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-sdk-LICENSE",
+    "sha256": "469e85fd85408f9849039237683c4d7b7ceccd27187b81bc9bad36a2961975ba"
+  },
+  {
+    "file": "microsoft-sdk-LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/LICENSE",
+    "title": "Microsoft SDK documentation license",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-sdk-LICENSE",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "microsoft-sdk-LICENSE-CODE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/LICENSE-CODE",
+    "title": "Microsoft SDK documentation code license",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-sdk-LICENSE-CODE",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "microsoft-ddi-LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/LICENSE",
+    "title": "Microsoft driver documentation license",
+    "revision": "copied unchanged from ../native-processor-features",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-ddi-LICENSE",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "microsoft-ddi-LICENSE-CODE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/LICENSE-CODE",
+    "title": "Microsoft driver documentation license",
+    "revision": "copied unchanged from ../native-processor-features",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-ddi-LICENSE-CODE",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "native-event-probe.cpp",
+    "source": "native Windows 10.0.29683.1000 private oracle",
+    "title": "NT event original probe and captured output",
+    "revision": "original 2026-10-10; VS2026 18.7.1; ARM64 host with x86/x64 compatibility",
+    "retrieved": "2026-10-10",
+    "license": "original project diagnostic",
+    "sha256": "730ceb1141161fe602c40dcb3386ea7bbb14b75cdcffb67b5cabbda462204e6b"
+  },
+  {
+    "file": "native-event-arm64.log",
+    "source": "native Windows 10.0.29683.1000 private oracle",
+    "title": "NT event original probe and captured output",
+    "revision": "original 2026-10-10; VS2026 18.7.1; ARM64 host with x86/x64 compatibility",
+    "retrieved": "2026-10-10",
+    "license": "original project diagnostic",
+    "sha256": "3de6084f855b6ceb0d85fa3e72d2f67018609c3fb98574dd4ac1cffc0378d66f"
+  },
+  {
+    "file": "native-event-x86.log",
+    "source": "native Windows 10.0.29683.1000 private oracle",
+    "title": "NT event original probe and captured output",
+    "revision": "original 2026-10-10; VS2026 18.7.1; ARM64 host with x86/x64 compatibility",
+    "retrieved": "2026-10-10",
+    "license": "original project diagnostic",
+    "sha256": "a940ba166455b4ff829adef606cdd96135438b6bd7dfdf1f3d7f6d843f2f5ac7"
+  },
+  {
+    "file": "native-event-x64.log",
+    "source": "native Windows 10.0.29683.1000 private oracle",
+    "title": "NT event original probe and captured output",
+    "revision": "original 2026-10-10; VS2026 18.7.1; ARM64 host with x86/x64 compatibility",
+    "retrieved": "2026-10-10",
+    "license": "original project diagnostic",
+    "sha256": "44ae885e1c32947ad0652eeda8beb7a255780b5065d1ac1e0893f80abbd8d66a"
+  },
+  {
+    "file": "synchronization-security.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/Sync/synchronization-object-security-and-access-rights.md",
+    "title": "Synchronization Object Security and Access Rights",
+    "revision": "unknown; mutable docs branch",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-win32-LICENSE",
+    "sha256": "739c18d72469fddc1843ddf6227be0b5305168e8a70dd03224e5c4b8b93ed70a"
+  },
+  {
+    "file": "microsoft-win32-LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE",
+    "title": "Microsoft Win32 documentation license",
+    "revision": "unknown; mutable docs branch",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-win32-LICENSE",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "microsoft-win32-LICENSE-CODE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE-CODE",
+    "title": "Microsoft Win32 documentation code license",
+    "revision": "unknown; mutable docs branch",
+    "retrieved": "2026-10-10",
+    "license": "microsoft-win32-LICENSE-CODE",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "native-ldr-event-frontier.rs",
+    "source": "controlled Windows 10.0.29683.1000 diagnostic with owning Assist archive dependency artifacts",
+    "title": "Original isolated ARM64 LdrInitializeThunk diagnostic",
+    "revision": "original 2026-10-10; ARM64; one-instruction slices; no production lifecycle change",
+    "retrieved": "2026-10-10",
+    "license": "original project diagnostic",
+    "sha256": "30c2f72c5fba3902dc1af1075108048b53873428906651305806a1d1e383bd5b"
+  },
+  {
+    "file": "native-ldr-event-frontier-before.log",
+    "source": "controlled Windows 10.0.29683.1000 diagnostic with owning Assist archive dependency artifacts",
+    "title": "Original loader stop before NT event support",
+    "revision": "original 2026-10-10; ARM64; one-instruction slices; no production lifecycle change",
+    "retrieved": "2026-10-10",
+    "license": "original project diagnostic",
+    "sha256": "a4d54d2b45bb155b36bd5eadb518d29095173095ceefc1b5441dd52343d0f85b"
+  },
+  {
+    "file": "native-ldr-event-frontier-after.log",
+    "source": "controlled Windows 10.0.29683.1000 diagnostic with owning Assist archive dependency artifacts",
+    "title": "Original loader stop after NT event support",
+    "revision": "original 2026-10-10; ARM64; one-instruction slices; no production lifecycle change",
+    "retrieved": "2026-10-10",
+    "license": "original project diagnostic",
+    "sha256": "c3e94821473aa6125f312f076ab8e746dc52aa7c05b18127fe91d79d3f3f5771"
+  }
+]

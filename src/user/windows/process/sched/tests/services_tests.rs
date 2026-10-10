@@ -7,6 +7,9 @@ mod process_query_tests;
 #[path = "services_tests/processor_feature_tests.rs"]
 mod processor_feature_tests;
 
+#[path = "services_tests/event_tests.rs"]
+mod event_tests;
+
 fn fixture(
     arch: WinArch,
     name: &str,
@@ -37,7 +40,7 @@ fn native_close_preserves_kernel_resume_stack_and_arch_argument_transport() {
         let p = process.state_mut();
         let object = p.objects.create(Object::Event {
             manual: true,
-            signaled: false,
+            signaled: 0,
         });
         let handle = p.objects.open(object, false);
         let sp = t.cpu.sp();
@@ -116,7 +119,7 @@ fn wow64_close_consumes_only_its_internal_return_and_keeps_callee_cleanup_in_gue
     let p = process.state_mut();
     let object = p.objects.create(Object::Event {
         manual: true,
-        signaled: false,
+        signaled: 0,
     });
     let handle = p.objects.open(object, false);
     let sp = t.cpu.sp();
@@ -216,7 +219,7 @@ fn installed_wow64_close_executes_the_selected_leaf_thunk_and_actual_ret_cleanup
         .unwrap();
     let object = p.objects.create(Object::Event {
         manual: true,
-        signaled: false,
+        signaled: 0,
     });
     let handle = p.objects.open(object, false);
     let sp = t.cpu.sp();
@@ -261,7 +264,7 @@ fn installed_ntdll_close_executes_its_guest_stub_and_resumes_at_ret() {
         .unwrap();
     let object = p.objects.create(Object::Event {
         manual: true,
-        signaled: false,
+        signaled: 0,
     });
     let handle = p.objects.open(object, false);
     t.cpu.set_pc(entry);

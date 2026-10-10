@@ -975,7 +975,7 @@ mod tests {
             let teb = t.teb;
             let handle = p.objects.insert(Object::Event {
                 manual: true,
-                signaled: false,
+                signaled: 0,
             });
             let id = p.objects.id(u64::from(handle)).unwrap();
             let wait = sync::Wait::Objects {

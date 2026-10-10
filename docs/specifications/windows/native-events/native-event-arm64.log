@@ -1,0 +1,138 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+pointer=8 access=00000000 status=00000000 handle=00000000000000A4 query=00000000 grant=00000000 set=C0000022 previous=A5A5A5A5 wait=C0000022 flags=0
+pointer=8 access=00000001 status=00000000 handle=00000000000000A4 query=00000000 grant=00000001 set=C0000022 previous=A5A5A5A5 wait=C0000022 flags=0
+pointer=8 access=00000002 status=00000000 handle=00000000000000A4 query=00000000 grant=00000002 set=00000000 previous=00000000 wait=C0000022 flags=0
+pointer=8 access=00000003 status=00000000 handle=00000000000000A4 query=00000000 grant=00000003 set=00000000 previous=00000000 wait=C0000022 flags=0
+pointer=8 access=00000004 status=00000000 handle=00000000000000A4 query=00000000 grant=00000000 set=C0000022 previous=A5A5A5A5 wait=C0000022 flags=0
+pointer=8 access=00100000 status=00000000 handle=00000000000000A4 query=00000000 grant=00100000 set=C0000022 previous=A5A5A5A5 wait=00000102 flags=0
+pointer=8 access=000F0000 status=00000000 handle=00000000000000A4 query=00000000 grant=000F0000 set=C0000022 previous=A5A5A5A5 wait=C0000022 flags=0
+pointer=8 access=001F0003 status=00000000 handle=00000000000000A4 query=00000000 grant=001F0003 set=00000000 previous=00000000 wait=00000000 flags=0
+pointer=8 access=02000000 status=00000000 handle=00000000000000A4 query=00000000 grant=001F0003 set=00000000 previous=00000000 wait=00000000 flags=0
+pointer=8 access=80000000 status=00000000 handle=00000000000000A4 query=00000000 grant=00020001 set=C0000022 previous=A5A5A5A5 wait=C0000022 flags=0
+pointer=8 access=40000000 status=00000000 handle=00000000000000A4 query=00000000 grant=00020002 set=00000000 previous=00000000 wait=C0000022 flags=0
+pointer=8 access=20000000 status=00000000 handle=00000000000000A4 query=00000000 grant=00120000 set=C0000022 previous=A5A5A5A5 wait=00000102 flags=0
+pointer=8 access=10000000 status=00000000 handle=00000000000000A4 query=00000000 grant=001F0003 set=00000000 previous=00000000 wait=00000000 flags=0
+pointer=8 access=01000000 status=00000000 handle=00000000000000A4 query=00000000 grant=01000000 set=C0000022 previous=A5A5A5A5 wait=C0000022 flags=0
+pointer=8 access=001F0007 status=00000000 handle=00000000000000A4 query=00000000 grant=001F0003 set=00000000 previous=00000000 wait=00000000 flags=0
+pointer=8 access=FFFFFFFF status=00000000 handle=00000000000000A4 query=00000000 grant=011F0003 set=00000000 previous=00000000 wait=00000000 flags=0
+pointer=8 type=00000000 initial=00000000 status=00000000 handle=00000000000000A4 query=00000000 event_type=0 event_state=0 wait1=00000102 wait2=00000102
+pointer=8 type=00000000 initial=00000001 status=00000000 handle=00000000000000A4 query=00000000 event_type=0 event_state=1 wait1=00000000 wait2=00000000
+pointer=8 type=00000000 initial=00000002 status=00000000 handle=00000000000000A4 query=00000000 event_type=0 event_state=2 wait1=00000000 wait2=00000000
+pointer=8 type=00000000 initial=000000FF status=00000000 handle=00000000000000A4 query=00000000 event_type=0 event_state=255 wait1=00000000 wait2=00000000
+pointer=8 type=00000000 initial=00000100 status=00000000 handle=00000000000000A4 query=00000000 event_type=0 event_state=0 wait1=00000102 wait2=00000102
+pointer=8 type=00000000 initial=00000101 status=00000000 handle=00000000000000A4 query=00000000 event_type=0 event_state=1 wait1=00000000 wait2=00000000
+pointer=8 type=00000001 initial=00000000 status=00000000 handle=00000000000000A4 query=00000000 event_type=1 event_state=0 wait1=00000102 wait2=00000102
+pointer=8 type=00000001 initial=00000001 status=00000000 handle=00000000000000A4 query=00000000 event_type=1 event_state=1 wait1=00000000 wait2=00000102
+pointer=8 type=00000001 initial=00000002 status=00000000 handle=00000000000000A4 query=00000000 event_type=1 event_state=2 wait1=00000000 wait2=00000102
+pointer=8 type=00000001 initial=000000FF status=00000000 handle=00000000000000A4 query=00000000 event_type=1 event_state=255 wait1=00000000 wait2=00000102
+pointer=8 type=00000001 initial=00000100 status=00000000 handle=00000000000000A4 query=00000000 event_type=1 event_state=0 wait1=00000102 wait2=00000102
+pointer=8 type=00000001 initial=00000101 status=00000000 handle=00000000000000A4 query=00000000 event_type=1 event_state=1 wait1=00000000 wait2=00000102
+pointer=8 type=00000002 initial=00000000 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=00000002 initial=00000001 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=00000002 initial=00000002 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=00000002 initial=000000FF status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=00000002 initial=00000100 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=00000002 initial=00000101 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=FFFFFFFF initial=00000000 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=FFFFFFFF initial=00000001 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=FFFFFFFF initial=00000002 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=FFFFFFFF initial=000000FF status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=FFFFFFFF initial=00000100 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 type=FFFFFFFF initial=00000101 status=C000000D handle=00000000A5A5A5A5 query=C000000D event_type=-1 event_state=-1 wait1=C000000D wait2=C000000D
+pointer=8 create_role=0 status=C0000005 output_protect=00000004 attrs_protect=00000004 handle=0000000000000000 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=1 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000A4 flags=0 prefix=A5A400000000000000A5A5A5A5A5A5A5
+pointer=8 create_role=2 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000A4 flags=0 prefix=A5A5A5A5A400000000000000A5A5A5A5
+pointer=8 create_role=3 status=C0000005 output_protect=00000004 attrs_protect=00000004 handle=0000000000000000 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=4 status=C0000005 output_protect=00000002 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=5 status=80000001 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=6 status=80000001 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=7 status=80000002 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=8 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=9 status=C0000005 output_protect=00000004 attrs_protect=00000004 handle=0000000000000000 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=10 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000A4 flags=0 prefix=A400000000000000A5A5A5A5A5A5A5A5
+pointer=8 create_role=11 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=12 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000A4 flags=1 prefix=A400000000000000A5A5A5A5A5A5A5A5
+pointer=8 create_role=13 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=14 status=C0000033 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=15 status=80000002 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=16 status=80000002 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=17 status=80000001 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=18 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=19 status=C0000005 output_protect=00000004 attrs_protect=00000001 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=20 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=21 status=C0000005 output_protect=00000002 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=22 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000A4 flags=0 prefix=A400000000000000A5A5A5A5A5A5A5A5
+pointer=8 create_role=23 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000A4 flags=0 prefix=A400000000000000A5A5A5A5A5A5A5A5
+pointer=8 create_role=24 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5 flags=0 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 create_role=25 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000A4 flags=0 prefix=A400000000000000A5A5A5A5A5A5A5A5
+pointer=8 state_role=0 op=set create=00000000 status=00000000 protect=00000004 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 state_role=0 op=reset create=00000000 status=00000000 protect=00000004 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=1 op=set create=00000000 status=00000000 protect=00000004 previous=000000A5 query=00000000 state=1
+pointer=8 state_role=1 op=reset create=00000000 status=00000000 protect=00000004 previous=000001A5 query=00000000 state=0
+pointer=8 state_role=2 op=set create=00000000 status=C0000005 protect=00000004 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=2 op=reset create=00000000 status=C0000005 protect=00000004 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 state_role=3 op=set create=00000000 status=C0000005 protect=00000002 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=3 op=reset create=00000000 status=C0000005 protect=00000002 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 state_role=4 op=set create=00000000 status=80000001 protect=00000004 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=4 op=reset create=00000000 status=80000001 protect=00000004 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 state_role=5 op=set create=00000000 status=C0000008 protect=00000004 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=5 op=reset create=00000000 status=C0000008 protect=00000004 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 state_role=6 op=set create=00000000 status=C0000024 protect=00000004 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=6 op=reset create=00000000 status=C0000024 protect=00000004 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 state_role=7 op=set create=00000000 status=C0000005 protect=00000004 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=7 op=reset create=00000000 status=C0000005 protect=00000004 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 state_role=8 op=set create=00000000 status=C0000005 protect=00000004 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=8 op=reset create=00000000 status=C0000005 protect=00000004 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 state_role=9 op=set create=00000000 status=C0000024 protect=00000004 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=9 op=reset create=00000000 status=C0000024 protect=00000004 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 state_role=10 op=set create=00000000 status=80000001 protect=00000004 previous=A5A5A5A5 query=00000000 state=0
+pointer=8 state_role=10 op=reset create=00000000 status=80000001 protect=00000004 previous=A5A5A5A5 query=00000000 state=1
+pointer=8 attributes=00000001 status=C000000D handle=00000000A5A5A5A5 handle_flags=0
+pointer=8 attributes=00000002 status=00000000 handle=00000000000000AC handle_flags=1
+pointer=8 attributes=00000004 status=C000000D handle=00000000A5A5A5A5 handle_flags=0
+pointer=8 attributes=00000008 status=C000000D handle=00000000A5A5A5A5 handle_flags=0
+pointer=8 attributes=00000010 status=00000000 handle=00000000000000AC handle_flags=0
+pointer=8 attributes=00000020 status=00000000 handle=00000000000000AC handle_flags=0
+pointer=8 attributes=00000040 status=00000000 handle=00000000000000AC handle_flags=0
+pointer=8 attributes=00000080 status=00000000 handle=00000000000000AC handle_flags=0
+pointer=8 attributes=00000100 status=C000000D handle=00000000A5A5A5A5 handle_flags=0
+pointer=8 attributes=00000200 status=00000000 handle=00000000000000AC handle_flags=0
+pointer=8 attributes=00000400 status=00000000 handle=00000000000000AC handle_flags=0
+pointer=8 attributes=00000800 status=00000000 handle=00000000000000AC handle_flags=0
+pointer=8 attributes=00001000 status=00000000 handle=00000000000000AC handle_flags=0
+pointer=8 attributes=00002000 status=C000000D handle=00000000A5A5A5A5 handle_flags=0
+pointer=8 raw_initial=2 op=set status=00000000 previous=2
+pointer=8 raw_initial=2 op=reset status=00000000 previous=2
+pointer=8 raw_initial=255 op=set status=00000000 previous=255
+pointer=8 raw_initial=255 op=reset status=00000000 previous=255
+pointer=8 attrs_role=0 status=80000002 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=1 status=80000002 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=2 status=00000000 output_protect=00000004 attrs_protect=00000002 handle=00000000000000AC
+pointer=8 attrs_role=3 status=C0000005 output_protect=00000004 attrs_protect=00000001 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=4 status=C000000D output_protect=00000004 attrs_protect=00000104 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=5 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=6 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=7 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=8 status=80000002 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=9 status=80000002 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=10 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000AC
+pointer=8 attrs_role=11 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000AC
+pointer=8 attrs_role=12 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000AC
+pointer=8 attrs_role=13 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=14 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000AC
+pointer=8 attrs_role=15 status=C0000005 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=16 status=C0000058 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=17 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000AC
+pointer=8 attrs_role=18 status=C0000005 output_protect=00000004 attrs_protect=00000001 handle=30A5A5A5A5A5A5A5
+pointer=8 attrs_role=19 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000AC
+pointer=8 attrs_role=20 status=80000001 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=21 status=80000001 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=22 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=23 status=C000000D output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=24 status=80000001 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5
+pointer=8 attrs_role=25 status=00000000 output_protect=00000004 attrs_protect=00000004 handle=00000000000000AC
+pointer=8 attrs_role=26 status=C0000005 output_protect=00000004 attrs_protect=00000002 handle=0000000000000030
+pointer=8 attrs_role=27 status=C0000005 output_protect=00000004 attrs_protect=00000004 handle=A5A5A5A5A5A5A5A5

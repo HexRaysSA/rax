@@ -510,3 +510,50 @@ linkage does not establish a real IDA plugin, harness or package execution.
 Assumptions F1-F4 and bounded high/medium limitations are maintained in the
 linked record. Full failing suites remain failing; query tests do not erase
 those failures or certify complete process emulation.
+
+## Shared native NT events and next loader prerequisite (2026-10-10)
+
+The [native-event record](../../../docs/specifications/windows/native-events/README.md)
+retains primary API/attribute documentation, 17 checksummed reference inputs,
+ARM64/x86/x64 native oracle logs and exact isolated loader before/after traces.
+`NtCreateEvent`, `NtSetEvent` and `NtResetEvent` now operate on the same
+reference-counted event objects as Win32 waits/state/close. Output widths,
+unaligned destinations, guard consumption, native64/WoW64 argument ordering,
+access masks and failed publication are covered across all guest ABIs.
+`Object::Event.signaled` is now a LONG-compatible `i32`, preserving creation's
+low BOOLEAN byte (including 2/255); wait readiness is nonzero, automatic reset
+stores 0, and setting/resetting stores 1/0. The Rust field type changes;
+C ABI 1.11.0 and the Assist process ABI remain unchanged.
+
+Only unnamed process-local events with null security/name/QoS inputs are
+admitted. Token/ACL/SACL privileges and named NT directory semantics remain
+explicit unsupported paths. The native invalid-event-type status differs
+from the public DDI list; the recorded build29683 profile and exact supported
+partitions are documented in the linked record. No host NT event is used as
+an emulated kernel backend, and no native RTL/loader helper is intercepted.
+
+| Validation surface | Result | Evidence |
+|---|---|---|
+| Before/after regression | One failure before; pass after | `/tmp/assist-native-events-{before,after}-macos.log` |
+| Shared/native event behavior | Seven shared tests on all host configurations; installed ARM64/x86 event leaves additionally pass on Windows | Complete logs below |
+| macOS complete library | 7,478 passed; 0 failed; 2 ignored; 0 filtered | `/tmp/assist-native-events-complete-macos.log` |
+| Linux complete library | Final 7,472 passed; 0 failed; 2 ignored; 0 filtered; earlier run retained 2 known timeout/signal failures | `/tmp/assist-native-root-cpp-linux/native-events-{complete-full,full}.log` |
+| Windows complete library | 6,852 passed; 5 same BZHI/FP16 failures; 2 ignored; 0 filtered | `/tmp/assist-native-windows-29683/native-events-complete-final-full.log` |
+| Complete C API | 168 passed on each OS | `/tmp/assist-native-events-capi-macos.log`; `/tmp/assist-native-root-cpp-linux/native-events-capi.log`; `/tmp/assist-native-windows-29683/native-events-complete-capi.log` |
+| Current Assist archives | macOS five CTests; Linux tool 184 / adapter 162 / disabled / ABI 2/2 / archive pass; Windows tool 182 / adapter 162 / disabled / ABI 2/2 / archive pass | `/tmp/assist-native-events-root-macos-{build,ctest}.log`; `/tmp/assist-native-root-cpp-linux/native-events-{shipping,cpp}.log`; `/tmp/assist-native-windows-29683/assist-native-events-complete-{shipping,cpp}.log` |
+
+The isolated loader probe passes `NtCreateEvent` at turn 141 and reaches
+unimplemented `NtManageHotPatch` class 9/service `0x119` at turn 160,
+guest PC `0x1800021D0`. These are zero-based diagnostic slice indices:
+the earlier ledger's 36/141 instruction descriptions refer to that measure,
+not an independent CPU retired-instruction count. Production native NTDLL
+initialization/RTL heap bootstrap is still absent; the four ordinary Windows
+installed-DLL startups still exit with `STATUS_ACCESS_VIOLATION`.
+Native leaf evidence is separate from full startup, current C API/archive
+proof is separate from real IDA/plugin/harness/package execution, and no
+Linux timing/signal or Windows lowerer failure is claimed fixed.
+Assumptions E1-E4, the Rust source-level field migration, and blocking
+high/medium findings are reconciled in the linked record. Shared event code
+compiles and runs in all three host OS configurations; Linux/Mach-O process
+policy, ISA/SMIR/JIT implementations, dependency/default/lock/package wiring
+and public C ABI remain unchanged.

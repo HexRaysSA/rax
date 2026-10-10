@@ -153,7 +153,10 @@ fn create_event(c: &mut Ctx, wide: bool) -> ApiResult {
         attrs,
         name,
         Kind::Event,
-        Object::Event { manual, signaled },
+        Object::Event {
+            manual,
+            signaled: i32::from(signaled),
+        },
     )
 }
 pub(super) fn create_event_w(c: &mut Ctx) -> ApiResult {
@@ -282,7 +285,7 @@ fn event_state(c: &mut Ctx, state: bool) -> ApiResult {
         Err(error) => return failure(c, error, 0),
     };
     if let Some(Object::Event { signaled, .. }) = c.p.objects.obj_mut(id) {
-        *signaled = state;
+        *signaled = i32::from(state);
     }
     Flow::bool(true)
 }

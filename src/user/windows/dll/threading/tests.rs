@@ -286,7 +286,7 @@ fn named_event_case_namespace_collision_and_existing_properties_all_abis() {
                 c.p.objects.get(first),
                 Some(Object::Event {
                     manual: true,
-                    signaled: false
+                    signaled: 0
                 })
             ));
             assert_eq!(integer(c, "CreateMutexW", &[0, 1, data]), 0);
@@ -462,16 +462,13 @@ fn multiple_waits_lowest_index_wait_all_atomicity_and_duplicate_rejection() {
             );
             assert!(matches!(
                 c.p.objects.get(event),
-                Some(Object::Event { signaled: true, .. })
+                Some(Object::Event { signaled: 1, .. })
             ));
             assert_eq!(integer(c, "ReleaseSemaphore", &[semaphore, 1, 0]), 1);
             assert_eq!(integer(c, "WaitForMultipleObjects", &[2, data, 1, 0]), 0);
             assert!(matches!(
                 c.p.objects.get(event),
-                Some(Object::Event {
-                    signaled: false,
-                    ..
-                })
+                Some(Object::Event { signaled: 0, .. })
             ));
             assert!(matches!(
                 c.p.objects.get(semaphore),
@@ -489,7 +486,7 @@ fn multiple_waits_lowest_index_wait_all_atomicity_and_duplicate_rejection() {
             assert_eq!(c.last_error().unwrap(), ERROR_INVALID_PARAMETER);
             assert!(matches!(
                 c.p.objects.get(event),
-                Some(Object::Event { signaled: true, .. })
+                Some(Object::Event { signaled: 1, .. })
             ));
             for count in [0, 65, u64::from(u32::MAX)] {
                 assert_eq!(
@@ -540,7 +537,7 @@ fn wait_array_fault_and_later_invalid_handle_do_not_consume_first_object() {
             assert_eq!(c.last_error().unwrap(), ERROR_INVALID_HANDLE);
             assert!(matches!(
                 c.p.objects.get(event),
-                Some(Object::Event { signaled: true, .. })
+                Some(Object::Event { signaled: 1, .. })
             ));
             assert!(matches!(
                 invoke(c, "WaitForMultipleObjects", &[2, 0x1000, 0, 0]),
@@ -548,7 +545,7 @@ fn wait_array_fault_and_later_invalid_handle_do_not_consume_first_object() {
             ));
             assert!(matches!(
                 c.p.objects.get(event),
-                Some(Object::Event { signaled: true, .. })
+                Some(Object::Event { signaled: 1, .. })
             ));
         });
     }

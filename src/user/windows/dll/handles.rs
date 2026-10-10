@@ -265,7 +265,7 @@ mod tests {
             let mut t = p.threads.remove(&tid).unwrap();
             let id = p.objects.create(Object::Event {
                 manual: true,
-                signaled: false,
+                signaled: 0,
             });
             let h = p.objects.open_access(id, false, 0x0010_0002).unwrap();
             let pseudo_process = if arch == WinArch::X86 {

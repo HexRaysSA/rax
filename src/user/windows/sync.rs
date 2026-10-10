@@ -401,7 +401,8 @@ fn expired(deadline: Option<Instant>, now: Instant) -> bool {
 /// Whether object `id` is signaled for thread `tid`.
 fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
     match p.objects.obj(id) {
-        Some(Object::Event { signaled, .. }) | Some(Object::Timer { signaled, .. }) => *signaled,
+        Some(Object::Event { signaled, .. }) => *signaled != 0,
+        Some(Object::Timer { signaled, .. }) => *signaled,
         Some(Object::Mutex { owner, .. }) => owner.is_none() || *owner == Some(tid),
         Some(Object::Semaphore { count, .. }) => *count > 0,
         Some(Object::Thread { exit_code, .. }) | Some(Object::Process { exit_code, .. }) => {
@@ -419,7 +420,7 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
 fn consume(p: &mut Proc, id: ObjId, tid: u32) -> bool {
     match p.objects.obj_mut(id) {
         Some(Object::Event { manual, signaled }) if !*manual => {
-            *signaled = false;
+            *signaled = 0;
             false
         }
         Some(Object::Timer {

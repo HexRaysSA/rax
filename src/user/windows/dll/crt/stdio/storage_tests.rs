@@ -355,7 +355,7 @@ fn invalid_handle_flags_and_pointer_width_cannot_add_descriptors_or_pins() {
         ));
         let event = u64::from(c.p.objects.insert(Object::Event {
             manual: false,
-            signaled: false,
+            signaled: 0,
         }));
         assert!(matches!(
             s.attach_descriptor(c.p, event, 0),

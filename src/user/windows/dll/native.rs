@@ -4,6 +4,7 @@ use super::super::hle::{ApiResult, Archs, Arg::*, Conv::Stdcall, Ctx, Export, Fl
 use super::super::memory::Mem;
 use super::super::nt::status::*;
 
+mod events;
 mod process_query;
 mod query;
 
@@ -51,6 +52,14 @@ pub(super) static EXPORTS: &[Export] = &[
         &[Ptr, I32, Ptr, I32, Ptr],
         process_query::information,
     ),
+    Export::func(
+        "NtCreateEvent",
+        Stdcall,
+        &[Ptr, I32, Ptr, I32, I32],
+        events::create,
+    ),
+    Export::func("NtSetEvent", Stdcall, &[Ptr, Ptr], events::set),
+    Export::func("NtResetEvent", Stdcall, &[Ptr, Ptr], events::reset),
 ];
 fn status_error(c: &mut Ctx) -> ApiResult {
     Flow::ret(u64::from(super::super::nt::status_to_error(c.u32(0)?)))

@@ -753,7 +753,7 @@ mod tests {
             });
             let wrong = p.objects.insert(Object::Event {
                 manual: true,
-                signaled: false,
+                signaled: 0,
             });
             let api = |name| {
                 EXPORTS

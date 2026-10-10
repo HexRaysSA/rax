@@ -421,7 +421,7 @@ fn object_wait_all_recursion_overflow_is_rejected_before_any_consumption() {
         with_context(arch, |c, _| {
             let event = c.p.objects.create(Object::Event {
                 manual: false,
-                signaled: true,
+                signaled: 1,
             });
             let mutex = c.p.objects.create(Object::Mutex {
                 owner: Some(c.t.tid),
@@ -434,7 +434,7 @@ fn object_wait_all_recursion_overflow_is_rejected_before_any_consumption() {
             ));
             assert!(matches!(
                 c.p.objects.obj(event),
-                Some(Object::Event { signaled: true, .. })
+                Some(Object::Event { signaled: 1, .. })
             ));
             assert!(matches!(
                 c.p.objects.obj(mutex),
@@ -452,23 +452,20 @@ fn object_wait_all_recursion_overflow_is_rejected_before_any_consumption() {
             );
             assert!(matches!(
                 c.p.objects.obj(event),
-                Some(Object::Event {
-                    signaled: false,
-                    ..
-                })
+                Some(Object::Event { signaled: 0, .. })
             ));
             assert!(matches!(
                 c.p.objects.obj(mutex),
                 Some(Object::Mutex { count: 2, .. })
             ));
             if let Some(Object::Event { signaled, .. }) = c.p.objects.obj_mut(event) {
-                *signaled = true;
+                *signaled = 1;
             }
             assert!(sync::try_objects(c.p, c.t.tid, &[event, event], true).is_err());
             assert!(sync::try_objects(c.p, c.t.tid, &[event, u32::MAX], true).is_err());
             assert!(matches!(
                 c.p.objects.obj(event),
-                Some(Object::Event { signaled: true, .. })
+                Some(Object::Event { signaled: 1, .. })
             ));
             if let Some(Object::Mutex {
                 owner,
@@ -621,7 +618,7 @@ fn process_exit_releases_final_wait_pins_without_accessing_unreadable_lockwords(
         with_context(arch, |c, addr| {
             let event = c.p.objects.create(Object::Event {
                 manual: false,
-                signaled: false,
+                signaled: 0,
             });
             let handle = c.p.objects.open(event, false);
             let objects = Wait::Objects {
