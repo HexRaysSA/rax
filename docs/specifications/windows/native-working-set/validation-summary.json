@@ -1,0 +1,27 @@
+{
+  "macos_library": "test result: ok. 7525 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 61.50s",
+  "linux_library": "test result: ok. 7519 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 100.25s",
+  "windows_library": "test result: FAILED. 6906 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 95.35s",
+  "macos_all_targets": {
+    "log": "/tmp/assist-native-working-set-final-all-targets-macos.log",
+    "sha256": "88c9b51917e14016ae3c8d71966ddd046e82ad9d8175aaa266bbf44e7dd340bd",
+    "result": "compiled --locked --no-default-features --all-targets"
+  },
+  "linux_all_targets": {
+    "log": "/tmp/assist-native-root-cpp-linux/native-working-set-final-all-targets.log",
+    "sha256": "81d2b0c915fc291a4032b31566d7fa7ff01db6c95a16485ccdc20608304ce3af",
+    "result": "compiled --locked --no-default-features --all-targets"
+  },
+  "windows_all_targets": {
+    "log": "/tmp/assist-native-windows-29683/native-working-set-final-all-targets.log",
+    "sha256": "46da85a76e9d7cfe6023d80f25aee3992ef06fb2cac5ff325bf408fd40f546ee",
+    "result": "compiled --locked --no-default-features --all-targets"
+  },
+  "source_sha256": {
+    "src/user/windows/dll/native/virtual_memory.rs": "2151cf57315d593342a45312f7e22b5a11fba0ab3bf68fb6e1c1b6a28b7d5623",
+    "src/user/windows/dll/native/virtual_memory/working_set.rs": "f063d9ee656c5fc262e6bcf5a84e27c489bc7762643994e01169fd3b421c1dc6",
+    "src/user/windows/process/sched/tests/services_tests/virtual_memory_tests.rs": "889a0df8afa1be71d8e3e9d900c87ca34c99ff11cadaf24c51cd77cd05628471",
+    "src/user/windows/process/sched/tests/services_tests/working_set_tests.rs": "d689d4e13be45a4f628c5844fe46d7040b64c4cff745df855a98a3dc4587d4a0",
+    "src/user/windows/process/sched/tests/services_tests/virtual_memory_leaf_tests.rs": "c56cb5eeeb0a19bfd403d39aaa1ec735d3cce7cd67ff701ce8eea89881fdf7f1"
+  }
+}

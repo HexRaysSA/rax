@@ -6,6 +6,8 @@ use crate::user::windows::memory::{AllocKind, Mem, RegionInfo};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
+mod working_set;
+
 pub(super) fn query(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
     match guard_result(c, result) {
@@ -42,6 +44,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
     }
     let required = match class {
         0 => RegionInfo::encoded_size(c.psize()),
+        4 => (c.psize() * 2) as usize,
         6 => {
             if wow {
                 12
@@ -78,6 +81,9 @@ fn checked(c: &mut Ctx) -> ApiResult {
         if returned != 0 {
             probe_write(c, returned, c.psize() as usize)?;
         }
+    }
+    if class == 4 {
+        return working_set::query(c, process, output, length, returned);
     }
     let status = process_status(c, process)?;
     if status != STATUS_SUCCESS {

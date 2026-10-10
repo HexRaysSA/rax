@@ -6,6 +6,9 @@ use crate::user::windows::nt::status::*;
 #[path = "virtual_memory_leaf_tests.rs"]
 mod installed;
 
+#[path = "working_set_tests.rs"]
+mod working_set;
+
 fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);

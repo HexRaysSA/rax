@@ -1,0 +1,18 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.57s
+     Running unittests src/lib.rs (vendor/rax/target/debug/deps/rax-754f4d2a527a4423)
+
+running 10 tests
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_query_observes_lazy_residency_without_faulting_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_protection_guards_and_decommit_observe_current_guest_state ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_unmapped_reserved_and_private_image_frames_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_incomplete_last_record_crosses_noaccess_or_guard_only_native ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_successful_return_alias_overwrites_record_last_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_early_bounds_and_guest_conversion_budget_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_input_capture_precedes_wow_handle_check_and_output_copy ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_query_rights_closed_handle_and_failure_length_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_record_lengths_floor_only_wow_and_preserve_tail_bytes ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::working_set::native_working_set_return_length_probe_guard_order_and_shared_alias_all_abis ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 7517 filtered out; finished in 0.06s
+

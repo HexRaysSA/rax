@@ -864,3 +864,61 @@ POSIX/process coverage and native application/package/IDA matrices remain
 high-impact blocking work for the overall goal. Medium limits are undefined
 WoW64 error length bytes, unresolved suite failures and other-build fidelity;
 additional private query classes are a low-impact diagnostic opportunity.
+
+
+## 2026-10-10: guest working-set array queries
+
+NtQueryVirtualMemory class4 now consumes MemoryWorkingSetExInformation arrays.
+The existing six-argument metadata and service indices are unchanged. Records
+are 16 bytes on native64 and 8 bytes on WoW64. Required minimums, the separate
+BaseAddress bound, native8-byte alignment/full supplied output/optional return
+probe, and WoW64 optional-return preprobe/input-capture/handle/output ordering
+follow 684 original build29683 observations. Native publishes supplied length;
+WoW64 publishes the complete-record prefix and ignores incomplete tail bytes.
+Read-only input with invalid handle, null input, huge requests, target/output
+versus return guards and aliased bytes are tested independently of class0/6.
+
+AddressSpace::is_resident reads PTE validity without translating or touching
+queried pages. Actual allocation/state-run protection determines valid records,
+resident guarded/no-access invalid-location records, and zero records for lazy,
+reserved, released or invalid addresses. Target guard and residency are retained.
+Current Windows mappings own private anonymous frames: image/NLS labels do not
+imply sharing. Normal priority5, node0 and absent locking/large-page/standby/
+graphics state follow the current closed guest memory model. WoW64 converted
+16-byte-record storage is logically bounded by guest backing capacity, returning
+STATUS_NO_MEMORY before input capture above that budget; the native host
+exhaustion threshold is unknown and is not inherited. The implementation uses
+O(1) auxiliary storage, O(q+n(log a+log s)) work for probe pages q, records n,
+allocations a and state runs s, without a proportional guest-controlled host Vec.
+
+Primary material, two original programs/raw three-ABI outputs, a missing-service
+red/green regression, independent checker, source hashes and W1-W3 assumptions
+are retained in docs/specifications/windows/native-working-set. Ten new shared
+cases run all guest ABIs on all hosts; a Windows-only actual installed
+ARM64/x86 leaf case additionally verifies return/stack cleanup and residency.
+Final unfiltered library results: macOS7525 passed/0failed/2ignored,
+Linux7519/0/2, Windows6906/5/2. Selections7527/7521/6913, all0filtered. The
+five Windows failures remain four BZHI assertions and host-unavailable FP16;
+no lowerer/assertion/skip change. Earlier Linux timing failures remain unresolved
+historical evidence despite their absence here. Separate complete C API168
+passes on all three, and current owning Assist archives rebuild RAX with all
+five production adapter/factory/ABI/archive checks passing. Registered Unix
+user_windows544 passes on macOS/Linux; Windows excludes it by cfg(unix).
+All-target builds pass on all three; native user_windows_memory4 passes, with
+cfg(windows) exclusions on macOS/Linux recorded explicitly.
+The first Windows transfer and initial Windows-only test-constructor compile
+were corrected and excluded from passing library proof; the final full run and
+five transferred source hashes establish the reported Windows result.
+
+The current-owning-archive isolated loader trace passes class4 at slice2778,
+service0x23, PC0x180001240, [-1,0,4,0xABF530,80,0], preserving all five code
+addresses and returning flags0x05000201. It reaches NtOpenKey at slice3237,
+service0x12, PC0x180001130, requested Session Manager registry key outside the
+selected NLS snapshot. Delta459 is scheduler calls, not retired instructions.
+This diagnostic clears PEB.ProcessHeap and enters saved LdrInitializeThunk
+context; no production native bootstrap/RTL heap/CRT completion is established.
+All four ordinary controlled Windows programs still return STATUS_ACCESS_VIOLATION.
+Wider native NT/registry/bootstrap, POSIX process/symlink and native IDA/package/
+application matrices remain high-impact blockers for the overall goal. C API
+1.11.0/layouts/dependencies/locks/defaults, permissions/discovery/schema/package
+wiring and all ISA/SMIR/JIT/other-guest implementations remain unchanged.

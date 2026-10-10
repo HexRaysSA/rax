@@ -1,0 +1,4 @@
+arm64: 168 matrix + 30 fault + 6 rights + 24 capture queries verified
+x86: 168 matrix + 30 fault + 6 rights + 24 capture queries verified
+x64: 168 matrix + 30 fault + 6 rights + 24 capture queries verified
+684 original queries and all source hashes verified

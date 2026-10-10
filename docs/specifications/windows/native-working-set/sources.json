@@ -1,0 +1,186 @@
+[
+  {
+    "file": "native-working-set-probe.cpp",
+    "source": "original process-local NtQueryVirtualMemory class4 oracle",
+    "title": "native-working-set-probe.cpp",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel; native ARM64 and compatibility x86/x64; Visual Studio 18.7.1",
+    "retrieved": "2026-10-10",
+    "sha256": "3a6d1081904c6d2df6a5d475b761ac260c56d8d26dff9f8d7ad6a54e2f8adab6"
+  },
+  {
+    "file": "native-working-set-capture-probe.cpp",
+    "source": "original process-local NtQueryVirtualMemory class4 oracle",
+    "title": "native-working-set-capture-probe.cpp",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel; native ARM64 and compatibility x86/x64; Visual Studio 18.7.1",
+    "retrieved": "2026-10-10",
+    "sha256": "1911204995d47b27aed168a3f4d96692a5dc7363b3e7bc8aa9000ed19c3f7e06"
+  },
+  {
+    "file": "native-working-set-arm64.log",
+    "source": "original process-local NtQueryVirtualMemory class4 oracle",
+    "title": "native-working-set-arm64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel; native ARM64 and compatibility x86/x64; Visual Studio 18.7.1",
+    "retrieved": "2026-10-10",
+    "sha256": "f171626d3f08d8096b11e664429488971ffa14380140e0fd3e8338bcb0fbf521"
+  },
+  {
+    "file": "native-working-set-x86.log",
+    "source": "original process-local NtQueryVirtualMemory class4 oracle",
+    "title": "native-working-set-x86.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel; native ARM64 and compatibility x86/x64; Visual Studio 18.7.1",
+    "retrieved": "2026-10-10",
+    "sha256": "96b431c059abde8c16b1d0088a816c3b3db49e859c1cbf2ec39080c355021f2b"
+  },
+  {
+    "file": "native-working-set-x64.log",
+    "source": "original process-local NtQueryVirtualMemory class4 oracle",
+    "title": "native-working-set-x64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel; native ARM64 and compatibility x86/x64; Visual Studio 18.7.1",
+    "retrieved": "2026-10-10",
+    "sha256": "1bd71c304176eb22ac6c93815417f692110b74fdc09b73e0ceb4b823656c7c68"
+  },
+  {
+    "file": "native-working-set-capture-arm64.log",
+    "source": "original process-local NtQueryVirtualMemory class4 oracle",
+    "title": "native-working-set-capture-arm64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel; native ARM64 and compatibility x86/x64; Visual Studio 18.7.1",
+    "retrieved": "2026-10-10",
+    "sha256": "c83b8031e4a6820af474857310f8e56bcd3b2d296c6e088713861e1ef9728d03"
+  },
+  {
+    "file": "native-working-set-capture-x86.log",
+    "source": "original process-local NtQueryVirtualMemory class4 oracle",
+    "title": "native-working-set-capture-x86.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel; native ARM64 and compatibility x86/x64; Visual Studio 18.7.1",
+    "retrieved": "2026-10-10",
+    "sha256": "08f8733ec22c03a2e7c48acc70d8061d86aa18e0354d5e425a48ce5c44e793bd"
+  },
+  {
+    "file": "native-working-set-capture-x64.log",
+    "source": "original process-local NtQueryVirtualMemory class4 oracle",
+    "title": "native-working-set-capture-x64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel; native ARM64 and compatibility x86/x64; Visual Studio 18.7.1",
+    "retrieved": "2026-10-10",
+    "sha256": "236ba491274d62f63f37699a3aab960182f95b5273b91172c2fff498309bd1b2"
+  },
+  {
+    "file": "working-set-ex-block.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/psapi/ns-psapi-psapi_working_set_ex_block.md",
+    "title": "working-set-ex-block.md",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "44a940eda99b201a00baa036136c88a1798f7610f1f97287e7dc4b0c4d3a4370"
+  },
+  {
+    "file": "working-set-ex-information.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/psapi/ns-psapi-psapi_working_set_ex_information.md",
+    "title": "working-set-ex-information.md",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "5935fb4099d672a66420f441fc51574eb2abb3a81f01cea790d6107b06c90011"
+  },
+  {
+    "file": "queryworkingsetex.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/psapi/nf-psapi-queryworkingsetex.md",
+    "title": "queryworkingsetex.md",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "0b18ba306a26f3aacf78982a4ebe54f965fa1aeb9c759a00eb3d1aadd99581ae"
+  },
+  {
+    "file": "memory-priority-information.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/processthreadsapi/ns-processthreadsapi-memory_priority_information.md",
+    "title": "memory-priority-information.md",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "af6eaec9002dc76e82eb72dca079d47948cdc0ae29711cb46523998cb7534938"
+  },
+  {
+    "file": "microsoft-sdk-api-LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE",
+    "title": "microsoft-sdk-api-LICENSE",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "microsoft-sdk-api-LICENSE-CODE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE-CODE",
+    "title": "microsoft-sdk-api-LICENSE-CODE",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "../native-virtual-memory/phnt-ntmmapi.h",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntmmapi.h",
+    "title": "PHNT native memory manager declarations",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "sha256": "8acd89a95f890f929da824cc841383770a4f21f312bb04d0d12f03cb3a00e079"
+  },
+  {
+    "file": "../native-processor-features/phnt-LICENSE",
+    "source": "retained corresponding PHNT source license",
+    "title": "PHNT LICENSE",
+    "revision": "retained original",
+    "retrieved": "2026-10-10",
+    "sha256": "ad2ab542c56c606e4c19d66a7f3cdcd3ef83beffb638e7c3893b22c7a6a6c0df"
+  },
+  {
+    "file": "missing-service-before.log",
+    "source": "original controlled RAX regression command output",
+    "title": "missing-service-before.log",
+    "revision": "baseline cd09c000 then this class4 implementation; targeted iteration, not full binary proof",
+    "retrieved": "2026-10-10",
+    "sha256": "b52b17ae75bd4c2c9fd9ee27cdf9c7759bdde69308039c1b110f8c1f6480282b"
+  },
+  {
+    "file": "shared-targeted-after.log",
+    "source": "original controlled RAX regression command output",
+    "title": "shared-targeted-after.log",
+    "revision": "baseline cd09c000 then this class4 implementation; targeted iteration, not full binary proof",
+    "retrieved": "2026-10-10",
+    "sha256": "e9afeb300bca550fd7a643055750038e493015c797611d6b183d74dfa1a62508"
+  },
+  {
+    "file": "check-oracle.py",
+    "source": "original independent native observation checker",
+    "title": "check-oracle.py",
+    "revision": "class4 retained original outputs and source hashes; no emulator imports",
+    "retrieved": "2026-10-10",
+    "sha256": "8de4e347778de16b26cdccaec20580ee40092f704e00545f309c80ca42637155"
+  },
+  {
+    "file": "oracle-check.log",
+    "source": "original independent native observation checker",
+    "title": "oracle-check.log",
+    "revision": "class4 retained original outputs and source hashes; no emulator imports",
+    "retrieved": "2026-10-10",
+    "sha256": "54383bfce259dee8d687992d2f428b391545595d90a2ca9cac090840320d6fcc"
+  },
+  {
+    "file": "native-ldr-working-set-frontier.rs",
+    "source": "original current-owning-archive isolated loader diagnostic",
+    "title": "native-ldr-working-set-frontier.rs",
+    "revision": "private cleared PEB.ProcessHeap and saved-context LdrInitializeThunk entry; not production startup",
+    "retrieved": "2026-10-10",
+    "sha256": "a869338f67630f2714b47a3c6eaccdf18f714ccbea23c366b95d64e4c69c93b4"
+  },
+  {
+    "file": "native-ldr-working-set-frontier-after.log",
+    "source": "original current-owning-archive isolated loader diagnostic",
+    "title": "native-ldr-working-set-frontier-after.log",
+    "revision": "private cleared PEB.ProcessHeap and saved-context LdrInitializeThunk entry; not production startup",
+    "retrieved": "2026-10-10",
+    "sha256": "09894aa98153685f49be1c5e3ca73c61b4d60b9562a5c3adbf9372388f77cce3"
+  },
+  {
+    "file": "validation-summary.json",
+    "source": "original controlled final-source validation log extraction",
+    "title": "validation-summary.json",
+    "revision": "full unfiltered binaries and final exact Rust source hashes; retains known Windows failures",
+    "retrieved": "2026-10-10",
+    "sha256": "dfb4d5e090869643fbed513ad15aa5ef936a7895b260d80c7a636dcf0c4f469b"
+  }
+]

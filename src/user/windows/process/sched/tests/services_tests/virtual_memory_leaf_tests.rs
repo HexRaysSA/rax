@@ -60,6 +60,113 @@ fn invoke(p: &mut Proc, t: &mut Thread, module: usize, service: &str, args: &[u6
 }
 
 #[test]
+fn installed_ntdll_working_set_leaf_observes_guest_residency_and_guard_all_selected_abis() {
+    let host = if cfg!(target_arch = "aarch64") {
+        WinArch::Arm64
+    } else if cfg!(target_arch = "x86_64") {
+        WinArch::X64
+    } else {
+        WinArch::X86
+    };
+    let archs = if host == WinArch::X86 {
+        vec![host]
+    } else {
+        vec![host, WinArch::X86]
+    };
+    for arch in archs {
+        let image: &[u8] = match arch {
+            WinArch::X86 => {
+                include_bytes!("../../../../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
+            }
+            WinArch::X64 => {
+                include_bytes!("../../../../../../../tests/fixtures/user/windows/bin/x64/smoke.exe")
+            }
+            WinArch::Arm64 => include_bytes!(
+                "../../../../../../../tests/fixtures/user/windows/bin/arm64/smoke.exe"
+            ),
+        };
+        let mut config =
+            WindowsConfig::embedded("C:\\native-working-set.exe", vec![], vec![], 4096).unwrap();
+        config.native_libraries = true;
+        let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let module = loader::load_dll(p, "ntdll.dll").unwrap();
+        let target = p.modules.list[module].base;
+        let base =
+            p.vm.allocate(
+                None,
+                PAGE_SIZE * 4,
+                mem::RESERVE | mem::COMMIT,
+                prot::READWRITE,
+            )
+            .unwrap()
+            .0;
+        let width = arch.ptr_size();
+        let out = base + 128;
+        for (index, address) in [target, base + PAGE_SIZE * 2, arch.ptr(u64::MAX)]
+            .into_iter()
+            .enumerate()
+        {
+            p.space
+                .wptr(out + index as u64 * width * 2, width, address)
+                .unwrap();
+            p.space
+                .wptr(out + (index as u64 * 2 + 1) * width, width, u64::MAX)
+                .unwrap();
+        }
+        assert!(!p.space.is_resident(base + PAGE_SIZE * 2));
+        let length = width * 6 + 1;
+        assert_eq!(
+            invoke(
+                p,
+                &mut t,
+                module,
+                "NtQueryVirtualMemory",
+                &[arch.ptr(u64::MAX), 0, 4, out, length, base + 256]
+            ),
+            STATUS_SUCCESS
+        );
+        assert_eq!(read_ptr(p, out), target);
+        assert_eq!(read_ptr(p, out + width) & 1, 1);
+        assert_eq!(read_ptr(p, out + width * 3), 0);
+        assert_eq!(read_ptr(p, out + width * 5), 0);
+        assert_eq!(
+            read_ptr(p, base + 256),
+            if arch == WinArch::X86 {
+                width * 6
+            } else {
+                length
+            }
+        );
+        assert!(!p.space.is_resident(base + PAGE_SIZE * 2));
+        p.space.w8(base + PAGE_SIZE * 2, 1).unwrap();
+        p.vm.protect(
+            base + PAGE_SIZE * 2,
+            PAGE_SIZE,
+            prot::READWRITE | prot::GUARD,
+        )
+        .unwrap();
+        assert_eq!(
+            invoke(
+                p,
+                &mut t,
+                module,
+                "NtQueryVirtualMemory",
+                &[arch.ptr(u64::MAX), 0, 4, out, width * 6, 0]
+            ),
+            STATUS_SUCCESS
+        );
+        assert_eq!(read_ptr(p, out + width * 3), 0x0540_0000);
+        assert_ne!(
+            p.vm.query(base + PAGE_SIZE * 2).unwrap().protect & prot::GUARD,
+            0
+        );
+    }
+}
+
+#[test]
 fn installed_ntdll_virtual_memory_leaves_query_guest_images_and_nls_all_selected_abis() {
     let host = if cfg!(target_arch = "aarch64") {
         WinArch::Arm64
