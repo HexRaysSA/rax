@@ -17,7 +17,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use super::{ExitStatus, Proc, Thread, ThreadState, lifecycle, thread};
+use super::{ExitStatus, Proc, Thread, ThreadState, lifecycle, services, thread};
 use crate::error::MemoryAccessKind;
 use crate::isa::x86_64::{X86EventSource, X86UserEvent};
 use crate::user::cpu::{AccessFault, AccessFaultKind};
@@ -552,6 +552,7 @@ fn access_fault(p: &mut Proc, t: &mut Thread, f: AccessFault) -> Outcome {
             Trap::ThreadStart => lifecycle::thread_start(p, t),
             Trap::FiberStart => crate::user::windows::dll::fibers::fiber_start(p, t),
             Trap::DispatcherRetry => dispatch::dispatcher_retry(p, t, f.pc),
+            Trap::NtServiceTransition => services::wow64(p, t, f.pc),
             Trap::Missing(name) => Outcome::Fail(format!(
                 "unimplemented Windows export: {name} at {:#x}",
                 f.pc
@@ -754,6 +755,7 @@ mod tests {
             vm: VirtualMemory::new(space.clone(), 0x10000, 1 << 32),
             space,
             cfg: Arc::new(WindowsConfig::new("unused-test.exe", vec![])),
+            native: None,
             pid: 4,
             peb: 0,
             params: 0,

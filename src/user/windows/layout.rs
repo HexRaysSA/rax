@@ -6,8 +6,9 @@
 //! i686, x86_64, and (with Zig's bundled mingw-w64 13.0 headers) aarch64
 //! (`tests/fixtures/user/windows/layout/`). The remaining `PEB`, `TEB`,
 //! `LDR_DATA_TABLE_ENTRY`, and `RTL_USER_PROCESS_PARAMETERS` fields are not
-//! in the public headers. They belong to the supplied modern private-layout
-//! profile; no Windows build/PDB identifiers or retained symbol probes
+//! in the public headers. ApiSetMap and the x86 transition slot carry the
+//! native probe identities documented below. The remaining fields belong to
+//! the supplied modern private-layout profile; no Windows build/PDB identifiers or retained symbol probes
 //! establish their native provenance. Native equivalence of those private
 //! fields is unknown. Matching a public padding span does not establish the
 //! private field's identity or semantics.
@@ -40,6 +41,9 @@ pub const SYSTEM_AREA: u64 = 0x7FF0_0000;
 pub const SYSTEM_AREA_END: u64 = 0x7FFE_0000;
 /// The PEB.
 pub const PEB_ADDRESS: u64 = 0x7FFD_F000;
+/// x86 TEB transition pointer read by selected WoW64 NTDLL leaves. Verified
+/// on Windows 10.0.29683.1000 with a native x86 TEB and export-byte probe.
+pub(crate) const WOW64_TEB_TRANSITION: u64 = 0xC0;
 
 /// Bytes reserved for one TEB (the 64-bit TEB is 0x1838 bytes).
 pub fn teb_stride(arch: WinArch) -> u64 {
@@ -87,6 +91,9 @@ pub struct Offsets {
     pub peb_process_heap: u64,
     /// `PEB.FastPebLock`.
     pub peb_fast_peb_lock: u64,
+    /// Modern private `PEB.ApiSetMap`; the ARM64 installed version-6
+    /// namespace is checked against `RtlGetCurrentPeb` by the native probe.
+    pub peb_api_set_map: u64,
     /// `PEB.TlsExpansionCounter`.
     pub peb_tls_expansion_counter: u64,
     /// `PEB.TlsBitmap`.
@@ -278,6 +285,7 @@ const OFFSETS32: Offsets = Offsets {
     peb_process_parameters: 0x010,
     peb_process_heap: 0x018,
     peb_fast_peb_lock: 0x01C,
+    peb_api_set_map: 0x038,
     peb_tls_expansion_counter: 0x03C,
     peb_tls_bitmap: 0x040,
     peb_tls_bitmap_bits: 0x044,
@@ -375,6 +383,7 @@ const OFFSETS64: Offsets = Offsets {
     peb_process_parameters: 0x020,
     peb_process_heap: 0x030,
     peb_fast_peb_lock: 0x038,
+    peb_api_set_map: 0x068,
     peb_tls_expansion_counter: 0x070,
     peb_tls_bitmap: 0x078,
     peb_tls_bitmap_bits: 0x080,

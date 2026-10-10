@@ -518,6 +518,7 @@ mod tests {
                 "ignored-config-name.exe",
                 vec!["ignored-config-argument".into()],
             )),
+            native: None,
             pid: 4,
             peb: 0,
             params: 0,

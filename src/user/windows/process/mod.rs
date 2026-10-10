@@ -82,6 +82,9 @@ pub struct WindowsConfig {
     pub guest_image_path: Option<String>,
     /// Permit filesystem-backed executable, DLL, and guest file access.
     pub host_filesystem: bool,
+    /// Select read-only installed DLLs and API-set redirects on Windows.
+    /// This does not permit general guest host-file access. Defaults to false.
+    pub native_libraries: bool,
     /// Explicit console routing (host streams for the CLI by default).
     pub console: crate::user::console::Console,
     /// Supplied DLL bytes indexed by normalized absolute Windows path.
@@ -156,6 +159,7 @@ impl WindowsConfig {
             exe_host_path: exe.into(),
             guest_image_path: None,
             host_filesystem: true,
+            native_libraries: false,
             console: Default::default(),
             supplied_dlls: BTreeMap::new(),
             args,
@@ -263,6 +267,7 @@ pub struct Proc {
     pub vm: VirtualMemory,
     /// Configuration.
     pub cfg: Arc<WindowsConfig>,
+    pub(crate) native: Option<super::native::NativeRuntime>,
     /// Process identifier.
     pub pid: u32,
     /// The PEB.

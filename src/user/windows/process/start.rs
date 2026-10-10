@@ -143,12 +143,30 @@ fn params(p: &mut Proc, image_path: &str) -> Result<(), SpawnError> {
         command
     };
     unicode(p, at + o.pp_command_line, &command)?;
-    unicode(p, at + o.pp_dll_path, loader::system_dir(p.arch))?;
-    let env = p
+    let dll_path = p
+        .native
+        .as_ref()
+        .map(|runtime| runtime.guest_directory.clone())
+        .unwrap_or_else(|| loader::system_dir(p.arch).into());
+    unicode(p, at + o.pp_dll_path, &dll_path)?;
+    let mut env = p
         .cfg
         .env
         .clone()
         .unwrap_or_else(|| p.cfg.default_environment(p.arch));
+    if p.cfg.env.is_none()
+        && let Some(runtime) = p.native.as_ref()
+    {
+        let root = runtime.guest_root.clone();
+        for (name, value) in &mut env {
+            match name.as_str() {
+                "SystemRoot" | "WINDIR" => *value = root.clone(),
+                "COMSPEC" => *value = format!("{}\\cmd.exe", runtime.guest_directory),
+                "PATH" => *value = format!("{dll_path};{root}"),
+                _ => {}
+            }
+        }
+    }
     let mut values = BTreeMap::new();
     for (name, value) in env.into_iter().chain(p.cfg.env_overrides.iter().cloned()) {
         if name.is_empty() || name.contains(['=', '\0']) || value.contains('\0') {
@@ -230,6 +248,14 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
             "DLL cannot be started as a process executable".into(),
         ));
     }
+    let native = if config.native_libraries {
+        let runtime =
+            crate::user::windows::native::NativeRuntime::select(arch).map_err(SpawnError::Io)?;
+        config.version = runtime.version.clone();
+        Some(runtime)
+    } else {
+        None
+    };
     let high = layout::user_limit(
         arch,
         h.characteristics & IMAGE_FILE_LARGE_ADDRESS_AWARE != 0,
@@ -319,6 +345,7 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         space,
         vm,
         cfg: Arc::new(config),
+        native,
         pid: 4,
         peb: layout::PEB_ADDRESS,
         params: 0,
@@ -378,6 +405,51 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         .w32(p.peb + o.peb_os_platform_id, 2)
         .map_err(|e| memory(format!("{e:?}")))?;
     params(&mut p, &image_path)?;
+    if let Some(runtime) = p.native.as_ref() {
+        let schema = runtime.apisets.bytes.clone();
+        let base =
+            p.vm.reserve(
+                None,
+                schema.len() as u64,
+                prot::READONLY,
+                AllocKind::Private,
+                false,
+                Some(Arc::from("[ApiSetMap]")),
+            )
+            .map_err(memory)?;
+        p.vm.commit(base, schema.len() as u64, prot::READONLY)
+            .map_err(memory)?;
+        p.vm.poke(base, &schema)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        // Modern private PEB layout; native schema header is checked by the
+        // Windows integration probe rather than inferred from public padding.
+        p.space
+            .wptr(p.peb + o.peb_api_set_map, o.ptr, base)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        let traps =
+            p.vm.reserve(
+                None,
+                0x1000,
+                prot::READONLY,
+                AllocKind::Private,
+                false,
+                Some(Arc::from("[native process frontiers]")),
+            )
+            .map_err(|e| memory(format!("{e:?}")))?;
+        p.vm.commit(traps, 0x1000, prot::READONLY).map_err(memory)?;
+        p.vm.set_reported(traps, 0x1000, prot::EXECUTE_READ);
+        use crate::user::windows::traps::SlotKind;
+        p.traps.add(
+            traps,
+            vec![
+                SlotKind::CallbackReturn,
+                SlotKind::ThreadStart,
+                SlotKind::FiberStart,
+                SlotKind::DispatcherRetry,
+            ],
+            0x1000 / 16,
+        );
+    }
     // Pseudo process handles must resolve independently of whether a real
     // process handle has ever been duplicated. The internal reference keeps
     // this object alive until the entire table is drained at shutdown.
@@ -393,12 +465,16 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         status: e.status,
         message: e.message,
     })?;
-    loader::load_system_dlls(&mut p)
-        .and_then(|_| loader::finish_exe(&mut p, &pe))
-        .map_err(|e| SpawnError::Load {
-            status: e.status,
-            message: e.message,
-        })?;
+    (if p.native.is_some() && h.subsystem == 1 {
+        loader::load_dll(&mut p, "ntdll.dll").map(|_| ())
+    } else {
+        loader::load_system_dlls(&mut p)
+    })
+    .and_then(|_| loader::finish_exe(&mut p, &pe))
+    .map_err(|e| SpawnError::Load {
+        status: e.status,
+        message: e.message,
+    })?;
     let shared = layout::KUSER_SHARED_DATA;
     for (off, value) in [
         (kuser::NT_BUILD_NUMBER, p.cfg.version.build),
@@ -421,9 +497,17 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         &arch.processor_architecture().to_le_bytes(),
     )
     .map_err(|e| memory(format!("{e:?}")))?;
+    let system_root = p
+        .native
+        .as_ref()
+        .map(|runtime| runtime.guest_root.clone())
+        .unwrap_or_else(|| "C:\\Windows".into());
+    if system_root.encode_utf16().count() >= 260 {
+        return Err(memory("Windows root exceeds KUSER_SHARED_DATA capacity"));
+    }
     p.vm.poke(
         shared + kuser::NT_SYSTEM_ROOT,
-        &"C:\\Windows\0"
+        &format!("{system_root}\0")
             .encode_utf16()
             .flat_map(u16::to_le_bytes)
             .collect::<Vec<_>>(),

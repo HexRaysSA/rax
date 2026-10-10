@@ -12,21 +12,32 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::nt::status::STATUS_INVALID_IMAGE_FORMAT;
 
 const MAX_EXPORTS: u32 = 1 << 16;
-const STUB_BYTES: usize = 32;
+const STUB_BYTES: usize = 64;
 
 #[derive(Debug)]
 pub(crate) struct ServiceTable {
     arch: WinArch,
     names: BTreeMap<u32, String>,
+    pub(crate) wow64_slot: Option<u32>,
 }
 
 impl ServiceTable {
     pub(crate) fn from_image(arch: WinArch, pe: &PeImage) -> Result<Option<Self>, LoadError> {
         let image = pe.memory_image();
-        Self::read(arch, &image, pe.headers().directory(dir::EXPORT))
+        Self::read(
+            arch,
+            &image,
+            pe.headers().directory(dir::EXPORT),
+            pe.headers().image_base,
+        )
     }
 
-    fn read(arch: WinArch, image: &[u8], range: DataDirectory) -> Result<Option<Self>, LoadError> {
+    fn read(
+        arch: WinArch,
+        image: &[u8],
+        range: DataDirectory,
+        preferred: u64,
+    ) -> Result<Option<Self>, LoadError> {
         let malformed = || {
             LoadError::new(
                 STATUS_INVALID_IMAGE_FORMAT,
@@ -39,6 +50,23 @@ impl ServiceTable {
         if exports.number_of_names > MAX_EXPORTS || exports.number_of_functions > MAX_EXPORTS {
             return Err(malformed());
         }
+        let wow64_slot = if arch == WinArch::X86 {
+            match exports
+                .by_name(image, b"Wow64Transition", None)
+                .map_err(|_| malformed())?
+            {
+                Some((_, ExportTarget::Rva(rva)))
+                    if (rva as usize)
+                        .checked_add(4)
+                        .is_some_and(|end| end <= image.len()) =>
+                {
+                    Some(rva)
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
         let mut names = BTreeMap::new();
         for i in 0..exports.number_of_names {
             let name = exports
@@ -65,6 +93,28 @@ impl ServiceTable {
             let Some(number) = stub_number(arch, bytes) else {
                 continue;
             };
+            if arch == WinArch::X86 {
+                let Some(slot) = wow64_slot else { continue };
+                let Some(target) = x86_call_target(bytes) else {
+                    continue;
+                };
+                let Some(thunk) = u64::from(target)
+                    .checked_sub(preferred)
+                    .and_then(|rva| usize::try_from(rva).ok())
+                else {
+                    continue;
+                };
+                let Some(code) = image.get(thunk..thunk.saturating_add(6)) else {
+                    continue;
+                };
+                if code[..2] != [0xFF, 0x25]
+                    || u64::from(u32::from_le_bytes(
+                        code[2..6].try_into().map_err(|_| malformed())?,
+                    )) != preferred + u64::from(slot)
+                {
+                    continue;
+                }
+            }
             let name = String::from_utf8(name).map_err(|_| malformed())?;
             if let Some(previous) = names.insert(number, name.clone())
                 && previous != name
@@ -77,7 +127,11 @@ impl ServiceTable {
                 ));
             }
         }
-        Ok((!names.is_empty()).then_some(Self { arch, names }))
+        Ok((!names.is_empty()).then_some(Self {
+            arch,
+            names,
+            wow64_slot,
+        }))
     }
 
     pub(crate) fn name(&self, arch: WinArch, number: u32) -> Option<&str> {
@@ -112,9 +166,24 @@ fn stub_number(arch: WinArch, bytes: &[u8]) -> Option<u32> {
                 ]))
             .then_some(number)
         }
-        // WoW64 transitions have a separate argument/transition contract.
-        // Until that adapter is established they cannot enter the 64-bit ABI.
-        WinArch::X86 => None,
+        WinArch::X86 => {
+            if bytes.first()? != &0xB8 || x86_call_target(bytes).is_none() {
+                return None;
+            }
+            Some(u32::from_le_bytes(bytes.get(1..5)?.try_into().ok()?))
+        }
+    }
+}
+
+fn x86_call_target(bytes: &[u8]) -> Option<u32> {
+    // Installed WoW64 leaf: MOV EAX, encoded service; MOV EDX, thunk;
+    // CALL EDX; RET imm16. High service bits encode WoW64 marshaling and
+    // remain part of identity rather than being masked to 16 bits.
+    let tail = bytes.get(5..)?;
+    if tail.first()? == &0xBA && tail.get(5..8)? == [0xFF, 0xD2, 0xC2] && tail.len() >= 10 {
+        Some(u32::from_le_bytes(tail[1..5].try_into().ok()?))
+    } else {
+        None
     }
 }
 
@@ -124,6 +193,9 @@ pub(crate) mod tests {
     use crate::user::windows::{dll, loader::builtin};
 
     pub(crate) fn table(arch: WinArch, name: &str, number: u32) -> ServiceTable {
+        if arch == WinArch::X86 {
+            return x86_image_table(name, number).0;
+        }
         let mut image = builtin::build(dll::find("ntdll.dll").unwrap(), arch, 0x1000_0000, &[]);
         let rva = image
             .symbols
@@ -155,9 +227,79 @@ pub(crate) mod tests {
                 rva: image.export_dir.0,
                 size: image.export_dir.1,
             },
+            0x1000_0000,
         )
         .unwrap()
         .unwrap()
+    }
+
+    fn x86_image_table(name: &str, number: u32) -> (ServiceTable, Vec<u8>) {
+        let mut image = vec![0u8; 0x400];
+        for (offset, value) in [
+            (0x110, 1u32),
+            (0x114, 2),
+            (0x118, 2),
+            (0x11c, 0x160),
+            (0x120, 0x180),
+            (0x124, 0x1a0),
+            (0x160, 0x200),
+            (0x164, 0x300),
+            (0x180, 0x1b0),
+            (0x184, 0x1e0),
+        ] {
+            image[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        image[0x1a2..0x1a4].copy_from_slice(&1u16.to_le_bytes());
+        image[0x1b0..0x1b0 + name.len()].copy_from_slice(name.as_bytes());
+        image[0x1e0..0x1e0 + 15].copy_from_slice(b"Wow64Transition");
+        let stub = [
+            vec![0xb8],
+            number.to_le_bytes().to_vec(),
+            vec![0xba],
+            0x10000240u32.to_le_bytes().to_vec(),
+            vec![0xff, 0xd2, 0xc2, 4, 0],
+        ]
+        .concat();
+        image[0x200..0x200 + stub.len()].copy_from_slice(&stub);
+        image[0x240..0x246]
+            .copy_from_slice(&[vec![0xff, 0x25], 0x10000300u32.to_le_bytes().to_vec()].concat());
+        let table = ServiceTable::read(
+            WinArch::X86,
+            &image,
+            DataDirectory {
+                rva: 0x100,
+                size: 40,
+            },
+            0x10000000,
+        )
+        .unwrap()
+        .unwrap();
+        (table, image)
+    }
+
+    #[test]
+    fn wow64_preserves_encoded_numbers_and_requires_the_exported_transition_thunk() {
+        let (table, mut image) = x86_image_table("NtClose", 0x0003000f);
+        assert_eq!(table.name(WinArch::X86, 0x0003000f), Some("NtClose"));
+        assert_eq!(table.name(WinArch::X86, 15), None);
+        assert_eq!(table.wow64_slot, Some(0x300));
+        for n in 0..15 {
+            assert!(stub_number(WinArch::X86, &image[0x200..0x200 + n]).is_none());
+        }
+        image[0x242..0x246].copy_from_slice(&0x10000304u32.to_le_bytes());
+        assert!(
+            ServiceTable::read(
+                WinArch::X86,
+                &image,
+                DataDirectory {
+                    rva: 0x100,
+                    size: 40
+                },
+                0x10000000
+            )
+            .unwrap()
+            .is_none()
+        );
     }
 
     #[test]
@@ -208,12 +350,12 @@ pub(crate) mod tests {
             image.bytes[rva as usize..rva as usize + stub.len()].copy_from_slice(&stub);
         }
         assert!(
-            matches!(ServiceTable::read(arch, &image.bytes, range), Err(error) if error.status == STATUS_INVALID_IMAGE_FORMAT && error.message.contains("conflicting exports"))
+            matches!(ServiceTable::read(arch, &image.bytes, range, 0x1000_0000), Err(error) if error.status == STATUS_INVALID_IMAGE_FORMAT && error.message.contains("conflicting exports"))
         );
         let count = range.rva as usize + 24;
         image.bytes[count..count + 4].copy_from_slice(&(MAX_EXPORTS + 1).to_le_bytes());
         assert!(
-            matches!(ServiceTable::read(arch, &image.bytes, range), Err(error) if error.status == STATUS_INVALID_IMAGE_FORMAT)
+            matches!(ServiceTable::read(arch, &image.bytes, range, 0x1000_0000), Err(error) if error.status == STATUS_INVALID_IMAGE_FORMAT)
         );
     }
 

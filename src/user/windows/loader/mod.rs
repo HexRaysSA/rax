@@ -30,6 +30,7 @@
 //!   random value, whose upper 16 bits are clear for PE32+.
 
 pub mod apiset;
+pub(crate) mod apiset_schema;
 pub mod builtin;
 mod dynamic;
 pub mod ldr;
@@ -909,7 +910,7 @@ fn search_native(p: &Proc, name: &str) -> Option<PathBuf> {
     }
     let lower = name.to_ascii_lowercase();
     for (i, d) in dirs.iter().enumerate() {
-        if i >= app_only && dll::find(&lower).is_some() {
+        if p.native.is_none() && i >= app_only && dll::find(&lower).is_some() {
             // The system directory (built-in DLLs) precedes these.
             return None;
         }
@@ -933,6 +934,10 @@ fn loaded_guest_path(p: &Proc, key: &str) -> Option<usize> {
 /// Loads DLL `name` (as named by an import or `LoadLibrary`), returning its
 /// module index. Import/forwarder callers record their dependency separately.
 pub fn load_dll(p: &mut Proc, name: &str) -> Result<usize, LoadError> {
+    load_dll_from(p, name, None)
+}
+
+fn load_dll_from(p: &mut Proc, name: &str, parent: Option<&str>) -> Result<usize, LoadError> {
     let mut norm = normalize_name(name);
     let explicit =
         name.contains('\\') || name.contains('/') || name.as_bytes().get(1) == Some(&b':');
@@ -994,7 +999,10 @@ pub fn load_dll(p: &mut Proc, name: &str) -> Result<usize, LoadError> {
     }
     let lower = norm.to_ascii_lowercase();
     if apiset::is_api_set(&lower) {
-        match apiset::host(&lower) {
+        match p.native.as_ref().map_or_else(
+            || apiset::host(&lower),
+            |runtime| runtime.apisets.host(&lower, parent),
+        ) {
             Some(host) => norm = host.to_string(),
             None => {
                 return Err(LoadError::new(
@@ -1010,6 +1018,38 @@ pub fn load_dll(p: &mut Proc, name: &str) -> Result<usize, LoadError> {
     }
     if let Some(i) = p.modules.by_name(&norm) {
         return Ok(i);
+    }
+    if p.native.is_some() {
+        if let Some(result) = supplied::load(p, &norm, false) {
+            return result;
+        }
+        if !known_dll(&lower) && p.cfg.host_filesystem {
+            if let Some(file) = p
+                .cfg
+                .exe_host_path
+                .parent()
+                .and_then(|dir| super::fs::find_case_insensitive(dir, &norm))
+            {
+                return load_native(p, &file, &norm);
+            }
+        }
+        let runtime = p.native.as_ref().expect("selected native runtime");
+        let file = runtime
+            .dll(&norm)
+            .map_err(|error| LoadError::new(STATUS_DLL_NOT_FOUND, format!("{norm}: {error}")))?;
+        let file = file
+            .or_else(|| {
+                (!known_dll(&lower))
+                    .then(|| search_native(p, &norm))
+                    .flatten()
+            })
+            .ok_or_else(|| {
+                LoadError::new(
+                    STATUS_DLL_NOT_FOUND,
+                    format!("{norm}: no selected installed DLL"),
+                )
+            })?;
+        return load_native(p, &file, &norm);
     }
     let builtin = dll::find(&lower);
     if let Some(b) = builtin
@@ -1034,15 +1074,41 @@ pub fn load_dll(p: &mut Proc, name: &str) -> Result<usize, LoadError> {
 /// Maps a DLL file.
 fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError> {
     admit_new_module(p)?;
-    let bytes = std::fs::read(path)
-        .map_err(|e| LoadError::new(STATUS_DLL_NOT_FOUND, format!("{}: {e}", path.display())))?;
-    load_image(
-        p,
-        bytes,
-        name,
-        p.cfg.drives.to_windows(path),
-        Some(path.to_path_buf()),
-    )
+    let bytes = (if p
+        .native
+        .as_ref()
+        .is_some_and(|runtime| path.starts_with(&runtime.directory))
+    {
+        super::native::read_image(path)
+    } else {
+        std::fs::read(path)
+    })
+    .map_err(|e| LoadError::new(STATUS_DLL_NOT_FOUND, format!("{}: {e}", path.display())))?;
+    let guest_path = if let Some(runtime) = p.native.as_ref() {
+        match path.strip_prefix(&runtime.directory) {
+            Ok(relative) => {
+                let relative = relative.to_str().ok_or_else(|| {
+                    LoadError::new(
+                        STATUS_DLL_NOT_FOUND,
+                        "installed DLL path is not valid Unicode",
+                    )
+                })?;
+                format!("{}\\{relative}", runtime.guest_directory)
+            }
+            // Explicit host paths remain governed by host_filesystem. Native
+            // mode must not reclassify an explicitly authorized application DLL.
+            Err(_) if p.cfg.host_filesystem => p.cfg.drives.to_windows(path),
+            Err(_) => {
+                return Err(LoadError::new(
+                    STATUS_DLL_NOT_FOUND,
+                    "DLL is outside the installed directory",
+                ));
+            }
+        }
+    } else {
+        p.cfg.drives.to_windows(path)
+    };
+    load_image(p, bytes, name, guest_path, Some(path.to_path_buf()))
 }
 
 fn load_image(
@@ -1063,6 +1129,12 @@ fn load_image(
                 "{}: machine {:#06x} does not match a {} process",
                 path, h.machine, p.arch
             ),
+        ));
+    }
+    if p.native.is_some() && u64::from(pe.mapped_size()) > 64 << 20 {
+        return Err(LoadError::new(
+            STATUS_NO_MEMORY,
+            "native runtime image mapping exceeds 64 MiB",
         ));
     }
     let base = map_pe(p, &pe, name)?;
@@ -1114,8 +1186,32 @@ fn load_image(
             && (name.eq_ignore_ascii_case("ntdll.dll")
                 || p.modules.list[idx].name.eq_ignore_ascii_case("ntdll.dll"))
         {
-            p.modules.nt_services =
-                services::ServiceTable::from_image(p.arch, &pe)?.map(|table| (idx, table));
+            let table = services::ServiceTable::from_image(p.arch, &pe)?;
+            if let Some(slot) = table.as_ref().and_then(|table| table.wow64_slot) {
+                let transition =
+                    p.vm.reserve(
+                        None,
+                        0x1000,
+                        prot::READONLY,
+                        AllocKind::Private,
+                        false,
+                        Some(Arc::from("[WoW64 transition]")),
+                    )
+                    .map_err(|e| LoadError::new(e.status(), "cannot reserve WoW64 transition"))?;
+                p.vm.commit(transition, 0x1000, prot::READONLY)
+                    .map_err(|e| LoadError::new(e.status(), "cannot commit WoW64 transition"))?;
+                p.vm.set_reported(transition, 0x1000, prot::EXECUTE_READ);
+                p.vm.poke(base + u64::from(slot), &(transition as u32).to_le_bytes())
+                    .map_err(|_| {
+                        LoadError::new(
+                            STATUS_ACCESS_VIOLATION,
+                            "cannot install selected NTDLL WoW64 transition",
+                        )
+                    })?;
+                p.traps
+                    .add(transition, vec![SlotKind::NtServiceTransition], 0x1000 / 16);
+            }
+            p.modules.nt_services = table.map(|table| (idx, table));
         }
         if h.is_dll() {
             p.modules.init_order.push(idx);
@@ -1230,7 +1326,8 @@ fn lookup_depth(
                 )
             })?;
             let module = String::from_utf8_lossy(&fwd.module).into_owned();
-            let target_idx = load_dll(p, &module)?;
+            let parent = p.modules.list[idx].name.clone();
+            let target_idx = load_dll_from(p, &module, Some(&parent))?;
             dynamic::dependency(p, idx, target_idx);
             let sym = match fwd.symbol {
                 ForwardSymbol::Name(n) => SymRef::Name(n, None),
@@ -1305,7 +1402,7 @@ fn bind_imports(p: &mut Proc, idx: usize, pe: &PeImage) -> Result<(), LoadError>
             })?;
             (String::from_utf8_lossy(&n).into_owned(), t)
         };
-        let dep = load_dll(p, &dll_name).map_err(|e| {
+        let dep = load_dll_from(p, &dll_name, Some(&mname)).map_err(|e| {
             if e.status == STATUS_DLL_NOT_FOUND {
                 LoadError::new(
                     e.status,

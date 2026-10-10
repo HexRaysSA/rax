@@ -327,6 +327,13 @@ fn create_inner(
         .map_err(|_| STATUS_NO_MEMORY)?;
     s.wptr(teb + o.teb_peb, ptr, p.peb)
         .map_err(|_| STATUS_NO_MEMORY)?;
+    if p.arch == WinArch::X86 && p.traps.wow64_transition() != 0 {
+        s.w32(
+            teb + layout::WOW64_TEB_TRANSITION,
+            p.traps.wow64_transition() as u32,
+        )
+        .map_err(|_| STATUS_NO_MEMORY)?;
+    }
     s.w32(teb + o.teb_current_locale, 0x409)
         .map_err(|_| STATUS_NO_MEMORY)?;
     s.wptr(teb + o.teb_deallocation_stack, ptr, alloc)

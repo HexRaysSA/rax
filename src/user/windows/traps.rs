@@ -31,6 +31,8 @@ pub enum SlotKind {
     FiberStart,
     /// A checked exception-dispatch callback resumes after a setup fault.
     DispatcherRetry,
+    /// The selected x86 NTDLL's WoW64 kernel transition.
+    NtServiceTransition,
 }
 
 /// A decoded trap.
@@ -50,6 +52,8 @@ pub enum Trap {
     FiberStart,
     /// A checked exception-dispatch callback retries at its saved frontier.
     DispatcherRetry,
+    /// Enter the x86 NT kernel boundary after its real leaf CALL.
+    NtServiceTransition,
 }
 
 #[derive(Debug)]
@@ -68,6 +72,7 @@ pub struct Traps {
     thread_start: u64,
     fiber_start: u64,
     dispatcher_retry: u64,
+    wow64_transition: u64,
 }
 
 impl Traps {
@@ -81,6 +86,7 @@ impl Traps {
                 SlotKind::ThreadStart => self.thread_start = at,
                 SlotKind::FiberStart => self.fiber_start = at,
                 SlotKind::DispatcherRetry => self.dispatcher_retry = at,
+                SlotKind::NtServiceTransition => self.wow64_transition = at,
                 _ => {}
             }
         }
@@ -121,6 +127,7 @@ impl Traps {
             (0, SlotKind::ThreadStart) => Some(Trap::ThreadStart),
             (0, SlotKind::FiberStart) => Some(Trap::FiberStart),
             (0, SlotKind::DispatcherRetry) => Some(Trap::DispatcherRetry),
+            (0, SlotKind::NtServiceTransition) => Some(Trap::NtServiceTransition),
             _ => None,
         }
     }
@@ -142,6 +149,9 @@ impl Traps {
     /// The thread-start trap.
     pub fn thread_start(&self) -> u64 {
         self.thread_start
+    }
+    pub(crate) fn wow64_transition(&self) -> u64 {
+        self.wow64_transition
     }
 
     /// The first-entry trap for a created fiber.
