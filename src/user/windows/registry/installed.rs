@@ -1,6 +1,8 @@
-//! Two fixed SYSTEM-key captures during native runtime selection only.
+//! Fixed SYSTEM values and a complete IFEO subtree during native selection.
 //! No guest name reaches a host registry operation. All HKEYs close before
 //! selection returns, and the kernel reads the resulting immutable records.
+#[path = "installed/tree.rs"]
+mod tree;
 use super::{
     MAX_NAME_UNITS, MAX_VALUE_BYTES, MAX_VALUES, NLS_KEY, Registry, SESSION_MANAGER_KEY,
     SelectedKey, Value, invalid,
@@ -39,6 +41,16 @@ unsafe extern "system" {
         data: *mut u8,
         data_len: *mut u32,
     ) -> i32;
+    fn RegEnumKeyExW(
+        key: Hkey,
+        index: u32,
+        name: *mut u16,
+        length: *mut u32,
+        reserved: *mut u32,
+        class: *mut u16,
+        class_length: *mut u32,
+        time: *mut [u32; 2],
+    ) -> i32;
 }
 #[link(name = "ntdll")]
 unsafe extern "system" {
@@ -56,6 +68,7 @@ impl Drop for OwnedKey {
 #[derive(Debug, PartialEq, Eq)]
 struct Info {
     children: u32,
+    max_child: u32,
     values: u32,
     max_name: u32,
     max_data: u32,
@@ -64,6 +77,7 @@ struct Info {
 fn info(key: &OwnedKey) -> io::Result<Info> {
     let mut i = Info {
         children: 0,
+        max_child: 0,
         values: 0,
         max_name: 0,
         max_data: 0,
@@ -78,7 +92,7 @@ fn info(key: &OwnedKey) -> io::Result<Info> {
             null_mut(),
             null_mut(),
             &mut i.children,
-            null_mut(),
+            &mut i.max_child,
             null_mut(),
             &mut i.values,
             &mut i.max_name,
@@ -100,7 +114,7 @@ fn info(key: &OwnedKey) -> io::Result<Info> {
     }
     Ok(i)
 }
-fn values(key: &OwnedKey, i: &Info) -> io::Result<Vec<Value>> {
+fn values(key: &OwnedKey, i: &Info, limit: usize) -> io::Result<Vec<Value>> {
     let mut result = Vec::new();
     let mut total = 0usize;
     // Reuse bounded enumeration scratch. Retained values copy only returned
@@ -134,7 +148,7 @@ fn values(key: &OwnedKey, i: &Info) -> io::Result<Vec<Value>> {
         total = total
             .checked_add(name_len as usize * 2 + data_len as usize)
             .ok_or_else(|| invalid("installed registry snapshot size overflow"))?;
-        if total > super::MAX_TOTAL_BYTES {
+        if total > limit {
             return Err(invalid("installed registry snapshot too large"));
         }
         result.push(Value {
@@ -169,12 +183,12 @@ fn capture(path: &'static str) -> io::Result<SelectedKey> {
     let key = OwnedKey(handle);
     for _ in 0..3 {
         let before = info(&key)?;
-        let first = match values(&key, &before) {
+        let first = match values(&key, &before, super::MAX_TOTAL_BYTES) {
             Ok(values) => values,
             Err(error) if matches!(error.raw_os_error(), Some(234 | 259)) => continue,
             Err(error) => return Err(error),
         };
-        let second = match values(&key, &before) {
+        let second = match values(&key, &before, super::MAX_TOTAL_BYTES) {
             Ok(values) => values,
             Err(error) if matches!(error.raw_os_error(), Some(234 | 259)) => continue,
             Err(error) => return Err(error),
@@ -194,18 +208,22 @@ fn capture(path: &'static str) -> io::Result<SelectedKey> {
 }
 
 pub(crate) fn snapshot() -> io::Result<Registry> {
-    // Fixed shared SYSTEM keys only. All native handles close in capture,
+    // Fixed shared SYSTEM keys and the complete IFEO subtree. Handles close in capture,
     // including error/retry paths; no native operation survives selection.
     let selected = [NLS_KEY, SESSION_MANAGER_KEY]
         .into_iter()
         .map(capture)
         .collect::<io::Result<Vec<_>>>()?;
     // SAFETY: pure one-WCHAR NTDLL lookup, no retained pointers or mutation.
-    // One immutable table is shared by both keys, including surrogate units.
+    // One immutable table is shared by all selected keys, including surrogates.
     let upcase = (0..=u16::MAX)
         .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
         .collect();
-    Registry::selected(upcase, selected)
+    let registry = Registry::selected(upcase, selected)?;
+    match tree::capture(&registry)? {
+        Some(tree) => registry.with_ifeo(tree),
+        None => registry.with_absent_ifeo(),
+    }
 }
 
 #[cfg(test)]

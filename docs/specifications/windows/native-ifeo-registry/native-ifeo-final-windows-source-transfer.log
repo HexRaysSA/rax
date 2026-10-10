@@ -1,0 +1,179 @@
+batch source transfer 0
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry.rs B6AD52ED60ABA874AE06CE6DD358C6437D9ABC0CE6355CD390AE6E951F023157
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\tree.rs 3F7ED649ED1E2D6802126CB3790B32A7D340B0ECAC8EAC71F0D4E5A02679A9F8
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\tree_tests.rs B009B91F1B5DB239F73FAE58C5D3299A7B1F1FEBDF8A29485F7C178B3938E654
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\installed.rs 8C5E619AA68C6DDBEA7A2C027EB8ADF7663456AF076DB4049B9EB0C535545774
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\installed\tree.rs D100FF535F6971A9462B4DA7A82BFD460B28E1A9482DEE2597C9E85F001974D0
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\registry\installed_tests.rs 690EF5A89097C2FF9A634877CC55B8292572B8EB73A45B9993E15B37F0B3D3A3
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\dll\native\registry.rs 0C92DDEC377BA8B27A6CBE1BDB48EC725544DF0D42C412522749E5DBE584D529
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\process\sched\tests\services_tests\registry_tests.rs CF6F3BE4D8018CDAFF1A8C28A14103E2730DF2D4FB69492FA83E8E8767F14708
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\process\sched\tests\services_tests\registry_tree_tests.rs 42E532B00BF49006E852B2C666FD8AFBEABF79EFB2CBF0A2ADF6657592884DDD
+C:\Windows\Temp\assist-native-rax-20261010\src\src\user\windows\process\sched\tests\services_tests\registry_leaf_tests.rs A8E56EAEE97B261939C802FDFD1B3E546AF8A30D90AF1B4C212E63904E342AD1
+C:\Windows\Temp\assist-native-rax-20261010\assist\resources\static-text\metadata-emulation.json 708BE97C61EBDA6016A3F0A57B8F0F888DCEDD0E757ED2B8509A11D7B8D31241
+C:\Windows\Temp\assist-native-rax-20261010\assist\resources\mcp\tool_manifest.json 9675F1AF958834E23A3C871DEF6717F159ADD16550CF98894A6439F3E7F0EE3A
+
+
+/tmp/assist-native-windows-29683/native-ifeo-formatted-final-validation.ps1 exit 0 2B93415F53BE17EA9C113D355DB5834CEB6D7C5CADFFDF63EFCE5FD7862BC8D0
+ 
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\src)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 48.70s
+     Running unittests src\lib.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\rax-d861ee8f992d7cb6.exe)
+
+running 9 tests
+test user::windows::registry::installed::tests::installed_ifeo_only_root_not_found_is_known_absence ... ok
+test user::windows::registry::tree::tests::ifeo_closed_tree_preserves_raw_values_and_descendant_handle_lifetime ... ok
+test user::windows::registry::tree::tests::ifeo_lookup_obeys_native_separator_absence_and_closed_scope ... ok
+native IFEO independently checked: 54 keys, 106 values, 4756 raw bytes
+native IFEO disappearing-child injection: 2 opens, acquisition error 2
+test user::windows::registry::installed::tests::installed_ifeo_snapshot_matches_independent_complete_tree_and_raw_queries ... ok
+test user::windows::registry::tree::tests::ifeo_values_share_existing_namespace_count_byte_and_collision_budgets ... ok
+test user::windows::registry::tree::tests::ifeo_tree_rejects_colliding_names_grammar_depth_and_key_path_exhaustion ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::tree::native_ifeo_known_absent_root_and_children_return_name_not_found_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::tree::native_ifeo_absolute_children_serialize_raw_values_and_preserve_outside_frontier_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::tree::native_ifeo_opens_relative_paths_with_observed_absence_and_root_lifetime_all_abis ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 6917 filtered out; finished in 0.06s
+
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests src\lib.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\rax-d861ee8f992d7cb6.exe)
+
+running 1 test
+test user::windows::process::sched::tests::services_tests::registry_tests::installed::installed_ntdll_registry_leaves_open_query_close_selected_snapshot ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6925 filtered out; finished in 0.58s
+
+test tests::x86_faultin::noncanonical_fetch_is_protection_even_when_exception_backing_is_missing ... ok
+test tests::x86_faultin::partial_rep_retries_only_uncompleted_elements ... ok
+test tests::x86_faultin::query_does_not_erase_error_and_reset_clears_fault ... ok
+test tests::x86_faultin::short_instruction_does_not_require_speculative_next_page ... ok
+test tests::x86_faultin::typed_data_faults_preserve_state_and_survive_mapping ... ok
+test tests::x86_faultin::virtual_page_fault_never_names_missing_physical_backing ... ok
+test x87::tests::nans_keep_their_payload_and_signaling_nans_are_quieted ... ok
+test x87::tests::tags_follow_the_fsave_classification ... ok
+test x87::tests::widening_is_exact_for_every_binary64_class ... ok
+test tests::x86_faultin::fetch_prefix_boundary_matrix_and_query_lifecycle ... ok
+test tests::context_save_restore_roundtrip ... ok
+test tests::user_mode::arm::arm_user_context_can_restore_into_system_engine_and_traps_clear_exclusives ... ok
+test tests::riscv_state::contexts_carry_vector_csr_and_privilege_state ... ok
+test tests::context_compat::version_1_riscv_contexts_restore_their_registers ... ok
+test tests::run_loop::riscv_long_run_reaches_the_environment_call ... ok
+test tests::run_loop::hexagon_runs_past_one_batch_and_stops_at_until ... ok
+
+test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.95s
+
+   Doc-tests rax
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+warning: "stdcall" is not a supported ABI for the current target
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\src)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 47.63s
+   Compiling rax-capi v0.1.2 (C:\Windows\Temp\assist-native-rax-20261010\assist\vendor\rax\capi)
+   Compiling assist-rs v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\assist\rust\assist-rs)
+warning: unused import: `self`
+  --> src\claude_process\windows.rs:13:14
+   |
+13 |     thread::{self, JoinHandle},
+   |              ^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `assist-rs` (lib) generated 1 warning (run `cargo fix --lib -p assist-rs` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 22.82s
+RAX process: 162 checks passed; PE, five ELF, and two Mach-O ABIs executed
+run cl.exe /Fe:C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rax_abi_drift.exe
+e14_rax_abi_drift_tests.cpp
+run C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rax_abi_drift.exe C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rax_abi_drift.exe
+embedded rax_version = 1.11.0 ; header API = 1.11
+2/2 passed
+run cl.exe /Fe:C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rust_archive_link.exe
+rust_archive_link_tests.cpp
+run C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rust_archive_link.exe C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rust_archive_link.exe
+The assist-rs archive is linked and its contract matches
+  [ok] archive major matches the header the host compiled against
+  [ok] archive minor is at least the header's
+  [ok] the link anchor resolves, so the archive was searched
+The Rust runtime came along, not just its symbols
+  [ok] the allocator is live
+  [ok] a panic raised inside the archive is contained, so the unwinder is live
+Repeated entry stays correct
+  [ok] the self test is repeatable
+  [ok] the unwind probe is repeatable, so it restored the panic hook
+The rax C ABI is carried inside the same archive
+  [ok] rax_version resolves and reports the major the host compiled against
+  [ok] rax minor is at least the header's, per the MINOR-additive gate
+  [ok] rax_version_string returns live data, so its objects came along too
+  [ok] assist-rs still works after calling into the rax surface
+PASS
+native-process-probe.cpp
+rax_process.cpp
+Generating Code...
+program C:/Windows/Temp/assist-native-rax-20261010/src/tests/fixtures/user/windows/bin/arm64/smoke.exe
+opened modules=4
+run reason=4 exit=3221225477 diagnostic="exited with status 0xc0000005 (STATUS_ACCESS_VIOLATION)"
+threads=[]
+modules=[{"base":"0x140000000","entry":"0x140001048","name":"probe.exe","path":"C:\\app\\probe.exe","size":12288},{"base":"0x180000000","entry":"0x0","name":"ntdll.dll","path":"C:\\WINDOWS\\system32\\ntdll.dll","size":4665344},{"base":"0x150000","entry":"0x157460","name":"kernel32.dll","path":"C:\\WINDOWS\\system32\\kernel32.dll","size":1511424},{"base":"0x2d0000","entry":"0x2dbf90","name":"KernelBase.dll","path":"C:\\WINDOWS\\system32\\KernelBase.dll","size":7233536}]
+program C:/Windows/Temp/assist-native-rax-20261010/src/tests/fixtures/user/windows/crt_stdio/bin/arm64/msvcrt/streams.exe
+opened modules=5
+run reason=4 exit=3221225477 diagnostic="exited with status 0xc0000005 (STATUS_ACCESS_VIOLATION)"
+threads=[]
+modules=[{"base":"0x140000000","entry":"0x140001000","name":"probe.exe","path":"C:\\app\\probe.exe","size":12288},{"base":"0x180000000","entry":"0x0","name":"ntdll.dll","path":"C:\\WINDOWS\\system32\\ntdll.dll","size":4665344},{"base":"0x150000","entry":"0x157460","name":"kernel32.dll","path":"C:\\WINDOWS\\system32\\kernel32.dll","size":1511424},{"base":"0x2d0000","entry":"0x2dbf90","name":"KernelBase.dll","path":"C:\\WINDOWS\\system32\\KernelBase.dll","size":7233536},{"base":"0x9c0000","entry":"0x9cde50","name":"msvcrt.dll","path":"C:\\WINDOWS\\system32\\msvcrt.dll","size":1363968}]
+program C:/Windows/Temp/assist-native-rax-20261010/src/tests/fixtures/user/windows/crt_stdio/bin/arm64/ucrtbase/streams.exe
+opened modules=5
+run reason=4 exit=3221225477 diagnostic="exited with status 0xc0000005 (STATUS_ACCESS_VIOLATION)"
+threads=[]
+modules=[{"base":"0x140000000","entry":"0x140001000","name":"probe.exe","path":"C:\\app\\probe.exe","size":12288},{"base":"0x180000000","entry":"0x0","name":"ntdll.dll","path":"C:\\WINDOWS\\system32\\ntdll.dll","size":4665344},{"base":"0x150000","entry":"0x157460","name":"kernel32.dll","path":"C:\\WINDOWS\\system32\\kernel32.dll","size":1511424},{"base":"0x2d0000","entry":"0x2dbf90","name":"KernelBase.dll","path":"C:\\WINDOWS\\system32\\KernelBase.dll","size":7233536},{"base":"0x9c0000","entry":"0x9cc640","name":"ucrtbase.dll","path":"C:\\WINDOWS\\system32\\ucrtbase.dll","size":2260992}]
+program C:/Windows/System32/whoami.exe
+opened modules=21
+run reason=4 exit=3221225477 diagnostic="exited with status 0xc0000005 (STATUS_ACCESS_VIOLATION)"
+threads=[]
+modules=[{"base":"0x140000000","entry":"0x140001f60","name":"probe.exe","path":"C:\\app\\probe.exe","size":102400},{"base":"0x180000000","entry":"0x0","name":"ntdll.dll","path":"C:\\WINDOWS\\system32\\ntdll.dll","size":4665344},{"base":"0x150000","entry":"0x157460","name":"kernel32.dll","path":"C:\\WINDOWS\\system32\\kernel32.dll","size":1511424},{"base":"0x2d0000","entry":"0x2dbf90","name":"KernelBase.dll","path":"C:\\WINDOWS\\system32\\KernelBase.dll","size":7233536},{"base":"0x9c0000","entry":"0x9c5d80","name":"advapi32.dll","path":"C:\\WINDOWS\\system32\\advapi32.dll","size":1404928},{"base":"0xb20000","entry":"0xb2de50","name":"msvcrt.dll","path":"C:\\WINDOWS\\system32\\msvcrt.dll","size":1363968},{"base":"0xc70000","entry":"0xc73f70","name":"sechost.dll","path":"C:\\WINDOWS\\system32\\sechost.dll","size":991232},{"base":"0xd70000","entry":"0xd758b0","name":"rpcrt4.dll","path":"C:\\WINDOWS\\system32\\rpcrt4.dll","size":2191360},{"base":"0xf90000","entry":"0xfbe790","name":"user32.dll","path":"C:\\WINDOWS\\system32\\user32.dll","size":2797568},{"base":"0x1240000","entry":"0x0","name":"win32u.dll","path":"C:\\WINDOWS\\system32\\win32u.dll","size":401408},{"base":"0x12b0000","entry":"0x12b9f80","name":"gdi32.dll","path":"C:\\WINDOWS\\system32\\gdi32.dll","size":471040},{"base":"0x1330000","entry":"0x133c640","name":"ucrtbase.dll","path":"C:\\WINDOWS\\system32\\ucrtbase.dll","size":2260992},{"base":"0x1560000","entry":"0x1566c40","name":"gdi32full.dll","path":"C:\\WINDOWS\\system32\\gdi32full.dll","size":1916928},{"base":"0x1740000","entry":"0x176dea0","name":"msvcp_win.dll","path":"C:\\WINDOWS\\system32\\msvcp_win.dll","size":1355776},{"base":"0x1890000","entry":"0x18939d0","name":"ETW.dll","path":"C:\\WINDOWS\\system32\\ETW.dll","size":323584},{"base":"0x18e0000","entry":"0x190c130","name":"ws2_32.dll","path":"C:\\WINDOWS\\system32\\ws2_32.dll","size":897024},{"base":"0x19c0000","entry":"0x19c33c0","name":"version.dll","path":"C:\\WINDOWS\\system32\\version.dll","size":90112},{"base":"0x19e0000","entry":"0x19f9480","name":"authz.dll","path":"C:\\WINDOWS\\system32\\authz.dll","size":573440},{"base":"0x1a70000","entry":"0x1a73230","name":"sspicli.dll","path":"C:\\WINDOWS\\system32\\sspicli.dll","size":536576},{"base":"0x1b00000","entry":"0x1b058d0","name":"wkscli.dll","path":"C:\\WINDOWS\\system32\\wkscli.dll","size":208896},{"base":"0x1b40000","entry":"0x1b45db0","name":"netutils.dll","path":"C:\\WINDOWS\\system32\\netutils.dll","size":106496}]
+
+
+pipeline_exit 0

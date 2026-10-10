@@ -1,0 +1,23 @@
+[
+  {
+    "file": "/tmp/assist-native-ifeo-closed-final-full-macos.log",
+    "scope": "macOS unfiltered before formatting",
+    "sha256": "237fc8bfcc20db9c8a3b0eaff69de91d209427dc6f9949486ea126649a1ba193",
+    "bytes": 761880,
+    "result": "test result: ok. 7535 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 66.23s"
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-ifeo-closed-final-full.log",
+    "scope": "Linux unfiltered before formatting",
+    "sha256": "3a523e41730a25c3ae8db5f4bcaf702726a949d69f356a49bc83dc74cce92f05",
+    "bytes": 762731,
+    "result": "test result: FAILED. 7528 passed; 1 failed; 2 ignored; 0 measured; 0 filtered out; finished in 109.17s"
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-ifeo-confirmed-final-full.log",
+    "scope": "Windows unfiltered before formatting and Windows-only injection-budget isolation",
+    "sha256": "b58e92a4b56f5b6870ab63c2996baa62d0fc67cfe19802b01faffa29edee8af7",
+    "bytes": 714549,
+    "result": "test result: FAILED. 6919 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 106.14s"
+  }
+]

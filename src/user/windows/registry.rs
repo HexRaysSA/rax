@@ -13,6 +13,10 @@ pub(crate) const MAX_NAME_UNITS: usize = 16_383;
 pub(crate) const MAX_VALUE_BYTES: usize = 1 << 20;
 const MAX_TOTAL_BYTES: usize = 16 << 20;
 
+#[path = "registry/tree.rs"]
+mod tree;
+pub(crate) use tree::{IFEO_KEY, IfeoTree, Lookup};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Value {
     pub(crate) name: Vec<u16>,
@@ -34,8 +38,13 @@ pub struct Key {
     pub(crate) children: u32,
     upcase: Arc<[u16]>,
     values: BTreeMap<Vec<u16>, Value>,
+    subkeys: Option<BTreeMap<Vec<u16>, Arc<Key>>>,
 }
 impl Key {
+    #[cfg(test)]
+    pub(crate) fn captured_children(&self) -> Option<impl Iterator<Item = &Arc<Key>>> {
+        self.subkeys.as_ref().map(|children| children.values())
+    }
     pub(crate) fn fold(&self, units: &[u16]) -> Vec<u16> {
         units.iter().map(|&u| self.upcase[usize::from(u)]).collect()
     }
@@ -48,6 +57,7 @@ impl Key {
 pub(crate) struct Registry {
     keys: BTreeMap<Vec<u16>, Arc<Key>>,
     upcase: Arc<[u16]>,
+    ifeo_selected: bool,
 }
 impl Registry {
     #[cfg(test)]
@@ -68,36 +78,20 @@ impl Registry {
         let mut result = Self {
             keys: BTreeMap::new(),
             upcase: upcase.into(),
+            ifeo_selected: false,
         };
-        let (mut total, mut count) = (0usize, 0usize);
+        let mut budget = ValueBudget::default();
         for selected in selected {
             if !matches!(selected.path, NLS_KEY | SESSION_MANAGER_KEY) {
                 return Err(invalid("registry key outside fixed runtime selection"));
             }
-            count = count
-                .checked_add(selected.values.len())
-                .ok_or_else(|| invalid("runtime registry count overflow"))?;
-            if count > MAX_VALUES {
-                return Err(invalid("runtime registry value count exceeds bounds"));
-            }
-            let mut key = Key {
+            let key = Key {
                 path: selected.path.encode_utf16().collect(),
                 children: selected.children,
                 upcase: result.upcase.clone(),
-                values: BTreeMap::new(),
+                values: bounded_values(&result.upcase, selected.values, &mut budget)?,
+                subkeys: None,
             };
-            for value in selected.values {
-                if value.name.len() > MAX_NAME_UNITS || value.data.len() > MAX_VALUE_BYTES {
-                    return Err(invalid("runtime registry value exceeds bounds"));
-                }
-                total = total
-                    .checked_add(value.name.len() * 2 + value.data.len())
-                    .ok_or_else(|| invalid("runtime registry size overflow"))?;
-                let name = key.fold(&value.name);
-                if total > MAX_TOTAL_BYTES || key.values.insert(name, value).is_some() {
-                    return Err(invalid("oversized or duplicate runtime registry values"));
-                }
-            }
             if result
                 .keys
                 .insert(key.fold(&key.path), Arc::new(key))
@@ -128,12 +122,61 @@ impl Registry {
             .collect()
     }
     pub(crate) fn key(&self, name: &[u16]) -> Option<Arc<Key>> {
-        if self.keys.is_empty() {
-            return None;
+        match self.lookup(name) {
+            Lookup::Present(key) => Some(key),
+            _ => None,
+        }
+    }
+    pub(crate) fn lookup(&self, name: &[u16]) -> Lookup {
+        if self.keys.is_empty() && !self.ifeo_selected {
+            return Lookup::Unselected;
         }
         let folded: Vec<_> = name.iter().map(|&u| self.upcase[usize::from(u)]).collect();
-        self.keys.get(&folded).cloned()
+        if let Some(key) = self.keys.get(&folded) {
+            return Lookup::Present(key.clone());
+        }
+        self.ifeo_lookup(&folded, name)
     }
+}
+
+#[derive(Default)]
+struct ValueBudget {
+    count: usize,
+    bytes: usize,
+}
+impl ValueBudget {
+    fn charge(&mut self, value: &Value) -> io::Result<()> {
+        if value.name.len() > MAX_NAME_UNITS || value.data.len() > MAX_VALUE_BYTES {
+            return Err(invalid("runtime registry value exceeds bounds"));
+        }
+        self.count = self
+            .count
+            .checked_add(1)
+            .ok_or_else(|| invalid("runtime registry count overflow"))?;
+        self.bytes = self
+            .bytes
+            .checked_add(value.name.len() * 2 + value.data.len())
+            .ok_or_else(|| invalid("runtime registry size overflow"))?;
+        if self.count > MAX_VALUES || self.bytes > MAX_TOTAL_BYTES {
+            return Err(invalid("runtime registry aggregate exceeds bounds"));
+        }
+        Ok(())
+    }
+}
+fn bounded_values(
+    upcase: &[u16],
+    values: Vec<Value>,
+    budget: &mut ValueBudget,
+) -> io::Result<BTreeMap<Vec<u16>, Value>> {
+    let mut result = BTreeMap::new();
+    for value in values {
+        budget.charge(&value)?;
+        let name: Vec<_> = value.name.iter().map(|&u| upcase[usize::from(u)]).collect();
+        if result.insert(name, value).is_some() {
+            return Err(invalid("duplicate runtime registry values"));
+        }
+    }
+    Ok(result)
 }
 fn invalid(message: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)

@@ -1,0 +1,286 @@
+[
+  {
+    "file": "../native-nls-registry/phnt-ntregapi.h",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntregapi.h",
+    "title": "System Informer PHNT native registry declarations",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "sha256": "1ee828f4eb5d97f00a6442c51896365689b4763790c26c417bf9008d37e58191",
+    "license": "../native-processor-features/phnt-LICENSE"
+  },
+  {
+    "file": "../native-processor-features/phnt-LICENSE",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/LICENSE",
+    "title": "System Informer phnt license",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "sha256": "ad2ab542c56c606e4c19d66a7f3cdcd3ef83beffb638e7c3893b22c7a6a6c0df",
+    "license": "../native-processor-features/phnt-LICENSE"
+  },
+  {
+    "file": "../native-session-manager/accessing-an-alternate-registry-view.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/WinProg64/accessing-an-alternate-registry-view.md",
+    "title": "Accessing an Alternate Registry View - Microsoft primary source",
+    "revision": "mutable docs branch; exact commit unknown",
+    "retrieved": "2026-10-10",
+    "sha256": "d9b48482cf841c56169270d7e698eba531a596d161c7d54e48701a0ed307bed6",
+    "license": "../native-session-manager/microsoft-win32-LICENSE"
+  },
+  {
+    "file": "../native-session-manager/microsoft-win32-LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE",
+    "title": "MicrosoftDocs/win32 LICENSE",
+    "revision": "mutable docs branch; exact revision unknown",
+    "retrieved": "2026-10-10",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "../native-session-manager/microsoft-win32-LICENSE-CODE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/LICENSE-CODE",
+    "title": "MicrosoftDocs/win32 LICENSE-CODE",
+    "revision": "mutable docs branch; exact revision unknown",
+    "retrieved": "2026-10-10",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "../native-session-manager/native-ldr-session-manager-frontier-after.log",
+    "source": "original project validation or diagnostic evidence",
+    "title": "Original current owning-archive isolated loader trace",
+    "revision": "2026-10-10 selected namespace and tight native capture storage",
+    "retrieved": "2026-10-10",
+    "sha256": "e53544779e5c795527ba0400a2dea25efd6d0fc065dfab5528d79f03b346807f",
+    "license": "original project work; repository LICENSE"
+  },
+  {
+    "file": "../native-session-manager/shared-registry-keys.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/docs/desktop-src/WinProg64/shared-registry-keys.md",
+    "title": "Registry Keys Affected by WOW64 - Microsoft primary source",
+    "revision": "mutable docs branch; exact commit unknown",
+    "retrieved": "2026-10-10",
+    "sha256": "115f4c34f4814c093008e1a3b1784d2fbf737a77f1e9cc28ba7ac342decdc7e5",
+    "license": "../native-session-manager/microsoft-win32-LICENSE"
+  },
+  {
+    "file": "../native-working-set/microsoft-sdk-api-LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE",
+    "title": "microsoft-sdk-api-LICENSE",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "../native-working-set/microsoft-sdk-api-LICENSE-CODE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE-CODE",
+    "title": "microsoft-sdk-api-LICENSE-CODE",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "check-native-ifeo-output.log",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "check-native-ifeo-output.log",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "3982c3872feb09fd8715b8aa91590593a359a4d4da603287a01de4cc63765e1c"
+  },
+  {
+    "file": "check_native_ifeo.py",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "check_native_ifeo.py",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "dcf21939a3a6b9350efa0bd1e4a5894c84a527c97d2e32a7bc5a09a68d4a6bae"
+  },
+  {
+    "file": "final-gate-log-hashes.json",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "final-gate-log-hashes.json",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "9651efcf96aea6f852754fac7a88f29b7fc748552bc8df84bc9933abe6b9831c"
+  },
+  {
+    "file": "native-ifeo-arm64.log",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-arm64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "ef49bf11bf6ec67678c7abb14e436be195999049451f1227e5e0c6499ea9b672"
+  },
+  {
+    "file": "native-ifeo-final-before.log",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-final-before.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "14b1516859b78f5680c865fea678d8b5d4b5ea5b9e4400e4fd0c7364024fa4d5"
+  },
+  {
+    "file": "native-ifeo-final-initial-after.log",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-final-initial-after.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "dc93c65ec749b695f181a0a51b877944f8d351bbfce9ed6977532e9cc5e8888a"
+  },
+  {
+    "file": "native-ifeo-final-windows-source-transfer.log",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "native-ifeo-final-windows-source-transfer.log",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "239544a2468264fcf9072d87110bd7d6b7b5399e458c90df833c478b13cf9f7f"
+  },
+  {
+    "file": "native-ifeo-formatted-final-focused.log",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "native-ifeo-formatted-final-focused.log",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "6f4c525fcb0880087d26eb742588a1be94c47a3783716a50687a9c8cdfb1b138"
+  },
+  {
+    "file": "native-ifeo-formatted-final-leaves.log",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "native-ifeo-formatted-final-leaves.log",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "41e72a2fd23d6763e14832e087f0be6439735d07c3dfba64169e876fd85c4c17"
+  },
+  {
+    "file": "native-ifeo-path-arm64.log",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-path-arm64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "c499a850d88774fd8bf530882a62f1515600b33b8ca4fc84353ba5745bfcdaa4"
+  },
+  {
+    "file": "native-ifeo-path-probe.cpp",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-path-probe.cpp",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "ede5821909b7e5e8f79b81dfd82ff43cd3e43bbb173f67b003bbfa3c46ae5433"
+  },
+  {
+    "file": "native-ifeo-path-x64.log",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-path-x64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "c499a850d88774fd8bf530882a62f1515600b33b8ca4fc84353ba5745bfcdaa4"
+  },
+  {
+    "file": "native-ifeo-path-x86.log",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-path-x86.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "cbbb1750124d33b7ccd41856eaaa097fb312fbb9337d5ddc86b8149a9359d475"
+  },
+  {
+    "file": "native-ifeo-probe.cpp",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-probe.cpp",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "feea383c91f667ebd9f240e477f5fef9fbdce0d6945954aa6395a13327bf2056"
+  },
+  {
+    "file": "native-ifeo-x64.log",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-x64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "ef49bf11bf6ec67678c7abb14e436be195999049451f1227e5e0c6499ea9b672"
+  },
+  {
+    "file": "native-ifeo-x86.log",
+    "source": "original project native oracle or captured regression",
+    "title": "native-ifeo-x86.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 and compatibility x86/x64; 2026-10-10",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "67bf69f5773a28e2046e596dba38f64385ef4fe83de0ee5b97947dda4c481ebc"
+  },
+  {
+    "file": "native-ldr-ifeo-frontier-after.log",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "native-ldr-ifeo-frontier-after.log",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "b49d3f0b82c14fd2c33d280666d526ff7340f027b89a53643c50c38a2ee3b6db"
+  },
+  {
+    "file": "native-ldr-ifeo-frontier.rs",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "native-ldr-ifeo-frontier.rs",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "a869338f67630f2714b47a3c6eaccdf18f714ccbea23c366b95d64e4c69c93b4"
+  },
+  {
+    "file": "nf-winreg-regenumkeyexw.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/winreg/nf-winreg-regenumkeyexw.md",
+    "title": "nf-winreg-regenumkeyexw.md",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "license": "../native-working-set/microsoft-sdk-api-LICENSE",
+    "sha256": "8c91f0e7d47f96ab74eed566ab3b17711af775d7275e84558cb3fb0abc8b8998"
+  },
+  {
+    "file": "nf-winreg-regqueryinfokeyw.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/winreg/nf-winreg-regqueryinfokeyw.md",
+    "title": "nf-winreg-regqueryinfokeyw.md",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "license": "../native-working-set/microsoft-sdk-api-LICENSE",
+    "sha256": "a245545bb2664f31e99199d238e1fbb571426604ddd7d9099e91537407794312"
+  },
+  {
+    "file": "source-hashes.json",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "source-hashes.json",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "77ae3a34babfc1869e9687705611bc8f3aebb596f678dc348e10bfeef655ae27"
+  },
+  {
+    "file": "unfiltered-result-hashes.json",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "unfiltered-result-hashes.json",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "d65e0cae4fbe02435ffd429c6bbfcb1ae59f8b186163dc6f3957c48c0390abe0"
+  },
+  {
+    "file": "unfiltered-windows-source-hashes.json",
+    "source": "original project implementation/evidence; repository LICENSE",
+    "title": "unfiltered-windows-source-hashes.json",
+    "revision": "2026-10-10 IFEO semantic group; owning archived source and controlled/native profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "d1b8300d896c42d238ea4f0d4525a6a142230ce8caae027e5d6cb7b17e5c3039"
+  }
+]

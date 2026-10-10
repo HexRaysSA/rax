@@ -1,0 +1,37 @@
+warning: "stdcall" is not a supported ABI for the current target
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\src)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 48.70s
+     Running unittests src\lib.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\rax-d861ee8f992d7cb6.exe)
+
+running 9 tests
+test user::windows::registry::installed::tests::installed_ifeo_only_root_not_found_is_known_absence ... ok
+test user::windows::registry::tree::tests::ifeo_closed_tree_preserves_raw_values_and_descendant_handle_lifetime ... ok
+test user::windows::registry::tree::tests::ifeo_lookup_obeys_native_separator_absence_and_closed_scope ... ok
+native IFEO independently checked: 54 keys, 106 values, 4756 raw bytes
+native IFEO disappearing-child injection: 2 opens, acquisition error 2
+test user::windows::registry::installed::tests::installed_ifeo_snapshot_matches_independent_complete_tree_and_raw_queries ... ok
+test user::windows::registry::tree::tests::ifeo_values_share_existing_namespace_count_byte_and_collision_budgets ... ok
+test user::windows::registry::tree::tests::ifeo_tree_rejects_colliding_names_grammar_depth_and_key_path_exhaustion ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::tree::native_ifeo_known_absent_root_and_children_return_name_not_found_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::tree::native_ifeo_absolute_children_serialize_raw_values_and_preserve_outside_frontier_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::registry_tests::tree::native_ifeo_opens_relative_paths_with_observed_absence_and_root_lifetime_all_abis ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 6917 filtered out; finished in 0.06s
+

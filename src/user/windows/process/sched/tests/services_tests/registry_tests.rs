@@ -97,6 +97,9 @@ fn native_registry_selected_namespace_query_and_handle_lifetime_all_abis() {
 #[path = "registry_leaf_tests.rs"]
 mod installed;
 
+#[path = "registry_tree_tests.rs"]
+mod tree;
+
 fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);

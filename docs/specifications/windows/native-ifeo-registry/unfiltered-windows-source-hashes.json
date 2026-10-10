@@ -1,0 +1,42 @@
+[
+  {
+    "file": "src/user/windows/registry.rs",
+    "sha256": "f307aee134091c1f4de77fcf3a1bb38cf545cc63a994462c3a5fabc4d34b7ab4"
+  },
+  {
+    "file": "src/user/windows/registry/tree.rs",
+    "sha256": "3f7ed649ed1e2d6802126cb3790b32a7d340b0ecac8eac71f0d4e5a02679a9f8"
+  },
+  {
+    "file": "src/user/windows/registry/tree_tests.rs",
+    "sha256": "a574e058937e8d1fa9afafb5372d03f4c9d9018f02843ff89d7ad87665bb7eef"
+  },
+  {
+    "file": "src/user/windows/registry/installed.rs",
+    "sha256": "adaf51311b606316d82bc075306f66b15dbc3b7f88c31133dd6271c79dcb5302"
+  },
+  {
+    "file": "src/user/windows/registry/installed/tree.rs",
+    "sha256": "ddd0c6414026da8ad36fed549398af8aa9dd3fc9c629deef642fa16580b163d9"
+  },
+  {
+    "file": "src/user/windows/registry/installed_tests.rs",
+    "sha256": "2dd1fe979f74aea2d04f6365dc534cd2a048f2daa0a298aa020c81e682be356f"
+  },
+  {
+    "file": "src/user/windows/dll/native/registry.rs",
+    "sha256": "0c92ddec377ba8b27a6cbe1bdb48ec725544df0d42c412522749e5dbe584d529"
+  },
+  {
+    "file": "src/user/windows/process/sched/tests/services_tests/registry_tests.rs",
+    "sha256": "cf6f3be4d8018cdaff1a8c28a14103e2730df2d4fb69492fa83e8e8767f14708"
+  },
+  {
+    "file": "src/user/windows/process/sched/tests/services_tests/registry_tree_tests.rs",
+    "sha256": "81940695880b18f2f870f2cb41c31c3841e1951c434ec6b7935069b225551b8a"
+  },
+  {
+    "file": "src/user/windows/process/sched/tests/services_tests/registry_leaf_tests.rs",
+    "sha256": "a8e56eaee97b261939c802fdfd1b3e546af8a30d90af1b4c212e63904e342ad1"
+  }
+]

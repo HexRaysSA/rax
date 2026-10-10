@@ -9,7 +9,7 @@ use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
-use crate::user::windows::registry::{Key, Value};
+use crate::user::windows::registry::{Key, Lookup, Value};
 use std::sync::Arc;
 
 const READ_ACCESS: u32 = 0x0002_0019;
@@ -144,7 +144,7 @@ fn grant(c: &Ctx, access: u32) -> Checked<u32> {
     if c.arch() == WinArch::X86 && access & 0x300 == 0x300 {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let access = access & !0x300; // Fixed SYSTEM keys are shared between views.
+    let access = access & !0x300; // Selected SYSTEM/IFEO keys are shared between views.
     if access == 0 || access & !(READ_ACCESS | 0xA200_0000) != 0 {
         return status(STATUS_ACCESS_DENIED);
     }
@@ -187,20 +187,26 @@ fn open_checked(c: &mut Ctx) -> Checked<u32> {
         if absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        if attrs.name.units.is_empty() {
-            root
-        } else if root.children == 0 {
-            return status(STATUS_OBJECT_NAME_NOT_FOUND);
-        } else {
-            return Err(c.unsupported("unsnapshotted registry subkey").into());
+        match root.relative(&attrs.name.units) {
+            Lookup::Present(key) => key,
+            Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
+            Lookup::Unselected => {
+                return Err(c.unsupported("unsnapshotted registry subkey").into());
+            }
         }
     } else {
         if !absolute {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        c.p.registry.key(&attrs.name.units).ok_or_else(|| {
-            Failure::Api(c.unsupported("registry key outside selected runtime snapshot"))
-        })?
+        match c.p.registry.lookup(&attrs.name.units) {
+            Lookup::Present(key) => key,
+            Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
+            Lookup::Unselected => {
+                return Err(c
+                    .unsupported("registry key outside selected runtime snapshot")
+                    .into());
+            }
+        }
     };
     let access = grant(c, access)?;
     let Some(id) = c.p.objects.try_create(Object::Key(selected)) else {

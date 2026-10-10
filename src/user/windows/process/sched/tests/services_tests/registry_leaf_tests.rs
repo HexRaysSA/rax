@@ -58,6 +58,20 @@ fn invoke(p: &mut Proc, t: &mut Thread, module: usize, service: &str, args: &[u6
     t.cpu.set_sp(sp);
     t.cpu.gpr(0) as u32
 }
+fn unicode_units(p: &Proc, descriptor: u64, buffer: u64, units: &[u16]) {
+    assert!(units.len() <= 255);
+    let bytes: Vec<_> = units.iter().flat_map(|u| u.to_le_bytes()).collect();
+    p.space.wr(buffer, &bytes).unwrap();
+    p.space.w16(descriptor, bytes.len() as u16).unwrap();
+    p.space.w16(descriptor + 2, bytes.len() as u16).unwrap();
+    p.space
+        .wptr(
+            descriptor + if p.arch.is64() { 8 } else { 4 },
+            p.arch.ptr_size(),
+            buffer,
+        )
+        .unwrap();
+}
 #[test]
 fn installed_ntdll_registry_leaves_open_query_close_selected_snapshot() {
     let host = if cfg!(target_arch = "aarch64") {
@@ -141,6 +155,97 @@ fn installed_ntdll_registry_leaves_open_query_close_selected_snapshot() {
             );
         }
         assert_eq!(invoke(p, &mut t, module, "NtClose", &[h]), STATUS_SUCCESS);
+        assert_eq!((p.objects.handle_count(), p.objects.iter().count()), before);
+        let path = crate::user::windows::registry::IFEO_KEY;
+        unicode(p, vn, base + 256, path);
+        attributes(p, attrs, vn, 0, 0x240);
+        let root = p.registry.key(&path.encode_utf16().collect::<Vec<_>>());
+        assert_eq!(
+            invoke(p, &mut t, module, "NtOpenKey", &[base + 8, 9, attrs]),
+            if root.is_some() {
+                STATUS_SUCCESS
+            } else {
+                STATUS_OBJECT_NAME_NOT_FOUND
+            }
+        );
+        if let Some(root) = root {
+            let root_handle = p.space.ptr(base + 8, arch.ptr_size()).unwrap();
+
+            for name in ["probe.exe", "missing-rax-image.exe\\child", "\\probe.exe"] {
+                unicode(p, vn, base + 256, name);
+                attributes(p, attrs, vn, root_handle, 0x240);
+                let expected = if name.starts_with('\\') {
+                    STATUS_OBJECT_PATH_SYNTAX_BAD
+                } else if matches!(
+                    root.relative(&name.encode_utf16().collect::<Vec<_>>()),
+                    crate::user::windows::registry::Lookup::Present(_)
+                ) {
+                    STATUS_SUCCESS
+                } else {
+                    STATUS_OBJECT_NAME_NOT_FOUND
+                };
+                assert_eq!(
+                    invoke(p, &mut t, module, "NtOpenKey", &[base, 1, attrs]),
+                    expected
+                );
+                if expected == STATUS_SUCCESS {
+                    let handle = p.space.ptr(base, arch.ptr_size()).unwrap();
+                    assert_eq!(
+                        invoke(p, &mut t, module, "NtClose", &[handle]),
+                        STATUS_SUCCESS
+                    );
+                }
+            }
+            if let Some(child) = root.captured_children().unwrap().next() {
+                let name = child.path.rsplit(|u| *u == 92).next().unwrap();
+                unicode_units(p, vn, base + 256, name);
+                attributes(p, attrs, vn, root_handle, 0x240);
+                assert_eq!(
+                    invoke(p, &mut t, module, "NtOpenKey", &[base, 1, attrs]),
+                    STATUS_SUCCESS
+                );
+                let handle = p.space.ptr(base, arch.ptr_size()).unwrap();
+                let name: Vec<_> = "UseFilter".encode_utf16().collect();
+                let value = child.value(&name);
+                unicode(p, vn, base + 256, "UseFilter");
+                let expected = match value {
+                    None => STATUS_OBJECT_NAME_NOT_FOUND,
+                    Some(v) if v.data.len() + 12 > PAGE_SIZE as usize => STATUS_BUFFER_OVERFLOW,
+                    Some(_) => STATUS_SUCCESS,
+                };
+                assert_eq!(
+                    invoke(
+                        p,
+                        &mut t,
+                        module,
+                        "NtQueryValueKey",
+                        &[handle, vn, 2, base + 512, PAGE_SIZE, base + 16]
+                    ),
+                    expected
+                );
+                if let Some(v) = value {
+                    assert_eq!(p.space.u32(base + 516).unwrap(), v.kind);
+                    assert_eq!(p.space.u32(base + 520).unwrap(), v.data.len() as u32);
+                    let length = v.data.len().min(PAGE_SIZE as usize - 12);
+                    assert_eq!(p.space.bytes(base + 524, length).unwrap(), v.data[..length]);
+                }
+                assert_eq!(
+                    invoke(p, &mut t, module, "NtClose", &[handle]),
+                    STATUS_SUCCESS
+                );
+            } else {
+                assert_eq!(root.children, 0);
+            }
+            assert_eq!(
+                invoke(p, &mut t, module, "NtClose", &[root_handle]),
+                STATUS_SUCCESS
+            );
+        } else {
+            assert!(matches!(
+                p.registry.lookup(&path.encode_utf16().collect::<Vec<_>>()),
+                crate::user::windows::registry::Lookup::Missing
+            ));
+        }
         assert_eq!((p.objects.handle_count(), p.objects.iter().count()), before);
         assert_eq!(
             invoke(p, &mut t, module, "NtQueryValueKey", &[h, vn, 2, 0, 64, 0]),

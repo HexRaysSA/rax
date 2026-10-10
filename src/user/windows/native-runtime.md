@@ -979,3 +979,67 @@ Production native loader/RTL heap/CRT, wider NT/registry, POSIX/process/symlink
 and complete native application/package/IDA matrices still block the full goal.
 C API 1.11.0/layouts/options/schema/dependencies/locks/defaults/permissions/package
 wiring and ISA/SMIR/JIT/other guest semantics are unchanged.
+
+
+## 2026-10-10: IFEO immutable loader-policy subtree
+
+Native Windows selection adds a complete bounded subtree below the fixed Image
+File Execution Options (IFEO) root, alongside NLS CodePage and Session Manager
+values. All keys share one installed ordinal case table. Raw value types/bytes
+and descendant keys are immutable, owned through typed ancestor/child handles,
+and survive namespace drop. Guest names never reach native registry APIs.
+Native acquisition opens query/enumerate-only HKEYs (access 9), closes parents
+before descendants, and uses at most three metadata/double-sample attempts per
+key. Only error 2 at the optional fixed root establishes known absence; an
+enumerated child disappearing aborts acquisition. No cross-key transaction,
+parent replacement or restored-mutation exclusion is claimed [I3,I4].
+
+IFEO has <=1,024 keys including root, root-zero depth <=32, child components
+1..255 UTF-16 units and aggregate full-path bytes <=1 MiB. All roots share the
+4,096-value/16 MiB raw name/data budget, name <=16,383 units and data <=1 MiB.
+Pending siblings reserve the global key budget before enumeration. Constructor
+and acquisition reject collisions/exhaustion; retained values copy exact returned
+bytes. Known absent children/root return 0xC0000034; repeated/trailing backslashes
+are ignored, '.'/'..'/'/' are literal names, and rooted relative names fail
+0xC000003B. Other namespaces remain explicitly unsupported [I1,I2,I4].
+NtQueryKey/NtEnumerateKey are not implemented by this group. Resource arithmetic,
+algorithmic/storage complexity, complete plane map and the Assumption Register
+are in [IFEO evidence](../../../docs/specifications/windows/native-ifeo-registry/README.md).
+
+Two original read-only C++ oracles yield 2,889 observations on Windows
+10.0.29683.1000 ARM64 plus compatibility x86/x64 across all three view flags.
+Independent replay checks raw root/49-child metadata/names, end status and 15
+relative-path statuses. The separate final native walk checks all 54 keys,
+106 values and 4,756 raw name/data bytes; a child-failure injection reaches two
+opens and aborts with error 2. Actual root absence remains controlled adapter
+coverage, not an observed native absent-profile case [I4]. Four portable model
+cases and three all-guest-ABI NT cases pass on all hosts, plus two native
+acquisition cases and actual selected ARM64/x86 NTDLL leaves. Primary sources,
+licenses, original raw logs, regressions, exact source/final-log hashes and the
+private current-archive loader diagnostic are retained with provenance.
+
+Unfiltered library: macOS 7,535 pass/0 fail/2 ignore/0 filter, Linux 7,528/1/2/0,
+Windows 6,919/5/2/0; selections 7,537/7,531/6,926. Linux retains multishot timeout
+and earlier remove-timeout/readiness evidence; Windows retains four BZHI/FP16
+failures and historical strict-clock evidence. No unrelated assertion/lowerer/
+skip changed. These suites precede final formatting and a Windows-only
+injection-test budget isolation adjustment. Final focused selections are seven
+on macOS/Linux and nine on Windows, plus one actual installed NTDLL case;
+all-target builds, complete C API 168 cases and current locked owning Assist
+archives/five production C++ checks pass on all three. Registered Unix cases
+544 pass on macOS/Linux, cfg(unix) excludes Windows; native memory four pass,
+cfg(windows) excludes other hosts. Final macOS CLI compiled manifest reproduces
+exact bytes, both manifest checks pass within seven relevant CTests, and protected
+CLI/MCP plaintext scans pass. The generated manifest changes only the tool
+description. Initial test compilation/target naming/log retrieval mistakes are
+excluded from passing proof; exact final Windows transferred hashes match.
+
+The isolated saved-context/cleared-PEB-heap trace opens IFEO at turn 3,405 and
+returns known absence for probe.exe. It reaches fixed Session Manager\Segment
+Heap at turn 4,462, NtOpenKey service0x12, PC0x180001130, access1, outside the
+selected namespace. Delta1,057 is scheduler calls, not instructions. All four
+ordinary native Windows programs still return STATUS_ACCESS_VIOLATION. Production
+native loader/RTL heap/CRT, wider native services, POSIX process/symlink and full
+native application/package/IDA matrices still block the overall goal. C API
+1.11.0/layouts/defaults/options/schema/dependencies/locks/permissions/package
+wiring and ISA/SMIR/JIT/other guest semantics remain unchanged.

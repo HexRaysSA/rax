@@ -1,0 +1,193 @@
+[
+  {
+    "file": "/tmp/assist-native-ifeo-closed-final-full-macos.log",
+    "sha256": "237fc8bfcc20db9c8a3b0eaff69de91d209427dc6f9949486ea126649a1ba193",
+    "bytes": 761880,
+    "test_results": [
+      "test result: ok. 7535 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 66.23s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-ifeo-closed-final-capi-macos.log",
+    "sha256": "f46f974967eeb3452ddb7818afd12c5db09d05fe78bdad6bb83a391ad342f277",
+    "bytes": 12927,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.12s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-ifeo-closed-final-all-targets-macos.log",
+    "sha256": "cad5238c5bb1ee29569218cb38a1e5186ac99c2677d854974759c1c0a12564e9",
+    "bytes": 136,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-ifeo-closed-final-integration-macos.log",
+    "sha256": "702e8df620a9cb38152a1cbdc1ee67c81e4512fef1b127fb2cccb66ee1505b25",
+    "bytes": 35757,
+    "test_results": [
+      "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.20s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-ifeo-closed-final-full.log",
+    "sha256": "3a523e41730a25c3ae8db5f4bcaf702726a949d69f356a49bc83dc74cce92f05",
+    "bytes": 762731,
+    "test_results": [
+      "test result: FAILED. 7528 passed; 1 failed; 2 ignored; 0 measured; 0 filtered out; finished in 109.17s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-ifeo-closed-final-capi.log",
+    "sha256": "299dbeec260d5d379de9dec0b554fd18a91c242d230a27be54228b5a2dd9d378",
+    "bytes": 13057,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.27s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-ifeo-closed-final-all-targets.log",
+    "sha256": "3a4e6e8ad4f3703b8ba6edf647be2d10f5ff34501dabae88d1975183362bf951",
+    "bytes": 293,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-ifeo-closed-final-integration.log",
+    "sha256": "039767bdd402dcfe51016279b222b5a0430ffee9e40020ab2858d084e2223821",
+    "bytes": 35937,
+    "test_results": [
+      "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.37s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-ifeo-confirmed-final-full.log",
+    "sha256": "b58e92a4b56f5b6870ab63c2996baa62d0fc67cfe19802b01faffa29edee8af7",
+    "bytes": 714549,
+    "test_results": [
+      "test result: FAILED. 6919 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 106.14s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-ifeo-confirmed-final-capi.log",
+    "sha256": "3c13ae4de8e8f4c3d7b5f5efb673a96f84001e423b9ed5d5ed9fecffd99c1a35",
+    "bytes": 13816,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.83s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-ifeo-confirmed-final-all-targets.log",
+    "sha256": "efb24239d04c56d08eb4dea66ad1d32aaffccf7c8e398ff61d3c6bd73e967f2e",
+    "bytes": 986,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-ifeo-confirmed-final-integration.log",
+    "sha256": "25f57b128bc178ef6dfc23960bda678a6488b1b7aa357e7e995b16ad38325f8d",
+    "bytes": 1752,
+    "test_results": [
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-ifeo-formatted-final-focused.log",
+    "sha256": "6f4c525fcb0880087d26eb742588a1be94c47a3783716a50687a9c8cdfb1b138",
+    "bytes": 2584,
+    "test_results": [
+      "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 6917 filtered out; finished in 0.06s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-ifeo-formatted-final-leaves.log",
+    "sha256": "41e72a2fd23d6763e14832e087f0be6439735d07c3dfba64169e876fd85c4c17",
+    "bytes": 1310,
+    "test_results": [
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6925 filtered out; finished in 0.58s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-ifeo-formatted-final-capi.log",
+    "sha256": "4425d2589efcd4c757ba8aa2fe74c38201a7db8436206234b6cb4c08a248223c",
+    "bytes": 13816,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.95s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-ifeo-formatted-final-all-targets.log",
+    "sha256": "ef5c13ca32dc195ced79d05c5a8749d3e3df929c52fdf6ac18129f91386f5b8e",
+    "bytes": 986,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/assist-native-ifeo-formatted-final-shipping.log",
+    "sha256": "3b2977fa442acc586d38e9ec71a9d556dc9506d4b04bceaa6711bcb5ec9344c8",
+    "bytes": 1584,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/assist-native-ifeo-formatted-final-cpp.log",
+    "sha256": "b0f277678bc54485cf58c6295345a12235df27c7d420c5085b93ab253e75e214",
+    "bytes": 2946,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-ifeo-formatted-final-focused-macos.log",
+    "sha256": "76148b4c0d4877f6d64fb408493a93dcbf90bdbbb2ffd42d4c8907cc757153aa",
+    "bytes": 1309,
+    "test_results": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 7530 filtered out; finished in 0.03s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-ifeo-formatted-final-all-targets-macos.log",
+    "sha256": "464f536c9c3a5ff9bbdb2ffe046342db8e2e3e71aa22e774ee0413fc2cadab46",
+    "bytes": 136,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-ifeo-formatted-final-cli-cpp-macos.log",
+    "sha256": "d6918edbbccf8c47bf78ccd23faedcef3bf79c120a29ed245bffe5abcf3bc6aa",
+    "bytes": 9963,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-ifeo-formatted-final-ctest-macos.log",
+    "sha256": "146a3a2230f8569171ce80b9afd6916e85653b19549ee276d528d3069dd15fd5",
+    "bytes": 1202,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-ifeo-formatted-final-focused.log",
+    "sha256": "6d4a51b2760e225f705a3a3eff94b0711f43d7e3e1b7016937886099d36e9a0a",
+    "bytes": 1467,
+    "test_results": [
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 7524 filtered out; finished in 0.74s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-ifeo-formatted-final-all-targets.log",
+    "sha256": "21d25c52e632ff465acb5c7127f282b0d2b00d583eb4289712211c835942cb89",
+    "bytes": 293,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-ifeo-formatted-final-shipping.log",
+    "sha256": "92c01397d264a4fe716ae0a796b9376963ee8aba43ee358805736678a67e8a3e",
+    "bytes": 399,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-ifeo-formatted-final-cpp.log",
+    "sha256": "654c261ed7378aaed6990c140445dd6a20067dae86e5f2e0b446b80ee64f8497",
+    "bytes": 1623,
+    "test_results": []
+  }
+]

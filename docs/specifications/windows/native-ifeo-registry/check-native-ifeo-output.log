@@ -1,0 +1,3 @@
+PASS: 1395 inventory + 1494 relative-path = 2889 native observations
+PASS: all three ABIs/views; raw names/metadata, 49 children, notepad descendants, end status, 15 path statuses
+Scope: one installed build/profile; first-level oracle plus child metadata, not whole-tree value validation
