@@ -13,6 +13,7 @@ pub(crate) mod fiber;
 mod fls_exit;
 mod lifecycle;
 mod sched;
+mod services;
 pub(crate) mod stack;
 mod start;
 pub(crate) mod thread;

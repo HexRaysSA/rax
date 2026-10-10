@@ -33,6 +33,7 @@ pub mod apiset;
 pub mod builtin;
 mod dynamic;
 pub mod ldr;
+pub(crate) mod services;
 mod supplied;
 
 pub(crate) use dynamic::{
@@ -208,6 +209,8 @@ pub struct Modules {
     /// exposing a failed module through address or symbol lookup.
     failed_indices: HashMap<usize, LoadError>,
     pub(crate) dynamic: dynamic::DynamicState,
+    /// Service identities from a successfully admitted executable NTDLL.
+    pub(crate) nt_services: Option<(usize, services::ServiceTable)>,
 }
 
 impl Modules {
@@ -1107,6 +1110,13 @@ fn load_image(
             bind_imports(p, idx, &pe)?;
         }
         protect_sections(p, &pe, base)?;
+        if h.is_dll()
+            && (name.eq_ignore_ascii_case("ntdll.dll")
+                || p.modules.list[idx].name.eq_ignore_ascii_case("ntdll.dll"))
+        {
+            p.modules.nt_services =
+                services::ServiceTable::from_image(p.arch, &pe)?.map(|table| (idx, table));
+        }
         if h.is_dll() {
             p.modules.init_order.push(idx);
         }

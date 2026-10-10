@@ -498,16 +498,19 @@ mod tests {
 
     #[test]
     fn drive_map_translates_both_ways() {
+        let cwd = std::env::current_dir().unwrap();
+        let root = cwd.ancestors().last().unwrap();
+        let drive_d = root.join("tmp").join("rax-drive-d");
         let mut m = DriveMap::empty();
-        m.set('c', "/");
-        m.set('D', "/tmp/rax-drive-d");
-        assert_eq!(m.to_windows(Path::new("/usr/bin/x")), "C:\\usr\\bin\\x");
+        m.set('c', root);
+        m.set('D', &drive_d);
         assert_eq!(
-            m.to_windows(Path::new("/tmp/rax-drive-d/sub/f")),
-            "D:\\sub\\f"
+            m.to_windows(&root.join("usr").join("bin").join("x")),
+            "C:\\usr\\bin\\x"
         );
+        assert_eq!(m.to_windows(&drive_d.join("sub").join("f")), "D:\\sub\\f");
         let host = m.to_host("D:\\sub\\f", &"C:\\".encode_utf16().collect::<Vec<_>>());
-        assert_eq!(host, Some(PathBuf::from("/tmp/rax-drive-d/sub/f")));
+        assert_eq!(host, Some(drive_d.join("sub").join("f")));
         assert_eq!(
             m.to_host("E:\\x", &"C:\\".encode_utf16().collect::<Vec<_>>()),
             None
@@ -516,20 +519,26 @@ mod tests {
 
     #[test]
     fn host_parent_components_are_lexical_before_drive_selection() {
+        let cwd = std::env::current_dir().unwrap();
+        let root = cwd.ancestors().last().unwrap();
+        let drive_d = root.join("mapped").join("work");
         let mut m = DriveMap::empty();
-        m.set('C', "/");
-        m.set('D', "/mapped/work");
+        m.set('C', root);
+        m.set('D', &drive_d);
         assert_eq!(
-            m.to_windows(Path::new("/mapped/work/dir/../file")),
+            m.to_windows(&drive_d.join("dir").join("..").join("file")),
             "D:\\file"
         );
         assert_eq!(
-            m.to_windows(Path::new("/mapped/work/../../outside")),
+            m.to_windows(&drive_d.join("..").join("..").join("outside")),
             "C:\\outside"
         );
-        assert_eq!(m.to_windows(Path::new("/../../file")), "C:\\file");
         assert_eq!(
-            m.to_windows(Path::new("/mapped/work/nonexistent/../file")),
+            m.to_windows(&root.join("..").join("..").join("file")),
+            "C:\\file"
+        );
+        assert_eq!(
+            m.to_windows(&drive_d.join("nonexistent").join("..").join("file")),
             "D:\\file"
         );
         assert_eq!(

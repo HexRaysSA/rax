@@ -10,9 +10,9 @@
 //! <https://learn.microsoft.com/windows/win32/api/winnt/ns-winnt-exception_record>.
 //! APC delivery follows `QueueUserAPC` (alertable, FIFO, all pending APCs):
 //! <https://learn.microsoft.com/windows/win32/api/processthreadsapi/nf-processthreadsapi-queueuserapc>.
-//! Raw NT service numbers depend on architecture and Windows build; no
-//! verified service table is present. Such calls stop with a diagnostic
-//! instead of assigning an invented service or forwarding to the host.
+//! Raw NT service identities come from recognized stubs in the selected
+//! executable NTDLL. Absent/unsupported stubs and kernel operations stop with
+//! a diagnostic; no Windows-build table or host syscall forwarding is used.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -21,7 +21,7 @@ use super::{ExitStatus, Proc, Thread, ThreadState, lifecycle, thread};
 use crate::error::MemoryAccessKind;
 use crate::isa::x86_64::{X86EventSource, X86UserEvent};
 use crate::user::cpu::{AccessFault, AccessFaultKind};
-use crate::user::windows::arch::CpuStop;
+use crate::user::windows::arch::{CpuStop, WinArch};
 use crate::user::windows::context::{ExceptionRecord, RegContext};
 use crate::user::windows::hle::dispatch::{self, CallSite, Outcome};
 use crate::user::windows::hle::{Api, ApiResult, Conv, Ctx, Flow};
@@ -655,17 +655,24 @@ fn handle_stop(p: &mut Proc, t: &mut Thread, stop: CpuStop) -> Outcome {
     match stop {
         CpuStop::Fault(f) => access_fault(p, t, f),
         CpuStop::X86Event(e) => x86_event(p, t, e),
-        CpuStop::X86Syscall { insn, insn_rip } => Outcome::Fail(format!(
-            "raw Windows {} {insn:?} service {:#x} at {insn_rip:#x}: service table for build {} is unknown",
-            p.arch,
-            t.cpu.gpr(0) as u32,
-            p.cfg.version.build
-        )),
-        CpuStop::Svc { imm, pc } => Outcome::Fail(format!(
-            "raw Windows ARM64 SVC #{imm:#x} service {:#x} at {pc:#x}: service table for build {} is unknown",
-            t.cpu.gpr(8) as u32,
-            p.cfg.version.build
-        )),
+        CpuStop::X86Syscall { insn, insn_rip } => {
+            let number = t.cpu.gpr(0) as u32;
+            let native = (p.arch == WinArch::X64
+                && insn == crate::isa::x86_64::X86SyscallInsn::Syscall)
+                .then(|| super::services::dispatch(p, t, number, insn_rip))
+                .flatten();
+            native.unwrap_or_else(|| Outcome::Fail(format!(
+                "raw Windows {} {insn:?} service {number:#x} at {insn_rip:#x}: service table for build {} is unknown",
+                p.arch, p.cfg.version.build
+            )))
+        }
+        CpuStop::Svc { imm, pc } => {
+            let number = u32::from(imm);
+            super::services::dispatch(p, t, number, pc).unwrap_or_else(|| Outcome::Fail(format!(
+                "raw Windows ARM64 SVC #{imm:#x} service {number:#x} at {pc:#x}: service table for build {} is unknown",
+                p.cfg.version.build
+            )))
+        }
         CpuStop::Brk { imm: 0xF003, .. } => seh::fail_fast(t.cpu.gpr(0)),
         CpuStop::Brk { pc, imm } => raise(p, t, STATUS_BREAKPOINT, pc, vec![u64::from(imm)], pc),
         CpuStop::Undefined { pc, .. } => raise(p, t, STATUS_ILLEGAL_INSTRUCTION, pc, vec![], pc),
@@ -731,6 +738,9 @@ mod tests {
 
     #[path = "bounded_tests.rs"]
     mod bounded_tests;
+
+    #[path = "services_tests.rs"]
+    mod services_tests;
 
     fn process(arch: WinArch) -> Proc {
         let space = AddressSpace::new(SpaceConfig {
@@ -1178,7 +1188,7 @@ mod tests {
             let stop = if arch == WinArch::Arm64 {
                 t.cpu.set_gpr(8, 0x37);
                 CpuStop::Svc {
-                    imm: 0,
+                    imm: 0x37,
                     pc: 0x1234_0000,
                 }
             } else {
