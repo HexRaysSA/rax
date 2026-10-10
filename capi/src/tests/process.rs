@@ -100,6 +100,7 @@ fn process_open_inspect_context_memory_run_and_repeat_all_abis() {
         assert_eq!(before["architecture"], arch.name());
         assert_eq!(before["status"], "ready");
         assert_eq!(before["capabilities"]["host_filesystem"], false);
+        assert_eq!(before["capabilities"]["native_runtime"], false);
         let tid = before["threads"][0]["id"].as_u64().unwrap() as u32;
         let original = context(&p, tid);
         assert_eq!(original.len(), RegContext::size(arch));
@@ -495,3 +496,6 @@ fn process_personality_failure_has_a_terminal_diagnostic() {
 mod darwin;
 #[path = "process/linux.rs"]
 mod linux;
+
+#[path = "process/native_runtime.rs"]
+mod native_runtime;

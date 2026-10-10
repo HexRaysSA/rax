@@ -37,26 +37,48 @@ fn text(v: &Value, key: &str, default: &str) -> Result<String> {
     Ok(value.to_owned())
 }
 
-pub(super) enum Config {
+pub(super) struct Config {
+    pub(super) backend: Backend,
+    pub(super) native_runtime: bool,
+}
+pub(super) enum Backend {
     Windows(WindowsConfig),
     Linux(LinuxConfig),
     Darwin(DarwinConfig),
 }
 impl Config {
     pub(super) fn supply(&mut self, files: BTreeMap<String, Arc<[u8]>>) -> Result<()> {
-        match self {
-            Self::Windows(c) => c.supplied_dlls = files,
-            Self::Darwin(c) => {
-                c.supplied_files = Some(
-                    rax_engine::user::supplied_fs::Files::new(files)
-                        .map_err(|e| bad(e.to_string()))?,
-                );
+        let native = self.native_runtime;
+        let runtime_error = |error: std::io::Error| {
+            Failure(
+                if error.kind() == std::io::ErrorKind::Unsupported {
+                    RaxStatus::Unsupported
+                } else {
+                    RaxStatus::Io
+                },
+                error.to_string(),
+            )
+        };
+        match &mut self.backend {
+            Backend::Windows(c) => c.supplied_dlls = files,
+            Backend::Darwin(c) => {
+                let files = rax_engine::user::supplied_fs::Files::new(files)
+                    .map_err(|e| bad(e.to_string()))?;
+                c.supplied_files = Some(if native {
+                    rax_engine::user::darwin::runtime_files::native(&files)
+                        .map_err(runtime_error)?
+                } else {
+                    files
+                });
             }
-            Self::Linux(c) => {
-                c.supplied_files = Some(
-                    rax_engine::user::supplied_fs::Files::new(files)
-                        .map_err(|e| bad(e.to_string()))?,
-                )
+            Backend::Linux(c) => {
+                let files = rax_engine::user::supplied_fs::Files::new(files)
+                    .map_err(|e| bad(e.to_string()))?;
+                c.supplied_files = Some(if native {
+                    rax_engine::user::linux::runtime_files::native(&files).map_err(runtime_error)?
+                } else {
+                    files
+                });
             }
         }
         Ok(())
@@ -83,6 +105,7 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
         "slice_instructions",
         "console_capacity",
         "seed",
+        "native_runtime",
     ];
     for key in object.keys() {
         if !FIELDS.contains(&key.as_str()) {
@@ -90,6 +113,10 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
         }
     }
     let personality = text(&value, "personality", "windows")?;
+    let native_runtime = value.get("native_runtime").map_or(Ok(false), |v| {
+        v.as_bool()
+            .ok_or_else(|| bad("native_runtime must be a boolean"))
+    })?;
     if !matches!(personality.as_str(), "windows" | "linux" | "darwin") {
         return Err(Failure(
             RaxStatus::Unsupported,
@@ -189,12 +216,21 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
             let files = rax_engine::user::supplied_fs::Files::new(BTreeMap::new())
                 .map_err(|e| bad(e.to_string()))?;
             let mut cfg = DarwinConfig::embedded(guest_path, argv, envp, files, console);
-            cfg.abi = darwin_abi;
+            cfg.abi = darwin_abi.or_else(|| {
+                native_runtime.then_some(if cfg!(target_arch = "aarch64") {
+                    rax_engine::user::darwin::abi::DarwinAbi::Arm64
+                } else {
+                    rax_engine::user::darwin::abi::DarwinAbi::X86_64
+                })
+            });
             cfg.cwd = cwd;
             cfg.arena_bytes = memory;
             cfg.slice_insns = slice;
             cfg.seed = seed;
-            return Ok(Config::Darwin(cfg));
+            return Ok(Config {
+                backend: Backend::Darwin(cfg),
+                native_runtime,
+            });
         }
         let mut cfg = LinuxConfig::embedded(guest_path, argv, envp, Vec::new(), capacity)
             .map_err(|e| bad(e.to_string()))?;
@@ -203,7 +239,10 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
         cfg.slice_insns = slice;
         cfg.seed = seed;
         rax_engine::user::linux::embedding::validate(&cfg).map_err(|e| bad(e.to_string()))?;
-        Ok(Config::Linux(cfg))
+        Ok(Config {
+            backend: Backend::Linux(cfg),
+            native_runtime,
+        })
     } else {
         let mut cfg = WindowsConfig::embedded(guest_path, arguments, Vec::new(), capacity)
             .map_err(|e| bad(e.to_string()))?;
@@ -211,9 +250,13 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
         cfg.arena_bytes = memory;
         cfg.slice_insns = slice;
         cfg.seed = seed;
+        cfg.native_libraries = native_runtime;
         if value.get("environment").is_some() {
             cfg.env = Some(pairs);
         }
-        Ok(Config::Windows(cfg))
+        Ok(Config {
+            backend: Backend::Windows(cfg),
+            native_runtime,
+        })
     }
 }

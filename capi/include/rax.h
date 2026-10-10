@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 10u
+#define RAX_API_MINOR 11u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -1087,12 +1087,21 @@ typedef struct rax_process_result {
  * slice_instructions: 4096 (default), 1..65536
  * console_capacity: 1 MiB (default), 0..16 MiB
  * seed: unsigned 64-bit integer (default 0)
+ * native_runtime: boolean (ABI 1.11, default false); select read-only installed
+ *   runtime libraries for the matching host OS. General guest host filesystem
+ *   and host services remain disabled. Caller-supplied files override selection.
+ *   Without an explicit Darwin architecture, native mode selects the host CPU.
  * Linux/Darwin defaults: guest_path="/program", current_directory="/", environment={};
  * argv[0] is guest_path. Their supplied paths are canonical absolute POSIX paths
  * (no empty, dot or dot-dot components, <=4095 bytes, <=255 per component).
  * Missing ELF interpreters or Darwin dyld fail during open. Darwin requires
  * dyld at /usr/lib/dyld when the executable names it. Shared caches are also
- * supplied explicitly. No host service fallback occurs.
+ * supplied explicitly unless native_runtime is true. Native mode selects
+ * installed ELF library roots/cache, Darwin dyld/shared caches, or Windows
+ * system DLLs/base API-set schema. Missing inputs, incompatible architectures,
+ * unsupported native encodings and unimplemented guest services fail explicitly.
+ * This option does not establish support for arbitrary applications or all NT
+ * APIs. No host service fallback occurs.
  * Strings are at most 4096 UTF-8 bytes and cannot contain NUL; environment keys
  * additionally cannot be empty or contain '='. memory_bytes bounds guest backing
  * memory, not total host allocations. Image parsing/loading happens during open;

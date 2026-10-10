@@ -157,7 +157,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.10.0).
+C ABI version (currently 1.11.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -638,13 +638,30 @@ macOS and Linux; Windows requires the placeholder mapping APIs. ABI 1.10 adds
 `"personality":"darwin"` for x86-64 and AArch64 Mach-O images on all three hosts.
 Darwin accepts `"architecture":"x86_64"` or `"aarch64"` to select a Mach-O
 slice. Omitted selection prefers x86-64 when present, then AArch64, identically
-on every host. The architecture option is rejected for other personalities.
+on every host for the default supplied profile. The architecture option is rejected for other personalities.
 Linux and Darwin default to `/program`, `/`, and an empty environment;
 `arguments` follows the executable's `argv[0]`. Supply ELF interpreters and
 read-only files through the same image records using canonical POSIX paths.
 Darwin uses those records for `/usr/lib/dyld` and shared caches too. Missing
 interpreters fail during open. There is no host file, socket, process, or IPC
-fallback.
+fallback in the default supplied profile.
+
+ABI 1.11 adds `"native_runtime":true`. It explicitly selects read-only installed
+runtime files on the matching host OS: Linux library roots and optional
+`/etc/ld.so.cache`, macOS `/usr/lib/dyld` and installed split shared caches,
+or Windows architecture-matched system DLLs and the installed API-set namespace.
+No separate sysroot is required for those dependencies. Explicit supplied files
+retain precedence. On Darwin, omitted architecture selects the host ABI in this
+mode; an explicit architecture still selects that slice. Console capture and
+the denial of general host filesystem, sockets, processes and IPC remain in
+force. Inspection reports `capabilities.native_runtime`; this is a selected
+mode, not a guarantee that every runtime API or application is supported.
+
+Native selection on a different OS returns `RAX_ERR_UNSUPPORTED`; unavailable
+files, unsupported image/service encodings and unimplemented kernel operations
+return explicit errors rather than selecting built-in Windows DLLs. Ordinary
+native Windows Win32/CRT startup and broader NT APIs remain incomplete. The
+supplied-only default and exported C structures/prototypes are unchanged.
 
 ```cpp
 rax::Process process(executable_bytes,
@@ -658,8 +675,8 @@ auto output = process.readOutput(RAX_PROCESS_STDOUT, 1048576);
 
 See `examples/cpp_process.cpp` for a complete executable example. Supplied DLLs
 use `rax_process_image` records (or `rax::Process::Image`), containing guest paths
-and copied bytes. The profile denies guest disk operations and host dependency
-searches. stdin/stdout/stderr are bounded captured streams. Input exhaustion is
+and copied bytes. The default profile denies guest disk operations and host dependency
+searches; native runtime selection is a separate read-only dependency grant. stdin/stdout/stderr are bounded captured streams. Input exhaustion is
 EOF. The guest can receive input again after the caller appends it; pending
 asynchronous console reads are not implemented by this finite-input profile.
 

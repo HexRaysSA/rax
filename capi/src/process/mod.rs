@@ -1,4 +1,4 @@
-//! ABI 1.10: bounded PE/ELF/Mach-O full-process embedding on a dedicated owner thread.
+//! ABI 1.11: bounded PE/ELF/Mach-O full-process embedding on a dedicated owner thread.
 //! Guest filesystem access is disabled; all images and console bytes are copied.
 mod darwin;
 mod linux;

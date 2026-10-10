@@ -89,10 +89,12 @@ struct State {
     cancelled: Arc<AtomicBool>,
     last: RaxProcessResult,
     terminal: Option<Termination>,
+    native_runtime: bool,
 }
 
 fn spawn_error(error: SpawnError) -> Failure {
     let status = match &error {
+        SpawnError::Io(e) if e.kind() == std::io::ErrorKind::Unsupported => RaxStatus::Unsupported,
         SpawnError::Io(_) => RaxStatus::Io,
         SpawnError::BadImage(_) | SpawnError::Load { .. } => RaxStatus::Format,
         SpawnError::Memory(_) => RaxStatus::NoMem,
@@ -107,21 +109,22 @@ pub(super) fn worker(
     ready: mpsc::SyncSender<Result<()>>,
     commands: mpsc::Receiver<Work>,
 ) {
-    let console = match &config {
-        options::Config::Windows(c) => c.console.clone(),
-        options::Config::Linux(c) => c.console.clone(),
-        options::Config::Darwin(c) => c.console.clone(),
+    let native_runtime = config.native_runtime;
+    let console = match &config.backend {
+        options::Backend::Windows(c) => c.console.clone(),
+        options::Backend::Linux(c) => c.console.clone(),
+        options::Backend::Darwin(c) => c.console.clone(),
     };
     let Console::Captured(console) = console else {
         let _ = ready.send(Err(bad("process requires a captured console")));
         return;
     };
-    let process = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match config {
-        options::Config::Windows(c) => WindowsProcess::spawn_image(c, image)
+    let process = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match config.backend {
+        options::Backend::Windows(c) => WindowsProcess::spawn_image(c, image)
             .map(Backend::Windows)
             .map_err(spawn_error),
-        options::Config::Linux(c) => super::linux::Process::new(c, image).map(Backend::Linux),
-        options::Config::Darwin(c) => super::darwin::Process::new(c, image).map(Backend::Darwin),
+        options::Backend::Linux(c) => super::linux::Process::new(c, image).map(Backend::Linux),
+        options::Backend::Darwin(c) => super::darwin::Process::new(c, image).map(Backend::Darwin),
     }));
     let process = match process {
         Ok(Ok(process)) => process,
@@ -140,6 +143,7 @@ pub(super) fn worker(
         cancelled,
         last: Default::default(),
         terminal: None,
+        native_runtime,
     };
     if ready.send(Ok(())).is_err() {
         return;
@@ -249,6 +253,7 @@ impl State {
             .pending()
             .map_err(|e| internal(e.to_string()))?;
         value["status"] = json!(reason_name(self.last.reason));
+        value["capabilities"]["native_runtime"] = json!(self.native_runtime);
         value["console"] =
             json!({"stdin_pending":input,"stdout_pending":stdout,"stderr_pending":stderr});
         let mut bytes = serde_json::to_vec(&value).map_err(|e| internal(e.to_string()))?;
