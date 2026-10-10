@@ -1,0 +1,6 @@
+width=4 mode=0 pointer=0000000000AFFCA0 payload=0000000000AFFCA0 status=00000000 base=03400000 size=1000 freed=1
+width=4 mode=1 pointer=0000000000AFFCA0 payload=0000000100AFFCA0 status=C0000005 base=00000000 size=1000 freed=1
+width=4 mode=2 pointer=0000000000AFFCA0 payload=FFFFFFFF00AFFCA0 status=C0000005 base=00000000 size=1000 freed=1
+width=4 mode=3 pointer=0000000000AFFCA0 payload=0000000100000000 status=C0000005 base=00000000 size=1000 freed=1
+width=4 mode=4 pointer=0000000000AFFCA0 payload=0000000000AFFCA0 status=00000000 base=03400000 size=1000 freed=1
+width=4 mode=5 pointer=0000000000AFFCA0 payload=A5A5A5A500AFFCA0 status=C0000005 base=00000000 size=1000 freed=1

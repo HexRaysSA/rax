@@ -4,6 +4,7 @@ use super::super::hle::{ApiResult, Archs, Arg::*, Conv::Stdcall, Ctx, Export, Fl
 use super::super::memory::Mem;
 use super::super::nt::status::*;
 
+mod allocate;
 mod events;
 mod hotpatch;
 mod nls;
@@ -29,6 +30,12 @@ pub(super) static EXPORTS: &[Export] = &[
         alloc,
     ),
     Export::func("NtFreeVirtualMemory", Stdcall, &[Ptr, Ptr, Ptr, I32], free),
+    Export::func(
+        "NtAllocateVirtualMemoryEx",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, I32, I32, Ptr, I32],
+        allocate::extended,
+    ),
     Export::func(
         "NtProtectVirtualMemory",
         Stdcall,

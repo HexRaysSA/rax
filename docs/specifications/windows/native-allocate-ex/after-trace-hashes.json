@@ -1,0 +1,17 @@
+[
+  {
+    "name": "native-allocate-ex-after-trace.rs",
+    "sha256": "2C4B69E76051A56D79F731D2142D11797F1E6F9FD26767AA0C8AE6F511BAA471",
+    "bytes": 11693
+  },
+  {
+    "name": "native-allocate-ex-after-trace-build.log",
+    "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "bytes": 0
+  },
+  {
+    "name": "native-allocate-ex-after-trace-output.log",
+    "sha256": "BC538C04C3D13C3DB579CD52E37127B9506D1DE1DFD9BDF1945EA495A8C07D83",
+    "bytes": 33926
+  }
+]

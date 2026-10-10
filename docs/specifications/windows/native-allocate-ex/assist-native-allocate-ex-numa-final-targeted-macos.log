@@ -1,0 +1,20 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 31.20s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 12 tests
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::wow64_allocate_ex_large_address_aware_alignment_uses_guest_image_policy ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_respects_untracked_mappings_and_fault_priority_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_fixed_rounding_unaligned_outputs_and_rollback_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_full_array_capture_precedes_type_and_requirements_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_default_loader_reservation_and_commit_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_constrained_holes_alignment_top_down_and_commit_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_fault_copy_order_and_guards_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_rejects_invalid_requirements_without_mutation_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_parameter_capture_validation_and_alignment_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_wow_capture_precedes_type_validation_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_parameter_alignment_depends_on_wow_capture_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_numa_validation_follows_capture_and_process_access_all_abis ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 7547 filtered out; finished in 0.28s
+

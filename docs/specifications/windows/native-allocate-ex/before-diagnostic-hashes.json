@@ -1,0 +1,22 @@
+{
+  "installed-entry-stack-overlap-before.log": {
+    "bytes": 7334,
+    "sha256": "3e809f5ba0ac485949ef20b9701b3c2aba12da2b6b9f60e127a231b14cbe8a3e",
+    "source": "original native bytes; Base64 and guest SHA256 verified"
+  },
+  "installed-entry-stack-overlap-before.rs": {
+    "bytes": 5752,
+    "sha256": "85f159a42d0362a6283abc10f55105877822da269a4526989efc266c5941d461",
+    "source": "original native bytes; Base64 and guest SHA256 verified"
+  },
+  "native-allocate-ex-trace.rs": {
+    "bytes": 11693,
+    "sha256": "2c4b69e76051a56d79f731d2142d11797f1e6f9fd26767aa0c8ae6f511baa471",
+    "source": "original native bytes; Base64 and guest SHA256 verified"
+  },
+  "native-allocate-ex-trace-output.log": {
+    "bytes": 31903,
+    "sha256": "1f256114838db06d3987ad69accfebe2ef2b9e7c4665ba079cff96cad3db7269",
+    "source": "original native bytes; Base64 and guest SHA256 verified"
+  }
+}

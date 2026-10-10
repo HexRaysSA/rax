@@ -1,0 +1,12 @@
+arm64: 125 observations verified
+x86: 125 observations verified
+x86-laa: 125 observations verified
+x64: 125 observations verified
+500 native calls verified; dynamic default addresses are checked by bounds/alignment, not host ASLR constants
+arm64: 8 aligned NUMA payload observations verified
+x86: 8 aligned NUMA payload observations verified
+x86-laa: 8 aligned NUMA payload observations verified
+x64: 8 aligned NUMA payload observations verified
+32 additional aligned NUMA calls verified; zero controls pass with reserve and reserve-plus-commit
+1332 native calls verified, including WoW64 capture, alignment and NUMA/access/protection precedence
+24 additional full64-bit pointer-payload observations verified; 1356 total native calls

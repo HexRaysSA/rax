@@ -1,0 +1,26 @@
+{
+  "/tmp/assist-native-windows-29683/native-allocate-ex-final-source-full.log": {
+    "bytes": 719228,
+    "sha256": "788dc8d5804b5324d8b0f7a996d8166e884d514e63797a129b393b0955ff1e4d"
+  },
+  "/tmp/assist-native-windows-29683/native-allocate-ex-final-source-capi.log": {
+    "bytes": 13816,
+    "sha256": "9f8c212c079f1978482f2e209128b3bdd80c27963d60e37da01639b173464168"
+  },
+  "/tmp/assist-native-windows-29683/native-allocate-ex-final-source-all-targets.log": {
+    "bytes": 986,
+    "sha256": "7f29f86e7e454cc3e4967c97a2979ff5d97979d957b8cb866e5f781ea98a0f21"
+  },
+  "/tmp/assist-native-windows-29683/native-allocate-ex-final-source-integration.log": {
+    "bytes": 1752,
+    "sha256": "5ee65cc27de50fdae9bf5fedec5ccbe173ad8c9244c9ff55ffcb4a143a791441"
+  },
+  "/tmp/assist-native-windows-29683/assist-native-allocate-ex-final-source-shipping.log": {
+    "bytes": 1584,
+    "sha256": "ffa75ddb45ad445075ad2b696b328f154ee9b4051009ffb56eade6d879f1e933"
+  },
+  "/tmp/assist-native-windows-29683/assist-native-allocate-ex-final-source-cpp.log": {
+    "bytes": 2946,
+    "sha256": "b0f277678bc54485cf58c6295345a12235df27c7d420c5085b93ab253e75e214"
+  }
+}

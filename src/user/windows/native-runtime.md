@@ -1126,3 +1126,57 @@ Four ordinary Windows apps remain AV; production Ldr/RTL heap/CRT and broader
 NT/POSIX/native application/package/IDA goal remain incomplete. C API1.11.0,
 ABI/layout/options/defaults/schema/persistence/permissions/dependencies/packages,
 metadata/discovery and ISA/lowerers are unchanged.
+
+
+### Native extended private allocation (2026-10-10)
+
+NtAllocateVirtualMemoryEx captures its seven arguments and guest extended
+parameter records, preserving default allocation and implementing nonzero
+address requirements through the existing guest VM allocator. Inclusive upper
+bounds,64 KiB base granularity, power-of-two alignment, bottom-up/top-down
+selection, occupied/untracked mappings, x86 PE LAA limits and null-base implicit
+COMMIT reservation have portable coverage. Full16*count-byte capture precedes
+type validation. WoW64 captures all low-type1 pointed requirements first;
+low-type1/3 conversion supplies aligned records, while unconverted arrays need
+8-byte alignment. Invalid NUMA validation follows requirement capture and
+process VM_OPERATION access, before allocation/protection. Native64 retains
+sequential type/requirements capture. No guest allocation reaches a host native
+allocation API. C API1.11.0/layouts/defaults/options/schema/permissions/
+dependencies/packages/ISA and ordinary allocator contracts are unchanged.
+
+Independent replay verifies1,356 original ARM64/compatibility x64/x86/x86 LAA
+native observations, including aligned upper64-bit NUMA payloads, mixed capture
+faults and handle/protection precedence. Twelve portable tests cover the final
+adapter. Six original cases and the later conditional-alignment/mixed-capture
+regressions fail before their respective corrections. The installed ARM64/x86
+NTDLL entry case passes exact real RET cleanup and guest reserve/commit/data
+assertions. Its initial x86 caller-stack/scratch overlap is corrected by restoring
+the caller frame before each invocation; production policy is not changed by
+that test correction. Failed compiler/transport/helper attempts are excluded.
+
+Final macOS library pass/fail/ignore/filter is7557/0/2/0, selection7559, with
+portable12, C API168, all-target compilation and Unix544 passing. Final Linux
+full library reports7550/1/2/0, selection7553, retaining the known remove/update
+io_uring timer failure. The final Windows library reports6946/5/2/0, selection6953, retaining four
+BZHI and one FP16 assertion; allocation13 and C API168 pass. Windows all-target compilation/native memory4 and final owning archive/five
+C++ consumers pass. The final private continuation reproduces the three
+allocation successes followed by unsupported NtOpenPartition at turn12,660. Linux C API168/all-target compilation and
+Unix544 serial integration pass; final owning Linux archives/five C++ consumers
+and macOS CLI/seven CTests/protected scan pass at rootf7ff5347. Earlier matrices
+are retained by exact source phase; they do not validate subsequent semantics.
+A parallel Linux integration stalls and its owned container is stopped after
+process/wait evidence capture; the cause is unknown. The final serial selection
+retains all fixtures and assertions. Linux container translation is separate
+from physical native x86-64 proof. The evidence register records full counts,
+primary sources/licenses, source/gate hashes, assumptions and affected planes:
+[extended allocation evidence](../../../docs/specifications/windows/native-allocate-ex/README.md).
+
+The earlier private owning-archive saved-context/cleared-PEB-heap Ldr diagnostic
+returns allocation success at turns11,315/11,397/11,542 for reservations of
+33,558,528/4,295,098,368 bytes and an intervening4,096-byte commit. It reaches
+unsupported NtOpenPartition service0x131 PC0x180002350 at12,660. Delta1,345 is
+scheduler calls, not instructions. The final owning-archive rerun reproduces that frontier with the identical
+source. The diagnostic does not alter production startup. Four ordinary Windows
+applications still return STATUS_ACCESS_VIOLATION. Production native Ldr/RTL
+heap/CRT, wider NT/POSIX and the full application/package/IDA matrices remain
+the overall goal's acceptance gates.

@@ -1,0 +1,21 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.19s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 1 test
+
+thread 'user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_parameter_alignment_depends_on_wow_capture_all_abis' (6764570) panicked at src/user/windows/process/sched/tests/services_tests/allocate_ex_tests.rs:458:17:
+assertion `left == right` failed: X86 kind=2 shift=1
+  left: 0
+ right: 2147483650
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_parameter_alignment_depends_on_wow_capture_all_abis ... FAILED
+
+failures:
+
+failures:
+    user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_parameter_alignment_depends_on_wow_capture_all_abis
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7556 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `--lib`

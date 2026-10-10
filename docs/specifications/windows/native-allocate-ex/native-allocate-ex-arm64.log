@@ -1,0 +1,53 @@
+case=no-parameters width=8 mode=0 count=0 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=zero-requirements width=8 mode=1 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=loader width=8 mode=1 count=1 low=0 high=0 align=0 requested=2001000 flags=00102000 protect=00000004 status=00000000 exception=00000000 base=7FF4F16E0000 size=2001000 query=48 state=00002000 region=2001000 freed=00000000
+case=null-parameters width=8 mode=2 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=bad-parameters width=8 mode=3 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=null-requirements width=8 mode=4 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=C0000005 exception=00000000 base=0 size=1000
+case=bad-requirements width=8 mode=5 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=unknown-type width=8 mode=6 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=duplicate-address width=8 mode=7 count=2 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=numa-zero width=8 mode=8 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=numa-invalid width=8 mode=9 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=attributes-zero width=8 mode=10 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=address-and-numa width=8 mode=11 count=2 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=reserved-type-bits width=8 mode=12 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=unaligned-parameters width=8 mode=13 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-parameters-zero-count width=8 mode=14 count=0 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=unaligned-requirements width=8 mode=15 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=align-page width=8 mode=1 count=1 low=0 high=0 align=1000 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=align-granularity width=8 mode=1 count=1 low=0 high=0 align=10000 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=align-128k width=8 mode=1 count=1 low=0 high=0 align=20000 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=align-1m width=8 mode=1 count=1 low=0 high=0 align=100000 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=align-nonpower width=8 mode=1 count=1 low=0 high=0 align=18000 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=low-granularity width=8 mode=1 count=1 low=10000 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=low-unaligned width=8 mode=1 count=1 low=10001 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=high-valid width=8 mode=1 count=1 low=0 high=1FFFFFFF align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=5A0000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=high-unaligned width=8 mode=1 count=1 low=0 high=1FFF0000 align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=high-max width=8 mode=1 count=1 low=0 high=FFFFFFFFFFFFFFFF align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=range-bottom width=8 mode=1 count=1 low=1000000 high=1FFFFFF align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=1000000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=range-top width=8 mode=1 count=1 low=1000000 high=1FFFFFF align=0 requested=1000 flags=00102000 protect=00000004 status=00000000 exception=00000000 base=1FF0000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=range-aligned width=8 mode=1 count=1 low=1000000 high=1FFFFFF align=100000 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=1000000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=range-inverted width=8 mode=1 count=1 low=2000000 high=1FFFFFF align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=range-too-small width=8 mode=1 count=1 low=1000000 high=100FFFF align=0 requested=11000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=11000
+case=zero-size width=8 mode=1 count=1 low=0 high=0 align=0 requested=0 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=0
+case=one-byte width=8 mode=1 count=1 low=0 high=0 align=0 requested=1 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=unaligned-size width=8 mode=1 count=1 low=0 high=0 align=0 requested=1001 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=8000100000 size=2000 query=48 state=00002000 region=2000 freed=00000000
+case=commit-only width=8 mode=1 count=1 low=0 high=0 align=0 requested=1000 flags=00001000 protect=00000004 status=00000000 exception=00000000 base=226B37D0000 size=1000 query=48 state=00001000 region=1000 freed=00000000
+case=reserve-commit width=8 mode=1 count=1 low=0 high=0 align=0 requested=1000 flags=00003000 protect=00000004 status=00000000 exception=00000000 base=226B37D0000 size=1000 query=48 state=00001000 region=1000 freed=00000000
+case=invalid-flags width=8 mode=1 count=1 low=0 high=0 align=0 requested=1000 flags=00000000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=invalid-protect width=8 mode=1 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000000 status=C0000045 exception=00000000 base=0 size=1000
+case=fixed-zero-requirements width=8 mode=16 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=20000000 size=1000 query=48 state=00002000 region=1000 freed=00000000
+case=fixed-nonzero-requirements width=8 mode=16 count=1 low=0 high=0 align=10000 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=20000000 size=1000
+case=fixed-unaligned width=8 mode=17 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=00000000 exception=00000000 base=20000000 size=2000 query=48 state=00002000 region=2000 freed=00000000
+case=bad-array-count width=8 mode=18 count=0 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=C000000D exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=1 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=2 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=3 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=4 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=5 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=6 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=7 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=8 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=9 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000
+case=bad-array-count width=8 mode=18 count=16 low=0 high=0 align=0 requested=1000 flags=00002000 protect=00000004 status=80000002 exception=00000000 base=0 size=1000

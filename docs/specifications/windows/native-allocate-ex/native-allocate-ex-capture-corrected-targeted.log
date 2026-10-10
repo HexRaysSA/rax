@@ -1,0 +1,38 @@
+warning: "stdcall" is not a supported ABI for the current target
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\src)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21m 17s
+     Running unittests src\lib.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\rax-d861ee8f992d7cb6.exe)
+
+running 12 tests
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_fixed_rounding_unaligned_outputs_and_rollback_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_full_array_capture_precedes_type_and_requirements_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_default_loader_reservation_and_commit_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_respects_untracked_mappings_and_fault_priority_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_constrained_holes_alignment_top_down_and_commit_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::wow64_allocate_ex_large_address_aware_alignment_uses_guest_image_policy ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_fault_copy_order_and_guards_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_parameter_capture_validation_and_alignment_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_rejects_invalid_requirements_without_mutation_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_wow_capture_precedes_type_validation_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::native_allocate_ex_parameter_alignment_depends_on_wow_capture_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::allocate_ex_tests::installed::installed_allocate_ex_leaf_reserves_and_commits_constrained_guest_memory ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 6940 filtered out; finished in 4.65s
+

@@ -1,0 +1,9 @@
+{
+  "src/user/windows/dll/native.rs": "964e3b95e36bb8287d49021dfd5687a37bad07f8e590c2b6f7280ca17ee5dda9",
+  "src/user/windows/dll/native/allocate.rs": "9f17df71a51a178453c6617324b620237ca1f435dbdf7d1ee733de524801e17e",
+  "src/user/windows/memory.rs": "2259608f1f54d3d070fa50b9f491aecb48b26b9ab4fae97aea17e7238b0fc921",
+  "src/user/windows/memory/extended.rs": "ebd7515f17403a0d6021cef43ebc257cdd253592bfe28e4b0959e9594723cb03",
+  "src/user/windows/process/sched/tests/services_tests.rs": "6f062837fcd5c88733a9e1ee0a1d2f76edef4316bbb9245d5f7b0c6ade8bd52b",
+  "src/user/windows/process/sched/tests/services_tests/allocate_ex_tests.rs": "672bd9a66817d5011a497c72d4005f45bfc7e5e1f55fc0d25772530bbf9b30e8",
+  "src/user/windows/process/sched/tests/services_tests/allocate_ex_leaf_tests.rs": "ba28196a5483040eda8a68e96b071fffdc37e8d6559b312d45a20f40e6d83b6c"
+}

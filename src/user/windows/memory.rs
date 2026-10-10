@@ -32,6 +32,9 @@ use vm_memory::{Address, GuestMemory};
 use crate::error::MemoryAccessKind;
 use crate::user::mm::{AddressSpace, Mapping, MmError, PAGE_SIZE, Perms};
 
+mod extended;
+pub use extended::AddressRequirements;
+
 /// `SYSTEM_INFO.dwAllocationGranularity`.
 pub const ALLOCATION_GRANULARITY: u64 = 0x1_0000;
 
@@ -806,22 +809,7 @@ impl VirtualMemory {
         allocation_type: u32,
         protect: u32,
     ) -> Result<(u64, u64), VmError> {
-        const KNOWN: u32 = mem::COMMIT
-            | mem::RESERVE
-            | mem::TOP_DOWN
-            | mem::RESET
-            | mem::RESET_UNDO
-            | mem::WRITE_WATCH
-            | mem::PHYSICAL
-            | mem::LARGE_PAGES;
-        if size == 0 || allocation_type & !KNOWN != 0 || allocation_type == 0 {
-            return Err(VmError::InvalidParameter);
-        }
-        if !valid_protection(protect)
-            || matches!(protect & 0xFF, prot::WRITECOPY | prot::EXECUTE_WRITECOPY)
-        {
-            return Err(VmError::InvalidProtection);
-        }
+        extended::validate_private(size, allocation_type, protect)?;
         let base = base.filter(|&b| b != 0);
         if allocation_type & (mem::RESET | mem::RESET_UNDO) != 0 {
             if allocation_type != mem::RESET && allocation_type != mem::RESET_UNDO {

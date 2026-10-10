@@ -1,0 +1,42 @@
+[
+  {
+    "name": "assist-native-allocate-ex-numa-final-shipping.log",
+    "sha256": "28925099E8D28D79654A27AA98D9A5EEF47B0959AA766D061CD427D6548A8AEA",
+    "bytes": 1584
+  },
+  {
+    "name": "assist-native-allocate-ex-numa-final-cpp.log",
+    "sha256": "B0F277678BC54485CF58C6295345A12235DF27C7D420C5085B93AB253E75E214",
+    "bytes": 2946
+  },
+  {
+    "name": "native-allocate-ex-numa-final-trace.rs",
+    "sha256": "2C4B69E76051A56D79F731D2142D11797F1E6F9FD26767AA0C8AE6F511BAA471",
+    "bytes": 11693
+  },
+  {
+    "name": "native-allocate-ex-numa-final-trace-build.log",
+    "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "bytes": 0
+  },
+  {
+    "name": "native-allocate-ex-numa-final-trace-output.log",
+    "sha256": "C20812D32E4330AFF80D3BA4C42BF998FF934B11CADAA34226EB3F6F2D4C2E1B",
+    "bytes": 33926
+  },
+  {
+    "name": "native-allocate-ex-numa-final-artifacts.jsonl",
+    "sha256": "939E56D84A8936E8013ED45CEA4AE3FD3656EFC84194B81DBF0BC369D5649B5B",
+    "bytes": 124511
+  },
+  {
+    "name": "native-allocate-ex-numa-final-artifacts-stderr.log",
+    "sha256": "29B5EB7E6828FD2E1C45FEC9C88DDF581E48FEE458005E18D12A35400858745B",
+    "bytes": 72
+  },
+  {
+    "name": "native-allocate-ex-numa-final-ordinary-processes.log",
+    "sha256": "53FDB8CAAF80E5BB4FB50288938F92056BAD35216495F36D56E2E44E4C767587",
+    "bytes": 5064
+  }
+]

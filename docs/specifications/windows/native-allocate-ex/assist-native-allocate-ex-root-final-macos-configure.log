@@ -1,0 +1,323 @@
+-- The C compiler identification is AppleClang 21.0.0.21000334
+-- The CXX compiler identification is AppleClang 21.0.0.21000334
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /opt/homebrew/opt/ccache/libexec/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /opt/homebrew/opt/ccache/libexec/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- IDA Assist version: 1.0.0-rc.12+22.gf7ff5347.dirty
+-- Using macOS SDK sysroot: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk
+-- Release binaries will carry DWARF for split debug symbols (ASSIST_RELEASE_SYMBOLS=ON)
+-- Detected GitHub SDK structure, using: /Users/int/dev/ida-sdk/src
+-- Using generic IDA SDK libraries: /Users/int/dev/ida-sdk/src/lib/arm64_mac_64
+-- Detected IDA SDK version: 9.40
+-- Using the multi-header code from /tmp/assist-native-process-root-macos/_deps/json-src/include/
+-- Found Python3: /opt/homebrew/Frameworks/Python.framework/Versions/3.14/bin/python3.14 (found version "3.14.7") found components: Interpreter
+-- Performing Test ABSL_INTERNAL_AT_LEAST_CXX17
+-- Performing Test ABSL_INTERNAL_AT_LEAST_CXX17 - Success
+-- Performing Test ABSL_INTERNAL_AT_LEAST_CXX20
+-- Performing Test ABSL_INTERNAL_AT_LEAST_CXX20 - Success
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Rust archive: target=aarch64-apple-darwin, rax=ON, archive=/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/libassist_rs.a
+-- idalib targets will link the IDA kernel from /Applications/IDA Professional 9.4-sp1.app/Contents/MacOS
+-- Building terminal idalib harness: assist_idalib_cli
+-- No Qt platform plugin directory found; Qt widget tests may abort at startup
+-- Configuring done (10.3s)
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target assist_idalib_cli
+  because there is a cycle in the constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  CMakeLists.txt:1093 (ida_add_idalib)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_tool_registry_input_validation_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:8715 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_torture_tool_registry_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:8721 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_torture_agent_worker_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:8740 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_masking_connection_failure_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:8756 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_mesh_network_endpoint_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:8766 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_torture_conversation_host_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:8774 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_native_mesh_routing_tests because there is a cycle in the constraint
+  graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:8785 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_selection_facts_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:9046 (ida_add_idalib)
+
+
+CMake Warning at test/CMakeLists.txt:9064 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_function_analysis_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_database_state_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:9097 (assist_add_torture_test)
+
+
+CMake Warning at test/CMakeLists.txt:9110 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_disassembly_text_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at test/CMakeLists.txt:9130 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_function_analysis_no_engines_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_function_bounds_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:9276 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_python_interr_containment_idalib_tests because there is a cycle in
+  the constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:9289 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_suggest_triage_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:9302 (assist_add_torture_test)
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_masking_inventory_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:9315 (assist_add_torture_test)
+
+
+CMake Warning at test/CMakeLists.txt:9324 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_emulation_function_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at ida-cmake/cmake/targets.cmake:337 (add_executable):
+  Cannot generate a safe runtime search path for target
+  assist_context_epochs_idalib_tests because there is a cycle in the
+  constraint graph:
+
+    dir 0 is [/Applications/IDA Professional 9.4-sp1.app/Contents/MacOS]
+      dir 1 must precede it due to runtime library [libida.dylib]
+    dir 1 is [/Users/int/dev/ida-sdk/src/lib/arm64_mac_64]
+      dir 0 must precede it due to runtime library [libidalib.dylib]
+
+  Some of these libraries may not be found correctly.
+Call Stack (most recent call first):
+  test/CMakeLists.txt:8304 (ida_add_idalib)
+  test/CMakeLists.txt:9503 (assist_add_torture_test)
+
+
+-- Generating done (2.0s)
+-- Build files have been written to: /tmp/assist-native-allocate-ex-root-final-macos

@@ -7,6 +7,9 @@ mod process_query_tests;
 #[path = "services_tests/emulation_basic_tests.rs"]
 mod emulation_basic_tests;
 
+#[path = "services_tests/allocate_ex_tests.rs"]
+mod allocate_ex_tests;
+
 #[path = "services_tests/processor_feature_tests.rs"]
 mod processor_feature_tests;
 

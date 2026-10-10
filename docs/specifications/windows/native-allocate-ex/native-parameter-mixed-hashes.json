@@ -1,0 +1,27 @@
+[
+  {
+    "name": "native-allocate-ex-parameter-mixed-arm64.log",
+    "sha256": "82DF048135DA07B899D9BEE864CE3055FD7CAD84F19BC0203DFE64FD341D91BB",
+    "bytes": 9680
+  },
+  {
+    "name": "native-allocate-ex-parameter-mixed-x86.log",
+    "sha256": "408CE37C6D3F2BA1A9DDBCDD38FFD415FF76ADB85883FF86F1566F81DFBE1DD2",
+    "bytes": 8528
+  },
+  {
+    "name": "native-allocate-ex-parameter-mixed-x86-laa.log",
+    "sha256": "1389D80C77100F9DF96F2F497B1798B29F3F080784127EF10DAD414CD82A8E47",
+    "bytes": 8528
+  },
+  {
+    "name": "native-allocate-ex-parameter-mixed-x64.log",
+    "sha256": "8D6B4D50231E25777601A7B776251C34DBCF141089AF45163D728E335898ED82",
+    "bytes": 9680
+  },
+  {
+    "name": "native-allocate-ex-parameter-mixed.cpp",
+    "sha256": "C4B83FD21F2A62A05D069647A9AB25A5A2259484D84F45B23C3D423399367801",
+    "bytes": 2524
+  }
+]

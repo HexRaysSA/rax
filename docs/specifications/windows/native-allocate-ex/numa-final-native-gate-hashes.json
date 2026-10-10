@@ -1,0 +1,27 @@
+[
+  {
+    "name": "native-allocate-ex-numa-final-targeted.log",
+    "sha256": "78BBA70E24186028D364B656B8FC5C80B075755151133E5824300EE32CDBFCFE",
+    "bytes": 3273
+  },
+  {
+    "name": "native-allocate-ex-numa-final-full.log",
+    "sha256": "3FE09D122902B9606F5F7952921DDAF20F8953DA6AF3FA518349892E699DACA2",
+    "bytes": 718864
+  },
+  {
+    "name": "native-allocate-ex-numa-final-capi.log",
+    "sha256": "B1121D495A0E3B98E98463F73C1D08E05C977225E3310262D0CB36F95F371A3B",
+    "bytes": 13816
+  },
+  {
+    "name": "native-allocate-ex-numa-final-all-targets.log",
+    "sha256": "FEA84AA4766E760C80EECC0E3131CEBC40F3C33D531446E95C46D5B0B2B08CDB",
+    "bytes": 986
+  },
+  {
+    "name": "native-allocate-ex-numa-final-integration.log",
+    "sha256": "57FE75CCE71B88484819887E96638047FA19F8788DCF219AB3AD1639213D75D4",
+    "bytes": 1495
+  }
+]

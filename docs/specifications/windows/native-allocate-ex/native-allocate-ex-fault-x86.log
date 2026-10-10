@@ -1,0 +1,51 @@
+case=base-null width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=size-null width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=base-unaligned width=4 status=00000000 exception=00000000 base=0 size=1000 page-protect=00000004 freed=00000000
+case=size-unaligned width=4 status=00000000 exception=00000000 base=2F80000 size=1000 page-protect=00000004 freed=00000000
+case=base-unmapped width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=size-unmapped width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=base-readonly width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000002
+case=size-readonly width=4 status=C0000005 exception=00000000 base=2F90000 size=1000 page-protect=00000002 freed=00000000
+case=base-guard width=4 status=80000001 exception=00000000 base=0 size=1000 page-protect=00000004
+case=size-guard width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=parameters-guard width=4 status=80000001 exception=00000000 base=0 size=1000 page-protect=00000004
+case=requirements-guard width=4 status=80000001 exception=00000000 base=0 size=1000 page-protect=00000004
+case=handle-null width=4 status=C0000008 exception=00000000 base=0 size=1000 page-protect=00000004
+case=handle-thread width=4 status=C0000024 exception=00000000 base=0 size=1000 page-protect=00000004
+case=handle-invalid width=4 status=C0000008 exception=00000000 base=0 size=1000 page-protect=00000004
+case=bad-flags-base-null width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=bad-flags-parameters-null width=4 status=C000000D exception=00000000 base=0 size=1000 page-protect=00000004
+case=bad-protect-base-null width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=bad-count-base-null width=4 status=C000000D exception=00000000 base=0 size=1000 page-protect=00000004
+case=bad-parameters-base-null width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=bad-parameters-size-null width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=unaligned-parameters-base-null width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=unaligned-requirements-base-null width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=unknown-type-base-null width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=duplicate-numa width=4 status=C000000D exception=00000000 base=0 size=1000 page-protect=00000004
+case=duplicate-attributes width=4 status=C000000D exception=00000000 base=0 size=1000 page-protect=00000004
+case=numa-unspecified width=4 status=C000000D exception=00000000 base=0 size=1000 page-protect=00000004
+case=attributes-unknown width=4 status=C000000D exception=00000000 base=0 size=1000 page-protect=00000004
+case=attributes-ec-code width=4 status=C000000D exception=00000000 base=0 size=1000 page-protect=00000004
+case=requirements-high-limit width=4 status=00000000 exception=00000000 base=2F90000 size=1000 page-protect=00000004 freed=00000000
+case=requirements-low-above-limit width=4 status=C000000D exception=00000000 base=0 size=1000 page-protect=00000004
+case=requirements-size-overflow width=4 status=C000000D exception=00000000 base=0 size=FFFFFFFF page-protect=00000004
+case=parameters-cross-inaccessible width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=requirements-cross-inaccessible width=4 status=C0000005 exception=00000000 base=0 size=1000 page-protect=00000004
+case=valid-array-count width=4 count=0 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=1 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=2 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=3 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=4 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=5 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=6 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=7 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=8 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=9 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=10 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=11 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=12 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=13 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=14 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=15 status=C000000D exception=00000000 base=0 size=1000
+case=valid-array-count width=4 count=16 status=C000000D exception=00000000 base=0 size=1000

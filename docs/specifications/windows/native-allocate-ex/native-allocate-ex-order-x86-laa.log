@@ -1,0 +1,21 @@
+case=count-seven-inaccessible-aligned width=4 status=C000000D base=0 size=1000 page-protect=00000004
+case=count-six-inaccessible-aligned width=4 status=C0000005 base=0 size=1000 page-protect=00000004
+case=count-seven-accessible-prefix width=4 status=C000000D base=0 size=1000 page-protect=00000004
+case=unknown-type-before-inaccessible-second width=4 status=C0000005 base=0 size=1000 page-protect=00000004
+case=requirements-before-inaccessible-second width=4 status=C0000005 base=0 size=1000 page-protect=00000004
+case=invalid-protect-range-invalid width=4 status=C000000D base=0 size=1000 page-protect=00000004
+case=invalid-flags-range-invalid width=4 status=C000000D base=0 size=1000 page-protect=00000004
+case=unaligned-array-invalid-flags width=4 status=C000000D base=0 size=1000 page-protect=00000004
+case=invalid-handle-unaligned-array width=4 status=C0000008 base=0 size=1000 page-protect=00000004
+case=invalid-handle-invalid-range width=4 status=C0000008 base=0 size=1000 page-protect=00000004
+case=base-null-size-guard width=4 status=C0000005 base=0 size=1000 page-protect=00000004
+case=base-guard-size-null width=4 status=80000001 base=0 size=1000 page-protect=00000004
+case=size-readonly-invalid-type width=4 status=C0000005 base=0 size=1000 page-protect=00000002
+case=base-readonly-invalid-type width=4 status=C0000005 base=0 size=1000 page-protect=00000002
+case=x86-pointer-padding width=4 status=C0000005 base=0 size=1000 page-protect=00000004
+case=range-no-aligned-fit width=4 status=C000000D base=0 size=1000 page-protect=00000004
+case=large-alignment width=4 status=00000000 base=80000000 size=1000 page-protect=00000004 freed=00000000
+case=attribute-nonpaged width=4 status=C000000D base=0 size=1000 page-protect=00000004
+case=partition-null width=4 status=C000000D base=0 size=1000 page-protect=00000004
+case=user-physical-null width=4 status=C000000D base=0 size=1000 page-protect=00000004
+case=image-machine-zero width=4 status=C000000D base=0 size=1000 page-protect=00000004

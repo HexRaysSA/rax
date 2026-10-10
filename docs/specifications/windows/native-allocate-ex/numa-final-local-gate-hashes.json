@@ -1,0 +1,98 @@
+[
+  {
+    "name": "assist-native-allocate-ex-numa-final-targeted-macos.log",
+    "source_log": "/tmp/assist-native-allocate-ex-numa-final-targeted-macos.log",
+    "sha256": "e4923294f8842c260aa5a9216162093eb0a8a870eae0aabeb259d7273c71481d",
+    "bytes": 2207
+  },
+  {
+    "name": "assist-native-allocate-ex-numa-final-full-macos.log",
+    "source_log": "/tmp/assist-native-allocate-ex-numa-final-full-macos.log",
+    "sha256": "92dbac469957034e1f9081e295d26251467bf32099027c44ba59e8b2b1477b03",
+    "bytes": 765516
+  },
+  {
+    "name": "assist-native-allocate-ex-numa-final-capi-macos.log",
+    "source_log": "/tmp/assist-native-allocate-ex-numa-final-capi-macos.log",
+    "sha256": "eda26ff4012257c2fb4667b1827679ee9aa9800279ace94cd93ee38a40d719c6",
+    "bytes": 12927
+  },
+  {
+    "name": "assist-native-allocate-ex-numa-final-all-targets-macos.log",
+    "source_log": "/tmp/assist-native-allocate-ex-numa-final-all-targets-macos.log",
+    "sha256": "95807daf95f10e72faa4c58119b179b4f8cd409e1fe0583ad2488f2e44bf2c08",
+    "bytes": 136
+  },
+  {
+    "name": "assist-native-allocate-ex-numa-final-integration-macos.log",
+    "source_log": "/tmp/assist-native-allocate-ex-numa-final-integration-macos.log",
+    "sha256": "a7fc29fe2ac8179a4c8fbe29834e9749a0f9e9cdab3fc6246557f1e5ed7f78c8",
+    "bytes": 35757
+  },
+  {
+    "name": "native-allocate-ex-numa-final-targeted-linux.log",
+    "source_log": "/tmp/assist-native-root-cpp-linux/native-allocate-ex-numa-final-targeted.log",
+    "sha256": "a7e157cf660c20be394f75c0e5a2717aa32dd935e6db95ae4466ed8389fc715f",
+    "bytes": 2188
+  },
+  {
+    "name": "native-allocate-ex-numa-final-full-linux.log",
+    "source_log": "/tmp/assist-native-root-cpp-linux/native-allocate-ex-numa-final-full.log",
+    "sha256": "1005a217ba5cacb14edeefaee5d4c944a50e224ed18e401a83098b3cbde0b122",
+    "bytes": 766026
+  },
+  {
+    "name": "native-allocate-ex-numa-final-capi-linux.log",
+    "source_log": "/tmp/assist-native-root-cpp-linux/native-allocate-ex-numa-final-capi.log",
+    "sha256": "bd145c031d53cafde40556d5c6ac0b28c97ff7418e176e88b06720840b956d8c",
+    "bytes": 12880
+  },
+  {
+    "name": "native-allocate-ex-numa-final-all-targets-linux.log",
+    "source_log": "/tmp/assist-native-root-cpp-linux/native-allocate-ex-numa-final-all-targets.log",
+    "sha256": "57fdf683f1537a43ed4c724ec7a86f52463326b71bada1f4a03c6c5089f08941",
+    "bytes": 116
+  },
+  {
+    "name": "native-allocate-ex-numa-final-integration-linux.log",
+    "source_log": "/tmp/assist-native-root-cpp-linux/native-allocate-ex-numa-final-integration.log",
+    "sha256": "ac8567de91cf66acb5c6bb67499fa3aff39859fd2cb21dd92e8174f0390c9a0c",
+    "bytes": 35761
+  },
+  {
+    "name": "native-allocate-ex-numa-final-shipping-linux.log",
+    "source_log": "/tmp/assist-native-root-cpp-linux/native-allocate-ex-numa-final-shipping.log",
+    "sha256": "eb6c306447313bd81d510452fd71cb576eb2af14589c339bf3381a2900dceccc",
+    "bytes": 222
+  },
+  {
+    "name": "native-allocate-ex-numa-final-cpp-linux.log",
+    "source_log": "/tmp/assist-native-root-cpp-linux/native-allocate-ex-numa-final-cpp.log",
+    "sha256": "654c261ed7378aaed6990c140445dd6a20067dae86e5f2e0b446b80ee64f8497",
+    "bytes": 1623
+  },
+  {
+    "name": "assist-native-allocate-ex-root-final-macos-configure.log",
+    "source_log": "/tmp/assist-native-allocate-ex-root-final-macos-configure.log",
+    "sha256": "43a61660f6734005deec16ca5021eee874d2ceacae77e3c72430b339a7301216",
+    "bytes": 14297
+  },
+  {
+    "name": "assist-native-allocate-ex-root-final-macos-build.log",
+    "source_log": "/tmp/assist-native-allocate-ex-root-final-macos-build.log",
+    "sha256": "4ce1d2a5c45f8a1c9ad881761ceb3572b921bc6db2864538ab044d0e4ded241f",
+    "bytes": 422877
+  },
+  {
+    "name": "assist-native-allocate-ex-root-final-macos-ctest.log",
+    "source_log": "/tmp/assist-native-allocate-ex-root-final-macos-ctest.log",
+    "sha256": "05f62f0431f1d5fb727d282195f6c2b8cf3a7037e901a3bb95478bd56fb72c17",
+    "bytes": 1212
+  },
+  {
+    "name": "assist-native-allocate-ex-numa-final-rustfmt.log",
+    "source_log": "/tmp/assist-native-allocate-ex-numa-final-rustfmt.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+]

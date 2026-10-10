@@ -1,0 +1,62 @@
+{
+  "/tmp/assist-native-allocate-ex-final-source-full-macos.log": {
+    "sha256": "fb740485c1b7e57ec0c62db724b9cb29af6505a3b46df453111da262350ecc14",
+    "bytes": 764946
+  },
+  "/tmp/assist-native-allocate-ex-final-source-capi-macos.log": {
+    "sha256": "20ac7677fe007cc87f40d373ef170f7aec52daa5f5cb6f5bfe9cda34732ff98e",
+    "bytes": 12927
+  },
+  "/tmp/assist-native-allocate-ex-final-source-all-targets-macos.log": {
+    "sha256": "e6612724111c3fc1c810275af8b200a4ddf624b57021d53a8701e8d08f56ba05",
+    "bytes": 136
+  },
+  "/tmp/assist-native-allocate-ex-final-source-integration-macos.log": {
+    "sha256": "1165499539e08152a20685b821211e9cfe03ee849a74f5d9951e01d8056b9960",
+    "bytes": 35757
+  },
+  "/tmp/assist-native-root-cpp-linux/native-allocate-ex-final-source-full.log": {
+    "sha256": "5fa0690bea57216298b56166f8822fb39916cf85fe7dba7cc85d8c7ea415b118",
+    "bytes": 765106
+  },
+  "/tmp/assist-native-root-cpp-linux/native-allocate-ex-final-source-capi.log": {
+    "sha256": "e0c8624c10c6e5cfc7af74ef9999db65154356d2790e79d1805b31dc02e6e967",
+    "bytes": 12836
+  },
+  "/tmp/assist-native-root-cpp-linux/native-allocate-ex-final-source-all-targets.log": {
+    "sha256": "b2c020f27a01faabb96e5d55c11fd219cf7c484c9cf34b3342bfc8444d934c89",
+    "bytes": 72
+  },
+  "/tmp/assist-native-root-cpp-linux/native-allocate-ex-final-source-integration.log": {
+    "sha256": "6031a190b9e291e07bb64014d25edb934544f0baba074f93d6d26b5640b4f790",
+    "bytes": 35760
+  },
+  "/tmp/assist-native-root-cpp-linux/native-allocate-ex-final-shipping.log": {
+    "sha256": "0c9fc8c4c67a3880dac2e0c7f4909094e96236cb4cae3a71e26cad1498a52296",
+    "bytes": 222
+  },
+  "/tmp/assist-native-root-cpp-linux/native-allocate-ex-final-cpp.log": {
+    "sha256": "654c261ed7378aaed6990c140445dd6a20067dae86e5f2e0b446b80ee64f8497",
+    "bytes": 1623
+  },
+  "/tmp/assist-native-allocate-ex-root-macos-configure.log": {
+    "sha256": "cbdf43dde94de6f873516459f1577957ed46794c5ffc1b735ab66d48191f0229",
+    "bytes": 14285
+  },
+  "/tmp/assist-native-allocate-ex-root-macos-build.log": {
+    "sha256": "9de41875a2afe896b0f700c1424cb9b3020133b03deaa846da287c7719712006",
+    "bytes": 423441
+  },
+  "/tmp/assist-native-allocate-ex-root-macos-ctest.log": {
+    "sha256": "9a383f3a1a843619c962c7f27f583edb23aec21d74e0361b008aff2037b38abf",
+    "bytes": 1206
+  },
+  "/tmp/assist-native-allocate-ex-rustfmt-final-check.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "/tmp/assist-native-allocate-ex-compiled-manifest.json": {
+    "sha256": "b3405e88711523b92f7d9159c14ff9772dd0485c1fd4bfa4376e3dd59141750d",
+    "bytes": 378300
+  }
+}

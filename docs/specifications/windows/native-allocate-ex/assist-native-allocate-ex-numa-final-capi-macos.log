@@ -1,0 +1,190 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+   Compiling rax-capi v0.1.2 (/Users/int/hexrays/kvasir/vendor/rax/capi)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.81s
+     Running unittests src/lib.rs (target/debug/deps/rax-1073943d72259e0f)
+
+running 168 tests
+test instruction_info::tests::version_size_and_invalid_modes ... ok
+test tests::analyze::malformed_arguments_are_rejected_and_outputs_initialized ... ok
+test instruction_info::tests::mode_changes_encoding_and_relative_wrap ... ok
+test instruction_info::tests::indirect_and_operands ... ok
+test instruction_info::tests::user_modes_decode_as_their_code_size ... ok
+test instruction_info::tests::loop_operand_prefix_preserves_code_address_width ... ok
+test instruction_info::tests::ret_modes_and_stack_cleanup ... ok
+test instruction_info::tests::truncated_invalid_and_changed_bytes ... ok
+test instruction_info::tests::indirect_call_and_push_stack_widths ... ok
+test instruction_info::tests::native_prefix_legality_and_complete_buffer_boundaries ... ok
+test tests::analyze::x86_legacy_code_decodes_without_effects ... ok
+test instruction_info::tests::unrepresented_legacy_encodings_keep_length_and_flow ... ok
+test tests::analyze::unsupported_mode_keeps_decode_and_marks_partial ... ok
+test instruction_info::tests::far_pointer_branches_have_no_static_target ... ok
+test tests::analyze::effect_buffer_negotiation_returns_deterministic_prefix ... ok
+test tests::analyze::rv64_ssa_output_is_mapped_back_to_arch_register ... ok
+test tests::arm64_emu_start_begin_preserves_monotonic_instruction_count ... ok
+test tests::arm64_faultin::arm64_unmapped_global_load_retries_at_faulting_instruction ... ok
+test tests::arm64_registers ... ok
+test tests::analyze::abi_layout_is_frozen_and_self_describing ... ok
+test tests::arm64_register_updates_preserve_runtime_and_simd_fp_state ... ok
+test tests::analyze::aarch64_constant_write_is_reported ... ok
+test tests::analyze::x86_condition_flags_are_reported ... ok
+test tests::arm64_mem_hook_observes_load_store_fetch ... ok
+test tests::arm64_faultin::arm64_read_write_and_fetch_faults_are_reported_before_retry ... ok
+test tests::analyze::x86_call_includes_implicit_stack_push ... ok
+test tests::arm64_step_advances_pc ... ok
+test tests::analyze::x86_constant_and_register_results_are_proved ... ok
+test tests::arm_engines::arm32_memory_faults_report_the_first_missing_byte ... ok
+test tests::decode::arm32_arm_b ... ok
+test tests::analyze::x86_memory_address_and_value_characteristics ... ok
+test tests::decode::arm32_arm_bl ... ok
+test tests::decode::arm64_b ... ok
+test tests::analyze::hexagon_lifter_is_available_and_deterministic ... ok
+test tests::arm_engines::cortex_m_runs_thumb_code_and_takes_exceptions ... ok
+test tests::cannot_unmap_last_region ... ok
+test tests::code_hook_counts_instructions ... ok
+test tests::context_compat::saved_contexts_are_version_2 ... ok
+test tests::context_compat::version_1_contexts_restore_exact_x87_values ... ok
+test tests::count_and_until_stops ... ok
+test tests::decode::arm32_thumb_bl ... ok
+test tests::decode::arm64_bl ... ok
+test tests::context_compat::malformed_contexts_are_format_errors_and_leave_the_engine_intact ... ok
+test tests::decode::null_out_rejected ... ok
+test tests::decode::truncated_arm64_is_ok_but_invalid ... ok
+test tests::decode::arm64_blr ... ok
+test tests::decode::x86_call_rel32 ... ok
+test tests::decode::x86_cond_branch ... ok
+test tests::decode::x86_direct_jmp ... ok
+test tests::decode::x86_indirect_call ... ok
+test tests::decode::x86_indirect_jmp ... ok
+test tests::decode::x86_legacy_branches_wrap_to_the_operand_size ... ok
+test tests::decode::x86_legacy_modes_decode_their_own_encodings ... ok
+test tests::decode::arm64_nop ... ok
+test tests::header_sync::exception_record_layout_matches_the_header ... ok
+test tests::decode::arm64_ret ... ok
+test tests::decode::bad_arch_rejected ... ok
+test tests::decode::impossible_slice_length_rejected_before_dereference ... ok
+test tests::decode::null_bytes_rejected ... ok
+test tests::interrupt_masked_by_default ... ok
+test tests::decode::x86_nop_fallthrough ... ok
+
+thread 'tests::panic_guards_remain_effective_in_optimized_profile' (6960476) panicked at capi/src/tests.rs:112:25:
+ffi panic sentinel
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::decode::x86_ret ... 
+thread 'tests::panic_guards_remain_effective_in_optimized_profile' (6960476) panicked at capi/src/tests.rs:116:38:
+ffi value panic sentinel
+ok
+test tests::decode::zero_len_rejected ... ok
+test tests::null_handle_rejected ... ok
+test tests::mem_hook_observes_load_store_fetch ... ok
+test tests::mem_roundtrip_and_unmapped ... ok
+test tests::open_query_close ... ok
+test tests::panic_guards_remain_effective_in_optimized_profile ... ok
+test tests::header_sync::abi_1_5_constants_match_the_header ... ok
+test tests::analyze::stateless_analysis_is_concurrent_and_deterministic ... ok
+test tests::process::linux::elf_stdout_is_captured_and_posix_namespace_rejects_noncanonical_keys ... ok
+test tests::process::darwin::macho_signal_failure_is_inspectable ... ok
+test tests::process::linux::elf_rejected_late_selector_does_not_apply_prefix ... ok
+test tests::process::native_runtime::native_option_is_strict_and_host_mismatch_never_falls_back ... ok
+test tests::header_sync::process_abi_constants_match_the_header ... ok
+test tests::process::linux::elf_signal_is_terminal_failure_with_linux_details ... ok
+test tests::process::darwin::macho_supplied_dyld_has_no_host_fallback ... ok
+test tests::process::darwin::macho_fat_slice_selection_is_explicit_and_host_independent ... ok
+test tests::process::darwin::macho_both_abis_capture_stdout_and_reject_host_syscalls ... ok
+test tests::arm_engines::engine_choice_ignores_the_machine_environment ... ok
+test tests::process::process_arguments_and_result_headers_fail_before_guest_mutation ... ok
+test tests::process::process_input_capacity_and_invalid_output_do_not_consume_bytes ... ok
+test tests::registers_ext::arm32_doubleword_and_quadword_views_alias_the_register_file ... ok
+test tests::register_widths_and_subregisters ... ok
+test tests::registers_ext::arm64_banked_stack_pointers_follow_pstate ... ok
+test tests::registers_ext::arm64_system_registers_round_trip ... ok
+test tests::registers_ext::arm64_thread_pointers_are_guest_visible ... ok
+test tests::header_sync::new_register_ids_match_the_header ... ok
+test tests::registers_ext::extended_msrs_round_trip_and_reach_the_guest ... ok
+test tests::registers_ext::mxcsr_is_validated_and_guest_visible ... ok
+test tests::registers_ext::rflags_writes_replace_lazily_computed_flags ... ok
+test tests::registers_ext::segment_access_rights_use_the_vmx_layout_and_take_effect ... ok
+test tests::registers_ext::x87_stack_and_control_state_are_exact ... ok
+test tests::process::darwin::macho_both_abis_context_memory_cancellation_and_terminal_cache ... ok
+test tests::riscv_open_config_ext_survives_reset ... ok
+test tests::reset_restores_default_state ... ok
+test tests::riscv_state::privilege_level_is_a_register ... ok
+test tests::riscv_step_advances_pc ... ok
+test tests::riscv_state::csrs_are_addressable_by_number ... ok
+test tests::riscv_state::vector_registers_feed_vector_instructions ... ok
+test tests::run_loop::hexagon_steps_one_packet_at_a_time ... ok
+test tests::run_loop::start_resumes_a_halted_x86_vcpu_at_begin ... ok
+test tests::process::process_personality_failure_has_a_terminal_diagnostic ... ok
+test tests::run_loop::start_resumes_a_waiting_arm64_vcpu_at_begin ... ok
+test tests::run_to_hlt ... ok
+test tests::process::linux::elf_supplied_interpreter_is_copied_and_required_all_abis ... ok
+test tests::sparse_map_unmap_protect_regions ... ok
+test tests::step_one_instruction ... ok
+test tests::user_mode::arm64_and_rv64_user_contexts_restore_unprivileged ... ok
+test tests::user_mode::arm64_svc_and_rv64_ecall_stop_like_x86_syscall ... ok
+test tests::user_mode::arm64_thread_pointer_is_visible_to_el0_code ... ok
+test tests::user_mode::arm::arm_and_thumb_syscalls_have_typed_resume_and_breakpoint_records ... ok
+test tests::user_mode::arm::arm_interworking_it_and_thumb_entry_use_current_state ... ok
+test tests::user_mode::arm::arm_memory_hooks_observe_only_committed_accesses ... ok
+test tests::user_mode::arm::arm_permissions_fault_before_cross_page_store_and_retry_after_protect ... ok
+test tests::user_mode::arm::arm_tls_exclusives_and_context_survive_mapping_rebuilds ... ok
+test tests::user_mode::arm::arm_user_context_rejects_bad_extra_state_without_mutation ... ok
+test tests::user_mode::arm::arm_user_privilege_and_little_endian_policy_cannot_be_changed_by_cpsr ... ok
+test tests::user_mode::exception_query_validates_its_header ... ok
+test tests::user_mode::exceptions_carry_architectural_vectors_and_syndromes ... ok
+test tests::user_mode::interrupt_hooks_see_the_return_address_and_may_change_it ... ok
+test tests::process::process_cancellation_overlaps_run_and_timeout_is_resumable ... ok
+test tests::user_mode::memory_hooks_observe_user_mode_accesses ... ok
+test tests::user_mode::region_permissions_are_enforced_and_follow_protect ... ok
+test tests::user_mode::reset_and_context_restore_keep_the_user_environment ... ok
+test tests::user_mode::syscall_hooks_require_user_mode ... ok
+test tests::process::process_supplied_dll_array_loads_real_imports_all_abis ... ok
+test tests::user_mode::syscall_hooks_service_calls_on_every_user_architecture ... ok
+test tests::user_mode::syscall_query_validates_header_and_preserves_tail ... ok
+test tests::user_mode::syscall_record_survives_hook_redirect_and_clears_on_next_run ... ok
+test tests::run_loop::x86_long_run_reaches_the_guest_halt ... ok
+test tests::user_mode::syscall_record_covers_architectures_and_lifecycle ... ok
+test tests::user_mode::user_mode_is_validated_and_reported_in_the_mode ... ok
+test tests::user_mode::x86_compatibility_mode_decodes_32_bit_code ... ok
+test tests::user_mode::user_mode_rejects_interrupt_injection ... ok
+test tests::user_mode::x86_compatibility_mode_sysenter_is_a_system_call ... ok
+test tests::user_mode::x86_step_over_a_system_call_executes_one_instruction ... ok
+test tests::user_mode::x86_syscall_stops_with_the_instruction_and_resumes_after_it ... ok
+test tests::version_and_strerror ... ok
+test tests::x86_faultin::already_halted_step_does_not_retire_again ... ok
+test tests::x86_faultin::fault_query_validates_header_and_preserves_extension_tail ... ok
+test tests::x86_faultin::failed_stack_store_preserves_registers_and_retires_nothing ... ok
+test tests::x86_faultin::crossing_fetch_reports_missing_continuation_and_retries_exact_pc ... ok
+test tests::x86_faultin::free_run_fault_reports_actual_pc_and_retirements ... ok
+test tests::x86_faultin::invalid_instruction_is_not_reported_as_a_recoverable_idt_read ... ok
+test tests::x86_faultin::partial_rep_retries_only_uncompleted_elements ... ok
+test tests::x86_faultin::noncanonical_fetch_is_protection_even_when_exception_backing_is_missing ... ok
+test tests::x86_faultin::query_does_not_erase_error_and_reset_clears_fault ... ok
+test tests::x86_faultin::short_instruction_does_not_require_speculative_next_page ... ok
+test tests::x86_faultin::virtual_page_fault_never_names_missing_physical_backing ... ok
+test x87::tests::nans_keep_their_payload_and_signaling_nans_are_quieted ... ok
+test x87::tests::tags_follow_the_fsave_classification ... ok
+test x87::tests::widening_is_exact_for_every_binary64_class ... ok
+test tests::x86_faultin::typed_data_faults_preserve_state_and_survive_mapping ... ok
+test tests::run_loop::arm64_long_run_reaches_the_guest_wait ... ok
+test tests::process::linux::elf_all_abis_context_memory_exit_and_cached_terminal ... ok
+test tests::arm_engines::arm32_long_runs_stop_at_the_guest_wait ... ok
+test tests::x86_faultin::fetch_prefix_boundary_matrix_and_query_lifecycle ... ok
+test tests::process::process_captures_real_crt_stdout_and_stderr_after_exit_all_abis ... ok
+test tests::user_mode::long_runs_are_not_cut_short_by_time_slices ... ok
+test tests::process::process_open_inspect_context_memory_run_and_repeat_all_abis ... ok
+test tests::user_mode::arm::arm_user_context_can_restore_into_system_engine_and_traps_clear_exclusives ... ok
+test tests::context_save_restore_roundtrip ... ok
+test tests::riscv_state::contexts_carry_vector_csr_and_privilege_state ... ok
+test tests::context_compat::version_1_riscv_contexts_restore_their_registers ... ok
+test tests::run_loop::riscv_long_run_reaches_the_environment_call ... ok
+test tests::run_loop::hexagon_runs_past_one_batch_and_stops_at_until ... ok
+test tests::process::native_runtime::installed_dynamic_programs_run_without_supplied_dependencies_or_general_host_access ... ok
+
+test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.93s
+
+   Doc-tests rax
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,27 @@
+[
+  {
+    "name": "native-allocate-ex-capture-corrected-targeted.log",
+    "sha256": "376859354068452C1D2D3038D1696DB66EBA9CCC613A01A0BECDE987A7D2291F",
+    "bytes": 3110
+  },
+  {
+    "name": "native-allocate-ex-capture-corrected-full.log",
+    "sha256": "64A9746EF1655DF31BE4D617CD907DA3441A4330985ACE156E44C2745FF598A3",
+    "bytes": 718700
+  },
+  {
+    "name": "native-allocate-ex-capture-corrected-capi.log",
+    "sha256": "A9F6A3EA19B97468CF171A66BD5549C8E96643082CD51703D25DAE39BF7AC571",
+    "bytes": 13816
+  },
+  {
+    "name": "native-allocate-ex-capture-corrected-all-targets.log",
+    "sha256": "8AAF74D9D1579CC5BF0D36D6A7B8A900A9E390648B45281BBA85DCDFD670F127",
+    "bytes": 986
+  },
+  {
+    "name": "native-allocate-ex-capture-corrected-integration.log",
+    "sha256": "F570E2DF0712650C4A0EC920D934304B9C4BED3A66AB61CE7863582767E40873",
+    "bytes": 1495
+  }
+]
