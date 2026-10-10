@@ -10,6 +10,7 @@ mod nls;
 mod process_query;
 mod query;
 mod registry;
+mod virtual_memory;
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func("RtlNtStatusToDosError", Stdcall, &[I32], status_error),
@@ -83,6 +84,12 @@ pub(super) static EXPORTS: &[Export] = &[
         nls::get,
     ),
     Export::func("NtUnmapViewOfSection", Stdcall, &[Ptr, Ptr], nls::unmap),
+    Export::func(
+        "NtQueryVirtualMemory",
+        Stdcall,
+        &[Ptr, Ptr, I32, Ptr, Ptr, Ptr],
+        virtual_memory::query,
+    ),
 ];
 fn status_error(c: &mut Ctx) -> ApiResult {
     Flow::ret(u64::from(super::super::nt::status_to_error(c.u32(0)?)))

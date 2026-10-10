@@ -19,6 +19,9 @@ mod registry_tests;
 #[path = "services_tests/nls_tests.rs"]
 mod nls_tests;
 
+#[path = "services_tests/virtual_memory_tests.rs"]
+mod virtual_memory_tests;
+
 fn fixture(
     arch: WinArch,
     name: &str,

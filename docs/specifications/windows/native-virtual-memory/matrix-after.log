@@ -1,0 +1,18 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 20.50s
+     Running unittests src/lib.rs (vendor/rax/target/debug/deps/rax-754f4d2a527a4423)
+
+running 10 tests
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_return_length_alias_is_published_last_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_image_query_private_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_basic_regions_image_metadata_and_padding_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_free_reserved_mapped_and_no_target_read_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_shared_guard_disables_wow_length_copy_before_output ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_return_length_faults_and_two_guard_order_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_class_length_bound_priority_and_wow_optional_guards ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_typed_process_rights_lifetime_and_remote_frontier ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_native_extent_wow_prefix_and_pointer_sized_lengths ... ok
+test user::windows::process::sched::tests::services_tests::virtual_memory_tests::native_virtual_memory_null_unaligned_outputs_and_return_length_all_abis ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 7507 filtered out; finished in 0.08s
+

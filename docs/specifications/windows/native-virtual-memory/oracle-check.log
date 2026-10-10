@@ -1,0 +1,4 @@
+arm64: 231 matrix + 30 faults + 76 boundaries + 12 rights + 18 priorities + 24 class inventory rows counted
+x86: 231 matrix + 30 faults + 76 boundaries + 12 rights + 18 priorities + 24 class inventory rows counted
+x64: 231 matrix + 30 faults + 76 boundaries + 12 rights + 18 priorities + 24 class inventory rows counted
+1245 original queries: counts, defined layouts, statuses, untouched tails, and guards validated

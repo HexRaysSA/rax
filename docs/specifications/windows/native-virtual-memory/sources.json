@@ -1,0 +1,258 @@
+[
+  {
+    "file": "check-oracle.py",
+    "source": "original repository-development verification",
+    "title": "check-oracle.py",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "da3840c815a64dc500cbe851e13513b536b91a52400ab87c11de0884047c84ef"
+  },
+  {
+    "file": "discarded-guard-expectation.log",
+    "source": "original repository-development verification",
+    "title": "discarded-guard-expectation.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "97e4a8529188634f987605fb2b90bc9088434a6b1a20b061ee96eee7a3173175"
+  },
+  {
+    "file": "guard-shared-page-before.log",
+    "source": "original repository-development verification",
+    "title": "guard-shared-page-before.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "39eb76449617788523fe3087118c0953f9f0e4468105e740db8d87413e9e066e"
+  },
+  {
+    "file": "matrix-after.log",
+    "source": "original repository-development verification",
+    "title": "matrix-after.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "3ba004e9ac7468c44381a943cef21f248429883bf95f2a2db211b87a58b22cd7"
+  },
+  {
+    "file": "memory-basic-information.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/ntifs/ns-ntifs-_memory_basic_information.md",
+    "title": "Microsoft MEMORY_BASIC_INFORMATION",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "sha256": "493470485f5b9b32c387edd51c7e60fa495ecc6b93fac130f0fce6bf3ac5cebf",
+    "license": "../native-events/microsoft-ddi-LICENSE"
+  },
+  {
+    "file": "microsoft-win32metadata-LICENSE",
+    "source": "https://raw.githubusercontent.com/microsoft/win32metadata/main/LICENSE",
+    "title": "Microsoft Win32metadata license",
+    "revision": "unknown; mutable upstream branch",
+    "retrieved": "2026-10-10",
+    "sha256": "f77e90e19aa86612b0d6f3c8b25e0289590e73c841e2e6c80dad0072d3b2a69b"
+  },
+  {
+    "file": "microsoft-winnt-signing-level-excerpt.h",
+    "source": "https://raw.githubusercontent.com/microsoft/win32metadata/main/generation/WinSDK/RecompiledIdlHeaders/um/winnt.h",
+    "title": "Microsoft signing-level definitions; original notice and source lines12624-12656",
+    "revision": "unknown; mutable upstream branch",
+    "retrieved": "2026-10-10",
+    "sha256": "fe7dcb6b1ff1badd1d91df66ca0750fc2af09f37bed2406ee008afdd46a9d127",
+    "license": "microsoft-win32metadata-LICENSE",
+    "source_sha256": "404019933323ca25f5db8ce14437483e1054398ce454d5c75df2e187cec2ae40",
+    "excerpt_line_ranges": [
+      [
+        1,
+        16
+      ],
+      [
+        12624,
+        12656
+      ]
+    ]
+  },
+  {
+    "file": "missing-service-before.log",
+    "source": "original repository-development verification",
+    "title": "missing-service-before.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "1b64278efc4bb81614dbae3cf9970347f6643f18abf59c0c4f267ec45bb99a68"
+  },
+  {
+    "file": "native-vm-alias-arm64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-alias-arm64.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "2d92b7b5ed1937970e467fe92d7fc24489cd737a1846dafc25128624153d4162"
+  },
+  {
+    "file": "native-vm-alias-probe.cpp",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-alias-probe.cpp",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "bc77c9f40e925c9df2dac685b822abc67923c6d5ca87af7e98d120f5da3848de"
+  },
+  {
+    "file": "native-vm-alias-x64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-alias-x64.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "42d5737bf5d6eaece57d0a9a55c9401837d30c51c1dc38d3678d6253b45bc87c"
+  },
+  {
+    "file": "native-vm-alias-x86.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-alias-x86.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "63fa626aab901acf084b4495602d5faecad1a4190e4bfc4cb043e560d139ef7e"
+  },
+  {
+    "file": "native-vm-boundary-arm64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-boundary-arm64.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "6ba42df1872e4b7934e001cfeaa46d1fdef89d306e0880737e6072ab1abc75a7"
+  },
+  {
+    "file": "native-vm-boundary-probe.cpp",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-boundary-probe.cpp",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "f6b4b832108660f9f69b49794a0d56a10b7d1c166f5918b82360175dc76e6fb2"
+  },
+  {
+    "file": "native-vm-boundary-x64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-boundary-x64.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "11f6833106f508b585bf033d4e4297716344587f503ac34e56c7e66a147c2357"
+  },
+  {
+    "file": "native-vm-boundary-x86.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-boundary-x86.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "a9a33d88a689e077eb6cab9599a5a41adc0779ec5e1728426dc60940db20fb96"
+  },
+  {
+    "file": "native-vm-query-arm64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-query-arm64.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "54580e9711b34480f6252f5e94fdd090d9abad9bf85a49413c0e0af222acbf4a"
+  },
+  {
+    "file": "native-vm-query-probe.cpp",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-query-probe.cpp",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "018be03d5948e1ce6baa20ee4d188734ccb1f67f52a537eed3b4c53f4b58d952"
+  },
+  {
+    "file": "native-vm-query-x64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-query-x64.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "dd9313890d48defed274103006ea7938457d22f4be7bad0f898868b3b3771c70"
+  },
+  {
+    "file": "native-vm-query-x86.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel experiment",
+    "title": "native-vm-query-x86.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "c329d66f51058b7b6229c64eac8fac09e90a02280c6e4ef7c654985ed9030071"
+  },
+  {
+    "file": "ntqueryvirtualmemory.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/ntifs/nf-ntifs-ntqueryvirtualmemory.md",
+    "title": "Microsoft NtQueryVirtualMemory",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "sha256": "e9b5270d0961a7ede9bf13c666d2aa5d80610c1943bc7891105da89c506399cb",
+    "license": "../native-events/microsoft-ddi-LICENSE"
+  },
+  {
+    "file": "oracle-check.log",
+    "source": "original repository-development verification",
+    "title": "oracle-check.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "3b2f830e8c8500cffb3d99eed485d5303cb5c903055612abf208cc4fb1bcd46f"
+  },
+  {
+    "file": "phnt-ntmmapi.h",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntmmapi.h",
+    "title": "Pinned PHNT NtQueryVirtualMemory layouts and declarations",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "sha256": "8acd89a95f890f929da824cc841383770a4f21f312bb04d0d12f03cb3a00e079",
+    "license": "../native-processor-features/phnt-LICENSE"
+  },
+  {
+    "file": "phnt-ntseapi.h",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntseapi.h",
+    "title": "Pinned PHNT signing-level service declarations",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "sha256": "7fa0a21902ed64036c495216fba85d0e29a1d3028fd60d09103993817d1473df",
+    "license": "../native-processor-features/phnt-LICENSE"
+  },
+  {
+    "file": "../native-processor-features/phnt-LICENSE",
+    "source": "retained corresponding source notice or previous loader frontier",
+    "title": "phnt-LICENSE",
+    "revision": "retained original",
+    "retrieved": "2026-10-10",
+    "sha256": "ad2ab542c56c606e4c19d66a7f3cdcd3ef83beffb638e7c3893b22c7a6a6c0df"
+  },
+  {
+    "file": "../native-events/microsoft-ddi-LICENSE",
+    "source": "retained corresponding source notice or previous loader frontier",
+    "title": "microsoft-ddi-LICENSE",
+    "revision": "retained original",
+    "retrieved": "2026-10-10",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "../native-events/microsoft-ddi-LICENSE-CODE",
+    "source": "retained corresponding source notice or previous loader frontier",
+    "title": "microsoft-ddi-LICENSE-CODE",
+    "revision": "retained original",
+    "retrieved": "2026-10-10",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "../native-nls-sections/native-ldr-nls-frontier-after.log",
+    "source": "retained corresponding source notice or previous loader frontier",
+    "title": "native-ldr-nls-frontier-after.log",
+    "revision": "retained original",
+    "retrieved": "2026-10-10",
+    "sha256": "0ae8fb37b055bebf4da799c40648f19ec925b4f04ef077dff5e474fc20811094"
+  },
+  {
+    "file": "native-ldr-query-frontier.rs",
+    "source": "original private current-owning-archive isolated loader diagnostic",
+    "title": "native-ldr-query-frontier.rs",
+    "revision": "current source; private cleared PEB.ProcessHeap saved-context entry",
+    "retrieved": "2026-10-10",
+    "sha256": "5274b25be8ab02c2f0a1b8e9f22e4fd9c5c3fcf7665dc0df66abf4d21c783a96"
+  },
+  {
+    "file": "native-ldr-query-frontier-after.log",
+    "source": "original private current-owning-archive isolated loader diagnostic",
+    "title": "native-ldr-query-frontier-after.log",
+    "revision": "current source; private cleared PEB.ProcessHeap saved-context entry",
+    "retrieved": "2026-10-10",
+    "sha256": "ac1594f4e9f1a78d739ea5736fde96f37f2cc71127fcbf132414328c24db310e"
+  }
+]

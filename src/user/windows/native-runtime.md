@@ -786,3 +786,81 @@ NT section/query/security/registry services, broader POSIX/process semantics and
 complete application/package coverage. Medium limits are private compatibility
 error bytes and arbitrary host update atomicity. Low-impact cross-process
 snapshot sharing remains unimplemented. Full process emulation remains active.
+
+## Guest virtual-memory queries (2026-10-10)
+
+NtQueryVirtualMemory metadata is appended without moving previous exports:
+six arguments `[Ptr, Ptr, I32, Ptr, Ptr, Ptr]`, including pointer-width SIZE_T
+length and return-length destination. Classes 0/6 report the authoritative
+guest VM's basic region or image base/size. Querying a guarded/noaccess target
+does not read it. Free class-6 addresses return STATUS_INVALID_ADDRESS;
+reserved/private/mapped allocations return a zero image record. Complete
+executable image mappings report UNCHECKED signing and no uncreated kernel
+CFG/SCP extension, partial-map or no-execute flag. Host trust is not inherited.
+The current-process pseudo-handle or typed current-process handles with either
+PROCESS_QUERY_INFORMATION or PROCESS_QUERY_LIMITED_INFORMATION are admitted;
+VM_READ alone is insufficient. Closed, wrong-type, denied and upper-bound
+addresses return explicit statuses. Other processes and other declared classes
+remain explicit unsupported frontiers. No host syscall or IDA operation runs.
+
+Native 64-bit entry checks class/minimum length/address limit, requires 8-byte
+output alignment, probes the complete supplied extent then optional SIZE_T
+destination, validates the process, writes the defined record and publishes
+length last. WoW64 first probes optional 4-byte return length; its fault consumes
+a guard and disables publication. It then validates/copies only the 28/12-byte
+converted record, accepts null/unaligned output and preserves kernel/output
+status on optional length faults. Shared output/length guards can therefore
+produce successful output with no length publication. Separate guards return
+the output guard status and consume both. An earlier first-output-guard
+assumption was falsified by independent byte captures; its abandoned test is
+retained as discarded evidence, not a regression claim. The actual shared-page
+regression fails on the pre-correction implementation and passes afterwards.
+
+[The retained profile and assumptions V1-V4](../../../docs/specifications/windows/native-virtual-memory/README.md)
+include three original programs, 1,245 queries across native ARM64 and
+compatibility x86/x64 on Windows 10.0.29683.1000, pinned PHNT declarations,
+Microsoft DDI/signing-level sources, raw CRLF output, an independent checker
+and two valid observed regressions. The checker validates matrix/fault/boundary/
+rights/priority/alias records and counts the other-class inventory. Physical
+Intel kernels, native 32-bit kernels and other Windows builds are unverified.
+Ten shared tests execute all guest ABIs on each host. The installed Windows
+test executes actual ARM64/x86 NTDLL leaves, normal return/stack cleanup,
+image/NLS/private semantics, optional/misaligned return length and shared guards.
+
+| Final source validation | Result and evidence |
+|---|---|
+| Complete macOS RAX library | 7,515 passed, 0 failed, 2 ignored, 0 filtered; `/tmp/assist-native-vm-query-final-full-macos.log` |
+| Complete Linux RAX library | 7,509 passed, 0 failed, 2 ignored, 0 filtered; `/tmp/assist-native-root-cpp-linux/native-vm-query-final-full.log` |
+| Complete Windows RAX library | 6,895 passed, 5 failed, 2 ignored, 0 filtered; `/tmp/assist-native-windows-29683/native-vm-query-final-full.log` |
+| Complete C API | 168 passed, no failures/ignored/filtered on every OS; corresponding final C API logs |
+| Registered user_windows integration | 544 passed on macOS/Linux; Windows selects 0 because cfg(unix), explicitly excluded as native coverage |
+| Registered user_windows_memory | 4 passed on native Windows; macOS/Linux select 0 because cfg(windows), explicitly excluded as memory runtime coverage |
+| Current locked owning Assist archives | RAX rebuilt on all three; five production C++ adapter/factory/ABI/archive-link checks pass; final build/CTest/CPP logs |
+| Installed NTDLL query leaves | Native Windows test passes with ARM64/x86 actual selected DLLs, including shared guards |
+| Ordinary native Windows startup | Four controlled programs still return STATUS_ACCESS_VIOLATION; final archive-output log |
+
+The final complete library binaries select 7,517/7,511/6,902 tests on
+macOS/Linux/Windows without filters. Windows retains the same four BZHI
+assertions and host-unavailable FP16 case; no lowerer/assertion was changed.
+An earlier source run had the two Linux multishot/remove timeout failures;
+later absence is not remediation and their cause remains unresolved. The
+previous NLS register's readiness and exec/fork timer failures remain historical
+unresolved evidence. Intermediate suite passes do not validate the subsequent
+WoW64 correction. The original boundary transfer had Parallels result retrieval
+exit255 and is excluded; complete original source/log captures were obtained
+by rerunning the unchanged experiment. Formats/source hashes and reference
+hashes are checked separately. No stable C ABI/layout/dependency/lock/default,
+discovery/schema/permission/packaging/ISA/SMIR/JIT change is included.
+
+The final owning-archive isolated loader trace passes NtQueryVirtualMemory
+class6 at slice2412, service0x23, PC0x180001240, returning base0x180000000,
+size0x473000 (4,665,344 bytes) and guest flags0. It then reaches class4 at
+slice2778, same service/PC, arguments
+`[-1, 0, 4, 0xABF530, 80, 0]`. The 366-slice difference is scheduler calls,
+not proven retired instructions. The diagnostic still clears PEB.ProcessHeap
+and enters LdrInitializeThunk with saved context; production loader/RTL heap/
+CRT entry is incomplete. Broader NT services, guest CFG/SCP/integrity,
+POSIX/process coverage and native application/package/IDA matrices remain
+high-impact blocking work for the overall goal. Medium limits are undefined
+WoW64 error length bytes, unresolved suite failures and other-build fidelity;
+additional private query classes are a low-impact diagnostic opportunity.
