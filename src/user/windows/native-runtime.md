@@ -52,8 +52,10 @@ consumes its caller return and arguments. Unknown/hooked/partial encodings and
 unimplemented NT operations stop explicitly. The adapter executes no host NT
 syscall for guest requests.
 
-Supported kernel operations remain the existing checked NtClose, memory
-allocation/free/protection, context continuation and forced termination APIs.
+Supported kernel operations include checked NtClose, memory allocation/free/
+protection, context continuation, forced termination and the installed startup
+range query (`NtQuerySystemInformation`, class 50). Other system-query classes
+remain explicit unsupported operations.
 WoW64's alternate conditional encodings, native RTL heap/bootstrap requirements,
 the broader NT object/file/section/query surface and ordinary Win32/CRT startup
 remain incomplete. Native-subsystem images load NTDLL without inventing the
@@ -120,7 +122,93 @@ All three full binaries ran without filters. The generic malformed-extent,
 duplicate-identity and importer-alias tests pass on each host. A passing native
 loader comparison does not make the Linux or Windows full suites green.
 
+## Installed startup range query
+
+Class 50 of `NtQuerySystemInformation` returns the process profile's range-start
+pointer. The installed ARM64 startup calls it with X0 = 0x32, X2 = 8. No guest
+request invokes the host kernel; the shared checked handler supplies the guest
+profile value. The export is appended to the existing synthetic NTDLL table,
+retaining previous export/trap-slot indices. Native entry still uses the number
+decoded from the selected installed stub, never a hard-coded service number.
+Other classes produce an explicit unsupported diagnostic, including the class.
+
+The private class layout and following behaviors were measured on Windows
+10.0.29683.1000 through native ARM64, x64 and x86 processes. The x64 and x86
+probes run through that ARM64 Windows installation's compatibility adapters;
+they do not establish x64-kernel or physical x86-kernel behavior. Public
+Microsoft documentation establishes the four-argument query API, optional
+32-bit ReturnLength and NTSTATUS result, not class 50's private structure.
+
+| Guest profile | Exact output bytes | Returned value | Output alignment | Error ReturnLength | Invalid ReturnLength ordering |
+|---|---|---|---|---|---|
+| ARM64 / x64 | 8 | 0xFFFF800000000000 | 4-byte alignment; +4 succeeds, +1 fails with STATUS_DATATYPE_MISALIGNMENT | 8 on wrong length | Probe before output write; output remains unchanged |
+| x86 WoW64 | 4 | Guest user-address limit: 0x7FFF0000 normally, 0xFFFF0000 for a large-address-aware PE | Unaligned output accepted | 0xFFFFFFFC on wrong length or null output | Converted output is written before ReturnLength faults |
+
+Lengths smaller or larger than the exact width return
+`STATUS_INFO_LENGTH_MISMATCH`; they do not silently truncate or accept extra
+bytes. Native 64-bit entry probes nonempty output spans before length dispatch,
+so inaccessible oversized spans return `STATUS_ACCESS_VIOLATION` first. Its
+ReturnLength pointer accepts unaligned storage. Null ReturnLength is allowed.
+Native 64-bit null output with exact width faults without writing ReturnLength;
+x86 WoW64 null output returns `STATUS_INVALID_PARAMETER` and writes the recorded
+error ReturnLength. Unmapped/read-only destinations use checked guest writes;
+no output fault dispatches an HLE guest exception or consumes a caller return
+address.
+The actual installed RET/RET imm16 performs the final caller cleanup. Armed
+output/ReturnLength guards are cleared once and return
+`STATUS_GUARD_PAGE_VIOLATION`; retry succeeds after the guard clears. Native
+ARM64 leaves both destinations unchanged on either guard. Native x86 publishes
+its converted output before a ReturnLength guard, matching its write order.
+These cases were measured directly and are covered by shared ABI tests. A native
+x86 `/LARGEADDRESSAWARE` probe returns 0xFFFF0000, while the ordinary image
+returns 0x7FFF0000. The shared handler reads `VirtualMemory::high()` for x86;
+it does not reuse a fixed normal-image constant for large-address-aware images.
+
+The 64-bit adapter probes at most ceil(L / 4096) + 1 pages for a requested
+L-byte output, stopping at the first fault, with L <= 4,294,967,295 bytes.
+The upper bound is 1,048,577 page checks, plus at most two checks for the
+4-byte ReturnLength. No allocation scales with L: auxiliary space is O(1).
+The x86 conversion and successful fixed-size output use O(1) work/storage,
+excluding address-space lookup and backing-page population costs.
+
+| ID | Assumption | Basis | Dependent behavior | Stress test / falsification probe | Status |
+|---|---|---|---|---|---|
+| Q1 | The selected installed startup requests the private range query with one pointer-sized output. | Captured ARM64 class 0x32/8-byte arguments and native NtQuerySystemInformation outputs. | DLL initialization proceeds beyond its first kernel query. | Capture another startup class; compare installed NTDLL leaf and native query on a different Windows build. | Confirmed on Windows 10.0.29683.1000; broader builds unverified |
+| Q2 | The guest's modern Windows profile uses the recorded 64-bit range and WoW64 conversion behavior, with x86 range selected by the PE large-address-aware flag. | Native ARM64/x64/x86 query probes, exact-length/alignment/fault-order measurements; existing x86 adapter models WoW64. | Shared class-50 ABI, including 32-bit partial publication and error ReturnLength. | Different version/kernel architecture, large-address-aware x86 image, overlapping outputs and read-only destinations. | Revised after the large-address-aware probe falsified a fixed x86 value; both PE flag states now use the owning guest address-space limit. Physical x86 and x64 Windows kernels unverified |
+| Q3 | Unimplemented system-query classes must remain distinguishable from completed queries. | Checked dispatch handles only class 50. | Caller diagnostics and bounded capability claims. | Classes 0, 1 and 0xFFFFFFFF, invalid buffers and unknown admitted service numbers. | Generic tests require explicit class-bearing failure with no fabricated successful output |
+
+High, still blocking ordinary startup: additional system/process queries, native
+RTL heap/bootstrap and the wider NT surface remain incomplete. All four tested
+Win32 images now pass the range query and stop explicitly at class 0, requesting
+64 bytes for SystemBasicInformation. Medium: native
+query behavior is version/build-specific private evidence; guard handling for
+other NT services remains outside this query implementation.
+The existing default DLL profile, host access grant, C ABI and all three host
+OS source memberships remain unchanged except for this appended NT query.
+
+### Final range-query validation
+
+| Gate | Result | Evidence |
+|---|---|---|
+| macOS full RAX library binary | 7,455 passed; 0 failed; 2 ignored; 0 filtered | `/tmp/assist-native-query-laa-final-full-macos.log` |
+| Linux full RAX library binary | 7,448 passed; 1 failed; 2 ignored; 0 filtered | `/tmp/assist-native-query-laa-final-full-linux.log`; previously observed `a_multishot_timeout_reports_each_expiry` fails |
+| Windows ARM64 full RAX library binary | 6,826 passed; 5 failed; 2 ignored; 0 filtered | `/tmp/assist-native-windows-29683/native-query-laa-final-full.log`; same four BZHI lowering assertions and FP16 host-feature failure |
+| Native query boundary probes | ARM64/x64/x86 exact width, alignment, optional and invalid destinations; ARM64/x86 one-shot guards; x86 normal/LAA ranges measured | `/tmp/assist-native-windows-29683/native-query-{pointer-*,guard-*,laa}.log` |
+| Current macOS / Linux complete C API packages | 168 passed; 0 failed; 0 ignored; 0 filtered each | `/tmp/assist-native-query-laa-final-capi-{macos,linux}.log` |
+| Current Windows complete C API package | 168 passed; 0 failed; 0 ignored; 0 filtered | `/tmp/assist-native-windows-29683/native-query-laa-final-capi.log` |
+| Current macOS / Linux shipping archive linkage | macOS 5/5 Assist CTests pass; Linux API 1.11.0 ABI and one-archive link checks pass | `/tmp/assist-native-query-laa-root-macos-ctest.log`; `/tmp/assist-native-query-laa-root-linux-link.log` |
+
+These full binaries include the final guard and large-address-aware correction.
+Earlier fixed-x86-range builds are not the final validation. All six shared
+query tests and the Windows installed-leaf test pass. The Linux and Windows
+full suites remain failing; current passing C API/link checks do not erase them.
+The selected query is identical on each host OS and reads/writes only the guest
+address space. Its Windows-native probes and selected-leaf execution establish
+private ABI behavior within the recorded installation, not another kernel build.
+
 Primary API contracts:
+[NtQuerySystemInformation](https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation),
+[Creating guard pages](https://learn.microsoft.com/windows/win32/memory/creating-guard-pages),
 [Windows API sets](https://learn.microsoft.com/windows/win32/apiindex/windows-apisets),
 [LoadLibraryExW](https://learn.microsoft.com/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryexw),
 [GetSystemDirectoryW](https://learn.microsoft.com/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemdirectoryw),

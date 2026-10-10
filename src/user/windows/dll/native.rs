@@ -4,6 +4,8 @@ use super::super::hle::{ApiResult, Archs, Arg::*, Conv::Stdcall, Ctx, Export, Fl
 use super::super::memory::Mem;
 use super::super::nt::status::*;
 
+mod query;
+
 pub(super) static EXPORTS: &[Export] = &[
     Export::func("RtlNtStatusToDosError", Stdcall, &[I32], status_error),
     Export::func(
@@ -36,6 +38,12 @@ pub(super) static EXPORTS: &[Export] = &[
         crate::user::windows::seh::x86::rtl_unwind,
     )
     .only(Archs::X86),
+    Export::func(
+        "NtQuerySystemInformation",
+        Stdcall,
+        &[I32, Ptr, I32, Ptr],
+        query::system_information,
+    ),
 ];
 fn status_error(c: &mut Ctx) -> ApiResult {
     Flow::ret(u64::from(super::super::nt::status_to_error(c.u32(0)?)))

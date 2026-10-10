@@ -366,3 +366,414 @@ fn native_closed_spawn_selects_installed_ntdll_and_guest_api_set_map() {
         RunStatus::Complete(super::super::super::ExitStatus::Exited(73))
     );
 }
+
+fn query_arguments(p: &mut Proc, t: &mut Thread, class: u32, out: u64, len: u32, ret: u64) {
+    let sp = t.cpu.sp();
+    t.cpu.set_pc(0x1234_0004);
+    match p.arch {
+        WinArch::X86 => {
+            for (index, value) in [
+                0x1234_0004,
+                0x1234_0000,
+                u64::from(class),
+                out,
+                u64::from(len),
+                ret,
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                p.space.w32(sp + index as u64 * 4, value as u32).unwrap();
+            }
+            t.cpu.set_gpr(0, 0x36);
+        }
+        WinArch::X64 => {
+            t.cpu.set_gpr(0, 0x36);
+            t.cpu.set_gpr(10, u64::from(class));
+            t.cpu.set_gpr(1, 0x1234_0004);
+            t.cpu.set_gpr(2, out);
+            t.cpu.set_gpr(8, u64::from(len));
+            t.cpu.set_gpr(9, ret);
+        }
+        WinArch::Arm64 => {
+            for (index, value) in [u64::from(class), out, u64::from(len), ret]
+                .into_iter()
+                .enumerate()
+            {
+                t.cpu.set_gpr(index, value);
+            }
+        }
+    }
+}
+
+fn dispatch_query(p: &mut Proc, t: &mut Thread) -> Outcome {
+    if p.arch == WinArch::X86 {
+        super::super::super::services::wow64(p, t, 0x1234_0000)
+    } else {
+        handle_stop(p, t, stop(p.arch, 0x36))
+    }
+}
+
+fn query_fixture(arch: WinArch) -> (super::super::super::WindowsProcess, Thread, u64) {
+    let (mut process, t) = fixture(arch, "NtQuerySystemInformation", 0x36);
+    let p = process.state_mut();
+    let scratch =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    p.space.wr(scratch, &[0xA5; 64]).unwrap();
+    (process, t, scratch)
+}
+
+#[test]
+fn native_range_query_preserves_width_alignment_optional_length_and_kernel_resume_all_abis() {
+    for arch in WinArch::ALL {
+        for offset in [0, 1, 4] {
+            for returned_offset in [None, Some(32), Some(33)] {
+                let (mut process, mut t, scratch) = query_fixture(arch);
+                let p = process.state_mut();
+                let sp = t.cpu.sp();
+                let output = scratch + offset;
+                let returned = returned_offset.map_or(0, |offset| scratch + offset);
+                query_arguments(p, &mut t, 50, output, arch.ptr_size() as u32, returned);
+                assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+                let misaligned = arch != WinArch::X86 && offset == 1;
+                let expected_status = if misaligned {
+                    STATUS_DATATYPE_MISALIGNMENT
+                } else {
+                    STATUS_SUCCESS
+                };
+                assert_eq!(
+                    t.cpu.gpr(0),
+                    u64::from(expected_status),
+                    "{arch}/{offset}/{returned_offset:?}"
+                );
+                assert_eq!(t.cpu.pc(), 0x1234_0004);
+                assert_eq!(t.cpu.sp(), sp + if arch == WinArch::X86 { 4 } else { 0 });
+                assert!(t.frames.is_empty());
+                let mut expected = [0xA5; 64];
+                if !misaligned {
+                    let range: u64 = if arch == WinArch::X86 {
+                        0x7FFF_0000
+                    } else {
+                        0xFFFF_8000_0000_0000
+                    };
+                    expected[offset as usize..(offset + arch.ptr_size()) as usize]
+                        .copy_from_slice(&range.to_le_bytes()[..arch.ptr_size() as usize]);
+                    if let Some(offset) = returned_offset {
+                        expected[offset as usize..offset as usize + 4]
+                            .copy_from_slice(&(arch.ptr_size() as u32).to_le_bytes());
+                    }
+                }
+                assert_eq!(p.space.bytes(scratch, 64).unwrap(), expected);
+            }
+        }
+    }
+}
+
+#[test]
+fn native_range_query_length_errors_and_unknown_classes_do_not_publish_output_all_abis() {
+    for arch in WinArch::ALL {
+        for length in [0, arch.ptr_size() as u32 - 1, arch.ptr_size() as u32 + 1] {
+            let (mut process, mut t, scratch) = query_fixture(arch);
+            let p = process.state_mut();
+            query_arguments(p, &mut t, 50, scratch, length, scratch + 32);
+            assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.gpr(0), u64::from(STATUS_INFO_LENGTH_MISMATCH));
+            assert_eq!(p.space.bytes(scratch, 16).unwrap(), [0xA5; 16]);
+            assert_eq!(
+                p.space.u32(scratch + 32).unwrap(),
+                if arch == WinArch::X86 { 0xFFFF_FFFC } else { 8 }
+            );
+            assert_eq!(p.space.bytes(scratch + 36, 28).unwrap(), [0xA5; 28]);
+        }
+        for class in [0, 1, u32::MAX] {
+            let (mut process, mut t, scratch) = query_fixture(arch);
+            let p = process.state_mut();
+            query_arguments(
+                p,
+                &mut t,
+                class,
+                scratch,
+                arch.ptr_size() as u32,
+                scratch + 32,
+            );
+            assert!(matches!(dispatch_query(p, &mut t), Outcome::Fail(reason)
+                if reason.contains(&format!("NtQuerySystemInformation class {class}"))));
+            assert_eq!(p.space.bytes(scratch, 64).unwrap(), [0xA5; 64]);
+        }
+    }
+}
+
+#[test]
+fn native_range_query_fault_order_and_wow64_partial_publication_match_observed_abi() {
+    for arch in WinArch::ALL {
+        for (out_bad, ret_bad) in [(true, false), (false, true)] {
+            let (mut process, mut t, scratch) = query_fixture(arch);
+            let p = process.state_mut();
+            let output = if out_bad { 0xDEAD_0000 } else { scratch };
+            let returned = if ret_bad { 0xDEAD_0000 } else { scratch + 32 };
+            query_arguments(p, &mut t, 50, output, arch.ptr_size() as u32, returned);
+            assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.gpr(0), u64::from(STATUS_ACCESS_VIOLATION));
+            let mut expected = [0xA5; 64];
+            if arch == WinArch::X86 && ret_bad {
+                expected[..4].copy_from_slice(&0x7FFF_0000u32.to_le_bytes());
+            }
+            assert_eq!(p.space.bytes(scratch, 64).unwrap(), expected);
+        }
+        let (mut process, mut t, scratch) = query_fixture(arch);
+        let p = process.state_mut();
+        query_arguments(p, &mut t, 50, 0, arch.ptr_size() as u32, scratch + 32);
+        assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+        assert_eq!(
+            t.cpu.gpr(0),
+            u64::from(if arch == WinArch::X86 {
+                STATUS_INVALID_PARAMETER
+            } else {
+                STATUS_ACCESS_VIOLATION
+            })
+        );
+        assert_eq!(
+            p.space.u32(scratch + 32).unwrap(),
+            if arch == WinArch::X86 {
+                0xFFFF_FFFC
+            } else {
+                0xA5A5_A5A5
+            }
+        );
+
+        let (mut process, mut t, scratch) = query_fixture(arch);
+        let p = process.state_mut();
+        query_arguments(p, &mut t, 50, scratch, u32::MAX, scratch + 32);
+        assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+        assert_eq!(
+            t.cpu.gpr(0),
+            u64::from(if arch == WinArch::X86 {
+                STATUS_INFO_LENGTH_MISMATCH
+            } else {
+                STATUS_ACCESS_VIOLATION
+            })
+        );
+        assert_eq!(p.space.bytes(scratch, 16).unwrap(), [0xA5; 16]);
+    }
+}
+
+#[test]
+fn native_range_query_checks_write_permissions_and_orders_overlapping_outputs_all_abis() {
+    for arch in WinArch::ALL {
+        for readonly_output in [false, true] {
+            let (mut process, mut t, scratch) = query_fixture(arch);
+            let p = process.state_mut();
+            let returned =
+                p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                    .unwrap()
+                    .0;
+            p.space.w32(returned, 0xA5A5_A5A5).unwrap();
+            p.vm.protect(
+                if readonly_output { scratch } else { returned },
+                PAGE_SIZE,
+                prot::READONLY,
+            )
+            .unwrap();
+            query_arguments(p, &mut t, 50, scratch, arch.ptr_size() as u32, returned);
+            assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.gpr(0), u64::from(STATUS_ACCESS_VIOLATION));
+            let mut expected = [0xA5; 16];
+            if arch == WinArch::X86 && !readonly_output {
+                expected[..4].copy_from_slice(&0x7FFF_0000u32.to_le_bytes());
+            }
+            assert_eq!(p.space.bytes(scratch, 16).unwrap(), expected);
+            assert_eq!(p.space.u32(returned).unwrap(), 0xA5A5_A5A5);
+        }
+        for offset in [0, 4] {
+            let (mut process, mut t, scratch) = query_fixture(arch);
+            let p = process.state_mut();
+            query_arguments(
+                p,
+                &mut t,
+                50,
+                scratch,
+                arch.ptr_size() as u32,
+                scratch + offset,
+            );
+            assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.gpr(0), 0);
+            let mut expected = [0xA5; 16];
+            let range: u64 = if arch == WinArch::X86 {
+                0x7FFF_0000
+            } else {
+                0xFFFF_8000_0000_0000
+            };
+            expected[..arch.ptr_size() as usize]
+                .copy_from_slice(&range.to_le_bytes()[..arch.ptr_size() as usize]);
+            expected[offset as usize..offset as usize + 4]
+                .copy_from_slice(&(arch.ptr_size() as u32).to_le_bytes());
+            assert_eq!(p.space.bytes(scratch, 16).unwrap(), expected);
+        }
+    }
+}
+
+#[test]
+fn native_range_query_guard_destinations_are_disarmed_once_without_guest_exception_all_abis() {
+    for arch in WinArch::ALL {
+        for guard_output in [false, true] {
+            let (mut process, mut t, scratch) = query_fixture(arch);
+            let p = process.state_mut();
+            let returned =
+                p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                    .unwrap()
+                    .0;
+            p.space.w32(returned, 0xA5A5_A5A5).unwrap();
+            let guarded = if guard_output { scratch } else { returned };
+            p.vm.protect(guarded, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+                .unwrap();
+            let sp = t.cpu.sp();
+            query_arguments(p, &mut t, 50, scratch, arch.ptr_size() as u32, returned);
+            assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.gpr(0), u64::from(STATUS_GUARD_PAGE_VIOLATION));
+            assert_eq!(p.vm.query(guarded).unwrap().protect, prot::READWRITE);
+            assert!(!p.vm.take_guard(guarded));
+            assert!(t.frames.is_empty());
+            let mut expected = [0xA5; 16];
+            if arch == WinArch::X86 && !guard_output {
+                expected[..4].copy_from_slice(&0x7FFF_0000u32.to_le_bytes());
+            }
+            assert_eq!(p.space.bytes(scratch, 16).unwrap(), expected);
+            assert_eq!(p.space.u32(returned).unwrap(), 0xA5A5_A5A5);
+            t.cpu.set_sp(sp);
+            query_arguments(p, &mut t, 50, scratch, arch.ptr_size() as u32, returned);
+            assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.gpr(0), 0);
+            assert_eq!(p.space.u32(returned).unwrap(), arch.ptr_size() as u32);
+            assert!(t.frames.is_empty());
+        }
+    }
+}
+
+#[test]
+fn wow64_range_query_tracks_the_executable_large_address_aware_flag() {
+    use crate::user::image::pe::IMAGE_FILE_LARGE_ADDRESS_AWARE;
+    for large in [false, true] {
+        let mut image =
+            include_bytes!("../../../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
+                .to_vec();
+        let pe = u32::from_le_bytes(image[0x3c..0x40].try_into().unwrap()) as usize;
+        let mut flags = u16::from_le_bytes(image[pe + 22..pe + 24].try_into().unwrap());
+        if large {
+            flags |= IMAGE_FILE_LARGE_ADDRESS_AWARE;
+        } else {
+            flags &= !IMAGE_FILE_LARGE_ADDRESS_AWARE;
+        }
+        image[pe + 22..pe + 24].copy_from_slice(&flags.to_le_bytes());
+        let mut config = WindowsConfig::embedded("C:\\app\\range.exe", vec![], vec![], 0).unwrap();
+        config.arena_bytes = 64 << 20;
+        let mut process = super::super::super::WindowsProcess::spawn_image(config, image).unwrap();
+        let p = process.state_mut();
+        let module = p.modules.by_name("ntdll.dll").unwrap();
+        p.modules.nt_services = Some((
+            module,
+            table(WinArch::X86, "NtQuerySystemInformation", 0x36),
+        ));
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let output = t.cpu.sp() - 64;
+        query_arguments(p, &mut t, 50, output, 4, output + 16);
+        assert_eq!(dispatch_query(p, &mut t), Outcome::Continue);
+        assert_eq!(t.cpu.gpr(0), 0);
+        let expected = if large { 0xFFFF_0000 } else { 0x7FFF_0000 };
+        assert_eq!(p.vm.high(), expected);
+        assert_eq!(p.space.u32(output).unwrap(), expected as u32);
+        assert_eq!(p.space.u32(output + 16).unwrap(), 4);
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn installed_native_range_query_executes_the_selected_leaf_and_actual_return() {
+    use crate::user::windows::{
+        loader::{self, SymRef},
+        native::NativeRuntime,
+    };
+    let host_arch = if cfg!(target_arch = "aarch64") {
+        WinArch::Arm64
+    } else if cfg!(target_arch = "x86_64") {
+        WinArch::X64
+    } else {
+        WinArch::X86
+    };
+    let mut arches = vec![host_arch];
+    if host_arch != WinArch::X86 {
+        arches.push(WinArch::X86);
+    }
+    for arch in arches {
+        let runtime = NativeRuntime::select(arch).unwrap();
+        let bytes = std::fs::read(runtime.dll("ntdll.dll").unwrap().unwrap()).unwrap();
+        let (mut process, mut t, _) = terminal_fixture(arch);
+        let p = process.state_mut();
+        let mut config = (*p.cfg).clone();
+        config.host_filesystem = false;
+        config
+            .supplied_dlls
+            .insert("c:\\selected\\ntdll.dll".into(), bytes.into());
+        p.cfg = Arc::new(config);
+        let module = loader::load_dll(p, "C:\\selected\\ntdll.dll").unwrap();
+        let entry = loader::lookup(
+            p,
+            module,
+            &SymRef::Name(b"NtQuerySystemInformation".to_vec(), None),
+        )
+        .unwrap()
+        .unwrap();
+        let sp = t.cpu.sp();
+        let output = sp - 64;
+        let returned = output + 16;
+        let resume = p.traps.callback_return();
+        match arch {
+            WinArch::X86 => {
+                for (index, value) in [resume, 50, output, 4, returned].into_iter().enumerate() {
+                    p.space.w32(sp + index as u64 * 4, value as u32).unwrap();
+                }
+            }
+            WinArch::X64 => {
+                p.space.w64(sp, resume).unwrap();
+                for (register, value) in [(1, 50), (2, output), (8, 8), (9, returned)] {
+                    t.cpu.set_gpr(register, value);
+                }
+            }
+            WinArch::Arm64 => {
+                for (register, value) in [(0, 50), (1, output), (2, 8), (3, returned), (30, resume)]
+                {
+                    t.cpu.set_gpr(register, value);
+                }
+            }
+        }
+        p.space.wr(output, &[0xA5; 32]).unwrap();
+        t.cpu.set_pc(entry);
+        let boundary = t.cpu.run(64);
+        let outcome = handle_stop(p, &mut t, boundary);
+        assert_eq!(outcome, Outcome::Continue, "{arch}");
+        assert_eq!(t.cpu.gpr(0), 0);
+        assert_eq!(
+            p.space.ptr(output, arch.ptr_size()).unwrap(),
+            if arch == WinArch::X86 {
+                0x7FFF_0000
+            } else {
+                0xFFFF_8000_0000_0000
+            }
+        );
+        assert_eq!(p.space.u32(returned).unwrap(), arch.ptr_size() as u32);
+        // Kernel dispatch resumes the installed DLL's own RET/RET imm16.
+        t.cpu.run(8);
+        assert_eq!(t.cpu.pc(), resume);
+        assert_eq!(
+            t.cpu.sp(),
+            sp + match arch {
+                WinArch::X86 => 20,
+                WinArch::X64 => 8,
+                WinArch::Arm64 => 0,
+            }
+        );
+        assert!(t.frames.is_empty());
+    }
+}
