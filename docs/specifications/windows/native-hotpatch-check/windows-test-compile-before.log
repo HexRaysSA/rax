@@ -1,0 +1,50 @@
+warning: "stdcall" is not a supported ABI for the current target
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\src)
+error[E0382]: borrow of moved value: `boundary`
+   --> src\user\windows\process\sched\tests\services_tests\hotpatch_tests.rs:434:52
+    |
+424 |             let boundary = t.cpu.run(64);
+    |                 -------- move occurs because `boundary` has type `user::windows::arch::CpuStop`, which does not implement the `Copy` trait
+...
+431 |                     handle_stop(p, &mut t, boundary),
+    |                                            -------- value moved here
+...
+434 |                 "{arch} NtManageHotPatch PC={:#x} {boundary:?}",
+    |                                                    ^^^^^^^^ value borrowed here after move
+    |
+note: consider changing this parameter type in function `handle_stop` to borrow instead if owning the value isn't necessary
+   --> src\user\windows\process\sched.rs:655:52
+    |
+655 | fn handle_stop(p: &mut Proc, t: &mut Thread, stop: CpuStop) -> Outcome {
+    |    ----------- in this function                    ^^^^^^^ this parameter takes ownership of the value
+note: if `user::windows::arch::CpuStop` implemented `Clone`, you could clone the value
+   --> src\user\windows\arch.rs:131:1
+    |
+131 | pub enum CpuStop {
+    | ^^^^^^^^^^^^^^^^ consider implementing `Clone` for this type
+    |
+   ::: src\user\windows\process\sched\tests\services_tests\hotpatch_tests.rs:431:44
+    |
+431 |                     handle_stop(p, &mut t, boundary),
+    |                                            -------- you could clone this value
+
+For more information about this error, try `rustc --explain E0382`.
+error: could not compile `rax` (lib test) due to 1 previous error
+

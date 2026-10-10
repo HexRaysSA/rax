@@ -10,6 +10,9 @@ mod processor_feature_tests;
 #[path = "services_tests/event_tests.rs"]
 mod event_tests;
 
+#[path = "services_tests/hotpatch_tests.rs"]
+mod hotpatch_tests;
+
 fn fixture(
     arch: WinArch,
     name: &str,

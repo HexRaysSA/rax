@@ -5,6 +5,7 @@ use super::super::memory::Mem;
 use super::super::nt::status::*;
 
 mod events;
+mod hotpatch;
 mod process_query;
 mod query;
 
@@ -60,6 +61,12 @@ pub(super) static EXPORTS: &[Export] = &[
     ),
     Export::func("NtSetEvent", Stdcall, &[Ptr, Ptr], events::set),
     Export::func("NtResetEvent", Stdcall, &[Ptr, Ptr], events::reset),
+    Export::func(
+        "NtManageHotPatch",
+        Stdcall,
+        &[I32, Ptr, I32, Ptr],
+        hotpatch::manage,
+    ),
 ];
 fn status_error(c: &mut Ctx) -> ApiResult {
     Flow::ret(u64::from(super::super::nt::status_to_error(c.u32(0)?)))

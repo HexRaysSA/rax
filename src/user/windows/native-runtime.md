@@ -557,3 +557,46 @@ high/medium findings are reconciled in the linked record. Shared event code
 compiles and runs in all three host OS configurations; Linux/Mach-O process
 policy, ISA/SMIR/JIT implementations, dependency/default/lock/package wiring
 and public C ABI remain unchanged.
+
+
+## Native hotpatch availability and registry frontier (2026-10-10)
+
+The [hotpatch query record](../../../docs/specifications/windows/native-hotpatch-check/README.md)
+retains the pinned private phnt declaration/license by reference, 669 native
+class-9 queries across ARM64/x86/x64, three observed red-green regressions,
+and exact isolated loader before/after/extended traces. `NtManageHotPatch`
+class 9 now reports the guest's unavailable patch capability, with native64
+mandatory 4-byte ReturnLength publication and WoW64 length/capture/copy-back
+semantics. WoW64 copies captured information back even after a kernel error;
+a copy-back fault supersedes kernel status after kernel guard consumption.
+Aliases and partial output preserve that sequence. Synthetic imports return
+NT fault statuses rather than entering guest SEH. Other hotpatch classes
+remain explicit unsupported results; no host patch operation is issued.
+
+| Validation surface | Final result | Evidence |
+|---|---|---|
+| Shared query behavior | Five tests pass on every host configuration; installed ARM64/x86 NTDLL query leaf passes on Windows | Full logs below; `regressions-after.log` in linked record |
+| macOS complete library | 7,483 passed, 0 failed, 2 ignored, 0 filtered | `/tmp/assist-native-hotpatch-full-macos.log` |
+| Linux complete library | 7,477 passed, 0 failed, 2 ignored, 0 filtered; earlier 1 known multishot timeout failure retained | `/tmp/assist-native-root-cpp-linux/native-hotpatch-full.log`, `first-native-hotpatch-full.log` |
+| Windows complete library | 6,858 passed, same 5 BZHI/FP16 failures, 2 ignored, 0 filtered | `/tmp/assist-native-windows-29683/native-hotpatch-complete-full.log` |
+| Complete C API package | 168 passed on each OS | Current hotpatch C API logs specified in linked record |
+| Current Assist archives | macOS five CTests; Linux tool184 / adapter162 / disabled / ABI2/2 / archive; Windows tool182 / adapter162 / disabled / ABI2/2 / archive all pass | Current hotpatch build/C++ logs in linked record |
+
+The first Windows library attempt had an owned test compilation error, now
+corrected and retained in the record; no test pass is attributed to that attempt.
+The final Linux pass does not remediate its earlier timeout race. Public C ABI
+1.11.0, Assist interfaces, ISA/SMIR/JIT implementations, dependencies, defaults,
+locks and package wiring remain unchanged.
+
+The explicit isolated trace observes `STATUS_NOT_SUPPORTED` and ReturnLength
+0 at hotpatch slice 160, with Version 1 / Flags 0 unchanged. The earlier
+Version-0 working assumption was falsified by that buffer capture. The loader
+then reaches unimplemented `NtOpenKey` service `0x12`, PC `0x180001130`,
+at slice 709, requesting the NLS CodePage registry key. These are zero-based
+one-instruction-budget run-slice indices; 709 - 160 = 549 slice calls.
+The diagnostic still clears guest PEB.ProcessHeap and supplies the modeled
+initial context; production bootstrap/RTL heap integration is unchanged.
+All four ordinary installed-DLL startups still fault. Assumptions P1-P5 and
+high/medium limits are reconciled in the linked record. Full native startup,
+NT registry/security/namespaces, full POSIX process behavior and the required
+application/package matrix remain incomplete; the full goal remains active.
