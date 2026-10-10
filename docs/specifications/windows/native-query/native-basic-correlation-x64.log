@@ -1,0 +1,23 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+native-basic-correlation-probe.cpp
+width=8 page=4096 min=0000000000010000 max=00007FFFFFFEFFFF affinity=FF processors=8 granularity=65536 ram=85892726784 timer-min=156250 timer-max=5000 timer-current=156250
+000000005a62020000100000b0f93f0100000400ffff430100000100000000000000010000000000fffffeffff7f0000ff000000000000000800000000000000
+prefix=0 status=C0000005 ret=A5A5A5A5 bytes=
+prefix=1 status=80000002 ret=A5A5A5A5 bytes=a5
+prefix=3 status=80000002 ret=A5A5A5A5 bytes=a5a5a5
+prefix=4 status=C0000005 ret=A5A5A5A5 bytes=a5a5a5a5
+prefix=7 status=80000002 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5
+prefix=8 status=C0000005 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5
+prefix=16 status=C0000005 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+prefix=20 status=C0000005 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+prefix=24 status=C0000005 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+prefix=28 status=C0000005 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+prefix=32 status=C0000005 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+prefix=36 status=C0000005 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+prefix=40 status=C0000005 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+prefix=41 status=80000002 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+prefix=42 status=80000002 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+prefix=43 status=80000002 ret=A5A5A5A5 bytes=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5

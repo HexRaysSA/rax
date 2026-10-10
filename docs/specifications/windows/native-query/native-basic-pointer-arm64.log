@@ -1,0 +1,19 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+native-basic-pointer-probe.cpp
+exact width=64 status=00000000 out=000000005a62020000100000b0f93f01 ret=40000000a5a5a5a5
+short width=64 status=C0000004 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=40000000a5a5a5a5
+long width=64 status=C0000004 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=40000000a5a5a5a5
+nulloutput width=64 status=C0000005 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=a5a5a5a5a5a5a5a5
+badoutput width=64 status=80000002 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=a5a5a5a5a5a5a5a5
+unaligned-short width=64 status=80000002 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=a5a5a5a5a5a5a5a5
+nulloutput-short width=64 status=C0000004 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=40000000a5a5a5a5
+badreturn width=64 status=C0000005 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=a5a5a5a5a5a5a5a5
+unalignedout width=64 status=80000002 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=a5a5a5a5a5a5a5a5
+aligned4out width=64 status=00000000 out=a5a5a5a5000000005a62020000100000 ret=40000000a5a5a5a5
+unalignedret width=64 status=00000000 out=000000005a62020000100000b0f93f01 ret=a540000000a5a5a5
+nullret width=64 status=00000000 out=000000005a62020000100000b0f93f01 ret=a5a5a5a5a5a5a5a5
+invalidclass width=64 status=C0000003 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=a5a5a5a5a5a5a5a5
+invalidclass-badret width=64 status=C0000005 out=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 ret=a5a5a5a5a5a5a5a5

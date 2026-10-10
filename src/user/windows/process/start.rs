@@ -476,6 +476,8 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         message: e.message,
     })?;
     let shared = layout::KUSER_SHARED_DATA;
+    let physical_pages = u32::try_from(p.vm.commit_limit() / crate::user::mm::PAGE_SIZE)
+        .map_err(|_| memory("Windows physical page count exceeds ULONG"))?;
     for (off, value) in [
         (kuser::NT_BUILD_NUMBER, p.cfg.version.build),
         (kuser::NT_MAJOR_VERSION, p.cfg.version.major),
@@ -485,6 +487,7 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
             u32::from(p.cfg.version.product_type),
         ),
         (kuser::ACTIVE_PROCESSOR_COUNT, 1),
+        (kuser::NUMBER_OF_PHYSICAL_PAGES, physical_pages),
         (kuser::TICK_COUNT_MULTIPLIER, 1 << 24),
     ] {
         p.vm.poke(shared + off, &value.to_le_bytes())

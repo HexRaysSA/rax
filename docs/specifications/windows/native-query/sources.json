@@ -1,0 +1,181 @@
+[
+  {
+    "file": "ntquerysysteminformation.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winternl/nf-winternl-ntquerysysteminformation.md",
+    "canonical": "https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation",
+    "publisher": "Microsoft",
+    "retrieved": "2026-10-10",
+    "revision": "unknown; mutable docs branch",
+    "sha256": "47dd6f329e88cabe0f7e53cc90c46fa571d266dfe1f1333bee7f7376acb757af",
+    "license": "../services/shared-memory/LICENSE",
+    "code_license": "../crt-startup/sdk-api/LICENSE-CODE"
+  },
+  {
+    "file": "native-basic-correlation-arm64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "2d55aceebeea26759902a42de44f91fcb2d7a0155c80935213bb86a65edd4560"
+  },
+  {
+    "file": "native-basic-correlation-probe.cpp",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "28dcc7a2ce29154ed6a7a2b43a57702770ed406f793df01bcad990f20966e2cb"
+  },
+  {
+    "file": "native-basic-correlation-x64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "2d55aceebeea26759902a42de44f91fcb2d7a0155c80935213bb86a65edd4560"
+  },
+  {
+    "file": "native-basic-correlation-x86.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "f47474b8ad97db7b7f49462e4ab9a99f06d4f2e82b7da04fc538217bf10fa31b"
+  },
+  {
+    "file": "native-basic-guard-arm64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "05a281166010a9d34c66dd5056e9cccf2b468e915ded14571bec656eca69cb13"
+  },
+  {
+    "file": "native-basic-guard-probe.cpp",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "3f62fa09937d6d505b17ad166cf72a71471b0215a461a8223dcff944ed51cf68"
+  },
+  {
+    "file": "native-basic-guard-x64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "05a281166010a9d34c66dd5056e9cccf2b468e915ded14571bec656eca69cb13"
+  },
+  {
+    "file": "native-basic-guard-x86.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "71daa24d01b1fe877ec4da5de09554196ce4ca4f2ee7190df56f5a8ae62a09c3"
+  },
+  {
+    "file": "native-basic-pointer-arm64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "f4d1a8c8e43d2cb009dc95fa48830fc8e4add87e32def8b64a78be7cb1c33974"
+  },
+  {
+    "file": "native-basic-pointer-probe.cpp",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "3f9f8c825b6f095eeb639a78bcc6785c90b5cd8dd7a4997511f5565a74d857d5"
+  },
+  {
+    "file": "native-basic-pointer-x64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "f4d1a8c8e43d2cb009dc95fa48830fc8e4add87e32def8b64a78be7cb1c33974"
+  },
+  {
+    "file": "native-basic-pointer-x86.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "01a865742779515313a69064cf49cf48133d8adf84c6ffea76bebf94326e1266"
+  },
+  {
+    "file": "native-basic-system-arm64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "20d4b6edaa8ff58ab4412a47bd6891a3a072cffd89183eec00c036aed0a1b750"
+  },
+  {
+    "file": "native-basic-system-probe.cpp",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "fe6fbc263f10ff60d6a0be0138dc9663fbf584e790dcac654a27d70027d566f9"
+  },
+  {
+    "file": "native-basic-system-x64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "20d4b6edaa8ff58ab4412a47bd6891a3a072cffd89183eec00c036aed0a1b750"
+  },
+  {
+    "file": "native-basic-system-x86.log",
+    "publisher": "Local native Windows probe",
+    "source": "Compiled and executed on Windows 10.0.29683.1000 ARM64; x86/x64 use native compatibility adapters",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "522c4836daf7d75ac0b26999daddec160e492d24bee6e475ea62238228d7d061"
+  },
+  {
+    "file": "native-basic-alias-probe.cpp",
+    "publisher": "Local native Windows probe",
+    "source": "Windows 10.0.29683.1000 ARM64; x86/x64 native compatibility adapters; x86-laa uses /link /LARGEADDRESSAWARE",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "5c679d87fe742af867d5b982df7010947e56fc922f515373c5e31264975e249a"
+  },
+  {
+    "file": "native-basic-alias-arm64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Windows 10.0.29683.1000 ARM64; x86/x64 native compatibility adapters; x86-laa uses /link /LARGEADDRESSAWARE",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "0f0db23cde46249ee1ff0158fce8a636aa911afd3d8fa5e3718daf5738948ff9"
+  },
+  {
+    "file": "native-basic-alias-x86.log",
+    "publisher": "Local native Windows probe",
+    "source": "Windows 10.0.29683.1000 ARM64; x86/x64 native compatibility adapters; x86-laa uses /link /LARGEADDRESSAWARE",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "eb075a0e37752a984c030d446ac4acafb4d6ff03f00198357c1eec5b60f37231"
+  },
+  {
+    "file": "native-basic-alias-x64.log",
+    "publisher": "Local native Windows probe",
+    "source": "Windows 10.0.29683.1000 ARM64; x86/x64 native compatibility adapters; x86-laa uses /link /LARGEADDRESSAWARE",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "0f0db23cde46249ee1ff0158fce8a636aa911afd3d8fa5e3718daf5738948ff9"
+  },
+  {
+    "file": "native-basic-correlation-x86-laa.log",
+    "publisher": "Local native Windows probe",
+    "source": "Windows 10.0.29683.1000 ARM64; x86/x64 native compatibility adapters; x86-laa uses /link /LARGEADDRESSAWARE",
+    "retrieved": "2026-10-10",
+    "compiler": "Microsoft Visual Studio 2026 Community 18.7.1, host ARM64",
+    "sha256": "ab4ed73b93fc415660f511a2bb959e4964eca004dde097e68739e6e0a87abc7e"
+  }
+]
