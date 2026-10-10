@@ -14,6 +14,7 @@ pub mod layout;
 pub mod loader;
 pub mod memory;
 pub(crate) mod native;
+mod nls;
 pub mod nt;
 pub mod objects;
 pub mod process;

@@ -1,0 +1,4 @@
+arm64: 126 matrix, 28 pointer, 12 lifetime, 9 protection and 4 RTL status rows verified
+x86: 126 matrix, 28 pointer, 12 lifetime, 9 protection and 4 RTL status rows verified
+x64: 126 matrix, 28 pointer, 12 lifetime, 9 protection and 4 RTL status rows verified
+all defined mapping fingerprints agree across native ARM64 and compatibility x86/x64

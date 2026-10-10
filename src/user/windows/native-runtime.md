@@ -2,7 +2,7 @@
 
 `WindowsConfig::native_libraries = true` selects read-only installed DLLs,
 the installed version-6 API-set namespace, and an immutable snapshot of the
-fixed system NLS CodePage registry key on a Windows host. Its default is
+fixed system NLS CodePage registry key and installed NLS section tables on a Windows host. Its default is
 false. `host_filesystem = false` still denies general guest host-file access;
 native library selection is a separate, explicit input grant. A different host
 OS or unmatched installed NTDLL architecture returns an error.
@@ -696,3 +696,93 @@ work is full native loader/RTL heap/CRT startup and wider NT/NLS/security/regist
 coverage, plus the complete application/package/native-platform goal matrix.
 Medium limits are arbitrary host snapshot concurrency and exact undefined WoW64
 scratch lifecycle. No nonblocking adjacent implementation was added.
+
+## Installed NLS section mappings and view policy, 2026-10-10
+
+Explicit selection captures actual NtGetNlsSectionPtr mapping bytes for installed
+code-page candidates plus five normalization forms and the case table. Capture
+unmaps every owned host view before return. Guest services never call the host
+interfaces and retain no host address. Each section is bounded to 8 MiB and
+aggregate bytes to 64 MiB. The fixed CodePage snapshot and native system-directory
+names supply candidates; arbitrary host updates are not an atomic transaction.
+The supplied-only profile has no selected NLS section namespace.
+
+Appended metadata supplies NtGetNlsSectionPtr (5 arguments) and
+NtUnmapViewOfSection (2 arguments) without moving prior export indices. Guest
+queries create distinct page-rounded read-only MEM_MAPPED views from immutable
+bytes. SectionSize is optional; aliases overwrite pointer output with size.
+Native64 probes both nonnull outputs before pointer-width ContextData capture;
+WoW64 captures that input first and preserves kernel status when optional size
+copy faults. Guards, misalignment, null outputs and unknown types follow retained
+build29683 observations. Error size bytes are outside defined-field fidelity.
+
+Native probes exposed a second contract: these views reject writable/copy/
+executable/noaccess/guard protections, private release/decommit and repeated
+private commitment. The common virtual-memory manager seals only NLS views,
+so every NT/Win32 caller receives the same section policy. NtProtectVirtualMemory
+reports PAGE_NOACCESS as old protection on its rejected NLS change. Interior
+unmap releases the whole owned view and returns commitment; private/absent
+addresses return STATUS_NOT_MAPPED_VIEW, with typed/access-checked process
+handles. Other mapped/image sections and other processes remain unsupported.
+Public Rust VmError adds AlreadyCommitted and CannotDeleteSection; C ABI
+1.11.0/layouts are unchanged. The new NT-to-Win32 error mappings follow measured
+installed RtlNtStatusToDosError values rather than guessed defaults.
+
+[The exact profile, assumptions N1-N5 and primary/oracle records](../../../docs/specifications/windows/native-nls-sections/README.md)
+include 1,596 original NLS requests, 12 native RTL error conversions, a portable
+independent checker, three observed regressions, eight shared tests and two
+installed Windows tests. Actual file comparisons validate all eight table
+contents and padding. Installed ARM64/x86 NTDLL map/unmap leaves return normally
+without guest SEH. Shared tests execute x86/x64/ARM64 guest semantics on all
+three host operating systems. This is separate from native loader/heap/CRT
+startup and physical Intel-kernel coverage.
+
+| Final source validation | Result and evidence |
+|---|---|
+| Complete macOS RAX library | 7,505 passed, 0 failed, 2 ignored, 0 filtered; `/tmp/assist-native-nls-verified-full-macos.log` |
+| Complete Linux RAX library | 7,495 passed, 4 failed, 2 ignored, 0 filtered; `/tmp/assist-native-root-cpp-linux/native-nls-verified-full.log` |
+| Complete Windows RAX library | 6,884 passed, 5 failed, 2 ignored, 0 filtered; `/tmp/assist-native-windows-29683/native-nls-verified-full.log` |
+| Complete C API | 168 passed, no failures/ignored/filtered on every OS; corresponding verified C API logs |
+| Current locked owning Assist archives | Rebuilt on all three; five production C++ adapter/factory/ABI/link checks pass; verified CTest/CPP logs |
+| Compiled discovery | Manifest CTests 2/2, rebuilt macOS bridge protected-text scan; embedded exact-JSON native probes on all three recorded separately |
+| Installed NTDLL/table file checks | Both native Windows tests pass; ARM64/x86 leaves and eight independent file/padding comparisons |
+| Ordinary native startup | All four controlled Windows programs still exit with STATUS_ACCESS_VIOLATION; verified archive-output log |
+
+The final complete library binaries select 7,507/7,501/6,891 tests on
+macOS/Linux/Windows, without filters. Linux failures are
+`a_multishot_timeout_reports_each_expiry`, `a_timeout_is_removed_or_updated`,
+`finite_empty_and_expired_waits` and `timers_do_not_outlive_exec_or_cross_fork`.
+The first three were reproduced on earlier parent/feature binaries; the fourth
+remains unclassified and is not claimed as confirmed pre-existing. The earlier
+NLS run reports only the multishot failure. No Linux assertion/implementation was
+changed and passes are not remediation. Windows retains the same four BZHI
+assertions and host-unavailable FP16 case. The first final Windows attempt had
+Parallels result retrieval exit255/no logs and is excluded; the exact private
+validation script was rerun and its complete results captured. An initial
+private macOS manifest link omitted required system frameworks; the corrected
+probe includes the owning archive's actual framework/library dependencies.
+
+The final owning-archive loader trace succeeds on both code-page mappings:
+ACP type 11/data1252 at slice1101 (view `0xAC0000`) and OEMCP type11/data437
+at slice1112 (view `0xAE0000`), each 69,632 bytes and read-only MEM_MAPPED. It then
+stops at slice2412 on NtQueryVirtualMemory, service0x23, PC0x180001240, arguments
+`[-1, 0x180000000, 6, 0xABE930, 24, 0]`. The 1,311-slice advance counts scheduler
+calls, not proven retired instructions. The diagnostic clears PEB.ProcessHeap
+and enters LdrInitializeThunk with saved context; production native bootstrap
+and RTL heap initialization remain incomplete. Ordinary installed-DLL probes
+still terminate with STATUS_ACCESS_VIOLATION.
+
+| Plane | Effect or evidence of unchanged ownership |
+|---|---|
+| Runtime/kernel/objects/memory | Selection-only NLS capture, immutable records, guest view ownership, common sealed section policy, appended exports and precise NT/DOS statuses |
+| Rust/C ABI/persistence | Two additive public Rust VmError variants; stable C ABI 1.11.0; no persistent schemas, ABI layouts, dependencies, locks or defaults |
+| Assist schema/tool/UI/context/agent/history | Existing option/session/worker ownership; copy adds installed tables, schema and all other tools unchanged; no widget/IDA-thread or backend change |
+| Permission/MCP/mesh/transport/crypto | Existing read_files_outside gate precedes acquisition; compiled discovery regenerated; no guest host calls, route or permission-policy change |
+| Windows/macOS/Linux/products | Shared model/kernel/view rules compile/run on all three; actual Windows acquisition, file comparison and installed leaves run natively; existing common archive membership serves plugin/CLI/Qt harness. Complete native IDA/package/application matrix remains overall-goal work |
+| ISA/SMIR/JIT/optional engines/release | No touched source/contracts, default features, dependency pins, build wiring or release publication |
+
+High-impact blocking work remains full native loader/RTL heap/CRT startup, wider
+NT section/query/security/registry services, broader POSIX/process semantics and
+complete application/package coverage. Medium limits are private compatibility
+error bytes and arbitrary host update atomicity. Low-impact cross-process
+snapshot sharing remains unimplemented. Full process emulation remains active.

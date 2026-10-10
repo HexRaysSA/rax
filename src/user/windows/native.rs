@@ -20,6 +20,7 @@ pub(crate) struct NativeRuntime {
     pub(crate) version: WinVersion,
     pub(crate) apisets: ApiSetSchema,
     pub(crate) registry: super::registry::Registry,
+    pub(crate) nls: Option<super::nls::Nls>,
 }
 
 fn invalid(message: impl Into<String>) -> io::Error {
@@ -82,6 +83,7 @@ impl NativeRuntime {
             version,
             apisets,
             registry: Default::default(),
+            nls: None,
         };
         let ntdll = PeImage::parse(read_image(
             &runtime
@@ -96,6 +98,7 @@ impl NativeRuntime {
             ));
         }
         runtime.registry = super::registry::snapshot()?;
+        runtime.nls = Some(super::nls::snapshot(&runtime.registry, &schema_directory)?);
         Ok(runtime)
     }
 

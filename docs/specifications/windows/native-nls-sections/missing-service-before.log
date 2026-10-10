@@ -1,0 +1,28 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 24.49s
+     Running unittests src/lib.rs (vendor/rax/target/debug/deps/rax-754f4d2a527a4423)
+
+running 2 tests
+
+thread 'user::windows::process::sched::tests::services_tests::nls_tests::native_nls_null_section_output_is_invalid_parameter_all_abis' (5004978) panicked at src/user/windows/process/sched/tests/services_tests/nls_tests.rs:51:9:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtGetNlsSectionPtr (0x12) at 0x12340000 is not implemented")
+ right: Continue
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'user::windows::process::sched::tests::services_tests::nls_tests::native_nls_bad_output_precedes_unknown_section_type_all_abis' (5004977) panicked at src/user/windows/process/sched/tests/services_tests/nls_tests.rs:62:9:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtGetNlsSectionPtr (0x12) at 0x12340000 is not implemented")
+ right: Continue
+test user::windows::process::sched::tests::services_tests::nls_tests::native_nls_bad_output_precedes_unknown_section_type_all_abis ... FAILED
+test user::windows::process::sched::tests::services_tests::nls_tests::native_nls_null_section_output_is_invalid_parameter_all_abis ... FAILED
+
+failures:
+
+failures:
+    user::windows::process::sched::tests::services_tests::nls_tests::native_nls_bad_output_precedes_unknown_section_type_all_abis
+    user::windows::process::sched::tests::services_tests::nls_tests::native_nls_null_section_output_is_invalid_parameter_all_abis
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 7499 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

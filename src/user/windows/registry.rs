@@ -70,6 +70,24 @@ impl Registry {
             key: Some(Arc::new(key)),
         })
     }
+    pub(crate) fn codepages(&self) -> std::collections::BTreeSet<u32> {
+        self.key
+            .as_ref()
+            .into_iter()
+            .flat_map(|key| key.values.values())
+            .filter_map(|value| {
+                if value.name.is_empty() {
+                    return None;
+                }
+                value.name.iter().try_fold(0u32, |n, &u| {
+                    if !(48..=57).contains(&u) {
+                        return None;
+                    }
+                    n.checked_mul(10)?.checked_add(u32::from(u - 48))
+                })
+            })
+            .collect()
+    }
     pub(crate) fn key(&self, name: &[u16]) -> Option<Arc<Key>> {
         self.key
             .as_ref()

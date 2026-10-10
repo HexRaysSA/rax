@@ -344,6 +344,7 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         .as_ref()
         .map(|r| r.registry.clone())
         .unwrap_or_default();
+    let nls = native.as_ref().and_then(|r| r.nls.clone());
     let mut p = Proc {
         arch,
         space,
@@ -351,6 +352,7 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         cfg: Arc::new(config),
         native,
         registry,
+        nls,
         pid: 4,
         peb: layout::PEB_ADDRESS,
         params: 0,

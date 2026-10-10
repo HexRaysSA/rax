@@ -1,0 +1,277 @@
+[
+  {
+    "file": "../native-processor-features/phnt-ntexapi.h",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntexapi.h",
+    "title": "Pinned NtGetNlsSectionPtr declaration",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "sha256": "0510ac40fa1690cd73bed8afe3ed602aaa7bb6870ab95ea9aaba36ce1f4c3d53",
+    "license": "../native-processor-features/phnt-LICENSE"
+  },
+  {
+    "file": "zwunmapviewofsection.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/windows-driver-docs-ddi/staging/wdk-ddi-src/content/wdm/nf-wdm-zwunmapviewofsection.md",
+    "title": "Microsoft ZwUnmapViewOfSection",
+    "revision": "unknown; mutable documentation branch",
+    "retrieved": "2026-10-10",
+    "sha256": "4e555a795704b69985b0a4f286e7731ec6d9a588fcfc393a6daf726af6afd1e4",
+    "license": "../native-events/microsoft-ddi-LICENSE"
+  },
+  {
+    "file": "../native-processor-features/phnt-LICENSE",
+    "source": "retained corresponding source notice",
+    "title": "Source notice",
+    "revision": "retained notice",
+    "retrieved": "2026-10-10",
+    "sha256": "ad2ab542c56c606e4c19d66a7f3cdcd3ef83beffb638e7c3893b22c7a6a6c0df"
+  },
+  {
+    "file": "../native-events/microsoft-ddi-LICENSE",
+    "source": "retained corresponding source notice",
+    "title": "Source notice",
+    "revision": "retained notice",
+    "retrieved": "2026-10-10",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "../native-events/microsoft-ddi-LICENSE-CODE",
+    "source": "retained corresponding source notice",
+    "title": "Source notice",
+    "revision": "retained notice",
+    "retrieved": "2026-10-10",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "native-nls-probe.cpp",
+    "source": "original read-only Windows native experiment",
+    "title": "native-nls original source",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "91dbc209d6a3ec710db4b08211a89d73f46c6e0af4b4e86b9ddc8fbe30f1103d"
+  },
+  {
+    "file": "native-nls-arm64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls arm64 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "ccd39bbd2cc31ccbc981a2c012222e108314c7b4c316e5f4fe8bad3cf747ea33"
+  },
+  {
+    "file": "native-nls-x86.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls x86 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "dcc4ff21a2d9b12adfa5fa2a535ed4539ae668d97d05be785f9e4f8926209eaa"
+  },
+  {
+    "file": "native-nls-x64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls x64 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "56a631ccaa2d9eb43f6ad626d8ff778a1b667cfbf21ec55a5a4d4f1038534986"
+  },
+  {
+    "file": "native-nls-context-probe.cpp",
+    "source": "original read-only Windows native experiment",
+    "title": "native-nls-context original source",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "aedab64325738b0fd9b2a8149c59e402c19c3571c9bba8f140d7cd21608114d8"
+  },
+  {
+    "file": "native-nls-context-arm64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls-context arm64 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "7ba5589582e9eeaa956ead187fe28171f98ba82543e427e47d3254370a653739"
+  },
+  {
+    "file": "native-nls-context-x86.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls-context x86 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "ee3f1503ca988bbbd6c9c5a21d7d1fefcb83cd9bea8971ebd0ced1c41666be11"
+  },
+  {
+    "file": "native-nls-context-x64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls-context x64 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "e9bd1234c4d1e73e2c3bc7769cba77dc2538f4053aeba63597d97689c735fffb"
+  },
+  {
+    "file": "native-nls-lifetime-probe.cpp",
+    "source": "original read-only Windows native experiment",
+    "title": "native-nls-lifetime original source",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "d8f350f5746761fa7136ddcf5d39770ab1084b4b8c4bd71f0ff6eebfcc6ff4b3"
+  },
+  {
+    "file": "native-nls-lifetime-arm64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls-lifetime arm64 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "1e76cc449b80e19829e02e9b6afbecc3b8a9d7acea244eea7a9877881ef1d950"
+  },
+  {
+    "file": "native-nls-lifetime-x86.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls-lifetime x86 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "40bb8a68ea3b377bbdce25e522a09fa44a929959a6f0661014584f1f435aaa87"
+  },
+  {
+    "file": "native-nls-lifetime-x64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls-lifetime x64 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "6848be3f3b39923353f44192d37f8cd88f0d352151c8f59efac16313243dd09d"
+  },
+  {
+    "file": "native-nls-vm-capture-probe.cpp",
+    "source": "original read-only Windows native experiment",
+    "title": "native-nls-vm-capture original source",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "dd112dee0ded69bba2bfb979be967f1562b9354744fd47b781442518d6ad6fdb"
+  },
+  {
+    "file": "native-nls-vm-capture-arm64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls-vm-capture arm64 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "c7ec13cc25dfdfde756c96dfbf0b979f219d2eded0bc33cb0a3d79cd63dd673f"
+  },
+  {
+    "file": "native-nls-vm-capture-x86.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls-vm-capture x86 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "37e65e0ad49b09f444588f26fc65a24873985f4680238653bfe5cad042a80491"
+  },
+  {
+    "file": "native-nls-vm-capture-x64.log",
+    "source": "original Windows 10.0.29683.1000 ARM64-kernel execution",
+    "title": "native-nls-vm-capture x64 execution",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "59faf57afcd551126b566b228c302185e0a58938f779bb117673af58683dbdfd"
+  },
+  {
+    "file": "missing-service-before.log",
+    "source": "original shared Windows personality regression",
+    "title": "missing-service-before.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "f18f4a7147c345d73ea628b1f1ddeedf1ffa604d2b80a26862b208aaecc079e0"
+  },
+  {
+    "file": "mapping-matrix-after.log",
+    "source": "original shared Windows personality regression",
+    "title": "mapping-matrix-after.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "97106cc6b17f27cf6468b6d6c50a3648010789930638055709ec4c78d917e957"
+  },
+  {
+    "file": "protection-before.log",
+    "source": "original shared Windows personality regression",
+    "title": "protection-before.log",
+    "revision": "original retained experiment",
+    "retrieved": "2026-10-10",
+    "sha256": "c47be2f5e4137dc55991aba11acbb4b178c19fb5c9d14b4de7035b69975f7aad"
+  },
+  {
+    "file": "native-nls-status-probe.cpp",
+    "source": "original Windows native RTL status probe",
+    "title": "native-nls-status-probe.cpp",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel",
+    "retrieved": "2026-10-10",
+    "sha256": "6c49b73966fcc2d803fc5a45ed902036e3a8a2a594e23e666a946c95e294cd70"
+  },
+  {
+    "file": "native-nls-status-arm64.log",
+    "source": "original Windows native RTL status probe",
+    "title": "native-nls-status-arm64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel",
+    "retrieved": "2026-10-10",
+    "sha256": "3f1d62287b3bfa609fcb4881fa83b56afc060a2fb84f31d00ad7f59b815c98e1"
+  },
+  {
+    "file": "native-nls-status-x86.log",
+    "source": "original Windows native RTL status probe",
+    "title": "native-nls-status-x86.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel",
+    "retrieved": "2026-10-10",
+    "sha256": "4bf463b1d79ccb4894fe126c03f80597b4fbcc38704845049006f8946449652f"
+  },
+  {
+    "file": "native-nls-status-x64.log",
+    "source": "original Windows native RTL status probe",
+    "title": "native-nls-status-x64.log",
+    "revision": "Windows 10.0.29683.1000 ARM64 kernel",
+    "retrieved": "2026-10-10",
+    "sha256": "3f1d62287b3bfa609fcb4881fa83b56afc060a2fb84f31d00ad7f59b815c98e1"
+  },
+  {
+    "file": "status-before.log",
+    "source": "original shared NT-to-Win32 regression",
+    "title": "status-before.log",
+    "retrieved": "2026-10-10",
+    "sha256": "87d338663ac102863a419ae879f61d0e5971712fff8ab6d46c1ba027a1fe8bfd"
+  },
+  {
+    "file": "status-after.log",
+    "source": "original shared NT-to-Win32 regression",
+    "title": "status-after.log",
+    "retrieved": "2026-10-10",
+    "sha256": "fc8638a29b35baff29434cdfadbeee7301972791048ebb84f2f89a8d5d6da8d9"
+  },
+  {
+    "file": "check-oracle.py",
+    "source": "original independent oracle check or isolated owning-archive diagnostic",
+    "title": "check-oracle.py",
+    "retrieved": "2026-10-10",
+    "sha256": "32db9d159444a707f6b4d6ffdde653cac69b6d0acf8e8c5460fd49e49b645982"
+  },
+  {
+    "file": "oracle-check.log",
+    "source": "original independent oracle check or isolated owning-archive diagnostic",
+    "title": "oracle-check.log",
+    "retrieved": "2026-10-10",
+    "sha256": "a5db7b71af27762702d6bdb43221e7b66cd4f356d0fc5756ffa060b69d7340bd"
+  },
+  {
+    "file": "native-ldr-nls-frontier.rs",
+    "source": "original independent oracle check or isolated owning-archive diagnostic",
+    "title": "native-ldr-nls-frontier.rs",
+    "retrieved": "2026-10-10",
+    "sha256": "e25f83098b62bab943b048b31f68d7de2c45795f3c24e82f2146c4e4c1ab7d39"
+  },
+  {
+    "file": "native-ldr-nls-frontier-after.log",
+    "source": "original independent oracle check or isolated owning-archive diagnostic",
+    "title": "native-ldr-nls-frontier-after.log",
+    "retrieved": "2026-10-10",
+    "sha256": "0ae8fb37b055bebf4da799c40648f19ec925b4f04ef077dff5e474fc20811094"
+  },
+  {
+    "file": "../native-nls-registry/native-ldr-registry-frontier-after.log",
+    "source": "original independent oracle check or isolated owning-archive diagnostic",
+    "title": "../native-nls-registry/native-ldr-registry-frontier-after.log",
+    "retrieved": "2026-10-10",
+    "sha256": "fd8b563cda6d2c393c46ac1b64b4e6c619adb6c659fbd2d6f30c30d27ddeb9a9"
+  }
+]

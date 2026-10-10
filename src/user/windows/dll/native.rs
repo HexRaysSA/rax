@@ -6,6 +6,7 @@ use super::super::nt::status::*;
 
 mod events;
 mod hotpatch;
+mod nls;
 mod process_query;
 mod query;
 mod registry;
@@ -75,6 +76,13 @@ pub(super) static EXPORTS: &[Export] = &[
         &[Ptr, Ptr, I32, Ptr, I32, Ptr],
         registry::query,
     ),
+    Export::func(
+        "NtGetNlsSectionPtr",
+        Stdcall,
+        &[I32, I32, Ptr, Ptr, Ptr],
+        nls::get,
+    ),
+    Export::func("NtUnmapViewOfSection", Stdcall, &[Ptr, Ptr], nls::unmap),
 ];
 fn status_error(c: &mut Ctx) -> ApiResult {
     Flow::ret(u64::from(super::super::nt::status_to_error(c.u32(0)?)))
@@ -181,7 +189,12 @@ fn protect(c: &mut Ctx) -> ApiResult {
             c.mem().w32(old_ptr, old)?;
             Flow::ret(0)
         }
-        Err(e) => Flow::ret(e.status().into()),
+        Err(e) => {
+            if c.p.vm.is_nls_view(base) && e == super::super::memory::VmError::InvalidProtection {
+                c.mem().w32(old_ptr, super::super::memory::prot::NOACCESS)?;
+            }
+            Flow::ret(e.status().into())
+        }
     }
 }
 fn continue_context(c: &mut Ctx) -> ApiResult {

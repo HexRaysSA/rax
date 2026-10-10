@@ -16,6 +16,9 @@ mod hotpatch_tests;
 #[path = "services_tests/registry_tests.rs"]
 mod registry_tests;
 
+#[path = "services_tests/nls_tests.rs"]
+mod nls_tests;
+
 fn fixture(
     arch: WinArch,
     name: &str,

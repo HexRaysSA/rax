@@ -25,7 +25,7 @@
 //! than `O(size / 4096)` metadata for a reservation. Guest threads share one
 //! scheduler host thread, as required by [`AddressSpace`]'s mapping contract.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use vm_memory::{Address, GuestMemory};
 
@@ -495,6 +495,10 @@ pub enum VmError {
     NoMemory,
     /// `STATUS_COMMITMENT_LIMIT`: the committed backing budget is exhausted.
     CommitmentLimit,
+    /// A fixed mapped section cannot be freed as private memory.
+    CannotDeleteSection,
+    /// Existing fixed section commitment cannot be repeated as private memory.
+    AlreadyCommitted,
     /// `STATUS_MEMORY_NOT_ALLOCATED`: the address is not in an allocation.
     NotAllocated,
     /// `STATUS_FREE_VM_NOT_AT_BASE`: a release not at the allocation base.
@@ -519,6 +523,8 @@ impl VmError {
             VmError::Conflicting => STATUS_CONFLICTING_ADDRESSES,
             VmError::NoMemory => STATUS_NO_MEMORY,
             VmError::CommitmentLimit => STATUS_COMMITMENT_LIMIT,
+            VmError::CannotDeleteSection => STATUS_UNABLE_TO_DELETE_SECTION,
+            VmError::AlreadyCommitted => STATUS_ALREADY_COMMITTED,
             VmError::NotAllocated => STATUS_MEMORY_NOT_ALLOCATED,
             VmError::NotAtBase => STATUS_FREE_VM_NOT_AT_BASE,
             VmError::UnableToFree => STATUS_UNABLE_TO_FREE_VM,
@@ -566,6 +572,7 @@ pub fn page_range(start: u64, len: u64) -> Result<(u64, u64), VmError> {
 pub struct VirtualMemory {
     space: AddressSpace,
     allocs: BTreeMap<u64, Allocation>,
+    nls_views: BTreeSet<u64>,
     /// Backing bytes promised for committed pages. No guest paging file
     /// is modeled; the usable frame arena bounds commitment.
     committed: u64,
@@ -592,6 +599,7 @@ impl VirtualMemory {
         VirtualMemory {
             space,
             allocs: BTreeMap::new(),
+            nls_views: BTreeSet::new(),
             committed: 0,
             commit_limit,
             low,
@@ -873,6 +881,9 @@ impl VirtualMemory {
     /// requires size zero and the original reservation base. The returned
     /// range reports the full released allocation or rounded decommit range.
     pub fn free(&mut self, base: u64, size: u64, free_type: u32) -> Result<(u64, u64), VmError> {
+        if self.is_nls_view(base) && matches!(free_type, mem::RELEASE | mem::DECOMMIT) {
+            return Err(VmError::CannotDeleteSection);
+        }
         match free_type {
             mem::RELEASE => {
                 if size != 0 {
@@ -906,6 +917,14 @@ impl VirtualMemory {
         }
         let (first, end) = page_range(start, len)?;
         let a = self.allocation(first).ok_or(VmError::NotAllocated)?;
+        if self.nls_views.contains(&a.base) {
+            return Err(if protect == prot::READONLY {
+                VmError::AlreadyCommitted
+            } else {
+                VmError::InvalidProtection
+            });
+        }
+
         if end > a.base + a.size {
             return Err(VmError::Conflicting);
         }
@@ -975,6 +994,10 @@ impl VirtualMemory {
     pub fn decommit(&mut self, start: u64, len: u64) -> Result<(u64, u64), VmError> {
         let first = start & !(PAGE_SIZE - 1);
         let a = self.allocation(first).ok_or(VmError::NotAllocated)?;
+        if self.nls_views.contains(&a.base) {
+            return Err(VmError::CannotDeleteSection);
+        }
+
         let end = if len == 0 {
             if start != a.base {
                 return Err(VmError::NotAtBase);
@@ -1008,6 +1031,31 @@ impl VirtualMemory {
         Ok((first, end - first))
     }
 
+    /// Marks an initialized NLS view as a fixed read-only mapped section.
+    /// Guest protect/commit/free paths cannot replace its section semantics.
+    pub(crate) fn seal_nls_view(&mut self, base: u64) -> Result<(), VmError> {
+        let a = self.allocation(base).ok_or(VmError::NotAllocated)?;
+        if a.base != base
+            || a.kind != AllocKind::Mapped
+            || a.protect != prot::READONLY
+            || a.runs(0, a.size / PAGE_SIZE)
+                .iter()
+                .any(|(_, _, p)| !p.committed || p.protect != prot::READONLY)
+        {
+            return Err(VmError::InvalidParameter);
+        }
+        self.nls_views.insert(base);
+        Ok(())
+    }
+    pub(crate) fn is_nls_view(&self, address: u64) -> bool {
+        self.allocation(address)
+            .is_some_and(|a| self.nls_views.contains(&a.base))
+    }
+    #[cfg(test)]
+    pub(crate) fn nls_view_count(&self) -> usize {
+        self.nls_views.len()
+    }
+
     /// Releases the whole allocation whose base is `base`.
     pub fn release(&mut self, base: u64) -> Result<u64, VmError> {
         let a = match self.allocation(base) {
@@ -1024,6 +1072,7 @@ impl VirtualMemory {
             .sum();
         self.space.unmap(base, size).map_err(mm)?;
         self.allocs.remove(&base);
+        self.nls_views.remove(&base);
         self.committed -= returned;
         Ok(size)
     }
@@ -1036,6 +1085,10 @@ impl VirtualMemory {
         }
         let (first, end) = page_range(start, len)?;
         let a = self.allocation(first).ok_or(VmError::NotAllocated)?;
+        if self.nls_views.contains(&a.base) && protect != prot::READONLY {
+            return Err(VmError::InvalidProtection);
+        }
+
         if end > a.base + a.size {
             return Err(VmError::InvalidAddress);
         }

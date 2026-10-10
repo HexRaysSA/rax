@@ -520,6 +520,7 @@ mod tests {
             )),
             native: None,
             registry: Default::default(),
+            nls: None,
             pid: 4,
             peb: 0,
             params: 0,

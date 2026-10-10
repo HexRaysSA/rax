@@ -270,6 +270,7 @@ pub struct Proc {
     pub cfg: Arc<WindowsConfig>,
     pub(crate) native: Option<super::native::NativeRuntime>,
     pub(crate) registry: super::registry::Registry,
+    pub(crate) nls: Option<super::nls::Nls>,
     /// Process identifier.
     pub pid: u32,
     /// The PEB.
