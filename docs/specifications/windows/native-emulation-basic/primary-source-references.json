@@ -1,0 +1,47 @@
+[
+  {
+    "file": "../native-processor-features/phnt-ntexapi.h",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntexapi.h",
+    "title": "System Informer phnt executive declarations",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "license": "../native-processor-features/phnt-LICENSE",
+    "sha256": "0510ac40fa1690cd73bed8afe3ed602aaa7bb6870ab95ea9aaba36ce1f4c3d53"
+  },
+  {
+    "file": "../native-processor-features/phnt-LICENSE",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/LICENSE",
+    "title": "System Informer phnt license",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "license": "../native-processor-features/phnt-LICENSE",
+    "sha256": "ad2ab542c56c606e4c19d66a7f3cdcd3ef83beffb638e7c3893b22c7a6a6c0df"
+  },
+  {
+    "file": "../native-query/ntquerysysteminformation.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winternl/nf-winternl-ntquerysysteminformation.md",
+    "canonical": "https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation",
+    "publisher": "Microsoft",
+    "retrieved": "2026-10-10",
+    "revision": "unknown; mutable docs branch",
+    "sha256": "47dd6f329e88cabe0f7e53cc90c46fa571d266dfe1f1333bee7f7376acb757af",
+    "license": "../services/shared-memory/LICENSE",
+    "code_license": "../crt-startup/sdk-api/LICENSE-CODE"
+  },
+  {
+    "file": "../services/shared-memory/LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE",
+    "title": "microsoft-sdk-api-LICENSE",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "../crt-startup/sdk-api/LICENSE-CODE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE-CODE",
+    "title": "microsoft-sdk-api-LICENSE-CODE",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "file": "src/user/windows/dll/native/query.rs",
+    "sha256": "fd6ee6e6e2701880a806f91490ac2c7359e178e72b44e0861bf4954815672abd"
+  },
+  {
+    "file": "src/user/windows/process/sched/tests/services_tests.rs",
+    "sha256": "df96e28dc897493362c1803ae1d839cbb7e824ff698192186f40c1c0966136c3"
+  },
+  {
+    "file": "src/user/windows/process/sched/tests/services_tests/emulation_basic_tests.rs",
+    "sha256": "9dfe2982cec575dc38a71a1173c77d4fc0ca9a211565a28f89b543caf398ade1"
+  }
+]

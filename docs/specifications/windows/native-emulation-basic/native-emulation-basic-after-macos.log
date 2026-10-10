@@ -1,0 +1,14 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.95s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 6 tests
+test user::windows::process::sched::tests::services_tests::emulation_basic_tests::wow64_emulation_basic_query_tracks_the_executable_large_address_aware_flag ... ok
+test user::windows::process::sched::tests::services_tests::emulation_basic_tests::native_emulation_basic_query_output_and_return_guards_are_one_shot_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::emulation_basic_tests::native_emulation_basic_query_readonly_destinations_and_output_aliases_preserve_write_order_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::emulation_basic_tests::native_emulation_basic_query_length_null_and_return_faults_are_class_specific_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::emulation_basic_tests::native_emulation_basic_query_reports_guest_memory_bounds_cpu_and_preserves_wow64_padding_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::emulation_basic_tests::native_emulation_basic_query_probes_fields_before_writing_and_does_not_probe_wow64_padding_all_abis ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 7541 filtered out; finished in 0.09s
+

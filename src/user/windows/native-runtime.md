@@ -1088,3 +1088,41 @@ explicitly unsupported. Delta6,744 is scheduler calls, not instructions. Four
 ordinary native Windows programs still return STATUS_ACCESS_VIOLATION. Native
 production Ldr/RTL heap/CRT, wider NT/POSIX and full application/package/IDA
 matrices still block the overall goal; this group claims only its bounded scope.
+
+
+### Native emulation basic information (2026-10-10)
+
+NtQuerySystemInformation class62 (SystemEmulationBasicInformation) now uses the
+existing guest basic-information serializer/probe contract. Original native
+ARM64/compatibility x86/x64 and separate x86 LAA oracles confirm class0 equality
+on build29683, exact44/64-byte lengths, x86 three-byte untouched padding,
+4-byte native64 output alignment, ABI-specific fault/write order, one-shot
+guards and output-then-ReturnLength aliases. Guest VM backing/address limits and
+one virtual CPU govern returned values; no guest query reaches the host kernel.
+For64 MiB backing /4096-byte pages=16,384 pages; timer10,000*100 ns=1 ms.
+Class114 is a native comparison control and remains outside this implementation.
+Assumptions, complete planes, complexity, sources/licenses, original result bytes
+and exact source/gate hashes are in [emulation basic evidence](../../../docs/specifications/windows/native-emulation-basic/README.md).
+
+Independent replay verifies196 reported queries plus four successful alias
+baseline queries. Six portable cases fail before implementation and pass after;
+one native Windows case executes actual installed host-ABI/x86 NTDLL leaves and
+real return/stack cleanup. Full formatted-source library pass/fail/ignore/filter
+is macOS7,545/0/2/0, Linux7,537/2/2/0, Windows6,933/5/2/0; selections
+7,547/7,541/6,940. Linux retains two known timer assertions and Windows four BZHI
+plus one FP16 assertion; historical readiness/clock evidence remains unresolved.
+No unrelated assertion/skip/lowerer changed. Complete C API168/all-target builds/
+locked owning Assist archives/five production C++ checks pass all hosts. Unix544
+passes macOS/Linux with Windows cfg-exclusion; native memory4 passes Windows with
+other-host cfg-exclusion. Owning macOS CLI/seven CTests (both manifest checks) and
+protected CLI scan pass. Initial Linux rustup network refresh fails before tests;
+selecting the installed verified pinned1.95.0 toolchain reruns the complete gates.
+Container translation remains distinct from physical native x86-64 proof.
+
+Private current-owning-archive saved-context/cleared-PEB-heap Ldr diagnostic
+returns class62 success at11,206 and reaches unsupported NtAllocateVirtualMemoryEx
+service0x78 PC0x1800017c0 at11,315: delta109 scheduler calls, not instructions.
+Four ordinary Windows apps remain AV; production Ldr/RTL heap/CRT and broader
+NT/POSIX/native application/package/IDA goal remain incomplete. C API1.11.0,
+ABI/layout/options/defaults/schema/persistence/permissions/dependencies/packages,
+metadata/discovery and ISA/lowerers are unchanged.

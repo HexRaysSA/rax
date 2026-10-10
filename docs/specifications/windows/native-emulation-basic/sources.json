@@ -1,0 +1,326 @@
+[
+  {
+    "file": "../native-processor-features/phnt-ntexapi.h",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntexapi.h",
+    "title": "System Informer phnt executive declarations",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "license": "../native-processor-features/phnt-LICENSE",
+    "sha256": "0510ac40fa1690cd73bed8afe3ed602aaa7bb6870ab95ea9aaba36ce1f4c3d53"
+  },
+  {
+    "file": "../native-processor-features/phnt-LICENSE",
+    "source": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/LICENSE",
+    "title": "System Informer phnt license",
+    "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+    "retrieved": "2026-10-10",
+    "license": "../native-processor-features/phnt-LICENSE",
+    "sha256": "ad2ab542c56c606e4c19d66a7f3cdcd3ef83beffb638e7c3893b22c7a6a6c0df"
+  },
+  {
+    "file": "../native-query/ntquerysysteminformation.md",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/docs/sdk-api-src/content/winternl/nf-winternl-ntquerysysteminformation.md",
+    "canonical": "https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation",
+    "publisher": "Microsoft",
+    "retrieved": "2026-10-10",
+    "revision": "unknown; mutable docs branch",
+    "sha256": "47dd6f329e88cabe0f7e53cc90c46fa571d266dfe1f1333bee7f7376acb757af",
+    "license": "../services/shared-memory/LICENSE",
+    "code_license": "../crt-startup/sdk-api/LICENSE-CODE"
+  },
+  {
+    "file": "../services/shared-memory/LICENSE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE",
+    "title": "microsoft-sdk-api-LICENSE",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+  },
+  {
+    "file": "../crt-startup/sdk-api/LICENSE-CODE",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE-CODE",
+    "title": "microsoft-sdk-api-LICENSE-CODE",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "retrieved": "2026-10-10",
+    "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+  },
+  {
+    "file": "check-native-emulation-basic-output.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "check-native-emulation-basic-output.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "76f3d9d59cf096bf223ff316733ce4c3c247c30eacfeb643aedf4757189398b9"
+  },
+  {
+    "file": "check_native_emulation_basic.py",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "check_native_emulation_basic.py",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "5ef5c83999f6d76657b2ca24a8fce3dd088fe75b47e15065ec3dd110d8bb58f4"
+  },
+  {
+    "file": "final-gate-log-hashes.json",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "final-gate-log-hashes.json",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "2c6245442d6ab8862893c5cc2796d66cae8fb4853a512246fe3f9883b76a4f2c"
+  },
+  {
+    "file": "final-windows-source-hashes.json",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "final-windows-source-hashes.json",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "f39d1f43702109cc61628514eccbe62935d8b8e9881a40db8561ff6f3b25c046"
+  },
+  {
+    "file": "native-emulation-basic-after-macos.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-after-macos.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "2ee70d2c570f15586c23050e9bdc89cf2f7174901ec7f3a011ea8c694dbff3a1"
+  },
+  {
+    "file": "native-emulation-basic-alias-arm64.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-alias-arm64.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "c2ef1e7456297b932c42b7171e94b4f7e5534855c2fcbf756a56c28c3901850e"
+  },
+  {
+    "file": "native-emulation-basic-alias-probe.cpp",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-alias-probe.cpp",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "6a1b75bae223832ae1c70ccbeb84c361d803ab1b6d8c7c380f3d2514ee738f10"
+  },
+  {
+    "file": "native-emulation-basic-alias-x64.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-alias-x64.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "c2ef1e7456297b932c42b7171e94b4f7e5534855c2fcbf756a56c28c3901850e"
+  },
+  {
+    "file": "native-emulation-basic-alias-x86-laa.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-alias-x86-laa.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "70528a7d61d45b7981b413f56469fa5385437c75e0c4b05274493946bb64edd0"
+  },
+  {
+    "file": "native-emulation-basic-alias-x86.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-alias-x86.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "70528a7d61d45b7981b413f56469fa5385437c75e0c4b05274493946bb64edd0"
+  },
+  {
+    "file": "native-emulation-basic-arm64.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-arm64.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "0a681be425a97ec768705da2319db2c978020ac8effee2c866f1e5de12abdfff"
+  },
+  {
+    "file": "native-emulation-basic-before-macos.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-before-macos.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "91e482a3641594edf6ffee6f67d48a348f71f5813dddd16a289bc3435415fc20"
+  },
+  {
+    "file": "native-emulation-basic-final-source-transfer.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-final-source-transfer.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "ea9127701c5428644497f7e5931b1e22e95a67596556cc9f53fcb192ae0ba632"
+  },
+  {
+    "file": "native-emulation-basic-guard-arm64.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-guard-arm64.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "86e11da55d7dc0feebb524ea6826f927fd498615545ae1ffedbe0577d961f666"
+  },
+  {
+    "file": "native-emulation-basic-guard-probe.cpp",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-guard-probe.cpp",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "388335649f43ac43325825c122380d465dfed67a49790221ae9e7bdae459aea2"
+  },
+  {
+    "file": "native-emulation-basic-guard-x64.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-guard-x64.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "86e11da55d7dc0feebb524ea6826f927fd498615545ae1ffedbe0577d961f666"
+  },
+  {
+    "file": "native-emulation-basic-guard-x86-laa.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-guard-x86-laa.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "9118f63daff057a7409ae4121afcd548de6345d7555a93f054384beedfc34e62"
+  },
+  {
+    "file": "native-emulation-basic-guard-x86.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-guard-x86.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "9118f63daff057a7409ae4121afcd548de6345d7555a93f054384beedfc34e62"
+  },
+  {
+    "file": "native-emulation-basic-pointer-arm64.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-pointer-arm64.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "eec71a1cbb93ef74d55e6c21bc9edbc84f6b08dadad9683fb8123c8484cd8f8b"
+  },
+  {
+    "file": "native-emulation-basic-pointer-probe.cpp",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-pointer-probe.cpp",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "4eb93c6223b49588eaeccc61f44c15a7e3877a15f77e990a1712cc1e137f52a3"
+  },
+  {
+    "file": "native-emulation-basic-pointer-x64.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-pointer-x64.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "eec71a1cbb93ef74d55e6c21bc9edbc84f6b08dadad9683fb8123c8484cd8f8b"
+  },
+  {
+    "file": "native-emulation-basic-pointer-x86-laa.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-pointer-x86-laa.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "f3c823175791aeebc219404db35318ac92236c103a704121a09ce2a11a68d9d6"
+  },
+  {
+    "file": "native-emulation-basic-pointer-x86.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-pointer-x86.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "f3c823175791aeebc219404db35318ac92236c103a704121a09ce2a11a68d9d6"
+  },
+  {
+    "file": "native-emulation-basic-probe.cpp",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-probe.cpp",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "e5c772573bad7e34109a011567f3d4e5b3335c0574e9c6714f4bf5a4d998dc46"
+  },
+  {
+    "file": "native-emulation-basic-x64.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-x64.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "0a681be425a97ec768705da2319db2c978020ac8effee2c866f1e5de12abdfff"
+  },
+  {
+    "file": "native-emulation-basic-x86-laa.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-x86-laa.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "c629a3e6a9725aa6095f1d81d121413a93416fb207ee65de1f954ad66dfd701b"
+  },
+  {
+    "file": "native-emulation-basic-x86.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-emulation-basic-x86.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "525db0cc6c81642e0c4f601014191fb2bf21e30c9daf0a3dec7407917fb4c360"
+  },
+  {
+    "file": "native-ldr-emulation-basic-frontier-after.log",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-ldr-emulation-basic-frontier-after.log",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "ee265d3d35e60ebdb2ac6f6be7d9c5a1dda590f194037e3e6f805e538c88d0b8"
+  },
+  {
+    "file": "native-ldr-emulation-basic-frontier-after.rs",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "native-ldr-emulation-basic-frontier-after.rs",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "a869338f67630f2714b47a3c6eaccdf18f714ccbea23c366b95d64e4c69c93b4"
+  },
+  {
+    "file": "primary-source-references.json",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "primary-source-references.json",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "aad58a65e68ad75f15adbd437827697dc35ebc57d7bfa88fcd701e359c07ba2d"
+  },
+  {
+    "file": "source-hashes.json",
+    "source": "original project implementation, native oracle or validation evidence; repository LICENSE",
+    "title": "source-hashes.json",
+    "revision": "2026-10-10 class62 semantic group; original Windows10.0.29683.1000 ARM64/compatibility x86/x64 and x86 LAA profiles explicitly scoped in README",
+    "retrieved": "2026-10-10",
+    "license": "original project work; repository LICENSE",
+    "sha256": "2ef6262dfb87c9267198b160ac7b3600702def34141213ce6fb052606a58ba02"
+  }
+]

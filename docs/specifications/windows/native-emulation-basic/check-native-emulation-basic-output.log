@@ -1,0 +1,2 @@
+PASS: 196 reported native queries plus four successful alias baseline queries across ARM64/x86/x86-LAA/x64
+Verified exact length/alias records, class0 equality, native ABI faults/guards/order/padding and x86 address limits; build29683 scope

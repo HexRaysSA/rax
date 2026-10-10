@@ -1,0 +1,4 @@
+returnguard=0 status=80000001 exception=00000000 protection=00000004
+output=a5a5a5a5a5a5a5a5 returned=A5A5A5A5
+returnguard=1 status=80000001 exception=00000000 protection=00000004
+output=000000005a620200 returned=A5A5A5A5

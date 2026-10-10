@@ -2,7 +2,7 @@
 //!
 //! The four-argument API is documented at
 //! <https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation>.
-//! Classes 0, 50 and 250's private layouts, lengths, alignment and WoW64 ordering
+//! Classes 0, 50, 62 and 250's private layouts, lengths, alignment and WoW64 ordering
 //! are native observations on Windows 10.0.29683.1000, recorded in
 //! `src/user/windows/native-runtime.md`. No guest request calls the host kernel.
 
@@ -18,6 +18,7 @@ use crate::user::windows::nt::status::{
 use vm_memory::{Address, GuestMemory};
 
 const SYSTEM_BASIC_INFORMATION: u32 = 0;
+const SYSTEM_EMULATION_BASIC_INFORMATION: u32 = 62;
 const SYSTEM_RANGE_START_INFORMATION: u32 = 50;
 const SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION: u32 = 250;
 const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
@@ -74,7 +75,9 @@ fn query(c: &mut Ctx) -> ApiResult {
         }
     }
     match class {
-        SYSTEM_BASIC_INFORMATION => basic_information(c, output, length, returned),
+        SYSTEM_BASIC_INFORMATION | SYSTEM_EMULATION_BASIC_INFORMATION => {
+            basic_information(c, output, length, returned)
+        }
         SYSTEM_RANGE_START_INFORMATION => range_start(c, output, length, returned),
         SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION => {
             processor_features(c, output, length, returned)

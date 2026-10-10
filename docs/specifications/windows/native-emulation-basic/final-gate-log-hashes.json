@@ -1,0 +1,146 @@
+[
+  {
+    "file": "/tmp/assist-native-emulation-basic-final-full-macos.log",
+    "sha256": "57f234737953de0a9c4a9208bc080b02f34d4e2f2fd3978155ab1485f09e36fe",
+    "bytes": 763475,
+    "test_results": [
+      "test result: ok. 7545 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 61.41s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-emulation-basic-final-capi-macos.log",
+    "sha256": "af4ca01aeccf55e8871bc04650ad232383e5455f19ceddb1bc6dd8e659b2ca89",
+    "bytes": 12927,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.63s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-emulation-basic-final-all-targets-macos.log",
+    "sha256": "c13b94adbfe4446d0ce4ab4c3900178b7adb4c0f44990bf36cdf22cd8803c5f7",
+    "bytes": 136,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-emulation-basic-final-integration-macos.log",
+    "sha256": "1b28c2b25f88b74d11ccb3e1e7ea15157b69466e9754a63c7c59b7c453bd9e69",
+    "bytes": 35757,
+    "test_results": [
+      "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.06s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-emulation-basic-final-full.log",
+    "sha256": "9c73936977c42a2c3182d10b9b3d4efc74de296d6cd8549efef4e3a16bb67917",
+    "bytes": 764517,
+    "test_results": [
+      "test result: FAILED. 7537 passed; 2 failed; 2 ignored; 0 measured; 0 filtered out; finished in 107.04s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-emulation-basic-final-capi.log",
+    "sha256": "aa01825bfb25eafe730e49f7b5a9959a5b0a5635a1c2595318ed21b60f8aeae5",
+    "bytes": 12880,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.92s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-emulation-basic-final-all-targets.log",
+    "sha256": "c31766c677a69f7be53bcdd99192e98ac9144c79cb0f2349e67342e0156b7f3f",
+    "bytes": 116,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-emulation-basic-final-integration.log",
+    "sha256": "789a0cd75879d3441e44218b31a9ab2f827c47ded4793f701220722c5ef92cb9",
+    "bytes": 35760,
+    "test_results": [
+      "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.67s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-emulation-basic-final-shipping.log",
+    "sha256": "b8e2d27bc96ea3b45f288d65b1eb144a9d9909103636106ec0bb9936921cf909",
+    "bytes": 222,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-root-cpp-linux/native-emulation-basic-final-cpp.log",
+    "sha256": "654c261ed7378aaed6990c140445dd6a20067dae86e5f2e0b446b80ee64f8497",
+    "bytes": 1623,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-emulation-basic-final-full.log",
+    "sha256": "70c776df523d6fee08038c6d6abae024fa3be259932f3dfc4fe4fd331cc5964f",
+    "bytes": 716737,
+    "test_results": [
+      "test result: FAILED. 6933 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 106.51s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-emulation-basic-final-capi.log",
+    "sha256": "6ad90a53805bec762a62c902ca2b494837324984f1c0c0310dd1211bce695e67",
+    "bytes": 13816,
+    "test_results": [
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.20s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-emulation-basic-final-all-targets.log",
+    "sha256": "1d1639e48f5e3a99ba0744dc4bd47a7c3b15f2b5b1774b529db997ec90bc555a",
+    "bytes": 986,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-emulation-basic-final-integration.log",
+    "sha256": "a96d5e680aa78fd719587e9215befe19421d05e7bac963edf2f926e85925d861",
+    "bytes": 1752,
+    "test_results": [
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+    ]
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/assist-native-emulation-basic-final-shipping.log",
+    "sha256": "ff17fec4a0eeeb41a2bad7ddca1343d3adb58a5653c488146dd602e0a9362e13",
+    "bytes": 1584,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/assist-native-emulation-basic-final-cpp.log",
+    "sha256": "b0f277678bc54485cf58c6295345a12235df27c7d420c5085b93ab253e75e214",
+    "bytes": 2946,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-emulation-basic-final-cli-cpp-macos.log",
+    "sha256": "45e8b7a6634a2374bcc711fea4d80f097c8b7f23bacb447ede728651f1ae449a",
+    "bytes": 9963,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-emulation-basic-final-ctest-macos.log",
+    "sha256": "d5258181c8e582992617fb9b90e397bfde3305af12994eac95eb7a6a8e6f23b6",
+    "bytes": 1210,
+    "test_results": []
+  },
+  {
+    "file": "/tmp/assist-native-windows-29683/native-emulation-basic-final-archive-output.log",
+    "sha256": "081b8fc872843ced644e5d45954166c6a46585d4a5e3a0c88faeaf53cc3508a5",
+    "bytes": 13939,
+    "test_results": [
+      "test result: FAILED. 6933 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 106.51s\r",
+      "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.20s\r",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\r",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\r",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\r"
+    ]
+  }
+]

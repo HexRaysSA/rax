@@ -1,0 +1,6 @@
+pointer_bytes=8 returned_offset=0 status=00000000 output_then_length=1
+pointer_bytes=8 returned_offset=1 status=00000000 output_then_length=1
+pointer_bytes=8 returned_offset=8 status=00000000 output_then_length=1
+pointer_bytes=8 returned_offset=24 status=00000000 output_then_length=1
+pointer_bytes=8 returned_offset=40 status=00000000 output_then_length=1
+pointer_bytes=8 returned_offset=60 status=00000000 output_then_length=1

@@ -4,6 +4,9 @@ use crate::user::windows::loader::services::tests::table;
 #[path = "services_tests/process_query_tests.rs"]
 mod process_query_tests;
 
+#[path = "services_tests/emulation_basic_tests.rs"]
+mod emulation_basic_tests;
+
 #[path = "services_tests/processor_feature_tests.rs"]
 mod processor_feature_tests;
 
