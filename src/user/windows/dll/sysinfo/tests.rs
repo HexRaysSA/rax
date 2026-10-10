@@ -1,4 +1,38 @@
 use super::*;
+
+#[test]
+fn shared_processor_features_match_hle_api_for_each_guest_cpu() {
+    use crate::user::windows::layout::{KUSER_SHARED_DATA, kuser};
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let mut present = 0;
+        for feature in 0..64 {
+            let api = returned(call(p, &mut t, "IsProcessorFeaturePresent", &[feature]));
+            let shared = p
+                .space
+                .u8(KUSER_SHARED_DATA + kuser::PROCESSOR_FEATURES + feature)
+                .unwrap();
+            assert_eq!(u64::from(shared), api, "{arch}/feature {feature}");
+            present += shared;
+        }
+        assert!(present > 0, "baseline guest CPU features must be visible");
+        for feature in [64, 65, 127, 128, 191, 192, u64::from(u32::MAX)] {
+            assert_eq!(
+                returned(call(p, &mut t, "IsProcessorFeaturePresent", &[feature])),
+                0,
+                "{arch}/{feature}"
+            );
+        }
+        assert!(
+            p.space
+                .w8(KUSER_SHARED_DATA + kuser::PROCESSOR_FEATURES, 0xFF)
+                .is_err()
+        );
+    }
+}
 use crate::user::windows::hle::{Item, Value};
 use crate::user::windows::process::{Proc, Thread, WindowsConfig, WindowsProcess};
 

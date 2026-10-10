@@ -1,0 +1,51 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+pointer=4 length=0 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=1 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=4 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=8 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=12 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=15 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=16 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=17 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=20 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=24 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=31 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=32 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=33 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=48 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 length=64 status=C0000003 returned=A5A5A5A5 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=0 length=16 status=C0000003 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=1 length=16 status=C0000003 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=2 length=16 status=C0000003 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=3 length=0 status=C0000003 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=4 length=16 status=C0000003 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=5 length=16 status=C0000003 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=6 length=15 status=C0000003 output_protect=00000002 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=7 length=16 status=C0000003 output_protect=00000104 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=8 length=15 status=C0000003 output_protect=00000004 returned_protect=00000104 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=9 length=16 status=C0000003 output_protect=00000104 returned_protect=00000002 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=10 length=16 status=C0000003 output_protect=00000004 returned_protect=00000002 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=11 length=16 status=C0000003 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=12 length=17 status=C0000003 output_protect=00000004 returned_protect=00000002 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 role=13 length=17 status=C0000003 output_protect=00000004 returned_protect=00000104 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=4 bitmap_status=C0000003 returned=0
+shared_feature=2 api=1
+shared_feature=3 api=1
+shared_feature=6 api=1
+shared_feature=8 api=1
+shared_feature=10 api=1
+shared_feature=12 api=1
+shared_feature=13 api=1
+shared_feature=14 api=1
+shared_feature=17 api=1
+shared_feature=22 api=1
+shared_feature=28 api=1
+shared_feature=32 api=1
+shared_feature=36 api=1
+shared_feature=37 api=1
+shared_feature=38 api=1
+shared_feature=39 api=1
+shared_feature=40 api=1

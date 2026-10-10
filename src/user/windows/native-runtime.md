@@ -54,13 +54,21 @@ syscall for guest requests.
 
 Supported kernel operations include checked NtClose, memory allocation/free/
 protection, context continuation, forced termination, installed startup system
-queries (`NtQuerySystemInformation`, classes 0 and 50), and the process-cookie
+queries (`NtQuerySystemInformation`, classes 0, 50 and 250), and the process-cookie
 query (`NtQueryInformationProcess`, class 36). Other query classes remain
 explicit unsupported operations.
 Unrecognized WoW64 encodings, native RTL heap/bootstrap requirements,
 the broader NT object/file/section/query surface and ordinary Win32/CRT startup
 remain incomplete. Native-subsystem images load NTDLL without inventing the
 Win32 KERNEL32/KERNELBASE roots; Win32 images select those installed DLLs too.
+
+Class 250 is the extended processor-feature bitmap: bit `k` means PF `64 + k`.
+Its recorded native 64-bit profile accepts lengths >=16 bytes in 8-byte
+multiples, writes 16 bytes, and probes the entire supplied span first. The
+WoW64 profile returns `STATUS_INVALID_INFO_CLASS` before destination probes.
+The baseline 64 `KUSER_SHARED_DATA.ProcessorFeatures` bytes now use the same
+guest CPU policy as the HLE API; the separately indexed extended bitmap does
+not advertise unknown features or copy host capabilities.
 
 ## Assumptions and probes
 
@@ -467,3 +475,38 @@ establish the recorded results. Quality review covers exact input widths,
 probe order, handles, aliases, guards, guest lifetime/PRNG, complete stub
 admission, all three OS configurations, primary/native provenance, material
 assumptions and bounded unresolved startup/application/platform proof.
+
+## Processor-feature prerequisite and native heap diagnostic (2026-10-10)
+
+The [processor-feature record](../../../docs/specifications/windows/native-processor-features/README.md)
+retains primary documentation, exact source revisions/licenses, all three
+native oracle logs, before/after diagnostic traces and 21 reference checksums.
+The initial HLE process heap is incompatible with the installed RTL layout:
+`0x10000 + 0x138` yields `0x80006`, then an 8-byte-offset read faults at
+`0x8000E`. Clearing only `PEB.ProcessHeap` does not make native heap creation
+succeed: native `RtlCreateHeap` instead dereferences an uninitialized lock
+pointer. No exception-handler callback result is accepted as a heap handle.
+
+The isolated native loader probe advances from 36 instructions at unsupported
+class 250 to 141 instructions at unsupported `NtCreateEvent` after this query
+prerequisite is implemented. The production lifecycle still lacks native NTDLL
+process initialization and real RTL heap bootstrap; the four ordinary Windows
+installed-DLL programs still terminate with `STATUS_ACCESS_VIOLATION`.
+
+| Validation surface | Final result | Evidence |
+|---|---|---|
+| Before/after regressions | Two tests fail before; both pass after; four shared feature tests pass in every OS configuration | `/tmp/assist-native-processor-features-{before,after,expanded}-macos.log`; full logs below |
+| macOS complete RAX library | 7,471 passed; 0 failed; 2 ignored; 0 filtered | `/tmp/assist-native-processor-features-full-macos.log` |
+| Linux complete RAX library | 7,464 passed; 1 failed; 2 ignored; 0 filtered; recorded io_uring timeout-removal/update race | `/tmp/assist-native-root-cpp-linux/native-processor-features-full.log` |
+| Windows complete RAX library | 6,844 passed; 5 failed; 2 ignored; 0 filtered; same four BZHI byte assertions and host FP16 execution failure | `/tmp/assist-native-windows-29683/native-processor-features-complete-full.log` |
+| Installed query / RTL instructions | Selected ARM64/x86 query leaves and ARM64 RTL feature queries pass, including real RET cleanup and no kernel SEH frame | Same Windows full log; focused log has 5 passed, 0 failed |
+| Complete C API package | 168 passed; 0 failed; 0 ignored; 0 filtered on each OS | `/tmp/assist-native-processor-features-capi-macos.log`; `/tmp/assist-native-root-cpp-linux/native-processor-features-capi.log`; `/tmp/assist-native-windows-29683/native-processor-features-complete-capi.log` |
+| Current Assist archives | macOS 5/5 CTests; Linux tool 184 / adapter 162 / disabled factory / ABI 2/2 / archive link pass; Windows tool 182 / adapter 162 / disabled factory / ABI 2/2 / archive link pass | `/tmp/assist-native-processor-features-root-macos-{build,ctest}.log`; `/tmp/assist-native-root-cpp-linux/native-processor-features-{shipping,cpp}.log`; `/tmp/assist-native-windows-29683/assist-native-processor-features-complete-{shipping,cpp}.log` |
+
+The query, shared startup bytes and HLE API are shared Rust on Windows, macOS
+and Linux. CPU implementations, IR/JIT planes, dependencies, lockfiles,
+public C ABI 1.11.0, defaults and package wiring are unchanged. Current archive
+linkage does not establish a real IDA plugin, harness or package execution.
+Assumptions F1-F4 and bounded high/medium limitations are maintained in the
+linked record. Full failing suites remain failing; query tests do not erase
+those failures or certify complete process emulation.

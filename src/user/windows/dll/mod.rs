@@ -18,6 +18,7 @@ mod threading;
 use super::hle::Export;
 
 pub(crate) use files::finish_close;
+pub(crate) use sysinfo::processor_feature_present;
 
 /// Kernel services share the existing NT implementations, never Rtl helpers.
 pub(crate) fn nt_service(

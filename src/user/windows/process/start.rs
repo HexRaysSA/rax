@@ -519,10 +519,22 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
     )
     .map_err(|e| memory(format!("{e:?}")))?;
     let entry = p.modules.exe().entry;
-    thread::create(&mut p, entry, 0, 0, true).map_err(|status| SpawnError::Load {
+    let tid = thread::create(&mut p, entry, 0, 0, true).map_err(|status| SpawnError::Load {
         status,
         message: "cannot create main thread".into(),
     })?;
+    // The shared array covers baseline PF indices 0..64. Class 250 covers
+    // the separate extended indices 64..192. Use the actual created CPU;
+    // the readonly guest page must never expose the host's capabilities.
+    let cpu = &p.threads[&tid].cpu;
+    let features: [u8; 64] = std::array::from_fn(|feature| {
+        u8::from(crate::user::windows::dll::processor_feature_present(
+            cpu,
+            feature as u32,
+        ))
+    });
+    p.vm.poke(shared + kuser::PROCESSOR_FEATURES, &features)
+        .map_err(|e| memory(format!("{e:?}")))?;
     Ok(p)
 }
 

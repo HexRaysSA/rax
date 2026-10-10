@@ -135,7 +135,14 @@ pub(super) fn arm64_feature(feature: u32) -> bool {
 
 fn is_processor_feature_present(c: &mut Ctx) -> ApiResult {
     let feature = c.u32(0)?;
-    let present = match &c.t.cpu {
+    Flow::bool(processor_feature_present(&c.t.cpu, feature))
+}
+
+/// One guest CPU policy for the API, shared-data bytes, and extended bitmap.
+/// Unrecognized indices, including the currently unadvertised extended
+/// features 64 and above, are false. Never import host CPU capabilities.
+pub(crate) fn processor_feature_present(cpu: &WinCpu, feature: u32) -> bool {
+    match cpu {
         WinCpu::X86(cpu, arch) => {
             let vcpu = cpu.vcpu();
             x86_feature(feature, *arch == WinArch::X64, |leaf, sub| {
@@ -143,8 +150,7 @@ fn is_processor_feature_present(c: &mut Ctx) -> ApiResult {
             })
         }
         WinCpu::Arm64(_) => arm64_feature(feature),
-    };
-    Flow::bool(present)
+    }
 }
 
 /// 100-nanosecond intervals since 1601-01-01 UTC for a Unix-epoch sample.

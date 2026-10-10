@@ -1,0 +1,23 @@
+{
+  "retrieved": "2026-10-10",
+  "image_source": "Windows 10.0.29683.1000 ARM64 System32 NTDLL (private selected input)",
+  "image_bytes": 4609312,
+  "image_sha256": "502d4678206c8fd564972a3f82bfe63fe1a451cb5a6804ac0a9823b65fcbb61f",
+  "image_codeview_guid": "7DB9D778-C2F5-4816-1C99-84382D15362E",
+  "image_codeview_age": 1,
+  "public_pdb_source": "https://msdl.microsoft.com/download/symbols/ntdll.pdb/7DB9D778C2F548161C9984382D15362E1/ntdll.pdb",
+  "public_pdb_bytes": 3624960,
+  "public_pdb_sha256": "980319d403947ad730a61aacfc6150aab678decf027cf6a54a38806fb2ebf205",
+  "public_pdb_guid": "7DB9D778-C2F5-4816-1C99-84382D15362E",
+  "public_pdb_age": 4,
+  "tool": "LLVM (http://llvm.org/):",
+  "interpretation": "GUID agrees; ages differ. Public labels are inference, export RVAs independently corroborate layout. DLL/PDB not redistributed.",
+  "symbol_rvas": {
+    "RtlCreateHeap": "0x24F40",
+    "LdrInitializeThunk": "0xEF6E0",
+    "RtlpAllocateNTHeapInternal": "0x26450",
+    "RtlpWaitOnCriticalSection": "0x3D400",
+    "RtlpProcessHeapsLock": "0x3CAD80",
+    "LdrpLoaderLock": "0x3BE6B0"
+  }
+}

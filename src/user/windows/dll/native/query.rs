@@ -2,7 +2,7 @@
 //!
 //! The four-argument API is documented at
 //! <https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation>.
-//! Classes 0 and 50's private layouts, exact lengths, alignment and WoW64 ordering
+//! Classes 0, 50 and 250's private layouts, lengths, alignment and WoW64 ordering
 //! are native observations on Windows 10.0.29683.1000, recorded in
 //! `src/user/windows/native-runtime.md`. No guest request calls the host kernel.
 
@@ -13,12 +13,13 @@ use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{ALLOCATION_GRANULARITY, Mem, MemFault};
 use crate::user::windows::nt::status::{
     STATUS_DATATYPE_MISALIGNMENT, STATUS_GUARD_PAGE_VIOLATION, STATUS_INFO_LENGTH_MISMATCH,
-    STATUS_INVALID_PARAMETER,
+    STATUS_INVALID_INFO_CLASS, STATUS_INVALID_PARAMETER,
 };
 use vm_memory::{Address, GuestMemory};
 
 const SYSTEM_BASIC_INFORMATION: u32 = 0;
 const SYSTEM_RANGE_START_INFORMATION: u32 = 50;
+const SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION: u32 = 250;
 const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
 
 pub(super) fn probe_write(c: &Ctx, address: u64, bytes: usize) -> Result<(), MemFault> {
@@ -53,6 +54,11 @@ pub(super) fn guard_result(c: &mut Ctx, result: ApiResult) -> ApiResult {
 
 fn query(c: &mut Ctx) -> ApiResult {
     let (class, output, length, returned) = (c.u32(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?);
+    if class == SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION && c.arch() == WinArch::X86 {
+        // The recorded WoW64 wrapper rejects this class before either probe;
+        // it has no native bitmap conversion, and leaves ReturnLength intact.
+        return Flow::ret(STATUS_INVALID_INFO_CLASS.into());
+    }
     // Native 64-bit entry probes both destinations before class/length dispatch.
     // Its output alignment is ULONG alignment (4), not pointer alignment (8).
     // The installed WoW64 wrapper instead copies its converted output first.
@@ -70,8 +76,32 @@ fn query(c: &mut Ctx) -> ApiResult {
     match class {
         SYSTEM_BASIC_INFORMATION => basic_information(c, output, length, returned),
         SYSTEM_RANGE_START_INFORMATION => range_start(c, output, length, returned),
+        SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION => {
+            processor_features(c, output, length, returned)
+        }
         _ => Err(c.unsupported(format!("NtQuerySystemInformation class {class}"))),
     }
+}
+
+fn processor_features(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {
+    const BYTES: usize = 16;
+    // Native entry already probed the entire supplied extent and ReturnLength.
+    // This profile accepts >=16 bytes in ULONG64 multiples but writes only 16.
+    if length < BYTES as u32 || length % 8 != 0 {
+        return_length(c, returned, BYTES as u32)?;
+        return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
+    }
+    let mut bitmap = [0u8; BYTES];
+    for bit in 0..BYTES * 8 {
+        // The baseline 64 PF entries reside in KUSER_SHARED_DATA. Bitmap bit
+        // zero describes PF 64; shifting baseline flags here would be wrong.
+        if crate::user::windows::dll::processor_feature_present(&c.t.cpu, 64 + bit as u32) {
+            bitmap[bit / 8] |= 1 << (bit % 8);
+        }
+    }
+    c.mem().wr(output, &bitmap)?;
+    return_length(c, returned, BYTES as u32)?;
+    Flow::ret(0)
 }
 
 fn range_start(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {

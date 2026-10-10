@@ -1,0 +1,70 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+pointer=8 length=0 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=1 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=4 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=8 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=12 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=15 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=16 status=00000000 returned=00000010 bytes=1B000040000000000000000000000000A5A5A5A5A5A5A5A5
+pointer=8 length=17 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=20 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=24 status=00000000 returned=00000010 bytes=1B000040000000000000000000000000A5A5A5A5A5A5A5A5
+pointer=8 length=31 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=32 status=00000000 returned=00000010 bytes=1B000040000000000000000000000000A5A5A5A5A5A5A5A5
+pointer=8 length=33 status=C0000004 returned=00000010 bytes=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 length=48 status=00000000 returned=00000010 bytes=1B000040000000000000000000000000A5A5A5A5A5A5A5A5
+pointer=8 length=64 status=00000000 returned=00000010 bytes=1B000040000000000000000000000000A5A5A5A5A5A5A5A5
+pointer=8 role=0 length=16 status=80000002 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=1 length=16 status=80000002 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=2 length=16 status=C0000005 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=3 length=0 status=C0000004 output_protect=00000004 returned_protect=00000004 returned=00000010 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=4 length=16 status=00000000 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=1B000040000000000000000000000000A5A5A5A5
+pointer=8 role=5 length=16 status=00000000 output_protect=00000004 returned_protect=00000004 returned=000010A5 prefix=1B000040000000000000000000000000A5A5A5A5
+pointer=8 role=6 length=15 status=C0000005 output_protect=00000002 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=7 length=16 status=80000001 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=8 length=15 status=80000001 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=9 length=16 status=80000001 output_protect=00000004 returned_protect=00000002 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=10 length=16 status=C0000005 output_protect=00000004 returned_protect=00000002 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=11 length=16 status=00000000 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=10000000000000000000000000000000A5A5A5A5
+pointer=8 role=12 length=17 status=C0000005 output_protect=00000004 returned_protect=00000002 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 role=13 length=17 status=80000001 output_protect=00000004 returned_protect=00000004 returned=A5A5A5A5 prefix=A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5
+pointer=8 bitmap_status=00000000 returned=16
+feature=64 bitmap=1 api=1
+feature=65 bitmap=1 api=1
+feature=67 bitmap=1 api=1
+feature=68 bitmap=1 api=1
+feature=94 bitmap=1 api=1
+shared_feature=2 api=1
+shared_feature=3 api=1
+shared_feature=6 api=1
+shared_feature=8 api=1
+shared_feature=10 api=1
+shared_feature=12 api=1
+shared_feature=13 api=1
+shared_feature=14 api=1
+shared_feature=17 api=1
+shared_feature=18 api=1
+shared_feature=19 api=1
+shared_feature=22 api=1
+shared_feature=23 api=1
+shared_feature=24 api=1
+shared_feature=25 api=1
+shared_feature=27 api=1
+shared_feature=28 api=1
+shared_feature=29 api=1
+shared_feature=30 api=1
+shared_feature=31 api=1
+shared_feature=32 api=1
+shared_feature=34 api=1
+shared_feature=36 api=1
+shared_feature=37 api=1
+shared_feature=38 api=1
+shared_feature=39 api=1
+shared_feature=40 api=1
+shared_feature=43 api=1
+shared_feature=44 api=1
+shared_feature=45 api=1
+shared_feature=62 api=1
