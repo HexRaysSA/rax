@@ -1,97 +1,74 @@
-//! Class 107 / RelationGroup buffer contract measured on Windows build 29683.
-
+//! Class107 NUMA record sizes and fault publication independently observed on Windows29683.
 use super::*;
 
-#[path = "numa_node_tests.rs"]
-mod numa_node_tests;
-
-const SERVICE: u32 = 0x16E; // Synthetic table identity, not a host-build table.
-
 #[cfg(windows)]
-#[path = "topology_leaf_tests.rs"]
+#[path = "numa_node_leaf_tests.rs"]
 mod leaf_tests;
 
-fn group_fixture(arch: WinArch) -> (super::super::super::super::WindowsProcess, Thread, u64) {
-    let (mut process, t) = fixture(arch, "NtQuerySystemInformationEx", SERVICE);
-    let p = process.state_mut();
-    let scratch =
-        p.vm.allocate(
-            None,
-            4 * PAGE_SIZE,
-            mem::RESERVE | mem::COMMIT,
-            prot::READWRITE,
-        )
-        .unwrap()
-        .0;
-    p.space
-        .wr(scratch, &vec![0xA5; (4 * PAGE_SIZE) as usize])
-        .unwrap();
-    p.space.w32(scratch, 4).unwrap();
+fn numa_fixture(
+    arch: WinArch,
+) -> (
+    super::super::super::super::super::WindowsProcess,
+    Thread,
+    u64,
+) {
+    let (mut process, t, scratch) = group_fixture(arch);
+    process.state_mut().space.w32(scratch, 6).unwrap();
     (process, t, scratch)
 }
 
-fn group_call(p: &mut Proc, t: &mut Thread, args: [u64; 6]) -> Outcome {
-    let sp = t.cpu.sp();
-    t.cpu.set_pc(0x1234_0004);
-    match p.arch {
-        WinArch::X86 => {
-            for (index, value) in [0x1234_0004, 0x1234_0000]
-                .into_iter()
-                .chain(args)
-                .enumerate()
-            {
-                p.space.w32(sp + index as u64 * 4, value as u32).unwrap();
-            }
-            t.cpu.set_gpr(0, SERVICE.into());
-        }
-        WinArch::X64 => {
-            t.cpu.set_gpr(0, SERVICE.into());
-            t.cpu.set_gpr(10, args[0]);
-            t.cpu.set_gpr(1, 0x1234_0004);
-            for (register, value) in [2, 8, 9].into_iter().zip(args[1..4].iter().copied()) {
-                t.cpu.set_gpr(register, value);
-            }
-            for (index, value) in args[4..].iter().copied().enumerate() {
-                p.space.w64(sp + 40 + index as u64 * 8, value).unwrap();
-            }
-        }
-        WinArch::Arm64 => {
-            for (index, value) in args.into_iter().enumerate() {
-                t.cpu.set_gpr(index, value);
-            }
-        }
-    }
-    let outcome = if p.arch == WinArch::X86 {
-        super::super::super::super::services::wow64(p, t, 0x1234_0000)
-    } else {
-        handle_stop(p, t, stop(p.arch, SERVICE))
-    };
-    if outcome == Outcome::Continue {
-        assert_eq!(t.cpu.pc(), 0x1234_0004);
-        assert_eq!(t.cpu.sp(), sp + if p.arch == WinArch::X86 { 4 } else { 0 });
-        assert!(t.frames.is_empty());
-    }
-    t.cpu.set_sp(sp);
-    outcome
-}
-
-fn group_record(arch: WinArch) -> Vec<u8> {
-    let size = if arch == WinArch::X86 { 76 } else { 80 };
-    let mut record = vec![0; size];
-    record[..4].copy_from_slice(&4u32.to_le_bytes());
-    record[4..8].copy_from_slice(&(size as u32).to_le_bytes());
-    record[8..12].copy_from_slice(&[1, 0, 1, 0]);
-    record[32..34].copy_from_slice(&[1, 1]);
-    record[72] = 1;
+fn numa_record(arch: WinArch) -> Vec<u8> {
+    let size: u32 = if arch == WinArch::X86 { 44 } else { 48 };
+    let mut record = vec![0; size as usize];
+    record[..4].copy_from_slice(&1u32.to_le_bytes());
+    record[4..8].copy_from_slice(&size.to_le_bytes());
+    record[30..32].copy_from_slice(&1u16.to_le_bytes());
+    record[32] = 1; // Node0/group0/CPU0 agrees with existing topology queries.
     record
 }
 
 #[test]
-fn native_group_topology_sizes_projected_cpu_and_untouched_suffix_all_abis() {
+fn native_numa_node_legacy_and_extended_requests_return_relation_numa_node_all_abis() {
+    for arch in WinArch::ALL {
+        for relationship in [1, 6] {
+            let (mut process, mut t, scratch) = numa_fixture(arch);
+            let p = process.state_mut();
+            p.space.w32(scratch, relationship).unwrap();
+            assert_eq!(
+                group_call(
+                    p,
+                    &mut t,
+                    [
+                        107,
+                        scratch,
+                        4,
+                        scratch + PAGE_SIZE,
+                        96,
+                        scratch + 2 * PAGE_SIZE
+                    ]
+                ),
+                Outcome::Continue
+            );
+            assert_eq!(t.cpu.gpr(0), 0);
+            let record = numa_record(arch);
+            assert_eq!(
+                p.space.bytes(scratch + PAGE_SIZE, record.len()).unwrap(),
+                record
+            );
+            assert_eq!(
+                p.space.u32(scratch + 2 * PAGE_SIZE).unwrap(),
+                record.len() as u32
+            );
+        }
+    }
+}
+
+#[test]
+fn native_numa_node_sizes_projected_cpu_and_untouched_suffix_all_abis() {
     for arch in WinArch::ALL {
         for input_bytes in [0, 1, 2, 3, 4, 5, 8, 16] {
-            for output_bytes in [0, 1, 4, 75, 76, 79, 80, 81, 96] {
-                let (mut process, mut t, scratch) = group_fixture(arch);
+            for output_bytes in [0, 1, 4, 43, 44, 47, 48, 49, 96] {
+                let (mut process, mut t, scratch) = numa_fixture(arch);
                 let p = process.state_mut();
                 let output = scratch + PAGE_SIZE;
                 let returned = scratch + 2 * PAGE_SIZE;
@@ -104,7 +81,7 @@ fn native_group_topology_sizes_projected_cpu_and_untouched_suffix_all_abis() {
                     Outcome::Continue,
                     "{arch}/{input_bytes}/{output_bytes}"
                 );
-                let record = group_record(arch);
+                let record = numa_record(arch);
                 let expected = if input_bytes < 4 {
                     STATUS_INVALID_PARAMETER
                 } else if output_bytes < record.len() as u64 {
@@ -136,10 +113,10 @@ fn native_group_topology_sizes_projected_cpu_and_untouched_suffix_all_abis() {
 }
 
 #[test]
-fn native_group_topology_fault_order_and_destination_write_order_all_abis() {
+fn native_numa_node_fault_order_and_destination_write_order_all_abis() {
     for arch in WinArch::ALL {
         for role in 0..12 {
-            let (mut process, mut t, scratch) = group_fixture(arch);
+            let (mut process, mut t, scratch) = numa_fixture(arch);
             let p = process.state_mut();
             let (mut input, mut input_bytes, mut output, mut output_bytes, mut returned) =
                 (scratch, 4, scratch + PAGE_SIZE, 96, scratch + 2 * PAGE_SIZE);
@@ -224,7 +201,7 @@ fn native_group_topology_fault_order_and_destination_write_order_all_abis() {
             );
             assert_eq!(t.cpu.gpr(0), u64::from(expected), "{arch}/{role}");
             let original_output = scratch + PAGE_SIZE;
-            let record = group_record(arch);
+            let record = numa_record(arch);
             let copied = expected == STATUS_SUCCESS || (role == 7 && arch == WinArch::X86);
             let mut data = vec![0xA5; 128];
             if copied {
@@ -245,7 +222,7 @@ fn native_group_topology_fault_order_and_destination_write_order_all_abis() {
 }
 
 #[test]
-fn native_group_topology_alignment_and_optional_returned_length_all_abis() {
+fn native_numa_node_alignment_and_optional_returned_length_all_abis() {
     for arch in WinArch::ALL {
         for (role, offsets) in [
             (0, &[1, 2, 3, 4, 7][..]),
@@ -253,14 +230,14 @@ fn native_group_topology_alignment_and_optional_returned_length_all_abis() {
             (2, &[1, 2, 3]),
         ] {
             for &offset in offsets {
-                let (mut process, mut t, scratch) = group_fixture(arch);
+                let (mut process, mut t, scratch) = numa_fixture(arch);
                 let p = process.state_mut();
                 let (mut input, mut output, mut returned) =
                     (scratch, scratch + PAGE_SIZE, scratch + 2 * PAGE_SIZE);
                 match role {
                     0 => {
                         input += offset;
-                        p.space.w32(input, 4).unwrap();
+                        p.space.w32(input, 6).unwrap();
                     }
                     1 => output += offset,
                     2 => returned += offset,
@@ -283,12 +260,12 @@ fn native_group_topology_alignment_and_optional_returned_length_all_abis() {
                 );
                 if !misaligned {
                     assert_eq!(
-                        p.space.bytes(output, group_record(arch).len()).unwrap(),
-                        group_record(arch)
+                        p.space.bytes(output, numa_record(arch).len()).unwrap(),
+                        numa_record(arch)
                     );
                     assert_eq!(
                         p.space.u32(returned).unwrap(),
-                        group_record(arch).len() as u32
+                        numa_record(arch).len() as u32
                     );
                 }
             }
@@ -297,13 +274,13 @@ fn native_group_topology_alignment_and_optional_returned_length_all_abis() {
 }
 
 #[test]
-fn native_group_topology_ignores_unmapped_extra_input_span_all_abis() {
+fn native_numa_node_ignores_unmapped_extra_input_span_all_abis() {
     for arch in WinArch::ALL {
         for input_bytes in [3, 4, 8, 16, u32::MAX] {
-            let (mut process, mut t, scratch) = group_fixture(arch);
+            let (mut process, mut t, scratch) = numa_fixture(arch);
             let p = process.state_mut();
             let input = scratch + PAGE_SIZE - 4;
-            p.space.w32(input, 4).unwrap();
+            p.space.w32(input, 6).unwrap();
             p.vm.protect(
                 scratch + PAGE_SIZE,
                 PAGE_SIZE,
@@ -333,11 +310,11 @@ fn native_group_topology_ignores_unmapped_extra_input_span_all_abis() {
 }
 
 #[test]
-fn native_group_topology_partial_conversion_at_every_field_boundary_all_abis() {
+fn native_numa_node_partial_conversion_at_every_field_boundary_all_abis() {
     for arch in WinArch::ALL {
         for protection in [prot::NOACCESS, prot::READONLY] {
             for prefix in 1..=96 {
-                let (mut process, mut t, scratch) = group_fixture(arch);
+                let (mut process, mut t, scratch) = numa_fixture(arch);
                 let p = process.state_mut();
                 let output = scratch + 2 * PAGE_SIZE - prefix;
                 p.vm.protect(scratch + 2 * PAGE_SIZE, PAGE_SIZE, protection)
@@ -349,7 +326,7 @@ fn native_group_topology_partial_conversion_at_every_field_boundary_all_abis() {
                 );
                 let expected = if arch != WinArch::X86 && prefix % 4 != 0 {
                     STATUS_DATATYPE_MISALIGNMENT
-                } else if arch == WinArch::X86 && prefix >= 76 {
+                } else if arch == WinArch::X86 && prefix >= 44 {
                     STATUS_SUCCESS
                 } else {
                     STATUS_ACCESS_VIOLATION
@@ -361,23 +338,27 @@ fn native_group_topology_partial_conversion_at_every_field_boundary_all_abis() {
                 );
                 let mut data = vec![0xA5; prefix as usize];
                 if arch == WinArch::X86 {
-                    if prefix >= 76 {
-                        data[..76].copy_from_slice(&group_record(arch));
+                    if prefix >= 44 {
+                        data[..44].copy_from_slice(&numa_record(arch));
                     } else {
+                        // Independently measured native WoW64 conversion:
+                        // node DWORD, reserved SIMD16/WORD, count WORD,
+                        // zero affinity QWORD/DWORD, group WORD, mask DWORD,
+                        // then header. Faulting stores publish no prefix.
                         if prefix >= 12 {
-                            data[8..12].copy_from_slice(&[1, 0, 1, 0]);
+                            data[8..12].fill(0);
                         }
                         if prefix >= 28 {
                             data[12..28].fill(0);
                         }
+                        if prefix >= 30 {
+                            data[28..30].fill(0);
+                        }
                         if prefix >= 32 {
-                            data[28..32].fill(0);
+                            data[30..32].copy_from_slice(&1u16.to_le_bytes());
                         }
-                        if prefix >= 33 {
-                            data[32] = 1;
-                        }
-                        if prefix >= 34 {
-                            data[33] = 1;
+                        if prefix >= 40 {
+                            data[32..40].fill(0);
                         }
                     }
                 }
@@ -389,7 +370,7 @@ fn native_group_topology_partial_conversion_at_every_field_boundary_all_abis() {
                 assert_eq!(
                     p.space.u32(returned).unwrap(),
                     if expected == STATUS_SUCCESS {
-                        76
+                        44
                     } else {
                         0xA5A5_A5A5
                     }
@@ -400,9 +381,9 @@ fn native_group_topology_partial_conversion_at_every_field_boundary_all_abis() {
 }
 
 #[test]
-fn native_group_topology_guards_order_capture_and_conversion_all_abis() {
+fn native_numa_node_guards_order_capture_and_conversion_all_abis() {
     for arch in WinArch::ALL {
-        let (mut process, mut t, scratch) = group_fixture(arch);
+        let (mut process, mut t, scratch) = numa_fixture(arch);
         let p = process.state_mut();
         let output = scratch + PAGE_SIZE;
         for address in [scratch, output] {
@@ -435,17 +416,17 @@ fn native_group_topology_guards_order_capture_and_conversion_all_abis() {
             }
         }
         assert_eq!(
-            p.space.bytes(output, group_record(arch).len()).unwrap(),
-            group_record(arch)
+            p.space.bytes(output, numa_record(arch).len()).unwrap(),
+            numa_record(arch)
         );
     }
 }
 
 #[test]
-fn native_group_topology_aliases_capture_input_and_publish_returned_last_all_abis() {
+fn native_numa_node_aliases_capture_input_and_publish_returned_last_all_abis() {
     for arch in WinArch::ALL {
         for role in 0..8 {
-            let (mut process, mut t, scratch) = group_fixture(arch);
+            let (mut process, mut t, scratch) = numa_fixture(arch);
             let p = process.state_mut();
             let output = if role == 0 {
                 scratch
@@ -455,14 +436,14 @@ fn native_group_topology_aliases_capture_input_and_publish_returned_last_all_abi
             let returned = match role {
                 0 => scratch + 2 * PAGE_SIZE,
                 1 => scratch,
-                _ => output + [0, 0, 0, 4, 8, 32, 72, 1][role],
+                _ => output + [0, 0, 0, 4, 8, 32, 40, 1][role],
             };
             assert_eq!(
                 group_call(p, &mut t, [107, scratch, 4, output, 96, returned]),
                 Outcome::Continue
             );
             assert_eq!(t.cpu.gpr(0), 0);
-            let mut data = group_record(arch);
+            let mut data = numa_record(arch);
             let required = data.len() as u32;
             if role >= 2 {
                 let offset = (returned - output) as usize;
@@ -479,18 +460,18 @@ fn native_group_topology_aliases_capture_input_and_publish_returned_last_all_abi
 }
 
 #[test]
-fn native_group_topology_unmodeled_classes_and_relationships_stop_explicitly_all_abis() {
+fn native_numa_node_unmodeled_classes_and_relationships_stop_explicitly_all_abis() {
     for arch in WinArch::ALL {
         for (class, relationship) in [
-            (0, 4),
-            (50, 4),
-            (62, 4),
-            (250, 4),
+            (0, 6),
+            (50, 6),
+            (62, 6),
+            (250, 6),
             (107, 0),
             (107, 0xFFFF),
             (107, u32::MAX),
         ] {
-            let (mut process, mut t, scratch) = group_fixture(arch);
+            let (mut process, mut t, scratch) = numa_fixture(arch);
             let p = process.state_mut();
             p.space.w32(scratch, relationship).unwrap();
             assert!(
@@ -504,10 +485,10 @@ fn native_group_topology_unmodeled_classes_and_relationships_stop_explicitly_all
 }
 
 #[test]
-fn native_group_topology_returned_guards_and_cross_page_faults_preserve_order_all_abis() {
+fn native_numa_node_returned_guards_and_cross_page_faults_preserve_order_all_abis() {
     for arch in WinArch::ALL {
         for (input_bytes, output_bytes) in [(3, 96), (4, 0), (4, 96)] {
-            let (mut process, mut t, scratch) = group_fixture(arch);
+            let (mut process, mut t, scratch) = numa_fixture(arch);
             let p = process.state_mut();
             let (output, returned) = (scratch + PAGE_SIZE, scratch + 2 * PAGE_SIZE);
             p.vm.protect(returned, PAGE_SIZE, prot::READWRITE | prot::GUARD)
@@ -534,13 +515,13 @@ fn native_group_topology_returned_guards_and_cross_page_faults_preserve_order_al
                 if touches { 0 } else { prot::GUARD }
             );
             let mut expected = vec![0xA5; 96];
-            if arch == WinArch::X86 && input_bytes >= 4 && output_bytes >= 76 {
-                expected[..76].copy_from_slice(&group_record(arch));
+            if arch == WinArch::X86 && input_bytes >= 4 && output_bytes >= 44 {
+                expected[..44].copy_from_slice(&numa_record(arch));
             }
             assert_eq!(p.space.bytes(output, 96).unwrap(), expected);
         }
         for prefix in 1..=4 {
-            let (mut process, mut t, scratch) = group_fixture(arch);
+            let (mut process, mut t, scratch) = numa_fixture(arch);
             let p = process.state_mut();
             let returned = scratch + 3 * PAGE_SIZE - prefix;
             p.vm.protect(scratch + 3 * PAGE_SIZE, PAGE_SIZE, prot::NOACCESS)
@@ -560,7 +541,7 @@ fn native_group_topology_returned_guards_and_cross_page_faults_preserve_order_al
             );
             let mut expected = vec![0xA5; 96];
             if arch == WinArch::X86 || prefix == 4 {
-                let record = group_record(arch);
+                let record = numa_record(arch);
                 expected[..record.len()].copy_from_slice(&record);
             }
             assert_eq!(p.space.bytes(output, 96).unwrap(), expected);
@@ -572,7 +553,7 @@ fn native_group_topology_returned_guards_and_cross_page_faults_preserve_order_al
             } else {
                 assert_eq!(
                     p.space.u32(returned).unwrap(),
-                    group_record(arch).len() as u32
+                    numa_record(arch).len() as u32
                 );
             }
         }
@@ -580,7 +561,7 @@ fn native_group_topology_returned_guards_and_cross_page_faults_preserve_order_al
 }
 
 #[test]
-fn native_group_topology_input_user_range_checks_precede_short_length_dispatch_all_abis() {
+fn native_numa_node_input_user_range_checks_precede_short_length_dispatch_all_abis() {
     for arch in WinArch::ALL {
         for address in [
             4,
@@ -590,7 +571,7 @@ fn native_group_topology_input_user_range_checks_precede_short_length_dispatch_a
             u64::MAX - 3,
         ] {
             for input_bytes in [0, 1, 3, 4, 8, u32::MAX] {
-                let (mut process, mut t, scratch) = group_fixture(arch);
+                let (mut process, mut t, scratch) = numa_fixture(arch);
                 let p = process.state_mut();
                 let input = arch.ptr(address);
                 assert_eq!(
@@ -633,11 +614,10 @@ fn native_group_topology_input_user_range_checks_precede_short_length_dispatch_a
 }
 
 #[test]
-fn native_group_topology_upper_spans_and_returned_pointer_have_distinct_guard_order_native_64_bit()
-{
+fn native_numa_node_upper_spans_and_returned_pointer_have_distinct_guard_order_native_64_bit() {
     for arch in [WinArch::X64, WinArch::Arm64] {
         for role in 0..3 {
-            let (mut process, mut t, scratch) = group_fixture(arch);
+            let (mut process, mut t, scratch) = numa_fixture(arch);
             let p = process.state_mut();
             let high = p.vm.high();
             p.vm.allocate(

@@ -1,0 +1,12 @@
+{
+  "build": "Windows11ARM64 10.0.29683.1000",
+  "oracle-producer": "native-numa-node-probe.cpp",
+  "native-driver-exits": {
+    "arm64": 0,
+    "x64": 0,
+    "x86": 0,
+    "x86-laa": 0
+  },
+  "x64-execution": "WindowsARM64 x64 compatibility; not physical x64 proof",
+  "process-scope": "Only producer-owned VirtualAlloc buffers; read-only kernel topology query; no guest request forwarded to host kernel"
+}

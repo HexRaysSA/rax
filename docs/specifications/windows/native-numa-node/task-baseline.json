@@ -1,0 +1,39 @@
+{
+  "root-head": "125715f13b78fd696cb10dd5b767beee29fc3af9",
+  "rax-head": "a01da19bc7ad5d5be8fea01f755e83ab2780e369",
+  "owned-paths": [
+    "src/user/windows/dll/native/topology.rs",
+    "src/user/windows/process/sched/tests/services_tests/topology_tests.rs",
+    "src/user/windows/process/sched/tests/services_tests/numa_node_tests.rs",
+    "src/user/windows/process/sched/tests/services_tests/numa_node_leaf_tests.rs",
+    "src/user/windows/native-runtime.md"
+  ],
+  "baseline": [
+    {
+      "path": "src/user/windows/dll/native/topology.rs",
+      "exists": true,
+      "bytes": 4804,
+      "sha256": "c37f0be3ecc619dbfc2772ffc5f1dab48da1f19f992eb4d395c9a31342cbd2e2"
+    },
+    {
+      "path": "src/user/windows/process/sched/tests/services_tests/topology_tests.rs",
+      "exists": true,
+      "bytes": 24655,
+      "sha256": "e7db0829dd433fc09262384490a54e502ca1b187a4d1f09a88c04c106afabf3c"
+    },
+    {
+      "path": "src/user/windows/process/sched/tests/services_tests/numa_node_tests.rs",
+      "exists": false
+    },
+    {
+      "path": "src/user/windows/process/sched/tests/services_tests/numa_node_leaf_tests.rs",
+      "exists": false
+    },
+    {
+      "path": "src/user/windows/native-runtime.md",
+      "exists": true,
+      "bytes": 107972,
+      "sha256": "dd673542ac2d12ce23d4d2e416b41453322b9a935115d05392aea57d4673fb25"
+    }
+  ]
+}

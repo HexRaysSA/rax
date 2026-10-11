@@ -1,0 +1,29 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.31s
+     Running unittests src\lib.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\rax-d861ee8f992d7cb6.exe)
+running 7009 tests
+test smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_all_ones_with_flags_as_movn_sets_carry ... FAILED
+test smir::lower::aarch64::tests::bit::lowers_bzhi_x_imm_index_at_width_with_flags_sets_carry ... FAILED
+test smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_with_flags_sets_carry ... FAILED
+test smir::lower::aarch64::tests::bit::lowers_bzhi_x_with_flags_and_low_byte_index_guards ... FAILED
+test smir::lower::aarch64::tests::vector::lowers_vector_fp16_arithmetic_runtime ... FAILED
+test user::clock::tests::native_thread_clock_excludes_another_threads_work ... FAILED
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_aliases_capture_input_and_publish_returned_last_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_alignment_and_optional_returned_length_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::leaf_tests::installed_numa_node_query_leaf_returns_guest_topology_and_actual_cleanup ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_guards_order_capture_and_conversion_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_ignores_unmapped_extra_input_span_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_fault_order_and_destination_write_order_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_legacy_and_extended_requests_return_relation_numa_node_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_returned_guards_and_cross_page_faults_preserve_order_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_input_user_range_checks_precede_short_length_dispatch_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_upper_spans_and_returned_pointer_have_distinct_guard_order_native_64_bit ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_unmodeled_classes_and_relationships_stop_explicitly_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_sizes_projected_cpu_and_untouched_suffix_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_partial_conversion_at_every_field_boundary_all_abis ... ok
+test result: FAILED. 7001 passed; 6 failed; 2 ignored; 0 measured; 0 filtered out; finished in 193.31s
+    smir::lower::aarch64::tests::bit::lowers_bzhi_x_imm_index_at_width_with_flags_sets_carry
+    smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_all_ones_with_flags_as_movn_sets_carry
+    smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_with_flags_sets_carry
+    smir::lower::aarch64::tests::bit::lowers_bzhi_x_with_flags_and_low_byte_index_guards
+    smir::lower::aarch64::tests::vector::lowers_vector_fp16_arithmetic_runtime
+error: test failed, to rerun pass `--lib`

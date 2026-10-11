@@ -1,0 +1,197 @@
+[
+  {
+    "recorded": {
+      "path": "macos-final-targeted-macos.log",
+      "bytes": 2325,
+      "sha256": "821fed3a919ef90822883f714c8751da5f292af90f9241c4409b9b655da86e6f"
+    },
+    "original": {
+      "path": "macos-final-targeted-macos.log",
+      "bytes": 2325,
+      "sha256": "821fed3a919ef90822883f714c8751da5f292af90f9241c4409b9b655da86e6f"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "macos-final-full-macos.log",
+      "bytes": 2324,
+      "sha256": "a62d08a49d13d7bd4d48ba7d2b2cfddb18693072b3cfc9ccb0424f05f8970556"
+    },
+    "original": {
+      "path": "macos-final-full-macos.log",
+      "bytes": 773558,
+      "sha256": "1ddf581680ca17bfc1e461579dbb77465fe8deac44c12498c492ed7ff0821509"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "macos-final-capi-macos.log",
+      "bytes": 12927,
+      "sha256": "3e179eecedd57bc49a8bf52f0d7ceae752ff8c3742c4f01d025465323a565d74"
+    },
+    "original": {
+      "path": "macos-final-capi-macos.log",
+      "bytes": 12927,
+      "sha256": "3e179eecedd57bc49a8bf52f0d7ceae752ff8c3742c4f01d025465323a565d74"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "macos-final-all-targets-macos.log",
+      "bytes": 136,
+      "sha256": "70c4f5863784a72b73aa0809deca41d6e39cca39ebdb545d0160a2dfad4df680"
+    },
+    "original": {
+      "path": "macos-final-all-targets-macos.log",
+      "bytes": 136,
+      "sha256": "70c4f5863784a72b73aa0809deca41d6e39cca39ebdb545d0160a2dfad4df680"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "macos-final-integration-macos.log",
+      "bytes": 35757,
+      "sha256": "c3764b8e8df64399e11f409bf9eed1d8c86e1fb09430217a77d68c326bdd40a4"
+    },
+    "original": {
+      "path": "macos-final-integration-macos.log",
+      "bytes": 35757,
+      "sha256": "c3764b8e8df64399e11f409bf9eed1d8c86e1fb09430217a77d68c326bdd40a4"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-targeted.log",
+      "bytes": 2370,
+      "sha256": "7432b1e9f1d8307216389701141cee23e5cdfebc97fda751329cccc4edce5668"
+    },
+    "original": {
+      "path": "linux-final-targeted.log",
+      "bytes": 2370,
+      "sha256": "7432b1e9f1d8307216389701141cee23e5cdfebc97fda751329cccc4edce5668"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-full.log",
+      "bytes": 2464,
+      "sha256": "ec4a6719490228f2b0d40afab01c07368df7551e721122fd31351c7e82861d36"
+    },
+    "original": {
+      "path": "linux-final-full.log",
+      "bytes": 774252,
+      "sha256": "66f4988f5cecb8dd27dc73d6835d49c10a6e37fe021d38eae067b9ba1a99a3bc"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-capi.log",
+      "bytes": 12880,
+      "sha256": "84fa82da41ef4fc7a15ccc675efd5edff16eb4b1c8b5443af8a29d488619b22b"
+    },
+    "original": {
+      "path": "linux-final-capi.log",
+      "bytes": 12880,
+      "sha256": "84fa82da41ef4fc7a15ccc675efd5edff16eb4b1c8b5443af8a29d488619b22b"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-all-targets.log",
+      "bytes": 116,
+      "sha256": "b53b0a95da6efd603d89553e5cec334d1d9c54116f6fbee694f2a08a95916168"
+    },
+    "original": {
+      "path": "linux-final-all-targets.log",
+      "bytes": 116,
+      "sha256": "b53b0a95da6efd603d89553e5cec334d1d9c54116f6fbee694f2a08a95916168"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-integration.log",
+      "bytes": 35761,
+      "sha256": "7d352a07b7c122ac7c119b416da275c52a7d9fd9fe4f2aeead49fa17fceab630"
+    },
+    "original": {
+      "path": "linux-final-integration.log",
+      "bytes": 35761,
+      "sha256": "7d352a07b7c122ac7c119b416da275c52a7d9fd9fe4f2aeead49fa17fceab630"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-numa-node-final-targeted.log",
+      "bytes": 3470,
+      "sha256": "fbb2e40b699304d0f474d53a53eb615ca19773c5e9c38077f130f63a68ec4a09"
+    },
+    "original": {
+      "path": "native-numa-node-final-targeted.log",
+      "bytes": 3470,
+      "sha256": "fbb2e40b699304d0f474d53a53eb615ca19773c5e9c38077f130f63a68ec4a09"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-numa-node-final-full.log",
+      "bytes": 3636,
+      "sha256": "b93373f8d871422bacf332bbe6a1af70c55e5b56df5ce1b2383ed85128299e5a"
+    },
+    "original": {
+      "path": "native-numa-node-final-full.log",
+      "bytes": 728168,
+      "sha256": "746d36429997628bf4f543cbff5ba5104d563c28a8733d0b4091188c97823f0b"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-numa-node-final-capi.log",
+      "bytes": 13816,
+      "sha256": "332da45135713294c22f13adbf6ed7ef9b7691b2a27f19244d47224b621f54b9"
+    },
+    "original": {
+      "path": "native-numa-node-final-capi.log",
+      "bytes": 13816,
+      "sha256": "332da45135713294c22f13adbf6ed7ef9b7691b2a27f19244d47224b621f54b9"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-numa-node-final-all-targets.log",
+      "bytes": 986,
+      "sha256": "ef27c346606a82f35f581aadd6fa03587f182e5dfc32416300bb37ae1aad21c7"
+    },
+    "original": {
+      "path": "native-numa-node-final-all-targets.log",
+      "bytes": 986,
+      "sha256": "ef27c346606a82f35f581aadd6fa03587f182e5dfc32416300bb37ae1aad21c7"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-numa-node-final-integration.log",
+      "bytes": 1495,
+      "sha256": "2c317ea862ab406422d8d9748b8c9e43be2689244c0584476b9b2ed9c9e895c2"
+    },
+    "original": {
+      "path": "native-numa-node-final-integration.log",
+      "bytes": 1495,
+      "sha256": "2c317ea862ab406422d8d9748b8c9e43be2689244c0584476b9b2ed9c9e895c2"
+    },
+    "full-log-retained-in-task-storage": true
+  }
+]

@@ -1,0 +1,39 @@
+warning: "stdcall" is not a supported ABI for the current target
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\src)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 44s
+     Running unittests src\lib.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\rax-d861ee8f992d7cb6.exe)
+
+running 13 tests
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_guards_order_capture_and_conversion_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_legacy_and_extended_requests_return_relation_numa_node_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_ignores_unmapped_extra_input_span_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_aliases_capture_input_and_publish_returned_last_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_returned_guards_and_cross_page_faults_preserve_order_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_upper_spans_and_returned_pointer_have_distinct_guard_order_native_64_bit ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_fault_order_and_destination_write_order_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_alignment_and_optional_returned_length_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_unmodeled_classes_and_relationships_stop_explicitly_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::leaf_tests::installed_numa_node_query_leaf_returns_guest_topology_and_actual_cleanup ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_input_user_range_checks_precede_short_length_dispatch_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_sizes_projected_cpu_and_untouched_suffix_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::numa_node_tests::native_numa_node_partial_conversion_at_every_field_boundary_all_abis ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 6996 filtered out; finished in 7.33s
+

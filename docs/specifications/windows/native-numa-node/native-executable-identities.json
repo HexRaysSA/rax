@@ -1,0 +1,47 @@
+{
+  "sources": [
+    {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\native-numa-node-probe.cpp",
+      "bytes": 11058,
+      "sha256": "69a0fb52fc44e4cf44ec21d357e57f7906d4d4f575643545992ed889fd40552f"
+    }
+  ],
+  "executables": [
+    {
+      "arch": "arm64",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\native-numa-node-probe-arm64.exe",
+      "bytes": 153088,
+      "sha256": "66219d2964d6153b3434226b29936cdf0e1c749e32d63be5ca295f3905f504f0",
+      "machine": "0xaa64",
+      "characteristics": "0x22",
+      "large-address-aware": true
+    },
+    {
+      "arch": "x64",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\native-numa-node-probe-x64.exe",
+      "bytes": 152064,
+      "sha256": "d6ed7ca1f161638f1147a0c1a995900e1a9bcf073632e12bdc78720aa499844c",
+      "machine": "0x8664",
+      "characteristics": "0x22",
+      "large-address-aware": true
+    },
+    {
+      "arch": "x86",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\native-numa-node-probe-x86.exe",
+      "bytes": 124416,
+      "sha256": "885285dfd4a4eb2539793e68110e12cfb3c02d432b77fe8ea9f96a149587c794",
+      "machine": "0x14c",
+      "characteristics": "0x102",
+      "large-address-aware": false
+    },
+    {
+      "arch": "x86-laa",
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\native-numa-node-probe-x86-laa.exe",
+      "bytes": 124416,
+      "sha256": "14a5a077d7713ca7b1bdf7db176bc8e163932dd30878b0967fa90cfa73914bd0",
+      "machine": "0x14c",
+      "characteristics": "0x122",
+      "large-address-aware": true
+    }
+  ]
+}

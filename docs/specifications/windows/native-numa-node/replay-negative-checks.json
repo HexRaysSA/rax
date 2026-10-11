@@ -1,0 +1,22 @@
+[
+  {
+    "probe": "missing-manifest-entry",
+    "exit": 1,
+    "last-line": "ValueError: complete mandatory manifest"
+  },
+  {
+    "probe": "changed-original",
+    "exit": 1,
+    "last-line": "ValueError: byte identity /private/tmp/assist-native-windows-29683/numa-node-evidence/rejection-probes/changed-original/native-numa-node-probe-arm64.log"
+  },
+  {
+    "probe": "independent-status-replay",
+    "exit": 1,
+    "last-line": "ValueError: case 6, width 8 status: ('C0000004', '00000000')"
+  },
+  {
+    "probe": "optimized-validation",
+    "exit": 1,
+    "last-line": "ValueError: optimized validation rejected"
+  }
+]

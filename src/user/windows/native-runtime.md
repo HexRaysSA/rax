@@ -1382,3 +1382,54 @@ full-userland blockers. No public ABI/default/dependency/persistence/schema or
 package change is introduced. Source/capture/archive provenance,21 recorded gates,
 reconciled assumptions and positive/negative replay are in
 [bootstrap evidence](../../../docs/specifications/windows/native-bootstrap/README.md).
+
+## NUMA node and extended node query (2026-10-11)
+
+NtQuerySystemInformationEx class107 now admits RelationNumaNode1 and
+RelationNumaNodeEx6 for modeled node0/group0/CPU0, alongside RelationGroup4.
+Both return Relationship1, NodeNumber0, GroupCount1, active mask1/group0 and
+zero reserved fields. Required size is48 B native64 or44 B WoW64:
+header8 + node prefix24 + affinity(pointer-width+8). No host topology or kernel
+query is forwarded. Existing six-argument transports and explicit unsupported
+class/relationship stops remain. Construction uses fixed O(1) scratch/time;
+declared-span probes retain the owning page-walk behavior.
+
+Native64 retains DWORD alignment, whole-output probing and direct ReturnLength
+preprobe. WoW64 publishes node DWORD, reserved SIMD16/WORD, count WORD, zero
+affinity QWORD/DWORD, group WORD, folded-mask DWORD, header8, then length4.
+Faulting field stores leave their partial prefix untouched; completed prior
+stores persist. Bytes44..48 remain untouched. Input capture precedes aliasing
+output/length publication; null optional ReturnLength, misaligned pointers,
+short input/output, ULONG_MAX, page boundaries and one-shot guards match the
+selected installed-build observations. Matching WoW64 DLL/PDB (RSDS/DBI age1
+versus information age3) and named converter RVA0x99C8/body0x9CA8 establish
+this order without redistributing the proprietary DLL/PDB.
+
+Four native producer profiles retain1402 original observations; independent
+status/byte/fault replay checks1346 relevant rows, while56 unimplemented
+class/relationship matrix rows remain explicitly shape/hash-only evidence.
+Twelve portable tests pass on all hosts; a thirteenth native Windows test
+executes installed ARM64/WoW64 leaves and exact caller cleanup. Full
+macOS7608/0/2, Linux7601/1/2 and Windows7001/6/2 pass/fail/ignored are recorded.
+Linux's multishot-timeout and Windows's thread-clock tests pass separately in
+isolation, preserving their full-run failures of unknown cause. The five
+existing Windows BZHI/FP16 lowering failures remain. C API168, all-target
+builds and integration544/544/4 pass with exact cfg exclusions. Five owning
+C++ consumers pass per host; macOS CLI/MCP, seven CTests and two protected-text
+scans pass. These are not package/IDA/Qt native proof.
+
+Fresh native Assist/core archives pass4673/260-member walks, four owned plus
+eight byte-identical startup source checks, and empty-core-feature selection.
+The byte-identical ordinary observer receives length mismatch at40500, its
+48-byte NUMA retry succeeds at41325, and it stops at NtCreateIoCompletion0xB2
+at42051:1551 additional scheduler calls, not instructions. All four owning
+ordinary programs report reason5/exit_code0/internal failure at that next
+service, with no claim of successful process completion. Alertable NtContinue,
+I/O completion, wider NT services and full application/package/IDA validation
+remain outstanding. Physical pure x64 Windows proof and native x86-64 Linux
+proof remain distinct from ARM64 compatibility/container translation.
+
+Primary captures, producer/machine identities, A1-A3 reconciled assumption
+register, full plane map,23 recorded gates, strict manifest/negative replay
+and exact ordinary observer pairing are in
+[NUMA-node evidence](../../../docs/specifications/windows/native-numa-node/README.md).

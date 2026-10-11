@@ -1,0 +1,86 @@
+[
+  {
+    "offset": "28",
+    "status": "C0000005",
+    "output-captured-bytes": "28",
+    "output": "A5A5A5A5A5A5A5A50000000000000000000000000000000000000000"
+  },
+  {
+    "offset": "29",
+    "status": "C0000005",
+    "output-captured-bytes": "29",
+    "output": "A5A5A5A5A5A5A5A50000000000000000000000000000000000000000A5"
+  },
+  {
+    "offset": "30",
+    "status": "C0000005",
+    "output-captured-bytes": "30",
+    "output": "A5A5A5A5A5A5A5A500000000000000000000000000000000000000000000"
+  },
+  {
+    "offset": "31",
+    "status": "C0000005",
+    "output-captured-bytes": "31",
+    "output": "A5A5A5A5A5A5A5A500000000000000000000000000000000000000000000A5"
+  },
+  {
+    "offset": "32",
+    "status": "C0000005",
+    "output-captured-bytes": "32",
+    "output": "A5A5A5A5A5A5A5A5000000000000000000000000000000000000000000000100"
+  },
+  {
+    "offset": "36",
+    "status": "C0000005",
+    "output-captured-bytes": "36",
+    "output": "A5A5A5A5A5A5A5A5000000000000000000000000000000000000000000000100A5A5A5A5"
+  },
+  {
+    "offset": "37",
+    "status": "C0000005",
+    "output-captured-bytes": "37",
+    "output": "A5A5A5A5A5A5A5A5000000000000000000000000000000000000000000000100A5A5A5A5A5"
+  },
+  {
+    "offset": "38",
+    "status": "C0000005",
+    "output-captured-bytes": "38",
+    "output": "A5A5A5A5A5A5A5A5000000000000000000000000000000000000000000000100A5A5A5A5A5A5"
+  },
+  {
+    "offset": "39",
+    "status": "C0000005",
+    "output-captured-bytes": "39",
+    "output": "A5A5A5A5A5A5A5A5000000000000000000000000000000000000000000000100A5A5A5A5A5A5A5"
+  },
+  {
+    "offset": "40",
+    "status": "C0000005",
+    "output-captured-bytes": "40",
+    "output": "A5A5A5A5A5A5A5A50000000000000000000000000000000000000000000001000000000000000000"
+  },
+  {
+    "offset": "41",
+    "status": "C0000005",
+    "output-captured-bytes": "41",
+    "output": "A5A5A5A5A5A5A5A50000000000000000000000000000000000000000000001000000000000000000A5"
+  },
+  {
+    "offset": "42",
+    "status": "C0000005",
+    "output-captured-bytes": "42",
+    "output": "A5A5A5A5A5A5A5A50000000000000000000000000000000000000000000001000000000000000000A5A5"
+  },
+  {
+    "offset": "43",
+    "status": "C0000005",
+    "output-captured-bytes": "43",
+    "output": "A5A5A5A5A5A5A5A50000000000000000000000000000000000000000000001000000000000000000A5A5A5"
+  },
+  {
+    "offset": "44",
+    "status": "00000000",
+    "output-captured-bytes": "44",
+    "output": "010000002C000000000000000000000000000000000000000000000000000100FF0000000000000000000000"
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "path": "native-numa-node-final-targeted.log",
+    "bytes": 3470,
+    "sha256": "fbb2e40b699304d0f474d53a53eb615ca19773c5e9c38077f130f63a68ec4a09"
+  },
+  {
+    "path": "native-numa-node-final-full.log",
+    "bytes": 728168,
+    "sha256": "746d36429997628bf4f543cbff5ba5104d563c28a8733d0b4091188c97823f0b"
+  },
+  {
+    "path": "native-numa-node-final-capi.log",
+    "bytes": 13816,
+    "sha256": "332da45135713294c22f13adbf6ed7ef9b7691b2a27f19244d47224b621f54b9"
+  },
+  {
+    "path": "native-numa-node-final-all-targets.log",
+    "bytes": 986,
+    "sha256": "ef27c346606a82f35f581aadd6fa03587f182e5dfc32416300bb37ae1aad21c7"
+  },
+  {
+    "path": "native-numa-node-final-integration.log",
+    "bytes": 1495,
+    "sha256": "2c317ea862ab406422d8d9748b8c9e43be2689244c0584476b9b2ed9c9e895c2"
+  },
+  {
+    "path": "native-numa-node-isolated-clock.log",
+    "bytes": 1289,
+    "sha256": "8bd9da85b5cf443ac18b77af31adf1d4426e726cb9bb846d8416bb4124365969"
+  }
+]

@@ -1,0 +1,34 @@
+[
+  {
+    "profile": "arm64",
+    "path": "native-numa-node-probe-arm64.log",
+    "bytes": 183736,
+    "sha256": "7fec9a68bab72bcd35fb62b77698656b377c2f34c0f1499d6fb2467b1441cd31",
+    "case-rows": 349,
+    "range-guard-rows": 3
+  },
+  {
+    "profile": "x64",
+    "path": "native-numa-node-probe-x64.log",
+    "bytes": 183736,
+    "sha256": "7fec9a68bab72bcd35fb62b77698656b377c2f34c0f1499d6fb2467b1441cd31",
+    "case-rows": 349,
+    "range-guard-rows": 3
+  },
+  {
+    "profile": "x86",
+    "path": "native-numa-node-probe-x86.log",
+    "bytes": 182219,
+    "sha256": "5599822a541093133c2df92b5f6687cbd86db60b478bd9045867010605b870dc",
+    "case-rows": 349,
+    "range-guard-rows": 0
+  },
+  {
+    "profile": "x86-laa",
+    "path": "native-numa-node-probe-x86-laa.log",
+    "bytes": 182219,
+    "sha256": "5599822a541093133c2df92b5f6687cbd86db60b478bd9045867010605b870dc",
+    "case-rows": 349,
+    "range-guard-rows": 0
+  }
+]

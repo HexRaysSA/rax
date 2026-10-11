@@ -1,0 +1,80 @@
+{
+  "bytes": 338656,
+  "sha256": "d76e8c7f2cbd744628a5cccda5bec0c346a1aca8f8a35408bd2c9d5ff87667bd",
+  "machine": "0xaa64",
+  "image-base": "0x180000000",
+  "pdb": "wow64.pdb",
+  "guid": "1f6db1e7-82ec-0d6e-7fdc-18da3d1f62db",
+  "age": 1,
+  "symbol-url": "https://msdl.microsoft.com/download/symbols/wow64.pdb/1F6DB1E782EC0D6E7FDC18DA3D1F62DB1/wow64.pdb",
+  "pdb-sha256": "fb6b38b75161d5c7bb59049b4ae13348f2a061e024ea74579d8ac3b4740dd4dc",
+  "pdb-info-age": 3,
+  "pdb-dbi-age": 1,
+  "pdb-dbi-flags": 2,
+  "age-interpretation": "RSDS age1 matches DBI age1; PDB information-stream age3 is recorded separately, not substituted for the module DBI age.",
+  "redistribution": "No DLL or PDB retained in repository; identity, formulas and bounded observation metadata only.",
+  "symbol-section-text-rva": "0x1000",
+  "dispatcher-symbol": "whNtQuerySystemInformationEx",
+  "dispatcher-rva": "0x19200",
+  "special-query-symbol": "whNtQuerySystemInformationEx_SpecialQueryCase",
+  "special-query-rva": "0x193A0",
+  "class107-entry-rva": "0x19474",
+  "converter-rva": "0x99C8",
+  "numa-body-rva": "0x9CA8",
+  "header-publish-rva": "0x9D1C",
+  "return-length-publish-rva": "0x9B24",
+  "native-query": "private native-sized output and stack ReturnLength, captured input before caller writes; conversion computes 32+12*GroupCount",
+  "ordered-stores": [
+    {
+      "offset": 8,
+      "bytes": 4,
+      "value": "NodeNumber"
+    },
+    {
+      "offset": 12,
+      "bytes": 16,
+      "value": 0
+    },
+    {
+      "offset": 28,
+      "bytes": 2,
+      "value": 0
+    },
+    {
+      "offset": 30,
+      "bytes": 2,
+      "value": "GroupCount"
+    },
+    {
+      "offset": 32,
+      "bytes": 8,
+      "value": 0
+    },
+    {
+      "offset": 40,
+      "bytes": 4,
+      "value": 0
+    },
+    {
+      "offset": 36,
+      "bytes": 2,
+      "value": "Group"
+    },
+    {
+      "offset": 32,
+      "bytes": 4,
+      "value": "low32(mask64)|high32(mask64)"
+    },
+    {
+      "offset": 0,
+      "bytes": 8,
+      "value": "Relationship, converted Size"
+    },
+    {
+      "offset": "ReturnLength",
+      "bytes": 4,
+      "value": "converted total"
+    }
+  ],
+  "converter-symbol": "whNT32ThunkSystemLogicalProcessorInformationEx"
+}

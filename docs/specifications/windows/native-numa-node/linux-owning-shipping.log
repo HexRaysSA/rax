@@ -1,0 +1,4 @@
+   Compiling rax v0.1.0 (/work/vendor/rax)
+   Compiling rax-capi v0.1.2 (/work/vendor/rax/capi)
+   Compiling assist-rs v0.1.0 (/work/rust/assist-rs)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 31.68s

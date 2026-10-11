@@ -1,0 +1,219 @@
+{
+  "gates": [
+    {
+      "host": "macos",
+      "gate": "targeted",
+      "path": "macos-final-targeted-macos.log",
+      "expected-summaries": [
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 7598 filtered out; finished in 1.53s"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "full",
+      "path": "macos-final-full-macos.log",
+      "expected-summaries": [
+        "test result: ok. 7608 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 66.11s"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "capi",
+      "path": "macos-final-capi-macos.log",
+      "expected-summaries": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.06s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "all-targets",
+      "path": "macos-final-all-targets-macos.log",
+      "expected-summaries": [],
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "integration",
+      "path": "macos-final-integration-macos.log",
+      "expected-summaries": [
+        "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.06s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "targeted",
+      "path": "linux-final-targeted.log",
+      "expected-summaries": [
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 7592 filtered out; finished in 3.20s"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "full",
+      "path": "linux-final-full.log",
+      "expected-summaries": [
+        "test result: FAILED. 7601 passed; 1 failed; 2 ignored; 0 measured; 0 filtered out; finished in 110.75s"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "capi",
+      "path": "linux-final-capi.log",
+      "expected-summaries": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.96s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "all-targets",
+      "path": "linux-final-all-targets.log",
+      "expected-summaries": [],
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "integration",
+      "path": "linux-final-integration.log",
+      "expected-summaries": [
+        "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 165.65s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "targeted",
+      "path": "native-numa-node-final-targeted.log",
+      "expected-summaries": [
+        "test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 6996 filtered out; finished in 7.33s"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "full",
+      "path": "native-numa-node-final-full.log",
+      "expected-summaries": [
+        "test result: FAILED. 7001 passed; 6 failed; 2 ignored; 0 measured; 0 filtered out; finished in 193.31s"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "capi",
+      "path": "native-numa-node-final-capi.log",
+      "expected-summaries": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.84s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "all-targets",
+      "path": "native-numa-node-final-all-targets.log",
+      "expected-summaries": [],
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "integration",
+      "path": "native-numa-node-final-integration.log",
+      "expected-summaries": [
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "owning-build",
+      "path": "macos-owning-build.log",
+      "required-markers": [
+        "Built target assist_idalib_cli",
+        "Static text scan: 1 artifacts, 0 failures"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "owning-ctest",
+      "path": "macos-owning-ctest.log",
+      "required-markers": [
+        "100% tests passed out of 7"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "owning-shipping",
+      "path": "linux-owning-shipping.log",
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "owning-cpp",
+      "path": "linux-owning-cpp.log",
+      "required-markers": [
+        "PASS",
+        "RAX process: 162 checks passed",
+        "embedded rax_version = 1.11.0"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "owning-shipping",
+      "path": "assist-native-numa-node-owned-shipping.log",
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "owning-cpp",
+      "path": "assist-native-numa-node-owned-cpp.log",
+      "required-markers": [
+        "PASS",
+        "RAX process: 162 checks passed",
+        "embedded rax_version = 1.11.0"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "isolated-timeout",
+      "path": "linux-isolated-timeout.log",
+      "required-markers": [
+        "a_multishot_timeout_reports_each_expiry ... ok",
+        "test result: ok. 1 passed; 0 failed"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "isolated-clock",
+      "path": "native-numa-node-isolated-clock.log",
+      "required-markers": [
+        "native_thread_clock_excludes_another_threads_work ... ok",
+        "test result: ok. 1 passed; 0 failed"
+      ]
+    }
+  ],
+  "full-suite-failures": {
+    "macos": [],
+    "linux": [
+      "user::linux::tests::uring::timeout::a_multishot_timeout_reports_each_expiry"
+    ],
+    "windows": [
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_imm_index_at_width_with_flags_sets_carry",
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_all_ones_with_flags_as_movn_sets_carry",
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_with_flags_sets_carry",
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_with_flags_and_low_byte_index_guards",
+      "smir::lower::aarch64::tests::vector::lowers_vector_fp16_arithmetic_runtime",
+      "user::clock::tests::native_thread_clock_excludes_another_threads_work"
+    ]
+  },
+  "compiled-root": "125715f13b78fd696cb10dd5b767beee29fc3af9",
+  "cpp-compiled-source-base": "c4cb8f6a0dd7c0d068d2defd411599fba9e32b7e"
+}
