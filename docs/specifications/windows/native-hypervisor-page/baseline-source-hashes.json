@@ -1,0 +1,5 @@
+{
+  "src/user/windows/dll/native/query.rs": "fd6ee6e6e2701880a806f91490ac2c7359e178e72b44e0861bf4954815672abd",
+  "src/user/windows/process/sched/tests/services_tests.rs": "7ac99c04c200a5c856d6593d12f8db20577685c4ce429349b7492193a9dc0272",
+  "src/user/windows/native-runtime.md": "2403923746140c582976c54a508820d31739c220a69d34915f504c0fa746daa8"
+}

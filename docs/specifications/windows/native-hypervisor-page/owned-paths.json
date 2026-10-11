@@ -1,0 +1,7 @@
+[
+  "src/user/windows/dll/native/query.rs",
+  "src/user/windows/process/sched/tests/services_tests.rs",
+  "src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs",
+  "src/user/windows/process/sched/tests/services_tests/hypervisor_page_leaf_tests.rs",
+  "src/user/windows/native-runtime.md"
+]

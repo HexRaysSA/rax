@@ -2,7 +2,7 @@
 //!
 //! The four-argument API is documented at
 //! <https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation>.
-//! Classes 0, 50, 62 and 250's private layouts, lengths, alignment and WoW64 ordering
+//! Classes 0, 50, 62, 197 and 250's private layouts, lengths, alignment and WoW64 ordering
 //! are native observations on Windows 10.0.29683.1000, recorded in
 //! `src/user/windows/native-runtime.md`. No guest request calls the host kernel.
 
@@ -12,14 +12,16 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{ALLOCATION_GRANULARITY, Mem, MemFault};
 use crate::user::windows::nt::status::{
-    STATUS_DATATYPE_MISALIGNMENT, STATUS_GUARD_PAGE_VIOLATION, STATUS_INFO_LENGTH_MISMATCH,
-    STATUS_INVALID_INFO_CLASS, STATUS_INVALID_PARAMETER,
+    STATUS_ACCESS_VIOLATION, STATUS_DATATYPE_MISALIGNMENT, STATUS_GUARD_PAGE_VIOLATION,
+    STATUS_INFO_LENGTH_MISMATCH, STATUS_INVALID_INFO_CLASS, STATUS_INVALID_PARAMETER,
+    STATUS_NO_MEMORY,
 };
 use vm_memory::{Address, GuestMemory};
 
 const SYSTEM_BASIC_INFORMATION: u32 = 0;
 const SYSTEM_EMULATION_BASIC_INFORMATION: u32 = 62;
 const SYSTEM_RANGE_START_INFORMATION: u32 = 50;
+const SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION: u32 = 197;
 const SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION: u32 = 250;
 const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
 
@@ -68,6 +70,16 @@ fn query(c: &mut Ctx) -> ApiResult {
             if output % 4 != 0 {
                 return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
             }
+            if class == SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION
+                && output
+                    .checked_add(u64::from(length))
+                    .is_none_or(|end| end > c.p.vm.high())
+            {
+                // The measured class197 native entry rejects an upper user
+                // span without touching its guard. ReturnLength is instead
+                // touched directly below, including a crossing four-byte store.
+                return Flow::ret(STATUS_ACCESS_VIOLATION.into());
+            }
             probe_write(c, output, length as usize)?;
         }
         if returned != 0 {
@@ -79,11 +91,53 @@ fn query(c: &mut Ctx) -> ApiResult {
             basic_information(c, output, length, returned)
         }
         SYSTEM_RANGE_START_INFORMATION => range_start(c, output, length, returned),
+        SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION => {
+            hypervisor_shared_page(c, output, length, returned)
+        }
         SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION => {
             processor_features(c, output, length, returned)
         }
         _ => Err(c.unsupported(format!("NtQuerySystemInformation class {class}"))),
     }
+}
+
+fn hypervisor_shared_page(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {
+    if c.arch() == WinArch::X86 && output == 0 && length != 0 {
+        // WoW64's null-output conversion precedes the short-length check and
+        // publishes its observed translated error length before the fault.
+        return_length(c, returned, WOW64_LENGTH_FAILURE)?;
+        return Err(MemFault {
+            addr: 0,
+            write: true,
+        }
+        .into());
+    }
+    if c.arch() == WinArch::X86 && length != 0 {
+        // Selected WoW64 reserves align_up(length + 4, 16) bytes before
+        // either destination is touched; its heap fallback adds a 16-byte
+        // list node and raises STATUS_NO_MEMORY on allocation failure. Model
+        // temporary backing within the guest's no-paging-file budget, without
+        // allocating host storage or exposing a native scratch address.
+        let capture = ((u64::from(length) + 19) & !15) + 16;
+        let charge = (capture + PAGE_SIZE - 1) & !(PAGE_SIZE - 1);
+        if charge > c.p.vm.commit_limit() - c.p.vm.committed_bytes()
+            || charge > c.p.vm.high() - c.p.vm.low()
+        {
+            return Flow::ret(STATUS_NO_MEMORY.into());
+        }
+    }
+    let required = c.psize() as u32;
+    if length < required {
+        return_length(c, returned, required)?;
+        return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
+    }
+    // The guest has no hypervisor timing-page mapping. PHNT specifies NULL
+    // for that profile. Never publish or dereference a host virtual address.
+    // WoW64 writes only its converted pointer, then ReturnLength; native64
+    // already probed both destinations and the entire supplied output span.
+    c.write_ptr(output, 0)?;
+    return_length(c, returned, required)?;
+    Flow::ret(0)
 }
 
 fn processor_features(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {

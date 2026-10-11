@@ -1,0 +1,211 @@
+{
+  "gates": [
+    {
+      "host": "macos",
+      "gate": "targeted",
+      "path": "macos-final-targeted-macos.log",
+      "expected-summaries": [
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 7571 filtered out; finished in 1.00s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "macos",
+      "gate": "full",
+      "path": "macos-final-full-macos.log",
+      "expected-summaries": [
+        "test result: ok. 7580 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 64.85s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "macos",
+      "gate": "capi",
+      "path": "macos-final-capi-macos.log",
+      "expected-summaries": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.79s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "macos",
+      "gate": "all-targets",
+      "path": "macos-final-all-targets-macos.log",
+      "expected-summaries": [],
+      "build-success": true,
+      "full-status": "pass"
+    },
+    {
+      "host": "macos",
+      "gate": "integration",
+      "path": "macos-final-integration-macos.log",
+      "expected-summaries": [
+        "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.37s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "linux",
+      "gate": "targeted",
+      "path": "linux-final-targeted.log",
+      "expected-summaries": [
+        "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 7565 filtered out; finished in 2.13s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "linux",
+      "gate": "full",
+      "path": "linux-final-full.log",
+      "expected-summaries": [
+        "test result: FAILED. 7573 passed; 1 failed; 2 ignored; 0 measured; 0 filtered out; finished in 108.18s"
+      ],
+      "build-success": false,
+      "full-status": "retained failures"
+    },
+    {
+      "host": "linux",
+      "gate": "capi",
+      "path": "linux-final-capi.log",
+      "expected-summaries": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.70s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "linux",
+      "gate": "all-targets",
+      "path": "linux-final-all-targets.log",
+      "expected-summaries": [],
+      "build-success": true,
+      "full-status": "pass"
+    },
+    {
+      "host": "linux",
+      "gate": "integration",
+      "path": "linux-final-integration.log",
+      "expected-summaries": [
+        "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 173.57s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "windows",
+      "gate": "targeted",
+      "path": "native-hypervisor-final-targeted.log",
+      "expected-summaries": [
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 6966 filtered out; finished in 4.17s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "windows",
+      "gate": "full",
+      "path": "native-hypervisor-final-full.log",
+      "expected-summaries": [
+        "test result: FAILED. 6971 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 175.25s"
+      ],
+      "build-success": false,
+      "full-status": "retained failures"
+    },
+    {
+      "host": "windows",
+      "gate": "capi",
+      "path": "native-hypervisor-final-capi.log",
+      "expected-summaries": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "windows",
+      "gate": "all-targets",
+      "path": "native-hypervisor-final-all-targets.log",
+      "expected-summaries": [],
+      "build-success": true,
+      "full-status": "pass"
+    },
+    {
+      "host": "windows",
+      "gate": "integration",
+      "path": "native-hypervisor-final-integration.log",
+      "expected-summaries": [
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ],
+      "build-success": false,
+      "full-status": "pass"
+    },
+    {
+      "host": "linux",
+      "gate": "owning-shipping",
+      "path": "linux-owning-shipping.log",
+      "required-marker": "Finished `dev`"
+    },
+    {
+      "host": "linux",
+      "gate": "owning-cpp",
+      "path": "linux-owning-cpp.log",
+      "required-marker": "PASS"
+    },
+    {
+      "host": "macos",
+      "gate": "owning-build",
+      "path": "macos-owning-build.log",
+      "required-marker": "Static text scan: 1 artifacts, 0 failures"
+    },
+    {
+      "host": "macos",
+      "gate": "owning-ctest",
+      "path": "macos-owning-ctest.log",
+      "required-marker": "100% tests passed out of 7"
+    },
+    {
+      "host": "linux",
+      "gate": "existing-timeout-focused",
+      "path": "linux-existing-timeout-focused.log",
+      "expected-summaries": [
+        "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 7567 filtered out; finished in 0.21s"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "owning-shipping",
+      "path": "assist-native-hypervisor-owned-shipping.log",
+      "required-marker": "Finished `dev`"
+    },
+    {
+      "host": "windows",
+      "gate": "owning-cpp",
+      "path": "assist-native-hypervisor-owned-cpp.log",
+      "required-marker": "PASS"
+    }
+  ],
+  "known-full-suite-failures": {
+    "linux": [
+      "user::linux::tests::uring::timeout::a_multishot_timeout_reports_each_expiry"
+    ],
+    "windows": [
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_imm_index_at_width_with_flags_sets_carry",
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_all_ones_with_flags_as_movn_sets_carry",
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_with_flags_sets_carry",
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_with_flags_and_low_byte_index_guards",
+      "smir::lower::aarch64::tests::vector::lowers_vector_fp16_arithmetic_runtime"
+    ]
+  },
+  "compiled-root": "5de79ced11b9d97b3bf882f59dfc45576e2432d2",
+  "cpp-compiled-source-base": "c4cb8f6a0dd7c0d068d2defd411599fba9e32b7e"
+}

@@ -1,0 +1,19 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 23.07s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 11 tests
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_upper_output_span_and_direct_return_have_distinct_guard_order_native64 ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::wow64_hypervisor_page_temporary_backing_budget_precedes_destination_probes ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_return_boundaries_are_atomic_after_wow64_publication_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_guards_are_one_shot_and_short_wow64_output_is_untouched_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_readonly_destinations_preserve_conversion_write_order_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_guard_readonly_pairs_preserve_probe_priority_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_ulong_max_length_and_wrapping_output_do_not_allocate_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_null_output_precedes_wow64_short_length_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_return_aliases_are_written_after_pointer_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_width_lengths_optional_return_and_alignment_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_output_boundaries_probe_native_extent_and_wow64_pointer_only_all_abis ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 7571 filtered out; finished in 1.00s
+

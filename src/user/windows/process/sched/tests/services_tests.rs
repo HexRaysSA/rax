@@ -16,6 +16,9 @@ mod processor_feature_tests;
 #[path = "services_tests/topology_tests.rs"]
 mod topology_tests;
 
+#[path = "services_tests/hypervisor_page_tests.rs"]
+mod hypervisor_page_tests;
+
 #[path = "services_tests/event_tests.rs"]
 mod event_tests;
 

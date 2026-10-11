@@ -1245,3 +1245,36 @@ stop13286 and reaches class197 of NtQuerySystemInformation at turn33364:
 startup still returns STATUS_ACCESS_VIOLATION. Full bootstrap remains incomplete.
 Primary definitions, native originals, assumptions, replay and owning artifact
 identity are in [processor-group evidence](../../../docs/specifications/windows/native-processor-groups/README.md).
+
+## Native hypervisor shared-page query
+
+NtQuerySystemInformation class197 now returns a pointer-width guest null for
+the existing profile with no hypervisor timing-page mapping:4 bytes on x86 and
+8 bytes on x64/ARM64. All902 native observations cover lengths, pointer probes,
+aliases, partial boundaries, guards and upper-user-range precedence. Native64
+probes the full declared output and ReturnLength before dispatch; WoW64 performs
+its converted4-byte store before ReturnLength and handles null output separately.
+The selected wrapper reserves align_up(u64(length)+4,16) temporary bytes plus
+16-byte heap linkage. Guest no-paging-file quota projects that backing with
+4096-byte rounding, before nonnull destination probes, without caller-sized host
+allocation or persistent VM mutation. Host failure threshold between captured
+16 MiB success and approximately2 GiB failure is unknown.
+
+Final portable11 and selected native Windows12 targeted cases pass. Full
+pass/fail/ignored/filtered counts are7580/0/2/0 on macOS,7573/1/2/0 on Linux and
+6971/5/2/0 on Windows. C API168/all-target builds and affected integration pass
+on each. Linux retains the multishot timeout failure, with its isolated nine
+timeout tests passing; Windows retains four BZHI and one FP16 failure. All five
+owning C++ consumers pass on each host, and macOS CLI/seven CTests/protected
+scan pass. Native Windows paired archives pass complete member walks and the
+fresh continuation uses the same owning build's feature-empty core artifact.
+
+The identical private cleared-heap/saved-context diagnostic now succeeds at
+class197 turn33364 and reaches unsupported NtQuerySystemInformation class55
+at33566:202 additional scheduler calls, not instructions. Ordinary smoke,
+MSVCRT/UCRT streams and whoami still return STATUS_ACCESS_VIOLATION; production
+bootstrap remains incomplete. No public ABI, dependency, permission, persistence,
+default or package change is introduced. Primary contracts, original native
+observations, symbol identities, falsified initial expectation, source/artifact
+hashes, assumptions and final gates are retained in
+[hypervisor-page evidence](../../../docs/specifications/windows/native-hypervisor-page/README.md).

@@ -1,0 +1,58 @@
+{
+  "native-hypervisor-page-probe-arm64.log": {
+    "bytes": 77838,
+    "sha256": "50cfc88423bd48adbd47a99e0a98887897f4b38cefdd46317d83ac44e2ed08f4"
+  },
+  "native-hypervisor-page-probe-arm64-build.log": {
+    "bytes": 34,
+    "sha256": "685bbe45a6d289e74235f637f3108b58e3847f056437d7af47047604255c7630"
+  },
+  "native-hypervisor-page-probe-arm64.exe": {
+    "bytes": 150016,
+    "sha256": "580395e3a74a857b6101b9a20b302cb67ae6a65f2eede5c98de3025f932f714a",
+    "pe-machine": "0xaa64",
+    "large-address-aware": true
+  },
+  "native-hypervisor-page-probe-x64.log": {
+    "bytes": 77838,
+    "sha256": "50cfc88423bd48adbd47a99e0a98887897f4b38cefdd46317d83ac44e2ed08f4"
+  },
+  "native-hypervisor-page-probe-x64-build.log": {
+    "bytes": 34,
+    "sha256": "685bbe45a6d289e74235f637f3108b58e3847f056437d7af47047604255c7630"
+  },
+  "native-hypervisor-page-probe-x64.exe": {
+    "bytes": 159232,
+    "sha256": "3a07f8233582bdb8bce2845e94f61c4f18c9815bdf674f3b2a3c15e6a6a37d8a",
+    "pe-machine": "0x8664",
+    "large-address-aware": true
+  },
+  "native-hypervisor-page-probe-x86.log": {
+    "bytes": 90966,
+    "sha256": "352dc2f120ac3048aa173cbdd419a9dde4f05141c01105d189060ca561f8b9c9"
+  },
+  "native-hypervisor-page-probe-x86-build.log": {
+    "bytes": 34,
+    "sha256": "685bbe45a6d289e74235f637f3108b58e3847f056437d7af47047604255c7630"
+  },
+  "native-hypervisor-page-probe-x86.exe": {
+    "bytes": 121856,
+    "sha256": "ca450e3f30927ba5056cef860d0e2f6a11ab0d4e62bffc3e59460bf5bf20ddd5",
+    "pe-machine": "0x14c",
+    "large-address-aware": false
+  },
+  "native-hypervisor-page-probe-x86-laa.log": {
+    "bytes": 90966,
+    "sha256": "352dc2f120ac3048aa173cbdd419a9dde4f05141c01105d189060ca561f8b9c9"
+  },
+  "native-hypervisor-page-probe-x86-laa-build.log": {
+    "bytes": 34,
+    "sha256": "685bbe45a6d289e74235f637f3108b58e3847f056437d7af47047604255c7630"
+  },
+  "native-hypervisor-page-probe-x86-laa.exe": {
+    "bytes": 121856,
+    "sha256": "e3623cc01a5cdc92ec6b9fdefb64285ef586b3b52b51a87051bc4b4eea33fc1e",
+    "pe-machine": "0x14c",
+    "large-address-aware": true
+  }
+}

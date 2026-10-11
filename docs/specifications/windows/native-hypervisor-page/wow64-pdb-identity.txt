@@ -1,0 +1,28 @@
+---
+MSF:
+  SuperBlock:
+    BlockSize:       4096
+    FreeBlockMap:    1
+    NumBlocks:       107
+    NumDirectoryBytes: 484
+    Unknown1:        0
+    BlockMapAddr:    105
+  NumDirectoryBlocks: 1
+  DirectoryBlocks: [ 104 ]
+  NumStreams:      0
+  FileSize:        438272
+PdbStream:
+  Age:             3
+  Guid:            '{1F6DB1E7-82EC-0D6E-7FDC-18DA3D1F62DB}'
+  Signature:       993917458
+  Features:        [ VC140 ]
+  Version:         VC70
+DbiStream:
+  VerHeader:       V70
+  Age:             1
+  BuildNumber:     36402
+  PdbDllVersion:   35724
+  PdbDllRbld:      100
+  Flags:           2
+  MachineType:     Arm64
+...

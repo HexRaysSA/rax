@@ -1,0 +1,10 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+assist-native-hypervisor-owned-shipping.log 1693CF0CC04BD26007AC0AF1C925CB210F91EDE42A3484B524D0C3A18B5F740B
+assist-native-hypervisor-owned-cpp.log B0F277678BC54485CF58C6295345A12235DF27C7D420C5085B93AB253E75E214
+validated rlib: C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\librax-e6c413934cad3a8f.rlib
+native-process-probe.cpp
+rax_process.cpp
+Generating Code...

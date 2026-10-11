@@ -1,0 +1,41 @@
+{
+  "archives": [
+    {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\target\\debug\\assist_rs.lib",
+      "bytes": 1109036780,
+      "sha256": "2145a3a2462d8fb9a4aaa41539017325a92eac006476a7080f006d38672c081f",
+      "members": 4673,
+      "structural-member-walk": "pass"
+    },
+    {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\target\\debug\\deps\\librax-e6c413934cad3a8f.rlib",
+      "bytes": 722591842,
+      "sha256": "a76e37a1f886255174196befcb8ad6d4bad1cd4fce791605b48700a44b8c9645",
+      "members": 260,
+      "structural-member-walk": "pass"
+    }
+  ],
+  "core-features": [],
+  "sources": [
+    {
+      "path": "src/user/windows/dll/native/query.rs",
+      "bytes": 9961,
+      "sha256": "027a8c4873c27b07009f91ea274efca48723c696361e1eec98fb136bad40828b"
+    },
+    {
+      "path": "src/user/windows/process/sched/tests/services_tests.rs",
+      "bytes": 45351,
+      "sha256": "e79defc012117f5d72b4a05f35d7168ca438ec297cdd4dd757a0697334a6a0c7"
+    },
+    {
+      "path": "src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs",
+      "bytes": 20252,
+      "sha256": "95d40c7addc4cfb32f422701e3a53d7b2c8bc09074831fffdd119a6434ccd7d7"
+    },
+    {
+      "path": "src/user/windows/process/sched/tests/services_tests/hypervisor_page_leaf_tests.rs",
+      "bytes": 4563,
+      "sha256": "511785f1fd5bc15f4e22408f06c3c76877127bdaadbb6f936b366d28c68c3008"
+    }
+  ]
+}

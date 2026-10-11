@@ -1,0 +1,77 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 29.32s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 9 tests
+
+thread 'user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_upper_output_span_and_direct_return_have_distinct_guard_order_native64' (8626184) panicked at src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs:223:13:
+assertion `left == right` failed
+  left: 2147483649
+ right: 3221225477
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_width_lengths_optional_return_and_alignment_all_abis' (8626185) panicked at src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs:7:5:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtQuerySystemInformation: Unimplemented(\"NtQuerySystemInformation: NtQuerySystemInformation class 197\")")
+ right: Continue
+
+thread 'user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_guards_are_one_shot_and_short_wow64_output_is_untouched_all_abis' (8626178) panicked at src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs:7:5:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtQuerySystemInformation: Unimplemented(\"NtQuerySystemInformation: NtQuerySystemInformation class 197\")")
+ right: Continue
+
+thread 'user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_return_boundaries_are_atomic_after_wow64_publication_all_abis' (8626183) panicked at src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs:7:5:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtQuerySystemInformation: Unimplemented(\"NtQuerySystemInformation: NtQuerySystemInformation class 197\")")
+ right: Continue
+
+thread 'user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_null_output_precedes_wow64_short_length_all_abis' (8626179) panicked at src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs:7:5:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtQuerySystemInformation: Unimplemented(\"NtQuerySystemInformation: NtQuerySystemInformation class 197\")")
+ right: Continue
+
+thread 'user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_return_aliases_are_written_after_pointer_all_abis' (8626182) panicked at src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs:7:5:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtQuerySystemInformation: Unimplemented(\"NtQuerySystemInformation: NtQuerySystemInformation class 197\")")
+ right: Continue
+
+thread 'user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_guard_readonly_pairs_preserve_probe_priority_all_abis' (8626177) panicked at src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs:7:5:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtQuerySystemInformation: Unimplemented(\"NtQuerySystemInformation: NtQuerySystemInformation class 197\")")
+ right: Continue
+
+thread 'user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_readonly_destinations_preserve_conversion_write_order_all_abis' (8626181) panicked at src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs:7:5:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtQuerySystemInformation: Unimplemented(\"NtQuerySystemInformation: NtQuerySystemInformation class 197\")")
+ right: Continue
+
+thread 'user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_output_boundaries_probe_native_extent_and_wow64_pointer_only_all_abis' (8626180) panicked at src/user/windows/process/sched/tests/services_tests/hypervisor_page_tests.rs:7:5:
+assertion `left == right` failed
+  left: Fail("native NTDLL service NtQuerySystemInformation: Unimplemented(\"NtQuerySystemInformation: NtQuerySystemInformation class 197\")")
+ right: Continue
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_guards_are_one_shot_and_short_wow64_output_is_untouched_all_abis ... FAILED
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_null_output_precedes_wow64_short_length_all_abis ... FAILED
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_readonly_destinations_preserve_conversion_write_order_all_abis ... FAILED
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_upper_output_span_and_direct_return_have_distinct_guard_order_native64 ... FAILED
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_guard_readonly_pairs_preserve_probe_priority_all_abis ... FAILED
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_return_boundaries_are_atomic_after_wow64_publication_all_abis ... FAILED
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_width_lengths_optional_return_and_alignment_all_abis ... FAILED
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_output_boundaries_probe_native_extent_and_wow64_pointer_only_all_abis ... FAILED
+test user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_return_aliases_are_written_after_pointer_all_abis ... FAILED
+
+failures:
+
+failures:
+    user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_guard_readonly_pairs_preserve_probe_priority_all_abis
+    user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_guards_are_one_shot_and_short_wow64_output_is_untouched_all_abis
+    user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_null_output_precedes_wow64_short_length_all_abis
+    user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_output_boundaries_probe_native_extent_and_wow64_pointer_only_all_abis
+    user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_readonly_destinations_preserve_conversion_write_order_all_abis
+    user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_return_aliases_are_written_after_pointer_all_abis
+    user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_return_boundaries_are_atomic_after_wow64_publication_all_abis
+    user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_upper_output_span_and_direct_return_have_distinct_guard_order_native64
+    user::windows::process::sched::tests::services_tests::hypervisor_page_tests::native_hypervisor_page_width_lengths_optional_return_and_alignment_all_abis
+
+test result: FAILED. 0 passed; 9 failed; 0 ignored; 0 measured; 7571 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--lib`

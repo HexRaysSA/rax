@@ -1,0 +1,22 @@
+{
+  "native-hypervisor-final-targeted.log": {
+    "bytes": 3286,
+    "sha256": "2ed383ec00eb2125e177670e074cd904c729cbb755124ead3a99c2b4a09052d0"
+  },
+  "native-hypervisor-final-full.log": {
+    "bytes": 722970,
+    "sha256": "a7a88aafa108b9b98ea98f1e5bbd11ef11c073a4ff40be70d5fb4f2f3c8e5db7"
+  },
+  "native-hypervisor-final-capi.log": {
+    "bytes": 13818,
+    "sha256": "61a5288a5c66095a67f6ec31f098a07400d00fd5b985c96b5f19f931d9fffc82"
+  },
+  "native-hypervisor-final-all-targets.log": {
+    "bytes": 986,
+    "sha256": "4f03f07fd4267d0a6d436e4ab852bcb846f06fb07244275d5b7cb4962ebde87f"
+  },
+  "native-hypervisor-final-integration.log": {
+    "bytes": 1495,
+    "sha256": "582cc87001dc8df740e5fc8462e0b59adc1f605f4390300b12c0840393f4f99e"
+  }
+}
