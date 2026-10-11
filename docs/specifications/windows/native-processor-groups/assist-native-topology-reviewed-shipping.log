@@ -1,0 +1,31 @@
+warning: "stdcall" is not a supported ABI for the current target
+  --> C:\Windows\Temp\assist-native-rax-20261010\assist\vendor\rax\vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax-capi v0.1.2 (C:\Windows\Temp\assist-native-rax-20261010\assist\vendor\rax\capi)
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\assist\vendor\rax)
+   Compiling assist-rs v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\assist\rust\assist-rs)
+warning: unused import: `self`
+  --> src\claude_process\windows.rs:13:14
+   |
+13 |     thread::{self, JoinHandle},
+   |              ^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `assist-rs` (lib) generated 1 warning (run `cargo fix --lib -p assist-rs` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 20s

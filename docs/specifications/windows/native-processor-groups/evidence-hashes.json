@@ -1,0 +1,377 @@
+[
+  {
+    "name": "README.md",
+    "bytes": 10710,
+    "sha256": "a96e1e4ca849198217bebb00ee1d46955746921021a635dfa60e5a76ad94239d"
+  },
+  {
+    "name": "assist-native-topology-reviewed-cpp.log",
+    "bytes": 2946,
+    "sha256": "b0f277678bc54485cf58c6295345a12235df27c7d420c5085b93ab253e75e214"
+  },
+  {
+    "name": "assist-native-topology-reviewed-owning.ps1",
+    "bytes": 4865,
+    "sha256": "4cb5a783e27aa03c9bfe14fd31bc0d136e4170090c51580b891d312c741d1c95"
+  },
+  {
+    "name": "assist-native-topology-reviewed-shipping.log",
+    "bytes": 1584,
+    "sha256": "65465a72398e90c403908834eff3b17e0a1ae9aa14cd3c07d7a289688f98db27"
+  },
+  {
+    "name": "assumptions-and-scope.md",
+    "bytes": 4151,
+    "sha256": "48acb5132812a9b7cef9cec87933e15972cf13fb4b8c506b3a1cced29b010c45"
+  },
+  {
+    "name": "check_native_processor_groups.py",
+    "bytes": 9571,
+    "sha256": "4bf9bd621d7f2202ccad57633b6d0332a9295454c846388290079557160ff7da"
+  },
+  {
+    "name": "inspect-owned-windows-archives.py",
+    "bytes": 1010,
+    "sha256": "1877bd8098c31a8a3265c4249c7ea1ebe3fcc88131c92f92ebab72b6d3a385fd"
+  },
+  {
+    "name": "linux-existing-timeout-focused.log",
+    "bytes": 1086,
+    "sha256": "49660be57f7a6012c4384da1feaace3cec90e54665c0b23442f3cabc2ee59d38"
+  },
+  {
+    "name": "linux-group-final-full.log",
+    "bytes": 768245,
+    "sha256": "3921383b45020701f7fb3d10d415743c0a69076914ca02f1d47f87f52d0de3f4"
+  },
+  {
+    "name": "linux-group-owning-reviewed-cpp.log",
+    "bytes": 1623,
+    "sha256": "654c261ed7378aaed6990c140445dd6a20067dae86e5f2e0b446b80ee64f8497"
+  },
+  {
+    "name": "linux-group-owning-reviewed-shipping.log",
+    "bytes": 222,
+    "sha256": "3868d5908a49bc2b0d6e31eeedf45ba2cfea064ee105f4cc20a3bffe353ccb86"
+  },
+  {
+    "name": "linux-group-reviewed-all-targets.log",
+    "bytes": 72,
+    "sha256": "8b1fd2394f7b6f177ede882431154a419bd9f404f00add314c912e91a7fc0ec0"
+  },
+  {
+    "name": "linux-group-reviewed-capi.log",
+    "bytes": 12783,
+    "sha256": "4c2693147b267edc6ec140ca840f4a5b5344c43214a51d1e1b447bcefa26a8c5"
+  },
+  {
+    "name": "linux-group-reviewed-full.log",
+    "bytes": 767899,
+    "sha256": "8cf73be0461a98c4c7be6932cf140f830321c2403b7a4a859e57232c10871cb7"
+  },
+  {
+    "name": "linux-group-reviewed-integration.log",
+    "bytes": 35761,
+    "sha256": "ef3d63faeb727bc9ee5d64aca171b93aca5addaab744a28b02b762dec2db4c29"
+  },
+  {
+    "name": "linux-group-reviewed-targeted.log",
+    "bytes": 2014,
+    "sha256": "c261e538bd9556ea525f9ed7d6e3a280b1c12ae4537cd22892275b4a15b5ea96"
+  },
+  {
+    "name": "macos-group-baseline.log",
+    "bytes": 3718,
+    "sha256": "b38dfd81d3f3196afa36b32016a57733fdcd047e1efb77fa9f6835021469b788"
+  },
+  {
+    "name": "macos-group-final-all-targets-macos.log",
+    "bytes": 72,
+    "sha256": "8c233a54790c4800d3dd585436af679aa838da259bfdb129412e2d51cdb75cdc"
+  },
+  {
+    "name": "macos-group-final-capi-macos.log",
+    "bytes": 12790,
+    "sha256": "847dfed50b496915d240f169b297305e8a9e6ba5e40733e087baaffc132ae016"
+  },
+  {
+    "name": "macos-group-final-full-macos.log",
+    "bytes": 767225,
+    "sha256": "30e7adcc86bb0b3a8c40f29b94962671f1e4de6261947507fc015d728735daf7"
+  },
+  {
+    "name": "macos-group-final-integration-macos.log",
+    "bytes": 35757,
+    "sha256": "873b9e903971414f4982d0a7407cca73b02216ab17bb4c3f8301c04974d5bbd6"
+  },
+  {
+    "name": "macos-group-final-targeted-macos.log",
+    "bytes": 2013,
+    "sha256": "c5b5214604169d3cfeb78be25f301a0162aa96eb5b01c1ae77b533cb958061e9"
+  },
+  {
+    "name": "macos-group-owning-build-reviewed.log",
+    "bytes": 6592,
+    "sha256": "915469827dd6223520969dbe6c33b6633d0e607cdaea6d5ce41abdf248998bf1"
+  },
+  {
+    "name": "macos-group-owning-ctest-reviewed.log",
+    "bytes": 1212,
+    "sha256": "fedf9230257d213fa5b0e530ff2ae4c90dac858c26a72f650c4d56bb469c296a"
+  },
+  {
+    "name": "macos-group-range-review.log",
+    "bytes": 539,
+    "sha256": "90d629fc811f6bd29738320c51ddc10fbef9409e2bbe63ae6c2c18a246888b53"
+  },
+  {
+    "name": "macos-group-returned-range-review.log",
+    "bytes": 504,
+    "sha256": "5a8f66ba5dbead79a60571ede9220724a30ed7f920ae6c23765819a0becf3461"
+  },
+  {
+    "name": "macos-group-reviewed-driver.log",
+    "bytes": 53,
+    "sha256": "85240e3afd3200cc0b5d8deebcd4528b336c0c1e64b8801bd2c83ab663034000"
+  },
+  {
+    "name": "native-current-runtime-hashes.json",
+    "bytes": 323,
+    "sha256": "f582dbdbc1fc4cccce6c11600711974bc51cc73d3c3668144da0dc2dc7071d0a"
+  },
+  {
+    "name": "native-owning-hashes.json",
+    "bytes": 1321,
+    "sha256": "586c8213884c16d0a4ce2589813dbdc9c0256db1fd4e800ec811beca651af6f3"
+  },
+  {
+    "name": "native-owning-source-verification.json",
+    "bytes": 897,
+    "sha256": "58e1c62092bf5525ce74a06a39b979fb078ca0308b3ad525be29cdba8ab55ee3"
+  },
+  {
+    "name": "native-reviewed-archive-inspection.log",
+    "bytes": 466,
+    "sha256": "ca51b552ac652e5598b3bbee4189e43e940611d8ac46b45b483297db5081a777"
+  },
+  {
+    "name": "native-topology-after-artifacts-stderr.log",
+    "bytes": 72,
+    "sha256": "5604fc8f0c276397a55db4bd7008236712075c0ad37d3b3a0f1fe362b1b85a36"
+  },
+  {
+    "name": "native-topology-after-artifacts.jsonl",
+    "bytes": 124511,
+    "sha256": "96eeecfdbf715516baa67ee7ea6bce8e6343e393de05c6a187a71e8e68e470f6"
+  },
+  {
+    "name": "native-topology-after-ordinary-processes.log",
+    "bytes": 5064,
+    "sha256": "53fdb8caaf80e5bb4fb50288938f92056bad35216495f36d56e2e44e4c767587"
+  },
+  {
+    "name": "native-topology-after-trace-build.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "native-topology-after-trace-output.log",
+    "bytes": 37344,
+    "sha256": "64007cd3c700f11859830fcb7c62778088cfee67e6886d2f9092ce217e1b85a1"
+  },
+  {
+    "name": "native-topology-after-trace.ps1",
+    "bytes": 2627,
+    "sha256": "ee66835dbaa91db1384c7e37f7769a51e2b435f0ac0aa2e5e6fb0da68f09d839"
+  },
+  {
+    "name": "native-topology-after-trace.rs",
+    "bytes": 12084,
+    "sha256": "b0ef327c6c8a56cc16aa5c0ca9cc7f4ce887c4e5f206edd3f56c6bd08392c995"
+  },
+  {
+    "name": "native-topology-before-artifacts-stderr.log",
+    "bytes": 72,
+    "sha256": "f2066ca264b9a8598ecd436c70919e1efe1acea4098ad2a13b5d82d67bc049ec"
+  },
+  {
+    "name": "native-topology-before-artifacts.jsonl",
+    "bytes": 124511,
+    "sha256": "92618a31bf3de041a0252a640243535ecc3e4a1205ae805730f55a803e00f949"
+  },
+  {
+    "name": "native-topology-before-trace-build.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "native-topology-before-trace-output.log",
+    "bytes": 31220,
+    "sha256": "d5324118433a2f65ec0b18ed86a0d9b145ba5411a71e3f839e4a76479f5b21f1"
+  },
+  {
+    "name": "native-topology-before-trace.ps1",
+    "bytes": 2638,
+    "sha256": "d4df61c3d110ca3707a28bbce89a51d240cc6ea536877f22341db9762f365f36"
+  },
+  {
+    "name": "native-topology-before-trace.rs",
+    "bytes": 12084,
+    "sha256": "b0ef327c6c8a56cc16aa5c0ca9cc7f4ce887c4e5f206edd3f56c6bd08392c995"
+  },
+  {
+    "name": "native-topology-guard-hashes.json",
+    "bytes": 1271,
+    "sha256": "3e0507642d666ecbd343929d8df4033f1565a121764e0f12a996b4a431b4d1b4"
+  },
+  {
+    "name": "native-topology-probe-arm64-build.log",
+    "bytes": 27,
+    "sha256": "9dab1c8fff23bc9679069e01e73f66b066867dd5cadebb4d702f6621e070f91f"
+  },
+  {
+    "name": "native-topology-probe-arm64-driver.log",
+    "bytes": 307,
+    "sha256": "e0ee87d1d1cc8eb069d1a798c38672835f4747bb1f30902ed5400b322ac58d44"
+  },
+  {
+    "name": "native-topology-probe-arm64.log",
+    "bytes": 195040,
+    "sha256": "8378ec17058e1b46695b620a311fa6a35691235eac4e9456e4d218f5ff41c095"
+  },
+  {
+    "name": "native-topology-probe-arm64.ps1",
+    "bytes": 1247,
+    "sha256": "e391e556cf12944e4994a7b37d6d7b3111dd3dbfcaacc6b8f1b249691752d4ad"
+  },
+  {
+    "name": "native-topology-probe-x64-build.log",
+    "bytes": 27,
+    "sha256": "9dab1c8fff23bc9679069e01e73f66b066867dd5cadebb4d702f6621e070f91f"
+  },
+  {
+    "name": "native-topology-probe-x64-driver.log",
+    "bytes": 307,
+    "sha256": "e0ee87d1d1cc8eb069d1a798c38672835f4747bb1f30902ed5400b322ac58d44"
+  },
+  {
+    "name": "native-topology-probe-x64.log",
+    "bytes": 195040,
+    "sha256": "8378ec17058e1b46695b620a311fa6a35691235eac4e9456e4d218f5ff41c095"
+  },
+  {
+    "name": "native-topology-probe-x64.ps1",
+    "bytes": 1229,
+    "sha256": "7c68f2ae019ccc69e3368924bba9a8b3e5cc91c7da4cbf06aa74181f549179c9"
+  },
+  {
+    "name": "native-topology-probe-x86-build.log",
+    "bytes": 27,
+    "sha256": "9dab1c8fff23bc9679069e01e73f66b066867dd5cadebb4d702f6621e070f91f"
+  },
+  {
+    "name": "native-topology-probe-x86-driver.log",
+    "bytes": 307,
+    "sha256": "459c2878a1eee0741a486a47b4a758061248d020cfc4d52414acf3f94cd088fb"
+  },
+  {
+    "name": "native-topology-probe-x86-laa-build.log",
+    "bytes": 27,
+    "sha256": "9dab1c8fff23bc9679069e01e73f66b066867dd5cadebb4d702f6621e070f91f"
+  },
+  {
+    "name": "native-topology-probe-x86-laa-driver.log",
+    "bytes": 307,
+    "sha256": "459c2878a1eee0741a486a47b4a758061248d020cfc4d52414acf3f94cd088fb"
+  },
+  {
+    "name": "native-topology-probe-x86-laa.log",
+    "bytes": 193523,
+    "sha256": "7f8e5bc7cdf8e3adad7a4162589688842874f98d50e3ec947e0c329d8edf82fb"
+  },
+  {
+    "name": "native-topology-probe-x86-laa.ps1",
+    "bytes": 1286,
+    "sha256": "bb2e296f68f2c87837c0137d210bbbc07c728f1bd78dae8016c87771b61f1689"
+  },
+  {
+    "name": "native-topology-probe-x86.log",
+    "bytes": 193523,
+    "sha256": "7f8e5bc7cdf8e3adad7a4162589688842874f98d50e3ec947e0c329d8edf82fb"
+  },
+  {
+    "name": "native-topology-probe-x86.ps1",
+    "bytes": 1229,
+    "sha256": "a9bdb8d60618c99e8837fdb0dc4b676f723f013e810ead8bd2c17131a35478a3"
+  },
+  {
+    "name": "native-topology-probe.cpp",
+    "bytes": 11014,
+    "sha256": "e03e5761e0d94b715f46fa1887c787e8b787f55239eb5aaffdea04b76a7f087f"
+  },
+  {
+    "name": "native-topology-reviewed-all-targets.log",
+    "bytes": 986,
+    "sha256": "b9a031cab980864b5130c4770fd34818da227122ab8726fde3790fd937759033"
+  },
+  {
+    "name": "native-topology-reviewed-capi.log",
+    "bytes": 13816,
+    "sha256": "71ada36ae6729fbf06c00f9070585e851070a9587fee8b8ff39728122ff884b4"
+  },
+  {
+    "name": "native-topology-reviewed-full.log",
+    "bytes": 720910,
+    "sha256": "aeba3c66bccb22c3f03fb2f22fc242ad80458eb7687873bb7e1dfc5047db0fa1"
+  },
+  {
+    "name": "native-topology-reviewed-integration.log",
+    "bytes": 1495,
+    "sha256": "8a52c84103554e0ecccfdead02eda421dbf8f474a4fe95d8a7ab966673ed9bd9"
+  },
+  {
+    "name": "native-topology-reviewed-targeted.log",
+    "bytes": 3146,
+    "sha256": "e6e100a5f51d517989a83a8479c4c991181c70b2e735822c8cf020bed80b3b5d"
+  },
+  {
+    "name": "native-topology-reviewed.ps1",
+    "bytes": 5673,
+    "sha256": "0aa9a2d7faace996ae7afd3b0657d112fcec9f287adcc27a75429e636bb232fa"
+  },
+  {
+    "name": "run-group-macos.py",
+    "bytes": 783,
+    "sha256": "812becce2a9a0ed4109c2e127d0645ee9a26a3fa2c3f76d9bb7a898291d57103"
+  },
+  {
+    "name": "run-group-owning-reviewed-linux.py",
+    "bytes": 1727,
+    "sha256": "e33e240b0b6cf4ad87cb802bdf56764ccedf884ca55ac40a6f77e82720a13dde"
+  },
+  {
+    "name": "run-group-reviewed-linux.py",
+    "bytes": 1690,
+    "sha256": "ba1825582fade4e9a641f27e04433d69624ee29c1deee479aa7926e581a59ac0"
+  },
+  {
+    "name": "source-hashes-reviewed.json",
+    "bytes": 897,
+    "sha256": "5867db99cbd7f730da4250586dfba71a86a2cb21c6f175f1704da05fb9c9ac60"
+  },
+  {
+    "name": "validation.json",
+    "bytes": 3720,
+    "sha256": "e255bcd3d0c68323ec4cb22199278a6a8b2be10b6eb1ceac937da7b29abedbb1"
+  },
+  {
+    "name": "windows-group-owning-reviewed-driver.log",
+    "bytes": 628,
+    "sha256": "169c532ddf05304c5e5d446b60abfa4f533870d7574d87747d59ab02b80b0e6e"
+  },
+  {
+    "name": "windows-group-reviewed-driver.log",
+    "bytes": 711,
+    "sha256": "6bc3fdad89d66e07fe725e7552be19af747891cad0c6eb05724dfd7b4bbbbb0e"
+  }
+]

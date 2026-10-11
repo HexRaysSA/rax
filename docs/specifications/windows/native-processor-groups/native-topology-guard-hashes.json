@@ -1,0 +1,42 @@
+[
+  {
+    "name": "native-topology-probe-arm64.log",
+    "bytes": 195040,
+    "sha256": "8378ec17058e1b46695b620a311fa6a35691235eac4e9456e4d218f5ff41c095"
+  },
+  {
+    "name": "native-topology-probe-arm64-build.log",
+    "bytes": 27,
+    "sha256": "9dab1c8fff23bc9679069e01e73f66b066867dd5cadebb4d702f6621e070f91f"
+  },
+  {
+    "name": "native-topology-probe-x64.log",
+    "bytes": 195040,
+    "sha256": "8378ec17058e1b46695b620a311fa6a35691235eac4e9456e4d218f5ff41c095"
+  },
+  {
+    "name": "native-topology-probe-x64-build.log",
+    "bytes": 27,
+    "sha256": "9dab1c8fff23bc9679069e01e73f66b066867dd5cadebb4d702f6621e070f91f"
+  },
+  {
+    "name": "native-topology-probe-x86.log",
+    "bytes": 193523,
+    "sha256": "7f8e5bc7cdf8e3adad7a4162589688842874f98d50e3ec947e0c329d8edf82fb"
+  },
+  {
+    "name": "native-topology-probe-x86-build.log",
+    "bytes": 27,
+    "sha256": "9dab1c8fff23bc9679069e01e73f66b066867dd5cadebb4d702f6621e070f91f"
+  },
+  {
+    "name": "native-topology-probe-x86-laa.log",
+    "bytes": 193523,
+    "sha256": "7f8e5bc7cdf8e3adad7a4162589688842874f98d50e3ec947e0c329d8edf82fb"
+  },
+  {
+    "name": "native-topology-probe-x86-laa-build.log",
+    "bytes": 27,
+    "sha256": "9dab1c8fff23bc9679069e01e73f66b066867dd5cadebb4d702f6621e070f91f"
+  }
+]

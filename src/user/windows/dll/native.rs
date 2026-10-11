@@ -11,6 +11,7 @@ mod nls;
 mod process_query;
 mod query;
 mod registry;
+mod topology;
 mod virtual_memory;
 
 pub(super) static EXPORTS: &[Export] = &[
@@ -56,6 +57,12 @@ pub(super) static EXPORTS: &[Export] = &[
         Stdcall,
         &[I32, Ptr, I32, Ptr],
         query::system_information,
+    ),
+    Export::func(
+        "NtQuerySystemInformationEx",
+        Stdcall,
+        &[I32, Ptr, I32, Ptr, I32, Ptr],
+        topology::information,
     ),
     Export::func(
         "NtQueryInformationProcess",

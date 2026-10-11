@@ -1,0 +1,8 @@
+from pathlib import Path
+import subprocess
+root='/Users/int/hexrays/kvasir';logs='/tmp/assist-native-windows-29683/topology-evidence';base=['docker','run','--rm','--platform','linux/amd64','-v',root+':/work:ro','-v',logs+':/validation','-v','rax-cargo-registry:/usr/local/cargo/registry','-v','rax-cargo-git:/usr/local/cargo/git','-e','CARGO_TARGET_DIR=/target','-e','RUSTUP_TOOLCHAIN=1.95.0-x86_64-unknown-linux-gnu']
+steps=[('targeted',base+['-v','rax-user-target:/target','-w','/work/vendor/rax','rust:1.95-bullseye','cargo','test','--locked','--offline','--no-default-features','--lib','native_group_topology','--','--nocapture']),('full',base+['-v','rax-user-target:/target','-w','/work/vendor/rax','rust:1.95-bullseye','cargo','test','--locked','--offline','--no-default-features','--lib','--','--nocapture']),('capi',base+['-v','rax-user-target:/target','-w','/work/vendor/rax','rust:1.95-bullseye','cargo','test','--locked','--offline','--no-default-features','-p','rax-capi','--','--nocapture']),('all-targets',base+['-v','rax-user-target:/target','-w','/work/vendor/rax','rust:1.95-bullseye','cargo','build','--locked','--offline','--no-default-features','--all-targets']),('integration',base+['-v','rax-user-target:/target','-w','/work/vendor/rax','rust:1.95-bullseye','cargo','test','--locked','--offline','--no-default-features','--test','user_windows','--test','user_windows_memory','--','--nocapture','--test-threads=1'])]
+for name,args in steps:
+ with Path(logs+'/linux-group-reviewed-'+name+'.log').open('w') as f:r=subprocess.run(args,stdout=f,stderr=subprocess.STDOUT)
+ print(name,r.returncode,flush=True)
+ if r.returncode and name!='full':raise SystemExit(r.returncode)

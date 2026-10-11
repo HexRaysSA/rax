@@ -1,0 +1,12 @@
+[
+  {
+    "path": "C:\\Windows\\System32\\ntdll.dll",
+    "bytes": 4609312,
+    "sha256": "502d4678206c8fd564972a3f82bfe63fe1a451cb5a6804ac0a9823b65fcbb61f"
+  },
+  {
+    "path": "C:\\Windows\\SysWOW64\\ntdll.dll",
+    "bytes": 1849976,
+    "sha256": "ffd2b7ff39889c5599c8a8451eef5c852acee9101da5ce5a6def8b8e60a6627e"
+  }
+]

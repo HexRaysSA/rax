@@ -1,0 +1,9 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 02s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 1 test
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_upper_spans_and_returned_pointer_have_distinct_guard_order_native_64_bit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7570 filtered out; finished in 0.03s
+

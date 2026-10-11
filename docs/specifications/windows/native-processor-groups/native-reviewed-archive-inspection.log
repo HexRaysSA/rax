@@ -1,0 +1,8 @@
+archive C:\Windows\Temp\assist-native-rax-20261010\target\debug\assist_rs.lib
+size 1101398868 sha256 01ea942c6143a85bc36696d6b218e23c373f272a687e3c80d78d1485366064ab
+magic b'!<arch>\n'
+STRUCTURAL MEMBER WALK PASSED 4673
+archive C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\librax-e6c413934cad3a8f.rlib
+size 718767256 sha256 629b590f10e72527b89a38a9cda0e98862e5cdb8379a0ba6d26112058a231a5d
+magic b'!<arch>\n'
+STRUCTURAL MEMBER WALK PASSED 260

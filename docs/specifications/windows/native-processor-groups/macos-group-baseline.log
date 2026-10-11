@@ -1,0 +1,97 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling libc v0.2.189
+   Compiling serde_core v1.0.229
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.12
+   Compiling pkg-config v0.3.34
+   Compiling cfg-if v1.0.4
+   Compiling objc2 v0.6.4
+   Compiling utf8parse v0.2.2
+   Compiling thiserror v2.0.20
+   Compiling cfg_aliases v0.2.2
+   Compiling once_cell v1.21.4
+   Compiling objc2-encode v4.1.0
+   Compiling colorchoice v1.0.5
+   Compiling nix v0.31.3
+   Compiling anstyle-parse v1.0.0
+   Compiling zstd-safe v7.3.0
+   Compiling anstyle v1.0.14
+   Compiling tracing-core v0.1.36
+   Compiling regex-syntax v0.8.11
+   Compiling serde v1.0.229
+   Compiling anstyle-query v1.1.5
+   Compiling zmij v1.0.23
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling bitflags v2.13.2
+   Compiling log v0.4.34
+   Compiling anstream v1.0.0
+   Compiling winnow v1.0.4
+   Compiling clap_lex v1.1.0
+   Compiling lazy_static v1.5.0
+   Compiling strsim v0.11.1
+   Compiling pin-project-lite v0.2.17
+   Compiling getrandom v0.4.3
+   Compiling serde_json v1.0.151
+   Compiling heck v0.5.0
+   Compiling tracing-log v0.2.0
+   Compiling sharded-slab v0.1.7
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling clap_builder v4.6.6
+   Compiling thread_local v1.1.10
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling nu-ansi-term v0.50.3
+   Compiling winnow v0.7.15
+   Compiling plain v0.2.3
+   Compiling toml_writer v1.1.2+spec-1.1.0
+   Compiling smallvec v1.16.0
+   Compiling jobserver v0.1.35
+   Compiling syn v3.0.5
+   Compiling syn v2.0.119
+   Compiling cc v1.4.5
+   Compiling regex-automata v0.4.18
+   Compiling block2 v0.6.2
+   Compiling dispatch2 v0.3.1
+   Compiling ctrlc v3.5.2
+   Compiling zstd-sys v2.1.0+zstd.1.5.7
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v0.7.5+spec-1.1.0
+   Compiling toml v0.9.12+spec-1.1.0
+   Compiling matchers v0.2.0
+   Compiling thiserror-impl v2.0.20
+   Compiling serde_derive v1.0.229
+   Compiling clap_derive v4.6.4
+   Compiling scroll_derive v0.12.1
+   Compiling tracing-attributes v0.1.31
+   Compiling vm-memory v0.17.1 (/Users/int/hexrays/kvasir/vendor/rax/vendor/vm-memory)
+   Compiling scroll v0.12.0
+   Compiling clap v4.6.6
+   Compiling goblin v0.8.2
+   Compiling linux-loader v0.13.2 (https://github.com/19h/linux-loader?rev=f745b555942c4e840a784bca61e6f3976d101960#f745b555)
+   Compiling tracing v0.1.44
+   Compiling tracing-subscriber v0.3.23
+   Compiling bincode v1.3.3
+   Compiling zstd v0.13.3
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 13s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 1 test
+
+thread 'user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_sizes_projected_cpu_and_untouched_suffix_all_abis' (8224162) panicked at src/user/windows/process/sched/tests/services_tests/topology_tests.rs:74:17:
+assertion `left == right` failed: x86/0/0
+  left: Fail("native NTDLL service NtQuerySystemInformationEx (0x16e) at 0x12340000 is not implemented")
+ right: Continue
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_sizes_projected_cpu_and_untouched_suffix_all_abis ... FAILED
+
+failures:
+
+failures:
+    user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_sizes_projected_cpu_and_untouched_suffix_all_abis
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7560 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

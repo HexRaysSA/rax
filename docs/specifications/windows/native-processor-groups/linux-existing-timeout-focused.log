@@ -1,0 +1,16 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.31s
+     Running unittests src/lib.rs (/target/debug/deps/rax-094640fccc97af0f)
+
+running 9 tests
+test user::linux::tests::uring::timeout::a_linked_timeout_bounds_the_request_before_it ... ok
+test user::linux::tests::uring::timeout::a_multishot_timeout_reports_each_expiry ... ok
+test user::linux::tests::uring::timeout::a_timeout_expires_or_counts_completions ... ok
+test user::linux::tests::uring::timeout::a_timeout_is_removed_or_updated ... ok
+test user::linux::tests::uring::timeout::an_expired_timeout_fails_its_link_unless_etime_is_success ... ok
+test user::linux::tests::uring::timeout::async_cancel_finds_queued_polled_and_timed_requests ... ok
+test user::linux::tests::uring::timeout::sync_cancel_cancels_through_registration ... ok
+test user::linux::tests::uring::timeout::timeout_preparation_checks_the_request ... ok
+test user::linux::tests::uring::timeout::timers_do_not_outlive_exec_or_cross_fork ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 7556 filtered out; finished in 0.19s
+

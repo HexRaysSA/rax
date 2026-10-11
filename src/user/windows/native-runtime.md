@@ -1220,3 +1220,28 @@ package or ISA change is claimed.
 Primary sources/licenses, originals, exact source/artifact/gate hashes,
 assumptions and quality gates are retained in
 [process parameter evidence](../../../docs/specifications/windows/native-process-parameters/README.md).
+
+## Native processor-group query
+
+The six-argument `NtQuerySystemInformationEx` now implements class107 /
+RelationGroup4 through admitted NTDLL services. It projects the existing single
+guest CPU/group, count1 and mask1, with exact76/80-byte WoW64/native64 records.
+The four native profiles establish distinct alignment, span checks, partial
+field conversion, alias publication, ReturnLength ordering and guard behavior;
+all1490 observations and their hashes are retained. Other classes/relationships
+remain explicit unsupported stops, without host kernel forwarding.
+
+Eleven portable regressions pass on macOS/Linux and, with the selected installed
+leaf test, twelve pass on Windows. Final full library pass/fail/ignored/filtered
+counts are7569/0/2/0,7562/1/2/0 and6959/5/2/0 respectively. C API168, all-target
+builds, affected integration and all five owning C++ consumers pass on each.
+macOS CLI/seven CTests/protected scan also pass. Linux's retained timeout failure
+passes in the isolated nine-test timeout run; Windows retains the four BZHI and
+one FP16 failures. These are distinct limits, rather than all-suite success.
+
+The byte-identical owning diagnostic now succeeds at the former group-query
+stop13286 and reaches class197 of NtQuerySystemInformation at turn33364:
+33364-13286=20078 additional scheduler calls, not instructions. Ordinary native
+startup still returns STATUS_ACCESS_VIOLATION. Full bootstrap remains incomplete.
+Primary definitions, native originals, assumptions, replay and owning artifact
+identity are in [processor-group evidence](../../../docs/specifications/windows/native-processor-groups/README.md).

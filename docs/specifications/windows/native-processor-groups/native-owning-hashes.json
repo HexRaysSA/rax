@@ -1,0 +1,42 @@
+[
+  {
+    "name": "assist-native-topology-reviewed-clean.log",
+    "bytes": 39,
+    "sha256": "7a608ea622591eb5e643956be08cfbd17ffe706c405dbde39cf36acd6831f3e3"
+  },
+  {
+    "name": "assist-native-topology-reviewed-shipping.log",
+    "bytes": 1584,
+    "sha256": "65465a72398e90c403908834eff3b17e0a1ae9aa14cd3c07d7a289688f98db27"
+  },
+  {
+    "name": "assist-native-topology-reviewed-cpp.log",
+    "bytes": 2946,
+    "sha256": "b0f277678bc54485cf58c6295345a12235df27c7d420c5085b93ab253e75e214"
+  },
+  {
+    "name": "native-topology-after-artifacts.jsonl",
+    "bytes": 124511,
+    "sha256": "96eeecfdbf715516baa67ee7ea6bce8e6343e393de05c6a187a71e8e68e470f6"
+  },
+  {
+    "name": "native-topology-after-artifacts-stderr.log",
+    "bytes": 72,
+    "sha256": "5604fc8f0c276397a55db4bd7008236712075c0ad37d3b3a0f1fe362b1b85a36"
+  },
+  {
+    "name": "native-topology-after-trace-build.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "native-topology-after-trace-output.log",
+    "bytes": 37344,
+    "sha256": "64007cd3c700f11859830fcb7c62778088cfee67e6886d2f9092ce217e1b85a1"
+  },
+  {
+    "name": "native-topology-after-ordinary-processes.log",
+    "bytes": 5064,
+    "sha256": "53fdb8caaf80e5bb4fb50288938f92056bad35216495f36d56e2e44e4c767587"
+  }
+]

@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 11 tests
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_guards_order_capture_and_conversion_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_upper_spans_and_returned_pointer_have_distinct_guard_order_native_64_bit ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_ignores_unmapped_extra_input_span_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_returned_guards_and_cross_page_faults_preserve_order_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_aliases_capture_input_and_publish_returned_last_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_unmodeled_classes_and_relationships_stop_explicitly_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_alignment_and_optional_returned_length_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_fault_order_and_destination_write_order_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_input_user_range_checks_precede_short_length_dispatch_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_sizes_projected_cpu_and_untouched_suffix_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::topology_tests::native_group_topology_partial_conversion_at_every_field_boundary_all_abis ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 7560 filtered out; finished in 1.65s
+

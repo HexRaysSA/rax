@@ -1,0 +1,52 @@
+run cl.exe /FoC:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\monocypher.obj
+monocypher.c
+run cl.exe /Fe:C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\process_tool.exe
+process_tool_tests.cpp
+process_tool.cpp
+rax_process.cpp
+librax_loader.cpp
+static_text.cpp
+metadata.cpp
+metadata_keys.cpp
+Generating Code...
+run C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\process_tool.exe C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\process_tool.exe
+process tool: 182 checks passed
+run cl.exe /Fe:C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\process_tool_unavailable.exe
+process_tool_unavailable_tests.cpp
+process_tool.cpp
+static_text.cpp
+metadata.cpp
+metadata_keys.cpp
+Generating Code...
+run C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\process_tool_unavailable.exe C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\process_tool_unavailable.exe
+process tool: canonical discovery and explicit RAX-disabled refusal passed
+run cl.exe /Fe:C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rax_process.exe
+rax_process_tests.cpp
+rax_process.cpp
+Generating Code...
+run C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rax_process.exe C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rax_process.exe
+RAX process: 162 checks passed; PE, five ELF, and two Mach-O ABIs executed
+run cl.exe /Fe:C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rax_abi_drift.exe
+e14_rax_abi_drift_tests.cpp
+run C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rax_abi_drift.exe C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rax_abi_drift.exe
+embedded rax_version = 1.11.0 ; header API = 1.11
+2/2 passed
+run cl.exe /Fe:C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rust_archive_link.exe
+rust_archive_link_tests.cpp
+run C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rust_archive_link.exe C:\Windows\Temp\assist-native-rax-20261010\assist\native-cpp\rust_archive_link.exe
+The assist-rs archive is linked and its contract matches
+  [ok] archive major matches the header the host compiled against
+  [ok] archive minor is at least the header's
+  [ok] the link anchor resolves, so the archive was searched
+The Rust runtime came along, not just its symbols
+  [ok] the allocator is live
+  [ok] a panic raised inside the archive is contained, so the unwinder is live
+Repeated entry stays correct
+  [ok] the self test is repeatable
+  [ok] the unwind probe is repeatable, so it restored the panic hook
+The rax C ABI is carried inside the same archive
+  [ok] rax_version resolves and reports the major the host compiled against
+  [ok] rax minor is at least the header's, per the MINOR-additive gate
+  [ok] rax_version_string returns live data, so its objects came along too
+  [ok] assist-rs still works after calling into the rax surface
+PASS

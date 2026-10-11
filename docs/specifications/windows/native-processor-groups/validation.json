@@ -1,0 +1,119 @@
+{
+  "gates": [
+    {
+      "log": "macos-group-final-targeted-macos.log",
+      "required": "11 passed; 0 failed; 0 ignored"
+    },
+    {
+      "log": "macos-group-final-full-macos.log",
+      "required": "7569 passed; 0 failed; 2 ignored; 0 measured; 0 filtered"
+    },
+    {
+      "log": "macos-group-final-capi-macos.log",
+      "required": "168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered"
+    },
+    {
+      "log": "macos-group-final-all-targets-macos.log",
+      "required": "Finished `dev` profile"
+    },
+    {
+      "log": "macos-group-final-integration-macos.log",
+      "required": "544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered"
+    },
+    {
+      "log": "macos-group-owning-ctest-reviewed.log",
+      "required": "100% tests passed out of 7"
+    },
+    {
+      "log": "macos-group-owning-build-reviewed.log",
+      "required": "Static text scan: 1 artifacts, 0 failures"
+    },
+    {
+      "log": "linux-group-reviewed-targeted.log",
+      "required": "11 passed; 0 failed; 0 ignored"
+    },
+    {
+      "log": "linux-group-reviewed-full.log",
+      "required": "7562 passed; 1 failed; 2 ignored; 0 measured; 0 filtered"
+    },
+    {
+      "log": "linux-group-reviewed-capi.log",
+      "required": "168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered"
+    },
+    {
+      "log": "linux-group-reviewed-all-targets.log",
+      "required": "Finished `dev` profile"
+    },
+    {
+      "log": "linux-group-reviewed-integration.log",
+      "required": "544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered"
+    },
+    {
+      "log": "linux-group-owning-reviewed-shipping.log",
+      "required": "Finished `dev` profile"
+    },
+    {
+      "log": "linux-group-owning-reviewed-cpp.log",
+      "required": "RAX process: 162 checks passed"
+    },
+    {
+      "log": "linux-existing-timeout-focused.log",
+      "required": "9 passed; 0 failed; 0 ignored"
+    },
+    {
+      "log": "native-topology-reviewed-targeted.log",
+      "required": "12 passed; 0 failed; 0 ignored"
+    },
+    {
+      "log": "native-topology-reviewed-full.log",
+      "required": "6959 passed; 5 failed; 2 ignored; 0 measured; 0 filtered"
+    },
+    {
+      "log": "native-topology-reviewed-capi.log",
+      "required": "168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered"
+    },
+    {
+      "log": "native-topology-reviewed-all-targets.log",
+      "required": "Finished `dev` profile"
+    },
+    {
+      "log": "native-topology-reviewed-integration.log",
+      "required": "4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered"
+    },
+    {
+      "log": "assist-native-topology-reviewed-shipping.log",
+      "required": "Finished `dev` profile"
+    },
+    {
+      "log": "assist-native-topology-reviewed-cpp.log",
+      "required": "RAX process: 162 checks passed"
+    },
+    {
+      "log": "native-reviewed-archive-inspection.log",
+      "required": "STRUCTURAL MEMBER WALK PASSED 4673"
+    },
+    {
+      "log": "native-topology-after-trace-output.log",
+      "required": "kernel-after turn=13286 service=0x16e PC=0x180002724 X0=0x0"
+    },
+    {
+      "log": "native-topology-after-ordinary-processes.log",
+      "required": "STATUS_ACCESS_VIOLATION"
+    }
+  ],
+  "limits": [
+    "full Linux retains a_timeout_is_removed_or_updated",
+    "Windows retains four BZHI and one FP16 lowerer failures",
+    "Linux amd64 container runs through host translation",
+    "Native x64 oracle is Windows ARM64 compatibility",
+    "Ordinary native process startup still fails; private continuation is not production bootstrap"
+  ],
+  "continuation": {
+    "before_turn": 13286,
+    "after_turn": 33364,
+    "delta_scheduler_calls": 20078,
+    "next_class": 197,
+    "next_service": "0x36",
+    "next_pc": "0x1800013a0"
+  }
+}

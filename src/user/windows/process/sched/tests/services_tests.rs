@@ -13,6 +13,9 @@ mod allocate_ex_tests;
 #[path = "services_tests/processor_feature_tests.rs"]
 mod processor_feature_tests;
 
+#[path = "services_tests/topology_tests.rs"]
+mod topology_tests;
+
 #[path = "services_tests/event_tests.rs"]
 mod event_tests;
 
