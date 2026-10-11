@@ -1,8 +1,7 @@
 //! The loader's data in guest memory: `PEB_LDR_DATA` and one
 //! `LDR_DATA_TABLE_ENTRY` per module, linked into the load-order,
 //! memory-order, and initialization-order lists that
-//! built-in `EnumProcessModules`, `GetModuleHandle`, and debuggers read.
-//! Installed RTL owns separate public PEB lists; these allocations remain private.
+//! `EnumProcessModules`, `GetModuleHandle`, and debuggers read.
 //!
 //! Entries and their name strings are allocated from the process heap, as
 //! the Windows loader allocates them.

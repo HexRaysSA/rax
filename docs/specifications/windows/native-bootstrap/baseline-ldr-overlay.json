@@ -1,0 +1,6 @@
+{
+  "path": "src/user/windows/loader/ldr.rs",
+  "before-sha256": "b69f50732135a01e5759f335cff88538dc0043cddac165549ce6d8bf960f17e2",
+  "after-sha256": "026ee8434d9091f5a1a6a5decfda315a69c55fd48ddd65900120ae1e7a44388a",
+  "probe": "native_start_private_loader_lists_are_not_published_in_native_peb_all_abis"
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "path": "native-startup-teb-probe-arm64.log",
+    "bytes": 638,
+    "sha256": "a38a46f3013dbe24d94d8d895b8d8c8f4b65d7518c8ea4840b7866ebd472510e"
+  },
+  {
+    "path": "native-startup-teb-probe-arm64-build.log",
+    "bytes": 26,
+    "sha256": "2f88cfd775d3f426a3e7e5399d661245c0988171ccfc90d7a21fce711660acfb"
+  },
+  {
+    "path": "native-startup-teb-probe-x64.log",
+    "bytes": 622,
+    "sha256": "01f34f8a9c82ee861d80f266c8a576f3e7af43cefa36b1ebe8bc2db7f8e9baff"
+  },
+  {
+    "path": "native-startup-teb-probe-x64-build.log",
+    "bytes": 26,
+    "sha256": "2f88cfd775d3f426a3e7e5399d661245c0988171ccfc90d7a21fce711660acfb"
+  },
+  {
+    "path": "native-startup-teb-probe-x86.log",
+    "bytes": 574,
+    "sha256": "042ff1c78de3b1e7998377c7cf21bd2bfe436da64330f04109c2952428352d0f"
+  },
+  {
+    "path": "native-startup-teb-probe-x86-build.log",
+    "bytes": 26,
+    "sha256": "2f88cfd775d3f426a3e7e5399d661245c0988171ccfc90d7a21fce711660acfb"
+  }
+]

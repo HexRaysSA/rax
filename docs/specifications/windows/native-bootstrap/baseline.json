@@ -1,0 +1,40 @@
+{
+  "rax": "19dc289d75cb02cdf5e22d7f91a278ed9b591985",
+  "root": "fcf698e3f626572742ddbf761ffdcc1105246787",
+  "repo-root": "/Users/int/hexrays/kvasir/vendor/rax",
+  "source-baseline": {
+    "src/user/windows/process/start.rs": {
+      "bytes": 20869,
+      "sha256": "7033d0ba0bc4891270e3b624ac6f10dc7d9b2d6389ce9199135d449c41cdedc5"
+    },
+    "src/user/windows/process/thread.rs": {
+      "bytes": 17777,
+      "sha256": "4683070c714f9d2eb945ca59d59fa5c21e04e1855d09f0d463d19b02f4309a54"
+    },
+    "src/user/windows/process/lifecycle.rs": {
+      "bytes": 26103,
+      "sha256": "517dc142602b30c492192789aacf6ee36b84eb2d1cf1af65848cc953353967bf"
+    },
+    "src/user/windows/loader/ldr.rs": {
+      "bytes": 15223,
+      "sha256": "b69f50732135a01e5759f335cff88538dc0043cddac165549ce6d8bf960f17e2"
+    },
+    "src/user/windows/native-runtime.md": {
+      "bytes": 104139,
+      "sha256": "c5a0ab1ada9e2966df7f055e799dd50d8a451824ec5f97f7b0623eaa65eef593"
+    },
+    "src/user/windows/process/mod.rs": {
+      "bytes": 15023,
+      "sha256": "924d871d9c63b16e5bab6a10abeb0ecb1513e1ed66437e5c23e106f6a5050d51"
+    },
+    "src/user/windows/process/sched.rs": {
+      "bytes": 60765,
+      "sha256": "4a6ee95969c656df03562205102f26f35e8ff15df02559ee12bec402a5c73f28"
+    },
+    "src/user/windows/native.rs": {
+      "bytes": 15217,
+      "sha256": "2b23ae7be51aff9fbd3dd4fe7ac54a9428874c39eb1f375f9597662f86c30aee"
+    }
+  },
+  "scope": "Installed Windows loader startup and separation of private HLE heap from native PEB heap; full userland goal remains active"
+}

@@ -1,0 +1,4 @@
+profile width=8 child=9336 module=7FFD3B1A0000 initial-pc=7FFD3B3DBB30 loader-rva=317880 target=7FFD3B4B7880
+patch ok=1 bytes=1 original=48000000
+exception code=80000003 address=7FFD3B49F1EC first=1 thread=5252
+complete caught=0 good=1 terminate=0 cleanup=1 exited=0 wait=00000000

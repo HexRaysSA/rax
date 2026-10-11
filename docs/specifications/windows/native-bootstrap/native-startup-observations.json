@@ -1,0 +1,27 @@
+{
+  "arm64": {
+    "file": "native-startup-probe-arm64.log",
+    "bytes": 439,
+    "sha256": "caf2003422aaf6c328d4854fa302fdb2197a5482f6da473a8b83bba1035a76d1",
+    "initial-pointers": "ProcessHeap0, Ldr0",
+    "thread-parameter": "PEB address",
+    "native-PC-rva": "0xE4D30"
+  },
+  "x64": {
+    "file": "native-startup-probe-x64.log",
+    "bytes": 423,
+    "sha256": "b64a819c66cefd7d8db5c0d0898cbe7aac200b26deb0f99b32bd77912465506e",
+    "initial-pointers": "ProcessHeap0, Ldr0",
+    "thread-parameter": "PEB address",
+    "native-PC-rva": "0x23BB30"
+  },
+  "x86": {
+    "file": "native-startup-probe-x86.log",
+    "bytes": 390,
+    "sha256": "3071d94668eb732f1313a6651744ba0739ff7ccdf8c681724e1755ad62d378ae",
+    "initial-pointers": "ProcessHeap0, Ldr0",
+    "thread-parameter": "PEB address",
+    "native-PC-rva": "0x1BFFB0"
+  },
+  "environment": "Windows ARM64 build29683.1000; x64/x86 compatibility contexts differ from native ARM64 export and pure x86 RtlUserThreadStart export"
+}

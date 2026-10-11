@@ -1,0 +1,35 @@
+warning: "stdcall" is not a supported ABI for the current target
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling rax v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\src)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9m 04s
+     Running unittests src\lib.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\rax-d861ee8f992d7cb6.exe)
+
+running 9 tests
+test user::windows::process::native_start::tests::native_start_stack_underflow_is_rejected_before_memory_or_cpu_publication_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_attachment_boundary_requires_exact_resumed_native_entry_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_resume_releases_initial_process_gate_without_attaching_peers_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_scratch_write_failure_changes_neither_context_bytes_nor_cpu_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_requires_selected_native_ntdll_and_both_export_entries_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_private_loader_lists_are_not_published_in_native_peb_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_context_preserves_thread_state_and_selects_native_entries_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_static_tls_is_owned_by_installed_loader_with_builtin_control_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_installed_process_has_cold_peb_and_loader_entry_before_first_instruction ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 6987 filtered out; finished in 2.31s
+

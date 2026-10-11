@@ -4,14 +4,17 @@
 //! before the first instruction of a new process: it maps the executable
 //! and its DLLs, builds `KUSER_SHARED_DATA`, the PEB, the process
 //! parameters and environment, the loader's module lists, the process
-//! heap, and the main thread's stack and TEB. [`WindowsProcess::run`]
-//! executes the threads until the process ends: the main thread begins in
-//! `ntdll!RtlUserThreadStart`, which runs the DLL and TLS initializers and
-//! then the image's entry point.
+//! heap, and the main thread's stack and TEB. Built-in DLL mode publishes the
+//! HLE heap/loader lists and dispatches its synthetic thread-start lifecycle.
+//! Installed-library mode keeps those allocations private, starts in installed
+//! `LdrInitializeThunk`, and lets RTL initialize the native heap, module lists
+//! and TLS before resuming installed `RtlUserThreadStart`. [`WindowsProcess::run`]
+//! executes the threads until the process ends or an unsupported service stops it.
 
 pub(crate) mod fiber;
 mod fls_exit;
 mod lifecycle;
+pub(crate) mod native_start;
 mod sched;
 mod services;
 pub(crate) mod stack;
@@ -279,7 +282,8 @@ pub struct Proc {
     pub params: u64,
     /// Process-owned ANSI command line, materialized on first request.
     pub ansi_command_line: Option<u64>,
-    /// The process heap handle.
+    /// Private HLE allocator; only built-in DLL mode publishes it in the PEB.
+    /// Installed RTL creates and publishes its own native heap.
     pub process_heap: u64,
     /// Loaded modules.
     pub modules: Modules,

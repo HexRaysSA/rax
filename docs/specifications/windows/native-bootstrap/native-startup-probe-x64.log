@@ -1,0 +1,8 @@
+create ok=1 error=0 width=8
+basic status=00000000 returned=48 declared=48 peb=FAD3A90000
+read address=FAD3A90000 requested=128 returned=128 ok=1 error=0
+peb heap=0 ldr=0 image=7FF6CFFF0000
+context ok=1 error=0 bytes=1232 flags=0010000B
+registers pc=7FFD3B3DBB30 sp=FAD3CFFEC0 rcx=7FF6CFFF1044 rdx=FAD3A90000
+pc module=7FFD3B1A0000 rva=23BB30 protect=00000020 type=01000000
+cleanup terminate=1 error=0 wait=00000000

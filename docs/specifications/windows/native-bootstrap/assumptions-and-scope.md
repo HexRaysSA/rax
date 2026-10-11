@@ -1,0 +1,42 @@
+# Native Windows bootstrap ownership
+
+Acceptance: native mode enters selected installed LdrInitializeThunk with architecture CONTEXT/startup arguments before installed DLL/TLS/application execution, and never publishes Rust-map HLE heap/loader/TLS data as native RTL state. Built-in mode retains its established lifecycle. Main/secondary context lifetime, fault propagation, scheduling and all guest ABIs are covered. Same-host selected libraries remain opt-in; no kernel forwarding, ABI/default/persistence/package/dependency/ISA change. Full native userland is the parent goal and remains incomplete.
+
+| ID |Assumption |Basis |Dependent result |Stress test |Falsification probe |Final status |
+|---|---|---|---|---|---|---|
+|B1 |Initial native PEB heap/Ldr are0 before the loader |Six independent suspended-child PEB/context/TEB captures on ARM64, x64 compatibility and WoW64 |Separate private HLE heap/lists from native PEB |Three profiles; loader entry versus ordinary first fault |Initial child heap/Ldr nonzero before Ldr |confirmed for selected profiles |
+|B2 |Selected loader consumes CONTEXT and NTDLL-base parameter, then resumes native thread start |ARM64/WoW64 actual entry breakpoints; selected ARM64/x86 file bytes; pinned PHNT; MS x64 ABI |Full context placement, two entry arguments, saved startup registers; pure x64 SP-8 inference |Three ABI model tests, main/secondary, stack boundaries; failed x64 compatibility capture |Installed entry reads different arguments or physical pure x64 callable entry has another stack contract |confirmed ARM64/WoW64 arguments; retained pure x64 stack/file correspondence |
+|B3 |Installed RTL owns native DLL/TLS startup |Original HLE notifications enter native heap with Rust-map metadata; cold selected loader diagnostic reaches class107/relationship6 |Native Ldr entry; no duplicate host attach callbacks |Exact resumed-PC boundary, scheduler peer selection, native terminate route review |Host/native duplicate notification observed or native start does not require loader initialization |confirmed ownership; full startup remains incomplete |
+|B4 |Private HLE heap/lists remain necessary for host mapping/parameters |loader/ldr.rs, process/start.rs and params use p.process_heap; private-loader behavioral test |Retain usable private allocator and mapping state |Three ABI private allocation controls; thread/process cleanup |Host bookkeeping consumes native RTL heap handles |confirmed |
+|B5 |Native initial TEB TLS pointer is0; RTL owns static TLS |Three independent TEB captures plus nonempty TLS-directory/native-vs-builtin behavioral control |Native TLS construction and ownership ledger |Three guest ABIs, secondary construction, builtin zero-filled16-byte template |Child TLS vector exists before Ldr or native host-published HLE vector observed |confirmed for selected profiles |
+
+## Phase corrections and evidence limits
+
+The original unmodified ordinary trace first faults at scheduler turn1459, PC0x180026528/SP0xABF9C0. X19 is published HLE heap0x10000; a native heap-metadata load produces0x80006 and the following load faults at0x8000E. Matching selected ARM64 DLL/PDB and PE exception-table/xdata bounds identify RtlpAllocateNTHeapInternal+0xD8 in RVA0x26450..0x267B0, exclusive end (864 bytes). RSDS age1 and DBI age1 match; PDB information-stream age4 is distinct. A first-raw-RSDS search was falsified by an instruction-byte coincidence. The final provenance exclusively parses the PE debug directory.
+
+A separate pre-change private observer clears PEB.ProcessHeap and PEB.Ldr, supplies PEB as saved main parameter and preserves native RtlUserThreadStart in CONTEXT. It reaches unsupported class107/relationship6 at40500 without the original heap fault. This diagnostic changes startup manually. The paired ordinary observer is byte-identical before/after and never alters startup/PEB/CPU state.
+
+The initial ARM64 loader breakpoint captures valid arguments but waits before draining its exit debug event, resulting in WAIT_TIMEOUT. Its producer/output phase is retained independently. The corrected producer drains EXIT_PROCESS_DEBUG_EVENT; ARM64 and WoW64 capture/termination/cleanup/wait all succeed. Microsoft documents automatic closure of debug-event process/thread handles at continued exit; image/DLL file handles require explicit CloseHandle.
+
+The x64 compatibility capture targets a live GetProcAddress thunk at RVA0x317880 but does not catch it, exits4 and supplies no argument evidence. Its observed OS compatibility exception is at another address; the exact cause of failed capture is unknown. Initial compatibility PC0x23BB30 is distinct from an on-disk pure x64 callable export. The selected ARM64 runtime already rejects pure x64 guest installed libraries rather than treating ARM64X as pure x64. Physical x64 Windows kernel proof remains unknown.
+
+WoW64 live loader RVA0x17C0 and initial saved PC0x1BFFB0 are distinct from selected x86 file loader0x2EEA0 and thread-start0x77AD0. They must not be interchanged as file offsets. The live loader capture and file bytes agree on the two-argument ABI; the exported x86 thread routine independently writes EAX/EBX to ESP+4/+8.
+
+Two actual regression overlays restore only baseline ldr.rs or thread.rs. Each fails with published pointer0x10A40 instead of0. Reviewed bytes are restored in finally. Intermediate source snapshots differ from later final documentation comments; their hashes are phase-specific. The final Rust formatter preserves all eight reviewed compiled source identities.
+
+Installed native RtlExitUserThread/RtlExitUserProcess use NtTerminateThread/NtTerminateProcess. Their Flow::TerminateThread/TerminateProcess routes bypass synthetic normal-exit DLL/FLS notification stages. This source review does not prove completed native application startup/shutdown. Existing thread::create error cleanup releases tracked TLS/stack/TEB allocations before publication; native prepare errors flow through that same tested cleanup wrapper. Suspension policy remains in the existing thread adapters/scheduler; exact native resumed-PC attachment releases the existing process-start gate.
+
+## Bounded findings
+
+|Impact |Finding and evidence |Blocks |
+|---|---|---|
+|High |Class107 relationship6 and wider NT services stop native loader continuation; original cold-loader trace |Full userland goal; own semantic groups |
+|High |Installed Ldr calls NtContinue(TRUE); current dll/native.rs rejects alertable delivery |Full userland goal; pending APCs must not be dropped/stubbed |
+|High |Wider applications and native IDA/Qt/package matrix remain incomplete |Full parent goal; no claim from controlled archive tests |
+|Medium |Four BZHI flag assertions and FP16 lowering assertion remain in native Windows full suite |Broad-suite success; unrelated to this startup source group |
+|Medium |Linux x86-64 uses container translation; x64 Windows kernel proof is absent |Native-platform evidence limits |
+|Medium |Vendored vm-memory stdcall declaration warns on ARM64 Windows; no dependency/ABI refresh authorized in this group |Future compiler compatibility; current checks compile |
+
+All process memory/context, module/TLS startup, scheduling and tests/docs planes are affected. Decoder/ISA/direct interpreter semantics, SMIR/lifter/lowering/JIT/backends, machines/devices and oracle/C ABI are unchanged. Assist permission/mesh/UI/prompt/persistence/update schemas are unchanged. Owning Rust archives/process consumers and Windows/macOS/Linux source/test membership are affected. The full per-plane map is in README.md.
+
+Final standard results: macOS7596pass/0fail/2ignored; Linux7590/0/2; Windows6989/5/2. New startup8/8/9, C API168 each, all targets and integrations544/544/4 pass. Ignored/cfg exclusions and exact Windows failure names remain recorded; no all-suite Windows success is claimed. All macOS/Linux owning gates pass. All five native Windows owning C++ consumers pass. Fresh Assist/core archives have complete4673/260-member walks, eight matching source hashes and an empty-feature core. Four ordinary programs now report internal failure reason5 at class107 relationship6; their exit_code0 field is not successful process termination. The byte-identical ordinary observer begins with ProcessHeap0, records no access violation, and reaches that frontier at40500 scheduler calls. Before it faults at1459 and exits0xC0000005 at1500. Difference40500-1500=39000 additional scheduler calls, not instructions. The full parent goal remains active.

@@ -1,0 +1,42 @@
+[
+  {
+    "profile": "arm64",
+    "profile-line": "profile width=8 child=7744 module=7FFD3B1A0000 initial-pc=7FFD3B284D30 loader-rva=EF6E0 target=7FFD3B28F6E0",
+    "captures": [
+      [
+        "7FFD3B28F6E4",
+        "80000FF9A0",
+        "7FFD3B1A0000",
+        "912",
+        "7FFD3B284D30"
+      ]
+    ],
+    "complete-line": "complete caught=1 good=1 terminate=1 cleanup=1 exited=1 wait=00000000",
+    "producer-exit": 0,
+    "claim": "confirmed live ABI and NTDLL-base parameter"
+  },
+  {
+    "profile": "x64",
+    "profile-line": "profile width=8 child=9336 module=7FFD3B1A0000 initial-pc=7FFD3B3DBB30 loader-rva=317880 target=7FFD3B4B7880",
+    "captures": [],
+    "complete-line": "complete caught=0 good=1 terminate=0 cleanup=1 exited=0 wait=00000000",
+    "producer-exit": 4,
+    "claim": "capture failed; argument remains unknown"
+  },
+  {
+    "profile": "x86",
+    "profile-line": "profile width=4 child=9956 module=77080000 initial-pc=7723FFB0 loader-rva=17C0 target=770817C0",
+    "captures": [
+      [
+        "770817C1",
+        "29DFC14",
+        "77080000",
+        "716",
+        "7723FFB0"
+      ]
+    ],
+    "complete-line": "complete caught=1 good=1 terminate=1 cleanup=1 exited=1 wait=00000000",
+    "producer-exit": 0,
+    "claim": "confirmed live ABI and NTDLL-base parameter"
+  }
+]

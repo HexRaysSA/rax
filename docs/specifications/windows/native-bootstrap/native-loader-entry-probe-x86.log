@@ -1,0 +1,5 @@
+profile width=4 child=9956 module=77080000 initial-pc=7723FFB0 loader-rva=17C0 target=770817C0
+patch ok=1 bytes=1 original=8B000000
+exception code=80000003 address=770817C0 first=1 thread=10228
+loader pc=770817C1 context=29DFC14 parameter=77080000 context-bytes=716 saved-pc=7723FFB0
+complete caught=1 good=1 terminate=1 cleanup=1 exited=1 wait=00000000

@@ -7,6 +7,13 @@ false. `host_filesystem = false` still denies general guest host-file access;
 native library selection is a separate, explicit input grant. A different host
 OS or unmatched installed NTDLL architecture returns an error.
 
+Native process construction enters the selected installed `LdrInitializeThunk`
+with a saved architecture `CONTEXT` for installed `RtlUserThreadStart`. Initial
+public `PEB.ProcessHeap`, `PEB.Ldr` and `TEB.ThreadLocalStoragePointer` are zero;
+RTL owns their initialization. Host HLE heap/module allocations remain private
+mapping and parameter bookkeeping. Built-in DLL mode retains its synthetic
+startup. This entry change does not establish complete native application startup.
+
 The selector obtains the Windows and system directories through wide Win32
 APIs, and obtains the actual version through `RtlGetVersion`. Canonical host
 paths remain distinct from guest paths: the `\\?\` prefix added by Windows
@@ -54,11 +61,11 @@ unimplemented NT operations stop explicitly. The adapter executes no host NT
 syscall for guest requests.
 
 Supported kernel operations include checked NtClose, memory allocation/free/
-protection, context continuation, forced termination, installed startup system
-queries (`NtQuerySystemInformation`, classes 0, 50 and 250), and the process-cookie
-query (`NtQueryInformationProcess`, class 36). Other query classes remain
-explicit unsupported operations.
-Unrecognized WoW64 encodings, native RTL heap/bootstrap requirements,
+protection, context continuation, forced termination and bounded installed
+startup queries. The native dispatch/query source and the recorded semantic
+groups below own the implemented classes and their exact buffer contracts.
+Other query classes remain explicit unsupported operations.
+Unrecognized WoW64 encodings, remaining NT services required by RTL bootstrap,
 the broader NT object/file/section/query surface and ordinary Win32/CRT startup
 remain incomplete. Native-subsystem images load NTDLL without inventing the
 Win32 KERNEL32/KERNELBASE roots; Win32 images select those installed DLLs too.
@@ -1324,3 +1331,54 @@ publishes the HLE heap into PEB.ProcessHeap and uses synthetic RtlUserThreadStar
 that bootstrap/heap contract remains a full-goal blocker, outside this query.
 The exact internal NTDLL routine name is unknown. The evidence checker verifies
 the final22 gates, exact retained failures, paired continuation and first fault.
+
+
+## Installed loader startup and private HLE ownership
+
+Native construction now keeps public PEB.ProcessHeap, PEB.Ldr and initial
+TEB.ThreadLocalStoragePointer zero, while retaining the host's private HLE
+allocator/module lists for mapping and process parameters. It resolves selected
+installed LdrInitializeThunk/RtlUserThreadStart and enters the former with saved
+architecture CONTEXT and NTDLL base. The saved main parameter is PEB; secondary
+parameters and full register/FPU state are preserved. Checked bounded stack
+scratch sits below saved application SP and above the loader call frame; no new
+VM scratch allocation is required. Context/frame placement is O(1) for fixed ABI
+sizes, with existing export lookup cost on first resolution.
+
+Native thread attachment occurs only at the exact resumed RtlUserThreadStart PC,
+releasing the existing initial-process scheduling gate without host DLL/TLS
+notifications. Built-in startup remains unchanged. Native exit uses installed
+RTL/NtTerminate routes; alertable NtContinue(TRUE) remains explicitly unsupported
+and must not discard pending APCs.
+
+Six independent suspended-child initial PEB/context/TEB captures cover ARM64,
+x64 compatibility and WoW64. ARM64/WoW64 child-only loader breakpoints confirm
+CONTEXT/NTDLL-base arguments and successful teardown. x64 compatibility's live
+callable-export capture fails; physical pure x64 entry/stack proof is unknown.
+Compatibility live entry thunks differ from selected on-disk exports. The pure
+x64 saved SP-8 return slot is a retained callable-ABI inference. Matching ARM64
+PE/PDB/unwind metadata identifies the previous heap fault as
+RtlpAllocateNTHeapInternal+0xD8, RVA0x26450..0x267B0 (exclusive end,864 bytes).
+
+Eight portable and nine Windows startup tests pass, including installed
+ARM64/WoW64 cold construction. Two observed baseline reversals fail at the old
+nonzero private LDR/TLS pointer. Full macOS7596/0/2 and Linux7590/0/2
+pass/fail/ignored; Windows6989/5/2 retains four BZHI and one FP16 lowering failure.
+C API168, all-target builds and affected integrations544/544/4 pass with explicit
+cfg exclusions. All five owning C++ consumers pass on all three hosts; macOS
+CLI/MCP rebuild, seven CTests and two protected-text scans pass. These are separate
+from native IDA/Qt/package execution.
+
+Fresh owning Windows Assist/core archives have complete4673/260-member walks,
+eight matching compiled source hashes and a feature-empty core. Four ordinary
+programs (smoke, MSVCRT/UCRT streams, whoami) now reach explicit class107
+relationship6 internal failure instead of the previous access violation. The
+byte-identical unmodified observer begins with ProcessHeap0, records no exception
+and reaches that stop at40500; before it faults at1459 and exits0xC0000005 at1500.
+40500-1500=39000 additional scheduler calls, not instructions. C API reason5 with
+exit_code0 is internal failure, not successful guest completion. Wider NT services,
+alertable continuation, applications and native-platform/package coverage remain
+full-userland blockers. No public ABI/default/dependency/persistence/schema or
+package change is introduced. Source/capture/archive provenance,21 recorded gates,
+reconciled assumptions and positive/negative replay are in
+[bootstrap evidence](../../../docs/specifications/windows/native-bootstrap/README.md).

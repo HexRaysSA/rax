@@ -1,0 +1,20 @@
+[
+  {
+    "case": "missing-manifest",
+    "exit": 1,
+    "stderr": "FAIL: [Errno 2] No such file or directory: '/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/bootstrap-replay-negative-yazec3e3/evidence/evidence-hashes.json'",
+    "expected-rejection": true
+  },
+  {
+    "case": "tampered-capture",
+    "exit": 1,
+    "stderr": "FAIL: native-startup-probe-arm64.log: byte identity",
+    "expected-rejection": true
+  },
+  {
+    "case": "python-O",
+    "exit": 1,
+    "stderr": "FAIL: Python -O is rejected",
+    "expected-rejection": true
+  }
+]

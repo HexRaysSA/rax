@@ -1,0 +1,198 @@
+{
+  "gates": [
+    {
+      "host": "macos",
+      "gate": "targeted",
+      "path": "macos-final-targeted-macos.log",
+      "expected-summaries": [
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 7590 filtered out; finished in 0.03s"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "full",
+      "path": "macos-final-full-macos.log",
+      "expected-summaries": [
+        "test result: ok. 7596 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 63.32s"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "capi",
+      "path": "macos-final-capi-macos.log",
+      "expected-summaries": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.98s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "all-targets",
+      "path": "macos-final-all-targets-macos.log",
+      "expected-summaries": [],
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "integration",
+      "path": "macos-final-integration-macos.log",
+      "expected-summaries": [
+        "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.92s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "targeted",
+      "path": "linux-final-targeted.log",
+      "expected-summaries": [
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 7584 filtered out; finished in 0.85s"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "full",
+      "path": "linux-final-full.log",
+      "expected-summaries": [
+        "test result: ok. 7590 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 111.08s"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "capi",
+      "path": "linux-final-capi.log",
+      "expected-summaries": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.82s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "all-targets",
+      "path": "linux-final-all-targets.log",
+      "expected-summaries": [],
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "integration",
+      "path": "linux-final-integration.log",
+      "expected-summaries": [
+        "test result: ok. 544 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 170.07s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "targeted",
+      "path": "native-bootstrap-final-targeted.log",
+      "expected-summaries": [
+        "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 6987 filtered out; finished in 2.31s"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "full",
+      "path": "native-bootstrap-final-full.log",
+      "expected-summaries": [
+        "test result: FAILED. 6989 passed; 5 failed; 2 ignored; 0 measured; 0 filtered out; finished in 299.88s"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "capi",
+      "path": "native-bootstrap-final-capi.log",
+      "expected-summaries": [
+        "test result: ok. 168 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.95s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "all-targets",
+      "path": "native-bootstrap-final-all-targets.log",
+      "expected-summaries": [],
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "integration",
+      "path": "native-bootstrap-final-integration.log",
+      "expected-summaries": [
+        "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "owning-build",
+      "path": "macos-owning-build.log",
+      "required-markers": [
+        "Built target assist_idalib_cli",
+        "Static text scan: 1 artifacts, 0 failures"
+      ]
+    },
+    {
+      "host": "macos",
+      "gate": "owning-ctest",
+      "path": "macos-owning-ctest.log",
+      "required-markers": [
+        "100% tests passed out of 7"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "owning-shipping",
+      "path": "linux-owning-shipping.log",
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "linux",
+      "gate": "owning-cpp",
+      "path": "linux-owning-cpp.log",
+      "required-markers": [
+        "PASS",
+        "RAX process: 162 checks passed",
+        "embedded rax_version = 1.11.0"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "owning-shipping",
+      "path": "assist-native-bootstrap-owned-shipping.log",
+      "required-markers": [
+        "Finished `dev`"
+      ]
+    },
+    {
+      "host": "windows",
+      "gate": "owning-cpp",
+      "path": "assist-native-bootstrap-owned-cpp.log",
+      "required-markers": [
+        "PASS",
+        "RAX process: 162 checks passed",
+        "embedded rax_version = 1.11.0"
+      ]
+    }
+  ],
+  "full-suite-failures": {
+    "macos": [],
+    "linux": [],
+    "windows": [
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_imm_index_at_width_with_flags_sets_carry",
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_all_ones_with_flags_as_movn_sets_carry",
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_two_imms_with_flags_sets_carry",
+      "smir::lower::aarch64::tests::bit::lowers_bzhi_x_with_flags_and_low_byte_index_guards",
+      "smir::lower::aarch64::tests::vector::lowers_vector_fp16_arithmetic_runtime"
+    ]
+  },
+  "compiled-root": "fcf698e3f626572742ddbf761ffdcc1105246787",
+  "cpp-compiled-source-base": "c4cb8f6a0dd7c0d068d2defd411599fba9e32b7e"
+}

@@ -1,0 +1,29 @@
+warning: "stdcall" is not a supported ABI for the current target
+  --> vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.08s
+     Running tests\suites\user\windows_memory.rs (C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\user_windows_memory-e106de1a46d1b2ff.exe)
+
+running 4 tests
+test releasing_one_external_view_does_not_release_a_retained_owner ... ok
+test invalid_external_ranges_are_rejected_without_retaining_the_owner ... ok
+test inaccessible_external_ranges_reject_access_without_touching_memory ... ok
+test guest_memory_snapshot_retains_external_allocation_until_last_region_drops ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

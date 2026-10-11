@@ -201,6 +201,7 @@ impl Scheduler {
             clear_on_thread_switch(p, self.previous, tid);
             self.previous = tid;
             let mut t = p.threads.remove(&tid).expect("selected thread");
+            super::native_start::observe_resume(p, &mut t);
             let outcome = if let Some(status) = t.wait_status.take() {
                 dispatch::wait_complete(p, &mut t, status)
             } else if t.cpu.pc() == p.traps.thread_start() && !t.apcs.is_empty() {
@@ -422,6 +423,11 @@ fn select(p: &Proc, previous: u32) -> Option<u32> {
         .find_map(|(&tid, t)| {
             (t.runnable() && (!initial_attach || t.main || t.attached)).then_some(tid)
         })
+}
+
+#[cfg(test)]
+pub(super) fn test_startup_selection(p: &Proc, previous: u32) -> Option<u32> {
+    select(p, previous)
 }
 
 fn clear_on_thread_switch(p: &mut Proc, previous: u32, next: u32) {

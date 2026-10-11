@@ -1,0 +1,27 @@
+{
+  "dll-bytes": 4609312,
+  "dll-sha256": "502d4678206c8fd564972a3f82bfe63fe1a451cb5a6804ac0a9823b65fcbb61f",
+  "pdb-bytes": 3624960,
+  "pdb-sha256": "980319d403947ad730a61aacfc6150aab678decf027cf6a54a38806fb2ebf205",
+  "rsds": {
+    "guid": "7db9d778-c2f5-4816-1c99-84382d15362e",
+    "age": 1,
+    "pdb": "ntdll.pdb"
+  },
+  "pdb-info-age": 4,
+  "pdb-dbi-age": 1,
+  "fault-pc-rva": "0x26528",
+  "nearest-public-symbol": {
+    "name": "RtlpAllocateNTHeapInternal",
+    "rva": "0x26450"
+  },
+  "symbol-url": "https://msdl.microsoft.com/download/symbols/ntdll.pdb/7DB9D778C2F548161C9984382D15362E1/ntdll.pdb",
+  "interpretation": "Matching PDB public symbol and PE ARM64 exception table/xdata bound the fault to RtlpAllocateNTHeapInternal+0xD8.",
+  "function-extent": {
+    "rva": "0x26450",
+    "exclusive-end-rva": "0x267B0",
+    "bytes": 864,
+    "unwind-format": "ARM64 xdata function-length field",
+    "fault-contained": true
+  }
+}

@@ -396,7 +396,17 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         .wptr(p.peb + o.peb_image_base, o.ptr, p.modules.exe().base)
         .map_err(|e| memory(format!("{e:?}")))?;
     p.space
-        .wptr(p.peb + o.peb_process_heap, o.ptr, p.process_heap)
+        // Installed RTL constructs its own heap during LdrInitializeThunk.
+        // The Rust-map allocator remains private host-loader bookkeeping.
+        .wptr(
+            p.peb + o.peb_process_heap,
+            o.ptr,
+            if p.native.is_some() {
+                0
+            } else {
+                p.process_heap
+            },
+        )
         .map_err(|e| memory(format!("{e:?}")))?;
     p.space
         .w32(p.peb + o.peb_number_of_processors, 1)

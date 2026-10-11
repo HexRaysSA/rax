@@ -1,0 +1,14 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 57.55s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 6 tests
+test user::windows::process::native_start::tests::native_start_private_loader_lists_are_not_published_in_native_peb_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_attachment_boundary_requires_exact_resumed_native_entry_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_scratch_write_failure_changes_neither_context_bytes_nor_cpu_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_stack_underflow_is_rejected_before_memory_or_cpu_publication_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_requires_selected_native_ntdll_and_both_export_entries_all_abis ... ok
+test user::windows::process::native_start::tests::native_start_context_preserves_thread_state_and_selects_native_entries_all_abis ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 7590 filtered out; finished in 0.02s
+

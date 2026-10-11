@@ -1,0 +1,27 @@
+[
+  {
+    "path": "native-bootstrap-final-targeted.log",
+    "bytes": 2465,
+    "sha256": "d9f82591ae703678c6b2ab1fd2b2d4f9abb4bb09024b1936cbca613c9808972d"
+  },
+  {
+    "path": "native-bootstrap-final-full.log",
+    "bytes": 725665,
+    "sha256": "c05b21d1b57fb57cebed8a35e3ab1fd253f58332174ef7345037a9b5514be1d7"
+  },
+  {
+    "path": "native-bootstrap-final-capi.log",
+    "bytes": 13819,
+    "sha256": "841f8c685e967ae2bce41c77975292dfcad95cda2e12922179c51ce85e60ebbb"
+  },
+  {
+    "path": "native-bootstrap-final-all-targets.log",
+    "bytes": 986,
+    "sha256": "b1fffd07f9c7b6136593fd974e2a9410a2bdc0dda753df21452d73d8d6203b1f"
+  },
+  {
+    "path": "native-bootstrap-final-integration.log",
+    "bytes": 1495,
+    "sha256": "366b6245f91073abf4e95586ab5f78b7702cb3ae0802076deb0a9ea31733a4e0"
+  }
+]

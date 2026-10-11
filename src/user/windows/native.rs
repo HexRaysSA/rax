@@ -21,6 +21,7 @@ pub(crate) struct NativeRuntime {
     pub(crate) apisets: ApiSetSchema,
     pub(crate) registry: super::registry::Registry,
     pub(crate) nls: Option<super::nls::Nls>,
+    pub(crate) startup: Option<super::process::native_start::EntryPoints>,
 }
 
 fn invalid(message: impl Into<String>) -> io::Error {
@@ -84,6 +85,7 @@ impl NativeRuntime {
             apisets,
             registry: Default::default(),
             nls: None,
+            startup: None,
         };
         let ntdll = PeImage::parse(read_image(
             &runtime

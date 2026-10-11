@@ -13,9 +13,8 @@
 //! Touching the guard page raises `STATUS_STACK_OVERFLOW`; the page's guard
 //! is then consumed, leaving one usable page for the exception's dispatch.
 //!
-//! Built-in mode begins at the synthetic thread-start trap. Installed-library
-//! mode enters LdrInitializeThunk with a saved native RtlUserThreadStart context.
-//! That context carries the start address and parameter in the
+//! A new thread begins at the thread-start trap (`ntdll`'s
+//! `RtlUserThreadStart`) with the start address and parameter in the
 //! registers that routine receives them in (x86: EAX, EBX; x64: RCX, RDX;
 //! ARM64: X0, X1), and the Windows initial floating-point state: x87
 //! control word 0x027F (all exceptions masked, 53-bit precision) and MXCSR

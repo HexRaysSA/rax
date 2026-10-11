@@ -1,0 +1,37 @@
+[
+  {
+    "path": "assist-native-bootstrap-owned-shipping.log",
+    "bytes": 1585,
+    "sha256": "58521185ba90adbc0852df83c5911cff74e0395a0d3caaf7c4576a33077c5745"
+  },
+  {
+    "path": "assist-native-bootstrap-owned-cpp.log",
+    "bytes": 2946,
+    "sha256": "b0f277678bc54485cf58c6295345a12235df27c7d420c5085b93ab253e75e214"
+  },
+  {
+    "path": "native-bootstrap-after-ordinary-processes.log",
+    "bytes": 7390,
+    "sha256": "3007f224961c77b7a45db930ae136145216935385b5510a4d60813a35eb1d884"
+  },
+  {
+    "path": "native-bootstrap-after-production-trace-output.log",
+    "bytes": 38214,
+    "sha256": "cd549e9a0151f017980db73eb0d0d4a93ecfe298489a478d8ebdf1b2e9e3edeb"
+  },
+  {
+    "path": "native-bootstrap-after-production-trace-build.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "native-bootstrap-after-artifacts.jsonl",
+    "bytes": 124511,
+    "sha256": "473a003f94d96c50f4e651c5b3c50bcb3032552f7808cab13b030fb70b03ecf5"
+  },
+  {
+    "path": "native-bootstrap-after-artifacts-stderr.log",
+    "bytes": 73,
+    "sha256": "bf2acfa419af09da1a28a26bc9aa6e8a7ce22914d5419d01ad31aa0aa533c700"
+  }
+]

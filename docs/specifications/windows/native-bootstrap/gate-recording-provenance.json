@@ -1,0 +1,197 @@
+[
+  {
+    "recorded": {
+      "path": "macos-final-targeted-macos.log",
+      "bytes": 1425,
+      "sha256": "0d92ec7c001cc76516c9ec4494bf2439d166b93f51e5544deea5056576bfa6a1"
+    },
+    "original": {
+      "path": "macos-final-targeted-macos.log",
+      "bytes": 1425,
+      "sha256": "0d92ec7c001cc76516c9ec4494bf2439d166b93f51e5544deea5056576bfa6a1"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "macos-final-full-macos.log",
+      "bytes": 1362,
+      "sha256": "9af468af6145292bb7c3d338b7747c5dc9c2bd6af3c56dc7918f37143357a55c"
+    },
+    "original": {
+      "path": "macos-final-full-macos.log",
+      "bytes": 771499,
+      "sha256": "5f96866c061295e6899067c763fe8c2c86f767eb9342468758dde249c4275d09"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "macos-final-capi-macos.log",
+      "bytes": 12927,
+      "sha256": "720b410b97dbf218209d50028b0b4500bacaea912a68f414c379a6e3a5d225fb"
+    },
+    "original": {
+      "path": "macos-final-capi-macos.log",
+      "bytes": 12927,
+      "sha256": "720b410b97dbf218209d50028b0b4500bacaea912a68f414c379a6e3a5d225fb"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "macos-final-all-targets-macos.log",
+      "bytes": 136,
+      "sha256": "14995fbadf33cf73308b4c5fc45f1ad3c633bf1bcfdb2b1e07583ad811debf08"
+    },
+    "original": {
+      "path": "macos-final-all-targets-macos.log",
+      "bytes": 136,
+      "sha256": "14995fbadf33cf73308b4c5fc45f1ad3c633bf1bcfdb2b1e07583ad811debf08"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "macos-final-integration-macos.log",
+      "bytes": 35757,
+      "sha256": "40785c492006287feaa86600b10225295f34a7b13c62a89203f459a9348a4ab1"
+    },
+    "original": {
+      "path": "macos-final-integration-macos.log",
+      "bytes": 35757,
+      "sha256": "40785c492006287feaa86600b10225295f34a7b13c62a89203f459a9348a4ab1"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-targeted.log",
+      "bytes": 1406,
+      "sha256": "eee5e902ea19aad4f114e35a342c491defd0e4dc2590693d334acdd0612ffd4a"
+    },
+    "original": {
+      "path": "linux-final-targeted.log",
+      "bytes": 1406,
+      "sha256": "eee5e902ea19aad4f114e35a342c491defd0e4dc2590693d334acdd0612ffd4a"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-full.log",
+      "bytes": 1364,
+      "sha256": "3103047940707a0e20baf8764f8e9badee3eedc705cb7c46fa27a81c2c0e197a"
+    },
+    "original": {
+      "path": "linux-final-full.log",
+      "bytes": 771723,
+      "sha256": "0e6aa5ae2f0213f45f062152c728cd8c12cf8036e93c41ead25b975b2ad4c8d4"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-capi.log",
+      "bytes": 12880,
+      "sha256": "da5baf35392ffba39ab8728ee490ecbfeeb6217d10caa749ccd07134f83df289"
+    },
+    "original": {
+      "path": "linux-final-capi.log",
+      "bytes": 12880,
+      "sha256": "da5baf35392ffba39ab8728ee490ecbfeeb6217d10caa749ccd07134f83df289"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-all-targets.log",
+      "bytes": 116,
+      "sha256": "29944b7a68f9d63e7ea2d38c1d81dbb1f06058b13e88acb191486c80ea64b540"
+    },
+    "original": {
+      "path": "linux-final-all-targets.log",
+      "bytes": 116,
+      "sha256": "29944b7a68f9d63e7ea2d38c1d81dbb1f06058b13e88acb191486c80ea64b540"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "linux-final-integration.log",
+      "bytes": 35761,
+      "sha256": "2fdf2be26e93979f6112c7644513c0ad181fd862a4cc27f3000a3a92241947d9"
+    },
+    "original": {
+      "path": "linux-final-integration.log",
+      "bytes": 35761,
+      "sha256": "2fdf2be26e93979f6112c7644513c0ad181fd862a4cc27f3000a3a92241947d9"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-bootstrap-final-targeted.log",
+      "bytes": 2465,
+      "sha256": "d9f82591ae703678c6b2ab1fd2b2d4f9abb4bb09024b1936cbca613c9808972d"
+    },
+    "original": {
+      "path": "native-bootstrap-final-targeted.log",
+      "bytes": 2465,
+      "sha256": "d9f82591ae703678c6b2ab1fd2b2d4f9abb4bb09024b1936cbca613c9808972d"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-bootstrap-final-full.log",
+      "bytes": 2547,
+      "sha256": "deb6417b2a0de91b47cd384736bd185b41fce16e4027365b4a156ba28fa924ab"
+    },
+    "original": {
+      "path": "native-bootstrap-final-full.log",
+      "bytes": 725665,
+      "sha256": "c05b21d1b57fb57cebed8a35e3ab1fd253f58332174ef7345037a9b5514be1d7"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-bootstrap-final-capi.log",
+      "bytes": 13819,
+      "sha256": "841f8c685e967ae2bce41c77975292dfcad95cda2e12922179c51ce85e60ebbb"
+    },
+    "original": {
+      "path": "native-bootstrap-final-capi.log",
+      "bytes": 13819,
+      "sha256": "841f8c685e967ae2bce41c77975292dfcad95cda2e12922179c51ce85e60ebbb"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-bootstrap-final-all-targets.log",
+      "bytes": 986,
+      "sha256": "b1fffd07f9c7b6136593fd974e2a9410a2bdc0dda753df21452d73d8d6203b1f"
+    },
+    "original": {
+      "path": "native-bootstrap-final-all-targets.log",
+      "bytes": 986,
+      "sha256": "b1fffd07f9c7b6136593fd974e2a9410a2bdc0dda753df21452d73d8d6203b1f"
+    },
+    "full-log-retained-in-task-storage": true
+  },
+  {
+    "recorded": {
+      "path": "native-bootstrap-final-integration.log",
+      "bytes": 1495,
+      "sha256": "366b6245f91073abf4e95586ab5f78b7702cb3ae0802076deb0a9ea31733a4e0"
+    },
+    "original": {
+      "path": "native-bootstrap-final-integration.log",
+      "bytes": 1495,
+      "sha256": "366b6245f91073abf4e95586ab5f78b7702cb3ae0802076deb0a9ea31733a4e0"
+    },
+    "full-log-retained-in-task-storage": true
+  }
+]

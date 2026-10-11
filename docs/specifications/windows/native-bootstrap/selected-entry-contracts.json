@@ -1,0 +1,38 @@
+[
+  {
+    "profile": "arm64",
+    "dll-sha256": "502d4678206c8fd564972a3f82bfe63fe1a451cb5a6804ac0a9823b65fcbb61f",
+    "image-base": "0x180000000",
+    "entry": "LdrInitializeThunk",
+    "rva": "0xef6e0",
+    "retained-bytes": 64,
+    "entry-hex": "7f2303d5f30f1ff8fd7bbfa9fd030091f30300aa677dff9721008052e00313aa5c47fc97cb67fd9700003ed40000000000000000000000000000000000000000"
+  },
+  {
+    "profile": "arm64",
+    "dll-sha256": "502d4678206c8fd564972a3f82bfe63fe1a451cb5a6804ac0a9823b65fcbb61f",
+    "image-base": "0x180000000",
+    "entry": "RtlUserThreadStart",
+    "rva": "0xe4d30",
+    "retained-bytes": 64,
+    "entry-hex": "7f2303d5fd7bbda9fd030091ea0300aa281700b0091941f9c90100b488f9ffd008810a913f0108ebe20301aa00008052e1030aaaa0000054ef0309aacd500994"
+  },
+  {
+    "profile": "x86",
+    "dll-sha256": "ffd2b7ff39889c5599c8a8451eef5c852acee9101da5ce5a6def8b8e60a6627e",
+    "image-base": "0x4b280000",
+    "entry": "LdrInitializeThunk",
+    "rva": "0x2eea0",
+    "retained-bytes": 48,
+    "entry-hex": "8bff558bec8b550c8b4d08e828000000833de8ee3b4b0074088b4d08e8369208006a01ff7508e8756b040050e8efd608"
+  },
+  {
+    "profile": "x86",
+    "dll-sha256": "ffd2b7ff39889c5599c8a8451eef5c852acee9101da5ce5a6def8b8e60a6627e",
+    "image-base": "0x4b280000",
+    "entry": "RtlUserThreadStart",
+    "rva": "0x77ad0",
+    "retained-bytes": 36,
+    "entry-hex": "833dc8ee3b4b00740e8b0dc8ee3b4bff1500103c4bffe189442404895c2408e9a819ffff"
+  }
+]

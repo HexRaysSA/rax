@@ -1,0 +1,6 @@
+{
+  "path": "src/user/windows/process/thread.rs",
+  "before-sha256": "4683070c714f9d2eb945ca59d59fa5c21e04e1855d09f0d463d19b02f4309a54",
+  "after-sha256": "841811da4bf8666d1c2fdf9e11a5389b0d1e8e37584433d7ecb5ff0ee47ec504",
+  "probe": "native_start_static_tls_is_owned_by_installed_loader_with_builtin_control_all_abis"
+}
