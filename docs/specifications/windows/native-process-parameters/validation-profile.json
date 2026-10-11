@@ -1,0 +1,12 @@
+{
+  "rax_parent": "420b52da531d7e00ea592bbfd445b7cbcc872705",
+  "assist_owner": "8d743e43f4bd5081eec45eeb2cc793ba7c974175",
+  "owning_macos_configuration": "C++/CLI sources from the isolated exact Assist owner; ASSIST_RUST_CRATE_DIR and ASSIST_RAX_CAPI_DIR point to the same clean owner plus the three declared RAX source edits; all source SHA256 values checked",
+  "linux_host": "linux/amd64 Docker on macOS ARM64 translation; no physical x86-64 kernel claim",
+  "windows_profile": "10.0.29683.1000 ARM64; x86/x86 LAA/x64 compatibility independent layout probes",
+  "source_paths": [
+    "src/user/windows/layout.rs",
+    "src/user/windows/process/start.rs",
+    "src/user/windows/process/start/parameters_tests.rs"
+  ]
+}

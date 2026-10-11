@@ -1,0 +1,29 @@
+{
+  "time_utc": "2026-10-11T00:17:52.929514+00:00",
+  "removed_obsolete_owned_generated_targets": [
+    "/tmp/assist-native-process-root-macos/assist-rs-target",
+    "/tmp/assist-native-allocate-ex-root-macos/assist-rs-target",
+    "/tmp/assist-native-shipping-rust-target"
+  ],
+  "preserved": "source, worktrees, raw logs, dependency sources, current owning binaries and manifests",
+  "removed_owned_generated_incremental": [
+    "Docker volume rax-user-target/debug/incremental",
+    "Docker volume assist-native-linux-root-target/debug/incremental"
+  ],
+  "remaining_windows_start_constraint": "Parallels requires additional host space for unchanged 81920 MB VM memory configuration; host had 70 GiB available after cleanup",
+  "second_cleanup_time_utc": "2026-10-11T00:27:35.351110+00:00",
+  "second_cleanup_removed_generated_paths": [
+    "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/incremental",
+    "/tmp/assist-native-process-root-macos/CMakeFiles",
+    "/tmp/assist-native-allocate-ex-root-macos/CMakeFiles"
+  ],
+  "completed_linux_compile_caches": "42 executable files from fresh current Cargo all-target artifact JSON, independently SHA256 recorded before removal; no user-facing or owning archive binaries removed",
+  "preserved_current": "RAX library tests, C API library tests, user-runtime test binaries, all shipping Rust archives, all five C++ consumers, macOS CLI and CTest binaries, source/dependencies/logs/manifests",
+  "third_cleanup_time_utc": "2026-10-11T00:30:12.601673+00:00",
+  "third_cleanup_manifests": [
+    "removed-own-isolated-compile-caches.json",
+    "removed-own-linux-shipping-compile-caches.json"
+  ],
+  "preserved_current_shipping": "all current shipping .a archives, owning C++ consumers, macOS CLI/test binaries, original RAX library/CAPI/user-runtime test binaries, native Windows artifacts, source/dependency sources/raw logs",
+  "windows_resumption": "VM restarted successfully at 2026-10-11T00:30:26Z without configuration changes; no surviving task processes observed; interrupted originals captured before resumed log prefixes"
+}

@@ -1,0 +1,2192 @@
+[
+  {
+    "path": "/tmp/assist-native-process-root-macos/assist-cli",
+    "bytes": 171528568,
+    "sha256": "3562c2d0f9d3ab26fb77ce083b163c278f45a648efc8ee55764113304ab703c3"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/assist-mcp",
+    "bytes": 108290744,
+    "sha256": "2806be529dba52c1949585ee623ba1855aa0c280e3e1b55af93c57184ac3d718"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/bin/assist-mcp",
+    "bytes": 108290744,
+    "sha256": "2806be529dba52c1949585ee623ba1855aa0c280e3e1b55af93c57184ac3d718"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/assist_e14_rax_abi_drift_tests",
+    "bytes": 86049472,
+    "sha256": "a8d1b79d81f88d2d763e975d27c6804733e1f8afed338b9beb7298626cd6d14d"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/assist_rax_process_tests",
+    "bytes": 87345320,
+    "sha256": "7242862866cb7abdb9644c93e971790a2dbde94e17be0598ab4f05b07bcfba42"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/assist_mcp_tool_manifest_tests",
+    "bytes": 1460304,
+    "sha256": "96d77c53bb896fd626e35dde70bf7ab93f35701f3a5e42233c611474556f2907"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/assist_process_tool_unavailable_tests",
+    "bytes": 111782184,
+    "sha256": "20724bee19a06ccd226a0652d59dd88305eac5baf9bd0df66111efc44ea34256"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/assist_process_tool_tests",
+    "bytes": 113610744,
+    "sha256": "9ec5e81dfacd7cb64f2181a677496ff62a3c04803832169b7028fa55ce97f36e"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/assist_rust_archive_link_tests",
+    "bytes": 110167024,
+    "sha256": "8c0031f59dae020af657446046c6784ed02b0a3aa1b5e58dacac4bd49b9489e7"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_mcp_tool_manifest_tests.dir/terminate_report.cpp.o",
+    "bytes": 16312,
+    "sha256": "9d54cd06701385b98545bf8dd452eecf9366770a8f16096ee9b5fadf0166db63"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_mcp_tool_manifest_tests.dir/mcp_tool_manifest_tests.cpp.o",
+    "bytes": 3592272,
+    "sha256": "5771f339c81a9d87e67d33cb05d4f80379e83c5a3208a46b386ce295253b7629"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_rax_process_tests.dir/rax_process_tests.cpp.o",
+    "bytes": 2396528,
+    "sha256": "5f3ee29c972548d664df3992add2ac07d288c6838b04fea2c2b334bdb9931fbe"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_rax_process_tests.dir/terminate_report.cpp.o",
+    "bytes": 16312,
+    "sha256": "9d54cd06701385b98545bf8dd452eecf9366770a8f16096ee9b5fadf0166db63"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_rust_archive_link_tests.dir/terminate_report.cpp.o",
+    "bytes": 16312,
+    "sha256": "9d54cd06701385b98545bf8dd452eecf9366770a8f16096ee9b5fadf0166db63"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_rust_archive_link_tests.dir/rust_archive_link_tests.cpp.o",
+    "bytes": 13272,
+    "sha256": "8796ca2f254d8d701de5cd15e8869aaa97355412ed18a4bb0aaa7382468117cc"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_process_tool_unavailable_tests.dir/process_tool_unavailable_tests.cpp.o",
+    "bytes": 1601592,
+    "sha256": "6285de0a91af2f4cecc13ca4c483b9795b4fdaea4979ef1ffe958e6c82da344a"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_process_tool_unavailable_tests.dir/terminate_report.cpp.o",
+    "bytes": 16312,
+    "sha256": "9d54cd06701385b98545bf8dd452eecf9366770a8f16096ee9b5fadf0166db63"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/process_tool_tests.cpp.o",
+    "bytes": 3893016,
+    "sha256": "531e178d3419f729c010a45768694614871db670acee253ba13fe56f7a889d24"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/terminate_report.cpp.o",
+    "bytes": 16312,
+    "sha256": "9d54cd06701385b98545bf8dd452eecf9366770a8f16096ee9b5fadf0166db63"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_e14_rax_abi_drift_tests.dir/terminate_report.cpp.o",
+    "bytes": 16312,
+    "sha256": "9d54cd06701385b98545bf8dd452eecf9366770a8f16096ee9b5fadf0166db63"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_e14_rax_abi_drift_tests.dir/e14_rax_abi_drift_tests.cpp.o",
+    "bytes": 9344,
+    "sha256": "174e51667fbce28723ac0ed75df72e400ebb00da9f01f668aeda1af7370d0a2a"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/__/src/emulation/rax/librax_loader.cpp.o",
+    "bytes": 1344944,
+    "sha256": "7cad710c4f2729d77e162a8dca08afecd7e71371beee0080a814af2ced96ec20"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/__/src/emulation/rax/rax_process.cpp.o",
+    "bytes": 2127096,
+    "sha256": "7c234f53aeb0e985db8063100b2f5d7d22a6a356b40cf4423859548086eff63b"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/__/src/tools/builtin/emulation/sessions/process_tool.cpp.o",
+    "bytes": 5855064,
+    "sha256": "25b4aaf57c8068319e7d8c083740c85cd4755f39665989c9d289568175ba14e6"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_process_tool_unavailable_tests.dir/__/src/tools/builtin/emulation/sessions/process_tool.cpp.o",
+    "bytes": 2747288,
+    "sha256": "1046e1ce7e8241148340fe174af6c438d81f49cf74118a714c15605fa1ad592a"
+  },
+  {
+    "path": "/tmp/assist-native-process-root-macos/test/CMakeFiles/assist_rax_process_tests.dir/__/src/emulation/rax/rax_process.cpp.o",
+    "bytes": 2127096,
+    "sha256": "7c234f53aeb0e985db8063100b2f5d7d22a6a356b40cf4423859548086eff63b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/assist-cli",
+    "bytes": 171591848,
+    "sha256": "9f8b338b60adb394fd70106cb9aa479d8ec5e9a87e55a232224cd8ff166e24d6"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/assist-mcp",
+    "bytes": 108348920,
+    "sha256": "9ecb6fdbe00c19dd74d36521288f9ae709cddef992e8d2127372ba6e7e2cd328"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/bin/assist-mcp",
+    "bytes": 108348920,
+    "sha256": "9ecb6fdbe00c19dd74d36521288f9ae709cddef992e8d2127372ba6e7e2cd328"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/assist_e14_rax_abi_drift_tests",
+    "bytes": 86115760,
+    "sha256": "65282c83c8231184bb13b1bc7e89ed1ea81cd6d1f43867d2ab957c88918ab72f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/assist_rax_process_tests",
+    "bytes": 87411624,
+    "sha256": "b9ce91ba68e02db9a371b6da6349abe54c840d60e63cbeba0b82d24117b16787"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/assist_mcp_tool_manifest_tests",
+    "bytes": 1460352,
+    "sha256": "7f5639511086ecfd11251e24f3104f32c35672fb2d0f1503ceef89de8a588672"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/assist_process_tool_unavailable_tests",
+    "bytes": 111840696,
+    "sha256": "4f56203b25690b68139908fd217d796c8719c1ff1f277a6bb3df3c5456219bba"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/assist_process_tool_tests",
+    "bytes": 113669320,
+    "sha256": "6fb637189ca7f7b413c415b4642d1978cc09aaf91ebe7fa2e8409df4a0b5ea1c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/assist_rust_archive_link_tests",
+    "bytes": 110241952,
+    "sha256": "b381923532e85baa962aa394d951fdcc62aa0f497801ab345f7159accc7bd43a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_mcp_tool_manifest_tests.dir/terminate_report.cpp.o",
+    "bytes": 16352,
+    "sha256": "e30ae2fdd8b32b67e8295a7bcef424cc65d77bb3f31b284700ffead8f487e047"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_mcp_tool_manifest_tests.dir/mcp_tool_manifest_tests.cpp.o",
+    "bytes": 3593160,
+    "sha256": "07bd9d53ef101e52be5392e2bd5ddf687b9e92a7fd4e170b5434099a87b66270"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_rax_process_tests.dir/rax_process_tests.cpp.o",
+    "bytes": 2399264,
+    "sha256": "d7304cc221084405904f5830e1abbfbed88cba554cab0289e28aed207e80846c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_rax_process_tests.dir/terminate_report.cpp.o",
+    "bytes": 16352,
+    "sha256": "e30ae2fdd8b32b67e8295a7bcef424cc65d77bb3f31b284700ffead8f487e047"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_rust_archive_link_tests.dir/terminate_report.cpp.o",
+    "bytes": 16352,
+    "sha256": "e30ae2fdd8b32b67e8295a7bcef424cc65d77bb3f31b284700ffead8f487e047"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_rust_archive_link_tests.dir/rust_archive_link_tests.cpp.o",
+    "bytes": 13328,
+    "sha256": "ac47abfa35aeeb81270b166c16e96dc62c74e2e8259bfc31bf9554e085bd84d5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_process_tool_unavailable_tests.dir/process_tool_unavailable_tests.cpp.o",
+    "bytes": 1602472,
+    "sha256": "7022a9d98188b1f6ba935fb0c057c0589f5c3d06c85a959c8b1fe8140c17103d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_process_tool_unavailable_tests.dir/terminate_report.cpp.o",
+    "bytes": 16352,
+    "sha256": "e30ae2fdd8b32b67e8295a7bcef424cc65d77bb3f31b284700ffead8f487e047"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/process_tool_tests.cpp.o",
+    "bytes": 3894280,
+    "sha256": "a3ac2a9ff5b90eb5bb0c27068c5bdd6414169ca93cfba9656abc6c039db3f5aa"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/terminate_report.cpp.o",
+    "bytes": 16352,
+    "sha256": "e30ae2fdd8b32b67e8295a7bcef424cc65d77bb3f31b284700ffead8f487e047"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_e14_rax_abi_drift_tests.dir/terminate_report.cpp.o",
+    "bytes": 16352,
+    "sha256": "e30ae2fdd8b32b67e8295a7bcef424cc65d77bb3f31b284700ffead8f487e047"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_e14_rax_abi_drift_tests.dir/e14_rax_abi_drift_tests.cpp.o",
+    "bytes": 9384,
+    "sha256": "ebc0b815236b7d7204e7bcd2be7ce1ec299aee2922a81552ad5726089cc19526"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/__/src/emulation/rax/librax_loader.cpp.o",
+    "bytes": 1345880,
+    "sha256": "2db9ca235c75dd20a66902b5610a1e30d915010812d798f40a0e30c90bc07670"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/__/src/emulation/rax/rax_process.cpp.o",
+    "bytes": 2128096,
+    "sha256": "590f04baa01c3f2ba30e58ad0083fd1516e06a8a265b404c637f4fbfe3d0a537"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_process_tool_tests.dir/__/src/tools/builtin/emulation/sessions/process_tool.cpp.o",
+    "bytes": 5858456,
+    "sha256": "6cbc22589129ef37b311e241f1f3e7cc709ca23b17e04314adcfa497d5214153"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_process_tool_unavailable_tests.dir/__/src/tools/builtin/emulation/sessions/process_tool.cpp.o",
+    "bytes": 2749160,
+    "sha256": "cce662f1424207c9371753c15985ea62f1a92434eb74f31643c8b0306d5916be"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-macos/test/CMakeFiles/assist_rax_process_tests.dir/__/src/emulation/rax/rax_process.cpp.o",
+    "bytes": 2128096,
+    "sha256": "590f04baa01c3f2ba30e58ad0083fd1516e06a8a265b404c637f4fbfe3d0a537"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libpin_project_lite-2779d622f13a724c.rlib",
+    "bytes": 95360,
+    "sha256": "94c82771d48ca82575293919bdf5b2d3cd9cac4f90380e5dbaed94994cb3e0ef"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libanstyle_parse-7c10820b44d22de6.rmeta",
+    "bytes": 165788,
+    "sha256": "a05476d515d2ee66f47f37817cff3513af5e81995dba1c8c58e1f55f5e1ce959"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtracing_subscriber-a26371c36abd9d4f.rmeta",
+    "bytes": 2048566,
+    "sha256": "5ef7e495f04299a4a5bf620afe29037780e11852ba41f17e644d754f9b484b72"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblazy_static-758cfef384050db5.rmeta",
+    "bytes": 21315,
+    "sha256": "0648a68c6d4fc2468267f099244f5c2b67144a9f564d92914c6a341a34719225"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libmatchers-f61b644145b093fe.rlib",
+    "bytes": 55104,
+    "sha256": "2450d11fb7c735540654e0c577fdfd6e84225fae39b84dcef90eab6f12f2469a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtoml_parser-3ccb35c817b23fb4.rmeta",
+    "bytes": 306415,
+    "sha256": "311195c400b4aa57c395fc90f67d7a7fc598529b846defb5211b11a7648b3893"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libblock2-c8502f592779adaa.rmeta",
+    "bytes": 348833,
+    "sha256": "651bb2b61b4a885ff8a59ba0acff963a41a36a297facb1fe9081449d937cea86"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libanstyle_query-8f954624286a8b74.rlib",
+    "bytes": 18968,
+    "sha256": "d03749070ec7bcd29a643ab2ef06934f3ca5f58b3ea84f5d0417aed5e2071504"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libplain-3d38ffbe88927309.rmeta",
+    "bytes": 39138,
+    "sha256": "4072dfcf86f41f51d54304ea5efcfab39bfcb5f1f452ba6edbb2b6f52fb42182"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libbytes-dcaec23d10064a59.rmeta",
+    "bytes": 872668,
+    "sha256": "d6ff2d5b25b7443f89d5bb17359f1ddd5fc1b72dba5af92e20324105acc89167"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libmemchr-268683d6eb30dfb2.rlib",
+    "bytes": 1209832,
+    "sha256": "7832a301d5ebd6260d51df2f9e9215953d540fe335f8d49dee07b6686bc53d33"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtoml_writer-da126705bcc5d01b.rlib",
+    "bytes": 229288,
+    "sha256": "bd7cc4d73529636d9a4d3597d773915b7f2325f9a4b4f02a003b851aff0244c6"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libureq_proto-06ac4a72bee39567.rmeta",
+    "bytes": 350435,
+    "sha256": "81c93b051ec5be9a82c40bb137eae14640c4b3246520769fe2fc67be08fb4549"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libvm_memory-4c2cfec7d88f9d43.rlib",
+    "bytes": 1369096,
+    "sha256": "7af3a566337a484f9c30399a18e4a223a1d4d4cda12cba5c776b9c335be6ca5f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzstd_sys-f5505fdbd1e8745a.rmeta",
+    "bytes": 172783,
+    "sha256": "6008ca82d992a501a2cc14aa5d02557ed5e038538db0c11dde3b3bb0345f9e78"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzstd_sys-f5505fdbd1e8745a.rlib",
+    "bytes": 4978688,
+    "sha256": "df2cf8d0038537e8023ec3eb323cdc124901f4f35d102d8b112b3d07f0bbe00a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libclap_builder-21cbbc7c89099874.rlib",
+    "bytes": 13609888,
+    "sha256": "48f07de6c5af5df137bcf73baaca35413f6cbf9023016573ebe3faf2e720b477"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libgetrandom-92c040c7a8370c3e.rlib",
+    "bytes": 95304,
+    "sha256": "1764d1f084ccc665fa8da28966e9532d95f59e9e911c94212c88485d1bce7f75"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libserde_spanned-07a4da86279b7033.rmeta",
+    "bytes": 44277,
+    "sha256": "fd852bba36f64ee19673f3dbcbc965a19b6048fc0a633a7d937a7f6d574032ff"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libthiserror-ed558279b61dc303.rmeta",
+    "bytes": 30290,
+    "sha256": "3556db1411421a23bc565ae461ef7aee12aec346c6a5854223aee16d0953dd98"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libanstyle_query-8f954624286a8b74.rmeta",
+    "bytes": 11453,
+    "sha256": "5b59cd1cb336bef45561db143f958dae213c9b00e22f119137561760a774608d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblog-c7f10cb164767dfb.rlib",
+    "bytes": 287136,
+    "sha256": "802f4b06287e0ed41e5c66d68402a59a993d42c4858f9d084c313d78988571e5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libonce_cell-04bb9d3387b64885.rmeta",
+    "bytes": 193940,
+    "sha256": "a6db53eba0e8ec08aa105f331bb97c373b05f25b0df8bbd2198c88543c18a4ee"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libobjc2_encode-dd25f9e8d4f9a232.rlib",
+    "bytes": 788088,
+    "sha256": "480f541da62a87bedbbdee3a71260c4e85fc89ccc5233fbdc8e1eaa2d899967b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libbytes-dcaec23d10064a59.rlib",
+    "bytes": 1492536,
+    "sha256": "0e1937ef393240eb891d98c9f324417a5c33e874a1c68f080f42fdee45dd2fdc"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libobjc2_encode-dd25f9e8d4f9a232.rmeta",
+    "bytes": 246505,
+    "sha256": "96af993446d6e626782597473942e0c43b303d69b59fdc98e66a0159d7d4ce2f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libcolorchoice-8f4532d1ca962071.rmeta",
+    "bytes": 12816,
+    "sha256": "62c0756eeadb21a8564f57e8955b41fe137b39807ad7b085a056742a6a0d1390"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libclap-f49e69a447f020c7.rmeta",
+    "bytes": 12250,
+    "sha256": "b56523464d951dd11288df627b08a0b49cc2c23c973f033a6de419b2d0a73f60"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libcfg_if-8fe9532fdeb18a3a.rmeta",
+    "bytes": 5838,
+    "sha256": "ac4415ee5c1fd7878a6e2cda614fad423af8361e1c73720338f476bf7f30babf"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libanstream-e8d6eae1f5a72d2c.rmeta",
+    "bytes": 224535,
+    "sha256": "4fe2e03a7a2f299ffd4cbd571e4d616e7c546d6e1ccbfa1367671d699dbe509e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libblock2-c8502f592779adaa.rlib",
+    "bytes": 478824,
+    "sha256": "7078afcafe192a3dfce52a8434f06e8f8d7c50ccc1f09c082af3275015b0c41b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libscroll-414240d6999efeb7.rlib",
+    "bytes": 387296,
+    "sha256": "4de1641499a526c0565d40a123afe178c62d5322b376760da4a0677269377afa"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libwinnow-e4aec4536c710a69.rmeta",
+    "bytes": 651945,
+    "sha256": "ee058950bbf05588ee09925a7861a3895d4fe879f2ac4ae7fec97e7e61577918"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libobjc2-ee2c868c9a529110.rlib",
+    "bytes": 5068016,
+    "sha256": "cecba1ce798fd939420663b2ec59a7c8f4d031ea088b763ef9ab525b0af1c2a3"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libmemchr-268683d6eb30dfb2.rmeta",
+    "bytes": 903722,
+    "sha256": "149703df6238c885c1588302a767cb5ca0039b7e509b935616f4847906cdb2bf"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libserde_core-3ca18f6372592399.rlib",
+    "bytes": 5095896,
+    "sha256": "c95680b03499406602b50f5afa499b5925e08284be7e7ec2c7b43319fb3b5f14"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librustls_platform_verifier-ba7c5db1cde508a6.rlib",
+    "bytes": 571480,
+    "sha256": "f8d2fdf38f8c9b731f774c6a345f969bdf2e3fbbfd52c8c12a7b68956811919e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libutf8_zero-0fc192681bdd1588.rmeta",
+    "bytes": 48715,
+    "sha256": "4f34e401eddf773016fb9dc633f5cbd9e8fc2fb8739f4b67e862b69222f1d58a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libwebpki-f266d965e3df29ba.rlib",
+    "bytes": 3020984,
+    "sha256": "4a5e380f1a5e1f70370668a2e75c3a8e6e6bfe649cc4e80f879b4bb1e1fee773"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libdispatch2-a9a83f93919c0d13.rlib",
+    "bytes": 1009400,
+    "sha256": "fb4e335ae40a40d31c16b15b1c320e011d80b3cdfec8931caee5c1503bc5f39c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libis_terminal_polyfill-cc2b6a797b9bc038.rmeta",
+    "bytes": 9529,
+    "sha256": "598cde5d023630e3284bdbb7fde3f74c44f492a0e18ed29f88310a6dbcf48d7d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtoml_parser-3ccb35c817b23fb4.rlib",
+    "bytes": 1509304,
+    "sha256": "be881cf778efd8a544597651392eecf766f6f466393aebe3f30eac17609f88db"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsharded_slab-0a63bffe924900f9.rmeta",
+    "bytes": 708328,
+    "sha256": "c4be7c91d0d510de084e1ae1bfea9a01371c327b34b67f620867962ecfeb110c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzeroize-0bcf36f9218ef241.rlib",
+    "bytes": 380344,
+    "sha256": "9927cea73ddcab3a6efa0bca1f72e1850dcdbea2ddda628805bc16abc7bf3638"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libapple_native_keyring_store-a05b703b9aa7143d.rmeta",
+    "bytes": 35667,
+    "sha256": "7c4cd6f3e6f15d9dbe064ed8d5df7fc2ee938bf6d9d5856b61e8cf5656c15b70"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libhttparse-29765cca16518004.rmeta",
+    "bytes": 154993,
+    "sha256": "4bccdb009cb468dc5460c4365330251d0d276b5fbd11c79d2f96c326e7f258e0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsmallvec-04a5443c6393462b.rmeta",
+    "bytes": 248952,
+    "sha256": "3b4247be99ef240c8e7f8148add0335fa7ed4bc418ae4ce1503fe30096303733"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libutf8parse-6fa8f9adf41a4018.rmeta",
+    "bytes": 29896,
+    "sha256": "24de108eef3676ec75a48d0ca8a14746641ca4df933d4d72d24f4fa01f4cc572"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libutf8_zero-0fc192681bdd1588.rlib",
+    "bytes": 155768,
+    "sha256": "3b9f279e109a3623c393a976990f981ed663f604c95a917b838e8e7292be3632"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libutf8parse-6fa8f9adf41a4018.rlib",
+    "bytes": 34648,
+    "sha256": "ddc5ad9a0c0dc503a9c08e02290b0029f4560147ec0014257d3c245562ba775c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libplain-3d38ffbe88927309.rlib",
+    "bytes": 42624,
+    "sha256": "17c38b21ed46a7b813900b720129cf33776eec02bd16161583435940ef7e9722"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libregex_automata-34d468f6cc402c00.rmeta",
+    "bytes": 2767212,
+    "sha256": "0c9d62d33f0f502d2479be7c9dc0a1162b2ed37d8c44b1d4b985f24c2db68b99"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtracing_core-f67c0a21b8b524ee.rmeta",
+    "bytes": 585452,
+    "sha256": "6bc41c543a6ebaef693ae503d52268c77a4b550379c12d39b6dfb9a96c7945a9"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libkeyring_core-83f96e6036de0624.rmeta",
+    "bytes": 98062,
+    "sha256": "20efa7fd494491bee418c299bbbd1809425490d61e57fc63606b0f287374ac53"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libureq_proto-06ac4a72bee39567.rlib",
+    "bytes": 2515616,
+    "sha256": "2962f91648dc7541352328a69d9085f14c03c6cbdab88f91bc3ebce0a13afbc6"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libhttp-29a057c2d574b6ff.rlib",
+    "bytes": 3061632,
+    "sha256": "8c783ac9618793cf1dab05ac3434ca2aa68947ab4e38d67e59118175ffb128e1"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libanstyle_parse-7c10820b44d22de6.rlib",
+    "bytes": 227336,
+    "sha256": "fb0d2c961627d72df7977155696760bcb580cbca6f3f4910cbef332aecfde705"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librax-790d07a7afe9cd71.rlib",
+    "bytes": 363519664,
+    "sha256": "352bf68f231c28aeab5e0d4bf998ca5837912373dd571295c50981b4f6b80e0c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libhttpdate-ea7eb18355b4225c.rmeta",
+    "bytes": 29362,
+    "sha256": "32962240a1c8775a127f746f9702809074b4c09b94163994ca7e0969ae24818d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libcore_foundation_sys-cb0b19b8b8578665.rmeta",
+    "bytes": 703885,
+    "sha256": "427b26d05ee5991364b0e42338e787230357cb028f392b77ada27cb89668224f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libserde_core-3ca18f6372592399.rmeta",
+    "bytes": 4758087,
+    "sha256": "6bfc538fdda52edcbeea6df9e38a4ee182ab0ea819683b86543f21dc54cd9337"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsubtle-8b4f8e779fa18a2f.rmeta",
+    "bytes": 117011,
+    "sha256": "719679a4ebd91cf985d4442cbc4e01b5e42f57e80c8f05b1e4f7826b13399678"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblibc-971a68c498fd3a57.rmeta",
+    "bytes": 3046825,
+    "sha256": "e11b0727c250ccd474c208d78cad105917c383f69c81ab2f1d03e98a0fa05510"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libregex_automata-34d468f6cc402c00.rlib",
+    "bytes": 11924152,
+    "sha256": "2db7c0ffe5a2b8e48399a695cc5b5ccb8f5348ff492a8dfcbcb4c4b090a14fa3"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtracing-8611f6b2913b4333.rmeta",
+    "bytes": 581635,
+    "sha256": "6cf42ef97b3c8d7cdcad811b59f9966b98b0dd6653c4f416c807241bd26c9ca1"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libitoa-c2174d56627425e2.rlib",
+    "bytes": 149808,
+    "sha256": "452bfe793639a6f65e8979588e315d9eeae867e3e48676549484feef2bbb07a0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libgetrandom-79971493401c35b3.rmeta",
+    "bytes": 52068,
+    "sha256": "a61c95d1f2ba750525b21ccb459210db744ddb5fbeabc0f0741c12c2f5578991"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libbincode-32e8d6fc9b20441d.rmeta",
+    "bytes": 600402,
+    "sha256": "287de8325817b11e6bde39f25fd066b4a1b4125259c10b359747ed54c630200e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libuntrusted-7af53b36df2bbef8.rlib",
+    "bytes": 50712,
+    "sha256": "01a3892ff53ac7a095e564bfaa88cb88f2f616efd4d15781cd6d7fe34ae412af"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzmij-ffcf953603d84212.rlib",
+    "bytes": 328032,
+    "sha256": "89638e0cb7675c24ea16927fa97f8137ba72f18be17899de294c4aabd43fd4d8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libring-f7f3847134ae00d5.rmeta",
+    "bytes": 1867711,
+    "sha256": "25d8794208c285472a5690e44dacf0e1e136ac6a9acfb45fa3b1200c73bc94ab"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libanstyle-f2c64dfe6faa1756.rmeta",
+    "bytes": 206537,
+    "sha256": "13d5ae870d4f56ad83879a4f72baac07055abe73ded82c54e2c6fca7a8488aee"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libpercent_encoding-aae1760626932fb2.rmeta",
+    "bytes": 50623,
+    "sha256": "a4963b7fb9f8e6107e5be401b639127810ff0ff2a178de393501e61aee5d12e8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libnu_ansi_term-4d151ab98ee9ad1a.rlib",
+    "bytes": 549216,
+    "sha256": "7c9faed954d04ec6d97f0da60fc0cca3ec9622e27301387a29bdc2b3e8e59350"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libonce_cell-04bb9d3387b64885.rlib",
+    "bytes": 252064,
+    "sha256": "6230456ca30fd1e3034cc07e9342369a936f7ea4832ac3d238c038c690ca5feb"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtracing_core-f67c0a21b8b524ee.rlib",
+    "bytes": 1790360,
+    "sha256": "f49e3cd2a72e860ddc7d0324dc09e03f1be7d258ecd719ad07e51e41c9a9faab"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsecurity_framework-bee37b0de16a5ba6.rmeta",
+    "bytes": 1895379,
+    "sha256": "9a35b76f783c726ff5ff7abf75768ee414322b77202fdfa88674f31e4c0d7d01"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libserde-a451c4818fb53f84.rmeta",
+    "bytes": 826200,
+    "sha256": "d0787719a3ebdb861a0aa9f4e89a53e4603f90c8d62f9ff7424bfa154b0933aa"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzstd_safe-f9981b2ab4243bdc.rlib",
+    "bytes": 287088,
+    "sha256": "d34df9f4904de46a9f9d1d475709cd70afde1b71050adb109794dd48716fd16a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librustls-4bb3b910d86870a2.rmeta",
+    "bytes": 4174771,
+    "sha256": "f6e684fd061ca1f082d629da249ff37240b713e40302af13582ddb86a657b302"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libwebpki_roots-baac6d9c217f570f.rmeta",
+    "bytes": 139842,
+    "sha256": "9dc216565a43457a199dac9cb60b1edcba626336eee2cc90c1036354854e183d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtoml-67d5e26aec533123.rlib",
+    "bytes": 5405216,
+    "sha256": "567f1fb68ed1c3a2c4b878de29e804f4c89eb9aa9676da03ee035cecbca72a96"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libbase64-33e9af3dfebc8dcf.rlib",
+    "bytes": 965488,
+    "sha256": "26c2f2391d760b1d3650ac16f878aa3eb77f21f58a316e8167099085b8f461dd"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzmij-ffcf953603d84212.rmeta",
+    "bytes": 150651,
+    "sha256": "ad4faa1e065822e1f2dec727c338fc6d420c9270e915b318c15a7d4fad4302e0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzeroize-0bcf36f9218ef241.rmeta",
+    "bytes": 298578,
+    "sha256": "9995676ecd0e40224c6d5f0955f31fd416ee70895d28d20db4ee387bac71b583"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzstd-4bb77c76aee37f1e.rmeta",
+    "bytes": 245036,
+    "sha256": "3d58cf4c4beee1e0b455294d7afa9411a08330eb13b021cb376c26b5f4b0b050"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libring-f7f3847134ae00d5.rlib",
+    "bytes": 6278728,
+    "sha256": "1c307233eb86acecc18833777530d74e78a32c0167dc377d259d7cb7f92d9f19"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libstrsim-1420fdbbd80b656a.rlib",
+    "bytes": 894960,
+    "sha256": "28681268f72c439f77287259d697013a616bd17a085beef76cc49a0325af3c1b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libvm_memory-85f6b8f2a16c12ed.rmeta",
+    "bytes": 849117,
+    "sha256": "b391db24955dfe9b9f787c43cd94807e54f7a3f1a3d13ad203a1eabc64d7498e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libhttparse-29765cca16518004.rlib",
+    "bytes": 345440,
+    "sha256": "5673b84fd46b01f067457665035d558064d92b102602a4b7cf01c58b8b5bcdab"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libhttp-29a057c2d574b6ff.rmeta",
+    "bytes": 1419289,
+    "sha256": "0e1d4bcff72b908a778c3cf5018d66eaef3e3e94ec06c05b169b8fe271df9d16"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librustls_platform_verifier-ba7c5db1cde508a6.rmeta",
+    "bytes": 57554,
+    "sha256": "45c21a0c69030063d69e126bd51366e09908e804b2bff404f8253e956b345fb6"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librax-4dace2055571e15b.rlib",
+    "bytes": 361972248,
+    "sha256": "2990c8d894d09c4a1462a2d780e794968a36ba43307f281acb85fec1b900f907"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtracing_subscriber-a26371c36abd9d4f.rlib",
+    "bytes": 8421024,
+    "sha256": "5433a11121260e4f806ce326e8665cf69f6fc7e87b36bed75c085aa84e134a75"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libcfg_if-8fe9532fdeb18a3a.rlib",
+    "bytes": 7256,
+    "sha256": "7ed7b12b33cd3f157aac446a7da74f34da473da0334a196356f75256309979fe"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libbincode-32e8d6fc9b20441d.rlib",
+    "bytes": 719432,
+    "sha256": "c59725e151d6f276de918a5f66a91b34b299ab2a87f05b830167ec30f3c09208"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libureq-0febcd4a94dd94a2.rlib",
+    "bytes": 8513064,
+    "sha256": "632d532f09a4f4e2580fb4882e39c28b16720f7cce725d92b07dd9b3d1b34ca2"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsecurity_framework-bee37b0de16a5ba6.rlib",
+    "bytes": 5879312,
+    "sha256": "57840f8938ae3d5ad9b44a56cca9dad3e805756b0c589df7f06e0eeeba5a58d8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblog-c7f10cb164767dfb.rmeta",
+    "bytes": 196904,
+    "sha256": "a80f9386c6bad9cbbef0144da37b91d4747abe595039a6e378faa74af7c40b15"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libmatchers-f61b644145b093fe.rmeta",
+    "bytes": 33673,
+    "sha256": "bd99a3753e1bd72f31c4387368a86ffd8cb36b67b76c840484c6839ab0d1a2d6"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblinux_loader-ae943b35aeb7229c.rmeta",
+    "bytes": 166381,
+    "sha256": "f20cd76af9ebd3e3adda1acd255f7a9a5bb780f06e822dcdcac97152e21ff270"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libwebpki-f266d965e3df29ba.rmeta",
+    "bytes": 583130,
+    "sha256": "3a6c7e643c2b60ed5fb12cd4f1121976996f210721045a2747d61f224afc1f37"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libcore_foundation-a9d6f1c1a5b0d9c1.rlib",
+    "bytes": 933208,
+    "sha256": "9d229768ea5267780e5ca5a7f32d2ff402ac568917b2827083a0a011fbb53736"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libserde_spanned-07a4da86279b7033.rlib",
+    "bytes": 63472,
+    "sha256": "ae974ea6f8492720c4eea58994157fe0d74e9f289c744a12cb1be3ad49c318fc"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtracing_log-ee97e0f49750ed63.rlib",
+    "bytes": 341840,
+    "sha256": "2a4386417a544f99e23d7a80fd09c4c100c9a3b803a987010eb653fa5a6569cd"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libstrsim-1420fdbbd80b656a.rmeta",
+    "bytes": 69465,
+    "sha256": "d2aa09a0c7d23e419a9dddab31fb05fb2f547f8aad290e492966515af064811a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libureq-0febcd4a94dd94a2.rmeta",
+    "bytes": 1083728,
+    "sha256": "da9dbe7e20088edc6a89b76307657c5d9a33be2a861052e26d2405e0a2cef700"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libanstyle-f2c64dfe6faa1756.rlib",
+    "bytes": 291152,
+    "sha256": "36adb04b9d98bb9e68e77dd892acd96bd2ed3c2540ade1e5ec0b8f9421cfbe77"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libhttpdate-ea7eb18355b4225c.rlib",
+    "bytes": 278568,
+    "sha256": "2eb45605184b287216da36e138c906c04d6cad91bc834295f0465dcf37a592b7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsecurity_framework_sys-867f50fa7861fa7d.rmeta",
+    "bytes": 433380,
+    "sha256": "e47d4d7983767987d39af1ffaeeb8f0937cd9cc6c15d86e416bec4a1571f57f3"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librustls_pki_types-b2f5597184b5e0f2.rmeta",
+    "bytes": 396125,
+    "sha256": "7d09bed47d77c4b5e33814773789a9d9be9ea71ee800350ff5c073aa81751ead"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librustls-4bb3b910d86870a2.rlib",
+    "bytes": 19996416,
+    "sha256": "ce091a42d426974bff7278d47b3d031033f0c24646e78cfb83a858a34962fdd1"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libobjc2-ee2c868c9a529110.rmeta",
+    "bytes": 3917734,
+    "sha256": "71b0b2c3d710c429777f591e99ab689c1ce390f230c3d08d91c1bcb2f734a4cd"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libitoa-c2174d56627425e2.rmeta",
+    "bytes": 60418,
+    "sha256": "db3f2485d0c1fe2971f137b49725627a61eee18d81c584f3081b72c794894350"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libvm_memory-4c2cfec7d88f9d43.rmeta",
+    "bytes": 849501,
+    "sha256": "d4805def970a41e053608abc0b05ddb1b0b29987cac63b5f332650cb8d721af7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblazy_static-758cfef384050db5.rlib",
+    "bytes": 22752,
+    "sha256": "e32bf17c1e3cac36477443f4d9da174e2779c258f2ebd553c96cba3d4be97e52"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librax-790d07a7afe9cd71.rmeta",
+    "bytes": 56630837,
+    "sha256": "e045b1dfcdd58a969d430dafb7d6d8e29ec8bc5da5c5742335fdb1ab3b40d9b0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libdispatch2-a9a83f93919c0d13.rmeta",
+    "bytes": 856775,
+    "sha256": "6bc574c9f75aefed41700fa976621e7d08dfdb362cc8ed11051edf5d76724df5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librax.rlib",
+    "bytes": 20932632,
+    "sha256": "8c0678cc37a5da8df8089e81871d1164ac8f1dd55d670cf5fec4da445a62de06"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtoml_datetime-71acc407576d3fec.rmeta",
+    "bytes": 147743,
+    "sha256": "ae70ae9f4ee38595f23798ec2f70e71c581def0595de4b92c78a892a5ca6f0ef"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtoml_datetime-71acc407576d3fec.rlib",
+    "bytes": 490800,
+    "sha256": "0711aa50b46f325434488e0daf4835684538ff9ed2d2b480ac2e35de8846e850"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzstd-4bb77c76aee37f1e.rlib",
+    "bytes": 408432,
+    "sha256": "0f31a6343ce302c7f0f4a9d5f22c8db86eeac8b2ed5942b0dd6b63a80c07edcd"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblinux_loader-1f21de3ebe35be4b.rmeta",
+    "bytes": 166381,
+    "sha256": "4c46a85687eafac93a93fff90cf9bff6f41f5a535c867ec4e969752bbbebec9e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libgetrandom-92c040c7a8370c3e.rmeta",
+    "bytes": 58903,
+    "sha256": "20d1cfa494181fe7359c2d0eb5f7485c76e86b802463763ea400d48f979df57f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libclap_lex-b1016c8412018654.rlib",
+    "bytes": 317416,
+    "sha256": "a6cbe3ab968fe862d670446245a6679475da763ecd99b904a87f65facff976ae"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libregex_syntax-e503e9bd7cfbdc22.rmeta",
+    "bytes": 1459706,
+    "sha256": "b92fbdc515c69c6f1056260e2984203bdd9c3af7cdeb5a96c6cd7599af63171c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libkeyring_core-83f96e6036de0624.rlib",
+    "bytes": 1351080,
+    "sha256": "3f67bb1db71a46297b641de4e2cb65c34fb3e9bbd420600fca3344aeb464578f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblibc-971a68c498fd3a57.rlib",
+    "bytes": 3302184,
+    "sha256": "a3e5cf9f2ccbabbba24370dd21100df47cd5001d91fb74888f57f9293d18ec08"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libapple_native_keyring_store-a05b703b9aa7143d.rlib",
+    "bytes": 319592,
+    "sha256": "0a06fe557fc9e80295d41ee4373659818645314b5089fc1ae59b7c939bdf5b9e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libbase64-33e9af3dfebc8dcf.rmeta",
+    "bytes": 555272,
+    "sha256": "51559d0351239b8ea6b3d131620a1232726285e32758a3bf4494d92912bf1fda"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libserde_json-5c0aab3846ab0010.rmeta",
+    "bytes": 1431260,
+    "sha256": "99062844a25e6097bac13c81c20cbdf195a478e50786b03237545a2a5ae182c7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblinux_loader-ae943b35aeb7229c.rlib",
+    "bytes": 714456,
+    "sha256": "b7e3d2aa2ec93a5c2d1ef2e00b271a85dbdb225c9ebd25467396b76db0571e33"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libserde_json-5c0aab3846ab0010.rlib",
+    "bytes": 3506600,
+    "sha256": "47b216b8543c5f481c281572db49d7186245231104794460405eca10875ed39e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libpercent_encoding-aae1760626932fb2.rlib",
+    "bytes": 189056,
+    "sha256": "d225df83c2e4d04b7eb552cddc91d6d7ef6705d72f3f877497aadf62851b13bf"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/liblinux_loader-1f21de3ebe35be4b.rlib",
+    "bytes": 713704,
+    "sha256": "be11bf4f117bace6f62468e6b54f9cee052498c51a5fb031679da09523dbe193"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtracing-8611f6b2913b4333.rlib",
+    "bytes": 693480,
+    "sha256": "adeed69c6b355ae52eb1c50378953587b1135e060874fbb50aecaaa60c7aea63"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libwebpki_roots-baac6d9c217f570f.rlib",
+    "bytes": 141280,
+    "sha256": "70cbf193dbfcc9425c5d86af72e5a59e41b4741dd96f1082599f78e633c97108"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librax-4dace2055571e15b.rmeta",
+    "bytes": 56677269,
+    "sha256": "bfce524e4758351c6e2872beb123a725762a3757405c0879da7e7d9e3940fe10"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libgetrandom-79971493401c35b3.rlib",
+    "bytes": 113232,
+    "sha256": "77597027f71bdfbc8c9d7cbaa0ddbb45b627cea8e23653f359e5b1760bee89ef"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libis_terminal_polyfill-cc2b6a797b9bc038.rlib",
+    "bytes": 10984,
+    "sha256": "f983b8f53f7bfca13f46742154d41def229144670ad0bdd031f32a5ce276ef7c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libbitflags-b228b6edc83c2820.rlib",
+    "bytes": 387792,
+    "sha256": "c860a3b57cfbd06fbef0ab202f824510dcff553ef987051a77e4744e01c76860"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libzstd_safe-f9981b2ab4243bdc.rmeta",
+    "bytes": 171149,
+    "sha256": "9ccc6087a61c60aa212c1d350c0499dad4bfdcd4c24cc9c6bbc679caa90ce6bf"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libgoblin-a5d8c8b97f630564.rlib",
+    "bytes": 12637816,
+    "sha256": "f21a5fbf15dd7d8d10a8dddba61b40ddc78ec81d68587d191c41bf2ec90f371d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libctrlc-fdd4e5a1eff3ff1a.rlib",
+    "bytes": 138640,
+    "sha256": "dfca165026468180d97cb97b2496da33d44b688b6946b6beaeaf8ee49501d2ab"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libthread_local-27e40304da047897.rmeta",
+    "bytes": 99599,
+    "sha256": "b506115ab3eb425fb8ccf4b1c425346070753ba3c5e57e63fecc0de830a034ae"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtoml-67d5e26aec533123.rmeta",
+    "bytes": 1056421,
+    "sha256": "f314fc7df9164de7461ba27e69f8429be6b601640f46ee7dd995285ca0606fc1"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libthread_local-27e40304da047897.rlib",
+    "bytes": 363216,
+    "sha256": "b4f994a1bcd98045d8fcc4a2f92d197f0d44f85821cf356fa64b11b7cea4e8ba"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libclap-f49e69a447f020c7.rlib",
+    "bytes": 13672,
+    "sha256": "7a4e218d8d5ee646be527fb3605ce20b93950aafd9f64b60479cfcec31806483"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libregex_syntax-e503e9bd7cfbdc22.rlib",
+    "bytes": 7225088,
+    "sha256": "932a69773a49bfbd12fecdd8c6040f77af647f341d6ee37178578aeb21729518"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libuntrusted-7af53b36df2bbef8.rmeta",
+    "bytes": 42265,
+    "sha256": "bd124b1297b4faa3e2d87308422ea878684fda1b35fa5edf9b1b611d464b3aac"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libscroll-414240d6999efeb7.rmeta",
+    "bytes": 347463,
+    "sha256": "cbe1397f3c5aa5b1033a021e7573e8f818fd478649249fccdfd5a6de69098f5a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libbitflags-b228b6edc83c2820.rmeta",
+    "bytes": 222846,
+    "sha256": "e92b0e23453bfb007d6e8a83f995aa1eac78db9e6314835477dd2d4cd1b66287"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libcolorchoice-8f4532d1ca962071.rlib",
+    "bytes": 28704,
+    "sha256": "21014e0b4f3d28467d585033faa7a025aaa6c5b8da3ed6c41d3ee349dccf20fc"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsmallvec-04a5443c6393462b.rlib",
+    "bytes": 277008,
+    "sha256": "825caf93d5bd9ba4f2a1b74f432275b16a9e1d07242b02f1d7c941fcfba538aa"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libgoblin-a5d8c8b97f630564.rmeta",
+    "bytes": 3898754,
+    "sha256": "ef7f6283e83363bc0bd041128e4ec1ec1d025fd94103e902b3c2aa52f327d44b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libnix-49ca9ac0caf988f0.rmeta",
+    "bytes": 927447,
+    "sha256": "203a97711efa26b72ba3a0ece285b71c09150c5346b9c7fcb3ea65c9bc5a44e4"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libcore_foundation-a9d6f1c1a5b0d9c1.rmeta",
+    "bytes": 591340,
+    "sha256": "453033c2d921dc2bc2256d4dbefade7666e3561e32127424946d23004d6196d9"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libwinnow-e4aec4536c710a69.rlib",
+    "bytes": 757112,
+    "sha256": "39f4406249498d0df434460d16b21037cbedbdfb87b6170d5e9954494045d5c6"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsubtle-8b4f8e779fa18a2f.rlib",
+    "bytes": 124536,
+    "sha256": "1163271d3cfddeb91d69d5d75e1aaf3b70f469e97a075bc5a3d125204ff9b2ed"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsecurity_framework_sys-867f50fa7861fa7d.rlib",
+    "bytes": 462472,
+    "sha256": "5dc51c483e83491c09dd82546683c8e4d9ec0639f50b55eacbd2627a500ac0b0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libthiserror-ed558279b61dc303.rlib",
+    "bytes": 31720,
+    "sha256": "98ac98da82ee48883461b6b2b641ed4ec40eedc673199c2c45d7d9ab61519490"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libclap_lex-b1016c8412018654.rmeta",
+    "bytes": 65476,
+    "sha256": "527d92d5b677b38db78e32985b84393cc04eab00c1b3343eb8f779f495cba590"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libvm_memory-85f6b8f2a16c12ed.rlib",
+    "bytes": 1366736,
+    "sha256": "5076567ee1798695453b9c9799ce6ee8b77a99be292e9d17772eb1aad9455435"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libclap_builder-21cbbc7c89099874.rmeta",
+    "bytes": 2139411,
+    "sha256": "82628525caf08bfe9dcd098ba37b2bc3abc4faf4dffe8f6f35c6c8dc096ce3d8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libwinnow-e256bc4c9e60fb62.rmeta",
+    "bytes": 3278735,
+    "sha256": "45fe8b9811c80f63eeaacea6fe37a02df4797946f0437b00af4352c50f692b05"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libserde-a451c4818fb53f84.rlib",
+    "bytes": 1047400,
+    "sha256": "4935920948714d56295baf6ca63d0ef09e4bde9d6ae0c0936ff8fae4642e189c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtracing_log-ee97e0f49750ed63.rmeta",
+    "bytes": 65270,
+    "sha256": "1221cab963909728977d3d7434e22f23e963372e8387a7798102a1cec0cc68d5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libctrlc-fdd4e5a1eff3ff1a.rmeta",
+    "bytes": 34646,
+    "sha256": "332e0232e36c6fc3964919f70f4a8ca8c7e1e7af10e05788861b2a0abcf7d53f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/librustls_pki_types-b2f5597184b5e0f2.rlib",
+    "bytes": 1052224,
+    "sha256": "9913fb95ce58cfa8ab7e1aff0ba5e8a99f6e7676106af3c4606af6747ce8d37a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libwinnow-e256bc4c9e60fb62.rlib",
+    "bytes": 3518920,
+    "sha256": "a3539b7d0eb798b4460c122dad8b9d43a29a900915488299af8cbcb0dd2ff1b1"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libanstream-e8d6eae1f5a72d2c.rlib",
+    "bytes": 587320,
+    "sha256": "257ac4eb1739ab34abb0dca1b966edf039a0db54ba537ce4f0bccd12a5732075"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libnu_ansi_term-4d151ab98ee9ad1a.rmeta",
+    "bytes": 222773,
+    "sha256": "0a47a86f48d5e47f323d8fa8e832c7c272e6cf3b17a1410d9cf66c315d2d9b7e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libnix-49ca9ac0caf988f0.rlib",
+    "bytes": 1726976,
+    "sha256": "e98b94035d07b0e3c9a6c84ea57cba4f030046d989b3e07b7c51f098e6571a40"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libsharded_slab-0a63bffe924900f9.rlib",
+    "bytes": 853344,
+    "sha256": "dec3441f1dc39448841af71a19613bfbaa64017fc4e99660df680b59695af635"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libcore_foundation_sys-cb0b19b8b8578665.rlib",
+    "bytes": 720872,
+    "sha256": "9b1306086bcce9925b2024bb125e84ae304c28b02ebaa0c499ea20a95ebdcb1d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libpin_project_lite-2779d622f13a724c.rmeta",
+    "bytes": 93914,
+    "sha256": "aaf0dc3cd232c974557b9014ac70236f30d67ca6a83b9ef0c91e5c05008d8a34"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libtoml_writer-da126705bcc5d01b.rmeta",
+    "bytes": 184630,
+    "sha256": "8128f0e6fc558d4a74abc274774587d6dc41b714947393646250544270a90f8c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/assist-rs-target/aarch64-apple-darwin/debug/deps/libassist_rs-5e0892c6869cc8d6.a",
+    "bytes": 493202096,
+    "sha256": "5c1d83c98e53ac85ffec7f2d3340a39129ebbe3aeb188791d249a47bd8106d75"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_static_text_prompts.dir/generated/static-text/prompts_keys.cpp.o",
+    "bytes": 33240,
+    "sha256": "842322ffe07c54b7923a316aa524e1c59e5176d457f1b1241aeeeedb7c0dc04c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_static_text_prompts.dir/generated/static-text/prompts.cpp.o",
+    "bytes": 104496,
+    "sha256": "b6bb5c0f8aa403d9b141970985eb69d76a5c7afa42df2600074f912875768b06"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_masking.dir/src/core/masking_policy.cpp.o",
+    "bytes": 2417864,
+    "sha256": "2943c114c00afdec9e42d58d5399f0c609223f7e07d7c20e66fcbd866883313e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_masking.dir/src/core/masking_python_runtime.cpp.o",
+    "bytes": 3670936,
+    "sha256": "1b0940f472f79e2a144bf1b5c50f6a428e3420e5fad8e0ce64279859417eae95"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_masking.dir/src/core/masking_python_source.cpp.o",
+    "bytes": 369616,
+    "sha256": "6325b718afa445dfd5df8245e70aaabbec7e4a4e2c11ae2a8068de0534041043"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_masking.dir/src/core/masking_casefold.cpp.o",
+    "bytes": 463048,
+    "sha256": "4abaefac3f9bd8ff35d86e012f0218d8c14f5da17300844e2862bee67bb07094"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_masking.dir/src/core/masking_source.cpp.o",
+    "bytes": 433712,
+    "sha256": "e7762718cd477ea85a8b9c7c6adb3fbd95a3b384d877aa6ebfd61e2521b922c8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_masking.dir/src/core/masking_text_index.cpp.o",
+    "bytes": 66728,
+    "sha256": "15aa4a6329e3909ebc646a4aedca5180c18b6aa0249c43e1eac7acf0d4f3e686"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_masking.dir/src/core/masking_json_stream.cpp.o",
+    "bytes": 1955056,
+    "sha256": "05fd2565594cffe3e72c6cb9cc7936865ee700d230cd2b46c39fc13720d3f1bb"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_embedded_prompts.dir/src/core/embedded_prompts.cpp.o",
+    "bytes": 80504,
+    "sha256": "6ba250d395e5cab2983118ae1afc143c49a98bb0969675e05fc66967735be807"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_static_text_scripts.dir/generated/static-text/scripts_keys.cpp.o",
+    "bytes": 33256,
+    "sha256": "f91879445b90885f751b77f983a4eed0e1e73f057c2e5910af9b326429f44fec"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_static_text_scripts.dir/generated/static-text/scripts.cpp.o",
+    "bytes": 119600,
+    "sha256": "571fb2bb068a16142d3213df9a8b2b8fa459de025ce20ef515c34114ef52ade8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/mesh/network_ingress.cpp.o",
+    "bytes": 3054544,
+    "sha256": "7bc1167a6e7cf008adab6f77d5e3ee7f7ffa4e084cccd190a10f02d959571839"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/mesh/process_liveness.cpp.o",
+    "bytes": 5808,
+    "sha256": "11797a140dbf20ab82fdc8a29e959957accfe7a3451756703c7c8141a9a19d91"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/mesh/mesh_interface.cpp.o",
+    "bytes": 3435008,
+    "sha256": "a9f7e80a94df6a70a05157c64a0e5d7f13da62837702eee3839cfc6eefbb0ebb"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/mesh/mesh_manager.cpp.o",
+    "bytes": 13313168,
+    "sha256": "480686e09bd50061f9d4b87a30d74160fcb121eb94134165ff32706ef530df1a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/crypto/primitives.cpp.o",
+    "bytes": 205808,
+    "sha256": "3915a72773ea20f880ab6f69166caac31e307d62655952cf4764bb056f49c3dc"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/frida_rpc.cpp.o",
+    "bytes": 4581552,
+    "sha256": "7479ec18807e5d8c892ed74721a10b8d64871d67e8645702a1a6faecfe0939b0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/tool_registry.cpp.o",
+    "bytes": 5918128,
+    "sha256": "8c842728316f1c8dfb7a7b76232d278c88ec12d01c1cc2e5845f14ff7d5fca77"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/string_cache.cpp.o",
+    "bytes": 744560,
+    "sha256": "a87a2174801788b1c37065708c4d255a3da8bb91b234b68179a56b22192618b8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/resident_python_process.cpp.o",
+    "bytes": 2498664,
+    "sha256": "4d0a6ea5156d5128314ce894421c330ef4bd984852d8efe0c1ed06185884539f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/ui_silence.cpp.o",
+    "bytes": 461360,
+    "sha256": "99062878265182d4daba7b9f111649155ac5fe1f20f503a9aefc17f448d44618"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/approval_system.cpp.o",
+    "bytes": 2273448,
+    "sha256": "71a39e8644ebc44be3d61c2464378040dc5e813862a9f810a297d352c19a9c53"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/context/viewer_class.cpp.o",
+    "bytes": 38168,
+    "sha256": "c262ce0a44e589fe1f8daefdfbbdb0a68ea86f2a66e887e225a26b82f5add28a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/context/function_diagnostics.cpp.o",
+    "bytes": 5048936,
+    "sha256": "bb108104758ed58cfc00c8032e23c13e96e02891f30dd0444f6fc0456c835121"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/chat_callback.cpp.o",
+    "bytes": 410544,
+    "sha256": "1cd902125f2cacb343f02ef4626f3561c1ae126629e488213c1ea3dd4826c6d6"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/types.cpp.o",
+    "bytes": 2621520,
+    "sha256": "25e2e50c4150fa48f0de6b3b780bc872baf99ad3dce814446091a7a025d6910f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/anonymizer_ida.cpp.o",
+    "bytes": 1141240,
+    "sha256": "20d900eac2f8ed389cb5978fd486b7565d505fad622ef5c25f7d45773db98115"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/chat_core.cpp.o",
+    "bytes": 16965656,
+    "sha256": "9a64e11dd5697bc67a5c788f2a862640668817a200a46f417e92a62a1555f5ec"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/detail_store.cpp.o",
+    "bytes": 2521392,
+    "sha256": "52a758585e328031426db255a2670321040d0f0d030ee861e7d3313e95b74078"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/prompt_history.cpp.o",
+    "bytes": 1592288,
+    "sha256": "3195f9b29adc27d377efb4893b2a03c8b921d42e6a142f99a070a7d1cff475a7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/debug_sink.cpp.o",
+    "bytes": 2092736,
+    "sha256": "f941c5b079df9891b5cf0c6a62db0de5e8df9b2038ce38b53b33adc3503f2b38"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/perfetto_trace.cpp.o",
+    "bytes": 2071120,
+    "sha256": "ca3efea67d1f6d57ba93977d2d88c9848165bc8205358d6498137c0de62d01ec"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/script_executor.cpp.o",
+    "bytes": 2711368,
+    "sha256": "6aec3befd2337d405491d84eecf1d9297706e5e0a2226f11a220c114cc91d653"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/core/anonymizer.cpp.o",
+    "bytes": 5746792,
+    "sha256": "58d45e47a3d3a4e7c5347d848708ba3cfe4ac9c9d9a97fffa4f9b4b49acf4524"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/function_analysis_microcode.cpp.o",
+    "bytes": 2320560,
+    "sha256": "ded5e6495c7d2f0aa70ccee49d5d99d18827c59d9f4bb419555a2630abc33cba"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/function_analysis_rax.cpp.o",
+    "bytes": 4276768,
+    "sha256": "adae45317f422aa4a19cdacb3e527103c4fa0311ba54611fdf2c8a1eef2f02ed"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/function_analysis.cpp.o",
+    "bytes": 3222456,
+    "sha256": "31a4cdfeea075cb04825e08ea4915ce666cc62a63d299572b1d86acf9f8fe260"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/function_analysis_capture.cpp.o",
+    "bytes": 3168168,
+    "sha256": "538afd22c7b810dea91a8f94e144f4c75044e98da631a92a480794712d26c082"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/function_analysis_model.cpp.o",
+    "bytes": 6511256,
+    "sha256": "dd99be91cb47a4a3852ba19f9b573721042eab8c6683cd9ea13fb7a3ca111d49"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/update/provenance.cpp.o",
+    "bytes": 531072,
+    "sha256": "12e7bf067f979893cc99254fae3033c6cf25099396e3171b6873943228b3e2b8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/update/updater.cpp.o",
+    "bytes": 2129784,
+    "sha256": "a1d0f2b07f04ade07c2c8cb957f9cdbe8ca39755106c04368183633ffb683b7f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/standalone/terminal_main.cpp.o",
+    "bytes": 18866448,
+    "sha256": "ceb616c373745646c5153284475fcda3555c504bf7a0151965977b978b201592"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/standalone/headless_context_provider.cpp.o",
+    "bytes": 5453544,
+    "sha256": "310ad31390dd2a949a36f598de4b43cbab5b2c64ba9a2a079b68b78c0267df13"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/standalone/headless_vision.cpp.o",
+    "bytes": 143888,
+    "sha256": "84fd8da4665c1999b7f71b552bcea86cc02cccc8cfa5765df57e65c814403aef"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/standalone/headless_hex_span_facts.cpp.o",
+    "bytes": 1025808,
+    "sha256": "d483800ce32bcac53d42557232a63c54b374c229ff9e8b031498f419ba3e5233"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/standalone/headless_selection_facts.cpp.o",
+    "bytes": 3363768,
+    "sha256": "c5235a9d934ea665c3bd7a89f8b4e09ebdb2f072b222c64de3d919f940db171d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/emulation/backend_factory.cpp.o",
+    "bytes": 1106800,
+    "sha256": "2e4dad56acb10bda212390fd7b343f7857ae4c3e92df3f2011b2cfce0fa17b16"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/plugin/settings.cpp.o",
+    "bytes": 4862968,
+    "sha256": "9c19a77b38ff1ade9232106690dbcc5f0078009d970e2991520570ca346a6d0e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/render/html_transcript.cpp.o",
+    "bytes": 18164712,
+    "sha256": "5596a38d69543b15f2bf39cffbddbe1eeb93e35d593e62289ac5357aa60114d2"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/grok_credentials.cpp.o",
+    "bytes": 1785840,
+    "sha256": "bbbe8994a0108e0014fdaff0debebfff8fc643286f56690d89267903be8c84f5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/antigravity_cli_relay.cpp.o",
+    "bytes": 1758816,
+    "sha256": "fae068fc02aa82c302e36c283dbaa36e0ec52a43466ee60b4686c83dd982b415"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/grok_oauth.cpp.o",
+    "bytes": 1823288,
+    "sha256": "e05570b0fd207e02ece10b4ec5d0d5d813c89917ac96417e9ebe34fcd3db708c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/antigravity_cli_backend.cpp.o",
+    "bytes": 2472112,
+    "sha256": "e115e99e7a72e1aa56525b13802393ad6844c81e5ee2a9a53d40f80739871ab3"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/claude_cli_process.cpp.o",
+    "bytes": 476344,
+    "sha256": "e382d15917be9dabaa06a52b335b75c25be19e5ca2835057bee3c30a56f107a5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/grok_auth.cpp.o",
+    "bytes": 2244672,
+    "sha256": "418a2eb1b2cd5a2b8af47cacf382dd2b2ab052ee3b7938f577d5400fb800870f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/compaction.cpp.o",
+    "bytes": 2154528,
+    "sha256": "ff80495bd28328d821e9a28c4b0cdd8aa93a49bcd7da434ab7e5a25a5ff388e4"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/model_catalog.cpp.o",
+    "bytes": 2680936,
+    "sha256": "55f11ee600c4dead9e90d9883b0b490bc2c2b8d7f190a2e8c7505710e4d7272f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/provider_turn.cpp.o",
+    "bytes": 1961096,
+    "sha256": "007723a8e91a96247d0473fcc388f4eb5b8a6ae96061b7837332ebf14c10a27c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/codex_credentials.cpp.o",
+    "bytes": 1567672,
+    "sha256": "cc84aab95778ab144fc11246cdb07b22fc753373cee2065d6fc3c83f300e520a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/grok_login.cpp.o",
+    "bytes": 1453848,
+    "sha256": "777fe87fe3cd230257cd467c10fc25f016a8d58326b39b83be25f24dad986fdf"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/codex_stream.cpp.o",
+    "bytes": 1324504,
+    "sha256": "b4e323ebb3a565c016b1dcde63809dd5a48d8ac663d96e7238a72af960cbc475"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/codex_auth.cpp.o",
+    "bytes": 2527472,
+    "sha256": "f4c5bfc19f18ee35511d88c85af029b26f5957a1e46f0318fa019a306fa64cbb"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/provider_error.cpp.o",
+    "bytes": 836392,
+    "sha256": "304c03c6b465b292df9637a6e11c3ec362eabf995bd37aaa9a02ebf388cde97b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/chat_tool_codec.cpp.o",
+    "bytes": 768952,
+    "sha256": "217e3b6fbd88d82eb9eabb335d7152ee63eeea5d6b40b6af314494d422ca754c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/codex_request.cpp.o",
+    "bytes": 2160448,
+    "sha256": "f473b15cc8b4d77a79ec215a2a84f4418028c605c47087eac2a45daa481b5530"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/openai_client.cpp.o",
+    "bytes": 4944208,
+    "sha256": "d9326a5606a1ef07db9275a3f3ae23526c648013c2dcf692ceea3a083fa357e7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/claude_cli_backend.cpp.o",
+    "bytes": 2464248,
+    "sha256": "559991276cab529ebb0160b39c83f4fcb3236a363f2ac13720ac76771d5971dc"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/context_management.cpp.o",
+    "bytes": 1867864,
+    "sha256": "e67c87ca9ec9ce055b26f7403bba48c5bbd77896cf5ba464186911bf61c026a0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/grok_transport.cpp.o",
+    "bytes": 829304,
+    "sha256": "e6cb217b200ba3585f2f186aaab60760eafb08797ff3e13bc478174956ece722"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/chat_request.cpp.o",
+    "bytes": 1757616,
+    "sha256": "c8633d9eff8ddfa6666979faf3e63d90ab6fc040fa0ac85045e330f1a0a53fa6"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/token_usage.cpp.o",
+    "bytes": 384960,
+    "sha256": "fcf90906d1e8af1392c7f466b4e970c3f0b018ec1e1474f056486484a89dfc40"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/provider_accounting.cpp.o",
+    "bytes": 455328,
+    "sha256": "411b56104cbbee0189c1761b1c681bb954a89973b273879e2005f8cae09186ca"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/sse_parser.cpp.o",
+    "bytes": 94824,
+    "sha256": "6d51a21ab6fa283de31b8dd71ad5ed7bf17ed4ce6ba4b47eda4143b451452f39"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/chat_message_codec.cpp.o",
+    "bytes": 1551640,
+    "sha256": "d96b456439dbe99637559b4cd297b08ecd5902f88b5104b40c02602170cbb3e0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/image_accounting.cpp.o",
+    "bytes": 1311584,
+    "sha256": "c977ae2604e1661fd569ad2714da96c447f7f9992a84256e261adc1ba97536dc"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/claude_cli_codec.cpp.o",
+    "bytes": 2709600,
+    "sha256": "30c0e527966fff3a5182e34a4c2f7b567da5902d7084159853d41e39796ceabf"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/auth_codec.cpp.o",
+    "bytes": 462448,
+    "sha256": "10fabf44e7c300f884b3032b3b63e82fc10e7abafa6baf69242f04a6b9b60ca7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/model_recovery.cpp.o",
+    "bytes": 157000,
+    "sha256": "6425183c917fde9efc1b2aa283eec9e9a2484cd21443ea93bacbef83d32fe957"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/provider_retry.cpp.o",
+    "bytes": 1774040,
+    "sha256": "4fae0eb8f78c33c8ba7c2765d5fcf15ac8d254f5815330a0b550f1f3fe1d262b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/provider_request.cpp.o",
+    "bytes": 2608416,
+    "sha256": "bc078ea0618f03e28c60ada911dec9d52c551a4c12d02a64290e034a95ff585c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/chat_output.cpp.o",
+    "bytes": 1041416,
+    "sha256": "6858e31d9a8206737e98c54d42009827d9364eeae1ecd233f3ebb23cf215b45e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/codex_oauth.cpp.o",
+    "bytes": 1999352,
+    "sha256": "0f51020d3fd38017db67e1962ab3fa6d2df9090a6642f6a9e6c32b5d818ac3bb"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/model_recovery_state.cpp.o",
+    "bytes": 973592,
+    "sha256": "2f95ec863aa3a96796b44cf97a78fa53cf6e1bf57b282c85db52b1c1e95622ae"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/service_tier.cpp.o",
+    "bytes": 1740512,
+    "sha256": "99fc4edde36f7473ecefa61edd1c0482c3af1ebcdceeb46ae25b01e7cae6eb6d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/chat_stream.cpp.o",
+    "bytes": 1484568,
+    "sha256": "bda4cacd7ab0c1532470a724198ffc11219f8897596cc5dfd061d9998338576a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/model_recovery_driver.cpp.o",
+    "bytes": 187120,
+    "sha256": "f343b524df8e672e98c590630b16c4176b7a1e28a26d543c12627cf535969ad9"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/http_client.cpp.o",
+    "bytes": 217952,
+    "sha256": "980cede30033f4c2f2baee071776210b8cf5aba2c02ad7e3e7f623792571e5f1"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/provider_account.cpp.o",
+    "bytes": 2391824,
+    "sha256": "68335ffc1f988db8930c0faf26f351444662684c86a94cc34ea7ce586ca9ec42"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/codex_failure.cpp.o",
+    "bytes": 860344,
+    "sha256": "7ba76717d89fdc93ecb0e9451359201362c588f3690e7c0dc7144f1358346f40"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/native_agent.cpp.o",
+    "bytes": 5945712,
+    "sha256": "098c4b0565a5caf13b178e9373937c10486055a0e2966c1ee32dc1b6763bc8ed"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/history_notes_client.cpp.o",
+    "bytes": 2075888,
+    "sha256": "9ad1054678823a9721397790f9c713e5669f88a149290f3e8795ac2b4296c271"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/prompt_state.cpp.o",
+    "bytes": 96832,
+    "sha256": "aab7fce564b0ae10a4569f82c93c1260ba3cc4db2a769c13d07467c9f2c12a2e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/grok_backend.cpp.o",
+    "bytes": 2880328,
+    "sha256": "74ce3b91eaae56ab38315580ed8eba2d1fff753ffc4e4d6d922f2849744601b3"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/agent/stream_replay.cpp.o",
+    "bytes": 76784,
+    "sha256": "fc3452449ad4850ba0c2eeaa2d5dcacd5100779cc48dc3f519bc7824367cc95c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/mcp/session_approval.cpp.o",
+    "bytes": 2563080,
+    "sha256": "7b0c58daf3df9a02b1a66b0129ca76287270a6377a8db6eecc852f72b315fbed"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/solver/z3_solver.cpp.o",
+    "bytes": 522704,
+    "sha256": "e7f467fb5d166f497783275b10e11b67a2c2501bfb220053dbee8a795c40f1bd"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/common/rust_value.cpp.o",
+    "bytes": 1585064,
+    "sha256": "61804051744291f47bfc0a05177b7296560007a30a1d4765f2f5c51663efc64b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/common/ida_ui.cpp.o",
+    "bytes": 453704,
+    "sha256": "49b175cc118bdfd101ef2a3b3b280721cad7129cd7b08a66604fb9b1b80fa61c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/knowledge/knowledge_graph.cpp.o",
+    "bytes": 5702136,
+    "sha256": "446a4ec5a5fd17e47d7d3b9c36f4bb706d08f7bd655a207e0e4f74f29f9d9442"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/history/message_history.cpp.o",
+    "bytes": 4037344,
+    "sha256": "7684240c72bdf2b06644beb7338c755f4baeb3a490fa11e40bdff74a56e7fcf0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/api/mcp_sse_server.cpp.o",
+    "bytes": 11811312,
+    "sha256": "bb13946cf9815a1b35a0c7bf659a635f0f5b065418122ea2c51b702a9dcdde2a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/api/acp_transport.cpp.o",
+    "bytes": 4879336,
+    "sha256": "f7f0f29ee0c0df2400a304e926c34eda1b13cf14a5b975a4713371b33df91ba8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/amtp/ingress_service.cpp.o",
+    "bytes": 1636016,
+    "sha256": "79e12ede9c248bf377b2952ec52fc4f8f9093ec6c6abab17b30e7c277af3158b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/amtp/tcp_socket.cpp.o",
+    "bytes": 359008,
+    "sha256": "9f0fdfd649db9b090fca02259b9f43ee0d9b48435e29883c614007c5b159e308"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/amtp/identity_store.cpp.o",
+    "bytes": 2921480,
+    "sha256": "24ed53ca6c6e2fafd9297643fa6758746b77b202452e0e2d5274bdfc5197c818"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/amtp/owner_only_acl.cpp.o",
+    "bytes": 310984,
+    "sha256": "7f876098769f60ba10451f02739c6f8ea2953f3141c0c7afe5125adf30bbb7f0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/amtp/service.cpp.o",
+    "bytes": 3241216,
+    "sha256": "d8002c2ec1e1a90674d94f89c91fd600fdd9a0b588f3519cd52901a5b4158c25"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/amtp/local_socket.cpp.o",
+    "bytes": 794952,
+    "sha256": "7265ee062e8814ac7caeb5298223712636d877d0466f282bac2769a932f97143"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/amtp/wire.cpp.o",
+    "bytes": 296096,
+    "sha256": "91a192d53b4696a4ced5e50f54c16cfe0b07339ec2c4fe09d875135cfbf598c7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/amtp/ingress.cpp.o",
+    "bytes": 798000,
+    "sha256": "29a9373601b6f99971354ccf6be20cdcc8cbf3f350da3019a75459b60f2da74b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/amtp/session.cpp.o",
+    "bytes": 514280,
+    "sha256": "e8fdc56e0c0d26c5b1f2bf5d0364cd77ff2d7cd8a80dbe137892b27ff22fb227"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/sdk/abi/trampolines.cpp.o",
+    "bytes": 529224,
+    "sha256": "0a1c96aa9415113b95086ca857e5c373b1cb89653bf5f49075c86b61edfd77d2"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/sdk/loader/discovery.cpp.o",
+    "bytes": 2285464,
+    "sha256": "fd83b13452fd7670d088d9e721866aa906e5d4d349adb99af6bae381701278b5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/sdk/loader/runtime.cpp.o",
+    "bytes": 1955312,
+    "sha256": "f718474590b81ac033b7558c2517e5e239ac8a21e76713322cc5459c000ea9de"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/emulation/rax/rax_emulator_backend.cpp.o",
+    "bytes": 7525016,
+    "sha256": "4c02b4bc452518c968440e6c6d7358cb7cb4c860262c1fca1781c732c320af42"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/emulation/rax/librax_loader.cpp.o",
+    "bytes": 1344824,
+    "sha256": "6dec097459d0cd1b93ce090cbdf4417b64114734795136444265dea92d94864d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/emulation/rax/rax_process.cpp.o",
+    "bytes": 2126528,
+    "sha256": "38a02be4387dd380d998b82f1ac4a73c069147b95fd59e1bd7bd6fc1ce278c9c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/standalone/tui/chat_renderer.cpp.o",
+    "bytes": 13386608,
+    "sha256": "914cbb41fe5201673a100877c4625eef86e85f5025f4439588ca5afb1a8b03e5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/standalone/tui/visual_tui.cpp.o",
+    "bytes": 3147848,
+    "sha256": "75c865eec3651fecebc20c6b3ceb119faf86a5c3bd19b2bc613ab226eccec59b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/standalone/tui/markdown_ansi.cpp.o",
+    "bytes": 1900272,
+    "sha256": "c881656a1f4db8530a172f63f852d3d8ed43d61b185d12cf3a041c9f1e13b0d7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/target_evaluator.cpp.o",
+    "bytes": 837536,
+    "sha256": "65afdb64e5817ab9b7264a3b5dc83168968b75026aa0b50cf290189d0d5da794"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/program_model_core.cpp.o",
+    "bytes": 220408,
+    "sha256": "1b45cb97100ca76377e51b266f83eeca4fa84d8e391a3c1f812f623796bdf79c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/smir_analysis.cpp.o",
+    "bytes": 210320,
+    "sha256": "56e28af0b81eac4a3ff79a1c7c69dcec3331f9b2226b70c0673422aae20c04d6"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/entry_state.cpp.o",
+    "bytes": 1039032,
+    "sha256": "9e3aa889ddbfa0d78b9185de37e9c97b9d7c5bf55402e4544f2902eea41bc2b3"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/native_read_strings.cpp.o",
+    "bytes": 3031968,
+    "sha256": "3fdf2b23389bbb07e20ebb249e262b898992d2c4d24d784ff8aedd90ec607884"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/evidence.cpp.o",
+    "bytes": 4323128,
+    "sha256": "24343cec43ba1e14fddd1d1c2eaeb5778ed69ef5de42a5f1c656791f196892ca"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/architecture.cpp.o",
+    "bytes": 52056,
+    "sha256": "31b8ebda318d85a57d9231cbe44d7fbee8e769edd6484a947e90336aae23ee6d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/emu_driver.cpp.o",
+    "bytes": 4015472,
+    "sha256": "6570cf827b8089eab19bf0ecc5b41ae5b18855ac83d77c1f6be72fe533fe6cd8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/call_summary.cpp.o",
+    "bytes": 418192,
+    "sha256": "b4fd22811cf51168ddc8de47c2ab027e2098a043e926b9db4bc9f4cd8dea4438"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/constant_evaluator.cpp.o",
+    "bytes": 779248,
+    "sha256": "8eb9d974e266b1c7ff8a273f11204e6ff65442845f7309263cac86c90e1af8d5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/static_analysis.cpp.o",
+    "bytes": 559040,
+    "sha256": "0701b1d8e5b30362b2e50622a92423eeee16fab487e2ae9d7cfb8ca1a9a79d5d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/abi_policy.cpp.o",
+    "bytes": 537536,
+    "sha256": "8e2813241d5620c3cf566c5dcd306ee34690bcf8aed5950bff74aa18702d0bba"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/decoder_core.cpp.o",
+    "bytes": 45120,
+    "sha256": "313adb32ebcb92483640fb33c1976b68d8f8baa6fb7e655b41999772ff89799e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/analysis/chernobog/call_summary_policy.cpp.o",
+    "bytes": 105000,
+    "sha256": "7a0335f65bf43c91dbda80661bd473e10ee0778d1c486e098a981716cbc4e589"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/context/ui_focus.cpp.o",
+    "bytes": 4835392,
+    "sha256": "918786b0e1cfa715699c791cc238f560a893502218a414d6fef26e964ec4c5c4"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/agent/detail_store.cpp.o",
+    "bytes": 2942672,
+    "sha256": "b49f529ee6361a4032c6845806f20e2088261af9a84b86f61d7b51869766db94"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/agent/propose_followups.cpp.o",
+    "bytes": 3749488,
+    "sha256": "54edf38675604e188cfdc1a6af27d385cd66389a26f6bfec0a2dba2749b3f5a2"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/system/filesystem_and_shell.cpp.o",
+    "bytes": 8040240,
+    "sha256": "821f6d55b9d4e36def063a35f950d28ff2120fa4a945425a56b418e10d2593fe"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/visual/render_visual.cpp.o",
+    "bytes": 5091592,
+    "sha256": "644c9aaab198335a4e204e63e78a06e6e01dc73aea61e9ae35c102a26495cc36"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/debugger/runtime/debugger_controls.cpp.o",
+    "bytes": 6975568,
+    "sha256": "bf0f6d4571e415319f265278d7240b4bd41eb2d65402ef917938d7ab480c647e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/knowledge/memory/facts.cpp.o",
+    "bytes": 7145984,
+    "sha256": "80e16ca07f0bc08eca47cb5b0874e312df17dc66c4db2d2a13a882e534add264"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/knowledge/memory/propagation.cpp.o",
+    "bytes": 5150512,
+    "sha256": "8f46c411cb69eeb7045612978a5499a429b613cb002755e404c5b5b33d385b37"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/script/execution/idascript.cpp.o",
+    "bytes": 2480752,
+    "sha256": "2279e08826933f3c61e72563b1f819a6ecb5d436f0e1ea6a8ff90df0faeb4f9d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/solver/constraints/z3_constraints.cpp.o",
+    "bytes": 2251344,
+    "sha256": "d09d3ae1816bec2a31320d8cc62e8757f907049051ad91ca5d8036760f85e7de"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/vision/screenshots/screenshot.cpp.o",
+    "bytes": 4345496,
+    "sha256": "0c3d450742d2686873b671b9bc001f824b20f48cb1d4dd2b0c32ef14d1ca0c6c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/navigation/bookmarks/navigation_and_bookmarks.cpp.o",
+    "bytes": 6264184,
+    "sha256": "47aef90d577846e28522723edd003bf9e7578d83110a1f315c0b2ea30b1fa11b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/emulation/sessions/session_tools.cpp.o",
+    "bytes": 12218088,
+    "sha256": "80d667b902b52eccf0a5a324a31cd24cfe0031cefaa880a65d1aaf75bb50dec7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/emulation/sessions/process_tool.cpp.o",
+    "bytes": 5855376,
+    "sha256": "c60a130e7ebaf4c14babe4ff50b93d600ccf72a83b05f50cbb867a3d14dc7593"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/emulation/stateless/micro_emulation.cpp.o",
+    "bytes": 10970152,
+    "sha256": "3d9fe72ae625abc0ab173281713b70e45c8decc9ab84c1bf2d9804b9c6fc1337"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/disassembly/scan_disasm.cpp.o",
+    "bytes": 6530712,
+    "sha256": "b0f1e87dfee4a6abbe720efdf4c5645ff8397c187cc2e6ff81f888f64b321a06"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/conditional_sites.cpp.o",
+    "bytes": 9216240,
+    "sha256": "a34f588e0a2779d7319eb8770bf59007ea47a546e66a9942db07ffca7b8fba22"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/register_lifetime.cpp.o",
+    "bytes": 6802336,
+    "sha256": "3eb06de6274be7fa7da48169749e455575c8ac2af46a33cb883997494993ca03"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/register_trace.cpp.o",
+    "bytes": 8261376,
+    "sha256": "24bd5cceab35470ff7d7625ef70c794265a29b2c05aa7d66a2fe62770fb561ae"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/multi_register_return.cpp.o",
+    "bytes": 8310816,
+    "sha256": "9fa773db81e2a4af2e137c662460350e8b10222cd0895742329baa196f1e315f"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/index_loops.cpp.o",
+    "bytes": 9076528,
+    "sha256": "9221adfcd386efecbeb1d64754e9b6957c872baf014f8cc54f1487e38375dc6a"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/strings/search_strings.cpp.o",
+    "bytes": 6364912,
+    "sha256": "9ba9ae3323f352c6cc5cc08a3b92b9ab17510ad9c2686548ac9246b7b8a2d447"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/signatures/signature_tools.cpp.o",
+    "bytes": 7393640,
+    "sha256": "d534b3b06bce02fecdf4a06c4758d0a554c82f03ed8066a5675d87d93ab74b28"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/yara/yara_generation.cpp.o",
+    "bytes": 3455120,
+    "sha256": "86760f57a018120e252f9aaa6c5d1f34511d43b0187ce468354d15b2e4a637c0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/binary_layout/segments_imports_exports.cpp.o",
+    "bytes": 6872352,
+    "sha256": "4df0b3021e8f7760d32836e0855019f24713447df90f1a4e9996a24a947f49ce"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/decompiler/hexrays_read.cpp.o",
+    "bytes": 6924048,
+    "sha256": "b6b9b24d22be9afb4f20c86e95559f74db8313c26a48cdc1d3ac43a8e57bea3d"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/decompiler/local_variable_storage.cpp.o",
+    "bytes": 5101320,
+    "sha256": "3bf80de437c751a1ee02616e0e11676161145bd25949069d35baa13c420fa0a0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/functions/function_metadata_and_bytes.cpp.o",
+    "bytes": 9239632,
+    "sha256": "d66020ccc1d573c301054e7cdd7c4d988633cc3fc05c641c8a54c0f7717c734e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/functions/rank_functions.cpp.o",
+    "bytes": 8815832,
+    "sha256": "3b2ca52bf0c6e161e222fcc0e78523ead7ba34b525f4af06f7f601e02fd90656"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/functions/function_analysis.cpp.o",
+    "bytes": 4500840,
+    "sha256": "c35ce77bacec6b0e42a3736a853745182ec733b3ee3bee7fea1783bcf4d63dc9"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/graphs/cfg_and_call_graph.cpp.o",
+    "bytes": 6661600,
+    "sha256": "a5f66f9963116ee78a8dcfb6da942ca23df3ddb2ab48a2b3663c07aaba49cd54"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/xrefs/address_resolution.cpp.o",
+    "bytes": 7419600,
+    "sha256": "34a392bbf7622c3a6afc3b01e0cf3c400c3d518da938a7188f599ac145eb32b4"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/structure_edits.cpp.o",
+    "bytes": 8374768,
+    "sha256": "30307ac4560971dac99ee91b6e9c8af2026b19a47b59eeff0e5c865a74bd5451"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/set_type.cpp.o",
+    "bytes": 4656752,
+    "sha256": "17d6582d48ced5deee619cb7c782817c878d5f6175e9a36ea9b80875b012878c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/enums.cpp.o",
+    "bytes": 4725800,
+    "sha256": "ec02b0d468a671c556e184cee9ce04550f7884549fdc3b21dc5e8e08185f450b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/declarations_and_decompiler_reset.cpp.o",
+    "bytes": 6143760,
+    "sha256": "5933f28684a7d6635d708b5123b47a1ced5246e9324e9448bc88a67dddc90c86"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/structures_and_function_types.cpp.o",
+    "bytes": 12350136,
+    "sha256": "f6c7a7753e420046af10e9d175d01905a2fd6374e3de43347300688991a562e2"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/state/database_state.cpp.o",
+    "bytes": 4187512,
+    "sha256": "7daac9b782904475d29f30911138d2e6ed142c8da9b817cc4435eeb9701d9399"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/edit/high_value_idb_edits.cpp.o",
+    "bytes": 5078720,
+    "sha256": "37d420f7c7ba7ecac81a5d78a571296835bb6e72eaf9d3da5e23f9ed9ec9803b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/naming/local_variables_and_symbols.cpp.o",
+    "bytes": 5875056,
+    "sha256": "c9a421067107a449aad995cf200bb9049492de0b8e2d753243e654648f768c43"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/repair/range_reanalysis.cpp.o",
+    "bytes": 4610488,
+    "sha256": "4e1298627faac039920985d684e28e641925185cc11bdb5eb03954ab4b6d07eb"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/repair/item_creation.cpp.o",
+    "bytes": 7502280,
+    "sha256": "5fc8a596c98b4a7e51c28b62e42ebb09ba78f5af14ba0b024ca6835a95b1ac17"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/repair/region_repair.cpp.o",
+    "bytes": 5194464,
+    "sha256": "fe681b4cab1189764ab1909772b14550bd892c10fc22aeeb4c887ad7b7c81375"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/patching/bytes_and_nops.cpp.o",
+    "bytes": 5918744,
+    "sha256": "2893a6c9fe641bd29dd5396a22e8a570ddafa54d1efa30fd1e5179e236aaf401"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/assist/suggest/signal_collector.cpp.o",
+    "bytes": 2282944,
+    "sha256": "0a6046827ff8a802443fefafdc5e864d6afa976ec746f4fdeeb41641ae761993"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/assist/core/permission_escalation_coordinator.cpp.o",
+    "bytes": 1773648,
+    "sha256": "8ff5e9f74b3a0f299efddb611d9a8903d55253e51f8e27d98b37dd2652fceefa"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/assist/identity/federated_identity.cpp.o",
+    "bytes": 726344,
+    "sha256": "537a882e4b53d7e8863077a949565950d66b76e681ab82b1c5a4542b27080d76"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/assist/triage/finding_memory_writer.cpp.o",
+    "bytes": 2384160,
+    "sha256": "9317bf7d1088ab690d4b5598531635c5ac93c015ac52009d5adaa6b738d5b5a5"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/assist/triage/finding_corroboration.cpp.o",
+    "bytes": 2072576,
+    "sha256": "514ff2d3eb741b9abf7c157eaed7138fca4348123585b6d4987e66e3c9ef4a4b"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/assist/triage/triage_driver.cpp.o",
+    "bytes": 1328400,
+    "sha256": "b84f584a1d7829131c0764481829bd952f6269e7ecf53c7b13b03e87547bc2f0"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/crypto/primitives.cpp.o",
+    "bytes": 205808,
+    "sha256": "f184c930c3250f796896e5bfaf6a6311a2158c04d11a8b1412aac645e8a0d441"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/mcp/stdio_bridge.cpp.o",
+    "bytes": 3235976,
+    "sha256": "d511ca365d18860f178981ce3872e80de3233e63b26ae1bfab8e234ddeeaee55"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/mcp/assist_mcp_main.cpp.o",
+    "bytes": 423408,
+    "sha256": "e772f742ffa3c3f69c540d7409882ff8846217949627e245db8a0fadfc5bf9dd"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/mcp/agent_relay.cpp.o",
+    "bytes": 2735560,
+    "sha256": "3eb952cab163b0652228dfde329439d79b4a82e29f2ee28d25c8f80d24537f16"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/amtp/tcp_socket.cpp.o",
+    "bytes": 359008,
+    "sha256": "7db12960ec311184fdb6860b4a473a602dcb6030b9b5af67e0e8c0bd4558b30e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/amtp/identity_store.cpp.o",
+    "bytes": 2921480,
+    "sha256": "c7e3556d4808779d01a59094443227eda527ec7c9f9b6620fa3baff71eb95f59"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/amtp/owner_only_acl.cpp.o",
+    "bytes": 310984,
+    "sha256": "2802c6a4a61b055f0e8c154c1aa4c26c2f2be95563f40a98a89a8caf7de58fee"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/amtp/service.cpp.o",
+    "bytes": 3241216,
+    "sha256": "79a09c4387870fe86c4a79a81b13b9c9771e1571a0f450517ad431b87c2f5e0c"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/amtp/local_socket.cpp.o",
+    "bytes": 794952,
+    "sha256": "cab540510b66134d9b593527dbe65a5d723b1208987ee92a06b23b847f93a9fc"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/amtp/wire.cpp.o",
+    "bytes": 296096,
+    "sha256": "9f9ae63d45d2790550345c676d7f64aef6baa947858b93b9125f939c2d2660a2"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/amtp/ingress.cpp.o",
+    "bytes": 798000,
+    "sha256": "19f78bf9b274a4871f673a3bfc520a7a4496b2caa7b6faf4a8616aa93a6d9db8"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_mcp.dir/src/amtp/session.cpp.o",
+    "bytes": 514280,
+    "sha256": "065efd4f0c9402fae27b3d18c67e85471c4208a6b6a3100b072663d48f92b905"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_monocypher.dir/tmp/assist-native-process-root-macos/_deps/monocypher-src/src/monocypher.c.o",
+    "bytes": 140656,
+    "sha256": "0d5c041e62ff16192f03e86435ebf02be1f29adf672a42687ba63e24cbc7913e"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_monocypher.dir/tmp/assist-native-process-root-macos/_deps/monocypher-src/src/optional/monocypher-ed25519.c.o",
+    "bytes": 22912,
+    "sha256": "a92293b4cb1225ce01d285ad0f9badc843f9b89013aea9282708ed91441032c7"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_static_text_manifest.dir/generated/static-text/manifest_keys.cpp.o",
+    "bytes": 32680,
+    "sha256": "ed284fa1bc67b4f8b758761619533794fa7ca631fc9c53949d2774d4880c0067"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_static_text_manifest.dir/generated/static-text/manifest.cpp.o",
+    "bytes": 164648,
+    "sha256": "1c6e8cf780c03b9886848d46532dc163502e248e3aa9815ff1cbb7593103d157"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_static_text.dir/src/crypto/static_text.cpp.o",
+    "bytes": 191024,
+    "sha256": "56fdc3eb04b63ecf90f98db248f763a71fd2a14c13d191b8b5f74ab604947e46"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_static_text_metadata.dir/generated/static-text/metadata_keys.cpp.o",
+    "bytes": 222968,
+    "sha256": "e4254c2cba9c85218a679b02a327edcd93cdce94e0925ab03cdc52e73c13d9d2"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_static_text_metadata.dir/generated/static-text/metadata.cpp.o",
+    "bytes": 797032,
+    "sha256": "4a710d16f92347c4868b2ee53e9fcdc773a278accfac2e76f7732a883ee700f2"
+  },
+  {
+    "path": "/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_frida_host_source.dir/src/tools/frida_host_source.cpp.o",
+    "bytes": 80184,
+    "sha256": "efe4fb43a4ccac037e2b7f15cc6a7b9395580ab27041e7c47979faad2c55f9ce"
+  },
+  {
+    "path": "/tmp/assist-native-windows-29683/LLVM-21.1.8-woa64.exe",
+    "bytes": 371698870,
+    "sha256": "1a770a49460b73667c1750b79f90e7027ead468f966c5d30e180cae19f61d91e"
+  },
+  {
+    "path": "/tmp/assist-native-root-cpp-linux/nls-manifest-probe",
+    "bytes": 373465304,
+    "sha256": "2ab0d5461eb400ccc6a24d6eb31aa820eaaf596a795ac29c730d63798903f45a"
+  },
+  {
+    "path": "/tmp/assist-native-root-cpp-linux/registry-manifest-probe",
+    "bytes": 372474784,
+    "sha256": "3be4ba63c208d23909b7f4d58ef9adbb4fd922fe8cb2511d275747e6542842bf"
+  }
+]

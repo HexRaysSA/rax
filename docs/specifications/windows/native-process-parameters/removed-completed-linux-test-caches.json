@@ -1,0 +1,212 @@
+[
+  {
+    "path": "/target/debug/deps/riscv_boot-b9ebdb197bb7770e",
+    "bytes": 161734704,
+    "sha256": "99afc7ceb9952a27c5dae2d3042f8da592746102eaff67a3f72409956a52bbdd"
+  },
+  {
+    "path": "/target/debug/deps/riscv_vector-a8f99e18658735f6",
+    "bytes": 162531192,
+    "sha256": "09e324872737ea0e2b62a39fc1f91455c79201c06e0d3f1c956a058c58c3a2e0"
+  },
+  {
+    "path": "/target/debug/deps/microkernel_multiarch-bd633027c072d107",
+    "bytes": 7685456,
+    "sha256": "e087f380c33b7def2b019b8e15f39c217c182d4148e45d40d8e76d5dc47954ea"
+  },
+  {
+    "path": "/target/debug/deps/hexagon_mem_diff-be74c548b3d78a32",
+    "bytes": 165701632,
+    "sha256": "05caad6e2bea4491b8c307efc5f503b7397d6e49e124d9678c5217477fcf0b6e"
+  },
+  {
+    "path": "/target/debug/deps/aarch64_smir_native-4f9e525398e455cf",
+    "bytes": 6883600,
+    "sha256": "9bfec646221259ffdbfdf4e02501c6024e7981b06f198e5ddbca92783623aef4"
+  },
+  {
+    "path": "/target/debug/deps/riscv_smir_lift-a8a89327a295db33",
+    "bytes": 164702352,
+    "sha256": "a781a1a1e82c541deeccc9c7087f04f934c7f4efb51e4f1b0367a71e09c086a2"
+  },
+  {
+    "path": "/target/debug/deps/pgo_build_script-f0908fd8632b4b80",
+    "bytes": 7130264,
+    "sha256": "fd93241880fa8f9fae906450ab269d8e06435071825a80561333564862705474"
+  },
+  {
+    "path": "/target/debug/deps/x86_64_apx_map4_qemu_diff-a7fb81429af4a645",
+    "bytes": 6883632,
+    "sha256": "355b3f7acc37385202b8152a0695e93c2848e2dcfe108ff87850d51cb313160d"
+  },
+  {
+    "path": "/target/debug/deps/arm_vfp_a32-6c401e457eaf249b",
+    "bytes": 163153424,
+    "sha256": "2df5d8570eed1d0f2f31c77317035b287a6359e4693e4d3b254f3ffd3e2afd19"
+  },
+  {
+    "path": "/target/debug/deps/smir_jit_aarch32_aarch64-823aa4ed4eeb9276",
+    "bytes": 6883600,
+    "sha256": "e9cbca670fb29b0f0de6d7e58517d947a622c0b3eded7b46106419b5a4529338"
+  },
+  {
+    "path": "/target/debug/deps/arm-162cf015ff7bce65",
+    "bytes": 315265048,
+    "sha256": "02f8d5ed795ad49e2090fb1b07f1b30cf6079eacaa0921886345355a19e4d917"
+  },
+  {
+    "path": "/target/debug/deps/smir_jit_evex_masking-50fb07a6fcd6a5c1",
+    "bytes": 6883616,
+    "sha256": "63ca009193216adfc9497ccc13fb9b62824d7ad964f9386d409b268606d61486"
+  },
+  {
+    "path": "/target/debug/deps/x86_64_avx512_inventory-8e2180ab903de385",
+    "bytes": 6883648,
+    "sha256": "294138366924351469def867143157fd6a7814768700af2a6c3360fcbfea548e"
+  },
+  {
+    "path": "/target/debug/deps/hexagon_hvx_mem_diff-73f80295e16bd1d7",
+    "bytes": 164099504,
+    "sha256": "92fa85ece36099bd59eac77a443c3556b343f5406d9d02305ea4581f68392262"
+  },
+  {
+    "path": "/target/debug/deps/riscv_diff-413a1624ca039121",
+    "bytes": 162299392,
+    "sha256": "ea6076a6b0bd7c3cc96b74c20c4061ac48a4efc4ea1c5a9581dba5d3a61b96df"
+  },
+  {
+    "path": "/target/debug/deps/ci_actions_pinned-b2e8039af78669fa",
+    "bytes": 11616968,
+    "sha256": "c21b1e583141e7ad74a8e7ed4ab2aac75feac92a906587e3646080d23b8ad031"
+  },
+  {
+    "path": "/target/debug/deps/smir_jit_x86_aarch64-bf1b0167b8495653",
+    "bytes": 6883584,
+    "sha256": "3504b94483c5ff26ff4b4de12526f2dd1f8de07039cc67616973418437077a6e"
+  },
+  {
+    "path": "/target/debug/deps/pgo_script_safe-63487f1f83a09baa",
+    "bytes": 7128184,
+    "sha256": "30583df7ca71412ad9f180c95fe0657b3453c21ed019ea78f4a93bc6626676da"
+  },
+  {
+    "path": "/target/debug/deps/x86_64_unimplemented_manifests-07d48fd7daedef49",
+    "bytes": 6883712,
+    "sha256": "418585f9910430ceee3898db2332bf2e15fe067a41ae85166b892eaa7b8ebfd5"
+  },
+  {
+    "path": "/target/debug/deps/hexagon_diff-978954bfeec9b6ac",
+    "bytes": 164810136,
+    "sha256": "be684d22b83defaf1f876756f9d8bdb2ee928ed8157c84f5e2544170cc44df07"
+  },
+  {
+    "path": "/target/debug/deps/x86_64_unimplemented_source_inventory-7a7a82a428fb87bb",
+    "bytes": 6883776,
+    "sha256": "a2d4462806fbc2624082432d3808ac85c953d8d14f5796f987a33293652f63f6"
+  },
+  {
+    "path": "/target/debug/deps/hexagon_float_diff-8c6e5a7c9185a8e9",
+    "bytes": 164457784,
+    "sha256": "cd0bb6f026c9cf49d65cd65bc883ebb95f64f974e7ed17d825178076791490ae"
+  },
+  {
+    "path": "/target/debug/deps/differential-0ff6c9d2bbdc05d6",
+    "bytes": 6883560,
+    "sha256": "4575c6d2d32bc9c1fabb28de1038d5ba35a981f2c24df9ffef3216416438ee63"
+  },
+  {
+    "path": "/target/debug/deps/hexagon_hvx_diff-64b4b5165adde5bf",
+    "bytes": 163880048,
+    "sha256": "f1a760c27cae369e94abf9f8d8f0a3d81396c4cded207c019584edf286587932"
+  },
+  {
+    "path": "/target/debug/deps/asm_instructions-0d9914b1ecc98a97",
+    "bytes": 182448184,
+    "sha256": "d36ef9c8d8ef2c85b1cdb112e3c523b644c3f1917b3306a6ca7cba8406e951aa"
+  },
+  {
+    "path": "/target/debug/deps/riscv_smir_aarch64_jit-847ff3a3f99df22a",
+    "bytes": 6883584,
+    "sha256": "1f02e013f7934a92b4703ad73719d2698c413ce23bc6f0af2f78bf8c3a6547f8"
+  },
+  {
+    "path": "/target/debug/deps/hexagon_smir_lift-df2d66a6b9545ecd",
+    "bytes": 170163488,
+    "sha256": "3d415f15d577d072fa4a2a2f1e11810696552939e94659a99f4bb09d07526a80"
+  },
+  {
+    "path": "/target/debug/deps/arm_diff32-86dc196029a126fa",
+    "bytes": 163343896,
+    "sha256": "83b76aa766fee8ff6ed5fdbc723e2f1c39d8386d4887bcd5270755b9587ca709"
+  },
+  {
+    "path": "/target/debug/deps/smir_jit_vcpu-182a2d5733ab5d99",
+    "bytes": 6883520,
+    "sha256": "454470d692e7838f54f19798b8558ec3104c5741fbfd035f6dab0f9eea10747d"
+  },
+  {
+    "path": "/target/debug/deps/realmode_boot-042394dc6bea8e36",
+    "bytes": 182239376,
+    "sha256": "8fc7d9e2a483da01967ff61c517648cbd76c36f9bd3712d20403426f5a1a2795"
+  },
+  {
+    "path": "/target/debug/deps/arm_diff-84a8194635a8e0be",
+    "bytes": 219630568,
+    "sha256": "92e03f5558b2c0aea4993e6987e5e18a180ba323bd143306fb6fe0201035c16c"
+  },
+  {
+    "path": "/target/debug/deps/hexagon_cf_diff-e4897f1394a493e6",
+    "bytes": 164167120,
+    "sha256": "09f2f96f6c44990f5dcf98a81b328d5d8a2dc0440839c31cfcea3bdf51754304"
+  },
+  {
+    "path": "/target/debug/deps/isa_oracle-5dccd73ec0c775f0",
+    "bytes": 172205024,
+    "sha256": "91b34831d6543ebdec2150faf64b94587ae7d918882aec5134bef9e7ae54bc47"
+  },
+  {
+    "path": "/target/debug/deps/riscv_smir_x86_jit-1dff0aed04db4659",
+    "bytes": 6883568,
+    "sha256": "67b8b2e8c775cb4a2b6e848dcfd8e2abbff74769f229c02a56a05d788aee6504"
+  },
+  {
+    "path": "/target/debug/deps/x86_64_unimplemented_qemu_diff-8856ed033e406df3",
+    "bytes": 6883704,
+    "sha256": "a8d5738f48e3c8d66d79e81cd1d95225069db0dd3170cce849fb47ecf7790473"
+  },
+  {
+    "path": "/target/debug/deps/smir_jit_thumb_aarch64-e046675c8a9eec25",
+    "bytes": 6883584,
+    "sha256": "0ef0c276281fdd8708ebab3108156e08b09078c1646569cd3b778bd1c843e57c"
+  },
+  {
+    "path": "/target/debug/deps/smir_avx10_roundtrip-2d32c1f7a77b2be7",
+    "bytes": 161714064,
+    "sha256": "ffeaa0b3774474d72e758f084ea1097244c75d95ec1db3cd0fa135fc578a5297"
+  },
+  {
+    "path": "/target/debug/deps/x86_64_avx512_kvm_diff-3166efb0d5cfc0e8",
+    "bytes": 6883632,
+    "sha256": "80f1f7e8203de1e97c86a776d43141bf916c04811ce8ad3b0a4a60b028563401"
+  },
+  {
+    "path": "/target/debug/deps/diff_fuzz-a434eacfe3603d1b",
+    "bytes": 6883552,
+    "sha256": "d273258c0f89ee14a10da32e12a355e194a8dec0a22ef66808ca711eb62f9446"
+  },
+  {
+    "path": "/target/debug/deps/x86_64_evex_qemu_diff-b8127ee362fc926f",
+    "bytes": 6883624,
+    "sha256": "f4e2aac27ec668ba35aa7bb6016636cbd663720c8e074c2e627382218c33e78a"
+  },
+  {
+    "path": "/target/debug/deps/kvm_minimal-562db82f3c195aba",
+    "bytes": 6883536,
+    "sha256": "e3f3c053ec02511b31ee34b62ceaab1fa9e4861eebde37690942fc1fc20a5875"
+  },
+  {
+    "path": "/target/debug/deps/hexagon_bare_metal-3e5e674e3797c477",
+    "bytes": 162998856,
+    "sha256": "955a972508a560443e86963c24b07cdca221167d5d9d72c123b5319d3b5d0d53"
+  }
+]

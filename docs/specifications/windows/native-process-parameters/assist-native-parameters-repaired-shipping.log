@@ -1,0 +1,1408 @@
+warning: "stdcall" is not a supported ABI for the current target
+  --> C:\Windows\Temp\assist-native-rax-20261010\assist\vendor\rax\vendor\vm-memory\src\mmap\windows.rs:22:1
+   |
+22 | / extern "stdcall" {
+23 | |     pub fn VirtualAlloc(
+24 | |         lpAddress: *mut c_void,
+25 | |         dwSize: size_t,
+...  |
+49 | |     pub fn CloseHandle(hObject: RawHandle) -> u32; // BOOL
+50 | | }
+   | |_^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #137018 <https://github.com/rust-lang/rust/issues/137018>
+   = help: if you need `extern "stdcall"` on win32 and `extern "C"` everywhere else, use `extern "system"`
+   = note: `#[warn(unsupported_calling_conventions)]` (part of `#[warn(future_incompatible)]`) on by default
+
+warning: `vm-memory` (lib) generated 1 warning
+   Compiling assist-rs v0.1.0 (C:\Windows\Temp\assist-native-rax-20261010\assist\rust\assist-rs)
+error[E0463]: can't find crate for `rax`
+   --> src\lib.rs:199:9
+    |
+199 | pub use rax::*;
+    |         ^^^ can't find crate
+
+error[E0432]: unresolved imports `crate::native_path`, `crate::panic_guard`, `crate::auth_pkce`, `crate::owner_permissions`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::agy_codec`, `crate::claude_codec`, `crate::claude_history`, `crate::image_accounting`, `crate::json_dump`, `crate::claude_codec`, `crate::cli_json`, `crate::codec_ffi`, `crate::json_dump`, `crate::json_parse`, `crate::panic_guard`, `crate::json_dump`, `crate::json_parse`, `crate::owner_permissions`, `crate::steady_clock`, `crate::model_recovery`, `crate::agy_codec`, `crate::claude_codec`, `crate::claude_record_buffer`, `crate::json_dump`, `crate::json_parse`, `crate::panic_guard`, `crate::codec_ffi`, `crate::json_dump`, `crate::panic_guard`, `crate::json_dump`, `crate::json_parse`, `crate::native_path`, `crate::panic_guard`, `crate::host_files`, `crate::codec_ffi`, `crate::panic_guard`, `crate::panic_guard`, `crate::json_parse`, `crate::panic_guard`, `crate::panic_guard`, `crate::steady_clock`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::chat_messages`, `crate::chat_tools`, `crate::panic_guard`, `crate::chat_output`, `crate::provider_error`, `crate::provider_retry`, `crate::stream_replay`, `crate::panic_guard`, `crate::panic_guard`, `crate::json_parse`, `crate::panic_guard`, `crate::chat_stream`, `crate::json_parse`, `crate::provider_effects`, `crate::provider_error`, `crate::provider_trace`, `crate::claude_codec`, `crate::claude_history`, `crate::claude_metadata`, `crate::image_accounting`, `crate::json_dump`, `crate::claude_codec`, `crate::cli_json`, `crate::codec_ffi`, `crate::json_dump`, `crate::json_parse`, `crate::panic_guard`, `crate::cli_executable`, `crate::json_dump`, `crate::steady_clock`, `crate::model_recovery`, `crate::claude_codec`, `crate::claude_process`, `crate::claude_codec`, `crate::claude_metadata`, `crate::claude_output_state`, `crate::claude_record_buffer`, `crate::claude_stream_accounting`, `crate::json_dump`, `crate::json_parse`, `crate::codec_ffi`, `crate::codec_value`, `crate::claude_process`, `crate::panic_guard`, `crate::json_parse`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::json_dump`, `crate::panic_guard`, `crate::auth_codec`, `crate::auth_codec`, `crate::compaction_text`, `crate::model_recovery`, `crate::panic_guard`, `crate::provider_error`, `crate::panic_guard`, `crate::auth_pkce`, `crate::panic_guard`, `crate::panic_guard`, `crate::auth_pkce`, `crate::json_dump`, `crate::json_parse`, `crate::panic_guard`, `crate::model_catalog`, `crate::service_tier`, `crate::json_parse`, `crate::panic_guard`, `crate::stream_replay`, `crate::provider_effects`, `crate::panic_guard`, `crate::provider_effects`, `crate::json_parse`, `crate::panic_guard`, `crate::provider_effects`, `crate::codex_routing`, `crate::codex_stream`, `crate::json_parse`, `crate::provider_effects`, `crate::provider_error`, `crate::panic_guard`, `crate::image_accounting`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::json_parse`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::identifiers`, `crate::panic_guard`, `crate::host_files`, `crate::native_path`, `crate::panic_guard`, `crate::codex_credentials`, `crate::json_parse`, `crate::codec_ffi`, `crate::panic_guard`, `crate::json_dump`, `crate::json_parse`, `crate::codec_ffi`, `crate::panic_guard`, `crate::host_files`, `crate::json_dump`, `crate::json_parse`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::panic_guard`, `crate::steady_clock`, `crate::panic_guard`, `crate::auth_codec`, `crate::json_dump`, `crate::json_parse`, `crate::panic_guard`, `crate::json_parse`, `crate::panic_guard`, `crate::auth_codec`, `crate::auth_codec`, `crate::panic_guard`, `crate::auth_pkce`, `crate::auth_codec`, `crate::auth_pkce`, `crate::json_parse`, `crate::panic_guard`, `crate::json_dump`, `crate::image_accounting`, `crate::json_parse`, `crate::panic_guard`, `crate::json_parse`, `super::native`, `crate::panic_guard`, `super::native`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `super::steady_clock`, `crate::panic_guard`, `crate::login_socket`, `crate::steady_clock`, `crate::panic_guard`, `crate::panic_guard`, `crate::auth_codec`, `crate::grok_request`, `crate::json_dump`, `crate::panic_guard`, `crate::http`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::codec_ffi`, `crate::native_path`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::json_dump`, `crate::json_parse`, `crate::context_management`, `crate::json_parse`, `crate::panic_guard`, `crate::panic_guard`, `crate::json_parse`, `crate::panic_guard`, `crate::json_parse`, `crate::provider_error`, `crate::context_management`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::steady_clock`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::compaction_text`, `crate::panic_guard`, `crate::panic_guard`, `crate::model_catalog`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::steady_clock`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::history_notes`, `crate::panic_guard`, `crate::native_path`, `crate::panic_guard`, `crate::AssistRsStatus`, `crate::codec_ffi`, `crate::panic_guard`, `crate::json_dump`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::json_parse`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::json_parse`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::json_dump`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::native_path`, `crate::ota_state`, `crate::panic_guard`, `crate::ota_staging`, `crate::ota_state`, `crate::codec_ffi`, `crate::native_path`, `crate::panic_guard`, `crate::json_dump`, `crate::json_parse`, `crate::ota_staging`, `crate::ota_state`, `crate::codec_ffi`, `crate::native_path`, `crate::panic_guard`, `crate::json_dump`, `crate::json_parse`, `crate::codec_ffi`, `crate::native_path`, `crate::panic_guard`, `crate::json_dump`, `crate::json_parse`, `crate::codec_ffi`, `crate::panic_guard`, `crate::host_files`, `crate::codec_ffi`, `crate::json_dump`, `crate::panic_guard`, `crate::host_files`, `crate::json_dump`, `crate::json_parse`, `crate::json_parse`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::json_dump`, `crate::panic_guard`, `crate::json_dump`, `crate::json_parse`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::host_files`, `crate::panic_guard`, `crate::json_parse`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::codex_routing`, `crate::service_tier`, `crate::codec_ffi`, `crate::panic_guard`, `crate::credential_file`, `crate::owner_permissions`, `crate::panic_guard`, `crate::panic_guard`, `crate::compaction_text`, `crate::model_recovery`, `crate::provider_error`, `crate::panic_guard`, `crate::panic_guard`, `crate::steady_clock`, `crate::codec_ffi`, `crate::panic_guard`, `crate::panic_guard`, `crate::AssistRsStatus`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::panic_guard`, `crate::codec_ffi`, `crate::panic_guard`, `crate::json_dump`, `crate::panic_guard`, `crate::json_parse`, `crate::json_dump`, `crate::json_parse`, `crate::panic_guard`, `crate::json_dump`
+  --> src\account_directory.rs:7:13
+   |
+ 7 | use crate::{auth_pkce, credential_file::Provider, owner_permissions};
+   |             ^^^^^^^^^                             ^^^^^^^^^^^^^^^^^
+   |
+  ::: src\account_directory\ffi.rs:4:5
+   |
+ 4 |     native_path,
+   |     ^^^^^^^^^^^
+ 5 |     owned_value::{Node, OwnedValue},
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\resource_compression.rs:4:31
+   |
+ 4 | use crate::{codec_ffi::bytes, panic_guard};
+   |                               ^^^^^^^^^^^
+   |
+  ::: src\acp_models\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, host_json::At, owned_value::OwnedValue, panic_guard};
+   |             ^^^^^^^^^                                          ^^^^^^^^^^^
+   |
+  ::: src\agent_shell_path\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\agy_backend\driver.rs:10:5
+   |
+10 |     agy_codec, claude_codec, claude_history,
+   |     ^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+...
+13 |     image_accounting, json_dump,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^
+   |
+  ::: src\agy_backend\error.rs:2:5
+   |
+ 2 |     claude_codec, cli_conversation::LeaseError, cli_json, codec_ffi, json_dump, json_parse,
+   |     ^^^^^^^^^^^^                                ^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\agy_backend\ffi.rs:12:5
+   |
+12 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\agy_backend\relay.rs:14:5
+   |
+14 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\agy_backend\runtime.rs:12:5
+   |
+12 |     owner_permissions, steady_clock,
+   |     ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^
+   |
+  ::: src\agy_backend\session.rs:14:5
+   |
+14 |     agy_codec, claude_codec,
+   |     ^^^^^^^^^  ^^^^^^^^^^^^
+...
+17 |     claude_record_buffer,
+   |     ^^^^^^^^^^^^^^^^^^^^
+...
+21 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\agy_backend\session\accounting.rs:12:5
+   |
+12 |     model_recovery,
+   |     ^^^^^^^^^^^^^^
+   |
+  ::: src\amtp_wire.rs:17:5
+   |
+17 | use crate::panic_guard;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\amtp_envelope.rs:12:5
+   |
+12 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\amtp_envelope\ffi.rs:3:5
+   |
+ 3 |     codec_ffi, json_dump,
+   |     ^^^^^^^^^  ^^^^^^^^^
+ 4 |     owned_value::access::{array, boolean, object, text},
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\amtp_identity.rs:21:5
+   |
+21 |     host_files,
+   |     ^^^^^^^^^^
+   |
+  ::: src\amtp_identity\ffi.rs:4:5
+   |
+ 4 |     native_path,
+   |     ^^^^^^^^^^^
+ 5 |     owned_value::access::{array, number, object, text},
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\amtp_session\ffi.rs:5:13
+   |
+ 5 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\auth_codec.rs:7:13
+   |
+ 7 | use crate::{json_parse, owned_value::Node};
+   |             ^^^^^^^^^^
+   |
+  ::: src\auth_codec\ffi.rs:1:56
+   |
+ 1 | use crate::{codec_ffi::bytes, owned_value::OwnedValue, panic_guard};
+   |                                                        ^^^^^^^^^^^
+   |
+  ::: src\auth_file_lock.rs:13:13
+   |
+13 | use crate::{panic_guard, steady_clock};
+   |             ^^^^^^^^^^^  ^^^^^^^^^^^^
+   |
+  ::: src\auth_file_lock\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\auth_pkce\ffi.rs:2:31
+   |
+ 2 | use crate::{codec_ffi::bytes, panic_guard};
+   |                               ^^^^^^^^^^^
+   |
+  ::: src\chat_messages\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\chat_output\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\chat_request.rs:6:5
+   |
+ 6 |     chat_messages, chat_tools,
+   |     ^^^^^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\chat_request\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\chat_stream.rs:8:5
+   |
+ 8 |     chat_output,
+   |     ^^^^^^^^^^^
+ 9 |     owned_value::{Node, object::ObjectBuilder, view::ValueView},
+10 |     provider_error, provider_retry, stream_replay,
+   |     ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^
+   |
+  ::: src\chat_stream\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\chat_tools.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\chat_turn.rs:14:5
+   |
+14 |     chat_stream,
+   |     ^^^^^^^^^^^
+15 |     json_dump::{self, DumpError},
+16 |     json_parse,
+   |     ^^^^^^^^^^
+17 |     owned_value::{Node, object::ObjectBuilder, view::ValueView},
+18 |     provider_effects as effects, provider_error,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+...
+21 |     provider_trace as trace,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\chat_turn\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\chat_turn\framing.rs:10:5
+   |
+10 |     json_parse,
+   |     ^^^^^^^^^^
+11 |     owned_value::{Node, object::ObjectBuilder, view::ValueView},
+12 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\claude_backend\driver.rs:12:5
+   |
+12 |     claude_codec, claude_history, claude_metadata, image_accounting, json_dump, owned_value::Node,
+   |     ^^^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^  ^^^^^^^^^
+   |
+  ::: src\claude_backend\error.rs:2:5
+   |
+ 2 |     claude_codec, cli_conversation::LeaseError, cli_json, codec_ffi, json_dump, json_parse,
+   |     ^^^^^^^^^^^^                                ^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\claude_backend\ffi.rs:11:5
+   |
+11 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\claude_backend\runtime.rs:10:5
+   |
+10 |     cli_executable, json_dump,
+   |     ^^^^^^^^^^^^^^  ^^^^^^^^^
+11 |     owned_value::object::ObjectBuilder,
+12 |     steady_clock,
+   |     ^^^^^^^^^^^^
+   |
+  ::: src\claude_backend\session.rs:15:5
+   |
+15 |     claude_codec, claude_metadata, claude_output_state,
+   |     ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+16 |     claude_process::Process,
+17 |     claude_record_buffer, claude_stream_accounting, json_dump, json_parse,
+   |     ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\claude_backend\session\accounting.rs:8:5
+   |
+ 8 |     model_recovery, owned_value::Node,
+   |     ^^^^^^^^^^^^^^
+   |
+  ::: src\claude_backend\session\protocol.rs:5:13
+   |
+ 5 | use crate::{claude_codec, claude_process, owned_value::Node};
+   |             ^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+   |
+  ::: src\claude_codec\error.rs:4:5
+   |
+ 4 |     codec_ffi, codec_value,
+   |     ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\claude_codec\ffi.rs:5:5
+   |
+ 5 |     claude_process,
+   |     ^^^^^^^^^^^^^^
+...
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\claude_codec\history.rs:9:5
+   |
+ 9 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\claude_history.rs:5:5
+   |
+ 5 |     AssistRsStatus,
+   |     ^^^^^^^^^^^^^^
+...
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\claude_metadata.rs:5:5
+   |
+ 5 |     AssistRsStatus,
+   |     ^^^^^^^^^^^^^^
+...
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\claude_output_state.rs:8:5
+   |
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\claude_process\ffi.rs:8:31
+   |
+ 8 | use crate::{codec_ffi::bytes, panic_guard};
+   |                               ^^^^^^^^^^^
+   |
+  ::: src\claude_record_buffer.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\claude_stream_accounting.rs:9:5
+   |
+ 9 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\chooser_rowset\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\codec_ffi.rs:4:5
+   |
+ 4 |     AssistRsStatus,
+   |     ^^^^^^^^^^^^^^
+   |
+  ::: src\codex_credentials.rs:12:5
+   |
+12 |     auth_codec,
+   |     ^^^^^^^^^^
+   |
+  ::: src\codex_credentials\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\codex_credentials\manager.rs:8:5
+   |
+ 8 |     json_dump,
+   |     ^^^^^^^^^
+   |
+  ::: src\codex_credentials\manager_ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\codex_credentials\policy.rs:5:5
+   |
+ 5 |     auth_codec,
+   |     ^^^^^^^^^^
+   |
+  ::: src\codex_failure.rs:4:5
+   |
+ 4 |     compaction_text, model_recovery,
+   |     ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+ 5 |     owned_value::{Node, OwnedValue, object::ObjectBuilder, view::ValueView},
+ 6 |     panic_guard, provider_error,
+   |     ^^^^^^^^^^^  ^^^^^^^^^^^^^^
+   |
+  ::: src\codex_login.rs:11:5
+   |
+11 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\codex_login\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\codex_login\session.rs:4:5
+   |
+ 4 |     auth_pkce,
+   |     ^^^^^^^^^
+   |
+  ::: src\codex_oauth.rs:8:5
+   |
+ 8 |     auth_pkce,
+   |     ^^^^^^^^^
+ 9 |     http::url_encode,
+10 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\codex_oauth\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\codex_request.rs:7:5
+   |
+ 7 |     model_catalog,
+   |     ^^^^^^^^^^^^^
+ 8 |     owned_value::{Node, object::ObjectBuilder, view::ValueView},
+ 9 |     service_tier,
+   |     ^^^^^^^^^^^^
+   |
+  ::: src\codex_request\ffi.rs:7:5
+   |
+ 7 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\codex_routing.rs:14:5
+   |
+14 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\codex_stream.rs:10:5
+   |
+10 |     stream_replay,
+   |     ^^^^^^^^^^^^^
+   |
+  ::: src\codex_stream\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\codex_turn.rs:14:5
+   |
+14 |     codex_routing, codex_stream, json_parse,
+   |     ^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^
+15 |     owned_value::{Node, object::ObjectBuilder, view::ValueView},
+16 |     provider_effects, provider_error,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+   |
+  ::: src\codex_turn\effects.rs:1:32
+   |
+ 1 | use crate::{owned_value::Node, provider_effects};
+   |                                ^^^^^^^^^^^^^^^^
+   |
+  ::: src\codex_turn\ffi.rs:8:5
+   |
+ 8 |     panic_guard, provider_effects,
+   |     ^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+   |
+  ::: src\codex_turn\framing.rs:7:5
+   |
+ 7 |     json_parse,
+   |     ^^^^^^^^^^
+ 8 |     owned_value::{Node, object::ObjectBuilder, view::ValueView},
+ 9 |     panic_guard, provider_effects,
+   |     ^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+   |
+  ::: src\compaction_estimate.rs:11:5
+   |
+11 |     image_accounting,
+   |     ^^^^^^^^^^^^^^^^
+   |
+  ::: src\compaction_estimate\ffi.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\compaction_eviction\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\compaction_rollup\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\compaction_tail.rs:6:13
+   |
+ 6 | use crate::{AssistRsStatus, panic_guard};
+   |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\compaction_tail\history\ffi.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\compaction_text.rs:4:13
+   |
+ 4 | use crate::{AssistRsStatus, panic_guard};
+   |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\compatible_recovery\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\compatible_recovery\managed.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\compatible_recovery\validation.rs:5:5
+   |
+ 5 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\context_management.rs:4:13
+   |
+ 4 | use crate::{AssistRsStatus, panic_guard};
+   |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\context_management\request.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\context_management\state\ffi.rs:2:38
+   |
+ 2 | use crate::{owned_value::OwnedValue, panic_guard};
+   |                                      ^^^^^^^^^^^
+   |
+  ::: src\context_management\values.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\conversation_reposition\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\core_utilities.rs:11:5
+   |
+11 | use crate::host_files;
+   |     ^^^^^^^^^^^^^^^^^
+   |
+  ::: src\core_utilities\ffi.rs:1:13
+   |
+ 1 | use crate::{codec_ffi, identifiers, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\credential_file\ffi.rs:4:5
+   |
+ 4 |     native_path,
+   |     ^^^^^^^^^^^
+ 5 |     owned_value::{Node, OwnedValue},
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\credential_file\read.rs:4:5
+   |
+ 4 |     codex_credentials, json_parse,
+   |     ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\data_root.rs:18:5
+   |
+18 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\data_root\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\debug_sink.rs:16:5
+   |
+16 |     host_files, json_dump, json_parse,
+   |     ^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\debug_sink\ffi.rs:3:5
+   |
+ 3 |     codec_ffi,
+   |     ^^^^^^^^^
+...
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\detail_store\ffi.rs:6:13
+   |
+ 6 | use crate::{AssistRsStatus, panic_guard};
+   |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\emulation_windows_env\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\failure_classification\ffi.rs:1:13
+   |
+ 1 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\federated_identity\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\grok_catalog\ffi.rs:5:5
+   |
+ 5 |     panic_guard, steady_clock,
+   |     ^^^^^^^^^^^  ^^^^^^^^^^^^
+   |
+  ::: src\grok_credentials.rs:18:5
+   |
+18 |     auth_codec,
+   |     ^^^^^^^^^^
+   |
+  ::: src\grok_credentials\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_credentials\manager.rs:10:5
+   |
+10 |     auth_codec,
+   |     ^^^^^^^^^^
+...
+14 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\grok_credentials\manager_ffi.rs:8:5
+   |
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_credentials\state.rs:5:5
+   |
+ 5 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\grok_credentials\state_ffi.rs:7:5
+   |
+ 7 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_credentials\update.rs:5:5
+   |
+ 5 |     auth_codec,
+   |     ^^^^^^^^^^
+   |
+  ::: src\grok_oauth.rs:13:5
+   |
+13 |     auth_codec, auth_pkce,
+   |     ^^^^^^^^^^  ^^^^^^^^^
+14 |     http::url_encode,
+15 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\grok_oauth\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_oauth\login.rs:5:5
+   |
+ 5 |     auth_pkce,
+   |     ^^^^^^^^^
+   |
+  ::: src\grok_request.rs:9:5
+   |
+ 9 |     image_accounting,
+   |     ^^^^^^^^^^^^^^^^
+   |
+  ::: src\grok_request\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_request\messages.rs:4:5
+   |
+ 4 |     json_dump,
+   |     ^^^^^^^^^
+   |
+  ::: src\grok_stream.rs:9:5
+   |
+ 9 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\grok_stream\events.rs:3:5
+   |
+ 3 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\grok_stream\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_transport.rs:20:5
+   |
+20 |     login_socket as native,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+21 |     login_socket::{BindOptions, Socket},
+22 |     steady_clock,
+   |     ^^^^^^^^^^^^
+   |
+  ::: src\grok_transport\ffi.rs:1:35
+   |
+ 1 | use super::{Connection, Listener, native};
+   |                                   ^^^^^^
+ 2 | use crate::panic_guard;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\grok_transport\login.rs:4:31
+   |
+ 4 |     Listener, OperationGuard, native,
+   |                               ^^^^^^
+...
+11 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_transport\login_ffi.rs:9:5
+   |
+ 9 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_transport\runtime.rs:2:5
+   |
+ 2 | use crate::panic_guard;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\grok_transport\runtime_ffi.rs:10:5
+   |
+10 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_transport\server.rs:1:39
+   |
+ 1 | use super::{Listener, OperationGuard, steady_clock};
+   |                                       ^^^^^^^^^^^^
+   |
+  ::: src\grok_transport\server_ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_turn.rs:13:5
+   |
+13 |     http,
+   |     ^^^^
+   |
+  ::: src\grok_turn\ffi.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_turn\framing.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\grok_turn\request.rs:3:5
+   |
+ 3 |     auth_codec, grok_request, json_dump,
+   |     ^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^
+   |
+  ::: src\grok_turn\streamed_ffi.rs:12:5
+   |
+12 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_notes.rs:3:31
+   |
+ 3 | use crate::{codec_ffi::bytes, panic_guard};
+   |                               ^^^^^^^^^^^
+   |
+  ::: src\history_notes\catalog.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_notes\credentials.rs:10:5
+   |
+10 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_notes\exchange.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_notes\native_http.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_notes\operation.rs:8:5
+   |
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_notes\request.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_notes\response.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_notes\schema.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_notes_output.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\history_store\ffi.rs:3:5
+   |
+ 3 |     codec_ffi,
+   |     ^^^^^^^^^
+ 4 |     owned_value::{OwnedValue, access::text},
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\http.rs:22:5
+   |
+22 | use crate::panic_guard;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\identifiers.rs:3:5
+   |
+ 3 | use crate::panic_guard;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\image_accounting\content\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\image_accounting\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\json_dump.rs:11:5
+   |
+11 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\json_parse\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\json_stream.rs:8:13
+   |
+ 8 | use crate::{AssistRsStatus, panic_guard};
+   |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\knowledge_facts\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\knowledge_recall\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\line_tags\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\masking_casefold.rs:10:13
+   |
+10 | use crate::{AssistRsStatus, panic_guard};
+   |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\masking_source\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\masking_text_index.rs:5:13
+   |
+ 5 | use crate::{AssistRsStatus, panic_guard};
+   |             ^^^^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\mcp_approval\ffi.rs:8:5
+   |
+ 8 |     codec_ffi, native_path,
+   |     ^^^^^^^^^  ^^^^^^^^^^^
+...
+13 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\mcp_prompt_election\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\mcp_stdio_bridge.rs:15:5
+   |
+15 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\mcp_stdio_bridge\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\model_catalog.rs:14:5
+   |
+14 |     context_management,
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\model_catalog\builtin.rs:3:5
+   |
+ 3 |     context_management,
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\model_catalog\bundled.rs:5:5
+   |
+ 5 |     json_parse,
+   |     ^^^^^^^^^^
+ 6 |     owned_value::{Node, OwnedValue, view::ValueView},
+ 7 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\model_catalog\ffi.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\model_catalog\grok.rs:9:5
+   |
+ 9 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\model_catalog\load.rs:8:5
+   |
+ 8 |     json_parse,
+   |     ^^^^^^^^^^
+ 9 |     owned_value::{Node, object::ObjectBuilder, view::ValueView},
+10 |     provider_error,
+   |     ^^^^^^^^^^^^^^
+   |
+  ::: src\model_catalog\load\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\model_recovery.rs:5:31
+   |
+ 5 | use crate::{codec_ffi::bytes, panic_guard};
+   |                               ^^^^^^^^^^^
+   |
+  ::: src\model_recovery_driver.rs:7:5
+   |
+ 7 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\model_recovery_record.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\model_recovery_runtime.rs:4:35
+   |
+ 4 | use crate::{model_recovery::Time, panic_guard, steady_clock};
+   |                                   ^^^^^^^^^^^  ^^^^^^^^^^^^
+   |
+  ::: src\model_recovery_state.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_accounting\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_batch\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_checkpoint\ffi.rs:2:38
+   |
+ 2 | use crate::{owned_value::OwnedValue, panic_guard};
+   |                                      ^^^^^^^^^^^
+   |
+  ::: src\native_checkpoint\history.rs:4:13
+   |
+ 4 | use crate::{compaction_text, owned_value::Node};
+   |             ^^^^^^^^^^^^^^^
+   |
+  ::: src\native_compaction\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_session.rs:11:5
+   |
+11 |     model_catalog,
+   |     ^^^^^^^^^^^^^
+   |
+  ::: src\native_session\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_stream\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_summary\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_tool_execution\ffi.rs:4:5
+   |
+ 4 |     panic_guard, steady_clock,
+   |     ^^^^^^^^^^^  ^^^^^^^^^^^^
+   |
+  ::: src\native_tool_prepare\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_tool_result\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_turn\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_working_notes\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\native_working_notes\private_call.rs:3:5
+   |
+ 3 |     history_notes,
+   |     ^^^^^^^^^^^^^
+   |
+  ::: src\owned_value.rs:10:31
+   |
+10 | use crate::{codec_ffi::bytes, panic_guard};
+   |                               ^^^^^^^^^^^
+   |
+  ::: src\owner_permissions\ffi.rs:2:31
+   |
+ 2 | use crate::{codec_ffi::bytes, native_path, panic_guard};
+   |                               ^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\panic_guard.rs:15:5
+   |
+15 | use crate::AssistRsStatus;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\masking_policy\ffi.rs:4:13
+   |
+ 4 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\host_json.rs:11:5
+   |
+11 |     json_dump,
+   |     ^^^^^^^^^
+   |
+  ::: src\mesh_database_selection\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\mesh_fanout_eligibility\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\mesh_fanout_result.rs:10:13
+   |
+10 | use crate::{json_parse, owned_value::Node, owned_value::view::ValueView};
+   |             ^^^^^^^^^^
+   |
+  ::: src\mesh_fanout_result\ffi.rs:1:13
+   |
+ 1 | use crate::{codec_ffi, owned_value::OwnedValue, panic_guard};
+   |             ^^^^^^^^^                           ^^^^^^^^^^^
+   |
+  ::: src\mesh_fanout_schema\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\mesh_fanout_shaping.rs:20:5
+   |
+20 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\mesh_fanout_shaping\ffi.rs:3:13
+   |
+ 3 | use crate::{codec_ffi, owned_value::OwnedValue, panic_guard};
+   |             ^^^^^^^^^                           ^^^^^^^^^^^
+   |
+  ::: src\mesh_forward_reply\ffi.rs:2:61
+   |
+ 2 | use crate::{host_json::emit_throw, owned_value::OwnedValue, panic_guard};
+   |                                                             ^^^^^^^^^^^
+   |
+  ::: src\mesh_membership.rs:11:13
+   |
+11 | use crate::{json_dump, owned_value::object::ObjectBuilder};
+   |             ^^^^^^^^^
+   |
+  ::: src\mesh_membership\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\mesh_presence\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\mesh_relevance\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\network_ingress\ffi.rs:5:13
+   |
+ 5 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\ota_gate.rs:17:5
+   |
+17 |     ota_staging, ota_state,
+   |     ^^^^^^^^^^^  ^^^^^^^^^
+   |
+  ::: src\ota_gate\ffi.rs:3:5
+   |
+ 3 |     codec_ffi, native_path, ota_state, panic_guard,
+   |     ^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\ota_retire.rs:28:5
+   |
+28 |     json_dump, json_parse, ota_staging, ota_state,
+   |     ^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^
+   |
+  ::: src\ota_retire\ffi.rs:3:5
+   |
+ 3 |     codec_ffi, native_path, panic_guard,
+   |     ^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\ota_state.rs:16:5
+   |
+16 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\ota_state\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, native_path, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\ota_staging.rs:16:5
+   |
+16 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\ota_staging\ffi.rs:3:5
+   |
+ 3 |     codec_ffi, native_path, panic_guard,
+   |     ^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\perfetto_trace.rs:11:5
+   |
+11 |     host_files,
+   |     ^^^^^^^^^^
+   |
+  ::: src\perfetto_trace\ffi.rs:3:5
+   |
+ 3 |     codec_ffi,
+   |     ^^^^^^^^^
+...
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\session_replay.rs:16:5
+   |
+16 |     host_files, json_dump, json_parse,
+   |     ^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\session_replay\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, json_dump, owned_value::OwnedValue, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^                           ^^^^^^^^^^^
+   |
+  ::: src\triage\corroboration.rs:10:5
+   |
+10 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\triage\ffi.rs:8:13
+   |
+ 8 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\update_service\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\update_tuf.rs:18:13
+   |
+18 | use crate::{json_dump, json_parse, owned_value::access::Value};
+   |             ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\update_tuf\ffi.rs:3:5
+   |
+ 3 |     codec_ffi, json_dump,
+   |     ^^^^^^^^^  ^^^^^^^^^
+ 4 |     owned_value::access::{Value, array, null, number, object, text},
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\windows_command_line\ffi.rs:1:13
+   |
+ 1 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\permission_coordinator\ffi.rs:3:5
+   |
+ 3 |     codec_ffi,
+   |     ^^^^^^^^^
+...
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\prompt_history.rs:10:5
+   |
+10 |     host_files,
+   |     ^^^^^^^^^^
+   |
+  ::: src\prompt_history\ffi.rs:3:5
+   |
+ 3 |     codec_ffi,
+   |     ^^^^^^^^^
+...
+ 8 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\prompt_provenance\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\prompt_provenance\notices.rs:3:5
+   |
+ 3 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\prompt_state\ffi.rs:4:5
+   |
+ 4 | use crate::panic_guard;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\provenance.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\provider_accounting.rs:6:5
+   |
+ 6 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\provider_error\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\provider_request.rs:8:5
+   |
+ 8 |     codex_routing,
+   |     ^^^^^^^^^^^^^
+ 9 |     owned_value::{Node, object::ObjectBuilder, view::ValueView},
+10 |     service_tier,
+   |     ^^^^^^^^^^^^
+   |
+  ::: src\provider_request\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\provider_profiles\ffi.rs:1:13
+   |
+ 1 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\provider_profiles\storage.rs:6:43
+   |
+ 6 | use crate::{auth_file_lock::AuthFileLock, credential_file, owner_permissions};
+   |                                           ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+   |
+  ::: src\provider_retry.rs:9:5
+   |
+ 9 |     compaction_text, model_recovery,
+   |     ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+10 |     owned_value::{Node, object::ObjectBuilder, view::ValueView},
+11 |     provider_error,
+   |     ^^^^^^^^^^^^^^
+   |
+  ::: src\provider_retry\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\provider_retry\timing.rs:1:58
+   |
+ 1 | use crate::{model_recovery_runtime::sample_retry_jitter, panic_guard};
+   |                                                          ^^^^^^^^^^^
+   |
+  ::: src\provider_turn\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\response_item\ffi.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\retry_advice.rs:4:5
+   |
+ 4 |     steady_clock,
+   |     ^^^^^^^^^^^^
+   |
+  ::: src\script_containment\ffi.rs:3:13
+   |
+ 3 | use crate::{codec_ffi, panic_guard};
+   |             ^^^^^^^^^  ^^^^^^^^^^^
+   |
+  ::: src\service_tier\ffi.rs:4:5
+   |
+ 4 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\sse.rs:21:5
+   |
+21 | use crate::AssistRsStatus;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+22 | use crate::panic_guard;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\steady_clock.rs:6:5
+   |
+ 6 | use crate::panic_guard;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+  ::: src\stream_replay\ffi.rs:2:31
+   |
+ 2 | use crate::{codec_ffi::bytes, panic_guard};
+   |                               ^^^^^^^^^^^
+   |
+  ::: src\token_usage.rs:5:5
+   |
+ 5 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\tool_input.rs:19:5
+   |
+19 |     json_dump, json_parse,
+   |     ^^^^^^^^^  ^^^^^^^^^^
+   |
+  ::: src\tool_input\ffi.rs:2:13
+   |
+ 2 | use crate::{codec_ffi, host_json::At, owned_value::OwnedValue, panic_guard};
+   |             ^^^^^^^^^                                          ^^^^^^^^^^^
+   |
+  ::: src\tool_input\reshape.rs:19:5
+   |
+19 |     json_dump,
+   |     ^^^^^^^^^
+   |
+  ::: src\tool_input\visual.rs:17:5
+   |
+17 |     json_parse,
+   |     ^^^^^^^^^^
+   |
+  ::: src\tool_input\visual\ffi.rs:3:5
+   |
+ 3 |     panic_guard,
+   |     ^^^^^^^^^^^
+   |
+  ::: src\tool_validation.rs:14:5
+   |
+14 |     json_dump,
+   |     ^^^^^^^^^
+   |
+  ::: src\tool_validation\ffi.rs:2:58
+   |
+ 2 | use crate::{host_json::view_of, owned_value::OwnedValue, panic_guard};
+   |                                                          ^^^^^^^^^^^
+
+warning: unused import: `self`
+  --> src\claude_process\windows.rs:13:14
+   |
+13 |     thread::{self, JoinHandle},
+   |              ^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0432, E0463.
+For more information about an error, try `rustc --explain E0432`.
+warning: `assist-rs` (lib) generated 1 warning
+error: could not compile `assist-rs` (lib) due to 2 previous errors; 1 warning emitted

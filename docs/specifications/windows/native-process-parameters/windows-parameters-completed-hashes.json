@@ -1,0 +1,27 @@
+[
+  {
+    "name": "native-parameters-resumed-full.log",
+    "sha256": "a15d59d5bfc0403103ddc568cfc36a904a6481d4710e1457a96012d3e83714bd",
+    "bytes": 718991
+  },
+  {
+    "name": "native-parameters-resumed-capi.log",
+    "sha256": "f5cad77f83980a33d7aba6db6ebb20c396f69b9d075d6ceb33c44a4c34e0fa62",
+    "bytes": 13816
+  },
+  {
+    "name": "native-parameters-resumed-all-targets.log",
+    "sha256": "a455424699e374749027f02243520c2eddd68e2b96cc48a8a25b43b03397bdf2",
+    "bytes": 986
+  },
+  {
+    "name": "native-parameters-resumed-integration.log",
+    "sha256": "61fccdcf4ccb90ba8f032367cb1856e95c0a40585fd3756eb6c38cbba25a7f73",
+    "bytes": 1495
+  },
+  {
+    "name": "assist-native-parameters-repaired-shipping.log",
+    "sha256": "0486fe29e201a2cdf406bb2ac680bf56130c85d5ee98e2c986e143776245a876",
+    "bytes": 42474
+  }
+]

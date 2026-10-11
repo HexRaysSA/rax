@@ -1,0 +1,27 @@
+[
+  {
+    "name": "native-partition-descriptor-watch.rs",
+    "sha256": "7116E07A26F52BE8047B36FFAF662DA3FCA5CA666A808702747F83D6E84BE218",
+    "bytes": 13166
+  },
+  {
+    "name": "native-partition-descriptor-watch-build.log",
+    "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "bytes": 0
+  },
+  {
+    "name": "native-partition-descriptor-watch-output.log",
+    "sha256": "97A1526DF7EDB9F242294796C82CA3B821C322D3990E5E1195810683D3D0FFEF",
+    "bytes": 75630
+  },
+  {
+    "name": "native-partition-descriptor-watch-artifacts.jsonl",
+    "sha256": "A4A38459D25378089AC0207E29E0FDEA12922DC656F8FBDB090E21F68E5A8442",
+    "bytes": 124511
+  },
+  {
+    "name": "native-partition-descriptor-watch-artifacts-stderr.log",
+    "sha256": "3E43B255D4B20A7B309AFEB5012D5088AA471E53C75606D9DF8A98BAB335F40E",
+    "bytes": 72
+  }
+]

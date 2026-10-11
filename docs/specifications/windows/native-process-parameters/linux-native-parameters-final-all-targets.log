@@ -1,0 +1,2 @@
+   Compiling rax v0.1.0 (/work/vendor/rax)
+time="2026-10-11T02:14:27+02:00" level=error msg="error waiting for container: unexpected EOF"

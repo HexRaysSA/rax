@@ -1,0 +1,14 @@
+[
+  {
+    "probe": "tampered native original byte",
+    "exit": 1,
+    "required_input": "native-process-parameters-probe-arm64.log",
+    "rejected": true
+  },
+  {
+    "probe": "missing native original",
+    "exit": 1,
+    "required_input": "native-process-parameters-probe-arm64.log",
+    "rejected": true
+  }
+]

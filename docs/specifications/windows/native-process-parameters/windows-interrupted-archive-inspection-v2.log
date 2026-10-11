@@ -1,0 +1,10 @@
+archive C:\Windows\Temp\assist-native-rax-20261010\target\debug\assist_rs.lib
+size 1101162336 sha256 b8cf24f0619999aaf95903fb908327bb77e88f7cd359d8a916fd4ba86faee160
+magic b'!<arch>\n'
+INVALID MEMBER 1005889936 b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+archive C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\librax-e6c413934cad3a8f.rlib
+size 718540714 sha256 ea0d44d452216882a2db8b89243dc1c174ced2a135980f8f83b10e731b68b4b2
+magic b'!<arch>\n'
+STRUCTURAL MEMBER WALK PASSED 260
+
+STDERR

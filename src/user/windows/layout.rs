@@ -269,8 +269,9 @@ pub struct Offsets {
     pub pp_runtime_data: u64,
     /// `EnvironmentSize`.
     pub pp_environment_size: u64,
-    /// Structure size (Windows 10: 0x2A4 / 0x410; this implementation
-    /// stores fields through `EnvironmentVersion`).
+    /// Structure size through Windows 11 22H2 `HeapMemoryTypeMask`, including
+    /// native tail alignment: 0x2C4 bytes (x86), 0x448 bytes (x64/ARM64).
+    /// Optional modern fields remain zero in the default process parameters.
     pub pp_size: u64,
 }
 
@@ -369,7 +370,7 @@ const OFFSETS32: Offsets = Offsets {
     pp_shell_info: 0x80,
     pp_runtime_data: 0x88,
     pp_environment_size: 0x290,
-    pp_size: 0x2A4,
+    pp_size: 0x2C4,
 };
 
 const OFFSETS64: Offsets = Offsets {
@@ -467,7 +468,7 @@ const OFFSETS64: Offsets = Offsets {
     pp_shell_info: 0xD0,
     pp_runtime_data: 0xE0,
     pp_environment_size: 0x3F0,
-    pp_size: 0x410,
+    pp_size: 0x448,
 };
 
 /// The offsets for `arch`.

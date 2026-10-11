@@ -1,0 +1,9 @@
+   Compiling rax v0.1.0 (/work/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 01s
+     Running unittests src/lib.rs (/target/debug/deps/rax-094640fccc97af0f)
+
+running 1 test
+test user::windows::process::start::parameters_tests::modern_parameter_tail_is_zero_and_disjoint_from_strings_all_abis ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7553 filtered out; finished in 0.08s
+

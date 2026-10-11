@@ -1,0 +1,1841 @@
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+Built target assist_static_text_generate
+Built target assist_monocypher
+   Compiling vm-memory v0.17.1 (/Users/int/hexrays/kvasir/vendor/rax/vendor/vm-memory)
+   Compiling rax-capi v0.1.2 (/Users/int/hexrays/kvasir/vendor/rax/capi)
+   Compiling assist-rs v0.1.0 (/Users/int/hexrays/kvasir/rust/assist-rs)
+   Compiling linux-loader v0.13.2 (https://github.com/19h/linux-loader?rev=f745b555942c4e840a784bca61e6f3976d101960#f745b555)
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 55.53s
+Built target assist_rs_cargo
+Building CXX object CMakeFiles/assist_static_text.dir/src/crypto/static_text.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/crypto/static_text.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/array:117:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/equal.h:13:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/comp.h:12:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+Linking CXX static library libassist_static_text.a
+Built target assist_static_text
+Linking CXX static library libassist_static_text_metadata.a
+Built target assist_static_text_metadata
+Building CXX object test/CMakeFiles/assist_rax_process_tests.dir/rax_process_tests.cpp.o
+Building CXX object test/CMakeFiles/assist_rax_process_tests.dir/__/src/emulation/rax/rax_process.cpp.o
+Building CXX object test/CMakeFiles/assist_rax_process_tests.dir/terminate_report.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/test/terminate_report.cpp:16:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdio:101:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/emulation/rax/rax_process.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/emulation/rax/rax_process.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/emulation/rax/librax_loader.hpp:13:
+In file included from /Users/int/hexrays/kvasir/vendor/rax/capi/include/rax.h:31:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/test/rax_process_tests.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/emulation/process_elf_fixture.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+Linking CXX executable assist_rax_process_tests
+Built target assist_rax_process_tests
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+Built target assist_static_text_generate
+Built target assist_monocypher
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
+Built target assist_rs_cargo
+Built target assist_static_text
+Built target assist_static_text_metadata
+Building CXX object test/CMakeFiles/assist_process_tool_tests.dir/process_tool_tests.cpp.o
+Building CXX object test/CMakeFiles/assist_process_tool_tests.dir/__/src/tools/builtin/emulation/sessions/process_tool.cpp.o
+Building CXX object test/CMakeFiles/assist_process_tool_tests.dir/__/src/emulation/rax/rax_process.cpp.o
+Building CXX object test/CMakeFiles/assist_process_tool_tests.dir/__/src/emulation/rax/librax_loader.cpp.o
+Building CXX object test/CMakeFiles/assist_process_tool_tests.dir/terminate_report.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/test/terminate_report.cpp:16:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdio:101:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/emulation/rax/rax_process.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/emulation/rax/rax_process.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/emulation/rax/librax_loader.hpp:13:
+In file included from /Users/int/hexrays/kvasir/vendor/rax/capi/include/rax.h:31:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/test/process_tool_tests.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/emulation/process_elf_fixture.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/emulation/rax/librax_loader.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/emulation/rax/librax_loader.hpp:13:
+In file included from /Users/int/hexrays/kvasir/vendor/rax/capi/include/rax.h:31:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/emulation/sessions/process_tool.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+Linking CXX executable assist_process_tool_tests
+Built target assist_process_tool_tests
+Built target assist_static_text_generate
+Built target assist_monocypher
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+Built target assist_rs_cargo
+Built target assist_static_text
+Built target assist_static_text_metadata
+Building CXX object test/CMakeFiles/assist_process_tool_unavailable_tests.dir/process_tool_unavailable_tests.cpp.o
+Building CXX object test/CMakeFiles/assist_process_tool_unavailable_tests.dir/terminate_report.cpp.o
+Building CXX object test/CMakeFiles/assist_process_tool_unavailable_tests.dir/__/src/tools/builtin/emulation/sessions/process_tool.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/test/terminate_report.cpp:16:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdio:101:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/test/process_tool_unavailable_tests.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/tools/tool_registry/detail/factories/emulation_solver_and_frida.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/tools/tool_registry/detail/core_types.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/emulation/sessions/process_tool.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/test/../include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+Linking CXX executable assist_process_tool_unavailable_tests
+Built target assist_process_tool_unavailable_tests
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+Built target assist_static_text_generate
+Built target assist_monocypher
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+Built target assist_rs_cargo
+Built target assist_static_text
+Built target assist_static_text_metadata
+Building CXX object test/CMakeFiles/assist_e14_rax_abi_drift_tests.dir/e14_rax_abi_drift_tests.cpp.o
+Building CXX object test/CMakeFiles/assist_e14_rax_abi_drift_tests.dir/terminate_report.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/test/terminate_report.cpp:16:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdio:101:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/test/e14_rax_abi_drift_tests.cpp:6:
+In file included from /Users/int/hexrays/kvasir/vendor/rax/capi/include/rax.h:31:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+Linking CXX executable assist_e14_rax_abi_drift_tests
+Built target assist_e14_rax_abi_drift_tests
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+Built target assist_static_text_generate
+Built target assist_monocypher
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+Built target assist_rs_cargo
+Built target assist_static_text
+Built target assist_static_text_metadata
+Building CXX object test/CMakeFiles/assist_rust_archive_link_tests.dir/terminate_report.cpp.o
+Building CXX object test/CMakeFiles/assist_rust_archive_link_tests.dir/rust_archive_link_tests.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/test/terminate_report.cpp:16:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdio:101:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/test/rust_archive_link_tests.cpp:23:
+In file included from /Users/int/hexrays/kvasir/rust/assist-rs/include/assist_rs.h:24:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+Linking CXX executable assist_rust_archive_link_tests
+Built target assist_rust_archive_link_tests
+[  0%] Built target assist_static_text_generate
+[  0%] Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+[  0%] Built target assist_monocypher
+[  0%] Built target spinlock_wait
+[  0%] Built target strerror
+[  0%] Built target flags_commandlineflag_internal
+[  0%] Built target int128
+[  0%] Built target log_severity
+[  0%] Built target exponential_biased
+[  0%] Built target civil_time
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+[  0%] Built target log_internal_nullguard
+[  0%] Built target assist_rs_cargo
+[  0%] Built target raw_logging_internal
+[  0%] Built target time_zone
+[  0%] Built target assist_static_text
+[  0%] Built target bad_variant_access
+[ 20%] Built target debugging_internal
+[ 20%] Built target assist_static_text_metadata
+[ 20%] Built target bad_optional_access
+[ 20%] Built target throw_delegate
+[ 20%] Built target cordz_functions
+[ 20%] Built target stacktrace
+[ 20%] Linking CXX static library libassist_static_text_prompts.a
+[ 20%] Linking CXX static library libassist_static_text_scripts.a
+[ 20%] Linking CXX static library libassist_static_text_manifest.a
+[ 20%] Built target base
+[ 20%] Built target assist_static_text_prompts
+[ 20%] Built target assist_static_text_scripts
+[ 20%] Built target assist_static_text_manifest
+[ 20%] Built target demangle_internal
+[ 20%] Built target string_view
+[ 20%] Built target city
+[ 20%] Built target malloc_internal
+[ 20%] Built target log_internal_conditions
+[ 20%] Built target low_level_hash
+[ 20%] Built target strings_internal
+[ 20%] Built target crc_cpu_detect
+[ 20%] Linking CXX static library libassist_embedded_prompts.a
+[ 20%] Linking CXX static library libassist_frida_host_source.a
+[ 20%] Built target graphcycles_internal
+[ 20%] Built target crc_internal
+[ 20%] Built target assist_embedded_prompts
+[ 20%] Built target assist_frida_host_source
+[ 20%] Building CXX object CMakeFiles/assist_mcp.dir/src/mcp/assist_mcp_main.cpp.o
+[ 20%] Building CXX object CMakeFiles/assist_mcp.dir/src/mcp/stdio_bridge.cpp.o
+[ 20%] Building CXX object CMakeFiles/assist_mcp.dir/src/mcp/agent_relay.cpp.o
+[ 20%] Building CXX object CMakeFiles/assist_mcp.dir/src/amtp/wire.cpp.o
+[ 20%] Building CXX object CMakeFiles/assist_mcp.dir/src/amtp/session.cpp.o
+[ 20%] Building CXX object CMakeFiles/assist_mcp.dir/src/amtp/local_socket.cpp.o
+[ 20%] Building CXX object CMakeFiles/assist_mcp.dir/src/amtp/owner_only_acl.cpp.o
+[ 40%] Built target strings
+[ 40%] Building CXX object CMakeFiles/assist_mcp.dir/src/amtp/identity_store.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/local_socket.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/local_socket.hpp:27:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/mcp/agent_relay.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/mcp/agent_relay.hpp:16:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/filesystem:539:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_mcp.dir/src/amtp/service.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_mcp.dir/src/amtp/tcp_socket.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/wire.cpp:16:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_mcp.dir/src/amtp/ingress.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/session.cpp:14:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_mcp.dir/src/crypto/primitives.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/tcp_socket.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/tcp_socket.hpp:20:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/local_socket.hpp:27:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/mcp/assist_mcp_main.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/mcp/agent_relay.hpp:16:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/filesystem:539:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/owner_only_acl.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/owner_only_acl.hpp:18:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Built target symbolize
+[ 40%] Built target hash
+[ 40%] Built target time
+[ 40%] Built target examine_stack
+In file included from /tmp/assist-native-allocate-ex-root-final/src/crypto/primitives.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/crypto/primitives.hpp:19:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/array:117:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/equal.h:13:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/comp.h:12:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Built target flags_commandlineflag
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/ingress.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/ingress.hpp:35:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/service.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/identity_store.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Built target str_format_internal
+[ 40%] Built target log_internal_globals
+[ 40%] Built target log_internal_proto
+[ 40%] Built target log_internal_fnmatch
+[ 40%] Built target log_entry
+[ 40%] Built target kernel_timeout_internal
+[ 40%] Built target flags_marshalling
+[ 40%] Built target flags_private_handle_accessor
+[ 40%] Built target log_internal_format
+[ 40%] Built target log_sink
+[ 40%] Built target crc32c
+[ 40%] Built target crc_cord_state
+[ 40%] Built target cord_internal
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/identity_store.cpp:14:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/identity_store.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Built target synchronization
+[ 40%] Built target flags_program_name
+[ 40%] Built target cordz_handle
+[ 40%] Built target hashtablez_sampler
+[ 40%] Built target vlog_config_internal
+In file included from /tmp/assist-native-allocate-ex-root-final/src/mcp/stdio_bridge.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Built target flags_config
+[ 40%] Built target cordz_info
+[ 40%] Built target raw_hash_set
+[ 40%] Built target log_globals
+[ 40%] Built target flags_internal
+[ 40%] Built target log_internal_log_sink_set
+[ 40%] Built target cord
+[ 40%] Built target log_internal_message
+[ 40%] Built target flags_reflection
+[ 40%] Built target log_internal_check_op
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/service.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/service.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/identity_store.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Built target re2
+[ 40%] Linking CXX executable assist-mcp
+[ 40%] Building CXX object CMakeFiles/assist_masking.dir/src/core/masking_python_runtime.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_masking.dir/src/core/masking_python_source.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_masking.dir/src/core/masking_json_stream.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_masking.dir/src/core/masking_text_index.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_masking.dir/src/core/masking_casefold.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_masking.dir/src/core/masking_policy.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_masking.dir/src/core/masking_source.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/masking_python_source.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/masking_python_runtime.hpp:2:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/masking_python_runtime.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/masking_python_runtime.hpp:2:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+Checking that assist_mcp exports nothing
+Checking protected plaintext in assist_mcp
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/masking_text_index.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/masking_text_index.hpp:2:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/masking_source.cpp:10:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/masking_error.hpp:2:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stdexcept:47:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/masking_casefold.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/masking_casefold.hpp:2:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/masking_json_stream.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/masking_json_stream.hpp:2:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/masking_policy.cpp:13:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/masking_policy.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Linking CXX static library libassist_masking.a
+[ 40%] Built target assist_masking
+Static text scan: 1 artifacts, 0 failures
+[ 40%] Built target assist_mcp
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/common/ida_ui.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/standalone/tui/visual_tui.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/standalone/terminal_main.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/standalone/tui/markdown_ansi.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/standalone/tui/chat_renderer.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/http_client.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/sse_parser.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/codex_auth.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/standalone/tui/markdown_ansi.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/standalone/tui/markdown_ansi.hpp:11:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/tui/text.hpp:9:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/tui/ansi.hpp:13:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/common/ida_ui.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/common/ida_ui/detail/common.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/codex_oauth.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/standalone/tui/visual_tui.cpp:7:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/standalone/tui/visual_tui.hpp:11:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/tui/text.hpp:9:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/tui/ansi.hpp:13:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/codex_credentials.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/auth_codec.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/sse_parser.cpp:9:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/sse_parser.hpp:20:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/grok_auth.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/http_client.cpp:20:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/http_client.hpp:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/grok_credentials.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/auth_codec.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/../assist/agent/auth_codec/auth_codec.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/grok_login.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/codex_auth.cpp:7:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/codex_auth.hpp:16:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/grok_transport.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/codex_credentials.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/../assist/agent/codex_credentials/codex_credentials.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/rust_value.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/grok_oauth.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/codex_oauth.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/../assist/agent/codex_oauth/codex_oauth.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/http_client.hpp:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/image_accounting.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/grok_credentials.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/../assist/agent/grok_credentials/grok_credentials.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/grok_auth.hpp:18:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/http_client.hpp:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/grok_backend.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/grok_auth.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/grok_auth.hpp:18:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/http_client.hpp:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/provider_account.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/grok_transport.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/../assist/agent/grok_transport/grok_transport.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/grok_login.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/grok_auth.hpp:18:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/http_client.hpp:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/chat_message_codec.cpp.o
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/model_recovery.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/image_accounting.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/tool_image_content.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/codex_request.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/grok_oauth.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/../assist/agent/grok_oauth/grok_oauth.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/http_client.hpp:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/service_tier.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/model_recovery.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/model_recovery.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/model_response.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/openai_client.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/provider_account.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/provider_account.hpp:15:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/codex_auth.hpp:16:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/provider_request.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/grok_backend.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/grok_backend.hpp:15:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/provider_backend.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 40%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/provider_turn.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/chat_message_codec.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/model_catalog.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/service_tier.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/provider_retry.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/codex_request.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/chat_stream.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/provider_request.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/../assist/agent/provider_request/provider_request.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/http_client.hpp:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/chat_request.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/provider_turn.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/../assist/agent/provider_turn/provider_turn.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/chat_output.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/standalone/tui/chat_renderer.cpp:11:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/standalone/tui/chat_renderer.hpp:10:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/chat_callback.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/tool_result_meta.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/tool_media.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/stream_replay.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/openai_client.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/provider_profiles.hpp:3:
+In file included from /Users/int/hexrays/kvasir/rust/assist-rs/include/assist_rs.h:24:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/token_usage.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/model_catalog.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/codex_failure.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/chat_stream.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/chat_stream.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/provider_retry.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/provider_retry.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/provider_error.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/stream_replay.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/stream_replay.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/string:594:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/max.h:12:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/comp.h:12:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/codex_stream.cpp.o
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/chat_tool_codec.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/chat_output.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/chat_output.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/claude_cli_process.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/chat_request.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/claude_cli_codec.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/token_usage.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/token_usage.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/claude_cli_backend.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/codex_failure.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/codex_failure.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/antigravity_cli_backend.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/provider_error.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/provider_error.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/antigravity_cli_relay.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/chat_tool_codec.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/context_management.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/codex_stream.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/codex_stream.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/history_notes_client.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/claude_cli_process.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/claude_cli_process.hpp:8:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/filesystem:539:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/common/rust_value.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/standalone/terminal_main.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/analysis/function_analysis.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/model_recovery_state.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/claude_cli_codec.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/claude_cli_backend.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/provider_backend.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/claude_cli_backend.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/claude_cli_backend.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/provider_backend.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/model_recovery_driver.cpp.o
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/provider_accounting.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/antigravity_cli_relay.cpp:13:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/antigravity_cli_backend.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/provider_backend.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/native_agent.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/context_management.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/context_management.hpp:8:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/antigravity_cli_backend.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/antigravity_cli_backend.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/provider_backend.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/prompt_state.cpp.o
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/agent/compaction.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/common/rust_value.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/rust_value.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/types.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/history_notes_client.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/history_notes_client.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/http_client.hpp:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/atomic:593:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/debug_sink.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/prompt_state.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/prompt_state.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/perfetto_trace.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/model_recovery_driver.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/model_recovery_driver.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/model_recovery.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/model_response.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/script_executor.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/model_recovery_state.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/model_recovery_state.hpp:2:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/chat_callback.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/provider_accounting.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/provider_accounting.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/chat_callback.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/chat_callback.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/tool_result_meta.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/tool_media.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/assist/core/permission_escalation_coordinator.cpp.o
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/chat_core.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/compaction.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/compaction.hpp:30:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/anonymizer.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/types.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/core/types/detail/common.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/types.hpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/host_note_types.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/debug_sink.cpp:13:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/debug_sink.hpp:31:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/anonymizer_ida.cpp.o
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/detail_store.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/perfetto_trace.cpp:11:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/perfetto_trace.hpp:12:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/core/prompt_history.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/anonymizer.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/core/anonymizer/detail/common.hpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/masking_json_bounds.hpp:2:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/update/updater.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/anonymizer_ida.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/ida_ui.hpp:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/update/provenance.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/script_executor.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/core/script_executor/detail/common.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/script_executor.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/idascript_containment.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/host_note_types.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/mesh/mesh_manager.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/core/permission_escalation_coordinator.cpp:10:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/permission_escalation_coordinator.hpp:27:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/permission_escalation.hpp:29:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/types.hpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/host_note_types.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/assist/identity/federated_identity.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/agent/native_agent.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/native_agent.hpp:18:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/compaction.hpp:30:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/openai_client.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/agent/service_tier.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/mesh/mesh_interface.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/update/provenance.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/update/provenance.hpp:18:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/update/handoff.h:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stdint.h:18:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/mesh/network_ingress.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/prompt_history.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/prompt_history.hpp:12:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/mesh/process_liveness.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/detail_store.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/detail_store.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/tool_result_meta.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/tool_media.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/api/acp_transport.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/update/updater.cpp:14:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/update/updater.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/crypto/primitives.hpp:19:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/array:117:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/equal.h:13:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/comp.h:12:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/mesh/process_liveness.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/mesh/process_liveness.hpp:25:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/api/mcp_sse_server.cpp.o
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/mcp/session_approval.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/identity/federated_identity.cpp:11:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/identity/federated_identity.hpp:28:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/crypto/primitives.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/crypto/primitives.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/crypto/primitives.hpp:19:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/array:117:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/equal.h:13:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__algorithm/comp.h:12:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/amtp/wire.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/mcp/session_approval.cpp:12:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/mcp/session_approval.hpp:35:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/mesh/network_ingress.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/mesh/network_ingress.hpp:29:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/amtp/session.cpp.o
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/amtp/local_socket.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/mesh/mesh_interface.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/mesh/mesh_interface.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/amtp/owner_only_acl.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/api/acp_transport.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/api/acp_transport/detail/common.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/api/acp_transport/agent_shell_path.hpp:14:
+In file included from /Users/int/hexrays/kvasir/rust/assist-rs/include/assist_rs.h:24:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/amtp/identity_store.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/wire.cpp:16:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/amtp/service.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/local_socket.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/local_socket.hpp:27:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/amtp/tcp_socket.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/session.cpp:14:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/amtp/ingress.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/mesh/mesh_manager.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/amtp/ingress_service.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/owner_only_acl.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/owner_only_acl.hpp:18:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstdint:146:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/plugin/settings.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/tcp_socket.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/tcp_socket.hpp:20:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/local_socket.hpp:27:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/sdk/loader/discovery.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/core/chat_core.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/core/chat_core/detail/native/history_replay.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/core/chat_core/detail/native/../../../../agent/native_agent/request_context.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/rust_value.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/sdk/loader/runtime.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/ingress.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/ingress.hpp:35:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/service.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/identity_store.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/sdk/abi/trampolines.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/identity_store.cpp:14:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/identity_store.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/history/message_history.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/service.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/service.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/identity_store.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/sdk/loader/discovery.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/sdk/loader.hpp:23:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/sdk/abi/assist_abi.h:33:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/render/html_transcript.cpp.o
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/tool_registry.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/sdk/loader/runtime.cpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/sdk/loader.hpp:23:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/sdk/abi/assist_abi.h:33:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/approval_system.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/sdk/abi/trampolines.cpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/sdk/abi/trampolines.hpp:21:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/sdk/abi/assist_abi.h:33:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/stddef.h:30:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/ui_silence.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/amtp/ingress_service.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/ingress_service.hpp:21:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/ingress.hpp:35:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/service.hpp:19:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/identity_store.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/session.hpp:22:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/amtp/wire.hpp:23:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 60%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/functions/function_analysis.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/api/mcp_sse_server.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/api/mcp_sse_server/detail/common.hpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/sdk/filter.hpp:18:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/agent/propose_followups.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/ui_silence.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/tools/ui_silence.hpp:3:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/agent/detail_store.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/plugin/settings.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/plugin/settings/detail/common.hpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/masking_json_bounds.hpp:2:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/context/ui_focus.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/agent/propose_followups.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/script/execution/idascript.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/history/message_history.cpp:12:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/history/message_history.hpp:10:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/core/notice_envelope.hpp:29:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/decompiler/hexrays_read.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/approval_system.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/tools/approval_system/detail/common.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/tools/approval_system.hpp:11:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/tools/tool_registry.hpp:8:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/tools/tool_registry/detail/core_types.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/decompiler/local_variable_storage.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/agent/detail_store.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/naming/local_variables_and_symbols.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/tool_registry.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/analysis/function_analysis.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/patching/bytes_and_nops.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/script/execution/idascript.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/edit/high_value_idb_edits.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/functions/function_analysis.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/analysis/function_analysis.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/context/ui_focus.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/enums.cpp.o
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/xrefs/address_resolution.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/render/html_transcript.cpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/render/html_transcript/detail/common.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/strings/search_strings.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/decompiler/hexrays_read.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/structures_and_function_types.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/decompiler/local_variable_storage.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/functions/function_metadata_and_bytes.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/naming/local_variables_and_symbols.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/register_trace.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/patching/bytes_and_nops.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/register_lifetime.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/types/enums.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/index_loops.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/edit/high_value_idb_edits.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/conditional_sites.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/xrefs/address_resolution.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/dataflow/multi_register_return.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/strings/search_strings.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/functions/rank_functions.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/functions/function_metadata_and_bytes.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/binary_layout/segments_imports_exports.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/dataflow/register_trace.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/assist/triage/triage_driver.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/types/structures_and_function_types.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/assist/triage/finding_memory_writer.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/dataflow/register_lifetime.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/assist/triage/finding_corroboration.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/triage/finding_memory_writer.cpp:4:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/triage/finding_memory_writer.hpp:6:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/signatures/signature_tools.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/dataflow/index_loops.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/disassembly/scan_disasm.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/dataflow/conditional_sites.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/dataflow/multi_register_return.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/set_type.cpp.o
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/repair/range_reanalysis.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/functions/rank_functions.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/repair/item_creation.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/triage/triage_driver.cpp:9:
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/tools/builtin/common.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/context/context_provider.hpp:14:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/declarations_and_decompiler_reset.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/binary_layout/segments_imports_exports.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/repair/region_repair.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/assist/triage/finding_corroboration.cpp:9:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/triage/finding_corroboration.hpp:25:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+[ 80%] Building CXX object CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/structure_edits.cpp.o
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/repair/range_reanalysis.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+error: error opening 'CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/repair/range_reanalysis.cpp.o.d': /private/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/repair/range_reanalysis.cpp.o.d: No space left on device
+1 warning and 1 error generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/types/set_type.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+error: error opening 'CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/set_type.cpp.o.d': /private/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/set_type.cpp.o.d: No space left on device
+1 warning and 1 error generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/signatures/signature_tools.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+error: error opening 'CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/signatures/signature_tools.cpp.o.d': /private/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/signatures/signature_tools.cpp.o.d: No space left on device
+1 warning and 1 error generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/analysis/disassembly/scan_disasm.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+error: error opening 'CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/disassembly/scan_disasm.cpp.o.d': /private/tmp/assist-native-allocate-ex-root-final-macos/CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/disassembly/scan_disasm.cpp.o.d: No space left on device
+1 warning and 1 error generated.
+gmake[3]: *** [CMakeFiles/assist_idalib_cli.dir/build.make:1703: CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/signatures/signature_tools.cpp.o] Error 1
+gmake[3]: *** Waiting for unfinished jobs....
+gmake[3]: *** [CMakeFiles/assist_idalib_cli.dir/build.make:1731: CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/types/set_type.cpp.o] Error 1
+gmake[3]: *** [CMakeFiles/assist_idalib_cli.dir/build.make:1745: CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/database/repair/range_reanalysis.cpp.o] Error 1
+gmake[3]: *** [CMakeFiles/assist_idalib_cli.dir/build.make:1717: CMakeFiles/assist_idalib_cli.dir/src/tools/builtin/analysis/disassembly/scan_disasm.cpp.o] Error 1
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/repair/item_creation.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/ida_ui.hpp:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/cstddef:39:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/repair/region_repair.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/types/declarations_and_decompiler_reset.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+In file included from /tmp/assist-native-allocate-ex-root-final/src/tools/builtin/database/types/structure_edits.cpp:1:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/static_text_json.hpp:3:
+In file included from /tmp/assist-native-allocate-ex-root-final/include/assist/common/json.hpp:76:
+In file included from /tmp/assist-native-process-root-macos/_deps/json-src/include/nlohmann/json.hpp:21:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/algorithm:1840:
+In file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__config:15:
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/usr/include/c++/v1/__configuration/availability.h:204:4: warning: "The selected platform is no longer supported by libc++." [-W#warnings]
+  204 | #  warning "The selected platform is no longer supported by libc++."
+      |    ^
+1 warning generated.
+gmake[2]: *** [CMakeFiles/Makefile2:3658: CMakeFiles/assist_idalib_cli.dir/all] Error 2
+gmake[1]: *** [CMakeFiles/Makefile2:3665: CMakeFiles/assist_idalib_cli.dir/rule] Error 2
+gmake: *** [Makefile:336: assist_idalib_cli] Error 2

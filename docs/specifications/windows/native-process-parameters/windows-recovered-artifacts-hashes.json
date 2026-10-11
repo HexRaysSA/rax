@@ -1,0 +1,32 @@
+[
+  {
+    "name": "assist-native-parameters-recovered-clean.log",
+    "bytes": 39,
+    "sha256": "9ba00e80e97f8454e692c5b0449a8bd75b7a4974703041b80489457cf2005aef"
+  },
+  {
+    "name": "native-parameters-recovered-artifacts.jsonl",
+    "bytes": 124511,
+    "sha256": "30854dfcd75a67d664343efd4206e9d052f3696beaa46760468c777bc6ff672a"
+  },
+  {
+    "name": "native-parameters-recovered-artifacts-stderr.log",
+    "bytes": 72,
+    "sha256": "f591e097f22f91dd5c31fbbf7e587d80c0a4e0ed594f9c9012a544f38c52d926"
+  },
+  {
+    "name": "native-parameters-recovered-trace-build.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "native-parameters-recovered-trace-output.log",
+    "bytes": 31081,
+    "sha256": "fbb226e860a8b4614640e08a6177ecb6e522a740942e6e9e582f3b1c50ac8132"
+  },
+  {
+    "name": "native-parameters-recovered-ordinary-processes.log",
+    "bytes": 5064,
+    "sha256": "53fdb8caaf80e5bb4fb50288938f92056bad35216495f36d56e2e44e4c767587"
+  }
+]

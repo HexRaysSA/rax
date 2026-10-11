@@ -1180,3 +1180,43 @@ source. The diagnostic does not alter production startup. Four ordinary Windows
 applications still return STATUS_ACCESS_VIOLATION. Production native Ldr/RTL
 heap/CRT, wider NT/POSIX and the full application/package/IDA matrices remain
 the overall goal's acceptance gates.
+
+### Modern process-parameter extent (2026-10-11)
+
+The process parameter header now reserves and zeroes the complete layout through
+Windows 11 22H2 HeapMemoryTypeMask:708 bytes (0x2C4) for x86 and1096 bytes
+(0x448) for x64/ARM64. The previous676/1040-byte extents ended before modern
+optional fields. On the installed29683 NTDLL, a load at parameters+0x420 copied
+the following image-path string into HeapPartitionName. That malformed
+descriptor caused the earlier NtOpenPartition request; it did not establish a
+valid default partition dependency. Existing checked zeroed allocation now
+keeps the entire tail zero and disjoint from pointed-to strings.
+
+The independent pinned PHNT declarations and four suspended-child observations
+confirm exact offsets and zero defaults. The new registered regression checks
+all three guest architectures with two image names, arguments, environment and
+current directory; the clean old-extent baseline fails, and the correction
+passes on macOS/Linux/native Windows. Native aggregate Length/MaximumLength
+values include additional storage; RAX's separately allocated strings and
+header extent are explicitly distinguished.
+
+Full library pass/fail/ignored/filtered counts are7558/0/2/0 on macOS,
+7551/1/2/0 on Linux and6947/5/2/0 on Windows. Linux retains a multishot-timeout
+assertion with cause unknown; Windows retains four BZHI and one FP16 failure.
+C API168 and all-target compilation pass on all three. Unix Windows-fixture544
+passes on macOS/Linux; native Windows memory4 passes. All five owning C++
+consumers pass on every host; macOS CLI/seven CTests/protected scan also pass.
+Storage interruptions, the corrupted Windows archive, failed cache recovery
+and subsequent successful paired rebuild are retained separately.
+
+The identical private saved-context/cleared-heap diagnostic no longer calls
+NtOpenPartition. Its three allocations still succeed; it reaches unsupported
+NtQuerySystemInformationEx service0x16E, class0x6B, PC0x180002720 at turn13286.
+13286-12660=626 scheduler calls, not instructions. Four ordinary native startup
+probes still return STATUS_ACCESS_VIOLATION. No production bootstrap, new
+partition service, public C ABI, permission, default, persistence, dependency,
+package or ISA change is claimed.
+
+Primary sources/licenses, originals, exact source/artifact/gate hashes,
+assumptions and quality gates are retained in
+[process parameter evidence](../../../docs/specifications/windows/native-process-parameters/README.md).

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "native-parameters-final-full.log",
+    "sha256": "1a32013f58c216e228ea3a05a6bb80bc8a5bb1207620ea1362b8d451ceace3f5",
+    "bytes": 286957,
+    "status": "interrupted job original; interpret actual terminal lines"
+  },
+  {
+    "name": "native-parameters-final-capi.log",
+    "status": "not produced before interruption"
+  },
+  {
+    "name": "native-parameters-final-all-targets.log",
+    "status": "not produced before interruption"
+  },
+  {
+    "name": "native-parameters-final-integration.log",
+    "status": "not produced before interruption"
+  },
+  {
+    "name": "assist-native-parameters-final-shipping.log",
+    "sha256": "d8a5fc8d0da56490ce96632dc3fbac21c1338f99d7878a724634ee859cab96e4",
+    "bytes": 1641,
+    "status": "interrupted job original; interpret actual terminal lines"
+  },
+  {
+    "name": "assist-native-parameters-final-cpp.log",
+    "sha256": "5350efe61de5e130540c5a43ace45c42f212814d39ba7fdd151453c521df6dc6",
+    "bytes": 241,
+    "status": "interrupted job original; interpret actual terminal lines"
+  }
+]

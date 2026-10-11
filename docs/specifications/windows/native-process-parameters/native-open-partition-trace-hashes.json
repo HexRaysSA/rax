@@ -1,0 +1,27 @@
+[
+  {
+    "name": "native-open-partition-trace.rs",
+    "sha256": "939A79D6AC2FA642A33A18140DF1DEED95DA0C4CA8F9AA3579A7508495AC5D62",
+    "bytes": 12558
+  },
+  {
+    "name": "native-open-partition-trace-build.log",
+    "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "bytes": 0
+  },
+  {
+    "name": "native-open-partition-trace-output.log",
+    "sha256": "926AA6FBA4739A9E7449C33A6D138D8694DE2A869D1C7C9456E230CC0217C47C",
+    "bytes": 34392
+  },
+  {
+    "name": "native-open-partition-trace-artifacts.jsonl",
+    "sha256": "4C11CF64CCA2E4DB72E45B0CDC0ACD089093502213E409E8D996B894D6BD18BC",
+    "bytes": 124511
+  },
+  {
+    "name": "native-open-partition-trace-artifacts-stderr.log",
+    "sha256": "2E50F960BB0D0CFD0BA3128297FC0D694A59B40DA230B6A19A7DD4933FF302B2",
+    "bytes": 72
+  }
+]

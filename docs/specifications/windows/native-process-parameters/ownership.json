@@ -1,0 +1,19 @@
+{
+  "rax_parent": "420b52da531d7e00ea592bbfd445b7cbcc872705",
+  "assist_parent": "8d743e43f4bd5081eec45eeb2cc793ba7c974175",
+  "rax_owned_source_paths": [
+    "src/user/windows/layout.rs",
+    "src/user/windows/process/start.rs",
+    "src/user/windows/process/start/parameters_tests.rs"
+  ],
+  "rax_owned_documentation_paths": [
+    "src/user/windows/native-runtime.md",
+    "docs/specifications/windows/native-process-parameters/"
+  ],
+  "assist_owned_paths": [
+    "VENDORED_VERSIONS.md",
+    "src/emulation/native-process-emulation.md",
+    "vendor/rax"
+  ],
+  "publication": "exact paths only; red -m --staged --run; RAX origin/master, root origin/master and19h/master; linear history"
+}

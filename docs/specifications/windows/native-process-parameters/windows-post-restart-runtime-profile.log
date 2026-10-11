@@ -1,0 +1,16 @@
+
+Version    BuildNumber
+-------    -----------
+10.0.29683 29683      
+ntdll file-version=10.0.29683.1000 (WinBuild.160101.0800)
+ntdll sha256=502D4678206C8FD564972A3F82BFE63FE1A451CB5A6804AC0A9823B65FCBB61F
+                      
+  [ok] assist-rs still works after calling into the rax surface
+PASS
+                      
+turn=13286 thread=8 PC=0x180002720 SP=0xabd890 bytes=Ok([c1, 2d, 00, d4]) insn=Some("Ok(DecodedInsn { mnemonic: SVC, cond: None, operands: [Imm(Immediate { value: 366, shift: 0 })], sets_flags: false, raw: 3556781505, size: 4, state: Aarch64 })") registers=[6b, abd890, 4, abd898, c50, 0, 0, 0, 4, 24, abe4e0, 0, 0, 0, 0, 2, a8397b1dcdaf, ffff57c6858e1731, 7ffdd000, 0, 1803c89d0, 0, 0, 1000, 100000, 102, abe880, 0, 400000, abe4f0, 18008e318]
+terminal turn=13286 Complete(Internal("native NTDLL service NtQuerySystemInformationEx (0x16e) at 0x180002720 is not implemented"))
+
+
+
+STDERR

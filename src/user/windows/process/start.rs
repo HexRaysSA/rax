@@ -546,6 +546,10 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
 }
 
 #[cfg(test)]
+#[path = "start/parameters_tests.rs"]
+mod parameters_tests;
+
+#[cfg(test)]
 mod tests {
     use super::{quote_arg, quote_program};
     #[test]
