@@ -2,7 +2,7 @@
 //!
 //! The four-argument API is documented at
 //! <https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation>.
-//! Classes 0, 50, 62, 197 and 250's private layouts, lengths, alignment and WoW64 ordering
+//! Classes 0, 50, 55, 62, 197 and 250's private layouts, lengths, alignment and WoW64 ordering
 //! are native observations on Windows 10.0.29683.1000, recorded in
 //! `src/user/windows/native-runtime.md`. No guest request calls the host kernel.
 
@@ -21,6 +21,7 @@ use vm_memory::{Address, GuestMemory};
 const SYSTEM_BASIC_INFORMATION: u32 = 0;
 const SYSTEM_EMULATION_BASIC_INFORMATION: u32 = 62;
 const SYSTEM_RANGE_START_INFORMATION: u32 = 50;
+const SYSTEM_NUMA_PROCESSOR_MAP: u32 = 55;
 const SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION: u32 = 197;
 const SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION: u32 = 250;
 const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
@@ -64,25 +65,30 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     // Native 64-bit entry probes both destinations before class/length dispatch.
     // Its output alignment is ULONG alignment (4), not pointer alignment (8).
-    // The installed WoW64 wrapper instead copies its converted output first.
-    if c.arch() != WinArch::X86 {
+    // Most WoW64 wrappers instead copy converted output first. Class55 passes
+    // the original output/length to the native query, with a private ReturnLength.
+    if c.arch() != WinArch::X86 || class == SYSTEM_NUMA_PROCESSOR_MAP {
         if length != 0 {
             if output % 4 != 0 {
                 return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
             }
-            if class == SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION
+            if c.arch() != WinArch::X86
+                && matches!(
+                    class,
+                    SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION | SYSTEM_NUMA_PROCESSOR_MAP
+                )
                 && output
                     .checked_add(u64::from(length))
                     .is_none_or(|end| end > c.p.vm.high())
             {
-                // The measured class197 native entry rejects an upper user
+                // The measured native entries reject an upper user
                 // span without touching its guard. ReturnLength is instead
                 // touched directly below, including a crossing four-byte store.
                 return Flow::ret(STATUS_ACCESS_VIOLATION.into());
             }
             probe_write(c, output, length as usize)?;
         }
-        if returned != 0 {
+        if c.arch() != WinArch::X86 && returned != 0 {
             probe_write(c, returned, 4)?;
         }
     }
@@ -91,6 +97,7 @@ fn query(c: &mut Ctx) -> ApiResult {
             basic_information(c, output, length, returned)
         }
         SYSTEM_RANGE_START_INFORMATION => range_start(c, output, length, returned),
+        SYSTEM_NUMA_PROCESSOR_MAP => numa_processor_map(c, output, length, returned),
         SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION => {
             hypervisor_shared_page(c, output, length, returned)
         }
@@ -99,6 +106,31 @@ fn query(c: &mut Ctx) -> ApiResult {
         }
         _ => Err(c.unsupported(format!("NtQuerySystemInformation class {class}"))),
     }
+}
+
+fn numa_processor_map(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {
+    if length < 4 {
+        // WoW64's native ReturnLength is private and is not copied on failure.
+        if c.arch() != WinArch::X86 {
+            return_length(c, returned, 4)?;
+        }
+        return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
+    }
+    // The existing guest has node0, group0, and one processor. HighestNodeNumber
+    // is a four-byte query on its own; Reserved and unused array entries survive.
+    c.mem().w32(output, 0)?;
+    let required = if length >= 24 {
+        let mut affinity = [0u8; 16];
+        affinity[0] = 1;
+        c.mem().wr(output + 8, &affinity)?;
+        // Selected WoW64 converts this record in place, leaving its final four
+        // native bytes intact, but reports the 12-byte converted affinity size.
+        if c.arch() == WinArch::X86 { 20 } else { 24 }
+    } else {
+        4
+    };
+    return_length(c, returned, required)?;
+    Flow::ret(0)
 }
 
 fn hypervisor_shared_page(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {

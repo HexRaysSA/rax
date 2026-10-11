@@ -1,0 +1,28 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 27.28s
+     Running unittests src/lib.rs (target/debug/deps/rax-754f4d2a527a4423)
+
+running 8 tests
+
+thread 'user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_ulong_max_uses_output_probes_without_wow64_capture_allocation' (8939311) panicked at src/user/windows/process/sched/tests/services_tests/numa_map_tests.rs:406:13:
+assertion `left == right` failed
+  left: 2147483649
+ right: 3221225477
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_ulong_max_uses_output_probes_without_wow64_capture_allocation ... FAILED
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_upper_output_span_rejection_and_direct_return_guard_differ_native64 ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_return_faults_follow_wow64_success_and_leave_short_returns_untouched ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_guards_and_readonly_pairs_preserve_probe_priority_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_alignment_and_null_output_precede_short_length_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_lengths_publish_highest_node_then_one_group_and_keep_padding_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_return_alias_and_cross_page_publication_are_last_and_atomic_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_probes_the_entire_output_before_any_publication_all_abis ... ok
+
+failures:
+
+failures:
+    user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_ulong_max_uses_output_probes_without_wow64_capture_allocation
+
+test result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 7582 filtered out; finished in 3.68s
+
+error: test failed, to rerun pass `--lib`

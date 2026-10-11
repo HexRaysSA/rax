@@ -1,0 +1,10 @@
+**********************************************************************
+** Visual Studio 2026 Developer PowerShell v18.7.1
+** Copyright (c) 2026 Microsoft Corporation
+**********************************************************************
+assist-native-numa-owned-shipping.log A3C687D44934DE2BDD8429AEBD177B5DBF7259465C706348F77C55B6AD0B54F6
+assist-native-numa-owned-cpp.log B0F277678BC54485CF58C6295345A12235DF27C7D420C5085B93AB253E75E214
+validated rlib: C:\Windows\Temp\assist-native-rax-20261010\target\debug\deps\librax-e6c413934cad3a8f.rlib
+native-process-probe.cpp
+rax_process.cpp
+Generating Code...

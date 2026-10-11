@@ -1,0 +1,27 @@
+[
+  {
+    "path": "native-numa-final-targeted.log",
+    "bytes": 2681,
+    "sha256": "5883f409961aa94be6f186329fa3eb5b6e1c1a8fd867a1ec74ee7f70a7638f53"
+  },
+  {
+    "path": "native-numa-final-full.log",
+    "bytes": 724424,
+    "sha256": "cdcae6f1e16527e705d155497db382773e390fd11144e25a81c725bd13ba8c58"
+  },
+  {
+    "path": "native-numa-final-capi.log",
+    "bytes": 13818,
+    "sha256": "3b8abe0b64e1072debed84074899833cab2bf90ba51a62ea0ac6403dcc044f6a"
+  },
+  {
+    "path": "native-numa-final-all-targets.log",
+    "bytes": 986,
+    "sha256": "d97e06f8452de177c9d8f79459a8db905b33e34001b32f18e548dc4845b97b68"
+  },
+  {
+    "path": "native-numa-final-integration.log",
+    "bytes": 1495,
+    "sha256": "582cc87001dc8df740e5fc8462e0b59adc1f605f4390300b12c0840393f4f99e"
+  }
+]

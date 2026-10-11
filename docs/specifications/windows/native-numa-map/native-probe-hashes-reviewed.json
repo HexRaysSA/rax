@@ -1,0 +1,58 @@
+{
+  "native-numa-map-probe-arm64.log": {
+    "bytes": 3636555,
+    "sha256": "34e6602846b48a04c3757071469161b376e3386c0be4cd8efdbb943e60560b00"
+  },
+  "native-numa-map-probe-arm64-build.log": {
+    "bytes": 27,
+    "sha256": "2fb047f61beb46bfbe48374d09947a967ce28bc77ed7273ebd147f6badb5dd80"
+  },
+  "native-numa-map-probe-x64.log": {
+    "bytes": 3636555,
+    "sha256": "34e6602846b48a04c3757071469161b376e3386c0be4cd8efdbb943e60560b00"
+  },
+  "native-numa-map-probe-x64-build.log": {
+    "bytes": 27,
+    "sha256": "2fb047f61beb46bfbe48374d09947a967ce28bc77ed7273ebd147f6badb5dd80"
+  },
+  "native-numa-map-probe-x86.log": {
+    "bytes": 3538059,
+    "sha256": "d3169f9d5e52b8039e960193bc54fd54fd1fd14feb7a508eca1abb72b0d4e72b"
+  },
+  "native-numa-map-probe-x86-build.log": {
+    "bytes": 27,
+    "sha256": "2fb047f61beb46bfbe48374d09947a967ce28bc77ed7273ebd147f6badb5dd80"
+  },
+  "native-numa-map-probe-x86-laa.log": {
+    "bytes": 3538059,
+    "sha256": "d3169f9d5e52b8039e960193bc54fd54fd1fd14feb7a508eca1abb72b0d4e72b"
+  },
+  "native-numa-map-probe-x86-laa-build.log": {
+    "bytes": 27,
+    "sha256": "2fb047f61beb46bfbe48374d09947a967ce28bc77ed7273ebd147f6badb5dd80"
+  },
+  "native-numa-map-probe-arm64.exe": {
+    "bytes": 150528,
+    "sha256": "7bd706214286ccf5edda4dbb1c215abc72c2259914857d934e7fba4200356a4b",
+    "pe-machine": "0xaa64",
+    "large-address-aware": true
+  },
+  "native-numa-map-probe-x64.exe": {
+    "bytes": 160256,
+    "sha256": "eda3338dfbc402871290586dd2e569eaada9434ff9b68aa4368d52496af22b4b",
+    "pe-machine": "0x8664",
+    "large-address-aware": true
+  },
+  "native-numa-map-probe-x86.exe": {
+    "bytes": 121856,
+    "sha256": "7bdad329e7cecfdf2c8a5875b110340eaec442a989dd7bf4e1090c9a2d7c2940",
+    "pe-machine": "0x14c",
+    "large-address-aware": false
+  },
+  "native-numa-map-probe-x86-laa.exe": {
+    "bytes": 121856,
+    "sha256": "1157c76334b473acb440bc5185448ec977317bc261a7bca7552d7555c7cf0a47",
+    "pe-machine": "0x14c",
+    "large-address-aware": true
+  }
+}

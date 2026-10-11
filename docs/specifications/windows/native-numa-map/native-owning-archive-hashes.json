@@ -1,0 +1,41 @@
+{
+  "archives": [
+    {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\target\\debug\\assist_rs.lib",
+      "bytes": 1106379680,
+      "sha256": "560f8bfd0548fb0fca394259d1ffe1a4cfab6f53fd39db444f1ee6135edff5d2",
+      "members": 4673,
+      "structural-member-walk": "pass"
+    },
+    {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\target\\debug\\deps\\librax-e6c413934cad3a8f.rlib",
+      "bytes": 719936076,
+      "sha256": "622ecc0dab3d0386668933a5a438a4cb2a979735b2a614f651f1ad7084da84e7",
+      "members": 260,
+      "structural-member-walk": "pass"
+    }
+  ],
+  "core-features": [],
+  "sources": [
+    {
+      "path": "src/user/windows/dll/native/query.rs",
+      "bytes": 11373,
+      "sha256": "6898b058b6e635e550e5237f3236baddbc1190a4a21609073223d9e479298d39"
+    },
+    {
+      "path": "src/user/windows/process/sched/tests/services_tests.rs",
+      "bytes": 45417,
+      "sha256": "5089f53ae34603f2305c9dfb59e246fa5a872ed072c9bc26a5cf9968aaa09144"
+    },
+    {
+      "path": "src/user/windows/process/sched/tests/services_tests/numa_map_tests.rs",
+      "bytes": 16475,
+      "sha256": "8d856cd0711a3b89535cea04b5498ae9fc6c6628aaae2700b96e32d20819c7b2"
+    },
+    {
+      "path": "src/user/windows/process/sched/tests/services_tests/numa_map_leaf_tests.rs",
+      "bytes": 4484,
+      "sha256": "16370e294a2d5829246b236dd247a22ff96d0134bbd55abcbbd646cbb17e7c23"
+    }
+  ]
+}

@@ -1278,3 +1278,49 @@ default or package change is introduced. Primary contracts, original native
 observations, symbol identities, falsified initial expectation, source/artifact
 hashes, assumptions and final gates are retained in
 [hypervisor-page evidence](../../../docs/specifications/windows/native-hypervisor-page/README.md).
+
+## Native NUMA processor-map query
+
+NtQuerySystemInformation class55 now projects the existing node0/group0 and
+one guest processor, HighestNodeNumber0 and mask1. The full PHNT declarations
+are264/1032 bytes, but selected native query output is variable: lengths4..23
+write only HighestNodeNumber and report4 bytes; lengths>=24 also write a16-byte
+affinity at+8 and report24 native bytes or20 WoW64 bytes. Reserved at+4 and
+unused entries remain intact. Selected WoW64 forwards the original output/length
+with a private native ReturnLength, converts affinity in place and publishes
+caller length only after success. The native tail beyond converted20 bytes
+survives. Both caller types enforce DWORD output alignment and full declared
+write-span probes; caller ReturnLength is preprobed only on native64. Native64
+upper output range rejection leaves a guard armed, while a crossing direct
+ReturnLength consumes its first-page guard. ULONG_MAX output guards precede
+later span faults without temporary capture allocation.
+
+Four native profiles retain1584 status/byte/alias/guard observations. Matching
+Microsoft DLL/PDB symbols and the class55 body independently establish in-place
+mask folding and ReturnLength arithmetic. Eight portable tests and nine native
+Windows targeted tests pass, the latter including ten actual installed leaves.
+Full pass/fail/ignored/filtered counts are7588/0/2/0 on macOS,7581/1/2/0 on Linux
+and6980/5/2/0 on Windows. C API168/all-target builds and affected integration
+pass on each. Linux retains the remove/update timeout assertion, with its nine
+isolated timeout cases passing; Windows retains four BZHI and one FP16 failures.
+Owning Linux five C++ consumers and macOS CLI/seven CTests/protected scan pass.
+The first ULONG_MAX fixture's ReturnLength guard lay inside the huge output
+span; adding an inaccessible gap corrects the observation expectation without
+changing product code. No public ABI, default, permission, dependency, persistence,
+ISA or package change is introduced. Source hashes, primary declarations,
+original captures, symbol identity, assumptions and recorded gates are retained
+in [NUMA-map evidence](../../../docs/specifications/windows/native-numa-map/README.md).
+
+
+Fresh native Windows owning five C++ consumers and paired Assist/core archive
+walks also pass; the continuation uses the owning feature-empty core artifact.
+The byte-identical private loader diagnostic succeeds at class55 turn33566 and
+reaches unsupported class107/relationship6 at40500:6934 additional scheduler
+calls, not instructions. Four ordinary programs retain STATUS_ACCESS_VIOLATION.
+A separate observer leaves production startup/PEB/context unchanged and records
+the first exception at1459, NTDLL PC0x180026528: the0x10000 HLE heap handle leads
+to X8=0x80006 and a failing read at0x8000E. Terminal1500 is0xC0000005. Source
+publishes the HLE heap into PEB.ProcessHeap and uses synthetic RtlUserThreadStart;
+that bootstrap/heap contract remains a full-goal blocker, outside this query.
+The exact internal NTDLL routine name is unknown. The evidence checker verifies
+the final22 gates, exact retained failures, paired continuation and first fault.

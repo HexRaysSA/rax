@@ -1,0 +1,52 @@
+[
+  {
+    "path": "assist-native-numa-owned-clean.log",
+    "bytes": 39,
+    "sha256": "ffd665c74f66995c319d89fd159cd5d3450b6b405125fd08bf85ff82032a99ad"
+  },
+  {
+    "path": "assist-native-numa-owned-shipping.log",
+    "bytes": 1584,
+    "sha256": "a3c687d44934de2bdd8429aebd177b5dbf7259465c706348f77c55b6ad0b54f6"
+  },
+  {
+    "path": "assist-native-numa-owned-cpp.log",
+    "bytes": 2946,
+    "sha256": "b0f277678bc54485cf58c6295345a12235df27c7d420c5085b93ab253e75e214"
+  },
+  {
+    "path": "native-numa-after-artifacts.jsonl",
+    "bytes": 124511,
+    "sha256": "b9b8476524bfa91bbe548e05bf20ae5fad8fe9e3ccc1f579e129de22fab365fd"
+  },
+  {
+    "path": "native-numa-after-artifacts-stderr.log",
+    "bytes": 72,
+    "sha256": "c54bca416b8a09e3c2018b0ada16771065b3b9b5469242539af42bc53077e2cf"
+  },
+  {
+    "path": "native-numa-after-trace-build.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "native-numa-after-trace-output.log",
+    "bytes": 38313,
+    "sha256": "2875aff32eea2773882334b3812086a7b026ee03b1f0535e143775fd9eacc427"
+  },
+  {
+    "path": "native-numa-after-ordinary-processes.log",
+    "bytes": 5064,
+    "sha256": "53fdb8caaf80e5bb4fb50288938f92056bad35216495f36d56e2e44e4c767587"
+  },
+  {
+    "path": "native-numa-after-production-trace-build.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "native-numa-after-production-trace-output.log",
+    "bytes": 38590,
+    "sha256": "fbeef34049ef68693736133156cfdc46cca81c7b0c901e5f35e8e409bf8ca871"
+  }
+]

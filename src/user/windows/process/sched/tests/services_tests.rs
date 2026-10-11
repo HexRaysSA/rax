@@ -19,6 +19,9 @@ mod topology_tests;
 #[path = "services_tests/hypervisor_page_tests.rs"]
 mod hypervisor_page_tests;
 
+#[path = "services_tests/numa_map_tests.rs"]
+mod numa_map_tests;
+
 #[path = "services_tests/event_tests.rs"]
 mod event_tests;
 

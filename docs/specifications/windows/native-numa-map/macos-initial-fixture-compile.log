@@ -1,0 +1,25 @@
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+error[E0425]: cannot find value `ALLOCATION_GRANULARITY` in this scope
+   --> src/user/windows/process/sched/tests/services_tests/numa_map_tests.rs:361:29
+    |
+361 |                 Some(high - ALLOCATION_GRANULARITY),
+    |                             ^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+    |
+help: consider importing this constant
+    |
+  2 + use crate::user::windows::memory::ALLOCATION_GRANULARITY;
+    |
+
+error[E0425]: cannot find value `ALLOCATION_GRANULARITY` in this scope
+   --> src/user/windows/process/sched/tests/services_tests/numa_map_tests.rs:362:17
+    |
+362 |                 ALLOCATION_GRANULARITY,
+    |                 ^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+    |
+help: consider importing this constant
+    |
+  2 + use crate::user::windows::memory::ALLOCATION_GRANULARITY;
+    |
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `rax` (lib test) due to 2 previous errors

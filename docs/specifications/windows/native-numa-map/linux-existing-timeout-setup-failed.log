@@ -1,0 +1,2 @@
+info: syncing channel updates for 1.95.0-x86_64-unknown-linux-gnu
+error: could not download file from 'https://static.rust-lang.org/dist/channel-rust-1.95.0.toml.sha256' to '/usr/local/rustup/tmp/zlc3h884pikrqu2v_file': error downloading file: error sending request for url (https://static.rust-lang.org/dist/channel-rust-1.95.0.toml.sha256): client error (Connect): tcp connect error: Connection timed out (os error 110)

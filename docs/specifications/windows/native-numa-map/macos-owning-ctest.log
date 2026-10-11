@@ -1,0 +1,26 @@
+Test project /tmp/assist-native-allocate-ex-root-final-macos
+    Start 38: assist_rust_archive_link_tests
+1/7 Test #38: assist_rust_archive_link_tests ..........   Passed    0.03 sec
+    Start 48: assist_rax_process_tests
+2/7 Test #48: assist_rax_process_tests ................   Passed    0.53 sec
+    Start 49: assist_process_tool_tests
+3/7 Test #49: assist_process_tool_tests ...............   Passed    4.35 sec
+    Start 50: assist_process_tool_unavailable_tests
+4/7 Test #50: assist_process_tool_unavailable_tests ...   Passed    0.02 sec
+    Start 54: assist_e14_rax_abi_drift_tests
+5/7 Test #54: assist_e14_rax_abi_drift_tests ..........   Passed    0.01 sec
+    Start 60: assist_mcp_tool_manifest_tests
+6/7 Test #60: assist_mcp_tool_manifest_tests ..........   Passed    0.05 sec
+    Start 61: assist_mcp_manifest_runtime_test
+7/7 Test #61: assist_mcp_manifest_runtime_test ........   Passed    0.32 sec
+
+100% tests passed out of 7
+
+Label Time Summary:
+manifest       =   0.32 sec*proc (1 test)
+model_tools    =   4.69 sec*proc (3 tests)
+rax            =   4.91 sec*proc (3 tests)
+rust           =   0.03 sec*proc (1 test)
+userland       =   4.91 sec*proc (3 tests)
+
+Total Test time (real) =   5.34 sec

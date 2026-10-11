@@ -1,0 +1,144 @@
+Built target assist_static_text_generate
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+Built target assist_monocypher
+   Compiling rax v0.1.0 (/Users/int/hexrays/kvasir/vendor/rax)
+   Compiling rax-capi v0.1.2 (/Users/int/hexrays/kvasir/vendor/rax/capi)
+   Compiling assist-rs v0.1.0 (/Users/int/hexrays/kvasir/rust/assist-rs)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 21.67s
+Built target assist_rs_cargo
+Linking CXX static library libassist_static_text.a
+Built target assist_static_text
+Linking CXX static library libassist_static_text_metadata.a
+Built target assist_static_text_metadata
+Linking CXX executable assist_process_tool_tests
+Built target assist_process_tool_tests
+Built target assist_static_text_generate
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+Built target assist_monocypher
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.18s
+Built target assist_rs_cargo
+Built target assist_static_text
+Built target assist_static_text_metadata
+Linking CXX executable assist_process_tool_unavailable_tests
+Built target assist_process_tool_unavailable_tests
+Built target assist_monocypher
+Built target assist_static_text_generate
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+Built target assist_rs_cargo
+Built target assist_static_text
+Built target assist_static_text_metadata
+Linking CXX executable assist_rax_process_tests
+Built target assist_rax_process_tests
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+Built target assist_static_text_generate
+Built target assist_monocypher
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+Built target assist_rs_cargo
+Built target assist_static_text
+Built target assist_static_text_metadata
+Linking CXX executable assist_e14_rax_abi_drift_tests
+Built target assist_e14_rax_abi_drift_tests
+Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+Built target assist_static_text_generate
+Built target assist_monocypher
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+Built target assist_rs_cargo
+Built target assist_static_text
+Built target assist_static_text_metadata
+Linking CXX executable assist_rust_archive_link_tests
+Built target assist_rust_archive_link_tests
+[  0%] Built target spinlock_wait
+[  0%] Built target log_severity
+[  0%] Built target strerror
+[  0%] Built target time_zone
+[  0%] Built target int128
+[  0%] Built target exponential_biased
+[  0%] Built target civil_time
+[  0%] Built target flags_commandlineflag_internal
+[  0%] Built target assist_static_text_generate
+[  0%] Building assist-rs staticlib with embedded rax (aarch64-apple-darwin, debug, JIT/KVM/HVF off)
+[  0%] Built target log_internal_nullguard
+[  0%] Built target assist_monocypher
+[  0%] Built target raw_logging_internal
+[  0%] Built target bad_variant_access
+[  0%] Built target throw_delegate
+[  0%] Built target base
+[ 16%] Built target debugging_internal
+[ 16%] Built target bad_optional_access
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+[ 16%] Built target cordz_functions
+[ 16%] Built target assist_rs_cargo
+[ 16%] Built target log_internal_conditions
+[ 16%] Built target malloc_internal
+[ 16%] Built target stacktrace
+[ 16%] Built target demangle_internal
+[ 16%] Built target strings_internal
+[ 16%] Built target string_view
+[ 16%] Built target graphcycles_internal
+[ 16%] Built target city
+[ 16%] Built target low_level_hash
+[ 16%] Built target crc_cpu_detect
+[ 16%] Built target assist_static_text
+[ 16%] Built target crc_internal
+[ 16%] Built target assist_static_text_metadata
+[ 16%] Linking CXX static library libassist_static_text_scripts.a
+[ 33%] Built target strings
+[ 33%] Linking CXX static library libassist_static_text_prompts.a
+[ 33%] Linking CXX static library libassist_static_text_manifest.a
+[ 33%] Built target symbolize
+[ 33%] Built target assist_static_text_scripts
+[ 33%] Built target assist_static_text_prompts
+[ 33%] Built target assist_static_text_manifest
+[ 33%] Built target hash
+[ 33%] Built target time
+[ 33%] Built target flags_commandlineflag
+[ 33%] Built target examine_stack
+[ 33%] Built target str_format_internal
+[ 33%] Built target log_internal_proto
+[ 33%] Linking CXX static library libassist_embedded_prompts.a
+[ 33%] Built target log_internal_fnmatch
+[ 33%] Built target log_entry
+[ 33%] Linking CXX static library libassist_frida_host_source.a
+[ 33%] Built target kernel_timeout_internal
+[ 33%] Built target assist_frida_host_source
+[ 33%] Built target assist_embedded_prompts
+[ 33%] Linking CXX executable assist-mcp
+[ 33%] Built target crc32c
+[ 33%] Built target flags_private_handle_accessor
+[ 33%] Built target flags_marshalling
+[ 33%] Built target log_internal_globals
+[ 33%] Built target log_sink
+[ 33%] Built target synchronization
+[ 33%] Built target crc_cord_state
+[ 33%] Built target log_internal_format
+[ 33%] Built target hashtablez_sampler
+[ 33%] Built target flags_program_name
+[ 33%] Built target cord_internal
+[ 33%] Built target cordz_handle
+[ 33%] Built target vlog_config_internal
+[ 33%] Built target raw_hash_set
+[ 33%] Built target flags_config
+[ 33%] Built target cordz_info
+[ 33%] Built target log_globals
+[ 33%] Built target flags_internal
+[ 33%] Built target cord
+[ 33%] Built target log_internal_log_sink_set
+[ 33%] Built target flags_reflection
+[ 33%] Built target log_internal_message
+[ 33%] Built target log_internal_check_op
+Checking that assist_mcp exports nothing
+[ 33%] Built target re2
+Checking protected plaintext in assist_mcp
+[ 33%] Linking CXX static library libassist_masking.a
+[ 33%] Built target assist_masking
+Static text scan: 1 artifacts, 0 failures
+[ 50%] Built target assist_mcp
+[ 50%] Linking CXX executable assist-cli
+ld: warning: building for macOS-11.0, but linking with dylib '@rpath/libidalib.dylib' which was built for newer version 12.0
+ld: warning: building for macOS-11.0, but linking with dylib '@rpath/libida.dylib' which was built for newer version 12.0
+ld: warning: building for macOS-11.0, but linking with dylib '@rpath/libida.dylib' which was built for newer version 15.0
+ld: warning: building for macOS-11.0, but linking with dylib '@rpath/libidalib.dylib' which was built for newer version 12.0
+Checking protected plaintext in assist_idalib_cli
+Static text scan: 1 artifacts, 0 failures
+[100%] Built target assist_idalib_cli

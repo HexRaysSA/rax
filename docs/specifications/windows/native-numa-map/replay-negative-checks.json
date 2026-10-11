@@ -1,0 +1,14 @@
+[
+  {
+    "case": "missing manifest",
+    "rejected": true
+  },
+  {
+    "case": "tampered native row file",
+    "rejected": true
+  },
+  {
+    "case": "Python -O",
+    "rejected": true
+  }
+]

@@ -1,0 +1,16 @@
+   Compiling rax v0.1.0 (/work/vendor/rax)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 51.77s
+     Running unittests src/lib.rs (/target/debug/deps/rax-094640fccc97af0f)
+
+running 8 tests
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_upper_output_span_rejection_and_direct_return_guard_differ_native64 ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_ulong_max_uses_output_probes_without_wow64_capture_allocation ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_return_faults_follow_wow64_success_and_leave_short_returns_untouched ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_guards_and_readonly_pairs_preserve_probe_priority_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_alignment_and_null_output_precede_short_length_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_lengths_publish_highest_node_then_one_group_and_keep_padding_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_return_alias_and_cross_page_publication_are_last_and_atomic_all_abis ... ok
+test user::windows::process::sched::tests::services_tests::numa_map_tests::native_numa_map_probes_the_entire_output_before_any_publication_all_abis ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 7576 filtered out; finished in 5.93s
+
