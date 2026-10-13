@@ -2032,6 +2032,9 @@ fn decode_vector(w: u32) -> Insn {
             // FP scalar element moves (VWFUNARY0 / VRFUNARY0), funct6 = 010000.
             0b010000 if !vf && vs1 == 0 => Op::VfmvFS,
             0b010000 if vf && (w >> 20) & 0x1f == 0 => Op::VfmvSF,
+            // OPFVF merge form: vfmv.v.f vd, rs1 (funct6 = 010111, vm=1,
+            // vs2=0). The masked code point is not defined in the f form.
+            0b010111 if vf && (w >> 25) & 1 == 1 && (w >> 20) & 0x1f == 0 => Op::Vmerge,
             // Single-width conversions (VFUNARY0); vs1 field selects the variant.
             0b010010 if !vf => match vs1 {
                 0b00000 => Op::VfcvtXuF,
