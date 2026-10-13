@@ -581,6 +581,18 @@ fn function_for_region(
 }
 
 fn admit_lifted_instruction(insn: &Insn, lifted: &LiftResult) -> bool {
+    // The native FP ABI carries no privilege or mstatus.FS state. Keep scalar
+    // and vector FP instructions, plus the FP CSRs, on the architectural path
+    // so their FS=Off checks cannot be bypassed by native execution.
+    if insn.op.is_fp()
+        || super::vector_validation::is_vector_fp_encoding(insn)
+        || matches!(
+            insn.op,
+            Op::Csrrw | Op::Csrrs | Op::Csrrc | Op::Csrrwi | Op::Csrrsi | Op::Csrrci
+        ) && matches!(insn.csr, 0x001..=0x003)
+    {
+        return false;
+    }
     let mut memory_accesses = 0usize;
     for op in &lifted.ops {
         match op.kind {
@@ -1403,6 +1415,43 @@ mod tests {
     }
 
     #[test]
+    fn jit_falls_back_for_fp_state_gates_at_o0_and_o2() {
+        let fadd_s = 0x0031_00d3; // fadd.s f1, f2, f3
+        let read_fcsr = 0x0030_20f3; // csrr x1, fcsr
+        let vector_fadd_vv = (1u32 << 25) | (2 << 20) | (0b001 << 12) | (1 << 7) | 0x57;
+
+        for level in [OptLevel::O0, OptLevel::O2] {
+            for word in [fadd_s, read_fcsr] {
+                let mut cpu = cpu_with_word(word);
+                let expected = if word == read_fcsr {
+                    Trap::illegal(0)
+                } else {
+                    Trap::illegal(word.into())
+                };
+                assert_eq!(
+                    cpu.step_jit(level),
+                    RiscVExit::Trap(expected),
+                    "{level:?}: {word:#010x}"
+                );
+                assert_eq!(cpu.jit_stats().native_executions, 0, "{level:?}");
+                assert_eq!(cpu.jit_stats().interpreter_fallbacks, 1, "{level:?}");
+            }
+
+            let mut vector_config = RiscVConfig::rv64gc();
+            vector_config.isa.v = true;
+            let mut vector = cpu_with_config_word(vector_config, vector_fadd_vv);
+            vector.set_vl_vtype(4, 0x10); // e32,m1
+            assert_eq!(
+                vector.step_jit(level),
+                RiscVExit::Trap(Trap::illegal(vector_fadd_vv.into())),
+                "{level:?}: vector FP"
+            );
+            assert_eq!(vector.jit_stats().native_executions, 0, "{level:?}");
+            assert_eq!(vector.jit_stats().interpreter_fallbacks, 1, "{level:?}");
+        }
+    }
+
+    #[test]
     fn jit_checks_fetch_alignment_before_region_formation() {
         let config = RiscVConfig::rv32(Isa {
             c: false,
@@ -1429,24 +1478,28 @@ mod tests {
     }
 
     #[test]
-    fn jit_executes_rv32_zfa_doubleword_moves_at_o0_and_o2() {
+    fn jit_falls_back_for_rv32_zfa_doubleword_moves_at_o0_and_o2() {
         let config = RiscVConfig::rv32(Isa::rv64gc());
         let fmvh_x_d = (0b1110001 << 25) | (1 << 20) | (10 << 15) | (11 << 7) | 0x53;
         let fmvp_d_x = (0b1011001 << 25) | (12 << 20) | (11 << 15) | (10 << 7) | 0x53;
 
         for level in [OptLevel::O0, OptLevel::O2] {
             let mut high = cpu_with_config_word(config, fmvh_x_d);
+            high.csr_write(0x300, 0b01 << 13).unwrap(); // mstatus.FS=Initial
             high.set_f(10, 0x89ab_cdef_0123_4567);
             assert_eq!(high.step_jit(level), RiscVExit::Continue, "{level:?}");
             assert_eq!(high.x(11), 0x89ab_cdef, "{level:?}");
-            assert_eq!(high.jit_stats().native_executions, 1, "{level:?}");
+            assert_eq!(high.jit_stats().native_executions, 0, "{level:?}");
+            assert_eq!(high.jit_stats().interpreter_fallbacks, 1, "{level:?}");
 
             let mut pack = cpu_with_config_word(config, fmvp_d_x);
+            pack.csr_write(0x300, 0b01 << 13).unwrap(); // mstatus.FS=Initial
             pack.set_x(11, 0x7654_3210);
             pack.set_x(12, 0xfedc_ba98);
             assert_eq!(pack.step_jit(level), RiscVExit::Continue, "{level:?}");
             assert_eq!(pack.f(10), 0xfedc_ba98_7654_3210, "{level:?}");
-            assert_eq!(pack.jit_stats().native_executions, 1, "{level:?}");
+            assert_eq!(pack.jit_stats().native_executions, 0, "{level:?}");
+            assert_eq!(pack.jit_stats().interpreter_fallbacks, 1, "{level:?}");
         }
     }
 
