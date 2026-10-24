@@ -51,7 +51,7 @@ fn translated_cpu(
     regs.tcr_el1 = 16 | (tg0 << 14) | (16 << 16) | (2 << 30) | (5 << 32);
     regs.ttbr0_el1 = 0x10000;
     regs.mair_el1 = 0xff;
-    cpu.import_sregs(&regs);
+    cpu.import_sregs(&regs).unwrap();
     cpu
 }
 
@@ -61,18 +61,18 @@ fn physical_write(cpu: &mut AArch64Cpu, pa: u64, bytes: &[u8]) {
     let saved = cpu.export_sregs();
     let mut disabled = saved.clone();
     disabled.sctlr_el1 &= !1;
-    cpu.import_sregs(&disabled);
+    cpu.import_sregs(&disabled).unwrap();
     cpu.write_memory(pa, bytes).unwrap();
-    cpu.import_sregs(&saved);
+    cpu.import_sregs(&saved).unwrap();
 }
 
 fn physical_read(cpu: &mut AArch64Cpu, pa: u64, size: usize) -> Vec<u8> {
     let saved = cpu.export_sregs();
     let mut disabled = saved.clone();
     disabled.sctlr_el1 &= !1;
-    cpu.import_sregs(&disabled);
+    cpu.import_sregs(&disabled).unwrap();
     let bytes = cpu.read_memory(pa, size).unwrap();
-    cpu.import_sregs(&saved);
+    cpu.import_sregs(&saved).unwrap();
     bytes
 }
 
@@ -232,7 +232,7 @@ fn alignment_control_applies_with_translation_disabled() {
     let mut cpu = cpu_with_pages(0, true);
     let mut regs = cpu.export_sregs();
     regs.sctlr_el1 &= !1;
-    cpu.import_sregs(&regs);
+    cpu.import_sregs(&regs).unwrap();
     assert!(
         matches!(cpu.mem_read_u64(0x101), Err(ArmError::MemoryError(info))
         if info.fault_type == MemoryFaultType::Alignment)
@@ -248,7 +248,7 @@ fn device_mapping_requires_natural_alignment_with_a_clear() {
     let mut cpu = cpu_with_pages(SECOND | 0x403, false);
     let mut regs = cpu.export_sregs();
     regs.mair_el1 = 0;
-    cpu.import_sregs(&regs);
+    cpu.import_sregs(&regs).unwrap();
     for width in [2, 4, 8] {
         assert!(read(&cpu, 0x200, width).is_ok());
         assert!(

@@ -697,7 +697,7 @@ fn create_thread(proc: &mut Proc) -> Option<u64> {
     let tid = proc.next_tid;
     proc.next_tid += 1;
     let kport = Port::new(KObject::Thread(tid));
-    let cpu = DarwinCpu::new(abi, &proc.space);
+    let cpu = proc.new_thread_cpu();
     let thread = Thread {
         tid,
         port: 0,

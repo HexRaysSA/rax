@@ -1,0 +1,5 @@
+Apple macOS SDK 27.0 sys/filio.h
+Source: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/filio.h
+Retrieved: 2026-09-30
+SHA-256: 8d4e8339396f78cc24bb8a13f707dcd6d298b875997ac3b86e9a14831c437aa8
+Unmodified Apple SDK header; license notices retained in filio.h.

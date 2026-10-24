@@ -320,25 +320,35 @@ impl Aarch64Lowerer {
         }
     }
 
-    pub(crate) fn folded_branch_condition(block: &SmirBlock) -> (usize, Option<Condition>) {
-        let op_end = block.ops.len();
+    pub(crate) fn folded_branch_condition(block: &SmirBlock) -> (Option<usize>, Option<Condition>) {
         let Terminator::CondBranch {
             cond: branch_cond, ..
         } = &block.terminator
         else {
-            return (op_end, None);
+            return (None, None);
         };
-        let Some(SmirOp {
-            kind: OpKind::TestCondition { dst, cond },
-            ..
-        }) = block.ops.last()
+        // Retirement does not change NZCV. A framed B.cond puts its pure
+        // condition immediately before Commit; retain that Commit while
+        // folding the condition into the native branch instruction.
+        let Some((
+            index,
+            SmirOp {
+                kind: OpKind::TestCondition { dst, cond },
+                ..
+            },
+        )) = block
+            .ops
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, op)| !matches!(op.kind, OpKind::ArmInstructionCommit { .. }))
         else {
-            return (op_end, None);
+            return (None, None);
         };
-        if dst == branch_cond {
-            (op_end - 1, Some(*cond))
+        if dst == branch_cond && matches!(dst, VReg::Virtual(_)) {
+            (Some(index), Some(*cond))
         } else {
-            (op_end, None)
+            (None, None)
         }
     }
 }

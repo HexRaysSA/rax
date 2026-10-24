@@ -15,10 +15,16 @@ pub use rax::isa::arm::{ArmCpu, ArmError, CpuExit};
 pub fn create_test_cpu() -> AArch64Cpu {
     let memory = FlatMemory::new(0, 0x1000_0000);
     let mut config = AArch64Config::default();
-    // ASL Load register (pac) requires HavePACExt(). Feature-absence behavior
+    // ASL PAuth forms require address and generic key features. Absence behavior
     // is checked by the dedicated direct-ISA tests, not this allocated corpus.
     config.features |= rax::isa::arm::ArmFeatures::PACA;
-    AArch64Cpu::new(config, Box::new(memory))
+    config.features |= rax::isa::arm::ArmFeatures::PACG;
+    let mut cpu = AArch64Cpu::new(config, Box::new(memory));
+    let mut controls = cpu.pauth_controls();
+    controls.hcr_el2 |= (1 << 40) | (1 << 41);
+    controls.scr_el3 |= (1 << 16) | (1 << 17);
+    cpu.set_pauth_controls(controls).unwrap();
+    cpu
 }
 
 /// Write an instruction to memory

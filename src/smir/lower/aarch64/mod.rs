@@ -58,6 +58,7 @@ pub use misc::*;
 mod mov;
 pub use mov::*;
 mod ops;
+mod pauth;
 mod resize;
 pub(crate) use resize::aarch64_resize_shape_valid;
 mod saturating;
@@ -158,6 +159,9 @@ pub struct Aarch64Lowerer {
     /// instead of inline native LDR/STR against the raw guest address. Set via
     /// [`Self::set_mem_helpers`].
     mem_helpers: bool,
+    /// Scoped full-state PAuth helper ABI; disabled for legacy trampolines.
+    pauth_helpers: bool,
+    pauth_fp_helpers: bool,
     /// Width used for helper effective-address arithmetic. AArch64 guests use
     /// the default W64 semantics; AArch32-on-AArch64 callers select W32 so
     /// additions wrap modulo 2^32 before the helper observes the address.
@@ -256,6 +260,16 @@ fn is_aarch64_fp_sysreg(reg: u32) -> bool {
 /// are restored before returning to Rust.
 pub fn uses_aarch64_fp_trampoline(func: &SmirFunction) -> bool {
     func.blocks.iter().flat_map(|b| &b.ops).any(|op| {
+        if matches!(
+            op.kind,
+            OpKind::ArmInstructionBegin { .. }
+                | OpKind::ArmInstructionCommit { .. }
+                | OpKind::ArmPauth(..)
+        ) {
+            // Implicit observability metadata is stored in the scoped runtime;
+            // it does not make vectors live in physical host registers.
+            return false;
+        }
         let touches_raw_fp_sysreg = match &op.kind {
             OpKind::ReadSysReg { reg, .. } | OpKind::WriteSysReg { reg, .. } => {
                 is_aarch64_fp_sysreg(*reg)
@@ -290,12 +304,20 @@ impl SmirLowerer for Aarch64Lowerer {
                 op: "escaping AdvSIMD temporary".to_string(),
             });
         }
+        self.pauth_fp_helpers = self.pauth_helpers && uses_aarch64_fp_trampoline(func);
         self.code.clear();
         self.block_offsets.clear();
         self.branch_fixups.clear();
         self.relocations.clear();
 
         for block in &func.blocks {
+            if self.pauth_helpers {
+                crate::smir::ir::validate_aarch64_instructions(block).map_err(|operation| {
+                    LowerError::UnsupportedOp {
+                        op: operation.into(),
+                    }
+                })?;
+            }
             self.lower_block(block)?;
         }
         self.fixup_branches()?;

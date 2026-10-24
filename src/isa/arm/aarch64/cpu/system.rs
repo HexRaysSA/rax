@@ -37,21 +37,18 @@ impl AArch64Cpu {
         exc_type: ExceptionType,
         syndrome: SyndromeRegister,
     ) -> Result<(), ArmError> {
+        if crate::isa::arm::aarch64::exception_return::uses_aarch32(
+            self.pauth_controls(),
+            self.sysregs.id_aa64pfr0_el1,
+            target_el,
+        ) == Some(true)
+        {
+            return self.take_aarch32_exception(target_el, exc_type, syndrome);
+        }
         // Build SPSR from current state
-        let saved_spsr = build_spsr(
-            self.nzcv,
-            self.daif,
-            self.current_el,
-            self.sp_sel,
-            self.ssbs,
-            self.pan,
-            self.uao,
-            self.dit,
-            self.tco,
-            self.btype,
-            self.il,
-            self.ss,
-        );
+        let saved_spsr = self.pstate_bits();
+        let from_aarch64 = self.aarch32.is_none();
+        self.clear_exclusive_monitor();
 
         // Save state to target EL. Asynchronous exceptions (IRQ/FIQ) do not
         // report a syndrome; leave ESR untouched for them.
@@ -66,7 +63,7 @@ impl AArch64Cpu {
             exc_type,
             self.current_el,
             target_el,
-            true, // from AArch64
+            from_aarch64,
             self.sp_sel,
         );
 
@@ -75,6 +72,7 @@ impl AArch64Cpu {
 
         // Switch to target EL
         self.current_el = target_el;
+        self.aarch32 = None;
         self.sp_sel = true; // Use SP_ELx
         self.daif = 0xF; // Mask all interrupts
         self.uao = false;
@@ -317,10 +315,14 @@ impl AArch64Cpu {
             if rt != 31 {
                 return Err(ArmError::UndefinedInstruction(insn));
             }
+            let immediate = ((crm << 3) | op2) as u8;
+            if matches!(immediate, 7 | 8 | 10 | 12 | 14 | 24..=31) {
+                return self.exec_pauth_hint(immediate);
+            }
             // Hints: HINT #imm7 where imm7 = CRm:op2. Only CRm=0 carries the
             // classic NOP/YIELD/WFE/WFI/SEV/SEVL group; higher CRm values are
-            // BTI landing pads, pointer-auth hints (PACIASP/AUTIASP), etc.,
-            // which behave as NOPs here.
+            // BTI landing pads and implementation hints. PAuth aliases were
+            // handled above, including their feature-disabled NOP behavior.
             if crm != 0 {
                 return Ok(CpuExit::Continue);
             }
@@ -350,11 +352,6 @@ impl AArch64Cpu {
                 0b101 => {
                     // SEVL
                     self.event_register = true;
-                    Ok(CpuExit::Continue)
-                }
-                0b111 => {
-                    // XPACLRI: strip instruction-address PAC bits from LR.
-                    self.set_x(30, strip_pac(self.get_x(30), false));
                     Ok(CpuExit::Continue)
                 }
                 _ => Ok(CpuExit::Continue),
@@ -390,12 +387,7 @@ impl AArch64Cpu {
         syndrome: SyndromeRegister,
         far: Option<u64>,
     ) -> Result<(), ArmError> {
-        let target = exception_target_el(
-            ExceptionType::Synchronous,
-            self.current_el,
-            self.sysregs.hcr_el2,
-            self.sysregs.scr_el3,
-        );
+        let target = self.pauth_controls().local_exception_target();
         if let Some(addr) = far {
             self.sysregs.bank_mut(target).far = addr;
         }

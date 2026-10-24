@@ -434,6 +434,10 @@ impl WinCpu {
                 A64Exit::Svc { imm, pc } => CpuStop::Svc { imm, pc },
                 A64Exit::Brk { imm, pc } => CpuStop::Brk { imm, pc },
                 A64Exit::Undefined { pc, reason } => CpuStop::Undefined { pc, reason },
+                A64Exit::Exception { pc, ec, iss } => CpuStop::Undefined {
+                    pc,
+                    reason: format!("AArch64 exception EC={ec:#x} ISS={iss:#x}"),
+                },
                 A64Exit::Fault(f) => CpuStop::Fault(f),
                 A64Exit::Yield => CpuStop::Yield,
                 A64Exit::Internal(e) => CpuStop::Internal(e),

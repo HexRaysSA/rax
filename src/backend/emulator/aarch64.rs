@@ -515,6 +515,8 @@ impl ArmMemory for GuestBridge {
 pub const A64_EC_UNKNOWN: u8 = 0x00;
 /// `ESR_ELx.EC` for a `BRK` instruction executed in AArch64 state.
 pub const A64_EC_BRK: u8 = 0x3C;
+/// `ESR_ELx.EC` for an AArch32 `BKPT`, including Thumb after a width handoff.
+pub const A64_EC_BKPT32: u8 = 0x38;
 
 /// An EL0 event a user-mode vCPU ([`Aarch64Vcpu::new_user`]) reported to its
 /// embedder instead of taking it to EL1.
@@ -523,10 +525,13 @@ pub enum A64UserTrap {
     /// `SVC #imm` at `pc` executed; the PC is the following instruction, the
     /// preferred return address of the exception.
     Svc { imm: u16, pc: u64 },
+    /// ARM/Thumb SVC after a checked mixed-width state restore.
+    Aarch32Svc { imm: u32, pc: u64, len: u8 },
     /// A synchronous exception raised by the instruction at `pc`, which did
     /// not retire: the PC is `pc`, the preferred return address. `ec` and
     /// `iss` are the `ESR_EL1` fields an EL1 handler would receive
-    /// ([`A64_EC_BRK`] with the `BRK` immediate, or [`A64_EC_UNKNOWN`]).
+    /// (including [`A64_EC_BRK`], [`A64_EC_BKPT32`], authentication failures,
+    /// and [`A64_EC_UNKNOWN`]).
     Exception { ec: u8, iss: u32, pc: u64 },
 }
 
@@ -648,6 +653,12 @@ impl Aarch64Vcpu {
         self.user.is_some()
     }
 
+    /// Actual entries into a single-instruction native PAuth region. Zero on
+    /// hosts/builds without AArch64 native execution; never counts compilation.
+    pub fn native_pauth_entry_count(&self) -> u64 {
+        self.cpu.native_pauth_entry_count()
+    }
+
     /// Removes and returns the event that ended the last user-mode step.
     pub fn take_user_trap(&mut self) -> Option<A64UserTrap> {
         self.user.as_mut().and_then(|user| user.trap.take())
@@ -657,7 +668,8 @@ impl Aarch64Vcpu {
     fn step_user(&mut self) -> Result<Option<VcpuExit>> {
         let pc = self.cpu.get_pc();
         let before = self.cpu.instruction_count();
-        let stepped = self.cpu.step();
+        let record_memory = self.recorder.enabled.load(Ordering::Relaxed);
+        let stepped = self.cpu.step_user_pauth(!record_memory);
         let counted = self.cpu.instruction_count().wrapping_sub(before);
         let event = |cpu: &mut AArch64Cpu,
                      user: &mut A64User,
@@ -680,9 +692,17 @@ impl Aarch64Vcpu {
         let result = match stepped {
             Ok(CpuExit::Continue) => Ok(None),
             Ok(CpuExit::Svc(imm)) => {
-                user.trap = Some(A64UserTrap::Svc {
-                    imm: imm as u16,
-                    pc,
+                user.trap = Some(if self.cpu.pstate_bits() & 16 != 0 {
+                    A64UserTrap::Aarch32Svc {
+                        imm,
+                        pc,
+                        len: self.cpu.instruction_size(),
+                    }
+                } else {
+                    A64UserTrap::Svc {
+                        imm: imm as u16,
+                        pc,
+                    }
                 });
                 self.cpu.clear_exclusive_monitor();
                 Ok(Some(VcpuExit::SystemCall))
@@ -705,6 +725,9 @@ impl Aarch64Vcpu {
             Ok(other) => Err(Error::Emulator(format!(
                 "unexpected AArch64 user-mode exit at {pc:#x}: {other:?}"
             ))),
+            Err(ArmError::ArchitecturalException { ec, iss, .. }) => {
+                event(&mut self.cpu, user, ec, iss)
+            }
             Err(ArmError::MemoryError(info)) => {
                 self.cpu.set_pc(pc);
                 let access = match info.access {
@@ -1001,7 +1024,7 @@ impl VCpu for Aarch64Vcpu {
         }
         regs.pc = self.cpu.get_pc();
         regs.sp = self.cpu.get_sp();
-        regs.pstate = self.cpu.get_pstate().to_pstate();
+        regs.pstate = self.cpu.pstate_bits();
         regs.fpcr = self.cpu.fpcr_value();
         regs.fpsr = self.cpu.fpsr_value();
         Ok(CpuState::aarch64(regs, self.cpu.export_sregs()))
@@ -1016,10 +1039,18 @@ impl VCpu for Aarch64Vcpu {
                 ));
             }
         };
+        AArch64Cpu::validate_saved_state(state.regs.pstate, &state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
+        self.cpu
+            .validate_sregs(&state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
         self.cpu.reset();
         self.cpu
-            .set_pstate(ProcessorState::from_pstate(state.regs.pstate));
-        self.cpu.import_sregs(&state.sregs);
+            .import_sregs(&state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
+        self.cpu
+            .set_pstate_bits(state.regs.pstate)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
         for i in 0..31 {
             self.cpu.set_gpr(i as u8, state.regs.x[i]);
         }
@@ -1061,9 +1092,17 @@ impl VCpu for Aarch64Vcpu {
         // pending exceptions, break/watchpoints, and implementation-private
         // execution state.  `state` originated from get_state(), so overlaying
         // every exported field also preserves unrelated architectural values.
+        AArch64Cpu::validate_saved_state(state.regs.pstate, &state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
         self.cpu
-            .set_pstate(ProcessorState::from_pstate(state.regs.pstate));
-        self.cpu.import_sregs(&state.sregs);
+            .validate_sregs(&state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
+        self.cpu
+            .import_sregs(&state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
+        self.cpu
+            .set_pstate_bits(state.regs.pstate)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
         for i in 0..31 {
             self.cpu.set_gpr(i as u8, state.regs.x[i]);
         }

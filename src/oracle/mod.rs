@@ -1,7 +1,13 @@
 //! JSON oracle harness for ISA-specific decoders and SMIR lifters.
 
 mod address;
+mod arm_control_flow;
+mod arm_pauth;
+mod arm_registers;
+use arm_registers::arm_reg_name;
 mod hexagon;
+use arm_control_flow::arm_control_flow;
+
 use hexagon::decode_hexagon_packet;
 mod arm_simd_resize;
 mod arm_simd_saturating;
@@ -1402,6 +1408,9 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
     }
 
     match kind {
+        OpKind::ArmPauth(..)
+        | OpKind::ArmInstructionBegin { .. }
+        | OpKind::ArmInstructionCommit { .. } => arm_pauth::operation_json(kind),
         OpKind::HexagonPacketBegin => hexagon::packet_boundary_json(true),
         OpKind::HexagonPacketCommit => hexagon::packet_boundary_json(false),
         OpKind::EbpfInstruction {
@@ -4662,19 +4671,6 @@ fn x86_reg_name(reg: &X86Reg) -> String {
     }
 }
 
-fn arm_reg_name(reg: &ArmReg) -> String {
-    match reg {
-        ArmReg::X(n) => format!("x{n}"),
-        ArmReg::Sp => "sp".to_string(),
-        ArmReg::Pc => "pc".to_string(),
-        ArmReg::Nzcv => "nzcv".to_string(),
-        ArmReg::V(n) => format!("v{n}"),
-        ArmReg::Fpcr => "fpcr".to_string(),
-        ArmReg::Fpsr => "fpsr".to_string(),
-        ArmReg::SysReg(reg) => format!("sysreg_{reg:#x}"),
-    }
-}
-
 fn hexagon_reg_name(reg: &HexagonReg) -> String {
     match reg {
         HexagonReg::R(n) => format!("r{n}"),
@@ -4771,34 +4767,6 @@ fn decode_x86_prefix_metadata(bytes: &[u8]) -> Value {
         "opcode_bytes": opcode.iter().map(|b| hex_u8(*b)).collect::<Vec<_>>(),
         "debug": "x86_64 prefix/opcode metadata; semantic decode is in smir",
     })
-}
-
-fn arm_control_flow(insn: &crate::isa::arm::DecodedInsn, pc: u64) -> Value {
-    match insn.mnemonic {
-        Mnemonic::B => direct_label_cf("branch", insn, pc, insn.size),
-        Mnemonic::BL => direct_label_cf("call", insn, pc, insn.size),
-        Mnemonic::BCC | Mnemonic::CBZ | Mnemonic::CBNZ | Mnemonic::TBZ | Mnemonic::TBNZ => {
-            let target = insn
-                .operands
-                .iter()
-                .find_map(label_operand)
-                .map(|offset| (pc as i64).wrapping_add(offset) as u64);
-            json!({
-                "kind": "cond_branch",
-                "target": target.map(hex_u64),
-                "fallthrough": hex_u64(pc + insn.size as u64),
-                "condition": insn.cond.map(|cond| format!("{cond:?}")),
-            })
-        }
-        Mnemonic::BX | Mnemonic::BR => json!({"kind": "indirect_branch"}),
-        Mnemonic::BLX | Mnemonic::BLR => json!({"kind": "indirect_call"}),
-        Mnemonic::RET => json!({"kind": "return"}),
-        Mnemonic::SVC => json!({"kind": "syscall"}),
-        Mnemonic::BRK => json!({"kind": "trap", "trap": "breakpoint"}),
-        Mnemonic::HLT => json!({"kind": "trap", "trap": "halt"}),
-        Mnemonic::UDF | Mnemonic::UNDEFINED => json!({"kind": "trap", "trap": "undefined"}),
-        _ => fallthrough_json(pc + insn.size as u64),
-    }
 }
 
 fn direct_label_cf(kind: &str, insn: &crate::isa::arm::DecodedInsn, pc: u64, size: u8) -> Value {

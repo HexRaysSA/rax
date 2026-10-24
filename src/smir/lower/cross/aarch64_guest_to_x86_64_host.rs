@@ -21,6 +21,8 @@ use crate::smir::lower::{CodeBuffer, LowerError, LowerResult, RelocKind, Relocat
 
 mod comparisons;
 mod memory_address;
+mod pauth;
+mod register_state;
 
 const STATE: PhysReg = PhysReg::Rdi;
 const ACC: PhysReg = PhysReg::Rax;
@@ -73,6 +75,7 @@ pub struct Aarch64X86_64Lowerer {
     virtual_slots: HashMap<VirtualId, i32>,
     frame_size: usize,
     relocations: Vec<Relocation>,
+    pauth_helpers: bool,
 }
 
 impl Aarch64X86_64Lowerer {
@@ -84,6 +87,7 @@ impl Aarch64X86_64Lowerer {
             virtual_slots: HashMap::new(),
             frame_size: 0,
             relocations: Vec::new(),
+            pauth_helpers: false,
         }
     }
 
@@ -187,130 +191,6 @@ impl Aarch64X86_64Lowerer {
                 op: format!("AArch64 state-backed call target {other:?}"),
             }),
         }
-    }
-
-    fn arm_offset(reg: ArmReg) -> Result<i32, LowerError> {
-        match reg {
-            ArmReg::X(n) if n < 31 => Ok(A64_X0_OFFSET + i32::from(n) * 8),
-            ArmReg::X(_) => Err(LowerError::InvalidRegister(
-                "x31 must be encoded as XZR".into(),
-            )),
-            ArmReg::Sp => Ok(A64_SP_OFFSET),
-            ArmReg::Pc => Ok(A64_PC_OFFSET),
-            ArmReg::Nzcv => Ok(A64_NZCV_OFFSET),
-            ArmReg::Fpcr => Ok(A64_FPCR_OFFSET),
-            ArmReg::Fpsr => Ok(A64_FPSR_OFFSET),
-            ArmReg::V(n) if n < 32 => Ok(A64_V_OFFSET + i32::from(n) * 16),
-            ArmReg::V(_) | ArmReg::SysReg(_) => {
-                Err(LowerError::InvalidRegister(format!("{reg:?}")))
-            }
-        }
-    }
-
-    fn virtual_slot(&self, id: VirtualId) -> Result<i32, LowerError> {
-        self.virtual_slots
-            .get(&id)
-            .copied()
-            .ok_or_else(|| LowerError::RegisterAllocationFailed {
-                reason: format!("missing stack slot for virtual {:?}", id),
-            })
-    }
-
-    fn emit_mov_imm(&mut self, dst: PhysReg, imm: i64, width: OpWidth) {
-        let mut e = X86Emitter::new(&mut self.code);
-        if width == OpWidth::W64 {
-            e.emit_mov_ri_imm64(dst, imm);
-        } else {
-            e.emit_mov_ri(dst, imm, width);
-        }
-    }
-
-    fn load_vreg_to(&mut self, vreg: VReg, dst: PhysReg, width: OpWidth) -> Result<(), LowerError> {
-        match vreg {
-            VReg::Imm(value) => {
-                self.emit_mov_imm(dst, value, width);
-            }
-            VReg::Virtual(id) => {
-                let off = self.virtual_slot(id)?;
-                let mut e = X86Emitter::new(&mut self.code);
-                e.emit_mov_rm(dst, PhysReg::Rbp, off, OpWidth::W64);
-            }
-            VReg::Arch(ArchReg::Arm(reg)) => {
-                let off = Self::arm_offset(reg)?;
-                let load_width = if reg == ArmReg::Nzcv {
-                    OpWidth::W32
-                } else {
-                    OpWidth::W64
-                };
-                let mut e = X86Emitter::new(&mut self.code);
-                e.emit_mov_rm(dst, STATE, off, load_width);
-            }
-            VReg::Arch(other) => {
-                return Err(LowerError::InvalidRegister(format!(
-                    "non-AArch64 register in AArch64 lowerer: {other:?}"
-                )));
-            }
-        }
-        Ok(())
-    }
-
-    fn load_src_to(
-        &mut self,
-        src: &SrcOperand,
-        dst: PhysReg,
-        width: OpWidth,
-    ) -> Result<(), LowerError> {
-        match src {
-            SrcOperand::Reg(v) => self.load_vreg_to(*v, dst, width),
-            SrcOperand::Imm(value) | SrcOperand::Imm64(value) => {
-                self.emit_mov_imm(dst, *value, width);
-                Ok(())
-            }
-            SrcOperand::Shifted { reg, shift, amount } => {
-                self.load_vreg_to(*reg, dst, width)?;
-                self.emit_shift_imm(dst, *shift, *amount, width)
-            }
-            SrcOperand::Extended { reg, extend, shift } => {
-                self.load_vreg_to(*reg, dst, OpWidth::W64)?;
-                self.emit_extend_in_place(dst, *extend, width)?;
-                if *shift != 0 {
-                    let mut e = X86Emitter::new(&mut self.code);
-                    e.emit_shl_ri(dst, *shift, width);
-                }
-                Ok(())
-            }
-        }
-    }
-
-    fn store_reg_to(&mut self, dst: VReg, src: PhysReg, width: OpWidth) -> Result<(), LowerError> {
-        self.emit_normalize_gpr_width(src, width)?;
-        match dst {
-            VReg::Imm(_) => {}
-            VReg::Virtual(id) => {
-                let off = self.virtual_slot(id)?;
-                let mut e = X86Emitter::new(&mut self.code);
-                e.emit_mov_mr(PhysReg::Rbp, off, src, OpWidth::W64);
-            }
-            VReg::Arch(ArchReg::Arm(reg)) => {
-                let off = Self::arm_offset(reg)?;
-                let store_width = if reg == ArmReg::Nzcv {
-                    OpWidth::W32
-                } else {
-                    match width {
-                        OpWidth::W32 | OpWidth::W64 => OpWidth::W64,
-                        other => other,
-                    }
-                };
-                let mut e = X86Emitter::new(&mut self.code);
-                e.emit_mov_mr(STATE, off, src, store_width);
-            }
-            VReg::Arch(other) => {
-                return Err(LowerError::InvalidRegister(format!(
-                    "non-AArch64 destination in AArch64 lowerer: {other:?}"
-                )));
-            }
-        }
-        Ok(())
     }
 
     fn emit_normalize_gpr_width(&mut self, reg: PhysReg, width: OpWidth) -> Result<(), LowerError> {
@@ -1295,6 +1175,20 @@ impl Aarch64X86_64Lowerer {
 
     fn lower_op(&mut self, op: &SmirOp) -> Result<(), LowerError> {
         match &op.kind {
+            OpKind::ArmInstructionBegin { raw, features } => {
+                self.lower_pauth_helper(0, *raw, op.guest_pc, *features)?
+            }
+            OpKind::ArmInstructionCommit { raw } => {
+                self.lower_pauth_helper(2, *raw, op.guest_pc, 0)?
+            }
+            OpKind::ArmPauth(operation) if operation.valid() => {
+                self.lower_pauth_helper(1, operation.raw, op.guest_pc, 0)?
+            }
+            OpKind::ArmPauth(..) => {
+                return Err(LowerError::UnsupportedOp {
+                    op: "invalid AArch64 PAuth descriptor".into(),
+                });
+            }
             OpKind::Nop => {
                 let mut e = X86Emitter::new(&mut self.code);
                 e.emit_nop();
@@ -1720,6 +1614,13 @@ impl Aarch64X86_64Lowerer {
     }
 
     fn lower_block(&mut self, block: &SmirBlock) -> Result<(), LowerError> {
+        if self.pauth_helpers {
+            crate::smir::ir::validate_aarch64_instructions(block).map_err(|operation| {
+                LowerError::UnsupportedOp {
+                    op: operation.into(),
+                }
+            })?;
+        }
         self.block_offsets.insert(block.id, self.code.position());
         for op in &block.ops {
             self.lower_op(op)?;

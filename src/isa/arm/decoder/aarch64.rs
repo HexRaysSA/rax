@@ -9,6 +9,8 @@ use crate::isa::arm::ExecutionState;
 /// AArch64 instruction decoder.
 pub struct Aarch64Decoder;
 
+mod pauth;
+
 impl Aarch64Decoder {
     /// Decode a 32-bit AArch64 instruction.
     pub fn decode(raw: u32) -> Result<DecodedInsn, DecodeError> {
@@ -917,6 +919,9 @@ impl Aarch64Decoder {
             ));
         }
 
+        if let Some(mnemonic) = Self::pauth_hint_mnemonic((crm << 3) | op2) {
+            return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4));
+        }
         let mnemonic = match (crm, op2) {
             (0b0000, 0b000) => Mnemonic::NOP,
             (0b0000, 0b001) => Mnemonic::YIELD,
@@ -940,57 +945,6 @@ impl Aarch64Decoder {
         } else {
             Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4))
         }
-    }
-
-    fn decode_uncond_branch_reg(raw: u32) -> Result<DecodedInsn, DecodeError> {
-        let opc = (raw >> 21) & 0xF;
-        let op2 = (raw >> 16) & 0x1F;
-        let op3 = (raw >> 10) & 0x3F;
-        let rn = ((raw >> 5) & 0x1F) as u8;
-        let op4 = raw & 0x1F;
-
-        if op2 != 0x1F {
-            return Ok(DecodedInsn::new(
-                Mnemonic::UNDEFINED,
-                ExecutionState::Aarch64,
-                raw,
-                4,
-            ));
-        }
-
-        let mnemonic = match (opc, op3, op4) {
-            (0b0000, 0b000000, 0b00000) => Mnemonic::BR,
-            (0b0001, 0b000000, 0b00000) => Mnemonic::BLR,
-            (0b0010, 0b000000, 0b00000) => Mnemonic::RET,
-            (0b0100, 0b000000, 0b00000) => Mnemonic::ERET,
-            (0b0101, 0b000000, 0b00000) => Mnemonic::DRPS,
-            // PAC variants
-            (0b1000, 0b000010, _) => Mnemonic::BRAA,
-            (0b1000, 0b000011, _) => Mnemonic::BRAB,
-            (0b1001, 0b000010, _) => Mnemonic::BLRAA,
-            (0b1001, 0b000011, _) => Mnemonic::BLRAB,
-            (0b0010, 0b000010, 0b11111) => Mnemonic::RETAA,
-            (0b0010, 0b000011, 0b11111) => Mnemonic::RETAB,
-            _ => Mnemonic::UNDEFINED,
-        };
-
-        let mut insn = DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4);
-
-        // Add register operand for most variants
-        match mnemonic {
-            Mnemonic::BR
-            | Mnemonic::BLR
-            | Mnemonic::RET
-            | Mnemonic::BRAA
-            | Mnemonic::BRAB
-            | Mnemonic::BLRAA
-            | Mnemonic::BLRAB => {
-                insn = insn.with_operand(Operand::Reg(Register::x(rn)));
-            }
-            _ => {}
-        }
-
-        Ok(insn)
     }
 
     // =========================================================================
@@ -1297,6 +1251,9 @@ impl Aarch64Decoder {
     }
 
     fn decode_load_store_register(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        if let Some(insn) = Self::decode_pauth_load(raw) {
+            return Ok(insn);
+        }
         let size = (raw >> 30) & 0x3;
         let v = (raw >> 26) & 1;
         let opc = (raw >> 22) & 0x3;

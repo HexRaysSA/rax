@@ -342,6 +342,34 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
     }
 
+    pub(crate) fn exclusive_access(&self, insn: &DecodedInsn) -> Option<ExclusiveAccess> {
+        let (size, write) = match insn.mnemonic {
+            Mnemonic::LDXR | Mnemonic::LDAXR => (4, false),
+            Mnemonic::LDXRB | Mnemonic::LDAXRB => (1, false),
+            Mnemonic::LDXRH | Mnemonic::LDAXRH => (2, false),
+            Mnemonic::LDXP | Mnemonic::LDAXP => (8, false),
+            Mnemonic::STXR | Mnemonic::STLXR => (4, true),
+            Mnemonic::STXRB | Mnemonic::STLXRB => (1, true),
+            Mnemonic::STXRH | Mnemonic::STLXRH => (2, true),
+            Mnemonic::STXP | Mnemonic::STLXP => (8, true),
+            _ => return None,
+        };
+        let regs = Self::sync_regs(insn);
+        let low = self.cpu.regs.get(regs.t).copied().unwrap_or(0);
+        let high = self.cpu.regs.get(regs.t2).copied().unwrap_or(0);
+        let value = if size == 8 && self.cpu.cpsr.e {
+            (u64::from(low) << 32) | u64::from(high)
+        } else {
+            u64::from(low) | if size == 8 { u64::from(high) << 32 } else { 0 }
+        };
+        Some(ExclusiveAccess {
+            address: self.reg(regs.n).wrapping_add(regs.imm32),
+            size,
+            status: write.then_some(regs.d),
+            value,
+        })
+    }
+
     /// Whether a doubleword exclusive names registers it cannot use:
     /// UNPREDICTABLE, which this model makes UNDEFINED. A32 needs an even
     /// Rt below r14 (Rt2 is Rt+1); T32 needs Rt and Rt2 distinct and

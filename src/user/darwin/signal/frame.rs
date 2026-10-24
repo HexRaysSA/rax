@@ -50,9 +50,6 @@ const ARM64_FRAME_SIZE: u64 = SIGINFO_SIZE + UCONTEXT_SIZE + ARM64_MCONTEXT_SIZE
 
 /// arm64 thread-state flags (`__DARWIN_ARM_THREAD_STATE64_FLAGS_*`).
 mod flags {
-    /// The pointers are not signed (a process without pointer
-    /// authentication).
-    pub const NO_PTRAUTH: u32 = 0x1;
     /// The kernel signed `pc`.
     pub const KERNEL_SIGNED_PC: u32 = 0x4;
     /// The kernel signed `lr`.
@@ -111,21 +108,8 @@ fn get32(b: &[u8], off: usize) -> u32 {
 /// Whether the process uses pointer authentication (an arm64e main
 /// executable with the pointer-authentication ABI: not `IMGPF_NOJOP`).
 pub fn uses_ptrauth(proc: &Proc) -> bool {
-    const CPU_SUBTYPE_MASK: u32 = 0xff00_0000;
-    const CPU_SUBTYPE_ARM64E: u32 = 2;
-    const CPU_SUBTYPE_PTRAUTH_ABI: u32 = 0x8000_0000;
-    let sub = proc.program.main.header.cpusubtype;
     proc.abi == DarwinAbi::Arm64
-        && sub & !CPU_SUBTYPE_MASK == CPU_SUBTYPE_ARM64E
-        && sub & CPU_SUBTYPE_PTRAUTH_ABI != 0
-}
-
-/// The sigreturn token of a kernel-signed pointer
-/// (`thread_generate_sigreturn_token`). The kernel signs `ptr ^ secret`
-/// with a process key; with RAX's identity pointer-authentication
-/// algorithm the signature is the value itself.
-fn pointer_token(ptr: u64, secret: u64) -> u32 {
-    ((ptr ^ secret) >> 32) as u32
+        && super::super::pauth::uses_abi(proc.program.main.header.cpusubtype)
 }
 
 /// A `siginfo_t` for `sig` (`sendsig`'s per-signal rules): `si_addr` is
@@ -305,20 +289,19 @@ fn sendsig_arm64(
     let DarwinCpu::Arm64(cpu) = &thread.cpu else {
         unreachable!("an arm64 process runs arm64 threads");
     };
-    let (pc, lr, sp) = (cpu.pc(), cpu.core().get_x(30), cpu.sp());
-    let state_flags = if jop {
-        flags::KERNEL_SIGNED_PC
-            | flags::KERNEL_SIGNED_LR
-            | thread.sig.diversifier
-            | (pointer_token(pc, secret) & flags::SIGRETURN_PC_MASK)
-            | (pointer_token(lr, secret) & flags::SIGRETURN_LR_MASK)
-    } else {
-        flags::NO_PTRAUTH
-    };
+    let (pc, sp) = (cpu.pc(), cpu.sp());
+    let auth = super::super::pauth::UserPauth::from_cpu(cpu);
+    let mut state = ts::pauth::to_user(cpu, jop, thread.sig.diversifier);
+    if jop {
+        let state_flags = get32(&state, 268)
+            | (auth.pointer_token(get64(&state, 256), secret) & flags::SIGRETURN_PC_MASK)
+            | (auth.pointer_token(get64(&state, 240), secret) & flags::SIGRETURN_LR_MASK);
+        put32(&mut state, 268, state_flags);
+    }
     let mut frame = vec![0u8; ARM64_FRAME_SIZE as usize];
     let mctx = (SIGINFO_SIZE + UCONTEXT_SIZE) as usize;
     frame[mctx..mctx + 16].copy_from_slice(&ts::arm64_exception_state(&thread.sig.entry));
-    frame[mctx + 16..mctx + 288].copy_from_slice(&ts::arm64_thread_state(cpu, state_flags));
+    frame[mctx + 16..mctx + 288].copy_from_slice(&state);
     frame[mctx + 288..mctx + 816].copy_from_slice(&ts::arm64_neon_state(cpu));
 
     let (top, stack_size) = handler_stack(proc, thread, sig, sp);
@@ -335,7 +318,7 @@ fn sendsig_arm64(
     let info = siginfo(proc, thread, sig, pc, sp);
     frame[..SIGINFO_SIZE as usize].copy_from_slice(&info);
     proc.space.write(fp, &frame).map_err(|_| FrameFault)?;
-    let token = p_uctx ^ secret;
+    let token = auth.ucontext_token(p_uctx, secret);
     let DarwinCpu::Arm64(cpu) = &mut thread.cpu else {
         unreachable!("an arm64 process runs arm64 threads");
     };
@@ -484,7 +467,11 @@ fn sigreturn_arm64(
     set_onstack(thread, &uc);
     thread.sig.mask = get32(&uc, 4) & !CANTMASK;
     let validate = proc.sigacts.validation != Validation::Disabled;
-    if token != uctx ^ thread.sig.token && validate {
+    let DarwinCpu::Arm64(cpu) = &thread.cpu else {
+        unreachable!("an arm64 process runs arm64 threads");
+    };
+    let auth = super::super::pauth::UserPauth::from_cpu(cpu);
+    if token != auth.ucontext_token(uctx, thread.sig.token) && validate {
         return Err(Errno::EINVAL);
     }
     let ss = &mc[16..288];
@@ -495,10 +482,10 @@ fn sigreturn_arm64(
         let secret = thread.sig.token;
         let pc_ok = f & flags::KERNEL_SIGNED_PC == 0
             || f & flags::SIGRETURN_PC_MASK
-                == pointer_token(get64(ss, 256), secret) & flags::SIGRETURN_PC_MASK;
+                == auth.pointer_token(get64(ss, 256), secret) & flags::SIGRETURN_PC_MASK;
         let lr_ok = f & flags::KERNEL_SIGNED_LR == 0
             || f & flags::SIGRETURN_LR_MASK
-                == pointer_token(get64(ss, 240), secret) & flags::SIGRETURN_LR_MASK;
+                == auth.pointer_token(get64(ss, 240), secret) & flags::SIGRETURN_LR_MASK;
         if !pc_ok || !lr_ok {
             return Err(Errno::EINVAL);
         }
@@ -506,7 +493,8 @@ fn sigreturn_arm64(
     let DarwinCpu::Arm64(cpu) = &mut thread.cpu else {
         unreachable!("an arm64 process runs arm64 threads");
     };
-    ts::set_arm64_thread_state(cpu, ss);
+    let raw = ts::pauth::from_user(cpu, ss, thread.sig.diversifier).ok_or(Errno::EINVAL)?;
+    ts::set_arm64_thread_state(cpu, &raw);
     ts::set_arm64_neon_state(cpu, &mc[288..816]);
     thread.sig.pending_sigreturn = thread.sig.pending_sigreturn.saturating_sub(1);
     Ok(())

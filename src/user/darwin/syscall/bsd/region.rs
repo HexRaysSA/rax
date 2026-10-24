@@ -170,6 +170,13 @@ pub fn map_and_slide_2(
                     slide,
                 )
                 .map_err(Errno::from)?;
+                let src = if let crate::user::darwin::arch::DarwinCpu::Arm64(cpu) = &ctx.thread.cpu
+                {
+                    src.with_pauth(addr, crate::user::darwin::pauth::UserPauth::from_cpu(cpu))
+                        .map_err(Errno::from)?
+                } else {
+                    src
+                };
                 Backing::Source {
                     source: Arc::new(src),
                     offset: m.file_offset,

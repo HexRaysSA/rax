@@ -65,7 +65,15 @@ impl AArch64Cpu {
         // is re-checked on the next step.
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
         if let Some(region) = self.jit_lookup(self.pc) {
-            if self.jit_run_region(&region) {
+            let ran = self.jit_run_region(&region);
+            if let Some(error) = self.jit.native_fault.take() {
+                return if fault_exit {
+                    Err(error)
+                } else {
+                    self.deliver_fault(error)
+                };
+            }
+            if ran {
                 return Ok(CpuExit::Continue);
             }
         }
@@ -79,7 +87,16 @@ impl AArch64Cpu {
             Ok(CpuExit::Svc(imm)) => {
                 // PC already points past the SVC: that is the preferred
                 // return address.
-                self.enter_sync_exception(SyndromeRegister::svc(imm as u16), None)?;
+                let syndrome = if self.aarch32.is_some() {
+                    SyndromeRegister {
+                        value: (0x11 << 26)
+                            | (u64::from(self.last_instruction_size == 4) << 25)
+                            | u64::from(imm & 0xffff),
+                    }
+                } else {
+                    SyndromeRegister::svc(imm as u16)
+                };
+                self.enter_sync_exception(syndrome, None)?;
                 Ok(CpuExit::Continue)
             }
             Ok(CpuExit::Breakpoint(imm)) if !self.breakpoints.contains(&self.pc) => {
@@ -192,16 +209,45 @@ impl AArch64Cpu {
         }
 
         match err {
+            ArmError::ArchitecturalException { ec, iss, target_el } => {
+                let syndrome = SyndromeRegister {
+                    value: (u64::from(ec) << 26)
+                        | (u64::from(
+                            self.aarch32.is_none() || ec == 0x0e || self.last_instruction_size == 4,
+                        ) << 25)
+                        | u64::from(iss & 0x1ffffff),
+                };
+                if let Some(el) = target_el {
+                    self.take_exception(el, ExceptionType::Synchronous, syndrome)?;
+                } else {
+                    self.enter_sync_exception(syndrome, None)?;
+                }
+                Ok(CpuExit::Continue)
+            }
             ArmError::MemoryError(info) => {
                 if info.fault_type == MemoryFaultType::SpAlignment {
-                    self.enter_sync_exception(SyndromeRegister::sp_alignment(), None)?;
+                    let controls = self.pauth_controls();
+                    let target = if self.current_el < 2
+                        && controls.el2_enabled()
+                        && controls.hcr_el2 & (1 << 27) != 0
+                    {
+                        2
+                    } else {
+                        self.current_el.max(1)
+                    };
+                    self.take_exception(
+                        target,
+                        ExceptionType::Synchronous,
+                        SyndromeRegister::sp_alignment(),
+                    )?;
                     return Ok(CpuExit::Continue);
                 }
                 let level = self
                     .last_fault_level
                     .load(std::sync::atomic::Ordering::Relaxed);
                 let fsc = fsc_for_fault(info.fault_type, level);
-                let from_lower = self.current_el == 0;
+                let target = self.abort_target_el(&info);
+                let from_lower = self.current_el < target;
                 let syndrome = if info.access == AccessType::InstructionFetch {
                     SyndromeRegister::instruction_abort(from_lower, fsc, false)
                 } else {
@@ -223,18 +269,29 @@ impl AArch64Cpu {
                         0,     // set
                     )
                 };
-                self.enter_sync_exception(syndrome, Some(info.address))?;
+                if !self.record_aarch32_abort(target, &info, level)? {
+                    self.sysregs.bank_mut(target).far = info.address;
+                }
+                self.take_exception(target, ExceptionType::Synchronous, syndrome)?;
                 Ok(CpuExit::Continue)
             }
             ArmError::UndefinedInstruction(_) => {
-                self.enter_sync_exception(SyndromeRegister::unknown(), None)?;
+                let mut syndrome = SyndromeRegister::unknown();
+                if self.aarch32.is_some() && self.last_instruction_size == 2 {
+                    syndrome.value &= !(1 << 25);
+                }
+                self.enter_sync_exception(syndrome, None)?;
                 Ok(CpuExit::Continue)
             }
             ArmError::Unimplemented(what) => {
                 // Trap-on-unknown: report it once at debug level, then let
                 // the guest's undef handler decide.
                 tracing::debug!(what, pc = format!("{:#x}", self.pc), "UNDEF injection");
-                self.enter_sync_exception(SyndromeRegister::unknown(), None)?;
+                let mut syndrome = SyndromeRegister::unknown();
+                if self.aarch32.is_some() && self.last_instruction_size == 2 {
+                    syndrome.value &= !(1 << 25);
+                }
+                self.enter_sync_exception(syndrome, None)?;
                 Ok(CpuExit::Continue)
             }
             other => Err(other),
@@ -337,7 +394,7 @@ impl AArch64Cpu {
     /// Fast-path lookup: a runnable compiled region at `pc` in the current mode.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_lookup(&self, pc: u64) -> Option<std::sync::Arc<JitRegion>> {
-        if self.jit.disabled {
+        if self.jit.disabled || self.aarch32.is_some() {
             return None;
         }
         let mt = self.jit_mode_tag();
@@ -352,6 +409,9 @@ impl AArch64Cpu {
     /// compile + run the region. RAX_NO_JIT disables promotion.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_sample_backedge(&mut self, pc_before: u64) {
+        if self.aarch32.is_some() {
+            return;
+        }
         {
             use std::sync::OnceLock;
             static OFF: OnceLock<bool> = OnceLock::new();
@@ -401,7 +461,12 @@ impl AArch64Cpu {
                 if (head & 0xFFF) + 512 > 0x1000 {
                     self.jit.code_pages.insert((head & !0xFFF) + 0x1000);
                 }
-                self.jit_run_region(&r);
+                // A PAuth region retires exactly one instruction per system
+                // step. Promotion happens after the backedge instruction has
+                // already retired; execute the new region on the next step.
+                if r.pauth_instruction.is_none() {
+                    self.jit_run_region(&r);
+                }
             }
             None => {
                 // Soft-cap the memo so a long run can't grow it unbounded.

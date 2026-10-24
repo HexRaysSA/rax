@@ -1326,7 +1326,7 @@ fn issue_49_import_sregs_sanitizes_tcr_sizes_for_mmu() {
         ..Aarch64SystemRegisters::default()
     };
 
-    cpu.import_sregs(&sregs);
+    cpu.import_sregs(&sregs).unwrap();
     assert_eq!(cpu.mmu.config().t0sz, 16);
     assert_eq!(cpu.mmu.config().t1sz, 16);
     assert!(
@@ -1335,7 +1335,7 @@ fn issue_49_import_sregs_sanitizes_tcr_sizes_for_mmu() {
     );
 
     sregs.tcr_el1 = 63 | (63 << 16) | (0b01 << 14) | (0b11 << 30);
-    cpu.import_sregs(&sregs);
+    cpu.import_sregs(&sregs).unwrap();
     assert_eq!(cpu.mmu.config().t0sz, 47);
     assert_eq!(cpu.mmu.config().t1sz, 47);
     assert!(

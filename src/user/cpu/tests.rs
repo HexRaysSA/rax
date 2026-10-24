@@ -965,3 +965,63 @@ fn x86_clone_thread_copies_register_state() {
     assert_eq!(child.pc(), CODE);
     assert!(child.space().same_space(cpu.space()));
 }
+
+#[test]
+fn a64_pauth_thread_clone_inherits_keys_controls_and_precise_faults() {
+    use crate::isa::arm::aarch64::pauth::{
+        PauthAlgorithm, PauthConfig, PauthKey, PauthKeys, PauthProfile,
+    };
+    use crate::isa::arm::{AArch64Config, ArmFeatures};
+    let memory = space(&words(&[0xdac1_0020, 0xdac1_1020, A64_SVC_0]));
+    let mut parent = A64UserCpu::with_config(
+        &memory,
+        AArch64Config {
+            features: ArmFeatures::armv8_3_base(),
+            ..AArch64Config::default()
+        },
+    );
+    parent.core_mut().configure_pauth(PauthConfig {
+        algorithm: PauthAlgorithm::Qarma3,
+        profile: PauthProfile::FpacCombine,
+    });
+    let key = PauthKey {
+        lo: u64::MAX,
+        hi: 0x0123_4567_89ab_cdef,
+    };
+    parent.core_mut().set_pauth_keys(PauthKeys {
+        ia: key,
+        ..PauthKeys::default()
+    });
+    let mut controls = parent.core().pauth_controls();
+    controls.sctlr[1] = 1 << 31;
+    controls.tcr[1] = 16 | (16 << 16);
+    controls.hcr_el2 = (1 << 40) | (1 << 41);
+    controls.scr_el3 = 1 | (1 << 16) | (1 << 17);
+    parent.core_mut().set_pauth_controls(controls).unwrap();
+    parent.core_mut().set_pc(CODE);
+    parent.core_mut().set_x(0, 0x1230);
+    parent.core_mut().set_x(1, 0x4567);
+    assert_eq!(parent.run(1), A64Exit::Yield);
+    let signed = parent.core().get_x(0);
+    let mut child = parent.clone_thread();
+    assert_eq!(child.core().pauth_keys(), parent.core().pauth_keys());
+    assert_eq!(
+        child.core().pauth_controls(),
+        parent.core().pauth_controls()
+    );
+    assert_eq!(child.core().config().pauth, parent.core().config().pauth);
+    assert_eq!(child.run(1), A64Exit::Yield);
+    assert_eq!(child.core().get_x(0), 0x1230);
+    child.core_mut().set_pc(CODE + 4);
+    child.core_mut().set_x(0, signed ^ (1 << 48));
+    assert_eq!(
+        child.run(1),
+        A64Exit::Exception {
+            pc: CODE + 4,
+            ec: 0x1c,
+            iss: 0
+        }
+    );
+    assert_eq!(child.core().get_x(0), signed ^ (1 << 48));
+    assert_eq!(child.pc(), CODE + 4);
+}

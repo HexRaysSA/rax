@@ -171,6 +171,16 @@ impl Aarch32Decoder {
     // =========================================================================
 
     fn decode_unconditional(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        // CLREX A1 has fixed fields, including bits [27:20] = 0x57.
+        // It must not enter the generic memory-hint/NOP fallback.
+        if raw == 0xf57f_f01f {
+            return Ok(DecodedInsn::new(
+                Mnemonic::CLREX,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
         // PLD/PLDW/PLI (preload hints): 1111 01xx U x01/UR01 Rn 1111 ... —
         // load/store-class encodings with Rt=0b1111. Architecturally hints;
         // executed as NOPs.

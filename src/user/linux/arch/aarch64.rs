@@ -135,6 +135,22 @@ pub fn run(cpu: &mut A64UserCpu, budget: u64) -> CpuEvent {
             SigInfo::fault(SIGILL, code::ILL_ILLOPC, pc),
             FaultUpdate::Arm64 { address: 0, esr: 0 },
         ),
+        // Linux arm64 do_el0_fpac injects SIGILL/ILL_ILLOPN with the precise ESR.
+        A64Exit::Exception { pc, ec, iss } => CpuEvent::Signal(
+            SigInfo::fault(
+                SIGILL,
+                if ec == 0x1c {
+                    code::ILL_ILLOPN
+                } else {
+                    code::ILL_ILLOPC
+                },
+                pc,
+            ),
+            FaultUpdate::Arm64 {
+                address: 0,
+                esr: (u64::from(ec) << 26) | (1 << 25) | u64::from(iss),
+            },
+        ),
         // do_page_fault / do_bad_area → set_thread_esr(far, esr).
         A64Exit::Fault(f) => CpuEvent::Signal(
             fault_signal(&f),

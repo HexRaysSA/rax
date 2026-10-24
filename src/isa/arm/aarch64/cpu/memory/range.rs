@@ -16,7 +16,8 @@ impl AArch64Cpu {
         device_memory: bool,
         write: bool,
     ) -> Result<(), ArmError> {
-        let required = self.sysregs.bank(self.current_el).sctlr & sctlr::A != 0
+        let controls = self.pauth_controls();
+        let required = controls.sctlr[controls.regime_el()] & sctlr::A != 0
             || self.memory.requires_alignment()
             || device_memory;
         if required && va & (width as u64 - 1) != 0 {

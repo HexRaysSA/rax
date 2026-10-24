@@ -12,6 +12,7 @@ impl AArch64Cpu {
     /// Linux `execve` state: NZCV, DAIF, BTYPE, and the single-step,
     /// illegal-state, PAN, UAO, DIT, SSBS, and TCO bits clear.
     pub fn enter_el0(&mut self) {
+        self.aarch32 = None;
         self.current_el = 0;
         self.sp_sel = false;
         self.nzcv = 0;
@@ -111,6 +112,7 @@ impl AArch64Cpu {
 
     /// Clears the local exclusive monitor, as exception entry and return do.
     pub fn clear_exclusive_monitor(&mut self) {
+        self.aarch32_monitor.clear();
         self.memory.clear_exclusive();
     }
 
@@ -123,6 +125,7 @@ impl AArch64Cpu {
             self.jit.hot.clear();
             self.jit.code_pages.clear();
             self.jit.smc_dirty = false;
+            self.jit.native_fault = None;
         }
     }
 

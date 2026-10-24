@@ -128,6 +128,8 @@ pub enum A64Exit {
         /// Why the core rejected it.
         reason: String,
     },
+    /// Precise synchronous architectural exception at the instruction.
+    Exception { pc: u64, ec: u8, iss: u32 },
     /// A memory access faulted; the PC is left at the instruction.
     Fault(AccessFault),
     /// The instruction budget was spent.
@@ -167,7 +169,7 @@ impl A64UserCpu {
 
     /// A new CPU for another thread of the same process with this CPU's
     /// register state (X0-X30, SP, PC, NZCV, V0-V31, FPCR, FPSR, TPIDR_EL0,
-    /// TPIDRRO_EL0).
+    /// TPIDRRO_EL0), complete EL0 PSTATE, and architectural signing context.
     pub fn clone_thread(&self) -> Self {
         let mut child = A64UserCpu::with_config(&self.space, self.cpu.config().clone());
         child
@@ -178,7 +180,12 @@ impl A64UserCpu {
         }
         child.cpu.set_current_sp(self.cpu.get_sp());
         child.cpu.set_pc(self.cpu.get_pc());
-        child.cpu.set_nzcv_bits(self.cpu.nzcv_bits());
+        child.cpu.copy_user_pauth_state_from(&self.cpu);
+        child
+            .cpu
+            .set_pstate_bits(self.cpu.pstate_bits())
+            .expect("source thread has a valid execution state");
+        child.cpu.set_current_sp(self.cpu.get_sp());
         for v in 0..32 {
             child.cpu.set_simd(v, self.cpu.get_simd(v));
         }
@@ -295,6 +302,10 @@ impl A64UserCpu {
                     return A64Exit::Internal(format!(
                         "unexpected AArch64 exit {other:?} at {pc:#x}"
                     ));
+                }
+                Err(ArmError::ArchitecturalException { ec, iss, .. }) => {
+                    self.cpu.clear_exclusive_monitor();
+                    return A64Exit::Exception { pc, ec, iss };
                 }
                 Err(ArmError::MemoryError(info)) => {
                     let access = match info.access {

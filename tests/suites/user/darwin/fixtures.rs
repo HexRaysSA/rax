@@ -36,6 +36,11 @@ fn hello_arm64() {
 }
 
 #[test]
+fn pauth_arm64e() {
+    fixture("pauth", "arm64e", &[], &[]);
+}
+
+#[test]
 fn hello_x86_64() {
     fixture(
         "hello",

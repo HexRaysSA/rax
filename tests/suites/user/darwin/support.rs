@@ -110,7 +110,7 @@ pub fn x86_64_native() -> bool {
     })
 }
 
-/// Compiles fixture `name` for `arch` (`arm64` or `x86_64`).
+/// Compiles fixture `name` for `arch` (`arm64`, `arm64e`, or `x86_64`).
 pub fn build(name: &str, arch: &str) -> PathBuf {
     build_as(name, arch, name)
 }
@@ -410,7 +410,7 @@ pub fn comparable(what: &str, arch: &str) -> bool {
                 .then_some("x86_64 programs do not run natively (no Rosetta)")
         })
         .or_else(|| {
-            (arch == "arm64" && std::env::consts::ARCH != "aarch64")
+            (matches!(arch, "arm64" | "arm64e") && std::env::consts::ARCH != "aarch64")
                 .then_some("arm64 programs do not run on this host")
         });
     match why {

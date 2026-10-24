@@ -22,42 +22,6 @@ use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 use crate::vm::vcpu::Aarch64SystemRegisters;
 
 impl AArch64Cpu {
-    /// Return from exception (ERET).
-    pub(crate) fn exception_return(&mut self) -> Result<CpuExit, ArmError> {
-        // Get saved state from current EL
-        let spsr = self.sysregs.bank(self.current_el).spsr;
-        let elr = self.sysregs.bank(self.current_el).elr;
-
-        // Parse SPSR
-        let (nzcv, daif, target_el, sp_sel, ssbs, pan, uao, dit, tco, btype, il, ss) =
-            parse_spsr(spsr);
-
-        // Check if return is valid
-        if target_el > self.current_el {
-            // Cannot return to higher EL
-            return Err(ArmError::Internal("ERET to higher EL".to_string()));
-        }
-
-        // Restore state
-        self.nzcv = nzcv;
-        self.daif = daif;
-        self.current_el = target_el;
-        self.sp_sel = sp_sel;
-        self.ssbs = ssbs;
-        self.pan = pan;
-        self.uao = uao;
-        self.dit = dit;
-        self.tco = tco;
-        self.btype = btype;
-        self.il = il;
-        self.ss = ss;
-
-        // Set PC
-        self.pc = elr;
-
-        Ok(CpuExit::Continue)
-    }
-
     /// Execute branch and system instruction.
     pub(crate) fn exec_branch_system(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
         // Use bits [31:24] for primary decode

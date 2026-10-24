@@ -18,6 +18,10 @@ impl Aarch64Lowerer {
             });
         }
         match &op.kind {
+            OpKind::ArmInstructionBegin { raw, features } => self.lower_pauth_helper(0, *raw, op.guest_pc, *features),
+            OpKind::ArmInstructionCommit { raw } => self.lower_pauth_helper(2, *raw, op.guest_pc, 0),
+            OpKind::ArmPauth(operation) if operation.valid() => self.lower_pauth_helper(1, operation.raw, op.guest_pc, 0),
+            OpKind::ArmPauth(..) => Err(LowerError::UnsupportedOp { op: "invalid AArch64 PAuth descriptor".into() }),
             OpKind::Nop => {
                 self.emit(0xd503_201f);
                 Ok(())
@@ -1208,6 +1212,10 @@ impl Aarch64Lowerer {
         folded_cond: Option<Condition>,
     ) -> Result<(), LowerError> {
         match &block.terminator {
+            Terminator::IndirectBranch {
+                target: VReg::Arch(ArchReg::Arm(ArmReg::Pc)),
+                ..
+            } if self.pauth_helpers => self.emit_pauth_control_exit(),
             Terminator::Branch { target } => self.lower_branch_edge(block.id, *target),
             Terminator::CondBranch {
                 cond,

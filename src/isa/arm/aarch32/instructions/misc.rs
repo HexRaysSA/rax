@@ -50,8 +50,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
     }
 
-    /// Execute a single decoded instruction.
-    pub fn execute(&mut self, insn: &DecodedInsn) -> ExecResult {
+    /// Condition evaluation shared with enclosing-PE memory/monitor bridges.
+    pub(crate) fn condition_matches(&self, insn: &DecodedInsn) -> bool {
         // Thumb IT state predicates the following instruction(s); the IT
         // instruction itself is unconditional and installs the state.
         let cond = if insn.state.is_thumb()
@@ -63,11 +63,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             insn.cond
         };
 
-        // Check condition code.
-        if let Some(cond) = cond {
-            if !self.condition_passed(cond) {
-                return ExecResult::Continue;
-            }
+        cond.is_none_or(|condition| self.condition_passed(condition))
+    }
+
+    /// Execute a single decoded instruction.
+    pub fn execute(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.condition_matches(insn) {
+            return ExecResult::Continue;
         }
 
         // Failed predicates do not perform FP access checks. Denied accesses
@@ -812,6 +814,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Some(ProcessorMode::Monitor) => self.cpu.regs_mon[0],
             Some(ProcessorMode::Abort) => self.cpu.regs_abt[0],
             Some(ProcessorMode::Undefined) => self.cpu.regs_und[0],
+            Some(ProcessorMode::Hyp) => self.cpu.sp_hyp,
             _ => self.cpu.regs[13],
         }
     }

@@ -39,7 +39,7 @@ fn stack_cpu(instruction: u32, el: u8, controls: u64, sp: u64) -> AArch64Cpu {
     let mut regs = cpu.export_sregs();
     regs.sctlr_el1 = controls;
     regs.vbar_el1 = 0x8000;
-    cpu.import_sregs(&regs);
+    cpu.import_sregs(&regs).unwrap();
     cpu.set_current_sp(sp);
     cpu.set_pc(0);
     cpu.set_sve_pred(0, 0xffff);
@@ -79,7 +79,7 @@ fn stack_alignment_has_its_own_exception_class_and_preserves_far() {
         let mut cpu = stack_cpu(0xf94003e0, el, (1 << 3) | (1 << 4), 0x1008);
         let mut regs = cpu.export_sregs();
         regs.far_el1 = 0x12345678;
-        cpu.import_sregs(&regs);
+        cpu.import_sregs(&regs).unwrap();
         cpu.step_system().unwrap();
         let regs = cpu.export_sregs();
         assert_eq!((regs.esr_el1 >> 26) & 0x3f, 0x26);

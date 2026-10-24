@@ -84,6 +84,28 @@ impl std::error::Error for MemoryError {}
 
 /// Memory interface for SMIR execution
 pub trait SmirMemory: Send {
+    /// Optional authoritative source-page GP lookup at this guest instruction.
+    /// A translated backend may return an exact instruction-fetch fault.
+    fn aarch64_instruction_guarded(
+        &mut self,
+        _pc: u64,
+        _state: &crate::smir::ir::context::Aarch64RegState,
+    ) -> Option<Result<bool, crate::isa::arm::common::cpu::ArmError>> {
+        None
+    }
+
+    /// Optional architectural AArch64 data-access bridge. Implementations that
+    /// translate guest addresses return the exact CPU fault, including stage,
+    /// access and fault class. `None` means this backend has no such bridge;
+    /// callers must decline translated accesses before performing memory I/O.
+    fn aarch64_load64(
+        &mut self,
+        _address: u64,
+        _state: &crate::smir::ir::context::Aarch64RegState,
+    ) -> Option<Result<u64, crate::isa::arm::common::cpu::ArmError>> {
+        None
+    }
+
     /// Guest-order RMW. Big-endian arithmetic uses a CAS loop over the
     /// backend's indivisible little-endian atomic primitives.
     fn atomic_rmw_endian(

@@ -146,11 +146,6 @@ pub mod x86 {
 /// `VM_MAX_PAGE_ADDRESS` on x86-64: debug addresses must lie below it.
 const X86_VM_MAX_PAGE_ADDRESS: u64 = 0x0000_7fff_ffe0_0000;
 
-/// `__DARWIN_ARM_THREAD_STATE64_FLAGS_NO_PTRAUTH`.
-const FLAGS_NO_PTRAUTH: u32 = 0x1;
-/// `__DARWIN_ARM_THREAD_STATE64_FLAGS_KERNEL_SIGNED_PC` and `_LR`.
-const FLAGS_KERNEL_SIGNED: u32 = 0x4 | 0x8;
-
 fn words(b: &[u8]) -> Vec<u32> {
     b.chunks(4)
         .map(|c| {
@@ -249,14 +244,7 @@ fn get_arm64(
     flavor: i32,
     count: u32,
 ) -> Result<Vec<u32>, KernReturn> {
-    let thread64 = || {
-        let flags = if v.ptrauth {
-            FLAGS_KERNEL_SIGNED
-        } else {
-            FLAGS_NO_PTRAUTH
-        };
-        words(&ts::arm64_thread_state(cpu, flags))
-    };
+    let thread64 = || words(&ts::pauth::to_user(cpu, v.ptrauth, 0));
     Ok(match flavor {
         FLAVOR_LIST => {
             need(count, 4)?;
@@ -488,11 +476,15 @@ fn set_arm64(
             {
                 return Err(kr::KERN_INVALID_ARGUMENT);
             }
-            ts::set_arm64_thread_state(cpu, &bytes(&state[2..70]));
+            let raw = ts::pauth::from_user(cpu, &bytes(&state[2..70]), 0)
+                .ok_or(kr::KERN_INVALID_ARGUMENT)?;
+            ts::set_arm64_thread_state(cpu, &raw);
         }
         arm::THREAD_STATE64 => {
             exactly(count, arm::THREAD_STATE64_COUNT)?;
-            ts::set_arm64_thread_state(cpu, &bytes(state));
+            let raw =
+                ts::pauth::from_user(cpu, &bytes(state), 0).ok_or(kr::KERN_INVALID_ARGUMENT)?;
+            ts::set_arm64_thread_state(cpu, &raw);
         }
         // The exception state is not the thread's to change.
         arm::EXCEPTION_STATE64 | arm::EXCEPTION_STATE64_V2 => {

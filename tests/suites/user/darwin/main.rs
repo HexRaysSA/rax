@@ -1,7 +1,8 @@
 //! `rax-user` Darwin personality integration tests.
 //!
 //! The oracle is the host itself: on a macOS host each fixture
-//! (`tests/fixtures/user/darwin/src/*.c`) is compiled for arm64 and x86_64
+//! (`tests/fixtures/user/darwin/src/*.c`) is compiled for its requested arm64,
+//! arm64e, or x86_64 target
 //! with the SDK's `clang`, run natively (x86_64 through Rosetta), and run
 //! under `rax-user` against the host's `dyld` and shared cache; standard
 //! output and exit status must match byte for byte. The same holds for a

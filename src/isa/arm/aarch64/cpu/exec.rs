@@ -32,7 +32,7 @@ impl AArch64Cpu {
             .as_ref()
             .and_then(|g| g.lock().ok().and_then(|g| g.irq_line(0)));
 
-        Self {
+        let mut cpu = Self {
             x: [0; NUM_GPRS],
             sp_el: [0; NUM_ELS],
             pc: 0,
@@ -40,7 +40,9 @@ impl AArch64Cpu {
             nzcv: 0,
             daif: 0xF, // All exceptions masked on reset
             current_el: config.initial_el,
-            sp_sel: true, // Use SP_ELx on reset
+            sp_sel: config.initial_el != 0, // EL0 has only the EL0t mode.
+            aarch32: None,
+            aarch32_monitor: Default::default(),
             pan: false,
             uao: false,
             dit: false,
@@ -64,6 +66,7 @@ impl AArch64Cpu {
             gic,
             gic_irq_line,
             timer_levels: (false, false),
+            instruction_guarded: std::sync::atomic::AtomicBool::new(false),
             last_fault_level: std::sync::atomic::AtomicU8::new(0),
             tbi_tag: std::sync::atomic::AtomicU64::new(0),
             fault_log_budget: 64,
@@ -72,6 +75,7 @@ impl AArch64Cpu {
             memory,
 
             insn_count: 0,
+            last_instruction_size: 4,
             cycle_count: 0,
             #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
             jit: Aarch64JitState::default(),
@@ -85,11 +89,17 @@ impl AArch64Cpu {
             watchpoints: Vec::new(),
 
             config,
-        }
+        };
+        cpu.initialize_reset_control_state();
+        cpu.update_pauth_id_registers();
+        cpu
     }
 
     /// Get current stack pointer.
     pub fn current_sp(&self) -> u64 {
+        if let Some(state) = self.aarch32 {
+            return u64::from(self.x[usize::from(state.sp_register())] as u32);
+        }
         if self.sp_sel || self.current_el == 0 {
             if self.current_el == 0 {
                 self.sp_el[0]
@@ -165,7 +175,13 @@ impl AArch64Cpu {
 
     /// Execute one instruction.
     pub(crate) fn execute_instruction(&mut self) -> Result<CpuExit, ArmError> {
+        if self.aarch32.is_some() {
+            return self.execute_aarch32_instruction();
+        }
+        self.last_instruction_size = 4;
         self.tbi_tag.store(0, std::sync::atomic::Ordering::Relaxed);
+        self.last_fault_level
+            .store(0, std::sync::atomic::Ordering::Relaxed);
         // Fetch instruction
         let insn = self.fetch_instruction()?;
 
@@ -173,6 +189,8 @@ impl AArch64Cpu {
         if self.breakpoints.contains(&self.pc) {
             return Ok(CpuExit::Breakpoint(self.pc as u32));
         }
+
+        self.check_instruction_entry(insn)?;
 
         // Save PC and advance
         let old_pc = self.pc;
@@ -274,55 +292,6 @@ impl AArch64Cpu {
         }
 
         Ok(None)
-    }
-
-    /// Export the backend-agnostic subset of modeled AArch64 system state.
-    pub fn export_sregs(&self) -> Aarch64SystemRegisters {
-        Aarch64SystemRegisters {
-            sctlr_el1: self.sysregs.el1.sctlr,
-            tcr_el1: self.sysregs.el1.tcr,
-            ttbr0_el1: self.sysregs.el1.ttbr0,
-            ttbr1_el1: self.sysregs.el1.ttbr1,
-            mair_el1: self.sysregs.el1.mair,
-            vbar_el1: self.sysregs.el1.vbar,
-            esr_el1: self.sysregs.el1.esr,
-            far_el1: self.sysregs.el1.far,
-            elr_el1: self.sysregs.el1.elr,
-            spsr_el1: self.sysregs.el1.spsr,
-            sp_el0: self.sp_el[0],
-            sp_el1: self.sp_el[1],
-            tpidr_el0: self.sysregs.tpidr_el0,
-            tpidr_el1: self.sysregs.el1.tpidr,
-            tpidrro_el0: self.sysregs.tpidrro_el0,
-            cntp_ctl_el0: self.sysregs.cntp_ctl_el0 & 0x3,
-            cntp_cval_el0: self.sysregs.cntp_cval_el0,
-            cntv_ctl_el0: self.sysregs.cntv_ctl_el0 & 0x3,
-            cntv_cval_el0: self.sysregs.cntv_cval_el0,
-        }
-    }
-
-    /// Import the backend-agnostic subset of modeled AArch64 system state.
-    pub fn import_sregs(&mut self, sregs: &Aarch64SystemRegisters) {
-        self.sysregs.el1.sctlr = sregs.sctlr_el1;
-        self.sysregs.el1.tcr = sregs.tcr_el1;
-        self.sysregs.el1.ttbr0 = sregs.ttbr0_el1;
-        self.sysregs.el1.ttbr1 = sregs.ttbr1_el1;
-        self.sysregs.el1.mair = sregs.mair_el1;
-        self.sysregs.el1.vbar = sregs.vbar_el1;
-        self.sysregs.el1.esr = sregs.esr_el1;
-        self.sysregs.el1.far = sregs.far_el1;
-        self.sysregs.el1.elr = sregs.elr_el1;
-        self.sysregs.el1.spsr = sregs.spsr_el1;
-        self.sp_el[0] = sregs.sp_el0;
-        self.sp_el[1] = sregs.sp_el1;
-        self.sysregs.tpidr_el0 = sregs.tpidr_el0;
-        self.sysregs.el1.tpidr = sregs.tpidr_el1;
-        self.sysregs.tpidrro_el0 = sregs.tpidrro_el0;
-        self.sysregs.cntp_ctl_el0 = sregs.cntp_ctl_el0 & 0x3;
-        self.sysregs.cntp_cval_el0 = sregs.cntp_cval_el0;
-        self.sysregs.cntv_ctl_el0 = sregs.cntv_ctl_el0 & 0x3;
-        self.sysregs.cntv_cval_el0 = sregs.cntv_cval_el0;
-        self.update_mmu_config();
     }
 
     // =========================================================================
@@ -1418,40 +1387,8 @@ impl AArch64Cpu {
             return Err(ArmError::UndefinedInstruction(insn));
         }
 
-        // FEAT_PAuth one-source (opcode2 = 00001). No real key schedule:
-        // PAC*/AUT* leave the pointer logically intact (authenticate is the
-        // inverse of sign), XPAC strips the auth field. The opcode field
-        // (bits[15:10]) selects the variant: 0b000xxx take a modifier in Rn,
-        // 0b001xxx are the "Z" forms (modifier 0, require Rn=11111), and
-        // 0b0100xx are XPACI/XPACD (require Rn=11111).
-        if sf == 1 && opcode2 == 0b00001 {
-            match opcode {
-                // PACIA/IB/DA/DB, AUTIA/IB/DA/DB Xd, Xn|SP
-                0b000000..=0b000111 => {
-                    let v = self.get_x(rd);
-                    self.set_x(rd, v);
-                    return Ok(CpuExit::Continue);
-                }
-                // PACIZA/.../AUTDZB Xd (Rn must be 11111)
-                0b001000..=0b001111 => {
-                    if rn != 31 {
-                        return Ok(CpuExit::Undefined(insn));
-                    }
-                    let v = self.get_x(rd);
-                    self.set_x(rd, v);
-                    return Ok(CpuExit::Continue);
-                }
-                // XPACI / XPACD Xd (Rn must be 11111)
-                0b010000 | 0b010001 => {
-                    if rn != 31 {
-                        return Ok(CpuExit::Undefined(insn));
-                    }
-                    let v = strip_pac(self.get_x(rd), opcode & 1 != 0);
-                    self.set_x(rd, v);
-                    return Ok(CpuExit::Continue);
-                }
-                _ => return Err(ArmError::UndefinedInstruction(insn)),
-            }
+        if sf == 1 && opcode2 == 1 {
+            return self.exec_pauth_dp1(insn, opcode, rn, rd);
         } else if opcode2 != 0 {
             return Err(ArmError::UndefinedInstruction(insn));
         }
@@ -1543,14 +1480,8 @@ impl AArch64Cpu {
                     self.set_x(rd, self.get_x(rm) | (1u64 << tag));
                     return Ok(CpuExit::Continue);
                 }
-                // PACGA Xd, Xn, Xm|SP — generic pointer-auth MAC in bits[63:32].
-                // No real key schedule; produce a deterministic non-zero MAC so
-                // the destination is written.
-                (0, 0b001100) => {
-                    let mac = pacga_stub(self.get_x(rn), self.gpr_or_sp(rm));
-                    self.set_x(rd, mac);
-                    return Ok(CpuExit::Continue);
-                }
+                // PACGA has no SCTLR key enable; its generic-key use may trap.
+                (0, 0b001100) => return self.exec_pauth_generic(insn, rd, rn, rm),
                 _ => {}
             }
         }

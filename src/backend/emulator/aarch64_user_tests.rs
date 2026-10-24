@@ -128,6 +128,33 @@ fn svc_retires_and_reports_a_system_call_with_the_pc_past_it() {
 }
 
 #[test]
+fn pauth_handoff_user_svc_reports_actual_arm_thumb_length_and_immediate() {
+    for (raw, thumb, len, immediate) in [
+        (0x0000_dfab, true, 2, 0xab),
+        (0xefff_abcd, false, 4, 0xff_abcd),
+    ] {
+        let (mut vcpu, _) = user_vcpu(&[raw]);
+        let mut restored = state(&vcpu);
+        restored.regs.pstate = 0x10 | (u64::from(thumb) << 5);
+        vcpu.set_state(&CpuState::Aarch64(restored)).unwrap();
+        assert!(matches!(
+            vcpu.step_insn().unwrap(),
+            Some(VcpuExit::SystemCall)
+        ));
+        assert_eq!(
+            vcpu.take_user_trap(),
+            Some(A64UserTrap::Aarch32Svc {
+                imm: immediate,
+                pc: CODE,
+                len,
+            })
+        );
+        assert_eq!(vcpu.current_pc(), CODE + u64::from(len));
+        assert_eq!(vcpu.instruction_count(), 1);
+    }
+}
+
+#[test]
 fn run_stops_at_the_system_call() {
     let (mut vcpu, _) = user_vcpu(&[MOVZ_X8_64, SVC_1234]);
     assert!(matches!(vcpu.run().unwrap(), VcpuExit::SystemCall));
@@ -262,4 +289,57 @@ fn memory_recording_reports_user_accesses() {
         && r.addr == DATA
         && r.size == 8
         && r.value == 0x0123_4567_89AB_CDEF));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+#[test]
+fn pauth_user_native_frontier_preserves_single_step_memory_recording() {
+    use crate::isa::arm::common::features::ArmFeatures;
+
+    // PACGA X2,X0,X1; B head. Fixed QEMU vector: data=0, modifier=1,
+    // generic key (Lo,Hi)=(9,10), QARMA5 => MAC 0x83f85d4cdc39fc3e.
+    let (mut vcpu, _) = user_vcpu(&[0x9ac1_3002, 0x17ff_ffff]);
+    let mut initial = state(&vcpu);
+    initial.regs.x[1] = 1;
+    let extension = initial.sregs.execution.as_mut().unwrap();
+    extension.features |= (ArmFeatures::PACA | ArmFeatures::PACG).bits();
+    extension.sysregs.hcr_el2 |= (1 << 40) | (1 << 41);
+    extension.sysregs.scr_el3 |= (1 << 16) | (1 << 17);
+    extension.sysregs.apgakeylo_el1 = 9;
+    extension.sysregs.apgakeyhi_el1 = 10;
+    vcpu.update_state(&CpuState::Aarch64(initial)).unwrap();
+    for _ in 0..128 {
+        assert!(vcpu.step_insn().unwrap().is_none());
+    }
+    assert_eq!(vcpu.current_pc(), CODE);
+    assert_eq!(
+        vcpu.native_pauth_entry_count(),
+        0,
+        "promotion does not execute the head"
+    );
+    vcpu.set_mem_recording(true);
+    for pc in [CODE, CODE + 4] {
+        assert!(vcpu.step_insn().unwrap().is_none());
+        let mut records = Vec::new();
+        vcpu.drain_mem_records(&mut records);
+        assert_eq!(
+            records.len(),
+            1,
+            "one architecturally executed instruction fetch"
+        );
+        assert_eq!(records[0].access, MemAccess::Exec);
+        assert_eq!((records[0].addr, records[0].size), (pc, 4));
+    }
+    assert_eq!(
+        vcpu.native_pauth_entry_count(),
+        0,
+        "recording retains the direct frontier"
+    );
+    assert_eq!(state(&vcpu).regs.x[2], 0x83f8_5d4c_0000_0000);
+    vcpu.set_mem_recording(false);
+    assert!(vcpu.step_insn().unwrap().is_none());
+    assert_eq!(vcpu.native_pauth_entry_count(), 1);
+    assert_eq!(vcpu.current_pc(), CODE + 4);
+    assert_eq!(vcpu.instruction_count(), 131);
+    assert_eq!(state(&vcpu).regs.x[2], 0x83f8_5d4c_0000_0000);
 }

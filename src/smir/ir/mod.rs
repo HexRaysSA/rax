@@ -6,6 +6,11 @@
 //! - Block: a basic block
 //! - Terminator: block terminators (branches, returns, etc.)
 
+mod arm_instruction;
+pub(crate) use arm_instruction::validate_aarch64_instructions;
+mod aarch64_state;
+#[cfg(test)]
+mod aarch64_state_tests;
 mod call;
 pub use call::{CallTarget, RuntimeFunc};
 pub mod context;

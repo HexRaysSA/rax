@@ -11,8 +11,11 @@
 //! and brand, an x86-64 guest a Mac Pro's.
 
 use super::Value;
+use crate::isa::arm::aarch64::pauth::PauthProfile;
+use crate::isa::arm::common::features::ArmFeatures;
 use crate::user::darwin::abi::{DarwinAbi, Errno};
 use crate::user::darwin::arch::ARM64_COUNTER_HZ;
+use crate::user::darwin::arch::DarwinCpu;
 use crate::user::darwin::commpage;
 use crate::user::darwin::process::{MEMSIZE, memsize_usable};
 use crate::user::darwin::syscall::Ctx;
@@ -35,7 +38,6 @@ const ARM_FEATURES: &[&str] = &[
     "FEAT_PMULL",
     "FEAT_SB",
     "FEAT_FRINTTS",
-    "FEAT_PACIMP",
     "FEAT_LRCPC",
     "FEAT_LRCPC2",
     "FEAT_FCMA",
@@ -97,6 +99,7 @@ const CAP_BITS: &[(&str, u32)] = &[
     ("AdvSIMD_HPFPCvt", 50),
     ("FEAT_CRC32", 51),
     ("FEAT_PACIMP", 58),
+    ("FEAT_FPACCOMBINE", 68),
 ];
 
 /// The bytes of `hw.optional.arm.caps` the host kernel reports (one bit per
@@ -213,7 +216,14 @@ pub fn value(ctx: &Ctx<'_>, name: &str) -> Value {
     let c = caches(abi);
     let tb = if arm { ARM64_COUNTER_HZ } else { 1_000_000_000 };
     let usable = memsize_usable(abi);
-    if let Some(v) = optional(abi, name) {
+    let pauth = match &ctx.thread.cpu {
+        DarwinCpu::Arm64(cpu) => {
+            let config = cpu.core().config();
+            Some((config.features, config.pauth.profile))
+        }
+        _ => None,
+    };
+    if let Some(v) = optional(abi, name, pauth) {
         return v;
     }
     if let Some(level) = name.strip_prefix("hw.perflevel") {
@@ -299,9 +309,32 @@ pub fn value(ctx: &Ctx<'_>, name: &str) -> Value {
 }
 
 /// `hw.optional` and `hw.optional.arm` nodes.
-fn optional(abi: DarwinAbi, name: &str) -> Option<Value> {
+fn optional(
+    abi: DarwinAbi,
+    name: &str,
+    pauth: Option<(ArmFeatures, PauthProfile)>,
+) -> Option<Value> {
     let rest = name.strip_prefix("hw.optional.")?;
-    let has = |f: &str| i32::from(ARM_FEATURES.contains(&f));
+    let has = |f: &str| {
+        let address = pauth.is_some_and(|(features, _)| features.contains(ArmFeatures::PACA));
+        let profile = pauth.map(|(_, profile)| profile);
+        i32::from(match f {
+            // Both supported algorithms are architected QARMA algorithms.
+            // PACIMP and its legacy armv8_gpi alias must not claim IMPDEF.
+            "FEAT_PACIMP" => false,
+            "FEAT_PAuth" => address,
+            "FEAT_PAuth2" => address && profile != Some(PauthProfile::Base),
+            "FEAT_FPAC" => {
+                address
+                    && matches!(
+                        profile,
+                        Some(PauthProfile::Fpac | PauthProfile::FpacCombine)
+                    )
+            }
+            "FEAT_FPACCOMBINE" => address && profile == Some(PauthProfile::FpacCombine),
+            _ => ARM_FEATURES.contains(&f),
+        })
+    };
     Some(match (abi, rest) {
         (_, "floatingpoint") => Value::io_int(1),
         // sysctl_cpu_capability: a boolean_t; an arm64 kernel has no
@@ -313,7 +346,7 @@ fn optional(abi: DarwinAbi, name: &str) -> Option<Value> {
         (DarwinAbi::Arm64, "arm.caps") => {
             let mut b = vec![0u8; CAP_BYTES];
             for &(f, bit) in CAP_BITS {
-                if ARM_FEATURES.contains(&f) {
+                if has(f) != 0 {
                     b[bit as usize / 8] |= 1 << (bit % 8);
                 }
             }
@@ -365,6 +398,68 @@ fn quads(v: &[u64]) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn optional(abi: DarwinAbi, name: &str) -> Option<Value> {
+        let config = crate::user::darwin::arch::apple_arm64_config();
+        super::optional(abi, name, Some((config.features, config.pauth.profile)))
+    }
+
+    #[test]
+    fn darwin_pauth_sysctl_names_caps_and_legacy_alias_follow_the_keyed_profile() {
+        for profile in [
+            PauthProfile::Base,
+            PauthProfile::Pauth2,
+            PauthProfile::Fpac,
+            PauthProfile::FpacCombine,
+        ] {
+            for enabled in [false, true] {
+                let features = if enabled {
+                    ArmFeatures::PACA | ArmFeatures::PACG
+                } else {
+                    ArmFeatures::empty()
+                };
+                let config = Some((features, profile));
+                let Some(Value::Out(caps)) =
+                    super::optional(DarwinAbi::Arm64, "hw.optional.arm.caps", config)
+                else {
+                    panic!("caps");
+                };
+                for (name, bit, expected) in [
+                    ("FEAT_PAuth", 19, enabled),
+                    ("FEAT_PAuth2", 20, enabled && profile != PauthProfile::Base),
+                    (
+                        "FEAT_FPAC",
+                        21,
+                        enabled
+                            && matches!(profile, PauthProfile::Fpac | PauthProfile::FpacCombine),
+                    ),
+                    ("FEAT_PACIMP", 58, false),
+                    (
+                        "FEAT_FPACCOMBINE",
+                        68,
+                        enabled && profile == PauthProfile::FpacCombine,
+                    ),
+                ] {
+                    let full = format!("hw.optional.arm.{name}");
+                    let Some(Value::Number(value, 4)) =
+                        super::optional(DarwinAbi::Arm64, &full, config)
+                    else {
+                        panic!("feature {full}");
+                    };
+                    assert_eq!(
+                        value,
+                        i64::from(expected),
+                        "{profile:?} enabled={enabled} {name}"
+                    );
+                    assert_eq!(caps[bit / 8] & (1 << (bit % 8)) != 0, expected);
+                }
+                assert!(matches!(
+                    super::optional(DarwinAbi::Arm64, "hw.optional.armv8_gpi", config),
+                    Some(Value::Number(0, 4))
+                ));
+            }
+        }
+    }
 
     #[test]
     fn caps_set_the_features_bits() {

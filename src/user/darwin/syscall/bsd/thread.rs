@@ -103,6 +103,16 @@ pub fn bsdthread_register(ctx: &mut Ctx<'_>, a: &[u64; 8]) -> SysResult {
     if ctx.proc.pthread.registered {
         return Err(Errno::EINVAL);
     }
+    let (threadstart, wqthread) = match &ctx.thread.cpu {
+        crate::user::darwin::arch::DarwinCpu::Arm64(cpu) => {
+            let auth = crate::user::darwin::pauth::UserPauth::from_cpu(cpu);
+            (
+                auth.function_pointer(threadstart),
+                auth.function_pointer(wqthread),
+            )
+        }
+        _ => (threadstart, wqthread),
+    };
     let u32_at = |d: &[u8], o: usize| u32::from_le_bytes(d[o..o + 4].try_into().expect("4 bytes"));
     let reg = &mut ctx.proc.pthread;
     reg.thread_start = threadstart;

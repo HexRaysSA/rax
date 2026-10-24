@@ -7,10 +7,11 @@ pub mod state;
 
 pub use exit::VcpuExit;
 pub use state::{
-    Aarch32CpuState, Aarch32Registers, Aarch32SystemRegisters, Aarch64CpuState, Aarch64Registers,
-    Aarch64SystemRegisters, CortexMCpuState, CortexMRegisters, CortexMSystemRegisters, CpuState,
-    DescriptorTable, HexagonCpuState, HexagonRegisters, Registers, RiscVCpuState, RiscVRegisters,
-    RiscVVectorState, Segment, SystemRegisters, X86_64CpuState,
+    Aarch32CpuState, Aarch32Registers, Aarch32SystemRegisters, Aarch64CpuState,
+    Aarch64ExecutionState, Aarch64Registers, Aarch64SystemRegisters, CortexMCpuState,
+    CortexMRegisters, CortexMSystemRegisters, CpuState, DescriptorTable, HexagonCpuState,
+    HexagonRegisters, Registers, RiscVCpuState, RiscVRegisters, RiscVVectorState, Segment,
+    SystemRegisters, X86_64CpuState,
 };
 
 use crate::error::{Error, Result};

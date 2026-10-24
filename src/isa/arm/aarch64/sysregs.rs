@@ -12,7 +12,7 @@ use crate::isa::arm::common::sysreg::{Aarch64SysReg, Aarch64SysRegEncoding};
 // =============================================================================
 
 /// Per-exception-level system register bank.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SystemRegisterBank {
     /// System Control Register.
     pub sctlr: u64,
@@ -22,7 +22,7 @@ pub struct SystemRegisterBank {
     pub cpacr: u64,
     /// Translation Table Base Register 0.
     pub ttbr0: u64,
-    /// Translation Table Base Register 1 (EL1 only).
+    /// Translation Table Base Register 1 (EL1 or EL2 host regime).
     pub ttbr1: u64,
     /// Translation Control Register.
     pub tcr: u64,
@@ -80,7 +80,7 @@ impl Default for SystemRegisterBank {
 // =============================================================================
 
 /// Complete AArch64 system register state.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SystemRegisters {
     // =========================================================================
     // Per-EL Register Banks
@@ -255,21 +255,21 @@ pub struct SystemRegisters {
     // =========================================================================
     // Pointer Authentication Registers
     // =========================================================================
-    /// Pointer Authentication Key A (Data, low).
-    pub apiakeylo_el1: u64,
-    /// Pointer Authentication Key A (Data, high).
-    pub apiakeyhi_el1: u64,
-    /// Pointer Authentication Key B (Data, low).
-    pub apibkeylo_el1: u64,
-    /// Pointer Authentication Key B (Data, high).
-    pub apibkeyhi_el1: u64,
     /// Pointer Authentication Key A (Instruction, low).
-    pub apdakeylo_el1: u64,
+    pub apiakeylo_el1: u64,
     /// Pointer Authentication Key A (Instruction, high).
-    pub apdakeyhi_el1: u64,
+    pub apiakeyhi_el1: u64,
     /// Pointer Authentication Key B (Instruction, low).
-    pub apdbkeylo_el1: u64,
+    pub apibkeylo_el1: u64,
     /// Pointer Authentication Key B (Instruction, high).
+    pub apibkeyhi_el1: u64,
+    /// Pointer Authentication Key A (Data, low).
+    pub apdakeylo_el1: u64,
+    /// Pointer Authentication Key A (Data, high).
+    pub apdakeyhi_el1: u64,
+    /// Pointer Authentication Key B (Data, low).
+    pub apdbkeylo_el1: u64,
+    /// Pointer Authentication Key B (Data, high).
     pub apdbkeyhi_el1: u64,
     /// Pointer Authentication Key (Generic, low).
     pub apgakeylo_el1: u64,
@@ -571,6 +571,8 @@ impl SystemRegisters {
             (3, 0, 2, 0, 0) => Some(self.el1.ttbr0),
             // TTBR1_EL1
             (3, 0, 2, 0, 1) => Some(self.el1.ttbr1),
+            // TTBR1_EL2 (FEAT_VHE)
+            (3, 4, 2, 0, 1) => Some(self.el2.ttbr1),
             // TTBR0_EL2
             (3, 4, 2, 0, 0) => Some(self.el2.ttbr0),
             // TTBR0_EL3
@@ -758,6 +760,11 @@ impl SystemRegisters {
             // TTBR1_EL1
             (3, 0, 2, 0, 1) => {
                 self.el1.ttbr1 = value;
+                true
+            }
+            // TTBR1_EL2 (FEAT_VHE)
+            (3, 4, 2, 0, 1) => {
+                self.el2.ttbr1 = value;
                 true
             }
             // TTBR0_EL2

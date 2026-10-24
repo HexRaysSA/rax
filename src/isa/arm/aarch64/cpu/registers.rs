@@ -93,6 +93,11 @@ impl AArch64Cpu {
 
     /// Set current stack pointer.
     pub fn set_current_sp(&mut self, value: u64) {
+        if let Some(state) = self.aarch32 {
+            let register = &mut self.x[usize::from(state.sp_register())];
+            *register = (*register & 0xffff_ffff_0000_0000) | u64::from(value as u32);
+            return;
+        }
         if self.sp_sel || self.current_el == 0 {
             if self.current_el == 0 {
                 self.sp_el[0] = value;
@@ -450,6 +455,19 @@ impl AArch64Cpu {
                 self.fpsr = mask_fpsr(value as u32);
                 return Ok(());
             }
+            // HCR/SCR writes can change the effective translation regime.
+            (3, 4, 1, 1, 0) => {
+                self.sysregs.hcr_el2 = value;
+                self.update_mmu_config();
+                self.clear_jit_cache();
+                return Ok(());
+            }
+            (3, 6, 1, 1, 0) => {
+                self.sysregs.scr_el3 = value;
+                self.update_mmu_config();
+                self.clear_jit_cache();
+                return Ok(());
+            }
             // SCTLR_ELx - update MMU config
             (3, 0, 1, 0, 0) | (3, 4, 1, 0, 0) | (3, 6, 1, 0, 0) => {
                 let el = encoding.op1 / 2; // 0->EL1, 4->EL2, 6->EL3
@@ -474,9 +492,10 @@ impl AArch64Cpu {
                 self.update_mmu_config();
                 return Ok(());
             }
-            // TTBR1_EL1
-            (3, 0, 2, 0, 1) => {
-                self.sysregs.el1.ttbr1 = value;
+            // TTBR1_EL1 and the FEAT_VHE EL2 host regime.
+            (3, 0, 2, 0, 1) | (3, 4, 2, 0, 1) => {
+                let el = if encoding.op1 == 0 { 1 } else { 2 };
+                self.sysregs.bank_mut(el).ttbr1 = value;
                 self.update_mmu_config();
                 return Ok(());
             }
@@ -568,15 +587,13 @@ impl AArch64Cpu {
 
     /// Update MMU configuration from system registers.
     pub(crate) fn update_mmu_config(&mut self) {
-        let sctlr = self.sysregs.bank(self.current_el).sctlr;
-        let tcr = self.sysregs.bank(self.current_el).tcr;
-        let ttbr0 = self.sysregs.bank(self.current_el).ttbr0;
-        let ttbr1 = if self.current_el <= 1 {
-            self.sysregs.el1.ttbr1
-        } else {
-            0
-        };
-        let mair = self.sysregs.bank(self.current_el).mair;
+        let controls = self.pauth_controls();
+        let bank = self.sysregs.bank(controls.regime_el() as u8);
+        let sctlr = bank.sctlr;
+        let tcr = bank.tcr;
+        let ttbr0 = bank.ttbr0;
+        let ttbr1 = if controls.two_ranges() { bank.ttbr1 } else { 0 };
+        let mair = bank.mair;
 
         let enabled = (sctlr & sctlr::M) != 0;
         let wxn = (sctlr & sctlr::WXN) != 0;
@@ -587,13 +604,7 @@ impl AArch64Cpu {
         let tg1 = ((tcr >> 30) & 0x3) as u8;
         // EL1 and EL2 host regimes use IPS[34:32]; single-privilege EL2/EL3
         // regimes use PS[18:16]. The modeled physical profile ends at 48 bits.
-        let el2_host =
-            self.current_el == 2 && self.sysregs.hcr_el2 & crate::isa::arm::aarch64::hcr::E2H != 0;
-        let ps_shift = if self.current_el <= 1 || el2_host {
-            32
-        } else {
-            16
-        };
+        let ps_shift = if controls.two_ranges() { 32 } else { 16 };
         let pa_size = match (tcr >> ps_shift) & 7 {
             0 => 32,
             1 => 36,
@@ -680,6 +691,12 @@ impl AArch64Cpu {
         let rt = (insn & 0x1F) as u8;
 
         let encoding = Aarch64SysRegEncoding::new(o0, op1, crn, crm, op2);
+        if (o0, op1, crn, crm, op2) == (3, 4, 2, 0, 1)
+            && !self.config.features.contains(ArmFeatures::VHE)
+        {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        self.check_pauth_key_instruction(insn, encoding, l != 0, rt)?;
 
         if l != 0 {
             // MRS
@@ -739,13 +756,22 @@ impl AArch64Cpu {
             return Err(ArmError::UndefinedInstruction(insn));
         }
 
-        let target = self.get_x(rn);
+        let target = self.pauth_controls().branch_address(self.get_x(rn));
 
         match (opc, op4) {
             (0b0000, 0) => {
                 // BR
                 self.pc = target;
-                self.btype = 0b01;
+                self.btype = if self
+                    .instruction_guarded
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    && rn != 16
+                    && rn != 17
+                {
+                    0b11
+                } else {
+                    0b01
+                };
             }
             (0b0001, 0) => {
                 // BLR
@@ -776,69 +802,6 @@ impl AArch64Cpu {
             _ => return Err(ArmError::UndefinedInstruction(insn)),
         }
 
-        Ok(CpuExit::Continue)
-    }
-
-    /// The FEAT_PAuth unconditional branches (register): `BRAA`/`BRAB`
-    /// (`opc` 1000, modifier `Xm|SP` in bits[4:0]), `BRAAZ`/`BRABZ` (`opc`
-    /// 0000, zero modifier, bits[4:0] = 11111), `BLRAA`/`BLRAB` (1001),
-    /// `BLRAAZ`/`BLRABZ` (0001), `RETAA`/`RETAB` (0010, Rn = Rm = 11111,
-    /// authenticating X30 with SP), and `ERETAA`/`ERETAB` (0100, EL1 and
-    /// above). UNDEFINED without FEAT_PAuth.
-    ///
-    /// The pointer-authentication algorithm is the implementation's own
-    /// (FEAT_PACIMP), one whose PAC field is the pointer's canonical
-    /// extension, so `PAC*`/`AUT*` leave a pointer unchanged (see
-    /// `exec_dp_1src`); authenticating the target therefore yields `Xn`
-    /// itself, and the modifier does not affect the result.
-    fn exec_br_reg_pauth(
-        &mut self,
-        insn: u32,
-        opc: u32,
-        rn: u8,
-        op4: u8,
-    ) -> Result<CpuExit, ArmError> {
-        if !self.config.features.contains(ArmFeatures::PACA) {
-            return Err(ArmError::UndefinedInstruction(insn));
-        }
-        match opc {
-            // BRAAZ/BRABZ, BRAA/BRAB
-            0b0000 | 0b1000 => {
-                if opc == 0b0000 && op4 != 0b11111 {
-                    return Err(ArmError::UndefinedInstruction(insn));
-                }
-                self.pc = self.get_x(rn);
-                self.btype = 0b01;
-            }
-            // BLRAAZ/BLRABZ, BLRAA/BLRAB
-            0b0001 | 0b1001 => {
-                if opc == 0b0001 && op4 != 0b11111 {
-                    return Err(ArmError::UndefinedInstruction(insn));
-                }
-                let target = self.get_x(rn);
-                self.set_x(30, self.pc);
-                self.pc = target;
-                self.btype = 0b10;
-            }
-            // RETAA/RETAB
-            0b0010 => {
-                if rn != 0b11111 || op4 != 0b11111 {
-                    return Err(ArmError::UndefinedInstruction(insn));
-                }
-                self.pc = self.get_x(30);
-            }
-            // ERETAA/ERETAB
-            0b0100 => {
-                if rn != 0b11111 || op4 != 0b11111 {
-                    return Err(ArmError::UndefinedInstruction(insn));
-                }
-                if self.current_el == 0 {
-                    return Err(ArmError::InvalidExceptionLevel(0));
-                }
-                return self.exception_return();
-            }
-            _ => return Err(ArmError::UndefinedInstruction(insn)),
-        }
         Ok(CpuExit::Continue)
     }
 
@@ -882,7 +845,13 @@ impl AArch64Cpu {
     /// be interpreted. Callers then resume at the unchanged guest PC.
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_run_region(&mut self, region: &JitRegion) -> bool {
-        if (region.uses_fp && !self.jit_fp_access_permitted())
+        self.jit.native_fault = None;
+        if let Some(raw) = region.pauth_instruction {
+            return self.jit_run_pauth_instruction(region, raw);
+        }
+        if self.il
+            || (self.btype != 0 && self.config.features.contains(ArmFeatures::BTI))
+            || (region.uses_fp && !self.jit_fp_access_permitted())
             || (region.uses_memory && self.sp_alignment_enabled())
         {
             return false;
@@ -914,6 +883,13 @@ impl AArch64Cpu {
     /// a relocation slipped through).
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_compile_region(&mut self) -> Option<JitRegion> {
+        if self.aarch32.is_some() {
+            return None;
+        }
+        let raw = self.fetch_instruction().ok()?;
+        if crate::isa::arm::aarch64::pauth_instruction::PauthInstruction::decode(raw).is_some() {
+            return self.jit_compile_pauth_instruction(raw);
+        }
         use crate::smir::ir::Terminator;
         use crate::smir::ir::memory::MemoryError;
         use crate::smir::ir::types::SourceArch;
@@ -1017,6 +993,7 @@ impl AArch64Cpu {
             uses_fp,
             uses_memory,
             source_pages,
+            pauth_instruction: None,
         })
     }
 }

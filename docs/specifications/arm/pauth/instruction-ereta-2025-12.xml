@@ -1,0 +1,141 @@
+<?xml version="1.0" ?><?xml-stylesheet type="text/xsl" encoding="UTF-8" href="iform.xsl" version="1.0"?><!DOCTYPE instructionsection  PUBLIC '-//ARM//DTD instructionsection //EN'  'iform-p.dtd'><!-- Copyright (c) 2010-2025 Arm Limited or its affiliates. All rights reserved. --><!-- This document is Non-Confidential. This document may only be used and distributed in accordance with the terms of the agreement entered into by Arm and the party that Arm delivered this document to. --><instructionsection id="ERETA" title="ERETAA, ERETAB -- A64" type="instruction">
+  <docvars>
+    <docvar key="instr-class" value="general"/>
+    <docvar key="isa" value="A64"/>
+  </docvars>
+  <heading>ERETAA, ERETAB</heading>
+  <desc>
+    <brief>
+      <para>Exception return, with pointer authentication</para>
+    </brief>
+    <authored>
+      <para>This instruction authenticates the address in ELR, using SP as the
+modifier and the specified key, restores
+<xref linkend="ARMARM_PSTATE">PSTATE</xref> from the SPSR for the current
+Exception level, and branches to the authenticated address.</para>
+      <para>Key A is used for <instruction>ERETAA</instruction>.
+Key B is used for <instruction>ERETAB</instruction>.</para>
+      <para>If the authentication passes, the PE continues execution at the
+target of the branch.
+For information on behavior if the authentication fails, see
+<xref linkend="ARMARM_MDSec.Faulting_on_pointer_authentication">Faulting on pointer authentication</xref>.</para>
+      <para>The authenticated address is not written back to ELR.</para>
+      <para>The SPSR is checked for the current Exception level for an illegal return event.
+See <xref linkend="ARMARM_MDSec.illegal_exception_returns_from_aarch64_state">Illegal exception returns from AArch64 state</xref>.</para>
+      <para><instruction>ERETAA</instruction> and <instruction>ERETAB</instruction> are <arm-defined-word>UNDEFINED</arm-defined-word> at EL0.</para>
+    </authored>
+  </desc>
+  <alias_list howmany="0"/>
+  <classes>
+    <iclass name="Integer" oneof="1" id="iclass_integer" no_encodings="2" isa="A64">
+      <docvars>
+        <docvar key="instr-class" value="general"/>
+        <docvar key="isa" value="A64"/>
+      </docvars>
+      <iclassintro count="2"/>
+      <arch_variants>
+        <arch_variant feature="FEAT_PAuth" name="v8Ap3"/>
+      </arch_variants>
+      <regdiagram form="32" psname="A64.control.branch_reg.ERETAA_64E_branch_reg" tworows="1">
+        <box hibit="31" width="7" settings="7">
+          <c>1</c>
+          <c>1</c>
+          <c>0</c>
+          <c>1</c>
+          <c>0</c>
+          <c>1</c>
+          <c>1</c>
+        </box>
+        <box hibit="24" width="4" name="opc" usename="1" settings="4" psbits="xxxx">
+          <c>0</c>
+          <c>1</c>
+          <c>0</c>
+          <c>0</c>
+        </box>
+        <box hibit="20" width="5" name="op2" usename="1" settings="5" psbits="xxxxx">
+          <c>1</c>
+          <c>1</c>
+          <c>1</c>
+          <c>1</c>
+          <c>1</c>
+        </box>
+        <box hibit="15" width="4" settings="4">
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+          <c>0</c>
+        </box>
+        <box hibit="11" name="A" usename="1" settings="1" psbits="x">
+          <c>1</c>
+        </box>
+        <box hibit="10" width="1" name="M" usename="1">
+          <c colspan="1"/>
+        </box>
+        <box hibit="9" width="5" name="Rn" usename="1" settings="5" psbits="xxxxx">
+          <c>1</c>
+          <c>1</c>
+          <c>1</c>
+          <c>1</c>
+          <c>1</c>
+        </box>
+        <box hibit="4" width="5" name="op4" usename="1" settings="5" psbits="xxxxx">
+          <c>1</c>
+          <c>1</c>
+          <c>1</c>
+          <c>1</c>
+          <c>1</c>
+        </box>
+      </regdiagram>
+      <encoding name="ERETAA_64E_branch_reg" oneofinclass="2" oneof="2" label="ERETAA" bitdiffs="M == 0">
+        <docvars>
+          <docvar key="instr-class" value="general"/>
+          <docvar key="isa" value="A64"/>
+          <docvar key="mnemonic" value="ERETAA"/>
+        </docvars>
+        <box hibit="10" width="1" name="M">
+          <c>0</c>
+        </box>
+        <asmtemplate><text>ERETAA</text></asmtemplate>
+      </encoding>
+      <encoding name="ERETAB_64E_branch_reg" oneofinclass="2" oneof="2" label="ERETAB" bitdiffs="M == 1">
+        <docvars>
+          <docvar key="instr-class" value="general"/>
+          <docvar key="isa" value="A64"/>
+          <docvar key="mnemonic" value="ERETAB"/>
+        </docvars>
+        <box hibit="10" width="1" name="M">
+          <c>1</c>
+        </box>
+        <asmtemplate><text>ERETAB</text></asmtemplate>
+      </encoding>
+      <ps_section howmany="1">
+        <ps name="A64.control.branch_reg.ERETAA_64E_branch_reg" sections="1" secttype="noheading">
+          <pstext mayhavelinks="1" section="Decode" rep_section="decode">if !IsFeatureImplemented(FEAT_PAuth) then EndOfDecode(<a link="enum_Decode_UNDEF" file="shared_pseudocode.xml">Decode_UNDEF</a>); end;
+
+let pac : boolean = TRUE;
+let use_key_a : boolean = (M == '0');
+let auth_then_branch : boolean = TRUE;</pstext>
+        </ps>
+      </ps_section>
+    </iclass>
+  </classes>
+  <explanations scope="all"/>
+  <ps_section howmany="1">
+    <ps name="A64.control.branch_reg.ERETAA_64E_branch_reg" sections="1" secttype="Operation">
+      <pstext mayhavelinks="1" section="Execute" rep_section="execute">if <a link="global_PSTATE" file="shared_pseudocode.xml">PSTATE</a>.EL == <a link="global_EL0" file="shared_pseudocode.xml">EL0</a> then Undefined(); end;
+AArch64_CheckForERetTrap(pac, use_key_a);
+var target : bits(64) = <a link="accessor_ELR_ELx_0" file="shared_pseudocode.xml">ELR_ELx</a>();
+let modifier : bits(64) = SP{}();
+
+if use_key_a then
+    target = <a link="func_AuthIA_3" file="shared_pseudocode.xml">AuthIA</a>(target, modifier, auth_then_branch);
+else
+    target = <a link="func_AuthIB_3" file="shared_pseudocode.xml">AuthIB</a>(target, modifier, auth_then_branch);
+end;
+
+AArch64_ExceptionReturn(target, <a link="accessor_SPSR_ELx_0" file="shared_pseudocode.xml">SPSR_ELx</a>());</pstext>
+    </ps>
+  </ps_section>
+  <timestamp>2025-12-10 16:12:08</timestamp>
+  <commit_id>2025-12_rel</commit_id>
+</instructionsection>

@@ -261,6 +261,8 @@ pub enum ProcessorMode {
     Monitor = 0x16,
     /// Abort mode (memory abort)
     Abort = 0x17,
+    /// Hypervisor mode (AArch32 EL2).
+    Hyp = 0x1A,
     /// Undefined mode (undefined instruction)
     Undefined = 0x1B,
     /// System mode (privileged, but same regs as User)
@@ -277,6 +279,7 @@ impl ProcessorMode {
             0x13 => Some(ProcessorMode::Supervisor),
             0x16 => Some(ProcessorMode::Monitor),
             0x17 => Some(ProcessorMode::Abort),
+            0x1A => Some(ProcessorMode::Hyp),
             0x1B => Some(ProcessorMode::Undefined),
             0x1F => Some(ProcessorMode::System),
             _ => None,
@@ -317,6 +320,9 @@ pub struct BankedRegisters {
     /// Undefined mode R13-R14
     pub regs_und: [u32; 2],
 
+    /// Hyp SP; Hyp LR uses the unbanked User LR.
+    pub sp_hyp: u32,
+
     /// Saved PSRs
     pub spsr_fiq: u32,
     pub spsr_irq: u32,
@@ -324,6 +330,7 @@ pub struct BankedRegisters {
     pub spsr_mon: u32,
     pub spsr_abt: u32,
     pub spsr_und: u32,
+    pub spsr_hyp: u32,
 }
 
 // =============================================================================
@@ -364,6 +371,11 @@ pub struct Psr {
     pub c: bool,
     pub v: bool,
     pub q: bool,
+    /// ARMv8 AArch32 state fields (CPSR positions, not SPSR_ELx's DIT position).
+    pub ssbs: bool,
+    pub pan: bool,
+    pub dit: bool,
+    pub il: bool,
     /// GE[3:0] flags (bits 19:16), set by SIMD parallel add/sub, read by SEL.
     pub ge: u8,
     pub e: bool,
@@ -391,6 +403,10 @@ impl Psr {
             c: ((value >> 29) & 1) != 0,
             v: ((value >> 28) & 1) != 0,
             q: ((value >> 27) & 1) != 0,
+            ssbs: value & (1 << 23) != 0,
+            pan: value & (1 << 22) != 0,
+            dit: value & (1 << 21) != 0,
+            il: value & (1 << 20) != 0,
             ge: ((value >> 16) & 0xF) as u8,
             e: ((value >> 9) & 1) != 0,
             a: ((value >> 8) & 1) != 0,
@@ -404,6 +420,10 @@ impl Psr {
 
     pub fn to_u32(&self) -> u32 {
         let mut value = self.mode as u32;
+        value |= (u32::from(self.ssbs) << 23)
+            | (u32::from(self.pan) << 22)
+            | (u32::from(self.dit) << 21)
+            | (u32::from(self.il) << 20);
         if self.t {
             value |= 1 << 5;
         }
@@ -606,6 +626,8 @@ pub fn bit_reverse(value: u32) -> u32 {
 /// - **IRQ/SVC/ABT/UND/MON**: Bank R13-R14, SPSR_xxx
 #[derive(Clone, Debug)]
 pub struct Armv7Cpu {
+    /// Additional PSTATE fields implemented by an enclosing ARMv8 PE.
+    pub(crate) pstate_features: crate::isa::arm::common::features::ArmFeatures,
     /// Current register values R0-R15 (R15 = PC)
     pub regs: [u32; 16],
     /// Current Program Status Register
@@ -630,6 +652,9 @@ pub struct Armv7Cpu {
     /// Undefined mode R13-R14
     pub regs_und: [u32; 2],
 
+    /// Hyp mode SP; LR remains the User/System LR.
+    pub sp_hyp: u32,
+
     // Saved Program Status Registers
     pub spsr_fiq: Psr,
     pub spsr_irq: Psr,
@@ -637,6 +662,7 @@ pub struct Armv7Cpu {
     pub spsr_mon: Psr,
     pub spsr_abt: Psr,
     pub spsr_und: Psr,
+    pub spsr_hyp: Psr,
 
     // Execution state
     /// Pending branch target (None if no branch)
@@ -666,6 +692,7 @@ impl Armv7Cpu {
     /// Create a Supervisor-mode software context with FP enabled.
     pub fn new() -> Self {
         let mut cpu = Armv7Cpu {
+            pstate_features: crate::isa::arm::common::features::ArmFeatures::empty(),
             regs: [0; 16],
             cpsr: Psr::default(),
             regs_usr: [0; 2],
@@ -676,12 +703,14 @@ impl Armv7Cpu {
             regs_mon: [0; 2],
             regs_abt: [0; 2],
             regs_und: [0; 2],
+            sp_hyp: 0,
             spsr_fiq: Psr::default(),
             spsr_irq: Psr::default(),
             spsr_svc: Psr::default(),
             spsr_mon: Psr::default(),
             spsr_abt: Psr::default(),
             spsr_und: Psr::default(),
+            spsr_hyp: Psr::default(),
             branch_to: None,
             is_halted: false,
             carry_out: false,
@@ -743,6 +772,7 @@ impl Armv7Cpu {
             Some(ProcessorMode::Monitor) => Some(&self.spsr_mon),
             Some(ProcessorMode::Abort) => Some(&self.spsr_abt),
             Some(ProcessorMode::Undefined) => Some(&self.spsr_und),
+            Some(ProcessorMode::Hyp) => Some(&self.spsr_hyp),
             _ => None, // User and System don't have SPSR
         }
     }
@@ -756,6 +786,7 @@ impl Armv7Cpu {
             Some(ProcessorMode::Monitor) => Some(&mut self.spsr_mon),
             Some(ProcessorMode::Abort) => Some(&mut self.spsr_abt),
             Some(ProcessorMode::Undefined) => Some(&mut self.spsr_und),
+            Some(ProcessorMode::Hyp) => Some(&mut self.spsr_hyp),
             _ => None,
         }
     }
@@ -792,6 +823,10 @@ impl Armv7Cpu {
                 self.regs_und[0] = self.regs[13];
                 self.regs_und[1] = self.regs[14];
             }
+            ProcessorMode::Hyp => {
+                self.sp_hyp = self.regs[13];
+                self.regs_usr[1] = self.regs[14];
+            }
         }
     }
 
@@ -826,6 +861,10 @@ impl Armv7Cpu {
             ProcessorMode::Undefined => {
                 self.regs[13] = self.regs_und[0];
                 self.regs[14] = self.regs_und[1];
+            }
+            ProcessorMode::Hyp => {
+                self.regs[13] = self.sp_hyp;
+                self.regs[14] = self.regs_usr[1];
             }
         }
     }

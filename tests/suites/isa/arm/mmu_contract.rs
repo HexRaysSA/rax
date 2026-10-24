@@ -182,7 +182,7 @@ fn cpu_honors_tcr_ips_for_output_address_faults() {
         regs.sctlr_el1 = 1;
         regs.tcr_el1 = 16 | (16 << 16) | (2 << 30) | (ips << 32);
         regs.ttbr0_el1 = 0x10000;
-        cpu.import_sregs(&regs);
+        cpu.import_sregs(&regs).unwrap();
         let error = cpu.mem_read_u64(0).unwrap_err();
         let ArmError::MemoryError(info) = error else {
             panic!("unexpected error: {error:?}");
@@ -208,7 +208,7 @@ fn el0_uses_the_el1_ttbr1_configuration() {
     regs.sctlr_el1 = 1;
     regs.tcr_el1 = 16 | (16 << 16) | (2 << 30) | (5 << 32);
     regs.ttbr1_el1 = 0x10000;
-    cpu.import_sregs(&regs);
+    cpu.import_sregs(&regs).unwrap();
     assert_eq!(cpu.mem_read_u64(0xffff000000000000).unwrap(), 0x12345678);
 }
 
@@ -283,7 +283,7 @@ fn cpu_preserves_instruction_fetch_fault_classification() {
     regs.sctlr_el1 = 1;
     regs.tcr_el1 = 16 | (16 << 16) | (2 << 30) | (5 << 32);
     regs.ttbr0_el1 = 0x10000;
-    cpu.import_sregs(&regs);
+    cpu.import_sregs(&regs).unwrap();
     cpu.set_pc(0);
     let Err(ArmError::MemoryError(info)) = cpu.step() else {
         panic!("expected an instruction permission fault");
@@ -312,6 +312,10 @@ fn cpu_selects_el2_el3_ps_and_el2_host_ips_fields() {
             };
             config.features |= ArmFeatures::VHE;
             let mut cpu = AArch64Cpu::new(config, Box::new(memory));
+            // A non-secure EL2 host regime requires EL2 to be enabled.
+            let mut controls = cpu.pauth_controls();
+            controls.scr_el3 |= 1;
+            cpu.set_pauth_controls(controls).unwrap();
             // MSR S3_op1_Cn_Cm_op2, X0; encoding fields from Arm's MSR definition.
             let msr = |op1: u32, crn: u32, crm: u32, op2: u32| {
                 0xd5000000u32 | (3 << 19) | (op1 << 16) | (crn << 12) | (crm << 8) | (op2 << 5)

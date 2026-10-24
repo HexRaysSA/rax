@@ -490,6 +490,21 @@ pub struct Aarch64SystemRegisters {
     pub cntv_ctl_el0: u64,
     /// Counter-timer Virtual Timer CompareValue Register
     pub cntv_cval_el0: u64,
+    /// Complete software system-register state. Legacy fields above retain overlay
+    /// authority for their named registers. Snapshots require this extension;
+    /// `None` is available only to callers constructing a partial initial state.
+    pub execution: Option<Box<Aarch64ExecutionState>>,
+}
+
+/// AArch64 state required for keyed authentication and exception return.
+/// Keys and configuration are mandatory fields, never defaulted on decode.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Aarch64ExecutionState {
+    pub features: u64,
+    pub pauth: crate::isa::arm::aarch64::pauth::PauthConfig,
+    pub sysregs: crate::isa::arm::aarch64::sysregs::SystemRegisters,
+    pub sp_el2: u64,
+    pub sp_el3: u64,
 }
 
 /// Complete AArch64 CPU state snapshot.

@@ -307,11 +307,24 @@ on an arm64 kernel, whose workqueue stacks carry the 12 KiB offset.
 | Interval timers: `ITIMER_REAL` deadlines, `ITIMER_VIRTUAL` and `ITIMER_PROF` charged per time slice | `signal::timer` | `realitexpire`, `itimerdecr`, `bsd_ast` |
 | Host signals: asynchronous host signals are the guest's (`rax-user` forwards them), a stop signal's default action stops the host process, and the state inherited across `exec` (ignored signals, action flags, mask) is the host process's. The host catches `SIGCONT` only while the guest does, and otherwise takes its default action as the guest would: a kernel need not report the continue of a process that catches `SIGCONT` to its parent's `waitid(WCONTINUED)` (macOS 27.0 reports none), so a handler the guest never installed would hide its continues; a guest at the default then keeps a blocked stop signal still pending across a continue | `signal::host` | `execsigs`, `psignal_internal` |
 
-Pointer authentication uses RAX's identity algorithm, so the arm64 thread
-state of a process with the pointer-authentication ABI carries the
-kernel-signed flags, the thread's diversifier, and `sigreturn` tokens
-derived from the thread's secret without a key. Rosetta, the x86-64 test
-oracle, keeps an `SA_RESETHAND` action installed after the handler runs;
+Pointer authentication uses RAX's configured QARMA algorithm and guest keys.
+Each arm64 image activation initializes five 128-bit keys from checked entropy;
+an explicit process seed makes that initialization reproducible. Threads and
+fork inherit the task domain; exec creates a fresh domain. B keys enable
+return-address signing, while A-key enables follow the arm64e JOP ABI selection.
+This is a virtual key-domain model, not Apple's private hardware diversification.
+
+The personality signs exported PC/LR with IA and FP/SP with DA, preserves an
+already IB-signed LR, and authenticates or poisons incoming thread-state pointers
+according to XNU's kernel pmap interface. Signal frames carry signed pointers,
+keyed PC/LR validation tokens, and a signed ucontext pointer in the argument
+token. Registered pthread entry points and signal trampolines authenticate before
+becoming kernel-selected PCs; the callbacks passed to user code remain signed.
+Shared-cache v5 rebasing selects IA/DA and blends the actual guest storage address
+when address diversity is set. Each source retains its immutable key context and
+owns its page cache; diagnostic file identity does not share signed contents.
+
+Rosetta, the x86-64 test oracle, keeps an `SA_RESETHAND` action installed after the handler runs;
 the personality resets it, as XNU does on an Intel Mac.
 
 ## Memory
@@ -491,8 +504,8 @@ Mach-on-Mach emulation), is refused (`EINVAL`) on every host.
 One CPU of the program's architecture: a Haswell-class Intel Mac for x86-64
 (`CPU_SUBTYPE_X86_64_H`; `XCR0` enables x87, SSE, and AVX state), an
 Apple-silicon Mac for arm64 (`CPU_SUBTYPE_ARM64E`, `PSTATE.SSBS` set for new
-threads; the implementation's pointer-authentication algorithm is the
-identity; data addresses ignore their top byte, instruction addresses do
+threads; pointer authentication uses configured QARMA and task guest keys;
+data addresses ignore their top byte, instruction addresses do
 not, as XNU's `TCR_EL1` sets `TBI0` and `TBID0`, so a fault reports the
 tagged address and a branch to one faults), with 16 GiB of memory.
 

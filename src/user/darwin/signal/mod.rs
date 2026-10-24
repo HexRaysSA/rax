@@ -1015,6 +1015,9 @@ pub fn mach_exception(e: &Exception, insn: u32) -> (i32, i64, i64) {
         }
         Exception::Undefined { .. } => (exc::BAD_INSTRUCTION, exc::CODE_1, i64::from(insn)),
         Exception::Breakpoint { pc, .. } => (exc::BREAKPOINT, exc::CODE_1, *pc as i64),
+        // XNU handle_pac_fail: EXC_BAD_ACCESS, EXC_ARM_PAC_FAIL, instruction.
+        Exception::Arm64 { ec: 0x1c, .. } => (exc::BAD_ACCESS, 0x105, i64::from(insn)),
+        Exception::Arm64 { .. } => (exc::BAD_INSTRUCTION, exc::CODE_1, i64::from(insn)),
         Exception::X86(e) => {
             let err = e.error_code.unwrap_or(0) as i64;
             match e.vector {
@@ -1106,6 +1109,10 @@ pub fn entry_state(e: &Exception) -> EntryState {
         Exception::Breakpoint { imm, .. } => EntryState {
             esr: (0x3c << 26) | (1 << 25) | u32::from(*imm),
             trapno: 3,
+            ..Default::default()
+        },
+        Exception::Arm64 { ec, iss, .. } => EntryState {
+            esr: (u32::from(*ec) << 26) | (1 << 25) | *iss,
             ..Default::default()
         },
         Exception::X86(e) => EntryState {

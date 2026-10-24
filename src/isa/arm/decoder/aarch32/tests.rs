@@ -15,6 +15,14 @@ fn test_nop() {
 }
 
 #[test]
+fn pauth_handoff_clrex_a1_is_not_the_overlapping_preload_hint() {
+    // clang -target armv8a-none-eabi: CLREX => f57ff01f.
+    let insn = decode_bytes(&0xf57f_f01fu32.to_le_bytes()).unwrap();
+    assert_eq!(insn.mnemonic, Mnemonic::CLREX);
+    assert_eq!(insn.cond, None);
+}
+
+#[test]
 fn test_mov_imm() {
     // MOV R0, #1: e3a00001
     let insn = decode_bytes(&[0x01, 0x00, 0xa0, 0xe3]).unwrap();

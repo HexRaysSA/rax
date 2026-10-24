@@ -7,6 +7,9 @@ generator_revision = "unknown"
 inputs = "ARM ASL specifications; exact input set/revision unknown"
 command = "unknown"
 reachability = "a64 active; a32, t16, t32, and sysreg dormant"
+allocated_cpu_features = "PACA,PACG"
+helper_template = "tools/asl-parser/asl-parser-rs/src/main.rs::generate_helper_files a64_helpers"
+helper_sha256 = "da99538904a4978a674beaac6bc77124bea4a9eefe1bd5b60a4d0c66b789cf6d"
 
 [corpora.arm_aarch32_oracle_cases]
 output = "tests/generated/arm/oracle_cases/aarch32_sweep.rs"

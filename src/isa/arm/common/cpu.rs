@@ -546,6 +546,12 @@ pub enum WatchpointKind {
 pub enum ArmError {
     /// Undefined instruction.
     UndefinedInstruction(u32),
+    /// Exact synchronous exception before architectural exception entry.
+    ArchitecturalException {
+        ec: u8,
+        iss: u32,
+        target_el: Option<u8>,
+    },
     /// Unimplemented feature.
     Unimplemented(String),
     /// Memory access error.
@@ -558,6 +564,9 @@ pub enum ArmError {
     Configuration(String),
     /// Internal error.
     Internal(String),
+    /// The architectural state is legal, but this execution plane cannot
+    /// represent it. Preserve the frontier; do not inject guest UNDEFINED.
+    UnsupportedExecutionState(String),
 }
 
 impl std::fmt::Display for ArmError {
@@ -566,12 +575,19 @@ impl std::fmt::Display for ArmError {
             ArmError::UndefinedInstruction(insn) => {
                 write!(f, "undefined instruction: 0x{:08x}", insn)
             }
+            ArmError::ArchitecturalException { ec, iss, target_el } => write!(
+                f,
+                "architectural exception EC={ec:#x} ISS={iss:#x} target={target_el:?}"
+            ),
             ArmError::Unimplemented(msg) => write!(f, "unimplemented: {}", msg),
             ArmError::MemoryError(info) => write!(f, "memory error at 0x{:x}", info.address),
             ArmError::InvalidRegister(reg) => write!(f, "invalid register: {}", reg),
             ArmError::InvalidExceptionLevel(el) => write!(f, "invalid exception level: {}", el),
             ArmError::Configuration(msg) => write!(f, "configuration error: {}", msg),
             ArmError::Internal(msg) => write!(f, "internal error: {}", msg),
+            ArmError::UnsupportedExecutionState(msg) => {
+                write!(f, "unsupported execution state: {msg}")
+            }
         }
     }
 }

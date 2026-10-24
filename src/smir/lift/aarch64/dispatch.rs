@@ -1168,7 +1168,30 @@ impl Aarch64Lifter {
                 control = ControlFlow::IndirectBranch { target };
             }
 
-            Mnemonic::BLRAA
+            Mnemonic::BRAA
+            | Mnemonic::BRAB
+            | Mnemonic::BRAAZ
+            | Mnemonic::BRABZ
+            | Mnemonic::BLRAAZ
+            | Mnemonic::BLRABZ
+            | Mnemonic::ERETAA
+            | Mnemonic::ERETAB
+            | Mnemonic::LDRAA
+            | Mnemonic::LDRAB
+            | Mnemonic::PACIA1716
+            | Mnemonic::PACIB1716
+            | Mnemonic::AUTIA1716
+            | Mnemonic::AUTIB1716
+            | Mnemonic::PACIAZ
+            | Mnemonic::PACIBZ
+            | Mnemonic::PACIASP
+            | Mnemonic::PACIBSP
+            | Mnemonic::AUTIAZ
+            | Mnemonic::AUTIBZ
+            | Mnemonic::AUTIASP
+            | Mnemonic::AUTIBSP
+            | Mnemonic::XPACLRI
+            | Mnemonic::BLRAA
             | Mnemonic::BLRAB
             | Mnemonic::RETAA
             | Mnemonic::RETAB

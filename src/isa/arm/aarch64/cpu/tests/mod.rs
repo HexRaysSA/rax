@@ -23,6 +23,16 @@ mod jit_scalar_simd;
 mod memory;
 #[cfg(test)]
 mod misc;
+mod pauth;
+mod pauth_aarch32;
+mod pauth_descriptors;
+mod pauth_entry;
+mod pauth_eret;
+#[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+mod pauth_jit;
+mod pauth_keyed;
+mod pauth_regime;
+mod pauth_state;
 #[cfg(test)]
 mod simd;
 #[cfg(test)]

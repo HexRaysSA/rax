@@ -91,7 +91,7 @@ pub fn bsdthread_create(
         return fail(ctx, Errno::EINVAL);
     }
     let abi = ctx.proc.abi;
-    let mut cpu = DarwinCpu::new(abi, &ctx.proc.space);
+    let mut cpu = ctx.proc.new_thread_cpu();
     let mut flags = flags;
     if reg.tsd_offset != 0 {
         let base = pthread.wrapping_add(u64::from(reg.tsd_offset));

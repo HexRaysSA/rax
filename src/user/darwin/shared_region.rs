@@ -12,9 +12,8 @@
 //! two formats current caches use: version 2 (x86-64: a delta chain per
 //! page with extra chains, pointers `value & ~delta_mask` plus
 //! `value_add`) and version 5 (arm64e: 34-bit runtime offsets with high
-//! bits, authenticated pointers written unsigned, as the implementation's
-//! pointer-authentication algorithm leaves pointers unchanged). The slide
-//! is zero: ASLR is disabled.
+//! bits and authenticated pointers signed in the task's key domain). The
+//! personality currently uses zero slide; the rebaser also accepts a slide.
 //!
 //! Sources: `bsd/vm/vm_unix.c` (`shared_region_check_np`,
 //! `shared_region_map_and_slide_2_np`), `osfmk/vm/vm_shared_region.c`
@@ -25,7 +24,12 @@ use std::fmt;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
 
+use super::pauth::{UserPauth, blend};
+use crate::isa::arm::aarch64::pauth::PauthKeyKind;
 use crate::user::mm::{HostFileSource, PageSource, SourceIdentity};
+
+#[cfg(test)]
+mod pauth_tests;
 
 /// `DYLD_CACHE_SLIDE_PAGE_ATTR_EXTRA`.
 const V2_ATTR_EXTRA: u16 = 0x8000;
@@ -159,7 +163,22 @@ impl SlideInfo {
     }
 
     /// Rewrites the pointers of page `index` (`page` is the whole page).
+    /// This entry point represents a mapping with user JOP disabled.
     pub fn slide_page(&self, index: usize, page: &mut [u8], slide: u64) -> Result<(), SlideError> {
+        self.slide_page_for_mapping(index, page, slide, 0, None)
+    }
+
+    fn slide_page_for_mapping(
+        &self,
+        index: usize,
+        page: &mut [u8],
+        slide: u64,
+        page_address: u64,
+        pauth: Option<UserPauth>,
+    ) -> Result<(), SlideError> {
+        if page.len() != self.page_size() as usize {
+            return Err(SlideError::Chain);
+        }
         match self {
             SlideInfo::V2 {
                 page_starts,
@@ -216,7 +235,26 @@ impl SlideInfo {
                     let mut value = (raw & 0x3_FFFF_FFFF)
                         .wrapping_add(*value_add)
                         .wrapping_add(slide);
-                    if !auth {
+                    if auth {
+                        if let Some(pauth) = pauth.filter(|pauth| pauth.enabled()) {
+                            let diversity = (raw >> 34) as u16;
+                            let address_diversity = raw & (1 << 50) != 0;
+                            let kind = if raw & (1 << 51) != 0 {
+                                PauthKeyKind::Da
+                            } else {
+                                PauthKeyKind::Ia
+                            };
+                            let modifier = if address_diversity {
+                                let location = page_address
+                                    .checked_add(off as u64)
+                                    .ok_or(SlideError::Chain)?;
+                                blend(location, diversity)
+                            } else {
+                                u64::from(diversity)
+                            };
+                            value = pauth.sign(value, kind, modifier);
+                        }
+                    } else {
                         value = value.wrapping_add(high8);
                     }
                     page[off..off + 8].copy_from_slice(&value.to_le_bytes());
@@ -277,6 +315,10 @@ pub struct SlidSource {
     map_size: u64,
     info: SlideInfo,
     slide: u64,
+    /// Actual user mapping address, independent of its file offset.
+    map_address: u64,
+    /// Immutable domain for this source's demand-paged signed contents.
+    pauth: Option<UserPauth>,
     /// The last slid page (page index and contents), for sources whose
     /// slide pages are larger than a guest page.
     last: Mutex<Option<(u64, Vec<u8>)>>,
@@ -332,8 +374,29 @@ impl SlidSource {
             map_size,
             info,
             slide,
+            map_address: 0,
+            pauth: None,
             last: Mutex::new(None),
         })
+    }
+
+    /// Bind this fresh source to its target task and user mapping address.
+    /// Each source owns its page cache; distinct domains never share signed
+    /// contents through the diagnostic file identity. Fork retains this source
+    /// and its matching inherited keys, while exec constructs a new source.
+    pub(crate) fn with_pauth(
+        mut self,
+        map_address: u64,
+        pauth: UserPauth,
+    ) -> std::io::Result<Self> {
+        map_address
+            .checked_add(self.map_size)
+            .ok_or(std::io::ErrorKind::InvalidInput)?;
+        self.map_address = map_address;
+        self.pauth = Some(pauth);
+        // The builder consumes an unpublished source; clear any earlier reads.
+        *self.last.get_mut().expect("source cache is not locked") = None;
+        Ok(self)
     }
 
     fn read_raw(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -363,8 +426,25 @@ impl SlidSource {
         }
         let ps = u64::from(self.info.page_size());
         let mut page = vec![0u8; ps as usize];
-        self.read_raw(self.map_offset + index * ps, &mut page)?;
-        if let Err(e) = self.info.slide_page(index as usize, &mut page, self.slide) {
+        let relative = index
+            .checked_mul(ps)
+            .ok_or(std::io::ErrorKind::InvalidInput)?;
+        let file_offset = self
+            .map_offset
+            .checked_add(relative)
+            .ok_or(std::io::ErrorKind::InvalidInput)?;
+        let page_address = self
+            .map_address
+            .checked_add(relative)
+            .ok_or(std::io::ErrorKind::InvalidInput)?;
+        self.read_raw(file_offset, &mut page)?;
+        if let Err(e) = self.info.slide_page_for_mapping(
+            index as usize,
+            &mut page,
+            self.slide,
+            page_address,
+            self.pauth,
+        ) {
             return Err(std::io::Error::other(format!(
                 "invalid slide information for page {index}: {e:?}"
             )));

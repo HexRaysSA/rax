@@ -357,6 +357,10 @@ pub enum ArmReg {
     Fpsr,
     /// System register by encoding
     SysReg(u16),
+    /// Full modeled AArch64 PSTATE, including BTYPE and exception-return state.
+    Pstate,
+    /// Banked stack pointer SP_EL0 through SP_EL3.
+    SpEl(u8),
 }
 
 /// Hexagon register

@@ -29,11 +29,6 @@ use crate::vm::vcpu::Aarch64SystemRegisters;
 /// translation.
 const TOP_BYTE: u64 = 0xFF00_0000_0000_0000;
 
-/// `va` with its tag replaced by copies of bit 55.
-fn untag(va: u64) -> u64 {
-    (((va << 8) as i64) >> 8) as u64
-}
-
 impl AArch64Cpu {
     // =========================================================================
     // Memory Access
@@ -130,22 +125,16 @@ impl AArch64Cpu {
     /// with `IsInstr` false, `docs/architecture/arm/asl/arm_defs.asl`): the
     /// regime's `TCR_ELx.TBI` for `va`'s half (TBI0 or TBI1 by bit 55 where
     /// the regime has two halves). `TBID` narrows TBI to data accesses, so
-    /// it does not matter here: instruction addresses never reach this.
+    /// it does not matter for this data-address query.
     pub(crate) fn top_byte_ignored(&self, va: u64, el: u8) -> bool {
-        let two_halves = |tcr: u64| (tcr >> (37 + ((va >> 55) & 1))) & 1 != 0;
-        match el {
-            0 | 1 => two_halves(self.sysregs.el1.tcr),
-            2 if self.sysregs.hcr_el2 & crate::isa::arm::aarch64::hcr::E2H != 0 => {
-                two_halves(self.sysregs.el2.tcr)
-            }
-            2 => self.sysregs.el2.tcr & (1 << 20) != 0,
-            _ => self.sysregs.el3.tcr & (1 << 20) != 0,
-        }
+        let mut controls = self.pauth_controls();
+        controls.current_el = el;
+        controls.top_byte_ignored(va, true)
     }
 
     /// The address a data access to `va` translates: with top-byte-ignore
-    /// in effect, bits [63:56] become copies of bit 55 (so the address stays
-    /// in its half of the regime), and the tag is kept for
+    /// in effect, bits [63:56] follow the regime's sign/zero extension, and
+    /// the original tag is kept for
     /// [`Self::retag_fault_address`].
     fn data_address(&self, va: u64) -> u64 {
         use std::sync::atomic::Ordering::Relaxed;
@@ -154,17 +143,15 @@ impl AArch64Cpu {
             return va;
         }
         self.tbi_tag.store((va & TOP_BYTE) | 1, Relaxed);
-        untag(va)
+        self.pauth_controls().effective_address(va, true)
     }
 
     /// The address a data access to `va` in the translation regime of `el`
     /// translates, without remembering the tag.
     pub(crate) fn effective_data_address(&self, va: u64, el: u8) -> u64 {
-        if self.top_byte_ignored(va, el) {
-            untag(va)
-        } else {
-            va
-        }
+        let mut controls = self.pauth_controls();
+        controls.current_el = el;
+        controls.effective_address(va, true)
     }
 
     /// Restores the tag of a data address whose top byte translation
@@ -186,7 +173,13 @@ impl AArch64Cpu {
         privileged: bool,
     ) -> Result<u64, ArmError> {
         self.translate_address_span(va, is_write, is_execute, privileged)
-            .map(|(descriptor, _)| descriptor.pa)
+            .map(|(descriptor, _)| {
+                if is_execute {
+                    self.instruction_guarded
+                        .store(descriptor.gp, std::sync::atomic::Ordering::Relaxed);
+                }
+                descriptor.pa
+            })
     }
 
     fn translate_address_span(
@@ -197,7 +190,12 @@ impl AArch64Cpu {
         privileged: bool,
     ) -> Result<(crate::isa::arm::aarch64::mmu::AddressDescriptor, u64), ArmError> {
         // Check alignment for execute
-        if is_execute && (va & 3) != 0 {
+        let instruction_mask = if self.aarch32.is_some_and(|state| state.t) {
+            1
+        } else {
+            3
+        };
+        if is_execute && (va & instruction_mask) != 0 {
             return Err(ArmError::MemoryError(MemoryFaultInfo {
                 address: va,
                 access: if is_write {
@@ -212,11 +210,31 @@ impl AArch64Cpu {
             }));
         }
 
+        let controls = self.pauth_controls();
         let va = if is_execute {
-            va
+            controls.branch_address(va)
         } else {
             self.data_address(va)
         };
+        // Single-range EL2/EL3 regimes have no sign-extended TTBR1 range.
+        // Validate before the generic two-range walker can select TTBR1.
+        if self.mmu.is_enabled()
+            && !controls.two_ranges()
+            && va >> (64 - self.mmu.config().t0sz) != 0
+        {
+            return Err(ArmError::MemoryError(MemoryFaultInfo {
+                address: va,
+                access: if is_execute {
+                    crate::isa::arm::common::cpu::AccessType::InstructionFetch
+                } else if is_write {
+                    crate::isa::arm::common::cpu::AccessType::Write
+                } else {
+                    crate::isa::arm::common::cpu::AccessType::Read
+                },
+                fault_type: MemoryFaultType::AddressSize,
+                stage2: false,
+            }));
+        }
 
         // Use MMU if enabled
         match self.mmu.translate_with_span(
@@ -1272,41 +1290,6 @@ impl AArch64Cpu {
                 self.set_x(rt, old);
             } else {
                 self.set_w(rt, old as u32);
-            }
-        }
-        Ok(CpuExit::Continue)
-    }
-
-    /// `LDRAA`/`LDRAB Xt, [Xn|SP, #simm]{!}`: authenticate the base with
-    /// data key A (M=0) or B (M=1) and a zero modifier, add the scaled
-    /// 10-bit offset (`S:imm9 << 3`), load 64 bits, and with W=1 write the
-    /// address back. UNDEFINED without FEAT_PAuth. The implementation's
-    /// PAC algorithm leaves pointers unchanged (see `exec_br_reg_pauth`),
-    /// so the authenticated base is the base.
-    fn exec_ldraa(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
-        if !self.config.features.contains(ArmFeatures::PACA) {
-            return Err(ArmError::UndefinedInstruction(insn));
-        }
-        let s = (insn >> 22) & 1;
-        let imm9 = (insn >> 12) & 0x1FF;
-        let wback = (insn >> 11) & 1 == 1;
-        let rn = ((insn >> 5) & 0x1F) as u8;
-        let rt = (insn & 0x1F) as u8;
-        let s10 = ((s << 9) | imm9) as i32;
-        let offset = (((s10 << 22) >> 22) as i64) << 3;
-        let base = if rn == 31 {
-            self.checked_sp(crate::isa::arm::common::cpu::AccessType::Read)?
-        } else {
-            self.get_x(rn)
-        };
-        let address = (base as i64).wrapping_add(offset) as u64;
-        let data = self.mem_read_u64(address)?;
-        self.set_x(rt, data);
-        if wback {
-            if rn == 31 {
-                self.set_current_sp(address);
-            } else {
-                self.set_x(rn, address);
             }
         }
         Ok(CpuExit::Continue)

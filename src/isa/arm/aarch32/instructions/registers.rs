@@ -93,6 +93,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn write_current_spsr_by_mask(&mut self, value: u32, mask: u32) {
+        let features = self.cpu.pstate_features;
         if let Some(spsr) = self.cpu.get_current_spsr_mut() {
             if (mask & 8) != 0 {
                 spsr.n = (value >> 31) != 0;
@@ -100,11 +101,27 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 spsr.c = ((value >> 29) & 1) != 0;
                 spsr.v = ((value >> 28) & 1) != 0;
                 spsr.q = ((value >> 27) & 1) != 0;
+                if !features.is_empty() {
+                    spsr.it_state = (spsr.it_state & !3) | ((value >> 25) & 3) as u8;
+                }
             }
             if (mask & 4) != 0 {
                 spsr.ge = ((value >> 16) & 0xF) as u8;
+                if !features.is_empty() {
+                    spsr.il = value & (1 << 20) != 0;
+                    spsr.pan = value & (1 << 22) != 0;
+                }
+                if features.contains(crate::isa::arm::common::features::ArmFeatures::SSBS) {
+                    spsr.ssbs = value & (1 << 23) != 0;
+                }
+                if features.contains(crate::isa::arm::common::features::ArmFeatures::DIT) {
+                    spsr.dit = value & (1 << 21) != 0;
+                }
             }
             if (mask & 2) != 0 {
+                if !features.is_empty() {
+                    spsr.it_state = (spsr.it_state & 3) | (((value >> 10) & 63) << 2) as u8;
+                }
                 spsr.e = ((value >> 9) & 1) != 0;
                 spsr.a = ((value >> 8) & 1) != 0;
             }
@@ -128,6 +145,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         // CPSRWriteByInstr: GE[3:0] at any privilege.
         if (mask & 4) != 0 {
             self.cpu.cpsr.ge = ((value >> 16) & 0xF) as u8;
+            use crate::isa::arm::common::features::ArmFeatures;
+            if self.cpu.pstate_features.contains(ArmFeatures::SSBS) {
+                self.cpu.cpsr.ssbs = value & (1 << 23) != 0;
+            }
+            if !self.cpu.pstate_features.is_empty() && self.cpu.is_privileged() {
+                self.cpu.cpsr.pan = value & (1 << 22) != 0;
+            }
+            if self.cpu.pstate_features.contains(ArmFeatures::DIT) {
+                self.cpu.cpsr.dit = value & (1 << 21) != 0;
+            }
         }
         if (mask & 2) != 0 {
             self.cpu.cpsr.e = ((value >> 9) & 1) != 0;
@@ -163,6 +190,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Some(ProcessorMode::Monitor) => self.cpu.regs_mon[0] = value,
             Some(ProcessorMode::Abort) => self.cpu.regs_abt[0] = value,
             Some(ProcessorMode::Undefined) => self.cpu.regs_und[0] = value,
+            Some(ProcessorMode::Hyp) => self.cpu.sp_hyp = value,
             _ => self.cpu.regs[13] = value,
         }
     }
@@ -176,6 +204,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Some(ProcessorMode::Monitor) => self.cpu.spsr_mon.to_u32(),
             Some(ProcessorMode::Abort) => self.cpu.spsr_abt.to_u32(),
             Some(ProcessorMode::Undefined) => self.cpu.spsr_und.to_u32(),
+            Some(ProcessorMode::Hyp) => self.cpu.spsr_hyp.to_u32(),
             _ => self.cpu.cpsr.to_u32(),
         }
     }

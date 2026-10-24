@@ -297,20 +297,18 @@ fn test_str_pre_index() {
 }
 #[test]
 fn test_xpaclri_strips_lr_instruction_pac() {
-    for input in [
-        0xabcd_0000_1234_5670u64,
-        0x5a00_7fff_ffff_fff0u64,
-        0xffff_8000_0000_0010u64,
+    for (input, stripped) in [
+        (0xabcd_0000_1234_5670u64, 0xffff_0000_1234_5670u64),
+        (0x5a00_7fff_ffff_fff0u64, 0x5a00_7fff_ffff_fff0u64),
+        (0xffff_8000_0000_0010u64, 0xffff_8000_0000_0010u64),
     ] {
         let mut cpu = create_cpu_with_insn(0xD50320FF); // XPACLRI
+        cpu.config.features |= ArmFeatures::PACA;
+        cpu.sysregs.el1.tcr = 1 << 37; // TBI0=1, TBI1=0, matching this layout matrix.
         cpu.set_x(30, input);
 
         assert!(matches!(cpu.step(), Ok(CpuExit::Continue)));
-        assert_eq!(
-            cpu.get_x(30),
-            strip_pac(input, false),
-            "XPACLRI should strip LR PAC bits"
-        );
+        assert_eq!(cpu.get_x(30), stripped, "XPACLRI should strip LR PAC bits");
         assert_eq!(cpu.get_pc(), 4);
     }
 }

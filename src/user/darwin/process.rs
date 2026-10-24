@@ -41,6 +41,8 @@ pub(crate) mod embedding;
 mod bounded_tests;
 #[cfg(test)]
 mod exclusive_tests;
+#[cfg(test)]
+mod pauth_tests;
 
 /// Instructions per scheduling slice for arm64 threads (x86-64 threads
 /// yield on the core's own ~1 ms timer).
@@ -257,6 +259,17 @@ impl Entropy {
         Entropy { state: seed }
     }
 
+    /// Checked entropy for architectural keys. Host failure aborts image
+    /// activation rather than silently installing zero or partial keys.
+    pub(crate) fn try_fill(&mut self, buf: &mut [u8]) -> std::io::Result<()> {
+        if self.state.is_some() {
+            self.fill(buf);
+            Ok(())
+        } else {
+            getrandom::fill(buf).map_err(std::io::Error::other)
+        }
+    }
+
     /// Fills `buf`.
     pub fn fill(&mut self, buf: &mut [u8]) {
         match &mut self.state {
@@ -393,6 +406,8 @@ pub struct Proc {
     pub next_tid: u64,
     /// Entropy source.
     pub entropy: Entropy,
+    /// The task's immutable arm64 key domain (absent on x86-64).
+    pub(crate) pauth: Option<super::pauth::TaskPauth>,
     /// Resource limits.
     pub rlimits: Rlimits,
     /// File-creation mask.
@@ -446,6 +461,15 @@ pub struct Proc {
 }
 
 impl Proc {
+    /// Every new thread receives the task's existing keys and enable policy.
+    pub(crate) fn new_thread_cpu(&self) -> DarwinCpu {
+        let mut cpu = DarwinCpu::new(self.abi, &self.space);
+        if let Some(pauth) = &self.pauth {
+            pauth.install(&mut cpu);
+        }
+        cpu
+    }
+
     /// Where a thread's dispatch queue pointer lies after its TSD base
     /// (`thread_dispatchqaddr`).
     pub fn pthread_dispatch_offset(&self) -> u64 {
@@ -1021,6 +1045,17 @@ pub(crate) fn start(
     let program = loader::load(&space, abi, &image, &params).map_err(SpawnError::Load)?;
 
     let mut cpu = DarwinCpu::new(abi, &space);
+    let pauth = if abi == DarwinAbi::Arm64 {
+        let domain = super::pauth::TaskPauth::new(
+            &mut entropy,
+            super::pauth::uses_abi(program.main.header.cpusubtype),
+        )
+        .map_err(|error| SpawnError::Io("pointer-authentication keys".into(), error))?;
+        domain.install(&mut cpu);
+        Some(domain)
+    } else {
+        None
+    };
     if let Some(state) = &program.thread_state {
         cpu.set_thread_state(state);
     }
@@ -1087,6 +1122,7 @@ pub(crate) fn start(
             threads,
             next_tid: tid + 1,
             entropy,
+            pauth,
             rlimits,
             umask: c.umask,
             sigacts: c.sigacts,
@@ -1206,6 +1242,7 @@ pub(crate) fn start(
                 threads,
                 next_tid: tid + 1,
                 entropy,
+                pauth,
                 rlimits,
                 umask,
                 sigacts,

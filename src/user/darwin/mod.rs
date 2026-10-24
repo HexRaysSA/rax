@@ -57,6 +57,7 @@ pub mod kevent;
 pub mod loader;
 pub mod mach;
 pub mod mig;
+pub(crate) mod pauth;
 pub mod process;
 pub mod psynch;
 pub mod runtime_files;

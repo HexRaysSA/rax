@@ -1152,36 +1152,12 @@ pub(crate) fn unsigned_rsqrt_estimate(op: u32) -> u32 {
 pub(crate) fn sign_extend_56(v: u64) -> u64 {
     ((v << 8) as i64 >> 8) as u64
 }
-/// Strip pointer authentication bits using the EL0 Linux layout exercised by
-/// the native oracle: 48-bit VA, top-byte-ignore for data pointers, and TBI for
-/// lower instruction addresses.
-pub(crate) fn strip_pac(v: u64, data: bool) -> u64 {
-    const LOW_MASK: u64 = 0x0000_FFFF_FFFF_FFFF;
-    const TOP_BYTE_MASK: u64 = 0xFF00_0000_0000_0000;
-    const PAC_BYTE_MASK: u64 = 0x00FF_0000_0000_0000;
-
-    let low = v & LOW_MASK;
-    let sign = if (v >> 55) & 1 != 0 { u64::MAX } else { 0 };
-    let tbi = data || (v >> 55) & 1 == 0;
-    if tbi {
-        (v & TOP_BYTE_MASK) | (sign & PAC_BYTE_MASK) | low
-    } else {
-        (sign & !LOW_MASK) | low
-    }
-}
 /// 64-bit subtract returning (result, N, Z, C, V).
 pub(crate) fn sub_with_flags_64(a: u64, b: u64) -> (u64, bool, bool, bool, bool) {
     let (res, borrow) = a.overflowing_sub(b);
     let c = !borrow; // ARM carry = NOT borrow
     let v = (((a ^ b) & (a ^ res)) >> 63) & 1 == 1;
     (res, (res >> 63) & 1 == 1, res == 0, c, v)
-}
-/// Deterministic stand-in for the PACGA generic MAC (bits[63:32]); good
-/// enough for tests that only check the destination is written.
-pub(crate) fn pacga_stub(x: u64, y: u64) -> u64 {
-    let mut h = x ^ y.rotate_left(32) ^ 0x9E37_79B9_7F4A_7C15;
-    h ^= h >> 29;
-    h & 0xFFFF_FFFF_0000_0000
 }
 pub(crate) fn pred_test_flags(
     pred: u32,

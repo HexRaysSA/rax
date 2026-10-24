@@ -199,6 +199,10 @@ impl ControlFlow {
 
 /// Lifting context (shared state across lifting)
 pub struct LiftContext {
+    /// Explicit AArch64 execution features. `None` retains conservative legacy
+    /// lifting and rejects PAuth. `Some` emits checked instruction boundaries;
+    /// execution requires matching full system state, keys and controls.
+    pub aarch64_features: Option<crate::isa::arm::common::features::ArmFeatures>,
     /// Source architecture
     pub arch: SourceArch,
     /// Virtual register allocator
@@ -223,6 +227,7 @@ impl LiftContext {
     /// Create a new context for the given architecture
     pub fn new(arch: SourceArch) -> Self {
         LiftContext {
+            aarch64_features: None,
             arch,
             vreg_alloc: VRegAllocator::new(),
             block_alloc: BlockIdAllocator::new(),

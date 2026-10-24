@@ -26,6 +26,8 @@
 //! └─────────────────┘
 //! ```
 
+mod aarch64_guest_regs;
+pub use aarch64_guest_regs::Aarch64GuestRegs;
 pub mod aarch64;
 pub mod cross;
 pub mod regalloc;

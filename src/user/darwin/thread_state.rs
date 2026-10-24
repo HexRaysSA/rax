@@ -10,6 +10,8 @@ use crate::isa::arm::common::cpu::ArmCpu;
 use crate::user::cpu::aarch64::A64UserCpu;
 use crate::user::cpu::x86_64::X86UserCpu;
 
+pub(crate) mod pauth;
+
 /// `sizeof(arm_thread_state64_t)`: `x[29]`, `fp`, `lr`, `sp`, `pc`,
 /// `cpsr`, `flags`.
 pub const ARM_THREAD_STATE64_SIZE: usize = 272;

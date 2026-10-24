@@ -28,20 +28,28 @@ use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 use crate::vm::vcpu::Aarch64SystemRegisters;
 
 // ---- module tree (auto-split) ----
+mod aarch32;
 mod branch;
 pub use branch::*;
+mod entry;
+mod exception_return;
 mod exec;
 pub use exec::*;
 mod math;
 pub use math::*;
 mod memory;
 pub use memory::*;
+mod pauth;
+#[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+mod pauth_jit;
+mod pauth_user_jit;
 mod registers;
 pub use registers::*;
 mod simd;
 pub use simd::*;
 mod sve;
 pub use sve::*;
+mod state;
 mod system;
 mod system_step;
 pub use system::*;
@@ -60,7 +68,9 @@ pub struct AArch64Config {
     pub version: ArmVersion,
     /// Enabled features.
     pub features: ArmFeatures,
-    /// Initial exception level (1, 2, or 3).
+    /// Pointer-authentication algorithm and failure profile.
+    pub pauth: super::pauth::PauthConfig,
+    /// Initial exception level (0 through 3).
     pub initial_el: u8,
     /// GIC configuration.
     pub gic_config: Option<GicConfig>,
@@ -75,6 +85,7 @@ impl Default for AArch64Config {
         Self {
             version: ArmVersion::V8_0A,
             features: ArmFeatures::armv8_0_base(),
+            pauth: super::pauth::PauthConfig::default(),
             initial_el: 1,
             gic_config: Some(GicConfig::default()),
             num_breakpoints: 6,
@@ -155,6 +166,10 @@ pub struct AArch64Cpu {
     /// SP selection (false = SP_EL0, true = SP_ELx).
     sp_sel: bool,
 
+    /// Active AArch32-specific PSTATE fields; X/V registers remain shared.
+    aarch32: Option<super::aarch32_state::Aarch32Pstate>,
+    aarch32_monitor: crate::isa::arm::aarch32::instructions::ExclusiveMonitor,
+
     /// PAN (Privileged Access Never).
     pan: bool,
 
@@ -232,6 +247,8 @@ pub struct AArch64Cpu {
     /// Cached generic-timer output levels mirrored into GIC PPIs (virt PPI 27,
     /// phys PPI 30); avoids locking the GIC when nothing changed.
     timer_levels: (bool, bool),
+    /// Guarded-page attribute of the most recent successful instruction fetch.
+    instruction_guarded: std::sync::atomic::AtomicBool,
     /// Translation level of the most recent MMU fault, for abort syndromes.
     /// (Atomic only for interior mutability behind `&self`; the CPU is
     /// single-threaded.)
@@ -259,6 +276,9 @@ pub struct AArch64Cpu {
     // =========================================================================
     /// Instruction count.
     insn_count: u64,
+
+    /// Width of the current instruction, for precise AArch32 exception IL.
+    last_instruction_size: u8,
 
     /// Cycle count.
     cycle_count: u64,
@@ -404,12 +424,17 @@ pub(crate) struct JitRegion {
     uses_memory: bool,
     /// Virtual/physical 4 KiB source-frame bindings for the lift window.
     source_pages: Vec<(u64, u64)>,
+    /// One checked PAuth instruction, with a dispatcher exit after retirement.
+    pauth_instruction: Option<u32>,
 }
 
 /// Per-CPU JIT tier state.
 #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
 #[derive(Default)]
 pub(crate) struct Aarch64JitState {
+    /// Exact native fault, consumed by system stepping without re-execution.
+    native_fault: Option<ArmError>,
+    pauth_native_runs: u64,
     /// Compiled regions keyed by (head guest PC, mode tag). `Some` ⇒ runnable;
     /// `None` ⇒ memoized-ineligible (skipped until an SMC cache wipe).
     cache: std::collections::HashMap<(u64, u64), Option<std::sync::Arc<JitRegion>>>,
@@ -621,7 +646,10 @@ impl ArmCpu for AArch64Cpu {
         self.nzcv = 0;
         self.daif = 0xF; // All exceptions masked
         self.current_el = self.config.initial_el;
-        self.sp_sel = true;
+        self.sp_sel = self.config.initial_el != 0;
+        self.aarch32 = None;
+        self.clear_exclusive_monitor();
+        self.last_instruction_size = 4;
         self.pan = false;
         self.uao = false;
         self.dit = false;
@@ -641,7 +669,11 @@ impl ArmCpu for AArch64Cpu {
         self.sve_p = [0; 16];
         self.sve_ffr = 0;
 
+        self.instruction_guarded
+            .store(false, std::sync::atomic::Ordering::Relaxed);
         self.sysregs.reset();
+        self.initialize_reset_control_state();
+        self.update_pauth_id_registers();
         self.mmu = Mmu::new();
         if let Some(ref gic) = self.gic {
             if let Ok(mut gic) = gic.lock() {
@@ -686,10 +718,22 @@ impl ArmCpu for AArch64Cpu {
     }
 
     fn get_lr(&self) -> u64 {
+        if let Some(state) = self.aarch32 {
+            let index = super::aarch32_state::register_index(14, state.mode)
+                .expect("validated AArch32 register bank");
+            return u64::from(self.x[usize::from(index)] as u32);
+        }
         self.get_x(30) // X30 is the link register in AArch64
     }
 
     fn set_lr(&mut self, value: u64) {
+        if let Some(state) = self.aarch32 {
+            let index = super::aarch32_state::register_index(14, state.mode)
+                .expect("validated AArch32 register bank");
+            let register = &mut self.x[usize::from(index)];
+            *register = (*register & 0xffff_ffff_0000_0000) | u64::from(value as u32);
+            return;
+        }
         self.set_x(30, value);
     }
 
@@ -699,29 +743,53 @@ impl ArmCpu for AArch64Cpu {
             z: self.get_z(),
             c: self.get_c(),
             v: self.get_v(),
-            q: false,
-            ge: 0,
+            q: self.aarch32.is_some_and(|state| state.q),
+            ge: self.aarch32.map_or(0, |state| state.ge),
             el: self.current_el,
             sp_sel: self.sp_sel,
-            t: false, // Not applicable to AArch64
+            t: self.aarch32.is_some_and(|state| state.t),
             i: (self.daif & 0x2) != 0,
             f: (self.daif & 0x1) != 0,
             a: (self.daif & 0x4) != 0,
             d: (self.daif & 0x8) != 0,
-            e: false, // Little endian
-            it_state: 0,
-            mode: 0,
+            e: self.aarch32.is_some_and(|state| state.e),
+            it_state: self.aarch32.map_or(0, |state| state.it),
+            mode: self.aarch32.map_or(0, |state| state.mode),
         }
     }
 
     fn set_pstate(&mut self, state: ProcessorState) {
+        if state.mode & 16 != 0
+            && (state.mode == 0x16 || super::aarch32_state::mode_el(state.mode).is_none())
+        {
+            return;
+        }
         self.set_nzcv(state.n, state.z, state.c, state.v);
-        self.current_el = state.el;
-        self.sp_sel = state.sp_sel;
+        if let Some(mode) = super::aarch32_state::mode_el(state.mode) {
+            if state.mode != 0x16 {
+                self.aarch32 = Some(super::aarch32_state::Aarch32Pstate {
+                    mode: state.mode,
+                    q: state.q,
+                    it: state.it_state,
+                    ge: state.ge & 15,
+                    e: state.e,
+                    t: state.t,
+                });
+                self.btype = 0;
+                self.current_el = mode;
+                self.sp_sel = !matches!(state.mode, 0x10 | 0x1f);
+            }
+        } else {
+            self.aarch32 = None;
+            self.current_el = state.el;
+            self.sp_sel = state.sp_sel;
+        }
         self.daif = ((state.d as u8) << 3)
             | ((state.a as u8) << 2)
             | ((state.i as u8) << 1)
             | (state.f as u8);
+        self.update_mmu_config();
+        self.clear_jit_cache();
     }
 
     fn is_privileged(&self) -> bool {

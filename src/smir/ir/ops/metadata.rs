@@ -131,6 +131,10 @@ impl OpKind {
     /// Get destination register(s) if any
     pub fn dests(&self) -> Vec<VReg> {
         match self {
+            OpKind::ArmPauth(operation) => operation.destinations(),
+            OpKind::ArmInstructionBegin { .. } | OpKind::ArmInstructionCommit { .. } => {
+                crate::smir::ir::ops::arm_boundary_state()
+            }
             OpKind::ArmSimdLong(operation) => operation.destinations(),
             OpKind::ArmSimdNarrow(operation) => operation.destinations(),
             OpKind::ArmSimdSaturating(operation) => operation.destinations(),
@@ -739,7 +743,10 @@ impl OpKind {
             || matches!(self, OpKind::X86Opmask(op) if op.writes_memory())
             || matches!(
                 self,
-                OpKind::EbpfInstruction { .. }
+                OpKind::ArmInstructionBegin { .. }
+                    | OpKind::ArmInstructionCommit { .. }
+                    | OpKind::ArmPauth(..)
+                    | OpKind::EbpfInstruction { .. }
                     | OpKind::HexagonPacketBegin
                     | OpKind::HexagonPacketCommit
                     | OpKind::Store { .. }
@@ -855,6 +862,12 @@ impl OpKind {
 
     /// Check if this operation reads memory
     pub fn reads_memory(&self) -> bool {
+        if let OpKind::ArmPauth(operation) = self {
+            return matches!(
+                operation.instruction,
+                crate::isa::arm::aarch64::pauth_instruction::PauthInstruction::Load { .. }
+            );
+        }
         matches!(
             self,
             OpKind::Load { .. }

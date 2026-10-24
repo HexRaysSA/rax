@@ -33,7 +33,7 @@ This folder replaces the older SMIR v0.1 specification. The prior specification 
 | `13-safety-and-verification.md` | JIT whitelist, clobber gates, interpreter fallback, differential verification, and conformance obligations. |
 | `14-implementation-layout.md` | Current source tree layout and ownership boundaries. |
 | `15-change-log-from-v0.1.md` | Material deltas from the original v0.1 spec. |
-| `16-aarch64-pauth.md` | ISA addendum: AArch64 pointer authentication and authenticated branches, plane-by-plane status, known deviations, and admission/validation obligations. |
+| [16-aarch64-pointer-authentication.md](16-aarch64-pointer-authentication.md) | Keyed PAuth execution, feature gates, mixed-width exception return, persistence, native frontiers and validation; declares its own newer source baseline. |
 | `PROVENANCE.md` | Source files, blob SHAs, assumptions, falsification probes, and quality-gate notes. |
 
 ## Terminology

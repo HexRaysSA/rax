@@ -5,6 +5,9 @@
 use crate::smir::ir::flags::FlagUpdate;
 use crate::smir::ir::types::*;
 
+mod arm_pauth;
+pub use arm_pauth::ArmPauthOp;
+pub(crate) use arm_pauth::architectural_state as arm_boundary_state;
 mod arm_simd_resize;
 mod arm_simd_saturating;
 mod fp_side_effects;
@@ -281,6 +284,19 @@ impl ArmDpRegShiftKind {
 /// All SMIR operation kinds
 #[derive(Clone, Debug)]
 pub enum OpKind {
+    /// Precise AArch64 entry check before any guest effects. The feature bits
+    /// must equal the execution state's bits; absent state declines execution.
+    ArmInstructionBegin {
+        raw: u32,
+        features: u64,
+    },
+    /// Successful retirement of one AArch64 instruction. Preserves PAuth's
+    /// branch/return BTYPE and clears BTYPE for ordinary non-branch operations.
+    ArmInstructionCommit {
+        raw: u32,
+    },
+    /// Typed keyed PAuth operation; see `ArmPauthOp` for the state/fault contract.
+    ArmPauth(ArmPauthOp),
     /// An observable eBPF guest instruction boundary. Preserved by optimization;
     /// carries the dialect/byte order and charges one guest instruction.
     EbpfInstruction {

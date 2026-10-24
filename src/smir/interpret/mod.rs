@@ -22,12 +22,14 @@ use crate::smir::ir::types::*;
 use crate::smir::ir::{CallTarget, SmirBlock, SmirFunction, Terminator, TrapKind};
 
 // ---- module tree (auto-split) ----
+mod aarch64_boundaries;
 mod arm_arithmetic;
 mod arm_conversion;
 mod arm_flags;
 mod arm_format;
 mod arm_fused;
 mod arm_integer_conversion;
+pub(crate) mod arm_pauth;
 mod arm_reciprocal;
 mod arm_round_integral;
 mod arm_selection;

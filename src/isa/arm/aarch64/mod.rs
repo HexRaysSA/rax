@@ -32,10 +32,17 @@
 //! }
 //! ```
 
+pub mod aarch32_state;
 pub mod cpu;
+pub mod exception_return;
 pub mod exceptions;
 pub mod gic;
 pub mod mmu;
+pub mod pauth;
+pub mod pauth_execution;
+pub mod pauth_instruction;
+mod pauth_serde;
+mod pauth_state;
 pub mod sysregs;
 
 pub use cpu::{AArch64Config, AArch64Cpu};
@@ -316,3 +323,6 @@ mod tests {
         assert_eq!(spsr::EL3H, 0b1101);
     }
 }
+
+mod smir_memory;
+pub use smir_memory::Aarch64MemoryBridge;

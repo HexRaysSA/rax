@@ -1,0 +1,175 @@
+{
+  "reference_sha256": "b63fa12bfb96f37822c8b7e595b23b445662392cc56341c34865f4aea1e86c70",
+  "profile": "FpacCombine",
+  "address_bits": 48,
+  "ia_key_lo_hi": [
+    1,
+    2
+  ],
+  "da_key_lo_hi": [
+    5,
+    6
+  ],
+  "vectors": [
+    {
+      "algorithm": 0,
+      "name": "pc",
+      "pointer": "0000000100001000",
+      "modifier": "0000000000007481",
+      "key": "ia",
+      "signed": "3d64000100001000"
+    },
+    {
+      "algorithm": 0,
+      "name": "lr",
+      "pointer": "0000000100002000",
+      "modifier": "00000000000077d3",
+      "key": "ia",
+      "signed": "be5d000100002000"
+    },
+    {
+      "algorithm": 0,
+      "name": "sp",
+      "pointer": "0000007000001000",
+      "modifier": "000000000000cbed",
+      "key": "da",
+      "signed": "0009007000001000"
+    },
+    {
+      "algorithm": 0,
+      "name": "fp",
+      "pointer": "0000007000002000",
+      "modifier": "0000000000004517",
+      "key": "da",
+      "signed": "0061007000002000"
+    },
+    {
+      "algorithm": 0,
+      "name": "uctx",
+      "pointer": "0000007000003000",
+      "modifier": "000000000000d4a6",
+      "key": "da",
+      "signed": "0030007000003000"
+    },
+    {
+      "algorithm": 0,
+      "name": "cache_code",
+      "pointer": "0000000180000040",
+      "modifier": "0000000000000077",
+      "key": "ia",
+      "signed": "d124000180000040"
+    },
+    {
+      "algorithm": 0,
+      "name": "cache_data",
+      "pointer": "0000000180000080",
+      "modifier": "0066000180004018",
+      "key": "da",
+      "signed": "001c000180000080"
+    },
+    {
+      "algorithm": 0,
+      "name": "function",
+      "pointer": "0000000100004000",
+      "modifier": "0000000000000000",
+      "key": "ia",
+      "signed": "231c000100004000"
+    },
+    {
+      "algorithm": 0,
+      "name": "pc_nonce",
+      "pointer": "3c47456689abddef",
+      "modifier": "000000000000b743",
+      "key": "da",
+      "signed": "3c62456689abddef"
+    },
+    {
+      "algorithm": 0,
+      "name": "lr_nonce",
+      "pointer": "bf7e456689abedef",
+      "modifier": "000000000000b743",
+      "key": "da",
+      "signed": "bf50456689abedef"
+    },
+    {
+      "algorithm": 1,
+      "name": "pc",
+      "pointer": "0000000100001000",
+      "modifier": "0000000000007481",
+      "key": "ia",
+      "signed": "4717000100001000"
+    },
+    {
+      "algorithm": 1,
+      "name": "lr",
+      "pointer": "0000000100002000",
+      "modifier": "00000000000077d3",
+      "key": "ia",
+      "signed": "cb66000100002000"
+    },
+    {
+      "algorithm": 1,
+      "name": "sp",
+      "pointer": "0000007000001000",
+      "modifier": "000000000000cbed",
+      "key": "da",
+      "signed": "0035007000001000"
+    },
+    {
+      "algorithm": 1,
+      "name": "fp",
+      "pointer": "0000007000002000",
+      "modifier": "0000000000004517",
+      "key": "da",
+      "signed": "0058007000002000"
+    },
+    {
+      "algorithm": 1,
+      "name": "uctx",
+      "pointer": "0000007000003000",
+      "modifier": "000000000000d4a6",
+      "key": "da",
+      "signed": "0030007000003000"
+    },
+    {
+      "algorithm": 1,
+      "name": "cache_code",
+      "pointer": "0000000180000040",
+      "modifier": "0000000000000077",
+      "key": "ia",
+      "signed": "467b000180000040"
+    },
+    {
+      "algorithm": 1,
+      "name": "cache_data",
+      "pointer": "0000000180000080",
+      "modifier": "0066000180004018",
+      "key": "da",
+      "signed": "0064000180000080"
+    },
+    {
+      "algorithm": 1,
+      "name": "function",
+      "pointer": "0000000100004000",
+      "modifier": "0000000000000000",
+      "key": "ia",
+      "signed": "4b20000100004000"
+    },
+    {
+      "algorithm": 1,
+      "name": "pc_nonce",
+      "pointer": "4634456689abddef",
+      "modifier": "000000000000b743",
+      "key": "da",
+      "signed": "4619456689abddef"
+    },
+    {
+      "algorithm": 1,
+      "name": "lr_nonce",
+      "pointer": "ca45456689abedef",
+      "modifier": "000000000000b743",
+      "key": "da",
+      "signed": "ca55456689abedef"
+    }
+  ]
+}

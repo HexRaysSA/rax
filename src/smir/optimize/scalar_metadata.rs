@@ -65,6 +65,9 @@ impl OpKind {
     /// Get the flags written by this operation (the flags it may define).
     pub fn flags_written(&self) -> FlagSet {
         match self {
+            OpKind::ArmPauth(operation) if matches!(operation.instruction,
+                crate::isa::arm::aarch64::pauth_instruction::PauthInstruction::ExceptionReturn { .. }) => FlagSet::NZCV,
+
             OpKind::Add { flags, .. }
             | OpKind::X86Xadd(crate::smir::ir::ops::X86XaddOp { flags, .. })
             | OpKind::X86Cmpxchg(crate::smir::ir::ops::X86CmpxchgOp { flags, .. })
@@ -170,6 +173,8 @@ impl OpKind {
     /// only keep more upstream flags live (safe), never delete a needed one.
     pub fn flags_must_write(&self) -> FlagSet {
         match self {
+            OpKind::ArmPauth(..) => FlagSet::EMPTY,
+
             OpKind::Shl { .. }
             | OpKind::Shr { .. }
             | OpKind::Sar { .. }
@@ -207,6 +212,10 @@ impl OpKind {
     /// Get the flags read by this operation
     pub fn flags_read(&self) -> FlagSet {
         match self {
+            OpKind::ArmInstructionBegin { .. }
+            | OpKind::ArmInstructionCommit { .. }
+            | OpKind::ArmPauth(..) => FlagSet::NZCV,
+
             // Add/Sub with carry read CF
             OpKind::Adc { .. } | OpKind::Sbb { .. } | OpKind::Rcl { .. } | OpKind::Rcr { .. } => {
                 FlagSet::CF

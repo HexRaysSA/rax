@@ -16,6 +16,18 @@ use crate::smir::ir::{X86Segment, X86StringIoKind};
 /// Reason for execution exit
 #[derive(Clone, Debug)]
 pub enum ExitReason {
+    /// Exact AArch64 CPU fault before retirement; no inferred generic syndrome.
+    Aarch64Fault {
+        pc: GuestAddr,
+        error: crate::isa::arm::common::cpu::ArmError,
+    },
+    /// Precise AArch64 synchronous exception, before architectural entry.
+    Aarch64Exception {
+        pc: GuestAddr,
+        ec: u8,
+        iss: u32,
+        target_el: u8,
+    },
     /// A precise eBPF / SBPF execution trap.
     EbpfTrap(crate::isa::ebpf::EbpfTrap),
     /// Reached instruction limit
@@ -734,6 +746,14 @@ pub struct Aarch64RegState {
     pub fpsr: u32,
     /// SIMD registers V0-V31 (128-bit each)
     pub v: [[u64; 2]; 32],
+    /// Modeled PSTATE excluding NZCV, whose authoritative value is `nzcv`.
+    pub pstate: u64,
+    /// Required keyed/system state. Absence declines PAuth execution explicitly.
+    pub system: Option<Box<crate::vm::vcpu::Aarch64SystemRegisters>>,
+    /// Fetch-time GP metadata. `None` requires fallback when it affects semantics.
+    pub instruction_guarded: Option<bool>,
+    /// Local event sent by exception return.
+    pub event_register: bool,
 }
 
 impl Aarch64RegState {
@@ -754,6 +774,9 @@ impl Aarch64RegState {
     pub fn set_x(&mut self, n: u8, val: u64) {
         if n < 31 {
             self.x[n as usize] = val;
+            if self.aarch32_sp_register() == Some(n) {
+                self.sp = u64::from(val as u32);
+            }
         }
     }
 }
@@ -1089,7 +1112,9 @@ impl SmirContext {
                 ArmReg::Fpcr => arm.fpcr as u64,
                 ArmReg::Fpsr => arm.fpsr as u64,
                 ArmReg::V(n) => arm.v[n as usize][0],
-                _ => 0,
+                ArmReg::Pstate => arm.pstate_bits(),
+                ArmReg::SpEl(el) => arm.sp_bank(el).unwrap_or(0),
+                ArmReg::SysReg(encoding) => arm.read_system_register(encoding).unwrap_or(0),
             },
             (ArchRegState::Hexagon(hex), ArchReg::Hexagon(r)) => match r {
                 HexagonReg::R(n) => hex.get_r(n) as u64,
@@ -1148,7 +1173,7 @@ impl SmirContext {
             (ArchRegState::X86_64(x86), ArchReg::X86(r)) => x86.set_gpr_by_reg(r, value),
             (ArchRegState::Aarch64(arm), ArchReg::Arm(r)) => match r {
                 ArmReg::X(n) => arm.set_x(n, value),
-                ArmReg::Sp => arm.sp = value,
+                ArmReg::Sp => arm.set_sp_value(value),
                 ArmReg::Pc => arm.pc = value,
                 ArmReg::Nzcv => {
                     arm.nzcv = value as u32;
@@ -1158,7 +1183,23 @@ impl SmirContext {
                 ArmReg::Fpcr => arm.fpcr = value as u32,
                 ArmReg::Fpsr => arm.fpsr = value as u32,
                 ArmReg::V(n) => arm.v[n as usize][0] = value,
-                _ => {}
+                ArmReg::Pstate => {
+                    if !arm.set_pstate_value(value) {
+                        self.exit_reason = Some(ExitReason::Unsupported {
+                            addr: self.pc,
+                            operation: "AArch64 PSTATE state",
+                        });
+                    } else {
+                        self.flags.lazy = None;
+                        self.flags.materialized = MaterializedFlags::from_nzcv(arm.nzcv);
+                    }
+                }
+                ArmReg::SpEl(el) => {
+                    arm.set_sp_bank(el, value);
+                }
+                ArmReg::SysReg(encoding) => {
+                    arm.write_system_register(encoding, value);
+                }
             },
             (ArchRegState::Hexagon(hex), ArchReg::Hexagon(r)) => match r {
                 HexagonReg::R(n) => hex.set_r(n, value as u32),

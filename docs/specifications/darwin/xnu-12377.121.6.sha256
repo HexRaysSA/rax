@@ -292,3 +292,4 @@ ef9f9f76a94596de56d84b6cc0602608063bf6cf0de741538bae8326f593f614  ./pexpert/pexp
 b50b830ede821960d7e6dbfaea851af6ebdbccbcd097f1f7a161a43f08ced37d  ./security/mac_base.c
 37d71d87236ebf4fc9bf16f42cf792ae1ef1f1109752cc74934b2adfcf086dd2  ./tests/voucher_entry_18826844.c
 700a4aaba592c485b740700839f5bdfc85ec1974e5cb2a41a4c6fae07ae238ba  ./tests/voucher_traps.c
+6b84a52d8a387f51f9cb8db1952fc10ef89c93bb2a7daa919bf38c7d6315b8fe  osfmk/arm64/sptm/pmap/pmap.c

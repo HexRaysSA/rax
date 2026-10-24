@@ -189,6 +189,15 @@ pub struct ExclusiveMonitor {
     pub size: u8,
 }
 
+/// Decoded exclusive access for an enclosing PE's physical monitor bridge.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ExclusiveAccess {
+    pub address: u32,
+    pub size: u8,
+    pub status: Option<usize>,
+    pub value: u64,
+}
+
 impl ExclusiveMonitor {
     pub fn new() -> Self {
         ExclusiveMonitor {

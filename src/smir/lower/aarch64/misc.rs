@@ -30,6 +30,8 @@ impl Aarch64Lowerer {
             guest_indirect_exits: false,
             x86_guest_state_guards: false,
             mem_helpers: false,
+            pauth_helpers: false,
+            pauth_fp_helpers: false,
             mem_helper_addr_width: OpWidth::W64,
             flagm_available: Self::detect_flagm_available(),
             flagm2_available: Self::detect_flagm2_available(),

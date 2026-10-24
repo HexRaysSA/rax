@@ -13,6 +13,7 @@ mod evex;
 mod leave;
 #[cfg(test)]
 mod opmask;
+mod pauth;
 #[cfg(test)]
 mod riscv;
 #[cfg(test)]

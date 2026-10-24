@@ -15,6 +15,11 @@ impl OpKind {
         let mut result = Vec::new();
 
         match self {
+            OpKind::ArmPauth(..)
+            | OpKind::ArmInstructionBegin { .. }
+            | OpKind::ArmInstructionCommit { .. } => {
+                result.extend(crate::smir::ir::ops::arm_boundary_state());
+            }
             OpKind::HexagonPacketBegin | OpKind::HexagonPacketCommit => {
                 result.extend(super::hexagon_packets::boundary_sources());
             }

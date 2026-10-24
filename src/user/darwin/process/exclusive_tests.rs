@@ -49,7 +49,7 @@ fn segment(name: &[u8], address: u64, size: u64, file_size: u64, protection: u32
 }
 
 /// A static arm64 Mach-O avoids host dyld/SDK dependencies in these tests.
-fn image() -> ImageFile {
+pub(super) fn image() -> ImageFile {
     let mut thread = Vec::new();
     thread.extend_from_slice(&ARM_THREAD_STATE64.to_le_bytes());
     thread.extend_from_slice(&ARM_THREAD_STATE64_COUNT.to_le_bytes());

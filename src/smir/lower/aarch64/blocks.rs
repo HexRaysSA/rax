@@ -116,8 +116,13 @@ impl Aarch64Lowerer {
         if self.try_lower_guest_blx_lr_exit(block)? {
             return Ok(());
         }
-        let (op_end, folded_cond) = Self::folded_branch_condition(block);
-        self.lower_ops(&block.ops[..op_end])?;
+        let (folded_index, folded_cond) = Self::folded_branch_condition(block);
+        if let Some(index) = folded_index {
+            self.lower_ops(&block.ops[..index])?;
+            self.lower_ops(&block.ops[index + 1..])?;
+        } else {
+            self.lower_ops(&block.ops)?;
+        }
         self.lower_terminator(block, folded_cond)
     }
 }

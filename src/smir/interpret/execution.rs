@@ -50,7 +50,8 @@ impl SmirInterpreter {
 
     /// Run until exit condition
     pub fn run(&mut self, ctx: &mut SmirContext, memory: &mut dyn SmirMemory) -> ExitReason {
-        let stepping = ctx.source_arch == SourceArch::Ebpf && ctx.debug.single_step;
+        let stepping = matches!(ctx.source_arch, SourceArch::Ebpf | SourceArch::Aarch64)
+            && ctx.debug.single_step;
         let budget = if stepping {
             self.max_insns_per_run.min(1)
         } else {
@@ -99,13 +100,17 @@ impl SmirInterpreter {
             // Get block from cache
             let block = match self.block_cache.get(&ctx.pc) {
                 Some(b) => b.clone(),
-                None if ctx.source_arch == SourceArch::Ebpf => {
+                None if matches!(ctx.source_arch, SourceArch::Ebpf | SourceArch::Aarch64) => {
                     // Resume at an observable guest boundary inside an optimized
                     // block after an instruction limit or a retryable fault.
                     let suffix = self.block_cache.values().find_map(|block| {
                         let index = block.ops.iter().position(|op| {
                             op.guest_pc == ctx.pc
-                                && matches!(op.kind, OpKind::EbpfInstruction { .. })
+                                && matches!(
+                                    op.kind,
+                                    OpKind::EbpfInstruction { .. }
+                                        | OpKind::ArmInstructionBegin { .. }
+                                )
                         })?;
                         let mut suffix = block.clone();
                         suffix.ops = block.ops[index..].to_vec();
@@ -201,6 +206,16 @@ impl SmirInterpreter {
         block: &SmirBlock,
         limit: u64,
     ) -> BlockResult {
+        if block.ops.iter().any(|op| {
+            matches!(
+                op.kind,
+                OpKind::ArmInstructionBegin { .. }
+                    | OpKind::ArmInstructionCommit { .. }
+                    | OpKind::ArmPauth(..)
+            )
+        }) {
+            return self.execute_aarch64_boundaries(ctx, memory, block, limit);
+        }
         if ctx.source_arch == SourceArch::Hexagon
             && block.ops.iter().any(|op| {
                 matches!(
@@ -356,6 +371,31 @@ impl SmirInterpreter {
         memory: &mut dyn SmirMemory,
         op: &SmirOp,
     ) -> Result<(), MemoryError> {
+        if let OpKind::ArmPauth(operation) = op.kind {
+            let result = if let ArchRegState::Aarch64(state) = &mut ctx.arch_regs {
+                arm_pauth::execute_pauth(state, memory, operation, op.guest_pc)
+            } else {
+                Err(arm_pauth::unsupported(op.guest_pc, "AArch64 PAuth state"))
+            };
+            if let Err(reason) = result {
+                ctx.request_exit(reason);
+            } else if let ArchRegState::Aarch64(state) = &ctx.arch_regs {
+                ctx.flags.lazy = None;
+                ctx.flags.materialized =
+                    crate::smir::ir::flags::MaterializedFlags::from_nzcv(state.nzcv);
+            }
+            return Ok(());
+        }
+        if matches!(
+            op.kind,
+            OpKind::ArmInstructionBegin { .. } | OpKind::ArmInstructionCommit { .. }
+        ) {
+            ctx.request_exit(arm_pauth::unsupported(
+                op.guest_pc,
+                "AArch64 instruction framing",
+            ));
+            return Ok(());
+        }
         let arm_flags = Self::arm_alu_prior_flags(ctx, &op.kind);
         self.execute_op_arithmetic(ctx, memory, op)?;
         if let Some(prior) = arm_flags {

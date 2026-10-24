@@ -11,7 +11,8 @@ impl AArch64Cpu {
         } else {
             sctlr::SA
         };
-        self.sysregs.bank(self.current_el).sctlr & control != 0
+        let controls = self.pauth_controls();
+        controls.sctlr[controls.regime_el()] & control != 0
     }
 
     pub(crate) fn checked_sp(&self, access: AccessType) -> Result<u64, ArmError> {

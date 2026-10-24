@@ -27,12 +27,18 @@ pub fn sigaction(ctx: &mut Ctx<'_>, sig: i32, nsa: u64, osa: u64) -> SysResult {
         } else {
             Validation::Disabled
         };
-        let action = SigAction {
+        let mut action = SigAction {
             handler: u64::from_le_bytes(b[0..8].try_into().expect("8 bytes")),
             tramp: u64::from_le_bytes(b[8..16].try_into().expect("8 bytes")),
             mask: u32::from_le_bytes(b[16..20].try_into().expect("4 bytes")),
             flags: flags & sa::USERSPACE_MASK,
         };
+        if let crate::user::darwin::arch::DarwinCpu::Arm64(cpu) = &ctx.thread.cpu {
+            let auth = crate::user::darwin::pauth::UserPauth::from_cpu(cpu);
+            // The handler remains a user function pointer for the trampoline.
+            // Only sa_tramp becomes a raw kernel-selected PC (kern_sig.c).
+            action.tramp = auth.function_pointer(action.tramp);
+        }
         Some((action, validation))
     } else {
         None

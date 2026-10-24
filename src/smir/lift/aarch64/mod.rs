@@ -33,6 +33,9 @@ mod saturating;
 mod scalar_simd;
 pub(crate) use memory::*;
 mod misc;
+mod pauth;
+#[cfg(test)]
+mod pauth_tests;
 pub(crate) use misc::*;
 mod simd;
 pub(crate) use simd::*;
@@ -131,7 +134,16 @@ impl crate::smir::lift::SmirLifter for Aarch64Lifter {
         })?;
 
         ctx.guest_pc = addr;
-        let (ops, control_flow) = self.lift_insn_inner(&insn, addr, ctx)?;
+        let (mut ops, control_flow) = if ctx.aarch64_features.is_some()
+            && let Some(operation) = crate::smir::ir::ops::ArmPauthOp::decode(raw)
+        {
+            self.lift_pauth(operation, addr, ctx)
+        } else {
+            self.lift_insn_inner(&insn, addr, ctx)?
+        };
+        if let Some(features) = ctx.aarch64_features {
+            self.frame_instruction(raw, addr, features.bits(), &mut ops, &control_flow, ctx);
+        }
 
         let mut branch_targets = Vec::new();
         match &control_flow {
@@ -204,14 +216,20 @@ impl crate::smir::lift::SmirLifter for Aarch64Lifter {
                         fallthrough,
                     } => {
                         let cond_vreg = ctx.alloc_vreg();
-                        all_ops.push(SmirOp::new(
-                            OpId(all_ops.len() as u16),
+                        let operation = SmirOp::new(
+                            ctx.next_op_id(),
                             current_addr - result.bytes_consumed as u64,
                             OpKind::TestCondition {
                                 dst: cond_vreg,
                                 cond,
                             },
-                        ));
+                        );
+                        if ctx.aarch64_features.is_some() {
+                            let before_commit = all_ops.len() - 1;
+                            all_ops.insert(before_commit, operation);
+                        } else {
+                            all_ops.push(operation);
+                        }
                         Terminator::CondBranch {
                             cond: cond_vreg,
                             true_target: ctx.get_or_create_block(target),

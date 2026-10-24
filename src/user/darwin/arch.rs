@@ -75,6 +75,8 @@ pub enum Exception {
         /// The `BRK` immediate.
         imm: u16,
     },
+    /// AArch64 synchronous architectural exception with precise syndrome.
+    Arm64 { pc: u64, ec: u8, iss: u32 },
     /// Another x86-64 exception vector.
     X86(X86UserEvent),
 }
@@ -85,6 +87,7 @@ impl Exception {
         match self {
             Exception::Access(f) => f.pc,
             Exception::Undefined { pc, .. } | Exception::Breakpoint { pc, .. } => *pc,
+            Exception::Arm64 { pc, .. } => *pc,
             Exception::X86(e) => e.insn_rip,
         }
     }
@@ -592,6 +595,7 @@ fn arm64_trap(cpu: &mut A64UserCpu, exit: A64Exit) -> Trap {
         }
         A64Exit::Brk { imm, pc } => Trap::Exception(Exception::Breakpoint { pc, imm }),
         A64Exit::Undefined { pc, reason } => Trap::Exception(Exception::Undefined { pc, reason }),
+        A64Exit::Exception { pc, ec, iss } => Trap::Exception(Exception::Arm64 { pc, ec, iss }),
         A64Exit::Fault(f) => Trap::Exception(Exception::Access(f)),
         A64Exit::Yield => Trap::Yield,
         A64Exit::Internal(e) => Trap::Internal(e),

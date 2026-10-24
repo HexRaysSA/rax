@@ -20,7 +20,7 @@
 //! rejected with a clear error.
 
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -41,8 +41,9 @@ const CHECKPOINT_MAGIC: [u8; 8] = *b"RAXCKPT\0";
 /// state; version 3 added the emulator-private STI interrupt shadow; version 4
 /// added IA32_MISC_ENABLE and IA32_PAT; version 5 added IA32_UMWAIT_CONTROL;
 /// version 6 stores the x87 registers in their exact 80-bit encoding;
-/// version 7 adds the RISC-V privilege level, CSRs, and vector state.
-const CHECKPOINT_VERSION: u32 = 7;
+/// version 7 adds the RISC-V privilege level, CSRs, and vector state;
+/// version 8 adds mandatory AArch64 keyed-authentication/system state.
+const CHECKPOINT_VERSION: u32 = 8;
 
 /// Canonical checkpoint file extension ("RaX Checkpoint").
 pub const CHECKPOINT_EXT: &str = "rxc";
@@ -229,6 +230,7 @@ impl Snapshot {
 
     /// Save snapshot to a file
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        self.validate_cpu_state()?;
         let file = File::create(path.as_ref())
             .map_err(|e| Error::Emulator(format!("Failed to create snapshot file: {}", e)))?;
         let mut writer = BufWriter::new(file);
@@ -276,7 +278,22 @@ impl Snapshot {
             ));
         }
 
-        // Deserialize snapshot
+        // Check the fixed-width version before decoding a version-dependent
+        // CPU layout. Otherwise an older image fails with a misleading EOF.
+        let mut version_bytes = [0; 4];
+        reader
+            .read_exact(&mut version_bytes)
+            .map_err(|e| Error::Emulator(format!("Failed to read checkpoint version: {}", e)))?;
+        let version = u32::from_le_bytes(version_bytes);
+        if version != CHECKPOINT_VERSION {
+            return Err(Error::Emulator(format!(
+                "Unsupported checkpoint version {} (expected {})",
+                version, CHECKPOINT_VERSION
+            )));
+        }
+        reader
+            .seek(SeekFrom::Current(-4))
+            .map_err(|e| Error::Emulator(format!("Failed to seek checkpoint: {}", e)))?;
         let snapshot: Snapshot = bincode::deserialize_from(&mut reader)
             .map_err(|e| Error::Emulator(format!("Failed to deserialize checkpoint: {}", e)))?;
 
@@ -287,8 +304,32 @@ impl Snapshot {
             )));
         }
         snapshot.validate_memory_metadata()?;
+        snapshot.validate_cpu_state()?;
 
         Ok(snapshot)
+    }
+
+    fn validate_cpu_state(&self) -> Result<()> {
+        if let CpuState::Aarch64(state) = &self.cpu_state {
+            let Some(execution) = &state.sregs.execution else {
+                return Err(Error::Emulator(
+                    "AArch64 checkpoint is missing keyed system state".to_string(),
+                ));
+            };
+            if crate::isa::arm::common::features::ArmFeatures::from_bits(execution.features)
+                .is_none()
+            {
+                return Err(Error::Emulator(
+                    "AArch64 checkpoint has unknown feature bits".to_string(),
+                ));
+            }
+            crate::isa::arm::aarch64::AArch64Cpu::validate_saved_state(
+                state.regs.pstate,
+                &state.sregs,
+            )
+            .map_err(|error| Error::Emulator(error.to_string()))?;
+        }
+        Ok(())
     }
 
     pub fn validate_memory_metadata(&self) -> Result<()> {
@@ -416,7 +457,10 @@ mod tests {
         }
     }
 
-    fn snapshot_with_memory_metadata(config_memory_bytes: u64, memory_size: u64) -> Snapshot {
+    pub(super) fn snapshot_with_memory_metadata(
+        config_memory_bytes: u64,
+        memory_size: u64,
+    ) -> Snapshot {
         crate::vm::timing::init();
         Snapshot {
             version: CHECKPOINT_VERSION,
@@ -513,3 +557,7 @@ mod tests {
         assert!(!config.should_snapshot(1234));
     }
 }
+
+#[cfg(test)]
+#[path = "snapshot/pauth_tests.rs"]
+mod pauth_tests;
