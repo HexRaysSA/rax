@@ -70,30 +70,92 @@ statuses are identical in those three views:
 | Unaligned guarded output | `80000002` | Unchanged | Guard retained |
 
 These 48 calls are native observations, not 48 emulator regression passes.
-The captured x64-kernel build-20348 jump/body and zero guest output already
-explain the missing shared-time input. Native older-build fault/guard controls
-are still required before selecting its runtime/test profile. No production
-clock adapter, service decoder, profile fence or tolerance changes here.
+The captured x64-kernel build-20348 jump/body and zero guest output explain
+the missing shared-time input. Subsequent controls at `4b1e7059` complete
+32 calls per hosted kernel across x64 and WoW64:
+[build 20348](https://github.com/HexRaysSA/rax/actions/runs/40088814997/job/120857097948)
+and [build 26100](https://github.com/HexRaysSA/rax/actions/runs/40088814997/job/120857098210).
+Both accept ordinary output pointers at offsets 1, 2 and 3. Readonly and
+inaccessible outputs return `C0000005`; guarded outputs, including the
+unaligned guarded case, return `80000001` and clear the touched guard.
+Failed calls leave ordinary writable scratch bytes unchanged. All 64 calls
+return NTSTATUS without caller SEH and preserve last-error/last-status.
+These two x64 kernels are independent of the local ARM64 kernel. Their
+differences do not isolate build, architecture or thunk shape as a universal
+cause. The measurements establish the selected profiles.
 
 The producer inspects a fixed 8,192 ordinary scratch bytes per case, with at most
 16 cases per architecture; time and space are bounded constants. Compiler and
 OS query costs are external. Public output is bounded by the fixed producer;
 the driver rejects captures exceeding 262,144 characters.
 
+## Runtime publication
+
+The Windows personality now owns the `SystemTime` snapshot rather than leaving
+the field zero for installed code that reads it directly. Startup marks the
+original readonly 4,096-byte KUSER mapping with a Windows-only VMA flag.
+Guest allocation/section APIs do not set that flag. Publication verifies the
+mapping's complete extent and ownership; unmapping/replacement stops updates
+instead of redirecting writes into another guest mapping. No diagnostic name
+is used as an ownership credential.
+
+The CPU publishes the 12-byte `KSYSTEM_TIME` before the first instruction and
+at intervals of at most 1,024 guest instructions. Its layout is the low DWORD,
+first high DWORD and duplicate high DWORD. The cooperative guest thread writes
+the complete snapshot between instructions. No host updater races guest
+memory. A long CPU run can observe changes without returning to the scheduler;
+the instruction bound is not a host-time precision guarantee.
+
+The AArch64 adapter's observation hook preserves its existing run path,
+including exact budgets, zero-instruction runs, synchronous exits, early
+WFI/WFE yields and exclusive-monitor lifetime. Other personalities use the
+default no-op observation. The x86 Windows loop invokes the same publisher.
+Raw CPU address spaces without the owned KUSER mapping remain untouched.
+
+On Windows the publisher samples the native NT clock into an aligned private
+`LARGE_INTEGER`; other hosts retain their existing wall-clock conversion.
+Installed syscall handling uses that NT domain. Its output alignment is
+acquired with four fixed private scratch queries at offsets 1, 2, 3 and 4,
+checking status, exact output extent and untouched surrounding bytes. Only the
+measured byte-aligned or ULONG-aligned patterns are admitted. The result is
+cached for the host process. Guest pointers, names, values and protections
+never enter these native calls. Built-in replay retains its previous precise
+clock and four-byte-alignment contract. Generic host clocks and Win32 time
+services are unchanged.
+
+The regression guest reads a baseline and spins until a subsequent shared-page
+read differs, within one CPU invocation. A startup-only or once-per-run
+snapshot cannot satisfy it. Additional checks cover the complete 12-byte store,
+unchanged adjacent bytes, guest write denial, replacement mapping lifetime,
+instruction/error boundaries, wait hints and reservations. The installed-leaf
+test independently samples native NT time and unaligned output behavior;
+the existing 820-call captured replay remains unchanged. The service decoder
+does not follow jumping exports or acquire a broader identity policy.
+
+For `n` guest instruction attempts across `r` nonempty CPU invocations and
+`m` VMAs, publication performs
+`O((r + floor(n / 1024)) * log(m))` mapping lookup work plus native clock-query
+cost; the additional instruction dispatch cost is `O(n)`. Only one fixed page can
+intersect the checked range, so auxiliary publication storage is bounded.
+Native profile acquisition uses four 24-byte scratch buffers sequentially.
+
 ## Assumptions and boundaries
 
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| CLKF1 | A direct user-mode clock store has different fault/alignment semantics from a kernel query. | Captured build-20348 x64 body versus build-29683 syscall leaves. | Future clock profile and installed-test expectations. | Unaligned, readonly, cross-page and guarded outputs on both kernels. | Compare actual returned-versus-SEH records and partial writes. | Retained pending hosted x64 measurements |
+| CLKF1 | Different selected clock paths can have different output alignment. | Native 20348/26100 accept unaligned outputs; 29683 rejects them. Build and kernel architecture are confounded. | Installed profile acquisition and test expectations. | Another build, kernel or thunk. | Repeat all sixteen native cases and compare exact statuses, guards and writes. | Confirmed differences; a universal cause is unknown |
 | CLKF2 | Local ARM64/x64/x86 instruction views establish independent kernel parity. | All report build 29683 on one ARM64 VM. | Independent x64-kernel claims. | Hosted Windows 2022/2025 x64 controls. | Compare actual kernel builds, selected images and outcomes. | Falsified; local scope is one kernel |
+| CLKF3 | The loaded host NT clock's output profile remains stable during the process. | Fixed native acquisition and repeated independent controls. | Cached byte/ULONG alignment. | Changed native DLL behavior or partial scratch writes. | Repeated owned-buffer observations disagree, or statuses/extents leave the admitted patterns. | Retained for the selected host; unexpected acquisition fails explicitly |
+| CLKF4 | The selected guest syscall view has the acquired host-native output alignment. | All three 29683 views agree; both hosted x64/WoW64 pairs agree on 20348 and 26100. | Installed syscall alignment, especially WoW64. | Different guest thunk or kernel build. | Run the independent native matrix in that executable ABI and compare with the host-native profile. | Confirmed for the recorded views; broader equivalence unknown |
+| CLKF5 | Mapping changes are serialized with Windows guest execution. | `WindowsProcess::run`, `run_slice` and `state` already require this for retained address-space clones. | Ownership check followed by shared-page publication. | A retained clone replaces the page during execution. | Audit callers for concurrent mapping mutation; such a caller violates the existing address-space execution contract. | Confirmed contract; concurrent host remapping is outside it |
 
 High impact: native valid-call success alone does not qualify NLS fault/alias
-semantics or admit another NLS profile. Clock refresh, older-profile handling,
-DPI/GUI work and full userland completion remain unfinished. The Windows native
-producer fundamentally requires Windows NT and MSVC SEH; the driver rejects
-other operating systems. Shipping Rust/C++ targets and their existing three-host
-source inputs are unchanged by this control. No platform skip or availability
-stub is added. Before publication, the control was replayed over 14 unrelated
+semantics or admit another NLS profile. Other shared timing fields, older NLS
+profiles, DPI/GUI work and full userland completion remain unfinished. The
+Windows native producer requires Windows NT and MSVC SEH; the driver rejects
+other operating systems. Runtime publication uses the existing Rust modules on
+all three hosts. No platform skip or availability stub is added. Earlier
+producer qualification replayed the control over 14 unrelated
 ISA/HVF commits ending at `0106a4d5336478a25b274057029292c3ec08e63c`.
 Its native producer/driver bytes remain identical; those observations do not
 qualify the combined Rust/product frame. Earlier compiled/runtime evidence

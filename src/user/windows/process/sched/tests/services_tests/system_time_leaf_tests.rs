@@ -4,6 +4,37 @@ use crate::user::windows::{
     loader::{self, SymRef},
     process::{WindowsConfig, WindowsProcess},
 };
+
+#[link(name = "ntdll")]
+unsafe extern "system" {
+    fn NtQuerySystemTime(output: *mut i64) -> i32;
+}
+
+fn native_time() -> u64 {
+    let mut ticks = 0i64;
+    // SAFETY: one initialized, aligned, private host LARGE_INTEGER.
+    assert_eq!(unsafe { NtQuerySystemTime(&mut ticks) }, 0);
+    u64::try_from(ticks).unwrap()
+}
+
+fn native_unaligned_status() -> u32 {
+    #[repr(align(8))]
+    struct Scratch([u8; 24]);
+    let mut scratch = Scratch([0xa5; 24]);
+    // SAFETY: eight writable bytes in owned scratch, deliberately unaligned;
+    // no Rust reference or guest operand crosses the native ABI.
+    let status = unsafe { NtQuerySystemTime(scratch.0.as_mut_ptr().add(1).cast()) } as u32;
+    assert!(matches!(
+        status,
+        STATUS_SUCCESS | STATUS_DATATYPE_MISALIGNMENT
+    ));
+    assert_eq!(scratch.0[0], 0xa5);
+    assert_eq!(scratch.0[9..], [0xa5; 15]);
+    if status != STATUS_SUCCESS {
+        assert_eq!(scratch.0, [0xa5; 24]);
+    }
+    status
+}
 fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, args: &[u64]) -> u32 {
     let m = loader::load_dll(p, library).unwrap();
     let entry = loader::lookup(p, m, &SymRef::Name(name.as_bytes().to_vec(), None))
@@ -94,7 +125,7 @@ fn native_system_time_installed_leaf_uses_host_clock_and_preserves_guards() {
         let base = scratch(p);
         let last_error = thread.teb + layout::offsets(arch).teb_last_error;
         p.space.w32(last_error, 0x4A2E19F7).unwrap();
-        let before = now();
+        let before = native_time();
         assert_eq!(
             leaf(
                 p,
@@ -105,7 +136,7 @@ fn native_system_time_installed_leaf_uses_host_clock_and_preserves_guards() {
             ),
             STATUS_SUCCESS
         );
-        let after = now();
+        let after = native_time();
         let observed = p.space.u64(base + 4).unwrap();
         let module = p.modules.by_name("ntdll.dll").unwrap();
         let entry = loader::lookup(
@@ -125,6 +156,7 @@ fn native_system_time_installed_leaf_uses_host_clock_and_preserves_guards() {
         p.vm.poke(base + 4092, &[0xA5; 8]).unwrap();
         p.vm.protect(base + 4096, 4096, prot::READWRITE | prot::GUARD)
             .unwrap();
+        let expected_unaligned = native_unaligned_status();
         assert_eq!(
             leaf(
                 p,
@@ -145,7 +177,8 @@ fn native_system_time_installed_leaf_uses_host_clock_and_preserves_guards() {
                 "NtQuerySystemTime",
                 &[base + 1]
             ),
-            STATUS_DATATYPE_MISALIGNMENT
+            expected_unaligned
         );
+        assert_eq!(native_unaligned_status(), expected_unaligned);
     }
 }

@@ -238,6 +238,66 @@ fn a64_exclusive_monitor_survives_completed_wait_hint() {
 }
 
 #[test]
+fn a64_observation_preserves_budgets_early_wait_yields_and_exclusives() {
+    for hint in [A64_WFI, A64_WFE] {
+        let mut cpu = a64(&[A64_LDXR_X0_X1, hint, A64_STXR_W2_X0_X1, A64_SVC_0]);
+        cpu.core_mut().set_x(1, DATA);
+        let mut ordinals = Vec::new();
+        assert_eq!(
+            cpu.run_observed(0, |i, _| {
+                ordinals.push(i);
+                Ok(())
+            }),
+            A64Exit::Yield
+        );
+        assert!(ordinals.is_empty());
+        assert_eq!(cpu.pc(), CODE);
+        assert_eq!(
+            cpu.run_observed(100, |i, _| {
+                ordinals.push(i);
+                Ok(())
+            }),
+            A64Exit::Yield
+        );
+        assert_eq!(ordinals, [0, 1]);
+        assert_eq!(cpu.pc(), CODE + 8, "wait hint must yield immediately");
+        ordinals.clear();
+        assert_eq!(
+            cpu.run_observed(1, |i, _| {
+                ordinals.push(i);
+                Ok(())
+            }),
+            A64Exit::Yield
+        );
+        assert_eq!(ordinals, [0]);
+        assert_eq!(
+            cpu.core().get_x(2),
+            0,
+            "observation must preserve the reservation"
+        );
+        assert!(matches!(cpu.run(1), A64Exit::Svc { .. }));
+    }
+}
+
+#[test]
+fn a64_observation_failure_stops_before_the_selected_instruction() {
+    let mut cpu = a64(&[A64_MOV_X8_93, A64_SVC_0]);
+    assert_eq!(
+        cpu.run_observed(20, |i, _| {
+            if i == 1 {
+                Err("observation failed".into())
+            } else {
+                Ok(())
+            }
+        }),
+        A64Exit::Internal("observation failed".into())
+    );
+    assert_eq!(cpu.pc(), CODE + 4);
+    assert_eq!(cpu.core().get_x(8), 93);
+    assert!(matches!(cpu.run(1), A64Exit::Svc { .. }));
+}
+
+#[test]
 fn a64_exclusive_monitor_clears_on_explicit_thread_switch() {
     // The OS scheduler clears the outgoing thread's local monitor on an
     // actual guest TID switch; a host budget yield alone does not do so.

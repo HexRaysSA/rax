@@ -196,6 +196,8 @@ jobs:
       - name: Native Windows clock and NLS observations
         if: runner.os == 'Windows'
         run: python tools/ci/windows_installed_probe_v2.py
+      - name: Shared NT clock and CPU execution boundaries
+        run: python tools/ci/system_time.py
       - name: Portable process, console, and supplied-file regressions
         run: python tools/ci/process_embedding.py
       - name: Unix supplied-file and io_uring buffer regressions

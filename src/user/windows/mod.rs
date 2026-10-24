@@ -26,6 +26,7 @@ pub mod registry;
 mod security;
 pub mod seh;
 pub mod sync;
+mod system_time;
 pub mod tls;
 pub mod traps;
 mod wnf;

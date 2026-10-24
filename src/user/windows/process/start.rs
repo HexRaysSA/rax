@@ -323,6 +323,7 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
     .map_err(memory)?;
     vm.commit(layout::KUSER_SHARED_DATA, 0x1000, prot::READONLY)
         .map_err(memory)?;
+    crate::user::windows::system_time::map_shared_data(&space).map_err(memory)?;
     let image_path = match &config.guest_image_path {
         Some(path) => crate::user::windows::fs::full_path(path, "C:\\")
             .ok_or_else(|| SpawnError::BadImage("invalid guest image path".into()))?
@@ -607,6 +608,8 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
     });
     p.vm.poke(shared + kuser::PROCESSOR_FEATURES, &features)
         .map_err(|e| memory(format!("{e:?}")))?;
+    crate::user::windows::system_time::publish(&p.space)
+        .map_err(|error| memory(format!("Windows shared system time: {error}")))?;
     Ok(p)
 }
 

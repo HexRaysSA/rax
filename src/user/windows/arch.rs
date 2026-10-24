@@ -417,7 +417,10 @@ impl WinCpu {
         }
         match self {
             WinCpu::X86(cpu, _) => {
-                for _ in 0..budget {
+                for ordinal in 0..budget {
+                    if let Err(error) = super::system_time::observe(ordinal, cpu.space()) {
+                        return CpuStop::Internal(error);
+                    }
                     match cpu.step() {
                         X86Exit::Syscall { insn, insn_rip } => {
                             return CpuStop::X86Syscall { insn, insn_rip };
@@ -430,7 +433,7 @@ impl WinCpu {
                 }
                 CpuStop::Yield
             }
-            WinCpu::Arm64(cpu) => match cpu.run(budget) {
+            WinCpu::Arm64(cpu) => match cpu.run_observed(budget, super::system_time::observe) {
                 A64Exit::Svc { imm, pc } => CpuStop::Svc { imm, pc },
                 A64Exit::Brk { imm, pc } => CpuStop::Brk { imm, pc },
                 A64Exit::Undefined { pc, reason } => CpuStop::Undefined { pc, reason },
@@ -611,6 +614,84 @@ mod tests {
                 matches!(stop, CpuStop::X86Event(_) | CpuStop::Brk { imm: 0, .. }),
                 "{arch}: {stop:?}"
             );
+        }
+    }
+
+    #[test]
+    fn windows_shared_time_advances_inside_one_cpu_run() {
+        let address = crate::user::windows::layout::KUSER_SHARED_DATA
+            + crate::user::windows::layout::kuser::SYSTEM_TIME;
+        for arch in WinArch::ALL {
+            // Read a baseline inside the guest, then spin until another read
+            // changes. Startup-only and once-per-run snapshots cannot exit.
+            let mut code = Vec::new();
+            match arch {
+                WinArch::X86 => {
+                    code.push(0xa1);
+                    code.extend_from_slice(&(address as u32).to_le_bytes());
+                    code.extend_from_slice(&[0x89, 0xc2]); // MOV EDX,EAX
+                    code.push(0xa1);
+                    code.extend_from_slice(&(address as u32).to_le_bytes());
+                    code.extend_from_slice(&[0x39, 0xd0, 0x74, 0xf7, 0xcc]);
+                }
+                WinArch::X64 => {
+                    code.extend_from_slice(&[0x48, 0xa1]);
+                    code.extend_from_slice(&address.to_le_bytes());
+                    code.extend_from_slice(&[0x48, 0x89, 0xc2]); // MOV RDX,RAX
+                    code.extend_from_slice(&[0x48, 0xa1]);
+                    code.extend_from_slice(&address.to_le_bytes());
+                    code.extend_from_slice(&[0x48, 0x39, 0xd0, 0x74, 0xf1, 0xcc]);
+                }
+                WinArch::Arm64 => {
+                    // LDR X2,[X1]; LDR X0,[X1]; CMP X0,X2;
+                    // B.EQ back to the second load; BRK #0.
+                    for instruction in [
+                        0xf940_0022u32,
+                        0xf940_0020,
+                        0xeb02_001f,
+                        0x54ff_ffc0,
+                        0xd420_0000,
+                    ] {
+                        code.extend_from_slice(&instruction.to_le_bytes());
+                    }
+                }
+            }
+            let space = space(&code);
+            crate::user::windows::system_time::map_shared_data(&space).unwrap();
+            space.write_raw(address, &[0xa5; 12]).unwrap();
+            let mut cpu = WinCpu::new(arch, &space);
+            cpu.set_pc(CODE);
+            if arch == WinArch::Arm64 {
+                cpu.set_gpr(1, address);
+            }
+            assert!(matches!(cpu.run(0), CpuStop::Yield));
+            assert_eq!(space.bytes(address, 12).unwrap(), [0xa5; 12]);
+            let stop = cpu.run(1_000_000);
+            let end = CODE + code.len() as u64;
+            match (arch, stop) {
+                (WinArch::X86 | WinArch::X64, CpuStop::X86Event(event)) => {
+                    assert_eq!(event.vector, 3, "{arch}: expected INT3");
+                    assert_eq!(
+                        event.source,
+                        crate::isa::x86_64::X86EventSource::SoftwareInterrupt
+                    );
+                    assert_eq!(event.error_code, None);
+                    assert_eq!(event.insn_rip, end - 1);
+                    assert_eq!(event.return_rip, end);
+                    assert_eq!(cpu.pc(), end - 1);
+                }
+                (WinArch::Arm64, CpuStop::Brk { imm: 0, pc }) => {
+                    assert_eq!(pc, end - 4);
+                    assert_eq!(cpu.pc(), pc);
+                }
+                other => panic!("{arch}: shared time did not reach its exit: {other:?}"),
+            }
+            assert_ne!(
+                cpu.gpr(0),
+                cpu.gpr(2),
+                "{arch}: guest baseline is unchanged"
+            );
+            assert!(space.write(address, &[0; 12]).is_err());
         }
     }
 }

@@ -239,6 +239,17 @@ impl A64UserCpu {
     /// Runs at most `budget` instructions, stopping at the first operating
     /// system event.
     pub fn run(&mut self, budget: u64) -> A64Exit {
+        self.run_observed(budget, |_, _| Ok(()))
+    }
+
+    /// Runs with a personality-owned observation before each instruction.
+    /// The ordinal starts at zero for each run. An observation must not execute
+    /// guest code; errors stop before the instruction at the current PC.
+    pub(crate) fn run_observed(
+        &mut self,
+        budget: u64,
+        mut observe: impl FnMut(u64, &AddressSpace) -> Result<(), String>,
+    ) -> A64Exit {
         if !self.space.available() {
             return A64Exit::Internal("guest memory arena is inaccessible".into());
         }
@@ -249,7 +260,7 @@ impl A64UserCpu {
         let ticks = (u128::from(host_nanos()) * u128::from(freq) / 1_000_000_000) as u64;
         self.cpu.set_generic_counter(ticks);
 
-        let exit = self.run_inner(budget);
+        let exit = self.run_inner(budget, &mut observe);
         // A host instruction-budget yield (or completed EL0 WFI/WFE) is not
         // an architectural exception or a guest thread switch. Preserve the
         // reservation for the next slice of the same thread. OS personalities
@@ -261,8 +272,15 @@ impl A64UserCpu {
         exit
     }
 
-    fn run_inner(&mut self, budget: u64) -> A64Exit {
-        for _ in 0..budget {
+    fn run_inner(
+        &mut self,
+        budget: u64,
+        observe: &mut impl FnMut(u64, &AddressSpace) -> Result<(), String>,
+    ) -> A64Exit {
+        for ordinal in 0..budget {
+            if let Err(error) = observe(ordinal, &self.space) {
+                return A64Exit::Internal(error);
+            }
             let pc = self.cpu.get_pc();
             match self.cpu.step() {
                 Ok(CpuExit::Continue) => {}
