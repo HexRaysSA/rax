@@ -19,14 +19,24 @@ thread_local! {
     /// memory is allocated once; `reset()` restores the generated `create_test_cpu`
     /// state before each query (cheap; memory contents are irrelevant to the
     /// allocated-vs-UNDEFINED verdict).
-    static ORACLE_CPU: RefCell<rax::isa::arm::AArch64Cpu> = RefCell::new(rax::isa::arm::AArch64Cpu::new(
+    static ORACLE_CPU: RefCell<rax::isa::arm::AArch64Cpu> = RefCell::new(allocation_oracle_cpu());
+}
+
+fn allocation_oracle_cpu() -> rax::isa::arm::AArch64Cpu {
+    let mut cpu = rax::isa::arm::AArch64Cpu::new(
         {
             let mut config = rax::isa::arm::AArch64Config::default();
             config.features |= rax::isa::arm::ArmFeatures::PACA;
+            config.features |= rax::isa::arm::ArmFeatures::PACG;
             config
         },
         Box::new(rax::isa::arm::FlatMemory::new(0, 0x1000_0000)),
-    ));
+    );
+    let mut controls = cpu.pauth_controls();
+    controls.hcr_el2 |= (1 << 40) | (1 << 41);
+    controls.scr_el3 |= (1 << 16) | (1 << 17);
+    cpu.set_pauth_controls(controls).unwrap();
+    cpu
 }
 
 /// Run an A64 encoding through the real rax emulator (PAuth enabled, mirroring
@@ -39,6 +49,10 @@ fn emulator_expected_a64(encoding: u32) -> ExpectedResult {
     ORACLE_CPU.with(|c| {
         let mut cpu = c.borrow_mut();
         cpu.reset();
+        let mut controls = cpu.pauth_controls();
+        controls.hcr_el2 |= (1 << 40) | (1 << 41);
+        controls.scr_el3 |= (1 << 16) | (1 << 17);
+        cpu.set_pauth_controls(controls).unwrap();
         if cpu.write_memory(0, &encoding.to_le_bytes()).is_err() {
             return ExpectedResult::Pass;
         }
@@ -76,6 +90,10 @@ fn characterize_a64_execution(test: &ExecutionTest) -> A64ExecOutcome {
     ORACLE_CPU.with(|c| {
         let mut cpu = c.borrow_mut();
         cpu.reset();
+        let mut controls = cpu.pauth_controls();
+        controls.hcr_el2 |= (1 << 40) | (1 << 41);
+        controls.scr_el3 |= (1 << 16) | (1 << 17);
+        cpu.set_pauth_controls(controls).unwrap();
         for (&reg, &val) in &test.initial_state.gp_regs {
             cpu.set_gpr(reg, val);
         }
@@ -190,10 +208,16 @@ use rax::isa::arm::{AArch64Config, AArch64Cpu, ArmCpu, ArmError, CpuExit, FlatMe
 fn create_test_cpu() -> AArch64Cpu {
     let memory = FlatMemory::new(0, 0x1000_0000);
     let mut config = AArch64Config::default();
-    // ASL Load register (pac) requires HavePACExt(). Feature-absence behavior
+    // ASL PAuth forms require address and generic key features. Absence behavior
     // is checked by the dedicated direct-ISA tests, not this allocated corpus.
     config.features |= rax::isa::arm::ArmFeatures::PACA;
-    AArch64Cpu::new(config, Box::new(memory))
+    config.features |= rax::isa::arm::ArmFeatures::PACG;
+    let mut cpu = AArch64Cpu::new(config, Box::new(memory));
+    let mut controls = cpu.pauth_controls();
+    controls.hcr_el2 |= (1 << 40) | (1 << 41);
+    controls.scr_el3 |= (1 << 16) | (1 << 17);
+    cpu.set_pauth_controls(controls).unwrap();
+    cpu
 }
 
 /// Write an instruction to memory
