@@ -148,6 +148,16 @@ Native profile acquisition uses four 24-byte scratch buffers sequentially.
 | CLKF3 | The loaded host NT clock's output profile remains stable during the process. | Fixed native acquisition and repeated independent controls. | Cached byte/ULONG alignment. | Changed native DLL behavior or partial scratch writes. | Repeated owned-buffer observations disagree, or statuses/extents leave the admitted patterns. | Retained for the selected host; unexpected acquisition fails explicitly |
 | CLKF4 | The selected guest syscall view has the acquired host-native output alignment. | All three 29683 views agree; both hosted x64/WoW64 pairs agree on 20348 and 26100. | Installed syscall alignment, especially WoW64. | Different guest thunk or kernel build. | Run the independent native matrix in that executable ABI and compare with the host-native profile. | Confirmed for the recorded views; broader equivalence unknown |
 | CLKF5 | Mapping changes are serialized with Windows guest execution. | `WindowsProcess::run`, `run_slice` and `state` already require this for retained address-space clones. | Ownership check followed by shared-page publication. | A retained clone replaces the page during execution. | Audit callers for concurrent mapping mutation; such a caller violates the existing address-space execution contract. | Confirmed contract; concurrent host remapping is outside it |
+| CLKF6 | Thirty-two CPU slices of at most 64 instructions suffice for every installed clock call. | Local 29683 syscall leaves return within that fixture bound. | Installed-function return classification. | User-mode implementation and exception dispatch on another build. | Capture the call stage, module-relative PCs, stop/outcome kinds, frame depth, stack delta and entry alignment through the unchanged bound. | Falsified by a hosted 20348 x64 call; stage and cause unknown |
+
+At `73fbca13`, the [hosted Windows 2022 clock step](https://github.com/HexRaysSA/rax/actions/runs/40096712922/job/120880390804)
+passes both shared-page tests. Its next filter has five passed tests and one
+installed-function failure at the helper's bounded-return assertion. The
+original message does not identify which of its three argument cases failed.
+Diagnostics now retain at most 32 execution observations and name each case.
+PCs are module-relative; stack values are deltas and alignment residues.
+Runtime code, the execution bound and status/guard/last-error assertions are
+unchanged. A longer budget requires evidence of the actual control-flow cause.
 
 High impact: native valid-call success alone does not qualify NLS fault/alias
 semantics or admit another NLS profile. Other shared timing fields, older NLS

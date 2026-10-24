@@ -1,6 +1,7 @@
 //! Execute the selected installed NTDLL leaf, including x86 RET 4 cleanup.
 use super::*;
 use crate::user::windows::{
+    arch::CpuStop,
     loader::{self, SymRef},
     process::{WindowsConfig, WindowsProcess},
 };
@@ -35,7 +36,43 @@ fn native_unaligned_status() -> u32 {
     }
     status
 }
-fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, args: &[u64]) -> u32 {
+fn location(p: &Proc, pc: u64, resume: u64) -> String {
+    if pc == resume {
+        return "return-trap".into();
+    }
+    match p.modules.by_address(pc) {
+        Some((_, module)) => format!("{}+{:#x}", module.name, pc - module.base),
+        None => "outside-module".into(),
+    }
+}
+
+fn stop_kind(stop: &CpuStop) -> &'static str {
+    match stop {
+        CpuStop::Fault(_) => "fault",
+        CpuStop::X86Event(_) => "x86-event",
+        CpuStop::X86Syscall { .. } => "x86-syscall",
+        CpuStop::Svc { .. } => "svc",
+        CpuStop::Brk { .. } => "brk",
+        CpuStop::Undefined { .. } => "undefined",
+        CpuStop::Yield => "yield",
+        CpuStop::Internal(_) => "internal",
+    }
+}
+
+fn outcome_kind(outcome: &Outcome) -> &'static str {
+    match outcome {
+        Outcome::Continue => "continue",
+        Outcome::Yield => "yield",
+        Outcome::Park => "park",
+        Outcome::ThreadExit(_) => "thread-exit",
+        Outcome::ProcessExit(_) => "process-exit",
+        Outcome::ThreadTerminate(_) => "thread-terminate",
+        Outcome::ProcessTerminate(_) => "process-terminate",
+        Outcome::Fail(_) => "fail",
+    }
+}
+
+fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, case: &str, args: &[u64]) -> u32 {
     let m = loader::load_dll(p, library).unwrap();
     let entry = loader::lookup(p, m, &SymRef::Name(name.as_bytes().to_vec(), None))
         .unwrap()
@@ -60,22 +97,39 @@ fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, args: &[u64]) -
         WinArch::Arm64 => t.cpu.set_gpr(30, resume),
     }
     let mut returned = false;
-    for _ in 0..32 {
+    let mut trace = Vec::new();
+    for slice in 0..32 {
+        let start = location(p, t.cpu.pc(), resume);
         let boundary = t.cpu.run(64);
+        let stopped = location(p, t.cpu.pc(), resume);
+        let stop = stop_kind(&boundary);
         if t.cpu.pc() == resume {
             returned = true;
             break;
         }
+        let outcome = handle_stop(p, t, boundary);
+        trace.push(format!(
+            "slice={slice} start={start} stop={stopped}/{stop} next={} outcome={} frames={} sp_delta={}",
+            location(p, t.cpu.pc(), resume),
+            outcome_kind(&outcome),
+            t.frames.len(),
+            i128::from(t.cpu.sp()) - i128::from(sp),
+        ));
         assert!(
-            matches!(
-                handle_stop(p, t, boundary),
-                Outcome::Continue | Outcome::Yield
-            ),
-            "{name} {}",
-            p.arch
+            matches!(outcome, Outcome::Continue | Outcome::Yield),
+            "{name} {} guest_build{} case={case} entry_sp_mod16={} trace={trace:#?}",
+            p.arch,
+            p.cfg.version.build,
+            sp % 16,
         );
     }
-    assert!(returned, "{name} {}", p.arch);
+    assert!(
+        returned,
+        "{name} {} guest_build{} case={case} entry_sp_mod16={} exceeded32slicesof64instructions trace={trace:#?}",
+        p.arch,
+        p.cfg.version.build,
+        sp % 16,
+    );
     assert!(t.frames.is_empty());
     assert_eq!(
         t.cpu.sp(),
@@ -132,6 +186,7 @@ fn native_system_time_installed_leaf_uses_host_clock_and_preserves_guards() {
                 &mut thread,
                 "ntdll.dll",
                 "NtQuerySystemTime",
+                "aligned4",
                 &[base + 4]
             ),
             STATUS_SUCCESS
@@ -163,6 +218,7 @@ fn native_system_time_installed_leaf_uses_host_clock_and_preserves_guards() {
                 &mut thread,
                 "ntdll.dll",
                 "NtQuerySystemTime",
+                "split-guard4",
                 &[base + 4092]
             ),
             STATUS_GUARD_PAGE_VIOLATION
@@ -175,6 +231,7 @@ fn native_system_time_installed_leaf_uses_host_clock_and_preserves_guards() {
                 &mut thread,
                 "ntdll.dll",
                 "NtQuerySystemTime",
+                "unaligned1",
                 &[base + 1]
             ),
             expected_unaligned
