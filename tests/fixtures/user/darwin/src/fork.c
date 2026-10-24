@@ -73,6 +73,10 @@ int main(void) {
     volatile int *private = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     char *none = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     minherit(none, 4096, VM_INHERIT_NONE);
+    // A child's own runtime may map the address the uninherited page frees
+    // before it is queried. A read-only protection is distinctive enough to
+    // tell such a replacement region from the inherited page.
+    mprotect(none, 4096, PROT_READ);
     *shared = 1;
     *private = 1;
     pthread_t th;
@@ -146,7 +150,11 @@ int main(void) {
         mach_port_t object;
         kern_return_t kr = vm_region_64(mach_task_self(), &a, &size, VM_REGION_BASIC_INFO_64,
                                         (vm_region_info_t)&info, &count, &object);
-        _exit(kr != KERN_SUCCESS ? 3 : a == (vm_address_t)none ? 1 : 2);
+        // Only the inherited page is present at its original address; a region
+        // the child's runtime placed there instead has another size or
+        // protection.
+        int kept = a == (vm_address_t)none && size == 4096 && info.protection == VM_PROT_READ;
+        _exit(kr != KERN_SUCCESS ? 3 : kept ? 1 : 2);
     }
     st = wait_for(c, 0);
     printf("inherit none: child reports %d\n", WEXITSTATUS(st));
