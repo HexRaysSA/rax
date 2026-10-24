@@ -7,19 +7,37 @@ use super::bindings::*;
 use crate::error::{Error, Result};
 use crate::vm::vcpu::{DescriptorTable, Registers, Segment, SystemRegisters};
 
-/// Read a VMCS field, returning an error if the operation fails.
+fn try_vmcs_read(vcpu: hv_vcpuid_t, field: u32) -> core::result::Result<u64, hv_return_t> {
+    let mut value = 0;
+    let ret = unsafe { hv_vmx_vcpu_read_vmcs(vcpu, field, &mut value) };
+    if ret == HV_SUCCESS {
+        Ok(value)
+    } else {
+        Err(ret)
+    }
+}
+
+/// Read a typed VMCS field, preserving the existing diagnostic shape.
 #[inline]
 pub fn vmcs_read(vcpu: hv_vcpuid_t, field: hv_vmx_vmcs_field_t) -> Result<u64> {
-    let mut value: u64 = 0;
-    let ret = unsafe { hv_vmx_vcpu_read_vmcs(vcpu, field as u32, &mut value) };
-    if ret != HV_SUCCESS {
-        return Err(Error::Emulator(format!(
+    try_vmcs_read(vcpu, field as u32).map_err(|ret| {
+        Error::Emulator(format!(
             "Failed to read VMCS field {:?}: {}",
             field,
             hv_error_string(ret)
-        )));
-    }
-    Ok(value)
+        ))
+    })
+}
+
+/// Read a field selected by a shared boundary whose encoding the SDK probe checks.
+#[inline]
+pub fn vmcs_read_raw(vcpu: hv_vcpuid_t, field: u32) -> Result<u64> {
+    try_vmcs_read(vcpu, field).map_err(|ret| {
+        Error::Emulator(format!(
+            "Failed to read VMCS field {field:#x}: {}",
+            hv_error_string(ret)
+        ))
+    })
 }
 
 /// Write a VMCS field, returning an error if the operation fails.

@@ -1119,13 +1119,71 @@
         "/Users/int/dev/rax-audit-work/rax-hvf-cr8/validation-environment-adjustment.json",
         "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/final-intel-library.log",
         "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/checks.jsonl",
-        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/diagnostic-runtime-single.log"
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/diagnostic-runtime-single.log",
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/bindings.rs",
+        "src/backend/hvf/sync_exit.rs",
+        "Cargo.toml",
+        "tools/hvf/vmcs_sdk_aliases.json",
+        "tools/hvf/check_sdk_abi.py",
+        "src/backend/hvf/convert.rs",
+        "tests/suites/backend/hvf_sync_exits.rs",
+        "tools/hvf/sync_exit_oracle.py",
+        "tools/hvf/sync_exit_guest.s",
+        "tools/hvf/README.md",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/reference-summary.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/legacy-native-boundaries.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/negative-boundary.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/negative-wake.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/positive-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-reference/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-reference/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-positive/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-positive/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-width-hypothesis/assumption.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-width-hypothesis/reference/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-width-hypothesis/reference/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/sdk-runtime-field-negative/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/sdk-runtime-field-negative/sdk-compile.stderr",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-parity/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/instruction-sources.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-xsetbv-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-standalone.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-capi.log"
       ],
       "remaining_validation": [
         "Actual MMIO operand/data/width and completion semantics",
         "Remaining CR0.NE and optional CR3/CR4 intercept semantics",
         "SDK TPR/software LAPIC/IRQ graph coherence",
-        "HLT retirement and exception-information-source behavior",
+        "Emulated-instruction STI/MOVSS shadows, EPT RF and guestTF/debug completion",
+        "Full exception/error-code/reinjection frames",
         "Native Intel VMX event and VM/guest runtime validation"
       ]
     },
@@ -2209,6 +2267,76 @@
         "Native Intel SDK/VMX register andGP delivery",
         "Shared LAPIC/IRQ priority graph and remaining CR forms",
         "QEMU reference masks reserved CR8 bits; localGP requirement derives from Intel primary specification"
+      ]
+    },
+    {
+      "id": "HVF-SYNC-EXIT-IP-EVENT",
+      "area": "Intel synchronous VM-exit IP/halt/event data",
+      "finding": "HLT did not advance or explicitly wake; CPUID/MSR handlers assumed2 bytes; IP increment was unchecked/unbounded; exception/NMI read IDT-vectoring instead of exit interruption info",
+      "status": "locally_validated",
+      "evidence": [
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/bindings.rs",
+        "src/backend/hvf/sync_exit.rs",
+        "Cargo.toml",
+        "tools/hvf/vmcs_sdk_aliases.json",
+        "tools/hvf/check_sdk_abi.py",
+        "src/backend/hvf/convert.rs",
+        "tests/suites/backend/hvf_sync_exits.rs",
+        "tools/hvf/sync_exit_oracle.py",
+        "tools/hvf/sync_exit_guest.s",
+        "tools/hvf/README.md",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/reference-summary.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/legacy-native-boundaries.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/negative-boundary.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/negative-wake.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/positive-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-reference/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-reference/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-positive/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-positive/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-width-hypothesis/assumption.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-width-hypothesis/reference/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-width-hypothesis/reference/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/sdk-runtime-field-negative/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/sdk-runtime-field-negative/sdk-compile.stderr",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-parity/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/instruction-sources.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-xsetbv-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-standalone.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-capi.log"
+      ],
+      "remaining_validation": [
+        "Native Intel VMX instruction/event delivery",
+        "Complete instruction retirement shadows/RF/debug and full exception frames",
+        "Subsequent segment-limit/canonical/fetch faults are outside IP arithmetic"
       ]
     }
   ],
@@ -15291,6 +15419,901 @@
           "current_whole_tree_validation": "Not claimed from these historical logs;upstreamWindows/SMIRchanges require new full gates in subsequent groups.",
           "observed_rebased_commit": "0106a4d5336478a25b274057029292c3ec08e63c"
         }
+      }
+    },
+    {
+      "id": "hvf-sync-exit-ip-halt-event-contract",
+      "status": "locally_validated",
+      "scope": "Complete instruction-length IP advancement for emulated CPUID/MSR/HLT and existing successful completion paths; HLT halt/wake state; correct VM-exit event information instead of IDT-vectoring data; source-derived SDK parity for every declared VMCS field and actual runtime event selector.",
+      "assumptions": [
+        {
+          "id": "S1",
+          "assumption": "Non64-bit EIP storage is32-bit even with16-bit decoding;64-bit RIP storage is64-bit. CS.D controls decoding defaults, not sequential fallthrough EIP truncation.",
+          "dependent_result": "Code-width choice and wrapping IP helper; preserve64KiB crossing in big16-bit protected segments.",
+          "stress_test": "Primary register definitions, all1-15-byte lengths and integer boundaries;12 actual CPUID/debug-trap cases across both decoding defaults, including15-byte encodings and64KiB crossing.",
+          "falsification_probe": "Next EIP truncates to16 bits or differs from actual debug-trap record; instruction length ignored or unchecked arithmetic panics.",
+          "status": "revised before any checkout import: initial16-bit hypothesis falsified by3 independent records; final12 match"
+        },
+        {
+          "id": "S2",
+          "assumption": "Fault-like HLT/CPUID/MSR exits reference the intercepted instruction and provide its actual length. Successful software completion must advance before stopping.",
+          "dependent_result": "Use actual VM-exit length for CPUID/RDMSR/WRMSR; HLT advances then marks halted; wake clears halt without double advancement.",
+          "stress_test": "Nine complete boundary tests; halt/host-failure/wake sequence and12 actual CPUID cases. Legacy fixed-two-byte effect fails8 records; halt-without-advance and no-op wake controls fail.",
+          "falsification_probe": "Halt flag set after failed advance, wake advances again, prefix bytes remain at RIP or complete instruction length is replaced by2.",
+          "status": "confirmed in shared boundaries/primary contract; native VMX unverified"
+        },
+        {
+          "id": "S3",
+          "assumption": "VM-exit interruption information0x4404 identifies the event causing an exception/NMI exit; IDT-vectoring0x4408 is a distinct event-delivery context.",
+          "dependent_result": "Shared runtime field selector, raw read forwarding, valid-bit check and unchanged vector-only public exit shape.",
+          "stress_test": "65536 exit/IDT vector pairs, invalid records, host read errors, actual-runtime-selector mutation and SDK assertions.",
+          "falsification_probe": "Wrong field read, invalid record produces vector0, event data replaced by IDT delivery data or source-field mutation still passes.",
+          "status": "confirmed in source-derived field selection/shared boundary; complete native event frames remain unverified"
+        },
+        {
+          "id": "S4",
+          "assumption": "Apple SDK uses29 semantically corresponding names for existing VMCS encodings; every declared field and the actual runtime selector must be checked independently.",
+          "dependent_result": "Explicit alias JSON, actual Rust enum metadata, sizes/alignments and C assertions against pinned hv_arch_vmx.h;85 fields plus1 runtime selector.",
+          "stress_test": "C assertion failure for wrong code and wrong actual runtime selector; positive SDK enum/runtime values all match.",
+          "falsification_probe": "An encoding/name is inferred by numeric coincidence, a source field is omitted, stale aliases silently pass or generated metadata differs from source.",
+          "status": "confirmed for the pinned installed SDK"
+        },
+        {
+          "id": "S5",
+          "assumption": "The independent guest proves only listed direct CPUID fallthrough/context records; fixture/SDK checks do not prove native VMX or all retirement effects.",
+          "dependent_result": "Retain explicit pending interrupt-shadow, RF/EPT,TF, full event delivery, MMIO, CR and APIC coherence work.",
+          "stress_test": "Exact12 nonzero completed cases, two actual debug traps per case, raw bytes/hashes and masking only16-bit CS selector padding.",
+          "falsification_probe": "Current checks are labeled native VMX, all instruction side effects or whole C-HVF completion.",
+          "status": "retained"
+        }
+      ],
+      "primary_sources": [
+        {
+          "path": "/Users/int/dev/rax/docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+          "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+          "contract": "Intel SDM086 Vol.1 sections3.5/3.5.1 EIP/RIP, Vol.3B22.1 EIP register width; Vol.3C26.9.2/table26-19,29.2.2/29.2.4 distinct event fields;29.2.5 actual instruction length;29.3.3 RIP saved before fault-like instruction exits. Pending RF/interruptibility behavior29.3.3/29.3.4 remains separate."
+        },
+        {
+          "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_arch_vmx.h",
+          "sha256": "a6742cf27e2994ee27d4442cd18e36b379a861150f02a5696183748569464c4b",
+          "contract": "All85 declared VMCS fields and1 runtime field selector against explicit primary SDK semantic names."
+        }
+      ],
+      "affected_planes": {
+        "native_adapter": "Actual VM-exit length instead of fixed2; checked wrapping32/64-bit IP; HLT advances before halt; explicit wake; exception info forwarded via tested raw field selector.",
+        "conversion": "Common underlying VMCS read; existing typed read error shape preserved; raw selected-field errors are explicit.",
+        "SDK_probe": "Every actual VMCS enum value/representation,29 aliases and shared runtime selector checked, in addition to prior52 registers/20 functions/shared constants.",
+        "tests_tools": "Nine complete owning tests; controlled prior-effect failures;12 actual debug-trap records; preserved falsified width hypothesis and SDK mutations.",
+        "other_planes": "No software ISA/lifter/lowerer operation, C ABI signature or serialized field changed; no native full-frame/retirement claim."
+      },
+      "complexity": "O(1) per boundary/field/IP operation; O(n) probe work for declared metadata/cases. IP oracle12 cases,192 input bytes,164 reference bytes including20 framing bytes,64MiB guest RAM. Nine tests include65536 event-field vector pairs,210 IP boundary cells,30 halt length/width cells and malformed-input/host-error partitions.",
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "item": "STI/MOVSS interrupt-shadow completion, RF after EPT emulation, guestTF/debug traps and queued-event delivery remain separate; IP progress is not full architectural retirement certification.",
+          "blocks": "Complete native retirement/C-HVF closure"
+        },
+        {
+          "impact": "high",
+          "item": "Native Intel VMX/SDK calls unavailable on Apple Silicon; TCG instruction records and host fixtures are distinct from actual VM-exit delivery.",
+          "blocks": "Native Intel runtime proof"
+        },
+        {
+          "impact": "medium",
+          "item": "Public exception exit carries only a vector. Full error-code/IDT-delivery/reinjection frames and malformed hardware-type states are outside this projection.",
+          "blocks": "Full exception delivery equivalence"
+        },
+        {
+          "impact": "medium",
+          "item": "IP arithmetic does not model subsequent segment-limit/canonical/fetch faults. Independent cases are protected16/32-bit decoding with4GiB limits; other contexts retain primary/typed-boundary evidence only.",
+          "blocks": "Whole address/fault equivalence"
+        },
+        {
+          "impact": "high",
+          "item": "Original MMIO, remaining CR forms and APIC/IRQ graph coherence remain pending.",
+          "blocks": "Combined C-HVF closure"
+        }
+      ],
+      "quality_gates": {
+        "assumptions": "S1-S5 list dependencies/falsification and the actual revised assumption.",
+        "coverage": "Complete nine-test boundaries, all declared VMCS metadata, actual selector mutation, controlled prior effects and12 actual guest records; all prior driver/CR8/XSETBV/SDK and native/foreign gates retained.",
+        "units": "32-bit EIP/64-bit RIP, byte lengths1-15,16-bit CS selector,exact counts/record sizes/RAM.",
+        "contradictions": "Initial16-bit assumption falsified/archived; final rule matches primary/direct records. IDT/exit event fields and native/fixture planes distinguished.",
+        "provenance": "Pinned primary manual/SDK, actual old native bodies and prior-effect/wake/fixed-length controls, exact tool/input/reference/source hashes.",
+        "bounded_scope": "Interrupt/TF/RF/full event frames/native VMX/MMIO/remainingCR/APIC unknowns explicit.",
+        "worktree_integrity": "Eleven owned paths plus ledger; exact staging and unrelated hashes required.",
+        "reproducibility": "Complete counters/statuses, same oracle tool/input/guest/reference and every source/mapping hash required."
+      },
+      "baseline": "eec3e1ccd2671d3dfd9f38f570403bd110f99a6a",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 467.19340858398937
+          },
+          {
+            "check": "final-clippy",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 188.85724691697396
+          },
+          {
+            "check": "final-fmt",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 12.259423499926925
+          },
+          {
+            "check": "final-doc",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 4.845670457929373
+          },
+          {
+            "check": "final-sdk",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sdk_abi",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.49345499998889863
+          },
+          {
+            "check": "final-sync-exits",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sync_exits",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 90.69727949996013
+          },
+          {
+            "check": "final-cr8",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_cr8",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.1824110420420766
+          },
+          {
+            "check": "final-loop",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_run_loop",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.14521683298517019
+          },
+          {
+            "check": "final-xsetbv",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_xsetbv",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.09172220795881003
+          },
+          {
+            "check": "final-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 438.64864349993877
+          },
+          {
+            "check": "final-intel-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 431.8573587499559
+          },
+          {
+            "check": "final-intel-sdk",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sdk_abi",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 2.4270268339896575
+          },
+          {
+            "check": "final-intel-sync-exits",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sync_exits",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.27406370791140944
+          },
+          {
+            "check": "final-intel-cr8",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_cr8",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.25121862499509007
+          },
+          {
+            "check": "final-intel-loop",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_run_loop",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.36812845803797245
+          },
+          {
+            "check": "final-intel-xsetbv",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_xsetbv",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.2468041250249371
+          },
+          {
+            "check": "final-intel-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2842.004267500015
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 0.8204480410786346
+          },
+          {
+            "check": "final-xsetbv-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/xsetbv_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.5265283329645172
+          },
+          {
+            "check": "final-cr8-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/cr8_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.3271859160158783
+          },
+          {
+            "check": "final-ip-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/sync_exit_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.30228962504770607
+          },
+          {
+            "check": "final-sdk-standalone",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/check_sdk_abi.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-parity"
+            ],
+            "code": 0,
+            "seconds": 0.2950192920397967
+          },
+          {
+            "check": "final-capi",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 108.1468773749657
+          }
+        ],
+        "complete_native_feature_hvf_library": {
+          "passed": 10598,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 363.9
+        },
+        "complete_native_sync_exits": {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_rosetta_sync_exits": {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.01
+        },
+        "complete_native_cr8": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_rosetta_cr8": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_native_driver": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.05
+        },
+        "complete_rosetta_driver": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.11
+        },
+        "complete_native_xsetbv": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_rosetta_xsetbv": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_native_sdk": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.41
+        },
+        "complete_rosetta_sdk": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.72
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "ci_owning": {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.05
+        },
+        "positive_ip": {
+          "cases": 12,
+          "decode16_cases": 6,
+          "failed": 0,
+          "reference_failed": 0
+        },
+        "controlled_legacy_two_byte_cpuid": {
+          "cases": 12,
+          "decode16_cases": 6,
+          "failed": 8,
+          "reference_failed": 0
+        },
+        "same_ip_tool_input_reference_guest": true,
+        "falsified_initial_width_hypothesis": {
+          "cases": 12,
+          "decode16_cases": 6,
+          "failed": 3,
+          "reference_failed": 0
+        },
+        "initial_hypothesis_status": "Falsified/revised before checkout import; final non64 EIP32 rule matches primary/direct records.",
+        "negative_boundary_failed": 8,
+        "negative_boundary_controls_passed": 1,
+        "negative_wake_failed": 1,
+        "negative_wake_controls_passed": 8,
+        "negative_scope": "Minimal prior-effect reversals of native halt-without-advance, IDT-source/invalid-vector projection, unchecked IP increment, default no-op wake, and fixed-two-byte CPUID caller. Not native pre-fix Intel VMX execution.",
+        "actual_runtime_selector_sdk_mutation_failed": true,
+        "sdk_parity": {
+          "version": 1,
+          "bindings": "/Users/int/dev/rax-audit-work/rax-final-worktree/src/backend/hvf/bindings.rs",
+          "bindings_sha256": "9f3795c7daaaa080aecbf16a84b56d716fcd8db8195771b7af4cd23d06fd8c62",
+          "tool_sha256": "5fcf52452d83618dfca5eab537ddea2214e8fecc2e8b20d9d3e269f60ff8e856",
+          "sdk": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+          "commands": [
+            {
+              "name": "rust-version",
+              "args": [
+                "rustc",
+                "+stable",
+                "-vV"
+              ],
+              "code": 0,
+              "seconds": 0.031193666043691337
+            },
+            {
+              "name": "clang-version",
+              "args": [
+                "xcrun",
+                "clang",
+                "--version"
+              ],
+              "code": 0,
+              "seconds": 0.01144958392251283
+            },
+            {
+              "name": "sdk-version",
+              "args": [
+                "xcrun",
+                "--show-sdk-version"
+              ],
+              "code": 0,
+              "seconds": 0.0071472920244559646
+            },
+            {
+              "name": "rust-build",
+              "args": [
+                "rustc",
+                "+stable",
+                "--edition=2024",
+                "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-parity/probe.rs",
+                "-o",
+                "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-parity/rust-probe"
+              ],
+              "code": 0,
+              "seconds": 0.13383725006133318
+            },
+            {
+              "name": "rust-values",
+              "args": [
+                "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-parity/rust-probe"
+              ],
+              "code": 0,
+              "seconds": 0.003706666058860719
+            },
+            {
+              "name": "sdk-compile",
+              "args": [
+                "xcrun",
+                "clang",
+                "-target",
+                "x86_64-apple-macosx13.0",
+                "-isysroot",
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+                "-std=c11",
+                "-Werror",
+                "-Wno-deprecated-declarations",
+                "-fsyntax-only",
+                "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-parity/probe.c"
+              ],
+              "code": 0,
+              "seconds": 0.032153917010873556
+            },
+            {
+              "name": "sdk-arm64-constants",
+              "args": [
+                "xcrun",
+                "clang",
+                "-target",
+                "arm64-apple-macosx13.0",
+                "-isysroot",
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+                "-std=c11",
+                "-Werror",
+                "-fsyntax-only",
+                "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-parity/probe-arm64.c"
+              ],
+              "code": 0,
+              "seconds": 0.025827250094152987
+            }
+          ],
+          "sdk_header_sha256": {
+            "hv_arch_x86.h": "19926e960116d989531558066f21f237a8482d1feffbc911bcaae3b145bc3368",
+            "hv.h": "98387bf589442a8b8cd7416588e73d2e16a64c0e5036afcbbb08cb5772f41985",
+            "hv_vmx.h": "e62a6b975fdb9509ee632e4449f0d40626c78fcb0fc7b36ce1a178685e5b1413",
+            "hv_types.h": "2a3a30d5d71f2ddb4316d20072a5d9d7cb7229a53bddb4036ad1ecd9585bdc10",
+            "hv_error.h": "0479e1e2702a87a159b362aafee6d439ba1ec1f3b41971642c0f4f985faca2d8"
+          },
+          "vmcs_sdk_header_sha256": "a6742cf27e2994ee27d4442cd18e36b379a861150f02a5696183748569464c4b",
+          "arm64_error_header_sha256": "d1fda9e96f409485e7efc9c738cfb469b9fbb02c9f785c4ba85ef6532714fd03",
+          "scope": "Intel register IDs, selected ABI type sizes/alignments, HV constants, and every declared x86 foreign function signature. All declared VMCS field encodings use explicit SDK-name aliases. Native hypervisor/guest execution and Arm64 function signatures remain separate.",
+          "synchronous_exit_source_sha256": "c96fec19843619dd1dd17c251eef9cc516a20ada0d33063407d68431a5052f66",
+          "vmcs_aliases_sha256": "a8c0a159310e73eb8f58a7bffb29f51bb7ade5341039d0bb374b3774b1f73e93",
+          "vmcs_sdk_aliases": {
+            "VMCS_CTRL_VMENTRY_EXCEPTION_ERROR": "VMCS_CTRL_VMENTRY_EXC_ERROR",
+            "VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH": "VMCS_CTRL_VMENTRY_INSTR_LEN",
+            "VMCS_EXIT_INSTRUCTION_INFO": "VMCS_RO_VMX_INSTR_INFO",
+            "VMCS_EXIT_INSTRUCTION_LENGTH": "VMCS_RO_VMEXIT_INSTR_LEN",
+            "VMCS_EXIT_QUALIFICATION": "VMCS_RO_EXIT_QUALIFIC",
+            "VMCS_EXIT_REASON": "VMCS_RO_EXIT_REASON",
+            "VMCS_GUEST_CS_ACCESS_RIGHTS": "VMCS_GUEST_CS_AR",
+            "VMCS_GUEST_CS_SELECTOR": "VMCS_GUEST_CS",
+            "VMCS_GUEST_DS_ACCESS_RIGHTS": "VMCS_GUEST_DS_AR",
+            "VMCS_GUEST_DS_SELECTOR": "VMCS_GUEST_DS",
+            "VMCS_GUEST_ES_ACCESS_RIGHTS": "VMCS_GUEST_ES_AR",
+            "VMCS_GUEST_ES_SELECTOR": "VMCS_GUEST_ES",
+            "VMCS_GUEST_FS_ACCESS_RIGHTS": "VMCS_GUEST_FS_AR",
+            "VMCS_GUEST_FS_SELECTOR": "VMCS_GUEST_FS",
+            "VMCS_GUEST_GS_ACCESS_RIGHTS": "VMCS_GUEST_GS_AR",
+            "VMCS_GUEST_GS_SELECTOR": "VMCS_GUEST_GS",
+            "VMCS_GUEST_IA32_SYSENTER_EIP": "VMCS_GUEST_SYSENTER_EIP",
+            "VMCS_GUEST_IA32_SYSENTER_ESP": "VMCS_GUEST_SYSENTER_ESP",
+            "VMCS_GUEST_INTERRUPTIBILITY_STATE": "VMCS_GUEST_INTERRUPTIBILITY",
+            "VMCS_GUEST_LDTR_ACCESS_RIGHTS": "VMCS_GUEST_LDTR_AR",
+            "VMCS_GUEST_LDTR_SELECTOR": "VMCS_GUEST_LDTR",
+            "VMCS_GUEST_LINEAR_ADDRESS": "VMCS_RO_GUEST_LIN_ADDR",
+            "VMCS_GUEST_PENDING_DBG_EXCEPTIONS": "VMCS_GUEST_DEBUG_EXC",
+            "VMCS_GUEST_SS_ACCESS_RIGHTS": "VMCS_GUEST_SS_AR",
+            "VMCS_GUEST_SS_SELECTOR": "VMCS_GUEST_SS",
+            "VMCS_GUEST_TR_ACCESS_RIGHTS": "VMCS_GUEST_TR_AR",
+            "VMCS_GUEST_TR_SELECTOR": "VMCS_GUEST_TR",
+            "VMCS_IDT_VECTORING_ERROR_CODE": "VMCS_RO_IDT_VECTOR_ERROR",
+            "VMCS_IDT_VECTORING_INFO": "VMCS_RO_IDT_VECTOR_INFO"
+          },
+          "arm64_shared_constants": 11,
+          "counts": {
+            "register_ids": 52,
+            "vmcs_fields": 85,
+            "shared_runtime_vmcs_fields": 1,
+            "constants": 17,
+            "types": 6,
+            "type_size_alignment_pairs": 8,
+            "function_signatures": 20
+          },
+          "artifact_sha256": {
+            "probe.rs": "c488e87b3611a53be9680dad39d3c15ee7a1684791ac797c61827416633f192b",
+            "probe.c": "31acf061aff7db0f0a483a8012c5b613fb174262c6196e18e2be8fdb0b491f3a",
+            "probe-arm64.c": "88d84553de19e1a49e38d4004c05ac84afab6a248d6fa9f6668d6cbcb586b0b0",
+            "rust-values.stdout": "013af65e25bbc409fb03bff8f4745a6f54ca8199964b6cdcdd77dfbbc83285fb"
+          },
+          "result": "match"
+        },
+        "cr8_prior_profile_retained": {
+          "cases": 335,
+          "independent_legal_cases": 272,
+          "reserved_primary_cases": 63,
+          "local_profile_failed": 0,
+          "independent_legal_failed": 0,
+          "commit_order_failed": 0,
+          "qemu_raw_differences": 63,
+          "unknown_reference_profile_failed": 0
+        },
+        "xsetbv_independent_retained": {
+          "cases": 114,
+          "denied": 111,
+          "failed": 0,
+          "commit_order_failed": 0,
+          "cpuid_failed": 0
+        },
+        "product_source_fingerprint": {
+          "rust_and_build_sources_sha256": "343702f740411d26088183bed444acf2b86b323a10447544042bfed75a2db812",
+          "files": 3570
+        },
+        "native_intel_vm_guest_execution": "unknown/unverified: Apple Silicon host; IP/event source fixtures, SDK assertions and TCG direct instructions are separate from native VMX",
+        "remaining_retirement_scope": "STI/MOVSS shadows, RF after EPT, guestTF/debug, full event frames and delivery remain separate; current group covers IP/halt/vector projection only.",
+        "complete_rosetta_feature_hvf_library": {
+          "passed": 11581,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 2841.59
+        },
+        "capi": [
+          {
+            "passed": 191,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 17.15
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          }
+        ],
+        "capi_inventory_adjustment": {
+          "reason": "Externally introduced PAUTH C API tests increased the owning binary from 185 to 191 tests before stable final checkout creation. Historical fixed-count validation was stale.",
+          "scope": "Capture the complete current C API libtest inventory and require exact count, zero failed, ignored and filtered tests, plus the unchanged zero doctest result. Product source, test membership, filters, timeout and result logs are unchanged.",
+          "first_group": "Group52 inventory captured after its successful complete run; later groups capture before executing.",
+          "original_logs_retained": true
+        },
+        "inventory_adjustment": {
+          "reason": "The existing issue_20_register_switch_preserves_nzcv_and_branches function has two #[test] attributes. Rust registers and executes both descriptors. The inventory must retain multiplicity rather than require unique names.",
+          "source": "/Users/int/dev/rax-audit-work/rax-final-worktree/src/smir/lower/aarch64/tests/logic.rs",
+          "source_sha256": "3879471dd6a0c3f5ab3a4311e2d4dc79c01dc4296bd7db3a676162018d7ceaa4",
+          "scope": "Inventory bookkeeping only;no product/test/timeout changes and no filtered test descriptors.",
+          "observed_descriptors": 10600,
+          "observed_unique_names": 10599
+        },
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/reference-summary.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/legacy-native-boundaries.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/negative-boundary.stdout",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/negative-wake.stdout",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/positive-unit.stdout",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-reference/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-reference/report.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-positive/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-positive/report.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-width-hypothesis/assumption.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-width-hypothesis/reference/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/ip-width-hypothesis/reference/report.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/sdk-runtime-field-negative/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/sdk-runtime-field-negative/sdk-compile.stderr",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle/report.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-parity/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/instruction-sources.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/worktree-checks.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-build.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-clippy.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-fmt.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-doc.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sync-exits.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-loop.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-xsetbv.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-library.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-build.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-sdk.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-sync-exits.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-cr8.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-loop.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-xsetbv.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-xsetbv-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-standalone.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-capi.log"
+        ]
       }
     }
   ],

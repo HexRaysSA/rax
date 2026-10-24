@@ -17,6 +17,8 @@ mod cr8;
 pub mod rosetta;
 mod run_loop;
 #[cfg(target_arch = "x86_64")]
+mod sync_exit;
+#[cfg(target_arch = "x86_64")]
 mod xsetbv;
 
 // ARM64 HVF backend (Apple Silicon only)
@@ -453,8 +455,8 @@ impl HvfVcpu {
         write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX, ecx as u64)?;
         write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RDX, edx as u64)?;
 
-        // Advance RIP past the CPUID instruction (2 bytes)
-        self.advance_rip(2)?;
+        // Advance RIP past the complete CPUID encoding
+        self.advance_current_instruction()?;
 
         Ok(())
     }
@@ -518,8 +520,8 @@ impl HvfVcpu {
         write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX, value & 0xFFFFFFFF)?;
         write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RDX, value >> 32)?;
 
-        // Advance RIP past the RDMSR instruction (2 bytes)
-        self.advance_rip(2)?;
+        // Advance RIP past the complete RDMSR encoding
+        self.advance_current_instruction()?;
 
         Ok(None)
     }
@@ -609,16 +611,35 @@ impl HvfVcpu {
             }
         }
 
-        // Advance RIP past the WRMSR instruction (2 bytes)
-        self.advance_rip(2)?;
+        // Advance RIP past the complete WRMSR encoding
+        self.advance_current_instruction()?;
 
         Ok(None)
     }
 
-    /// Advance RIP by the given number of bytes.
+    /// Retire the complete instruction encoding supplied by the VM exit.
+    fn advance_current_instruction(&self) -> Result<()> {
+        let length = vmcs_read(
+            self.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_EXIT_INSTRUCTION_LENGTH,
+        )?;
+        self.advance_rip(length)
+    }
+
     fn advance_rip(&self, bytes: u64) -> Result<()> {
         let rip = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP)?;
-        write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP, rip + bytes)
+        let efer = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_IA32_EFER)?;
+        let cs = vmcs_read(
+            self.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_GUEST_CS_ACCESS_RIGHTS,
+        )?;
+        let bits = sync_exit::code_width(efer, cs);
+        let next = sync_exit::next_ip(rip, bytes, bits).map_err(|reason| {
+            Error::Emulator(format!(
+                "invalid HVF instruction advance:{reason:?},length={bytes},bits={bits}"
+            ))
+        })?;
+        write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP, next)
     }
 
     /// Inject a pending interrupt if possible.
@@ -669,6 +690,17 @@ impl HvfVcpu {
 }
 
 #[cfg(target_arch = "x86_64")]
+impl sync_exit::HaltAccess for HvfVcpu {
+    type Error = Error;
+    fn advance_current_instruction(&mut self) -> Result<()> {
+        HvfVcpu::advance_current_instruction(self)
+    }
+    fn set_halted(&mut self, halted: bool) {
+        self.halted = halted;
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
 impl run_loop::ExitHandler for HvfVcpu {
     type Exit = VcpuExit;
     type Error = Error;
@@ -698,7 +730,7 @@ impl run_loop::ExitHandler for HvfVcpu {
         Ok(exit_reason)
     }
     fn halt(&mut self) -> Result<VcpuExit> {
-        self.halted = true;
+        sync_exit::halt(self)?;
         Ok(VcpuExit::Hlt)
     }
     fn port_io(&mut self) -> Result<VcpuExit> {
@@ -762,8 +794,19 @@ impl run_loop::ExitHandler for HvfVcpu {
         }
     }
     fn exception(&mut self) -> Result<VcpuExit> {
-        let intr_info = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_IDT_VECTORING_INFO)?;
-        let vector = (intr_info & INTR_INFO_VECTOR_MASK as u64) as u8;
+        struct Access {
+            id: hv_vcpuid_t,
+        }
+        impl sync_exit::ExceptionAccess for Access {
+            type Error = Error;
+            fn read_vmcs(&mut self, field: u32) -> Result<u64> {
+                vmcs_read_raw(self.id, field)
+            }
+        }
+        let vector =
+            sync_exit::exception_vector(&mut Access { id: self.vcpu_id })?.ok_or_else(|| {
+                Error::Emulator("invalid VMX exception/NMI interruption information".into())
+            })?;
         Ok(VcpuExit::Exception(vector))
     }
     fn cpuid(&mut self) -> Result<()> {
@@ -811,6 +854,10 @@ impl run_loop::ExitHandler for HvfVcpu {
 impl VCpu for HvfVcpu {
     fn run(&mut self) -> Result<VcpuExit> {
         run_loop::run(self)
+    }
+
+    fn wake(&mut self) {
+        sync_exit::wake(self);
     }
 
     fn get_state(&self) -> Result<CpuState> {

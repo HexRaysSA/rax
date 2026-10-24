@@ -18,8 +18,9 @@ source hashes, generated probes and diagnostics. A missing tool or compiler
 failure fails the check. The Cargo target is compiled only on macOS.
 
 The probe performs source and compiler ABI checks. Native Intel VM creation,
-VM-exit behavior, guest execution, VMCS field encodings and Arm64 function
-signatures require separate validation. Rosetta can run the x86_64 test process
+VM-exit behavior, guest execution and Arm64 function signatures require separate
+validation. The probe also checks every declared VMCS field with explicit SDK
+name aliases, plus the actual shared exit-information field used at runtime. Rosetta can run the x86_64 test process
 on Apple Silicon; it does not establish native Intel hypervisor execution.
 
 The SDK defines Intel vCPU identifiers as 32-bit unsigned integers. Register IDs
@@ -145,3 +146,51 @@ correct architectural fault, and rejects other unexplained reference results.
 Native Intel VMX/exception delivery and SDK-TPR/software-LAPIC/IRQ coherence remain
 separate. The VMM LocalApic and software x86 InlineLapic ownership also require
 reconciliation with the pending platform/checkpoint/SMP work.
+
+## Synchronous exit IP, halt and event information
+
+```sh
+cargo +stable test --test hvf_sync_exits
+python3 tools/hvf/sync_exit_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-sync-exits
+```
+
+HLT advances past the complete instruction before setting the software halted
+flag. A failed advance leaves that flag unset. `wake()` clears the flag without
+advancing again. CPUID, RDMSR and WRMSR use the actual VM-exit instruction length,
+including accepted prefixes, rather than assuming two bytes.
+
+Straight-line EIP advancement uses32-bit storage outside64-bit mode; RIP uses
+64-bit storage in64-bit mode. CS.D controls decoding defaults and does not make
+fallthrough EIP16-bit. The arithmetic is `(current+length) mod2^32` or `mod2^64`,
+with length measured in bytes and required to be1-15. Subsequent code-segment,
+canonical-address and fetch faults are separate from this arithmetic.
+
+| Information | Encoding | Meaning |
+| --- | --- | --- |
+| VM-exit interruption information | 0x4404 | Event causing this exit |
+| IDT-vectoring information | 0x4408 | Interrupted delivery of another event |
+
+Exception/NMI exits read0x4404 through the same shared field selector exercised
+by the boundary tests and checked against Apple SDK headers. They preserve the
+existing vector-only public exit shape. An invalid record reports a host error;
+it does not fabricate vector0 or substitute IDT-vectoring information. Full
+exception frames, error-code propagation and reinjection remain separate.
+
+The SDK probe now validates85 declared VMCS field values,29 explicit SDK-name
+aliases and the actual shared runtime field selector. A wrong-selector mutation
+fails both boundary tests and SDK assertions. The nine complete owning tests
+cover full32/64-bit IP arithmetic, malformed lengths, all65536 exit/IDT vector
+pairs, invalid/error records and a halt/wake/halt sequence.
+
+The independent guest uses actual debug traps after CPUID in16-bit and32-bit
+protected code segments with4GiB limits. Twelve cases combine instruction lengths
+2,3,15 with ordinary offsets and64KiB boundary crossings. Every case must record
+both debug traps and its exact next EIP/CS. Full32-bit EIP is compared; only the
+16 defined CS selector bits are compared and raw stack padding is retained.
+The initial16-bit truncation hypothesis fails three cases; the legacy fixed
+length2 CPUID effect fails eight. The final helper matches all twelve.
+
+These are IP/halt/event-source checks, not complete native retirement proof.
+STI/MOVSS interrupt shadows, RF handling after EPT emulation, single-step traps,
+queued-event delivery, APIC/device coherence, remaining CR forms and MMIO need
+separate work. Native Intel VMX execution remains unverified on Apple Silicon.
