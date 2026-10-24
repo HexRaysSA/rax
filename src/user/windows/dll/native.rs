@@ -28,6 +28,7 @@ mod process_set;
 mod process_tls;
 mod process_token;
 mod query;
+mod raise;
 mod read_memory;
 mod registry;
 mod section_create;
@@ -178,6 +179,7 @@ pub(super) static EXPORTS: &[Export] = &[
     ),
     Export::func("NtContinue", Stdcall, &[Ptr, I32], continue_context),
     Export::func("RtlCaptureContext", Stdcall, &[Ptr], capture_context),
+    Export::func("NtRaiseException", Stdcall, &[Ptr, Ptr, I32], raise::raise),
     Export::func(
         "RtlUnwind",
         Stdcall,

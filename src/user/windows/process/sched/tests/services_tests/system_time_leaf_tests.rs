@@ -146,8 +146,8 @@ fn unwind_entry_detail(p: &Proc, t: &Thread, name: &str, sp: u64, resume: u64) -
     }
 }
 
-/// A failed fixture stays failed. This bounded continuation only measures the
-/// exception path beyond its original 32 slices; it cannot accept that call.
+/// A failed fixture stays failed. This bounded continuation measures the
+/// exception path beyond the leaf's slice budget; it cannot accept that call.
 fn failed_return_probe(p: &mut Proc, t: &mut Thread, sp: u64, resume: u64, argc: usize) -> String {
     const ATTEMPTS: usize = 512 * 64;
     const RECORDS: usize = 64;
@@ -267,7 +267,12 @@ fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, case: &str, arg
     }
     let mut returned = false;
     let mut trace = Vec::new();
-    for slice in 0..32 {
+    // A guard-page violation is dispatched through the installed NTDLL's own
+    // exception path before the leaf returns, which costs thousands of
+    // instructions; the ordinary leaf path completes in a few slices. The
+    // budget still fails a runaway loop.
+    const SLICES: usize = 512;
+    for slice in 0..SLICES {
         let start = location(p, t.cpu.pc(), resume);
         let boundary = t.cpu.run(64);
         let stopped = location(p, t.cpu.pc(), resume);
@@ -295,7 +300,7 @@ fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, case: &str, arg
     if !returned {
         let probe = failed_return_probe(p, t, sp, resume, args.len());
         panic!(
-            "{name} {} guest_build{} case={case} entry_sp_mod16={} exceeded32slicesof64instructions trace={trace:#?} diagnostic_continuation={probe}",
+            "{name} {} guest_build{} case={case} entry_sp_mod16={} exceeded{SLICES}slicesof64instructions trace={trace:#?} diagnostic_continuation={probe}",
             p.arch,
             p.cfg.version.build,
             sp % 16,

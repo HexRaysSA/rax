@@ -7,6 +7,7 @@ use crate::user::windows::context::RegContext;
 use crate::user::windows::dll;
 use crate::user::windows::hle::dispatch::{Outcome, prune_resumed_context, write_value};
 use crate::user::windows::hle::{ApiErr, Ctx, Flow, Value};
+use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::STATUS_ACCESS_VIOLATION;
 
 mod gui;
@@ -17,7 +18,6 @@ pub(super) fn dispatch(p: &mut Proc, t: &mut Thread, number: u32, pc: u64) -> Op
 }
 
 pub(super) fn wow64(p: &mut Proc, t: &mut Thread, pc: u64) -> Outcome {
-    use crate::user::windows::memory::Mem;
     if p.arch != WinArch::X86 {
         return Outcome::Fail("WoW64 transition requires an x86 guest".into());
     }
@@ -160,6 +160,32 @@ fn enter(
         }
         Ok(Flow::Resume(context)) => resume_context(p, t, &name, &context, false),
         Ok(Flow::ResumeAlertable(context)) => resume_context(p, t, &name, &context, true),
+        Ok(Flow::RaiseIn { record, context }) => {
+            crate::user::windows::seh::raise(p, t, record, *context)
+        }
+        Ok(Flow::Raise(record)) => {
+            // The record belongs to the caller, not to the stub: the x64 stub
+            // leaves the return address on the stack, the ARM64 stub keeps it
+            // in the link register, and a WoW64 transition has already popped
+            // it into `resume`.
+            let mut context = RegContext::capture(&t.cpu);
+            let caller = match p.arch {
+                WinArch::X64 => p.space.ptr(sp, 8).unwrap_or(resume),
+                WinArch::Arm64 => t.cpu.gpr(30),
+                WinArch::X86 => resume,
+            };
+            context.set_pc(caller);
+            context.set_sp(if p.arch == WinArch::X64 {
+                sp.saturating_add(8)
+            } else {
+                sp
+            });
+            let mut record = record;
+            if record.address == 0 {
+                record.address = caller;
+            }
+            crate::user::windows::seh::raise(p, t, record, context)
+        }
         Ok(Flow::TerminateProcess(status)) => Outcome::ProcessTerminate(status),
         Ok(Flow::TerminateThread(status)) => Outcome::ThreadTerminate(status),
         Err(error) => Outcome::Fail(format!("native {source} service {name}: {error:?}")),

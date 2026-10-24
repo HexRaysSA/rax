@@ -250,6 +250,106 @@ fn native_close_preserves_kernel_resume_stack_and_arch_argument_transport() {
 }
 
 #[test]
+fn native_raise_exception_dispatches_the_caller_record_in_its_context() {
+    use crate::user::windows::context::{ExceptionRecord, RegContext};
+    const CODE: u32 = 0xC000_00FF;
+    for arch in [WinArch::X64, WinArch::Arm64] {
+        let (mut process, mut t) = fixture(arch, "NtRaiseException", 0x16d);
+        let p = process.state_mut();
+        let scratch =
+            p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                .unwrap()
+                .0;
+        let record = scratch + 0x100;
+        let context = scratch + 0x200;
+        let mut raised = ExceptionRecord::new(CODE, scratch, vec![0xA5]);
+        raised.flags = 1;
+        raised.write(&p.space, arch, record).unwrap();
+        let mut caller = RegContext::capture(&t.cpu);
+        caller.set_pc(scratch);
+        caller.write(&p.space, context).unwrap();
+        t.cpu.set_pc(0x1234_0004);
+        if arch == WinArch::X64 {
+            t.cpu.set_gpr(0, 0x16d);
+            t.cpu.set_gpr(10, record);
+            t.cpu.set_gpr(2, context);
+            t.cpu.set_gpr(8, 0);
+            t.cpu.set_gpr(1, 0x1234_0004); // Architectural SYSCALL clobber.
+        } else {
+            t.cpu.set_gpr(0, record);
+            t.cpu.set_gpr(1, context);
+            t.cpu.set_gpr(2, 0);
+        }
+        // The smoke image has no handler for the raised record, so the
+        // dispatcher ends the process with the caller's code.
+        assert_eq!(
+            handle_stop(p, &mut t, stop(arch, 0x16d)),
+            Outcome::ProcessTerminate(CODE)
+        );
+    }
+}
+
+#[test]
+fn native_raise_exception_uses_the_supplied_context_not_the_export_frontier() {
+    use crate::user::windows::context::{ExceptionRecord, RegContext};
+    for arch in [WinArch::X64, WinArch::Arm64] {
+        let (mut process, mut t) = fixture(arch, "NtRaiseException", 0x16d);
+        let p = process.state_mut();
+        let scratch =
+            p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                .unwrap()
+                .0;
+        let record = scratch + 0x100;
+        let context = scratch + 0x200;
+        ExceptionRecord::new(STATUS_ILLEGAL_INSTRUCTION, scratch, vec![])
+            .write(&p.space, arch, record)
+            .unwrap();
+        // No room below this stack pointer for the dispatch's records. The
+        // dispatch fails, while the export's own caller frontier would fit.
+        let mut caller = RegContext::capture(&t.cpu);
+        caller.set_sp(0);
+        caller.write(&p.space, context).unwrap();
+        t.cpu.set_pc(0x1234_0004);
+        if arch == WinArch::X64 {
+            t.cpu.set_gpr(0, 0x16d);
+            t.cpu.set_gpr(10, record);
+            t.cpu.set_gpr(2, context);
+            t.cpu.set_gpr(1, 0x1234_0004);
+        } else {
+            t.cpu.set_gpr(0, record);
+            t.cpu.set_gpr(1, context);
+        }
+        assert_eq!(
+            handle_stop(p, &mut t, stop(arch, 0x16d)),
+            Outcome::ProcessTerminate(STATUS_BAD_STACK)
+        );
+    }
+}
+
+#[test]
+fn native_raise_exception_unreadable_record_faults_without_dispatching() {
+    for arch in [WinArch::X64, WinArch::Arm64] {
+        let (mut process, mut t) = fixture(arch, "NtRaiseException", 0x16d);
+        t.cpu.set_pc(0x1234_0004);
+        if arch == WinArch::X64 {
+            t.cpu.set_gpr(0, 0x16d);
+            t.cpu.set_gpr(10, u64::MAX - 0x100);
+            t.cpu.set_gpr(2, u64::MAX - 0x100);
+            t.cpu.set_gpr(1, 0x1234_0004);
+        } else {
+            t.cpu.set_gpr(0, u64::MAX - 0x100);
+            t.cpu.set_gpr(1, u64::MAX - 0x100);
+        }
+        assert_eq!(
+            handle_stop(process.state_mut(), &mut t, stop(arch, 0x16d)),
+            Outcome::Continue
+        );
+        assert_eq!(t.cpu.gpr(0), u64::from(STATUS_ACCESS_VIOLATION));
+        assert_eq!(t.cpu.pc(), 0x1234_0004);
+    }
+}
+
+#[test]
 fn native_alloc_invalid_pointer_returns_status_without_dispatching_guest_exception() {
     for arch in [WinArch::X64, WinArch::Arm64] {
         let (mut process, mut t) = fixture(arch, "NtAllocateVirtualMemory", 0x18);

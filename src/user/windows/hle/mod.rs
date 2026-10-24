@@ -262,6 +262,15 @@ pub enum Flow {
     /// Raise an exception as `RaiseException` does: the context is the
     /// caller's state inside this export (PC at the resume trap).
     Raise(ExceptionRecord),
+    /// Raise an exception in an explicit register context, as
+    /// `NtRaiseException` does: the context names the state the record was
+    /// raised in, which need not be this export's caller.
+    RaiseIn {
+        /// The caller-supplied record.
+        record: ExceptionRecord,
+        /// The context to dispatch the record in.
+        context: Box<RegContext>,
+    },
     /// Raise a checked memory fault while retaining the operation's exact
     /// continuation. Resuming its owned export or private dispatcher PC/SP
     /// retries that operation without reparsing callback-clobbered registers.

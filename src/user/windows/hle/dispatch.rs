@@ -628,6 +628,12 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
             }
             seh::raise(p, t, rec, ctx)
         }
+        Ok(Flow::RaiseIn { record, context }) => {
+            // The caller supplied the raise site's context, so the export's
+            // own caller frontier does not describe it.
+            pop_unprotected_frame(t, &site);
+            seh::raise(p, t, record, *context)
+        }
         Ok(Flow::RetryFault { fault, retry }) => retry_operation(
             p,
             t,
