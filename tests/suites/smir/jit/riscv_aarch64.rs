@@ -233,7 +233,7 @@ fn production_scalar_memory_and_faults_are_precise() {
 }
 
 #[test]
-fn production_integer_crypto_and_scalar_fp_helpers_are_native() {
+fn production_integer_crypto_is_native_and_scalar_fp_falls_back() {
     let instructions = [
         r_type(0x05, 2, 1, 1, 5),              // clmul x5,x1,x2
         r_type_opcode(0x00, 2, 1, 0, 5, 0x53), // fadd.s f5,f1,f2
@@ -242,6 +242,8 @@ fn production_integer_crypto_and_scalar_fp_helpers_are_native() {
     let mut expected = make_cpu(RiscVConfig::rv64gc());
     let mut actual = make_cpu(RiscVConfig::rv64gc());
     for cpu in [&mut expected, &mut actual] {
+        cpu.csr_write(0x300, 0b01 << 13)
+            .expect("production FP state must be enabled");
         install(cpu, &instructions);
         cpu.set_x(1, 0x0123_4567_89ab_cdef);
         cpu.set_x(2, 0xfedc_ba98_7654_3210);
@@ -253,11 +255,8 @@ fn production_integer_crypto_and_scalar_fp_helpers_are_native() {
         assert_eq!(actual.step_jit(OptLevel::O2), RiscVExit::Continue);
         assert_equivalent(&actual, &expected);
     }
-    assert_eq!(
-        actual.jit_stats().native_executions,
-        instructions.len() as u64
-    );
-    assert_eq!(actual.jit_stats().interpreter_fallbacks, 0);
+    assert_eq!(actual.jit_stats().native_executions, 1);
+    assert_eq!(actual.jit_stats().interpreter_fallbacks, 2);
 }
 
 #[test]
@@ -1105,6 +1104,8 @@ fn production_regions_isolate_replay_sensitive_fp_failures() {
     let mut expected = make_cpu(RiscVConfig::rv64gc());
     let mut actual = make_cpu(RiscVConfig::rv64gc());
     for cpu in [&mut expected, &mut actual] {
+        cpu.csr_write(0x300, 0b01 << 13)
+            .expect("production FP state must be enabled");
         install(cpu, &instructions);
         cpu.set_x(5, 10);
         cpu.set_f(1, 0xffff_ffff_3f80_0000);
@@ -1119,7 +1120,7 @@ fn production_regions_isolate_replay_sensitive_fp_failures() {
     assert_eq!(actual.x(5), 11);
     assert_eq!(actual.instret(), 1);
     let stats = actual.jit_stats();
-    assert_eq!(stats.native_executions, 2);
+    assert_eq!(stats.native_executions, 1);
     assert_eq!(stats.interpreter_fallbacks, 1);
 }
 

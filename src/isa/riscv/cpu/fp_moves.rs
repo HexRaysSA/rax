@@ -35,6 +35,7 @@ mod tests {
     fn rv32_zfa_doubleword_moves_preserve_both_halves() {
         let isa = Isa::rv64gc();
         let mut hart = RiscVCpu::new(RiscVConfig::rv32(isa), Box::new(FlatMemory::new(0, 0x1000)));
+        hart.csr_write(0x300, 0b01 << 13).unwrap(); // mstatus.FS=Initial
 
         hart.set_f(10, 0x89ab_cdef_0123_4567);
         let high = decode(enc(0b1110001, 1, 10, 11), Xlen::Rv32, &isa);
