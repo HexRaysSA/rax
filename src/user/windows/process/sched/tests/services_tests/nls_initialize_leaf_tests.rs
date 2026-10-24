@@ -43,6 +43,22 @@ fn native_nls_initialize_installed_leaves_map_locale_file_and_preserve_ignored_o
             native_host_profile::build(),
             "installed profile must report the current host build"
         );
+        // The native initialization profile (ignored casing/version outputs,
+        // WoW64 capture ordering) was measured on build 29683, and the snapshot
+        // only records it there. Other builds expose the entry as unimplemented
+        // rather than an unverified emulation; the recorded 29683 corpora keep
+        // the semantics covered on any host.
+        if p.cfg.version.major != 10 || p.cfg.version.build != 29683 {
+            assert!(
+                p.nls.as_ref().and_then(|nls| nls.initialize()).is_none(),
+                "unmeasured build must not record an initialization profile"
+            );
+            eprintln!(
+                "Validated unmeasured native build {}: no NtInitializeNlsFiles profile",
+                p.cfg.version.build
+            );
+            continue;
+        }
         let file = std::fs::read(
             std::path::Path::new(&p.native.as_ref().unwrap().guest_root)
                 .join("System32")
