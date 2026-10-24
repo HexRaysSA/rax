@@ -65,8 +65,63 @@ adds filtered instruction identities and worktree containment. Its exact source
 replays all twelve native cases with the same scalar layouts; its six projection
 tests pass on macOS, Linux and Windows. The bounded filtered observations and
 producer/compiler/executable identities are in [local-29683-v2.json](local-29683-v2.json).
-Independent Windows 2022/2025 x64-kernel results remain pending. Three views of the local
-ARM64 kernel do not establish independent x64-kernel parity or an emulator pass.
+Independent Windows 2022/2025 controls at `7efd2bb2` complete all sixteen
+native fault cases, eight per kernel (builds 20348 and 26100). Their x64
+record-minus-context offset is 1,264 bytes; the local x64 view on ARM64 uses
+2,688 bytes. These remain VEH observations. Three views of the local ARM64
+kernel do not establish independent x64-kernel dispatcher-entry parity or an
+emulator pass.
+
+## Owned-child dispatcher entry
+
+```text
+python docs/specifications/windows/native-exception-entry-profile/run-dispatch-v3.py
+```
+
+This separate producer creates its own debug child from the same executable.
+After the child's controlled readonly-page write faults, the debugger verifies
+its selected NTDLL file identity and dispatcher instruction prefix, installs a
+temporary breakpoint, and continues the exception as unhandled by the debugger.
+At the first dispatcher instruction it reads at most 8,192 stack bytes privately
+and locates exactly one SDK context and exception record by the original fault's
+PC, SP, code and access parameters. The breakpoint and PC are restored before
+continuing. Success requires the native child handler, removed VEH, released
+mapping, exit code zero and a signaled owned process handle. A bounded failure
+path terminates only that owned child.
+
+The public producer emits scalar offsets and a bounded instruction identity.
+It does not save or emit raw stack bytes or register addresses. The driver
+filters its private 192-byte instruction observation before public output and
+rejects undeclared record fields. Seven projection/lifecycle tests run on
+Windows, macOS and Linux; only Windows supplies the kernel observation. CI now
+runs the exact entry control on Windows 2022 and 2025 in addition to the four
+original fault cases per ABI. Independent entry results remain pending.
+
+The exact public source completes all three local views. Its paired entry and
+VEH offsets satisfy, in bytes:
+`entry_offset - frame_bytes == VEH_pointer - fault_SP` for both records.
+The total frame extent changes with the fault SP and need not match a different
+producer. These values are measurements, not universal kernel ABI constants.
+
+| Local view | Entry SP modulo 16 / B | Context from entry SP / B | Record from entry SP / B | Captured extent / B |
+| --- | --- | --- | --- | --- |
+| ARM64 | 0 | 0 | 944 | 1120 |
+| x64 on ARM64 | 8 | 8 | 2696 | 2880 |
+| x86 on ARM64 | 12 | 88 | 8 | 1216 |
+
+[local-dispatch-29683-v3.json](local-dispatch-29683-v3.json) binds the exact
+producer, compilers, pre/post executable identities and filtered observations.
+`IsWow64Process2` reports `native_machine=0xAA64` in all three views.
+`GetNativeSystemInfo` reports architecture 9 in the x64 and x86 views; that API
+alone therefore does not establish an independent x64 kernel on this host.
+The native fault and debug-event sequence follows Microsoft's
+[debugger exception handling](https://learn.microsoft.com/en-us/windows/win32/debug/debugger-exception-handling)
+and [WaitForDebugEventEx](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-waitfordebugeventex)
+contracts. Neither source specifies the private entry offsets.
+The scan is O(B) time and O(B) space for B <= 8,192 bytes, with a 512-event,
+15,000-millisecond observation limit, a bounded termination drain, and a
+30-second driver process deadline. All build outputs are worktree-local and
+removed after each view; no emulator execution bound changes.
 
 ## Assumptions and scope
 
@@ -75,7 +130,7 @@ ARM64 kernel do not establish independent x64-kernel parity or an emulator pass.
 | SEH1 | Native kernel exception placement is identical across supported ABIs. | Initial generic-layout hypothesis. | Native exception-frame construction. | Native ARM64, x64 and WoW64 faults. | Compare signed record/context offsets and SDK sizes. | Falsified by the twelve local observations. |
 | SEH2 | A local x64 process view establishes independent x64-kernel evidence. | x64 executable on the ARM64 kernel. | Broader x64 frame admission. | Independent Windows 2022/2025 kernels. | Run this same bounded control and compare exact fields and dispatcher identities. | Falsified as independence evidence; independent layouts remain unknown. |
 | SEH3 | The synthetic callback frame causes the clock unwind failure. | One synthetic frame remains when NTDLL raises bad-function-table status. | Choice of runtime repair. | Invalid image metadata or missing initialization may also cause it. | Trace actual unwind inputs and compare a measured native dispatcher entry. | Unknown; no runtime repair claimed. |
-| SEH4 | Vectored-handler record pointers retain the initial kernel dispatcher placement. | This producer observes pointers supplied to the vectored handler. | Interpreting these offsets as a kernel-entry ABI. | RTL may copy or extend a context before invoking handlers. | Compare an owned child stopped at the actual dispatcher entry with decoded dispatcher arguments and these observations. | Retained; pointer identity across that boundary is unknown. |
+| SEH4 | Vectored-handler record pointers retain the initial kernel dispatcher placement. | This producer observes pointers supplied to the vectored handler. | Interpreting these offsets as a kernel-entry ABI. | RTL may copy or extend a context before invoking handlers. | Compare an owned child stopped at the actual dispatcher entry with decoded dispatcher arguments and these observations. | Confirmed for the three local ABI views by the owned-child dispatcher control below; independent x64-kernel entry remains pending. |
 
 High impact: native exception delivery and the clock guard case remain
 unqualified; they block full installed-Windows userland support. Older NLS
@@ -94,3 +149,12 @@ Microsoft documents the involved structures and language-handler contract in
 and [x64 exception handling](https://learn.microsoft.com/en-us/cpp/build/exception-handling-x64).
 Those sources do not establish the private dispatcher-entry offsets measured
 here.
+
+Additional falsified assumption: `GetNativeSystemInfo` alone identifies the native
+kernel architecture from an emulated process. The paired `IsWow64Process2`
+measurement is now required; Microsoft's
+[GetNativeSystemInfo](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getnativesysteminfo)
+and [IsWow64Process2](https://learn.microsoft.com/en-us/windows/win32/api/wow64apiset/nf-wow64apiset-iswow64process2)
+contracts define that distinction. Stress test: compare all three same-kernel
+views; falsification probe: disagreement with the reported native machine.
+This affects kernel attribution, not the measured per-process ABI geometry.

@@ -1,0 +1,210 @@
+{
+  "scope": "Three compiler ABI views of one Windows ARM64 kernel; independent x64-kernel dispatcher entry remains pending. No runtime emulation pass.",
+  "source": "native-dispatch-entry-v3.cpp",
+  "observations": [
+    {
+      "kind": "producer",
+      "arch": "arm64",
+      "source_sha256": "99dc25db6fbb23c527eaede1961cfb95ef080ffdb67f2374741a7d297ebdf61f",
+      "binary_sha256": "c7c1736b6833017b71cb85ed9974196f809fbbe57538c3a9a0f399ff2994aa97",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "machine": 43620
+    },
+    {
+      "arch": "arm64",
+      "kind": "host",
+      "build": 29683,
+      "native_processor_architecture": 12,
+      "process_machine": 0,
+      "native_machine": 43620,
+      "ntdll_machine": 43620,
+      "context_bytes": 912,
+      "record_bytes": 152,
+      "dispatcher_rva": 1547152
+    },
+    {
+      "arch": "arm64",
+      "kind": "code",
+      "export": "KiUserExceptionDispatcher",
+      "rva": 1547152,
+      "instruction_bytes": 192,
+      "code_sha256": "ab2f3c39d49a10a01ace776e384b9f2783f62ff9dbe04e9e8fcc12cc7c40f859"
+    },
+    {
+      "arch": "arm64",
+      "kind": "fault_stop",
+      "context_read": true,
+      "selected_ntdll_identity": true,
+      "breakpoint_installed": true,
+      "fault_sp_mod16": 0
+    },
+    {
+      "arch": "arm64",
+      "kind": "dispatcher_entry",
+      "frame_bytes": 1120,
+      "entry_sp_mod16": 0,
+      "context_candidates": 1,
+      "record_candidates": 1,
+      "context_offset_bytes": 0,
+      "record_offset_bytes": 944,
+      "context_flags": "0040000F",
+      "frame_captured": true
+    },
+    {
+      "arch": "arm64",
+      "kind": "child_handler",
+      "seen": 1,
+      "caught": "C0000005",
+      "context_to_fault_sp_bytes": -1120,
+      "record_to_fault_sp_bytes": -176,
+      "handler_removed": true,
+      "freed": true
+    },
+    {
+      "arch": "arm64",
+      "kind": "complete",
+      "fault_seen": true,
+      "entry_captured": true,
+      "breakpoint_restored": true,
+      "child_exit": 0,
+      "child_wait": 0,
+      "failed": false
+    },
+    {
+      "kind": "producer",
+      "arch": "x64",
+      "source_sha256": "99dc25db6fbb23c527eaede1961cfb95ef080ffdb67f2374741a7d297ebdf61f",
+      "binary_sha256": "2881d6e38a185b9650958a17063ea01b32323fe8a01b01fe4d08ca7fa599f174",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "machine": 34404
+    },
+    {
+      "arch": "x64",
+      "kind": "host",
+      "build": 29683,
+      "native_processor_architecture": 9,
+      "process_machine": 0,
+      "native_machine": 43620,
+      "ntdll_machine": 34404,
+      "context_bytes": 1232,
+      "record_bytes": 152,
+      "dispatcher_rva": 3309568
+    },
+    {
+      "arch": "x64",
+      "kind": "code",
+      "export": "KiUserExceptionDispatcher",
+      "rva": 3309568,
+      "instruction_bytes": 192,
+      "code_sha256": "3b2017c143648a961e16fd6f36011dbdbefb62e300f03f373ca0b2129fc90b04"
+    },
+    {
+      "arch": "x64",
+      "kind": "fault_stop",
+      "context_read": true,
+      "selected_ntdll_identity": true,
+      "breakpoint_installed": true,
+      "fault_sp_mod16": 8
+    },
+    {
+      "arch": "x64",
+      "kind": "dispatcher_entry",
+      "frame_bytes": 2880,
+      "entry_sp_mod16": 8,
+      "context_candidates": 1,
+      "record_candidates": 1,
+      "context_offset_bytes": 8,
+      "record_offset_bytes": 2696,
+      "context_flags": "0010005B",
+      "frame_captured": true
+    },
+    {
+      "arch": "x64",
+      "kind": "child_handler",
+      "seen": 1,
+      "caught": "C0000005",
+      "context_to_fault_sp_bytes": -2872,
+      "record_to_fault_sp_bytes": -184,
+      "handler_removed": true,
+      "freed": true
+    },
+    {
+      "arch": "x64",
+      "kind": "complete",
+      "fault_seen": true,
+      "entry_captured": true,
+      "breakpoint_restored": true,
+      "child_exit": 0,
+      "child_wait": 0,
+      "failed": false
+    },
+    {
+      "kind": "producer",
+      "arch": "x86",
+      "source_sha256": "99dc25db6fbb23c527eaede1961cfb95ef080ffdb67f2374741a7d297ebdf61f",
+      "binary_sha256": "fa223ba31af1651460ef25092163074c6ea9e7bed6d1ded363fd9bf21b013d4c",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "machine": 332
+    },
+    {
+      "arch": "x86",
+      "kind": "host",
+      "build": 29683,
+      "native_processor_architecture": 9,
+      "process_machine": 332,
+      "native_machine": 43620,
+      "ntdll_machine": 332,
+      "context_bytes": 716,
+      "record_bytes": 80,
+      "dispatcher_rva": 1834720
+    },
+    {
+      "arch": "x86",
+      "kind": "code",
+      "export": "KiUserExceptionDispatcher",
+      "rva": 1834720,
+      "instruction_bytes": 192,
+      "code_sha256": "19b6e62278d0264dc752bd5255bd4fc3e3575be75ba538f601847498b6c14249"
+    },
+    {
+      "arch": "x86",
+      "kind": "fault_stop",
+      "context_read": true,
+      "selected_ntdll_identity": true,
+      "breakpoint_installed": true,
+      "fault_sp_mod16": 12
+    },
+    {
+      "arch": "x86",
+      "kind": "dispatcher_entry",
+      "frame_bytes": 1216,
+      "entry_sp_mod16": 12,
+      "context_candidates": 1,
+      "record_candidates": 1,
+      "context_offset_bytes": 88,
+      "record_offset_bytes": 8,
+      "context_flags": "0001007F",
+      "frame_captured": true
+    },
+    {
+      "arch": "x86",
+      "kind": "child_handler",
+      "seen": 1,
+      "caught": "C0000005",
+      "context_to_fault_sp_bytes": -1128,
+      "record_to_fault_sp_bytes": -1208,
+      "handler_removed": true,
+      "freed": true
+    },
+    {
+      "arch": "x86",
+      "kind": "complete",
+      "fault_seen": true,
+      "entry_captured": true,
+      "breakpoint_restored": true,
+      "child_exit": 0,
+      "child_wait": 0,
+      "failed": false
+    }
+  ]
+}
