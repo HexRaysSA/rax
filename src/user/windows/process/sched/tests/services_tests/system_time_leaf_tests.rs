@@ -72,6 +72,90 @@ fn outcome_kind(outcome: &Outcome) -> &'static str {
     }
 }
 
+fn stop_detail(p: &Proc, t: &Thread, stop: &CpuStop) -> String {
+    let number = match stop {
+        CpuStop::X86Syscall { .. } => t.cpu.gpr(0) as u32,
+        CpuStop::Svc { imm, .. } => u32::from(*imm),
+        CpuStop::Fault(fault) => {
+            return format!("fault/{:?}/{:?}", fault.access, fault.kind);
+        }
+        _ => return stop_kind(stop).into(),
+    };
+    let name = p
+        .modules
+        .nt_services
+        .as_ref()
+        .and_then(|(_, table)| table.name(p.arch, number))
+        .unwrap_or("unadmitted");
+    format!("{}/{name}/{number:#x}", stop_kind(stop))
+}
+
+/// A failed fixture stays failed. This bounded continuation only measures the
+/// exception path beyond its original 32 slices; it cannot accept that call.
+fn failed_return_probe(p: &mut Proc, t: &mut Thread, sp: u64, resume: u64, argc: usize) -> String {
+    const SLICES: usize = 512;
+    const RECORDS: usize = 64;
+    let expected_sp = sp
+        + match p.arch {
+            WinArch::X86 => 4 + argc as u64 * 4,
+            WinArch::X64 => 8,
+            WinArch::Arm64 => 0,
+        };
+    let mut trace = std::collections::VecDeque::new();
+    let mut internal_returns = 0;
+    for slice in 0..SLICES {
+        let start = location(p, t.cpu.pc(), resume);
+        let boundary = t.cpu.run(64);
+        if t.cpu.pc() == resume && t.frames.is_empty() && t.cpu.sp() == expected_sp {
+            return format!(
+                "completed_after_extra_slices={} status={:#010x} internal_callback_returns={internal_returns} frames=0 sp_delta={} trace={trace:#?}",
+                slice + 1,
+                t.cpu.gpr(0) as u32,
+                i128::from(t.cpu.sp()) - i128::from(sp),
+            );
+        }
+        if t.cpu.pc() == resume {
+            internal_returns += 1;
+        }
+        let stopped = location(p, t.cpu.pc(), resume);
+        let detail = stop_detail(p, t, &boundary);
+        let code = p
+            .modules
+            .by_address(t.cpu.pc())
+            .filter(|(_, module)| {
+                t.cpu.pc().checked_add(8).is_some_and(|end| {
+                    module
+                        .base
+                        .checked_add(module.size)
+                        .is_some_and(|limit| end <= limit)
+                })
+            })
+            .and_then(|_| p.space.bytes(t.cpu.pc(), 8).ok());
+        let outcome = handle_stop(p, t, boundary);
+        // Keep the first half and a rolling final half. Intermediate execution
+        // cannot make diagnostics grow beyond 64 records.
+        if trace.len() == RECORDS {
+            trace.remove(RECORDS / 2);
+        }
+        trace.push_back(format!(
+            "extra_slice={slice} start={start} stop={stopped}/{detail} code={code:02x?} next={} outcome={} frames={} sp_delta={}",
+            location(p, t.cpu.pc(), resume),
+            outcome_kind(&outcome),
+            t.frames.len(),
+            i128::from(t.cpu.sp()) - i128::from(sp),
+        ));
+        if !matches!(outcome, Outcome::Continue | Outcome::Yield) {
+            return format!(
+                "stopped_after_extra_slices={} internal_callback_returns={internal_returns} trace={trace:#?}",
+                slice + 1,
+            );
+        }
+    }
+    format!(
+        "exhausted_extra_slices={SLICES} internal_callback_returns={internal_returns} trace={trace:#?}"
+    )
+}
+
 fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, case: &str, args: &[u64]) -> u32 {
     let m = loader::load_dll(p, library).unwrap();
     let entry = loader::lookup(p, m, &SymRef::Name(name.as_bytes().to_vec(), None))
@@ -123,13 +207,15 @@ fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, case: &str, arg
             sp % 16,
         );
     }
-    assert!(
-        returned,
-        "{name} {} guest_build{} case={case} entry_sp_mod16={} exceeded32slicesof64instructions trace={trace:#?}",
-        p.arch,
-        p.cfg.version.build,
-        sp % 16,
-    );
+    if !returned {
+        let probe = failed_return_probe(p, t, sp, resume, args.len());
+        panic!(
+            "{name} {} guest_build{} case={case} entry_sp_mod16={} exceeded32slicesof64instructions trace={trace:#?} diagnostic_continuation={probe}",
+            p.arch,
+            p.cfg.version.build,
+            sp % 16,
+        );
+    }
     assert!(t.frames.is_empty());
     assert_eq!(
         t.cpu.sp(),
