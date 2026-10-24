@@ -2,6 +2,7 @@
 use super::*;
 use crate::user::windows::{
     arch::CpuStop,
+    context::{ExceptionRecord, RegContext},
     loader::{self, SymRef},
     process::{WindowsConfig, WindowsProcess},
 };
@@ -90,10 +91,65 @@ fn stop_detail(p: &Proc, t: &Thread, stop: &CpuStop) -> String {
     format!("{}/{name}/{number:#x}", stop_kind(stop))
 }
 
+fn exception_detail(p: &Proc, record: u64, context: u64, sp: u64, resume: u64) -> String {
+    let record = match ExceptionRecord::read(&p.space, p.arch, record) {
+        Ok(record) => format!(
+            "code={:#010x} flags={:#x} address={} nested={} parameters={}",
+            record.code,
+            record.flags,
+            location(p, record.address, resume),
+            record.nested != 0,
+            record.params.len(),
+        ),
+        Err(_) => "unreadable-record".into(),
+    };
+    let context = match RegContext::read(&p.space, p.arch, context) {
+        Ok(context) => format!(
+            "pc={} sp_delta={}",
+            location(p, context.pc(), resume),
+            i128::from(context.sp()) - i128::from(sp),
+        ),
+        Err(_) => "unreadable-context".into(),
+    };
+    format!("record({record}) context({context})")
+}
+
+fn unwind_entry_detail(p: &Proc, t: &Thread, name: &str, sp: u64, resume: u64) -> String {
+    if p.arch != WinArch::X64 {
+        return name.into();
+    }
+    let stack_context = || {
+        t.cpu
+            .sp()
+            .checked_add(40)
+            .and_then(|address| p.space.u64(address).ok())
+            .unwrap_or(0)
+    };
+    match name {
+        "RtlUnwindEx" => format!(
+            "{name} target_sp_delta={} target={} return_low32={:#010x} {}",
+            i128::from(t.cpu.gpr(1)) - i128::from(sp),
+            location(p, t.cpu.gpr(2), resume),
+            t.cpu.gpr(9) as u32,
+            exception_detail(p, t.cpu.gpr(8), stack_context(), sp, resume),
+        ),
+        "RtlVirtualUnwind" => format!(
+            "{name} control_pc={} {}",
+            location(p, t.cpu.gpr(8), resume),
+            exception_detail(p, 0, stack_context(), sp, resume),
+        ),
+        "RtlRestoreContext" => format!(
+            "{name} {}",
+            exception_detail(p, t.cpu.gpr(2), t.cpu.gpr(1), sp, resume),
+        ),
+        _ => name.into(),
+    }
+}
+
 /// A failed fixture stays failed. This bounded continuation only measures the
 /// exception path beyond its original 32 slices; it cannot accept that call.
 fn failed_return_probe(p: &mut Proc, t: &mut Thread, sp: u64, resume: u64, argc: usize) -> String {
-    const SLICES: usize = 512;
+    const ATTEMPTS: usize = 512 * 64;
     const RECORDS: usize = 64;
     let expected_sp = sp
         + match p.arch {
@@ -103,13 +159,27 @@ fn failed_return_probe(p: &mut Proc, t: &mut Thread, sp: u64, resume: u64, argc:
         };
     let mut trace = std::collections::VecDeque::new();
     let mut internal_returns = 0;
-    for slice in 0..SLICES {
+    let mut entries = Vec::new();
+    if let Some(module) = p.modules.by_name("ntdll.dll") {
+        for name in ["RtlUnwindEx", "RtlVirtualUnwind", "RtlRestoreContext"] {
+            if let Ok(Some(entry)) =
+                loader::lookup(p, module, &SymRef::Name(name.as_bytes().to_vec(), None))
+            {
+                entries.push((entry, name));
+            }
+        }
+    }
+    for attempt in 0..ATTEMPTS {
+        let entry = entries
+            .iter()
+            .find(|(entry, _)| *entry == t.cpu.pc())
+            .map(|(_, name)| unwind_entry_detail(p, t, name, sp, resume));
         let start = location(p, t.cpu.pc(), resume);
-        let boundary = t.cpu.run(64);
+        let boundary = t.cpu.run(1);
         if t.cpu.pc() == resume && t.frames.is_empty() && t.cpu.sp() == expected_sp {
             return format!(
-                "completed_after_extra_slices={} status={:#010x} internal_callback_returns={internal_returns} frames=0 sp_delta={} trace={trace:#?}",
-                slice + 1,
+                "completed_after_extra_attempts={} status={:#010x} internal_callback_returns={internal_returns} frames=0 sp_delta={} trace={trace:#?}",
+                attempt + 1,
                 t.cpu.gpr(0) as u32,
                 i128::from(t.cpu.sp()) - i128::from(sp),
             );
@@ -119,40 +189,55 @@ fn failed_return_probe(p: &mut Proc, t: &mut Thread, sp: u64, resume: u64, argc:
         }
         let stopped = location(p, t.cpu.pc(), resume);
         let detail = stop_detail(p, t, &boundary);
-        let code = p
-            .modules
-            .by_address(t.cpu.pc())
-            .filter(|(_, module)| {
-                t.cpu.pc().checked_add(8).is_some_and(|end| {
-                    module
-                        .base
-                        .checked_add(module.size)
-                        .is_some_and(|limit| end <= limit)
+        let raised = if p.arch == WinArch::X64 && detail.contains("/NtRaiseException/") {
+            format!(
+                "first_chance_low8={} {}",
+                t.cpu.gpr(8) as u8,
+                exception_detail(p, t.cpu.gpr(10), t.cpu.gpr(2), sp, resume),
+            )
+        } else {
+            String::new()
+        };
+        let record = attempt % 64 == 0 || entry.is_some() || !matches!(&boundary, CpuStop::Yield);
+        let code = if record {
+            p.modules
+                .by_address(t.cpu.pc())
+                .filter(|(_, module)| {
+                    t.cpu.pc().checked_add(8).is_some_and(|end| {
+                        module
+                            .base
+                            .checked_add(module.size)
+                            .is_some_and(|limit| end <= limit)
+                    })
                 })
-            })
-            .and_then(|_| p.space.bytes(t.cpu.pc(), 8).ok());
+                .and_then(|_| p.space.bytes(t.cpu.pc(), 8).ok())
+        } else {
+            None
+        };
         let outcome = handle_stop(p, t, boundary);
         // Keep the first half and a rolling final half. Intermediate execution
         // cannot make diagnostics grow beyond 64 records.
-        if trace.len() == RECORDS {
-            trace.remove(RECORDS / 2);
+        if record {
+            if trace.len() == RECORDS {
+                trace.remove(RECORDS / 2);
+            }
+            trace.push_back(format!(
+                "extra_attempt={attempt} entry={entry:?} start={start} stop={stopped}/{detail} {raised} code={code:02x?} next={} outcome={} frames={} sp_delta={}",
+                location(p, t.cpu.pc(), resume),
+                outcome_kind(&outcome),
+                t.frames.len(),
+                i128::from(t.cpu.sp()) - i128::from(sp),
+            ));
         }
-        trace.push_back(format!(
-            "extra_slice={slice} start={start} stop={stopped}/{detail} code={code:02x?} next={} outcome={} frames={} sp_delta={}",
-            location(p, t.cpu.pc(), resume),
-            outcome_kind(&outcome),
-            t.frames.len(),
-            i128::from(t.cpu.sp()) - i128::from(sp),
-        ));
         if !matches!(outcome, Outcome::Continue | Outcome::Yield) {
             return format!(
-                "stopped_after_extra_slices={} internal_callback_returns={internal_returns} trace={trace:#?}",
-                slice + 1,
+                "stopped_after_extra_attempts={} internal_callback_returns={internal_returns} trace={trace:#?}",
+                attempt + 1,
             );
         }
     }
     format!(
-        "exhausted_extra_slices={SLICES} internal_callback_returns={internal_returns} trace={trace:#?}"
+        "exhausted_extra_attempts={ATTEMPTS} internal_callback_returns={internal_returns} trace={trace:#?}"
     )
 }
 

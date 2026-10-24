@@ -170,6 +170,19 @@ reports selected NTDLL service identities and bounded instruction bytes, and
 retains the original failed verdict even if the continuation completes. No
 production code, accepted execution limit or semantic assertion is changed.
 
+At `1d9c0898`, the [bounded continuation](https://github.com/HexRaysSA/rax/actions/runs/40100130572/job/120890510636)
+reaches the unimplemented selected `NtRaiseException` service after 104 further
+slices, rather than returning from the clock call. The retained trace also
+identifies `NtQueryVirtualMemory` during unwinding. Increasing the fixture limit
+alone does not repair that path. The following diagnostic uses the same maximum
+32,768 additional instruction attempts, stepped individually, to observe native
+unwind export arguments and the raised exception code, flags and context.
+Its context PCs are module-relative and stack values are deltas; exception
+parameters and raw register/stack addresses are not emitted. The 64-record
+ceiling and original failed verdict remain. The synthetic callback frame and
+the fixture's bypass of `LdrInitializeThunk` are candidate prerequisites;
+their causal roles remain unknown pending these observations.
+
 High impact: native valid-call success alone does not qualify NLS fault/alias
 semantics or admit another NLS profile. Other shared timing fields, older NLS
 profiles, DPI/GUI work and full userland completion remain unfinished. The
