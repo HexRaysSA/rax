@@ -327,6 +327,12 @@ fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, case: &str, arg
         let detail = stop_detail(p, t, &boundary);
         let extra = stop_extra(p, t, &boundary, sp, resume);
         if t.cpu.pc() == resume {
+            // This harness enters the leaf itself, without an HLE call site.
+            // A guest language handler that unwinds to the fault frame resumes
+            // it directly (through its own RtlUnwindEx), abandoning the
+            // dispatcher's waiting frame. A real callback return prunes such
+            // abandoned owners at the trap, so do the same here.
+            crate::user::windows::hle::dispatch::prune(t, t.cpu.sp());
             returned = true;
             break;
         }
