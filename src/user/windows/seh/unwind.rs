@@ -26,7 +26,7 @@
 //! O(n log n) time and O(n) space, in addition to O(n log t + u) decoding for
 //! t function-table entries and u total ISA-specific unwind decoding work.
 
-use super::{Records, disposition, handler_continue, unhandled};
+use super::{Records, disposition, handler_continue, trace, unhandled};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::context::{
     EXCEPTION_COLLIDED_UNWIND, EXCEPTION_EXIT_UNWIND, EXCEPTION_NONCONTINUABLE,
@@ -557,6 +557,10 @@ fn search(
             return unhandled(c, rec, recs);
         }
         walk.visit(&ctx)?;
+        trace(format_args!(
+            "search pc={pc:#x} sp={:#x} first={first}",
+            ctx.sp()
+        ));
         match crate::user::windows::hle::exception::table(c, &rec, &mut ctx, &mut walk.exception)? {
             crate::user::windows::hle::exception::Crossing::Selected(selected) => {
                 // Search changed only a virtual context. Real cleanup starts
@@ -589,6 +593,11 @@ fn search(
                 // without committing a synthetic leaf/caller context. Keep
                 // the original classified exception; unhandled filtering is
                 // a guest callback rather than synchronous redispatch.
+                trace(format_args!(
+                    "walk stopped at pc={:#x} sp={:#x}",
+                    pc,
+                    ctx.sp()
+                ));
                 let mut rec = rec;
                 rec.flags |= EXCEPTION_STACK_INVALID;
                 c.p.space.w32(recs.record + 4, rec.flags)?;
@@ -607,6 +616,10 @@ fn search(
             return unhandled(c, rec, recs);
         }
         this.write(&c.p.space, frame_ctx)?;
+        trace(format_args!(
+            "handler pc={:#x} establisher={:#x} entry={:#x} image={:#x} data={:#x}",
+            handler, u.establisher, f.entry, f.image_base, u.handler_data,
+        ));
         DispatcherContext {
             control_pc: pc,
             image_base: f.image_base,

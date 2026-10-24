@@ -37,6 +37,20 @@ use super::memory::Mem;
 use super::nt::status::*;
 use super::process::{Proc, Thread};
 
+/// Whether `RAX_SEH_TRACE` is set: one diagnostic line per dispatch event.
+pub(crate) fn tracing() -> bool {
+    std::env::var_os("RAX_SEH_TRACE").is_some()
+}
+
+/// Emits one dispatch event line when [`tracing`] is enabled. The fixture
+/// harnesses set the switch to explain a failing continuation; ordinary
+/// runs stay silent.
+pub(crate) fn trace(args: std::fmt::Arguments<'_>) {
+    if tracing() {
+        eprintln!("seh: {args}");
+    }
+}
+
 /// `EXCEPTION_CONTINUE_EXECUTION` (a filter or vectored handler result).
 pub const EXCEPTION_CONTINUE_EXECUTION: i32 = -1;
 /// `EXCEPTION_CONTINUE_SEARCH`.
@@ -146,6 +160,14 @@ pub fn fail_fast(_code: u64) -> Outcome {
 pub fn raise(p: &mut Proc, t: &mut Thread, rec: ExceptionRecord, ctx: RegContext) -> Outcome {
     let arch = p.arch;
     let psize = arch.ptr_size();
+    trace(format_args!(
+        "raise code={:#010x} flags={:#x} address={:#x} pc={:#x} sp={:#x}",
+        rec.code,
+        rec.flags,
+        rec.address,
+        ctx.pc(),
+        ctx.sp(),
+    ));
     // Below the exception's stack pointer: the ARM64 area reserved for
     // interrupted code, then CONTEXT, EXCEPTION_RECORD, and the pointers.
     let mut sp = ctx.sp();
@@ -241,6 +263,11 @@ fn continue_handlers(c: &mut Ctx, recs: Records, i: usize) -> ApiResult {
 
 fn resume_context(c: &mut Ctx, recs: Records) -> ApiResult {
     let ctx = RegContext::read(&c.p.space, c.p.arch, recs.context)?;
+    trace(format_args!(
+        "continue pc={:#x} sp={:#x}",
+        ctx.pc(),
+        ctx.sp()
+    ));
     Ok(Flow::Resume(Box::new(ctx)))
 }
 
@@ -274,6 +301,10 @@ fn noncontinuable(rec: &ExceptionRecord, recs: Records) -> ApiResult {
 /// No frame handler handled the exception: the unhandled-exception
 /// filter, then process termination with the exception code.
 pub fn unhandled(c: &mut Ctx, rec: ExceptionRecord, recs: Records) -> ApiResult {
+    trace(format_args!(
+        "unhandled code={:#010x} address={:#x} filter={:#x}",
+        rec.code, rec.address, c.p.seh.unhandled_filter,
+    ));
     let filter = c.p.seh.unhandled_filter;
     if filter == 0 {
         return Ok(Flow::TerminateProcess(rec.code));

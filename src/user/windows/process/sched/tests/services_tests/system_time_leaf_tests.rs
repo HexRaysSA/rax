@@ -73,6 +73,54 @@ fn outcome_kind(outcome: &Outcome) -> &'static str {
     }
 }
 
+fn outcome_detail(outcome: &Outcome) -> String {
+    match outcome {
+        Outcome::ThreadExit(code)
+        | Outcome::ProcessExit(code)
+        | Outcome::ThreadTerminate(code)
+        | Outcome::ProcessTerminate(code) => {
+            format!("{}({code:#010x})", outcome_kind(outcome))
+        }
+        Outcome::Fail(reason) => format!("fail({reason})"),
+        _ => outcome_kind(outcome).into(),
+    }
+}
+
+/// Extra state around a stop that the raw kind does not carry: the faulting
+/// access and region, or the record a native raise carries.
+fn stop_extra(p: &Proc, t: &Thread, stop: &CpuStop, sp: u64, resume: u64) -> String {
+    if let CpuStop::Fault(fault) = stop {
+        let region =
+            p.vm.query(fault.addr)
+                .map(|region| format!("{:#x}", region.protect))
+                .unwrap_or_else(|| "unmapped".into());
+        let bytes = p
+            .space
+            .bytes(fault.pc, 16)
+            .map(|bytes| format!("{bytes:02x?}"))
+            .unwrap_or_else(|_| "unreadable".into());
+        return format!(
+            " fault_addr={:#x} region={region} fault_pc_bytes={bytes}",
+            fault.addr
+        );
+    }
+    if p.arch == WinArch::X64
+        && matches!(stop, CpuStop::X86Syscall { .. })
+        && p.modules
+            .nt_services
+            .as_ref()
+            .and_then(|(_, table)| table.name(p.arch, t.cpu.gpr(0) as u32))
+            .is_some_and(|name| name == "NtRaiseException")
+    {
+        return format!(
+            " first_chance_low8={} {}",
+            t.cpu.gpr(8) as u8,
+            exception_detail(p, t.cpu.gpr(10), t.cpu.gpr(2), sp, resume),
+        );
+    }
+    String::new()
+}
+
 fn stop_detail(p: &Proc, t: &Thread, stop: &CpuStop) -> String {
     let number = match stop {
         CpuStop::X86Syscall { .. } => t.cpu.gpr(0) as u32,
@@ -276,26 +324,30 @@ fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, case: &str, arg
         let start = location(p, t.cpu.pc(), resume);
         let boundary = t.cpu.run(64);
         let stopped = location(p, t.cpu.pc(), resume);
-        let stop = stop_kind(&boundary);
+        let detail = stop_detail(p, t, &boundary);
+        let extra = stop_extra(p, t, &boundary, sp, resume);
         if t.cpu.pc() == resume {
             returned = true;
             break;
         }
         let outcome = handle_stop(p, t, boundary);
         trace.push(format!(
-            "slice={slice} start={start} stop={stopped}/{stop} next={} outcome={} frames={} sp_delta={}",
+            "slice={slice} start={start} stop={stopped}/{detail}{extra} next={} outcome={} frames={} sp_delta={}",
             location(p, t.cpu.pc(), resume),
-            outcome_kind(&outcome),
+            outcome_detail(&outcome),
             t.frames.len(),
             i128::from(t.cpu.sp()) - i128::from(sp),
         ));
-        assert!(
-            matches!(outcome, Outcome::Continue | Outcome::Yield),
-            "{name} {} guest_build{} case={case} entry_sp_mod16={} trace={trace:#?}",
-            p.arch,
-            p.cfg.version.build,
-            sp % 16,
-        );
+        if !matches!(outcome, Outcome::Continue | Outcome::Yield) {
+            let probe = failed_return_probe(p, t, sp, resume, args.len());
+            panic!(
+                "{name} {} guest_build{} case={case} entry_sp_mod16={} outcome={} trace={trace:#?} diagnostic_continuation={probe}",
+                p.arch,
+                p.cfg.version.build,
+                sp % 16,
+                outcome_detail(&outcome),
+            );
+        }
     }
     if !returned {
         let probe = failed_return_probe(p, t, sp, resume, args.len());
@@ -320,6 +372,9 @@ fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, case: &str, arg
 }
 #[test]
 fn native_system_time_installed_leaf_uses_host_clock_and_preserves_guards() {
+    // libtest captures this dispatch trace and prints it only on failure.
+    // SAFETY: no test reads the variable concurrently.
+    unsafe { std::env::set_var("RAX_SEH_TRACE", "1") };
     let host = if cfg!(target_arch = "aarch64") {
         WinArch::Arm64
     } else if cfg!(target_arch = "x86_64") {

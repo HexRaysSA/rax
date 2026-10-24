@@ -661,6 +661,10 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
             Outcome::ThreadTerminate(code)
         }
         Ok(Flow::TerminateProcess(code)) => {
+            seh::trace(format_args!(
+                "terminate code={code:#010x} from={}",
+                site.api.name
+            ));
             pop_frame(t, &site);
             Outcome::ProcessTerminate(code)
         }
@@ -698,6 +702,12 @@ fn resume_context(
     alertable: bool,
 ) -> Outcome {
     pop_frame(t, site);
+    seh::trace(format_args!(
+        "resume pc={:#x} sp={:#x} via={}",
+        context.pc(),
+        context.sp(),
+        site.api.name,
+    ));
     if let Err(status) = context.apply(&mut t.cpu) {
         return Outcome::Fail(format!(
             "{}: context restoration rejected with status {status:#010x}",
