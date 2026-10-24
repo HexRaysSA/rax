@@ -541,6 +541,88 @@ fn complete_call(
     }
 }
 
+/// Enters guest code at an exact stack pointer chosen by an exception
+/// dispatcher's frame-chain builder. The caller guarantees the bytes above
+/// `sp` hold the return address and whatever chain the guest's own unwinder
+/// is expected to walk.
+fn complete_call_at(
+    p: &mut Proc,
+    t: &mut Thread,
+    site: CallSite,
+    target: u64,
+    args: Vec<u64>,
+    sp: u64,
+    rbx: u64,
+    then: Cont,
+) -> Outcome {
+    use super::super::process::stack::{self, StackFault};
+    if p.arch != WinArch::X64 {
+        // The hand-built chain is an x64 stack-walk artifact.
+        return complete_call(p, t, site, target, args, then, true);
+    }
+    // The return address and the chain word below the x64 shadow space.
+    if let Err(fault) = stack::prepare(p, t, sp, 2 * 8) {
+        return retry_operation(
+            p,
+            t,
+            site,
+            Box::new(move |_, _| {
+                Ok(Flow::CallCheckedAt {
+                    target,
+                    args,
+                    sp,
+                    rbx,
+                    then,
+                })
+            }),
+            fault,
+        );
+    }
+    let ret_trap = p.traps.callback_return();
+    let frame = frame_for(t, &site);
+    frame.checked_call = true;
+    frame.cont = Some(then);
+    if let Err(fault) = p
+        .space
+        .w64(sp, ret_trap)
+        .and_then(|()| p.space.w64(sp + 8, rbx))
+    {
+        // The probe covered both slots; retain the owner and retry.
+        let then = t.frames.last_mut().and_then(|frame| frame.cont.take());
+        let Some(then) = then else {
+            return Outcome::Fail("anchored callback lost its continuation".into());
+        };
+        return retry_operation(
+            p,
+            t,
+            site,
+            Box::new(move |_, _| {
+                Ok(Flow::CallCheckedAt {
+                    target,
+                    args,
+                    sp,
+                    rbx,
+                    then,
+                })
+            }),
+            StackFault::Access(fault),
+        );
+    }
+    // A guest x64 prolog spills nonvolatile registers before using them; the
+    // unwinder reads the shadow slot as the leaf frame's return address.
+    t.cpu.set_gpr(3, rbx);
+    for (i, reg) in [1usize, 2, 8, 9].iter().enumerate() {
+        t.cpu.set_gpr(*reg, args.get(i).copied().unwrap_or(0));
+    }
+    t.cpu.set_sp(sp);
+    t.cpu.set_pc(target);
+    t.frames
+        .last_mut()
+        .expect("callback owner published")
+        .callback_sp = Some(sp);
+    Outcome::Continue
+}
+
 /// Applies a built-in call's result.
 pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult) -> Outcome {
     match result {
@@ -563,6 +645,13 @@ pub fn complete(p: &mut Proc, t: &mut Thread, site: CallSite, result: ApiResult)
         Ok(Flow::CallChecked { target, args, then }) => {
             complete_call(p, t, site, target, args, then, true)
         }
+        Ok(Flow::CallCheckedAt {
+            target,
+            args,
+            sp,
+            rbx,
+            then,
+        }) => complete_call_at(p, t, site, target, args, sp, rbx, then),
         Ok(Flow::Protected {
             code,
             handler,

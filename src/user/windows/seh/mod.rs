@@ -169,8 +169,21 @@ pub fn raise(p: &mut Proc, t: &mut Thread, rec: ExceptionRecord, ctx: RegContext
         ctx.sp(),
     ));
     // Below the exception's stack pointer: the ARM64 area reserved for
-    // interrupted code, then CONTEXT, EXCEPTION_RECORD, and the pointers.
-    let mut sp = ctx.sp();
+    // interrupted code, then CONTEXT, EXCEPTION_RECORD, and the pointers. On
+    // x64 an anchored language handler is re-entered above these records (see
+    // `unwind::anchor`), so when that path is available the records are placed
+    // one reserve lower and the handler's own frames grow through the reserve
+    // instead of the records. Raises that cannot anchor (VEH/VCH dispatch, the
+    // retry trap, modules without unwind metadata) keep the native placement
+    // so their callback stack is unchanged.
+    let mut records_sp = ctx.sp();
+    if arch == WinArch::X64 && unwind::anchor_possible(p, ctx.pc()) {
+        let reserved = ctx.sp().saturating_sub(unwind::RECORD_RESERVE);
+        if super::process::stack::prepare(p, t, reserved, unwind::RECORD_RESERVE).is_ok() {
+            records_sp = reserved;
+        }
+    }
+    let mut sp = records_sp;
     sp = sp.saturating_sub(if arch == WinArch::Arm64 { 16 } else { 0 });
     sp = sp.saturating_sub(RegContext::size(arch) as u64) & !(RegContext::align(arch) - 1);
     let context_addr = sp;
@@ -178,7 +191,7 @@ pub fn raise(p: &mut Proc, t: &mut Thread, rec: ExceptionRecord, ctx: RegContext
     let record_addr = sp;
     sp = sp.saturating_sub(2 * psize) & !0xF;
     let pointers = sp;
-    let prepared = super::process::stack::prepare(p, t, sp, ctx.sp().saturating_sub(sp));
+    let prepared = super::process::stack::prepare(p, t, sp, records_sp.saturating_sub(sp));
     if prepared.is_err() {
         return Outcome::ProcessTerminate(if rec.code == STATUS_STACK_OVERFLOW {
             STATUS_STACK_OVERFLOW

@@ -27,6 +27,7 @@
 //! t function-table entries and u total ISA-specific unwind decoding work.
 
 use super::{Records, disposition, handler_continue, trace, unhandled};
+use crate::user::image::pe::RvaSource;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::context::{
     EXCEPTION_COLLIDED_UNWIND, EXCEPTION_EXIT_UNWIND, EXCEPTION_NONCONTINUABLE,
@@ -532,6 +533,240 @@ fn in_stack(c: &Ctx, sp: u64) -> bool {
     sp >= c.t.stack_alloc && sp <= c.t.stack_base
 }
 
+/// Extra stack kept below an exception's dispatcher records so an x64
+/// language handler can be re-entered above them (`raise`).
+pub(super) const RECORD_RESERVE: u64 = 0x4000;
+
+/// Minimum free space between an anchored handler's stack and the top of the
+/// dispatcher records. The handler, the guest's `RtlUnwindEx`, and the guest
+/// dispatch frames all run in that space.
+const ANCHOR_HANDLER_GAP: u64 = 0x2000;
+
+/// Smallest prolog allocation an anchor delta frame may have: the anchored
+/// call frame and the handler's spilled nonvolatiles must stay below the
+/// delta frame's hand-written return-address slot.
+const ANCHOR_MIN_DELTA: u64 = 0x18;
+
+/// A frameless x64 function whose prolog only allocates stack. Unwinding it
+/// moves a fabricated stack pointer to its caller without restoring any
+/// register, so a dispatcher can splice it into a synthetic frame chain.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct DeltaFrame {
+    /// A PC inside the function, after its prolog.
+    pc: u64,
+    /// Bytes the prolog subtracts from the entry stack pointer.
+    delta: u64,
+}
+
+/// The exact stack that re-enters an x64 language handler so the guest's own
+/// `RtlUnwindEx` walks from it to the fault frame described by `fault`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Anchor {
+    /// Stack pointer to enter the handler with.
+    sp: u64,
+    /// The handler's initial `RBX`: the delta frame's PC.
+    delta_pc: u64,
+}
+
+/// Builds the synthetic frame chain that makes a guest x64 `RtlUnwindEx`
+/// reach the fault frame, and returns the stack to enter `handler` with.
+///
+/// A guest language handler receives the fault frame's establisher as its
+/// `EstablisherFrame` and passes it to `RtlUnwindEx` as `TargetFrame`. That
+/// walk starts at `RtlUnwindEx`'s own caller frame and climbs the real stack
+/// until a frame's establisher equals `TargetFrame`. A synthetic handler call
+/// puts the handler on a stack whose return-address chain is arbitrary, so in
+/// native dispatch the walk instead crosses `KiUserExceptionDispatcher`,
+/// whose unwind data makes its establisher the faulting stack pointer.
+///
+/// This builder supplies that missing frame chain explicitly. The handler is
+/// entered at `sp`, a leaf frame whose return address is the callback-return
+/// trap. The trap is outside every image, so the guest unwinds it as a leaf
+/// and takes the next return address from the shadow slot where the handler
+/// spills `RBX`; that slot holds `delta_pc`, a frameless function in the
+/// fault module that only allocates stack. Unwinding it lands exactly on
+/// `TargetFrame` with the fault PC as the return address, so the frame the
+/// guest is searching for is the fault context's own frame.
+///
+/// Returns `None` (leaving the caller's ordinary callback placement to apply)
+/// whenever the geometry cannot be established: a non-x64 architecture, a
+/// fault frame with a frame pointer, no suitable delta frame, no reserved
+/// dispatcher records, or a stack outside the thread's bounds.
+fn anchor(
+    c: &Ctx,
+    fault: &RegContext,
+    target: u64,
+    records_top: u64,
+) -> Result<Option<Anchor>, MemFault> {
+    if c.p.arch != WinArch::X64 || target % 8 != 0 {
+        return Ok(None);
+    }
+    // A frame pointer moves the establisher above the fault stack pointer, so
+    // the resumed context would not be this frame's own stack.
+    if fault.sp() != target {
+        return Ok(None);
+    }
+    let Some(delta) = delta_frame(c.p, fault.pc(), ANCHOR_MIN_DELTA)? else {
+        return Ok(None);
+    };
+    // 16-byte alignment decides whether the delta frame's return address is
+    // read directly above the fault frame or one leaf frame further down,
+    // where the trap address supplies that return address.
+    let sp = match target % 16 {
+        8 => target.checked_sub(0x18 + delta.delta),
+        0 => target.checked_sub(0x20 + delta.delta),
+        _ => return Ok(None),
+    };
+    let Some(sp) = sp else {
+        return Ok(None);
+    };
+    if sp % 8 != 0 || !in_stack(c, sp) || sp.checked_add(8).is_none_or(|end| end > c.t.stack_base) {
+        return Ok(None);
+    }
+    // The dispatcher's records sit directly below the fault stack pointer
+    // unless `raise` reserved room above them. Without that reserve the
+    // handler's frames would overwrite the record it is handling.
+    if sp < records_top.saturating_add(ANCHOR_HANDLER_GAP) {
+        return Ok(None);
+    }
+    let ret_trap = c.p.traps.callback_return();
+    if ret_trap == 0 {
+        return Ok(None);
+    }
+    // The delta frame's return address: the fault frame's PC.
+    c.p.space.w64(target - 8, fault.pc())?;
+    if target % 16 == 0 {
+        // One extra leaf between the delta frame and the fault frame.
+        c.p.space.w64(target - 0x10, ret_trap)?;
+    }
+    Ok(Some(Anchor {
+        sp,
+        delta_pc: delta.pc,
+    }))
+}
+
+/// Finds the lowest-address frameless x64 function in `pc`'s image whose
+/// prolog only allocates at least `min_delta` bytes of stack.
+///
+/// The guest unwinder finds this function through the image's own
+/// `.pdata`, so the entry must be a real runtime function of the module the
+/// fault PC belongs to.
+fn delta_frame(p: &Proc, pc: u64, min_delta: u64) -> Result<Option<DeltaFrame>, MemFault> {
+    if p.arch != WinArch::X64 {
+        return Ok(None);
+    }
+    let Some((_, m)) = p.modules.by_address(pc) else {
+        return Ok(None);
+    };
+    let table = m.pdata;
+    if table.rva == 0 || table.size == 0 {
+        return Ok(None);
+    }
+    let fault = |rva: u64| MemFault {
+        addr: m.base.saturating_add(rva),
+        write: false,
+    };
+    let entry_size = crate::user::image::pe::pdata::X64_ENTRY_SIZE;
+    if table.size % entry_size != 0 {
+        return Err(fault(u64::from(table.rva) + u64::from(table.size)));
+    }
+    let src = GuestRva {
+        mem: &p.space,
+        base: m.base,
+        size: m.size,
+    };
+    for i in 0..table.size / entry_size {
+        let at = u64::from(table.rva) + u64::from(i) * u64::from(entry_size);
+        let begin = u64::from(src.u32_at(at).map_err(|e| fault(e.rva))?);
+        let end = u64::from(src.u32_at(at + 4).map_err(|e| fault(e.rva))?);
+        let info = src.u32_at(at + 8).map_err(|e| fault(e.rva))?;
+        let Some((prolog, delta)) = alloc_only_frame(&src, info).map_err(|e| fault(e.rva))? else {
+            continue;
+        };
+        if delta < min_delta
+            || delta % 16 != 8
+            || begin >= end
+            || begin + u64::from(prolog) >= end
+            || end > m.size
+        {
+            continue;
+        }
+        return Ok(Some(DeltaFrame {
+            pc: m.base + begin + u64::from(prolog),
+            delta,
+        }));
+    }
+    Ok(None)
+}
+
+/// Whether a raise at `pc` can anchor a language handler.
+///
+/// `raise` consults this before moving its dispatcher records: only an
+/// x64 fault whose module supplies a frameless stack-allocation frame can be
+/// re-entered through [`anchor`]. Every other raise keeps the native record
+/// placement, so its callbacks are unaffected by the reserve.
+pub(super) fn anchor_possible(p: &Proc, pc: u64) -> bool {
+    p.arch == WinArch::X64 && matches!(delta_frame(p, pc, ANCHOR_MIN_DELTA), Ok(Some(_)))
+}
+
+/// Decodes an x64 `UNWIND_INFO` whose only effects are stack allocations,
+/// returning its prolog size and total allocation.
+///
+/// Version 1 with no flags, no frame register, and only `UWOP_ALLOC_*` codes
+/// means the function has no exception handler, restores no register, and
+/// cannot change its establisher in any other way.
+fn alloc_only_frame(
+    src: &impl crate::user::image::pe::RvaSource,
+    info: u32,
+) -> Result<Option<(u8, u64)>, crate::user::image::pe::RvaFault> {
+    let at = u64::from(info);
+    let mut header = [0u8; 4];
+    src.read_rva(at, &mut header)?;
+    let version = header[0] & 7;
+    let flags = header[0] >> 3;
+    let prolog = header[1];
+    let count = usize::from(header[2]);
+    let frame = header[3];
+    if version != 1 || flags != 0 || frame != 0 || count == 0 {
+        return Ok(None);
+    }
+    let mut at = at + 4;
+    let mut slots = 0usize;
+    let mut delta = 0u64;
+    while slots < count {
+        let mut code = [0u8; 2];
+        src.read_rva(at, &mut code)?;
+        let op = code[1] & 0xf;
+        let opinfo = u64::from(code[1] >> 4);
+        at += 2;
+        slots += 1;
+        match op {
+            // UWOP_ALLOC_SMALL: (opinfo + 1) * 8 bytes.
+            2 => delta = delta.saturating_add(opinfo * 8 + 8),
+            // UWOP_ALLOC_LARGE: opinfo 0 scopes a 16-bit count of 8-byte
+            // units, opinfo 1 a full 32-bit byte count.
+            1 => match opinfo {
+                0 => {
+                    delta = delta.saturating_add(u64::from(src.u16_at(at)?) * 8);
+                    at += 2;
+                    slots += 1;
+                }
+                1 => {
+                    delta = delta.saturating_add(u64::from(src.u32_at(at)?));
+                    at += 4;
+                    slots += 2;
+                }
+                _ => return Ok(None),
+            },
+            _ => return Ok(None),
+        }
+    }
+    if delta == 0 {
+        return Ok(None);
+    }
+    Ok(Some((prolog, delta)))
+}
+
 /// Dispatches to language handlers found by virtual unwinding.
 pub fn dispatch(c: &mut Ctx, rec: ExceptionRecord, recs: Records) -> ApiResult {
     let ctx = RegContext::read(&c.p.space, c.p.arch, recs.context)?;
@@ -634,26 +869,58 @@ fn search(
         }
         .write(&c.p.space, c.p.arch, dc)?;
         let next = ctx;
-        return Flow::call_checked(
-            handler,
-            vec![recs.record, u.establisher, recs.context, dc],
-            move |c, ret| {
-                let rec = ExceptionRecord::read(&c.p.space, c.p.arch, recs.record)?;
-                match ret as u32 {
-                    disposition::CONTINUE_EXECUTION => handler_continue(c, &rec, recs),
-                    disposition::CONTINUE_SEARCH | disposition::NESTED_EXCEPTION => {
-                        search(c, rec, recs, next, frame_ctx, dc, false, walk)
-                    }
-                    _ => Ok(Flow::Raise(ExceptionRecord {
-                        code: STATUS_INVALID_DISPOSITION,
-                        flags: EXCEPTION_NONCONTINUABLE,
-                        nested: recs.record,
-                        address: rec.address,
-                        params: Vec::new(),
-                    })),
+        let then = move |c: &mut Ctx, ret: u64| {
+            let rec = ExceptionRecord::read(&c.p.space, c.p.arch, recs.record)?;
+            match ret as u32 {
+                disposition::CONTINUE_EXECUTION => handler_continue(c, &rec, recs),
+                disposition::CONTINUE_SEARCH | disposition::NESTED_EXCEPTION => {
+                    search(c, rec, recs, next, frame_ctx, dc, false, walk)
                 }
-            },
-        );
+                _ => Ok(Flow::Raise(ExceptionRecord {
+                    code: STATUS_INVALID_DISPOSITION,
+                    flags: EXCEPTION_NONCONTINUABLE,
+                    nested: recs.record,
+                    address: rec.address,
+                    params: Vec::new(),
+                })),
+            }
+        };
+        let records_top = recs.context + RegContext::size(c.p.arch) as u64;
+        let anchored = match anchor(c, &this, u.establisher, records_top) {
+            Ok(anchor) => anchor,
+            // Metadata faults on the anchor path fall back to the ordinary
+            // callback placement; the handler still runs.
+            Err(_) => None,
+        };
+        if c.p.arch == WinArch::X64 {
+            match anchored {
+                Some(anchor) => trace(format_args!(
+                    "anchor sp={:#x} delta={:#x} target={:#x}",
+                    anchor.sp, anchor.delta_pc, u.establisher
+                )),
+                None => trace(format_args!(
+                    "anchor declined target={:#x} pc={:#x} sp={:#x} records_top={:#x}",
+                    u.establisher,
+                    this.pc(),
+                    this.sp(),
+                    records_top
+                )),
+            }
+        }
+        return match anchored {
+            Some(anchor) => Flow::call_checked_at(
+                handler,
+                vec![recs.record, u.establisher, recs.context, dc],
+                anchor.sp,
+                anchor.delta_pc,
+                then,
+            ),
+            None => Flow::call_checked(
+                handler,
+                vec![recs.record, u.establisher, recs.context, dc],
+                then,
+            ),
+        };
     }
 }
 
@@ -1043,6 +1310,127 @@ mod tests {
                 );
             });
         }
+    }
+
+    /// Places one x64 runtime function covering `[0x40, 0x80)` whose unwind
+    /// info is `info` (written at RVA 0x1800), then returns the module base.
+    fn install_unwind(c: &mut Ctx, info: &[u8]) -> u64 {
+        let base = c.p.modules.exe().base;
+        let size = c.p.modules.exe().size;
+        c.p.vm.protect(base, size, prot::READWRITE).unwrap();
+        c.p.space.w32(base + 0x1000, 0x40).unwrap();
+        c.p.space.w32(base + 0x1004, 0x80).unwrap();
+        c.p.space.w32(base + 0x1008, 0x1800).unwrap();
+        c.p.space.wr(base + 0x1800, info).unwrap();
+        c.p.modules.list[0].pdata = crate::user::image::pe::DataDirectory {
+            rva: 0x1000,
+            size: 12,
+        };
+        base
+    }
+
+    #[test]
+    fn delta_frame_scan_accepts_only_frameless_stack_allocation() {
+        with_context(WinArch::X64, |c| {
+            // ALLOC_SMALL of 0x38 after a 4-byte prolog.
+            let base = install_unwind(c, &[0x01, 4, 1, 0, 0x04, 0x62]);
+            assert_eq!(
+                delta_frame(c.p, base + 0x40, 0x18).unwrap(),
+                Some(DeltaFrame {
+                    pc: base + 0x44,
+                    delta: 0x38,
+                })
+            );
+            // ALLOC_LARGE scoping a 16-bit count of 8-byte units.
+            let base = install_unwind(c, &[0x01, 4, 2, 0, 0x04, 0x01, 0x07, 0x00]);
+            assert_eq!(
+                delta_frame(c.p, base + 0x40, 0x18).unwrap(),
+                Some(DeltaFrame {
+                    pc: base + 0x44,
+                    delta: 0x38,
+                })
+            );
+            // ALLOC_LARGE scoping a byte count.
+            let base = install_unwind(c, &[0x01, 4, 3, 0, 0x04, 0x11, 0x38, 0, 0, 0]);
+            assert_eq!(
+                delta_frame(c.p, base + 0x40, 0x18).unwrap(),
+                Some(DeltaFrame {
+                    pc: base + 0x44,
+                    delta: 0x38,
+                })
+            );
+            // A saved nonvolatile register is restored, not a pure delta.
+            let base = install_unwind(c, &[0x01, 4, 1, 0, 0x04, 0x34]);
+            assert_eq!(delta_frame(c.p, base + 0x40, 0x18).unwrap(), None);
+            // A frame register changes what the establisher means.
+            let base = install_unwind(c, &[0x01, 4, 1, 0x05, 0x04, 0x62]);
+            assert_eq!(delta_frame(c.p, base + 0x40, 0x18).unwrap(), None);
+            // An exception handler would be called during the guest's walk.
+            let base = install_unwind(c, &[0x09, 4, 1, 0, 0x04, 0x62]);
+            assert_eq!(delta_frame(c.p, base + 0x40, 0x18).unwrap(), None);
+            // 16 decimal allocates below the anchor minimum and leaves the
+            // fabricated chain 16-byte misaligned.
+            let base = install_unwind(c, &[0x01, 4, 1, 0, 0x04, 0x12]);
+            assert_eq!(delta_frame(c.p, base + 0x40, 0x18).unwrap(), None);
+            // 8 decimal is a valid frame but too small for the anchor call.
+            let base = install_unwind(c, &[0x01, 4, 1, 0, 0x04, 0x02]);
+            assert_eq!(delta_frame(c.p, base + 0x40, 0x18).unwrap(), None);
+            // `raise` reserves record room only where `anchor` can apply.
+            assert!(!anchor_possible(c.p, base + 0x40));
+            let base = install_unwind(c, &[0x01, 4, 1, 0, 0x04, 0x62]);
+            assert!(anchor_possible(c.p, base + 0x40));
+            // A PC outside every image has no metadata to promise an anchor.
+            assert!(!anchor_possible(c.p, c.p.traps.callback_return()));
+        });
+    }
+
+    #[test]
+    fn anchor_geometry_places_fault_frame_above_a_fabricated_chain() {
+        with_context(WinArch::X64, |c| {
+            let base = install_unwind(c, &[0x01, 4, 1, 0, 0x04, 0x62]);
+            let trap = c.p.traps.callback_return();
+            assert_ne!(trap, 0);
+            for low in [8u64, 0] {
+                let target = ((c.t.stack_limit + 0x800) & !0xF) | low;
+                let mut fault = RegContext::capture(&c.t.cpu);
+                fault.set_pc(base + 0x40);
+                fault.set_sp(target);
+                let records_top = target - 0x4000;
+                let got = anchor(c, &fault, target, records_top).unwrap().unwrap();
+                // The delta frame's allocation moves the fault frame's stack
+                // pointer onto the target frame the guest asks for.
+                let expected_sp = if low == 8 {
+                    target - 0x18 - 0x38
+                } else {
+                    target - 0x20 - 0x38
+                };
+                assert_eq!(
+                    got,
+                    Anchor {
+                        sp: expected_sp,
+                        delta_pc: base + 0x44,
+                    }
+                );
+                assert_eq!(got.sp % 8, 0, "establishers stay 8-byte aligned");
+                assert_eq!(
+                    got.sp + 0x10 + 0x38,
+                    if low == 8 { target - 8 } else { target - 0x10 },
+                    "the delta frame returns through the fabricated slot"
+                );
+                assert_eq!(c.p.space.u64(target - 8).unwrap(), base + 0x40);
+                if low == 0 {
+                    assert_eq!(c.p.space.u64(target - 0x10).unwrap(), trap);
+                }
+                // Records placed directly below the fault stack pointer leave
+                // no room for the handler: the anchor must decline.
+                assert_eq!(anchor(c, &fault, target, target).unwrap(), None);
+                // A frame-pointer fault frame resumes at its establisher, not
+                // at its own stack pointer.
+                let mut framed = fault.clone();
+                framed.set_sp(target + 0x20);
+                assert_eq!(anchor(c, &framed, target, records_top).unwrap(), None);
+            }
+        });
     }
 
     #[test]

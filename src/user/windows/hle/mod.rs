@@ -232,6 +232,24 @@ pub enum Flow {
         /// Continuation retained across setup faults and guest execution.
         then: Cont,
     },
+    /// Call guest code at an exact stack pointer. The caller has already
+    /// reserved that stack region and placed any frame-chain words the guest
+    /// reads above it; the call itself writes only the return address at
+    /// `sp` and the x64 chain word below the callee's shadow space.
+    CallCheckedAt {
+        /// Guest address, already selected by the checked operation.
+        target: u64,
+        /// Captured integer arguments.
+        args: Vec<u64>,
+        /// Stack pointer the callee must enter with.
+        sp: u64,
+        /// The callee's initial `RBX`. A guest x64 prolog that spills
+        /// nonvolatile registers copies it into the shadow slot that the
+        /// guest unwinder reads as the leaf frame's return address.
+        rbx: u64,
+        /// Continuation retained across setup faults and guest execution.
+        then: Cont,
+    },
     /// Execute `then` inside an owned synthetic SEH scope. Guest frame
     /// handlers inside the operation search first. A selected scope disables
     /// its filter, runs available inner guest unwind handlers, then invokes
@@ -357,6 +375,25 @@ impl Flow {
         Ok(Flow::CallChecked {
             target,
             args,
+            then: Box::new(then),
+        })
+    }
+
+    /// Calls guest code with the stack pointer fixed by the caller, keeping
+    /// checked-operation ownership on a setup fault as [`Flow::call_checked`]
+    /// does. `rbx` is the callee's initial `RBX`.
+    pub fn call_checked_at(
+        target: u64,
+        args: Vec<u64>,
+        sp: u64,
+        rbx: u64,
+        then: impl FnOnce(&mut Ctx, u64) -> ApiResult + 'static,
+    ) -> ApiResult {
+        Ok(Flow::CallCheckedAt {
+            target,
+            args,
+            sp,
+            rbx,
             then: Box::new(then),
         })
     }
