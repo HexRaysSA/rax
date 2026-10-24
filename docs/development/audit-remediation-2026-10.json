@@ -934,7 +934,14 @@
       "area": "Checkpoint",
       "finding": "Serialized/restored device set is limited to PIC/PIT/16550/LAPIC",
       "status": "pending",
-      "evidence": []
+      "evidence": [
+        "src/backend/hvf/convert.rs",
+        "src/backend/hvf/cr8.rs"
+      ],
+      "remaining_validation": [
+        "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
+        "Native Intel HVF state effects are unverified"
+      ]
     },
     {
       "id": "C-SMP",
@@ -1063,13 +1070,63 @@
         "/Users/int/dev/rax-audit-work/rax-hvf-run-loop/final-ci-owning.log",
         "/Users/int/dev/rax-audit-work/rax-hvf-run-loop/final-xsetbv-oracle.log",
         "/Users/int/dev/rax-audit-work/rax-hvf-run-loop/final-sdk-standalone.log",
-        "/Users/int/dev/rax-audit-work/rax-hvf-run-loop/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-hvf-run-loop/final-capi.log",
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/convert.rs",
+        "src/backend/hvf/cr8.rs",
+        "Cargo.toml",
+        "tests/suites/backend/hvf_cr8.rs",
+        "tools/hvf/cr8_oracle.py",
+        "tools/hvf/cr8_guest.s",
+        "tools/hvf/README.md",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference-summary.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/legacy-control-source.txt",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/negative-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/positive-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference/compare.stderr",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/positive/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/positive/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-parity/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/instruction-sources.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-xsetbv-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-standalone.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-capi.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/validation-environment-adjustment.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/diagnostic-runtime-single.log"
       ],
       "remaining_validation": [
         "Actual MMIO operand/data/width and completion semantics",
-        "CR-access state changes and architectural faults",
+        "Remaining CR0.NE and optional CR3/CR4 intercept semantics",
+        "SDK TPR/software LAPIC/IRQ graph coherence",
         "HLT retirement and exception-information-source behavior",
-        "Native Intel VMX exception/pending-event and VM/guest runtime validation"
+        "Native Intel VMX event and VM/guest runtime validation"
       ]
     },
     {
@@ -2090,6 +2147,68 @@
       ],
       "remaining_validation": [
         "Native Intel VMX host execution/delivery; fixture driver tests do not certify retained handler effects"
+      ]
+    },
+    {
+      "id": "HVF-CR8",
+      "area": "Intel CR8 control exit/state access",
+      "finding": "Configured CR8 load/store exits advanced RIP without transfers; state reads hardcodedCR8=0 and restores ignored it",
+      "status": "locally_validated",
+      "evidence": [
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/convert.rs",
+        "src/backend/hvf/cr8.rs",
+        "Cargo.toml",
+        "tests/suites/backend/hvf_cr8.rs",
+        "tools/hvf/cr8_oracle.py",
+        "tools/hvf/cr8_guest.s",
+        "tools/hvf/README.md",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference-summary.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/legacy-control-source.txt",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/negative-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/positive-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference/compare.stderr",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/positive/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/positive/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle/report.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-parity/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/instruction-sources.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-xsetbv-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-standalone.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-capi.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/validation-environment-adjustment.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/diagnostic-runtime-single.log"
+      ],
+      "remaining_validation": [
+        "Native Intel SDK/VMX register andGP delivery",
+        "Shared LAPIC/IRQ priority graph and remaining CR forms",
+        "QEMU reference masks reserved CR8 bits; localGP requirement derives from Intel primary specification"
       ]
     }
   ],
@@ -14389,6 +14508,789 @@
           "/Users/int/dev/rax-audit-work/rax-hvf-run-loop/final-sdk-standalone.log",
           "/Users/int/dev/rax-audit-work/rax-hvf-run-loop/final-capi.log"
         ]
+      }
+    },
+    {
+      "id": "hvf-cr8-transfer-state-contract",
+      "status": "locally_validated",
+      "scope": "Implement configured Intel CR8 load/store exits and SDK TPR-backed CR8 system-state reads/restores. Validate reserved values, preserve faulting state, and reject other unrepresented CR exits without advancing RIP.",
+      "assumptions": [
+        {
+          "id": "T1",
+          "assumption": "CR8 maps APIC.TPR[7:4]; valid writes clear TPR[3:0], reads zero-extend the priority class, and CR8[63:4] writes requireGP(0).",
+          "dependent_result": "Shared CR8 decision/commit boundary, explicit16-GPR SDK mapping and existing system-state CR8 field use.",
+          "stress_test": "16 GPRs x16 legal writes;16 GPRs x256 TPR reads;16 GPRs x60 reserved bits; independent272 legal QEMU transfers and retained63 raw reference disagreements.",
+          "falsification_probe": "Wrong selected GPR, low TPR nibble retained on write, read upper bits retained, a reserved bit accepted or QEMU masking used as the product requirement.",
+          "status": "confirmed in primary/host-boundary and legal TCG planes; physical Intel VMX unavailable"
+        },
+        {
+          "id": "T2",
+          "assumption": "Current VMCS controls explicitly intercept CR8 loads/stores; they do not generally intercept CR3/CR4, and CR0.NE masking is a separate behavior.",
+          "dependent_result": "Admit only parsed MOV CR8 qualifications; unrepresented control exits make no host calls and return an error without RIP advance.",
+          "stress_test": "All control/access/GPR qualification partitions and every reserved qualification bit; exact source controls and captured prior advance-only handler.",
+          "falsification_probe": "Another control form silently retires, unsupported qualification accesses state or all-CR semantics are claimed.",
+          "status": "retained for explicitly configured control exits"
+        },
+        {
+          "id": "T3",
+          "assumption": "SDK HV_X86_TPR exposes the full task-priority byte and the existing SystemRegisters.cr8 carries the priority class.",
+          "dependent_result": "Read live TPR[7:4], validate external CR8 before any CPU-state injection, restore TPR through SDK without adding serialization fields.",
+          "stress_test": "Primary SDK enum parity, valid/reserved state-value tests, source-to-call trace, native/foreign feature builds and complete owning binaries.",
+          "falsification_probe": "SDK registerID differs, invalid CR8 writes earlier state, read remains hardcoded0 or a checkpoint/C ABI structure field changes.",
+          "status": "retained; actual native SDK call effects are unverified"
+        },
+        {
+          "id": "T4",
+          "assumption": "QEMU11.1.2 masks reserved CR8 bits instead of faulting in this guest profile; this is a bounded reference disagreement, not architectural authority.",
+          "dependent_result": "Require local IntelGP profile for all335 cases, compare272 legal cases independently and retain63 raw disagreements.",
+          "stress_test": "Original advance-only local reversal fails335 local records and272 independent legal records; unchanged positive tool/input/reference/guestELF around the fix.",
+          "falsification_probe": "Raw disagreements disappear through masking the product, unknown reference differences pass or reserved faults are described as independently QEMU-certified.",
+          "status": "confirmed in captured actual335-case TCG execution"
+        },
+        {
+          "id": "T5",
+          "assumption": "This SDK state transfer does not reconcile the separate VMM/software CPU LAPIC models or prove interrupt-priority delivery.",
+          "dependent_result": "Keep shared LAPIC/IRQ coherence, remaining CR exits and native event delivery explicit in C-HVF/platform/checkpoint work.",
+          "stress_test": "Source ownership review and bounded completion claims.",
+          "falsification_probe": "This group closes whole APIC/SMP/checkpoint correctness or claims native IRQ priority from mocked transfer tests.",
+          "status": "retained"
+        }
+      ],
+      "primary_sources": [
+        {
+          "path": "/Users/int/dev/rax/docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+          "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+          "contract": "Intel SDM086 Vol.3A12.8.6.1 CR8/APIC mapping/reserved-bit faults; Vol.3C table29-3 qualification and GPR indices; Vol.2B MOV CR exceptions; Vol.3C26.8.3 fault injection."
+        },
+        {
+          "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_arch_x86.h",
+          "sha256": "19926e960116d989531558066f21f237a8482d1feffbc911bcaae3b145bc3368",
+          "contract": "Apple SDK Intel register identifier HV_X86_TPR49, verified by existing compiler-backed52-register ABI probe."
+        }
+      ],
+      "affected_planes": {
+        "native_control": "CR8 transfers use actual SDK register reads/writes; only validated destination commits precede RIP; reserved bits queueGP(0); other forms reject explicitly.",
+        "state_api": "CR8 no longer hardcoded0 or ignored. Invalid state value rejects before GPR/VMCS writes. Existing field/layout retained.",
+        "fault_boundary": "Centralize existing XSETBV fault injection unchanged and reuseGP fields for CR8; queued-event priority guard retained.",
+        "tests_tools": "Six complete actual-boundary tests and335-record long-mode QEMU guest. Known reference masking disagreement remains raw and explicit.",
+        "other_planes": "No software ISA/lifter/lowerer operation, C ABI field or checkpoint format field changed. LAPIC graph/IRQ coherence remains separate."
+      },
+      "complexity": "O(1) per control transfer and state conversion. Oracle335 cases,5360 input bytes,8060 output bytes including20 framing bytes,64MiB guest RAM. Tests include256 legal writes,4096 TPR reads,960 reserved-bit writes,992 unrepresented selector/access/GPR cells and55 reserved-qualification one-hot cells.",
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "item": "Other CR exits, CR0.NE emulation, optional CR3/CR4 handling and full shared LAPIC/IRQ priority coherence remain pending; unrepresented exits now reject without retirement.",
+          "blocks": "Whole C-HVF/platform completion"
+        },
+        {
+          "impact": "high",
+          "item": "Native Intel SDK calls and actual VM-entry GP delivery unavailable on Apple Silicon. Fixture execution and TCG are not native VMX proof.",
+          "blocks": "Native Intel runtime proof"
+        },
+        {
+          "impact": "medium",
+          "item": "QEMU reserved-bit masking conflicts with Intel in63 cases. Only272 legal transfers are an independent match; full localGP behavior rests on primary specification/host-boundary tests.",
+          "blocks": "Full QEMU equivalence"
+        },
+        {
+          "impact": "medium",
+          "item": "A host API error after destination commit can leave that state visible without RIP advance; error is propagated. No transactional host API rollback guarantee is invented.",
+          "blocks": false
+        }
+      ],
+      "quality_gates": {
+        "assumptions": "T1-T5 state dependencies, boundaries and falsification probes.",
+        "coverage": "Six complete shared-boundary tests, controlled negative,335 actual guest cases, all prior driver/XSETBV/SDK probes and full native/foreign owning binaries.",
+        "units": "Full64-bit CR8,8-bit TPR class/subclass, qualification bitfields, exact counters/record sizes/RAM.",
+        "contradictions": "PrimaryGP requirement retained despite QEMU masking; SDK state and separate software LAPIC graph explicitly distinguished.",
+        "provenance": "Pinned Intel/SDK primary sources, exact prior control branch, LLVM/QEMU/tool/reference/module hashes.",
+        "bounded_scope": "Native VMX, LAPIC/IRQ graph and remaining CR semantics explicit.",
+        "worktree_integrity": "Eight owned paths plus ledger; exact staging and unrelated hashes required.",
+        "reproducibility": "Complete statuses/counts, unchanged oracle tool/input/guest/reference and source fingerprints required."
+      },
+      "baseline": "cbc96ae10308f5da791553c192d8486f57f27325",
+      "implementation_commit": "0106a4d5336478a25b274057029292c3ec08e63c",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 165.7890520420624
+          },
+          {
+            "check": "final-clippy",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 168.13984154094942
+          },
+          {
+            "check": "final-fmt",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 11.622774625080638
+          },
+          {
+            "check": "final-doc",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 4.481207792065106
+          },
+          {
+            "check": "final-sdk",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sdk_abi",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.4499606660101563
+          },
+          {
+            "check": "final-cr8",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_cr8",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 79.609403832932
+          },
+          {
+            "check": "final-loop",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_run_loop",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.12547129101585597
+          },
+          {
+            "check": "final-xsetbv",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_xsetbv",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.08445120800752193
+          },
+          {
+            "check": "final-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 479.97801462502684
+          },
+          {
+            "check": "final-intel-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 426.61394933401607
+          },
+          {
+            "check": "final-intel-sdk",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sdk_abi",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 2.2193857909878716
+          },
+          {
+            "check": "final-intel-cr8",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_cr8",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.3414294579997659
+          },
+          {
+            "check": "final-intel-loop",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_run_loop",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.6688277909997851
+          },
+          {
+            "check": "final-intel-xsetbv",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_xsetbv",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.3420082919765264
+          },
+          {
+            "check": "final-intel-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2762.4133928749943
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 0.8409913330106065
+          },
+          {
+            "check": "final-xsetbv-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax/tools/hvf/xsetbv_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.5616956249577925
+          },
+          {
+            "check": "final-cr8-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax/tools/hvf/cr8_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.3374525420367718
+          },
+          {
+            "check": "final-sdk-standalone",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax/tools/hvf/check_sdk_abi.py",
+              "--repo",
+              "/Users/int/dev/rax",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-parity"
+            ],
+            "code": 0,
+            "seconds": 0.3230425830697641
+          },
+          {
+            "check": "final-capi",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 8.862198999966495
+          }
+        ],
+        "complete_native_feature_hvf_library": {
+          "passed": 10445,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 479.86
+        },
+        "complete_native_cr8": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_rosetta_cr8": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_native_driver": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.05
+        },
+        "complete_rosetta_driver": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.23
+        },
+        "complete_native_xsetbv": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_rosetta_xsetbv": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_native_sdk": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.37
+        },
+        "complete_rosetta_sdk": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.8
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "ci_owning": {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.05
+        },
+        "positive_cr8_profile_and_independent_legal": {
+          "cases": 335,
+          "independent_legal_cases": 272,
+          "reserved_primary_cases": 63,
+          "local_profile_failed": 0,
+          "independent_legal_failed": 0,
+          "commit_order_failed": 0,
+          "qemu_raw_differences": 63,
+          "unknown_reference_profile_failed": 0
+        },
+        "controlled_minimal_legacy_effect": {
+          "cases": 335,
+          "independent_legal_cases": 272,
+          "reserved_primary_cases": 63,
+          "local_profile_failed": 335,
+          "independent_legal_failed": 272,
+          "commit_order_failed": 335,
+          "qemu_raw_differences": 335,
+          "unknown_reference_profile_failed": 0
+        },
+        "same_cr8_tool_input_reference_guest": true,
+        "cr8_reserved_fault_provenance": "Intel primary source plus local boundary tests. QEMU masks these63 values; all raw differences retained. No independent nativeGP delivery claim.",
+        "negative_scope": "Minimal advance-only control-exit reversal through the actual shared boundary, derived from captured native adapter source. Not native pre-fix Intel VMX execution.",
+        "negative_boundary_tests_failed": 5,
+        "negative_boundary_tests_passed": 1,
+        "xsetbv_independent_retained": {
+          "cases": 114,
+          "denied": 111,
+          "failed": 0,
+          "commit_order_failed": 0,
+          "cpuid_failed": 0
+        },
+        "sdk_parity_retained": {
+          "version": 1,
+          "bindings": "/Users/int/dev/rax/src/backend/hvf/bindings.rs",
+          "bindings_sha256": "a42812c63dd3f1ae22ddbd08a159725329f09c690d533973109ad68f27ffdb59",
+          "tool_sha256": "530f8ae27ac5d947dd9bd4c7fa3c438467f4ea717287db3e08383df109028e85",
+          "sdk": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+          "commands": [
+            {
+              "name": "rust-version",
+              "args": [
+                "rustc",
+                "+stable",
+                "-vV"
+              ],
+              "code": 0,
+              "seconds": 0.032374999951571226
+            },
+            {
+              "name": "clang-version",
+              "args": [
+                "xcrun",
+                "clang",
+                "--version"
+              ],
+              "code": 0,
+              "seconds": 0.029494208050891757
+            },
+            {
+              "name": "sdk-version",
+              "args": [
+                "xcrun",
+                "--show-sdk-version"
+              ],
+              "code": 0,
+              "seconds": 0.006982791004702449
+            },
+            {
+              "name": "rust-build",
+              "args": [
+                "rustc",
+                "+stable",
+                "--edition=2024",
+                "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-parity/probe.rs",
+                "-o",
+                "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-parity/rust-probe"
+              ],
+              "code": 0,
+              "seconds": 0.11570704099722207
+            },
+            {
+              "name": "rust-values",
+              "args": [
+                "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-parity/rust-probe"
+              ],
+              "code": 0,
+              "seconds": 0.003554458962753415
+            },
+            {
+              "name": "sdk-compile",
+              "args": [
+                "xcrun",
+                "clang",
+                "-target",
+                "x86_64-apple-macosx13.0",
+                "-isysroot",
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+                "-std=c11",
+                "-Werror",
+                "-Wno-deprecated-declarations",
+                "-fsyntax-only",
+                "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-parity/probe.c"
+              ],
+              "code": 0,
+              "seconds": 0.05656479101162404
+            },
+            {
+              "name": "sdk-arm64-constants",
+              "args": [
+                "xcrun",
+                "clang",
+                "-target",
+                "arm64-apple-macosx13.0",
+                "-isysroot",
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+                "-std=c11",
+                "-Werror",
+                "-fsyntax-only",
+                "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-parity/probe-arm64.c"
+              ],
+              "code": 0,
+              "seconds": 0.026946666999720037
+            }
+          ],
+          "sdk_header_sha256": {
+            "hv_arch_x86.h": "19926e960116d989531558066f21f237a8482d1feffbc911bcaae3b145bc3368",
+            "hv.h": "98387bf589442a8b8cd7416588e73d2e16a64c0e5036afcbbb08cb5772f41985",
+            "hv_vmx.h": "e62a6b975fdb9509ee632e4449f0d40626c78fcb0fc7b36ce1a178685e5b1413",
+            "hv_types.h": "2a3a30d5d71f2ddb4316d20072a5d9d7cb7229a53bddb4036ad1ecd9585bdc10",
+            "hv_error.h": "0479e1e2702a87a159b362aafee6d439ba1ec1f3b41971642c0f4f985faca2d8"
+          },
+          "arm64_error_header_sha256": "d1fda9e96f409485e7efc9c738cfb469b9fbb02c9f785c4ba85ef6532714fd03",
+          "scope": "Intel register IDs, selected ABI type sizes/alignments, HV constants, and every declared x86 foreign function signature. VMCS field encodings and native hypervisor/guest execution are separate.",
+          "arm64_shared_constants": 11,
+          "counts": {
+            "register_ids": 52,
+            "constants": 17,
+            "types": 6,
+            "type_size_alignment_pairs": 7,
+            "function_signatures": 20
+          },
+          "artifact_sha256": {
+            "probe.rs": "9c42509ff247729b4a97ea5db5c9727da80954f3133b618bcd84f7e667461037",
+            "probe.c": "b69f3e668322ac0e0a6d357c3e54c45f661eb8429364ab2bc8d91025ef3beb80",
+            "probe-arm64.c": "88d84553de19e1a49e38d4004c05ac84afab6a248d6fa9f6668d6cbcb586b0b0",
+            "rust-values.stdout": "a6e79fb8d6b6b938f5b6b8d84f290d0e1e8fb1f3c853c3a7a7e10b787ed38441"
+          },
+          "result": "match"
+        },
+        "product_source_fingerprint": {
+          "rust_and_build_sources_sha256": "2980c7f4ed5651220e0062739f6cf1d24a0b91fc32f2843007a6b6aad1245975",
+          "files": 3479
+        },
+        "native_intel_sdk_vm_guest_execution": "unknown/unverified: Apple Silicon host; native mapping/TPR/fault delivery remain separate from shared-boundary and TCG proof",
+        "remaining_platform_scope": "SDK TPR and independent VMM/Inline LAPIC graph/IRQ coherence remain pending; other CR exits reject without retirement.",
+        "complete_rosetta_feature_hvf_library": {
+          "passed": 11439,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 2761.7
+        },
+        "capi": [
+          {
+            "passed": 185,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.53
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          }
+        ],
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference-summary.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/legacy-control-source.txt",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/negative-unit.stdout",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/positive-unit.stdout",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference/report.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/reference/compare.stderr",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/positive/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/positive/report.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle/report.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-parity/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/instruction-sources.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/worktree-checks.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-build.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-clippy.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-fmt.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-doc.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-loop.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-xsetbv.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-library.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-build.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-sdk.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-cr8.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-loop.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-xsetbv.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-xsetbv-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-cr8-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-sdk-standalone.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/final-capi.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/validation-environment-adjustment.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-hvf-cr8/parallel-runtime-timeout/diagnostic-runtime-single.log"
+        ],
+        "validation_environment_adjustment": {
+          "scope": "Cross-architecture test scheduling only;no engine/test/timeout changes.",
+          "failed_parallel_library": {
+            "passed": 11438,
+            "failed": 1,
+            "ignored": 2,
+            "filtered": 0
+          },
+          "failed_test": "user::darwin::runtime_files::tests::native_runtime_executes_system_programs_in_a_closed_process",
+          "failure": "/usr/bin/true exceeded unchanged30s guard",
+          "isolated_rerun": {
+            "passed": 1,
+            "failed": 0,
+            "seconds": 25.42
+          },
+          "cause": "unknown;load sensitivity suggested,not established",
+          "required_rerun": "Complete unfiltered Rosetta library with1testthread;original30s guard retained."
+        },
+        "rebase_scope": {
+          "tested_source": {
+            "rust_and_build_sources_sha256": "2980c7f4ed5651220e0062739f6cf1d24a0b91fc32f2843007a6b6aad1245975",
+            "files": 3479
+          },
+          "implementation_owned_paths_match_rebased_HEAD": true,
+          "current_whole_tree_validation": "Not claimed from these historical logs;upstreamWindows/SMIRchanges require new full gates in subsequent groups.",
+          "observed_rebased_commit": "0106a4d5336478a25b274057029292c3ec08e63c"
+        }
       }
     }
   ],
