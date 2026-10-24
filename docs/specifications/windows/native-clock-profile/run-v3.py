@@ -18,15 +18,70 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
-def compiler_environment(arch, saved, temporary):
-    env = {key.upper(): value for key, value in os.environ.items()}
+def normalised_environment(inherited, saved, temporary):
+    """Return the compiler environment with every key in its upper-case spelling.
+
+    Windows stores os.environ keys in upper case and resolves environment
+    lookups case-insensitively. Copying that mapping into a plain dict keeps the
+    upper-case spelling but loses the resolution, so normalise inherited and
+    snapshot keys once and read the mixed-case Microsoft names in that spelling.
+    A snapshot captured from `set` is not required to preserve any casing.
+    """
+    environment = {key.upper(): value for key, value in inherited.items()}
     if saved:
         snapshot = json.loads(Path(saved).read_text(encoding="utf-8-sig"))
-        env.update({key.upper(): value for key, value in snapshot.items()})
-    env.update(TMP=str(temporary), TEMP=str(temporary), TMPDIR=str(temporary))
+        environment.update({key.upper(): value for key, value in snapshot.items()})
+    environment.update(
+        TMP=str(temporary), TEMP=str(temporary), TMPDIR=str(temporary)
+    )
+    return environment
+
+
+def self_check():
+    """Verify environment normalisation without a native Windows kernel."""
+    with tempfile.TemporaryDirectory(prefix="native-clock-profile-") as name:
+        saved = Path(name) / "environment.json"
+        saved.write_text(
+            json.dumps(
+                {
+                    "VCToolsInstallDir": "C:\\Visual Studio\\VC\\Tools\\MSVC\\14.0",
+                    "Path": "C:\\Windows\\System32",
+                }
+            ),
+            encoding="utf-8",
+        )
+        environment = normalised_environment(
+            {"ProgramFiles(x86)": "C:\\Program Files (x86)", "Path": "C:\\stale"},
+            str(saved),
+            Path(name),
+        )
+        require(
+            environment["PROGRAMFILES(X86)"] == "C:\\Program Files (x86)",
+            "inherited environment normalisation",
+        )
+        require(
+            environment["VCTOOLSINSTALLDIR"]
+            == "C:\\Visual Studio\\VC\\Tools\\MSVC\\14.0",
+            "saved environment normalisation",
+        )
+        require(
+            environment["PATH"] == "C:\\Windows\\System32"
+            and "Path" not in environment,
+            "saved environment replaces the inherited spelling",
+        )
+        require(
+            environment["TMP"] == name and environment["TEMP"] == name,
+            "temporary directory override",
+        )
+
+
+def compiler_environment(arch, saved, temporary):
+    env = normalised_environment(os.environ, saved, temporary)
     if saved:
+        require("VCTOOLSINSTALLDIR" in env, "developer tools directory absent")
         installation = Path(env["VCTOOLSINSTALLDIR"]).parents[3]
     else:
+        require("PROGRAMFILES(X86)" in env, "x86 program files directory absent")
         where = (
             Path(env["PROGRAMFILES(X86)"])
             / "Microsoft Visual Studio/Installer/vswhere.exe"
@@ -95,7 +150,6 @@ def compiler_environment(arch, saved, temporary):
 
 
 def main():
-    require(sys.platform == "win32", "native Windows kernel required")
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--environment", help="existing private compiler environment snapshot"
@@ -106,7 +160,16 @@ def main():
         choices=("arm64", "x64", "x86"),
         default=("x64", "x86"),
     )
+    parser.add_argument(
+        "--self-check",
+        action="store_true",
+        help="validate environment normalisation without a native Windows kernel",
+    )
     arguments = parser.parse_args()
+    if arguments.self_check:
+        self_check()
+        return
+    require(sys.platform == "win32", "native Windows kernel required")
     folder = Path(__file__).resolve().parent
     root = folder.parents[3]
     target = root / "target"

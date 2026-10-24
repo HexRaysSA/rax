@@ -21,6 +21,9 @@ executables and intermediate directories remain inside this worktree and are
 removed after each completed architecture. Source, compiler and pre/post-run
 executable hashes bind each observation. The source digest is rechecked at exit.
 
+`--self-check` validates the compiler-environment normalisation on any host,
+without a native Windows kernel.
+
 `native-clock-profile-v1.cpp` runs 16 bounded own-process cases. Each owns six
 4,096-byte scratch pages, initialized to `0xA5`, with ordinary writable,
 readonly, inaccessible and guarded regions. It tests aligned/unaligned output,
@@ -55,6 +58,8 @@ The next hosted attempt exposed a case-sensitive dictionary lookup after copying
 Windows environment variables. Version 3 normalizes inherited and snapshot keys
 before selecting `PROGRAMFILES(X86)` or the compiler directory. Version 2 is
 retained as the executed historical producer; the workflow selects version 3.
+`--self-check` revalidates that normalisation on any host without a native
+Windows kernel, and the workflow runs it before the native measurements.
 
 All three views run on one ARM64 kernel, build 29683. They are not independent
 x64-kernel measurements. Each has 16 returned calls, zero caller exceptions,
