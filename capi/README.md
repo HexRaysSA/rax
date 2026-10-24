@@ -157,7 +157,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.14.0).
+C ABI version (currently 1.15.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -575,9 +575,47 @@ ABI 1.7 writes context format 3 only for AArch32 user engines. It adds a
 length-prefixed, 20-byte image of both TLS registers and the local exclusive
 monitor after the generic emulator image. Memory-map reconstruction and context
 restore preserve that state. Instruction-observation boundaries retain the
-monitor; a syscall or exception clears it. Other engines continue to write
-format 2, and existing format 1/2 readers remain supported. An older library
+monitor; a syscall or exception clears it. AArch64 engines use format 4 as described below; other engines continue to
+write format 2, and existing format 1/2 readers remain supported. An older library
 cannot restore an AArch32 user context.
+
+ABI 1.15 adds AArch64 PAuth configuration and context format 4. The new
+`rax_arm64_pauth_configure` / `rax_arm64_pauth_get_config` functions use a
+32-byte, size-negotiated `rax_arm64_pauth_config`. The C++ equivalents are
+`configurePauth` and `pauthConfig`. Unknown algorithms, profiles, feature bits,
+and nonzero reserved words are rejected before changing state. Features remain
+disabled until configured. Default selections resolve to QARMA5 with PAuth2,
+FPAC, and FPACCOMBINE. Reset retains those selections and resets keys and
+architectural controls; mapping changes preserve all exported state.
+
+| Configuration field | Values |
+|---|---|
+| `features` | Bit 0: PACA; bit 1: PACG |
+| `algorithm` | 0: default QARMA5; 1: QARMA3; 2: QARMA5 |
+| `profile` | 0: default FPACCOMBINE; 1: Base; 2: PAuth2; 3: FPAC; 4: FPACCOMBINE |
+
+Key enablement is separate from feature selection. Set the corresponding
+SCTLR bits and HCR/SCR API/APK controls through the host register interface.
+Guest instructions retain their architectural feature and privilege checks.
+The ten 64-bit key halves begin at `RAX_ARM64_REG_APIAKEYLO_EL1` (`0x0413`);
+additional control and banked registers end at `RAX_ARM64_REG_SPSR_EL3`
+(`0x0433`). Existing identifiers and configuration structures are unchanged.
+`examples/pauth.c` checks QARMA5 PACIA/AUTIA/PACGA known values.
+
+With the `jit` feature on an AArch64 host, EL0 engines can promote a hot PAuth
+instruction into an exact one-instruction native helper region. The helper uses
+the engine's guest keys and returns faults at the same PC with no retirement.
+Instruction-scoped memory recording retains direct stepping, including its
+access trace. Other hosts retain their existing execution path.
+
+Format 4 records mandatory keys, algorithm/profile, feature state, all modeled
+system-register banks, banked SPs, and full modeled PSTATE, including BTYPE.
+Legacy AArch64 format 1/2 inputs use a frozen decoder and are accepted only
+when all SCTLR address-authentication enables are clear, because those formats
+contained no keys. Missing extensions in format 4, unknown algorithm/profile
+values, truncation, and trailing data are format errors. Older libraries cannot
+read format 4. Full VM checkpoints use format 8 and reject older checkpoint
+versions before decoding the changed CPU layout.
 
 | Assumption | Basis | Dependent behavior | Stress test / falsification probe | Status |
 |---|---|---|---|---|

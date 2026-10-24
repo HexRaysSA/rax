@@ -101,6 +101,12 @@ impl Engine {
         if !self.is_user() {
             vcpu.set_state(&arch::default_state(self.arch, self.mode))?;
         }
+        if self.arch == RaxArch::Arm64 {
+            let source = self.vcpu.get_state()?;
+            let mut target = vcpu.get_state()?;
+            crate::pauth::inherit_configuration(&source, &mut target);
+            vcpu.update_state(&target)?;
+        }
         Ok(vcpu)
     }
 }

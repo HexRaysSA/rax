@@ -94,15 +94,15 @@ fn version_and_strerror() {
     let (mut a, mut b, mut c) = (0u32, 0u32, 0u32);
     let v = crate::rax_version(&mut a, &mut b, &mut c);
     assert_eq!(v, (a << 16) | (b << 8) | c);
-    assert_eq!((a, b, c), (1, 14, 0));
+    assert_eq!((a, b, c), (1, 15, 0));
     let s = crate::rax_strerror(0);
     assert!(!s.is_null());
     let version_string = unsafe { std::ffi::CStr::from_ptr(crate::rax_version_string()) };
     assert!(
         version_string
             .to_bytes()
-            .windows(b"1.14.0".len())
-            .any(|part| part == b"1.14.0")
+            .windows(b"1.15.0".len())
+            .any(|part| part == b"1.15.0")
     );
 }
 
@@ -747,3 +747,6 @@ mod riscv_state;
 
 #[path = "tests/process.rs"]
 mod process;
+
+#[path = "tests/context_pauth.rs"]
+mod context_pauth;

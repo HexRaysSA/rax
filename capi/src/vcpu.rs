@@ -7,7 +7,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use rax_engine::backend::emulator::aarch64::{A64_EC_BRK, A64UserTrap, Aarch64Vcpu};
+use rax_engine::backend::emulator::aarch64::{A64_EC_BKPT32, A64_EC_BRK, A64UserTrap, Aarch64Vcpu};
 use rax_engine::backend::emulator::riscv::{RiscVVcpu, RvUserTrap};
 use rax_engine::cpu::VCpu;
 use rax_engine::isa::riscv::cpu::cause;
@@ -99,13 +99,19 @@ impl Vcpu {
                     insn: RAX_SYSCALL_INSN_SVC,
                     imm: u32::from(imm),
                 },
+                A64UserTrap::Aarch32Svc { imm, pc, len } => UserTrap::Syscall {
+                    pc,
+                    len: u32::from(len),
+                    insn: RAX_SYSCALL_INSN_SVC,
+                    imm,
+                },
                 A64UserTrap::Exception { ec, iss, pc } => UserTrap::Exception {
                     vector: u32::from(ec),
                     pc,
                     return_pc: pc,
                     syndrome: Some(u64::from(iss)),
-                    software: ec == A64_EC_BRK,
-                    undefined: ec != A64_EC_BRK,
+                    software: matches!(ec, A64_EC_BRK | A64_EC_BKPT32),
+                    undefined: !matches!(ec, A64_EC_BRK | A64_EC_BKPT32),
                 },
             }),
             Vcpu::RiscvUser(core) => core.take_user_trap().map(|trap| match trap {

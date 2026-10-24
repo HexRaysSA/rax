@@ -224,6 +224,15 @@ public:
     rax_engine* raw() const noexcept { return h_; }
 
     void reset() { check(rax_engine_reset(h_), "reset"); }
+    void configurePauth(const rax_arm64_pauth_config& config) {
+        check(rax_arm64_pauth_configure(h_, &config), "arm64_pauth_configure");
+    }
+    rax_arm64_pauth_config pauthConfig() const {
+        rax_arm64_pauth_config config{};
+        config.size = sizeof(config);
+        check(rax_arm64_pauth_get_config(h_, &config), "arm64_pauth_get_config");
+        return config;
+    }
     Arch arch() const noexcept { return static_cast<Arch>(rax_engine_arch(h_)); }
     uint32_t mode() const noexcept { return rax_engine_mode(h_); }
     bool supportsStepping() const noexcept { return rax_engine_supports_stepping(h_) != 0; }

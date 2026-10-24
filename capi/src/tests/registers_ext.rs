@@ -232,7 +232,7 @@ fn arm64_system_registers_round_trip() {
             assert_eq!(rax_reg_write_u64(e, id, value), RaxStatus::Ok, "{id:#x}");
             assert_eq!(rd_u64(e, id), value, "{id:#x}");
         }
-        assert_eq!(rax_reg_size(RaxArch::Arm64 as i32, 0x0413), 0);
+        assert_eq!(rax_reg_size(RaxArch::Arm64 as i32, 0x0434), 0);
     }
     rax_engine_close(e);
 }

@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 14u
+#define RAX_API_MINOR 15u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -124,6 +124,30 @@ typedef enum rax_arch {
     (RAX_RISCV_EXT_ZCMP | RAX_RISCV_EXT_ZCMT | RAX_RISCV_EXT_ZCLSD | \
      RAX_RISCV_EXT_ZILSD | RAX_RISCV_EXT_XHAZARD3 | RAX_RISCV_EXT_XANDES | \
      RAX_RISCV_EXT_XTHEAD | RAX_RISCV_EXT_XIDA_SLTW)
+
+/* AArch64 PAuth model configuration (ABI 1.15). Features remain disabled
+ * until configured. Selecting features does not set SCTLR key-enable bits.
+ * All keys/enables reset to zero; feature/algorithm/profile selection survives
+ * rax_engine_reset. Context format 4 preserves the entire configured state.
+ * DEFAULT algorithm/profile select QARMA5 and FPACCOMBINE respectively. */
+#define RAX_ARM64_PAUTH_PACA             (1u << 0)
+#define RAX_ARM64_PAUTH_PACG             (1u << 1)
+#define RAX_ARM64_PAUTH_ALGORITHM_DEFAULT 0u
+#define RAX_ARM64_PAUTH_QARMA3            1u
+#define RAX_ARM64_PAUTH_QARMA5            2u
+#define RAX_ARM64_PAUTH_PROFILE_DEFAULT   0u
+#define RAX_ARM64_PAUTH_BASE              1u
+#define RAX_ARM64_PAUTH_PAUTH2            2u
+#define RAX_ARM64_PAUTH_FPAC              3u
+#define RAX_ARM64_PAUTH_FPACCOMBINE       4u
+
+typedef struct rax_arm64_pauth_config {
+    uint32_t size;       /* >= sizeof(rax_arm64_pauth_config) */
+    uint32_t features;   /* RAX_ARM64_PAUTH_PACA | RAX_ARM64_PAUTH_PACG */
+    uint32_t algorithm;  /* RAX_ARM64_PAUTH_ALGORITHM_DEFAULT/QARMA3/QARMA5 */
+    uint32_t profile;    /* RAX_ARM64_PAUTH_PROFILE_DEFAULT/BASE/... */
+    uint32_t reserved[4]; /* must be zero */
+} rax_arm64_pauth_config;
 
 /* Memory protection flags (bitmask). */
 #define RAX_PROT_NONE  0u
@@ -344,6 +368,12 @@ RAX_API const char *rax_strerror(int status);
 /* ===========================================================================
  * Engine lifecycle
  * ======================================================================== */
+
+/* Trusted host configuration; does not change keys, controls, or counters.
+ * Configure is rejected while running. Getter writes only the 32-byte prefix,
+ * preserving the supplied size and any larger caller-owned tail. */
+RAX_API rax_status rax_arm64_pauth_configure(rax_engine *e, const rax_arm64_pauth_config *config);
+RAX_API rax_status rax_arm64_pauth_get_config(const rax_engine *e, rax_arm64_pauth_config *config);
 
 /* Open an engine for `arch` in `mode`, pre-mapping a default RAM region.
  * Writes a non-NULL handle to *out on success. */
@@ -740,6 +770,41 @@ RAX_API rax_status rax_context_restore(rax_engine *engine, const void *data, siz
 #define RAX_ARM64_REG_CNTP_CVAL_EL0 0x0410
 #define RAX_ARM64_REG_CNTV_CTL_EL0  0x0411 /* ENABLE and IMASK bits only */
 #define RAX_ARM64_REG_CNTV_CVAL_EL0 0x0412
+/* Since ABI 1.15. Trusted host access; guest key accesses retain EL checks. */
+#define RAX_ARM64_REG_APIAKEYLO_EL1      0x0413
+#define RAX_ARM64_REG_APIAKEYHI_EL1      0x0414
+#define RAX_ARM64_REG_APIBKEYLO_EL1      0x0415
+#define RAX_ARM64_REG_APIBKEYHI_EL1      0x0416
+#define RAX_ARM64_REG_APDAKEYLO_EL1      0x0417
+#define RAX_ARM64_REG_APDAKEYHI_EL1      0x0418
+#define RAX_ARM64_REG_APDBKEYLO_EL1      0x0419
+#define RAX_ARM64_REG_APDBKEYHI_EL1      0x041A
+#define RAX_ARM64_REG_APGAKEYLO_EL1      0x041B
+#define RAX_ARM64_REG_APGAKEYHI_EL1      0x041C
+#define RAX_ARM64_REG_HCR_EL2            0x041D
+#define RAX_ARM64_REG_SCR_EL3            0x041E
+#define RAX_ARM64_REG_SP_EL2             0x041F
+#define RAX_ARM64_REG_SP_EL3             0x0420
+#define RAX_ARM64_REG_SCTLR_EL2          0x0421
+#define RAX_ARM64_REG_TCR_EL2            0x0422
+#define RAX_ARM64_REG_TTBR0_EL2          0x0423
+#define RAX_ARM64_REG_TTBR1_EL2          0x0424
+#define RAX_ARM64_REG_MAIR_EL2           0x0425
+#define RAX_ARM64_REG_VBAR_EL2           0x0426
+#define RAX_ARM64_REG_ESR_EL2            0x0427
+#define RAX_ARM64_REG_FAR_EL2            0x0428
+#define RAX_ARM64_REG_ELR_EL2            0x0429
+#define RAX_ARM64_REG_SPSR_EL2           0x042A
+#define RAX_ARM64_REG_SCTLR_EL3          0x042B
+#define RAX_ARM64_REG_TCR_EL3            0x042C
+#define RAX_ARM64_REG_TTBR0_EL3          0x042D
+#define RAX_ARM64_REG_MAIR_EL3           0x042E
+#define RAX_ARM64_REG_VBAR_EL3           0x042F
+#define RAX_ARM64_REG_ESR_EL3            0x0430
+#define RAX_ARM64_REG_FAR_EL3            0x0431
+#define RAX_ARM64_REG_ELR_EL3            0x0432
+#define RAX_ARM64_REG_SPSR_EL3           0x0433
+
 
 /* ---- AArch32 / ARMv7-A --------------------------------------------------- */
 #define RAX_ARM_R(i)    (0x0100 + (i)) /* R0..R12 (4 bytes) */

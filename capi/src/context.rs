@@ -23,8 +23,13 @@
 //! RISC-V hart restores with the reset privilege, CSRs, and vector state
 //! (see [`decode_v1_riscv_state`]).
 //! Format 3 is used only by AArch32 user engines (ABI 1.7); existing engines
-//! still write format 2. Its five little-endian u32 words are TPIDRURW,
+//! otherwise write format 2. Its five little-endian u32 words are TPIDRURW,
 //! TPIDRURO, exclusive address, exclusive size, and exclusive-present (0/1).
+
+//! Format 4 is used only by AArch64 engines. It records mandatory keys,
+//! algorithm/profile, feature configuration, full modeled PSTATE, and all
+//! system-register banks. Legacy AArch64 formats 1/2 restore only when their
+//! SCTLR has no enabled authentication keys; they contain no key material.
 
 use std::sync::Arc;
 
@@ -44,6 +49,11 @@ const CTX_VERSION: u32 = 2;
 /// AArch32 user-mode contexts append TLS and exclusive-monitor state after
 /// the emulator image. Existing architectures continue to write version 2.
 const CTX_VERSION_ARM_USER: u32 = 3;
+/// AArch64 keys, algorithm/profile, full PSTATE, and system-register banks.
+const CTX_VERSION_AARCH64: u32 = 4;
+
+#[path = "context/aarch64.rs"]
+mod aarch64;
 /// ABI 1.4 and earlier: binary64 x87 registers in the extended state.
 const CTX_VERSION_V1: u32 = 1;
 const FLAG_HAS_EMU: u32 = 1 << 0;
@@ -208,6 +218,8 @@ impl Engine {
         w.u32(CTX_MAGIC);
         w.u32(if arm_user.is_some() {
             CTX_VERSION_ARM_USER
+        } else if self.arch == RaxArch::Arm64 {
+            CTX_VERSION_AARCH64
         } else {
             CTX_VERSION
         });
@@ -218,6 +230,11 @@ impl Engine {
             .vcpu
             .get_state()
             .map_err(|e| crate::status::status_from_engine_error(&e))?;
+        if let CpuState::Aarch64(state) = &cpu {
+            if state.sregs.execution.is_none() {
+                return Err(RaxStatus::Format);
+            }
+        }
         let cpu_bytes = bincode::serialize(&cpu).map_err(|_| RaxStatus::Format)?;
         let emu = self.vcpu.get_emulator_state();
         let mut flags = 0u32;
@@ -274,7 +291,10 @@ impl Engine {
             return self.fail(RaxStatus::Format, "bad context magic");
         }
         let version = r.u32().unwrap_or(0);
-        if !matches!(version, CTX_VERSION | CTX_VERSION_V1 | CTX_VERSION_ARM_USER) {
+        if !matches!(
+            version,
+            CTX_VERSION | CTX_VERSION_V1 | CTX_VERSION_ARM_USER | CTX_VERSION_AARCH64
+        ) {
             return self.fail(RaxStatus::Format, "unsupported context version");
         }
         let arch = r.i32().unwrap_or(-1);
@@ -292,6 +312,9 @@ impl Engine {
         if (version == CTX_VERSION_ARM_USER) != is_arm_user {
             return self.fail(RaxStatus::Format, "AArch32 user contexts require format 3");
         }
+        if version == CTX_VERSION_AARCH64 && self.arch != RaxArch::Arm64 {
+            return self.fail(RaxStatus::Format, "format 4 requires AArch64");
+        }
         let flags = match r.u32() {
             Some(v) => v,
             None => return self.fail(RaxStatus::Format, "truncated context"),
@@ -307,7 +330,9 @@ impl Engine {
             Some(b) => b,
             None => return self.fail(RaxStatus::Format, "truncated cpu state"),
         };
-        let decoded = if version == CTX_VERSION_V1 && self.arch == RaxArch::Riscv64 {
+        let decoded = if self.arch == RaxArch::Arm64 {
+            aarch64::decode_state(cpu_bytes, version)
+        } else if version == CTX_VERSION_V1 && self.arch == RaxArch::Riscv64 {
             decode_v1_riscv_state(cpu_bytes)
         } else {
             bincode::deserialize(cpu_bytes).ok()
@@ -379,6 +404,9 @@ impl Engine {
                 None => return self.fail(RaxStatus::Format, "truncated region data"),
             };
             specs.push((base, size, perms, bytes));
+        }
+        if !r.at_end() {
+            return self.fail(RaxStatus::Format, "trailing context data");
         }
         if specs.is_empty() {
             return self.fail(RaxStatus::Format, "context has no memory regions");
