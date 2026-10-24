@@ -1,0 +1,32 @@
+name: Native Windows exception entry profiles
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - .github/workflows/windows-exception-profile.yml
+      - docs/specifications/windows/native-exception-entry-profile/**
+  pull_request:
+    paths:
+      - .github/workflows/windows-exception-profile.yml
+      - docs/specifications/windows/native-exception-entry-profile/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    name: Native exception entry (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Verify public instruction projection
+        run: python docs/specifications/windows/native-exception-entry-profile/test_projection.py
+      - name: Observe native x64 and WoW64 exception frames
+        run: python docs/specifications/windows/native-exception-entry-profile/run-v2.py
