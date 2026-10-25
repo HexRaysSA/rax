@@ -4,60 +4,48 @@ use super::*;
 #[test]
 fn native_single_wait_preserves_prior_ntdll_ordinals_and_trap_rvas_all_abis() {
     use crate::user::windows::dll::{self, BuiltinDll};
-    use crate::user::windows::hle::{Export, Item};
     use crate::user::windows::loader::builtin;
-
     let current = dll::find("ntdll.dll").unwrap();
-    // Reconstruct the pre-wait DLL by removing appended service families.
-    // Keep the other source entries and architecture filters in their original
-    // order. These bounded static test fixtures live until the test process exits.
-    let prior: Vec<Export> = current
+    let names = ["NtWaitForSingleObject"];
+    let family = current
         .exports
         .iter()
-        .flat_map(|table| table.iter())
-        .filter(|export| {
-            ![
-                "NtWaitForSingleObject",
-                "NtCreateSemaphore",
-                "NtOpenSemaphore",
-                "NtReleaseSemaphore",
-                "NtQuerySemaphore",
-                "NtSetTimer2",
-                "NtCancelTimer2",
-                "NtReadVirtualMemory",
-            ]
-            .contains(&export.name)
-        })
-        .map(|export| {
-            let copy = match &export.item {
-                Item::Func(api) => Export::func(api.name, api.conv, api.args, api.imp),
-                Item::Data(size) => Export::data(export.name, *size),
-                Item::Forward(target) => Export::forward(export.name, target),
-            };
-            copy.only(export.archs)
-        })
-        .collect();
-    let prior: &'static [Export] = Box::leak(prior.into_boxed_slice());
-    let tables: &'static [&'static [Export]] = Box::leak(vec![prior].into_boxed_slice());
+        .position(|table| table.iter().any(|e| e.name == names[0]))
+        .unwrap();
+    assert_eq!(
+        current.exports[family]
+            .iter()
+            .map(|e| e.name)
+            .collect::<Vec<_>>(),
+        names
+    );
     let previous = BuiltinDll {
         name: current.name,
         display: current.display,
         subsystem: current.subsystem,
-        exports: tables,
+        exports: &current.exports[..family],
     };
     for arch in WinArch::ALL {
         let before = builtin::build(&previous, arch, 0, &[]);
         let after = builtin::build(current, arch, 0, &[]);
+        let added: Vec<_> = current.exports[family]
+            .iter()
+            .filter(|e| e.archs.has(arch))
+            .map(|e| e.name)
+            .collect();
         assert_eq!(after.ordinal_base, before.ordinal_base);
-        assert_eq!(after.symbols.len(), before.symbols.len() + 8);
+        assert!(after.symbols.len() >= before.symbols.len() + added.len());
         assert_eq!(
             &after.symbols[..before.symbols.len()],
             before.symbols.as_slice(),
-            "{arch}: existing ordinals or trap RVAs changed"
+            "{arch}: prior ordinals or trap RVAs moved"
         );
         assert_eq!(
-            after.symbols[before.symbols.len()].0,
-            "NtWaitForSingleObject"
+            after.symbols[before.symbols.len()..before.symbols.len() + added.len()]
+                .iter()
+                .map(|row| row.0)
+                .collect::<Vec<_>>(),
+            added
         );
     }
 }

@@ -153,31 +153,47 @@ fn native_read_virtual_memory_preserves_all_prior_ntdll_ordinals_and_trap_rvas_a
     use crate::user::windows::dll::{self, BuiltinDll};
     use crate::user::windows::loader::builtin;
     let current = dll::find("ntdll.dll").unwrap();
-    let last = current.exports.len() - 1;
+    let names = ["NtReadVirtualMemory"];
+    let family = current
+        .exports
+        .iter()
+        .position(|table| table.iter().any(|e| e.name == names[0]))
+        .unwrap();
     assert_eq!(
-        current.exports[last]
+        current.exports[family]
             .iter()
-            .map(|export| export.name)
+            .map(|e| e.name)
             .collect::<Vec<_>>(),
-        vec!["NtReadVirtualMemory"]
+        names
     );
     let previous = BuiltinDll {
         name: current.name,
         display: current.display,
         subsystem: current.subsystem,
-        exports: &current.exports[..last],
+        exports: &current.exports[..family],
     };
     for arch in WinArch::ALL {
         let before = builtin::build(&previous, arch, 0, &[]);
         let after = builtin::build(current, arch, 0, &[]);
-        assert_eq!(before.ordinal_base, after.ordinal_base);
-        assert_eq!(after.symbols.len(), before.symbols.len() + 1);
+        let added: Vec<_> = current.exports[family]
+            .iter()
+            .filter(|e| e.archs.has(arch))
+            .map(|e| e.name)
+            .collect();
+        assert_eq!(after.ordinal_base, before.ordinal_base);
+        assert!(after.symbols.len() >= before.symbols.len() + added.len());
         assert_eq!(
             &after.symbols[..before.symbols.len()],
             before.symbols.as_slice(),
-            "{arch}: read service moved a prior export"
+            "{arch}: prior ordinals or trap RVAs moved"
         );
-        assert_eq!(after.symbols.last().unwrap().0, "NtReadVirtualMemory");
+        assert_eq!(
+            after.symbols[before.symbols.len()..before.symbols.len() + added.len()]
+                .iter()
+                .map(|row| row.0)
+                .collect::<Vec<_>>(),
+            added
+        );
     }
 }
 

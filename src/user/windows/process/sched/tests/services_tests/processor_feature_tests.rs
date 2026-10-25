@@ -4,6 +4,55 @@ use super::*;
 use crate::user::windows::nt::status::STATUS_INVALID_INFO_CLASS;
 
 #[test]
+fn wow64_processor_feature_preserves_prior_ntdll_ordinals_and_trap_rvas_all_abis() {
+    use crate::user::windows::dll::{self, BuiltinDll};
+    use crate::user::windows::loader::builtin;
+    let current = dll::find("ntdll.dll").unwrap();
+    let names = ["NtWow64IsProcessorFeaturePresent"];
+    let family = current
+        .exports
+        .iter()
+        .position(|table| table.iter().any(|e| e.name == names[0]))
+        .unwrap();
+    assert_eq!(
+        current.exports[family]
+            .iter()
+            .map(|e| e.name)
+            .collect::<Vec<_>>(),
+        names
+    );
+    let previous = BuiltinDll {
+        name: current.name,
+        display: current.display,
+        subsystem: current.subsystem,
+        exports: &current.exports[..family],
+    };
+    for arch in WinArch::ALL {
+        let before = builtin::build(&previous, arch, 0, &[]);
+        let after = builtin::build(current, arch, 0, &[]);
+        let added: Vec<_> = current.exports[family]
+            .iter()
+            .filter(|e| e.archs.has(arch))
+            .map(|e| e.name)
+            .collect();
+        assert_eq!(after.ordinal_base, before.ordinal_base);
+        assert!(after.symbols.len() >= before.symbols.len() + added.len());
+        assert_eq!(
+            &after.symbols[..before.symbols.len()],
+            before.symbols.as_slice(),
+            "{arch}: prior ordinals or trap RVAs moved"
+        );
+        assert_eq!(
+            after.symbols[before.symbols.len()..before.symbols.len() + added.len()]
+                .iter()
+                .map(|row| row.0)
+                .collect::<Vec<_>>(),
+            added
+        );
+    }
+}
+
+#[test]
 fn wow64_processor_feature_service_uses_guest_policy_and_preserves_transition() {
     use crate::user::windows::dll::{nt_service, processor_feature_present};
     for arch in [WinArch::X64, WinArch::Arm64] {
