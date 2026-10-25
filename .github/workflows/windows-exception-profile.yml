@@ -10,6 +10,7 @@ on:
       - docs/specifications/windows/native-wow64-processor-feature/**
       - docs/specifications/windows/native-process-execute-flags/**
       - docs/specifications/windows/native-process-debug-port/**
+      - docs/specifications/windows/native-process-image-information/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
@@ -18,6 +19,7 @@ on:
       - docs/specifications/windows/native-wow64-processor-feature/**
       - docs/specifications/windows/native-process-execute-flags/**
       - docs/specifications/windows/native-process-debug-port/**
+      - docs/specifications/windows/native-process-image-information/**
   workflow_dispatch:
 
 permissions:
@@ -93,3 +95,9 @@ jobs:
           python docs/specifications/windows/native-process-debug-port/test_projection.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python docs/specifications/windows/native-process-debug-port/run-v3.py
+      - name: Observe process image information and independent PE metadata
+        if: always()
+        run: |
+          python docs/specifications/windows/native-process-image-information/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-process-image-information/run-v6.py
