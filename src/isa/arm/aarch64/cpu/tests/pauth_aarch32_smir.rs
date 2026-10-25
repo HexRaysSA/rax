@@ -96,8 +96,8 @@ fn pauth_eret_aarch32_smir_full_state_matches_direct_at_o0_o1_o2() {
             panic!("AArch64 state container");
         };
         assert_eq!(
-            bincode::serialize(&state.to_cpu_state().unwrap()).unwrap(),
-            bincode::serialize(expected).unwrap()
+            crate::codec::serialize(&state.to_cpu_state().unwrap()).unwrap(),
+            crate::codec::serialize(expected).unwrap()
         );
         assert_eq!(state.event_register, direct.event_register);
         assert_eq!(context.insn_count, 1);
@@ -138,8 +138,8 @@ fn pauth_eret_aarch32_native_full_state_matches_direct_at_o0_o1_o2() {
             .unwrap();
         assert_eq!(runtime.retired, 1);
         assert_eq!(
-            bincode::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
-            bincode::serialize(expected).unwrap()
+            crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+            crate::codec::serialize(expected).unwrap()
         );
         assert_eq!(runtime.registers.event_register, direct.event_register);
     });

@@ -116,8 +116,8 @@ fn pauth_context_roundtrip_preserves_keys_configuration_and_full_pstate() {
         );
         let restored = (*engine).vcpu.get_state().unwrap();
         assert_eq!(
-            bincode::serialize(&restored).unwrap(),
-            bincode::serialize(&saved_state).unwrap()
+            rax_engine::codec::serialize(&restored).unwrap(),
+            rax_engine::codec::serialize(&saved_state).unwrap()
         );
         assert_eq!(
             rax_emu_start(engine, 0x1004, RAX_NO_ADDR, 0, 1),
@@ -153,8 +153,8 @@ fn pauth_context_aarch32_width_roundtrip_keeps_physical_aliases_and_executes_thu
             RaxStatus::Ok
         );
         assert_eq!(
-            bincode::serialize(&(*engine).vcpu.get_state().unwrap()).unwrap(),
-            bincode::serialize(&state).unwrap()
+            rax_engine::codec::serialize(&(*engine).vcpu.get_state().unwrap()).unwrap(),
+            rax_engine::codec::serialize(&state).unwrap()
         );
         assert_eq!(
             rax_emu_start(engine, 0x1000, RAX_NO_ADDR, 0, 1),
@@ -176,14 +176,14 @@ fn pauth_context_aarch32_width_roundtrip_keeps_physical_aliases_and_executes_thu
             .unwrap()
             .sysregs
             .id_aa64pfr0_el1 = 0x1111;
-        let invalid = replace_cpu(&blob, 4, &bincode::serialize(&corrupt).unwrap());
+        let invalid = replace_cpu(&blob, 4, &rax_engine::codec::serialize(&corrupt).unwrap());
         assert_eq!(
             rax_context_restore(engine, invalid.as_ptr(), invalid.len()),
             RaxStatus::Format
         );
         assert_eq!(
-            bincode::serialize(&(*engine).vcpu.get_state().unwrap()).unwrap(),
-            bincode::serialize(&after).unwrap()
+            rax_engine::codec::serialize(&(*engine).vcpu.get_state().unwrap()).unwrap(),
+            rax_engine::codec::serialize(&after).unwrap()
         );
         assert_eq!(
             rax_emu_start(engine, 0x1002, RAX_NO_ADDR, 0, 1),
@@ -259,12 +259,12 @@ fn pauth_context_rejects_missing_extension_unknown_algorithm_and_trailing_data()
         panic!("wrong architecture")
     };
     arm.sregs.execution = None;
-    let absent = replace_cpu(&blob, 4, &bincode::serialize(&no_extension).unwrap());
+    let absent = replace_cpu(&blob, 4, &rax_engine::codec::serialize(&no_extension).unwrap());
     assert_eq!(
         rax_context_restore(engine, absent.as_ptr(), absent.len()),
         RaxStatus::Format
     );
-    let mut cpu = bincode::serialize(&state).unwrap();
+    let mut cpu = rax_engine::codec::serialize(&state).unwrap();
     // Frozen old fields (948 bytes), Option::Some tag (1), features (8),
     // then algorithm u32. An unknown algorithm must not select a default.
     cpu[957..961].copy_from_slice(&2u32.to_le_bytes());
@@ -545,8 +545,8 @@ fn pauth_c_api_native_loop_reports_precise_fpac_after_actual_native_entries() {
                 );
                 assert_eq!(rd_u64(engine, 0x0011), 0x1000);
                 assert_eq!(
-                    bincode::serialize(&(*engine).vcpu.get_state().unwrap()).unwrap(),
-                    bincode::serialize(&expected_state).unwrap(),
+                    rax_engine::codec::serialize(&(*engine).vcpu.get_state().unwrap()).unwrap(),
+                    rax_engine::codec::serialize(&expected_state).unwrap(),
                     "complete register/key/control state: algorithm={algorithm} key={key}"
                 );
             }

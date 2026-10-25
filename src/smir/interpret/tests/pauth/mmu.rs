@@ -99,8 +99,8 @@ fn pauth_smir_and_native_mmu_bridge_preserves_precise_load_faults_and_state() {
                 panic!()
             };
             assert_eq!(
-                bincode::serialize(&state.to_cpu_state().unwrap()).unwrap(),
-                bincode::serialize(&expected).unwrap()
+                crate::codec::serialize(&state.to_cpu_state().unwrap()).unwrap(),
+                crate::codec::serialize(&expected).unwrap()
             );
             assert_eq!(context.insn_count, u64::from(expected_exit.is_ok()));
             comparisons += 1;
@@ -136,8 +136,8 @@ fn pauth_smir_and_native_mmu_bridge_preserves_precise_load_faults_and_state() {
                 assert_exit(&expected_exit, &result, pointer, level);
                 assert_eq!(runtime.retired, u64::from(expected_exit.is_ok()));
                 assert_eq!(
-                    bincode::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
-                    bincode::serialize(&expected).unwrap()
+                    crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+                    crate::codec::serialize(&expected).unwrap()
                 );
                 comparisons += 1;
             }

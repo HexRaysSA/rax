@@ -55,8 +55,8 @@ fn assert_state(actual: &AArch64Cpu, expected: &AArch64Cpu) {
     assert_eq!(actual.insn_count, expected.insn_count);
     assert_eq!(actual.cycle_count, expected.cycle_count);
     assert_eq!(
-        bincode::serialize(&actual.export_sregs()).unwrap(),
-        bincode::serialize(&expected.export_sregs()).unwrap()
+        crate::codec::serialize(&actual.export_sregs()).unwrap(),
+        crate::codec::serialize(&expected.export_sregs()).unwrap()
     );
 }
 

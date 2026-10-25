@@ -156,8 +156,8 @@ fn pauth_cfg_loop_and_precise_fault_match_direct_at_o0_o1_o2() {
             panic!("state");
         };
         assert_eq!(
-            bincode::serialize(&state.to_cpu_state().unwrap()).unwrap(),
-            bincode::serialize(expected).unwrap()
+            crate::codec::serialize(&state.to_cpu_state().unwrap()).unwrap(),
+            crate::codec::serialize(expected).unwrap()
         );
     });
 }
@@ -203,8 +203,8 @@ fn pauth_cfg_native_loop_and_precise_fault_match_direct_at_o0_o1_o2() {
         }
         assert_eq!(runtime.retired, retired);
         assert_eq!(
-            bincode::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
-            bincode::serialize(expected).unwrap()
+            crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+            crate::codec::serialize(expected).unwrap()
         );
     });
 }
@@ -276,7 +276,7 @@ fn pauth_cfg_native_retains_an_architectural_branch_condition_destination() {
         .unwrap();
     assert_eq!(runtime.retired, 26);
     assert_eq!(
-        bincode::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
-        bincode::serialize(&expected.to_cpu_state().unwrap()).unwrap()
+        crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+        crate::codec::serialize(&expected.to_cpu_state().unwrap()).unwrap()
     );
 }

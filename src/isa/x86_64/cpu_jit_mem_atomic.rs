@@ -126,7 +126,7 @@ mod tests {
     }
 
     fn architectural_state(cpu: &X86_64Vcpu) -> Vec<u8> {
-        bincode::serialize(&(&cpu.regs, &cpu.sregs, cpu.get_emulator_state())).unwrap()
+        crate::codec::serialize(&(&cpu.regs, &cpu.sregs, cpu.get_emulator_state())).unwrap()
     }
 
     fn memory_bytes(memory: &GuestMemoryMmap) -> Vec<u8> {
@@ -725,8 +725,8 @@ mod tests {
                                 (direct.regs.rflags & !0x10) | (native.regs.rflags & 0x10);
                         }
                         assert_eq!(
-                            bincode::serialize(&native.regs).unwrap(),
-                            bincode::serialize(&direct.regs).unwrap(),
+                            crate::codec::serialize(&native.regs).unwrap(),
+                            crate::codec::serialize(&direct.regs).unwrap(),
                             "full registers {label}"
                         );
                         assert_eq!(native.mxcsr, direct.mxcsr, "MXCSR {label}");

@@ -36,6 +36,10 @@ path = "src/bin/rax_isa_oracle.rs"
 name = "rax-user"
 path = "src/bin/rax_user.rs"
 
+[[bin]]
+name = "rax-trace-map"
+path = "src/bin/rax_trace_map.rs"
+
 # Integration tests live in semantic subdirectories. Explicit declarations
 # make build participation independent of filesystem accidents and keep
 # generated Rust data from becoming standalone test binaries.
@@ -278,10 +282,10 @@ all = "allow"
 clap = { version = "4.5.53", features = ["derive"] }
 linux-loader = { version = "0.13.2", features = ["bzimage", "elf"] }
 serde = { version = "1.0.228", features = ["derive"] }
-bincode = "1.3"
-zstd = "0.13"
+uklad = { version = "1.0.0", default-features = false, features = ["std", "serde"] }
+zstd = "0.14"
 thiserror = "2.0.17"
-toml = "0.9.10"
+toml = "1.1"
 bitflags = "2.6"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
@@ -304,7 +308,7 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 # falls back to 0.16.2 — splitting the graph across three incompatible
 # vm-memory versions that fail to build. Exact-pinning keeps a single 0.17.1.
 vm-memory = { version = "=0.17.1", default-features = false, features = ["backend-mmap"] }
-goblin = "0.8.2"
+goblin = "0.10.7"
 # Portable host entropy for process-personality startup. Already lockfile-pinned.
 getrandom = "=0.4.3"
 
@@ -322,7 +326,7 @@ libc = "0.2"
 # KVM support (Linux only)
 [target.'cfg(target_os = "linux")'.dependencies]
 kvm-bindings = { version = "0.14.0", optional = true }
-kvm-ioctls = { version = "0.24.0", optional = true }
+kvm-ioctls = { version = "0.25.1", optional = true }
 
 [profile.release]
 lto = "fat"

@@ -52,8 +52,8 @@ fn pauth_state_bincode_roundtrip_preserves_keys_controls_and_higher_el_banks() {
     original.sysregs.scr_el3 = 1 | (1 << 16) | (1 << 17);
     original.sp_el = [0x1000, 0x2000, 0x3000, 0x4000];
     let saved = original.export_sregs();
-    let bytes = bincode::serialize(&saved).unwrap();
-    let decoded: Aarch64SystemRegisters = bincode::deserialize(&bytes).unwrap();
+    let bytes = crate::codec::serialize(&saved).unwrap();
+    let decoded: Aarch64SystemRegisters = crate::codec::deserialize(&bytes).unwrap();
     let mut restored = create_test_cpu();
     restored.import_sregs(&decoded).unwrap();
     assert_eq!(restored.pauth_keys(), keys);
@@ -64,10 +64,10 @@ fn pauth_state_bincode_roundtrip_preserves_keys_controls_and_higher_el_banks() {
     assert_eq!(restored.sysregs.el2.spsr, 0x3c5);
     assert_eq!(restored.sysregs.el3.elr, 0x3450);
     assert_eq!(restored.sysregs.el3.spsr, 0x3c9);
-    assert_eq!(bincode::serialize(&restored.export_sregs()).unwrap(), bytes);
+    assert_eq!(crate::codec::serialize(&restored.export_sregs()).unwrap(), bytes);
     // Every truncated serialization must fail rather than default missing keys.
     for end in 0..bytes.len() {
-        assert!(bincode::deserialize::<Aarch64SystemRegisters>(&bytes[..end]).is_err());
+        assert!(crate::codec::deserialize::<Aarch64SystemRegisters>(&bytes[..end]).is_err());
     }
 }
 
@@ -109,14 +109,14 @@ fn pauth_state_legacy_register_overlay_preserves_complete_keyed_extension() {
 fn pauth_state_omitted_keys_cannot_enable_authentication_during_import() {
     let mut cpu = create_test_cpu();
     cpu.sysregs.apiakeylo_el1 = 0x1234;
-    let before = bincode::serialize(&cpu.export_sregs()).unwrap();
+    let before = crate::codec::serialize(&cpu.export_sregs()).unwrap();
     for bit in [31, 30, 27, 13] {
         let incomplete = Aarch64SystemRegisters {
             sctlr_el1: 1 << bit,
             ..Default::default()
         };
         assert!(cpu.import_sregs(&incomplete).is_err());
-        assert_eq!(bincode::serialize(&cpu.export_sregs()).unwrap(), before);
+        assert_eq!(crate::codec::serialize(&cpu.export_sregs()).unwrap(), before);
     }
 }
 

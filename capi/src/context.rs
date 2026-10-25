@@ -235,7 +235,7 @@ impl Engine {
                 return Err(RaxStatus::Format);
             }
         }
-        let cpu_bytes = bincode::serialize(&cpu).map_err(|_| RaxStatus::Format)?;
+        let cpu_bytes = rax_engine::codec::serialize(&cpu).map_err(|_| RaxStatus::Format)?;
         let emu = self.vcpu.get_emulator_state();
         let mut flags = 0u32;
         if emu.is_some() {
@@ -245,7 +245,7 @@ impl Engine {
         w.u64(cpu_bytes.len() as u64);
         w.bytes(&cpu_bytes);
         if let Some(es) = &emu {
-            let eb = bincode::serialize(es).map_err(|_| RaxStatus::Format)?;
+            let eb = rax_engine::codec::serialize(es).map_err(|_| RaxStatus::Format)?;
             w.u64(eb.len() as u64);
             w.bytes(&eb);
         } else {
@@ -335,7 +335,7 @@ impl Engine {
         } else if version == CTX_VERSION_V1 && self.arch == RaxArch::Riscv64 {
             decode_v1_riscv_state(cpu_bytes)
         } else {
-            bincode::deserialize(cpu_bytes).ok()
+            rax_engine::codec::deserialize(cpu_bytes).ok()
         };
         let cpu: CpuState = match decoded {
             Some(c) => c,
@@ -359,7 +359,7 @@ impl Engine {
             let decoded = if version == CTX_VERSION_V1 {
                 decode_v1_emulator_state(eb)
             } else {
-                bincode::deserialize(eb).ok()
+                rax_engine::codec::deserialize(eb).ok()
             };
             match decoded {
                 Some(e) => Some(e),

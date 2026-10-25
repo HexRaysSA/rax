@@ -181,8 +181,8 @@ fn pauth_successful_authentication_all_forms_and_distinct_keys_match_all_planes(
                         panic!()
                     };
                     assert_eq!(
-                        bincode::serialize(&state.to_cpu_state().unwrap()).unwrap(),
-                        bincode::serialize(&expected).unwrap()
+                        crate::codec::serialize(&state.to_cpu_state().unwrap()).unwrap(),
+                        crate::codec::serialize(&expected).unwrap()
                     );
                     assert_eq!(context.insn_count, 1);
                     if matches!(
@@ -225,8 +225,8 @@ fn pauth_successful_authentication_all_forms_and_distinct_keys_match_all_planes(
                             .unwrap();
                         assert_eq!(runtime.retired, 1);
                         assert_eq!(
-                            bincode::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
-                            bincode::serialize(&expected).unwrap(),
+                            crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+                            crate::codec::serialize(&expected).unwrap(),
                             "{raw:#x} {algorithm:?} {profile:?} {level:?}"
                         );
                         native += 1;

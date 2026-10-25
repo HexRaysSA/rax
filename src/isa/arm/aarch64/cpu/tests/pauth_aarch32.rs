@@ -166,8 +166,8 @@ fn pauth_eret_aarch32_actual_native_handoff_matches_direct_and_continues() {
                     assert_eq!(native.v, direct.v);
                     assert_eq!(native.insn_count, direct.insn_count);
                     assert_eq!(
-                        bincode::serialize(&native.export_sregs()).unwrap(),
-                        bincode::serialize(&direct.export_sregs()).unwrap()
+                        crate::codec::serialize(&native.export_sregs()).unwrap(),
+                        crate::codec::serialize(&direct.export_sregs()).unwrap()
                     );
                 }
                 assert_eq!(native.jit.pauth_native_runs, 1);

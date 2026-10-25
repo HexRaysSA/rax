@@ -246,8 +246,8 @@ fn pauth_smir_all_forms_match_direct_at_every_profile_feature_and_optimization()
                             panic!("wrong architecture")
                         };
                         assert_eq!(
-                            bincode::serialize(&actual.to_cpu_state().unwrap()).unwrap(),
-                            bincode::serialize(&expected).unwrap(),
+                            crate::codec::serialize(&actual.to_cpu_state().unwrap()).unwrap(),
+                            crate::codec::serialize(&expected).unwrap(),
                             "{label}"
                         );
                         cases += 1;
@@ -505,8 +505,8 @@ fn pauth_native_all_forms_match_full_direct_state_at_o0_o1_o2() {
                             Err(error) => panic!("unexpected fixture error {error:?}: {label}"),
                         }
                         assert_eq!(
-                            bincode::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
-                            bincode::serialize(&expected).unwrap(),
+                            crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+                            crate::codec::serialize(&expected).unwrap(),
                             "{label}"
                         );
                         assert_eq!(registers.pauth_context, 0);
@@ -600,8 +600,8 @@ fn pauth_smir_authenticated_load_offsets_writeback_zero_register_and_byte_order(
                                     panic!()
                                 };
                                 assert_eq!(
-                                    bincode::serialize(&state.to_cpu_state().unwrap()).unwrap(),
-                                    bincode::serialize(&expected).unwrap(),
+                                    crate::codec::serialize(&state.to_cpu_state().unwrap()).unwrap(),
+                                    crate::codec::serialize(&expected).unwrap(),
                                     "{raw:#x} BE={big_endian} {level:?}"
                                 );
                                 cases += 1;
@@ -676,8 +676,8 @@ fn pauth_native_helpers_preserve_live_vectors_fpcr_fpsr_across_success_and_fault
         );
         assert_eq!(runtime.retired, 3);
         assert_eq!(
-            bincode::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
-            bincode::serialize(&expected).unwrap(),
+            crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+            crate::codec::serialize(&expected).unwrap(),
             "{level:?}"
         );
     }

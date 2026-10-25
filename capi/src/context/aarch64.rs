@@ -1,7 +1,6 @@
 //! Frozen legacy AArch64 context layout and strict format-4 decoder.
 
 use super::{CTX_VERSION_AARCH64, CpuState, Reader};
-use bincode::Options;
 use rax_engine::isa::arm::aarch64::AArch64Cpu;
 use rax_engine::isa::arm::common::features::ArmFeatures;
 use rax_engine::vm::vcpu::{Aarch64Registers, Aarch64SystemRegisters};
@@ -10,11 +9,7 @@ const CPU_STATE_AARCH64_VARIANT: u32 = 2;
 
 pub(super) fn decode_state(bytes: &[u8], version: u32) -> Option<CpuState> {
     if version == CTX_VERSION_AARCH64 {
-        let state: CpuState = bincode::DefaultOptions::new()
-            .with_fixint_encoding()
-            .reject_trailing_bytes()
-            .deserialize(bytes)
-            .ok()?;
+        let state: CpuState = rax_engine::codec::deserialize_strict(bytes).ok()?;
         let CpuState::Aarch64(arm) = &state else {
             return None;
         };

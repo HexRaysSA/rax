@@ -8,6 +8,7 @@
 )]
 
 pub mod backend;
+pub mod codec;
 pub mod config;
 pub mod debug;
 pub mod devices;

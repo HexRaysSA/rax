@@ -56,8 +56,8 @@ fn pauth_checkpoint_roundtrip_retains_keys_profile_banks_and_pstate() {
     assert_eq!(&saved[8..12], &8u32.to_le_bytes());
     let restored = Snapshot::load(&file.0).unwrap();
     assert_eq!(
-        bincode::serialize(&restored.cpu_state).unwrap(),
-        bincode::serialize(&snapshot.cpu_state).unwrap()
+        crate::codec::serialize(&restored.cpu_state).unwrap(),
+        crate::codec::serialize(&snapshot.cpu_state).unwrap()
     );
 }
 
@@ -78,8 +78,8 @@ fn pauth_checkpoint_aarch32_state_roundtrip_and_width_validation() {
     snapshot.save(&file.0).unwrap();
     let restored = Snapshot::load(&file.0).unwrap();
     assert_eq!(
-        bincode::serialize(&restored.cpu_state).unwrap(),
-        bincode::serialize(&snapshot.cpu_state).unwrap()
+        crate::codec::serialize(&restored.cpu_state).unwrap(),
+        crate::codec::serialize(&snapshot.cpu_state).unwrap()
     );
     let CpuState::Aarch64(state) = &mut snapshot.cpu_state else {
         panic!("architecture");
@@ -127,7 +127,7 @@ fn pauth_checkpoint_rejects_absent_keyed_extension_on_save_and_load() {
     );
     // Bypass the writer's validation to exercise the reader independently.
     let mut bytes = CHECKPOINT_MAGIC.to_vec();
-    bytes.extend_from_slice(&bincode::serialize(&snapshot).unwrap());
+    bytes.extend_from_slice(&crate::codec::serialize(&snapshot).unwrap());
     std::fs::write(&file.0, bytes).unwrap();
     assert!(
         Snapshot::load(&file.0)

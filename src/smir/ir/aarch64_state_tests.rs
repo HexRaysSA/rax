@@ -37,8 +37,8 @@ fn pauth_smir_state_roundtrip_preserves_every_bank_and_full_pstate() {
     let original = state();
     let mut registers = Aarch64RegState::from_cpu_state(&original).unwrap();
     assert_eq!(
-        bincode::serialize(&registers.to_cpu_state().unwrap()).unwrap(),
-        bincode::serialize(&original).unwrap()
+        crate::codec::serialize(&registers.to_cpu_state().unwrap()).unwrap(),
+        crate::codec::serialize(&original).unwrap()
     );
     for (pstate, expected) in [(9, 0x3000), (13, 0x4000), (0, 0x1000), (5, 0x2000)] {
         assert!(registers.set_pstate_value(pstate));
@@ -48,11 +48,11 @@ fn pauth_smir_state_roundtrip_preserves_every_bank_and_full_pstate() {
     registers.set_sp_value(0x2500);
     registers.set_pstate_value(9);
     assert_eq!(registers.sp_bank(1), Some(0x2500));
-    let before = bincode::serialize(&registers.to_cpu_state().unwrap()).unwrap();
+    let before = crate::codec::serialize(&registers.to_cpu_state().unwrap()).unwrap();
     for invalid in [1, 2, 0x14, 0x16, 1 << 63] {
         assert!(!registers.set_pstate_value(invalid));
         assert_eq!(
-            bincode::serialize(&registers.to_cpu_state().unwrap()).unwrap(),
+            crate::codec::serialize(&registers.to_cpu_state().unwrap()).unwrap(),
             before
         );
     }

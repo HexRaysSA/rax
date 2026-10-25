@@ -125,8 +125,8 @@ fn payload(vcpu: &X86_64Vcpu) -> (Vec<u8>, Vec<u8>) {
     // Bincode preserves the exact binary80 register bytes of the snapshot,
     // including signed zero and NaN payloads.
     (
-        bincode::serialize(&vcpu.regs).unwrap(),
-        bincode::serialize(&vcpu.get_emulator_state().unwrap()).unwrap(),
+        crate::codec::serialize(&vcpu.regs).unwrap(),
+        crate::codec::serialize(&vcpu.get_emulator_state().unwrap()).unwrap(),
     )
 }
 
@@ -477,8 +477,8 @@ fn direct_mxcsr_restore_snapshot_roundtrips_supported_mxcsr_and_all_existing_fie
         }
         vcpu.set_emulator_state(&state).unwrap();
         assert_eq!(
-            bincode::serialize(&vcpu.get_emulator_state().unwrap()).unwrap(),
-            bincode::serialize(&state).unwrap()
+            crate::codec::serialize(&vcpu.get_emulator_state().unwrap()).unwrap(),
+            crate::codec::serialize(&state).unwrap()
         );
         #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
         assert_eq!(vcpu.jit_vsib_resume_pc, None);

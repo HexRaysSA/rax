@@ -241,7 +241,7 @@ impl Snapshot {
             .map_err(|e| Error::Emulator(format!("Failed to write snapshot magic: {}", e)))?;
 
         // Serialize snapshot with bincode
-        bincode::serialize_into(&mut writer, self)
+        crate::codec::serialize_into(&mut writer, self)
             .map_err(|e| Error::Emulator(format!("Failed to serialize snapshot: {}", e)))?;
 
         writer
@@ -294,7 +294,7 @@ impl Snapshot {
         reader
             .seek(SeekFrom::Current(-4))
             .map_err(|e| Error::Emulator(format!("Failed to seek checkpoint: {}", e)))?;
-        let snapshot: Snapshot = bincode::deserialize_from(&mut reader)
+        let snapshot: Snapshot = crate::codec::deserialize_from(&mut reader)
             .map_err(|e| Error::Emulator(format!("Failed to deserialize checkpoint: {}", e)))?;
 
         if snapshot.version != CHECKPOINT_VERSION {
@@ -489,19 +489,19 @@ mod tests {
             serial: Serial16550::new(0x3f8),
             lapic: LocalApic::new(0),
         };
-        let bytes = bincode::serialize(&devices).expect("serialize device state");
-        let back: DeviceState = bincode::deserialize(&bytes).expect("deserialize device state");
+        let bytes = crate::codec::serialize(&devices).expect("serialize device state");
+        let back: DeviceState = crate::codec::deserialize(&bytes).expect("deserialize device state");
         // Re-serializing the round-tripped value must reproduce the same bytes:
         // proves every field (and the #[serde(skip)] LAPIC Instant) is stable.
-        let bytes2 = bincode::serialize(&back).expect("re-serialize device state");
+        let bytes2 = crate::codec::serialize(&back).expect("re-serialize device state");
         assert_eq!(bytes, bytes2);
     }
 
     #[test]
     fn checkpoint_config_bincode_roundtrip() {
         let cp = checkpoint_config(512 << 20);
-        let bytes = bincode::serialize(&cp).expect("serialize checkpoint config");
-        let back: CheckpointConfig = bincode::deserialize(&bytes).expect("deserialize");
+        let bytes = crate::codec::serialize(&cp).expect("serialize checkpoint config");
+        let back: CheckpointConfig = crate::codec::deserialize(&bytes).expect("deserialize");
         assert_eq!(back.memory_bytes, cp.memory_bytes);
         assert_eq!(back.cmdline, cp.cmdline);
         assert_eq!(back.arch, cp.arch);
@@ -517,8 +517,8 @@ mod tests {
             umwait_control: 0x0000_0000_0001_86A0,
             ..EmulatorState::default()
         };
-        let bytes = bincode::serialize(&state).expect("serialize emulator state");
-        let back: EmulatorState = bincode::deserialize(&bytes).expect("deserialize emulator state");
+        let bytes = crate::codec::serialize(&state).expect("serialize emulator state");
+        let back: EmulatorState = crate::codec::deserialize(&bytes).expect("deserialize emulator state");
         assert!(back.interrupt_inhibit);
         assert_eq!(back.misc_enable, state.misc_enable);
         assert_eq!(back.pat, state.pat);
