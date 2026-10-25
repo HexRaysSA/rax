@@ -78,7 +78,7 @@ VMX transitions and the individual handler effects retain their separate limits.
 cargo +stable test --test hvf_run_loop
 ```
 
-The Intel backend drives internal exits in one loop. It prepares pending events
+The Intel backend drives internal exits in one loop. It checks halt state
 before every entry, executes the selected handler once and either resumes or
 returns its public exit/error. CPUID, completed RDMSR/WRMSR, external-interrupt,
 interrupt-window, CR-access and XSETBV exits no longer recurse through `VCpu::run`.
@@ -192,5 +192,22 @@ length2 CPUID effect fails eight. The final helper matches all twelve.
 
 These are IP/halt/event-source checks, not complete native retirement proof.
 STI/MOVSS interrupt shadows, RF handling after EPT emulation, single-step traps,
-queued-event delivery, APIC/device coherence, remaining CR forms and MMIO need
-separate work. Native Intel VMX execution remains unverified on Apple Silicon.
+full event delivery, APIC/device coherence, remaining CR forms and MMIO need
+separate work. VM-entry arbitration is checked separately below. Native Intel VMX execution remains unverified on Apple Silicon.
+
+## VM-entry event arbitration
+
+`cargo +stable test --test hvf_event_injection` exercises the same boundary used
+by the Intel adapter. An occupied VM-entry event slot blocks both IRQ and NMI
+requests. IRQs require IF=1 and no STI/MOV-SS blocking; NMI blocking alone does
+not block IRQs. NMIs ignore IF and require no STI/MOV-SS/NMI blocking.
+
+A blocked request returns `Ok(false)` and remains owned by the caller, as required
+by `VCpu`. It is not privately queued for later duplicate delivery. A successful
+VMCS write returns `Ok(true)` and clears software halt. Read/write failures are
+propagated and leave halt unchanged. The availability query returns false on a
+host read error. Existing synchronous events retain their slot.
+
+This covers arbitration at the adapter boundary. Interrupt-controller retention,
+VM-entry failure recovery, event-delivery faults, instruction shadows/debug state,
+concurrent callers and native Intel delivery require separate validation.

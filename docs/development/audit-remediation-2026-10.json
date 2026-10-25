@@ -1176,14 +1176,56 @@
         "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-cr8-oracle.log",
         "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle.log",
         "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-standalone.log",
-        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-capi.log",
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/event_injection.rs",
+        "Cargo.toml",
+        "tests/suites/backend/hvf_event_injection.rs",
+        "tools/hvf/README.md",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/reference-summary.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/legacy-native-injection.txt",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/negative-run.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/positive-run.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ip-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-parity/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/instruction-sources.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-events.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-events.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-xsetbv-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ip-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-standalone.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-capi.log"
       ],
       "remaining_validation": [
         "Actual MMIO operand/data/width and completion semantics",
         "Remaining CR0.NE and optional CR3/CR4 intercept semantics",
-        "SDK TPR/software LAPIC/IRQ graph coherence",
+        "SDK TPR/software LAPIC/controller/scheduler coherence and IRQ error retention",
         "Emulated-instruction STI/MOVSS shadows, EPT RF and guestTF/debug completion",
-        "Full exception/error-code/reinjection frames",
+        "Full exception/error-code/reinjection and VM-entry failure frames",
         "Native Intel VMX event and VM/guest runtime validation"
       ]
     },
@@ -2337,6 +2379,62 @@
         "Native Intel VMX instruction/event delivery",
         "Complete instruction retirement shadows/RF/debug and full exception frames",
         "Subsequent segment-limit/canonical/fetch faults are outside IP arithmetic"
+      ]
+    },
+    {
+      "id": "HVF-EVENT-SLOT-ARBITRATION",
+      "area": "Intel VM-entry IRQ/NMI arbitration",
+      "finding": "IRQ/NMI could overwrite a prepared synchronous event; every inhibit bit incorrectly blocked IRQs; NMI ignored blocking; hidden IRQ queue consumed blocked requests despite false return and could overwrite/lose them.",
+      "status": "locally_validated",
+      "evidence": [
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/event_injection.rs",
+        "Cargo.toml",
+        "tests/suites/backend/hvf_event_injection.rs",
+        "tools/hvf/README.md",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/reference-summary.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/legacy-native-injection.txt",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/negative-run.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/positive-run.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ip-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-parity/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/instruction-sources.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-events.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-events.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-xsetbv-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ip-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-standalone.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-capi.log"
+      ],
+      "remaining_validation": [
+        "Native Intel VM-entry/delivery and failure recovery",
+        "Controller/scheduler acknowledgement and IRQ conservation",
+        "STI/MOVSS retirement/debug effects",
+        "Additional activity modes outside active/HLT"
       ]
     }
   ],
@@ -16313,6 +16411,924 @@
           "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-ip-oracle.log",
           "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-sdk-standalone.log",
           "/Users/int/dev/rax-audit-work/rax-hvf-sync-exits/final-capi.log"
+        ]
+      }
+    },
+    {
+      "id": "hvf-vmentry-event-slot-arbitration",
+      "status": "locally_validated",
+      "scope": "Arbitrate the single native Intel VM-entry event slot; exact IRQ/NMI inhibit masks; preserve caller ownership of blocked requests and propagate host failures; remove private queue whose false return contradicted VCpu ownership.",
+      "assumptions": [
+        {
+          "id": "E1",
+          "assumption": "For a valid active/HLT guest state, external interrupt injection requires IF and absence of STI/MOVSS blocking; NMI blocking does not block an external IRQ.",
+          "dependent_result": "Separate masks for IRQ and NMI.",
+          "stress_test": "65536 IRQ matrix cells across256 vectors, IF, occupied slot, all32 low inhibit states and unrelated high entry bits;192 NMI cells.",
+          "falsification_probe": "IRQ blocked by only NMI state, IRQ accepted with IF0 or STI/MOVSS set; NMI depends on IF or ignores NMI block.",
+          "status": "primary contract/shared boundary verified; native VMX unknown"
+        },
+        {
+          "id": "E2",
+          "assumption": "VM entry has one event slot; an already-valid event must not be overwritten by another IRQ or NMI request. Hardware clears valid on every VM exit.",
+          "dependent_result": "Read occupancy first and preserve existing synchronous event; no hidden competing queue.",
+          "stress_test": "All8 event types and256 vectors against both new event kinds,4096 cells; same-vector retry and simulated hardware valid clear.",
+          "falsification_probe": "Existing event changed or additional host reads performed on occupied slot.",
+          "status": "primary contract/source boundary verified"
+        },
+        {
+          "id": "E3",
+          "assumption": "VCpu::inject_interrupt false indicates blocked/unaccepted request; caller retains it. Host read/write error must not fabricate acceptance.",
+          "dependent_result": "Remove private pending Option and overwrite/loss paths; only successful VMCS write clears halt.",
+          "stress_test": "Seven read/write error partitions with retry and exactly-one successful write; blocked then distinct event then original retry.",
+          "falsification_probe": "Blocked request is later injected without caller retry, second request overwrites first privately, error reports success or halt clears on error.",
+          "status": "existing trait contract verified; actual adapter source+cross-build required; VMM PIC acknowledgement is a separate unresolved path"
+        },
+        {
+          "id": "E4",
+          "assumption": "Source-derived primary masks and host fixtures prove arbitration only; no native Intel VM entry or full controller/delivery semantics are inferred.",
+          "dependent_result": "Retain explicit hardware/controller/scheduler/retirement limitations.",
+          "stress_test": "Full prior SDK/driver/CR8/XSETBV/IP and native/foreign library gates; controlled prior-effect reversal5 failures/1 control.",
+          "falsification_probe": "Fixture result labeled native guest delivery or whole C-HVF closure.",
+          "status": "retained"
+        }
+      ],
+      "primary_sources": [
+        {
+          "path": "/Users/int/dev/rax-audit-work/rax-final-worktree/docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+          "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+          "contract": "Intel SDM086 Vol.3C26.8.3 and29.2: VM-entry event valid bit and clearing on VM exit;28.3.1.4-5: IF, STI/MOVSS and NMI checks;27.2 interrupt-window readiness."
+        },
+        {
+          "path": "/Users/int/dev/rax-audit-work/rax-final-worktree/src/vm/vcpu/mod.rs",
+          "sha256": "5381cfc7c38a81a4e5e9ee3d91fb41acbe9f79ae95bb701bd880a467133a21b2",
+          "contract": "Existing VCpu IRQ/NMI bool ownership and blocking contract.",
+          "previous_sha256": "c8f4ad8e189307f5e604e0b34931d4d726061b7c120820a3b1a6bb31e1936d70",
+          "contract_sha256": "6adea3c013ef9f63bbaa73992a84055595b23dea3f96c31b7b34cb6804b1f5af",
+          "contract_equivalence": "Relevant IRQ/NMI contract is byte-identical; other source additions came from pre-existing PAUTH commit6309a97e6 and were already included in all final gates."
+        }
+      ],
+      "affected_planes": {
+        "native_adapter": "Shared event availability/write boundary and error propagation; halt clears only after success; remove unused hidden pending queue; blocked requests remain caller-owned.",
+        "tests": "Six owning tests include65536 IRQ,192 NMI,4096 occupied-slot cells, retries, all fallible host operations and side-effect-free availability.",
+        "software_isa_and_state": "No ISA/lifter/lowerer or exported C ABI change; no serialized field or checkpoint version change."
+      },
+      "complexity": "O(1) time/space per request; at most3 host reads and1 host write. Host-test traces are fixture-only. No queue, allocation or recursion in production arbitration.",
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "item": "Native Intel VM entry and delivery, failed-entry recovery and IDT delivery faults remain unknown on Apple Silicon.",
+          "blocks": "Native runtime proof"
+        },
+        {
+          "impact": "high",
+          "item": "VMM PIC polling can acknowledge a vector before injection and discard errors; controller ownership, scheduler, TPR/LAPIC coherence and asynchronous retention need separate work.",
+          "blocks": "End-to-end IRQ conservation"
+        },
+        {
+          "impact": "high",
+          "item": "STI/MOVSS retirement, RF after EPT and guestTF/debug remain separate. This group arbitrates saved state only.",
+          "blocks": "Complete retirement"
+        },
+        {
+          "impact": "medium",
+          "item": "Assumes valid active/HLT VMCS state and serialized mutable vCPU access. SMM/enclave/shutdown/wait-for-SIPI support is not added.",
+          "blocks": "Additional guest activity modes"
+        }
+      ],
+      "quality_gates": {
+        "assumptions": "E1-E4 include dependent results, stress tests and falsification probes.",
+        "coverage": "Six complete owning tests; controlled prior-effects5fail/1pass; all prior independent instruction/SDK and complete native/foreign library checks.",
+        "units": "Bit masks,256 vectors, exact state partitions and checked counters; no dimensional calculations.",
+        "contradictions": "False now leaves ownership with caller per trait; NMI blocking does not imply IRQ blocking; no native proof inferred.",
+        "provenance": "Pinned primary manual, existing VCpu contract, actual prior native fragment and controlled reversal hashes.",
+        "bounded_scope": "Controller acknowledgement, scheduler, VM entry/delivery faults, retirement and native Intel remain explicit.",
+        "worktree_integrity": "Five owned paths plus ledger; preserve unrelated source and exact staged-path verification.",
+        "reproducibility": "Capture all source hashes, product fingerprint, complete suite counters, logs and prior independent manifests."
+      },
+      "baseline": "f8e1bad871d30cf11c6194758fe68350c7589edb",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 419.5447099170415
+          },
+          {
+            "check": "final-clippy",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 435.45453550003003
+          },
+          {
+            "check": "final-fmt",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 19.69987249991391
+          },
+          {
+            "check": "final-doc",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 7.550449499976821
+          },
+          {
+            "check": "final-sdk",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sdk_abi",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.7937831670278683
+          },
+          {
+            "check": "final-events",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_event_injection",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 127.6923439160455
+          },
+          {
+            "check": "final-sync-exits",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sync_exits",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.15385687502566725
+          },
+          {
+            "check": "final-cr8",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_cr8",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.10444162494968623
+          },
+          {
+            "check": "final-loop",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_run_loop",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.16458645893726498
+          },
+          {
+            "check": "final-xsetbv",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_xsetbv",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.13585262501146644
+          },
+          {
+            "check": "final-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 680.7413218339207
+          },
+          {
+            "check": "final-intel-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 342.9340259579476
+          },
+          {
+            "check": "final-intel-sdk",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sdk_abi",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 1.1807336249621585
+          },
+          {
+            "check": "final-intel-events",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_event_injection",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.33146350004244596
+          },
+          {
+            "check": "final-intel-sync-exits",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sync_exits",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.366832833038643
+          },
+          {
+            "check": "final-intel-cr8",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_cr8",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.3114179999101907
+          },
+          {
+            "check": "final-intel-loop",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_run_loop",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.5221092499559745
+          },
+          {
+            "check": "final-intel-xsetbv",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_xsetbv",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.3112621249165386
+          },
+          {
+            "check": "final-intel-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2692.9546474589733
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 1.490185583010316
+          },
+          {
+            "check": "final-xsetbv-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/xsetbv_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.8090587500482798
+          },
+          {
+            "check": "final-cr8-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/cr8_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.44460837496444583
+          },
+          {
+            "check": "final-ip-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/sync_exit_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ip-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.4425164160784334
+          },
+          {
+            "check": "final-sdk-standalone",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/check_sdk_abi.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-parity"
+            ],
+            "code": 0,
+            "seconds": 0.46931166702415794
+          },
+          {
+            "check": "final-capi",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 20.710687083075754
+          }
+        ],
+        "complete_native_feature_hvf_library": {
+          "passed": 10598,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 450.75
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "ci_owning": {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.09
+        },
+        "negative_prior_effect_failed": 5,
+        "negative_control_passed": 1,
+        "negative_scope": "Controlled prior native injection effects using the new host boundary. Original VMX adapter cannot execute on Apple Silicon; this is not a native parent binary.",
+        "sdk_parity": {
+          "version": 1,
+          "bindings": "/Users/int/dev/rax-audit-work/rax-final-worktree/src/backend/hvf/bindings.rs",
+          "bindings_sha256": "9f3795c7daaaa080aecbf16a84b56d716fcd8db8195771b7af4cd23d06fd8c62",
+          "tool_sha256": "5fcf52452d83618dfca5eab537ddea2214e8fecc2e8b20d9d3e269f60ff8e856",
+          "sdk": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+          "commands": [
+            {
+              "name": "rust-version",
+              "args": [
+                "rustc",
+                "+stable",
+                "-vV"
+              ],
+              "code": 0,
+              "seconds": 0.043353040935471654
+            },
+            {
+              "name": "clang-version",
+              "args": [
+                "xcrun",
+                "clang",
+                "--version"
+              ],
+              "code": 0,
+              "seconds": 0.014449083944782615
+            },
+            {
+              "name": "sdk-version",
+              "args": [
+                "xcrun",
+                "--show-sdk-version"
+              ],
+              "code": 0,
+              "seconds": 0.017229333985596895
+            },
+            {
+              "name": "rust-build",
+              "args": [
+                "rustc",
+                "+stable",
+                "--edition=2024",
+                "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-parity/probe.rs",
+                "-o",
+                "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-parity/rust-probe"
+              ],
+              "code": 0,
+              "seconds": 0.16936687496490777
+            },
+            {
+              "name": "rust-values",
+              "args": [
+                "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-parity/rust-probe"
+              ],
+              "code": 0,
+              "seconds": 0.006417291006073356
+            },
+            {
+              "name": "sdk-compile",
+              "args": [
+                "xcrun",
+                "clang",
+                "-target",
+                "x86_64-apple-macosx13.0",
+                "-isysroot",
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+                "-std=c11",
+                "-Werror",
+                "-Wno-deprecated-declarations",
+                "-fsyntax-only",
+                "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-parity/probe.c"
+              ],
+              "code": 0,
+              "seconds": 0.11785366700496525
+            },
+            {
+              "name": "sdk-arm64-constants",
+              "args": [
+                "xcrun",
+                "clang",
+                "-target",
+                "arm64-apple-macosx13.0",
+                "-isysroot",
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+                "-std=c11",
+                "-Werror",
+                "-fsyntax-only",
+                "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-parity/probe-arm64.c"
+              ],
+              "code": 0,
+              "seconds": 0.03627883305307478
+            }
+          ],
+          "sdk_header_sha256": {
+            "hv_arch_x86.h": "19926e960116d989531558066f21f237a8482d1feffbc911bcaae3b145bc3368",
+            "hv.h": "98387bf589442a8b8cd7416588e73d2e16a64c0e5036afcbbb08cb5772f41985",
+            "hv_vmx.h": "e62a6b975fdb9509ee632e4449f0d40626c78fcb0fc7b36ce1a178685e5b1413",
+            "hv_types.h": "2a3a30d5d71f2ddb4316d20072a5d9d7cb7229a53bddb4036ad1ecd9585bdc10",
+            "hv_error.h": "0479e1e2702a87a159b362aafee6d439ba1ec1f3b41971642c0f4f985faca2d8"
+          },
+          "vmcs_sdk_header_sha256": "a6742cf27e2994ee27d4442cd18e36b379a861150f02a5696183748569464c4b",
+          "arm64_error_header_sha256": "d1fda9e96f409485e7efc9c738cfb469b9fbb02c9f785c4ba85ef6532714fd03",
+          "scope": "Intel register IDs, selected ABI type sizes/alignments, HV constants, and every declared x86 foreign function signature. All declared VMCS field encodings use explicit SDK-name aliases. Native hypervisor/guest execution and Arm64 function signatures remain separate.",
+          "synchronous_exit_source_sha256": "c96fec19843619dd1dd17c251eef9cc516a20ada0d33063407d68431a5052f66",
+          "vmcs_aliases_sha256": "a8c0a159310e73eb8f58a7bffb29f51bb7ade5341039d0bb374b3774b1f73e93",
+          "vmcs_sdk_aliases": {
+            "VMCS_CTRL_VMENTRY_EXCEPTION_ERROR": "VMCS_CTRL_VMENTRY_EXC_ERROR",
+            "VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH": "VMCS_CTRL_VMENTRY_INSTR_LEN",
+            "VMCS_EXIT_INSTRUCTION_INFO": "VMCS_RO_VMX_INSTR_INFO",
+            "VMCS_EXIT_INSTRUCTION_LENGTH": "VMCS_RO_VMEXIT_INSTR_LEN",
+            "VMCS_EXIT_QUALIFICATION": "VMCS_RO_EXIT_QUALIFIC",
+            "VMCS_EXIT_REASON": "VMCS_RO_EXIT_REASON",
+            "VMCS_GUEST_CS_ACCESS_RIGHTS": "VMCS_GUEST_CS_AR",
+            "VMCS_GUEST_CS_SELECTOR": "VMCS_GUEST_CS",
+            "VMCS_GUEST_DS_ACCESS_RIGHTS": "VMCS_GUEST_DS_AR",
+            "VMCS_GUEST_DS_SELECTOR": "VMCS_GUEST_DS",
+            "VMCS_GUEST_ES_ACCESS_RIGHTS": "VMCS_GUEST_ES_AR",
+            "VMCS_GUEST_ES_SELECTOR": "VMCS_GUEST_ES",
+            "VMCS_GUEST_FS_ACCESS_RIGHTS": "VMCS_GUEST_FS_AR",
+            "VMCS_GUEST_FS_SELECTOR": "VMCS_GUEST_FS",
+            "VMCS_GUEST_GS_ACCESS_RIGHTS": "VMCS_GUEST_GS_AR",
+            "VMCS_GUEST_GS_SELECTOR": "VMCS_GUEST_GS",
+            "VMCS_GUEST_IA32_SYSENTER_EIP": "VMCS_GUEST_SYSENTER_EIP",
+            "VMCS_GUEST_IA32_SYSENTER_ESP": "VMCS_GUEST_SYSENTER_ESP",
+            "VMCS_GUEST_INTERRUPTIBILITY_STATE": "VMCS_GUEST_INTERRUPTIBILITY",
+            "VMCS_GUEST_LDTR_ACCESS_RIGHTS": "VMCS_GUEST_LDTR_AR",
+            "VMCS_GUEST_LDTR_SELECTOR": "VMCS_GUEST_LDTR",
+            "VMCS_GUEST_LINEAR_ADDRESS": "VMCS_RO_GUEST_LIN_ADDR",
+            "VMCS_GUEST_PENDING_DBG_EXCEPTIONS": "VMCS_GUEST_DEBUG_EXC",
+            "VMCS_GUEST_SS_ACCESS_RIGHTS": "VMCS_GUEST_SS_AR",
+            "VMCS_GUEST_SS_SELECTOR": "VMCS_GUEST_SS",
+            "VMCS_GUEST_TR_ACCESS_RIGHTS": "VMCS_GUEST_TR_AR",
+            "VMCS_GUEST_TR_SELECTOR": "VMCS_GUEST_TR",
+            "VMCS_IDT_VECTORING_ERROR_CODE": "VMCS_RO_IDT_VECTOR_ERROR",
+            "VMCS_IDT_VECTORING_INFO": "VMCS_RO_IDT_VECTOR_INFO"
+          },
+          "arm64_shared_constants": 11,
+          "counts": {
+            "register_ids": 52,
+            "vmcs_fields": 85,
+            "shared_runtime_vmcs_fields": 1,
+            "constants": 17,
+            "types": 6,
+            "type_size_alignment_pairs": 8,
+            "function_signatures": 20
+          },
+          "artifact_sha256": {
+            "probe.rs": "c488e87b3611a53be9680dad39d3c15ee7a1684791ac797c61827416633f192b",
+            "probe.c": "31acf061aff7db0f0a483a8012c5b613fb174262c6196e18e2be8fdb0b491f3a",
+            "probe-arm64.c": "88d84553de19e1a49e38d4004c05ac84afab6a248d6fa9f6668d6cbcb586b0b0",
+            "rust-values.stdout": "013af65e25bbc409fb03bff8f4745a6f54ca8199964b6cdcdd77dfbbc83285fb"
+          },
+          "result": "match"
+        },
+        "prior_ip": {
+          "cases": 12,
+          "decode16_cases": 6,
+          "failed": 0,
+          "reference_failed": 0
+        },
+        "prior_cr8": {
+          "cases": 335,
+          "independent_legal_cases": 272,
+          "reserved_primary_cases": 63,
+          "local_profile_failed": 0,
+          "independent_legal_failed": 0,
+          "commit_order_failed": 0,
+          "qemu_raw_differences": 63,
+          "unknown_reference_profile_failed": 0
+        },
+        "prior_xstate": {
+          "cases": 114,
+          "denied": 111,
+          "failed": 0,
+          "commit_order_failed": 0,
+          "cpuid_failed": 0
+        },
+        "product_source_fingerprint": {
+          "rust_and_build_sources_sha256": "2a8c715bd19427c50735c51618fd356c49a2e6d0ca1c77e3625a348cc9538077",
+          "files": 3571
+        },
+        "native_intel_vm_guest_execution": "unknown/unverified: Apple Silicon host; host arbitration fixtures, SDK checks and TCG direct instructions do not prove native VMX",
+        "remaining_irq_scope": "Controller acknowledgement/error retention, full VM-entry/delivery failure recovery and retirement remain separate.",
+        "complete_native_events": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.01
+        },
+        "complete_rosetta_events": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.01
+        },
+        "complete_native_sync-exits": {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_rosetta_sync-exits": {
+          "passed": 9,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.01
+        },
+        "complete_native_cr8": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_rosetta_cr8": {
+          "passed": 6,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_native_loop": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.05
+        },
+        "complete_rosetta_loop": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.17
+        },
+        "complete_native_xsetbv": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_rosetta_xsetbv": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "complete_native_sdk": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.67
+        },
+        "complete_rosetta_sdk": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.72
+        },
+        "complete_rosetta_feature_hvf_library": {
+          "passed": 11581,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 2692.34
+        },
+        "capi": [
+          {
+            "passed": 191,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 20.49
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          }
+        ],
+        "capi_inventory_adjustment": {
+          "reason": "Externally introduced PAUTH C API tests increased the owning binary from 185 to 191 tests before stable final checkout creation. Historical fixed-count validation was stale.",
+          "scope": "Capture the complete current C API libtest inventory and require exact count, zero failed, ignored and filtered tests, plus the unchanged zero doctest result. Product source, test membership, filters, timeout and result logs are unchanged.",
+          "first_group": "Group52 inventory captured after its successful complete run; later groups capture before executing.",
+          "original_logs_retained": true
+        },
+        "contract_reference_rebinding": [
+          {
+            "path": "/Users/int/dev/rax-audit-work/rax-final-worktree/docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+            "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+            "contract": "Intel SDM086 Vol.3C26.8.3 and29.2: VM-entry event valid bit and clearing on VM exit;28.3.1.4-5: IF, STI/MOVSS and NMI checks;27.2 interrupt-window readiness."
+          },
+          {
+            "path": "/Users/int/dev/rax-audit-work/rax-final-worktree/src/vm/vcpu/mod.rs",
+            "sha256": "5381cfc7c38a81a4e5e9ee3d91fb41acbe9f79ae95bb701bd880a467133a21b2",
+            "contract": "Existing VCpu IRQ/NMI bool ownership and blocking contract.",
+            "previous_sha256": "c8f4ad8e189307f5e604e0b34931d4d726061b7c120820a3b1a6bb31e1936d70",
+            "contract_sha256": "6adea3c013ef9f63bbaa73992a84055595b23dea3f96c31b7b34cb6804b1f5af",
+            "contract_equivalence": "Relevant IRQ/NMI contract is byte-identical; other source additions came from pre-existing PAUTH commit6309a97e6 and were already included in all final gates."
+          }
+        ],
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/reference-summary.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/legacy-native-injection.txt",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/negative-run.stdout",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/positive-run.stdout",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ip-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-parity/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/instruction-sources.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/worktree-checks.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-build.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-clippy.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-fmt.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-doc.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-events.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sync-exits.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-loop.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-xsetbv.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-library.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-build.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-sdk.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-events.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-sync-exits.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-cr8.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-loop.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-xsetbv.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-xsetbv-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-cr8-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-ip-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-sdk-standalone.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-event-injection/final-capi.log"
         ]
       }
     }

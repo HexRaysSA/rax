@@ -14,6 +14,8 @@ mod bindings;
 mod convert;
 #[cfg(target_arch = "x86_64")]
 mod cr8;
+#[cfg(target_arch = "x86_64")]
+mod event_injection;
 pub mod rosetta;
 mod run_loop;
 #[cfg(target_arch = "x86_64")]
@@ -224,8 +226,6 @@ pub struct HvfVcpu {
     pending_io_in: Option<(u16, u8)>,
     /// Whether the vCPU is halted
     halted: bool,
-    /// Pending interrupt to inject
-    pending_interrupt: Option<u8>,
 }
 
 // Safety: HvfVcpu is Send because the vCPU ID is a u32 identifier,
@@ -248,7 +248,6 @@ impl HvfVcpu {
             cpuid_config,
             pending_io_in: None,
             halted: false,
-            pending_interrupt: None,
         };
 
         // Initialize VMCS
@@ -642,50 +641,48 @@ impl HvfVcpu {
         write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP, next)
     }
 
-    /// Inject a pending interrupt if possible.
-    fn try_inject_interrupt(&mut self) -> Result<()> {
-        if self.pending_interrupt.is_some()
-            && vmcs_read(
-                self.vcpu_id,
-                hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
-            )? & u64::from(INTR_INFO_VALID)
-                != 0
-        {
-            return Ok(());
-        }
-        if let Some(vector) = self.pending_interrupt.take() {
-            // Check if interrupts are enabled
-            let rflags = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)?;
-            if (rflags & RFLAGS_IF) == 0 {
-                // Interrupts disabled, put it back
-                self.pending_interrupt = Some(vector);
-                return Ok(());
-            }
+    fn event_access(&self) -> EventAccess<'_> {
+        EventAccess { vcpu: self }
+    }
 
-            // Check interruptibility state
-            let interruptibility = vmcs_read(
-                self.vcpu_id,
-                hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
-            )?;
-            if interruptibility != 0 {
-                // Not interruptible (e.g., after STI or MOV SS)
-                self.pending_interrupt = Some(vector);
-                return Ok(());
-            }
-
-            // Inject the interrupt via VM-entry
-            let intr_info = (vector as u64)
-                | ((INTR_TYPE_EXT_INTR as u64) << INTR_INFO_TYPE_SHIFT)
-                | (INTR_INFO_VALID as u64);
-            vmcs_write(
-                self.vcpu_id,
-                hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
-                intr_info,
-            )?;
-
+    fn inject_event(&mut self, event: event_injection::Event) -> Result<bool> {
+        let injected = event_injection::inject(&mut self.event_access(), event)?;
+        if injected {
             self.halted = false;
         }
-        Ok(())
+        Ok(injected)
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+struct EventAccess<'a> {
+    vcpu: &'a HvfVcpu,
+}
+
+#[cfg(target_arch = "x86_64")]
+impl event_injection::Access for EventAccess<'_> {
+    type Error = Error;
+    fn entry_information(&mut self) -> Result<u64> {
+        vmcs_read(
+            self.vcpu.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
+        )
+    }
+    fn rflags(&mut self) -> Result<u64> {
+        read_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)
+    }
+    fn interruptibility(&mut self) -> Result<u64> {
+        vmcs_read(
+            self.vcpu.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
+        )
+    }
+    fn write_entry_information(&mut self, information: u64) -> Result<()> {
+        vmcs_write(
+            self.vcpu.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
+            information,
+        )
     }
 }
 
@@ -705,11 +702,8 @@ impl run_loop::ExitHandler for HvfVcpu {
     type Exit = VcpuExit;
     type Error = Error;
     fn prepare(&mut self) -> Result<Option<VcpuExit>> {
-        // Try to inject any pending interrupt
-        self.try_inject_interrupt()?;
-
-        // If halted and no interrupt pending, return Hlt
-        if self.halted && self.pending_interrupt.is_none() {
+        // Only successful event injection or explicit wake clears the halt.
+        if self.halted {
             return Ok(Some(VcpuExit::Hlt));
         }
 
@@ -822,7 +816,7 @@ impl run_loop::ExitHandler for HvfVcpu {
         Ok(VcpuExit::Shutdown)
     }
     fn interrupt_window(&mut self) -> Result<()> {
-        self.try_inject_interrupt()
+        Ok(())
     }
     fn control_register(&mut self) -> Result<()> {
         let qualification = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_QUALIFICATION)?;
@@ -923,60 +917,19 @@ impl VCpu for HvfVcpu {
     }
 
     fn inject_interrupt(&mut self, vector: u8) -> Result<bool> {
-        if !self.can_inject_interrupt() {
-            self.pending_interrupt = Some(vector);
-            return Ok(false);
-        }
-
-        // Inject immediately
-        let intr_info = (vector as u64)
-            | ((INTR_TYPE_EXT_INTR as u64) << INTR_INFO_TYPE_SHIFT)
-            | (INTR_INFO_VALID as u64);
-        vmcs_write(
-            self.vcpu_id,
-            hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
-            intr_info,
-        )?;
-
-        self.halted = false;
-        Ok(true)
+        self.inject_event(event_injection::Event::Interrupt(vector))
     }
 
     fn can_inject_interrupt(&self) -> bool {
-        // Check IF flag
-        let rflags = match read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS) {
-            Ok(f) => f,
-            Err(_) => return false,
-        };
-
-        if (rflags & RFLAGS_IF) == 0 {
-            return false;
-        }
-
-        // Check interruptibility state
-        let interruptibility = match vmcs_read(
-            self.vcpu_id,
-            hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
-        ) {
-            Ok(s) => s,
-            Err(_) => return false,
-        };
-
-        interruptibility == 0
+        event_injection::available(
+            &mut self.event_access(),
+            event_injection::Event::Interrupt(0),
+        )
+        .unwrap_or(false)
     }
 
     fn inject_nmi(&mut self) -> Result<bool> {
-        let intr_info = 2u64  // NMI vector
-            | ((INTR_TYPE_NMI as u64) << INTR_INFO_TYPE_SHIFT)
-            | (INTR_INFO_VALID as u64);
-        vmcs_write(
-            self.vcpu_id,
-            hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
-            intr_info,
-        )?;
-
-        self.halted = false;
-        Ok(true)
+        self.inject_event(event_injection::Event::Nmi)
     }
 
     #[cfg(feature = "debug")]
