@@ -15,6 +15,8 @@ use crate::user::windows::objects::Object;
 const PROCESS_COOKIE: u32 = 36;
 const PROCESS_VM_WRITE: u32 = 0x20;
 
+mod execute_flags;
+
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
     let result = query(c);
     guard_result(c, result)
@@ -37,6 +39,9 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if returned != 0 {
         probe_write(c, returned, 4)?;
+    }
+    if class == 34 {
+        return execute_flags::query(c, handle, output, length, returned);
     }
     if class == 52 {
         return super::process_mitigation::query(c, handle, output, length);

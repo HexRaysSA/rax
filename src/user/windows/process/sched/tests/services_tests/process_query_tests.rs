@@ -468,3 +468,6 @@ mod process_mitigation;
 
 #[path = "process_query_tests/basic_information.rs"]
 mod basic_information;
+
+#[path = "process_query_tests/execute_flags.rs"]
+mod execute_flags;
