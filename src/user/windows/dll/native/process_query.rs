@@ -4,17 +4,19 @@
 //! Windows 10.0.29683.1000 observations, not public SDK guarantees.
 
 use super::query::{guard_result, probe_write, return_length};
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::{
-    STATUS_ACCESS_DENIED, STATUS_DATATYPE_MISALIGNMENT, STATUS_INFO_LENGTH_MISMATCH,
-    STATUS_INVALID_HANDLE,
+    STATUS_ACCESS_DENIED, STATUS_ACCESS_VIOLATION, STATUS_DATATYPE_MISALIGNMENT,
+    STATUS_INFO_LENGTH_MISMATCH, STATUS_INVALID_HANDLE,
 };
 use crate::user::windows::objects::Object;
 
 const PROCESS_COOKIE: u32 = 36;
 const PROCESS_VM_WRITE: u32 = 0x20;
 
+mod debug_port;
 mod execute_flags;
 
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
@@ -31,14 +33,33 @@ fn query(c: &mut Ctx) -> ApiResult {
     if class == 49 {
         return super::process_console::query(c, handle, output, length, returned);
     }
+    if class == 7 && c.arch() == WinArch::X86 {
+        // WoW64 converts this pointer-width record through private backing;
+        // its caller stores have no native entry alignment/ReturnLength probe.
+        return debug_port::query(c, handle, output, length, returned);
+    }
     // Native process queries check output alignment before ReturnLength, but
     // defer touching output pages until after class/length/handle validation.
     // This also applies to WoW64 class 36; system-query conversion is different.
     if length != 0 && output % 4 != 0 {
         return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
     }
+    if length != 0
+        && c.arch() != WinArch::X86
+        && matches!(class, 7 | 34 | PROCESS_COOKIE)
+        && output
+            .checked_add(u64::from(length))
+            .is_none_or(|end| end > c.p.vm.high())
+    {
+        // Native upper-user-span rejection precedes ReturnLength visitation.
+        // The measured WoW64 direct class34/36 paths do not share this check.
+        return Flow::ret(STATUS_ACCESS_VIOLATION.into());
+    }
     if returned != 0 {
         probe_write(c, returned, 4)?;
+    }
+    if class == 7 {
+        return debug_port::query(c, handle, output, length, returned);
     }
     if class == 34 {
         return execute_flags::query(c, handle, output, length, returned);
