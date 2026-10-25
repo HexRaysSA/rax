@@ -130,3 +130,61 @@ and the pinned `SECTION_IMAGE_INFORMATION` declaration already retained in
 describes the general API; the class-37 layout and detailed copy order here
 are measured private behavior. The complete local receipt is
 `local-29683-v6.json`.
+
+
+## Pointer-write and granted-right follow-up
+
+`native-image-information-v7.cpp` and `run-v9.py` retain the earlier controls
+and add an output with exactly eight writable bytes before a read-only page.
+The new capture contains 2,108 matrix calls plus 33 metadata calls (2,141
+explicit class-37 calls). The same three ARM64 loader rejections contribute
+zero query coverage. The original v4/v6 source, driver and receipt remain
+unchanged. All 2,066 prior input/status/guard observations agree with the new
+capture; the additional boundary contributes 42 matrix calls across three views.
+
+Each row adds three address-free bit predicates for the selected pointer-prefix
+scratch bytes: `pointer_valid_mask` marks reference-entry bytes different from
+fill byte `0xA5`; `pointer_changed_mask` marks scratch bytes different from that
+fill; `pointer_match_mask` marks bytes equal to the reference entry. No pointer
+byte values are emitted. A native reference byte equal to fill remains ambiguous
+and is excluded through the validity mask. An aliased ReturnLength can overwrite
+pointer bytes; matching predicates describe the final bytes rather than proving
+the provenance of such an overwrite.
+
+On the ARM64 kernel, both native64 executable views write the eight-byte entry
+pointer before faulting at the new boundary. WoW64 leaves the pointer unchanged
+when its full converted record cannot be written. The older hosted v6 controls
+also expose a native-copy difference: x64 kernels 20348/26100 preserve a
+read-only output guard, while the local ARM64 kernel consumes it. At the
+60-writable-byte boundary, the ARM64 kernel preserves completed scalar fields
+through byte 55 and the native x64 kernels through byte 47. Masked padding is
+excluded from that comparison. These are captured kernel differences, including for
+the local x64 compatibility view. A future model must select by the captured
+kernel identity, not caller ISA, build-host macros or a spoofed guest version.
+The new pointer predicates still need their own hosted qualification.
+
+Real owned-process rights rows now query `ObjectBasicInformation` and publish
+its granted-access scalar. Other rows publish JSON null for that unmeasured
+field. Requested `0x0400` yields grant `0x1400`; requested `0x1000` yields
+`0x1000`. The grant probe uses the independently measured exact 56-byte request.
+The first extended attempt stopped with an incomplete matrix after using a
+larger request; that failed input and partial receipt are preserved separately.
+The completed follow-up adds 18 ObjectBasicInformation calls, independent of
+the class-37 call counts above.
+
+Four new projection checks cover producer/result identities, all expanded
+matrices, unchanged prior observations, pointer predicates, measured grants,
+and rejection of malformed bit masks or false grant measurements. They run
+alongside the original six checks in the same existing Windows workflow jobs.
+All completed native follow-up outputs and transfers are archived and removed;
+compatible build caches are retained for the pending runtime and exception work.
+
+| ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
+|---|---|---|---|---|---|
+| PP1 | Address-free byte predicates can qualify writes only where reference bytes differ from fill. | Three explicit per-byte bit masks plus unchanged scratch projections. | Partial pointer-copy evidence. | Force a reference byte equal to fill or overlap ReturnLength; retain the validity/alias qualification. | Confirmed for captured local views |
+| PP2 | The granted mask is distinct from the requested mask. | Owned-handle ObjectBasicInformation scalar and earlier native grant controls. | Query-right attribution. | Tamper a nullable grant, query a different right or compare another kernel. | Confirmed locally; hosted follow-up pending |
+
+Microsoft documents the automatic limited-query grant in
+[Process Security and Access Rights](https://learn.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights).
+The detailed copy predicates are native observations. The extended local receipt
+is `local-29683-v9.json`; runtime class 37 remains unimplemented.
