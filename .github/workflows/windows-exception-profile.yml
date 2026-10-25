@@ -9,6 +9,7 @@ on:
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
       - docs/specifications/windows/native-process-execute-flags/**
+      - docs/specifications/windows/native-process-debug-port/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
@@ -16,6 +17,7 @@ on:
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
       - docs/specifications/windows/native-process-execute-flags/**
+      - docs/specifications/windows/native-process-debug-port/**
   workflow_dispatch:
 
 permissions:
@@ -85,3 +87,9 @@ jobs:
           python docs/specifications/windows/native-process-execute-flags/test_projection.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python docs/specifications/windows/native-process-execute-flags/run-v2.py
+      - name: Observe process debug port without attaching a debugger
+        if: always()
+        run: |
+          python docs/specifications/windows/native-process-debug-port/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-process-debug-port/run-v3.py
