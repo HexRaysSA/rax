@@ -38,6 +38,9 @@ jobs:
       - name: Observe owned child at native dispatcher entry
         run: python docs/specifications/windows/native-exception-entry-profile/run-dispatch-v4.py
       - name: Verify second-chance control results
-        run: python docs/specifications/windows/native-exception-entry-profile/test_second_chance.py
+        run: |
+          python docs/specifications/windows/native-exception-entry-profile/test_second_chance.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-exception-entry-profile/test_second_chance_diagnostics.py
       - name: Observe second-chance delivery and invalid arguments
-        run: python docs/specifications/windows/native-exception-entry-profile/run-second-chance-v1.py
+        run: python docs/specifications/windows/native-exception-entry-profile/run-second-chance-v2.py

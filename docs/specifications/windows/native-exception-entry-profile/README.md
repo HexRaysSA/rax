@@ -284,3 +284,13 @@ The native control accepts `--architectures arm64 x64 x86` on ARM64 Windows.
 Dependency-cache failures before compilation were retained separately; the
 successful reruns use the same two Rust source hashes and restored dependency
 sources.
+
+The first independent second-chance run at `3779418c` passes on Windows 2022.
+Windows 2025 passes the x64 cases and the first two WoW64 cases, but its WoW64
+invalid-context case fails validation. The v1 driver validates before printing
+the child result, so that log cannot establish the failing exit code or output.
+`run-second-chance-v2.py` retains the same native source and validator and emits
+a bounded scalar failure receipt before propagating the failure. Unknown fields,
+objects and excess rows are omitted. Three tests cover failure propagation,
+quiet successful validation and diagnostic filtering. This adds evidence; it
+does not turn the failed native observation into a passing result.
