@@ -1,0 +1,920 @@
+{
+  "source": "same-host Windows ARM64 kernel",
+  "observations": [
+    {
+      "kind": "observation",
+      "arch": "arm64",
+      "source_sha256": "284732c1a77504e2860404be78b0681ae0314d8b7636dbfd9fa4d46a3ff6c6f9",
+      "binary_sha256": "5860ebb4ea4e44003706e5e5f0d67ee1f2f468d209b3e8adbf7dd05b14d10061",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "exit_code": 0,
+      "rows": [
+        {
+          "kind": "host",
+          "build": 29683,
+          "process_machine": 0,
+          "native_machine": 43620,
+          "pointer_bytes": 8
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 0,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 1,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 2,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 3,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 4,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 7,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 8,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 12,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 15,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 16,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 32,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 4096,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 0,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 1,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 2,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 3,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 4,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 7,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 8,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 12,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 15,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 16,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 32,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 4096,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 0,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 1,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 2,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 3,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 4,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 7,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 8,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 12,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 15,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 16,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 32,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 4096,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        }
+      ]
+    },
+    {
+      "kind": "observation",
+      "arch": "x64",
+      "source_sha256": "284732c1a77504e2860404be78b0681ae0314d8b7636dbfd9fa4d46a3ff6c6f9",
+      "binary_sha256": "d75d4b77aa39f34f7bdd4d78697dac1f1118e71f4e331ebe9282836426d0d878",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "exit_code": 0,
+      "rows": [
+        {
+          "kind": "host",
+          "build": 29683,
+          "process_machine": 0,
+          "native_machine": 43620,
+          "pointer_bytes": 8
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 0,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 1,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 2,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 3,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 4,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 7,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 8,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 12,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 15,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 16,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 32,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 4096,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 0,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 1,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 2,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 3,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 4,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 7,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 8,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 12,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 15,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 16,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 32,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 4096,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 0,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 1,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 2,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 3,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 4,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 7,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 8,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 12,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 15,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 16,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 32,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 4096,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        }
+      ]
+    },
+    {
+      "kind": "observation",
+      "arch": "x86",
+      "source_sha256": "284732c1a77504e2860404be78b0681ae0314d8b7636dbfd9fa4d46a3ff6c6f9",
+      "binary_sha256": "5d0f8118a0814da55a1361b734a48a3e375a24a734d2077c090a3c4401fee56c",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "exit_code": 0,
+      "rows": [
+        {
+          "kind": "host",
+          "build": 29683,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "pointer_bytes": 4
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 0,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 1,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 2,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 3,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 4,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 7,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 8,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 12,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 15,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 16,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 32,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 0,
+          "pointer": 4096,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 0,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 1,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 2,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 3,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 4,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 7,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 8,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 12,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 15,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 16,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 32,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 1,
+          "pointer": 4096,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 0,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 1,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 2,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 3,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 4,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 7,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 8,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 12,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 15,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 16,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 32,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        },
+        {
+          "kind": "case",
+          "mode": 2,
+          "pointer": 4096,
+          "status": 3221225477,
+          "returned": true,
+          "caught": 0
+        }
+      ]
+    }
+  ]
+}

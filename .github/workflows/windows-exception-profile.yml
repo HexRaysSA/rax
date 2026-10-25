@@ -6,10 +6,12 @@ on:
     paths:
       - .github/workflows/windows-exception-profile.yml
       - docs/specifications/windows/native-exception-entry-profile/**
+      - docs/specifications/windows/native-raise-arguments/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
       - docs/specifications/windows/native-exception-entry-profile/**
+      - docs/specifications/windows/native-raise-arguments/**
   workflow_dispatch:
 
 permissions:
@@ -44,3 +46,9 @@ jobs:
           python docs/specifications/windows/native-exception-entry-profile/test_second_chance_diagnostics.py
       - name: Observe second-chance delivery and invalid arguments
         run: python docs/specifications/windows/native-exception-entry-profile/run-second-chance-v2.py
+      - name: Verify argument observation projection
+        if: always()
+        run: python docs/specifications/windows/native-raise-arguments/test_projection.py
+      - name: Observe native argument-copy and alignment order
+        if: always()
+        run: python docs/specifications/windows/native-raise-arguments/run.py
