@@ -29,6 +29,21 @@ failure-receipt tests reject unknown fields and oversized values; the native
 producer and the original validator remain unchanged. This pending receipt
 can invalidate a cross-kernel claim about canonical Boolean returns.
 
+The bounded build-26100 receipt resolves that projection failure: indices
+64 through 191 have zero in AL and nonzero upper EAX bits, while RTL and Win32
+return zero. A full-register zero-or-one assertion therefore fails. The exact
+raw register value is retained in the diagnostic record, not copied into the
+guest CPU policy. The interpretation of those upper bits as defined API data
+is unknown; the service is undocumented in the Microsoft SDK.
+
+`native-wow64-processor-v2.cpp` calls the same export through both full-register
+and byte-return declarations. `run-v3.py` retains the raw register result,
+checks its low byte against the independently typed byte call, and requires
+agreement with RTL and Win32 for every index. All 259 local byte comparisons
+pass. The hosted byte comparison remains pending; the earlier failed
+full-register projection is preserved. Two new projection tests pass on all
+three hosts. No runtime code changes for this observation correction.
+
 The model registers the service only for x86 and shares the existing guest CPU
 policy with the Win32 API and shared-data initialization. No host feature bit
 is imported. A separate tail export table preserves preceding synthetic
