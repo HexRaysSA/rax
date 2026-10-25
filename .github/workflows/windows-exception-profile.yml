@@ -48,7 +48,10 @@ jobs:
         run: python docs/specifications/windows/native-exception-entry-profile/run-second-chance-v2.py
       - name: Verify argument observation projection
         if: always()
-        run: python docs/specifications/windows/native-raise-arguments/test_projection.py
+        run: |
+          python docs/specifications/windows/native-raise-arguments/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-raise-arguments/test_projection_v2.py
       - name: Observe native argument-copy and alignment order
         if: always()
-        run: python docs/specifications/windows/native-raise-arguments/run.py
+        run: python docs/specifications/windows/native-raise-arguments/run-v2.py

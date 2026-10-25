@@ -50,3 +50,11 @@ before claiming exact argument-failure parity. This collector changes no model,
 public or private ABI, permission, feature default, or execution budget. Its
 C++ source is required for the MSVC structured-exception boundary; the runtime
 implementation remains Rust.
+
+`run-v2.py` and `native-raise-arguments-v2.cpp` retain those inputs while running
+both `FirstChance=FALSE` and `FirstChance=TRUE` in separate children. Each output
+has an explicit chance marker, checked by three additional projection tests.
+The exact v2 producer completes all 216 local calls with access-violation
+returns and no user-mode exception. The six observations and their identities
+are in [local-29683-v2.json](local-29683-v2.json). This extends the question to
+both delivery modes without changing the v1 source, inputs or recorded result.
