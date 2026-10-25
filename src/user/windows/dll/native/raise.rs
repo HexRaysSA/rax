@@ -1,11 +1,27 @@
 //! `NtRaiseException`: dispatch the caller-supplied record and context.
 
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::context::{ExceptionRecord, RegContext};
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
+use crate::user::windows::nt::status::STATUS_DATATYPE_MISALIGNMENT;
 
 pub(super) fn raise(c: &mut Ctx) -> ApiResult {
     let (record, context) = (c.ptr(0)?, c.ptr(1)?);
     let record = ExceptionRecord::read(&c.p.space, c.p.arch, record)?;
+    // The measured build-26100 WoW64 conversion on an x64 kernel requires
+    // ULONG alignment before copying the context, after record capture. Use
+    // the selected installation's identity, not a spoofable guest version.
+    if c.p.arch == WinArch::X86
+        && context % 4 != 0
+        && c.p.native.as_ref().is_some_and(|native| {
+            native.version.major == 10
+                && native.version.minor == 0
+                && native.version.build == 26100
+                && native.object_namespace.native_machine == Some(0x8664)
+        })
+    {
+        return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
+    }
     // Capture both inputs before deciding delivery. Native second-chance
     // raises still reject unreadable records and contexts.
     let context = RegContext::read(&c.p.space, c.p.arch, context)?;
@@ -88,6 +104,102 @@ mod tests {
                 }
                 WinArch::X64 => c.t.cpu.set_gpr([1, 2, 8][index], value),
                 WinArch::Arm64 => c.t.cpu.set_gpr(index, value),
+            }
+        }
+    }
+
+    fn installed_profile(c: &mut Ctx, build: u32, machine: u16) {
+        use crate::user::windows::{loader::apiset_schema::ApiSetSchema, native::NativeRuntime};
+        let schema: Vec<u8> = [6u32, 28, 0, 0, 28, 28, 0]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        let mut native = NativeRuntime {
+            directory: Default::default(),
+            guest_root: "C:\\Windows".into(),
+            guest_directory: "C:\\Windows\\System32".into(),
+            version: Default::default(),
+            apisets: ApiSetSchema::parse(&schema).unwrap(),
+            registry: Default::default(),
+            object_namespace: Default::default(),
+            nls: None,
+            appcompat: Default::default(),
+            wnf_catalog: Default::default(),
+            startup: None,
+            gui: Default::default(),
+            code_integrity: Err("controlled argument profile".into()),
+        };
+        native.version.major = 10;
+        native.version.minor = 0;
+        native.version.build = build;
+        native.object_namespace.native_machine = Some(machine);
+        c.p.native = Some(native);
+    }
+
+    #[test]
+    fn native_wow64_context_alignment_uses_captured_kernel_before_context_copy() {
+        use crate::user::windows::{hle::Value, nt::status::STATUS_DATATYPE_MISALIGNMENT};
+        with_call(WinArch::X86, |c, record, context, saved| {
+            installed_profile(c, 26100, 0x8664);
+            std::sync::Arc::make_mut(&mut c.p.cfg).version.build = 20348;
+            for first in [0, 1] {
+                for address in [1, 2, 3, 7, 15] {
+                    arguments(c, record, address, first);
+                    let cpu = RegContext::capture(&c.t.cpu);
+                    assert!(
+                        matches!(raise(c).unwrap(), Flow::Ret(Value::Int(v)) if v == u64::from(STATUS_DATATYPE_MISALIGNMENT)),
+                        "{address:#x}/{first}"
+                    );
+                    assert_eq!(RegContext::capture(&c.t.cpu), cpu);
+                }
+                arguments(c, 1, 1, first);
+                assert!(
+                    matches!(raise(c), Err(ApiErr::Fault(_))),
+                    "record copy must precede context alignment"
+                );
+                for address in [0, 4, 8, 12, 16, 32, 4096] {
+                    arguments(c, record, address, first);
+                    assert!(
+                        matches!(raise(c), Err(ApiErr::Fault(_))),
+                        "aligned unreadable context {address:#x}"
+                    );
+                }
+                for offset in 1..16 {
+                    saved.write(&c.p.space, context + offset).unwrap();
+                    arguments(c, record, context + offset, first);
+                    let result = raise(c).unwrap();
+                    if offset % 4 != 0 {
+                        assert!(
+                            matches!(result, Flow::Ret(Value::Int(v)) if v == u64::from(STATUS_DATATYPE_MISALIGNMENT))
+                        );
+                    } else if first == 0 {
+                        assert!(matches!(result, Flow::TerminateProcess(CODE)));
+                    } else {
+                        assert!(matches!(result, Flow::RaiseIn { .. }));
+                    }
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn native_wow64_context_alignment_preserves_other_measured_profiles() {
+        for arch in WinArch::ALL {
+            for (build, machine) in [(20348, 0x8664), (29683, 0xAA64)] {
+                if arch == WinArch::Arm64 && machine != 0xAA64 {
+                    continue;
+                }
+                with_call(arch, |c, record, _, _| {
+                    installed_profile(c, build, machine);
+                    std::sync::Arc::make_mut(&mut c.p.cfg).version.build = 26100;
+                    for first in [0, 1] {
+                        arguments(c, record, 1, first);
+                        assert!(
+                            matches!(raise(c), Err(ApiErr::Fault(_))),
+                            "{arch}/{build}/{machine:#x}/{first}"
+                        );
+                    }
+                });
             }
         }
     }

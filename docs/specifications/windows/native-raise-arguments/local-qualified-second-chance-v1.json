@@ -1,0 +1,227 @@
+[
+  {
+    "kind": "producer",
+    "arch": "arm64",
+    "source_sha256": "ceafdba287f292f6ab016909e6c47e00e53663683be0b21b9df61442661db922",
+    "binary_sha256": "67fc3b6cbfc6275db6e97612249c4d91353bb93260c1d09ad2a9bcac0ba5700f",
+    "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+    "machine": 43620
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "last",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "last",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "invalid-record",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-record",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "invalid-context",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-context",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "producer",
+    "arch": "x64",
+    "source_sha256": "ceafdba287f292f6ab016909e6c47e00e53663683be0b21b9df61442661db922",
+    "binary_sha256": "ec1ed36a1f7e991af2e232cf26520b53ef5cccbc11bb6193dfce78da3bf90f17",
+    "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+    "machine": 34404
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "last",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "last",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "invalid-record",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-record",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "invalid-context",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-context",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "producer",
+    "arch": "x86",
+    "source_sha256": "ceafdba287f292f6ab016909e6c47e00e53663683be0b21b9df61442661db922",
+    "binary_sha256": "316af15ec6b8738310140306eecccbb76c4ab48698a7fe8793513a6c18ba4281",
+    "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+    "machine": 332
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "last",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "last",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "invalid-record",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-record",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "invalid-context",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-context",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  }
+]
