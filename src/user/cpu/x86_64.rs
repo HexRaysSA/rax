@@ -46,6 +46,8 @@ pub struct X86UserCpu {
     vcpu: X86_64Vcpu,
     space: AddressSpace,
     code_epoch: u64,
+    /// Whether the initial address-space snapshot has been recorded.
+    trace_started: bool,
 }
 
 impl X86UserCpu {
@@ -53,11 +55,18 @@ impl X86UserCpu {
     /// must reserve [`RESERVED_PHYS`].
     pub fn new(space: &AddressSpace) -> Self {
         let mut vcpu = X86_64Vcpu::new(0, space.physical_memory().clone());
+        if crate::observability::memtrace::is_active() {
+            // Native regions do their own loads and stores, which the MMU
+            // access stream never sees. A trace needs the interpreter.
+            vcpu.set_jit_enabled(false);
+            VCpu::set_mem_recording(&mut vcpu, true);
+        }
         vcpu.enable_user_mode(Arc::new(space.clone()));
         X86UserCpu {
             vcpu,
             space: space.clone(),
             code_epoch: space.code_epoch(),
+            trace_started: false,
         }
     }
 
@@ -127,8 +136,10 @@ impl X86UserCpu {
         if !self.space.available() {
             return X86Exit::Internal(Error::Emulator("guest memory arena is inaccessible".into()));
         }
+        self.trace_begin();
         self.sync_code();
         let result = self.vcpu.run();
+        self.trace_flush();
         self.exit(result)
     }
 
@@ -138,12 +149,58 @@ impl X86UserCpu {
         if !self.space.available() {
             return X86Exit::Internal(Error::Emulator("guest memory arena is inaccessible".into()));
         }
+        self.trace_begin();
         self.sync_code();
         let result = self
             .vcpu
             .step_with_faults()
             .map(|exit| exit.unwrap_or(VcpuExit::Hlt));
+        self.trace_flush();
         self.exit(result)
+    }
+
+    /// Records the initial address-space layout once execution is about to
+    /// start (mappings do not exist yet when [`X86UserCpu::new`] runs).
+    fn trace_begin(&mut self) {
+        if !crate::observability::memtrace::is_active() {
+            return;
+        }
+        if !self.trace_started {
+            self.trace_started = true;
+            self.trace_maps();
+        }
+    }
+
+    fn trace_flush(&mut self) {
+        if !crate::observability::memtrace::is_active() {
+            return;
+        }
+        let mut records = Vec::new();
+        VCpu::drain_mem_records(&mut self.vcpu, &mut records);
+        crate::observability::memtrace::record(&records);
+    }
+
+    fn trace_maps(&self) {
+        use crate::user::mm::Perms;
+        let maps = self.space.vma_snapshot().into_iter().map(|vma| {
+            let mut perms = 0u8;
+            if vma.perms.contains(Perms::READ) {
+                perms |= 1;
+            }
+            if vma.perms.contains(Perms::WRITE) {
+                perms |= 2;
+            }
+            if vma.perms.contains(Perms::EXEC) {
+                perms |= 4;
+            }
+            (
+                vma.start,
+                vma.end,
+                perms,
+                vma.name.as_ref().map(|name| name.to_string()),
+            )
+        });
+        crate::observability::memtrace::record_maps(maps);
     }
 
     /// Whether the instruction at RIP branches when it runs (see
@@ -197,6 +254,17 @@ impl X86UserCpu {
             (result, trap) => X86Exit::Internal(Error::Emulator(format!(
                 "unexpected x86-64 user-mode exit at {pc:#x}: {result:?} (trap {trap:?})"
             ))),
+        }
+    }
+}
+
+impl Drop for X86UserCpu {
+    fn drop(&mut self) {
+        // Emit the tail of the access stream and a final map snapshot before
+        // the address space goes away.
+        self.trace_flush();
+        if self.trace_started {
+            self.trace_maps();
         }
     }
 }

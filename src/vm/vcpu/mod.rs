@@ -44,6 +44,10 @@ pub struct MemRecord {
     /// The value read or written, little-endian, truncated to 64 bits (the low
     /// 8 bytes for wider vector accesses; 0 for fetches).
     pub value: u64,
+    /// Address of the instruction that performed the access, when the backend
+    /// knows it. Instruction-fetch records carry the fetch address. Backends
+    /// that do not track RIP per access report zero.
+    pub rip: u64,
 }
 
 /// Abstract vCPU interface.

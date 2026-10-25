@@ -108,6 +108,8 @@ impl Recorder {
                 } else {
                     u64::from_le_bytes(value)
                 },
+                // This backend does not track the accessing instruction address.
+                rip: 0,
             });
     }
 }

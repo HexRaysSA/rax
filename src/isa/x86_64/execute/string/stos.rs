@@ -59,6 +59,7 @@ fn stos_common(
     // 16/32-bit address sizes, since the bulk path advances RDI as a full
     // 64-bit linear address with no masking.
     if is_rep
+        && !vcpu.mmu.mem_rec_on()
         && addr_size == StringAddressSize::Addr64
         && (vcpu.regs.rflags & flags::bits::DF) == 0
         && vcpu.regs.rcx > 1

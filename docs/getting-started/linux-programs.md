@@ -61,6 +61,7 @@ arguments, including words that look like `rax-user` options
 | `-0`, `--argv0 NAME` | Pass `NAME` as `argv[0]`. |
 | `-C`, `--cwd DIR` | Guest working directory (default: the current directory). |
 | `--strace` | Log every system call as `[tid] name(args) = result` on standard error. |
+| `--mem-trace FILE` | Record instruction fetches and guest memory accesses to `FILE` and inspect it with `rax-trace-map` ([memory-access tracing](../architecture/user-mode/memory-trace-map.md)). |
 | `--seed N` | Deterministic `AT_RANDOM` bytes and `getrandom` output. |
 | `-s`, `--stack-size SIZE` | `RLIMIT_STACK` soft limit and `[stack]` mapping size (default `8M`). |
 | `--memory SIZE` | Guest memory arena (default `16G`, committed by the host only as touched). |

@@ -39,6 +39,7 @@ rax-user -> user::{linux,darwin,windows} -> user::{image,mm,cpu} -> ISA core
 | macOS programs | [Darwin personality: exec, fork and spawn, kernel entry, Mach IPC, MIG servers, threads, kqueues, work queues, signals, process information, sockets](user-mode/darwin.md) |
 | Windows programs | [Windows personality: PE loading, ABI, process services, DLLs, and exceptions](user-mode/windows.md) |
 | Tracing and seccomp | [Tracer links, stops, register sets, stepping, events, and filters](user-mode/tracing.md) |
+| Memory-access tracing | [Instruction and memory-access capture, region classification, and `rax-trace-map`](user-mode/memory-trace-map.md) |
 
 ## Address spaces
 

@@ -110,6 +110,7 @@ impl MemRecorder {
                 } else {
                     u64::from_le_bytes(low)
                 },
+                rip: 0,
             });
         }
     }

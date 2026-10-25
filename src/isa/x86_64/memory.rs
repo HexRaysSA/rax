@@ -1,6 +1,7 @@
 //! Memory Management Unit - page table translation with TLB caching.
 
 use std::cell::RefCell;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 use crate::devices::pci::PciStub;
@@ -584,6 +585,7 @@ impl Mmu {
                 addr,
                 size,
                 value,
+                rip: super::cpu::CURRENT_RIP.load(Ordering::Relaxed),
             });
         }
     }
@@ -598,6 +600,7 @@ impl Mmu {
                 addr,
                 size,
                 value: 0,
+                rip: addr,
             });
         }
     }
@@ -1222,13 +1225,12 @@ impl Mmu {
         // Record the access (suppressed during instruction fetch, which is
         // reported once via record_fetch). Zero cost when recording is off.
         if self.mem_rec_on && !self.fetch_active {
-            let value = Self::le_value(buf);
-            self.mem_rec.push(crate::vm::vcpu::MemRecord {
-                access: crate::vm::vcpu::MemAccess::Read,
-                addr: vaddr,
-                size: len.min(255) as u8,
-                value,
-            });
+            self.record(
+                crate::vm::vcpu::MemAccess::Read,
+                vaddr,
+                len.min(255) as u8,
+                Self::le_value(buf),
+            );
         }
         Ok(())
     }
@@ -1329,13 +1331,12 @@ impl Mmu {
             self.write_crossing(vaddr, buf, sregs)?;
         }
         if self.mem_rec_on && !self.fetch_active {
-            let value = Self::le_value(buf);
-            self.mem_rec.push(crate::vm::vcpu::MemRecord {
-                access: crate::vm::vcpu::MemAccess::Write,
-                addr: vaddr,
-                size: len.min(255) as u8,
-                value,
-            });
+            self.record(
+                crate::vm::vcpu::MemAccess::Write,
+                vaddr,
+                len.min(255) as u8,
+                Self::le_value(buf),
+            );
         }
         Ok(())
     }

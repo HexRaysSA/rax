@@ -109,6 +109,10 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
         /// Log every system call to standard error.
         #[arg(long)]
         pub strace: bool,
+        /// Write a binary instruction and memory-access trace to FILE
+        /// (inspect with `rax-trace-map FILE`).
+        #[arg(long, value_name = "FILE")]
+        pub mem_trace: Option<PathBuf>,
         /// Deterministic seed for AT_RANDOM and getrandom (default: host entropy).
         #[arg(long, value_name = "N")]
         pub seed: Option<u64>,
@@ -180,8 +184,27 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
             .collect()
     }
 
+    /// Stops a memory trace at the end of the run, including error returns.
+    struct TraceGuard;
+
+    impl Drop for TraceGuard {
+        fn drop(&mut self) {
+            rax::observability::memtrace::stop();
+        }
+    }
+
     pub fn main() -> i32 {
         let cli = Cli::parse();
+        let _trace = match &cli.mem_trace {
+            Some(path) => match rax::observability::memtrace::start(path) {
+                Ok(()) => Some(TraceGuard),
+                Err(error) => {
+                    eprintln!("rax-user: cannot start trace {}: {error}", path.display());
+                    return 125;
+                }
+            },
+            None => None,
+        };
         let program = cli.program().to_string_lossy().into_owned();
         let bytes = match std::fs::read(cli.program()) {
             Ok(b) => b,

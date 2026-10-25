@@ -492,6 +492,9 @@ pub struct X86_64Vcpu {
     jit_vsib_resume_pc: Option<u64>,
     /// Process-level execution state; `None` for system emulation.
     pub(super) user: Option<Box<super::user_mode::UserMode>>,
+    /// Set by [`X86_64Vcpu::set_jit_enabled`] when an embedder needs the
+    /// interpreter's exact per-access behaviour (for example a memory trace).
+    jit_disabled_by_embedder: bool,
 }
 
 /// Pending I/O operation.
@@ -1121,6 +1124,7 @@ impl X86_64Vcpu {
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
             jit_vsib_resume_pc: None,
             user: None,
+            jit_disabled_by_embedder: false,
         }
     }
 
@@ -1130,6 +1134,15 @@ impl X86_64Vcpu {
     /// regular guests leave it at the architectural zero default.
     pub fn set_xgetbv1_value(&mut self, value: u64) {
         self.xgetbv1_value = value;
+    }
+
+    /// Enable or disable native hot-region execution.
+    ///
+    /// Embedders that need one record per guest instruction, or one record per
+    /// guest memory access, disable the JIT: native code performs its loads and
+    /// stores inline and therefore cannot feed the MMU access stream.
+    pub fn set_jit_enabled(&mut self, on: bool) {
+        self.jit_disabled_by_embedder = !on;
     }
 
     /// Enable or disable Xeon Phi-only AVX-512 subsets for semantic harnesses.
@@ -1237,13 +1250,10 @@ impl X86_64Vcpu {
     #[inline]
     fn jit_disabled_for_debugger(&self) -> bool {
         #[cfg(feature = "debug")]
-        {
-            self.debugger_active
+        if self.debugger_active {
+            return true;
         }
-        #[cfg(not(feature = "debug"))]
-        {
-            false
-        }
+        self.jit_disabled_by_embedder
     }
 
     /// Run-loop periodic work shared by interpreter execution and JIT call-outs.
@@ -1664,6 +1674,11 @@ impl X86_64Vcpu {
             CURRENT_RIP.store(self.regs.rip, Ordering::Relaxed);
             let idx = RIP_IDX.fetch_add(1, Ordering::Relaxed) % 16;
             RIP_HISTORY[idx].store(self.regs.rip, Ordering::Relaxed);
+        }
+        // Memory-access recording attributes each access to the instruction
+        // that made it, so the current RIP must be live while recording.
+        if self.mmu.mem_rec_on() {
+            CURRENT_RIP.store(self.regs.rip, Ordering::Relaxed);
         }
 
         let rip = self.regs.rip;

@@ -92,6 +92,7 @@ fn movs_common(
     // Destination is always ES:[RDI] (not overridable); long mode ignores ES.base.
     let dst_base = movs_destination_segment_base(vcpu);
     if is_rep
+        && !vcpu.mmu.mem_rec_on()
         && src_base == 0
         && dst_base == 0
         && addr_size == StringAddressSize::Addr64
