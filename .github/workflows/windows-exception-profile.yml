@@ -62,4 +62,6 @@ jobs:
         run: |
           python docs/specifications/windows/native-wow64-processor-feature/test_projection.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python docs/specifications/windows/native-wow64-processor-feature/run.py
+          python docs/specifications/windows/native-wow64-processor-feature/test_failure.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-wow64-processor-feature/run-v2.py

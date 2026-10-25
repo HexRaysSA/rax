@@ -21,6 +21,14 @@ three APIs. Indices 2, 3, 6, 8, 10, 12, 13, 14, 17, 22, 28, 32, 36, 37, 38,
 native control's capabilities, not the emulated CPU's advertised capabilities.
 Independent x64-kernel observations are pending.
 
+The first hosted run passes on build 20348. Build 26100 fails the strict
+zero-or-one projection before printing its rows, so the specific native value
+is unknown. `run-v2.py` preserves bounded scalar rows and source/executable
+identities on that failure, then retains the original failed verdict. Its
+failure-receipt tests reject unknown fields and oversized values; the native
+producer and the original validator remain unchanged. This pending receipt
+can invalidate a cross-kernel claim about canonical Boolean returns.
+
 The model registers the service only for x86 and shares the existing guest CPU
 policy with the Win32 API and shared-data initialization. No host feature bit
 is imported. A separate tail export table preserves preceding synthetic
