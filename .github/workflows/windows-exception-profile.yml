@@ -7,11 +7,13 @@ on:
       - .github/workflows/windows-exception-profile.yml
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
+      - docs/specifications/windows/native-wow64-processor-feature/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
+      - docs/specifications/windows/native-wow64-processor-feature/**
   workflow_dispatch:
 
 permissions:
@@ -55,3 +57,9 @@ jobs:
       - name: Observe native argument-copy and alignment order
         if: always()
         run: python docs/specifications/windows/native-raise-arguments/run-v2.py
+      - name: Observe native WoW64 processor-feature service
+        if: always()
+        run: |
+          python docs/specifications/windows/native-wow64-processor-feature/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-wow64-processor-feature/run.py

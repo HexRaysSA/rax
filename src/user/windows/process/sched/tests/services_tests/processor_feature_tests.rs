@@ -4,6 +4,40 @@ use super::*;
 use crate::user::windows::nt::status::STATUS_INVALID_INFO_CLASS;
 
 #[test]
+fn wow64_processor_feature_service_uses_guest_policy_and_preserves_transition() {
+    use crate::user::windows::dll::{nt_service, processor_feature_present};
+    for arch in [WinArch::X64, WinArch::Arm64] {
+        assert!(nt_service("NtWow64IsProcessorFeaturePresent", arch).is_none());
+    }
+    let (mut process, mut t) = fixture(WinArch::X86, "NtWow64IsProcessorFeaturePresent", 0x1fb);
+    let p = process.state_mut();
+    let sp = t.cpu.sp();
+    let mut present = 0;
+    for feature in (0..256).chain([0x10000, 0x8000_0000, u32::MAX]) {
+        let expected = u64::from(processor_feature_present(&t.cpu, feature));
+        present += expected;
+        t.cpu.set_sp(sp);
+        t.cpu.set_gpr(0, 0x1fb);
+        p.space.w32(sp, 0x1234_0004).unwrap();
+        p.space.w32(sp + 4, 0x1234_0000).unwrap();
+        p.space.w32(sp + 8, feature).unwrap();
+        assert_eq!(
+            super::super::super::super::services::wow64(p, &mut t, 0x1234_0000),
+            Outcome::Continue
+        );
+        assert_eq!(t.cpu.gpr(0), expected, "feature {feature}");
+        assert_eq!(t.cpu.pc(), 0x1234_0004);
+        assert_eq!(t.cpu.sp(), sp + 4);
+        assert_eq!(p.space.u32(sp + 8).unwrap(), feature);
+        assert!(t.frames.is_empty());
+    }
+    assert!(
+        present > 0,
+        "the service must not report an empty guest CPU"
+    );
+}
+
+#[test]
 fn native_processor_feature_bitmap_lengths_and_suffix_preservation_all_abis() {
     for arch in WinArch::ALL {
         for length in [0, 1, 8, 15, 16, 17, 20, 24, 31, 32, 33, 48, 64] {
@@ -295,10 +329,9 @@ fn installed_processor_feature_query_leaf_and_rtl_read_guest_policy() {
             }
         );
         assert!(t.frames.is_empty());
-        // Baseline native RTL queries read KUSER_SHARED_DATA directly. Extended
-        // entries remain false before native bitmap initialization as in our
-        // guest's conservative feature policy. Do not infer full Ldr startup.
-        if arch == host_arch && arch != WinArch::X86 {
+        // Native RTL uses shared data or the WoW64 processor-feature service.
+        // Both must expose the selected guest CPU, including on an ARM host.
+        if arch == host_arch || arch == WinArch::X86 {
             let rtl = loader::lookup(
                 p,
                 module,
@@ -313,6 +346,9 @@ fn installed_processor_feature_query_leaf_and_rtl_read_guest_policy() {
                 if arch == WinArch::X64 {
                     p.space.w64(sp, resume).unwrap();
                     t.cpu.set_gpr(1, u64::from(feature));
+                } else if arch == WinArch::X86 {
+                    p.space.w32(sp, resume as u32).unwrap();
+                    p.space.w32(sp + 4, feature).unwrap();
                 } else {
                     t.cpu.set_gpr(0, u64::from(feature));
                     t.cpu.set_gpr(30, resume);
@@ -322,7 +358,13 @@ fn installed_processor_feature_query_leaf_and_rtl_read_guest_policy() {
                     expected,
                     "{arch}/{feature}"
                 );
-                assert_eq!(t.cpu.sp(), sp + if arch == WinArch::X64 { 8 } else { 0 });
+                assert_eq!(
+                    t.cpu.sp(),
+                    sp + match arch {
+                        WinArch::X86 | WinArch::X64 => 8,
+                        WinArch::Arm64 => 0,
+                    }
+                );
                 assert!(t.frames.is_empty());
             }
         }

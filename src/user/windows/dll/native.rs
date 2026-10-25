@@ -434,6 +434,15 @@ pub(super) static READ_MEMORY_EXPORTS: &[Export] = &[Export::func(
     read_memory::read,
 )];
 
+// Separate tail table: retain every existing synthetic export ordinal.
+pub(super) static PROCESSOR_FEATURE_EXPORTS: &[Export] = &[Export::func(
+    "NtWow64IsProcessorFeaturePresent",
+    Stdcall,
+    &[I32],
+    super::sysinfo::is_processor_feature_present,
+)
+.only(Archs::X86)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

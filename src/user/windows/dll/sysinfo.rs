@@ -132,7 +132,7 @@ pub(super) fn arm64_feature(feature: u32) -> bool {
     )
 }
 
-fn is_processor_feature_present(c: &mut Ctx) -> ApiResult {
+pub(super) fn is_processor_feature_present(c: &mut Ctx) -> ApiResult {
     let feature = c.u32(0)?;
     Flow::bool(processor_feature_present(&c.t.cpu, feature))
 }
