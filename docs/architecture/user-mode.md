@@ -22,6 +22,7 @@ rax-user -> user::{linux,darwin,windows} -> user::{image,mm,cpu} -> ISA core
 | `user::windows` | Windows loader, ABI, process memory and DLL services |
 | `user::mm` | VMAs, page backing, faults, and code invalidation |
 | `user::cpu` | Unprivileged execution and architectural exits |
+| `user::trace` | Per-instruction trace sink shared by the user-mode CPU adapters |
 | `user::linux` | Linux loading, ABI conversion, syscalls, scheduling, and signals |
 | `user::darwin` | macOS loading, `fork`, `execve` and `posix_spawn`, BSD system calls, Mach traps and messages, MIG kernel servers, threads and psynch, kqueues, work queues and workloops, signals |
 

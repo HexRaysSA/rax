@@ -3,8 +3,8 @@
 //!
 //! The report ranks contiguous regions by role (code, self-modifying code,
 //! pointer tables, multi-writer contexts, stack, heap, plain data), lists the
-//! code pages that wrote each region, and can emit JSON or a standalone HTML
-//! view.
+//! code pages that wrote each region, and can emit JSON or a compact terminal
+//! profile.
 
 use std::path::PathBuf;
 
@@ -20,8 +20,8 @@ use rax::observability::memtrace::analysis::{self, Options};
 grouped by contiguous access pattern and classified as code, self-modifying or unpacked code, \
 pointer/dispatch tables, multi-writer contexts, stack, heap, or data. For every region the \
 report shows fetch/read/write counts, store widths, write coverage, ordering evidence, and the \
-code pages that wrote it. Use --region or --page for a detailed view, --html for a standalone \
-report, or --json for machine-readable output."
+code pages that wrote it. Use --region or --page for a detailed view, or --json for \
+machine-readable output."
 )]
 struct Cli {
     /// Trace file written by `rax-user --mem-trace`.
@@ -48,9 +48,12 @@ struct Cli {
     /// Write a machine-readable JSON report.
     #[arg(long, value_name = "FILE")]
     json: Option<PathBuf>,
-    /// Write a standalone HTML report.
-    #[arg(long, value_name = "FILE")]
-    html: Option<PathBuf>,
+    /// Print parse progress on stderr (default: only on a terminal).
+    #[arg(long, conflicts_with = "no_progress")]
+    progress: bool,
+    /// Never print parse progress.
+    #[arg(long)]
+    no_progress: bool,
 }
 
 fn parse_address(text: &str) -> Result<u64, String> {
@@ -73,16 +76,19 @@ fn main() {
         page: cli.page,
         show_map: !cli.no_map,
         json: cli.json.clone(),
-        html: cli.html.clone(),
+        progress: if cli.progress {
+            true
+        } else if cli.no_progress {
+            false
+        } else {
+            std::io::IsTerminal::is_terminal(&std::io::stderr())
+        },
     };
     match analysis::run(&cli.trace, &opts) {
         Ok(report) => {
             print!("{report}");
             if let Some(path) = &cli.json {
                 eprintln!("wrote JSON report to {}", path.display());
-            }
-            if let Some(path) = &cli.html {
-                eprintln!("wrote HTML report to {}", path.display());
             }
         }
         Err(error) => {

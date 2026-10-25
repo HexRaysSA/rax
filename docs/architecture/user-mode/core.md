@@ -89,6 +89,17 @@ successful asynchronous signal-handler entry clear it. Other CPU adapters
 retain their own reservation policies. The AArch64 generic timer and the
 RISC-V `time` CSR follow host time (62.5 MHz and 10 MHz).
 
+**Instruction tracing.** `user::trace` installs a process-global sink. Each
+adapter records the instruction at its current PC before execution, with the
+instruction bytes fetched through the address space and the ISA name. When a
+trace is active, the x86-64 slice runs through the precise single-instruction
+step and the RISC-V slice bypasses the SMIR JIT, so every retired instruction
+produces exactly one record in program order. The AArch64 and AArch32 adapters
+already decode and execute one instruction at a time. A forked guest child
+inherits the open file description and appends to the same trace. The sink is
+separate from `observability::trace`, which serves the machine run loop and is
+gated by the `trace` Cargo feature.
+
 ## Process memory and kernel objects
 
 Implementation: `syscall::task`, `syscall::procmem`, `syscall::kcmp`,

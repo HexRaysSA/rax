@@ -10,7 +10,7 @@
 //! The core's native JIT tier is not used on this path; execution is
 //! interpreted.
 
-use super::{AccessFault, AccessFaultKind, host_nanos};
+use super::{AccessFault, AccessFaultKind, Isa, host_nanos, trace_instruction};
 use crate::error::{GuestMemoryFault, MemoryAccessKind, MemoryFaultKind};
 use crate::isa::arm::aarch64::{AArch64Config, AArch64Cpu};
 use crate::isa::arm::common::cpu::{AccessType, ArmCpu, ArmError, CpuExit, MemoryFaultType};
@@ -282,6 +282,7 @@ impl A64UserCpu {
                 return A64Exit::Internal(error);
             }
             let pc = self.cpu.get_pc();
+            trace_instruction(Isa::Aarch64.name(), &self.space, pc, 4);
             match self.cpu.step() {
                 Ok(CpuExit::Continue) => {}
                 Ok(CpuExit::Svc(imm)) => {

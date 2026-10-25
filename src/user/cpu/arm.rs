@@ -31,7 +31,7 @@
 
 use std::cell::Cell;
 
-use super::{AccessFault, AccessFaultKind};
+use super::{AccessFault, AccessFaultKind, Isa};
 use crate::error::{GuestMemoryFault, MemoryAccessKind, MemoryFaultKind};
 use crate::isa::arm::decoder::ThumbDecoder;
 use crate::isa::arm::execution::{ArmMemory, MemoryError};
@@ -323,6 +323,50 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
         exit
     }
 
+    /// Records the A32 or T32 instruction at `pc` for an active trace.
+    ///
+    /// T32 has 16- and 32-bit encodings; the first halfword's top bits select
+    /// the 32-bit form, so the trace does not include the next instruction's
+    /// bytes.
+    fn trace_instruction(&self, pc: u32, thumb: bool) {
+        if !crate::user::trace::is_enabled() {
+            return;
+        }
+        let mut bytes = [0u8; 4];
+        let mut fetched = 0;
+        let first = if thumb { 2 } else { 4 };
+        while fetched < first
+            && self
+                .mem
+                .space
+                .fetch(
+                    u64::from(pc).wrapping_add(fetched as u64),
+                    &mut bytes[fetched..=fetched],
+                )
+                .is_ok()
+        {
+            fetched += 1;
+        }
+        if thumb && fetched == 2 {
+            let half = u16::from_le_bytes([bytes[0], bytes[1]]);
+            if half >> 11 >= 0b11101 {
+                while fetched < 4
+                    && self
+                        .mem
+                        .space
+                        .fetch(
+                            u64::from(pc).wrapping_add(fetched as u64),
+                            &mut bytes[fetched..=fetched],
+                        )
+                        .is_ok()
+                {
+                    fetched += 1;
+                }
+            }
+        }
+        crate::user::trace::write_insn(Isa::Arm.name(), u64::from(pc), &bytes[..fetched]);
+    }
+
     /// Fetches `buf` from `addr` for the instruction at `pc`.
     fn fetch(&self, pc: u32, addr: u32, buf: &mut [u8]) -> Result<(), A32Exit> {
         self.mem
@@ -354,6 +398,7 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
                 pc: u64::from(pc),
             }));
         }
+        self.trace_instruction(pc, thumb);
         let mut bytes = [0u8; 4];
         let (len, insn) = if thumb {
             if let Err(e) = self.fetch(pc, pc, &mut bytes[..2]) {

@@ -122,6 +122,9 @@ pub struct WindowsConfig {
     pub slice_insns: u64,
     /// Log every built-in function call to standard error.
     pub trace: bool,
+    /// Write every executed guest instruction to this file
+    /// ([`crate::user::trace`]).
+    pub instruction_trace: Option<PathBuf>,
     /// Seed for the personality's pseudo-random state and security cookies;
     /// `None` initializes that state from host entropy.
     pub seed: Option<u64>,
@@ -179,6 +182,7 @@ impl WindowsConfig {
             arena_bytes: DEFAULT_ARENA_BYTES,
             slice_insns: DEFAULT_SLICE_INSNS,
             trace: false,
+            instruction_trace: None,
             seed: None,
             version: WinVersion::default(),
             computer_name: "RAX".into(),
@@ -383,9 +387,22 @@ pub struct WindowsProcess {
     scheduler: sched::Scheduler,
 }
 
+fn init_instruction_trace(config: &WindowsConfig) -> Result<(), SpawnError> {
+    if let Some(path) = &config.instruction_trace {
+        crate::user::trace::init(path).map_err(|e| {
+            SpawnError::Io(std::io::Error::new(
+                e.kind(),
+                format!("{}: {e}", path.display()),
+            ))
+        })?;
+    }
+    Ok(())
+}
+
 impl WindowsProcess {
     /// Creates the process for `config`.
     pub fn spawn(config: WindowsConfig) -> Result<Self, SpawnError> {
+        init_instruction_trace(&config)?;
         start::spawn(config).map(|proc| WindowsProcess {
             proc,
             scheduler: Default::default(),
@@ -395,6 +412,7 @@ impl WindowsProcess {
     /// Starts from supplied executable bytes while retaining the configured
     /// host path for DLL search and guest process parameters.
     pub fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Self, SpawnError> {
+        init_instruction_trace(&config)?;
         start::spawn_image(config, bytes).map(|proc| WindowsProcess {
             proc,
             scheduler: Default::default(),

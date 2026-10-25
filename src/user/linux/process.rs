@@ -62,6 +62,9 @@ pub struct LinuxConfig {
     pub cpu: CpuOptions,
     /// Log every system call to standard error (`strace` format).
     pub strace: bool,
+    /// Write every executed guest instruction to this file
+    /// ([`crate::user::trace`]).
+    pub instruction_trace: Option<PathBuf>,
     /// Standard streams: inherited host descriptors or bounded captured buffers.
     pub console: crate::user::console::Console,
     /// Seed for `AT_RANDOM` and `getrandom`; `None` reads the host's
@@ -109,6 +112,7 @@ impl LinuxConfig {
             arena_bytes: 128 << 20,
             cpu: CpuOptions::default(),
             strace: false,
+            instruction_trace: None,
             console: crate::user::console::Console::Captured(
                 crate::user::console::CapturedConsole::new(input, console_capacity)
                     .map_err(|e| SpawnError::Unsupported(e.to_string()))?,
@@ -139,6 +143,7 @@ impl LinuxConfig {
             arena_bytes: DEFAULT_ARENA_BYTES,
             cpu: CpuOptions::default(),
             strace: false,
+            instruction_trace: None,
             console: Default::default(),
             seed: None,
             kernel_release: DEFAULT_KERNEL_RELEASE.into(),
@@ -719,6 +724,14 @@ impl LinuxProcess {
         )?;
         if !config.host_services {
             super::embedding::validate(&config)?;
+        }
+        if let Some(path) = &config.instruction_trace {
+            crate::user::trace::init(path).map_err(|e| {
+                SpawnError::Unsupported(format!(
+                    "cannot open instruction trace {}: {e}",
+                    path.display()
+                ))
+            })?;
         }
         let exe_guest = super::fs::join_guest(&config.cwd, &config.exec_path);
         let (vfs, exe_path, exe_host) = if let Some(files) = &config.supplied_files {

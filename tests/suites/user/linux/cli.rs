@@ -115,6 +115,45 @@ fn strace_logs_system_calls() {
 }
 
 #[test]
+fn trace_records_each_supported_cpu() {
+    // The trace sink is part of the user-mode CPU adapters, so the same
+    // option works for native, compatibility, 32-bit, AArch64, and RV64
+    // guests.
+    for (fixture, isa) in [
+        ("x86_64", "x86_64"),
+        ("i386", "i386"),
+        ("aarch64", "aarch64"),
+        ("riscv64", "riscv64"),
+        ("arm", "arm"),
+        ("thumb", "arm"),
+    ] {
+        let h = hello(fixture);
+        let trace = temp_file(&format!("trace-{fixture}"), b"");
+        let r = run(&["--trace", trace.to_str().unwrap(), &h], &[], None, T);
+        assert_eq!(r.status, Some(41), "{fixture}: {}", r.stderr);
+        let trace = std::fs::read_to_string(&trace).unwrap();
+        let lines: Vec<&str> = trace.lines().collect();
+        assert!(
+            lines.len() > 16,
+            "{fixture}: expected a per-instruction trace, got {} lines",
+            lines.len()
+        );
+        for line in &lines {
+            assert!(
+                line.starts_with("INS 0x") && line.contains(isa),
+                "{fixture}: malformed trace line {line:?}"
+            );
+        }
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.split_whitespace().count() >= 4),
+            "{fixture}: trace has no instruction bytes"
+        );
+    }
+}
+
+#[test]
 fn fatal_signals_are_reported() {
     let segv = fixtures().join("bin/x86_64/segv");
     let r = run(&[segv.to_str().unwrap()], &[], None, T);

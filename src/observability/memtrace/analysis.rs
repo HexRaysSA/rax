@@ -10,6 +10,7 @@ use std::fmt::Write as _;
 use std::fs::File;
 use std::io::{self, BufReader, Read};
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 use super::{
     ARCH_X86_64, HEADER_LEN, MAGIC, RECORD_LEN, TAG_EXEC, TAG_MAP, TAG_READ, TAG_SNAPSHOT,
@@ -22,6 +23,14 @@ const WRITE_SIZE_BUCKETS: usize = 9;
 const MAX_SAMPLES: usize = 16;
 const MAX_WRITERS: usize = 8;
 const MAX_TARGETS: usize = 8;
+/// Ceiling on tracked instruction addresses (about 100 MiB at capacity).
+const MAX_INSTR: usize = 1 << 21;
+/// Ceiling on tracked page-to-page execution edges.
+const MAX_EDGES: usize = 1 << 20;
+/// Instruction addresses sampled for the hot-run ranking.
+const HOT_ADDRESSES: usize = 4096;
+/// Bytes within which two sampled addresses belong to one straight-line run.
+const RUN_GAP: u64 = 24;
 
 /// Analysis and rendering options.
 #[derive(Clone, Debug)]
@@ -40,8 +49,8 @@ pub struct Options {
     pub show_map: bool,
     /// Write a JSON report here.
     pub json: Option<std::path::PathBuf>,
-    /// Write an HTML report here.
-    pub html: Option<std::path::PathBuf>,
+    /// Print parse progress on stderr.
+    pub progress: bool,
 }
 
 impl Default for Options {
@@ -54,7 +63,7 @@ impl Default for Options {
             page: None,
             show_map: true,
             json: None,
-            html: None,
+            progress: false,
         }
     }
 }
@@ -115,6 +124,9 @@ pub struct Report {
     pages: BTreeMap<u64, PageStats>,
     snapshots: Vec<Snapshot>,
     srcs: HashMap<u64, SrcStats>,
+    instr: HashMap<u64, u64>,
+    instr_dropped: u64,
+    edges: HashMap<(u64, u64), u64>,
     arch: u32,
     pub trace_path: String,
 }
@@ -174,7 +186,6 @@ struct PageStats {
     bytes_written: u64,
     write_sizes: [u64; WRITE_SIZE_BUCKETS],
     read_sizes: [u64; WRITE_SIZE_BUCKETS],
-    read_heat: Vec<u32>,
     zero_writes: u64,
     first: u64,
     last: u64,
@@ -245,9 +256,6 @@ struct SrcStats {
     writes: u64,
     targets: [(u64, u64); MAX_TARGETS],
     target_len: usize,
-    reads: u64,
-    read_targets: [(u64, u64); MAX_TARGETS],
-    read_target_len: usize,
 }
 
 impl SrcStats {
@@ -262,26 +270,6 @@ impl SrcStats {
             self.targets[self.target_len] = (page, 1);
             self.target_len += 1;
         }
-    }
-
-    fn note_read_target(&mut self, page: u64) {
-        for i in 0..self.read_target_len {
-            if self.read_targets[i].0 == page {
-                self.read_targets[i].1 += 1;
-                return;
-            }
-        }
-        if self.read_target_len < MAX_TARGETS {
-            self.read_targets[self.read_target_len] = (page, 1);
-            self.read_target_len += 1;
-        }
-    }
-
-    fn top_target(&self) -> Option<(u64, u64)> {
-        self.targets[..self.target_len]
-            .iter()
-            .copied()
-            .max_by_key(|&(_, count)| count)
     }
 }
 
@@ -315,30 +303,46 @@ struct Analyzer {
     srcs: HashMap<u64, SrcStats>,
     snapshots: Vec<Snapshot>,
     current_maps: BTreeMap<u64, MapRange>,
+    /// Fetch counts per instruction address (heap-adjacent code is rare, so
+    /// the map stays near the number of distinct executed instructions).
+    instr: HashMap<u64, u64>,
+    /// Executions of instructions not tracked because the table was full.
+    instr_dropped: u64,
+    /// Page-to-page execution edges, recorded when control changes page.
+    edges: HashMap<(u64, u64), u64>,
+    /// Page of the previous executed instruction, for [`Self::edges`].
+    last_exec_page: Option<u64>,
     totals: Totals,
     header_ok: bool,
     arch: u32,
 }
 
-/// Reads `path` and renders the requested report. JSON and HTML outputs are
-/// written as a side effect.
+/// Reads `path` and renders the requested report. A JSON output is written as
+/// a side effect when requested.
 pub fn run(path: &Path, opts: &Options) -> io::Result<String> {
-    let report = analyze_path(path)?;
+    let report = analyze_path_with_progress(path, opts.progress)?;
     if let Some(json) = &opts.json {
         std::fs::write(json, report.to_json())?;
-    }
-    if let Some(html) = &opts.html {
-        std::fs::write(html, report.to_html())?;
     }
     Ok(report.render(opts))
 }
 
 /// Parses and analyses a trace file.
 pub fn analyze_path(path: &Path) -> io::Result<Report> {
+    analyze_path_with_progress(path, false)
+}
+
+/// Parses and analyses a trace file, optionally reporting progress on stderr.
+///
+/// A multi-gigabyte capture takes minutes to parse, so an interactive run can
+/// show how far it has read and how fast.
+pub fn analyze_path_with_progress(path: &Path, progress: bool) -> io::Result<Report> {
     let file = File::open(path)?;
     let len = file.metadata().map(|m| m.len()).unwrap_or(0);
     let mut reader = BufReader::with_capacity(1 << 20, file);
-    let mut report = analyze_reader(&mut reader)?;
+    let mut meter = Progress::new(progress, len);
+    let mut report = analyze_stream(&mut reader, &mut meter)?;
+    meter.finish(len);
     report.totals.trace_bytes = len;
     report.trace_path = path.display().to_string();
     Ok(report)
@@ -346,6 +350,11 @@ pub fn analyze_path(path: &Path) -> io::Result<Report> {
 
 /// Parses and analyses a trace stream.
 pub fn analyze_reader<R: Read>(reader: &mut R) -> io::Result<Report> {
+    let mut meter = Progress::new(false, 0);
+    analyze_stream(reader, &mut meter)
+}
+
+fn analyze_stream<R: Read>(reader: &mut R, meter: &mut Progress) -> io::Result<Report> {
     let mut header = [0u8; HEADER_LEN];
     reader.read_exact(&mut header)?;
     let mut analyzer = Analyzer {
@@ -354,6 +363,10 @@ pub fn analyze_reader<R: Read>(reader: &mut R) -> io::Result<Report> {
         srcs: HashMap::new(),
         snapshots: Vec::new(),
         current_maps: BTreeMap::new(),
+        instr: HashMap::new(),
+        instr_dropped: 0,
+        edges: HashMap::new(),
+        last_exec_page: None,
         totals: Totals::default(),
         header_ok: header[..8] == MAGIC[..],
         arch: u32::from_le_bytes(header[12..16].try_into().unwrap()),
@@ -396,6 +409,7 @@ pub fn analyze_reader<R: Read>(reader: &mut R) -> io::Result<Report> {
             name.resize(name_len, 0);
             reader.read_exact(&mut name)?;
         }
+        meter.advance(RECORD_LEN as u64 + name_len as u64);
         match tag {
             TAG_READ => analyzer.access(a, b, aux, c, false),
             TAG_WRITE => analyzer.access(a, b, aux, c, true),
@@ -421,6 +435,108 @@ pub fn analyze_reader<R: Read>(reader: &mut R) -> io::Result<Report> {
     }
     analyzer.finish_snapshot();
     analyzer.finish()
+}
+
+/// Throttled parse progress for long captures.
+///
+/// There is no per-record clock: the meter only looks at the wall clock after
+/// a fixed amount of input, so a fast small trace never pays for it.
+struct Progress {
+    enabled: bool,
+    tty: bool,
+    /// Total capture size, when known. Zero suppresses the percentage.
+    total: u64,
+    consumed: u64,
+    next_check: u64,
+    next_report: Option<Instant>,
+    /// Bytes per report, chosen so a report appears at most every few seconds.
+    stride: u64,
+    printed: bool,
+}
+
+impl Progress {
+    fn new(enabled: bool, total: u64) -> Self {
+        Self {
+            enabled,
+            tty: std::io::IsTerminal::is_terminal(&std::io::stderr()),
+            total,
+            consumed: 0,
+            next_check: 0,
+            next_report: None,
+            stride: 8 << 20,
+            printed: false,
+        }
+    }
+
+    #[inline]
+    fn advance(&mut self, bytes: u64) {
+        if !self.enabled {
+            return;
+        }
+        self.consumed += bytes;
+        if self.consumed < self.next_check {
+            return;
+        }
+        // Back off when records are small: 8 MiB is a lot of records, but a
+        // report every 8 MiB is noisy on a slow host, so time gates it.
+        self.next_check = self.consumed + self.stride;
+        let now = Instant::now();
+        let due = match self.next_report {
+            Some(at) => now >= at,
+            None => {
+                self.next_report = Some(now + Duration::from_secs(2));
+                false
+            }
+        };
+        if !due {
+            return;
+        }
+        self.next_report = Some(now + Duration::from_secs(2));
+        self.print(now);
+    }
+
+    fn print(&mut self, _now: Instant) {
+        let percent = if self.total > 0 {
+            (self.consumed as f64 / self.total as f64 * 100.0).min(100.0)
+        } else {
+            0.0
+        };
+        let line = if self.total > 0 {
+            format!(
+                "parsed {} of {} ({:.0}%)",
+                bytes(self.consumed),
+                bytes(self.total),
+                percent
+            )
+        } else {
+            format!("parsed {}", bytes(self.consumed))
+        };
+        if self.tty {
+            eprint!("\r[{line}]");
+        } else {
+            eprintln!("[rax-trace-map] {line}");
+        }
+        self.printed = true;
+    }
+
+    fn finish(&mut self, total: u64) {
+        if !self.enabled {
+            return;
+        }
+        if !self.printed {
+            return;
+        }
+        let line = if total > 0 {
+            format!("parsed {} of {}", bytes(total), bytes(total))
+        } else {
+            format!("parsed {}", bytes(self.consumed))
+        };
+        if self.tty {
+            eprintln!("\r[{line}]");
+        } else {
+            eprintln!("[rax-trace-map] {line}");
+        }
+    }
 }
 
 impl Analyzer {
@@ -488,17 +604,10 @@ impl Analyzer {
             stats.reads += 1;
             stats.bytes_read += u64::from(size);
             stats.read_sizes[size_index(size)] += 1;
-            if stats.read_heat.is_empty() {
-                stats.read_heat.resize(64, 0);
-            }
-            stats.read_heat[((offset / 64) as usize).min(63)] += 1;
             stats.first_read.get_or_insert(self.seq);
             let source_page = rip / PAGE;
             if rip != 0 {
                 stats.note_reader(source_page);
-                let source = self.srcs.entry(source_page).or_default();
-                source.reads += 1;
-                source.note_read_target(page);
             }
             if stats.first_write.is_none() && stats.first_exec.is_none() {
                 // first touch is a read; nothing to do, kept for clarity
@@ -530,6 +639,26 @@ impl Analyzer {
         stats.first_exec.get_or_insert(self.seq);
         stats.last_exec = Some(self.seq);
         mark_coverage(&mut stats.exec_coverage, offset, size.max(1));
+        if let Some(count) = self.instr.get_mut(&addr) {
+            *count += 1;
+        } else if self.instr.len() < MAX_INSTR {
+            self.instr.insert(addr, 1);
+        } else {
+            self.instr_dropped += 1;
+        }
+        // Control flow between pages, not between instructions: a handler
+        // stays inside its page for many instructions, so page changes are
+        // rare and cheap to count.
+        if self.last_exec_page != Some(page) {
+            if let Some(previous) = self.last_exec_page.replace(page) {
+                let edge = (previous, page);
+                if let Some(count) = self.edges.get_mut(&edge) {
+                    *count += 1;
+                } else if self.edges.len() < MAX_EDGES {
+                    self.edges.insert(edge, 1);
+                }
+            }
+        }
     }
 
     fn finish(mut self) -> io::Result<Report> {
@@ -576,6 +705,9 @@ impl Analyzer {
             pages: self.pages,
             snapshots: self.snapshots,
             srcs: self.srcs,
+            instr: self.instr,
+            instr_dropped: self.instr_dropped,
+            edges: self.edges,
             arch: self.arch,
             trace_path: String::new(),
         })
@@ -888,6 +1020,30 @@ fn findings(regions: &[Region], totals: &Totals) -> Vec<String> {
     out
 }
 
+fn opcode_regions<'a>(report: &'a Report) -> Vec<&'a Region> {
+    report
+        .regions
+        .iter()
+        .filter(|region| region.kind_id == 2)
+        .collect()
+}
+
+fn opcode_readers(report: &Report, regions: &[&Region]) -> Vec<(u64, u64)> {
+    let mut counts: HashMap<u64, u64> = HashMap::new();
+    for region in regions {
+        for page in region.start / PAGE..region.end / PAGE {
+            if let Some(stats) = report.pages.get(&page) {
+                for &(source, count) in &stats.readers[..stats.reader_len] {
+                    *counts.entry(source).or_default() += count;
+                }
+            }
+        }
+    }
+    let mut readers: Vec<(u64, u64)> = counts.into_iter().collect();
+    readers.sort_by_key(|&(_, count)| std::cmp::Reverse(count));
+    readers
+}
+
 fn handler_findings(
     pages: &BTreeMap<u64, PageStats>,
     srcs: &HashMap<u64, SrcStats>,
@@ -1070,7 +1226,98 @@ impl Report {
             self.totals.pages_self_modifying,
             self.totals.snapshots
         );
+        if !self.trace_path.is_empty() {
+            let _ = writeln!(out, "  trace: {}", self.trace_path);
+        }
         let _ = writeln!(out);
+
+        let opcode_regions = opcode_regions(self);
+        let readers = opcode_readers(self, &opcode_regions);
+        let stream = opcode_regions
+            .iter()
+            .copied()
+            .max_by_key(|region| region.read_sizes[0]);
+        let dispatcher = readers.first().copied();
+        let unpacker = self
+            .regions
+            .iter()
+            .filter(|region| region.kind_id == 1)
+            .max_by_key(|region| region.writes);
+        if stream.is_some() || self.vm_cluster().is_some() {
+            let _ = writeln!(out, "VM PROFILE");
+            if let Some((start, end, pages, fetches, reads)) = self.vm_cluster() {
+                let _ = writeln!(
+                    out,
+                    "  code cluster   {}  {} exec pages, {} fetches, {} reads",
+                    range(start, end),
+                    pages,
+                    count(fetches),
+                    count(reads)
+                );
+            }
+            if let Some(region) = stream {
+                let _ = writeln!(
+                    out,
+                    "  opcode stream  {}  {}, {} single-byte reads ({} of reads), {} code pages",
+                    range(region.start, region.end),
+                    bytes(region.end - region.start),
+                    count(region.read_sizes[0]),
+                    percent(region.read_sizes[0], region.reads),
+                    region.distinct_readers
+                );
+            }
+            if let Some((page, hits)) = dispatcher {
+                let fetches = self
+                    .pages
+                    .get(&page)
+                    .map_or_else(|| "0".into(), |stats| count(stats.execs));
+                let _ = writeln!(
+                    out,
+                    "  dispatch       {:#x}  {} reads into the stream, {} fetches",
+                    page * PAGE,
+                    count(hits),
+                    fetches
+                );
+            }
+            if let Some(region) = unpacker {
+                let _ = writeln!(
+                    out,
+                    "  unpacker       {}  {} writes, first write {}, first fetch {}",
+                    range(region.start, region.end),
+                    count(region.writes),
+                    seq(region.first_write_seq),
+                    seq(region.first_exec_seq)
+                );
+            }
+            if !readers.is_empty() {
+                let _ = writeln!(out, "  stream readers:");
+                for (page, hits) in readers.iter().take(12) {
+                    let stats = self.pages.get(page);
+                    let _ = writeln!(
+                        out,
+                        "    {:#016x}  {:>9} reads  {:>9} fetches  {:>9} writes{}",
+                        page * PAGE,
+                        count(*hits),
+                        stats.map_or_else(|| "0".into(), |stats| count(stats.execs)),
+                        stats.map_or_else(|| "0".into(), |stats| count(stats.writes)),
+                        if Some(*page) == dispatcher.map(|(page, _)| page) {
+                            "  <- dispatch candidate"
+                        } else {
+                            ""
+                        }
+                    );
+                }
+            }
+            let _ = writeln!(out);
+        }
+
+        if !self.edges.is_empty() {
+            out.push_str(&self.render_edges());
+        }
+
+        if !self.instr.is_empty() {
+            out.push_str(&self.render_hot_instructions());
+        }
 
         if !self.findings.is_empty() {
             let _ = writeln!(out, "FINDINGS");
@@ -1133,6 +1380,147 @@ impl Report {
         out
     }
 
+    /// Ranks individual instruction addresses by fetch count.
+    ///
+    /// Page-level counts say where code lives; this says which instruction in
+    /// that code is the loop. A virtualised binary shows its dispatcher as one
+    /// or two very hot addresses and each handler as a much colder entry.
+    /// Ranks page-to-page execution changes out of the dispatch page.
+    ///
+    /// One bytecode dispatch produces one change into the selected handler
+    /// page, so these counts approximate how often each handler ran: the shape
+    /// of a virtual machine's instruction mix, read from control flow instead
+    /// of from the bytecode itself.
+    fn render_edges(&self) -> String {
+        let readers = opcode_readers(self, &opcode_regions(self));
+        let dispatcher = readers.first().map(|&(page, _)| page);
+        let mut edges: Vec<((u64, u64), u64)> = self
+            .edges
+            .iter()
+            .filter(|((from, to), _)| from != to && dispatcher.is_none_or(|page| *from == page))
+            .map(|(&edge, &count)| (edge, count))
+            .collect();
+        if edges.is_empty() {
+            return String::new();
+        }
+        let transitions: u64 = self.edges.values().sum();
+        edges.sort_by_key(|&((from, to), count)| (std::cmp::Reverse(count), from, to));
+        let mut out = String::new();
+        let _ = writeln!(
+            out,
+            "DISPATCH EDGES ({} page-to-page transitions over {} edges{})",
+            count(transitions),
+            count(self.edges.len() as u64),
+            if dispatcher.is_some() {
+                "; entries out of the dispatch candidate"
+            } else {
+                ""
+            }
+        );
+        let _ = writeln!(
+            out,
+            "  {:<6} {:<20} {:<20} {:>10} {:>7}  {}",
+            "#", "from", "to", "entries", "share", "target"
+        );
+        for (index, ((from, to), entries)) in edges.iter().take(12).enumerate() {
+            let note = if let Some(&(_, reads)) = readers.iter().find(|&&(page, _)| page == *to) {
+                format!("{} stream reads", count(reads))
+            } else {
+                let role = self.page_role(*to);
+                if self.pages.get(to).is_some_and(|stats| stats.writes > 0) {
+                    format!("{role}, writes data")
+                } else {
+                    role
+                }
+            };
+            let _ = writeln!(
+                out,
+                "  {:<6} {:#018x} {:#018x} {:>10} {:>7}  {}",
+                index,
+                from * PAGE,
+                to * PAGE,
+                count(*entries),
+                percent1(*entries, transitions),
+                note
+            );
+        }
+        let _ = writeln!(out);
+        out
+    }
+
+    /// Shows where execution mass sits at instruction granularity.
+    ///
+    /// A virtualised binary executes long straight-line runs inside one page
+    /// (its handlers) and short loops in another (its dispatcher), so a flat
+    /// per-address ranking degenerates into sixteen identical counts. Grouping
+    /// addresses into runs keeps a loop body on one line and leaves branched-to
+    /// entries standing alone, which is what a reader is looking for.
+    fn render_hot_instructions(&self) -> String {
+        let hot = self.hot_instructions(HOT_ADDRESSES);
+        if hot.is_empty() {
+            return String::new();
+        }
+        let runs = instruction_runs(&hot);
+        let mut out = String::new();
+        let tracked: u64 = self.instr.values().sum();
+        let _ = writeln!(
+            out,
+            "HOT INSTRUCTIONS ({} distinct addresses, {} fetches; top {} runs)",
+            count(self.instr.len() as u64),
+            count(tracked),
+            runs.len()
+        );
+        let _ = writeln!(
+            out,
+            "  {:<4} {:<44} {:>5} {:>10} {:>7}  {}",
+            "#", "run", "insns", "fetches", "share", "page"
+        );
+        let readers = opcode_readers(self, &opcode_regions(self));
+        let dispatcher = readers.first().map(|&(page, _)| page);
+        for (index, run) in runs.iter().enumerate() {
+            let page = run.start / PAGE;
+            let note = if Some(page) == dispatcher {
+                "dispatch candidate".to_string()
+            } else if let Some(&(_, reads)) = readers.iter().find(|&&(p, _)| p == page) {
+                format!("{} stream reads", count(reads))
+            } else {
+                self.page_role(page)
+            };
+            let span = if run.start == run.end {
+                format!("{:#018x}", run.start)
+            } else {
+                format!("{:#018x}-{:x}", run.start, run.end)
+            };
+            let _ = writeln!(
+                out,
+                "  {:<4} {:<44} {:>5} {:>10} {:>7}  {}",
+                index,
+                span,
+                run.insns,
+                count(run.fetches),
+                percent1(run.fetches, self.totals.execs),
+                note
+            );
+        }
+        if self.instr_dropped > 0 {
+            let _ = writeln!(
+                out,
+                "  ({} fetches at untracked addresses; table capped at {})",
+                count(self.instr_dropped),
+                count(MAX_INSTR as u64)
+            );
+        }
+        let _ = writeln!(out);
+        out
+    }
+
+    fn hot_instructions(&self, limit: usize) -> Vec<(u64, u64)> {
+        let mut hot: Vec<(u64, u64)> = self.instr.iter().map(|(&a, &c)| (a, c)).collect();
+        hot.sort_by_key(|&(addr, count)| (std::cmp::Reverse(count), addr));
+        hot.truncate(limit);
+        hot
+    }
+
     fn render_map(&self) -> String {
         let mut out = String::new();
         if self.pages.is_empty() {
@@ -1155,9 +1543,15 @@ impl Report {
         }
         clusters.push((first, previous));
 
+        let opcode = opcode_regions(self);
+        let opcode_pages: BTreeSet<u64> = opcode
+            .iter()
+            .flat_map(|region| region.start / PAGE..region.end / PAGE)
+            .collect();
+        let dispatcher = opcode_readers(self, &opcode).first().map(|&(page, _)| page);
         let _ = writeln!(
             out,
-            "ADDRESS-SPACE MAP (X=code  S=code+write  W=write  r=read; one character per cell)"
+            "ADDRESS-SPACE MAP (X=code  S=code+write  O=opcode stream  *=dispatch  W=write  r=read)"
         );
         for (start_page, end_page) in clusters {
             let span = end_page - start_page + 1;
@@ -1166,6 +1560,23 @@ impl Report {
             cell_pages = cell_pages.next_power_of_two();
             let cells = ((span + cell_pages - 1) / cell_pages) as usize;
             let mut buckets = vec![(0u64, 0u64, 0u64, 0u64); cells];
+            let mut special = vec![0u8; cells];
+            for &page in &opcode_pages {
+                if page >= start_page && page <= end_page {
+                    let idx = ((page - start_page) / cell_pages) as usize;
+                    if idx < special.len() {
+                        special[idx] = 1;
+                    }
+                }
+            }
+            if let Some(page) = dispatcher {
+                if page >= start_page && page <= end_page {
+                    let idx = ((page - start_page) / cell_pages) as usize;
+                    if idx < special.len() {
+                        special[idx] = 2;
+                    }
+                }
+            }
             for (&page, stats) in self.pages.range(start_page..=end_page) {
                 let idx = ((page - start_page) / cell_pages) as usize;
                 if idx < buckets.len() {
@@ -1185,8 +1596,13 @@ impl Report {
             for (row, chunk) in buckets.chunks(100).enumerate() {
                 let addr = (start_page + row as u64 * 100 * cell_pages) * PAGE;
                 let mut line = String::new();
-                for &(exec, write, read, _) in chunk {
-                    line.push(if exec > 0 && write > 0 {
+                for (offset, &(exec, write, read, _)) in chunk.iter().enumerate() {
+                    let special = special.get(row * 100 + offset).copied().unwrap_or(0);
+                    line.push(if special == 2 {
+                        '*'
+                    } else if special == 1 {
+                        'O'
+                    } else if exec > 0 && write > 0 {
                         'S'
                     } else if exec > 0 {
                         'X'
@@ -1339,7 +1755,47 @@ impl Report {
                 );
             }
         }
+        let hot = self.page_hot_instructions(page, 8);
+        if !hot.is_empty() {
+            let _ = writeln!(out, "  instruction fetches:");
+            for (addr, fetches) in hot {
+                let _ = writeln!(
+                    out,
+                    "    {:#018x}  {:>12}  {:.1}% of page",
+                    addr,
+                    count(fetches),
+                    fetches as f64 / stats.execs.max(1) as f64 * 100.0
+                );
+            }
+        }
         out
+    }
+
+    /// Ranks instruction addresses inside `page` by fetch count.
+    fn page_hot_instructions(&self, page: u64, limit: usize) -> Vec<(u64, u64)> {
+        let mut hot: Vec<(u64, u64)> = self
+            .instr
+            .iter()
+            .filter(|(addr, _)| **addr / PAGE == page)
+            .map(|(&addr, &count)| (addr, count))
+            .collect();
+        hot.sort_by_key(|&(addr, count)| (std::cmp::Reverse(count), addr));
+        hot.truncate(limit);
+        hot
+    }
+
+    /// Short role of the page, for one-line annotations: the region kind when
+    /// the page belongs to one, otherwise the mapping name.
+    fn page_role(&self, page: u64) -> String {
+        let start = page * PAGE;
+        if let Some(region) = self
+            .regions
+            .iter()
+            .find(|region| region.start <= start && start < region.end)
+        {
+            return region.kind.to_string();
+        }
+        trimmed_left(&self.map_name(start), 28)
     }
 
     fn map_name(&self, addr: u64) -> String {
@@ -1384,6 +1840,34 @@ impl Report {
                 })
             })
             .collect();
+        let mut edges: Vec<((u64, u64), u64)> = self
+            .edges
+            .iter()
+            .map(|(&edge, &count)| (edge, count))
+            .collect();
+        edges.sort_by_key(|&((from, to), count)| (std::cmp::Reverse(count), from, to));
+        let dispatch_edges: Vec<serde_json::Value> = edges
+            .iter()
+            .take(64)
+            .map(|&((from, to), entries)| {
+                serde_json::json!({
+                    "from": format!("{:#x}", from * PAGE),
+                    "to": format!("{:#x}", to * PAGE),
+                    "entries": entries,
+                })
+            })
+            .collect();
+        let hot_instructions: Vec<serde_json::Value> = self
+            .hot_instructions(64)
+            .into_iter()
+            .map(|(addr, fetches)| {
+                serde_json::json!({
+                    "address": format!("{:#x}", addr),
+                    "page": format!("{:#x}", addr / PAGE * PAGE),
+                    "fetches": fetches,
+                })
+            })
+            .collect();
         let json = serde_json::json!({
             "format": "raxtrace",
             "arch": if self.arch == ARCH_X86_64 { "x86_64" } else { "unknown" },
@@ -1400,435 +1884,14 @@ impl Report {
                 "pages_self_modifying": self.totals.pages_self_modifying,
             },
             "findings": self.findings,
+            "distinct_instructions": self.instr.len(),
+            "hot_instructions": hot_instructions,
+            "dispatch_edges": dispatch_edges,
             "regions": regions,
         });
         serde_json::to_string_pretty(&json).unwrap_or_else(|_| json.to_string())
     }
 
-    fn to_html(&self) -> String {
-        let opcode_regions: Vec<&Region> = self
-            .regions
-            .iter()
-            .filter(|region| region.kind_id == 2)
-            .collect();
-        let vm_code = self
-            .regions
-            .iter()
-            .filter(|region| region.kind_id == 0)
-            .max_by_key(|region| region.execs);
-        let vm_cluster = self.vm_cluster();
-        let unpacker = self
-            .regions
-            .iter()
-            .filter(|region| region.kind_id == 1)
-            .max_by_key(|region| region.writes);
-        let stream = opcode_regions
-            .iter()
-            .copied()
-            .max_by_key(|region| region.read_sizes[0]);
-
-        let mut reader_counts: HashMap<u64, u64> = HashMap::new();
-        for region in &opcode_regions {
-            for page in region.start / PAGE..region.end / PAGE {
-                if let Some(stats) = self.pages.get(&page) {
-                    for &(source, count) in &stats.readers[..stats.reader_len] {
-                        *reader_counts.entry(source).or_default() += count;
-                    }
-                }
-            }
-        }
-        let mut readers: Vec<(u64, u64)> = reader_counts.into_iter().collect();
-        readers.sort_by_key(|&(_, count)| std::cmp::Reverse(count));
-        let dispatcher = readers.first().copied();
-
-        let mut out = String::new();
-        out.push_str(
-            "<!doctype html><html><head><meta charset=\"utf-8\">
-             <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">
-             <title>rax trace map</title>",
-        );
-        out.push_str(HTML_CSS);
-        out.push_str("</head><body>");
-        let _ = writeln!(
-            out,
-            "<header class=\"topbar\"><span class=\"wordmark\">rax trace map</span><span class=\"ver\">v1</span><span class=\"file\">{}</span><span class=\"spacer\"></span><span class=\"meta\">{} accesses · {} pages · {}</span></header><main>",
-            escape_html(&short_path(&self.trace_path)),
-            count(self.totals.accesses),
-            self.totals.pages_touched,
-            bytes(self.totals.trace_bytes),
-        );
-        out.push_str("<section class=\"summary\"><div class=\"statgrid\">");
-        for (label, value) in [
-            ("fetches", count(self.totals.execs)),
-            ("reads", count(self.totals.reads)),
-            ("writes", count(self.totals.writes)),
-            ("code pages", self.totals.pages_executed.to_string()),
-            (
-                "opcode pages",
-                opcode_regions
-                    .iter()
-                    .map(|r| r.pages)
-                    .sum::<u64>()
-                    .to_string(),
-            ),
-        ] {
-            let _ = writeln!(
-                out,
-                "<div class=\"stat\"><span>{label}</span><b>{value}</b></div>"
-            );
-        }
-        out.push_str("</div></section>");
-
-        out.push_str("<section class=\"signals\"><h2>Signal</h2><div class=\"cards\">");
-        let _ = writeln!(
-            out,
-            "<div class=\"card code\"><span>CODE CLUSTER</span><b>{}</b><p>{} pages · {} fetches · {} reads</p><small>{}</small></div>",
-            vm_cluster.map_or_else(|| "—".into(), |(start, end, _, _, _)| range(start, end)),
-            vm_cluster.map_or(0, |(_, _, pages, _, _)| pages),
-            vm_cluster.map_or_else(|| "0".into(), |(_, _, _, fetches, _)| count(fetches)),
-            vm_cluster.map_or_else(|| "0".into(), |(_, _, _, _, reads)| count(reads)),
-            vm_code.map_or_else(String::new, |r| short_path(&r.map_name)),
-        );
-        let _ = writeln!(
-            out,
-            "<div class=\"card stream\"><span>OPCODE STREAM</span><b>{}</b><p>{} single-byte reads · {} readers</p><small>{}</small></div>",
-            stream.map_or_else(|| "—".into(), |r| range(r.start, r.end)),
-            stream.map_or_else(|| "0".into(), |r| count(r.read_sizes[0])),
-            stream.map_or(0, |r| r.distinct_readers),
-            stream.map_or_else(String::new, |r| format!(
-                "{} of reads are 1-byte",
-                percent(r.read_sizes[0], r.reads)
-            )),
-        );
-        let _ = writeln!(
-            out,
-            "<div class=\"card dispatch\"><span>DISPATCH CANDIDATE</span><b>{}</b><p>{} reads into the opcode stream</p><small>{}</small></div>",
-            dispatcher.map_or_else(|| "—".into(), |(page, _)| format!("{:#x}", page * PAGE)),
-            dispatcher.map_or_else(|| "0".into(), |(_, hits)| count(hits)),
-            dispatcher
-                .map(|(page, _)| short_path(&self.map_name(page * PAGE)))
-                .unwrap_or_default(),
-        );
-        let _ = writeln!(
-            out,
-            "<div class=\"card patch\"><span>UNPACKER / PATCHER</span><b>{}</b><p>{} writes · first write {} · first fetch {}</p><small>{}</small></div>",
-            unpacker.map_or_else(|| "—".into(), |r| range(r.start, r.end)),
-            unpacker.map_or_else(|| "0".into(), |r| count(r.writes)),
-            unpacker.map_or_else(|| "never".into(), |r| seq(r.first_write_seq)),
-            unpacker.map_or_else(|| "never".into(), |r| seq(r.first_exec_seq)),
-            unpacker
-                .map(|r| r
-                    .writers
-                    .iter()
-                    .take(2)
-                    .map(|(p, c)| format!("{:#x}×{c}", p * PAGE))
-                    .collect::<Vec<_>>()
-                    .join(" · "))
-                .unwrap_or_default(),
-        );
-        out.push_str("</div>");
-
-        if !self.findings.is_empty() {
-            out.push_str("<div class=\"findings\">");
-            for finding in &self.findings {
-                let _ = writeln!(out, "<div class=\"finding\">{}</div>", escape_html(finding));
-            }
-            out.push_str("</div>");
-        }
-        out.push_str("</section>");
-
-        out.push_str("<section><h2>Address-space activity</h2><p class=\"sub\">Each cell is a touched page. Cyan intensity is fetch volume; gold is code that was written; magenta is an opcode-stream candidate; red is written data. Hover any cell for its counts.</p><div class=\"bandlist\">");
-        let max_exec = self
-            .pages
-            .values()
-            .map(|stats| stats.execs)
-            .max()
-            .unwrap_or(1) as f64;
-        let max_activity = self
-            .pages
-            .values()
-            .map(|stats| stats.execs + stats.reads + stats.writes)
-            .max()
-            .unwrap_or(1) as f64;
-        let opcode_pages: BTreeSet<u64> = opcode_regions
-            .iter()
-            .flat_map(|region| region.start / PAGE..region.end / PAGE)
-            .collect();
-        for band in html_bands(self, max_exec, max_activity) {
-            let span = band.end - band.start + 1;
-            let cells = span.min(1100) as usize;
-            let mut buckets: Vec<Option<(Kind, f32, u64)>> = vec![None; cells];
-            for &(page, kind, ratio) in &band.pages {
-                let index = (((page - band.start) as usize) * cells / span as usize).min(cells - 1);
-                let replace = match buckets[index] {
-                    Some((current, current_ratio, _)) => {
-                        kind_priority(kind) > kind_priority(current)
-                            || (kind_priority(kind) == kind_priority(current)
-                                && ratio > current_ratio)
-                    }
-                    None => true,
-                };
-                if replace {
-                    buckets[index] = Some((kind, ratio, page));
-                }
-            }
-            let contains_stream = band
-                .pages
-                .iter()
-                .any(|(page, _, _)| opcode_pages.contains(page));
-            let mut svg = String::new();
-            let cell_w = 1100.0 / cells as f32;
-            let _ = write!(
-                svg,
-                "<svg viewBox=\"0 0 1100 28\" preserveAspectRatio=\"none\" class=\"band\">
-                 <rect width=\"1100\" height=\"28\" fill=\"#0a1018\"/>"
-            );
-            // Annotation rail: brackets for the opcode stream, ticks for the
-            // dispatcher and unpacker. This is what turns the page strip into
-            // a readable VM map instead of a generic heatmap.
-            if let Some(region) = opcode_regions
-                .iter()
-                .find(|region| region.end / PAGE > band.start && region.start / PAGE <= band.end)
-            {
-                let start_page = (region.start / PAGE).max(band.start);
-                let end_page = (region.end / PAGE).min(band.end + 1);
-                let x = (start_page - band.start) as f32 * cell_w;
-                let width = ((end_page - start_page) as f32 * cell_w).max(1.0);
-                let _ = write!(
-                    svg,
-                    "<rect x=\"{x:.2}\" y=\"0\" width=\"{width:.2}\" height=\"8\" fill=\"#ff5696\" opacity=\"0.28\"/>
-                     <line x1=\"{x:.2}\" y1=\"0\" x2=\"{x:.2}\" y2=\"28\" stroke=\"#ff5696\" stroke-width=\"0.8\" stroke-dasharray=\"2 2\" opacity=\"0.9\"/>
-                     <line x1=\"{x2:.2}\" y1=\"0\" x2=\"{x2:.2}\" y2=\"28\" stroke=\"#ff5696\" stroke-width=\"0.8\" stroke-dasharray=\"2 2\" opacity=\"0.9\"/>",
-                    x2 = x + width
-                );
-                if width > 110.0 {
-                    let _ = write!(
-                        svg,
-                        "<text x=\"{:.2}\" y=\"6.2\" font-size=\"6.4\" fill=\"#ffd1e4\" letter-spacing=\"0.8\">OPCODE STREAM</text>",
-                        x + 3.0
-                    );
-                }
-            }
-            if let Some((page, _)) = dispatcher {
-                if page >= band.start && page <= band.end {
-                    let x = (page - band.start) as f32 * cell_w + cell_w * 0.5;
-                    let _ = write!(
-                        svg,
-                        "<line x1=\"{x:.2}\" y1=\"0\" x2=\"{x:.2}\" y2=\"28\" stroke=\"#ffffff\" stroke-width=\"1.2\" opacity=\"0.9\"><title>dispatch candidate {:#x}</title></line>
-                         <circle cx=\"{x:.2}\" cy=\"3\" r=\"1.6\" fill=\"#ffffff\"/>",
-                        page * PAGE
-                    );
-                }
-            }
-            if let Some(region) = unpacker {
-                let page = region.start / PAGE;
-                if page >= band.start && page <= band.end {
-                    let x = (page - band.start) as f32 * cell_w + cell_w * 0.5;
-                    let _ = write!(
-                        svg,
-                        "<line x1=\"{x:.2}\" y1=\"0\" x2=\"{x:.2}\" y2=\"28\" stroke=\"#ffd666\" stroke-width=\"1.0\" opacity=\"0.85\"><title>unpacker {:#x}</title></line>",
-                        page * PAGE
-                    );
-                }
-            }
-            for (index, bucket) in buckets.iter().enumerate() {
-                let Some((kind, ratio, page)) = bucket else {
-                    continue;
-                };
-                let x = index as f32 * cell_w;
-                let width = (cell_w + 0.35).max(0.7);
-                let fill = heat_color(*kind, *ratio);
-                let stats = self.pages.get(page);
-                let title = stats.map_or_else(
-                    || format!("{:#x}", page * PAGE),
-                    |stats| {
-                        format!(
-                            "{:#x}  {}  fetches {}  reads {}  writes {}",
-                            page * PAGE,
-                            kind.label(),
-                            count(stats.execs),
-                            count(stats.reads),
-                            count(stats.writes)
-                        )
-                    },
-                );
-                let opacity = if *kind == Kind::Code {
-                    0.55 + ratio * 0.45
-                } else {
-                    0.9
-                };
-                let _ = write!(
-                    svg,
-                    "<rect x=\"{x:.2}\" y=\"9\" width=\"{width:.2}\" height=\"18\" fill=\"{fill}\" opacity=\"{opacity:.2}\"><title>{}</title></rect>",
-                    escape_html(&title)
-                );
-            }
-            svg.push_str("</svg>");
-            let _ = writeln!(
-                out,
-                "<div class=\"bandrow\"><div class=\"bandmeta\"><span class=\"mapname\">{}</span><span class=\"addr\">{}</span>{}</div><div class=\"bandplot\">{svg}</div></div>",
-                escape_html(&short_path(&band.map)),
-                range(band.start * PAGE, (band.end + 1) * PAGE),
-                if contains_stream {
-                    "<i class=\"tag streamtag\">STREAM</i>"
-                } else {
-                    ""
-                }
-            );
-        }
-        out.push_str("</div><div class=\"legend\"><span class=\"sw code\"></span>code <span class=\"sw patch\"></span>code+write <span class=\"sw stream\"></span>opcode stream <span class=\"sw data\"></span>written data <span class=\"sw read\"></span>read-only</div></section>");
-
-        if let Some((start, end, pages, fetches, _)) = vm_cluster {
-            out.push_str("<section><h2>Executable cluster layout</h2>");
-            let _ = writeln!(
-                out,
-                "<p class=\"sub\">Zoom on the hottest executable cluster at {} — {} executable pages, {} fetches. In a virtualised binary this is the VM code footprint. Each cell is one 4 KiB page; the magenta bracket is the opcode stream, the white marker is the dispatch candidate, and the gold marker is the page that is both written and executed.</p>",
-                range(start, end),
-                pages,
-                count(fetches)
-            );
-            out.push_str(&self.render_vm_layout(start, end, stream, dispatcher, unpacker));
-            out.push_str("</section>");
-        }
-
-        if let Some(stream) = stream {
-            out.push_str("<section><h2>Opcode stream</h2>");
-            let _ = writeln!(
-                out,
-                "<p class=\"sub\">Read heat across {} — each cell is 64 bytes, brightness is the number of single-byte reads. This is the data the virtual machine is consuming as instructions.</p>",
-                range(stream.start, stream.end)
-            );
-            out.push_str("<div class=\"spectro\">");
-            out.push_str(&self.render_stream_spectrogram(stream));
-            out.push_str("</div>");
-            if !readers.is_empty() {
-                out.push_str("<h3>Code that reads the stream</h3><div class=\"readers\">");
-                let max = readers[0].1.max(1);
-                for (index, &(page, hits)) in readers.iter().take(14).enumerate() {
-                    let stats = self.pages.get(&page);
-                    let width = (hits as f64 / max as f64 * 100.0).max(2.0);
-                    let _ = writeln!(
-                        out,
-                        "<div class=\"reader\"><span class=\"readeraddr\">{:#x}</span><span class=\"readerbar\"><i style=\"width:{width:.1}%\"></i></span><span class=\"readercount\">{} reads</span><span class=\"readermeta\">{} fetches · {} writes</span>{}</div>",
-                        page * PAGE,
-                        count(hits),
-                        stats.map_or_else(|| "0".into(), |s| count(s.execs)),
-                        stats.map_or_else(|| "0".into(), |s| count(s.writes)),
-                        if index == 0 {
-                            "<i class=\"tag dispatchtag\">DISPATCH?</i>"
-                        } else {
-                            ""
-                        }
-                    );
-                }
-                out.push_str("</div>");
-            }
-            out.push_str("</section>");
-        }
-
-        out.push_str("<section><h2>Hottest code pages</h2><p class=\"sub\">Ranked by instruction fetches. In a virtualised binary the dispatcher and its handler pages dominate this list; the reads column shows which pages consume the opcode stream.</p><div class=\"tablewrap\"><table class=\"hot\"><tr><th>#</th><th>page</th><th>map</th><th>fetches</th><th>reads</th><th>writes</th><th>top write target</th></tr>");
-        let mut hot: Vec<(&u64, &PageStats)> = self
-            .pages
-            .iter()
-            .filter(|(_, stats)| stats.execs > 0)
-            .collect();
-        hot.sort_by_key(|(_, stats)| std::cmp::Reverse(stats.execs));
-        for (index, (page, stats)) in hot.iter().take(18).enumerate() {
-            let target = stats.writers[..stats.writer_len]
-                .iter()
-                .max_by_key(|&&(_, count)| count)
-                .map(|&(target, hits)| {
-                    format!(
-                        "{} <span class=\"dim\">×{}</span>",
-                        range(target * PAGE, (target + 1) * PAGE),
-                        count(hits)
-                    )
-                })
-                .unwrap_or_else(|| "—".into());
-            let _ = writeln!(
-                out,
-                "<tr><td class=\"num\">{}</td><td class=\"addr\">{:#x}</td><td>{}</td><td class=\"num hotnum\">{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td>{target}</td></tr>",
-                index + 1,
-                *page * PAGE,
-                escape_html(&short_path(&self.map_name(*page * PAGE))),
-                count(stats.execs),
-                count(stats.reads),
-                count(stats.writes),
-            );
-        }
-        out.push_str("</table></div></section>");
-
-        out.push_str("<section><h2>Write flow</h2><p class=\"sub\">The busiest data targets and the code pages that write them. Handler sets converge on one or a few rows here.</p><div class=\"tablewrap\"><table class=\"flow\"><tr><th>source</th><th>target</th><th>kind</th><th>writes</th><th>share</th></tr>");
-        let mut edges: Vec<(u64, u64, u64, Kind)> = Vec::new();
-        for (&page, stats) in &self.pages {
-            let name = self.map_name(page * PAGE);
-            let kind = page_kind(stats, &name);
-            if !matches!(
-                kind,
-                Kind::Context | Kind::Bytecode | Kind::PointerData | Kind::SelfMod | Kind::Stack
-            ) {
-                continue;
-            }
-            for &(source, count) in &stats.writers[..stats.writer_len] {
-                if self
-                    .pages
-                    .get(&source)
-                    .is_some_and(|source| source.execs > 0)
-                {
-                    edges.push((source, page, count, kind));
-                }
-            }
-        }
-        edges.sort_by_key(|&(_, _, count, _)| std::cmp::Reverse(count));
-        let edge_max = edges.first().map_or(1, |edge| edge.2);
-        for &(source, target, hits, kind) in edges.iter().take(16) {
-            let width = (hits as f64 / edge_max as f64 * 100.0).max(1.0);
-            let _ = writeln!(
-                out,
-                "<tr><td class=\"addr\">{:#x}</td><td class=\"addr\">{:#x}</td><td><i class=\"tag {}\">{}</i></td><td class=\"num\">{}</td><td><span class=\"flowbar\"><i style=\"width:{width:.1}%\"></i></span></td></tr>",
-                source * PAGE,
-                target * PAGE,
-                kind_class(kind),
-                kind.label(),
-                count(hits),
-            );
-        }
-        out.push_str("</table></div></section>");
-
-        out.push_str("<section><h2>Region inventory</h2><div class=\"tablewrap\"><table class=\"regions\"><tr><th>#</th><th>range</th><th>size</th><th>kind</th><th>map</th><th>fetch</th><th>read</th><th>write</th><th>write width</th></tr>");
-        for (index, region) in self.regions.iter().take(60).enumerate() {
-            let _ = writeln!(
-                out,
-                "<tr><td class=\"num\">{index}</td><td class=\"addr\">{}</td><td>{}</td><td><i class=\"tag {}\">{}</i></td><td>{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td class=\"num\">{}</td><td class=\"dim\">{}</td></tr>",
-                range(region.start, region.end),
-                bytes(region.end - region.start),
-                kind_class_by_id(region.kind_id),
-                region.kind,
-                escape_html(&short_path(&region.map_name)),
-                count(region.execs),
-                count(region.reads),
-                count(region.writes),
-                escape_html(&size_summary(&region.write_sizes)),
-            );
-        }
-        out.push_str("</table></div>");
-        if self.regions.len() > 60 {
-            let _ = writeln!(
-                out,
-                "<p class=\"sub\">… {} more regions omitted from the HTML table; the JSON report contains all of them.</p>",
-                self.regions.len() - 60
-            );
-        }
-        out.push_str("</section>");
-
-        out.push_str("<footer>Classifications are evidence labels, not declarations. <b>opcode stream</b> = read-only pages consumed mostly as one-byte reads from several code pages; <b>dispatch candidate</b> = the code page with the most reads into that stream; <b>unpacker</b> = the page that is both written and executed. Fetch records identify decoded addresses, not execution frequency.</footer>");
-        out.push_str("</main></body></html>");
-        out
-    }
-
-    /// The executable pages of the map that contains the hottest code region.
-    /// This is the virtual machine's code footprint, not a single classified
-    /// region fragment.
     fn vm_cluster(&self) -> Option<(u64, u64, u64, u64, u64)> {
         let anchor = self
             .regions
@@ -1861,371 +1924,53 @@ impl Report {
         }
         (pages > 0).then(|| (first * PAGE, (last + 1) * PAGE, pages, fetches, reads))
     }
-
-    fn render_vm_layout(
-        &self,
-        start: u64,
-        end: u64,
-        stream: Option<&Region>,
-        dispatcher: Option<(u64, u64)>,
-        unpacker: Option<&Region>,
-    ) -> String {
-        let mut out = String::new();
-        let start_page = start / PAGE;
-        let end_page = end / PAGE;
-        let span = (end_page - start_page).max(1);
-        let per_row = 220u64;
-        let cell = 5.0f32;
-        let rows = span.div_ceil(per_row);
-        let max_exec = self
-            .pages
-            .values()
-            .map(|stats| stats.execs)
-            .max()
-            .unwrap_or(1) as f64;
-        let max_activity = self
-            .pages
-            .values()
-            .map(|stats| stats.execs + stats.reads + stats.writes)
-            .max()
-            .unwrap_or(1) as f64;
-        for row in 0..rows {
-            let row_start = start_page + row * per_row;
-            let row_end = (row_start + per_row - 1).min(end_page);
-            let mut svg = String::from(
-                "<svg viewBox=\"0 0 1100 58\" preserveAspectRatio=\"none\" class=\"zoomband\"><rect width=\"1100\" height=\"58\" fill=\"#080d14\"/></svg>",
-            );
-            // Replace the closing tag after drawing.
-            svg.truncate(svg.len() - 6);
-            let _ = write!(
-                svg,
-                "<text x=\"0\" y=\"10\" class=\"zoomruler\">{row_start:#x}</text><text x=\"1100\" y=\"10\" text-anchor=\"end\" class=\"zoomruler\">{row_end:#x}</text>"
-            );
-            if let Some(region) = stream {
-                let lo = (region.start / PAGE).max(row_start);
-                let hi = (region.end / PAGE).min(row_end + 1);
-                if hi > lo {
-                    let x = (lo - row_start) as f32 * cell;
-                    let width = ((hi - lo) as f32 * cell).max(2.0);
-                    let _ = write!(
-                        svg,
-                        "<rect x=\"{x:.1}\" y=\"14\" width=\"{width:.1}\" height=\"36\" fill=\"none\" stroke=\"#ff5696\" stroke-width=\"1.2\" stroke-dasharray=\"4 3\"/><rect x=\"{x:.1}\" y=\"14\" width=\"{width:.1}\" height=\"5\" fill=\"#ff5696\" opacity=\"0.85\"/>"
-                    );
-                    if width > 120.0 {
-                        let _ = write!(
-                            svg,
-                            "<text x=\"{:.1}\" y=\"25\" class=\"zoomanntext\">OPCODE STREAM</text>",
-                            x + 4.0
-                        );
-                    }
-                }
-            }
-            for page in row_start..=row_end {
-                let Some(stats) = self.pages.get(&page) else {
-                    continue;
-                };
-                let name = self.map_name(page * PAGE);
-                let kind = page_kind(stats, &name);
-                let ratio = if kind == Kind::Code {
-                    ((stats.execs as f64 + 1.0).ln() / (max_exec + 1.0).ln()) as f32
-                } else {
-                    (((stats.execs + stats.reads + stats.writes) as f64 + 1.0).ln()
-                        / (max_activity + 1.0).ln()) as f32
-                };
-                let fill = heat_color(kind, ratio);
-                let x = (page - row_start) as f32 * cell;
-                let title = format!(
-                    "{:#x}  {}  fetches {}  reads {}  writes {}",
-                    page * PAGE,
-                    kind.label(),
-                    count(stats.execs),
-                    count(stats.reads),
-                    count(stats.writes)
-                );
-                let _ = write!(
-                    svg,
-                    "<rect x=\"{x:.1}\" y=\"14\" width=\"{:.2}\" height=\"36\" fill=\"{fill}\"><title>{}</title></rect>",
-                    (cell - 0.35).max(0.8),
-                    escape_html(&title)
-                );
-            }
-            if let Some((page, _)) = dispatcher {
-                if page >= row_start && page <= row_end {
-                    let x = (page - row_start) as f32 * cell + cell * 0.5;
-                    let _ = write!(
-                        svg,
-                        "<line x1=\"{x:.1}\" y1=\"14\" x2=\"{x:.1}\" y2=\"50\" stroke=\"#ffffff\" stroke-width=\"2\"/><circle cx=\"{x:.1}\" cy=\"14\" r=\"3\" fill=\"#ffffff\"/><text x=\"{:.1}\" y=\"56\" class=\"zoommark\">DISPATCH</text>",
-                        (x + 4.0).min(1040.0)
-                    );
-                }
-            }
-            if let Some(region) = unpacker {
-                let page = region.start / PAGE;
-                if page >= row_start && page <= row_end {
-                    let x = (page - row_start) as f32 * cell + cell * 0.5;
-                    let _ = write!(
-                        svg,
-                        "<line x1=\"{x:.1}\" y1=\"14\" x2=\"{x:.1}\" y2=\"50\" stroke=\"#ffd666\" stroke-width=\"1.6\"/><circle cx=\"{x:.1}\" cy=\"50\" r=\"3\" fill=\"#ffd666\"/>"
-                    );
-                }
-            }
-            svg.push_str("</svg>");
-            let _ = writeln!(
-                out,
-                "<div class=\"zoomrow\"><div class=\"zoommeta\">{}</div>{svg}</div>",
-                range(row_start * PAGE, (row_end + 1) * PAGE)
-            );
-        }
-        out.push_str("<div class=\"callouts\">");
-        if let Some(region) = stream {
-            let _ = writeln!(
-                out,
-                "<span class=\"callout streamc\">OPCODE STREAM <b>{}</b> · {} single-byte reads</span>",
-                range(region.start, region.end),
-                count(region.read_sizes[0])
-            );
-        }
-        if let Some((page, hits)) = dispatcher {
-            let _ = writeln!(
-                out,
-                "<span class=\"callout dispatchc\">DISPATCH CANDIDATE <b>{:#x}</b> · {} reads into the stream</span>",
-                page * PAGE,
-                count(hits)
-            );
-        }
-        if let Some(region) = unpacker {
-            let _ = writeln!(
-                out,
-                "<span class=\"callout patchc\">WRITTEN + EXECUTED <b>{}</b> · {} writes</span>",
-                range(region.start, region.end),
-                count(region.writes)
-            );
-        }
-        out.push_str("</div>");
-        out
-    }
-
-    fn render_stream_spectrogram(&self, stream: &Region) -> String {
-        let pages = (stream.end - stream.start) / PAGE;
-        let chunks = pages as usize * 64;
-        let per_row = 256usize;
-        let rows = (chunks + per_row - 1) / per_row;
-        let mut values = vec![0u32; chunks];
-        for page in stream.start / PAGE..stream.end / PAGE {
-            if let Some(stats) = self.pages.get(&page) {
-                let base = ((page - stream.start / PAGE) as usize) * 64;
-                for (chunk, &value) in stats.read_heat.iter().take(64).enumerate() {
-                    values[base + chunk] = value;
-                }
-            }
-        }
-        let mut nonzero: Vec<u32> = values.iter().copied().filter(|&value| value > 0).collect();
-        nonzero.sort_unstable();
-        let samples = nonzero.len().max(1) as f64;
-        let cell_w = 3.6f32;
-        let cell_h = 3.0f32;
-        let left = 132.0f32;
-        let top = 14.0f32;
-        let width = left + per_row as f32 * cell_w + 8.0;
-        let height = top + rows as f32 * cell_h + 22.0;
-        let mut out = String::new();
-        let _ = write!(
-            out,
-            "<svg viewBox=\"0 0 {width:.0} {height:.0}\" class=\"spectrosvg\" shape-rendering=\"crispEdges\">
-             <rect width=\"{width:.0}\" height=\"{height:.0}\" fill=\"#08060d\"/>"
-        );
-        for row in 0..rows {
-            let addr = stream.start + row as u64 * per_row as u64 * 64;
-            if row % 8 == 0 {
-                let _ = write!(
-                    out,
-                    "<text x=\"0\" y=\"{:.1}\" class=\"spectrolabel\">{addr:#x}</text>",
-                    top + row as f32 * cell_h + 2.6
-                );
-            }
-            for col in 0..per_row {
-                let index = row * per_row + col;
-                if index >= values.len() {
-                    break;
-                }
-                let value = values[index];
-                if value == 0 {
-                    continue;
-                }
-                // Rank-based heat: a uniform read stream must not turn into a
-                // white rectangle, and rare hot spots still stand out.
-                let below = nonzero.partition_point(|&sample| sample < value);
-                let through = nonzero.partition_point(|&sample| sample <= value);
-                let ratio = ((below + through) as f64 / (2.0 * samples)).min(1.0);
-                let fill = heat_color(Kind::Bytecode, ratio as f32);
-                let x = left + col as f32 * cell_w;
-                let y = top + row as f32 * cell_h;
-                let addr = stream.start + index as u64 * 64;
-                let _ = write!(
-                    out,
-                    "<rect x=\"{x:.1}\" y=\"{y:.1}\" width=\"{:.2}\" height=\"{:.1}\" fill=\"{fill}\"><title>{addr:#x}: {value} reads</title></rect>",
-                    (cell_w - 0.25).max(0.8),
-                    (cell_h - 0.35).max(0.8)
-                );
-            }
-        }
-        let _ = write!(
-            out,
-            "<text x=\"{left:.1}\" y=\"{height:.0}\" class=\"spectrolabel\">64 bytes/cell · read heat rank</text></svg>"
-        );
-        out
-    }
 }
 
-#[derive(Clone)]
-struct HtmlBand {
+/// One straight-line stretch of executed instructions.
+struct InstructionRun {
     start: u64,
     end: u64,
-    map: String,
-    pages: Vec<(u64, Kind, f32)>,
+    insns: u64,
+    fetches: u64,
 }
 
-fn html_bands(report: &Report, max_exec: f64, max_activity: f64) -> Vec<HtmlBand> {
-    let mut bands: Vec<HtmlBand> = Vec::new();
-    let mut current: Option<HtmlBand> = None;
-    let final_map = report.snapshots.last();
-    for (&page, stats) in &report.pages {
-        let name = final_map
-            .and_then(|snapshot| snapshot.get(page * PAGE))
-            .map(|range| range.name.clone())
-            .unwrap_or_default();
-        let kind = page_kind(stats, &name);
-        let ratio = if kind == Kind::Code {
-            ((stats.execs as f64 + 1.0).ln() / (max_exec + 1.0).ln()) as f32
+/// Groups sampled instruction addresses into straight-line runs.
+///
+/// Addresses are already ranked by count; sorting them by address and joining
+/// neighbours within [`RUN_GAP`] reconstructs the loop bodies and handler
+/// stretches they came from. Branched-to entries stay on their own line.
+fn instruction_runs(hot: &[(u64, u64)]) -> Vec<InstructionRun> {
+    let mut sorted: Vec<(u64, u64)> = hot.to_vec();
+    sorted.sort_by_key(|&(addr, _)| addr);
+    let mut runs: Vec<InstructionRun> = Vec::new();
+    for (addr, fetches) in sorted {
+        let joins = runs.last().is_some_and(|run| {
+            addr > run.end && addr - run.end <= RUN_GAP && addr / PAGE == run.start / PAGE
+        });
+        if joins {
+            let run = runs.last_mut().unwrap();
+            run.end = addr;
+            run.insns += 1;
+            run.fetches += fetches;
         } else {
-            (((stats.execs + stats.reads + stats.writes) as f64 + 1.0).ln()
-                / (max_activity + 1.0).ln()) as f32
-        };
-        let continues = current
-            .as_ref()
-            .is_some_and(|band| band.map == name && page >= band.end + 1 && page <= band.end + 512);
-        if continues {
-            let band = current.as_mut().unwrap();
-            band.end = page;
-            band.pages.push((page, kind, ratio));
-        } else {
-            if let Some(band) = current.take() {
-                bands.push(band);
-            }
-            current = Some(HtmlBand {
-                start: page,
-                end: page,
-                map: name,
-                pages: vec![(page, kind, ratio)],
+            runs.push(InstructionRun {
+                start: addr,
+                end: addr,
+                insns: 1,
+                fetches,
             });
         }
     }
-    if let Some(band) = current {
-        bands.push(band);
+    runs.sort_by_key(|run| std::cmp::Reverse(run.fetches));
+    runs.truncate(8);
+    runs
+}
+
+fn percent1(part: u64, total: u64) -> String {
+    if total == 0 {
+        return "-".into();
     }
-    bands.sort_by_key(|band| {
-        std::cmp::Reverse(
-            band.pages
-                .iter()
-                .map(|(page, kind, _)| {
-                    report.pages.get(page).map_or(0, |stats| {
-                        stats.execs + stats.reads + stats.writes + kind_priority(*kind) as u64 * 10
-                    })
-                })
-                .sum::<u64>(),
-        )
-    });
-    bands.truncate(80);
-    bands.sort_by_key(|band| band.start);
-    bands
-}
-
-fn kind_priority(kind: Kind) -> u8 {
-    match kind {
-        Kind::SelfMod => 10,
-        Kind::Bytecode => 9,
-        Kind::Code => 8,
-        Kind::Context => 7,
-        Kind::PointerData => 6,
-        Kind::Stack => 5,
-        Kind::Heap => 4,
-        Kind::WrittenData => 3,
-        Kind::ReadData => 2,
-        Kind::Other => 1,
-    }
-}
-
-fn kind_class(kind: Kind) -> &'static str {
-    match kind {
-        Kind::Code => "code",
-        Kind::SelfMod => "patch",
-        Kind::Bytecode => "stream",
-        Kind::PointerData => "pointer",
-        Kind::Context => "context",
-        Kind::Stack => "stack",
-        Kind::Heap => "heap",
-        Kind::WrittenData => "data",
-        Kind::ReadData => "read",
-        Kind::Other => "other",
-    }
-}
-
-fn kind_class_by_id(id: u8) -> &'static str {
-    match id {
-        0 => "code",
-        1 => "patch",
-        2 => "stream",
-        3 => "pointer",
-        4 => "context",
-        5 => "stack",
-        6 => "heap",
-        7 => "data",
-        8 => "read",
-        _ => "other",
-    }
-}
-
-fn heat_color(kind: Kind, ratio: f32) -> String {
-    let linear = ratio.clamp(0.0, 1.0);
-    let (r, g, b) = if kind == Kind::Bytecode {
-        // Three-stop ramp keeps low read counts visibly purple instead of
-        // collapsing the whole stream into one saturated pink block.
-        if linear < 0.55 {
-            mix([14, 4, 20], [126, 12, 76], linear / 0.55)
-        } else {
-            mix([126, 12, 76], [255, 240, 248], (linear - 0.55) / 0.45)
-        }
-    } else {
-        let t = linear.powf(0.42);
-        match kind {
-            Kind::Code => mix([6, 38, 52], [125, 249, 255], t),
-            Kind::SelfMod => mix([70, 44, 6], [255, 214, 102], t),
-            Kind::Bytecode => mix([34, 5, 24], [255, 86, 150], t),
-            Kind::PointerData => mix([22, 16, 52], [179, 136, 255], t),
-            Kind::Context => mix([44, 10, 16], [255, 111, 97], t),
-            Kind::Stack => mix([40, 26, 15], [217, 160, 107], t),
-            Kind::Heap => mix([12, 32, 36], [80, 190, 190], t),
-            Kind::WrittenData => mix([40, 18, 8], [255, 159, 67], t),
-            Kind::ReadData => mix([7, 18, 36], [58, 120, 220], t),
-            Kind::Other => (45, 55, 70),
-        }
-    };
-    format!("rgb({r},{g},{b})")
-}
-
-fn mix(a: [u8; 3], b: [u8; 3], t: f32) -> (u8, u8, u8) {
-    (
-        (a[0] as f32 + (b[0] as f32 - a[0] as f32) * t).round() as u8,
-        (a[1] as f32 + (b[1] as f32 - a[1] as f32) * t).round() as u8,
-        (a[2] as f32 + (b[2] as f32 - a[2] as f32) * t).round() as u8,
-    )
-}
-
-fn short_path(path: &str) -> String {
-    if path.is_empty() {
-        return "anonymous".into();
-    }
-    path.rsplit('/').next().unwrap_or(path).to_string()
+    format!("{:.1}%", part as f64 / total as f64 * 100.0)
 }
 
 fn percent(part: u64, total: u64) -> String {
@@ -2235,103 +1980,6 @@ fn percent(part: u64, total: u64) -> String {
         format!("{:.0}%", part as f64 * 100.0 / total as f64)
     }
 }
-
-const HTML_CSS: &str = r#"<style>
-:root{
---void:#080706;--ink-900:#12100e;--ink-800:#1a1714;--ink-700:#241f1b;--ink-600:#2e2823;--ink-500:#3d352e;--ink-400:#4d443c;--ink-300:#6b6058;
---paper-000:#fff;--paper-100:#f5efe8;--paper-200:#d8cec3;--paper-300:#b8ada1;--paper-400:#8c8177;--paper-500:#6b6058;
---mag-100:#ffd0e2;--mag-300:#ff6aa5;--mag-500:#ff3d8b;--mag-700:#d92b71;--mag-900:#3d0f24;
---ok:#4ade5e;--warn:#ffb000;--err:#ff4d3d;--info:#4dc4ff;
---mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"DM Mono",monospace;
---line-hairline:#2e2823;--line-default:#3d352e;--line-strong:#6b6058
-}
-*,*::before,*::after{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--void);color:var(--paper-100);font:400 13px/1.55 var(--mono);font-variant-ligatures:none;-webkit-font-smoothing:antialiased}
-::selection{background:var(--mag-500);color:var(--void)}
-a{color:var(--mag-300);text-decoration:none;border-bottom:1px solid currentColor}
-.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;height:40px;padding:0 16px;background:var(--ink-900);border-bottom:1px solid var(--line-strong)}
-.wordmark{font-weight:500;font-size:13px;letter-spacing:-.02em;color:var(--paper-100)}
-.ver{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-400);border:1px solid var(--line-hairline);padding:0 4px}
-.file{font-size:12px;color:var(--paper-300);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.spacer{flex:1}
-.meta{font-size:11px;color:var(--paper-400);font-variant-numeric:tabular-nums;white-space:nowrap}
-main{max-width:1440px;margin:0 auto;padding:0 16px 64px}
-section{padding:18px 0 24px;border-top:1px solid var(--line-hairline);margin-top:18px}
-section:first-of-type{border-top:0;margin-top:0;padding-top:16px}
-h2{font:500 11px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--paper-300);margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line-default)}
-h3{font:500 10px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--paper-400);margin:18px 0 8px}
-.sub{color:var(--paper-400);font-size:12px;max-width:1050px;margin:0 0 14px}
-.dim{color:var(--paper-400)}
-.statgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--line-default)}
-.stat{padding:10px 12px;border-right:1px solid var(--line-hairline)}
-.stat:last-child{border-right:0}
-.stat span{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-400)}
-.stat b{display:block;font-size:17px;font-weight:500;color:var(--paper-100);font-variant-numeric:tabular-nums;margin-top:2px}
-.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line-default)}
-.card{padding:12px 14px;border-right:1px solid var(--line-hairline);border-left:3px solid var(--line-strong);min-width:0}
-.card:last-child{border-right:0}
-.card.code{border-left-color:var(--info)}
-.card.stream{border-left-color:var(--mag-500)}
-.card.dispatch{border-left-color:var(--warn)}
-.card.patch{border-left-color:var(--err)}
-.card span{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-400)}
-.card b{display:block;font-size:16px;font-weight:500;color:var(--paper-100);margin:5px 0 3px;overflow-wrap:anywhere}
-.card p{margin:0;font-size:12px;color:var(--paper-200)}
-.card small{display:block;margin-top:6px;font-size:11px;color:var(--paper-400);overflow-wrap:anywhere}
-.findings{margin-top:12px;border-left:1px solid var(--line-default);padding-left:12px}
-.finding{font-size:12px;color:var(--paper-400);padding:1px 0}
-.finding::before{content:"› ";color:var(--mag-300)}
-.bandlist{display:flex;flex-direction:column}
-.bandrow{display:grid;grid-template-columns:290px 1fr;gap:12px;align-items:center;padding:3px 0;border-top:1px solid var(--line-hairline)}
-.bandrow:first-child{border-top:0}
-.bandmeta{display:flex;flex-direction:column;gap:0;min-width:0}
-.mapname{font-size:12px;color:var(--paper-200);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.addr{font-size:11px;color:var(--paper-400);white-space:nowrap;font-variant-numeric:tabular-nums}
-.bandplot{min-width:0}
-.band{display:block;width:100%;height:28px;background:var(--ink-900)}
-.tag{display:inline-block;font-style:normal;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:1px 5px;border:1px solid currentColor;margin-left:8px;white-space:nowrap}
-.streamtag{color:var(--mag-300)}
-.dispatchtag{color:var(--paper-100)}
-.legend{margin-top:12px;color:var(--paper-400);font-size:11px;display:flex;gap:14px;flex-wrap:wrap}
-.sw{display:inline-block;width:9px;height:9px;margin-right:5px;vertical-align:-1px;border:1px solid rgba(255,255,255,.12)}
-.sw.code{background:var(--info)}.sw.patch{background:var(--warn)}.sw.stream{background:var(--mag-500)}.sw.data{background:var(--err)}.sw.read{background:var(--ink-400)}
-.spectro{overflow-x:auto;border:1px solid var(--line-default);background:var(--void);padding:6px}
-.spectrosvg{display:block;width:100%;min-width:900px;height:auto}
-.spectrolabel{fill:var(--paper-500);font:9px var(--mono)}
-.readers{margin-top:6px;border:1px solid var(--line-default)}
-.reader{display:grid;grid-template-columns:122px 1fr 104px 190px;gap:10px;align-items:center;padding:6px 10px;border-top:1px solid var(--line-hairline)}
-.reader:first-child{border-top:0}
-.readeraddr{color:var(--paper-200);font-variant-numeric:tabular-nums}
-.readerbar{height:7px;background:var(--ink-700)}
-.readerbar i{display:block;height:100%;background:var(--mag-500)}
-.readercount{text-align:right;color:var(--paper-100);font-variant-numeric:tabular-nums}
-.readermeta{color:var(--paper-400);font-size:11px;text-align:right}
-.tablewrap{overflow-x:auto;border:1px solid var(--line-default)}
-table{border-collapse:collapse;width:100%}
-th{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-400);font-weight:500;text-align:left;padding:7px 10px;border-bottom:1px solid var(--line-default);background:var(--ink-800)}
-td{padding:6px 10px;border-bottom:1px solid var(--line-hairline);vertical-align:middle}
-tr:last-child td{border-bottom:0}
-tbody tr:hover,table tr:hover{background:var(--ink-800)}
-.num{text-align:right;font-variant-numeric:tabular-nums}
-.hotnum{color:var(--info)}
-.flowbar{display:block;width:180px;height:6px;background:var(--ink-700)}
-.flowbar i{display:block;height:100%;background:var(--warn)}
-.tag.code{color:var(--info)}.tag.patch{color:var(--warn)}.tag.stream{color:var(--mag-300)}.tag.pointer{color:#b8ada1}.tag.context{color:var(--err)}.tag.stack{color:var(--paper-300)}.tag.heap{color:var(--ok)}.tag.data{color:var(--err)}.tag.read{color:var(--info)}.tag.other{color:var(--paper-400)}
-.zoomrow{margin:4px 0 12px}
-.zoommeta{color:var(--paper-400);font-size:10px;margin:0 0 3px;font-variant-numeric:tabular-nums}
-.zoomband{display:block;width:100%;height:auto;background:var(--void)}
-.zoomruler{fill:var(--paper-500);font:9px var(--mono)}
-.zoomanntext{fill:var(--mag-100);font:8px var(--mono);letter-spacing:.16em}
-.zoommark{fill:var(--paper-100);font:7px var(--mono);letter-spacing:.14em}
-.callouts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.callout{font-size:11px;padding:5px 8px;border:1px solid var(--line-default);color:var(--paper-400)}
-.callout b{color:var(--paper-100);font-weight:500}
-.streamc{border-color:var(--mag-700)}.dispatchc{border-color:var(--line-strong)}.patchc{border-color:#7a5a00}
-footer{max-width:1440px;margin:28px auto 0;padding:14px 16px 0;border-top:1px solid var(--line-default);color:var(--paper-400);font-size:11px;line-height:1.7}
-@media(max-width:900px){.statgrid{grid-template-columns:repeat(2,1fr)}.stat:nth-child(2n){border-right:0}.cards{grid-template-columns:1fr 1fr}.card:nth-child(2n){border-right:0}.bandrow{grid-template-columns:1fr}.reader{grid-template-columns:110px 1fr 90px}.readermeta{display:none}.topbar .meta{display:none}}
-@media print{body{background:#fff;color:#111}.topbar{position:static;background:#fff;color:#111}.band{background:#eee}}
-</style>"#;
 
 fn trimmed_left(text: &str, width: usize) -> String {
     if text.is_empty() {
@@ -2381,13 +2029,6 @@ fn page_flags(stats: &PageStats) -> String {
     } else {
         flags.join(", ")
     }
-}
-
-fn escape_html(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

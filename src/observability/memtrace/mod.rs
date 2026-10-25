@@ -35,10 +35,11 @@
 pub mod analysis;
 
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::{self, BufWriter, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use crate::vm::vcpu::{MemAccess, MemRecord};
 
@@ -74,12 +75,32 @@ struct Sink {
     path: PathBuf,
     /// Set once a write fails, so a broken trace is reported once.
     failed: bool,
+    started: Instant,
+    accesses: u64,
+    bytes: u64,
+    /// When to print the next live line; `None` keeps capture silent.
+    next_report: Option<Instant>,
 }
+
+/// Interval between live capture lines.
+const LIVE_INTERVAL: Duration = Duration::from_secs(5);
 
 static SINK: OnceLock<Mutex<Option<Sink>>> = OnceLock::new();
 
 fn sink() -> &'static Mutex<Option<Sink>> {
     SINK.get_or_init(|| Mutex::new(None))
+}
+
+/// Whether live capture lines are wanted.
+///
+/// A capture can run for hours and write many gigabytes, so progress is
+/// printed on an interactive terminal. `RAX_MEMTRACE_PROGRESS` overrides the
+/// decision: `0`/`off` silences capture, any other value forces the lines.
+fn live_progress() -> bool {
+    match std::env::var("RAX_MEMTRACE_PROGRESS") {
+        Ok(value) => !matches!(value.as_str(), "0" | "off" | "false" | "no"),
+        Err(_) => io::stderr().is_terminal(),
+    }
 }
 
 /// Starts capturing to `path`, replacing any previous capture.
@@ -92,12 +113,18 @@ pub fn start(path: &Path) -> std::io::Result<()> {
     writer.write_all(MAGIC)?;
     writer.write_all(&VERSION.to_le_bytes())?;
     writer.write_all(&ARCH_X86_64.to_le_bytes())?;
+    let started = Instant::now();
+    let next_report = live_progress().then(|| started + LIVE_INTERVAL);
     {
         let mut guard = sink().lock().unwrap();
         *guard = Some(Sink {
             writer,
             path: path.to_path_buf(),
             failed: false,
+            started,
+            accesses: 0,
+            bytes: HEADER_LEN as u64,
+            next_report,
         });
     }
     ACTIVE.store(true, Ordering::Release);
@@ -111,11 +138,24 @@ pub fn is_active() -> bool {
 }
 
 /// Stops capture and flushes the file.
+///
+/// The final line reports what was captured, so a long unattended run leaves
+/// its own record even when the live lines were off.
 pub fn stop() {
     ACTIVE.store(false, Ordering::Release);
     let mut guard = sink().lock().unwrap();
     if let Some(mut sink) = guard.take() {
         let _ = sink.writer.flush();
+        if sink.accesses > 0 {
+            let elapsed = sink.started.elapsed();
+            eprintln!(
+                "[memtrace] stopped: {} accesses, {} in {:.1}s -> {}",
+                count_short(sink.accesses),
+                compact(sink.bytes),
+                elapsed.as_secs_f64(),
+                sink.path.display()
+            );
+        }
     }
 }
 
@@ -127,7 +167,7 @@ pub fn path() -> Option<PathBuf> {
         .and_then(|guard| guard.as_ref().map(|s| s.path.clone()))
 }
 
-fn write_all(bytes: &[u8]) {
+fn write_all(bytes: &[u8], accesses: u64) {
     if let Ok(mut guard) = sink().lock() {
         if let Some(sink) = guard.as_mut() {
             if sink.failed {
@@ -139,9 +179,62 @@ fn write_all(bytes: &[u8]) {
                     "[memtrace] write to {} failed: {error}",
                     sink.path.display()
                 );
+                return;
+            }
+            sink.accesses += accesses;
+            sink.bytes += bytes.len() as u64;
+            if let Some(next) = sink.next_report {
+                let now = Instant::now();
+                if now >= next {
+                    let elapsed = now.duration_since(sink.started);
+                    eprintln!(
+                        "[memtrace] {} accesses, {} -> {} ({}/s, {}/s)",
+                        count_short(sink.accesses),
+                        compact(sink.bytes),
+                        sink.path.display(),
+                        count_short(
+                            (sink.accesses as f64 / elapsed.as_secs_f64().max(1e-3)) as u64
+                        ),
+                        bytes_per_second(sink.bytes, elapsed),
+                    );
+                    sink.next_report = Some(now + LIVE_INTERVAL);
+                }
             }
         }
     }
+}
+
+/// Formats a count with a decimal magnitude suffix.
+fn count_short(value: u64) -> String {
+    if value >= 1_000_000_000 {
+        format!("{:.2}B", value as f64 / 1e9)
+    } else if value >= 1_000_000 {
+        format!("{:.2}M", value as f64 / 1e6)
+    } else if value >= 1_000 {
+        format!("{:.1}K", value as f64 / 1e3)
+    } else {
+        value.to_string()
+    }
+}
+
+/// Formats a byte count with a binary magnitude suffix.
+fn compact(value: u64) -> String {
+    if value >= 1 << 40 {
+        format!("{:.2} TiB", value as f64 / (1u64 << 40) as f64)
+    } else if value >= 1 << 30 {
+        format!("{:.2} GiB", value as f64 / (1u64 << 30) as f64)
+    } else if value >= 1 << 20 {
+        format!("{:.2} MiB", value as f64 / (1u64 << 20) as f64)
+    } else if value >= 1 << 10 {
+        format!("{:.1} KiB", value as f64 / 1024.0)
+    } else {
+        format!("{value} B")
+    }
+}
+
+fn bytes_per_second(bytes: u64, elapsed: Duration) -> String {
+    let seconds = elapsed.as_secs_f64().max(1e-3);
+    compact((bytes as f64 / seconds) as u64)
 }
 
 /// Records a batch of vCPU accesses.
@@ -166,7 +259,7 @@ pub fn record(records: &[MemRecord]) {
             0,
         );
     }
-    write_all(&buf);
+    write_all(&buf, records.len() as u64);
 }
 
 /// Records one address-space map. `perms` uses [`TAG_MAP`]'s permission bits:
@@ -192,7 +285,7 @@ where
         push_record(&mut buf, TAG_MAP, perms, start, end, 0, len as u16);
         buf.extend_from_slice(&name.as_bytes()[..len]);
     }
-    write_all(&buf);
+    write_all(&buf, 0);
 }
 
 fn push_record(buf: &mut Vec<u8>, tag: u8, aux: u8, a: u64, b: u64, c: u64, name_len: u16) {

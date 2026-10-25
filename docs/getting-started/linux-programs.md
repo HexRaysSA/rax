@@ -62,6 +62,7 @@ arguments, including words that look like `rax-user` options
 | `-C`, `--cwd DIR` | Guest working directory (default: the current directory). |
 | `--strace` | Log every system call as `[tid] name(args) = result` on standard error. |
 | `--mem-trace FILE` | Record instruction fetches and guest memory accesses to `FILE` and inspect it with `rax-trace-map` ([memory-access tracing](../architecture/user-mode/memory-trace-map.md)). |
+| `--trace FILE` | Write one line per executed guest instruction to `FILE`: address, ISA, and instruction bytes. |
 | `--seed N` | Deterministic `AT_RANDOM` bytes and `getrandom` output. |
 | `-s`, `--stack-size SIZE` | `RLIMIT_STACK` soft limit and `[stack]` mapping size (default `8M`). |
 | `--memory SIZE` | Guest memory arena (default `16G`, committed by the host only as touched). |
@@ -73,6 +74,12 @@ arguments, including words that look like `rax-user` options
 Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024); `8M` is
 8 MiB and `16G` is 16 GiB. `--seed` fixes `AT_RANDOM` and `getrandom`
 bytes, not host timing, I/O, or the complete thread interleaving.
+
+`--trace` traces the guest process tree: a forked guest child inherits the
+same trace file. Each line is `INS <address>  <isa> <instruction bytes>`.
+Tracing executes one precise instruction at a time, so the record does not
+depend on native-region promotion. It is independent of the machine `rax`
+`--trace` option and its `trace` Cargo feature.
 
 ## What the 64-bit guest sees
 

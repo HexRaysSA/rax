@@ -15,6 +15,11 @@
 //! exclusive reservation across a pure host budget yield; synchronous
 //! exception exits and OS-level thread switches or asynchronous deliveries
 //! clear it. Other ISA adapters retain their own reservation policies.
+//!
+//! When a [`crate::user::trace`] sink is installed, every adapter records the
+//! instruction at its current PC before executing it. A traced x86-64 slice
+//! uses the precise single-instruction step, and a traced RV64 slice bypasses
+//! the SMIR JIT, so no instruction is missing from the record.
 
 pub mod aarch64;
 pub mod arm;
@@ -28,6 +33,7 @@ use std::fmt;
 
 use crate::error::{GuestMemoryFault, MemoryAccessKind, MemoryFaultKind};
 use crate::user::mm::{AddressSpace, CodeChanges};
+use crate::user::trace;
 
 /// Guest instruction-set architectures supported by user-mode emulation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -101,6 +107,32 @@ impl AccessFault {
             pc,
         }
     }
+}
+
+/// Records the instruction at `pc` for a trace that is active.
+///
+/// Fetches at most `max_len` bytes through the guest address space, stopping
+/// at the first byte the guest cannot fetch. The instruction is recorded even
+/// with no bytes when the fetch faults, so the trace still names the address
+/// that ended the run.
+pub(crate) fn trace_instruction(isa: &str, space: &AddressSpace, pc: u64, max_len: usize) {
+    if !trace::is_enabled() {
+        return;
+    }
+    let mut bytes = [0u8; 16];
+    let limit = max_len.min(bytes.len());
+    let mut fetched = 0;
+    while fetched < limit
+        && space
+            .fetch(
+                pc.wrapping_add(fetched as u64),
+                &mut bytes[fetched..=fetched],
+            )
+            .is_ok()
+    {
+        fetched += 1;
+    }
+    trace::write_insn(isa, pc, &bytes[..fetched]);
 }
 
 /// Takes the code changes a consumer at `epoch` has not applied yet and

@@ -78,6 +78,9 @@ pub struct DarwinConfig {
     pub abi: Option<DarwinAbi>,
     /// Log every system call and trap to standard error.
     pub strace: bool,
+    /// Write every executed guest instruction to this file
+    /// ([`crate::user::trace`]).
+    pub instruction_trace: Option<PathBuf>,
     /// Seed for the `apple[]` entropy and `getentropy` (default: host).
     pub seed: Option<u64>,
     /// `RLIMIT_STACK` soft limit (default `DFLSSIZ`).
@@ -139,6 +142,7 @@ impl DarwinConfig {
             cwd: "/".into(),
             abi: None,
             strace: false,
+            instruction_trace: None,
             seed: None,
             stack_limit: None,
             arena_bytes: DEFAULT_ARENA_BYTES,
@@ -616,6 +620,10 @@ impl DarwinProcess {
     /// Loads `image` and prepares its main thread, as `execve` does for the
     /// first program.
     pub fn spawn(config: DarwinConfig, image: ImageFile) -> Result<Self, SpawnError> {
+        if let Some(path) = &config.instruction_trace {
+            crate::user::trace::init(path)
+                .map_err(|e| SpawnError::Io(path.display().to_string(), e))?;
+        }
         Ok(DarwinProcess {
             proc: start(config, image, None)?,
             last: 0,

@@ -113,6 +113,9 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
         /// (inspect with `rax-trace-map FILE`).
         #[arg(long, value_name = "FILE")]
         pub mem_trace: Option<PathBuf>,
+        /// Write every executed guest instruction to FILE.
+        #[arg(long, value_name = "FILE")]
+        pub trace: Option<PathBuf>,
         /// Deterministic seed for AT_RANDOM and getrandom (default: host entropy).
         #[arg(long, value_name = "N")]
         pub seed: Option<u64>,
@@ -226,6 +229,7 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
             config.cwd = cli.cwd.clone();
             config.dll_paths = cli.dll_path.clone();
             config.trace = cli.strace;
+            config.instruction_trace = cli.trace.clone();
             config.seed = cli.seed;
             if let Some(size) = cli.memory {
                 config.arena_bytes = size;
@@ -329,6 +333,7 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
             config.cwd = cwd.clone();
         }
         config.strace = cli.strace;
+        config.instruction_trace = cli.trace.clone();
         config.seed = cli.seed;
         if let Some(s) = cli.stack_size {
             config.stack_limit = s;
@@ -427,6 +432,7 @@ mod darwin {
             config.cwd = cwd.clone();
         }
         config.strace = cli.strace;
+        config.instruction_trace = cli.trace.clone();
         config.seed = cli.seed;
         config.stack_limit = cli.stack_size;
         if let Some(m) = cli.memory {
@@ -486,7 +492,9 @@ mod darwin {
 #[cfg(unix)]
 fn main() {
     let code = unix::main();
-    // Flush Rust's buffered standard streams before leaving.
+    // Flush the instruction trace and Rust's buffered standard streams before
+    // leaving.
+    rax::user::trace::close();
     use std::io::Write;
     let _ = std::io::stdout().flush();
     let _ = std::io::stderr().flush();

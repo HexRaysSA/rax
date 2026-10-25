@@ -15,14 +15,29 @@ arguments, results, and TIDs without the machine `trace` feature:
 ./target/release/rax-user --strace tests/fixtures/user/linux/bin/aarch64/hello
 ```
 
+`--trace FILE` writes one line per executed guest instruction for every
+user-mode CPU adapter (x86-64, i386, AArch64, RV64, and AArch32), without the
+machine `trace` feature:
+
+```sh
+./target/release/rax-user --trace hello.trace tests/fixtures/user/linux/bin/x86_64/hello
+```
+
+Each line has the guest instruction address, the executing ISA, and the
+instruction bytes fetched through the guest address space. Tracing runs the
+guest one precise instruction at a time, so native-region promotion cannot
+drop records. A forked guest child inherits the file description and appends
+to the same trace. This is separate from the machine instruction trace below:
+it is part of `rax::user`, not `observability::trace`.
+
 Guest `ptrace` supports linked parent/child and descendant processes, memory
 and register access, syscall stops/editing, job-control and process events,
 and seccomp inspection. Single-step is implemented for x86-64 and AArch64;
 block-step is x86-64 only. RISC-V stepping and i386 ptrace calls are refused.
 This is the emulated Linux syscall interface, with the reach and regset limits
 in [Process tracing and seccomp](../architecture/user-mode/tracing.md); it is separate from
-the machine GDB RSP server. `rax-user` has no `--gdb`, machine trace/profiler,
-or `.rxc` checkpoint CLI options.
+the machine GDB RSP server. `rax-user` has no `--gdb`, machine profiler, or
+`.rxc` checkpoint CLI options.
 
 ## Build the required features
 
@@ -34,7 +49,8 @@ Feature requirements:
 
 | Facility | Cargo feature | Runtime option |
 |---|---|---|
-| Instruction trace | `trace` | `--trace <FILE>` |
+| Machine instruction trace | `trace` | `--trace <FILE>` on `rax` |
+| User-mode instruction trace | none | `--trace <FILE>` on `rax-user` |
 | GDB RSP server | `debug` | `--gdb <PORT>` |
 | Wait before execution | `debug` | `--wait-gdb` with `--gdb` |
 | GDB packet logging | `debug` | `--gdb-trace` with `--gdb` |
@@ -42,7 +58,9 @@ Feature requirements:
 | JSON profile output | `profiling` | `--profile-output <FILE>` |
 | Periodic live profile | `profiling` | `--profile-interval <N>` |
 
-An option parsing successfully is not enough; use a build that includes the feature and the software backend for the instruction-level facilities.
+An option parsing successfully is not enough; use a build that includes the
+feature and the software backend for the machine instruction-level facilities.
+The `rax-user` instruction trace has no feature requirement.
 
 ## Host console
 

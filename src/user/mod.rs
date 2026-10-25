@@ -11,6 +11,7 @@
 //! | [`image`] | Executable file formats (ELF, Mach-O, PE) and their validation |
 //! | [`mm`] | Guest address spaces: VMAs, demand-populated frames, faults |
 //! | [`cpu`] | OS-neutral CPU adapters running each ISA core unprivileged |
+//! | [`trace`] | Per-instruction trace sink shared by the CPU adapters |
 //! | [`linux`] | The Linux personality (Unix hosts) |
 //! | [`darwin`] | The Darwin (macOS) personality (portable closed profile; Unix host services) |
 //! | [`windows`] | The Windows personality |
@@ -28,4 +29,5 @@ pub mod linux;
 pub mod mm;
 pub(crate) mod readiness;
 pub mod supplied_fs;
+pub mod trace;
 pub mod windows;

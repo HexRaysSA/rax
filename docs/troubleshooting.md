@@ -85,6 +85,8 @@ cargo build --release --features trace,debug,profiling
 
 Then force the software backend. Hardware virtualization does not supply the same instruction-by-instruction step loop.
 
+`rax-user --trace FILE` is a separate userland facility and needs no `trace` feature.
+
 For GDB:
 
 ```sh

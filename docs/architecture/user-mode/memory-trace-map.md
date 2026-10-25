@@ -19,13 +19,21 @@ those handlers share as distinct access patterns.
 # Report on the terminal
 ./target/debug/rax-trace-map program.raxtrace
 
-# Standalone report and machine-readable data
-./target/debug/rax-trace-map program.raxtrace --html report.html --json report.json
+# Machine-readable data
+./target/debug/rax-trace-map program.raxtrace --json report.json
 
 # One region or one page in detail
 ./target/debug/rax-trace-map program.raxtrace --region 0x7ffd12345000
 ./target/debug/rax-trace-map program.raxtrace --page 0x401000
+
+# Parse progress on stderr (default: only when stderr is a terminal)
+./target/debug/rax-trace-map program.raxtrace --progress
 ```
+
+`rax-user --mem-trace` prints a progress line every few seconds while a
+capture runs, and a final summary when it stops; `RAX_MEMTRACE_PROGRESS=0`
+silences the periodic lines. Parsing a multi-gigabyte capture takes minutes,
+so `rax-trace-map` reports how much it has read on the same schedule.
 
 `--mem-trace` covers x86-64 user-mode execution. It records the initial and
 final address-space snapshots, instruction fetches (decode-miss addresses),
@@ -44,6 +52,25 @@ fork-heavy program therefore aggregates all processes.
 
 ## What the report shows
 
+The terminal report opens with a `VM PROFILE`: the executable cluster that
+contains the hottest code region, an `opcode stream` candidate (read-only pages
+consumed mostly as one-byte reads by several code pages), a `dispatch` candidate
+(the code page with the most reads into that stream), the page that was both
+written and executed, and a ranked table of the code pages that read the stream.
+
+Below the profile the report ranks control flow and instruction fetch mass:
+
+- `DISPATCH EDGES` counts page-to-page execution changes. With a dispatch
+  candidate identified, it lists the entries leaving that page, ranked, so the
+  pages it hands control to appear in the order the VM used them. One bytecode
+  dispatch produces one such change, so the counts approximate how often each
+  handler ran.
+- `HOT INSTRUCTIONS` ranks individual instruction addresses by fetch count and
+  joins addresses that are adjacent into straight-line runs. A loop body
+  collapses to one line with its instruction count and share of all fetches; a
+  branched-to entry stays a single address. `--page` repeats the per-instruction
+  ranking for one page.
+
 Regions are contiguous groups of touched pages. For each region the report
 shows fetch, read, and write counts; store widths; zero-valued stores; the
 fraction of the region covered by writes; the first-write/first-fetch order;
@@ -54,6 +81,7 @@ wrote it. The classifier names evidence, not facts:
 |---|---|
 | executable code | pages fetched but never written |
 | self-modifying code | pages fetched and written; the ordering separates a page written before its first fetch (unpacked) from one patched after it |
+| opcode stream | read-only pages consumed mostly as one-byte reads by multiple code pages |
 | pointer / dispatch table | read-only pages where sampled loaded values point into executable pages |
 | multi-writer context | written pages with mostly wide stores issued by two or more code pages |
 | stack, heap | the final map's VMA name |
@@ -65,8 +93,9 @@ handler entries; the shared writable region they converge on is the VM
 context.
 
 The address-space map uses `X` for executable pages, `S` for pages both
-executed and written, `W` for written pages, `r` for read-only touched pages,
-and `.` for untouched bytes inside a touched cluster. Sparse address spaces
+executed and written, `O` for opcode-stream pages, `*` for the dispatch
+candidate, `W` for written pages, `r` for read-only touched pages, and `.` for
+untouched bytes inside a touched cluster. Sparse address spaces
 are shown as clusters so the image and the stack remain visible at the same
 time.
 

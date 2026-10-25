@@ -8,8 +8,9 @@
 mod branch;
 
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
-use super::{AccessFault, take_code_changes};
+use super::{AccessFault, Isa, take_code_changes};
 use crate::error::Error;
 use crate::isa::x86_64::{
     GDT_ENTRY_TLS_MAX, GDT_ENTRY_TLS_MIN, X86_64Vcpu, X86SyscallInsn, X86UserEvent, X86UserTrap,
@@ -132,15 +133,41 @@ impl X86UserCpu {
     }
 
     /// Runs until an operating-system event or the end of the time slice.
+    ///
+    /// An active instruction trace executes the slice through [`step`](Self::step)
+    /// so the record is complete and independent of native-region promotion.
     pub fn run(&mut self) -> X86Exit {
         if !self.space.available() {
             return X86Exit::Internal(Error::Emulator("guest memory arena is inaccessible".into()));
         }
         self.trace_begin();
-        self.sync_code();
-        let result = self.vcpu.run();
-        self.trace_flush();
-        self.exit(result)
+        if !crate::user::trace::is_enabled() {
+            self.sync_code();
+            let result = self.vcpu.run();
+            self.trace_flush();
+            return self.exit(result);
+        }
+        // An active instruction trace executes the slice one instruction at a
+        // time so no record depends on native-region promotion. Mirror the
+        // core's ~1 ms scheduling slice: a traced instruction is much slower,
+        // but the guest-visible slicing behaviour stays bounded.
+        let started = Instant::now();
+        let mut retired = 0u64;
+        loop {
+            match self.step() {
+                X86Exit::Yield => {
+                    retired = retired.wrapping_add(1);
+                    if retired % 256 == 0 && started.elapsed() >= Duration::from_millis(1) {
+                        self.trace_flush();
+                        return X86Exit::Yield;
+                    }
+                }
+                exit => {
+                    self.trace_flush();
+                    return exit;
+                }
+            }
+        }
     }
 
     /// Runs exactly one instruction with the core's precise step (never
@@ -151,6 +178,7 @@ impl X86UserCpu {
         }
         self.trace_begin();
         self.sync_code();
+        self.trace_instruction();
         let result = self
             .vcpu
             .step_with_faults()
@@ -215,6 +243,40 @@ impl X86UserCpu {
         }
         let rcx = self.vcpu.user_regs().rcx;
         branch::taken(&code[..n], self.vcpu.user_rflags(), rcx)
+    }
+
+    /// Records the instruction at RIP for an active trace. The metadata
+    /// decoder supplies the instruction length so the record contains only
+    /// this instruction's bytes; without a decoding, the fetched prefix is
+    /// recorded.
+    fn trace_instruction(&self) {
+        if !crate::user::trace::is_enabled() {
+            return;
+        }
+        let pc = self.vcpu.user_regs().rip;
+        let bits = if self.vcpu.user_compat() { 32 } else { 64 };
+        let mut bytes = [0u8; 15];
+        let mut fetched = 0;
+        while fetched < bytes.len()
+            && self
+                .space
+                .fetch(
+                    pc.wrapping_add(fetched as u64),
+                    &mut bytes[fetched..=fetched],
+                )
+                .is_ok()
+        {
+            fetched += 1;
+        }
+        let length = crate::isa::x86_64::instruction_metadata::decode(bits, pc, &bytes[..fetched])
+            .map_or(fetched, |instruction| instruction.size as usize)
+            .min(fetched);
+        let isa = if self.vcpu.user_compat() {
+            "i386"
+        } else {
+            Isa::X86_64.name()
+        };
+        crate::user::trace::write_insn(isa, pc, &bytes[..length]);
     }
 
     /// Drops the decodes and native code of guest code written since the

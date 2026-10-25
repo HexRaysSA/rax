@@ -10,7 +10,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use super::{AccessFault, AccessFaultKind, host_nanos};
+use super::{AccessFault, AccessFaultKind, Isa, host_nanos};
 use crate::error::{GuestMemoryFault, MemoryAccessKind};
 use crate::isa::riscv::cpu::{Priv, cause};
 use crate::isa::riscv::{MemError, MemResult, Memory, RiscVConfig, RiscVCpu, RiscVExit, Trap};
@@ -209,7 +209,11 @@ impl RvUserCpu {
         self.cpu
             .set_time(host_nanos() / (1_000_000_000 / TIMEBASE_HZ));
         *self.last_fault.lock().unwrap() = None;
-        let exit = self.step_budget(budget);
+        let exit = if crate::user::trace::is_enabled() {
+            self.step_traced(budget)
+        } else {
+            self.step_budget(budget)
+        };
         // Returning from a trap invalidates any LR reservation.
         self.cpu.clear_reservation();
         match exit {
@@ -218,6 +222,60 @@ impl RvUserCpu {
             RiscVExit::Ebreak => RvExit::Ebreak { pc: self.cpu.pc() },
             RiscVExit::Trap(trap) => self.trap(trap),
         }
+    }
+
+    /// Runs the budget through the interpreter, recording each instruction.
+    /// The trace deliberately bypasses the SMIR JIT so every retired
+    /// instruction produces one record in program order.
+    fn step_traced(&mut self, budget: u64) -> RiscVExit {
+        for _ in 0..budget {
+            self.trace_at_pc();
+            match self.cpu.step() {
+                RiscVExit::Continue => {}
+                exit => return exit,
+            }
+        }
+        RiscVExit::Continue
+    }
+
+    /// Records the RV64 instruction at the current PC. A compressed encoding
+    /// is two bytes; the low two bits of the first halfword select the
+    /// 32-bit form, so the trace does not include the next instruction's
+    /// bytes.
+    fn trace_at_pc(&self) {
+        if !crate::user::trace::is_enabled() {
+            return;
+        }
+        let pc = self.cpu.pc();
+        let mut bytes = [0u8; 4];
+        let mut fetched = 0;
+        while fetched < 2
+            && self
+                .space
+                .fetch(
+                    pc.wrapping_add(fetched as u64),
+                    &mut bytes[fetched..=fetched],
+                )
+                .is_ok()
+        {
+            fetched += 1;
+        }
+        if fetched == 2 {
+            let half = u16::from_le_bytes([bytes[0], bytes[1]]);
+            let length = if half & 0b11 == 0b11 { 4 } else { 2 };
+            while fetched < length
+                && self
+                    .space
+                    .fetch(
+                        pc.wrapping_add(fetched as u64),
+                        &mut bytes[fetched..=fetched],
+                    )
+                    .is_ok()
+            {
+                fetched += 1;
+            }
+        }
+        crate::user::trace::write_insn(Isa::Riscv64.name(), pc, &bytes[..fetched]);
     }
 
     #[cfg(all(
