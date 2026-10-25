@@ -1,0 +1,194 @@
+{
+  "scope": "Native Windows control on the local kernel independently identified as build 29683 by the paired dispatcher control. Three compiler ABI views; no guest debugger attached.",
+  "observations": [
+    {
+      "kind": "producer",
+      "arch": "arm64",
+      "source_sha256": "0cae53102183de1832492b407a0d986ce2ceff3aa2d1339d0b11cedf5e4b41f6",
+      "binary_sha256": "b810ffb238acdbfb089b36c1a4ca53d690f68dd0956e82c697da5df82c3b4eed",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "machine": 43620
+    },
+    {
+      "kind": "case",
+      "arch": "arm64",
+      "mode": "last",
+      "exit_code": 3762443077,
+      "records": [
+        {
+          "kind": "ready",
+          "mode": "last",
+          "code": 3762443077
+        }
+      ]
+    },
+    {
+      "kind": "case",
+      "arch": "arm64",
+      "mode": "invalid-record",
+      "exit_code": 0,
+      "records": [
+        {
+          "kind": "ready",
+          "mode": "invalid-record",
+          "code": 3762443077
+        },
+        {
+          "kind": "complete",
+          "seen": 0,
+          "caught": 0,
+          "call_returned": true,
+          "status": 3221225477,
+          "removed": true
+        }
+      ]
+    },
+    {
+      "kind": "case",
+      "arch": "arm64",
+      "mode": "invalid-context",
+      "exit_code": 0,
+      "records": [
+        {
+          "kind": "ready",
+          "mode": "invalid-context",
+          "code": 3762443077
+        },
+        {
+          "kind": "complete",
+          "seen": 0,
+          "caught": 0,
+          "call_returned": true,
+          "status": 3221225477,
+          "removed": true
+        }
+      ]
+    },
+    {
+      "kind": "producer",
+      "arch": "x64",
+      "source_sha256": "0cae53102183de1832492b407a0d986ce2ceff3aa2d1339d0b11cedf5e4b41f6",
+      "binary_sha256": "7fb9164902c377e1a82a7770acf1d2815f9f720e86c1d42f14b033d1793313ba",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "machine": 34404
+    },
+    {
+      "kind": "case",
+      "arch": "x64",
+      "mode": "last",
+      "exit_code": 3762443077,
+      "records": [
+        {
+          "kind": "ready",
+          "mode": "last",
+          "code": 3762443077
+        }
+      ]
+    },
+    {
+      "kind": "case",
+      "arch": "x64",
+      "mode": "invalid-record",
+      "exit_code": 0,
+      "records": [
+        {
+          "kind": "ready",
+          "mode": "invalid-record",
+          "code": 3762443077
+        },
+        {
+          "kind": "complete",
+          "seen": 0,
+          "caught": 0,
+          "call_returned": true,
+          "status": 3221225477,
+          "removed": true
+        }
+      ]
+    },
+    {
+      "kind": "case",
+      "arch": "x64",
+      "mode": "invalid-context",
+      "exit_code": 0,
+      "records": [
+        {
+          "kind": "ready",
+          "mode": "invalid-context",
+          "code": 3762443077
+        },
+        {
+          "kind": "complete",
+          "seen": 0,
+          "caught": 0,
+          "call_returned": true,
+          "status": 3221225477,
+          "removed": true
+        }
+      ]
+    },
+    {
+      "kind": "producer",
+      "arch": "x86",
+      "source_sha256": "0cae53102183de1832492b407a0d986ce2ceff3aa2d1339d0b11cedf5e4b41f6",
+      "binary_sha256": "9f7b859ef6e6ad6b34b6110b372fa8db9f6de6b451bd74895a983847d7fff7bf",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "machine": 332
+    },
+    {
+      "kind": "case",
+      "arch": "x86",
+      "mode": "last",
+      "exit_code": 3762443077,
+      "records": [
+        {
+          "kind": "ready",
+          "mode": "last",
+          "code": 3762443077
+        }
+      ]
+    },
+    {
+      "kind": "case",
+      "arch": "x86",
+      "mode": "invalid-record",
+      "exit_code": 0,
+      "records": [
+        {
+          "kind": "ready",
+          "mode": "invalid-record",
+          "code": 3762443077
+        },
+        {
+          "kind": "complete",
+          "seen": 0,
+          "caught": 0,
+          "call_returned": true,
+          "status": 3221225477,
+          "removed": true
+        }
+      ]
+    },
+    {
+      "kind": "case",
+      "arch": "x86",
+      "mode": "invalid-context",
+      "exit_code": 0,
+      "records": [
+        {
+          "kind": "ready",
+          "mode": "invalid-context",
+          "code": 3762443077
+        },
+        {
+          "kind": "complete",
+          "seen": 0,
+          "caught": 0,
+          "call_returned": true,
+          "status": 3221225477,
+          "removed": true
+        }
+      ]
+    }
+  ]
+}

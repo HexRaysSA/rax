@@ -138,8 +138,10 @@ removed after each view; no emulator execution bound changes.
 | SEH3 | The synthetic callback frame causes the clock unwind failure. | One synthetic frame remains when NTDLL raises bad-function-table status. | Choice of runtime repair. | Invalid image metadata or missing initialization may also cause it. | Trace actual unwind inputs and compare a measured native dispatcher entry. | Unknown; no runtime repair claimed. |
 | SEH4 | Vectored-handler record pointers retain the initial kernel dispatcher placement. | This producer observes pointers supplied to the vectored handler. | Interpreting these offsets as a kernel-entry ABI. | RTL may copy or extend a context before invoking handlers. | Compare an owned child stopped at the actual dispatcher entry with decoded dispatcher arguments and these observations. | Confirmed for three local views and four independent x64/WoW64 captures at `e55e70eb`; broader versions remain unmeasured. |
 
-High impact: native exception delivery and the clock guard case remain
-unqualified; they block full installed-Windows userland support. Older NLS
+High impact: complete native exception delivery remains unqualified and
+blocks full installed-Windows userland support. The upstream conditional
+x64 bridge passes its selected clock case; broader frame shapes still require
+implementation and runtime proof. Older NLS
 fault profiles and DPI remain separate unfinished boundaries. This changes only
 the native control, portable driver, engineering record and independent CI
 workflow. Plugin/UI, conversation/backend, prompts/tools, permissions, persistence,
@@ -178,7 +180,13 @@ match alone does not establish that the dispatcher unwind codes consume it.
 The exact source completes ARM64, x64 and x86 views on the local build-29683
 ARM64 kernel. The x64 export is a wrapper with no unwind slots, so its metadata
 cannot stand in for a native x64-kernel dispatcher. Independent Windows 2022 and
-2025 metadata observations remain pending. The x86 argument pair points to the
+2025 metadata observations at `4c1507e8` both pass. The x64 views share a
+1,424-byte allocation followed by `UWOP_PUSH_MACHFRAME`, matching the observed
+saved-PC/SP tuple at entry SP + 1,424 bytes (`0x590`). Their XSTATE extents
+differ; those sizes must not be treated as a universal constant. Filtered
+results and source/job identities are in [hosted-dispatch-v4.json](hosted-dispatch-v4.json).
+The Windows checkout converts LF to CRLF; the exact transformed source hash
+matches both hosted producer records. The x86 argument pair points to the
 measured record and context. `CONTEXT_EX` ranges must fit the captured extent;
 XSTATE placement can vary with stack alignment. Full filtered source/compiler/
 executable identities are in [local-dispatch-29683-v4.json](local-dispatch-29683-v4.json).
@@ -203,3 +211,76 @@ does not resolve older NLS profiles, DPI or full process completion. Its C++
 producer uses MSVC structured exception handling to observe the native ABI;
 replacing that small native control with Rust would require a separate compiler/
 ABI boundary. The implementation under test remains Rust.
+
+## Second-chance delivery
+
+`run-second-chance-v1.py` measures `NtRaiseException` with `FirstChance=FALSE`
+using only its own child processes. A valid record and context terminate the
+child with the supplied exception code, without entering its registered VEH or
+frame handler. Unreadable record and context pointers instead return
+`STATUS_ACCESS_VIOLATION`; those cases remove the handler and exit normally.
+All nine cases pass across ARM64, x64 and WoW64 views of the local kernel.
+The filtered measurements and compiler/executable identities are recorded in
+[local-second-chance-v1.json](local-second-chance-v1.json).
+
+The Rust service now captures both input buffers before interpreting the
+one-byte `BOOLEAN`. A zero low byte terminates the process; a nonzero low byte
+retains first-chance dispatch in the supplied context. The previous handler
+ignored the flag and could re-enter user handlers for a second-chance raise.
+Unit tests cover all three guest ABIs, unspecified upper argument bits, both
+unreadable buffers and a context whose final byte crosses into an inaccessible
+page. Service-level regression tests require termination even with a registered
+VEH and retain the explicit first-chance context test.
+
+The native control runs through the existing independent Windows 2022/2025
+workflow. Its three result-validation tests pass on Windows, macOS and Linux.
+The native C++ source uses MSVC structured exception handling; all model and
+service behavior remains in Rust. A bounded cleanup retry handles the observed
+short-lived Windows executable lock after child termination; it neither kills
+unrelated processes nor ignores a permanent cleanup failure.
+
+An earlier broader private prototype failed its WoW64 first-chance case with
+`0xC0000409`. Inspection showed that this NTDLL `RtlCaptureContext` uses the
+caller's EBP frame. A fresh producer with a real capture helper frame passes
+that same first-chance case and all three other WoW64 cases. The failed producer
+and its receipts remain separate evidence; no model assertion was weakened.
+
+Assumption `SC1`: these controls have no attached debugger. Basis: ordinary
+child launches and the observed process exit/handler sequence. Dependent result:
+second-chance termination without debugger interception. Stress test: an
+attached debugger can consume a last-chance event. Falsification probe: repeat
+under an explicitly supported guest-debugger event path. Status: confirmed for
+the measured no-debugger profile; guest-debugger interception is unqualified.
+Microsoft documents the first/last-chance distinction in
+[debugger exception handling](https://learn.microsoft.com/en-us/windows/win32/debug/debugger-exception-handling).
+
+High impact: the complete native dispatcher entry and unsupported conditional
+anchor cases still require runtime implementation and proof. Older NLS and DPI
+remain separate unfinished boundaries. This second-chance correction does not
+change the public C API, private Assist ABI, optional features or package layout.
+
+Current targeted model validation for the second-chance correction:
+
+| Host | Raise unit/service tests | Related clock tests | Result-validator tests |
+| --- | --- | --- | --- |
+| macOS ARM64 | 6 passed | 4 passed | 3 passed |
+| Linux x64 | 6 passed | 4 passed | 3 passed |
+| Windows ARM64 | 6 passed | 6 passed | 3 passed |
+
+Each selected group has zero failures and zero ignored tests. The Windows
+native API control additionally completes nine cases across three compiler ABI
+views. These counts are selected checks, not whole-suite or installed Assist
+qualification. The native test executable is ARM64; the model/service tests
+exercise x86, x64 and ARM64 guest argument layouts. The clock slice includes
+installed ARM64/WoW64 calls only on Windows. C API and shipping-product gates
+remain separate evidence.
+
+The model checks are reproducible with `cargo test --locked
+--no-default-features --lib` and selectors
+`user::windows::dll::native::raise::tests::`,
+`native_second_chance_exception_bypasses_handlers_and_terminates`,
+`native_raise_exception_`, and `system_time`, each with `--test-threads=1`.
+The native control accepts `--architectures arm64 x64 x86` on ARM64 Windows.
+Dependency-cache failures before compilation were retained separately; the
+successful reruns use the same two Rust source hashes and restored dependency
+sources.

@@ -250,7 +250,7 @@ fn native_close_preserves_kernel_resume_stack_and_arch_argument_transport() {
 }
 
 #[test]
-fn native_raise_exception_dispatches_the_caller_record_in_its_context() {
+fn native_second_chance_exception_bypasses_handlers_and_terminates() {
     use crate::user::windows::context::{ExceptionRecord, RegContext};
     const CODE: u32 = 0xC000_00FF;
     for arch in [WinArch::X64, WinArch::Arm64] {
@@ -268,6 +268,8 @@ fn native_raise_exception_dispatches_the_caller_record_in_its_context() {
         let mut caller = RegContext::capture(&t.cpu);
         caller.set_pc(scratch);
         caller.write(&p.space, context).unwrap();
+        // A second-chance raise must not enqueue even a registered handler.
+        p.seh.veh.push((1, scratch + 0x800));
         t.cpu.set_pc(0x1234_0004);
         if arch == WinArch::X64 {
             t.cpu.set_gpr(0, 0x16d);
@@ -280,8 +282,7 @@ fn native_raise_exception_dispatches_the_caller_record_in_its_context() {
             t.cpu.set_gpr(1, context);
             t.cpu.set_gpr(2, 0);
         }
-        // The smoke image has no handler for the raised record, so the
-        // dispatcher ends the process with the caller's code.
+        // The second-chance path must terminate even with the handler above.
         assert_eq!(
             handle_stop(p, &mut t, stop(arch, 0x16d)),
             Outcome::ProcessTerminate(CODE)
@@ -314,10 +315,12 @@ fn native_raise_exception_uses_the_supplied_context_not_the_export_frontier() {
             t.cpu.set_gpr(0, 0x16d);
             t.cpu.set_gpr(10, record);
             t.cpu.set_gpr(2, context);
+            t.cpu.set_gpr(8, 1);
             t.cpu.set_gpr(1, 0x1234_0004);
         } else {
             t.cpu.set_gpr(0, record);
             t.cpu.set_gpr(1, context);
+            t.cpu.set_gpr(2, 1);
         }
         assert_eq!(
             handle_stop(p, &mut t, stop(arch, 0x16d)),
