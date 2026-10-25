@@ -6,7 +6,9 @@ synthetic dispatcher. The bounded continuation at `df84a8f6` reaches
 `NtRaiseException` with `STATUS_BAD_FUNCTION_TABLE` (`0xC00000FF`), flags `0x81`
 and first-chance argument zero. The causal role of the synthetic callback frame
 or cold process initialization remains unknown. Increasing the fixture's
-instruction limit cannot implement that missing kernel boundary.
+instruction limit cannot implement that missing kernel boundary. Upstream
+`a7aa0089` now includes `NtRaiseException` and a conditional x64 frame-chain
+anchor; the observations below retain their original source attribution.
 
 This independent control records native exception-record/context placement
 before constructing a native kernel-to-NTDLL frame. It does not change RAX
@@ -95,7 +97,11 @@ filters its private 192-byte instruction observation before public output and
 rejects undeclared record fields. Seven projection/lifecycle tests run on
 Windows, macOS and Linux; only Windows supplies the kernel observation. CI now
 runs the exact entry control on Windows 2022 and 2025 in addition to the four
-original fault cases per ABI. Independent entry results remain pending.
+original fault cases per ABI. The `e55e70eb` run completes both independent
+x64 and WoW64 entry captures on each kernel, with native child cleanup.
+The x64 record offset is 1,264 bytes and context offset zero on both; the
+WoW64 offsets are 8 and 88 bytes. Entry/VEH pointer identity holds in all four
+captures. These controls establish frame geometry, not emulator completion.
 
 The exact public source completes all three local views. Its paired entry and
 VEH offsets satisfy, in bytes:
@@ -130,7 +136,7 @@ removed after each view; no emulator execution bound changes.
 | SEH1 | Native kernel exception placement is identical across supported ABIs. | Initial generic-layout hypothesis. | Native exception-frame construction. | Native ARM64, x64 and WoW64 faults. | Compare signed record/context offsets and SDK sizes. | Falsified by the twelve local observations. |
 | SEH2 | A local x64 process view establishes independent x64-kernel evidence. | x64 executable on the ARM64 kernel. | Broader x64 frame admission. | Independent Windows 2022/2025 kernels. | Run this same bounded control and compare exact fields and dispatcher identities. | Falsified as independence evidence; independent layouts remain unknown. |
 | SEH3 | The synthetic callback frame causes the clock unwind failure. | One synthetic frame remains when NTDLL raises bad-function-table status. | Choice of runtime repair. | Invalid image metadata or missing initialization may also cause it. | Trace actual unwind inputs and compare a measured native dispatcher entry. | Unknown; no runtime repair claimed. |
-| SEH4 | Vectored-handler record pointers retain the initial kernel dispatcher placement. | This producer observes pointers supplied to the vectored handler. | Interpreting these offsets as a kernel-entry ABI. | RTL may copy or extend a context before invoking handlers. | Compare an owned child stopped at the actual dispatcher entry with decoded dispatcher arguments and these observations. | Confirmed for the three local ABI views by the owned-child dispatcher control below; independent x64-kernel entry remains pending. |
+| SEH4 | Vectored-handler record pointers retain the initial kernel dispatcher placement. | This producer observes pointers supplied to the vectored handler. | Interpreting these offsets as a kernel-entry ABI. | RTL may copy or extend a context before invoking handlers. | Compare an owned child stopped at the actual dispatcher entry with decoded dispatcher arguments and these observations. | Confirmed for three local views and four independent x64/WoW64 captures at `e55e70eb`; broader versions remain unmeasured. |
 
 High impact: native exception delivery and the clock guard case remain
 unqualified; they block full installed-Windows userland support. Older NLS
@@ -158,3 +164,42 @@ and [IsWow64Process2](https://learn.microsoft.com/en-us/windows/win32/api/wow64a
 contracts define that distinction. Stress test: compare all three same-kernel
 views; falsification probe: disagreement with the reported native machine.
 This affects kernel attribution, not the measured per-process ABI geometry.
+
+## Extended context and native unwind metadata
+
+`run-dispatch-v4.py` keeps the same owned-child fault and cleanup contract while
+also recording the six signed offset/length fields of `CONTEXT_EX`, first stack
+word matches for the x86 argument pair, candidate machine-frame offsets, and
+selected dispatcher unwind metadata. Only bounded offsets, lengths, RVA fields
+and 16-bit unwind slots are published. The private stack buffer is never saved
+or exported. A machine-frame candidate matches the saved PC and SP tuple; that
+match alone does not establish that the dispatcher unwind codes consume it.
+
+The exact source completes ARM64, x64 and x86 views on the local build-29683
+ARM64 kernel. The x64 export is a wrapper with no unwind slots, so its metadata
+cannot stand in for a native x64-kernel dispatcher. Independent Windows 2022 and
+2025 metadata observations remain pending. The x86 argument pair points to the
+measured record and context. `CONTEXT_EX` ranges must fit the captured extent;
+XSTATE placement can vary with stack alignment. Full filtered source/compiler/
+executable identities are in [local-dispatch-29683-v4.json](local-dispatch-29683-v4.json).
+
+Four additional projection tests reject raw stack fields, oversized candidate
+lists and offsets, malformed unwind-slot widths and missing absence reasons.
+They pass on macOS, Linux and native Windows; the native driver also passes all
+three local ABI captures. Existing projection tests remain separate and run in
+the same CI job. Runtime Rust, C API 1.15.0, private Assist ABI275 and execution
+limits are unchanged by this control group.
+
+Assumption `SEH5`: the selected export's unwind metadata represents the native
+kernel entry path. Basis: the breakpoint reaches that export; dependent result:
+constructing a compatible native exception frame. Stress test: compare a native
+x64 kernel with x64 emulation on ARM64. Falsification probe: a wrapper with no
+unwind slots or different frame contract. Status: falsified as a cross-kernel
+substitution; native x64 metadata must be measured independently.
+
+High impact: native exception delivery and the unsupported portions of the
+conditional x64 anchor still require direct runtime proof. This metadata control
+does not resolve older NLS profiles, DPI or full process completion. Its C++
+producer uses MSVC structured exception handling to observe the native ABI;
+replacing that small native control with Rust would require a separate compiler/
+ABI boundary. The implementation under test remains Rust.
