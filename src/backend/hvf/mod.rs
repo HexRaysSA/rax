@@ -16,6 +16,8 @@ mod convert;
 mod cr8;
 #[cfg(target_arch = "x86_64")]
 mod event_injection;
+#[cfg(target_arch = "x86_64")]
+mod interrupt_shadow;
 pub mod rosetta;
 mod run_loop;
 #[cfg(target_arch = "x86_64")]
@@ -626,6 +628,29 @@ impl HvfVcpu {
     }
 
     fn advance_rip(&self, bytes: u64) -> Result<()> {
+        struct Access<'a> {
+            vcpu: &'a HvfVcpu,
+            next: u64,
+        }
+        impl interrupt_shadow::Access for Access<'_> {
+            type Error = Error;
+            fn interruptibility(&mut self) -> Result<u64> {
+                vmcs_read(
+                    self.vcpu.vcpu_id,
+                    hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
+                )
+            }
+            fn advance_ip(&mut self) -> Result<()> {
+                write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RIP, self.next)
+            }
+            fn write_interruptibility(&mut self, value: u64) -> Result<()> {
+                vmcs_write(
+                    self.vcpu.vcpu_id,
+                    hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
+                    value,
+                )
+            }
+        }
         let rip = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP)?;
         let efer = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_IA32_EFER)?;
         let cs = vmcs_read(
@@ -638,7 +663,7 @@ impl HvfVcpu {
                 "invalid HVF instruction advance:{reason:?},length={bytes},bits={bits}"
             ))
         })?;
-        write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP, next)
+        interrupt_shadow::complete(&mut Access { vcpu: self, next })
     }
 
     fn event_access(&self) -> EventAccess<'_> {

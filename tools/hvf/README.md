@@ -191,7 +191,7 @@ The initial16-bit truncation hypothesis fails three cases; the legacy fixed
 length2 CPUID effect fails eight. The final helper matches all twelve.
 
 These are IP/halt/event-source checks, not complete native retirement proof.
-STI/MOVSS interrupt shadows, RF handling after EPT emulation, single-step traps,
+RF handling after EPT emulation, single-step traps and
 full event delivery, APIC/device coherence, remaining CR forms and MMIO need
 separate work. VM-entry arbitration is checked separately below. Native Intel VMX execution remains unverified on Apple Silicon.
 
@@ -209,5 +209,32 @@ propagated and leave halt unchanged. The availability query returns false on a
 host read error. Existing synchronous events retain their slot.
 
 This covers arbitration at the adapter boundary. Interrupt-controller retention,
-VM-entry failure recovery, event-delivery faults, instruction shadows/debug state,
+VM-entry failure recovery, event-delivery faults and pending debug state,
 concurrent callers and native Intel delivery require separate validation.
+
+## Emulated instruction interrupt shadows
+
+`cargo +stable test --test hvf_interrupt_shadow` checks completion of saved
+STI/MOV-SS blocking after a successful emulated instruction. The VM exit saves
+the pre-instruction state. Advancing IP now also clears bits0-1, preserving every
+other interruptibility bit. This allows an IRQ after an emulated `STI; HLT`
+sequence. The shadow is read before IP is written; failed reads or IP writes do
+not change it. A failed shadow write propagates the host error after the IP write;
+this is not an atomic rollback protocol.
+
+Fault injection paths do not advance IP and do not use this completion boundary.
+RF, pending debug exceptions/TF, full event delivery and controller ownership
+remain separate. This change covers shadow expiration only. Native Intel VMX
+execution remains unverified on Apple Silicon.
+
+The independent shadow oracle runs six actual CPL0 `STI; CPUID` and `STI; HLT`
+sequences, using instruction lengths2/3/15 and1/2/15 respectively. It polls PIC
+IRR to prove IRQ0 is pending before STI. Every case records exactly one hardware
+IRQ and its full next EIP. The same product completion and event-eligibility
+boundaries must permit the IRQ after completion. The previous IP-only effect
+fails all six comparisons; the corrected boundary matches all six. These are
+TCG direct-instruction records, not native VMX exit delivery.
+
+```sh
+python3 tools/hvf/interrupt_shadow_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-shadow
+```

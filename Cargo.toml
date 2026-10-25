@@ -377,3 +377,7 @@ path = "tests/suites/backend/hvf_sync_exits.rs"
 [[test]]
 name = "hvf_event_injection"
 path = "tests/suites/backend/hvf_event_injection.rs"
+
+[[test]]
+name = "hvf_interrupt_shadow"
+path = "tests/suites/backend/hvf_interrupt_shadow.rs"
