@@ -67,3 +67,9 @@ jobs:
           python docs/specifications/windows/native-wow64-processor-feature/test_projection_v3.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python docs/specifications/windows/native-wow64-processor-feature/run-v3.py
+      - name: Observe readable exception argument alignment and partial extents
+        if: always()
+        run: |
+          python docs/specifications/windows/native-exception-entry-profile/test_readable_alignment.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-exception-entry-profile/run-second-chance-v5.py

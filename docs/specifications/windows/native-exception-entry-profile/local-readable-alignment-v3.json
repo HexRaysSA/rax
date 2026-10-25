@@ -1,0 +1,3841 @@
+[
+  {
+    "kind": "producer",
+    "arch": "arm64",
+    "source_sha256": "ceafdba287f292f6ab016909e6c47e00e53663683be0b21b9df61442661db922",
+    "binary_sha256": "fde5cd90c5a6660a5d88f9a84cafb9ce85be4b179066405c9b630c46714bfd54",
+    "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+    "machine": 43620
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "last",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "last",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "invalid-record",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-record",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "invalid-context",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-context",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-1",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-1",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-2",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-2",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-3",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-3",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-4",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-4",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-5",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-5",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-6",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-6",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-7",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-7",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-8",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-8",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-9",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-9",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-10",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-10",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-11",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-11",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-12",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-12",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-13",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-13",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-14",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-14",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-15",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-15",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-16",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-16",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-17",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-17",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-18",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-18",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-19",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-19",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-20",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-20",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-21",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-21",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-22",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-22",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-23",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-23",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-24",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-24",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-25",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-25",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-26",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-26",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-27",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-27",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-28",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-28",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-29",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-29",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-30",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-30",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-31",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-31",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "record-32",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-32",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-1",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-1",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-2",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-2",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-3",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-3",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-4",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-4",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-5",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-5",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-6",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-6",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-7",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-7",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-8",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-8",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-9",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-9",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-10",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-10",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-11",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-11",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-12",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-12",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-13",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-13",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-14",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-14",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-15",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-15",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-16",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-16",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-17",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-17",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-18",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-18",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-19",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-19",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-20",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-20",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-21",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-21",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-22",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-22",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-23",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-23",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-24",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-24",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-25",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-25",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-26",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-26",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-27",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-27",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-28",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-28",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-29",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-29",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-30",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-30",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-31",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-31",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-32",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-32",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-split",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-split",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 2147483650,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "arm64",
+    "mode": "context-split-aligned",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-split-aligned",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "producer",
+    "arch": "x64",
+    "source_sha256": "ceafdba287f292f6ab016909e6c47e00e53663683be0b21b9df61442661db922",
+    "binary_sha256": "328e9b50242e13f8c295e721b182c404833bdeac17579d7acd931684676fb8b8",
+    "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+    "machine": 34404
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "last",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "last",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "invalid-record",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-record",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "invalid-context",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-context",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-1",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-1",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-2",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-2",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-3",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-3",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-4",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-4",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-5",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-5",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-6",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-6",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-7",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-7",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-8",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-8",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-9",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-9",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-10",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-10",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-11",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-11",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-12",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-12",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-13",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-13",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-14",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-14",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-15",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-15",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-16",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-16",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-17",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-17",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-18",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-18",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-19",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-19",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-20",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-20",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-21",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-21",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-22",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-22",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-23",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-23",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-24",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-24",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-25",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-25",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-26",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-26",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-27",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-27",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-28",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-28",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-29",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-29",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-30",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-30",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-31",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-31",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "record-32",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-32",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-1",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-1",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-2",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-2",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-3",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-3",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-4",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-4",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-5",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-5",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-6",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-6",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-7",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-7",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-8",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-8",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-9",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-9",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-10",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-10",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-11",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-11",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-12",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-12",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-13",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-13",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-14",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-14",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-15",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-15",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-16",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-16",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-17",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-17",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-18",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-18",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-19",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-19",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-20",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-20",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-21",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-21",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-22",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-22",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-23",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-23",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-24",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-24",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-25",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-25",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-26",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-26",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-27",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-27",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-28",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-28",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-29",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-29",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-30",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-30",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-31",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-31",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-32",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-32",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-split",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-split",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x64",
+    "mode": "context-split-aligned",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-split-aligned",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 0,
+        "native_machine": 43620,
+        "pointer_bytes": 8
+      }
+    ]
+  },
+  {
+    "kind": "producer",
+    "arch": "x86",
+    "source_sha256": "ceafdba287f292f6ab016909e6c47e00e53663683be0b21b9df61442661db922",
+    "binary_sha256": "45aa987a806b066206f28f45101e975be5f9a1c22d4c0e45c23332b30511b38c",
+    "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+    "machine": 332
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "last",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "last",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "invalid-record",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-record",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "invalid-context",
+    "exit_code": 0,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "invalid-context",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      },
+      {
+        "kind": "complete",
+        "seen": 0,
+        "caught": 0,
+        "call_returned": true,
+        "status": 3221225477,
+        "removed": true
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-1",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-1",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-2",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-2",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-3",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-3",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-4",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-4",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-5",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-5",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-6",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-6",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-7",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-7",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-8",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-8",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-9",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-9",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-10",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-10",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-11",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-11",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-12",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-12",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-13",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-13",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-14",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-14",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-15",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-15",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-16",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-16",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-17",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-17",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-18",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-18",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-19",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-19",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-20",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-20",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-21",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-21",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-22",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-22",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-23",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-23",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-24",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-24",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-25",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-25",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-26",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-26",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-27",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-27",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-28",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-28",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-29",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-29",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-30",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-30",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-31",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-31",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "record-32",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "record-32",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-1",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-1",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-2",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-2",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-3",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-3",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-4",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-4",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-5",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-5",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-6",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-6",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-7",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-7",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-8",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-8",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-9",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-9",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-10",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-10",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-11",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-11",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-12",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-12",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-13",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-13",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-14",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-14",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-15",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-15",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-16",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-16",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-17",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-17",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-18",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-18",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-19",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-19",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-20",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-20",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-21",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-21",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-22",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-22",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-23",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-23",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-24",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-24",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-25",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-25",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-26",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-26",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-27",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-27",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-28",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-28",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-29",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-29",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-30",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-30",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-31",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-31",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-32",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-32",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-split",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-split",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  },
+  {
+    "kind": "case",
+    "arch": "x86",
+    "mode": "context-split-aligned",
+    "exit_code": 3762443077,
+    "records": [
+      {
+        "kind": "ready",
+        "mode": "context-split-aligned",
+        "code": 3762443077,
+        "build": 29683,
+        "process_machine": 332,
+        "native_machine": 43620,
+        "pointer_bytes": 4
+      }
+    ]
+  }
+]
