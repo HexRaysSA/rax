@@ -439,47 +439,6 @@ pub fn sregs_to_hvf(vcpu: hv_vcpuid_t, sregs: &SystemRegisters) -> Result<()> {
     Ok(())
 }
 
-/// Parse VMX exit qualification for I/O exits.
-pub struct IoExitQualification {
-    pub size: u8, // 1, 2, or 4 bytes
-    pub direction: IoDirection,
-    pub string: bool, // String I/O (INS/OUTS)
-    pub rep: bool,    // REP prefix
-    pub port: u16,
-}
-
-pub enum IoDirection {
-    Out,
-    In,
-}
-
-impl IoExitQualification {
-    pub fn from_qualification(qual: u64) -> Self {
-        let size = match qual & 0x7 {
-            0 => 1,
-            1 => 2,
-            3 => 4,
-            _ => 1,
-        };
-        let direction = if (qual & (1 << 3)) != 0 {
-            IoDirection::In
-        } else {
-            IoDirection::Out
-        };
-        let string = (qual & (1 << 4)) != 0;
-        let rep = (qual & (1 << 5)) != 0;
-        let port = ((qual >> 16) & 0xFFFF) as u16;
-
-        IoExitQualification {
-            size,
-            direction,
-            string,
-            rep,
-            port,
-        }
-    }
-}
-
 /// Parse VMX exit qualification for EPT violations (memory faults).
 pub struct EptViolationQualification {
     pub read: bool,

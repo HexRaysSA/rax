@@ -238,3 +238,39 @@ TCG direct-instruction records, not native VMX exit delivery.
 ```sh
 python3 tools/hvf/interrupt_shadow_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-shadow
 ```
+
+## Scalar port-I/O completion
+
+```sh
+cargo +stable test --test hvf_port_io
+python3 tools/hvf/port_io_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-port-io
+```
+
+The Intel scalar port handler accepts only VMX size codes0/1/3 (1/2/4 bytes).
+String or REP-qualified forms return an explicit unsupported-form error before
+any device exit or IP advance. Undefined qualification bits are ignored. String
+INS/OUTS transfer, address translation and restart semantics remain separate.
+
+OUT emits the exact low AL/AX/EAX bytes in little-endian order. Input captures
+RAX and the validated VM-exit instruction length before returning its device
+request. Completion requires exactly the requested number of bytes. IN AL/AX
+preserves the upper RAX bits; IN EAX zero-extends. Success writes RAX before
+advancing the complete instruction and expiring its interrupt shadow.
+
+The existing void completion API retains a terminal error on malformed data or
+host failure. Every later run reports that error before guest execution; it is
+not consumed after one report. A request must be completed before another run, CPU-state write or
+IRQ/NMI injection. Duplicate or unsolicited completion is an explicit error.
+A failed advance after a successful RAX write can leave RAX modified; no atomic
+host rollback or automatic retry is claimed.
+
+Eight owning tests cover every port/width/direction, invalid/string forms,
+all byte/word values, dword zero-extension, exact framing, instruction lengths,
+host failures and repeated error observation. The independent QEMU long-mode
+guest executes36 IN instructions across three widths, immediate/DX encodings
+and six initial RAX patterns. It compares full RAX and before/after flags;
+actual lower input bytes are retained, without assuming a device constant.
+The previous input effect fails20 records and six owning tests; two controls
+still pass. Native Intel VMX/device delivery and string I/O remain unverified.
+Pending input and terminal-error state must be included in the planned complete
+checkpoint format; the existing checkpoint schema is not extended here.

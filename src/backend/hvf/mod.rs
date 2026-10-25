@@ -18,6 +18,8 @@ mod cr8;
 mod event_injection;
 #[cfg(target_arch = "x86_64")]
 mod interrupt_shadow;
+#[cfg(target_arch = "x86_64")]
+mod port_io;
 pub mod rosetta;
 mod run_loop;
 #[cfg(target_arch = "x86_64")]
@@ -224,8 +226,8 @@ pub struct HvfVcpu {
     mem: Arc<GuestMemoryMmap>,
     /// CPUID configuration
     cpuid_config: CpuidConfig,
-    /// Pending I/O in data pointer (port, size)
-    pending_io_in: Option<(u16, u8)>,
+    /// Scalar input request and terminal completion failure.
+    port_input: port_io::InputState,
     /// Whether the vCPU is halted
     halted: bool,
 }
@@ -248,7 +250,7 @@ impl HvfVcpu {
             id,
             mem,
             cpuid_config,
-            pending_io_in: None,
+            port_input: port_io::InputState::default(),
             halted: false,
         };
 
@@ -671,6 +673,9 @@ impl HvfVcpu {
     }
 
     fn inject_event(&mut self, event: event_injection::Event) -> Result<bool> {
+        if self.port_input.ready().is_err() {
+            return Ok(false);
+        }
         let injected = event_injection::inject(&mut self.event_access(), event)?;
         if injected {
             self.halted = false;
@@ -727,6 +732,9 @@ impl run_loop::ExitHandler for HvfVcpu {
     type Exit = VcpuExit;
     type Error = Error;
     fn prepare(&mut self) -> Result<Option<VcpuExit>> {
+        self.port_input
+            .ready()
+            .map_err(|error| Error::Emulator(error.into()))?;
         // Only successful event injection or explicit wake clears the halt.
         if self.halted {
             return Ok(Some(VcpuExit::Hlt));
@@ -753,34 +761,43 @@ impl run_loop::ExitHandler for HvfVcpu {
         Ok(VcpuExit::Hlt)
     }
     fn port_io(&mut self) -> Result<VcpuExit> {
-        let qual = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_QUALIFICATION)?;
-        let io = IoExitQualification::from_qualification(qual);
-        let insn_len = vmcs_read(
+        self.port_input
+            .ready()
+            .map_err(|error| Error::Emulator(error.into()))?;
+        let qualification = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_QUALIFICATION)?;
+        let io = port_io::decode(qualification).map_err(|reason| {
+            Error::Emulator(format!(
+                "unsupported HVF port-I/O qualification {qualification:#x}: {reason:?}"
+            ))
+        })?;
+        let length = vmcs_read(
             self.vcpu_id,
             hv_vmx_vmcs_field_t::VMCS_EXIT_INSTRUCTION_LENGTH,
         )?;
-
+        if !(1..=15).contains(&length) {
+            return Err(Error::Emulator(format!(
+                "invalid HVF port-I/O instruction length {length}"
+            )));
+        }
+        let rax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)?;
         match io.direction {
-            IoDirection::In => {
-                self.pending_io_in = Some((io.port, io.size));
+            port_io::Direction::In => {
+                self.port_input
+                    .begin(port_io::PendingInput {
+                        io,
+                        original_rax: rax,
+                        length,
+                    })
+                    .map_err(|error| Error::Emulator(error.into()))?;
                 Ok(VcpuExit::IoIn {
                     port: io.port,
                     size: io.size,
                 })
             }
-            IoDirection::Out => {
-                // Read data from RAX
-                let rax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)?;
-                let data = match io.size {
-                    1 => vec![rax as u8],
-                    2 => (rax as u16).to_le_bytes().to_vec(),
-                    4 => (rax as u32).to_le_bytes().to_vec(),
-                    _ => vec![rax as u8],
-                };
-
-                // Advance RIP
-                self.advance_rip(insn_len)?;
-
+            port_io::Direction::Out => {
+                let data = port_io::output_bytes(rax, io.size)
+                    .ok_or_else(|| Error::Emulator("invalid HVF output width".into()))?;
+                self.advance_rip(length)?;
                 Ok(VcpuExit::IoOut {
                     port: io.port,
                     data,
@@ -895,6 +912,9 @@ impl VCpu for HvfVcpu {
             }
         };
 
+        self.port_input
+            .ready()
+            .map_err(|error| Error::Emulator(error.into()))?;
         // Reject invalid CR8 before any externally supplied CPU state is written.
         if cr8::tpr_value(state.sregs.cr8).is_none() {
             return Err(Error::InvalidConfig(format!(
@@ -909,36 +929,23 @@ impl VCpu for HvfVcpu {
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {
-        if let Some((port, size)) = self.pending_io_in.take() {
-            // Write data to RAX
-            let value = match size {
-                1 => data.first().copied().unwrap_or(0) as u64,
-                2 => {
-                    let bytes: [u8; 2] = data[..2.min(data.len())].try_into().unwrap_or([0, 0]);
-                    u16::from_le_bytes(bytes) as u64
-                }
-                4 => {
-                    let bytes: [u8; 4] =
-                        data[..4.min(data.len())].try_into().unwrap_or([0, 0, 0, 0]);
-                    u32::from_le_bytes(bytes) as u64
-                }
-                _ => 0,
-            };
-
-            if let Err(e) = write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX, value) {
-                warn!("Failed to write RAX for IO in: {}", e);
-            }
-
-            // Advance RIP past the IN instruction
-            if let Ok(insn_len) = vmcs_read(
-                self.vcpu_id,
-                hv_vmx_vmcs_field_t::VMCS_EXIT_INSTRUCTION_LENGTH,
-            ) {
-                let _ = self.advance_rip(insn_len);
-            }
-
-            debug!(port, size, value, "Completed I/O in");
+        struct Access<'a> {
+            vcpu: &'a HvfVcpu,
         }
+        impl port_io::CompletionAccess for Access<'_> {
+            type Error = Error;
+            fn write_rax(&mut self, value: u64) -> Result<()> {
+                write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RAX, value)
+            }
+            fn advance_instruction(&mut self, length: u64) -> Result<()> {
+                self.vcpu.advance_rip(length)
+            }
+        }
+        // Move the private completion state out while the adapter borrows CPU
+        // host access; restore it before returning, including retained errors.
+        let mut state = std::mem::take(&mut self.port_input);
+        state.complete(&mut Access { vcpu: self }, data);
+        self.port_input = state;
     }
 
     fn inject_interrupt(&mut self, vector: u8) -> Result<bool> {
@@ -946,6 +953,9 @@ impl VCpu for HvfVcpu {
     }
 
     fn can_inject_interrupt(&self) -> bool {
+        if self.port_input.ready().is_err() {
+            return false;
+        }
         event_injection::available(
             &mut self.event_access(),
             event_injection::Event::Interrupt(0),
