@@ -8,12 +8,14 @@ on:
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
+      - docs/specifications/windows/native-process-execute-flags/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
+      - docs/specifications/windows/native-process-execute-flags/**
   workflow_dispatch:
 
 permissions:
@@ -42,6 +44,7 @@ jobs:
       - name: Observe owned child at native dispatcher entry
         run: python docs/specifications/windows/native-exception-entry-profile/run-dispatch-v4.py
       - name: Verify second-chance control results
+        if: always()
         run: |
           python docs/specifications/windows/native-exception-entry-profile/test_second_chance.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -49,6 +52,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python docs/specifications/windows/native-exception-entry-profile/test_second_chance_profiles.py
       - name: Observe second-chance delivery and invalid arguments
+        if: always()
         run: python docs/specifications/windows/native-exception-entry-profile/run-second-chance-v6.py
       - name: Verify argument observation projection
         if: always()
@@ -75,3 +79,9 @@ jobs:
           python docs/specifications/windows/native-exception-entry-profile/test_readable_alignment.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python docs/specifications/windows/native-exception-entry-profile/run-second-chance-v5.py
+      - name: Observe process execute flags without changing DEP policy
+        if: always()
+        run: |
+          python docs/specifications/windows/native-process-execute-flags/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-process-execute-flags/run-v2.py
