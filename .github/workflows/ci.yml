@@ -155,6 +155,30 @@ jobs:
             --test user_darwin \
             --test user_windows \
             -- --include-ignored --test-threads=1 --nocapture
+      # Host fixtures exercise production backend boundaries without creating
+      # a VM. SDK parity runs on macOS; non-macOS SDK targets are cfg-empty.
+      # Enabling hvf also compiles the native adapter on each macOS architecture.
+      - name: cargo test (backend and storage regressions)
+        shell: bash
+        run: |
+          cargo test --locked ${{ matrix.features }} --features hvf \
+            --test hvf_sdk_abi \
+            --test hvf_xsetbv \
+            --test hvf_run_loop \
+            --test hvf_cr8 \
+            --test hvf_sync_exits \
+            --test hvf_event_injection \
+            --test hvf_interrupt_shadow \
+            --test hvf_port_io \
+            --test hvf_guest_translation \
+            --test hvf_mmio \
+            --test controller_irq \
+            --test hvf_controls \
+            --test nvme_prp \
+            --test nvme_sgl \
+            --test nvme_queues \
+            --test nvme_admission \
+            -- --test-threads=1 --nocapture
       # The x86-64 JIT suite executes transient native mappings and intentionally
       # exercises host feature-specific encodings. Run it serially so a native
       # signal is attributable to one test and concurrent JIT executions cannot

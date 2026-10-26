@@ -11,6 +11,7 @@ tests/
 └── suites/
     ├── api/        # Public API contracts
     ├── backend/    # Execution-backend integration
+    ├── devices/    # Device DMA, queue, register and interrupt contracts
     ├── coverage/   # Source/specification inventory assertions
     ├── differential/ # RAX state compared with an external oracle
     ├── isa/        # Direct instruction-semantics tests
@@ -79,6 +80,22 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `x86_64_unimplemented_manifests` | `suites/coverage/x86_64/unimplemented_manifests.rs` |
 | `x86_64_unimplemented_qemu_diff` | `suites/differential/x86_64/qemu_unimplemented.rs` |
 | `x86_64_unimplemented_source_inventory` | `suites/coverage/x86_64/unimplemented_source_inventory.rs` |
+| `hvf_sdk_abi` | `suites/backend/hvf_sdk_abi.rs` |
+| `hvf_xsetbv` | `suites/backend/hvf_xsetbv.rs` |
+| `hvf_run_loop` | `suites/backend/hvf_run_loop.rs` |
+| `hvf_cr8` | `suites/backend/hvf_cr8.rs` |
+| `hvf_sync_exits` | `suites/backend/hvf_sync_exits.rs` |
+| `hvf_event_injection` | `suites/backend/hvf_event_injection.rs` |
+| `hvf_interrupt_shadow` | `suites/backend/hvf_interrupt_shadow.rs` |
+| `hvf_port_io` | `suites/backend/hvf_port_io.rs` |
+| `hvf_guest_translation` | `suites/backend/hvf_guest_translation.rs` |
+| `hvf_mmio` | `suites/backend/hvf_mmio.rs` |
+| `controller_irq` | `suites/backend/controller_irq.rs` |
+| `hvf_controls` | `suites/backend/hvf_controls.rs` |
+| `nvme_prp` | `suites/devices/nvme_prp.rs` |
+| `nvme_sgl` | `suites/devices/nvme_sgl.rs` |
+| `nvme_queues` | `suites/devices/nvme_queues.rs` |
+| `nvme_admission` | `suites/devices/nvme_admission.rs` |
 
 ## Reachability rules
 
@@ -246,3 +263,21 @@ all three operating systems. Windows-only `windows_arena::tests` cover shared
 partial views, read-only upgrades, extent reuse, memory-owner lifetime, rollback,
 and revocation of checked access plus all CPU entry points after failed rollback.
 See `docs/development/windows-user-memory.md` for ownership and platform limits.
+
+## Backend and storage remediation targets
+
+The sixteen backend/device targets above execute in the core CI matrix's
+`backend and storage regressions` step and the scheduled suite's
+`backend-devices` shard. Both enable `hvf`, compiling the native adapter on
+macOS, and execute every selected owning binary without a test-name filter.
+The device drivers compile current production sources, including their existing
+unit tests. `nvme_sgl`, `nvme_queues` and `nvme_admission` also include the PRP
+owner as a shared driver/control corpus.
+
+The HVF targets exercise host boundary fixtures; they do not create a VM or
+establish hardware guest execution. `hvf_sdk_abi` runs one SDK parity test on
+macOS and is explicitly cfg-empty elsewhere. Actual Intel VMX, Apple Silicon
+HVF guest execution and Linux KVM remain separate platform requirements.
+Independent QEMU/LLVM tools under `tools/hvf/` and `tools/nvme-diff/` are separate
+from this self-contained CI selection and retain their own raw evidence and
+reference-profile limits.

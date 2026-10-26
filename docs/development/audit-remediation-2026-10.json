@@ -3698,6 +3698,34 @@
         "Other feature identifiers,queue arbitration,remaining NVM commands,nativePCI/IRQ wiring,storage images and complete checkpoint/media/private state remain pending.",
         "Independent comparator uses current production device/driver sources with immutable shared-trait library;full-engine gates remain separate."
       ]
+    },
+    {
+      "id": "D-AUDIT-CI-EXECUTION",
+      "area": "CI execution reachability",
+      "finding": "New backend/device targets compiled but were absent from the explicitly selected CI runtime target lists.",
+      "status": "locally_validated",
+      "evidence": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "tests/README.md",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/selection-proof.json",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/preflight-source-binding.json",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-native-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-intel-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/final-native-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/final-intel-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/final-diff-check.log"
+      ],
+      "remaining_validation": [
+        "Local workflow parsing and extracted command execution are not hosted GitHubActions results. No push or workflow dispatch is performed.",
+        "SDKtargetisexplicitlycfg-emptyoffmacOS;Linux/Windowshostexecutionand nativeKVM/HVFguests remain separate.",
+        "No product semantics change;preceding broadproof is reused only after exact source-fingerprint equality."
+      ]
     }
   ],
   "decisions": {
@@ -80094,6 +80122,1227 @@
           "environment_evidence": "/Users/int/dev/rax-audit-work/recovery/system-executable-probe-results.json",
           "recovery": "Rerun complete failed library gate and all unstarted gates with unchanged product sources and commands;retain earlier successful prefix and all failed evidence."
         },
+        "toolchain": {
+          "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
+          "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",
+          "compiler_verbose": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+          "environment": {
+            "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+            "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin"
+          },
+          "scope": "Required final gates use fixed task-local1.99.1;retained earlier1.98.1 references/preflights remain separately versioned. No global compiler/default changes."
+        }
+      }
+    },
+    {
+      "id": "audit-backend-and-storage-ci-execution-coverage",
+      "status": "locally_validated",
+      "scope": "Execute all16 registered backend/storage remediation owners in the primary CI matrix and a scheduled shard;enable HVF compilation on macOS and update the target registry.",
+      "assumptions": [
+        {
+          "id": "CI1",
+          "assumption": "Cargo integration targets need explicit CI selection when workflows enumerate targets.",
+          "basis": "autotests=false,Cargo[[test]]entries and existing explicit workflow lists.",
+          "dependent_result": "Add all16 owners to both core step and scheduled shard with no Rust test-name filters.",
+          "stress_test": "Parse both YAML documents,compare exact target membership to Cargo and README,execute the extracted command.",
+          "falsification_probe": "A target remains unselected,unregistered,missing,duplicated or filtered.",
+          "status": "retained"
+        },
+        {
+          "id": "CI2",
+          "assumption": "TheSDKtarget executes only onmacOS;host boundary fixtures do not establish hardware guest execution.",
+          "basis": "hvf_sdk_abi cfg and generic fixture entrypoints.",
+          "dependent_result": "Expect16 binaries/291tests onthisMac;documentcfg-emptySDKelsewhere and nativeplatform limits.",
+          "stress_test": "NativeAppleSilicon andx86_64Rosetta ownercommands,SDKtestcount1 onboth.",
+          "falsification_probe": "A selected owner unexpectedly runszero tests or a fixture result is described as nativeVMguest evidence.",
+          "status": "retained"
+        },
+        {
+          "id": "CI3",
+          "assumption": "Onlyworkflow/registrydocuments change;core-source proof fromthe immediatelypreceding group remains applicable if hashes match.",
+          "basis": "Exactownedpaths3,sourcefingerprint and all16 owning-source hashes checked before/after.",
+          "dependent_result": "Reuse preceding broad-engine gates explicitly;rerun exactCIselection andCIpin checks at finalimport.",
+          "stress_test": "Compare preflight/current/preceding product fingerprints and declared owning paths.",
+          "falsification_probe": "Any product/owning source changes between the preceding validation and this metadata group.",
+          "status": "retained"
+        }
+      ],
+      "primary_sources": [
+        {
+          "path": "AGENTS.md",
+          "sha256": "7c9a77d3ef7122137ebb8cae260b58edd3a206eddb18c8b770c7ab163e6d6693",
+          "contract": "Section10.3 requires new test registration and CI execution reachability;section12 provides surface-selected checks."
+        }
+      ],
+      "scope_limits": [
+        "Local workflow parsing and extracted command execution are not hosted GitHubActions results. No push or workflow dispatch is performed.",
+        "SDKtargetisexplicitlycfg-emptyoffmacOS;Linux/Windowshostexecutionand nativeKVM/HVFguests remain separate.",
+        "No product semantics change;preceding broadproof is reused only after exact source-fingerprint equality."
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "New tests compiled in all-target jobs but were absent from explicit runtime lists.",
+          "action": "Select everyownerin both primaryCI and scheduledsuite."
+        },
+        {
+          "impact": "medium",
+          "finding": "Default CI features omitted the nativeHVFadapter.",
+          "action": "Enablehvfintheseowners so macOScompiles the relevantnativebackend;retainhardwareguestlimitation."
+        },
+        {
+          "impact": "medium",
+          "finding": "AnSDKcfg-emptytarget can be misread as runtimecoverage on otherhosts.",
+          "action": "Documentexacthostgateand require nonzero counts onthisMac."
+        }
+      ],
+      "quality_gates": {
+        "QG1": "No normative judgments required.",
+        "QG2": "CI1-CI3 recordbasis/dependency/stress/falsification.",
+        "QG3": "All16 currentbackend/deviceowners selected by bothworkflows and registeredindocs.",
+        "QG4": "16binaries/291testdescriptors perMac architecture;no test-namefilters;source hashes bindreusedcoreevidence.",
+        "QG5": "SDKhostgate,standalonefixtures andhostedCIlimits explicit.",
+        "QG6": "Parsed localCargo/YAML/registry,actualcommands/counts and sourcefingerprints retained.",
+        "QG7": "Compilation-versus-executiongap,nativefeatureomission andcfgemptytarget recorded."
+      },
+      "baseline": "10ad74aa6e948dccb0bedae99b908d2eddecbd9d",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-native-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--offline",
+              "--locked",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit",
+              "--features",
+              "hvf",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 24.516694416000973
+          },
+          {
+            "check": "final-intel-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--offline",
+              "--locked",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit",
+              "--features",
+              "hvf",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--target",
+              "x86_64-apple-darwin",
+              "--",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 38.849606499999936
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 0.2689592500028084
+          },
+          {
+            "check": "final-diff-check",
+            "args": [
+              "git",
+              "diff",
+              "--check",
+              "--",
+              ".github/workflows/ci.yml",
+              ".github/workflows/full-suite.yml",
+              "tests/README.md"
+            ],
+            "code": 0,
+            "seconds": 0.017052040999260498
+          }
+        ],
+        "selection": {
+          "core_command": [
+            "cargo",
+            "+stable",
+            "test",
+            "--locked",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit",
+            "--features",
+            "hvf",
+            "--test",
+            "hvf_sdk_abi",
+            "--test",
+            "hvf_xsetbv",
+            "--test",
+            "hvf_run_loop",
+            "--test",
+            "hvf_cr8",
+            "--test",
+            "hvf_sync_exits",
+            "--test",
+            "hvf_event_injection",
+            "--test",
+            "hvf_interrupt_shadow",
+            "--test",
+            "hvf_port_io",
+            "--test",
+            "hvf_guest_translation",
+            "--test",
+            "hvf_mmio",
+            "--test",
+            "controller_irq",
+            "--test",
+            "hvf_controls",
+            "--test",
+            "nvme_prp",
+            "--test",
+            "nvme_sgl",
+            "--test",
+            "nvme_queues",
+            "--test",
+            "nvme_admission",
+            "--",
+            "--test-threads=1",
+            "--nocapture"
+          ],
+          "scheduled_shard": {
+            "name": "backend-devices",
+            "tests": "--features hvf --test hvf_sdk_abi --test hvf_xsetbv --test hvf_run_loop --test hvf_cr8 --test hvf_sync_exits --test hvf_event_injection --test hvf_interrupt_shadow --test hvf_port_io --test hvf_guest_translation --test hvf_mmio --test controller_irq --test hvf_controls --test nvme_prp --test nvme_sgl --test nvme_queues --test nvme_admission",
+            "harness": "--test-threads=1 --nocapture"
+          },
+          "targets": [
+            "hvf_sdk_abi",
+            "hvf_xsetbv",
+            "hvf_run_loop",
+            "hvf_cr8",
+            "hvf_sync_exits",
+            "hvf_event_injection",
+            "hvf_interrupt_shadow",
+            "hvf_port_io",
+            "hvf_guest_translation",
+            "hvf_mmio",
+            "controller_irq",
+            "hvf_controls",
+            "nvme_prp",
+            "nvme_sgl",
+            "nvme_queues",
+            "nvme_admission"
+          ],
+          "paths": {
+            "hvf_sdk_abi": "tests/suites/backend/hvf_sdk_abi.rs",
+            "hvf_xsetbv": "tests/suites/backend/hvf_xsetbv.rs",
+            "hvf_run_loop": "tests/suites/backend/hvf_run_loop.rs",
+            "hvf_cr8": "tests/suites/backend/hvf_cr8.rs",
+            "hvf_sync_exits": "tests/suites/backend/hvf_sync_exits.rs",
+            "hvf_event_injection": "tests/suites/backend/hvf_event_injection.rs",
+            "hvf_interrupt_shadow": "tests/suites/backend/hvf_interrupt_shadow.rs",
+            "hvf_port_io": "tests/suites/backend/hvf_port_io.rs",
+            "hvf_guest_translation": "tests/suites/backend/hvf_guest_translation.rs",
+            "hvf_mmio": "tests/suites/backend/hvf_mmio.rs",
+            "controller_irq": "tests/suites/backend/controller_irq.rs",
+            "hvf_controls": "tests/suites/backend/hvf_controls.rs",
+            "nvme_prp": "tests/suites/devices/nvme_prp.rs",
+            "nvme_sgl": "tests/suites/devices/nvme_sgl.rs",
+            "nvme_queues": "tests/suites/devices/nvme_queues.rs",
+            "nvme_admission": "tests/suites/devices/nvme_admission.rs"
+          },
+          "workflow_yaml_parsed": true,
+          "owned_paths": {
+            ".github/workflows/ci.yml": "4162616aaa442a5d893a39bed15c50ed7f188752739a4f31d421028b62e88e74",
+            ".github/workflows/full-suite.yml": "2b04f8bb9ea1dfab7befc1da7e9b854f2ab16dfb06761eacddd9c8d8ca082400",
+            "tests/README.md": "fd8616c0959f5a95cd814ca49f6a5138a8197a7bf36c55106dd83c8823fa9175"
+          },
+          "scope": "Exact existing Cargo target selection;SDK executes only on macOS. No hosted CI/native VM guest result is inferred."
+        },
+        "source_binding": {
+          "product_source_fingerprint": {
+            "rust_and_build_sources_sha256": "8b3f70c5af823dd77344bf51b36b5ed4470edc1e42c528dc01e6eb44c0ce0010",
+            "files": 3578
+          },
+          "owning_sources": {
+            "tests/suites/backend/hvf_sdk_abi.rs": "b3ceecdad17aa8f9eb4037b8e5e6ad77d6869b20032a76c312a9fdcf758afffa",
+            "tests/suites/backend/hvf_xsetbv.rs": "8b9c0bf1d23260616e8f815b15c2f7bfbfdf2401deda53e2961cf0bedd5e2648",
+            "tests/suites/backend/hvf_run_loop.rs": "d704f6d5b734986a8a1f937a05fc36769eac00c236be849a9cf6f1aaa964ac4f",
+            "tests/suites/backend/hvf_cr8.rs": "031113e73d08b9190778e49074d6f90d5138b3eb8b19db1d6ad652e006782397",
+            "tests/suites/backend/hvf_sync_exits.rs": "16cdd5343f10e3fb3a22e9850f468f6ce04cc8daaa6fa50b997aa4daa54b9dda",
+            "tests/suites/backend/hvf_event_injection.rs": "009c6ae4aa98e73902ec1ed9ceb6992b8869a2cc09f11362de3498587394d2a9",
+            "tests/suites/backend/hvf_interrupt_shadow.rs": "b50b407b0e7648f098fba263530e0de50eb91a8610bbd74bebdd248b0e2bc40c",
+            "tests/suites/backend/hvf_port_io.rs": "5ca41fdf19408a3d058c019b8ee3060a8f69a197f77fd47ab1b8ce82a91e599c",
+            "tests/suites/backend/hvf_guest_translation.rs": "0c777ccd58bfceffc66d5f7db78eada1881e6e74a88da1fcdded024aa728ea64",
+            "tests/suites/backend/hvf_mmio.rs": "cb7ce147c4df374dc9edf5976d750a855b2678f9d4f35ce606821639fb0a2b30",
+            "tests/suites/backend/controller_irq.rs": "1fba249870a40484aeec7e3a0ef1dfcf99a25f4a10c5439a1e8b52d40cb8f6ae",
+            "tests/suites/backend/hvf_controls.rs": "eca49d92fd3ebb9fcd0ab05089db410824820e2e3e1c3d807b83a7f946e3a416",
+            "tests/suites/devices/nvme_prp.rs": "73b1a0b7a38b8fda20b69b6a98ce438c53a3c423b19cc2225365007a99a2ead0",
+            "tests/suites/devices/nvme_sgl.rs": "90199a51a945310ac219280fc8653e025d459840cb475cffa481b688ab4bf787",
+            "tests/suites/devices/nvme_queues.rs": "abf5c19a2a34952582349427f1c33551b93e34240ec20126420a65bc5320ee72",
+            "tests/suites/devices/nvme_admission.rs": "a6e195b048171c9100285a213a82792738bae497bbc7b5246d868aec6efb55be"
+          },
+          "scope": "Frozen candidate bindings recorded during preflight. Final import reruns the complete CI selection against identical current/preceding product and owning-source hashes;these metadata do not assert an earlier capture timestamp."
+        },
+        "scope": "Local workflow parsing/extracted execution;hosted CI not dispatched. NativeVMguest proof is separate.",
+        "final-native-owning.log": [
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.34
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 45,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.9
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.73
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.8
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.15
+          }
+        ],
+        "final-intel-owning.log": [
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.07
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.17
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.5
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 45,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.59
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.38
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.49
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 9.21
+          }
+        ],
+        "worktree-native-owning.log": [
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.33
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 45,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.96
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.83
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.84
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.23
+          }
+        ],
+        "worktree-intel-owning.log": [
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.07
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.04
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.17
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.44
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 45,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.4
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.37
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.38
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.88
+          }
+        ],
+        "final-ci-owning.log": [
+          {
+            "passed": 12,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          }
+        ],
+        "worktree-ci-owning.log": [
+          {
+            "passed": 12,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          }
+        ],
+        "preceding_broad_engine_proof": {
+          "out": "/Users/int/dev/rax-audit-work/rax-nvme-admission",
+          "product_source_fingerprint": {
+            "rust_and_build_sources_sha256": "8b3f70c5af823dd77344bf51b36b5ed4470edc1e42c528dc01e6eb44c0ce0010",
+            "files": 3578
+          },
+          "checks": [
+            {
+              "check": "final-build",
+              "args": [
+                "cargo",
+                "+stable",
+                "build",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--all-targets"
+              ],
+              "code": 0,
+              "seconds": 165.75113691599836
+            },
+            {
+              "check": "final-clippy",
+              "args": [
+                "cargo",
+                "+stable",
+                "clippy",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--all-targets"
+              ],
+              "code": 0,
+              "seconds": 69.39899058299488
+            },
+            {
+              "check": "final-fmt",
+              "args": [
+                "cargo",
+                "+stable",
+                "fmt",
+                "--all",
+                "--check"
+              ],
+              "code": 0,
+              "seconds": 12.421435165997536
+            },
+            {
+              "check": "final-doc",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--doc"
+              ],
+              "code": 0,
+              "seconds": 4.779251542000566
+            },
+            {
+              "check": "final-nvme",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--test",
+                "nvme_prp",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 5.03810925000289
+            },
+            {
+              "check": "final-sgl",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--test",
+                "nvme_sgl",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 5.175135707999289
+            },
+            {
+              "check": "final-queues",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--test",
+                "nvme_queues",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 5.069792916998267
+            },
+            {
+              "check": "final-admission",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--test",
+                "nvme_admission",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 5.14195608299633
+            },
+            {
+              "check": "final-ci-owning",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--test",
+                "ci_actions_pinned"
+              ],
+              "code": 0,
+              "seconds": 0.24111908299528295
+            },
+            {
+              "check": "final-library",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--lib",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 355.25978766700064
+            },
+            {
+              "check": "final-intel-build",
+              "args": [
+                "cargo",
+                "+stable",
+                "build",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--target",
+                "x86_64-apple-darwin",
+                "--all-targets"
+              ],
+              "code": 0,
+              "seconds": 172.67811679199804
+            },
+            {
+              "check": "final-intel-nvme",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--target",
+                "x86_64-apple-darwin",
+                "--test",
+                "nvme_prp",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 7.5918017080002755
+            },
+            {
+              "check": "final-intel-sgl",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--target",
+                "x86_64-apple-darwin",
+                "--test",
+                "nvme_sgl",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 7.607571708998876
+            },
+            {
+              "check": "final-intel-queues",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--target",
+                "x86_64-apple-darwin",
+                "--test",
+                "nvme_queues",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 7.449321416002931
+            },
+            {
+              "check": "final-intel-admission",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--target",
+                "x86_64-apple-darwin",
+                "--test",
+                "nvme_admission",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 7.590305958998215
+            },
+            {
+              "check": "final-intel-library",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--target",
+                "x86_64-apple-darwin",
+                "--lib",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 2463.5030337499993
+            },
+            {
+              "check": "final-sgl-independent",
+              "args": [
+                "python3",
+                "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/sgl_oracle.py",
+                "--repo",
+                "/Users/int/dev/rax-audit-work/rax-final-worktree",
+                "--work-dir",
+                "/Users/int/dev/rax-audit-work/rax-nvme-admission/final-sgl-oracle",
+                "--target-dir",
+                "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+                "--llvm-bin",
+                "/Users/int/local/bin"
+              ],
+              "code": 0,
+              "seconds": 6.555355166998197
+            },
+            {
+              "check": "final-queue-independent",
+              "args": [
+                "python3",
+                "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/queue_oracle.py",
+                "--repo",
+                "/Users/int/dev/rax-audit-work/rax-final-worktree",
+                "--work-dir",
+                "/Users/int/dev/rax-audit-work/rax-nvme-admission/final-queue-oracle",
+                "--target-dir",
+                "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+                "--llvm-bin",
+                "/Users/int/local/bin"
+              ],
+              "code": 0,
+              "seconds": 15.245982291999098
+            },
+            {
+              "check": "final-admission-independent",
+              "args": [
+                "python3",
+                "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/admission_oracle.py",
+                "--repo",
+                "/Users/int/dev/rax-audit-work/rax-final-worktree",
+                "--work-dir",
+                "/Users/int/dev/rax-audit-work/rax-nvme-admission/final-admission-oracle",
+                "--target-dir",
+                "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+                "--llvm-bin",
+                "/Users/int/local/bin"
+              ],
+              "code": 0,
+              "seconds": 6.374425707999762
+            },
+            {
+              "check": "final-independent",
+              "args": [
+                "python3",
+                "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/prp_oracle.py",
+                "--repo",
+                "/Users/int/dev/rax-audit-work/rax-final-worktree",
+                "--work-dir",
+                "/Users/int/dev/rax-audit-work/rax-nvme-admission/final-oracle",
+                "--target-dir",
+                "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+                "--llvm-bin",
+                "/Users/int/local/bin"
+              ],
+              "code": 0,
+              "seconds": 21.30582662500092
+            },
+            {
+              "check": "final-capi",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "-p",
+                "rax-capi",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 15.769159082999977
+            }
+          ],
+          "reason": "Workflow/registry-only change;identical core source fingerprint. Prior broad gates are reused explicitly,not represented as rerun."
+        },
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/selection-proof.json",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/preflight-source-binding.json",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-checks.json",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-native-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-intel-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/worktree-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/final-native-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/final-intel-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-audit-ci-coverage/final-diff-check.log"
+        ],
         "toolchain": {
           "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
           "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",
