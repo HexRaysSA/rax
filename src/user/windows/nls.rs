@@ -10,6 +10,12 @@ const MAX_SECTIONS: usize = 4102; // At most 4096 registry candidates plus 6 fix
 mod initialize;
 mod mui;
 
+/// Finite qualification for initialization and query-only MUI snapshots.
+/// The two ARM64 kernel profiles independently cover native64 and WoW64 calls.
+pub(crate) fn supports_startup_profile(version: &super::process::WinVersion) -> bool {
+    version.major == 10 && version.minor == 0 && matches!(version.build, 29683 | 29695)
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct Nls {
     sections: BTreeMap<(u32, u32), Arc<[u8]>>,
@@ -77,6 +83,28 @@ pub(crate) fn snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn startup_profile_admission_is_exact_and_independent_of_other_nt_profiles() {
+        for (major, minor, build, expected) in [
+            (10, 0, 29683, true),
+            (10, 0, 29695, true),
+            (10, 0, 29682, false),
+            (10, 0, 29684, false),
+            (10, 0, 29694, false),
+            (10, 0, 29696, false),
+            (10, 1, 29695, false),
+            (11, 0, 29695, false),
+        ] {
+            let version = super::super::process::WinVersion {
+                major,
+                minor,
+                build,
+                ..Default::default()
+            };
+            assert_eq!(supports_startup_profile(&version), expected);
+        }
+    }
+
     #[test]
     fn native_nls_snapshot_bounds_identity_padding_and_shared_bytes() {
         let source = vec![0x53; 4097];

@@ -34,12 +34,15 @@ fn field(line: &str, key: &str, radix: u32) -> u32 {
 }
 
 #[test]
-fn native_mui_query_replays_all_5040_native_pointer_length_and_alias_rows() {
+fn native_mui_query_replays_both_measured_builds_pointer_length_and_alias_rows() {
     let mut total = 0;
-    for (arch, raw) in CORPORA {
+    for (arch, raw, build) in CORPORA
+        .into_iter()
+        .flat_map(|(arch, raw)| [29683, 29695].map(|build| (arch, raw, build)))
+    {
         let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
         let p = process.state_mut();
-        Arc::make_mut(&mut p.cfg).version.build = 29683;
+        Arc::make_mut(&mut p.cfg).version.build = build;
         let base =
             p.vm.allocate(None, 16384, mem::RESERVE | mem::COMMIT, prot::READWRITE)
                 .unwrap()
@@ -107,12 +110,12 @@ fn native_mui_query_replays_all_5040_native_pointer_length_and_alias_rows() {
             assert_eq!(
                 dispatch(p, &mut thread),
                 Outcome::Continue,
-                "{arch}: {line}"
+                "{arch} build {build}: {line}"
             );
             assert_eq!(
                 thread.cpu.gpr(0),
                 u64::from(field(line, "status", 16)),
-                "{arch}: {line}"
+                "{arch} build {build}: {line}"
             );
             let after = if matches!(size_kind, 0 | 3 | 4) {
                 p.space.u32(size).unwrap()
@@ -121,23 +124,27 @@ fn native_mui_query_replays_all_5040_native_pointer_length_and_alias_rows() {
             } else {
                 0
             };
-            assert_eq!(after, field(line, "size-after", 10), "{arch}: {line}");
+            assert_eq!(
+                after,
+                field(line, "size-after", 10),
+                "{arch} build {build}: {line}"
+            );
             let output_page = p.space.bytes(output_base, 4096).unwrap();
             assert_eq!(
                 output_page.iter().filter(|&&byte| byte != 0xa5).count(),
                 field(line, "output-changed", 10) as usize,
-                "{arch}: {line}"
+                "{arch} build {build}: {line}"
             );
             assert_eq!(
                 p.space.u32(error).unwrap(),
                 field(line, "last-error", 16),
-                "{arch}: {line}"
+                "{arch} build {build}: {line}"
             );
             if thread.cpu.gpr(0) == 0 && output != 0 {
                 assert_eq!(
                     p.space.bytes(output, payload.len()).unwrap(),
                     payload,
-                    "{arch}: {line}"
+                    "{arch} build {build}: {line}"
                 );
                 assert!(
                     p.space
@@ -155,15 +162,18 @@ fn native_mui_query_replays_all_5040_native_pointer_length_and_alias_rows() {
         assert_eq!(count, 1680);
         total += count;
     }
-    assert_eq!(total, 5040);
+    assert_eq!(total, 10080);
 }
 
 #[test]
 fn mui_cache_mutations_report_unavailable_without_query_argument_side_effects() {
-    for arch in WinArch::ALL {
+    for (arch, build) in WinArch::ALL
+        .into_iter()
+        .flat_map(|arch| [29683, 29695].map(|build| (arch, build)))
+    {
         let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
         let p = process.state_mut();
-        Arc::make_mut(&mut p.cfg).version.build = 29683;
+        Arc::make_mut(&mut p.cfg).version.build = build;
         let sp = thread.cpu.sp();
         let before = p.vm.committed_bytes();
         for flags in [2, 3, 8, 9, 10, 11] {
@@ -177,6 +187,47 @@ fn mui_cache_mutations_report_unavailable_without_query_argument_side_effects() 
                 );
                 assert_eq!(p.vm.committed_bytes(), before);
             }
+        }
+    }
+}
+
+#[test]
+fn mui_unmeasured_profiles_publish_no_size_or_payload() {
+    for arch in WinArch::ALL {
+        for (major, minor, build) in [
+            (10, 0, 29682),
+            (10, 0, 29684),
+            (10, 0, 29694),
+            (10, 0, 29696),
+            (10, 1, 29695),
+            (11, 0, 29695),
+        ] {
+            let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
+            let p = process.state_mut();
+            let cfg = Arc::make_mut(&mut p.cfg);
+            cfg.version.major = major;
+            cfg.version.minor = minor;
+            cfg.version.build = build;
+            let base =
+                p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                    .unwrap()
+                    .0;
+            p.space.wr(base, &[0xa5; 4096]).unwrap();
+            p.space.w32(base + 128, 1232).unwrap();
+            p.nls = Some(
+                crate::user::windows::nls::Nls::new(vec![])
+                    .unwrap()
+                    .with_mui(vec![0x53; 1232])
+                    .unwrap(),
+            );
+            let before = p.space.bytes(base, 4096).unwrap();
+            let charge = p.vm.committed_bytes();
+            arguments(p, &mut thread, &[0, base + 128, base + 256]);
+            assert!(
+                matches!(dispatch(p, &mut thread), Outcome::Fail(ref reason) if reason.contains("native build profile is unmeasured"))
+            );
+            assert_eq!(p.space.bytes(base, 4096).unwrap(), before);
+            assert_eq!(p.vm.committed_bytes(), charge);
         }
     }
 }

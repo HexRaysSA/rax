@@ -37,6 +37,66 @@ fn inventory(
 }
 
 #[test]
+fn wow64_startup_29695_profile_matches_native_threads_and_rejects_unknown_kernels() {
+    let capture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../docs/specifications/windows/native-wow64-startup-information/local-29695-v1.json"
+    )).unwrap();
+    let mut count = 0;
+    for sample in capture["samples"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|sample| sample["kind"] == "information")
+    {
+        for row in sample["rows"].as_array().unwrap() {
+            let version = super::super::WinVersion {
+                major: 10,
+                minor: 0,
+                build: row["build"].as_u64().unwrap() as u32,
+                ..Default::default()
+            };
+            let selected =
+                Profile::kernel(&version, row["native_machine"].as_u64().unwrap() as u16).unwrap();
+            assert_eq!(
+                u64::from(selected.flags),
+                row["information_words"][1].as_u64().unwrap()
+            );
+            assert_eq!(
+                selected.information_offset,
+                row["information_minus_peb32"].as_u64().unwrap()
+            );
+            assert_eq!(
+                u64::from(selected.machine),
+                row["information_native_machine"].as_u64().unwrap()
+            );
+            count += 1;
+        }
+    }
+    assert_eq!(count, 4);
+    for (major, minor, build, machine) in [
+        (10, 0, 29682, 0xaa64),
+        (10, 0, 29684, 0xaa64),
+        (10, 0, 29694, 0xaa64),
+        (10, 0, 29696, 0xaa64),
+        (10, 1, 29695, 0xaa64),
+        (11, 0, 29695, 0xaa64),
+        (10, 0, 29695, 0x8664),
+        (10, 0, 29695, 0x14c),
+    ] {
+        let version = super::super::WinVersion {
+            major,
+            minor,
+            build,
+            ..Default::default()
+        };
+        assert!(matches!(
+            Profile::kernel(&version, machine),
+            Err(STATUS_NOT_SUPPORTED)
+        ));
+    }
+}
+
+#[test]
 fn wow64_startup_native_profiles_have_owned_information_and_work_sections() {
     for software in [false, true] {
         let mut process = process();

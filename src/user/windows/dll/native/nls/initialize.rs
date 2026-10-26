@@ -11,10 +11,10 @@ pub(crate) fn initialize(c: &mut Ctx) -> ApiResult {
 }
 
 fn checked(c: &mut Ctx) -> ApiResult {
-    if c.p.cfg.version.major != 10 || c.p.cfg.version.minor != 0 || c.p.cfg.version.build != 29683 {
+    if !crate::user::windows::nls::supports_startup_profile(&c.p.cfg.version) {
         return Err(c.unsupported("NtInitializeNlsFiles native build profile is unmeasured"));
     }
-    // The measured build ignores the declared casing-size/version outputs,
+    // The measured builds ignore the declared casing-size/version outputs,
     // including NULL, invalid, readonly and guarded addresses. Do not visit them.
     let (output, locale_output) = (c.ptr(0)?, c.ptr(1)?);
     let wow = c.arch() == WinArch::X86;

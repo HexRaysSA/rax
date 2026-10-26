@@ -198,8 +198,12 @@ jobs:
         run: python tools/ci/windows_installed_probe_v2.py
       - name: Shared NT clock and CPU execution boundaries
         run: python tools/ci/system_time.py
-      - name: Readonly CSR views and selected startup profiles
-        run: cargo test --locked --no-default-features --lib csr
+      - name: Measured Windows startup profiles
+        run: |
+          cargo test --locked --no-default-features --lib csr
+          cargo test --locked --no-default-features --lib nls
+          cargo test --locked --no-default-features --lib mui
+          cargo test --locked --no-default-features --lib user::windows::process::wow64::
       - name: Portable process, console, and supplied-file regressions
         run: python tools/ci/process_embedding.py
       - name: Unix supplied-file and io_uring buffer regressions

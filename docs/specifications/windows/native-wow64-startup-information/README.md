@@ -55,7 +55,7 @@ successful emulated exception continuation.
 | WI2 | Native companion linkage is required by the selected x86 startup path. | Installed instruction sequence and zero-pointer fault; native negative offset, reverse link and slot observation. | Companion TEB initialization. | Application TLS slot 10 remains independently usable. | Native startup reaches a valid object without the companion path. | Confirmed for the measured build and path. |
 
 The runtime now constructs guest-owned companion TEBs and the shared information
-for the three captured kernel profiles. Selection uses captured native kernel
+for the captured kernel profiles. Selection uses captured native kernel
 identity rather than the guest-reported version; unknown native x86 profiles
 fail with `STATUS_NOT_SUPPORTED`. Built-in x86 and native 64-bit processes keep
 their existing paths. The compound TEB allocation is 12288 bytes: the native
@@ -109,3 +109,29 @@ broader native64 RTL/callback interfaces require further qualification. Older
 NLS profiles, DPI and complete Linux/macOS/Windows installed-library userland
 are also outside this result. Public C API 1.15.0, feature defaults and execution
 budgets are unchanged.
+
+## Updated ARM64 kernel qualification
+
+[The build-29695 observation](local-29695-v1.json) records four new native
+producers using the same frozen information/resource C++ sources. Both x86
+and x86 with large-address awareness observe main and owned-thread linkage;
+their page/CPU/execute words are `[4096, 2, 0]`, information placement is
+PEB + `0x490`, and companion offsets are `-8192/+8192` bytes. Both resource
+captures retain the same `xtajit.dll` identity, 16,384-byte section, access mask,
+48-byte header and 408-entry quiescent state. The complete native free chain
+remains outside this observer's scope.
+
+The ARM64 10.0.29695 identity is now explicitly admitted alongside 29683;
+the AMD64 20348/26100 identities are unchanged. Adjacent builds, wrong major
+or minor versions, and an AMD64/32-bit kernel with build 29695 remain rejected.
+The capture-driven admission test uses all four main/thread samples. Existing
+alias, teardown, TLS separation and rollback tests continue to cover guest
+resource ownership. The fixed work section and native64 identity page retain
+their existing bounds; no host callback, pointer or handle is published.
+
+This prerequisite was exposed by the new installed NLS checks. Their first
+run passed native ARM64 initialization and file verification, then rejected
+x86 process creation at the unmeasured WoW64 gate. The failed run remains in
+the task ledger. [The NLS kernel qualification](../native-nls-build-29695/README.md)
+records the paired NLS/MUI change and its final validation separately from
+ordinary program completion.

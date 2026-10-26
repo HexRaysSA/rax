@@ -28,6 +28,20 @@ struct Profile {
 }
 
 impl Profile {
+    fn kernel(version: &super::WinVersion, machine: u16) -> Result<Self, u32> {
+        let (flags, information_offset) =
+            match (version.major, version.minor, version.build, machine) {
+                (10, 0, 20348 | 26100, 0x8664) => (1, 0x488),
+                (10, 0, 29683 | 29695, 0xaa64) => (2, 0x490),
+                _ => return Err(STATUS_NOT_SUPPORTED),
+            };
+        Ok(Self {
+            machine,
+            flags,
+            information_offset,
+        })
+    }
+
     fn select(p: &Proc) -> Result<Option<Self>, u32> {
         if p.arch != WinArch::X86 {
             return Ok(None);
@@ -40,17 +54,7 @@ impl Profile {
             .object_namespace
             .native_machine
             .ok_or(STATUS_NOT_SUPPORTED)?;
-        let (flags, information_offset) =
-            match (version.major, version.minor, version.build, machine) {
-                (10, 0, 20348 | 26100, 0x8664) => (1, 0x488),
-                (10, 0, 29683, 0xaa64) => (2, 0x490),
-                _ => return Err(STATUS_NOT_SUPPORTED),
-            };
-        Ok(Some(Self {
-            machine,
-            flags,
-            information_offset,
-        }))
+        Self::kernel(version, machine).map(Some)
     }
 }
 

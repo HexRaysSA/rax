@@ -44,11 +44,10 @@ fn native_nls_initialize_installed_leaves_map_locale_file_and_preserve_ignored_o
             "installed profile must report the current host build"
         );
         // The native initialization profile (ignored casing/version outputs,
-        // WoW64 capture ordering) was measured on build 29683, and the snapshot
-        // only records it there. Other builds expose the entry as unimplemented
-        // rather than an unverified emulation; the recorded 29683 corpora keep
-        // the semantics covered on any host.
-        if p.cfg.version.major != 10 || p.cfg.version.build != 29683 {
+        // WoW64 capture ordering) was independently measured on 29683 and 29695.
+        // Other builds expose the entry as unimplemented. Recorded corpora
+        // cover the shared semantics on every host.
+        if !crate::user::windows::nls::supports_startup_profile(&p.cfg.version) {
             assert!(
                 p.nls.as_ref().and_then(|nls| nls.initialize()).is_none(),
                 "unmeasured build must not record an initialization profile"

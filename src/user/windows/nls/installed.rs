@@ -115,7 +115,7 @@ pub(crate) fn snapshot(
         }
     }
     let nls = Nls::new(sections)?;
-    if version.major == 10 && version.minor == 0 && version.build == 29683 {
+    if super::supports_startup_profile(version) {
         let (locale, bytes) = initialize::capture()?;
         nls.with_initialize(locale, bytes)?
             .with_mui(mui::capture()?)
@@ -156,10 +156,7 @@ mod tests {
             assert_eq!(&bytes[..file.len()], file.as_slice(), "{name}");
             assert!(bytes[file.len()..].iter().all(|&b| b == 0), "{name}");
         }
-        if runtime.version.major == 10
-            && runtime.version.minor == 0
-            && runtime.version.build == 29683
-        {
+        if super::super::supports_startup_profile(&runtime.version) {
             let init = nls
                 .initialize()
                 .expect("measured native initialization profile");
@@ -170,6 +167,9 @@ mod tests {
             println!(
                 "Validated actual NtInitializeNlsFiles readonly bytes against installed locale.nls"
             );
+        } else {
+            assert!(nls.initialize().is_none());
+            assert!(nls.mui().is_none());
         }
     }
 }

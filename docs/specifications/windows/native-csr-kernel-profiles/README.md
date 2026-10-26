@@ -96,7 +96,8 @@ separate native-entry draft; that draft is excluded from this changeset.
 
 High-impact outstanding scope: physical AMD64 CSR admission, other sessions,
 generic CSR families and complete Windows startup remain unqualified. Other
-build 29683-specific NLS/WoW64 contracts are unchanged and need independent
-qualification where reached on 29695. Kernel version is not substituted into
-those contracts by this CSR build predicate. The full Linux/macOS/Windows
+NT contracts need independent qualification where reached on 29695.
+[NLS initialization and query-only MUI](../native-nls-build-29695/README.md)
+have their own measured qualification and predicate. The CSR predicate does
+not substitute versions into those contracts. The full Linux/macOS/Windows
 installed-library objective remains active.

@@ -2905,3 +2905,27 @@ are in docs/specifications/windows/native-csr-kernel-profiles/README.md.
 This does not extend other native profiles, physical AMD64 admission, generic
 CSR services or complete installed-library startup. Original fault fixtures,
 assertions and execution limits remain unchanged.
+
+## NLS qualification on Windows 29695
+
+Initialization and query-only MUI now admit Windows 10.0 builds 29683 and
+29695 through one NLS-specific predicate shared by acquisition and dispatch.
+Independent native controls establish equivalent output, guard, mapping,
+protection and query behavior on the updated ARM64 kernel. Corrected x86
+controls use the observed three-slot `RET12` ABI; original producers remain
+unchanged. Three fresh captures correlate payload generation with the shared
+language count. Independent main/thread and resource controls also qualify
+the existing guest-owned WoW64 companion state on ARM64 kernel 29695, allowing
+the x86 installed-leaf checks to run. Sources, hashes, exact counts, bounded memory arithmetic and
+assumptions are recorded in
+docs/specifications/windows/native-nls-build-29695/README.md.
+Other native build profiles, cache mutations and complete installed-library
+execution are separate boundaries. The original hardware-fault fixture and
+execution limits remain unchanged.
+
+Selected macOS/Linux suites each pass 22 NLS, 8 MUI and 7 WoW64 tests; native
+Windows passes 30, 13 and 7, plus 39 namespace tests. Complete C API suites pass
+191 tests on every host, with no ignored cases. The unchanged original hardware
+fault fixture completes its ARM64 case, then the x86 case reaches an unqualified
+ProcessImageInformation copy on kernel29695. Overall fault-fixture completion
+and the wider installed-library objective remain unproven.
