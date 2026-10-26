@@ -190,7 +190,10 @@ impl VirtioBlk {
                 };
                 if features & required == 0 {
                     (VIRTIO_BLK_S_UNSUPP, 0)
-                } else if self.read_only || header.sector != 0 || buffers.write_length != 1 {
+                } else if (self.read_only || self.disk.is_read_only())
+                    || header.sector != 0
+                    || buffers.write_length != 1
+                {
                     (VIRTIO_BLK_S_IOERR, 0)
                 } else {
                     let length = buffers.read_length - REQ_HEADER_LEN;
@@ -211,7 +214,14 @@ impl VirtioBlk {
                     }
                 }
             }
-            VIRTIO_BLK_T_FLUSH => (VIRTIO_BLK_S_OK, 0),
+            VIRTIO_BLK_T_FLUSH => (
+                if self.disk.flush().is_ok() {
+                    VIRTIO_BLK_S_OK
+                } else {
+                    VIRTIO_BLK_S_IOERR
+                },
+                0,
+            ),
             VIRTIO_BLK_T_GET_ID => {
                 let length = buffers.write_length - 1;
                 if buffers.read_length != REQ_HEADER_LEN || length != self.id.len() {
@@ -239,7 +249,7 @@ impl VirtioBlk {
             }
             buffers.write_length - 1
         } else {
-            if buffers.write_length != 1 || self.read_only {
+            if buffers.write_length != 1 || self.read_only || self.disk.is_read_only() {
                 return Ok((VIRTIO_BLK_S_IOERR, 0));
             }
             buffers.read_length - REQ_HEADER_LEN
@@ -268,7 +278,9 @@ impl VirtioBlk {
             if !RequestBuffers::read_into(memory, &view, &mut data) {
                 return Ok((VIRTIO_BLK_S_IOERR, 0));
             }
-            self.disk[start as usize..end as usize].copy_from_slice(&data);
+            if self.disk.write_bytes(start as usize, &data).is_err() {
+                return Ok((VIRTIO_BLK_S_IOERR, 0));
+            }
             Ok((VIRTIO_BLK_S_OK, 0))
         }
     }

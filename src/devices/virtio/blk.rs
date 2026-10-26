@@ -1,9 +1,9 @@
 //! virtio-blk (block device) over the MMIO transport.
 //!
 //! Implements DeviceID 2 from the VIRTIO specification, section "Block Device".
-//! The disk image is an in-memory `Vec<u8>` whose length, divided by the 512
-//! byte sector size, is reported as the device capacity in the configuration
-//! space.
+//! The shared media backend preserves the original in-memory constructor and
+//! supports bounded raw-image attachments. Its length divided by 512 bytes is
+//! reported as device capacity.
 //!
 //! # Request format
 //!
@@ -20,11 +20,12 @@
 //!
 //! # What is deferred
 //!
-//! `IN`/`OUT` (read/write) and `GET_ID` are serviced. `FLUSH` is accepted
-//! as a no-op success (the image is purely in memory). `DISCARD`/`WRITE_ZEROES`
+//! `IN`/`OUT` (read/write) and `GET_ID` are serviced. `FLUSH` synchronizes
+//! persistent images and reports host failures. `DISCARD`/`WRITE_ZEROES`
 //! ranges are supported when negotiated; topology/geometry config fields are
 //! not implemented. Indirect descriptor tables are supported when negotiated.
 
+use super::block_image::BlockImage;
 use super::{DescriptorChain, Mem, VIRTIO_F_VERSION_1, VirtQueue, VirtioDevice};
 
 /// virtio-blk DeviceID.
@@ -105,7 +106,7 @@ pub struct VirtioBlk {
     /// Backing disk image. Length must be a multiple of [`SECTOR_SIZE`] for the
     /// reported capacity to be exact; a partial trailing sector is truncated
     /// from the advertised capacity.
-    disk: Vec<u8>,
+    disk: BlockImage,
     /// Whether the device refuses writes (advertises `VIRTIO_BLK_F_RO`).
     read_only: bool,
     /// Device id string returned by `GET_ID`.
@@ -115,6 +116,10 @@ pub struct VirtioBlk {
 impl VirtioBlk {
     /// Create a device backed by `disk` bytes.
     pub fn new(disk: Vec<u8>) -> Self {
+        Self::with_image(BlockImage::from_bytes(disk))
+    }
+    /// Attach an already opened raw image or in-memory medium.
+    pub fn with_image(disk: BlockImage) -> Self {
         VirtioBlk {
             disk,
             read_only: false,
@@ -168,14 +173,14 @@ impl VirtioDevice for VirtioBlk {
     }
 
     fn device_features(&self) -> u64 {
-        // Advertise FLUSH (handled as a no-op) plus VERSION_1 (the transport
-        // OR-s this in regardless). RO is advertised only when configured.
+        // FLUSH synchronizes persistent images. Image-level read-only mode
+        // remains authoritative even if the device override is cleared.
         let mut feats = VIRTIO_BLK_F_FLUSH
             | VIRTIO_F_VERSION_1
             | super::VIRTIO_F_INDIRECT_DESC
             | VIRTIO_BLK_F_DISCARD
             | VIRTIO_BLK_F_WRITE_ZEROES;
-        if self.read_only {
+        if self.read_only || self.disk.is_read_only() {
             feats |= VIRTIO_BLK_F_RO;
         }
         feats

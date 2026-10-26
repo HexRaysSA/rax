@@ -101,6 +101,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `virtio_ranges` | `suites/devices/virtio_ranges.rs` |
 | `checkpoint_config` | `suites/vm/checkpoint_config.rs` |
 | `ahci_dma` | `suites/devices/ahci_dma.rs` |
+| `storage_images` | `suites/devices/storage_images.rs` |
 
 ## Reachability rules
 
@@ -271,7 +272,7 @@ See `docs/development/windows-user-memory.md` for ownership and platform limits.
 
 ## Backend and storage remediation targets
 
-The twenty-one backend/device targets above execute in the core CI matrix's
+The twenty-two backend/device targets above execute in the core CI matrix's
 `backend and storage regressions` step and the scheduled suite's
 `backend-devices` shard. Both enable `hvf`, compiling the native adapter on
 macOS, and execute every selected owning binary without a test-name filter.
@@ -307,3 +308,10 @@ interrupt, error and recovery paths. The complete binary includes its existing
 unit controls and the fault/bounds regressions. Its independent bare-metal QEMU
 transport, raw profile differences and evidence limits are documented in
 [`docs/development/ahci-dma.md`](../docs/development/ahci-dma.md).
+
+
+`storage_images` covers raw-image budgets, read-only and COW isolation,
+write-through persistence, locking, host-capacity failures, and actual NVMe,
+AHCI and virtio command paths. Shared host-write fault controls also execute
+with the library and both owning virtio binaries. See
+[`docs/development/storage-images.md`](../docs/development/storage-images.md).

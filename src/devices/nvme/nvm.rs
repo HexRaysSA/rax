@@ -2,8 +2,8 @@
 use super::{
     LBA_SIZE, Mem, NVM_COMPARE, NVM_DATASET_MANAGEMENT, NVM_FLUSH, NVM_READ, NVM_WRITE,
     NVM_WRITE_ZEROES, NvmeController, SC_COMPARE_FAILURE, SC_DATA_XFER_ERROR, SC_INVALID_FIELD,
-    SC_INVALID_NAMESPACE, SC_INVALID_OPCODE, SC_LBA_OUT_OF_RANGE, SC_SUCCESS, SubmissionEntry, prp,
-    sgl,
+    SC_INVALID_NAMESPACE, SC_INVALID_OPCODE, SC_LBA_OUT_OF_RANGE, SC_NAMESPACE_WRITE_PROTECTED,
+    SC_SUCCESS, SC_WRITE_FAULT, SubmissionEntry, prp, sgl,
 };
 use std::ops::Range;
 
@@ -17,8 +17,14 @@ impl<M: Mem> NvmeController<M> {
         if entry.nsid != 1 && !(entry.opcode == NVM_FLUSH && entry.nsid == u32::MAX) {
             return (SC_INVALID_NAMESPACE, 0);
         }
+        if self.disk.is_read_only()
+            && (matches!(entry.opcode, NVM_WRITE | NVM_WRITE_ZEROES)
+                || entry.opcode == NVM_DATASET_MANAGEMENT && entry.cdw11 & 4 != 0)
+        {
+            return (SC_NAMESPACE_WRITE_PROTECTED, 0); // Namespace is Write Protected.
+        }
         let result = match entry.opcode {
-            NVM_FLUSH => Ok(()), // No volatile write cache exists.
+            NVM_FLUSH => self.disk.flush().map_err(|_| SC_WRITE_FAULT), // Persistent write-through backend.
             NVM_READ => self.read_blocks(entry),
             NVM_WRITE => self.write_blocks(entry),
             NVM_COMPARE => self.compare_blocks(entry),
@@ -83,8 +89,13 @@ impl<M: Mem> NvmeController<M> {
     fn write_blocks(&mut self, entry: &SubmissionEntry) -> Result<(), u16> {
         let range = self.command_range(entry)?;
         let bytes = self.source_bytes(entry, range.len())?;
-        self.disk[range].copy_from_slice(&bytes);
-        Ok(())
+        self.disk.write_bytes(range.start, &bytes).map_err(|_| {
+            if self.disk.is_read_only() {
+                SC_NAMESPACE_WRITE_PROTECTED
+            } else {
+                SC_WRITE_FAULT
+            }
+        })
     }
 
     fn compare_blocks(&self, entry: &SubmissionEntry) -> Result<(), u16> {
@@ -109,8 +120,13 @@ impl<M: Mem> NvmeController<M> {
         let range = self.command_range(entry)?;
         // Both DEAC modes return deterministic zero in this advertised profile.
         // DPTR is unused and must never cause DMA for a Write Zeroes command.
-        self.disk[range].fill(0);
-        Ok(())
+        self.disk.zero_bytes(range).map_err(|_| {
+            if self.disk.is_read_only() {
+                SC_NAMESPACE_WRITE_PROTECTED
+            } else {
+                SC_WRITE_FAULT
+            }
+        })
     }
 
     fn dataset_management(&mut self, entry: &SubmissionEntry) -> Result<(), u16> {
@@ -147,7 +163,13 @@ impl<M: Mem> NvmeController<M> {
                 end = end.max(ranges[cursor].end);
                 cursor += 1;
             }
-            self.disk[start..end].fill(0);
+            self.disk.zero_bytes(start..end).map_err(|_| {
+                if self.disk.is_read_only() {
+                    SC_NAMESPACE_WRITE_PROTECTED
+                } else {
+                    SC_WRITE_FAULT
+                }
+            })?;
         }
         Ok(())
     }

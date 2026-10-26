@@ -73,6 +73,7 @@
 //! See `docs/development/ahci-dma.md` for primary sources and reference limits.
 
 use super::bus::MmioDevice;
+use super::virtio::block_image::BlockImage;
 #[path = "ahci/command.rs"]
 mod command;
 #[path = "ahci/dma.rs"]
@@ -437,7 +438,7 @@ pub struct AhciController<M: Mem> {
     port: Port,
 
     // ---- Port 0 backing disk ----
-    disk: Vec<u8>,
+    disk: BlockImage,
 
     // ---- Number of command slots advertised (CAP.NCS), 1-based ----
     num_slots: u32,
@@ -450,6 +451,10 @@ impl<M: Mem> AhciController<M> {
     /// Build a controller at ABAR `base`, with guest memory `mem` and a single
     /// SATA disk backed by `disk` bytes (on port 0).
     pub fn new(base: u64, mem: M, disk: Vec<u8>) -> Self {
+        Self::with_image(base, mem, BlockImage::from_bytes(disk))
+    }
+    /// Attach an already opened raw image or in-memory medium.
+    pub fn with_image(base: u64, mem: M, disk: BlockImage) -> Self {
         // A port only reports a present device when media is actually attached.
         // With no disk, PxSSTS.DET reads 0 so the guest's libata probe skips the
         // port instead of timing out on IDENTIFY for a phantom drive.

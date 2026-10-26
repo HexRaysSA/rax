@@ -2450,10 +2450,83 @@
         "/Users/int/dev/rax-audit-work/rax-ahci-dma/final-ahci-independent.log",
         "/Users/int/dev/rax-audit-work/rax-ahci-dma/final-native-ci-selection.log",
         "/Users/int/dev/rax-audit-work/rax-ahci-dma/final-intel-ci-selection.log",
-        "/Users/int/dev/rax-audit-work/rax-ahci-dma/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-ahci-dma/final-capi.log",
+        "src/devices/virtio/block_image.rs",
+        "src/devices/virtio/mod.rs",
+        "src/devices/virtio/blk.rs",
+        "src/devices/virtio/blk/request.rs",
+        "src/devices/virtio/blk/ranges.rs",
+        "src/devices/nvme.rs",
+        "src/devices/nvme/nvm.rs",
+        "src/devices/ahci.rs",
+        "src/devices/ahci/command.rs",
+        "src/devices/ahci/dma.rs",
+        "tests/suites/devices/storage_images.rs",
+        "Cargo.toml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "tests/README.md",
+        "docs/development/storage-images.md",
+        "docs/specifications/rust/std-fs-1.98.1.rs",
+        "docs/specifications/rust/LICENSE-MIT",
+        "docs/specifications/rust/LICENSE-APACHE",
+        "docs/specifications/rust/PROVENANCE.md",
+        "tools/storage/image_guest.rs",
+        "tools/storage/image_oracle.py",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/parent-api-result.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/parent-new-api.stderr",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/assumption-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/media-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/reference-frozen/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/worktree-images-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-images-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/selection-proof.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-images.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-images.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-sgl-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-queue-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-admission-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-commands-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-virtio-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-range-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-checkpoint-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-ahci-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-images-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-native-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-capi.log"
       ],
       "remaining_validation": [
-        "Persistent storage images,complete checkpoint/media/concurrent DMA/native interrupt andLinuxboot integration;remainingNVMe/S5L8900 capabilities."
+        "Configured storage/runtime attachment,strong source identity,complete checkpoint/media/concurrent DMA/native interrupt andLinuxboot integration;remainingNVMe/S5L8900 capabilities."
       ]
     },
     {
@@ -4477,6 +4550,94 @@
         "Partial guest-memory READ DMA cannot be rolled back and is explicitly tested.",
         "Raw QEMU profile differences retained; no whole-controller or native hardware equivalence.",
         "Full storage/checkpoint/boot/timing/native-host integration remains open."
+      ]
+    },
+    {
+      "id": "D-STORAGE-IMAGE-MEDIA",
+      "area": "Shared raw-image attachment and device media",
+      "finding": "Controllers had only in-memory Vec constructors;additive raw-image APIs now provide bounded readonly/COW/write-through attachment and host-error reporting.",
+      "status": "locally_validated",
+      "evidence": [
+        "src/devices/virtio/block_image.rs",
+        "src/devices/virtio/mod.rs",
+        "src/devices/virtio/blk.rs",
+        "src/devices/virtio/blk/request.rs",
+        "src/devices/virtio/blk/ranges.rs",
+        "src/devices/nvme.rs",
+        "src/devices/nvme/nvm.rs",
+        "src/devices/ahci.rs",
+        "src/devices/ahci/command.rs",
+        "src/devices/ahci/dma.rs",
+        "tests/suites/devices/storage_images.rs",
+        "Cargo.toml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "tests/README.md",
+        "docs/development/storage-images.md",
+        "docs/specifications/rust/std-fs-1.98.1.rs",
+        "docs/specifications/rust/LICENSE-MIT",
+        "docs/specifications/rust/LICENSE-APACHE",
+        "docs/specifications/rust/PROVENANCE.md",
+        "tools/storage/image_guest.rs",
+        "tools/storage/image_oracle.py",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/parent-api-result.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/parent-new-api.stderr",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/assumption-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/media-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/reference-frozen/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/worktree-images-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-images-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/selection-proof.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-images.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-images.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-sgl-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-queue-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-admission-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-commands-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-virtio-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-range-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-checkpoint-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-ahci-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-images-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-native-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-storage-images/final-capi.log"
+      ],
+      "remaining_validation": [
+        "Readonly/COWare frozen fullbytecopies;64GiB hardbudget andcallerexplicitlimit;residentmemoryO(imagebytes).",
+        "PersistenthostIOmayhaveacceptedprefixbeforefailure;cachetracksit;noatomichostrollbackorpower-lossproof.",
+        "Lockscoordinatecooperatingwriters;arbitraryhostcontentchanges/pathreplacementarenotexcluded.",
+        "PublicAPIonly;CLI/TOML/runtimeattachment,strongidentity,completecheckpoint/replay remain integration requirements.",
+        "ActualparentcompilecontrolprovesnewAPIabsence,notaruntimedefectintheoldVecconstructors."
       ]
     }
   ],
@@ -90570,6 +90731,2165 @@
           "scope": "Required final gates use fixed task-local1.99.1;retained earlier1.98.1 references/preflights remain separately versioned. No global compiler/default changes."
         }
       }
+    },
+    {
+      "id": "shared-raw-images-readonly-cow-and-write-through-device-media",
+      "status": "locally_validated",
+      "scope": "Add bounded public raw-image attachments and shared readonly/COW/write-through media toNVMe,AHCIandvirtio;propagate host errors and preserve originalVecconstructors. Config/runtime/checkpoint/replay integration stays separate.",
+      "assumptions": [
+        {
+          "id": "I1",
+          "assumption": "Raw images are nonempty sector-aligned regular files with explicit bounded byte budgets.",
+          "basis": "512-byte media capacity contracts and MAX_IMAGE_BYTES64GiB.",
+          "dependent_result": "Admission never creates,pads,resizes or reserves the whole declared image before reading.",
+          "stress_test": "Empty,partial,oversized,missing,directory,zero/oversizedbudget,exact end,overflow extents.",
+          "falsification_probe": "Unexpected host mutation or accepted malformed image.",
+          "status": "Locally tested."
+        },
+        {
+          "id": "I2",
+          "assumption": "Readonly and COW are fully loaded frozen instances; persistent mode retains its opened file.",
+          "basis": "Bounded full image load and explicit ImageMode.",
+          "dependent_result": "Readonly rejection,COW isolation,write-through file effects.",
+          "stress_test": "All modes,independent instances,post-load host mutation and actualNVMe/AHCI/virtio commands.",
+          "falsification_probe": "COW guest writes reach source or later base changes alter a loaded instance.",
+          "status": "Locally tested;no lazy or persistent-overlay claim."
+        },
+        {
+          "id": "I3",
+          "assumption": "Advisory file locks coordinate cooperating users.",
+          "basis": "Installed std::fs try_lock APIs,archived source and licenses.",
+          "dependent_result": "Exclusive persistent attachment and shared capture.",
+          "stress_test": "Conflicting opens,drop/reopen,hardlink/symlink aliases.",
+          "falsification_probe": "Lock success despite a cooperating conflicting persistent holder.",
+          "status": "Local macOS tested;arbitrary noncooperating host writers excluded."
+        },
+        {
+          "id": "I4",
+          "assumption": "Host writes can accept a prefix before failing.",
+          "basis": "Write result lengths and explicit cache updates.",
+          "dependent_result": "Cache reflects accepted host bytes without false atomic rollback.",
+          "stress_test": "Immediate/late failure,short/interrupted writes and zero progress.",
+          "falsification_probe": "Cache modifies bytes the host never accepted,duplicates bytes or reports false success.",
+          "status": "Four actual helper fault controls pass."
+        },
+        {
+          "id": "I5",
+          "assumption": "Persistent success includes host synchronization.",
+          "basis": "Write-through mutation and sync_all in shared backend.",
+          "dependent_result": "VWC0 remains valid;FUA is at least as durable as ordinary successful writes.",
+          "stress_test": "Real file visibility before completion,all3FLUSH error paths and independent full intermediate records.",
+          "falsification_probe": "A reported successful command skips host publication or swallows errors.",
+          "status": "Locally tested;physical power-loss durability unknown."
+        },
+        {
+          "id": "I6",
+          "assumption": "Device protection/status is specific to each interface.",
+          "basis": "NVMeNSATTR/generic20h/media280h,VirtioRO/IOERR,AHCItask error/recovery.",
+          "dependent_result": "No readonly bypass and no false host-error completion.",
+          "stress_test": "Reads through all3devices;readonlywrite/zeroes/deallocation;clearedVirtiooverride;host-capacityfailures.",
+          "falsification_probe": "ROwrite succeeds or host-failed FLUSH reports success.",
+          "status": "Locally tested."
+        },
+        {
+          "id": "I7",
+          "assumption": "Image APIs do not establish CLI/runtime attachment,checkpoint identity or external replay suppression.",
+          "basis": "Currentconfig/runtime/snapshot andVec-compatible constructors.",
+          "dependent_result": "Device-capabilities andstate/replay findings remainpartial.",
+          "stress_test": "Configuredboot,strongsourceidentity,complete media/private state,external-effect replay.",
+          "falsification_probe": "PublicAPImedia evidenceisclaimedwholeVMclosure.",
+          "status": "Integration remains open."
+        }
+      ],
+      "owned_paths": [
+        "src/devices/virtio/block_image.rs",
+        "src/devices/virtio/mod.rs",
+        "src/devices/virtio/blk.rs",
+        "src/devices/virtio/blk/request.rs",
+        "src/devices/virtio/blk/ranges.rs",
+        "src/devices/nvme.rs",
+        "src/devices/nvme/nvm.rs",
+        "src/devices/ahci.rs",
+        "src/devices/ahci/command.rs",
+        "src/devices/ahci/dma.rs",
+        "tests/suites/devices/storage_images.rs",
+        "Cargo.toml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "tests/README.md",
+        "docs/development/storage-images.md",
+        "docs/specifications/rust/std-fs-1.98.1.rs",
+        "docs/specifications/rust/LICENSE-MIT",
+        "docs/specifications/rust/LICENSE-APACHE",
+        "docs/specifications/rust/PROVENANCE.md",
+        "tools/storage/image_guest.rs",
+        "tools/storage/image_oracle.py"
+      ],
+      "primary_sources": [
+        {
+          "path": "docs/specifications/rust/std-fs-1.98.1.rs",
+          "sha256": "d90d36fa6f8f80a62530e86ff5898cd75e8ed4fc19997e24d7a340a9b97479c6",
+          "url": "https://github.com/rust-lang/rust/blob/1.98.1/library/std/src/fs.rs",
+          "contract": "Installedrust-src1.98.1(48a229cea2026-09-01),File::try_lock/try_lock_sharedandWrite/sync contracts;originallicensesarchived."
+        },
+        {
+          "path": "docs/specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf",
+          "sha256": "ff92005660e8b58e248b2ff1416acc8c8c1aba1b3b7c14f6de9b80f2181649bc",
+          "contract": "Namespace write-protected generic status20h,NSATTRbyte99,andmedia/data-integrity WriteFaultSCT2/SC80h;VWC0retainedthroughwrite-through."
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Configured attachment,strongsourceidentity,completecheckpoint/media/private state and replay external-effect suppression remainopen."
+        },
+        {
+          "impact": "medium",
+          "finding": "Images are fully resident;no persistentCOWoverlay orlazy paging.NativeLinux/Windowslocking/bootremain separate."
+        },
+        {
+          "impact": "low",
+          "finding": "File lock API requiresRust1.89ornewer;currentvalidationuses1.98.1."
+        }
+      ],
+      "scope_limits": [
+        "Readonly/COWare frozen fullbytecopies;64GiB hardbudget andcallerexplicitlimit;residentmemoryO(imagebytes).",
+        "PersistenthostIOmayhaveacceptedprefixbeforefailure;cachetracksit;noatomichostrollbackorpower-lossproof.",
+        "Lockscoordinatecooperatingwriters;arbitraryhostcontentchanges/pathreplacementarenotexcluded.",
+        "PublicAPIonly;CLI/TOML/runtimeattachment,strongidentity,completecheckpoint/replay remain integration requirements.",
+        "ActualparentcompilecontrolprovesnewAPIabsence,notaruntimedefectintheoldVecconstructors."
+      ],
+      "quality_gates": {
+        "QG1": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Complete stressed assumption register,includingadvisorylock andpartialhosteffectbounds."
+        },
+        "QG2": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Allmode/media/admission/durability/protectionpaths mappedtopublicAPI,devicecommandsandindependentrecords."
+        },
+        "QG3": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "512-byteunits,64GiBbudget,seed0x52415870,source/library/artifacthashes."
+        },
+        "QG4": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Partialwrites,readonlyoverride,changedcapacity andunknownphysicaldurabilityexplicit."
+        },
+        "QG5": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Archivedstdsource/licensesandprimaryNVMeerror/statuscontracts."
+        },
+        "QG6": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "High/medium/low integration boundaries remainopen."
+        },
+        "QG7": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Exactownedpathsandunrelated/indexintegrity."
+        },
+        "QG8": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Fullnative/translatedowners/libraryinventories,CAPIandindependentmodelwithoutfilters."
+        },
+        "QG9": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "All22CIownersand531localmacOStestsregisteredanddocumented."
+        }
+      },
+      "baseline": "770d856dadca973cd01b1786277fe90bc81831ba",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 407.01537124999595
+          },
+          {
+            "check": "final-clippy",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 172.24174700000003
+          },
+          {
+            "check": "final-fmt",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 11.91754104100255
+          },
+          {
+            "check": "final-doc",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 4.4728216669973335
+          },
+          {
+            "check": "final-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.030493917001877
+          },
+          {
+            "check": "final-sgl",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_sgl",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.14041279200319
+          },
+          {
+            "check": "final-queues",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_queues",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.056825832994946
+          },
+          {
+            "check": "final-admission",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_admission",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.144654916999571
+          },
+          {
+            "check": "final-commands",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_commands",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.181676417007111
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 0.2313573749997886
+          },
+          {
+            "check": "final-virtio",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "virtio_indirect",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.2992553749936633
+          },
+          {
+            "check": "final-ranges",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "virtio_ranges",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.2997604170013801
+          },
+          {
+            "check": "final-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "checkpoint_config",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.17610245900141308
+          },
+          {
+            "check": "final-ahci",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ahci_dma",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.5331882079990464
+          },
+          {
+            "check": "final-images",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "storage_images",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.23946274999616435
+          },
+          {
+            "check": "final-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 351.1252635409983
+          },
+          {
+            "check": "final-intel-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 490.1055469999992
+          },
+          {
+            "check": "final-intel-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.894291624994366
+          },
+          {
+            "check": "final-intel-sgl",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_sgl",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.367528290997143
+          },
+          {
+            "check": "final-intel-queues",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_queues",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.388777207997919
+          },
+          {
+            "check": "final-intel-admission",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_admission",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.371577374993649
+          },
+          {
+            "check": "final-intel-commands",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_commands",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.579469834003248
+          },
+          {
+            "check": "final-intel-virtio",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "virtio_indirect",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.6151675840010284
+          },
+          {
+            "check": "final-intel-ranges",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "virtio_ranges",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.6588145829955465
+          },
+          {
+            "check": "final-intel-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "checkpoint_config",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.37292004199844087
+          },
+          {
+            "check": "final-intel-ahci",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "ahci_dma",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.8785290410014568
+          },
+          {
+            "check": "final-intel-images",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "storage_images",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.43355733399948804
+          },
+          {
+            "check": "final-intel-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2486.572086125001
+          },
+          {
+            "check": "final-sgl-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/nvme-diff/sgl_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-sgl-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 6.546463458005746
+          },
+          {
+            "check": "final-queue-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/nvme-diff/queue_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-queue-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 15.613185375004832
+          },
+          {
+            "check": "final-admission-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/nvme-diff/admission_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-admission-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 6.705930832999002
+          },
+          {
+            "check": "final-commands-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/nvme-diff/commands_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-commands-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 10.741765875005512
+          },
+          {
+            "check": "final-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/nvme-diff/prp_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 22.1239717080025
+          },
+          {
+            "check": "final-virtio-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/virtio-diff/indirect_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-virtio-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 2.207722791004926
+          },
+          {
+            "check": "final-range-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/virtio-diff/range_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-range-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 2.9374929170007817
+          },
+          {
+            "check": "final-checkpoint-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/checkpoint/codec_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-codec-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target"
+            ],
+            "code": 0,
+            "seconds": 1.2539139999935287
+          },
+          {
+            "check": "final-ahci-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/ahci-diff/dma_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-ahci-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 2.0818592910000007
+          },
+          {
+            "check": "final-images-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree/tools/storage/image_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/final-images-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-storage-images-target"
+            ],
+            "code": 0,
+            "seconds": 2.7757138750021113
+          },
+          {
+            "check": "final-native-ci-selection",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--test",
+              "nvme_commands",
+              "--test",
+              "virtio_indirect",
+              "--test",
+              "virtio_ranges",
+              "--test",
+              "checkpoint_config",
+              "--test",
+              "ahci_dma",
+              "--test",
+              "storage_images",
+              "--",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 33.20005725000374
+          },
+          {
+            "check": "final-intel-ci-selection",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--test",
+              "nvme_commands",
+              "--test",
+              "virtio_indirect",
+              "--test",
+              "virtio_ranges",
+              "--test",
+              "checkpoint_config",
+              "--test",
+              "ahci_dma",
+              "--test",
+              "storage_images",
+              "--",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 49.050146833003964
+          },
+          {
+            "check": "final-capi",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 15.820570083000348
+          }
+        ],
+        "complete_native_images": {
+          "passed": 24,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.06
+        },
+        "complete_rosetta_images": {
+          "passed": 24,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.06
+        },
+        "complete_native_ahci": {
+          "passed": 54,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.36
+        },
+        "complete_rosetta_ahci": {
+          "passed": 54,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.51
+        },
+        "complete_library_native": {
+          "passed": 10626,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 350.93
+        },
+        "complete_library_rosetta": {
+          "passed": 11609,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 2486.09
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "ci_owning": {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.05
+        },
+        "actual_parent_api_absence": {
+          "code": 1,
+          "args": [
+            "rustc",
+            "+stable",
+            "--edition=2024",
+            "/Users/int/dev/rax-audit-work/rax-storage-images/parent-new-api.rs",
+            "--extern",
+            "rax=/Users/int/dev/rax-audit-work/rax-storage-images/librax-parent.rlib",
+            "-L",
+            "dependency=/Users/int/dev/rax-audit-work/rax-audit-host-final-target/debug/deps",
+            "-o",
+            "/Users/int/dev/rax-audit-work/rax-storage-images/parent-new-api"
+          ],
+          "library_sha256": "874e7537a728520b5b93cb1de632026c5f398bcbf6461335e28cf8ba4da3016e",
+          "consumer_sha256": "9ac089044e7a3b06e27f853cb1bdd227d48134c6bc4ceae349b432eb1d6564a6",
+          "parent_sources": {
+            "src/devices/virtio/mod.rs": "30796b93d4af69286706520fa8daa873b05f1ff2af74ce7677480fd1b253fe57",
+            "src/devices/virtio/blk.rs": "b6f8505dcd4caeee4e58e66c6998e965bff9e01f3fe5b629bb9a3e66be17e107",
+            "src/devices/nvme.rs": "c0d0c177c3ecf157219c99f47b1161435e58a095dbdae1e1e3737fb68e6162ba",
+            "src/devices/ahci.rs": "02531d5600416a488e563e35085abc55f727f2ece1b1ea4c1037f5f48e4a17b0"
+          },
+          "scope": "Compile failure proves additive public image API was absent; it is not a failing runtime regression or defect claim about Vec constructors.",
+          "parent_library_binding": "rax-ahci-dma/worktree-ahci-oracle/manifest.json"
+        },
+        "independent_images": {
+          "modes": 3,
+          "operations": 1548,
+          "cache_and_host_bytes": 50534400,
+          "expected_errors": 543,
+          "failed": 0
+        },
+        "assumption_checks": {
+          "parent_api": {
+            "code": 1,
+            "args": [
+              "rustc",
+              "+stable",
+              "--edition=2024",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/parent-new-api.rs",
+              "--extern",
+              "rax=/Users/int/dev/rax-audit-work/rax-storage-images/librax-parent.rlib",
+              "-L",
+              "dependency=/Users/int/dev/rax-audit-work/rax-audit-host-final-target/debug/deps",
+              "-o",
+              "/Users/int/dev/rax-audit-work/rax-storage-images/parent-new-api"
+            ],
+            "library_sha256": "874e7537a728520b5b93cb1de632026c5f398bcbf6461335e28cf8ba4da3016e",
+            "consumer_sha256": "9ac089044e7a3b06e27f853cb1bdd227d48134c6bc4ceae349b432eb1d6564a6",
+            "parent_sources": {
+              "src/devices/virtio/mod.rs": "30796b93d4af69286706520fa8daa873b05f1ff2af74ce7677480fd1b253fe57",
+              "src/devices/virtio/blk.rs": "b6f8505dcd4caeee4e58e66c6998e965bff9e01f3fe5b629bb9a3e66be17e107",
+              "src/devices/nvme.rs": "c0d0c177c3ecf157219c99f47b1161435e58a095dbdae1e1e3737fb68e6162ba",
+              "src/devices/ahci.rs": "02531d5600416a488e563e35085abc55f727f2ece1b1ea4c1037f5f48e4a17b0"
+            },
+            "scope": "Compile failure proves additive public image API was absent; it is not a failing runtime regression or defect claim about Vec constructors.",
+            "parent_library_binding": "rax-ahci-dma/worktree-ahci-oracle/manifest.json"
+          },
+          "reference": {
+            "modes": 3,
+            "operations": 1548,
+            "cache_and_host_bytes": 50534400,
+            "expected_errors": 543,
+            "failed": 0
+          },
+          "native_public_api": {
+            "passed": 24,
+            "failed": 0
+          },
+          "standalone_fault_controls": {
+            "passed": 4,
+            "failed": 0
+          },
+          "legacy_vec_api_preserved": true
+        },
+        "final-nvme": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 4.85
+        },
+        "final-sgl": {
+          "passed": 50,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 4.96
+        },
+        "final-queues": {
+          "passed": 48,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 4.88
+        },
+        "final-admission": {
+          "passed": 45,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 4.96
+        },
+        "final-commands": {
+          "passed": 49,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 5.0
+        },
+        "final-virtio": {
+          "passed": 46,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.12
+        },
+        "final-ranges": {
+          "passed": 66,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.12
+        },
+        "final-checkpoint": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "final-intel-nvme": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.47
+        },
+        "final-intel-sgl": {
+          "passed": 50,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 6.98
+        },
+        "final-intel-queues": {
+          "passed": 48,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.01
+        },
+        "final-intel-admission": {
+          "passed": 45,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 6.98
+        },
+        "final-intel-commands": {
+          "passed": 49,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.19
+        },
+        "final-intel-virtio": {
+          "passed": 46,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.24
+        },
+        "final-intel-ranges": {
+          "passed": 66,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.26
+        },
+        "final-intel-checkpoint": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "final-native-ci-selection.log": [
+          {
+            "passed": 54,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.38
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.37
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 45,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.14
+          },
+          {
+            "passed": 49,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.76
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.99
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.13
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.45
+          },
+          {
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.07
+          },
+          {
+            "passed": 46,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.13
+          },
+          {
+            "passed": 66,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.16
+          }
+        ],
+        "final-intel-ci-selection.log": [
+          {
+            "passed": 54,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.58
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.18
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.35
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 45,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.81
+          },
+          {
+            "passed": 49,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 10.14
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.62
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.45
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.72
+          },
+          {
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 46,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.25
+          },
+          {
+            "passed": 66,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.29
+          }
+        ],
+        "worktree-native-owning.log": [
+          {
+            "passed": 54,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.38
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.41
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 45,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.0
+          },
+          {
+            "passed": 49,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.6
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.88
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.85
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.23
+          },
+          {
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 46,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.13
+          },
+          {
+            "passed": 66,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.16
+          }
+        ],
+        "worktree-intel-owning.log": [
+          {
+            "passed": 54,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.51
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.07
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.04
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.17
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.4
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 45,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.61
+          },
+          {
+            "passed": 49,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 9.28
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.42
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.37
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.9
+          },
+          {
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 46,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.25
+          },
+          {
+            "passed": 66,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.29
+          }
+        ],
+        "capi": [
+          {
+            "passed": 191,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 15.51
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          }
+        ],
+        "final-oracle": {
+          "cases": 6,
+          "bytes_compared": 8448000,
+          "failed": 0
+        },
+        "final-sgl-oracle": {
+          "cases": 9,
+          "bytes_compared": 12288,
+          "failed": 0
+        },
+        "final-queue-oracle": {
+          "cases": 7,
+          "bytes_compared": 153168,
+          "failed": 0
+        },
+        "final-admission-oracle": {
+          "cases": 14,
+          "bytes_compared": 1200,
+          "failed": 0,
+          "dnr_differences": 24,
+          "primary_policy_differences": 5
+        },
+        "final-commands-oracle": {
+          "cases": 16,
+          "io_commands": 39,
+          "reference_frame_bytes": 214256,
+          "media_bytes_compared": 262144,
+          "payload_bytes_compared": 212992,
+          "dnr_differences": 6,
+          "namespace_profile_differences": 1,
+          "capability_profile_differences": 16,
+          "completion_failure_cases": 0,
+          "media_failure_cases": 0,
+          "output_failure_cases": 0,
+          "capability_failure_cases": 0,
+          "advisory_media_difference_cases": 5,
+          "advisory_output_difference_cases": 5,
+          "reference_contract_failure_cases": 0,
+          "failed": 0
+        },
+        "final-virtio-oracle": {
+          "cases": 16,
+          "requests": 24,
+          "frame_bytes": 7995,
+          "payload_bytes": 9260,
+          "media_bytes": 65536,
+          "capability_differences": 16,
+          "reference_difference_cases": 4,
+          "shared_exact_cases": 12,
+          "shared_requests": 18,
+          "shared_payload_bytes": 7186,
+          "shared_media_bytes": 49152,
+          "failed": 0
+        },
+        "final-range-oracle": {
+          "cases": 16,
+          "requests": 34,
+          "frame_bytes": 247208,
+          "payload_bytes": 262178,
+          "primary_media_bytes": 262144,
+          "capability_profile_differences": 16,
+          "status_profile_differences": 2,
+          "advisory_media_difference_cases": 1,
+          "reference_exact_cases": 12,
+          "reference_fatal_cases": 1,
+          "reference_completed_requests": 32,
+          "failed": 0
+        },
+        "final-codec-oracle": {
+          "cases": 6,
+          "sections": 36,
+          "memory_bytes": 24576,
+          "failed": 0
+        },
+        "final-ahci-oracle": {
+          "cases": 11,
+          "commands": 18,
+          "shared_payload_bytes": 8448,
+          "media_bytes": 360448,
+          "raw_profile_difference_records": 18,
+          "identify_profile_difference_bytes": 84,
+          "failed": 0
+        },
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-storage-images/parent-api-result.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/parent-new-api.stderr",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/assumption-checks.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/media-unit.stdout",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/reference-frozen/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/worktree-images-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-images-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/selection-proof.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-build.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-clippy.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-fmt.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-doc.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-sgl.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-queues.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-admission.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-commands.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-virtio.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-ranges.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-ahci.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-images.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-library.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-build.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-sgl.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-queues.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-admission.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-commands.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-virtio.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-ranges.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-ahci.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-images.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-sgl-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-queue-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-admission-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-commands-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-virtio-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-range-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-checkpoint-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-ahci-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-images-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-native-ci-selection.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-intel-ci-selection.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/final-capi.log",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/isolated-final-launch.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/isolated-final-result.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/isolated-final-accepted.json",
+          "/Users/int/dev/rax-audit-work/rax-storage-images/post-import-owning.log"
+        ],
+        "toolchain": {
+          "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
+          "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",
+          "compiler_verbose": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+          "environment": {
+            "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+            "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin"
+          },
+          "scope": "Required final gates use fixed task-local1.99.1;retained earlier1.98.1 references/preflights remain separately versioned. No global compiler/default changes."
+        },
+        "isolated_final_validation": {
+          "source_input_files": 31218,
+          "complete_isolated_validation": {
+            "code": 0,
+            "actual_returncode": 0,
+            "checks": 41,
+            "required_checks": 41,
+            "seconds": 4278.121552708006,
+            "repository": "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+            "source_inputs_unchanged": true,
+            "product_source_fingerprint": {
+              "rust_and_build_sources_sha256": "fa7ddb831a6057215e42a3dd832a58f06af89ad8cd36bd95526878074348d452",
+              "files": 3588
+            },
+            "checks_sha256": "5b8f7a10a7da89e44e5998614e6174c076097de4224ee00d3a06eebf297eab66",
+            "input_manifest_sha256": "57cc1d3976995d4277d88e8350e9f5414fe0a550fd0808346a40dfa4e08dfe9f",
+            "scope": "Actual complete final commands on immutable isolated source inputs using the fixed native toolchain and one-thread Rosetta library rule. Commit order remains serial;integration source identity and a fresh owning regression are required after import."
+          },
+          "post_import_command": [
+            "cargo",
+            "+stable",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,hvf",
+            "--test",
+            "storage_images",
+            "--",
+            "--test-threads=1"
+          ],
+          "post_import_code": 0,
+          "post_import_seconds": 61.92948079099733,
+          "post_import_log_sha256": "770510876e124621916c93041f15d1334c1f8b7a2cc69ece9f2de18380fadb73",
+          "integration_source_inputs_identical": true,
+          "scope": "Complete file/symlink identity except Git/build/cache artifacts and documentation-only audit ledger;actual isolated commands retained,and actual unfiltered owning target rerun in integration checkout."
+        },
+        "isolated_final_launch": {
+          "repository": "/Users/int/dev/rax-audit-work/rax-storage-images-worktree",
+          "checks": 41,
+          "script": "/Users/int/dev/rax-audit-work/rax-storage-images/run-final-isolated.py",
+          "script_sha256": "cbd03f8cf96a8057ec9294d527232c8afcbc55fcafd31e125926e510958c1511",
+          "original_final_script_sha256": "5c4ca39621ea59cb7a98b78087b6d9629938c89fc6bbee3e1a7321f32b6cd09e",
+          "input_manifest": "/Users/int/dev/rax-audit-work/recovery/parallel-final/rax-storage-images-input-manifest.json",
+          "input_manifest_sha256": "57cc1d3976995d4277d88e8350e9f5414fe0a550fd0808346a40dfa4e08dfe9f",
+          "product_source_fingerprint": {
+            "rust_and_build_sources_sha256": "fa7ddb831a6057215e42a3dd832a58f06af89ad8cd36bd95526878074348d452",
+            "files": 3588
+          },
+          "post_import_target": "storage_images",
+          "post_import_count": 24,
+          "validation_index": "/Users/int/dev/rax-audit-work/rax-storage-images/isolated-validation.index",
+          "validation_index_source": "/Users/int/dev/rax/.git/worktrees/integration-candidate/index",
+          "validation_index_sha256": "eec48212548a98e8f4dc8804005c2cd971ae9d04b5ce9f56aaca2ec8cf47ac69",
+          "complete_command_names": [
+            "final-build",
+            "final-clippy",
+            "final-fmt",
+            "final-doc",
+            "final-nvme",
+            "final-sgl",
+            "final-queues",
+            "final-admission",
+            "final-commands",
+            "final-ci-owning",
+            "final-virtio",
+            "final-ranges",
+            "final-checkpoint",
+            "final-ahci",
+            "final-images",
+            "final-library",
+            "final-intel-build",
+            "final-intel-nvme",
+            "final-intel-sgl",
+            "final-intel-queues",
+            "final-intel-admission",
+            "final-intel-commands",
+            "final-intel-virtio",
+            "final-intel-ranges",
+            "final-intel-checkpoint",
+            "final-intel-ahci",
+            "final-intel-images",
+            "final-intel-library",
+            "final-sgl-independent",
+            "final-queue-independent",
+            "final-admission-independent",
+            "final-commands-independent",
+            "final-independent",
+            "final-virtio-independent",
+            "final-range-independent",
+            "final-checkpoint-independent",
+            "final-ahci-independent",
+            "final-images-independent",
+            "final-native-ci-selection",
+            "final-intel-ci-selection",
+            "final-capi"
+          ],
+          "compiler_environment": {
+            "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+            "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+            "RUSTC_WRAPPER": "",
+            "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+            "CARGO_BUILD_JOBS": "1"
+          },
+          "pid": 19703,
+          "epoch": 1793050534.67506
+        }
+      },
+      "validation_adjustments": [
+        {
+          "issue": "Full final validation ran on the frozen isolated worktree before its serial import.",
+          "correction": "All repository source/input files and symlinks match after import,excluding only Git/build/cache artifacts and the documentation-only audit ledger. All required commands actually ran with unchanged options and domains. The complete owning target was additionally rerun in the integration checkout before this commit. Execution paths and exact command/log hashes are retained."
+        }
+      ]
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

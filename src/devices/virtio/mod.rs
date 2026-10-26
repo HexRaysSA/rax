@@ -60,6 +60,7 @@
 //! checkpoint integration remain separate platform requirements.
 
 pub mod blk;
+pub mod block_image;
 
 use super::bus::MmioDevice;
 

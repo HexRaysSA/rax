@@ -38,14 +38,18 @@ impl VirtioBlk {
             match merged {
                 Some((first, last)) if start <= last => merged = Some((first, last.max(end))),
                 Some((first, last)) => {
-                    self.disk[first..last].fill(0);
+                    if self.disk.zero_bytes(first..last).is_err() {
+                        return VIRTIO_BLK_S_IOERR;
+                    }
                     merged = Some((start, end));
                 }
                 None => merged = Some((start, end)),
             }
         }
         if let Some((start, end)) = merged {
-            self.disk[start..end].fill(0);
+            if self.disk.zero_bytes(start..end).is_err() {
+                return VIRTIO_BLK_S_IOERR;
+            }
         }
         VIRTIO_BLK_S_OK
     }

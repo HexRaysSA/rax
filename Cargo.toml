@@ -437,3 +437,7 @@ path = "tests/suites/vm/checkpoint_config.rs"
 [[test]]
 name = "ahci_dma"
 path = "tests/suites/devices/ahci_dma.rs"
+
+[[test]]
+name = "storage_images"
+path = "tests/suites/devices/storage_images.rs"

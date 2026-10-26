@@ -183,6 +183,7 @@ jobs:
             --test virtio_ranges \
             --test checkpoint_config \
             --test ahci_dma \
+            --test storage_images \
             -- --test-threads=1 --nocapture
       # The x86-64 JIT suite executes transient native mappings and intentionally
       # exercises host feature-specific encodings. Run it serially so a native

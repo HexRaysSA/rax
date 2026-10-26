@@ -73,13 +73,14 @@ impl<M: Mem> AhciController<M> {
             ATA_CMD_READ_DMA_EXT if !header.write => self.cmd_read_dma(&header, &fis)?,
             ATA_CMD_WRITE_DMA_EXT if header.write => self.cmd_write_dma(&header, &fis)?,
             ATA_CMD_IDENTIFY if !header.write => self.cmd_identify(&header)?,
-            // The existing IDENTIFY profile advertises FLUSH CACHE. Vec media
-            // have no host persistence; real image backends supply that separately.
-            0xe7 | 0xea => Transfer {
-                moved: 0,
-                overflow: false,
-                interrupt: false,
-            },
+            0xe7 | 0xea => {
+                self.disk.flush().map_err(|_| CommandError::TaskFile)?;
+                Transfer {
+                    moved: 0,
+                    overflow: false,
+                    interrupt: false,
+                }
+            }
             _ => return Err(CommandError::TaskFile),
         };
         if pio {

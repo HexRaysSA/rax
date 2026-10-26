@@ -122,6 +122,9 @@ impl<M: Mem> AhciController<M> {
     ) -> Result<Transfer, CommandError> {
         let (start, length) = self.transfer_bounds(fis)?;
         let plan = self.plan(header)?;
+        if self.disk.is_read_only() {
+            return Err(CommandError::TaskFile);
+        }
         if plan.length < length as u64 {
             return Err(CommandError::WriteOverflow);
         }
@@ -139,7 +142,9 @@ impl<M: Mem> AhciController<M> {
             offset = end;
             interrupt |= segment.interrupt;
         }
-        self.disk[start..start + length].copy_from_slice(&data);
+        self.disk
+            .write_bytes(start, &data)
+            .map_err(|_| CommandError::TaskFile)?;
         Ok(Transfer {
             moved: length as u32,
             overflow: false,

@@ -7,8 +7,9 @@
 //! controller registers live in 0x00..0x1000 and the doorbell array starts at
 //! 0x1000).
 //!
-//! A single namespace (NSID 1) is backed by an in-memory disk (`Vec<u8>`), in
-//! the same style as the virtio-blk device.
+//! A single namespace (NSID 1) uses shared bounded raw-image media, with the
+//! original in-memory byte-vector constructor retained. Persistent images are
+//! write-through; FLUSH propagates synchronization failures.
 //!
 //! # Controller register layout (offsets from BAR0)
 //!
@@ -67,6 +68,7 @@
 //! and complete checkpoint/media integration remain separate work.
 
 use super::bus::MmioDevice;
+use super::virtio::block_image::BlockImage;
 
 #[path = "nvme/nvm.rs"]
 mod nvm;
@@ -190,10 +192,14 @@ pub const SC_DATA_XFER_ERROR: u16 = 0x04;
 pub const SC_PRP_OFFSET_INVALID: u16 = 0x13;
 /// Invalid namespace identifier or namespace format.
 pub const SC_INVALID_NAMESPACE: u16 = 0x0b;
+/// Generic status: namespace is write protected.
+pub const SC_NAMESPACE_WRITE_PROTECTED: u16 = 0x20;
+/// Media/data integrity status (SCT2,SC80h): write data could not be committed.
+pub const SC_WRITE_FAULT: u16 = 0x280;
 /// Media/data integrity status: comparison did not match.
 pub const SC_COMPARE_FAILURE: u16 = 0x285;
-/// LBA Out of Range (Command Specific, status type 0x01 => 0x80 here when ORed
-/// with the SCT). For simplicity we keep all SCs in the generic type.
+/// Generic status: LBA Out of Range (SC80h). Status values include their SCT
+/// when a command-specific or media/data-integrity status is returned.
 pub const SC_LBA_OUT_OF_RANGE: u16 = 0x80;
 
 /// A parsed 64-byte NVMe submission queue entry (the fields we use).
@@ -302,7 +308,7 @@ pub struct NvmeController<M: Mem> {
     io_queues_created: bool,
 
     // ---- Namespace 1 backing disk ----
-    disk: Vec<u8>,
+    disk: BlockImage,
 
     // Negotiated number of I/O queues (Set Features 0x07), 1-based count.
     max_io_queues: u16,
@@ -312,6 +318,10 @@ impl<M: Mem> NvmeController<M> {
     /// Build a controller at BAR0 `base`, with guest memory `mem` and a
     /// namespace backed by `disk` bytes.
     pub fn new(base: u64, mem: M, disk: Vec<u8>) -> Self {
+        Self::with_image(base, mem, BlockImage::from_bytes(disk))
+    }
+    /// Attach an already opened raw image or in-memory medium.
+    pub fn with_image(base: u64, mem: M, disk: BlockImage) -> Self {
         let max_io_queues = 4;
         NvmeController {
             base,
@@ -816,6 +826,7 @@ impl<M: Mem> NvmeController<M> {
     /// Populate an Identify Namespace (CNS 00h) data structure for NSID 1.
     fn fill_identify_namespace(&self, d: &mut [u8]) {
         let nblocks = self.namespace_blocks();
+        d[99] = u8::from(self.disk.is_read_only()); // NSATTR: namespace write protection.
         // NSZE (0x00, 8 bytes): namespace size in logical blocks.
         d[0x00..0x08].copy_from_slice(&nblocks.to_le_bytes());
         // NCAP (0x08): namespace capacity.
