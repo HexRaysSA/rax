@@ -413,3 +413,7 @@ path = "tests/suites/devices/nvme_sgl.rs"
 [[test]]
 name = "nvme_queues"
 path = "tests/suites/devices/nvme_queues.rs"
+
+[[test]]
+name = "nvme_admission"
+path = "tests/suites/devices/nvme_admission.rs"

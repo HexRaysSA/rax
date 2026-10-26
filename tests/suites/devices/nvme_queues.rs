@@ -205,7 +205,7 @@ fn admin_cq_backpressure_preserves_commands_and_resumes_on_acknowledgement() {
     let mut h = host(4, true);
     h.write(REG_CC, 0);
     h.write(REG_AQA, 7 | (3 << 16));
-    h.write(REG_CC, CC_EN);
+    h.write(REG_CC, CC_EN | 0x0046_0000);
     for i in 0..7u32 {
         let mut c = sqe(0xff, 0, 0, 1);
         c[2..4].copy_from_slice(&(100 + i as u16).to_le_bytes());
@@ -245,7 +245,7 @@ fn reset_clears_control_mask_and_fatal_state_but_retains_admin_addresses() {
         h.device.read(0xfeb00000 + off, &mut bytes);
         assert_eq!(u32::from_le_bytes(bytes), want, "offset {off:#x}");
     }
-    h.write(REG_CC, CC_EN);
+    h.write(REG_CC, CC_EN | 0x0046_0000);
     assert_eq!(h.device.csts(), CSTS_RDY);
     assert!(!h.device.io_sq(1).unwrap().active);
 }

@@ -107,7 +107,7 @@ impl Host {
         host.write(REG_AQA, 63 | (63 << 16));
         host.write(REG_ASQ, 0x1000);
         host.write(REG_ACQ, 0x2000);
-        host.write(REG_CC, CC_EN);
+        host.write(REG_CC, CC_EN | 0x0046_0000);
         for (op, base, flags) in [
             (ADMIN_CREATE_IO_CQ, 0x4000, 1u32),
             (ADMIN_CREATE_IO_SQ, 0x3000, 1 | (1 << 16)),
@@ -377,7 +377,7 @@ fn unsupported_memory_page_size_never_arms_queues() {
     for mps in 1..=15 {
         let mut h = Host::new(24, 1 << 20);
         h.write(REG_CC, 0);
-        h.write(REG_CC, CC_EN | (mps << CC_MPS_SHIFT));
+        h.write(REG_CC, CC_EN | 0x0046_0000 | (mps << CC_MPS_SHIFT));
         assert_eq!(h.device.csts() & (CSTS_RDY | CSTS_CFS), CSTS_CFS);
         assert!(!h.device.admin_sq().active);
         assert!(!h.device.admin_cq().active);

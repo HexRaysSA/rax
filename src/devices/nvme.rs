@@ -286,6 +286,8 @@ pub struct NvmeController<M: Mem> {
     io_cqs: Vec<Queue>,
     // Per-CQ IEN for the single pin/vector-zero profile.
     io_cq_interrupts: Vec<bool>,
+    // Number-of-Queues remains locked after creation until Controller Reset.
+    io_queues_created: bool,
 
     // ---- Namespace 1 backing disk ----
     disk: Vec<u8>,
@@ -313,6 +315,7 @@ impl<M: Mem> NvmeController<M> {
             io_sqs: vec![Queue::default(); (max_io_queues as usize) + 1],
             io_cqs: vec![Queue::default(); (max_io_queues as usize) + 1],
             io_cq_interrupts: vec![false; (max_io_queues as usize) + 1],
+            io_queues_created: false,
             disk,
             max_io_queues,
         }
@@ -417,6 +420,10 @@ impl<M: Mem> NvmeController<M> {
         let asqs = (self.aqa & 0xfff) + 1;
         let acqs = ((self.aqa >> 16) & 0xfff) + 1;
 
+        if asqs < 2 || acqs < 2 {
+            self.csts = (self.csts & !CSTS_RDY) | CSTS_CFS;
+            return;
+        }
         self.admin_sq = Queue {
             base: self.asq,
             size: asqs,
@@ -450,6 +457,7 @@ impl<M: Mem> NvmeController<M> {
             q.reset();
         }
         self.io_cq_interrupts.fill(false);
+        self.io_queues_created = false;
         self.cc = 0;
         self.csts = 0;
         self.intms = 0;
@@ -511,9 +519,9 @@ impl<M: Mem> NvmeController<M> {
             REG_CC => self.write_cc(value),
             REG_CSTS => {} // status is controller-owned (read-only to host).
             REG_AQA => self.aqa = value,
-            REG_ASQ => self.asq = (self.asq & !0xffff_ffff) | value as u64,
+            REG_ASQ => self.asq = (self.asq & !0xffff_ffff) | u64::from(value & !0xfff),
             o if o == REG_ASQ + 4 => self.asq = (self.asq & 0xffff_ffff) | ((value as u64) << 32),
-            REG_ACQ => self.acq = (self.acq & !0xffff_ffff) | value as u64,
+            REG_ACQ => self.acq = (self.acq & !0xffff_ffff) | u64::from(value & !0xfff),
             o if o == REG_ACQ + 4 => self.acq = (self.acq & 0xffff_ffff) | ((value as u64) << 32),
             o if o >= REG_DOORBELL_BASE => self.write_doorbell(o, value),
             _ => {}
@@ -821,8 +829,17 @@ impl<M: Mem> NvmeController<M> {
         if e.cdw11 >> 16 != 0 {
             return (0x108, 0); // SCT=command-specific, Invalid Interrupt Vector.
         }
-        if qid == 0 || qid >= self.io_cqs.len() || !pc || e.prp1 == 0 {
+        if qid == 0 || qid >= self.io_cqs.len() || self.io_cqs[qid].active {
+            return (0x101, 0); // Invalid Queue Identifier.
+        }
+        if !(2..=256).contains(&qsize) || (self.cc >> 20) & 0xf != 4 {
+            return (0x102, 0); // Invalid Queue Size / uninitialized IOCQES.
+        }
+        if !pc {
             return (SC_INVALID_FIELD, 0);
+        }
+        if e.prp1 & 0xfff != 0 {
+            return (SC_PRP_OFFSET_INVALID, 0);
         }
         self.io_cqs[qid] = Queue {
             base: e.prp1,
@@ -834,6 +851,7 @@ impl<M: Mem> NvmeController<M> {
             active: true,
         };
         self.io_cq_interrupts[qid] = e.cdw11 & 2 != 0;
+        self.io_queues_created = true;
         (SC_SUCCESS, 0)
     }
 
@@ -849,12 +867,23 @@ impl<M: Mem> NvmeController<M> {
         let cqid = (e.cdw11 >> 16) as u16;
         if qid == 0
             || qid >= self.io_sqs.len()
-            || !pc
-            || e.prp1 == 0
+            || self.io_sqs[qid].active
+            || cqid == 0
             || cqid as usize >= self.io_cqs.len()
-            || !self.io_cqs[cqid as usize].active
         {
+            return (0x101, 0);
+        }
+        if !self.io_cqs[cqid as usize].active {
+            return (0x100, 0); // Completion Queue Invalid.
+        }
+        if !(2..=256).contains(&qsize) || (self.cc >> 16) & 0xf != 6 {
+            return (0x102, 0);
+        }
+        if !pc {
             return (SC_INVALID_FIELD, 0);
+        }
+        if e.prp1 & 0xfff != 0 {
+            return (SC_PRP_OFFSET_INVALID, 0);
         }
         self.io_sqs[qid] = Queue {
             base: e.prp1,
@@ -865,6 +894,7 @@ impl<M: Mem> NvmeController<M> {
             cqid,
             active: true,
         };
+        self.io_queues_created = true;
         (SC_SUCCESS, 0)
     }
 
@@ -872,7 +902,7 @@ impl<M: Mem> NvmeController<M> {
     fn admin_delete_io_cq(&mut self, e: &SubmissionEntry) -> (u16, u32) {
         let qid = (e.cdw10 & 0xffff) as usize;
         if qid == 0 || qid >= self.io_cqs.len() || !self.io_cqs[qid].active {
-            return (SC_INVALID_FIELD, 0);
+            return (0x101, 0);
         }
         // The spec requires all associated SQs be deleted first.
         if self
@@ -880,7 +910,7 @@ impl<M: Mem> NvmeController<M> {
             .iter()
             .any(|q| q.active && q.cqid as usize == qid)
         {
-            return (SC_INVALID_FIELD, 0);
+            return (0x10c, 0);
         }
         self.io_cqs[qid].reset();
         self.io_cq_interrupts[qid] = false;
@@ -891,7 +921,7 @@ impl<M: Mem> NvmeController<M> {
     fn admin_delete_io_sq(&mut self, e: &SubmissionEntry) -> (u16, u32) {
         let qid = (e.cdw10 & 0xffff) as usize;
         if qid == 0 || qid >= self.io_sqs.len() || !self.io_sqs[qid].active {
-            return (SC_INVALID_FIELD, 0);
+            return (0x101, 0);
         }
         self.io_sqs[qid].reset();
         (SC_SUCCESS, 0)
@@ -902,8 +932,18 @@ impl<M: Mem> NvmeController<M> {
     fn admin_set_features(&mut self, e: &SubmissionEntry) -> (u16, u32) {
         let fid = (e.cdw10 & 0xff) as u8;
         if fid == FID_NUM_QUEUES {
+            if e.cdw10 & (1 << 31) != 0 {
+                return (0x10d, 0); // Feature Identifier Not Saveable.
+            }
+            if self.io_queues_created {
+                return (0x0c, 0); // Command Sequence Error.
+            }
+            if e.cdw11 & 0xffff == 0xffff || e.cdw11 >> 16 == 0xffff {
+                return (SC_INVALID_FIELD, 0);
+            }
+
             // CDW11: NSQR (bits 15:0), NCQR (bits 31:16), both 0-based requested
-            // counts. We grant min(requested, max-1) and report 0-based counts.
+            // counts. Fixed four-queue allocation is allowed to exceed a request.
             let granted = (self.max_io_queues - 1) as u32; // 0-based.
             let dw0 = granted | (granted << 16);
             return (SC_SUCCESS, dw0);
@@ -915,6 +955,12 @@ impl<M: Mem> NvmeController<M> {
     fn admin_get_features(&mut self, e: &SubmissionEntry) -> (u16, u32) {
         let fid = (e.cdw10 & 0xff) as u8;
         if fid == FID_NUM_QUEUES {
+            match (e.cdw10 >> 8) & 7 {
+                0..=2 => {}                  // Current/default/saved fallback: fixed allocation.
+                3 => return (SC_SUCCESS, 4), // Changeable, not saveable or per-NS.
+                _ => return (SC_INVALID_FIELD, 0),
+            }
+
             let granted = (self.max_io_queues - 1) as u32;
             let dw0 = granted | (granted << 16);
             return (SC_SUCCESS, dw0);
@@ -1210,15 +1256,14 @@ mod tests {
         let invalid_asq = 0x20_0000u64;
         let acq = 0x2000u64;
 
-        // One-entry admin queue: valid tail values are only 0. The bad ASQ keeps
-        // this regression fast on the old implementation instead of hanging in
-        // the unbounded drain loop.
-        write32(&mut d, REG_AQA, 0);
+        // Two-entry admin queues: tail 2 is outside their represented slots.
+        // The bad ASQ prevents an old unbounded drain from hanging.
+        write32(&mut d, REG_AQA, 1 | (1 << 16));
         write64(&mut d, REG_ASQ, invalid_asq);
         write64(&mut d, REG_ACQ, acq);
         write32(&mut d, REG_CC, CC_EN);
 
-        write32(&mut d, REG_DOORBELL_BASE, 1);
+        write32(&mut d, REG_DOORBELL_BASE, 2);
 
         assert_eq!(d.admin_sq().tail, 0);
         assert_eq!(d.admin_sq().head, 0);
@@ -1243,7 +1288,7 @@ mod tests {
         write32(d, REG_AQA, ((entries - 1) << 16) | (entries - 1));
         write64(d, REG_ASQ, asq);
         write64(d, REG_ACQ, acq);
-        write32(d, REG_CC, CC_EN);
+        write32(d, REG_CC, CC_EN | 0x0046_0000);
     }
 
     /// Build a 64-byte SQE in `mem` at `gpa`.
@@ -1369,7 +1414,7 @@ mod tests {
         let acq = 0x2000u64;
         bring_up(&mut d, asq, acq, 16);
 
-        // Request a pile of queues; controller grants its maximum.
+        // Largest specified request; controller grants its fixed allocation.
         let sqe = make_sqe(
             ADMIN_SET_FEATURES,
             3,
@@ -1377,7 +1422,7 @@ mod tests {
             0,
             0,
             FID_NUM_QUEUES as u32,
-            0xffff_ffff,
+            0xfffe_fffe,
             0,
         );
         d.mem_mut_write(asq, &sqe);

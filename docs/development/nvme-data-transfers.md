@@ -1,200 +1,200 @@
-# NVMe data transfers
+# NVMe data transfers and queue state
 
-The controller advertises a4KiB host-page profile (`CAP.MPSMIN=MPSMAX=0`).
-PRP1, direct PRP2 and chained PRP lists use NVMe1.4c section4.3/Figures108-111.
-Unsupported nonzero page sizes fail enable with CFS and no armed queues.
+The controller implements one in-memory namespace with 512-byte logical blocks,
+4 KiB host pages (`CAP.MPSMIN=MPSMAX=0`), at most four I/O SQs and four I/O CQs,
+and at most 256 entries per I/O queue (`CAP.MQES=255`). Admin queues support
+2-4096 entries. All wire structures and registers use little-endian encoding.
 
-| Pointer | Required alignment | Page offset |
+The architectural source is [NVM Express Base Specification 1.4c](../specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf).
+[Reference provenance](../specifications/nvme/PROVENANCE.md) identifies the exact
+PDF and QEMU source snapshots. The executed QEMU 11.1.2 binary is distinct from
+the pinned explanatory QEMU 11.1.0 source; binary/source identity is unverified.
+
+## PRPs and transfer effects
+
+PCIe Admin commands use PRPs. NVM commands select PRPs with PSDT=0 and SGLs with
+PSDT=1/2. PSDT=3 is reserved. The namespace has no separate metadata, so its
+metadata pointer is unused. SQEs retain their 64-byte wire format.
+
+| PRP pointer | Alignment | Page offset |
 | --- | --- | --- |
 | First data pointer | 4 bytes | Permitted |
 | Direct second data pointer | 4096 bytes | Zero |
 | First list pointer in command | 8 bytes | Permitted |
-| Data pointer in list | 4096 bytes | Zero |
+| Data pointer in a list | 4096 bytes | Zero |
 | Subsequent list pointer | 4096 bytes | Zero |
 
-The final list slot is a link only when additional data pages remain. The walker
-resolves every list entry before payload DMA. It does not impose uniqueness on
-physical list/data pages:the command's finite byte count bounds traversal, even
-if a list page is referenced again. After at most one offset-list link, each
-further link follows511 data entries. Address arithmetic is checked;physical
-page zero is admitted. Invalid offsets report generic status0x13, and failed
-metadata/DMA accesses report0x04. Identify uses the same scatter/gather planner.
-PCIe Admin commands use PRPs. NVM commands select PRPs with PSDT0 and SGLs
-with PSDT1/2;PSDT3 is reserved. The namespace has no separate metadata, so its
-metadata pointer is unused. The64-byte SQE wire format is unchanged.
+The final list slot is a link only if additional data pages remain. Planning
+resolves every list entry before payload DMA. Physical page zero is valid.
+Physical list/data pages may repeat: the command's finite byte count bounds
+traversal. After at most one initial link without data, each further link follows
+511 data entries. Invalid offsets report generic status 0x13; failed metadata
+or payload access reports 0x04. Identify uses the same PRP planner.
 
-Read/Write NLB is zero-based16-bit, so the maximum transfer is
-65536*512=33554432 bytes (32MiB). A first offset4092 requires8193 data segments.
-Planning requires O(k) time/storage for k pages. Writes stage O(n) source bytes
-before committing n media bytes, so a late source error preserves the complete
-namespace. Reads copy segments in order;a late destination error can retain
-prior guest-memory writes. This is not an atomic DMA/rollback claim.
+NLB is zero-based and 16 bits wide:
 
-Completions carry the actual submitting queue ID and its consumed head. Queue
-sharing and ring wrap do not infer origin by searching for the first SQ bound
-to a CQ. Native interrupt wiring, additional NVM commands, storage-image wiring
-and complete checkpoint/media state remain separate work items.
-
-Run the complete registered device target:
-
-```sh
-cargo +stable test --test nvme_prp -- --test-threads=4
+```text
+maximum blocks = 65535 + 1 = 65536
+maximum bytes  = 65536 * 512 = 33554432 bytes = 32 MiB
 ```
 
-Its32 tests execute the production NVMe source:17 existing controls plus15
-regressions. The unchanged parent source fails14 and passes18. Coverage includes
-160 scattered layouts in both directions, all1024 dword-aligned first offsets,
-list links, physical zero, malformed later entries, DMA error boundaries,
-split Identify, PSDT/page-size admission, and completion identity/head tracking.
-The32MiB command compares every returned byte and bounds metadata/DMA calls.
-
-The independent bare-metal probe configures an actual QEMU PCI NVMe controller:
-
-```sh
-python3 tools/nvme-diff/prp_oracle.py --repo . \
-    --work-dir /path/to/empty/evidence --llvm-bin /path/to/llvm/bin \
-    --target-dir /path/to/built/cargo-target
-```
-
-It uses an already built RAX library for the shared `Mem`/`MmioDevice` contracts;
-the owning target and comparator compile the exact current production NVMe
-source, with source/library hashes checked. No expectation is generated from
-RAX behavior. Six fresh device/disk instances execute18 I/O commands. All
-8448000 read/read-back bytes and18 complete CQEs must match the production
-device. Original reference records, guest sources/ELFs, media bytes, commands,
-versions, timings and hashes remain in the owned evidence directory. Missing
-records, failed commands, timeouts, wrong completion metadata, source mutation
-or mismatches fail the probe. `--reference-only` skips product comparison and
-is explicitly labeled in its manifest.
-
-QEMU11.1.2 on this host has IOV_MAX1024. Its source requires
-`(2^MDTS)+1 <= IOV_MAX` and disallows MDTS0, so MDTS9 permits a2MiB reference
-command. This reference does not establish the32MiB local case or native NVMe
-hardware behavior. The full primary-source local contract retains those tests.
-
-Primary source:NVM Express Base Specification1.4c section4.3, generic status
-Figure128 and CC.MPS definition. Copyright2007-2021 NVM Express,Inc.
-[Official specification](https://www.nvmexpress.org/wp-content/uploads/NVM-Express-1_4c-2021.06.28-Ratified.pdf).
-
+A first offset of 4092 bytes requires 8193 data extents. PRP planning takes O(k)
+time and storage for k pages. Writes stage O(n) source bytes before committing
+n media bytes, preserving media on a late source failure. Reads write extents
+in order; a late destination failure can leave earlier writes visible. No DMA
+rollback is provided.
 
 ## PCIe SGL profile
 
-Identify Controller SGLS is `0x00040001`:byte-granular Data Blocks, Segment and
-Last Segment descriptors, and buffers larger than the command's requested data.
-Keyed, Bit Bucket, transport and offset subtypes are not advertised. PCIe Admin
-commands retain their mandatory PRP format;NVM data dispatch admits PSDT1/2.
+Identify Controller SGLS is `0x00040001`: byte-granular Data Block, Segment and
+Last Segment descriptors, including buffers larger than the requested payload.
+Keyed, Bit Bucket, transport and offset forms are not advertised.
 
-The planner validates the full metadata chain before payload DMA, including
-metadata after sufficient data has already been described. Zero-length data
-entries and data-less intermediate segments remain valid. Segment addresses
-must be8-byte aligned and lengths nonzero multiples of16. Links occur only in
-the last descriptor of a non-final segment. A Last Segment cannot contain a
-further link. A non-final Segment must link onward. This last rule follows the
-primary type definition;QEMU accepts a data-only terminus marked non-final,
-which is retained as a separate structural discrepancy.
+The planner validates the complete metadata chain before payload DMA, including
+metadata following sufficient data capacity. Null data entries and finite
+data-less intermediate segments remain valid. Segment addresses require
+8-byte alignment and lengths must be nonzero multiples of 16. A link must be
+the final descriptor in a non-final segment. A Last Segment cannot link onward;
+a Segment must link onward.
 
-Address/length endpoints are checked in128-bit arithmetic:an exclusive endpoint
-of2^64 is representable, while larger endpoints return Data SGL Length Invalid.
-Unsupported types/subtypes return0x11;invalid segment structure returns0x0d;
-a misplaced link returns0x0e;insufficient capacity/range overflow returns0x0f.
-Failed metadata/DMA access returns0x04. Source writes retain the staging policy
-above;destination reads retain their explicit partial-write policy.
+Address/length arithmetic uses 128 bits. An exclusive endpoint of 2^64 is valid;
+a larger endpoint reports Data SGL Length Invalid. Relevant generic statuses:
 
-For d descriptors, m metadata segments and k retained data extents, planning
-costs O(d+m*log(m)) time and O(m+k) storage. A deterministic set of entered
-(address,length,type) views detects cycles without recursion. Metadata remains
-stable while a command is owned by the controller;no payload writes occur until
-validation finishes. This admits finite data-less links without imposing an
-incorrect per-segment data-progress requirement. Command metadata can be larger
-than the payload;the implementation does not replace that domain with MDTS.
+| Condition | Status |
+| --- | --- |
+| Metadata or payload DMA failure | 0x04 |
+| Invalid segment structure | 0x0d |
+| Misplaced link | 0x0e |
+| Insufficient capacity or address overflow | 0x0f |
+| Unsupported descriptor type/subtype | 0x11 |
+
+For d descriptors, m metadata segments and k retained payload extents, planning
+costs O(d + m log m) time and O(m + k) storage. A deterministic set of entered
+(address, length, type) views detects cycles iteratively. Metadata is assumed
+immutable while the controller owns the command. No payload write occurs until
+validation completes. Metadata size is not constrained by the payload size or
+replaced by an arbitrary progress cutoff.
+
+## Queue admission and feature state
+
+I/O queue identifiers are 1-4. Duplicate creation preserves the existing queue.
+Queue bases require page alignment; physical page zero is valid. `CAP.CQR=1`
+requires physically contiguous queues. I/O SQs cannot bind to admin CQ0 or an
+uncreated CQ.
+
+| Admission failure | Combined SCT/SC |
+| --- | --- |
+| In-range CQ not created | 0x100 |
+| Invalid, duplicate or admin queue identifier | 0x101 |
+| Invalid queue size or I/O entry-size field | 0x102 |
+| Unsupported interrupt vector | 0x108 |
+| Delete CQ while an SQ remains bound | 0x10c |
+| Save an unsaveable Number-of-Queues feature | 0x10d |
+| Noncontiguous queue in the contiguous-only profile | 0x02 |
+| Misaligned queue base | 0x13 |
+| Set Number-of-Queues after queue creation | 0x0c |
+
+I/O CQ creation requires `CC.IOCQES=4`; I/O SQ creation requires `CC.IOSQES=6`.
+Admin enable remains independent of those fields, permitting initialization to
+configure I/O entry sizes before creating the corresponding I/O queues. Admin
+queues require at least two entries. ASQ/ACQ reserved low bits read as zero.
+
+The fixed four-queue allocation is retained: section 5.21.1.7 permits allocating
+more queues than requested. A request field of 0xffff is invalid. Once any I/O
+queue has been created, deleting every queue does not unlock Set Features;
+Controller Reset does. Get Features returns the fixed current/default/saved
+allocation and reports changeable, nonsaveable, global capabilities for this
+feature. Reserved selectors 4-7 are explicitly rejected by the local profile;
+the specification does not define a supported result for those selectors.
+Other feature identifiers still require separate implementation work.
+
+## Completion backpressure, DMA failure and interrupts
+
+A queue of n slots is full at n-1 occupied entries. Dispatch waits for space in
+the bound CQ, preserving unread CQEs and pending SQ entries. CQ head progress
+resumes bound SQs without another tail notification, including shared CQs.
+Acknowledgement cannot pass the published tail. Dispatch costs O(q + c) for q
+represented SQs and c completed commands; ring metadata is O(1) per queue.
+
+CQE DMA precedes tail/phase publication. A failed SQ fetch sets CFS without
+consuming the command. A failed CQE write sets CFS after command consumption,
+preserves the unpublished CQ position, and stops execution until reset. Media
+or guest-memory effects can already exist. An adapter returning failure after a
+partial write can leave partial CQE bytes. These failure policies do not provide
+rollback or retry executed commands.
+
+`take_interrupt()` exposes the single pin/vector-zero level derived from all
+active, interrupt-enabled CQs with unacknowledged entries and INTMS bit 0.
+Acknowledgement or masking deasserts it; unmasking a pending CQ reasserts it.
+`clear_interrupt()` retains its callable signature and does not acknowledge
+guest entries. Native IRQ routing and MSI/MSI-X delivery are separate work.
+
+Controller Reset clears represented CC, CSTS, INTMS and internal queue state,
+retaining AQA, ASQ, ACQ and namespace bytes. It abandons stalled work; re-enable
+does not recreate I/O queues.
+
+## Validation and independent reference limits
+
+Run the complete registered owners:
 
 ```sh
-cargo +stable test --test nvme_sgl -- --test-threads=4
-python3 tools/nvme-diff/sgl_oracle.py --repo . \
+cargo +stable test --test nvme_prp --test nvme_sgl --test nvme_queues --test nvme_admission
+```
+
+| Owner | Tests | Principal coverage |
+| --- | --- | --- |
+| nvme_prp | 32 | 160 scattered layouts, 1024 first offsets, 32 MiB, repeated list pages, DMA boundaries, Identify, CQ origin |
+| nvme_sgl | 50 | 253 type/subtype cells, null/data-less chains, 512 extents, 32 MiB, overflow and DMA boundaries |
+| nvme_queues | 48 | 3072 seeded ring events, shared CQs, multiple IRQ sources, masks, fatal DMA and reset |
+| nvme_admission | 45 | 131072 size admissions, 8190 offset admissions, identifiers, entry sizes and feature lifetime |
+
+Existing fixtures now program valid I/O entry sizes, publish actual CQEs before
+acknowledging them, and use 0xfffe rather than reserved 0xffff for the successful
+maximum queue request. Separate tests retain each invalid-input regression.
+
+Each reference tool requires QEMU, LLVM and an already built RAX library:
+
+```sh
+python3 tools/nvme-diff/admission_oracle.py --repo . \
     --work-dir /path/to/empty/evidence --llvm-bin /path/to/llvm/bin \
     --target-dir /path/to/built/cargo-target
 ```
 
-The complete owner executes50 tests:32 PRP/device controls and18 SGL tests.
-PSDT1/2 are now covered as valid SGL formats;the former PRP-only format rejection
-control is restricted to reserved PSDT3. Tests include253 unsupported type/
-subtype cells,32 unaligned-address/mode cells in both directions, nulls,
-oversized buffers, a512-entry metadata array spanning pages,32MiB Read/Write,
-cycles, exact64-bit range boundaries and late DMA errors.
+The same options apply to `prp_oracle.py`, `sgl_oracle.py` and `queue_oracle.py`.
+The immutable helper library supplies shared memory/device traits; owning tests
+and comparators compile the current device sources directly. Separate full
+engine gates validate the normal product. Source/library hashes, commands,
+versions, raw inputs, guest ELFs, media and outputs are retained. Missing frames,
+timeouts, failed tools, source changes and unexpected differences fail validation.
+`--reference-only` is explicitly labeled and does not establish product agreement.
 
-Nine fresh QEMU devices execute27 I/O commands. Every12288 read/read-back byte
-and27 complete CQEs must match the current production device. The first eight
-corpora remain byte-identical when the512-entry case is added. Source, helper
-library, raw media, guest ELF, commands and reference outputs are retained and
-hashed. The tool executes the complete50-test owner before the raw comparison.
+| Probe | Fresh guests | Executed commands | Recorded comparison |
+| --- | --- | --- | --- |
+| PRP | 6 | 18 | 8448000 payload bytes and 18 full CQEs |
+| SGL | 9 | 27 | 12288 payload bytes and 27 full CQEs |
+| Queue/pin | 7 | 917 | 153168 complete frame bytes, including 917 full CQEs |
+| Admission | 14 | 54 | 1200 frame bytes; 24 DNR and 5 declared policy differences retained |
 
-QEMU's raw SGLS is `0x00080001`, while RAX's selected primary contract is
-`0x00040001`. Their common byte-granular data behavior is compared;the raw words
-are retained and full capability equivalence is not claimed. QEMU accepts the
-single oversized descriptor exercised here despite its unset excess-length bit.
-It separately rejects a valid data-less intermediate segment and one finite
-three-segment shape with status0x0d/DNR. The pinned QEMU source labels its
-per-segment progress restriction as not strictly specification-compliant.
-A retained pointer into a reused descriptor array is a possible explanation for
-the three-segment failure;installed-binary/source identity is not asserted.
-These exact failing inputs remain local primary-source regressions. Another
-three-segment layout is included in the shared passing corpus.
+The QEMU PRP profile uses MDTS=9 (2 MiB). Actual MDTS=0/10 attempts were rejected
+by its host IOV limit. Local tests establish the larger 32 MiB and failed-DMA
+cases, rather than attributing them to independent device execution.
 
-Primary source:NVMe1.4c section4.4/Figures112-119, SGLS Figure251, and PCIe
-PSDT rules in Figure105. Native NVMe hardware, optional SGL types, metadata
-namespaces, complete interrupt/queue error wiring, additional NVM commands,
-storage images and complete checkpoint state remain separate work items.
+QEMU SGLS is `0x00080001`, differing from RAX's selected primary profile. QEMU
+accepts the oversized descriptor exercised here despite its unset excess-length
+bit. It accepts a data-only Segment terminus and separately rejects a valid
+data-less intermediate segment and one finite three-segment layout. Raw inputs
+remain retained; these cases are local primary-source regressions. The pinned
+source labels its per-segment progress restriction as not strictly compliant.
+A reused descriptor pointer is a possible explanation for the other failure;
+installed-binary/source identity is unverified.
 
-## CQ backpressure, fatal DMA and pin interrupt level
+Admission retains every raw CQE. QEMU returns 0x100 for Delete-CQ0, whereas
+Figure 161 specifies 0x101. QEMU returns current values for reserved selectors
+4-7, while the selected local profile rejects them. DNR policy differs on
+24 commands. The comparator verifies these exact differences separately from
+all other completion fields; its result does not claim full CQE equivalence.
 
-NVMe 1.4c section4.1.2 reserves one empty ring entry: a queue of n slots is
-full with n-1 occupied entries. The controller executes a pending command only
-when its bound CQ has space. It preserves unread CQEs and resumes submitted
-work when the host advances that CQ's head, including multiple SQs sharing it.
-The host cannot acknowledge more entries than the controller has published.
-Each dispatch pass is O(q+c) for q represented SQs and c completed commands;
-per-queue ring metadata is O(1). No pending command is retried after a fatal
-completion-DMA failure.
-
-CQE DMA precedes publication of the CQ tail/phase. A failed SQ fetch sets CFS
-without consuming the command. A failed CQE write sets CFS after consuming the
-executed command, preserves the unpublished CQ position, and stops further
-execution until reset. Media or guest-memory effects of that command can already
-exist; no rollback is claimed. A memory adapter that partially writes before
-returning failure can also leave a partial CQE. Failed DMA injection is tested
-locally; the reference guests do not emulate host-memory bus faults.
-
-`take_interrupt()` exposes the single pin/vector-zero level, derived from all
-active interrupt-enabled CQs with unacknowledged completions and INTMS bit0.
-CQ acknowledgement or masking deasserts the level; unmasking a pending CQ
-reasserts it. `clear_interrupt()` retains its callable signature and does not
-consume guest CQ entries. Nonzero Create-CQ interrupt vectors return command-
-specific Invalid Interrupt Vector (0x108). Native MSI/MSI-X delivery and machine
-IRQ routing remain separate work.
-
-A Controller Reset clears CC, CSTS, INTMS and internal queue state, retaining
-AQA, ASQ, ACQ and namespace bytes (NVMe 1.4c section7.3.2). Stalled work is
-abandoned; re-enabling does not resurrect deleted I/O queues.
-
-```sh
-cargo +stable test --test nvme_queues -- --test-threads=4
-python3 tools/nvme-diff/queue_oracle.py --repo . \
-    --work-dir /path/to/empty/evidence --llvm-bin /path/to/llvm/bin \
-    --target-dir /path/to/built/cargo-target
-```
-
-The complete owner has48 tests:32 existing PRP/device tests and16 queue tests.
-A seeded independent ring model checks3072 event steps across sizes2,3,4,7,64
-and256. Separate cases exercise admin CQ saturation, shared CQs, multiple IRQ
-sources, source/completion DMA faults, reset state, invalid acknowledgements and
-unsupported interrupt vectors. The old doorbell fixture acknowledged an empty
-CQ; it now publishes two real completions first. Invalid acknowledgement is
-retained as a distinct regression.
-
-Seven fresh QEMU PCI controllers execute917 Flush commands, using CQ sizes2,
-3,4,7,16 and64 with both enabled/disabled interrupts. All917 full CQEs, complete
-unread-ring snapshots and PCI Interrupt Status observations are compared:
-153168 raw frame bytes, including mask/unmask and reset. No fields are projected
-out. RAX's choice to defer execution while its CQ is full is an implementation
-schedule; the comparison observes CQ/interrupt state, not pending-command media
-mutation. Native hardware and full controller/PCI integration are unverified.
+Native NVMe hardware, full machine/PCI routing, queue arbitration, remaining
+features and commands, storage images and complete checkpoint/media/private
+state remain pending. Device-local source tests and QEMU guests do not close
+those integration requirements.
