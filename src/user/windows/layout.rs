@@ -45,9 +45,13 @@ pub const PEB_ADDRESS: u64 = 0x7FFD_F000;
 /// on Windows 10.0.29683.1000 with a native x86 TEB and export-byte probe.
 pub(crate) const WOW64_TEB_TRANSITION: u64 = 0xC0;
 
-/// Bytes reserved for one TEB (the 64-bit TEB is 0x1838 bytes).
+/// Page-rounded extent reserved and committed for one TEB. Installed x86
+/// NTDLL on build 29695 writes its scheduler data slot at offset 0x1018;
+/// placing the PEB after one page aliases that slot with PEB.ProcessHeap.
+/// Both pointer widths therefore need two private pages. This is an allocation
+/// extent, not a claim about the exact private sizeof(TEB) on every build.
 pub fn teb_stride(arch: WinArch) -> u64 {
-    if arch.is64() { 0x2000 } else { 0x1000 }
+    offsets(arch).teb_size
 }
 
 /// Where built-in DLL images are placed: upward from this address.
@@ -325,7 +329,7 @@ const OFFSETS32: Offsets = Offsets {
     teb_guaranteed_stack_bytes: 0xF78,
     teb_reserved_for_ole: 0xF80,
     teb_tls_expansion_slots: 0xF94,
-    teb_size: 0x1000,
+    teb_size: 0x2000,
     ldr_length: 0x00,
     ldr_initialized: 0x04,
     ldr_in_load_order: 0x0C,

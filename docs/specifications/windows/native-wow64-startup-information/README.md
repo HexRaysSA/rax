@@ -57,9 +57,12 @@ successful emulated exception continuation.
 The runtime now constructs guest-owned companion TEBs and the shared information
 for the captured kernel profiles. Selection uses captured native kernel
 identity rather than the guest-reported version; unknown native x86 profiles
-fail with `STATUS_NOT_SUPPORTED`. Built-in x86 and native 64-bit processes keep
-their existing paths. The compound TEB allocation is 12288 bytes: the native
-view precedes the 32-bit view by 8192 bytes. Host-owned allocation claims survive
+fail with `STATUS_NOT_SUPPORTED`. Built-in x86 and native 64-bit processes use
+ordinary TEB allocations without a companion. The compound TEB allocation is
+16384 bytes: both views own 8192 bytes and the native view precedes the 32-bit
+view by 8192 bytes. The [second-page correction](../native-teb-extent/README.md)
+records the installed x86 access that requires the larger extent.
+Host-owned allocation claims survive
 scheduler extraction and guest decommit; teardown uses allocation identity,
 without trusting guest-writable offsets or freeing a replacement allocation.
 

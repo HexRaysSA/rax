@@ -187,7 +187,7 @@ fn wow64_startup_threads_share_information_and_keep_application_tls_separate() {
     p.space.w32(first.teb + 0xfdc, 0x7fffffff).unwrap();
     p.space.w64(base + 0x30, 0).unwrap();
     thread::destroy(p, first, 0);
-    for page in [base, base + 4096, base + 8192] {
+    for page in [base, base + 4096, base + 8192, base + 12288] {
         assert_eq!(p.vm.query(page).unwrap().state, mem::RESERVE);
     }
     let second = &p.threads[&second];
@@ -206,13 +206,52 @@ fn wow64_startup_active_teb_claim_survives_guest_decommit_and_scheduler_extracti
     let first_id = child(p);
     let first = p.threads.remove(&first_id).unwrap();
     let base = first.teb - 8192;
-    p.vm.decommit(base, 12288).unwrap();
+    p.vm.decommit(base, 16384).unwrap();
     let second_id = child(p);
     assert_ne!(first.teb, p.threads[&second_id].teb);
     let second_teb = p.threads[&second_id].teb;
     p.space.w32(second_teb + 0xe38, 0x5a5a5a5a).unwrap();
     thread::destroy(p, first, 0);
     assert_eq!(p.space.u32(second_teb + 0xe38).unwrap(), 0x5a5a5a5a);
+}
+
+#[test]
+fn wow64_startup_second_teb_page_preserves_peb_companion_and_other_threads() {
+    for software in [false, true] {
+        let mut process = process();
+        let p = process.state_mut();
+        initialize_profile(p, profile(software)).unwrap();
+        let first_id = child(p);
+        let second_id = child(p);
+        let first = p.threads[&first_id].teb;
+        let second = p.threads[&second_id].teb;
+        let native = first - 8192;
+        assert!(first + 8192 <= p.peb);
+        let peb = p.space.bytes(p.peb, 4096).unwrap();
+        let companion = p.space.bytes(native, 8192).unwrap();
+        let neighbor = p.space.bytes(second - 8192, 16384).unwrap();
+        p.space.wr(first + 4096, &[0xa5; 4096]).unwrap();
+        assert_eq!(p.space.bytes(p.peb, 4096).unwrap(), peb);
+        assert_eq!(p.space.bytes(native, 8192).unwrap(), companion);
+        assert_eq!(p.space.bytes(second - 8192, 16384).unwrap(), neighbor);
+        let first_thread = p.threads.remove(&first_id).unwrap();
+        thread::destroy(p, first_thread, 0);
+        for page in [native, native + 4096, first, first + 4096] {
+            assert_eq!(p.vm.query(page).unwrap().state, mem::RESERVE);
+        }
+        assert_eq!(p.space.bytes(second - 8192, 16384).unwrap(), neighbor);
+        let replacement = thread::teb::Allocation::allocate(p).unwrap();
+        assert_eq!(replacement.teb, first);
+        assert!(
+            p.space
+                .bytes(native, 16384)
+                .unwrap()
+                .iter()
+                .all(|&byte| byte == 0)
+        );
+        assert_eq!(p.space.bytes(p.peb, 4096).unwrap(), peb);
+        replacement.release(p);
+    }
 }
 
 #[test]

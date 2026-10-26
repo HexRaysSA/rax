@@ -9,6 +9,9 @@ use crate::user::windows::process::Proc;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Weak};
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Default)]
 pub(crate) struct Arena {
     parent: Option<Arc<str>>,
@@ -40,11 +43,12 @@ impl Allocation {
 
     pub(crate) fn allocate(p: &mut Proc) -> Result<Self, u32> {
         let companion = p.wow64.is_some();
-        let bytes = if companion {
-            0x3000
+        let native_bytes = if companion {
+            layout::teb_stride(WinArch::X64)
         } else {
-            layout::teb_stride(p.arch)
+            0
         };
+        let bytes = native_bytes + layout::teb_stride(p.arch);
         p.teb_arena
             .slots
             .retain(|_, (_, token)| token.strong_count() != 0);
@@ -84,7 +88,7 @@ impl Allocation {
                 return Ok(Self {
                     base,
                     bytes,
-                    teb: base + if companion { 0x2000 } else { 0 },
+                    teb: base + native_bytes,
                     companion: companion.then_some(base),
                     claim: Some(claim),
                     owner: Some(owner),

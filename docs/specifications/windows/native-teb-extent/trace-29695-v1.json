@@ -1,0 +1,66 @@
+{
+  "kind": "RAX guest trace of selected installed x86 NTDLL, collected on native Windows ARM64; not a physical x86 or AMD64-kernel control",
+  "kernel": {
+    "major": 10,
+    "minor": 0,
+    "build": 29695,
+    "machine": 43620
+  },
+  "installed_image": {
+    "name": "ntdll.dll",
+    "selection": "SysWOW64",
+    "machine": 332,
+    "bytes": 1850464,
+    "sha256": "830cfffd91b39ee07578b2fcf89d9b1b838d7e805a2180597521df90ea022a0e",
+    "guest_base": 1260912640
+  },
+  "fixture": {
+    "name": "native_exception_entry/bin/x86/fault.exe",
+    "bytes": 2560,
+    "sha256": "4a0f28a1fba11a97b7498f6bf5b231d32c124ce15d2bcb90084816e342c09544",
+    "modified": false
+  },
+  "original_failure": {
+    "pc": 1261519991,
+    "rva": 607351,
+    "instruction_hex": "3b5004",
+    "instruction": "cmp edx, dword ptr [eax+4]",
+    "eax": 0,
+    "read_address": 4,
+    "kind": "Unmapped"
+  },
+  "preceding_store": {
+    "pc": 1261662664,
+    "rva": 750024,
+    "instruction_hex": "898718100000",
+    "instruction": "mov dword ptr [edi+0x1018], eax",
+    "edi": 2147344384,
+    "eax": 2883584,
+    "teb": 2147344384,
+    "peb": 2147348480,
+    "effective_address": 2147348504,
+    "aliased_field": "PEB.ProcessHeap",
+    "field_offset": 24,
+    "cpu_stop": "Yield"
+  },
+  "diagnostic_limits": {
+    "slice_instructions": 1,
+    "maximum_attempts": 67108864,
+    "deadline_seconds": 60,
+    "original_fixture_limits_changed": false
+  },
+  "bindings": {
+    "rlib_sha256": "23a5ebb0d06b06e0ef0f893faa112ea41c1a7dce43823efd1bd6caa56d798712",
+    "fault_observer_source_sha256": "722e290ed72fa2ab8ebd22670f1cb880da62273187c77dada793c8d5c902c154",
+    "fault_observer_driver_sha256": "ee3d0df95b59967f9e8f2d77092a75c5372ccf06f56b05fc34b5ce31ad749acd",
+    "store_observer_source_sha256": "5ad035eac3cfe0438db9a7b752b94e2caf3a089aa5f5c57f730a6f47bbc233c6",
+    "store_observer_driver_sha256": "a68e2767a640a1ffe89ba73de7895f2f6f7fb01995bcd4b06a4ca3a05773ee3b",
+    "store_observer_executable_sha256": "46c3bcceea0d6fb3e572e68b7dfd6044e552af3d422f5a400efbb21c6895f880"
+  },
+  "limitations": [
+    "This trace establishes the accessed span, not the exact native sizeof(TEB).",
+    "Diagnostic one-instruction stepping differs from the unchanged end-to-end fixture scheduler.",
+    "The local hardware-fault fixture and exception-entry draft are not part of this semantic changeset.",
+    "Full native Win32/CRT process startup is not established by the layout correction."
+  ]
+}

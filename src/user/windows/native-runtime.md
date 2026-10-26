@@ -1,5 +1,11 @@
 # Installed Windows runtime selection
 
+The x86 TEB allocation includes two private pages. Installed build-29695 NTDLL
+writes its scheduler data pointer at `TEB+0x1018`; a one-page placement aliases
+that write with `PEB.ProcessHeap`. Ordinary TEBs and WoW64 companion pairs now
+own the complete extent through teardown and reuse. See the bounded trace and
+regressions in [native-teb-extent](../../../docs/specifications/windows/native-teb-extent/README.md).
+
 `WindowsConfig::native_libraries = true` selects read-only installed DLLs,
 the installed version-6 API-set namespace, and an immutable snapshot of the
 fixed system NLS CodePage registry key and installed NLS section tables on a Windows host. Its default is
