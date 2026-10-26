@@ -33,7 +33,8 @@ fn word(bytes: &[u8], offset: usize) -> u64 {
 }
 
 impl CsrClientData {
-    /// O(B + R) validation, bounded by the selected 40960 committed bytes.
+    /// O(R) metadata validation; retained bytes are bounded by the selected
+    /// 2 MiB handle-table allocation and the 32 KiB shared-data allocation.
     /// Pointer-bearing bytes retain their exact addresses; whole selected views
     /// are mapped there, with no heuristic relocation or host dereference.
     pub(crate) fn selected(
@@ -42,8 +43,29 @@ impl CsrClientData {
     ) -> io::Result<Arc<Self>> {
         for (index, view) in views.iter().enumerate() {
             let expected_size = if index == 0 { 1 << 21 } else { 32768 };
-            let expected_commit = if index == 0 { 8192 } else { 32768 };
             let section = &view.section;
+            // USER commits more handle-table pages as the session grows.
+            // The allocation identity/extent and readonly snapshot stay fixed;
+            // its nonempty committed prefix is not an ABI-sized field.
+            let valid_runs = if index == 0 {
+                matches!(section.regions.len(), 1 | 2)
+                    && section.regions.first().is_some_and(|prefix| {
+                        prefix.offset == 0
+                            && prefix.size != 0
+                            && prefix.size % 4096 == 0
+                            && prefix.size <= expected_size
+                            && prefix.bytes.is_some()
+                    })
+                    && section
+                        .regions
+                        .get(1)
+                        .is_none_or(|tail| tail.bytes.is_none())
+            } else {
+                section.regions.len() == 1
+                    && section.regions[0].offset == 0
+                    && section.regions[0].size == expected_size
+                    && section.regions[0].bytes.is_some()
+            };
             if !section.path.is_empty()
                 || view.base == 0
                 || view.base % 65536 != 0
@@ -52,11 +74,7 @@ impl CsrClientData {
                     .checked_add(section.size)
                     .is_none_or(|end| end > 1 << 47)
                 || section.size != expected_size
-                || section.regions.len() != if index == 0 { 2 } else { 1 }
-                || section.regions[0].offset != 0
-                || section.regions[0].size != expected_commit
-                || section.regions[0].bytes.is_none()
-                || (index == 0 && section.regions[1].bytes.is_some())
+                || !valid_runs
             {
                 return Err(invalid(
                     "CSR client data differs from measured readonly view profile",

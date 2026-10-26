@@ -88,7 +88,7 @@ fn vm() -> VirtualMemory {
     VirtualMemory::new(
         AddressSpace::new(SpaceConfig {
             va_limit: 1 << 47,
-            arena_bytes: 1 << 20,
+            arena_bytes: 4 << 20,
             reserved_phys: Vec::new(),
         })
         .unwrap(),
@@ -100,6 +100,168 @@ fn vm() -> VirtualMemory {
 pub(super) fn fixture(index: usize) -> Arc<CsrClientData> {
     let (information, views) = capture(LOGS[index]);
     CsrClientData::selected(information, views).unwrap()
+}
+
+fn committed_prefix(bytes: u64) -> ([u8; INFORMATION_BYTES], [ClientView; 2]) {
+    let (mut information, mut views) = capture(LOGS[0]);
+    let original = views[0].section.regions[0].bytes.as_ref().unwrap();
+    let mut payload = vec![0x5a; bytes as usize];
+    let copied = payload.len().min(original.len());
+    payload[..copied].copy_from_slice(&original[..copied]);
+    let mut regions = vec![DataRegion {
+        offset: 0,
+        size: bytes,
+        bytes: Some(payload.into()),
+    }];
+    if bytes < 1 << 21 {
+        regions.push(DataRegion {
+            offset: bytes,
+            size: (1 << 21) - bytes,
+            bytes: None,
+        });
+    }
+    views[0].section = DataSection::private_readonly(1 << 21, regions).unwrap();
+    // Optional typed pointers outside a smaller prefix must be absent.
+    // Required SHAREDINFO identities continue to describe these same views.
+    for offset in POINTER_SLOTS {
+        let address = word(&information, offset);
+        if address >= views[0].base + bytes && address < views[0].base + (1 << 21) {
+            information[offset..offset + 8].fill(0);
+        }
+    }
+    (information, views)
+}
+
+#[test]
+fn native_csr_client_data_accepts_growing_prefix_and_fully_committed_bounded_table() {
+    for committed in [4096, 8192, 12288, 16384, (1 << 21) - 4096, 1 << 21] {
+        let (information, views) = committed_prefix(committed);
+        let data = CsrClientData::selected(information, views).unwrap();
+        let mut vm = vm();
+        assert_eq!(data.map(&mut vm).unwrap().len(), 2);
+        assert!(data.map(&mut vm).unwrap().is_empty());
+        assert_eq!(vm.committed_bytes(), committed + 32768);
+        let base = data.views[0].base;
+        assert_eq!(
+            vm.space().bytes(base, committed as usize).unwrap(),
+            data.views[0].section.regions[0]
+                .bytes
+                .as_ref()
+                .unwrap()
+                .as_ref()
+        );
+        assert!(vm.space().w8(base + committed - 1, 0).is_err());
+        if committed < 1 << 21 {
+            assert!(vm.space().u8(base + committed).is_err());
+        }
+        for view in &data.views {
+            vm.release(view.base).unwrap();
+        }
+        assert_eq!(vm.committed_bytes(), 0);
+    }
+}
+
+#[test]
+fn native_csr_client_data_replays_three_native_grown_geometries_without_relocating_views() {
+    let geometry: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-csr-client-data-geometry/geometry-29683-v1.json"
+    )))
+    .unwrap();
+    let mut count = 0;
+    for sample in geometry["samples"].as_array().unwrap() {
+        assert_eq!(sample["inputs_unchanged"], true);
+        assert_eq!(sample["sharedinfo_identities_match"], true);
+        assert_eq!(sample["trailing_canary_preserved"], true);
+        let native = &sample["views"][0];
+        assert_eq!(native["size"].as_u64().unwrap(), 1 << 21);
+        let committed = native["committed"].as_u64().unwrap();
+        assert_eq!(committed, 12288);
+        assert_eq!(native["regions"][0]["protection"].as_u64().unwrap(), 2);
+        let (information, views) = committed_prefix(committed);
+        let bases = views.each_ref().map(|view| view.base);
+        let data = CsrClientData::selected(information, views).unwrap();
+        let mut vm = vm();
+        data.map(&mut vm).unwrap();
+        assert_eq!(vm.committed_bytes(), 45056);
+        assert_eq!(data.views.each_ref().map(|view| view.base), bases);
+        assert_eq!(vm.space().u8(bases[0] + 8192).unwrap(), 0x5a);
+        assert!(vm.space().u8(bases[0] + 12288).is_err());
+        assert!(vm.space().w8(bases[0] + 8192, 0).is_err());
+        assert_eq!(data.information, information);
+        count += 1;
+    }
+    assert_eq!(count, 3);
+}
+
+#[test]
+fn native_csr_client_data_rejects_sparse_prefix_wrong_extent_and_foreign_grown_pointer() {
+    let (mut information, mut views) = committed_prefix(12288);
+    for offset in POINTER_SLOTS {
+        if !matches!(offset, 8 | 16 | 40) {
+            information[offset..offset + 8].fill(0);
+        }
+    }
+    information[32..40].copy_from_slice(&(views[0].base + 8192).to_le_bytes());
+    views[0].section = DataSection::private_readonly(
+        1 << 21,
+        vec![
+            DataRegion {
+                offset: 0,
+                size: 4096,
+                bytes: Some(vec![0; 4096].into()),
+            },
+            DataRegion {
+                offset: 4096,
+                size: 4096,
+                bytes: None,
+            },
+            DataRegion {
+                offset: 8192,
+                size: 4096,
+                bytes: Some(vec![0; 4096].into()),
+            },
+            DataRegion {
+                offset: 12288,
+                size: (1 << 21) - 12288,
+                bytes: None,
+            },
+        ],
+    )
+    .unwrap();
+    assert!(CsrClientData::selected(information, views).is_err());
+    let (information, mut views) = committed_prefix(12288);
+    views[0].section = DataSection::private_readonly(
+        1 << 22,
+        vec![
+            DataRegion {
+                offset: 0,
+                size: 12288,
+                bytes: Some(vec![0; 12288].into()),
+            },
+            DataRegion {
+                offset: 12288,
+                size: (1 << 22) - 12288,
+                bytes: None,
+            },
+        ],
+    )
+    .unwrap();
+    assert!(CsrClientData::selected(information, views).is_err());
+    for address_offset in [12288, (1 << 21) - 1] {
+        let (mut information, views) = committed_prefix(12288);
+        information[32..40].copy_from_slice(&(views[0].base + address_offset).to_le_bytes());
+        assert!(CsrClientData::selected(information, views).is_err());
+    }
+    let (mut information, views) = committed_prefix(12288);
+    let second = views[1].base;
+    assert_eq!(views[0].base + (1 << 21), second);
+    information[32..40].copy_from_slice(&second.to_le_bytes());
+    assert!(CsrClientData::selected(information, views).is_ok());
+    let (mut information, views) = committed_prefix(12288);
+    let outside_both = views[1].base + views[1].section.size;
+    information[32..40].copy_from_slice(&outside_both.to_le_bytes());
+    assert!(CsrClientData::selected(information, views).is_err());
 }
 
 #[test]

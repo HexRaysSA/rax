@@ -59,7 +59,13 @@ scalar bytes. It does not scan for address-looking integers or relocate them.
 The complete selected allocations are mapped at the captured addresses in the
 guest's own address space; collisions fail admission.
 
-The mapped committed size is `8192 + 32768 = 40960` bytes. Validation and copy
+The original captures contain `8192 + 32768 = 40960` committed bytes. Later
+captures from the same frozen producer observe a 12288-byte handle-table prefix
+in the same 2 MiB allocation, with the second 32768-byte view unchanged. The
+prefix may grow in pages; it is not an ABI-sized field. The
+[geometry contract](../native-csr-client-data-geometry/README.md) retains the
+native receipts and bounds. At most `2097152 + 32768 = 2129920` bytes are
+retained, while the owning VM still enforces its commitment budget. Validation and copy
 cost is O(B + R), where B is that bounded byte extent and R is the number of
 mapping runs. Space is O(B). Mapping both allocations is transactional. Reuse
 requires the same `Arc` identity and matching current protection/commitment for
