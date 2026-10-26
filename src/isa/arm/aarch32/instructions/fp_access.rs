@@ -1,5 +1,6 @@
 //! CPACR permission checks shared by every decoded A32/T32 FP/AdvSIMD route.
 use super::*;
+use crate::isa::arm::decoder::ThumbDecoder;
 
 impl<'a, M: ArmMemory> Executor<'a, M> {
     pub(super) fn fp_access_denied(&self, insn: &DecodedInsn) -> bool {
@@ -271,6 +272,25 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         );
         if !fp_instruction && !fp_coprocessor {
             return false;
+        }
+        let raw = if insn.state.is_thumb() && insn.size == 4 {
+            ThumbDecoder::a32_equivalent(insn.raw).unwrap_or(insn.raw)
+        } else {
+            insn.raw
+        };
+        // The implemented unconditional AdvSIMD data/structure spaces, plus
+        // core VDUP and byte/halfword lane transfers. The 32-bit VMOV lane
+        // transfer is VFP and deliberately does not depend on ASEDIS.
+        let advsimd = matches!(raw >> 24, 0xf2 | 0xf3 | 0xf4)
+            || matches!(
+                insn.mnemonic,
+                Mnemonic::VDUP | Mnemonic::VFMAL | Mnemonic::VFMLS
+            )
+            || (insn.mnemonic == Mnemonic::VMOV
+                && raw & 0x0f00_0f10 == 0x0e00_0b10
+                && raw & ((1 << 22) | (1 << 5)) != 0);
+        if advsimd && self.cpu.cp15.cpacr.asedis() {
+            return true;
         }
         // Arm AArch32.CheckAdvSIMDOrFPEnabled uses CPACR.cp10. The cp11
         // field is not a second access gate in the selected modern FP profile.

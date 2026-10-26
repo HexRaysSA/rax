@@ -1,0 +1,970 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>ARM64 CPU Feature Registers &#8212; The Linux Kernel  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="shortcut icon" href="../../_static/logo.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="CPU Hotplug and ACPI" href="cpu-hotplug.html" />
+    <link rel="prev" title="Booting AArch64 Linux" href="booting.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/logo.svg" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../../index.html">The Linux Kernel</a></h1>
+
+
+
+<p class="blurb">7.3.0</p>
+
+
+
+
+
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+<p>
+<h3 class="kernel-toc-contents">Contents</h3>
+<input type="checkbox" class="kernel-toc-toggle" id = "kernel-toc-toggle" checked>
+<label class="kernel-toc-title" for="kernel-toc-toggle"></label>
+
+<div class="kerneltoc" id="kerneltoc">
+<p class="caption" role="heading"><span class="caption-text">Working with the development community</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../process/development-process.html">Development process</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/submitting-patches.html">Submitting patches</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/code-of-conduct.html">Code of conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../maintainer/index.html">Maintainer handbook</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../process/index.html">All development-process docs</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Internal API manuals</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../core-api/index.html">Core API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../driver-api/index.html">Driver APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../subsystem-apis.html">Subsystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../locking/index.html">Locking</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development tools and processes</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../process/license-rules.html">Licensing rules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../doc-guide/index.html">Writing documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev-tools/index.html">Development tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dev-tools/testing-overview.html">Testing guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../kernel-hacking/index.html">Hacking guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../trace/index.html">Tracing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../fault-injection/index.html">Fault injection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../livepatch/index.html">Livepatching</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../rust/index.html">Rust</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User-oriented documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../admin-guide/index.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../kbuild/index.html">Build system</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../admin-guide/reporting-issues.html">Reporting issues</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tools/index.html">Userspace tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../userspace-api/index.html">Userspace API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Firmware-related documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../firmware-guide/index.html">Firmware</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../devicetree/index.html">Firmware and Devicetree</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture-specific documentation</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">CPU architectures</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../arc/index.html">ARC architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../arm/index.html">ARM Architecture</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">ARM64 Architecture</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="acpi_object_usage.html">ACPI Tables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="amu.html">Activity Monitors Unit (AMU) extension in AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="arm-acpi.html">ACPI on Arm systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="arm-cca.html">Arm Confidential Compute Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="asymmetric-32bit.html">Asymmetric 32-bit SoCs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="booting.html">Booting AArch64 Linux</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">ARM64 CPU Feature Registers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cpu-hotplug.html">CPU Hotplug and ACPI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="elf_hwcaps.html">ARM64 ELF hwcaps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gcs.html">Guarded Control Stack support for AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="hugetlbpage.html">HugeTLBpage on ARM64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kdump.html">crashkernel memory reservation on arm64</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legacy_instructions.html">Legacy instructions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="memory.html">Memory Layout on AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="memory-tagging-extension.html">Memory Tagging Extension (MTE) in AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mops.html">Memory copy/set instructions (MOPS)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="mpam.html">MPAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="perf.html">Perf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pointer-authentication.html">Pointer authentication in AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ptdump.html">Kernel page table dump</a></li>
+<li class="toctree-l3"><a class="reference internal" href="silicon-errata.html">Silicon Errata and Software Workarounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sme.html">Scalable Matrix Extension support for AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sve.html">Scalable Vector Extension support for AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tagged-address-abi.html">AArch64 TAGGED ADDRESS ABI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tagged-pointers.html">Tagged virtual addresses in AArch64 Linux</a></li>
+<li class="toctree-l3"><a class="reference internal" href="features.html">Feature status on arm64 architecture</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../loongarch/index.html">LoongArch Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../m68k/index.html">m68k Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mips/index.html">MIPS-specific Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../nios2/index.html">Nios II Specific Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../openrisc/index.html">OpenRISC Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../parisc/index.html">PA-RISC Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../powerpc/index.html">powerpc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../riscv/index.html">RISC-V architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../s390/index.html">s390 Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sh/index.html">SuperH Interfaces Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sparc/index.html">Sparc Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../x86/index.html">x86-specific Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../xtensa/index.html">Xtensa Architecture</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Other documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../staging/index.html">Unsorted documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Translations</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../translations/index.html">Translations</a></li>
+</ul>
+
+</div>
+
+<script type="text/javascript"> <!--
+  var sbar = document.getElementsByClassName("sphinxsidebar")[0];
+  let currents = document.getElementsByClassName("current")
+  if (currents.length) {
+    sbar.scrollTop = currents[currents.length - 1].offsetTop;
+  }
+  --> </script>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/arch/arm64/cpu-feature-registers.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  
+
+
+
+<section id="arm64-cpu-feature-registers">
+<h1>ARM64 CPU Feature Registers<a class="headerlink" href="#arm64-cpu-feature-registers" title="Permalink to this heading">¶</a></h1>
+<p>Author: Suzuki K Poulose &lt;<a class="reference external" href="mailto:suzuki&#46;poulose&#37;&#52;&#48;arm&#46;com">suzuki<span>&#46;</span>poulose<span>&#64;</span>arm<span>&#46;</span>com</a>&gt;</p>
+<p>This file describes the ABI for exporting the AArch64 CPU ID/feature
+registers to userspace. The availability of this ABI is advertised
+via the HWCAP_CPUID in HWCAPs.</p>
+<section id="motivation">
+<h2>1. Motivation<a class="headerlink" href="#motivation" title="Permalink to this heading">¶</a></h2>
+<p>The ARM architecture defines a set of feature registers, which describe
+the capabilities of the CPU/system. Access to these system registers is
+restricted from EL0 and there is no reliable way for an application to
+extract this information to make better decisions at runtime. There is
+limited information available to the application via HWCAPs, however
+there are some issues with their usage.</p>
+<blockquote>
+<div><ol class="loweralpha simple">
+<li><p>Any change to the HWCAPs requires an update to userspace (e.g libc)
+to detect the new changes, which can take a long time to appear in
+distributions. Exposing the registers allows applications to get the
+information without requiring updates to the toolchains.</p></li>
+<li><p>Access to HWCAPs is sometimes limited (e.g prior to libc, or
+when ld is initialised at startup time).</p></li>
+<li><p>HWCAPs cannot represent non-boolean information effectively. The
+architecture defines a canonical format for representing features
+in the ID registers; this is well defined and is capable of
+representing all valid architecture variations.</p></li>
+</ol>
+</div></blockquote>
+</section>
+<section id="requirements">
+<h2>2. Requirements<a class="headerlink" href="#requirements" title="Permalink to this heading">¶</a></h2>
+<blockquote>
+<div><ol class="loweralpha">
+<li><p>Safety:</p>
+<p>Applications should be able to use the information provided by the
+infrastructure to run safely across the system. This has greater
+implications on a system with heterogeneous CPUs.
+The infrastructure exports a value that is safe across all the
+available CPU on the system.</p>
+<p>e.g, If at least one CPU doesn’t implement CRC32 instructions, while
+others do, we should report that the CRC32 is not implemented.
+Otherwise an application could crash when scheduled on the CPU
+which doesn’t support CRC32.</p>
+</li>
+<li><p>Security:</p>
+<p>Applications should only be able to receive information that is
+relevant to the normal operation in userspace. Hence, some of the
+fields are masked out(i.e, made invisible) and their values are set to
+indicate the feature is ‘not supported’. See Section 4 for the list
+of visible features. Also, the kernel may manipulate the fields
+based on what it supports. e.g, If FP is not supported by the
+kernel, the values could indicate that the FP is not available
+(even when the CPU provides it).</p>
+</li>
+<li><p>Implementation Defined Features</p>
+<p>The infrastructure doesn’t expose any register which is
+IMPLEMENTATION DEFINED as per ARMv8-A Architecture.</p>
+</li>
+<li><p>CPU Identification:</p>
+<p>MIDR_EL1 is exposed to help identify the processor. On a
+heterogeneous system, this could be racy (just like <code class="xref c c-func broken_xref docutils literal notranslate"><span class="pre">getcpu()</span></code>). The
+process could be migrated to another CPU by the time it uses the
+register value, unless the CPU affinity is set. Hence, there is no
+guarantee that the value reflects the processor that it is
+currently executing on. REVIDR and AIDR are not exposed due to this
+constraint, as these registers only make sense in conjunction with
+the MIDR. Alternately, MIDR_EL1, REVIDR_EL1, and AIDR_EL1 are exposed
+via sysfs at:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/sys/devices/system/cpu/cpu$ID/regs/identification/
+                                              \- midr_el1
+                                              \- revidr_el1
+                                              \- aidr_el1
+</pre></div>
+</div>
+</li>
+</ol>
+</div></blockquote>
+</section>
+<section id="implementation">
+<h2>3. Implementation<a class="headerlink" href="#implementation" title="Permalink to this heading">¶</a></h2>
+<p>The infrastructure is built on the emulation of the ‘MRS’ instruction.
+Accessing a restricted system register from an application generates an
+exception and ends up in SIGILL being delivered to the process.
+The infrastructure hooks into the exception handler and emulates the
+operation if the source belongs to the supported system register space.</p>
+<p>The infrastructure emulates only the following system register space:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>Op0=3, Op1=0, CRn=0, CRm=0,2,3,4,5,6,7
+</pre></div>
+</div>
+<p>(See Table C5-6 ‘System instruction encodings for non-Debug System
+register accesses’ in ARMv8 ARM DDI 0487A.h, for the list of
+registers).</p>
+<p>The following rules are applied to the value returned by the
+infrastructure:</p>
+<blockquote>
+<div><ol class="loweralpha simple">
+<li><p>The value of an ‘IMPLEMENTATION DEFINED’ field is set to 0.</p></li>
+<li><p>The value of a reserved field is populated with the reserved
+value as defined by the architecture.</p></li>
+<li><p>The value of a ‘visible’ field holds the system wide safe value
+for the particular feature (except for MIDR_EL1, see section 4).</p></li>
+<li><p>All other fields (i.e, invisible fields) are set to indicate
+the feature is missing (as defined by the architecture).</p></li>
+</ol>
+</div></blockquote>
+</section>
+<section id="list-of-registers-with-visible-features">
+<h2>4. List of registers with visible features<a class="headerlink" href="#list-of-registers-with-visible-features" title="Permalink to this heading">¶</a></h2>
+<blockquote>
+<div><p>ID_AA64FPFR0_EL1 - Floating Point feature ID register 0</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>F8CVT</p></td>
+<td><p>[31]</p></td>
+</tr>
+<tr class="row-odd"><td><p>F8FMA</p></td>
+<td><p>[30]</p></td>
+</tr>
+<tr class="row-even"><td><p>F8DP4</p></td>
+<td><p>[29]</p></td>
+</tr>
+<tr class="row-odd"><td><p>F8DP2</p></td>
+<td><p>[28]</p></td>
+</tr>
+<tr class="row-even"><td><p>F8MM8</p></td>
+<td><p>[27]</p></td>
+</tr>
+<tr class="row-odd"><td><p>F8MM4</p></td>
+<td><p>[26]</p></td>
+</tr>
+<tr class="row-even"><td><p>F16MM2</p></td>
+<td><p>[15]</p></td>
+</tr>
+<tr class="row-odd"><td><p>F8E4M3</p></td>
+<td><p>[1]</p></td>
+</tr>
+<tr class="row-even"><td><p>F8E5M2</p></td>
+<td><p>[0]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64ISAR0_EL1 - Instruction Set Attribute Register 0</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>RNDR</p></td>
+<td><p>[63-60]</p></td>
+</tr>
+<tr class="row-odd"><td><p>TS</p></td>
+<td><p>[55-52]</p></td>
+</tr>
+<tr class="row-even"><td><p>FHM</p></td>
+<td><p>[51-48]</p></td>
+</tr>
+<tr class="row-odd"><td><p>DP</p></td>
+<td><p>[47-44]</p></td>
+</tr>
+<tr class="row-even"><td><p>SM4</p></td>
+<td><p>[43-40]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SM3</p></td>
+<td><p>[39-36]</p></td>
+</tr>
+<tr class="row-even"><td><p>SHA3</p></td>
+<td><p>[35-32]</p></td>
+</tr>
+<tr class="row-odd"><td><p>RDM</p></td>
+<td><p>[31-28]</p></td>
+</tr>
+<tr class="row-even"><td><p>ATOMICS</p></td>
+<td><p>[23-20]</p></td>
+</tr>
+<tr class="row-odd"><td><p>CRC32</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+<tr class="row-even"><td><p>SHA2</p></td>
+<td><p>[15-12]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SHA1</p></td>
+<td><p>[11-8]</p></td>
+</tr>
+<tr class="row-even"><td><p>AES</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64ISAR1_EL1 - Instruction set attribute register 1</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>LS64</p></td>
+<td><p>[63-60]</p></td>
+</tr>
+<tr class="row-odd"><td><p>I8MM</p></td>
+<td><p>[55-52]</p></td>
+</tr>
+<tr class="row-even"><td><p>DGH</p></td>
+<td><p>[51-48]</p></td>
+</tr>
+<tr class="row-odd"><td><p>BF16</p></td>
+<td><p>[47-44]</p></td>
+</tr>
+<tr class="row-even"><td><p>SB</p></td>
+<td><p>[39-36]</p></td>
+</tr>
+<tr class="row-odd"><td><p>FRINTTS</p></td>
+<td><p>[35-32]</p></td>
+</tr>
+<tr class="row-even"><td><p>GPI</p></td>
+<td><p>[31-28]</p></td>
+</tr>
+<tr class="row-odd"><td><p>GPA</p></td>
+<td><p>[27-24]</p></td>
+</tr>
+<tr class="row-even"><td><p>LRCPC</p></td>
+<td><p>[23-20]</p></td>
+</tr>
+<tr class="row-odd"><td><p>FCMA</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+<tr class="row-even"><td><p>JSCVT</p></td>
+<td><p>[15-12]</p></td>
+</tr>
+<tr class="row-odd"><td><p>API</p></td>
+<td><p>[11-8]</p></td>
+</tr>
+<tr class="row-even"><td><p>APA</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+<tr class="row-odd"><td><p>DPB</p></td>
+<td><p>[3-0]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64ISAR2_EL1 - Instruction set attribute register 2</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>LUT</p></td>
+<td><p>[59-56]</p></td>
+</tr>
+<tr class="row-odd"><td><p>CSSC</p></td>
+<td><p>[55-52]</p></td>
+</tr>
+<tr class="row-even"><td><p>RPRFM</p></td>
+<td><p>[51-48]</p></td>
+</tr>
+<tr class="row-odd"><td><p>BC</p></td>
+<td><p>[23-20]</p></td>
+</tr>
+<tr class="row-even"><td><p>MOPS</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+<tr class="row-odd"><td><p>APA3</p></td>
+<td><p>[15-12]</p></td>
+</tr>
+<tr class="row-even"><td><p>GPA3</p></td>
+<td><p>[11-8]</p></td>
+</tr>
+<tr class="row-odd"><td><p>RPRES</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+<tr class="row-even"><td><p>WFXT</p></td>
+<td><p>[3-0]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64ISAR3_EL1 - Instruction set attribute register 3</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>FPRCVT</p></td>
+<td><p>[31-28]</p></td>
+</tr>
+<tr class="row-odd"><td><p>LSFE</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+<tr class="row-even"><td><p>FAMINMAX</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64MMFR0_EL1 - Memory model feature register 0</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>ECV</p></td>
+<td><p>[63-60]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64MMFR1_EL1 - Memory model feature register 1</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>AFP</p></td>
+<td><p>[47-44]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64MMFR2_EL1 - Memory model feature register 2</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>AT</p></td>
+<td><p>[35-32]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64MMFR3_EL1 - Memory model feature register 3</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>S1POE</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64PFR0_EL1 - Processor Feature Register 0</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>DIT</p></td>
+<td><p>[51-48]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SVE</p></td>
+<td><p>[35-32]</p></td>
+</tr>
+<tr class="row-even"><td><p>AdvSIMD</p></td>
+<td><p>[23-20]</p></td>
+</tr>
+<tr class="row-odd"><td><p>FP</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64PFR1_EL1 - Processor Feature Register 1</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>GCS</p></td>
+<td><p>[47-44]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SME</p></td>
+<td><p>[27-24]</p></td>
+</tr>
+<tr class="row-even"><td><p>MTE</p></td>
+<td><p>[11-8]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SSBS</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+<tr class="row-even"><td><p>BT</p></td>
+<td><p>[3-0]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64PFR2_EL1 - Processor Feature Register 2</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>FPMR</p></td>
+<td><p>[35-32]</p></td>
+</tr>
+<tr class="row-odd"><td><p>MTEFAR</p></td>
+<td><p>[11-8]</p></td>
+</tr>
+<tr class="row-even"><td><p>MTESTOREONLY</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64SMFR0_EL1 - SME feature ID register 0</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>FA64</p></td>
+<td><p>[63]</p></td>
+</tr>
+<tr class="row-odd"><td><p>LUT6</p></td>
+<td><p>[61]</p></td>
+</tr>
+<tr class="row-even"><td><p>LUTv2</p></td>
+<td><p>[60]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SMEver</p></td>
+<td><p>[59-56]</p></td>
+</tr>
+<tr class="row-even"><td><p>I16I64</p></td>
+<td><p>[55-52]</p></td>
+</tr>
+<tr class="row-odd"><td><p>F64F64</p></td>
+<td><p>[48]</p></td>
+</tr>
+<tr class="row-even"><td><p>I16I32</p></td>
+<td><p>[47-44]</p></td>
+</tr>
+<tr class="row-odd"><td><p>B16B16</p></td>
+<td><p>[43]</p></td>
+</tr>
+<tr class="row-even"><td><p>F16F16</p></td>
+<td><p>[42]</p></td>
+</tr>
+<tr class="row-odd"><td><p>F8F16</p></td>
+<td><p>[41]</p></td>
+</tr>
+<tr class="row-even"><td><p>F8F32</p></td>
+<td><p>[40]</p></td>
+</tr>
+<tr class="row-odd"><td><p>I8I32</p></td>
+<td><p>[39-36]</p></td>
+</tr>
+<tr class="row-even"><td><p>F16F32</p></td>
+<td><p>[35]</p></td>
+</tr>
+<tr class="row-odd"><td><p>B16F32</p></td>
+<td><p>[34]</p></td>
+</tr>
+<tr class="row-even"><td><p>BI32I32</p></td>
+<td><p>[33]</p></td>
+</tr>
+<tr class="row-odd"><td><p>F32F32</p></td>
+<td><p>[32]</p></td>
+</tr>
+<tr class="row-even"><td><p>SF8FMA</p></td>
+<td><p>[30]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SF8DP4</p></td>
+<td><p>[29]</p></td>
+</tr>
+<tr class="row-even"><td><p>SF8DP2</p></td>
+<td><p>[28]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SBitPerm</p></td>
+<td><p>[25]</p></td>
+</tr>
+<tr class="row-even"><td><p>AES</p></td>
+<td><p>[24]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SFEXPA</p></td>
+<td><p>[23]</p></td>
+</tr>
+<tr class="row-even"><td><p>STMOP</p></td>
+<td><p>[16]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SMOP4</p></td>
+<td><p>[0]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_AA64ZFR0_EL1 - SVE feature ID register 0</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>F64MM</p></td>
+<td><p>[59-56]</p></td>
+</tr>
+<tr class="row-odd"><td><p>F32MM</p></td>
+<td><p>[55-52]</p></td>
+</tr>
+<tr class="row-even"><td><p>F16MM</p></td>
+<td><p>[51-48]</p></td>
+</tr>
+<tr class="row-odd"><td><p>I8MM</p></td>
+<td><p>[47-44]</p></td>
+</tr>
+<tr class="row-even"><td><p>SM4</p></td>
+<td><p>[43-40]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SHA3</p></td>
+<td><p>[35-32]</p></td>
+</tr>
+<tr class="row-even"><td><p>B16B16</p></td>
+<td><p>[27-24]</p></td>
+</tr>
+<tr class="row-odd"><td><p>BF16</p></td>
+<td><p>[23-20]</p></td>
+</tr>
+<tr class="row-even"><td><p>BitPerm</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+<tr class="row-odd"><td><p>EltPerm</p></td>
+<td><p>[15-12]</p></td>
+</tr>
+<tr class="row-even"><td><p>AES</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SVEVer</p></td>
+<td><p>[3-0]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_ISAR5_EL1 - AArch32 Instruction Set Attribute Register 5</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>CRC32</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SHA2</p></td>
+<td><p>[15-12]</p></td>
+</tr>
+<tr class="row-even"><td><p>SHA1</p></td>
+<td><p>[11-8]</p></td>
+</tr>
+<tr class="row-odd"><td><p>AES</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_ISAR6_EL1 - AArch32 Instruction Set Attribute Register 6</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>I8MM</p></td>
+<td><p>[27-24]</p></td>
+</tr>
+<tr class="row-odd"><td><p>BF16</p></td>
+<td><p>[23-20]</p></td>
+</tr>
+<tr class="row-even"><td><p>SB</p></td>
+<td><p>[15-12]</p></td>
+</tr>
+<tr class="row-odd"><td><p>FHM</p></td>
+<td><p>[11-8]</p></td>
+</tr>
+<tr class="row-even"><td><p>DP</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>ID_PFR2_EL1 - AArch32 Processor Feature Register 2</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>SSBS</p></td>
+<td><p>[7-4]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>MIDR_EL1 - Main ID Register</p>
+<blockquote>
+<div><blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>Implementer</p></td>
+<td><p>[31-24]</p></td>
+</tr>
+<tr class="row-odd"><td><p>Variant</p></td>
+<td><p>[23-20]</p></td>
+</tr>
+<tr class="row-even"><td><p>Architecture</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+<tr class="row-odd"><td><p>PartNum</p></td>
+<td><p>[15-4]</p></td>
+</tr>
+<tr class="row-even"><td><p>Revision</p></td>
+<td><p>[3-0]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>NOTE: The ‘visible’ fields of MIDR_EL1 will contain the value
+as available on the CPU where it is fetched and is not a system
+wide safe value.</p>
+</div></blockquote>
+<p>MVFR0_EL1 - AArch32 Media and VFP Feature Register 0</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>FPDP</p></td>
+<td><p>[11-8]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>MVFR1_EL1 - AArch32 Media and VFP Feature Register 1</p>
+<blockquote>
+<div><table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>bits</p></td>
+</tr>
+<tr class="row-even"><td><p>SIMDFMAC</p></td>
+<td><p>[31-28]</p></td>
+</tr>
+<tr class="row-odd"><td><p>FPHP</p></td>
+<td><p>[27-24]</p></td>
+</tr>
+<tr class="row-even"><td><p>SIMDHP</p></td>
+<td><p>[23-20]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SIMDSP</p></td>
+<td><p>[19-16]</p></td>
+</tr>
+<tr class="row-even"><td><p>SIMDInt</p></td>
+<td><p>[15-12]</p></td>
+</tr>
+<tr class="row-odd"><td><p>SIMDLS</p></td>
+<td><p>[11-8]</p></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+</div></blockquote>
+</section>
+<section id="appendix-i-example">
+<h2>Appendix I: Example<a class="headerlink" href="#appendix-i-example" title="Permalink to this heading">¶</a></h2>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>/*
+ * Sample program to demonstrate the MRS emulation ABI.
+ *
+ * Copyright (C) 2015-2016, ARM Ltd
+ *
+ * Author: Suzuki K Poulose &lt;suzuki.poulose@arm.com&gt;
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include &lt;asm/hwcap.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;sys/auxv.h&gt;
+
+#define get_cpu_ftr(id) ({                                    \
+              unsigned long __val;                            \
+              asm(&quot;mrs %0, &quot;#id : &quot;=r&quot; (__val));              \
+              printf(&quot;%-20s: 0x%016lx\n&quot;, #id, __val);        \
+      })
+
+int main(void)
+{
+
+      if (!(getauxval(AT_HWCAP) &amp; HWCAP_CPUID)) {
+              fputs(&quot;CPUID registers unavailable\n&quot;, stderr);
+              return 1;
+      }
+
+      get_cpu_ftr(ID_AA64ISAR0_EL1);
+      get_cpu_ftr(ID_AA64ISAR1_EL1);
+      get_cpu_ftr(ID_AA64MMFR0_EL1);
+      get_cpu_ftr(ID_AA64MMFR1_EL1);
+      get_cpu_ftr(ID_AA64PFR0_EL1);
+      get_cpu_ftr(ID_AA64PFR1_EL1);
+      get_cpu_ftr(ID_AA64DFR0_EL1);
+      get_cpu_ftr(ID_AA64DFR1_EL1);
+
+      get_cpu_ftr(MIDR_EL1);
+      get_cpu_ftr(MPIDR_EL1);
+      get_cpu_ftr(REVIDR_EL1);
+
+#if 0
+      /* Unexposed register access causes SIGILL */
+      get_cpu_ftr(ID_MMFR0_EL1);
+#endif
+
+      return 0;
+}
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;The kernel development community.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../../_sources/arch/arm64/cpu-feature-registers.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

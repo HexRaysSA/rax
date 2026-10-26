@@ -307,7 +307,7 @@ impl Cp15State {
             // CRn=1: System control
             (1, 0, 0, 0) => Some(self.sctlr.bits()),
             (1, 0, 0, 1) => Some(self.actlr),
-            (1, 0, 0, 2) => Some(self.cpacr.bits()),
+            (1, 0, 0, 2) => Some(self.cpacr.bits() & 0x80f0_0000),
             (1, 0, 1, 0) => Some(self.scr),
             (1, 0, 1, 1) => Some(self.sder),
             (1, 0, 1, 2) => Some(self.nsacr),
@@ -367,7 +367,9 @@ impl Cp15State {
                 true
             }
             (1, 0, 0, 2) => {
-                self.cpacr = Cpacr::from_bits(value);
+                // The selected modern FP profile implements ASEDIS and cp10/cp11.
+                // D32DIS and unimplemented trace/coprocessor controls are RES0.
+                self.cpacr = Cpacr::from_bits(value & 0x80f0_0000);
                 true
             }
             (1, 0, 1, 0) => {
