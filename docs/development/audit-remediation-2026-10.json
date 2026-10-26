@@ -1509,7 +1509,66 @@
         "/Users/int/dev/rax-audit-work/rax-hvf-mmio/reference-summary.json",
         "/Users/int/dev/rax-audit-work/rax-hvf-mmio/old-metadata-result.json",
         "/Users/int/dev/rax-audit-work/rax-hvf-mmio/negative-compare.stdout",
-        "/Users/int/dev/rax-audit-work/rax-hvf-mmio/positive-compare.stdout"
+        "/Users/int/dev/rax-audit-work/rax-hvf-mmio/positive-compare.stdout",
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/controls.rs",
+        "Cargo.toml",
+        "tests/suites/backend/hvf_controls.rs",
+        "tools/hvf/README.md",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/reference-summary.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/baseline-init.rs",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/positive-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/negative-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-controller.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-translation.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-controls.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-events.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-controller.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-mmio.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-translation.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-controls.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-pio.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-shadow.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-events.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-xsetbv-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ip-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-standalone.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-capi.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ip-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-parity/manifest.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -3131,6 +3190,79 @@
         "NSACR/HCPTR/CPTR_EL3, Hyp/EL2, physical A32 hardware and optional trapped profiles remain unverified.",
         "Cortex-A15 reference excludes FP16/FHM and modern D32DIS policy; those are local primary-source regressions.",
         "No new private/serialized state; complete checkpoint-v8 requirement remains open."
+      ]
+    },
+    {
+      "id": "HVF-CAPABILITY-INIT",
+      "area": "IntelVMXinitialization",
+      "finding": "Capability-query errors were ignored and unavailable requested controls were silently cleared.",
+      "status": "locally_validated",
+      "evidence": [
+        "src/backend/hvf/mod.rs",
+        "src/backend/hvf/controls.rs",
+        "Cargo.toml",
+        "tests/suites/backend/hvf_controls.rs",
+        "tools/hvf/README.md",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/reference-summary.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/baseline-init.rs",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/positive-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/negative-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-controller.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-translation.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-controls.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-events.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-sdk.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-controller.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-mmio.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-translation.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-controls.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-pio.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-shadow.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-events.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-sync-exits.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-cr8.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-loop.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-xsetbv.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-xsetbv-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ip-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio-oracle.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-standalone.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-capi.log",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ip-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-parity/manifest.json"
+      ],
+      "remaining_validation": [
+        "Native Intel capability reads, constructor failure/destruction and VM entry remain unverified on Apple Silicon.",
+        "Existing initial IA-32e entry policy, CR0.NE mask/shadow, optional CR3/CR4 intercepts, MSRs and complete FP/private state remain separate.",
+        "Forced legacy controls remain required by host capability masks;their downstream semantics are not established by these tests.",
+        "No checkpoint fields or public C ABI layout changes."
       ]
     }
   ],
@@ -75917,6 +76049,1185 @@
           "semantic_sources_unchanged": true,
           "reason": "AGENTS.md10.4 requires exact external document snapshots under docs;additional paths contain no product semantics."
         },
+        "toolchain": {
+          "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
+          "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",
+          "compiler_verbose": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+          "environment": {
+            "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+            "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin"
+          },
+          "scope": "Required final gates use fixed task-local1.99.1;retained earlier1.98.1 references/preflights remain separately versioned. No global compiler/default changes."
+        }
+      }
+    },
+    {
+      "id": "hvf-capability-initialization",
+      "status": "locally_validated",
+      "scope": "Check all four used Intel capability queries and validate required controls before any VMCS programming. Preserve supported legacy control selection, report missing or inconsistent masks, and propagate each host write failure. Remove unused exit-capability query.",
+      "assumptions": [
+        {
+          "id": "I1",
+          "assumption": "Apple capability values use the SDM low32 required-one/high32 permitted-one representation.",
+          "basis": "Pinned hv_vmx.h SDK declaration and Intel SDM086 AppendixA.3/A.4.",
+          "dependent_result": "Required-bit union, unsupported/inconsistent mask errors before writes.",
+          "stress_test": "256 bit cells, high requested bit,65536 seeded full-width valid masks and128 bank/bit contradictions.",
+          "falsification_probe": "Actual SDK capabilities use another representation or a valid requested control is lost.",
+          "status": "retained"
+        },
+        {
+          "id": "I2",
+          "assumption": "The twelve currently requested control bits are required by the existing execution policy.",
+          "basis": "Prior init_vmcs requests and current exit handlers/CPUID policy.",
+          "dependent_result": "Unavailable controls fail initialization instead of changing the policy silently.",
+          "stress_test": "Remove every requested bit independently from each capability high32 mask;require error and zero writes.",
+          "falsification_probe": "A requested control is intentionally optional under a documented alternate policy.",
+          "status": "retained"
+        },
+        {
+          "id": "I3",
+          "assumption": "Constructor failure owns and destroys the allocated vCPU;this validation phase cannot guarantee rollback after a host write succeeds.",
+          "basis": "HvfVcpu::new constructs the local owner before init_vmcs;Drop calls hv_vcpu_destroy.",
+          "dependent_result": "Fail after first error;prior writes visible in traces;no atomic restore claim.",
+          "stress_test": "All4 read and10 write error positions, exact traces/prior commits.",
+          "falsification_probe": "Native resource destruction fails or ownership changes;native execution remains unknown.",
+          "status": "retained"
+        }
+      ],
+      "primary_sources": [
+        {
+          "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+          "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+          "contract": "IntelSDM086 Vol.3D AppendixA.3/A.4 capability required-one/permitted-one masks."
+        },
+        {
+          "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_vmx.h",
+          "sha256": "e62a6b975fdb9509ee632e4449f0d40626c78fcb0fc7b36ce1a178685e5b1413",
+          "contract": "hv_vmx_read_capability writes value only on success and returns0 or an SDK error;four used bank selectors from installedSDK."
+        }
+      ],
+      "scope_limits": [
+        "Native Intel capability reads, constructor failure/destruction and VM entry remain unverified on Apple Silicon.",
+        "Existing initial IA-32e entry policy, CR0.NE mask/shadow, optional CR3/CR4 intercepts, MSRs and complete FP/private state remain separate.",
+        "Forced legacy controls remain required by host capability masks;their downstream semantics are not established by these tests.",
+        "No checkpoint fields or public C ABI layout changes."
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Masking requested controls silently can remove EPT/intercepts or an exposed instruction control.",
+          "action": "Require every requested bit before programming;explicit failure includes bank/missing bits."
+        },
+        {
+          "impact": "medium",
+          "finding": "A fifth capability query supplied a value never used by initialization.",
+          "action": "Remove that query;test exact four-bank access sequence."
+        },
+        {
+          "impact": "medium",
+          "finding": "A later host write error may leave earlier VMCS writes committed.",
+          "action": "Retain the error and exact partial sequence;new-vCPU owner cleanup remains the resource boundary."
+        }
+      ],
+      "quality_gates": {
+        "QG1": "No normative judgments required.",
+        "QG2": "I1-I3 include basis/dependency/falsification.",
+        "QG3": "All used capability reads and all ten initialization writes covered;broaderHVFfindings partial.",
+        "QG4": "Capability mask fields32bits;four banks and ten writes;O(1)time/space.",
+        "QG5": "Partial-write errors explicit;unsupported/inconsistent masks rejected before any write.",
+        "QG6": "Primary SDK/SDM hashes,product sources and controlled-negative hashes verified.",
+        "QG7": "Required controls,unused query and constructor cleanup scope recorded."
+      },
+      "baseline": "472e68fb96403c4fc43917d494c1285176f9e29a",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 495.3833005829947
+          },
+          {
+            "check": "final-clippy",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 234.8592633340013
+          },
+          {
+            "check": "final-fmt",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 15.293500041996595
+          },
+          {
+            "check": "final-doc",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 5.436580917004903
+          },
+          {
+            "check": "final-sdk",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sdk_abi",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.5131961250008317
+          },
+          {
+            "check": "final-controller",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "controller_irq",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.09191129200189607
+          },
+          {
+            "check": "final-mmio",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_mmio",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.13539524999941932
+          },
+          {
+            "check": "final-translation",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_guest_translation",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.09801762500137556
+          },
+          {
+            "check": "final-controls",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_controls",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.11551741699804552
+          },
+          {
+            "check": "final-pio",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_port_io",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.127259499997308
+          },
+          {
+            "check": "final-shadow",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.09999620800226694
+          },
+          {
+            "check": "final-events",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_event_injection",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.09119433299929369
+          },
+          {
+            "check": "final-sync-exits",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sync_exits",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.11481395900045754
+          },
+          {
+            "check": "final-cr8",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_cr8",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.08615458299755119
+          },
+          {
+            "check": "final-loop",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_run_loop",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.15175441600149497
+          },
+          {
+            "check": "final-xsetbv",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_xsetbv",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.08760112500021933
+          },
+          {
+            "check": "final-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 362.8053130420012
+          },
+          {
+            "check": "final-intel-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 450.1664907499944
+          },
+          {
+            "check": "final-intel-sdk",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sdk_abi",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.7327159999986179
+          },
+          {
+            "check": "final-intel-controller",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "controller_irq",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.2698554169983254
+          },
+          {
+            "check": "final-intel-mmio",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_mmio",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.3491589160039439
+          },
+          {
+            "check": "final-intel-translation",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_guest_translation",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.2623012089970871
+          },
+          {
+            "check": "final-intel-controls",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_controls",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.28672891599853756
+          },
+          {
+            "check": "final-intel-pio",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_port_io",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.2936081249936251
+          },
+          {
+            "check": "final-intel-shadow",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.2649139590066625
+          },
+          {
+            "check": "final-intel-events",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_event_injection",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.27033004199620336
+          },
+          {
+            "check": "final-intel-sync-exits",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sync_exits",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.26775645800080383
+          },
+          {
+            "check": "final-intel-cr8",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_cr8",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.25978637499792967
+          },
+          {
+            "check": "final-intel-loop",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_run_loop",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.3672932920017047
+          },
+          {
+            "check": "final-intel-xsetbv",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_xsetbv",
+              "--",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 0.26184899999498157
+          },
+          {
+            "check": "final-intel-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2656.5045302500002
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 0.31512466599815525
+          },
+          {
+            "check": "final-xsetbv-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/xsetbv_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.6530974580018665
+          },
+          {
+            "check": "final-cr8-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/cr8_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.35167058300430654
+          },
+          {
+            "check": "final-ip-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/sync_exit_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ip-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.2967741659958847
+          },
+          {
+            "check": "final-shadow-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/interrupt_shadow_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.31109745900175767
+          },
+          {
+            "check": "final-pio-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/port_io_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.3055689579996397
+          },
+          {
+            "check": "final-mmio-oracle",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/mmio_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio-oracle",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 0.7167976659984561
+          },
+          {
+            "check": "final-sdk-standalone",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/hvf/check_sdk_abi.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-parity"
+            ],
+            "code": 0,
+            "seconds": 0.38691895800002385
+          },
+          {
+            "check": "final-capi",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 15.752961833000882
+          }
+        ],
+        "negative_scope": "Controlled prior behavior:capability query failures yield zero masks;cap2ctrl silently clears unavailable controls. No native Intel/API error experiment claimed.",
+        "controlled_negative": {
+          "failed": 4,
+          "passed": 3
+        },
+        "case_counts": {
+          "single_bit_cells": 256,
+          "requested_high_bit_cell": 1,
+          "seeded_valid_masks": 65536,
+          "contradictory_bank_bits": 128,
+          "read_failures": 4,
+          "write_failures": 10,
+          "requested_control_bits": 12
+        },
+        "complete_library_native": {
+          "passed": 10598,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 362.7
+        },
+        "complete_library_rosetta": {
+          "passed": 11581,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 2656.05
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "ci_owning": {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.06
+        },
+        "complete_owners": {
+          "sdk": {
+            "native": {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.43
+            },
+            "rosetta": {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.4
+            }
+          },
+          "controller": {
+            "native": {
+              "passed": 31,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            },
+            "rosetta": {
+              "passed": 31,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            }
+          },
+          "mmio": {
+            "native": {
+              "passed": 17,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.05
+            },
+            "rosetta": {
+              "passed": 17,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.07
+            }
+          },
+          "translation": {
+            "native": {
+              "passed": 7,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            },
+            "rosetta": {
+              "passed": 7,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            }
+          },
+          "controls": {
+            "native": {
+              "passed": 7,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.02
+            },
+            "rosetta": {
+              "passed": 7,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.03
+            }
+          },
+          "pio": {
+            "native": {
+              "passed": 8,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.02
+            },
+            "rosetta": {
+              "passed": 8,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.03
+            }
+          },
+          "shadow": {
+            "native": {
+              "passed": 6,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            },
+            "rosetta": {
+              "passed": 6,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            }
+          },
+          "events": {
+            "native": {
+              "passed": 6,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.01
+            },
+            "rosetta": {
+              "passed": 6,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.01
+            }
+          },
+          "sync-exits": {
+            "native": {
+              "passed": 9,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            },
+            "rosetta": {
+              "passed": 9,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.01
+            }
+          },
+          "cr8": {
+            "native": {
+              "passed": 6,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            },
+            "rosetta": {
+              "passed": 6,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            }
+          },
+          "loop": {
+            "native": {
+              "passed": 8,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.06
+            },
+            "rosetta": {
+              "passed": 8,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.11
+            }
+          },
+          "xsetbv": {
+            "native": {
+              "passed": 10,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            },
+            "rosetta": {
+              "passed": 10,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 0,
+              "elapsed_seconds": 0.0
+            }
+          }
+        },
+        "capi": [
+          {
+            "passed": 191,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 15.55
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          }
+        ],
+        "capi_inventory_adjustment": {
+          "reason": "Externally introduced PAUTH C API tests increased the owning binary from 185 to 191 tests before stable final checkout creation. Historical fixed-count validation was stale.",
+          "scope": "Capture the complete current C API libtest inventory and require exact count, zero failed, ignored and filtered tests, plus the unchanged zero doctest result. Product source, test membership, filters, timeout and result logs are unchanged.",
+          "first_group": "Group52 inventory captured after its successful complete run; later groups capture before executing.",
+          "original_logs_retained": true
+        },
+        "independent": {
+          "final-oracle": {
+            "cases": 114,
+            "scope": "CPL0 XSAVE-enabled CPU; OSXSAVE0/1, index/value faults and XCR0 preservation. TCG, not VMX."
+          },
+          "final-cr8-oracle": {
+            "cases": 335,
+            "scope": "Long-mode CPL0 CR8/APIC.TPR:272 independent legal transfers,63 primary reserved-bit cases. Known QEMU masking disagreements retained, not full equivalence."
+          },
+          "final-ip-oracle": {
+            "cases": 12,
+            "scope": "Twelve CPL0 CPUID executions with actual debug traps in16/32-bit decoding, lengths2/3/15 and64KiB boundary crossing. Non64 EIP is32-bit. Not native VMX."
+          },
+          "final-shadow-oracle": {
+            "cases": 6,
+            "scope": "Six CPL0 STI;CPUID/HLT cases with PIC IRR IRQ0 verified pending before STI; full saved EIP and interrupt count. TCG direct instructions, not native VMX."
+          },
+          "final-pio-oracle": {
+            "cases": 36,
+            "scope": "Thirty-six actual CPL0 IN AL/AX/EAX executions in long mode, DX/immediate port encoding and6 prior RAX patterns; complete RAX and before/after flags compared. Lower input bytes are captured reference values, not assumed device constants. TCG, not native VMX."
+          },
+          "final-mmio-oracle": {
+            "result": "reference_and_product_match",
+            "cases": 1204,
+            "scope": "1204 actual CPL0 long-mode RAM MOV/MOVSX/MOVZX executions;16 GPRs, high-byte aliases, partial/zero/sign extension and immediates. Product plans expose the same operand as an MMIO hole. Not native VMX/device delivery."
+          },
+          "final-sdk-parity": {
+            "result": "match",
+            "counts": {
+              "register_ids": 52,
+              "vmcs_fields": 85,
+              "shared_runtime_vmcs_fields": 1,
+              "constants": 17,
+              "types": 6,
+              "type_size_alignment_pairs": 8,
+              "function_signatures": 20
+            },
+            "scope": "Intel register IDs, selected ABI type sizes/alignments, HV constants, and every declared x86 foreign function signature. All declared VMCS field encodings use explicit SDK-name aliases. Native hypervisor/guest execution and Arm64 function signatures remain separate."
+          }
+        },
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/reference-summary.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/baseline-init.rs",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/positive-unit.stdout",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/negative-unit.stdout",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/worktree-checks.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-build.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-clippy.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-fmt.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-doc.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-controller.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-translation.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-controls.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-events.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sync-exits.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-loop.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-xsetbv.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-library.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-build.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-sdk.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-controller.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-mmio.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-translation.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-controls.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-pio.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-shadow.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-events.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-sync-exits.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-cr8.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-loop.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-xsetbv.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-xsetbv-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ip-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio-oracle.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-standalone.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-capi.log",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-cr8-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-ip-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-parity/manifest.json"
+        ],
         "toolchain": {
           "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
           "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",

@@ -397,3 +397,7 @@ path = "tests/suites/backend/hvf_mmio.rs"
 [[test]]
 name = "controller_irq"
 path = "tests/suites/backend/controller_irq.rs"
+
+[[test]]
+name = "hvf_controls"
+path = "tests/suites/backend/hvf_controls.rs"

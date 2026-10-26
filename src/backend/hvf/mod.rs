@@ -11,6 +11,8 @@
 
 mod bindings;
 #[cfg(target_arch = "x86_64")]
+mod controls;
+#[cfg(target_arch = "x86_64")]
 mod convert;
 #[cfg(target_arch = "x86_64")]
 mod cr8;
@@ -361,71 +363,37 @@ impl HvfVcpu {
 
     /// Initialize VMCS fields for the vCPU.
     fn init_vmcs(&self) -> Result<()> {
-        use hv_vmx_vmcs_field_t::*;
-
-        // Get VMX capabilities to determine which controls we can enable
-        let mut pin_cap: u64 = 0;
-        let mut proc_cap: u64 = 0;
-        let mut proc2_cap: u64 = 0;
-        let mut entry_cap: u64 = 0;
-        let mut exit_cap: u64 = 0;
-
-        unsafe {
-            hv_vmx_read_capability(HV_VMX_CAP_PINBASED, &mut pin_cap);
-            hv_vmx_read_capability(HV_VMX_CAP_PROCBASED, &mut proc_cap);
-            hv_vmx_read_capability(HV_VMX_CAP_PROCBASED2, &mut proc2_cap);
-            hv_vmx_read_capability(HV_VMX_CAP_ENTRY, &mut entry_cap);
-            hv_vmx_read_capability(HV_VMX_CAP_EXIT, &mut exit_cap);
+        struct Access {
+            id: hv_vcpuid_t,
         }
-
-        // Pin-based controls: enable external interrupt exiting
-        let pin_based = self.cap2ctrl(pin_cap, PIN_BASED_EXT_INTR_EXIT | PIN_BASED_NMI_EXIT);
-        vmcs_write(self.vcpu_id, VMCS_CTRL_PIN_BASED, pin_based)?;
-
-        // Primary processor-based controls
-        let proc_based = self.cap2ctrl(
-            proc_cap,
-            CPU_BASED_HLT_EXIT
-                | CPU_BASED_CR8_LOAD_EXIT
-                | CPU_BASED_CR8_STORE_EXIT
-                | CPU_BASED_UNCOND_IO_EXIT
-                | CPU_BASED_SECONDARY_CONTROLS,
-        );
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CPU_BASED, proc_based)?;
-
-        // Secondary processor-based controls: enable EPT, unrestricted guest
-        let proc2_based = self.cap2ctrl(
-            proc2_cap,
-            CPU_BASED2_EPT | CPU_BASED2_UNRESTRICTED_GUEST | CPU_BASED2_RDTSCP,
-        );
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CPU_BASED2, proc2_based)?;
-
-        // VM-entry controls: load EFER, IA-32e guest mode
-        let entry_ctls = self.cap2ctrl(entry_cap, VMENTRY_LOAD_IA32_EFER | VMENTRY_GUEST_IA32E);
-        vmcs_write(self.vcpu_id, VMCS_CTRL_VMENTRY_CONTROLS, entry_ctls)?;
-
-        // Exception bitmap: trap no exceptions initially
-        vmcs_write(self.vcpu_id, VMCS_CTRL_EXC_BITMAP, 0)?;
-
-        // CR0/CR4 masks and shadows - allow guest to modify most bits
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CR0_MASK, CR0_NE)?;
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CR0_SHADOW, CR0_NE)?;
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CR4_MASK, 0)?;
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CR4_SHADOW, 0)?;
-
-        // Guest link pointer (for nested virtualization, set to -1 for none)
-        vmcs_write(self.vcpu_id, VMCS_GUEST_LINK_POINTER, 0xFFFFFFFF_FFFFFFFF)?;
-
+        impl controls::ControlAccess for Access {
+            type Error = Error;
+            fn capability(&mut self, field: hv_vmx_capability_t) -> Result<u64> {
+                let mut value = 0;
+                let status = unsafe { hv_vmx_read_capability(field, &mut value) };
+                if status != HV_SUCCESS {
+                    return Err(Error::Emulator(format!(
+                        "Failed to read VMX capability {field}: {}",
+                        hv_error_string(status)
+                    )));
+                }
+                Ok(value)
+            }
+            fn write(&mut self, field: hv_vmx_vmcs_field_t, value: u64) -> Result<()> {
+                vmcs_write(self.id, field, value)
+            }
+        }
+        controls::initialize(&mut Access { id: self.vcpu_id }).map_err(|error| match error {
+            controls::ControlError::Host(error) => error,
+            controls::ControlError::Inconsistent { capability, bits } => Error::Emulator(format!(
+                "VMX capability {capability} requires disallowed control bits {bits:#010x}"
+            )),
+            controls::ControlError::Unsupported { capability, bits } => Error::Emulator(format!(
+                "VMX capability {capability} lacks required control bits {bits:#010x}"
+            )),
+        })?;
         debug!(vcpu_id = self.vcpu_id, "Initialized VMCS");
         Ok(())
-    }
-
-    /// Convert capability to control value.
-    /// The capability encodes allowed 0->1 and 1->0 transitions.
-    fn cap2ctrl(&self, cap: u64, ctrl: u64) -> u64 {
-        let allowed_0 = cap & 0xFFFFFFFF; // Bits that may be 0
-        let allowed_1 = (cap >> 32) & 0xFFFFFFFF; // Bits that may be 1
-        (ctrl | allowed_0) & allowed_1
     }
 
     /// Handle CPUID exit.

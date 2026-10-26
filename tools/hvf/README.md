@@ -326,3 +326,28 @@ forms are explicit unsupported cases. TF single-stepped MMIO remains unsupported
 before device access pending complete debug-retirement semantics. Native Intel
 execution, controller/device ordering, concurrent page-table changes and the
 complete checkpoint representation remain separate validation requirements.
+
+
+## VMCS capability validation
+
+`cargo +stable test --test hvf_controls` executes the shared initialization
+sequence with deterministic host-call traces. All four used capability banks
+must be read successfully and satisfy the requested controls before the first
+VMCS write. Required controls are preserved; unavailable controls and
+contradictory required-one/allowed-one masks return explicit errors. The unused
+VM-exit capability query is removed. Low32 capability bits require one; high32
+bits permit one, as defined in Intel SDM Vol.3D AppendicesA.3/A.4.
+
+The existing pin, processor, secondary and entry policy is retained, including
+EPT, unrestricted guest, RDTSCP, CR8/I/O/HLT exits and EFER/IA-32e entry controls.
+The policy still starts in IA-32e mode; complete guest mode transitions remain
+separate. Host capability errors include the bank and SDK error. VMCS write
+errors propagate with prior successful writes visible; constructor failure
+destroys the newly allocated vCPU. There is no atomic rollback claim.
+
+Seven tests cover all256 single-bit mask cells, a high requested bit,65536
+seeded valid32-bit masks, all128 inconsistent bank/bit cells, every12 requested
+control bits, all4 capability read failures and all10 write failure boundaries.
+The controlled prior behavior fails four tests and passes three controls.
+These are software contract and SDK compilation checks. Native Intel capability
+queries, VM entry and hardware execution require separate validation.
