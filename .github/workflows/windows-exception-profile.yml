@@ -12,6 +12,7 @@ on:
       - docs/specifications/windows/native-process-debug-port/**
       - docs/specifications/windows/native-process-image-information/**
       - docs/specifications/windows/native-wow64-startup-information/**
+      - docs/specifications/windows/native-system-processor-information/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
@@ -22,6 +23,7 @@ on:
       - docs/specifications/windows/native-process-debug-port/**
       - docs/specifications/windows/native-process-image-information/**
       - docs/specifications/windows/native-wow64-startup-information/**
+      - docs/specifications/windows/native-system-processor-information/**
   workflow_dispatch:
 
 permissions:
@@ -118,3 +120,16 @@ jobs:
       - name: Observe WoW64 startup section and quiescent work-list resources
         if: always()
         run: python docs/specifications/windows/native-wow64-startup-information/run-resources-v1.py
+      - name: Observe native and compatibility processor information
+        if: always()
+        run: |
+          python docs/specifications/windows/native-system-processor-information/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-system-processor-information/run-v1.py
+      - name: Preserve native processor information observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-system-processor-information-${{ matrix.os }}
+          path: target/native-system-processor-information-v1.json
+          if-no-files-found: error

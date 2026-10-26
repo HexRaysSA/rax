@@ -1,0 +1,21 @@
+{
+  "references": [
+    {
+      "url": "https://github.com/wine-mirror/wine/blob/e3c3d348676128bc745c40aa6397b51951ef1cd6/dlls/wow64/system.c",
+      "git_blob": "eb57d35f41e44524e8e6838cabdf603148a6009c",
+      "role": "Primary implementation of the ordinary converted and native-WoW64 query dispatch; Windows observations establish the measured behavior."
+    },
+    {
+      "url": "https://github.com/wine-mirror/wine/blob/e3c3d348676128bc745c40aa6397b51951ef1cd6/dlls/ntdll/unix/system.c",
+      "role": "Primary implementation of processor record fields and CPU information. Its compatibility behavior and masks are not Windows kernel evidence."
+    },
+    {
+      "url": "https://learn.microsoft.com/windows/win32/api/sysinfoapi/ns-sysinfoapi-system_info",
+      "role": "Microsoft SYSTEM_INFO field definitions. Native capture keeps GetSystemInfo and GetNativeSystemInfo separate."
+    },
+    {
+      "url": "https://learn.microsoft.com/windows/win32/api/sysinfoapi/nf-sysinfoapi-getnativesysteminfo",
+      "role": "Microsoft documents the compatibility view of GetNativeSystemInfo on ARM64 and its equivalence to GetSystemInfo for 64-bit callers."
+    }
+  ]
+}
