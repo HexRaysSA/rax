@@ -273,7 +273,7 @@ page count with `GlobalMemoryStatusEx`, and the timer field with the largest
 | Field / offset | x86 WoW64 | ARM64 / x64 | Guest source |
 |---|---|---|---|
 | Required bytes | 44 | 64 | Native exact-length probes |
-| Actual written bytes | 41; final 3 bytes unchanged | 64; padding zero | Native canaries and inaccessible-tail probes |
+| Actual written bytes | 41; final 3 bytes unchanged | ARM64: 64 with zero padding; native AMD64: fields only, padding preserved | Native canaries and inaccessible-tail probes |
 | Timer / +4 | 10,000 units of 100 ns | Same | Guest 1 ms tick granularity; declared profile value |
 | Page size / +8 | 4096 bytes | Same | `PAGE_SIZE` |
 | Physical pages / +12 | Usable backing bytes / 4096 | Same | `VirtualMemory::commit_limit`; excludes reserved frames, no paging file |
@@ -283,6 +283,11 @@ page count with `GlobalMemoryStatusEx`, and the timer field with the largest
 | Maximum user address | +32 | +40 | `VirtualMemory::high() - 1`, inclusive; x86 normal/LAA limits differ |
 | Affinity mask | +36 | +48 | 1, matching the single virtual processor |
 | Processor count | +40 | +56 | 1, matching PEB, KUSER_SHARED_DATA and guest environment |
+
+Processor classes 1/63 and the WoW64 native-query entry use distinct caller,
+kernel and legacy views. Class114 retains a native 64-byte basic record even
+for a WoW64 caller. See the [processor adapter contract](../../../docs/specifications/windows/native-system-processor-information/adapter.md)
+for the measured probing order, virtual CPU policy and validation boundaries.
 
 Process construction now writes the same usable page count into the existing
 `KUSER_SHARED_DATA.NumberOfPhysicalPages` profile field. Physical page counts

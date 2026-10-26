@@ -30,6 +30,8 @@ def main():
     ) as temporary:
         environment.update(TMPDIR=temporary, TMP=temporary, TEMP=temporary)
         for pattern in (
+            "native_system_processor",
+            "dll::native::query::processor::tests",
             "shared_time",
             "system_time",
             "a64_observation",

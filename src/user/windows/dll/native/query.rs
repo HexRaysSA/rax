@@ -19,9 +19,13 @@ use crate::user::windows::nt::status::{
 use vm_memory::{Address, GuestMemory};
 
 mod code_integrity;
+mod processor;
 
 const SYSTEM_BASIC_INFORMATION: u32 = 0;
+const SYSTEM_PROCESSOR_INFORMATION: u32 = 1;
 const SYSTEM_EMULATION_BASIC_INFORMATION: u32 = 62;
+const SYSTEM_EMULATION_PROCESSOR_INFORMATION: u32 = 63;
+const SYSTEM_NATIVE_BASIC_INFORMATION: u32 = 114;
 const SYSTEM_RANGE_START_INFORMATION: u32 = 50;
 const SYSTEM_NUMA_PROCESSOR_MAP: u32 = 55;
 const SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION: u32 = 197;
@@ -48,6 +52,65 @@ pub(super) fn return_length(c: &Ctx, address: u64, bytes: u32) -> Result<(), Mem
 pub(super) fn system_information(c: &mut Ctx) -> ApiResult {
     let result = query(c);
     guard_result(c, result)
+}
+
+pub(super) fn wow64_information(c: &mut Ctx) -> ApiResult {
+    let result = query_wow64_native(c);
+    guard_result(c, result)
+}
+
+fn probe_destinations(
+    c: &Ctx,
+    output: u64,
+    length: u32,
+    returned: u64,
+) -> Result<Option<u32>, ApiErr> {
+    if length != 0 {
+        if output % 4 != 0 {
+            return Ok(Some(STATUS_DATATYPE_MISALIGNMENT));
+        }
+        probe_write(c, output, length as usize)?;
+    }
+    if returned != 0 {
+        probe_write(c, returned, 4)?;
+    }
+    Ok(None)
+}
+
+fn query_wow64_native(c: &mut Ctx) -> ApiResult {
+    let (class, output, length, returned) = (c.u32(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?);
+    match class {
+        SYSTEM_BASIC_INFORMATION | SYSTEM_EMULATION_BASIC_INFORMATION => {
+            let high = if class == SYSTEM_BASIC_INFORMATION {
+                native_user_limit(c)?
+            } else {
+                c.p.vm.high()
+            };
+            basic_record(c, output, length, returned, 4, high)
+        }
+        SYSTEM_PROCESSOR_INFORMATION
+        | SYSTEM_EMULATION_PROCESSOR_INFORMATION
+        | SYSTEM_NATIVE_BASIC_INFORMATION => {
+            // These entries forward both caller destinations to native64;
+            // basic classes above instead convert a private native record.
+            if let Some(status) = probe_destinations(c, output, length, returned)? {
+                return Flow::ret(status.into());
+            }
+            if class == SYSTEM_NATIVE_BASIC_INFORMATION {
+                let high = native_user_limit(c)?;
+                basic_record(c, output, length, returned, 8, high)
+            } else {
+                processor::query(c, class, output, length, returned, true)
+            }
+        }
+        _ => Flow::ret(STATUS_INVALID_INFO_CLASS.into()),
+    }
+}
+
+fn native_user_limit(c: &Ctx) -> Result<u64, ApiErr> {
+    let arch = crate::user::windows::process::processor::native_arch(c.p)
+        .map_err(|status| c.unsupported(format!("native system architecture: {status:#x}")))?;
+    Ok(crate::user::windows::layout::user_limit(arch, true))
 }
 
 pub(super) fn guard_result(c: &mut Ctx, result: ApiResult) -> ApiResult {
@@ -79,7 +142,11 @@ pub(super) fn write_guard_result(c: &mut Ctx, result: ApiResult) -> ApiResult {
 
 fn query(c: &mut Ctx) -> ApiResult {
     let (class, output, length, returned) = (c.u32(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?);
-    if class == SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION && c.arch() == WinArch::X86 {
+    if matches!(
+        class,
+        SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION | SYSTEM_NATIVE_BASIC_INFORMATION
+    ) && c.arch() == WinArch::X86
+    {
         // The recorded WoW64 wrapper rejects this class before either probe;
         // it has no native bitmap conversion, and leaves ReturnLength intact.
         return Flow::ret(STATUS_INVALID_INFO_CLASS.into());
@@ -92,7 +159,10 @@ fn query(c: &mut Ctx) -> ApiResult {
     if c.arch() != WinArch::X86
         || matches!(
             class,
-            SYSTEM_NUMA_PROCESSOR_MAP | SYSTEM_CODE_INTEGRITY_INFORMATION
+            SYSTEM_NUMA_PROCESSOR_MAP
+                | SYSTEM_CODE_INTEGRITY_INFORMATION
+                | SYSTEM_PROCESSOR_INFORMATION
+                | SYSTEM_EMULATION_PROCESSOR_INFORMATION
         )
     {
         if length != 0 {
@@ -115,7 +185,14 @@ fn query(c: &mut Ctx) -> ApiResult {
             }
             probe_write(c, output, length as usize)?;
         }
-        if (c.arch() != WinArch::X86 || class == SYSTEM_CODE_INTEGRITY_INFORMATION) && returned != 0
+        if (c.arch() != WinArch::X86
+            || matches!(
+                class,
+                SYSTEM_CODE_INTEGRITY_INFORMATION
+                    | SYSTEM_PROCESSOR_INFORMATION
+                    | SYSTEM_EMULATION_PROCESSOR_INFORMATION
+            ))
+            && returned != 0
         {
             probe_write(c, returned, 4)?;
         }
@@ -123,6 +200,10 @@ fn query(c: &mut Ctx) -> ApiResult {
     match class {
         SYSTEM_BASIC_INFORMATION | SYSTEM_EMULATION_BASIC_INFORMATION => {
             basic_information(c, output, length, returned)
+        }
+        SYSTEM_NATIVE_BASIC_INFORMATION => basic_information(c, output, length, returned),
+        SYSTEM_PROCESSOR_INFORMATION | SYSTEM_EMULATION_PROCESSOR_INFORMATION => {
+            processor::query(c, class, output, length, returned, false)
         }
         SYSTEM_RANGE_START_INFORMATION => range_start(c, output, length, returned),
         SYSTEM_NUMA_PROCESSOR_MAP => numa_processor_map(c, output, length, returned),
@@ -246,12 +327,24 @@ fn range_start(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResul
 }
 
 fn basic_information(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {
-    let required = if c.arch() == WinArch::X86 { 44 } else { 64 };
+    basic_record(c, output, length, returned, c.psize(), c.p.vm.high())
+}
+
+fn basic_record(
+    c: &mut Ctx,
+    output: u64,
+    length: u32,
+    returned: u64,
+    width: u64,
+    high: u64,
+) -> ApiResult {
+    let converted = width == 4;
+    let required = if converted { 44 } else { 64 };
     if length != required {
         return_length(c, returned, required)?;
         return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
     }
-    if c.arch() == WinArch::X86 && output == 0 {
+    if converted && output == 0 {
         // Observed WoW64 conversion of the null-output error's native length.
         return_length(c, returned, 0xFFFF_FFEC)?;
         return Err(MemFault {
@@ -262,7 +355,7 @@ fn basic_information(c: &mut Ctx, output: u64, length: u32, returned: u64) -> Ap
     }
     // WoW64 probes just the converted fields; its last three padding bytes
     // may be inaccessible and are never written. 64-bit entry probed all 64.
-    let written = if c.arch() == WinArch::X86 { 41 } else { 64 };
+    let written = if converted { 41 } else { 64 };
     probe_write(c, output, written)?;
     let pages = u32::try_from(c.p.vm.commit_limit() / PAGE_SIZE)
         .map_err(|_| c.unsupported("SystemBasicInformation physical page count exceeds ULONG"))?;
@@ -286,14 +379,26 @@ fn basic_information(c: &mut Ctx, output: u64, length: u32, returned: u64) -> Ap
     {
         data[index * 4..index * 4 + 4].copy_from_slice(&value.to_le_bytes());
     }
-    let first = if c.arch() == WinArch::X86 { 28 } else { 32 };
-    let width = c.psize() as usize;
-    for (index, value) in [c.p.vm.low(), c.p.vm.high() - 1, 1].into_iter().enumerate() {
+    let first = if converted { 28 } else { 32 };
+    let width = width as usize;
+    for (index, value) in [c.p.vm.low(), high - 1, 1].into_iter().enumerate() {
         let at = first + index * width;
         data[at..at + width].copy_from_slice(&value.to_le_bytes()[..width]);
     }
     data[first + 3 * width] = 1;
-    c.mem().wr(output, &data[..written])?;
+    if !converted
+        && c.p.native.is_some()
+        && crate::user::windows::process::processor::native_arch(c.p)
+            .map_err(|status| c.unsupported(format!("native system architecture: {status:#x}")))?
+            == WinArch::X64
+    {
+        // Both captured AMD64 kernels preserve native structure padding;
+        // the ARM64 kernel zeros it. Never read host memory for padding.
+        c.mem().wr(output, &data[..28])?;
+        c.mem().wr(output + 32, &data[32..57])?;
+    } else {
+        c.mem().wr(output, &data[..written])?;
+    }
     return_length(c, returned, required)?;
     Flow::ret(0)
 }

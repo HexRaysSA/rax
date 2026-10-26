@@ -84,6 +84,9 @@ mod allocate_ex_tests;
 #[path = "services_tests/processor_feature_tests.rs"]
 mod processor_feature_tests;
 
+#[path = "services_tests/system_processor_tests.rs"]
+mod system_processor_tests;
+
 #[path = "services_tests/topology_tests.rs"]
 mod topology_tests;
 
@@ -783,7 +786,7 @@ fn native_range_query_length_errors_and_unknown_classes_do_not_publish_output_al
             );
             assert_eq!(p.space.bytes(scratch + 36, 28).unwrap(), [0xA5; 28]);
         }
-        for class in [1, u32::MAX] {
+        for class in [2, u32::MAX] {
             let (mut process, mut t, scratch) = query_fixture(arch);
             let p = process.state_mut();
             query_arguments(

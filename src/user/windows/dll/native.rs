@@ -443,6 +443,15 @@ pub(super) static PROCESSOR_FEATURE_EXPORTS: &[Export] = &[Export::func(
 )
 .only(Archs::X86)];
 
+// Append a new family so prior ordinals and native service trap slots survive.
+pub(super) static NATIVE_SYSTEM_EXPORTS: &[Export] = &[Export::func(
+    "NtWow64GetNativeSystemInformation",
+    Stdcall,
+    &[I32, Ptr, I32, Ptr],
+    query::wow64_information,
+)
+.only(Archs::X86)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

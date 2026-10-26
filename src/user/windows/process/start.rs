@@ -577,7 +577,13 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         .map_err(|e| memory(format!("{e:?}")))?;
     p.vm.poke(
         shared + kuser::NATIVE_PROCESSOR_ARCHITECTURE,
-        &arch.processor_architecture().to_le_bytes(),
+        &super::processor::native_arch(&p)
+            .map_err(|status| SpawnError::Load {
+                status,
+                message: "native kernel architecture is not supported".into(),
+            })?
+            .processor_architecture()
+            .to_le_bytes(),
     )
     .map_err(|e| memory(format!("{e:?}")))?;
     let system_root = p

@@ -16,6 +16,7 @@ mod fls_exit;
 pub(crate) mod image_information;
 mod lifecycle;
 pub(crate) mod native_start;
+pub(crate) mod processor;
 mod sched;
 mod services;
 pub(crate) mod stack;
