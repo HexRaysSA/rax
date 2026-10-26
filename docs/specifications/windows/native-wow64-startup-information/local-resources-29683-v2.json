@@ -1,0 +1,55 @@
+{
+  "kind": "native_resource_capture",
+  "kernel": {
+    "major": 10,
+    "minor": 0,
+    "build": 29683,
+    "native_machine": 43620
+  },
+  "source": "native-wow64-resources-v2.cpp",
+  "source_sha256": "faa47b41380b684640fb94eae34b7ce0162508803fe9b62dbee2264f636f8038",
+  "driver_sha256": "bbfe08466b4559db7de2316ffbd38d6f113c6c6a7f89068ad09c473036d4fa2e",
+  "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+  "binary_sha256": "6e68093ad1ec83413d398b060df79d592cde1aa6fffc12a73de4cd230d00abd2",
+  "exit_code": 0,
+  "inputs_unchanged": true,
+  "rows": [
+    {
+      "kind": "unknown_word",
+      "nonnull": true,
+      "mapped": true,
+      "state": 4096,
+      "protect": 32,
+      "type": 16777216,
+      "region_bytes": 917504,
+      "allocation_offset": 212992,
+      "module_basename": "xtajit.dll",
+      "equals_ntdll_base": false
+    },
+    {
+      "kind": "section",
+      "query_status": 0,
+      "return_bytes": 16,
+      "maximum_bytes": 16384,
+      "attributes": 134217728,
+      "base_nonnull": false,
+      "object_status": 0,
+      "object_return_bytes": 56,
+      "object_attributes": 0,
+      "granted_access": 983071
+    },
+    {
+      "kind": "work_list",
+      "read64_available": true,
+      "address_above_32bit": false,
+      "status": 0,
+      "copied_bytes": 48,
+      "free_first": 16328,
+      "free_counter": 408,
+      "work_first": 0,
+      "work_counter": 0,
+      "reserved_nonzero": false
+    }
+  ],
+  "driver_scope": "Original local controller used the existing compiler_environment helper, x86, MSVC /std:c++20 /MT /EHsc /utf-8; run-resources-v1.py is a separately versioned portable reproduction."
+}

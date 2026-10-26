@@ -115,3 +115,6 @@ jobs:
           python docs/specifications/windows/native-wow64-startup-information/test_projection.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python docs/specifications/windows/native-wow64-startup-information/run-v2.py
+      - name: Observe WoW64 startup section and quiescent work-list resources
+        if: always()
+        run: python docs/specifications/windows/native-wow64-startup-information/run-resources-v1.py

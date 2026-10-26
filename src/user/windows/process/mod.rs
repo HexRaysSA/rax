@@ -21,6 +21,7 @@ mod services;
 pub(crate) mod stack;
 mod start;
 pub(crate) mod thread;
+pub(crate) mod wow64;
 
 pub use super::dll::libraries::LoaderState;
 pub use fiber::FiberState;
@@ -280,6 +281,8 @@ pub struct Proc {
     pub cfg: Arc<WindowsConfig>,
     pub(crate) native: Option<super::native::NativeRuntime>,
     pub(crate) image_information: Result<image_information::ImageInformation, &'static str>,
+    pub(crate) wow64: Option<wow64::State>,
+    pub(crate) teb_arena: thread::teb::Arena,
     pub(crate) gui: super::gui::State,
     pub(crate) registry: super::registry::Registry,
     pub(crate) object_namespace: super::object_namespace::Namespace,

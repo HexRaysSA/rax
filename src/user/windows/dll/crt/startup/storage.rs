@@ -520,6 +520,8 @@ mod tests {
             )),
             native: None,
             image_information: Err("test process has no admitted executable"),
+            wow64: None,
+            teb_arena: Default::default(),
             gui: Default::default(),
             registry: Default::default(),
             object_namespace: Default::default(),

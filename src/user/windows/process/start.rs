@@ -390,6 +390,8 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         cfg: Arc::new(config),
         native,
         image_information: Err("executable has not been mapped"),
+        wow64: None,
+        teb_arena: Default::default(),
         gui: super::super::gui::State::new(h.subsystem_version),
         registry,
         object_namespace,
@@ -594,6 +596,10 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
             .collect::<Vec<_>>(),
     )
     .map_err(|e| memory(format!("{e:?}")))?;
+    super::wow64::initialize(&mut p).map_err(|status| SpawnError::Load {
+        status,
+        message: "cannot initialize guest-owned WoW64 startup state".into(),
+    })?;
     let entry = p.modules.exe().entry;
     let tid = thread::create(&mut p, entry, 0, 0, true).map_err(|status| SpawnError::Load {
         status,
