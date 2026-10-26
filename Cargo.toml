@@ -433,3 +433,7 @@ path = "tests/suites/devices/virtio_ranges.rs"
 [[test]]
 name = "checkpoint_config"
 path = "tests/suites/vm/checkpoint_config.rs"
+
+[[test]]
+name = "ahci_dma"
+path = "tests/suites/devices/ahci_dma.rs"
