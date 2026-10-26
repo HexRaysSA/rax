@@ -17,6 +17,9 @@
 
 use super::bus::{IoDevice, MmioDevice};
 use std::collections::HashMap;
+#[path = "pci/checkpoint.rs"]
+mod checkpoint;
+pub use checkpoint::PciCheckpoint;
 
 /// PCI configuration space ports.
 pub const PCI_CONFIG_ADDRESS: u16 = 0xcf8;
@@ -34,7 +37,7 @@ const BAR0_OFFSET: usize = 0x10;
 const NUM_BARS: usize = 6;
 
 /// Describes a single Base Address Register so that BAR sizing works.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Bar {
     /// Region length in bytes. Must be a power of two (PCI requirement). A
     /// length of 0 means the BAR is unused (decodes to 0).

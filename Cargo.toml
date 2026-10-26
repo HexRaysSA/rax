@@ -451,3 +451,7 @@ path = "tests/suites/vm/storage_config.rs"
 [[test]]
 name = "controller_checkpoint"
 path = "tests/suites/devices/controller_checkpoint.rs"
+
+[[test]]
+name = "pci_checkpoint"
+path = "tests/suites/devices/pci_checkpoint.rs"

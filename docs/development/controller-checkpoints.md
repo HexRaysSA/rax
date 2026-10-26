@@ -109,3 +109,5 @@ The group requires complete native/translated owner and library inventories,
 C API, build, Clippy, formatting, CI selection and all independent storage/state
 comparisons before commit. Partial or self-comparison evidence cannot substitute
 for the independent field/continuation parser or the full final gates.
+
+The [PCI bridge checkpoint](pci-checkpoints.md) separately preserves raw configuration, BAR profiles and ordered routing; endpoint-private state remains independently owned.
