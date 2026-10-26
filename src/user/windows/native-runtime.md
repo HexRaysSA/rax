@@ -2929,3 +2929,29 @@ Windows passes 30, 13 and 7, plus 39 namespace tests. Complete C API suites pass
 fault fixture completes its ARM64 case, then the x86 case reaches an unqualified
 ProcessImageInformation copy on kernel29695. Overall fault-fixture completion
 and the wider installed-library objective remain unproven.
+
+
+## ProcessImageInformation on ARM64 kernel 29695
+
+The installed class 37 query admits captured ARM64 Windows 10.0.29695 alongside
+29683. Copy-group and guard policy still follows captured kernel identity,
+not caller ISA or spoofed guest version. The AMD64 20348/26100 profiles and
+built-in policy are unchanged. Four native process views contribute 2800 new
+matrix calls and 45 image profiles; separate suspended-child controls qualify
+directory presence independently of PE flags. Full replay retains 7708 query
+rows, 126 image profiles and 20 suspended-child profiles across four kernels.
+The native observer, metadata encoder, masks, rights, allocation bounds and
+unqualified image-state behavior remain unchanged. Sources, byte identities,
+exact counts and assumption PI95-A1 are in
+ docs/specifications/windows/native-process-image-information/README.md.
+
+The unchanged hardware-fault fixture completes ARM64. x86 advances beyond
+class 37, then stops at class 63 fault reporting after an earlier access violation
+at PC 0x4b314477. The earlier fault requires tracing; full exception continuation
+and the overall Linux/macOS/Windows installed-library objective remain incomplete.
+
+The selected process-query suites pass 24 cases on macOS/Linux and 28 on native
+Windows, including the installed native/WoW64 leaf. Complete C API suites pass
+191 on every host; all 17 pure projection checks also pass on each host.
+No selected case is ignored. These are combined-frame library/C API checks;
+linked current-root shipping qualification remains separate.

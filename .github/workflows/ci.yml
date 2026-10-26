@@ -204,6 +204,8 @@ jobs:
           cargo test --locked --no-default-features --lib nls
           cargo test --locked --no-default-features --lib mui
           cargo test --locked --no-default-features --lib user::windows::process::wow64::
+          python -m unittest discover -s docs/specifications/windows/native-process-image-information
+          cargo test --locked --no-default-features --lib user::windows::process::sched::tests::services_tests::process_query_tests::
       - name: Portable process, console, and supplied-file regressions
         run: python tools/ci/process_embedding.py
       - name: Unix supplied-file and io_uring buffer regressions

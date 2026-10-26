@@ -205,7 +205,7 @@ fn verify_metadata(
 }
 
 #[test]
-fn native_process_image_information_replays_4908_native_queries_and_81_metadata_profiles() {
+fn native_process_image_information_replays_measured_kernel_queries_and_metadata_profiles() {
     let captures = [
         include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -219,12 +219,27 @@ fn native_process_image_information_replays_4908_native_queries_and_81_metadata_
             env!("CARGO_MANIFEST_DIR"),
             "/docs/specifications/windows/native-process-image-information/hosted-26100-v9.json"
         )),
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-process-image-information/local-29695-v1.json"
+        )),
     ];
     let mut profiles = 0;
     let mut queries = 0;
     let mut pointer_bits = 0;
+    let mut rejected = 0;
     for capture in captures {
         let records: Value = serde_json::from_str(capture).unwrap();
+        for record in records
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|r| r["kind"] == "unavailable")
+        {
+            assert_eq!(record["windows_error"], 193);
+            assert_eq!(record["query_calls"], 0);
+            rejected += 1;
+        }
         for profile in records
             .as_array()
             .unwrap()
@@ -393,8 +408,9 @@ fn native_process_image_information_replays_4908_native_queries_and_81_metadata_
             }
         }
     }
-    assert_eq!(profiles, 81);
-    assert_eq!(queries, 4908);
+    assert_eq!(profiles, 126);
+    assert_eq!(queries, 7708);
+    assert_eq!(rejected, 6);
     assert!(
         pointer_bits > 25000,
         "nonzero validity-qualified pointer coverage"
@@ -402,14 +418,16 @@ fn native_process_image_information_replays_4908_native_queries_and_81_metadata_
 }
 
 #[test]
-fn native_process_image_information_replays_ten_suspended_child_metadata_profiles() {
+fn native_process_image_information_replays_suspended_child_metadata_profiles() {
     let records: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/specifications/windows/native-process-image-information/local-relocation-directory-29683-v1.json"))).unwrap();
+    let fresh: Value = serde_json::from_str(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/specifications/windows/native-process-image-information/local-relocation-directory-29695-v1.json"))).unwrap();
     let mut admitted = 0;
     let mut rejected = 0;
     for record in records
         .as_array()
         .unwrap()
         .iter()
+        .chain(fresh.as_array().unwrap().iter())
         .filter(|r| r["kind"] == "section-metadata")
     {
         if record["available"] == false {
@@ -431,6 +449,6 @@ fn native_process_image_information_replays_ten_suspended_child_metadata_profile
         install_metadata(p, arch, &profile);
         verify_metadata(p, &mut thread, scratch, arch, &profile);
     }
-    assert_eq!(admitted, 10);
-    assert_eq!(rejected, 2);
+    assert_eq!(admitted, 20);
+    assert_eq!(rejected, 4);
 }

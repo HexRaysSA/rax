@@ -160,6 +160,46 @@ fn native_process_image_information_refuses_unqualified_image_and_kernel_profile
 }
 
 #[test]
+fn native_process_image_information_rejects_adjacent_builds_and_wrong_kernel_identity() {
+    for arch in WinArch::ALL {
+        for (major, minor, build, machine) in [
+            (10, 0, 29682, 0xaa64),
+            (10, 0, 29684, 0xaa64),
+            (10, 0, 29694, 0xaa64),
+            (10, 0, 29696, 0xaa64),
+            (10, 1, 29695, 0xaa64),
+            (11, 0, 29695, 0xaa64),
+            (10, 0, 29695, 0x8664),
+            (10, 0, 29695, 0x14c),
+        ] {
+            let (mut process, mut thread, scratch) = setup(arch);
+            let p = process.state_mut();
+            replay::kernel_profile(p, build, machine);
+            let native = p.native.as_mut().unwrap();
+            native.version.major = major;
+            native.version.minor = minor;
+            let charge = p.vm.committed_bytes();
+            let allocations = p.vm.allocations().count();
+            let before = p.space.bytes(scratch, 128).unwrap();
+            arguments(
+                p,
+                &mut thread,
+                arch.ptr(u64::MAX),
+                37,
+                scratch,
+                if arch == WinArch::X86 { 48 } else { 64 },
+                scratch + 96,
+            );
+            assert!(matches!(dispatch(p, &mut thread), Outcome::Fail(reason)
+                if reason.contains("unqualified installed kernel profile")));
+            assert_eq!(p.space.bytes(scratch, 128).unwrap(), before);
+            assert_eq!(p.vm.committed_bytes(), charge);
+            assert_eq!(p.vm.allocations().count(), allocations);
+        }
+    }
+}
+
+#[test]
 fn native_process_image_information_capture_rejects_unqualified_image_states() {
     use crate::user::image::pe::PeImage;
     use crate::user::windows::process::image_information::ImageInformation;

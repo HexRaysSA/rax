@@ -228,6 +228,7 @@ definitions are retained in `../microsoft-docs/pe-format.md`.
 | Query plane | Record bytes | Output preflight/copy group | Read-only output guard |
 |---|---:|---:|---|
 | Captured 10.0.29683 ARM64 kernel, either native64 view | 64 | 8 bytes | Visited |
+| Captured 10.0.29695 ARM64 kernel, either native64 view | 64 | 8 bytes | Visited |
 | Captured 10.0.20348 or 10.0.26100 x64 kernel | 64 | 16 bytes | Preserved |
 | WoW64 on those captured kernels | 48 | Full 48 bytes | Preserved |
 | Built-in DLL model, ARM64/x64 guest | 64 | Model policy: 8/16 bytes | Model policy: visited/preserved |
@@ -259,7 +260,7 @@ parsed native JSON values without log transport timestamp prefixes. Their identi
 validated by `test_model_profiles.py`.
 The receipts retain two complete 1,400-row matrices, plus 24 metadata
 queries per kernel. Together with the local 2,108 rows and 33 metadata queries,
-the runtime replay checks 4,908 query cases and 81 original metadata profiles.
+the earlier runtime replay checks 4,908 query cases and 81 original metadata profiles.
 Ten additional suspended-child profiles check the metadata encoder independently
 of relocation-directory presence. Every case compares status, guard state,
 unaltered projection bytes, ReturnLength bytes, validity-qualified pointer
@@ -298,3 +299,78 @@ These full runs include the separate uncommitted exception-entry/context draft,
 whose exact source hashes are retained in task evidence. They qualify that
 combined tree rather than a clean committed-pin artifact. All 191 C API tests pass on each host. These package checks are recorded
 separately from owning Assist archive and shipping-package validation.
+
+
+## ARM64 kernel 29695 qualification
+
+The finite installed-kernel copy profile also admits Windows 10.0.29695 on
+ARM64. Selection still uses captured native major/minor/build and machine,
+independently of caller ISA, host build macros and editable guest version.
+The existing AMD64 20348/26100 profiles and built-in model policy are unchanged.
+Neighboring builds, wrong major/minor versions and AMD64/32-bit kernel identities
+with build 29695 remain explicit unsupported states, without output publication
+or resource changes. No other native profile gate is widened.
+
+`observe-29695-v1.py` uses the unchanged `native-image-information-v7.cpp`,
+version 9 parser and compiler helper. Four fresh ARM64/x64/x86/x86-LAA executable
+views retain 2800 complete matrix calls and 45 admitted image metadata queries.
+Three ARM64 error 193 loader rejections contribute zero query coverage. The
+controls also make 24 measured ObjectBasicInformation grant queries. All
+executed source, compiler, original-binary and per-profile executable identities
+are checked; profile files are patched only before their first launch.
+
+`local-29695-v1.json` preserves all native scalar rows, redaction masks and
+validity-qualified pointer predicates. For the three original ABI views, all
+status/guard/redacted-byte rows match the 29683 controls. The additional x86-LAA
+view preserves the LAA bit in its original PE characteristics; its record bytes
+are replayed from that distinct metadata. ARM64-kernel native64 copies retain
+8-byte groups and visit read-only guards. WoW64 retains full 48-byte validation,
+late converted ReturnLength and the measured alias/fault behavior.
+
+The separate `observe-relocation-29695-v1.py` reuses the frozen relocation
+observer. Its 15 records contain 3 baseline self queries, 10 queries of suspended
+owned children and 2 qualified ARM64 loader rejections. Directory-only removal
+retains dynamic flags 4; stripped profiles clear them in the admitted views.
+These are metadata observations before child user entry, not startup completion.
+Together the new controls cover 2858 explicit class 37 calls, plus 24 independent
+object-rights queries. Raw inputs/results and original executable bytes from
+the matrix controls are retained in the task archives; `inputs-29695-v1.json`
+binds the published sources/data and the complete matrix archive by SHA-256.
+Scoped Git attributes preserve exact source identities under LF and CRLF
+checkout policies without changing any executed input.
+
+The shared regression now replays 7708 query rows and 126 image profiles across
+four captured kernel identities. It also replays 20 suspended-child metadata
+profiles, with 4 loader rejections explicitly excluded from query coverage.
+Each query checks status, guard state, redacted destination/ReturnLength bytes,
+validity-qualified pointer changes, PC, SP and HLE-frame preservation. The
+original metadata encoder, pointer/padding masks, query-rights checks, bounded
+converted-backing policy and unqualified image-state refusal are unchanged.
+The existing CI job runs the full process-query family; no job is added.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| PI95-A1 | ARM64 kernel 29695 retains the measured native/WoW64 copy and metadata contract | Four independently compiled views, full pointer/length/alias matrices and separate directory controls | Admit only the measured native identity | 8/60 writable bytes, guards, aliases, rights, wrong kernel identity, PE/EOF fields and directory presence | Any native status, projection, predicate, guard, metadata or model-ownership mismatch | Native controls and shared replay confirmed; validation results retained separately |
+
+High impact, unresolved: the unchanged original fault fixture completes ARM64,
+then x86 reaches NtSetInformationProcess class 63 after an earlier access violation
+at guest PC 0x4b314477. This is a fault-reporting path; full continuation requires
+tracing that earlier fault. A class 63 success stub would not establish correct
+exception handling. The original fixture, binaries, assertions, 60 s deadline,
+16384 turns and 4096-instruction slices remain unchanged. Physical AMD64 kernel
+29695, other installed identities, managed/flat/non-executable images and full
+Linux/macOS/Windows userland/shipping qualification remain separate boundaries.
+
+
+The final selected process-query suites pass 24 tests on macOS ARM64 and the
+Linux x64 container and 28 on native Windows ARM64. Every host passes all 191
+C API tests and 17 pure projection checks, with zero failed or ignored checks
+in those selections. Windows includes the actual installed native/WoW64 query
+leaf with strict PC/SP, output and tail assertions. The one unchanged overall
+hardware-fault test still fails at the later x86 boundary described above.
+The macOS/Windows development frames retain the separate native-entry draft;
+Linux uses the matching shared runtime overlay and excludes that draft and
+unrelated Windows-only leaf refinements. These results are separate from a
+new current-root linked Assist archive or shipping-package qualification.
+Public C API 1.15.0, the 73534-byte header, feature defaults and private owning
+interfaces remain unchanged.

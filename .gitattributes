@@ -8,3 +8,6 @@ docs/specifications/windows/native-language-overlay/* -text whitespace=cr-at-eol
 docs/specifications/windows/native-nls-build-29695/* -text whitespace=cr-at-eol
 docs/specifications/windows/native-nls-initialize/* -text whitespace=cr-at-eol
 docs/specifications/windows/native-wow64-startup-information/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-process-image-information/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-exception-entry-profile/run-v2.py -text whitespace=cr-at-eol
+docs/specifications/windows/native-exception-entry-profile/run-second-chance-v1.py -text whitespace=cr-at-eol
