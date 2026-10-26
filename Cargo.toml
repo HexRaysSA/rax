@@ -405,3 +405,7 @@ path = "tests/suites/backend/hvf_controls.rs"
 [[test]]
 name = "nvme_prp"
 path = "tests/suites/devices/nvme_prp.rs"
+
+[[test]]
+name = "nvme_sgl"
+path = "tests/suites/devices/nvme_sgl.rs"

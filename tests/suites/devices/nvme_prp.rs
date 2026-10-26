@@ -5,22 +5,22 @@ mod devices {
 use devices::{bus, virtio};
 #[allow(dead_code)]
 #[path = "../../../src/devices/nvme.rs"]
-mod nvme;
+pub(crate) mod nvme;
 use bus::MmioDevice;
 use nvme::*;
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
-struct Memory(Arc<Mutex<MemoryState>>);
-struct MemoryState {
-    bytes: Vec<u8>,
-    calls: Vec<(bool, u64, usize)>,
-    fail_read: Option<Range<u64>>,
-    fail_write: Option<Range<u64>>,
+pub(crate) struct Memory(pub(crate) Arc<Mutex<MemoryState>>);
+pub(crate) struct MemoryState {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) calls: Vec<(bool, u64, usize)>,
+    pub(crate) fail_read: Option<Range<u64>>,
+    pub(crate) fail_write: Option<Range<u64>>,
 }
 impl Memory {
-    fn new(size: usize) -> Self {
+    pub(crate) fn new(size: usize) -> Self {
         Self(Arc::new(Mutex::new(MemoryState {
             bytes: vec![0; size],
             calls: vec![],
@@ -28,14 +28,14 @@ impl Memory {
             fail_write: None,
         })))
     }
-    fn put(&self, address: u64, bytes: &[u8]) {
+    pub(crate) fn put(&self, address: u64, bytes: &[u8]) {
         self.0.lock().unwrap().bytes[address as usize..address as usize + bytes.len()]
             .copy_from_slice(bytes);
     }
-    fn get(&self, address: u64, length: usize) -> Vec<u8> {
+    pub(crate) fn get(&self, address: u64, length: usize) -> Vec<u8> {
         self.0.lock().unwrap().bytes[address as usize..address as usize + length].to_vec()
     }
-    fn clear_calls(&self) {
+    pub(crate) fn clear_calls(&self) {
         self.0.lock().unwrap().calls.clear();
     }
 }
@@ -76,13 +76,13 @@ impl Mem for Memory {
     }
 }
 const BASE: u64 = 0xfeb0_0000;
-struct Host {
-    device: NvmeController<Memory>,
-    memory: Memory,
-    admin: u32,
-    io: u32,
+pub(crate) struct Host {
+    pub(crate) device: NvmeController<Memory>,
+    pub(crate) memory: Memory,
+    pub(crate) admin: u32,
+    pub(crate) io: u32,
 }
-fn sqe(op: u8, first: u64, second: u64, blocks: u32) -> [u8; 64] {
+pub(crate) fn sqe(op: u8, first: u64, second: u64, blocks: u32) -> [u8; 64] {
     let mut bytes = [0; 64];
     bytes[0] = op;
     bytes[2..4].copy_from_slice(&0x73a5u16.to_le_bytes());
@@ -93,7 +93,7 @@ fn sqe(op: u8, first: u64, second: u64, blocks: u32) -> [u8; 64] {
     bytes
 }
 impl Host {
-    fn new(blocks: usize, memory: usize) -> Self {
+    pub(crate) fn new(blocks: usize, memory: usize) -> Self {
         let memory = Memory::new(memory);
         let disk = (0..blocks * 512)
             .map(|i| (i.wrapping_mul(17) ^ (i >> 9)) as u8)
@@ -120,10 +120,10 @@ impl Host {
         host.memory.clear_calls();
         host
     }
-    fn write(&mut self, offset: u64, value: u32) {
+    pub(crate) fn write(&mut self, offset: u64, value: u32) {
         self.device.write(BASE + offset, &value.to_le_bytes());
     }
-    fn submit(&mut self, admin: bool, command: [u8; 64]) -> u16 {
+    pub(crate) fn submit(&mut self, admin: bool, command: [u8; 64]) -> u16 {
         let slot = if admin { self.admin } else { self.io };
         let queue = if admin { 0x1000 } else { 0x3000 };
         let cq = if admin { 0x2000 } else { 0x4000 };
@@ -192,7 +192,7 @@ fn layout(
     }
     (first, list, data)
 }
-fn collect(memory: &Memory, segments: &[(u64, usize)]) -> Vec<u8> {
+pub(crate) fn collect(memory: &Memory, segments: &[(u64, usize)]) -> Vec<u8> {
     segments
         .iter()
         .flat_map(|(address, length)| memory.get(*address, *length))
@@ -363,8 +363,8 @@ fn identify_uses_split_prps_and_preserves_the_gap() {
     assert!(h.memory.get(0x41000, 4096).iter().all(|b| *b == 0));
 }
 #[test]
-fn unsupported_data_pointer_formats_fail_before_transfer() {
-    for psdt in [1, 2, 3] {
+fn reserved_data_pointer_format_fails_before_transfer() {
+    for psdt in [3] {
         let mut h = Host::new(24, 1 << 20);
         let mut command = sqe(NVM_READ, 0x40000, 0x8000, 24);
         command[1] = psdt << 6;

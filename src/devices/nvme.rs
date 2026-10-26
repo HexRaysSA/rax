@@ -60,7 +60,8 @@
 //!   completed with an Invalid Opcode status.
 //! * NVM I/O implements Read (0x02), Write (0x01) and Flush (0x00, no-op).
 //!   Dataset Management, Compare, Write Zeroes, etc. are not implemented.
-//! * SGLs are not supported (the controller advertises PRP-only).
+//! * Basic byte-granular SGL data/segment/last-segment transfers are supported.
+//!   Keyed, bit-bucket, transport and offset descriptors are not advertised.
 //!
 //! These omissions are isolated to the DMA / command-payload path; the register
 //! interface, EN->RDY handshake, queue setup, and doorbell tracking are
@@ -70,6 +71,8 @@ use super::bus::MmioDevice;
 
 #[path = "nvme/prp.rs"]
 mod prp;
+#[path = "nvme/sgl.rs"]
+mod sgl;
 
 // Reuse the guest-memory DMA abstraction defined for the virtio transport so
 // the command path can be unit-tested against a plain byte buffer.
@@ -752,6 +755,7 @@ impl<M: Mem> NvmeController<M> {
         d[0x201] = 0x44;
         // NN (0x204, 4 bytes): number of namespaces = 1.
         d[0x204..0x208].copy_from_slice(&1u32.to_le_bytes());
+        d[0x218..0x21c].copy_from_slice(&(1u32 | (1 << 18)).to_le_bytes());
     }
 
     /// Populate an Identify Namespace (CNS 00h) data structure for NSID 1.
@@ -885,7 +889,7 @@ impl<M: Mem> NvmeController<M> {
 
     /// Execute an NVM command (Read/Write/Flush) against namespace 1.
     fn exec_nvm(&mut self, e: &SubmissionEntry) -> (u16, u32) {
-        if e.flags & 0xc0 != 0 {
+        if e.flags & 0xc0 == 0xc0 {
             return (SC_INVALID_FIELD, 0);
         }
         match e.opcode {
@@ -893,6 +897,14 @@ impl<M: Mem> NvmeController<M> {
             NVM_READ => self.nvm_rw(e, true),
             NVM_WRITE => self.nvm_rw(e, false),
             _ => (SC_INVALID_OPCODE, 0),
+        }
+    }
+
+    fn data_segments(&self, entry: &SubmissionEntry, total: u64) -> Result<Vec<(u64, u64)>, u16> {
+        match entry.flags >> 6 {
+            0 => prp::segments(&self.mem, entry.prp1, entry.prp2, total),
+            1 | 2 => sgl::segments(&self.mem, entry.prp1, entry.prp2, total),
+            _ => Err(SC_INVALID_FIELD),
         }
     }
 
@@ -918,7 +930,7 @@ impl<M: Mem> NvmeController<M> {
             return (SC_LBA_OUT_OF_RANGE, 0);
         }
 
-        let segments = match prp::segments(&self.mem, e.prp1, e.prp2, total) {
+        let segments = match self.data_segments(e, total) {
             Ok(segments) => segments,
             Err(status) => return (status, 0),
         };

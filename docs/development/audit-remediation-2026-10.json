@@ -1949,10 +1949,50 @@
         "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-nvme.log",
         "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-library.log",
         "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-independent.log",
-        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-capi.log",
+        "src/devices/nvme.rs",
+        "src/devices/nvme/sgl.rs",
+        "Cargo.toml",
+        "tests/suites/devices/nvme_prp.rs",
+        "tests/suites/devices/nvme_sgl.rs",
+        "tools/nvme-diff/sgl_oracle.py",
+        "tools/nvme-diff/sgl_guest.s",
+        "tools/nvme-diff/sgl_compare.rs",
+        "docs/development/nvme-data-transfers.md",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-unit.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-compare-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-compare.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-compare.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/worktree-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-final/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/data-less-reference-difference.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/three-segment-reference-difference.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/segment-terminus-probe/result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-capi.log"
       ],
       "remaining_validation": [
-        "NVMeSGLs,additionalNVMcommands,fullqueue/reset/error/interruptbehavior;virtioindirect/DISCARD/WRITE_ZEROES;storageimages;S5L8900modeledinputs/keys."
+        "Additional NVM commands and complete queue/reset/error/interrupt behavior; virtio indirect/DISCARD/WRITE_ZEROES; storage images; S5L8900 modeled inputs/keys."
       ]
     },
     {
@@ -3400,6 +3440,61 @@
         "NativeNVMehardware,PCIinterruptwiring,fullCQbackpressure/DMAerrorhandling,additionalNVMcommands,SGLs andstorage-imagewiring remain separate.",
         "Completecheckpoint-v8/private/device/media/inflightstate andSMP remain pending;no serializedfields added by this group.",
         "The independent comparator compiles exactcurrentNVMe/prp/test sources;the capturedRAXlibrary supplies sharedMem/MmioDevicetypes. Mainall-target/library/CAPIgates separately build the engine."
+      ]
+    },
+    {
+      "id": "D-NVME-SGL",
+      "area": "NVMe DMA",
+      "finding": "NVM commands previously rejected all SGL data formats. Byte-granular data and segment descriptors are implemented with full metadata planning.",
+      "status": "locally_validated",
+      "evidence": [
+        "src/devices/nvme.rs",
+        "src/devices/nvme/sgl.rs",
+        "Cargo.toml",
+        "tests/suites/devices/nvme_prp.rs",
+        "tests/suites/devices/nvme_sgl.rs",
+        "tools/nvme-diff/sgl_oracle.py",
+        "tools/nvme-diff/sgl_guest.s",
+        "tools/nvme-diff/sgl_compare.rs",
+        "docs/development/nvme-data-transfers.md",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-unit.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-compare-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-compare.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-compare.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/worktree-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-final/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/data-less-reference-difference.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/three-segment-reference-difference.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/segment-terminus-probe/result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-capi.log"
+      ],
+      "remaining_validation": [
+        "Optional keyed/bit-bucket/transport/offset descriptors and metadata namespaces are not advertised.",
+        "The shared QEMU corpus is 512-1024 bytes per command. Full 32 MiB, malformed metadata, exact address limits and failed-DMA policy are primary-source local tests.",
+        "QEMU accepts a data-only Segment terminus and separately rejects valid data-less and three-segment forms. These raw discrepancies are retained; installed binary/source identity is not asserted.",
+        "Native hardware, complete queue/interrupt/error/reset behavior, additional NVM commands, image wiring and complete checkpoint/media state remain pending.",
+        "The independent comparator compiles current NVMe, PRP, SGL and driver sources; an immutable RAX library supplies shared memory/device traits. Separate complete engine gates build the normal product."
       ]
     }
   ],
@@ -77857,6 +77952,607 @@
           "source_path": "tools/nvme-diff/prp_oracle.py",
           "before_sha256": "377eb6b8bf7981c524f19703990d9b625d911b1d3f7a87b9fe2ba5b1b80dbf45",
           "after_sha256": "bb5d764bf2379b3562afedd40ac6c96bc860abdd27595d539e07d8bc9cb1ccee",
+          "ast_identical": true,
+          "scope": "Formatting only;existing comments retained and no executable AST change."
+        },
+        "toolchain": {
+          "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
+          "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",
+          "compiler_verbose": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+          "environment": {
+            "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+            "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin"
+          },
+          "scope": "Required final gates use fixed task-local1.99.1;retained earlier1.98.1 references/preflights remain separately versioned. No global compiler/default changes."
+        }
+      }
+    },
+    {
+      "id": "nvme-pcie-sgl-data-and-segment-planning",
+      "status": "locally_validated",
+      "scope": "Implement advertised PCIe byte-granular SGL data, segment and last-segment support for NVM Read/Write, with complete metadata validation and unchanged PRP/Admin behavior.",
+      "assumptions": [
+        {
+          "id": "S1",
+          "assumption": "The selected namespace has 512-byte logical blocks, no metadata and a maximum NLB of 65536.",
+          "basis": "NVMe 1.4c NVM command format and existing namespace profile.",
+          "dependent_result": "PRPs and byte-granular SGLs dispatch by PSDT; maximum payload is 33554432 bytes.",
+          "stress_test": "Full 32 MiB Read/Write and both unused metadata pointer modes.",
+          "falsification_probe": "A represented namespace has another metadata/LBA profile or NLB exceeds the stated bound.",
+          "status": "retained"
+        },
+        {
+          "id": "S2",
+          "assumption": "PCIe Data Block, Segment and Last Segment descriptors with subtype zero implement the advertised SGLS 0x40001.",
+          "basis": "NVMe 1.4c section 4.4, Figures 112-119 and SGLS definition.",
+          "dependent_result": "Optional types fail before payload DMA; oversized buffers are truncated; null data entries remain valid.",
+          "stress_test": "253 type/subtype cells, unaligned data, nulls, oversize and descriptor arrays spanning pages.",
+          "falsification_probe": "A supported encoding is rejected or a non-advertised descriptor produces payload effects.",
+          "status": "retained"
+        },
+        {
+          "id": "S3",
+          "assumption": "Metadata is immutable while a command is owned by the controller. A repeated address/length/type view is a chain cycle.",
+          "basis": "Controller command ownership and deterministic memory reads; payload effects follow complete planning.",
+          "dependent_result": "Iterative cycle detection admits finite data-less links without requiring per-segment data progress.",
+          "stress_test": "Repeated metadata cycle, valid data-less links, 512 descriptors and metadata after sufficient payload.",
+          "falsification_probe": "The guest mutates owned metadata during planning or identical views have a valid terminating interpretation.",
+          "status": "retained"
+        },
+        {
+          "id": "S4",
+          "assumption": "An exclusive DMA endpoint of 2^64 is representable; larger endpoints overflow the address space.",
+          "basis": "64-bit SGL address plus unsigned 32-bit length; u128 arithmetic.",
+          "dependent_result": "The last byte can reach DMA and report access failure; arithmetic overflow reports 0x0f.",
+          "stress_test": "Exact last-byte endpoint, one-byte overflow, malformed segment alignment and zero length.",
+          "falsification_probe": "The endpoint wraps or the boundary is rejected before its permitted memory access.",
+          "status": "retained"
+        },
+        {
+          "id": "S5",
+          "assumption": "QEMU observations establish the executed shared byte-data cases, not complete SGL profile equivalence.",
+          "basis": "Raw QEMU SGLS 0x80001 differs from RAX 0x40001; separately retained reference counterexamples.",
+          "dependent_result": "Nine guests, 27 complete CQEs and 12288 returned bytes must match; primary-only cases remain separate.",
+          "stress_test": "Actual parent negative comparison, source hashes and byte-identical raw frames.",
+          "falsification_probe": "A missing frame, changed source, status/CQE/payload mismatch, or hidden normalization occurs.",
+          "status": "retained"
+        }
+      ],
+      "primary_sources": [
+        {
+          "path": "docs/specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf",
+          "sha256": "ff92005660e8b58e248b2ff1416acc8c8c1aba1b3b7c14f6de9b80f2181649bc",
+          "url": "https://www.nvmexpress.org/wp-content/uploads/NVM-Express-1_4c-2021.06.28-Ratified.pdf",
+          "contract": "NVMe 1.4c section 4.4, Figures 112-119; PCIe PSDT and Identify Controller SGLS. Pages 72-74 visually inspected."
+        }
+      ],
+      "scope_limits": [
+        "Optional keyed/bit-bucket/transport/offset descriptors and metadata namespaces are not advertised.",
+        "The shared QEMU corpus is 512-1024 bytes per command. Full 32 MiB, malformed metadata, exact address limits and failed-DMA policy are primary-source local tests.",
+        "QEMU accepts a data-only Segment terminus and separately rejects valid data-less and three-segment forms. These raw discrepancies are retained; installed binary/source identity is not asserted.",
+        "Native hardware, complete queue/interrupt/error/reset behavior, additional NVM commands, image wiring and complete checkpoint/media state remain pending.",
+        "The independent comparator compiles current NVMe, PRP, SGL and driver sources; an immutable RAX library supplies shared memory/device traits. Separate complete engine gates build the normal product."
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Incomplete metadata validation can cause payload effects before a later descriptor fault.",
+          "action": "Plan every descriptor before payload DMA and preserve source staging/partial destination policies."
+        },
+        {
+          "impact": "high",
+          "finding": "A per-segment data-progress restriction rejects valid data-less links.",
+          "action": "Use deterministic metadata-view cycle detection without recursion or a metadata/payload ratio cutoff."
+        },
+        {
+          "impact": "medium",
+          "finding": "Reference capabilities and three observed structural behaviors differ from the selected primary contract.",
+          "action": "Retain raw capability words, failing inputs and explicit independent/common-domain limits."
+        }
+      ],
+      "quality_gates": {
+        "QG1": "No normative judgments required.",
+        "QG2": "S1-S5 include basis, dependency, stress and falsification probes.",
+        "QG3": "SGL local scope implemented; full audit remains partial.",
+        "QG4": "65536*512=33554432 bytes; nine guests * three I/O CQEs=27; 12288 returned bytes. O(d+m log m) time, O(m+k) storage.",
+        "QG5": "Null/data-less chains, oversized extents, full metadata traversal, cycles, address endpoints, late faults and reserved formats covered.",
+        "QG6": "Pinned primary PDF, raw QEMU frames, exact parent and product source/library hashes retained.",
+        "QG7": "Metadata ownership, reference discrepancies and complete device/platform limits recorded."
+      },
+      "baseline": "1dc85d586ab515659100ce209cc627975ba9ebbe",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 312.70978983299574
+          },
+          {
+            "check": "final-clippy",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 249.71909470899845
+          },
+          {
+            "check": "final-fmt",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 13.817584541000542
+          },
+          {
+            "check": "final-doc",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 5.116385542001808
+          },
+          {
+            "check": "final-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 6.241979458995047
+          },
+          {
+            "check": "final-sgl",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_sgl",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 6.796667791997606
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 0.24663845900067827
+          },
+          {
+            "check": "final-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 405.83527712499927
+          },
+          {
+            "check": "final-intel-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 340.4169889170007
+          },
+          {
+            "check": "final-intel-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 8.714358791003178
+          },
+          {
+            "check": "final-intel-sgl",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_sgl",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 9.406995124998502
+          },
+          {
+            "check": "final-intel-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2646.2364190840017
+          },
+          {
+            "check": "final-sgl-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/sgl_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 7.09620154100412
+          },
+          {
+            "check": "final-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/prp_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 24.895110292003665
+          },
+          {
+            "check": "final-capi",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 15.845145790997776
+          }
+        ],
+        "complete_prp_native": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 6.01
+        },
+        "complete_prp_rosetta": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 8.1
+        },
+        "complete_sgl_native": {
+          "passed": 50,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 6.44
+        },
+        "complete_sgl_rosetta": {
+          "passed": 50,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 8.79
+        },
+        "complete_library_native": {
+          "passed": 10598,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 405.63
+        },
+        "complete_library_rosetta": {
+          "passed": 11581,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 2645.59
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "ci_owning": {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.06
+        },
+        "actual_parent_device": {
+          "failed": 17,
+          "passed": 33
+        },
+        "actual_parent_independent": {
+          "cases": 9,
+          "bytes_compared": 12288,
+          "failed": 9
+        },
+        "actual_reference_and_product": {
+          "cases": 9,
+          "bytes_compared": 12288,
+          "failed": 0
+        },
+        "unchanged_prp_independent": {
+          "cases": 6,
+          "bytes_compared": 8448000,
+          "failed": 0
+        },
+        "raw_capabilities": {
+          "qemu_raw": 524289,
+          "rax_primary": 262145,
+          "common_basic_byte_granular": 1,
+          "difference": "QEMU advertises metadata-SGL support;RAX advertises excess-length support. Actual transfer records do not certify full capability equivalence."
+        },
+        "local_coverage": {
+          "type_subtype_rejections": 253,
+          "maximum_payload_bytes": 33554432,
+          "multi_page_descriptors": 512,
+          "descriptor_metadata_bytes": 8192,
+          "fresh_reference_devices": 9,
+          "actual_reference_io_commands": 27,
+          "actual_reference_payload_bytes": 12288
+        },
+        "reference_discrepancies": [
+          {
+            "scope": "ActualQEMU rejects a valid data-less non-final segment;the pinned source explicitly identifies this progress guard as not strictly specification compliant.",
+            "raw_status": 16397,
+            "status_code": 13,
+            "do_not_retry": true,
+            "qemu_code": 35,
+            "source_path": "/Users/int/dev/rax-audit-work/rax-nvme-prp/research/qemu-v11.1.0-nvme-ctrl.c",
+            "source_sha256": "4acb4a66699130a22b2492845e6341be24c51b5c55d1aa601d3ccd17f2dc5dc2",
+            "raw_artifacts": {
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-transfers/case-5/guest.s": "13d4f0f279491e70d736c171bb5e19967686f058749909c354e7486b4731e776",
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-transfers/case-5/guest.elf": "feec0a2c1aa1c8753ceea2581e708fe8ba1ae3e4c8026d0dc52acf0c4421479e",
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-transfers/case-5/input.bin": "406847fa39bb8e4c14edaee325dfe62e0f0a01beae7a056c50dbfc42a5413c58",
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-transfers/case-5/records.bin": "cacd3eb4259c0654305cbce078ca8c77a2570b964d8ad6920184d964a15d2082"
+            },
+            "local_primary_test": "data_less_nonfinal_segments_are_valid_when_the_chain_terminates"
+          },
+          {
+            "scope": "ActualQEMU rejects a finite valid three-segment chain with0x0d. Another common three-segment layout is separately checked;this input is retained as a local primary-source regression.",
+            "raw_status": 16397,
+            "status_code": 13,
+            "qemu_code": 35,
+            "possible_source_cause": "Pinned11.1.0 nvme_map_sgl retains sgld as a pointer into reused segment[];a later read can overwrite the parent type before the LastSegment check. This is an inference,not installed11.1.2 binary/source identity proof.",
+            "artifacts": {
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-common/case-5/guest.s": "13d4f0f279491e70d736c171bb5e19967686f058749909c354e7486b4731e776",
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-common/case-5/guest.elf": "6d3751de564d581ef39d783672925d64f1d252a62aacbcf4a65025338739078e",
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-common/case-5/input.bin": "fc24bf2fbe7a9a2b2d36a5079f6cd85df99ff1c75d48054e7f3f70a6037c9c41",
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-common/case-5/records.bin": "6efb7f8dae0084f6f0b011ee9b7f748995a854fc330af4d35e0a6dee759d27d1"
+            },
+            "local_primary_test": "three_segment_chain_preserves_parent_type_when_metadata_arrays_overlap_in_size"
+          },
+          {
+            "code": 33,
+            "command": [
+              "qemu-system-x86_64",
+              "-machine",
+              "pc",
+              "-cpu",
+              "max",
+              "-accel",
+              "tcg,thread=single",
+              "-m",
+              "128M",
+              "-nodefaults",
+              "-display",
+              "none",
+              "-monitor",
+              "none",
+              "-serial",
+              "none",
+              "-debugcon",
+              "file:/Users/int/dev/rax-audit-work/rax-nvme-sgl/segment-terminus-probe/records.bin",
+              "-drive",
+              "if=none,id=prpdisk,format=raw,file=/Users/int/dev/rax-audit-work/rax-nvme-sgl/segment-terminus-probe/disk.raw",
+              "-device",
+              "nvme,drive=prpdisk,serial=RAXSGLTEST,mdts=9",
+              "-device",
+              "isa-debug-exit,iobase=0xf4,iosize=0x04",
+              "-no-reboot",
+              "-kernel",
+              "/Users/int/dev/rax-audit-work/rax-nvme-sgl/segment-terminus-probe/guest.elf"
+            ],
+            "raw_bytes": 68,
+            "primary_selected_status": 13,
+            "scope": "Actual one-command Segment2 pointing to a data-only terminus;separate from passing common transfer corpus.",
+            "artifacts": {
+              "guest.s": "5b37b4d1674608ab2143962867e322c067e9183333c8b40aeb805893f578e657",
+              "guest.elf": "f80befb6560c7afd5ddaa05e4a5fd50016b1ebe5a9bf57b242fa66521ef6c460",
+              "input.bin": "765d9fe14445e834d36e2be256fb7e77c617f052101d06fa16c5b1d88e7e3293",
+              "records.bin": "a7c9a790f49265ba431b8514f52244b4770db48789a01e0e429f41e3ce6862c3",
+              "disk.raw": "46e05a7bd9da15f092c41979a0f8e4ef829d995f8962c294e1a7f931c774275d"
+            },
+            "actual_cqe": "000000000000000001000100a5730100",
+            "actual_status": 0
+          }
+        ],
+        "capi": [
+          {
+            "passed": 191,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 15.46
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          }
+        ],
+        "capi_inventory_adjustment": {
+          "reason": "Externally introduced PAUTH C API tests increased the owning binary from 185 to 191 tests before stable final checkout creation. Historical fixed-count validation was stale.",
+          "scope": "Capture the complete current C API libtest inventory and require exact count, zero failed, ignored and filtered tests, plus the unchanged zero doctest result. Product source, test membership, filters, timeout and result logs are unchanged.",
+          "first_group": "Group52 inventory captured after its successful complete run; later groups capture before executing.",
+          "original_logs_retained": true
+        },
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-unit.stdout",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-unit.stderr",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-compare-result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-compare.stdout",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/parent-compare.stderr",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/worktree-checks.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/worktree-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/reference-final/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/data-less-reference-difference.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/three-segment-reference-difference.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/segment-terminus-probe/result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-build.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-clippy.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-fmt.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-doc.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-library.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-build.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-sgl.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-capi.log"
+        ],
+        "oracle_format_proof": {
+          "formatter": "ruff 0.17.1",
+          "formatter_path": "/Users/int/.cache/uv/archive-v0/ECgLOb1OwqPpH4al2t0hG/ruff-0.17.1.data/scripts/ruff",
+          "source_path": "tools/nvme-diff/sgl_oracle.py",
+          "before_sha256": "f8c84f7d4aa96a2c041818dd21185338e6a176842ec54322d08b967ccbab5b4e",
+          "after_sha256": "fba251013ab1579ef809d413eb5d3ede58dbc0ec169241f27106c3f97fbd77be",
           "ast_identical": true,
           "scope": "Formatting only;existing comments retained and no executable AST change."
         },

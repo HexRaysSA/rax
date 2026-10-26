@@ -1,4 +1,4 @@
-# NVMe PRP data transfers
+# NVMe data transfers
 
 The controller advertises a4KiB host-page profile (`CAP.MPSMIN=MPSMAX=0`).
 PRP1, direct PRP2 and chained PRP lists use NVMe1.4c section4.3/Figures108-111.
@@ -19,8 +19,9 @@ if a list page is referenced again. After at most one offset-list link, each
 further link follows511 data entries. Address arithmetic is checked;physical
 page zero is admitted. Invalid offsets report generic status0x13, and failed
 metadata/DMA accesses report0x04. Identify uses the same scatter/gather planner.
-PSDT formats other than PRP are explicitly rejected in the current PRP-only
-profile;the command's raw flag byte is retained when parsing the64-byte SQE.
+PCIe Admin commands use PRPs. NVM commands select PRPs with PSDT0 and SGLs
+with PSDT1/2;PSDT3 is reserved. The namespace has no separate metadata, so its
+metadata pointer is unused. The64-byte SQE wire format is unchanged.
 
 Read/Write NLB is zero-based16-bit, so the maximum transfer is
 65536*512=33554432 bytes (32MiB). A first offset4092 requires8193 data segments.
@@ -32,7 +33,7 @@ prior guest-memory writes. This is not an atomic DMA/rollback claim.
 Completions carry the actual submitting queue ID and its consumed head. Queue
 sharing and ring wrap do not infer origin by searching for the first SQ bound
 to a CQ. CQ delivery failures, full-queue backpressure, complete interrupt
-wiring, SGLs, additional NVM commands, storage-image wiring and checkpoint/media
+wiring, additional NVM commands, storage-image wiring and checkpoint/media
 state remain separate work items.
 
 Run the complete registered device target:
@@ -75,3 +76,72 @@ hardware behavior. The full primary-source local contract retains those tests.
 Primary source:NVM Express Base Specification1.4c section4.3, generic status
 Figure128 and CC.MPS definition. Copyright2007-2021 NVM Express,Inc.
 [Official specification](https://www.nvmexpress.org/wp-content/uploads/NVM-Express-1_4c-2021.06.28-Ratified.pdf).
+
+
+## PCIe SGL profile
+
+Identify Controller SGLS is `0x00040001`:byte-granular Data Blocks, Segment and
+Last Segment descriptors, and buffers larger than the command's requested data.
+Keyed, Bit Bucket, transport and offset subtypes are not advertised. PCIe Admin
+commands retain their mandatory PRP format;NVM data dispatch admits PSDT1/2.
+
+The planner validates the full metadata chain before payload DMA, including
+metadata after sufficient data has already been described. Zero-length data
+entries and data-less intermediate segments remain valid. Segment addresses
+must be8-byte aligned and lengths nonzero multiples of16. Links occur only in
+the last descriptor of a non-final segment. A Last Segment cannot contain a
+further link. A non-final Segment must link onward. This last rule follows the
+primary type definition;QEMU accepts a data-only terminus marked non-final,
+which is retained as a separate structural discrepancy.
+
+Address/length endpoints are checked in128-bit arithmetic:an exclusive endpoint
+of2^64 is representable, while larger endpoints return Data SGL Length Invalid.
+Unsupported types/subtypes return0x11;invalid segment structure returns0x0d;
+a misplaced link returns0x0e;insufficient capacity/range overflow returns0x0f.
+Failed metadata/DMA access returns0x04. Source writes retain the staging policy
+above;destination reads retain their explicit partial-write policy.
+
+For d descriptors, m metadata segments and k retained data extents, planning
+costs O(d+m*log(m)) time and O(m+k) storage. A deterministic set of entered
+(address,length,type) views detects cycles without recursion. Metadata remains
+stable while a command is owned by the controller;no payload writes occur until
+validation finishes. This admits finite data-less links without imposing an
+incorrect per-segment data-progress requirement. Command metadata can be larger
+than the payload;the implementation does not replace that domain with MDTS.
+
+```sh
+cargo +stable test --test nvme_sgl -- --test-threads=4
+python3 tools/nvme-diff/sgl_oracle.py --repo . \
+    --work-dir /path/to/empty/evidence --llvm-bin /path/to/llvm/bin \
+    --target-dir /path/to/built/cargo-target
+```
+
+The complete owner executes50 tests:32 PRP/device controls and18 SGL tests.
+PSDT1/2 are now covered as valid SGL formats;the former PRP-only format rejection
+control is restricted to reserved PSDT3. Tests include253 unsupported type/
+subtype cells,32 unaligned-address/mode cells in both directions, nulls,
+oversized buffers, a512-entry metadata array spanning pages,32MiB Read/Write,
+cycles, exact64-bit range boundaries and late DMA errors.
+
+Nine fresh QEMU devices execute27 I/O commands. Every12288 read/read-back byte
+and27 complete CQEs must match the current production device. The first eight
+corpora remain byte-identical when the512-entry case is added. Source, helper
+library, raw media, guest ELF, commands and reference outputs are retained and
+hashed. The tool executes the complete50-test owner before the raw comparison.
+
+QEMU's raw SGLS is `0x00080001`, while RAX's selected primary contract is
+`0x00040001`. Their common byte-granular data behavior is compared;the raw words
+are retained and full capability equivalence is not claimed. QEMU accepts the
+single oversized descriptor exercised here despite its unset excess-length bit.
+It separately rejects a valid data-less intermediate segment and one finite
+three-segment shape with status0x0d/DNR. The pinned QEMU source labels its
+per-segment progress restriction as not strictly specification-compliant.
+A retained pointer into a reused descriptor array is a possible explanation for
+the three-segment failure;installed-binary/source identity is not asserted.
+These exact failing inputs remain local primary-source regressions. Another
+three-segment layout is included in the shared passing corpus.
+
+Primary source:NVMe1.4c section4.4/Figures112-119, SGLS Figure251, and PCIe
+PSDT rules in Figure105. Native NVMe hardware, optional SGL types, metadata
+namespaces, complete interrupt/queue error wiring, additional NVM commands,
+storage images and complete checkpoint state remain separate work items.
