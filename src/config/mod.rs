@@ -64,6 +64,7 @@ mod tests {
             arm_entry: None,
             arm_load_addr: None,
             arm_dtb: None,
+            pci_devices: false,
         }
     }
 

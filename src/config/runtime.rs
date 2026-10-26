@@ -301,7 +301,7 @@ impl VmConfig {
             profile: cli.profile,
             profile_output: cli.profile_output,
             profile_interval: cli.profile_interval,
-            pci_devices: cli.pci_devices,
+            pci_devices: cli.pci_devices || cp.pci_devices,
         };
         config.validate_resume()?;
         Ok(config)
@@ -329,6 +329,7 @@ impl VmConfig {
             arm_entry: self.arm_entry.map(|a| a.raw()),
             arm_load_addr: self.arm_load_addr.map(|a| a.raw()),
             arm_dtb: self.arm_dtb.clone(),
+            pci_devices: self.pci_devices,
         }
     }
 
@@ -483,4 +484,7 @@ pub struct CheckpointConfig {
     pub arm_entry: Option<u64>,
     pub arm_load_addr: Option<u64>,
     pub arm_dtb: Option<PathBuf>,
+    /// Recreate the optional PCI device topology when resuming.
+    #[serde(default)]
+    pub pci_devices: bool,
 }

@@ -429,3 +429,7 @@ path = "tests/suites/devices/virtio_indirect.rs"
 [[test]]
 name = "virtio_ranges"
 path = "tests/suites/devices/virtio_ranges.rs"
+
+[[test]]
+name = "checkpoint_config"
+path = "tests/suites/vm/checkpoint_config.rs"

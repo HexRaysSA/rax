@@ -126,8 +126,8 @@ fn pauth_checkpoint_rejects_absent_keyed_extension_on_save_and_load() {
             .contains("missing keyed system state")
     );
     // Bypass the writer's validation to exercise the reader independently.
-    let mut bytes = CHECKPOINT_MAGIC.to_vec();
-    bytes.extend_from_slice(&bincode::serialize(&snapshot).unwrap());
+    let mut bytes = Vec::new();
+    super::codec::write_to(&snapshot, &mut bytes).unwrap();
     std::fs::write(&file.0, bytes).unwrap();
     assert!(
         Snapshot::load(&file.0)
