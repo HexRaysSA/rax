@@ -122,6 +122,12 @@ fn native_section_open_installed_leaves_return_typed_image_handles_and_ret12() {
                     arch == WinArch::X86,
                 )
                 .unwrap();
+            if arch == WinArch::X86 && root_path == "\\KnownDlls32" {
+                assert_eq!(
+                    String::from_utf16(&expected.path).unwrap(),
+                    "\\KnownDlls32\\kernel32.dll"
+                );
+            }
             let rh = root.map(|r| p.objects.open_directory(r, false, 0x20000).unwrap());
             let width = arch.ptr_size();
             let size = if arch.is64() { 48 } else { 24 };

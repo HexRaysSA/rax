@@ -125,6 +125,13 @@ impl NativeRuntime {
             .ok_or_else(|| invalid("native primary-token session is not captured"))?;
         runtime.object_namespace =
             super::object_namespace::snapshot(runtime.registry.upcase_table(), token_session)?;
+        if arch == WinArch::X86 {
+            // SysWOW64 NTDLL and its pinned KnownDlls32 image select Windows'
+            // pure x86 process profile. ARM64's default CHPE redirect would mix
+            // that RTL with SyChpe32 dependencies requiring hybrid exports/code.
+            // Keep the real host machine and WoW64 CPU information unchanged.
+            runtime.object_namespace.select_wow_section_root(false)?;
+        }
         runtime.nls = Some(super::nls::snapshot(
             &runtime.registry,
             &schema_directory,

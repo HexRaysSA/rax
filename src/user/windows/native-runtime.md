@@ -6,6 +6,14 @@ that write with `PEB.ProcessHeap`. Ordinary TEBs and WoW64 companion pairs now
 own the complete extent through teardown and reuse. See the bounded trace and
 regressions in [native-teb-extent](../../../docs/specifications/windows/native-teb-extent/README.md).
 
+Installed x86 selection uses a consistent pure x86 process profile: SysWOW64
+NTDLL and relative `KnownDlls32` opens select the same pure x86 image family.
+The native host machine and WoW64 CPU flags retain their real ARM64 values.
+Explicit CHPE namespace resources remain available; selecting their mixed-ISA
+code is a separate capability. Native per-process controls and the bounded
+startup result are recorded in
+[native-x86-chpe-profile](../../../docs/specifications/windows/native-x86-chpe-profile/README.md).
+
 `WindowsConfig::native_libraries = true` selects read-only installed DLLs,
 the installed version-6 API-set namespace, and an immutable snapshot of the
 fixed system NLS CodePage registry key and installed NLS section tables on a Windows host. Its default is

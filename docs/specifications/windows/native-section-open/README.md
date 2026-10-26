@@ -73,7 +73,7 @@ guest exit. The two non-warmup parent handle sets restore exactly.
 | Duplication | Drops unassigned low bits `0xFFE0`, retains invalid SYNCHRONIZE for denial, discards MAXIMUM_ALLOWED, permits zero grant, and preserves existing close-source/protect/inherit/output/slot-reuse policy |
 | Publication | Atomic handle/output behavior, cleanup after faults, distinct Native64 and WoW64 caller copyback, measured partial-page/guard effects |
 
-On the captured ARM64 host, WoW64 section opens with a direct Directory root
+On the captured ARM64 host's CHPE-enabled x86 profile, WoW64 section opens with a direct Directory root
 named `\KnownDlls32` select the captured `\KnownDllsChpe32` resource. Absolute
 `\KnownDlls32\...` and root `\` plus relative `KnownDlls32\...` retain
 `\KnownDlls32`. Reduced query/read-control grants and low-bit handle tags retain
@@ -81,6 +81,13 @@ the direct-root redirect. The selector requires the actual native host machine,
 queried through dynamically resolved `IsWow64Process2`; GetNativeSystemInfo can
 report an emulated x86/x64 machine on ARM64. Missing architecture detection with
 a present/unknown CHPE namespace produces an explicit unsupported result.
+
+This conversion also depends on the process's hybrid-execution selection.
+The installed pure x86 runtime disables that direct-root redirect while
+preserving the captured native machine and the explicitly named CHPE resources.
+The original CHPE-enabled replay above remains unchanged. See the independent
+build-29695 enabled/disabled controls and regression tests in
+[native-x86-chpe-profile](../native-x86-chpe-profile/README.md).
 
 For read-only guarded output, Native64 returns `STATUS_GUARD_PAGE_VIOLATION`
 (`0x80000001`) and consumes the guard (`0x102 -> 0x2`). WoW64 section copyback

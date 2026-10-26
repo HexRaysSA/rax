@@ -19,6 +19,8 @@ mod duplicate;
 #[cfg(windows)]
 #[path = "section_open_leaf_tests.rs"]
 mod leaf;
+#[path = "section_open_profile_tests.rs"]
+mod profile;
 fn rows<'a>(s: &'a str, prefix: &str) -> Vec<HashMap<&'a str, &'a str>> {
     s.lines()
         .filter(|l| l.starts_with(prefix))
