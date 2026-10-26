@@ -12,8 +12,11 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
     let metadata = &server.metadata;
     if c.arch() != WinArch::Arm64
         || metadata.arch != c.arch()
-        || c.p.cfg.version.major != 10
-        || c.p.cfg.version.build != 29683
+        || !crate::user::windows::object_namespace::csr::supports_kernel(
+            c.p.cfg.version.major,
+            c.p.cfg.version.minor,
+            c.p.cfg.version.build,
+        )
         || metadata.session != 0
         || metadata.server_pid == c.p.pid
         || request.client_length != Some(48)

@@ -12,7 +12,10 @@ SharedSection alias. The four-entry observer sees one secure connection and no
 other monitored ALPC/LPC calls before its owned child exits naturally with code 41. This
 absence is bounded to the monitored entry points, main thread and that child.
 
-The implementation admits the measured ARM64/build 29683/session 0 packet only.
+The implementation admits the measured ARM64/session 0 packet on builds 29683
+and 29695. The [additional kernel qualification](../native-csr-kernel-profiles/README.md)
+retains the new native observations and limits. Historical 29683 results below
+keep their original source/kernel identities.
 It requires the System SID, measured QoS bytes, a 65536-byte writable committed
 pagefile section, nonoverlapping writable outputs and matching immutable CSR
 metadata. Other ABI/build/session/packet forms remain explicit unsupported

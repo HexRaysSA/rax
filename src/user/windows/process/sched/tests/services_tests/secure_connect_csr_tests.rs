@@ -96,54 +96,57 @@ fn packet(p: &mut Proc, b: u64, section: Option<u32>) -> [u64; 9] {
 
 #[test]
 fn native_secure_connect_csr_replies_with_owned_aliases_preserved_tail_and_native_fields() {
-    let (mut process, mut thread) = fixture(WinArch::Arm64, "NtSecureConnectPort", SERVICE);
-    let p = process.state_mut();
-    let b = scratch(p, 65536);
-    let args = setup(p, b);
-    let initial = p.vm.committed_bytes();
-    assert_eq!(invoke(p, &mut thread, &args), Outcome::Continue);
-    assert_eq!(thread.cpu.gpr(0), 0);
-    let handle = p.space.u64(b).unwrap();
-    let local = p.space.u64(args[3] + 32).unwrap();
-    let remote = p.space.u64(args[3] + 40).unwrap();
-    assert!(p.vm.is_shared_view(local));
-    assert_eq!(p.vm.committed_bytes(), initial + 65536);
-    assert_eq!(p.objects.access(handle), Some(0x001F_0001));
-    assert_eq!(p.objects.get(handle).unwrap().type_name(), "ALPC Port");
-    assert_eq!(p.space.u32(args[6]).unwrap(), 952);
-    assert_eq!(p.space.u32(args[8]).unwrap(), 48);
-    assert_eq!(p.space.bytes(args[5], 24).unwrap(), vec![0; 24]);
-    assert_eq!(p.space.u64(args[7]).unwrap(), BASE);
-    assert_eq!(p.space.u64(args[7] + 8).unwrap(), BASE + 0x750);
-    assert_eq!(p.space.u64(args[7] + 16).unwrap(), 0x348);
-    assert_eq!(p.space.u64(args[7] + 24).unwrap(), 0);
-    assert_eq!(p.space.u64(args[7] + 32).unwrap(), 1);
-    assert_eq!(p.space.u64(args[7] + 40).unwrap(), 0x1234_5678_9ABC_DEF0);
-    let Some(Object::LpcPort(port)) = p.objects.get(handle) else {
-        panic!("typed endpoint")
-    };
-    let peer = port.peer().unwrap();
-    assert_eq!(peer.base, remote);
-    assert!(!peer.vm.space().same_space(&p.space));
-    p.space.w32(local, 0x9669).unwrap();
-    assert_eq!(peer.vm.space().u32(remote).unwrap(), 0x9669);
-    peer.vm.space().w32(remote + 4094, 0xAABB_CCDD).unwrap();
-    assert_eq!(p.space.u32(local + 4094).unwrap(), 0xAABB_CCDD);
-    assert_eq!(peer.vm.space().u64(BASE + 40).unwrap(), BASE);
-    assert!(peer.vm.space().w8(BASE, 1).is_err());
-    let duplicate = p.objects.duplicate(handle, false).unwrap();
-    p.objects.close(handle).unwrap();
-    p.reclaim_scheduler_views().unwrap();
-    assert!(p.vm.is_shared_view(local));
-    p.objects.close(duplicate.into()).unwrap();
-    p.reclaim_scheduler_views().unwrap();
-    assert!(p.vm.allocation(local).is_none());
-    assert_eq!(p.vm.committed_bytes(), initial);
+    for build in [29683, 29695] {
+        let (mut process, mut thread) = fixture(WinArch::Arm64, "NtSecureConnectPort", SERVICE);
+        let p = process.state_mut();
+        Arc::make_mut(&mut p.cfg).version.build = build;
+        let b = scratch(p, 65536);
+        let args = setup(p, b);
+        let initial = p.vm.committed_bytes();
+        assert_eq!(invoke(p, &mut thread, &args), Outcome::Continue);
+        assert_eq!(thread.cpu.gpr(0), 0);
+        let handle = p.space.u64(b).unwrap();
+        let local = p.space.u64(args[3] + 32).unwrap();
+        let remote = p.space.u64(args[3] + 40).unwrap();
+        assert!(p.vm.is_shared_view(local));
+        assert_eq!(p.vm.committed_bytes(), initial + 65536);
+        assert_eq!(p.objects.access(handle), Some(0x001F_0001));
+        assert_eq!(p.objects.get(handle).unwrap().type_name(), "ALPC Port");
+        assert_eq!(p.space.u32(args[6]).unwrap(), 952);
+        assert_eq!(p.space.u32(args[8]).unwrap(), 48);
+        assert_eq!(p.space.bytes(args[5], 24).unwrap(), vec![0; 24]);
+        assert_eq!(p.space.u64(args[7]).unwrap(), BASE);
+        assert_eq!(p.space.u64(args[7] + 8).unwrap(), BASE + 0x750);
+        assert_eq!(p.space.u64(args[7] + 16).unwrap(), 0x348);
+        assert_eq!(p.space.u64(args[7] + 24).unwrap(), 0);
+        assert_eq!(p.space.u64(args[7] + 32).unwrap(), 1);
+        assert_eq!(p.space.u64(args[7] + 40).unwrap(), 0x1234_5678_9ABC_DEF0);
+        let Some(Object::LpcPort(port)) = p.objects.get(handle) else {
+            panic!("typed endpoint")
+        };
+        let peer = port.peer().unwrap();
+        assert_eq!(peer.base, remote);
+        assert!(!peer.vm.space().same_space(&p.space));
+        p.space.w32(local, 0x9669).unwrap();
+        assert_eq!(peer.vm.space().u32(remote).unwrap(), 0x9669);
+        peer.vm.space().w32(remote + 4094, 0xAABB_CCDD).unwrap();
+        assert_eq!(p.space.u32(local + 4094).unwrap(), 0xAABB_CCDD);
+        assert_eq!(peer.vm.space().u64(BASE + 40).unwrap(), BASE);
+        assert!(peer.vm.space().w8(BASE, 1).is_err());
+        let duplicate = p.objects.duplicate(handle, false).unwrap();
+        p.objects.close(handle).unwrap();
+        p.reclaim_scheduler_views().unwrap();
+        assert!(p.vm.is_shared_view(local));
+        p.objects.close(duplicate.into()).unwrap();
+        p.reclaim_scheduler_views().unwrap();
+        assert!(p.vm.allocation(local).is_none());
+        assert_eq!(p.vm.committed_bytes(), initial);
+    }
 }
 
 #[test]
 fn native_secure_connect_csr_refuses_unmeasured_profiles_without_outputs_or_leaks() {
-    for variant in 0..8 {
+    for variant in 0..12 {
         let (mut process, mut thread) = fixture(WinArch::Arm64, "NtSecureConnectPort", SERVICE);
         let p = process.state_mut();
         let b = scratch(p, 65536);
@@ -159,6 +162,10 @@ fn native_secure_connect_csr_refuses_unmeasured_profiles_without_outputs_or_leak
             7 => {
                 p.vm.protect(b + 12288, 4096, prot::READONLY).unwrap();
             }
+            8 => Arc::make_mut(&mut p.cfg).version.major = 11,
+            9 => Arc::make_mut(&mut p.cfg).version.minor = 1,
+            10 => Arc::make_mut(&mut p.cfg).version.build = 29694,
+            11 => Arc::make_mut(&mut p.cfg).version.build = 29696,
             _ => unreachable!(),
         }
         let before = p.space.bytes(b, 65536).unwrap();

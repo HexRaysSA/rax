@@ -2892,3 +2892,16 @@ Compiled regressions establish the absent-service baseline. Complete native
 platform, linked-owner and ordinary-program results belong to this group's
 validation ledger; implementing these queries does not establish full Windows
 process support or completion of the wider Linux/macOS/Windows objective.
+
+
+## CSR qualification on the updated ARM64 kernel
+
+The selected ARM64/session 0 CSR metadata, secure connection and USER exchange
+now admit Windows 10.0 builds 29683 and 29695 through one finite build predicate.
+Frozen native observers on 29695 confirm the PEB/getter identities, full 1 MiB
+readonly SharedSection geometry, client USER views and request/reply layouts.
+The primary projections, arithmetic, assumption register and reproduction inputs
+are in docs/specifications/windows/native-csr-kernel-profiles/README.md.
+This does not extend other native profiles, physical AMD64 admission, generic
+CSR services or complete installed-library startup. Original fault fixtures,
+assertions and execution limits remain unchanged.

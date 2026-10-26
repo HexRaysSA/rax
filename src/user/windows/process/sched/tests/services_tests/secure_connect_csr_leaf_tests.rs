@@ -15,7 +15,11 @@ fn native_secure_connect_csr_installed_arm64_success_has_real_section_and_matchi
     let p = process.state_mut();
     let path: Vec<_> = "\\Windows\\ApiPort".encode_utf16().collect();
     let selected = p.object_namespace.csr_server(&path);
-    if p.cfg.version.major != 10 || p.cfg.version.build != 29683 {
+    if !crate::user::windows::object_namespace::csr::supports_kernel(
+        p.cfg.version.major,
+        p.cfg.version.minor,
+        p.cfg.version.build,
+    ) {
         assert!(
             selected.is_err(),
             "unmeasured native build must expose no selected CSR success profile"

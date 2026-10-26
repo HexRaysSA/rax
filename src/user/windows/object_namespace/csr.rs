@@ -10,6 +10,12 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 pub(crate) mod client_data;
 
+/// Measured CSR build set. Callers also bind ARM64/session0 and the exact
+/// selected section, peer, packet and readonly view identities. O(1).
+pub(crate) fn supports_kernel(major: u32, minor: u32, build: u32) -> bool {
+    major == 10 && minor == 0 && matches!(build, 29683 | 29695)
+}
+
 /// Native server pointers remain protocol address values; the selected
 /// readonly section supplies their bytes independently at a guest-owned base.
 #[derive(Debug, Clone)]

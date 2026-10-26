@@ -25,8 +25,11 @@ pub(super) fn client_connect(
     message: &[u8],
 ) -> ApiResult {
     if c.arch() != WinArch::Arm64
-        || c.p.cfg.version.major != 10
-        || c.p.cfg.version.build != 29683
+        || !crate::user::windows::object_namespace::csr::supports_kernel(
+            c.p.cfg.version.major,
+            c.p.cfg.version.minor,
+            c.p.cfg.version.build,
+        )
         || send_attributes != 0
         || receive_attributes != 0
         || timeout != 0
