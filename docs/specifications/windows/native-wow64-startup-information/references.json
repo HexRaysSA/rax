@@ -1,0 +1,25 @@
+{
+  "sources": [
+    {
+      "repository": "winsiderss/phnt",
+      "commit": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+      "path": "ntwow64.h",
+      "url": "https://github.com/winsiderss/phnt/blob/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntwow64.h",
+      "sha256": "d672ef8852799d26a5f45969033cdb3c711cef373bf523944d3af1c8be288a89",
+      "bytes": 26641,
+      "accessed_utc": "2026-10-26",
+      "used_for": "SDK-derived 16-byte initial WOW64INFO declaration and companion TEB linkage"
+    },
+    {
+      "repository": "wine-mirror/wine",
+      "commit": "e3c3d348676128bc745c40aa6397b51951ef1cd6",
+      "path": "include/winternl.h",
+      "url": "https://github.com/wine-mirror/wine/blob/e3c3d348676128bc745c40aa6397b51951ef1cd6/include/winternl.h",
+      "sha256": "388616b28c9af48ed7110c48cef623bd69c4e12557be566c98973e251db86bc9",
+      "bytes": 262660,
+      "accessed_utc": "2026-10-26",
+      "used_for": "40-byte WOW64INFO extension and reserved native TLS slot 10"
+    }
+  ],
+  "conflict": "The old SDK-derived fourth field is named InstrumentationCallback; the current Wine declaration labels it unknown. Native observation publishes only a nonzero predicate, with no assigned pointer semantics."
+}

@@ -1,0 +1,72 @@
+{
+  "kind": "native_capture",
+  "source_sha256": "1171706b1fc5a5690873ed6596d50546305df8e0999fb154d0c175af1c6c77f6",
+  "driver_sha256": "895f80907de132216e15d20c6f229c8f45036e9a9139d487866a2febf87934a3",
+  "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+  "binary_sha256": "36ecc609c21d1ba2e6e8905fd6892ae01a394708c5dcdfa58690359db5011c94",
+  "binary_bytes": 120832,
+  "inputs_unchanged": true,
+  "exit_code": 0,
+  "rows": [
+    {
+      "sample": "main",
+      "teb32_self": true,
+      "wow_teb_offset": -8192,
+      "native_teb_is_32": false,
+      "native_teb_self": true,
+      "native_teb_32_link": true,
+      "reverse_wow_teb_offset": 8192,
+      "teb_roundtrip": true,
+      "tls32_information_nonnull": false,
+      "tls_views_same": false,
+      "shared_information_with_main": true,
+      "same_words_as_main": true,
+      "information_minus_peb32": 1168,
+      "information_words": [
+        4096,
+        2,
+        0
+      ],
+      "unknown_word_nonzero": true,
+      "native_page_size": 4096,
+      "native_processor_architecture": 9,
+      "build": 29683,
+      "process_machine": 332,
+      "native_machine": 43620,
+      "information_native_machine": 43620,
+      "information_emulated_machine": 332,
+      "section_handle_nonnull": true,
+      "work_list_nonnull": true
+    },
+    {
+      "sample": "thread",
+      "teb32_self": true,
+      "wow_teb_offset": -8192,
+      "native_teb_is_32": false,
+      "native_teb_self": true,
+      "native_teb_32_link": true,
+      "reverse_wow_teb_offset": 8192,
+      "teb_roundtrip": true,
+      "tls32_information_nonnull": false,
+      "tls_views_same": false,
+      "shared_information_with_main": true,
+      "same_words_as_main": true,
+      "information_minus_peb32": 1168,
+      "information_words": [
+        4096,
+        2,
+        0
+      ],
+      "unknown_word_nonzero": true,
+      "native_page_size": 4096,
+      "native_processor_architecture": 9,
+      "build": 29683,
+      "process_machine": 332,
+      "native_machine": 43620,
+      "information_native_machine": 43620,
+      "information_emulated_machine": 332,
+      "section_handle_nonnull": true,
+      "work_list_nonnull": true
+    }
+  ]
+}
