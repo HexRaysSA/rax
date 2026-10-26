@@ -65,6 +65,7 @@ def main():
         name: sha(repo / name)
         for name in [
             'src/devices/nvme.rs',
+            'src/devices/nvme/nvm.rs',
             'src/devices/nvme/prp.rs',
             'src/devices/nvme/sgl.rs',
             'tests/suites/devices/nvme_prp.rs',

@@ -138,7 +138,7 @@ does not recreate I/O queues.
 Run the complete registered owners:
 
 ```sh
-cargo +stable test --test nvme_prp --test nvme_sgl --test nvme_queues --test nvme_admission
+cargo +stable test --test nvme_prp --test nvme_sgl --test nvme_queues --test nvme_admission --test nvme_commands
 ```
 
 | Owner | Tests | Principal coverage |
@@ -147,6 +147,7 @@ cargo +stable test --test nvme_prp --test nvme_sgl --test nvme_queues --test nvm
 | nvme_sgl | 50 | 253 type/subtype cells, null/data-less chains, 512 extents, 32 MiB, overflow and DMA boundaries |
 | nvme_queues | 48 | 3072 seeded ring events, shared CQs, multiple IRQ sources, masks, fatal DMA and reset |
 | nvme_admission | 45 | 131072 size admissions, 8190 offset admissions, identifiers, entry sizes and feature lifetime |
+| nvme_commands | 49 | Compare/zeroes/DSM, 32 MiB, 256 ranges, DMA faults, namespace/FUSE admission and Identify consistency |
 
 Existing fixtures now program valid I/O entry sizes, publish actual CQEs before
 acknowledging them, and use 0xfffe rather than reserved 0xffff for the successful
@@ -198,3 +199,83 @@ Native NVMe hardware, full machine/PCI routing, queue arbitration, remaining
 features and commands, storage images and complete checkpoint/media/private
 state remain pending. Device-local source tests and QEMU guests do not close
 those integration requirements.
+
+## Optional NVM command data paths
+
+`src/devices/nvme/nvm.rs` owns Read, Write, Flush, Compare (0x05), Write Zeroes
+(0x08) and Dataset Management (0x09). Identify ONCS is 0x000d. Fused command
+support is not advertised, and either fused member is rejected before payload
+DMA or media mutation. The single namespace has no metadata or end-to-end PI.
+
+Compare stages the complete PRP/SGL source before comparing against media;
+a mismatch reports media/data integrity status 0x285 without modifying either
+source or media. A late source fault reports 0x04 even if an earlier byte
+mismatches: that precedence is an explicit local policy. Compare requires
+PRACT=0; PRCHK is ignored for this no-PI namespace. Write Zeroes requires
+PRCHK=0 and performs no payload DMA. Both DEAC modes return zero, and all
+LR/FUA/DEAC/PRACT combinations admitted by this selected profile are covered.
+Invalid protection settings report command-specific status 0x181.
+
+The controller advertises no volatile write cache and explicit broadcast Flush
+support (`VWC=6`). The absent cache's Set/Get feature returns Invalid Field.
+Flush of namespace 1 or broadcast succeeds without data transfer. Other invalid
+namespace IDs return generic status 0x0b. The in-memory namespace is the logical
+media model; these results do not establish host filesystem durability.
+
+DSM NR is zero-based, with at most 256 descriptors of 16 bytes each. A descriptor's
+length is a one-based block count. Zero-length and out-of-range descriptors are
+ignored by the selected advisory policy. With AD clear, IDR/IDW are ignored
+without consulting the range buffer. With AD set, every metadata/source read
+completes before any range is cleared. Valid ranges are sorted and coalesced,
+then cleared; repeated/overlapping ranges do not multiply work on the same media.
+For r ranges and u bytes in their union, this costs O(r log r + u) time and O(r)
+metadata storage. All attribute combinations are admitted. Namespace DLFEAT=9
+reports zero after deallocation and support for Write Zeroes DEAC. DULBE is not
+advertised, and no separate deallocation-error bitmap is introduced.
+
+The command reference tool uses the same options as the other probes:
+
+```sh
+python3 tools/nvme-diff/commands_oracle.py --repo . \
+    --work-dir /path/to/empty/evidence --llvm-bin /path/to/llvm/bin \
+    --target-dir /path/to/built/cargo-target
+```
+
+Its sixteen fresh guests execute 39 I/O commands and retain 214256 frame bytes,
+262144 complete media bytes and 212992 final Read bytes. Every completion field
+is checked, with six DNR differences and one namespace-profile status difference
+reported separately. Raw QEMU ONCS/VWC/DLFEAT/SGLS/NN are retained; their values
+are 0x075d/7/9/0x80001/256, compared with RAX's 0x000d/6/9/0x40001/1. NSID 2 is
+therefore an inactive in-range identifier in QEMU and outside RAX's advertised
+maximum. These results do not claim complete capability equivalence.
+
+DSM is advisory: a controller may preserve requested blocks instead of
+choosing to deallocate them. In this corpus QEMU preserves five sets of small
+requested ranges that RAX clears. Both complete namespace images are checked
+against the primary per-block contract: mandatory Write Zeroes data must be
+zero; an advisory block may remain unchanged or become zero; unrelated blocks
+must remain unchanged. Each actual final Read must equal its own complete
+namespace image. No arbitrary byte mask is used. The raw differing media and
+outputs remain retained, and five advisory differences are reported rather than
+counted as exact media matches. Aligned DSM cases establish actual independent
+deallocation as well as command completion.
+
+A controlled `--discard ignore` run uses identical SQEs, guest ELFs and CQEs.
+Only the drive option changes. Four aligned cases change media when discard is
+set to `unmap`; the earlier small ranges remain unchanged in both configurations.
+The probe defaults to `--discard unmap`. This is evidence for the executed cases,
+not a claim about every host filesystem's discard granularity. The initial
+namespace-profile assumption and discard-configuration observations are retained
+as reconciled evidence rather than erased failed iterations.
+
+The full local owner has 17 new cases plus 32 existing controls. It checks
+32 MiB Compare/Write Zeroes, all 256 DSM descriptors, final-descriptor effects,
+all attribute combinations, fused rejection, invalid namespaces, exact bounds,
+metadata faults and the advertised fields. The unchanged parent fails all
+17 new cases and its independent command completions fail in all 16 guests.
+The seventeen backend/storage owners execute in both explicit CI selections.
+
+Queue arbitration, remaining feature identifiers, other optional NVM commands,
+full PCI routing, storage-image durability and complete checkpoint/private/media
+state remain separate work. The commands above are implemented, not represented
+by successful stubs.

@@ -96,6 +96,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `nvme_sgl` | `suites/devices/nvme_sgl.rs` |
 | `nvme_queues` | `suites/devices/nvme_queues.rs` |
 | `nvme_admission` | `suites/devices/nvme_admission.rs` |
+| `nvme_commands` | `suites/devices/nvme_commands.rs` |
 
 ## Reachability rules
 
@@ -266,12 +267,12 @@ See `docs/development/windows-user-memory.md` for ownership and platform limits.
 
 ## Backend and storage remediation targets
 
-The sixteen backend/device targets above execute in the core CI matrix's
+The seventeen backend/device targets above execute in the core CI matrix's
 `backend and storage regressions` step and the scheduled suite's
 `backend-devices` shard. Both enable `hvf`, compiling the native adapter on
 macOS, and execute every selected owning binary without a test-name filter.
 The device drivers compile current production sources, including their existing
-unit tests. `nvme_sgl`, `nvme_queues` and `nvme_admission` also include the PRP
+unit tests. `nvme_sgl`, `nvme_queues`, `nvme_admission` and `nvme_commands` also include the PRP
 owner as a shared driver/control corpus.
 
 The HVF targets exercise host boundary fixtures; they do not create a VM or

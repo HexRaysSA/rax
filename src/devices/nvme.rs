@@ -58,8 +58,8 @@
 //!   implemented (Identify Controller / Namespace / Active NS list, Create I/O
 //!   Completion/Submission Queue, Set/Get Features). Other admin opcodes are
 //!   completed with an Invalid Opcode status.
-//! * NVM I/O implements Read (0x02), Write (0x01) and Flush (0x00, no-op).
-//!   Dataset Management, Compare, Write Zeroes, etc. are not implemented.
+//! * NVM I/O implements Read, Write, Flush, Compare, Write Zeroes and Dataset
+//!   Management for the advertised single namespace and zero-metadata profile.
 //! * Basic byte-granular SGL data/segment/last-segment transfers are supported.
 //!   Keyed, bit-bucket, transport and offset descriptors are not advertised.
 //!
@@ -68,6 +68,8 @@
 
 use super::bus::MmioDevice;
 
+#[path = "nvme/nvm.rs"]
+mod nvm;
 #[path = "nvme/prp.rs"]
 mod prp;
 #[path = "nvme/sgl.rs"]
@@ -156,6 +158,12 @@ pub const ADMIN_GET_FEATURES: u8 = 0x0a;
 pub const NVM_FLUSH: u8 = 0x00;
 pub const NVM_WRITE: u8 = 0x01;
 pub const NVM_READ: u8 = 0x02;
+/// Compare host data with namespace bytes.
+pub const NVM_COMPARE: u8 = 0x05;
+/// Clear the requested logical blocks.
+pub const NVM_WRITE_ZEROES: u8 = 0x08;
+/// Advisory range attributes, including selected deallocation.
+pub const NVM_DATASET_MANAGEMENT: u8 = 0x09;
 
 // ---- Identify CNS values ----------------------------------------------------
 
@@ -180,6 +188,10 @@ pub const SC_INVALID_FIELD: u16 = 0x02;
 pub const SC_DATA_XFER_ERROR: u16 = 0x04;
 /// PRP offset is invalid for the selected memory-page profile.
 pub const SC_PRP_OFFSET_INVALID: u16 = 0x13;
+/// Invalid namespace identifier or namespace format.
+pub const SC_INVALID_NAMESPACE: u16 = 0x0b;
+/// Media/data integrity status: comparison did not match.
+pub const SC_COMPARE_FAILURE: u16 = 0x285;
 /// LBA Out of Range (Command Specific, status type 0x01 => 0x80 here when ORed
 /// with the SCT). For simplicity we keep all SCs in the generic type.
 pub const SC_LBA_OUT_OF_RANGE: u16 = 0x80;
@@ -720,7 +732,7 @@ impl<M: Mem> NvmeController<M> {
 
     /// Execute an admin command, returning (status code, completion DW0).
     fn exec_admin(&mut self, e: &SubmissionEntry) -> (u16, u32) {
-        if e.flags & 0xc0 != 0 {
+        if e.flags & 0xc3 != 0 {
             return (SC_INVALID_FIELD, 0);
         }
         match e.opcode {
@@ -794,6 +806,10 @@ impl<M: Mem> NvmeController<M> {
         d[0x201] = 0x44;
         // NN (0x204, 4 bytes): number of namespaces = 1.
         d[0x204..0x208].copy_from_slice(&1u32.to_le_bytes());
+        // ONCS: Compare, Dataset Management and Write Zeroes.
+        d[0x208..0x20a].copy_from_slice(&0x000du16.to_le_bytes());
+        // No volatile cache; broadcast Flush behavior is supported explicitly.
+        d[0x20d] = 6;
         d[0x218..0x21c].copy_from_slice(&(1u32 | (1 << 18)).to_le_bytes());
     }
 
@@ -810,6 +826,8 @@ impl<M: Mem> NvmeController<M> {
         d[0x19] = 0;
         // FLBAS (0x1a): formatted LBA size => format 0.
         d[0x1a] = 0;
+        // Deterministic zero after deallocation; Write Zeroes DEAC supported.
+        d[33] = 9;
         // LBAF0 (0x80, 4 bytes): MS=0, LBADS in bits 23:16 = 9 (512 bytes),
         // RP=0 in bits 25:24.
         let lbads: u32 = 9 << 16;
@@ -931,6 +949,9 @@ impl<M: Mem> NvmeController<M> {
     /// others are accepted as no-ops. Returns the negotiated value in DW0.
     fn admin_set_features(&mut self, e: &SubmissionEntry) -> (u16, u32) {
         let fid = (e.cdw10 & 0xff) as u8;
+        if fid == 6 {
+            return (SC_INVALID_FIELD, 0);
+        }
         if fid == FID_NUM_QUEUES {
             if e.cdw10 & (1 << 31) != 0 {
                 return (0x10d, 0); // Feature Identifier Not Saveable.
@@ -954,6 +975,9 @@ impl<M: Mem> NvmeController<M> {
     /// Get Features (opcode 0Ah). Mirrors Set Features for Number of Queues.
     fn admin_get_features(&mut self, e: &SubmissionEntry) -> (u16, u32) {
         let fid = (e.cdw10 & 0xff) as u8;
+        if fid == 6 {
+            return (SC_INVALID_FIELD, 0);
+        }
         if fid == FID_NUM_QUEUES {
             match (e.cdw10 >> 8) & 7 {
                 0..=2 => {}                  // Current/default/saved fallback: fixed allocation.
@@ -964,82 +988,6 @@ impl<M: Mem> NvmeController<M> {
             let granted = (self.max_io_queues - 1) as u32;
             let dw0 = granted | (granted << 16);
             return (SC_SUCCESS, dw0);
-        }
-        (SC_SUCCESS, 0)
-    }
-
-    // ---- NVM I/O command execution -----------------------------------------
-
-    /// Execute an NVM command (Read/Write/Flush) against namespace 1.
-    fn exec_nvm(&mut self, e: &SubmissionEntry) -> (u16, u32) {
-        if e.flags & 0xc0 == 0xc0 {
-            return (SC_INVALID_FIELD, 0);
-        }
-        match e.opcode {
-            NVM_FLUSH => (SC_SUCCESS, 0),
-            NVM_READ => self.nvm_rw(e, true),
-            NVM_WRITE => self.nvm_rw(e, false),
-            _ => (SC_INVALID_OPCODE, 0),
-        }
-    }
-
-    fn data_segments(&self, entry: &SubmissionEntry, total: u64) -> Result<Vec<(u64, u64)>, u16> {
-        match entry.flags >> 6 {
-            0 => prp::segments(&self.mem, entry.prp1, entry.prp2, total),
-            1 | 2 => sgl::segments(&self.mem, entry.prp1, entry.prp2, total),
-            _ => Err(SC_INVALID_FIELD),
-        }
-    }
-
-    /// Read/Write data through a complete PRP plan for namespace1.
-    /// CDW10/11:startingLBA;CDW12.NLB is a zero-based512-byte block count.
-    fn nvm_rw(&mut self, e: &SubmissionEntry, read: bool) -> (u16, u32) {
-        if e.nsid != 1 {
-            return (SC_INVALID_FIELD, 0);
-        }
-        let slba = (e.cdw10 as u64) | ((e.cdw11 as u64) << 32);
-        let nlb = (e.cdw12 & 0xffff) as u64 + 1; // 0-based count.
-        let total = nlb * LBA_SIZE;
-
-        let start = match slba.checked_mul(LBA_SIZE) {
-            Some(s) => s,
-            None => return (SC_LBA_OUT_OF_RANGE, 0),
-        };
-        let end = match start.checked_add(total) {
-            Some(s) => s,
-            None => return (SC_LBA_OUT_OF_RANGE, 0),
-        };
-        if end > self.disk.len() as u64 {
-            return (SC_LBA_OUT_OF_RANGE, 0);
-        }
-
-        let segments = match self.data_segments(e, total) {
-            Ok(segments) => segments,
-            Err(status) => return (status, 0),
-        };
-        if read {
-            let mut offset = start as usize;
-            for (address, length) in segments {
-                let length = length as usize;
-                if !self.mem.write(address, &self.disk[offset..offset + length]) {
-                    // Earlier successful guest writes remain visible on DMA error.
-                    return (SC_DATA_XFER_ERROR, 0);
-                }
-                offset += length;
-            }
-        } else {
-            // Read all source pages before mutating media. A late DMA read
-            // failure leaves namespace bytes unchanged.
-            let mut data = vec![0; total as usize];
-            let mut offset = 0;
-            for (address, length) in segments {
-                let length = length as usize;
-                if !self.mem.read(address, &mut data[offset..offset + length]) {
-                    return (SC_DATA_XFER_ERROR, 0);
-                }
-                offset += length;
-            }
-            self.disk[start as usize..end as usize].copy_from_slice(&data);
         }
         (SC_SUCCESS, 0)
     }
