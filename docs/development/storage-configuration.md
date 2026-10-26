@@ -83,7 +83,7 @@ TOML path resolution, strict nested fields, PCI admission, malformed files/budge
 mode binding, SHA-256 identity, same-size replacement, binary metadata, the actual
 old schema-1 fixture and checkpoint rejection. Three tests in the actual `rax`
 binary check CLI parsing; both core and scheduled CI select that complete
-binary alongside the 23 backend/device owners (554 local macOS tests total). Three library runtime tests send commands through the
+binary alongside the 24 backend/device owners (575 local macOS tests total). Three library runtime tests send commands through the
 actual PCI bridge and guest-RAM DMA mapping, proving distinct source reads,
 persistent writes and rejection of source replacement/conflicting attachment.
 These runtime tests do not execute a guest CPU or prove Linux boot.

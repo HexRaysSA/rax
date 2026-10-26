@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import shutil
 import struct
@@ -341,11 +342,31 @@ def main():
                 str(out / 'owning'),
             ],
         )
+        run('owning-inventory', [str(out / 'owning'), '--list', '--format', 'terse'])
+        inventory = [
+            line.removesuffix(': test')
+            for line in (out / 'owning-inventory.stdout').read_text().splitlines()
+            if line.endswith(': test')
+        ]
+        assert len(inventory) >= 47 and len(set(inventory)) == len(inventory)
+        for required in [
+            'every_admin_queue_wire_size_is_independent_of_io_mqes',
+            'minimum_one_entry_admin_queue_never_enables_or_performs_dma',
+        ]:
+            assert required in inventory
         run('owning', [str(out / 'owning'), '--test-threads=4'])
-        assert (
-            '45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out;'
-            in (out / 'owning.stdout').read_text()
+        summaries = re.findall(
+            r'test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored; '
+            r'\d+ measured; (\d+) filtered out;',
+            (out / 'owning.stdout').read_text(),
         )
+        assert summaries == [(str(len(inventory)), '0', '0', '0')]
+        manifest['owning_inventory'] = {
+            'count': len(inventory),
+            'tests': inventory,
+            'log_sha256': sha(out / 'owning-inventory.stdout'),
+            'result': 'complete_unfiltered_owner_passed',
+        }
         run(
             'comparison-build',
             [

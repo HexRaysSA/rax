@@ -66,8 +66,8 @@ writes, NSATTR, persistent command completion, COW guest writes and host FLUSH
 failures. Four shared media-module fault tests check accepted prefixes, immediate
 errors, interrupted/short writes and zero progress. They also execute in the
 library and both owning virtio binaries (46 indirect tests and 66 range tests).
-The combined core backend/device and CLI selection contains 23 owners plus the
-complete `rax` parser binary: 554 tests on the two local macOS architectures.
+The combined core backend/device and CLI selection contains 24 owners plus the
+complete `rax` parser binary: 575 tests on the two local macOS architectures.
 
 The independent operation model runs after a current library build:
 

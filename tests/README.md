@@ -103,6 +103,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `ahci_dma` | `suites/devices/ahci_dma.rs` |
 | `storage_images` | `suites/devices/storage_images.rs` |
 | `storage_config` | `suites/vm/storage_config.rs` |
+| `controller_checkpoint` | `suites/devices/controller_checkpoint.rs` |
 
 ## Reachability rules
 
@@ -273,7 +274,7 @@ See `docs/development/windows-user-memory.md` for ownership and platform limits.
 
 ## Backend and storage remediation targets
 
-The twenty-three backend/device targets above execute in the core CI matrix's
+The twenty-four backend/device targets above execute in the core CI matrix's
 `backend and storage regressions` step and the scheduled suite's
 `backend-devices` shard. Both enable `hvf`, compiling the native adapter on
 macOS, and execute every selected owning binary without a test-name filter.
@@ -324,3 +325,10 @@ The `rax` binary owns CLI parser checks; library `vm::runtime::storage_tests`
 checks the actual PCI bridge/guest-memory DMA attachment, and snapshot tests
 cover section schemas and bounded metadata. Full library inventories remain
 required in addition to any filtered iteration runs.
+
+
+`controller_checkpoint` exercises complete NVMe/AHCI private-state and media APIs,
+no-DMA restore, pending commands/completions, interrupt state, readonly media and
+transactional malformed-input rejection. The independent controller-state parser
+checks the published bytes and controlled continuation events. Admin queues have
+a separate 4096-entry bound from I/O MQES; the admission owner covers all AQA sizes.

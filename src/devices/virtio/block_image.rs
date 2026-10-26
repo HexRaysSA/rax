@@ -32,6 +32,7 @@ struct Backing {
 pub struct BlockImage {
     bytes: Vec<u8>,
     backing: Option<Backing>,
+    read_only: bool,
 }
 impl BlockImage {
     /// Preserve the existing in-memory media semantics, including empty media.
@@ -39,6 +40,7 @@ impl BlockImage {
         Self {
             bytes,
             backing: None,
+            read_only: false,
         }
     }
     /// Open a nonempty, sector-aligned regular raw image within the caller's
@@ -95,6 +97,7 @@ impl BlockImage {
         }
         Ok(Self {
             bytes,
+            read_only: mode == ImageMode::ReadOnly,
             backing: Some(Backing {
                 path,
                 mode,
@@ -104,16 +107,21 @@ impl BlockImage {
     }
     /// Selected raw-image mode; in-memory media use the COW host-effect model.
     pub fn mode(&self) -> ImageMode {
-        self.backing
-            .as_ref()
-            .map_or(ImageMode::CopyOnWrite, |b| b.mode)
+        self.backing.as_ref().map_or(
+            if self.read_only {
+                ImageMode::ReadOnly
+            } else {
+                ImageMode::CopyOnWrite
+            },
+            |b| b.mode,
+        )
     }
     /// Canonical source path, if this medium was loaded from a file.
     pub fn path(&self) -> Option<&Path> {
         self.backing.as_ref().map(|b| b.path.as_path())
     }
     pub fn is_read_only(&self) -> bool {
-        self.mode() == ImageMode::ReadOnly
+        self.read_only
     }
     fn bounds(&self, start: usize, length: usize) -> io::Result<Range<usize>> {
         let end = start
@@ -307,5 +315,48 @@ mod tests {
         assert!(write_accepted(&mut host, &mut cache, &[7; 12]).is_err());
         assert!(host.accepted.is_empty());
         assert_eq!(cache, [0xaa; 12]);
+    }
+}
+
+/// Complete logical media bytes and guest write protection. Restoring this value
+/// detaches host backing: no source file is opened or written implicitly.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImageCheckpoint {
+    pub bytes: Vec<u8>,
+    pub read_only: bool,
+}
+impl ImageCheckpoint {
+    pub fn into_detached(self) -> io::Result<BlockImage> {
+        if self.bytes.len() as u64 > MAX_IMAGE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "checkpoint media exceeds64GiB",
+            ));
+        }
+        Ok(BlockImage {
+            bytes: self.bytes,
+            backing: None,
+            read_only: self.read_only,
+        })
+    }
+}
+impl BlockImage {
+    /// Capture all media bytes without retaining a live file descriptor.
+    pub fn checkpoint(&self) -> io::Result<ImageCheckpoint> {
+        if self.bytes.len() as u64 > MAX_IMAGE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "checkpoint media exceeds64GiB",
+            ));
+        }
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(self.bytes.len())
+            .map_err(io::Error::other)?;
+        bytes.extend_from_slice(&self.bytes);
+        Ok(ImageCheckpoint {
+            bytes,
+            read_only: self.read_only,
+        })
     }
 }

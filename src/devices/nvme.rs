@@ -70,8 +70,11 @@
 use super::bus::MmioDevice;
 use super::virtio::block_image::BlockImage;
 
+#[path = "nvme/checkpoint.rs"]
+mod checkpoint;
 #[path = "nvme/nvm.rs"]
 mod nvm;
+pub use checkpoint::NvmeCheckpoint;
 #[path = "nvme/prp.rs"]
 mod prp;
 #[path = "nvme/sgl.rs"]

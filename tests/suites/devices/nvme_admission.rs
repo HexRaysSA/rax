@@ -324,3 +324,50 @@ pub fn compare_reference(directory: &std::path::Path) -> (usize, usize, usize, u
     }
     (14, bytes, failed, dnr_differences, policy_differences)
 }
+
+#[test]
+fn every_admin_queue_wire_size_is_independent_of_io_mqes() {
+    use devices::bus::MmioDevice;
+    let mut h = empty();
+    assert_eq!((h.device.cap() & 0xffff) + 1, 256);
+    for side in [0, 1] {
+        for size in 1..=4096u32 {
+            h.write(REG_CC, 0);
+            h.write(REG_ASQ, 0x1000);
+            h.write(REG_ACQ, 0x50000); // Nonoverlapping even at 4096 entries.
+            let aqa = if side == 0 {
+                (size - 1) | (63 << 16)
+            } else {
+                63 | ((size - 1) << 16)
+            };
+            h.write(REG_AQA, aqa);
+            h.write(REG_CC, 0x00460001);
+            let mut bytes = [0; 4];
+            h.device.read(0xfeb00000 + REG_CSTS, &mut bytes);
+            let status = u32::from_le_bytes(bytes);
+            if (2..=4096).contains(&size) {
+                assert_eq!(status & CSTS_RDY, CSTS_RDY, "side{side}/size{size}");
+                assert_eq!(status & CSTS_CFS, 0);
+            } else {
+                assert_eq!(status & CSTS_RDY, 0, "side{side}/size{size}");
+                assert_ne!(status & CSTS_CFS, 0);
+            }
+        }
+    }
+}
+#[test]
+fn minimum_one_entry_admin_queue_never_enables_or_performs_dma() {
+    use devices::bus::MmioDevice;
+    for (sq, cq) in [(1u32, 2u32), (2, 1), (1, 1)] {
+        let mut h = empty();
+        h.write(REG_CC, 0);
+        h.write(REG_AQA, (sq - 1) | ((cq - 1) << 16));
+        h.memory.clear_calls();
+        h.write(REG_CC, 0x00460001);
+        h.write(REG_DOORBELL_BASE, 1);
+        let mut bytes = [0; 4];
+        h.device.read(0xfeb00000 + REG_CSTS, &mut bytes);
+        assert_eq!(u32::from_le_bytes(bytes) & CSTS_RDY, 0);
+        assert!(h.memory.0.lock().unwrap().calls.is_empty());
+    }
+}

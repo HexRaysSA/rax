@@ -74,8 +74,11 @@
 
 use super::bus::MmioDevice;
 use super::virtio::block_image::BlockImage;
+#[path = "ahci/checkpoint.rs"]
+mod checkpoint;
 #[path = "ahci/command.rs"]
 mod command;
+pub use checkpoint::AhciCheckpoint;
 #[path = "ahci/dma.rs"]
 mod dma;
 
