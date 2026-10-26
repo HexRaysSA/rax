@@ -98,6 +98,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `nvme_admission` | `suites/devices/nvme_admission.rs` |
 | `nvme_commands` | `suites/devices/nvme_commands.rs` |
 | `virtio_indirect` | `suites/devices/virtio_indirect.rs` |
+| `virtio_ranges` | `suites/devices/virtio_ranges.rs` |
 
 ## Reachability rules
 
@@ -288,3 +289,7 @@ The `virtio_indirect` binary compiles the owning split-ring transport and block
 implementation, retaining their unit tests alongside negotiated indirect-table,
 request-stream framing, DMA failure, publication ordering and reset regressions.
 It runs in both the core backend/device selection and the scheduled shard.
+
+`virtio_ranges` retains the split queue/stream controls and exercises negotiated
+Discard and Write Zeroes, range limits, invalid flags, full staging, read-only
+media and checked logical-block extents.

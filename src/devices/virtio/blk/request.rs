@@ -1,5 +1,5 @@
 //! Parse the logical request stream independently of descriptor boundaries.
-use super::super::{QueueError, VRING_DESC_F_INDIRECT};
+use super::super::{QueueError, VRING_DESC_F_INDIRECT, VirtioDevice};
 use super::{
     BlkReqHeader, DescriptorChain, Mem, REQ_HEADER_LEN, SECTOR_SIZE, VIRTIO_BLK_S_IOERR,
     VIRTIO_BLK_S_OK, VIRTIO_BLK_S_UNSUPP, VIRTIO_BLK_T_FLUSH, VIRTIO_BLK_T_GET_ID, VIRTIO_BLK_T_IN,
@@ -155,12 +155,14 @@ impl VirtioBlk {
     /// Compatibility direct-call API. The checked transport path propagates
     /// failures and enters DEVICE_NEEDS_RESET rather than publishing false use.
     pub fn handle_chain<M: Mem>(&mut self, chain: &DescriptorChain, memory: &mut M) -> u32 {
-        self.handle_chain_checked(chain, memory).unwrap_or(0)
+        self.handle_chain_checked(chain, memory, self.device_features())
+            .unwrap_or(0)
     }
     pub(super) fn handle_chain_checked<M: Mem>(
         &mut self,
         chain: &DescriptorChain,
         memory: &mut M,
+        features: u64,
     ) -> Result<u32, QueueError> {
         let buffers = RequestBuffers::new(chain)?;
         if buffers.read_length < REQ_HEADER_LEN {
@@ -179,6 +181,36 @@ impl VirtioBlk {
                 header.sector,
                 header.req_type == VIRTIO_BLK_T_IN,
             )?,
+            super::VIRTIO_BLK_T_DISCARD | super::VIRTIO_BLK_T_WRITE_ZEROES => {
+                let zeroes = header.req_type == super::VIRTIO_BLK_T_WRITE_ZEROES;
+                let required = if zeroes {
+                    super::VIRTIO_BLK_F_WRITE_ZEROES
+                } else {
+                    super::VIRTIO_BLK_F_DISCARD
+                };
+                if features & required == 0 {
+                    (VIRTIO_BLK_S_UNSUPP, 0)
+                } else if self.read_only || header.sector != 0 || buffers.write_length != 1 {
+                    (VIRTIO_BLK_S_IOERR, 0)
+                } else {
+                    let length = buffers.read_length - REQ_HEADER_LEN;
+                    if length == 0
+                        || length % 16 != 0
+                        || length / 16 > super::VIRTIO_BLK_MAX_RANGE_SEGMENTS as usize
+                    {
+                        (VIRTIO_BLK_S_IOERR, 0)
+                    } else {
+                        let view =
+                            RequestBuffers::slices(&buffers.readable, REQ_HEADER_LEN, length);
+                        let mut metadata = vec![0; length];
+                        if !RequestBuffers::read_into(memory, &view, &mut metadata) {
+                            (VIRTIO_BLK_S_IOERR, 0)
+                        } else {
+                            (self.apply_ranges(&metadata, zeroes), 0)
+                        }
+                    }
+                }
+            }
             VIRTIO_BLK_T_FLUSH => (VIRTIO_BLK_S_OK, 0),
             VIRTIO_BLK_T_GET_ID => {
                 let length = buffers.write_length - 1;

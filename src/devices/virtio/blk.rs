@@ -20,10 +20,10 @@
 //!
 //! # What is deferred
 //!
-//! Only `IN`/`OUT` (read/write) and `GET_ID` are serviced. `FLUSH` is accepted
+//! `IN`/`OUT` (read/write) and `GET_ID` are serviced. `FLUSH` is accepted
 //! as a no-op success (the image is purely in memory). `DISCARD`/`WRITE_ZEROES`
-//! and the topology/geometry config fields are not implemented. Indirect
-//! descriptor tables are supported when negotiated.
+//! ranges are supported when negotiated; topology/geometry config fields are
+//! not implemented. Indirect descriptor tables are supported when negotiated.
 
 use super::{DescriptorChain, Mem, VIRTIO_F_VERSION_1, VirtQueue, VirtioDevice};
 
@@ -47,6 +47,14 @@ pub const VIRTIO_BLK_F_RO: u64 = 1 << 5;
 pub const VIRTIO_BLK_F_BLK_SIZE: u64 = 1 << 6;
 /// Cache flush command support.
 pub const VIRTIO_BLK_F_FLUSH: u64 = 1 << 9;
+/// Discard range support.
+pub const VIRTIO_BLK_F_DISCARD: u64 = 1 << 13;
+/// Write-zeroes range support.
+pub const VIRTIO_BLK_F_WRITE_ZEROES: u64 = 1 << 14;
+/// Maximum range descriptors in a request, advertised in device configuration.
+pub const VIRTIO_BLK_MAX_RANGE_SEGMENTS: u32 = 256;
+/// Maximum sectors per range; disk capacity independently bounds each request.
+pub const VIRTIO_BLK_MAX_RANGE_SECTORS: u32 = u32::MAX;
 
 // ---- Request types (in the request header) ---------------------------------
 
@@ -54,6 +62,8 @@ pub const VIRTIO_BLK_T_IN: u32 = 0;
 pub const VIRTIO_BLK_T_OUT: u32 = 1;
 pub const VIRTIO_BLK_T_FLUSH: u32 = 4;
 pub const VIRTIO_BLK_T_GET_ID: u32 = 8;
+pub const VIRTIO_BLK_T_DISCARD: u32 = 11;
+pub const VIRTIO_BLK_T_WRITE_ZEROES: u32 = 13;
 
 // ---- Status byte values -----------------------------------------------------
 
@@ -132,23 +142,24 @@ impl VirtioBlk {
         &self.disk
     }
 
-    /// The 64-bit configuration space, little-endian. Only the `capacity`
-    /// field (offset 0, 8 bytes) is meaningful; everything else reads as 0
-    /// because the matching feature bits are not offered.
+    /// Byte-addressable virtio-blk configuration. Only fields whose feature is
+    /// offered are populated; unimplemented geometry/topology fields stay zero.
     fn config_value(&self, offset: u64) -> u8 {
-        // Layout (struct virtio_blk_config):
-        //   0x00 u64 capacity
-        //   0x08 u32 size_max
-        //   0x0c u32 seg_max
-        //   ...   (geometry, blk_size, topology, etc. — all unimplemented)
-        if offset < 8 {
-            self.capacity_sectors().to_le_bytes()[offset as usize]
-        } else {
-            0
+        match offset {
+            0..8 => self.capacity_sectors().to_le_bytes()[offset as usize],
+            0x24..0x28 => VIRTIO_BLK_MAX_RANGE_SECTORS.to_le_bytes()[(offset - 0x24) as usize],
+            0x28..0x2c => VIRTIO_BLK_MAX_RANGE_SEGMENTS.to_le_bytes()[(offset - 0x28) as usize],
+            0x2c..0x30 => 1u32.to_le_bytes()[(offset - 0x2c) as usize],
+            0x30..0x34 => VIRTIO_BLK_MAX_RANGE_SECTORS.to_le_bytes()[(offset - 0x30) as usize],
+            0x34..0x38 => VIRTIO_BLK_MAX_RANGE_SEGMENTS.to_le_bytes()[(offset - 0x34) as usize],
+            // No physical deallocation exists for Vec media. An UNMAP request
+            // still receives the mandatory zero result, without deallocation.
+            _ => 0,
         }
     }
 }
 
+mod ranges;
 mod request;
 
 impl VirtioDevice for VirtioBlk {
@@ -159,7 +170,11 @@ impl VirtioDevice for VirtioBlk {
     fn device_features(&self) -> u64 {
         // Advertise FLUSH (handled as a no-op) plus VERSION_1 (the transport
         // OR-s this in regardless). RO is advertised only when configured.
-        let mut feats = VIRTIO_BLK_F_FLUSH | VIRTIO_F_VERSION_1 | super::VIRTIO_F_INDIRECT_DESC;
+        let mut feats = VIRTIO_BLK_F_FLUSH
+            | VIRTIO_F_VERSION_1
+            | super::VIRTIO_F_INDIRECT_DESC
+            | VIRTIO_BLK_F_DISCARD
+            | VIRTIO_BLK_F_WRITE_ZEROES;
         if self.read_only {
             feats |= VIRTIO_BLK_F_RO;
         }
@@ -191,7 +206,7 @@ impl VirtioDevice for VirtioBlk {
         features: u64,
     ) -> Result<(), super::QueueError> {
         queue.process_checked(&mut mem, features, |chain, mem| {
-            self.handle_chain_checked(chain, mem)
+            self.handle_chain_checked(chain, mem, features)
         })?;
         Ok(())
     }

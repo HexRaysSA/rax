@@ -425,3 +425,7 @@ path = "tests/suites/devices/nvme_commands.rs"
 [[test]]
 name = "virtio_indirect"
 path = "tests/suites/devices/virtio_indirect.rs"
+
+[[test]]
+name = "virtio_ranges"
+path = "tests/suites/devices/virtio_ranges.rs"

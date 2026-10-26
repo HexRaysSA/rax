@@ -81,7 +81,7 @@ writes return IOERR without modifying media.
 GET_ID fills exactly 20 bytes, including NUL padding, and can span writable
 buffers. Flush completes against the current in-memory media; persistent host
 storage and durable flush are outside this implementation. Unknown commands
-return UNSUPP. Discard and Write Zeroes are separate capability work.
+return UNSUPP. Discard and Write Zeroes use the range contracts below.
 
 ## Executable evidence
 
@@ -149,3 +149,74 @@ inputs and executable records are identified. QG7: integration limits are
 explicit. Broad build, library, C API, translated-host and CI checks are recorded
 in the audit ledger before the semantic group is committed. These tests do not
 establish native hypervisor execution or a complete operating-system boot.
+
+## Discard and Write Zeroes
+
+The block device offers `VIRTIO_BLK_F_DISCARD` (bit 13) and
+`VIRTIO_BLK_F_WRITE_ZEROES` (bit 14). The transport admits each operation only
+when its own feature was negotiated. The direct `handle_chain` API uses the
+implemented feature set; its caller supplies an already constructed chain.
+
+Configuration advertises a maximum of 256 range descriptors per command,
+`u32::MAX` sectors per range, and one-sector discard alignment. Capacity still
+bounds every range. The write-zeroes-may-unmap byte is zero: the in-memory
+backend does not claim physical deallocation. A Write Zeroes request with UNMAP
+set still receives the required zero result. Discard selects deterministic
+zero-filled logical media; the standard permits other deallocation outcomes.
+
+Each 16-byte little-endian descriptor contains an eight-byte starting sector,
+four-byte sector count and four-byte flags. The header's unused sector is zero.
+Range metadata can span readable descriptors. The writable stream contains only
+the one-byte status. The complete metadata stream, at most 4,096 bytes, is read
+before any media change. Empty or non-multiple-of-16 metadata, more than 256
+records, invalid capacity or arithmetic, failed source DMA and read-only media
+return IOERR without prefix effects.
+
+All flags are checked before extent arithmetic. Unknown flags return UNSUPP;
+Discard also rejects UNMAP. The supported Write Zeroes flag is UNMAP, bit zero.
+Zero-sector ranges within capacity are accepted as no-ops; this is an explicit
+local policy. Sector-to-byte multiplication uses 512 bytes per sector with
+checked 64-bit start/end arithmetic. Valid extents are sorted and coalesced
+before clearing their union: O(r log r + u) time, O(r) storage, for at most 256
+records and u affected bytes. No media mutation precedes complete validation.
+
+`virtio_ranges` retains all 42 split-queue/framing controls and adds 20 range
+contracts. The actual pre-range source fails 16 new regressions; 46 controls and
+unsupported-input checks pass. Its independent comparator fails all 16 scenarios.
+
+The range oracle retains 16 fresh QEMU guests, 34 product scenario requests,
+32 independently completed requests, raw configuration limits, complete
+completions and full namespace reads. Twelve scenarios match the reference
+exactly. The recorded differences are bounded:
+
+| Inputs | Reference observation | Product contract |
+|---|---|---|
+| Four and 256 ranges | QEMU advertises one range and returns UNSUPP | The advertised 256-range profile admits them |
+| Unaligned single-range Discard | QEMU retains the logical blocks | Product clears every selected byte; both outcomes satisfy advisory Discard |
+| Truncated 15-byte range | QEMU reports a fatal short header and completes no request | Product returns IOERR and continues; the input violates the driver's multiple-of-16 requirement |
+
+The reference's advertised sector limit is 4,194,303; the product's is
+4,294,967,295. Both reject the tested sector-count-over-capacity request with
+IOERR. The differing limits are retained as profile data. Single-range
+fragmentation is tested within both profiles. Each valid Write Zeroes readback
+must be zero. For advisory Discard, complete 512-byte reference blocks must be
+unchanged or zero, with every unrequested block unchanged. Each device's final
+read must match its own media. Product results are checked against its exact
+selected policy across all 262,144 media bytes. No whole-profile equivalence or
+persistent-storage proof follows from these observations.
+
+The common guest runner binds its own source, the corpus builder, guest,
+comparator, owning Rust sources and library by hash before and after execution.
+Its range configuration capture reads the one-byte may-unmap field as one byte;
+a four-byte access can extend past a reference device's configuration length.
+The existing indirect corpus still produces its original raw frames after the
+runner extraction and conditional configuration capture.
+
+Additional assumptions: the in-memory profile uses 512-byte sectors and no
+physical deallocation; capacity checks and zero/unaligned/overflow probes stress
+that contract. Reference segment and sector maxima are measured configuration,
+not inferred from generic VIRTIO support; multi-range probes retain their
+profile classification. Durable host images, synchronized concurrent DMA,
+complete snapshots and native interrupt/boot validation remain high-impact
+integration requirements. Existing assumptions V1-V6 and quality gates retain
+those limits.

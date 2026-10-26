@@ -166,201 +166,63 @@ def make_input(index):
     return bytes(raw), bytes(expected), bytes(disk), len(commands)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--repo', type=Path, required=True)
-    parser.add_argument('--work-dir', type=Path, required=True)
-    parser.add_argument('--llvm-bin', type=Path, required=True)
-    parser.add_argument('--target-dir', type=Path)
-    parser.add_argument('--library', type=Path)
-    parser.add_argument('--dependency-dir', type=Path)
-    args = parser.parse_args()
-    root, work = args.repo.resolve(), args.work_dir.resolve()
-    work.mkdir(parents=True, exist_ok=True)
-    library = args.library or args.target_dir / 'debug/librax.rlib'
-    dependencies = args.dependency_dir or args.target_dir / 'debug/deps'
-    assert library.is_file(), (
-        'Build the current product library before running the oracle.'
-    )
-    commands = []
-
-    def run(name, command, cwd=work, timeout=60, allowed_codes=(0,)):
-        start = time.monotonic()
-        result = subprocess.run(
-            [str(v) for v in command],
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=timeout,
+def validate_reference(index, case, frame, expected, disk, work, count):
+    assert (
+        frame[:8] == b'RAXVIOI1' and struct.unpack_from('<I', frame, 8)[0] == count
+    ), (NAMES[index], frame)
+    low, high, maximum = struct.unpack_from('<III', frame, 12)
+    assert low & (INDIRECT | 512) == INDIRECT | 512 and high & 1 and maximum >= 16
+    if index in [2, 4, 14]:
+        assert frame[24:] == b'VIOFAIL!'
+        message = (
+            'virtio: zero sized buffers are not allowed'
+            if index == 14
+            else 'virtio-blk missing headers'
         )
-        (work / (name + '.stdout')).write_bytes(result.stdout)
-        (work / (name + '.stderr')).write_bytes(result.stderr)
-        commands.append(
-            {
-                'name': name,
-                'command': [str(v) for v in command],
-                'code': result.returncode,
-                'seconds': time.monotonic() - start,
-            }
-        )
-        assert result.returncode in allowed_codes, (
-            name,
-            result.stderr.decode(errors='replace')[-2000:],
-        )
-        return result.stdout
-
-    compare = work / 'compare'
-    compare.unlink(missing_ok=True)
-    run(
-        'owning-build',
-        [
-            'rustc',
-            '+stable',
-            '--edition',
-            '2024',
-            root / 'tools/virtio-diff/indirect_compare.rs',
-            '--extern',
-            f'rax={library}',
-            '-L',
-            f'dependency={dependencies}',
-            '-o',
-            compare,
-        ],
-    )
-    qemu = shutil.which('qemu-system-aarch64')
-    assert qemu
-    cases = []
-    for index, name in enumerate(NAMES):
-        case = work / f'case-{index:02d}'
-        case.mkdir(exist_ok=True)
-        raw, expected, disk, count = make_input(index)
-        (case / 'input.bin').write_bytes(raw)
-        (case / 'expected.bin').write_bytes(expected)
-        (case / 'expected-media.bin').write_bytes(disk)
-        (case / 'disk.raw').write_bytes(initial_disk())
-        shutil.copyfile(root / 'tools/virtio-diff/indirect_guest.s', case / 'guest.s')
-        run(
-            f'assemble-{index}',
-            [
-                args.llvm_bin / 'llvm-mc',
-                '-triple=aarch64-none-elf',
-                '-filetype=obj',
-                'guest.s',
-                '-o',
-                'guest.o',
-            ],
-            cwd=case,
-        )
-        run(
-            f'link-{index}',
-            [
-                args.llvm_bin / 'ld.lld',
-                '-Ttext=0x40080000',
-                '-e',
-                '_start',
-                'guest.o',
-                '-o',
-                'guest.elf',
-            ],
-            cwd=case,
-        )
-        run(
-            f'qemu-{index}',
-            [
-                qemu,
-                '-machine',
-                'virt',
-                '-cpu',
-                'max',
-                '-m',
-                '64M',
-                '-accel',
-                'tcg',
-                '-display',
-                'none',
-                '-monitor',
-                'none',
-                '-serial',
-                f'file:{case / "records.bin"}',
-                '-no-reboot',
-                '-global',
-                'virtio-mmio.force-legacy=false',
-                '-drive',
-                f'file={case / "disk.raw"},format=raw,if=none,id=disk',
-                '-device',
-                'virtio-blk-device,drive=disk,serial=rax-virtio-blk',
-                '-semihosting-config',
-                'enable=on,target=native',
-                '-kernel',
-                case / 'guest.elf',
-            ],
-            timeout=30,
-            allowed_codes=(0, 1) if index in [2, 4, 14] else (0,),
-        )
-        frame = (case / 'records.bin').read_bytes()
         assert (
-            frame[:8] == b'RAXVIOI1' and struct.unpack_from('<I', frame, 8)[0] == count
-        ), (name, frame)
-        low, high, maximum = struct.unpack_from('<III', frame, 12)
-        assert low & (INDIRECT | 512) == INDIRECT | 512 and high & 1 and maximum >= 16
-        if index in [2, 4, 14]:
-            assert frame[24:] == b'VIOFAIL!'
-            message = (
-                'virtio: zero sized buffers are not allowed'
-                if index == 14
-                else 'virtio-blk missing headers'
-            )
-            assert (
-                work / f'qemu-{index}.stderr'
-            ).read_text() == f'qemu-system-aarch64: {message}\n'
-            assert (case / 'disk.raw').read_bytes() == initial_disk()
-        elif index == 12:
-            assert frame[24:] == expected[:-5] + bytes([0xEE]) * 5
-            assert (case / 'disk.raw').read_bytes() == disk
-        else:
-            assert frame[24:] == expected, (name, frame[24:].hex(), expected.hex())
-            assert (case / 'disk.raw').read_bytes() == disk, name
-        cases.append(
-            {
-                'index': index,
-                'name': name,
-                'commands': count,
-                'frame_bytes': len(frame),
-                'feature_words': [low, high],
-                'queue_max': maximum,
-                'artifacts': {p.name: sha(p) for p in case.iterdir() if p.is_file()},
-            }
-        )
-    report = json.loads(run('product-compare', [compare, work]))
-    assert report['cases'] == len(NAMES) and report['failed'] == 0, report
-    source_paths = [
-        'src/devices/virtio/mod.rs',
-        'src/devices/virtio/queue.rs',
-        'src/devices/virtio/blk.rs',
-        'src/devices/virtio/blk/request.rs',
-        'tests/suites/devices/virtio_indirect.rs',
-        'tools/virtio-diff/indirect_guest.s',
-        'tools/virtio-diff/indirect_compare.rs',
-    ]
-    manifest = {
-        'result': 'shared_contract_verified_with_explicit_reference_differences',
-        'cases': cases,
-        'report': report,
-        'reference_differences': {
-            'mixed_chain_rejected': [2, 4],
-            'id_padding_untouched': [12],
-            'zero_length_buffer_rejected': [14],
-        },
-        'commands': commands,
-        'tool_sha256': sha(Path(__file__)),
-        'source_sha256': {p: sha(root / p) for p in source_paths},
-        'qemu_version': subprocess.check_output(
-            [qemu, '--version'], text=True
-        ).splitlines()[0],
-        'reference_scope': 'QEMU TCG guest execution and owning product source replay; no native hypervisor execution.',
-    }
-    (work / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    print(json.dumps(report))
+            work / f'qemu-{index}.stderr'
+        ).read_text() == f'qemu-system-aarch64: {message}\n'
+        assert (case / 'disk.raw').read_bytes() == initial_disk()
+    elif index == 12:
+        assert frame[24:] == expected[:-5] + bytes([0xEE]) * 5
+        assert (case / 'disk.raw').read_bytes() == disk
+    else:
+        assert frame[24:] == expected, (NAMES[index], frame[24:].hex(), expected.hex())
+        assert (case / 'disk.raw').read_bytes() == disk, NAMES[index]
+
+
+SOURCE_PATHS = [
+    'src/devices/virtio/mod.rs',
+    'src/devices/virtio/queue.rs',
+    'src/devices/virtio/blk.rs',
+    'src/devices/virtio/blk/request.rs',
+    'src/devices/virtio/blk/ranges.rs',
+    'tests/suites/devices/virtio_indirect.rs',
+    'tools/virtio-diff/indirect_guest.s',
+    'tools/virtio-diff/indirect_compare.rs',
+    'tools/virtio-diff/indirect_oracle.py',
+    'tools/virtio-diff/guest_oracle.py',
+]
+
+
+def main():
+    from guest_oracle import run_corpus
+
+    run_corpus(
+        names=NAMES,
+        make_input=make_input,
+        initial_disk=initial_disk,
+        validate_reference=validate_reference,
+        allowed_codes=lambda i: (0, 1) if i in [2, 4, 14] else (0,),
+        comparison_source='tools/virtio-diff/indirect_compare.rs',
+        source_paths=SOURCE_PATHS,
+        tool_path=Path(__file__),
+        reference_differences=dict(
+            mixed_chain_rejected=[2, 4],
+            id_padding_untouched=[12],
+            zero_length_buffer_rejected=[14],
+        ),
+    )
 
 
 if __name__ == '__main__':

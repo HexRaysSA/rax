@@ -71,6 +71,21 @@ _start:
     bl emit_word
     ldr w0, [x19, #0x34]
     bl emit_word
+    tst w26, #0x6000
+    b.eq range_config_done
+    ldr w0, [x19, #0x124]
+    bl emit_word
+    ldr w0, [x19, #0x128]
+    bl emit_word
+    ldr w0, [x19, #0x12c]
+    bl emit_word
+    ldr w0, [x19, #0x130]
+    bl emit_word
+    ldr w0, [x19, #0x134]
+    bl emit_word
+    ldrb w0, [x19, #0x138]
+    bl emit_word
+range_config_done:
     mov w23, #0
 command:
     cmp w23, w22
