@@ -1,0 +1,422 @@
+//! Decoded scalar MMIO plans. Device effects occur only after this validation.
+use super::guest_translation::{Paging, PhysicalMemory};
+use crate::isa::x86_64::instruction_metadata::{
+    self as metadata, Flow, Instruction, Operand, OperandKind,
+};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct RegisterPart {
+    pub(crate) index: usize,
+    pub(crate) bits: u32,
+    pub(crate) shift: u32,
+}
+impl RegisterPart {
+    pub(crate) fn parse(name: &str) -> Option<Self> {
+        const NAMES: [[&str; 8]; 4] = [
+            ["al", "cl", "dl", "bl", "spl", "bpl", "sil", "dil"],
+            ["ax", "cx", "dx", "bx", "sp", "bp", "si", "di"],
+            ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"],
+            ["rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rsi", "rdi"],
+        ];
+        for (class, names) in NAMES.iter().enumerate() {
+            if let Some(index) = names.iter().position(|n| *n == name) {
+                return Some(Self {
+                    index,
+                    bits: 8 << class,
+                    shift: 0,
+                });
+            }
+        }
+        if let Some(index) = ["ah", "ch", "dh", "bh"].iter().position(|n| *n == name) {
+            return Some(Self {
+                index,
+                bits: 8,
+                shift: 8,
+            });
+        }
+        let digits = name.strip_prefix('r')?;
+        let (digits, bits) = if let Some(s) = digits.strip_suffix('b') {
+            (s, 8)
+        } else if let Some(s) = digits.strip_suffix('w') {
+            (s, 16)
+        } else if let Some(s) = digits.strip_suffix('d') {
+            (s, 32)
+        } else {
+            (digits, 64)
+        };
+        let index = digits.parse::<usize>().ok()?;
+        (8..16).contains(&index).then_some(Self {
+            index,
+            bits,
+            shift: 0,
+        })
+    }
+    fn mask(self) -> u64 {
+        if self.bits == 64 {
+            u64::MAX
+        } else {
+            (1 << self.bits) - 1
+        }
+    }
+    fn value(self, registers: &[u64; 16]) -> u64 {
+        (registers[self.index] >> self.shift) & self.mask()
+    }
+    pub(crate) fn merge(self, original: u64, value: u64) -> u64 {
+        if self.bits == 32 {
+            return value & 0xffff_ffff;
+        }
+        let mask = self.mask() << self.shift;
+        (original & !mask) | ((value << self.shift) & mask)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct Context {
+    pub(crate) registers: [u64; 16],
+    /// ES, CS, SS, DS, FS, GS bases from the active VMCS.
+    pub(crate) segments: [u64; 6],
+    pub(crate) code_bits: u32,
+    pub(crate) rip: u64,
+    pub(crate) rflags: u64,
+    pub(crate) paging: Paging,
+}
+#[derive(Clone, Copy)]
+pub(crate) struct ExitRecord {
+    pub(crate) qualification: u64,
+    pub(crate) linear: u64,
+    pub(crate) physical: u64,
+    pub(crate) vectoring_information: u64,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Extension {
+    Plain,
+    Zero,
+    Signed,
+}
+#[derive(Clone, Debug)]
+pub(crate) struct Input {
+    pub(crate) destination: RegisterPart,
+    pub(crate) original: u64,
+    pub(crate) size: u8,
+    pub(crate) extension: Extension,
+    pub(crate) length: u64,
+}
+impl Input {
+    pub(crate) fn value(&self, data: &[u8]) -> Result<u64, String> {
+        if !matches!(self.size, 1 | 2 | 4 | 8) || data.len() != usize::from(self.size) {
+            return Err(format!(
+                "HVF MMIO input expected {} bytes, received {}",
+                self.size,
+                data.len()
+            ));
+        }
+        let mut bytes = [0; 8];
+        bytes[..data.len()].copy_from_slice(data);
+        let raw = u64::from_le_bytes(bytes);
+        let extended = if self.extension == Extension::Signed && self.size < 8 {
+            let shift = 64 - u32::from(self.size) * 8;
+            ((raw << shift) as i64 >> shift) as u64
+        } else {
+            raw
+        };
+        Ok(self.destination.merge(self.original, extended))
+    }
+}
+#[derive(Clone, Debug)]
+pub(crate) enum Action {
+    Read(Input),
+    Write(Vec<u8>),
+}
+#[derive(Clone, Debug)]
+pub(crate) struct Plan {
+    pub(crate) physical: u64,
+    pub(crate) length: u64,
+    pub(crate) action: Action,
+}
+
+fn memory_address(context: &Context, operand: &Operand) -> Result<u64, String> {
+    let mask = match operand.address_bits {
+        16 => 0xffff,
+        32 => 0xffff_ffff,
+        64 => u64::MAX,
+        _ => return Err("unsupported MMIO address width".into()),
+    };
+    let read = |name: &str| -> Result<u64, String> {
+        if name.is_empty() {
+            Ok(0)
+        } else {
+            RegisterPart::parse(name)
+                .map(|r| r.value(&context.registers))
+                .ok_or_else(|| format!("unsupported MMIO address register {name}"))
+        }
+    };
+    let offset = read(&operand.base)?
+        .wrapping_add(read(&operand.index)?.wrapping_mul(u64::from(operand.scale)))
+        .wrapping_add(operand.displacement)
+        & mask;
+    let segment = match operand.segment.as_str() {
+        "es" => 0,
+        "cs" => 1,
+        "ss" => 2,
+        "ds" | "" => 3,
+        "fs" => 4,
+        "gs" => 5,
+        _ => return Err("unsupported MMIO segment".into()),
+    };
+    let base = if context.code_bits == 64 && segment < 4 {
+        0
+    } else {
+        context.segments[segment]
+    };
+    let linear = base.wrapping_add(offset);
+    Ok(if context.code_bits == 64 {
+        linear
+    } else {
+        linear & 0xffff_ffff
+    })
+}
+
+fn fetch<M: PhysicalMemory>(context: &Context, memory: &mut M) -> Result<Instruction, String> {
+    if !matches!(context.code_bits, 16 | 32 | 64) {
+        return Err("unsupported MMIO code width".into());
+    }
+    let mut bytes = Vec::with_capacity(15);
+    for offset in 0..15 {
+        let ip = if context.code_bits == 64 {
+            context.rip.wrapping_add(offset)
+        } else {
+            context.rip.wrapping_add(offset) & 0xffff_ffff
+        };
+        let linear = if context.code_bits == 64 {
+            ip
+        } else {
+            context.segments[1].wrapping_add(ip) & 0xffff_ffff
+        };
+        let physical = context.paging.translate(memory, linear)?;
+        let mut byte = [0];
+        memory.read_physical(physical, &mut byte)?;
+        bytes.push(byte[0]);
+        match metadata::decode(context.code_bits, context.rip, &bytes) {
+            Ok(instruction) => return Ok(instruction),
+            Err(metadata::DecodeFailure::Unsupported) => {
+                return Err("MMIO instruction metadata is unsupported".into());
+            }
+            Err(metadata::DecodeFailure::Invalid) => {}
+        }
+    }
+    Err("invalid or truncated MMIO instruction".into())
+}
+
+pub(crate) fn prepare<M: PhysicalMemory>(
+    context: &Context,
+    memory: &mut M,
+    record: ExitRecord,
+) -> Result<Plan, String> {
+    if record.vectoring_information & (1 << 31) != 0 {
+        return Err("EPT violation interrupted event delivery, not a scalar instruction".into());
+    }
+    // Table29-7: IRET NMI-unblocking, shadow-stack, guest-paging
+    // verification and asynchronous PT/PEBS/user-interrupt accesses are not
+    // ordinary scalar instruction data. Undefined permission bits are ignored.
+    if record.qualification & ((1 << 12) | (1 << 13) | (1 << 15) | (1 << 16)) != 0 {
+        return Err("EPT violation is outside ordinary scalar data execution".into());
+    }
+    let read = record.qualification & 1 != 0;
+    let write = record.qualification & 2 != 0;
+    if read == write || record.qualification & 4 != 0 || record.qualification & 0x180 != 0x180 {
+        return Err("EPT violation is not a translated scalar data access".into());
+    }
+    if context.rflags & (1 << 8) != 0 {
+        return Err("single-stepped MMIO completion is not yet supported".into());
+    }
+    let instruction = fetch(context, memory)?;
+    if !instruction.operands_complete
+        || instruction.flow != Flow::Next
+        || !matches!(instruction.mnemonic.as_str(), "mov" | "movsx" | "movzx")
+        || instruction.operands.len() != 2
+    {
+        return Err("unsupported MMIO instruction operands or effects".into());
+    }
+    let operands = &instruction.operands;
+    let (memory_operand, other) = if operands[0].kind == OperandKind::Memory {
+        (&operands[0], &operands[1])
+    } else if operands[1].kind == OperandKind::Memory {
+        (&operands[1], &operands[0])
+    } else {
+        return Err("MMIO instruction has no represented memory operand".into());
+    };
+    if other.kind == OperandKind::Memory
+        || memory_operand.read != read
+        || memory_operand.write != write
+        || memory_operand.conditional
+        || other.conditional
+    {
+        return Err("MMIO instruction direction/effects disagree with EPT record".into());
+    }
+    let size = match memory_operand.width_bits {
+        8 => 1,
+        16 => 2,
+        32 => 4,
+        64 => 8,
+        _ => return Err("unsupported MMIO transfer width".into()),
+    };
+    let linear = memory_address(context, memory_operand)?;
+    if linear != record.linear {
+        return Err(format!(
+            "decoded MMIO address {linear:#x} disagrees with exit GLA {:#x}",
+            record.linear
+        ));
+    }
+    for offset in 0..u64::from(size) {
+        let address = if context.code_bits == 64 {
+            linear.wrapping_add(offset)
+        } else {
+            linear.wrapping_add(offset) & 0xffff_ffff
+        };
+        let physical = context.paging.translate(memory, address)?;
+        if Some(physical) != record.physical.checked_add(offset) {
+            return Err("MMIO operand spans noncontiguous guest physical addresses".into());
+        }
+        if memory.contains_ram(physical, 1) {
+            return Err("EPT violation targets guest RAM, not an MMIO hole".into());
+        }
+    }
+    let length = u64::from(instruction.size);
+    let action = if read {
+        if operands[0].kind != OperandKind::Register
+            || other.kind != OperandKind::Register
+            || !other.write
+            || other.read
+        {
+            return Err("unsupported MMIO load destination".into());
+        }
+        let destination =
+            RegisterPart::parse(&other.reg).ok_or("unsupported MMIO destination register")?;
+        if destination.bits != other.width_bits {
+            return Err("inconsistent MMIO register width".into());
+        }
+        let extension = match instruction.mnemonic.as_str() {
+            "mov" if destination.bits == memory_operand.width_bits => Extension::Plain,
+            "movsx" if destination.shift == 0 && destination.bits > memory_operand.width_bits => {
+                Extension::Signed
+            }
+            "movzx" if destination.shift == 0 && destination.bits > memory_operand.width_bits => {
+                Extension::Zero
+            }
+            _ => return Err("unsupported MMIO load width/extension".into()),
+        };
+        Action::Read(Input {
+            destination,
+            original: context.registers[destination.index],
+            size,
+            extension,
+            length,
+        })
+    } else {
+        if operands[0].kind != OperandKind::Memory
+            || instruction.mnemonic != "mov"
+            || !other.read
+            || other.write
+        {
+            return Err("unsupported MMIO store effects".into());
+        }
+        let value = match other.kind {
+            OperandKind::Immediate => other.value,
+            OperandKind::Register => {
+                let source =
+                    RegisterPart::parse(&other.reg).ok_or("unsupported MMIO source register")?;
+                if source.bits != memory_operand.width_bits || source.bits != other.width_bits {
+                    return Err("inconsistent MMIO store width".into());
+                }
+                source.value(&context.registers)
+            }
+            _ => return Err("unsupported MMIO store source".into()),
+        };
+        Action::Write(value.to_le_bytes()[..usize::from(size)].to_vec())
+    };
+    Ok(Plan {
+        physical: record.physical,
+        length,
+        action,
+    })
+}
+
+pub(crate) trait CompletionAccess {
+    type Error: std::fmt::Display;
+    fn write_gpr(&mut self, index: usize, value: u64) -> Result<(), Self::Error>;
+    fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error>;
+}
+#[derive(Default)]
+pub(crate) struct InputState {
+    pending: Option<Input>,
+    failure: Option<String>,
+}
+impl InputState {
+    pub(crate) fn pending(&self) -> bool {
+        self.pending.is_some()
+    }
+    pub(crate) fn ready(&self) -> Result<(), &str> {
+        if let Some(error) = self.failure.as_deref() {
+            return Err(error);
+        }
+        if self.pending.is_some() {
+            return Err("HVF MMIO input completion is pending");
+        }
+        Ok(())
+    }
+    pub(crate) fn begin(&mut self, input: Input) -> Result<(), String> {
+        self.ready().map_err(str::to_owned)?;
+        if !matches!(input.size, 1 | 2 | 4 | 8)
+            || !(1..=15).contains(&input.length)
+            || input.destination.index >= 16
+            || !matches!(input.destination.bits, 8 | 16 | 32 | 64)
+            || !matches!(input.destination.shift, 0 | 8)
+            || (input.destination.shift != 0 && input.destination.bits != 8)
+        {
+            return Err("invalid HVF MMIO input descriptor".into());
+        }
+        self.pending = Some(input);
+        Ok(())
+    }
+    pub(crate) fn complete<T: CompletionAccess>(&mut self, host: &mut T, data: &[u8]) {
+        if self.failure.is_some() {
+            return;
+        }
+        let Some(input) = self.pending.as_ref() else {
+            self.failure = Some("unexpected HVF MMIO completion without a pending request".into());
+            return;
+        };
+        let value = match input.value(data) {
+            Ok(v) => v,
+            Err(e) => {
+                self.failure = Some(e);
+                return;
+            }
+        };
+        if let Err(error) = host
+            .write_gpr(input.destination.index, value)
+            .and_then(|()| host.finish_instruction(input.length))
+        {
+            self.failure = Some(format!("HVF MMIO completion failed: {error}"));
+            return;
+        }
+        self.pending = None;
+    }
+}
+
+pub(crate) trait RetirementAccess {
+    type Error;
+    fn rflags(&mut self) -> Result<u64, Self::Error>;
+    fn advance_instruction(&mut self, length: u64) -> Result<(), Self::Error>;
+    fn write_rflags(&mut self, flags: u64) -> Result<(), Self::Error>;
+}
+/// EPT exits outside IDT delivery save RF1. Emulated completion must clear it;
+/// ordinary configured instruction exits already save RF0 (SDM29.3.3).
+pub(crate) fn retire<T: RetirementAccess>(host: &mut T, length: u64) -> Result<(), T::Error> {
+    let flags = host.rflags()?;
+    host.advance_instruction(length)?;
+    if flags & (1 << 16) != 0 {
+        host.write_rflags(flags & !(1 << 16))?;
+    }
+    Ok(())
+}

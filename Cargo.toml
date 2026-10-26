@@ -385,3 +385,11 @@ path = "tests/suites/backend/hvf_interrupt_shadow.rs"
 [[test]]
 name = "hvf_port_io"
 path = "tests/suites/backend/hvf_port_io.rs"
+
+[[test]]
+name = "hvf_guest_translation"
+path = "tests/suites/backend/hvf_guest_translation.rs"
+
+[[test]]
+name = "hvf_mmio"
+path = "tests/suites/backend/hvf_mmio.rs"

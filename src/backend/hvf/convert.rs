@@ -439,29 +439,16 @@ pub fn sregs_to_hvf(vcpu: hv_vcpuid_t, sregs: &SystemRegisters) -> Result<()> {
     Ok(())
 }
 
-/// Parse VMX exit qualification for EPT violations (memory faults).
-pub struct EptViolationQualification {
-    pub read: bool,
-    pub write: bool,
-    pub fetch: bool,
-    pub readable: bool,
-    pub writable: bool,
-    pub executable: bool,
-    pub guest_linear_valid: bool,
-    pub guest_physical_valid: bool,
-}
-
-impl EptViolationQualification {
-    pub fn from_qualification(qual: u64) -> Self {
-        EptViolationQualification {
-            read: (qual & (1 << 0)) != 0,
-            write: (qual & (1 << 1)) != 0,
-            fetch: (qual & (1 << 2)) != 0,
-            readable: (qual & (1 << 3)) != 0,
-            writable: (qual & (1 << 4)) != 0,
-            executable: (qual & (1 << 5)) != 0,
-            guest_linear_valid: (qual & (1 << 7)) != 0,
-            guest_physical_valid: (qual & (1 << 8)) != 0,
-        }
-    }
+/// Map Intel architectural GPR indices to the SDK register enum.
+pub fn general_register(index: u8) -> Result<hv_x86_reg_t> {
+    use hv_x86_reg_t::*;
+    const REGISTERS: [hv_x86_reg_t; 16] = [
+        HV_X86_RAX, HV_X86_RCX, HV_X86_RDX, HV_X86_RBX, HV_X86_RSP, HV_X86_RBP, HV_X86_RSI,
+        HV_X86_RDI, HV_X86_R8, HV_X86_R9, HV_X86_R10, HV_X86_R11, HV_X86_R12, HV_X86_R13,
+        HV_X86_R14, HV_X86_R15,
+    ];
+    REGISTERS
+        .get(usize::from(index))
+        .copied()
+        .ok_or_else(|| Error::Emulator(format!("invalid VMX general-register index {index}")))
 }

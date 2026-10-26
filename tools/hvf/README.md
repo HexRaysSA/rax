@@ -274,3 +274,55 @@ The previous input effect fails20 records and six owning tests; two controls
 still pass. Native Intel VMX/device delivery and string I/O remain unverified.
 Pending input and terminal-error state must be included in the planned complete
 checkpoint format; the existing checkpoint schema is not extended here.
+
+## Decoded scalar MMIO
+
+```sh
+cargo +stable test --test hvf_mmio --test hvf_guest_translation
+python3 tools/hvf/mmio_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-mmio
+```
+
+An EPT exit becomes scalar device I/O only after validating a data read XOR
+write, valid translated GLA, absence of event delivery and absence of special
+shadow-stack, paging-verification or asynchronous accesses. Guest RAM permission
+faults are not MMIO. Instructions are fetched incrementally, at most15 bytes,
+through read-only guest translation. Only required instruction bytes are read.
+Introspection preserves page-table A/D state; hardware guest permission checks
+are distinct from this inspection path.
+
+Supported translations are identity, nonPAE32-bit paging with PSE/PSE36,
+legacy PAE using the architectural cached VMCS PDPTEs, and four-level IA32e
+paging with4KiB/2MiB/1GiB leaves. LA57 and malformed/nonpresent mappings stop
+before device access. The configured CPUID physical-address width is used.
+Legacy PAE inspection never reloads a changed guest PDPT from RAM.
+
+The actual product metadata decoder must provide a complete scalar MOV,
+MOVSX or MOVZX memory operand. Its effective address, including active segment
+base and address-width wrapping, must match the exit GLA. Every byte must map
+to the reported contiguous GPA range outside RAM. Moffs metadata now retains
+all segment overrides. SDK GPR indices are shared with CR8 conversion.
+
+Stores return the actual low register bytes or sign-extended immediate; reads
+retain the exact GPR part, original value, width, extension and instruction
+length. High-byte and16-bit writes preserve untouched bits;32-bit writes
+zero-extend. Completion requires exact framing and commits the destination
+before retirement. EPT retirement expires STI/MOVSS blocking and clears RF.
+Malformed input or a host error remains terminal before later execution,
+CPU-state writes and external-event injection. Partial host commits are not
+rolled back. The existing void completion API is unchanged.
+
+The immutable reference fixture contains1204 direct TCG long-mode RAM
+instructions:912 loads and292 stores across all16 GPRs, high-byte aliases,
+MOVSX/MOVZX, widths1/2/4/8, immediate sign extension, two data patterns and two
+flag patterns. Every register, all8 observed data bytes and before/after flags
+are compared with the product plan. The fixture presents the operand as an
+MMIO hole to exercise planning; these records do not prove native device or
+VMX delivery. Re-running the oracle must reproduce the exact fixture bytes
+and pass the complete MMIO owning binary. Input is202272 bytes; output is
+183028 bytes including20 framing bytes; guest RAM is64MiB.
+
+RMW, atomic, string, vector, segment-register, APX-only and incomplete metadata
+forms are explicit unsupported cases. TF single-stepped MMIO remains unsupported
+before device access pending complete debug-retirement semantics. Native Intel
+execution, controller/device ordering, concurrent page-table changes and the
+complete checkpoint representation remain separate validation requirements.
