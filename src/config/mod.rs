@@ -3,6 +3,7 @@
 pub mod file;
 pub mod kinds;
 pub mod runtime;
+pub mod storage;
 pub mod values;
 
 pub use file::FileConfig;
@@ -11,6 +12,7 @@ pub use kinds::{
     HexagonIsa,
 };
 pub use runtime::{CheckpointConfig, CliConfig, VmConfig};
+pub use storage::{ImageAccess, ImageAttachment, ImageIdentity, StorageConfig};
 pub use values::{Address, MemorySize};
 
 #[cfg(test)]
@@ -65,6 +67,7 @@ mod tests {
             arm_load_addr: None,
             arm_dtb: None,
             pci_devices: false,
+            storage: StorageConfig::default(),
         }
     }
 

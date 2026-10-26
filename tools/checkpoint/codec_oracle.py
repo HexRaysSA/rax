@@ -40,8 +40,8 @@ class Wire:
         return read() if tag else None
 
 
-def config(data):
-    # Config schema1 uses fixed-width bincode primitives in this published order.
+def config(data, schema=2):
+    # Both versions use fixed-width primitives; schema2 appends image metadata.
     r = Wire(data)
     result = dict(
         arch=r.integer(4), backend=r.integer(4), memory=r.integer(8), vcpus=r.integer(1)
@@ -58,11 +58,31 @@ def config(data):
     result['arm_load'] = r.optional(lambda: r.integer(8))
     result['dtb'] = r.optional(r.text)
     result['pci'] = r.integer(1)
-    assert result['pci'] in [0, 1] and r.offset == len(data)
+    assert result['pci'] in [0, 1]
+
+    def image():
+        value = dict(
+            path=r.text(),
+            mode=r.integer(4),
+            max_bytes=r.integer(8),
+            bytes=r.integer(8),
+            sha256=r.take(32).hex(),
+        )
+        assert (
+            value['mode'] in [0, 1, 2]
+            and 0 < value['bytes'] <= value['max_bytes'] <= 64 * 1024**3
+        )
+        assert value['bytes'] % 512 == 0
+        return value
+
+    result['storage'] = (
+        [r.optional(image), r.optional(image)] if schema == 2 else [None, None]
+    )
+    assert r.offset == len(data)
     return result
 
 
-def parse(data):
+def parse(data, config_schema=2):
     r = Wire(data)
     assert r.take(8) == b'RAXCKPT\0'
     assert r.integer(4) == 8 and r.take(4) == b'RXS8'
@@ -71,7 +91,8 @@ def parse(data):
     sections = {}
     for _ in range(count):
         kind, schema, length = r.integer(4), r.integer(4), r.integer(8)
-        assert kind in range(1, 7) and kind not in sections and schema == 1
+        assert kind in range(1, 7) and kind not in sections
+        assert schema == (config_schema if kind == 1 else 1)
         assert length <= (1024 * 1024 if kind == 1 else 16 * 1024 * 1024)
         sections[kind] = r.take(length)
     assert r.offset == len(data) and set(sections) == set(range(1, 7))
@@ -88,6 +109,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     source_names = [
         'src/config/runtime.rs',
+        'src/config/storage.rs',
+        'src/vm/snapshot/config_v1.rs',
         'src/vm/snapshot.rs',
         'src/vm/snapshot/codec.rs',
         'src/vm/snapshot/legacy.rs',
@@ -145,6 +168,7 @@ def main():
             path = out / f'case-{i}-{pci}.rxc'
             parts = parse(path.read_bytes())
             cfg = config(parts[1])
+            assert cfg['storage'] == [None, None]
             assert (
                 cfg['arch'],
                 cfg['backend'],
@@ -187,12 +211,64 @@ def main():
                     sha256=sha(path),
                 )
             )
+    images = 0
+    for index, modes in enumerate([(0, None), (None, 1), (2, 2), (1, 0)]):
+        path = out / f'image-case-{index}.rxc'
+        parts = parse(path.read_bytes())
+        cfg = config(parts[1])
+        assert (
+            cfg['arch'],
+            cfg['backend'],
+            cfg['memory'],
+            cfg['vcpus'],
+            cfg['pci'],
+        ) == (0, 1, 4096, 1, 1)
+        assert cfg['cmdline'] == 'checkpoint-image-wire-oracle'
+        for attachment, name, mode in zip(
+            cfg['storage'], ['nvme.raw', 'ahci.raw'], modes
+        ):
+            if mode is None:
+                assert attachment is None
+            else:
+                source = out / name
+                assert attachment == dict(
+                    path=str(source),
+                    mode=mode,
+                    max_bytes=16384,
+                    bytes=source.stat().st_size,
+                    sha256=sha(source),
+                )
+                images += 1
+        assert struct.unpack('<QQQ', parts[2]) == (2000 + index, 3000 + index, 4096)
+        compressed = out / f'image-case-{index}.zst'
+        compressed.write_bytes(parts[6])
+        memory = run(
+            f'decompress-image-{index}',
+            [zstd, '--quiet', '--decompress', '--stdout', compressed],
+        )
+        assert memory == bytes([0x70 + index]) * 4096
+        reports.append(
+            dict(
+                file=path.name,
+                arch=0,
+                cpu_tag=0,
+                pci=True,
+                memory_bytes=len(memory),
+                storage=cfg['storage'],
+                sha256=sha(path),
+            )
+        )
+    fixture = root / 'tests/fixtures/checkpoint/tagged-v8-schema1.rxc'
+    old = config(parse(fixture.read_bytes(), config_schema=1)[1], schema=1)
+    assert old['pci'] == 1 and old['storage'] == [None, None]
     assert before == {n: sha(root / n) for n in source_names}
     assert sha(library) == sha(out / 'librax.rlib')
     report = dict(
         cases=len(reports),
         sections=len(reports) * 6,
         memory_bytes=sum(r['memory_bytes'] for r in reports),
+        image_metadata=images,
+        legacy_tagged_files=1,
         failed=0,
     )
     (out / 'manifest.json').write_text(
@@ -204,6 +280,7 @@ def main():
                 source_sha256=before,
                 library_sha256=sha(out / 'librax.rlib'),
                 commands=commands,
+                legacy_tagged_sha256=sha(fixture),
                 scope='Public product writer plus independent byte/config/framing parser and separate system zstd decoder. Serialization fixtures do not establish complete device/private-state or boot closure.',
             ),
             indent=2,

@@ -215,7 +215,7 @@ fn missing_required_sections_and_excessive_section_count_fail() {
 #[test]
 fn unsupported_section_schema_is_rejected_before_payload() {
     let mut raw = encoded(&sample());
-    raw[24..28].copy_from_slice(&2u32.to_le_bytes());
+    raw[24..28].copy_from_slice(&3u32.to_le_bytes());
     assert!(error(&raw[..36]).contains("section schema"));
 }
 #[test]
@@ -420,4 +420,21 @@ fn prior_human_readable_config_metadata_defaults_absent_pci_to_false() {
     value.as_object_mut().unwrap().remove("pci_devices");
     let config: CheckpointConfig = serde_json::from_value(value).unwrap();
     assert!(!config.pci_devices);
+}
+
+#[test]
+fn tagged_config_schema_two_checks_recorded_image_metadata_before_ram() {
+    let mut snapshot = sample();
+    snapshot.config.storage.nvme = Some(crate::config::ImageAttachment {
+        path: std::path::PathBuf::from("/recorded/raw"),
+        mode: crate::config::ImageAccess::CopyOnWrite,
+        max_bytes: 512,
+        identity: crate::config::ImageIdentity {
+            bytes: 1024,
+            sha256: [0; 32],
+        },
+    });
+    let mut parts = sections(&encoded(&sample()));
+    parts[0] = extra(1, 2, &bincode::serialize(&snapshot.config).unwrap());
+    assert!(error(&assemble(&parts)).contains("recorded storage image metadata"));
 }

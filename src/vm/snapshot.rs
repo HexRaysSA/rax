@@ -44,6 +44,7 @@ pub const DEFAULT_CHECKPOINT_FILE: &str = "checkpoint.rxc";
 
 #[path = "snapshot/codec.rs"]
 mod codec;
+mod config_v1;
 #[path = "snapshot/legacy.rs"]
 mod legacy;
 
@@ -390,6 +391,7 @@ mod tests {
             arm_load_addr: None,
             arm_dtb: None,
             pci_devices: false,
+            storage: crate::config::StorageConfig::default(),
         }
     }
 

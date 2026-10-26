@@ -275,6 +275,8 @@ warnings = "allow"
 all = "allow"
 
 [dependencies]
+# Pinned source-identity digest for configured raw images.
+sha2 = "=0.10.9"
 clap = { version = "4.5.53", features = ["derive"] }
 linux-loader = { version = "0.13.2", features = ["bzimage", "elf"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -441,3 +443,7 @@ path = "tests/suites/devices/ahci_dma.rs"
 [[test]]
 name = "storage_images"
 path = "tests/suites/devices/storage_images.rs"
+
+[[test]]
+name = "storage_config"
+path = "tests/suites/vm/storage_config.rs"

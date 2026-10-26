@@ -2,7 +2,7 @@
 
 The checkpoint writer preserves the optional PCI-device setting and publishes a
 bounded, tagged version-8 container. The loader also reads the original
-untagged version-8 representation. This is a container and configuration change;
+untagged version-8 representation and the first tagged config schema. This is a container and configuration change;
 additional CPU instances, optional-device internals, platform state and
 scheduler/private-engine state still require capture/restore integration.
 
@@ -23,7 +23,7 @@ Each section has a 16-byte header: kind (`u32`), schema (`u32`) and payload leng
 
 | Kind | Schema | Payload | Limit |
 |---|---|---|---|
-| 1 | 1 | `CheckpointConfig`, including `pci_devices` | 1,048,576 bytes |
+| 1 | 2 (also reads 1) | `CheckpointConfig`, including PCI and image attachment identity | 1,048,576 bytes |
 | 2 | 1 | Instruction count, elapsed ns, uncompressed RAM bytes: three `u64` values | 16,777,216 bytes |
 | 3 | 1 | Current version-8 `CpuState` representation | 16,777,216 bytes |
 | 4 | 1 | `EmulatorState` | 16,777,216 bytes |
@@ -70,7 +70,16 @@ resume. Human-readable config metadata defaults an absent field to false.
 Adding `pci_devices` changes the typed `CheckpointConfig` schema. The file reader
 handles the old schema explicitly; generic deserialization of unversioned old
 config-only bincode payloads is not used to guess field presence. Existing config
-methods and the C API layout are unchanged.
+method signatures and the C API layout are unchanged. Image metadata extends the
+configuration payload to schema 2; schema 1 has an explicit frozen decoder with
+empty image attachments. It is never inferred from payload length. Old schema-1
+readers reject schema 2. Unknown configuration schema 3 remains an early error.
+The [captured tagged-schema-1 fixture](../../tests/fixtures/checkpoint/README.md)
+retains PCI=true and loads without its original kernel path. Schema 2 records
+canonical image paths, access modes, byte budgets, source lengths and SHA-256
+identities. Recorded PCI images require x86 PCI topology. Runtime image-backed
+capture/restore remains rejected until complete device/media state is available;
+recording an attachment path alone cannot preserve COW modifications.
 
 ## Publication
 
@@ -98,9 +107,11 @@ prefixes, bounded decompression and failed-save preservation.
 
 `tools/checkpoint/codec_oracle.py` builds a publisher using the product's public
 API, then independently parses complete config and section framing. A separate
-system zstd executable checks all produced RAM bytes. Six bounded serialization
-fixtures cover x86-64, AArch64 and RISC-V with PCI off/on: 36 sections and 24,576
-RAM bytes. They use 4 KiB to bound test resources and do not establish a bootable
+system zstd executable checks all produced RAM bytes. Ten bounded serialization
+fixtures cover x86-64, AArch64 and RISC-V with PCI off/on and four x86 image
+configurations: 60 sections, 40,960 RAM bytes and six image-identity records.
+Python independently checks their image lengths and SHA-256 values. The captured
+schema-1 fixture is also parsed independently. They use 4 KiB to bound test resources and do not establish a bootable
 machine, complete device-state capture or native hypervisor behavior. Source
 and library hashes are checked before and after the probe.
 

@@ -59,4 +59,57 @@ fn main() {
             snapshot.save(folder.join(name)).unwrap();
         }
     }
+    let nvme = folder.join("nvme.raw");
+    let ahci = folder.join("ahci.raw");
+    std::fs::write(&nvme, vec![0xa3; 512]).unwrap();
+    std::fs::write(&ahci, vec![0xb9; 1024]).unwrap();
+    use rax::config::{ImageAccess, MemorySize};
+    for (index, nmode, amode) in [
+        (0, Some(ImageAccess::ReadOnly), None),
+        (1, None, Some(ImageAccess::ReadWrite)),
+        (
+            2,
+            Some(ImageAccess::CopyOnWrite),
+            Some(ImageAccess::CopyOnWrite),
+        ),
+        (3, Some(ImageAccess::ReadWrite), Some(ImageAccess::ReadOnly)),
+    ] {
+        let config = VmConfig::from_sources(
+            CliConfig {
+                arch: Some(ArchKind::X86_64),
+                backend: Some(BackendKind::Emulator),
+                kernel: Some(kernel.clone()),
+                cmdline: Some("checkpoint-image-wire-oracle".to_string()),
+                nvme_image: nmode.map(|_| nvme.clone()),
+                nvme_image_mode: nmode,
+                nvme_image_limit: nmode.map(|_| MemorySize(16384)),
+                ahci_image: amode.map(|_| ahci.clone()),
+                ahci_image_mode: amode,
+                ahci_image_limit: amode.map(|_| MemorySize(16384)),
+                ..Default::default()
+            },
+            None,
+        )
+        .unwrap();
+        let mut config = config.to_checkpoint();
+        config.memory_bytes = 4096;
+        let snapshot = Snapshot::new(
+            config,
+            2000 + index,
+            3000 + index,
+            CpuState::x86_64(Default::default(), Default::default()),
+            EmulatorState::default(),
+            DeviceState {
+                pic: rax::devices::pic::DualPic::new(),
+                pit: rax::devices::pit::Pit::new(),
+                serial: rax::devices::serial::Serial16550::new(0x3f8),
+                lapic: rax::devices::lapic::LocalApic::new(0),
+            },
+            &vec![0x70 + index as u8; 4096],
+        )
+        .unwrap();
+        snapshot
+            .save(folder.join(format!("image-case-{index}.rxc")))
+            .unwrap();
+    }
 }

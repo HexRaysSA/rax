@@ -223,6 +223,7 @@ impl IoDevice for Ac97NabmWindow {
 fn attach_pci_devices(
     pci: &Arc<std::sync::Mutex<PciStub>>,
     mem: Arc<vm_memory::GuestMemoryMmap>,
+    storage: &crate::config::StorageConfig,
 ) -> Result<()> {
     use crate::devices::pci::{Bar, ConfigSpace};
     let mut bridge = pci
@@ -274,10 +275,13 @@ fn attach_pci_devices(
         0,
         nvme_cfg,
         0,
-        Box::new(crate::devices::nvme::NvmeController::new(
+        Box::new(crate::devices::nvme::NvmeController::with_image(
             0,
             GuestDmaMem(mem.clone()),
-            Vec::new(),
+            match &storage.nvme {
+                Some(image) => image.open()?,
+                None => crate::devices::virtio::block_image::BlockImage::from_bytes(Vec::new()),
+            },
         )),
     );
 
@@ -293,10 +297,13 @@ fn attach_pci_devices(
         0,
         ahci_cfg,
         5,
-        Box::new(crate::devices::ahci::AhciController::new(
+        Box::new(crate::devices::ahci::AhciController::with_image(
             0,
             GuestDmaMem(mem),
-            Vec::new(),
+            match &storage.ahci {
+                Some(image) => image.open()?,
+                None => crate::devices::virtio::block_image::BlockImage::from_bytes(Vec::new()),
+            },
         )),
     );
 
@@ -515,7 +522,7 @@ impl Vmm {
         {
             let pci = Arc::new(std::sync::Mutex::new(PciStub::new()));
             if config.pci_devices {
-                attach_pci_devices(&pci, Arc::new(guest_mem.memory().clone()))?;
+                attach_pci_devices(&pci, Arc::new(guest_mem.memory().clone()), &config.storage)?;
                 info!("attached optional PCI devices (e1000, uhci, nvme, ahci, ac97)");
             }
             io_bus.register(
@@ -1330,6 +1337,11 @@ impl Vmm {
 
     /// Take a full, self-contained checkpoint of the current VM state.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
+        if self.checkpoint_config.storage.has_images() {
+            return Err(Error::InvalidConfig(
+                "image-backed checkpoint capture requires complete device/media state".to_string(),
+            ));
+        }
         let vcpu = self
             .vcpus
             .get(0)
@@ -1422,6 +1434,11 @@ impl Vmm {
     /// Restore VM state from a checkpoint: registers + emulator state, all
     /// writable guest RAM, and every device model.
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
+        if self.checkpoint_config.storage.has_images() || snapshot.config.storage.has_images() {
+            return Err(Error::InvalidConfig(
+                "image-backed checkpoint restore requires complete device/media state".to_string(),
+            ));
+        }
         // Restore CPU state
         let vcpu = self
             .vcpus
@@ -1630,3 +1647,7 @@ impl Vmm {
         Ok(Some(false)) // Don't break, but don't resume execution either
     }
 }
+
+#[cfg(test)]
+#[path = "runtime/storage_tests.rs"]
+mod storage_tests;

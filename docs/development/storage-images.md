@@ -66,8 +66,8 @@ writes, NSATTR, persistent command completion, COW guest writes and host FLUSH
 failures. Four shared media-module fault tests check accepted prefixes, immediate
 errors, interrupted/short writes and zero progress. They also execute in the
 library and both owning virtio binaries (46 indirect tests and 66 range tests).
-The complete core backend/device selection contains 22 targets and 531 tests on
-the two local macOS architectures.
+The combined core backend/device and CLI selection contains 23 owners plus the
+complete `rax` parser binary: 554 tests on the two local macOS architectures.
 
 The independent operation model runs after a current library build:
 
@@ -97,9 +97,10 @@ comparisons separately guard unchanged controller wire/data behavior.
 | I6 | Device protection and error status follow their respective interfaces. | RO feature/NSATTR, guest reads, forbidden writes/zeroes/deallocation, host capacity failure. False success or bypass through `set_read_only(false)` fails. | Locally tested. |
 | I7 | File identity, image bytes and external effects require broader checkpoint/replay integration. | Future configured attachment, source identity, complete media snapshots and replay suppression. Public API tests alone cannot close these requirements. | Integration remains open. |
 
-High impact: CLI/TOML attachment, complete checkpoint media/private-device state,
-strong source identity and replay suppression of external writes remain required
-integration work. Medium impact: the complete loaded image resides in memory;
+Configured x86 NVMe/AHCI attachments and strong input identities are described
+in [storage configuration](storage-configuration.md). High impact: complete
+checkpoint media/private-device state, replay suppression of external writes and
+configured platform transport for virtio images remain integration work. Medium impact: the complete loaded image resides in memory;
 large-image paging and persistent COW overlays are separate capabilities. Native
 Linux/Windows locking and boot validation remain independent gates. Low impact:
 Rust 1.89 is the minimum for this standard-library lock API.

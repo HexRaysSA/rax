@@ -98,6 +98,20 @@ struct Cli {
     /// UHCI) behind the PCI host bridge. Off by default.
     #[arg(long)]
     pci_devices: bool,
+    /// Raw NVMe image; defaults to an instance-local copy-on-write attachment.
+    #[arg(long)]
+    nvme_image: Option<PathBuf>,
+    #[arg(long, value_enum)]
+    nvme_image_mode: Option<rax::config::ImageAccess>,
+    #[arg(long)]
+    nvme_image_limit: Option<MemorySize>,
+    /// Raw AHCI image; defaults to an instance-local copy-on-write attachment.
+    #[arg(long)]
+    ahci_image: Option<PathBuf>,
+    #[arg(long, value_enum)]
+    ahci_image_mode: Option<rax::config::ImageAccess>,
+    #[arg(long)]
+    ahci_image_limit: Option<MemorySize>,
     /// Enable instruction profiling (requires --features profiling)
     #[arg(long)]
     profile: bool,
@@ -161,6 +175,12 @@ pub fn run() -> Result<()> {
         profile_output: cli.profile_output,
         profile_interval: cli.profile_interval,
         pci_devices: cli.pci_devices,
+        nvme_image: cli.nvme_image,
+        nvme_image_mode: cli.nvme_image_mode,
+        nvme_image_limit: cli.nvme_image_limit,
+        ahci_image: cli.ahci_image,
+        ahci_image_mode: cli.ahci_image_mode,
+        ahci_image_limit: cli.ahci_image_limit,
     };
 
     // Resolve the final config and any checkpoint to restore. With --checkpoint
@@ -239,4 +259,65 @@ pub fn run() -> Result<()> {
     rax::observability::profiling::shutdown();
 
     Ok(())
+}
+
+#[cfg(test)]
+mod storage_flag_tests {
+    use super::*;
+    #[test]
+    fn image_flags_parse_modes_and_byte_budgets_without_running_machine() {
+        let cli = Cli::try_parse_from([
+            "rax",
+            "--nvme-image",
+            "a.raw",
+            "--nvme-image-mode",
+            "read-write",
+            "--nvme-image-limit",
+            "8GiB",
+            "--ahci-image",
+            "b.raw",
+            "--ahci-image-mode",
+            "read-only",
+            "--ahci-image-limit",
+            "16MiB",
+        ])
+        .unwrap();
+        assert_eq!(cli.nvme_image, Some(PathBuf::from("a.raw")));
+        assert_eq!(
+            cli.nvme_image_mode,
+            Some(rax::config::ImageAccess::ReadWrite)
+        );
+        assert_eq!(
+            cli.nvme_image_limit.unwrap().bytes(),
+            8 * 1024 * 1024 * 1024
+        );
+        assert_eq!(
+            cli.ahci_image_mode,
+            Some(rax::config::ImageAccess::ReadOnly)
+        );
+        assert_eq!(cli.ahci_image_limit.unwrap().bytes(), 16 * 1024 * 1024);
+    }
+    #[test]
+    fn invalid_image_modes_and_units_fail_during_cli_parsing() {
+        for args in [
+            vec!["rax", "--nvme-image-mode", "unsupported"],
+            vec!["rax", "--ahci-image-limit", "bad-size"],
+        ] {
+            assert!(Cli::try_parse_from(args).is_err());
+        }
+    }
+    #[test]
+    fn image_paths_are_optional_and_default_mode_is_resolved_by_config() {
+        let cli = Cli::try_parse_from(["rax"]).unwrap();
+        assert!(
+            cli.nvme_image.is_none()
+                && cli.nvme_image_mode.is_none()
+                && cli.nvme_image_limit.is_none()
+        );
+        assert!(
+            cli.ahci_image.is_none()
+                && cli.ahci_image_mode.is_none()
+                && cli.ahci_image_limit.is_none()
+        );
+    }
 }

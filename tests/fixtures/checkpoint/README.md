@@ -30,3 +30,23 @@ fresh capture can differ in those values. Validation is reproducible against the
 retained fixture. It checks the exact observed binary, config/CPU/media fields
 and successful decoding without access to the original kernel file. This is
 serialization compatibility evidence, not complete machine-state or boot proof.
+
+
+## Tagged version-8 configuration schema 1
+
+`tagged-v8-schema1.rxc` was emitted by the actual tagged writer before image
+fields were added. File SHA-256:
+`3439598f08cd8a97277c8c80e8ad40699bf8e8b27a5880d6936c43782eda138b`.
+It contains x86-64 default CPU state, PCI=true, 4,096 RAM bytes of value 31h,
+instruction count 123456789 and elapsed count 987654321 ns. Config and all other
+sections use schema 1. Its original kernel file was removed before compatibility
+validation; the path remains informational metadata.
+
+The retained public-API producer is
+`tools/checkpoint/generate_tagged_v8_v1.rs`. Compile it against the predecessor
+library that still writes configuration schema 1 and its matching dependency
+directory. Linking it to the current library emits the current schema instead.
+The actual captured producer library SHA-256, source hashes, command and outputs
+are recorded in the configuration remediation ledger and retained evidence.
+The fixture bytes are immutable. Fresh captures can have different PIT timing
+values. They do not replace validation against the retained original file.

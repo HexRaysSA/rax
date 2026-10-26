@@ -5,6 +5,7 @@ use super::kinds::{
     Aarch32Isa, Aarch64Isa, ArchKind, BackendKind, CortexMIsa, CortexRIsa, Endianness, HexagonIsa,
 };
 use super::values::{Address, MemorySize};
+use super::{ImageAccess, StorageConfig};
 use crate::error::{Error, Result};
 use crate::vm::memory::validate_guest_memory_size;
 use serde::{Deserialize, Serialize};
@@ -72,6 +73,12 @@ pub struct CliConfig {
     pub profile_interval: Option<u64>,
     /// Attach the optional PCI device models behind the host bridge.
     pub pci_devices: bool,
+    pub nvme_image: Option<PathBuf>,
+    pub nvme_image_mode: Option<ImageAccess>,
+    pub nvme_image_limit: Option<MemorySize>,
+    pub ahci_image: Option<PathBuf>,
+    pub ahci_image_mode: Option<ImageAccess>,
+    pub ahci_image_limit: Option<MemorySize>,
 }
 
 #[derive(Clone, Debug)]
@@ -123,6 +130,7 @@ pub struct VmConfig {
     /// Attach the optional PCI device models behind the host bridge. Off by
     /// default so the default machine (and its verified boot) is unchanged.
     pub pci_devices: bool,
+    pub storage: StorageConfig,
 }
 
 /// Sniff the guest architecture from the kernel image: the ARM64 `Image`
@@ -166,6 +174,8 @@ fn default_backend_for(arch: ArchKind) -> BackendKind {
 impl VmConfig {
     pub fn from_sources(cli: CliConfig, file: Option<FileConfig>) -> Result<Self> {
         let file = file.unwrap_or_default();
+        let storage = StorageConfig::from_sources(&cli, &file)?;
+        let pci_devices = cli.pci_devices || file.pci_devices.unwrap_or(storage.has_images());
         let kernel = cli
             .kernel
             .or(file.kernel)
@@ -243,7 +253,8 @@ impl VmConfig {
             profile: cli.profile,
             profile_output: cli.profile_output,
             profile_interval: cli.profile_interval,
-            pci_devices: cli.pci_devices || file.pci_devices.unwrap_or(false),
+            pci_devices,
+            storage,
         };
 
         config.validate()?;
@@ -270,6 +281,7 @@ impl VmConfig {
             )));
         }
 
+        let storage = StorageConfig::from_checkpoint(&cp.storage, &cli)?;
         let config = VmConfig {
             arch: cli.arch.unwrap_or(cp.arch),
             backend: cli.backend.unwrap_or(cp.backend),
@@ -301,7 +313,8 @@ impl VmConfig {
             profile: cli.profile,
             profile_output: cli.profile_output,
             profile_interval: cli.profile_interval,
-            pci_devices: cli.pci_devices || cp.pci_devices,
+            pci_devices: cli.pci_devices || cp.pci_devices || storage.has_images(),
+            storage,
         };
         config.validate_resume()?;
         Ok(config)
@@ -330,6 +343,7 @@ impl VmConfig {
             arm_load_addr: self.arm_load_addr.map(|a| a.raw()),
             arm_dtb: self.arm_dtb.clone(),
             pci_devices: self.pci_devices,
+            storage: self.storage.clone(),
         }
     }
 
@@ -346,6 +360,17 @@ impl VmConfig {
     }
 
     fn validate_inner(&self, check_files: bool) -> Result<()> {
+        self.storage.validate_metadata()?;
+        if self.storage.has_images() && (self.arch != ArchKind::X86_64 || !self.pci_devices) {
+            return Err(Error::InvalidConfig(
+                "configured NVMe/AHCI images require x86 PCI devices".to_string(),
+            ));
+        }
+        if !check_files && self.storage.has_images() {
+            return Err(Error::InvalidConfig(
+                "image-backed checkpoint resume requires complete device/media state".to_string(),
+            ));
+        }
         if self.vcpus == 0 {
             return Err(Error::InvalidConfig("vcpus must be at least 1".to_string()));
         }
@@ -487,4 +512,6 @@ pub struct CheckpointConfig {
     /// Recreate the optional PCI device topology when resuming.
     #[serde(default)]
     pub pci_devices: bool,
+    #[serde(default)]
+    pub storage: StorageConfig,
 }

@@ -1,4 +1,5 @@
 //! Bounded tagged-v8 file framing and compatibility with the original v8 wire.
+use super::config_v1::TaggedConfigV1;
 use super::legacy::LegacyConfig;
 use super::{CHECKPOINT_MAGIC, CHECKPOINT_VERSION, DeviceState, EmulatorState, Snapshot};
 use crate::config::CheckpointConfig;
@@ -67,7 +68,8 @@ fn long<R: Read>(reader: &mut R) -> Result<u64> {
 }
 fn section<W: Write>(writer: &mut W, kind: u32, bytes: &[u8]) -> Result<()> {
     writer.write_all(&kind.to_le_bytes()).map_err(io)?;
-    writer.write_all(&SCHEMA.to_le_bytes()).map_err(io)?;
+    let schema = if kind == 1 { 2 } else { SCHEMA };
+    writer.write_all(&schema.to_le_bytes()).map_err(io)?;
     writer
         .write_all(&(bytes.len() as u64).to_le_bytes())
         .map_err(io)?;
@@ -203,6 +205,14 @@ fn memory_metadata(config: &CheckpointConfig, size: u64) -> Result<()> {
             config.memory_bytes, size
         )));
     }
+    config.storage.validate_metadata()?;
+    if config.storage.has_images()
+        && (!config.pci_devices || config.arch != crate::config::ArchKind::X86_64)
+    {
+        return Err(invalid(
+            "recorded PCI storage metadata requires x86 PCI topology",
+        ));
+    }
     validate_guest_memory_size(size)
 }
 fn read_legacy<R: Read + Seek>(reader: &mut R, file_size: u64) -> Result<Snapshot> {
@@ -268,7 +278,7 @@ fn read_sections<R: Read + Seek>(reader: &mut R, file_size: u64) -> Result<Snaps
             reader.seek(SeekFrom::Current(offset)).map_err(io)?;
             continue;
         }
-        if schema != SCHEMA {
+        if schema != SCHEMA && !(kind == 1 && schema == 2) {
             return Err(invalid("unsupported checkpoint section schema"));
         }
         if kind == 6 {
@@ -290,7 +300,13 @@ fn read_sections<R: Read + Seek>(reader: &mut R, file_size: u64) -> Result<Snaps
         let limit = if kind == 1 { MAX_CONFIG } else { MAX_METADATA };
         let raw = bytes(reader, file_size, length, limit)?;
         match kind {
-            1 => config = Some(decode::<CheckpointConfig>(&raw, limit)?),
+            1 => {
+                config = Some(if schema == 1 {
+                    CheckpointConfig::from(decode::<TaggedConfigV1>(&raw, limit)?)
+                } else {
+                    decode::<CheckpointConfig>(&raw, limit)?
+                })
+            }
             2 => metadata = Some(decode::<Metadata>(&raw, limit)?),
             3 => cpu = Some(decode::<CpuState>(&raw, limit)?),
             4 => emulator = Some(decode::<EmulatorState>(&raw, limit)?),

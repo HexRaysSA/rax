@@ -49,6 +49,7 @@ impl From<LegacyConfig> for CheckpointConfig {
             arm_load_addr: value.arm_load_addr,
             arm_dtb: value.arm_dtb,
             pci_devices: false,
+            storage: crate::config::StorageConfig::default(),
         }
     }
 }

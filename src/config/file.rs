@@ -32,13 +32,22 @@ pub struct FileConfig {
     pub arm_dtb: Option<PathBuf>,
     /// Attach the optional PCI device models (e1000/nvme/ahci/ac97/uhci).
     pub pci_devices: Option<bool>,
+    pub storage: Option<super::storage::FileStorageConfig>,
 }
 
 impl FileConfig {
     pub fn load(path: &Path) -> Result<Self> {
         let contents = std::fs::read_to_string(path)?;
-        let config = toml::from_str::<FileConfig>(&contents)
+        let mut config = toml::from_str::<FileConfig>(&contents)
             .map_err(|e| Error::InvalidConfig(format!("toml error: {e}")))?;
+        if let Some(storage) = &mut config.storage {
+            let parent = path.parent().unwrap_or_else(|| Path::new("."));
+            for image in [&mut storage.nvme, &mut storage.ahci].into_iter().flatten() {
+                if image.path.is_relative() {
+                    image.path = parent.join(&image.path);
+                }
+            }
+        }
         Ok(config)
     }
 }

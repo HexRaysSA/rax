@@ -102,6 +102,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `checkpoint_config` | `suites/vm/checkpoint_config.rs` |
 | `ahci_dma` | `suites/devices/ahci_dma.rs` |
 | `storage_images` | `suites/devices/storage_images.rs` |
+| `storage_config` | `suites/vm/storage_config.rs` |
 
 ## Reachability rules
 
@@ -272,7 +273,7 @@ See `docs/development/windows-user-memory.md` for ownership and platform limits.
 
 ## Backend and storage remediation targets
 
-The twenty-two backend/device targets above execute in the core CI matrix's
+The twenty-three backend/device targets above execute in the core CI matrix's
 `backend and storage regressions` step and the scheduled suite's
 `backend-devices` shard. Both enable `hvf`, compiling the native adapter on
 macOS, and execute every selected owning binary without a test-name filter.
@@ -315,3 +316,11 @@ write-through persistence, locking, host-capacity failures, and actual NVMe,
 AHCI and virtio command paths. Shared host-write fault controls also execute
 with the library and both owning virtio binaries. See
 [`docs/development/storage-images.md`](../docs/development/storage-images.md).
+
+
+`storage_config` checks image-source precedence, size/content identity, relative
+TOML paths, admission, recorded metadata and the original tagged-v8 fixture.
+The `rax` binary owns CLI parser checks; library `vm::runtime::storage_tests`
+checks the actual PCI bridge/guest-memory DMA attachment, and snapshot tests
+cover section schemas and bounded metadata. Full library inventories remain
+required in addition to any filtered iteration runs.
