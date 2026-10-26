@@ -23,7 +23,7 @@
 //! Only `IN`/`OUT` (read/write) and `GET_ID` are serviced. `FLUSH` is accepted
 //! as a no-op success (the image is purely in memory). `DISCARD`/`WRITE_ZEROES`
 //! and the topology/geometry config fields are not implemented. Indirect
-//! descriptors are not followed (see the transport's [`VirtQueue`]).
+//! descriptor tables are supported when negotiated.
 
 use super::{DescriptorChain, Mem, VIRTIO_F_VERSION_1, VirtQueue, VirtioDevice};
 
@@ -147,127 +147,9 @@ impl VirtioBlk {
             0
         }
     }
-
-    /// Process one virtio-blk request descriptor chain against `mem`.
-    ///
-    /// Returns the number of bytes written into device-writable buffers (the
-    /// value posted to the used ring): the data read into guest memory plus the
-    /// trailing status byte.
-    pub fn handle_chain<M: Mem>(&mut self, chain: &DescriptorChain, mem: &mut M) -> u32 {
-        let descs = &chain.descriptors;
-        if descs.len() < 2 {
-            // Need at least a header and a status byte.
-            return 0;
-        }
-
-        // First descriptor: device-readable request header.
-        let mut header_buf = [0u8; REQ_HEADER_LEN];
-        let hdr_desc = descs[0];
-        if (hdr_desc.len as usize) < REQ_HEADER_LEN || !mem.read(hdr_desc.addr, &mut header_buf) {
-            return 0;
-        }
-        let header = match BlkReqHeader::parse(&header_buf) {
-            Some(h) => h,
-            None => return 0,
-        };
-
-        // Last descriptor: device-writable status byte.
-        let status_desc = descs[descs.len() - 1];
-        if !status_desc.is_write_only() || status_desc.len < 1 {
-            return 0;
-        }
-
-        // Middle descriptors: the data buffers.
-        let data = &descs[1..descs.len() - 1];
-
-        let mut data_written = 0u32;
-        let status = match header.req_type {
-            VIRTIO_BLK_T_IN => self.transfer(mem, header.sector, data, true, &mut data_written),
-            VIRTIO_BLK_T_OUT => {
-                if self.read_only {
-                    VIRTIO_BLK_S_IOERR
-                } else {
-                    self.transfer(mem, header.sector, data, false, &mut data_written)
-                }
-            }
-            VIRTIO_BLK_T_FLUSH => {
-                // In-memory image: nothing to flush.
-                VIRTIO_BLK_S_OK
-            }
-            VIRTIO_BLK_T_GET_ID => self.get_id(mem, data, &mut data_written),
-            _ => VIRTIO_BLK_S_UNSUPP,
-        };
-
-        // Write the status byte to the final descriptor.
-        let _ = mem.write(status_desc.addr, &[status]);
-        data_written + 1
-    }
-
-    /// Perform an IN (read: disk -> guest) or OUT (write: guest -> disk)
-    /// transfer across the data descriptors starting at byte `sector*512`.
-    ///
-    /// `write_to_guest` selects the direction. `written` accumulates the bytes
-    /// placed into device-writable (guest) memory for the used-ring length.
-    fn transfer<M: Mem>(
-        &mut self,
-        mem: &mut M,
-        sector: u64,
-        data: &[super::Descriptor],
-        write_to_guest: bool,
-        written: &mut u32,
-    ) -> u8 {
-        let mut offset = match sector.checked_mul(SECTOR_SIZE) {
-            Some(o) => o as usize,
-            None => return VIRTIO_BLK_S_IOERR,
-        };
-
-        for desc in data {
-            // Sanity: the descriptor direction must match the request type.
-            if desc.is_write_only() != write_to_guest {
-                return VIRTIO_BLK_S_IOERR;
-            }
-            let len = desc.len as usize;
-            let end = match offset.checked_add(len) {
-                Some(e) => e,
-                None => return VIRTIO_BLK_S_IOERR,
-            };
-            if end > self.disk.len() {
-                return VIRTIO_BLK_S_IOERR;
-            }
-            if write_to_guest {
-                // IN: copy from the disk image into guest memory.
-                if !mem.write(desc.addr, &self.disk[offset..end]) {
-                    return VIRTIO_BLK_S_IOERR;
-                }
-                *written += len as u32;
-            } else {
-                // OUT: copy from guest memory into the disk image.
-                if !mem.read(desc.addr, &mut self.disk[offset..end]) {
-                    return VIRTIO_BLK_S_IOERR;
-                }
-            }
-            offset = end;
-        }
-        VIRTIO_BLK_S_OK
-    }
-
-    /// Service a `GET_ID` request: copy the device id string into the first
-    /// device-writable data descriptor.
-    fn get_id<M: Mem>(&self, mem: &mut M, data: &[super::Descriptor], written: &mut u32) -> u8 {
-        let Some(desc) = data.first() else {
-            return VIRTIO_BLK_S_IOERR;
-        };
-        if !desc.is_write_only() {
-            return VIRTIO_BLK_S_IOERR;
-        }
-        let n = (desc.len as usize).min(self.id.len());
-        if !mem.write(desc.addr, &self.id[..n]) {
-            return VIRTIO_BLK_S_IOERR;
-        }
-        *written += n as u32;
-        VIRTIO_BLK_S_OK
-    }
 }
+
+mod request;
 
 impl VirtioDevice for VirtioBlk {
     fn device_id(&self) -> u32 {
@@ -277,7 +159,7 @@ impl VirtioDevice for VirtioBlk {
     fn device_features(&self) -> u64 {
         // Advertise FLUSH (handled as a no-op) plus VERSION_1 (the transport
         // OR-s this in regardless). RO is advertised only when configured.
-        let mut feats = VIRTIO_BLK_F_FLUSH | VIRTIO_F_VERSION_1;
+        let mut feats = VIRTIO_BLK_F_FLUSH | VIRTIO_F_VERSION_1 | super::VIRTIO_F_INDIRECT_DESC;
         if self.read_only {
             feats |= VIRTIO_BLK_F_RO;
         }
@@ -293,12 +175,25 @@ impl VirtioDevice for VirtioBlk {
         self.config_value(offset)
     }
 
-    fn handle_queue(&mut self, _queue_idx: usize, queue: &mut VirtQueue, mut mem: &mut dyn Mem) {
-        // Drain every available chain, handling each request in turn. `&mut dyn
-        // Mem` itself implements `Mem` (see the blanket impl below), so the
-        // generic ring walker can drive it. We pass `&mut mem` so the type
-        // parameter resolves to the sized `&mut dyn Mem`.
-        queue.process(&mut mem, |chain, mem| self.handle_chain(chain, mem));
+    fn handle_queue(&mut self, queue_idx: usize, queue: &mut VirtQueue, mem: &mut dyn Mem) {
+        if self
+            .handle_queue_with_features(queue_idx, queue, mem, 0)
+            .is_err()
+        {
+            queue.ready = false;
+        }
+    }
+    fn handle_queue_with_features(
+        &mut self,
+        _queue_idx: usize,
+        queue: &mut VirtQueue,
+        mut mem: &mut dyn Mem,
+        features: u64,
+    ) -> Result<(), super::QueueError> {
+        queue.process_checked(&mut mem, features, |chain, mem| {
+            self.handle_chain_checked(chain, mem)
+        })?;
+        Ok(())
     }
 }
 
@@ -550,6 +445,20 @@ mod tests {
         let w32 = |d: &mut VirtioMmio<VecMem>, off: u64, v: u32| {
             d.write(BASE + off, &v.to_le_bytes());
         };
+        w32(
+            &mut d,
+            super::super::REG_STATUS,
+            super::super::STATUS_ACKNOWLEDGE | super::super::STATUS_DRIVER,
+        );
+        w32(&mut d, super::super::REG_DRIVER_FEATURES_SEL, 1);
+        w32(&mut d, super::super::REG_DRIVER_FEATURES, 1);
+        w32(
+            &mut d,
+            super::super::REG_STATUS,
+            super::super::STATUS_ACKNOWLEDGE
+                | super::super::STATUS_DRIVER
+                | super::super::STATUS_FEATURES_OK,
+        );
         w32(&mut d, REG_QUEUE_SEL, 0);
         w32(&mut d, REG_QUEUE_NUM, queue_size);
         w32(&mut d, REG_QUEUE_DESC_LOW, 0x1000);
@@ -557,6 +466,14 @@ mod tests {
         w32(&mut d, REG_QUEUE_DEVICE_LOW, 0x3000);
         w32(&mut d, REG_QUEUE_READY, 1);
 
+        w32(
+            &mut d,
+            super::super::REG_STATUS,
+            super::super::STATUS_ACKNOWLEDGE
+                | super::super::STATUS_DRIVER
+                | super::super::STATUS_FEATURES_OK
+                | super::super::STATUS_DRIVER_OK,
+        );
         // Kick the queue.
         w32(&mut d, REG_QUEUE_NOTIFY, 0);
 

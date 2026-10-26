@@ -421,3 +421,7 @@ path = "tests/suites/devices/nvme_admission.rs"
 [[test]]
 name = "nvme_commands"
 path = "tests/suites/devices/nvme_commands.rs"
+
+[[test]]
+name = "virtio_indirect"
+path = "tests/suites/devices/virtio_indirect.rs"

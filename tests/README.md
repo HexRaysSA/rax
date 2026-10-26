@@ -97,6 +97,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `nvme_queues` | `suites/devices/nvme_queues.rs` |
 | `nvme_admission` | `suites/devices/nvme_admission.rs` |
 | `nvme_commands` | `suites/devices/nvme_commands.rs` |
+| `virtio_indirect` | `suites/devices/virtio_indirect.rs` |
 
 ## Reachability rules
 
@@ -282,3 +283,8 @@ HVF guest execution and Linux KVM remain separate platform requirements.
 Independent QEMU/LLVM tools under `tools/hvf/` and `tools/nvme-diff/` are separate
 from this self-contained CI selection and retain their own raw evidence and
 reference-profile limits.
+
+The `virtio_indirect` binary compiles the owning split-ring transport and block
+implementation, retaining their unit tests alongside negotiated indirect-table,
+request-stream framing, DMA failure, publication ordering and reset regressions.
+It runs in both the core backend/device selection and the scheduled shard.
