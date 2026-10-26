@@ -50,7 +50,7 @@
 //!   profile, including unaligned first pages and offset first list pointers.
 //!   Full PRP plans are validated before payload DMA. Late guest-write errors
 //!   may leave earlier DMA writes visible;failed source reads preserve media.
-//! * **Interrupts** (MSI-X / pin) are surfaced through
+//! * The single-vector pin interrupt level is surfaced through
 //!   [`NvmeController::take_interrupt`] for an orchestrator to inject; the
 //!   device does not raise a guest interrupt line itself. CQ phase tags and the
 //!   completion entries themselves are written to guest memory exactly.
@@ -63,9 +63,8 @@
 //! * Basic byte-granular SGL data/segment/last-segment transfers are supported.
 //!   Keyed, bit-bucket, transport and offset descriptors are not advertised.
 //!
-//! These omissions are isolated to the DMA / command-payload path; the register
-//! interface, EN->RDY handshake, queue setup, and doorbell tracking are
-//! complete.
+//! Native interrupt injection, extended queue admission, feature negotiation,
+//! and complete checkpoint/media integration remain separate work.
 
 use super::bus::MmioDevice;
 
@@ -285,12 +284,11 @@ pub struct NvmeController<M: Mem> {
     // ---- I/O queues, indexed by queue id (1-based; slot 0 unused) ----
     io_sqs: Vec<Queue>,
     io_cqs: Vec<Queue>,
+    // Per-CQ IEN for the single pin/vector-zero profile.
+    io_cq_interrupts: Vec<bool>,
 
     // ---- Namespace 1 backing disk ----
     disk: Vec<u8>,
-
-    // ---- Interrupt aggregation (un-acked completions pending) ----
-    interrupt_pending: bool,
 
     // Negotiated number of I/O queues (Set Features 0x07), 1-based count.
     max_io_queues: u16,
@@ -314,8 +312,8 @@ impl<M: Mem> NvmeController<M> {
             admin_cq: Queue::default(),
             io_sqs: vec![Queue::default(); (max_io_queues as usize) + 1],
             io_cqs: vec![Queue::default(); (max_io_queues as usize) + 1],
+            io_cq_interrupts: vec![false; (max_io_queues as usize) + 1],
             disk,
-            interrupt_pending: false,
             max_io_queues,
         }
     }
@@ -341,16 +339,24 @@ impl<M: Mem> NvmeController<M> {
         &self.mem
     }
 
-    /// True if a completion interrupt is pending and not yet acked.
+    /// Current pin interrupt level. Completion acknowledgement is performed
+    /// through CQ head doorbells; injection alone does not consume CQ entries.
     pub fn take_interrupt(&self) -> bool {
-        self.interrupt_pending
+        if self.intms & 1 != 0 || self.csts & CSTS_RDY == 0 {
+            return false;
+        }
+        let pending = |q: &Queue| q.active && q.head != q.tail;
+        pending(&self.admin_cq)
+            || self
+                .io_cqs
+                .iter()
+                .zip(&self.io_cq_interrupts)
+                .any(|(queue, enabled)| *enabled && pending(queue))
     }
 
-    /// Clear the pending-interrupt latch (an orchestrator calls this after
-    /// injecting the interrupt).
-    pub fn clear_interrupt(&mut self) {
-        self.interrupt_pending = false;
-    }
+    /// Compatibility entry point. An injected pin interrupt remains asserted
+    /// until the host acknowledges every enabled completion queue or masks it.
+    pub fn clear_interrupt(&mut self) {}
 
     /// CAP register value (64-bit). Encodes:
     /// * MQES (bits 15:0): max queue entries supported, 0-based.
@@ -395,7 +401,7 @@ impl<M: Mem> NvmeController<M> {
 
         // Shutdown notification (CC.SHN != 0) => report shutdown complete.
         let shn = (value >> CC_SHN_SHIFT) & CC_SHN_MASK;
-        if shn != 0 {
+        if self.cc_en() && shn != 0 {
             self.csts = (self.csts & !(0b11 << CSTS_SHST_SHIFT)) | CSTS_SHST_COMPLETE;
         }
     }
@@ -443,9 +449,10 @@ impl<M: Mem> NvmeController<M> {
         for q in &mut self.io_cqs {
             q.reset();
         }
-        self.csts &= !CSTS_RDY;
-        self.csts &= !CSTS_CFS;
-        self.interrupt_pending = false;
+        self.io_cq_interrupts.fill(false);
+        self.cc = 0;
+        self.csts = 0;
+        self.intms = 0;
     }
 
     // ---- Register read/write -----------------------------------------------
@@ -516,25 +523,44 @@ impl<M: Mem> NvmeController<M> {
     /// Handle a doorbell write: update the producer/consumer index and, for an
     /// SQ tail write, process the newly-submitted commands.
     fn write_doorbell(&mut self, offset: u64, value: u32) {
+        if self.csts & (CSTS_RDY | CSTS_CFS) != CSTS_RDY {
+            return;
+        }
         let stride = self.doorbell_stride();
         let idx = (offset - REG_DOORBELL_BASE) / stride;
         let qid = (idx / 2) as usize;
         let is_cq = idx % 2 == 1;
 
         if is_cq {
-            // CQyHDBL: advance the host head pointer.
+            let queue = if qid == 0 {
+                Some(&mut self.admin_cq)
+            } else {
+                self.io_cqs.get_mut(qid)
+            };
+            let Some(queue) = queue else {
+                return;
+            };
+            if !queue.accepts_doorbell(value) {
+                self.csts |= CSTS_CFS;
+                return;
+            }
+            let occupied = (queue.tail + queue.size - queue.head) % queue.size;
+            let consumed = (value + queue.size - queue.head) % queue.size;
+            if consumed > occupied {
+                self.csts |= CSTS_CFS;
+                return;
+            }
+            queue.head = value;
+            // Space becoming available is sufficient to resume previously
+            // submitted commands; no duplicate SQ tail notification is needed.
             if qid == 0 {
-                if !self.admin_cq.accepts_doorbell(value) {
-                    self.csts |= CSTS_CFS;
-                    return;
+                self.process_admin_sq();
+            } else {
+                for sqid in 1..self.io_sqs.len() {
+                    if self.io_sqs[sqid].active && self.io_sqs[sqid].cqid as usize == qid {
+                        self.process_io_sq(sqid as u16);
+                    }
                 }
-                self.admin_cq.head = value;
-            } else if qid < self.io_cqs.len() {
-                if !self.io_cqs[qid].accepts_doorbell(value) {
-                    self.csts |= CSTS_CFS;
-                    return;
-                }
-                self.io_cqs[qid].head = value;
             }
             return;
         }
@@ -562,60 +588,62 @@ impl<M: Mem> NvmeController<M> {
     /// Read one submission entry at SQ slot `slot` of the queue based at `base`.
     fn read_sqe(&self, base: u64, slot: u32) -> Option<SubmissionEntry> {
         let mut buf = [0u8; SQE_SIZE as usize];
-        let gpa = base + slot as u64 * SQE_SIZE;
+        let gpa = base.checked_add(u64::from(slot) * SQE_SIZE)?;
         if !self.mem.read(gpa, &mut buf) {
             return None;
         }
         SubmissionEntry::parse(&buf)
     }
 
-    /// Drain the admin submission queue up to its current tail, executing each
-    /// command and posting a completion to the admin CQ.
+    /// One entry is retained empty (NVMe 1.4c section 4.1.2).
+    fn completion_space(&self, cqid: u16) -> bool {
+        let queue = if cqid == 0 {
+            Some(&self.admin_cq)
+        } else {
+            self.io_cqs.get(cqid as usize)
+        };
+        queue.is_some_and(|q| q.active && q.size > 1 && (q.tail + 1) % q.size != q.head)
+    }
+
+    /// Drain only commands for which a completion slot is available. A CQ DMA
+    /// failure is fatal: command effects may already exist and must not replay.
     fn process_admin_sq(&mut self) {
         if !self.admin_sq.active || self.admin_sq.size == 0 {
             return;
         }
-        let mut remaining = self.admin_sq.size;
-        while self.admin_sq.head != self.admin_sq.tail && remaining != 0 {
-            let slot = self.admin_sq.head;
-            let entry = match self.read_sqe(self.admin_sq.base, slot) {
-                Some(e) => e,
-                None => break,
+        while self.csts & CSTS_CFS == 0
+            && self.admin_sq.head != self.admin_sq.tail
+            && self.completion_space(0)
+        {
+            let Some(entry) = self.read_sqe(self.admin_sq.base, self.admin_sq.head) else {
+                self.csts |= CSTS_CFS;
+                return;
             };
             let (status, dw0) = self.exec_admin(&entry);
             self.admin_sq.head = (self.admin_sq.head + 1) % self.admin_sq.size;
             self.post_completion(0, 0, self.admin_sq.head, &entry, status, dw0);
-            remaining -= 1;
-        }
-        if remaining == 0 && self.admin_sq.head != self.admin_sq.tail {
-            self.csts |= CSTS_CFS;
         }
     }
 
-    /// Drain an I/O submission queue, posting completions to its bound CQ.
     fn process_io_sq(&mut self, sqid: u16) {
         let sq = match self.io_sqs.get(sqid as usize).copied() {
             Some(q) if q.active && q.size != 0 => q,
             _ => return,
         };
-        let cqid = sq.cqid;
-        let mut head = sq.head;
-        let tail = self.io_sqs[sqid as usize].tail;
-        let mut remaining = sq.size;
-        while head != tail && remaining != 0 {
-            let entry = match self.read_sqe(sq.base, head) {
-                Some(e) => e,
-                None => break,
+        while self.csts & CSTS_CFS == 0
+            && self.io_sqs[sqid as usize].head != self.io_sqs[sqid as usize].tail
+            && self.completion_space(sq.cqid)
+        {
+            let head = self.io_sqs[sqid as usize].head;
+            let Some(entry) = self.read_sqe(sq.base, head) else {
+                self.csts |= CSTS_CFS;
+                return;
             };
             let (status, dw0) = self.exec_nvm(&entry);
-            head = (head + 1) % sq.size;
-            self.post_completion(sqid, cqid, head, &entry, status, dw0);
-            remaining -= 1;
+            let consumed = (head + 1) % sq.size;
+            self.io_sqs[sqid as usize].head = consumed;
+            self.post_completion(sqid, sq.cqid, consumed, &entry, status, dw0);
         }
-        if remaining == 0 && head != tail {
-            self.csts |= CSTS_CFS;
-        }
-        self.io_sqs[sqid as usize].head = head;
     }
 
     /// Post a 16-byte completion entry to the target CQ and advance its tail /
@@ -652,14 +680,10 @@ impl<M: Mem> NvmeController<M> {
 
         let slot = cq.tail;
         let phase = cq.phase;
-        let gpa = cq.base + slot as u64 * CQE_SIZE;
-
-        // Advance the CQ tail; flip phase on wrap.
-        let next = (cq.tail + 1) % cq.size;
-        if next == 0 {
-            cq.phase = !cq.phase;
-        }
-        cq.tail = next;
+        let Some(gpa) = cq.base.checked_add(u64::from(slot) * CQE_SIZE) else {
+            self.csts |= CSTS_CFS;
+            return;
+        };
 
         let mut cqe = [0u8; CQE_SIZE as usize];
         cqe[0..4].copy_from_slice(&dw0.to_le_bytes());
@@ -673,8 +697,15 @@ impl<M: Mem> NvmeController<M> {
         let dw3 = (entry.cid as u32) | phase_bit | ((status as u32) << 17);
         cqe[12..16].copy_from_slice(&dw3.to_le_bytes());
 
-        let _ = self.mem.write(gpa, &cqe);
-        self.interrupt_pending = true;
+        if !self.mem.write(gpa, &cqe) {
+            self.csts |= CSTS_CFS;
+            return;
+        }
+        let next = (cq.tail + 1) % cq.size;
+        if next == 0 {
+            cq.phase = !cq.phase;
+        }
+        cq.tail = next;
     }
 
     // ---- Admin command execution -------------------------------------------
@@ -786,6 +817,10 @@ impl<M: Mem> NvmeController<M> {
         let qid = (e.cdw10 & 0xffff) as usize;
         let qsize = ((e.cdw10 >> 16) & 0xffff) + 1;
         let pc = e.cdw11 & 1 != 0;
+        // Only the pin/single-vector profile is represented.
+        if e.cdw11 >> 16 != 0 {
+            return (0x108, 0); // SCT=command-specific, Invalid Interrupt Vector.
+        }
         if qid == 0 || qid >= self.io_cqs.len() || !pc || e.prp1 == 0 {
             return (SC_INVALID_FIELD, 0);
         }
@@ -798,6 +833,7 @@ impl<M: Mem> NvmeController<M> {
             cqid: qid as u16,
             active: true,
         };
+        self.io_cq_interrupts[qid] = e.cdw11 & 2 != 0;
         (SC_SUCCESS, 0)
     }
 
@@ -847,6 +883,7 @@ impl<M: Mem> NvmeController<M> {
             return (SC_INVALID_FIELD, 0);
         }
         self.io_cqs[qid].reset();
+        self.io_cq_interrupts[qid] = false;
         (SC_SUCCESS, 0)
     }
 
@@ -1149,21 +1186,22 @@ mod tests {
     #[test]
     fn doorbell_write_tracking() {
         let mut d = dev(64);
-        // Bring the controller up with tiny admin queues so the SQ doorbell
-        // doesn't trigger command processing (head==tail boundary handled).
+        // Publish two admin completions before acknowledging their slots.
         write32(&mut d, REG_AQA, (3u32 << 16) | 3);
         write64(&mut d, REG_ASQ, 0x1000);
         write64(&mut d, REG_ACQ, 0x2000);
         write32(&mut d, REG_CC, CC_EN);
 
+        write32(&mut d, REG_DOORBELL_BASE, 2);
+        assert_eq!(d.admin_cq().tail, 2);
         // CQ0 head doorbell at 0x1000 + 1*4 = 0x1004.
         write32(&mut d, REG_DOORBELL_BASE + 4, 2);
         assert_eq!(d.admin_cq().head, 2);
         assert_eq!(read32(&mut d, REG_DOORBELL_BASE + 4), 2);
 
-        // SQ0 tail doorbell at 0x1000 (no commands queued => no processing).
-        write32(&mut d, REG_DOORBELL_BASE, 0);
-        assert_eq!(d.admin_sq().tail, 0);
+        // Repeating the tail publishes no new commands.
+        write32(&mut d, REG_DOORBELL_BASE, 2);
+        assert_eq!(d.admin_sq().tail, 2);
     }
 
     #[test]

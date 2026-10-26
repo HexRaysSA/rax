@@ -32,9 +32,8 @@ prior guest-memory writes. This is not an atomic DMA/rollback claim.
 
 Completions carry the actual submitting queue ID and its consumed head. Queue
 sharing and ring wrap do not infer origin by searching for the first SQ bound
-to a CQ. CQ delivery failures, full-queue backpressure, complete interrupt
-wiring, additional NVM commands, storage-image wiring and checkpoint/media
-state remain separate work items.
+to a CQ. Native interrupt wiring, additional NVM commands, storage-image wiring
+and complete checkpoint/media state remain separate work items.
 
 Run the complete registered device target:
 
@@ -145,3 +144,57 @@ Primary source:NVMe1.4c section4.4/Figures112-119, SGLS Figure251, and PCIe
 PSDT rules in Figure105. Native NVMe hardware, optional SGL types, metadata
 namespaces, complete interrupt/queue error wiring, additional NVM commands,
 storage images and complete checkpoint state remain separate work items.
+
+## CQ backpressure, fatal DMA and pin interrupt level
+
+NVMe 1.4c section4.1.2 reserves one empty ring entry: a queue of n slots is
+full with n-1 occupied entries. The controller executes a pending command only
+when its bound CQ has space. It preserves unread CQEs and resumes submitted
+work when the host advances that CQ's head, including multiple SQs sharing it.
+The host cannot acknowledge more entries than the controller has published.
+Each dispatch pass is O(q+c) for q represented SQs and c completed commands;
+per-queue ring metadata is O(1). No pending command is retried after a fatal
+completion-DMA failure.
+
+CQE DMA precedes publication of the CQ tail/phase. A failed SQ fetch sets CFS
+without consuming the command. A failed CQE write sets CFS after consuming the
+executed command, preserves the unpublished CQ position, and stops further
+execution until reset. Media or guest-memory effects of that command can already
+exist; no rollback is claimed. A memory adapter that partially writes before
+returning failure can also leave a partial CQE. Failed DMA injection is tested
+locally; the reference guests do not emulate host-memory bus faults.
+
+`take_interrupt()` exposes the single pin/vector-zero level, derived from all
+active interrupt-enabled CQs with unacknowledged completions and INTMS bit0.
+CQ acknowledgement or masking deasserts the level; unmasking a pending CQ
+reasserts it. `clear_interrupt()` retains its callable signature and does not
+consume guest CQ entries. Nonzero Create-CQ interrupt vectors return command-
+specific Invalid Interrupt Vector (0x108). Native MSI/MSI-X delivery and machine
+IRQ routing remain separate work.
+
+A Controller Reset clears CC, CSTS, INTMS and internal queue state, retaining
+AQA, ASQ, ACQ and namespace bytes (NVMe 1.4c section7.3.2). Stalled work is
+abandoned; re-enabling does not resurrect deleted I/O queues.
+
+```sh
+cargo +stable test --test nvme_queues -- --test-threads=4
+python3 tools/nvme-diff/queue_oracle.py --repo . \
+    --work-dir /path/to/empty/evidence --llvm-bin /path/to/llvm/bin \
+    --target-dir /path/to/built/cargo-target
+```
+
+The complete owner has48 tests:32 existing PRP/device tests and16 queue tests.
+A seeded independent ring model checks3072 event steps across sizes2,3,4,7,64
+and256. Separate cases exercise admin CQ saturation, shared CQs, multiple IRQ
+sources, source/completion DMA faults, reset state, invalid acknowledgements and
+unsupported interrupt vectors. The old doorbell fixture acknowledged an empty
+CQ; it now publishes two real completions first. Invalid acknowledgement is
+retained as a distinct regression.
+
+Seven fresh QEMU PCI controllers execute917 Flush commands, using CQ sizes2,
+3,4,7,16 and64 with both enabled/disabled interrupts. All917 full CQEs, complete
+unread-ring snapshots and PCI Interrupt Status observations are compared:
+153168 raw frame bytes, including mask/unmask and reset. No fields are projected
+out. RAX's choice to defer execution while its CQ is full is an implementation
+schedule; the comparison observes CQ/interrupt state, not pending-command media
+mutation. Native hardware and full controller/PCI integration are unverified.

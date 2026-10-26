@@ -1989,10 +1989,49 @@
         "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-intel-library.log",
         "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-sgl-independent.log",
         "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-independent.log",
-        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-nvme-sgl/final-capi.log",
+        "src/devices/nvme.rs",
+        "Cargo.toml",
+        "tests/suites/devices/nvme_queues.rs",
+        "tools/nvme-diff/queue_oracle.py",
+        "tools/nvme-diff/queue_guest.s",
+        "tools/nvme-diff/queue_compare.rs",
+        "docs/development/nvme-data-transfers.md",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-unit.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-compare-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-compare.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-compare.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/worktree-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/reference-frozen/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queue-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queue-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-capi.log"
       ],
       "remaining_validation": [
-        "Additional NVM commands and complete queue/reset/error/interrupt behavior; virtio indirect/DISCARD/WRITE_ZEROES; storage images; S5L8900 modeled inputs/keys."
+        "Extended NVMe queue/enable admission and feature negotiation, additional NVM commands and native PCI interrupt routing; virtio indirect/DISCARD/WRITE_ZEROES; storage images; S5L8900 inputs/keys."
       ]
     },
     {
@@ -3495,6 +3534,59 @@
         "QEMU accepts a data-only Segment terminus and separately rejects valid data-less and three-segment forms. These raw discrepancies are retained; installed binary/source identity is not asserted.",
         "Native hardware, complete queue/interrupt/error/reset behavior, additional NVM commands, image wiring and complete checkpoint/media state remain pending.",
         "The independent comparator compiles current NVMe, PRP, SGL and driver sources; an immutable RAX library supplies shared memory/device traits. Separate complete engine gates build the normal product."
+      ]
+    },
+    {
+      "id": "D-NVME-CQ-IRQ",
+      "area": "NVMe queues and pin interrupts",
+      "finding": "Unread CQEs could be overwritten; completion DMA errors were ignored; interrupt state ignored IEN/masking/acknowledgement; reset retained control/mask state.",
+      "status": "locally_validated",
+      "evidence": [
+        "src/devices/nvme.rs",
+        "Cargo.toml",
+        "tests/suites/devices/nvme_queues.rs",
+        "tools/nvme-diff/queue_oracle.py",
+        "tools/nvme-diff/queue_guest.s",
+        "tools/nvme-diff/queue_compare.rs",
+        "docs/development/nvme-data-transfers.md",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-unit.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-compare-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-compare.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-compare.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/worktree-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/reference-frozen/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queue-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queue-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-capi.log"
+      ],
+      "remaining_validation": [
+        "Native NVMe hardware, PCI machine IRQ routing and MSI/MSI-X delivery remain unverified.",
+        "DMA errors are injected local adapter failures. A false Mem write can leave partial destination bytes; rollback is not provided.",
+        "Extended queue/enable admission, complete feature negotiation, optional commands, image wiring and complete checkpoint/media/private state remain pending.",
+        "The independent comparator compiles current device/driver sources using an immutable helper library only for shared memory/device traits; normal full-engine gates are separate."
       ]
     }
   ],
@@ -78553,6 +78645,626 @@
           "source_path": "tools/nvme-diff/sgl_oracle.py",
           "before_sha256": "f8c84f7d4aa96a2c041818dd21185338e6a176842ec54322d08b967ccbab5b4e",
           "after_sha256": "fba251013ab1579ef809d413eb5d3ede58dbc0ec169241f27106c3f97fbd77be",
+          "ast_identical": true,
+          "scope": "Formatting only;existing comments retained and no executable AST change."
+        },
+        "toolchain": {
+          "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
+          "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",
+          "compiler_verbose": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+          "environment": {
+            "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+            "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin"
+          },
+          "scope": "Required final gates use fixed task-local1.99.1;retained earlier1.98.1 references/preflights remain separately versioned. No global compiler/default changes."
+        }
+      }
+    },
+    {
+      "id": "nvme-cq-backpressure-dma-fatal-and-pin-state",
+      "status": "locally_validated",
+      "scope": "Preserve unread CQEs, resume stalled SQs on CQ acknowledgements, order completion DMA before publication, stop on SQ/CQE DMA failures, and represent the single pin interrupt level/mask/reset state.",
+      "assumptions": [
+        {
+          "id": "Q1",
+          "assumption": "A queue of n slots is full at n-1 occupied entries.",
+          "basis": "NVMe 1.4c section 4.1.2.",
+          "dependent_result": "No command is executed while its CQ has no free slot; acknowledgement resumes bound SQs.",
+          "stress_test": "3072 seeded ring events over sizes 2,3,4,7,64,256; admin and shared CQ saturation.",
+          "falsification_probe": "An unread CQE is overwritten or legal CQ progress requires another SQ notification.",
+          "status": "retained"
+        },
+        {
+          "id": "Q2",
+          "assumption": "The synchronous local controller may defer command execution until a CQ slot is available.",
+          "basis": "No native asynchronous scheduler is represented; pending SQ entries retain the command.",
+          "dependent_result": "Preserve pending source/media state until dispatch; no universal device scheduling equivalence claim.",
+          "stress_test": "Full CQ with multiple pending writes, reset cancellation and shared CQs.",
+          "falsification_probe": "A submitted command is lost, executed twice or retried after a fatal completion DMA error.",
+          "status": "retained"
+        },
+        {
+          "id": "Q3",
+          "assumption": "SQ/CQE DMA failure makes this local controller fatal until reset; completed command effects are not rolled back.",
+          "basis": "CSTS.CFS controller fatal condition; Mem trait has no transactional rollback contract.",
+          "dependent_result": "SQ fetch failure does not consume; CQE write failure consumes executed command without publishing CQ tail.",
+          "stress_test": "Injected source and completion DMA failures followed by cleared adapter errors and repeated doorbells.",
+          "falsification_probe": "A failed write publishes a CQE/interrupt or causes a second media operation.",
+          "status": "retained"
+        },
+        {
+          "id": "Q4",
+          "assumption": "Only the single pin/vector-zero interrupt profile is represented.",
+          "basis": "NVMe 1.4c section 7.5.1 and Create-CQ interrupt vector definition.",
+          "dependent_result": "IRQ derives from enabled nonempty CQs and INTMS bit0; unsupported vectors report 0x108.",
+          "stress_test": "Multiple CQs, IEN false, mask/unmask, compatibility clear method and actual PCI Interrupt Status.",
+          "falsification_probe": "An acknowledged/disabled/masked CQ asserts, injection consumes a guest entry, or another nonempty enabled CQ is lost.",
+          "status": "retained"
+        },
+        {
+          "id": "Q5",
+          "assumption": "Controller Reset retains AQA/ASQ/ACQ and media while clearing represented controller/internal state.",
+          "basis": "NVMe 1.4c section 7.3.2.",
+          "dependent_result": "Clear CC/CSTS/INTMS and queues; abandon stalled work.",
+          "stress_test": "Reset while stalled, while fatal, and with INTMS set; re-enable without recreating I/O queues.",
+          "falsification_probe": "Reset loses admin address registers/media or revives stalled I/O.",
+          "status": "retained"
+        },
+        {
+          "id": "Q6",
+          "assumption": "Fresh QEMU PCI guests provide independent queue and pin-state observations for the exact executed cases.",
+          "basis": "Seven guests, 131 Flush commands each, complete raw frames and 917 CQEs.",
+          "dependent_result": "Compare all 153168 frame bytes with no field projection; failed DMA remains local-only.",
+          "stress_test": "Actual parent negative comparison and immutable source/frame hashes.",
+          "falsification_probe": "Missing record, changed source, any CQE/ring/PCI level mismatch or hidden normalization.",
+          "status": "retained"
+        }
+      ],
+      "primary_sources": [
+        {
+          "path": "docs/specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf",
+          "sha256": "ff92005660e8b58e248b2ff1416acc8c8c1aba1b3b7c14f6de9b80f2181649bc",
+          "url": "https://www.nvmexpress.org/wp-content/uploads/NVM-Express-1_4c-2021.06.28-Ratified.pdf",
+          "contract": "NVMe 1.4c sections 4.1.2, 5.3, 7.3.2 and 7.5.1; Figures 104,153,154,439."
+        }
+      ],
+      "scope_limits": [
+        "Native NVMe hardware, PCI machine IRQ routing and MSI/MSI-X delivery remain unverified.",
+        "DMA errors are injected local adapter failures. A false Mem write can leave partial destination bytes; rollback is not provided.",
+        "Extended queue/enable admission, complete feature negotiation, optional commands, image wiring and complete checkpoint/media/private state remain pending.",
+        "The independent comparator compiles current device/driver sources using an immutable helper library only for shared memory/device traits; normal full-engine gates are separate."
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "A CQ could overwrite unread entries or silently discard a failed completion DMA.",
+          "action": "Reserve completion space before dispatch and publish only after successful CQE write."
+        },
+        {
+          "impact": "high",
+          "finding": "An interrupt latch ignored CQ IEN, INTMS and guest acknowledgement.",
+          "action": "Derive the pin level from all active enabled CQs and masking; preserve compatibility method signature."
+        },
+        {
+          "impact": "medium",
+          "finding": "The old doorbell fixture acknowledged an empty CQ.",
+          "action": "Publish real entries before acknowledgement and retain invalid head advancement as a distinct negative test."
+        },
+        {
+          "impact": "medium",
+          "finding": "Controller Reset retained mask/control status beyond the primary reset exceptions.",
+          "action": "Clear represented reset state while retaining AQA/ASQ/ACQ/media."
+        }
+      ],
+      "quality_gates": {
+        "QG1": "No normative judgments required.",
+        "QG2": "Q1-Q6 state basis, dependency, stress and falsification probes.",
+        "QG3": "Current CQ/DMA/pin/reset scope implemented; complete device/audit remains partial.",
+        "QG4": "7*131=917 commands/CQEs; 6*512=3072 seeded events;153168 complete frame bytes;O(q+c) dispatch/O(1) ring metadata.",
+        "QG5": "Ring fullness, phase/wrap, shared SQs/CQs, DMA failure publication, masking/IEN and reset covered.",
+        "QG6": "Pinned primary source, raw QEMU PCI records and actual parent/product source hashes retained.",
+        "QG7": "Scheduling latitude, partial failed DMA, unsupported vectors and fixture inconsistency recorded."
+      },
+      "baseline": "a0e1181659327345aa75acb271393346248a473c",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 179.83774458300468
+          },
+          {
+            "check": "final-clippy",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 66.18999483300286
+          },
+          {
+            "check": "final-fmt",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 12.057940792001318
+          },
+          {
+            "check": "final-doc",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 4.662886165999225
+          },
+          {
+            "check": "final-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.045874667004682
+          },
+          {
+            "check": "final-sgl",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_sgl",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.20011116599926
+          },
+          {
+            "check": "final-queues",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_queues",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.307141500001308
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 0.24783237499650568
+          },
+          {
+            "check": "final-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 350.9104191250008
+          },
+          {
+            "check": "final-intel-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 189.45741124999768
+          },
+          {
+            "check": "final-intel-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.532912790993578
+          },
+          {
+            "check": "final-intel-sgl",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_sgl",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.6322217080014525
+          },
+          {
+            "check": "final-intel-queues",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_queues",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.350889083005313
+          },
+          {
+            "check": "final-intel-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2513.5511922499936
+          },
+          {
+            "check": "final-sgl-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/sgl_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 6.743792165994819
+          },
+          {
+            "check": "final-queue-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/queue_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queue-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 16.070014167002228
+          },
+          {
+            "check": "final-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/prp_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 29.448258042000816
+          },
+          {
+            "check": "final-capi",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 17.30418212499353
+          }
+        ],
+        "complete_prp_native": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 4.85
+        },
+        "complete_prp_rosetta": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.0
+        },
+        "complete_sgl_native": {
+          "passed": 50,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 5.01
+        },
+        "complete_sgl_rosetta": {
+          "passed": 50,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.12
+        },
+        "complete_queues_native": {
+          "passed": 48,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 5.08
+        },
+        "complete_queues_rosetta": {
+          "passed": 48,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 6.87
+        },
+        "complete_library_native": {
+          "passed": 10598,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 350.69
+        },
+        "complete_library_rosetta": {
+          "passed": 11581,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 2512.86
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "ci_owning": {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.06
+        },
+        "actual_parent_device": {
+          "failed": 14,
+          "passed": 34
+        },
+        "actual_parent_independent": {
+          "cases": 7,
+          "bytes_compared": 153168,
+          "failed": 7
+        },
+        "actual_reference_and_product": {
+          "cases": 7,
+          "bytes_compared": 153168,
+          "failed": 0
+        },
+        "primary_visual_pages": [
+          65,
+          102,
+          293,
+          296
+        ],
+        "local_coverage": {
+          "queue_tests": 16,
+          "seeded_event_steps": 3072,
+          "queue_sizes": [
+            2,
+            3,
+            4,
+            7,
+            64,
+            256
+          ],
+          "fresh_reference_controllers": 7,
+          "actual_reference_commands_and_full_cqes": 917,
+          "complete_reference_frame_bytes": 153168,
+          "unsupported_interrupt_vectors": [
+            1,
+            2,
+            31,
+            32,
+            2047,
+            2048,
+            65535
+          ]
+        },
+        "capi": [
+          {
+            "passed": 191,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 16.51
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          }
+        ],
+        "capi_inventory_adjustment": {
+          "reason": "Externally introduced PAUTH C API tests increased the owning binary from 185 to 191 tests before stable final checkout creation. Historical fixed-count validation was stale.",
+          "scope": "Capture the complete current C API libtest inventory and require exact count, zero failed, ignored and filtered tests, plus the unchanged zero doctest result. Product source, test membership, filters, timeout and result logs are unchanged.",
+          "first_group": "Group52 inventory captured after its successful complete run; later groups capture before executing.",
+          "original_logs_retained": true
+        },
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-unit.stdout",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-unit.stderr",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-compare-result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-compare.stdout",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/parent-compare.stderr",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/worktree-checks.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/worktree-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/reference-frozen/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queue-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-build.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-clippy.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-fmt.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-doc.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queues.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-library.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-build.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-sgl.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-queues.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-sgl-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-queue-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-queues/final-capi.log"
+        ],
+        "oracle_format_proof": {
+          "formatter": "ruff 0.17.1",
+          "formatter_path": "/Users/int/.cache/uv/archive-v0/ECgLOb1OwqPpH4al2t0hG/ruff-0.17.1.data/scripts/ruff",
+          "source_path": "tools/nvme-diff/queue_oracle.py",
+          "before_sha256": "1c4a974ce4655db7851da1a2a66f179fb7164c30d81a2a3ae132e9e72a67319f",
+          "after_sha256": "bd03186cf58fdceae8e0b62c62d6212cc5c464ba24b85480035ddf58875d8035",
           "ast_identical": true,
           "scope": "Formatting only;existing comments retained and no executable AST change."
         },
