@@ -1,9 +1,10 @@
 # ProcessImageInformation native observations
 
-The unchanged installed-library hardware-exception fixture now reaches
+The installed-library hardware-exception fixture previously stopped at
 `NtQueryInformationProcess` class 37 during x86 startup. This observation group
-measures the owned control process and its own executable. The runtime query
-remains unimplemented. No guest request is forwarded to a host kernel.
+measures the owned control process and its own executable. The runtime now
+answers the qualified ordinary-executable query from an immutable loader
+snapshot. No guest request is forwarded to a host kernel.
 
 `native-image-information-v4.cpp` and `run-v6.py` retain three complete
 length/buffer/handle/right/alias matrices: 694 ARM64, 694 x64 and 678 WoW64
@@ -101,7 +102,7 @@ matrices and metadata profiles, missing/duplicate/reordered rows, invalid scalar
 fields, wrong views, cleanup receipts, redaction tampering, independent PE/EOF
 comparison and false loader-availability claims. They do not replace native
 execution. The existing Windows 2022/2025 profile workflow runs this observer;
-hosted class-37 results are pending. No jobs are added.
+hosted class-37 results are retained below. No jobs are added.
 
 Capture time is O(n + p) and retained data O(n + p), for n matrix calls and p
 admitted images. Each matrix call owns 16 KiB of scratch; live scratch is O(1).
@@ -117,9 +118,8 @@ shipping target, C API, private ABI, permission, install or package changes occu
 | PI3 | Record widths and query order apply to the captured kernel. | Three complete native matrices and exact baseline lengths. | Native/WoW layout and copy ordering. | Repeat on hosted kernels 20348 and 26100. | Local confirmation; cross-kernel qualification pending |
 | PI4 | Tested executable profiles do not establish all PE/CLR/flat-image flags. | Only the declared header mutations were run. | Limits of future metadata derivation. | Observe an independently constructed additional image profile. | Retained boundary |
 
-High impact, blocking full process qualification: runtime class 37, complete
-exception entry, older NLS, DPI and current-root shipping validation remain
-unfinished. Medium impact: general allocator thresholds and additional image
+High impact, blocking full process qualification: complete exception entry,
+older NLS, DPI and current-root shipping validation remain unfinished. Medium impact: general allocator thresholds and additional image
 flag states remain unknown. The current observation group does not resolve them.
 
 Primary definitions are System Informer's
@@ -161,7 +161,8 @@ through byte 55 and the native x64 kernels through byte 47. Masked padding is
 excluded from that comparison. These are captured kernel differences, including for
 the local x64 compatibility view. A future model must select by the captured
 kernel identity, not caller ISA, build-host macros or a spoofed guest version.
-The new pointer predicates still need their own hosted qualification.
+The hosted follow-up confirms the x64 kernels leave the first eight-byte
+prefix untouched at the new boundary, whereas the ARM64 kernel copies it.
 
 Real owned-process rights rows now query `ObjectBasicInformation` and publish
 its granted-access scalar. Other rows publish JSON null for that unmeasured
@@ -187,4 +188,113 @@ compatible build caches are retained for the pending runtime and exception work.
 Microsoft documents the automatic limited-query grant in
 [Process Security and Access Rights](https://learn.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights).
 The detailed copy predicates are native observations. The extended local receipt
-is `local-29683-v9.json`; runtime class 37 remains unimplemented.
+is `local-29683-v9.json`; the bounded runtime contract follows.
+
+
+## Runtime image information
+
+`process/image_information.rs` captures the original admitted PE fields and EOF
+size after `load_exe` chooses the actual guest entry. `Proc` owns this immutable
+snapshot. Querying class 37 never rereads mapped guest headers, copies a host
+process record, consumes the PRNG, or changes process DEP policy. Header
+rewrites by guest code cannot alter a later image-information result.
+
+The encoder emits the exact native64 64-byte or WoW64 48-byte little-endian
+record. It preserves stack sizes, subsystem and OS versions, image/DLL
+characteristics, machine, loader flags, checksum and original EOF length.
+TransferAddress is the loader-selected guest entry. ZeroBits is zero;
+ImageContainsCode is one for the qualified executable profiles. Native padding
+bytes 12..16 are initialized to zero but excluded from native-byte equivalence.
+The dynamic image flag is four when dynamic-base is set and relocations are not
+marked stripped, otherwise zero; actual relocation movement does not select it.
+
+`run-relocation-directory-v1.py` qualifies directory presence separately from
+these two flags. It makes three baseline self queries and ten native64 queries
+of suspended, task-owned children. Two ARM64 variants are rejected with error
+193 and contribute zero queries. Removing the relocation directory alone leaves
+the flag at four in all three admitted executable views. Setting stripped while
+retaining the directory clears it in the admitted x64/x86 views. The original
+observer source is reused unchanged. Child initialization is not resumed or
+claimed as successful. `local-relocation-directory-29683-v1.json` retains all 15
+producer/result records, source/compiler/binary hashes, original PE fields and
+directory values; no live TransferAddress or native padding is published.
+The first private self-query attempt failed at its first changed child; its
+partial receipt and executed inputs remain in task evidence without added query
+coverage. The suspended-child capture resolves that startup-dependent method.
+The CREATE_SUSPENDED definition is retained in
+`../native-console-owner/microsoft-process-creation-flags.html`; PE field
+definitions are retained in `../microsoft-docs/pe-format.md`.
+
+| Query plane | Record bytes | Output preflight/copy group | Read-only output guard |
+|---|---:|---:|---|
+| Captured 10.0.29683 ARM64 kernel, either native64 view | 64 | 8 bytes | Visited |
+| Captured 10.0.20348 or 10.0.26100 x64 kernel | 64 | 16 bytes | Preserved |
+| WoW64 on those captured kernels | 48 | Full 48 bytes | Preserved |
+| Built-in DLL model, ARM64/x64 guest | 64 | Model policy: 8/16 bytes | Model policy: visited/preserved |
+
+Installed-library mode selects using the captured kernel machine and version,
+independently of guest ISA, build-host macros and editable `cfg.version`.
+Unqualified installed identities fail explicitly. Built-in mode has a separate
+modeled kernel policy; it supplies no native installation evidence. Native
+length/alignment/upper-user-span and early ReturnLength checks remain in the
+shared entry. WoW64 bypasses that entry preflight, uses private converted backing,
+accepts unaligned output, and publishes `0xFFFFFFF0` on ordinary query failures.
+Its minimum temporary charge is `round_up(length + 16 bytes, 4096 bytes)` against
+the existing guest budget, calculated in u64 without proportional host allocation.
+NULL output bypasses this charge. This is guest resource policy; the general
+native allocator threshold remains unknown.
+
+Typed current-process handles need granted `PROCESS_QUERY_LIMITED_INFORMATION`
+(0x1000); requested 0x400 in the native observations acquired 0x1400. Explicit
+zero-grant and 0x400-only synthetic handles are denied. Other-process image state,
+managed/CLR, flat, DLL, non-GUI/CUI, entry-less and non-executable-section profiles
+remain explicit unsupported query states; unrelated spawn/loader behavior is
+preserved. An EOF exceeding the record's ULONG is also rejected explicitly.
+
+The hosted v9 receipts come from [run 40246722617](https://github.com/HexRaysSA/rax/actions/runs/40246722617),
+jobs [121329729509](https://github.com/HexRaysSA/rax/actions/runs/40246722617/job/121329729509)
+and [121329729671](https://github.com/HexRaysSA/rax/actions/runs/40246722617/job/121329729671).
+Raw logs remain in task evidence; the retained scalar records preserve all
+parsed native JSON values without log transport timestamp prefixes. Their identities and LF/CRLF source hashes are
+validated by `test_model_profiles.py`.
+The receipts retain two complete 1,400-row matrices, plus 24 metadata
+queries per kernel. Together with the local 2,108 rows and 33 metadata queries,
+the runtime replay checks 4,908 query cases and 81 original metadata profiles.
+Ten additional suspended-child profiles check the metadata encoder independently
+of relocation-directory presence. Every case compares status, guard state,
+unaltered projection bytes, ReturnLength bytes, validity-qualified pointer
+predicates, PC, SP and frame preservation. Pointer predicate checks exclude
+bytes overlapped by ReturnLength and native reference bytes equal to fill 0xA5;
+masked padding is never claimed as byte-equal. Roughly 2.64 MB of hosted scalar
+receipts supplies the independent x64-kernel copy/guard evidence and contains no
+native binary. Pure projection tests validate producer identities and tampering.
+
+| ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
+|---|---|---|---|---|---|
+| IM1 | Original ordinary-executable metadata plus final loader entry determines this bounded record. | 81 original profiles and ten suspended-child metadata queries. | Immutable snapshot and encoder. | Rewrite guest headers, change scalar/EOF/relocation fields; any captured field mismatch falsifies the rule. | Qualified captured profiles; additional image states explicit unsupported |
+| IM2 | Captured kernel identity selects native copy groups and guards. | Seven executable views over three kernels and exact pointer predicates. | Partial native copy and WoW policy. | Eight/60 writable bytes, RO guards, spoofed guest version; any status/projection/predicate/guard mismatch falsifies the profile. | Captured identities qualified; other installed identities explicit unsupported |
+| IM3 | Minimum converted backing can be charged against guest resources. | Length expansion and observed UINT_MAX allocation failure. | Bounded resource handling. | NULL bypass and huge non-NULL input; host allocation proportional to guest length would falsify the implementation contract. | Retained guest policy; native allocator threshold unknown |
+
+Snapshot capture costs O(s) for s section headers and retains O(1) metadata.
+Encoding, bounded caller copying and query resource accounting use O(1) time and
+space. Replay is O(n + p) for n query rows and p metadata profiles. No public
+Rust/C ABI, private Assist ABI, dependency, permission or installed-library search
+policy changes. All hosts compile the Windows personality; native Windows leaf
+checks execute installed NtQueryInformationProcess in the supported native and
+WoW64 views. High-impact remaining full-process gaps listed above still block
+the overall goal. Medium-impact additional image flags and allocator thresholds
+remain outside this bounded query qualification.
+
+
+The current combined-tree qualification has 23 process-query tests on macOS and
+Linux and 27 on Windows, including the installed native/WoW64 image-information
+leaf. Full library runs pass 8,415 tests on macOS and 8,408 on Linux, each with
+two existing ignored microkernel validation tests and no failures. Windows has
+7,900 passes, one failure and the same two ignores. The unchanged hardware-fault
+fixture advances past class 37 and stops at unsupported NtSetInformationProcess
+class 63 during x86 execution. The cause of reaching that later path still
+requires tracing; complete exception/startup behavior remains unqualified.
+These full runs include the separate uncommitted exception-entry/context draft,
+whose exact source hashes are retained in task evidence. They qualify that
+combined tree rather than a clean committed-pin artifact. All 191 C API tests pass on each host. These package checks are recorded
+separately from owning Assist archive and shipping-package validation.

@@ -474,3 +474,6 @@ mod execute_flags;
 
 #[path = "process_query_tests/debug_port.rs"]
 mod debug_port;
+
+#[path = "process_query_tests/image_information.rs"]
+mod image_information;

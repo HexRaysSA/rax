@@ -519,6 +519,7 @@ mod tests {
                 vec!["ignored-config-argument".into()],
             )),
             native: None,
+            image_information: Err("test process has no admitted executable"),
             gui: Default::default(),
             registry: Default::default(),
             object_namespace: Default::default(),

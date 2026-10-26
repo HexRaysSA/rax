@@ -18,6 +18,7 @@ const PROCESS_VM_WRITE: u32 = 0x20;
 
 mod debug_port;
 mod execute_flags;
+mod image_information;
 
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
     let result = query(c);
@@ -38,6 +39,9 @@ fn query(c: &mut Ctx) -> ApiResult {
         // its caller stores have no native entry alignment/ReturnLength probe.
         return debug_port::query(c, handle, output, length, returned);
     }
+    if class == 37 && c.arch() == WinArch::X86 {
+        return image_information::query(c, handle, output, length, returned);
+    }
     // Native process queries check output alignment before ReturnLength, but
     // defer touching output pages until after class/length/handle validation.
     // This also applies to WoW64 class 36; system-query conversion is different.
@@ -46,7 +50,7 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if length != 0
         && c.arch() != WinArch::X86
-        && matches!(class, 7 | 34 | PROCESS_COOKIE)
+        && matches!(class, 7 | 34 | PROCESS_COOKIE | 37)
         && output
             .checked_add(u64::from(length))
             .is_none_or(|end| end > c.p.vm.high())
@@ -63,6 +67,9 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if class == 34 {
         return execute_flags::query(c, handle, output, length, returned);
+    }
+    if class == 37 {
+        return image_information::query(c, handle, output, length, returned);
     }
     if class == 52 {
         return super::process_mitigation::query(c, handle, output, length);

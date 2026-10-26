@@ -13,6 +13,7 @@
 
 pub(crate) mod fiber;
 mod fls_exit;
+pub(crate) mod image_information;
 mod lifecycle;
 pub(crate) mod native_start;
 mod sched;
@@ -278,6 +279,7 @@ pub struct Proc {
     /// Configuration.
     pub cfg: Arc<WindowsConfig>,
     pub(crate) native: Option<super::native::NativeRuntime>,
+    pub(crate) image_information: Result<image_information::ImageInformation, &'static str>,
     pub(crate) gui: super::gui::State,
     pub(crate) registry: super::registry::Registry,
     pub(crate) object_namespace: super::object_namespace::Namespace,

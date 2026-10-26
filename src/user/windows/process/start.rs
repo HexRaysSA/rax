@@ -389,6 +389,7 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         vm,
         cfg: Arc::new(config),
         native,
+        image_information: Err("executable has not been mapped"),
         gui: super::super::gui::State::new(h.subsystem_version),
         registry,
         object_namespace,
@@ -430,6 +431,8 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
             message: e.message,
         }
     })?;
+    p.image_information =
+        super::image_information::ImageInformation::capture(&pe, p.modules.exe().entry);
     p.process_heap = p
         .heaps
         .create(&mut p.vm, 0, h.heap_commit, 0)

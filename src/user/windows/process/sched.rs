@@ -837,6 +837,7 @@ mod tests {
             space,
             cfg: Arc::new(WindowsConfig::new("unused-test.exe", vec![])),
             native: None,
+            image_information: Err("test process has no admitted executable"),
             gui: Default::default(),
             registry: Default::default(),
             object_namespace: Default::default(),
