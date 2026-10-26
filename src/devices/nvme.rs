@@ -46,10 +46,10 @@
 //!
 //! # What is deferred / partial
 //!
-//! * **PRP handling** uses only PRP1 (a single contiguous buffer). PRP2 and PRP
-//!   lists (for transfers spanning more than two pages) are *not* walked; a
-//!   command whose transfer would require them is failed. This is sufficient
-//!   for single-page round trips, which the tests exercise.
+//! * PRP1, direct PRP2 and chained PRP lists support the advertised4KiB page
+//!   profile, including unaligned first pages and offset first list pointers.
+//!   Full PRP plans are validated before payload DMA. Late guest-write errors
+//!   may leave earlier DMA writes visible;failed source reads preserve media.
 //! * **Interrupts** (MSI-X / pin) are surfaced through
 //!   [`NvmeController::take_interrupt`] for an orchestrator to inject; the
 //!   device does not raise a guest interrupt line itself. CQ phase tags and the
@@ -67,6 +67,9 @@
 //! complete.
 
 use super::bus::MmioDevice;
+
+#[path = "nvme/prp.rs"]
+mod prp;
 
 // Reuse the guest-memory DMA abstraction defined for the virtio transport so
 // the command path can be unit-tested against a plain byte buffer.
@@ -173,6 +176,8 @@ pub const SC_INVALID_OPCODE: u16 = 0x01;
 pub const SC_INVALID_FIELD: u16 = 0x02;
 /// Data Transfer Error.
 pub const SC_DATA_XFER_ERROR: u16 = 0x04;
+/// PRP offset is invalid for the selected memory-page profile.
+pub const SC_PRP_OFFSET_INVALID: u16 = 0x13;
 /// LBA Out of Range (Command Specific, status type 0x01 => 0x80 here when ORed
 /// with the SCT). For simplicity we keep all SCs in the generic type.
 pub const SC_LBA_OUT_OF_RANGE: u16 = 0x80;
@@ -182,6 +187,8 @@ pub const SC_LBA_OUT_OF_RANGE: u16 = 0x80;
 pub struct SubmissionEntry {
     /// CDW0: opcode (bits 7:0).
     pub opcode: u8,
+    /// CDW0: flags (bits15:8), including PSDT in bits7:6.
+    pub flags: u8,
     /// CDW0: command identifier (bits 31:16).
     pub cid: u16,
     /// CDW1: namespace identifier.
@@ -209,6 +216,7 @@ impl SubmissionEntry {
         let cdw0 = dw(0);
         Some(SubmissionEntry {
             opcode: (cdw0 & 0xff) as u8,
+            flags: (cdw0 >> 8) as u8,
             cid: (cdw0 >> 16) as u16,
             nsid: dw(1),
             prp1: u64::from_le_bytes(buf[24..32].try_into().unwrap()),
@@ -391,6 +399,11 @@ impl<M: Mem> NvmeController<M> {
 
     /// Controller enable: arm the admin queues from AQA/ASQ/ACQ and set RDY.
     fn enable(&mut self) {
+        // CAP.MPSMIN=MPSMAX=0:only4KiB host pages are represented.
+        if (self.cc >> CC_MPS_SHIFT) & CC_MPS_MASK != 0 {
+            self.csts = (self.csts & !CSTS_RDY) | CSTS_CFS;
+            return;
+        }
         // AQA: ASQS in bits 11:0, ACQS in bits 27:16 (0-based sizes).
         let asqs = (self.aqa & 0xfff) + 1;
         let acqs = ((self.aqa >> 16) & 0xfff) + 1;
@@ -568,7 +581,7 @@ impl<M: Mem> NvmeController<M> {
             };
             let (status, dw0) = self.exec_admin(&entry);
             self.admin_sq.head = (self.admin_sq.head + 1) % self.admin_sq.size;
-            self.post_completion(true, 0, &entry, status, dw0);
+            self.post_completion(0, 0, self.admin_sq.head, &entry, status, dw0);
             remaining -= 1;
         }
         if remaining == 0 && self.admin_sq.head != self.admin_sq.tail {
@@ -593,7 +606,7 @@ impl<M: Mem> NvmeController<M> {
             };
             let (status, dw0) = self.exec_nvm(&entry);
             head = (head + 1) % sq.size;
-            self.post_completion(false, cqid, &entry, status, dw0);
+            self.post_completion(sqid, cqid, head, &entry, status, dw0);
             remaining -= 1;
         }
         if remaining == 0 && head != tail {
@@ -612,23 +625,22 @@ impl<M: Mem> NvmeController<M> {
     ///   DW3  command id (bits 15:0) | phase tag (bit 16) | status (bits 31:17)
     fn post_completion(
         &mut self,
-        admin: bool,
+        sqid: u16,
         cqid: u16,
+        sq_head: u32,
         entry: &SubmissionEntry,
         status: u16,
         dw0: u32,
     ) {
-        // Resolve the target CQ and the SQ head/id to report.
-        let (cq, sq_head, sqid) = if admin {
-            (&mut self.admin_cq, self.admin_sq.head, 0u16)
+        // The submitting queue and its consumed head are explicit. Several
+        // submission queues can share a completion queue.
+        let cq = if cqid == 0 {
+            &mut self.admin_cq
         } else {
-            let sqid = self.sqid_for_cqid(cqid);
-            let sq_head = self.io_sqs.get(sqid as usize).map_or(0, |q| q.head);
-            let cq = match self.io_cqs.get_mut(cqid as usize) {
-                Some(q) if q.active => q,
+            match self.io_cqs.get_mut(cqid as usize) {
+                Some(queue) if queue.active => queue,
                 _ => return,
-            };
-            (cq, sq_head, sqid)
+            }
         };
 
         if cq.size == 0 || !cq.active {
@@ -662,21 +674,13 @@ impl<M: Mem> NvmeController<M> {
         self.interrupt_pending = true;
     }
 
-    /// Find the I/O SQ bound to completion queue `cqid` (first match). Falls
-    /// back to `cqid` itself which is the common 1:1 mapping.
-    fn sqid_for_cqid(&self, cqid: u16) -> u16 {
-        for (i, q) in self.io_sqs.iter().enumerate() {
-            if q.active && q.cqid == cqid {
-                return i as u16;
-            }
-        }
-        cqid
-    }
-
     // ---- Admin command execution -------------------------------------------
 
     /// Execute an admin command, returning (status code, completion DW0).
     fn exec_admin(&mut self, e: &SubmissionEntry) -> (u16, u32) {
+        if e.flags & 0xc0 != 0 {
+            return (SC_INVALID_FIELD, 0);
+        }
         match e.opcode {
             ADMIN_IDENTIFY => self.admin_identify(e),
             ADMIN_CREATE_IO_CQ => self.admin_create_io_cq(e),
@@ -711,8 +715,17 @@ impl<M: Mem> NvmeController<M> {
             }
             _ => return (SC_INVALID_FIELD, 0),
         }
-        if !self.mem.write(e.prp1, &data) {
-            return (SC_DATA_XFER_ERROR, 0);
+        let segments = match prp::segments(&self.mem, e.prp1, e.prp2, PAGE_SIZE) {
+            Ok(segments) => segments,
+            Err(status) => return (status, 0),
+        };
+        let mut offset = 0;
+        for (address, length) in segments {
+            let length = length as usize;
+            if !self.mem.write(address, &data[offset..offset + length]) {
+                return (SC_DATA_XFER_ERROR, 0);
+            }
+            offset += length;
         }
         (SC_SUCCESS, 0)
     }
@@ -872,6 +885,9 @@ impl<M: Mem> NvmeController<M> {
 
     /// Execute an NVM command (Read/Write/Flush) against namespace 1.
     fn exec_nvm(&mut self, e: &SubmissionEntry) -> (u16, u32) {
+        if e.flags & 0xc0 != 0 {
+            return (SC_INVALID_FIELD, 0);
+        }
         match e.opcode {
             NVM_FLUSH => (SC_SUCCESS, 0),
             NVM_READ => self.nvm_rw(e, true),
@@ -880,14 +896,8 @@ impl<M: Mem> NvmeController<M> {
         }
     }
 
-    /// Read/Write data between guest memory (PRP1) and the namespace.
-    ///
-    /// CDW10/11: starting LBA (64-bit). CDW12: NLB (bits 15:0, 0-based count).
-    ///
-    /// Only PRP1 is used: the transfer must fit in a single page-contiguous
-    /// region addressed by PRP1 (and, when the transfer crosses the first page
-    /// boundary, PRP2 pointing at the next contiguous page). Larger transfers
-    /// requiring a PRP list are rejected (deferred).
+    /// Read/Write data through a complete PRP plan for namespace1.
+    /// CDW10/11:startingLBA;CDW12.NLB is a zero-based512-byte block count.
     fn nvm_rw(&mut self, e: &SubmissionEntry, read: bool) -> (u16, u32) {
         if e.nsid != 1 {
             return (SC_INVALID_FIELD, 0);
@@ -908,53 +918,35 @@ impl<M: Mem> NvmeController<M> {
             return (SC_LBA_OUT_OF_RANGE, 0);
         }
 
-        // Resolve the guest buffers for this transfer using PRP1 (+PRP2 for the
-        // second page). Anything larger is deferred.
-        let segments = match self.prp_segments(e.prp1, e.prp2, total) {
-            Some(s) => s,
-            None => return (SC_DATA_XFER_ERROR, 0),
+        let segments = match prp::segments(&self.mem, e.prp1, e.prp2, total) {
+            Ok(segments) => segments,
+            Err(status) => return (status, 0),
         };
-
-        let mut disk_off = start as usize;
-        for (gpa, len) in segments {
-            let len = len as usize;
-            let dend = disk_off + len;
-            if read {
-                if !self.mem.write(gpa, &self.disk[disk_off..dend]) {
+        if read {
+            let mut offset = start as usize;
+            for (address, length) in segments {
+                let length = length as usize;
+                if !self.mem.write(address, &self.disk[offset..offset + length]) {
+                    // Earlier successful guest writes remain visible on DMA error.
                     return (SC_DATA_XFER_ERROR, 0);
                 }
-            } else if !self.mem.read(gpa, &mut self.disk[disk_off..dend]) {
-                return (SC_DATA_XFER_ERROR, 0);
+                offset += length;
             }
-            disk_off = dend;
+        } else {
+            // Read all source pages before mutating media. A late DMA read
+            // failure leaves namespace bytes unchanged.
+            let mut data = vec![0; total as usize];
+            let mut offset = 0;
+            for (address, length) in segments {
+                let length = length as usize;
+                if !self.mem.read(address, &mut data[offset..offset + length]) {
+                    return (SC_DATA_XFER_ERROR, 0);
+                }
+                offset += length;
+            }
+            self.disk[start as usize..end as usize].copy_from_slice(&data);
         }
         (SC_SUCCESS, 0)
-    }
-
-    /// Compute the list of (gpa, len) guest segments for a transfer of `total`
-    /// bytes using PRP1 (and PRP2 for the part past the first page boundary).
-    ///
-    /// Returns `None` (=> fail the command) if the transfer would require a PRP
-    /// list (more than two pages), which is deferred.
-    fn prp_segments(&self, prp1: u64, prp2: u64, total: u64) -> Option<Vec<(u64, u64)>> {
-        if prp1 == 0 || total == 0 {
-            return None;
-        }
-        // Bytes available in PRP1's page before the next page boundary.
-        let first_page_room = PAGE_SIZE - (prp1 % PAGE_SIZE);
-        if total <= first_page_room {
-            return Some(vec![(prp1, total)]);
-        }
-        // Spills into a second buffer described by PRP2.
-        let remaining = total - first_page_room;
-        if remaining > PAGE_SIZE {
-            // Would need a PRP list (3+ pages): deferred.
-            return None;
-        }
-        if prp2 == 0 {
-            return None;
-        }
-        Some(vec![(prp1, first_page_room), (prp2, remaining)])
     }
 
     // ---- Test / introspection accessors ------------------------------------

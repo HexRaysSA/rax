@@ -1913,8 +1913,47 @@
     },
     {
       "id": "device-capabilities",
-      "status": "pending",
-      "evidence": []
+      "status": "partially_validated",
+      "evidence": [
+        "src/devices/nvme.rs",
+        "src/devices/nvme/prp.rs",
+        "Cargo.toml",
+        "tests/suites/devices/nvme_prp.rs",
+        "docs/development/nvme-data-transfers.md",
+        "tools/nvme-diff/prp_oracle.py",
+        "tools/nvme-diff/prp_compare.rs",
+        "tools/nvme-diff/prp_guest.s",
+        "docs/specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf",
+        "docs/specifications/nvme/qemu-v11.1.0-nvme-ctrl.c",
+        "docs/specifications/nvme/PROVENANCE.md",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-unit.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/reference-limit.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-capi.log"
+      ],
+      "remaining_validation": [
+        "NVMeSGLs,additionalNVMcommands,fullqueue/reset/error/interruptbehavior;virtioindirect/DISCARD/WRITE_ZEROES;storageimages;S5L8900modeledinputs/keys."
+      ]
     },
     {
       "id": "deterministic-concurrent-scheduling",
@@ -3263,6 +3302,104 @@
         "Existing initial IA-32e entry policy, CR0.NE mask/shadow, optional CR3/CR4 intercepts, MSRs and complete FP/private state remain separate.",
         "Forced legacy controls remain required by host capability masks;their downstream semantics are not established by these tests.",
         "No checkpoint fields or public C ABI layout changes."
+      ]
+    },
+    {
+      "id": "D-NVME-PRP",
+      "area": "NVMeDMA",
+      "finding": "LargertransfersrequiringPRPlistswere rejected;IdentifyignoredPRP2 andmalformedoffsets/formatswerenotvalidated.",
+      "status": "locally_validated",
+      "evidence": [
+        "src/devices/nvme.rs",
+        "src/devices/nvme/prp.rs",
+        "Cargo.toml",
+        "tests/suites/devices/nvme_prp.rs",
+        "docs/development/nvme-data-transfers.md",
+        "tools/nvme-diff/prp_oracle.py",
+        "tools/nvme-diff/prp_compare.rs",
+        "tools/nvme-diff/prp_guest.s",
+        "docs/specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf",
+        "docs/specifications/nvme/qemu-v11.1.0-nvme-ctrl.c",
+        "docs/specifications/nvme/PROVENANCE.md",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-unit.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/reference-limit.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-capi.log"
+      ],
+      "remaining_validation": [
+        "IndependentQEMUdomain<=2MiB;32MiBmaximum,failedDMApolicies,malformedpointeradmission and repeatedphysical-list behavior rely on localprimary/source regressions.",
+        "NativeNVMehardware,PCIinterruptwiring,fullCQbackpressure/DMAerrorhandling,additionalNVMcommands,SGLs andstorage-imagewiring remain separate.",
+        "Completecheckpoint-v8/private/device/media/inflightstate andSMP remain pending;no serializedfields added by this group.",
+        "The independent comparator compiles exactcurrentNVMe/prp/test sources;the capturedRAXlibrary supplies sharedMem/MmioDevicetypes. Mainall-target/library/CAPIgates separately build the engine."
+      ]
+    },
+    {
+      "id": "D-NVME-CQE",
+      "area": "NVMecompletion",
+      "finding": "CQEsreportedastaleSQheadandguessedthefirstSQboundtoasharedCQ.",
+      "status": "locally_validated",
+      "evidence": [
+        "src/devices/nvme.rs",
+        "src/devices/nvme/prp.rs",
+        "Cargo.toml",
+        "tests/suites/devices/nvme_prp.rs",
+        "docs/development/nvme-data-transfers.md",
+        "tools/nvme-diff/prp_oracle.py",
+        "tools/nvme-diff/prp_compare.rs",
+        "tools/nvme-diff/prp_guest.s",
+        "docs/specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf",
+        "docs/specifications/nvme/qemu-v11.1.0-nvme-ctrl.c",
+        "docs/specifications/nvme/PROVENANCE.md",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-unit.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-unit.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare.stdout",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare.stderr",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/reference-limit.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-checks.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-capi.log"
+      ],
+      "remaining_validation": [
+        "IndependentQEMUdomain<=2MiB;32MiBmaximum,failedDMApolicies,malformedpointeradmission and repeatedphysical-list behavior rely on localprimary/source regressions.",
+        "NativeNVMehardware,PCIinterruptwiring,fullCQbackpressure/DMAerrorhandling,additionalNVMcommands,SGLs andstorage-imagewiring remain separate.",
+        "Completecheckpoint-v8/private/device/media/inflightstate andSMP remain pending;no serializedfields added by this group.",
+        "The independent comparator compiles exactcurrentNVMe/prp/test sources;the capturedRAXlibrary supplies sharedMem/MmioDevicetypes. Mainall-target/library/CAPIgates separately build the engine."
       ]
     }
   ],
@@ -77228,6 +77365,501 @@
           "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio-oracle/manifest.json",
           "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-parity/manifest.json"
         ],
+        "toolchain": {
+          "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
+          "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",
+          "compiler_verbose": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+          "environment": {
+            "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+            "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin"
+          },
+          "scope": "Required final gates use fixed task-local1.99.1;retained earlier1.98.1 references/preflights remain separately versioned. No global compiler/default changes."
+        }
+      }
+    },
+    {
+      "id": "nvme-prp-scatter-gather-and-completion-origin",
+      "status": "locally_validated",
+      "scope": "Complete PRP1/directPRP2/chainedPRPlist data planning for the advertised4KiB page profile, including split Identify, validated pointer formats, precise DMA failure effects and actual SQ/head metadata in completions.",
+      "assumptions": [
+        {
+          "id": "P1",
+          "assumption": "The represented page profile is4KiB and each NVM Read/Write command is bounded by16-bitNLB and512-byteLBAs.",
+          "basis": "ExistingCAP.MPSMIN/MAX0 and namespaceLBADS9;NVMe1.4c section4.3/Read/Write.",
+          "dependent_result": "33554432-byte maximum;8193 data pages at firstoffset4092;unsupportedMPSfailsenable.",
+          "stress_test": "All1024 aligned first offsets,160 scattered layouts and complete32MiB transfer.",
+          "falsification_probe": "A selected supported page/LBA profile has another size or a valid transfer exceeds the retained bound.",
+          "status": "retained"
+        },
+        {
+          "id": "P2",
+          "assumption": "PRP1 may have a dword offset, the first list pointer a qword offset;subsequent data/list pointers must be page aligned.",
+          "basis": "NVMe1.4c section4.3 Figures108-111;genericstatusFigure128.",
+          "dependent_result": "Complete plans before payload DMA;0x13 alignment faults and0x04 failedmemory access.",
+          "stress_test": "Boundary list offsets0/8/4080/4088,invalid later entries/links,physicalpage0,metadatafaults and repeatedlistpage.",
+          "falsification_probe": "Pinnedprimary permits another offset classification or plan traversal changes payload before a later metadata fault.",
+          "status": "retained"
+        },
+        {
+          "id": "P3",
+          "assumption": "A finite command may reuse physical list/data pages;no unrelated acyclicity constraint is introduced.",
+          "basis": "Command byte count determines the finite PRP interpretation;only subsequent list links require page alignment.",
+          "dependent_result": "O(k)plan/storage;at most one offset-link-only step and511dataentries before each subsequent link.",
+          "stress_test": "A4MiB command revisits its list page and finally overwrites it with data;boundedDMAcalls and exactlast-writebytes.",
+          "falsification_probe": "A traversal can follow repeated links without consuming data or the primary source prohibits the represented finite reuse.",
+          "status": "retained"
+        },
+        {
+          "id": "P4",
+          "assumption": "Staging source bytes before media commit is the local failed-write policy;readDMA may partially commit guest memory.",
+          "basis": "SharedMemtrait reports per-call success/failure;no rollbackprimitive exists.",
+          "dependent_result": "Latefailedsource preserves media;latefailedread-destination retains only prior successful writes.",
+          "stress_test": "Actual two-page late-source parent failure and three-page late-destination boundary.",
+          "falsification_probe": "Media changes after failed source DMA or unattempted later destination pages change.",
+          "status": "confirmed"
+        },
+        {
+          "id": "P5",
+          "assumption": "Completion origin must be the actual submittingSQ and consumedhead,including sharedCQs.",
+          "basis": "NVMe1.4c completionentryformat;priorcode searched for firstSQboundtoCQ and read its stalehead.",
+          "dependent_result": "ExplicitSQID/head passed to completionposting.",
+          "stress_test": "130commands through64-slotwrap and twoSQssharingCQ1.",
+          "falsification_probe": "CQEhead/IDnamesanotherqueue or pre-consumptionposition.",
+          "status": "confirmed"
+        },
+        {
+          "id": "P6",
+          "assumption": "ActualQEMUdeviceexecution supplies independent PRP/data/completion observations only within its admittedMDTS9domain.",
+          "basis": "SixfreshPCI/queueguests;IOV_MAX1024;actualMDTS0/10errors;retainedQEMU11.1.0boundsourcedistinctfrominstalled11.1.2.",
+          "dependent_result": "8448000payloadbytes and18fullCQEs compared;32MiB and repeated-list policies remain localprimary checks.",
+          "stress_test": "Require all6frames,fullpayloads,all18CQEs,finalmedia andexactpositive/parent-sourcecomparisons.",
+          "falsification_probe": "Missingcase/frame,alteredrecord,unexpectedstatus,wrongSQmetadata or byte mismatch.",
+          "status": "retained"
+        }
+      ],
+      "primary_sources": [
+        {
+          "path": "docs/specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf",
+          "sha256": "ff92005660e8b58e248b2ff1416acc8c8c1aba1b3b7c14f6de9b80f2181649bc",
+          "url": "https://www.nvmexpress.org/wp-content/uploads/NVM-Express-1_4c-2021.06.28-Ratified.pdf",
+          "contract": "NVMe1.4c section4.3/Figures108-111,CC.MPS,genericstatusFigure128 andcompletionentryformat. Pages69/70 visually reviewed."
+        }
+      ],
+      "scope_limits": [
+        "IndependentQEMUdomain<=2MiB;32MiBmaximum,failedDMApolicies,malformedpointeradmission and repeatedphysical-list behavior rely on localprimary/source regressions.",
+        "NativeNVMehardware,PCIinterruptwiring,fullCQbackpressure/DMAerrorhandling,additionalNVMcommands,SGLs andstorage-imagewiring remain separate.",
+        "Completecheckpoint-v8/private/device/media/inflightstate andSMP remain pending;no serializedfields added by this group.",
+        "The independent comparator compiles exactcurrentNVMe/prp/test sources;the capturedRAXlibrary supplies sharedMem/MmioDevicetypes. Mainall-target/library/CAPIgates separately build the engine."
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Malformed later list entries could otherwise permit earlier payload effects.",
+          "action": "Complete metadata planning before payload;stage all sourcebytes before mediawrite."
+        },
+        {
+          "impact": "high",
+          "finding": "CQEheadwasstale and CQsharing selectedthewrongSQ.",
+          "action": "Carry the actualsubmittingIDandconsumedhead;testwrapandsharing."
+        },
+        {
+          "impact": "medium",
+          "finding": "QEMUhostIOVlimits reject unlimited/4MiBMDTSconfigurations.",
+          "action": "PinMDTS9 for actualreferenceexecution;retainrawrejects and labelthelargerlocaldomain."
+        },
+        {
+          "impact": "medium",
+          "finding": "ThePRP-only model previouslyinterpretedSGLbitsasPRPs.",
+          "action": "ParseflagsandrejectunrepresentedPSDTformats beforeDMA;SGLexecutionisstillpending."
+        }
+      ],
+      "quality_gates": {
+        "QG1": "No normativejudgments required.",
+        "QG2": "P1-P6 include basis/dependency/falsification.",
+        "QG3": "LocalPRP/completion scope complete;remainingdevice/platform/checkpoint work explicitlypartial.",
+        "QG4": "65536*512=33554432bytes;8193datasegments;84+2Nreferencebytes percase;8448000comparedbytes;O(k)planning andO(n)writestaging.",
+        "QG5": "Partialdestinationwrites,offsetfirstlists,physicalzero,finitepage reuse,lateDMAfaults andsharedCQidentity covered.",
+        "QG6": "PrimaryPDF,QEMUrawrecords,actualparentNVMeandtestedproductsource/libraryhashes retained.",
+        "QG7": "Metadataeffects,SQorigin,referencecapacity andPSDTadmission recorded."
+      },
+      "baseline": "b8568341e7b3dda66a5bb44b97be60bd3c6b75df",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 184.81777762500133
+          },
+          {
+            "check": "final-clippy",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 69.42573737500061
+          },
+          {
+            "check": "final-fmt",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 11.875478166999528
+          },
+          {
+            "check": "final-doc",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 4.6446001660006
+          },
+          {
+            "check": "final-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.005195208002988
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 0.2526620419957908
+          },
+          {
+            "check": "final-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 347.6217963329982
+          },
+          {
+            "check": "final-intel-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 201.22176345800108
+          },
+          {
+            "check": "final-intel-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.61331183299626
+          },
+          {
+            "check": "final-intel-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2496.403042124999
+          },
+          {
+            "check": "final-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree/tools/nvme-diff/prp_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-final-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-controller-irq-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 24.93814408400067
+          },
+          {
+            "check": "final-capi",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 15.743489749998844
+          }
+        ],
+        "complete_device_native": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 4.81
+        },
+        "complete_device_rosetta": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.13
+        },
+        "complete_library_native": {
+          "passed": 10598,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 347.41
+        },
+        "complete_library_rosetta": {
+          "passed": 11581,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 2495.89
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "ci_owning": {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.05
+        },
+        "actual_parent_device": {
+          "failed": 14,
+          "passed": 18
+        },
+        "actual_parent_independent": {
+          "cases": 6,
+          "bytes_compared": 8448000,
+          "failed": 6
+        },
+        "actual_reference_and_product": {
+          "cases": 6,
+          "bytes_compared": 8448000,
+          "failed": 0
+        },
+        "reference_limit": {
+          "host_iov_max": 1024,
+          "qemu_source_url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.0/hw/nvme/ctrl.c",
+          "qemu_source_sha256": "4acb4a66699130a22b2492845e6341be24c51b5c55d1aa601d3ccd17f2dc5dc2",
+          "source_scope": "Pinned11.1.0 source is explanatory;actual installed11.1.2 options/errors and guest results are independently retained.",
+          "actual_failed_configurations": [
+            "reference-iteration/manifest.json",
+            "reference-iteration/case-0/qemu.stderr",
+            "reference-iov-limit/manifest.json",
+            "reference-iov-limit/case-0/qemu.stderr"
+          ],
+          "selected_mdts": 9,
+          "selected_limit_bytes": 2097152,
+          "local_max_bytes": 33554432
+        },
+        "local_coverage": {
+          "scattered_layouts_both_directions": 160,
+          "dword_first_offsets": 1024,
+          "max_transfer_bytes": 33554432,
+          "max_data_segments": 8193,
+          "ring_commands": 130,
+          "ring_slots": 64,
+          "fresh_reference_devices": 6,
+          "actual_reference_io_commands": 18,
+          "actual_reference_payload_bytes": 8448000
+        },
+        "capi": [
+          {
+            "passed": 191,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 15.47
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          }
+        ],
+        "capi_inventory_adjustment": {
+          "reason": "Externally introduced PAUTH C API tests increased the owning binary from 185 to 191 tests before stable final checkout creation. Historical fixed-count validation was stale.",
+          "scope": "Capture the complete current C API libtest inventory and require exact count, zero failed, ignored and filtered tests, plus the unchanged zero doctest result. Product source, test membership, filters, timeout and result logs are unchanged.",
+          "first_group": "Group52 inventory captured after its successful complete run; later groups capture before executing.",
+          "original_logs_retained": true
+        },
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-unit.stdout",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-unit.stderr",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare-result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare.stdout",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/parent-compare.stderr",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/reference-limit.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-checks.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/worktree-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-build.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-clippy.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-fmt.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-doc.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-library.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-build.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-nvme-prp/final-capi.log"
+        ],
+        "reference_archive": {
+          "files": [
+            {
+              "path": "docs/specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf",
+              "title": "NVM Express Base Specification,Revision1.4c,2021-06-28",
+              "url": "https://www.nvmexpress.org/wp-content/uploads/NVM-Express-1_4c-2021.06.28-Ratified.pdf",
+              "retrieval_date": "2026-10-24",
+              "bytes": 4832211,
+              "sha256": "ff92005660e8b58e248b2ff1416acc8c8c1aba1b3b7c14f6de9b80f2181649bc",
+              "original_evidence_path": "/Users/int/dev/rax-audit-work/primary/nvme-1.4c-2021.pdf"
+            },
+            {
+              "path": "docs/specifications/nvme/qemu-v11.1.0-nvme-ctrl.c",
+              "title": "QEMU NVM Express Controller,upstream tagv11.1.0,hw/nvme/ctrl.c",
+              "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.0/hw/nvme/ctrl.c",
+              "retrieval_date": "2026-10-24",
+              "bytes": 314987,
+              "sha256": "4acb4a66699130a22b2492845e6341be24c51b5c55d1aa601d3ccd17f2dc5dc2",
+              "original_evidence_path": "/Users/int/dev/rax-audit-work/rax-nvme-prp/research/qemu-v11.1.0-nvme-ctrl.c"
+            }
+          ],
+          "owned_reference_paths": [
+            "docs/specifications/nvme/NVM-Express-1_4c-2021-06-28.pdf",
+            "docs/specifications/nvme/qemu-v11.1.0-nvme-ctrl.c",
+            "docs/specifications/nvme/PROVENANCE.md"
+          ],
+          "semantic_sources_unchanged": true,
+          "reason": "AGENTS.md10.4 requires exact external document snapshots under docs;additional paths contain no product semantics."
+        },
+        "oracle_format_proof": {
+          "formatter": "ruff 0.17.1",
+          "formatter_path": "/Users/int/.cache/uv/archive-v0/ECgLOb1OwqPpH4al2t0hG/ruff-0.17.1.data/scripts/ruff",
+          "source_path": "tools/nvme-diff/prp_oracle.py",
+          "before_sha256": "377eb6b8bf7981c524f19703990d9b625d911b1d3f7a87b9fe2ba5b1b80dbf45",
+          "after_sha256": "bb5d764bf2379b3562afedd40ac6c96bc860abdd27595d539e07d8bc9cb1ccee",
+          "ast_identical": true,
+          "scope": "Formatting only;existing comments retained and no executable AST change."
+        },
         "toolchain": {
           "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
           "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",
