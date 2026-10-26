@@ -875,12 +875,9 @@ impl Vmm {
                     .get_mut(0)
                     .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
 
-                let can_inject = vcpu.can_inject_interrupt();
-                if let Ok(mut pic) = self.pic.lock() {
-                    if pic.has_pending() && can_inject {
-                        if let Some(vector) = pic.get_pending_vector() {
-                            let _ = vcpu.inject_interrupt(vector);
-                        }
+                if vcpu.can_inject_interrupt() {
+                    if let Ok(mut pic) = self.pic.lock() {
+                        pic.try_deliver_pending(|vector| vcpu.inject_interrupt(vector))?;
                     }
                 }
             }
@@ -915,14 +912,14 @@ impl Vmm {
                     if let Some(vector) = lapic.tick() {
                         // LAPIC timer interrupt - inject directly if possible
                         if vcpu.can_inject_interrupt() {
-                            if vcpu.inject_interrupt(vector).unwrap_or(false) {
+                            if vcpu.inject_interrupt(vector)? {
                                 lapic.clear_timer_pending();
                             }
                         }
                     } else if lapic.has_pending_timer() && vcpu.can_inject_interrupt() {
                         // Previously pending timer interrupt
                         let vector = lapic.timer_vector();
-                        if vcpu.inject_interrupt(vector).unwrap_or(false) {
+                        if vcpu.inject_interrupt(vector)? {
                             lapic.clear_timer_pending();
                         }
                     }
@@ -939,7 +936,7 @@ impl Vmm {
                 if let Ok(mut lapic) = self.lapic.lock() {
                     // Handle pending NMI from self-IPI
                     if lapic.has_pending_nmi() {
-                        if vcpu.inject_nmi().unwrap_or(false) {
+                        if vcpu.inject_nmi()? {
                             lapic.clear_pending_nmi();
                         }
                     }
@@ -947,7 +944,7 @@ impl Vmm {
                     // Check for pending interrupts in IRR (from self-IPIs)
                     if vcpu.can_inject_interrupt() {
                         if let Some(vector) = lapic.get_pending_vector() {
-                            if vcpu.inject_interrupt(vector).unwrap_or(false) {
+                            if vcpu.inject_interrupt(vector)? {
                                 lapic.ack_interrupt(vector);
                             }
                         }

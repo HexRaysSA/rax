@@ -393,3 +393,7 @@ path = "tests/suites/backend/hvf_guest_translation.rs"
 [[test]]
 name = "hvf_mmio"
 path = "tests/suites/backend/hvf_mmio.rs"
+
+[[test]]
+name = "controller_irq"
+path = "tests/suites/backend/controller_irq.rs"
