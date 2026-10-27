@@ -193,6 +193,8 @@ jobs:
           cache-key: test-capi-${{ matrix.name }}
       - name: Regression runner failure propagation
         run: python -m unittest discover -s tools/ci
+      - name: C API semantic regressions
+        run: cargo test --locked -p rax-capi --no-default-features
       - name: Native Windows clock and NLS observations
         if: runner.os == 'Windows'
         run: python tools/ci/windows_installed_probe_v2.py
@@ -213,8 +215,6 @@ jobs:
         run: |
           cargo test --locked --no-default-features --lib user::linux::tests::supplied::
           cargo test --locked --no-default-features --lib user::linux::tests::uring::kbuf::
-      - name: C API semantic regressions
-        run: cargo test --locked -p rax-capi --no-default-features
       - name: Configure native SDK
         run: cmake -S capi -B capi-build -DRAX_CARGO_PROFILE=dev -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/capi-install
       - name: Build native SDK
