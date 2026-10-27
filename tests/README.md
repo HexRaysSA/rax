@@ -123,6 +123,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `aarch64_step_jit` | `suites/backend/aarch64_step_jit.rs` | Exact cold, hot and cached instruction boundaries |
 | `counter_ticks` | `suites/vm/counter_ticks.rs` | Exact platform-frequency scaling with fractional clock phase |
 | `hvf_arm64_state` | `suites/backend/hvf_arm64_state.rs` | Native ARM canonical-SP projection and bank preservation |
+| `riscv_hartid` | `suites/backend/riscv_hartid.rs` | Configured hardware-thread identity and readonly CSR persistence |
 
 ## Reachability rules
 

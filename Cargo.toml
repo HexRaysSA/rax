@@ -534,3 +534,7 @@ path = "tests/suites/vm/counter_ticks.rs"
 [[test]]
 name = "hvf_arm64_state"
 path = "tests/suites/backend/hvf_arm64_state.rs"
+
+[[test]]
+name = "riscv_hartid"
+path = "tests/suites/backend/riscv_hartid.rs"

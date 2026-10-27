@@ -309,7 +309,7 @@ impl RiscVVcpu {
             tohost_addr: tohost_addr.clone(),
             devices_enabled,
         };
-        let cpu = RiscVCpu::new(cfg, Box::new(bridge));
+        let cpu = RiscVCpu::new_with_hart_id(cfg, Box::new(bridge), u64::from(id));
         RiscVVcpu {
             id,
             cpu,
@@ -344,7 +344,7 @@ impl RiscVVcpu {
             translation: translation.clone(),
             last_fault: last_fault.clone(),
         };
-        let mut cpu = RiscVCpu::new(cfg, Box::new(bridge));
+        let mut cpu = RiscVCpu::new_with_hart_id(cfg, Box::new(bridge), u64::from(id));
         cpu.set_privilege(Priv::User);
         RiscVVcpu {
             id,
