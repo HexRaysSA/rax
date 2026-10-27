@@ -110,15 +110,19 @@ pub(crate) fn sample(session: u32) -> Namespace {
 
 #[test]
 fn native_base_named_object_selection_paths_are_canonical_and_bounded() {
-    assert_eq!(selection_paths(None), selection_paths(Some(0)));
-    assert_eq!(selection_paths(Some(0)).len(), 6);
-    for session in [1, 42, u32::MAX] {
+    assert_eq!(selection_paths(None).len(), 6);
+    for session in [0, 1, 42, u32::MAX] {
         let paths = selection_paths(Some(session));
-        assert_eq!(paths.len(), 9);
+        assert_eq!(paths.len(), if session == 0 { 9 } else { 10 });
         assert_eq!(
             paths.last().unwrap(),
-            &units(&format!("\\Sessions\\{session}\\BaseNamedObjects"))
+            &units(&format!("\\Sessions\\{session}\\Windows"))
         );
+        if session != 0 {
+            assert!(paths.contains(&units(&format!("\\Sessions\\{session}\\BaseNamedObjects"))));
+        } else {
+            assert!(!paths.contains(&units("\\Sessions\\0\\BaseNamedObjects")));
+        }
         assert!(paths.iter().all(|p| p.len() < 64));
         for known in &PATHS[1..4] {
             assert!(image_directory(&units(known)));

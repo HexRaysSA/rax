@@ -332,13 +332,32 @@ fn system_root() -> io::Result<Vec<u16>> {
 }
 pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace> {
     let mut sources = Vec::new();
-    let mut selected = Vec::new();
+    let mut selected: Vec<SelectedDirectory> = Vec::new();
     let mut incomplete = Vec::new();
     // Retain the exact captured objects until any alias identity comparison.
-    // The fixed selection bounds this to at most nine directory handles.
+    // The fixed selection bounds this to at most ten directory handles.
     let mut handles = Vec::new();
     let session_parent: Vec<u16> = format!("\\Sessions\\{session}").encode_utf16().collect();
+    let session_windows: Vec<u16> = format!("\\Sessions\\{session}\\Windows")
+        .encode_utf16()
+        .collect();
     for units in selection_paths(Some(session)) {
+        // A captured current-session Windows link is parsed through its pinned
+        // absolute target. Do not manufacture a second Directory node for it.
+        if units == session_windows
+            && selected
+                .iter()
+                .find(|directory| directory.path == session_parent)
+                .and_then(|directory| {
+                    directory
+                        .entries
+                        .iter()
+                        .find(|entry| is(&entry.name, "Windows"))
+                })
+                .is_some_and(|entry| is(&entry.kind, "SymbolicLink"))
+        {
+            continue;
+        }
         let path =
             String::from_utf16(&units).map_err(|_| invalid("selected NT path is not UTF-16"))?;
         let h = match open(&units, null_mut(), 0x0200_0000, false, 0x40)? {
@@ -417,8 +436,9 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
                 && ["Local", "Global", "Session"]
                     .iter()
                     .any(|name| is(&entry.name, name));
-            let session_link =
-                session != 0 && units == session_parent && is(&entry.name, "BaseNamedObjects");
+            let session_link = units == session_parent
+                && (is(&entry.name, "Windows")
+                    || session != 0 && is(&entry.name, "BaseNamedObjects"));
             if is(&entry.kind, "SymbolicLink") && (known_dll || base_link || session_link) {
                 let (target, access) = target(&h, &entry.name)?;
                 entry.target = Some(target);
@@ -439,6 +459,7 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
             entries,
         });
     }
+    let windows_uses_global = directory_alias::verified_windows(&selected, &handles, session)?;
     let aliases = directory_alias::verified(&selected, &handles, session)?;
     for (_, handle) in handles {
         handle.close()?;
@@ -477,8 +498,14 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
             }
         },
     };
-    let (section, csr) = data::capture()?;
+    // Preserve the global section independently. Only the current session's
+    // section can be bound to this host process's initialized CSR client data.
+    let (mut section, mut csr) = data::capture(None, windows_uses_global)?;
     namespace.select_data_section(section.clone())?;
+    if !windows_uses_global {
+        (section, csr) = data::capture(Some(session), true)?;
+        namespace.select_data_section(section.clone())?;
+    }
     if let Some(metadata) = csr {
         let client_data = csr::capture_client_data(&metadata)?;
         namespace.select_csr_server(super::csr::CsrServer::selected_with_client_data(

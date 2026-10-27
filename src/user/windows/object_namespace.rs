@@ -18,14 +18,22 @@ pub(crate) const PATHS: [&str; 6] = [
 /// Object-manager names use NT separators independently of host filesystem paths.
 pub(crate) fn selection_paths(session: Option<u32>) -> Vec<Vec<u16>> {
     let mut result: Vec<Vec<u16>> = PATHS.iter().map(|s| s.encode_utf16().collect()).collect();
-    if let Some(session) = session.filter(|&value| value != 0) {
-        for path in [
-            "\\Sessions".to_owned(),
-            format!("\\Sessions\\{session}"),
-            format!("\\Sessions\\{session}\\BaseNamedObjects"),
-        ] {
+    if let Some(session) = session {
+        for path in ["\\Sessions".to_owned(), format!("\\Sessions\\{session}")] {
             result.push(path.encode_utf16().collect());
         }
+        if session != 0 {
+            result.push(
+                format!("\\Sessions\\{session}\\BaseNamedObjects")
+                    .encode_utf16()
+                    .collect(),
+            );
+        }
+        result.push(
+            format!("\\Sessions\\{session}\\Windows")
+                .encode_utf16()
+                .collect(),
+        );
     }
     result
 }
@@ -746,3 +754,6 @@ pub(crate) mod base_named_object_tests;
 
 #[cfg(test)]
 pub(crate) mod reparse_tests;
+
+#[cfg(test)]
+mod session_windows_tests;
