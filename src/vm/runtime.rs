@@ -1327,8 +1327,8 @@ impl Vmm {
     }
 
     /// Capture every mapped physical region and represented PCI/media state,
-    /// including represented public/base-private state for every vCPU and the
-    /// four legacy device base. All independent writers must be quiescent.
+    /// including represented public/base-private state for every vCPU, explicit
+    /// clock mode/counters/phase/notification and the four legacy device base. All independent writers must be quiescent.
     /// Additional backend-private/platform/scheduler state remains separate.
     pub fn take_snapshot_bundle(
         &self,
@@ -1336,6 +1336,7 @@ impl Vmm {
     ) -> Result<crate::vm::snapshot::SnapshotBundle> {
         let _timing = self.timing_context.enter();
         use crate::vm::snapshot::{PhysicalMemorySnapshot, SnapshotBundle};
+        let clock = self.timing_context.checkpoint_state();
         let cpus = self.capture_cpu_states()?;
         let first = cpus
             .first()
@@ -1356,14 +1357,16 @@ impl Vmm {
             version: 8,
             config: self.checkpoint_config.clone(),
             instruction_count: insn_count,
-            elapsed_nanos: crate::vm::timing::elapsed_nanos(),
+            elapsed_nanos: clock.elapsed_nanos,
             cpu_state,
             emulator_state,
             devices,
             memory_size: self.guest_mem.size(),
             memory_data,
         };
-        let mut bundle = SnapshotBundle::new(base).with_cpus(cpus)?;
+        let mut bundle = SnapshotBundle::new(base)
+            .with_clock(clock)?
+            .with_cpus(cpus)?;
         if let Some(pci) = pci {
             bundle = bundle.with_pci(pci)?;
         }
@@ -1463,11 +1466,11 @@ impl Vmm {
         Ok(())
     }
 
-    /// Restore exactly the represented bundle components: CPU0/private base,
-    /// four legacy models, physical backing (or a legacy reported projection),
-    /// PCI/media when present and the existing timing base. Independent writers
-    /// must be quiescent. Other CPUs/platform state and native setter/resource
-    /// failure transactions remain outside this represented-state contract.
+    /// Restore represented public/base-private CPU contexts, four legacy models,
+    /// physical backing (or reported projection), PCI/media and explicit timing
+    /// state when present. Independent writers must be quiescent. Additional
+    /// backend-private/platform state and native setter/resource transactions
+    /// remain separate.
     pub fn restore_snapshot_bundle(
         &mut self,
         bundle: &crate::vm::snapshot::SnapshotBundle,
@@ -1475,12 +1478,21 @@ impl Vmm {
         let _timing = self.timing_context.enter();
         let snapshot = bundle.base();
         self.validate_snapshot_target(snapshot)?;
+        let timing_context = &self.timing_context;
+        let clock_restore = bundle
+            .clock()
+            .map(|state| timing_context.prepare_checkpoint_state(state))
+            .transpose()?;
         if snapshot.config.vcpus > 1 && bundle.cpus().is_none() {
             return Err(Error::InvalidConfig(
                 "checkpoint is missing additional CPU state".to_string(),
             ));
         }
-        if bundle.pci().is_none() && bundle.physical_memory().is_none() && bundle.cpus().is_none() {
+        if bundle.pci().is_none()
+            && bundle.physical_memory().is_none()
+            && bundle.cpus().is_none()
+            && bundle.clock().is_none()
+        {
             return self.restore_snapshot(snapshot);
         }
         for (source, target) in [
@@ -1577,7 +1589,11 @@ impl Vmm {
             *pit = devices.pit;
             *serial = devices.serial;
             *lapic = devices.lapic;
-            crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
+            if let Some(clock) = clock_restore {
+                clock.commit();
+            } else {
+                timing_context.set_resume_base(snapshot.elapsed_nanos);
+            }
             Ok(())
         };
         match (&self.pci_devices, pci) {

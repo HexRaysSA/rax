@@ -6,7 +6,8 @@
 //! supported through its frozen configuration schema.
 //!
 //! SnapshotBundle additionally frames represented public/base-private state for
-//! every vCPU, typed PCI/media state and every mapped physical region.
+//! every vCPU, explicit timing-helper state, typed PCI/media state and every
+//! mapped physical region.
 //! Vmm::restore_snapshot_bundle coordinates those represented components.
 //! Additional backend-private/platform/scheduler state and full VM quiescence
 //! still require integration. The original base Snapshot fields and
@@ -25,6 +26,7 @@ use crate::devices::pit::Pit;
 use crate::devices::serial::Serial16550;
 use crate::error::{Error, Result};
 mod bundle;
+mod clock;
 mod cpus;
 pub use cpus::{CpuSnapshot, CpuSnapshots};
 mod physical_memory;

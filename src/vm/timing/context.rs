@@ -143,14 +143,23 @@ impl TimingContext {
         }
         Ok(())
     }
+    pub(crate) fn prepare_checkpoint_state(
+        &self,
+        state: &ClockState,
+    ) -> Result<PreparedClockRestore<'_>> {
+        self.validate_checkpoint_state(state)?;
+        Ok(PreparedClockRestore {
+            target: self,
+            state: *state,
+        })
+    }
     pub fn restore_checkpoint_state(&self, state: &ClockState) -> Result<()> {
-        state.validate()?;
+        self.prepare_checkpoint_state(state)?.commit();
+        Ok(())
+    }
+    fn apply_checkpoint_state(&self, state: &ClockState) {
+        // Mode is immutable after construction; the prepared token admitted it.
         let mut clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
-        if clock.mode() != state.mode {
-            return Err(Error::InvalidConfig(
-                "clock checkpoint mode does not match target".into(),
-            ));
-        }
         *clock = match state.mode {
             ClockMode::Wall => ClockSource::Wall {
                 base: state.elapsed_nanos,
@@ -166,7 +175,6 @@ impl TimingContext {
             .store(state.diagnostic_ticks, Ordering::Relaxed);
         self.timer_pending
             .store(state.timer_pending, Ordering::Release);
-        Ok(())
     }
     pub fn tick(&self) -> u64 {
         self.instructions
@@ -226,4 +234,15 @@ pub(super) fn with_current<T>(f: impl FnOnce(&TimingContext) -> T) -> Option<T> 
     // Release the TLS borrow before calling code that can enter another scope.
     let clock = CURRENT.with(|stack| stack.borrow().last().map(|b| b.clock.clone()));
     clock.map(|clock| f(&clock))
+}
+
+/// Validated target/mode binding; publication allocates nothing and cannot fail.
+pub(crate) struct PreparedClockRestore<'a> {
+    target: &'a TimingContext,
+    state: ClockState,
+}
+impl PreparedClockRestore<'_> {
+    pub(crate) fn commit(self) {
+        self.target.apply_checkpoint_state(&self.state);
+    }
 }

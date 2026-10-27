@@ -60,8 +60,10 @@ contention. The oracle is O(E) time/storage for E trace events. No instruction
 latency or host/native performance bound follows from the modeled rate.
 
 High impact: deterministic default selection, per-vCPU retirement accounting,
-complete guest timer/counter routing, scheduler/worker/IRQ coordination, required
-file timing sections, replay and native boundaries remain open. Medium impact:
+complete guest timer/counter routing, scheduler/worker/IRQ coordination, complete
+file timing policy integration, replay and native boundaries remain open. Medium impact:
 integer rebasing loses phase by definition; exact continuation must use full state
 import. Low impact: future clock rates require explicit arithmetic/format identity
 and equivalent phase evidence.
+
+Snapshot bundles now transport complete timing-helper state in a required clock component. Current VMM construction admits wall-mode files; a retired-mode file is explicitly rejected before construction until deterministic coordinator support is selected. See `checkpoint-clock.md`.

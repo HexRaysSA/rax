@@ -116,6 +116,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `retirement_budget` | `suites/backend/retirement_budget.rs` | Bounded retirement, distinct exits, faults and zero-retirement transitions |
 | `vm_timing` | `suites/vm/vm_timing.rs` | VM timing isolation, scoped binding and repeated restore |
 | `retired_clock` | `suites/vm/retired_clock.rs` | Exact retirement clock phase, wrap and state restoration |
+| `checkpoint_clock` | `suites/vm/checkpoint_clock.rs` | Required timing state, phase and restore admission |
 
 ## Reachability rules
 

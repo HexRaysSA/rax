@@ -2,8 +2,8 @@
 
 Console/hotkey/signal and periodic capture now save `SnapshotBundle` files,
 including ordered represented state for every configured vCPU, every mapped
-physical region and represented PCI/controller/media
-state. `--checkpoint file.rxc` resolves recorded configuration with CLI
+physical region, represented PCI/controller/media state and explicit timing
+mode/counters/phase/notification state. `--checkpoint file.rxc` resolves recorded configuration with CLI
 overrides, builds a bare target and imports those represented components. It
 requires neither the original kernel/initrd nor the original storage paths.
 Writable restored media retain guest changes in memory and subsequent checkpoint
@@ -59,3 +59,5 @@ per-VM clocks, replay, Linux boot and native KVM/HVF transactions remain open.
 Medium impact: legacy base files retain their represented-projection semantics;
 restored writable images are detached. Low impact: future required sections must
 extend typed admission and explicit publication.
+
+New bundles carry explicit timing state. Unsupported clock modes are rejected before target construction. Legacy files retain their represented elapsed-time behavior; see `checkpoint-clock.md`.

@@ -81,10 +81,11 @@ fn compressed_limit(size: u64) -> u64 {
 }
 
 pub(super) fn write_to<W: Write>(snapshot: &Snapshot, writer: &mut W) -> Result<()> {
-    write_to_parts(snapshot, None, None, None, writer)
+    write_to_parts(snapshot, None, None, None, None, writer)
 }
 fn write_to_parts<W: Write>(
     snapshot: &Snapshot,
+    clock: Option<&crate::vm::timing::ClockState>,
     cpus: Option<&CpuSnapshots>,
     pci: Option<&PciSnapshot>,
     physical: Option<&PhysicalMemorySnapshot>,
@@ -102,6 +103,12 @@ fn write_to_parts<W: Write>(
             "checkpoint compressed memory exceeds section limit",
         ));
     }
+    let clock_record = clock
+        .map(|state| {
+            super::clock::validate(state, snapshot)?;
+            super::clock::encode(state)
+        })
+        .transpose()?;
     let cpu_records = cpus
         .map(|c| {
             c.validate(snapshot)?;
@@ -133,6 +140,7 @@ fn write_to_parts<W: Write>(
         .map_err(io)?;
     writer.write_all(&TAG.to_le_bytes()).map_err(io)?;
     let count = 6u32
+        + u32::from(clock.is_some())
         + u32::from(cpus.is_some())
         + u32::from(physical.is_some())
         + if let Some(state) = pci {
@@ -149,6 +157,9 @@ fn write_to_parts<W: Write>(
         (5, &devices),
     ] {
         section(writer, kind, bytes)?;
+    }
+    if let Some(raw) = clock_record {
+        section(writer, 12, &raw)?;
     }
     if let Some(raw) = cpu_records {
         section(writer, 11, &raw)?;
@@ -186,6 +197,7 @@ pub(super) fn save_bundle_atomic(bundle: &SnapshotBundle, path: &Path) -> Result
     save_atomic_with(path, |writer| {
         write_to_parts(
             &bundle.base,
+            bundle.clock.as_ref(),
             bundle.cpus.as_ref(),
             bundle.pci.as_ref(),
             bundle.physical_memory.as_ref(),
@@ -333,18 +345,19 @@ fn read_sections<R: Read + Seek>(
     let mut pci: Option<PciSnapshot> = None;
     let mut physical_memory = None;
     let mut cpus = None;
+    let mut clock = None;
     let mut seen = BTreeSet::new();
     for _ in 0..count {
         let kind = word(reader)?;
         let schema = word(reader)?;
         let length = long(reader)?;
-        if kind & OPTIONAL != 0 && (1..=11).contains(&(kind & !OPTIONAL)) {
+        if kind & OPTIONAL != 0 && (1..=12).contains(&(kind & !OPTIONAL)) {
             return Err(invalid("required checkpoint section marked optional"));
         }
         if !seen.insert(kind) {
             return Err(invalid("duplicate checkpoint section"));
         }
-        if !(1..=11).contains(&kind) {
+        if !(1..=12).contains(&kind) {
             if kind & OPTIONAL == 0 {
                 return Err(invalid("unknown required checkpoint section"));
             }
@@ -358,6 +371,33 @@ fn read_sections<R: Read + Seek>(
         }
         if schema != SCHEMA && !(kind == 1 && schema == 2) {
             return Err(invalid("unsupported checkpoint section schema"));
+        }
+        if kind == 12 {
+            if !allow_extensions {
+                return Err(invalid(
+                    "checkpoint contains required clock state; use SnapshotBundle::load",
+                ));
+            }
+            if [6, 7, 8, 9, 10, 11].iter().any(|k| seen.contains(k)) {
+                return Err(invalid(
+                    "clock state must precede CPU sets and PCI/physical/media/RAM payloads",
+                ));
+            }
+            let conf = config
+                .as_ref()
+                .ok_or_else(|| invalid("clock state precedes checkpoint config"))?;
+            let meta = metadata
+                .as_ref()
+                .ok_or_else(|| invalid("clock state precedes checkpoint metadata"))?;
+            memory_metadata(conf, meta.memory_size)?;
+            if length != super::clock::SIZE {
+                return Err(invalid("clock record length must be exactly 44 bytes"));
+            }
+            if length > remaining(reader, file_size)? {
+                return Err(invalid("truncated clock state"));
+            }
+            clock = Some(super::clock::read(reader, length, meta.elapsed_nanos)?);
+            continue;
         }
         if kind == 11 {
             if !allow_extensions {
@@ -514,6 +554,7 @@ fn read_sections<R: Read + Seek>(
     };
     let bundle = SnapshotBundle {
         base,
+        clock,
         cpus,
         pci,
         physical_memory,

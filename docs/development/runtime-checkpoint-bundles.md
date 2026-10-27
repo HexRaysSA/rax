@@ -4,7 +4,7 @@
 the ordered represented public/base-private state of every recorded vCPU,
 PIC/PIT/UART/local APIC, the PCI bridge and typed optional
 controllers/media, and either every captured physical region or the old reported
-RAM projection. A single-vCPU bundle with no extensions uses the original base restore path.
+RAM projection, plus explicit timing state when present. A single-vCPU bundle with no extensions uses the original base restore path.
 Multi-vCPU bundles without the required CPU set are rejected before mutation.
 The source checkpoint remains borrowable for inspection/retry.
 
@@ -40,3 +40,5 @@ High impact: additional backend-private/platform/scheduler state, per-VM clocks,
 quiescence, replay and native transactions remain open. Medium impact: all media must fit admitted byte budgets in detached memory.
 Low impact: future required components must extend explicit preparation and
 publication rather than be silently dropped.
+
+Clock mode/phase/frequency and base-time consistency are admitted before CPU/RAM mutation. A prepared timing object installs the validated fields after the represented data commit. Files without clock state retain the previous elapsed-base behavior. See `checkpoint-clock.md`.

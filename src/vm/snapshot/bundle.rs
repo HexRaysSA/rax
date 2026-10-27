@@ -4,6 +4,7 @@ use crate::error::{Error, Result};
 use crate::vm::runtime::pci_state::PciDeviceCheckpoint;
 use std::path::Path;
 pub struct SnapshotBundle {
+    pub(super) clock: Option<crate::vm::timing::ClockState>,
     pub(super) base: Snapshot,
     pub(super) cpus: Option<CpuSnapshots>,
     pub(super) pci: Option<PciSnapshot>,
@@ -13,6 +14,7 @@ impl std::fmt::Debug for SnapshotBundle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SnapshotBundle")
             .field("base", &self.base.summary())
+            .field("clock", &self.clock)
             .field("pci", &self.pci.is_some())
             .field("cpus", &self.cpus.as_ref().map(|c| c.entries().len()))
             .field("physical_memory", &self.physical_memory.is_some())
@@ -23,6 +25,7 @@ impl SnapshotBundle {
     pub fn new(base: Snapshot) -> Self {
         Self {
             base,
+            clock: None,
             cpus: None,
             pci: None,
             physical_memory: None,
@@ -30,6 +33,18 @@ impl SnapshotBundle {
     }
     pub fn base(&self) -> &Snapshot {
         &self.base
+    }
+    pub fn clock(&self) -> Option<&crate::vm::timing::ClockState> {
+        self.clock.as_ref()
+    }
+    pub fn with_clock(mut self, state: crate::vm::timing::ClockState) -> Result<Self> {
+        self.base.validate_for_restore()?;
+        super::clock::validate(&state, &self.base)?;
+        self.clock = Some(state);
+        Ok(self)
+    }
+    pub fn take_clock(&mut self) -> Option<crate::vm::timing::ClockState> {
+        self.clock.take()
     }
     pub fn cpus(&self) -> Option<&CpuSnapshots> {
         self.cpus.as_ref()
@@ -69,6 +84,11 @@ impl SnapshotBundle {
     /// Compatibility with the immediately preceding unreleased bundle API.
     /// Required physical state cannot be silently discarded by pair extraction.
     pub fn into_parts(self) -> Result<(Snapshot, Option<PciSnapshot>)> {
+        if self.clock.is_some() {
+            return Err(Error::Emulator(
+                "checkpoint contains required clock state".into(),
+            ));
+        }
         if self.cpus.is_some() {
             return Err(Error::Emulator(
                 "checkpoint contains required CPU set".to_string(),
@@ -82,7 +102,11 @@ impl SnapshotBundle {
         Ok((self.base, self.pci))
     }
     pub fn into_base(self) -> Result<Snapshot> {
-        if self.pci.is_some() || self.physical_memory.is_some() || self.cpus.is_some() {
+        if self.pci.is_some()
+            || self.physical_memory.is_some()
+            || self.cpus.is_some()
+            || self.clock.is_some()
+        {
             return Err(Error::Emulator(
                 "checkpoint contains required extensions; use SnapshotBundle::load".to_string(),
             ));
@@ -109,6 +133,9 @@ impl SnapshotBundle {
     }
     pub(super) fn validate(&self) -> Result<()> {
         self.base.validate_for_restore()?;
+        if let Some(clock) = &self.clock {
+            super::clock::validate(clock, &self.base)?;
+        }
         if let Some(cpus) = &self.cpus {
             cpus.validate(&self.base)?;
         }

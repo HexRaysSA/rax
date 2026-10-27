@@ -390,6 +390,15 @@ impl VmConfig {
         bundle: &crate::vm::snapshot::SnapshotBundle,
     ) -> Result<()> {
         bundle.base().validate_for_restore()?;
+        if let Some(clock) = bundle.clock() {
+            clock.validate()?;
+            if clock.mode != crate::vm::timing::ClockMode::Wall {
+                return Err(Error::InvalidConfig(
+                    "retired clock checkpoint requires deterministic coordinator support".into(),
+                ));
+            }
+        }
+
         self.validate_inner(false, bundle.pci().is_some_and(|p| p.has_endpoints()))?;
         let base = bundle.base();
         if self.arch != base.config.arch {
