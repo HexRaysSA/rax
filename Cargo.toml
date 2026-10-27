@@ -498,3 +498,7 @@ path="tests/suites/vm/checkpoint_cpus.rs"
 [[test]]
 name = "retirement_budget"
 path = "tests/suites/backend/retirement_budget.rs"
+
+[[test]]
+name = "vm_timing"
+path = "tests/suites/vm/vm_timing.rs"

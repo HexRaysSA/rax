@@ -259,6 +259,7 @@ pub mod pci_state;
 use pci_state::PciDevices;
 
 pub struct Vmm {
+    timing_context: Arc<crate::vm::timing::TimingContext>,
     /// Typed ownership of the x86 bridge and every optional endpoint.
     pci_devices: Option<PciDevices>,
     vm: Box<dyn Vm>,
@@ -362,6 +363,8 @@ impl Vmm {
     }
 
     fn build(config: VmConfig, resume: bool, detached_media: bool) -> Result<Self> {
+        let timing_context = Arc::new(crate::vm::timing::TimingContext::new());
+        let _timing = timing_context.enter();
         info!(
             vcpus = config.vcpus,
             mem_bytes = config.memory.bytes(),
@@ -647,6 +650,7 @@ impl Vmm {
             .unwrap_or_else(|| std::path::PathBuf::from(DEFAULT_CHECKPOINT_FILE));
 
         Ok(Vmm {
+            timing_context,
             pci_devices,
             vm,
             backend_kind: config.backend,
@@ -696,7 +700,14 @@ impl Vmm {
         })
     }
 
+    /// Bind this VM's timing domain in explicitly managed worker threads.
+    /// Worker contexts are not inherited implicitly across thread creation.
+    pub fn timing_context(&self) -> &Arc<crate::vm::timing::TimingContext> {
+        &self.timing_context
+    }
+
     pub fn run(&mut self) -> Result<()> {
+        let _timing = self.timing_context.enter();
         info!("starting vCPU 0");
 
         // Wait for GDB connection if --wait-gdb was specified
@@ -1270,6 +1281,7 @@ impl Vmm {
 
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
+        let _timing = self.timing_context.enter();
         if self.checkpoint_config.storage.has_images() {
             return Err(Error::InvalidConfig(
                 "image-backed checkpoint capture requires complete device/media state".to_string(),
@@ -1300,6 +1312,7 @@ impl Vmm {
     /// Callers must quiesce independent writers. Additional backend-private and
     /// scheduler state remains outside this represented-state interface.
     pub fn capture_cpu_states(&self) -> Result<Vec<crate::vm::snapshot::CpuSnapshot>> {
+        let _timing = self.timing_context.enter();
         use crate::vm::snapshot::CpuSnapshot;
         let mut cpus = Vec::new();
         cpus.try_reserve_exact(self.vcpus.len())
@@ -1321,6 +1334,7 @@ impl Vmm {
         &self,
         insn_count: u64,
     ) -> Result<crate::vm::snapshot::SnapshotBundle> {
+        let _timing = self.timing_context.enter();
         use crate::vm::snapshot::{PhysicalMemorySnapshot, SnapshotBundle};
         let cpus = self.capture_cpu_states()?;
         let first = cpus
@@ -1458,6 +1472,7 @@ impl Vmm {
         &mut self,
         bundle: &crate::vm::snapshot::SnapshotBundle,
     ) -> Result<()> {
+        let _timing = self.timing_context.enter();
         let snapshot = bundle.base();
         self.validate_snapshot_target(snapshot)?;
         if snapshot.config.vcpus > 1 && bundle.cpus().is_none() {
@@ -1575,6 +1590,7 @@ impl Vmm {
     /// Restore represented base state after validating input and target admission.
     /// Full SMP/private/platform/PCI closure remains separate.
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
+        let _timing = self.timing_context.enter();
         if self.checkpoint_config.storage.has_images() || snapshot.config.storage.has_images() {
             return Err(Error::InvalidConfig(
                 "image-backed checkpoint restore requires complete device/media state".to_string(),

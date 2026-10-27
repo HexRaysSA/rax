@@ -1,8 +1,13 @@
-//! Wall-clock based timing for the emulator.
+//! Wall-clock timing routed through the active VM context when bound.
 //!
 //! Timing is based on actual wall-clock time, not instruction count.
 //! This allows TSC-based delays to complete in real time rather than
-//! being tied to emulator execution speed.
+//! being tied to emulator execution speed. Standalone callers without a bound
+//! context retain the original process fallback. Deterministic retirement time
+//! and per-engine context integration remain separate work.
+
+mod context;
+pub use context::{TimingContext, TimingGuard};
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
@@ -33,6 +38,9 @@ pub const PIT_FREQUENCY_HZ: u64 = 1193182;
 
 /// Initialize timing (call once at startup)
 pub fn init() {
+    if context::with_current(|_| ()).is_some() {
+        return;
+    }
     START_TIME.get_or_init(Instant::now);
 }
 
@@ -40,6 +48,9 @@ pub fn init() {
 /// so a restored machine's clock is continuous with the checkpoint).
 #[inline(always)]
 pub fn elapsed_nanos() -> u64 {
+    if let Some(value) = context::with_current(TimingContext::elapsed_nanos) {
+        return value;
+    }
     let start = START_TIME.get_or_init(Instant::now);
     RESUME_BASE_NANOS
         .load(Ordering::Relaxed)
@@ -52,6 +63,9 @@ pub fn elapsed_nanos() -> u64 {
 /// checkpoint. This keeps the real-time TSC and restored device timestamps
 /// monotonic across save/restore.
 pub fn set_resume_base(base_nanos: u64) {
+    if context::with_current(|clock| clock.set_resume_base(base_nanos)).is_some() {
+        return;
+    }
     // START_TIME is (re-)anchored to "now" if it has not been pinned yet; in the
     // resume path it is first touched here, so `start.elapsed()` begins near 0
     // and `base + elapsed` ~= base at the resume point.
@@ -72,27 +86,42 @@ pub fn tsc() -> u64 {
 /// Increment the instruction counter (for profiling/debugging)
 #[inline(always)]
 pub fn tick() -> u64 {
+    if let Some(value) = context::with_current(TimingContext::tick) {
+        return value;
+    }
     INSTRUCTION_COUNT.fetch_add(1, Ordering::Relaxed) + 1
 }
 
 /// Get current instruction count
 #[inline(always)]
 pub fn instruction_count() -> u64 {
+    if let Some(value) = context::with_current(TimingContext::instruction_count) {
+        return value;
+    }
     INSTRUCTION_COUNT.load(Ordering::Relaxed)
 }
 
 /// Signal that a timer interrupt is pending
 pub fn set_timer_pending() {
+    if context::with_current(TimingContext::set_timer_pending).is_some() {
+        return;
+    }
     TIMER_PENDING.store(true, Ordering::Release);
 }
 
 /// Check and clear timer pending flag
 pub fn take_timer_pending() -> bool {
+    if let Some(value) = context::with_current(TimingContext::take_timer_pending) {
+        return value;
+    }
     TIMER_PENDING.swap(false, Ordering::AcqRel)
 }
 
 /// Check if timer is pending (without clearing)
 pub fn is_timer_pending() -> bool {
+    if let Some(value) = context::with_current(TimingContext::is_timer_pending) {
+        return value;
+    }
     TIMER_PENDING.load(Ordering::Acquire)
 }
 
@@ -106,6 +135,9 @@ pub fn nanos_to_pit_ticks(nanos: u64) -> u64 {
 
 /// Reset timing (for VM reset)
 pub fn reset() {
+    if context::with_current(TimingContext::reset).is_some() {
+        return;
+    }
     INSTRUCTION_COUNT.store(0, Ordering::Relaxed);
     TIMER_PENDING.store(false, Ordering::Release);
     // Note: START_TIME cannot be reset (OnceLock)
