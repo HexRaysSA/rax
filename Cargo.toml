@@ -538,3 +538,7 @@ path = "tests/suites/backend/hvf_arm64_state.rs"
 [[test]]
 name = "riscv_hartid"
 path = "tests/suites/backend/riscv_hartid.rs"
+
+[[test]]
+name = "x86_fault_retirement"
+path = "tests/suites/backend/x86_fault_retirement.rs"

@@ -66,7 +66,20 @@ impl VCpu for X86_64Vcpu {
     }
 
     fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
-        self.step_with_faults()
+        #[cfg(feature = "debug")]
+        if !self.single_step && !self.halted {
+            if let Some(addr) = self.debug_breakpoint_at_current_rip() {
+                return Ok(Some(VcpuExit::GdbBreakpoint { addr }));
+            }
+        }
+        #[cfg(feature = "debug")]
+        let before = self.insn_count;
+        let exit = self.step_with_faults()?;
+        #[cfg(feature = "debug")]
+        if self.single_step && exit.is_none() && self.insn_count != before {
+            return Ok(Some(VcpuExit::GdbStep));
+        }
+        Ok(exit)
     }
 
     fn supports_stepping(&self) -> bool {
@@ -86,6 +99,10 @@ impl VCpu for X86_64Vcpu {
     fn reset(&mut self) -> Result<()> {
         self.reset_state();
         Ok(())
+    }
+
+    fn deliver_init(&mut self) -> Result<()> {
+        self.deliver_init_signal()
     }
 
     fn current_pc(&self) -> u64 {
@@ -278,3 +295,6 @@ impl VCpu for X86_64Vcpu {
 #[cfg(test)]
 #[path = "cpu_vcpu_tests.rs"]
 mod tests;
+
+#[path = "cpu_startup.rs"]
+mod startup;

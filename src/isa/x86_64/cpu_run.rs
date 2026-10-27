@@ -96,6 +96,8 @@ impl X86_64Vcpu {
                 rip
             };
 
+            #[cfg(feature = "debug")]
+            let before = self.insn_count;
             match self.step() {
                 Ok(Some(exit)) => {
                     publish_instruction_count(self.insn_count);
@@ -124,7 +126,7 @@ impl X86_64Vcpu {
                     }
                     // Check for single-step mode (GDB debugging)
                     #[cfg(feature = "debug")]
-                    if self.single_step {
+                    if self.single_step && self.insn_count != before {
                         publish_instruction_count(self.insn_count);
                         return Ok(VcpuExit::GdbStep);
                     }

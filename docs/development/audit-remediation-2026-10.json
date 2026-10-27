@@ -2441,7 +2441,10 @@
         "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-checkpoint-clock-independent.log",
         "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-native-ci-selection.log",
         "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-intel-ci-selection.log",
-        "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-capi.log",
+        "docs/development/execution-coordinator.md",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/broad-result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/ci-actions-pinned-result.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2452,7 +2455,8 @@
         "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution."
       ],
       "remediation_components": [
-        "per-vcpu-lapic-ownership-mmio-transactions"
+        "per-vcpu-lapic-ownership-mmio-transactions",
+        "software-vmm-coordinator-startup-fault-retirement"
       ]
     },
     {
@@ -2909,18 +2913,21 @@
         "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-checkpoint-clock-independent.log",
         "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-native-ci-selection.log",
         "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-intel-ci-selection.log",
-        "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-clock/final-capi.log",
+        "docs/development/execution-coordinator.md",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/broad-result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/ci-actions-pinned-result.json"
       ],
       "remaining_validation": [
-        "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
-        "Current VMM constructors select wall mode and reject retired-mode files before construction until coordinator support is selected.",
-        "Independent writers must be quiescent;native/resource post-admission rollback and replay remain open.",
-        "Legacy files without Clock12 retain elapsed-base projection and existing unrepresented tick/flag behavior.",
-        "Actual accepted128MiB full capture/save/load/typed construction proves fields,not guest/native/SMP execution.",
-        "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution."
+        "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
+        "Native entry remains unbounded;physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
+        "ARM PSCI and RISC-V SBI startup,per-CPU controller ownership and architectural topology remain required.",
+        "Complete backend/private/in-flight/platform state,writer quiescence and transactional late-failure restoration remain required.",
+        "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required."
       ],
       "remediation_components": [
-        "per-vcpu-lapic-ownership-mmio-transactions"
+        "per-vcpu-lapic-ownership-mmio-transactions",
+        "software-vmm-coordinator-startup-fault-retirement"
       ]
     },
     {
@@ -3496,7 +3503,10 @@
         "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-shadow-oracle/manifest.json",
         "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-pio-oracle/manifest.json",
         "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-mmio-oracle/manifest.json",
-        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-parity/manifest.json"
+        "/Users/int/dev/rax-audit-work/rax-hvf-controls/final-sdk-parity/manifest.json",
+        "docs/development/execution-coordinator.md",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/broad-result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/ci-actions-pinned-result.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -3507,7 +3517,8 @@
         "Native Intel VMX/device/guest execution and host/device failure recovery"
       ],
       "remediation_components": [
-        "per-vcpu-lapic-ownership-mmio-transactions"
+        "per-vcpu-lapic-ownership-mmio-transactions",
+        "software-vmm-coordinator-startup-fault-retirement"
       ]
     },
     {
@@ -7836,12 +7847,10 @@
         "/Users/int/dev/rax-audit-work/rax-retirement-budget/final-capi.log"
       ],
       "remaining_validation": [
-        "NewadditivebudgetAPIonly;oldVmmrunstillCPU0andoldrunmethodsunchanged.",
-        "Default1000constant is available butnot yetselected byVMMcoordinator.",
-        "Nativeunsupportedstepping rejectspositivebudgetbeforeentry;no actualKVM/HVFretirementproof.",
-        "Actualflatfixtureexecution covers12profiles;arbitraryprogramsemantics andfailingbackendpartial-effectsrollback notproven.",
-        "Backendchargedmeters remainunchanged;successfulstepdeltas andpriorprogressinFault defineboundedresult.",
-        "ThreadsafeIRQ,SMP,startup,perVMtiming,checkpoint/replayintegrationremainopen."
+        "The x86 software coordinator selects bounded stepping turns;bounded SMIR JIT and native backend entries remain required.",
+        "ARM/RISC-V startup and per-CPU IRQ/controller ownership remain required.",
+        "Full private/in-flight state,coordinated capture/restore,deterministic retirement time and replay remain required.",
+        "No physical Intel KVM/HVF retirement or hardware scheduling proof is established."
       ]
     },
     {
@@ -184875,6 +184884,741 @@
           "status": "passed-within-component-scope",
           "evidence": "Legacy100testassertionspreserved,publicstate/CABImanifestsunchanged,and module/format/buildconsistency"
         }
+      }
+    },
+    {
+      "id": "software-vmm-coordinator-startup-fault-retirement",
+      "status": "locally_validated",
+      "baseline": "b4e34efdd57c7f5fe83d1b6fa4c47940019ee745",
+      "scope": "Actual software x86 Vmm::run rotates online CPUs in1000-retirement turns;INIT/SIPI/IPI and IRQ ownership;required execution checkpoint section13;precise debugger/I/O/frontier and fault-versus-trap retirement.",
+      "owned_paths": [
+        "src/vm/runtime.rs",
+        "src/vm/runtime/execution.rs",
+        "src/vm/runtime/coordinator.rs",
+        "src/vm/runtime/execution_tests.rs",
+        "src/vm/vcpu/mod.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "src/isa/x86_64/cpu_startup.rs",
+        "src/devices/lapic.rs",
+        "src/devices/lapic/checkpoint.rs",
+        "src/vm/snapshot.rs",
+        "src/vm/snapshot/bundle.rs",
+        "src/vm/snapshot/codec.rs",
+        "src/vm/snapshot/execution.rs",
+        "docs/development/execution-coordinator.md",
+        "src/isa/x86_64/cpu.rs",
+        "src/isa/x86_64/cpu_run.rs",
+        "src/isa/x86_64/cpu_step.rs",
+        "src/isa/x86_64/exception.rs",
+        "src/isa/x86_64/execute/control/int.rs",
+        "src/isa/x86_64/cpu_fault_retirement_tests.rs",
+        "tests/suites/backend/x86_fault_retirement.rs",
+        "Cargo.toml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "tests/README.md",
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "assumptions": [
+        {
+          "id": "S1",
+          "claim": "Guest regressions exercise Vmm::run rather than manually running CPU objects.",
+          "probe": "Parent1/2/4observedprogress and test call graph.",
+          "status": "verified"
+        },
+        {
+          "id": "S2",
+          "claim": "The startup witness is independent of the RAX implementation.",
+          "probe": "Pinned LLVM encoding and actual QEMU trace/output files;raw AP payload byte comparison.",
+          "status": "verified"
+        },
+        {
+          "id": "S3",
+          "claim": "Native Intel hardware may be available.",
+          "probe": "User SSH alias question remains pending;current hostarm64.",
+          "status": "unknown;blocks fullC-HVF completion only"
+        },
+        {
+          "id": "S4",
+          "claim": "All independent guest/device writers are quiescent during full capture/restore.",
+          "probe": "Complete backend/device writer inventory and reentrant/late-failure tests still required.",
+          "status": "not yet established;fullC-STATE remains open"
+        }
+      ],
+      "primary_sources": [
+        {
+          "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+          "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+          "contract": "SDM086 Vol3A chapters10-12;INIT-preserved state and local-APIC startup/delivery."
+        },
+        {
+          "path": "/Users/int/dev/rax-audit-work/four-findings-coordinator/reference-startup-protected/manifest.json",
+          "contract": "LLVM23 and actual QEMU11.1.2 protected-mode AP startup witnesses for1/2/4CPUs."
+        },
+        {
+          "path": "/Users/int/dev/rax-audit-work/four-findings-coordinator/reference-interrupt-wake/manifest.json",
+          "contract": "Actual QEMU11.1.2 halted-AP interrupt/wake witnesses for1/2/4CPUs."
+        }
+      ],
+      "validation": {
+        "broader": [
+          {
+            "name": "diff-check",
+            "args": [
+              "git",
+              "diff",
+              "--check",
+              "--",
+              "src/vm/runtime.rs",
+              "src/vm/runtime/execution.rs",
+              "src/vm/runtime/coordinator.rs",
+              "src/vm/runtime/execution_tests.rs",
+              "src/vm/vcpu/mod.rs",
+              "src/isa/x86_64/cpu_vcpu.rs",
+              "src/isa/x86_64/cpu_startup.rs",
+              "src/devices/lapic.rs",
+              "src/devices/lapic/checkpoint.rs",
+              "src/vm/snapshot.rs",
+              "src/vm/snapshot/bundle.rs",
+              "src/vm/snapshot/codec.rs",
+              "src/vm/snapshot/execution.rs",
+              "docs/development/execution-coordinator.md",
+              "src/isa/x86_64/cpu.rs",
+              "src/isa/x86_64/cpu_run.rs",
+              "src/isa/x86_64/cpu_step.rs",
+              "src/isa/x86_64/exception.rs",
+              "src/isa/x86_64/execute/control/int.rs",
+              "src/isa/x86_64/cpu_fault_retirement_tests.rs",
+              "tests/suites/backend/x86_fault_retirement.rs",
+              "Cargo.toml",
+              ".github/workflows/ci.yml",
+              ".github/workflows/full-suite.yml",
+              "tests/README.md"
+            ],
+            "code": 0,
+            "seconds": 0.02700933298910968
+          },
+          {
+            "name": "fault-retirement-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--test",
+              "x86_fault_retirement",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 70.33874591700442
+          },
+          {
+            "name": "library-inventory",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--lib",
+              "--",
+              "--list"
+            ],
+            "code": 0,
+            "seconds": 146.79362412499904
+          },
+          {
+            "name": "library-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 448.6380785420042
+          },
+          {
+            "name": "x86-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--test",
+              "x86_64",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 40.368536459005554
+          },
+          {
+            "name": "ci-backend-storage",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--test",
+              "nvme_commands",
+              "--test",
+              "virtio_indirect",
+              "--test",
+              "virtio_ranges",
+              "--test",
+              "checkpoint_config",
+              "--test",
+              "ahci_dma",
+              "--test",
+              "storage_images",
+              "--test",
+              "storage_config",
+              "--test",
+              "controller_checkpoint",
+              "--test",
+              "pci_checkpoint",
+              "--test",
+              "pci_endpoint_checkpoint",
+              "--test",
+              "runtime_pci_checkpoint",
+              "--test",
+              "checkpoint_pci",
+              "--test",
+              "restore_admission",
+              "--test",
+              "checkpoint_physical_memory",
+              "--test",
+              "runtime_checkpoint_bundle",
+              "--test",
+              "checkpoint_resume",
+              "--test",
+              "checkpoint_cpus",
+              "--test",
+              "retirement_budget",
+              "--test",
+              "vm_timing",
+              "--test",
+              "retired_clock",
+              "--test",
+              "checkpoint_clock",
+              "--test",
+              "cortexm_dispatch",
+              "--test",
+              "retirement_clock",
+              "--test",
+              "x86_retired_tsc",
+              "--test",
+              "aarch64_step_jit",
+              "--test",
+              "counter_ticks",
+              "--test",
+              "hvf_arm64_state",
+              "--test",
+              "riscv_hartid",
+              "--test",
+              "x86_fault_retirement",
+              "--bin",
+              "rax",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 431.3534297499864
+          },
+          {
+            "name": "build-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 88.50443512499623
+          },
+          {
+            "name": "clippy-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 169.24815170900547
+          },
+          {
+            "name": "doctests",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 5.167339207997429
+          },
+          {
+            "name": "capi-tests",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 85.67769733398745
+          },
+          {
+            "name": "capi-consumers",
+            "args": [
+              "make",
+              "-C",
+              "capi",
+              "test",
+              "PROFILE=debug",
+              "TARGET_DIR=/Users/int/dev/rax-audit-work/four-findings-coordinator-target",
+              "CARGO=cargo +stable --offline"
+            ],
+            "code": 0,
+            "seconds": 4.334487750005792
+          },
+          {
+            "name": "intel-library-inventory",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--list"
+            ],
+            "code": 0,
+            "seconds": 203.35865541599924
+          },
+          {
+            "name": "intel-library-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 3757.7445456669957
+          },
+          {
+            "name": "intel-ci-backend-storage",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf,debug",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--test",
+              "nvme_commands",
+              "--test",
+              "virtio_indirect",
+              "--test",
+              "virtio_ranges",
+              "--test",
+              "checkpoint_config",
+              "--test",
+              "ahci_dma",
+              "--test",
+              "storage_images",
+              "--test",
+              "storage_config",
+              "--test",
+              "controller_checkpoint",
+              "--test",
+              "pci_checkpoint",
+              "--test",
+              "pci_endpoint_checkpoint",
+              "--test",
+              "runtime_pci_checkpoint",
+              "--test",
+              "checkpoint_pci",
+              "--test",
+              "restore_admission",
+              "--test",
+              "checkpoint_physical_memory",
+              "--test",
+              "runtime_checkpoint_bundle",
+              "--test",
+              "checkpoint_resume",
+              "--test",
+              "checkpoint_cpus",
+              "--test",
+              "retirement_budget",
+              "--test",
+              "vm_timing",
+              "--test",
+              "retired_clock",
+              "--test",
+              "checkpoint_clock",
+              "--test",
+              "cortexm_dispatch",
+              "--test",
+              "retirement_clock",
+              "--test",
+              "x86_retired_tsc",
+              "--test",
+              "aarch64_step_jit",
+              "--test",
+              "counter_ticks",
+              "--test",
+              "hvf_arm64_state",
+              "--test",
+              "riscv_hartid",
+              "--test",
+              "x86_fault_retirement",
+              "--bin",
+              "rax",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 679.1230023340031
+          },
+          {
+            "name": "build-without-debug",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 360.73858758401184
+          },
+          {
+            "name": "format-check",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 12.70983766700374
+          }
+        ],
+        "additional_ci_pins": {
+          "code": 0,
+          "args": [
+            "cargo",
+            "+stable",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,hvf,debug",
+            "--test",
+            "ci_actions_pinned",
+            "--",
+            "--test-threads=1"
+          ],
+          "passed": 12
+        },
+        "focused": {
+          "code": 0,
+          "checks": [
+            {
+              "code": 0,
+              "selection": "vm::runtime::execution_tests::",
+              "expected": 20,
+              "success": true,
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf,debug",
+                "--lib",
+                "vm::runtime::execution_tests::",
+                "--",
+                "--test-threads=1",
+                "--nocapture"
+              ]
+            },
+            {
+              "code": 0,
+              "selection": "init_resets_control_flow_and_preserves_vector_fp_msr_and_retirement_state",
+              "expected": 1,
+              "success": true,
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf,debug",
+                "--lib",
+                "init_resets_control_flow_and_preserves_vector_fp_msr_and_retirement_state",
+                "--",
+                "--test-threads=1",
+                "--nocapture"
+              ]
+            },
+            {
+              "code": 0,
+              "selection": "devices::lapic::checkpoint::tests::",
+              "expected": 6,
+              "success": true,
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf,debug",
+                "--lib",
+                "devices::lapic::checkpoint::tests::",
+                "--",
+                "--test-threads=1",
+                "--nocapture"
+              ]
+            },
+            {
+              "code": 0,
+              "selection": "vm::snapshot::execution::tests::",
+              "expected": 3,
+              "success": true,
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf,debug",
+                "--lib",
+                "vm::snapshot::execution::tests::",
+                "--",
+                "--test-threads=1",
+                "--nocapture"
+              ]
+            }
+          ],
+          "passed": 30,
+          "binary_sha256": "79f81389e3933da86b7246fb5d9dc8074eee38d13473f3736ca486a00dd55c75"
+        },
+        "frozen_source_hashes": {
+          "src/vm/runtime.rs": "ad5cce2621365d428d23cda0aad2c3c9bda59362dc8542909b9d05f8b7e4b71a",
+          "src/vm/runtime/execution.rs": "4b8960b7902c2d9dfc474f350620701531bf76a49327162b3015fe9f5057cef1",
+          "src/vm/runtime/coordinator.rs": "360a4889222d6a1f4ca7368bbace1d7e19fc333524dd018929b58bce479c0ecc",
+          "src/vm/runtime/execution_tests.rs": "96ffafdefedb130b107cd7bbd6a3900d5ecb89409547b5e6663108860c116cab",
+          "src/vm/vcpu/mod.rs": "de29be1d69bdfebc66be79e9df93ef8181fce2920f7de6e8ad5a990044a38ec9",
+          "src/isa/x86_64/cpu_vcpu.rs": "b00133befa97fc8a309d001cab42bc38b9662958482836806a2242b13c84d531",
+          "src/isa/x86_64/cpu_startup.rs": "17e0bb5294a525937769786869d218f0c0fbbaece76047ae1199573de2dcac92",
+          "src/devices/lapic.rs": "d2a4cdec4a931b8d5630db4e41b97842ccd926206e3466ca593fe5f9a32c84e1",
+          "src/devices/lapic/checkpoint.rs": "078ea8c918d31c2933e5f2fef33326dece3320fac752afaba97477c05ac9d88a",
+          "src/vm/snapshot.rs": "f4a1524dba44b62915a98ab78c9ce2cd0ac8c8aa31f068d8e209864d07c1f67d",
+          "src/vm/snapshot/bundle.rs": "ce4ffae9d8b0a47702895511f7eedb9c8015965812b7482ca4fbd99395efc920",
+          "src/vm/snapshot/codec.rs": "de70a7b3706964fc843c6c4af6e9717aa10b1f0a963eb3e3f5bd2907f2d9b878",
+          "src/vm/snapshot/execution.rs": "7a80b4bf72f01afc39e02c77dea5039b15d2ba63b0efa6a93b61aed88f7c459c",
+          "docs/development/execution-coordinator.md": "54adde7502e7fc8d1ff615bbf89410c3691498a431a3aa4b225b28ed552e4460",
+          "src/isa/x86_64/cpu.rs": "f44e9519ffd695c7e312d989998ecd0c416d3d9a03aabc479c59cc442b9ec751",
+          "src/isa/x86_64/cpu_run.rs": "a11745e1686113fc58e6fbc41ac824679ec4454817adbc964281d5479a2467ed",
+          "src/isa/x86_64/cpu_step.rs": "782eb489dda666541b904d25a2304397c183f2b2401a22b854a328214de145d9",
+          "src/isa/x86_64/exception.rs": "b07728d2435a5e735fc10989b4bf3f961ef49bec6b5faef9a8b2cb394306f136",
+          "src/isa/x86_64/execute/control/int.rs": "0c9efd2e8877506dc7fd9243fda3f0749b84eb41509c45bbddbb365631e07d65",
+          "src/isa/x86_64/cpu_fault_retirement_tests.rs": "0f3dfe63377fbd005f832adf467ecd3315206835f973de59b7e01da1a237fcb3",
+          "tests/suites/backend/x86_fault_retirement.rs": "06f386c8b49bdaf9afb91b037b85cb4f0d189516fe2d46db443ce62991c0632c",
+          "Cargo.toml": "4af47e3c975fc4670e7ebd289f88419c708eab1eedd22a7cd482d4daad9d7ab7",
+          ".github/workflows/ci.yml": "7b8fbc63d7da4571e16a98cfa1368bccef22f3d1d438e1aada55561ae3d40979",
+          ".github/workflows/full-suite.yml": "4819c22ee320758c91669df3317a5f23269e618f6080297163dbda1c220550fb",
+          "tests/README.md": "e33e73d40da9bb2e8bc7da7994a6242dd3d374c98f4a9bc3bd30d912bdaa3dfa"
+        },
+        "evidence_root": "/Users/int/dev/rax-audit-work/four-findings-coordinator",
+        "native_library": "10697passed;2ignored;0failed;0filtered",
+        "x86_isa": "28559passed;3ignored;0failed;0filtered",
+        "rosetta_library": "11681passed;2ignored;0failed;0filtered",
+        "host_scope": "Apple-Silicon software and Rosetta software;no physical Intel HVF claim"
+      },
+      "scope_limits": [
+        "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
+        "Native entry remains unbounded;physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
+        "ARM PSCI and RISC-V SBI startup,per-CPU controller ownership and architectural topology remain required.",
+        "Complete backend/private/in-flight/platform state,writer quiescence and transactional late-failure restoration remain required.",
+        "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required.",
+        "This component does not close A32-FP,C-STATE,C-SMP or C-HVF."
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
+          "blocks_full_goal": true
+        },
+        {
+          "impact": "high",
+          "finding": "Native entry remains unbounded;physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
+          "blocks_full_goal": true
+        },
+        {
+          "impact": "high",
+          "finding": "ARM PSCI and RISC-V SBI startup,per-CPU controller ownership and architectural topology remain required.",
+          "blocks_full_goal": true
+        },
+        {
+          "impact": "high",
+          "finding": "Complete backend/private/in-flight/platform state,writer quiescence and transactional late-failure restoration remain required.",
+          "blocks_full_goal": true
+        },
+        {
+          "impact": "high",
+          "finding": "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required.",
+          "blocks_full_goal": true
+        }
+      ],
+      "quality_gates": {
+        "component": "passed:source freeze,nonempty tests,reference artifacts,fmt,builds,clippy,docs,CAPI/consumers,CIpins and ownership verified",
+        "full_goal": "not achieved;all four parent findings remain partially_validated"
       }
     }
   ],

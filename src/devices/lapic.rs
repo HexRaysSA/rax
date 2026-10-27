@@ -165,10 +165,18 @@ pub struct LocalApic {
     /// part of the persisted device state; re-armed lazily after restore.
     #[serde(skip)]
     timer_start: Option<Instant>,
+    #[serde(skip)]
+    timer_elapsed_base_nanos: u128,
     /// Pending timer interrupt
     timer_pending: bool,
     /// Pending IPI request (for VMM to process)
     pending_ipi: Option<IpiRequest>,
+    /// Coordinator-owned outgoing messages. Base legacy codecs remain stable;
+    /// the execution checkpoint section carries this complete FIFO explicitly.
+    #[serde(skip)]
+    pending_ipis: std::collections::VecDeque<IpiRequest>,
+    #[serde(skip)]
+    coordinated_ipis: bool,
     /// Pending NMI to deliver
     nmi_pending: bool,
 }
@@ -206,8 +214,11 @@ impl LocalApic {
             timer_current_count: 0,
             timer_divide_config: 0,
             timer_start: None,
+            timer_elapsed_base_nanos: 0,
             timer_pending: false,
             pending_ipi: None,
+            pending_ipis: Default::default(),
+            coordinated_ipis: false,
             nmi_pending: false,
         }
     }
@@ -251,8 +262,22 @@ impl LocalApic {
         (self.lvt_timer & 0xFF) as u8
     }
 
+    // floor(elapsed_ns * frequency_hz / 1e9) without a potentially
+    // overflowing product. The modeled frequency is at most1GHz, so both
+    // the whole-second product and its fractional addition fit in u128.
+    fn elapsed_timer_ticks(elapsed_nanos: u128, divisor: u64) -> u128 {
+        const NANOS_PER_SECOND: u128 = 1_000_000_000;
+        let frequency = u128::from(LAPIC_TIMER_FREQ_HZ / divisor);
+        (elapsed_nanos / NANOS_PER_SECOND) * frequency
+            + (elapsed_nanos % NANOS_PER_SECOND) * frequency / NANOS_PER_SECOND
+    }
+
     /// Tick the timer and return pending interrupt vector if any
     pub fn tick(&mut self) -> Option<u8> {
+        self.tick_at(Instant::now())
+    }
+
+    fn tick_at(&mut self, now: Instant) -> Option<u8> {
         if !self.is_enabled() || self.timer_initial_count == 0 || self.timer_masked() {
             return None;
         }
@@ -261,14 +286,15 @@ impl LocalApic {
             return None;
         };
 
-        let elapsed = start.elapsed();
+        let elapsed_nanos = self
+            .timer_elapsed_base_nanos
+            .saturating_add(now.saturating_duration_since(start).as_nanos());
         let divisor = self.timer_divisor() as u64;
-        let ticks_per_sec = LAPIC_TIMER_FREQ_HZ / divisor;
 
         // Calculate how many timer ticks have elapsed
-        let elapsed_ticks = (elapsed.as_nanos() as u64 * ticks_per_sec) / 1_000_000_000;
+        let elapsed_ticks = Self::elapsed_timer_ticks(elapsed_nanos, divisor);
 
-        let initial = self.timer_initial_count as u64;
+        let initial = u128::from(self.timer_initial_count);
         let mode = self.timer_mode();
 
         match mode {
@@ -291,12 +317,17 @@ impl LocalApic {
                 let remainder = elapsed_ticks % initial;
                 self.timer_current_count = (initial - remainder) as u32;
 
-                // Generate interrupt for each period that passed
-                if periods > 0 && !self.timer_pending {
-                    self.timer_pending = true;
-                    // Reset start time for next period
-                    self.timer_start = Some(Instant::now());
-                    return Some(self.timer_vector());
+                // Advance the phase even when a previous expiry remains
+                // pending. Coalesced periods must not be delivered again after
+                // that pending latch is accepted or transferred to IRR.
+                if periods > 0 {
+                    let period_nanos = initial * u128::from(divisor);
+                    self.timer_elapsed_base_nanos = elapsed_nanos % period_nanos;
+                    self.timer_start = Some(now);
+                    if !self.timer_pending {
+                        self.timer_pending = true;
+                        return Some(self.timer_vector());
+                    }
                 }
             }
             TIMER_MODE_TSC_DEADLINE => {
@@ -335,12 +366,73 @@ impl LocalApic {
 
     /// Take pending IPI request (returns and clears it)
     pub fn take_pending_ipi(&mut self) -> Option<IpiRequest> {
-        self.pending_ipi.take()
+        self.pending_ipi
+            .take()
+            .or_else(|| self.pending_ipis.pop_front())
     }
 
     /// Check if there's a pending IPI
     pub fn has_pending_ipi(&self) -> bool {
-        self.pending_ipi.is_some()
+        self.pending_ipi.is_some() || !self.pending_ipis.is_empty()
+    }
+
+    pub(crate) fn enable_coordinated_delivery(&mut self) {
+        self.coordinated_ipis = true;
+        if let Some(request) = self.pending_ipi.take() {
+            self.pending_ipis.push_front(request);
+        }
+    }
+
+    fn enqueue_ipi(&mut self, request: IpiRequest) {
+        if self.coordinated_ipis {
+            self.pending_ipis.push_back(request);
+        } else {
+            self.pending_ipi = Some(request);
+        }
+    }
+
+    pub(crate) fn set_pending_nmi(&mut self) {
+        self.nmi_pending = true;
+    }
+
+    /// Intel SDM086 Vol.3A12.4.7.1/3: INIT clears controller registers,
+    /// masks every LVT and disables the APIC, preserving its assigned ID.
+    pub(crate) fn reset_for_init(&mut self) {
+        let id = self.id;
+        let version = self.version;
+        let pending = self.pending_ipi.take();
+        let pending_ipis = std::mem::take(&mut self.pending_ipis);
+        let coordinated = self.coordinated_ipis;
+        *self = Self::new(u32::from(self.apic_id()));
+        self.id = id;
+        self.version = version;
+        self.svr = 0xff;
+        self.lvt_lint0 = LVT_MASK;
+        self.lvt_lint1 = LVT_MASK;
+        self.pending_ipi = pending;
+        self.pending_ipis = pending_ipis;
+        self.coordinated_ipis = coordinated;
+    }
+
+    fn record_error(&mut self, bits: u32) {
+        self.esr |= bits;
+        if self.is_enabled() && self.lvt_error & LVT_MASK == 0 {
+            let vector = (self.lvt_error & 0xff) as u8;
+            if vector >= 16 {
+                self.set_irr(vector);
+            } else {
+                // An invalid error-LVT vector cannot recursively raise itself.
+                self.esr |= 1 << 6;
+            }
+        }
+    }
+
+    pub(crate) fn receive_fixed_interrupt(&mut self, vector: u8) {
+        if vector >= 16 {
+            self.set_irr(vector);
+        } else {
+            self.record_error(1 << 6);
+        }
     }
 
     /// Handle IPI delivery when ICR is written.
@@ -354,6 +446,17 @@ impl LocalApic {
         let level_assert = (icr & ICR_LEVEL_ASSERT) != 0;
         let shorthand = (icr & ICR_DEST_SHORTHAND_MASK) >> ICR_DEST_SHORTHAND_SHIFT;
         let dest_field = ((icr >> ICR_DEST_FIELD_SHIFT) & 0xFF) as u8;
+
+        // Intel SDM086 Vol.3A12.5.3: vectors0..15 are illegal for
+        // fixed/lowest-priority delivery; they never enter a recipient's IRR.
+        if matches!(
+            delivery_mode,
+            DELIVERY_MODE_FIXED | DELIVERY_MODE_LOWEST_PRIORITY
+        ) && vector < 16
+        {
+            self.record_error(1 << 5);
+            return;
+        }
 
         tracing::debug!(
             "LAPIC IPI: vector={:#x}, delivery_mode={}, dest_mode={}, shorthand={}, dest={:#x}, level_assert={}",
@@ -386,6 +489,27 @@ impl LocalApic {
             _ => return, // Invalid shorthand
         };
 
+        // A standalone APIC keeps its existing immediate local-delivery
+        // interface. A coordinated fabric resolves the full destination set,
+        // including cluster mode and lowest-priority arbitration, exactly once.
+        if self.coordinated_ipis && !matches!(target, IpiTarget::ToSelf) {
+            let request = match delivery_mode {
+                DELIVERY_MODE_FIXED => Some(IpiRequest::Fixed { vector, target }),
+                DELIVERY_MODE_LOWEST_PRIORITY => {
+                    Some(IpiRequest::LowestPriority { vector, target })
+                }
+                DELIVERY_MODE_NMI => Some(IpiRequest::Nmi { target }),
+                DELIVERY_MODE_SMI => Some(IpiRequest::Smi { target }),
+                DELIVERY_MODE_INIT if level_assert => Some(IpiRequest::Init { target }),
+                DELIVERY_MODE_SIPI => Some(IpiRequest::Sipi { vector, target }),
+                _ => None,
+            };
+            if let Some(request) = request {
+                self.enqueue_ipi(request);
+            }
+            return;
+        }
+
         // Check if this IPI targets self
         let targets_self = match &target {
             IpiTarget::ToSelf => true,
@@ -411,7 +535,7 @@ impl LocalApic {
                 }
                 // Store IPI request for VMM to deliver to other CPUs
                 if !matches!(target, IpiTarget::ToSelf) {
-                    self.pending_ipi = Some(if delivery_mode == DELIVERY_MODE_FIXED {
+                    self.enqueue_ipi(if delivery_mode == DELIVERY_MODE_FIXED {
                         IpiRequest::Fixed { vector, target }
                     } else {
                         IpiRequest::LowestPriority { vector, target }
@@ -424,19 +548,19 @@ impl LocalApic {
                     tracing::debug!("LAPIC: Self-NMI pending");
                 }
                 if !matches!(target, IpiTarget::ToSelf) {
-                    self.pending_ipi = Some(IpiRequest::Nmi { target });
+                    self.enqueue_ipi(IpiRequest::Nmi { target });
                 }
             }
             DELIVERY_MODE_SMI => {
                 // SMI is system-level, store for VMM
-                self.pending_ipi = Some(IpiRequest::Smi { target });
+                self.enqueue_ipi(IpiRequest::Smi { target });
                 tracing::debug!("LAPIC: SMI requested");
             }
             DELIVERY_MODE_INIT => {
                 // INIT resets target CPU to wait-for-SIPI state
                 // Level de-assert (level=0) is used for INIT synchronization, ignore it
                 if level_assert {
-                    self.pending_ipi = Some(IpiRequest::Init {
+                    self.enqueue_ipi(IpiRequest::Init {
                         target: target.clone(),
                     });
                     tracing::debug!("LAPIC: INIT IPI requested");
@@ -446,7 +570,7 @@ impl LocalApic {
             }
             DELIVERY_MODE_SIPI => {
                 // Start-up IPI - vector specifies start address (vector * 0x1000)
-                self.pending_ipi = Some(IpiRequest::Sipi { vector, target });
+                self.enqueue_ipi(IpiRequest::Sipi { vector, target });
                 tracing::debug!(
                     "LAPIC: SIPI vector={:#x} (start addr={:#x})",
                     vector,
@@ -559,13 +683,15 @@ impl LocalApic {
                 if self.timer_initial_count == 0 {
                     0
                 } else if let Some(start) = self.timer_start {
-                    let elapsed = start.elapsed();
+                    let now = Instant::now();
+                    let elapsed_nanos = self
+                        .timer_elapsed_base_nanos
+                        .saturating_add(now.saturating_duration_since(start).as_nanos());
                     let divisor = self.timer_divisor() as u64;
-                    let ticks_per_sec = LAPIC_TIMER_FREQ_HZ / divisor;
 
                     // Calculate how many timer ticks have elapsed
-                    let elapsed_ticks = (elapsed.as_nanos() as u64 * ticks_per_sec) / 1_000_000_000;
-                    let initial = self.timer_initial_count as u64;
+                    let elapsed_ticks = Self::elapsed_timer_ticks(elapsed_nanos, divisor);
+                    let initial = u128::from(self.timer_initial_count);
 
                     let mode = self.timer_mode();
                     match mode {
@@ -660,6 +786,7 @@ impl LocalApic {
                 self.timer_current_count = value;
                 if value > 0 {
                     self.timer_start = Some(Instant::now());
+                    self.timer_elapsed_base_nanos = 0;
                     self.timer_pending = false;
                     tracing::debug!(
                         "LAPIC timer started: initial_count={}, divisor={}, mode={}",
@@ -756,3 +883,6 @@ impl MmioDevice for LapicDevice {
 #[cfg(test)]
 #[path = "lapic/tests.rs"]
 mod tests;
+
+mod checkpoint;
+pub(crate) use checkpoint::LapicCheckpoint;

@@ -28,7 +28,6 @@ use crate::devices::serial::{Serial16550, SerialMmioDevice};
 use crate::error::{Error, Result};
 use crate::host::console::{Console, ConsoleAction, ESCAPE_HELP};
 use crate::host::terminal::RawTty;
-use crate::isa::x86_64::get_total_instruction_count;
 use crate::machine::{
     self, ArmBootInfo, BootInfo, HexagonBootInfo, Machine, RiscVBootInfo, X86_64BootInfo,
 };
@@ -278,6 +277,7 @@ pub struct Vmm {
     /// One owner per configured CPU; element zero aliases the legacy BSP view.
     local_apics: Vec<Arc<std::sync::Mutex<LocalApic>>>,
     vcpus: Vec<Box<dyn VCpu>>,
+    coordinator: coordinator::ExecutionCoordinator,
     machine: Box<dyn Machine>,
     boot_info: BootInfo,
     serial_mmio_base: Option<u64>,
@@ -615,6 +615,10 @@ impl Vmm {
                 Arc::new(std::sync::Mutex::new(LocalApic::new(u32::from(cpu_id))))
             };
             if config.arch == ArchKind::X86_64 {
+                local_apic
+                    .lock()
+                    .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?
+                    .enable_coordinated_delivery();
                 vcpu.attach_local_apic(local_apic.clone());
             }
             local_apics.push(local_apic);
@@ -629,7 +633,7 @@ impl Vmm {
         // device models are actually attached.
         if config.pci_devices {
             if let Some(ref pci) = pci_bridge {
-                if let Some(vcpu) = vcpus.get_mut(0) {
+                for vcpu in &mut vcpus {
                     vcpu.set_pci_bridge(pci.clone(), PCI_MMIO_AP_BASE, PCI_MMIO_AP_END);
                 }
             }
@@ -677,6 +681,7 @@ impl Vmm {
             pic,
             lapic,
             local_apics,
+            coordinator: coordinator::ExecutionCoordinator::new(vcpus.len()),
             vcpus,
             machine,
             boot_info,
@@ -718,503 +723,6 @@ impl Vmm {
     /// Worker contexts are not inherited implicitly across thread creation.
     pub fn timing_context(&self) -> &Arc<crate::vm::timing::TimingContext> {
         &self.timing_context
-    }
-
-    pub fn run(&mut self) -> Result<()> {
-        let _timing = self.timing_context.enter();
-        info!("starting vCPU 0");
-
-        // Wait for GDB connection if --wait-gdb was specified
-        #[cfg(feature = "debug")]
-        if self.wait_gdb {
-            if let Some(ref channels) = self.gdb_channels {
-                info!("Waiting for GDB to connect and send command...");
-                // Block until we receive a command from GDB
-                match channels.cmd_rx.recv() {
-                    Ok(cmd) => {
-                        info!("GDB connected, received initial command");
-                        // Handle the initial command and stop
-                        self.gdb_stopped = true;
-                        if let Some(should_break) = self.handle_gdb_command(cmd)? {
-                            if should_break {
-                                return Ok(());
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        info!("GDB channel closed before connection");
-                    }
-                }
-            }
-        }
-
-        // Put the host terminal into raw mode for a faithful interactive serial
-        // console (restored on drop, panic, or fatal signal) and start the
-        // console mux that reads stdin and forwards bytes to the guest UART,
-        // intercepting the Ctrl-A escape prefix for host commands.
-        let _raw_tty = RawTty::enable();
-        let mut console = Console::spawn();
-
-        // SIGUSR1 requests a checkpoint (the non-keyboard trigger).
-        #[cfg(unix)]
-        unsafe {
-            libc::signal(libc::SIGUSR1, sigusr1_handler as libc::sighandler_t);
-        }
-
-        loop {
-            // Drain host stdin through the console mux: forward guest bytes to the
-            // UART and act on host escape commands. Then drive the legacy serial
-            // RX/TX interrupt line. Release the serial lock before taking the PIC
-            // lock to keep a consistent lock order.
-            {
-                let (guest_bytes, actions) = console.poll();
-                let mut quit = false;
-                for action in actions {
-                    match action {
-                        ConsoleAction::Help => eprint!("{}", ESCAPE_HELP),
-                        ConsoleAction::Quit => {
-                            info!("console quit requested (Ctrl-A x)");
-                            quit = true;
-                        }
-                        ConsoleAction::Snapshot => self.console_checkpoint(),
-                    }
-                }
-                if quit {
-                    break;
-                }
-                // SIGUSR1-triggered checkpoint (same effect as Ctrl-A s).
-                if CHECKPOINT_SIGNAL.swap(false, std::sync::atomic::Ordering::SeqCst) {
-                    self.console_checkpoint();
-                }
-                if let Some(ref uart) = self.s3c_uart {
-                    // ARMv6: queue console input; the vCPU's own IRQ scan
-                    // raises the VIC line.
-                    if !guest_bytes.is_empty() {
-                        if let Ok(mut u) = uart.lock() {
-                            u.queue_input(&guest_bytes);
-                        }
-                    }
-                } else if let Some(ref pl011) = self.pl011 {
-                    // AArch64: feed the PL011 and drive its SPI line through
-                    // the VM's interrupt controller (in-kernel GIC on HVF).
-                    let pending = if let Ok(mut uart) = pl011.lock() {
-                        if !guest_bytes.is_empty() {
-                            debug!(n = guest_bytes.len(), "console input queued to PL011");
-                            uart.queue_input(&guest_bytes);
-                        }
-                        uart.irq_pending()
-                    } else {
-                        false
-                    };
-                    if let Some(irq) = self.serial_irq {
-                        if let Err(e) = self.vm.set_irq_line(irq, pending) {
-                            debug!(irq, pending, error = %e, "failed to drive UART irq line");
-                        }
-                    }
-                } else {
-                    let pending = if let Ok(mut serial) = self.serial.lock() {
-                        if !guest_bytes.is_empty() {
-                            serial.queue_input(&guest_bytes);
-                        }
-                        serial.has_pending_interrupt()
-                    } else {
-                        false
-                    };
-                    drive_legacy_serial_irq(
-                        &*self.vm,
-                        self.backend_kind,
-                        &self.pic,
-                        self.serial_irq,
-                        pending,
-                    );
-                }
-            }
-
-            // Deliver device interrupts that were already pending before
-            // sampling the next timer edge. On a slow software backend, adding
-            // IRQ0 first on every host iteration can otherwise indefinitely
-            // starve lower-priority legacy lines such as the serial IRQ4.
-            {
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-
-                if vcpu.can_inject_interrupt() {
-                    if let Ok(mut pic) = self.pic.lock() {
-                        pic.try_deliver_pending(|vector| vcpu.inject_interrupt(vector))?;
-                    }
-                }
-            }
-
-            // Tick the PIT and check for timer interrupts
-            if let Ok(mut pit) = self.pit.lock() {
-                let timer_due = pit.tick() || pit.has_pending_interrupt();
-                if timer_due {
-                    if let Ok(mut pic) = self.pic.lock() {
-                        // A software-emulated guest can take longer than one
-                        // PIT period per host iteration. Coalesce the timer
-                        // event until the PIC is idle; otherwise fixed-priority
-                        // IRQ0 is recreated continuously and lower IRQs starve.
-                        if !pic.has_active_irq() {
-                            // The PIT OUT pin produces one edge per event.
-                            // Pulse the PIC input and leave it low afterward.
-                            pic.pulse_irq(0);
-                            pit.clear_interrupt();
-                        }
-                    }
-                }
-            }
-
-            self.poll_local_apic(0)?;
-
-            // Cross-processor routing is owned by the execution coordinator.
-            // Retain the existing legacy handling until that coordinator is selected.
-            {
-                if let Ok(mut lapic) = self.lapic.lock() {
-                    // Handle IPI requests (for multi-CPU, but log for now)
-                    if let Some(ipi) = lapic.take_pending_ipi() {
-                        match ipi {
-                            IpiRequest::Fixed { vector, ref target }
-                            | IpiRequest::LowestPriority { vector, ref target } => {
-                                // For single-CPU, only AllIncludingSelf matters
-                                // (self-targeting is already handled via IRR)
-                                match target {
-                                    IpiTarget::AllIncludingSelf => {
-                                        // Already delivered to self via IRR
-                                        debug!(
-                                            "IPI Fixed vector {:#x} to all (self already in IRR)",
-                                            vector
-                                        );
-                                    }
-                                    IpiTarget::AllExcludingSelf => {
-                                        // No other CPUs in single-CPU mode
-                                        debug!(
-                                            "IPI Fixed vector {:#x} to all-except-self (no other CPUs)",
-                                            vector
-                                        );
-                                    }
-                                    _ => {
-                                        debug!("IPI Fixed vector {:#x} to {:?}", vector, target);
-                                    }
-                                }
-                            }
-                            IpiRequest::Nmi { ref target } => {
-                                match target {
-                                    IpiTarget::AllIncludingSelf => {
-                                        // Self-NMI already pending
-                                        debug!("IPI NMI to all (self already pending)");
-                                    }
-                                    IpiTarget::AllExcludingSelf => {
-                                        debug!("IPI NMI to all-except-self (no other CPUs)");
-                                    }
-                                    _ => {
-                                        debug!("IPI NMI to {:?}", target);
-                                    }
-                                }
-                            }
-                            IpiRequest::Init { ref target } => {
-                                // INIT is used to reset CPUs - primarily for SMP startup
-                                debug!("IPI INIT to {:?} (ignored in single-CPU mode)", target);
-                            }
-                            IpiRequest::Sipi { vector, ref target } => {
-                                // SIPI starts AP CPUs - not applicable for single-CPU
-                                debug!(
-                                    "IPI SIPI vector={:#x} (start addr={:#x}) to {:?} (ignored in single-CPU mode)",
-                                    vector,
-                                    (vector as u32) * 0x1000,
-                                    target
-                                );
-                            }
-                            IpiRequest::Smi { ref target } => {
-                                // SMI triggers System Management Mode
-                                debug!("IPI SMI to {:?} (SMM not implemented)", target);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Handle GDB commands (non-blocking)
-            #[cfg(feature = "debug")]
-            if let Some(ref channels) = self.gdb_channels {
-                match channels.cmd_rx.try_recv() {
-                    Ok(cmd) => {
-                        if let Some(should_break) = self.handle_gdb_command(cmd)? {
-                            if should_break {
-                                break;
-                            }
-                            continue;
-                        }
-                    }
-                    Err(TryRecvError::Empty) => {}
-                    Err(TryRecvError::Disconnected) => {
-                        // GDB disconnected, continue without GDB
-                        debug!("GDB disconnected");
-                    }
-                }
-            }
-
-            // If GDB stopped us, wait for continue/step command
-            #[cfg(feature = "debug")]
-            if self.gdb_stopped {
-                if let Some(ref channels) = self.gdb_channels {
-                    match channels.cmd_rx.recv() {
-                        Ok(cmd) => {
-                            if let Some(should_break) = self.handle_gdb_command(cmd)? {
-                                if should_break {
-                                    break;
-                                }
-                                // Command handled but didn't resume execution, wait for more
-                                continue;
-                            }
-                            // Command returned None = resume execution (step/continue)
-                            // Fall through to run the VCPU
-                        }
-                        Err(_) => {
-                            // GDB disconnected
-                            self.gdb_stopped = false;
-                        }
-                    }
-                } else {
-                    continue;
-                }
-            }
-
-            let exit = {
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-                vcpu.run()?
-            };
-
-            // Check if we should take a snapshot (outside vcpu borrow scope)
-            if self.snapshot_config.is_some() {
-                let insn_count = get_total_instruction_count();
-                self.maybe_snapshot(insn_count)?;
-            }
-
-            // Re-borrow vcpu for exit handling
-            let vcpu = self
-                .vcpus
-                .get_mut(0)
-                .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-
-            match exit {
-                VcpuExit::Hlt => {
-                    // HLT is normal - kernel waits for interrupts
-                    continue;
-                }
-                VcpuExit::Shutdown => {
-                    match vcpu.get_state()? {
-                        CpuState::X86_64(state) => {
-                            let regs = state.regs;
-                            let sregs = state.sregs;
-                            info!(
-                                rip = format!("{:#x}", regs.rip),
-                                rsp = format!("{:#x}", regs.rsp),
-                                rsi = format!("{:#x}", regs.rsi),
-                                rflags = format!("{:#x}", regs.rflags),
-                                cr0 = format!("{:#x}", sregs.cr0),
-                                cr3 = format!("{:#x}", sregs.cr3),
-                                cr4 = format!("{:#x}", sregs.cr4),
-                                cs_sel = format!("{:#x}", sregs.cs.selector),
-                                cs_base = format!("{:#x}", sregs.cs.base),
-                                ds_sel = format!("{:#x}", sregs.ds.selector),
-                                gdt_base = format!("{:#x}", sregs.gdt.base),
-                                gdt_limit = format!("{:#x}", sregs.gdt.limit),
-                                "vCPU shutdown"
-                            );
-                        }
-                        CpuState::Hexagon(state) => {
-                            let regs = state.regs;
-                            let sp = regs.r[29];
-                            info!(
-                                pc = format!("{:#x}", regs.pc()),
-                                sp = format!("{:#x}", sp),
-                                usr = format!("{:#x}", regs.usr()),
-                                "vCPU shutdown"
-                            );
-                        }
-                        CpuState::Aarch64(state) => {
-                            let regs = state.regs;
-                            info!(
-                                pc = format!("{:#x}", regs.pc),
-                                sp = format!("{:#x}", regs.sp),
-                                pstate = format!("{:#x}", regs.pstate),
-                                "vCPU shutdown"
-                            );
-                        }
-                        _ => {
-                            info!("vCPU shutdown (unsupported architecture)");
-                        }
-                    }
-                    break;
-                }
-                VcpuExit::IoIn { port, size } => {
-                    debug!(port = port, size = size, "PIO read");
-                    let is_serial = port >= SERIAL_BASE && port < SERIAL_BASE + 8;
-                    let mut data = vec![0u8; size as usize];
-                    if is_serial {
-                        if let Ok(mut serial) = self.serial.lock() {
-                            for (i, byte) in data.iter_mut().enumerate() {
-                                *byte = IoDevice::read(&mut *serial, port + i as u16);
-                            }
-                        }
-                    } else if port == 0x1F0 || port == 0x170 {
-                        // IDE/ATAPI data register: a single fixed port carries the
-                        // whole PIO word/dword (insw/insd). Read every byte from the
-                        // SAME port — unlike the byte-lane model the bus uses for
-                        // multi-byte ports — so consecutive reads drain the device's
-                        // PIO buffer in order.
-                        for i in 0..data.len() {
-                            self.io_bus.read(port, &mut data[i..i + 1])?;
-                        }
-                    } else {
-                        self.io_bus.read(port, &mut data)?;
-                    }
-                    vcpu.complete_io_in(&data);
-                }
-                VcpuExit::IoInString { port, size, count } => {
-                    // Batched `rep ins`: read count*size bytes, all from the same
-                    // fixed port (the `rep` reads DX repeatedly), in one exit. The
-                    // vCPU writes the whole destination block via complete_io_in.
-                    let total = (count as usize).saturating_mul(size as usize);
-                    let mut data = vec![0u8; total];
-                    for i in 0..total {
-                        self.io_bus.read(port, &mut data[i..i + 1])?;
-                    }
-                    vcpu.complete_io_in(&data);
-                }
-                VcpuExit::IoOut { port, data } => {
-                    debug!(port = port, size = data.len(), "PIO write");
-
-                    // ACPI shutdown port (0x604, value 0x2000 = S5 power off)
-                    if port == 0x604 && data.len() >= 2 {
-                        let val = u16::from_le_bytes([data[0], data[1]]);
-                        if val == 0x2000 {
-                            info!("ACPI shutdown requested");
-                            break;
-                        }
-                    }
-
-                    let is_serial = port >= SERIAL_BASE && port < SERIAL_BASE + 8;
-                    if is_serial {
-                        let pending = if let Ok(mut serial) = self.serial.lock() {
-                            for (i, byte) in data.iter().enumerate() {
-                                IoDevice::write(&mut *serial, port + i as u16, *byte);
-                            }
-                            serial.has_pending_interrupt()
-                        } else {
-                            false
-                        };
-                        // Drive the serial IRQ (TX-empty / line-status), same as
-                        // the RX path above.
-                        drive_legacy_serial_irq(
-                            &*self.vm,
-                            self.backend_kind,
-                            &self.pic,
-                            self.serial_irq,
-                            pending,
-                        );
-                    } else if port == 0xE9 {
-                        // Bochs debug port - output directly
-                        for byte in &data {
-                            eprint!("{}", *byte as char);
-                        }
-                    } else if port == 0x1F0 || port == 0x170 {
-                        // IDE/ATAPI data register: write every byte of the PIO
-                        // word/dword to the SAME fixed port (see the IoIn path).
-                        for i in 0..data.len() {
-                            self.io_bus.write(port, &data[i..i + 1])?;
-                        }
-                    } else {
-                        self.io_bus.write(port, &data)?;
-                    }
-                }
-                VcpuExit::MmioRead { addr, size } => {
-                    let mut data = vec![0u8; size as usize];
-                    self.mmio_bus.read(addr, &mut data)?;
-                    vcpu.complete_io_in(&data);
-                }
-                VcpuExit::MmioWrite { addr, data } => {
-                    self.mmio_bus.write(addr, &data)?;
-                }
-                VcpuExit::SystemEvent { .. } => break,
-                VcpuExit::FailEntry { reason } => {
-                    return Err(Error::KernelLoad(format!(
-                        "vCPU fail entry: reason={reason:#x}"
-                    )));
-                }
-                VcpuExit::InternalError => {
-                    return Err(Error::KernelLoad("vCPU internal error".to_string()));
-                }
-                VcpuExit::Debug => {
-                    // INT3 breakpoint - kernel debugging, just continue
-                    continue;
-                }
-                VcpuExit::Exception(vector) => {
-                    // Check for breakpoint exception (vector 3) when GDB is attached
-                    #[cfg(feature = "debug")]
-                    if vector == 3 && self.gdb_channels.is_some() {
-                        // INT3 was hit - RIP is now AFTER the INT3, back up 1 byte
-                        let bp_addr = vcpu.get_regs().map(|r| r.rip).unwrap_or(0) - 1;
-
-                        if self.gdb_breakpoints.contains(&bp_addr) {
-                            debug!(addr = format!("{:#x}", bp_addr), "Software breakpoint hit");
-                            let mut regs = vcpu.get_regs().unwrap_or_default();
-                            regs.rip = bp_addr;
-                            let _ = vcpu.set_regs(&regs);
-
-                            if let Some(ref channels) = self.gdb_channels {
-                                let _ = channels.resp_tx.send(GdbResponse::StopReply(5));
-                            }
-                            self.gdb_stopped = true;
-                            self.gdb_single_step = false;
-                            continue;
-                        }
-
-                        debug!(
-                            addr = format!("{:#x}", bp_addr),
-                            "Natural INT3 instruction hit"
-                        );
-                    }
-                    // Other exceptions - just continue for now
-                    continue;
-                }
-                #[cfg(feature = "debug")]
-                VcpuExit::GdbBreakpoint { addr } => {
-                    debug!(addr = format!("{:#x}", addr), "GDB breakpoint hit");
-                    if let Some(ref channels) = self.gdb_channels {
-                        let _ = channels.resp_tx.send(GdbResponse::StopReply(5));
-                        // SIGTRAP
-                    }
-                    self.gdb_stopped = true;
-                    self.gdb_single_step = false;
-                    continue;
-                }
-                #[cfg(feature = "debug")]
-                VcpuExit::GdbStep => {
-                    debug!("GDB single step complete");
-
-                    if let Some(ref channels) = self.gdb_channels {
-                        let _ = channels.resp_tx.send(GdbResponse::StopReply(5));
-                        // SIGTRAP
-                    }
-                    self.gdb_stopped = true;
-                    self.gdb_single_step = false;
-                    continue;
-                }
-                exit => return Err(Error::KernelLoad(format!("unhandled exit: {exit:?}"))),
-            }
-        }
-
-        // Flush and close trace file
-        #[cfg(feature = "trace")]
-        crate::observability::trace::close();
-
-        Ok(())
     }
 
     pub fn boot_info(&self) -> &BootInfo {
@@ -1308,6 +816,7 @@ impl Vmm {
         let _timing = self.timing_context.enter();
         use crate::vm::snapshot::{PhysicalMemorySnapshot, SnapshotBundle};
         let clock = self.timing_context.checkpoint_state();
+        let execution = self.capture_execution_state()?;
         let cpus = self.capture_cpu_states()?;
         let first = cpus
             .first()
@@ -1337,7 +846,8 @@ impl Vmm {
         };
         let mut bundle = SnapshotBundle::new(base)
             .with_clock(clock)?
-            .with_cpus(cpus)?;
+            .with_cpus(cpus)?
+            .with_execution(execution)?;
         if let Some(pci) = pci {
             bundle = bundle.with_pci(pci)?;
         }
@@ -1350,7 +860,7 @@ impl Vmm {
     /// the run loop is single-threaded — the vCPU is not executing during the
     /// poll phase where this is called.
     pub fn console_checkpoint(&self) {
-        let insn = get_total_instruction_count();
+        let insn = self.coordinator.retired;
         let path = self.snapshot_out.clone();
         info!(path = %path.display(), insn = insn, "checkpoint requested");
         match self.take_snapshot_bundle(insn) {
@@ -1463,6 +973,7 @@ impl Vmm {
             && bundle.physical_memory().is_none()
             && bundle.cpus().is_none()
             && bundle.clock().is_none()
+            && bundle.execution().is_none()
         {
             return self.restore_snapshot(snapshot);
         }
@@ -1537,13 +1048,37 @@ impl Vmm {
             None
         };
         let pci = bundle.pci().map(|p| p.to_devices()).transpose()?;
+        let execution = bundle
+            .execution()
+            .map(|state| {
+                state.validate(snapshot)?;
+                let now = std::time::Instant::now();
+                let apics = state
+                    .local_apics
+                    .iter()
+                    .map(|apic| apic.prepare(now))
+                    .collect::<Vec<_>>();
+                Ok::<_, Error>((
+                    coordinator::ExecutionCoordinator {
+                        cursor: state.cursor,
+                        retired: state.retired,
+                        online: state.online.clone(),
+                    },
+                    apics,
+                ))
+            })
+            .transpose()?;
         let devices = snapshot.devices.clone();
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
         let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
         let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
         let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
-        let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
+        let mut lapics = Vec::with_capacity(self.local_apics.len());
+        for controller in &self.local_apics {
+            lapics.push(controller.lock().map_err(|_| lock_err("lapic"))?);
+        }
+        let coordinator = &mut self.coordinator;
         let guest_mem = &self.guest_mem;
         let vcpus = &mut self.vcpus;
         let commit = move || -> Result<()> {
@@ -1559,7 +1094,18 @@ impl Vmm {
             *pic = devices.pic;
             *pit = devices.pit;
             *serial = devices.serial;
-            *lapic = devices.lapic;
+            if let Some((saved, apics)) = execution {
+                *coordinator = saved;
+                let resume = std::time::Instant::now();
+                for (target, mut restored) in lapics.iter_mut().zip(apics) {
+                    restored.resume_timer_at(resume);
+                    **target = restored;
+                }
+            } else {
+                *lapics[0] = devices.lapic;
+                lapics[0].enable_coordinated_delivery();
+            }
+
             if let Some(clock) = clock_restore {
                 clock.commit();
             } else {
@@ -1605,6 +1151,7 @@ impl Vmm {
         *pit = devices.pit;
         *serial = devices.serial;
         *lapic = devices.lapic;
+        lapic.enable_coordinated_delivery();
         crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
 
         info!(
@@ -1814,3 +1361,9 @@ mod lapic_tests;
 
 #[path = "runtime/lapic.rs"]
 mod lapic;
+
+#[cfg(test)]
+mod execution_tests;
+
+mod coordinator;
+mod execution;

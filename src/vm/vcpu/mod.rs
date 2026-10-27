@@ -116,6 +116,14 @@ pub trait VCpu: Send {
         self.get_state().map(|s| s.pc()).unwrap_or(0)
     }
 
+    /// Deliver an x86 INIT signal while preserving state that INIT leaves unchanged.
+    /// Secondary startup/wait-for-SIPI ownership belongs to the VMM coordinator.
+    fn deliver_init(&mut self) -> Result<()> {
+        Err(Error::InvalidConfig(
+            "INIT delivery is not supported by this backend".into(),
+        ))
+    }
+
     /// Leave a halted or waiting state (x86 `HLT`, AArch64 `WFI`/`WFE`, a
     /// latched shutdown) so the next `run` or `step_insn` executes from the
     /// current PC. Embedders call it when they explicitly restart execution;

@@ -124,6 +124,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `counter_ticks` | `suites/vm/counter_ticks.rs` | Exact platform-frequency scaling with fractional clock phase |
 | `hvf_arm64_state` | `suites/backend/hvf_arm64_state.rs` | Native ARM canonical-SP projection and bank preservation |
 | `riscv_hartid` | `suites/backend/riscv_hartid.rs` | Configured hardware-thread identity and readonly CSR persistence |
+| `x86_fault_retirement` | `suites/backend/x86_fault_retirement.rs` | Protected-mode delivered faults and traps retain exact retired-unit counts. |
 
 ## Reachability rules
 
