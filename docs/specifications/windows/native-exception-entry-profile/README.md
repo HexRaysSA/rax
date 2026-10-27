@@ -285,6 +285,77 @@ Dependency-cache failures before compilation were retained separately; the
 successful reruns use the same two Rust source hashes and restored dependency
 sources.
 
+## Native dispatcher implementation under validation
+
+The native-library personality now constructs an exception-entry frame and
+resolves `KiUserExceptionDispatcher` in the live, executable selected NTDLL
+image. The built-in DLL personality retains its host-managed dispatch. The
+native path publishes the complete frame after stack write preflight, then
+changes only the thread's PC and SP. It does not manufacture an HLE call frame
+or run the host-managed vectored-handler list before entering NTDLL.
+
+The construction below is a legacy-context profile. Offsets and lengths are
+bytes relative to the new entry SP; they do not describe every observed kernel
+allocation, which can also contain XSTATE and additional padding.
+
+| Guest ABI | Context offset | Record offset | Payload length | Entry SP modulo 16 |
+| --- | ---: | ---: | ---: | ---: |
+| x86 | 88 | 8 | 828 | 12 |
+| native AMD64 | 0 | 1264 | 1472 | 0 |
+| ARM64 | 0 | 944 | 1104 | 0 |
+
+ARM64 leaves the interrupted thread's 16-byte reserved area above the payload.
+For x86, the two entry words point to the record and context; the selected SP
+residue aligns `CONTEXT.ExtendedRegisters` to 16 bytes. For AMD64, the saved
+RIP, CS, EFLAGS, RSP and SS occupy five 8-byte slots starting at offset 1424.
+The selected export must begin at its runtime-function entry and have the
+observed unwind tail: `UWOP_ALLOC_LARGE` with 178 units of 8 bytes, followed by
+`UWOP_PUSH_MACHFRAME` without an error code. The allocation is therefore
+178 x 8 = 1424 bytes, followed by the 5 x 8 = 40-byte machine frame. Qualification
+also requires aligned unwind data, no handler/chaining flags, no frame register
+and a zero-length prolog. Preceding register restores must read the matching
+legacy `CONTEXT` offsets; extra stack adjustments fail qualification. The two
+version-2 epilog slots observed on both native AMD64 hosts are recognized
+explicitly. Recipe checking takes O(n) time and O(n) temporary bytes for n unwind
+slots, bounded by the one-byte slot count (255 slots / 510 bytes).
+
+A wrapper, missing metadata or incompatible recipe fails explicitly before
+stack publication. This prevents substituting an x64-on-ARM64 wrapper for the
+independently measured native AMD64 frame. The slot meanings follow Microsoft's
+[x64 exception handling specification](https://learn.microsoft.com/en-us/cpp/build/exception-handling-x64).
+
+`CONTEXT_EX` records the legacy extent and an empty XSTATE extent. The frame
+does not claim to capture XSTATE; a request carrying that flag is rejected.
+Readonly stack failure leaves the CPU and frame bytes unchanged. Existing
+owned-stack guard growth remains governed by the stack adapter.
+
+The current implementation passes 60 selected SEH tests, eight native-startup
+tests and 191 C API tests on both macOS ARM64 and the Linux x86-64 container.
+Windows ARM64 passes 61 SEH tests, nine native-startup tests and 191 C API tests,
+including the unchanged hardware-fault fixture with installed ARM64 and WoW64
+libraries. The two new qualification
+tests replay both independent AMD64 metadata captures and reject incompatible
+headers, stack adjustments and register-save offsets. The original test source,
+three PE fixtures, assertions and budgets remain unchanged.
+
+An earlier combined-tree full macOS library run passed 8,396 tests with two
+unrelated microkernel tests ignored; that historical run predates the final
+metadata guard. Physical AMD64 execution remains pending. These are model and
+selected native-library results, not installed
+Assist or complete process-userland qualification.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| NE1 | The qualified AMD64 unwind recipe describes the constructed machine frame. | Independent build-20348/26100 entry and unwind observations. | Native AMD64 entry. | Callable wrappers, extra stack operations and changed restore offsets. | Replay captured and altered metadata; execute the original installed-NTDLL fault fixture on AMD64. | Retained; metadata replay passes, physical AMD64 execution pending. |
+| NE2 | Native RTL accepts the captured legacy groups with no XSTATE payload. | The original fault fixture completes on build-29695 ARM64 and WoW64 without an advertised XSTATE payload. | Legacy native dispatch and continuation. | ARM64, AMD64 and WoW64 faults. | Run the original fixture and inspect continuation/termination. | Confirmed for measured ARM64/WoW64; retained for AMD64. |
+| NE3 | Native NTDLL owns native vectored-handler registration. | Installed registration exports and observed hardware-fault continuation with an empty HLE handler list. | Bypassing the HLE handler list. | Registered native handlers and nested faults. | Compare actual native handler invocation and final context. | Confirmed for the measured single-fault ARM64/WoW64 cases; nested faults remain unqualified. |
+
+High impact: wrapper-specific entry, XSTATE, older NLS, DPI and complete
+Windows process execution remain outside this qualified legacy-frame profile.
+They remain work for the full installed-userland objective. The implementation
+changes no public C API layout, private Assist ABI, permission grant, library
+selection default or package naming.
+
 The first independent second-chance run at `3779418c` passes on Windows 2022.
 Windows 2025 passes the x64 cases and the first two WoW64 cases, but its WoW64
 invalid-context case fails validation. The v1 driver validates before printing

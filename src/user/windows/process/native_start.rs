@@ -19,37 +19,41 @@ pub(crate) struct EntryPoints {
     pub(crate) callback: Option<u64>,
 }
 
-fn entry_points(p: &mut Proc) -> Result<EntryPoints, u32> {
-    if let Some(entries) = p.native.as_ref().and_then(|runtime| runtime.startup) {
-        return Ok(entries);
-    }
+/// Resolve an entry in the selected, live native NTDLL executable image.
+pub(crate) fn resolve_export(p: &mut Proc, name: &[u8]) -> Result<u64, u32> {
     let index = p.modules.by_name("ntdll.dll").ok_or(STATUS_DLL_NOT_FOUND)?;
     let module = &p.modules.list[index];
-    if !matches!(module.kind, ModuleKind::Native) {
+    if !p.modules.is_live(index) || !matches!(module.kind, ModuleKind::Native) {
         return Err(STATUS_INVALID_IMAGE_FORMAT);
     }
     let base = module.base;
     let end = base
         .checked_add(module.size)
         .ok_or(STATUS_INVALID_IMAGE_FORMAT)?;
-    let mut resolve = |name: &[u8]| {
-        let address = loader::lookup(p, index, &SymRef::Name(name.to_vec(), None))
-            .map_err(|error| error.status)?
-            .ok_or(STATUS_ENTRYPOINT_NOT_FOUND)?;
-        if !(base..end).contains(&address)
-            || !p.vm.query(address).is_some_and(|region| {
-                region.state == mem::COMMIT
-                    && perms_of(region.protect).contains(crate::user::mm::Perms::EXEC)
-            })
-        {
-            return Err(STATUS_INVALID_IMAGE_FORMAT);
-        }
-        Ok(address)
-    };
+    let address = loader::lookup(p, index, &SymRef::Name(name.to_vec(), None))
+        .map_err(|error| error.status)?
+        .ok_or(STATUS_ENTRYPOINT_NOT_FOUND)?;
+    if !(base..end).contains(&address)
+        || !p.vm.query(address).is_some_and(|region| {
+            region.state == mem::COMMIT
+                && perms_of(region.protect).contains(crate::user::mm::Perms::EXEC)
+        })
+    {
+        return Err(STATUS_INVALID_IMAGE_FORMAT);
+    }
+    Ok(address)
+}
+
+fn entry_points(p: &mut Proc) -> Result<EntryPoints, u32> {
+    if let Some(entries) = p.native.as_ref().and_then(|runtime| runtime.startup) {
+        return Ok(entries);
+    }
+    let index = p.modules.by_name("ntdll.dll").ok_or(STATUS_DLL_NOT_FOUND)?;
+    let base = p.modules.list[index].base;
     let entries = EntryPoints {
-        loader: resolve(b"LdrInitializeThunk")?,
-        thread: resolve(b"RtlUserThreadStart")?,
-        callback: resolve(b"KiUserCallbackDispatcher").ok(),
+        loader: resolve_export(p, b"LdrInitializeThunk")?,
+        thread: resolve_export(p, b"RtlUserThreadStart")?,
+        callback: resolve_export(p, b"KiUserCallbackDispatcher").ok(),
         module: base,
     };
     p.native.as_mut().ok_or(STATUS_INVALID_PARAMETER)?.startup = Some(entries);
