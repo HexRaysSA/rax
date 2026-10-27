@@ -33,9 +33,9 @@ python docs/specifications/windows/native-session-windows-directory/verify.py ta
 
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| SW1 | The current-session path may identify the already captured Windows directory and CSR section. | Actual AMD64 startup request; existing fixed Windows/SharedSection acquisition. | Candidate alias selection design only. | Session0/nonzero, canonical names, case flags and DONT_REPARSE. | Compare pinned native handles and canonical query results for both names; reject a different identity. | Confirmed for ARM64 session0 only; nonzero AMD64 pending. |
+| SW1 | The current-session path may identify the already captured Windows directory and CSR section. | Actual AMD64 startup request; existing fixed Windows/SharedSection acquisition. | Candidate alias selection design only. | Session0/nonzero, canonical names, case flags and DONT_REPARSE. | Compare pinned native handles and canonical query results for both names; reject a different identity. | Falsified on AMD64 builds20348/26100: nonzero-session directories and sections are distinct. Session0 alias confirmed only for the recorded ARM64 cohort. |
 
-High impact: native alias, canonical-name and reparse results remain unqualified.
+High impact: these observations alone do not qualify guest acquisition or process startup.
 This observation group changes no guest behavior, public API, ABI, permission
 policy or shipping package. It adds no CI job. Full Linux/macOS/Windows process
 userland support and AMD64 exception delivery remain incomplete.
@@ -46,3 +46,50 @@ fixed references. Canonical names retain Windows/SharedSection under the root
 Windows directory; qualified DONT_REPARSE opens return0xC000050B. This does not
 qualify the nonzero-session AMD64 relationship. Eight integrity tests pass on macOS, Linux and native Windows; the actual
 32-row native capture also passes the verifier.
+
+
+## Separate current-session section implementation under validation
+
+Both native AMD64 controls use primary-token session2. Their qualified Windows
+folders and SharedSection objects compare different from the global references
+(NtCompareObjects0xC00001AC). Qualified names remain canonical, and DONT_REPARSE
+succeeds. The raw captures from builds20348 and26100 are retained beside the
+ARM64 build29695/session0 capture; all96 open rows are replayed without rebasing.
+The artifact identities and source/runtime hashes remain separate from model
+execution proof.
+
+Selection now includes the captured primary token's session parents and Windows
+entry. A real directory is captured independently. A Windows symbolic link keeps
+its captured link metadata and ordinary reparse semantics; fixed-target identity,
+grants and refreshed link metadata must agree before it can resolve globally.
+The global readonly CSR section remains selected. A distinct current-session
+section is acquired separately, with its own canonical name, grants, bytes and
+handle/view identity. Only the process's current section is considered for
+initialized CSR client metadata. The existing ARM64/session0 CSR bridge profile
+is unchanged; other connection profiles remain unqualified.
+
+Host acquisition uses fixed primary-session paths before guest execution. No
+guest name, PEB session field, pointer or rights request enters a host open/map.
+Each immutable section keeps the existing64 MiB virtual-size and16 MiB committed-
+byte bounds, with at most two section captures. Directory selection retains at
+most ten handles. Namespace construction remains O(E log E + U) for E entries
+and U UTF-16 units; section copying costs O(B) time/storage for B retained bytes.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| SW2 | The current section can be captured through the existing bounded readonly mapping contract. | Native successful read-only opens, fixed-name/canonical identity controls and existing global capture adapter. | Process-owned separate session snapshot. | Session0 link, nonzero distinct directory, changed grants/bytes, inaccessible or oversized mappings. | Native acquisition, region/identity checks, installed Native64/WoW64 leaves and the unchanged complete fault fixture. | Confirmed for the ARM64/session0 native model; separate-session AMD64 acquisition remains pending. |
+
+The initial shared macOS model passed44 namespace tests and7 selected section-open tests, including the existing access/fault/duplicate corpora. Final combined-candidate results follow below. These results do not
+qualify native AMD64 startup, a new CSR connection profile, linked Assist shipping
+artifacts or the full host-library-backed process objective.
+
+
+Final combined-candidate gates pass44 namespace tests and7 section-open tests
+on both macOS and Linux, plus all191 C API tests per host. Native ARM64 Windows
+passes46 namespace tests,9 section-open tests including installed ARM64/WoW64
+leaves, and all191 C API tests. The unchanged original hardware-fault fixture
+separately passes1 test across ARM64/x86 with its original assertions and
+60 s/16384-turn/4096-instruction budgets. These selected gates have zero failures
+or ignored cases. The candidate includes the separate native-entry feature;
+clean master publication qualification excludes that feature. Native AMD64 model
+acquisition/installed-leaf qualification remains pending its existing CI lane.

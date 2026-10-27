@@ -38,8 +38,37 @@ impl DataSection {
         size: u64,
         regions: Vec<DataRegion>,
     ) -> io::Result<Arc<Self>> {
+        Self::selected_for_session(
+            None,
+            maximum_access,
+            system_security_status,
+            force_case_insensitive,
+            size,
+            regions,
+        )
+    }
+
+    /// None denotes the global object. Some(id) denotes an independently
+    /// captured session directory; a followed link keeps its target's name.
+    pub(crate) fn path_for_session(session: Option<u32>) -> Vec<u16> {
+        match session {
+            None => "\\Windows\\SharedSection".encode_utf16().collect(),
+            Some(session) => format!("\\Sessions\\{session}\\Windows\\SharedSection")
+                .encode_utf16()
+                .collect(),
+        }
+    }
+
+    pub(crate) fn selected_for_session(
+        session: Option<u32>,
+        maximum_access: u32,
+        system_security_status: u32,
+        force_case_insensitive: bool,
+        size: u64,
+        regions: Vec<DataRegion>,
+    ) -> io::Result<Arc<Self>> {
         Self::selected_inner(
-            "\\Windows\\SharedSection".encode_utf16().collect(),
+            Self::path_for_session(session),
             maximum_access,
             system_security_status,
             force_case_insensitive,
@@ -158,24 +187,39 @@ impl Namespace {
                 "selected image/data section case policies disagree",
             ));
         }
-        let root = Arc::get_mut(
+        if section.path.first() != Some(&92) {
+            return Err(invalid("selected data section has no absolute NT name"));
+        }
+        let components: Vec<_> = section.path[1..].split(|unit| *unit == 92).collect();
+        let shared_name: Vec<_> = "SharedSection".encode_utf16().collect();
+        if components.len() < 2
+            || components.iter().any(|part| part.is_empty())
+            || components.last().copied() != Some(shared_name.as_slice())
+        {
+            return Err(invalid(
+                "selected data section is outside the fixed SharedSection name",
+            ));
+        }
+        let mut directory = Arc::get_mut(
             self.root
                 .as_mut()
                 .ok_or_else(|| invalid("data section root absent"))?,
         )
         .ok_or_else(|| invalid("data section namespace already published"))?;
-        let key = super::fold(&root.upcase, &"Windows".encode_utf16().collect::<Vec<_>>());
-        let windows = root
-            .entries
-            .get_mut(&key)
-            .and_then(|e| e.child.as_mut())
-            .and_then(Arc::get_mut)
-            .ok_or_else(|| invalid("selected Windows directory absent or published"))?;
+        for component in &components[..components.len() - 1] {
+            let key = super::fold(&directory.upcase, component);
+            directory = directory
+                .entries
+                .get_mut(&key)
+                .and_then(|entry| entry.child.as_mut())
+                .and_then(Arc::get_mut)
+                .ok_or_else(|| invalid("selected Windows directory absent or published"))?;
+        }
         let key = super::fold(
-            &windows.upcase,
-            &"SharedSection".encode_utf16().collect::<Vec<_>>(),
+            &directory.upcase,
+            components.last().expect("validated path"),
         );
-        let entry = windows
+        let entry = directory
             .entries
             .get_mut(&key)
             .ok_or_else(|| invalid("selected SharedSection directory entry absent"))?;
