@@ -111,6 +111,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `restore_admission` | `suites/vm/restore_admission.rs` | Exact reported RAM, pre-mutation VM/backend admission and valid-state domain controls |
 | `checkpoint_physical_memory` | `suites/vm/checkpoint_physical_memory.rs` | Complete mapped-region checkpoint capture, framing, bounds and explicit physical restore. |
 | `runtime_checkpoint_bundle` | `suites/vm/runtime_checkpoint_bundle.rs` | Coordinated represented CPU/device/physical memory admission and restore. |
+| `checkpoint_resume` | `suites/vm/checkpoint_resume.rs` | Typed detached file resume, page rounding and actual CLI UART/shutdown execution. |
 
 ## Reachability rules
 

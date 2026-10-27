@@ -40,8 +40,8 @@ explicit handling without silently dropping physical state.
 | P4 | Snapshot writers are quiescent by caller contract. | Current single-threaded VM boundary and explicit independent-writer/SMP coordination requirement. | Full coordinator remains open. |
 | P5 | Reported projection and physical state describe the same bytes. | Projection digest checks, base-reader refusal and explicit required-component extraction. | Owning regression; validation receipts in remediation ledger. |
 
-High impact: all CPU/private/platform state, full VM/SMP quiescence, replay,
-CLI resume wiring and native setter transactions remain open. Medium impact:
+High impact: additional CPU/private/platform state, full VM/SMP quiescence,
+replay and native setter transactions remain open. Medium impact:
 compressed snapshots remain resident; large checkpoints require explicit resource
 admission. Low impact: future region/schema changes require reader negotiation.
 
@@ -51,8 +51,8 @@ region. `PhysicalMemorySnapshot::restore` also provides a standalone physical
 operation. `Vmm::restore_snapshot_bundle` coordinates the represented CPU0,
 private, legacy, PCI/media and physical components; its admission/publication
 contract is documented in `runtime-checkpoint-bundles.md`. Additional CPUs and
-platform state remain separate. The existing console/CLI base checkpoint path
-remains unchanged pending its expanded resume integration.
+platform state remain separate. Console/periodic capture and `--checkpoint` now use represented bundles and
+typed detached construction; see `checkpoint-resume.md`.
 
 For N physical bytes in R regions, capture, verification and each restore pass
 are O(N) time. The projection shares the capture read pass. Restore uses a full

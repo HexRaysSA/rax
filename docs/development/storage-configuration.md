@@ -69,12 +69,14 @@ default to no images, while preserving their PCI flag. Old untagged files retain
 the original absent-PCI default. Image lengths/budgets/topology are validated
 before compressed RAM allocation.
 
-This change records source identity, not guest-modified media or controller
-queues. Runtime checkpoint capture and restore for attached images are rejected
-until that state is captured. Reopening a COW source after a checkpoint would
-lose modifications. Configuration metadata persistence is tested independently;
-it is not presented as full image-backed VM restoration. CLI image overrides
-are resolved on the checkpoint path and cannot be silently ignored.
+Configuration metadata records source identity separately from guest-modified
+media and controller queues. Base-only VM checkpoint entrypoints retain their
+image-state guards. Expanded `SnapshotBundle` capture and typed file resume now
+include represented controller/media state without reopening original images;
+see `checkpoint-resume.md`. Writable resumed media retain changes in memory and
+subsequent checkpoints. Configuration metadata by itself does not establish full
+VM state closure. CLI image overrides are resolved on the checkpoint path and
+must satisfy recorded identity/policy compatibility.
 
 ## Evidence and assumptions
 

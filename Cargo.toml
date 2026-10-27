@@ -486,3 +486,7 @@ overflow-checks = true
 [[test]]
 name="runtime_checkpoint_bundle"
 path="tests/suites/vm/runtime_checkpoint_bundle.rs"
+
+[[test]]
+name="checkpoint_resume"
+path="tests/suites/vm/checkpoint_resume.rs"

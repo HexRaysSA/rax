@@ -332,7 +332,7 @@ fn drive_legacy_serial_irq(
 impl Vmm {
     /// Build a fresh machine: load the kernel and set boot-time CPU state.
     pub fn new(config: VmConfig) -> Result<Self> {
-        Self::build(config, false)
+        Self::build(config, false, false)
     }
 
     /// Build a machine for base checkpoint restoration, skipping kernel loading,
@@ -340,10 +340,28 @@ impl Vmm {
     /// base state through [`restore_snapshot`](Self::restore_snapshot); expanded
     /// private/platform/SMP state is a separate checkpoint contract.
     pub fn new_resume(config: VmConfig) -> Result<Self> {
-        Self::build(config, true)
+        Self::build(config, true, false)
     }
 
-    fn build(config: VmConfig, resume: bool) -> Result<Self> {
+    /// Construct and restore the represented bundle without reopening kernel,
+    /// initrd or configured image sources. Additional CPU/platform/scheduler
+    /// capture and full quiescence remain separate contracts.
+    pub fn new_resume_bundle(
+        config: VmConfig,
+        bundle: &crate::vm::snapshot::SnapshotBundle,
+    ) -> Result<Self> {
+        config.validate_resume_bundle(bundle)?;
+        if config.storage.has_images() {
+            info!(
+                "using captured media; writable disk changes are retained in memory and subsequent checkpoints"
+            );
+        }
+        let mut vm = Self::build(config, true, true)?;
+        vm.restore_snapshot_bundle(bundle)?;
+        Ok(vm)
+    }
+
+    fn build(config: VmConfig, resume: bool, detached_media: bool) -> Result<Self> {
         info!(
             vcpus = config.vcpus,
             mem_bytes = config.memory.bytes(),
@@ -425,11 +443,11 @@ impl Vmm {
         {
             let pci = Arc::new(std::sync::Mutex::new(PciStub::new()));
             if config.pci_devices {
-                pci_devices = Some(attach_pci_devices(
-                    &pci,
-                    Arc::new(guest_mem.memory().clone()),
-                    &config.storage,
-                )?);
+                pci_devices = Some(if detached_media {
+                    PciDevices::attach_detached(&pci, Arc::new(guest_mem.memory().clone()))?
+                } else {
+                    attach_pci_devices(&pci, Arc::new(guest_mem.memory().clone()), &config.storage)?
+                });
                 info!("attached optional PCI devices (e1000, uhci, nvme, ahci, ac97)");
             }
             if pci_devices.is_none() {
@@ -621,7 +639,8 @@ impl Vmm {
 
         // Capture the machine-defining config for embedding in checkpoints, and
         // resolve where hotkey/signal checkpoints will be written.
-        let checkpoint_config = config.to_checkpoint();
+        let mut checkpoint_config = config.to_checkpoint();
+        checkpoint_config.memory_bytes = guest_mem.size();
         let snapshot_out = config
             .snapshot_out
             .clone()
@@ -1329,12 +1348,12 @@ impl Vmm {
         let insn = get_total_instruction_count();
         let path = self.snapshot_out.clone();
         info!(path = %path.display(), insn = insn, "checkpoint requested");
-        match self.take_snapshot(insn) {
+        match self.take_snapshot_bundle(insn) {
             Ok(snapshot) => match snapshot.save(&path) {
                 Ok(()) => {
                     // \r\n so the message renders cleanly in raw terminal mode.
                     eprint!("\r\n[rax] checkpoint written: {}\r\n", path.display());
-                    info!(summary = %snapshot.summary(), "checkpoint written");
+                    info!(summary = %snapshot.base().summary(), "checkpoint written");
                 }
                 Err(e) => eprint!("\r\n[rax] checkpoint save failed: {}\r\n", e),
             },
@@ -1367,7 +1386,7 @@ impl Vmm {
         };
 
         if should_snapshot {
-            let snapshot = self.take_snapshot(insn_count)?;
+            let snapshot = self.take_snapshot_bundle(insn_count)?;
             let filename = self
                 .snapshot_config
                 .as_ref()
@@ -1377,7 +1396,7 @@ impl Vmm {
             info!(
                 filename = %filename,
                 insn_count = insn_count,
-                summary = %snapshot.summary(),
+                summary = %snapshot.base().summary(),
                 "saving snapshot"
             );
 
@@ -1732,3 +1751,7 @@ mod checkpoint_tests;
 #[cfg(test)]
 #[path = "runtime/bundle_tests.rs"]
 mod bundle_tests;
+
+#[cfg(test)]
+#[path = "runtime/resume_tests.rs"]
+mod resume_tests;

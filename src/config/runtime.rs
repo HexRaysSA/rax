@@ -274,6 +274,30 @@ impl VmConfig {
         cli: CliConfig,
         checkpoint_memory_size: u64,
     ) -> Result<Self> {
+        Self::from_checkpoint_inner(cp, cli, checkpoint_memory_size, false)
+    }
+
+    /// Resolve recorded configuration with CLI overrides while admitting image
+    /// metadata only when the bundle represents complete PCI endpoint/media state.
+    pub fn from_checkpoint_bundle(
+        bundle: &crate::vm::snapshot::SnapshotBundle,
+        cli: CliConfig,
+    ) -> Result<Self> {
+        let base = bundle.base();
+        base.validate_for_restore()?;
+        Self::from_checkpoint_inner(
+            base.config.clone(),
+            cli,
+            base.memory_size,
+            bundle.pci().is_some_and(|p| p.has_endpoints()),
+        )
+    }
+    fn from_checkpoint_inner(
+        cp: CheckpointConfig,
+        cli: CliConfig,
+        checkpoint_memory_size: u64,
+        stored_media: bool,
+    ) -> Result<Self> {
         if cp.memory_bytes != checkpoint_memory_size {
             return Err(Error::InvalidConfig(format!(
                 "checkpoint config memory_bytes ({}) does not match snapshot memory_size ({})",
@@ -316,7 +340,7 @@ impl VmConfig {
             pci_devices: cli.pci_devices || cp.pci_devices || storage.has_images(),
             storage,
         };
-        config.validate_resume()?;
+        config.validate_inner(false, stored_media)?;
         Ok(config)
     }
 
@@ -348,7 +372,7 @@ impl VmConfig {
     }
 
     pub fn validate(&self) -> Result<()> {
-        self.validate_inner(true)
+        self.validate_inner(true, false)
     }
 
     /// Validate a config used to resume from a checkpoint. Identical to
@@ -356,17 +380,72 @@ impl VmConfig {
     /// files to exist on disk — when resuming, the machine image (including the
     /// kernel that was loaded into RAM) comes from the checkpoint itself.
     pub fn validate_resume(&self) -> Result<()> {
-        self.validate_inner(false)
+        self.validate_inner(false, false)
     }
 
-    fn validate_inner(&self, check_files: bool) -> Result<()> {
+    /// Validate resume configuration without requiring source paths when the
+    /// actual bundle contains the represented endpoint/media state.
+    pub fn validate_resume_bundle(
+        &self,
+        bundle: &crate::vm::snapshot::SnapshotBundle,
+    ) -> Result<()> {
+        bundle.base().validate_for_restore()?;
+        self.validate_inner(false, bundle.pci().is_some_and(|p| p.has_endpoints()))?;
+        let base = bundle.base();
+        if self.arch != base.config.arch {
+            return Err(Error::InvalidConfig(
+                "checkpoint architecture does not match target machine".to_string(),
+            ));
+        }
+        // validate_inner already checked overflow and the supported byte limit.
+        let allocated =
+            crate::vm::memory::align_up(self.memory.bytes(), crate::vm::memory::PAGE_SIZE);
+        if allocated != base.memory_size {
+            return Err(Error::InvalidConfig(
+                "checkpoint RAM extent does not match target machine".to_string(),
+            ));
+        }
+        if self.vcpus != base.config.vcpus {
+            return Err(Error::InvalidConfig(
+                "checkpoint CPU count does not match target machine".to_string(),
+            ));
+        }
+        if self.pci_devices != base.config.pci_devices {
+            return Err(Error::InvalidConfig(
+                "checkpoint PCI topology does not match target machine".to_string(),
+            ));
+        }
+        for (source, target) in [
+            (&base.config.storage.nvme, &self.storage.nvme),
+            (&base.config.storage.ahci, &self.storage.ahci),
+        ] {
+            match (source, target) {
+                (None, None) => (),
+                (Some(s), Some(t)) if s.identity == t.identity && s.mode == t.mode => (),
+                _ => {
+                    return Err(Error::InvalidConfig(
+                        "checkpoint storage binding does not match target machine".to_string(),
+                    ));
+                }
+            }
+        }
+        if bundle.physical_memory().is_some()
+            && (self.arch == ArchKind::X86_64) != bundle.pci().is_some()
+        {
+            return Err(Error::InvalidConfig(
+                "checkpoint PCI component does not match target machine".to_string(),
+            ));
+        }
+        Ok(())
+    }
+    fn validate_inner(&self, check_files: bool, stored_media: bool) -> Result<()> {
         self.storage.validate_metadata()?;
         if self.storage.has_images() && (self.arch != ArchKind::X86_64 || !self.pci_devices) {
             return Err(Error::InvalidConfig(
                 "configured NVMe/AHCI images require x86 PCI devices".to_string(),
             ));
         }
-        if !check_files && self.storage.has_images() {
+        if !check_files && self.storage.has_images() && !stored_media {
             return Err(Error::InvalidConfig(
                 "image-backed checkpoint resume requires complete device/media state".to_string(),
             ));

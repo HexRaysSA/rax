@@ -39,10 +39,11 @@ must fail through returned errors rather than trust file length prefixes.
 | B3 | Media bytes survive compression independently of source files. | Independent system-zstd/SHA-256 comparisons; deleted source files and changed guest media. | Locally tested; final gates required. |
 | B4 | Malformed media cannot exceed the declared output budget. | Truncated/corrupted/short/long streams, digest mismatch, huge declared lengths and exact boundaries. | Locally tested; final gates required. |
 | B5 | File publication preserves an existing target on failure. | Invalid metadata, encode/decode errors, temporary cleanup and preserved file bytes/permissions. | Locally tested; final gates required. |
-| B6 | Container parsing is not live VM restore. | Explicit device import and VM quiescence requirements; current image-backed Vmm guards retained. | Locally tested; final gates required. |
+| B6 | Container parsing is not live VM restore. | Explicit device import and VM quiescence requirements; base-only image guards retained; typed runtime/file integration is described in `checkpoint-resume.md`. | Locally tested; final gates required. |
 
 High impact: all-CPU/private/platform closure, VM-wide quiescence, replay effects,
-and runtime/CLI resume wiring remain open. Medium impact: the explicit 64 GiB
+remain open. Represented runtime/CLI resume is described in
+`runtime-checkpoint-bundles.md` and `checkpoint-resume.md`. Medium impact: the explicit 64 GiB
 aggregate bundle budget can reject a combination of individually admitted
 images/RAM; no payload may be silently omitted. Low impact: future record kinds
 require explicit section schemas and reader admission rules.

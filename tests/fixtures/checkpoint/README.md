@@ -61,3 +61,15 @@ The physical-memory regression loads this actual ELF through `Vmm::new`; no
 guest instruction is executed. The default RISC-V model's RAM base remains zero.
 The source and linker script are the reproducible producer inputs; the audit
 evidence retains assembler/linker commands, hashes and readelf output.
+
+## File-resume RISC-V execution input
+
+`resume-riscv.elf` is assembled/linked from `resume-riscv.s` and
+`resume-riscv.ld`, with the same LLVM producer flags as the high-address input.
+Text starts at `0x80000000`; writable `tohost` is at `0x80001000`. The guest
+writes `RAX` and a newline to the model's 16550 MMIO address `0x10000000`, then
+stores 1 to `tohost`. Resume tests require both that output and the runtime's
+shutdown event after removing the original kernel path. This is a small
+emulated bare-metal execution test; it does not establish Linux boot or native
+hypervisor behavior. Producer versions, input/output hashes and readelf output
+are retained with the remediation evidence.

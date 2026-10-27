@@ -177,6 +177,37 @@ impl PciDevices {
         mem: Arc<vm_memory::GuestMemoryMmap>,
         storage: &crate::config::StorageConfig,
     ) -> Result<Self> {
+        use crate::devices::virtio::block_image::BlockImage;
+        let n = match &storage.nvme {
+            Some(image) => image.open()?,
+            None => BlockImage::from_bytes(Vec::new()),
+        };
+        let a = match &storage.ahci {
+            Some(image) => image.open()?,
+            None => BlockImage::from_bytes(Vec::new()),
+        };
+        Self::attach_images(pci, mem, n, a)
+    }
+    /// Register the same fixed endpoints with empty detached images. A private
+    /// resume constructor imports the verified checkpoint before exposing the VM.
+    pub(super) fn attach_detached(
+        pci: &Arc<Mutex<pci::PciStub>>,
+        mem: Arc<GuestMemoryMmap>,
+    ) -> Result<Self> {
+        use crate::devices::virtio::block_image::BlockImage;
+        Self::attach_images(
+            pci,
+            mem,
+            BlockImage::from_bytes(Vec::new()),
+            BlockImage::from_bytes(Vec::new()),
+        )
+    }
+    fn attach_images(
+        pci: &Arc<Mutex<pci::PciStub>>,
+        mem: Arc<GuestMemoryMmap>,
+        nvme_image: crate::devices::virtio::block_image::BlockImage,
+        ahci_image: crate::devices::virtio::block_image::BlockImage,
+    ) -> Result<Self> {
         use crate::devices::pci::{Bar, ConfigSpace};
         let mut bridge = pci
             .lock()
@@ -223,10 +254,7 @@ impl PciDevices {
             crate::devices::nvme::NvmeController::with_image(
                 0,
                 GuestDmaMem(mem.clone()),
-                match &storage.nvme {
-                    Some(image) => image.open()?,
-                    None => crate::devices::virtio::block_image::BlockImage::from_bytes(Vec::new()),
-                },
+                nvme_image,
             ),
         ));
         let mut nvme_cfg = ConfigSpace::device(0x8086, 0x5845, 0x01_08_02, 0x00);
@@ -248,10 +276,7 @@ impl PciDevices {
             crate::devices::ahci::AhciController::with_image(
                 0,
                 GuestDmaMem(mem.clone()),
-                match &storage.ahci {
-                    Some(image) => image.open()?,
-                    None => crate::devices::virtio::block_image::BlockImage::from_bytes(Vec::new()),
-                },
+                ahci_image,
             ),
         ));
         let mut ahci_cfg = ConfigSpace::device(0x8086, 0x2922, 0x01_06_01, 0x00);

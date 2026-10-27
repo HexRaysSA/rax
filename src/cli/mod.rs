@@ -17,7 +17,7 @@ use rax::config::{
     VmConfig,
 };
 use rax::vm::runtime::Vmm;
-use rax::vm::snapshot::Snapshot;
+use rax::vm::snapshot::SnapshotBundle;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
@@ -187,24 +187,20 @@ pub fn run() -> Result<()> {
     // the machine is rebuilt from the checkpoint's embedded config (no --kernel
     // required) and CLI flags override the embedded values; otherwise we build
     // from CLI + file config and optionally restore a legacy --resume file.
-    let (config, restore, resume_bare): (VmConfig, Option<Snapshot>, bool) =
+    let (config, restore, resume_bare): (VmConfig, Option<SnapshotBundle>, bool) =
         if let Some(ckpt_path) = cli.checkpoint.clone() {
-            let snapshot = Snapshot::load(&ckpt_path)?;
+            let snapshot = SnapshotBundle::load(&ckpt_path)?;
             tracing::info!("resuming from checkpoint {:?}", ckpt_path);
-            tracing::info!("{}", snapshot.summary());
-            let config = VmConfig::from_checkpoint(
-                snapshot.config.clone(),
-                cli_config,
-                snapshot.memory_size,
-            )?;
+            tracing::info!("{}", snapshot.base().summary());
+            let config = VmConfig::from_checkpoint_bundle(&snapshot, cli_config)?;
             (config, Some(snapshot), true)
         } else {
             let config = VmConfig::from_sources(cli_config, file_config)?;
             let restore = match config.resume.clone() {
                 Some(path) => {
                     tracing::info!("Loading snapshot from {:?}", path);
-                    let snapshot = Snapshot::load(&path)?;
-                    tracing::info!("{}", snapshot.summary());
+                    let snapshot = SnapshotBundle::load(&path)?;
+                    tracing::info!("{}", snapshot.base().summary());
                     Some(snapshot)
                 }
                 None => None,
@@ -242,15 +238,17 @@ pub fn run() -> Result<()> {
     }
 
     let mut vmm = if resume_bare {
-        Vmm::new_resume(config)?
+        let snapshot = restore.as_ref().ok_or_else(|| {
+            rax::error::Error::InvalidConfig("checkpoint state is missing".to_string())
+        })?;
+        Vmm::new_resume_bundle(config, snapshot)?
     } else {
-        Vmm::new(config)?
+        let mut vm = Vmm::new(config)?;
+        if let Some(snapshot) = restore.as_ref() {
+            vm.restore_snapshot_bundle(snapshot)?;
+        }
+        vm
     };
-
-    // Restore the checkpoint (full machine image) if we loaded one.
-    if let Some(snapshot) = restore {
-        vmm.restore_snapshot(&snapshot)?;
-    }
 
     vmm.run()?;
 

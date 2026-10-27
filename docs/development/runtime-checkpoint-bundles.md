@@ -14,8 +14,9 @@ CPU/RAM commit. The bridge fully decodes and allocates its proposed state before
 calling that commit; all bridge/endpoint publication afterward is infallible.
 Bridge admission preserves the existing public PCI error conversion; caller
 commit errors pass through unchanged. No controller handler is called, DMA command replayed or source file reopened by
-restore. Target construction currently still opens configured images; detached
-resume construction and CLI integration remain separate requirements.
+restore. `Vmm::new_resume_bundle` and `--checkpoint` construct detached targets
+without original sources; see `checkpoint-resume.md`. The older base constructor
+retains its original source-opening contract.
 
 For N physical bytes, R <= 128 regions, M media bytes and K controller-record
 bytes, admission and restore are O(N + M + K), plus bounded region lookup O(ceil(N / 65536) log R). Scratch is
@@ -34,7 +35,6 @@ backing; dirty bytes are restored, including zero source bytes.
 | R6 | Native setters/resource failures can fail after admission. | Native KVM/HVF transaction evidence is separate; tests do not claim failure rollback for those operations. | Unknown outside tested emulator domain. |
 
 High impact: all additional CPUs/private/platform/scheduler state, per-VM clocks,
-quiescence, CLI/detached resume construction, replay and native transactions remain
-open. Medium impact: all media must fit admitted byte budgets in detached memory.
+quiescence, replay and native transactions remain open. Medium impact: all media must fit admitted byte budgets in detached memory.
 Low impact: future required components must extend explicit preparation and
 publication rather than be silently dropped.

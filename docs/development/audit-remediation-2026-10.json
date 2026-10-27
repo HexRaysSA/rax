@@ -1877,15 +1877,124 @@
         "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-runtime-bundle-independent.log",
         "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-native-ci-selection.log",
         "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-intel-ci-selection.log",
-        "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-capi.log",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/pci_state.rs",
+        "src/config/runtime.rs",
+        "src/cli/mod.rs",
+        "tests/suites/vm/checkpoint_resume.rs",
+        "tools/checkpoint/resume_guest.rs",
+        "tools/checkpoint/resume_oracle.py",
+        "docs/development/checkpoint-resume.md",
+        "Cargo.toml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "tests/README.md",
+        "tests/fixtures/checkpoint/resume-riscv.s",
+        "tests/fixtures/checkpoint/resume-riscv.ld",
+        "tests/fixtures/checkpoint/resume-riscv.elf",
+        "tests/fixtures/checkpoint/README.md",
+        "src/vm/runtime/resume_tests.rs",
+        "tools/checkpoint/rounding_guest.rs",
+        "docs/development/checkpoint-physical-memory.md",
+        "docs/development/runtime-checkpoint-bundles.md",
+        "docs/development/checkpoint-pci-format.md",
+        "docs/development/storage-configuration.md",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/probe.stdout",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/probe.stderr",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/initial-strict-probe/result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/initial-decode-assertion/result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/source-compatibility.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-owning-final.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-detached-final.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-rounding-current.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/elf-producer/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/elf-producer/readelf.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/reference-frozen/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/worktree-resume-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-resume-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/selection-proof.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-images.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-config.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-controller-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-pci-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-endpoint-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-restore-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-physical-memory.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint-resume.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-images.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-config.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-controller-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-pci-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-endpoint-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-runtime-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-restore-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-physical-memory.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-runtime-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-checkpoint-resume.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-sgl-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-queue-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-admission-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-commands-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-virtio-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-range-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ahci-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-images-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-controller-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-pci-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-endpoint-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-bundle-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-restore-admission-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-physical-memory-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-bundle-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-file-resume-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-native-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-capi.log"
       ],
       "remaining_validation": [
-        "Represented CPU0/private,4legacy,PCI/media and physical/projection restore is coordinated;fullCPU/platform/scheduler capture remains incomplete.",
-        "Callers must quiesce independent CPU,DMA,RAM and mapping writers;fullSMP coordinator remains open.",
-        "Native setter and second-pass host resource/mapping failures are not established as transactional.",
-        "Target construction still opens configured source images;detached resume construction and CLI wiring remain open.",
-        "Actual VM backing/ELF loading and typed device state are tested without guest instruction/native hypervisor execution.",
-        "Independent6-case raw corpus checks public CPU marker,reported RAM and padding;internal tests separately compare complete represented CPU/private/legacy/PCI/media state."
+        "Represented CPU0/private/4legacy/PCI/media/all-backing file resume is wired;fullVM/SMP/platform/scheduler closure remains open.",
+        "Legacy --resume keeps CLI/file resolution and fresh construction semantics;--checkpoint is the source-independent workflow.",
+        "Old base entrypoints retain image-state guards;new typed configuration uses standard supported configuration limits.",
+        "Independent writers must stay quiescent;native setters/second-pass host failures are not established as transactional.",
+        "Actual LLVM-produced bare-metal RV guest writes UART and exits after missing original kernel;this is not Linux/native-hypervisor proof.",
+        "Writable resumed media are detached;changes persist in the VM and subsequent checkpoints."
       ]
     },
     {
@@ -6328,15 +6437,249 @@
         "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-runtime-bundle-independent.log",
         "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-native-ci-selection.log",
         "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-intel-ci-selection.log",
-        "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-runtime-bundle/final-capi.log",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/pci_state.rs",
+        "src/config/runtime.rs",
+        "src/cli/mod.rs",
+        "tests/suites/vm/checkpoint_resume.rs",
+        "tools/checkpoint/resume_guest.rs",
+        "tools/checkpoint/resume_oracle.py",
+        "docs/development/checkpoint-resume.md",
+        "Cargo.toml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "tests/README.md",
+        "tests/fixtures/checkpoint/resume-riscv.s",
+        "tests/fixtures/checkpoint/resume-riscv.ld",
+        "tests/fixtures/checkpoint/resume-riscv.elf",
+        "tests/fixtures/checkpoint/README.md",
+        "src/vm/runtime/resume_tests.rs",
+        "tools/checkpoint/rounding_guest.rs",
+        "docs/development/checkpoint-physical-memory.md",
+        "docs/development/runtime-checkpoint-bundles.md",
+        "docs/development/checkpoint-pci-format.md",
+        "docs/development/storage-configuration.md",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/probe.stdout",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/probe.stderr",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/initial-strict-probe/result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/initial-decode-assertion/result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/source-compatibility.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-owning-final.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-detached-final.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-rounding-current.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/elf-producer/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/elf-producer/readelf.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/reference-frozen/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/worktree-resume-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-resume-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/selection-proof.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-images.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-config.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-controller-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-pci-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-endpoint-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-restore-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-physical-memory.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint-resume.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-images.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-config.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-controller-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-pci-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-endpoint-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-runtime-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-restore-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-physical-memory.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-runtime-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-checkpoint-resume.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-sgl-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-queue-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-admission-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-commands-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-virtio-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-range-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ahci-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-images-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-controller-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-pci-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-endpoint-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-bundle-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-restore-admission-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-physical-memory-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-bundle-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-file-resume-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-native-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-capi.log"
       ],
       "remaining_validation": [
-        "Represented CPU0/private,4legacy,PCI/media and physical/projection restore is coordinated;fullCPU/platform/scheduler capture remains incomplete.",
-        "Callers must quiesce independent CPU,DMA,RAM and mapping writers;fullSMP coordinator remains open.",
-        "Native setter and second-pass host resource/mapping failures are not established as transactional.",
-        "Target construction still opens configured source images;detached resume construction and CLI wiring remain open.",
-        "Actual VM backing/ELF loading and typed device state are tested without guest instruction/native hypervisor execution.",
-        "Independent6-case raw corpus checks public CPU marker,reported RAM and padding;internal tests separately compare complete represented CPU/private/legacy/PCI/media state."
+        "Represented CPU0/private/4legacy/PCI/media/all-backing file resume is wired;fullVM/SMP/platform/scheduler closure remains open.",
+        "Legacy --resume keeps CLI/file resolution and fresh construction semantics;--checkpoint is the source-independent workflow.",
+        "Old base entrypoints retain image-state guards;new typed configuration uses standard supported configuration limits.",
+        "Independent writers must stay quiescent;native setters/second-pass host failures are not established as transactional.",
+        "Actual LLVM-produced bare-metal RV guest writes UART and exits after missing original kernel;this is not Linux/native-hypervisor proof.",
+        "Writable resumed media are detached;changes persist in the VM and subsequent checkpoints."
+      ]
+    },
+    {
+      "id": "D-CHECKPOINT-ROUNDING",
+      "area": "Checkpoint allocated RAM geometry",
+      "finding": "Accepted unaligned memory request produced inconsistent captured config/RAM extents and unusable decode/save;normal capture now records allocated geometry and preserves the rounded last byte.",
+      "status": "locally_validated",
+      "evidence": [
+        "src/vm/runtime.rs",
+        "src/vm/runtime/pci_state.rs",
+        "src/config/runtime.rs",
+        "src/cli/mod.rs",
+        "tests/suites/vm/checkpoint_resume.rs",
+        "tools/checkpoint/resume_guest.rs",
+        "tools/checkpoint/resume_oracle.py",
+        "docs/development/checkpoint-resume.md",
+        "Cargo.toml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "tests/README.md",
+        "tests/fixtures/checkpoint/resume-riscv.s",
+        "tests/fixtures/checkpoint/resume-riscv.ld",
+        "tests/fixtures/checkpoint/resume-riscv.elf",
+        "tests/fixtures/checkpoint/README.md",
+        "src/vm/runtime/resume_tests.rs",
+        "tools/checkpoint/rounding_guest.rs",
+        "docs/development/checkpoint-physical-memory.md",
+        "docs/development/runtime-checkpoint-bundles.md",
+        "docs/development/checkpoint-pci-format.md",
+        "docs/development/storage-configuration.md",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/probe.stdout",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/probe.stderr",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/initial-strict-probe/result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/initial-decode-assertion/result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/source-compatibility.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-owning-final.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-detached-final.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-rounding-current.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/elf-producer/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/elf-producer/readelf.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/reference-frozen/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/worktree-resume-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-resume-oracle/manifest.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/selection-proof.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/worktree-result.json",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/checks.jsonl",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-build.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-clippy.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-fmt.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-doc.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ci-owning.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-images.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-config.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-controller-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-pci-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-endpoint-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-restore-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-physical-memory.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint-resume.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-library.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-build.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-nvme.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-sgl.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-queues.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-commands.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-virtio.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ranges.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ahci.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-images.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-config.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-controller-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-pci-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-endpoint-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-runtime-checkpoint.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-restore-admission.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-physical-memory.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-runtime-bundle.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-checkpoint-resume.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-library.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-sgl-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-queue-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-admission-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-commands-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-virtio-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-range-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ahci-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-images-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-controller-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-pci-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-endpoint-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-bundle-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-restore-admission-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-physical-memory-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-bundle-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-file-resume-independent.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-native-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ci-selection.log",
+        "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-capi.log"
+      ],
+      "remaining_validation": [
+        "Represented CPU0/private/4legacy/PCI/media/all-backing file resume is wired;fullVM/SMP/platform/scheduler closure remains open.",
+        "Legacy --resume keeps CLI/file resolution and fresh construction semantics;--checkpoint is the source-independent workflow.",
+        "Old base entrypoints retain image-state guards;new typed configuration uses standard supported configuration limits.",
+        "Independent writers must stay quiescent;native setters/second-pass host failures are not established as transactional.",
+        "Actual LLVM-produced bare-metal RV guest writes UART and exits after missing original kernel;this is not Linux/native-hypervisor proof.",
+        "Writable resumed media are detached;changes persist in the VM and subsequent checkpoints."
       ]
     }
   ],
@@ -121381,6 +121724,3738 @@
           "pid": 44321,
           "epoch": 1793060100.808531,
           "resume_driver": "/Users/int/dev/rax-audit-work/recovery/resume-isolated-final-pool.py"
+        }
+      }
+    },
+    {
+      "id": "expanded-file-checkpoint-and-source-independent-resume",
+      "status": "locally_validated",
+      "scope": "Wire console/periodic/CLI to represented bundles;typed config and detached resume construction without original sources;canonical allocated geometry;actual missing-kernel RV ELF CLI execution and full independent physical/projection comparison.",
+      "assumptions": [
+        {
+          "id": "F1",
+          "assumption": "Typed image resume requires represented endpoint/media state and may avoid original sources.",
+          "basis": "Immutable bundle metadata plus detached endpoint construction before publication.",
+          "dependent_result": "All3 source access modes restore without original file paths.",
+          "stress_test": "Rename/remove kernel/images;exact live controller/media records and unchanged original bytes forRO/RW/COW.",
+          "falsification_probe": "A source path is opened,original bytes change or a captured media/control field differs.",
+          "status": "locally tested with explicit integration limits"
+        },
+        {
+          "id": "F2",
+          "assumption": "Compatibility is admitted before target construction.",
+          "basis": "Typed config checks version,arch,rounded extent,count,PCI and source identity/policy.",
+          "dependent_result": "Known configuration errors precede trace/VM side effects.",
+          "stress_test": "Wrong version/count/extent/arch/PCI with trace sentinel.",
+          "falsification_probe": "Trace is created or wrong runtime failure precedes known geometry rejection.",
+          "status": "locally tested with explicit integration limits"
+        },
+        {
+          "id": "F3",
+          "assumption": "Checkpoint RAM metadata records allocated geometry.",
+          "basis": "Actual GuestMemoryWrapper page rounding and matching consumer metadata checks.",
+          "dependent_result": "Accepted128MiB+1 capture produces usable/savable state.",
+          "stress_test": "Same original API client:134217729request,134221824allocation,final-byteABcookie,old metadata/decode/save observations versus corrected current fields.",
+          "falsification_probe": "Any metadata extent differs,decode/save rejects or final-byte cookie is lost.",
+          "status": "locally tested with explicit integration limits"
+        },
+        {
+          "id": "F4",
+          "assumption": "CLI success must demonstrate actual guest execution.",
+          "basis": "UART writes and HTIF exit in retained LLVM ELF;stdin writer held open.",
+          "dependent_result": "Source-independent CLI file resume executes the captured high segment.",
+          "stress_test": "Exactly1 RAX/newline marker and1 shutdown event;actual fileafter original kernel removed;every mapped/projection byte independently checked.",
+          "falsification_probe": "Earlyexit/EOF/duplicateoutput or wrong physical byte is accepted.",
+          "status": "locally tested with explicit integration limits"
+        },
+        {
+          "id": "F5",
+          "assumption": "Independent writers stay quiescent.",
+          "basis": "Capture before first guest instruction and private constructor until represented import completes.",
+          "dependent_result": "Consistent file and represented restore state.",
+          "stress_test": "Same explicit CPU/DMA/RAM/mapping contract;full coordinator remains separate.",
+          "falsification_probe": "Concurrent/fullSMP checkpoint consistency is claimed without coordination.",
+          "status": "locally tested with explicit integration limits"
+        },
+        {
+          "id": "F6",
+          "assumption": "Expanded file state remains a bounded subset of the VM.",
+          "basis": "Existing represented CPU0/private/legacy/PCI/media/physical records.",
+          "dependent_result": "No fullCPU/platform/scheduler/native/replay claim.",
+          "stress_test": "High/medium/low scope and separate Linux/native/record-replay gates.",
+          "falsification_probe": "Bare-metal UART proof is labeled Linux or native/fullVM proof.",
+          "status": "locally tested with explicit integration limits"
+        },
+        {
+          "id": "F7",
+          "assumption": "Standard config resolution and existing base APIs retain prior contracts.",
+          "basis": "False stored-media branch reproduces original resolver/validation;fixed registration body reused.",
+          "dependent_result": "Typed source-independent admission is additive.",
+          "stress_test": "Source-normalized compatibility checks,old image guards and complete inherited20config/17admission/20bundle owners.",
+          "falsification_probe": "Base guard or ordinary CLI/file/checkpoint precedence changes unexpectedly.",
+          "status": "locally tested with explicit integration limits"
+        }
+      ],
+      "owned_paths": [
+        "src/vm/runtime.rs",
+        "src/vm/runtime/pci_state.rs",
+        "src/config/runtime.rs",
+        "src/cli/mod.rs",
+        "tests/suites/vm/checkpoint_resume.rs",
+        "tools/checkpoint/resume_guest.rs",
+        "tools/checkpoint/resume_oracle.py",
+        "docs/development/checkpoint-resume.md",
+        "Cargo.toml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/full-suite.yml",
+        "tests/README.md",
+        "tests/fixtures/checkpoint/resume-riscv.s",
+        "tests/fixtures/checkpoint/resume-riscv.ld",
+        "tests/fixtures/checkpoint/resume-riscv.elf",
+        "tests/fixtures/checkpoint/README.md",
+        "src/vm/runtime/resume_tests.rs",
+        "tools/checkpoint/rounding_guest.rs",
+        "docs/development/checkpoint-physical-memory.md",
+        "docs/development/runtime-checkpoint-bundles.md",
+        "docs/development/checkpoint-pci-format.md",
+        "docs/development/storage-configuration.md"
+      ],
+      "primary_sources": [
+        {
+          "path": "src/config/runtime.rs",
+          "sha256": "fabe19c79a63c295856d9bc804d5a478e9638aa3a6576ba10b1efd56c94fc84a",
+          "contract": "Actual source-independent construction,typed admission,capture geometry,default file workflow and reproducible guest input."
+        },
+        {
+          "path": "src/vm/runtime.rs",
+          "sha256": "1c7724462bebdaeb46f757431b62b65bf7c85e8b8608eecca8894eb26412f32b",
+          "contract": "Actual source-independent construction,typed admission,capture geometry,default file workflow and reproducible guest input."
+        },
+        {
+          "path": "src/vm/runtime/pci_state.rs",
+          "sha256": "f7e6a29cd4ec77dacf985d256d756b0cc7d84f89c152be37bd81bf16adb55000",
+          "contract": "Actual source-independent construction,typed admission,capture geometry,default file workflow and reproducible guest input."
+        },
+        {
+          "path": "src/cli/mod.rs",
+          "sha256": "25f11faafd3cefccdf84bfea131af6648f39a5db4664bce8f913f2bf392bb270",
+          "contract": "Actual source-independent construction,typed admission,capture geometry,default file workflow and reproducible guest input."
+        },
+        {
+          "path": "src/vm/runtime/resume_tests.rs",
+          "sha256": "403ecfcb99e284f770ea54ac719923641499386232f31c56829f515bcc75a7ad",
+          "contract": "Actual source-independent construction,typed admission,capture geometry,default file workflow and reproducible guest input."
+        },
+        {
+          "path": "tools/checkpoint/rounding_guest.rs",
+          "sha256": "1e92fb9d6226cb3ccc83209aa58d0257d32fe3cf9d631d59c1b118c2b76ef2e8",
+          "contract": "Actual source-independent construction,typed admission,capture geometry,default file workflow and reproducible guest input."
+        },
+        {
+          "path": "tests/fixtures/checkpoint/resume-riscv.s",
+          "sha256": "0f50a27ff840ec9851c54c09ce66af9093bf80d2d692ad0a7db716d990ba7bd8",
+          "contract": "Actual source-independent construction,typed admission,capture geometry,default file workflow and reproducible guest input."
+        },
+        {
+          "path": "tests/fixtures/checkpoint/resume-riscv.ld",
+          "sha256": "4930962a1120db57da409f994e1fd3ac586ba989d54df2f3f75c798ef3b8cebe",
+          "contract": "Actual source-independent construction,typed admission,capture geometry,default file workflow and reproducible guest input."
+        },
+        {
+          "path": "tests/fixtures/checkpoint/resume-riscv.elf",
+          "sha256": "8a81e46dca5313a252df79da01f6dcd4b2c507ec8d71634b330aacc509494cd7",
+          "contract": "Actual source-independent construction,typed admission,capture geometry,default file workflow and reproducible guest input."
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "AdditionalCPU/private/platform/scheduler state,quiescence,perVM timing,replay,Linux boot and native failure transactions remain open."
+        },
+        {
+          "impact": "medium",
+          "finding": "Legacy base files retain projection semantics;writable resumed disks are detached and retained in memory/subsequent checkpoints."
+        },
+        {
+          "impact": "low",
+          "finding": "Future required sections need typed admission and explicit publication."
+        }
+      ],
+      "scope_limits": [
+        "Represented CPU0/private/4legacy/PCI/media/all-backing file resume is wired;fullVM/SMP/platform/scheduler closure remains open.",
+        "Legacy --resume keeps CLI/file resolution and fresh construction semantics;--checkpoint is the source-independent workflow.",
+        "Old base entrypoints retain image-state guards;new typed configuration uses standard supported configuration limits.",
+        "Independent writers must stay quiescent;native setters/second-pass host failures are not established as transactional.",
+        "Actual LLVM-produced bare-metal RV guest writes UART and exits after missing original kernel;this is not Linux/native-hypervisor proof.",
+        "Writable resumed media are detached;changes persist in the VM and subsequent checkpoints."
+      ],
+      "quality_gates": {
+        "QG1": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "No normative content required."
+        },
+        "QG2": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Assumptions have basis/dependency/stress/falsification."
+        },
+        "QG3": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "All bounded file/geometry/media requirements,10public cases,3mode live constructor and inheritedowners required."
+        },
+        "QG4": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "ceil(134217729/4096)*4096=134221824B;4429189120physical+134221824projection bytes independently compared;bounded chunk algorithms documented."
+        },
+        "QG5": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Old inconsistent object and rejected decode/save observed without altering inputs;all initial failures preserved;required extensions never discarded."
+        },
+        "QG6": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Actual old/current libraries,retained LLVM producer,system-zstd full-byte model and actual CLI UART/shutdown."
+        },
+        "QG7": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "High/medium/low scope explicit."
+        },
+        "QG8": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "Exact22owned paths and ledger staged with index/source/unrelated checks and exact red command."
+        },
+        "QG9": {
+          "status": "passed-with-explicit-scope-limits",
+          "contract": "48preflight/70final gates,complete native/Rosetta libraries,CAPIinventory and independent corpora required."
+        }
+      },
+      "validation_adjustments": [
+        {
+          "issue": "Initial strict predecessor observer asserted geometry equality,then another observer unwrapped rejected decompression before printing.",
+          "correction": "Retain both raw failed observers;final same-input client reports capture/config/RAM/decode/cookie/save observations without asserting expected-old validity.",
+          "records": [
+            "parent-rounding/initial-strict-probe/result.json",
+            "parent-rounding/initial-decode-assertion/result.json",
+            "parent-rounding/result.json"
+          ]
+        },
+        {
+          "issue": "Existing Snapshot/CheckpointConfig types need not gain Debug/PartialEq for tests.",
+          "correction": "Use err().unwrap and compare serialized config fields inside the owning test;public type shape unchanged."
+        },
+        {
+          "issue": "Test fixture cleanup could erase failed CLI outputs.",
+          "correction": "Use Cargo target temporary root when available and retain owned fixture directory on panic;stdin pipe stays open;execution requires unique marker plus shutdown."
+        },
+        {
+          "issue": "Full final validation ran on the frozen isolated worktree before its serial import.",
+          "correction": "All repository source/input files and symlinks match after import,excluding only Git/build/cache artifacts and the documentation-only audit ledger. All required commands actually ran with unchanged test arguments,domains and timeouts. Any resource-only incremental-cache/storage setting is recorded in the isolated launch. The complete owning target was additionally rerun in the integration checkout before this commit. Execution paths and exact command/log hashes are retained."
+        }
+      ],
+      "baseline": "338f97a28a411c0e24a2c187c711a932b5d6b74b",
+      "validation": {
+        "checks": [
+          {
+            "check": "final-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 364.5373170419989
+          },
+          {
+            "check": "final-clippy",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 149.73943500000314
+          },
+          {
+            "check": "final-fmt",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 23.288302500004647
+          },
+          {
+            "check": "final-doc",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 5.573730083997361
+          },
+          {
+            "check": "final-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.187333416004549
+          },
+          {
+            "check": "final-sgl",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_sgl",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.242540957995516
+          },
+          {
+            "check": "final-queues",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_queues",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.253064374999667
+          },
+          {
+            "check": "final-admission",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_admission",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.246184582996648
+          },
+          {
+            "check": "final-commands",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "nvme_commands",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 5.8106474579981295
+          },
+          {
+            "check": "final-ci-owning",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ci_actions_pinned"
+            ],
+            "code": 0,
+            "seconds": 0.23752149999927497
+          },
+          {
+            "check": "final-virtio",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "virtio_indirect",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.3076772499989602
+          },
+          {
+            "check": "final-ranges",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "virtio_ranges",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.30636854199838126
+          },
+          {
+            "check": "final-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "checkpoint_config",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.17612508300226182
+          },
+          {
+            "check": "final-ahci",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "ahci_dma",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.5412605829988024
+          },
+          {
+            "check": "final-images",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "storage_images",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.23828904200490797
+          },
+          {
+            "check": "final-config",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "storage_config",
+              "--bin",
+              "rax",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.19912287500483217
+          },
+          {
+            "check": "final-controller-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "controller_checkpoint",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.1876166669972008
+          },
+          {
+            "check": "final-pci-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "pci_checkpoint",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.19115891600085888
+          },
+          {
+            "check": "final-endpoint-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "pci_endpoint_checkpoint",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 2.7386744169998565
+          },
+          {
+            "check": "final-runtime-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "runtime_pci_checkpoint",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.19872045800002525
+          },
+          {
+            "check": "final-bundle",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "checkpoint_pci",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.7579369590021088
+          },
+          {
+            "check": "final-restore-admission",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "restore_admission",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.1997205000006943
+          },
+          {
+            "check": "final-physical-memory",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "checkpoint_physical_memory",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 219.08336645900272
+          },
+          {
+            "check": "final-runtime-bundle",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "runtime_checkpoint_bundle",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 112.46710158300266
+          },
+          {
+            "check": "final-checkpoint-resume",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "checkpoint_resume",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 49.62994604200503
+          },
+          {
+            "check": "final-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 509.5305865409973
+          },
+          {
+            "check": "final-intel-build",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 455.1593321670007
+          },
+          {
+            "check": "final-intel-nvme",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_prp",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.863910041000054
+          },
+          {
+            "check": "final-intel-sgl",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_sgl",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.9013742090028245
+          },
+          {
+            "check": "final-intel-queues",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_queues",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.676707749997149
+          },
+          {
+            "check": "final-intel-admission",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_admission",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.643333624997467
+          },
+          {
+            "check": "final-intel-commands",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "nvme_commands",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 7.648444792001101
+          },
+          {
+            "check": "final-intel-virtio",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "virtio_indirect",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.6384936659960658
+          },
+          {
+            "check": "final-intel-ranges",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "virtio_ranges",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.6290250419988297
+          },
+          {
+            "check": "final-intel-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "checkpoint_config",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.3823034170054598
+          },
+          {
+            "check": "final-intel-ahci",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "ahci_dma",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.8918035829992732
+          },
+          {
+            "check": "final-intel-images",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "storage_images",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.5400745000006282
+          },
+          {
+            "check": "final-intel-config",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "storage_config",
+              "--bin",
+              "rax",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.782166083001357
+          },
+          {
+            "check": "final-intel-controller-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "controller_checkpoint",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.3886833750002552
+          },
+          {
+            "check": "final-intel-pci-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "pci_checkpoint",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.383041166998737
+          },
+          {
+            "check": "final-intel-endpoint-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "pci_endpoint_checkpoint",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 6.162798166995344
+          },
+          {
+            "check": "final-intel-runtime-checkpoint",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "runtime_pci_checkpoint",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 0.4505368750033085
+          },
+          {
+            "check": "final-intel-bundle",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "checkpoint_pci",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 1.4548397499966086
+          },
+          {
+            "check": "final-intel-restore-admission",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "restore_admission",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 2.3613521669976762
+          },
+          {
+            "check": "final-intel-physical-memory",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "checkpoint_physical_memory",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 216.63035141699947
+          },
+          {
+            "check": "final-intel-runtime-bundle",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "runtime_checkpoint_bundle",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 136.27430425000057
+          },
+          {
+            "check": "final-intel-checkpoint-resume",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "checkpoint_resume",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 61.51278579199425
+          },
+          {
+            "check": "final-intel-library",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2754.075979165995
+          },
+          {
+            "check": "final-sgl-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/nvme-diff/sgl_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-sgl-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 6.843458333998569
+          },
+          {
+            "check": "final-queue-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/nvme-diff/queue_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-queue-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 15.361338290997082
+          },
+          {
+            "check": "final-admission-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/nvme-diff/admission_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-admission-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 6.819576667003275
+          },
+          {
+            "check": "final-commands-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/nvme-diff/commands_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-commands-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 7.501990249998926
+          },
+          {
+            "check": "final-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/nvme-diff/prp_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 21.2965581249955
+          },
+          {
+            "check": "final-virtio-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/virtio-diff/indirect_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-virtio-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 2.0909125830003177
+          },
+          {
+            "check": "final-range-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/virtio-diff/range_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-range-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 2.269821875001071
+          },
+          {
+            "check": "final-checkpoint-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/checkpoint/codec_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-codec-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 0.9937092079999275
+          },
+          {
+            "check": "final-ahci-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/ahci-diff/dma_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ahci-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target",
+              "--llvm-bin",
+              "/Users/int/local/bin"
+            ],
+            "code": 0,
+            "seconds": 1.8316924169994309
+          },
+          {
+            "check": "final-images-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/storage/image_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-images-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 2.686768832994858
+          },
+          {
+            "check": "final-controller-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/storage/controller_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-controller-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 0.7984396249958081
+          },
+          {
+            "check": "final-pci-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/checkpoint/pci_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-pci-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 0.6122104579990264
+          },
+          {
+            "check": "final-endpoint-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/checkpoint/pci_endpoint_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-endpoint-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 0.6106443750031758
+          },
+          {
+            "check": "final-runtime-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/checkpoint/runtime_pci_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 0.6225412499989034
+          },
+          {
+            "check": "final-bundle-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/checkpoint/bundle_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-bundle-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 0.7400502499949653
+          },
+          {
+            "check": "final-restore-admission-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/checkpoint/admission_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-restore-admission-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 0.621793083002558
+          },
+          {
+            "check": "final-physical-memory-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/checkpoint/physical_memory_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-physical-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 1.3056072920007864
+          },
+          {
+            "check": "final-runtime-bundle-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/checkpoint/runtime_bundle_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-bundle-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 0.6293023750040447
+          },
+          {
+            "check": "final-file-resume-independent",
+            "args": [
+              "python3",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree/tools/checkpoint/resume_oracle.py",
+              "--repo",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+              "--work-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-resume-oracle",
+              "--target-dir",
+              "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-target"
+            ],
+            "code": 0,
+            "seconds": 39.44359191699914
+          },
+          {
+            "check": "final-native-ci-selection",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--test",
+              "nvme_commands",
+              "--test",
+              "virtio_indirect",
+              "--test",
+              "virtio_ranges",
+              "--test",
+              "checkpoint_config",
+              "--test",
+              "ahci_dma",
+              "--test",
+              "storage_images",
+              "--test",
+              "storage_config",
+              "--test",
+              "controller_checkpoint",
+              "--test",
+              "pci_checkpoint",
+              "--test",
+              "pci_endpoint_checkpoint",
+              "--test",
+              "runtime_pci_checkpoint",
+              "--test",
+              "checkpoint_pci",
+              "--test",
+              "restore_admission",
+              "--test",
+              "checkpoint_physical_memory",
+              "--test",
+              "runtime_checkpoint_bundle",
+              "--test",
+              "checkpoint_resume",
+              "--bin",
+              "rax",
+              "--",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 412.91083504199923
+          },
+          {
+            "check": "final-intel-ci-selection",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--test",
+              "nvme_commands",
+              "--test",
+              "virtio_indirect",
+              "--test",
+              "virtio_ranges",
+              "--test",
+              "checkpoint_config",
+              "--test",
+              "ahci_dma",
+              "--test",
+              "storage_images",
+              "--test",
+              "storage_config",
+              "--test",
+              "controller_checkpoint",
+              "--test",
+              "pci_checkpoint",
+              "--test",
+              "pci_endpoint_checkpoint",
+              "--test",
+              "runtime_pci_checkpoint",
+              "--test",
+              "checkpoint_pci",
+              "--test",
+              "restore_admission",
+              "--test",
+              "checkpoint_physical_memory",
+              "--test",
+              "runtime_checkpoint_bundle",
+              "--test",
+              "checkpoint_resume",
+              "--bin",
+              "rax",
+              "--",
+              "--test-threads=1",
+              "--nocapture"
+            ],
+            "code": 0,
+            "seconds": 449.45608450000145
+          },
+          {
+            "check": "final-capi",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 15.713669874996413
+          }
+        ],
+        "complete_library_native": {
+          "passed": 10641,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 509.27
+        },
+        "complete_library_rosetta": {
+          "passed": 11624,
+          "failed": 0,
+          "ignored": 2,
+          "filtered": 0,
+          "elapsed_seconds": 2753.19
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "ci_owning": {
+          "passed": 12,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.06
+        },
+        "rounding_predecessor": {
+          "code": 0,
+          "args": [
+            "rustc",
+            "+stable",
+            "--edition=2024",
+            "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/guest.rs",
+            "--extern",
+            "rax=/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/librax-parent.rlib",
+            "-L",
+            "dependency=/Users/int/dev/rax-audit-work/rax-runtime-bundle-target/debug/deps",
+            "-o",
+            "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/probe"
+          ],
+          "library_sha256": "17662eda2864e74871f6091e93eb0a0c638a476116d0f5d28621f0da91556c19",
+          "consumer_sha256": "1e92fb9d6226cb3ccc83209aa58d0257d32fe3cf9d631d59c1b118c2b76ef2e8",
+          "stdout_sha256": "c2ab0ed23c5781ecd5881b0858aaa9bc29d481d052163b47f3f2a7a13fc1e50c",
+          "source_sha256": {
+            "src/vm/runtime.rs": "9d1fd650f24422045afbc0e55cf8d41364e1026fd7dca5b824a2a1f55b4fc7b1",
+            "src/config/runtime.rs": "737420e31a2a639bf697ee519228f478dc0b5e7ccb30dacbd9b4e2881eb2153c"
+          },
+          "finding": "Accepted128MiB+1 request allocates128MiB+4096;old capture returns inconsistent geometry;both decompression and save reject.",
+          "scope": "Original public APIs;actual accepted config/VM and capture error.No guest instructions."
+        },
+        "source_compatibility": {
+          "standard_config_resolution_unchanged": true,
+          "standard_validation_unchanged": true,
+          "attachment_registration_body_unchanged": true,
+          "public_snapshot_file_unchanged": true,
+          "normalized_config_body_sha256": "063be7d53c3d72acd1596b73058879619198af97c8fb906e8498d57043f14b93",
+          "normalized_validation_body_sha256": "98e43721b6d582354fd72b10c5955c8354511984b91cc08a779ec1e1a8fab6c7",
+          "source_before": {
+            "src/config/runtime.rs": "737420e31a2a639bf697ee519228f478dc0b5e7ccb30dacbd9b4e2881eb2153c",
+            "src/vm/runtime/pci_state.rs": "feadd9e09e565ae486a787ab923adc2bdc95177cd82cd42dea8ae5821cfae54c",
+            "src/vm/snapshot.rs": "a9019bd3e70f4515ceaa6810b5e977c435517a8bd7220a879a2efdd3d9d7f4c7"
+          },
+          "source_after": {
+            "src/config/runtime.rs": "fabe19c79a63c295856d9bc804d5a478e9638aa3a6576ba10b1efd56c94fc84a",
+            "src/vm/runtime/pci_state.rs": "f7e6a29cd4ec77dacf985d256d756b0cc7d84f89c152be37bd81bf16adb55000",
+            "src/vm/snapshot.rs": "a9019bd3e70f4515ceaa6810b5e977c435517a8bd7220a879a2efdd3d9d7f4c7"
+          },
+          "intentional_behavior_changes": [
+            "Normal VM capture records page-rounded allocated geometry.",
+            "Console/periodic/CLI use required represented extensions.",
+            "New typed source-independent constructor imports detached media.",
+            "Fresh attachment opens/admit images before registering the private bridge endpoints."
+          ]
+        },
+        "independent_file_resume": {
+          "files": 1,
+          "sections": 7,
+          "regions": 1,
+          "physical_bytes": 4429189120,
+          "projection_bytes": 134221824,
+          "elf_segments": 2,
+          "missing_kernel_paths": 1,
+          "guest_uart_markers": 1,
+          "guest_shutdown_events": 1,
+          "failed": 0
+        },
+        "assumption_checks": [
+          {
+            "id": "F1",
+            "assumption": "Typed image resume requires represented endpoint/media state and may avoid original sources.",
+            "basis": "Immutable bundle metadata plus detached endpoint construction before publication.",
+            "dependent_result": "All3 source access modes restore without original file paths.",
+            "stress_test": "Rename/remove kernel/images;exact live controller/media records and unchanged original bytes forRO/RW/COW.",
+            "falsification_probe": "A source path is opened,original bytes change or a captured media/control field differs.",
+            "status": "required-before-commit;explicit remaining scope"
+          },
+          {
+            "id": "F2",
+            "assumption": "Compatibility is admitted before target construction.",
+            "basis": "Typed config checks version,arch,rounded extent,count,PCI and source identity/policy.",
+            "dependent_result": "Known configuration errors precede trace/VM side effects.",
+            "stress_test": "Wrong version/count/extent/arch/PCI with trace sentinel.",
+            "falsification_probe": "Trace is created or wrong runtime failure precedes known geometry rejection.",
+            "status": "required-before-commit;explicit remaining scope"
+          },
+          {
+            "id": "F3",
+            "assumption": "Checkpoint RAM metadata records allocated geometry.",
+            "basis": "Actual GuestMemoryWrapper page rounding and matching consumer metadata checks.",
+            "dependent_result": "Accepted128MiB+1 capture produces usable/savable state.",
+            "stress_test": "Same original API client:134217729request,134221824allocation,final-byteABcookie,old metadata/decode/save observations versus corrected current fields.",
+            "falsification_probe": "Any metadata extent differs,decode/save rejects or final-byte cookie is lost.",
+            "status": "required-before-commit;explicit remaining scope"
+          },
+          {
+            "id": "F4",
+            "assumption": "CLI success must demonstrate actual guest execution.",
+            "basis": "UART writes and HTIF exit in retained LLVM ELF;stdin writer held open.",
+            "dependent_result": "Source-independent CLI file resume executes the captured high segment.",
+            "stress_test": "Exactly1 RAX/newline marker and1 shutdown event;actual fileafter original kernel removed;every mapped/projection byte independently checked.",
+            "falsification_probe": "Earlyexit/EOF/duplicateoutput or wrong physical byte is accepted.",
+            "status": "required-before-commit;explicit remaining scope"
+          },
+          {
+            "id": "F5",
+            "assumption": "Independent writers stay quiescent.",
+            "basis": "Capture before first guest instruction and private constructor until represented import completes.",
+            "dependent_result": "Consistent file and represented restore state.",
+            "stress_test": "Same explicit CPU/DMA/RAM/mapping contract;full coordinator remains separate.",
+            "falsification_probe": "Concurrent/fullSMP checkpoint consistency is claimed without coordination.",
+            "status": "required-before-commit;explicit remaining scope"
+          },
+          {
+            "id": "F6",
+            "assumption": "Expanded file state remains a bounded subset of the VM.",
+            "basis": "Existing represented CPU0/private/legacy/PCI/media/physical records.",
+            "dependent_result": "No fullCPU/platform/scheduler/native/replay claim.",
+            "stress_test": "High/medium/low scope and separate Linux/native/record-replay gates.",
+            "falsification_probe": "Bare-metal UART proof is labeled Linux or native/fullVM proof.",
+            "status": "required-before-commit;explicit remaining scope"
+          },
+          {
+            "id": "F7",
+            "assumption": "Standard config resolution and existing base APIs retain prior contracts.",
+            "basis": "False stored-media branch reproduces original resolver/validation;fixed registration body reused.",
+            "dependent_result": "Typed source-independent admission is additive.",
+            "stress_test": "Source-normalized compatibility checks,old image guards and complete inherited20config/17admission/20bundle owners.",
+            "falsification_probe": "Base guard or ordinary CLI/file/checkpoint precedence changes unexpectedly.",
+            "status": "required-before-commit;explicit remaining scope"
+          }
+        ],
+        "final-nvme": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 5.0
+        },
+        "final-sgl": {
+          "passed": 50,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 5.06
+        },
+        "final-queues": {
+          "passed": 48,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 5.06
+        },
+        "final-admission": {
+          "passed": 47,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 5.04
+        },
+        "final-commands": {
+          "passed": 49,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 5.08
+        },
+        "final-virtio": {
+          "passed": 46,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.12
+        },
+        "final-ranges": {
+          "passed": 66,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.13
+        },
+        "final-checkpoint": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "final-ahci": {
+          "passed": 54,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.36
+        },
+        "final-images": {
+          "passed": 24,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.06
+        },
+        "final-controller-checkpoint": {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "final-pci-checkpoint": {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.01
+        },
+        "final-endpoint-checkpoint": {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 2.56
+        },
+        "final-runtime-checkpoint": {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.02
+        },
+        "final-bundle": {
+          "passed": 20,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.58
+        },
+        "final-restore-admission": {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.02
+        },
+        "final-physical-memory": {
+          "passed": 30,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 218.9
+        },
+        "final-runtime-bundle": {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 112.1
+        },
+        "final-checkpoint-resume": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 49.29
+        },
+        "final-config": [
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          }
+        ],
+        "final-intel-nvme": {
+          "passed": 32,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.34
+        },
+        "final-intel-sgl": {
+          "passed": 50,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.5
+        },
+        "final-intel-queues": {
+          "passed": 48,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.2
+        },
+        "final-intel-admission": {
+          "passed": 47,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.25
+        },
+        "final-intel-commands": {
+          "passed": 49,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 7.25
+        },
+        "final-intel-virtio": {
+          "passed": 46,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.25
+        },
+        "final-intel-ranges": {
+          "passed": 66,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.25
+        },
+        "final-intel-checkpoint": {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.0
+        },
+        "final-intel-ahci": {
+          "passed": 54,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.51
+        },
+        "final-intel-images": {
+          "passed": 24,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.14
+        },
+        "final-intel-controller-checkpoint": {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.01
+        },
+        "final-intel-pci-checkpoint": {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.02
+        },
+        "final-intel-endpoint-checkpoint": {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 5.79
+        },
+        "final-intel-runtime-checkpoint": {
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.03
+        },
+        "final-intel-bundle": {
+          "passed": 20,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.84
+        },
+        "final-intel-restore-admission": {
+          "passed": 17,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 0.01
+        },
+        "final-intel-physical-memory": {
+          "passed": 30,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 214.3
+        },
+        "final-intel-runtime-bundle": {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 133.81
+        },
+        "final-intel-checkpoint-resume": {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0,
+          "elapsed_seconds": 57.55
+        },
+        "final-intel-config": [
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          }
+        ],
+        "final-native-ci-selection.log": [
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 54,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.38
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.75
+          },
+          {
+            "passed": 30,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 235.01
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 37.9
+          },
+          {
+            "passed": 19,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.58
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 47,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.94
+          },
+          {
+            "passed": 49,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.41
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.79
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.97
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.34
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 2.63
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 14,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 103.92
+          },
+          {
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.06
+          },
+          {
+            "passed": 46,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.12
+          },
+          {
+            "passed": 66,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.15
+          }
+        ],
+        "final-intel-ci-selection.log": [
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 54,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.53
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.83
+          },
+          {
+            "passed": 30,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 210.28
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 48.59
+          },
+          {
+            "passed": 19,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.07
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.06
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.17
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.9
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 47,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.65
+          },
+          {
+            "passed": 49,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 9.47
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 9.39
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.9
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.98
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.8
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 14,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 133.25
+          },
+          {
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.04
+          },
+          {
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 46,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.31
+          },
+          {
+            "passed": 66,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.36
+          }
+        ],
+        "worktree-native-owning.log": [
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 54,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.38
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.69
+          },
+          {
+            "passed": 30,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 245.25
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 37.62
+          },
+          {
+            "passed": 19,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.08
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.81
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 47,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.9
+          },
+          {
+            "passed": 49,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.41
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.74
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 5.78
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.23
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 2.58
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 14,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 105.24
+          },
+          {
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.07
+          },
+          {
+            "passed": 46,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.12
+          },
+          {
+            "passed": 66,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.16
+          }
+        ],
+        "worktree-intel-owning.log": [
+          {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 54,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.52
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.83
+          },
+          {
+            "passed": 30,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 212.78
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 51.01
+          },
+          {
+            "passed": 19,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 31,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 7,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.07
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.05
+          },
+          {
+            "passed": 8,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.17
+          },
+          {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.64
+          },
+          {
+            "passed": 9,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.01
+          },
+          {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          },
+          {
+            "passed": 47,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.59
+          },
+          {
+            "passed": 49,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 9.33
+          },
+          {
+            "passed": 32,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.43
+          },
+          {
+            "passed": 48,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 8.53
+          },
+          {
+            "passed": 50,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 9.0
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 6.63
+          },
+          {
+            "passed": 17,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.03
+          },
+          {
+            "passed": 14,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 200.55
+          },
+          {
+            "passed": 15,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.06
+          },
+          {
+            "passed": 20,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.02
+          },
+          {
+            "passed": 24,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.09
+          },
+          {
+            "passed": 46,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.24
+          },
+          {
+            "passed": 66,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.29
+          }
+        ],
+        "worktree-native-runtime-subtree.log": {
+          "results": [
+            {
+              "passed": 3,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10640,
+              "elapsed_seconds": 0.05
+            }
+          ],
+          "scope": "Filtered preflight subtree;complete unfiltered library required separately."
+        },
+        "worktree-native-snapshot-subtree.log": {
+          "results": [
+            {
+              "passed": 35,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10608,
+              "elapsed_seconds": 0.1
+            }
+          ],
+          "scope": "Filtered preflight subtree;complete unfiltered library required separately."
+        },
+        "worktree-native-memory-fault.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10642,
+              "elapsed_seconds": 0.01
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-native-runtime-locks.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10642,
+              "elapsed_seconds": 0.01
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-native-riscv-lock.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10642,
+              "elapsed_seconds": 0.01
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-native-bundle-legacy-locks.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10642,
+              "elapsed_seconds": 0.01
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-native-bundle-live-publication.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10642,
+              "elapsed_seconds": 0.01
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-native-bundle-detached-images.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10642,
+              "elapsed_seconds": 0.01
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-native-bundle-pci-locks.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10642,
+              "elapsed_seconds": 0.01
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-native-bundle-pci-callback.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10642,
+              "elapsed_seconds": 0.0
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-native-resume-detached-constructor.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 10642,
+              "elapsed_seconds": 1.74
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-intel-runtime-subtree.log": {
+          "results": [
+            {
+              "passed": 3,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11623,
+              "elapsed_seconds": 0.04
+            }
+          ],
+          "scope": "Filtered preflight subtree;complete unfiltered library required separately."
+        },
+        "worktree-intel-snapshot-subtree.log": {
+          "results": [
+            {
+              "passed": 35,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11591,
+              "elapsed_seconds": 0.14
+            }
+          ],
+          "scope": "Filtered preflight subtree;complete unfiltered library required separately."
+        },
+        "worktree-intel-memory-fault.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11625,
+              "elapsed_seconds": 0.01
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-intel-runtime-locks.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11625,
+              "elapsed_seconds": 0.04
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-intel-riscv-lock.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11625,
+              "elapsed_seconds": 0.01
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-intel-bundle-legacy-locks.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11625,
+              "elapsed_seconds": 0.04
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-intel-bundle-live-publication.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11625,
+              "elapsed_seconds": 0.05
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-intel-bundle-detached-images.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11625,
+              "elapsed_seconds": 0.05
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-intel-bundle-pci-locks.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11625,
+              "elapsed_seconds": 0.03
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-intel-bundle-pci-callback.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11625,
+              "elapsed_seconds": 0.02
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "worktree-intel-resume-detached-constructor.log": {
+          "results": [
+            {
+              "passed": 1,
+              "failed": 0,
+              "ignored": 0,
+              "filtered": 11625,
+              "elapsed_seconds": 2.37
+            }
+          ],
+          "scope": "Explicit focused preflight only;complete libraries still required."
+        },
+        "capi": [
+          {
+            "passed": 191,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 15.42
+          },
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0,
+            "elapsed_seconds": 0.0
+          }
+        ],
+        "final-oracle": {
+          "cases": 6,
+          "bytes_compared": 8448000,
+          "failed": 0
+        },
+        "final-sgl-oracle": {
+          "cases": 9,
+          "bytes_compared": 12288,
+          "failed": 0
+        },
+        "final-queue-oracle": {
+          "cases": 7,
+          "bytes_compared": 153168,
+          "failed": 0
+        },
+        "final-admission-oracle": {
+          "cases": 14,
+          "bytes_compared": 1200,
+          "failed": 0,
+          "dnr_differences": 24,
+          "primary_policy_differences": 5
+        },
+        "final-commands-oracle": {
+          "cases": 16,
+          "io_commands": 39,
+          "reference_frame_bytes": 214256,
+          "media_bytes_compared": 262144,
+          "payload_bytes_compared": 212992,
+          "dnr_differences": 6,
+          "namespace_profile_differences": 1,
+          "capability_profile_differences": 16,
+          "completion_failure_cases": 0,
+          "media_failure_cases": 0,
+          "output_failure_cases": 0,
+          "capability_failure_cases": 0,
+          "advisory_media_difference_cases": 5,
+          "advisory_output_difference_cases": 5,
+          "reference_contract_failure_cases": 0,
+          "failed": 0
+        },
+        "final-virtio-oracle": {
+          "cases": 16,
+          "requests": 24,
+          "frame_bytes": 7995,
+          "payload_bytes": 9260,
+          "media_bytes": 65536,
+          "capability_differences": 16,
+          "reference_difference_cases": 4,
+          "shared_exact_cases": 12,
+          "shared_requests": 18,
+          "shared_payload_bytes": 7186,
+          "shared_media_bytes": 49152,
+          "failed": 0
+        },
+        "final-range-oracle": {
+          "cases": 16,
+          "requests": 34,
+          "frame_bytes": 247208,
+          "payload_bytes": 262178,
+          "primary_media_bytes": 262144,
+          "capability_profile_differences": 16,
+          "status_profile_differences": 2,
+          "advisory_media_difference_cases": 1,
+          "reference_exact_cases": 12,
+          "reference_fatal_cases": 1,
+          "reference_completed_requests": 32,
+          "failed": 0
+        },
+        "final-ahci-oracle": {
+          "cases": 11,
+          "commands": 18,
+          "shared_payload_bytes": 8448,
+          "media_bytes": 360448,
+          "raw_profile_difference_records": 18,
+          "identify_profile_difference_bytes": 84,
+          "failed": 0
+        },
+        "final-images-oracle": {
+          "modes": 3,
+          "operations": 1548,
+          "cache_and_host_bytes": 50534400,
+          "expected_errors": 543,
+          "failed": 0
+        },
+        "final-codec-oracle": {
+          "cases": 10,
+          "sections": 60,
+          "memory_bytes": 40960,
+          "image_metadata": 6,
+          "legacy_tagged_files": 1,
+          "failed": 0
+        },
+        "final-controller-oracle": {
+          "cases": 9,
+          "continuation_events": 3,
+          "control_bytes": 4426,
+          "media_bytes": 73728,
+          "ram_bytes": 2359296,
+          "failed": 0
+        },
+        "final-pci-oracle": {
+          "cases": 7,
+          "control_bytes": 9826,
+          "routing_bytes": 112,
+          "failed": 0
+        },
+        "final-endpoint-oracle": {
+          "cases": 9,
+          "continuation_events": 6,
+          "control_bytes": 6669,
+          "ram_bytes": 98304,
+          "event_bytes": 68,
+          "failed": 0
+        },
+        "final-runtime-oracle": {
+          "cases": 5,
+          "continuation_events": 4,
+          "control_bytes": 29126,
+          "media_bytes": 65536,
+          "ram_bytes": 1310720,
+          "host_bytes": 32768,
+          "failed": 0
+        },
+        "final-bundle-oracle": {
+          "cases": 6,
+          "sections": 49,
+          "control_bytes": 15036,
+          "media_bytes": 98304,
+          "ram_bytes": 786432,
+          "media_digests": 8,
+          "image_bindings": 6,
+          "missing_source_paths": 12,
+          "failed": 0
+        },
+        "final-restore-admission-oracle": {
+          "cases": 16,
+          "ram_cases": 5,
+          "vm_cases": 11,
+          "accepted": 0,
+          "mutated": 0,
+          "verified_ram_bytes": 65536,
+          "verified_cpu_marker_bytes": 176,
+          "failed": 0
+        },
+        "final-physical-oracle": {
+          "cases": 4,
+          "regions": 134,
+          "sections": 28,
+          "physical_bytes": 565248,
+          "restored_bytes": 565248,
+          "reported_projection_bytes": 16384,
+          "digests": 134,
+          "failed": 0
+        },
+        "final-runtime-bundle-oracle": {
+          "cases": 6,
+          "accepted": 2,
+          "rejected": 4,
+          "ram_bytes": 24576,
+          "cpu_marker_bytes": 48,
+          "padding_bytes": 6,
+          "failed": 0
+        },
+        "logs": [
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/result.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/probe.stdout",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/probe.stderr",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/initial-strict-probe/result.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/parent-rounding/initial-decode-assertion/result.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/source-compatibility.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-owning-final.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-detached-final.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/prototype-rounding-current.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/elf-producer/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/elf-producer/readelf.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/reference-frozen/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/worktree-resume-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-resume-oracle/manifest.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/selection-proof.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/worktree-result.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/checks.jsonl",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-build.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-clippy.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-fmt.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-doc.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-sgl.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-queues.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-admission.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-commands.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ci-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-virtio.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ranges.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ahci.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-images.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-config.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-controller-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-pci-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-endpoint-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-bundle.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-restore-admission.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-physical-memory.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-bundle.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint-resume.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-library.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-build.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-nvme.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-sgl.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-queues.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-admission.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-commands.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-virtio.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ranges.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ahci.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-images.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-config.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-controller-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-pci-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-endpoint-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-runtime-checkpoint.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-bundle.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-restore-admission.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-physical-memory.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-runtime-bundle.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-checkpoint-resume.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-library.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-sgl-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-queue-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-admission-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-commands-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-virtio-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-range-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-checkpoint-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-ahci-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-images-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-controller-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-pci-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-endpoint-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-bundle-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-restore-admission-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-physical-memory-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-runtime-bundle-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-file-resume-independent.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-native-ci-selection.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-intel-ci-selection.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/final-capi.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/isolated-final-launch.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/isolated-final-result.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/isolated-final-accepted.json",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/post-import-owning.log",
+          "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/owned-ignored-staging.json"
+        ],
+        "toolchain": {
+          "manifest": "/Users/int/dev/rax-audit-work/recovery/fixed-task-toolchain.json",
+          "manifest_sha256": "81e88be69abade140b4c86d75558e7c248822c4c3e447ba4e35c7a4d57aaa763",
+          "compiler_verbose": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+          "environment": {
+            "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+            "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin"
+          },
+          "scope": "Required final gates use fixed task-local1.99.1;retained earlier1.98.1 references/preflights remain separately versioned. No global compiler/default changes."
+        },
+        "isolated_final_validation": {
+          "source_input_files": 31284,
+          "complete_isolated_validation": {
+            "code": 0,
+            "actual_returncode": 0,
+            "checks": 70,
+            "required_checks": 70,
+            "seconds": 6301.938742540995,
+            "repository": "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+            "source_inputs_unchanged": true,
+            "product_source_fingerprint": {
+              "rust_and_build_sources_sha256": "f4839bed94ba08de6cfec1a0859b4338ea1863cc7301ff3666cf2ba224b5aa86",
+              "files": 3607
+            },
+            "checks_sha256": "3211fd5057c89c0920e76af30a1e5d15930720958315d4221a9f46158b1b2fea",
+            "input_manifest_sha256": "ac6e1313d2a2268aced2cd1c7e1ad010eb99b5616773273c6a42402ae557ce0a",
+            "scope": "Actual complete final commands on immutable isolated source inputs using the fixed native toolchain and one-thread Rosetta library rule. Commit order remains serial;integration source identity and a fresh owning regression are required after import."
+          },
+          "post_import_command": [
+            "cargo",
+            "+stable",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,hvf",
+            "--test",
+            "checkpoint_resume",
+            "--",
+            "--test-threads=1"
+          ],
+          "post_import_code": 0,
+          "post_import_seconds": 77.06235462499899,
+          "post_import_log_sha256": "35bc32f75474b5b0d8b0cffd498657fb19e50052591e4d7108e0df91a0666926",
+          "integration_source_inputs_identical": true,
+          "scope": "Complete file/symlink identity except Git/build/cache artifacts and documentation-only audit ledger;actual isolated commands retained,and actual unfiltered owning target rerun in integration checkout."
+        },
+        "isolated_final_launch": {
+          "repository": "/Users/int/dev/rax-audit-work/rax-checkpoint-resume-worktree",
+          "checks": 70,
+          "script": "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/run-final-isolated.py",
+          "script_sha256": "c4c29d453d758f92dd77ad7061ed1ab73f771b33478685b38a4e4fe127708a01",
+          "original_final_script_sha256": "9a82c5e5e0aeba3a1e3aaf5221049e05d8fa555f3a30a33dddff2f49649a5cd6",
+          "input_manifest": "/Users/int/dev/rax-audit-work/recovery/parallel-final/rax-checkpoint-resume-input-manifest.json",
+          "input_manifest_sha256": "ac6e1313d2a2268aced2cd1c7e1ad010eb99b5616773273c6a42402ae557ce0a",
+          "product_source_fingerprint": {
+            "rust_and_build_sources_sha256": "f4839bed94ba08de6cfec1a0859b4338ea1863cc7301ff3666cf2ba224b5aa86",
+            "files": 3607
+          },
+          "post_import_target": "checkpoint_resume",
+          "post_import_count": 10,
+          "validation_index": "/Users/int/dev/rax-audit-work/rax-checkpoint-resume/isolated-validation.index",
+          "validation_index_source": "/Users/int/dev/rax/.git/worktrees/integration-candidate/index",
+          "validation_index_sha256": "aa1910f8520f8d7f4f18b8e728fe29812cfbaa0b920ea856e6b7c8dff3c4ebaa",
+          "complete_command_names": [
+            "final-build",
+            "final-clippy",
+            "final-fmt",
+            "final-doc",
+            "final-nvme",
+            "final-sgl",
+            "final-queues",
+            "final-admission",
+            "final-commands",
+            "final-ci-owning",
+            "final-virtio",
+            "final-ranges",
+            "final-checkpoint",
+            "final-ahci",
+            "final-images",
+            "final-config",
+            "final-controller-checkpoint",
+            "final-pci-checkpoint",
+            "final-endpoint-checkpoint",
+            "final-runtime-checkpoint",
+            "final-bundle",
+            "final-restore-admission",
+            "final-physical-memory",
+            "final-runtime-bundle",
+            "final-checkpoint-resume",
+            "final-library",
+            "final-intel-build",
+            "final-intel-nvme",
+            "final-intel-sgl",
+            "final-intel-queues",
+            "final-intel-admission",
+            "final-intel-commands",
+            "final-intel-virtio",
+            "final-intel-ranges",
+            "final-intel-checkpoint",
+            "final-intel-ahci",
+            "final-intel-images",
+            "final-intel-config",
+            "final-intel-controller-checkpoint",
+            "final-intel-pci-checkpoint",
+            "final-intel-endpoint-checkpoint",
+            "final-intel-runtime-checkpoint",
+            "final-intel-bundle",
+            "final-intel-restore-admission",
+            "final-intel-physical-memory",
+            "final-intel-runtime-bundle",
+            "final-intel-checkpoint-resume",
+            "final-intel-library",
+            "final-sgl-independent",
+            "final-queue-independent",
+            "final-admission-independent",
+            "final-commands-independent",
+            "final-independent",
+            "final-virtio-independent",
+            "final-range-independent",
+            "final-checkpoint-independent",
+            "final-ahci-independent",
+            "final-images-independent",
+            "final-controller-independent",
+            "final-pci-independent",
+            "final-endpoint-independent",
+            "final-runtime-independent",
+            "final-bundle-independent",
+            "final-restore-admission-independent",
+            "final-physical-memory-independent",
+            "final-runtime-bundle-independent",
+            "final-file-resume-independent",
+            "final-native-ci-selection",
+            "final-intel-ci-selection",
+            "final-capi"
+          ],
+          "compiler_environment": {
+            "RUSTUP_HOME": "/Users/int/dev/rax-audit-work/toolchains/rustup-1.99.1",
+            "RUSTUP_TOOLCHAIN": "stable-aarch64-apple-darwin",
+            "RUSTC_WRAPPER": "",
+            "TMPDIR": "/Users/int/dev/rax-audit-work/build-tmp",
+            "CARGO_BUILD_JOBS": "1",
+            "CARGO_INCREMENTAL": "0"
+          },
+          "storage_adjustment": "Incremental compilation cache disabled;compiler,test domains,options and timeouts unchanged. Completed byte-identical exported libraries use independent APFS COW storage.",
+          "pid": 12018,
+          "epoch": 1793062813.1814022,
+          "resume_driver": "/Users/int/dev/rax-audit-work/recovery/resume-isolated-final-pool.py"
+        },
+        "owned_ignored_staging": {
+          "paths": [
+            "tests/fixtures/checkpoint/resume-riscv.elf"
+          ],
+          "frozen_sha256": {
+            "tests/fixtures/checkpoint/resume-riscv.elf": "8a81e46dca5313a252df79da01f6dcd4b2c507ec8d71634b330aacc509494cd7"
+          },
+          "scope": "Only explicitly owned frozen and tested fixtures are force-staged;the subsequent authorized complete owned-path git add and red commands are unchanged.No ignore rule or unrelated path changes."
         }
       }
     }
