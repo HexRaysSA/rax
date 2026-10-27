@@ -47,11 +47,12 @@ admission. Low impact: future region/schema changes require reader negotiation.
 
 `Vmm::take_snapshot_bundle` captures the represented CPU-0/four-legacy-device
 base, the typed PCI/device/media set when registered, and every mapped physical
-region. Physical restore is currently an explicit
-`PhysicalMemorySnapshot::restore` operation. The regression exercises that
-operation against actual VM backing; it does not describe it as a coordinated
-CPU/device/physical-memory VM restore. The existing console/CLI base checkpoint
-path remains unchanged until that coordination is integrated.
+region. `PhysicalMemorySnapshot::restore` also provides a standalone physical
+operation. `Vmm::restore_snapshot_bundle` coordinates the represented CPU0,
+private, legacy, PCI/media and physical components; its admission/publication
+contract is documented in `runtime-checkpoint-bundles.md`. Additional CPUs and
+platform state remain separate. The existing console/CLI base checkpoint path
+remains unchanged pending its expanded resume integration.
 
 For N physical bytes in R regions, capture, verification and each restore pass
 are O(N) time. The projection shares the capture read pass. Restore uses a full

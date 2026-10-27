@@ -24,6 +24,17 @@ struct Region {
 pub struct PhysicalMemorySnapshot {
     regions: Vec<Region>,
 }
+/// A checked immutable checkpoint/target pair. Only this module constructs it.
+/// Caller-controlled writers/mapping changes must stay quiescent until commit.
+pub(crate) struct PhysicalMemoryRestore<'a> {
+    checkpoint: &'a PhysicalMemorySnapshot,
+    target: &'a GuestMemoryMmap,
+}
+impl PhysicalMemoryRestore<'_> {
+    pub(crate) fn commit(self) -> Result<()> {
+        self.checkpoint.write_verified(self.target)
+    }
+}
 impl std::fmt::Debug for PhysicalMemorySnapshot {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PhysicalMemorySnapshot")
@@ -231,6 +242,22 @@ impl PhysicalMemorySnapshot {
     pub fn restore(&self, memory: &GuestMemoryMmap) -> Result<()> {
         self.validate_target(memory)?;
         self.verify()?;
+        self.write_verified(memory)
+    }
+    pub(crate) fn prepare_with_projection<'a>(
+        &'a self,
+        memory: &'a GuestMemoryMmap,
+        projection: &[u8],
+        reported: u64,
+    ) -> Result<PhysicalMemoryRestore<'a>> {
+        self.validate_target(memory)?;
+        self.verify_projection(projection, reported)?;
+        Ok(PhysicalMemoryRestore {
+            checkpoint: self,
+            target: memory,
+        })
+    }
+    fn write_verified(&self, memory: &GuestMemoryMmap) -> Result<()> {
         let mut previous = [0u8; CHUNK];
         self.visit(|address, bytes| {
             // Equal bytes need no host write. This preserves sparse zero-backed

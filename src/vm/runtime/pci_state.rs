@@ -114,15 +114,22 @@ impl PciDevices {
     /// state. Bridge restore is atomic; all endpoint assignments after it are
     /// infallible. Restore performs no DMA or external-file write/reopen.
     pub fn restore_checkpoint(&self, checkpoint: PciDeviceCheckpoint) -> Result<()> {
+        self.restore_checkpoint_with(checkpoint, || Ok(()))
+    }
+    /// Admit all candidates and obtain every live PCI lock before calling the
+    /// represented CPU/RAM/device commit. No PCI mutation occurs if it fails.
+    pub(super) fn restore_checkpoint_with<T>(
+        &self,
+        checkpoint: PciDeviceCheckpoint,
+        commit: impl FnOnce() -> Result<T>,
+    ) -> Result<T> {
         match (&self.endpoints, checkpoint.endpoints) {
             (None, None) => {
                 let mut bridge = locked(&self.bridge)?;
                 bridge
                     .validate_checkpoint(&self.topology)
                     .map_err(state_error)?;
-                bridge
-                    .restore_checkpoint(checkpoint.bridge)
-                    .map_err(state_error)
+                bridge.restore_checkpoint_with(checkpoint.bridge, commit, state_error)
             }
             (Some(e), Some(state)) => {
                 let mut net = e1000::E1000::default();
@@ -151,15 +158,14 @@ impl PciDevices {
                 let mut n_live = locked(&e.nvme)?;
                 let mut a_live = locked(&e.ahci)?;
                 let mut audio_live = locked(&e.ac97)?;
-                bridge
-                    .restore_checkpoint(checkpoint.bridge)
-                    .map_err(state_error)?;
+                let result =
+                    bridge.restore_checkpoint_with(checkpoint.bridge, commit, state_error)?;
                 *net_live = net;
                 *usb_live = usb;
                 *n_live = n;
                 *a_live = a;
                 *audio_live = audio;
-                Ok(())
+                Ok(result)
             }
             _ => Err(Error::InvalidConfig(
                 "PCI checkpoint optional-endpoint topology mismatch".to_string(),
@@ -297,3 +303,7 @@ impl PciDevices {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "pci_state_checkpoint_tests.rs"]
+mod checkpoint_commit_tests;

@@ -90,6 +90,26 @@ impl PciStub {
         }
         Ok(())
     }
+    /// Decode/allocate before invoking the caller's commit, then publish this
+    /// bridge state without further fallible work. The exclusive bridge borrow
+    /// prevents topology changes between admission and publication.
+    pub(crate) fn restore_checkpoint_with<T, E>(
+        &mut self,
+        checkpoint: PciCheckpoint,
+        commit: impl FnOnce() -> std::result::Result<T, E>,
+        admission_error: impl FnOnce(io::Error) -> E,
+    ) -> std::result::Result<T, E> {
+        let decoded = self
+            .decode_checkpoint(&checkpoint)
+            .map_err(admission_error)?;
+        let result = commit()?;
+        self.address = decoded.address;
+        self.functions = decoded.functions;
+        for (ep, base) in self.endpoints.iter_mut().zip(decoded.bases) {
+            ep.current_base = base;
+        }
+        Ok(result)
+    }
     /// Check the complete record against current registration topology without
     /// changing registers, routes or calling any handler.
     pub fn validate_checkpoint(&self, checkpoint: &PciCheckpoint) -> io::Result<()> {

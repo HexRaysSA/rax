@@ -207,6 +207,45 @@ impl PciSnapshot {
     pub fn has_endpoints(&self) -> bool {
         self.endpoints.is_some()
     }
+    /// Borrow the immutable compressed checkpoint and construct owned detached
+    /// candidates with fallible control copies and checked media decompression.
+    pub fn to_devices(&self) -> Result<PciDeviceCheckpoint> {
+        fn copy(bytes: &[u8]) -> Result<Vec<u8>> {
+            let mut out = Vec::new();
+            out.try_reserve_exact(bytes.len())
+                .map_err(|e| invalid(e.to_string()))?;
+            out.extend_from_slice(bytes);
+            Ok(out)
+        }
+        let endpoints = match &self.endpoints {
+            None => None,
+            Some(e) => Some(PciEndpointCheckpoint {
+                e1000: crate::devices::e1000::E1000Checkpoint {
+                    state: copy(&e.e1000)?,
+                },
+                uhci: crate::devices::uhci::UhciCheckpoint {
+                    state: copy(&e.uhci)?,
+                },
+                nvme: crate::devices::nvme::NvmeCheckpoint {
+                    state: copy(&e.nvme)?,
+                    media: e.nvme_media.decompress()?,
+                },
+                ahci: crate::devices::ahci::AhciCheckpoint {
+                    state: copy(&e.ahci)?,
+                    media: e.ahci_media.decompress()?,
+                },
+                ac97: crate::devices::ac97::Ac97Checkpoint {
+                    state: copy(&e.ac97)?,
+                },
+            }),
+        };
+        Ok(PciDeviceCheckpoint {
+            bridge: crate::devices::pci::PciCheckpoint {
+                state: copy(&self.bridge)?,
+            },
+            endpoints,
+        })
+    }
     /// Decompress/check all media before constructing detached device records.
     /// Full controller semantic validation occurs when the runtime imports them.
     pub fn into_devices(self) -> Result<PciDeviceCheckpoint> {

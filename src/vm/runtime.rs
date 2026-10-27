@@ -1388,14 +1388,7 @@ impl Vmm {
         Ok(())
     }
 
-    /// Restore represented base state after validating input and target admission.
-    /// Full SMP/private/platform/PCI closure remains separate.
-    pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
-        if self.checkpoint_config.storage.has_images() || snapshot.config.storage.has_images() {
-            return Err(Error::InvalidConfig(
-                "image-backed checkpoint restore requires complete device/media state".to_string(),
-            ));
-        }
+    fn validate_snapshot_target(&self, snapshot: &Snapshot) -> Result<()> {
         snapshot.validate_for_restore()?;
         if snapshot.config.arch != self.checkpoint_config.arch {
             return Err(Error::InvalidConfig(
@@ -1417,6 +1410,113 @@ impl Vmm {
                 "checkpoint PCI topology does not match target machine".to_string(),
             ));
         }
+        Ok(())
+    }
+
+    /// Restore exactly the represented bundle components: CPU0/private base,
+    /// four legacy models, physical backing (or a legacy reported projection),
+    /// PCI/media when present and the existing timing base. Independent writers
+    /// must be quiescent. Other CPUs/platform state and native setter/resource
+    /// failure transactions remain outside this represented-state contract.
+    pub fn restore_snapshot_bundle(
+        &mut self,
+        bundle: &crate::vm::snapshot::SnapshotBundle,
+    ) -> Result<()> {
+        let snapshot = bundle.base();
+        self.validate_snapshot_target(snapshot)?;
+        if bundle.pci().is_none() && bundle.physical_memory().is_none() {
+            return self.restore_snapshot(snapshot);
+        }
+        for (source, target) in [
+            (
+                &snapshot.config.storage.nvme,
+                &self.checkpoint_config.storage.nvme,
+            ),
+            (
+                &snapshot.config.storage.ahci,
+                &self.checkpoint_config.storage.ahci,
+            ),
+        ] {
+            match (source, target) {
+                (None, None) => (),
+                (Some(s), Some(t)) if s.identity == t.identity && s.mode == t.mode => (),
+                _ => {
+                    return Err(Error::InvalidConfig(
+                        "checkpoint storage binding does not match target machine".to_string(),
+                    ));
+                }
+            }
+        }
+        match (&self.pci_devices, bundle.pci()) {
+            (Some(_), Some(_)) | (None, None) => (),
+            _ => {
+                return Err(Error::InvalidConfig(
+                    "checkpoint PCI component does not match target machine".to_string(),
+                ));
+            }
+        }
+        let vcpu = self
+            .vcpus
+            .first_mut()
+            .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
+        vcpu.validate_checkpoint_state(&snapshot.cpu_state, &snapshot.emulator_state)?;
+        let physical = bundle
+            .physical_memory()
+            .map(|p| {
+                p.prepare_with_projection(
+                    self.guest_mem.memory(),
+                    &snapshot.memory_data,
+                    snapshot.memory_size,
+                )
+            })
+            .transpose()?;
+        let memory = if physical.is_none() {
+            let memory = snapshot.decompress_memory()?;
+            self.guest_mem.validate_restore_len(memory.len())?;
+            Some(memory)
+        } else {
+            None
+        };
+        let pci = bundle.pci().map(|p| p.to_devices()).transpose()?;
+        let devices = snapshot.devices.clone();
+        let lock_err =
+            |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
+        let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
+        let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
+        let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
+        let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
+        let guest_mem = &self.guest_mem;
+        let commit = move || -> Result<()> {
+            vcpu.set_state(&snapshot.cpu_state)?;
+            vcpu.set_emulator_state(&snapshot.emulator_state)?;
+            if let Some(physical) = physical {
+                physical.commit()?;
+            } else if let Some(memory) = memory {
+                guest_mem.write_all(&memory)?;
+            }
+            *pic = devices.pic;
+            *pit = devices.pit;
+            *serial = devices.serial;
+            *lapic = devices.lapic;
+            crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
+            Ok(())
+        };
+        match (&self.pci_devices, pci) {
+            (Some(devices), Some(pci)) => devices.restore_checkpoint_with(pci, commit),
+            (None, None) => commit(),
+            _ => unreachable!("PCI topology admitted before commit"),
+        }
+    }
+
+    /// Restore represented base state after validating input and target admission.
+    /// Full SMP/private/platform/PCI closure remains separate.
+    pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
+        if self.checkpoint_config.storage.has_images() || snapshot.config.storage.has_images() {
+            return Err(Error::InvalidConfig(
+                "image-backed checkpoint restore requires complete device/media state".to_string(),
+            ));
+        }
+        self.validate_snapshot_target(snapshot)?;
         let vcpu = self
             .vcpus
             .get_mut(0)
@@ -1628,3 +1728,7 @@ mod storage_tests;
 #[cfg(test)]
 #[path = "runtime/checkpoint_tests.rs"]
 mod checkpoint_tests;
+
+#[cfg(test)]
+#[path = "runtime/bundle_tests.rs"]
+mod bundle_tests;

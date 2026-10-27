@@ -6,9 +6,10 @@
 //! supported through its frozen configuration schema.
 //!
 //! SnapshotBundle additionally frames typed PCI/media state and every mapped
-//! physical region. Coordinated VM restore, additional CPUs, platform devices
-//! and scheduler state still require integration. The original base Snapshot
-//! fields and wire do not themselves represent those extensions.
+//! physical region. Vmm::restore_snapshot_bundle coordinates those represented
+//! components. Additional CPUs, platform devices, scheduler state and full VM
+//! quiescence still require integration. The original base Snapshot fields and
+//! wire do not themselves represent those extensions.
 //! Legacy `.snap` files use a separate magic and are rejected explicitly.
 
 use std::io::Read;
