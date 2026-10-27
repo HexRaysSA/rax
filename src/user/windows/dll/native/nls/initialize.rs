@@ -11,7 +11,11 @@ pub(crate) fn initialize(c: &mut Ctx) -> ApiResult {
 }
 
 fn checked(c: &mut Ctx) -> ApiResult {
-    if !crate::user::windows::nls::supports_startup_profile(&c.p.cfg.version) {
+    if !crate::user::windows::nls::supports_initialize_profile(
+        &c.p.cfg.version,
+        c.p.object_namespace.native_machine,
+        c.arch(),
+    ) {
         return Err(c.unsupported("NtInitializeNlsFiles native build profile is unmeasured"));
     }
     // The measured builds ignore the declared casing-size/version outputs,

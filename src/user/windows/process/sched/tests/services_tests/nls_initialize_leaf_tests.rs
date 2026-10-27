@@ -43,11 +43,13 @@ fn native_nls_initialize_installed_leaves_map_locale_file_and_preserve_ignored_o
             native_host_profile::build(),
             "installed profile must report the current host build"
         );
-        // The native initialization profile (ignored casing/version outputs,
-        // WoW64 capture ordering) was independently measured on 29683 and 29695.
-        // Other builds expose the entry as unimplemented. Recorded corpora
-        // cover the shared semantics on every host.
-        if !crate::user::windows::nls::supports_startup_profile(&p.cfg.version) {
+        // Initialization admission is separate from MUI and binds the actual
+        // native machine for the independently measured AMD64 kernel profiles.
+        if !crate::user::windows::nls::supports_initialize_profile(
+            &p.cfg.version,
+            p.object_namespace.native_machine,
+            arch,
+        ) {
             assert!(
                 p.nls.as_ref().and_then(|nls| nls.initialize()).is_none(),
                 "unmeasured build must not record an initialization profile"

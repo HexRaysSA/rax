@@ -7,6 +7,9 @@ use std::sync::Arc;
 #[path = "nls_initialize_replay_tests.rs"]
 mod replay;
 
+#[path = "nls_initialize_amd64_replay_tests.rs"]
+mod amd64_replay;
+
 fn setup(arch: WinArch, build: u32) -> (super::super::super::super::WindowsProcess, Thread, u64) {
     let (mut process, thread) = fixture(arch, "NtInitializeNlsFiles", 0x12);
     let p = process.state_mut();

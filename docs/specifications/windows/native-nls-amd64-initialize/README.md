@@ -26,7 +26,7 @@ views. Retained raw observations use O(O) space for O output bytes.
 
 | ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| NA1 | Native AMD64 initialization may retain the measured output/probe/copy rules. | The original fixture reaches this service; other kernels are not evidence for its semantics. | Any future initialization profile extension. | Null, bad, unaligned, readonly, guarded and aliased outputs; retained views; protect/free. | Compare every native status, guard transition, output byte, view delta and lifetime against the existing model. | Retained pending native results; no runtime admission yet. |
+| NA1 | Native AMD64 initialization may retain the measured output/probe/copy rules. | The original fixture reaches this service; other kernels are not evidence for its semantics. | Any future initialization profile extension. | Null, bad, unaligned, readonly, guarded and aliased outputs; retained views; protect/free. | Compare every native status, guard transition, output byte, view delta and lifetime against the existing model. | Native controls confirmed in run40565964224; finite model admission and runtime gates are recorded in model.md. |
 | NA2 | Initialization and MUI require independent admission. | The current startup-profile predicate controls both services. | Scope of a future runtime fix. | Initialization agrees while MUI differs. | Trace every predicate consumer and keep unmeasured MUI unavailable. | Confirmed by current source consumers. |
 
 High impact: full original startup still stops at unmeasured NLS initialization.
@@ -34,3 +34,7 @@ The observations alone do not qualify runtime behavior or MUI. Public/private
 ABIs, package layout, dependencies and feature defaults are unaffected. No new
 CI job is added. Retained failed compiler/native reports remain evidence;
 corrective producers receive a new version.
+
+The subsequent finite initialization admission and terminal validation are
+recorded in [model.md](model.md). Its results supersede the observation-stage
+pending-native status; MUI remains independently unavailable on the new profiles.
