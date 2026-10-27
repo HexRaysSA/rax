@@ -9,8 +9,10 @@ use std::sync::Arc;
 pub(crate) const MAX_IMAGE_BYTES: u64 = 64 << 20;
 pub(crate) const MAX_EXTENSION_BYTES: u64 = 64 << 10;
 pub(crate) const MAX_IMAGE_TAIL_BYTES: u64 = 64 << 10;
+pub(crate) mod extension_query;
 #[cfg(any(windows, test))]
 pub(crate) mod region;
+pub(crate) use extension_query::ExtensionQuery;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ImageExtension {
     pub(crate) rva: u64,
@@ -29,6 +31,7 @@ pub(crate) struct ImageTemplate {
     pub(crate) preferred: u64,
     pub(crate) machine: u16,
     pub(crate) extensions: [Option<ImageExtension>; 2],
+    pub(crate) extension_query: ExtensionQuery,
     reserved_tail: u64,
     rebased: Option<Arc<[u8]>>,
     pub(crate) large_pages: bool,
@@ -155,6 +158,7 @@ impl ImageTemplate {
             preferred,
             machine,
             extensions,
+            extension_query: ExtensionQuery::Both,
             reserved_tail: 0,
             rebased: None,
             large_pages: true,
@@ -162,6 +166,20 @@ impl ImageTemplate {
             wide,
             relocations,
         }))
+    }
+    pub(crate) fn with_extension_query(
+        mut image: Arc<Self>,
+        query: ExtensionQuery,
+    ) -> io::Result<Arc<Self>> {
+        if query == ExtensionQuery::Unavailable && image.extensions.iter().any(Option::is_some)
+            || query == ExtensionQuery::NativeOnly && image.extensions[1].is_some()
+        {
+            return Err(invalid("unavailable image extension has captured payload"));
+        }
+        Arc::get_mut(&mut image)
+            .ok_or_else(|| invalid("image query policy already shared"))?
+            .extension_query = query;
+        Ok(image)
     }
     /// The compatibility syscall transport accepts LARGE_PAGES but maps
     /// ordinary image pages; combined-flag validation is still unchanged.
@@ -220,6 +238,8 @@ impl ImageTemplate {
             || second.regions != original.regions
             || first.extensions != original.extensions
             || second.extensions != original.extensions
+            || first.extension_query != original.extension_query
+            || second.extension_query != original.extension_query
         {
             return Err(invalid("native rebase view policy changed"));
         }

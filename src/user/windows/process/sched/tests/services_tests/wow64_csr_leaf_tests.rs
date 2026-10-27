@@ -12,7 +12,15 @@ fn wow64_csr_installed_x86_leaf_publishes_owned_connection_and_returns_with_ret2
     config.arena_bytes = 256 << 20;
     let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
     let p = process.state_mut();
-    let native_kernel = p.wow64.as_ref().unwrap().kernel;
+    let state = p.wow64.as_ref().unwrap();
+    let native_kernel = state.kernel;
+    let machine = state.machine;
+    let session = state.session;
+    let directory = if session == 0 {
+        "\\Windows".to_owned()
+    } else {
+        format!("\\Sessions\\{session}\\Windows")
+    };
     let tid = *p.threads.keys().next().unwrap();
     let mut thread = p.threads.remove(&tid).unwrap();
     let b =
@@ -20,14 +28,18 @@ fn wow64_csr_installed_x86_leaf_publishes_owned_connection_and_returns_with_ret2
             .unwrap()
             .0;
     p.space
-        .put_wstr(b, &"\\Windows".encode_utf16().collect::<Vec<_>>())
+        .put_wstr(b, &directory.encode_utf16().collect::<Vec<_>>())
         .unwrap();
     p.space.wr(b + 4096, &[0xa5; 80]).unwrap();
     p.space.w8(b + 8192, 0xa5).unwrap();
     let before = p.objects.handle_count();
     let result =
         super::super::secure_connect_tests::installed::try_leaf(p, &mut thread, NAME, &args(b));
-    if native_kernel != (10, 0, 29695) {
+    let measured = matches!(
+        (machine, native_kernel),
+        (0xaa64, (10, 0, 29695)) | (0x8664, (10, 0, 20348 | 26100))
+    );
+    if !measured {
         assert!(matches!(result, Err(reason) if reason.contains("WoW64 CSR")));
         assert_eq!(p.objects.handle_count(), before);
         assert!(p.wow64.as_ref().unwrap().csr.is_none());

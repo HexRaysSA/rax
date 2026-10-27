@@ -125,7 +125,7 @@ mod named;
 mod section;
 pub use data::DataSection;
 pub(crate) use data::SelectedSection;
-pub(crate) use image::{ImageExtension, ImageRegion, ImageTemplate};
+pub(crate) use image::{ExtensionQuery, ImageExtension, ImageRegion, ImageTemplate};
 pub(crate) use named::Name as NativeName;
 pub(crate) use section::CapturedSection;
 pub(crate) use section::GrantError as SectionGrantError;
@@ -214,6 +214,7 @@ pub(crate) struct Namespace {
     root: Option<Arc<Directory>>,
     pub(crate) wow_system_prefix: Vec<u16>,
     pub(crate) native_machine: Option<u16>,
+    pub(crate) image_extension_query: Option<image::ExtensionQuery>,
     section_case: Option<bool>,
     wow_section_root: Option<Arc<Directory>>,
     csr_server: Option<Arc<csr::CsrServer>>,
@@ -447,6 +448,7 @@ impl Namespace {
             wow_section_root: None,
             csr_server: None,
             native_machine: None,
+            image_extension_query: None,
         })
     }
     pub(crate) fn select_wow_system_root(&mut self, root: &[u16]) -> io::Result<()> {

@@ -17,6 +17,8 @@ on:
       - docs/specifications/windows/native-session-windows-directory/**
       - docs/specifications/windows/native-session-csr-connect/**
       - docs/specifications/windows/native-nls-amd64-initialize/**
+      - docs/specifications/windows/native-wow64-csr-amd64/**
+      - docs/specifications/windows/native-image-extension-amd64/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
@@ -32,6 +34,8 @@ on:
       - docs/specifications/windows/native-session-windows-directory/**
       - docs/specifications/windows/native-session-csr-connect/**
       - docs/specifications/windows/native-nls-amd64-initialize/**
+      - docs/specifications/windows/native-wow64-csr-amd64/**
+      - docs/specifications/windows/native-image-extension-amd64/**
   workflow_dispatch:
 
 permissions:
@@ -45,9 +49,27 @@ jobs:
       matrix:
         os: [windows-2022, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Observe native AMD64 image-extension availability
+        run: python -B docs/specifications/windows/native-image-extension-amd64/run-v1.py
+      - name: Preserve native AMD64 image-extension observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-image-extension-amd64-${{ matrix.os }}
+          path: target/native-image-extension-amd64-v1.json
+          if-no-files-found: error
+      - name: Observe native AMD64 type-1 image-extension query precedence
+        run: python -B docs/specifications/windows/native-image-extension-amd64/run-query-matrix-v2.py
+      - name: Preserve native AMD64 type-1 image-extension query observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-image-extension-amd64-query-matrix-${{ matrix.os }}
+          path: target/native-image-extension-amd64-query-matrix-v2.json
+          if-no-files-found: error
       - name: Observe independent AMD64 NLS initialization and view lifetime
         run: python -B docs/specifications/windows/native-nls-amd64-initialize/run-v1.py
       - name: Preserve independent AMD64 NLS observations
@@ -187,3 +209,56 @@ jobs:
           name: native-system-processor-information-${{ matrix.os }}
           path: target/native-system-processor-information-v1.json
           if-no-files-found: error
+      - name: Observe original x86 CSR startup on independent AMD64 kernels
+        if: always()
+        run: python -B docs/specifications/windows/native-wow64-csr-amd64/run-v1.py
+      - name: Preserve original AMD64 WoW64 CSR startup observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-wow64-csr-amd64-startup-${{ matrix.os }}
+          path: target/native-wow64-csr-amd64-startup-v1.json
+          if-no-files-found: error
+      - name: Observe fresh and retry WoW64 CSR calls on independent AMD64 kernels
+        if: always()
+        run: |
+          python -B -m unittest discover -s docs/specifications/windows/native-wow64-csr-amd64 -p test_matrix_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-wow64-csr-amd64/run-matrix-v1.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-wow64-csr-amd64/project-matrix-v1.py target/native-wow64-csr-amd64-matrix-v1.json target/native-wow64-csr-amd64-matrix-projected-v1.json
+      - name: Preserve independent AMD64 WoW64 CSR fresh and retry observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-wow64-csr-amd64-matrix-${{ matrix.os }}
+          path: target/native-wow64-csr-amd64-matrix-v1.json
+          if-no-files-found: error
+      - name: Prepare contained native CSR build directories
+        if: always()
+        shell: pwsh
+        run: |
+          $csrTmp = Join-Path $env:GITHUB_WORKSPACE 'target/native-csr-build-tmp'
+          New-Item -ItemType Directory -Force $csrTmp | Out-Null
+          "TMPDIR=$csrTmp" >> $env:GITHUB_ENV
+          "TMP=$csrTmp" >> $env:GITHUB_ENV
+          "TEMP=$csrTmp" >> $env:GITHUB_ENV
+          "RUSTC_WRAPPER=" >> $env:GITHUB_ENV
+          "RUSTC_WORKSPACE_WRAPPER=" >> $env:GITHUB_ENV
+      - uses: ./.github/actions/setup-rust
+        if: always()
+        with:
+          toolchain: 1.95.0
+          cache-key: native-csr-${{ matrix.os }}
+      - name: Execute installed pure x86 CSR leaf on the native AMD64 kernel
+        if: always()
+        run: cargo test --locked --no-default-features --lib wow64_csr -- --nocapture --test-threads=1
+      - name: Execute image-extension queries through installed native leaves
+        if: always()
+        run: |
+          cargo test --locked --no-default-features --lib image_extension -- --nocapture --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --no-default-features --lib extension_query -- --nocapture --test-threads=1
+      - name: Execute the whole original installed-library hardware-fault fixture
+        if: always()
+        run: cargo test --locked --no-default-features --lib user::windows::seh::native_entry::tests::native_entry_installed_ntdll_runs_hardware_fault_veh_and_context_continuation -- --exact --nocapture --test-threads=1

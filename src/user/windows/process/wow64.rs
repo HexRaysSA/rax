@@ -66,6 +66,8 @@ pub(crate) struct State {
     pub(crate) native_peb: u64,
     pub(crate) machine: u16,
     pub(crate) kernel: (u32, u32, u32),
+    /// Captured process session, independent of mutable guest PEB/token fields.
+    pub(crate) session: u32,
     pub(crate) csr: Option<CsrConnection>,
     _work_view: Option<SharedViewOwner>,
 }
@@ -113,6 +115,7 @@ fn initialize_profile(p: &mut Proc, profile: Profile) -> Result<(), u32> {
     let (native_peb, _) =
         p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
             .map_err(|error| error.status())?;
+    let session = p.objects.wnf_queries().map_or(0, |queries| queries.session);
     let mut section_handle = None;
     let mut work_view = None;
     let result = (|| {
@@ -130,6 +133,7 @@ fn initialize_profile(p: &mut Proc, profile: Profile) -> Result<(), u32> {
             (native_offsets.peb_os_major, p.cfg.version.major),
             (native_offsets.peb_os_minor, p.cfg.version.minor),
             (native_offsets.peb_os_platform_id, 2),
+            (native_offsets.peb_session_id, session),
         ] {
             p.space
                 .w32(native_peb + offset, value)
@@ -194,6 +198,7 @@ fn initialize_profile(p: &mut Proc, profile: Profile) -> Result<(), u32> {
                 native_peb,
                 machine: profile.machine,
                 kernel: profile.kernel,
+                session,
                 csr: None,
                 _work_view: work_view,
             });

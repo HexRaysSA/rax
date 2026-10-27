@@ -1,0 +1,2295 @@
+{
+  "schema": "native-image-extension-amd64-profiles-v1",
+  "source_run": 40588153275,
+  "source_commit": "5533eadc6432e1ec282b1491656b4e1ea5c699f2",
+  "captures": [
+    {
+      "artifact_id": 12771064343,
+      "archive_sha256": "396d127a4cd5a22058513e99dfddffa483897e5e83137e5c43bbf7e1db0b453d",
+      "raw_json_sha256": "c19d4b7dfa3f2caea39fc53d2be057385b32a6ec3ed1623a58a23a00196336b5",
+      "capture": {
+        "schema": "native-image-extension-amd64-v1",
+        "pid": 1012,
+        "kernel": [
+          10,
+          0,
+          20348,
+          2,
+          ""
+        ],
+        "platform_machine": "AMD64",
+        "process_machine": 0,
+        "native_machine": 34404,
+        "inputs": [
+          {
+            "path": "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-image-extension-amd64\\run-v1.py",
+            "bytes": 16349,
+            "sha256": "f73726ff141aaf741ec3d6478643fd9989da80af5592459b43ae3acf2a05a1ca"
+          },
+          {
+            "path": "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.exe",
+            "bytes": 104952,
+            "sha256": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a"
+          },
+          {
+            "path": "C:\\Windows\\System32\\ntdll.dll",
+            "bytes": 2141600,
+            "sha256": "bcfe8a70a371a7d2fbcb429ab0a9e170aeebe4d73ae08d03a2da8fedec2efc78"
+          },
+          {
+            "path": "C:\\Windows\\SysWOW64\\ntdll.dll",
+            "bytes": 1754328,
+            "sha256": "1e78588dcb44d47c1656f9f6eab8ab5beb5279959bcebf74c0f869d8d1c73322"
+          }
+        ],
+        "state": "complete",
+        "samples": [
+          {
+            "machine": 34404,
+            "owner": "named",
+            "mode": "ordinary",
+            "section_size": 2113536,
+            "section_attributes": 25165824,
+            "map_status": 1073741827,
+            "base": 2150281838592,
+            "view_size": 2113536,
+            "base_region": {
+              "base": 2150281838592,
+              "allocation": 2150281838592,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "0000c9a6f401000000402000000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2150283952128,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138537314926592,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "named",
+            "mode": "machine",
+            "section_size": 2113536,
+            "section_attributes": 25165824,
+            "map_status": 1073741827,
+            "base": 2150281838592,
+            "view_size": 2113536,
+            "base_region": {
+              "base": 2150281838592,
+              "allocation": 2150281838592,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "0000c9a6f401000000402000000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2150283952128,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138537314926592,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "named",
+            "mode": "machine-rebase",
+            "section_size": 2113536,
+            "section_attributes": 25165824,
+            "map_status": 1073741878,
+            "base": 2150281838592,
+            "view_size": 2113536,
+            "base_region": {
+              "base": 2150281838592,
+              "allocation": 2150281838592,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "0000c9a6f401000000402000000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2150283952128,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138537314926592,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "created",
+            "mode": "ordinary",
+            "section_size": 2113536,
+            "section_attributes": 25165824,
+            "map_status": 1073741827,
+            "base": 2150281838592,
+            "view_size": 2113536,
+            "base_region": {
+              "base": 2150281838592,
+              "allocation": 2150281838592,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "0000c9a6f401000000402000000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2150283952128,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138537314926592,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "created",
+            "mode": "machine",
+            "section_size": 2113536,
+            "section_attributes": 25165824,
+            "map_status": 1073741827,
+            "base": 2150281838592,
+            "view_size": 2113536,
+            "base_region": {
+              "base": 2150281838592,
+              "allocation": 2150281838592,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "0000c9a6f401000000402000000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2150283952128,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138537314926592,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "created",
+            "mode": "machine-rebase",
+            "section_size": 2113536,
+            "section_attributes": 25165824,
+            "map_status": 1073741878,
+            "base": 2150281838592,
+            "view_size": 2113536,
+            "base_region": {
+              "base": 2150281838592,
+              "allocation": 2150281838592,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "0000c9a6f401000000402000000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2150283952128,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138537314926592,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "named",
+            "mode": "ordinary",
+            "section_size": 1744896,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 1997799424,
+            "view_size": 1744896,
+            "base_region": {
+              "base": 1997799424,
+              "allocation": 1997799424,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000014770000000000a01a00000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 1999544320,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 147808256,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "named",
+            "mode": "machine",
+            "section_size": 1744896,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 1997799424,
+            "view_size": 1744896,
+            "base_region": {
+              "base": 1997799424,
+              "allocation": 1997799424,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000014770000000000a01a00000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 1999544320,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 147808256,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "named",
+            "mode": "machine-rebase",
+            "section_size": 1744896,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 1997799424,
+            "view_size": 1744896,
+            "base_region": {
+              "base": 1997799424,
+              "allocation": 1997799424,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000014770000000000a01a00000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 1999544320,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 147808256,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "created",
+            "mode": "ordinary",
+            "section_size": 1744896,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 1997799424,
+            "view_size": 1744896,
+            "base_region": {
+              "base": 1997799424,
+              "allocation": 1997799424,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000014770000000000a01a00000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 1999544320,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 147808256,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "created",
+            "mode": "machine",
+            "section_size": 1744896,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 1997799424,
+            "view_size": 1744896,
+            "base_region": {
+              "base": 1997799424,
+              "allocation": 1997799424,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000014770000000000a01a00000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 1999544320,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 147808256,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "created",
+            "mode": "machine-rebase",
+            "section_size": 1744896,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 1997799424,
+            "view_size": 1744896,
+            "base_region": {
+              "base": 1997799424,
+              "allocation": 1997799424,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000014770000000000a01a00000000003000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225475,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225475,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 1999544320,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 147808256,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          }
+        ],
+        "handles_before": 172,
+        "handles_after": 172
+      }
+    },
+    {
+      "artifact_id": 12772852108,
+      "archive_sha256": "5f3b80642c3e15025a872c5c3bafc3e25e3b9c8c4a5652cdae249381356adf8d",
+      "raw_json_sha256": "037fd9692a87a2ca28496534b42939c426e6b9386ddedce9e5b434ff766121f6",
+      "capture": {
+        "schema": "native-image-extension-amd64-v1",
+        "pid": 2020,
+        "kernel": [
+          10,
+          0,
+          26100,
+          2,
+          ""
+        ],
+        "platform_machine": "AMD64",
+        "process_machine": 0,
+        "native_machine": 34404,
+        "inputs": [
+          {
+            "path": "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-image-extension-amd64\\run-v1.py",
+            "bytes": 16349,
+            "sha256": "f73726ff141aaf741ec3d6478643fd9989da80af5592459b43ae3acf2a05a1ca"
+          },
+          {
+            "path": "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.exe",
+            "bytes": 104952,
+            "sha256": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a"
+          },
+          {
+            "path": "C:\\Windows\\System32\\ntdll.dll",
+            "bytes": 2541720,
+            "sha256": "160ef9b82e2895ef48fa031cb1cf683a8b123febf7cf7d5590cd3104864424b3"
+          },
+          {
+            "path": "C:\\Windows\\SysWOW64\\ntdll.dll",
+            "bytes": 1852256,
+            "sha256": "7e55aa7b3e9c9c0cdaa764bb7bdae08824139d96eb361cd1a459a4ac967ea3e3"
+          }
+        ],
+        "state": "complete",
+        "samples": [
+          {
+            "machine": 34404,
+            "owner": "named",
+            "mode": "ordinary",
+            "section_size": 2506752,
+            "section_attributes": 25165824,
+            "map_status": 1073741827,
+            "base": 2460434104320,
+            "view_size": 2506752,
+            "base_region": {
+              "base": 2460434104320,
+              "allocation": 2460434104320,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "00004ddd3c02000000402600000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000402600000000000010000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2460436611072,
+                "allocation": 2460434104320,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 4096,
+                "state": 4096,
+                "protection": 32,
+                "kind": 16777216
+              },
+              {
+                "base": 2460436615168,
+                "allocation": 2460434104320,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 16384,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2460436631552,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138229733814272,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "named",
+            "mode": "machine",
+            "section_size": 2506752,
+            "section_attributes": 25165824,
+            "map_status": 1073741827,
+            "base": 2460434104320,
+            "view_size": 2506752,
+            "base_region": {
+              "base": 2460434104320,
+              "allocation": 2460434104320,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "00004ddd3c02000000402600000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000402600000000000010000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2460436611072,
+                "allocation": 2460434104320,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 4096,
+                "state": 4096,
+                "protection": 32,
+                "kind": 16777216
+              },
+              {
+                "base": 2460436615168,
+                "allocation": 2460434104320,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 16384,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2460436631552,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138229733814272,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "named",
+            "mode": "machine-rebase",
+            "section_size": 2506752,
+            "section_attributes": 25165824,
+            "map_status": 1073741878,
+            "base": 2460434104320,
+            "view_size": 2506752,
+            "base_region": {
+              "base": 2460434104320,
+              "allocation": 2460434104320,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "00004ddd3c02000000402600000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000402600000000000010000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2460436611072,
+                "allocation": 2460434104320,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 4096,
+                "state": 4096,
+                "protection": 32,
+                "kind": 16777216
+              },
+              {
+                "base": 2460436615168,
+                "allocation": 2460434104320,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 16384,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2460436631552,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138229733814272,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "created",
+            "mode": "ordinary",
+            "section_size": 2506752,
+            "section_attributes": 25165824,
+            "map_status": 1073741827,
+            "base": 2460438298624,
+            "view_size": 2506752,
+            "base_region": {
+              "base": 2460438298624,
+              "allocation": 2460438298624,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "00008ddd3c02000000402600000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000402600000000000010000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2460440805376,
+                "allocation": 2460438298624,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 4096,
+                "state": 4096,
+                "protection": 32,
+                "kind": 16777216
+              },
+              {
+                "base": 2460440809472,
+                "allocation": 2460438298624,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 16384,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2460440825856,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138229729619968,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "created",
+            "mode": "machine",
+            "section_size": 2506752,
+            "section_attributes": 25165824,
+            "map_status": 1073741827,
+            "base": 2460438298624,
+            "view_size": 2506752,
+            "base_region": {
+              "base": 2460438298624,
+              "allocation": 2460438298624,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "00008ddd3c02000000402600000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000402600000000000010000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2460440805376,
+                "allocation": 2460438298624,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 4096,
+                "state": 4096,
+                "protection": 32,
+                "kind": 16777216
+              },
+              {
+                "base": 2460440809472,
+                "allocation": 2460438298624,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 16384,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2460440825856,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138229729619968,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 34404,
+            "owner": "created",
+            "mode": "machine-rebase",
+            "section_size": 2506752,
+            "section_attributes": 25165824,
+            "map_status": 1073741878,
+            "base": 2460438298624,
+            "view_size": 2506752,
+            "base_region": {
+              "base": 2460438298624,
+              "allocation": 2460438298624,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "00008ddd3c02000000402600000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000402600000000000010000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2460440805376,
+                "allocation": 2460438298624,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 4096,
+                "state": 4096,
+                "protection": 32,
+                "kind": 16777216
+              },
+              {
+                "base": 2460440809472,
+                "allocation": 2460438298624,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 16384,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2460440825856,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 138229729619968,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "named",
+            "mode": "ordinary",
+            "section_size": 1835008,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 2005270528,
+            "view_size": 1835008,
+            "base_region": {
+              "base": 2005270528,
+              "allocation": 2005270528,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000086770000000000001c00000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000000000000000000000000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2007105536,
+                "allocation": 2005270528,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 20480,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2007126016,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 140226560,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "named",
+            "mode": "machine",
+            "section_size": 1835008,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 2005270528,
+            "view_size": 1835008,
+            "base_region": {
+              "base": 2005270528,
+              "allocation": 2005270528,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000086770000000000001c00000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000000000000000000000000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2007105536,
+                "allocation": 2005270528,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 20480,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2007126016,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 140226560,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "named",
+            "mode": "machine-rebase",
+            "section_size": 1835008,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 2005270528,
+            "view_size": 1835008,
+            "base_region": {
+              "base": 2005270528,
+              "allocation": 2005270528,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000086770000000000001c00000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000000000000000000000000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2007105536,
+                "allocation": 2005270528,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 20480,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2007126016,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 140226560,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "created",
+            "mode": "ordinary",
+            "section_size": 1835008,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 2005270528,
+            "view_size": 1835008,
+            "base_region": {
+              "base": 2005270528,
+              "allocation": 2005270528,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000086770000000000001c00000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000000000000000000000000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2007105536,
+                "allocation": 2005270528,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 20480,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2007126016,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 140226560,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "created",
+            "mode": "machine",
+            "section_size": 1835008,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 2005270528,
+            "view_size": 1835008,
+            "base_region": {
+              "base": 2005270528,
+              "allocation": 2005270528,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000086770000000000001c00000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000000000000000000000000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2007105536,
+                "allocation": 2005270528,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 20480,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2007126016,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 140226560,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          },
+          {
+            "machine": 332,
+            "owner": "created",
+            "mode": "machine-rebase",
+            "section_size": 1835008,
+            "section_attributes": 25165824,
+            "map_status": 1073741838,
+            "base": 2005270528,
+            "view_size": 1835008,
+            "base_region": {
+              "base": 2005270528,
+              "allocation": 2005270528,
+              "allocation_protection": 128,
+              "partition_padding": 0,
+              "size": 4096,
+              "state": 4096,
+              "protection": 2,
+              "kind": 16777216
+            },
+            "image_information": {
+              "status": 0,
+              "after": "000086770000000000001c00000000007000000000000000",
+              "returned": 24
+            },
+            "queries": [
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 24,
+                "status": 0,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "000000000000000000000000000000000000000000000000",
+                "returned": 24
+              },
+              {
+                "kind": 1,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225659,
+                "before": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0100000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 2,
+                "flags": 0,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0200000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 1,
+                "length": 24,
+                "status": 3221225485,
+                "before": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000001000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              },
+              {
+                "kind": 0,
+                "flags": 0,
+                "length": 23,
+                "status": 3221225476,
+                "before": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "after": "0000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+                "returned": 18446744073709551615
+              }
+            ],
+            "tail_regions": [
+              {
+                "base": 2007105536,
+                "allocation": 2005270528,
+                "allocation_protection": 128,
+                "partition_padding": 0,
+                "size": 20480,
+                "state": 8192,
+                "protection": 0,
+                "kind": 16777216
+              },
+              {
+                "base": 2007126016,
+                "allocation": 0,
+                "allocation_protection": 0,
+                "partition_padding": 0,
+                "size": 140226560,
+                "state": 65536,
+                "protection": 1,
+                "kind": 0
+              }
+            ]
+          }
+        ],
+        "handles_before": 179,
+        "handles_after": 179
+      }
+    }
+  ]
+}

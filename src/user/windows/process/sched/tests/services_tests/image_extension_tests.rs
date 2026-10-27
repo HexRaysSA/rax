@@ -9,6 +9,9 @@ mod owner;
 #[path = "image_extension_leaf_tests.rs"]
 mod installed;
 
+#[path = "image_extension_amd64_tests.rs"]
+mod amd64;
+
 fn fields(line: &str) -> HashMap<&str, &str> {
     line.split_whitespace()
         .filter_map(|part| part.split_once('='))
@@ -122,12 +125,22 @@ fn image(p: &mut Proc) -> u64 {
 
 #[test]
 fn native_image_extension_matrix_replays_absent_images_and_abi_availability() {
+    let (replayed, present_controls) = replay_query_profiles(&MATRIX, None);
+    assert_eq!(replayed, 14280);
+    assert_eq!(present_controls, 2520);
+}
+
+fn replay_query_profiles(
+    inputs: &[(WinArch, &str)],
+    availability: Option<crate::user::windows::object_namespace::ExtensionQuery>,
+) -> (u64, u64) {
     let mut replayed = 0;
     let mut present_controls = 0;
-    for (arch, log) in MATRIX {
+    for &(arch, log) in inputs {
         let (mut process, mut t, base) = setup(arch);
         let caller_sp = t.cpu.sp();
         let p = process.state_mut();
+        p.object_namespace.image_extension_query = availability;
         let target_image = image(p);
         let mapped =
             p.vm.reserve(
@@ -204,8 +217,7 @@ fn native_image_extension_matrix_replays_absent_images_and_abi_availability() {
         }
         assert_eq!(count, 4200);
     }
-    assert_eq!(replayed, 14280);
-    assert_eq!(present_controls, 2520);
+    (replayed, present_controls)
 }
 
 #[test]
@@ -219,11 +231,24 @@ fn native_image_extension_limits_replay_without_consuming_range_rejected_guards(
 }
 
 fn replay_boundaries(inputs: [(WinArch, &str); 4], expected: u64) {
+    assert_eq!(
+        replay_boundary_profiles(&inputs, expected, None, 0),
+        expected * 4
+    );
+}
+
+fn replay_boundary_profiles(
+    inputs: &[(WinArch, &str)],
+    expected: u64,
+    availability: Option<crate::user::windows::object_namespace::ExtensionQuery>,
+    valid_type: u32,
+) -> u64 {
     let mut total = 0;
-    for (arch, log) in inputs {
+    for &(arch, log) in inputs {
         let (mut process, mut t, base) = setup(arch);
         let caller_sp = t.cpu.sp();
         let p = process.state_mut();
+        p.object_namespace.image_extension_query = availability;
         let target_image = image(p);
         let mut handles = vec![arch.ptr(u64::MAX), 0, arch.ptr(u64::MAX - 1), 0x1234];
         for access in [0, 0x10, 0x400, 0x1000, 0x1400] {
@@ -268,7 +293,9 @@ fn replay_boundaries(inputs: [(WinArch, &str); 4], expected: u64) {
                 _ => panic!("unknown output mode"),
             };
             if om < 12 && om != 1 && om != 2 {
-                p.space.w32(out, if selector == 1 { 2 } else { 0 }).unwrap();
+                p.space
+                    .w32(out, if selector == 1 { 2 } else { valid_type })
+                    .unwrap();
                 p.space.w32(out + 4, u32::from(selector == 2)).unwrap();
             }
             let returned = match rm {
@@ -370,7 +397,7 @@ fn replay_boundaries(inputs: [(WinArch, &str); 4], expected: u64) {
         assert_eq!(count, expected);
         assert_eq!(p.objects.iter().count(), objects_before);
     }
-    assert_eq!(total, expected * 4);
+    total
 }
 
 #[test]

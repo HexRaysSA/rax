@@ -9,6 +9,7 @@ import subprocess
 TARGETS = (
     ("--lib", "user::windows::wnf::"),
     ("--lib", "user::windows::process"),
+    ("--lib", "user::windows::seh::"),
     ("--test", "user_windows_memory"),
     ("--lib", "user::mm::"),
     ("--lib", "user::linux::"),

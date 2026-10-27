@@ -25,6 +25,7 @@
 pub mod arm64;
 pub(crate) mod dynamic;
 pub(crate) mod kernel_dynamic;
+mod native_entry;
 pub mod unwind;
 pub mod x64;
 pub mod x86;
@@ -168,6 +169,9 @@ pub fn raise(p: &mut Proc, t: &mut Thread, rec: ExceptionRecord, ctx: RegContext
         ctx.pc(),
         ctx.sp(),
     ));
+    if p.native.is_some() {
+        return native_entry::raise(p, t, rec, ctx);
+    }
     // Below the exception's stack pointer: the ARM64 area reserved for
     // interrupted code, then CONTEXT, EXCEPTION_RECORD, and the pointers. On
     // x64 an anchored language handler is re-entered above these records (see

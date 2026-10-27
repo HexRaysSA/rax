@@ -10,7 +10,10 @@ const NAME: &str = "NtWow64CsrClientConnectToServer";
 #[path = "wow64_csr_replay_tests.rs"]
 mod replay;
 
-#[cfg(all(windows, target_arch = "aarch64"))]
+#[path = "wow64_csr_amd64_tests.rs"]
+mod amd64;
+
+#[cfg(all(windows, any(target_arch = "aarch64", target_arch = "x86_64")))]
 #[path = "wow64_csr_leaf_tests.rs"]
 mod installed;
 
@@ -71,7 +74,7 @@ fn publication(p: &Proc, wow: bool) {
     let connection = state.csr.as_ref().unwrap();
     let metadata = p
         .object_namespace
-        .csr_server(&"\\Windows\\ApiPort".encode_utf16().collect::<Vec<_>>())
+        .selected_csr_server()
         .unwrap()
         .metadata
         .clone();
