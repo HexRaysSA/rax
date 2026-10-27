@@ -530,3 +530,7 @@ path = "tests/suites/backend/aarch64_step_jit.rs"
 [[test]]
 name = "counter_ticks"
 path = "tests/suites/vm/counter_ticks.rs"
+
+[[test]]
+name = "hvf_arm64_state"
+path = "tests/suites/backend/hvf_arm64_state.rs"
