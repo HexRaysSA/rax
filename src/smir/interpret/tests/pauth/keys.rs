@@ -112,7 +112,8 @@ fn pauth_direct_smir_and_native_select_each_distinct_key_from_independent_vector
                     assert_eq!(runtime.registers.x[0], expected_value);
                     assert_eq!(runtime.retired, 1);
                     assert_eq!(
-                        crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+                        crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap())
+                            .unwrap(),
                         crate::codec::serialize(&expected).unwrap()
                     );
                     comparisons += 1;

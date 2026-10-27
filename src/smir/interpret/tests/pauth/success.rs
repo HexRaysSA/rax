@@ -225,7 +225,8 @@ fn pauth_successful_authentication_all_forms_and_distinct_keys_match_all_planes(
                             .unwrap();
                         assert_eq!(runtime.retired, 1);
                         assert_eq!(
-                            crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+                            crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap())
+                                .unwrap(),
                             crate::codec::serialize(&expected).unwrap(),
                             "{raw:#x} {algorithm:?} {profile:?} {level:?}"
                         );
