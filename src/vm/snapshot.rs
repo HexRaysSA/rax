@@ -490,7 +490,8 @@ mod tests {
             lapic: LocalApic::new(0),
         };
         let bytes = crate::codec::serialize(&devices).expect("serialize device state");
-        let back: DeviceState = crate::codec::deserialize(&bytes).expect("deserialize device state");
+        let back: DeviceState =
+            crate::codec::deserialize(&bytes).expect("deserialize device state");
         // Re-serializing the round-tripped value must reproduce the same bytes:
         // proves every field (and the #[serde(skip)] LAPIC Instant) is stable.
         let bytes2 = crate::codec::serialize(&back).expect("re-serialize device state");
@@ -518,7 +519,8 @@ mod tests {
             ..EmulatorState::default()
         };
         let bytes = crate::codec::serialize(&state).expect("serialize emulator state");
-        let back: EmulatorState = crate::codec::deserialize(&bytes).expect("deserialize emulator state");
+        let back: EmulatorState =
+            crate::codec::deserialize(&bytes).expect("deserialize emulator state");
         assert!(back.interrupt_inhibit);
         assert_eq!(back.misc_enable, state.misc_enable);
         assert_eq!(back.pat, state.pat);
