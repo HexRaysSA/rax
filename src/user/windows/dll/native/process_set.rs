@@ -6,6 +6,7 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
 mod dynamic_table;
+mod execute_flags;
 
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
@@ -14,6 +15,9 @@ pub(super) fn information(c: &mut Ctx) -> ApiResult {
 
 fn checked(c: &mut Ctx) -> ApiResult {
     let (process, class, output, length) = (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?);
+    if class == 34 {
+        return execute_flags::information(c, process, output, length);
+    }
     if class == 53 {
         return dynamic_table::information(c, process, output, length);
     }

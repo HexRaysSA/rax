@@ -100,7 +100,7 @@ no permanence; this differs from the local policy-2 no-NX mask `0x32`.
 
 | ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|---|
-| EF1 | The current guest enforces fixed NX and has no ATL thunk emulation or mutable DEP policy. | Virtual-memory permissions and the existing service surface. | Reported mask `0x0D`. | Fetch an RW mapping, or add a successful policy transition; any such change requires coordinated query and mapping updates. | Confirmed for the existing profile; setters remain unfinished |
+| EF1 | The current guest enforces fixed NX and has no ATL thunk emulation or mutable DEP policy. | Virtual-memory permissions and the existing service surface. | Reported mask `0x0D`. | Fetch an RW mapping, or add a successful policy transition; any such change requires coordinated query and mapping updates. | Confirmed for the existing profile; mutable/default DEP remains unfinished |
 | EF2 | The captured query validation order applies to the admitted fixed-NX profile. | Identical complete rows across ten profiles on three kernels. | Common adapter across guest ABIs. | Repeat the owned native guard/alias/handle matrix on another kernel or process policy. | Confirmed for captured profiles; broader policy states remain unqualified |
 
 High impact, blocking full process qualification: default no-NX behavior and
@@ -120,3 +120,8 @@ The local receipt is `local-29683-v2.json`. Hosted observations are in
 and [Windows 2025 job 121277022800](https://github.com/HexRaysSA/rax/actions/runs/40229184001/job/121277022800).
 Independent controls run even when a preceding observer fails; that failure
 remains a failed workflow step.
+
+The permanent-profile setter rejection and its separate guard-read conversion are
+now recorded in [native-process-execute-flags-set](../native-process-execute-flags-set/README.md).
+That adapter preserves this query and effective NX policy; it does not implement
+mutable/default DEP or ATL thunk emulation.

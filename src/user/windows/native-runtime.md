@@ -3028,3 +3028,14 @@ disabled CHPE x86. Replay rebases only explicitly identified PEB32 output bytes.
 Foreign-process identity and unknown installed native architecture stay explicitly
 unsupported. These observations do not qualify every Windows kernel/profile or
 complete the broader host-library-backed process objective.
+
+### Permanent ProcessExecuteFlags setter
+
+Class34 NtSetInformationProcess now implements the measured rejection path for
+the existing permanent-NX guest profile. Native64 and WoW64 share alignment,
+exact size and exact pseudo-handle validation, but WoW64 retries a reached input
+read guard and classifies its actual flags. Query state and page permissions
+remain unchanged. The [native setter record](../../../docs/specifications/windows/native-process-execute-flags-set/README.md)
+binds 5286 independent calls across native64 and pure/CHPE x86, plus eight
+full-width native64 handle boundaries. Mutable/default DEP and ATL behavior
+remain unfinished requirements for full process emulation.

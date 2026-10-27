@@ -6,6 +6,9 @@ use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_INVALID_HAND
 #[path = "process_query_tests/wow64_information.rs"]
 mod wow64_information;
 
+#[path = "process_query_tests/execute_flags_set.rs"]
+mod execute_flags_set;
+
 fn arguments(p: &mut Proc, t: &mut Thread, handle: u64, class: u32, out: u64, len: u32, ret: u64) {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);

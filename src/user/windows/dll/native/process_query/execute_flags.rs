@@ -1,6 +1,7 @@
 //! Read-only ProcessExecuteFlags for the personality's existing fixed NX
 //! profile. Page protections are always enforced; ATL thunk emulation and
-//! mutable DEP policy are not implemented. This is guest policy, not a copy
+//! mutable DEP policy are not implemented; its setter rejects transitions.
+//! This is guest policy, not a copy
 //! of the host's default mask (which also depends on its system DEP policy).
 //!
 //! Native length, handle-right and destination-order observations:
