@@ -526,3 +526,7 @@ path = "tests/suites/backend/x86_retired_tsc.rs"
 [[test]]
 name = "aarch64_step_jit"
 path = "tests/suites/backend/aarch64_step_jit.rs"
+
+[[test]]
+name = "counter_ticks"
+path = "tests/suites/vm/counter_ticks.rs"

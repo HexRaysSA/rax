@@ -37,3 +37,14 @@ impl ClockState {
         Ok(())
     }
 }
+
+/// floor((nanos + phase/3) * frequency_hz / 1e9), modulo 2^64.
+/// Internal phase is validated to be 0..=2. Splitting the product avoids the
+/// up-to-130-bit intermediate in (3*nanos + phase) * frequency_hz.
+pub(super) fn counter_ticks(nanos: u64, phase: u8, frequency_hz: u64) -> u64 {
+    const NANOS_PER_SECOND: u128 = 1_000_000_000;
+    let product = u128::from(nanos) * u128::from(frequency_hz);
+    let whole = product / NANOS_PER_SECOND;
+    let remainder = (product % NANOS_PER_SECOND) * 3 + u128::from(phase) * u128::from(frequency_hz);
+    (whole + remainder / (NANOS_PER_SECOND * 3)) as u64
+}

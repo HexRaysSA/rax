@@ -90,6 +90,14 @@ impl TimingContext {
             .state()
             .0
     }
+    /// Counter ticks at a caller-supplied platform frequency in Hz.
+    /// Samples elapsed nanoseconds and the one-third-nanosecond phase together.
+    /// The result is rounded down and wraps at 64 bits; zero Hz returns zero.
+    /// The frequency argument does not change the clock or its saved state.
+    pub fn counter_ticks(&self, frequency_hz: u64) -> u64 {
+        let (nanos, _, phase) = self.clock.lock().unwrap_or_else(|p| p.into_inner()).state();
+        super::retired::counter_ticks(nanos, phase, frequency_hz)
+    }
     /// Integer rebase: re-anchor wall time or clear only the retirement phase.
     /// Complete checkpoint import uses restore_checkpoint_state to retain phase.
     pub fn set_resume_base(&self, base: u64) {
