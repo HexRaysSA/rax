@@ -482,6 +482,21 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
     }
     let native_machine = section::native_machine()?;
     namespace.native_machine = native_machine;
+    #[cfg(target_pointer_width = "64")]
+    {
+        // Capture the host kernel's native query capability before guest
+        // execution. Guest queries never call the host or infer availability
+        // from whether their particular image happens to contain payload.
+        let ntdll = namespace
+            .lookup_section(
+                None,
+                &"\\KnownDlls\\ntdll.dll".encode_utf16().collect::<Vec<_>>(),
+                0x40,
+                false,
+            )
+            .map_err(|_| invalid("native image-query authority is not selected"))?;
+        namespace.image_extension_query = Some(ntdll.image()?.extension_query);
+    }
     let arm64 = match native_machine {
         Some(value) => value == 0xAA64,
         None => match namespace.lookup(

@@ -1,6 +1,9 @@
 //! Bounded copies from the tail of this adapter's own SEC_IMAGE view.
 use super::*;
 use crate::user::windows::object_namespace::image::MAX_EXTENSION_BYTES;
+use crate::user::windows::object_namespace::image::extension_query::{
+    Disposition, ExtensionQuery, classify,
+};
 
 #[repr(C)]
 #[derive(Default)]
@@ -30,8 +33,10 @@ unsafe extern "system" {
 pub(super) fn capture(
     address: Handle,
     image_size: usize,
-) -> io::Result<[Option<ImageExtension>; 2]> {
+    native_machine: Option<u16>,
+) -> io::Result<([Option<ImageExtension>; 2], ExtensionQuery)> {
     let mut result = [None, None];
+    let mut query = ExtensionQuery::Both;
     for kind in 0..2 {
         let mut info = Information {
             kind,
@@ -51,11 +56,31 @@ pub(super) fn capture(
                 &mut returned,
             )
         };
-        if kind == 0 && status as u32 == STATUS_INVALID_INFO_CLASS {
-            // Older kernels and the measured WoW64 wrapper do not expose it.
-            return Ok(result);
+        match classify(native_machine, kind, status as u32) {
+            Ok(Disposition::ClassUnavailable) => {
+                return Ok((result, ExtensionQuery::Unavailable));
+            }
+            Ok(Disposition::KindUnavailable) => {
+                // Native AMD64 has no emulated CFG/SCP extension kind. Keep
+                // the independently captured native type-0 mapping intact.
+                if returned != 0
+                    || info.kind != kind
+                    || info.flags != 0
+                    || info.rva != 0
+                    || info.size != 0
+                {
+                    return Err(invalid("unavailable image extension modified outputs"));
+                }
+                query = ExtensionQuery::NativeOnly;
+                continue;
+            }
+            Ok(Disposition::Read) => {}
+            Err(status) => {
+                return Err(invalid(&format!(
+                    "NtQueryVirtualMemory selected image extension: {status:#010x}"
+                )));
+            }
         }
-        check(status, "NtQueryVirtualMemory selected image extension")?;
         if returned != std::mem::size_of::<Information>() || info.kind != kind || info.flags != 0 {
             return Err(invalid("selected native image extension ABI changed"));
         }
@@ -124,5 +149,5 @@ pub(super) fn capture(
             bytes: bytes.into(),
         });
     }
-    Ok(result)
+    Ok((result, query))
 }

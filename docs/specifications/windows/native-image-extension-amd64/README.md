@@ -20,10 +20,11 @@ Unsupported map/query statuses are retained as observations, not converted to
 successful absent-extension results. This campaign does not change runtime
 behavior or establish full process-emulation completion.
 
-Assumption A1 is retained: the observed build-26100 `STATUS_NOT_SUPPORTED`
-may depend on selected image architecture or mapping mode. Compare exact
-per-profile statuses and tail ownership on both native kernels to falsify it.
-The availability decision remains unknown until those observations complete.
+Assumption A1 is revised: the observed build-26100 `STATUS_NOT_SUPPORTED`
+is specific to extension type 1 across the captured image architectures and
+mapping modes, while type 0 retains its independently observed payload result.
+Both availability observations and the version-2 query matrices have completed;
+their measured distinctions and the implementation are recorded below.
 
 High-impact boundary: the existing guest class-14 absence semantics were
 measured on native ARM64 kernels. Independent AMD64 availability and fault
@@ -48,3 +49,111 @@ compiling or executing a producer. The failed v1 report is preserved separately.
 checkout form and records both expected forms and the actual raw SHA-256.
 Mixed or otherwise changed source bytes still fail. Native producer sources,
 query axes, assertions, and deadlines are unchanged. V1 remains frozen.
+
+## Captured availability and query order
+
+The [availability run](https://github.com/HexRaysSA/rax/actions/runs/40588153275)
+records 12 complete owned views per kernel. `profiles-v1.json` retains both
+full captures, artifact identifiers, ZIP digests, raw JSON digests, source and
+runtime identities, exact output bytes, returned lengths, and region metadata.
+
+| Native kernel | Valid type 0 | Valid type 1 | Native x64 NTDLL tail |
+| --- | --- | --- | --- |
+| 10.0.20348 | `STATUS_INVALID_INFO_CLASS` | `STATUS_INVALID_INFO_CLASS` | No captured same-owner tail |
+| 10.0.26100 | `STATUS_SUCCESS` | `STATUS_NOT_SUPPORTED` | One 4096 B executable extension, then 16384 B reserved |
+
+Build 26100's x86 NTDLL type 0 succeeds with zero RVA/size. Its same-owner
+reserved tail is 20480 B. Native type-1 failure leaves all output bytes and
+ReturnLength unchanged. An unsupported type is not evidence that type 0 is
+absent: discarding the first result would lose actual executable backing.
+
+The [query-order run](https://github.com/HexRaysSA/rax/actions/runs/40589099085)
+has six completed producer executions per kernel: native x64 and WoW64 x86,
+each with the query, type-1 boundary, and type-1 SIZE_T-limit matrices.
+Each kernel has 2 * (4200 + 15480 + 1092) = 41544 cases; both have 83088.
+All twelve producers exit 0 with stable inputs; boundary/limit handle counts
+are restored. The 2520 x64 NTDLL present-state query controls remain separate
+from absent-image replay, leaving 80568 exact portable query replays.
+
+For native build 26100, short length precedes NULL BaseAddress; destination
+probes precede rejection of an out-of-user-range BaseAddress. Probe, handle,
+flags, image-owner, and valid-type validation precede type-1 rejection. The
+previous ARM64 profile retains its observed NULL/range ordering. WoW64 retains
+its optional ReturnLength preprobe and class rejection. Build 20348 rejects
+the unavailable class before native output probes. Status, complete copied
+bytes, returned lengths, guard consumption, page protection and handle counts
+are compared with the captured records, without replacing native statuses.
+
+## Runtime ownership
+
+The native image adapter classifies query availability per kind. A measured
+native AMD64 type-1 `STATUS_NOT_SUPPORTED` retains the captured type-0 mapping.
+Foreign-machine rejections and other statuses still fail. A rejected type may
+not modify the initialized capture outputs. Existing image, extension, copy,
+page-policy, rebase, and reserved-tail bounds remain unchanged.
+
+The immutable image template separately retains query capability. Two rebase
+views must agree on it and on their payloads. Namespace acquisition captures
+the native NTDLL capability before guest execution and caches its image through
+the existing selected section. Guest queries read this captured fact, never
+call the host, and distinguish absent payload from unavailable API/type.
+The installed-leaf test selects AMD64 expectations from the independent native
+kernel captures rather than deriving them from the implementation's policy.
+
+The extra capability classification is O(1) time/storage. Snapshot copying and
+existing query probing retain their previous byte/page bounds and complexity.
+The native NTDLL template is acquired eagerly for the captured capability and
+then reused by the existing section cache; its lifetime is the namespace's.
+
+| Plane | Scope |
+| --- | --- |
+| Windows installed libraries | Fixed owned NTDLL image capture, retained extension capability, guest query ordering and installed leaf tests |
+| Shared macOS/Linux model | Same immutable state and 80568 native-corpus replays, with the original ARM64 corpus retained |
+| Permissions/tools/UI/transport | No guest-directed host query, tool schema, capability grant, UI, or IPC change |
+| ABI/persistence/dependencies | No public C layout, persisted format, dependency pin, optional feature, or package-layout change; existing zstd dependency decodes test data |
+| CI | Existing two native Windows jobs additionally execute image-query tests and the whole unchanged original hardware-fault fixture; no new job or execution-budget change |
+
+## Corpus reproduction and validation boundaries
+
+`pack-query-corpus-v1.py` pins the original raw JSON digests and verifies
+producer completion, raw stdout digests,
+case ordinals/counts, exceptions, process ABI, profile inventory and restored
+handles. It replaces base64 stdout with its exact ASCII text, retaining every
+byte and all other capture fields, and compresses the result with zstd:
+
+```text
+python3 pack-query-corpus-v1.py native-image-extension-amd64-query-matrix-2022-raw-v2.json native-image-extension-amd64-query-matrix-2025-raw-v2.json query-corpus-v1.json.zst
+```
+
+The decoded corpus is 57148124 B; the compressed artifact is 304969 B,
+SHA-256 `3feac47950d4d9d10191b36a3886d6148b3a66b3906afe21f6002f85b387eaa5`.
+Rust tests decode it through the existing portable zstd crate with a 96 MiB
+decoded-output bound. The raw artifacts and failed v1 controller reports remain separate.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| IX1 | Type availability is independent of payload absence. | All 24 owned-view captures and the independent query matrices. | Retaining native type-0 backing when type 1 is unavailable. | Named/created, native/x86, ordinary/machine/rebase views; conflicting payload/profile tests. | Raw capture comparison, snapshot classification and rebase tests. | Confirmed for the captured profiles. |
+| IX2 | Selected native NTDLL capability supplies the same kernel API/type availability for guest-owned images. | Independent main-image and NTDLL queries on both kernels. | Immutable namespace capability and guest query results. | Both guest ABIs, absent/retired/non-image owners, malformed flags/types, lengths, guards and handle rights. | Complete native corpus replay and installed leaves on native kernels. | Portable replay confirmed; new native runtime gates pending. |
+
+The first model replay retained 18 passes and three new failures: native AMD64
+NULL/short-length ordering and late upper-address validation differed from the
+older ARM64 profile. Correcting those branches preserved every raw record,
+existing assertion and original fixture. The subsequent macOS selection passes
+21 image-extension tests with zero failed or ignored tests, including all
+80568 new exact replays. macOS and Linux additionally pass three availability,
+103 CSR, 55 WoW64, nine exception-entry model and all 191 C API tests, with no
+failed or ignored tests in these selections. Linux ran in the task's x86-64
+container on the ARM64 host; this is not Windows native execution.
+
+The first Windows ARM64 unit build failed before running tests: the installed
+leaf test referenced a WNF query field that is not exposed. The corrected test
+uses the existing independent `RtlGetVersion` host control. That failed source
+frame and its logs are retained. Corrected Windows compilation, installed-leaf,
+and unchanged whole original-fixture qualification remain pending.
+
+High impact, outside this query change and blocking full-goal completion:
+complete native 64-bit RTL heap/loader equivalence, broader CSR messages,
+full Linux/macOS/Windows host-library process coverage, and the complete owning
+Assist runtime/package qualification remain incomplete. The unchanged original
+fault fixture and its execution budgets are preserved. This source group does
+not claim full process-emulation completion or unmeasured kernel equivalence.

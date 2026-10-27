@@ -311,8 +311,12 @@ impl Source {
             offset += region_size;
         }
         section::validate(&self.handle, self.attributes, self.size)?;
-        let extensions = extensions::capture(address, size)?;
-        let image = ImageTemplate::selected_extended(bytes, regions, extensions)?;
+        let native_machine = section::native_machine()?;
+        let (extensions, query) = extensions::capture(address, size, native_machine)?;
+        let image = ImageTemplate::with_extension_query(
+            ImageTemplate::selected_extended(bytes, regions, extensions)?,
+            query,
+        )?;
         let payload = image.allocation_size();
         let at = (address as usize)
             .checked_add(payload as usize)
@@ -350,7 +354,6 @@ impl Source {
                 "native flagged image did not publish its actual base",
             ));
         }
-        let native_machine = section::native_machine()?;
         if native_machine.is_none() && image.extensions.iter().any(Option::is_some) {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,

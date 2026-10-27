@@ -253,3 +253,12 @@ jobs:
       - name: Execute installed pure x86 CSR leaf on the native AMD64 kernel
         if: always()
         run: cargo test --locked --no-default-features --lib wow64_csr -- --nocapture --test-threads=1
+      - name: Execute image-extension queries through installed native leaves
+        if: always()
+        run: |
+          cargo test --locked --no-default-features --lib image_extension -- --nocapture --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --no-default-features --lib extension_query -- --nocapture --test-threads=1
+      - name: Execute the whole original installed-library hardware-fault fixture
+        if: always()
+        run: cargo test --locked --no-default-features --lib user::windows::seh::native_entry::tests::native_entry_installed_ntdll_runs_hardware_fault_veh_and_context_continuation -- --exact --nocapture --test-threads=1
