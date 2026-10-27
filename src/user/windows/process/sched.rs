@@ -837,6 +837,7 @@ mod tests {
             space,
             cfg: Arc::new(WindowsConfig::new("unused-test.exe", vec![])),
             native: None,
+            flush_information: Err("controlled scheduler fixture".into()),
             image_information: Err("test process has no admitted executable"),
             wow64: None,
             teb_arena: Default::default(),

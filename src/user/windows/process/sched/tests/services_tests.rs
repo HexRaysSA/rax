@@ -193,6 +193,9 @@ mod gui_tests;
 #[path = "services_tests/code_integrity_tests.rs"]
 mod code_integrity_tests;
 
+#[path = "services_tests/system_flush_tests.rs"]
+mod system_flush_tests;
+
 #[path = "services_tests/mui_tests.rs"]
 mod mui_tests;
 

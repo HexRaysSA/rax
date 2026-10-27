@@ -19,6 +19,7 @@ use crate::user::windows::nt::status::{
 use vm_memory::{Address, GuestMemory};
 
 mod code_integrity;
+mod flush;
 mod processor;
 
 const SYSTEM_BASIC_INFORMATION: u32 = 0;
@@ -31,6 +32,7 @@ const SYSTEM_NUMA_PROCESSOR_MAP: u32 = 55;
 const SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION: u32 = 197;
 const SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION: u32 = 250;
 const SYSTEM_CODE_INTEGRITY_INFORMATION: u32 = 103;
+const SYSTEM_FLUSH_INFORMATION: u32 = 192;
 const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
 
 pub(super) fn probe_write(c: &Ctx, address: u64, bytes: usize) -> Result<(), MemFault> {
@@ -142,6 +144,9 @@ pub(super) fn write_guard_result(c: &mut Ctx, result: ApiResult) -> ApiResult {
 
 fn query(c: &mut Ctx) -> ApiResult {
     let (class, output, length, returned) = (c.u32(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?);
+    if class == SYSTEM_FLUSH_INFORMATION && c.arch() == WinArch::X86 {
+        return flush::wow64(c, output, length, returned);
+    }
     if matches!(
         class,
         SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION | SYSTEM_NATIVE_BASIC_INFORMATION
@@ -214,6 +219,7 @@ fn query(c: &mut Ctx) -> ApiResult {
             processor_features(c, output, length, returned)
         }
         SYSTEM_CODE_INTEGRITY_INFORMATION => code_integrity::query(c, output, length, returned),
+        SYSTEM_FLUSH_INFORMATION => flush::query(c, output, length, returned),
         _ => Err(c.unsupported(format!("NtQuerySystemInformation class {class}"))),
     }
 }
