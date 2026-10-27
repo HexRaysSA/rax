@@ -3,7 +3,7 @@ use super::*;
 use crate::isa::arm::aarch32::vfp::vfmal_f32_f16_bits;
 impl<'a, M: ArmMemory> Executor<'a, M> {
     pub(crate) fn exec_neon_fp16_fused_multiply_long(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if !Self::is_neon_fp16_fused_multiply_long_shape(insn.raw) {

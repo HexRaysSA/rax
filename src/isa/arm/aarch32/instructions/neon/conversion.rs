@@ -26,7 +26,7 @@ fn fixed_element(
 }
 impl<'a, M: ArmMemory> Executor<'a, M> {
     pub(crate) fn exec_scalar_fixed_convert(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         let Some(fields) = Aarch32Decoder::scalar_fixed_fields(insn.raw) else {
@@ -70,7 +70,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         self.exec_neon_integer_conversion(insn, true)
     }
     fn exec_neon_integer_conversion(&mut self, insn: &DecodedInsn, fixed: bool) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         let fields = if fixed {
@@ -108,7 +108,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         ExecResult::Continue
     }
     pub(crate) fn exec_half_double_precision_convert(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if !Aarch32Decoder::decode_vfp_data_processing(insn.raw)

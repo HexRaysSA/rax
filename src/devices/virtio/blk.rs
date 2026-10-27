@@ -1,9 +1,9 @@
 //! virtio-blk (block device) over the MMIO transport.
 //!
 //! Implements DeviceID 2 from the VIRTIO specification, section "Block Device".
-//! The disk image is an in-memory `Vec<u8>` whose length, divided by the 512
-//! byte sector size, is reported as the device capacity in the configuration
-//! space.
+//! The shared media backend preserves the original in-memory constructor and
+//! supports bounded raw-image attachments. Its length divided by 512 bytes is
+//! reported as device capacity.
 //!
 //! # Request format
 //!
@@ -20,11 +20,12 @@
 //!
 //! # What is deferred
 //!
-//! Only `IN`/`OUT` (read/write) and `GET_ID` are serviced. `FLUSH` is accepted
-//! as a no-op success (the image is purely in memory). `DISCARD`/`WRITE_ZEROES`
-//! and the topology/geometry config fields are not implemented. Indirect
-//! descriptors are not followed (see the transport's [`VirtQueue`]).
+//! `IN`/`OUT` (read/write) and `GET_ID` are serviced. `FLUSH` synchronizes
+//! persistent images and reports host failures. `DISCARD`/`WRITE_ZEROES`
+//! ranges are supported when negotiated; topology/geometry config fields are
+//! not implemented. Indirect descriptor tables are supported when negotiated.
 
+use super::block_image::BlockImage;
 use super::{DescriptorChain, Mem, VIRTIO_F_VERSION_1, VirtQueue, VirtioDevice};
 
 /// virtio-blk DeviceID.
@@ -47,6 +48,14 @@ pub const VIRTIO_BLK_F_RO: u64 = 1 << 5;
 pub const VIRTIO_BLK_F_BLK_SIZE: u64 = 1 << 6;
 /// Cache flush command support.
 pub const VIRTIO_BLK_F_FLUSH: u64 = 1 << 9;
+/// Discard range support.
+pub const VIRTIO_BLK_F_DISCARD: u64 = 1 << 13;
+/// Write-zeroes range support.
+pub const VIRTIO_BLK_F_WRITE_ZEROES: u64 = 1 << 14;
+/// Maximum range descriptors in a request, advertised in device configuration.
+pub const VIRTIO_BLK_MAX_RANGE_SEGMENTS: u32 = 256;
+/// Maximum sectors per range; disk capacity independently bounds each request.
+pub const VIRTIO_BLK_MAX_RANGE_SECTORS: u32 = u32::MAX;
 
 // ---- Request types (in the request header) ---------------------------------
 
@@ -54,6 +63,8 @@ pub const VIRTIO_BLK_T_IN: u32 = 0;
 pub const VIRTIO_BLK_T_OUT: u32 = 1;
 pub const VIRTIO_BLK_T_FLUSH: u32 = 4;
 pub const VIRTIO_BLK_T_GET_ID: u32 = 8;
+pub const VIRTIO_BLK_T_DISCARD: u32 = 11;
+pub const VIRTIO_BLK_T_WRITE_ZEROES: u32 = 13;
 
 // ---- Status byte values -----------------------------------------------------
 
@@ -95,7 +106,7 @@ pub struct VirtioBlk {
     /// Backing disk image. Length must be a multiple of [`SECTOR_SIZE`] for the
     /// reported capacity to be exact; a partial trailing sector is truncated
     /// from the advertised capacity.
-    disk: Vec<u8>,
+    disk: BlockImage,
     /// Whether the device refuses writes (advertises `VIRTIO_BLK_F_RO`).
     read_only: bool,
     /// Device id string returned by `GET_ID`.
@@ -105,6 +116,10 @@ pub struct VirtioBlk {
 impl VirtioBlk {
     /// Create a device backed by `disk` bytes.
     pub fn new(disk: Vec<u8>) -> Self {
+        Self::with_image(BlockImage::from_bytes(disk))
+    }
+    /// Attach an already opened raw image or in-memory medium.
+    pub fn with_image(disk: BlockImage) -> Self {
         VirtioBlk {
             disk,
             read_only: false,
@@ -132,142 +147,25 @@ impl VirtioBlk {
         &self.disk
     }
 
-    /// The 64-bit configuration space, little-endian. Only the `capacity`
-    /// field (offset 0, 8 bytes) is meaningful; everything else reads as 0
-    /// because the matching feature bits are not offered.
+    /// Byte-addressable virtio-blk configuration. Only fields whose feature is
+    /// offered are populated; unimplemented geometry/topology fields stay zero.
     fn config_value(&self, offset: u64) -> u8 {
-        // Layout (struct virtio_blk_config):
-        //   0x00 u64 capacity
-        //   0x08 u32 size_max
-        //   0x0c u32 seg_max
-        //   ...   (geometry, blk_size, topology, etc. — all unimplemented)
-        if offset < 8 {
-            self.capacity_sectors().to_le_bytes()[offset as usize]
-        } else {
-            0
+        match offset {
+            0..8 => self.capacity_sectors().to_le_bytes()[offset as usize],
+            0x24..0x28 => VIRTIO_BLK_MAX_RANGE_SECTORS.to_le_bytes()[(offset - 0x24) as usize],
+            0x28..0x2c => VIRTIO_BLK_MAX_RANGE_SEGMENTS.to_le_bytes()[(offset - 0x28) as usize],
+            0x2c..0x30 => 1u32.to_le_bytes()[(offset - 0x2c) as usize],
+            0x30..0x34 => VIRTIO_BLK_MAX_RANGE_SECTORS.to_le_bytes()[(offset - 0x30) as usize],
+            0x34..0x38 => VIRTIO_BLK_MAX_RANGE_SEGMENTS.to_le_bytes()[(offset - 0x34) as usize],
+            // No physical deallocation exists for Vec media. An UNMAP request
+            // still receives the mandatory zero result, without deallocation.
+            _ => 0,
         }
-    }
-
-    /// Process one virtio-blk request descriptor chain against `mem`.
-    ///
-    /// Returns the number of bytes written into device-writable buffers (the
-    /// value posted to the used ring): the data read into guest memory plus the
-    /// trailing status byte.
-    pub fn handle_chain<M: Mem>(&mut self, chain: &DescriptorChain, mem: &mut M) -> u32 {
-        let descs = &chain.descriptors;
-        if descs.len() < 2 {
-            // Need at least a header and a status byte.
-            return 0;
-        }
-
-        // First descriptor: device-readable request header.
-        let mut header_buf = [0u8; REQ_HEADER_LEN];
-        let hdr_desc = descs[0];
-        if (hdr_desc.len as usize) < REQ_HEADER_LEN || !mem.read(hdr_desc.addr, &mut header_buf) {
-            return 0;
-        }
-        let header = match BlkReqHeader::parse(&header_buf) {
-            Some(h) => h,
-            None => return 0,
-        };
-
-        // Last descriptor: device-writable status byte.
-        let status_desc = descs[descs.len() - 1];
-        if !status_desc.is_write_only() || status_desc.len < 1 {
-            return 0;
-        }
-
-        // Middle descriptors: the data buffers.
-        let data = &descs[1..descs.len() - 1];
-
-        let mut data_written = 0u32;
-        let status = match header.req_type {
-            VIRTIO_BLK_T_IN => self.transfer(mem, header.sector, data, true, &mut data_written),
-            VIRTIO_BLK_T_OUT => {
-                if self.read_only {
-                    VIRTIO_BLK_S_IOERR
-                } else {
-                    self.transfer(mem, header.sector, data, false, &mut data_written)
-                }
-            }
-            VIRTIO_BLK_T_FLUSH => {
-                // In-memory image: nothing to flush.
-                VIRTIO_BLK_S_OK
-            }
-            VIRTIO_BLK_T_GET_ID => self.get_id(mem, data, &mut data_written),
-            _ => VIRTIO_BLK_S_UNSUPP,
-        };
-
-        // Write the status byte to the final descriptor.
-        let _ = mem.write(status_desc.addr, &[status]);
-        data_written + 1
-    }
-
-    /// Perform an IN (read: disk -> guest) or OUT (write: guest -> disk)
-    /// transfer across the data descriptors starting at byte `sector*512`.
-    ///
-    /// `write_to_guest` selects the direction. `written` accumulates the bytes
-    /// placed into device-writable (guest) memory for the used-ring length.
-    fn transfer<M: Mem>(
-        &mut self,
-        mem: &mut M,
-        sector: u64,
-        data: &[super::Descriptor],
-        write_to_guest: bool,
-        written: &mut u32,
-    ) -> u8 {
-        let mut offset = match sector.checked_mul(SECTOR_SIZE) {
-            Some(o) => o as usize,
-            None => return VIRTIO_BLK_S_IOERR,
-        };
-
-        for desc in data {
-            // Sanity: the descriptor direction must match the request type.
-            if desc.is_write_only() != write_to_guest {
-                return VIRTIO_BLK_S_IOERR;
-            }
-            let len = desc.len as usize;
-            let end = match offset.checked_add(len) {
-                Some(e) => e,
-                None => return VIRTIO_BLK_S_IOERR,
-            };
-            if end > self.disk.len() {
-                return VIRTIO_BLK_S_IOERR;
-            }
-            if write_to_guest {
-                // IN: copy from the disk image into guest memory.
-                if !mem.write(desc.addr, &self.disk[offset..end]) {
-                    return VIRTIO_BLK_S_IOERR;
-                }
-                *written += len as u32;
-            } else {
-                // OUT: copy from guest memory into the disk image.
-                if !mem.read(desc.addr, &mut self.disk[offset..end]) {
-                    return VIRTIO_BLK_S_IOERR;
-                }
-            }
-            offset = end;
-        }
-        VIRTIO_BLK_S_OK
-    }
-
-    /// Service a `GET_ID` request: copy the device id string into the first
-    /// device-writable data descriptor.
-    fn get_id<M: Mem>(&self, mem: &mut M, data: &[super::Descriptor], written: &mut u32) -> u8 {
-        let Some(desc) = data.first() else {
-            return VIRTIO_BLK_S_IOERR;
-        };
-        if !desc.is_write_only() {
-            return VIRTIO_BLK_S_IOERR;
-        }
-        let n = (desc.len as usize).min(self.id.len());
-        if !mem.write(desc.addr, &self.id[..n]) {
-            return VIRTIO_BLK_S_IOERR;
-        }
-        *written += n as u32;
-        VIRTIO_BLK_S_OK
     }
 }
+
+mod ranges;
+mod request;
 
 impl VirtioDevice for VirtioBlk {
     fn device_id(&self) -> u32 {
@@ -275,10 +173,14 @@ impl VirtioDevice for VirtioBlk {
     }
 
     fn device_features(&self) -> u64 {
-        // Advertise FLUSH (handled as a no-op) plus VERSION_1 (the transport
-        // OR-s this in regardless). RO is advertised only when configured.
-        let mut feats = VIRTIO_BLK_F_FLUSH | VIRTIO_F_VERSION_1;
-        if self.read_only {
+        // FLUSH synchronizes persistent images. Image-level read-only mode
+        // remains authoritative even if the device override is cleared.
+        let mut feats = VIRTIO_BLK_F_FLUSH
+            | VIRTIO_F_VERSION_1
+            | super::VIRTIO_F_INDIRECT_DESC
+            | VIRTIO_BLK_F_DISCARD
+            | VIRTIO_BLK_F_WRITE_ZEROES;
+        if self.read_only || self.disk.is_read_only() {
             feats |= VIRTIO_BLK_F_RO;
         }
         feats
@@ -293,12 +195,25 @@ impl VirtioDevice for VirtioBlk {
         self.config_value(offset)
     }
 
-    fn handle_queue(&mut self, _queue_idx: usize, queue: &mut VirtQueue, mut mem: &mut dyn Mem) {
-        // Drain every available chain, handling each request in turn. `&mut dyn
-        // Mem` itself implements `Mem` (see the blanket impl below), so the
-        // generic ring walker can drive it. We pass `&mut mem` so the type
-        // parameter resolves to the sized `&mut dyn Mem`.
-        queue.process(&mut mem, |chain, mem| self.handle_chain(chain, mem));
+    fn handle_queue(&mut self, queue_idx: usize, queue: &mut VirtQueue, mem: &mut dyn Mem) {
+        if self
+            .handle_queue_with_features(queue_idx, queue, mem, 0)
+            .is_err()
+        {
+            queue.ready = false;
+        }
+    }
+    fn handle_queue_with_features(
+        &mut self,
+        _queue_idx: usize,
+        queue: &mut VirtQueue,
+        mut mem: &mut dyn Mem,
+        features: u64,
+    ) -> Result<(), super::QueueError> {
+        queue.process_checked(&mut mem, features, |chain, mem| {
+            self.handle_chain_checked(chain, mem, features)
+        })?;
+        Ok(())
     }
 }
 
@@ -550,6 +465,20 @@ mod tests {
         let w32 = |d: &mut VirtioMmio<VecMem>, off: u64, v: u32| {
             d.write(BASE + off, &v.to_le_bytes());
         };
+        w32(
+            &mut d,
+            super::super::REG_STATUS,
+            super::super::STATUS_ACKNOWLEDGE | super::super::STATUS_DRIVER,
+        );
+        w32(&mut d, super::super::REG_DRIVER_FEATURES_SEL, 1);
+        w32(&mut d, super::super::REG_DRIVER_FEATURES, 1);
+        w32(
+            &mut d,
+            super::super::REG_STATUS,
+            super::super::STATUS_ACKNOWLEDGE
+                | super::super::STATUS_DRIVER
+                | super::super::STATUS_FEATURES_OK,
+        );
         w32(&mut d, REG_QUEUE_SEL, 0);
         w32(&mut d, REG_QUEUE_NUM, queue_size);
         w32(&mut d, REG_QUEUE_DESC_LOW, 0x1000);
@@ -557,6 +486,14 @@ mod tests {
         w32(&mut d, REG_QUEUE_DEVICE_LOW, 0x3000);
         w32(&mut d, REG_QUEUE_READY, 1);
 
+        w32(
+            &mut d,
+            super::super::REG_STATUS,
+            super::super::STATUS_ACKNOWLEDGE
+                | super::super::STATUS_DRIVER
+                | super::super::STATUS_FEATURES_OK
+                | super::super::STATUS_DRIVER_OK,
+        );
         // Kick the queue.
         w32(&mut d, REG_QUEUE_NOTIFY, 0);
 

@@ -152,3 +152,34 @@ error. Local backend regressions cover24 permission/enable cases and48 complete
 frames; the independent48-case probe covers actual default-handler exception
 delivery. Handler TE/EE variants rely on the pinned Arm EnterMode contract and
 are not claimed as separately executed independent hardware cases.
+
+
+## ASEDIS and FPEXC access probe
+
+`fp_simd_access_oracle.py` uses the same repository, target, work-directory and
+LLVM arguments as the CPACR probe. It executes336 actual instructions in QEMU
+Cortex-A15 TCG:11 Advanced SIMD and10 VFP operations in A32/T32,
+User/Supervisor, ASEDIS0/1 and FPEXC.EN0/1. Each24-byte input record holds six
+little-endian u32 fields: Thumb, User, ASEDIS, FPEXC.EN, instruction word and
+observed Undefined outcome (8064 bytes total). The guest records336 outcome
+bytes and requires an exact completion marker. Time and host storage are O(N)
+for N fixed-size cases; guest RAM is128MiB.
+
+The primary-source contract, Arm `AArch32.CheckAdvSIMDOrFPEnabled`, requires212
+Undefined outcomes and124 permitted outcomes. QEMU11.1.2 reads ASEDIS back but
+ignores it during these44 enabled SIMD cases: its raw output has168 Undefined
+and168 permitted outcomes. The tool retains all44 differences and requires
+exactly this partition. It separately requires RAX to satisfy the full primary
+contract and preserve GPRs, D0-D31, FPSCR, FPEXC and CPSR on denial. Thus292
+reference outcomes agree; the44 ASEDIS cases are primary-source checks, not
+independent matches. A changed reference partition fails for review.
+
+The selected modern FP profile implements CPACR.ASEDIS and cp10/cp11; other
+CPACR fields read zero and ignore writes. D32DIS bit30 is RES0 in the pinned
+Cortex-A75 CPACR register diagram, so D16-D31 accesses remain permitted when
+other controls allow them. The raw `Cpacr` utility remains unmasked. This is a
+selected FP-register profile, not an identification of the whole CPU model.
+Local tests additionally cover FP16/FHM, failed predicates, memory denial before
+any access and the reserved-bit mask. The Cortex-A15 probe cannot confirm the
+modern D32DIS policy or FP16/FHM execution. NSACR, virtualization/security traps,
+unmodelled Hyp state and physical A32 execution remain separate requirements.

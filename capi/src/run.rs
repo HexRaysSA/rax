@@ -207,6 +207,15 @@ fn dispatch_exit(
                 Action::Stop(e)
             }
         }
+        // C API contexts currently construct software cores, whose MMIO hooks
+        // use their existing memory interface. A native atomic exit requires
+        // one device transaction, which separate legacy callbacks cannot imply.
+        // Never misreport an unserviced transaction as a clean debugger stop.
+        VcpuExit::MmioRmw { .. } => {
+            let mut e = ExitInfo::stop(RAX_STOP_ERROR);
+            e.status = RaxStatus::Fault as i32;
+            Action::Stop(e)
+        }
         VcpuExit::Exception(vector) => {
             if let Some(h) = intr.first() {
                 (h.cb)(eptr, vector as u32, h.user);
@@ -804,7 +813,9 @@ pub extern "C" fn rax_emu_last_exit(engine: *const Engine, out: *mut ExitInfo) -
 #[unsafe(no_mangle)]
 pub extern "C" fn rax_emu_icount(engine: *const Engine) -> u64 {
     crate::guard_val(0, || match unsafe { crate::engine::engine_ref(engine) } {
-        Some(e) => e.icount_base.saturating_add(e.vcpu.instruction_count()),
+        Some(e) => e
+            .icount_base
+            .saturating_add(e.vcpu.instruction_count().saturating_sub(e.icount_origin)),
         None => 0,
     })
 }

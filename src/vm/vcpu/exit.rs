@@ -52,6 +52,15 @@ pub enum VcpuExit {
         data: Vec<u8>,
     },
 
+    /// One scalar device RMW transaction. Return its pre-write bytes through
+    /// `complete_io_in` after releasing the device lock. The backend then
+    /// publishes register/flag effects and retires the instruction once.
+    MmioRmw {
+        addr: u64,
+        size: u8,
+        operation: crate::devices::bus::MmioRmwOp,
+    },
+
     /// VM shutdown requested.
     Shutdown,
 

@@ -5,3 +5,6 @@ docs/specifications/windows/native-mui-settings/* -text whitespace=cr-at-eol
 docs/specifications/windows/native-mui-system/* -text whitespace=cr-at-eol
 docs/specifications/windows/native-gui-version/* -text whitespace=cr-at-eol
 docs/specifications/windows/native-language-overlay/* -text whitespace=cr-at-eol
+
+# Preserve the exact archived upstream HTML bytes, including upstream whitespace.
+docs/specifications/arm/audit-reference-inputs/linux-arm64-cpu-feature-registers-2026-10-24.html -text -whitespace

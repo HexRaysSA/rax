@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "cases": 9320,
+  "case_bytes": 172,
+  "record_bytes": 168,
+  "unique_inputs": 9176,
+  "tool_sha256": "ce0afcf90f4d501f00c367536d2e89e5b933d728884b9de66de74ab707ca0305",
+  "parent_guest_sha256": "1ba01779b9eed974b3cc8eb13bead2b69b9fd3b65b999876328c4d60e158eecc",
+  "scope": "Actual CPL0 long-mode QEMU RAM instructions;all16GPRs,24memorybytes,defined/unaffectedflags. Product observes the operand as an MMIOhole. Device atomicity and physicalIntelVMX are separate.",
+  "commands": [
+    {
+      "name": "qemu-version",
+      "args": [
+        "/opt/homebrew/bin/qemu-system-x86_64",
+        "--version"
+      ],
+      "code": 0,
+      "seconds": 0.08348458301043138
+    },
+    {
+      "name": "llvm-version",
+      "args": [
+        "/Users/int/local/bin/llvm-mc",
+        "--version"
+      ],
+      "code": 0,
+      "seconds": 0.014322500006528571
+    },
+    {
+      "name": "assemble",
+      "args": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=i386-none-elf",
+        "-filetype=obj",
+        "guest.s",
+        "-o",
+        "guest.o"
+      ],
+      "code": 0,
+      "seconds": 0.011013457988156006
+    },
+    {
+      "name": "link",
+      "args": [
+        "/Users/int/local/bin/ld.lld",
+        "-m",
+        "elf_i386",
+        "-T",
+        "link.ld",
+        "guest.o",
+        "-o",
+        "guest.elf"
+      ],
+      "code": 0,
+      "seconds": 0.07671916601248085
+    },
+    {
+      "name": "qemu",
+      "args": [
+        "/opt/homebrew/bin/qemu-system-x86_64",
+        "-machine",
+        "pc",
+        "-cpu",
+        "Haswell-noTSX",
+        "-accel",
+        "tcg,thread=single",
+        "-m",
+        "64M",
+        "-nodefaults",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "none",
+        "-debugcon",
+        "file:/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/reference-v2/records.bin",
+        "-device",
+        "isa-debug-exit,iobase=0xf4,iosize=0x04",
+        "-no-reboot",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/reference-v2/guest.elf"
+      ],
+      "code": 33,
+      "seconds": 2.7501292079978157
+    },
+    {
+      "name": "compare-build",
+      "args": [
+        "rustc",
+        "+stable",
+        "--edition",
+        "2024",
+        "/Users/int/dev/rax-audit-work/rax-hvf-rmw-worktree/tools/hvf/mmio_rmw_compare.rs",
+        "--extern",
+        "rax=/Users/int/dev/rax-audit-work/four-findings-hvf-rmw-target/debug/deps/librax-28382810c341cdf7.rlib",
+        "-L",
+        "dependency=/Users/int/dev/rax-audit-work/four-findings-hvf-rmw-target/debug/deps",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/reference-v2/compare"
+      ],
+      "code": 0,
+      "seconds": 0.9626977499865461
+    },
+    {
+      "name": "compare",
+      "args": [
+        "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/reference-v2/compare",
+        "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/reference-v2/cases.bin",
+        "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/reference-v2/records.bin"
+      ],
+      "code": 0,
+      "seconds": 0.6645189579867292
+    }
+  ],
+  "product_library_sha256": "251ab31d6d8bfcf51066a94040e8db5939d3c981560671057612363593d0b581",
+  "consumer_sha256": "25283ebe7fd468bbefc7928311250049ee0f169b38f90feeb8805fa1b72c38bc",
+  "artifact_sha256": {
+    "cases.bin": "0179ed48283ebb92fc1a5836807c2bdbf1ad308ab3984f923fcbb2884126167a",
+    "records.bin": "267279348759fd926fc4e4b973df88f57c4a4eac08a0258371a248194cc50b32",
+    "guest.s": "bb9f12653be57a243307c2a5964e55884a1cf07b400118bd46ae244575825daa",
+    "guest.elf": "12624ad89f5dfe96bcd5e5916635c28124adab29420147f35116fe51daab2bd2"
+  },
+  "result": "product_match"
+}

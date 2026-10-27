@@ -1154,3 +1154,7 @@ mod tests {
         assert_eq!(pio.read(0x2000), 0xff);
     }
 }
+
+#[path = "ac97/checkpoint.rs"]
+mod checkpoint;
+pub use checkpoint::Ac97Checkpoint;

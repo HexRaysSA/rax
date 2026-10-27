@@ -1,0 +1,118 @@
+# Backend-owned checkpoint contexts
+
+The public CPU register structures omit execution state owned by individual
+backends. Bundle capture now carries an additional ordered context set whenever
+a backend exports one. Runtime restoration admits all public projections and
+opaque contexts before changing the first CPU, RAM, or legacy device. The
+existing base snapshot and section 11 representations remain unchanged.
+
+The standalone AArch32 producer retains its versioned `RAXA3201` context. The
+actual ARM1176/S3C64xx VMM adapter uses `RAXS3C01`: its complete represented
+`Armv7Cpu`, CP15 and banked registers, exclusive reservation, instruction count,
+halt/shutdown state, last bridge fault, power-off latch, both VICs, PWM counter
+phase, SYSCON registers, and attached UART registers/input FIFO. MMU/privilege
+views are derived before the next access. Decoder and host tracing caches are
+not guest state. UART attachment topology must match the target.
+
+Both ARM platform adapters also retire WFI past its ARM/Thumb instruction and
+advance active IT state before becoming halted. Explicit wake resumes at the
+following instruction. The S3C64xx file continuation test uses this boundary
+directly, without repairing the restored PC.
+
+The retained predecessor reproduction writes CPACR `0x00500000`, captures the
+public projection, and reads CPACR after restoring into a fresh actual S3C64xx
+adapter. Uninterrupted execution reads `0x00500000`; projection restoration reads
+the reset `0x00f00000`. The input words, product-library hash, and raw failure are
+under `rax-audit-work/four-findings-s3c-context`. Earlier fixture attempts did not
+reach the intended control witness and are retained separately.
+The first runtime validation passed six tests and stopped the file continuation
+case at the existing minimum-memory configuration check. Its 4 KiB fixture was
+replaced with the supported 128 MiB configuration before rerunning.
+
+## File framing
+
+Required tagged-v8 section 14, schema 1, contains the following little-endian
+fields, without padding:
+
+| Field | Bytes |
+| --- | ---: |
+| Tag `RAXBCK01` | 8 |
+| Configured CPU count | 4 |
+| Per-CPU table row: producer kind, payload length | 4 + 8 |
+| Payloads, in CPU order | Explicit lengths |
+
+Producer kind 1 identifies standalone AArch32; kind 2 identifies S3C64xx.
+Kind/length zero denotes an absent record. Every other record has nonzero kind
+and length. The count equals the configuration's 1–255 CPUs, each payload is at
+most 16 MiB, and the section is at most 1 GiB. The whole length table must agree
+with the frame before payload allocation. An all-absent extension is rejected.
+Backend import validates the producer, inner version/tag, target CPU identity,
+private-state invariants, and equality with the associated public projection.
+
+Section 14 follows the CPU set and any execution state, and precedes PCI,
+physical memory, media, and RAM. Duplicate sections, optional aliases, wrong
+schemas, reordered sections, inconsistent counts/lengths, and truncation are
+rejected. Base extraction cannot silently discard the required component.
+Backend kinds that the target does not implement are rejected before mutation.
+Files without this extension retain their previous projection import behavior;
+their omitted private state cannot be recovered.
+
+For C CPUs and B encoded context bytes, framing takes O(C + B) time and space,
+within the limits above. Model capture/import costs also include the producer's
+CPU fields, UART FIFO, and device registers. These are algorithmic bounds.
+
+## Assumptions and verification
+
+| ID | Assumption and dependent result | Stress or falsification probe | Status |
+| --- | --- | --- | --- |
+| B1 | The saved record comes from the actual configured backend | Trace the VMM constructor and producer kind; resume through fresh actual S3C64xx adapters | Verified by constructor trace and 1/2/4-context file continuation |
+| B2 | CPU state is captured at an instruction boundary | Safe Rust ownership excludes concurrent execution of the same CPU during capture; save after guest CP15/device writes | Local ownership established; independent shared writers remain a separate requirement |
+| B3 | All CPU records are admitted before publication | Corrupt the last of four records and compare all target CPU contexts, RAM, and UART | Four corrupted-final-record cases passed with context/RAM nonmutation |
+| B4 | Device state preserves subsequent behavior | Save/load a real file, construct a new VMM, resume CPACR/PWM/VIC reads and queued UART input, compare against uninterrupted execution | 1/2/4-context file continuations passed with exact private-context comparison |
+| B5 | Public and backend representations agree | Change a public register without updating the opaque record | Standalone and C API conflicting-projection rejection passed |
+
+The runtime regressions operate actual VMM capture/file/constructor/restore
+paths. They explicitly run each represented CPU before and after capture;
+they do not establish secondary startup or scheduler execution for ARM.
+
+## Remaining full-audit requirements
+
+| Impact | Boundary |
+| --- | --- |
+| High | Other software/native/platform backends still require complete private and in-flight contexts |
+| High | Shared-controller ownership and all independent writers require coordinated quiescence |
+| High | Late native/model publication failures require complete transactional recovery |
+| High | SMP scheduling, architectural secondary startup, bounded JIT/native execution, and physical Intel HVF validation remain required |
+| Medium | Legacy projection-only files cannot reconstruct state they never recorded |
+
+Architectural CP15/exception expectations use the pinned ARM references listed
+in `a32-fp-controls.md`. PWM/VIC/UART continuation compares the represented
+device models in `src/devices/s3c64xx.rs`; it does not establish additional
+hardware fidelity for those models.
+
+## C API system-mode AArch32 contexts
+
+The exported C functions now write context format 5 for system-mode AArch32.
+After the unchanged public/emulator records, a u32 producer kind and u64 payload
+length precede the complete standalone context. Legacy formats 1/2 remain
+readable with their original projection-only state. AArch32 user mode retains
+format 3 and AArch64 retains format 4. New private records are bounded to 16 MiB
+and validated against the public projection before the candidate CPU/memory is
+published. Region counts are admitted against the remaining frame before table
+allocation. Unknown kinds, invalid lengths, corrupt records, and every truncated
+prefix reject without replacing the target engine.
+
+Mapping reconstruction also imports the backend context before publication,
+retaining FP controls and an outstanding LDREX reservation. The C API's documented
+observation counter restarts at zero after context restoration while the raw
+backend counter survives; a host counter origin keeps those contracts separate.
+Ordinary memory-map changes retain the existing cumulative counter behavior.
+
+The native C API suite passed all 195 tests. Four new tests cover guest-written
+CPACR/FPEXC denials with and without mapping reconstruction, LDREX/map/save/restore/
+STREX, legacy formats, and corruption/truncation nonmutation. Both CPACR and
+FPEXC failures were separately reproduced through the pre-fix exported dynamic
+library; its hash, raw contexts, Python caller, and failure output are retained.
+The first whole-suite run passed 193 tests and failed an older system-format
+assertion; that assertion now expects format 5 while the user-context behavior
+remains exercised. Exact validation receipts are recorded in the audit ledger.

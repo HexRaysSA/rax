@@ -1,5 +1,8 @@
 use crate::error::{Error, Result};
 
+mod rmw;
+pub use rmw::MmioRmwOp;
+
 pub trait IoDevice: Send {
     fn read(&mut self, port: u16) -> u8;
     fn write(&mut self, port: u16, value: u8);
@@ -35,6 +38,54 @@ impl<D: IoDevice> IoDevice for SharedIoDevice<D> {
 pub trait MmioDevice: Send {
     fn read(&mut self, addr: u64, data: &mut [u8]);
     fn write(&mut self, addr: u64, data: &[u8]);
+
+    /// Perform a single device transaction and return the pre-write operand.
+    /// Shared adapters must hold their model lock across this complete call.
+    fn read_modify_write(&mut self, addr: u64, size: u8, operation: MmioRmwOp) -> Result<Vec<u8>> {
+        operation.validate(size)?;
+        let mut old = vec![0; usize::from(size)];
+        self.read(addr, &mut old);
+        let mut new = old.clone();
+        operation.apply(&mut new)?;
+        self.write(addr, &new);
+        Ok(old)
+    }
+}
+
+/// Register a shared MMIO model while retaining typed state ownership.
+pub struct SharedMmioDevice<D: MmioDevice> {
+    inner: std::sync::Arc<std::sync::Mutex<D>>,
+}
+impl<D: MmioDevice> SharedMmioDevice<D> {
+    pub fn new(inner: std::sync::Arc<std::sync::Mutex<D>>) -> Self {
+        Self { inner }
+    }
+}
+impl<D: MmioDevice> MmioDevice for SharedMmioDevice<D> {
+    fn read(&mut self, address: u64, data: &mut [u8]) {
+        match self.inner.lock() {
+            Ok(mut device) => device.read(address, data),
+            Err(_) => data.fill(0xff),
+        }
+    }
+    fn write(&mut self, address: u64, data: &[u8]) {
+        if let Ok(mut device) = self.inner.lock() {
+            device.write(address, data);
+        }
+    }
+
+    fn read_modify_write(
+        &mut self,
+        address: u64,
+        size: u8,
+        operation: MmioRmwOp,
+    ) -> Result<Vec<u8>> {
+        operation.validate(size)?;
+        self.inner
+            .lock()
+            .map_err(|_| Error::Emulator("MMIO RMW device lock poisoned".into()))?
+            .read_modify_write(address, size, operation)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -180,38 +231,95 @@ impl MmioBus {
         Ok(())
     }
 
+    fn validate_extent(addr: u64, len: usize) -> Result<()> {
+        if len != 0 && addr.checked_add((len - 1) as u64).is_none() {
+            return Err(Error::InvalidConfig(
+                "MMIO access extent wraps the address space".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Keep one callback for each contiguous portion owned by one device.
+    /// Splitting a register-sized transaction into byte writes changes device
+    /// semantics; holes and mapping boundaries are the only bus split points.
+    fn transaction_chunk(&self, addr: u64, remaining: usize) -> (Option<usize>, usize) {
+        if let Some(index) = self
+            .devices
+            .iter()
+            .position(|(range, _)| range.contains(addr))
+        {
+            let range = self.devices[index].0;
+            let available = range.base.saturating_add(range.len) - addr;
+            return (Some(index), available.min(remaining as u64) as usize);
+        }
+        let next = self
+            .devices
+            .iter()
+            .map(|(range, _)| range.base)
+            .filter(|base| *base > addr)
+            .min();
+        let count = next.map_or(remaining, |base| {
+            (base - addr).min(remaining as u64) as usize
+        });
+        (None, count)
+    }
+
     pub fn read(&mut self, addr: u64, data: &mut [u8]) -> Result<()> {
-        for (index, byte) in data.iter_mut().enumerate() {
-            let current_addr = addr.saturating_add(index as u64);
-            if let Some(dev_index) = self
-                .devices
-                .iter()
-                .position(|(range, _)| range.contains(current_addr))
-            {
-                let device = &mut self.devices[dev_index].1;
-                let mut tmp = [0u8; 1];
-                device.read(current_addr, &mut tmp);
-                *byte = tmp[0];
-            } else {
-                *byte = 0xff;
+        Self::validate_extent(addr, data.len())?;
+        let mut offset = 0;
+        while offset < data.len() {
+            let current = addr + offset as u64;
+            let (device, count) = self.transaction_chunk(current, data.len() - offset);
+            let part = &mut data[offset..offset + count];
+            match device {
+                Some(index) => self.devices[index].1.read(current, part),
+                None => part.fill(0xff),
             }
+            offset += count;
         }
         Ok(())
     }
 
     pub fn write(&mut self, addr: u64, data: &[u8]) -> Result<()> {
-        for (index, byte) in data.iter().enumerate() {
-            let current_addr = addr.saturating_add(index as u64);
-            if let Some(dev_index) = self
-                .devices
-                .iter()
-                .position(|(range, _)| range.contains(current_addr))
-            {
-                let device = &mut self.devices[dev_index].1;
-                device.write(current_addr, &[*byte]);
+        Self::validate_extent(addr, data.len())?;
+        let mut offset = 0;
+        while offset < data.len() {
+            let current = addr + offset as u64;
+            let (device, count) = self.transaction_chunk(current, data.len() - offset);
+            if let Some(index) = device {
+                self.devices[index]
+                    .1
+                    .write(current, &data[offset..offset + count]);
             }
+            offset += count;
         }
         Ok(())
+    }
+
+    /// Apply an indivisible scalar operation to one complete device mapping.
+    /// A cross-mapping operation is rejected before any device access, since
+    /// independent device locks cannot establish one atomic transaction.
+    pub fn read_modify_write(
+        &mut self,
+        addr: u64,
+        size: u8,
+        operation: MmioRmwOp,
+    ) -> Result<Vec<u8>> {
+        operation.validate(size)?;
+        Self::validate_extent(addr, usize::from(size))?;
+        let (device, count) = self.transaction_chunk(addr, usize::from(size));
+        if count != usize::from(size) {
+            return Err(Error::InvalidConfig(
+                "MMIO RMW crosses device mappings".into(),
+            ));
+        }
+        match device {
+            Some(index) => self.devices[index]
+                .1
+                .read_modify_write(addr, size, operation),
+            None => Ok(vec![0xff; usize::from(size)]),
+        }
     }
 }
 
@@ -340,3 +448,7 @@ mod tests {
         assert_eq!(data[0], 0x5a);
     }
 }
+
+#[cfg(test)]
+#[path = "bus/mmio_transactions.rs"]
+mod mmio_transactions;

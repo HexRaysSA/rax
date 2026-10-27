@@ -32,7 +32,7 @@ use crate::isa::arm::decoder::{Condition, DecodeError, DecodedInsn, Mnemonic, Sh
 
 impl<'a, M: ArmMemory> Executor<'a, M> {
     pub(crate) fn exec_neon_shift_immediate(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 25) != 0b1111001
@@ -182,7 +182,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         &mut self,
         insn: &DecodedInsn,
     ) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 25) != 0b1111001
@@ -258,7 +258,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_neon_shift_register(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 25) != 0b1111001 || ((insn.raw >> 23) & 1) != 0 {
@@ -369,7 +369,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_neon_shift_narrow_immediate(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 25) != 0b1111001

@@ -486,32 +486,51 @@ impl DualPic {
     /// acknowledging), the master returns IRQ7's vector without setting ISR.
     /// Likewise the slave returns IRQ15's vector for a spurious cascade.
     pub fn get_pending_vector(&mut self) -> Option<u8> {
-        let master_irq = self.master.highest_pending()?;
-
-        if master_irq == 2 && !self.master.single_mode {
-            // Cascade: the interrupt actually comes from the slave.
-            if let Some(slave_irq) = self.slave.highest_pending() {
-                // Re-check that the slave line is still requesting (it is, by
-                // highest_pending), and acknowledge it through the slave.
-                let vector = self.slave.ack_irq(slave_irq);
-                // The master acknowledges IRQ2 (sets master ISR bit 2).
-                self.master.ack_irq(2);
-                return Some(vector);
-            }
-            // Spurious on the slave: the cascade fired but the slave has no
-            // active request. The slave returns IRQ15 without setting ISR; the
-            // master still services IRQ2 (it saw a real cascade edge).
-            let vector = self.slave.vector_offset.wrapping_add(SPURIOUS_IRQ);
-            self.master.ack_irq(2);
-            return Some(vector);
+        let mut selected = None;
+        let result = self.try_deliver_pending(|vector| {
+            selected = Some(vector);
+            Ok::<bool, std::convert::Infallible>(true)
+        });
+        match result {
+            Ok(_) => selected,
+            Err(never) => match never {},
         }
+    }
 
-        // Normal (or spurious) master interrupt. highest_pending only returns a
-        // line whose IRR bit is set, so a true spurious (IRR cleared) is not
-        // reachable here; the spurious path below is kept for the explicit
-        // acknowledge helper. Acknowledge the master line.
-        let vector = self.master.ack_irq(master_irq);
-        Some(vector)
+    /// Offer the highest-priority vector without acknowledging it first.
+    /// A blocked or failed injection leaves all controller state unchanged.
+    /// Exclusive access must be held across selection, injection and acceptance;
+    /// the VMM retains its PIC mutex throughout this operation.
+    pub fn try_deliver_pending<F, E>(&mut self, inject: F) -> std::result::Result<bool, E>
+    where
+        F: FnOnce(u8) -> std::result::Result<bool, E>,
+    {
+        let Some(master_irq) = self.master.highest_pending() else {
+            return Ok(false);
+        };
+        let cascade = master_irq == 2 && !self.master.single_mode;
+        let slave_irq = if cascade {
+            self.slave.highest_pending()
+        } else {
+            None
+        };
+        let vector = if cascade {
+            self.slave
+                .vector_offset
+                .wrapping_add(slave_irq.unwrap_or(SPURIOUS_IRQ))
+        } else {
+            self.master.vector_offset.wrapping_add(master_irq)
+        };
+        if !inject(vector)? {
+            return Ok(false);
+        }
+        if let Some(irq) = slave_irq {
+            self.slave.ack_irq(irq);
+        }
+        // A spurious slave request still acknowledges master IRQ2, preserving
+        // the existing cascade/INTA behavior. Auto-EOI/rotation stay in ack_irq.
+        self.master.ack_irq(master_irq);
+        Ok(true)
     }
 
     /// Explicit master INTA acknowledge of a specific line, modeling the real

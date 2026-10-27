@@ -364,7 +364,7 @@ pub mod psr {
 }
 
 /// Parse PSR value into components.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Psr {
     pub n: bool,
     pub z: bool,
@@ -624,10 +624,14 @@ pub fn bit_reverse(value: u32) -> u32 {
 /// - **User/System**: Share R0-R14 (System is privileged User)
 /// - **FIQ**: Banks R8-R14, SPSR_fiq
 /// - **IRQ/SVC/ABT/UND/MON**: Bank R13-R14, SPSR_xxx
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Armv7Cpu {
     /// Additional PSTATE fields implemented by an enclosing ARMv8 PE.
+    #[serde(with = "super::checkpoint::feature_bits")]
     pub(crate) pstate_features: crate::isa::arm::common::features::ArmFeatures,
+    pub(crate) nonsecure: bool,
+    pub(crate) fp_access_context: Option<super::fp_controls::FpAccessContext>,
+    pub(crate) instruction_size: u8,
     /// Current register values R0-R15 (R15 = PC)
     pub regs: [u32; 16],
     /// Current Program Status Register
@@ -693,6 +697,9 @@ impl Armv7Cpu {
     pub fn new() -> Self {
         let mut cpu = Armv7Cpu {
             pstate_features: crate::isa::arm::common::features::ArmFeatures::empty(),
+            nonsecure: false,
+            fp_access_context: None,
+            instruction_size: 4,
             regs: [0; 16],
             cpsr: Psr::default(),
             regs_usr: [0; 2],
@@ -751,6 +758,20 @@ impl Armv7Cpu {
         } else {
             self.regs[i] = value;
         }
+    }
+
+    /// Current security state, separate from SCR.NS (the exception-return control).
+    pub fn is_secure(&self) -> bool {
+        match ProcessorMode::from_bits(self.cpsr.mode) {
+            Some(ProcessorMode::Monitor) => true,
+            Some(ProcessorMode::Hyp) => false,
+            _ => !self.nonsecure,
+        }
+    }
+
+    /// Install trusted host-side security state. CPACR remains shared across worlds.
+    pub fn set_nonsecure(&mut self, nonsecure: bool) {
+        self.nonsecure = nonsecure;
     }
 
     /// Check if current mode is privileged.
@@ -871,6 +892,9 @@ impl Armv7Cpu {
 
     /// Change processor mode, handling register banking.
     pub fn change_mode(&mut self, new_mode: ProcessorMode) {
+        if new_mode == ProcessorMode::Hyp {
+            self.nonsecure = true;
+        }
         let old_mode =
             ProcessorMode::from_bits(self.cpsr.mode).unwrap_or(ProcessorMode::Supervisor);
 

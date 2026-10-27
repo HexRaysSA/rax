@@ -309,7 +309,7 @@ impl RiscVVcpu {
             tohost_addr: tohost_addr.clone(),
             devices_enabled,
         };
-        let cpu = RiscVCpu::new(cfg, Box::new(bridge));
+        let cpu = RiscVCpu::new_with_hart_id(cfg, Box::new(bridge), u64::from(id));
         RiscVVcpu {
             id,
             cpu,
@@ -344,7 +344,7 @@ impl RiscVVcpu {
             translation: translation.clone(),
             last_fault: last_fault.clone(),
         };
-        let mut cpu = RiscVCpu::new(cfg, Box::new(bridge));
+        let mut cpu = RiscVCpu::new_with_hart_id(cfg, Box::new(bridge), u64::from(id));
         cpu.set_privilege(Priv::User);
         RiscVVcpu {
             id,
@@ -513,7 +513,35 @@ impl VCpu for RiscVVcpu {
         Ok(CpuState::riscv(regs))
     }
 
+    fn validate_checkpoint_state(
+        &self,
+        state: &CpuState,
+        _emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        let CpuState::RiscV(state) = state else {
+            return Err(Error::Emulator(
+                "expected riscv state for riscv vCPU".to_string(),
+            ));
+        };
+        if let Some(level) = state.regs.privilege {
+            RiscVCpu::privilege_from_level(level).ok_or_else(|| {
+                Error::Emulator(format!("invalid RISC-V privilege level {level}"))
+            })?;
+        }
+        if let Some(vector) = &state.regs.vector {
+            self.cpu
+                .validate_vector_state(vector)
+                .map_err(Error::Emulator)?;
+        }
+        drop(self.tohost_addr.lock().map_err(|_| {
+            Error::Emulator("RISC-V tohost lock poisoned during restore".to_string())
+        })?);
+        Ok(())
+    }
+
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
+        self.validate_checkpoint_state(state, &Default::default())?;
+
         let state = match state {
             CpuState::RiscV(s) => s,
             _ => {
@@ -522,13 +550,16 @@ impl VCpu for RiscVVcpu {
                 ));
             }
         };
+        let mut tohost = self.tohost_addr.lock().map_err(|_| {
+            Error::Emulator("RISC-V tohost lock poisoned during restore".to_string())
+        })?;
         for i in 0..32u8 {
             self.cpu.set_x(i, state.regs.x[i as usize]);
             self.cpu.set_f(i, state.regs.f[i as usize]);
         }
         self.cpu.set_pc(state.regs.pc);
         self.cpu.set_fcsr(state.regs.fcsr);
-        *self.tohost_addr.lock().unwrap() = state.regs.tohost_addr;
+        *tohost = state.regs.tohost_addr;
         if let Some(level) = state.regs.privilege {
             let privilege = RiscVCpu::privilege_from_level(level).ok_or_else(|| {
                 Error::Emulator(format!("invalid RISC-V privilege level {level}"))
@@ -644,3 +675,40 @@ mod user_tests;
 #[cfg(test)]
 #[path = "cpu_state_tests.rs"]
 mod state_tests;
+
+#[cfg(test)]
+mod checkpoint_lock_tests {
+    use super::*;
+    #[test]
+    fn poisoned_tohost_rejects_restore_before_register_assignment() {
+        let memory = Arc::new(GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 4096)]).unwrap());
+        let mut cpu = RiscVVcpu::new(0, memory);
+        let before = crate::codec::serialize(&cpu.get_state().unwrap()).unwrap();
+        let mut state = cpu.get_state().unwrap();
+        let CpuState::RiscV(regs) = &mut state else {
+            unreachable!()
+        };
+        regs.regs.x[5] = 0x12345678;
+        let shared = cpu.tohost_addr.clone();
+        assert!(
+            std::thread::spawn(move || {
+                let _guard = shared.lock().unwrap();
+                panic!("owned tohost poison fixture");
+            })
+            .join()
+            .is_err()
+        );
+        assert!(
+            cpu.validate_checkpoint_state(&state, &Default::default())
+                .is_err()
+        );
+        assert!(cpu.set_state(&state).is_err());
+        // get_state also reads tohost. Recover only the test lock marker;
+        // state itself must be exactly as captured before the failed restore.
+        cpu.tohost_addr.clear_poison();
+        assert_eq!(
+            crate::codec::serialize(&cpu.get_state().unwrap()).unwrap(),
+            before
+        );
+    }
+}

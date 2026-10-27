@@ -7,19 +7,37 @@ use super::bindings::*;
 use crate::error::{Error, Result};
 use crate::vm::vcpu::{DescriptorTable, Registers, Segment, SystemRegisters};
 
-/// Read a VMCS field, returning an error if the operation fails.
+fn try_vmcs_read(vcpu: hv_vcpuid_t, field: u32) -> core::result::Result<u64, hv_return_t> {
+    let mut value = 0;
+    let ret = unsafe { hv_vmx_vcpu_read_vmcs(vcpu, field, &mut value) };
+    if ret == HV_SUCCESS {
+        Ok(value)
+    } else {
+        Err(ret)
+    }
+}
+
+/// Read a typed VMCS field, preserving the existing diagnostic shape.
 #[inline]
 pub fn vmcs_read(vcpu: hv_vcpuid_t, field: hv_vmx_vmcs_field_t) -> Result<u64> {
-    let mut value: u64 = 0;
-    let ret = unsafe { hv_vmx_vcpu_read_vmcs(vcpu, field as u32, &mut value) };
-    if ret != HV_SUCCESS {
-        return Err(Error::Emulator(format!(
+    try_vmcs_read(vcpu, field as u32).map_err(|ret| {
+        Error::Emulator(format!(
             "Failed to read VMCS field {:?}: {}",
             field,
             hv_error_string(ret)
-        )));
-    }
-    Ok(value)
+        ))
+    })
+}
+
+/// Read a field selected by a shared boundary whose encoding the SDK probe checks.
+#[inline]
+pub fn vmcs_read_raw(vcpu: hv_vcpuid_t, field: u32) -> Result<u64> {
+    try_vmcs_read(vcpu, field).map_err(|ret| {
+        Error::Emulator(format!(
+            "Failed to read VMCS field {field:#x}: {}",
+            hv_error_string(ret)
+        ))
+    })
 }
 
 /// Write a VMCS field, returning an error if the operation fails.
@@ -421,70 +439,16 @@ pub fn sregs_to_hvf(vcpu: hv_vcpuid_t, sregs: &SystemRegisters) -> Result<()> {
     Ok(())
 }
 
-/// Parse VMX exit qualification for I/O exits.
-pub struct IoExitQualification {
-    pub size: u8, // 1, 2, or 4 bytes
-    pub direction: IoDirection,
-    pub string: bool, // String I/O (INS/OUTS)
-    pub rep: bool,    // REP prefix
-    pub port: u16,
-}
-
-pub enum IoDirection {
-    Out,
-    In,
-}
-
-impl IoExitQualification {
-    pub fn from_qualification(qual: u64) -> Self {
-        let size = match qual & 0x7 {
-            0 => 1,
-            1 => 2,
-            3 => 4,
-            _ => 1,
-        };
-        let direction = if (qual & (1 << 3)) != 0 {
-            IoDirection::In
-        } else {
-            IoDirection::Out
-        };
-        let string = (qual & (1 << 4)) != 0;
-        let rep = (qual & (1 << 5)) != 0;
-        let port = ((qual >> 16) & 0xFFFF) as u16;
-
-        IoExitQualification {
-            size,
-            direction,
-            string,
-            rep,
-            port,
-        }
-    }
-}
-
-/// Parse VMX exit qualification for EPT violations (memory faults).
-pub struct EptViolationQualification {
-    pub read: bool,
-    pub write: bool,
-    pub fetch: bool,
-    pub readable: bool,
-    pub writable: bool,
-    pub executable: bool,
-    pub guest_linear_valid: bool,
-    pub guest_physical_valid: bool,
-}
-
-impl EptViolationQualification {
-    pub fn from_qualification(qual: u64) -> Self {
-        EptViolationQualification {
-            read: (qual & (1 << 0)) != 0,
-            write: (qual & (1 << 1)) != 0,
-            fetch: (qual & (1 << 2)) != 0,
-            readable: (qual & (1 << 3)) != 0,
-            writable: (qual & (1 << 4)) != 0,
-            executable: (qual & (1 << 5)) != 0,
-            guest_linear_valid: (qual & (1 << 7)) != 0,
-            guest_physical_valid: (qual & (1 << 8)) != 0,
-        }
-    }
+/// Map Intel architectural GPR indices to the SDK register enum.
+pub fn general_register(index: u8) -> Result<hv_x86_reg_t> {
+    use hv_x86_reg_t::*;
+    const REGISTERS: [hv_x86_reg_t; 16] = [
+        HV_X86_RAX, HV_X86_RCX, HV_X86_RDX, HV_X86_RBX, HV_X86_RSP, HV_X86_RBP, HV_X86_RSI,
+        HV_X86_RDI, HV_X86_R8, HV_X86_R9, HV_X86_R10, HV_X86_R11, HV_X86_R12, HV_X86_R13,
+        HV_X86_R14, HV_X86_R15,
+    ];
+    REGISTERS
+        .get(usize::from(index))
+        .copied()
+        .ok_or_else(|| Error::Emulator(format!("invalid VMX general-register index {index}")))
 }

@@ -68,14 +68,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Execute a single decoded instruction.
     pub fn execute(&mut self, insn: &DecodedInsn) -> ExecResult {
+        self.cpu.instruction_size = insn.size;
         if !self.condition_matches(insn) {
             return ExecResult::Continue;
         }
 
         // Failed predicates do not perform FP access checks. Denied accesses
         // trap before any handler can modify registers or touch guest memory.
-        if self.fp_access_denied(insn) {
-            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        if let Some(fault) = self.fp_access_fault(insn) {
+            return fault;
         }
 
         // A 16-bit Thumb data-processing instruction sets the flags only
@@ -582,10 +583,54 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Take an exception and switch to the appropriate mode.
     pub fn take_exception(&mut self, exception: ExceptionType) {
+        if matches!(exception, ExceptionType::UndefinedInstruction) {
+            let context = self.cpu.fp_control_context();
+            let own_hyp = context.current_el == 2;
+            let route = context.current_el == 0
+                && context.el2_enabled
+                && self.cpu.cp15.hcr & (1 << 27) != 0;
+            if own_hyp || route {
+                let syndrome = u32::from(self.cpu.instruction_size == 4) << 25;
+                self.take_exception(ExceptionType::HypervisorTrap {
+                    syndrome,
+                    undefined: own_hyp,
+                });
+                return;
+            }
+        }
         // Exception entry clears the local exclusive monitor. Without this,
         // a LDREX/STREX pair interrupted by IRQ/FIQ can incorrectly complete
         // against stale state after the handler has run.
         self.exclusive_monitor.clear();
+
+        if let ExceptionType::HypervisorTrap {
+            syndrome,
+            undefined,
+        } = exception
+        {
+            let saved = self.cpu.cpsr.clone();
+            let pc = self.cpu.regs[15];
+            self.cpu.change_mode(ProcessorMode::Hyp);
+            self.cpu.spsr_hyp = saved;
+            self.cpu.cp15.hsr = syndrome;
+            self.cpu.cp15.elr_hyp = pc;
+            let scr = self.cpu.cp15.scr;
+            if scr & (1 << 3) == 0 {
+                self.cpu.cpsr.a = true;
+            }
+            if scr & (1 << 1) == 0 {
+                self.cpu.cpsr.i = true;
+            }
+            if scr & (1 << 2) == 0 {
+                self.cpu.cpsr.f = true;
+            }
+            self.cpu.cpsr.t = self.cpu.cp15.hsctlr.te();
+            self.cpu.cpsr.e = self.cpu.cp15.hsctlr.ee();
+            self.cpu.cpsr.il = false;
+            self.cpu.cpsr.it_state = 0;
+            self.cpu.regs[15] = self.cpu.cp15.hvbar | if undefined { 4 } else { 0x14 };
+            return;
+        }
 
         let target_mode = exception.target_mode();
         let vector_offset = exception.vector_offset();
@@ -595,17 +640,19 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
         // Calculate return address based on exception type
         let return_addr = match &exception {
-            ExceptionType::SupervisorCall(_) => self.cpu.regs[15].wrapping_add(4),
-            ExceptionType::UndefinedInstruction if self.cpu.cpsr.t => {
-                self.cpu.regs[15].wrapping_add(2)
+            ExceptionType::UndefinedInstruction => {
+                self.cpu.regs[15].wrapping_add(if self.cpu.cpsr.t { 2 } else { 4 })
             }
-            ExceptionType::UndefinedInstruction => self.cpu.regs[15].wrapping_add(4),
+            ExceptionType::SupervisorCall(_) => {
+                self.cpu.regs[15].wrapping_add(u32::from(self.cpu.instruction_size))
+            }
             ExceptionType::PrefetchAbort(_) => self.cpu.regs[15].wrapping_add(4),
             ExceptionType::DataAbort(_) => self.cpu.regs[15].wrapping_add(8),
             ExceptionType::Irq => self.cpu.regs[15].wrapping_add(4),
             ExceptionType::Fiq => self.cpu.regs[15].wrapping_add(4),
             ExceptionType::Breakpoint(_) => self.cpu.regs[15].wrapping_add(4),
             ExceptionType::Reset => 0,
+            ExceptionType::HypervisorTrap { .. } => unreachable!("handled above"),
         };
 
         // Switch mode
@@ -634,6 +681,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Return from exception (MOVS PC, LR or SUBS PC, LR, #imm with S bit).
     pub fn exception_return(&mut self) {
+        if self.cpu.cpsr.mode == ProcessorMode::Monitor as u8 {
+            self.cpu.nonsecure = self.cpu.cp15.scr & 1 != 0;
+        }
         if let Some(spsr) = self.cpu.get_current_spsr() {
             let spsr_value = spsr.to_u32();
 

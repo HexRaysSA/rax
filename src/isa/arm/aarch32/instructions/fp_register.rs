@@ -14,7 +14,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if insn.mnemonic != Mnemonic::VMOV_F16_CORE && self.cpu.vfp.fpscr.bits() & 0x00370000 != 0 {
             return ExecResult::Undefined;
         }
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if insn.mnemonic == Mnemonic::VMOV_F16_CORE {

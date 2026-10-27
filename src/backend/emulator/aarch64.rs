@@ -593,7 +593,7 @@ impl Aarch64Vcpu {
             translation,
             exclusive: Mutex::new(None),
         };
-        let cpu = AArch64Cpu::new(config, Box::new(bridge));
+        let cpu = AArch64Cpu::new_with_cpu_id(config, Box::new(bridge), id);
         // The CPU owns the GIC; hand the bridge a reference to the same
         // instance so MMIO and ICC system registers agree.
         if let Some(gic) = cpu.gic_handle() {
@@ -770,62 +770,6 @@ impl Aarch64Vcpu {
         result
     }
 
-    fn step_micro(&mut self) -> Result<Option<VcpuExit>> {
-        self.sync_uart_irq();
-        let result = match self.cpu.step_system_with_fault_exit() {
-            Ok(CpuExit::Continue) => Ok(None),
-            Ok(CpuExit::Wfi | CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
-            Ok(CpuExit::Hvc(_) | CpuExit::Smc(_)) => {
-                if let Some(exit) = self.handle_psci() {
-                    self.shutdown = true;
-                    Ok(Some(exit))
-                } else {
-                    Ok(None)
-                }
-            }
-            Ok(CpuExit::Halt | CpuExit::Shutdown) => {
-                self.shutdown = true;
-                Ok(Some(VcpuExit::Shutdown))
-            }
-            Ok(other) => Err(Error::Emulator(format!(
-                "unhandled AArch64 instruction exit at {:#x}: {other:?}",
-                self.cpu.get_pc()
-            ))),
-            Err(ArmError::MemoryError(info)) => {
-                use crate::error::{GuestMemoryFault, MemoryAccessKind, MemoryFaultKind};
-                use crate::isa::arm::common::cpu::MemoryFaultType;
-                let access = match info.access {
-                    AccessType::Write | AccessType::Atomic => MemoryAccessKind::Write,
-                    AccessType::Read => MemoryAccessKind::Read,
-                    AccessType::InstructionFetch => MemoryAccessKind::Fetch,
-                };
-                let kind = match info.fault_type {
-                    MemoryFaultType::Translation => MemoryFaultKind::Unmapped,
-                    MemoryFaultType::Permission => MemoryFaultKind::Permission,
-                    _ => MemoryFaultKind::Other,
-                };
-                Err(GuestMemoryFault {
-                    address: info.address,
-                    size: 0,
-                    access,
-                    kind,
-                }
-                .into())
-            }
-            Err(ArmError::UndefinedInstruction(instruction)) => Err(Error::InvalidInstruction {
-                pc: self.cpu.get_pc(),
-                diagnosis: format!("undefined AArch64 encoding {instruction:#x}"),
-            }),
-            Err(error) => Err(Error::Emulator(format!(
-                "AArch64 instruction failed at {:#x}: {error}",
-                self.cpu.get_pc()
-            ))),
-        };
-        self.insn_count
-            .store(self.cpu.instruction_count(), Ordering::Relaxed);
-        result
-    }
-
     /// Boot-debug heartbeat: where is the guest and how fast is it going?
     fn heartbeat(&mut self) {
         if self.last_heartbeat.elapsed() >= std::time::Duration::from_secs(2) {
@@ -905,6 +849,9 @@ impl Aarch64Vcpu {
     }
 }
 
+#[path = "aarch64_step.rs"]
+mod stepping;
+
 impl VCpu for Aarch64Vcpu {
     fn run(&mut self) -> Result<VcpuExit> {
         if self.shutdown {
@@ -924,7 +871,7 @@ impl VCpu for Aarch64Vcpu {
 
         if self.fault_exits {
             for _ in 0..BATCH {
-                if let Some(exit) = self.step_micro()? {
+                if let Some(exit) = self.step_micro(true)? {
                     return Ok(exit);
                 }
             }
@@ -1029,6 +976,23 @@ impl VCpu for Aarch64Vcpu {
         regs.fpcr = self.cpu.fpcr_value();
         regs.fpsr = self.cpu.fpsr_value();
         Ok(CpuState::aarch64(regs, self.cpu.export_sregs()))
+    }
+
+    fn validate_checkpoint_state(
+        &self,
+        state: &CpuState,
+        _emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        let CpuState::Aarch64(state) = state else {
+            return Err(Error::Emulator(
+                "expected aarch64 state for aarch64 vCPU".to_string(),
+            ));
+        };
+        AArch64Cpu::validate_saved_state(state.regs.pstate, &state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
+        self.cpu
+            .validate_sregs(&state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))
     }
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
@@ -1182,45 +1146,7 @@ impl VCpu for Aarch64Vcpu {
     }
 
     fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
-        if self.shutdown {
-            return Ok(Some(VcpuExit::Shutdown));
-        }
-        if self.user.is_some() {
-            return self.step_user();
-        }
-        if self.fault_exits {
-            return self.step_micro();
-        }
-        // Pick up console input the VMM queued (mirrors one run() iteration).
-        self.sync_uart_irq();
-        let r = match self.cpu.step_system() {
-            Ok(CpuExit::Continue) => Ok(None),
-            Ok(CpuExit::Wfi) | Ok(CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
-            Ok(CpuExit::Hvc(_)) | Ok(CpuExit::Smc(_)) => {
-                if let Some(exit) = self.handle_psci() {
-                    self.shutdown = true;
-                    Ok(Some(exit))
-                } else {
-                    Ok(None)
-                }
-            }
-            Ok(CpuExit::Halt) | Ok(CpuExit::Shutdown) => {
-                self.shutdown = true;
-                Ok(Some(VcpuExit::Shutdown))
-            }
-            Ok(other) => Ok(Some(VcpuExit::Unknown(format!(
-                "aarch64 exit {:?} at pc={:#x}",
-                other,
-                self.cpu.get_pc()
-            )))),
-            Err(e) => Ok(Some(VcpuExit::Unknown(format!(
-                "aarch64 emulation error at pc={:#x}: {e}",
-                self.cpu.get_pc()
-            )))),
-        };
-        self.insn_count
-            .store(self.cpu.instruction_count(), Ordering::Relaxed);
-        r
+        self.step_instruction()
     }
 }
 

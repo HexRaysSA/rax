@@ -63,9 +63,11 @@ impl From<Error> for DeliveryFailure {
 enum EventSource {
     /// INT n, INT3, or INTO. Gate DPL applies and nested-fault EXT is zero.
     Software,
-    /// Processor-detected exceptions, including INT1. Gate DPL is ignored and
+    /// Processor-detected faults. Gate DPL is ignored and
     /// selector/IDT error-code EXT is zero.
-    Exception,
+    ExceptionFault,
+    /// A processor trap after a completed instruction (ICEBP).
+    ExceptionTrap,
     /// NMI and maskable external interrupts. Gate DPL is ignored and nested
     /// selector/IDT error-code EXT is one.
     External,
@@ -446,7 +448,7 @@ fn becomes_double_fault(first: u8, second: u8) -> bool {
 impl X86_64Vcpu {
     pub fn inject_exception(&mut self, vector: u8, error_code: Option<u64>) -> Result<()> {
         let pc = self.regs.rip;
-        self.deliver_event(vector, error_code, EventSource::Exception, None)
+        self.deliver_event(vector, error_code, EventSource::ExceptionFault, None)
             .map_err(|error| {
                 // A failed #UD delivery must not be mistaken for an ordinary
                 // sparse guest access and "repaired" with fabricated IDT bytes.
@@ -460,6 +462,10 @@ impl X86_64Vcpu {
                     error
                 }
             })
+    }
+
+    pub(super) fn inject_debug_trap(&mut self) -> Result<()> {
+        self.deliver_event(1, None, EventSource::ExceptionTrap, None)
     }
 
     pub(super) fn inject_software_interrupt(
@@ -486,6 +492,9 @@ impl X86_64Vcpu {
         source: EventSource,
         software_fault_rip: Option<u64>,
     ) -> Result<()> {
+        if source == EventSource::ExceptionFault {
+            self.instruction_faulted = true;
+        }
         self.mmu.set_data_access_state(self.regs.rflags, self.pkru);
         // User mode: report the event to the embedder instead of vectoring
         // through the IDT. Software interrupts arrive with RIP already past
@@ -551,10 +560,15 @@ impl X86_64Vcpu {
                         current_vector = nested_vector;
                         current_error = Some(nested_error);
                     }
+                    if !externally_caused {
+                        // A failed software trap gate restarts its instruction;
+                        // it cannot retain the original trap's retirement.
+                        self.instruction_faulted = true;
+                    }
                     current_source = if externally_caused {
                         EventSource::External
                     } else {
-                        EventSource::Exception
+                        EventSource::ExceptionFault
                     };
                 }
             }

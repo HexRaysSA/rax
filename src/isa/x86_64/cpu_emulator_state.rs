@@ -45,8 +45,7 @@ impl X86_64Vcpu {
         })
     }
 
-    pub(super) fn restore_emulator_state(
-        &mut self,
+    pub(super) fn validate_emulator_state(
         state: &crate::vm::snapshot::EmulatorState,
     ) -> Result<()> {
         // Snapshot validation is noncommitting, including emulator-private
@@ -58,6 +57,29 @@ impl X86_64Vcpu {
                 crate::isa::x86_64::MXCSR_SUPPORTED_MASK,
             )));
         }
+        if state.fpu.top > 7 {
+            return Err(Error::InvalidConfig(
+                "snapshot x87 TOP must be in 0..=7".to_string(),
+            ));
+        }
+        if state.lazy_flags.op > 5 {
+            return Err(Error::InvalidConfig(
+                "snapshot lazy-flag operation is unknown".to_string(),
+            ));
+        }
+        if state.lazy_flags.op != 0 && !matches!(state.lazy_flags.size, 1 | 2 | 4 | 8) {
+            return Err(Error::InvalidConfig(
+                "snapshot active lazy-flag width must be 1, 2, 4 or 8 bytes".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub(super) fn restore_emulator_state(
+        &mut self,
+        state: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        Self::validate_emulator_state(state)?;
         #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
         {
             self.jit_vsib_resume_pc = None;

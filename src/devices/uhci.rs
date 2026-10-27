@@ -1196,3 +1196,7 @@ mod tests {
         hc.write(BASE + IO_SIZE + 4, 0x55);
     }
 }
+
+#[path = "uhci/checkpoint.rs"]
+mod checkpoint;
+pub use checkpoint::UhciCheckpoint;

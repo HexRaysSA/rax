@@ -19,6 +19,7 @@ mod atomics;
 mod csr_ops;
 mod execution;
 mod fp_moves;
+mod identity;
 #[cfg(all(
     feature = "smir-jit",
     any(target_arch = "x86_64", target_arch = "aarch64")

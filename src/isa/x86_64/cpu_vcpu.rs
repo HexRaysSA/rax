@@ -18,6 +18,19 @@ impl VCpu for X86_64Vcpu {
         }))
     }
 
+    fn validate_checkpoint_state(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        if !matches!(state, CpuState::X86_64(_)) {
+            return Err(Error::Emulator(
+                "expected x86_64 state for x86_64 vCPU".to_string(),
+            ));
+        }
+        Self::validate_emulator_state(emulator)
+    }
+
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
         let state = match state {
             CpuState::X86_64(state) => state,
@@ -53,7 +66,20 @@ impl VCpu for X86_64Vcpu {
     }
 
     fn step_insn(&mut self) -> Result<Option<VcpuExit>> {
-        self.step_with_faults()
+        #[cfg(feature = "debug")]
+        if !self.single_step && !self.halted {
+            if let Some(addr) = self.debug_breakpoint_at_current_rip() {
+                return Ok(Some(VcpuExit::GdbBreakpoint { addr }));
+            }
+        }
+        #[cfg(feature = "debug")]
+        let before = self.insn_count;
+        let exit = self.step_with_faults()?;
+        #[cfg(feature = "debug")]
+        if self.single_step && exit.is_none() && self.insn_count != before {
+            return Ok(Some(VcpuExit::GdbStep));
+        }
+        Ok(exit)
     }
 
     fn supports_stepping(&self) -> bool {
@@ -75,6 +101,10 @@ impl VCpu for X86_64Vcpu {
         Ok(())
     }
 
+    fn deliver_init(&mut self) -> Result<()> {
+        self.deliver_init_signal()
+    }
+
     fn current_pc(&self) -> u64 {
         self.regs.rip
     }
@@ -93,6 +123,13 @@ impl VCpu for X86_64Vcpu {
 
     fn drain_mem_records(&mut self, out: &mut Vec<crate::vm::vcpu::MemRecord>) {
         self.mmu.drain_mem_records(out);
+    }
+
+    fn attach_local_apic(
+        &mut self,
+        lapic: Arc<std::sync::Mutex<crate::devices::lapic::LocalApic>>,
+    ) {
+        self.mmu.attach_local_apic(lapic);
     }
 
     fn set_pci_bridge(
@@ -258,3 +295,6 @@ impl VCpu for X86_64Vcpu {
 #[cfg(test)]
 #[path = "cpu_vcpu_tests.rs"]
 mod tests;
+
+#[path = "cpu_startup.rs"]
+mod startup;

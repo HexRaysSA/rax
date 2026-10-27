@@ -219,7 +219,7 @@ fn arm_user_context_can_restore_into_system_engine_and_traps_clear_exclusives() 
     );
     let other = User(other);
     let old = save_context(other.0);
-    assert_eq!(u32::from_le_bytes(old[4..8].try_into().unwrap()), 2);
+    assert_eq!(u32::from_le_bytes(old[4..8].try_into().unwrap()), 5);
     assert_eq!(
         rax_context_restore(other.0, blob.as_ptr(), blob.len()),
         RaxStatus::Ok

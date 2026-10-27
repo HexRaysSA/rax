@@ -48,53 +48,39 @@
 //! All registers are little-endian, 32-bit. Sub-word and byte accesses are
 //! serviced read-modify-write against the containing 32-bit word.
 //!
-//! # Command-issue path
+//! # Command and recovery contract
 //!
-//! When the host sets a bit in `PxCI` (with `PxCMD.ST` and `PxCMD.FRE` set),
-//! the controller, for each issued slot:
+//! Command headers and 20-byte Register H2D FISes are checked before DMA.
+//! READ/WRITE DMA EXT, IDENTIFY DEVICE and FLUSH CACHE/EXT use bounded PRDT
+//! plans. Write data are staged before media changes; failed read DMA can leave
+//! a guest-memory prefix. Completion DMA must succeed before clearing PxCI.
+//! Host-bus and task-file failures retain the issued slot and halt the command
+//! engine until an explicit ST stop/start recovery boundary. IDENTIFY publishes
+//! a PIO Setup FIS; DMA and non-data commands publish a D2H Register FIS.
 //!
-//! 1. reads the 32-byte *command header* from the command list (at `PxCLB +
-//!    slot*32`) to recover the command-table base (`CTBA`) and the PRDT length;
-//! 2. reads the 64-byte *Command FIS* (a Register Host-to-Device FIS) from the
-//!    head of the command table;
-//! 3. decodes the ATA command — `READ DMA EXT` (0x25), `WRITE DMA EXT` (0x35)
-//!    or `IDENTIFY DEVICE` (0xEC);
-//! 4. walks the Physical Region Descriptor Table (PRDT) entries that follow the
-//!    command FIS, DMAing the payload to/from guest memory scatter/gather;
-//! 5. writes a Device-to-Host Register FIS into the received-FIS area, updates
-//!    `PxTFD`, clears the `PxCI` bit, and raises `PxIS` (and the HBA-level `IS`
-//!    bit) — surfaced through [`AhciController::interrupt_pending`].
+//! Port status, port enables, sticky HBA status and the global interrupt enable
+//! form separate layers. An orchestrator must route `interrupt_pending()` to
+//! the guest. `clear_interrupt()` does not acknowledge hardware status.
 //!
-//! # What is deferred / partial
+//! # Scope
 //!
-//! * **One port, one command slot exercised at a time.** The register file
-//!   advertises 32 command slots (`CAP.NCS`) and `PI` carries a single
-//!   implemented port; the issue loop iterates every set `PxCI` bit, but the
-//!   tests drive slot 0. NCQ (`FPDMA QUEUED`, `PxSACT`) is *not* executed —
-//!   `PxSACT` is stored but the queued-command protocol is not run.
-//! * **PRDT walking is real but bounded.** Each PRD entry's DBA/DBC are honored
-//!   (scatter/gather across multiple entries works); the per-entry "interrupt
-//!   on completion" flag and the 4 MiB-per-entry maximum are not enforced. A
-//!   transfer whose PRDT byte-count disagrees with the ATA sector count is
-//!   clamped to the smaller of the two.
-//! * **Received FIS area:** only the D2H Register FIS (offset 0x40 of the FIS
-//!   receive area) is written back. The PIO Setup, DMA Setup and Set Device
-//!   Bits FIS slots are not produced.
-//! * **Only three ATA opcodes** are decoded (READ DMA EXT / WRITE DMA EXT /
-//!   IDENTIFY DEVICE). Any other command FIS completes with the ATA error
-//!   (ABRT) bit set in `PxTFD`.
-//! * **No COMRESET / port reset state machine, no staggered spin-up, no
-//!   hot-plug.** Device presence is surfaced statically in `PxSSTS`/`PxSIG`.
-//! * **Interrupts** are aggregated and surfaced through
-//!   [`AhciController::interrupt_pending`] for an orchestrator to inject; the
-//!   device does not drive a guest interrupt line itself.
-//!
-//! These omissions are isolated to the queued-command and FIS-receive
-//! sub-paths; the register interface, AE/HR handshake, command-list/FIS-base
-//! programming, the `ST`/`FRE` -> `CR`/`FR` running bits, and the single-shot
-//! DMA command round trip are complete.
+//! One port, 32 non-NCQ command slots and 512-byte logical sectors are modeled.
+//! PRDs support the 4 MiB entry maximum, IOC/DPS and checked 64-bit extents.
+//! Short reads report actual PRDBC and overflow; short or excess writes abort
+//! before media changes. COMRESET/PHY-disable have bounded register behavior;
+//! SATA wire timing, software-reset control FISes, NCQ/FPDMA, ATAPI, hot-plug,
+//! staggered spin-up and physical persistence of Vec-backed media are absent.
+//! See `docs/development/ahci-dma.md` for primary sources and reference limits.
 
 use super::bus::MmioDevice;
+use super::virtio::block_image::BlockImage;
+#[path = "ahci/checkpoint.rs"]
+mod checkpoint;
+#[path = "ahci/command.rs"]
+mod command;
+pub use checkpoint::AhciCheckpoint;
+#[path = "ahci/dma.rs"]
+mod dma;
 
 // Reuse the guest-memory DMA abstraction defined for the virtio transport so
 // the command path can be unit-tested against a plain byte buffer.
@@ -391,6 +377,10 @@ struct Port {
     ci: u32,   // command issue
     /// True if a SATA disk is attached to this port.
     present: bool,
+    fatal: bool,
+    current_slot: u8,
+    next_slot: u8,
+    task_fis: FisH2D,
 }
 
 impl Port {
@@ -416,14 +406,19 @@ impl Port {
             sact: 0,
             ci: 0,
             present,
+            fatal: false,
+            current_slot: 0,
+            next_slot: 0,
+            task_fis: FisH2D::default(),
         }
     }
 
     /// PxCMD as read by the host: stored bits plus the derived CR/FR running
     /// status bits (CR follows ST, FR follows FRE).
     fn cmd_read(&self) -> u32 {
-        let mut v = self.cmd & !(PXCMD_CR | PXCMD_FR);
-        if self.cmd & PXCMD_ST != 0 {
+        let mut v = self.cmd & !(PXCMD_CR | PXCMD_FR | (0x1f << 8));
+        v |= u32::from(self.current_slot) << 8;
+        if self.cmd & PXCMD_ST != 0 && !self.fatal {
             v |= PXCMD_CR;
         }
         if self.cmd & PXCMD_FRE != 0 {
@@ -446,7 +441,7 @@ pub struct AhciController<M: Mem> {
     port: Port,
 
     // ---- Port 0 backing disk ----
-    disk: Vec<u8>,
+    disk: BlockImage,
 
     // ---- Number of command slots advertised (CAP.NCS), 1-based ----
     num_slots: u32,
@@ -459,6 +454,15 @@ impl<M: Mem> AhciController<M> {
     /// Build a controller at ABAR `base`, with guest memory `mem` and a single
     /// SATA disk backed by `disk` bytes (on port 0).
     pub fn new(base: u64, mem: M, disk: Vec<u8>) -> Self {
+        Self::with_image(base, mem, BlockImage::from_bytes(disk))
+    }
+    /// MMIO origin used by direct access; PCI adapters require zero.
+    pub fn mmio_base(&self) -> u64 {
+        self.base
+    }
+
+    /// Attach an already opened raw image or in-memory medium.
+    pub fn with_image(base: u64, mem: M, disk: BlockImage) -> Self {
         // A port only reports a present device when media is actually attached.
         // With no disk, PxSSTS.DET reads 0 so the guest's libata probe skips the
         // port instead of timing out on IDENTIFY for a phantom drive.
@@ -466,7 +470,7 @@ impl<M: Mem> AhciController<M> {
         AhciController {
             base,
             mem,
-            ghc: 0,
+            ghc: GHC_AE,
             is: 0,
             port: Port::new(present),
             disk,
@@ -506,7 +510,17 @@ impl<M: Mem> AhciController<M> {
     /// injected). Does not clear the sticky PxIS / IS register bits, which the
     /// guest acknowledges by write-1-clear.
     pub fn clear_interrupt(&mut self) {
-        self.interrupt_pending = false;
+        self.refresh_interrupt();
+    }
+    fn refresh_interrupt(&mut self) {
+        if self.port.is & self.port.ie != 0 {
+            self.is |= 1;
+        }
+        self.interrupt_pending = self.ghc & GHC_IE != 0 && self.is != 0;
+    }
+    fn raise_port_interrupt(&mut self, bits: u32) {
+        self.port.is |= bits;
+        self.refresh_interrupt();
     }
 
     /// CAP register value. Encodes:
@@ -596,7 +610,10 @@ impl<M: Mem> AhciController<M> {
             REG_CAP | REG_PI | REG_VS | REG_CAP2 => {}
             REG_GHC => self.write_ghc(value),
             // IS is per-port interrupt status, write-1-to-clear.
-            REG_IS => self.is &= !value,
+            REG_IS => {
+                self.is &= !value;
+                self.refresh_interrupt();
+            }
             _ => {}
         }
     }
@@ -604,19 +621,19 @@ impl<M: Mem> AhciController<M> {
     /// Apply a write to GHC, handling AE and HR (reset) edges.
     fn write_ghc(&mut self, value: u32) {
         if value & GHC_HR != 0 {
-            // HBA reset: clear all state and self-clear HR. After reset AHCI
-            // mode is disabled (AE=0) until re-enabled by software.
+            // CAP.SAM keeps AHCI mode enabled across the self-clearing reset.
             self.hba_reset();
             return;
         }
-        // AE and IE are writable; HR reads back 0 once reset is complete.
-        self.ghc = value & !GHC_HR;
+        // IE is writable. CAP.SAM makes AE read-only one, including reset.
+        self.ghc = GHC_AE | (value & GHC_IE);
+        self.refresh_interrupt();
     }
 
     /// Full HBA reset (GHC.HR): return all registers to their power-on state.
     fn hba_reset(&mut self) {
         let present = self.port.present;
-        self.ghc = 0;
+        self.ghc = GHC_AE;
         self.is = 0;
         self.port = Port::new(present);
         self.interrupt_pending = false;
@@ -631,16 +648,24 @@ impl<M: Mem> AhciController<M> {
         }
         match rel {
             PX_CLB => {
-                self.port.clb = (self.port.clb & !0xffff_ffff) | value as u64;
+                if self.port.cmd_read() & PXCMD_CR == 0 {
+                    self.port.clb = (self.port.clb & !0xffff_ffff) | u64::from(value & !0x3ff);
+                }
             }
             PX_CLBU => {
-                self.port.clb = (self.port.clb & 0xffff_ffff) | ((value as u64) << 32);
+                if self.port.cmd_read() & PXCMD_CR == 0 {
+                    self.port.clb = (self.port.clb & 0xffff_ffff) | ((value as u64) << 32);
+                }
             }
             PX_FB => {
-                self.port.fb = (self.port.fb & !0xffff_ffff) | value as u64;
+                if self.port.cmd_read() & PXCMD_FR == 0 {
+                    self.port.fb = (self.port.fb & !0xffff_ffff) | u64::from(value & !0xff);
+                }
             }
             PX_FBU => {
-                self.port.fb = (self.port.fb & 0xffff_ffff) | ((value as u64) << 32);
+                if self.port.cmd_read() & PXCMD_FR == 0 {
+                    self.port.fb = (self.port.fb & 0xffff_ffff) | ((value as u64) << 32);
+                }
             }
             // PxIS / PxSERR are write-1-to-clear.
             PX_IS => self.port.is &= !value,
@@ -649,13 +674,25 @@ impl<M: Mem> AhciController<M> {
                 // ST/FRE (and other software-owned bits) are writable; CR/FR are
                 // read-only status the controller derives. Mask the read-only
                 // bits out of the stored value.
-                self.port.cmd = value & !(PXCMD_CR | PXCMD_FR);
+                let old = self.port.cmd;
+                self.port.cmd = value & !(PXCMD_CR | PXCMD_FR | (0x1f << 8));
+                if old & PXCMD_ST != 0 && value & PXCMD_ST == 0 {
+                    self.port.ci = 0;
+                    self.port.sact = 0;
+                    self.port.fatal = false;
+                    self.port.current_slot = 0;
+                    self.port.next_slot = 0;
+                }
+                if old & PXCMD_ST == 0 && value & PXCMD_ST != 0 {
+                    self.port.next_slot = 0;
+                }
+                self.process_commands();
             }
             // PxTFD / PxSIG / PxSSTS are read-only (controller owned).
             PX_TFD | PX_SIG | PX_SSTS => {}
-            PX_SCTL => self.port.sctl = value,
+            PX_SCTL => self.write_sctl(value),
             PX_SERR => self.port.serr &= !value,
-            PX_SACT => self.port.sact = value,
+            PX_SACT => self.port.sact |= value,
             PX_CI => {
                 // The host sets bits to issue commands. Bits are only writable
                 // to 1 (the controller clears them on completion); OR the new
@@ -665,227 +702,7 @@ impl<M: Mem> AhciController<M> {
             }
             _ => {}
         }
-    }
-
-    // ---- Command processing -------------------------------------------------
-
-    /// Process all issued command slots (set PxCI bits) if the port is running.
-    fn process_commands(&mut self) {
-        // Commands only run when AHCI mode is enabled, the port is started
-        // (ST), and FIS receive is enabled (FRE) so we can post the D2H FIS.
-        if !self.ae() {
-            return;
-        }
-        if self.port.cmd & PXCMD_ST == 0 || self.port.cmd & PXCMD_FRE == 0 {
-            return;
-        }
-        if !self.port.present {
-            return;
-        }
-
-        let slots = self.num_slots;
-        for slot in 0..slots {
-            let bit = 1u32 << slot;
-            if self.port.ci & bit == 0 {
-                continue;
-            }
-            self.run_slot(slot);
-            // Clear the command-issue bit: the command has completed.
-            self.port.ci &= !bit;
-        }
-    }
-
-    /// Execute a single command slot.
-    fn run_slot(&mut self, slot: u32) {
-        // 1. Read the command header from the command list.
-        let hdr_gpa = self.port.clb + (slot as u64) * CMD_HEADER_SIZE;
-        let mut hdr_buf = [0u8; CMD_HEADER_SIZE as usize];
-        if !self.mem.read(hdr_gpa, &mut hdr_buf) {
-            return self.complete_error();
-        }
-        let hdr = match CommandHeader::parse(&hdr_buf) {
-            Some(h) => h,
-            None => return self.complete_error(),
-        };
-
-        // 2. Read the Command FIS at the head of the command table.
-        let mut fis_buf = [0u8; CMD_FIS_SIZE as usize];
-        if !self.mem.read(hdr.ctba, &mut fis_buf) {
-            return self.complete_error();
-        }
-        let fis = match FisH2D::parse(&fis_buf) {
-            Some(f) => f,
-            None => return self.complete_error(),
-        };
-
-        // 3. Decode and dispatch on the ATA opcode.
-        let result = match fis.command {
-            ATA_CMD_READ_DMA_EXT => self.cmd_read_dma(&hdr, &fis),
-            ATA_CMD_WRITE_DMA_EXT => self.cmd_write_dma(&hdr, &fis),
-            ATA_CMD_IDENTIFY => self.cmd_identify(&hdr),
-            _ => Err(()),
-        };
-
-        match result {
-            Ok(prdbc) => {
-                // Record the transferred byte count in command-header DW1
-                // (PRDBC) and post a successful completion.
-                self.write_prdbc(hdr_gpa, prdbc);
-                self.complete_ok();
-            }
-            Err(()) => self.complete_error(),
-        }
-    }
-
-    /// READ DMA EXT (0x25): disk -> guest memory via the PRDT.
-    fn cmd_read_dma(&mut self, hdr: &CommandHeader, fis: &FisH2D) -> Result<u32, ()> {
-        let (start, total) = self.transfer_bounds(fis)?;
-        let segs = self.prdt_segments(hdr);
-        let mut disk_off = start as usize;
-        let mut remaining = total as usize;
-        let mut moved = 0u32;
-        for (gpa, len) in segs {
-            if remaining == 0 {
-                break;
-            }
-            let n = (len as usize).min(remaining);
-            let dend = disk_off + n;
-            if !self.mem.write(gpa, &self.disk[disk_off..dend]) {
-                return Err(());
-            }
-            disk_off = dend;
-            remaining -= n;
-            moved += n as u32;
-        }
-        Ok(moved)
-    }
-
-    /// WRITE DMA EXT (0x35): guest memory -> disk via the PRDT.
-    fn cmd_write_dma(&mut self, hdr: &CommandHeader, fis: &FisH2D) -> Result<u32, ()> {
-        let (start, total) = self.transfer_bounds(fis)?;
-        let segs = self.prdt_segments(hdr);
-        let mut disk_off = start as usize;
-        let mut remaining = total as usize;
-        let mut moved = 0u32;
-        for (gpa, len) in segs {
-            if remaining == 0 {
-                break;
-            }
-            let n = (len as usize).min(remaining);
-            let dend = disk_off + n;
-            if !self.mem.read(gpa, &mut self.disk[disk_off..dend]) {
-                return Err(());
-            }
-            disk_off = dend;
-            remaining -= n;
-            moved += n as u32;
-        }
-        Ok(moved)
-    }
-
-    /// IDENTIFY DEVICE (0xEC): build the 512-byte block and DMA it to the PRDT.
-    fn cmd_identify(&mut self, hdr: &CommandHeader) -> Result<u32, ()> {
-        let block = self.build_identify();
-        let segs = self.prdt_segments(hdr);
-        let mut src_off = 0usize;
-        let mut moved = 0u32;
-        for (gpa, len) in segs {
-            if src_off >= block.len() {
-                break;
-            }
-            let n = (len as usize).min(block.len() - src_off);
-            if !self.mem.write(gpa, &block[src_off..src_off + n]) {
-                return Err(());
-            }
-            src_off += n;
-            moved += n as u32;
-        }
-        Ok(moved)
-    }
-
-    /// Resolve the (disk byte offset, byte length) for a READ/WRITE DMA EXT,
-    /// validating against the disk capacity. Returns Err on out-of-range.
-    fn transfer_bounds(&self, fis: &FisH2D) -> Result<(u64, u64), ()> {
-        // EXT count: 0 means 65536 sectors.
-        let count = if fis.count == 0 { 65536 } else { fis.count } as u64;
-        let total = count * SECTOR_SIZE;
-        let start = fis.lba.checked_mul(SECTOR_SIZE).ok_or(())?;
-        let end = start.checked_add(total).ok_or(())?;
-        if end > self.disk.len() as u64 {
-            return Err(());
-        }
-        Ok((start, total))
-    }
-
-    /// Walk the PRDT for `hdr`, returning the list of (gpa, byte_len) segments.
-    /// Entries that fail to read or have a zero count are skipped.
-    fn prdt_segments(&self, hdr: &CommandHeader) -> Vec<(u64, u32)> {
-        let mut segs = Vec::with_capacity(hdr.prdtl as usize);
-        let prdt_base = hdr.ctba + PRDT_OFFSET;
-        for i in 0..hdr.prdtl as u64 {
-            let mut buf = [0u8; PRD_SIZE as usize];
-            if !self.mem.read(prdt_base + i * PRD_SIZE, &mut buf) {
-                break;
-            }
-            if let Some(prd) = Prd::parse(&buf) {
-                segs.push((prd.dba, prd.byte_count));
-            }
-        }
-        segs
-    }
-
-    /// Write the PRD byte count into command-header DW1 (PRDBC).
-    fn write_prdbc(&mut self, hdr_gpa: u64, prdbc: u32) {
-        let _ = self.mem.write(hdr_gpa + 4, &prdbc.to_le_bytes());
-    }
-
-    // ---- Completion / FIS receive ------------------------------------------
-
-    /// Post a successful Device-to-Host Register FIS and raise the DHRS
-    /// interrupt.
-    fn complete_ok(&mut self) {
-        let status = ATA_DRDY;
-        self.port.tfd = status as u32; // error byte = 0.
-        self.post_d2h_fis(status, 0);
-        self.raise_port_interrupt(PXIS_DHRS);
-    }
-
-    /// Post an errored D2H Register FIS (ABRT) and raise the task-file-error
-    /// interrupt.
-    fn complete_error(&mut self) {
-        let status = ATA_DRDY | ATA_ERR;
-        let error = ATA_ERR_ABRT;
-        // PxTFD: status in bits 7:0, error in bits 15:8.
-        self.port.tfd = (status as u32) | ((error as u32) << 8);
-        self.post_d2h_fis(status, error);
-        self.raise_port_interrupt(PXIS_DHRS | PXIS_TFES);
-    }
-
-    /// Write a Device-to-Host Register FIS into the received-FIS area at
-    /// `PxFB + 0x40` (the RFIS slot), if FIS receive is enabled.
-    fn post_d2h_fis(&mut self, status: u8, error: u8) {
-        if self.port.cmd & PXCMD_FRE == 0 {
-            return;
-        }
-        let mut fis = [0u8; 20];
-        fis[0] = FIS_TYPE_REG_D2H;
-        // byte 1: bit6 = Interrupt bit.
-        fis[1] = 1 << 6;
-        fis[2] = status;
-        fis[3] = error;
-        let _ = self.mem.write(self.port.fb + RFIS_D2H_OFFSET, &fis);
-    }
-
-    /// Set the given PxIS bits and, if enabled, latch the HBA interrupt.
-    fn raise_port_interrupt(&mut self, bits: u32) {
-        self.port.is |= bits;
-        // HBA IS bit for port 0.
-        self.is |= 1;
-        // An interrupt is pending if the global IE is set, the port's PxIE
-        // covers one of the raised bits, and AHCI mode is enabled.
-        if self.ghc & GHC_IE != 0 && self.port.ie & bits != 0 {
-            self.interrupt_pending = true;
-        }
+        self.refresh_interrupt();
     }
 
     /// Build a 512-byte ATA IDENTIFY DEVICE block describing the port-0 disk.
@@ -971,29 +788,48 @@ fn put_ata_string(words: &mut [u16], s: &str) {
 
 impl<M: Mem + Send> MmioDevice for AhciController<M> {
     fn read(&mut self, addr: u64, data: &mut [u8]) {
-        let offset = addr.wrapping_sub(self.base);
-        let aligned = offset & !0x3;
-        let byte_in_reg = (offset & 0x3) as usize;
-        let bytes = self.read_reg32(aligned).to_le_bytes();
-        for (i, out) in data.iter_mut().enumerate() {
-            let pos = byte_in_reg + i;
-            *out = if pos < 4 { bytes[pos] } else { 0 };
+        data.fill(0);
+        let Some(mut offset) = addr.checked_sub(self.base) else {
+            return;
+        };
+        let mut done = 0;
+        while done < data.len() && offset < ABAR_SIZE {
+            let lane = (offset & 3) as usize;
+            let count = (4 - lane).min(data.len() - done);
+            let bytes = self.read_reg32(offset & !3).to_le_bytes();
+            data[done..done + count].copy_from_slice(&bytes[lane..lane + count]);
+            offset += count as u64;
+            done += count;
         }
     }
 
     fn write(&mut self, addr: u64, data: &[u8]) {
-        let offset = addr.wrapping_sub(self.base);
-        // Read-modify-write so a sub-word access preserves the other bytes.
-        let aligned = offset & !0x3;
-        let byte_in_reg = (offset & 0x3) as usize;
-        let mut bytes = self.read_reg32(aligned).to_le_bytes();
-        for (i, byte) in data.iter().enumerate() {
-            let pos = byte_in_reg + i;
-            if pos < 4 {
-                bytes[pos] = *byte;
-            }
+        let Some(mut offset) = addr.checked_sub(self.base) else {
+            return;
+        };
+        let mut done = 0;
+        while done < data.len() && offset < ABAR_SIZE {
+            let aligned = offset & !3;
+            let lane = (offset & 3) as usize;
+            let count = (4 - lane).min(data.len() - done);
+            // W1C/RW1S registers consume only the explicitly written lanes.
+            // Replaying readback bits would clear unrelated interrupt status.
+            let action = aligned == REG_IS
+                || (aligned >= PORT_BASE
+                    && matches!(
+                        (aligned - PORT_BASE) % PORT_STRIDE,
+                        PX_IS | PX_SERR | PX_CI | PX_SACT
+                    ));
+            let mut bytes = if action {
+                [0; 4]
+            } else {
+                self.read_reg32(aligned).to_le_bytes()
+            };
+            bytes[lane..lane + count].copy_from_slice(&data[done..done + count]);
+            self.write_reg32(aligned, u32::from_le_bytes(bytes));
+            offset += count as u64;
+            done += count;
         }
-        self.write_reg32(aligned, u32::from_le_bytes(bytes));
     }
 }
 
@@ -1074,7 +910,7 @@ mod tests {
     #[test]
     fn ghc_ae_and_ie_writable() {
         let mut d = dev(64);
-        assert_eq!(read32(&mut d, REG_GHC), 0);
+        assert_eq!(read32(&mut d, REG_GHC), GHC_AE);
         write32(&mut d, REG_GHC, GHC_AE);
         assert_ne!(read32(&mut d, REG_GHC) & GHC_AE, 0, "AE latches");
         write32(&mut d, REG_GHC, GHC_AE | GHC_IE);
@@ -1090,9 +926,9 @@ mod tests {
         write32(&mut d, px(PX_CMD), PXCMD_ST | PXCMD_FRE);
         // Issue HBA reset.
         write32(&mut d, REG_GHC, GHC_HR);
-        // HR self-clears; AE is back to 0; port state cleared.
+        // HR self-clears; AHCI-only AE stays1; portstatecleared.
         assert_eq!(read32(&mut d, REG_GHC) & GHC_HR, 0, "HR self-clears");
-        assert_eq!(read32(&mut d, REG_GHC) & GHC_AE, 0, "AE cleared by reset");
+        assert_ne!(read32(&mut d, REG_GHC) & GHC_AE, 0, "SAM keeps AE set");
         assert_eq!(read32(&mut d, px(PX_CLB)), 0, "PxCLB cleared by reset");
         assert_eq!(read32(&mut d, px(PX_CMD)), 0, "PxCMD cleared by reset");
         // Device presence survives the reset.
@@ -1277,7 +1113,7 @@ mod tests {
             0,
             "PxCI cleared on completion"
         );
-        assert_ne!(read32(&mut d, px(PX_IS)) & PXIS_DHRS, 0, "DHRS raised");
+        assert_ne!(read32(&mut d, px(PX_IS)) & PXIS_PSS, 0, "DHRS raised");
         assert_ne!(read32(&mut d, REG_IS) & 1, 0, "HBA IS port0 bit set");
         assert!(d.interrupt_pending(), "interrupt pending");
         // No task-file error.
@@ -1393,8 +1229,8 @@ mod tests {
         write_prd(&mut d, ctba, 0, 0x8000, 512);
         write32(&mut d, px(PX_CI), 1);
 
-        // Command still clears PxCI, but PxTFD reports ERR/ABRT and TFES rises.
-        assert_eq!(read32(&mut d, px(PX_CI)) & 1, 0);
+        // Task-fileerrorstopsCR and retainsCI untilsoftwarestops theport.
+        assert_ne!(read32(&mut d, px(PX_CI)) & 1, 0);
         let tfd = read32(&mut d, px(PX_TFD));
         assert_ne!(tfd & (ATA_ERR as u32), 0, "ERR set");
         assert_eq!((tfd >> 8) & 0xff, ATA_ERR_ABRT as u32, "ABRT in error byte");
@@ -1446,13 +1282,13 @@ mod tests {
         write32(&mut d, px(PX_CI), 1);
 
         // Both PxIS and HBA IS are set after completion.
-        assert_ne!(read32(&mut d, px(PX_IS)) & PXIS_DHRS, 0);
+        assert_ne!(read32(&mut d, px(PX_IS)) & PXIS_PSS, 0);
         assert_ne!(read32(&mut d, REG_IS) & 1, 0);
 
         // Acknowledge by writing 1s.
-        write32(&mut d, px(PX_IS), PXIS_DHRS);
+        write32(&mut d, px(PX_IS), PXIS_PSS);
         write32(&mut d, REG_IS, 1);
-        assert_eq!(read32(&mut d, px(PX_IS)) & PXIS_DHRS, 0, "PxIS cleared");
+        assert_eq!(read32(&mut d, px(PX_IS)) & PXIS_PSS, 0, "PxIS cleared");
         assert_eq!(read32(&mut d, REG_IS) & 1, 0, "HBA IS cleared");
     }
 

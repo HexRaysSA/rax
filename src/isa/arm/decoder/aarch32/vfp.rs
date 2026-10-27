@@ -19,8 +19,21 @@ impl Aarch32Decoder {
 
         let rt = ((raw >> 12) & 0xF) as u8;
         let rt2 = ((raw >> 16) & 0xF) as u8;
+        // VMOV_ss encodes the first S register as Vm:M, including odd starts.
+        // VMOV_d encodes its D register as M:Vm. Decode constraints precede
+        // permission checks; select Undefined for these unpredictable operands.
+        let single = (((raw & 0xf) << 1) | ((raw >> 5) & 1)) as u8;
+        let to_core = raw & (1 << 20) != 0;
+        if rt == 15 || rt2 == 15 || coproc == 0b1010 && single == 31 || to_core && rt == rt2 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
         let fp = if coproc == 0b1010 {
-            FpRegister::s(((raw & 0xF) as u8) << 1)
+            FpRegister::s(single)
         } else {
             FpRegister::d(((((raw >> 5) & 1) << 4) | (raw & 0xF)) as u8)
         };

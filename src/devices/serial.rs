@@ -6,7 +6,7 @@
 use std::collections::VecDeque;
 use std::io::{self, Write};
 
-use crate::devices::bus::{IoDevice, MmioDevice};
+use crate::devices::bus::{IoDevice, MmioDevice, MmioRmwOp};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
@@ -818,6 +818,19 @@ impl MmioDevice for SerialMmioDevice {
         if let Ok(mut serial) = self.inner.lock() {
             serial.write_mmio(addr, data);
         }
+    }
+    fn read_modify_write(
+        &mut self,
+        addr: u64,
+        size: u8,
+        operation: MmioRmwOp,
+    ) -> crate::error::Result<Vec<u8>> {
+        operation.validate(size)?;
+        let mut serial = self
+            .inner
+            .lock()
+            .map_err(|_| crate::error::Error::Emulator("serial RMW lock poisoned".into()))?;
+        MmioDevice::read_modify_write(&mut *serial, addr, size, operation)
     }
 }
 

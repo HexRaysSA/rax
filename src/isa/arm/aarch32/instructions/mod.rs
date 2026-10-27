@@ -79,6 +79,12 @@ pub enum ExecResult {
     Branch(u32),
     /// Exception raised (SVC, UDF, etc.).
     Exception(ExceptionType),
+    /// A represented FP access trap; the enclosing PE owns vector entry.
+    FpAccessTrap {
+        target_el: u8,
+        syndrome: u32,
+        undefined: bool,
+    },
     /// CPU halted (WFI, WFE).
     Halt,
     /// Undefined instruction.
@@ -134,6 +140,8 @@ struct NeonSingleLaneMem {
 /// Exception types that can be raised during execution.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExceptionType {
+    /// A Hyp trap or own-Hyp undefined entry with complete syndrome.
+    HypervisorTrap { syndrome: u32, undefined: bool },
     /// Supervisor call (SVC/SWI).
     SupervisorCall(u32),
     /// Undefined instruction.
@@ -156,6 +164,13 @@ impl ExceptionType {
     /// Get the exception vector offset for this exception.
     pub fn vector_offset(&self) -> u32 {
         match self {
+            ExceptionType::HypervisorTrap { undefined, .. } => {
+                if *undefined {
+                    0x04
+                } else {
+                    0x14
+                }
+            }
             ExceptionType::Reset => 0x00,
             ExceptionType::UndefinedInstruction => 0x04,
             ExceptionType::SupervisorCall(_) => 0x08,
@@ -170,6 +185,7 @@ impl ExceptionType {
     /// Get the mode to enter for this exception.
     pub fn target_mode(&self) -> ProcessorMode {
         match self {
+            ExceptionType::HypervisorTrap { .. } => ProcessorMode::Hyp,
             ExceptionType::Reset | ExceptionType::SupervisorCall(_) => ProcessorMode::Supervisor,
             ExceptionType::UndefinedInstruction => ProcessorMode::Undefined,
             ExceptionType::PrefetchAbort(_) | ExceptionType::Breakpoint(_) => ProcessorMode::Abort,
@@ -266,3 +282,4 @@ pub struct Executor<'a, M: ArmMemory> {
 mod fp_register;
 
 mod fp_access;
+mod fp_system;

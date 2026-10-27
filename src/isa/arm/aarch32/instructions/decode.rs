@@ -513,6 +513,7 @@ pub fn run_emulator<M: ArmMemory>(
             }
             ExecResult::Halt
             | ExecResult::Exception(_)
+            | ExecResult::FpAccessTrap { .. }
             | ExecResult::Undefined
             | ExecResult::MemoryFault(_) => {
                 return Ok(result);

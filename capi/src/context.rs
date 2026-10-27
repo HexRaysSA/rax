@@ -30,6 +30,9 @@
 //! algorithm/profile, feature configuration, full modeled PSTATE, and all
 //! system-register banks. Legacy AArch64 formats 1/2 restore only when their
 //! SCTLR has no enabled authentication keys; they contain no key material.
+//! Format 5 is used by system-mode AArch32 engines. After the emulator image,
+//! it carries a u32 producer kind, u64 length, and the full backend context.
+//! Formats 1/2 remain readable with their original projection-only semantics.
 
 use std::sync::Arc;
 
@@ -51,6 +54,8 @@ const CTX_VERSION: u32 = 2;
 const CTX_VERSION_ARM_USER: u32 = 3;
 /// AArch64 keys, algorithm/profile, full PSTATE, and system-register banks.
 const CTX_VERSION_AARCH64: u32 = 4;
+const CTX_VERSION_AARCH32: u32 = 5;
+const MAX_BACKEND_CONTEXT: usize = 16 * 1024 * 1024;
 
 #[path = "context/aarch64.rs"]
 mod aarch64;
@@ -214,9 +219,21 @@ impl Engine {
     /// Serializes the full engine context into a byte vector.
     fn serialize_context(&self) -> Result<Vec<u8>, RaxStatus> {
         let arm_user = self.vcpu.arm_user_state();
+        let backend_context = if self.arch == RaxArch::Arm && arm_user.is_none() {
+            Some(
+                self.vcpu
+                    .capture_backend_context()
+                    .map_err(|e| crate::status::status_from_engine_error(&e))?
+                    .ok_or(RaxStatus::Format)?,
+            )
+        } else {
+            None
+        };
         let mut w = Writer::new();
         w.u32(CTX_MAGIC);
-        w.u32(if arm_user.is_some() {
+        w.u32(if backend_context.is_some() {
+            CTX_VERSION_AARCH32
+        } else if arm_user.is_some() {
             CTX_VERSION_ARM_USER
         } else if self.arch == RaxArch::Arm64 {
             CTX_VERSION_AARCH64
@@ -257,6 +274,17 @@ impl Engine {
             w.u64(bytes.len() as u64);
             w.bytes(&bytes);
         }
+        if let Some(context) = backend_context {
+            if context.kind != rax_engine::snapshot::AARCH32_CONTEXT
+                || context.data.is_empty()
+                || context.data.len() > MAX_BACKEND_CONTEXT
+            {
+                return Err(RaxStatus::Format);
+            }
+            w.u32(context.kind);
+            w.u64(context.data.len() as u64);
+            w.bytes(&context.data);
+        }
 
         w.u64(self.regions.len() as u64);
         for r in &self.regions {
@@ -293,7 +321,11 @@ impl Engine {
         let version = r.u32().unwrap_or(0);
         if !matches!(
             version,
-            CTX_VERSION | CTX_VERSION_V1 | CTX_VERSION_ARM_USER | CTX_VERSION_AARCH64
+            CTX_VERSION
+                | CTX_VERSION_V1
+                | CTX_VERSION_ARM_USER
+                | CTX_VERSION_AARCH64
+                | CTX_VERSION_AARCH32
         ) {
             return self.fail(RaxStatus::Format, "unsupported context version");
         }
@@ -315,12 +347,18 @@ impl Engine {
         if version == CTX_VERSION_AARCH64 && self.arch != RaxArch::Arm64 {
             return self.fail(RaxStatus::Format, "format 4 requires AArch64");
         }
+        if version == CTX_VERSION_AARCH32 && (self.arch != RaxArch::Arm || is_arm_user) {
+            return self.fail(RaxStatus::Format, "format 5 requires system-mode AArch32");
+        }
         let flags = match r.u32() {
             Some(v) => v,
             None => return self.fail(RaxStatus::Format, "truncated context"),
         };
         if is_arm_user && flags != 0 {
             return self.fail(RaxStatus::Format, "invalid AArch32 user context flags");
+        }
+        if version == CTX_VERSION_AARCH32 && flags != 0 {
+            return self.fail(RaxStatus::Format, "invalid AArch32 backend context flags");
         }
         let cpu_len = match r.u64() {
             Some(v) => v as usize,
@@ -332,6 +370,8 @@ impl Engine {
         };
         let decoded = if self.arch == RaxArch::Arm64 {
             aarch64::decode_state(cpu_bytes, version)
+        } else if version == CTX_VERSION_AARCH32 {
+            rax_engine::codec::deserialize_strict(cpu_bytes).ok()
         } else if version == CTX_VERSION_V1 && self.arch == RaxArch::Riscv64 {
             decode_v1_riscv_state(cpu_bytes)
         } else {
@@ -345,7 +385,7 @@ impl Engine {
             Some(v) => v as usize,
             None => return self.fail(RaxStatus::Format, "truncated context"),
         };
-        if is_arm_user && emu_len != 0 {
+        if (is_arm_user || version == CTX_VERSION_AARCH32) && emu_len != 0 {
             return self.fail(
                 RaxStatus::Format,
                 "unexpected AArch32 generic emulator state",
@@ -382,12 +422,38 @@ impl Engine {
         } else {
             None
         };
+        let backend_context = if version == CTX_VERSION_AARCH32 {
+            let kind = r.u32().unwrap_or(0);
+            let length = r.u64().and_then(|length| usize::try_from(length).ok());
+            if kind != rax_engine::snapshot::AARCH32_CONTEXT
+                || !matches!(length, Some(1..=MAX_BACKEND_CONTEXT))
+            {
+                return self.fail(
+                    RaxStatus::Format,
+                    "invalid AArch32 backend context kind or length",
+                );
+            }
+            let bytes = match r.take(length.unwrap()) {
+                Some(bytes) => bytes,
+                None => return self.fail(RaxStatus::Format, "truncated AArch32 backend context"),
+            };
+            Some(rax_engine::snapshot::BackendContext {
+                kind,
+                data: bytes.to_vec(),
+            })
+        } else {
+            None
+        };
 
-        let nregion = match r.u64() {
-            Some(v) => v as usize,
+        let nregion = match r.u64().and_then(|value| usize::try_from(value).ok()) {
+            Some(value) if value > 0 && value <= (r.buf.len() - r.pos) / 24 => value,
+            Some(_) => return self.fail(RaxStatus::Format, "region count exceeds context bytes"),
             None => return self.fail(RaxStatus::Format, "truncated region count"),
         };
-        let mut specs: Vec<(u64, u64, u32, Vec<u8>)> = Vec::with_capacity(nregion);
+        let mut specs: Vec<(u64, u64, u32, Vec<u8>)> = Vec::new();
+        if specs.try_reserve_exact(nregion).is_err() {
+            return self.fail(RaxStatus::NoMem, "failed to allocate region table");
+        }
         for _ in 0..nregion {
             let base = match r.u64() {
                 Some(v) => v,
@@ -458,12 +524,25 @@ impl Engine {
             Ok(v) => v,
             Err(err) => return self.fail_engine(&err),
         };
-        if let Err(err) = vcpu.set_state(&cpu) {
-            return self.fail_engine(&err);
-        }
-        if let Some(es) = &emu {
-            if let Err(err) = vcpu.set_emulator_state(es) {
+        if let Some(context) = &backend_context {
+            let legacy = emu.clone().unwrap_or_default();
+            if let Err(err) = vcpu.validate_checkpoint_context(&cpu, &legacy, Some(context)) {
+                return self.fail(
+                    RaxStatus::Format,
+                    &format!("invalid AArch32 backend context: {err}"),
+                );
+            }
+            if let Err(err) = vcpu.restore_checkpoint_context(&cpu, &legacy, Some(context)) {
                 return self.fail_engine(&err);
+            }
+        } else {
+            if let Err(err) = vcpu.set_state(&cpu) {
+                return self.fail_engine(&err);
+            }
+            if let Some(es) = &emu {
+                if let Err(err) = vcpu.set_emulator_state(es) {
+                    return self.fail_engine(&err);
+                }
             }
         }
         if let Some(state) = arm_user {
@@ -480,6 +559,7 @@ impl Engine {
         self.last_exception = RaxExceptionInfo::default();
         self.last_syscall = crate::user::RaxSyscallInfo::default();
         self.icount_base = 0;
+        self.icount_origin = self.vcpu.instruction_count();
         self.stop_flag.set(false);
         RaxStatus::Ok
     }

@@ -38,6 +38,7 @@ const UINTM: u32 = 0x38;
 
 /// Samsung SoC UART. Interrupt model is the S3C64xx style with the
 /// per-UART UINTP/UINTM (pending/mask) registers feeding one VIC line.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct S3cUart {
     rx: VecDeque<u8>,
     ulcon: u32,
@@ -154,6 +155,7 @@ impl Default for S3cUart {
 
 /// ARM PL192 VIC. The Linux `irq-vic` driver uses IRQSTATUS + the enable
 /// registers; vectored operation is not required.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Pl192Vic {
     raw: u32,
     soft: u32,
@@ -240,6 +242,7 @@ const TINT_CSTAT: u32 = 0x44;
 /// pclk/prescaler/divider; we advance them from the vCPU's instruction
 /// clock via [`Self::tick`]. Timer 4 raises its TINT_CSTAT status (the
 /// clockevent); the others mostly serve as the free-running clocksource.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct S3cPwmTimer {
     tcfg0: u32,
     tcfg1: u32,
@@ -397,11 +400,20 @@ impl Default for S3cPwmTimer {
 
 /// RAM-backed SYSCON at 0x7E00F000 with reset values the
 /// `samsung,s3c6410-clock` driver can work with (fin = 12 MHz).
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct S3cSyscon {
     regs: Vec<u32>,
 }
 
 impl S3cSyscon {
+    pub(crate) fn validate_checkpoint(&self) -> crate::error::Result<()> {
+        if self.regs.len() != 0x1000 / 4 {
+            return Err(crate::error::Error::Emulator(
+                "S3C64xx context: invalid SYSCON register count".into(),
+            ));
+        }
+        Ok(())
+    }
     pub fn new() -> Self {
         let mut regs = vec![0u32; 0x1000 / 4];
         // APLL/MPLL: enabled, 532 MHz from 12 MHz fin (m=266, p=3, s=1).

@@ -28,7 +28,6 @@ use crate::devices::serial::{Serial16550, SerialMmioDevice};
 use crate::error::{Error, Result};
 use crate::host::console::{Console, ConsoleAction, ESCAPE_HELP};
 use crate::host::terminal::RawTty;
-use crate::isa::x86_64::get_total_instruction_count;
 use crate::machine::{
     self, ArmBootInfo, BootInfo, HexagonBootInfo, Machine, RiscVBootInfo, X86_64BootInfo,
 };
@@ -223,104 +222,9 @@ impl IoDevice for Ac97NabmWindow {
 fn attach_pci_devices(
     pci: &Arc<std::sync::Mutex<PciStub>>,
     mem: Arc<vm_memory::GuestMemoryMmap>,
-) -> Result<()> {
-    use crate::devices::pci::{Bar, ConfigSpace};
-    let mut bridge = pci
-        .lock()
-        .map_err(|_| Error::Emulator("pci bridge lock poisoned".to_string()))?;
-
-    // Intel 82540EM (e1000) NIC at 00:01.0 — BAR0 is a 128 KiB MMIO register
-    // block, pre-assigned at the base of the MMIO aperture.
-    let mac = [0x52, 0x54, 0x00, 0x12, 0x34, 0x56];
-    let mut e1000_cfg = ConfigSpace::device(0x8086, 0x100E, 0x02_00_00, 0x00);
-    e1000_cfg.set_bar(0, Bar::mem32(0x2_0000));
-    e1000_cfg.set_u32(0x10, PCI_MMIO_AP_BASE as u32);
-    e1000_cfg.set_u16(0x04, 0x0006); // memory-space + bus-master enable
-    e1000_cfg.set_u8(0x3d, 0x01); // interrupt pin INTA#
-    bridge.attach_mmio(
-        0,
-        1,
-        0,
-        e1000_cfg,
-        0,
-        Box::new(crate::devices::e1000::E1000::new(mac)),
-    );
-
-    // Intel PIIX-style UHCI USB controller at 00:02.0 — BAR4 is a 32-byte I/O
-    // window pre-assigned at port 0xC000, reached via the IoBus PCI fallback.
-    let mut uhci_cfg = ConfigSpace::device(0x8086, 0x7020, 0x0C_03_00, 0x00);
-    uhci_cfg.set_bar(4, Bar::io(0x20));
-    uhci_cfg.set_u32(0x10 + 4 * 4, 0x0000_C001); // I/O base 0xC000 (bit0 = I/O)
-    uhci_cfg.set_u16(0x04, 0x0001); // I/O-space enable
-    bridge.attach_pio(
-        0,
-        2,
-        0,
-        uhci_cfg,
-        4,
-        Box::new(crate::devices::uhci::Uhci::new(0)),
-    );
-
-    // NVMe controller at 00:03.0 — BAR0 is an 8 KiB MMIO register block. The
-    // controller DMAs its admin queues from guest RAM via the Mem adapter. With
-    // no disk attached it enumerates with zero namespaces.
-    let mut nvme_cfg = ConfigSpace::device(0x8086, 0x5845, 0x01_08_02, 0x00);
-    nvme_cfg.set_bar(0, Bar::mem32(0x2000));
-    nvme_cfg.set_u32(0x10, (PCI_MMIO_AP_BASE + 0x10_0000) as u32);
-    nvme_cfg.set_u16(0x04, 0x0006); // memory-space + bus-master enable
-    bridge.attach_mmio(
-        0,
-        3,
-        0,
-        nvme_cfg,
-        0,
-        Box::new(crate::devices::nvme::NvmeController::new(
-            0,
-            GuestDmaMem(mem.clone()),
-            Vec::new(),
-        )),
-    );
-
-    // AHCI SATA controller at 00:04.0 — ABAR (BAR5) is an 8 KiB MMIO block. No
-    // SATA drive attached, so it enumerates with no ports populated.
-    let mut ahci_cfg = ConfigSpace::device(0x8086, 0x2922, 0x01_06_01, 0x00);
-    ahci_cfg.set_bar(5, Bar::mem32(0x2000));
-    ahci_cfg.set_u32(0x10 + 5 * 4, (PCI_MMIO_AP_BASE + 0x20_0000) as u32);
-    ahci_cfg.set_u16(0x04, 0x0006);
-    bridge.attach_mmio(
-        0,
-        4,
-        0,
-        ahci_cfg,
-        5,
-        Box::new(crate::devices::ahci::AhciController::new(
-            0,
-            GuestDmaMem(mem),
-            Vec::new(),
-        )),
-    );
-
-    // Intel ICH AC'97 audio at 00:05.0 — two I/O BARs: BAR0 = NAM (256-byte
-    // codec mixer), BAR1 = NABM (64-byte bus-master). One shared device, two
-    // window endpoints.
-    let ac97 = Arc::new(std::sync::Mutex::new(crate::devices::ac97::Ac97::new()));
-    let mut ac97_cfg = ConfigSpace::device(0x8086, 0x2415, 0x04_01_00, 0x00);
-    ac97_cfg.set_bar(0, Bar::io(0x100));
-    ac97_cfg.set_bar(1, Bar::io(0x40));
-    ac97_cfg.set_u32(0x10, 0x0000_D001); // NAM  @ I/O 0xD000
-    ac97_cfg.set_u32(0x14, 0x0000_D101); // NABM @ I/O 0xD100
-    ac97_cfg.set_u16(0x04, 0x0001); // I/O-space enable
-    bridge.attach_pio(
-        0,
-        5,
-        0,
-        ac97_cfg.clone(),
-        0,
-        Box::new(Ac97NamWindow(ac97.clone())),
-    );
-    bridge.attach_pio(0, 5, 0, ac97_cfg, 1, Box::new(Ac97NabmWindow(ac97)));
-
-    Ok(())
+    storage: &crate::config::StorageConfig,
+) -> Result<PciDevices> {
+    PciDevices::attach(pci, mem, storage)
 }
 
 /// Wrapper to make Pit implement IoDevice via shared reference
@@ -350,7 +254,13 @@ impl IoDevice for PitDevice {
     }
 }
 
+pub mod pci_state;
+use pci_state::PciDevices;
+
 pub struct Vmm {
+    timing_context: Arc<crate::vm::timing::TimingContext>,
+    /// Typed ownership of the x86 bridge and every optional endpoint.
+    pci_devices: Option<PciDevices>,
     vm: Box<dyn Vm>,
     backend_kind: BackendKind,
     guest_mem: GuestMemoryWrapper,
@@ -364,7 +274,10 @@ pub struct Vmm {
     pit: Arc<std::sync::Mutex<Pit>>,
     pic: Arc<std::sync::Mutex<DualPic>>,
     lapic: Arc<std::sync::Mutex<LocalApic>>,
+    /// One owner per configured CPU; element zero aliases the legacy BSP view.
+    local_apics: Vec<Arc<std::sync::Mutex<LocalApic>>>,
     vcpus: Vec<Box<dyn VCpu>>,
+    coordinator: coordinator::ExecutionCoordinator,
     machine: Box<dyn Machine>,
     boot_info: BootInfo,
     serial_mmio_base: Option<u64>,
@@ -391,8 +304,7 @@ pub struct Vmm {
     snapshot_config: Option<SnapshotConfig>,
     /// Last instruction count when snapshot was taken
     last_snapshot_insn: u64,
-    /// Machine-defining config embedded into every checkpoint this VM writes,
-    /// so the resulting `.rxc` resumes self-contained.
+    /// Machine-defining configuration embedded in checkpoints this VM writes.
     checkpoint_config: CheckpointConfig,
     /// Where hotkey/signal-triggered checkpoints are written.
     snapshot_out: std::path::PathBuf,
@@ -423,18 +335,38 @@ fn drive_legacy_serial_irq(
 impl Vmm {
     /// Build a fresh machine: load the kernel and set boot-time CPU state.
     pub fn new(config: VmConfig) -> Result<Self> {
-        Self::build(config, false)
+        Self::build(config, false, false)
     }
 
-    /// Build a machine to resume from a checkpoint. Skips kernel loading,
-    /// backend VM init, and boot-time CPU state — the entire machine image
-    /// (RAM, registers, devices) is restored from the checkpoint afterwards via
-    /// [`restore_snapshot`](Self::restore_snapshot).
+    /// Build a machine for base checkpoint restoration, skipping kernel loading,
+    /// backend VM init and boot-time CPU injection. The caller supplies represented
+    /// base state through [`restore_snapshot`](Self::restore_snapshot); expanded
+    /// private/platform/SMP state is a separate checkpoint contract.
     pub fn new_resume(config: VmConfig) -> Result<Self> {
-        Self::build(config, true)
+        Self::build(config, true, false)
     }
 
-    fn build(config: VmConfig, resume: bool) -> Result<Self> {
+    /// Construct and restore the represented bundle without reopening kernel,
+    /// initrd or configured image sources. Additional CPU/platform/scheduler
+    /// capture and full quiescence remain separate contracts.
+    pub fn new_resume_bundle(
+        config: VmConfig,
+        bundle: &crate::vm::snapshot::SnapshotBundle,
+    ) -> Result<Self> {
+        config.validate_resume_bundle(bundle)?;
+        if config.storage.has_images() {
+            info!(
+                "using captured media; writable disk changes are retained in memory and subsequent checkpoints"
+            );
+        }
+        let mut vm = Self::build(config, true, true)?;
+        vm.restore_snapshot_bundle(bundle)?;
+        Ok(vm)
+    }
+
+    fn build(config: VmConfig, resume: bool, detached_media: bool) -> Result<Self> {
+        let timing_context = Arc::new(crate::vm::timing::TimingContext::new());
+        let _timing = timing_context.enter();
         info!(
             vcpus = config.vcpus,
             mem_bytes = config.memory.bytes(),
@@ -511,12 +443,23 @@ impl Vmm {
         // emulator MMU for BAR-mapped MMIO routing. The bridge (config ports
         // 0xCF8-0xCFF) is always present on x86; the optional device models are
         // attached only with --pci-devices.
+        let mut pci_devices = None;
         let pci_bridge: Option<Arc<std::sync::Mutex<PciStub>>> = if config.arch == ArchKind::X86_64
         {
             let pci = Arc::new(std::sync::Mutex::new(PciStub::new()));
             if config.pci_devices {
-                attach_pci_devices(&pci, Arc::new(guest_mem.memory().clone()))?;
+                pci_devices = Some(if detached_media {
+                    PciDevices::attach_detached(&pci, Arc::new(guest_mem.memory().clone()))?
+                } else {
+                    attach_pci_devices(&pci, Arc::new(guest_mem.memory().clone()), &config.storage)?
+                });
                 info!("attached optional PCI devices (e1000, uhci, nvme, ahci, ac97)");
+            }
+            if pci_devices.is_none() {
+                pci_devices = Some(PciDevices::bridge_only(
+                    pci.clone(),
+                    Arc::new(guest_mem.memory().clone()),
+                )?);
             }
             io_bus.register(
                 IoRange {
@@ -632,6 +575,7 @@ impl Vmm {
         // Create vCPUs
         let mem_arc = Arc::new(guest_mem.memory().clone());
         let mut vcpus = Vec::with_capacity(config.vcpus as usize);
+        let mut local_apics = Vec::with_capacity(config.vcpus as usize);
         for cpu_id in 0..config.vcpus {
             debug!(cpu_id, "creating vCPU");
             let mut vcpu = vm.create_vcpu(cpu_id as u32, mem_arc.clone())?;
@@ -665,6 +609,20 @@ impl Vmm {
                 vcpu.attach_s3c_uart(uart.clone());
             }
 
+            let local_apic = if cpu_id == 0 {
+                lapic.clone()
+            } else {
+                Arc::new(std::sync::Mutex::new(LocalApic::new(u32::from(cpu_id))))
+            };
+            if config.arch == ArchKind::X86_64 {
+                local_apic
+                    .lock()
+                    .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?
+                    .enable_coordinated_delivery();
+                vcpu.attach_local_apic(local_apic.clone());
+            }
+            local_apics.push(local_apic);
+
             debug!(vcpu_id = cpu_id, "created vCPU");
             vcpus.push(vcpu);
         }
@@ -675,7 +633,7 @@ impl Vmm {
         // device models are actually attached.
         if config.pci_devices {
             if let Some(ref pci) = pci_bridge {
-                if let Some(vcpu) = vcpus.get_mut(0) {
+                for vcpu in &mut vcpus {
                     vcpu.set_pci_bridge(pci.clone(), PCI_MMIO_AP_BASE, PCI_MMIO_AP_END);
                 }
             }
@@ -701,13 +659,16 @@ impl Vmm {
 
         // Capture the machine-defining config for embedding in checkpoints, and
         // resolve where hotkey/signal checkpoints will be written.
-        let checkpoint_config = config.to_checkpoint();
+        let mut checkpoint_config = config.to_checkpoint();
+        checkpoint_config.memory_bytes = guest_mem.size();
         let snapshot_out = config
             .snapshot_out
             .clone()
             .unwrap_or_else(|| std::path::PathBuf::from(DEFAULT_CHECKPOINT_FILE));
 
         Ok(Vmm {
+            timing_context,
+            pci_devices,
             vm,
             backend_kind: config.backend,
             guest_mem,
@@ -719,6 +680,8 @@ impl Vmm {
             pit,
             pic,
             lapic,
+            local_apics,
+            coordinator: coordinator::ExecutionCoordinator::new(vcpus.len()),
             vcpus,
             machine,
             boot_info,
@@ -756,546 +719,10 @@ impl Vmm {
         })
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        info!("starting vCPU 0");
-
-        // Wait for GDB connection if --wait-gdb was specified
-        #[cfg(feature = "debug")]
-        if self.wait_gdb {
-            if let Some(ref channels) = self.gdb_channels {
-                info!("Waiting for GDB to connect and send command...");
-                // Block until we receive a command from GDB
-                match channels.cmd_rx.recv() {
-                    Ok(cmd) => {
-                        info!("GDB connected, received initial command");
-                        // Handle the initial command and stop
-                        self.gdb_stopped = true;
-                        if let Some(should_break) = self.handle_gdb_command(cmd)? {
-                            if should_break {
-                                return Ok(());
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        info!("GDB channel closed before connection");
-                    }
-                }
-            }
-        }
-
-        // Put the host terminal into raw mode for a faithful interactive serial
-        // console (restored on drop, panic, or fatal signal) and start the
-        // console mux that reads stdin and forwards bytes to the guest UART,
-        // intercepting the Ctrl-A escape prefix for host commands.
-        let _raw_tty = RawTty::enable();
-        let mut console = Console::spawn();
-
-        // SIGUSR1 requests a checkpoint (the non-keyboard trigger).
-        #[cfg(unix)]
-        unsafe {
-            libc::signal(libc::SIGUSR1, sigusr1_handler as libc::sighandler_t);
-        }
-
-        loop {
-            // Drain host stdin through the console mux: forward guest bytes to the
-            // UART and act on host escape commands. Then drive the legacy serial
-            // RX/TX interrupt line. Release the serial lock before taking the PIC
-            // lock to keep a consistent lock order.
-            {
-                let (guest_bytes, actions) = console.poll();
-                let mut quit = false;
-                for action in actions {
-                    match action {
-                        ConsoleAction::Help => eprint!("{}", ESCAPE_HELP),
-                        ConsoleAction::Quit => {
-                            info!("console quit requested (Ctrl-A x)");
-                            quit = true;
-                        }
-                        ConsoleAction::Snapshot => self.console_checkpoint(),
-                    }
-                }
-                if quit {
-                    break;
-                }
-                // SIGUSR1-triggered checkpoint (same effect as Ctrl-A s).
-                if CHECKPOINT_SIGNAL.swap(false, std::sync::atomic::Ordering::SeqCst) {
-                    self.console_checkpoint();
-                }
-                if let Some(ref uart) = self.s3c_uart {
-                    // ARMv6: queue console input; the vCPU's own IRQ scan
-                    // raises the VIC line.
-                    if !guest_bytes.is_empty() {
-                        if let Ok(mut u) = uart.lock() {
-                            u.queue_input(&guest_bytes);
-                        }
-                    }
-                } else if let Some(ref pl011) = self.pl011 {
-                    // AArch64: feed the PL011 and drive its SPI line through
-                    // the VM's interrupt controller (in-kernel GIC on HVF).
-                    let pending = if let Ok(mut uart) = pl011.lock() {
-                        if !guest_bytes.is_empty() {
-                            debug!(n = guest_bytes.len(), "console input queued to PL011");
-                            uart.queue_input(&guest_bytes);
-                        }
-                        uart.irq_pending()
-                    } else {
-                        false
-                    };
-                    if let Some(irq) = self.serial_irq {
-                        if let Err(e) = self.vm.set_irq_line(irq, pending) {
-                            debug!(irq, pending, error = %e, "failed to drive UART irq line");
-                        }
-                    }
-                } else {
-                    let pending = if let Ok(mut serial) = self.serial.lock() {
-                        if !guest_bytes.is_empty() {
-                            serial.queue_input(&guest_bytes);
-                        }
-                        serial.has_pending_interrupt()
-                    } else {
-                        false
-                    };
-                    drive_legacy_serial_irq(
-                        &*self.vm,
-                        self.backend_kind,
-                        &self.pic,
-                        self.serial_irq,
-                        pending,
-                    );
-                }
-            }
-
-            // Deliver device interrupts that were already pending before
-            // sampling the next timer edge. On a slow software backend, adding
-            // IRQ0 first on every host iteration can otherwise indefinitely
-            // starve lower-priority legacy lines such as the serial IRQ4.
-            {
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-
-                let can_inject = vcpu.can_inject_interrupt();
-                if let Ok(mut pic) = self.pic.lock() {
-                    if pic.has_pending() && can_inject {
-                        if let Some(vector) = pic.get_pending_vector() {
-                            let _ = vcpu.inject_interrupt(vector);
-                        }
-                    }
-                }
-            }
-
-            // Tick the PIT and check for timer interrupts
-            if let Ok(mut pit) = self.pit.lock() {
-                let timer_due = pit.tick() || pit.has_pending_interrupt();
-                if timer_due {
-                    if let Ok(mut pic) = self.pic.lock() {
-                        // A software-emulated guest can take longer than one
-                        // PIT period per host iteration. Coalesce the timer
-                        // event until the PIC is idle; otherwise fixed-priority
-                        // IRQ0 is recreated continuously and lower IRQs starve.
-                        if !pic.has_active_irq() {
-                            // The PIT OUT pin produces one edge per event.
-                            // Pulse the PIC input and leave it low afterward.
-                            pic.pulse_irq(0);
-                            pit.clear_interrupt();
-                        }
-                    }
-                }
-            }
-
-            // Tick the LAPIC timer and check for timer interrupts
-            {
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-
-                if let Ok(mut lapic) = self.lapic.lock() {
-                    if let Some(vector) = lapic.tick() {
-                        // LAPIC timer interrupt - inject directly if possible
-                        if vcpu.can_inject_interrupt() {
-                            if vcpu.inject_interrupt(vector).unwrap_or(false) {
-                                lapic.clear_timer_pending();
-                            }
-                        }
-                    } else if lapic.has_pending_timer() && vcpu.can_inject_interrupt() {
-                        // Previously pending timer interrupt
-                        let vector = lapic.timer_vector();
-                        if vcpu.inject_interrupt(vector).unwrap_or(false) {
-                            lapic.clear_timer_pending();
-                        }
-                    }
-                }
-            }
-
-            // Handle LAPIC IPI delivery
-            {
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-
-                if let Ok(mut lapic) = self.lapic.lock() {
-                    // Handle pending NMI from self-IPI
-                    if lapic.has_pending_nmi() {
-                        if vcpu.inject_nmi().unwrap_or(false) {
-                            lapic.clear_pending_nmi();
-                        }
-                    }
-
-                    // Check for pending interrupts in IRR (from self-IPIs)
-                    if vcpu.can_inject_interrupt() {
-                        if let Some(vector) = lapic.get_pending_vector() {
-                            if vcpu.inject_interrupt(vector).unwrap_or(false) {
-                                lapic.ack_interrupt(vector);
-                            }
-                        }
-                    }
-
-                    // Handle IPI requests (for multi-CPU, but log for now)
-                    if let Some(ipi) = lapic.take_pending_ipi() {
-                        match ipi {
-                            IpiRequest::Fixed { vector, ref target }
-                            | IpiRequest::LowestPriority { vector, ref target } => {
-                                // For single-CPU, only AllIncludingSelf matters
-                                // (self-targeting is already handled via IRR)
-                                match target {
-                                    IpiTarget::AllIncludingSelf => {
-                                        // Already delivered to self via IRR
-                                        debug!(
-                                            "IPI Fixed vector {:#x} to all (self already in IRR)",
-                                            vector
-                                        );
-                                    }
-                                    IpiTarget::AllExcludingSelf => {
-                                        // No other CPUs in single-CPU mode
-                                        debug!(
-                                            "IPI Fixed vector {:#x} to all-except-self (no other CPUs)",
-                                            vector
-                                        );
-                                    }
-                                    _ => {
-                                        debug!("IPI Fixed vector {:#x} to {:?}", vector, target);
-                                    }
-                                }
-                            }
-                            IpiRequest::Nmi { ref target } => {
-                                match target {
-                                    IpiTarget::AllIncludingSelf => {
-                                        // Self-NMI already pending
-                                        debug!("IPI NMI to all (self already pending)");
-                                    }
-                                    IpiTarget::AllExcludingSelf => {
-                                        debug!("IPI NMI to all-except-self (no other CPUs)");
-                                    }
-                                    _ => {
-                                        debug!("IPI NMI to {:?}", target);
-                                    }
-                                }
-                            }
-                            IpiRequest::Init { ref target } => {
-                                // INIT is used to reset CPUs - primarily for SMP startup
-                                debug!("IPI INIT to {:?} (ignored in single-CPU mode)", target);
-                            }
-                            IpiRequest::Sipi { vector, ref target } => {
-                                // SIPI starts AP CPUs - not applicable for single-CPU
-                                debug!(
-                                    "IPI SIPI vector={:#x} (start addr={:#x}) to {:?} (ignored in single-CPU mode)",
-                                    vector,
-                                    (vector as u32) * 0x1000,
-                                    target
-                                );
-                            }
-                            IpiRequest::Smi { ref target } => {
-                                // SMI triggers System Management Mode
-                                debug!("IPI SMI to {:?} (SMM not implemented)", target);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Handle GDB commands (non-blocking)
-            #[cfg(feature = "debug")]
-            if let Some(ref channels) = self.gdb_channels {
-                match channels.cmd_rx.try_recv() {
-                    Ok(cmd) => {
-                        if let Some(should_break) = self.handle_gdb_command(cmd)? {
-                            if should_break {
-                                break;
-                            }
-                            continue;
-                        }
-                    }
-                    Err(TryRecvError::Empty) => {}
-                    Err(TryRecvError::Disconnected) => {
-                        // GDB disconnected, continue without GDB
-                        debug!("GDB disconnected");
-                    }
-                }
-            }
-
-            // If GDB stopped us, wait for continue/step command
-            #[cfg(feature = "debug")]
-            if self.gdb_stopped {
-                if let Some(ref channels) = self.gdb_channels {
-                    match channels.cmd_rx.recv() {
-                        Ok(cmd) => {
-                            if let Some(should_break) = self.handle_gdb_command(cmd)? {
-                                if should_break {
-                                    break;
-                                }
-                                // Command handled but didn't resume execution, wait for more
-                                continue;
-                            }
-                            // Command returned None = resume execution (step/continue)
-                            // Fall through to run the VCPU
-                        }
-                        Err(_) => {
-                            // GDB disconnected
-                            self.gdb_stopped = false;
-                        }
-                    }
-                } else {
-                    continue;
-                }
-            }
-
-            let exit = {
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-                vcpu.run()?
-            };
-
-            // Check if we should take a snapshot (outside vcpu borrow scope)
-            if self.snapshot_config.is_some() {
-                let insn_count = get_total_instruction_count();
-                self.maybe_snapshot(insn_count)?;
-            }
-
-            // Re-borrow vcpu for exit handling
-            let vcpu = self
-                .vcpus
-                .get_mut(0)
-                .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-
-            match exit {
-                VcpuExit::Hlt => {
-                    // HLT is normal - kernel waits for interrupts
-                    continue;
-                }
-                VcpuExit::Shutdown => {
-                    match vcpu.get_state()? {
-                        CpuState::X86_64(state) => {
-                            let regs = state.regs;
-                            let sregs = state.sregs;
-                            info!(
-                                rip = format!("{:#x}", regs.rip),
-                                rsp = format!("{:#x}", regs.rsp),
-                                rsi = format!("{:#x}", regs.rsi),
-                                rflags = format!("{:#x}", regs.rflags),
-                                cr0 = format!("{:#x}", sregs.cr0),
-                                cr3 = format!("{:#x}", sregs.cr3),
-                                cr4 = format!("{:#x}", sregs.cr4),
-                                cs_sel = format!("{:#x}", sregs.cs.selector),
-                                cs_base = format!("{:#x}", sregs.cs.base),
-                                ds_sel = format!("{:#x}", sregs.ds.selector),
-                                gdt_base = format!("{:#x}", sregs.gdt.base),
-                                gdt_limit = format!("{:#x}", sregs.gdt.limit),
-                                "vCPU shutdown"
-                            );
-                        }
-                        CpuState::Hexagon(state) => {
-                            let regs = state.regs;
-                            let sp = regs.r[29];
-                            info!(
-                                pc = format!("{:#x}", regs.pc()),
-                                sp = format!("{:#x}", sp),
-                                usr = format!("{:#x}", regs.usr()),
-                                "vCPU shutdown"
-                            );
-                        }
-                        CpuState::Aarch64(state) => {
-                            let regs = state.regs;
-                            info!(
-                                pc = format!("{:#x}", regs.pc),
-                                sp = format!("{:#x}", regs.sp),
-                                pstate = format!("{:#x}", regs.pstate),
-                                "vCPU shutdown"
-                            );
-                        }
-                        _ => {
-                            info!("vCPU shutdown (unsupported architecture)");
-                        }
-                    }
-                    break;
-                }
-                VcpuExit::IoIn { port, size } => {
-                    debug!(port = port, size = size, "PIO read");
-                    let is_serial = port >= SERIAL_BASE && port < SERIAL_BASE + 8;
-                    let mut data = vec![0u8; size as usize];
-                    if is_serial {
-                        if let Ok(mut serial) = self.serial.lock() {
-                            for (i, byte) in data.iter_mut().enumerate() {
-                                *byte = IoDevice::read(&mut *serial, port + i as u16);
-                            }
-                        }
-                    } else if port == 0x1F0 || port == 0x170 {
-                        // IDE/ATAPI data register: a single fixed port carries the
-                        // whole PIO word/dword (insw/insd). Read every byte from the
-                        // SAME port — unlike the byte-lane model the bus uses for
-                        // multi-byte ports — so consecutive reads drain the device's
-                        // PIO buffer in order.
-                        for i in 0..data.len() {
-                            self.io_bus.read(port, &mut data[i..i + 1])?;
-                        }
-                    } else {
-                        self.io_bus.read(port, &mut data)?;
-                    }
-                    vcpu.complete_io_in(&data);
-                }
-                VcpuExit::IoInString { port, size, count } => {
-                    // Batched `rep ins`: read count*size bytes, all from the same
-                    // fixed port (the `rep` reads DX repeatedly), in one exit. The
-                    // vCPU writes the whole destination block via complete_io_in.
-                    let total = (count as usize).saturating_mul(size as usize);
-                    let mut data = vec![0u8; total];
-                    for i in 0..total {
-                        self.io_bus.read(port, &mut data[i..i + 1])?;
-                    }
-                    vcpu.complete_io_in(&data);
-                }
-                VcpuExit::IoOut { port, data } => {
-                    debug!(port = port, size = data.len(), "PIO write");
-
-                    // ACPI shutdown port (0x604, value 0x2000 = S5 power off)
-                    if port == 0x604 && data.len() >= 2 {
-                        let val = u16::from_le_bytes([data[0], data[1]]);
-                        if val == 0x2000 {
-                            info!("ACPI shutdown requested");
-                            break;
-                        }
-                    }
-
-                    let is_serial = port >= SERIAL_BASE && port < SERIAL_BASE + 8;
-                    if is_serial {
-                        let pending = if let Ok(mut serial) = self.serial.lock() {
-                            for (i, byte) in data.iter().enumerate() {
-                                IoDevice::write(&mut *serial, port + i as u16, *byte);
-                            }
-                            serial.has_pending_interrupt()
-                        } else {
-                            false
-                        };
-                        // Drive the serial IRQ (TX-empty / line-status), same as
-                        // the RX path above.
-                        drive_legacy_serial_irq(
-                            &*self.vm,
-                            self.backend_kind,
-                            &self.pic,
-                            self.serial_irq,
-                            pending,
-                        );
-                    } else if port == 0xE9 {
-                        // Bochs debug port - output directly
-                        for byte in &data {
-                            eprint!("{}", *byte as char);
-                        }
-                    } else if port == 0x1F0 || port == 0x170 {
-                        // IDE/ATAPI data register: write every byte of the PIO
-                        // word/dword to the SAME fixed port (see the IoIn path).
-                        for i in 0..data.len() {
-                            self.io_bus.write(port, &data[i..i + 1])?;
-                        }
-                    } else {
-                        self.io_bus.write(port, &data)?;
-                    }
-                }
-                VcpuExit::MmioRead { addr, size } => {
-                    let mut data = vec![0u8; size as usize];
-                    self.mmio_bus.read(addr, &mut data)?;
-                    vcpu.complete_io_in(&data);
-                }
-                VcpuExit::MmioWrite { addr, data } => {
-                    self.mmio_bus.write(addr, &data)?;
-                }
-                VcpuExit::SystemEvent { .. } => break,
-                VcpuExit::FailEntry { reason } => {
-                    return Err(Error::KernelLoad(format!(
-                        "vCPU fail entry: reason={reason:#x}"
-                    )));
-                }
-                VcpuExit::InternalError => {
-                    return Err(Error::KernelLoad("vCPU internal error".to_string()));
-                }
-                VcpuExit::Debug => {
-                    // INT3 breakpoint - kernel debugging, just continue
-                    continue;
-                }
-                VcpuExit::Exception(vector) => {
-                    // Check for breakpoint exception (vector 3) when GDB is attached
-                    #[cfg(feature = "debug")]
-                    if vector == 3 && self.gdb_channels.is_some() {
-                        // INT3 was hit - RIP is now AFTER the INT3, back up 1 byte
-                        let bp_addr = vcpu.get_regs().map(|r| r.rip).unwrap_or(0) - 1;
-
-                        if self.gdb_breakpoints.contains(&bp_addr) {
-                            debug!(addr = format!("{:#x}", bp_addr), "Software breakpoint hit");
-                            let mut regs = vcpu.get_regs().unwrap_or_default();
-                            regs.rip = bp_addr;
-                            let _ = vcpu.set_regs(&regs);
-
-                            if let Some(ref channels) = self.gdb_channels {
-                                let _ = channels.resp_tx.send(GdbResponse::StopReply(5));
-                            }
-                            self.gdb_stopped = true;
-                            self.gdb_single_step = false;
-                            continue;
-                        }
-
-                        debug!(
-                            addr = format!("{:#x}", bp_addr),
-                            "Natural INT3 instruction hit"
-                        );
-                    }
-                    // Other exceptions - just continue for now
-                    continue;
-                }
-                #[cfg(feature = "debug")]
-                VcpuExit::GdbBreakpoint { addr } => {
-                    debug!(addr = format!("{:#x}", addr), "GDB breakpoint hit");
-                    if let Some(ref channels) = self.gdb_channels {
-                        let _ = channels.resp_tx.send(GdbResponse::StopReply(5));
-                        // SIGTRAP
-                    }
-                    self.gdb_stopped = true;
-                    self.gdb_single_step = false;
-                    continue;
-                }
-                #[cfg(feature = "debug")]
-                VcpuExit::GdbStep => {
-                    debug!("GDB single step complete");
-
-                    if let Some(ref channels) = self.gdb_channels {
-                        let _ = channels.resp_tx.send(GdbResponse::StopReply(5));
-                        // SIGTRAP
-                    }
-                    self.gdb_stopped = true;
-                    self.gdb_single_step = false;
-                    continue;
-                }
-                exit => return Err(Error::KernelLoad(format!("unhandled exit: {exit:?}"))),
-            }
-        }
-
-        // Flush and close trace file
-        #[cfg(feature = "trace")]
-        crate::observability::trace::close();
-
-        Ok(())
+    /// Bind this VM's timing domain in explicitly managed worker threads.
+    /// Worker contexts are not inherited implicitly across thread creation.
+    pub fn timing_context(&self) -> &Arc<crate::vm::timing::TimingContext> {
+        &self.timing_context
     }
 
     pub fn boot_info(&self) -> &BootInfo {
@@ -1315,7 +742,7 @@ impl Vmm {
         self.machine()
     }
 
-    /// Capture all stateful device models into a serializable [`DeviceState`].
+    /// Capture the four represented legacy device models into [`DeviceState`].
     fn capture_devices(&self) -> Result<DeviceState> {
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during snapshot"));
@@ -1331,8 +758,14 @@ impl Vmm {
         })
     }
 
-    /// Take a full, self-contained checkpoint of the current VM state.
+    /// Capture the represented CPU-0 and legacy-device base checkpoint.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
+        let _timing = self.timing_context.enter();
+        if self.checkpoint_config.storage.has_images() {
+            return Err(Error::InvalidConfig(
+                "image-backed checkpoint capture requires complete device/media state".to_string(),
+            ));
+        }
         let vcpu = self
             .vcpus
             .get(0)
@@ -1341,7 +774,7 @@ impl Vmm {
         let cpu_state = vcpu.get_state()?;
         let emulator_state = vcpu.get_emulator_state().unwrap_or_default();
         let devices = self.capture_devices()?;
-        let memory = self.guest_mem.read_all();
+        let memory = self.guest_mem.try_read_all()?;
 
         Snapshot::new(
             self.checkpoint_config.clone(),
@@ -1354,21 +787,96 @@ impl Vmm {
         )
     }
 
+    /// Capture each vCPU's represented public/base-private payload in ID order.
+    /// Callers must quiesce independent writers. Additional backend-private and
+    /// scheduler state remains outside this represented-state interface.
+    pub fn capture_cpu_states(&self) -> Result<Vec<crate::vm::snapshot::CpuSnapshot>> {
+        let _timing = self.timing_context.enter();
+        use crate::vm::snapshot::CpuSnapshot;
+        let mut cpus = Vec::new();
+        cpus.try_reserve_exact(self.vcpus.len())
+            .map_err(|e| Error::Emulator(format!("CPU capture allocation: {e}")))?;
+        for vcpu in &self.vcpus {
+            cpus.push(CpuSnapshot {
+                state: vcpu.get_state()?,
+                emulator: vcpu.get_emulator_state().unwrap_or_default(),
+            });
+        }
+        Ok(cpus)
+    }
+
+    /// Capture every mapped physical region and represented PCI/media state,
+    /// including represented public/base-private state for every vCPU, explicit
+    /// clock mode/counters/phase/notification and the four legacy device base. All independent writers must be quiescent.
+    /// Additional backend-private/platform/scheduler state remains separate.
+    pub fn take_snapshot_bundle(
+        &self,
+        insn_count: u64,
+    ) -> Result<crate::vm::snapshot::SnapshotBundle> {
+        let _timing = self.timing_context.enter();
+        use crate::vm::snapshot::{PhysicalMemorySnapshot, SnapshotBundle};
+        let clock = self.timing_context.checkpoint_state();
+        let execution = self.capture_execution_state()?;
+        let cpus = self.capture_cpu_states()?;
+        let backend_contexts = self
+            .vcpus
+            .iter()
+            .map(|cpu| cpu.capture_backend_context())
+            .collect::<Result<Vec<_>>>()?;
+        let first = cpus
+            .first()
+            .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
+        let cpu_state = first.state.clone();
+        let emulator_state = first.emulator.clone();
+        let devices = self.capture_devices()?;
+        let pci = self
+            .pci_devices
+            .as_ref()
+            .map(PciDevices::checkpoint)
+            .transpose()?;
+        let (physical, memory_data) = PhysicalMemorySnapshot::capture_with_projection(
+            self.guest_mem.memory(),
+            self.guest_mem.size(),
+        )?;
+        let base = Snapshot {
+            version: 8,
+            config: self.checkpoint_config.clone(),
+            instruction_count: insn_count,
+            elapsed_nanos: clock.elapsed_nanos,
+            cpu_state,
+            emulator_state,
+            devices,
+            memory_size: self.guest_mem.size(),
+            memory_data,
+        };
+        let mut bundle = SnapshotBundle::new(base)
+            .with_clock(clock)?
+            .with_cpus(cpus)?
+            .with_execution(execution)?;
+        if backend_contexts.iter().any(Option::is_some) {
+            bundle = bundle.with_backend_contexts(backend_contexts)?;
+        }
+        if let Some(pci) = pci {
+            bundle = bundle.with_pci(pci)?;
+        }
+        bundle.with_physical_memory(physical)
+    }
+
     /// Write a checkpoint to the configured `--snapshot-out` path (default
     /// `./checkpoint.rxc`). Invoked from the `Ctrl-A s` console hotkey and the
     /// SIGUSR1 signal. The machine is effectively paused while this runs because
     /// the run loop is single-threaded — the vCPU is not executing during the
     /// poll phase where this is called.
     pub fn console_checkpoint(&self) {
-        let insn = get_total_instruction_count();
+        let insn = self.coordinator.retired;
         let path = self.snapshot_out.clone();
         info!(path = %path.display(), insn = insn, "checkpoint requested");
-        match self.take_snapshot(insn) {
+        match self.take_snapshot_bundle(insn) {
             Ok(snapshot) => match snapshot.save(&path) {
                 Ok(()) => {
                     // \r\n so the message renders cleanly in raw terminal mode.
                     eprint!("\r\n[rax] checkpoint written: {}\r\n", path.display());
-                    info!(summary = %snapshot.summary(), "checkpoint written");
+                    info!(summary = %snapshot.base().summary(), "checkpoint written");
                 }
                 Err(e) => eprint!("\r\n[rax] checkpoint save failed: {}\r\n", e),
             },
@@ -1401,7 +909,7 @@ impl Vmm {
         };
 
         if should_snapshot {
-            let snapshot = self.take_snapshot(insn_count)?;
+            let snapshot = self.take_snapshot_bundle(insn_count)?;
             let filename = self
                 .snapshot_config
                 .as_ref()
@@ -1411,7 +919,7 @@ impl Vmm {
             info!(
                 filename = %filename,
                 insn_count = insn_count,
-                summary = %snapshot.summary(),
+                summary = %snapshot.base().summary(),
                 "saving snapshot"
             );
 
@@ -1422,36 +930,241 @@ impl Vmm {
         Ok(())
     }
 
-    /// Restore VM state from a checkpoint: registers + emulator state, all
-    /// writable guest RAM, and every device model.
+    fn validate_snapshot_target(&self, snapshot: &Snapshot) -> Result<()> {
+        snapshot.validate_for_restore()?;
+        if snapshot.config.arch != self.checkpoint_config.arch {
+            return Err(Error::InvalidConfig(
+                "checkpoint architecture does not match target machine".to_string(),
+            ));
+        }
+        if snapshot.memory_size != self.guest_mem.size() {
+            return Err(Error::InvalidConfig(
+                "checkpoint RAM extent does not match target machine".to_string(),
+            ));
+        }
+        if snapshot.config.vcpus as usize != self.vcpus.len() {
+            return Err(Error::InvalidConfig(
+                "checkpoint CPU count does not match target machine".to_string(),
+            ));
+        }
+        if snapshot.config.pci_devices != self.checkpoint_config.pci_devices {
+            return Err(Error::InvalidConfig(
+                "checkpoint PCI topology does not match target machine".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Restore represented public/base-private CPU contexts, four legacy models,
+    /// physical backing (or reported projection), PCI/media and explicit timing
+    /// state when present. Independent writers must be quiescent. Additional
+    /// backend-private/platform state and native setter/resource transactions
+    /// remain separate.
+    pub fn restore_snapshot_bundle(
+        &mut self,
+        bundle: &crate::vm::snapshot::SnapshotBundle,
+    ) -> Result<()> {
+        let _timing = self.timing_context.enter();
+        bundle.validate()?;
+        let snapshot = bundle.base();
+        self.validate_snapshot_target(snapshot)?;
+        let timing_context = &self.timing_context;
+        let clock_restore = bundle
+            .clock()
+            .map(|state| timing_context.prepare_checkpoint_state(state))
+            .transpose()?;
+        if snapshot.config.vcpus > 1 && bundle.cpus().is_none() {
+            return Err(Error::InvalidConfig(
+                "checkpoint is missing additional CPU state".to_string(),
+            ));
+        }
+        if bundle.pci().is_none()
+            && bundle.physical_memory().is_none()
+            && bundle.cpus().is_none()
+            && bundle.clock().is_none()
+            && bundle.execution().is_none()
+            && bundle.backend_contexts().is_none()
+        {
+            return self.restore_snapshot(snapshot);
+        }
+        for (source, target) in [
+            (
+                &snapshot.config.storage.nvme,
+                &self.checkpoint_config.storage.nvme,
+            ),
+            (
+                &snapshot.config.storage.ahci,
+                &self.checkpoint_config.storage.ahci,
+            ),
+        ] {
+            match (source, target) {
+                (None, None) => (),
+                (Some(s), Some(t)) if s.identity == t.identity && s.mode == t.mode => (),
+                _ => {
+                    return Err(Error::InvalidConfig(
+                        "checkpoint storage binding does not match target machine".to_string(),
+                    ));
+                }
+            }
+        }
+        match (&self.pci_devices, bundle.pci()) {
+            (Some(_), Some(_)) | (None, None) => (),
+            _ => {
+                return Err(Error::InvalidConfig(
+                    "checkpoint PCI component does not match target machine".to_string(),
+                ));
+            }
+        }
+        let mut states = Vec::new();
+        let count = bundle.cpus().map_or(1, |c| c.entries().len());
+        if count > self.vcpus.len() {
+            return Err(Error::InvalidConfig(
+                "checkpoint CPU set exceeds target count".to_string(),
+            ));
+        }
+        states
+            .try_reserve_exact(count)
+            .map_err(|e| Error::Emulator(format!("CPU restore allocation: {e}")))?;
+        if let Some(cpus) = bundle.cpus() {
+            if cpus.entries().len() != self.vcpus.len() {
+                return Err(Error::InvalidConfig(
+                    "checkpoint CPU set count does not match target".to_string(),
+                ));
+            }
+            for (index, entry) in cpus.entries().iter().enumerate() {
+                let context = bundle
+                    .backend_contexts()
+                    .and_then(|contexts| contexts.entries()[index].as_ref());
+                states.push((&entry.state, &entry.emulator, context));
+            }
+        } else {
+            states.push((&snapshot.cpu_state, &snapshot.emulator_state, None));
+        }
+        for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
+            vcpu.validate_checkpoint_context(state, emulator, *context)?;
+        }
+        let physical = bundle
+            .physical_memory()
+            .map(|p| {
+                p.prepare_with_projection(
+                    self.guest_mem.memory(),
+                    &snapshot.memory_data,
+                    snapshot.memory_size,
+                )
+            })
+            .transpose()?;
+        let memory = if physical.is_none() {
+            let memory = snapshot.decompress_memory()?;
+            self.guest_mem.validate_restore_len(memory.len())?;
+            Some(memory)
+        } else {
+            None
+        };
+        let pci = bundle.pci().map(|p| p.to_devices()).transpose()?;
+        let execution = bundle
+            .execution()
+            .map(|state| {
+                state.validate(snapshot)?;
+                let now = std::time::Instant::now();
+                let apics = state
+                    .local_apics
+                    .iter()
+                    .map(|apic| apic.prepare(now))
+                    .collect::<Vec<_>>();
+                Ok::<_, Error>((
+                    coordinator::ExecutionCoordinator {
+                        cursor: state.cursor,
+                        retired: state.retired,
+                        online: state.online.clone(),
+                    },
+                    apics,
+                ))
+            })
+            .transpose()?;
+        let devices = snapshot.devices.clone();
+        let lock_err =
+            |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
+        let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
+        let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
+        let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
+        let mut lapics = Vec::with_capacity(self.local_apics.len());
+        for controller in &self.local_apics {
+            lapics.push(controller.lock().map_err(|_| lock_err("lapic"))?);
+        }
+        let coordinator = &mut self.coordinator;
+        let guest_mem = &self.guest_mem;
+        let vcpus = &mut self.vcpus;
+        let commit = move || -> Result<()> {
+            for (vcpu, (state, emulator, context)) in vcpus.iter_mut().zip(states) {
+                vcpu.restore_checkpoint_context(state, emulator, context)?;
+            }
+            if let Some(physical) = physical {
+                physical.commit()?;
+            } else if let Some(memory) = memory {
+                guest_mem.write_all(&memory)?;
+            }
+            *pic = devices.pic;
+            *pit = devices.pit;
+            *serial = devices.serial;
+            if let Some((saved, apics)) = execution {
+                *coordinator = saved;
+                let resume = std::time::Instant::now();
+                for (target, mut restored) in lapics.iter_mut().zip(apics) {
+                    restored.resume_timer_at(resume);
+                    **target = restored;
+                }
+            } else {
+                *lapics[0] = devices.lapic;
+                lapics[0].enable_coordinated_delivery();
+            }
+
+            if let Some(clock) = clock_restore {
+                clock.commit();
+            } else {
+                timing_context.set_resume_base(snapshot.elapsed_nanos);
+            }
+            Ok(())
+        };
+        match (&self.pci_devices, pci) {
+            (Some(devices), Some(pci)) => devices.restore_checkpoint_with(pci, commit),
+            (None, None) => commit(),
+            _ => unreachable!("PCI topology admitted before commit"),
+        }
+    }
+
+    /// Restore represented base state after validating input and target admission.
+    /// Full SMP/private/platform/PCI closure remains separate.
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
-        // Restore CPU state
+        let _timing = self.timing_context.enter();
+        if self.checkpoint_config.storage.has_images() || snapshot.config.storage.has_images() {
+            return Err(Error::InvalidConfig(
+                "image-backed checkpoint restore requires complete device/media state".to_string(),
+            ));
+        }
+        self.validate_snapshot_target(snapshot)?;
         let vcpu = self
             .vcpus
             .get_mut(0)
             .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-        vcpu.set_state(&snapshot.cpu_state)?;
-        vcpu.set_emulator_state(&snapshot.emulator_state)?;
-
-        // Re-anchor the clock so the real-time TSC and restored device timers
-        // continue from the checkpoint instead of jumping backward to ~0.
-        crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
-
-        // Decompress and restore guest RAM (this also restores the kernel/initrd
-        // images that were loaded into it — read-only regions need not be
-        // re-loaded from disk).
+        vcpu.validate_checkpoint_state(&snapshot.cpu_state, &snapshot.emulator_state)?;
         let memory = snapshot.decompress_memory()?;
-        self.guest_mem.write_all(&memory)?;
-
-        // Restore device models. The Vmm and the I/O/MMIO buses share the same
-        // Arc<Mutex<_>> for each device, so assigning through the lock updates
-        // both views.
+        self.guest_mem.validate_restore_len(memory.len())?;
+        let devices = snapshot.devices.clone();
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
-        *self.pic.lock().map_err(|_| lock_err("pic"))? = snapshot.devices.pic.clone();
-        *self.pit.lock().map_err(|_| lock_err("pit"))? = snapshot.devices.pit.clone();
-        *self.serial.lock().map_err(|_| lock_err("serial"))? = snapshot.devices.serial.clone();
-        *self.lapic.lock().map_err(|_| lock_err("lapic"))? = snapshot.devices.lapic.clone();
+        let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
+        let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
+        let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
+        let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
+        vcpu.set_state(&snapshot.cpu_state)?;
+        vcpu.set_emulator_state(&snapshot.emulator_state)?;
+        self.guest_mem.write_all(&memory)?;
+        *pic = devices.pic;
+        *pit = devices.pit;
+        *serial = devices.serial;
+        *lapic = devices.lapic;
+        lapic.enable_coordinated_delivery();
+        crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
 
         info!(
             insn_count = snapshot.instruction_count,
@@ -1633,3 +1346,44 @@ impl Vmm {
         Ok(Some(false)) // Don't break, but don't resume execution either
     }
 }
+
+#[cfg(test)]
+#[path = "runtime/storage_tests.rs"]
+mod storage_tests;
+
+#[cfg(test)]
+#[path = "runtime/checkpoint_tests.rs"]
+mod checkpoint_tests;
+
+#[cfg(test)]
+#[path = "runtime/backend_context_tests.rs"]
+mod backend_context_tests;
+
+#[cfg(test)]
+#[path = "runtime/bundle_tests.rs"]
+mod bundle_tests;
+
+#[cfg(test)]
+#[path = "runtime/resume_tests.rs"]
+mod resume_tests;
+
+#[cfg(test)]
+#[path = "runtime/cpu_set_tests.rs"]
+mod cpu_set_tests;
+
+#[cfg(test)]
+#[path = "runtime/lapic_tests.rs"]
+mod lapic_tests;
+
+#[path = "runtime/lapic.rs"]
+mod lapic;
+
+#[cfg(test)]
+mod execution_tests;
+
+mod coordinator;
+mod execution;
+
+#[cfg(test)]
+#[path = "runtime/mmio_rmw_tests.rs"]
+mod mmio_rmw_tests;

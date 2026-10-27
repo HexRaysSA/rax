@@ -23,6 +23,11 @@ use crate::vm::vcpu::{
 use super::arm64_bindings::*;
 use super::{Backend, Vm};
 
+#[path = "arm64_stack.rs"]
+mod stack;
+#[path = "arm64_state.rs"]
+mod state;
+
 /// ARM64 HVF backend.
 pub struct HvfArm64Backend;
 
@@ -319,8 +324,9 @@ impl HvfArm64Vcpu {
 
         // GICv3 routes interrupts by affinity: the redistributor for this
         // vCPU is only assigned once MPIDR_EL1 carries its affinity (RES1
-        // bit 31 + Aff0 = vCPU index, matching the device tree's cpu@N).
-        let mpidr = 0x8000_0000u64 | u64::from(id);
+        // bit 31 plus the four affinity levels). For VM indices 0..254,
+        // Aff0 equals the index advertised by the device tree.
+        let mpidr = crate::isa::arm::aarch64::AArch64Cpu::mpidr_for_cpu_id(id);
         let ret = unsafe { hv_vcpu_set_sys_reg(vcpu, HV_SYS_REG_MPIDR_EL1, mpidr) };
         if ret != HV_SUCCESS {
             return Err(Error::Emulator(format!(
@@ -683,96 +689,11 @@ impl VCpu for HvfArm64Vcpu {
     }
 
     fn get_state(&self) -> Result<CpuState> {
-        let mut regs = Aarch64Registers::default();
-
-        // Read X0-X30
-        for i in 0..31 {
-            regs.x[i] = self.read_gpr(i as u32)?;
-        }
-
-        // Read PC, SP, PSTATE
-        regs.pc = self.read_gpr(HV_REG_PC)?;
-        regs.sp = self.read_sys_reg(HV_SYS_REG_SP_EL0)?;
-        regs.pstate = self.read_gpr(HV_REG_CPSR)?;
-
-        // Read FPCR/FPSR
-        regs.fpcr = self.read_gpr(HV_REG_FPCR)? as u32;
-        regs.fpsr = self.read_gpr(HV_REG_FPSR)? as u32;
-
-        // Read V0-V31
-        for i in 0..32 {
-            regs.v[i] = self.read_simd_reg(i as u32)?;
-        }
-
-        // Read system registers
-        let mut sregs = Aarch64SystemRegisters::default();
-        sregs.sctlr_el1 = self.read_sys_reg(HV_SYS_REG_SCTLR_EL1)?;
-        sregs.tcr_el1 = self.read_sys_reg(HV_SYS_REG_TCR_EL1)?;
-        sregs.ttbr0_el1 = self.read_sys_reg(HV_SYS_REG_TTBR0_EL1)?;
-        sregs.ttbr1_el1 = self.read_sys_reg(HV_SYS_REG_TTBR1_EL1)?;
-        sregs.mair_el1 = self.read_sys_reg(HV_SYS_REG_MAIR_EL1)?;
-        sregs.vbar_el1 = self.read_sys_reg(HV_SYS_REG_VBAR_EL1)?;
-        sregs.esr_el1 = self.read_sys_reg(HV_SYS_REG_ESR_EL1)?;
-        sregs.far_el1 = self.read_sys_reg(HV_SYS_REG_FAR_EL1)?;
-        sregs.elr_el1 = self.read_sys_reg(HV_SYS_REG_ELR_EL1)?;
-        sregs.spsr_el1 = self.read_sys_reg(HV_SYS_REG_SPSR_EL1)?;
-        sregs.sp_el0 = self.read_sys_reg(HV_SYS_REG_SP_EL0)?;
-        sregs.sp_el1 = self.read_sys_reg(HV_SYS_REG_SP_EL1)?;
-        sregs.tpidr_el0 = self.read_sys_reg(HV_SYS_REG_TPIDR_EL0)?;
-        sregs.tpidr_el1 = self.read_sys_reg(HV_SYS_REG_TPIDR_EL1)?;
-        sregs.tpidrro_el0 = self.read_sys_reg(HV_SYS_REG_TPIDRRO_EL0)?;
-
-        Ok(CpuState::Aarch64(Aarch64CpuState { regs, sregs }))
+        self.native_state()
     }
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
-        let state = match state {
-            CpuState::Aarch64(state) => state,
-            _ => {
-                return Err(Error::InvalidConfig(
-                    "ARM64 HVF backend requires aarch64 state".to_string(),
-                ));
-            }
-        };
-
-        let regs = &state.regs;
-        let sregs = &state.sregs;
-
-        // Write X0-X30
-        for i in 0..31 {
-            self.write_gpr(i as u32, regs.x[i])?;
-        }
-
-        // Write PC, SP, PSTATE
-        self.write_gpr(HV_REG_PC, regs.pc)?;
-        self.write_sys_reg(HV_SYS_REG_SP_EL0, regs.sp)?;
-        self.write_gpr(HV_REG_CPSR, regs.pstate)?;
-
-        // Write FPCR/FPSR
-        self.write_gpr(HV_REG_FPCR, regs.fpcr as u64)?;
-        self.write_gpr(HV_REG_FPSR, regs.fpsr as u64)?;
-
-        // Write V0-V31
-        for i in 0..32 {
-            self.write_simd_reg(i as u32, regs.v[i])?;
-        }
-
-        // Write system registers
-        self.write_sys_reg(HV_SYS_REG_SCTLR_EL1, sregs.sctlr_el1)?;
-        self.write_sys_reg(HV_SYS_REG_TCR_EL1, sregs.tcr_el1)?;
-        self.write_sys_reg(HV_SYS_REG_TTBR0_EL1, sregs.ttbr0_el1)?;
-        self.write_sys_reg(HV_SYS_REG_TTBR1_EL1, sregs.ttbr1_el1)?;
-        self.write_sys_reg(HV_SYS_REG_MAIR_EL1, sregs.mair_el1)?;
-        self.write_sys_reg(HV_SYS_REG_VBAR_EL1, sregs.vbar_el1)?;
-        self.write_sys_reg(HV_SYS_REG_ELR_EL1, sregs.elr_el1)?;
-        self.write_sys_reg(HV_SYS_REG_SPSR_EL1, sregs.spsr_el1)?;
-        self.write_sys_reg(HV_SYS_REG_SP_EL0, sregs.sp_el0)?;
-        self.write_sys_reg(HV_SYS_REG_SP_EL1, sregs.sp_el1)?;
-        self.write_sys_reg(HV_SYS_REG_TPIDR_EL0, sregs.tpidr_el0)?;
-        self.write_sys_reg(HV_SYS_REG_TPIDR_EL1, sregs.tpidr_el1)?;
-        self.write_sys_reg(HV_SYS_REG_TPIDRRO_EL0, sregs.tpidrro_el0)?;
-
-        Ok(())
+        self.restore_native_state(state)
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {

@@ -279,6 +279,8 @@ warnings = "allow"
 all = "allow"
 
 [dependencies]
+# Pinned source-identity digest for configured raw images.
+sha2 = "=0.10.9"
 clap = { version = "4.5.53", features = ["derive"] }
 linux-loader = { version = "0.13.2", features = ["bzimage", "elf"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -373,3 +375,186 @@ path = "tests/suites/backend/hvf_run_loop.rs"
 [[test]]
 name = "hvf_cr8"
 path = "tests/suites/backend/hvf_cr8.rs"
+
+[[test]]
+name = "hvf_sync_exits"
+path = "tests/suites/backend/hvf_sync_exits.rs"
+
+[[test]]
+name = "hvf_event_injection"
+path = "tests/suites/backend/hvf_event_injection.rs"
+
+[[test]]
+name = "hvf_interrupt_shadow"
+path = "tests/suites/backend/hvf_interrupt_shadow.rs"
+
+[[test]]
+name = "hvf_port_io"
+path = "tests/suites/backend/hvf_port_io.rs"
+
+[[test]]
+name = "hvf_guest_translation"
+path = "tests/suites/backend/hvf_guest_translation.rs"
+
+[[test]]
+name = "hvf_mmio"
+path = "tests/suites/backend/hvf_mmio.rs"
+
+[[test]]
+name = "controller_irq"
+path = "tests/suites/backend/controller_irq.rs"
+
+[[test]]
+name = "hvf_controls"
+path = "tests/suites/backend/hvf_controls.rs"
+
+[[test]]
+name = "nvme_prp"
+path = "tests/suites/devices/nvme_prp.rs"
+
+[[test]]
+name = "nvme_sgl"
+path = "tests/suites/devices/nvme_sgl.rs"
+
+[[test]]
+name = "nvme_queues"
+path = "tests/suites/devices/nvme_queues.rs"
+
+[[test]]
+name = "nvme_admission"
+path = "tests/suites/devices/nvme_admission.rs"
+
+[[test]]
+name = "nvme_commands"
+path = "tests/suites/devices/nvme_commands.rs"
+
+[[test]]
+name = "virtio_indirect"
+path = "tests/suites/devices/virtio_indirect.rs"
+
+[[test]]
+name = "virtio_ranges"
+path = "tests/suites/devices/virtio_ranges.rs"
+
+[[test]]
+name = "checkpoint_config"
+path = "tests/suites/vm/checkpoint_config.rs"
+
+[[test]]
+name = "ahci_dma"
+path = "tests/suites/devices/ahci_dma.rs"
+
+[[test]]
+name = "storage_images"
+path = "tests/suites/devices/storage_images.rs"
+
+[[test]]
+name = "storage_config"
+path = "tests/suites/vm/storage_config.rs"
+
+[[test]]
+name = "controller_checkpoint"
+path = "tests/suites/devices/controller_checkpoint.rs"
+
+[[test]]
+name = "pci_checkpoint"
+path = "tests/suites/devices/pci_checkpoint.rs"
+
+[[test]]
+name = "pci_endpoint_checkpoint"
+path = "tests/suites/devices/pci_endpoint_checkpoint.rs"
+
+[[test]]
+name = "runtime_pci_checkpoint"
+path = "tests/suites/vm/runtime_pci_checkpoint.rs"
+
+[[test]]
+name = "checkpoint_pci"
+path = "tests/suites/vm/checkpoint_pci.rs"
+
+[[test]]
+name = "restore_admission"
+path = "tests/suites/vm/restore_admission.rs"
+
+[[test]]
+name = "checkpoint_physical_memory"
+path = "tests/suites/vm/checkpoint_physical_memory.rs"
+
+# Full-backing checkpoints hash GiB-scale memory. Keep SHA-256 practical in
+# development/test builds while retaining their arithmetic/assertion checks.
+[profile.dev.package.sha2]
+opt-level = 3
+debug-assertions = true
+overflow-checks = true
+
+[[test]]
+name="runtime_checkpoint_bundle"
+path="tests/suites/vm/runtime_checkpoint_bundle.rs"
+
+[[test]]
+name="checkpoint_resume"
+path="tests/suites/vm/checkpoint_resume.rs"
+
+[[test]]
+name="checkpoint_cpus"
+path="tests/suites/vm/checkpoint_cpus.rs"
+
+[[test]]
+name = "retirement_budget"
+path = "tests/suites/backend/retirement_budget.rs"
+
+[[test]]
+name = "vm_timing"
+path = "tests/suites/vm/vm_timing.rs"
+
+[[test]]
+name = "retired_clock"
+path = "tests/suites/vm/retired_clock.rs"
+
+[[test]]
+name = "checkpoint_clock"
+path = "tests/suites/vm/checkpoint_clock.rs"
+
+[[test]]
+name = "cortexm_dispatch"
+path = "tests/suites/backend/cortexm_dispatch.rs"
+
+[[test]]
+name = "retirement_clock"
+path = "tests/suites/backend/retirement_clock.rs"
+
+[[test]]
+name = "x86_retired_tsc"
+path = "tests/suites/backend/x86_retired_tsc.rs"
+
+[[test]]
+name = "aarch64_step_jit"
+path = "tests/suites/backend/aarch64_step_jit.rs"
+
+[[test]]
+name = "counter_ticks"
+path = "tests/suites/vm/counter_ticks.rs"
+
+[[test]]
+name = "hvf_arm64_state"
+path = "tests/suites/backend/hvf_arm64_state.rs"
+
+[[test]]
+name = "riscv_hartid"
+path = "tests/suites/backend/riscv_hartid.rs"
+
+[[test]]
+name = "aarch64_affinity"
+path = "tests/suites/backend/aarch64_affinity.rs"
+
+[[test]]
+name = "a32_fp_controls"
+path = "tests/suites/backend/a32_fp_controls.rs"
+
+[[test]]
+name = "a32_fp_pairs"
+path = "tests/suites/backend/a32_fp_pairs.rs"
+
+[[test]]
+name = "x86_fault_retirement"
+path = "tests/suites/backend/x86_fault_retirement.rs"

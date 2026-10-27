@@ -505,7 +505,8 @@ fn pauth_native_all_forms_match_full_direct_state_at_o0_o1_o2() {
                             Err(error) => panic!("unexpected fixture error {error:?}: {label}"),
                         }
                         assert_eq!(
-                            crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap()).unwrap(),
+                            crate::codec::serialize(&runtime.registers.to_cpu_state().unwrap())
+                                .unwrap(),
                             crate::codec::serialize(&expected).unwrap(),
                             "{label}"
                         );
@@ -600,7 +601,8 @@ fn pauth_smir_authenticated_load_offsets_writeback_zero_register_and_byte_order(
                                     panic!()
                                 };
                                 assert_eq!(
-                                    crate::codec::serialize(&state.to_cpu_state().unwrap()).unwrap(),
+                                    crate::codec::serialize(&state.to_cpu_state().unwrap())
+                                        .unwrap(),
                                     crate::codec::serialize(&expected).unwrap(),
                                     "{raw:#x} BE={big_endian} {level:?}"
                                 );

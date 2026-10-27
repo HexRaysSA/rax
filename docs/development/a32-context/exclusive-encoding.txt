@@ -1,0 +1,7 @@
+	.arch	armv7-a
+
+	.code	32
+	.p2align	2
+	.text
+	ldrex	r1, [r2]                        @ encoding: [0x9f,0x1f,0x92,0xe1]
+	strex	r3, r1, [r2]                    @ encoding: [0x91,0x3f,0x82,0xe1]

@@ -13,7 +13,7 @@ use std::collections::VecDeque;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
-use super::bus::MmioDevice;
+use super::bus::{MmioDevice, MmioRmwOp};
 
 // Register offsets (byte offsets from the 4KB APB window base).
 const UARTDR: u64 = 0x000;
@@ -180,7 +180,12 @@ impl Pl011MmioDevice {
     }
 }
 
-impl MmioDevice for Pl011MmioDevice {
+struct LockedPl011<'a> {
+    base: u64,
+    uart: &'a mut Pl011,
+}
+
+impl MmioDevice for LockedPl011<'_> {
     fn read(&mut self, addr: u64, data: &mut [u8]) {
         // The bus may dispatch byte-at-a-time; reconstruct the register value
         // and serve the byte lane being asked for. Registers with read side
@@ -188,10 +193,7 @@ impl MmioDevice for Pl011MmioDevice {
         let offset = addr - self.base;
         let reg = offset & !0x3;
         let lane = (offset & 0x3) as usize;
-        let Ok(mut uart) = self.inner.lock() else {
-            data.fill(0);
-            return;
-        };
+        let uart = &mut self.uart;
         let value = if reg == UARTDR && lane != 0 {
             0
         } else {
@@ -207,9 +209,7 @@ impl MmioDevice for Pl011MmioDevice {
         let offset = addr - self.base;
         let reg = offset & !0x3;
         let lane = (offset & 0x3) as usize;
-        let Ok(mut uart) = self.inner.lock() else {
-            return;
-        };
+        let uart = &mut self.uart;
         // DR is write-to-transmit: only the low byte lane carries data.
         if reg == UARTDR {
             if lane == 0 {
@@ -229,6 +229,46 @@ impl MmioDevice for Pl011MmioDevice {
             }
         }
         uart.write_reg(reg, value);
+    }
+}
+
+impl MmioDevice for Pl011MmioDevice {
+    fn read(&mut self, addr: u64, data: &mut [u8]) {
+        if let Ok(mut uart) = self.inner.lock() {
+            LockedPl011 {
+                base: self.base,
+                uart: &mut uart,
+            }
+            .read(addr, data);
+        } else {
+            data.fill(0);
+        }
+    }
+    fn write(&mut self, addr: u64, data: &[u8]) {
+        if let Ok(mut uart) = self.inner.lock() {
+            LockedPl011 {
+                base: self.base,
+                uart: &mut uart,
+            }
+            .write(addr, data);
+        }
+    }
+    fn read_modify_write(
+        &mut self,
+        addr: u64,
+        size: u8,
+        operation: MmioRmwOp,
+    ) -> crate::error::Result<Vec<u8>> {
+        operation.validate(size)?;
+        let mut uart = self
+            .inner
+            .lock()
+            .map_err(|_| crate::error::Error::Emulator("PL011 RMW lock poisoned".into()))?;
+        LockedPl011 {
+            base: self.base,
+            uart: &mut uart,
+        }
+        .read_modify_write(addr, size, operation)
     }
 }
 

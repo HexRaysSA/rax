@@ -34,6 +34,7 @@ pub use branch::*;
 mod entry;
 mod exception_return;
 mod exec;
+mod identity;
 pub use exec::*;
 mod math;
 pub use math::*;
@@ -671,7 +672,9 @@ impl ArmCpu for AArch64Cpu {
 
         self.instruction_guarded
             .store(false, std::sync::atomic::Ordering::Relaxed);
+        let mpidr = self.sysregs.mpidr_el1;
         self.sysregs.reset();
+        self.sysregs.mpidr_el1 = mpidr;
         self.initialize_reset_control_state();
         self.update_pauth_id_registers();
         self.mmu = Mmu::new();

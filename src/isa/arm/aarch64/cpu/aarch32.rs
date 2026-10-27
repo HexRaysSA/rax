@@ -1,6 +1,7 @@
 //! ARM/Thumb execution after a checked exception-return width transition.
 
 mod exceptions;
+mod fp_controls;
 mod memory;
 mod preflight;
 mod state;
@@ -138,6 +139,17 @@ impl AArch64Cpu {
                     ec: 0x38,
                     iss: u32::from(immediate),
                     target_el: Some(self.pauth_controls().local_exception_target()),
+                });
+            }
+            ExecResult::FpAccessTrap {
+                target_el,
+                syndrome,
+                ..
+            } => {
+                return Err(ArmError::ArchitecturalException {
+                    ec: (syndrome >> 26) as u8,
+                    iss: syndrome & 0x01ff_ffff,
+                    target_el: Some(target_el),
                 });
             }
             ExecResult::Halt => {

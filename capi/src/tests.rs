@@ -750,3 +750,6 @@ mod process;
 
 #[path = "tests/context_pauth.rs"]
 mod context_pauth;
+
+#[path = "tests/context_aarch32.rs"]
+mod context_aarch32;

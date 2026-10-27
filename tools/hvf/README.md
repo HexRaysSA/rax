@@ -18,8 +18,9 @@ source hashes, generated probes and diagnostics. A missing tool or compiler
 failure fails the check. The Cargo target is compiled only on macOS.
 
 The probe performs source and compiler ABI checks. Native Intel VM creation,
-VM-exit behavior, guest execution, VMCS field encodings and Arm64 function
-signatures require separate validation. Rosetta can run the x86_64 test process
+VM-exit behavior, guest execution and Arm64 function signatures require separate
+validation. The probe also checks every declared VMCS field with explicit SDK
+name aliases, plus the actual shared exit-information field used at runtime. Rosetta can run the x86_64 test process
 on Apple Silicon; it does not establish native Intel hypervisor execution.
 
 The SDK defines Intel vCPU identifiers as 32-bit unsigned integers. Register IDs
@@ -77,7 +78,7 @@ VMX transitions and the individual handler effects retain their separate limits.
 cargo +stable test --test hvf_run_loop
 ```
 
-The Intel backend drives internal exits in one loop. It prepares pending events
+The Intel backend drives internal exits in one loop. It checks halt state
 before every entry, executes the selected handler once and either resumes or
 returns its public exit/error. CPUID, completed RDMSR/WRMSR, external-interrupt,
 interrupt-window, CR-access and XSETBV exits no longer recurse through `VCpu::run`.
@@ -145,3 +146,208 @@ correct architectural fault, and rejects other unexplained reference results.
 Native Intel VMX/exception delivery and SDK-TPR/software-LAPIC/IRQ coherence remain
 separate. The VMM LocalApic and software x86 InlineLapic ownership also require
 reconciliation with the pending platform/checkpoint/SMP work.
+
+## Synchronous exit IP, halt and event information
+
+```sh
+cargo +stable test --test hvf_sync_exits
+python3 tools/hvf/sync_exit_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-sync-exits
+```
+
+HLT advances past the complete instruction before setting the software halted
+flag. A failed advance leaves that flag unset. `wake()` clears the flag without
+advancing again. CPUID, RDMSR and WRMSR use the actual VM-exit instruction length,
+including accepted prefixes, rather than assuming two bytes.
+
+Straight-line EIP advancement uses32-bit storage outside64-bit mode; RIP uses
+64-bit storage in64-bit mode. CS.D controls decoding defaults and does not make
+fallthrough EIP16-bit. The arithmetic is `(current+length) mod2^32` or `mod2^64`,
+with length measured in bytes and required to be1-15. Subsequent code-segment,
+canonical-address and fetch faults are separate from this arithmetic.
+
+| Information | Encoding | Meaning |
+| --- | --- | --- |
+| VM-exit interruption information | 0x4404 | Event causing this exit |
+| IDT-vectoring information | 0x4408 | Interrupted delivery of another event |
+
+Exception/NMI exits read0x4404 through the same shared field selector exercised
+by the boundary tests and checked against Apple SDK headers. They preserve the
+existing vector-only public exit shape. An invalid record reports a host error;
+it does not fabricate vector0 or substitute IDT-vectoring information. Full
+exception frames, error-code propagation and reinjection remain separate.
+
+The SDK probe now validates85 declared VMCS field values,29 explicit SDK-name
+aliases and the actual shared runtime field selector. A wrong-selector mutation
+fails both boundary tests and SDK assertions. The nine complete owning tests
+cover full32/64-bit IP arithmetic, malformed lengths, all65536 exit/IDT vector
+pairs, invalid/error records and a halt/wake/halt sequence.
+
+The independent guest uses actual debug traps after CPUID in16-bit and32-bit
+protected code segments with4GiB limits. Twelve cases combine instruction lengths
+2,3,15 with ordinary offsets and64KiB boundary crossings. Every case must record
+both debug traps and its exact next EIP/CS. Full32-bit EIP is compared; only the
+16 defined CS selector bits are compared and raw stack padding is retained.
+The initial16-bit truncation hypothesis fails three cases; the legacy fixed
+length2 CPUID effect fails eight. The final helper matches all twelve.
+
+These are IP/halt/event-source checks, not complete native retirement proof.
+RF handling after EPT emulation, single-step traps and
+full event delivery, APIC/device coherence, remaining CR forms and MMIO need
+separate work. VM-entry arbitration is checked separately below. Native Intel VMX execution remains unverified on Apple Silicon.
+
+## VM-entry event arbitration
+
+`cargo +stable test --test hvf_event_injection` exercises the same boundary used
+by the Intel adapter. An occupied VM-entry event slot blocks both IRQ and NMI
+requests. IRQs require IF=1 and no STI/MOV-SS blocking; NMI blocking alone does
+not block IRQs. NMIs ignore IF and require no STI/MOV-SS/NMI blocking.
+
+A blocked request returns `Ok(false)` and remains owned by the caller, as required
+by `VCpu`. It is not privately queued for later duplicate delivery. A successful
+VMCS write returns `Ok(true)` and clears software halt. Read/write failures are
+propagated and leave halt unchanged. The availability query returns false on a
+host read error. Existing synchronous events retain their slot.
+
+This covers arbitration at the adapter boundary. Interrupt-controller retention,
+VM-entry failure recovery, event-delivery faults and pending debug state,
+concurrent callers and native Intel delivery require separate validation.
+
+## Emulated instruction interrupt shadows
+
+`cargo +stable test --test hvf_interrupt_shadow` checks completion of saved
+STI/MOV-SS blocking after a successful emulated instruction. The VM exit saves
+the pre-instruction state. Advancing IP now also clears bits0-1, preserving every
+other interruptibility bit. This allows an IRQ after an emulated `STI; HLT`
+sequence. The shadow is read before IP is written; failed reads or IP writes do
+not change it. A failed shadow write propagates the host error after the IP write;
+this is not an atomic rollback protocol.
+
+Fault injection paths do not advance IP and do not use this completion boundary.
+RF, pending debug exceptions/TF, full event delivery and controller ownership
+remain separate. This change covers shadow expiration only. Native Intel VMX
+execution remains unverified on Apple Silicon.
+
+The independent shadow oracle runs six actual CPL0 `STI; CPUID` and `STI; HLT`
+sequences, using instruction lengths2/3/15 and1/2/15 respectively. It polls PIC
+IRR to prove IRQ0 is pending before STI. Every case records exactly one hardware
+IRQ and its full next EIP. The same product completion and event-eligibility
+boundaries must permit the IRQ after completion. The previous IP-only effect
+fails all six comparisons; the corrected boundary matches all six. These are
+TCG direct-instruction records, not native VMX exit delivery.
+
+```sh
+python3 tools/hvf/interrupt_shadow_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-shadow
+```
+
+## Scalar port-I/O completion
+
+```sh
+cargo +stable test --test hvf_port_io
+python3 tools/hvf/port_io_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-port-io
+```
+
+The Intel scalar port handler accepts only VMX size codes0/1/3 (1/2/4 bytes).
+String or REP-qualified forms return an explicit unsupported-form error before
+any device exit or IP advance. Undefined qualification bits are ignored. String
+INS/OUTS transfer, address translation and restart semantics remain separate.
+
+OUT emits the exact low AL/AX/EAX bytes in little-endian order. Input captures
+RAX and the validated VM-exit instruction length before returning its device
+request. Completion requires exactly the requested number of bytes. IN AL/AX
+preserves the upper RAX bits; IN EAX zero-extends. Success writes RAX before
+advancing the complete instruction and expiring its interrupt shadow.
+
+The existing void completion API retains a terminal error on malformed data or
+host failure. Every later run reports that error before guest execution; it is
+not consumed after one report. A request must be completed before another run, CPU-state write or
+IRQ/NMI injection. Duplicate or unsolicited completion is an explicit error.
+A failed advance after a successful RAX write can leave RAX modified; no atomic
+host rollback or automatic retry is claimed.
+
+Eight owning tests cover every port/width/direction, invalid/string forms,
+all byte/word values, dword zero-extension, exact framing, instruction lengths,
+host failures and repeated error observation. The independent QEMU long-mode
+guest executes36 IN instructions across three widths, immediate/DX encodings
+and six initial RAX patterns. It compares full RAX and before/after flags;
+actual lower input bytes are retained, without assuming a device constant.
+The previous input effect fails20 records and six owning tests; two controls
+still pass. Native Intel VMX/device delivery and string I/O remain unverified.
+Pending input and terminal-error state must be included in the planned complete
+checkpoint format; the existing checkpoint schema is not extended here.
+
+## Decoded scalar MMIO
+
+```sh
+cargo +stable test --test hvf_mmio --test hvf_guest_translation
+python3 tools/hvf/mmio_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./target/hvf-mmio
+```
+
+An EPT exit becomes scalar device I/O only after validating a data read XOR
+write, valid translated GLA, absence of event delivery and absence of special
+shadow-stack, paging-verification or asynchronous accesses. Guest RAM permission
+faults are not MMIO. Instructions are fetched incrementally, at most15 bytes,
+through read-only guest translation. Only required instruction bytes are read.
+Introspection preserves page-table A/D state; hardware guest permission checks
+are distinct from this inspection path.
+
+Supported translations are identity, nonPAE32-bit paging with PSE/PSE36,
+legacy PAE using the architectural cached VMCS PDPTEs, and four-level IA32e
+paging with4KiB/2MiB/1GiB leaves. LA57 and malformed/nonpresent mappings stop
+before device access. The configured CPUID physical-address width is used.
+Legacy PAE inspection never reloads a changed guest PDPT from RAM.
+
+The actual product metadata decoder must provide a complete scalar MOV,
+MOVSX or MOVZX memory operand. Its effective address, including active segment
+base and address-width wrapping, must match the exit GLA. Every byte must map
+to the reported contiguous GPA range outside RAM. Moffs metadata now retains
+all segment overrides. SDK GPR indices are shared with CR8 conversion.
+
+Stores return the actual low register bytes or sign-extended immediate; reads
+retain the exact GPR part, original value, width, extension and instruction
+length. High-byte and16-bit writes preserve untouched bits;32-bit writes
+zero-extend. Completion requires exact framing and commits the destination
+before retirement. EPT retirement expires STI/MOVSS blocking and clears RF.
+Malformed input or a host error remains terminal before later execution,
+CPU-state writes and external-event injection. Partial host commits are not
+rolled back. The existing void completion API is unchanged.
+
+The immutable reference fixture contains1204 direct TCG long-mode RAM
+instructions:912 loads and292 stores across all16 GPRs, high-byte aliases,
+MOVSX/MOVZX, widths1/2/4/8, immediate sign extension, two data patterns and two
+flag patterns. Every register, all8 observed data bytes and before/after flags
+are compared with the product plan. The fixture presents the operand as an
+MMIO hole to exercise planning; these records do not prove native device or
+VMX delivery. Re-running the oracle must reproduce the exact fixture bytes
+and pass the complete MMIO owning binary. Input is202272 bytes; output is
+183028 bytes including20 framing bytes; guest RAM is64MiB.
+
+RMW, atomic, string, vector, segment-register, APX-only and incomplete metadata
+forms are explicit unsupported cases. TF single-stepped MMIO remains unsupported
+before device access pending complete debug-retirement semantics. Native Intel
+execution, controller/device ordering, concurrent page-table changes and the
+complete checkpoint representation remain separate validation requirements.
+
+
+## VMCS capability validation
+
+`cargo +stable test --test hvf_controls` executes the shared initialization
+sequence with deterministic host-call traces. All four used capability banks
+must be read successfully and satisfy the requested controls before the first
+VMCS write. Required controls are preserved; unavailable controls and
+contradictory required-one/allowed-one masks return explicit errors. The unused
+VM-exit capability query is removed. Low32 capability bits require one; high32
+bits permit one, as defined in Intel SDM Vol.3D AppendicesA.3/A.4.
+
+The existing pin, processor, secondary and entry policy is retained, including
+EPT, unrestricted guest, RDTSCP, CR8/I/O/HLT exits and EFER/IA-32e entry controls.
+The policy still starts in IA-32e mode; complete guest mode transitions remain
+separate. Host capability errors include the bank and SDK error. VMCS write
+errors propagate with prior successful writes visible; constructor failure
+destroys the newly allocated vCPU. There is no atomic rollback claim.
+
+Seven tests cover all256 single-bit mask cells, a high requested bit,65536
+seeded valid32-bit masks, all128 inconsistent bank/bit cells, every12 requested
+control bits, all4 capability read failures and all10 write failure boundaries.
+The controlled prior behavior fails four tests and passes three controls.
+These are software contract and SDK compilation checks. Native Intel capability
+queries, VM entry and hardware execution require separate validation.

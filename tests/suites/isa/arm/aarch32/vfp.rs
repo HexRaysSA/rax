@@ -7145,3 +7145,6 @@ mod fp_feature_registers;
 
 #[path = "fp_access.rs"]
 mod fp_access;
+
+#[path = "fp_simd_access.rs"]
+mod fp_simd_access;

@@ -39,7 +39,12 @@ impl AArch64Cpu {
             let crm = insn.raw & 15;
             let opc2 = (insn.raw >> 5) & 7;
             let scalar = matches!(insn.mnemonic, Mnemonic::MRC | Mnemonic::MCR);
-            let fp_system = cp == 10 && opc1 == 7 && matches!(crn, 1 | 8);
+            let fp_system = matches!(cp, 10 | 11);
+            let fp_control = scalar
+                && cp == 15
+                && ((opc1, crn, crm, opc2) == (0, 1, 0, 2)
+                    || (opc1, crn, crm, opc2) == (4, 1, 1, 2)
+                    || (opc1, crn, crm, opc2) == (4, 1, 1, 0));
             let thread_id =
                 scalar && cp == 15 && opc1 == 0 && crn == 13 && crm == 0 && matches!(opc2, 2 | 3);
             let frequency = insn.mnemonic == Mnemonic::MRC
@@ -49,35 +54,15 @@ impl AArch64Cpu {
                 && cp == 15
                 && (insn.raw >> 4) & 15 <= 1
                 && crm == 14;
-            if !(fp_system || thread_id || frequency || counter) {
+            if !(fp_system || fp_control || thread_id || frequency || counter) {
                 return Err(ArmError::UnsupportedExecutionState(format!(
                     "AArch32 coprocessor transfer {:#010x}",
                     insn.raw
                 )));
             }
         }
-        // Every A32/T32 Advanced SIMD and VFP mnemonic uses the V namespace.
-        // System transfers are decoded as VMRS/VMSR or as MRC/MCR to CP10.
-        let fp =
-            insn.mnemonic.as_str().starts_with('v') || (transfer && (insn.raw >> 8) & 15 == 10);
-        if fp
-            && self.current_el == 0
-            && uses_aarch32(self.pauth_controls(), self.sysregs.id_aa64pfr0_el1, 1) != Some(true)
-        {
-            let fpen = (self.sysregs.el1.cpacr >> 20) & 3;
-            if fpen != 3 {
-                let target = self.pauth_controls().local_exception_target();
-                return Err(ArmError::ArchitecturalException {
-                    ec: if target == 2 { 0 } else { 7 },
-                    iss: if target == 2 {
-                        0
-                    } else {
-                        (1 << 24) | (u32::from(insn.cond.map_or(14, |cond| cond as u8)) << 20)
-                    },
-                    target_el: Some(target),
-                });
-            }
-        }
+        // The shared A32 executor checks FP permissions using an enclosing-PE
+        // control view before performing any register or memory effects.
         Ok(())
     }
 }

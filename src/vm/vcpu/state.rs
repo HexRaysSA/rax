@@ -703,7 +703,9 @@ pub struct Aarch32SystemRegisters {
     pub nmrr: u32,
 }
 
-/// Complete AArch32 CPU state snapshot.
+/// Public AArch32 register projection. Additional banked/CP15/FP controls and
+/// backend execution state require a complete backend context, such as
+/// [`crate::backend::emulator::aarch32::Aarch32Vcpu::save_context`].
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Aarch32CpuState {
     pub regs: Aarch32Registers,

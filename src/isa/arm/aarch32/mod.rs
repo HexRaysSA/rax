@@ -5,3 +5,6 @@ pub mod cpu;
 pub mod instructions;
 pub mod mmu_v6;
 pub mod vfp;
+
+pub(crate) mod checkpoint;
+pub(crate) mod fp_controls;

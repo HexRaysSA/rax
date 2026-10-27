@@ -152,6 +152,10 @@ pub(super) fn fixed_legacy(
                 read: op < 0xa2,
                 write: op >= 0xa2,
                 segment: match ctx.segment_override {
+                    Some(0x26) => "es",
+                    Some(0x2e) => "cs",
+                    Some(0x36) => "ss",
+                    Some(0x3e) => "ds",
                     Some(0x64) => "fs",
                     Some(0x65) => "gs",
                     _ => "ds",

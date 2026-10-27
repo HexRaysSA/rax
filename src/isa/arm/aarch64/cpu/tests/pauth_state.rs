@@ -64,7 +64,10 @@ fn pauth_state_bincode_roundtrip_preserves_keys_controls_and_higher_el_banks() {
     assert_eq!(restored.sysregs.el2.spsr, 0x3c5);
     assert_eq!(restored.sysregs.el3.elr, 0x3450);
     assert_eq!(restored.sysregs.el3.spsr, 0x3c9);
-    assert_eq!(crate::codec::serialize(&restored.export_sregs()).unwrap(), bytes);
+    assert_eq!(
+        crate::codec::serialize(&restored.export_sregs()).unwrap(),
+        bytes
+    );
     // Every truncated serialization must fail rather than default missing keys.
     for end in 0..bytes.len() {
         assert!(crate::codec::deserialize::<Aarch64SystemRegisters>(&bytes[..end]).is_err());
@@ -116,7 +119,10 @@ fn pauth_state_omitted_keys_cannot_enable_authentication_during_import() {
             ..Default::default()
         };
         assert!(cpu.import_sregs(&incomplete).is_err());
-        assert_eq!(crate::codec::serialize(&cpu.export_sregs()).unwrap(), before);
+        assert_eq!(
+            crate::codec::serialize(&cpu.export_sregs()).unwrap(),
+            before
+        );
     }
 }
 

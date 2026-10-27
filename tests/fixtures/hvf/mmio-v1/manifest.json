@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "cases": 1204,
+  "case_bytes": 168,
+  "record_bytes": 152,
+  "framing_bytes": 20,
+  "guest_ram_bytes": 67108864,
+  "scope": "1204 actual CPL0 long-mode RAM MOV/MOVSX/MOVZX executions;16 GPRs, high-byte aliases, partial/zero/sign extension and immediates. Product plans expose the same operand as an MMIO hole. Not native VMX/device delivery.",
+  "tool_sha256": "517c376c8365eb6c8c58629e1b4fb39ca120cfe30c36e0717dc5318555720f80",
+  "guest_source_sha256": "1ba01779b9eed974b3cc8eb13bead2b69b9fd3b65b999876328c4d60e158eecc",
+  "artifact_sha256": {
+    "cases.bin": "fd44792b6709b74d15b9eede18f153f86ebefb6ec7f6a3750b8b00e97f0e4d06",
+    "records.bin": "f77218679338674a5394291529ad5fb6dedeff438cd42a60bcfec3f3dfb4c890",
+    "guest.s": "a57f7abc2d2174a2cece76c8601666c1b4c77bd975af45578165200bf1ff9623",
+    "guest.elf": "22f86afde9c4b8b7c2d94cc7a16eeda3b979be385f7973b3bd86338c7d0e53d9"
+  },
+  "reference_commands": [
+    {
+      "name": "qemu-version",
+      "args": [
+        "qemu-system-x86_64",
+        "--version"
+      ],
+      "code": 0,
+      "seconds": 0.06827312498353422
+    },
+    {
+      "name": "llvm-version",
+      "args": [
+        "/Users/int/local/bin/llvm-mc",
+        "--version"
+      ],
+      "code": 0,
+      "seconds": 0.014697332982905209
+    },
+    {
+      "name": "assemble",
+      "args": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=i386-none-elf",
+        "-filetype=obj",
+        "guest.s",
+        "-o",
+        "guest.o"
+      ],
+      "code": 0,
+      "seconds": 0.010463958024047315
+    },
+    {
+      "name": "link",
+      "args": [
+        "/Users/int/local/bin/ld.lld",
+        "-m",
+        "elf_i386",
+        "-T",
+        "link.ld",
+        "guest.o",
+        "-o",
+        "guest.elf"
+      ],
+      "code": 0,
+      "seconds": 0.07586524996440858
+    },
+    {
+      "name": "qemu",
+      "args": [
+        "qemu-system-x86_64",
+        "-machine",
+        "pc",
+        "-cpu",
+        "Haswell-noTSX",
+        "-accel",
+        "tcg,thread=single",
+        "-m",
+        "64M",
+        "-nodefaults",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "none",
+        "-debugcon",
+        "file:/Users/int/dev/rax-audit-work/rax-hvf-mmio/reference-final/records.bin",
+        "-device",
+        "isa-debug-exit,iobase=0xf4,iosize=0x04",
+        "-no-reboot",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/rax-hvf-mmio/reference-final/guest.elf"
+      ],
+      "code": 33,
+      "seconds": 0.38383870804682374
+    }
+  ]
+}

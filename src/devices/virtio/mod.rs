@@ -50,17 +50,17 @@
 //! each chained request to the device and post completions to the used ring.
 //! What is *partial / deferred*:
 //!
-//! * Indirect descriptors (`VIRTIO_F_RING_INDIRECT_DESC`) are not followed.
+//! * Negotiated indirect descriptors and checked split-ring publication are supported.
 //! * Used/available event suppression (`VIRTIO_F_EVENT_IDX`) is not honoured.
 //! * Interrupt delivery is surfaced via [`VirtioMmio::interrupt_status`] /
 //!   [`VirtioMmio::take_interrupt`] for an orchestrator to inject; the transport
 //!   does not itself raise a guest interrupt line.
 //!
-//! These omissions are isolated to the ring-walking path; the register
-//! interface, feature negotiation, status handshake, and queue setup are
-//! complete and spec-exact.
+//! Hardware interrupt routing, concurrent DMA synchronization and complete
+//! checkpoint integration remain separate platform requirements.
 
 pub mod blk;
+pub mod block_image;
 
 use super::bus::MmioDevice;
 
@@ -125,6 +125,8 @@ pub const VIRTIO_F_VERSION_1: u64 = 1 << 32;
 
 /// Number of 32-bit feature words exposed (bits 0..63 => words 0 and 1).
 const FEATURE_WORDS: usize = 2;
+/// Negotiated split-ring indirect descriptor support.
+pub const VIRTIO_F_INDIRECT_DESC: u64 = 1 << 28;
 
 /// Maximum number of descriptors we allow per queue. Power of two as required
 /// by the spec.
@@ -187,204 +189,11 @@ impl Mem for VecMem {
     }
 }
 
-// ---- Split virtqueue descriptor flags --------------------------------------
-
-/// Buffer continues via `next`.
-pub const VRING_DESC_F_NEXT: u16 = 1;
-/// Buffer is device-write-only (otherwise device-read-only).
-pub const VRING_DESC_F_WRITE: u16 = 2;
-/// Buffer contains a list of indirect descriptors (not followed; deferred).
-pub const VRING_DESC_F_INDIRECT: u16 = 4;
-
-/// A single split-virtqueue descriptor (16 bytes, little-endian).
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Descriptor {
-    pub addr: u64,
-    pub len: u32,
-    pub flags: u16,
-    pub next: u16,
-}
-
-impl Descriptor {
-    const SIZE: u64 = 16;
-
-    fn read_from<M: Mem>(mem: &M, gpa: u64) -> Option<Descriptor> {
-        let mut buf = [0u8; 16];
-        if !mem.read(gpa, &mut buf) {
-            return None;
-        }
-        Some(Descriptor {
-            addr: u64::from_le_bytes(buf[0..8].try_into().unwrap()),
-            len: u32::from_le_bytes(buf[8..12].try_into().unwrap()),
-            flags: u16::from_le_bytes(buf[12..14].try_into().unwrap()),
-            next: u16::from_le_bytes(buf[14..16].try_into().unwrap()),
-        })
-    }
-
-    pub fn has_next(&self) -> bool {
-        self.flags & VRING_DESC_F_NEXT != 0
-    }
-
-    pub fn is_write_only(&self) -> bool {
-        self.flags & VRING_DESC_F_WRITE != 0
-    }
-}
-
-/// One descriptor chain resolved from the available ring, with the head index
-/// needed to post the completion into the used ring.
-pub struct DescriptorChain {
-    /// Index of the head descriptor (the value to write into the used ring).
-    pub head: u16,
-    /// The descriptors making up the chain, in order.
-    pub descriptors: Vec<Descriptor>,
-}
-
-/// Per-queue transport state and the split-ring walker.
-///
-/// Holds the negotiated size, ready flag, and the three guest-physical ring
-/// addresses programmed through the MMIO registers. The actual data structures
-/// live in guest memory; [`VirtQueue::process`] reads them on demand.
-#[derive(Clone, Debug)]
-pub struct VirtQueue {
-    /// Negotiated queue size (number of descriptors). Must be a power of two.
-    pub size: u32,
-    /// 1 once the driver has set QueueReady.
-    pub ready: bool,
-    /// Guest physical address of the descriptor table.
-    pub desc_addr: u64,
-    /// Guest physical address of the available ring (a.k.a. "driver area").
-    pub avail_addr: u64,
-    /// Guest physical address of the used ring (a.k.a. "device area").
-    pub used_addr: u64,
-    /// Next available-ring index we have not yet consumed.
-    pub last_avail_idx: u16,
-}
-
-impl Default for VirtQueue {
-    fn default() -> Self {
-        VirtQueue {
-            size: 0,
-            ready: false,
-            desc_addr: 0,
-            avail_addr: 0,
-            used_addr: 0,
-            last_avail_idx: 0,
-        }
-    }
-}
-
-impl VirtQueue {
-    /// Read the available ring's `idx` field (offset 2 in the avail ring).
-    fn avail_idx<M: Mem>(&self, mem: &M) -> Option<u16> {
-        let mut buf = [0u8; 2];
-        if !mem.read(self.avail_addr + 2, &mut buf) {
-            return None;
-        }
-        Some(u16::from_le_bytes(buf))
-    }
-
-    /// Read the descriptor head index stored at available-ring slot `slot`.
-    /// The avail ring layout is: flags(2), idx(2), ring[size](2 each).
-    fn avail_ring_entry<M: Mem>(&self, mem: &M, slot: u16) -> Option<u16> {
-        let off = 4 + (slot as u64 % self.size as u64) * 2;
-        let mut buf = [0u8; 2];
-        if !mem.read(self.avail_addr + off, &mut buf) {
-            return None;
-        }
-        Some(u16::from_le_bytes(buf))
-    }
-
-    /// Resolve a single descriptor chain starting at descriptor index `head`.
-    ///
-    /// Follows the `next` links up to `size` hops (guarding against cycles).
-    /// Indirect descriptors are not expanded (deferred); the chain is returned
-    /// with the indirect descriptor included verbatim so callers can detect it.
-    fn read_chain<M: Mem>(&self, mem: &M, head: u16) -> Option<DescriptorChain> {
-        let mut descriptors = Vec::new();
-        let mut idx = head;
-        for _ in 0..self.size {
-            let gpa = self.desc_addr + (idx as u64) * Descriptor::SIZE;
-            let desc = Descriptor::read_from(mem, gpa)?;
-            let has_next = desc.has_next();
-            let next = desc.next;
-            descriptors.push(desc);
-            if !has_next {
-                return Some(DescriptorChain { head, descriptors });
-            }
-            idx = next;
-            if idx as u32 >= self.size {
-                return None;
-            }
-        }
-        // Ran past `size` descriptors without terminating: malformed ring.
-        None
-    }
-
-    /// Append a completion to the used ring: record the head index and the
-    /// number of bytes written, then publish by bumping the used `idx`.
-    ///
-    /// Used ring layout: flags(2), idx(2), ring[size] of { id:u32, len:u32 }.
-    fn push_used<M: Mem>(&self, mem: &mut M, head: u16, len: u32) -> bool {
-        // Read current used idx.
-        let mut idx_buf = [0u8; 2];
-        if !mem.read(self.used_addr + 2, &mut idx_buf) {
-            return false;
-        }
-        let used_idx = u16::from_le_bytes(idx_buf);
-        let slot = (used_idx as u64 % self.size as u64) * 8;
-        let entry_off = self.used_addr + 4 + slot;
-        if !mem.write(entry_off, &(head as u32).to_le_bytes()) {
-            return false;
-        }
-        if !mem.write(entry_off + 4, &len.to_le_bytes()) {
-            return false;
-        }
-        // Publish: bump used idx (wraps naturally as a u16).
-        let new_idx = used_idx.wrapping_add(1);
-        mem.write(self.used_addr + 2, &new_idx.to_le_bytes())
-    }
-
-    /// Process every newly-available descriptor chain.
-    ///
-    /// For each chain, `handler` is invoked with the resolved chain and the
-    /// guest memory; it returns the number of bytes it wrote into the chain's
-    /// device-writable buffers, which is recorded in the used ring. Returns the
-    /// number of chains processed (0 if the queue is idle / not ready).
-    pub fn process<M, F>(&mut self, mem: &mut M, mut handler: F) -> u32
-    where
-        M: Mem,
-        F: FnMut(&DescriptorChain, &mut M) -> u32,
-    {
-        if !self.ready || self.size == 0 {
-            return 0;
-        }
-        let target = match self.avail_idx(mem) {
-            Some(v) => v,
-            None => return 0,
-        };
-        let mut processed = 0u32;
-        while self.last_avail_idx != target {
-            let head = match self.avail_ring_entry(mem, self.last_avail_idx) {
-                Some(h) => h,
-                None => break,
-            };
-            if head as u32 >= self.size {
-                break;
-            }
-            let chain = match self.read_chain(mem, head) {
-                Some(c) => c,
-                None => break,
-            };
-            let written = handler(&chain, mem);
-            if !self.push_used(mem, head, written) {
-                break;
-            }
-            self.last_avail_idx = self.last_avail_idx.wrapping_add(1);
-            processed += 1;
-        }
-        processed
-    }
-}
+mod queue;
+pub use queue::{
+    Descriptor, DescriptorChain, QueueError, VRING_DESC_F_INDIRECT, VRING_DESC_F_NEXT,
+    VRING_DESC_F_WRITE, VirtQueue,
+};
 
 /// Interface a concrete virtio device implements to be driven by the transport.
 pub trait VirtioDevice: Send {
@@ -404,6 +213,18 @@ pub trait VirtioDevice: Send {
     /// transport's per-queue state for that index, and `mem` is guest memory.
     /// Implementations typically call [`VirtQueue::process`].
     fn handle_queue(&mut self, queue_idx: usize, queue: &mut VirtQueue, mem: &mut dyn Mem);
+    /// Feature-aware checked path. Existing device implementations retain their
+    /// callback; devices offering indirect descriptors can override this method.
+    fn handle_queue_with_features(
+        &mut self,
+        queue_idx: usize,
+        queue: &mut VirtQueue,
+        mem: &mut dyn Mem,
+        _features: u64,
+    ) -> Result<(), QueueError> {
+        self.handle_queue(queue_idx, queue, mem);
+        Ok(())
+    }
 }
 
 /// The virtio MMIO transport wrapping a concrete [`VirtioDevice`].
@@ -444,7 +265,7 @@ impl<M: Mem> VirtioMmio<M> {
             driver_features_sel: 0,
             driver_features: 0,
             queue_sel: 0,
-            queues: vec![VirtQueue::default(); num_queues.max(1)],
+            queues: vec![VirtQueue::default(); num_queues],
             status: 0,
             interrupt_status: 0,
             config_generation: 0,
@@ -460,6 +281,9 @@ impl<M: Mem> VirtioMmio<M> {
     /// Features that have actually been negotiated (driver bits masked by what
     /// the device offered).
     pub fn negotiated_features(&self) -> u64 {
+        if self.status & STATUS_FEATURES_OK == 0 {
+            return 0;
+        }
         self.driver_features & self.offered_features()
     }
 
@@ -484,15 +308,17 @@ impl<M: Mem> VirtioMmio<M> {
         &self.mem
     }
 
-    /// Borrow the selected queue (clamped to a valid index).
-    fn selected_queue(&self) -> &VirtQueue {
-        let idx = (self.queue_sel as usize).min(self.queues.len() - 1);
-        &self.queues[idx]
+    fn selected_queue(&self) -> Option<&VirtQueue> {
+        self.queues.get(self.queue_sel as usize)
     }
-
-    fn selected_queue_mut(&mut self) -> &mut VirtQueue {
-        let idx = (self.queue_sel as usize).min(self.queues.len() - 1);
-        &mut self.queues[idx]
+    fn selected_queue_mut(&mut self) -> Option<&mut VirtQueue> {
+        self.queues.get_mut(self.queue_sel as usize)
+    }
+    fn needs_reset(&mut self) {
+        self.status |= STATUS_DEVICE_NEEDS_RESET;
+        if self.status & STATUS_DRIVER_OK != 0 {
+            self.interrupt_status |= INT_CONFIG_CHANGE;
+        }
     }
 
     /// Reset all transport/device negotiation state (Status write of 0).
@@ -523,8 +349,10 @@ impl<M: Mem> VirtioMmio<M> {
                     _ => 0,
                 }
             }
-            REG_QUEUE_NUM_MAX => QUEUE_SIZE_MAX,
-            REG_QUEUE_READY => self.selected_queue().ready as u32,
+            REG_QUEUE_NUM_MAX => self.selected_queue().map_or(0, |_| QUEUE_SIZE_MAX),
+            REG_QUEUE_READY => self
+                .selected_queue()
+                .map_or(0, |queue| u32::from(queue.ready)),
             REG_INTERRUPT_STATUS => self.interrupt_status,
             REG_STATUS => self.status,
             REG_CONFIG_GENERATION => self.config_generation,
@@ -541,10 +369,14 @@ impl<M: Mem> VirtioMmio<M> {
                 self.device_features_sel = value;
             }
             REG_DRIVER_FEATURES => {
-                let word = (self.driver_features_sel as usize).min(FEATURE_WORDS - 1);
-                let shift = word as u64 * 32;
-                let mask = 0xffff_ffffu64 << shift;
-                self.driver_features = (self.driver_features & !mask) | ((value as u64) << shift);
+                if self.status & STATUS_FEATURES_OK == 0
+                    && self.driver_features_sel < FEATURE_WORDS as u32
+                {
+                    let shift = u64::from(self.driver_features_sel) * 32;
+                    let mask = 0xffff_ffffu64 << shift;
+                    self.driver_features =
+                        (self.driver_features & !mask) | (u64::from(value) << shift);
+                }
             }
             REG_DRIVER_FEATURES_SEL => {
                 self.driver_features_sel = value;
@@ -553,17 +385,28 @@ impl<M: Mem> VirtioMmio<M> {
                 self.queue_sel = value;
             }
             REG_QUEUE_NUM => {
-                // Clamp to the maximum and require a power of two; an invalid
-                // size leaves the queue at 0, which keeps it inert.
-                let size = if value.is_power_of_two() && value <= QUEUE_SIZE_MAX {
-                    value
-                } else {
-                    0
-                };
-                self.selected_queue_mut().size = size;
+                if let Some(queue) = self.selected_queue_mut() {
+                    if !queue.ready {
+                        queue.size = if value.is_power_of_two() && value <= QUEUE_SIZE_MAX {
+                            value
+                        } else {
+                            0
+                        };
+                    }
+                }
             }
             REG_QUEUE_READY => {
-                self.selected_queue_mut().ready = value & 1 != 0;
+                if let Some(queue) = self.selected_queue_mut() {
+                    queue.ready = value & 1 != 0;
+                    if queue.ready
+                        && (queue.size == 0
+                            || queue.desc_addr % 16 != 0
+                            || queue.avail_addr % 2 != 0
+                            || queue.used_addr % 4 != 0)
+                    {
+                        self.needs_reset();
+                    }
+                }
             }
             REG_QUEUE_NOTIFY => {
                 self.notify(value as usize);
@@ -576,32 +419,39 @@ impl<M: Mem> VirtioMmio<M> {
                 if value == 0 {
                     self.reset();
                 } else {
-                    self.status = value;
+                    let mut status = self.status | value;
+                    if status & STATUS_FEATURES_OK != 0
+                        && (self.driver_features & !self.offered_features() != 0
+                            || self.driver_features & VIRTIO_F_VERSION_1 == 0)
+                    {
+                        status &= !STATUS_FEATURES_OK;
+                    }
+                    self.status = status;
                 }
             }
-            REG_QUEUE_DESC_LOW => {
-                let q = self.selected_queue_mut();
-                q.desc_addr = (q.desc_addr & !0xffff_ffff) | value as u64;
-            }
-            REG_QUEUE_DESC_HIGH => {
-                let q = self.selected_queue_mut();
-                q.desc_addr = (q.desc_addr & 0xffff_ffff) | ((value as u64) << 32);
-            }
-            REG_QUEUE_DRIVER_LOW => {
-                let q = self.selected_queue_mut();
-                q.avail_addr = (q.avail_addr & !0xffff_ffff) | value as u64;
-            }
-            REG_QUEUE_DRIVER_HIGH => {
-                let q = self.selected_queue_mut();
-                q.avail_addr = (q.avail_addr & 0xffff_ffff) | ((value as u64) << 32);
-            }
-            REG_QUEUE_DEVICE_LOW => {
-                let q = self.selected_queue_mut();
-                q.used_addr = (q.used_addr & !0xffff_ffff) | value as u64;
-            }
-            REG_QUEUE_DEVICE_HIGH => {
-                let q = self.selected_queue_mut();
-                q.used_addr = (q.used_addr & 0xffff_ffff) | ((value as u64) << 32);
+            REG_QUEUE_DESC_LOW
+            | REG_QUEUE_DESC_HIGH
+            | REG_QUEUE_DRIVER_LOW
+            | REG_QUEUE_DRIVER_HIGH
+            | REG_QUEUE_DEVICE_LOW
+            | REG_QUEUE_DEVICE_HIGH => {
+                if let Some(queue) = self.selected_queue_mut() {
+                    if !queue.ready {
+                        let address = match offset {
+                            REG_QUEUE_DESC_LOW | REG_QUEUE_DESC_HIGH => &mut queue.desc_addr,
+                            REG_QUEUE_DRIVER_LOW | REG_QUEUE_DRIVER_HIGH => &mut queue.avail_addr,
+                            _ => &mut queue.used_addr,
+                        };
+                        if matches!(
+                            offset,
+                            REG_QUEUE_DESC_HIGH | REG_QUEUE_DRIVER_HIGH | REG_QUEUE_DEVICE_HIGH
+                        ) {
+                            *address = (*address & 0xffff_ffff) | (u64::from(value) << 32);
+                        } else {
+                            *address = (*address & !0xffff_ffff) | u64::from(value);
+                        }
+                    }
+                }
             }
             _ => {}
         }
@@ -610,19 +460,33 @@ impl<M: Mem> VirtioMmio<M> {
     /// Handle a QueueNotify: drive the device's queue handler and raise the
     /// used-buffer interrupt if it consumed anything.
     fn notify(&mut self, queue_idx: usize) {
-        if queue_idx >= self.queues.len() {
+        let required = STATUS_FEATURES_OK | STATUS_DRIVER_OK;
+        if queue_idx >= self.queues.len()
+            || self.status & required != required
+            || self.status & (STATUS_FAILED | STATUS_DEVICE_NEEDS_RESET) != 0
+        {
             return;
         }
-        // Temporarily take the queue out so we can pass both it and `mem`
-        // mutably to the device without aliasing `self`.
+        let features = self.negotiated_features();
         let mut queue = std::mem::take(&mut self.queues[queue_idx]);
         let before = queue.last_avail_idx;
-        self.device
-            .handle_queue(queue_idx, &mut queue, &mut self.mem);
+        let result =
+            self.device
+                .handle_queue_with_features(queue_idx, &mut queue, &mut self.mem, features);
         let advanced = queue.last_avail_idx != before;
-        self.queues[queue_idx] = queue;
         if advanced {
-            self.interrupt_status |= INT_USED_BUFFER;
+            let mut flags = [0; 2];
+            if self.mem.read(queue.avail_addr, &mut flags) {
+                if u16::from_le_bytes(flags) & 1 == 0 {
+                    self.interrupt_status |= INT_USED_BUFFER;
+                }
+            } else {
+                self.needs_reset();
+            }
+        }
+        self.queues[queue_idx] = queue;
+        if result.is_err() {
+            self.needs_reset();
         }
     }
 }
@@ -749,6 +613,11 @@ mod tests {
         write32(&mut d, REG_DRIVER_FEATURES, 1 << 5);
         write32(&mut d, REG_DRIVER_FEATURES_SEL, 1);
         write32(&mut d, REG_DRIVER_FEATURES, 1);
+        write32(
+            &mut d,
+            REG_STATUS,
+            STATUS_ACKNOWLEDGE | STATUS_DRIVER | STATUS_FEATURES_OK,
+        );
         assert_eq!(d.negotiated_features(), (1 << 5) | VIRTIO_F_VERSION_1);
     }
 
@@ -764,6 +633,8 @@ mod tests {
     #[test]
     fn status_bits_accumulate_and_reset() {
         let mut d = dev();
+        write32(&mut d, REG_DRIVER_FEATURES_SEL, 1);
+        write32(&mut d, REG_DRIVER_FEATURES, 1);
         write32(&mut d, REG_STATUS, STATUS_ACKNOWLEDGE);
         write32(&mut d, REG_STATUS, STATUS_ACKNOWLEDGE | STATUS_DRIVER);
         write32(
@@ -791,13 +662,14 @@ mod tests {
         write32(&mut d, REG_QUEUE_NUM, 64);
         write32(&mut d, REG_QUEUE_READY, 1);
         assert_eq!(read32(&mut d, REG_QUEUE_READY), 1);
-        assert_eq!(d.selected_queue().size, 64);
-        assert!(d.selected_queue().ready);
+        assert_eq!(d.selected_queue().unwrap().size, 64);
+        assert!(d.selected_queue().unwrap().ready);
 
         // A non-power-of-two size is rejected (stays at the prior value? no —
         // we set it to 0 to keep the queue inert).
+        write32(&mut d, REG_QUEUE_READY, 0);
         write32(&mut d, REG_QUEUE_NUM, 100);
-        assert_eq!(d.selected_queue().size, 0);
+        assert_eq!(d.selected_queue().unwrap().size, 0);
     }
 
     #[test]
@@ -810,7 +682,7 @@ mod tests {
         write32(&mut d, REG_QUEUE_DRIVER_HIGH, 0xcccc_dddd);
         write32(&mut d, REG_QUEUE_DEVICE_LOW, 0x0102_0304);
         write32(&mut d, REG_QUEUE_DEVICE_HIGH, 0x0506_0708);
-        let q = d.selected_queue();
+        let q = d.selected_queue().unwrap();
         assert_eq!(q.desc_addr, 0x3333_4444_1111_2222);
         assert_eq!(q.avail_addr, 0xcccc_dddd_aaaa_bbbb);
         assert_eq!(q.used_addr, 0x0506_0708_0102_0304);

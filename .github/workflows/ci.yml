@@ -155,6 +155,39 @@ jobs:
             --test user_darwin \
             --test user_windows \
             -- --include-ignored --test-threads=1 --nocapture
+      # Host fixtures exercise production backend boundaries without creating
+      # a VM. SDK parity runs on macOS; non-macOS SDK targets are cfg-empty.
+      # Enabling hvf also compiles the native adapter on each macOS architecture.
+      - name: cargo test (backend and storage regressions)
+        shell: bash
+        run: |
+          cargo test --locked ${{ matrix.features }} --features hvf \
+            --test hvf_sdk_abi \
+            --test hvf_xsetbv \
+            --test hvf_run_loop \
+            --test hvf_cr8 \
+            --test hvf_sync_exits \
+            --test hvf_event_injection \
+            --test hvf_interrupt_shadow \
+            --test hvf_port_io \
+            --test hvf_guest_translation \
+            --test hvf_mmio \
+            --test controller_irq \
+            --test hvf_controls \
+            --test nvme_prp \
+            --test nvme_sgl \
+            --test nvme_queues \
+            --test nvme_admission \
+            --test nvme_commands \
+            --test virtio_indirect \
+            --test virtio_ranges \
+            --test checkpoint_config \
+            --test ahci_dma \
+            --test storage_images \
+            --test storage_config \
+            --test controller_checkpoint --test pci_checkpoint --test pci_endpoint_checkpoint --test runtime_pci_checkpoint --test checkpoint_pci --test restore_admission --test checkpoint_physical_memory --test runtime_checkpoint_bundle --test checkpoint_resume --test checkpoint_cpus --test retirement_budget --test vm_timing --test retired_clock --test checkpoint_clock --test cortexm_dispatch --test retirement_clock --test x86_retired_tsc --test aarch64_step_jit --test counter_ticks --test hvf_arm64_state --test riscv_hartid --test x86_fault_retirement --test aarch64_affinity --test a32_fp_controls --test a32_fp_pairs \
+            --bin rax \
+            -- --test-threads=1 --nocapture
       # The x86-64 JIT suite executes transient native mappings and intentionally
       # exercises host feature-specific encodings. Run it serially so a native
       # signal is attributable to one test and concurrent JIT executions cannot

@@ -29,7 +29,7 @@
 use std::fmt;
 
 /// VFP/NEON state for ARM processor.
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct VfpState {
     /// 64-bit floating-point registers (D0-D31).
     /// S registers are accessed as low/high 32 bits of D registers.
@@ -205,7 +205,7 @@ impl fmt::Debug for VfpState {
 }
 
 /// Floating-Point Status and Control Register.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
 pub struct Fpscr {
     /// Raw 32-bit value.
     bits: u32,

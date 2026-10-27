@@ -56,6 +56,10 @@ pub struct Engine {
     pub(crate) last_exception: RaxExceptionInfo,
     pub(crate) last_syscall: crate::user::RaxSyscallInfo,
     pub(crate) icount_base: u64,
+    /// Backend count at the last host counter reset or backing reconstruction.
+    /// Full CPU restoration preserves backend counters while the C API starts
+    /// its documented observation count at zero.
+    pub(crate) icount_origin: u64,
     /// Cooperative stop flag honoured by the run loop.
     pub(crate) stop_flag: std::cell::Cell<bool>,
     /// True while inside the run loop (re-entrancy guard for control calls).
@@ -197,6 +201,7 @@ fn open_internal(
         last_exception: RaxExceptionInfo::default(),
         last_syscall: crate::user::RaxSyscallInfo::default(),
         icount_base: 0,
+        icount_origin: 0,
         stop_flag: std::cell::Cell::new(false),
         running: false,
         err_msg: String::new(),
@@ -399,6 +404,7 @@ pub extern "C" fn rax_engine_reset(engine: *mut Engine) -> RaxStatus {
         e.last_exception = RaxExceptionInfo::default();
         e.last_syscall = crate::user::RaxSyscallInfo::default();
         e.icount_base = 0;
+        e.icount_origin = 0;
         e.stop_flag.set(false);
         RaxStatus::Ok
     })

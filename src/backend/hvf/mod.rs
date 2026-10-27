@@ -11,11 +11,25 @@
 
 mod bindings;
 #[cfg(target_arch = "x86_64")]
+mod controls;
+#[cfg(target_arch = "x86_64")]
 mod convert;
 #[cfg(target_arch = "x86_64")]
 mod cr8;
+#[cfg(target_arch = "x86_64")]
+mod event_injection;
+#[cfg(target_arch = "x86_64")]
+mod guest_translation;
+#[cfg(target_arch = "x86_64")]
+mod interrupt_shadow;
+#[cfg(target_arch = "x86_64")]
+mod mmio;
+#[cfg(target_arch = "x86_64")]
+mod port_io;
 pub mod rosetta;
 mod run_loop;
+#[cfg(target_arch = "x86_64")]
+mod sync_exit;
 #[cfg(target_arch = "x86_64")]
 mod xsetbv;
 
@@ -37,7 +51,7 @@ use std::sync::{Arc, Mutex};
 #[cfg(target_arch = "x86_64")]
 use tracing::{debug, info, warn};
 #[cfg(target_arch = "x86_64")]
-use vm_memory::{Address, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
+use vm_memory::{Address, Bytes, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
 
 #[cfg(target_arch = "x86_64")]
 use crate::error::{Error, Result};
@@ -218,12 +232,11 @@ pub struct HvfVcpu {
     mem: Arc<GuestMemoryMmap>,
     /// CPUID configuration
     cpuid_config: CpuidConfig,
-    /// Pending I/O in data pointer (port, size)
-    pending_io_in: Option<(u16, u8)>,
+    /// Scalar input request and terminal completion failure.
+    port_input: port_io::InputState,
+    mmio_input: mmio::InputState,
     /// Whether the vCPU is halted
     halted: bool,
-    /// Pending interrupt to inject
-    pending_interrupt: Option<u8>,
 }
 
 // Safety: HvfVcpu is Send because the vCPU ID is a u32 identifier,
@@ -244,9 +257,9 @@ impl HvfVcpu {
             id,
             mem,
             cpuid_config,
-            pending_io_in: None,
+            port_input: port_io::InputState::default(),
+            mmio_input: mmio::InputState::default(),
             halted: false,
-            pending_interrupt: None,
         };
 
         // Initialize VMCS
@@ -319,24 +332,13 @@ impl HvfVcpu {
         struct Access<'a> {
             vcpu: &'a HvfVcpu,
         }
-        fn register(index: u8) -> Result<hv_x86_reg_t> {
-            use hv_x86_reg_t::*;
-            const REGISTERS: [hv_x86_reg_t; 16] = [
-                HV_X86_RAX, HV_X86_RCX, HV_X86_RDX, HV_X86_RBX, HV_X86_RSP, HV_X86_RBP, HV_X86_RSI,
-                HV_X86_RDI, HV_X86_R8, HV_X86_R9, HV_X86_R10, HV_X86_R11, HV_X86_R12, HV_X86_R13,
-                HV_X86_R14, HV_X86_R15,
-            ];
-            REGISTERS.get(usize::from(index)).copied().ok_or_else(|| {
-                Error::Emulator(format!("invalid VMX CR8 general-register index {index}"))
-            })
-        }
         impl cr8::Cr8Access for Access<'_> {
             type Error = Error;
             fn read_gpr(&mut self, index: u8) -> Result<u64> {
-                read_register(self.vcpu.vcpu_id, register(index)?)
+                read_register(self.vcpu.vcpu_id, general_register(index)?)
             }
             fn write_gpr(&mut self, index: u8, value: u64) -> Result<()> {
-                write_register(self.vcpu.vcpu_id, register(index)?, value)
+                write_register(self.vcpu.vcpu_id, general_register(index)?, value)
             }
             fn read_tpr(&mut self) -> Result<u64> {
                 read_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_TPR)
@@ -361,71 +363,37 @@ impl HvfVcpu {
 
     /// Initialize VMCS fields for the vCPU.
     fn init_vmcs(&self) -> Result<()> {
-        use hv_vmx_vmcs_field_t::*;
-
-        // Get VMX capabilities to determine which controls we can enable
-        let mut pin_cap: u64 = 0;
-        let mut proc_cap: u64 = 0;
-        let mut proc2_cap: u64 = 0;
-        let mut entry_cap: u64 = 0;
-        let mut exit_cap: u64 = 0;
-
-        unsafe {
-            hv_vmx_read_capability(HV_VMX_CAP_PINBASED, &mut pin_cap);
-            hv_vmx_read_capability(HV_VMX_CAP_PROCBASED, &mut proc_cap);
-            hv_vmx_read_capability(HV_VMX_CAP_PROCBASED2, &mut proc2_cap);
-            hv_vmx_read_capability(HV_VMX_CAP_ENTRY, &mut entry_cap);
-            hv_vmx_read_capability(HV_VMX_CAP_EXIT, &mut exit_cap);
+        struct Access {
+            id: hv_vcpuid_t,
         }
-
-        // Pin-based controls: enable external interrupt exiting
-        let pin_based = self.cap2ctrl(pin_cap, PIN_BASED_EXT_INTR_EXIT | PIN_BASED_NMI_EXIT);
-        vmcs_write(self.vcpu_id, VMCS_CTRL_PIN_BASED, pin_based)?;
-
-        // Primary processor-based controls
-        let proc_based = self.cap2ctrl(
-            proc_cap,
-            CPU_BASED_HLT_EXIT
-                | CPU_BASED_CR8_LOAD_EXIT
-                | CPU_BASED_CR8_STORE_EXIT
-                | CPU_BASED_UNCOND_IO_EXIT
-                | CPU_BASED_SECONDARY_CONTROLS,
-        );
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CPU_BASED, proc_based)?;
-
-        // Secondary processor-based controls: enable EPT, unrestricted guest
-        let proc2_based = self.cap2ctrl(
-            proc2_cap,
-            CPU_BASED2_EPT | CPU_BASED2_UNRESTRICTED_GUEST | CPU_BASED2_RDTSCP,
-        );
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CPU_BASED2, proc2_based)?;
-
-        // VM-entry controls: load EFER, IA-32e guest mode
-        let entry_ctls = self.cap2ctrl(entry_cap, VMENTRY_LOAD_IA32_EFER | VMENTRY_GUEST_IA32E);
-        vmcs_write(self.vcpu_id, VMCS_CTRL_VMENTRY_CONTROLS, entry_ctls)?;
-
-        // Exception bitmap: trap no exceptions initially
-        vmcs_write(self.vcpu_id, VMCS_CTRL_EXC_BITMAP, 0)?;
-
-        // CR0/CR4 masks and shadows - allow guest to modify most bits
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CR0_MASK, CR0_NE)?;
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CR0_SHADOW, CR0_NE)?;
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CR4_MASK, 0)?;
-        vmcs_write(self.vcpu_id, VMCS_CTRL_CR4_SHADOW, 0)?;
-
-        // Guest link pointer (for nested virtualization, set to -1 for none)
-        vmcs_write(self.vcpu_id, VMCS_GUEST_LINK_POINTER, 0xFFFFFFFF_FFFFFFFF)?;
-
+        impl controls::ControlAccess for Access {
+            type Error = Error;
+            fn capability(&mut self, field: hv_vmx_capability_t) -> Result<u64> {
+                let mut value = 0;
+                let status = unsafe { hv_vmx_read_capability(field, &mut value) };
+                if status != HV_SUCCESS {
+                    return Err(Error::Emulator(format!(
+                        "Failed to read VMX capability {field}: {}",
+                        hv_error_string(status)
+                    )));
+                }
+                Ok(value)
+            }
+            fn write(&mut self, field: hv_vmx_vmcs_field_t, value: u64) -> Result<()> {
+                vmcs_write(self.id, field, value)
+            }
+        }
+        controls::initialize(&mut Access { id: self.vcpu_id }).map_err(|error| match error {
+            controls::ControlError::Host(error) => error,
+            controls::ControlError::Inconsistent { capability, bits } => Error::Emulator(format!(
+                "VMX capability {capability} requires disallowed control bits {bits:#010x}"
+            )),
+            controls::ControlError::Unsupported { capability, bits } => Error::Emulator(format!(
+                "VMX capability {capability} lacks required control bits {bits:#010x}"
+            )),
+        })?;
         debug!(vcpu_id = self.vcpu_id, "Initialized VMCS");
         Ok(())
-    }
-
-    /// Convert capability to control value.
-    /// The capability encodes allowed 0->1 and 1->0 transitions.
-    fn cap2ctrl(&self, cap: u64, ctrl: u64) -> u64 {
-        let allowed_0 = cap & 0xFFFFFFFF; // Bits that may be 0
-        let allowed_1 = (cap >> 32) & 0xFFFFFFFF; // Bits that may be 1
-        (ctrl | allowed_0) & allowed_1
     }
 
     /// Handle CPUID exit.
@@ -453,8 +421,8 @@ impl HvfVcpu {
         write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX, ecx as u64)?;
         write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RDX, edx as u64)?;
 
-        // Advance RIP past the CPUID instruction (2 bytes)
-        self.advance_rip(2)?;
+        // Advance RIP past the complete CPUID encoding
+        self.advance_current_instruction()?;
 
         Ok(())
     }
@@ -518,8 +486,8 @@ impl HvfVcpu {
         write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX, value & 0xFFFFFFFF)?;
         write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RDX, value >> 32)?;
 
-        // Advance RIP past the RDMSR instruction (2 bytes)
-        self.advance_rip(2)?;
+        // Advance RIP past the complete RDMSR encoding
+        self.advance_current_instruction()?;
 
         Ok(None)
     }
@@ -609,62 +577,226 @@ impl HvfVcpu {
             }
         }
 
-        // Advance RIP past the WRMSR instruction (2 bytes)
-        self.advance_rip(2)?;
+        // Advance RIP past the complete WRMSR encoding
+        self.advance_current_instruction()?;
 
         Ok(None)
     }
 
-    /// Advance RIP by the given number of bytes.
-    fn advance_rip(&self, bytes: u64) -> Result<()> {
-        let rip = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP)?;
-        write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP, rip + bytes)
+    /// Retire the complete instruction encoding supplied by the VM exit.
+    fn advance_current_instruction(&self) -> Result<()> {
+        let length = vmcs_read(
+            self.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_EXIT_INSTRUCTION_LENGTH,
+        )?;
+        self.advance_rip(length)
     }
 
-    /// Inject a pending interrupt if possible.
-    fn try_inject_interrupt(&mut self) -> Result<()> {
-        if self.pending_interrupt.is_some()
-            && vmcs_read(
-                self.vcpu_id,
-                hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
-            )? & u64::from(INTR_INFO_VALID)
-                != 0
-        {
-            return Ok(());
+    fn advance_rip(&self, bytes: u64) -> Result<()> {
+        struct Access<'a> {
+            vcpu: &'a HvfVcpu,
+            next: u64,
         }
-        if let Some(vector) = self.pending_interrupt.take() {
-            // Check if interrupts are enabled
-            let rflags = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)?;
-            if (rflags & RFLAGS_IF) == 0 {
-                // Interrupts disabled, put it back
-                self.pending_interrupt = Some(vector);
-                return Ok(());
+        impl interrupt_shadow::Access for Access<'_> {
+            type Error = Error;
+            fn interruptibility(&mut self) -> Result<u64> {
+                vmcs_read(
+                    self.vcpu.vcpu_id,
+                    hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
+                )
             }
-
-            // Check interruptibility state
-            let interruptibility = vmcs_read(
-                self.vcpu_id,
-                hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
-            )?;
-            if interruptibility != 0 {
-                // Not interruptible (e.g., after STI or MOV SS)
-                self.pending_interrupt = Some(vector);
-                return Ok(());
+            fn advance_ip(&mut self) -> Result<()> {
+                write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RIP, self.next)
             }
+            fn write_interruptibility(&mut self, value: u64) -> Result<()> {
+                vmcs_write(
+                    self.vcpu.vcpu_id,
+                    hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
+                    value,
+                )
+            }
+        }
+        let rip = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP)?;
+        let efer = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_IA32_EFER)?;
+        let cs = vmcs_read(
+            self.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_GUEST_CS_ACCESS_RIGHTS,
+        )?;
+        let bits = sync_exit::code_width(efer, cs);
+        let next = sync_exit::next_ip(rip, bytes, bits).map_err(|reason| {
+            Error::Emulator(format!(
+                "invalid HVF instruction advance:{reason:?},length={bytes},bits={bits}"
+            ))
+        })?;
+        interrupt_shadow::complete(&mut Access { vcpu: self, next })
+    }
 
-            // Inject the interrupt via VM-entry
-            let intr_info = (vector as u64)
-                | ((INTR_TYPE_EXT_INTR as u64) << INTR_INFO_TYPE_SHIFT)
-                | (INTR_INFO_VALID as u64);
-            vmcs_write(
-                self.vcpu_id,
-                hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
-                intr_info,
-            )?;
+    fn io_ready(&self) -> Result<()> {
+        self.port_input
+            .ready()
+            .and_then(|()| self.mmio_input.ready())
+            .map_err(|error| Error::Emulator(error.into()))
+    }
 
+    fn retire_mmio(&self, length: u64) -> Result<()> {
+        struct Access<'a> {
+            vcpu: &'a HvfVcpu,
+        }
+        impl mmio::RetirementAccess for Access<'_> {
+            type Error = Error;
+            fn rflags(&mut self) -> Result<u64> {
+                read_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)
+            }
+            fn advance_instruction(&mut self, length: u64) -> Result<()> {
+                self.vcpu.advance_rip(length)
+            }
+            fn write_rflags(&mut self, flags: u64) -> Result<()> {
+                write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS, flags)
+            }
+        }
+        mmio::retire(&mut Access { vcpu: self }, length)
+    }
+
+    fn prepare_mmio(&self) -> Result<mmio::Plan> {
+        use hv_vmx_vmcs_field_t::*;
+        struct Memory<'a> {
+            ram: &'a GuestMemoryMmap,
+        }
+        impl guest_translation::PhysicalMemory for Memory<'_> {
+            fn contains_ram(&self, address: u64, size: usize) -> bool {
+                self.ram.check_range(GuestAddress(address), size)
+            }
+            fn read_physical(
+                &mut self,
+                address: u64,
+                bytes: &mut [u8],
+            ) -> std::result::Result<(), String> {
+                self.ram
+                    .read_slice(bytes, GuestAddress(address))
+                    .map_err(|error| {
+                        format!("HVF guest instruction inspection at {address:#x}: {error}")
+                    })
+            }
+        }
+        let id = self.vcpu_id;
+        let mut registers = [0; 16];
+        for (index, value) in registers.iter_mut().enumerate() {
+            *value = read_register(id, general_register(index as u8)?)?;
+        }
+        let mut segments = [0; 6];
+        for (value, field) in segments.iter_mut().zip([
+            VMCS_GUEST_ES_BASE,
+            VMCS_GUEST_CS_BASE,
+            VMCS_GUEST_SS_BASE,
+            VMCS_GUEST_DS_BASE,
+            VMCS_GUEST_FS_BASE,
+            VMCS_GUEST_GS_BASE,
+        ]) {
+            *value = vmcs_read(id, field)?;
+        }
+        let cr0 = read_register(id, hv_x86_reg_t::HV_X86_CR0)?;
+        let cr3 = read_register(id, hv_x86_reg_t::HV_X86_CR3)?;
+        let cr4 = read_register(id, hv_x86_reg_t::HV_X86_CR4)?;
+        let efer = vmcs_read(id, VMCS_GUEST_IA32_EFER)?;
+        let cs = vmcs_read(id, VMCS_GUEST_CS_ACCESS_RIGHTS)?;
+        let code_bits = if efer & (1 << 10) != 0 && cs & (1 << 13) != 0 {
+            64
+        } else if cs & (1 << 14) != 0 {
+            32
+        } else {
+            16
+        };
+        let mut pdpte = [0; 4];
+        if cr0 & (1 << 31) != 0 && cr4 & (1 << 5) != 0 && efer & (1 << 10) == 0 {
+            for (value, field) in pdpte.iter_mut().zip([
+                VMCS_GUEST_PDPTE0,
+                VMCS_GUEST_PDPTE1,
+                VMCS_GUEST_PDPTE2,
+                VMCS_GUEST_PDPTE3,
+            ]) {
+                *value = vmcs_read(id, field)?;
+            }
+        }
+        let context = mmio::Context {
+            registers,
+            segments,
+            code_bits,
+            rip: read_register(id, hv_x86_reg_t::HV_X86_RIP)?,
+            rflags: read_register(id, hv_x86_reg_t::HV_X86_RFLAGS)?,
+            paging: guest_translation::Paging {
+                cr0,
+                cr3,
+                cr4,
+                efer,
+                pdpte,
+                physical_bits: self.cpuid_config.cpuid(0x8000_0008, 0).0 & 0xff,
+            },
+        };
+        let record = mmio::ExitRecord {
+            qualification: vmcs_read(id, VMCS_EXIT_QUALIFICATION)?,
+            linear: vmcs_read(id, VMCS_GUEST_LINEAR_ADDRESS)?,
+            physical: vmcs_read(id, VMCS_GUEST_PHYSICAL_ADDRESS)?,
+            vectoring_information: vmcs_read(id, VMCS_IDT_VECTORING_INFO)?,
+        };
+        mmio::prepare(&context, &mut Memory { ram: &self.mem }, record).map_err(Error::Emulator)
+    }
+
+    fn event_access(&self) -> EventAccess<'_> {
+        EventAccess { vcpu: self }
+    }
+
+    fn inject_event(&mut self, event: event_injection::Event) -> Result<bool> {
+        if self.io_ready().is_err() {
+            return Ok(false);
+        }
+        let injected = event_injection::inject(&mut self.event_access(), event)?;
+        if injected {
             self.halted = false;
         }
-        Ok(())
+        Ok(injected)
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+struct EventAccess<'a> {
+    vcpu: &'a HvfVcpu,
+}
+
+#[cfg(target_arch = "x86_64")]
+impl event_injection::Access for EventAccess<'_> {
+    type Error = Error;
+    fn entry_information(&mut self) -> Result<u64> {
+        vmcs_read(
+            self.vcpu.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
+        )
+    }
+    fn rflags(&mut self) -> Result<u64> {
+        read_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS)
+    }
+    fn interruptibility(&mut self) -> Result<u64> {
+        vmcs_read(
+            self.vcpu.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
+        )
+    }
+    fn write_entry_information(&mut self, information: u64) -> Result<()> {
+        vmcs_write(
+            self.vcpu.vcpu_id,
+            hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
+            information,
+        )
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+impl sync_exit::HaltAccess for HvfVcpu {
+    type Error = Error;
+    fn advance_current_instruction(&mut self) -> Result<()> {
+        HvfVcpu::advance_current_instruction(self)
+    }
+    fn set_halted(&mut self, halted: bool) {
+        self.halted = halted;
     }
 }
 
@@ -673,11 +805,9 @@ impl run_loop::ExitHandler for HvfVcpu {
     type Exit = VcpuExit;
     type Error = Error;
     fn prepare(&mut self) -> Result<Option<VcpuExit>> {
-        // Try to inject any pending interrupt
-        self.try_inject_interrupt()?;
-
-        // If halted and no interrupt pending, return Hlt
-        if self.halted && self.pending_interrupt.is_none() {
+        self.io_ready()?;
+        // Only successful event injection or explicit wake clears the halt.
+        if self.halted {
             return Ok(Some(VcpuExit::Hlt));
         }
 
@@ -698,38 +828,45 @@ impl run_loop::ExitHandler for HvfVcpu {
         Ok(exit_reason)
     }
     fn halt(&mut self) -> Result<VcpuExit> {
-        self.halted = true;
+        sync_exit::halt(self)?;
         Ok(VcpuExit::Hlt)
     }
     fn port_io(&mut self) -> Result<VcpuExit> {
-        let qual = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_QUALIFICATION)?;
-        let io = IoExitQualification::from_qualification(qual);
-        let insn_len = vmcs_read(
+        self.io_ready()?;
+        let qualification = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_QUALIFICATION)?;
+        let io = port_io::decode(qualification).map_err(|reason| {
+            Error::Emulator(format!(
+                "unsupported HVF port-I/O qualification {qualification:#x}: {reason:?}"
+            ))
+        })?;
+        let length = vmcs_read(
             self.vcpu_id,
             hv_vmx_vmcs_field_t::VMCS_EXIT_INSTRUCTION_LENGTH,
         )?;
-
+        if !(1..=15).contains(&length) {
+            return Err(Error::Emulator(format!(
+                "invalid HVF port-I/O instruction length {length}"
+            )));
+        }
+        let rax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)?;
         match io.direction {
-            IoDirection::In => {
-                self.pending_io_in = Some((io.port, io.size));
+            port_io::Direction::In => {
+                self.port_input
+                    .begin(port_io::PendingInput {
+                        io,
+                        original_rax: rax,
+                        length,
+                    })
+                    .map_err(|error| Error::Emulator(error.into()))?;
                 Ok(VcpuExit::IoIn {
                     port: io.port,
                     size: io.size,
                 })
             }
-            IoDirection::Out => {
-                // Read data from RAX
-                let rax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)?;
-                let data = match io.size {
-                    1 => vec![rax as u8],
-                    2 => (rax as u16).to_le_bytes().to_vec(),
-                    4 => (rax as u32).to_le_bytes().to_vec(),
-                    _ => vec![rax as u8],
-                };
-
-                // Advance RIP
-                self.advance_rip(insn_len)?;
-
+            port_io::Direction::Out => {
+                let data = port_io::output_bytes(rax, io.size)
+                    .ok_or_else(|| Error::Emulator("invalid HVF output width".into()))?;
+                self.advance_rip(length)?;
                 Ok(VcpuExit::IoOut {
                     port: io.port,
                     data,
@@ -738,32 +875,50 @@ impl run_loop::ExitHandler for HvfVcpu {
         }
     }
     fn mmio(&mut self) -> Result<VcpuExit> {
-        let qual = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_QUALIFICATION)?;
-        let gpa = vmcs_read(
-            self.vcpu_id,
-            hv_vmx_vmcs_field_t::VMCS_GUEST_PHYSICAL_ADDRESS,
-        )?;
-        let ept = EptViolationQualification::from_qualification(qual);
-
-        if ept.write {
-            // MMIO write
-            // We need to decode the instruction to get the write data
-            // For now, return a placeholder
-            Ok(VcpuExit::MmioWrite {
-                addr: gpa,
-                data: vec![0; 4], // TODO: decode actual data
-            })
-        } else {
-            // MMIO read
-            Ok(VcpuExit::MmioRead {
-                addr: gpa,
-                size: 4, // TODO: decode actual size
-            })
+        self.io_ready()?;
+        let plan = self.prepare_mmio()?;
+        match plan.action {
+            mmio::Action::Read(input) => {
+                let size = input.size;
+                self.mmio_input.begin(input).map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size,
+                })
+            }
+            mmio::Action::Write(data) => {
+                self.retire_mmio(plan.length)?;
+                Ok(VcpuExit::MmioWrite {
+                    addr: plan.physical,
+                    data,
+                })
+            }
+            mmio::Action::Rmw(input) => {
+                let size = input.size;
+                let operation = input.operation;
+                self.mmio_input.begin_rmw(input).map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRmw {
+                    addr: plan.physical,
+                    size,
+                    operation,
+                })
+            }
         }
     }
     fn exception(&mut self) -> Result<VcpuExit> {
-        let intr_info = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_IDT_VECTORING_INFO)?;
-        let vector = (intr_info & INTR_INFO_VECTOR_MASK as u64) as u8;
+        struct Access {
+            id: hv_vcpuid_t,
+        }
+        impl sync_exit::ExceptionAccess for Access {
+            type Error = Error;
+            fn read_vmcs(&mut self, field: u32) -> Result<u64> {
+                vmcs_read_raw(self.id, field)
+            }
+        }
+        let vector =
+            sync_exit::exception_vector(&mut Access { id: self.vcpu_id })?.ok_or_else(|| {
+                Error::Emulator("invalid VMX exception/NMI interruption information".into())
+            })?;
         Ok(VcpuExit::Exception(vector))
     }
     fn cpuid(&mut self) -> Result<()> {
@@ -779,7 +934,7 @@ impl run_loop::ExitHandler for HvfVcpu {
         Ok(VcpuExit::Shutdown)
     }
     fn interrupt_window(&mut self) -> Result<()> {
-        self.try_inject_interrupt()
+        Ok(())
     }
     fn control_register(&mut self) -> Result<()> {
         let qualification = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_QUALIFICATION)?;
@@ -813,6 +968,10 @@ impl VCpu for HvfVcpu {
         run_loop::run(self)
     }
 
+    fn wake(&mut self) {
+        sync_exit::wake(self);
+    }
+
     fn get_state(&self) -> Result<CpuState> {
         let regs = regs_from_hvf(self.vcpu_id)?;
         let sregs = sregs_from_hvf(self.vcpu_id)?;
@@ -829,6 +988,7 @@ impl VCpu for HvfVcpu {
             }
         };
 
+        self.io_ready()?;
         // Reject invalid CR8 before any externally supplied CPU state is written.
         if cr8::tpr_value(state.sregs.cr8).is_none() {
             return Err(Error::InvalidConfig(format!(
@@ -842,94 +1002,70 @@ impl VCpu for HvfVcpu {
         Ok(())
     }
 
+    fn io_completion_result(&self) -> Result<()> {
+        self.io_ready()
+    }
+
     fn complete_io_in(&mut self, data: &[u8]) {
-        if let Some((port, size)) = self.pending_io_in.take() {
-            // Write data to RAX
-            let value = match size {
-                1 => data.first().copied().unwrap_or(0) as u64,
-                2 => {
-                    let bytes: [u8; 2] = data[..2.min(data.len())].try_into().unwrap_or([0, 0]);
-                    u16::from_le_bytes(bytes) as u64
-                }
-                4 => {
-                    let bytes: [u8; 4] =
-                        data[..4.min(data.len())].try_into().unwrap_or([0, 0, 0, 0]);
-                    u32::from_le_bytes(bytes) as u64
-                }
-                _ => 0,
-            };
-
-            if let Err(e) = write_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX, value) {
-                warn!("Failed to write RAX for IO in: {}", e);
+        if self.mmio_input.pending() {
+            struct Access<'a> {
+                vcpu: &'a HvfVcpu,
             }
-
-            // Advance RIP past the IN instruction
-            if let Ok(insn_len) = vmcs_read(
-                self.vcpu_id,
-                hv_vmx_vmcs_field_t::VMCS_EXIT_INSTRUCTION_LENGTH,
-            ) {
-                let _ = self.advance_rip(insn_len);
+            impl mmio::CompletionAccess for Access<'_> {
+                type Error = Error;
+                fn write_gpr(&mut self, index: usize, value: u64) -> Result<()> {
+                    let index = u8::try_from(index)
+                        .map_err(|_| Error::Emulator("invalid MMIO GPR index".into()))?;
+                    write_register(self.vcpu.vcpu_id, general_register(index)?, value)
+                }
+                fn write_rflags(&mut self, flags: u64) -> Result<()> {
+                    write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS, flags)
+                }
+                fn finish_instruction(&mut self, length: u64) -> Result<()> {
+                    self.vcpu.retire_mmio(length)
+                }
             }
-
-            debug!(port, size, value, "Completed I/O in");
+            let mut state = std::mem::take(&mut self.mmio_input);
+            state.complete(&mut Access { vcpu: self }, data);
+            self.mmio_input = state;
+            return;
         }
+        struct Access<'a> {
+            vcpu: &'a HvfVcpu,
+        }
+        impl port_io::CompletionAccess for Access<'_> {
+            type Error = Error;
+            fn write_rax(&mut self, value: u64) -> Result<()> {
+                write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RAX, value)
+            }
+            fn advance_instruction(&mut self, length: u64) -> Result<()> {
+                self.vcpu.advance_rip(length)
+            }
+        }
+        // Move the private completion state out while the adapter borrows CPU
+        // host access; restore it before returning, including retained errors.
+        let mut state = std::mem::take(&mut self.port_input);
+        state.complete(&mut Access { vcpu: self }, data);
+        self.port_input = state;
     }
 
     fn inject_interrupt(&mut self, vector: u8) -> Result<bool> {
-        if !self.can_inject_interrupt() {
-            self.pending_interrupt = Some(vector);
-            return Ok(false);
-        }
-
-        // Inject immediately
-        let intr_info = (vector as u64)
-            | ((INTR_TYPE_EXT_INTR as u64) << INTR_INFO_TYPE_SHIFT)
-            | (INTR_INFO_VALID as u64);
-        vmcs_write(
-            self.vcpu_id,
-            hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
-            intr_info,
-        )?;
-
-        self.halted = false;
-        Ok(true)
+        self.inject_event(event_injection::Event::Interrupt(vector))
     }
 
     fn can_inject_interrupt(&self) -> bool {
-        // Check IF flag
-        let rflags = match read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS) {
-            Ok(f) => f,
-            Err(_) => return false,
-        };
-
-        if (rflags & RFLAGS_IF) == 0 {
+        if self.io_ready().is_err() {
             return false;
         }
-
-        // Check interruptibility state
-        let interruptibility = match vmcs_read(
-            self.vcpu_id,
-            hv_vmx_vmcs_field_t::VMCS_GUEST_INTERRUPTIBILITY_STATE,
-        ) {
-            Ok(s) => s,
-            Err(_) => return false,
-        };
-
-        interruptibility == 0
+        event_injection::available(
+            &mut self.event_access(),
+            event_injection::Event::Interrupt(0),
+        )
+        .unwrap_or(false)
     }
 
     fn inject_nmi(&mut self) -> Result<bool> {
-        let intr_info = 2u64  // NMI vector
-            | ((INTR_TYPE_NMI as u64) << INTR_INFO_TYPE_SHIFT)
-            | (INTR_INFO_VALID as u64);
-        vmcs_write(
-            self.vcpu_id,
-            hv_vmx_vmcs_field_t::VMCS_CTRL_VMENTRY_IRQ_INFO,
-            intr_info,
-        )?;
-
-        self.halted = false;
-        Ok(true)
+        self.inject_event(event_injection::Event::Nmi)
     }
 
     #[cfg(feature = "debug")]

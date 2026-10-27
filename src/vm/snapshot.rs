@@ -1,26 +1,20 @@
-//! Full VM checkpoint (save / restore / resume).
+//! Versioned VM checkpoint container and represented machine state.
 //!
-//! A checkpoint is a *self-contained* image of the running machine, written to
-//! a `.rxc` file. It captures everything needed to bring the machine back up
-//! exactly where it left off, on a host that no longer has the original kernel
-//! image:
-//!   - the embedded [`CheckpointConfig`] (arch, memory size, vcpus, cmdline …)
-//!     so `rax --checkpoint file.rxc` can rebuild the machine with no other
-//!     flags (and the user may override any of it),
-//!   - the full CPU register file + emulator-specific state (lazy flags, FPU,
-//!     kernel_gs_base, IA32_TSC_ADJUST, IA32_TSC_AUX, IA32_MISC_ENABLE,
-//!     IA32_PAT, IA32_UMWAIT_CONTROL, PKRU, halted),
-//!   - the complete writable guest RAM (zstd compressed) — which also contains
-//!     the kernel/initrd that were loaded into it, so read-only images need not
-//!     be shipped separately,
-//!   - all stateful device models (PIC, PIT, UART, Local APIC).
+//! Version 8 records configuration, one CPU state, emulator state, PIC/PIT/UART/
+//! local-APIC state and compressed guest RAM. Tagged sections bound decoding and
+//! permit explicitly optional extensions. The original untagged v8 layout is
+//! supported through its frozen configuration schema.
 //!
-//! The format is intentionally versioned and magic-tagged; older `.snap` files
-//! (CPU + memory only, no devices/config) are a different magic and are
-//! rejected with a clear error.
+//! SnapshotBundle additionally frames represented public/base-private state for
+//! every vCPU, explicit timing-helper state, typed PCI/media state and every
+//! mapped physical region.
+//! Vmm::restore_snapshot_bundle coordinates those represented components.
+//! Additional backend-private/platform/scheduler state and full VM quiescence
+//! still require integration. The original base Snapshot fields and
+//! wire do not themselves represent those extensions.
+//! Legacy `.snap` files use a separate magic and are rejected explicitly.
 
-use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::Read;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -31,8 +25,22 @@ use crate::devices::pic::DualPic;
 use crate::devices::pit::Pit;
 use crate::devices::serial::Serial16550;
 use crate::error::{Error, Result};
+mod backend_context;
+mod bundle;
+mod clock;
+mod cpus;
+pub use backend_context::{AARCH32_CONTEXT, BackendContext, BackendContexts, S3C64XX_CONTEXT};
+mod execution;
+pub use cpus::{CpuSnapshot, CpuSnapshots};
+pub use execution::ExecutionSnapshot;
+mod physical_memory;
+mod stream;
+pub use physical_memory::PhysicalMemorySnapshot;
+mod pci;
 use crate::vm::memory::validate_guest_memory_size;
 use crate::vm::vcpu::state::CpuState;
+pub use bundle::SnapshotBundle;
+pub use pci::{MediaSnapshot, PciSnapshot};
 
 /// Magic number for checkpoint files: "RAXCKPT\0"
 const CHECKPOINT_MAGIC: [u8; 8] = *b"RAXCKPT\0";
@@ -51,6 +59,12 @@ pub const CHECKPOINT_EXT: &str = "rxc";
 /// Default checkpoint filename, relative to the working directory, used when no
 /// `--snapshot-out` path is given.
 pub const DEFAULT_CHECKPOINT_FILE: &str = "checkpoint.rxc";
+
+#[path = "snapshot/codec.rs"]
+mod codec;
+mod config_v1;
+#[path = "snapshot/legacy.rs"]
+mod legacy;
 
 /// x87 FPU state for snapshots
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -175,7 +189,7 @@ pub struct DeviceState {
     pub lapic: LocalApic,
 }
 
-/// Complete, self-contained VM checkpoint.
+/// The currently represented machine state in a versioned checkpoint container.
 #[derive(Serialize, Deserialize)]
 pub struct Snapshot {
     /// Checkpoint format version
@@ -228,89 +242,26 @@ impl Snapshot {
         })
     }
 
-    /// Save snapshot to a file
+    /// Atomically publish a validated tagged version-8 checkpoint.
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         self.validate_cpu_state()?;
-        let file = File::create(path.as_ref())
-            .map_err(|e| Error::Emulator(format!("Failed to create snapshot file: {}", e)))?;
-        let mut writer = BufWriter::new(file);
-
-        // Write magic number
-        writer
-            .write_all(&CHECKPOINT_MAGIC)
-            .map_err(|e| Error::Emulator(format!("Failed to write snapshot magic: {}", e)))?;
-
-        // Serialize snapshot with bincode
-        crate::codec::serialize_into(&mut writer, self)
-            .map_err(|e| Error::Emulator(format!("Failed to serialize snapshot: {}", e)))?;
-
-        writer
-            .flush()
-            .map_err(|e| Error::Emulator(format!("Failed to flush snapshot: {}", e)))?;
-
-        Ok(())
+        self.validate_memory_metadata()?;
+        codec::save_atomic(self, path.as_ref())
     }
 
-    /// Load snapshot from a file
+    /// Decode bounded tagged v8 sections or the original v8 wire layout.
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let file = File::open(path.as_ref())
-            .map_err(|e| Error::Emulator(format!("Failed to open snapshot file: {}", e)))?;
-        let mut reader = BufReader::new(file);
-
-        // Verify magic number
-        let mut magic = [0u8; 8];
-        reader
-            .read_exact(&mut magic)
-            .map_err(|e| Error::Emulator(format!("Failed to read snapshot magic: {}", e)))?;
-
-        if magic != CHECKPOINT_MAGIC {
-            // Reject the legacy "RAXSNAP\0" (CPU+memory only) format and anything
-            // else with a clear, specific message.
-            if &magic == b"RAXSNAP\0" {
-                return Err(Error::Emulator(
-                    "this is a legacy .snap snapshot (no device/config state); \
-                     it cannot be resumed as a full checkpoint"
-                        .to_string(),
-                ));
-            }
-            return Err(Error::Emulator(
-                "not a rax checkpoint file (bad magic)".to_string(),
-            ));
-        }
-
-        // Check the fixed-width version before decoding a version-dependent
-        // CPU layout. Otherwise an older image fails with a misleading EOF.
-        let mut version_bytes = [0; 4];
-        reader
-            .read_exact(&mut version_bytes)
-            .map_err(|e| Error::Emulator(format!("Failed to read checkpoint version: {}", e)))?;
-        let version = u32::from_le_bytes(version_bytes);
-        if version != CHECKPOINT_VERSION {
-            return Err(Error::Emulator(format!(
-                "Unsupported checkpoint version {} (expected {})",
-                version, CHECKPOINT_VERSION
-            )));
-        }
-        reader
-            .seek(SeekFrom::Current(-4))
-            .map_err(|e| Error::Emulator(format!("Failed to seek checkpoint: {}", e)))?;
-        let snapshot: Snapshot = crate::codec::deserialize_from(&mut reader)
-            .map_err(|e| Error::Emulator(format!("Failed to deserialize checkpoint: {}", e)))?;
-
-        if snapshot.version != CHECKPOINT_VERSION {
-            return Err(Error::Emulator(format!(
-                "Unsupported checkpoint version {} (expected {})",
-                snapshot.version, CHECKPOINT_VERSION
-            )));
-        }
+        let snapshot = codec::load(path.as_ref())?;
         snapshot.validate_memory_metadata()?;
         snapshot.validate_cpu_state()?;
-
         Ok(snapshot)
     }
 
     fn validate_cpu_state(&self) -> Result<()> {
-        if let CpuState::Aarch64(state) = &self.cpu_state {
+        Self::validate_cpu_payload(&self.cpu_state)
+    }
+    pub(super) fn validate_cpu_payload(cpu: &CpuState) -> Result<()> {
+        if let CpuState::Aarch64(state) = cpu {
             let Some(execution) = &state.sregs.execution else {
                 return Err(Error::Emulator(
                     "AArch64 checkpoint is missing keyed system state".to_string(),
@@ -332,6 +283,17 @@ impl Snapshot {
         Ok(())
     }
 
+    pub(crate) fn validate_for_restore(&self) -> Result<()> {
+        if self.version != CHECKPOINT_VERSION {
+            return Err(Error::Emulator(format!(
+                "Unsupported checkpoint version {} (expected {})",
+                self.version, CHECKPOINT_VERSION
+            )));
+        }
+        self.validate_cpu_state()?;
+        self.validate_memory_metadata()
+    }
+
     pub fn validate_memory_metadata(&self) -> Result<()> {
         if self.config.memory_bytes != self.memory_size {
             return Err(Error::InvalidConfig(format!(
@@ -348,8 +310,14 @@ impl Snapshot {
         let capacity = usize::try_from(self.memory_size).map_err(|_| {
             Error::InvalidConfig("checkpoint memory does not fit in host address size".to_string())
         })?;
-        let mut decompressed = Vec::with_capacity(capacity);
-        zstd::stream::copy_decode(&self.memory_data[..], &mut decompressed)
+        // Grow only for bytes actually produced. A malformed tiny input must
+        // not reserve the entire declared guest size up front.
+        let mut decompressed = Vec::with_capacity(capacity.min(64 * 1024));
+        let decoder = zstd::stream::read::Decoder::new(&self.memory_data[..])
+            .map_err(|e| Error::Emulator(format!("Failed to decompress memory: {}", e)))?;
+        decoder
+            .take(self.memory_size + 1)
+            .read_to_end(&mut decompressed)
             .map_err(|e| Error::Emulator(format!("Failed to decompress memory: {}", e)))?;
 
         if decompressed.len() as u64 != self.memory_size {
@@ -454,6 +422,8 @@ mod tests {
             arm_entry: None,
             arm_load_addr: None,
             arm_dtb: None,
+            pci_devices: false,
+            storage: crate::config::StorageConfig::default(),
         }
     }
 
@@ -490,7 +460,8 @@ mod tests {
             lapic: LocalApic::new(0),
         };
         let bytes = crate::codec::serialize(&devices).expect("serialize device state");
-        let back: DeviceState = crate::codec::deserialize(&bytes).expect("deserialize device state");
+        let back: DeviceState =
+            crate::codec::deserialize(&bytes).expect("deserialize device state");
         // Re-serializing the round-tripped value must reproduce the same bytes:
         // proves every field (and the #[serde(skip)] LAPIC Instant) is stable.
         let bytes2 = crate::codec::serialize(&back).expect("re-serialize device state");
@@ -518,7 +489,8 @@ mod tests {
             ..EmulatorState::default()
         };
         let bytes = crate::codec::serialize(&state).expect("serialize emulator state");
-        let back: EmulatorState = crate::codec::deserialize(&bytes).expect("deserialize emulator state");
+        let back: EmulatorState =
+            crate::codec::deserialize(&bytes).expect("deserialize emulator state");
         assert!(back.interrupt_inhibit);
         assert_eq!(back.misc_enable, state.misc_enable);
         assert_eq!(back.pat, state.pat);
@@ -561,3 +533,7 @@ mod tests {
 #[cfg(test)]
 #[path = "snapshot/pauth_tests.rs"]
 mod pauth_tests;
+
+#[cfg(test)]
+#[path = "snapshot/codec_tests.rs"]
+mod codec_tests;

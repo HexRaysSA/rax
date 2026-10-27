@@ -66,7 +66,7 @@ pub fn int3(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
 /// This one-byte instruction invokes exception vector 1 (#DB).
 pub fn icebp(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     vcpu.regs.rip += ctx.cursor as u64;
-    vcpu.inject_exception(1, None)?;
+    vcpu.inject_debug_trap()?;
     Ok(None)
 }
 

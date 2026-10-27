@@ -7,7 +7,7 @@ use crate::isa::arm::aarch32::vfp::{
 use crate::smir::interpret::SmirInterpreter;
 impl<'a, M: ArmMemory> Executor<'a, M> {
     pub(crate) fn exec_neon_recip_estimate(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 23) != 0b111100111
@@ -104,7 +104,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_neon_recip_step(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 25) != 0b1111001

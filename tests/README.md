@@ -11,6 +11,7 @@ tests/
 └── suites/
     ├── api/        # Public API contracts
     ├── backend/    # Execution-backend integration
+    ├── devices/    # Device DMA, queue, register and interrupt contracts
     ├── coverage/   # Source/specification inventory assertions
     ├── differential/ # RAX state compared with an external oracle
     ├── isa/        # Direct instruction-semantics tests
@@ -79,6 +80,54 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `x86_64_unimplemented_manifests` | `suites/coverage/x86_64/unimplemented_manifests.rs` |
 | `x86_64_unimplemented_qemu_diff` | `suites/differential/x86_64/qemu_unimplemented.rs` |
 | `x86_64_unimplemented_source_inventory` | `suites/coverage/x86_64/unimplemented_source_inventory.rs` |
+| `hvf_sdk_abi` | `suites/backend/hvf_sdk_abi.rs` |
+| `hvf_xsetbv` | `suites/backend/hvf_xsetbv.rs` |
+| `hvf_run_loop` | `suites/backend/hvf_run_loop.rs` |
+| `hvf_cr8` | `suites/backend/hvf_cr8.rs` |
+| `hvf_sync_exits` | `suites/backend/hvf_sync_exits.rs` |
+| `hvf_event_injection` | `suites/backend/hvf_event_injection.rs` |
+| `hvf_interrupt_shadow` | `suites/backend/hvf_interrupt_shadow.rs` |
+| `hvf_port_io` | `suites/backend/hvf_port_io.rs` |
+| `hvf_guest_translation` | `suites/backend/hvf_guest_translation.rs` |
+| `hvf_mmio` | `suites/backend/hvf_mmio.rs` |
+| `controller_irq` | `suites/backend/controller_irq.rs` |
+| `hvf_controls` | `suites/backend/hvf_controls.rs` |
+| `nvme_prp` | `suites/devices/nvme_prp.rs` |
+| `nvme_sgl` | `suites/devices/nvme_sgl.rs` |
+| `nvme_queues` | `suites/devices/nvme_queues.rs` |
+| `nvme_admission` | `suites/devices/nvme_admission.rs` |
+| `nvme_commands` | `suites/devices/nvme_commands.rs` |
+| `virtio_indirect` | `suites/devices/virtio_indirect.rs` |
+| `virtio_ranges` | `suites/devices/virtio_ranges.rs` |
+| `checkpoint_config` | `suites/vm/checkpoint_config.rs` |
+| `ahci_dma` | `suites/devices/ahci_dma.rs` |
+| `storage_images` | `suites/devices/storage_images.rs` |
+| `storage_config` | `suites/vm/storage_config.rs` |
+| `controller_checkpoint` | `suites/devices/controller_checkpoint.rs` |
+| `pci_checkpoint` | `suites/devices/pci_checkpoint.rs` | Host-bridge latch, config, BAR routing, topology and malformed checkpoint restore |
+| `pci_endpoint_checkpoint` | `suites/devices/pci_endpoint_checkpoint.rs` | Network/USB/audio private checkpoint state, bounded queues and continuation |
+| `runtime_pci_checkpoint` | `suites/vm/runtime_pci_checkpoint.rs` | Actual PCI typed ownership, atomic whole-device-set restore, media and DMA continuation |
+| `checkpoint_pci` | `suites/vm/checkpoint_pci.rs` | Additive bundle framing, media digests, aggregate bounds and old/base reader compatibility |
+| `restore_admission` | `suites/vm/restore_admission.rs` | Exact reported RAM, pre-mutation VM/backend admission and valid-state domain controls |
+| `checkpoint_physical_memory` | `suites/vm/checkpoint_physical_memory.rs` | Complete mapped-region checkpoint capture, framing, bounds and explicit physical restore. |
+| `runtime_checkpoint_bundle` | `suites/vm/runtime_checkpoint_bundle.rs` | Coordinated represented CPU/device/physical memory admission and restore. |
+| `checkpoint_resume` | `suites/vm/checkpoint_resume.rs` | Typed detached file resume, page rounding and actual CLI UART/shutdown execution. |
+| `checkpoint_cpus` | `suites/vm/checkpoint_cpus.rs` | Every represented CPU context, full count domain and early all-context admission. |
+| `retirement_budget` | `suites/backend/retirement_budget.rs` | Bounded retirement, distinct exits, faults and zero-retirement transitions |
+| `vm_timing` | `suites/vm/vm_timing.rs` | VM timing isolation, scoped binding and repeated restore |
+| `retired_clock` | `suites/vm/retired_clock.rs` | Exact retirement clock phase, wrap and state restoration |
+| `checkpoint_clock` | `suites/vm/checkpoint_clock.rs` | Required timing state, phase and restore admission |
+| `cortexm_dispatch` | `suites/backend/cortexm_dispatch.rs` | Cortex-M factory selection, Thumb execution and boot-state wiring |
+| `retirement_clock` | `suites/backend/retirement_clock.rs` | Per-step retirement clock publication and bounded execution |
+| `x86_retired_tsc` | `suites/backend/x86_retired_tsc.rs` | Selected exact retirement TSC and existing timestamp helper |
+| `aarch64_step_jit` | `suites/backend/aarch64_step_jit.rs` | Exact cold, hot and cached instruction boundaries |
+| `counter_ticks` | `suites/vm/counter_ticks.rs` | Exact platform-frequency scaling with fractional clock phase |
+| `hvf_arm64_state` | `suites/backend/hvf_arm64_state.rs` | Native ARM canonical-SP projection and bank preservation |
+| `riscv_hartid` | `suites/backend/riscv_hartid.rs` | Configured hardware-thread identity and readonly CSR persistence |
+| `aarch64_affinity` | `suites/backend/aarch64_affinity.rs` | Configured PE affinity and readonly identity persistence |
+| `a32_fp_controls` | `suites/backend/a32_fp_controls.rs` | A32/T32 FP controls, trap priority, CP15 clamps, mixed-width ownership and precise exception boundaries |
+| `a32_fp_pairs` | `suites/backend/a32_fp_pairs.rs` | VMOV single/double register-pair fields, aliases, admission, predicates and mixed-width projection |
+| `x86_fault_retirement` | `suites/backend/x86_fault_retirement.rs` | Protected-mode delivered faults and traps retain exact retired-unit counts. |
 
 ## Reachability rules
 
@@ -246,3 +295,64 @@ all three operating systems. Windows-only `windows_arena::tests` cover shared
 partial views, read-only upgrades, extent reuse, memory-owner lifetime, rollback,
 and revocation of checked access plus all CPU entry points after failed rollback.
 See `docs/development/windows-user-memory.md` for ownership and platform limits.
+
+## Backend and storage remediation targets
+
+The twenty-four backend/device targets above execute in the core CI matrix's
+`backend and storage regressions` step and the scheduled suite's
+`backend-devices` shard. Both enable `hvf`, compiling the native adapter on
+macOS, and execute every selected owning binary without a test-name filter.
+The device drivers compile current production sources, including their existing
+unit tests. `nvme_sgl`, `nvme_queues`, `nvme_admission` and `nvme_commands` also include the PRP
+owner as a shared driver/control corpus.
+
+The HVF targets exercise host boundary fixtures; they do not create a VM or
+establish hardware guest execution. `hvf_sdk_abi` runs one SDK parity test on
+macOS and is explicitly cfg-empty elsewhere. Actual Intel VMX, Apple Silicon
+HVF guest execution and Linux KVM remain separate platform requirements.
+Independent QEMU/LLVM tools under `tools/hvf/` and `tools/nvme-diff/` are separate
+from this self-contained CI selection and retain their own raw evidence and
+reference-profile limits.
+
+The `virtio_indirect` binary compiles the owning split-ring transport and block
+implementation, retaining their unit tests alongside negotiated indirect-table,
+request-stream framing, DMA failure, publication ordering and reset regressions.
+It runs in both the core backend/device selection and the scheduled shard.
+
+`virtio_ranges` retains the split queue/stream controls and exercises negotiated
+Discard and Write Zeroes, range limits, invalid flags, full staging, read-only
+media and checked logical-block extents.
+
+`checkpoint_config` checks the public config capture, binary metadata and resume
+boundary. Checkpoint framing, legacy compatibility, keyed state, truncation,
+allocation bounds, decompression and atomic-publication tests live in the library
+under `vm::snapshot`; complete library gates retain those tests.
+
+
+`ahci_dma` executes the current AHCI controller and its checked DMA/completion,
+interrupt, error and recovery paths. The complete binary includes its existing
+unit controls and the fault/bounds regressions. Its independent bare-metal QEMU
+transport, raw profile differences and evidence limits are documented in
+[`docs/development/ahci-dma.md`](../docs/development/ahci-dma.md).
+
+
+`storage_images` covers raw-image budgets, read-only and COW isolation,
+write-through persistence, locking, host-capacity failures, and actual NVMe,
+AHCI and virtio command paths. Shared host-write fault controls also execute
+with the library and both owning virtio binaries. See
+[`docs/development/storage-images.md`](../docs/development/storage-images.md).
+
+
+`storage_config` checks image-source precedence, size/content identity, relative
+TOML paths, admission, recorded metadata and the original tagged-v8 fixture.
+The `rax` binary owns CLI parser checks; library `vm::runtime::storage_tests`
+checks the actual PCI bridge/guest-memory DMA attachment, and snapshot tests
+cover section schemas and bounded metadata. Full library inventories remain
+required in addition to any filtered iteration runs.
+
+
+`controller_checkpoint` exercises complete NVMe/AHCI private-state and media APIs,
+no-DMA restore, pending commands/completions, interrupt state, readonly media and
+transactional malformed-input rejection. The independent controller-state parser
+checks the published bytes and controlled continuation events. Admin queues have
+a separate 4096-entry bound from I/O MQES; the admission owner covers all AQA sizes.

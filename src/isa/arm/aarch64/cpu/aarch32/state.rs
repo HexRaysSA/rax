@@ -18,6 +18,8 @@ impl AArch64Cpu {
         let psr = self.aarch32.expect("AArch32 execution mode");
         let mut cpu = Armv7Cpu::new();
         cpu.pstate_features = self.config.features;
+        cpu.fp_access_context = Some(self.aarch32_fp_context());
+        cpu.nonsecure = self.sysregs.scr_el3 & 1 != 0;
         for index in 0..15 {
             cpu.regs[index] =
                 self.x[usize::from(register_index(index as u8, psr.mode).unwrap())] as u32;
@@ -71,8 +73,11 @@ impl AArch64Cpu {
         let regime = controls.regime_el() as u8;
         let system = self.sysregs.bank(regime);
         cpu.cp15.sctlr = Sctlr::from_bits(system.sctlr as u32);
-        cpu.cp15.cpacr =
-            Cpacr::from_bits((system.cpacr as u32) | (((system.cpacr >> 20) as u32 & 3) << 22));
+        cpu.cp15.cpacr = Cpacr::from_bits(
+            (self.sysregs.el1.cpacr as u32) | (((self.sysregs.el1.cpacr >> 20) as u32 & 3) << 22),
+        );
+        cpu.cp15.hcptr = ((cpu.fp_access_context.unwrap().cptr_el2 as u32) & 0x8000_8c00) | 0x33ff;
+        cpu.cp15.hcr = self.sysregs.hcr_el2 as u32;
         cpu.cp15.ttbr0 = system.ttbr0;
         cpu.cp15.ttbr1 = system.ttbr1;
         cpu.cp15.ttbcr = system.tcr as u32;
@@ -181,6 +186,7 @@ impl AArch64Cpu {
                 .impl_defined
                 .insert(fpexc, u64::from(cpu.vfp.fpexc));
         }
+        self.commit_aarch32_fp_controls(cpu);
         self.update_mmu_config();
         Ok(())
     }

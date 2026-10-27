@@ -504,6 +504,13 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
                 }),
                 (None, e) => A32Exit::Internal(format!("{e} at {pc:#x} without an access fault")),
             }),
+            ExecResult::FpAccessTrap {
+                target_el,
+                syndrome,
+                ..
+            } => Some(A32Exit::Internal(format!(
+                "FP access trap to EL{target_el} ({syndrome:#x}) at {pc:#x} requires system emulation"
+            ))),
             ExecResult::Exception(other) => Some(A32Exit::Internal(format!(
                 "unexpected AArch32 exception {other:?} at {pc:#x}"
             ))),

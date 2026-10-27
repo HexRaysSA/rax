@@ -1,0 +1,67 @@
+{
+  "title": "QEMU Arm TCG implementation source",
+  "issuing_organization": "QEMU Project",
+  "revision": "v11.1.2 release tag;binary matching not yet established beyond version string",
+  "retrieved": "2026-10-27T20:12:52.429506+00:00",
+  "license": "GPLv2 or later;individual headers retained",
+  "files": [
+    {
+      "path": "target/arm/tcg/hflags.c",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.2/target/arm/tcg/hflags.c",
+      "sha256": "e6cf4c6ac49549a4280eeffef273a6d2cd6a51720fbd9afcef616973ab6f5caa",
+      "bytes": 24103
+    },
+    {
+      "path": "target/arm/helper.c",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.2/target/arm/helper.c",
+      "sha256": "5f20c7fc533d89e42277956c10d6951d90192049a9b6aef321b7a92f303427b6",
+      "bytes": 378466
+    },
+    {
+      "path": "target/arm/tcg/cpu32.c",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.2/target/arm/tcg/cpu32.c",
+      "sha256": "aacf897ef2cce2b293f80fdb0bc1083b29695dd8473688589b9e05ed0899db89",
+      "bytes": 28861
+    },
+    {
+      "path": "target/arm/tcg/cpu64.c",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.2/target/arm/tcg/cpu64.c",
+      "sha256": "4c661376f953932194ebe99d8c944238f8af3fca0c0e38b78d37ab3c9a8dfae6",
+      "bytes": 62868
+    },
+    {
+      "path": "target/arm/cpu.c",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.2/target/arm/cpu.c",
+      "sha256": "770dcec4a22de97a7c61ae724eff7f080b1faa9283490d10ccd3c3a56dd53453",
+      "bytes": 91610
+    },
+    {
+      "path": "target/arm/tcg/translate-neon.c",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.2/target/arm/tcg/translate-neon.c",
+      "sha256": "6e138053127d67232ec65f894182fe3407dae5c8498b3252c2a2d603c545683f",
+      "bytes": 104217
+    },
+    {
+      "path": "target/arm/tcg/translate-vfp.c",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.2/target/arm/tcg/translate-vfp.c",
+      "sha256": "fb72857fb03c6b7b03ed47efb929550c2e12248a62ed0bb38fea2421aca50a82",
+      "bytes": 89977
+    },
+    {
+      "path": "target/arm/tcg/translate.c",
+      "url": "https://raw.githubusercontent.com/qemu/qemu/v11.1.2/target/arm/tcg/translate.c",
+      "sha256": "891a7b06b222eb4c6e12fa4ecf72a015667fa5859f2e05aae07e6e5968a9a851",
+      "bytes": 203438
+    }
+  ],
+  "tag_ref": {
+    "sha": "ceaea6cb3e2a7d966f9ca97c7ebb5b88cd764dd0",
+    "type": "tag",
+    "url": "https://api.github.com/repos/qemu/qemu/git/tags/ceaea6cb3e2a7d966f9ca97c7ebb5b88cd764dd0"
+  },
+  "commit": {
+    "sha": "4fc49f46dc95d4a27de2509e7fceb2931e91faeb",
+    "type": "commit",
+    "url": "https://api.github.com/repos/qemu/qemu/git/commits/4fc49f46dc95d4a27de2509e7fceb2931e91faeb"
+  }
+}

@@ -575,8 +575,14 @@ ABI 1.7 writes context format 3 only for AArch32 user engines. It adds a
 length-prefixed, 20-byte image of both TLS registers and the local exclusive
 monitor after the generic emulator image. Memory-map reconstruction and context
 restore preserve that state. Instruction-observation boundaries retain the
-monitor; a syscall or exception clears it. AArch64 engines use format 4 as described below; other engines continue to
-write format 2, and existing format 1/2 readers remain supported. An older library
+monitor; a syscall or exception clears it. AArch64 engines use format 4 as described below.
+System-mode AArch32 engines use format 5, retaining CP15/FP controls, all banked
+registers, halt state, exclusive reservations, and backend instruction counts.
+Memory-map reconstruction retains this backend state as well. Format 5 adds a
+producer kind and length-prefixed backend record after the emulator image.
+The public `rax_emu_icount` still restarts at zero after context restore;
+the restored backend counter remains available to the CPU implementation.
+Other engines continue to write format 2, and existing format 1/2 readers remain supported. An older library
 cannot restore an AArch32 user context.
 
 ABI 1.15 adds AArch64 PAuth configuration and context format 4. The new
@@ -621,7 +627,7 @@ versions before decoding the changed CPU layout.
 |---|---|---|---|---|
 | A32-1: C API and process execution use the same instruction semantics. | Both use `A32UserCpu`; only memory storage differs. | ARM/Thumb execution and traps. | C API interworking/IT, privilege, SVC/BKPT tests plus existing executor tests. | Tested in the native C API suite. |
 | A32-2: A host observation boundary is not a guest context switch. | Instruction stepping must permit LDREX followed by STREX. | Exclusive-monitor persistence. | LDREX, map an unrelated page, save/restore, then STREX must succeed; a trap must clear it. | Tested in the native C API suite. |
-| A32-3: Existing context consumers retain their format. | Only the new AArch32 user mode emits format 3. | Context compatibility. | Existing format 1/2 tests plus malformed format-3 and system-to-user restore tests. | Tested in the native C API suite. |
+| A32-3: Context versions identify the retained state. | AArch32 user mode emits format 3; system mode emits format 5; legacy 1/2 inputs retain projection-only semantics. | Context compatibility. | Legacy 1/2 tests, malformed/truncated format 5, and format-3 system-to-user restore tests. | New format-5 suite validation recorded in the audit ledger. |
 
 ### Native x86 instruction metadata (ABI 1.5)
 

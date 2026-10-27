@@ -256,6 +256,10 @@ impl Engine {
             Err(e) => return self.fail_engine(&e),
         };
         let es = self.vcpu.get_emulator_state();
+        let backend_context = match self.vcpu.capture_backend_context() {
+            Ok(context) => context,
+            Err(error) => return self.fail_engine(&error),
+        };
         let arm_user = self.vcpu.arm_user_state();
         let mut v = match crate::arch::build_vcpu(
             self.arch,
@@ -267,11 +271,21 @@ impl Engine {
             Ok(v) => v,
             Err(e) => return self.fail_engine(&e),
         };
-        if let Err(e) = v.set_state(&st) {
-            return self.fail_engine(&e);
-        }
-        if let Some(es) = es {
-            let _ = v.set_emulator_state(&es);
+        if let Some(context) = &backend_context {
+            if let Err(error) =
+                v.restore_checkpoint_context(&st, &es.clone().unwrap_or_default(), Some(context))
+            {
+                return self.fail_engine(&error);
+            }
+        } else {
+            if let Err(e) = v.set_state(&st) {
+                return self.fail_engine(&e);
+            }
+            if let Some(es) = es {
+                if let Err(error) = v.set_emulator_state(&es) {
+                    return self.fail_engine(&error);
+                }
+            }
         }
         if let Some(state) = arm_user {
             v.set_arm_user_state(state);

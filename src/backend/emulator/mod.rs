@@ -127,6 +127,7 @@ impl Vm for EmulatorVm {
                 }
             }
             ArchKind::Aarch64 => Ok(Box::new(aarch64::Aarch64Vcpu::new(id, mem))),
+            ArchKind::CortexM => Ok(Box::new(cortex_m::CortexMVcpu::new(id, mem))),
             ArchKind::Armv7a => {
                 if std::env::var("RAX_MACHINE").as_deref() == Ok("s5l8900") {
                     Ok(Box::new(S5L8900Vcpu::new(id, mem)))

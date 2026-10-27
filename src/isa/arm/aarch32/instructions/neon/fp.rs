@@ -42,7 +42,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_neon_fp_add_sub_inner(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if !Self::is_neon_fp_add_sub_shape(insn.raw) {
@@ -129,7 +129,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_neon_fp_pairwise_inner(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if !matches!(
@@ -218,7 +218,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_neon_vrint(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if !Self::is_neon_vrint_shape(insn.raw) {
@@ -326,7 +326,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_neon_fp_multiply_inner(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         let scalar = Self::is_neon_fp_multiply_scalar_shape(insn.raw);
@@ -488,7 +488,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_vrint(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         let Some((d, m, size)) = self.decode_vfp_unary_regs(insn) else {
@@ -571,7 +571,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         ) {
             return self.exec_half_double_precision_convert(insn);
         }
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         let Some((d, m)) = self.decode_vcvt_regs(insn) else {
@@ -819,7 +819,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         self.with_standard_fp_controls(|executor| executor.exec_neon_fp16_convert_inner(insn))
     }
     fn exec_neon_fp16_convert_inner(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if !Self::is_neon_fp16_convert_shape(insn.raw) {
@@ -863,7 +863,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(crate) fn exec_neon_directed_convert(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if !Self::is_neon_directed_convert_shape(insn.raw) {

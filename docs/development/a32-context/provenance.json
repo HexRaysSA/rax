@@ -1,0 +1,12 @@
+{
+  "tool": "LLVM MC23.0.0git",
+  "source": "exclusive.s",
+  "command": [
+    "llvm-mc",
+    "-triple=armv7-none-eabi",
+    "-show-encoding",
+    "exclusive.s"
+  ],
+  "sha256": "ead3662b1aac048abdbfad56aea184be917530b025a234b8efa19983deba6018",
+  "scope": "Independent instruction encoding;runtime context continuation is tested by RAX"
+}

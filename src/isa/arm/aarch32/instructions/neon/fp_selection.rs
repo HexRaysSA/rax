@@ -7,7 +7,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         self.with_standard_fp_controls(|executor| executor.exec_neon_fp_minmax_inner(insn))
     }
     fn exec_neon_fp_minmax_inner(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         let number = matches!(
@@ -103,7 +103,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         self.with_standard_fp_controls(|executor| executor.exec_neon_fp_compare_inner(insn))
     }
     fn exec_neon_fp_compare_inner(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 25) != 0b1111001
@@ -227,7 +227,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         self.with_standard_fp_controls(|executor| executor.exec_neon_fp_absdiff_inner(insn))
     }
     fn exec_neon_fp_absdiff_inner(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 24) != 0xF3
@@ -311,7 +311,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
     }
     fn exec_neon_compare_zero_inner(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.cpu.vfp.is_enabled() {
+        if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 23) != 0b111100111

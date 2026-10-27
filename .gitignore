@@ -1,5 +1,7 @@
 # Build output
 target/
+# Retained upstream QEMU reference sources use this directory name.
+!/docs/development/a32-fp-controls/references/qemu-11.1.2/target/
 
 # Linux kernel and artifacts (fetched/built by `make linux`)
 /linux/
@@ -15,6 +17,8 @@ target/
 *.til
 *.o
 *.bin
+!tests/fixtures/hvf/mmio-rmw-v1/cases.bin
+!tests/fixtures/hvf/mmio-rmw-v1/records.bin
 *.elf
 
 .DS_Store

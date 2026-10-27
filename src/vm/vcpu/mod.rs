@@ -2,6 +2,8 @@
 //!
 //! This module provides backend-agnostic types and traits for CPU emulation.
 
+mod budget;
+pub use budget::{DEFAULT_RETIREMENT_QUANTUM, RetirementRun, RetirementStop};
 pub mod exit;
 pub mod state;
 
@@ -57,6 +59,16 @@ pub trait VCpu: Send {
     /// Run the vCPU until an exit condition.
     fn run(&mut self) -> Result<VcpuExit>;
 
+    /// Execute at most `budget` retired units, preserving the reason for yield.
+    /// One Hexagon packet is one unit. A zero budget performs no execution.
+    /// Non-stepping backends reject before entry; there is no unbounded fallback.
+    /// A delivered exception/interrupt with no retirement returns StateChange.
+    /// A backend fault retains previously retired work in RetirementRun instead
+    /// of losing that progress through an outer error. See RetirementStop.
+    fn run_retirement_budget(&mut self, budget: u64) -> Result<RetirementRun> {
+        budget::run(self, budget)
+    }
+
     /// Execute exactly one guest instruction.
     ///
     /// Returns `Ok(Some(exit))` when the instruction produced a synchronous
@@ -106,6 +118,14 @@ pub trait VCpu: Send {
     /// snapshot, which backends may override for efficiency.
     fn current_pc(&self) -> u64 {
         self.get_state().map(|s| s.pc()).unwrap_or(0)
+    }
+
+    /// Deliver an x86 INIT signal while preserving state that INIT leaves unchanged.
+    /// Secondary startup/wait-for-SIPI ownership belongs to the VMM coordinator.
+    fn deliver_init(&mut self) -> Result<()> {
+        Err(Error::InvalidConfig(
+            "INIT delivery is not supported by this backend".into(),
+        ))
     }
 
     /// Leave a halted or waiting state (x86 `HLT`, AArch64 `WFI`/`WFE`, a
@@ -192,10 +212,13 @@ pub trait VCpu: Send {
         }
     }
 
-    /// Get complete CPU state.
+    /// Get this backend's public architectural register projection. Private
+    /// controls, banked registers and in-flight state may require a separate
+    /// backend context; this projection alone does not establish a checkpoint.
     fn get_state(&self) -> Result<CpuState>;
 
-    /// Set complete CPU state.
+    /// Set the public architectural register projection. Private-state/reset
+    /// semantics are backend-specific; this is not a complete checkpoint import.
     fn set_state(&mut self, state: &CpuState) -> Result<()>;
 
     /// Update the exported architectural register state without resetting
@@ -210,6 +233,13 @@ pub trait VCpu: Send {
 
     /// Complete an I/O in operation by providing the data read from the device.
     fn complete_io_in(&mut self, data: &[u8]);
+
+    /// Surface a failed or still-pending completion before further execution
+    /// or an automatic checkpoint. Fallible SDK backends latch their status in
+    /// the compatibility `complete_io_in` callback and report it here.
+    fn io_completion_result(&self) -> Result<()> {
+        Ok(())
+    }
 
     /// Inject an external interrupt (hardware IRQ).
     /// Returns Ok(true) if the interrupt was injected, Ok(false) if interrupts are disabled.
@@ -229,6 +259,15 @@ pub trait VCpu: Send {
     /// Returns Ok(true) if delivered, Ok(false) if blocked (e.g., during NMI handling).
     fn inject_nmi(&mut self) -> Result<bool> {
         Ok(false)
+    }
+
+    /// Attach the VMM-owned local APIC for this processor. Software backends
+    /// route guest LAPIC MMIO to this same controller. Backends with native
+    /// interrupt controllers retain their backend-specific ownership contract.
+    fn attach_local_apic(
+        &mut self,
+        _lapic: std::sync::Arc<std::sync::Mutex<crate::devices::lapic::LocalApic>>,
+    ) {
     }
 
     /// Attach the shared PL011 console device so the vCPU's memory bridge can
@@ -322,6 +361,58 @@ pub trait VCpu: Send {
     /// Get current instruction count (for snapshotting).
     fn instruction_count(&self) -> u64 {
         0
+    }
+
+    /// Pure checkpoint admission before any live state changes. Backends should
+    /// validate private/profile-dependent state here as well. Native setter I/O
+    /// may still fail later; this hook does not promise hardware transactions.
+    fn validate_checkpoint_state(
+        &self,
+        state: &CpuState,
+        _emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        if std::mem::discriminant(state) != std::mem::discriminant(&self.get_state()?) {
+            return Err(Error::InvalidConfig(
+                "checkpoint CPU kind does not match target vCPU".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Capture additional backend-owned state, without replacing the stable
+    /// public register and legacy emulator projections. The producer's format
+    /// must include its version and admit all bytes before changing live state.
+    fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        Ok(None)
+    }
+
+    /// Admit the public projection and backend record before any CPU is changed.
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        if context.is_some() {
+            return Err(Error::InvalidConfig(
+                "checkpoint context producer differs from target backend".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Import an admitted backend record, or retain the legacy projection path
+    /// for files/backends without one. Native publication remains fallible.
+    fn restore_checkpoint_context(
+        &mut self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        self.set_state(state)?;
+        self.set_emulator_state(emulator)
     }
 
     /// Get extended emulator state for snapshotting.

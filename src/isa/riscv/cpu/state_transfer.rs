@@ -90,7 +90,8 @@ impl RiscVCpu {
 
     /// Installs vector state; the register file must be 32 registers of
     /// `vlenb` bytes.
-    pub fn import_vector(&mut self, vector: &RiscVVectorState) -> Result<(), String> {
+    /// Check the immutable target register-file geometry without mutation.
+    pub fn validate_vector_state(&self, vector: &RiscVVectorState) -> Result<(), String> {
         if vector.v.len() != self.v.len() {
             return Err(format!(
                 "vector register file of {} bytes; this hart has {}",
@@ -98,6 +99,11 @@ impl RiscVCpu {
                 self.v.len()
             ));
         }
+        Ok(())
+    }
+
+    pub fn import_vector(&mut self, vector: &RiscVVectorState) -> Result<(), String> {
+        self.validate_vector_state(vector)?;
         self.vl = vector.vl;
         self.vtype = vector.vtype;
         self.vstart = vector.vstart;

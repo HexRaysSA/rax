@@ -259,7 +259,11 @@ fn pauth_context_rejects_missing_extension_unknown_algorithm_and_trailing_data()
         panic!("wrong architecture")
     };
     arm.sregs.execution = None;
-    let absent = replace_cpu(&blob, 4, &rax_engine::codec::serialize(&no_extension).unwrap());
+    let absent = replace_cpu(
+        &blob,
+        4,
+        &rax_engine::codec::serialize(&no_extension).unwrap(),
+    );
     assert_eq!(
         rax_context_restore(engine, absent.as_ptr(), absent.len()),
         RaxStatus::Format

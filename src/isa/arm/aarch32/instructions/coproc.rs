@@ -44,7 +44,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return match reg {
                 0 => ExecResult::Continue,
                 1 => {
-                    if !self.cpu.vfp.is_enabled() {
+                    if !self.fp_data_enabled() {
                         ExecResult::Exception(ExceptionType::UndefinedInstruction)
                     } else {
                         self.cpu.vfp.write_fpscr(value);
@@ -72,9 +72,12 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 return ExecResult::Halt;
             }
             let enc = crate::isa::arm::common::sysreg::Cp15Encoding::new(reg, opc1, crm, opc2);
+            if let Some(fault) = self.fp_cp15_fault(insn, enc, false) {
+                return fault;
+            }
             // Cache/TLB maintenance (CRn 7/8) and unmodelled registers are
             // accepted as no-ops; everything modelled lands in Cp15State.
-            let _ = self.cpu.cp15.write(enc, value);
+            let _ = self.fp_cp15_write(enc, value);
             return ExecResult::Continue;
         }
 
@@ -105,7 +108,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let value = match reg {
                 0 => self.cpu.vfp.fpsid,
                 1 => {
-                    if !self.cpu.vfp.is_enabled() {
+                    if !self.fp_data_enabled() {
                         return ExecResult::Exception(ExceptionType::UndefinedInstruction);
                     }
                     self.cpu.vfp.read_fpscr()
@@ -134,7 +137,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 return ExecResult::Undefined;
             }
             let enc = crate::isa::arm::common::sysreg::Cp15Encoding::new(reg, opc1, crm, opc2);
-            let value = self.cpu.cp15.read(enc).unwrap_or(0);
+            if let Some(fault) = self.fp_cp15_fault(insn, enc, true) {
+                return fault;
+            }
+            let value = self.fp_cp15_read(enc).unwrap_or(0);
             if t != 15 {
                 self.cpu.regs[t] = value;
             } else {

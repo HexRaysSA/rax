@@ -38,7 +38,7 @@ use crate::isa::arm::common::sysreg::Cp15Encoding;
 use std::fmt;
 
 /// CP15 coprocessor state.
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Cp15State {
     // =========================================================================
     // ID Registers (read-only) - CRn=0
@@ -81,6 +81,13 @@ pub struct Cp15State {
     pub sder: u32,
     /// Non-Secure Access Control Register (NSACR).
     pub nsacr: u32,
+    /// Hyp access controls and represented exception-entry state.
+    pub hcptr: u32,
+    pub hcr: u32,
+    pub hsctlr: Sctlr,
+    pub hvbar: u32,
+    pub hsr: u32,
+    pub elr_hyp: u32,
 
     // =========================================================================
     // Translation Table Registers - CRn=2
@@ -218,6 +225,12 @@ impl Default for Cp15State {
             scr: 0,
             sder: 0,
             nsacr: 0,
+            hcptr: 0x33ff,
+            hcr: 0,
+            hsctlr: Sctlr::default(),
+            hvbar: 0,
+            hsr: 0,
+            elr_hyp: 0,
 
             // Translation tables
             ttbr0: 0,
@@ -307,10 +320,15 @@ impl Cp15State {
             // CRn=1: System control
             (1, 0, 0, 0) => Some(self.sctlr.bits()),
             (1, 0, 0, 1) => Some(self.actlr),
-            (1, 0, 0, 2) => Some(self.cpacr.bits()),
+            (1, 0, 0, 2) => Some(self.cpacr.bits() & 0x80f0_0000),
             (1, 0, 1, 0) => Some(self.scr),
             (1, 0, 1, 1) => Some(self.sder),
             (1, 0, 1, 2) => Some(self.nsacr),
+            (1, 4, 1, 0) => Some(self.hcr),
+            (1, 4, 1, 2) => Some(self.hcptr),
+            (1, 4, 0, 0) => Some(self.hsctlr.bits()),
+            (12, 4, 0, 0) => Some(self.hvbar),
+            (5, 4, 2, 0) => Some(self.hsr),
 
             // CRn=2: Translation table
             (2, 0, 0, 0) => Some(self.ttbr0 as u32),
@@ -367,7 +385,9 @@ impl Cp15State {
                 true
             }
             (1, 0, 0, 2) => {
-                self.cpacr = Cpacr::from_bits(value);
+                // The selected modern FP profile implements ASEDIS and cp10/cp11.
+                // D32DIS and unimplemented trace/coprocessor controls are RES0.
+                self.cpacr = Cpacr::from_bits(value & 0x80f0_0000);
                 true
             }
             (1, 0, 1, 0) => {
@@ -380,6 +400,26 @@ impl Cp15State {
             }
             (1, 0, 1, 2) => {
                 self.nsacr = value;
+                true
+            }
+            (1, 4, 1, 0) => {
+                self.hcr = value;
+                true
+            }
+            (1, 4, 1, 2) => {
+                self.hcptr = (value & 0x8000_8c00) | 0x33ff;
+                true
+            }
+            (1, 4, 0, 0) => {
+                self.hsctlr = Sctlr::from_bits(value);
+                true
+            }
+            (12, 4, 0, 0) => {
+                self.hvbar = value & !31;
+                true
+            }
+            (5, 4, 2, 0) => {
+                self.hsr = value;
                 true
             }
 
@@ -595,7 +635,7 @@ impl fmt::Debug for Cp15State {
 // =============================================================================
 
 /// System Control Register (SCTLR).
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
 pub struct Sctlr {
     bits: u32,
 }
@@ -732,7 +772,7 @@ impl fmt::Debug for Sctlr {
 // =============================================================================
 
 /// Coprocessor Access Control Register (CPACR).
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
 pub struct Cpacr {
     bits: u32,
 }

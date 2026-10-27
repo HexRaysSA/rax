@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile the handwritten Intel HVF register/type/function contract against Apple SDK.
+"""Compile the handwritten Intel HVF register/VMCS/type/function contract against Apple SDK.
 
 This checks source/API parity without creating a VM or executing a guest.
 """
@@ -69,8 +69,9 @@ def main() -> int:
                 "tool_sha256": digest(Path(__file__)), "sdk": str(sdk), "commands": [],
                 "sdk_header_sha256": {name: digest(headers / name) for name in
                                       ["hv_arch_x86.h", "hv.h", "hv_vmx.h", "hv_types.h", "hv_error.h"]},
+                "vmcs_sdk_header_sha256": digest(headers / "hv_arch_vmx.h"),
                 "arm64_error_header_sha256": digest(sdk / "usr/include/arm64/hv/hv_kern_types.h"),
-                "scope": "Intel register IDs, selected ABI type sizes/alignments, HV constants, and every declared x86 foreign function signature. VMCS field encodings and native hypervisor/guest execution are separate."}
+                "scope": "Intel register IDs, selected ABI type sizes/alignments, HV constants, and every declared x86 foreign function signature. All declared VMCS field encodings use explicit SDK-name aliases. Native hypervisor/guest execution and Arm64 function signatures remain separate."}
     text = source.read_text()
     aliases = {}
     for name in TYPES:
@@ -87,6 +88,25 @@ def main() -> int:
     registers = re.findall(r"^\s+(HV_X86_[A-Z0-9_]+)\s*=", enum_source, re.M)
     if not registers:
         raise ValueError("Empty register enum")
+    vmcs_at = text.index("pub enum hv_vmx_vmcs_field_t {")
+    vmcs_start = text.rfind("#[repr(", 0, vmcs_at)
+    vmcs_end = text.index("\n}", vmcs_at) + 2
+    if vmcs_start < 0:
+        raise ValueError("VMCS enum must have explicit representation")
+    vmcs_source = text[vmcs_start:vmcs_end]
+    vmcs_fields = re.findall(r"^\s+(VMCS_[A-Z0-9_]+)\s*=", vmcs_source, re.M)
+    alias_file = args.repo / "tools/hvf/vmcs_sdk_aliases.json"
+    vmcs_aliases = json.loads(alias_file.read_text())
+    if not vmcs_fields or set(vmcs_aliases) - set(vmcs_fields):
+        raise ValueError("Empty VMCS fields or stale SDK-name alias mapping")
+    event_source = args.repo / "src/backend/hvf/sync_exit.rs"
+    event_text = event_source.read_text()
+    event_constant = re.search(r"^pub\(crate\) const VM_EXIT_INTERRUPTION_INFO_FIELD: u32 = ([^;]+);", event_text, re.M)
+    if not event_constant:
+        raise ValueError("Missing actual synchronous-exit VMCS field constant")
+    manifest["synchronous_exit_source_sha256"] = digest(event_source)
+    manifest["vmcs_aliases_sha256"] = digest(alias_file)
+    manifest["vmcs_sdk_aliases"] = vmcs_aliases
     constants = re.findall(r"^pub const (HV_[A-Z0-9_]+)\s*:\s*([^=]+)=\s*([^;]+);", text, re.M)
     foreign_at = text.index('unsafe extern "C" {')
     foreign_end = text.index("\n}", foreign_at)
@@ -95,16 +115,19 @@ def main() -> int:
         raise ValueError("Unparsed or empty foreign function declaration list")
     rust = '#![allow(non_camel_case_types,dead_code)]\nuse std::ffi::c_void;\n'
     rust += "\n".join(f"type {name} = {value};" for name, value in aliases.items()) + "\n"
-    rust += enum_source + "\n"
+    rust += enum_source + "\n" + vmcs_source + "\n"
+    rust += "const VM_EXIT_INTERRUPTION_INFO_FIELD: u32 = " + event_constant.group(1) + ";\n"
     rust += "\n".join(f"const {name}: {kind.strip()} = {value};" for name, kind, value in constants) + "\n"
     rust += 'fn main() { println!("{{\\\"values\\\":{{");\n'
     expressions = [(name, "hv_x86_reg_t::" + name) for name in registers]
+    expressions += [(name, "hv_vmx_vmcs_field_t::" + name) for name in vmcs_fields]
+    expressions += [("VM_EXIT_INTERRUPTION_INFO_FIELD", "VM_EXIT_INTERRUPTION_INFO_FIELD")]
     expressions += [(name, name) for name, _, _ in constants]
     for i, (name, expression) in enumerate(expressions):
         comma = "," if i else ""
         rust += f'println!("{comma}\\\"{name}\\\":{{}}", {expression} as u64);\n'
     rust += 'println!("}},\\\"types\\\":{{");\n'
-    for i, name in enumerate([*TYPES, "hv_x86_reg_t"]):
+    for i, name in enumerate([*TYPES, "hv_x86_reg_t", "hv_vmx_vmcs_field_t"]):
         comma = "," if i else ""
         rust += f'println!("{comma}\\\"{name}\\\":[{{}},{{}}]",std::mem::size_of::<{name}>(),std::mem::align_of::<{name}>());\n'
     rust += 'println!("}}}}"); }\n'
@@ -124,10 +147,12 @@ def main() -> int:
         c += f"typedef {c_type(value)} rax_{name};\n"
         c += f'_Static_assert(__builtin_types_compatible_p(rax_{name},{name}),"type {name}");\n'
     for name, (size, alignment) in values["types"].items():
-        c += f'_Static_assert(sizeof({name})=={size},"size {name}");\n'
-        c += f'_Static_assert(_Alignof({name})=={alignment},"alignment {name}");\n'
+        sdk_type = "uint32_t" if name == "hv_vmx_vmcs_field_t" else name
+        c += f'_Static_assert(sizeof({sdk_type})=={size},"size {name}");\n'
+        c += f'_Static_assert(_Alignof({sdk_type})=={alignment},"alignment {name}");\n'
     for name, value in values["values"].items():
-        c += f'_Static_assert((uint64_t)({name})==0x{value:016x}ULL,"value {name}");\n'
+        sdk_name = "VMCS_RO_VMEXIT_IRQ_INFO" if name == "VM_EXIT_INTERRUPTION_INFO_FIELD" else vmcs_aliases.get(name, name)
+        c += f'_Static_assert((uint64_t)({sdk_name})==0x{value:016x}ULL,"value {name}={sdk_name}");\n'
     for name, parameters, result in functions:
         parameters = re.sub(r"//[^\n]*", "", parameters)
         types = [c_type(part.split(":", 1)[1]) for part in parameters.split(",") if part.strip()]
@@ -144,9 +169,13 @@ def main() -> int:
     arm_result = run(["xcrun", "clang", "-target", "arm64-apple-macosx13.0", "-isysroot", str(sdk),
                       "-std=c11", "-Werror", "-fsyntax-only", str(out / "probe-arm64.c")], out, "sdk-arm64-constants", manifest)
     manifest["arm64_shared_constants"] = len(common)
-    manifest["counts"] = {"register_ids": len(registers), "constants": len(constants), "types": len(TYPES),
+    manifest["counts"] = {"register_ids": len(registers), "vmcs_fields": len(vmcs_fields), "shared_runtime_vmcs_fields": 1, "constants": len(constants), "types": len(TYPES),
                           "type_size_alignment_pairs": len(values["types"]), "function_signatures": len(functions)}
     manifest["artifact_sha256"] = {name: digest(out / name) for name in ["probe.rs", "probe.c", "probe-arm64.c", "rust-values.stdout"]}
+    if digest(event_source) != manifest["synchronous_exit_source_sha256"]:
+        raise RuntimeError("Synchronous-exit field source changed during parity check")
+    if digest(alias_file) != manifest["vmcs_aliases_sha256"]:
+        raise RuntimeError("VMCS SDK alias mapping changed during parity check")
     if digest(source) != manifest["bindings_sha256"]:
         raise RuntimeError("Bindings changed during parity check")
     manifest["result"] = "match" if result.returncode == 0 and arm_result.returncode == 0 else "mismatch"

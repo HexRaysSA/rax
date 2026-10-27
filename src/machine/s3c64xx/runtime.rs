@@ -19,6 +19,8 @@ use tracing::debug;
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 use crate::devices::s3c64xx::{Pl192Vic, S3cPwmTimer, S3cSyscon, S3cUart};
+#[path = "context.rs"]
+mod context;
 use crate::error::{Error, Result};
 use crate::isa::arm::execution::{ArmMemory, MemoryError};
 use crate::isa::arm::mmu_v6::{self, V6Access, V6Fault, V6MmuConfig};
@@ -57,7 +59,7 @@ const VIC1_UART0_LINE: u32 = 5;
 const BATCH: u32 = 65_536;
 
 /// Last memory fault recorded by the bridge (for DFSR/DFAR reporting).
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
 struct LastFault {
     addr: u32,
     fsr: u32,
@@ -594,7 +596,29 @@ impl Armv6Vcpu {
                 self.take_exception(exc);
                 StepOutcome::Progress
             }
+            ExecResult::FpAccessTrap {
+                target_el,
+                syndrome,
+                undefined,
+            } => {
+                // Access traps complete no guest instruction or device access.
+                self.insn_count -= 1;
+                if target_el != 2 {
+                    return StepOutcome::Fault(Error::InvalidConfig(format!(
+                        "AArch32-only machine cannot enter EL{target_el}"
+                    )));
+                }
+                self.take_exception(ExceptionType::HypervisorTrap {
+                    syndrome,
+                    undefined,
+                });
+                StepOutcome::Progress
+            }
             ExecResult::Halt => {
+                self.cpu.regs[15] = pc.wrapping_add(insn_len);
+                if advance_it {
+                    self.cpu.cpsr.advance_it_state();
+                }
                 self.cpu.is_halted = true;
                 StepOutcome::Idle
             }
@@ -742,9 +766,47 @@ impl Armv6Vcpu {
 enum StepOutcome {
     Progress,
     Idle,
+    Fault(Error),
 }
 
 impl VCpu for Armv6Vcpu {
+    fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        Ok(Some(self.capture_context_record()?))
+    }
+
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        if let Some(context) = context {
+            self.validate_context_record(state, context)?;
+        }
+        Ok(())
+    }
+
+    fn restore_checkpoint_context(
+        &mut self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        if let Some(context) = context {
+            self.apply_context_record(state, context)
+        } else {
+            self.set_state(state)?;
+            self.set_emulator_state(emulator)
+        }
+    }
+
+    fn wake(&mut self) {
+        self.cpu.is_halted = false;
+        self.shutdown = false;
+    }
+
     fn run(&mut self) -> Result<VcpuExit> {
         if self.shutdown {
             return Ok(VcpuExit::Shutdown);
@@ -756,6 +818,7 @@ impl VCpu for Armv6Vcpu {
             }
             match self.step() {
                 StepOutcome::Progress => {}
+                StepOutcome::Fault(error) => return Err(error),
                 StepOutcome::Idle => {
                     self.heartbeat();
                     return Ok(VcpuExit::Hlt);
@@ -767,24 +830,7 @@ impl VCpu for Armv6Vcpu {
     }
 
     fn get_state(&self) -> Result<CpuState> {
-        let mut regs = Aarch32Registers::default();
-        for i in 0..13 {
-            regs.r[i] = self.cpu.regs[i];
-        }
-        regs.sp = self.cpu.regs[13];
-        regs.lr = self.cpu.regs[14];
-        regs.pc = self.cpu.regs[15];
-        regs.cpsr = self.cpu.cpsr.to_u32();
-        let vfp = &self.cpu.vfp;
-        regs.fpscr = vfp.fpscr.bits();
-        for i in 0..32 {
-            regs.s[i] = vfp.read_s_bits(i as u8);
-        }
-        for i in 0..16 {
-            regs.d_high[i] = vfp.read_d_bits((16 + i) as u8);
-        }
-        let sregs = Aarch32SystemRegisters::default();
-        Ok(CpuState::Aarch32(Aarch32CpuState { regs, sregs }))
+        Ok(public_state(&self.cpu))
     }
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
@@ -839,6 +885,56 @@ impl VCpu for Armv6Vcpu {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn platform_wfi_retires_arm_thumb_it_and_resumes_without_pc_repair() {
+        for thumb in [false, true] {
+            for condition_passes in [false, true] {
+                let memory = create_test_memory();
+                let code = S3C_RAM_BASE + 0x100;
+                let bytes = if thumb {
+                    [0xbf30u16, 0x202a, 0xbf30]
+                        .into_iter()
+                        .flat_map(u16::to_le_bytes)
+                        .collect::<Vec<_>>()
+                } else {
+                    [0x0320_f003u32, 0xe3a0_002a, 0xe320_f003]
+                        .into_iter()
+                        .flat_map(u32::to_le_bytes)
+                        .collect::<Vec<_>>()
+                };
+                memory
+                    .write_slice(&bytes, GuestAddress(u64::from(code)))
+                    .unwrap();
+                let mut cpu = Armv6Vcpu::new(0, memory);
+                cpu.cpu.regs[15] = code;
+                cpu.cpu.cpsr.t = thumb;
+                cpu.cpu.cpsr.z = condition_passes;
+                if thumb {
+                    cpu.cpu.cpsr.set_it_state(0, 8);
+                }
+                let first = cpu.step();
+                if condition_passes {
+                    assert!(matches!(first, StepOutcome::Idle));
+                    assert!(cpu.cpu.is_halted);
+                    cpu.wake();
+                    assert!(!cpu.cpu.is_halted);
+                } else {
+                    assert!(matches!(first, StepOutcome::Progress));
+                    assert!(!cpu.cpu.is_halted);
+                }
+                let width = if thumb { 2 } else { 4 };
+                assert_eq!(cpu.cpu.regs[15], code + width);
+                assert!(!cpu.cpu.cpsr.in_it_block());
+                assert!(matches!(cpu.step(), StepOutcome::Progress));
+                assert_eq!(cpu.cpu.regs[0], 42);
+                assert!(matches!(cpu.step(), StepOutcome::Idle));
+                assert_eq!(cpu.cpu.regs[15], code + 3 * width);
+                assert_eq!(cpu.insn_count, 3);
+            }
+        }
+    }
+
     use vm_memory::{GuestRegionMmap, MmapRegion};
 
     fn create_test_memory() -> Arc<GuestMemoryMmap> {
@@ -891,4 +987,25 @@ mod tests {
         assert_eq!(vcpu.cpu.vfp.read_d_bits(16), 0xCCCC_0000_DDDD_0000);
         assert_eq!(vcpu.cpu.vfp.read_d_bits(31), 0xEEEE_0000_FFFF_0000);
     }
+}
+
+fn public_state(cpu: &Armv7Cpu) -> CpuState {
+    let mut regs = Aarch32Registers::default();
+    for i in 0..13 {
+        regs.r[i] = cpu.regs[i];
+    }
+    regs.sp = cpu.regs[13];
+    regs.lr = cpu.regs[14];
+    regs.pc = cpu.regs[15];
+    regs.cpsr = cpu.cpsr.to_u32();
+    let vfp = &cpu.vfp;
+    regs.fpscr = vfp.fpscr.bits();
+    for i in 0..32 {
+        regs.s[i] = vfp.read_s_bits(i as u8);
+    }
+    for i in 0..16 {
+        regs.d_high[i] = vfp.read_d_bits((16 + i) as u8);
+    }
+    let sregs = Aarch32SystemRegisters::default();
+    CpuState::Aarch32(Aarch32CpuState { regs, sregs })
 }

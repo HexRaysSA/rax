@@ -31,6 +31,8 @@ use crate::vm::vcpu::{
     Aarch32CpuState, Aarch32Registers, Aarch32SystemRegisters, CpuState, MemAccess, VCpu, VcpuExit,
 };
 
+pub(crate) mod context;
+
 /// Short-descriptor fault status codes that report a permission or domain
 /// violation (ARMv7-A ARM, "Short-descriptor translation table format fault
 /// status"): section/page domain faults 0b01001/0b01011 and permission faults
@@ -392,6 +394,23 @@ impl Aarch32Vcpu {
                 self.take_exception(ExceptionType::UndefinedInstruction);
                 return Ok(None); // The faulting instruction did not retire.
             }
+            ExecResult::FpAccessTrap {
+                target_el,
+                syndrome,
+                undefined,
+            } => {
+                if target_el != 2 {
+                    return Err(Error::InvalidConfig(
+                        "standalone A32 PE cannot enter an A64 higher EL".into(),
+                    ));
+                }
+                (self.cpu.regs, self.cpu.cpsr) = snapshot;
+                self.take_exception(ExceptionType::HypervisorTrap {
+                    syndrome,
+                    undefined,
+                });
+                return Ok(None);
+            }
             ExecResult::Undefined => {
                 (self.cpu.regs, self.cpu.cpsr) = snapshot;
                 return Err(self.undefined(pc, raw));
@@ -415,6 +434,45 @@ impl Aarch32Vcpu {
 }
 
 impl VCpu for Aarch32Vcpu {
+    fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
+        Ok(Some(crate::vm::snapshot::BackendContext {
+            kind: crate::vm::snapshot::AARCH32_CONTEXT,
+            data: self.save_context()?,
+        }))
+    }
+
+    fn validate_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        if let Some(context) = context {
+            if context.kind != crate::vm::snapshot::AARCH32_CONTEXT {
+                return Err(Error::InvalidConfig(
+                    "AArch32 checkpoint context producer differs from target backend".into(),
+                ));
+            }
+            self.validate_context_record(state, &context.data)?;
+        }
+        Ok(())
+    }
+
+    fn restore_checkpoint_context(
+        &mut self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.validate_checkpoint_context(state, emulator, context)?;
+        if let Some(context) = context {
+            self.restore_context(&context.data)
+        } else {
+            self.set_state(state)?;
+            self.set_emulator_state(emulator)
+        }
+    }
     fn run(&mut self) -> Result<VcpuExit> {
         loop {
             if let Some(exit) = self.step_one()? {
@@ -460,38 +518,7 @@ impl VCpu for Aarch32Vcpu {
     }
 
     fn get_state(&self) -> Result<CpuState> {
-        let mut regs = Aarch32Registers::default();
-        regs.r.copy_from_slice(&self.cpu.regs[..13]);
-        regs.sp = self.cpu.regs[13];
-        regs.lr = self.cpu.regs[14];
-        regs.pc = self.cpu.regs[15];
-        regs.cpsr = self.cpu.cpsr.to_u32();
-        regs.spsr = self.cpu.get_current_spsr().map_or(0, |spsr| spsr.to_u32());
-        let vfp = &self.cpu.vfp;
-        regs.fpscr = vfp.fpscr.bits();
-        for i in 0..32 {
-            regs.s[i] = vfp.read_s_bits(i as u8);
-        }
-        for i in 0..16 {
-            regs.d_high[i] = vfp.read_d_bits((16 + i) as u8);
-        }
-        let cp = &self.cpu.cp15;
-        let sregs = Aarch32SystemRegisters {
-            sctlr: cp.sctlr.bits(),
-            ttbr0: cp.ttbr0 as u32,
-            ttbr1: cp.ttbr1 as u32,
-            ttbcr: cp.ttbcr,
-            dacr: cp.dacr,
-            dfsr: cp.dfsr,
-            ifsr: cp.ifsr,
-            dfar: cp.dfar,
-            ifar: cp.ifar,
-            // The exception base follows SCTLR.V; there is no separate VBAR.
-            vbar: cp.sctlr.vector_base(),
-            contextidr: cp.contextidr,
-            ..Default::default()
-        };
-        Ok(CpuState::Aarch32(Aarch32CpuState { regs, sregs }))
+        Ok(public_state(&self.cpu))
     }
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
@@ -551,3 +578,38 @@ impl VCpu for Aarch32Vcpu {
 #[cfg(test)]
 #[path = "aarch32_tests.rs"]
 mod tests;
+
+fn public_state(cpu: &Armv7Cpu) -> CpuState {
+    let mut regs = Aarch32Registers::default();
+    regs.r.copy_from_slice(&cpu.regs[..13]);
+    regs.sp = cpu.regs[13];
+    regs.lr = cpu.regs[14];
+    regs.pc = cpu.regs[15];
+    regs.cpsr = cpu.cpsr.to_u32();
+    regs.spsr = cpu.get_current_spsr().map_or(0, |spsr| spsr.to_u32());
+    let vfp = &cpu.vfp;
+    regs.fpscr = vfp.fpscr.bits();
+    for i in 0..32 {
+        regs.s[i] = vfp.read_s_bits(i as u8);
+    }
+    for i in 0..16 {
+        regs.d_high[i] = vfp.read_d_bits((16 + i) as u8);
+    }
+    let cp = &cpu.cp15;
+    let sregs = Aarch32SystemRegisters {
+        sctlr: cp.sctlr.bits(),
+        ttbr0: cp.ttbr0 as u32,
+        ttbr1: cp.ttbr1 as u32,
+        ttbcr: cp.ttbcr,
+        dacr: cp.dacr,
+        dfsr: cp.dfsr,
+        ifsr: cp.ifsr,
+        dfar: cp.dfar,
+        ifar: cp.ifar,
+        // The exception base follows SCTLR.V; there is no separate VBAR.
+        vbar: cp.sctlr.vector_base(),
+        contextidr: cp.contextidr,
+        ..Default::default()
+    };
+    CpuState::Aarch32(Aarch32CpuState { regs, sregs })
+}
