@@ -21,8 +21,12 @@ use crate::devices::pic::DualPic;
 use crate::devices::pit::Pit;
 use crate::devices::serial::Serial16550;
 use crate::error::{Error, Result};
+mod bundle;
+mod pci;
 use crate::vm::memory::validate_guest_memory_size;
 use crate::vm::vcpu::state::CpuState;
+pub use bundle::SnapshotBundle;
+pub use pci::{MediaSnapshot, PciSnapshot};
 
 /// Magic number for checkpoint files: "RAXCKPT\0"
 const CHECKPOINT_MAGIC: [u8; 8] = *b"RAXCKPT\0";

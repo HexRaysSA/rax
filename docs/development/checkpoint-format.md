@@ -132,3 +132,5 @@ budgets are specified. QG5: absent legacy information and remaining state closur
 are explicit. QG6: original implementation, captured fixture, source-bound probe
 and executable results provide provenance. QG7: quiescence, additional device/CPU
 state, replay identity and native boot remain bounded follow-on requirements.
+
+The additive [PCI/media bundle extension](checkpoint-pci-format.md) preserves the base Snapshot API and six-section wire writer while defining required control/media sections 7--9 for SnapshotBundle. This container extension is separate from complete VM capture/resume integration.
