@@ -18,6 +18,21 @@ impl ClockSource {
             Self::Retired { .. } => ClockMode::Retired,
         }
     }
+    fn advance_retired(&mut self, delta: u64) -> bool {
+        let Self::Retired {
+            nanos,
+            units,
+            phase,
+        } = self
+        else {
+            return false;
+        };
+        let quanta = u128::from(delta) + u128::from(*phase);
+        *nanos = nanos.wrapping_add((quanta / 3) as u64);
+        *units = units.wrapping_add(delta);
+        *phase = (quanta % 3) as u8;
+        true
+    }
     fn state(&self) -> (u64, u64, u8) {
         match self {
             Self::Wall { base, start } => {
@@ -97,21 +112,18 @@ impl TimingContext {
     /// Wall mode rejects before changing state. Totals/nanoseconds wrap as u64.
     pub fn advance_retired(&self, delta: u64) -> Result<()> {
         let mut clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
-        let ClockSource::Retired {
-            nanos,
-            units,
-            phase,
-        } = &mut *clock
-        else {
+        if !clock.advance_retired(delta) {
             return Err(Error::InvalidConfig(
                 "retirement advancement requires retired clock mode".into(),
             ));
-        };
-        let quanta = u128::from(delta) + u128::from(*phase);
-        *nanos = nanos.wrapping_add((quanta / 3) as u64);
-        *units = units.wrapping_add(delta);
-        *phase = (quanta % 3) as u8;
+        }
         Ok(())
+    }
+    pub(super) fn record_retirement(&self, delta: u64) {
+        self.clock
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .advance_retired(delta);
     }
     pub fn retirement_count(&self) -> Option<u64> {
         let clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());

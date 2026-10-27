@@ -84,6 +84,15 @@ pub fn tsc() -> u64 {
     instruction_count() * 3000
 }
 
+/// Publish one validated successful step to the explicitly bound retired clock.
+/// Wall and unbound callers retain their existing time source. Failed attempts,
+/// state changes without retirement and diagnostic ticks do not advance time.
+pub(crate) fn record_retirement(delta: u64) {
+    if delta != 0 {
+        context::with_current(|clock| clock.record_retirement(delta));
+    }
+}
+
 /// Increment the instruction counter (for profiling/debugging)
 #[inline(always)]
 pub fn tick() -> u64 {

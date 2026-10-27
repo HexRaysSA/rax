@@ -118,6 +118,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `retired_clock` | `suites/vm/retired_clock.rs` | Exact retirement clock phase, wrap and state restoration |
 | `checkpoint_clock` | `suites/vm/checkpoint_clock.rs` | Required timing state, phase and restore admission |
 | `cortexm_dispatch` | `suites/backend/cortexm_dispatch.rs` | Cortex-M factory selection, Thumb execution and boot-state wiring |
+| `retirement_clock` | `suites/backend/retirement_clock.rs` | Per-step retirement clock publication and bounded execution |
 
 ## Reachability rules
 

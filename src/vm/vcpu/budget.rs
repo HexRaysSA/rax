@@ -60,6 +60,9 @@ pub(super) fn run<T: VCpu + ?Sized>(cpu: &mut T, budget: u64) -> Result<Retireme
                 ))),
             });
         }
+        // Publish before exposing the exit or starting the next instruction, so
+        // a clock read inside the next step observes every prior retirement.
+        crate::vm::timing::record_retirement(delta);
         retired += delta;
         if let Some(exit) = exit {
             return Ok(RetirementRun {
