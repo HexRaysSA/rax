@@ -1279,3 +1279,7 @@ mod tests {
         assert!(d.interrupt_pending());
     }
 }
+
+#[path = "e1000/checkpoint.rs"]
+mod checkpoint;
+pub use checkpoint::E1000Checkpoint;

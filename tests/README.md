@@ -105,6 +105,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `storage_config` | `suites/vm/storage_config.rs` |
 | `controller_checkpoint` | `suites/devices/controller_checkpoint.rs` |
 | `pci_checkpoint` | `suites/devices/pci_checkpoint.rs` | Host-bridge latch, config, BAR routing, topology and malformed checkpoint restore |
+| `pci_endpoint_checkpoint` | `suites/devices/pci_endpoint_checkpoint.rs` | Network/USB/audio private checkpoint state, bounded queues and continuation |
 
 ## Reachability rules
 

@@ -40,3 +40,5 @@ quiescence and replay remain open. Medium impact: raw public registration permit
 keys/profile combinations beyond standard PCI topology; capture preserves
 existing represented values within explicit resource bounds. Low impact: future
 bridge fields require a new wire revision. The complete `pci_checkpoint` owner has 17 tests; direct owning-source execution also runs the 11 existing bridge tests. An independent parser checks seven actual source/restored fixtures, all 9,826 control bytes and 112 routing-trace bytes. The whole library, translated owners, and other final gates remain required before commit.
+
+The [endpoint state APIs](pci-endpoint-checkpoints.md) independently capture e1000, UHCI and AC'97 private state; the runtime must coordinate their capture with the bridge and guest RAM.
