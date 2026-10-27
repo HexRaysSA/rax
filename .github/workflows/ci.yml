@@ -185,7 +185,7 @@ jobs:
             --test ahci_dma \
             --test storage_images \
             --test storage_config \
-            --test controller_checkpoint --test pci_checkpoint --test pci_endpoint_checkpoint --test runtime_pci_checkpoint --test checkpoint_pci \
+            --test controller_checkpoint --test pci_checkpoint --test pci_endpoint_checkpoint --test runtime_pci_checkpoint --test checkpoint_pci --test restore_admission \
             --bin rax \
             -- --test-threads=1 --nocapture
       # The x86-64 JIT suite executes transient native mappings and intentionally

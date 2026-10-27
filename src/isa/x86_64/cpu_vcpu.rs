@@ -18,6 +18,19 @@ impl VCpu for X86_64Vcpu {
         }))
     }
 
+    fn validate_checkpoint_state(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        if !matches!(state, CpuState::X86_64(_)) {
+            return Err(Error::Emulator(
+                "expected x86_64 state for x86_64 vCPU".to_string(),
+            ));
+        }
+        Self::validate_emulator_state(emulator)
+    }
+
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
         let state = match state {
             CpuState::X86_64(state) => state,

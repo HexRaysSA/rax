@@ -199,22 +199,58 @@ impl GuestMemoryWrapper {
         self.actual_size
     }
 
-    /// Read all memory contents into a byte vector (for snapshotting).
-    /// Returns the reported_size worth of memory (excludes padding).
+    /// Infallible convenience capture of reported RAM (excluding padding).
+    /// Panics if complete capture is impossible; checkpoint paths should use
+    /// `try_read_all` to return allocation/backing/I/O failures to their caller.
     pub fn read_all(&self) -> Vec<u8> {
-        use vm_memory::Bytes;
-        let mut buf = vec![0u8; self.reported_size as usize];
-        let _ = self.mem.read_slice(&mut buf, GuestAddress(0));
-        buf
+        self.try_read_all()
+            .expect("failed to capture complete reported guest RAM")
     }
 
-    /// Write memory contents from a byte vector (for snapshot restore).
+    /// Capture every byte of reported RAM with checked allocation and I/O.
+    /// Reserved backing padding is outside the base checkpoint format.
+    pub fn try_read_all(&self) -> Result<Vec<u8>> {
+        use vm_memory::Bytes;
+        let size = usize::try_from(self.reported_size).map_err(|_| {
+            crate::error::Error::InvalidConfig(
+                "reported RAM does not fit host address size".to_string(),
+            )
+        })?;
+        self.validate_restore_len(size)?;
+        let mut bytes = Vec::new();
+        bytes.try_reserve_exact(size).map_err(|e| {
+            crate::error::Error::Emulator(format!("Failed to allocate checkpoint RAM: {e}"))
+        })?;
+        bytes.resize(size, 0);
+        self.mem
+            .read_slice(&mut bytes, GuestAddress(0))
+            .map_err(|e| {
+                crate::error::Error::Emulator(format!("Failed to read checkpoint RAM: {e}"))
+            })?;
+        Ok(bytes)
+    }
+    pub(crate) fn validate_restore_len(&self, length: usize) -> Result<()> {
+        use vm_memory::GuestMemory;
+        if length as u64 != self.reported_size {
+            return Err(crate::error::Error::InvalidConfig(format!(
+                "checkpoint RAM length mismatch: expected {} bytes, got {}",
+                self.reported_size, length
+            )));
+        }
+        if !self.mem.check_range(GuestAddress(0), length) {
+            return Err(crate::error::Error::InvalidConfig(
+                "checkpoint RAM range is not completely backed".to_string(),
+            ));
+        }
+        Ok(())
+    }
+    /// Restore exactly the reported RAM extent; reject mismatches before writes.
     pub fn write_all(&self, data: &[u8]) -> Result<()> {
         use vm_memory::Bytes;
-        let size = data.len().min(self.reported_size as usize);
+        self.validate_restore_len(data.len())?;
         self.mem
-            .write_slice(&data[..size], GuestAddress(0))
-            .map_err(|e| crate::error::Error::Emulator(format!("Failed to write memory: {}", e)))
+            .write_slice(data, GuestAddress(0))
+            .map_err(|e| crate::error::Error::Emulator(format!("Failed to write memory: {e}")))
     }
 }
 
@@ -244,6 +280,29 @@ pub trait FlatTranslation: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fallible_capture_and_restore_reject_unbacked_reported_extent() {
+        use vm_memory::Bytes;
+        let mem = GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 4096)]).unwrap();
+        mem.write_slice(&[0xa5; 4096], GuestAddress(0)).unwrap();
+        let wrapper = GuestMemoryWrapper {
+            mem,
+            reported_size: 8192,
+            actual_size: 4096,
+        };
+        assert!(wrapper.try_read_all().is_err());
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| wrapper.read_all())).is_err()
+        );
+        assert!(wrapper.write_all(&[0x33; 8192]).is_err());
+        let mut actual = [0; 4096];
+        wrapper
+            .mem
+            .read_slice(&mut actual, GuestAddress(0))
+            .unwrap();
+        assert_eq!(actual, [0xa5; 4096]);
+    }
 
     #[test]
     fn align_up_down() {

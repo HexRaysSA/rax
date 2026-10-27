@@ -301,8 +301,7 @@ pub struct Vmm {
     snapshot_config: Option<SnapshotConfig>,
     /// Last instruction count when snapshot was taken
     last_snapshot_insn: u64,
-    /// Machine-defining config embedded into every checkpoint this VM writes,
-    /// so the resulting `.rxc` resumes self-contained.
+    /// Machine-defining configuration embedded in checkpoints this VM writes.
     checkpoint_config: CheckpointConfig,
     /// Where hotkey/signal-triggered checkpoints are written.
     snapshot_out: std::path::PathBuf,
@@ -336,10 +335,10 @@ impl Vmm {
         Self::build(config, false)
     }
 
-    /// Build a machine to resume from a checkpoint. Skips kernel loading,
-    /// backend VM init, and boot-time CPU state — the entire machine image
-    /// (RAM, registers, devices) is restored from the checkpoint afterwards via
-    /// [`restore_snapshot`](Self::restore_snapshot).
+    /// Build a machine for base checkpoint restoration, skipping kernel loading,
+    /// backend VM init and boot-time CPU injection. The caller supplies represented
+    /// base state through [`restore_snapshot`](Self::restore_snapshot); expanded
+    /// private/platform/SMP state is a separate checkpoint contract.
     pub fn new_resume(config: VmConfig) -> Result<Self> {
         Self::build(config, true)
     }
@@ -1234,7 +1233,7 @@ impl Vmm {
         self.machine()
     }
 
-    /// Capture all stateful device models into a serializable [`DeviceState`].
+    /// Capture the four represented legacy device models into [`DeviceState`].
     fn capture_devices(&self) -> Result<DeviceState> {
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during snapshot"));
@@ -1250,7 +1249,7 @@ impl Vmm {
         })
     }
 
-    /// Take a full, self-contained checkpoint of the current VM state.
+    /// Capture the represented CPU-0 and legacy-device base checkpoint.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
         if self.checkpoint_config.storage.has_images() {
             return Err(Error::InvalidConfig(
@@ -1265,7 +1264,7 @@ impl Vmm {
         let cpu_state = vcpu.get_state()?;
         let emulator_state = vcpu.get_emulator_state().unwrap_or_default();
         let devices = self.capture_devices()?;
-        let memory = self.guest_mem.read_all();
+        let memory = self.guest_mem.try_read_all()?;
 
         Snapshot::new(
             self.checkpoint_config.clone(),
@@ -1346,41 +1345,57 @@ impl Vmm {
         Ok(())
     }
 
-    /// Restore VM state from a checkpoint: registers + emulator state, all
-    /// writable guest RAM, and every device model.
+    /// Restore represented base state after validating input and target admission.
+    /// Full SMP/private/platform/PCI closure remains separate.
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
         if self.checkpoint_config.storage.has_images() || snapshot.config.storage.has_images() {
             return Err(Error::InvalidConfig(
                 "image-backed checkpoint restore requires complete device/media state".to_string(),
             ));
         }
-        // Restore CPU state
+        snapshot.validate_for_restore()?;
+        if snapshot.config.arch != self.checkpoint_config.arch {
+            return Err(Error::InvalidConfig(
+                "checkpoint architecture does not match target machine".to_string(),
+            ));
+        }
+        if snapshot.memory_size != self.guest_mem.size() {
+            return Err(Error::InvalidConfig(
+                "checkpoint RAM extent does not match target machine".to_string(),
+            ));
+        }
+        if snapshot.config.vcpus as usize != self.vcpus.len() {
+            return Err(Error::InvalidConfig(
+                "checkpoint CPU count does not match target machine".to_string(),
+            ));
+        }
+        if snapshot.config.pci_devices != self.checkpoint_config.pci_devices {
+            return Err(Error::InvalidConfig(
+                "checkpoint PCI topology does not match target machine".to_string(),
+            ));
+        }
         let vcpu = self
             .vcpus
             .get_mut(0)
             .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-        vcpu.set_state(&snapshot.cpu_state)?;
-        vcpu.set_emulator_state(&snapshot.emulator_state)?;
-
-        // Re-anchor the clock so the real-time TSC and restored device timers
-        // continue from the checkpoint instead of jumping backward to ~0.
-        crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
-
-        // Decompress and restore guest RAM (this also restores the kernel/initrd
-        // images that were loaded into it — read-only regions need not be
-        // re-loaded from disk).
+        vcpu.validate_checkpoint_state(&snapshot.cpu_state, &snapshot.emulator_state)?;
         let memory = snapshot.decompress_memory()?;
-        self.guest_mem.write_all(&memory)?;
-
-        // Restore device models. The Vmm and the I/O/MMIO buses share the same
-        // Arc<Mutex<_>> for each device, so assigning through the lock updates
-        // both views.
+        self.guest_mem.validate_restore_len(memory.len())?;
+        let devices = snapshot.devices.clone();
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
-        *self.pic.lock().map_err(|_| lock_err("pic"))? = snapshot.devices.pic.clone();
-        *self.pit.lock().map_err(|_| lock_err("pit"))? = snapshot.devices.pit.clone();
-        *self.serial.lock().map_err(|_| lock_err("serial"))? = snapshot.devices.serial.clone();
-        *self.lapic.lock().map_err(|_| lock_err("lapic"))? = snapshot.devices.lapic.clone();
+        let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
+        let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
+        let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
+        let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
+        vcpu.set_state(&snapshot.cpu_state)?;
+        vcpu.set_emulator_state(&snapshot.emulator_state)?;
+        self.guest_mem.write_all(&memory)?;
+        *pic = devices.pic;
+        *pit = devices.pit;
+        *serial = devices.serial;
+        *lapic = devices.lapic;
+        crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
 
         info!(
             insn_count = snapshot.instruction_count,
@@ -1566,3 +1581,7 @@ impl Vmm {
 #[cfg(test)]
 #[path = "runtime/storage_tests.rs"]
 mod storage_tests;
+
+#[cfg(test)]
+#[path = "runtime/checkpoint_tests.rs"]
+mod checkpoint_tests;

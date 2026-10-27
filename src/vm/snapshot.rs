@@ -266,6 +266,17 @@ impl Snapshot {
         Ok(())
     }
 
+    pub(crate) fn validate_for_restore(&self) -> Result<()> {
+        if self.version != CHECKPOINT_VERSION {
+            return Err(Error::Emulator(format!(
+                "Unsupported checkpoint version {} (expected {})",
+                self.version, CHECKPOINT_VERSION
+            )));
+        }
+        self.validate_cpu_state()?;
+        self.validate_memory_metadata()
+    }
+
     pub fn validate_memory_metadata(&self) -> Result<()> {
         if self.config.memory_bytes != self.memory_size {
             return Err(Error::InvalidConfig(format!(

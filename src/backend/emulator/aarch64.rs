@@ -1030,6 +1030,23 @@ impl VCpu for Aarch64Vcpu {
         Ok(CpuState::aarch64(regs, self.cpu.export_sregs()))
     }
 
+    fn validate_checkpoint_state(
+        &self,
+        state: &CpuState,
+        _emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        let CpuState::Aarch64(state) = state else {
+            return Err(Error::Emulator(
+                "expected aarch64 state for aarch64 vCPU".to_string(),
+            ));
+        };
+        AArch64Cpu::validate_saved_state(state.regs.pstate, &state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))?;
+        self.cpu
+            .validate_sregs(&state.sregs)
+            .map_err(|error| Error::Emulator(error.to_string()))
+    }
+
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
         let state = match state {
             CpuState::Aarch64(s) => s,

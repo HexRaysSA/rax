@@ -320,6 +320,22 @@ pub trait VCpu: Send {
         0
     }
 
+    /// Pure checkpoint admission before any live state changes. Backends should
+    /// validate private/profile-dependent state here as well. Native setter I/O
+    /// may still fail later; this hook does not promise hardware transactions.
+    fn validate_checkpoint_state(
+        &self,
+        state: &CpuState,
+        _emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        if std::mem::discriminant(state) != std::mem::discriminant(&self.get_state()?) {
+            return Err(Error::InvalidConfig(
+                "checkpoint CPU kind does not match target vCPU".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Get extended emulator state for snapshotting.
     /// Returns None for backends that don't support it.
     fn get_emulator_state(&self) -> Option<crate::vm::snapshot::EmulatorState> {

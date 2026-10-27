@@ -51,8 +51,7 @@ impl SnapshotBundle {
         Ok(bundle)
     }
     pub(super) fn validate(&self) -> Result<()> {
-        self.base.validate_cpu_state()?;
-        self.base.validate_memory_metadata()?;
+        self.base.validate_for_restore()?;
         if let Some(pci) = &self.pci {
             pci.validate(&self.base.config, self.base.memory_size)?;
         }
