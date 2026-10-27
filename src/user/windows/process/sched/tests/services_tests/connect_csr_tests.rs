@@ -25,7 +25,7 @@ fn bytes(row: &Value, field: &str) -> Vec<u8> {
 fn word(bytes: &[u8], at: usize) -> u64 {
     u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap())
 }
-fn namespace(session: u32) -> Namespace {
+pub(super) fn namespace(session: u32) -> Namespace {
     let entry = |name: &str, kind: &str| CapturedEntry {
         name: name.encode_utf16().collect(),
         kind: kind.encode_utf16().collect(),
@@ -78,7 +78,7 @@ fn namespace(session: u32) -> Namespace {
     )
     .unwrap()
 }
-fn data(session: Option<u32>, base: u64) -> Arc<DataSection> {
+pub(super) fn data(session: Option<u32>, base: u64) -> Arc<DataSection> {
     let mut prefix = vec![0; 5 * 4096];
     prefix[40..48].copy_from_slice(&base.to_le_bytes());
     prefix[48..56].copy_from_slice(&base.to_le_bytes());

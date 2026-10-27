@@ -75,3 +75,12 @@ PEB byte `0xE8` from 1 to 2 during the successful call; kernel 26100 does not.
 This side effect remains in the raw record and is not inferred to be a CSR
 pointer or silently normalized. Its relevance to later runtime behavior is
 unknown. No shipping adapter or full process-emulation completion is claimed.
+
+
+The finite AMD64 runtime bridge, corpus replay and remaining native identity-page
+limits are described in [model.md](model.md). The raw matrix and typed records
+are in `matrix-profiles-v1.json`; `project-matrix-v1.py` and
+`test_matrix_projection.py` verify their integrity and projection behavior.
+Kernel 20348's byte 0xE8 belongs to NumberOfHeaps in the repository's PEB layout.
+It remains retained as an additional native effect, separate from the six CSR
+fields. Runtime and whole-process validation are still pending.

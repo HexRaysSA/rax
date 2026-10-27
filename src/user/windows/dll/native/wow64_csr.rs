@@ -1,4 +1,4 @@
-//! Pure-x86 BASE bridge measured on ARM64 Windows 10.0.29695/session0.
+//! Pure-x86 BASE bridge bound to captured native CSR and process identities.
 //! Five stdcall arguments, including a scalar ULONG byte count. No request
 //! invokes host CSR: selected immutable bytes and two owned VMs supply it.
 use super::query::write_guard_result;
@@ -14,7 +14,6 @@ use crate::user::windows::objects::{LpcPort, Object};
 use crate::user::windows::process::{Proc, wow64::CsrConnection};
 use std::sync::Arc;
 
-const KERNEL: (u32, u32, u32) = (10, 0, 29695);
 const VIEW_BYTES: u64 = 65536;
 const MAX_CAPTURE: u32 = 80;
 
@@ -32,20 +31,22 @@ pub(super) fn connect(c: &mut Ctx) -> ApiResult {
 fn selected(c: &Ctx) -> Result<Arc<CsrServer>, ApiErr> {
     let unsupported = || c.unsupported("unmeasured WoW64 CSR kernel, architecture or session");
     let state = c.p.wow64.as_ref().ok_or_else(unsupported)?;
-    let server = c
-        .p
-        .object_namespace
-        .csr_server(&"\\Windows\\ApiPort".encode_utf16().collect::<Vec<_>>())
-        .map_err(|_| c.unsupported("WoW64 CSR requires the selected server and shared section"))?;
+    let server =
+        c.p.object_namespace.selected_csr_server().map_err(|_| {
+            c.unsupported("WoW64 CSR requires the selected server and shared section")
+        })?;
     let metadata = &server.metadata;
+    let measured = match (state.machine, metadata.arch, state.kernel) {
+        (0xaa64, WinArch::Arm64, (10, 0, 29695)) => metadata.session == 0,
+        (0x8664, WinArch::X64, (10, 0, 20348 | 26100)) => true,
+        _ => false,
+    };
     if c.arch() != WinArch::X86
-        || state.machine != 0xaa64
-        || state.kernel != KERNEL
-        || metadata.arch != WinArch::Arm64
-        || metadata.kernel != KERNEL
-        || metadata.session != 0
+        || !measured
+        || metadata.kernel != state.kernel
+        || metadata.session != state.session
         || metadata.server_pid == c.p.pid
-        || c.mem().u32(c.p.peb + offsets(c.arch()).peb_session_id)? != 0
+        || c.mem().u32(c.p.peb + offsets(c.arch()).peb_session_id)? != state.session
     {
         return Err(unsupported());
     }
@@ -73,6 +74,12 @@ fn selected(c: &Ctx) -> Result<Arc<CsrServer>, ApiErr> {
 /// Never convert caller-mutated private native pointers into a success reply.
 fn native_publication(c: &Ctx, server: &CsrServer) -> Result<(), ApiErr> {
     let state = c.p.wow64.as_ref().expect("selected WoW64 identity");
+    if c.mem()
+        .u32(state.native_peb + offsets(WinArch::X64).peb_session_id)?
+        != state.session
+    {
+        return Err(c.unsupported("WoW64 CSR native PEB session differs from the captured process"));
+    }
     let expected = state.csr.as_ref().map_or([0; 3], |connection| {
         [
             connection.base,
@@ -130,7 +137,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
         if directory.last() == Some(&92) {
             return Flow::ret(STATUS_OBJECT_NAME_INVALID.into());
         }
-        if !directory.iter().copied().eq("\\Windows".encode_utf16()) {
+        if directory != server.metadata.directory_path() {
             if matches!(
                 c.p.object_namespace.lookup(None, &directory, 0),
                 Err(LookupError::Status(

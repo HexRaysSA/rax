@@ -29,72 +29,7 @@ fn replay(corpus: &serde_json::Value) -> usize {
         let (mut process, mut thread, b) = setup();
         let p = process.state_mut();
         let mut request = args(b);
-        match mode {
-            "valid" => {}
-            "zero" => request[3] = 0,
-            "short" => request[3] = 7,
-            "length-16" => request[3] = 16,
-            "length-64" => request[3] = 64,
-            "null-buffer" => request[2] = 0,
-            "noaccess-buffer" => {
-                p.vm.protect(b + 4096, 4096, prot::NOACCESS).unwrap();
-            }
-            "readonly-buffer" => {
-                p.vm.protect(b + 4096, 4096, prot::READONLY).unwrap();
-            }
-            "guard-buffer" => {
-                p.vm.protect(b + 4096, 4096, prot::READWRITE | prot::GUARD)
-                    .unwrap();
-            }
-            "bad-inside" => request[4] = 1,
-            "guard-inside" | "guard-inside-null-buffer" => {
-                p.vm.protect(b + 8192, 4096, prot::READWRITE | prot::GUARD)
-                    .unwrap();
-            }
-            "readonly-inside" => {
-                p.vm.protect(b + 8192, 4096, prot::READONLY).unwrap();
-            }
-            "readonly-guard-inside" => {
-                p.vm.protect(b + 8192, 4096, prot::READONLY | prot::GUARD)
-                    .unwrap();
-            }
-            "null-inside" => request[4] = 0,
-            "null-root" => request[0] = 0,
-            "bad-root" => request[0] = 1,
-            "guard-root" => {
-                p.vm.protect(b, 4096, prot::READONLY | prot::GUARD).unwrap();
-            }
-            "missing-root" => p
-                .space
-                .put_wstr(
-                    b,
-                    &"\\AssistMissingCsrDirectory"
-                        .encode_utf16()
-                        .collect::<Vec<_>>(),
-                )
-                .unwrap(),
-            "null-buffer-null-root" => {
-                request[0] = 0;
-                request[2] = 0;
-            }
-            "zero-bad-root" => {
-                request[0] = 1;
-                request[3] = 0;
-            }
-            "lower-root" | "upper-root" | "trailing-root" | "root-only" => {
-                let root = match mode {
-                    "lower-root" => "\\windows",
-                    "upper-root" => "\\WINDOWS",
-                    "trailing-root" => "\\Windows\\",
-                    "root-only" => "\\",
-                    _ => unreachable!(),
-                };
-                p.space
-                    .put_wstr(b, &root.encode_utf16().collect::<Vec<_>>())
-                    .unwrap();
-            }
-            _ => panic!("unknown native case {label}"),
-        }
+        configure(p, b, mode, &mut request);
         let mut native_published = false;
         let mut wow_published = false;
         for step in row["steps"].as_array().unwrap() {
@@ -148,4 +83,74 @@ fn replay(corpus: &serde_json::Value) -> usize {
         }
     }
     returns
+}
+
+// The same caller-memory cases drive the ARM64 and AMD64 native corpora.
+pub(super) fn configure(p: &mut Proc, b: u64, mode: &str, request: &mut [u64; 5]) {
+    match mode {
+        "valid" => {}
+        "zero" => request[3] = 0,
+        "short" => request[3] = 7,
+        "length-16" => request[3] = 16,
+        "length-64" => request[3] = 64,
+        "null-buffer" => request[2] = 0,
+        "noaccess-buffer" => {
+            p.vm.protect(b + 4096, 4096, prot::NOACCESS).unwrap();
+        }
+        "readonly-buffer" => {
+            p.vm.protect(b + 4096, 4096, prot::READONLY).unwrap();
+        }
+        "guard-buffer" => {
+            p.vm.protect(b + 4096, 4096, prot::READWRITE | prot::GUARD)
+                .unwrap();
+        }
+        "bad-inside" => request[4] = 1,
+        "guard-inside" | "guard-inside-null-buffer" => {
+            p.vm.protect(b + 8192, 4096, prot::READWRITE | prot::GUARD)
+                .unwrap();
+        }
+        "readonly-inside" => {
+            p.vm.protect(b + 8192, 4096, prot::READONLY).unwrap();
+        }
+        "readonly-guard-inside" => {
+            p.vm.protect(b + 8192, 4096, prot::READONLY | prot::GUARD)
+                .unwrap();
+        }
+        "null-inside" => request[4] = 0,
+        "null-root" => request[0] = 0,
+        "bad-root" => request[0] = 1,
+        "guard-root" => {
+            p.vm.protect(b, 4096, prot::READONLY | prot::GUARD).unwrap();
+        }
+        "missing-root" => p
+            .space
+            .put_wstr(
+                b,
+                &"\\AssistMissingCsrDirectory"
+                    .encode_utf16()
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+        "null-buffer-null-root" => {
+            request[0] = 0;
+            request[2] = 0;
+        }
+        "zero-bad-root" => {
+            request[0] = 1;
+            request[3] = 0;
+        }
+        "lower-root" | "upper-root" | "trailing-root" | "root-only" => {
+            let root = match mode {
+                "lower-root" => "\\windows",
+                "upper-root" => "\\WINDOWS",
+                "trailing-root" => "\\Windows\\",
+                "root-only" => "\\",
+                _ => unreachable!(),
+            };
+            p.space
+                .put_wstr(b, &root.encode_utf16().collect::<Vec<_>>())
+                .unwrap();
+        }
+        _ => panic!("unknown native case {mode}"),
+    }
 }

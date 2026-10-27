@@ -47,7 +47,7 @@ jobs:
       matrix:
         os: [windows-2022, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Observe independent AMD64 NLS initialization and view lifetime
@@ -201,7 +201,12 @@ jobs:
           if-no-files-found: error
       - name: Observe fresh and retry WoW64 CSR calls on independent AMD64 kernels
         if: always()
-        run: python -B docs/specifications/windows/native-wow64-csr-amd64/run-matrix-v1.py
+        run: |
+          python -B -m unittest discover -s docs/specifications/windows/native-wow64-csr-amd64 -p test_matrix_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-wow64-csr-amd64/run-matrix-v1.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-wow64-csr-amd64/project-matrix-v1.py target/native-wow64-csr-amd64-matrix-v1.json target/native-wow64-csr-amd64-matrix-projected-v1.json
       - name: Preserve independent AMD64 WoW64 CSR fresh and retry observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -209,3 +214,22 @@ jobs:
           name: native-wow64-csr-amd64-matrix-${{ matrix.os }}
           path: target/native-wow64-csr-amd64-matrix-v1.json
           if-no-files-found: error
+      - name: Prepare contained native CSR build directories
+        if: always()
+        shell: pwsh
+        run: |
+          $csrTmp = Join-Path $env:GITHUB_WORKSPACE 'target/native-csr-build-tmp'
+          New-Item -ItemType Directory -Force $csrTmp | Out-Null
+          "TMPDIR=$csrTmp" >> $env:GITHUB_ENV
+          "TMP=$csrTmp" >> $env:GITHUB_ENV
+          "TEMP=$csrTmp" >> $env:GITHUB_ENV
+          "RUSTC_WRAPPER=" >> $env:GITHUB_ENV
+          "RUSTC_WORKSPACE_WRAPPER=" >> $env:GITHUB_ENV
+      - uses: ./.github/actions/setup-rust
+        if: always()
+        with:
+          toolchain: 1.95.0
+          cache-key: native-csr-${{ matrix.os }}
+      - name: Execute installed pure x86 CSR leaf on the native AMD64 kernel
+        if: always()
+        run: cargo test --locked --no-default-features --lib wow64_csr -- --nocapture --test-threads=1

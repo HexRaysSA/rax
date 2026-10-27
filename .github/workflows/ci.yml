@@ -200,6 +200,8 @@ jobs:
         run: python tools/ci/windows_installed_probe_v2.py
       - name: Shared NT clock and CPU execution boundaries
         run: python tools/ci/system_time.py
+      - name: Verify native WoW64 CSR evidence projection
+        run: python -B -m unittest discover -s docs/specifications/windows/native-wow64-csr-amd64 -p test_matrix_projection.py
       - name: Measured Windows startup profiles
         run: |
           cargo test --locked --no-default-features --lib csr

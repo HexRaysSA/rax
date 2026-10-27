@@ -11,8 +11,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 pub(crate) mod client_data;
 pub(crate) mod pid_export;
 
-/// Measured CSR build set. Callers also bind ARM64/session0 and the exact
-/// selected section, peer, packet and readonly view identities. O(1).
+/// Measured CSR build sets. Callers also bind captured architecture/session
+/// and exact selected section, peer, packet and readonly view identities. O(1).
 pub(crate) fn supports_kernel(major: u32, minor: u32, build: u32) -> bool {
     major == 10 && minor == 0 && matches!(build, 29683 | 29695)
 }
@@ -49,13 +49,19 @@ impl CsrMetadata {
         (self.session != 0).then_some(self.session)
     }
 
-    fn port_path(&self) -> Vec<u16> {
+    pub(crate) fn directory_path(&self) -> Vec<u16> {
         match self.namespace_session() {
-            Some(session) => format!("\\Sessions\\{session}\\Windows\\ApiPort")
+            Some(session) => format!("\\Sessions\\{session}\\Windows")
                 .encode_utf16()
                 .collect(),
-            None => "\\Windows\\ApiPort".encode_utf16().collect(),
+            None => "\\Windows".encode_utf16().collect(),
         }
+    }
+
+    fn port_path(&self) -> Vec<u16> {
+        let mut path = self.directory_path();
+        path.extend("\\ApiPort".encode_utf16());
+        path
     }
 }
 
@@ -272,6 +278,13 @@ impl Namespace {
         }
         self.csr_server = Some(server);
         Ok(())
+    }
+
+    /// Resolve the immutable captured owner through its selected port entry.
+    /// No caller path or host operation participates in this lookup.
+    pub(crate) fn selected_csr_server(&self) -> Result<Arc<CsrServer>, LookupError> {
+        let server = self.csr_server.as_ref().ok_or(LookupError::Unselected)?;
+        self.csr_server(&server.metadata.port_path())
     }
 
     pub(crate) fn csr_server(&self, name: &[u16]) -> Result<Arc<CsrServer>, LookupError> {
