@@ -26,6 +26,9 @@ mod semaphore_tests;
 #[path = "services_tests/secure_connect_tests.rs"]
 mod secure_connect_tests;
 
+#[path = "services_tests/connect_csr_tests.rs"]
+mod connect_csr_tests;
+
 #[path = "services_tests/wow64_csr_tests.rs"]
 mod wow64_csr_tests;
 

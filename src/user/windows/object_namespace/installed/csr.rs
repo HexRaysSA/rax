@@ -6,6 +6,8 @@ use std::io;
 
 #[cfg(target_arch = "aarch64")]
 mod client_data;
+#[cfg(target_arch = "x86_64")]
+mod x64;
 
 pub(super) fn capture_client_data(
     metadata: &CsrMetadata,
@@ -21,9 +23,14 @@ pub(super) fn capture_client_data(
     }
 }
 
-#[cfg(not(target_arch = "aarch64"))]
+#[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
 pub(super) fn capture(_: &[DataRegion]) -> io::Result<Option<CsrMetadata>> {
     Ok(None)
+}
+
+#[cfg(target_arch = "x86_64")]
+pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>> {
+    x64::capture(regions)
 }
 
 #[cfg(target_arch = "aarch64")]

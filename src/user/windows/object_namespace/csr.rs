@@ -9,11 +9,20 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 pub(crate) mod client_data;
+pub(crate) mod pid_export;
 
 /// Measured CSR build set. Callers also bind ARM64/session0 and the exact
 /// selected section, peer, packet and readonly view identities. O(1).
 pub(crate) fn supports_kernel(major: u32, minor: u32, build: u32) -> bool {
     major == 10 && minor == 0 && matches!(build, 29683 | 29695)
+}
+
+pub(crate) fn supports_profile(arch: WinArch, major: u32, minor: u32, build: u32) -> bool {
+    match arch {
+        WinArch::Arm64 => supports_kernel(major, minor, build),
+        WinArch::X64 => major == 10 && minor == 0 && matches!(build, 20348 | 26100),
+        WinArch::X86 => false,
+    }
 }
 
 /// Native server pointers remain protocol address values; the selected
@@ -28,6 +37,26 @@ pub(crate) struct CsrMetadata {
     pub(crate) server_base: u64,
     pub(crate) statics_offset: u64,
     pub(crate) server_pid: u32,
+}
+
+impl CsrMetadata {
+    fn supported(&self) -> bool {
+        supports_profile(self.arch, self.kernel.0, self.kernel.1, self.kernel.2)
+            && (self.arch != WinArch::Arm64 || self.session == 0)
+    }
+
+    fn namespace_session(&self) -> Option<u32> {
+        (self.session != 0).then_some(self.session)
+    }
+
+    fn port_path(&self) -> Vec<u16> {
+        match self.namespace_session() {
+            Some(session) => format!("\\Sessions\\{session}\\Windows\\ApiPort")
+                .encode_utf16()
+                .collect(),
+            None => "\\Windows\\ApiPort".encode_utf16().collect(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -62,8 +91,7 @@ impl CsrServer {
             .ok_or_else(|| invalid("CSR metadata has no committed prefix"))?;
         let server_end = metadata.server_base.checked_add(section.size);
         let statics = metadata.statics_offset.checked_add(8);
-        if metadata.arch != WinArch::Arm64
-            || metadata.session != 0
+        if !metadata.supported()
             || section.size != 1 << 20
             || section.regions.len() != 2
             || section.regions[0].size != 5 * 4096
@@ -79,7 +107,7 @@ impl CsrServer {
             || prefix.get(48..56) != Some(metadata.server_base.to_le_bytes().as_slice())
         {
             return Err(invalid(
-                "CSR metadata differs from selected ARM64/session0 section profile",
+                "CSR metadata differs from selected native section profile",
             ));
         }
         Ok(Arc::new(Self {
@@ -230,10 +258,10 @@ impl Namespace {
         if self.csr_server.is_some() {
             return Err(invalid("CSR server selection is immutable"));
         }
-        let name: Vec<_> = "\\Windows\\ApiPort".encode_utf16().collect();
+        let name = server.metadata.port_path();
         self.lookup_port(&name)
             .map_err(|_| invalid("selected CSR port entry is absent"))?;
-        let name: Vec<_> = "\\Windows\\SharedSection".encode_utf16().collect();
+        let name = DataSection::path_for_session(server.metadata.namespace_session());
         match self.lookup_installed_section(None, &name, 0, false) {
             Ok(SelectedSection::Data(section)) if Arc::ptr_eq(&section, &server.section) => {}
             _ => {
@@ -248,9 +276,10 @@ impl Namespace {
 
     pub(crate) fn csr_server(&self, name: &[u16]) -> Result<Arc<CsrServer>, LookupError> {
         self.lookup_port(name)?;
-        if !name.iter().copied().eq("\\Windows\\ApiPort".encode_utf16()) {
+        let server = self.csr_server.clone().ok_or(LookupError::Unselected)?;
+        if name != server.metadata.port_path() {
             return Err(LookupError::Unselected);
         }
-        self.csr_server.clone().ok_or(LookupError::Unselected)
+        Ok(server)
     }
 }
