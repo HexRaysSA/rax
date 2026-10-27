@@ -518,3 +518,7 @@ path = "tests/suites/backend/cortexm_dispatch.rs"
 [[test]]
 name = "retirement_clock"
 path = "tests/suites/backend/retirement_clock.rs"
+
+[[test]]
+name = "x86_retired_tsc"
+path = "tests/suites/backend/x86_retired_tsc.rs"

@@ -77,11 +77,16 @@ pub fn set_resume_base(base_nanos: u64) {
 /// Wall/unbound contexts retain the legacy 3000-cycle diagnostic conversion.
 #[inline(always)]
 pub fn tsc() -> u64 {
-    if let Some(Some(value)) = context::with_current(TimingContext::retirement_count) {
+    if let Some(value) = retired_counter() {
         return value;
     }
     // Each instruction is worth 3000 TSC cycles (~1000 loop iterations per 1ms delay)
     instruction_count() * 3000
+}
+
+/// Exact cycle domain for a selected retirement clock; legacy callers use None.
+pub(crate) fn retired_counter() -> Option<u64> {
+    context::with_current(TimingContext::retirement_count).flatten()
 }
 
 /// Publish one validated successful step to the explicitly bound retired clock.

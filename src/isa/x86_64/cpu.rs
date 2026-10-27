@@ -296,7 +296,7 @@ pub struct X86_64Vcpu {
     id: u32,
     /// Per-vCPU retired-instruction counter. Published to the global counter
     /// only at run() yield boundaries so the hot loop stays atomic-free. The
-    /// architectural TSC uses the separate real-time guest clock in [`Self::tsc`].
+    /// architectural TSC uses the selected guest clock in [`Self::tsc`].
     pub(super) insn_count: u64,
     pub(super) regs: Registers,
     pub(super) sregs: SystemRegisters,
@@ -1619,18 +1619,6 @@ impl X86_64Vcpu {
         !boundary_gp
             && cached.bytes_len == bytes_len
             && cached.bytes[..bytes_len] == bytes[..bytes_len]
-    }
-
-    /// Execute a single instruction.
-    #[inline]
-    /// Per-vCPU timestamp counter. Real-time: tracks host wall-clock elapsed
-    /// since emulator start, scaled to the advertised 3 GHz (3 cycles/ns), and
-    /// applies the architectural per-vCPU IA32_TSC_ADJUST offset.
-    #[inline(always)]
-    pub(super) fn tsc(&self) -> u64 {
-        crate::vm::timing::elapsed_nanos()
-            .wrapping_mul(3)
-            .wrapping_add(self.tsc_adjust)
     }
 
     /// Execute one instruction attempt and consume any STI/MOV-SS interrupt
@@ -3156,6 +3144,9 @@ impl X86_64Vcpu {
         }
     }
 }
+
+#[path = "cpu_timing.rs"]
+mod timing;
 
 #[path = "cpu_run.rs"]
 mod run_loop;
