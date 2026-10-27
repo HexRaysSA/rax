@@ -14,6 +14,10 @@ const MAX_DLL_BYTES: u64 = 64 << 20;
 
 mod system;
 
+pub(crate) fn flush_information(runtime: &NativeRuntime) -> Result<[u8; 32], String> {
+    system::capture_flush(&runtime.version, runtime.object_namespace.native_machine)
+}
+
 #[derive(Debug)]
 pub(crate) struct NativeRuntime {
     pub(crate) directory: PathBuf,

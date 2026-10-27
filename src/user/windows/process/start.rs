@@ -273,6 +273,10 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
     } else {
         None
     };
+    let flush_information = native.as_ref().map_or_else(
+        || Err("SystemFlushInformation requires selected native inputs".into()),
+        crate::user::windows::native::flush_information,
+    );
     let high = layout::user_limit(
         arch,
         h.characteristics & IMAGE_FILE_LARGE_ADDRESS_AWARE != 0,
@@ -389,6 +393,7 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         vm,
         cfg: Arc::new(config),
         native,
+        flush_information,
         image_information: Err("executable has not been mapped"),
         wow64: None,
         teb_arena: Default::default(),

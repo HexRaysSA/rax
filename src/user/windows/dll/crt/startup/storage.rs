@@ -519,6 +519,7 @@ mod tests {
                 vec!["ignored-config-argument".into()],
             )),
             native: None,
+            flush_information: Err("controlled CRT fixture".into()),
             image_information: Err("test process has no admitted executable"),
             wow64: None,
             teb_arena: Default::default(),

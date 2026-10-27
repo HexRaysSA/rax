@@ -13,6 +13,7 @@ on:
       - docs/specifications/windows/native-process-image-information/**
       - docs/specifications/windows/native-wow64-startup-information/**
       - docs/specifications/windows/native-system-processor-information/**
+      - docs/specifications/windows/native-system-flush-information/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
@@ -24,6 +25,7 @@ on:
       - docs/specifications/windows/native-process-image-information/**
       - docs/specifications/windows/native-wow64-startup-information/**
       - docs/specifications/windows/native-system-processor-information/**
+      - docs/specifications/windows/native-system-flush-information/**
   workflow_dispatch:
 
 permissions:
@@ -40,6 +42,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Observe native system flush information
+        run: |
+          python -m unittest discover -s docs/specifications/windows/native-system-flush-information
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-system-flush-information/run-v2.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-system-flush-information/verify.py target/native-system-flush-information-v2.json
+      - name: Preserve native system flush observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-system-flush-information-${{ matrix.os }}
+          path: target/native-system-flush-information-v2.json
+          if-no-files-found: error
       - name: Verify public instruction projection
         run: python docs/specifications/windows/native-exception-entry-profile/test_projection.py
       - name: Verify dispatcher observation projection
