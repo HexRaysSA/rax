@@ -410,6 +410,11 @@ impl VmConfig {
                 "checkpoint CPU count does not match target machine".to_string(),
             ));
         }
+        if self.vcpus > 1 && bundle.cpus().is_none() {
+            return Err(Error::InvalidConfig(
+                "checkpoint is missing additional CPU state".to_string(),
+            ));
+        }
         if self.pci_devices != base.config.pci_devices {
             return Err(Error::InvalidConfig(
                 "checkpoint PCI topology does not match target machine".to_string(),

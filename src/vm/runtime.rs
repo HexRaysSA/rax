@@ -1296,21 +1296,38 @@ impl Vmm {
         )
     }
 
+    /// Capture each vCPU's represented public/base-private payload in ID order.
+    /// Callers must quiesce independent writers. Additional backend-private and
+    /// scheduler state remains outside this represented-state interface.
+    pub fn capture_cpu_states(&self) -> Result<Vec<crate::vm::snapshot::CpuSnapshot>> {
+        use crate::vm::snapshot::CpuSnapshot;
+        let mut cpus = Vec::new();
+        cpus.try_reserve_exact(self.vcpus.len())
+            .map_err(|e| Error::Emulator(format!("CPU capture allocation: {e}")))?;
+        for vcpu in &self.vcpus {
+            cpus.push(CpuSnapshot {
+                state: vcpu.get_state()?,
+                emulator: vcpu.get_emulator_state().unwrap_or_default(),
+            });
+        }
+        Ok(cpus)
+    }
+
     /// Capture every mapped physical region and represented PCI/media state,
-    /// in addition to the CPU-0/four-legacy-device base. All independent writers
-    /// must be quiescent. This does not yet capture all CPU/platform state or
-    /// change the console/CLI base checkpoint path.
+    /// including represented public/base-private state for every vCPU and the
+    /// four legacy device base. All independent writers must be quiescent.
+    /// Additional backend-private/platform/scheduler state remains separate.
     pub fn take_snapshot_bundle(
         &self,
         insn_count: u64,
     ) -> Result<crate::vm::snapshot::SnapshotBundle> {
         use crate::vm::snapshot::{PhysicalMemorySnapshot, SnapshotBundle};
-        let vcpu = self
-            .vcpus
+        let cpus = self.capture_cpu_states()?;
+        let first = cpus
             .first()
             .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-        let cpu_state = vcpu.get_state()?;
-        let emulator_state = vcpu.get_emulator_state().unwrap_or_default();
+        let cpu_state = first.state.clone();
+        let emulator_state = first.emulator.clone();
         let devices = self.capture_devices()?;
         let pci = self
             .pci_devices
@@ -1332,7 +1349,7 @@ impl Vmm {
             memory_size: self.guest_mem.size(),
             memory_data,
         };
-        let mut bundle = SnapshotBundle::new(base);
+        let mut bundle = SnapshotBundle::new(base).with_cpus(cpus)?;
         if let Some(pci) = pci {
             bundle = bundle.with_pci(pci)?;
         }
@@ -1443,7 +1460,12 @@ impl Vmm {
     ) -> Result<()> {
         let snapshot = bundle.base();
         self.validate_snapshot_target(snapshot)?;
-        if bundle.pci().is_none() && bundle.physical_memory().is_none() {
+        if snapshot.config.vcpus > 1 && bundle.cpus().is_none() {
+            return Err(Error::InvalidConfig(
+                "checkpoint is missing additional CPU state".to_string(),
+            ));
+        }
+        if bundle.pci().is_none() && bundle.physical_memory().is_none() && bundle.cpus().is_none() {
             return self.restore_snapshot(snapshot);
         }
         for (source, target) in [
@@ -1474,11 +1496,31 @@ impl Vmm {
                 ));
             }
         }
-        let vcpu = self
-            .vcpus
-            .first_mut()
-            .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-        vcpu.validate_checkpoint_state(&snapshot.cpu_state, &snapshot.emulator_state)?;
+        let mut states = Vec::new();
+        let count = bundle.cpus().map_or(1, |c| c.entries().len());
+        if count > self.vcpus.len() {
+            return Err(Error::InvalidConfig(
+                "checkpoint CPU set exceeds target count".to_string(),
+            ));
+        }
+        states
+            .try_reserve_exact(count)
+            .map_err(|e| Error::Emulator(format!("CPU restore allocation: {e}")))?;
+        if let Some(cpus) = bundle.cpus() {
+            if cpus.entries().len() != self.vcpus.len() {
+                return Err(Error::InvalidConfig(
+                    "checkpoint CPU set count does not match target".to_string(),
+                ));
+            }
+            for entry in cpus.entries() {
+                states.push((&entry.state, &entry.emulator));
+            }
+        } else {
+            states.push((&snapshot.cpu_state, &snapshot.emulator_state));
+        }
+        for (vcpu, (state, emulator)) in self.vcpus.iter().zip(&states) {
+            vcpu.validate_checkpoint_state(state, emulator)?;
+        }
         let physical = bundle
             .physical_memory()
             .map(|p| {
@@ -1505,9 +1547,12 @@ impl Vmm {
         let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
         let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
         let guest_mem = &self.guest_mem;
+        let vcpus = &mut self.vcpus;
         let commit = move || -> Result<()> {
-            vcpu.set_state(&snapshot.cpu_state)?;
-            vcpu.set_emulator_state(&snapshot.emulator_state)?;
+            for (vcpu, (state, emulator)) in vcpus.iter_mut().zip(states) {
+                vcpu.set_state(state)?;
+                vcpu.set_emulator_state(emulator)?;
+            }
             if let Some(physical) = physical {
                 physical.commit()?;
             } else if let Some(memory) = memory {
@@ -1755,3 +1800,7 @@ mod bundle_tests;
 #[cfg(test)]
 #[path = "runtime/resume_tests.rs"]
 mod resume_tests;
+
+#[cfg(test)]
+#[path = "runtime/cpu_set_tests.rs"]
+mod cpu_set_tests;

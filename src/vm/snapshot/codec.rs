@@ -2,7 +2,7 @@
 use super::config_v1::TaggedConfigV1;
 use super::legacy::LegacyConfig;
 use super::{CHECKPOINT_MAGIC, CHECKPOINT_VERSION, DeviceState, EmulatorState, Snapshot};
-use super::{PciSnapshot, PhysicalMemorySnapshot, SnapshotBundle};
+use super::{CpuSnapshots, PciSnapshot, PhysicalMemorySnapshot, SnapshotBundle};
 use crate::config::CheckpointConfig;
 use crate::error::{Error, Result};
 use crate::vm::{memory::validate_guest_memory_size, vcpu::state::CpuState};
@@ -81,10 +81,11 @@ fn compressed_limit(size: u64) -> u64 {
 }
 
 pub(super) fn write_to<W: Write>(snapshot: &Snapshot, writer: &mut W) -> Result<()> {
-    write_to_parts(snapshot, None, None, writer)
+    write_to_parts(snapshot, None, None, None, writer)
 }
 fn write_to_parts<W: Write>(
     snapshot: &Snapshot,
+    cpus: Option<&CpuSnapshots>,
     pci: Option<&PciSnapshot>,
     physical: Option<&PhysicalMemorySnapshot>,
     writer: &mut W,
@@ -101,6 +102,12 @@ fn write_to_parts<W: Write>(
             "checkpoint compressed memory exceeds section limit",
         ));
     }
+    let cpu_records = cpus
+        .map(|c| {
+            c.validate(snapshot)?;
+            c.encoded()
+        })
+        .transpose()?;
     let control = if let Some(state) = pci {
         state.validate(&snapshot.config, snapshot.memory_size)?;
         Some(state.control()?)
@@ -126,6 +133,7 @@ fn write_to_parts<W: Write>(
         .map_err(io)?;
     writer.write_all(&TAG.to_le_bytes()).map_err(io)?;
     let count = 6u32
+        + u32::from(cpus.is_some())
         + u32::from(physical.is_some())
         + if let Some(state) = pci {
             1 + if state.has_endpoints() { 2 } else { 0 }
@@ -141,6 +149,9 @@ fn write_to_parts<W: Write>(
         (5, &devices),
     ] {
         section(writer, kind, bytes)?;
+    }
+    if let Some(raw) = cpu_records {
+        section(writer, 11, &raw)?;
     }
     if let Some(raw) = control {
         section(writer, 7, &raw)?;
@@ -175,6 +186,7 @@ pub(super) fn save_bundle_atomic(bundle: &SnapshotBundle, path: &Path) -> Result
     save_atomic_with(path, |writer| {
         write_to_parts(
             &bundle.base,
+            bundle.cpus.as_ref(),
             bundle.pci.as_ref(),
             bundle.physical_memory.as_ref(),
             writer,
@@ -320,18 +332,19 @@ fn read_sections<R: Read + Seek>(
     let mut memory: Option<Vec<u8>> = None;
     let mut pci: Option<PciSnapshot> = None;
     let mut physical_memory = None;
+    let mut cpus = None;
     let mut seen = BTreeSet::new();
     for _ in 0..count {
         let kind = word(reader)?;
         let schema = word(reader)?;
         let length = long(reader)?;
-        if kind & OPTIONAL != 0 && (1..=10).contains(&(kind & !OPTIONAL)) {
+        if kind & OPTIONAL != 0 && (1..=11).contains(&(kind & !OPTIONAL)) {
             return Err(invalid("required checkpoint section marked optional"));
         }
         if !seen.insert(kind) {
             return Err(invalid("duplicate checkpoint section"));
         }
-        if !(1..=10).contains(&kind) {
+        if !(1..=11).contains(&kind) {
             if kind & OPTIONAL == 0 {
                 return Err(invalid("unknown required checkpoint section"));
             }
@@ -345,6 +358,38 @@ fn read_sections<R: Read + Seek>(
         }
         if schema != SCHEMA && !(kind == 1 && schema == 2) {
             return Err(invalid("unsupported checkpoint section schema"));
+        }
+        if kind == 11 {
+            if !allow_extensions {
+                return Err(invalid(
+                    "checkpoint contains required CPU set; use SnapshotBundle::load",
+                ));
+            }
+            if [6, 7, 8, 9, 10].iter().any(|k| seen.contains(k)) {
+                return Err(invalid(
+                    "CPU set must precede PCI and physical/media/RAM payloads",
+                ));
+            }
+            let conf = config
+                .as_ref()
+                .ok_or_else(|| invalid("CPU set precedes checkpoint config"))?;
+            let meta = metadata
+                .as_ref()
+                .ok_or_else(|| invalid("CPU set precedes checkpoint metadata"))?;
+            memory_metadata(conf, meta.memory_size)?;
+            let cpu = cpu
+                .as_ref()
+                .ok_or_else(|| invalid("CPU set precedes base CPU"))?;
+            let emulator = emulator
+                .as_ref()
+                .ok_or_else(|| invalid("CPU set precedes base emulator state"))?;
+            if length > remaining(reader, file_size)? {
+                return Err(invalid("truncated CPU section"));
+            }
+            cpus = Some(CpuSnapshots::read_from(
+                reader, length, conf.vcpus, cpu, emulator,
+            )?);
+            continue;
         }
         if kind == 10 {
             if !allow_extensions {
@@ -469,6 +514,7 @@ fn read_sections<R: Read + Seek>(
     };
     let bundle = SnapshotBundle {
         base,
+        cpus,
         pci,
         physical_memory,
     };

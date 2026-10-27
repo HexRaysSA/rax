@@ -89,7 +89,7 @@ def verify(directory, root, zstd):
     raw = (directory / 'console.rxc').read_bytes()
     assert raw[:16] == b'RAXCKPT\0' + struct.pack('<I', 8) + b'RXS8'
     count = struct.unpack_from('<I', raw, 16)[0]
-    assert count == 7
+    assert count == 8
     at, parts, order = 20, {}, []
     for _ in range(count):
         kind, schema, length = struct.unpack_from('<IIQ', raw, at)
@@ -99,7 +99,13 @@ def verify(directory, root, zstd):
         parts[kind] = raw[at : at + length]
         order.append(kind)
         at += length
-    assert at == len(raw) and order == [1, 2, 3, 4, 5, 10, 6]
+    assert at == len(raw) and order == [1, 2, 3, 4, 5, 11, 10, 6]
+    cpus = parts[11]
+    assert cpus[:12] == b'RAXCPU01' + struct.pack('<I', 1)
+    cpu_bytes, emulator_bytes = struct.unpack_from('<QQ', cpus, 12)
+    assert len(cpus) == 28 + cpu_bytes + emulator_bytes
+    assert cpus[28 : 28 + cpu_bytes] == parts[3]
+    assert cpus[28 + cpu_bytes :] == parts[4]
     instruction_count, elapsed, memory = struct.unpack('<QQQ', parts[2])
     assert instruction_count == 0 and memory == ALLOCATED
     physical = parts[10]
@@ -118,7 +124,7 @@ def verify(directory, root, zstd):
     ]
     return dict(
         files=1,
-        sections=7,
+        sections=8,
         regions=1,
         physical_bytes=PHYSICAL,
         projection_bytes=ALLOCATED,
@@ -154,6 +160,9 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     sources = [
         'src/config/runtime.rs',
+        'src/vm/snapshot/cpus.rs',
+        'src/vm/snapshot/bundle.rs',
+        'src/vm/snapshot/codec.rs',
         'src/vm/runtime.rs',
         'src/vm/runtime/pci_state.rs',
         'src/cli/mod.rs',

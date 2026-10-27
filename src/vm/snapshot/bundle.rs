@@ -1,10 +1,11 @@
 //! Additive extension container without changing the public base Snapshot shape.
-use super::{PciSnapshot, PhysicalMemorySnapshot, Snapshot, codec};
+use super::{CpuSnapshot, CpuSnapshots, PciSnapshot, PhysicalMemorySnapshot, Snapshot, codec};
 use crate::error::{Error, Result};
 use crate::vm::runtime::pci_state::PciDeviceCheckpoint;
 use std::path::Path;
 pub struct SnapshotBundle {
     pub(super) base: Snapshot,
+    pub(super) cpus: Option<CpuSnapshots>,
     pub(super) pci: Option<PciSnapshot>,
     pub(super) physical_memory: Option<PhysicalMemorySnapshot>,
 }
@@ -13,6 +14,7 @@ impl std::fmt::Debug for SnapshotBundle {
         f.debug_struct("SnapshotBundle")
             .field("base", &self.base.summary())
             .field("pci", &self.pci.is_some())
+            .field("cpus", &self.cpus.as_ref().map(|c| c.entries().len()))
             .field("physical_memory", &self.physical_memory.is_some())
             .finish_non_exhaustive()
     }
@@ -21,12 +23,23 @@ impl SnapshotBundle {
     pub fn new(base: Snapshot) -> Self {
         Self {
             base,
+            cpus: None,
             pci: None,
             physical_memory: None,
         }
     }
     pub fn base(&self) -> &Snapshot {
         &self.base
+    }
+    pub fn cpus(&self) -> Option<&CpuSnapshots> {
+        self.cpus.as_ref()
+    }
+    pub fn with_cpus(mut self, entries: Vec<CpuSnapshot>) -> Result<Self> {
+        self.cpus = Some(CpuSnapshots::capture(entries, &self.base)?);
+        Ok(self)
+    }
+    pub fn take_cpus(&mut self) -> Option<CpuSnapshots> {
+        self.cpus.take()
     }
     pub fn pci(&self) -> Option<&PciSnapshot> {
         self.pci.as_ref()
@@ -56,6 +69,11 @@ impl SnapshotBundle {
     /// Compatibility with the immediately preceding unreleased bundle API.
     /// Required physical state cannot be silently discarded by pair extraction.
     pub fn into_parts(self) -> Result<(Snapshot, Option<PciSnapshot>)> {
+        if self.cpus.is_some() {
+            return Err(Error::Emulator(
+                "checkpoint contains required CPU set".to_string(),
+            ));
+        }
         if self.physical_memory.is_some() {
             return Err(Error::Emulator(
                 "checkpoint contains required physical memory".to_string(),
@@ -64,7 +82,7 @@ impl SnapshotBundle {
         Ok((self.base, self.pci))
     }
     pub fn into_base(self) -> Result<Snapshot> {
-        if self.pci.is_some() || self.physical_memory.is_some() {
+        if self.pci.is_some() || self.physical_memory.is_some() || self.cpus.is_some() {
             return Err(Error::Emulator(
                 "checkpoint contains required extensions; use SnapshotBundle::load".to_string(),
             ));
@@ -91,6 +109,9 @@ impl SnapshotBundle {
     }
     pub(super) fn validate(&self) -> Result<()> {
         self.base.validate_for_restore()?;
+        if let Some(cpus) = &self.cpus {
+            cpus.validate(&self.base)?;
+        }
         if let Some(pci) = &self.pci {
             pci.validate(&self.base.config, self.base.memory_size)?;
         }

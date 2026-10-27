@@ -112,6 +112,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `checkpoint_physical_memory` | `suites/vm/checkpoint_physical_memory.rs` | Complete mapped-region checkpoint capture, framing, bounds and explicit physical restore. |
 | `runtime_checkpoint_bundle` | `suites/vm/runtime_checkpoint_bundle.rs` | Coordinated represented CPU/device/physical memory admission and restore. |
 | `checkpoint_resume` | `suites/vm/checkpoint_resume.rs` | Typed detached file resume, page rounding and actual CLI UART/shutdown execution. |
+| `checkpoint_cpus` | `suites/vm/checkpoint_cpus.rs` | Every represented CPU context, full count domain and early all-context admission. |
 
 ## Reachability rules
 

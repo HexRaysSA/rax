@@ -40,17 +40,17 @@ explicit handling without silently dropping physical state.
 | P4 | Snapshot writers are quiescent by caller contract. | Current single-threaded VM boundary and explicit independent-writer/SMP coordination requirement. | Full coordinator remains open. |
 | P5 | Reported projection and physical state describe the same bytes. | Projection digest checks, base-reader refusal and explicit required-component extraction. | Owning regression; validation receipts in remediation ledger. |
 
-High impact: additional CPU/private/platform state, full VM/SMP quiescence,
+High impact: additional backend-private/platform state, full VM/SMP quiescence,
 replay and native setter transactions remain open. Medium impact:
 compressed snapshots remain resident; large checkpoints require explicit resource
 admission. Low impact: future region/schema changes require reader negotiation.
 
-`Vmm::take_snapshot_bundle` captures the represented CPU-0/four-legacy-device
+`Vmm::take_snapshot_bundle` captures the represented all-vCPU/four-legacy-device
 base, the typed PCI/device/media set when registered, and every mapped physical
 region. `PhysicalMemorySnapshot::restore` also provides a standalone physical
-operation. `Vmm::restore_snapshot_bundle` coordinates the represented CPU0,
+operation. `Vmm::restore_snapshot_bundle` coordinates the represented CPU contexts,
 private, legacy, PCI/media and physical components; its admission/publication
-contract is documented in `runtime-checkpoint-bundles.md`. Additional CPUs and
+contract is documented in `runtime-checkpoint-bundles.md`. Additional backend-private state and
 platform state remain separate. Console/periodic capture and `--checkpoint` now use represented bundles and
 typed detached construction; see `checkpoint-resume.md`.
 

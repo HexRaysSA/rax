@@ -5,10 +5,11 @@
 //! permit explicitly optional extensions. The original untagged v8 layout is
 //! supported through its frozen configuration schema.
 //!
-//! SnapshotBundle additionally frames typed PCI/media state and every mapped
-//! physical region. Vmm::restore_snapshot_bundle coordinates those represented
-//! components. Additional CPUs, platform devices, scheduler state and full VM
-//! quiescence still require integration. The original base Snapshot fields and
+//! SnapshotBundle additionally frames represented public/base-private state for
+//! every vCPU, typed PCI/media state and every mapped physical region.
+//! Vmm::restore_snapshot_bundle coordinates those represented components.
+//! Additional backend-private/platform/scheduler state and full VM quiescence
+//! still require integration. The original base Snapshot fields and
 //! wire do not themselves represent those extensions.
 //! Legacy `.snap` files use a separate magic and are rejected explicitly.
 
@@ -24,6 +25,8 @@ use crate::devices::pit::Pit;
 use crate::devices::serial::Serial16550;
 use crate::error::{Error, Result};
 mod bundle;
+mod cpus;
+pub use cpus::{CpuSnapshot, CpuSnapshots};
 mod physical_memory;
 mod stream;
 pub use physical_memory::PhysicalMemorySnapshot;
@@ -249,7 +252,10 @@ impl Snapshot {
     }
 
     fn validate_cpu_state(&self) -> Result<()> {
-        if let CpuState::Aarch64(state) = &self.cpu_state {
+        Self::validate_cpu_payload(&self.cpu_state)
+    }
+    pub(super) fn validate_cpu_payload(cpu: &CpuState) -> Result<()> {
+        if let CpuState::Aarch64(state) = cpu {
             let Some(execution) = &state.sregs.execution else {
                 return Err(Error::Emulator(
                     "AArch64 checkpoint is missing keyed system state".to_string(),

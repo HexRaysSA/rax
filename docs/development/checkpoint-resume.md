@@ -1,7 +1,8 @@
 # Expanded checkpoint files and detached resume
 
 Console/hotkey/signal and periodic capture now save `SnapshotBundle` files,
-including every mapped physical region and represented PCI/controller/media
+including ordered represented state for every configured vCPU, every mapped
+physical region and represented PCI/controller/media
 state. `--checkpoint file.rxc` resolves recorded configuration with CLI
 overrides, builds a bare target and imports those represented components. It
 requires neither the original kernel/initrd nor the original storage paths.
@@ -45,7 +46,7 @@ bare-metal execution check.
 | F3 | Configuration records allocated geometry. | Actual accepted 128 MiB + 1 request, source cookie in the final rounded byte, old/current same-client observations and save result. | Owning regression and ledger receipts. |
 | F4 | CLI success represents guest execution. | Unique UART marker plus shutdown, open stdin writer, missing original ELF and independent full-byte comparison. | Owning CLI case and independent receipts required. |
 | F5 | Independent writers remain quiescent. | Capture precedes guest execution; constructor stays private until represented import completes. | Full SMP coordinator remains open. |
-| F6 | Expanded files still represent a bounded subset of VM state. | Additional CPU/private/platform/scheduler, per-VM timing, replay and native failure transactions remain separate. | Full VM closure remains open. |
+| F6 | Expanded files still represent a bounded subset of VM state. | Additional backend-private/platform/scheduler, per-VM timing, replay and native failure transactions remain separate. | Full VM closure remains open. |
 
 For N backing bytes, M media bytes and K control bytes, capture/restore cost is
 O(N + M + K), plus bounded region lookup work documented by the physical-memory
@@ -53,7 +54,7 @@ format. Independent comparison uses at most 1 MiB output chunks plus compressed
 input and ELF segment data. Resident compressed snapshots and detached candidate
 media still consume their admitted byte budgets.
 
-High impact: additional CPUs/private/platform/scheduler state, full quiescence,
+High impact: additional backend-private/platform/scheduler state, full quiescence,
 per-VM clocks, replay, Linux boot and native KVM/HVF transactions remain open.
 Medium impact: legacy base files retain their represented-projection semantics;
 restored writable images are detached. Low impact: future required sections must

@@ -533,6 +533,9 @@ impl VCpu for RiscVVcpu {
                 .validate_vector_state(vector)
                 .map_err(Error::Emulator)?;
         }
+        drop(self.tohost_addr.lock().map_err(|_| {
+            Error::Emulator("RISC-V tohost lock poisoned during restore".to_string())
+        })?);
         Ok(())
     }
 
@@ -694,6 +697,10 @@ mod checkpoint_lock_tests {
             })
             .join()
             .is_err()
+        );
+        assert!(
+            cpu.validate_checkpoint_state(&state, &Default::default())
+                .is_err()
         );
         assert!(cpu.set_state(&state).is_err());
         // get_state also reads tohost. Recover only the test lock marker;

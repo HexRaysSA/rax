@@ -1,9 +1,11 @@
 # Represented runtime bundle restore
 
 `Vmm::restore_snapshot_bundle` restores the components represented by the bundle:
-CPU 0/private state, PIC/PIT/UART/local APIC, the PCI bridge and typed optional
+the ordered represented public/base-private state of every recorded vCPU,
+PIC/PIT/UART/local APIC, the PCI bridge and typed optional
 controllers/media, and either every captured physical region or the old reported
-RAM projection. A bundle with no extensions uses the original base restore path.
+RAM projection. A single-vCPU bundle with no extensions uses the original base restore path.
+Multi-vCPU bundles without the required CPU set are rejected before mutation.
 The source checkpoint remains borrowable for inspection/retry.
 
 Version/config/architecture/count/topology/storage identity and access-policy
@@ -34,7 +36,7 @@ backing; dirty bytes are restored, including zero source bytes.
 | R5 | Independent CPU/DMA/mapping writers remain quiescent. | Explicit API contract; actual full-backing VM tests and separate future coordinator requirement. | Full SMP coordinator remains open. |
 | R6 | Native setters/resource failures can fail after admission. | Native KVM/HVF transaction evidence is separate; tests do not claim failure rollback for those operations. | Unknown outside tested emulator domain. |
 
-High impact: all additional CPUs/private/platform/scheduler state, per-VM clocks,
+High impact: additional backend-private/platform/scheduler state, per-VM clocks,
 quiescence, replay and native transactions remain open. Medium impact: all media must fit admitted byte budgets in detached memory.
 Low impact: future required components must extend explicit preparation and
 publication rather than be silently dropped.
