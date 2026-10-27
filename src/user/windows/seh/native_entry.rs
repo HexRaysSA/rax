@@ -242,3 +242,6 @@ mod tests;
 
 #[cfg(test)]
 mod qualification_tests;
+
+#[cfg(test)]
+mod startup_diagnostics_v1;
