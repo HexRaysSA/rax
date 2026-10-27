@@ -117,6 +117,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `vm_timing` | `suites/vm/vm_timing.rs` | VM timing isolation, scoped binding and repeated restore |
 | `retired_clock` | `suites/vm/retired_clock.rs` | Exact retirement clock phase, wrap and state restoration |
 | `checkpoint_clock` | `suites/vm/checkpoint_clock.rs` | Required timing state, phase and restore admission |
+| `cortexm_dispatch` | `suites/backend/cortexm_dispatch.rs` | Cortex-M factory selection, Thumb execution and boot-state wiring |
 
 ## Reachability rules
 
