@@ -2,6 +2,8 @@
 //!
 //! This module provides backend-agnostic types and traits for CPU emulation.
 
+mod budget;
+pub use budget::{DEFAULT_RETIREMENT_QUANTUM, RetirementRun, RetirementStop};
 pub mod exit;
 pub mod state;
 
@@ -52,6 +54,16 @@ pub struct MemRecord {
 pub trait VCpu: Send {
     /// Run the vCPU until an exit condition.
     fn run(&mut self) -> Result<VcpuExit>;
+
+    /// Execute at most `budget` retired units, preserving the reason for yield.
+    /// One Hexagon packet is one unit. A zero budget performs no execution.
+    /// Non-stepping backends reject before entry; there is no unbounded fallback.
+    /// A delivered exception/interrupt with no retirement returns StateChange.
+    /// A backend fault retains previously retired work in RetirementRun instead
+    /// of losing that progress through an outer error. See RetirementStop.
+    fn run_retirement_budget(&mut self, budget: u64) -> Result<RetirementRun> {
+        budget::run(self, budget)
+    }
 
     /// Execute exactly one guest instruction.
     ///
