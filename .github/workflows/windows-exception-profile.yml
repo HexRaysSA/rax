@@ -17,6 +17,7 @@ on:
       - docs/specifications/windows/native-session-windows-directory/**
       - docs/specifications/windows/native-session-csr-connect/**
       - docs/specifications/windows/native-nls-amd64-initialize/**
+      - docs/specifications/windows/native-wow64-csr-amd64/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
@@ -32,6 +33,7 @@ on:
       - docs/specifications/windows/native-session-windows-directory/**
       - docs/specifications/windows/native-session-csr-connect/**
       - docs/specifications/windows/native-nls-amd64-initialize/**
+      - docs/specifications/windows/native-wow64-csr-amd64/**
   workflow_dispatch:
 
 permissions:
@@ -186,4 +188,14 @@ jobs:
         with:
           name: native-system-processor-information-${{ matrix.os }}
           path: target/native-system-processor-information-v1.json
+          if-no-files-found: error
+      - name: Observe original x86 CSR startup on independent AMD64 kernels
+        if: always()
+        run: python -B docs/specifications/windows/native-wow64-csr-amd64/run-v1.py
+      - name: Preserve original AMD64 WoW64 CSR startup observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-wow64-csr-amd64-startup-${{ matrix.os }}
+          path: target/native-wow64-csr-amd64-startup-v1.json
           if-no-files-found: error
