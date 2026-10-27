@@ -1,0 +1,81 @@
+{
+  "pid": 2508,
+  "state": "finished",
+  "commands": [
+    {
+      "label": "arm64-compile",
+      "exit_code": 0,
+      "seconds": 0.535878375005268
+    },
+    {
+      "label": "arm64-observe",
+      "exit_code": 0,
+      "seconds": 0.3262059160042554
+    },
+    {
+      "label": "x64-compile",
+      "exit_code": 0,
+      "seconds": 0.2820102499972563
+    },
+    {
+      "label": "x64-observe",
+      "exit_code": 0,
+      "seconds": 0.6931987919961102
+    },
+    {
+      "label": "x86-compile",
+      "exit_code": 0,
+      "seconds": 0.30414904200006276
+    },
+    {
+      "label": "x86-observe",
+      "exit_code": 0,
+      "seconds": 0.8755885840000701
+    }
+  ],
+  "samples": [
+    {
+      "arch": "arm64",
+      "machine": 43620,
+      "binary_bytes": 150016,
+      "binary_sha256": "88d2fe11d12fea5fe2e8dff61dff1ba6e9dde3437f9748ddeb01425aeeaac638",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "rows": 409,
+      "stdout_sha256": "c07ee685e16f50907b728652f9e939ae29a8982edc281c96c0247e49d79e2183"
+    },
+    {
+      "arch": "x64",
+      "machine": 34404,
+      "binary_bytes": 147968,
+      "binary_sha256": "6764378045edd6faf038b285a518f01bdbb131401d7b8b88974d06bdfb294948",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "rows": 409,
+      "stdout_sha256": "c1af87f6249b1d836aee08d53360978fb90df878db57d0da80395eeaf22eda69"
+    },
+    {
+      "arch": "x86",
+      "machine": 332,
+      "binary_bytes": 122368,
+      "binary_sha256": "99fb0b4c91cad2b725a152fa05d5caa7d9ea38d70345fa7a8d5691a7731262f7",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "rows": 405,
+      "stdout_sha256": "01a697114612467a9722d131853cba79448f13e49365f00a8a03bc9589a8a2b3"
+    }
+  ],
+  "kernel": [
+    10,
+    0,
+    29695,
+    2,
+    ""
+  ],
+  "source_sha256": "a58e84d66d9ccb9ff16c59e235b90c1d601944a1d704cb86519b16af888d5b10",
+  "driver_sha256": "7400a55a995aac838708b4339cf28616a6f896dab1e86f92273fe2a57b2abd1c",
+  "installed_ntdll_sha256": {
+    "C:\\Windows\\System32\\ntdll.dll": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+    "C:\\Windows\\SysWOW64\\ntdll.dll": "830cfffd91b39ee07578b2fcf89d9b1b838d7e805a2180597521df90ea022a0e"
+  },
+  "child_pid": 9432,
+  "exit_code": 0,
+  "inputs_unchanged": true
+}

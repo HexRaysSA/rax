@@ -3016,3 +3016,15 @@ tail assertion was corrected and rerun; the other native failures are the
 class26 fixture frontier and a volume replay whose frozen flags0x00020020 differ
 from a direct native29695 result0x00220020. Those remaining failures prevent
 a full-green Windows or shipping-runtime claim.
+
+### Owned ProcessWow64Information
+
+Class26 now reports the existing guest PEB32 for x86 and zero for a 64-bit
+self-process. Native64 and WoW64 retain their independently measured alignment,
+length, handle-right, alias, guard and write-order behavior; failed lengths remain
+untouched. The [native build-29695 record](../../../docs/specifications/windows/native-process-wow64-information/README.md)
+contains 2,522 native cases across ARM64, x64 compatibility and default/enabled/
+disabled CHPE x86. Replay rebases only explicitly identified PEB32 output bytes.
+Foreign-process identity and unknown installed native architecture stay explicitly
+unsupported. These observations do not qualify every Windows kernel/profile or
+complete the broader host-library-backed process objective.
