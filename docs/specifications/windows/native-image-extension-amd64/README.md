@@ -29,3 +29,14 @@ High-impact boundary: the existing guest class-14 absence semantics were
 measured on native ARM64 kernels. Independent AMD64 availability and fault
 precedence are separate evidence requirements; this observation does not
 silently extend the ARM64 contract to every AMD64 kernel.
+
+
+`run-query-matrix-v1.py` additionally compiles the unchanged original query
+matrix plus new, separately named type-1 boundary and SIZE_T-limit producers.
+The latter change the valid requested type from 0 to 1; every original producer
+is preserved. Native x64 and WoW64 x86 processes each record 4200 query cases,
+15480 boundary/alias/guard/rights cases, and 1092 length-limit cases. The wrapper
+retains raw stdout, stderr, complete reports, source/compiler/executable/runtime
+identities and terminal results. Its native producer deadline is 90 s, matching
+the existing observation controller; original emulator fixture budgets do not
+change. These measurements qualify validation order before guest policy changes.
