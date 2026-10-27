@@ -62,13 +62,13 @@ jobs:
           path: target/native-image-extension-amd64-v1.json
           if-no-files-found: error
       - name: Observe native AMD64 type-1 image-extension query precedence
-        run: python -B docs/specifications/windows/native-image-extension-amd64/run-query-matrix-v1.py
+        run: python -B docs/specifications/windows/native-image-extension-amd64/run-query-matrix-v2.py
       - name: Preserve native AMD64 type-1 image-extension query observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: native-image-extension-amd64-query-matrix-${{ matrix.os }}
-          path: target/native-image-extension-amd64-query-matrix-v1.json
+          path: target/native-image-extension-amd64-query-matrix-v2.json
           if-no-files-found: error
       - name: Observe independent AMD64 NLS initialization and view lifetime
         run: python -B docs/specifications/windows/native-nls-amd64-initialize/run-v1.py

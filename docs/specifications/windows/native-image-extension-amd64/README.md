@@ -40,3 +40,11 @@ retains raw stdout, stderr, complete reports, source/compiler/executable/runtime
 identities and terminal results. Its native producer deadline is 90 s, matching
 the existing observation controller; original emulator fixture budgets do not
 change. These measurements qualify validation order before guest policy changes.
+
+
+The first matrix-controller attempt rejected Windows checkout CRLF bytes before
+compiling or executing a producer. The failed v1 report is preserved separately.
+`run-query-matrix-v2.py` accepts exactly the pinned LF form or its uniform CRLF
+checkout form and records both expected forms and the actual raw SHA-256.
+Mixed or otherwise changed source bytes still fail. Native producer sources,
+query axes, assertions, and deadlines are unchanged. V1 remains frozen.
