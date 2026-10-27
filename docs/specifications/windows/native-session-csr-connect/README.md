@@ -62,3 +62,19 @@ from run40554175446: MSVC `/W4 /WX` rejects C4127 (constant condition) and C4505
 failed build. `startup-v2.cpp` uses `if constexpr` and removes the unused helper;
 `run-v2.py` preserves the warning policy, original-call semantics and source
 identity checks, with a separate v2 output. V1 remains unchanged.
+
+
+Both v2 native controls pass on AMD64 builds20348/26100 in run40554775082.
+Each records one original successful NtConnectPort and zero secure calls;
+all owned children exit41 naturally. Replies overwrite the first24 information
+bytes, preserve the final24 and length48, return maximum952, clear the24-byte
+remote view and publish distinct client/server views. Both initialized parents
+record a1 MiB readonly section with20480 committed bytes and statics offset0x750.
+These captures qualify observations, not a new emulator connection path.
+
+The recorded AMD64 PID export has a20-byte MOV/XOR/CMP/CMOVNE/RET body.
+`metadata-v2.cpp` verifies its exact opcodes, resolves both signed RIP-relative
+operands within the loaded NTDLL image, and reads only the pointer-width PID
+and byte flag. No private export is called. `run-v3.py` additionally requires
+that the resulting nonzero effective PID equals every original connection
+reply's PID. Earlier executed sources and failure artifacts remain unchanged.
