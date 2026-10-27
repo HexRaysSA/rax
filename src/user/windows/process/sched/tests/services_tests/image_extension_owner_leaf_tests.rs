@@ -110,9 +110,30 @@ fn image_extension_owner_installed_ntdll_leaf_reports_owned_bootstrap_tail() {
     let present = [0, 1]
         .into_iter()
         .any(|kind| p.vm.section_image_extension(base, kind).is_some());
+    let mut native_information = [0usize; 3];
+    let mut information_length = 0;
+    // SAFETY: live process-lifetime NTDLL, fixed class and exclusive native
+    // MEMORY_IMAGE_INFORMATION/SIZE_T outputs. No guest address enters.
+    assert_eq!(
+        unsafe {
+            NtQueryVirtualMemory(
+                (-1isize) as _,
+                native,
+                6,
+                native_information.as_mut_ptr().cast(),
+                std::mem::size_of_val(&native_information),
+                &mut information_length,
+            )
+        },
+        0
+    );
+    assert_eq!(
+        information_length,
+        std::mem::size_of_val(&native_information)
+    );
     assert_eq!(
         p.space.u32(out + arch.ptr_size() * 2).unwrap() & 0x40,
-        if present { 0x40 } else { 0 }
+        native_information[2] as u32 & 0x40
     );
     if arch.is64() && present {
         assert_eq!(base, native as usize as u64);
@@ -131,7 +152,6 @@ fn image_extension_owner_installed_ntdll_leaf_reports_owned_bootstrap_tail() {
             assert_eq!(status, STATUS_INVALID_INFO_CLASS);
             continue;
         }
-        assert_eq!(status, STATUS_SUCCESS);
         let (rva, size) = p.vm.section_image_extension(base, kind).unwrap_or((0, 0));
         let mut expected = NativeExtension {
             kind,
@@ -150,15 +170,28 @@ fn image_extension_owner_installed_ntdll_leaf_reports_owned_bootstrap_tail() {
                 &mut returned,
             )
         };
-        if native_status as u32 == STATUS_INVALID_INFO_CLASS {
-            // Older kernels have no native extension metadata. Verify the
-            // unchanged ordinary bootstrap and the model's empty extension
-            // contract instead of requiring a newer kernel or skipping the leaf.
-            assert!(!present);
+        assert_eq!(status, native_status as u32, "native type {kind}");
+        if matches!(
+            native_status as u32,
+            STATUS_INVALID_INFO_CLASS | STATUS_NOT_SUPPORTED
+        ) {
+            if native_status as u32 == STATUS_INVALID_INFO_CLASS {
+                assert!(!present);
+            } else {
+                assert_eq!(native_machine, Some(0x8664));
+                assert_eq!(kind, 1);
+            }
             assert_eq!((rva, size), (0, 0));
+            assert_eq!(
+                (expected.kind, expected.flags, expected.rva, expected.size),
+                (kind, 0, 0, 0)
+            );
+            assert_eq!(returned, 0);
+            assert_eq!(p.space.u32(out).unwrap(), kind);
+            assert_eq!(p.space.u32(out + 4).unwrap(), 0);
             assert_eq!(p.space.u64(out + 8).unwrap(), 0);
             assert_eq!(p.space.u64(out + 16).unwrap(), 0);
-            assert_eq!(p.space.u64(out + 32).unwrap(), 24);
+            assert_eq!(p.space.u64(out + 32).unwrap(), 0);
             continue;
         }
         assert_eq!(native_status, 0);

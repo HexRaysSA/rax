@@ -149,7 +149,23 @@ The first Windows ARM64 unit build failed before running tests: the installed
 leaf test referenced a WNF query field that is not exposed. The corrected test
 uses the existing independent `RtlGetVersion` host control. That failed source
 frame and its logs are retained. Corrected Windows compilation, installed-leaf,
-and unchanged whole original-fixture qualification remain pending.
+and unchanged whole original-fixture qualification were then repeated. The
+corrected native ARM64 frame passes 23 image-extension tests, three availability
+tests, 105 CSR tests, 61 WoW64 tests, all 191 C API tests and the whole original
+hardware-fault test, with no failed or ignored tests in those selections.
+
+The AMD64 [candidate run](https://github.com/HexRaysSA/rax/actions/runs/40591957315)
+passes the whole unchanged original hardware-fault test on both builds 20348
+and 26100. Both also pass all 15 selected CSR tests. Each image-query suite
+retains 22 passes and one owner-test failure: its prior success assertion ran
+before its native oracle, so it expected success where the native kernel
+returns `STATUS_INVALID_INFO_CLASS` or `STATUS_NOT_SUPPORTED`.
+The corrected owner test compares actual native status and unchanged outputs
+first, then applies successful RVA/size/backing-byte assertions only to actual
+native successes. Its class-6 extension flag is independently queried from the
+loaded native NTDLL, including reserved-only owner tails. No production code or
+original fixture changes accompany this test correction. Its new native gates
+remain pending.
 
 High impact, outside this query change and blocking full-goal completion:
 complete native 64-bit RTL heap/loader equivalence, broader CSR messages,
