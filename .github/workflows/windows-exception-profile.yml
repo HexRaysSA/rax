@@ -199,3 +199,13 @@ jobs:
           name: native-wow64-csr-amd64-startup-${{ matrix.os }}
           path: target/native-wow64-csr-amd64-startup-v1.json
           if-no-files-found: error
+      - name: Observe fresh and retry WoW64 CSR calls on independent AMD64 kernels
+        if: always()
+        run: python -B docs/specifications/windows/native-wow64-csr-amd64/run-matrix-v1.py
+      - name: Preserve independent AMD64 WoW64 CSR fresh and retry observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-wow64-csr-amd64-matrix-${{ matrix.os }}
+          path: target/native-wow64-csr-amd64-matrix-v1.json
+          if-no-files-found: error
