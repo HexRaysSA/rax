@@ -17,6 +17,9 @@ pub type Descriptor = std::os::fd::RawFd;
 /// Native readiness identifier; never a guest descriptor number.
 #[cfg(windows)]
 pub type Descriptor = isize;
+/// Native readiness identifier; never a guest descriptor number.
+#[cfg(not(any(unix, windows)))]
+pub type Descriptor = i32;
 
 /// Native descriptor readiness. Error and hangup are reported independently
 /// of the requested readable/writable directions.
@@ -192,9 +195,9 @@ mod platform {
 #[cfg(windows)]
 mod platform {
     use super::*;
+    use crate::host::time::{Duration, Instant};
     use std::ffi::c_void;
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
-    use std::time::{Duration, Instant};
     type Handle = *mut c_void;
     const WAIT_OBJECT_0: u32 = 0;
     const WAIT_TIMEOUT: u32 = 258;
@@ -320,11 +323,47 @@ mod platform {
     }
 }
 
+#[cfg(not(any(unix, windows)))]
+mod platform {
+    use super::*;
+
+    #[derive(Debug)]
+    pub struct Pair;
+
+    impl Pair {
+        pub fn new() -> io::Result<Self> {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "readiness pairs are not available on this target",
+            ))
+        }
+
+        pub fn descriptor(&self, _which: usize) -> Descriptor {
+            -1
+        }
+
+        pub fn transition(&self, _which: usize, _on: bool) -> io::Result<()> {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "readiness pairs are not available on this target",
+            ))
+        }
+    }
+
+    pub fn wait_readable(_descriptors: &[Descriptor], _timeout_ms: i32) -> io::Result<Vec<bool>> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "descriptor waits are not available on this target",
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{Duration, Instant};
+    use crate::host::time::{Duration, Instant};
 
+    #[cfg(any(unix, windows))]
     #[test]
     fn levels_are_independent_persistent_and_clearable() {
         let pair = LevelPair::new().unwrap();
@@ -342,6 +381,7 @@ mod tests {
         assert_eq!(wait_readable(&fds, 0).unwrap(), [false, false, false]);
     }
 
+    #[cfg(any(unix, windows))]
     #[test]
     fn delayed_wake_including_more_than_64_levels_and_duplicates() {
         for count in [1, 65] {
@@ -365,6 +405,7 @@ mod tests {
         }
     }
 
+    #[cfg(any(unix, windows))]
     #[test]
     fn finite_empty_and_expired_waits() {
         assert!(wait_readable(&[], 0).unwrap().is_empty());

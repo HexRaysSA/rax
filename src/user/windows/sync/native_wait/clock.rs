@@ -24,6 +24,14 @@ pub(super) fn awake_nanoseconds() -> io::Result<u128> {
     Ok(time.tv_sec as u128 * 1_000_000_000 + time.tv_nsec as u128)
 }
 
+#[cfg(not(any(unix, windows)))]
+pub(super) fn awake_nanoseconds() -> io::Result<u128> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "awake clock is not available on this target",
+    ))
+}
+
 #[cfg(windows)]
 pub(super) fn awake_nanoseconds() -> io::Result<u128> {
     use std::ffi::{c_char, c_void};

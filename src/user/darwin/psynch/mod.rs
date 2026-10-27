@@ -19,8 +19,8 @@ pub mod cond;
 pub mod mutex;
 pub mod rwlock;
 
+use crate::host::time::{Duration, Instant};
 use std::collections::{BTreeMap, HashMap};
-use std::time::{Duration, Instant};
 
 use super::abi::Errno;
 use super::arch::{Rv, SysResult};

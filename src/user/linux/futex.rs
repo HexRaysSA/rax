@@ -15,8 +15,8 @@
 //! also its address. Private and shared keys never match each other, as
 //! in the kernel.
 
+use crate::host::time::Instant;
 use std::collections::{HashMap, VecDeque};
-use std::time::Instant;
 
 use super::abi::errno::Errno;
 use super::abi::errno_table::*;

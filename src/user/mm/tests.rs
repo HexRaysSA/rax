@@ -392,7 +392,11 @@ fn probe_ends_at_the_first_fault_whatever_the_length() {
     let s = space();
     s.map(0x10000, 2 * P, Mapping::anonymous(RW)).unwrap();
     let e = s
-        .probe(0x10000, 1usize << 62, MemoryAccessKind::Write)
+        .probe(
+            0x10000,
+            1usize << (usize::BITS - 2),
+            MemoryAccessKind::Write,
+        )
         .unwrap_err();
     assert_eq!(e.address, 0x12000);
     let e = s

@@ -1,9 +1,9 @@
 //! Native wait entry, retained lifetime and kernel-return context regressions.
 use super::event_tests::setup;
 use super::*;
+use crate::host::time::Instant;
 use crate::user::windows::hle::dispatch;
 use crate::user::windows::sync;
-use std::time::Instant;
 
 const RESUME: u64 = 0x1234_0004;
 

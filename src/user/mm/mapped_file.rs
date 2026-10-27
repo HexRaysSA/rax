@@ -78,7 +78,15 @@ impl MappedFile {
             Ok(done)
         }
         #[cfg(windows)]
-        super::windows_file::read_at(self, offset, buf)
+        return super::windows_file::read_at(self, offset, buf);
+        #[cfg(not(any(unix, windows)))]
+        {
+            let _ = (offset, buf);
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "positional file reads are not available on this target",
+            ))
+        }
     }
 
     /// Write positional bytes without changing the file's shared cursor.
@@ -89,7 +97,15 @@ impl MappedFile {
             FileExt::write_all_at(&**self, data, offset)
         }
         #[cfg(windows)]
-        super::windows_file::write_all_at(self, offset, data)
+        return super::windows_file::write_all_at(self, offset, data);
+        #[cfg(not(any(unix, windows)))]
+        {
+            let _ = (offset, data);
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "positional file writes are not available on this target",
+            ))
+        }
     }
 
     /// Native object identity, retained until this mapping drops its file.
@@ -110,6 +126,14 @@ impl MappedFile {
                 *cached = Some(super::windows_identity::for_file(self)?);
             }
             Ok(cached.as_ref().expect("identity was populated").source())
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            let _ = self;
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "file identity is not available on this target",
+            ))
         }
     }
 }

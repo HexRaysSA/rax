@@ -1671,8 +1671,8 @@ pub struct S5L8900Vcpu {
     kernel_fault_log_remaining: u32,
     kernel_exception_log_remaining: u32,
     fault_log_budget: u32,
-    last_heartbeat: std::time::Instant,
-    boot_instant: std::time::Instant,
+    last_heartbeat: crate::host::time::Instant,
+    boot_instant: crate::host::time::Instant,
     timer_speedup: u64,
     /// Derive guest µs from the instruction count so timeouts do not outrun
     /// device work while the interpreter executes below the guest CPU's speed.
@@ -1915,8 +1915,8 @@ impl S5L8900Vcpu {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(64),
-            last_heartbeat: std::time::Instant::now(),
-            boot_instant: std::time::Instant::now(),
+            last_heartbeat: crate::host::time::Instant::now(),
+            boot_instant: crate::host::time::Instant::now(),
             timer_speedup: timer_speedup(),
             timer_mul: std::env::var("RAX_S5L_TIMER_MUL")
                 .ok()
@@ -4942,7 +4942,7 @@ impl S5L8900Vcpu {
                     let _ = std::fs::write(&path, &buf);
                 }
             }
-            self.last_heartbeat = std::time::Instant::now();
+            self.last_heartbeat = crate::host::time::Instant::now();
         }
     }
 
@@ -5661,7 +5661,7 @@ mod dos_bounds_tests {
     }
 
     fn unique_temp_path(name: &str) -> std::path::PathBuf {
-        let now = std::time::SystemTime::now()
+        let now = crate::host::time::system_now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();

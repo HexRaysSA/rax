@@ -590,15 +590,25 @@ x86_enter_native_trampoline!(
     "_rax_smir_enter_native:"
 );
 
-#[cfg(all(target_arch = "x86_64", not(target_vendor = "apple")))]
+#[cfg(all(target_arch = "x86_64", not(target_vendor = "apple"), not(windows)))]
 x86_enter_native_trampoline!(
     ".globl rax_smir_enter_native",
     ".type rax_smir_enter_native,@function",
     "rax_smir_enter_native:"
 );
 
+// COFF symbol definition: storage class 2 (external), type 32 (function).
+#[cfg(all(target_arch = "x86_64", windows))]
+x86_enter_native_trampoline!(
+    ".globl rax_smir_enter_native",
+    ".def rax_smir_enter_native\n.scl 2\n.type 32\n.endef",
+    "rax_smir_enter_native:"
+);
+
+// The trampoline reads its arguments from RDI/RSI on every host, so it is
+// declared with the System V ABI; on Unix x86-64 that is the C ABI.
 #[cfg(target_arch = "x86_64")]
-unsafe extern "C" {
+unsafe extern "sysv64" {
     fn rax_smir_enter_native(entry: *const u8, state: *mut GuestRegs);
 }
 
@@ -879,6 +889,8 @@ impl ExecMem {
     /// copy, then `mprotect` to RX. Apple-Silicon macOS uses a `MAP_JIT` region
     /// with `pthread_jit_write_protect_np` toggling plus an explicit I-cache
     /// invalidate. Linux/aarch64 maps RW→RX and flushes via `__clear_cache`.
+    /// Non-Unix hosts have no POSIX W^X mapping, so they reject the request
+    /// and leave native execution unused.
     pub fn new(code: &[u8]) -> Result<Self, ExecMemError> {
         if code.is_empty() {
             return Err(ExecMemError::Empty);
@@ -896,7 +908,7 @@ impl ExecMem {
     }
 
     /// RW map → copy → `mprotect` RX. Used on x86-64 and any non-aarch64 Unix.
-    #[cfg(not(target_arch = "aarch64"))]
+    #[cfg(all(not(target_arch = "aarch64"), unix))]
     fn map_code(code: &[u8], len: usize) -> Result<*mut u8, ExecMemError> {
         let ptr = unsafe {
             libc::mmap(
@@ -925,6 +937,14 @@ impl ExecMem {
             return Err(ExecMemError::Mprotect);
         }
         Ok(ptr)
+    }
+
+    /// Hosts without a POSIX executable mapping cannot run lowered native code.
+    /// Reject before allocating so interpretation stays the semantic path.
+    /// `wasm32-wasip2` is in this set: its `mmap` is not a W^X JIT heap.
+    #[cfg(not(unix))]
+    fn map_code(_code: &[u8], _len: usize) -> Result<*mut u8, ExecMemError> {
+        Err(ExecMemError::Unsupported)
     }
 
     /// Apple-Silicon macOS: a `MAP_JIT` RWX region. Writing it requires the
@@ -1187,19 +1207,28 @@ impl ExecMem {
 
 impl Drop for ExecMem {
     fn drop(&mut self) {
-        #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
-        if running_under_rosetta() {
-            // Rosetta can retain a translated block after munmap and reuse it
-            // if another thread immediately receives the same executable
-            // virtual address. Keep the address reserved for this process while
-            // releasing its physical pages, which prevents stale-code aliasing.
-            unsafe {
-                libc::mprotect(self.ptr as *mut libc::c_void, self.len, libc::PROT_NONE);
-                libc::madvise(self.ptr as *mut libc::c_void, self.len, libc::MADV_DONTNEED);
+        #[cfg(unix)]
+        {
+            #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
+            if running_under_rosetta() {
+                // Rosetta can retain a translated block after munmap and reuse it
+                // if another thread immediately receives the same executable
+                // virtual address. Keep the address reserved for this process while
+                // releasing its physical pages, which prevents stale-code aliasing.
+                unsafe {
+                    libc::mprotect(self.ptr as *mut libc::c_void, self.len, libc::PROT_NONE);
+                    libc::madvise(self.ptr as *mut libc::c_void, self.len, libc::MADV_DONTNEED);
+                }
+                return;
             }
-            return;
+            unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.len) };
         }
-        unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.len) };
+        #[cfg(not(unix))]
+        {
+            // `map_code` rejects before any allocation, so there is no mapping
+            // to release. Touch the fields so an unused-field lint stays quiet.
+            let _ = (self.ptr, self.len);
+        }
     }
 }
 
@@ -1220,6 +1249,8 @@ pub enum ExecMemError {
     Mmap,
     /// `mprotect` to RX failed.
     Mprotect,
+    /// This host cannot create executable memory. Native execution is unused.
+    Unsupported,
 }
 
 impl core::fmt::Display for ExecMemError {
@@ -1228,11 +1259,33 @@ impl core::fmt::Display for ExecMemError {
             ExecMemError::Empty => write!(f, "empty code buffer"),
             ExecMemError::Mmap => write!(f, "mmap failed"),
             ExecMemError::Mprotect => write!(f, "mprotect to RX failed"),
+            ExecMemError::Unsupported => {
+                write!(f, "executable memory is not available on this host")
+            }
         }
     }
 }
 
 impl std::error::Error for ExecMemError {}
+
+#[cfg(all(test, not(unix)))]
+mod non_unix_exec_mem {
+    use super::*;
+
+    // `ExecMem` owns a mapping and has no `PartialEq`/`Debug`; match the error.
+    #[test]
+    fn empty_code_is_rejected_before_mapping() {
+        assert!(matches!(ExecMem::new(&[]), Err(ExecMemError::Empty)));
+    }
+
+    #[test]
+    fn executable_mapping_is_unsupported() {
+        assert!(matches!(
+            ExecMem::new(&[0xC3]),
+            Err(ExecMemError::Unsupported)
+        ));
+    }
+}
 
 #[cfg(all(test, target_arch = "x86_64"))]
 mod tests {

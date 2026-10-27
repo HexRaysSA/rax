@@ -1,7 +1,7 @@
 //! Thread identity, pthread registration, and user-space synchronization
 //! waits (`ulock`, `__semwait_signal`).
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};

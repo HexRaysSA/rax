@@ -315,7 +315,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!(
             "rax-native-image-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now()
+            crate::host::time::system_now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos()

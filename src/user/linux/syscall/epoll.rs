@@ -7,8 +7,8 @@
 //! A wait is never restarted after a signal handler: it ends with `EINTR`
 //! (`ep_poll`).
 
+use crate::host::time::{Duration, Instant};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::super::abi::LinuxAbi;
 use super::super::abi::errno::Errno;

@@ -309,7 +309,9 @@ impl Entropy {
                 }
                 Ok(())
             }
-            None => getrandom::fill(buf).map_err(|_| Errno(super::abi::errno_table::EIO)),
+            None => {
+                crate::user::entropy::fill(buf).map_err(|_| Errno(super::abi::errno_table::EIO))
+            }
         }
     }
 }
@@ -600,7 +602,7 @@ pub struct Threads<'a> {
 impl ProcState {
     /// When the earliest interval or POSIX timer that runs while the
     /// process sleeps expires.
-    pub fn timer_deadline(&self) -> Option<std::time::Instant> {
+    pub fn timer_deadline(&self) -> Option<crate::host::time::Instant> {
         [self.itimers.next_deadline(), self.timers.next_deadline()]
             .into_iter()
             .flatten()
@@ -828,7 +830,7 @@ impl LinuxProcess {
                     }
                 }
             }
-            #[cfg(windows)]
+            #[cfg(not(unix))]
             crate::user::console::Console::Host => {
                 return Err(SpawnError::Unsupported(
                     "closed Linux embedding requires captured console".into(),

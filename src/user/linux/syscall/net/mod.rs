@@ -13,8 +13,8 @@
 pub mod io;
 pub mod scm;
 
+use crate::host::time::{Duration, Instant};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::super::abi::errno::{Errno, from_host};
 use super::super::abi::errno_table::*;

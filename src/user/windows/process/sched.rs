@@ -14,8 +14,8 @@
 //! executable NTDLL. Absent/unsupported stubs and kernel operations stop with
 //! a diagnostic; no Windows-build table or host syscall forwarding is used.
 
+use crate::host::time::{Duration, Instant};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
 
 use super::{ExitStatus, Proc, Thread, ThreadState, lifecycle, services, thread};
 use crate::error::MemoryAccessKind;

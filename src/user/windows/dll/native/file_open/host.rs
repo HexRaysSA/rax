@@ -34,6 +34,13 @@ pub(super) fn open(
         let _ = share;
         unix::open(c, path, access, options, flags)
     }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (path, access, share, options, flags);
+        Err(c
+            .unsupported("host file open has no platform adapter")
+            .into())
+    }
 }
 
 #[cfg(unix)]

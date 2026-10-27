@@ -1,9 +1,9 @@
+use crate::host::time::{Duration, Instant};
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::error::{ERROR_INVALID_PARAMETER, ERROR_TIMEOUT};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::sync::{self, CONDVAR_KEY, SyncError, Wait};
-use std::time::{Duration, Instant};
 
 fn deadline(milliseconds: u32) -> Result<Option<Instant>, SyncError> {
     if milliseconds == u32::MAX {

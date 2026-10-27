@@ -7,7 +7,7 @@
 //! host's wall clock. `FUTEX_WAIT_REQUEUE_PI` and `FUTEX_CMP_REQUEUE_PI`
 //! are not implemented (`ENOSYS`).
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;

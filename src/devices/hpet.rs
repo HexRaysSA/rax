@@ -28,7 +28,7 @@
 //! the guest clears the level by writing the matching RW1C status bit.
 
 use super::bus::MmioDevice;
-use std::time::Instant;
+use crate::host::time::Instant;
 
 /// Standard MMIO base of the first HPET block (fixed by the IA-PC platform).
 pub const HPET_BASE: u64 = 0xFED0_0000;

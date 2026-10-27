@@ -146,7 +146,7 @@ pub(super) unsafe extern "C" fn rax_jit_call(
     if ok != 0 {
         // Run the callee to completion. The step cap is a runaway backstop;
         // normal run-loop scheduling is retained by the periodic yield check.
-        let start_time = std::time::Instant::now();
+        let start_time = crate::host::time::Instant::now();
         let mut steps: u64 = 0;
         loop {
             // The CALL push or previous callee instruction may have written a

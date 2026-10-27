@@ -210,8 +210,9 @@ pub fn run() -> Result<()> {
         ));
     }
 
-    // Set up Ctrl+C handler for graceful shutdown
-    #[cfg(feature = "profiling")]
+    // Set up Ctrl+C handler for graceful shutdown. ctrlc has no wasm platform;
+    // a profiling build there still exports its summary on the normal exit path.
+    #[cfg(all(feature = "profiling", not(target_family = "wasm")))]
     {
         ctrlc::set_handler(move || {
             eprintln!("\n[profiling] Caught SIGINT, shutting down...");

@@ -55,6 +55,9 @@ pub mod host;
 #[cfg(windows)]
 #[path = "host_windows.rs"]
 pub mod host;
+#[cfg(not(any(unix, windows)))]
+#[path = "host_wasm.rs"]
+pub mod host;
 pub mod ipc;
 pub mod loader;
 #[cfg(unix)]

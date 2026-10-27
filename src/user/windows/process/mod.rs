@@ -30,10 +30,10 @@ pub use sched::RunStatus;
 pub(crate) use sched::{continue_alertable, is_apc_dispatcher};
 pub use thread::{Thread, ThreadState};
 
+use crate::host::time::Instant;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
 
 use super::arch::WinArch;
 use super::dll::crt::CrtState;

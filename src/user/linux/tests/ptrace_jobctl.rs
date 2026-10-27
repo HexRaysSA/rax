@@ -340,10 +340,10 @@ fn sigstop_to_a_linked_process_goes_along_the_link() {
     let _ = stand_in.kill();
     let _ = stand_in.wait();
     assert_eq!(ret, 0);
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let deadline = crate::host::time::Instant::now() + std::time::Duration::from_secs(5);
     let got = loop {
         let m = theirs.recv();
-        if !m.is_empty() || std::time::Instant::now() > deadline {
+        if !m.is_empty() || crate::host::time::Instant::now() > deadline {
             break m;
         }
     };

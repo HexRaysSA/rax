@@ -9,8 +9,8 @@
 //! MMIO region: 0xFEE00000 - 0xFEE00FFF (4KB)
 
 use super::bus::MmioDevice;
+use crate::host::time::Instant;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
 
 /// LAPIC base address (fixed for x86-64)
 pub const LAPIC_BASE: u64 = 0xFEE00000;

@@ -309,14 +309,19 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 # vm-memory versions that fail to build. Exact-pinning keeps a single 0.17.1.
 vm-memory = { version = "=0.17.1", default-features = false, features = ["backend-mmap"] }
 goblin = "0.10.7"
-# Portable host entropy for process-personality startup. Already lockfile-pinned.
-getrandom = "=0.4.3"
 
 # Profiling JSON export (optional)
 serde_json = "1.0"
 
-# Ctrl+C handling for graceful shutdown
+# Ctrl+C handling for graceful shutdown. The crate has no wasm platform.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
 ctrlc = "3.4"
+
+# Portable host entropy for process-personality startup. Already lockfile-pinned.
+# getrandom has no backend for wasm `unknown`/`none` without a JavaScript host;
+# `src/user/entropy.rs` reports `Unsupported` there under the same predicate.
+[target.'cfg(not(all(target_family = "wasm", any(target_os = "unknown", target_os = "none"))))'.dependencies]
+getrandom = "=0.4.3"
 
 # libc is used unconditionally on unix for terminal raw mode (termios), signal
 # handlers that restore the TTY on crash, and the smir-jit W^X exec runtime.
@@ -353,8 +358,10 @@ libc = "0.2"
 # tree builds on Windows. Pinned to a commit for reproducibility; drop this once
 # the change is released upstream (rust-vmm/linux-loader).
 [patch.crates-io]
-# Exact upstream 0.17.1 plus a Windows external-allocation ownership constructor.
-# No upstream version, feature default, or Unix mapping behavior changes.
+# Exact upstream 0.17.1 plus a Windows external-allocation ownership constructor,
+# a non-Unix wasm anonymous-memory backend, and checked region offsets for the
+# wasm32 host (vendor/vm-memory/RAX-PATCHES.md). No upstream version, feature
+# default, or Unix mapping behavior changes.
 vm-memory = { path = "vendor/vm-memory" }
 linux-loader = { git = "https://github.com/19h/linux-loader", rev = "f745b555942c4e840a784bca61e6f3976d101960" }
 

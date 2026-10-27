@@ -1,9 +1,9 @@
 //! Owned user-alert consumption and synchronous guest APC delivery.
+use crate::host::time::Instant;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::nt::status::{STATUS_ALERTED, STATUS_SUCCESS};
 use crate::user::windows::process::thread::AlertCheck;
 use crate::user::windows::sync::Wait;
-use std::time::Instant;
 
 pub(super) fn test(c: &mut Ctx) -> ApiResult {
     // An existing user alert wins over a queued APC and is consumed exactly

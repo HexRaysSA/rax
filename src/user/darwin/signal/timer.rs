@@ -8,7 +8,7 @@
 //! system time; they are charged after each time slice of a thread and
 //! send `SIGVTALRM` and `SIGPROF` to that thread when they expire.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::{Origin, Proc, SIGALRM, SIGPROF, SIGVTALRM, Thread};
 

@@ -1,6 +1,6 @@
 //! One counter unit and epoch for native, public and shared Windows timing.
+use crate::host::time::Instant;
 use std::io;
-use std::time::Instant;
 
 const ELAPSED_FREQUENCY: u64 = 1_000_000_000;
 

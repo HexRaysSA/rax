@@ -21,9 +21,22 @@ build sweep over many more ISAs via cross-compilation.
 
 ## Platform coverage
 
-RAX requires 64-bit targets. The patched memory dependency supports Windows;
-`capi-release.yml` builds and runs the interpreter C API on Windows MSVC.
-The broader ISA/JIT core matrix below remains Linux/macOS only.
+RAX requires 64-bit targets, except wasm32. The patched memory dependency
+supports Windows; `capi-release.yml` builds and runs the interpreter C API on
+Windows MSVC. Windows x86-64 also builds with `smir-jit`, but executable
+memory is Unix-only (`ExecMem` reports `Unsupported`), so every native region
+falls back to interpretation, and the host-JIT tests assume a Unix host. The
+Windows lanes therefore use `--no-default-features`, and the broader ISA/JIT
+core matrix below remains Linux/macOS only.
+
+The patched memory dependency also has a wasm backend, the one 32-bit host it
+admits. `cross.yml` builds wasm32-wasip2 and wasm32-unknown-unknown without
+default features as experimental, build-only lanes. With `smir-jit`, native
+regions fall back to interpretation there too. The Linux personality refuses
+to spawn on wasm. wasm32-unknown-unknown has no clock, so `rax::host::time`
+substitutes a logical clock for `std::time`, whose `now` panics there;
+`std::thread::sleep` and other blocking waits still panic on that target, so
+WASI is the runtime target.
 
 Native run/build (GA runners, pinned — `macos-latest` is mid-migration in 2026):
 
@@ -32,8 +45,9 @@ Native run/build (GA runners, pinned — `macos-latest` is mid-migration in 2026
 | Linux | `ubuntu-24.04` | `ubuntu-24.04-arm` |
 | macOS | `macos-15-intel` | `macos-15` |
 
-Cross-compiled (build-only, all 64-bit): aarch64 (gnu/musl), riscv64gc, ppc64,
+Cross-compiled (build-only, 64-bit): aarch64 (gnu/musl), riscv64gc, ppc64,
 ppc64le, s390x, x86_64-musl, and best-effort tier-3 (sparc64, mips64/mips64el).
+Experimental build-only wasm: wasm32-wasip2 and wasm32-unknown-unknown.
 
 ## Design notes
 

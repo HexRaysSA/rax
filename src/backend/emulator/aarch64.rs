@@ -557,7 +557,7 @@ pub struct Aarch64Vcpu {
     /// Total instructions executed (also read for snapshot bookkeeping).
     insn_count: Arc<AtomicU64>,
     /// Last heartbeat log (wall clock).
-    last_heartbeat: std::time::Instant,
+    last_heartbeat: crate::host::time::Instant,
     /// Last value seen by the register tracer.
     trace_reg_last: u64,
     shutdown: bool,
@@ -605,7 +605,7 @@ impl Aarch64Vcpu {
             late,
             recorder,
             insn_count: Arc::new(AtomicU64::new(0)),
-            last_heartbeat: std::time::Instant::now(),
+            last_heartbeat: crate::host::time::Instant::now(),
             trace_reg_last: 0,
             shutdown: false,
             fault_exits: !devices_enabled,
@@ -840,7 +840,7 @@ impl Aarch64Vcpu {
                 x3 = format!("{:#x}", self.cpu.get_gpr(3)),
                 "aarch64 emulator heartbeat"
             );
-            self.last_heartbeat = std::time::Instant::now();
+            self.last_heartbeat = crate::host::time::Instant::now();
         }
     }
 

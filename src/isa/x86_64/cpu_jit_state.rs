@@ -333,7 +333,9 @@ mod tests {
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
+    // The cached region needs a real executable mapping; non-Unix hosts reject
+    // `ExecMem::new` with `Unsupported`.
+    #[cfg(all(target_arch = "x86_64", unix))]
     #[test]
     fn jit_mode_tag_separates_runtime_capability_and_mxcsr_policies() {
         let (mut vcpu, _) = test_vcpu();

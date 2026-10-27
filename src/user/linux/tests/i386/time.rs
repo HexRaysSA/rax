@@ -8,7 +8,7 @@
 //! `struct __kernel_timespec`, whose nanoseconds' upper half is padding
 //! (`get_timespec64` clears it; a 64-bit caller's is not).
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::super::harness::Harness;
 use super::{put, u32_at};
@@ -30,7 +30,7 @@ fn u64_at(h: &Harness, at: u64) -> u64 {
 }
 
 fn now_secs() -> u64 {
-    std::time::SystemTime::now()
+    crate::host::time::system_now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs()

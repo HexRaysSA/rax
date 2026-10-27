@@ -6,7 +6,7 @@
 //! records the stage) and only receives. A send to a full queue waits
 //! before anything is copied in.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::RESTART;
 use super::kmsg::{self, UserHeader};

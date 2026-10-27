@@ -423,6 +423,6 @@ fn wait_until(ctx: &mut Ctx<'_>, deadline: u64) -> KernReturn {
     }
     sleep(
         ctx,
-        Wait::until(Some(std::time::Instant::now() + remaining)),
+        Wait::until(Some(crate::host::time::Instant::now() + remaining)),
     )
 }

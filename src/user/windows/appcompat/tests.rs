@@ -134,7 +134,7 @@ fn appcompat_sdb_snapshot_reads_owned_regular_file_and_rejects_escape() {
     let root = std::env::temp_dir().join(format!(
         "rax-appcompat-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
+        crate::host::time::system_now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos()

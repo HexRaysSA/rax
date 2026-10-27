@@ -6,8 +6,8 @@
 //! sockets are real host sockets on the loopback and in temporary
 //! directories.
 
+use crate::host::time::{Duration, Instant};
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 
 use super::harness::{Harness, P, each_abi};
 use crate::user::linux::abi::errno_table::*;

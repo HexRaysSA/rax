@@ -1,4 +1,5 @@
 use super::*;
+use crate::host::time::Instant;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow, Item, Value};
 use crate::user::windows::memory::{Mem, MemFault, mem, prot};
@@ -7,7 +8,6 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 use crate::user::windows::process::{WindowsConfig, WindowsProcess};
 use crate::user::windows::sync::{self, SyncError, Wait};
-use std::time::Instant;
 
 fn with_context(arch: WinArch, test: impl FnOnce(&mut Ctx, u64)) {
     let image: &[u8] = match arch {

@@ -1,7 +1,7 @@
 //! Extended timers use the same native clock domains as native object waits.
+use crate::host::time::Instant;
 use crate::user::windows::sync::NativeDeadline;
 use std::io;
-use std::time::Instant;
 
 /// A pending Timer2 operation. Signal state and object lifetime belong to the
 /// containing kernel object; cancellation removes only this operation.

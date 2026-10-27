@@ -5,7 +5,7 @@ use super::super::super::memory::{mem, prot};
 use super::super::super::process::{WindowsConfig, WindowsProcess};
 use super::super::super::sync::{self, Wait};
 use super::*;
-use std::time::Instant;
+use crate::host::time::Instant;
 
 #[path = "native_wait_tests.rs"]
 mod native_wait_tests;

@@ -375,7 +375,7 @@ fn native_wait_packet_create_wait_any_pins_aliases_until_exactly_once_cleanup_al
             panic!("pinned event missing");
         }
         assert_eq!(
-            sync::poll(p, t.tid, &wait, std::time::Instant::now(), false),
+            sync::poll(p, t.tid, &wait, crate::host::time::Instant::now(), false),
             Ok(Some(0))
         );
         assert!(matches!(

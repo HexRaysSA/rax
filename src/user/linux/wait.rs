@@ -18,8 +18,8 @@
 //! ([`forward_host_signals`](super::host::forward_host_signals)), and the
 //! nearest deadline of a wait or interval timer.
 
+use crate::host::time::{Duration, Instant};
 use crate::user::readiness::Descriptor;
-use std::time::{Duration, Instant};
 
 use super::futex::FutexWait;
 use super::host::{self, Readiness};
@@ -253,7 +253,7 @@ const PRECISE_SLEEP: Duration = Duration::from_millis(2);
 pub fn sleep(fds: &[(Descriptor, bool, bool)], deadline: Option<Instant>) -> Result<(), Deadlock> {
     #[cfg(unix)]
     let wake = host::wake_fd();
-    #[cfg(windows)]
+    #[cfg(not(unix))]
     let wake: Option<Descriptor> = None;
     if fds.is_empty() && wake.is_none() && deadline.is_none() {
         return Err(Deadlock);

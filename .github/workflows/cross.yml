@@ -9,8 +9,9 @@
 # built by `cross`'s per-target toolchain images, so no manual gcc setup is
 # needed.
 #
-# Scope note: vm-memory requires 64-bit targets. Windows C API builds and
-# native consumers are covered separately by capi-release.yml.
+# Scope note: vm-memory requires 64-bit targets, except wasm32 through its
+# vendored wasm backend (see rustup-targets). Windows C API builds and native
+# consumers are covered separately by capi-release.yml.
 name: Cross-build
 
 on:
@@ -122,10 +123,14 @@ jobs:
         include:
           - { os: macos-15,       target: aarch64-apple-darwin,  experimental: false }
           - { os: macos-15-intel, target: x86_64-apple-darwin,   experimental: false }
-          # wasm is blocked twice over: 32-bit (vm-memory) and the hard `zstd` C
-          # dep has no wasm toolchain. Re-enable if both are resolved.
-          # - { os: ubuntu-24.04, target: wasm32-wasip1,          experimental: true }
-          # - { os: ubuntu-24.04, target: wasm32-unknown-unknown, experimental: true }
+          # wasm uses vendored vm-memory's anonymous-memory backend (the one
+          # 32-bit host it admits). zstd-sys compiles its C with the runner's
+          # clang and its bundled wasm-shim headers. Build-only: Linux spawn is
+          # refused on wasm, and wasm32-unknown-unknown has no clock or sleep
+          # (`rax::host::time` substitutes a logical clock), so WASI is the
+          # runtime target.
+          - { os: ubuntu-24.04, target: wasm32-wasip2,          experimental: true }
+          - { os: ubuntu-24.04, target: wasm32-unknown-unknown, experimental: true }
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: ./.github/actions/setup-rust

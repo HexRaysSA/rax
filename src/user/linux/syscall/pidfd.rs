@@ -29,8 +29,8 @@
 //! - The namespace `ioctl`s find no namespaces (`EOPNOTSUPP`, as a kernel
 //!   built without them).
 
+use crate::host::time::{Duration, Instant};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;

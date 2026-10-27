@@ -20,10 +20,10 @@
 //! reports the error through a pipe, the caller reaps it, and its
 //! `SIGCHLD` never reaches the guest.
 
+use crate::host::time::Instant;
 use std::collections::BTreeSet;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::sync::Arc;
-use std::time::Instant;
 
 use super::image::{self, Binprefs, Dir, NBINPREFS};
 use super::{Swap, args, build, build_errno, carry, exec_task, fdt_fork, swap_or_kill};

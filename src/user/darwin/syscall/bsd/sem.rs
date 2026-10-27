@@ -13,10 +13,10 @@
 //! wait (`EINTR`, as a Mach semaphore wait aborted by a signal, whatever
 //! `SA_RESTART` says).
 
+use crate::host::time::{Duration, Instant};
 use std::ffi::CString;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};

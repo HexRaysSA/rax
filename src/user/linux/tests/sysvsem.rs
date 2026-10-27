@@ -4,7 +4,7 @@
 //! argument checks in order, timeouts), waiting (counted by `GETNCNT`,
 //! ended by the value, a removal, or a signal), and `SEM_UNDO` at exit.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::harness::{Harness, P, each_abi};
 use crate::user::linux::abi::errno_table::*;

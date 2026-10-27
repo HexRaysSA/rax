@@ -150,7 +150,7 @@ fn sleep_for_child(ctx: &mut Ctx<'_>) -> SysResult {
         Wait::key(WaitKey::Child, None)
     } else {
         // Nothing forwards the host's SIGCHLD: look again shortly.
-        let again = std::time::Instant::now() + std::time::Duration::from_millis(10);
+        let again = crate::host::time::Instant::now() + std::time::Duration::from_millis(10);
         Wait {
             keys: vec![WaitKey::Child],
             deadline: Some(again),

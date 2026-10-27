@@ -30,9 +30,9 @@ mod xattr;
 pub use register::io_uring_register;
 pub use task::{drive, exec_cancel, forked, next_deadline, wait_fds};
 
+use crate::host::time::{Duration, Instant};
 use std::fmt::Write as _;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;

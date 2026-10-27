@@ -652,10 +652,9 @@ fn timers_do_not_outlive_exec_or_cross_fork() {
     let buf = h.scratch + 0xd00;
     assert_eq!(h.start(0, Sysno::Read, &[other, buf, 1]), None);
     let deadline = h.proc.threads[0].blocked.as_ref().unwrap().wait.deadline;
-    assert!(
-        deadline
-            .is_some_and(|d| d <= std::time::Instant::now() + std::time::Duration::from_millis(3))
-    );
+    assert!(deadline.is_some_and(
+        |d| d <= crate::host::time::Instant::now() + std::time::Duration::from_millis(3)
+    ));
     // A forked child has none of its parent's timers.
     let mut h = Harness::new(LinuxAbi::X86_64);
     let b = h.scratch;

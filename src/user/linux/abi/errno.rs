@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn missing_file_maps_through_the_os_error() {
-        let nonce = std::time::SystemTime::now()
+        let nonce = crate::host::time::system_now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();

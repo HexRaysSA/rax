@@ -4,8 +4,8 @@
 //! This allows TSC-based delays to complete in real time rather than
 //! being tied to emulator execution speed.
 
+use crate::host::time::Instant;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Instant;
 
 /// Start time of the emulator - all timing is relative to this
 static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();

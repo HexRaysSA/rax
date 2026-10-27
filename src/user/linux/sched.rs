@@ -14,8 +14,8 @@
 //! process ends with a deadlock diagnostic (with host signals forwarded, a
 //! signal can always arrive, so the process waits as it would on Linux).
 
+use crate::host::time::Instant;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Instant;
 
 use super::arch::{CpuEvent, GuestCpu};
 use super::children::{exited_status, signaled_status};

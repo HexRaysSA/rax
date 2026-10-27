@@ -34,12 +34,12 @@
 
 pub mod analysis;
 
+use crate::host::time::{Duration, Instant};
 use std::fs::File;
 use std::io::{self, BufWriter, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant};
 
 use crate::vm::vcpu::{MemAccess, MemRecord};
 

@@ -1,11 +1,11 @@
 //! Normal process exit retires peers while guest detach callbacks still use locks.
 
 use super::*;
+use crate::host::time::Instant;
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::memory::{mem, prot};
 use crate::user::windows::process::{ThreadState, WindowsConfig, WindowsProcess, thread};
-use std::time::Instant;
 
 fn with_process(arch: WinArch, test: impl FnOnce(&mut Proc, u64, u32)) {
     let image: &[u8] = match arch {

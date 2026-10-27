@@ -403,7 +403,7 @@ pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
     }
     if p.itimers.next_deadline().is_some() || p.itimers.cpu_armed() {
         let fired = p.itimers.expire(
-            std::time::Instant::now(),
+            crate::host::time::Instant::now(),
             crate::user::linux::timers::cpu_samples,
         );
         for sig in fired {
@@ -493,7 +493,7 @@ pub fn dequeue_signal(p: &mut ProcState, t: &mut Thread, blocked: u64) -> Option
             None => {
                 let x = p.shared_pending.dequeue_tagged(blocked)?;
                 if x.0.signo == super::SIGALRM {
-                    p.itimers.rearm_real(std::time::Instant::now());
+                    p.itimers.rearm_real(crate::host::time::Instant::now());
                 }
                 x
             }

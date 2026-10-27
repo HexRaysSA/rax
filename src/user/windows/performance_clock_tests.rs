@@ -1,5 +1,5 @@
 use super::PerformanceClock;
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 #[test]
 fn builtin_performance_clock_preserves_elapsed_nanoseconds_and_frequency() {

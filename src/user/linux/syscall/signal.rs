@@ -5,7 +5,7 @@
 //! compat_siginfo` and returns through i386 frames; the calls with other
 //! 32-bit structures are in `compat::signal`.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;

@@ -1,8 +1,8 @@
 //! PE process construction and Windows process parameters.
 
+use crate::host::time::Instant;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::Instant;
 
 use super::{Proc, SpawnError, WindowsConfig, thread};
 use crate::user::image::pe::{IMAGE_FILE_DLL, IMAGE_FILE_LARGE_ADDRESS_AWARE, PeImage};
@@ -357,8 +357,7 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         Some(seed) => seed,
         None => {
             let mut bytes = [0; 8];
-            getrandom::fill(&mut bytes)
-                .map_err(|e| SpawnError::Io(std::io::Error::other(e.to_string())))?;
+            crate::user::entropy::fill(&mut bytes).map_err(SpawnError::Io)?;
             u64::from_le_bytes(bytes)
         }
     };

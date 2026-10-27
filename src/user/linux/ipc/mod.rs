@@ -439,13 +439,13 @@ pub fn alive(pid: i32) -> bool {
         let r = unsafe { libc::kill(pid, 0) };
         r == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
     }
-    #[cfg(windows)]
-    super::host::process_alive(pid)
+    #[cfg(not(unix))]
+    return super::host::process_alive(pid);
 }
 
 /// The real time in seconds (`ktime_get_real_seconds`).
 pub fn now() -> i64 {
-    std::time::SystemTime::now()
+    crate::host::time::system_now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs() as i64)
 }

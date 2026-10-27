@@ -119,8 +119,11 @@ pub(super) fn query(c: &Ctx, resolved: &Resolved, no_reparse: bool) -> Checked<I
     return Err(c
         .unsupported("host file metadata has no platform adapter")
         .into());
-    if resolved.directory && info.attributes & 0x10 == 0 {
-        return status(STATUS_NOT_A_DIRECTORY);
+    #[cfg(any(windows, unix))]
+    {
+        if resolved.directory && info.attributes & 0x10 == 0 {
+            return status(STATUS_NOT_A_DIRECTORY);
+        }
+        Ok(info)
     }
-    Ok(info)
 }

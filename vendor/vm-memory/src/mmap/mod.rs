@@ -36,11 +36,19 @@ pub(crate) mod xen;
 #[cfg(target_family = "windows")]
 mod windows;
 
+// wasm32-unknown-unknown and wasm64-unknown-unknown are not `unix` or `windows`.
+// Emscripten is both `wasm` and `unix`, so it keeps the Unix mmap backend.
+#[cfg(all(not(feature = "xen"), target_family = "wasm", not(unix), not(windows)))]
+mod wasm;
+
 #[cfg(all(not(feature = "xen"), target_family = "unix"))]
 pub use unix::{Error as MmapRegionError, MmapRegion, MmapRegionBuilder};
 
 #[cfg(all(feature = "xen", target_family = "unix"))]
 pub use xen::{Error as MmapRegionError, MmapRange, MmapRegion, MmapXenFlags};
+
+#[cfg(all(not(feature = "xen"), target_family = "wasm", not(unix), not(windows)))]
+pub use wasm::{Error as MmapRegionError, MmapRegion, MmapRegionBuilder};
 
 #[cfg(target_family = "windows")]
 pub use std::io::Error as MmapRegionError;
@@ -156,7 +164,8 @@ impl<B: Bitmap> GuestMemoryRegion for GuestRegionMmap<B> {
         offset: MemoryRegionAddress,
         count: usize,
     ) -> guest_memory::Result<VolatileSlice<'_, BS<'_, B>>> {
-        let slice = self.mapping.get_slice(offset.raw_value() as usize, count)?;
+        let offset = crate::region::host_offset(offset)?;
+        let slice = self.mapping.get_slice(offset, count)?;
         Ok(slice)
     }
 

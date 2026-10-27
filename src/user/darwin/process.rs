@@ -15,11 +15,11 @@
 //! parks its thread ([`super::wait`]); when every thread sleeps the host
 //! blocks in `poll` until one can continue.
 
+use crate::host::time::Instant;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Instant;
 
 use super::abi::DarwinAbi;
 use super::arch::{DarwinCpu, Trap};
@@ -270,7 +270,7 @@ impl Entropy {
             self.fill(buf);
             Ok(())
         } else {
-            getrandom::fill(buf).map_err(std::io::Error::other)
+            crate::user::entropy::fill(buf)
         }
     }
 
@@ -1350,7 +1350,7 @@ fn thread_cpu_ns() -> u64 {
 /// which the emulator's clock read zero, so that uptime, the Mach
 /// absolute time, and the boot time agree.
 fn boottime_usec() -> u64 {
-    let now = std::time::SystemTime::now()
+    let now = crate::host::time::system_now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
     let up = std::time::Duration::from_nanos(crate::vm::timing::elapsed_nanos());

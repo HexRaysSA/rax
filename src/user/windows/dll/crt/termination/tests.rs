@@ -1,6 +1,6 @@
 //! Genuine export frontiers and shared-lock behavior, all three guest ABIs.
 
-use std::time::Instant;
+use crate::host::time::Instant;
 
 use super::*;
 use crate::user::mm::PAGE_SIZE;

@@ -34,8 +34,8 @@ pub use ioctl::ioctl;
 pub use msgx::{recvmsg_x, sendmsg_x};
 pub use opt::{getsockopt, setsockopt};
 
+use crate::host::time::{Duration, Instant};
 use std::os::fd::{AsRawFd, RawFd};
-use std::time::{Duration, Instant};
 
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};

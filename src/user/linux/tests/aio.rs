@@ -6,9 +6,9 @@
 //! `io_cancel`, `io_destroy`, and the ring's mapping under `mremap`,
 //! `mlock`, and `mseal`.
 
+use crate::host::time::{Duration, Instant};
 use std::io::Write;
 use std::os::fd::AsRawFd;
-use std::time::{Duration, Instant};
 
 use super::harness::{Harness, P, each_abi};
 use crate::user::linux::abi::errno_table::*;

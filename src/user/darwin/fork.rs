@@ -26,7 +26,7 @@
 //! register; the child's returns its own pid with 1 there, which
 //! libsyscall's `fork` turns into 0.
 
-use std::time::Instant;
+use crate::host::time::Instant;
 
 use super::arch::{Rv, SysResult};
 use super::mach::ipc::{IpcSpace, KObject, Port, Right};

@@ -1259,7 +1259,7 @@ impl X86_64Vcpu {
     /// Run-loop periodic work shared by interpreter execution and JIT call-outs.
     /// Returns true when execution should yield back to the VMM.
     #[inline]
-    fn poll_periodic_housekeeping(&mut self, start_time: &std::time::Instant) -> bool {
+    fn poll_periodic_housekeeping(&mut self, start_time: &crate::host::time::Instant) -> bool {
         if let Some(vector) = self.mmu.tick_lapic_timer() {
             if self.can_inject_interrupt() && self.inject_interrupt(vector).unwrap_or(false) {
                 self.mmu.clear_lapic_pending();
@@ -1272,7 +1272,11 @@ impl X86_64Vcpu {
 
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     #[inline]
-    fn jit_callout_should_yield(&mut self, start_time: &std::time::Instant, steps: u64) -> bool {
+    fn jit_callout_should_yield(
+        &mut self,
+        start_time: &crate::host::time::Instant,
+        steps: u64,
+    ) -> bool {
         steps % LAPIC_POLL_STRIDE == 0 && self.poll_periodic_housekeeping(start_time)
     }
 
@@ -3458,7 +3462,7 @@ static JIT_LAST_HOST_LEN: std::sync::atomic::AtomicU64 = std::sync::atomic::Atom
 /// SIGSEGV/SIGBUS/SIGILL handler: a host fault inside native JIT code prints
 /// the guest region entry + faulting address, restores any raw terminal state,
 /// then restores the default disposition and re-raises.
-#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64", unix))]
 extern "C" fn jit_crash_handler(
     sig: libc::c_int,
     info: *mut libc::siginfo_t,
@@ -3539,12 +3543,12 @@ extern "C" fn jit_crash_handler(
     }
 }
 
-#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64", unix))]
 fn jit_crash_cleanup() {
     crate::host::terminal::restore_terminal();
 }
 
-#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64", unix))]
 fn jit_install_crash_handler() {
     use std::sync::OnceLock;
     static INSTALLED: OnceLock<()> = OnceLock::new();
@@ -3977,6 +3981,8 @@ impl X86_64Vcpu {
             use std::sync::atomic::Ordering;
             static TRACE: OnceLock<bool> = OnceLock::new();
             if *TRACE.get_or_init(|| std::env::var_os("RAX_JIT_TRACE").is_some()) {
+                // The handler uses POSIX signals; other hosts have no native regions.
+                #[cfg(unix)]
                 jit_install_crash_handler();
                 JIT_LAST_ENTRY.store(self.regs.rip, Ordering::Relaxed);
                 let (host_base, host_len) = region.exec.mapping_bounds();

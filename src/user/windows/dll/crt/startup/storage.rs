@@ -478,6 +478,7 @@ pub(super) fn prepare(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::host::time::Instant;
     use crate::user::mm::{AddressSpace, PAGE_SIZE, SpaceConfig};
     use crate::user::windows::arch::WinArch;
     use crate::user::windows::heap::Heaps;
@@ -486,7 +487,6 @@ mod tests {
     use crate::user::windows::process::WindowsConfig;
     use std::collections::BTreeMap;
     use std::sync::Arc;
-    use std::time::Instant;
 
     static BAD_CELLS: &[Export] = &[Export::data("__argc", DataSize::Bytes(2))];
     static GOOD_CELLS: &[Export] = &[Export::data("__argc", DataSize::Bytes(4))];

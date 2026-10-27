@@ -65,7 +65,7 @@ fn installed_session_directory_alias_compares_pinned_objects_and_rejects_distinc
     let unique = format!(
         "\\BaseNamedObjects\\AssistRaxDirectoryAlias-{}-{}",
         std::process::id(),
-        SystemTime::now()
+        crate::host::time::system_now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos(),

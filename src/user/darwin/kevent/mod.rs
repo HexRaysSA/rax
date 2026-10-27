@@ -24,8 +24,8 @@ pub mod host;
 pub mod workloop;
 pub mod workq;
 
+use crate::host::time::Instant;
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::time::Instant;
 
 use super::abi::Errno;
 use super::arch::{Rv, SysResult};

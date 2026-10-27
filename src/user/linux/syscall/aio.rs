@@ -14,8 +14,8 @@
 //! in any call wakes for their files, rather than completing at the file's
 //! wake-up itself.
 
+use crate::host::time::{Duration, Instant};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;

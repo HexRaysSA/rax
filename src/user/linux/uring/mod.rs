@@ -83,8 +83,8 @@ pub struct Waiting {
     pub submitted: i64,
     pub target: u32,
     pub min_tail: u32,
-    pub deadline: Option<std::time::Instant>,
-    pub min_deadline: Option<std::time::Instant>,
+    pub deadline: Option<crate::host::time::Instant>,
+    pub min_deadline: Option<crate::host::time::Instant>,
     pub nr_timeouts: u32,
 }
 
@@ -369,7 +369,7 @@ pub enum Work {
 pub struct Timeout {
     pub key: u64,
     pub chain: Chain,
-    pub deadline: std::time::Instant,
+    pub deadline: crate::host::time::Instant,
 }
 
 /// An armed linked timeout (`ltimeout_list`): its key, the timeout itself
@@ -380,7 +380,7 @@ pub struct LinkTimeout {
     pub key: u64,
     pub req: Req,
     pub prev: u64,
-    pub deadline: std::time::Instant,
+    pub deadline: crate::host::time::Instant,
 }
 
 /// An entry of the poll table (`cancel_table`): a chain whose head polls

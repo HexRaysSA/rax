@@ -16,8 +16,8 @@
 //! argument, so the state machine does not read clocks itself;
 //! [`clock_now`] reads them for callers.
 
+use crate::host::time::{Duration, Instant};
 use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
 
 use super::host::{self, HostClock};
 

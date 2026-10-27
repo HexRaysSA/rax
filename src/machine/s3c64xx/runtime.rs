@@ -312,7 +312,7 @@ pub struct Armv6Vcpu {
     trace_log_budget: u32,
     trace_pcs: Vec<u32>,
     fault_log_budget: u32,
-    last_heartbeat: std::time::Instant,
+    last_heartbeat: crate::host::time::Instant,
     shutdown: bool,
 }
 
@@ -366,7 +366,7 @@ impl Armv6Vcpu {
                 })
                 .unwrap_or_default(),
             fault_log_budget: 32,
-            last_heartbeat: std::time::Instant::now(),
+            last_heartbeat: crate::host::time::Instant::now(),
             shutdown: false,
         }
     }
@@ -717,7 +717,7 @@ impl Armv6Vcpu {
                     "fault VA table walk"
                 );
             }
-            self.last_heartbeat = std::time::Instant::now();
+            self.last_heartbeat = crate::host::time::Instant::now();
             // Debug aid: RAX_DUMP_PHYS=<hex-pa>:<hex-len>:<path> snapshots
             // guest physical memory each heartbeat (e.g. the printk buffer).
             if let Ok(spec) = std::env::var("RAX_DUMP_PHYS") {

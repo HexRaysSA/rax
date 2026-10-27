@@ -20,8 +20,11 @@
 #![warn(missing_debug_implementations)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-// We only support 64bit. Fail build when attempting to build other targets
-#[cfg(not(target_pointer_width = "64"))]
+// Guest addresses are `u64`. Native hosts are 64-bit. wasm32 is the supported
+// 32-bit host: each region must still fit in the wasm address space, and a
+// region-relative offset above `usize::MAX` is rejected rather than truncated
+// (`region::host_offset`).
+#[cfg(not(any(target_pointer_width = "64", target_arch = "wasm32")))]
 compile_error!("vm-memory only supports 64-bit targets!");
 
 #[cfg(all(target_family = "windows", feature = "rawfd"))]

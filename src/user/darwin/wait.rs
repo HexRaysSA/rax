@@ -15,7 +15,7 @@
 //! earliest event that can wake one: their descriptors and the nearest
 //! deadline.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 /// An event other threads post to wake sleepers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

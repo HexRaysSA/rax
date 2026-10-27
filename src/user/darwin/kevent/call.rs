@@ -4,7 +4,7 @@
 //! collected — by waiting for a file kqueue's, or for a workqueue
 //! thread's kqueue request into its stack.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::{
     DataArea, Kev, KevApi, KqKind, Layout, ev, host, kflag, kqueue_process, next_timer, register,

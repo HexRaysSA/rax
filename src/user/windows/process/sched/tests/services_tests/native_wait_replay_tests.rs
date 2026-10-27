@@ -2,10 +2,10 @@
 use super::event_tests::setup;
 use super::native_wait_tests::invoke;
 use super::*;
+use crate::host::time::Instant;
 use crate::user::windows::hle::dispatch;
 use crate::user::windows::object_namespace::reparse_tests;
 use crate::user::windows::sync;
-use std::time::Instant;
 
 macro_rules! rows {
     ($profile:literal) => {
