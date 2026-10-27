@@ -50,3 +50,14 @@ The actual captured producer library SHA-256, source hashes, command and outputs
 are recorded in the configuration remediation ledger and retained evidence.
 The fixture bytes are immutable. Fresh captures can have different PIT timing
 values. They do not replace validation against the retained original file.
+
+## Explicit high-address RISC-V ELF input
+
+`high-riscv.elf` is generated from `high-riscv.s` and `high-riscv.ld` using LLVM
+`llvm-mc -triple=riscv64-none-elf -mattr=-c -filetype=obj` and
+`ld.lld -m elf64lriscv -T high-riscv.ld`. Its executable PT_LOAD segment starts
+at physical address `0x80000000`; the cookie ABh is at `0x80000004`.
+The physical-memory regression loads this actual ELF through `Vmm::new`; no
+guest instruction is executed. The default RISC-V model's RAM base remains zero.
+The source and linker script are the reproducible producer inputs; the audit
+evidence retains assembler/linker commands, hashes and readelf output.

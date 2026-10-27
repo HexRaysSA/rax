@@ -471,3 +471,14 @@ path = "tests/suites/vm/checkpoint_pci.rs"
 [[test]]
 name = "restore_admission"
 path = "tests/suites/vm/restore_admission.rs"
+
+[[test]]
+name = "checkpoint_physical_memory"
+path = "tests/suites/vm/checkpoint_physical_memory.rs"
+
+# Full-backing checkpoints hash GiB-scale memory. Keep SHA-256 practical in
+# development/test builds while retaining their arithmetic/assertion checks.
+[profile.dev.package.sha2]
+opt-level = 3
+debug-assertions = true
+overflow-checks = true

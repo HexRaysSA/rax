@@ -2,7 +2,7 @@
 use super::config_v1::TaggedConfigV1;
 use super::legacy::LegacyConfig;
 use super::{CHECKPOINT_MAGIC, CHECKPOINT_VERSION, DeviceState, EmulatorState, Snapshot};
-use super::{PciSnapshot, SnapshotBundle};
+use super::{PciSnapshot, PhysicalMemorySnapshot, SnapshotBundle};
 use crate::config::CheckpointConfig;
 use crate::error::{Error, Result};
 use crate::vm::{memory::validate_guest_memory_size, vcpu::state::CpuState};
@@ -81,11 +81,12 @@ fn compressed_limit(size: u64) -> u64 {
 }
 
 pub(super) fn write_to<W: Write>(snapshot: &Snapshot, writer: &mut W) -> Result<()> {
-    write_to_parts(snapshot, None, writer)
+    write_to_parts(snapshot, None, None, writer)
 }
 fn write_to_parts<W: Write>(
     snapshot: &Snapshot,
     pci: Option<&PciSnapshot>,
+    physical: Option<&PhysicalMemorySnapshot>,
     writer: &mut W,
 ) -> Result<()> {
     if snapshot.version != CHECKPOINT_VERSION {
@@ -125,6 +126,7 @@ fn write_to_parts<W: Write>(
         .map_err(io)?;
     writer.write_all(&TAG.to_le_bytes()).map_err(io)?;
     let count = 6u32
+        + u32::from(physical.is_some())
         + if let Some(state) = pci {
             1 + if state.has_endpoints() { 2 } else { 0 }
         } else {
@@ -142,6 +144,14 @@ fn write_to_parts<W: Write>(
     }
     if let Some(raw) = control {
         section(writer, 7, &raw)?;
+    }
+    if let Some(state) = physical {
+        writer.write_all(&10u32.to_le_bytes()).map_err(io)?;
+        writer.write_all(&SCHEMA.to_le_bytes()).map_err(io)?;
+        writer
+            .write_all(&state.encoded_len()?.to_le_bytes())
+            .map_err(io)?;
+        state.write_to(writer)?;
     }
     if let Some(state) = pci {
         for kind in [8, 9] {
@@ -163,7 +173,12 @@ pub(super) fn save_atomic(snapshot: &Snapshot, path: &Path) -> Result<()> {
 }
 pub(super) fn save_bundle_atomic(bundle: &SnapshotBundle, path: &Path) -> Result<()> {
     save_atomic_with(path, |writer| {
-        write_to_parts(&bundle.base, bundle.pci.as_ref(), writer)
+        write_to_parts(
+            &bundle.base,
+            bundle.pci.as_ref(),
+            bundle.physical_memory.as_ref(),
+            writer,
+        )
     })
 }
 fn save_atomic_with(
@@ -291,7 +306,7 @@ fn read_legacy<R: Read + Seek>(reader: &mut R, file_size: u64) -> Result<Snapsho
 fn read_sections<R: Read + Seek>(
     reader: &mut R,
     file_size: u64,
-    allow_pci: bool,
+    allow_extensions: bool,
 ) -> Result<SnapshotBundle> {
     let count = word(reader)?;
     if count > MAX_SECTIONS {
@@ -304,18 +319,19 @@ fn read_sections<R: Read + Seek>(
     let mut devices: Option<DeviceState> = None;
     let mut memory: Option<Vec<u8>> = None;
     let mut pci: Option<PciSnapshot> = None;
+    let mut physical_memory = None;
     let mut seen = BTreeSet::new();
     for _ in 0..count {
         let kind = word(reader)?;
         let schema = word(reader)?;
         let length = long(reader)?;
-        if kind & OPTIONAL != 0 && (1..=9).contains(&(kind & !OPTIONAL)) {
+        if kind & OPTIONAL != 0 && (1..=10).contains(&(kind & !OPTIONAL)) {
             return Err(invalid("required checkpoint section marked optional"));
         }
         if !seen.insert(kind) {
             return Err(invalid("duplicate checkpoint section"));
         }
-        if !(1..=9).contains(&kind) {
+        if !(1..=10).contains(&kind) {
             if kind & OPTIONAL == 0 {
                 return Err(invalid("unknown required checkpoint section"));
             }
@@ -330,14 +346,47 @@ fn read_sections<R: Read + Seek>(
         if schema != SCHEMA && !(kind == 1 && schema == 2) {
             return Err(invalid("unsupported checkpoint section schema"));
         }
+        if kind == 10 {
+            if !allow_extensions {
+                return Err(invalid(
+                    "checkpoint contains required physical memory; use SnapshotBundle::load",
+                ));
+            }
+            if memory.is_some() || seen.contains(&8) || seen.contains(&9) {
+                return Err(invalid("physical memory must precede RAM/media payloads"));
+            }
+            let meta = metadata
+                .as_ref()
+                .ok_or_else(|| invalid("physical memory precedes checkpoint metadata"))?;
+            let conf = config
+                .as_ref()
+                .ok_or_else(|| invalid("physical memory precedes checkpoint config"))?;
+            memory_metadata(conf, meta.memory_size)?;
+            if length > remaining(reader, file_size)? {
+                return Err(invalid("truncated physical memory section"));
+            }
+            // Config identities are admitted before any physical payload, even
+            // if a later malformed file attempts to omit/reorder PCI control.
+            let configured_media: u64 = [&conf.storage.nvme, &conf.storage.ahci]
+                .into_iter()
+                .flatten()
+                .map(|image| image.identity.bytes)
+                .sum();
+            let represented_media = pci.as_ref().map_or(0, |p| {
+                p.nvme_media().map_or(0, |m| m.size()) + p.ahci_media().map_or(0, |m| m.size())
+            });
+            let media = configured_media.max(represented_media);
+            physical_memory = Some(PhysicalMemorySnapshot::read_from(reader, length, media)?);
+            continue;
+        }
         if kind == 7 {
-            if !allow_pci {
+            if !allow_extensions {
                 return Err(invalid(
                     "checkpoint contains required PCI state; use SnapshotBundle::load",
                 ));
             }
-            if memory.is_some() {
-                return Err(invalid("PCI control must precede RAM"));
+            if memory.is_some() || physical_memory.is_some() {
+                return Err(invalid("PCI control must precede physical memory and RAM"));
             }
             let meta = metadata
                 .as_ref()
@@ -418,14 +467,18 @@ fn read_sections<R: Read + Seek>(
         memory_size: meta.memory_size,
         memory_data: memory.ok_or_else(required)?,
     };
-    let bundle = SnapshotBundle { base, pci };
+    let bundle = SnapshotBundle {
+        base,
+        pci,
+        physical_memory,
+    };
     bundle.validate()?;
     Ok(bundle)
 }
 pub(super) fn load_bundle(path: &Path) -> Result<SnapshotBundle> {
     load_inner(path, true)
 }
-fn load_inner(path: &Path, allow_pci: bool) -> Result<SnapshotBundle> {
+fn load_inner(path: &Path, allow_extensions: bool) -> Result<SnapshotBundle> {
     let file =
         File::open(path).map_err(|e| invalid(format!("Failed to open snapshot file: {e}")))?;
     let file_size = file.metadata().map_err(io)?.len();
@@ -450,7 +503,7 @@ fn load_inner(path: &Path, allow_pci: bool) -> Result<SnapshotBundle> {
     }
     let tag = word(&mut reader)?;
     if tag == TAG {
-        read_sections(&mut reader, file_size, allow_pci)
+        read_sections(&mut reader, file_size, allow_extensions)
     } else {
         read_legacy(&mut reader, file_size).map(SnapshotBundle::new)
     }

@@ -1277,6 +1277,49 @@ impl Vmm {
         )
     }
 
+    /// Capture every mapped physical region and represented PCI/media state,
+    /// in addition to the CPU-0/four-legacy-device base. All independent writers
+    /// must be quiescent. This does not yet capture all CPU/platform state or
+    /// change the console/CLI base checkpoint path.
+    pub fn take_snapshot_bundle(
+        &self,
+        insn_count: u64,
+    ) -> Result<crate::vm::snapshot::SnapshotBundle> {
+        use crate::vm::snapshot::{PhysicalMemorySnapshot, SnapshotBundle};
+        let vcpu = self
+            .vcpus
+            .first()
+            .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
+        let cpu_state = vcpu.get_state()?;
+        let emulator_state = vcpu.get_emulator_state().unwrap_or_default();
+        let devices = self.capture_devices()?;
+        let pci = self
+            .pci_devices
+            .as_ref()
+            .map(PciDevices::checkpoint)
+            .transpose()?;
+        let (physical, memory_data) = PhysicalMemorySnapshot::capture_with_projection(
+            self.guest_mem.memory(),
+            self.guest_mem.size(),
+        )?;
+        let base = Snapshot {
+            version: 8,
+            config: self.checkpoint_config.clone(),
+            instruction_count: insn_count,
+            elapsed_nanos: crate::vm::timing::elapsed_nanos(),
+            cpu_state,
+            emulator_state,
+            devices,
+            memory_size: self.guest_mem.size(),
+            memory_data,
+        };
+        let mut bundle = SnapshotBundle::new(base);
+        if let Some(pci) = pci {
+            bundle = bundle.with_pci(pci)?;
+        }
+        bundle.with_physical_memory(physical)
+    }
+
     /// Write a checkpoint to the configured `--snapshot-out` path (default
     /// `./checkpoint.rxc`). Invoked from the `Ctrl-A s` console hotkey and the
     /// SIGUSR1 signal. The machine is effectively paused while this runs because

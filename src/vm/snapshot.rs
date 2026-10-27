@@ -5,9 +5,10 @@
 //! permit explicitly optional extensions. The original untagged v8 layout is
 //! supported through its frozen configuration schema.
 //!
-//! Optional PCI device internals, additional CPUs, platform devices and scheduler
-//! state require additional capture/restore integration. Preserving the PCI
-//! attachment setting does not by itself serialize those devices' private state.
+//! SnapshotBundle additionally frames typed PCI/media state and every mapped
+//! physical region. Coordinated VM restore, additional CPUs, platform devices
+//! and scheduler state still require integration. The original base Snapshot
+//! fields and wire do not themselves represent those extensions.
 //! Legacy `.snap` files use a separate magic and are rejected explicitly.
 
 use std::io::Read;
@@ -22,6 +23,9 @@ use crate::devices::pit::Pit;
 use crate::devices::serial::Serial16550;
 use crate::error::{Error, Result};
 mod bundle;
+mod physical_memory;
+mod stream;
+pub use physical_memory::PhysicalMemorySnapshot;
 mod pci;
 use crate::vm::memory::validate_guest_memory_size;
 use crate::vm::vcpu::state::CpuState;

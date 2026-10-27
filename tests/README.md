@@ -109,6 +109,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `runtime_pci_checkpoint` | `suites/vm/runtime_pci_checkpoint.rs` | Actual PCI typed ownership, atomic whole-device-set restore, media and DMA continuation |
 | `checkpoint_pci` | `suites/vm/checkpoint_pci.rs` | Additive bundle framing, media digests, aggregate bounds and old/base reader compatibility |
 | `restore_admission` | `suites/vm/restore_admission.rs` | Exact reported RAM, pre-mutation VM/backend admission and valid-state domain controls |
+| `checkpoint_physical_memory` | `suites/vm/checkpoint_physical_memory.rs` | Complete mapped-region checkpoint capture, framing, bounds and explicit physical restore. |
 
 ## Reachability rules
 
