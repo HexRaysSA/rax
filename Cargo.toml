@@ -538,3 +538,7 @@ path = "tests/suites/backend/hvf_arm64_state.rs"
 [[test]]
 name = "riscv_hartid"
 path = "tests/suites/backend/riscv_hartid.rs"
+
+[[test]]
+name = "aarch64_affinity"
+path = "tests/suites/backend/aarch64_affinity.rs"

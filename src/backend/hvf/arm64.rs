@@ -324,8 +324,9 @@ impl HvfArm64Vcpu {
 
         // GICv3 routes interrupts by affinity: the redistributor for this
         // vCPU is only assigned once MPIDR_EL1 carries its affinity (RES1
-        // bit 31 + Aff0 = vCPU index, matching the device tree's cpu@N).
-        let mpidr = 0x8000_0000u64 | u64::from(id);
+        // bit 31 plus the four affinity levels). For VM indices 0..254,
+        // Aff0 equals the index advertised by the device tree.
+        let mpidr = crate::isa::arm::aarch64::AArch64Cpu::mpidr_for_cpu_id(id);
         let ret = unsafe { hv_vcpu_set_sys_reg(vcpu, HV_SYS_REG_MPIDR_EL1, mpidr) };
         if ret != HV_SUCCESS {
             return Err(Error::Emulator(format!(

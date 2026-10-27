@@ -215,7 +215,10 @@ impl AArch64Cpu {
             // The feature bit pattern was checked before any mutation.
             self.config.features = ArmFeatures::from_bits_retain(state.features);
             self.config.pauth = state.pauth;
+            // MPIDR describes the destination PE, rather than writable state.
+            let mpidr = self.sysregs.mpidr_el1;
             self.sysregs = state.sysregs.clone();
+            self.sysregs.mpidr_el1 = mpidr;
             self.sp_el[2] = state.sp_el2;
             self.sp_el[3] = state.sp_el3;
         }

@@ -124,6 +124,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `counter_ticks` | `suites/vm/counter_ticks.rs` | Exact platform-frequency scaling with fractional clock phase |
 | `hvf_arm64_state` | `suites/backend/hvf_arm64_state.rs` | Native ARM canonical-SP projection and bank preservation |
 | `riscv_hartid` | `suites/backend/riscv_hartid.rs` | Configured hardware-thread identity and readonly CSR persistence |
+| `aarch64_affinity` | `suites/backend/aarch64_affinity.rs` | Configured PE affinity and readonly identity persistence |
 
 ## Reachability rules
 

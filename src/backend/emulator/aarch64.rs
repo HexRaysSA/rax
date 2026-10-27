@@ -592,7 +592,7 @@ impl Aarch64Vcpu {
             translation,
             exclusive: Mutex::new(None),
         };
-        let cpu = AArch64Cpu::new(config, Box::new(bridge));
+        let cpu = AArch64Cpu::new_with_cpu_id(config, Box::new(bridge), id);
         // The CPU owns the GIC; hand the bridge a reference to the same
         // instance so MMIO and ICC system registers agree.
         if let Some(gic) = cpu.gic_handle() {

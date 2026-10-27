@@ -185,7 +185,7 @@ jobs:
             --test ahci_dma \
             --test storage_images \
             --test storage_config \
-            --test controller_checkpoint --test pci_checkpoint --test pci_endpoint_checkpoint --test runtime_pci_checkpoint --test checkpoint_pci --test restore_admission --test checkpoint_physical_memory --test runtime_checkpoint_bundle --test checkpoint_resume --test checkpoint_cpus --test retirement_budget --test vm_timing --test retired_clock --test checkpoint_clock --test cortexm_dispatch --test retirement_clock --test x86_retired_tsc --test aarch64_step_jit --test counter_ticks --test hvf_arm64_state --test riscv_hartid \
+            --test controller_checkpoint --test pci_checkpoint --test pci_endpoint_checkpoint --test runtime_pci_checkpoint --test checkpoint_pci --test restore_admission --test checkpoint_physical_memory --test runtime_checkpoint_bundle --test checkpoint_resume --test checkpoint_cpus --test retirement_budget --test vm_timing --test retired_clock --test checkpoint_clock --test cortexm_dispatch --test retirement_clock --test x86_retired_tsc --test aarch64_step_jit --test counter_ticks --test hvf_arm64_state --test riscv_hartid --test aarch64_affinity \
             --bin rax \
             -- --test-threads=1 --nocapture
       # The x86-64 JIT suite executes transient native mappings and intentionally
