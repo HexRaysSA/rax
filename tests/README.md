@@ -120,6 +120,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `cortexm_dispatch` | `suites/backend/cortexm_dispatch.rs` | Cortex-M factory selection, Thumb execution and boot-state wiring |
 | `retirement_clock` | `suites/backend/retirement_clock.rs` | Per-step retirement clock publication and bounded execution |
 | `x86_retired_tsc` | `suites/backend/x86_retired_tsc.rs` | Selected exact retirement TSC and existing timestamp helper |
+| `aarch64_step_jit` | `suites/backend/aarch64_step_jit.rs` | Exact cold, hot and cached instruction boundaries |
 
 ## Reachability rules
 

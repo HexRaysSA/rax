@@ -522,3 +522,7 @@ path = "tests/suites/backend/retirement_clock.rs"
 [[test]]
 name = "x86_retired_tsc"
 path = "tests/suites/backend/x86_retired_tsc.rs"
+
+[[test]]
+name = "aarch64_step_jit"
+path = "tests/suites/backend/aarch64_step_jit.rs"

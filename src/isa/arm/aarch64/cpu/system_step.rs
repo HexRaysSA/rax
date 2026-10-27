@@ -7,16 +7,28 @@ impl AArch64Cpu {
 
     /// Execute one instruction with full system semantics.
     pub fn step_system(&mut self) -> Result<CpuExit, ArmError> {
-        self.step_system_fault_policy(false)
+        self.step_system_fault_policy(false, true)
     }
 
     /// Retain IRQ, timer and system-call semantics but expose instruction
     /// errors to an embedding caller at the faulting PC for diagnosis/retry.
     pub fn step_system_with_fault_exit(&mut self) -> Result<CpuExit, ArmError> {
-        self.step_system_fault_policy(true)
+        self.step_system_fault_policy(true, true)
     }
 
-    fn step_system_fault_policy(&mut self, fault_exit: bool) -> Result<CpuExit, ArmError> {
+    /// One interpreter instruction attempt, even when a cached region is hot.
+    pub(crate) fn step_system_interpreted(
+        &mut self,
+        fault_exit: bool,
+    ) -> Result<CpuExit, ArmError> {
+        self.step_system_fault_policy(fault_exit, false)
+    }
+
+    fn step_system_fault_policy(
+        &mut self,
+        fault_exit: bool,
+        allow_jit: bool,
+    ) -> Result<CpuExit, ArmError> {
         // Drain any pending self-modifying-code invalidation before consulting
         // the region cache (never mid-region — writes during a run defer here).
         #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
@@ -63,18 +75,20 @@ impl AArch64Cpu {
         // (it advances PC to its recorded exit) and continue — bypassing the
         // per-instruction interpreter and its PC pre-increment. IRQ/timer state
         // is re-checked on the next step.
-        #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-        if let Some(region) = self.jit_lookup(self.pc) {
-            let ran = self.jit_run_region(&region);
-            if let Some(error) = self.jit.native_fault.take() {
-                return if fault_exit {
-                    Err(error)
-                } else {
-                    self.deliver_fault(error)
-                };
-            }
-            if ran {
-                return Ok(CpuExit::Continue);
+        if allow_jit {
+            #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+            if let Some(region) = self.jit_lookup(self.pc) {
+                let ran = self.jit_run_region(&region);
+                if let Some(error) = self.jit.native_fault.take() {
+                    return if fault_exit {
+                        Err(error)
+                    } else {
+                        self.deliver_fault(error)
+                    };
+                }
+                if ran {
+                    return Ok(CpuExit::Continue);
+                }
             }
         }
 
@@ -109,8 +123,10 @@ impl AArch64Cpu {
             Ok(exit) => {
                 // Loop-head hotness sampling: a backward branch (PC decreased)
                 // is a loop back-edge; promote + run the head once it is hot.
-                #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
-                self.jit_sample_backedge(pc_before);
+                if allow_jit {
+                    #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+                    self.jit_sample_backedge(pc_before);
+                }
                 Ok(exit)
             }
             Err(err) if fault_exit => Err(err),
@@ -478,3 +494,7 @@ impl AArch64Cpu {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "system_step_tests.rs"]
+mod tests;
