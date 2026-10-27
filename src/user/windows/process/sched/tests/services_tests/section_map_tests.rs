@@ -6,6 +6,8 @@ const SERVICE: u32 = 0x28;
 #[cfg(windows)]
 #[path = "section_map_leaf_tests.rs"]
 mod installed;
+#[path = "section_map_padding_tests.rs"]
+mod padding;
 #[path = "section_map_replay_tests.rs"]
 mod replay;
 pub(super) fn call(p: &mut Proc, t: &mut Thread, args: &[u64]) -> u32 {

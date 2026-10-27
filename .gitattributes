@@ -11,3 +11,4 @@ docs/specifications/windows/native-wow64-startup-information/* -text whitespace=
 docs/specifications/windows/native-process-image-information/* -text whitespace=cr-at-eol
 docs/specifications/windows/native-exception-entry-profile/run-v2.py -text whitespace=cr-at-eol
 docs/specifications/windows/native-exception-entry-profile/run-second-chance-v1.py -text whitespace=cr-at-eol
+docs/specifications/windows/native-image-view-reserved-tail/* -text whitespace=cr-at-eol

@@ -1,5 +1,11 @@
 # Installed Windows runtime selection
 
+Native image acquisition distinguishes logical PE bytes, executable extension
+bytes and trailing reserved owner pages. A coalesced reserved query region is
+bounded to the logical byte copy while its complete allocation lifetime and
+image metadata are retained. See the independent kernel controls and limits in
+[native-image-view-reserved-tail](../../../docs/specifications/windows/native-image-view-reserved-tail/README.md).
+
 The x86 TEB allocation includes two private pages. Installed build-29695 NTDLL
 writes its scheduler data pointer at `TEB+0x1018`; a one-page placement aliases
 that write with `PEB.ProcessHeap`. Ordinary TEBs and WoW64 companion pairs now

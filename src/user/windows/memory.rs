@@ -42,6 +42,8 @@ mod section;
 #[cfg(test)]
 mod section_extension_tests;
 #[cfg(test)]
+mod section_padding_tests;
+#[cfg(test)]
 mod section_tests;
 mod shared_section;
 pub use extended::AddressRequirements;

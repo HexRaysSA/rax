@@ -232,6 +232,7 @@ impl Source {
         }
         let mut bytes = vec![0u8; size];
         let mut regions = Vec::new();
+        let mut reserved_tail = 0;
         let mut offset = 0usize;
         while offset < size {
             let at = (address as usize) + offset;
@@ -247,21 +248,23 @@ impl Source {
             {
                 return Err(io::Error::last_os_error());
             }
-            if region.base != at
-                || region.allocation != address as usize
-                || region.kind != mem::IMAGE
-                || region.size == 0
-                || region.size > size - offset
-                || regions.len() >= 256
-            {
+            if regions.len() >= 256 {
                 return Err(invalid("selected native image region exceeds its view"));
             }
-            regions.push(ImageRegion {
-                offset: offset as u64,
+            let selected = super::super::image::region::Query {
+                base: region.base as u64,
+                allocation: region.allocation as u64,
                 size: region.size as u64,
                 state: region.state,
                 protection: region.protection,
-            });
+                kind: region.kind,
+            }
+            .select(address as usize as u64, size as u64, offset as u64)?;
+            reserved_tail = reserved_tail.max(selected.reserved_tail);
+            // The selected span is at most the 64 MiB logical image, including
+            // on 32-bit hosts. Never copy/protect native allocation padding.
+            let region_size = selected.region.size as usize;
+            regions.push(selected.region);
             if region.state == mem::COMMIT {
                 let mut old = 0;
                 let altered = region.protection & (prot::NOACCESS | prot::GUARD) != 0;
@@ -269,7 +272,7 @@ impl Source {
                 // capture preserves the original protection and never executes it.
                 if altered
                     && unsafe {
-                        VirtualProtect(at as Handle, region.size, prot::READONLY, &mut old)
+                        VirtualProtect(at as Handle, region_size, prot::READONLY, &mut old)
                     } == 0
                 {
                     return Err(io::Error::last_os_error());
@@ -282,7 +285,7 @@ impl Source {
                         (-1isize) as Handle,
                         at as *const c_void,
                         bytes[offset..].as_mut_ptr().cast(),
-                        region.size,
+                        region_size,
                         &mut returned,
                     )
                 };
@@ -290,14 +293,14 @@ impl Source {
                 let mut ignored = 0;
                 // SAFETY: restores only the region changed immediately above; live owned view.
                 if altered
-                    && unsafe { VirtualProtect(at as Handle, region.size, old, &mut ignored) } == 0
+                    && unsafe { VirtualProtect(at as Handle, region_size, old, &mut ignored) } == 0
                 {
                     return Err(io::Error::last_os_error());
                 }
                 if copied == 0 {
                     return Err(error);
                 }
-                if returned != region.size {
+                if returned != region_size {
                     return Err(invalid("selected native image short read"));
                 }
             } else if region.state != mem::RESERVE {
@@ -305,11 +308,43 @@ impl Source {
                     "selected native image region is neither committed nor reserved",
                 ));
             }
-            offset += region.size;
+            offset += region_size;
         }
         section::validate(&self.handle, self.attributes, self.size)?;
         let extensions = extensions::capture(address, size)?;
         let image = ImageTemplate::selected_extended(bytes, regions, extensions)?;
+        let payload = image.allocation_size();
+        let at = (address as usize)
+            .checked_add(payload as usize)
+            .ok_or_else(|| invalid("selected native image tail address overflow"))?;
+        let mut tail = Region::default();
+        // SAFETY: metadata-only query immediately after this owned view's
+        // bounded explicit image/extension bytes. No memory is dereferenced.
+        if unsafe {
+            VirtualQuery(
+                at as *const c_void,
+                &mut tail,
+                std::mem::size_of::<Region>(),
+            )
+        } != std::mem::size_of::<Region>()
+        {
+            return Err(io::Error::last_os_error());
+        }
+        let padding = super::super::image::region::Query {
+            base: tail.base as u64,
+            allocation: tail.allocation as u64,
+            size: tail.size as u64,
+            state: tail.state,
+            protection: tail.protection,
+            kind: tail.kind,
+        }
+        .reserved_after(address as usize as u64, payload)?;
+        if payload + padding < size as u64 + reserved_tail {
+            return Err(invalid(
+                "selected native image reserved tail changed during capture",
+            ));
+        }
+        let image = ImageTemplate::with_reserved_tail(image, padding)?;
         if flags & 0x0080_0000 != 0 && image.preferred != address as usize as u64 {
             return Err(invalid(
                 "native flagged image did not publish its actual base",

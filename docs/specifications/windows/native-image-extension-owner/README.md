@@ -1,5 +1,10 @@
 # Native Windows image extension owners
 
+The later [reserved-tail qualification](../native-image-view-reserved-tail/README.md)
+adds the trailing uncommitted owner pages observed on build29695. Executable
+extension bytes, logical image size and complete allocation extent are separate.
+Historical measurements below retain their original source and scope.
+
 The controlled image-ownership contract is implemented and validated. This
 semantic group does not establish successful ordinary Windows application execution.
 
