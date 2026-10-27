@@ -459,3 +459,7 @@ path = "tests/suites/devices/pci_checkpoint.rs"
 [[test]]
 name = "pci_endpoint_checkpoint"
 path = "tests/suites/devices/pci_endpoint_checkpoint.rs"
+
+[[test]]
+name = "runtime_pci_checkpoint"
+path = "tests/suites/vm/runtime_pci_checkpoint.rs"

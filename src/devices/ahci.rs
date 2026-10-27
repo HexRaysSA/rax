@@ -456,6 +456,11 @@ impl<M: Mem> AhciController<M> {
     pub fn new(base: u64, mem: M, disk: Vec<u8>) -> Self {
         Self::with_image(base, mem, BlockImage::from_bytes(disk))
     }
+    /// MMIO origin used by direct access; PCI adapters require zero.
+    pub fn mmio_base(&self) -> u64 {
+        self.base
+    }
+
     /// Attach an already opened raw image or in-memory medium.
     pub fn with_image(base: u64, mem: M, disk: BlockImage) -> Self {
         // A port only reports a present device when media is actually attached.

@@ -52,3 +52,5 @@ hardware field model. The first AC'97 decoder test exposed and corrected an
 incorrect LVI restriction; its failed run is retained. DMA indices that the
 models internally wrap, frame alignment, EEPROM serial phases, strict booleans
 and all truncated prefixes are checked before live replacement.
+
+The [runtime-owned PCI set](runtime-pci-checkpoints.md) now coordinates bridge and endpoint capture and atomic replacement. Full VM/container and CPU/RAM quiescence remain separate.

@@ -24,6 +24,11 @@ fn put_key(w: &mut Writer, key: FunctionKey) {
 fn get_key(r: &mut Reader<'_>) -> io::Result<FunctionKey> {
     Ok((r.byte()?, r.byte()?, r.byte()?))
 }
+struct Decoded {
+    address: u32,
+    functions: HashMap<FunctionKey, ConfigSpace>,
+    bases: Vec<u64>,
+}
 impl PciStub {
     /// Capture without calling any endpoint handler. Functions are canonicalized
     /// by raw key; endpoint order is retained because overlap routing uses it.
@@ -77,6 +82,20 @@ impl PciStub {
     /// Validate the entire record and registration topology before changing any
     /// field. No handler is called and no BAR write side effect is replayed.
     pub fn restore_checkpoint(&mut self, checkpoint: PciCheckpoint) -> io::Result<()> {
+        let decoded = self.decode_checkpoint(&checkpoint)?;
+        self.address = decoded.address;
+        self.functions = decoded.functions;
+        for (ep, base) in self.endpoints.iter_mut().zip(decoded.bases) {
+            ep.current_base = base;
+        }
+        Ok(())
+    }
+    /// Check the complete record against current registration topology without
+    /// changing registers, routes or calling any handler.
+    pub fn validate_checkpoint(&self, checkpoint: &PciCheckpoint) -> io::Result<()> {
+        self.decode_checkpoint(checkpoint).map(|_| ())
+    }
+    fn decode_checkpoint(&self, checkpoint: &PciCheckpoint) -> io::Result<Decoded> {
         let mut r = Reader::new(&checkpoint.state, TAG)?;
         let address = r.word()?;
         let count = r.word()? as usize;
@@ -154,11 +173,10 @@ impl PciStub {
             bases.push(base);
         }
         r.end()?;
-        self.address = address;
-        self.functions = functions;
-        for (ep, base) in self.endpoints.iter_mut().zip(bases) {
-            ep.current_base = base;
-        }
-        Ok(())
+        Ok(Decoded {
+            address,
+            functions,
+            bases,
+        })
     }
 }

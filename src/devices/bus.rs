@@ -37,6 +37,29 @@ pub trait MmioDevice: Send {
     fn write(&mut self, addr: u64, data: &[u8]);
 }
 
+/// Register a shared MMIO model while retaining typed state ownership.
+pub struct SharedMmioDevice<D: MmioDevice> {
+    inner: std::sync::Arc<std::sync::Mutex<D>>,
+}
+impl<D: MmioDevice> SharedMmioDevice<D> {
+    pub fn new(inner: std::sync::Arc<std::sync::Mutex<D>>) -> Self {
+        Self { inner }
+    }
+}
+impl<D: MmioDevice> MmioDevice for SharedMmioDevice<D> {
+    fn read(&mut self, address: u64, data: &mut [u8]) {
+        match self.inner.lock() {
+            Ok(mut device) => device.read(address, data),
+            Err(_) => data.fill(0xff),
+        }
+    }
+    fn write(&mut self, address: u64, data: &[u8]) {
+        if let Ok(mut device) = self.inner.lock() {
+            device.write(address, data);
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct IoRange {
     pub base: u16,

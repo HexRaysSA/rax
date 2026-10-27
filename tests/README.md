@@ -106,6 +106,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `controller_checkpoint` | `suites/devices/controller_checkpoint.rs` |
 | `pci_checkpoint` | `suites/devices/pci_checkpoint.rs` | Host-bridge latch, config, BAR routing, topology and malformed checkpoint restore |
 | `pci_endpoint_checkpoint` | `suites/devices/pci_endpoint_checkpoint.rs` | Network/USB/audio private checkpoint state, bounded queues and continuation |
+| `runtime_pci_checkpoint` | `suites/vm/runtime_pci_checkpoint.rs` | Actual PCI typed ownership, atomic whole-device-set restore, media and DMA continuation |
 
 ## Reachability rules
 

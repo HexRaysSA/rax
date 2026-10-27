@@ -323,6 +323,11 @@ impl<M: Mem> NvmeController<M> {
     pub fn new(base: u64, mem: M, disk: Vec<u8>) -> Self {
         Self::with_image(base, mem, BlockImage::from_bytes(disk))
     }
+    /// MMIO origin used by direct access; PCI adapters require zero.
+    pub fn mmio_base(&self) -> u64 {
+        self.base
+    }
+
     /// Attach an already opened raw image or in-memory medium.
     pub fn with_image(base: u64, mem: M, disk: BlockImage) -> Self {
         let max_io_queues = 4;
