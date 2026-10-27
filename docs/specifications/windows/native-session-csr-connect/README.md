@@ -55,3 +55,10 @@ status, wrong argument count, missing entry and non41 child exit. This checks
 projection integrity only; it does not substitute for new native execution.
 The C++ observers and new cohort outputs remain unqualified until the existing
 observation jobs execute this candidate.
+
+The first native Windows2022 build retains its failed v1 source and artifact
+from run40554175446: MSVC `/W4 /WX` rejects C4127 (constant condition) and C4505
+(an unused inherited TLS inspection helper). No observer executed in that
+failed build. `startup-v2.cpp` uses `if constexpr` and removes the unused helper;
+`run-v2.py` preserves the warning policy, original-call semantics and source
+identity checks, with a separate v2 output. V1 remains unchanged.
