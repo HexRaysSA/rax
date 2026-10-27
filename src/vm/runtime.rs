@@ -275,6 +275,8 @@ pub struct Vmm {
     pit: Arc<std::sync::Mutex<Pit>>,
     pic: Arc<std::sync::Mutex<DualPic>>,
     lapic: Arc<std::sync::Mutex<LocalApic>>,
+    /// One owner per configured CPU; element zero aliases the legacy BSP view.
+    local_apics: Vec<Arc<std::sync::Mutex<LocalApic>>>,
     vcpus: Vec<Box<dyn VCpu>>,
     machine: Box<dyn Machine>,
     boot_info: BootInfo,
@@ -573,6 +575,7 @@ impl Vmm {
         // Create vCPUs
         let mem_arc = Arc::new(guest_mem.memory().clone());
         let mut vcpus = Vec::with_capacity(config.vcpus as usize);
+        let mut local_apics = Vec::with_capacity(config.vcpus as usize);
         for cpu_id in 0..config.vcpus {
             debug!(cpu_id, "creating vCPU");
             let mut vcpu = vm.create_vcpu(cpu_id as u32, mem_arc.clone())?;
@@ -605,6 +608,16 @@ impl Vmm {
             if let Some(uart) = &s3c_uart {
                 vcpu.attach_s3c_uart(uart.clone());
             }
+
+            let local_apic = if cpu_id == 0 {
+                lapic.clone()
+            } else {
+                Arc::new(std::sync::Mutex::new(LocalApic::new(u32::from(cpu_id))))
+            };
+            if config.arch == ArchKind::X86_64 {
+                vcpu.attach_local_apic(local_apic.clone());
+            }
+            local_apics.push(local_apic);
 
             debug!(vcpu_id = cpu_id, "created vCPU");
             vcpus.push(vcpu);
@@ -663,6 +676,7 @@ impl Vmm {
             pit,
             pic,
             lapic,
+            local_apics,
             vcpus,
             machine,
             boot_info,
@@ -852,55 +866,12 @@ impl Vmm {
                 }
             }
 
-            // Tick the LAPIC timer and check for timer interrupts
+            self.poll_local_apic(0)?;
+
+            // Cross-processor routing is owned by the execution coordinator.
+            // Retain the existing legacy handling until that coordinator is selected.
             {
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-
                 if let Ok(mut lapic) = self.lapic.lock() {
-                    if let Some(vector) = lapic.tick() {
-                        // LAPIC timer interrupt - inject directly if possible
-                        if vcpu.can_inject_interrupt() {
-                            if vcpu.inject_interrupt(vector)? {
-                                lapic.clear_timer_pending();
-                            }
-                        }
-                    } else if lapic.has_pending_timer() && vcpu.can_inject_interrupt() {
-                        // Previously pending timer interrupt
-                        let vector = lapic.timer_vector();
-                        if vcpu.inject_interrupt(vector)? {
-                            lapic.clear_timer_pending();
-                        }
-                    }
-                }
-            }
-
-            // Handle LAPIC IPI delivery
-            {
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-
-                if let Ok(mut lapic) = self.lapic.lock() {
-                    // Handle pending NMI from self-IPI
-                    if lapic.has_pending_nmi() {
-                        if vcpu.inject_nmi()? {
-                            lapic.clear_pending_nmi();
-                        }
-                    }
-
-                    // Check for pending interrupts in IRR (from self-IPIs)
-                    if vcpu.can_inject_interrupt() {
-                        if let Some(vector) = lapic.get_pending_vector() {
-                            if vcpu.inject_interrupt(vector)? {
-                                lapic.ack_interrupt(vector);
-                            }
-                        }
-                    }
-
                     // Handle IPI requests (for multi-CPU, but log for now)
                     if let Some(ipi) = lapic.take_pending_ipi() {
                         match ipi {
@@ -1836,3 +1807,10 @@ mod resume_tests;
 #[cfg(test)]
 #[path = "runtime/cpu_set_tests.rs"]
 mod cpu_set_tests;
+
+#[cfg(test)]
+#[path = "runtime/lapic_tests.rs"]
+mod lapic_tests;
+
+#[path = "runtime/lapic.rs"]
+mod lapic;

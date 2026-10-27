@@ -203,36 +203,68 @@ impl MmioBus {
         Ok(())
     }
 
+    fn validate_extent(addr: u64, len: usize) -> Result<()> {
+        if len != 0 && addr.checked_add((len - 1) as u64).is_none() {
+            return Err(Error::InvalidConfig(
+                "MMIO access extent wraps the address space".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Keep one callback for each contiguous portion owned by one device.
+    /// Splitting a register-sized transaction into byte writes changes device
+    /// semantics; holes and mapping boundaries are the only bus split points.
+    fn transaction_chunk(&self, addr: u64, remaining: usize) -> (Option<usize>, usize) {
+        if let Some(index) = self
+            .devices
+            .iter()
+            .position(|(range, _)| range.contains(addr))
+        {
+            let range = self.devices[index].0;
+            let available = range.base.saturating_add(range.len) - addr;
+            return (Some(index), available.min(remaining as u64) as usize);
+        }
+        let next = self
+            .devices
+            .iter()
+            .map(|(range, _)| range.base)
+            .filter(|base| *base > addr)
+            .min();
+        let count = next.map_or(remaining, |base| {
+            (base - addr).min(remaining as u64) as usize
+        });
+        (None, count)
+    }
+
     pub fn read(&mut self, addr: u64, data: &mut [u8]) -> Result<()> {
-        for (index, byte) in data.iter_mut().enumerate() {
-            let current_addr = addr.saturating_add(index as u64);
-            if let Some(dev_index) = self
-                .devices
-                .iter()
-                .position(|(range, _)| range.contains(current_addr))
-            {
-                let device = &mut self.devices[dev_index].1;
-                let mut tmp = [0u8; 1];
-                device.read(current_addr, &mut tmp);
-                *byte = tmp[0];
-            } else {
-                *byte = 0xff;
+        Self::validate_extent(addr, data.len())?;
+        let mut offset = 0;
+        while offset < data.len() {
+            let current = addr + offset as u64;
+            let (device, count) = self.transaction_chunk(current, data.len() - offset);
+            let part = &mut data[offset..offset + count];
+            match device {
+                Some(index) => self.devices[index].1.read(current, part),
+                None => part.fill(0xff),
             }
+            offset += count;
         }
         Ok(())
     }
 
     pub fn write(&mut self, addr: u64, data: &[u8]) -> Result<()> {
-        for (index, byte) in data.iter().enumerate() {
-            let current_addr = addr.saturating_add(index as u64);
-            if let Some(dev_index) = self
-                .devices
-                .iter()
-                .position(|(range, _)| range.contains(current_addr))
-            {
-                let device = &mut self.devices[dev_index].1;
-                device.write(current_addr, &[*byte]);
+        Self::validate_extent(addr, data.len())?;
+        let mut offset = 0;
+        while offset < data.len() {
+            let current = addr + offset as u64;
+            let (device, count) = self.transaction_chunk(current, data.len() - offset);
+            if let Some(index) = device {
+                self.devices[index]
+                    .1
+                    .write(current, &data[offset..offset + count]);
             }
+            offset += count;
         }
         Ok(())
     }
@@ -363,3 +395,7 @@ mod tests {
         assert_eq!(data[0], 0x5a);
     }
 }
+
+#[cfg(test)]
+#[path = "bus/mmio_transactions.rs"]
+mod mmio_transactions;

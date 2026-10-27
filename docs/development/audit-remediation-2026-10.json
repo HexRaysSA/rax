@@ -2450,6 +2450,9 @@
         "Legacy files without Clock12 retain elapsed-base projection and existing unrepresented tick/flag behavior.",
         "Actual accepted128MiB full capture/save/load/typed construction proves fields,not guest/native/SMP execution.",
         "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution."
+      ],
+      "remediation_components": [
+        "per-vcpu-lapic-ownership-mmio-transactions"
       ]
     },
     {
@@ -2915,6 +2918,9 @@
         "Legacy files without Clock12 retain elapsed-base projection and existing unrepresented tick/flag behavior.",
         "Actual accepted128MiB full capture/save/load/typed construction proves fields,not guest/native/SMP execution.",
         "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution."
+      ],
+      "remediation_components": [
+        "per-vcpu-lapic-ownership-mmio-transactions"
       ]
     },
     {
@@ -3499,6 +3505,9 @@
         "SDK TPR/software LAPIC/controller/scheduler coherence and IRQ conservation",
         "Concurrent code/PTE inspection and complete checkpointv8 private state",
         "Native Intel VMX/device/guest execution and host/device failure recovery"
+      ],
+      "remediation_components": [
+        "per-vcpu-lapic-ownership-mmio-transactions"
       ]
     },
     {
@@ -9295,6 +9304,66 @@
         "Separate RAX object groups do not execute concurrently;QEMU SMP is an independent reference,not a RAX scheduler result.",
         "Standalone core ID input is normalized to MXLEN;existing u32 backend IDs fit both supported widths without aliasing.",
         "No physical RISC-V,KVM,complete platform/checkpoint/replay or Linux SMP boot proof is claimed."
+      ]
+    },
+    {
+      "id": "D-LAPIC-OWNERSHIP",
+      "status": "locally_validated",
+      "area": "Per-CPU controller and MMIO transaction ownership",
+      "finding": "Guest software LAPIC MMIO previously updated an object different from VMM interrupt polling and BSP checkpoint capture.",
+      "evidence": [
+        "src/vm/vcpu/mod.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "src/isa/x86_64/memory.rs",
+        "src/isa/x86_64/memory/shared_lapic.rs",
+        "src/devices/lapic.rs",
+        "src/devices/lapic/tests.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/lapic.rs",
+        "src/vm/runtime/lapic_tests.rs",
+        "docs/development/per-vcpu-lapic-ownership.md",
+        "src/devices/bus.rs",
+        "src/devices/bus/mmio_transactions.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/parent/manifest.json",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/initial-transaction-width-failure/manifest.json"
+      ],
+      "remaining_validation": [
+        "Actual all-online-vCPU execution,secondary startup and cross-CPU IPI coordination remain required.",
+        "Complete per-CPU/backend/private/in-flight/platform/timer capture and coordinated restoration remain required.",
+        "Direct CR8/software TPR/native SDK synchronization and native Intel HVF instruction/IRQ validation remain required.",
+        "Standalone inline LAPIC behavior is retained;active VMM software CPUs use attached controllers.",
+        "Local ARM-host and Rosetta software execution do not prove physical Intel HVF behavior.",
+        "A32 security/virtualization/admission work remains required by the active goal."
+      ]
+    },
+    {
+      "id": "D-MMIO-TRANSACTION-WIDTH",
+      "status": "locally_validated",
+      "area": "Per-CPU controller and MMIO transaction ownership",
+      "finding": "Byte-fragmented MMIO bus writes destroyed register-sized transaction semantics,including zeroing the TPR after its intended low-byte write.",
+      "evidence": [
+        "src/vm/vcpu/mod.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "src/isa/x86_64/memory.rs",
+        "src/isa/x86_64/memory/shared_lapic.rs",
+        "src/devices/lapic.rs",
+        "src/devices/lapic/tests.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/lapic.rs",
+        "src/vm/runtime/lapic_tests.rs",
+        "docs/development/per-vcpu-lapic-ownership.md",
+        "src/devices/bus.rs",
+        "src/devices/bus/mmio_transactions.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/parent/manifest.json",
+        "/Users/int/dev/rax-audit-work/four-findings-lapic/initial-transaction-width-failure/manifest.json"
+      ],
+      "remaining_validation": [
+        "Actual all-online-vCPU execution,secondary startup and cross-CPU IPI coordination remain required.",
+        "Complete per-CPU/backend/private/in-flight/platform/timer capture and coordinated restoration remain required.",
+        "Direct CR8/software TPR/native SDK synchronization and native Intel HVF instruction/IRQ validation remain required.",
+        "Standalone inline LAPIC behavior is retained;active VMM software CPUs use attached controllers.",
+        "Local ARM-host and Rosetta software execution do not prove physical Intel HVF behavior.",
+        "A32 security/virtualization/admission work remains required by the active goal."
       ]
     }
   ],
@@ -182827,6 +182896,1984 @@
             "entries": 3961,
             "scope": "Exact verified cached files restored before actual complete final commands;cache restoration is not test evidence."
           }
+        }
+      }
+    },
+    {
+      "id": "per-vcpu-lapic-ownership-mmio-transactions",
+      "status": "locally_validated",
+      "baseline": "c11941fedf635fa98fa64d06e38c58a8953cee67",
+      "scope": "Share each constructed x86 software vCPU LAPIC with VMM register/delivery/BSP-checkpoint ownership;preserve complete MMIO device transaction widths and pending interrupt acceptance.",
+      "owned_paths": [
+        "src/vm/vcpu/mod.rs",
+        "src/isa/x86_64/cpu_vcpu.rs",
+        "src/isa/x86_64/memory.rs",
+        "src/isa/x86_64/memory/shared_lapic.rs",
+        "src/devices/lapic.rs",
+        "src/devices/lapic/tests.rs",
+        "src/vm/runtime.rs",
+        "src/vm/runtime/lapic.rs",
+        "src/vm/runtime/lapic_tests.rs",
+        "docs/development/per-vcpu-lapic-ownership.md",
+        "src/devices/bus.rs",
+        "src/devices/bus/mmio_transactions.rs"
+      ],
+      "primary_sources": [
+        {
+          "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+          "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+          "contract": "Intel SDM086 Vol.3A Chapter12 local APIC register access,ICR,TPR/PPR and interrupt delivery."
+        }
+      ],
+      "validation": {
+        "focused": [
+          {
+            "name": "format-owned",
+            "args": [
+              "rustfmt",
+              "+stable",
+              "--edition",
+              "2024",
+              "--config",
+              "skip_children=true",
+              "src/vm/vcpu/mod.rs",
+              "src/isa/x86_64/cpu_vcpu.rs",
+              "src/isa/x86_64/memory.rs",
+              "src/isa/x86_64/memory/shared_lapic.rs",
+              "src/devices/lapic.rs",
+              "src/devices/lapic/tests.rs",
+              "src/vm/runtime.rs",
+              "src/vm/runtime/lapic.rs",
+              "src/vm/runtime/lapic_tests.rs",
+              "src/devices/bus.rs",
+              "src/devices/bus/mmio_transactions.rs"
+            ],
+            "code": 0,
+            "seconds": 0.20246145800047088
+          },
+          {
+            "name": "owners",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "vm::runtime::lapic_tests",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 237.18998737500806
+          },
+          {
+            "name": "mmio-bus-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "devices::bus",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 0.2992199169966625
+          },
+          {
+            "name": "lapic-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "devices::lapic::tests",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 0.4290590829914436
+          },
+          {
+            "name": "runtime-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "vm::runtime",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 42.280560833009076
+          },
+          {
+            "name": "controller-irq",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "controller_irq",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 89.88533633299812
+          },
+          {
+            "name": "format-check",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 17.35889595799381
+          }
+        ],
+        "broad": [
+          {
+            "name": "diff-check",
+            "args": [
+              "git",
+              "diff",
+              "--check",
+              "--",
+              "src/vm/vcpu/mod.rs",
+              "src/isa/x86_64/cpu_vcpu.rs",
+              "src/isa/x86_64/memory.rs",
+              "src/isa/x86_64/memory/shared_lapic.rs",
+              "src/devices/lapic.rs",
+              "src/devices/lapic/tests.rs",
+              "src/vm/runtime.rs",
+              "src/vm/runtime/lapic.rs",
+              "src/vm/runtime/lapic_tests.rs",
+              "docs/development/per-vcpu-lapic-ownership.md",
+              "src/devices/bus.rs",
+              "src/devices/bus/mmio_transactions.rs"
+            ],
+            "code": 0,
+            "seconds": 0.043883374994038604
+          },
+          {
+            "name": "library-inventory",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--list"
+            ],
+            "code": 0,
+            "seconds": 0.4778885419946164
+          },
+          {
+            "name": "library-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--lib",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 428.72651566698914
+          },
+          {
+            "name": "x86-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "x86_64",
+              "--",
+              "--test-threads=4"
+            ],
+            "code": 0,
+            "seconds": 38.693822665998596
+          },
+          {
+            "name": "ci-backend-storage",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--test",
+              "nvme_commands",
+              "--test",
+              "virtio_indirect",
+              "--test",
+              "virtio_ranges",
+              "--test",
+              "checkpoint_config",
+              "--test",
+              "ahci_dma",
+              "--test",
+              "storage_images",
+              "--test",
+              "storage_config",
+              "--test",
+              "controller_checkpoint",
+              "--test",
+              "pci_checkpoint",
+              "--test",
+              "pci_endpoint_checkpoint",
+              "--test",
+              "runtime_pci_checkpoint",
+              "--test",
+              "checkpoint_pci",
+              "--test",
+              "restore_admission",
+              "--test",
+              "checkpoint_physical_memory",
+              "--test",
+              "runtime_checkpoint_bundle",
+              "--test",
+              "checkpoint_resume",
+              "--test",
+              "checkpoint_cpus",
+              "--test",
+              "retirement_budget",
+              "--test",
+              "vm_timing",
+              "--test",
+              "retired_clock",
+              "--test",
+              "checkpoint_clock",
+              "--test",
+              "cortexm_dispatch",
+              "--test",
+              "retirement_clock",
+              "--test",
+              "x86_retired_tsc",
+              "--test",
+              "aarch64_step_jit",
+              "--test",
+              "counter_ticks",
+              "--test",
+              "hvf_arm64_state",
+              "--test",
+              "riscv_hartid",
+              "--bin",
+              "rax",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 424.51217704200826
+          },
+          {
+            "name": "build-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "build",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 114.73299741699884
+          },
+          {
+            "name": "clippy-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "clippy",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--all-targets"
+            ],
+            "code": 0,
+            "seconds": 234.62295229099982
+          },
+          {
+            "name": "doctests",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--doc"
+            ],
+            "code": 0,
+            "seconds": 4.94847316700907
+          },
+          {
+            "name": "capi-tests",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "-p",
+              "rax-capi",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 87.25839274999453
+          },
+          {
+            "name": "capi-consumers",
+            "args": [
+              "make",
+              "-C",
+              "capi",
+              "test",
+              "PROFILE=debug",
+              "TARGET_DIR=/Users/int/dev/rax-audit-work/four-findings-target",
+              "CARGO=cargo +stable --offline"
+            ],
+            "code": 0,
+            "seconds": 4.34856874999241
+          },
+          {
+            "name": "intel-library-inventory",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--list"
+            ],
+            "code": 0,
+            "seconds": 216.82387333399674
+          },
+          {
+            "name": "intel-library-all",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--lib",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 2680.1009340419987
+          },
+          {
+            "name": "intel-ci-backend-storage",
+            "args": [
+              "cargo",
+              "+stable",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,hvf",
+              "--target",
+              "x86_64-apple-darwin",
+              "--test",
+              "hvf_sdk_abi",
+              "--test",
+              "hvf_xsetbv",
+              "--test",
+              "hvf_run_loop",
+              "--test",
+              "hvf_cr8",
+              "--test",
+              "hvf_sync_exits",
+              "--test",
+              "hvf_event_injection",
+              "--test",
+              "hvf_interrupt_shadow",
+              "--test",
+              "hvf_port_io",
+              "--test",
+              "hvf_guest_translation",
+              "--test",
+              "hvf_mmio",
+              "--test",
+              "controller_irq",
+              "--test",
+              "hvf_controls",
+              "--test",
+              "nvme_prp",
+              "--test",
+              "nvme_sgl",
+              "--test",
+              "nvme_queues",
+              "--test",
+              "nvme_admission",
+              "--test",
+              "nvme_commands",
+              "--test",
+              "virtio_indirect",
+              "--test",
+              "virtio_ranges",
+              "--test",
+              "checkpoint_config",
+              "--test",
+              "ahci_dma",
+              "--test",
+              "storage_images",
+              "--test",
+              "storage_config",
+              "--test",
+              "controller_checkpoint",
+              "--test",
+              "pci_checkpoint",
+              "--test",
+              "pci_endpoint_checkpoint",
+              "--test",
+              "runtime_pci_checkpoint",
+              "--test",
+              "checkpoint_pci",
+              "--test",
+              "restore_admission",
+              "--test",
+              "checkpoint_physical_memory",
+              "--test",
+              "runtime_checkpoint_bundle",
+              "--test",
+              "checkpoint_resume",
+              "--test",
+              "checkpoint_cpus",
+              "--test",
+              "retirement_budget",
+              "--test",
+              "vm_timing",
+              "--test",
+              "retired_clock",
+              "--test",
+              "checkpoint_clock",
+              "--test",
+              "cortexm_dispatch",
+              "--test",
+              "retirement_clock",
+              "--test",
+              "x86_retired_tsc",
+              "--test",
+              "aarch64_step_jit",
+              "--test",
+              "counter_ticks",
+              "--test",
+              "hvf_arm64_state",
+              "--test",
+              "riscv_hartid",
+              "--bin",
+              "rax",
+              "--",
+              "--test-threads=1"
+            ],
+            "code": 0,
+            "seconds": 950.1444566669961
+          },
+          {
+            "name": "format-check",
+            "args": [
+              "cargo",
+              "+stable",
+              "fmt",
+              "--all",
+              "--check"
+            ],
+            "code": 0,
+            "seconds": 17.169382791995304
+          }
+        ],
+        "reports": {
+          "format-owned": {
+            "command": {
+              "name": "format-owned",
+              "args": [
+                "rustfmt",
+                "+stable",
+                "--edition",
+                "2024",
+                "--config",
+                "skip_children=true",
+                "src/vm/vcpu/mod.rs",
+                "src/isa/x86_64/cpu_vcpu.rs",
+                "src/isa/x86_64/memory.rs",
+                "src/isa/x86_64/memory/shared_lapic.rs",
+                "src/devices/lapic.rs",
+                "src/devices/lapic/tests.rs",
+                "src/vm/runtime.rs",
+                "src/vm/runtime/lapic.rs",
+                "src/vm/runtime/lapic_tests.rs",
+                "src/devices/bus.rs",
+                "src/devices/bus/mmio_transactions.rs"
+              ],
+              "code": 0,
+              "seconds": 0.20246145800047088
+            },
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "outcomes": []
+          },
+          "owners": {
+            "command": {
+              "name": "owners",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--lib",
+                "vm::runtime::lapic_tests",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 237.18998737500806
+            },
+            "log_sha256": "a5f4fd6e74a69c0f88d03798721340d7fd79dc22051ed49e3929b3fb67fc5268",
+            "outcomes": [
+              {
+                "passed": 6,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 10652
+              }
+            ]
+          },
+          "mmio-bus-all": {
+            "command": {
+              "name": "mmio-bus-all",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--lib",
+                "devices::bus",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 0.2992199169966625
+            },
+            "log_sha256": "7673fab67939a3e5f5cc885f0521f265f2c0e218ac1ed71f866dcb1b108abc53",
+            "outcomes": [
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 10650
+              }
+            ]
+          },
+          "lapic-all": {
+            "command": {
+              "name": "lapic-all",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--lib",
+                "devices::lapic::tests",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 0.4290590829914436
+            },
+            "log_sha256": "89c324dc5d985f8eceb3f053ed2058c5ea6613d81ad4f5c5e49c4de0a19d5eca",
+            "outcomes": [
+              {
+                "passed": 100,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 10558
+              }
+            ]
+          },
+          "runtime-all": {
+            "command": {
+              "name": "runtime-all",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--lib",
+                "vm::runtime",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 42.280560833009076
+            },
+            "log_sha256": "1efadefb55522f98fd4bce0558b66887236f3e1841547ded37d14604b2b6b299",
+            "outcomes": [
+              {
+                "passed": 21,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 10637
+              }
+            ]
+          },
+          "controller-irq": {
+            "command": {
+              "name": "controller-irq",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--test",
+                "controller_irq",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 89.88533633299812
+            },
+            "log_sha256": "3500d27c12de49524368214d361cfe1473a1f3ea62a22148840e51ceab9daea7",
+            "outcomes": [
+              {
+                "passed": 31,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              }
+            ]
+          },
+          "format-check": {
+            "command": {
+              "name": "format-check",
+              "args": [
+                "cargo",
+                "+stable",
+                "fmt",
+                "--all",
+                "--check"
+              ],
+              "code": 0,
+              "seconds": 17.35889595799381
+            },
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "outcomes": []
+          },
+          "broad-diff-check": {
+            "command": {
+              "name": "diff-check",
+              "args": [
+                "git",
+                "diff",
+                "--check",
+                "--",
+                "src/vm/vcpu/mod.rs",
+                "src/isa/x86_64/cpu_vcpu.rs",
+                "src/isa/x86_64/memory.rs",
+                "src/isa/x86_64/memory/shared_lapic.rs",
+                "src/devices/lapic.rs",
+                "src/devices/lapic/tests.rs",
+                "src/vm/runtime.rs",
+                "src/vm/runtime/lapic.rs",
+                "src/vm/runtime/lapic_tests.rs",
+                "docs/development/per-vcpu-lapic-ownership.md",
+                "src/devices/bus.rs",
+                "src/devices/bus/mmio_transactions.rs"
+              ],
+              "code": 0,
+              "seconds": 0.043883374994038604
+            },
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "outcomes": []
+          },
+          "broad-library-inventory": {
+            "command": {
+              "name": "library-inventory",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--lib",
+                "--",
+                "--list"
+              ],
+              "code": 0,
+              "seconds": 0.4778885419946164
+            },
+            "log_sha256": "0edbbb80cf6650e5b7c72a9832aef7b5ee6a880252deb200a8e24ad93143645e",
+            "outcomes": []
+          },
+          "broad-library-all": {
+            "command": {
+              "name": "library-all",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--lib",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 428.72651566698914
+            },
+            "log_sha256": "02e0a30f84557261119835b4449e2ffeeded19a2fe7a6e9cbddf8106162af82e",
+            "outcomes": [
+              {
+                "passed": 10656,
+                "failed": 0,
+                "ignored": 2,
+                "filtered": 0
+              }
+            ]
+          },
+          "broad-x86-all": {
+            "command": {
+              "name": "x86-all",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--test",
+                "x86_64",
+                "--",
+                "--test-threads=4"
+              ],
+              "code": 0,
+              "seconds": 38.693822665998596
+            },
+            "log_sha256": "748b5648ccc294703db0d0ef31846d609de7e64f1c1b67f5414d435ce8c79c32",
+            "outcomes": [
+              {
+                "passed": 28559,
+                "failed": 0,
+                "ignored": 3,
+                "filtered": 0
+              }
+            ]
+          },
+          "broad-ci-backend-storage": {
+            "command": {
+              "name": "ci-backend-storage",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--test",
+                "hvf_sdk_abi",
+                "--test",
+                "hvf_xsetbv",
+                "--test",
+                "hvf_run_loop",
+                "--test",
+                "hvf_cr8",
+                "--test",
+                "hvf_sync_exits",
+                "--test",
+                "hvf_event_injection",
+                "--test",
+                "hvf_interrupt_shadow",
+                "--test",
+                "hvf_port_io",
+                "--test",
+                "hvf_guest_translation",
+                "--test",
+                "hvf_mmio",
+                "--test",
+                "controller_irq",
+                "--test",
+                "hvf_controls",
+                "--test",
+                "nvme_prp",
+                "--test",
+                "nvme_sgl",
+                "--test",
+                "nvme_queues",
+                "--test",
+                "nvme_admission",
+                "--test",
+                "nvme_commands",
+                "--test",
+                "virtio_indirect",
+                "--test",
+                "virtio_ranges",
+                "--test",
+                "checkpoint_config",
+                "--test",
+                "ahci_dma",
+                "--test",
+                "storage_images",
+                "--test",
+                "storage_config",
+                "--test",
+                "controller_checkpoint",
+                "--test",
+                "pci_checkpoint",
+                "--test",
+                "pci_endpoint_checkpoint",
+                "--test",
+                "runtime_pci_checkpoint",
+                "--test",
+                "checkpoint_pci",
+                "--test",
+                "restore_admission",
+                "--test",
+                "checkpoint_physical_memory",
+                "--test",
+                "runtime_checkpoint_bundle",
+                "--test",
+                "checkpoint_resume",
+                "--test",
+                "checkpoint_cpus",
+                "--test",
+                "retirement_budget",
+                "--test",
+                "vm_timing",
+                "--test",
+                "retired_clock",
+                "--test",
+                "checkpoint_clock",
+                "--test",
+                "cortexm_dispatch",
+                "--test",
+                "retirement_clock",
+                "--test",
+                "x86_retired_tsc",
+                "--test",
+                "aarch64_step_jit",
+                "--test",
+                "counter_ticks",
+                "--test",
+                "hvf_arm64_state",
+                "--test",
+                "riscv_hartid",
+                "--bin",
+                "rax",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 424.51217704200826
+            },
+            "log_sha256": "3a359aa1e0dcfcccafce88fa9abda0c56f9d688002879513d1eebf4976aa4847",
+            "outcomes": [
+              {
+                "passed": 3,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 54,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 16,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 1,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 12,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 20,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 30,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 10,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 19,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 31,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 12,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 7,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 6,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 6,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 7,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 6,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 17,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 1,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 9,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 10,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 47,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 49,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 32,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 48,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 50,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 17,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 16,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 17,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 13,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 13,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 10,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 10,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 14,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 15,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 20,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 24,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 46,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 66,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 12,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 9,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              }
+            ]
+          },
+          "broad-build-all": {
+            "command": {
+              "name": "build-all",
+              "args": [
+                "cargo",
+                "+stable",
+                "build",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--all-targets"
+              ],
+              "code": 0,
+              "seconds": 114.73299741699884
+            },
+            "log_sha256": "844d5ce37bc1d623d6232807012d97476807576887774f9a90a3d8e8518a4881",
+            "outcomes": []
+          },
+          "broad-clippy-all": {
+            "command": {
+              "name": "clippy-all",
+              "args": [
+                "cargo",
+                "+stable",
+                "clippy",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--all-targets"
+              ],
+              "code": 0,
+              "seconds": 234.62295229099982
+            },
+            "log_sha256": "bb10d1b178650dfa576f85e606cb99b61513f2da3f97a7324808ad5acdfc54f0",
+            "outcomes": []
+          },
+          "broad-doctests": {
+            "command": {
+              "name": "doctests",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--doc"
+              ],
+              "code": 0,
+              "seconds": 4.94847316700907
+            },
+            "log_sha256": "0e10b49997853d192bf1fd2f0aad54ddd8dad28f6a5ca99cec7d80e9eb1f53bc",
+            "outcomes": [
+              {
+                "passed": 0,
+                "failed": 0,
+                "ignored": 5,
+                "filtered": 0
+              }
+            ]
+          },
+          "broad-capi-tests": {
+            "command": {
+              "name": "capi-tests",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "-p",
+                "rax-capi",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 87.25839274999453
+            },
+            "log_sha256": "0fd763bb86444fc5d4b9af795644f58f834e3f25a4ee8d48b5221ff296ae0985",
+            "outcomes": [
+              {
+                "passed": 191,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 0,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              }
+            ]
+          },
+          "broad-capi-consumers": {
+            "command": {
+              "name": "capi-consumers",
+              "args": [
+                "make",
+                "-C",
+                "capi",
+                "test",
+                "PROFILE=debug",
+                "TARGET_DIR=/Users/int/dev/rax-audit-work/four-findings-target",
+                "CARGO=cargo +stable --offline"
+              ],
+              "code": 0,
+              "seconds": 4.34856874999241
+            },
+            "log_sha256": "5b90fcf19e8b108861ae85060ca263f971736b9ae2405a5df13367f97c40a588",
+            "outcomes": []
+          },
+          "broad-intel-library-inventory": {
+            "command": {
+              "name": "intel-library-inventory",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--target",
+                "x86_64-apple-darwin",
+                "--lib",
+                "--",
+                "--list"
+              ],
+              "code": 0,
+              "seconds": 216.82387333399674
+            },
+            "log_sha256": "92268bac58ccd91383e83695907c261fac68cbaf1a830d0f479a680015959b96",
+            "outcomes": []
+          },
+          "broad-intel-library-all": {
+            "command": {
+              "name": "intel-library-all",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--target",
+                "x86_64-apple-darwin",
+                "--lib",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 2680.1009340419987
+            },
+            "log_sha256": "d0f2e69339d4ae45bcce3cbc692416d929d4aca0c21c1c0c9f86b4340cc611cd",
+            "outcomes": [
+              {
+                "passed": 11639,
+                "failed": 0,
+                "ignored": 2,
+                "filtered": 0
+              }
+            ]
+          },
+          "broad-intel-ci-backend-storage": {
+            "command": {
+              "name": "intel-ci-backend-storage",
+              "args": [
+                "cargo",
+                "+stable",
+                "test",
+                "--locked",
+                "--offline",
+                "--no-default-features",
+                "--features",
+                "x86_64-suite,smir-jit,hvf",
+                "--target",
+                "x86_64-apple-darwin",
+                "--test",
+                "hvf_sdk_abi",
+                "--test",
+                "hvf_xsetbv",
+                "--test",
+                "hvf_run_loop",
+                "--test",
+                "hvf_cr8",
+                "--test",
+                "hvf_sync_exits",
+                "--test",
+                "hvf_event_injection",
+                "--test",
+                "hvf_interrupt_shadow",
+                "--test",
+                "hvf_port_io",
+                "--test",
+                "hvf_guest_translation",
+                "--test",
+                "hvf_mmio",
+                "--test",
+                "controller_irq",
+                "--test",
+                "hvf_controls",
+                "--test",
+                "nvme_prp",
+                "--test",
+                "nvme_sgl",
+                "--test",
+                "nvme_queues",
+                "--test",
+                "nvme_admission",
+                "--test",
+                "nvme_commands",
+                "--test",
+                "virtio_indirect",
+                "--test",
+                "virtio_ranges",
+                "--test",
+                "checkpoint_config",
+                "--test",
+                "ahci_dma",
+                "--test",
+                "storage_images",
+                "--test",
+                "storage_config",
+                "--test",
+                "controller_checkpoint",
+                "--test",
+                "pci_checkpoint",
+                "--test",
+                "pci_endpoint_checkpoint",
+                "--test",
+                "runtime_pci_checkpoint",
+                "--test",
+                "checkpoint_pci",
+                "--test",
+                "restore_admission",
+                "--test",
+                "checkpoint_physical_memory",
+                "--test",
+                "runtime_checkpoint_bundle",
+                "--test",
+                "checkpoint_resume",
+                "--test",
+                "checkpoint_cpus",
+                "--test",
+                "retirement_budget",
+                "--test",
+                "vm_timing",
+                "--test",
+                "retired_clock",
+                "--test",
+                "checkpoint_clock",
+                "--test",
+                "cortexm_dispatch",
+                "--test",
+                "retirement_clock",
+                "--test",
+                "x86_retired_tsc",
+                "--test",
+                "aarch64_step_jit",
+                "--test",
+                "counter_ticks",
+                "--test",
+                "hvf_arm64_state",
+                "--test",
+                "riscv_hartid",
+                "--bin",
+                "rax",
+                "--",
+                "--test-threads=1"
+              ],
+              "code": 0,
+              "seconds": 950.1444566669961
+            },
+            "log_sha256": "be2efae68f2ab3e697838160e2a1b1ece69aac2fb95a72a8d8105e6b95fc52ac",
+            "outcomes": [
+              {
+                "passed": 3,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 54,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 16,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 1,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 12,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 20,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 30,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 10,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 19,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 31,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 12,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 7,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 6,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 6,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 7,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 6,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 17,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 8,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 1,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 9,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 10,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 47,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 49,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 32,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 48,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 50,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 17,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 16,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 17,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 13,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 13,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 10,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 10,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 14,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 15,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 20,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 24,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 46,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 66,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 12,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              },
+              {
+                "passed": 9,
+                "failed": 0,
+                "ignored": 0,
+                "filtered": 0
+              }
+            ]
+          },
+          "broad-format-check": {
+            "command": {
+              "name": "format-check",
+              "args": [
+                "cargo",
+                "+stable",
+                "fmt",
+                "--all",
+                "--check"
+              ],
+              "code": 0,
+              "seconds": 17.169382791995304
+            },
+            "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "outcomes": []
+          }
+        },
+        "pre_fix_expected_failures": 4,
+        "intermediate_width_regression": {
+          "passed": 5,
+          "failed": 1
+        },
+        "source_organization": {
+          "legacy_test_module_bytes_identical_except_one_leading_empty_line": true,
+          "normalization": "Only the empty line directly after the former opening module brace is absent in the new child file;all following formatted bytes are identical.",
+          "baseline_formatted_sha256": "ba5d719885691118623cbdc9fb173dcb99e8de8cf913114610a2df6fde9683bb",
+          "new_child_sha256": "531afe9d029e53c4ae6ce68b4753c03c58fc1cdb1955112277c06411f0bc55c2",
+          "legacy_test_names_preserved": true,
+          "public_state_and_c_abi_sources_unchanged": {
+            "src/vm/vcpu/state.rs": "f6930971398ff9a87197ae827441e9a5f31fc7e686a3ba0e33886670b16a1633",
+            "src/smir/ir/context.rs": "26b20c6170766eff513f9af792bc3a2c797c599412d820ec91ddb30420437da8",
+            "src/smir/lower/runtime/x86_guest_regs.rs": "3589cb0499b48b593f89de690861447de69e934d535541381dbc786cbfd794b6",
+            "capi/include/rax.h": "baaf643f62c525d923529ccbf75a97505a31831592a8aa91ab9be71f5ec144b5",
+            "capi/include/rax.hpp": "2c4e2a71fafeae17ec22ac407b8416ed987ab52caf8a23101fcd3d2091109f9e",
+            "capi/src/lib.rs": "fe930b7bbcdc9130664c223fee8cf048a5cb8d8c4f0ad205c60c096d5557770d",
+            "Cargo.toml": "9fe60b8eb1a70f8572bd7653e9e1e27b6c71ac2650aa7ee6a2cc195e73ba769f",
+            "Cargo.lock": "32fe5c419a2484b6eee23efb65b32518d4d4ece2f3099f9b2766f0324ef321eb"
+          },
+          "scope": "All100existing LAPIC tests retain their assertions and test paths. Native spill layouts,exported CPU state,C/C++ ABI source and dependency manifests remain byte-identical;the Rust vCPU trait gains an additive default attachment method."
+        },
+        "tested_owned_sha256": {
+          "src/vm/vcpu/mod.rs": "68761c3b0ebe4e2d4f7f6489842d55b124e9def864e5461d62b9e5b7851811dc",
+          "src/isa/x86_64/cpu_vcpu.rs": "940dc918662efb88a588efdf15da4539dead43b024f188873f132050d2db795f",
+          "src/isa/x86_64/memory.rs": "0ac8856290d77f56d308c8b1a18a0ce7d48d4d467d8d25f821279a4494c1322b",
+          "src/isa/x86_64/memory/shared_lapic.rs": "e60bbb907c8366ae5c6bd44bb541e25cabfc0f8d0e64e26774f562dd3f34c8ca",
+          "src/devices/lapic.rs": "2e18bf6ab4659748612c3cd2dcbf9980fd0563555edd4c53276847c69fb3b03d",
+          "src/devices/lapic/tests.rs": "531afe9d029e53c4ae6ce68b4753c03c58fc1cdb1955112277c06411f0bc55c2",
+          "src/vm/runtime.rs": "beb09dca6ff06793fa5aafd1f6f02f56712589748e3fffe0dc6fa8371b4e70d6",
+          "src/vm/runtime/lapic.rs": "08d99357aef1e96132c0af6cdf97f6b7867a32e055af01668defb41313e6e5b9",
+          "src/vm/runtime/lapic_tests.rs": "97db18fe419403331d3f67f754d03fc92f75ee20741ded705370cc85e9e29e55",
+          "docs/development/per-vcpu-lapic-ownership.md": "7bf5643d5e74f496d2aa3d175022a7bca64ee48945a4dba66df1a4e2a24b1c0a",
+          "src/devices/bus.rs": "83133f8838549649435dcd8dfd194eefb0c8a6596c439c9a0e56e60a63afc50d",
+          "src/devices/bus/mmio_transactions.rs": "b8352fdc890d1453ed683001570a3aa0271e60801a945b4d300603f1ad13d779"
+        },
+        "documentation_status_adjustment": {
+          "path": "docs/development/per-vcpu-lapic-ownership.md",
+          "tested_sha256": "7bf5643d5e74f496d2aa3d175022a7bca64ee48945a4dba66df1a4e2a24b1c0a",
+          "final_sha256": "9ba22dcb8cee1ff336f9ab0f0653d9d25d7f97b279a77ce613bb17560035c8b2",
+          "scope": "After all executable checks,only document assumption status and the impact label are updated.No executable source,command,domain or timeout is changed."
+        },
+        "evidence_directory": "/Users/int/dev/rax-audit-work/four-findings-lapic"
+      },
+      "assumptions": [
+        {
+          "id": "L1",
+          "status": "confirmed within the declared local software domain",
+          "stress_test": "Guest/VMM TPR directions plus snapshot visibility"
+        },
+        {
+          "id": "L2",
+          "status": "confirmed within the declared local software domain",
+          "stress_test": "Guest APIC IDs for1/2/4constructed CPUs"
+        },
+        {
+          "id": "L3",
+          "status": "confirmed within the declared local software domain",
+          "stress_test": "Reentrant callback acquires controller lock;rejected injection retains IRR"
+        },
+        {
+          "id": "L4",
+          "status": "confirmed within the declared local software domain",
+          "stress_test": "TPR/PPR,EOI and software disable preserve pending IRR"
+        },
+        {
+          "id": "B1",
+          "status": "confirmed within the declared local software domain",
+          "stress_test": "Exact six-width callback traces,mapping boundaries,holes,wrap and empty access"
+        }
+      ],
+      "scope_limits": [
+        "Actual all-online-vCPU execution,secondary startup and cross-CPU IPI coordination remain required.",
+        "Complete per-CPU/backend/private/in-flight/platform/timer capture and coordinated restoration remain required.",
+        "Direct CR8/software TPR/native SDK synchronization and native Intel HVF instruction/IRQ validation remain required.",
+        "Standalone inline LAPIC behavior is retained;active VMM software CPUs use attached controllers.",
+        "Local ARM-host and Rosetta software execution do not prove physical Intel HVF behavior.",
+        "A32 security/virtualization/admission work remains required by the active goal."
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "The four requested audit findings remain partially validated;this group closes only the evidenced controller/transport defects."
+        },
+        {
+          "impact": "medium",
+          "finding": "MMIO dispatch takes O(k*d)work for kcontiguous portions and dmappings;this does not add cross-device atomicity."
+        },
+        {
+          "impact": "low",
+          "finding": "All100legacy LAPIC tests retain their assertion bytes apart from one removed leading empty line."
+        }
+      ],
+      "quality_gates": {
+        "QG1": {
+          "status": "passed-within-component-scope",
+          "evidence": "L1-L4/B1 stress tests and explicit unknown native Intel host"
+        },
+        "QG2": {
+          "status": "passed-within-component-scope",
+          "evidence": "Ownership/transaction/delivery component tested;allfour original goal findings remain partial"
+        },
+        "QG3": {
+          "status": "passed-within-component-scope",
+          "evidence": "Recorded exact commands,byte widths,primary-source hash,compiler identity and source hashes"
+        },
+        "QG4": {
+          "status": "passed-within-component-scope",
+          "evidence": "Wrap/gaps/empty accesses,IRR rejection,priority/EOI/disable and lock re-entry;remaining state/native work explicit"
+        },
+        "QG5": {
+          "status": "passed-within-component-scope",
+          "evidence": "Retained manufacturer PDF and actual predecessor failures;Rosetta/ARM are not native Intel proof"
+        },
+        "QG6": {
+          "status": "passed-within-component-scope",
+          "evidence": "High/medium/low boundaries retained without closing the broader goal"
+        },
+        "QG7": {
+          "status": "passed-within-component-scope",
+          "evidence": "Isolated clean baseline,explicitownedpaths,emptyindex and committed-blob verification"
+        },
+        "QG8": {
+          "status": "passed-within-component-scope",
+          "evidence": "Sevenfocused/fourteenbroad commands,nonemptyunfilteredlibraries/directsuite/CI/CAPI and executed C/C++consumers"
+        },
+        "QG9": {
+          "status": "passed-within-component-scope",
+          "evidence": "Legacy100testassertionspreserved,publicstate/CABImanifestsunchanged,and module/format/buildconsistency"
         }
       }
     }

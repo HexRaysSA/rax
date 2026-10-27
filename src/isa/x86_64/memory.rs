@@ -19,6 +19,7 @@ mod fault;
 mod paging;
 mod paging_legacy32;
 mod protection;
+mod shared_lapic;
 
 #[cfg(feature = "profiling")]
 use crate::observability::profiling;
@@ -439,6 +440,8 @@ pub struct Mmu {
     /// Inline LAPIC for emulator (handles MMIO to 0xFEE00000)
     /// Uses RefCell for interior mutability since read_phys/write_phys take &self
     lapic: RefCell<InlineLapic>,
+    /// VM-owned controller shared with interrupt delivery and checkpoint capture.
+    shared_lapic: Option<Arc<Mutex<crate::devices::lapic::LocalApic>>>,
     /// Cached host base pointer + length of the contiguous RAM region at GPA 0.
     /// Lets read_phys/write_phys serve in-RAM accesses with a direct pointer copy,
     /// skipping vm-memory's per-access region search + bounds-checked volatile copy.
@@ -510,6 +513,7 @@ impl Mmu {
             code_page_bitmap: Box::new([0u8; CODE_PAGE_BITMAP_SIZE]),
             smc_dirty_pages: Vec::new(),
             lapic: RefCell::new(InlineLapic::new()),
+            shared_lapic: None,
             ram_host_base,
             ram_len,
             ram_fast_len,
@@ -704,6 +708,11 @@ impl Mmu {
 
     /// Tick the inline LAPIC timer and return pending interrupt vector if any
     pub fn tick_lapic_timer(&self) -> Option<u8> {
+        // The VMM owns polling when its controller is attached. Polling an
+        // independent inline timer here would create two interrupt sources.
+        if self.shared_lapic.is_some() {
+            return None;
+        }
         self.lapic.borrow_mut().tick_timer()
     }
 
@@ -1057,6 +1066,9 @@ impl Mmu {
     /// Read bytes from guest memory (physical address).
     #[inline(always)]
     pub fn read_phys(&self, paddr: u64, buf: &mut [u8]) -> Result<()> {
+        if self.read_shared_lapic(paddr, buf)? {
+            return Ok(());
+        }
         // Handle LAPIC MMIO
         if Self::is_lapic_addr(paddr) {
             let offset = paddr - LAPIC_BASE;
@@ -1137,6 +1149,9 @@ impl Mmu {
     /// Write bytes to guest memory (physical address).
     #[inline(always)]
     pub fn write_phys(&self, paddr: u64, buf: &[u8]) -> Result<()> {
+        if self.write_shared_lapic(paddr, buf)? {
+            return Ok(());
+        }
         // Handle LAPIC MMIO
         if Self::is_lapic_addr(paddr) {
             let offset = paddr - LAPIC_BASE;

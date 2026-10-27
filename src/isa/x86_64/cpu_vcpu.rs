@@ -108,6 +108,13 @@ impl VCpu for X86_64Vcpu {
         self.mmu.drain_mem_records(out);
     }
 
+    fn attach_local_apic(
+        &mut self,
+        lapic: Arc<std::sync::Mutex<crate::devices::lapic::LocalApic>>,
+    ) {
+        self.mmu.attach_local_apic(lapic);
+    }
+
     fn set_pci_bridge(
         &mut self,
         bridge: std::sync::Arc<std::sync::Mutex<crate::devices::pci::PciStub>>,

@@ -239,6 +239,15 @@ pub trait VCpu: Send {
         Ok(false)
     }
 
+    /// Attach the VMM-owned local APIC for this processor. Software backends
+    /// route guest LAPIC MMIO to this same controller. Backends with native
+    /// interrupt controllers retain their backend-specific ownership contract.
+    fn attach_local_apic(
+        &mut self,
+        _lapic: std::sync::Arc<std::sync::Mutex<crate::devices::lapic::LocalApic>>,
+    ) {
+    }
+
     /// Attach the shared PL011 console device so the vCPU's memory bridge can
     /// service UART MMIO synchronously against the same instance the VMM
     /// feeds with host console input. Default no-op — only the AArch64
