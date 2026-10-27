@@ -1,18 +1,40 @@
-//! VM-owned wall clock, diagnostic tick counter and pending-timer flag.
+//! VM-owned selectable clock, diagnostic tick counter and pending-timer flag.
+use super::{ClockMode, ClockState};
+use crate::error::{Error, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-struct Anchor {
-    base: u64,
-    start: Instant,
+enum ClockSource {
+    Wall { base: u64, start: Instant },
+    Retired { nanos: u64, units: u64, phase: u8 },
 }
-/// A VM's existing wall-time domain. Clone its Arc into a worker and enter it
+impl ClockSource {
+    fn mode(&self) -> ClockMode {
+        match self {
+            Self::Wall { .. } => ClockMode::Wall,
+            Self::Retired { .. } => ClockMode::Retired,
+        }
+    }
+    fn state(&self) -> (u64, u64, u8) {
+        match self {
+            Self::Wall { base, start } => {
+                (base.wrapping_add(start.elapsed().as_nanos() as u64), 0, 0)
+            }
+            Self::Retired {
+                nanos,
+                units,
+                phase,
+            } => (*nanos, *units, *phase),
+        }
+    }
+}
+/// A VM's explicitly selected time domain. Clone its Arc into a worker and enter it
 /// there explicitly; ambient bindings are local to the calling thread.
 pub struct TimingContext {
-    anchor: Mutex<Anchor>,
+    clock: Mutex<ClockSource>,
     instructions: AtomicU64,
     timer_pending: AtomicBool,
 }
@@ -23,26 +45,128 @@ impl Default for TimingContext {
 }
 impl TimingContext {
     pub fn new() -> Self {
-        Self {
-            anchor: Mutex::new(Anchor {
+        Self::with_mode(ClockMode::Wall)
+    }
+    pub fn with_mode(mode: ClockMode) -> Self {
+        let clock = match mode {
+            ClockMode::Wall => ClockSource::Wall {
                 base: 0,
                 start: Instant::now(),
-            }),
+            },
+            ClockMode::Retired => ClockSource::Retired {
+                nanos: 0,
+                units: 0,
+                phase: 0,
+            },
+        };
+        Self {
+            clock: Mutex::new(clock),
             instructions: AtomicU64::new(0),
             timer_pending: AtomicBool::new(false),
         }
     }
-    pub fn elapsed_nanos(&self) -> u64 {
-        let anchor = self.anchor.lock().unwrap_or_else(|p| p.into_inner());
-        anchor
-            .base
-            .wrapping_add(anchor.start.elapsed().as_nanos() as u64)
+    pub fn mode(&self) -> ClockMode {
+        self.clock.lock().unwrap_or_else(|p| p.into_inner()).mode()
     }
-    /// Re-anchor this context now, including repeated restore in one process.
+    pub fn elapsed_nanos(&self) -> u64 {
+        self.clock
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .state()
+            .0
+    }
+    /// Integer rebase: re-anchor wall time or clear only the retirement phase.
+    /// Complete checkpoint import uses restore_checkpoint_state to retain phase.
     pub fn set_resume_base(&self, base: u64) {
-        let mut anchor = self.anchor.lock().unwrap_or_else(|p| p.into_inner());
-        anchor.base = base;
-        anchor.start = Instant::now();
+        let mut clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
+        match &mut *clock {
+            ClockSource::Wall {
+                base: anchor,
+                start,
+            } => {
+                *anchor = base;
+                *start = Instant::now();
+            }
+            ClockSource::Retired { nanos, phase, .. } => {
+                *nanos = base;
+                *phase = 0;
+            }
+        }
+    }
+    /// Advance exact thirds of a nanosecond over the entire u64 delta domain.
+    /// Wall mode rejects before changing state. Totals/nanoseconds wrap as u64.
+    pub fn advance_retired(&self, delta: u64) -> Result<()> {
+        let mut clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
+        let ClockSource::Retired {
+            nanos,
+            units,
+            phase,
+        } = &mut *clock
+        else {
+            return Err(Error::InvalidConfig(
+                "retirement advancement requires retired clock mode".into(),
+            ));
+        };
+        let quanta = u128::from(delta) + u128::from(*phase);
+        *nanos = nanos.wrapping_add((quanta / 3) as u64);
+        *units = units.wrapping_add(delta);
+        *phase = (quanta % 3) as u8;
+        Ok(())
+    }
+    pub fn retirement_count(&self) -> Option<u64> {
+        let clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
+        match &*clock {
+            ClockSource::Retired { units, .. } => Some(*units),
+            ClockSource::Wall { .. } => None,
+        }
+    }
+    /// Exact at a caller-established quiescent boundary. Tick/notification
+    /// writers are independent atomics and must be quiescent during capture.
+    pub fn checkpoint_state(&self) -> ClockState {
+        let clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
+        let (elapsed_nanos, retired_units, subnanosecond_quanta) = clock.state();
+        ClockState {
+            mode: clock.mode(),
+            elapsed_nanos,
+            retired_units,
+            subnanosecond_quanta,
+            diagnostic_ticks: self.instructions.load(Ordering::Relaxed),
+            timer_pending: self.timer_pending.load(Ordering::Acquire),
+        }
+    }
+    pub fn validate_checkpoint_state(&self, state: &ClockState) -> Result<()> {
+        state.validate()?;
+        if self.mode() != state.mode {
+            return Err(Error::InvalidConfig(
+                "clock checkpoint mode does not match target".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn restore_checkpoint_state(&self, state: &ClockState) -> Result<()> {
+        state.validate()?;
+        let mut clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
+        if clock.mode() != state.mode {
+            return Err(Error::InvalidConfig(
+                "clock checkpoint mode does not match target".into(),
+            ));
+        }
+        *clock = match state.mode {
+            ClockMode::Wall => ClockSource::Wall {
+                base: state.elapsed_nanos,
+                start: Instant::now(),
+            },
+            ClockMode::Retired => ClockSource::Retired {
+                nanos: state.elapsed_nanos,
+                units: state.retired_units,
+                phase: state.subnanosecond_quanta,
+            },
+        };
+        self.instructions
+            .store(state.diagnostic_ticks, Ordering::Relaxed);
+        self.timer_pending
+            .store(state.timer_pending, Ordering::Release);
+        Ok(())
     }
     pub fn tick(&self) -> u64 {
         self.instructions
@@ -61,7 +185,8 @@ impl TimingContext {
     pub fn is_timer_pending(&self) -> bool {
         self.timer_pending.load(Ordering::Acquire)
     }
-    /// Preserve the old reset contract: counters/notification only, not time.
+    /// Preserve the old reset contract: diagnostic ticks/notification only.
+    /// Neither wall nor retirement time/phase/units are changed.
     pub fn reset(&self) {
         self.instructions.store(0, Ordering::Relaxed);
         self.timer_pending.store(false, Ordering::Release);

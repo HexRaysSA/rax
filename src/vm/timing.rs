@@ -1,13 +1,13 @@
-//! Wall-clock timing routed through the active VM context when bound.
+//! Explicit VM wall/retirement clocks and the legacy unbound wall fallback.
 //!
-//! Timing is based on actual wall-clock time, not instruction count.
-//! This allows TSC-based delays to complete in real time rather than
-//! being tied to emulator execution speed. Standalone callers without a bound
-//! context retain the original process fallback. Deterministic retirement time
-//! and per-engine context integration remain separate work.
+//! Bound contexts select their clock source explicitly. Existing VMM constructors
+//! still select wall time; coordinator wiring selects retirement time separately.
+//! Standalone callers without a binding retain the previous wall-time behavior.
 
 mod context;
+mod retired;
 pub use context::{TimingContext, TimingGuard};
+pub use retired::{ClockMode, ClockState, RETIREMENT_FREQUENCY_HZ};
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
@@ -73,12 +73,13 @@ pub fn set_resume_base(base_nanos: u64) {
     RESUME_BASE_NANOS.store(base_nanos, Ordering::Relaxed);
 }
 
-/// Get the current TSC value based on instruction count.
-///
-/// This provides consistent timing relative to program execution rather than wall-clock.
-/// Using 3000 cycles per instruction - optimal for delay loops.
+/// Retired contexts expose the exact wrapping retirement-unit counter.
+/// Wall/unbound contexts retain the legacy 3000-cycle diagnostic conversion.
 #[inline(always)]
 pub fn tsc() -> u64 {
+    if let Some(Some(value)) = context::with_current(TimingContext::retirement_count) {
+        return value;
+    }
     // Each instruction is worth 3000 TSC cycles (~1000 loop iterations per 1ms delay)
     instruction_count() * 3000
 }
