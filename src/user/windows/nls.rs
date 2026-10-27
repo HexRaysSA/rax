@@ -16,6 +16,20 @@ pub(crate) fn supports_startup_profile(version: &super::process::WinVersion) -> 
     version.major == 10 && version.minor == 0 && matches!(version.build, 29683 | 29695)
 }
 
+/// Initialization has independent AMD64 controls; MUI retains its own admission.
+pub(crate) fn supports_initialize_profile(
+    version: &super::process::WinVersion,
+    native_machine: Option<u16>,
+    arch: super::arch::WinArch,
+) -> bool {
+    supports_startup_profile(version)
+        || version.major == 10
+            && version.minor == 0
+            && matches!(version.build, 20348 | 26100)
+            && native_machine == Some(0x8664)
+            && matches!(arch, super::arch::WinArch::X64 | super::arch::WinArch::X86)
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct Nls {
     sections: BTreeMap<(u32, u32), Arc<[u8]>>,
@@ -73,6 +87,8 @@ pub(crate) fn snapshot(
     _: &super::registry::Registry,
     _: &std::path::Path,
     _: &super::process::WinVersion,
+    _: Option<u16>,
+    _: super::arch::WinArch,
 ) -> io::Result<Nls> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
@@ -83,6 +99,39 @@ pub(crate) fn snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn initialize_profile_binds_independent_kernel_machine_and_process_views_without_mui() {
+        use super::super::arch::WinArch;
+        for build in [20347, 20348, 20349, 26099, 26100, 26101] {
+            for machine in [None, Some(0x14C), Some(0xAA64), Some(0x8664)] {
+                for arch in WinArch::ALL {
+                    let mut version = super::super::process::WinVersion {
+                        major: 10,
+                        minor: 0,
+                        build,
+                        ..Default::default()
+                    };
+                    let expected = matches!(build, 20348 | 26100)
+                        && machine == Some(0x8664)
+                        && arch != WinArch::Arm64;
+                    assert_eq!(
+                        supports_initialize_profile(&version, machine, arch),
+                        expected
+                    );
+                    assert!(
+                        !supports_startup_profile(&version),
+                        "MUI admission is independent"
+                    );
+                    version.minor = 1;
+                    assert!(!supports_initialize_profile(&version, machine, arch));
+                    version.minor = 0;
+                    version.major = 11;
+                    assert!(!supports_initialize_profile(&version, machine, arch));
+                }
+            }
+        }
+    }
+
     #[test]
     fn startup_profile_admission_is_exact_and_independent_of_other_nt_profiles() {
         for (major, minor, build, expected) in [

@@ -140,6 +140,8 @@ impl NativeRuntime {
             &runtime.registry,
             &schema_directory,
             &runtime.version,
+            runtime.object_namespace.native_machine,
+            arch,
         )?);
         runtime.appcompat =
             super::appcompat::Catalog::snapshot(&root, runtime.registry.upcase_table())?;

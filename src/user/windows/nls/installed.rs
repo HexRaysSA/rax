@@ -76,6 +76,8 @@ pub(crate) fn snapshot(
     registry: &Registry,
     directory: &Path,
     version: &crate::user::windows::process::WinVersion,
+    native_machine: Option<u16>,
+    arch: crate::user::windows::arch::WinArch,
 ) -> io::Result<Nls> {
     let mut codes = registry.codepages();
     // Fixed system-directory namespace enumeration, never a guest-selected
@@ -114,14 +116,15 @@ pub(crate) fn snapshot(
             sections.push((key, bytes));
         }
     }
-    let nls = Nls::new(sections)?;
-    if super::supports_startup_profile(version) {
+    let mut nls = Nls::new(sections)?;
+    if super::supports_initialize_profile(version, native_machine, arch) {
         let (locale, bytes) = initialize::capture()?;
-        nls.with_initialize(locale, bytes)?
-            .with_mui(mui::capture()?)
-    } else {
-        Ok(nls)
+        nls = nls.with_initialize(locale, bytes)?;
     }
+    if super::supports_startup_profile(version) {
+        nls = nls.with_mui(mui::capture()?)?;
+    }
+    Ok(nls)
 }
 
 #[cfg(test)]
@@ -139,7 +142,14 @@ mod tests {
         };
         let runtime = crate::user::windows::native::NativeRuntime::select(arch).unwrap();
         let directory = std::path::Path::new(&runtime.guest_root).join("System32");
-        let nls = snapshot(&registry, &directory, &runtime.version).unwrap();
+        let nls = snapshot(
+            &registry,
+            &directory,
+            &runtime.version,
+            runtime.object_namespace.native_machine,
+            arch,
+        )
+        .unwrap();
         for (kind, data, name) in [
             (11, 1252, "c_1252.nls"),
             (11, 437, "c_437.nls"),
@@ -156,7 +166,11 @@ mod tests {
             assert_eq!(&bytes[..file.len()], file.as_slice(), "{name}");
             assert!(bytes[file.len()..].iter().all(|&b| b == 0), "{name}");
         }
-        if super::super::supports_startup_profile(&runtime.version) {
+        if super::super::supports_initialize_profile(
+            &runtime.version,
+            runtime.object_namespace.native_machine,
+            arch,
+        ) {
             let init = nls
                 .initialize()
                 .expect("measured native initialization profile");
@@ -169,6 +183,8 @@ mod tests {
             );
         } else {
             assert!(nls.initialize().is_none());
+        }
+        if !super::super::supports_startup_profile(&runtime.version) {
             assert!(nls.mui().is_none());
         }
     }
