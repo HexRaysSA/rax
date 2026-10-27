@@ -23,6 +23,7 @@ const WORK_ENTRIES: usize = (WORK_BYTES as usize - WORK_HEADER) / WORK_ENTRY;
 #[derive(Clone, Copy, Debug)]
 struct Profile {
     machine: u16,
+    kernel: (u32, u32, u32),
     flags: u32,
     information_offset: u64,
 }
@@ -37,6 +38,7 @@ impl Profile {
             };
         Ok(Self {
             machine,
+            kernel: (version.major, version.minor, version.build),
             flags,
             information_offset,
         })
@@ -62,7 +64,25 @@ impl Profile {
 pub(crate) struct State {
     pub(crate) information: u64,
     pub(crate) native_peb: u64,
+    pub(crate) machine: u16,
+    pub(crate) kernel: (u32, u32, u32),
+    pub(crate) csr: Option<CsrConnection>,
     _work_view: Option<SharedViewOwner>,
+}
+
+/// The port table owns the peer and writable view; the VM owns this readonly
+/// alias. Both identities are checked before a later bridge call reuses them.
+#[derive(Debug)]
+pub(crate) struct CsrConnection {
+    pub(crate) section: Arc<crate::user::windows::object_namespace::DataSection>,
+    pub(crate) base: u64,
+    pub(crate) port: u32,
+    pub(crate) object: crate::user::windows::objects::ObjId,
+}
+
+#[cfg(test)]
+pub(crate) fn initialize_test_profile(p: &mut Proc, machine: u16) -> Result<(), u32> {
+    initialize_profile(p, Profile::kernel(&p.cfg.version, machine)?)
 }
 
 /// Called once after executable/dependency admission and before any guest code.
@@ -172,6 +192,9 @@ fn initialize_profile(p: &mut Proc, profile: Profile) -> Result<(), u32> {
             p.wow64 = Some(State {
                 information,
                 native_peb,
+                machine: profile.machine,
+                kernel: profile.kernel,
+                csr: None,
                 _work_view: work_view,
             });
             Ok(())

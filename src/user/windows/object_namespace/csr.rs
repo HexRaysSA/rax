@@ -21,6 +21,9 @@ pub(crate) fn supports_kernel(major: u32, minor: u32, build: u32) -> bool {
 #[derive(Debug, Clone)]
 pub(crate) struct CsrMetadata {
     pub(crate) arch: WinArch,
+    /// Independently captured native kernel; guest PEB version edits cannot
+    /// admit a different bridge layout or server protocol.
+    pub(crate) kernel: (u32, u32, u32),
     pub(crate) session: u32,
     pub(crate) server_base: u64,
     pub(crate) statics_offset: u64,
@@ -36,6 +39,10 @@ pub(crate) struct CsrServer {
 }
 
 impl CsrServer {
+    pub(crate) fn section(&self) -> Arc<DataSection> {
+        self.section.clone()
+    }
+
     pub(crate) fn selected(
         section: Arc<DataSection>,
         metadata: CsrMetadata,

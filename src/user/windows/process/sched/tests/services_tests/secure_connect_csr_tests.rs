@@ -10,6 +10,10 @@ const BASE: u64 = 0x0000_7FF5_F57C_0000;
 mod installed_csr;
 
 pub(in super::super) fn server() -> (Arc<DataSection>, Arc<CsrServer>) {
+    server_for_kernel(29683)
+}
+
+pub(in super::super) fn server_for_kernel(build: u32) -> (Arc<DataSection>, Arc<CsrServer>) {
     let mut prefix = vec![0; 5 * 4096];
     prefix[40..48].copy_from_slice(&BASE.to_le_bytes());
     prefix[48..56].copy_from_slice(&BASE.to_le_bytes());
@@ -34,6 +38,7 @@ pub(in super::super) fn server() -> (Arc<DataSection>, Arc<CsrServer>) {
     .unwrap();
     let metadata = CsrMetadata {
         arch: WinArch::Arm64,
+        kernel: (10, 0, build),
         session: 0,
         server_base: BASE,
         statics_offset: 0x750,

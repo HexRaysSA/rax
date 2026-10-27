@@ -1,0 +1,9 @@
+{
+  "title": "Dr. Memory Windows WoW64 declarations",
+  "publisher": "DynamoRIO/Dr. Memory",
+  "source_url": "https://raw.githubusercontent.com/DynamoRIO/drmemory/master/wininc/ntwow64.h",
+  "retrieved_utc": "2026-10-27T00:29:43.175174+00:00",
+  "sha256": "b166f8201913800c7dc2779cc1912eb38ff1d8b5a7e0ab547687e244d0952b10",
+  "bytes": 3770,
+  "status": "Historical declaration has six CSR connect parameters and is not treated as the current installed ABI. Actual wrapper/caller/native observations decide that contract."
+}

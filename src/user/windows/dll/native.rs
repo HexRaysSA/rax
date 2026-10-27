@@ -51,6 +51,7 @@ mod wait_packet;
 mod wnf;
 mod wnf_query;
 mod worker_factory;
+mod wow64_csr;
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func(
@@ -449,6 +450,16 @@ pub(super) static NATIVE_SYSTEM_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[I32, Ptr, I32, Ptr],
     query::wow64_information,
+)
+.only(Archs::X86)];
+
+// Tail family preserves existing synthetic export ordinals and trap slots.
+// The installed x86 leaf takes five slots, including a scalar length, RET20.
+pub(super) static WOW64_CSR_EXPORTS: &[Export] = &[Export::func(
+    "NtWow64CsrClientConnectToServer",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32, Ptr],
+    wow64_csr::connect,
 )
 .only(Archs::X86)];
 

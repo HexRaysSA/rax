@@ -46,34 +46,39 @@ fn native_system_processor_export_appends_without_moving_prior_ordinals() {
     use crate::user::windows::dll::{self, BuiltinDll};
     use crate::user::windows::loader::builtin;
     let current = dll::find("ntdll.dll").unwrap();
-    let last = current.exports.len() - 1;
-    assert_eq!(current.exports[last].len(), 1);
-    assert_eq!(
-        current.exports[last][0].name,
-        "NtWow64GetNativeSystemInformation"
-    );
-    let previous = BuiltinDll {
-        name: current.name,
-        display: current.display,
-        subsystem: current.subsystem,
-        exports: &current.exports[..last],
-    };
-    for arch in WinArch::ALL {
-        let before = builtin::build(&previous, arch, 0, &[]);
-        let after = builtin::build(current, arch, 0, &[]);
-        assert_eq!(after.ordinal_base, before.ordinal_base);
-        assert_eq!(
-            &after.symbols[..before.symbols.len()],
-            before.symbols.as_slice()
-        );
-        assert_eq!(
-            after.symbols.len() - before.symbols.len(),
-            usize::from(arch == WinArch::X86)
-        );
-        assert_eq!(
-            dll::nt_service("NtWow64GetNativeSystemInformation", arch).is_some(),
-            arch == WinArch::X86
-        );
+    for (tail, name) in [
+        (
+            current.exports.len() - 2,
+            "NtWow64GetNativeSystemInformation",
+        ),
+        (current.exports.len() - 1, "NtWow64CsrClientConnectToServer"),
+    ] {
+        assert_eq!(current.exports[tail].len(), 1);
+        assert_eq!(current.exports[tail][0].name, name);
+        let previous = BuiltinDll {
+            name: current.name,
+            display: current.display,
+            subsystem: current.subsystem,
+            exports: &current.exports[..tail],
+        };
+        let appended = BuiltinDll {
+            exports: &current.exports[..=tail],
+            ..previous
+        };
+        for arch in WinArch::ALL {
+            let before = builtin::build(&previous, arch, 0, &[]);
+            let after = builtin::build(&appended, arch, 0, &[]);
+            assert_eq!(after.ordinal_base, before.ordinal_base);
+            assert_eq!(
+                &after.symbols[..before.symbols.len()],
+                before.symbols.as_slice()
+            );
+            assert_eq!(
+                after.symbols.len() - before.symbols.len(),
+                usize::from(arch == WinArch::X86)
+            );
+            assert_eq!(dll::nt_service(name, arch).is_some(), arch == WinArch::X86);
+        }
     }
 }
 

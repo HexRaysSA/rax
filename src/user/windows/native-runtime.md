@@ -2975,3 +2975,44 @@ Windows, including the installed native/WoW64 leaf. Complete C API suites pass
 191 on every host; all 17 pure projection checks also pass on each host.
 No selected case is ignored. These are combined-frame library/C API checks;
 linked current-root shipping qualification remains separate.
+
+
+## WoW64 CSR BASE startup on ARM64 kernel 29695
+
+`NtWow64CsrClientConnectToServer` now models the measured pure-x86 BASE
+connection using five stdcall arguments and a scalar byte count. The installed
+leaf owns its `RET20` cleanup. Admission binds both immutable process-owned
+WoW64 and selected CSR kernel/session metadata; guest version fields cannot
+select another native profile. No caller request reaches host CSR.
+
+The first connection owns a private peer, a 65536-byte shared client view,
+a readonly 1048576-byte selected section reservation with 20480 committed
+bytes, and an ALPC port. Native64 PEB publication precedes the Boolean store;
+x86 PEB publication follows it. First-call buffer faults retain two unmapped
+Section handles per attempt. Boolean faults preserve the connection and native
+PEB, and retries complete the pending x86 publication. An initial readonly
+buffer succeeds; a connected successful-size call requires buffer writeback.
+The bounded model admits ARM64 native kernel10.0.29695/session0 and BASE
+server1, and rejects unmeasured profiles explicitly.
+
+Independent native controls contribute 31 fresh/retry cases and 38 returns,
+plus 336 repeated calls across pure and CHPE process families. Sources,
+artifact identities, exact mapping arithmetic, copy order and assumptions
+WC1-WC3 are in
+`docs/specifications/windows/native-wow64-csr-connect/README.md`.
+The native Windows gate passes all11 CSR cases, including the actual installed
+x86 leaf. The unchanged original hardware-fault fixture completes ARM64 and
+advances through the x86 CSR connection, then stops at unimplemented
+`NtQueryInformationProcess` class26 (`ProcessWow64Information`). Its source,
+executable, assertions and budgets remain unchanged. Full fault-fixture and
+Linux/macOS/Windows installed-library qualification remain incomplete.
+
+Final macOS/Linux CSR filters each pass10 cases; complete C API filters pass191
+on all three hosts. The tail-ordinal check passes on all three, as does the
+portable evidence verifier. All listed selected gates have zero failures and
+ignored cases. Initial broad filters retain their original nonzero verdicts:
+1476/1 macOS, 1470/1 Linux, 1602/3 native Windows (passed/failed). The stale
+tail assertion was corrected and rerun; the other native failures are the
+class26 fixture frontier and a volume replay whose frozen flags0x00020020 differ
+from a direct native29695 result0x00220020. Those remaining failures prevent
+a full-green Windows or shipping-runtime claim.

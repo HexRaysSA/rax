@@ -156,6 +156,11 @@ pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>>
     }
     Ok(Some(CsrMetadata {
         arch: WinArch::Arm64,
+        kernel: (
+            u32::from_le_bytes(peb[0x118..0x11C].try_into().expect("fixed major span")),
+            u32::from_le_bytes(peb[0x11C..0x120].try_into().expect("fixed minor span")),
+            u16::from_le_bytes(peb[0x120..0x122].try_into().expect("fixed build span")).into(),
+        ),
         session,
         server_base,
         statics_offset,

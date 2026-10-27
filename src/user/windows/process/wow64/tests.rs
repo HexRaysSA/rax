@@ -14,6 +14,11 @@ fn process() -> WindowsProcess {
 fn profile(software: bool) -> Profile {
     Profile {
         machine: if software { 0xaa64 } else { 0x8664 },
+        kernel: if software {
+            (10, 0, 29695)
+        } else {
+            (10, 0, 26100)
+        },
         flags: if software { 2 } else { 1 },
         information_offset: if software { 0x490 } else { 0x488 },
     }

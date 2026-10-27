@@ -1,0 +1,6 @@
+{
+  "source_sha256": "e6b1cbdd01aa8f262d8033c554c877124ab904c711d1b2ee4dd3bb441325edab",
+  "exit_code": 0,
+  "stdout": "{\"kernel\": [10, 0, 29695, 2, \"\"], \"status\": 0, \"information\": 8, \"device\": 7, \"characteristics\": 2228256, \"position\": 7, \"path\": \"C:\\\\Windows\\\\Temp\\\\assist-native-rax-20261010\\\\src-display-candidate1\\\\target\\\\native-wow64-csr-model-gates-v1\\\\tmp\\\\native-volume-control-v1.bin\", \"ntdll_sha256\": \"6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e\"}\n",
+  "stderr": ""
+}

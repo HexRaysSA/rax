@@ -1,0 +1,13 @@
+{
+  "url": "https://raw.githubusercontent.com/winsiderss/systeminformer/master/phnt/include/ntdbg.h",
+  "publisher": "System Informer PHNT",
+  "retrieved_utc": "2026-10-27T02:44:13.274822+00:00",
+  "bytes": 22170,
+  "sha256": "3c063b1d8ac1e2faefcf57b24a5ebd5961fe0541f7ed2c51359cffd62c731e64",
+  "used": "DbgUiConnectToDbg and DbgUiGetThreadDebugObject signatures; native owned-child debugger setup.",
+  "raw_file": "phnt-ntdbg.raw.b64",
+  "readable_file": "phnt-ntdbg.h",
+  "readable_sha256": "df09f9db1894ad242d41138921011c08eaa8ac89186abe5c4be00617199f86e2",
+  "readable_bytes": 22162,
+  "normalization": "Readable header removes trailing horizontal whitespace. Base64 retains every original downloaded byte and the original SHA256 above."
+}

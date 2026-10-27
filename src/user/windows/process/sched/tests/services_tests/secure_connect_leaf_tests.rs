@@ -4,7 +4,16 @@ use crate::user::windows::{
     loader::{self, SymRef},
     process::{WindowsConfig, WindowsProcess},
 };
-pub(super) fn leaf(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> u32 {
+pub(in super::super) fn leaf(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> u32 {
+    try_leaf(p, t, name, args).unwrap_or_else(|error| panic!("{name}: {error}"))
+}
+
+pub(in super::super) fn try_leaf(
+    p: &mut Proc,
+    t: &mut Thread,
+    name: &str,
+    args: &[u64],
+) -> Result<u32, String> {
     let m = loader::load_dll(p, "ntdll.dll").unwrap();
     let entry = loader::lookup(p, m, &SymRef::Name(name.as_bytes().to_vec(), None))
         .unwrap()
@@ -35,14 +44,14 @@ pub(super) fn leaf(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> u3
             returned = true;
             break;
         }
-        assert!(
-            matches!(
-                handle_stop(p, t, boundary),
-                Outcome::Continue | Outcome::Yield
-            ),
-            "{name} {}",
-            p.arch
-        );
+        match handle_stop(p, t, boundary) {
+            Outcome::Continue | Outcome::Yield => {}
+            Outcome::Fail(error) => {
+                t.cpu.set_sp(saved_sp);
+                return Err(error);
+            }
+            outcome => panic!("{name} {}: {outcome:?}", p.arch),
+        }
     }
     assert!(returned, "{name} {}", p.arch);
     assert!(t.frames.is_empty());
@@ -55,7 +64,7 @@ pub(super) fn leaf(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> u3
         }
     );
     t.cpu.set_sp(saved_sp);
-    t.cpu.gpr(0) as u32
+    Ok(t.cpu.gpr(0) as u32)
 }
 
 #[test]
