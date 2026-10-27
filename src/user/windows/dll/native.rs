@@ -130,6 +130,12 @@ pub(super) static EXPORTS: &[Export] = &[
     )
     .only(Archs::WIN64),
     Export::func(
+        "NtConnectPort",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
+        secure_connect::connect_plain,
+    ),
+    Export::func(
         "NtSecureConnectPort",
         Stdcall,
         &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],

@@ -10,35 +10,57 @@ const QOS: [u8; 12] = [0, 0, 0, 0, 2, 0, 0, 0, 1, 1, 0, 0];
 
 pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) -> ApiResult {
     let metadata = &server.metadata;
-    if c.arch() != WinArch::Arm64
+    let measured_call = match c.arch() {
+        WinArch::Arm64 => request.secure && metadata.session == 0,
+        WinArch::X64 => !request.secure,
+        WinArch::X86 => false,
+    };
+    if !measured_call
         || metadata.arch != c.arch()
-        || !crate::user::windows::object_namespace::csr::supports_kernel(
+        || !crate::user::windows::object_namespace::csr::supports_profile(
+            c.arch(),
             c.p.cfg.version.major,
             c.p.cfg.version.minor,
             c.p.cfg.version.build,
         )
-        || metadata.session != 0
+        || metadata.kernel
+            != (
+                c.p.cfg.version.major,
+                c.p.cfg.version.minor,
+                c.p.cfg.version.build,
+            )
         || metadata.server_pid == c.p.pid
         || request.client_length != Some(48)
         || request.server_length != Some(24)
         || request.qos == 0
-        || request.sid == 0
+        || (request.secure && request.sid == 0)
         || request.length == 0
         || request.information == 0
         || request.maximum == 0
     {
-        return Err(c.unsupported("NtSecureConnectPort selected CSR startup profile differs"));
+        return Err(c.unsupported(&format!(
+            "{} selected CSR startup profile differs",
+            request.service()
+        )));
     }
-    // SessionId is initialized to zero in the current guest PEB. A modified
-    // or future nonzero-session PEB cannot borrow this session0 section/profile.
+    // Guest fields cannot select a different captured host-session snapshot.
+    let qos = c.mem().bytes(request.qos, 12)?;
+    let qos_matches = if request.secure {
+        qos == QOS
+    } else {
+        // The native AMD64 startup call leaves Length uninitialized. The
+        // impersonation/tracking/effective fields remain the measured values.
+        qos[4..12] == QOS[4..12]
+    };
     if c.mem().u32(c.p.peb + 0x2C0)? != metadata.session
-        || c.mem().bytes(request.qos, 12)? != QOS
-        || c.mem().bytes(request.sid, 12)? != SYSTEM_SID
+        || !qos_matches
+        || (request.secure && c.mem().bytes(request.sid, 12)? != SYSTEM_SID)
         || c.mem().u32(request.length)? != 48
     {
-        return Err(c.unsupported(
-            "NtSecureConnectPort unmeasured CSR session, QoS, SID or information size",
-        ));
+        return Err(c.unsupported(&format!(
+            "{} unmeasured CSR session, QoS, SID or information size",
+            request.service()
+        )));
     }
     let mut view = [0; 48];
     c.mem().rd(request.client, &mut view)?;
@@ -46,12 +68,19 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
     let offset = u32::from_le_bytes(view[16..20].try_into().expect("fixed section offset"));
     let size = u64::from_le_bytes(view[24..32].try_into().expect("fixed view size"));
     if offset != 0 || size != 65536 || view[32..48] != [0; 16] {
-        return Err(c.unsupported("NtSecureConnectPort unmeasured CSR client-view geometry"));
+        return Err(c.unsupported(&format!(
+            "{} unmeasured CSR client-view geometry",
+            request.service()
+        )));
     }
     let mut information = [0; 48];
     c.mem().rd(request.information, &mut information)?;
-    if information[..32] != [0; 32] || information[32..40] != 1u64.to_le_bytes() {
-        return Err(c.unsupported("NtSecureConnectPort unmeasured CSR startup information packet"));
+    if (request.secure && information[..32] != [0; 32]) || information[32..40] != 1u64.to_le_bytes()
+    {
+        return Err(c.unsupported(&format!(
+            "{} unmeasured CSR startup information packet",
+            request.service()
+        )));
     }
     let backing = match c.p.objects.get(section_handle) {
         Some(Object::Mapping {
@@ -71,9 +100,10 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
             backing.clone()
         }
         _ => {
-            return Err(c.unsupported(
-                "NtSecureConnectPort requires the selected writable committed pagefile section",
-            ));
+            return Err(c.unsupported(&format!(
+                "{} requires the selected writable committed pagefile section",
+                request.service()
+            )));
         }
     };
     // Reject unmeasured overlapping outputs before allocating or publishing.
@@ -95,13 +125,17 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
                 .checked_add(length)
                 .is_none_or(|other_end| base < other_end && other < end)
             {
-                return Err(c.unsupported("NtSecureConnectPort overlapping CSR output spans"));
+                return Err(c.unsupported(&format!(
+                    "{} overlapping CSR output spans",
+                    request.service()
+                )));
             }
         }
         if base == request.length && probe_write(c, base, bytes as usize).is_err() {
-            return Err(c.unsupported(
-                "NtSecureConnectPort readonly CSR information-length success path is unmeasured",
-            ));
+            return Err(c.unsupported(&format!(
+                "{} readonly CSR information-length success path is unmeasured",
+                request.service()
+            )));
         }
         probe_write(c, base, bytes as usize)?;
     }
@@ -144,7 +178,7 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
     information[8..16]
         .copy_from_slice(&(metadata.server_base + metadata.statics_offset).to_le_bytes());
     information[16..24].copy_from_slice(&u64::from(metadata.server_pid).to_le_bytes());
-    // Preserve the final16 caller bytes exactly; no address-looking-word rewrite.
+    // Preserve the final24 caller bytes exactly; no address-looking-word rewrite.
     // Every output was checked before publication and the process is serialized.
     let result = (|| -> Result<(), ApiErr> {
         c.mem().wr(request.client, &view)?;

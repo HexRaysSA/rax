@@ -12,6 +12,7 @@ const MAX_INFORMATION_BYTES: u64 = 1 << 20;
 mod csr;
 
 struct Capture {
+    secure: bool,
     out: u64,
     qos: u64,
     name: Option<(u16, u64)>,
@@ -25,17 +26,27 @@ struct Capture {
     length: u64,
 }
 
-fn capture(c: &mut Ctx) -> Result<Capture, ApiErr> {
+impl Capture {
+    fn service(&self) -> &'static str {
+        if self.secure {
+            "NtSecureConnectPort"
+        } else {
+            "NtConnectPort"
+        }
+    }
+}
+
+fn capture(c: &mut Ctx, secure: bool) -> Result<Capture, ApiErr> {
     let (out, name, qos, client, sid, server, maximum, information, length) = (
         c.ptr(0)?,
         c.ptr(1)?,
         c.ptr(2)?,
         c.ptr(3)?,
-        c.ptr(4)?,
-        c.ptr(5)?,
-        c.ptr(6)?,
-        c.ptr(7)?,
-        c.ptr(8)?,
+        if secure { c.ptr(4)? } else { 0 },
+        c.ptr(if secure { 5 } else { 4 })?,
+        c.ptr(if secure { 6 } else { 5 })?,
+        c.ptr(if secure { 7 } else { 6 })?,
+        c.ptr(if secure { 8 } else { 7 })?,
     );
     // These wrapper captures precede the WoW64 failure HANDLE copyback.
     probe_write(c, out, c.psize() as usize)?;
@@ -78,6 +89,7 @@ fn capture(c: &mut Ctx) -> Result<Capture, ApiErr> {
         ))
     };
     Ok(Capture {
+        secure,
         out,
         qos,
         name,
@@ -93,12 +105,17 @@ fn capture(c: &mut Ctx) -> Result<Capture, ApiErr> {
 }
 
 pub(super) fn connect(c: &mut Ctx) -> ApiResult {
-    let result = checked(c);
+    let result = checked(c, true);
     guard_result(c, result)
 }
 
-fn checked(c: &mut Ctx) -> ApiResult {
-    let request = capture(c)?;
+pub(super) fn connect_plain(c: &mut Ctx) -> ApiResult {
+    let result = checked(c, false);
+    guard_result(c, result)
+}
+
+fn checked(c: &mut Ctx, secure: bool) -> ApiResult {
+    let request = capture(c, secure)?;
     let result = resolve(c, &request);
     // The measured WoW64 adapter stores a zero 32-bit HANDLE after a reached
     // native failure, including SID/data faults. Early wrapper faults above
@@ -154,9 +171,10 @@ fn resolve(c: &mut Ctx, request: &Capture) -> ApiResult {
         // access. Native read-only controls preserve it and return NAME_NOT_FOUND.
         let length = u64::from(c.mem().u32(request.length)?);
         if length > MAX_INFORMATION_BYTES {
-            return Err(
-                c.unsupported("NtSecureConnectPort information exceeds the 1 MiB capture bound")
-            );
+            return Err(c.unsupported(&format!(
+                "{} information exceeds the 1 MiB capture bound",
+                request.service()
+            )));
         }
         // Probe in fixed chunks: O(B) checking time and O(1) scratch storage
         // for B caller bytes. No message is sent and no caller data retained.
@@ -189,14 +207,16 @@ fn resolve(c: &mut Ctx, request: &Capture) -> ApiResult {
         .collect();
     match c.p.object_namespace.lookup_port(&name) {
         Err(LookupError::Status(status)) => Flow::ret(status.into()),
-        Err(LookupError::Unselected) => {
-            Err(c.unsupported("NtSecureConnectPort namespace or intermediate target is unselected"))
-        }
+        Err(LookupError::Unselected) => Err(c.unsupported(&format!(
+            "{} namespace or intermediate target is unselected",
+            request.service()
+        ))),
         Ok(()) => match c.p.object_namespace.csr_server(&name) {
             Ok(server) => csr::connect(c, request, server),
-            Err(_) => Err(c.unsupported(
-                "NtSecureConnectPort requires a matched selected guest server and owned shared views",
-            )),
+            Err(_) => Err(c.unsupported(&format!(
+                "{} requires a matched selected guest server and owned shared views",
+                request.service()
+            ))),
         },
     }
 }

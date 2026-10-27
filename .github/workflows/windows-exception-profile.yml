@@ -15,6 +15,7 @@ on:
       - docs/specifications/windows/native-system-processor-information/**
       - docs/specifications/windows/native-system-flush-information/**
       - docs/specifications/windows/native-session-windows-directory/**
+      - docs/specifications/windows/native-session-csr-connect/**
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
@@ -28,6 +29,7 @@ on:
       - docs/specifications/windows/native-system-processor-information/**
       - docs/specifications/windows/native-system-flush-information/**
       - docs/specifications/windows/native-session-windows-directory/**
+      - docs/specifications/windows/native-session-csr-connect/**
   workflow_dispatch:
 
 permissions:
@@ -44,6 +46,15 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Observe current-session native CSR startup and readonly metadata
+        run: python -B docs/specifications/windows/native-session-csr-connect/run-v3.py
+      - name: Preserve current-session native CSR observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-session-csr-connect-${{ matrix.os }}
+          path: target/native-session-csr-connect-v3.json
+          if-no-files-found: error
       - name: Observe current-session Windows directory identities
         run: |
           python -B -m unittest discover -s docs/specifications/windows/native-session-windows-directory
