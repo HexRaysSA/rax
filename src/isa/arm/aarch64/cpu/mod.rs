@@ -36,6 +36,7 @@ pub(crate) use checkpoint::CoreCheckpoint;
 mod entry;
 mod exception_return;
 mod exec;
+mod fp_profile;
 mod identity;
 mod interrupt_binding;
 mod native_execution;

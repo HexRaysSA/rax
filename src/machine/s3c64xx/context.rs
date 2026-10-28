@@ -9,13 +9,14 @@ use crate::vm::snapshot::{BackendContext, S3C64XX_CONTEXT};
 use crate::vm::vcpu::{CpuState, VCpu};
 use serde::{Deserialize, Serialize};
 
-const TAG: &[u8; 8] = b"RAXS3C01";
+const TAG: &[u8; 8] = b"RAXS3C02";
+const LEGACY_TAG: &[u8; 8] = b"RAXS3C01";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - 8;
 
 #[derive(Serialize, Deserialize)]
-struct Context {
+struct Context<C = Armv7Cpu> {
     id: u32,
-    cpu: Armv7Cpu,
+    cpu: C,
     exclusive_address: Option<u32>,
     exclusive_size: u8,
     instruction_count: u64,
@@ -29,17 +30,44 @@ struct Context {
     uart: Option<S3cUart>,
 }
 
+impl Context<crate::isa::arm::aarch32::checkpoint::legacy::LegacyArmv7Cpu> {
+    fn into_current(self) -> Context {
+        Context {
+            id: self.id,
+            cpu: self.cpu.into_current(),
+            exclusive_address: self.exclusive_address,
+            exclusive_size: self.exclusive_size,
+            instruction_count: self.instruction_count,
+            shutdown: self.shutdown,
+            last_fault: self.last_fault,
+            poweroff: self.poweroff,
+            vic0: self.vic0,
+            vic1: self.vic1,
+            pwm: self.pwm,
+            syscon: self.syscon,
+            uart: self.uart,
+        }
+    }
+}
+
 fn invalid(message: impl std::fmt::Display) -> Error {
     Error::Emulator(format!("S3C64xx context: {message}"))
 }
 
 impl Context {
     fn decode(raw: &[u8], id: u32) -> Result<Self> {
-        if raw.len() > TAG.len() + MAX_PAYLOAD || !raw.starts_with(TAG) {
-            return Err(invalid("invalid context tag or length"));
+        if raw.len() > TAG.len() + MAX_PAYLOAD {
+            return Err(invalid("context exceeds budget"));
         }
-        let context: Self = crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(&raw[TAG.len()..])
-            .map_err(invalid)?;
+        let context: Self = if let Some(payload) = raw.strip_prefix(TAG) {
+            crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?
+        } else if let Some(payload) = raw.strip_prefix(LEGACY_TAG) {
+            let old: Context<crate::isa::arm::aarch32::checkpoint::legacy::LegacyArmv7Cpu> =
+                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?;
+            old.into_current()
+        } else {
+            return Err(invalid("invalid context tag"));
+        };
         if context.id != id {
             return Err(invalid("vCPU identity differs from target"));
         }
@@ -149,3 +177,7 @@ impl Armv6Vcpu {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "context_compat_tests.rs"]
+mod compat_tests;

@@ -876,15 +876,27 @@
         "/Users/int/dev/rax-audit-work/rax-a32-simd-access/final-capi.log",
         "src/isa/arm/aarch32/fp_admission.rs",
         "tests/suites/isa/arm/aarch32/fp_admission.rs",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/qualification-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/qualification-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/qualification-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/source-freeze-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/current-proof-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/file-continuation-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/oracle-replay-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/consumers-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/portability-final-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/generator-tests-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/source-and-lock-review-v1.json",
+        "docs/development/arm-fhm/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-a64-half-admission-v1/result.json"
       ],
       "remaining_validation": [
-        "Security/virtualization controls, reserved instruction-admission semantics and full CPU capability/profile consistency.",
+        "Remaining security/virtualization controls, non-half capability/profile consistency and reserved instruction-admission semantics.",
         "Physical A32 hardware and optional trapped profiles remain unverified.",
-        "Configured half admission and its A32 MVFR1 view are corrected; full AArch64/AArch32 ID consistency, non-half capability fields/FHM and remaining security/virtualization profiles stay open."
+        "FHM and modeled half/FHM IDs are corrected in this component. A64 half-precision execution/native admission beyond FHM remains open; disabled FP16 still executes FADD H0,H1,H2 in the retained qualified-artifact witness."
       ],
       "remediation_components": [
-        "a32-fp16-profile-admission-2026-10-28"
+        "a32-fp16-profile-admission-2026-10-28",
+        "arm-fhm-profile-and-legacy-wire-2026-10-28"
       ]
     },
     {
@@ -2346,7 +2358,18 @@
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/qualification-final-v3.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/file-continuation-v1/result.json",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/consumers-v1.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/portability-final-v1.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/core-context/portability-final-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/qualification-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/source-freeze-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/current-proof-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/file-continuation-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/oracle-replay-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/consumers-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/portability-final-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/generator-tests-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/source-and-lock-review-v1.json",
+        "docs/development/arm-fhm/README.md",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-fp-access-retirement-final-v2/result.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2357,7 +2380,8 @@
         "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution.",
         "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
         "Native Intel HVF state effects are unverified",
-        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open."
+        "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open.",
+        "A64 FP access traps currently enter EC7 while reporting one retired instruction; budget/clock semantics require correction (qualified-artifact witness retained)."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -2368,7 +2392,8 @@
         "aarch64-user-physical-reservations-2026-10-28",
         "tracked-ram-first-domain-publication-2026-10-28",
         "main-integration-and-x86-user-context-version-2026-10-28",
-        "software-aarch64-private-publication-2026-10-28"
+        "software-aarch64-private-publication-2026-10-28",
+        "arm-fhm-profile-and-legacy-wire-2026-10-28"
       ]
     },
     {
@@ -2837,14 +2862,16 @@
         "src/user/cpu/aarch64.rs",
         "src/user/cpu/tests/aarch64_reservations.rs",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/qualification-v2.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/qualification-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-fp-access-retirement-final-v2/result.json"
       ],
       "remaining_validation": [
         "Software instruction stepping currently bypasses the old SMIR JIT tier;bounded JIT execution remains required.",
         "Native entry remains unbounded;physical Intel KVM/HVF execution and complete IRQ/control/MMIO semantics remain required.",
         "Additional ARM startup/control profiles and RISC-V SBI startup/controller topology remain required; software AArch64 PSCI/shared-platform execution is locally validated.",
         "Complete backend/private/in-flight/platform state,writer quiescence and transactional late-failure restoration remain required.",
-        "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required."
+        "GDB AP/thread selection,deterministic retirement-clock coordination and record/replay remain required.",
+        "A64 FP access traps currently enter EC7 while reporting one retired instruction; budget/clock semantics require correction (qualified-artifact witness retained)."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3398,7 +3425,8 @@
         "tests/suites/backend/hvf_arm64_mmio.rs",
         "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/parent-current/result.json",
         "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/result.json",
-        "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/native-arm/manifest.json"
+        "/Users/int/dev/rax-audit-work/four-findings-arm64-mmio/validation-v1/native-arm/manifest.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/native-mac-availability-v3.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -192189,6 +192217,223 @@
       "harness_notes": [
         "V2 source qualification was superseded after preserving sparse-copy optimization. Do not treat earlier V2 aggregate as final source proof.",
         "The original doctest selector used a workspace-only feature and failed before execution; the corrected root-feature command passed, with five existing ignored doctests."
+      ]
+    },
+    {
+      "id": "arm-fhm-profile-and-legacy-wire-2026-10-28",
+      "status": "locally_validated",
+      "scope": "FP16/FHM capability separation, coherent A32/A64 ID views, FHM instruction admission and legacy private-record compatibility. All four complete findings remain partial.",
+      "parent": "457c02a74412bcf1f782ddedca25b77e3b81d92e",
+      "owned_paths": [
+        "capi/include/rax.h",
+        "capi/src/context/aarch64.rs",
+        "capi/src/tests/context_aarch32.rs",
+        "capi/src/tests/context_pauth.rs",
+        "docs/development/a32-context/README.md",
+        "docs/development/a32-fp-controls/feature-admission/README.md",
+        "docs/development/aarch64-checkpoints/README.md",
+        "docs/development/arm-fhm/README.md",
+        "docs/development/arm-fhm/guests/arm-indexed-add-d.s",
+        "docs/development/arm-fhm/guests/arm-indexed-add-q.s",
+        "docs/development/arm-fhm/guests/arm-indexed-sub-d.s",
+        "docs/development/arm-fhm/guests/arm-indexed-sub-q.s",
+        "docs/development/arm-fhm/guests/arm-vector-add-d.s",
+        "docs/development/arm-fhm/guests/arm-vector-add-q.s",
+        "docs/development/arm-fhm/guests/arm-vector-sub-d.s",
+        "docs/development/arm-fhm/guests/arm-vector-sub-q.s",
+        "docs/development/arm-fhm/guests/guest.ld",
+        "docs/development/arm-fhm/guests/thumb-indexed-add-d.s",
+        "docs/development/arm-fhm/guests/thumb-indexed-add-q.s",
+        "docs/development/arm-fhm/guests/thumb-indexed-sub-d.s",
+        "docs/development/arm-fhm/guests/thumb-indexed-sub-q.s",
+        "docs/development/arm-fhm/guests/thumb-vector-add-d.s",
+        "docs/development/arm-fhm/guests/thumb-vector-add-q.s",
+        "docs/development/arm-fhm/guests/thumb-vector-sub-d.s",
+        "docs/development/arm-fhm/guests/thumb-vector-sub-q.s",
+        "docs/development/arm-fhm/legacy-a32-v1.context",
+        "docs/development/arm-fhm/legacy-a64-v1.context",
+        "docs/development/arm-fhm/legacy-provenance.json",
+        "docs/development/arm-fhm/legacy-s3c-v1.bin",
+        "docs/development/arm-fhm/oracle-baseline.json",
+        "docs/development/audit-remediation-2026-10.json",
+        "docs/development/backend-contexts.md",
+        "src/backend/emulator/aarch32/context.rs",
+        "src/backend/emulator/aarch32/context/tests.rs",
+        "src/backend/emulator/aarch64/checkpoint.rs",
+        "src/backend/emulator/aarch64/checkpoint_tests.rs",
+        "src/isa/arm/aarch32/checkpoint.rs",
+        "src/isa/arm/aarch32/checkpoint/legacy.rs",
+        "src/isa/arm/aarch32/cp15.rs",
+        "src/isa/arm/aarch32/fp_admission.rs",
+        "src/isa/arm/aarch32/instructions/fp_access.rs",
+        "src/isa/arm/aarch64/cpu/aarch32/preflight.rs",
+        "src/isa/arm/aarch64/cpu/aarch32/state.rs",
+        "src/isa/arm/aarch64/cpu/entry.rs",
+        "src/isa/arm/aarch64/cpu/exec.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile.rs",
+        "src/isa/arm/aarch64/cpu/fp_profile/tests.rs",
+        "src/isa/arm/aarch64/cpu/mod.rs",
+        "src/isa/arm/aarch64/cpu/pauth.rs",
+        "src/isa/arm/aarch64/cpu/tests/misc.rs",
+        "src/isa/arm/aarch64/sysregs.rs",
+        "src/isa/arm/common/features.rs",
+        "src/machine/s3c64xx/context.rs",
+        "src/machine/s3c64xx/context_compat_tests.rs",
+        "tests/generated/arm/test_helpers.rs",
+        "tests/generated/manifest.toml",
+        "tests/suites/isa/arm/aarch32/fp_admission.rs",
+        "tests/suites/isa/arm/aarch32/fp_fhm_admission.rs",
+        "tests/suites/smir/lower/aarch64_native.rs",
+        "tests/suites/smir/lower/aarch64_native/fp_reference.rs",
+        "tools/asl-parser/asl-parser-rs/Cargo.lock",
+        "tools/asl-parser/asl-parser-rs/src/main.rs",
+        "tools/asl-parser/asl-parser-rs/src/testgen/output/rust.rs"
+      ],
+      "source_manifest": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/source-freeze-final-v1.json",
+      "regression_parent": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-committed-parent-v1/result.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/qualification-final-v1.json",
+      "evidence": [
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/qualification-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/source-freeze-v6.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/current-proof-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/file-continuation-v2/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/oracle-replay-v1/result.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/consumers-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/portability-final-v2.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/generator-tests-v1.json",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/source-and-lock-review-v1.json"
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/commit-receipt.json",
+      "validation_summary": {
+        "library": {
+          "passed": 11185,
+          "failed": 0,
+          "ignored": 2,
+          "binaries": 1
+        },
+        "owning": {
+          "passed": 47631,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 22
+        },
+        "capi": {
+          "passed": 212,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "binaries": 1
+        },
+        "generator": {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "binaries": 1
+        },
+        "consumers": 18,
+        "strict_abi_objects": 6,
+        "portable": {
+          "portable-fhm-rosetta-v2": {
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-a32-context-rosetta-v2": {
+            "passed": 10,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-a64-context-rosetta-v2": {
+            "passed": 6,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-s3c-context-rosetta-v2": {
+            "passed": 1,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-a32-fp-rosetta-v2": {
+            "passed": 453,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          },
+          "portable-legacy-capi-rosetta-v2": {
+            "passed": 3,
+            "failed": 0,
+            "ignored": 0,
+            "binaries": 1
+          }
+        },
+        "frozen_inputs": 9507,
+        "qemu_cases": 48,
+        "current_cli_cases": 16,
+        "reference_helper_cases": 16,
+        "file_outputs": {
+          "qemu": "0",
+          "uninterrupted": "0",
+          "resumed": "0"
+        }
+      },
+      "artifact_sha256": {
+        "cli": "df97eea5f36d16d72a807b118e9d232b37e1e6080d50e497aacbd8d7c8f2394a",
+        "engine": "f6772744bab2dbfddf65242a3b55aa513fb26f77fef9bf21e6c11371fbbc846d",
+        "capi": "26b2c5d3b88a39e48419d116fff15527642388374fd88c2518f75e618757cd19"
+      },
+      "assumption_register": [
+        {
+          "id": "FHM1",
+          "assumption": "FP16 and FHM are independently selected synthetic capabilities with an architectural dependency.",
+          "basis": "Local Arm ASL HaveFP16MulNoRoundingToFP32Ext and feature ID fields.",
+          "dependent_result": "Admission and ID consistency.",
+          "stress_test": "All flag combinations, ARM/Thumb, vector/indexed forms, access traps, reserved fields and illegal execution state.",
+          "falsification_probe": "Disabled FHM executes, reserved fields enable it, or modeled ID consumers disagree.",
+          "status": "confirmed within tested modeled paths"
+        },
+        {
+          "id": "FHM2",
+          "assumption": "Actual old positional context exports remain readable through explicit versioned decoders.",
+          "basis": "Three actual pre-change A32/A64/S3C exports and retained producer hashes.",
+          "dependent_result": "Backward checkpoint compatibility.",
+          "stress_test": "Restore old exports, compare private/public state, continue A32/A64 NOP, reject conflicting or incoherent new records.",
+          "falsification_probe": "Old export is rejected or declared register/backend-count state is lost.",
+          "status": "confirmed for retained fixture formats"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "remaining": "A64 half-precision execution/native admission beyond FHM and FP-access-trap retirement remain reproducible defects.",
+          "evidence": [
+            "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-a64-half-admission-v1/result.json",
+            "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-implementation/next-fp-access-retirement-final-v2/result.json"
+          ]
+        },
+        {
+          "impact": "high",
+          "remaining": "Full A32 profile/security/virtualization, checkpoint/in-flight/publication, SMP/native/debug/clock/replay and physical Intel Mac HVF closure remain open."
+        },
+        {
+          "impact": "medium",
+          "remaining": "The whole Linux raw native-reference suite and physical A32 runtime were not run; the exact reference helper was exercised on Apple Silicon. Rosetta is not physical Intel HVF proof."
+        }
+      ],
+      "harness_notes": [
+        "Early integration, native-lifter assumption, generated-positive-profile and counter-expectation failures remain recorded; only the final frozen-source checks qualify this group.",
+        "Generated allocation tests now explicitly enable FP16/FHM in both generator paths and the small checked-in helper. No full corpus regeneration occurred.",
+        "The standalone generator lock was stale against its existing RAX path dependency. Offline metadata synchronized that lock; root manifest/lock remain unchanged. Identity-level changes are recorded separately.",
+        "Public C API icount restarts at zero after context restore; private backend count is preserved. The two fixture assertions were corrected to that existing documented contract.",
+        "Two library tests and five doctests remain ignored; no execution credit is assigned to ignored tests."
       ]
     }
   ],

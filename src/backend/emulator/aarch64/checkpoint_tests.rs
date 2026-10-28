@@ -222,3 +222,86 @@ fn memory_map_reconstruction_discards_only_the_old_reservation_right() {
         })
     );
 }
+
+#[test]
+fn legacy_migration_cannot_hide_conflicting_ids_and_new_records_require_coherence() {
+    let source = Aarch64Vcpu::new_micro(0, memory());
+    let mut raw_context = context(&source);
+    let mut core = serde_json::to_value(&raw_context.core).unwrap();
+    let pfr = core["sysregs"]["id_aa64pfr0_el1"].as_u64().unwrap();
+    let isar = core["sysregs"]["id_aa64isar0_el1"].as_u64().unwrap();
+    let legacy_pfr = (pfr & !((15 << 16) | (15 << 20))) | (2 << 16) | (1 << 20);
+    let legacy_isar = (isar & !(15 << 48)) | (1 << 48);
+    core["sysregs"]["id_aa64pfr0_el1"] = legacy_pfr.into();
+    core["sysregs"]["id_aa64isar0_el1"] = legacy_isar.into();
+    raw_context.core = serde_json::from_value(core).unwrap();
+    let mut state = source.get_state().unwrap();
+    let CpuState::Aarch64(arm) = &mut state else {
+        panic!()
+    };
+    let sys = &mut arm.sregs.execution.as_mut().unwrap().sysregs;
+    sys.id_aa64pfr0_el1 = legacy_pfr;
+    sys.id_aa64isar0_el1 = legacy_isar;
+    let payload = crate::codec::serialize(&raw_context).unwrap();
+    let mut data = LEGACY_TAG.to_vec();
+    data.extend_from_slice(&payload);
+    let raw = BackendContext {
+        kind: AARCH64_CONTEXT,
+        data,
+    };
+    let mut target = Aarch64Vcpu::new_micro(0, memory());
+    let before = target.get_state().unwrap();
+    let prepared = target.prepare_private_checkpoint(&state, &raw).unwrap();
+    prepared.cpu.validate_fp_profile().unwrap();
+    assert_eq!(
+        (prepared
+            .cpu
+            .export_sregs()
+            .execution
+            .unwrap()
+            .sysregs
+            .id_aa64isar0_el1
+            >> 48)
+            & 15,
+        0
+    );
+    let mut conflicting = state.clone();
+    let CpuState::Aarch64(arm) = &mut conflicting else {
+        panic!()
+    };
+    arm.sregs
+        .execution
+        .as_mut()
+        .unwrap()
+        .sysregs
+        .id_aa64isar0_el1 ^= 1 << 48;
+    assert!(
+        target
+            .restore_checkpoint_context(
+                &conflicting,
+                &crate::vm::snapshot::EmulatorState::default(),
+                Some(&raw)
+            )
+            .is_err()
+    );
+    let mut new_data = TAG.to_vec();
+    new_data.extend_from_slice(&payload);
+    assert!(
+        target
+            .restore_checkpoint_context(
+                &state,
+                &crate::vm::snapshot::EmulatorState::default(),
+                Some(&BackendContext {
+                    kind: AARCH64_CONTEXT,
+                    data: new_data
+                })
+            )
+            .is_err()
+    );
+    let (CpuState::Aarch64(actual), CpuState::Aarch64(expected)) =
+        (target.get_state().unwrap(), before)
+    else {
+        panic!()
+    };
+    assert_eq!(actual, expected);
+}

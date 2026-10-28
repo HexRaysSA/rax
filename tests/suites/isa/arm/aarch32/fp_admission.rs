@@ -255,3 +255,6 @@ fn capability_field_boundaries_keep_scalar_and_simd_requirements_independent() {
         }
     }
 }
+
+#[path = "fp_fhm_admission.rs"]
+mod fhm;

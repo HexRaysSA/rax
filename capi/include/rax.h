@@ -461,7 +461,8 @@ RAX_API rax_status rax_emu_step(rax_engine *engine, uint64_t count, uint64_t *ex
 RAX_API rax_status rax_emu_stop(rax_engine *engine);
 /* Copy the most recent stop/exit descriptor into *out. */
 RAX_API rax_status rax_emu_last_exit(const rax_engine *engine, rax_exit *out);
-/* Total number of instructions retired by the vCPU. */
+/* Instructions retired since creation, reset or context restore.
+ * Cumulative across emulation calls and mapping changes. */
 RAX_API uint64_t   rax_emu_icount(const rax_engine *engine);
 
 /* Interrupts. User mode has no asynchronous interrupts: rax_interrupt and

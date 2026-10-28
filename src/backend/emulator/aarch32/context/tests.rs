@@ -349,3 +349,22 @@ fn thumb_it_state_and_decoder_mode_survive_the_boundary() {
     };
     assert_eq!(&final_state.regs.r[..2], &[1, 2]);
 }
+
+#[test]
+fn disabled_fhm_profile_survives_private_context_restore() {
+    let (mut source, memory) = fixture(&[0xfc220813]);
+    source.cpu.cp15.id_isar6 = 0;
+    let raw = source.save_context().unwrap();
+    assert!(raw.starts_with(b"RAXA3202"));
+    let mut target = Aarch32Vcpu::new(0, memory);
+    target.restore_context(&raw).unwrap();
+    assert_eq!(target.cpu.cp15.id_isar6, 0);
+    let before = target.cpu.vfp.dregs;
+    let insn = crate::isa::arm::decoder::Aarch32Decoder::decode(0xfc220813).unwrap();
+    let mut memory = crate::isa::arm::execution::FlatMemory::new(4096, 0);
+    assert!(matches!(
+        crate::isa::arm::Executor::new(&mut target.cpu, &mut memory).execute(&insn),
+        crate::isa::arm::ExecResult::Undefined
+    ));
+    assert_eq!(target.cpu.vfp.dregs, before);
+}

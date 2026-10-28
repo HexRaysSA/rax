@@ -18,6 +18,7 @@ impl AArch64Cpu {
         let psr = self.aarch32.expect("AArch32 execution mode");
         let mut cpu = Armv7Cpu::new();
         cpu.pstate_features = self.config.features;
+        cpu.cp15.id_isar6 = u32::from(self.fhm_supported()) << 8;
         if !self.config.features.contains(ArmFeatures::FP16) {
             // ARMv8 baseline half/single/double conversions remain available;
             // scalar and Advanced SIMD half data processing do not.

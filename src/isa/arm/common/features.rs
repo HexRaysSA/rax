@@ -43,7 +43,7 @@ bitflags! {
         const CRC32 = 1 << 7;
 
         // =====================================================================
-        // SIMD/Vector Extensions (bits 8-23, 30-31)
+        // SIMD/Vector Extensions (bits 8-23, 30-31, 45)
         // =====================================================================
 
         /// NEON/Advanced SIMD.
@@ -53,6 +53,10 @@ bitflags! {
         /// Half-precision floating-point (FEAT_FP16).
         /// ARMv8.2+ optional, enables FP16 arithmetic.
         const FP16 = 1 << 9;
+
+        /// Half-precision products accumulated into single precision (FEAT_FHM).
+        /// Requires FP16; mandatory from ARMv8.4-A.
+        const FHM = 1 << 45;
 
         /// BFloat16 format (FEAT_BF16, ARMv8.6+).
         /// ML-optimized 16-bit format.
@@ -171,7 +175,7 @@ bitflags! {
         const SVE_F32MM = 1 << 39;
 
         // =====================================================================
-        // Virtualization (bits 40-47)
+        // Virtualization (bits 40-44)
         // =====================================================================
 
         /// Virtualization Host Extensions (FEAT_VHE, ARMv8.1+).
@@ -310,7 +314,7 @@ impl ArmFeatures {
 
     /// Create a feature set for ARMv8.4-A (adds LSE2, DIT, NV2).
     pub fn armv8_4_base() -> Self {
-        Self::armv8_3_base() | Self::LSE2 | Self::DIT | Self::RCPC2 | Self::NV2
+        Self::armv8_3_base() | Self::LSE2 | Self::DIT | Self::RCPC2 | Self::NV2 | Self::FHM
     }
 
     /// Create a feature set for ARMv8.5-A (adds BTI, MTE, RNG, SB).

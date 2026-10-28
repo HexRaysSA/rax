@@ -6,8 +6,8 @@ a backend exports one. Runtime restoration admits all public projections and
 opaque contexts before changing the first CPU, RAM, or legacy device. The
 existing base snapshot and section 11 representations remain unchanged.
 
-The standalone AArch32 producer retains its versioned `RAXA3201` context. The
-actual ARM1176/S3C64xx VMM adapter uses `RAXS3C01`: its complete represented
+The standalone AArch32 producer retains its versioned `RAXA3202` context (`RAXA3201` remains readable). The
+actual ARM1176/S3C64xx VMM adapter uses `RAXS3C02` (`RAXS3C01` remains readable): its complete represented
 `Armv7Cpu`, CP15 and banked registers, exclusive reservation, instruction count,
 halt/shutdown state, last bridge fault, power-off latch, both VICs, PWM counter
 phase, SYSCON registers, and attached UART registers/input FIFO. MMU/privilege

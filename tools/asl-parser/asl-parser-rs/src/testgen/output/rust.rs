@@ -28,6 +28,8 @@ fn allocation_oracle_cpu() -> rax::isa::arm::AArch64Cpu {
             let mut config = rax::isa::arm::AArch64Config::default();
             config.features |= rax::isa::arm::ArmFeatures::PACA;
             config.features |= rax::isa::arm::ArmFeatures::PACG;
+            config.features |= rax::isa::arm::ArmFeatures::FP16;
+            config.features |= rax::isa::arm::ArmFeatures::FHM;
             config
         },
         Box::new(rax::isa::arm::FlatMemory::new(0, 0x1000_0000)),
@@ -39,7 +41,7 @@ fn allocation_oracle_cpu() -> rax::isa::arm::AArch64Cpu {
     cpu
 }
 
-/// Run an A64 encoding through the real rax emulator (PAuth enabled, mirroring
+/// Run an A64 encoding through the real rax emulator (PAuth/FP16/FHM enabled, mirroring
 /// `create_test_cpu`) and return the matching expected result. Generated A64
 /// encoding tests use this so they characterize the verified-correct decoder
 /// (the arm_diff hardware-differential suite remains the independent check),
@@ -208,10 +210,12 @@ use rax::isa::arm::{AArch64Config, AArch64Cpu, ArmCpu, ArmError, CpuExit, FlatMe
 fn create_test_cpu() -> AArch64Cpu {
     let memory = FlatMemory::new(0, 0x1000_0000);
     let mut config = AArch64Config::default();
-    // ASL PAuth forms require address and generic key features. Absence behavior
-    // is checked by the dedicated direct-ISA tests, not this allocated corpus.
+    // Allocated PAuth/FHM forms require their capabilities enabled. Absence
+    // behavior is checked by dedicated profile tests, not this allocated corpus.
     config.features |= rax::isa::arm::ArmFeatures::PACA;
     config.features |= rax::isa::arm::ArmFeatures::PACG;
+    config.features |= rax::isa::arm::ArmFeatures::FP16;
+    config.features |= rax::isa::arm::ArmFeatures::FHM;
     let mut cpu = AArch64Cpu::new(config, Box::new(memory));
     let mut controls = cpu.pauth_controls();
     controls.hcr_el2 |= (1 << 40) | (1 << 41);
@@ -1501,6 +1505,39 @@ mod tests {
                 assert!(matches!(
                     super::emulator_expected_a64(encoding),
                     super::ExpectedResult::Pass
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn fhm_allocation_and_reserved_fields_survive_oracle_reset() {
+        for _ in 0..2 {
+            for encoding in [
+                0x0e22_ec20,
+                0x4e22_ec20,
+                0x0ea2_ec20,
+                0x4ea2_ec20,
+                0x2e22_cc20,
+                0x6e22_cc20,
+                0x2ea2_cc20,
+                0x6ea2_cc20,
+                0x0f82_0020,
+                0x4f82_0020,
+                0x0f82_4020,
+                0x4f82_4020,
+                0x2f82_8020,
+                0x6f82_8020,
+                0x2f82_c020,
+                0x6f82_c020,
+            ] {
+                assert!(matches!(
+                    super::emulator_expected_a64(encoding),
+                    super::ExpectedResult::Pass
+                ));
+                assert!(matches!(
+                    super::emulator_expected_a64(encoding | (1 << 31)),
+                    super::ExpectedResult::Unallocated
                 ));
             }
         }

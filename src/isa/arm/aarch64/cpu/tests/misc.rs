@@ -464,13 +464,21 @@ fn simd_float_fused_sets_underflow_status_for_lost_product() {
 }
 #[test]
 fn simd_fmlal_rejects_reserved_size() {
+    let create_fhm_cpu = |insn| {
+        let mut cpu = create_cpu_with_insn(insn);
+        cpu.config
+            .features
+            .insert(ArmFeatures::FP16 | ArmFeatures::FHM);
+        cpu.update_fp_id_registers();
+        cpu
+    };
     for insn in [
         0x0e60_ec00, // FMLAL with reserved low size bit
         0x0ee0_ec00, // FMLSL with reserved low size bit
         0x2e60_cc00, // FMLAL2 with reserved low size bit
         0x6e60_cc00, // FMLAL2 with reserved low size bit, Q=1
     ] {
-        let mut cpu = create_cpu_with_insn(insn);
+        let mut cpu = create_fhm_cpu(insn);
         cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
         let exit = cpu.step();
         assert!(
@@ -480,11 +488,11 @@ fn simd_fmlal_rejects_reserved_size() {
         );
     }
 
-    let mut cpu = create_cpu_with_insn(0x0e20_ec00); // FMLAL V0.2S, V0.2H, V0.2H
+    let mut cpu = create_fhm_cpu(0x0e20_ec00); // FMLAL V0.2S, V0.2H, V0.2H
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
 
-    let mut cpu = create_cpu_with_insn(0x0ea0_ec00); // FMLSL V0.2S, V0.2H, V0.2H
+    let mut cpu = create_fhm_cpu(0x0ea0_ec00); // FMLSL V0.2S, V0.2H, V0.2H
     cpu.sysregs.el1.cpacr |= 0b11 << 20; // FPEN
     assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
 }

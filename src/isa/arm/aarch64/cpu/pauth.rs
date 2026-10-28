@@ -104,6 +104,7 @@ impl AArch64Cpu {
     }
 
     pub(super) fn update_pauth_id_registers(&mut self) {
+        self.update_fp_id_registers();
         use crate::isa::arm::aarch64::pauth::{PauthAlgorithm, PauthProfile};
         self.sysregs.id_aa64isar1_el1 &= !((15 << 4) | (15 << 8) | (15 << 24) | (15 << 28));
         self.sysregs.id_aa64isar2_el1 &= !((15 << 8) | (15 << 12));

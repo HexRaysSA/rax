@@ -140,9 +140,19 @@ fn kind(insn: &DecodedInsn, advsimd: bool) -> HalfKind {
     }
 }
 
-pub(crate) fn half_supported(insn: &DecodedInsn, advsimd: bool, state: &VfpState) -> bool {
+pub(crate) fn half_supported(
+    insn: &DecodedInsn,
+    advsimd: bool,
+    state: &VfpState,
+    id_isar6: u32,
+) -> bool {
     let scalar = (state.mvfr1 >> 24) & 15;
     let simd = (state.mvfr1 >> 20) & 15;
+    // FHM is distinct from FP16 arithmetic and requires vector half support.
+    // Reserved feature encodings must not accidentally enable the extension.
+    if matches!(insn.mnemonic, Mnemonic::VFMAL | Mnemonic::VFMLS) {
+        return advsimd && simd == 2 && (id_isar6 >> 8) & 15 == 1;
+    }
     // The default full-half profile needs no further instruction classification.
     if scalar == 3 && simd == 2 {
         return true;

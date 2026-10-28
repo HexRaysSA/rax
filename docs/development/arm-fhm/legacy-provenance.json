@@ -1,0 +1,61 @@
+{
+  "legacy-a32-v1.context": {
+    "record": {
+      "time": "2026-10-28T18:12:11.232972+00:00",
+      "status": "actual pre-FHM export",
+      "library_sha256": "7f124de002761bc260867527b96eda4a17268bf8ee82e4761a4d31a0b196e74d",
+      "fixture_sha256": "5fba09ecb8188e476499d904b24c2bde30f2d7852249d8364ace92b045dfe1cc",
+      "fixture_bytes": 5477,
+      "format": 5,
+      "arch": 3,
+      "mode": 2,
+      "memory_base": 0,
+      "memory_bytes": 4096,
+      "memory_perms": 7,
+      "code_address": 256,
+      "guest_code_hex": "230100e300f020e3",
+      "executed": 1,
+      "expected_pc": 260,
+      "expected_r0": 291,
+      "provenance": "Actual copied current C API library before any FHM implementation; no whole-engine source commit inferred solely from artifact filename."
+    },
+    "fixture_sha256": "5fba09ecb8188e476499d904b24c2bde30f2d7852249d8364ace92b045dfe1cc"
+  },
+  "legacy-a64-v1.context": {
+    "record": {
+      "time": "2026-10-28T18:46:49.507935+00:00",
+      "parent": "457c02a74412bcf1f782ddedca25b77e3b81d92e",
+      "library_sha256": "7f124de002761bc260867527b96eda4a17268bf8ee82e4761a4d31a0b196e74d",
+      "fixture_sha256": "986c7f249e9883d0da10c533e2433fc20998cec458c6c39cacf6d3b875399557",
+      "fixture_bytes": 19431,
+      "format": 8,
+      "inner_tag": "RAXA6401",
+      "arch": 2,
+      "mode": 4,
+      "memory_base": 0,
+      "memory_bytes": 4096,
+      "memory_perms": 7,
+      "code_address": 256,
+      "guest_code_hex": "602480d21f2003d5",
+      "executed": 1,
+      "expected_pc": 260,
+      "expected_x0": 291
+    },
+    "fixture_sha256": "986c7f249e9883d0da10c533e2433fc20998cec458c6c39cacf6d3b875399557"
+  },
+  "legacy-s3c-v1.bin": {
+    "record": {
+      "producer_commit": "457c02a74412bcf1f782ddedca25b77e3b81d92e",
+      "engine_rlib_sha256": "994ea40dbcd4047f139810b9ac50060ec3345d567e8511d2d6e91bf23a3411e6",
+      "bytes": 5160,
+      "sha256": "e5ef1f9020641f9a5116e7c8d0bd3e729cc053dbc39a82548506f0937d1087bf",
+      "expected": {
+        "count": 0,
+        "pc": 1342177280,
+        "r0": 291
+      },
+      "time": "2026-10-28T18:54:50.162154+00:00"
+    },
+    "fixture_sha256": "e5ef1f9020641f9a5116e7c8d0bd3e729cc053dbc39a82548506f0937d1087bf"
+  }
+}

@@ -536,6 +536,10 @@ impl SystemRegisters {
             // REVIDR_EL1
             (3, 0, 0, 0, 6) => Some(self.revidr_el1),
 
+            // ID_ISAR6_EL1.FHM aliases the selected A64 FHM capability.
+            // Keep it here so CPU execution and saved-state/SMIR readers agree.
+            (3, 0, 0, 2, 7) => Some(((self.id_aa64isar0_el1 >> 48) & 15) << 8),
+
             // ID_AA64PFR0_EL1
             (3, 0, 0, 4, 0) => Some(self.id_aa64pfr0_el1),
             // ID_AA64PFR1_EL1

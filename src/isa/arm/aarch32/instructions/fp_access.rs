@@ -15,6 +15,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             insn,
             kind.advsimd,
             &self.cpu.vfp,
+            self.cpu.cp15.id_isar6,
         ) {
             return Some(ExecResult::Undefined);
         }

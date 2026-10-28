@@ -36,8 +36,9 @@ The shared standalone/mixed executor derives half-precision admission from
 MVFR1, before its FP access trap checks. The mixed-width producer derives
 FPHP/SIMDHP from the enclosing FP16 flag: (2,1) for conversions and (3,2)
 for conversion and arithmetic. FPSCR.FZ16 is masked in conversion-only
-profiles, including state copied from the enclosing PE. The full-half default
-profile skips further family classification. Classification has bounded O(1)
+profiles, including state copied from the enclosing PE. FHM has a separate capability/dependency check before the full-half fast path;
+the other full-half families skip further classification. See
+[FP16/FHM profiles](../../arm-fhm/README.md) for the versioned state changes. Classification has bounded O(1)
 time and space for each decoded instruction.
 
 Armv8-R Supplement DDI0568A.b, Table B1-1, printed/PDF page B1-26/26,

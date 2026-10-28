@@ -16,7 +16,7 @@ requires a new format revision before published contexts can use it.
 
 | Format field | Representation |
 | --- | --- |
-| Format/revision tag | Eight ASCII bytes `RAXA3201` |
+| Format/revision tag | Eight ASCII bytes `RAXA3202`; frozen `RAXA3201` decoder retained |
 | vCPU identity | Fixed little-endian u32 |
 | CPU state | Declared Serde field order of `Armv7Cpu` and its state types |
 | Exclusive address | Legacy-encoded `Option<u32>` |

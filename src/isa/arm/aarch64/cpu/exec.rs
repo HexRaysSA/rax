@@ -227,6 +227,7 @@ impl AArch64Cpu {
 
     /// Decode and execute an instruction.
     pub(crate) fn decode_and_execute(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        self.check_fhm_instruction(insn)?;
         // Top-level decode by bits [28:25]
         let op0 = (insn >> 25) & 0xF;
 

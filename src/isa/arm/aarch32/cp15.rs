@@ -65,6 +65,8 @@ pub struct Cp15State {
     pub id_mmfr: [u32; 4],
     /// Instruction Set Attribute Register 0-5.
     pub id_isar: [u32; 6],
+    /// Instruction Set Attribute Register 6, including FEAT_FHM in bits [11:8].
+    pub id_isar6: u32,
 
     // =========================================================================
     // System Control Registers - CRn=1
@@ -218,6 +220,9 @@ impl Default for Cp15State {
                 0x02101110, 0x13112111, 0x21232041, 0x11112131, 0x10011142, 0,
             ],
 
+            // Standalone synthetic full-half profile, independently configurable.
+            id_isar6: 1 << 8,
+
             // System control - reset values
             sctlr: Sctlr::default(),
             actlr: 0,
@@ -313,9 +318,7 @@ impl Cp15State {
             (0, 0, 2, 3) => Some(self.id_isar[3]),
             (0, 0, 2, 4) => Some(self.id_isar[4]),
             (0, 0, 2, 5) => Some(self.id_isar[5]),
-            // ID_ISAR6.FHM: implemented half-to-single VFMAL/VFMSL.
-            // A constant read-only feature adds no serialized state field.
-            (0, 0, 2, 7) => Some(1 << 8),
+            (0, 0, 2, 7) => Some(self.id_isar6),
 
             // CRn=1: System control
             (1, 0, 0, 0) => Some(self.sctlr.bits()),

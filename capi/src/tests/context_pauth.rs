@@ -597,3 +597,40 @@ fn actual_legacy_format_four_fixture_remains_readable() {
     }
     rax_engine_close(engine);
 }
+
+#[test]
+fn actual_legacy_a64_private_fixture_migrates_profile_after_projection_validation() {
+    let raw = include_bytes!("../../../docs/development/arm-fhm/legacy-a64-v1.context");
+    let engine = small_arm64();
+    assert_eq!(
+        rax_context_restore(engine, raw.as_ptr(), raw.len()),
+        RaxStatus::Ok
+    );
+    unsafe {
+        assert_eq!(rd_u64(engine, ARM64_X0), 0x123);
+        assert_eq!(rd_u64(engine, 0x0011), 0x104);
+        assert_eq!(rax_emu_icount(engine), 0);
+        assert_eq!((*engine).vcpu.instruction_count(), 1);
+        let CpuState::Aarch64(state) = (*engine).vcpu.get_state().unwrap() else {
+            panic!()
+        };
+        let execution = state.sregs.execution.unwrap();
+        assert_eq!((execution.sysregs.id_aa64isar0_el1 >> 48) & 15, 0);
+        assert_eq!((execution.sysregs.id_aa64pfr0_el1 >> 16) & 15, 0);
+        let current = save(engine);
+        assert!(current.windows(8).any(|tag| tag == b"RAXA6402"));
+        assert_eq!(
+            rax_context_restore(engine, current.as_ptr(), current.len()),
+            RaxStatus::Ok
+        );
+        assert_eq!(rax_emu_icount(engine), 0);
+        assert_eq!((*engine).vcpu.instruction_count(), 1);
+        let mut executed = 0;
+        assert_eq!(rax_emu_step(engine, 1, &mut executed), RaxStatus::Ok);
+        assert_eq!(executed, 1);
+        assert_eq!(rd_u64(engine, 0x0011), 0x108);
+        assert_eq!(rax_emu_icount(engine), 1);
+        assert_eq!((*engine).vcpu.instruction_count(), 2);
+    }
+    rax_engine_close(engine);
+}

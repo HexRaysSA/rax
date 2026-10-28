@@ -9,13 +9,19 @@ const CPU_STATE_AARCH64_VARIANT: u32 = 2;
 
 pub(super) fn decode_state(bytes: &[u8], version: u32) -> Option<CpuState> {
     if matches!(version, CTX_VERSION_AARCH64 | CTX_VERSION_AARCH64_PRIVATE) {
-        let state: CpuState = rax_engine::codec::deserialize_strict(bytes).ok()?;
+        let mut state: CpuState = rax_engine::codec::deserialize_strict(bytes).ok()?;
         let CpuState::Aarch64(arm) = &state else {
             return None;
         };
         let execution = arm.sregs.execution.as_ref()?;
         ArmFeatures::from_bits(execution.features)?;
         AArch64Cpu::validate_saved_state(arm.regs.pstate, &arm.sregs).ok()?;
+        if version == CTX_VERSION_AARCH64 {
+            let CpuState::Aarch64(arm) = &mut state else {
+                unreachable!()
+            };
+            AArch64Cpu::migrate_legacy_fp_state(&mut arm.sregs);
+        }
         return Some(state);
     }
 

@@ -1,5 +1,7 @@
 //! Wire representation of optional feature bits in private ARM contexts.
 
+pub(crate) mod legacy;
+
 pub(super) mod feature_bits {
     use crate::isa::arm::common::features::ArmFeatures;
     use serde::{Deserialize, Deserializer, Serializer};

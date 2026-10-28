@@ -1,6 +1,6 @@
 # AArch64 private checkpoints
 
-The software adapter emits backend kind `5`, inner tag `RAXA6401`. The core
+The software adapter emits backend kind `5`, inner tag `RAXA6402` (with `RAXA6401` legacy import). The core
 record retains raw integer/SP banks, modeled PSTATE and mixed-width state,
 SIMD/FP/SVE state, complete system-register and MMU configuration, counters,
 wait/event/pending-exception state, debug state, and pending native faults and

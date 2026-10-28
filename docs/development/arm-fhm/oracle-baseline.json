@@ -1,0 +1,1680 @@
+{
+  "time": "2026-10-28T17:56:26.965343+00:00",
+  "status": "passed",
+  "profiles": [
+    "cortex-a53 FP16=0 FHM=0",
+    "cortex-a55 FP16=1 FHM=0",
+    "max FP16=1 FHM=1"
+  ],
+  "guest_instruction_forms": 8,
+  "execution_states": 2,
+  "qemu_cases": 48,
+  "inputs": {
+    "arm-vector-add-d": {
+      "opcode": "0xfc220813",
+      "sha256": "78dadb1248c0d6a27f962fa69a99090b3ffab4b6b52622d245d3b6b830995d05"
+    },
+    "arm-vector-add-q": {
+      "opcode": "0xfc220853",
+      "sha256": "b62f19906b7b0956e284e2b566a20aafc63c7738b14315681edecad493d0e789"
+    },
+    "arm-vector-sub-d": {
+      "opcode": "0xfca20813",
+      "sha256": "c2cb3e927561f2e11e2d87b0df8c2231074cf2154c5fbac69e0ff9ec5dfea283"
+    },
+    "arm-vector-sub-q": {
+      "opcode": "0xfca20853",
+      "sha256": "31970174808ed9b6de50b154de31e7fc9099f0b46b3eed4940e272a83be4eeeb"
+    },
+    "arm-indexed-add-d": {
+      "opcode": "0xfe020813",
+      "sha256": "5b743fc9ad2b9494a22a1f32e615f41e80faaa980aea08b9aa366afc2d722ebd"
+    },
+    "arm-indexed-add-q": {
+      "opcode": "0xfe020853",
+      "sha256": "5c2b2b406ffb1f9b536d361f6157ac2d9129c10eaea624ae29aa3c01d94c3c54"
+    },
+    "arm-indexed-sub-d": {
+      "opcode": "0xfe120813",
+      "sha256": "4798b6cd763537beb0ce614c291f3da6105009eb98d21fe82d39004b1e69a3b5"
+    },
+    "arm-indexed-sub-q": {
+      "opcode": "0xfe120853",
+      "sha256": "0da124c141f5c8a461209cf268404beba2042469cb5e97780e5419000ae66209"
+    },
+    "thumb-vector-add-d": {
+      "opcode": "0xfc220813",
+      "sha256": "d52ac624fbc5b4cacffdde6a407511ce632368c966571ec8d05e97b06085a364"
+    },
+    "thumb-vector-add-q": {
+      "opcode": "0xfc220853",
+      "sha256": "36b58eb6c6debc923e319711c32f2998a5ec3fe54cc14551668ee25445489217"
+    },
+    "thumb-vector-sub-d": {
+      "opcode": "0xfca20813",
+      "sha256": "e239b83a15003c3f9ce1188c36fccb27630a591f7ab5f77746a1f0c9d3d48f4e"
+    },
+    "thumb-vector-sub-q": {
+      "opcode": "0xfca20853",
+      "sha256": "d121e01c443b4477bb7291925dcce7247407437088d50d0b13a37d1e41df9ca3"
+    },
+    "thumb-indexed-add-d": {
+      "opcode": "0xfe020813",
+      "sha256": "3d7202c7cf1ad0526abcacd2c1090853437c2733bc048c5942fc4e1066767d25"
+    },
+    "thumb-indexed-add-q": {
+      "opcode": "0xfe020853",
+      "sha256": "333b80a070fbe35cd917f0051e176b8bc082bd510e5236ff18a36b38e039c078"
+    },
+    "thumb-indexed-sub-d": {
+      "opcode": "0xfe120813",
+      "sha256": "03682d9797bfdd5d16d4d0f82688ddac69e079675007ac18e620bd8e686618fa"
+    },
+    "thumb-indexed-sub-q": {
+      "opcode": "0xfe120853",
+      "sha256": "4d96dcef61e24d2d4dd2e16688178bbfe4dba729fcf4e8d4d318e8a0b429182b"
+    }
+  },
+  "commands": [
+    {
+      "name": "arm-vector-add-d-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-d.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-d.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-add-d-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-d.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-d.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-add-d-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-add-d-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-add-d-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-add-q-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-q.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-q.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-add-q-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-q.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-q.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-add-q-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-add-q-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-add-q-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-d-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-d.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-d.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-d-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-d.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-d.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-d-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-d-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-d-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-q-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-q.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-q.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-q-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-q.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-q.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-q-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-q-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-vector-sub-q-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-vector-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-d-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-d.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-d.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-d-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-d.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-d.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-d-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-d-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-d-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-q-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-q.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-q.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-q-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-q.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-q.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-q-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-q-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-add-q-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-d-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-d.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-d.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-d-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-d.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-d.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-d-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-d-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-d-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-q-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-q.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-q.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-q-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-q.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-q.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-q-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-q-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "arm-indexed-sub-q-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/arm-indexed-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-d-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-d.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-d.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-d-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-d.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-d.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-d-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-d-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-d-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-q-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-q.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-q.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-q-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-q.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-q.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-q-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-q-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-add-q-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-d-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-d.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-d.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-d-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-d.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-d.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-d-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-d-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-d-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-q-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-q.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-q.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-q-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-q.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-q.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-q-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-q-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-vector-sub-q-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-vector-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-d-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-d.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-d.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-d-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-d.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-d.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-d-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-d-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-d-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-q-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-q.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-q.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-q-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-q.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-q.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-q-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-q-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-add-q-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-add-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-d-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-d.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-d.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-d-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-d.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-d.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-d-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-d-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-d-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-d.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-q-assemble",
+      "command": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=aarch64",
+        "-filetype=obj",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-q.s",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-q.o"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-q-link",
+      "command": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/guest.ld",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-q.o",
+        "-o",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-q.elf"
+      ],
+      "code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-q-cortex-a53",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a53",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-q-cortex-a55",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a55",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "0U",
+      "stderr": ""
+    },
+    {
+      "name": "thumb-indexed-sub-q-max",
+      "command": [
+        "/opt/homebrew/bin/qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "max",
+        "-m",
+        "128M",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-kernel",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/fhm-admission-oracle-v1/thumb-indexed-sub-q.elf",
+        "-no-reboot"
+      ],
+      "code": 0,
+      "stdout": "1P",
+      "stderr": ""
+    }
+  ]
+}

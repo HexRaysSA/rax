@@ -222,3 +222,34 @@ fn aarch32_c_context_rejects_corruption_and_every_truncation_without_publication
     rax_engine_close(source);
     rax_engine_close(target);
 }
+
+#[test]
+fn actual_legacy_a32_private_fixture_remains_readable() {
+    let raw = include_bytes!("../../../docs/development/arm-fhm/legacy-a32-v1.context");
+    let engine = open();
+    assert_eq!(
+        rax_context_restore(engine, raw.as_ptr(), raw.len()),
+        RaxStatus::Ok
+    );
+    unsafe {
+        assert_eq!(rd_u64(engine, 0x0100), 0x123);
+        assert_eq!(rd_u64(engine, PC), 0x104);
+        assert_eq!(rax_emu_icount(engine), 0);
+        assert_eq!((*engine).vcpu.instruction_count(), 1);
+        let current = save(engine);
+        assert!(current.windows(8).any(|tag| tag == b"RAXA3202"));
+        assert_eq!(
+            rax_context_restore(engine, current.as_ptr(), current.len()),
+            RaxStatus::Ok
+        );
+        assert_eq!(rax_emu_icount(engine), 0);
+        assert_eq!((*engine).vcpu.instruction_count(), 1);
+        let mut executed = 0;
+        assert_eq!(rax_emu_step(engine, 1, &mut executed), RaxStatus::Ok);
+        assert_eq!(executed, 1);
+        assert_eq!(rd_u64(engine, PC), 0x108);
+        assert_eq!(rax_emu_icount(engine), 1);
+        assert_eq!((*engine).vcpu.instruction_count(), 2);
+    }
+    rax_engine_close(engine);
+}

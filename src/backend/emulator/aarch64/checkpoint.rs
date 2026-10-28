@@ -8,7 +8,8 @@ use crate::vm::memory::reservations::{Monitor, Reservation};
 use crate::vm::snapshot::{AARCH64_CONTEXT, BackendContext};
 use serde::{Deserialize, Serialize};
 
-const TAG: &[u8; 8] = b"RAXA6401";
+const TAG: &[u8; 8] = b"RAXA6402";
+const LEGACY_TAG: &[u8; 8] = b"RAXA6401";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - TAG.len();
 
 #[cfg(test)]
@@ -76,6 +77,7 @@ impl Context {
         {
             return Err(invalid("detached CPU has not been published"));
         }
+        cpu.validate_fp_profile().map_err(invalid)?;
         let core = CoreCheckpoint::capture(cpu).map_err(invalid)?;
         let observations = recorder
             .records
@@ -121,6 +123,7 @@ impl Context {
     fn decode(raw: &[u8], target: &Aarch64Vcpu) -> Result<Self> {
         let payload = raw
             .strip_prefix(TAG)
+            .or_else(|| raw.strip_prefix(LEGACY_TAG))
             .ok_or_else(|| invalid("invalid tag"))?;
         if payload.len() > MAX_PAYLOAD {
             return Err(invalid("record exceeds budget"));
@@ -248,12 +251,19 @@ impl Aarch64Vcpu {
         if raw.kind != AARCH64_CONTEXT {
             return Err(invalid("producer differs"));
         }
-        let candidate = Context::decode(&raw.data, self)?.prepare(self)?;
+        let mut candidate = Context::decode(&raw.data, self)?.prepare(self)?;
         candidate
             .validate_checkpoint_state(state, &crate::vm::snapshot::EmulatorState::default())?;
         match (candidate.get_state()?, state) {
             (CpuState::Aarch64(actual), CpuState::Aarch64(expected)) if actual == *expected => {}
             _ => return Err(invalid("public and private projections differ")),
+        }
+        // Compare the original public/private projection before any legacy ID
+        // normalization, so migration cannot hide a conflicting source image.
+        if raw.data.starts_with(LEGACY_TAG) {
+            candidate.cpu.migrate_legacy_fp_profile();
+        } else {
+            candidate.cpu.validate_fp_profile().map_err(invalid)?;
         }
         Ok(candidate)
     }
