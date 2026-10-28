@@ -47,7 +47,7 @@ unqualified; conversion-storage failures remain explicit emulator diagnostics.
 
 ## Frozen native evidence
 
-The six versioned C probes and ARM64-host runners are immutable after execution.
+Every executed versioned C probe and runner is immutable after execution.
 They record Windows 10.0.29695 ARM64, x64 compatibility, and x86 compatibility
 observations. The x86 control's loaded system-image family can differ from the
 emulator's explicitly selected pure-x86 file family; file identity comparisons
@@ -61,14 +61,24 @@ therefore use the selected physical file rather than that control's basename.
 | 4 | 19 | Partial names and the device-prefix boundary |
 | 5 | 28 | Every byte length across that boundary |
 | 6 | 9 | Partial caller copies, crossing optional slots and string aliases |
+| 7 | 48 | First-group queries with deletion result/error captured before the query |
+| 8 | 64 | Every 1-32-byte writable prefix before no-access and guard boundaries |
 
 The 399 retained observations include source and executable SHA-256 identities.
 `project-v1.py` removes duplicated JSON stdout while preserving every parsed
 observation, and binds the original receipt's canonical JSON by SHA-256. Raw
 receipts and build logs are retained separately in task evidence. Reproduce a
 version with `run-vN.py --compiler-env <saved-environment> --output <in-tree-dir>`.
-`run-amd64-v1.py` runs all six frozen probes on native AMD64 and WoW64 and writes
-266 observations. The existing Windows 2022/2025 jobs replay those fresh native
+`run-amd64-v2.py` runs the six case groups on native AMD64 and WoW64 and writes
+394 observations: the original 266 plus 128 byte-boundary controls. It uses `probe-v7.c` for the first group, preserving versions
+1-6 unchanged. Version 7 records both the result and error of the mapped-file
+deletion attempt and then always executes the filename query. The original
+version 1 stopped before that query when deletion failed on Windows 2022
+(build 20348, x64, case 44, exit 94). Failed deletion does not imply that the
+filename query is unavailable; its returned name is compared with the same
+strict service replay. `run-v7.py` captures this corrected setup on all three
+ABIs of the ARM64 host. `probe-v8.c`/`run-v8.py` cover 1-32 caller bytes before
+a no-access or guard boundary. Each receipt binds its actual probe source hash. The existing Windows 2022/2025 jobs replay those fresh native
 results through service dispatch using `RAX_NATIVE_MAPPED_FILENAME_OBSERVATIONS`.
 The ordinary three-platform matrix replays the retained corpus. No jobs are added.
 
@@ -138,3 +148,17 @@ the tested CLI SHA-256 is
 `a3ea6b02e03a8fe2811cc6f14fb04f61801e64dc4ed2f1b0a6311964ebe8085e`.
 Both stayed unchanged across the comparison. The complete three-platform
 process objective remains active and incomplete.
+
+The first fresh AMD64 qualification also falsified the assumption that native
+string padding and WoW64 copy blocks generalize from the ARM64 kernel. Build
+26100 zeros the four padding bytes on successful native64 queries, preserves
+them on short results, and reaches further into partial WoW64 destinations.
+The original exact replay correctly failed; these are open model corrections
+until the new byte-boundary controls are replayed. No padding mask, skipped
+case, or assertion reduction is used to qualify that profile.
+
+The added retained inputs are 144 ARM64-host version-7 rows, 192 ARM64-host
+version-8 rows, and all 266 first-run AMD64 build-26100 rows in
+`amd64-26100-projected-v1.json`. The first AMD64 run and ZIP digest are recorded
+in that corpus. The query implementation still needs the measured profile
+correction; capturing an observation does not establish a passing replay.
