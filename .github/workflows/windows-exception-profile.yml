@@ -25,6 +25,7 @@ on:
       - docs/specifications/windows/native-memory-prefetch/**
       - docs/specifications/windows/native-primary-user-hive/**
       - docs/specifications/windows/native-open-key-ex/**
+      - docs/specifications/windows/native-appmodel-registry/**
       - src/user/windows/process/sched/tests/services_tests/registry_key_open_ex*.rs
       - docs/specifications/windows/native-query-key/**
       - src/user/windows/dll/native/registry.rs
@@ -123,6 +124,22 @@ jobs:
         with:
           name: native-primary-user-hive-${{ matrix.os }}
           path: target/native-primary-user-hive-v4
+          if-no-files-found: error
+      - name: Verify and observe native AppModel registry-view controls
+        run: |
+          python -B -m unittest discover -s docs/specifications/windows/native-appmodel-registry
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-appmodel-registry/run-v1.py --require-native-machine 0x8664 --output target/native-appmodel-registry-v1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve native AppModel registry-view controls
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-appmodel-registry-${{ matrix.os }}
+          path: |
+            target/native-appmodel-registry-v1/receipt.json
+            target/native-appmodel-registry-v1/**/*.log
+            target/native-appmodel-registry-v1/**/*.jsonl
           if-no-files-found: error
       - name: Verify and observe native extended key opens
         run: |

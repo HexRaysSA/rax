@@ -1,0 +1,19 @@
+{
+  "retrieved": "2026-10-28",
+  "kernel": "10.0.29695 ARM64",
+  "raw_bytes_frozen": true,
+  "files": {
+    "probe-v1.cpp": {
+      "bytes": 4920,
+      "sha256": "21c1c69eac9ba9cb876fe398bb1df0fd28061097aa9e4ff0a51f25b3328067cf"
+    },
+    "run-v1.py": {
+      "bytes": 7436,
+      "sha256": "877654009d8f1d88510ed9c7e2f5794a31c449a647bd39b848af9dbd9a3c8377"
+    },
+    "capture-v1.zip": {
+      "bytes": 13960,
+      "sha256": "2b6168dff221e6c8c2a19d52b1c3f9c28311e1ea88e01073fe39312153566b2f"
+    }
+  }
+}
