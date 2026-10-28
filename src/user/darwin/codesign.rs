@@ -174,11 +174,51 @@ pub(crate) fn prepare_traced_exec(proc: &mut Proc) {
     let _ = state(proc);
 }
 
-/// Loads signing state before `PT_TRACE_ME` checks, returning only flags
-/// obtained from the host rather than from the fallback signature.
-pub(crate) fn prepare_trace_me(proc: &mut Proc) -> Option<u32> {
+/// Loads signing state before `PT_TRACE_ME` checks, carrying host-observed
+/// flags and debugging policy rather than treating fallback flags as evidence.
+pub(crate) fn prepare_trace_me(proc: &mut Proc) -> Option<TraceObservation> {
     let observed = harvest(proc);
-    prepare_trace_signing(proc, observed)
+    let flags = prepare_trace_signing(proc, observed)?;
+    Some(TraceObservation {
+        flags,
+        unrestricted_debugging: host_debugging_allowed(proc),
+    })
+}
+
+/// Signing flags checked against a comparable cached CDHash, plus the host's
+/// read-only debugging-policy check. Missing/fallback signing and a detected
+/// CDHash replacement cannot create this observation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct TraceObservation {
+    flags: u32,
+    unrestricted_debugging: bool,
+}
+
+impl TraceObservation {
+    pub(crate) fn allows_unrestricted_debugging(self) -> bool {
+        // The qualified native samples are third-party images. Do not extend
+        // their policy result to platform binaries without a native oracle.
+        self.unrestricted_debugging && self.flags & cs::PLATFORM_BINARY == 0
+    }
+}
+
+fn host_debugging_allowed(proc: &Proc) -> bool {
+    if !proc.config.host_services {
+        return false;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            fn csr_check(mask: u32) -> i32;
+        }
+        // bsd/sys/csr.h: CSR_ALLOW_TASK_FOR_PID. Only a successful check
+        // selects the observed unrestricted debugging profile; errors retain
+        // the existing restricted profile. This does not change host policy.
+        // SAFETY: a scalar, read-only libSystem query with no retained pointers.
+        unsafe { csr_check(1 << 2) == 0 }
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
 }
 
 fn prepare_trace_signing(proc: &mut Proc, observed: Option<Signature>) -> Option<u32> {
@@ -212,19 +252,26 @@ fn prepare_trace_signing(proc: &mut Proc, observed: Option<Signature>) -> Option
 /// Applies the observed `cs_allow_invalid` transition after `PT_TRACE_ME`.
 /// Policy admission generalizes limited host probes; a fallback signature
 /// is not evidence that the hook would allow the transition.
-pub(crate) fn trace_me_allow_invalid(proc: &mut Proc, observed_flags: Option<u32>) {
-    let Some(observed_flags) = observed_flags else {
+pub(crate) fn trace_me_allow_invalid(proc: &mut Proc, observed: Option<TraceObservation>) {
+    if !proc.config.host_services {
+        return;
+    }
+    let Some(observed) = observed else {
         return;
     };
+    let observed_flags = observed.flags;
+    let unrestricted_debugging = observed.allows_unrestricted_debugging();
     let rosetta_zero = cfg!(all(target_os = "macos", target_arch = "aarch64"))
         && proc.abi == crate::user::darwin::abi::DarwinAbi::X86_64
         && observed_flags == 0;
     let Some(current) = &mut proc.codesign else {
         return;
     };
-    let allowed = observed_trace_policy(observed_flags, rosetta_zero)
+    let allowed = (unrestricted_debugging || observed_trace_policy(observed_flags, rosetta_zero))
         && current.flags & cs::PLATFORM_BINARY == 0
-        && (current.flags & cs::RESTRICT == 0 || current.flags & cs::GET_TASK_ALLOW != 0);
+        && (unrestricted_debugging
+            || current.flags & cs::RESTRICT == 0
+            || current.flags & cs::GET_TASK_ALLOW != 0);
     if allowed {
         current.flags = trace_invalid_flags(current.flags);
     }
@@ -819,6 +866,88 @@ mod tests {
         assert!(!observed_trace_policy(0, false));
         assert!(observed_trace_policy(0, true));
         assert!(!observed_trace_policy(cs::RUNTIME, true));
+    }
+
+    #[test]
+    fn native_trace_transitions_follow_the_observed_debugging_profile() {
+        use crate::user::darwin::abi::DarwinAbi;
+        use crate::user::darwin::process::bounded_tests::process;
+
+        // Captured native CI transitions: hardened runtime, signature-restricted,
+        // runtime-restricted ARM64, and runtime-restricted Rosetta x86-64.
+        for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+            for (before, after) in [
+                (0x2201_0001, 0x3201_0021),
+                (0x2200_0801, 0x3200_0821),
+                (0x2202_0801, 0x3202_0821),
+                (0x0000_0800, 0x0000_0820),
+            ] {
+                for unrestricted_debugging in [false, true] {
+                    let mut guest = process(abi);
+                    guest.proc.config.host_services = true;
+                    let mut signature = Signature::fallback();
+                    signature.flags = before;
+                    guest.proc.codesign = Some(CodeSign {
+                        flags: before,
+                        sig: Arc::new(signature),
+                    });
+                    let observed = TraceObservation {
+                        flags: before,
+                        unrestricted_debugging,
+                    };
+                    trace_me_allow_invalid(&mut guest.proc, Some(observed));
+                    assert_eq!(
+                        guest.proc.codesign.as_ref().unwrap().flags,
+                        if unrestricted_debugging {
+                            after
+                        } else {
+                            before
+                        },
+                        "{abi:?} before={before:08x} unrestricted={unrestricted_debugging}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn unrestricted_debugging_keeps_platform_and_closed_boundaries() {
+        use crate::user::darwin::abi::DarwinAbi;
+        use crate::user::darwin::process::bounded_tests::process;
+
+        for closed in [false, true] {
+            for platform in [false, true] {
+                let mut guest = process(DarwinAbi::Arm64);
+                guest.proc.config.host_services = !closed;
+                let before =
+                    cs::VALID | cs::RUNTIME | if platform { cs::PLATFORM_BINARY } else { 0 };
+                let mut signature = Signature::fallback();
+                signature.flags = before;
+                guest.proc.codesign = Some(CodeSign {
+                    flags: before,
+                    sig: Arc::new(signature),
+                });
+                let observed = TraceObservation {
+                    flags: before,
+                    unrestricted_debugging: true,
+                };
+                assert_eq!(observed.allows_unrestricted_debugging(), !platform);
+                trace_me_allow_invalid(&mut guest.proc, None);
+                assert_eq!(guest.proc.codesign.as_ref().unwrap().flags, before);
+                trace_me_allow_invalid(&mut guest.proc, Some(observed));
+                assert_eq!(
+                    guest.proc.codesign.as_ref().unwrap().flags,
+                    if closed || platform {
+                        before
+                    } else {
+                        0x1001_0021
+                    }
+                );
+                if closed {
+                    assert!(!host_debugging_allowed(&guest.proc));
+                }
+            }
+        }
     }
 
     #[test]

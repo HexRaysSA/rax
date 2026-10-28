@@ -1166,6 +1166,35 @@ status before its exec stop.
 These flag projections do not implement the accompanying VM-map or
 code-signing enforcement changes.
 
+The native CI host on macOS 27.0.1 reports SIP disabled, active CSR flags
+`0x6f`, and a successful `csr_check(CSR_ALLOW_TASK_FOR_PID)` (`1 << 2`).
+Its hardened-runtime children receive the invalid-page flag transition, and
+its restricted children succeed without `get-task-allow`, in both ARM64 and
+Rosetta x86-64 observations. The macOS 27.2 development host reports CSR 0
+and a denied check; its existing restricted/hardened results remain different.
+Both observed hosts have empty boot arguments, numeric real/effective UID 501,
+and `security.mac.proc_enforce = 1`. The standalone
+[`tools/darwin` probe](../../../tools/darwin/trace-policy.md) preserves the 16
+native cases, image/source hashes, raw command results, and the policy context.
+
+Host-services trace preparation now carries a successful read-only CSR debugging
+check alongside the image-matched signing flags. For the observed non-platform
+profile, that result permits restricted trace admission and the invalid-page
+flag projection; otherwise the existing signature/entitlement predicates apply.
+The check occurs only after a successful signing observation. Fallback or
+CDHash-mismatched observations cannot select this profile. Closed processes do
+not query CSR and do not consume host tracing observations. Platform images
+retain their existing restrictions.
+
+Assumption D3 is retained: this CSR result selects the observed third-party
+debugging profile. A native denial or differing flag transition for that
+profile with a successful check falsifies it. The two host samples also differ
+in OS revision, so they do not isolate CSR causality or establish every private
+MACF policy. No SIP, boot arguments, or host configuration is changed, and
+fixture assertions and native test selection remain unchanged. Qualification
+of this runtime revision is separate from qualification of the observation
+tool and the earlier serial library counts below.
+
 | Area | Module | Counterpart |
 |---|---|---|
 | `fork`: the host process forks (the child is a copy of the emulator with its guest; private memory copied on write, shared mappings shared), and the child becomes XNU's forked process: the caller's thread only, with a new thread ID and the caller's signal mask; a new task whose space holds its control port then the thread's, keeping the bootstrap, access, and host special ports, the registered ports, and the exception actions; descriptors without kqueues (`FG_CONFINED`) or close-on-fork descriptors; no pending signals, interval timers, alternate stack, work queue, psynch, or kqueue state, and not `SA_NOCLDSTOP` or `SA_NOCLDWAIT` (process flags; the actions stay); `VM_INHERIT_NONE` regions unmapped. The child's call returns its own pid with 1 in the second return register | `fork` | `kern_fork.c`, `ipc_task_init`, `fdt_fork`, `thread_set_child` |
