@@ -145,7 +145,13 @@ This is service progress, not complete CMD or full process qualification.
 The [native qualification run](https://github.com/HexRaysSA/rax/actions/runs/40635212223)
 at source`b034ba2a` collected684 successful observations on each native AMD64
 kernel. Both receipts require native machine`0x8664`, observer machine0, and the
-same frozen C4 source hash above. Artifact SHA-256 and ZIP CRC were verified
+same frozen C4 source from Git. The Windows checkout uses CRLF, whose exact
+source SHA-256 is
+`0d37f56c5176cb276b3552156dbfe13bb908e7fbfe3adeafe2afec8c8a005984`.
+Converting only its line endings to LF reproduces the Git/local-native source
+hash`d8e09d8376230012d86867fca3a4e056b286eaff63a5deeb2512f3cc04888870`.
+Both physical input identities are retained, without rewriting the executed
+producer. Artifact SHA-256 and ZIP CRC were verified
 before retaining their observations:
 
 | Kernel | Original artifact SHA-256 | Retained receipt |
@@ -171,7 +177,7 @@ guest-version-spoofing controls exercise the capability boundary.
 
 | ID | Assumption and basis | Dependent result | Stress test and falsification probe | Status |
 |---|---|---|---|---|
-| VM3 | Captured native kernel identity selects flag1 availability; independent20348/26100/29695 controls differ only as recorded | Working-set capability gate | Spoof guest version; select supported, older and unknown native profiles; any admitted uncaptured flag1 or20348 population falsifies it | Native observations and three-host replay confirmed; installed ARM64/WoW leaves passed; final AMD64 source gate pending |
+| VM3 | Captured native kernel identity selects flag1 availability; independent20348/26100/29695 controls differ only as recorded | Working-set capability gate | Spoof guest version; select supported, older and unknown native profiles; any admitted uncaptured flag1 or20348 population falsifies it | Native observations, three-host replay and both final native AMD64 source jobs passed |
 
 The corrected source passed5 selected tests on macOS and Linux, including1918
 retained observations and the unknown/spoofed-version boundary. Windows ARM64
@@ -188,3 +194,25 @@ the final native AMD64 source run must pass before master publication. The
 corrected local Windows CLI SHA-256 is
 `80f6a29604aeec38137a6c3c79a60ce4154dca4bf8d23507057f57e1c749b34e`;
 its CMD comparison preserves the same image hash and NtOpenKey frontier above.
+
+## Final native source qualification
+
+Both native AMD64 jobs passed at source`24c0f7ec` in
+[run40636977605](https://github.com/HexRaysSA/rax/actions/runs/40636977605).
+Each executed the fresh684-row producer, retained/fresh replay, installed
+six-argument leaves, the whole original hardware-fault fixture, and CLI/write
+regressions. The final prefetch artifacts have SHA-256
+`d1f761e0a027929410cead703072f6a20eb65db76353dff6d68c657c9b7bb811`
+(Windows2022) and
+`5593ea126c9753fbc6b33e1a6b366eebc13c4878bc3527800bbcf25f283bb7f0`
+(Windows2025). Their exact CRLF producer hashes, native machine/observer identity,
+completed receipts,684 observations, archive digests and ZIP CRC were checked.
+The subsequent provenance-only commit changes no Rust/C source, fixture input,
+Cargo manifest, lockfile, API header or workflow from that qualified source.
+
+The broader source matrix is
+[run40637028679](https://github.com/HexRaysSA/rax/actions/runs/40637028679).
+Its formatter/Clippy and Linux C API jobs passed; Windows C API was running and
+macOS C API queued at publication preparation. Separate local C API checks
+passed191 tests on each host. These results do not claim an entirely green
+general matrix, packages, installed Assist or full process compatibility.

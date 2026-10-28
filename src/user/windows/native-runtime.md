@@ -3093,7 +3093,7 @@ The subsequent installed ARM64 CMD comparison passes class0 prefetch and reaches
 before stdout; native CMD emits the marker and exits0. CMD's source hash is
 unchanged. Local selected replay, working-set/ordinal, CLI, C API and all-target
 checks pass on macOS, Linux and Windows; the prefetch record separates those
-results from pending independent AMD64-kernel qualification and full application
+results from independent AMD64-kernel qualification and full application
 compatibility.
 
 Independent AMD64 build20348/26100 controls further distinguish class0 flag1:
@@ -3102,6 +3102,15 @@ ARM64 kernel admit it. The model uses captured native kernel identity, never
 guest-visible version settings, for this capability. Both new retained corpora
 are replayed on every host, bringing selected prefetch coverage to1918 rows;
 uncaptured native flag1 profiles remain explicit frontiers.
+
+Final source`24c0f7ec` passes both complete native AMD64 jobs in
+https://github.com/HexRaysSA/rax/actions/runs/40636977605, including fresh
+prefetch observations, installed leaves, the whole original hardware-fault
+fixture and CLI/write regressions. The prefetch specification records both LF
+and Windows-checkout CRLF producer hashes and the final artifact digests. The
+subsequent provenance-only commit leaves all qualified code and fixture inputs
+unchanged. The broader matrix and full Linux/macOS/Windows objective remain
+separate and unfinished.
 
 
 The opening-grant consumer audit also fixes built-in `ResumeThread` to accept
