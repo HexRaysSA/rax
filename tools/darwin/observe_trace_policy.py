@@ -161,9 +161,9 @@ def collect(output):
         for argv in [
             ["git", "rev-parse", "HEAD"],
             ["/usr/bin/sw_vers"], ["/usr/bin/uname", "-r"],
-            ["/usr/bin/sysctl", "-n", "kern.version"],
-            ["/usr/bin/sysctl", "-n", "kern.bootargs"],
-            ["/usr/bin/sysctl", "-n", "security.mac.proc_enforce"],
+            ["/usr/sbin/sysctl", "-n", "kern.version"],
+            ["/usr/sbin/sysctl", "-n", "kern.bootargs"],
+            ["/usr/sbin/sysctl", "-n", "security.mac.proc_enforce"],
             ["/usr/bin/csrutil", "status"],
             ["/usr/bin/xcrun", "--show-sdk-version"],
             ["/usr/bin/xcrun", "clang", "--version"],
@@ -233,6 +233,16 @@ def collect(output):
     if scratch.is_symlink() or scratch.resolve().parent != output:
         raise RuntimeError("build directory ownership changed")
     shutil.rmtree(scratch)
+    # Keep every policy result visible even when a log reader caps a step's text.
+    print(json.dumps({"trace_policy_summary": {
+        "state": report["state"], "time_utc": report["time_utc"],
+        "collector_sha256": report["collector_sha256"],
+        "uid": report["uid"], "euid": report["euid"], "csr": report["csr"],
+        "host_commands": report["commands"],
+        "cases": [{key: case[key] for key in
+                   ["architecture", "fixture", "variant", "image", "observation"]
+                   if key in case} for case in report["cases"]],
+    }}))
     print(json.dumps(report, indent=2))
     print(json.dumps({"archive": str(archive), "bytes": archive.stat().st_size,
                       "sha256": sha256(archive)}))

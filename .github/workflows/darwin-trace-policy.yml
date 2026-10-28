@@ -42,3 +42,10 @@ jobs:
           arch -x86_64 /usr/bin/true
       - name: Native signing and tracing policy
         run: python3 -B tools/darwin/observe_trace_policy.py --output target/trace-policy-observation
+      - name: Retain complete native evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: darwin-trace-policy
+          path: target/trace-policy-observation/observations.zip
+          if-no-files-found: error

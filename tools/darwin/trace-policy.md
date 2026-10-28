@@ -18,6 +18,8 @@ The output directory must be new and inside this repository. The script prints
 the complete JSON report, preserves it as `report.json`, and writes
 `observations.zip` with the fixture sources and a SHA-256/length manifest. It
 verifies every archive member before removing its compiler scratch directory.
+CI also retains that archive as `darwin-trace-policy` and prints a compact
+summary first so log-reader truncation cannot hide the later cases.
 It records image hashes and Mach-O CPU types, raw command results, separate
 mark/trace `errno` values, numeric credentials, OS/kernel/SDK/compiler versions,
 CSR calls, SIP status, and available boot-argument/MAC-enforcement observations.
