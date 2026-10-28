@@ -38,6 +38,7 @@ impl Registry {
                     )?),
                     subkeys: None,
                     selected_child: None,
+                    selected_path: None,
                 }))
             }
             None => None,
@@ -52,6 +53,7 @@ impl Registry {
                 parent.fold(&CHILD.encode_utf16().collect::<Vec<_>>()),
                 child,
             )),
+            selected_path: None,
         };
         self.keys.insert(name, Arc::new(key));
         Ok(self)

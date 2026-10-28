@@ -23,6 +23,11 @@ on:
       - docs/specifications/windows/native-mapped-filename/**
       - docs/specifications/windows/native-open-thread/**
       - docs/specifications/windows/native-memory-prefetch/**
+      - docs/specifications/windows/native-primary-user-hive/**
+      - src/user/windows/registry.rs
+      - src/user/windows/registry/**
+      - src/user/windows/native.rs
+      - src/user/windows/process/sched/tests/services_tests/user_policy_registry_tests.rs
       - src/user/windows/dll/native/memory_prefetch.rs
       - src/user/windows/memory/prefetch.rs
       - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests.rs
@@ -57,6 +62,11 @@ on:
       - docs/specifications/windows/native-file-write/**
       - docs/specifications/windows/native-open-thread/**
       - docs/specifications/windows/native-memory-prefetch/**
+      - docs/specifications/windows/native-primary-user-hive/**
+      - src/user/windows/registry.rs
+      - src/user/windows/registry/**
+      - src/user/windows/native.rs
+      - src/user/windows/process/sched/tests/services_tests/user_policy_registry_tests.rs
       - src/user/windows/dll/native/memory_prefetch.rs
       - src/user/windows/memory/prefetch.rs
       - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests.rs
@@ -87,6 +97,19 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Observe captured primary-user hive metadata and absence
+        run: |
+          python -B -m unittest discover -s docs/specifications/windows/native-primary-user-hive
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-primary-user-hive/probe-v4.py --require-native-machine 0x8664 --output target/native-primary-user-hive-v4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve primary-user hive observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-primary-user-hive-${{ matrix.os }}
+          path: target/native-primary-user-hive-v4
+          if-no-files-found: error
       - name: Observe native AMD64 and WoW64 memory prefetch
         run: |
           New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
@@ -346,6 +369,11 @@ jobs:
         run: |
           $env:RAX_NATIVE_MEMORY_PREFETCH_CORPUS = Join-Path $env:GITHUB_WORKSPACE 'target/native-memory-prefetch-v4/receipt.json'
           cargo test --locked --no-default-features --lib native_memory_prefetch -- --nocapture --test-threads=1
+      - name: Replay primary-user hive observations and validate installed capture
+        if: always()
+        run: |
+          $env:RAX_NATIVE_PRIMARY_USER_HIVE_CORPUS = Join-Path $env:GITHUB_WORKSPACE 'target/native-primary-user-hive-v4/receipt.json'
+          cargo test --locked --no-default-features --lib primary_hive -- --nocapture --test-threads=1
       - name: Execute image-extension queries through installed native leaves
         if: always()
         run: |

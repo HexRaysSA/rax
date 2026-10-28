@@ -126,7 +126,7 @@ impl NativeRuntime {
             .wnf_catalog
             .primary_subject()
             .ok_or_else(|| invalid("native primary-token subject is not captured"))?;
-        runtime.registry = super::registry::capture_user_policy(runtime.registry, &subject.user)?;
+        runtime.registry = super::registry::capture_primary_user(runtime.registry, &subject.user)?;
         let token_session = runtime
             .wnf_catalog
             .primary_token_session_id()

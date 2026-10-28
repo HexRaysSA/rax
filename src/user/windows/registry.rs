@@ -28,6 +28,11 @@ pub(crate) use tree::{
 #[path = "registry/user_policy.rs"]
 mod user_policy;
 pub(crate) use user_policy::user_policy_path;
+#[path = "registry/primary_hive.rs"]
+mod primary_hive;
+#[cfg(test)]
+pub(crate) use primary_hive::HiveHeader;
+use primary_hive::PrimaryHive;
 #[path = "registry/fixed.rs"]
 mod fixed;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
@@ -55,6 +60,7 @@ pub struct Key {
     values: Arc<BTreeMap<Vec<u16>, Value>>,
     subkeys: Option<BTreeMap<Vec<u16>, Arc<Key>>>,
     selected_child: Option<(Vec<u16>, Option<Arc<Key>>)>,
+    selected_path: Option<(Vec<u16>, Option<Arc<Key>>)>,
 }
 impl Key {
     #[cfg(test)]
@@ -75,6 +81,7 @@ pub(crate) struct Registry {
     upcase: Arc<[u16]>,
     selected_trees: BTreeSet<TreeRoot>,
     user_policy: Option<Arc<[u16]>>,
+    primary_hive: Option<PrimaryHive>,
 }
 impl Registry {
     #[cfg(test)]
@@ -97,6 +104,7 @@ impl Registry {
             upcase: upcase.into(),
             selected_trees: BTreeSet::new(),
             user_policy: None,
+            primary_hive: None,
         };
         let mut budget = ValueBudget::default();
         for selected in selected {
@@ -114,6 +122,7 @@ impl Registry {
                 )?),
                 subkeys: None,
                 selected_child: None,
+                selected_path: None,
             };
             if result
                 .keys
@@ -154,7 +163,11 @@ impl Registry {
         }
     }
     pub(crate) fn lookup(&self, name: &[u16]) -> Lookup {
-        if self.keys.is_empty() && self.selected_trees.is_empty() && self.user_policy.is_none() {
+        if self.keys.is_empty()
+            && self.selected_trees.is_empty()
+            && self.user_policy.is_none()
+            && self.primary_hive.is_none()
+        {
             return Lookup::Unselected;
         }
         let folded: Vec<_> = name.iter().map(|&u| self.upcase[usize::from(u)]).collect();
@@ -162,7 +175,10 @@ impl Registry {
             return Lookup::Present(key.clone());
         }
         match self.tree_lookup(&folded, name) {
-            Lookup::Unselected => self.segment_heap_lookup(&folded, name),
+            Lookup::Unselected => match self.primary_hive_lookup(&folded, name) {
+                Lookup::Unselected => self.segment_heap_lookup(&folded, name),
+                selected => selected,
+            },
             selected => selected,
         }
     }
@@ -217,7 +233,7 @@ mod installed;
 #[cfg(windows)]
 pub(crate) use installed::wnf_values;
 #[cfg(windows)]
-pub(crate) use installed::{capture_user_policy, snapshot};
+pub(crate) use installed::{capture_primary_user, snapshot};
 #[cfg(not(windows))]
 pub(crate) fn snapshot() -> io::Result<Registry> {
     Err(io::Error::new(
@@ -227,10 +243,10 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
 }
 
 #[cfg(not(windows))]
-pub(crate) fn capture_user_policy(_: Registry, _: &[u8]) -> io::Result<Registry> {
+pub(crate) fn capture_primary_user(_: Registry, _: &[u8]) -> io::Result<Registry> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
-        "installed per-user registry metadata requires Windows",
+        "installed primary-user registry metadata requires Windows",
     ))
 }
 

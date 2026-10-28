@@ -3120,3 +3120,35 @@ controls are replayed through NtOpenThread and both existing Win32 consumers,
 including LastError and final counts. The native handle-conservation test uses
 an isolated child test process so unrelated concurrent handle activity cannot
 invalidate its count. The opening service and public/private ABIs are unchanged.
+
+
+## Captured primary-user hive (2026-10-28 UTC)
+
+Installed Windows profiles acquire the captured primary SID hive's canonical
+name, root values and child count through fixed query-only native acquisition.
+The SID name and its measured native alias share one immutable guest key; a
+selected policy route remains owned by open handles after catalog replacement.
+Uncaptured nonempty descendants remain explicit frontiers. Native and Win32
+controls establish absence for a missing selected hive and its descendants.
+Aliases and policy references charge shared records once against existing budgets.
+No guest name or handle reaches a host registry service.
+
+The specification and immutable native producers are retained in
+`docs/specifications/windows/native-primary-user-hive/README.md`. Final local
+checks pass 8/8/10 targeted, 103/103/151 registry and 8/8/10 CLI tests on
+macOS/Linux/native Windows ARM64, with 191 C API tests and all-target compilation
+per host. macOS strict production Clippy passes; Linux uses translated x86-64.
+Independent native AMD64 source qualification remains pending. The existing
+source jobs retain the entire original hardware-fault fixture and budgets.
+
+Actual unchanged ARM64 system CMD passes the hive open and reaches unsupported
+guest `NtQueryKey` (0x16), exiting125 before stdout; native CMD exits0 with its
+marker. Its image retains SHA-256
+`d0f47e2d32ab33e593e5b49592d3dcfa3c8c5f9f9b345d512ef7269bca6b481a`.
+The final local CLI has SHA-256
+`b2d990dfcb5eccbb139a46bd394e20db5516ebaf1bbfa27353db485ad46f5b42`.
+Host `NtQueryKey` acquisition is distinct from the unimplemented guest service.
+The existing selected-registry MAXIMUM_ALLOWED read cap also differs from native
+full grants; the specification retains that measured limitation. Public C API
+1.15.0 and its header are unchanged. Full process, installed Assist, GUI, real-IDB
+and package qualification remain open.

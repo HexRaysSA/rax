@@ -1,6 +1,8 @@
 //! Fixed SYSTEM values and complete fixed subtrees during native selection.
 //! No guest name reaches a host registry operation. All HKEYs close before
 //! selection returns, and the kernel reads the resulting immutable records.
+#[path = "installed/primary_hive.rs"]
+mod primary_hive;
 #[path = "installed/tree.rs"]
 mod tree;
 #[path = "installed/user_policy.rs"]
@@ -10,10 +12,10 @@ use super::{
     MAX_NAME_UNITS, MAX_VALUE_BYTES, MAX_VALUES, NLS_KEY, Registry, SESSION_MANAGER_KEY,
     SelectedKey, Value, WNF_KEY, invalid,
 };
+pub(crate) use primary_hive::capture as capture_primary_user;
 use std::ffi::c_void;
 use std::io;
 use std::ptr::null_mut;
-pub(crate) use user_policy::capture as capture_user_policy;
 
 type Hkey = *mut c_void;
 #[link(name = "advapi32")]
@@ -201,30 +203,39 @@ fn capture_values(
     count_limit: usize,
     byte_limit: usize,
 ) -> io::Result<SelectedKey> {
+    let (children, values) = capture_stable_values(&key, count_limit, byte_limit)?;
+    Ok(SelectedKey {
+        path,
+        children,
+        values,
+    })
+}
+
+fn capture_stable_values(
+    key: &OwnedKey,
+    count_limit: usize,
+    byte_limit: usize,
+) -> io::Result<(u32, Vec<Value>)> {
     for _ in 0..3 {
-        let before = info(&key)?;
+        let before = info(key)?;
         if before.values as usize > count_limit {
             return Err(invalid(
                 "installed fixed registry value count exceeds remaining budget",
             ));
         }
-        let first = match values(&key, &before, byte_limit) {
+        let first = match values(key, &before, byte_limit) {
             Ok(values) => values,
             Err(error) if matches!(error.raw_os_error(), Some(234 | 259)) => continue,
             Err(error) => return Err(error),
         };
-        let second = match values(&key, &before, byte_limit) {
+        let second = match values(key, &before, byte_limit) {
             Ok(values) => values,
             Err(error) if matches!(error.raw_os_error(), Some(234 | 259)) => continue,
             Err(error) => return Err(error),
         };
-        let after = info(&key)?;
+        let after = info(key)?;
         if before == after && first == second {
-            return Ok(SelectedKey {
-                path,
-                children: before.children,
-                values: first,
-            });
+            return Ok((before.children, first));
         }
     }
     Err(invalid(

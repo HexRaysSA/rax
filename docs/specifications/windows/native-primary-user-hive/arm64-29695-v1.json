@@ -1,0 +1,571 @@
+{
+  "pid": 9548,
+  "state": "finished",
+  "rows": [
+    {
+      "path": "\\REGISTRY\\USER\\S-1-5-18",
+      "attributes": 1600,
+      "access": 33554432,
+      "status": 0,
+      "output_handle": 468,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\S-1-5-18",
+      "attributes": 1600,
+      "access": 131097,
+      "status": 0,
+      "output_handle": 468,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\S-1-5-18",
+      "attributes": 1600,
+      "access": 1,
+      "status": 0,
+      "output_handle": 468,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\S-1-5-18",
+      "attributes": 1600,
+      "access": 0,
+      "status": 3221225506,
+      "output_handle": null
+    },
+    {
+      "path": "\\REGISTRY\\USER\\S-1-5-18",
+      "attributes": 64,
+      "access": 33554432,
+      "status": 0,
+      "output_handle": 468,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\S-1-5-18",
+      "attributes": 64,
+      "access": 131097,
+      "status": 0,
+      "output_handle": 468,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\S-1-5-18",
+      "attributes": 64,
+      "access": 1,
+      "status": 0,
+      "output_handle": 468,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\S-1-5-18",
+      "attributes": 64,
+      "access": 0,
+      "status": 3221225506,
+      "output_handle": null
+    },
+    {
+      "path": "\\REGISTRY\\USER\\.DEFAULT",
+      "attributes": 1600,
+      "access": 33554432,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\.DEFAULT",
+      "attributes": 1600,
+      "access": 131097,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\.DEFAULT",
+      "attributes": 1600,
+      "access": 1,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\.DEFAULT",
+      "attributes": 1600,
+      "access": 0,
+      "status": 3221225506,
+      "output_handle": null
+    },
+    {
+      "path": "\\REGISTRY\\USER\\.DEFAULT",
+      "attributes": 64,
+      "access": 33554432,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\.DEFAULT",
+      "attributes": 64,
+      "access": 131097,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\.DEFAULT",
+      "attributes": 64,
+      "access": 1,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "c33a8d866f66dd01000000000800000052004f004f005400"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "c33a8d866f66dd0100000000ffffffff00000000090000004c00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 50,
+        "bytes_hex": "2e0000005c00520045004700490053005400520059005c0055005300450052005c002e00440045004600410055004c005400"
+      },
+      "canonical_name": "\\REGISTRY\\USER\\.DEFAULT",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER\\.DEFAULT",
+      "attributes": 64,
+      "access": 0,
+      "status": 3221225506,
+      "output_handle": null
+    },
+    {
+      "path": "\\REGISTRY\\USER",
+      "attributes": 1600,
+      "access": 33554432,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "b31801c64f66dd0100000000080000005500530045005200"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "b31801c64f66dd0100000000ffffffff00000000060000006a00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 32,
+        "bytes_hex": "1c0000005c00520045004700490053005400520059005c005500530045005200"
+      },
+      "canonical_name": "\\REGISTRY\\USER",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER",
+      "attributes": 1600,
+      "access": 131097,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "b31801c64f66dd0100000000080000005500530045005200"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "b31801c64f66dd0100000000ffffffff00000000060000006a00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 32,
+        "bytes_hex": "1c0000005c00520045004700490053005400520059005c005500530045005200"
+      },
+      "canonical_name": "\\REGISTRY\\USER",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER",
+      "attributes": 1600,
+      "access": 1,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "b31801c64f66dd0100000000080000005500530045005200"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "b31801c64f66dd0100000000ffffffff00000000060000006a00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 32,
+        "bytes_hex": "1c0000005c00520045004700490053005400520059005c005500530045005200"
+      },
+      "canonical_name": "\\REGISTRY\\USER",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER",
+      "attributes": 1600,
+      "access": 0,
+      "status": 3221225506,
+      "output_handle": null
+    },
+    {
+      "path": "\\REGISTRY\\USER",
+      "attributes": 64,
+      "access": 33554432,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "b31801c64f66dd0100000000080000005500530045005200"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "b31801c64f66dd0100000000ffffffff00000000060000006a00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 32,
+        "bytes_hex": "1c0000005c00520045004700490053005400520059005c005500530045005200"
+      },
+      "canonical_name": "\\REGISTRY\\USER",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER",
+      "attributes": 64,
+      "access": 131097,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "b31801c64f66dd0100000000080000005500530045005200"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "b31801c64f66dd0100000000ffffffff00000000060000006a00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 32,
+        "bytes_hex": "1c0000005c00520045004700490053005400520059005c005500530045005200"
+      },
+      "canonical_name": "\\REGISTRY\\USER",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER",
+      "attributes": 64,
+      "access": 1,
+      "status": 0,
+      "output_handle": 296,
+      "object_basic": {
+        "status": 3221225476,
+        "result_length": 3435973836
+      },
+      "key_basic": {
+        "status": 0,
+        "result_length": 24,
+        "bytes_hex": "b31801c64f66dd0100000000080000005500530045005200"
+      },
+      "key_full": {
+        "status": 0,
+        "result_length": 44,
+        "bytes_hex": "b31801c64f66dd0100000000ffffffff00000000060000006a00000000000000000000000000000000000000"
+      },
+      "key_name": {
+        "status": 0,
+        "result_length": 32,
+        "bytes_hex": "1c0000005c00520045004700490053005400520059005c005500530045005200"
+      },
+      "canonical_name": "\\REGISTRY\\USER",
+      "close_status": 0
+    },
+    {
+      "path": "\\REGISTRY\\USER",
+      "attributes": 64,
+      "access": 0,
+      "status": 3221225506,
+      "output_handle": null
+    }
+  ],
+  "source_sha256": "585b23b0164fabafbc172e392e099f8afea1ac83e83802011aca8d6a065293fa",
+  "python_sha256": "052604e9a996df81925f9d9ab865fdac5fbd7e8e89644298e88ddcdb6aa85b06",
+  "kernel": [
+    10,
+    0,
+    29695,
+    2,
+    ""
+  ],
+  "pointer_bytes": 8,
+  "process_machine": 0,
+  "native_machine": 43620,
+  "python_version": "3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:57:41) [MSC v.1944 64 bit (ARM64)]",
+  "ntdll_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+  "ntdll_sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+  "primary_sid": "S-1-5-18",
+  "primary_sid_hex": "010100000000000512000000",
+  "exit_code": 0,
+  "inputs_unchanged": true
+}

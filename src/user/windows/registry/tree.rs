@@ -121,8 +121,9 @@ pub(super) fn child_path(parent: &[u16], name: &[u16]) -> io::Result<Vec<u16>> {
 impl Registry {
     pub(super) fn value_budget(&self) -> io::Result<ValueBudget> {
         let mut budget = ValueBudget::default();
+        let mut seen = BTreeSet::new();
         for key in self.keys.values() {
-            charge_key(key, &mut budget)?;
+            charge_key(key, &mut budget, &mut seen)?;
         }
         Ok(budget)
     }
@@ -186,22 +187,50 @@ impl Registry {
         Lookup::Unselected
     }
 }
-fn charge_key(key: &Key, budget: &mut ValueBudget) -> io::Result<()> {
+fn charge_key(
+    key: &Arc<Key>,
+    budget: &mut ValueBudget,
+    seen: &mut BTreeSet<usize>,
+) -> io::Result<()> {
+    if !seen.insert(Arc::as_ptr(key) as usize) {
+        return Ok(());
+    }
     for value in key.values.values() {
         budget.charge(value)?;
     }
     if let Some((_, Some(child))) = &key.selected_child {
-        charge_key(child, budget)?;
+        charge_key(child, budget, seen)?;
+    }
+    if let Some((_, Some(child))) = &key.selected_path {
+        charge_key(child, budget, seen)?;
     }
     if let Some(children) = &key.subkeys {
         for child in children.values() {
-            charge_key(child, budget)?;
+            charge_key(child, budget, seen)?;
         }
     }
     Ok(())
 }
 impl Key {
     pub(crate) fn relative(self: &Arc<Self>, name: &[u16]) -> Lookup {
+        if let Some((selected, child)) = &self.selected_path {
+            let mut normalized = Vec::with_capacity(name.len());
+            for component in name.split(|u| *u == 92).filter(|part| !part.is_empty()) {
+                if !normalized.is_empty() {
+                    normalized.push(92);
+                }
+                normalized.extend_from_slice(component);
+            }
+            let folded = self.fold(&normalized);
+            if folded.starts_with(selected)
+                && (folded.len() == selected.len() || normalized.get(selected.len()) == Some(&92))
+            {
+                return match child {
+                    Some(child) => child.relative(&normalized[selected.len()..]),
+                    None => Lookup::Missing,
+                };
+            }
+        }
         let mut key = self.clone();
         // Native registry opens ignore repeated and trailing separators.
         // Dot components and '/' remain literal registry names.
@@ -251,6 +280,7 @@ pub(super) fn build(
         values: Arc::new(raw_values),
         subkeys: None,
         selected_child: None,
+        selected_path: None,
     };
     let mut children = BTreeMap::new();
     for (name, child) in tree.children {

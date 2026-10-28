@@ -2,6 +2,16 @@
 use super::*;
 
 pub(crate) fn user_policy_path(sid: &[u8]) -> io::Result<Vec<u16>> {
+    Ok(user_hive_path(sid)?
+        .into_iter()
+        .chain(POLICY_SUFFIX.encode_utf16())
+        .collect())
+}
+
+pub(super) const POLICY_SUFFIX: &str =
+    "\\Software\\Policies\\Microsoft\\Windows\\Safer\\CodeIdentifiers";
+
+pub(super) fn user_hive_path(sid: &[u8]) -> io::Result<Vec<u16>> {
     if super::super::security::sid(sid) != Some(sid) {
         return Err(invalid("invalid primary SID for runtime policy selection"));
     }
@@ -18,11 +28,7 @@ pub(crate) fn user_policy_path(sid: &[u8]) -> io::Result<Vec<u16>> {
         let value = u32::from_le_bytes(subauthority.try_into().unwrap());
         text.push_str(&format!("-{value}"));
     }
-    Ok(format!(
-        "\\Registry\\User\\{text}\\Software\\Policies\\Microsoft\\Windows\\Safer\\CodeIdentifiers"
-    )
-    .encode_utf16()
-    .collect())
+    Ok(format!("\\Registry\\User\\{text}").encode_utf16().collect())
 }
 
 impl Registry {
@@ -37,6 +43,7 @@ impl Registry {
             ));
         }
         let path = user_policy_path(sid)?;
+        self.check_primary_hive_sid(sid)?;
         let folded: Vec<_> = path.iter().map(|&u| self.upcase[usize::from(u)]).collect();
         if let Some(tree) = tree {
             let key = tree::build(
@@ -50,6 +57,7 @@ impl Registry {
             self.keys.insert(folded.clone(), key);
         }
         self.user_policy = Some(folded.into());
+        self.link_primary_hive_policy()?;
         Ok(self)
     }
 }
