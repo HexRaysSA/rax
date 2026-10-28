@@ -115,7 +115,7 @@ process namespaces, other information classes and later installed-program
 services. No public C API, SDK ABI, package dependency, syscall budget, or
 installed system image changes as part of this class.
 
-## Validation ledger
+## Initial validation ledger
 
 Local Rust1.95.0 validation passed the822-row replay and explicit foreign/class
 frontiers on macOS ARM64 and the translated Linux x86-64 container. Both passed
@@ -139,3 +139,52 @@ returned125 before stdout; native execution returned0 and emitted
 the qualified local CLI SHA-256 was
 `6e03143094be3501b901d3952801f28ba870381b5fb20bd1dedae67d153fec9d`.
 This is service progress, not complete CMD or full process qualification.
+
+## Independent AMD64 kernel capability
+
+The [native qualification run](https://github.com/HexRaysSA/rax/actions/runs/40635212223)
+at source`b034ba2a` collected684 successful observations on each native AMD64
+kernel. Both receipts require native machine`0x8664`, observer machine0, and the
+same frozen C4 source hash above. Artifact SHA-256 and ZIP CRC were verified
+before retaining their observations:
+
+| Kernel | Original artifact SHA-256 | Retained receipt |
+|---|---|---|
+| Windows2022,10.0.20348 | `83fcfc279e0b51ecdecf4ab010fa697efeb3cdc700053ccab79a9add2abb84c7` | `observations-amd64-20348-v4.json` |
+| Windows2025,10.0.26100 | `c6547d16772705119d68a2fee6dbaceb97367c8a1f204cbc61d2ecb337981457` | `observations-amd64-26100-v4.json` |
+
+Build26100 matches every selected status, LastError, guard and residency result
+from the retained ARM64 kernel for its two guest ABIs. Build20348 differs in54
+selected rows: flag1 is rejected with `STATUS_INVALID_PARAMETER_5` after normal
+range validation and does not populate pages. Flag0 and the remaining selected
+capture/error results agree. The shared model therefore selects working-set
+flag availability from the captured native kernel version/machine, independently
+of guest-visible version settings. The portable built-in personality keeps its
+build29695 reference behavior. An unknown native flag1 profile is an explicit
+frontier; flag0 remains available through the existing cache-hint model.
+
+The two new retained replays contribute548 cases each on every host, for1918
+class0/invalid-class observations across three independent kernel profiles.
+Installed-leaf tests require the native20348 rejection and absence of residency
+changes, as well as working-set insertion on26100/29695. Unknown-profile and
+guest-version-spoofing controls exercise the capability boundary.
+
+| ID | Assumption and basis | Dependent result | Stress test and falsification probe | Status |
+|---|---|---|---|---|
+| VM3 | Captured native kernel identity selects flag1 availability; independent20348/26100/29695 controls differ only as recorded | Working-set capability gate | Spoof guest version; select supported, older and unknown native profiles; any admitted uncaptured flag1 or20348 population falsifies it | Native observations and three-host replay confirmed; installed ARM64/WoW leaves passed; final AMD64 source gate pending |
+
+The corrected source passed5 selected tests on macOS and Linux, including1918
+retained observations and the unknown/spoofed-version boundary. Windows ARM64
+passed7 selected tests including its installed native/WoW64 leaves. The existing
+working-set, ordinal, CLI and191-test C API gates passed again; all-target
+checking passed on all three hosts and strict production Clippy passed on macOS.
+Linux evidence here uses the translated x86-64 container, while the two new
+native AMD64 corpora come from the independent CI kernels above.
+
+The initial source`b034ba2a` failed the fresh20348 replay at x64 case1: emulation
+returned success where the native kernel returned `STATUS_INVALID_PARAMETER_5`.
+The retained20348 corpus and corrected capability gate address that regression;
+the final native AMD64 source run must pass before master publication. The
+corrected local Windows CLI SHA-256 is
+`80f6a29604aeec38137a6c3c79a60ce4154dca4bf8d23507057f57e1c749b34e`;
+its CMD comparison preserves the same image hash and NtOpenKey frontier above.

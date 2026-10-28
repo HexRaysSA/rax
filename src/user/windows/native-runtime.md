@@ -3096,6 +3096,13 @@ checks pass on macOS, Linux and Windows; the prefetch record separates those
 results from pending independent AMD64-kernel qualification and full application
 compatibility.
 
+Independent AMD64 build20348/26100 controls further distinguish class0 flag1:
+20348 rejects it with `STATUS_INVALID_PARAMETER_5`, while26100 and the retained
+ARM64 kernel admit it. The model uses captured native kernel identity, never
+guest-visible version settings, for this capability. Both new retained corpora
+are replayed on every host, bringing selected prefetch coverage to1918 rows;
+uncaptured native flag1 profiles remain explicit frontiers.
+
 
 The opening-grant consumer audit also fixes built-in `ResumeThread` to accept
 `THREAD_RESUME` (`0x1000`) as well as `THREAD_SUSPEND_RESUME` (`0x2`). Suspension

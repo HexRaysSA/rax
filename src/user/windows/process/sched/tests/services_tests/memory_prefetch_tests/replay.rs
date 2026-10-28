@@ -51,6 +51,16 @@ fn corpus(text: &str, arch_count: usize) {
         let label = format!("{arch}/{id}");
         let (mut process, mut t) = fixture(arch, "NtSetInformationVirtualMemory", SERVICE);
         let p = process.state_mut();
+        super::super::system_processor_tests::kernel_profile(
+            p,
+            data["native_machine"].as_u64().unwrap() as u16,
+        );
+        let native = p.native.as_mut().unwrap();
+        native.version.major = 10;
+        native.version.minor = 0;
+        native.version.build = data["build"].as_u64().unwrap() as u32;
+        // Guest-visible version spoofing must not select kernel capability.
+        std::sync::Arc::make_mut(&mut p.cfg).version.build = 1;
         let setup = inputs::prepare(p, id);
         assert_eq!(setup.args[1], class, "{label}");
         assert_eq!(setup.args[2], number(observed, "count"), "{label}");
@@ -144,6 +154,28 @@ fn native_memory_prefetch_replays_822_independent_class0_and_invalid_class_rows(
             "/docs/specifications/windows/native-memory-prefetch/observations-arm64-29695-v4.json"
         )),
         3,
+    );
+}
+
+#[test]
+fn native_memory_prefetch_replays_548_native_amd64_20348_rows() {
+    corpus(
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-memory-prefetch/observations-amd64-20348-v4.json"
+        )),
+        2,
+    );
+}
+
+#[test]
+fn native_memory_prefetch_replays_548_native_amd64_26100_rows() {
+    corpus(
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-memory-prefetch/observations-amd64-26100-v4.json"
+        )),
+        2,
     );
 }
 

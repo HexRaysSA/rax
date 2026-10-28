@@ -3,7 +3,7 @@
 use super::*;
 use crate::user::windows::nt::status::STATUS_INVALID_INFO_CLASS;
 
-fn kernel_profile(p: &mut Proc, machine: u16) {
+pub(super) fn kernel_profile(p: &mut Proc, machine: u16) {
     use crate::user::windows::{loader::apiset_schema::ApiSetSchema, native::NativeRuntime};
     let schema: Vec<u8> = [6u32, 28, 0, 0, 28, 28, 0]
         .into_iter()

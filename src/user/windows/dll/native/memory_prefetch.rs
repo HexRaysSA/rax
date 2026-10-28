@@ -49,6 +49,23 @@ fn process_status(c: &Ctx, handle: u64) -> Result<u32, ApiErr> {
     }
 }
 
+fn working_set_supported(c: &Ctx) -> Result<bool, ApiErr> {
+    let Some(native) = &c.p.native else {
+        // The portable personality uses the retained build29695 reference.
+        return Ok(true);
+    };
+    match (
+        native.version.major,
+        native.version.minor,
+        native.version.build,
+        native.object_namespace.native_machine,
+    ) {
+        (10, 0, 20348, Some(0x8664)) => Ok(false),
+        (10, 0, 26100, Some(0x8664)) | (10, 0, 29695, Some(0xaa64)) => Ok(true),
+        _ => Err(c.unsupported("native memory-prefetch flag profile is not captured")),
+    }
+}
+
 fn checked(c: &mut Ctx) -> ApiResult {
     let (process, class, count, ranges, information, length) = (
         c.ptr(0)?,
@@ -123,6 +140,9 @@ fn checked(c: &mut Ctx) -> ApiResult {
         return Flow::ret(STATUS_INVALID_PARAMETER_5.into());
     }
     if flags == 1 {
+        if !working_set_supported(c)? {
+            return Flow::ret(STATUS_INVALID_PARAMETER_5.into());
+        }
         // A second bounded walk needs no guest-count-sized host allocation.
         // Guest threads cannot run during this dispatch, and the service never
         // writes caller buffers. Re-read the checked, resident descriptors.

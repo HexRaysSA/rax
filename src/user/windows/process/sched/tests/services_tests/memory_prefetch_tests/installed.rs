@@ -39,6 +39,12 @@ fn native_memory_prefetch_installed_leaves_populate_guest_pages_and_keep_ret24()
         cfg.native_libraries = true;
         let mut process = WindowsProcess::spawn_image(cfg, image.to_vec()).unwrap();
         let p = process.state_mut();
+        let kernel = p.native.as_ref().unwrap();
+        let working_set = match (kernel.version.build, kernel.object_namespace.native_machine) {
+            (20348, Some(0x8664)) => false,
+            (26100, Some(0x8664)) | (29695, Some(0xaa64)) => true,
+            other => panic!("uncaptured installed prefetch kernel {other:?}"),
+        };
         let tid = *p.threads.keys().next().unwrap();
         let mut t = p.threads.remove(&tid).unwrap();
         let module = loader::load_dll(p, "ntdll.dll").unwrap();
@@ -59,8 +65,14 @@ fn native_memory_prefetch_installed_leaves_populate_guest_pages_and_keep_ret24()
         assert_eq!(invoke(p, &mut t, &setup.args), 0);
         assert_eq!(valid_mask(p, setup.target), 0);
         p.space.w32(setup.args[4], 1).unwrap();
-        assert_eq!(invoke(p, &mut t, &setup.args), 0);
-        assert_eq!(valid_mask(p, setup.target), 1);
+        let expected_status = if working_set {
+            0
+        } else {
+            STATUS_INVALID_PARAMETER_5
+        };
+        assert_eq!(invoke(p, &mut t, &setup.args), expected_status);
+        assert_eq!(valid_mask(p, setup.target), u32::from(working_set));
+        let working_set_available = working_set;
         let working_set = setup.base + 4096 + 128;
         let width = arch.ptr_size();
         p.space.wptr(working_set, width, setup.target).unwrap();
@@ -77,7 +89,11 @@ fn native_memory_prefetch_installed_leaves_populate_guest_pages_and_keep_ret24()
         );
         assert_eq!(
             p.space.ptr(working_set + width, width).unwrap(),
-            0x0500_0041
+            if working_set_available {
+                0x0500_0041
+            } else {
+                0
+            }
         );
         assert_eq!(p.space.u32(last_error).unwrap(), LAST_ERROR);
         p.vm.protect(setup.target + 4096, 4096, prot::READWRITE | prot::GUARD)
@@ -85,7 +101,7 @@ fn native_memory_prefetch_installed_leaves_populate_guest_pages_and_keep_ret24()
         p.space
             .wptr(setup.args[3], arch.ptr_size(), setup.target + 4096)
             .unwrap();
-        assert_eq!(invoke(p, &mut t, &setup.args), 0);
+        assert_eq!(invoke(p, &mut t, &setup.args), expected_status);
         assert!(!p.space.is_resident(setup.target + 4096));
         assert_eq!(
             p.vm.query(setup.target + 4096).unwrap().protect,

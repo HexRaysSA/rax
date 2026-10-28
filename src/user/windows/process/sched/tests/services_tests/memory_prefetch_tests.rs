@@ -112,3 +112,32 @@ fn native_memory_prefetch_foreign_and_declared_class_frontiers_preserve_state() 
         }
     }
 }
+
+#[test]
+fn native_memory_prefetch_kernel_capability_ignores_guest_version_and_refuses_unknown_flags_profile()
+ {
+    for arch in WinArch::ALL {
+        let (mut process, mut t) = fixture(arch, "NtSetInformationVirtualMemory", SERVICE);
+        let p = process.state_mut();
+        let setup = inputs::prepare(p, 1);
+        super::system_processor_tests::kernel_profile(p, 0x8664);
+        let native = p.native.as_mut().unwrap();
+        native.version.major = 10;
+        native.version.minor = 0;
+        native.version.build = 20348;
+        std::sync::Arc::make_mut(&mut p.cfg).version.build = 26100;
+        assert_eq!(enter(p, &mut t, setup.args), Outcome::Continue);
+        assert_eq!(t.cpu.gpr(0), u64::from(STATUS_INVALID_PARAMETER_5));
+        assert_eq!(valid_mask(p, setup.target), 0);
+        p.native.as_mut().unwrap().version.build = 99999;
+        let result = enter(p, &mut t, setup.args);
+        assert!(
+            matches!(result, Outcome::Fail(ref text) if text.contains("memory-prefetch flag profile is not captured"))
+        );
+        assert_eq!(valid_mask(p, setup.target), 0);
+        p.space.w32(setup.args[4], 0).unwrap();
+        assert_eq!(enter(p, &mut t, setup.args), Outcome::Continue);
+        assert_eq!(t.cpu.gpr(0), 0);
+        assert_eq!(valid_mask(p, setup.target), 0);
+    }
+}
