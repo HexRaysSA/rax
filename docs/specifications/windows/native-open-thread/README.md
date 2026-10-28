@@ -94,6 +94,7 @@ store failure closes the newly created handle.
 | TO1 | CMD's target belongs to the guest namespace; stopped registers and CLIENT_ID identify its current TID | Object-table lookup | Current/peer/exited objects, tagged IDs, zero/wrong/high PID/TID; falsified by acceptance of a foreign guest owner | Confirmed for the measured namespace |
 | TO2 | Shared native64 and separate WoW64 capture contracts explain the retained kernel observations | Probe/copy ordering | Unaligned/truncated/aliased/guarded inputs and output, every access bit; rerun on independent AMD64 kernels to falsify cross-kernel parity | Confirmed in retained ARM64-host ABIs; AMD64 checked per CI receipt |
 | TO3 | Fresh default-thread controls match the captured primary subject | Access ceiling | Refuse host impersonation; join controls and repeat capture while checking process handle count; any leaked handle or admitted unsupported subject falsifies it | Native ARM64 adapter and repeated-handle control passed |
+| TO4 | Opening grants must remain usable by existing Win32 consumers; native controls admit resume-only and execute grants | ResumeThread access gate | Compare both consumers, previous/final counts and LastError for six masks on every guest ABI; any native mismatch falsifies the rule | Confirmed in 18 native ARM64-host controls |
 
 ## Scope and validation
 
@@ -122,3 +123,23 @@ unimplemented `NtSetInformationVirtualMemory` (`0x1B0`), returning emulator exit
 is `d0f47e2d32ab33e593e5b49592d3dcfa3c8c5f9f9b345d512ef7269bca6b481a`
 before and after both runs. This establishes service progress, not complete CMD
 or full process qualification.
+
+
+## Resume-only grants and existing Win32 consumers
+
+The complete opening corpus grants `0x1000` for a resume-only request and includes
+that right in `GENERIC_EXECUTE` (`0x00121800`). A separate owned-worker control
+in `probe-resume-v1.c` checks six specific/generic grants through actual
+`SuspendThread` and `ResumeThread` calls. All 18 ARM64-host observations preserve
+previous suspend counts and LastError. The worker is joined before both handles
+are closed. The retained receipt is
+`resume-observations-arm64-29695-v1.json`.
+
+The shared built-in ResumeThread consumer now accepts either `0x2` or `0x1000`.
+SuspendThread continues requiring `0x2`. The replay opens the guest handle through
+NtOpenThread, then checks both consumers, their errors and final suspend count.
+CI supplies 12 fresh AMD64/WoW64 observations per kernel to the same replay.
+
+The native capture handle-count test runs in a dedicated exact-test child
+process. This makes the resource check independent of other tests opening real
+host handles concurrently; the child must report the completed count check.

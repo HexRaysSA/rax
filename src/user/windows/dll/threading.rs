@@ -140,6 +140,7 @@ const THREAD_SUSPEND_RESUME: u32 = 0x0002;
 const THREAD_SET_CONTEXT: u32 = 0x0010;
 const THREAD_QUERY_INFORMATION: u32 = 0x0040;
 const THREAD_QUERY_LIMITED_INFORMATION: u32 = 0x0800;
+const THREAD_RESUME: u32 = 0x1000;
 const THREAD_ALL_ACCESS: u32 = 0x001F_FFFF;
 const CREATE_SUSPENDED: u32 = 4;
 const STACK_SIZE_PARAM_IS_A_RESERVATION: u32 = 0x10000;
@@ -372,7 +373,12 @@ fn resume_thread(c: &mut Ctx) -> ApiResult {
 fn change_suspend(c: &mut Ctx, suspend: bool) -> ApiResult {
     let handle = c.ptr(0)?;
     let result = (|| {
-        let id = thread_object(c, handle, THREAD_SUSPEND_RESUME, false)?;
+        let access = if suspend {
+            THREAD_SUSPEND_RESUME
+        } else {
+            THREAD_SUSPEND_RESUME | THREAD_RESUME
+        };
+        let id = thread_object(c, handle, access, !suspend)?;
         let target = live_thread(c, id)?;
         let previous = target.suspend;
         if suspend {

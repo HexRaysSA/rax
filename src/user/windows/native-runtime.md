@@ -3076,3 +3076,12 @@ before stdout. Native CMD emits the requested marker and exits0. Full
 Linux/macOS/Windows installed-library process support, Windows child-process
 namespaces, custom thread security and subsequent kernel services remain
 unfinished requirements.
+
+
+The opening-grant consumer audit also fixes built-in `ResumeThread` to accept
+`THREAD_RESUME` (`0x1000`) as well as `THREAD_SUSPEND_RESUME` (`0x2`). Suspension
+continues requiring `0x2`. Eighteen independent ARM64-host specific/generic
+controls are replayed through NtOpenThread and both existing Win32 consumers,
+including LastError and final counts. The native handle-conservation test uses
+an isolated child test process so unrelated concurrent handle activity cannot
+invalidate its count. The opening service and public/private ABIs are unchanged.

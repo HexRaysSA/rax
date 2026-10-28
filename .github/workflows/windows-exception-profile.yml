@@ -25,6 +25,8 @@ on:
       - src/user/windows/dll/native/thread_open.rs
       - src/user/windows/security/thread.rs
       - src/user/windows/security/thread/**
+      - src/user/windows/dll/threading.rs
+      - src/user/windows/dll/threading/native_thread_open_resume_tests.rs
       - src/user/windows/process/sched/tests/services_tests/thread_open_tests.rs
       - src/user/windows/process/sched/tests/services_tests/thread_open_tests/**
       - src/bin/rax_user.rs
@@ -52,6 +54,8 @@ on:
       - src/user/windows/dll/native/thread_open.rs
       - src/user/windows/security/thread.rs
       - src/user/windows/security/thread/**
+      - src/user/windows/dll/threading.rs
+      - src/user/windows/dll/threading/native_thread_open_resume_tests.rs
       - src/user/windows/process/sched/tests/services_tests/thread_open_tests.rs
       - src/user/windows/process/sched/tests/services_tests/thread_open_tests/**
       - src/bin/rax_user.rs
@@ -90,6 +94,17 @@ jobs:
           New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
           python -B docs/specifications/windows/native-mapped-filename/run-amd64-v3.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Observe native resume-only and execute-grant consumers
+        run: |
+          python -B docs/specifications/windows/native-open-thread/run-resume-v1.py --require-native-machine 0x8664 --output target/native-thread-resume-v1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve native thread grant consumer observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-thread-resume-${{ matrix.os }}
+          path: target/native-thread-resume-v1
+          if-no-files-found: error
       - name: Preserve early native mapped filename observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -302,6 +317,7 @@ jobs:
         if: always()
         run: |
           $env:RAX_NATIVE_OPEN_THREAD_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-open-thread-v6/receipt.json'
+          $env:RAX_NATIVE_THREAD_RESUME_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-thread-resume-v1/receipt.json'
           cargo test --locked --no-default-features --lib thread_open -- --nocapture --test-threads=1
       - name: Execute image-extension queries through installed native leaves
         if: always()

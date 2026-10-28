@@ -201,11 +201,33 @@ mod tests {
     }
     #[test]
     fn native_thread_open_capture_joins_controls_and_closes_all_native_handles() {
+        // Other Windows tests open real host handles. Use a dedicated test
+        // process so their concurrent activity cannot invalidate this count.
+        let qualified = concat!(
+            module_path!(),
+            "::native_thread_open_capture_joins_controls_and_closes_all_native_handles"
+        );
+        let name = qualified.split_once("::").unwrap().1;
+        let exact = ["--exact", name, "--test-threads=1", "--nocapture"];
+        if std::env::args().skip(1).collect::<Vec<_>>() != exact {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(exact)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{output:?}");
+            assert!(
+                String::from_utf8(output.stdout)
+                    .unwrap()
+                    .contains("RAX_THREAD_CAPTURE_HANDLES_BALANCED")
+            );
+            return;
+        }
         capture().unwrap(); // Resolve first-use native imports before counting.
         let before = handles();
         for _ in 0..8 {
             capture().unwrap();
         }
         assert_eq!(handles(), before);
+        println!("RAX_THREAD_CAPTURE_HANDLES_BALANCED");
     }
 }

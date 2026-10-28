@@ -16,6 +16,9 @@ mod native_semaphore_tests;
 #[path = "native_timer2_tests.rs"]
 mod native_timer2_tests;
 
+#[path = "native_thread_open_resume_tests.rs"]
+mod native_thread_open_resume_tests;
+
 fn with_context(arch: WinArch, test: impl FnOnce(&mut Ctx, u64)) {
     let image: &[u8] = match arch {
         WinArch::X86 => {
@@ -59,6 +62,7 @@ fn api(name: &str) -> &'static Api {
         .chain(super::super::native::EXPORTS.iter())
         .chain(super::super::native::SEMAPHORE_EXPORTS.iter())
         .chain(super::super::native::TIMER2_EXPORTS.iter())
+        .chain(super::super::native::THREAD_OPEN_EXPORTS.iter())
         .find_map(|export| match &export.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,
