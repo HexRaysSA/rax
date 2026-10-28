@@ -62,7 +62,10 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Observe native AMD64 and WoW64 mapped backing-file names
-        run: python -B docs/specifications/windows/native-mapped-filename/run-amd64-v2.py
+        run: |
+          New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
+          python -B docs/specifications/windows/native-mapped-filename/run-amd64-v2.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Preserve early native mapped filename observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
