@@ -1,0 +1,44 @@
+name: Darwin tracing policy observations
+
+on:
+  push:
+    paths:
+      - tools/darwin/observe_trace_policy.py
+      - tools/darwin/test_observe_trace_policy.py
+      - tools/darwin/trace-policy.md
+      - .github/workflows/darwin-trace-policy.yml
+      - tests/fixtures/user/darwin/src/ptrace_cs_trace.c
+      - tests/fixtures/user/darwin/src/ptrace_restrict.c
+      - tests/fixtures/user/darwin/src/ptrace_get_task_allow.plist
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parser:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Parser and provenance boundaries
+        run: python -B -m unittest discover -s tools/darwin -p test_observe_trace_policy.py
+
+  native:
+    runs-on: xcode-27
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Rosetta preflight
+        shell: bash
+        run: |
+          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
+          arch -x86_64 /usr/bin/true
+      - name: Native signing and tracing policy
+        run: python3 -B tools/darwin/observe_trace_policy.py --output target/trace-policy-observation
