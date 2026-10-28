@@ -873,12 +873,18 @@
         "/Users/int/dev/rax-audit-work/rax-a32-simd-access/final-access-oracle.log",
         "/Users/int/dev/rax-audit-work/rax-a32-simd-access/final-simd-oracle.log",
         "/Users/int/dev/rax-audit-work/rax-a32-simd-access/final-fpscr-oracle.log",
-        "/Users/int/dev/rax-audit-work/rax-a32-simd-access/final-capi.log"
+        "/Users/int/dev/rax-audit-work/rax-a32-simd-access/final-capi.log",
+        "src/isa/arm/aarch32/fp_admission.rs",
+        "tests/suites/isa/arm/aarch32/fp_admission.rs",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/qualification-v1.json"
       ],
       "remaining_validation": [
         "Security/virtualization controls, reserved instruction-admission semantics and full CPU capability/profile consistency.",
         "Physical A32 hardware and optional trapped profiles remain unverified.",
-        "Mandatory configured FEAT_FP16 admission and mixed-width FP capability identity are contradicted by an actual VMOVX.F16/VADD.F16 control; see a32-admission-study/feature-counterexample.json."
+        "Configured half admission and its A32 MVFR1 view are corrected; full AArch64/AArch32 ID consistency, non-half capability fields/FHM and remaining security/virtualization profiles stay open."
+      ],
+      "remediation_components": [
+        "a32-fp16-profile-admission-2026-10-28"
       ]
     },
     {
@@ -191765,6 +191771,91 @@
         "C-HVF"
       ],
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/commit-receipt.json"
+    },
+    {
+      "id": "a32-fp16-profile-admission-2026-10-28",
+      "status": "locally_validated",
+      "scope": "Configured mixed/standalone A32/T32 half admission, conversion-only capabilities and FPSCR.FZ16 masking; complete CPU profile identity and other feature fields remain open.",
+      "owned_paths": [
+        "src/isa/arm/aarch32/mod.rs",
+        "src/isa/arm/aarch32/fp_admission.rs",
+        "src/isa/arm/aarch32/instructions/fp_access.rs",
+        "src/isa/arm/aarch32/vfp.rs",
+        "src/isa/arm/aarch64/cpu/aarch32/state.rs",
+        "tests/suites/isa/arm/aarch32/fp_feature_registers.rs",
+        "tests/suites/isa/arm/aarch32/fp_admission.rs",
+        "docs/development/a32-fp-controls/feature-admission/README.md",
+        "docs/development/a32-fp-controls/feature-admission/provenance.json",
+        "docs/development/a32-fp-controls/feature-admission/cortex-a35-fp-trm.pdf",
+        "docs/development/a32-fp-controls/feature-admission/cortex-a55-fp-trm.pdf",
+        "docs/development/audit-remediation-2026-10.json"
+      ],
+      "parent_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/regression-parent-v3.json",
+      "targeted_evidence": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/admission-matrix-final-result.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/qualification-v1.json",
+      "validation_summary": {
+        "library_passed": 10796,
+        "library_ignored": 2,
+        "native_owning_passed": 47437,
+        "rosetta_owning_passed": 478,
+        "c_api_passed": 208,
+        "new_regressions": 9,
+        "field_boundary_checks": 680,
+        "encoded_feature_controls": 68,
+        "unrelated_positive_controls": 32,
+        "c_cpp_consumers": 18
+      },
+      "assumption_register": [
+        {
+          "id": "F1",
+          "assumption": "The enclosing FP16 flag represents implemented half data-processing capability.",
+          "basis": "AArch64Config.features contract and Arm VMOVX A1/T1 FEAT_FP16 guard.",
+          "dependent_result": "Mixed ARM/Thumb instruction admission and MVFR1 half fields.",
+          "stress_test": "34 encoded streams under both flag values; disabled forms with FP access traps.",
+          "falsification_probe": "A disabled mandatory-feature instruction retires or changes registers, PC or instruction count.",
+          "status": "confirmed for the implemented half families; broader ID/register profile consistency remains open"
+        },
+        {
+          "id": "F2",
+          "assumption": "Half conversion support is distinct from half data-processing support.",
+          "basis": "Archived A35/A55 MVFR1 sections; pre-existing DDI0568A.b TableB1-1.",
+          "dependent_result": "Legacy half/single/double and SIMD conversions remain admitted at their advertised field levels.",
+          "stress_test": "FPHP0..4, SIMDHP0..3 across17 forms and both execution states;680 adversarial field checks.",
+          "falsification_probe": "A conversion-only profile executes half data processing, or a supported conversion is rejected.",
+          "status": "confirmed by the nine owning regressions and retained68-control matrix"
+        },
+        {
+          "id": "F3",
+          "assumption": "ARM/Thumb normalized encoding classes distinguish FP16 operations from integer halfwords.",
+          "basis": "Existing architecture decoders and independent LLVM assembly of both execution states.",
+          "dependent_result": "New gating does not reject unrelated SIMD/scalar operations.",
+          "stress_test": "32 integer-halfword, lane, ordinary load and FP32 positive controls.",
+          "falsification_probe": "Any retained non-FP16 control fails solely because FP16 is disabled.",
+          "status": "confirmed within tested implemented families"
+        },
+        {
+          "id": "F4",
+          "assumption": "Profile checks run before FP access traps and handler effects for instructions whose condition passes.",
+          "basis": "Arm instruction decode/operation order; existing executor condition and FP-access entry.",
+          "dependent_result": "Feature absence produces UNDEFINED before access traps or data/memory handling.",
+          "stress_test": "Both execution states, higher-EL FP trap controls, frozen register/PC/count projections.",
+          "falsification_probe": "A disabled form traps as enabled FP or reaches a handler effect.",
+          "status": "confirmed by owning tests; constrained-unpredictable IT alternatives remain separately classified"
+        }
+      ],
+      "remaining_validation": [
+        "Two pre-existing library tests ignored.",
+        "Rosetta runs450 A32 VFP cases;34 native-AArch64 reference cases are host-gated there. No physical A32 or Intel HVF result is claimed.",
+        "AArch64 ID views, non-half capability fields including FHM, and remaining security/virtualization profiles are not closed by this group.",
+        "Complete private checkpoint producer, coordinated writer publication, bounded native scheduling and native Intel Mac HVF remain open."
+      ],
+      "remaining_full_findings": [
+        "A32-FP",
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/commit-receipt.json"
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

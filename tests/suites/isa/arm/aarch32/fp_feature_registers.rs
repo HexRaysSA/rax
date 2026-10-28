@@ -133,3 +133,6 @@ fn feature_register_reads_remain_privileged() {
         }
     }
 }
+
+#[path = "fp_admission.rs"]
+mod fp_admission;

@@ -9,6 +9,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     pub(super) fn fp_access_fault(&self, insn: &DecodedInsn) -> Option<ExecResult> {
         let mut kind = fp_access_kind(insn)?;
+        // Capability absence is a decode failure, before FP access traps and
+        // before the handler can modify any architectural state.
+        if !crate::isa::arm::aarch32::fp_admission::half_supported(
+            insn,
+            kind.advsimd,
+            &self.cpu.vfp,
+        ) {
+            return Some(ExecResult::Undefined);
+        }
         if insn.state.is_thumb() && self.cpu.cpsr.in_it_block() {
             kind.condition = self.cpu.cpsr.it_condition();
         }

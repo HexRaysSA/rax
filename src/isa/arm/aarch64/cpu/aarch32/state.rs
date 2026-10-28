@@ -2,10 +2,10 @@
 
 use crate::isa::arm::aarch32::cp15::{Cpacr, Sctlr};
 use crate::isa::arm::aarch32::cpu::{Armv7Cpu, ProcessorMode, Psr};
-use crate::isa::arm::aarch32::vfp::Fpscr;
 use crate::isa::arm::aarch64::aarch32_state::{Aarch32Pstate, mode_el, register_index};
 use crate::isa::arm::aarch64::cpu::AArch64Cpu;
 use crate::isa::arm::common::cpu::ArmError;
+use crate::isa::arm::common::features::ArmFeatures;
 use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 
 fn spsr_encoding(index: u8) -> u16 {
@@ -18,6 +18,11 @@ impl AArch64Cpu {
         let psr = self.aarch32.expect("AArch32 execution mode");
         let mut cpu = Armv7Cpu::new();
         cpu.pstate_features = self.config.features;
+        if !self.config.features.contains(ArmFeatures::FP16) {
+            // ARMv8 baseline half/single/double conversions remain available;
+            // scalar and Advanced SIMD half data processing do not.
+            cpu.vfp.mvfr1 = (cpu.vfp.mvfr1 & !0x0ff0_0000) | 0x0210_0000;
+        }
         cpu.fp_access_context = Some(self.aarch32_fp_context());
         cpu.nonsecure = self.sysregs.scr_el3 & 1 != 0;
         for index in 0..15 {
@@ -54,7 +59,7 @@ impl AArch64Cpu {
         for index in 0..32 {
             cpu.vfp.dregs[index] = (self.v[index / 2] >> ((index & 1) * 64)) as u64;
         }
-        cpu.vfp.fpscr = Fpscr::from_bits((self.fpcr & 0x07c8_0000) | self.fpsr);
+        cpu.vfp.write_fpscr((self.fpcr & 0x07c8_0000) | self.fpsr);
         let el1_aarch32 = crate::isa::arm::aarch64::exception_return::uses_aarch32(
             self.pauth_controls(),
             self.sysregs.id_aa64pfr0_el1,

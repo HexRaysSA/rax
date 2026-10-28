@@ -1,0 +1,26 @@
+[
+  {
+    "file": "cortex-a35-fp-trm.pdf",
+    "issuing_organization": "Arm Limited",
+    "title": "Arm Cortex-A35 Processor Advanced SIMD and Floating-point Support Technical Reference Manual",
+    "revision": "100238_0002_00_en",
+    "url": "https://documentation-service.arm.com/static/5e7cd77b7158f500bd5c4dc5",
+    "retrieved_utc": "2026-10-28T08:11:23.008207+00:00",
+    "bytes": 472513,
+    "sha256": "4b53532cb8644b5da476b4f4595653414f74bd01b6958fc3ec971d35308931b0",
+    "use": "MVFR1 FPHP/SIMDHP conversion-only and full FP16 data-processing profiles; model identity not adopted",
+    "redistribution_notice": "Original PDF copyright and redistribution notices preserved without alteration"
+  },
+  {
+    "file": "cortex-a55-fp-trm.pdf",
+    "issuing_organization": "Arm Limited",
+    "title": "Arm Cortex-A55 Core Advanced SIMD and Floating-point Support Technical Reference Manual",
+    "revision": "100446_0200_00_en",
+    "url": "https://documentation-service.arm.com/static/5e7e16dfb2608e4d7f0a2f8b",
+    "retrieved_utc": "2026-10-28T08:11:23.650105+00:00",
+    "bytes": 481506,
+    "sha256": "d818bb3ae135fa21419026aaf61b4e3b79d7bfb6f62ec2cdf69aa75310191169",
+    "use": "MVFR1 FPHP/SIMDHP conversion-only and full FP16 data-processing profiles; model identity not adopted",
+    "redistribution_notice": "Original PDF copyright and redistribution notices preserved without alteration"
+  }
+]

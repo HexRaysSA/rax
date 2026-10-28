@@ -67,15 +67,22 @@ impl Default for VfpState {
 
 impl VfpState {
     /// Architectural FPSCR view for the non-trapping, non-short-vector profile.
-    /// Retains NZCV/QC/AHP/DN/FZ/RMode/FZ16 and cumulative exception status.
+    /// Retains NZCV/QC/AHP/DN/FZ/RMode and cumulative exception status.
+    /// FZ16 is retained only when half data processing is implemented.
     /// Len/Stride, exception enables and all remaining reserved fields are RES0.
     pub(crate) fn read_fpscr(&self) -> u32 {
-        self.fpscr.bits() & 0xffc8_009f
+        self.fpscr.bits() & self.fpscr_mask()
     }
 
     /// Apply the guest-visible FPSCR write mask. Raw Fpscr helpers remain unmasked.
     pub(crate) fn write_fpscr(&mut self, value: u32) {
-        self.fpscr = Fpscr::from_bits(value & 0xffc8_009f);
+        self.fpscr = Fpscr::from_bits(value & self.fpscr_mask());
+    }
+
+    fn fpscr_mask(&self) -> u32 {
+        let half_data = (self.mvfr1 >> 24) & 15 == 3 || (self.mvfr1 >> 20) & 15 == 2;
+        // FZ16 is RES0 in the conversion-only profile.
+        0xffc8_009f & if half_data { u32::MAX } else { !(1 << 19) }
     }
 
     /// FPEXC.EN is writable; the selected synchronous profile fixes all other bits.
