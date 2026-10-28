@@ -1,6 +1,6 @@
-//! Capture exactly the fixed AppModel machine subtree through both Win32 views.
+//! Capture the two fixed HKLM AppModel subtrees through both Win32 views.
 //! Guest paths, access masks and handles never reach these acquisition calls.
-use super::super::appmodel::{MACHINE_KEY, RegistryView};
+use super::super::appmodel::{AppModelRoot, RegistryView};
 use super::*;
 
 pub(super) fn capture(registry: Registry) -> io::Result<Registry> {
@@ -9,24 +9,26 @@ pub(super) fn capture(registry: Registry) -> io::Result<Registry> {
 
 fn capture_with(
     mut registry: Registry,
-    mut opener: impl FnMut(RegistryView, &[u16]) -> io::Result<OwnedKey>,
+    mut opener: impl FnMut(AppModelRoot, RegistryView, &[u16]) -> io::Result<OwnedKey>,
 ) -> io::Result<Registry> {
-    for view in [RegistryView::Native64, RegistryView::Wow32] {
-        let selected = tree::capture_path_budgeted(
-            &registry,
-            MACHINE_KEY.encode_utf16().collect(),
-            registry.appmodel_budget()?,
-            |path| opener(view, path),
-        )?;
-        // Charge the first view before acquiring the second; the pair shares
-        // the existing global value budget and one key/path metadata budget.
-        registry = registry.with_appmodel_view(view, selected)?;
+    for selected in AppModelRoot::ALL {
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            let tree = tree::capture_path_budgeted(
+                &registry,
+                selected.path().encode_utf16().collect(),
+                registry.appmodel_budget()?,
+                |path| opener(selected, view, path),
+            )?;
+            // Charge every completed root/view before acquiring the next;
+            // all four trees share aggregate value and metadata budgets.
+            registry = registry.with_appmodel_view(selected, view, tree)?;
+        }
     }
     Ok(registry)
 }
 
-fn open(view: RegistryView, path: &[u16]) -> io::Result<OwnedKey> {
-    let fixed: Vec<_> = MACHINE_KEY.encode_utf16().collect();
+fn open(selected: AppModelRoot, view: RegistryView, path: &[u16]) -> io::Result<OwnedKey> {
+    let fixed: Vec<_> = selected.path().encode_utf16().collect();
     if path.contains(&0)
         || (path != fixed && (!path.starts_with(&fixed) || path.get(fixed.len()) != Some(&92)))
     {

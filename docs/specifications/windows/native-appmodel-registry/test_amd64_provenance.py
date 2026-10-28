@@ -129,6 +129,42 @@ class Amd64Provenance(unittest.TestCase):
                                 self.assertEqual(pair[0][field], pair[1][field])
         self.assertEqual(observed, 384)
 
+    def test_sibling_user_native_arm64_control_preserves_source_and_absence(self):
+        raw = (ROOT / "user-capture-v1.zip").read_bytes()
+        self.assertEqual(len(raw), 1763)
+        self.assertEqual(
+            digest(raw),
+            "c588a8ae4d62ec32da23dbbb09214803551e3077f32dd02a8270da4a894427c5",
+        )
+        with zipfile.ZipFile(ROOT / "user-capture-v1.zip") as archive:
+            self.assertIsNone(archive.testzip())
+            self.assertEqual(set(archive.namelist()), {"probe-v1.py", "receipt.json"})
+            producer = archive.read("probe-v1.py")
+            self.assertEqual(producer, (ROOT / "probe-user-v1.py").read_bytes())
+            receipt = json.loads(archive.read("receipt.json"))
+        self.assertEqual(receipt["source_sha256"], digest(producer))
+        output = receipt["output"]
+        self.assertEqual(output["kernel"], [10, 0, 29695])
+        self.assertEqual(output["native_machine"], 0xAA64)
+        self.assertEqual(output["process_machine"], 0)
+        self.assertEqual(output["pointer_bytes"], 8)
+        self.assertEqual(output["handles_before"], output["handles_after"])
+        expected = {
+            (leaf, api, view): status
+            for leaf in ["machine", "user"]
+            for api, views, status in [
+                ("NtOpenKey", [0, 0x100, 0x200, 0x300], 0xC0000034),
+                ("RegOpenKeyExW", [0, 0x100, 0x200], 2),
+            ]
+            for view in views
+        }
+        observed = {
+            (row["leaf"], row["api"], row["view"]): row["status"]
+            for row in output["rows"]
+        }
+        self.assertEqual(len(output["rows"]), 14)
+        self.assertEqual(observed, expected)
+
 
 if __name__ == "__main__":
     unittest.main()

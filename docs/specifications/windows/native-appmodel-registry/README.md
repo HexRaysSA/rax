@@ -212,3 +212,114 @@ ERROR_FILE_NOT_FOUND. All14 query outcomes are recorded and the process
 handle count remains117 before/after. No root, value, override, privilege or
 setting is changed. The sibling user root is the next implementation boundary;
 this machine-root snapshot does not claim that root or complete CMD execution.
+
+## Sibling HKLM user-root snapshot
+
+The sibling-root implementation captures both fixed HKLM leaves, `machine` and `user`,
+independently in the Native64 and Wow32 views. `user` is a leaf below
+`\Registry\Machine\Software\Microsoft\AppModel\Lookaside`; it does not
+select HKCU or the creator's SID hive. All four immutable trees share the
+existing 1024-key/1 MiB path and 4096-value/16 MiB aggregate value budgets.
+Each completed root/view is charged before acquiring the next. An acquisition
+error other than native file-not-found aborts at any of the four capture slots.
+
+Relative opens use the root handle's original catalog and physical path, so
+switching views cannot select the sibling leaf. Existing absolute/relative view
+rules and explicit uncaptured WoW64 key-body metadata apply to both roots.
+Controlled tests distinguish all four value sets and exercise cross-root budget
+exhaustion, duplicated handles, catalog replacement and sibling path boundaries.
+Native adapter tests independently query both roots and exercise present
+enumeration against fixed read-only IFEO controls without creating AppModel keys.
+
+`probe-user-v1.py` preserves the already executed native ARM64 producer exactly;
+`user-capture-v1.zip` contains its original source and receipt. ZIP length is
+1763 bytes and SHA-256 is
+`c588a8ae4d62ec32da23dbbb09214803551e3077f32dd02a8270da4a894427c5`.
+The producer SHA-256 is
+`ccd2cec2e745b82feab2aacd768576eb75440626844e7cc51d70a37b22bf7399`.
+The portable provenance test checks every one of its 14 query outcomes, native
+kernel/machine identity, pointer width, source identity and balanced handles.
+This Python control has no compiler/PE provenance; it does not extend the ten
+compiled acquisition views or establish present-AppModel routing. Assumption AM3
+and its real-present-root falsification probe remain retained for both leaves.
+Here ARM64 identifies the captured native kernel; the receipt does not
+independently bind the Python interpreter's process ISA. On an ARM64 Windows
+host with 64-bit Python, reproduce the read-only query with
+`python -I -B docs/specifications/windows/native-appmodel-registry/probe-user-v1.py`.
+It prints one JSON object containing 14 rows and equal before/after handle
+counts. On any supported Python host, verify the retained corpus with
+`python -I -B -m unittest discover -s docs/specifications/windows/native-appmodel-registry -p "test_*.py"`.
+The earlier test counts and CMD frontier above belong to the machine-only
+source. Qualification of the sibling-root implementation is recorded separately.
+
+The published machine-only source
+`4f6e5f15e69b84d6367d65eff799fc267dfd0b03` subsequently passes both physical
+AMD64 jobs in https://github.com/HexRaysSA/rax/actions/runs/40734394140.
+Windows 2022/build 20348 and Windows 2025/build 26100 each pass 11 AppModel
+tests, 10 CLI tests and the unchanged complete x64/x86 hardware-fault fixture.
+Fresh acquisition artifacts contain 192 calls per kernel. Their SHA-256 values
+are `4557fe039d904fc9c157d339670ec9fa05396afdfd280e7cfd555469a1895804`
+(20348, 6969 bytes) and
+`538db3c1adb69d84fb36ab9457f556c1ce1dbcca697c5084bbb530c764947fac`
+(26100, 6964 bytes). Both ZIP CRCs and producer/receipt/compiler/PE/stdout
+chains are verified. These results qualify the published machine-only source;
+they do not qualify the sibling-root implementation.
+
+## Sibling-root qualification
+
+The current sibling-root source passes 10 focused, 151 registry-filter, eight
+object, eight CLI and 191 C API tests on macOS ARM64. All-target compilation,
+strict production Clippy, 12 workflow-policy tests and five provenance tests
+pass. Its serial complete-library gate passes 8785 tests, with zero failures,
+two existing ignored microkernel tests and zero filtered tests, in 517.68 s.
+
+The translated Linux x86-64 container passes 10 focused, 148 registry-filter,
+eight object, eight CLI and 191 C API tests, plus all-target compilation and
+five provenance tests. Its serial complete-library gate passes 8775 tests,
+with zero failures, the same two existing ignored tests and zero filtered
+tests, in 775.30 s. Both completed validation directories are removed after
+archive CRC and member-hash verification.
+
+Native Windows ARM64 passes 13 focused, 182 registry-filter, eight object,
+10 CLI and 191 C API tests, all-target compilation, the CLI build and five
+provenance tests. Its serial complete-library gate passes 8094 tests, with
+zero failures, two existing ignored microkernel tests and zero filtered tests,
+in 2597.34 s. The controller exits 0 and verifies all frozen inputs unchanged.
+
+The current CLI has SHA-256
+`a5dc985654bddefeb2824c03d0192b1e95f39d1538e7fd6964c5b3a445354b7d`;
+the unchanged CMD retains SHA-256
+`d0f47e2d32ab33e593e5b49592d3dcfa3c8c5f9f9b345d512ef7269bca6b481a`.
+With `/d /c "echo RAX_APPMODEL_USER_SNAPSHOT"`, native CMD exits 0, while
+emulation exits 125 with empty stdout at the next uncaptured `NtOpenKeyEx`.
+A guarded inspector linked to current core archive SHA-256
+`1bf13ecd77737f2b8b8eaa3652279f56cd414311ad03e060368f4c1dbaa199b2`
+identifies `\REGISTRY\MACHINE`, access `0x02000000` (`MAXIMUM_ALLOWED`),
+options 0, attributes of 48 bytes, root handle 0 and flags `0x40`. The name's
+Length and MaximumLength are both 34 bytes. The inspector source, compiler and
+executable hashes are respectively
+`c791bfc2094396d1d7da8be0f60d0c00bfca76ca7ca8745552fde389fb23b98d`,
+`ea26a23a11ced22cd6ff064da71bf8f39fc07d0768343fb1e719a8268b49244d`
+and `d9dc2d1fa582638e0df050c776af11513a5044d69c0f75fc5d844509836512ad`.
+The successful inspector exit qualifies the diagnosis; its recorded guest
+result remains an internal unsupported request. Complete machine-root metadata
+and rights are the next implementation boundary. This is process progress,
+not complete CMD execution.
+
+The broader macOS parallel lane remains failing in unchanged Darwin tracing
+code. On the published machine-only source, CI job
+https://github.com/HexRaysSA/rax/actions/runs/40734394226/job/122978909305
+passes all 191 C API tests, then fails one of 417 Darwin tests. A local
+417-test parallel Darwin run records 414 passes and three failures, including
+a socket-transfer case and two exit/resume lifecycle cases. Those results
+remain preserved separately from the successful serial library gate. Their
+repair is a separate semantic change; this registry snapshot does not claim
+concurrency, installed Assist or full-process qualification.
+
+The same published source's native macOS 27 integration job
+https://github.com/HexRaysSA/rax/actions/runs/40734394226/job/122978909227
+records 371 passes and six failures across ARM64 and x86-64 fixtures:
+`ptrace_cs_trace_runtime`, `ptrace_restrict` and `ptrace_restrict_signed`.
+The native and emulated code-signing flags or trace admission differ despite
+exit status 0. These original failures are retained; their causes and repairs
+remain separate from this Windows registry change.

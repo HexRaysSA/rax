@@ -35,7 +35,7 @@ pub(crate) use primary_hive::HiveHeader;
 use primary_hive::PrimaryHive;
 #[path = "registry/appmodel.rs"]
 mod appmodel;
-pub(crate) use appmodel::{AppModelViews, RegistryView};
+pub(crate) use appmodel::{AppModelRoot, AppModelViews, RegistryView};
 #[path = "registry/fixed.rs"]
 mod fixed;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;

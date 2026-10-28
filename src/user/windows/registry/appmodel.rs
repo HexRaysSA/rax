@@ -1,9 +1,28 @@
 //! Independent immutable AppModel registry views. A handle retains the whole
-//! pair for the measured relative 64-to-32 transition, without reference cycles.
+//! catalog for the measured relative 64-to-32 transition, without reference cycles.
 use super::*;
 
 pub(crate) const MACHINE_KEY: &str =
     "\\Registry\\Machine\\Software\\Microsoft\\AppModel\\Lookaside\\machine";
+pub(crate) const USER_KEY: &str =
+    "\\Registry\\Machine\\Software\\Microsoft\\AppModel\\Lookaside\\user";
+
+/// Both leaves belong to HKLM. `User` does not select HKCU or a user SID hive.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum AppModelRoot {
+    Machine,
+    User,
+}
+impl AppModelRoot {
+    pub(crate) const ALL: [Self; 2] = [Self::Machine, Self::User];
+
+    pub(crate) fn path(self) -> &'static str {
+        match self {
+            Self::Machine => MACHINE_KEY,
+            Self::User => USER_KEY,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum RegistryView {
@@ -21,7 +40,7 @@ impl RegistryView {
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct AppModelViews {
-    pub(super) roots: BTreeMap<RegistryView, Option<Arc<Key>>>,
+    pub(super) roots: BTreeMap<(AppModelRoot, RegistryView), Option<Arc<Key>>>,
     upcase: Arc<[u16]>,
 }
 impl AppModelViews {
@@ -37,24 +56,27 @@ impl AppModelViews {
             normalized.push(92);
             normalized.extend_from_slice(component);
         }
-        let prefix: Vec<_> = MACHINE_KEY
-            .encode_utf16()
-            .map(|u| self.upcase[usize::from(u)])
-            .collect();
         let folded: Vec<_> = normalized
             .iter()
             .map(|&u| self.upcase[usize::from(u)])
             .collect();
-        if !folded.starts_with(&prefix)
-            || (folded.len() != prefix.len() && normalized.get(prefix.len()) != Some(&92))
-        {
-            return Lookup::Unselected;
+        for selected in AppModelRoot::ALL {
+            let prefix: Vec<_> = selected
+                .path()
+                .encode_utf16()
+                .map(|u| self.upcase[usize::from(u)])
+                .collect();
+            if folded.starts_with(&prefix)
+                && (folded.len() == prefix.len() || normalized.get(prefix.len()) == Some(&92))
+            {
+                return match self.roots.get(&(selected, view)) {
+                    Some(Some(root)) => root.relative(&normalized[prefix.len()..]),
+                    Some(None) => Lookup::Missing,
+                    None => Lookup::Unselected,
+                };
+            }
         }
-        match self.roots.get(&view) {
-            Some(Some(root)) => root.relative(&normalized[prefix.len()..]),
-            Some(None) => Lookup::Missing,
-            None => Lookup::Unselected,
-        }
+        Lookup::Unselected
     }
 
     pub(crate) fn relative(&self, root: &Key, name: &[u16], view: RegistryView) -> Lookup {
@@ -72,16 +94,17 @@ impl AppModelViews {
 impl Registry {
     pub(crate) fn with_appmodel_view(
         mut self,
+        selected: AppModelRoot,
         view: RegistryView,
         tree: Option<KeyTree>,
     ) -> io::Result<Self> {
-        if self.upcase.len() != 65_536 || self.appmodel.roots.contains_key(&view) {
+        if self.upcase.len() != 65_536 || self.appmodel.roots.contains_key(&(selected, view)) {
             return Err(invalid("invalid or duplicate AppModel registry view"));
         }
         let root = match tree {
             Some(tree) => Some(tree::build(
                 self.upcase.clone(),
-                MACHINE_KEY.encode_utf16().collect(),
+                selected.path().encode_utf16().collect(),
                 tree,
                 0,
                 &mut self.value_budget()?,
@@ -92,7 +115,7 @@ impl Registry {
         };
         let views = Arc::make_mut(&mut self.appmodel);
         views.upcase = self.upcase.clone();
-        views.roots.insert(view, root);
+        views.roots.insert((selected, view), root);
         Ok(self)
     }
 

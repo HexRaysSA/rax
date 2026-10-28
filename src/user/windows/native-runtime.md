@@ -3358,3 +3358,50 @@ balanced117/117 process handles. The current core archive has SHA256
 `3bef76cff4ff19ac892b292a2df897d94f03a2ea9694290306602464b2d8a9f1`.
 The sibling user-root snapshot and full CMD/process/installed-product
 qualification remain open.
+
+### Sibling HKLM AppModel user selection (2026-10-28)
+
+The selected AppModel catalog now separates the fixed HKLM `machine` and `user`
+leaves in both Native64 and Wow32 views. All four immutable trees share the
+existing key/path and value budgets; no guest registry operation is forwarded
+to the host. Capture aborts on non-not-found errors in any slot. Handle-owned
+catalogs preserve the original leaf as well as its paired view through duplicate
+and relative opens after replacement. The leaf named `user` is not HKCU.
+
+The frozen native ARM64 producer and all 14 original machine/user query results
+are retained as `probe-user-v1.py` and `user-capture-v1.zip` under the AppModel
+specification. Present-root native mapping remains unknown under assumption AM3;
+existing measured view controls and distinct controlled guest trees exercise the
+same inherited routing contract. WoW64 body tags remain explicitly uncaptured.
+Earlier machine-only qualification counts above do not qualify this revision.
+
+The sibling-root candidate passes macOS ARM64 serial library testing with
+8785 passes, zero failures, two existing ignored microkernel tests and zero
+filtered tests. Translated Linux x86-64 passes 8775 with the same failure,
+ignore and filter counts. Focused/registry/object/CLI/CAPI gates pass
+10/151/8/8/191 on macOS and 10/148/8/8/191 on Linux, with all-target checks
+and five provenance tests on both. macOS strict production Clippy and 12
+workflow-policy tests pass. Completed validation outputs are archived,
+verified and removed.
+
+Native Windows ARM64 passes 13/182/8/10/191 selected gates. All-target/build,
+provenance and actual CMD comparisons complete. Its serial complete-library
+gate passes 8094 tests with zero failures, two existing ignored microkernel
+tests and zero filtered tests, in 2597.34 s; all frozen inputs remain unchanged.
+CLI SHA-256
+`a5dc985654bddefeb2824c03d0192b1e95f39d1538e7fd6964c5b3a445354b7d`
+advances unchanged installed CMD to an uncaptured `NtOpenKeyEx` for
+`\REGISTRY\MACHINE`, access `0x02000000` (`MAXIMUM_ALLOWED`) and options 0.
+Native CMD exits 0; emulation exits 125 before stdout. The guarded current-core
+inspector confirms a 48-byte attributes structure, root 0, flags `0x40` and
+name Length/MaximumLength of 34/34 bytes. Fixed machine-hive root metadata and
+rights remain the next boundary.
+
+Separately, a parallel Darwin slice exposes three tracing transport/lifecycle
+failures in unchanged source. The successful serial gates do not establish
+concurrency or complete Linux/macOS/Windows process execution. The AppModel
+specification preserves the separate passing and failing source frames.
+The published baseline's native macOS 27 integration job also records 371
+passes and six code-signing/ptrace parity failures, across ARM64 and x86-64
+fixtures. Their cause remains unknown; this Windows registry change does not
+qualify those native Darwin paths.
