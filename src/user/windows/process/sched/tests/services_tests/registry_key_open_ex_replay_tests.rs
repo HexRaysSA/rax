@@ -174,6 +174,7 @@ fn policy_present(rows: &[Json]) -> bool {
 fn replay_order(
     arch: WinArch,
     rows: &[Json],
+    kernel: (u32, u16),
     privilege_profile: u32,
     policy_present: bool,
     expected: (usize, usize, usize),
@@ -183,6 +184,7 @@ fn replay_order(
     assert_eq!(number(machine, "pointer_bytes"), arch.ptr_size());
     let (mut process, mut t, base) = setup(arch);
     let p = process.state_mut();
+    super::super::super::native_profile::kernel_profile(p, kernel.0, kernel.1);
     subject(p, privilege_profile);
     let sid = [1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0];
     let policy = policy_present.then_some(crate::user::windows::registry::KeyTree {
@@ -448,6 +450,7 @@ fn native_open_key_ex_replays_frozen_order_bytes_guards_leaks_and_privileges() {
             replay_order(
                 $arch,
                 &order,
+                (29695, 0xAA64),
                 0,
                 present,
                 if $arch.is64() {
@@ -464,6 +467,7 @@ fn native_open_key_ex_replays_frozen_order_bytes_guards_leaks_and_privileges() {
                     $label,
                     "-29695-v7.jsonl.zst"
                 ))),
+                (29695, 0xAA64),
                 0,
                 present,
                 if $arch.is64() {
@@ -490,6 +494,71 @@ fn native_open_key_ex_replays_frozen_order_bytes_guards_leaks_and_privileges() {
 }
 
 #[test]
+fn native_open_key_ex_replays_independent_amd64_kernel_controls() {
+    macro_rules! replay {
+        ($build:literal, $arch:expr, $label:literal) => {
+            let order = corpus(include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-open-key-ex/amd64-",
+                stringify!($build),
+                "-",
+                $label,
+                "-v3.jsonl.zst"
+            )));
+            let present = policy_present(&order);
+            replay_order(
+                $arch,
+                &order,
+                ($build, 0x8664),
+                0,
+                present,
+                if $arch.is64() {
+                    (3256, 32, 24)
+                } else {
+                    (3280, 32, 0)
+                },
+            );
+            replay_order(
+                $arch,
+                &corpus(include_bytes!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/docs/specifications/windows/native-open-key-ex/amd64-",
+                    stringify!($build),
+                    "-",
+                    $label,
+                    "-v7.jsonl.zst"
+                ))),
+                ($build, 0x8664),
+                0,
+                present,
+                if $arch.is64() {
+                    (710, 0, 10)
+                } else {
+                    (720, 0, 0)
+                },
+            );
+            replay_grants(
+                $arch,
+                &corpus(include_bytes!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/docs/specifications/windows/native-open-key-ex/amd64-",
+                    stringify!($build),
+                    "-",
+                    $label,
+                    "-v5.jsonl.zst"
+                ))),
+            );
+        };
+    }
+    replay!(20348, WinArch::X64, "x64");
+    replay!(20348, WinArch::X86, "x86");
+    replay!(20348, WinArch::X86, "x86-laa");
+    replay!(26100, WinArch::X64, "x64");
+    replay!(26100, WinArch::X86, "x86");
+    replay!(26100, WinArch::X86, "x86-laa");
+}
+
+#[test]
 fn native_open_key_ex_replays_fresh_controls_when_requested() {
     let order = std::env::var_os("RAX_NATIVE_OPEN_KEY_EX_ORDER");
     let grants = std::env::var_os("RAX_NATIVE_OPEN_KEY_EX_GRANTS");
@@ -508,6 +577,7 @@ fn native_open_key_ex_replays_fresh_controls_when_requested() {
             number(receipt, "native_machine"),
             number(&order, "native_machine")
         );
+        assert_eq!(receipt["kernel"], order["kernel"]);
     }
     let mut count = 0;
     for entry in order["rows"].as_array().unwrap() {
@@ -545,6 +615,10 @@ fn native_open_key_ex_replays_fresh_controls_when_requested() {
         replay_order(
             arch,
             &order_rows,
+            (
+                order["kernel"][2].as_u64().unwrap().try_into().unwrap(),
+                number(&order, "native_machine").try_into().unwrap(),
+            ),
             profile,
             present,
             if arch.is64() {
@@ -562,6 +636,10 @@ fn native_open_key_ex_replays_fresh_controls_when_requested() {
         replay_order(
             arch,
             &parse(view_entry, "v7"),
+            (
+                order["kernel"][2].as_u64().unwrap().try_into().unwrap(),
+                number(&order, "native_machine").try_into().unwrap(),
+            ),
             profile,
             present,
             if arch.is64() {

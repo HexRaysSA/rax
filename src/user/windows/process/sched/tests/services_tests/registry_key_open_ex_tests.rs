@@ -42,6 +42,83 @@ fn native_open_key_ex_four_slot_family_preserves_prior_symbols_all_abis() {
 }
 
 #[test]
+fn native_open_key_ex_odd_name_uses_captured_kernel_and_preserves_value_queries() {
+    for arch in WinArch::ALL {
+        for (build, machine, expected) in [
+            (20348, 0x8664, STATUS_OBJECT_NAME_INVALID),
+            (26100, 0x8664, STATUS_OBJECT_NAME_INVALID),
+            (29683, 0xAA64, STATUS_INVALID_PARAMETER),
+            (29695, 0xAA64, STATUS_INVALID_PARAMETER),
+        ] {
+            let (mut process, mut t, base) = setup(arch);
+            let p = process.state_mut();
+            super::super::native_profile::kernel_profile(p, build, machine);
+            let attrs = base + 2 * PAGE_SIZE;
+            let descriptor = attrs + 64;
+            unicode(p, descriptor, attrs + 128, NLS_KEY);
+            attributes(p, attrs, descriptor, 0, 0x40);
+            assert_eq!(
+                call(p, &mut t, "NtOpenKey", &[base, 1, attrs]),
+                STATUS_SUCCESS
+            );
+            let key = p.space.ptr(base, arch.ptr_size()).unwrap();
+            p.space.w16(descriptor, 1).unwrap();
+            let before = p.objects.handle_count();
+            for service in ["NtOpenKey", "NtOpenKeyEx"] {
+                let args = [base, 1, attrs, 0];
+                assert_eq!(
+                    call(
+                        p,
+                        &mut t,
+                        service,
+                        &args[..if service == "NtOpenKey" { 3 } else { 4 }]
+                    ),
+                    expected,
+                    "{arch}/{build}/{machine:x}/{service}"
+                );
+                assert_eq!(p.space.ptr(base, arch.ptr_size()).unwrap(), 0);
+                assert_eq!(p.objects.handle_count(), before);
+            }
+            // Query-value's existing descriptor validation is a separate contract.
+            assert_eq!(
+                call(
+                    p,
+                    &mut t,
+                    "NtQueryValueKey",
+                    &[key, descriptor, 2, base + 128, 64, base + 64]
+                ),
+                STATUS_INVALID_PARAMETER
+            );
+            assert_eq!(call(p, &mut t, "NtClose", &[key]), STATUS_SUCCESS);
+        }
+    }
+}
+
+#[test]
+fn native_open_key_ex_unknown_odd_name_profile_is_explicit() {
+    for arch in WinArch::ALL {
+        for (build, machine) in [(12345, 0x8664), (29695, 0x8664), (20348, 0xAA64)] {
+            let (mut process, mut t, base) = setup(arch);
+            let p = process.state_mut();
+            super::super::native_profile::kernel_profile(p, build, machine);
+            let attrs = base + 2 * PAGE_SIZE;
+            unicode(p, attrs + 64, attrs + 128, NLS_KEY);
+            attributes(p, attrs, attrs + 64, 0, 0x40);
+            p.space.w16(attrs + 64, 1).unwrap();
+            let module = p.modules.nt_services.as_ref().unwrap().0;
+            p.modules.nt_services = Some((module, table(arch, "NtOpenKeyEx", 0x12)));
+            arguments(p, &mut t, &[base, 1, attrs, 0]);
+            let outcome = dispatch(p, &mut t);
+            assert!(
+                matches!(outcome, Outcome::Fail(ref text) if text.contains("registry odd key-name kernel profile is not captured")),
+                "{arch}/{build}/{machine:x}/{outcome:?}"
+            );
+            assert_eq!(p.space.ptr(base, arch.ptr_size()).unwrap(), 0);
+        }
+    }
+}
+
+#[test]
 fn native_open_key_ex_invalid_options_keep_native_and_wow64_probe_order() {
     for arch in WinArch::ALL {
         let (mut process, mut t, base) = setup(arch);

@@ -1,0 +1,156 @@
+{
+  "retrieved": "2026-10-28",
+  "workflow_run": 40689391666,
+  "source_commit": "15ffd07ae74430f1659bdf31035468476d2b3fc4",
+  "raw_bytes_frozen": true,
+  "files": {
+    "amd64-20348-capture-v1.zip": {
+      "bytes": 491550,
+      "sha256": "239f6917e856393ec764ad00cf2e35728e509401e0d8c2aabf2ae7975dfedb1b"
+    },
+    "amd64-20348-x64-v3.jsonl.zst": {
+      "bytes": 19365,
+      "sha256": "40220bd3de5790b287eb4b87d0dfb9d67c87239bc907eb55ad7cee04cc341211",
+      "decoded_bytes": 2155469,
+      "decoded_sha256": "6ae89fcbb9f9fdec7dc2e720af5e40ef93a12add16750ce55366b2c0f29e44bf",
+      "rows": 6625
+    },
+    "amd64-20348-x86-v3.jsonl.zst": {
+      "bytes": 20623,
+      "sha256": "d334be2a17a6611e41b98db2acde5573026c7690fcb43cee7c06ff1719ce954d",
+      "decoded_bytes": 2155272,
+      "decoded_sha256": "39da2bdca3c45a839b7f9262aff94d7facc14721e9363bee536d98854d108428",
+      "rows": 6625
+    },
+    "amd64-20348-x86-laa-v3.jsonl.zst": {
+      "bytes": 20577,
+      "sha256": "09c161ffade1c701c133317cb51368c553e529b0d174d3c6e7a68270ac333b63",
+      "decoded_bytes": 2155272,
+      "decoded_sha256": "7f06eae5e7e49058ae286ee227ade599384ff3d22bcc92bf3e46c580bcd732a4",
+      "rows": 6625
+    },
+    "amd64-20348-x64-v5.jsonl.zst": {
+      "bytes": 10356,
+      "sha256": "2febd48d022f222e02e82b2aa68d2f492ad0ba9a3fdbc5ecd9d5cf6003438743",
+      "decoded_bytes": 1250630,
+      "decoded_sha256": "5a9f0eee279a351ea01bb44a3760ae84dc1a028bbaa4fdef95ae8abae2732a85",
+      "rows": 4689
+    },
+    "amd64-20348-x86-v5.jsonl.zst": {
+      "bytes": 9333,
+      "sha256": "5c6d09bad46015c61cbabc48228718ff74e7b019462d147a6532ddeecea4492c",
+      "decoded_bytes": 1098164,
+      "decoded_sha256": "3fa1283ab6ec1b6bb52d4c908af819b9ab9473387b65f45387db9f544461b8bf",
+      "rows": 4161
+    },
+    "amd64-20348-x86-laa-v5.jsonl.zst": {
+      "bytes": 9357,
+      "sha256": "5c77ed7ff53c352dc38a128458b72c9635ca55973272cb6547dcb19bfac9c4dd",
+      "decoded_bytes": 1098164,
+      "decoded_sha256": "6718b6c6df82f2a669b39dd82d6d1406cb69686afa1d0211da8db6c12f1b932c",
+      "rows": 4161
+    },
+    "amd64-20348-x64-v7.jsonl.zst": {
+      "bytes": 4746,
+      "sha256": "2a89e7d7159329bae28d690c27a7cd1df48d0fd338dde4bd6cc1a489384c901f",
+      "decoded_bytes": 469155,
+      "decoded_sha256": "e12352db8de1e78285f2fec3865c6c7ce1de8bc3e8b7fa24a4f3e3df08628768",
+      "rows": 1441
+    },
+    "amd64-20348-x86-v7.jsonl.zst": {
+      "bytes": 4187,
+      "sha256": "0e306aecde3473846b10d0c7bd83c0f2ebfd40d8e809dcd035937254f7ab631e",
+      "decoded_bytes": 469615,
+      "decoded_sha256": "5e922d6687cca7d06d8c830ed3fdc403d609f79488a2051803dba233ef5f2b4e",
+      "rows": 1441
+    },
+    "amd64-20348-x86-laa-v7.jsonl.zst": {
+      "bytes": 4137,
+      "sha256": "ce9b4cab7058e4cc3281107e9bc040cee2daa6c90184a0a20ad511d71f7413c2",
+      "decoded_bytes": 469616,
+      "decoded_sha256": "66575887502a307ca3b9606fd70cd4ab664b9339248821b6f29c38b4bf803c99",
+      "rows": 1441
+    },
+    "amd64-26100-capture-v1.zip": {
+      "bytes": 491934,
+      "sha256": "427cc9115f074347a42efd6afa2b9a36f0fe2c741797bedf6a3d90293f491954"
+    },
+    "amd64-26100-x64-v3.jsonl.zst": {
+      "bytes": 19399,
+      "sha256": "504c48cfd0142a44f4d3c9bd8ae523fc9f9d255a07c8b9fbd1c809ff787248ac",
+      "decoded_bytes": 2155469,
+      "decoded_sha256": "043cc6c9fbd3c3cc80c21583dda15e48f7309bd4191180bc911b46dbbbc42d9a",
+      "rows": 6625
+    },
+    "amd64-26100-x86-v3.jsonl.zst": {
+      "bytes": 20784,
+      "sha256": "43edfbe475272f02d87efc5f7aa95a754c6e7dd8df309cfd48039ff4cf4dedb8",
+      "decoded_bytes": 2155272,
+      "decoded_sha256": "cedf34fe137656c556f8b7c3511b18a945980d8bc6029d5beb3c4160e0f61220",
+      "rows": 6625
+    },
+    "amd64-26100-x86-laa-v3.jsonl.zst": {
+      "bytes": 20773,
+      "sha256": "ad34ebabdbfb69e11f5cd7829399ae5504d7106cd6ac4bcdd9fc60748c8b7ec1",
+      "decoded_bytes": 2155272,
+      "decoded_sha256": "174197c6c3e86a1ff36f94765a0eb7f8ff75adaa92e4a4f8cfdf48d9690a0965",
+      "rows": 6625
+    },
+    "amd64-26100-x64-v5.jsonl.zst": {
+      "bytes": 10357,
+      "sha256": "fad0f5fce665c6d551b98146fae9a7d270fc20f507eaadd88288a96f005f3b34",
+      "decoded_bytes": 1250630,
+      "decoded_sha256": "99c16913b852fa36d6a012e155e6de7c62fb54a8236eee4e1e8398fd6f9403dc",
+      "rows": 4689
+    },
+    "amd64-26100-x86-v5.jsonl.zst": {
+      "bytes": 9330,
+      "sha256": "9ce20a6682b4038e729bc7b54b2bec193f209367126a0f38d16fcde603f078c5",
+      "decoded_bytes": 1098164,
+      "decoded_sha256": "2b4d80a1ac5f09604c06b002b22ef7264d56da6ac8af5023ce95a97b9a6f3a41",
+      "rows": 4161
+    },
+    "amd64-26100-x86-laa-v5.jsonl.zst": {
+      "bytes": 9361,
+      "sha256": "d8c537dcd542d3a0a14f4778e890696bfb0459288cd87d7f14799fd2c6678a02",
+      "decoded_bytes": 1098164,
+      "decoded_sha256": "0cd89339805920bf93a8d9c8bca1ea1692b3f81ac9b8344fedd41b3dcb12bb23",
+      "rows": 4161
+    },
+    "amd64-26100-x64-v7.jsonl.zst": {
+      "bytes": 4763,
+      "sha256": "d18543b2fa884457dcc26d3aeba6909cfe7d864f6dff7e12e57bc9bf489fc2b3",
+      "decoded_bytes": 469155,
+      "decoded_sha256": "0f363a51845f1e0872c7021e0905d731b8c76a83a22f815522b65be13c8eaf20",
+      "rows": 1441
+    },
+    "amd64-26100-x86-v7.jsonl.zst": {
+      "bytes": 4178,
+      "sha256": "6b76a27988231a360cbcff94ef2232b64899c5ddeece8edfe96b06790f6bff73",
+      "decoded_bytes": 469615,
+      "decoded_sha256": "ce557a8aa1e338329e9237efa6fcf0a447df2c7d369f0e00bb40e79b42e54aab",
+      "rows": 1441
+    },
+    "amd64-26100-x86-laa-v7.jsonl.zst": {
+      "bytes": 4181,
+      "sha256": "ab04f710ed878edf7689470ee75af4db04f7daa29bfae0f8c8c98fa644022168",
+      "decoded_bytes": 469616,
+      "decoded_sha256": "982e39d45b084eee33049ed79c57ece4dd69f9e2474a4d1cd7e65b7d292ef505",
+      "rows": 1441
+    }
+  },
+  "captures": [
+    {
+      "archive": "amd64-20348-capture-v1.zip",
+      "kernel_build": 20348,
+      "native_machine": 34404,
+      "job": 122820012593
+    },
+    {
+      "archive": "amd64-26100-capture-v1.zip",
+      "kernel_build": 26100,
+      "native_machine": 34404,
+      "job": 122820012966
+    }
+  ]
+}

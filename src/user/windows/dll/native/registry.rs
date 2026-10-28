@@ -1,5 +1,5 @@
 //! Snapshot-backed runtime registry reads. Native64 and WoW64 capture/probe order
-//! follows the build29683/29695 observations retained under docs/specifications.
+//! follows captured ARM64 and AMD64 kernel profiles under docs/specifications.
 //! No guest path, access mask or handle reaches a host registry service.
 use super::query::{guard_result, probe_write};
 use crate::error::MemoryAccessKind;
@@ -86,6 +86,24 @@ struct Attributes {
     name: Name,
     flags: u32,
 }
+fn odd_open_name_status(c: &Ctx) -> Checked<u32> {
+    let Some(native) = &c.p.native else {
+        // The built-in personality retains its original ARM64-derived profile.
+        return Ok(STATUS_INVALID_PARAMETER);
+    };
+    match (
+        native.version.major,
+        native.version.minor,
+        native.version.build,
+        native.object_namespace.native_machine,
+    ) {
+        (10, 0, 20348 | 26100, Some(0x8664)) => Ok(STATUS_OBJECT_NAME_INVALID),
+        (10, 0, 29683 | 29695, Some(0xAA64)) => Ok(STATUS_INVALID_PARAMETER),
+        _ => Err(c
+            .unsupported("registry odd key-name kernel profile is not captured")
+            .into()),
+    }
+}
 fn attributes(c: &Ctx, address: u64) -> Checked<Attributes> {
     let wow = c.arch() == WinArch::X86;
     let size = if wow { 24 } else { 48 };
@@ -124,6 +142,9 @@ fn attributes(c: &Ctx, address: u64) -> Checked<Attributes> {
         }
     }
     let descriptor = name(c, object_name)?;
+    if !wow && descriptor.length % 2 != 0 {
+        return status(odd_open_name_status(c)?);
+    }
     if !wow && descriptor.length != 0 && descriptor.length % 2 == 0 && descriptor.buffer % 2 != 0 {
         return status(STATUS_DATATYPE_MISALIGNMENT);
     }
@@ -232,8 +253,11 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
     if options & !0x1C != 0 {
         return status(STATUS_INVALID_PARAMETER_4);
     }
-    if attrs.flags & !0x1FF2 != 0 || attrs.name.odd {
+    if attrs.flags & !0x1FF2 != 0 {
         return status(STATUS_INVALID_PARAMETER);
+    }
+    if attrs.name.odd {
+        return status(odd_open_name_status(c)?);
     }
     if attrs.flags & 0x100 != 0 {
         return Err(c

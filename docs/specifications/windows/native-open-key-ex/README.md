@@ -20,8 +20,8 @@ selected child. No guest pathname expands host acquisition authority.
 The frozen controls were collected on Windows10.0.29695 ARM64. ARM64 is the
 physical native ISA; x64 and x86 are compatibility personalities on that kernel.
 Each capture includes ARM64, x64, x86 and x86 with LARGEADDRESSAWARE. Separate
-Windows2022/2025 CI observations are required for independent AMD64 evidence;
-a workflow definition is not a passing result.
+Windows2022/2025 CI observations provide independent AMD64 kernel evidence as
+described below; the original failed CI replay remains part of that evidence.
 
 | Version | Purpose | Rows per ABI |
 |---|---|---:|
@@ -31,7 +31,6 @@ a workflow definition is not a passing result.
 | v4 | Private duplicated token with all four backup/restore privilege profiles | 2565 |
 | v5 | Grants and tags plus an isolated application-hive link diagnostic | 4689 native64; 4161 x86 |
 | v6 | Handle validity, Win32 options and native `OBJ_OPENLINK` distinction | 80 |
-
 | v7 | Conflicting views crossed with all30 pointer/attribute roles and options0/1/4 | 1441 |
 
 Each `capture-vN.zip` is the original verified archive, including raw producer
@@ -45,6 +44,38 @@ replay inputs use Zstandard compression of the unchanged JSONL bytes; decoded
 sizes and SHA256 values are in `provenance.json`. The complete retained set is
 1.27 MB before the documentation/reference copies, avoiding a
 15.20 MB plaintext duplication. No new compression dependency is introduced.
+
+## Independent AMD64 key-name validation
+
+The unchanged v3/v5/v6/v7 producers also completed on native AMD64 kernels
+10.0.20348 and10.0.26100 in [run40689391666](https://github.com/HexRaysSA/rax/actions/runs/40689391666).
+The two jobs' acquisition artifacts are retained as `amd64-20348-capture-v1.zip`
+and `amd64-26100-capture-v1.zip`. `amd64-provenance.json` records their hashes,
+source commit, jobs and18 compressed v3/v5/v7 replay inputs. The20 additional
+immutable files occupy1189291 bytes. Original receipt, compiler log and JSONL
+bytes are preserved; no emulator result supplies an expected native status.
+
+The initial fresh replay failed on odd `UNICODE_STRING.Length` for an open
+key name. Both AMD64 kernels return `STATUS_OBJECT_NAME_INVALID` (0xC0000033),
+where the retained ARM64 profile returns `STATUS_INVALID_PARAMETER`
+(0xC000000D). Comparing v3 statuses isolates72 native64 and144 per x86 view
+differences on each kernel to odd-name roles16/26. Other statuses agree.
+
+Open validation now selects this result from the captured native machine and
+kernel version, independently of the guest-visible version and compilation
+host. Native64 retains rejection before name-buffer probing; WoW64 retains its
+earlier widening, output, root, view and option checks. `NtQueryValueKey` keeps
+its existing descriptor validation. Captured AMD64 builds20348/26100 and ARM64
+builds29683/29695 are explicit profiles. An unknown native identity produces
+`registry odd key-name kernel profile is not captured` when this distinction is
+required. The built-in personality retains its original ARM64-derived result.
+
+The retained replay selects each capture's actual kernel identity. The fresh
+replay selects the identity in its receipts and requires matching receipts.
+All six AMD64 ABI matrices remain enabled alongside the four ARM64-kernel
+views. They add27772 native-equality calls and68 explicit namespace frontiers;
+192 additional sibling calls remain exploratory. Full CMD execution remains
+outside the result established by these controls.
 
 Native64 rejects invalid options before probing caller memory. The legal
 measured mask is0x1C. For valid options it probes/zeroes output before capturing
@@ -131,6 +162,7 @@ New-Item -ItemType Directory -Force .t | Out-Null
 $env:TEMP = Join-Path $PWD '.t'
 $env:TMP = $env:TEMP
 $env:TMPDIR = $env:TEMP
+$env:SystemTemp = $env:TEMP
 $env:CARGO_TARGET_DIR = Join-Path $PWD 'target/native-open-key-build'
 python -B docs/specifications/windows/native-open-key-ex/run-v3.py --require-native-machine 0x8664 --output target/native-open-key-order-v3
 python -B docs/specifications/windows/native-open-key-ex/run-v5.py --require-native-machine 0x8664 --output target/native-open-key-grants-v5
@@ -172,9 +204,24 @@ building that index is O(r log r) for r captured tag records.
 | KO2 | System policy requires a fixed route under the captured subject; actual CMD stopped there | Second immutable policy selection | Present/absent roots, six acquisition orders, both aliases, SID mismatch, budget limits | Confirmed within these bounds |
 | KO3 | WoW64 view/root checks precede native option checks after widening/output probes | Validation placement | v7 crosses conflicting views with all30 roles, options0/1/4 and present/missing paths; any mismatch falsifies placement | Confirmed on captured29695 ABIs |
 | KO4 | The current personality has no impersonation-token attachment service (`dll/native/token.rs`) | Backup/restore reads the captured primary subject | Introducing a successful thread-token attachment requires replacing this effective-subject assumption | Confirmed for the current personality |
+| KN1 | Odd key-name status depends on captured kernel identity; independent AMD64 controls disagree with the ARM64 controls only at odd-name roles | Open-only status selection | Replay every retained matrix, spoof guest version, reject unknown native identity, retain value-query errors; any byte/guard/handle mismatch falsifies placement | Confirmed by retained replay on macOS, Linux and Windows |
 
-High: the actual installed CMD advances to an uncaptured AppModel Lookaside
-machine key after this change; full CMD/process execution remains incomplete.
+The corrected retained replay checks46264 native-equality calls and136 explicit
+namespace frontiers across ten captured ABI/kernel views. It keeps320 sibling
+calls exploratory. Five provenance tests pass on all three hosts. Focused
+extended-key tests pass9/9/10 on macOS/Linux/Windows; registry tests pass
+141/138/169, CLI tests pass8/8/10, C API tests pass191 on each, and all-target
+compilation passes on each.
+The macOS complete library gate passes8775 tests and the Linux gate8765, each
+with zero failures, two existing ignored tests and zero filtered tests. macOS
+strict production Clippy passes. Native Windows complete-library validation
+and fresh physical AMD64 CI remain running or pending at this source frame;
+neither is represented as completed by the retained replay.
+
+High: an instrumented prototype identifies an uncaptured AppModel Lookaside
+machine key. The final CLI independently stops at an uncaptured `NtOpenKey`;
+its exact key name has not been independently re-inspected. Full CMD/process
+execution remains incomplete.
 Medium: link-source metadata and the ordinary `MAXIMUM_ALLOWED` grant disparity
 remain explicit boundaries. Neither is concealed by a native-parity claim.
 

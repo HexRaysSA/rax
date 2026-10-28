@@ -3228,14 +3228,38 @@ compressed unchanged observations, provenance checks, reference copies,
 reproduction commands, assumptions and exclusions are documented in
 `docs/specifications/windows/native-open-key-ex/README.md`.
 
-The unchanged installed ARM64 CMD passes the earlier System-policy
-open and reaches `NtOpenKey` for
-`\Registry\Machine\SOFTWARE\Microsoft\AppModel\Lookaside\machine`, with desired
-access0x80000100. It still exits125 before stdout while native CMD prints its
-marker and exits0. This is measured advancement, not CMD completion. The current CLI has SHA256
+An instrumented prototype passes the earlier System-policy open and identifies
+`NtOpenKey` for `\Registry\Machine\SOFTWARE\Microsoft\AppModel\Lookaside\machine`,
+with desired access0x80000100. The final CLI independently stops at an uncaptured
+`NtOpenKey`, exiting125 before stdout while native CMD prints its marker and
+exits0; its exact key name has not been re-inspected. This is measured
+advancement, not CMD completion. That final CLI has SHA256
 `9da83b64fc680a57815a7a528cc4b37d59f38f53d0dccc55839e118936c3d17a`; source and both executable hashes remain unchanged across
 this run. macOS/Linux full library gates pass8771/8761 tests, each with two
 existing ignored tests; their191 C API tests and all-target checks pass. The
-Windows focused/fresh, registry, CLI,191 C API and all-target checks pass; its
-unfiltered library gate remains running. Independent AMD64 qualification and
-installed-Assist/package results remain separate open gates.
+Windows focused/fresh, registry, CLI,191 C API and all-target checks pass. Its
+unfiltered library gate recorded8076 passes, one live-volume fixture failure
+and two existing ignored tests. The separate volume fixture correction passes
+all seven focused checks on Windows/macOS/Linux, retaining all1056 observations.
+Installed-Assist/package results remain separate open gates.
+
+### Captured kernel identity for odd registry key names (2026-10-28)
+
+Independent AMD64 acquisition in run40689391666 completed on native kernels
+20348 and26100; both initial fresh replays failed on odd key-name length.
+Those kernels return `STATUS_OBJECT_NAME_INVALID` (0xC0000033), whereas the
+retained ARM64 profile returns `STATUS_INVALID_PARAMETER` (0xC000000D).
+The open-only selector uses captured native machine/build data and preserves
+native64 versus WoW64 validation order. Unknown native identities produce an
+explicit unsupported result for this distinction. Built-in behavior and
+`NtQueryValueKey` descriptor validation remain unchanged. Retained AMD64
+artifacts, compressed matrices and provenance checks live beside the ARM64
+controls under `docs/specifications/windows/native-open-key-ex`.
+
+The corrected retained replay checks46264 native-equality calls and136 explicit
+namespace frontiers across ten ABI/kernel views, with320 sibling calls retained
+as exploratory data. macOS/Linux/Windows focused checks pass9/9/10 and registry
+checks141/138/169; CLI and all-target gates pass on all three. Complete library
+gates pass8775 on macOS and8765 on Linux, each with zero failures, two existing
+ignored tests and zero filtered tests. Native Windows complete-library and
+fresh independent AMD64 results remain separate open gates at publication.
