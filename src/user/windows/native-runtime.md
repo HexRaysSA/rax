@@ -3138,15 +3138,20 @@ The specification and immutable native producers are retained in
 checks pass 8/8/10 targeted, 103/103/151 registry and 8/8/10 CLI tests on
 macOS/Linux/native Windows ARM64, with 191 C API tests and all-target compilation
 per host. macOS strict production Clippy passes; Linux uses translated x86-64.
-Independent native AMD64 source qualification remains pending. The existing
-source jobs retain the entire original hardware-fault fixture and budgets.
+Independent native AMD64 source qualification passed on Windows2022 and
+Windows2025 at source `b821fec8816540fd3312c99947c5192870837028`, run40646336571.
+Both jobs retain the entire original hardware-fault fixture and budgets, along
+with fresh primary-hive observations, installed capture and CLI/write gates.
+All local post-integration checks pass on the three hosts. The next commit is
+provenance-only; the qualified runtime, test, fixture and workflow bytes remain
+unchanged. The broader matrix run40646462978 remains incomplete.
 
 Actual unchanged ARM64 system CMD passes the hive open and reaches unsupported
 guest `NtQueryKey` (0x16), exiting125 before stdout; native CMD exits0 with its
 marker. Its image retains SHA-256
 `d0f47e2d32ab33e593e5b49592d3dcfa3c8c5f9f9b345d512ef7269bca6b481a`.
 The final local CLI has SHA-256
-`b2d990dfcb5eccbb139a46bd394e20db5516ebaf1bbfa27353db485ad46f5b42`.
+`ee734443d98cca3ab528e8b27af7f71f4ad02e0f14a74878a0cc513dfaa8feba`.
 Host `NtQueryKey` acquisition is distinct from the unimplemented guest service.
 The existing selected-registry MAXIMUM_ALLOWED read cap also differs from native
 full grants; the specification retains that measured limitation. Public C API

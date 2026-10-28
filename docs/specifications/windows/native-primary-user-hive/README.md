@@ -77,17 +77,40 @@ The final implementation passes 8/8/10 targeted tests on macOS/Linux/native
 Windows ARM64, 103/103/151 registry regressions, 8/8/10 CLI tests and 191 C API
 tests per host. All-target compilation passes on all three; strict production
 Clippy passes on macOS. Linux execution uses a translated x86-64 container.
-Native Windows replays the additional 44 fresh read/absence observations as
-well as the 56 retained observations. Four provenance tests and five existing
-CI-runner tests pass. Independent native AMD64 source qualification on
-Windows2022 and Windows2025 remains pending before master publication.
+The Windows local run also exercises the live-corpus input with the same v4
+records; that replay is not another independent measurement. Four provenance
+tests and five existing CI-runner tests pass. Requalification after the linear
+integration of upstream404 passes on macOS, Linux and native Windows ARM64.
+
+Independent native AMD64 qualification passed on Windows2022/build20348 and
+Windows2025/build26100 at source `b821fec8816540fd3312c99947c5192870837028`:
+https://github.com/HexRaysSA/rax/actions/runs/40646336571. Each job records 56
+fresh observations, replays 38 selected read/absence observations across three
+guest ABIs, validates live installed acquisition, and runs the complete original
+hardware-fault fixture and CLI/write regressions. The directory-local attributes
+preserve the exact v4 producer SHA-256
+`54040c3e96b006352300346a76bf27bdbcf3887e346824412428f47ede6d91cd`.
+
+The retrieved artifact ZIPs passed SHA-256 and ZIP CRC verification:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Windows2022, artifact12797736735, 1,704 bytes | `9f51d2a82b89e1f7100366b89cae429d14113a6cbf14d41fa4bd77e6801914a1` |
+| Windows2025, artifact12798205865, 1,700 bytes | `0c527144ebfd4cf8deac852770dfa2fd179679962098c41152ff1602e6215eb6` |
+
+The broader matrix run40646462978 has passed formatter/Clippy and Windows/Linux
+C API lanes; macOS C API remains queued and other lanes remain in progress at
+publication preparation. Its status is separate from the completed native
+source qualification and local three-host gates. The subsequent commit changes
+only this provenance documentation and the runtime note; runtime, test, fixture,
+workflow and C API bytes remain those of the qualified source above.
 
 The unchanged ARM64 system CMD has SHA-256
 `d0f47e2d32ab33e593e5b49592d3dcfa3c8c5f9f9b345d512ef7269bca6b481a`.
 With the final local implementation, native CMD exits zero and prints its marker;
 emulation passes the hive open, exits 125 before stdout and reports unsupported
 `NtQueryKey` (`0x16`). The qualified local CLI for that run has SHA-256
-`b2d990dfcb5eccbb139a46bd394e20db5516ebaf1bbfa27353db485ad46f5b42`.
+`ee734443d98cca3ab528e8b27af7f71f4ad02e0f14a74878a0cc513dfaa8feba`.
 This is progress toward process compatibility, not full CMD support.
 
 ## Assumption register
@@ -95,8 +118,8 @@ This is progress toward process compatibility, not full CMD support.
 | ID | Assumption and basis | Dependent result | Stress test / falsification probe | Status |
 | --- | --- | --- | --- | --- |
 | UR1 | The stopped program requests the captured primary subject; stopped-state inspection and native TokenUser both identify `S-1-5-18`. | Select only the creator hive. | Other SIDs must remain unselected unless they are its captured native alias; inspect subsequent stopped calls. | Confirmed on build 29695. |
-| UR2 | Captured aliases share key identity; native SID and `.DEFAULT` opens return the same canonical path. | Alias lookup and handle ownership. | Case folding, catalog replacement, parent closure and selected policy routing must retain identity and values. | Shared-model, retained/fresh replay and native ARM64 acquisition tests pass; independent AMD64 qualification pending. |
-| UR3 | An absent selected hive makes its descendants absent; v4 measures all four paths through native and Win32 APIs. | Known-absence lookup. | A non-NAME_NOT_FOUND native row or non-file-not-found Win32 row disproves the mapping. | Confirmed on build 29695; fresh AMD64 observations pending. |
+| UR2 | Captured aliases share key identity; native SID and `.DEFAULT` opens return the same canonical path. | Alias lookup and handle ownership. | Case folding, catalog replacement, parent closure and selected policy routing must retain identity and values. | Shared-model, retained and independent fresh AMD64 replay plus live three-kernel acquisition tests pass. |
+| UR3 | An absent selected hive makes its descendants absent; v4 measures all four paths through native and Win32 APIs. | Known-absence lookup. | A non-NAME_NOT_FOUND native row or non-file-not-found Win32 row disproves the mapping. | Confirmed on build29695 and fresh AMD64 builds20348/26100. |
 
 The existing AMD64 qualification jobs retain the entire original hardware-fault
 fixture. The existing three-host C API lanes also run the shared registry tests.
