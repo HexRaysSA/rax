@@ -23,9 +23,9 @@
 //! left, at most 5 ms), the tier of a login session's processes. The
 //! emulator fires at the deadline itself, the earliest time the kernel may.
 
+use crate::host::time::Instant;
 use std::collections::HashMap;
 use std::sync::{Arc, Weak};
-use std::time::Instant;
 
 use crate::user::darwin::abi::DarwinAbi;
 use crate::user::darwin::mach::ipc::{KObject, MACH_PORT_NULL, Port, PortName, Right, disp};

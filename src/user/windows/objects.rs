@@ -11,9 +11,9 @@
 //! Names are case-sensitive; Local aliases the default session namespace,
 //! while Global is distinct. Cross-process/private namespaces are unsupported.
 
+use crate::host::time::Instant;
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
-use std::time::Instant;
 
 mod desktop;
 pub use desktop::Desktop;

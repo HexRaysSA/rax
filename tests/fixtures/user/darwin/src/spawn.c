@@ -355,12 +355,25 @@ static void waitid_views(void) {
     errno = 0;
     printf("waitid no children: %d errno=%d\n", waitid(P_ALL, 0, &si, WEXITED | WNOHANG), errno);
 
+    int ready[2];
+    if (pipe(ready) != 0) abort();
     pid_t c = fork();
     if (c == 0) {
+        close(ready[0]);
+        if (write(ready[1], "r", 1) != 1) _exit(90);
+        close(ready[1]);
         for (;;) {
             pause();
         }
     }
+    close(ready[1]);
+    char byte;
+    if (read(ready[0], &byte, 1) != 1) abort();
+    close(ready[0]);
+    // Wait until the child's post-fork runtime setup has finished. Without
+    // this handshake, native Rosetta runs sometimes report the previous stop
+    // status and another PID. XNU's caught/waited SIGCONT paths can retain
+    // that state; this case observes the default-action path.
     memset(&si, 0x5a, sizeof si);
     int r = waitid(P_PID, c, &si, WEXITED | WNOHANG);
     printf("waitid nothing yet: %d si_signo untouched=%d\n", r, si.si_signo == 0x5a5a5a5a);

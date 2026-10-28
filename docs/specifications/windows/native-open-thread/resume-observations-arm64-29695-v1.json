@@ -1,0 +1,183 @@
+{
+  "pid": 6216,
+  "build": 29695,
+  "source_sha256": "a51eae303109c0aab8daa89b7573bfc51298f384f27e674751e17edf6ba29b5e",
+  "native_machine": 43620,
+  "runner_process_machine": 0,
+  "cases": [
+    {
+      "arch": "arm64",
+      "exit_code": 0,
+      "stdout": "{\"access\":2,\"grant\":4098,\"suspended\":1,\"suspend_error\":305419896,\"resumed\":2,\"resume_error\":305419896}\r\n{\"access\":4096,\"grant\":4096,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":1,\"resume_error\":305419896}\r\n{\"access\":4098,\"grant\":4098,\"suspended\":1,\"suspend_error\":305419896,\"resumed\":2,\"resume_error\":305419896}\r\n{\"access\":2048,\"grant\":2048,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":4294967295,\"resume_error\":5}\r\n{\"access\":536870912,\"grant\":1185792,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":1,\"resume_error\":305419896}\r\n{\"access\":2147483648,\"grant\":133192,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":4294967295,\"resume_error\":5}\r\n",
+      "stderr": "",
+      "observations": [
+        {
+          "access": 2,
+          "grant": 4098,
+          "suspended": 1,
+          "suspend_error": 305419896,
+          "resumed": 2,
+          "resume_error": 305419896
+        },
+        {
+          "access": 4096,
+          "grant": 4096,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 1,
+          "resume_error": 305419896
+        },
+        {
+          "access": 4098,
+          "grant": 4098,
+          "suspended": 1,
+          "suspend_error": 305419896,
+          "resumed": 2,
+          "resume_error": 305419896
+        },
+        {
+          "access": 2048,
+          "grant": 2048,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 4294967295,
+          "resume_error": 5
+        },
+        {
+          "access": 536870912,
+          "grant": 1185792,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 1,
+          "resume_error": 305419896
+        },
+        {
+          "access": 2147483648,
+          "grant": 133192,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 4294967295,
+          "resume_error": 5
+        }
+      ]
+    },
+    {
+      "arch": "x86",
+      "exit_code": 0,
+      "stdout": "{\"access\":2,\"grant\":4098,\"suspended\":1,\"suspend_error\":305419896,\"resumed\":2,\"resume_error\":305419896}\r\n{\"access\":4096,\"grant\":4096,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":1,\"resume_error\":305419896}\r\n{\"access\":4098,\"grant\":4098,\"suspended\":1,\"suspend_error\":305419896,\"resumed\":2,\"resume_error\":305419896}\r\n{\"access\":2048,\"grant\":2048,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":4294967295,\"resume_error\":5}\r\n{\"access\":536870912,\"grant\":1185792,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":1,\"resume_error\":305419896}\r\n{\"access\":2147483648,\"grant\":133192,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":4294967295,\"resume_error\":5}\r\n",
+      "stderr": "",
+      "observations": [
+        {
+          "access": 2,
+          "grant": 4098,
+          "suspended": 1,
+          "suspend_error": 305419896,
+          "resumed": 2,
+          "resume_error": 305419896
+        },
+        {
+          "access": 4096,
+          "grant": 4096,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 1,
+          "resume_error": 305419896
+        },
+        {
+          "access": 4098,
+          "grant": 4098,
+          "suspended": 1,
+          "suspend_error": 305419896,
+          "resumed": 2,
+          "resume_error": 305419896
+        },
+        {
+          "access": 2048,
+          "grant": 2048,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 4294967295,
+          "resume_error": 5
+        },
+        {
+          "access": 536870912,
+          "grant": 1185792,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 1,
+          "resume_error": 305419896
+        },
+        {
+          "access": 2147483648,
+          "grant": 133192,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 4294967295,
+          "resume_error": 5
+        }
+      ]
+    },
+    {
+      "arch": "x64",
+      "exit_code": 0,
+      "stdout": "{\"access\":2,\"grant\":4098,\"suspended\":1,\"suspend_error\":305419896,\"resumed\":2,\"resume_error\":305419896}\r\n{\"access\":4096,\"grant\":4096,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":1,\"resume_error\":305419896}\r\n{\"access\":4098,\"grant\":4098,\"suspended\":1,\"suspend_error\":305419896,\"resumed\":2,\"resume_error\":305419896}\r\n{\"access\":2048,\"grant\":2048,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":4294967295,\"resume_error\":5}\r\n{\"access\":536870912,\"grant\":1185792,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":1,\"resume_error\":305419896}\r\n{\"access\":2147483648,\"grant\":133192,\"suspended\":4294967295,\"suspend_error\":5,\"resumed\":4294967295,\"resume_error\":5}\r\n",
+      "stderr": "",
+      "observations": [
+        {
+          "access": 2,
+          "grant": 4098,
+          "suspended": 1,
+          "suspend_error": 305419896,
+          "resumed": 2,
+          "resume_error": 305419896
+        },
+        {
+          "access": 4096,
+          "grant": 4096,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 1,
+          "resume_error": 305419896
+        },
+        {
+          "access": 4098,
+          "grant": 4098,
+          "suspended": 1,
+          "suspend_error": 305419896,
+          "resumed": 2,
+          "resume_error": 305419896
+        },
+        {
+          "access": 2048,
+          "grant": 2048,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 4294967295,
+          "resume_error": 5
+        },
+        {
+          "access": 536870912,
+          "grant": 1185792,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 1,
+          "resume_error": 305419896
+        },
+        {
+          "access": 2147483648,
+          "grant": 133192,
+          "suspended": 4294967295,
+          "suspend_error": 5,
+          "resumed": 4294967295,
+          "resume_error": 5
+        }
+      ]
+    }
+  ],
+  "binaries": {
+    "arm64": "ae1314d63adf3a40f47ce1674583c1dece1bc3a27373b45ba53203c9253e6f22",
+    "x86": "11634302e71622d1968b205a930c23c3156c8ae68a909b2917dfc60687fbe3d2",
+    "x64": "81db95a4b326e4350b896a49ad9d2893fc61e2e28a62d52c518ab7575df23810"
+  },
+  "state": "finished"
+}

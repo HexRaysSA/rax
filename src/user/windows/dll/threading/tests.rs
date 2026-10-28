@@ -5,7 +5,7 @@ use super::super::super::memory::{mem, prot};
 use super::super::super::process::{WindowsConfig, WindowsProcess};
 use super::super::super::sync::{self, Wait};
 use super::*;
-use std::time::Instant;
+use crate::host::time::Instant;
 
 #[path = "native_wait_tests.rs"]
 mod native_wait_tests;
@@ -15,6 +15,9 @@ mod native_semaphore_tests;
 
 #[path = "native_timer2_tests.rs"]
 mod native_timer2_tests;
+
+#[path = "native_thread_open_resume_tests.rs"]
+mod native_thread_open_resume_tests;
 
 fn with_context(arch: WinArch, test: impl FnOnce(&mut Ctx, u64)) {
     let image: &[u8] = match arch {
@@ -59,6 +62,7 @@ fn api(name: &str) -> &'static Api {
         .chain(super::super::native::EXPORTS.iter())
         .chain(super::super::native::SEMAPHORE_EXPORTS.iter())
         .chain(super::super::native::TIMER2_EXPORTS.iter())
+        .chain(super::super::native::THREAD_OPEN_EXPORTS.iter())
         .find_map(|export| match &export.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,

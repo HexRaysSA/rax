@@ -6,6 +6,8 @@ use std::io;
 
 #[cfg(target_arch = "aarch64")]
 mod client_data;
+#[cfg(target_arch = "x86_64")]
+mod x64;
 
 pub(super) fn capture_client_data(
     metadata: &CsrMetadata,
@@ -21,9 +23,14 @@ pub(super) fn capture_client_data(
     }
 }
 
-#[cfg(not(target_arch = "aarch64"))]
+#[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
 pub(super) fn capture(_: &[DataRegion]) -> io::Result<Option<CsrMetadata>> {
     Ok(None)
+}
+
+#[cfg(target_arch = "x86_64")]
+pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>> {
+    x64::capture(regions)
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -114,9 +121,11 @@ pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>>
     let peb_address = unsafe { get_peb() } as u64;
     let mut peb = [0; 0x388];
     read(peb_address, &mut peb)?;
-    if u32::from_le_bytes(peb[0x118..0x11C].try_into().expect("fixed version span")) != 10
-        || u16::from_le_bytes(peb[0x120..0x122].try_into().expect("fixed build span")) != 29683
-        || u32::from_le_bytes(peb[0x2C0..0x2C4].try_into().expect("fixed session span")) != session
+    if !crate::user::windows::object_namespace::csr::supports_kernel(
+        u32::from_le_bytes(peb[0x118..0x11C].try_into().expect("fixed major span")),
+        u32::from_le_bytes(peb[0x11C..0x120].try_into().expect("fixed minor span")),
+        u16::from_le_bytes(peb[0x120..0x122].try_into().expect("fixed build span")).into(),
+    ) || u32::from_le_bytes(peb[0x2C0..0x2C4].try_into().expect("fixed session span")) != session
     {
         return Ok(None);
     }
@@ -142,7 +151,7 @@ pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>>
     if own_prefix.as_slice() != prefix {
         return Ok(None);
     }
-    // SAFETY: verified current-process A64 build29683 NTDLL export, no arguments
+    // SAFETY: verified current-process A64 build29683/29695 NTDLL export, no arguments
     // or guest callbacks. The independently observed implementation is a bounded
     // readonly load/CSEL/RET returning the pointer-width process identifier.
     let pid = unsafe { get_pid() };
@@ -154,6 +163,11 @@ pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>>
     }
     Ok(Some(CsrMetadata {
         arch: WinArch::Arm64,
+        kernel: (
+            u32::from_le_bytes(peb[0x118..0x11C].try_into().expect("fixed major span")),
+            u32::from_le_bytes(peb[0x11C..0x120].try_into().expect("fixed minor span")),
+            u16::from_le_bytes(peb[0x120..0x122].try_into().expect("fixed build span")).into(),
+        ),
         session,
         server_base,
         statics_offset,

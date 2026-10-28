@@ -69,6 +69,8 @@ pub struct RestartableRange {
 /// `TASK_UNSPECIFIED`).
 #[derive(Debug, Default)]
 pub struct TaskState {
+    /// User task holds, including legacy resume-port accounting.
+    pub suspension: super::suspend::Suspension,
     /// Settable special ports (send rights held by the kernel), by number.
     pub special: [Option<Arc<Port>>; special::MAX as usize + 1],
     /// The task name port (`TASK_NAME_PORT`), made on first use.

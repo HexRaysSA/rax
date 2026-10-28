@@ -361,8 +361,14 @@ fn distinct_thread_parks_and_guest_address_wakes_cannot_unlock_loader_all_abis()
         crate::user::windows::sync::on_block(p, other_tid, &wait).unwrap();
         p.sync.wake(u128::from(u64::MAX), usize::MAX);
         assert_eq!(
-            crate::user::windows::sync::poll(p, other_tid, &wait, std::time::Instant::now(), false)
-                .unwrap(),
+            crate::user::windows::sync::poll(
+                p,
+                other_tid,
+                &wait,
+                crate::host::time::Instant::now(),
+                false
+            )
+            .unwrap(),
             None
         );
         let Flow::Call {
@@ -374,8 +380,14 @@ fn distinct_thread_parks_and_guest_address_wakes_cannot_unlock_loader_all_abis()
         };
         release_owner(&mut context(p, &mut owner, &TEST_API), 0).unwrap();
         assert_eq!(
-            crate::user::windows::sync::poll(p, other_tid, &wait, std::time::Instant::now(), false)
-                .unwrap(),
+            crate::user::windows::sync::poll(
+                p,
+                other_tid,
+                &wait,
+                crate::host::time::Instant::now(),
+                false
+            )
+            .unwrap(),
             Some(0)
         );
         crate::user::windows::sync::on_cancel(p, other_tid, &wait).unwrap();

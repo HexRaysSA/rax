@@ -19,7 +19,7 @@
 //! cancels the request by its user data (`io_try_cancel`), and completes
 //! with `-ETIME` if that worked or the cancellation's error if not.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;

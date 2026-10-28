@@ -521,7 +521,7 @@ fn receives_truncate_and_peek() {
         let mut tv = 0u64.to_le_bytes().to_vec();
         tv.extend_from_slice(&20_000u64.to_le_bytes());
         assert_eq!(n.setopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv), 0);
-        let t = std::time::Instant::now();
+        let t = crate::host::time::Instant::now();
         assert_eq!(n.recv(fd, RCV, 0).unwrap_err(), EAGAIN);
         assert!(t.elapsed() >= std::time::Duration::from_millis(15));
     });

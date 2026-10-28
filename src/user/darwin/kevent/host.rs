@@ -35,6 +35,8 @@ pub struct HostKnote {
     pub ident: u64,
     /// The last event the host reported and the guest has not taken.
     pub event: Option<HostEvent>,
+    /// A cooperative guest exit was published before the host engine exited.
+    pub guest_exit: bool,
 }
 
 /// A guest kqueue's host side.
@@ -326,6 +328,25 @@ mod imp {
 /// descriptor; `None` for `EVFILT_PROC`).
 pub fn attach(proc: &mut Proc, kq: u64, id: u64, host_fd: Option<i32>) -> i32 {
     let is_proc = knote(proc, kq, id).is_some_and(|k| k.filter == evfilt::PROC);
+    // proc_find excludes a zombie whose engine can still pin its PID.
+    // filt_procattach checks unsupported tracking flags before lookup.
+    let process_id = knote(proc, kq, id)
+        .filter(|k| is_proc && k.sfflags & 7 == 0)
+        .map(|k| k.ident as i32);
+    if process_id.is_some_and(|pid| {
+        crate::user::darwin::syscall::bsd::ptrace::known_process_info(
+            &proc.tracing,
+            proc.pid,
+            proc.ppid,
+            pid,
+        )
+        .is_some_and(|info| info.3.is_some())
+    }) {
+        if let Some(k) = knote(proc, kq, id) {
+            k.set_error(Errno::ESRCH);
+        }
+        return 0;
+    }
     if host_fd.is_none() && !is_proc {
         if let Some(k) = knote(proc, kq, id) {
             k.set_error(Errno::EBADF);
@@ -397,6 +418,9 @@ pub fn harvest(proc: &mut Proc, kq: u64) {
             continue;
         };
         if let State::Host(h) = &mut k.state {
+            let Some(e) = super::process_exit::host_event(h, e) else {
+                continue;
+            };
             h.event = Some(e);
             super::activate(proc, kq, id);
         }

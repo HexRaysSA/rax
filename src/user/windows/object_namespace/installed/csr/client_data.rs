@@ -104,7 +104,7 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Arc<CsrClientData>> 
     let mut directory: Vec<_> = "\\Windows".encode_utf16().chain([0]).collect();
     let mut information = [0u8; INFORMATION_BYTES];
     let mut inside = 0xA5;
-    // SAFETY: reached only after the existing current-process build29683,
+    // SAFETY: reached only after the existing current-process build29683/29695,
     // architecture/session/section checks. Scalar ULONG ABI was measured in
     // native V4-V7 and an independent syscall entry/return controller. Fixed
     // directory, server3, zero initialized584B buffer; no guest data/callback.

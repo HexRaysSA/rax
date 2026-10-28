@@ -1,7 +1,7 @@
 //! Descriptor and data-transfer system calls.
 
+use crate::host::time::{Duration, Instant};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;

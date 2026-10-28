@@ -68,7 +68,7 @@ x86_enter_native_ymm16_wrapper!(
     "call _rax_smir_enter_native"
 );
 
-#[cfg(not(target_vendor = "apple"))]
+#[cfg(all(not(target_vendor = "apple"), not(windows)))]
 x86_enter_native_ymm16_wrapper!(
     ".globl rax_smir_enter_native_ymm16",
     ".type rax_smir_enter_native_ymm16,@function",
@@ -76,7 +76,17 @@ x86_enter_native_ymm16_wrapper!(
     "call rax_smir_enter_native"
 );
 
-unsafe extern "C" {
+// COFF symbol definition: storage class 2 (external), type 32 (function).
+#[cfg(windows)]
+x86_enter_native_ymm16_wrapper!(
+    ".globl rax_smir_enter_native_ymm16",
+    ".def rax_smir_enter_native_ymm16\n.scl 2\n.type 32\n.endef",
+    "rax_smir_enter_native_ymm16:",
+    "call rax_smir_enter_native"
+);
+
+// System V argument registers on every host, as for `rax_smir_enter_native`.
+unsafe extern "sysv64" {
     fn rax_smir_enter_native_ymm16(entry: *const u8, state: *mut GuestRegs);
 }
 

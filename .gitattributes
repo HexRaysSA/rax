@@ -13,3 +13,20 @@ docs/specifications/arm/audit-reference-inputs/linux-arm64-cpu-feature-registers
 docs/specifications/arm/aarch32-isa-2025-03.pdf binary
 docs/specifications/arm/gic-ihi0069.pdf binary
 docs/specifications/arm/psci-den0022.pdf binary
+
+# Preserve the frozen pre-integration checkpoint byte representation.
+docs/development/x86-context-integration/user-v1.bin binary
+
+docs/specifications/windows/native-nls-build-29695/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-nls-initialize/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-wow64-startup-information/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-process-image-information/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-exception-entry-profile/run-v2.py -text whitespace=cr-at-eol
+docs/specifications/windows/native-exception-entry-profile/run-second-chance-v1.py -text whitespace=cr-at-eol
+docs/specifications/windows/native-image-view-reserved-tail/* -text whitespace=cr-at-eol
+
+# Keep native CLI fixture and observation identities stable under core.autocrlf.
+docs/specifications/windows/native-file-write/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-mapped-filename/* -text whitespace=cr-at-eol
+tests/fixtures/user/windows/native_cli/** -text whitespace=cr-at-eol
+tests/fixtures/user/windows/native_mapped_filename/** -text whitespace=cr-at-eol

@@ -9,7 +9,7 @@
 //! expiry (`check_cpu_itimer`). CPU time is the emulator process's host CPU
 //! time, which includes emulation overhead.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 /// `TICK_NSEC` at `CONFIG_HZ=250`: 4 ms, added to a new CPU-timer value.
 pub const TICK_NSEC: u64 = 4_000_000;

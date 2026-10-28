@@ -1,0 +1,6 @@
+{
+  "source_sha256": "451eea41f62c3e06be39ef3f887a2d08f1dd4fb9da5b5354ba327a0c6c349c53",
+  "exit_code": 0,
+  "stdout": "{\"pid\": 7500, \"pointer_bytes\": 8, \"rows\": [{\"handle\": 18446744073709551615, \"guard\": false, \"status\": 3221225485, \"remaining_protection\": 4, \"input\": 10, \"policy_after\": 13}, {\"handle\": 18446744073709551615, \"guard\": true, \"status\": 2147483649, \"remaining_protection\": 4, \"input\": 10, \"policy_after\": 13}, {\"handle\": 4294967295, \"guard\": false, \"status\": 3221225485, \"remaining_protection\": 4, \"input\": 10, \"policy_after\": 13}, {\"handle\": 4294967295, \"guard\": true, \"status\": 3221225485, \"remaining_protection\": 260, \"input\": 10, \"policy_after\": 13}, {\"handle\": 8589934591, \"guard\": false, \"status\": 3221225485, \"remaining_protection\": 4, \"input\": 10, \"policy_after\": 13}, {\"handle\": 8589934591, \"guard\": true, \"status\": 3221225485, \"remaining_protection\": 260, \"input\": 10, \"policy_after\": 13}, {\"handle\": 18446744069414584320, \"guard\": false, \"status\": 3221225485, \"remaining_protection\": 4, \"input\": 10, \"policy_after\": 13}, {\"handle\": 18446744069414584320, \"guard\": true, \"status\": 3221225485, \"remaining_protection\": 260, \"input\": 10, \"policy_after\": 13}]}\n",
+  "stderr": ""
+}

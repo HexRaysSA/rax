@@ -17,6 +17,40 @@ use crate::user::darwin::syscall::mach::vm as mvm;
 use crate::user::darwin::vm::{self, VmFlags};
 use crate::user::mm::{Backing, Mapping, Vma};
 
+/// vm_user.c's zero-size fast path and vm_map_machine_attribute's range,
+/// attribute and coverage checks. The guest map is cache-coherent; publishing
+/// a code-range change supplies the instruction-cache synchronization effect.
+/// Native macOS 27.2 preserves every tested input value for MATTR_CACHE.
+fn machine_attribute(
+    ctx: &Ctx<'_>,
+    addr: u64,
+    size: u64,
+    attribute: u32,
+    value: u32,
+) -> Result<u32, KernReturn> {
+    if size == 0 {
+        return Ok(value);
+    }
+    let mask = ctx.proc.vm.page - 1;
+    let start = addr & !mask;
+    let end = addr
+        .checked_add(size)
+        .and_then(|end| end.checked_add(mask))
+        .ok_or(kr::KERN_INVALID_ARGUMENT)?
+        & !mask;
+    if start < ctx.proc.vm.min || end > ctx.proc.vm.max {
+        return Err(kr::KERN_INVALID_ADDRESS);
+    }
+    if attribute != 1 {
+        return Err(kr::KERN_INVALID_ADDRESS);
+    } // MATTR_CACHE
+    if ctx.proc.space.first_unmapped(start, end - start).is_some() {
+        return Err(kr::KERN_FAILURE);
+    }
+    ctx.proc.space.synchronize_code(start, end - start);
+    Ok(value)
+}
+
 /// `VM_REGION_*` flavors.
 mod region {
     pub const BASIC_INFO_64: i32 = 9;
@@ -249,6 +283,14 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
                 Buf::new().u64(r.addr).u32(r.cur).u32(r.max).done(),
             ))
         }
+        m::MACH_VM_MACHINE_ATTRIBUTE | v::VM_MACHINE_ATTRIBUTE => {
+            req.simple(56)?;
+            if !writable {
+                return Err(kr::KERN_INVALID_ARGUMENT);
+            }
+            let value = machine_attribute(ctx, req.u64(32), req.u64(40), req.u32(48), req.u32(52))?;
+            Ok(Out::Simple(Buf::new().u32(value).done()))
+        }
         m::MACH_VM_INHERIT | v::VM_INHERIT => {
             req.simple(52)?;
             ok(inherit(ctx, req.u64(32), req.u64(40), req.u32(48)))
@@ -408,12 +450,16 @@ fn read(ctx: &Ctx<'_>, addr: u64, size: u64) -> Result<Vec<u8>, KernReturn> {
     if size == 0 {
         return Ok(Vec::new());
     }
-    if addr.checked_add(size).is_none() || size > (1 << 32) {
+    if size > (1 << 32) {
         return Err(kr::KERN_INVALID_ARGUMENT);
     }
     let page = ctx.proc.vm.page;
     let lo = addr & !(page - 1);
-    let hi = (addr + size + page - 1) & !(page - 1);
+    let hi = addr
+        .checked_add(size)
+        .and_then(|end| end.checked_add(page - 1))
+        .ok_or(kr::KERN_INVALID_ADDRESS)?
+        & !(page - 1);
     if ctx.proc.space.first_unmapped(lo, hi - lo).is_some() {
         return Err(kr::KERN_INVALID_ADDRESS);
     }
@@ -422,7 +468,10 @@ fn read(ctx: &Ctx<'_>, addr: u64, size: u64) -> Result<Vec<u8>, KernReturn> {
             return Err(kr::KERN_PROTECTION_FAILURE);
         }
     }
-    let mut buf = vec![0u8; size as usize];
+    let mut buf = Vec::new();
+    buf.try_reserve_exact(size as usize)
+        .map_err(|_| kr::KERN_RESOURCE_SHORTAGE)?;
+    buf.resize(size as usize, 0);
     ctx.proc
         .space
         .read_raw(addr, &mut buf)
@@ -446,7 +495,11 @@ fn write(ctx: &Ctx<'_>, addr: u64, data: &[u8]) -> MigResult {
     };
     let page = ctx.proc.vm.page;
     let lo = addr & !(page - 1);
-    let hi = (addr + data.len() as u64 + page - 1) & !(page - 1);
+    let hi = addr
+        .checked_add(data.len() as u64)
+        .and_then(|end| end.checked_add(page - 1))
+        .ok_or(kr::KERN_INVALID_ADDRESS)?
+        & !(page - 1);
     if ctx.proc.space.first_unmapped(lo, hi - lo).is_some() {
         return Err(kr::KERN_INVALID_ADDRESS);
     }
@@ -774,4 +827,46 @@ fn submap_info(ctx: &Ctx<'_>, addr: u64, count: u32) -> Result<(Vma, Vec<u32>), 
         w
     };
     Ok((v, w))
+}
+
+#[cfg(test)]
+mod attribute_tests {
+    use super::*;
+    use crate::user::darwin::{abi::DarwinAbi, process::bounded_tests::process};
+
+    #[test]
+    fn cache_attribute_validates_range_before_attribute_and_preserves_zero_size_fast_path() {
+        let mut process = process(DarwinAbi::Arm64);
+        let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+        let address = (process.proc.vm.min + 0x10_0000) & !(process.proc.vm.page - 1);
+        let page = process.proc.vm.page;
+        process
+            .proc
+            .space
+            .map(
+                address,
+                page,
+                Mapping::anonymous(crate::user::mm::Perms::READ),
+            )
+            .unwrap();
+        let ctx = Ctx {
+            proc: &mut process.proc,
+            thread: &mut thread,
+            nr: -1,
+            pc: 0,
+        };
+        let epoch = ctx.proc.space.code_epoch();
+        assert_eq!(machine_attribute(&ctx, u64::MAX, 0, 99, 6), Ok(6));
+        for (addr, size, attr, error) in [
+            (u64::MAX, 1, 1, kr::KERN_INVALID_ARGUMENT),
+            (u64::MAX - 1, 8, 1, kr::KERN_INVALID_ARGUMENT),
+            (0, 4, 1, kr::KERN_INVALID_ADDRESS),
+            (address, 4, 2, kr::KERN_INVALID_ADDRESS),
+            (address + page, 4, 1, kr::KERN_FAILURE),
+            (address + page - 1, 2, 1, kr::KERN_FAILURE),
+        ] {
+            assert_eq!(machine_attribute(&ctx, addr, size, attr, 6), Err(error));
+        }
+        assert_eq!(ctx.proc.space.code_epoch(), epoch);
+    }
 }

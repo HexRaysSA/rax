@@ -9,8 +9,8 @@ mod retired;
 pub use context::{TimingContext, TimingGuard};
 pub use retired::{ClockMode, ClockState, RETIREMENT_FREQUENCY_HZ};
 
+use crate::host::time::Instant;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Instant;
 
 /// Start time of the emulator - all timing is relative to this
 static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();

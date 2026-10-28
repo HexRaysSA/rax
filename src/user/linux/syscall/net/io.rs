@@ -14,9 +14,9 @@
 //! | Errors | TCP without a connection is `EPIPE` to send; a Unix stream is `EINVAL` to receive from unconnected and `ENOTCONN` for a Unix datagram send without a peer |
 //! | `MSG_CMSG_COMPAT` | 0, as in a kernel without `CONFIG_COMPAT` (the personality provides no 32-bit system calls): the bit is not refused |
 
+use crate::host::time::{Duration, Instant};
 use std::os::fd::{OwnedFd, RawFd};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::super::super::abi::errno::Errno;
 use super::super::super::abi::errno_table::*;

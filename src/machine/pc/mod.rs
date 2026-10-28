@@ -1169,7 +1169,7 @@ mod tests {
     }
 
     fn temp_iso_file() -> TempIso {
-        let unique = std::time::SystemTime::now()
+        let unique = crate::host::time::system_now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system time before Unix epoch")
             .as_nanos();

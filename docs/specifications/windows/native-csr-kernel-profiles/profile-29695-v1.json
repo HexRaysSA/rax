@@ -1,0 +1,583 @@
+{
+  "schema": 1,
+  "kernel": {
+    "major": 10,
+    "minor": 0,
+    "build": 29695
+  },
+  "admitted_profile": {
+    "host_arch": "arm64",
+    "guest_arch": "arm64",
+    "session": 0,
+    "measured_build_set": [
+      29683,
+      29695
+    ]
+  },
+  "metadata_samples": [
+    {
+      "name": "arm64-metadata1-observe.log",
+      "width": 8,
+      "getter_code_hex": "2816009008814b391f010071481600b0085943f9e013889ac0035fd600000000000100341f040071491600b061000054280080d2281903f920c1189185b4fc17",
+      "getter_code_sha256": "d9c75ee1dc93fc3270258aa40560da6242e39872a159f13b85bad624b5ee90ea",
+      "major": 10,
+      "minor": 0,
+      "build": 29695,
+      "session": 0,
+      "local": 140688958423040,
+      "statics": 140688958424912,
+      "server": 138487313727488,
+      "prefix_server": 138487313727488,
+      "prefix_server_alias": 138487313727488
+    },
+    {
+      "name": "arm64-metadata2-observe.log",
+      "width": 8,
+      "getter_code_hex": "2816009008814b391f010071481600b0085943f9e013889ac0035fd600000000000100341f040071491600b061000054280080d2281903f920c1189185b4fc17",
+      "getter_code_sha256": "d9c75ee1dc93fc3270258aa40560da6242e39872a159f13b85bad624b5ee90ea",
+      "major": 10,
+      "minor": 0,
+      "build": 29695,
+      "session": 0,
+      "local": 140687787491328,
+      "statics": 140687787493200,
+      "server": 138487313727488,
+      "prefix_server": 138487313727488,
+      "prefix_server_alias": 138487313727488,
+      "server_pid": 876
+    },
+    {
+      "name": "x64-metadata1-observe.log",
+      "width": 8,
+      "getter_code_hex": "488bc448895820555de9c263f4ffcccc488bc448895820555de9c251e7ffcccc488bc448895820555de962d0feffcccc488bc448895820555de9a251e7ffcccc",
+      "getter_code_sha256": "4fe069356cb82486d56ab3134074252752ca2a527df9e90d1bbff9dfcf0501d5",
+      "major": 10,
+      "minor": 0,
+      "build": 29695,
+      "session": 0,
+      "local": 140679806976000,
+      "statics": 140679806977872,
+      "server": 138487313727488,
+      "prefix_server": 138487313727488,
+      "prefix_server_alias": 138487313727488
+    },
+    {
+      "name": "x64-metadata2-observe.log",
+      "width": 8,
+      "getter_code_hex": "488bc448895820555de9c263f4ffcccc488bc448895820555de9c251e7ffcccc488bc448895820555de962d0feffcccc488bc448895820555de9a251e7ffcccc",
+      "getter_code_sha256": "4fe069356cb82486d56ab3134074252752ca2a527df9e90d1bbff9dfcf0501d5",
+      "major": 10,
+      "minor": 0,
+      "build": 29695,
+      "session": 0,
+      "local": 140677849284608,
+      "statics": 140677849286480,
+      "server": 138487313727488,
+      "prefix_server": 138487313727488,
+      "prefix_server_alias": 138487313727488,
+      "server_pid": 876
+    },
+    {
+      "name": "x86-metadata1-observe.log",
+      "width": 4,
+      "getter_code_hex": "8bff558bec5d90e9b4c01000cccccccc8bff558bec5d90e9c4c01000cccccccc8bff558bec5d90e9a4e61500cccccccc8bff558bec5d90e9c4c01000cccccccc",
+      "getter_code_sha256": "480d3a7009d23ed6a1c30983e471fa0c8cf77f6bb0f25ecd302265ac009609a3"
+    },
+    {
+      "name": "x86-metadata2-observe.log",
+      "width": 4,
+      "getter_code_hex": "8bff558bec5d90e9b4c01000cccccccc8bff558bec5d90e9c4c01000cccccccc8bff558bec5d90e9a4e61500cccccccc8bff558bec5d90e9c4c01000cccccccc",
+      "getter_code_sha256": "480d3a7009d23ed6a1c30983e471fa0c8cf77f6bb0f25ecd302265ac009609a3",
+      "server_pid": 876
+    }
+  ],
+  "shared_section": [
+    {
+      "sample": "arm64-section-observe.log",
+      "view_bytes": 1048576,
+      "regions": [
+        {
+          "offset": 0,
+          "bytes": 20480,
+          "state": 4096,
+          "protection": 2,
+          "type": 262144
+        },
+        {
+          "offset": 20480,
+          "bytes": 1028096,
+          "state": 8192,
+          "protection": 0,
+          "type": 262144
+        }
+      ],
+      "committed_sha256": "7bd9b5377650f5a37fb68be3c449eacb1a13de576cb58c056b8d515c6e5f58bd",
+      "terminal": "complete cases=40 mapped-views=20"
+    },
+    {
+      "sample": "x64-section-observe.log",
+      "view_bytes": 1048576,
+      "regions": [
+        {
+          "offset": 0,
+          "bytes": 20480,
+          "state": 4096,
+          "protection": 2,
+          "type": 262144
+        },
+        {
+          "offset": 20480,
+          "bytes": 1028096,
+          "state": 8192,
+          "protection": 0,
+          "type": 262144
+        }
+      ],
+      "committed_sha256": "7bd9b5377650f5a37fb68be3c449eacb1a13de576cb58c056b8d515c6e5f58bd",
+      "terminal": "complete cases=40 mapped-views=20"
+    },
+    {
+      "sample": "x86-section-observe.log",
+      "view_bytes": 1048576,
+      "regions": [
+        {
+          "offset": 0,
+          "bytes": 20480,
+          "state": 4096,
+          "protection": 2,
+          "type": 262144
+        },
+        {
+          "offset": 20480,
+          "bytes": 1028096,
+          "state": 8192,
+          "protection": 0,
+          "type": 262144
+        }
+      ],
+      "committed_sha256": "7bd9b5377650f5a37fb68be3c449eacb1a13de576cb58c056b8d515c6e5f58bd",
+      "terminal": "complete cases=40 mapped-views=20"
+    }
+  ],
+  "secure_connect": {
+    "dumps": {
+      "port-name-utf16": "5c00570069006e0064006f00770073005c0041007000690050006f0072007400",
+      "security-qos": "000000000200000001010000",
+      "required-server-sid": "010100000000000512000000",
+      "client-view-before": "30000000000000006c000000000000000000000000000000000001000000000000000000000000000000000000000000",
+      "client-view-after": "30000000000000006c00000000000000000000000000000000000100000000000000bb07cd020000000079f273020000",
+      "server-view-before": "180000000000000000000000000000000000000000000000",
+      "server-view-after": "000000000000000000000000000000000000000000000000",
+      "connection-before": "00000000000000000000000000000000000000000000000000000000000000000100000000000000608ec5d2fd7f0000",
+      "connection-after": "00002417f47d000050072417f47d00006c0300000000000000000000000000000100000000000000608ec5d2fd7f0000",
+      "max-message-after": "b8030000",
+      "connection-length-after": "30000000"
+    },
+    "status": 0,
+    "terminal": "complete captured=1 calls=1 exit=41"
+  },
+  "user_exchange": {
+    "request_hex": "30005800000000000000000000000000000000000000000000000000000000000000000000000000500779f273020000000000000000000000000000000000000300000000000000780779f2730200004802000000000000",
+    "capture_header_hex": "740200000df0adba0df0adba0df0adba010000000df0adba00000000000000004800000000000000",
+    "allocation_bytes": 628,
+    "header_bytes": 40,
+    "information_bytes": 584,
+    "zero_input": true,
+    "padding_bytes": 4,
+    "padding_hex": "0df0adba",
+    "client_information_hex": "df050000000000004010cc20f30100000000ac20f301000020000000000000005069cc20f30100000000cc20f30100001803000000000000306bcc20f3010000000000000000000000000000000000001803000000000000b06bcc20f30100001400000000000000306ccc20f30100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001803000000000000d06ccc20f30100001803000000000000d06dcc20f30100001803000000000000506ecc20f30100000204000000000000906acc20f30100001803000000000000d06ecc20f30100001803000000000000506dcc20f3010000000000000000000000000000000000001803000000000000506ccc20f30100008802000000000000506fcc20f30100008200000000000000c06fcc20f301000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003f030000000000009069cc20f30100004903000000000000106acc20f3010000ff73000000000000",
+    "response_hex": "30005800020000006c03000000000000280300000000000088130000000000003895650000000000d072160180000000000000000000000000000000000000000300000000000000780779f2730200004802000000000000",
+    "status": 0,
+    "terminal": "complete installed=1 entered=2 returned=2 exit=41"
+  },
+  "native_frames": {
+    "native-csr-29695-geometry-v1": {
+      "kernel": [
+        10,
+        0,
+        29695,
+        2,
+        ""
+      ],
+      "inputs_sha256": {
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-geometry-v1\\probe.cpp": "b2dd00ddae8338f3757da59e53cc67785523ec5879e8e74cf006dbadad5d6b10",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-geometry-v1\\driver.py": "ff10dd25fb8418fe9e9466efef8f9aa61e60a0566014af744f64c06be63d9435",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-exception-entry-profile\\run-v2.py": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba"
+      },
+      "samples": {
+        "arm64": {
+          "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+          "binary_sha256": "be084653f994fd48bd368454659f865cfd447a38d4aa47c08931728cc8827793",
+          "binary_bytes": 155136,
+          "exit_code": 0,
+          "geometry": [
+            "MAP slot=16 base=000001FCCCA20000 offset=0 bytes=8192 state=00001000 protect=00000002 type=00040000",
+            "MAP slot=16 base=000001FCCCA20000 offset=8192 bytes=2088960 state=00002000 protect=00000000 type=00040000",
+            "MAP-END slot=16 base=000001FCCCA20000 bytes=2097152 runs=2 committed=8192",
+            "MAP slot=40 base=000001FCCCC20000 offset=0 bytes=32768 state=00001000 protect=00000002 type=00040000",
+            "MAP-END slot=40 base=000001FCCCC20000 bytes=32768 runs=1 committed=32768"
+          ],
+          "stable": [
+            "1",
+            "1"
+          ],
+          "summary": [
+            "PROFILE arm64 POINTER_BYTES 8",
+            "BOOTSTRAP before-pid-available=1 before-pid=876",
+            "BOOTSTRAP status=00000000 exception=00000000 inside=0 after-pid=876",
+            "SUMMARY calls=2 handles-before=43 handles-after=43"
+          ],
+          "inputs_unchanged": true
+        },
+        "x64": {
+          "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+          "binary_sha256": "90eafa1089f5a7913e9a400917bd2e2c30a153042f55bb1cbd0981b3189a3b8d",
+          "binary_bytes": 166912,
+          "exit_code": 0,
+          "geometry": [
+            "MAP slot=16 base=0000021835440000 offset=0 bytes=8192 state=00001000 protect=00000002 type=00040000",
+            "MAP slot=16 base=0000021835440000 offset=8192 bytes=2088960 state=00002000 protect=00000000 type=00040000",
+            "MAP-END slot=16 base=0000021835440000 bytes=2097152 runs=2 committed=8192",
+            "MAP slot=40 base=0000021835640000 offset=0 bytes=32768 state=00001000 protect=00000002 type=00040000",
+            "MAP-END slot=40 base=0000021835640000 bytes=32768 runs=1 committed=32768"
+          ],
+          "stable": [
+            "1",
+            "1"
+          ],
+          "summary": [
+            "PROFILE x64 POINTER_BYTES 8",
+            "BOOTSTRAP before-pid-available=1 before-pid=876",
+            "BOOTSTRAP status=00000000 exception=00000000 inside=0 after-pid=876",
+            "SUMMARY calls=2 handles-before=59 handles-after=59"
+          ],
+          "inputs_unchanged": true
+        },
+        "x86": {
+          "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+          "binary_sha256": "becb2214a413ec51a33ceb70a2621107e84cc32c6b39cded89f679f9069b74eb",
+          "binary_bytes": 135168,
+          "exit_code": 0,
+          "geometry": [
+            "MAP slot=16 base=0000000003860000 offset=0 bytes=8192 state=00001000 protect=00000002 type=00040000",
+            "MAP slot=16 base=0000000003860000 offset=8192 bytes=2088960 state=00002000 protect=00000000 type=00040000",
+            "MAP-END slot=16 base=0000000003860000 bytes=2097152 runs=2 committed=8192",
+            "MAP slot=40 base=0000000003A60000 offset=0 bytes=32768 state=00001000 protect=00000002 type=00040000",
+            "MAP-END slot=40 base=0000000003A60000 bytes=32768 runs=1 committed=32768"
+          ],
+          "stable": [
+            "1",
+            "1"
+          ],
+          "summary": [
+            "PROFILE x86 POINTER_BYTES 4",
+            "BOOTSTRAP before-pid-available=1 before-pid=876",
+            "BOOTSTRAP status=00000000 exception=00000000 inside=0 after-pid=876",
+            "SUMMARY calls=2 handles-before=70 handles-after=70"
+          ],
+          "inputs_unchanged": true
+        }
+      },
+      "commands": [
+        {
+          "exit_code": 0,
+          "seconds": 1.0613235410000925
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.06190458299988677
+        },
+        {
+          "exit_code": 0,
+          "seconds": 1.8365110830000049
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.2722953330001019
+        },
+        {
+          "exit_code": 0,
+          "seconds": 1.7664546670000618
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.501536582999961
+        }
+      ]
+    },
+    "native-csr-29695-metadata-v1": {
+      "kernel": [
+        10,
+        0,
+        29695,
+        2,
+        ""
+      ],
+      "inputs_sha256": {
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-metadata-v1\\metadata1.cpp": "e7b4a8fa4c9d9c5fe05d048223e203ffd0719df31c627dc67d2a977062405f4b",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-metadata-v1\\metadata2.cpp": "e5de1967ccd3e0596453f923125ab3cca137f34c9a61f774a969716cf01461d0",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-metadata-v1\\driver.py": "2a7a69be694f6d9ff6cea7dc625bc6b6e155bf0e747fc58d5e27852d7141a19c",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-exception-entry-profile\\run-v2.py": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba"
+      },
+      "samples": [
+        {
+          "arch": "arm64",
+          "source": "metadata1.cpp",
+          "source_sha256": "e7b4a8fa4c9d9c5fe05d048223e203ffd0719df31c627dc67d2a977062405f4b",
+          "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+          "binary_sha256": "3c877d6dde080dc14081d7e6a35ddc198420bbaba68f3fcec57403c8bacf9a62",
+          "binary_bytes": 146432,
+          "exit_code": 0,
+          "stdout_sha256": "a9d7e36c07db09916a09eb1aade2879384d85bc0a12879a57b600f91b6867205",
+          "inputs_unchanged": true
+        },
+        {
+          "arch": "arm64",
+          "source": "metadata2.cpp",
+          "source_sha256": "e5de1967ccd3e0596453f923125ab3cca137f34c9a61f774a969716cf01461d0",
+          "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+          "binary_sha256": "7abdfe808c2b42daf78b3f460dcfbec9cc630da791aa622ec44987fbd40a8ca7",
+          "binary_bytes": 146432,
+          "exit_code": 0,
+          "stdout_sha256": "66090181e6d7219aecf8f94bdce390b10947e8c10cc6c06ea2fbf2a5b31771cc",
+          "inputs_unchanged": true
+        },
+        {
+          "arch": "x64",
+          "source": "metadata1.cpp",
+          "source_sha256": "e7b4a8fa4c9d9c5fe05d048223e203ffd0719df31c627dc67d2a977062405f4b",
+          "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+          "binary_sha256": "cc31dbbbe21cc6fe3d7e8c97c01747c53152e3d22c92371dae430093b8e726ef",
+          "binary_bytes": 144384,
+          "exit_code": 0,
+          "stdout_sha256": "b31d2a2345d7e2e3314fc6471b438861c549d854a4ca5f9ce58efd797e9b214f",
+          "inputs_unchanged": true
+        },
+        {
+          "arch": "x64",
+          "source": "metadata2.cpp",
+          "source_sha256": "e5de1967ccd3e0596453f923125ab3cca137f34c9a61f774a969716cf01461d0",
+          "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+          "binary_sha256": "d8aa2a3612b4d068a840b025b9d0e9063d9a48308780160f7ba6761c203cd76c",
+          "binary_bytes": 144384,
+          "exit_code": 0,
+          "stdout_sha256": "a20d15adbce82e7aa3141bf2761a8d37c2a37dfc7ed2d27831fc679489ca9ec1",
+          "inputs_unchanged": true
+        },
+        {
+          "arch": "x86",
+          "source": "metadata1.cpp",
+          "source_sha256": "e7b4a8fa4c9d9c5fe05d048223e203ffd0719df31c627dc67d2a977062405f4b",
+          "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+          "binary_sha256": "ceb951c797105a98798b8ac40243cfc161ea7174b259900d27c0d6ad1f01bac0",
+          "binary_bytes": 119296,
+          "exit_code": 0,
+          "stdout_sha256": "bdc5b2c1c11e6d463f27a3b212e600fa1bc0a043c7b53f72bc43634edc2f5986",
+          "inputs_unchanged": true
+        },
+        {
+          "arch": "x86",
+          "source": "metadata2.cpp",
+          "source_sha256": "e5de1967ccd3e0596453f923125ab3cca137f34c9a61f774a969716cf01461d0",
+          "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+          "binary_sha256": "d91e43e7501d13bb957a40565f142ccaf1f98d188786b63f235a12fcac049dd8",
+          "binary_bytes": 119296,
+          "exit_code": 0,
+          "stdout_sha256": "dcb31853227b8277234b20365232d3e16dbefd88ee759aea1aece149eb4f6e20",
+          "inputs_unchanged": true
+        }
+      ],
+      "commands": [
+        {
+          "exit_code": 0,
+          "seconds": 0.969714791999877
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.18488266700001077
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.6250767090000409
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.09916195799996785
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.42055354100011755
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.2403583330001311
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.5290139169999293
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.3066023750000113
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.7298808329999247
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.5252807500000927
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.6217930839998189
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.3645111660000566
+        }
+      ]
+    },
+    "protocol": {
+      "kernel": [
+        10,
+        0,
+        29695,
+        2,
+        ""
+      ],
+      "inputs_sha256": {
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-protocol-v2\\secure.cpp": "8d9fb463dd33618e8e1b2e1f0358d952e604220044f463bee96237c8417bb8d3",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-protocol-v2\\exchange.cpp": "814d88155ebc88d5c4e44b47e5efbac3eb73fae4ca9f42503b68cb5f8e1e4696",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-protocol-v2\\driver.py": "1387c0674095880421897261a542e72d8eea6366a685946dc291e6c479686efc",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-exception-entry-profile\\run-v2.py": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba"
+      },
+      "samples": [
+        {
+          "arch": "arm64",
+          "source": "secure.cpp",
+          "source_sha256": "8d9fb463dd33618e8e1b2e1f0358d952e604220044f463bee96237c8417bb8d3",
+          "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+          "binary_sha256": "273f4195e726b6eff29fbf92d290dc955a454eed2cc06657547e47204069d834",
+          "binary_bytes": 169984,
+          "exit_code": 0,
+          "stdout_sha256": "9a2b7465ad1eef47ce9ef7cce0b1be290d5543485e67b92e198afef15335167d",
+          "inputs_unchanged": true
+        },
+        {
+          "arch": "arm64",
+          "source": "exchange.cpp",
+          "source_sha256": "814d88155ebc88d5c4e44b47e5efbac3eb73fae4ca9f42503b68cb5f8e1e4696",
+          "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+          "binary_sha256": "a9c4e9db4bab5733dd5f809128c3545b2a1892b2da6760b8de6d72198bc5640c",
+          "binary_bytes": 184320,
+          "exit_code": 0,
+          "stdout_sha256": "37effab01e6a02dcbd818348c79b74c6e7d0471e53fe9d2589fb2065a35b9051",
+          "inputs_unchanged": true
+        }
+      ],
+      "commands": [
+        {
+          "exit_code": 0,
+          "seconds": 1.2274043749998782
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.14388841600020896
+        },
+        {
+          "exit_code": 0,
+          "seconds": 1.3020269170001484
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.2599926670000059
+        }
+      ]
+    },
+    "shared_section": {
+      "kernel": [
+        10,
+        0,
+        29695,
+        2,
+        ""
+      ],
+      "inputs_sha256": {
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-shared-section-v1\\section.cpp": "28881491716b5c10a7d7ab8e33aecb555bbc9171da2a931107763a67ac706bd0",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-csr-29695-shared-section-v1\\driver.py": "21306f631fbd3f7dc476479db91b8bea5b2498c6e683485af40584f9ea256e9e",
+        "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-exception-entry-profile\\run-v2.py": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba"
+      },
+      "samples": [
+        {
+          "arch": "arm64",
+          "source": "section.cpp",
+          "source_sha256": "28881491716b5c10a7d7ab8e33aecb555bbc9171da2a931107763a67ac706bd0",
+          "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+          "binary_sha256": "1466356997c9a1ae503005c0cdd6065ece6fd1c6efe9016e1cb6078ded4d2404",
+          "binary_bytes": 150016,
+          "exit_code": 0,
+          "stdout_sha256": "398b2aeb628503cbffd856709e6b91914d1dd5e43d22b566c7e8e62a27cae31c",
+          "inputs_unchanged": true
+        },
+        {
+          "arch": "x64",
+          "source": "section.cpp",
+          "source_sha256": "28881491716b5c10a7d7ab8e33aecb555bbc9171da2a931107763a67ac706bd0",
+          "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+          "binary_sha256": "f628b139b3ae8cf2ca158336579430401c97c76a0411abc927d771cf90163745",
+          "binary_bytes": 148992,
+          "exit_code": 0,
+          "stdout_sha256": "b0c890130b30fa73a9b3ada59c669070875608b289d5ce718567e6f146ce4580",
+          "inputs_unchanged": true
+        },
+        {
+          "arch": "x86",
+          "source": "section.cpp",
+          "source_sha256": "28881491716b5c10a7d7ab8e33aecb555bbc9171da2a931107763a67ac706bd0",
+          "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+          "binary_sha256": "937bee5de2924c432bedc3c7fcab96e4404d9b1316ebdc53e7ad5afede5e942d",
+          "binary_bytes": 123904,
+          "exit_code": 0,
+          "stdout_sha256": "37da8d87ab57c2726c319c6a5d5a2a35873ce1dbe94e10ecaa639116ce40e210",
+          "inputs_unchanged": true
+        }
+      ],
+      "commands": [
+        {
+          "exit_code": 0,
+          "seconds": 1.5954299999998511
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.5340188749996742
+        },
+        {
+          "exit_code": 0,
+          "seconds": 1.1793442080002023
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.4206978329998492
+        },
+        {
+          "exit_code": 0,
+          "seconds": 1.3130867499999113
+        },
+        {
+          "exit_code": 0,
+          "seconds": 0.7595628340000076
+        }
+      ]
+    }
+  },
+  "projection": {
+    "raw": "Full stdout retained in task evidence archive.",
+    "excluded": [
+      "unselected PEB bytes",
+      "512-byte caller-code dump",
+      "unused portions of4096-byte shared-page dumps"
+    ],
+    "scope": "Observed typed fields and content hashes; controlled model tests retain the four earlier full native payload snapshots. No whole native-reply equality, physical AMD64 admission, generic CSR, or complete startup claim."
+  }
+}

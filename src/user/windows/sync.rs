@@ -19,8 +19,8 @@
 //! publication. AddressSpace::write checks/materializes every page before any
 //! byte write; mappings must remain stable under the serialized-process contract.
 
+use crate::host::time::Instant;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::time::Instant;
 
 use super::layout::offsets;
 use super::memory::{Mem, MemFault};

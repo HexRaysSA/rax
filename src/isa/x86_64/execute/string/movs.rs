@@ -92,6 +92,7 @@ fn movs_common(
     // Destination is always ES:[RDI] (not overridable); long mode ignores ES.base.
     let dst_base = movs_destination_segment_base(vcpu);
     if is_rep
+        && !vcpu.user_single_step_enabled()
         && !vcpu.mmu.mem_rec_on()
         && src_base == 0
         && dst_base == 0
@@ -132,6 +133,9 @@ fn movs_common(
         vcpu.regs.rdi = advance_index(vcpu.regs.rdi, delta, forward, addr_size);
         if is_rep {
             vcpu.regs.rcx = dec_count(vcpu.regs.rcx, addr_size);
+            if rep_count(vcpu.regs.rcx, addr_size) != 0 {
+                vcpu.user_repeat_step_trap()?;
+            }
         }
     }
     vcpu.regs.rip += ctx.cursor as u64;

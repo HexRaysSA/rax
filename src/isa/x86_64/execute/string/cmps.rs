@@ -48,6 +48,9 @@ pub fn cmpsb(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
             if ctx.rep_prefix == Some(0xF2) && zf {
                 break;
             }
+            if rep_count(vcpu.regs.rcx, addr_size) != 0 {
+                vcpu.user_repeat_step_trap()?;
+            }
         }
     }
     vcpu.regs.rip += ctx.cursor as u64;
@@ -94,6 +97,9 @@ pub fn cmps(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
             }
             if ctx.rep_prefix == Some(0xF2) && zf {
                 break;
+            }
+            if rep_count(vcpu.regs.rcx, addr_size) != 0 {
+                vcpu.user_repeat_step_trap()?;
             }
         }
     }

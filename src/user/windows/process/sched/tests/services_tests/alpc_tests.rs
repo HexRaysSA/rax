@@ -102,67 +102,71 @@ fn csr_request(p: &Proc, base: u64, local: u64, remote: u64, port: u32) -> [u64;
 
 #[test]
 fn native_alpc_csr_exchange_owns_repeated_reply_mappings_and_server_capture() {
-    for fixture_index in 0..4 {
-        let (mut process, mut t) = fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);
-        let p = process.state_mut();
-        let base =
-            p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
-                .unwrap()
-                .0;
-        let (port, local, remote, data) = csr_setup(p, fixture_index);
-        let before = p.vm.committed_bytes();
-        let handles = p.objects.handle_count();
-        let rng = p.rng;
-        for expected_id in 1..=4 {
-            let duplicate = p
-                .objects
-                .open_access(p.objects.id(port.into()).unwrap(), false, 1)
-                .unwrap();
-            let mut args = csr_request(p, base, local, remote, port);
-            args[0] = u64::from(duplicate) | u64::from(expected_id - 1);
-            assert_eq!(invoke(p, &mut t, &args), Outcome::Continue);
-            assert_eq!(t.cpu.gpr(0), 0);
-            assert_eq!(p.space.u16(base).unwrap(), 48);
-            assert_eq!(p.space.u16(base + 2).unwrap(), 88);
-            assert_eq!(p.space.u16(base + 4).unwrap(), 2);
-            assert_eq!(p.space.u32(base + 24).unwrap(), expected_id);
-            assert_eq!(p.space.u64(base + 1024).unwrap(), 88);
-            assert_eq!(p.space.u64(local + 0x758).unwrap(), 0);
-            assert_eq!(p.space.bytes(local + 0x778, 584).unwrap(), data.information);
-            assert_eq!(p.vm.committed_bytes(), before + 40960);
-            p.objects.close(duplicate.into()).unwrap();
-            assert_eq!(p.objects.handle_count(), handles);
-            assert_eq!(p.rng, rng);
-            let Some(Object::LpcPort(endpoint)) = p.objects.get(port.into()) else {
-                panic!("typed peer")
-            };
-            let peer = endpoint.peer().unwrap();
-            let capture = p.space.u64(base + 40).unwrap();
-            assert_eq!(peer.vm.space().u32(capture).unwrap(), 628);
-            assert_eq!(peer.vm.space().u64(capture + 8).unwrap(), 0);
-            assert_eq!(
-                peer.vm.space().bytes(capture + 40, 584).unwrap(),
-                data.information
-            );
-            assert!(p.space.u8(capture).is_err());
-            assert_eq!(p.space.u64(base + 8).unwrap(), u64::from(peer.server_pid));
-            assert_eq!(
-                p.space.u64(base + 16).unwrap(),
-                u64::from(peer.server_thread)
-            );
-        }
-        p.objects.close(port.into()).unwrap();
-        p.reclaim_scheduler_views().unwrap();
-        assert!(p.vm.allocation(local).is_none());
-        for view in &data.views {
-            assert!(p.vm.owns_readonly_data_view(view.base, &view.section));
+    for build in [29683, 29695] {
+        for fixture_index in 0..4 {
+            let (mut process, mut t) =
+                fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);
+            let p = process.state_mut();
+            let base =
+                p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                    .unwrap()
+                    .0;
+            let (port, local, remote, data) = csr_setup(p, fixture_index);
+            Arc::make_mut(&mut p.cfg).version.build = build;
+            let before = p.vm.committed_bytes();
+            let handles = p.objects.handle_count();
+            let rng = p.rng;
+            for expected_id in 1..=4 {
+                let duplicate = p
+                    .objects
+                    .open_access(p.objects.id(port.into()).unwrap(), false, 1)
+                    .unwrap();
+                let mut args = csr_request(p, base, local, remote, port);
+                args[0] = u64::from(duplicate) | u64::from(expected_id - 1);
+                assert_eq!(invoke(p, &mut t, &args), Outcome::Continue);
+                assert_eq!(t.cpu.gpr(0), 0);
+                assert_eq!(p.space.u16(base).unwrap(), 48);
+                assert_eq!(p.space.u16(base + 2).unwrap(), 88);
+                assert_eq!(p.space.u16(base + 4).unwrap(), 2);
+                assert_eq!(p.space.u32(base + 24).unwrap(), expected_id);
+                assert_eq!(p.space.u64(base + 1024).unwrap(), 88);
+                assert_eq!(p.space.u64(local + 0x758).unwrap(), 0);
+                assert_eq!(p.space.bytes(local + 0x778, 584).unwrap(), data.information);
+                assert_eq!(p.vm.committed_bytes(), before + 40960);
+                p.objects.close(duplicate.into()).unwrap();
+                assert_eq!(p.objects.handle_count(), handles);
+                assert_eq!(p.rng, rng);
+                let Some(Object::LpcPort(endpoint)) = p.objects.get(port.into()) else {
+                    panic!("typed peer")
+                };
+                let peer = endpoint.peer().unwrap();
+                let capture = p.space.u64(base + 40).unwrap();
+                assert_eq!(peer.vm.space().u32(capture).unwrap(), 628);
+                assert_eq!(peer.vm.space().u64(capture + 8).unwrap(), 0);
+                assert_eq!(
+                    peer.vm.space().bytes(capture + 40, 584).unwrap(),
+                    data.information
+                );
+                assert!(p.space.u8(capture).is_err());
+                assert_eq!(p.space.u64(base + 8).unwrap(), u64::from(peer.server_pid));
+                assert_eq!(
+                    p.space.u64(base + 16).unwrap(),
+                    u64::from(peer.server_thread)
+                );
+            }
+            p.objects.close(port.into()).unwrap();
+            p.reclaim_scheduler_views().unwrap();
+            assert!(p.vm.allocation(local).is_none());
+            for view in &data.views {
+                assert!(p.vm.owns_readonly_data_view(view.base, &view.section));
+            }
         }
     }
 }
 
 #[test]
 fn native_alpc_csr_rejects_foreign_capture_and_changed_schema_without_publication() {
-    for variant in 0..5 {
+    for variant in 0..10 {
         let (mut process, mut t) = fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);
         let p = process.state_mut();
         let base =
@@ -176,9 +180,15 @@ fn native_alpc_csr_rejects_foreign_capture_and_changed_schema_without_publicatio
             1 => p.space.w32(local + 0x760, 2).unwrap(),
             2 => p.space.w64(local + 0x770, 80).unwrap(),
             3 => p.space.w8(local + 0x778, 1).unwrap(),
-            _ => {
+            4 => {
                 p.vm.release(local).unwrap();
             }
+            5 => Arc::make_mut(&mut p.cfg).version.build = 26100,
+            6 => Arc::make_mut(&mut p.cfg).version.build = 29694,
+            7 => Arc::make_mut(&mut p.cfg).version.build = 29696,
+            8 => Arc::make_mut(&mut p.cfg).version.minor = 1,
+            9 => Arc::make_mut(&mut p.cfg).version.major = 11,
+            _ => unreachable!(),
         }
         let before = (p.vm.committed_bytes(), p.objects.handle_count(), p.rng);
         let output = p.space.bytes(base, 1032).unwrap();

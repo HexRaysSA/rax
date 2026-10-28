@@ -13,13 +13,16 @@
 
 pub(crate) mod fiber;
 mod fls_exit;
+pub(crate) mod image_information;
 mod lifecycle;
 pub(crate) mod native_start;
+pub(crate) mod processor;
 mod sched;
 mod services;
 pub(crate) mod stack;
 mod start;
 pub(crate) mod thread;
+pub(crate) mod wow64;
 
 pub use super::dll::libraries::LoaderState;
 pub use fiber::FiberState;
@@ -27,10 +30,10 @@ pub use sched::RunStatus;
 pub(crate) use sched::{continue_alertable, is_apc_dispatcher};
 pub use thread::{Thread, ThreadState};
 
+use crate::host::time::Instant;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
 
 use super::arch::WinArch;
 use super::dll::crt::CrtState;
@@ -278,6 +281,11 @@ pub struct Proc {
     /// Configuration.
     pub cfg: Arc<WindowsConfig>,
     pub(crate) native: Option<super::native::NativeRuntime>,
+    pub(crate) flush_information: Result<[u8; 32], String>,
+    pub(crate) thread_access: Result<super::security::thread::Access, String>,
+    pub(crate) image_information: Result<image_information::ImageInformation, &'static str>,
+    pub(crate) wow64: Option<wow64::State>,
+    pub(crate) teb_arena: thread::teb::Arena,
     pub(crate) gui: super::gui::State,
     pub(crate) registry: super::registry::Registry,
     pub(crate) object_namespace: super::object_namespace::Namespace,

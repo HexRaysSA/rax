@@ -5,8 +5,8 @@
 //! sleeping call also waits for; and what `fork` and `exec` do to the
 //! requests (`io_uring_task_cancel`).
 
+use crate::host::time::Instant;
 use std::sync::{Arc, Weak};
-use std::time::Instant;
 
 use super::super::super::abi::errno_table::*;
 use super::super::super::process::ProcState;

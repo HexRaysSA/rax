@@ -361,6 +361,21 @@ impl DarwinCpu {
         }
     }
 
+    /// Executes one guest instruction without admitting a native region.
+    /// A `Yield` means that instruction retired without a synchronous event.
+    pub(crate) fn step(&mut self) -> Trap {
+        match self {
+            DarwinCpu::X86_64(cpu) => {
+                let exit = cpu.step();
+                x86_trap(cpu, exit)
+            }
+            DarwinCpu::Arm64(cpu) => {
+                let exit = cpu.run(1);
+                arm64_trap(cpu, exit)
+            }
+        }
+    }
+
     /// The register words a BSD call's arguments start from: `RDI`, `RSI`,
     /// `RDX`, `R10`, `R8`, `R9` on x86-64; `X0`-`X8` on arm64.
     fn arg_regs(&self) -> [u64; 9] {

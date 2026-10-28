@@ -1,0 +1,61 @@
+{
+  "schema": "rax.native-image-view-reserved-tail.v1",
+  "kernel": {
+    "major": 10,
+    "minor": 0,
+    "build": 29695,
+    "native_machine": 43620
+  },
+  "source": {
+    "file": "probe-v3.cpp",
+    "sha256": "29b090802a45c22d76c5270d279d7029176a93490dd3e9d530ed1abcfc2a62f8"
+  },
+  "driver_sha256": "644b3693afc2f8c0204d554a391cab032b88fe5720830bd74fdc3141479206d0",
+  "profiles": [
+    {
+      "arch": "arm64",
+      "file": "arm64-v3.log",
+      "bytes": 380978,
+      "sha256": "c850875a9801ed3275a432b80ccc5280659fc8a89fed777ee8989447ee3aefed",
+      "source_sha256": "29b090802a45c22d76c5270d279d7029176a93490dd3e9d530ed1abcfc2a62f8",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "binary_sha256": "6c146a2311fdad5c555277b00e1945454ae33d0b6705f89592e0098966529053",
+      "binary_bytes": 159744,
+      "cases": 324,
+      "successful_maps": 216,
+      "old_predicate_violations": 16,
+      "exit_code": 0,
+      "pe_machine": 43620
+    },
+    {
+      "arch": "x64",
+      "file": "x64-v3.log",
+      "bytes": 381362,
+      "sha256": "701cc7bb5ae090e3b92ce9625f45f30d0fa06af3229de43ee486a5a4617b5072",
+      "source_sha256": "29b090802a45c22d76c5270d279d7029176a93490dd3e9d530ed1abcfc2a62f8",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "binary_sha256": "05366244b43a27bdcf5f3e16e8961496d1671c429d3d3202918d840b954f1a88",
+      "binary_bytes": 171520,
+      "cases": 324,
+      "successful_maps": 216,
+      "old_predicate_violations": 16,
+      "exit_code": 0,
+      "pe_machine": 34404
+    },
+    {
+      "arch": "x86",
+      "file": "x86-v3.log",
+      "bytes": 373674,
+      "sha256": "923997c1f8df56cbaaefe6c1943875cbecf1e590f2f075df2b192f5172e2f6ed",
+      "source_sha256": "29b090802a45c22d76c5270d279d7029176a93490dd3e9d530ed1abcfc2a62f8",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "2e80d2c5ad836e160339f154f8578fe0167ce9d6980ad4694696d0c3e6d42eae",
+      "binary_bytes": 131072,
+      "cases": 324,
+      "successful_maps": 216,
+      "old_predicate_violations": 16,
+      "exit_code": 0,
+      "pe_machine": 332
+    }
+  ]
+}

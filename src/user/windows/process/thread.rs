@@ -35,6 +35,7 @@ use crate::user::windows::objects::{ObjId, Object};
 use crate::user::windows::sync::Wait;
 
 mod dynamic_tls;
+pub(crate) mod teb;
 pub(crate) use dynamic_tls::{install_dynamic_tls, remove_dynamic_tls};
 
 /// A thread's scheduling state.
@@ -56,6 +57,7 @@ pub struct Thread {
     pub cpu: WinCpu,
     /// TEB address.
     pub teb: u64,
+    pub(crate) teb_allocation: teb::Allocation,
     /// `StackBase`.
     pub stack_base: u64,
     /// `StackLimit`.
@@ -111,24 +113,6 @@ pub(crate) enum AlertCheck {
 
 /// Default stack reservation when an image specifies none (1 MiB).
 const DEFAULT_STACK: u64 = 0x10_0000;
-
-/// Finds a free TEB slot in the system area and commits it.
-fn alloc_teb(p: &mut Proc) -> Result<u64, u32> {
-    let stride = layout::teb_stride(p.arch);
-    let mut at = layout::PEB_ADDRESS - stride;
-    while at >= layout::SYSTEM_AREA {
-        let free =
-            p.vm.query(at)
-                .is_some_and(|r| r.state == mem::RESERVE && r.size >= stride);
-        if free {
-            p.vm.commit(at, stride, prot::READWRITE)
-                .map_err(|e| e.status())?;
-            return Ok(at);
-        }
-        at -= stride;
-    }
-    Err(STATUS_NO_MEMORY)
-}
 
 /// Allocates the static TLS array and blocks for a thread whose TEB is
 /// `teb`: one block per module with a TLS directory, copied from the
@@ -237,8 +221,8 @@ pub fn create(
         if cleanup.stack != 0 {
             let _ = p.vm.release(cleanup.stack);
         }
-        if cleanup.teb != 0 {
-            let _ = p.vm.decommit(cleanup.teb, layout::teb_stride(p.arch));
+        if let Some(teb) = cleanup.teb {
+            teb.release(p);
         }
     }
     result
@@ -246,7 +230,7 @@ pub fn create(
 
 #[derive(Default)]
 struct ThreadAlloc {
-    teb: u64,
+    teb: Option<teb::Allocation>,
     stack: u64,
     tls_array: u64,
     tls_blocks: Vec<u64>,
@@ -274,8 +258,9 @@ fn create_inner(
     }
     let tid = p.alloc_tid();
     let o = *offsets(p.arch);
-    let teb = alloc_teb(p)?;
-    cleanup.teb = teb;
+    let teb_allocation = teb::Allocation::allocate(p)?;
+    cleanup.teb = Some(teb_allocation.clone());
+    let teb = teb_allocation.teb;
 
     let reserve = if stack_size != 0 {
         stack_size
@@ -362,6 +347,8 @@ fn create_inner(
     s.wptr(teb + o.teb_tls_links + ptr, ptr, teb + o.teb_tls_links)
         .map_err(|_| STATUS_NO_MEMORY)?;
 
+    teb_allocation.initialize_companion(p, tid, base, limit, alloc)?;
+
     // CPU.
     let mut cpu = WinCpu::new(p.arch, &p.space);
     cpu.set_teb(teb);
@@ -406,6 +393,7 @@ fn create_inner(
             tid,
             cpu,
             teb,
+            teb_allocation,
             stack_base: base,
             stack_limit: limit,
             stack_alloc: alloc,
@@ -482,7 +470,7 @@ pub fn destroy(p: &mut Proc, t: Thread, code: u32) {
     if t.thread_stack_alloc != 0 {
         let _ = p.vm.release(t.thread_stack_alloc);
     }
-    let _ = p.vm.decommit(t.teb, layout::teb_stride(p.arch));
+    t.teb_allocation.release(p);
     p.tls
         .fls_discard_context(crate::user::windows::tls::FlsKey::Thread(tid));
 }

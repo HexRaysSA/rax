@@ -1,0 +1,37 @@
+{
+  "source_sha256": "5d43a75256c5cf0f2e3c6ecfc0619198951f55fa2d338654d53de06a904f3613",
+  "tools": {
+    "clang": {
+      "name": "clang",
+      "sha256": "6acca6b9583c9270f8606d026bab0015a4f82affd5610606f97fef6e606bde00"
+    },
+    "linker": {
+      "name": "lld-link",
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd"
+    },
+    "dlltool": {
+      "name": "llvm-dlltool",
+      "sha256": "36566071f789a6f966ba69b05b38570f840f4d15269b76407fed7bce5711e03d"
+    }
+  },
+  "fixtures": [
+    {
+      "arch": "x86",
+      "path": "bin/x86/fault.exe",
+      "bytes": 2560,
+      "sha256": "4a0f28a1fba11a97b7498f6bf5b231d32c124ce15d2bcb90084816e342c09544"
+    },
+    {
+      "arch": "x64",
+      "path": "bin/x64/fault.exe",
+      "bytes": 2048,
+      "sha256": "6a249f7cd38a631635719959e6295be9104154b1f61d284e7de3fbb2b8729483"
+    },
+    {
+      "arch": "arm64",
+      "path": "bin/arm64/fault.exe",
+      "bytes": 2048,
+      "sha256": "80cd719ac5332fd85087d17034d90918432ce9f097ad67f0d426b77a809aec61"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{AllocKind, Mem, MemFault};
 use crate::user::windows::nt::status::*;
+use crate::user::windows::object_namespace::ExtensionQuery;
 
 pub(super) fn query(
     c: &mut Ctx,
@@ -15,16 +16,25 @@ pub(super) fn query(
     length: u64,
     returned: u64,
 ) -> ApiResult {
-    if c.arch() == WinArch::X86 {
+    let availability =
+        c.p.object_namespace
+            .image_extension_query
+            .unwrap_or_default();
+    if c.arch() == WinArch::X86 || availability == ExtensionQuery::Unavailable {
         return Flow::ret(STATUS_INVALID_INFO_CLASS.into());
     }
-    if address == 0 {
+    // The captured AMD64 class checks length before NULL BaseAddress; the
+    // original ARM64 profile checks NULL first. Keep both native orders.
+    if address == 0 && availability == ExtensionQuery::Both {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
     if length < 24 {
         return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
     }
-    if address >= c.p.vm.high() {
+    if address == 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    if address >= c.p.vm.high() && availability == ExtensionQuery::Both {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
     if output % 8 != 0 {
@@ -48,6 +58,11 @@ pub(super) fn query(
         }
         probe_write(c, returned, 8)?;
     }
+    // AMD64 reaches destination faults before rejecting an out-of-user-range
+    // BaseAddress. The captured ARM64 profile rejects that range earlier.
+    if address >= c.p.vm.high() {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
     let status = process_status(c, process)?;
     if status != STATUS_SUCCESS {
         return Flow::ret(status.into());
@@ -65,6 +80,9 @@ pub(super) fn query(
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
     let kind = c.mem().u32(output)?;
+    if kind == 1 && availability == ExtensionQuery::NativeOnly {
+        return Flow::ret(STATUS_NOT_SUPPORTED.into());
+    }
     let (rva, size) =
         c.p.vm
             .section_image_extension(address, kind)

@@ -1,0 +1,662 @@
+{
+  "format": 1,
+  "raw_canonical_sha256": "b85f6e969683e0675aa8906792b04c0c6d54def8e5460db584f2e8e551d84af9",
+  "build": 29695,
+  "source_sha256": "a4ab73bdcdd765b6aca2cad100fd8819fef50088184907a0d3bc7472e240a2fa",
+  "binaries": {
+    "arm64": "b5260d6ca6c12bddfc0fc7877aefe90f57cdc657930c71b42c111f3f5fce18cc",
+    "x86": "8d7ef45e40c55c16e5f90ae2b5b663af0dfc60ce714362c332b46a2bda2807cc",
+    "x64": "0f5beface77c8f16f096c7067e3d2d6eac09f03fb738c853bc2008371fdd8c29"
+  },
+  "state": "finished",
+  "cases": [
+    {
+      "arch": "arm64",
+      "case": 124,
+      "exit_code": 0,
+      "observation": {
+        "case": 124,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 298,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          1,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351651177612020,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 125,
+      "exit_code": 0,
+      "observation": {
+        "case": 125,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 298,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351651663692532,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 126,
+      "exit_code": 0,
+      "observation": {
+        "case": 126,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 298,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          1,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689350703307965108,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 127,
+      "exit_code": 0,
+      "observation": {
+        "case": 127,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 298,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351150768702132,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 128,
+      "exit_code": 0,
+      "observation": {
+        "case": 128,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 298,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          1,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351336538817140,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 129,
+      "exit_code": 0,
+      "observation": {
+        "case": 129,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 298,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689350467841639028,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 130,
+      "exit_code": 0,
+      "observation": {
+        "case": 130,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 298,
+        "length": 298,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          2,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351061320315828,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 131,
+      "exit_code": 0,
+      "observation": {
+        "case": 131,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 298,
+        "length": 298,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          2,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689350842941322164,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "arm64",
+      "case": 132,
+      "exit_code": 0,
+      "observation": {
+        "case": 132,
+        "status": 0,
+        "raised": 0,
+        "required": 298,
+        "length": 4096,
+        "returned": 298,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "18011a01cccccccc90008bd8e20100005c0044002a0100000000000065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f00",
+        "name_length": 280,
+        "maximum_length": 282,
+        "buffer_offset": 16,
+        "name_hex": "5c0044002a0100000000000065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760036005c00610072006d00360034005c00700072006f00620065002e00650078006500"
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 124,
+      "exit_code": 0,
+      "observation": {
+        "case": 124,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 286,
+        "length": 4096,
+        "returned": 3435973836,
+        "header_size": 8,
+        "protect": [
+          4,
+          1,
+          4
+        ],
+        "output_hex": "1401160150c802035c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 4285249680,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 125,
+      "exit_code": 0,
+      "observation": {
+        "case": 125,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 286,
+        "length": 4096,
+        "returned": 3435973836,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "1401160150c80e035c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 4284528784,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 126,
+      "exit_code": 0,
+      "observation": {
+        "case": 126,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 286,
+        "length": 4096,
+        "returned": 3435973836,
+        "header_size": 8,
+        "protect": [
+          4,
+          1,
+          4
+        ],
+        "output_hex": "14011601c0566a005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 4249765696,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 127,
+      "exit_code": 0,
+      "observation": {
+        "case": 127,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 286,
+        "length": 4096,
+        "returned": 3435973836,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "1401160140c4be005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d003200cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 4251235520,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 128,
+      "exit_code": 0,
+      "observation": {
+        "case": 128,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 286,
+        "length": 4096,
+        "returned": 3435973836,
+        "header_size": 8,
+        "protect": [
+          4,
+          1,
+          4
+        ],
+        "output_hex": "14011601c056c7005c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 4248979328,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 129,
+      "exit_code": 0,
+      "observation": {
+        "case": 129,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 286,
+        "length": 4096,
+        "returned": 3435973836,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "1401160140c4f2025c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 4284003584,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 130,
+      "exit_code": 0,
+      "observation": {
+        "case": 130,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 286,
+        "length": 286,
+        "returned": 3435973836,
+        "header_size": 8,
+        "protect": [
+          4,
+          2,
+          4
+        ],
+        "output_hex": "14011601880082035c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d0076003600",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 8,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760036005c007800380036005c00700072006f00620065002e00650078006500"
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 131,
+      "exit_code": 0,
+      "observation": {
+        "case": 131,
+        "status": 0,
+        "raised": 0,
+        "required": 286,
+        "length": 286,
+        "returned": 3435973836,
+        "header_size": 8,
+        "protect": [
+          4,
+          2,
+          4
+        ],
+        "output_hex": "1401160188005a035c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d0076003600",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 8,
+        "name_hex": "5c004400650076006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760036005c007800380036005c00700072006f00620065002e00650078006500"
+      }
+    },
+    {
+      "arch": "x86",
+      "case": 132,
+      "exit_code": 0,
+      "observation": {
+        "case": 132,
+        "status": 0,
+        "raised": 0,
+        "required": 286,
+        "length": 4096,
+        "returned": 286,
+        "header_size": 8,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "1401160188008b035c0044001e0100006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d0076003600",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 8,
+        "name_hex": "5c0044001e0100006900630065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760036005c007800380036005c00700072006f00620065002e00650078006500"
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 124,
+      "exit_code": 0,
+      "observation": {
+        "case": 124,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 294,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          1,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689352016363143924,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 125,
+      "exit_code": 0,
+      "observation": {
+        "case": 125,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 294,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351244082004724,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 126,
+      "exit_code": 0,
+      "observation": {
+        "case": 126,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 294,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          1,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351121782194868,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 127,
+      "exit_code": 0,
+      "observation": {
+        "case": 127,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 294,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689350890896900788,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 128,
+      "exit_code": 0,
+      "observation": {
+        "case": 128,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 294,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          1,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689350698162733684,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 129,
+      "exit_code": 0,
+      "observation": {
+        "case": 129,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 294,
+        "length": 4096,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689350896643228276,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 130,
+      "exit_code": 0,
+      "observation": {
+        "case": 130,
+        "status": 3221225477,
+        "raised": 0,
+        "required": 294,
+        "length": 294,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          2,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351719362507700,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 131,
+      "exit_code": 0,
+      "observation": {
+        "case": 131,
+        "status": 2147483649,
+        "raised": 0,
+        "required": 294,
+        "length": 294,
+        "returned": 14757395258967641292,
+        "header_size": 16,
+        "protect": [
+          4,
+          2,
+          4
+        ],
+        "output_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "name_length": 52428,
+        "maximum_length": 52428,
+        "buffer_offset": -3689351160431784884,
+        "name_hex": ""
+      }
+    },
+    {
+      "arch": "x64",
+      "case": 132,
+      "exit_code": 0,
+      "observation": {
+        "case": 132,
+        "status": 0,
+        "raised": 0,
+        "required": 294,
+        "length": 4096,
+        "returned": 294,
+        "header_size": 16,
+        "protect": [
+          4,
+          4,
+          4
+        ],
+        "output_hex": "14011601cccccccc90005a8a9c0200005c004400260100000000000065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f00",
+        "name_length": 276,
+        "maximum_length": 278,
+        "buffer_offset": 16,
+        "name_hex": "5c004400260100000000000065005c0048006100720064006400690073006b0056006f006c0075006d00650033005c00570069006e0064006f00770073005c00540065006d0070005c006100730073006900730074002d006e00610074006900760065002d007200610078002d00320030003200360031003000310030005c007300720063002d0064006900730070006c00610079002d00630061006e0064006900640061007400650031005c007400610072006700650074005c006d00610070007000650064002d00660069006c0065006e0061006d0065002d006f00620073006500720076006100740069006f006e002d00760036005c007800360034005c00700072006f00620065002e00650078006500"
+      }
+    }
+  ]
+}

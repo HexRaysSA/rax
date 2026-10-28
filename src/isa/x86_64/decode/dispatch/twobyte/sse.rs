@@ -1367,7 +1367,7 @@ impl X86_64Vcpu {
 
         // Generate pseudo-random number for emulation
         // Using RDTSC-like approach with system time
-        let random_value: u64 = std::time::SystemTime::now()
+        let random_value: u64 = crate::host::time::system_now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(0x12345678DEADBEEF)
@@ -1424,7 +1424,7 @@ impl X86_64Vcpu {
 
         // Generate pseudo-random seed for emulation
         // Using RDTSC-like approach with system time
-        let random_value: u64 = std::time::SystemTime::now()
+        let random_value: u64 = crate::host::time::system_now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(0xDEADBEEF12345678)

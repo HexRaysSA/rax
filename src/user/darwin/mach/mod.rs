@@ -7,6 +7,7 @@
 //! | [`ipc`] | Ports, rights, and a task's name space |
 //! | [`msg`] | Messages in transit |
 //! | [`sync`] | Semaphores |
+//! | [`suspend`] | Task user holds and legacy resume accounting |
 //! | [`task`] | Task and thread special ports, exception ports, accounting |
 //! | [`voucher`] | Vouchers and their attribute managers |
 
@@ -14,6 +15,7 @@ pub mod exception;
 pub mod ipc;
 pub mod kr;
 pub mod msg;
+pub mod suspend;
 pub mod sync;
 pub mod task;
 pub mod voucher;

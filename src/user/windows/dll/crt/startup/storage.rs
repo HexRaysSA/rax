@@ -478,6 +478,7 @@ pub(super) fn prepare(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::host::time::Instant;
     use crate::user::mm::{AddressSpace, PAGE_SIZE, SpaceConfig};
     use crate::user::windows::arch::WinArch;
     use crate::user::windows::heap::Heaps;
@@ -486,7 +487,6 @@ mod tests {
     use crate::user::windows::process::WindowsConfig;
     use std::collections::BTreeMap;
     use std::sync::Arc;
-    use std::time::Instant;
 
     static BAD_CELLS: &[Export] = &[Export::data("__argc", DataSize::Bytes(2))];
     static GOOD_CELLS: &[Export] = &[Export::data("__argc", DataSize::Bytes(4))];
@@ -519,6 +519,11 @@ mod tests {
                 vec!["ignored-config-argument".into()],
             )),
             native: None,
+            flush_information: Err("controlled CRT fixture".into()),
+            thread_access: Ok(crate::user::windows::security::thread::Access::modeled()),
+            image_information: Err("test process has no admitted executable"),
+            wow64: None,
+            teb_arena: Default::default(),
             gui: Default::default(),
             registry: Default::default(),
             object_namespace: Default::default(),

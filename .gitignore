@@ -19,6 +19,7 @@ target/
 *.bin
 !tests/fixtures/hvf/mmio-rmw-v1/cases.bin
 !tests/fixtures/hvf/mmio-rmw-v1/records.bin
+!docs/development/x86-context-integration/user-v1.bin
 *.elf
 
 .DS_Store

@@ -58,10 +58,13 @@ fn arg(base: u64, index: usize, variant: i64, arch: WinArch) -> u64 {
 }
 
 #[test]
-fn native_nls_initialize_replays_316_actual_calls_outputs_guards_and_retained_views() {
+fn native_nls_initialize_replays_both_measured_builds_outputs_guards_and_retained_views() {
     let mut cases = 0;
     let mut late_retained = 0;
-    for (arch, raw) in CORPORA {
+    for (arch, raw, build) in CORPORA
+        .into_iter()
+        .flat_map(|(arch, raw)| [29683, 29695].map(|build| (arch, raw, build)))
+    {
         let lines: Vec<_> = raw.lines().collect();
         let mut profile_cases = 0;
         for (index, line) in lines
@@ -69,7 +72,7 @@ fn native_nls_initialize_replays_316_actual_calls_outputs_guards_and_retained_vi
             .enumerate()
             .filter(|(_, line)| line.starts_with("case "))
         {
-            let (mut process, mut thread, base) = setup(arch);
+            let (mut process, mut thread, base) = setup(arch, build);
             let p = process.state_mut();
             let args: Vec<_> = (0..4)
                 .map(|i| {
@@ -88,24 +91,28 @@ fn native_nls_initialize_replays_316_actual_calls_outputs_guards_and_retained_vi
             assert_eq!(
                 invoke(p, &mut thread, &args),
                 Outcome::Continue,
-                "{arch}: {line}"
+                "{arch} build {build}: {line}"
             );
-            assert_eq!(thread.cpu.gpr(0), hex(line, "status"), "{arch}: {line}");
+            assert_eq!(
+                thread.cpu.gpr(0),
+                hex(line, "status"),
+                "{arch} build {build}: {line}"
+            );
             assert_eq!(
                 p.vm.query(base + 12288).unwrap().protect as u64,
                 hex(lines[index + 1], "protect"),
-                "{arch}: {line}"
+                "{arch} build {build}: {line}"
             );
             let delta = integer(lines[index + 2], "after") - integer(lines[index + 2], "before");
             let new: Vec<_> =
                 p.vm.allocations()
                     .filter(|a| !before.contains(&a.base))
                     .collect();
-            assert_eq!(new.len() as i64, delta, "{arch}: {line}");
+            assert_eq!(new.len() as i64, delta, "{arch} build {build}: {line}");
             assert_eq!(
                 p.vm.committed_bytes(),
                 charge + new.len() as u64 * 864256,
-                "{arch}: {line}"
+                "{arch} build {build}: {line}"
             );
             let encoded = field(lines[index + 3], "hex");
             let mut expected: Vec<_> = (0..encoded.len())
@@ -139,7 +146,7 @@ fn native_nls_initialize_replays_316_actual_calls_outputs_guards_and_retained_vi
             assert_eq!(
                 p.space.bytes(base + 256, 144).unwrap(),
                 expected,
-                "{arch}: {line}"
+                "{arch} build {build}: {line}"
             );
             assert!(thread.frames.is_empty());
             profile_cases += 1;
@@ -147,6 +154,6 @@ fn native_nls_initialize_replays_316_actual_calls_outputs_guards_and_retained_vi
         assert_eq!(profile_cases, 79);
         cases += profile_cases;
     }
-    assert_eq!(cases, 316);
-    assert_eq!(late_retained, 8);
+    assert_eq!(cases, 632);
+    assert_eq!(late_retained, 16);
 }

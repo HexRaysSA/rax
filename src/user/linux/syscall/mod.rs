@@ -150,7 +150,7 @@ pub enum RestartBlock {
     /// remaining time through `rmtp` (when nonzero) on another interruption.
     Nanosleep {
         /// Absolute end of the sleep.
-        deadline: std::time::Instant,
+        deadline: crate::host::time::Instant,
         /// `rmtp`.
         rmtp: u64,
         /// `rmtp` is a `struct old_timespec32` (`TT_COMPAT`).
@@ -163,7 +163,7 @@ pub enum RestartBlock {
         /// Entries.
         nfds: u64,
         /// Absolute timeout, if any.
-        deadline: Option<std::time::Instant>,
+        deadline: Option<crate::host::time::Instant>,
     },
     /// `futex_wait_restart`: wait on `uaddr` for value `val` until
     /// `deadline`.
@@ -177,7 +177,7 @@ pub enum RestartBlock {
         /// A shared key.
         shared: bool,
         /// Absolute timeout.
-        deadline: std::time::Instant,
+        deadline: crate::host::time::Instant,
     },
 }
 

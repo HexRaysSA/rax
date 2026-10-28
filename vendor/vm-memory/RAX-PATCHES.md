@@ -40,3 +40,27 @@ inside a type path (`WithBitmapSlice`, `VolatileSlice`, `VolatileRef`,
 `VolatileArrayRef`, `BS`, `MS`). Those return types now spell the lifetime
 as `'_`. The types are unchanged. The same signatures are adjusted on the
 Unix, Windows, and Xen mmap backends so each target builds without the lint.
+
+Hosts in `target_family = "wasm"` that are neither `unix` nor `windows`
+(wasm32-unknown-unknown and WASI) use an anonymous-memory backend in
+`src/mmap/wasm.rs`, selected in `src/mmap/mod.rs`. Regions are zero-filled
+heap allocations aligned to 4 KiB. Protection and mapping flags are recorded
+and not enforced. A file-backed region copies the file range through the
+`File` cursor and then restores the cursor; it is not a shared mapping.
+Emscripten is both `wasm` and `unix` and keeps the Unix backend. On these hosts
+`AtomicBitmap` (`backend-bitmap`) tracks dirty pages at 4 KiB.
+
+wasm32 is the only 32-bit host the `lib.rs` target gate admits, and
+`AtomicI64`/`AtomicU64` access is enabled for `wasm32` and `wasm64`. Region
+offsets are `u64`, so the `GuestMemoryRegionBytes` accessors and
+`GuestRegionMmap::get_slice` convert them with `region::host_offset`, and the
+slice iterator clamps a region capacity that exceeds `usize`. An offset above
+`usize::MAX` is the `InvalidBackendAddress` error a 64-bit host returns for the
+same offset; it no longer truncates to a lower offset. Every conversion
+succeeds on 64-bit hosts, so their behavior is unchanged.
+
+The backend tests in `src/mmap/wasm.rs` run only on a wasm target. WASI has no
+`std::env::temp_dir`, so the file-backed test needs `TMPDIR` to name a
+preopened directory. The `vmm-sys-util` dev-dependency does not build for
+WASI, and upstream tests that spawn threads or use `catch_unwind` cannot pass
+on wasm32-wasip1 (no threads; panics abort).

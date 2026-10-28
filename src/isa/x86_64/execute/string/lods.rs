@@ -33,6 +33,9 @@ pub fn lodsb(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
         vcpu.regs.rsi = advance_index(vcpu.regs.rsi, 1, forward, addr_size);
         if is_rep {
             vcpu.regs.rcx = dec_count(vcpu.regs.rcx, addr_size);
+            if rep_count(vcpu.regs.rcx, addr_size) != 0 {
+                vcpu.user_repeat_step_trap()?;
+            }
         }
     }
     vcpu.regs.rip += ctx.cursor as u64;
@@ -65,6 +68,9 @@ pub fn lods(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
         vcpu.regs.rsi = advance_index(vcpu.regs.rsi, delta, forward, addr_size);
         if is_rep {
             vcpu.regs.rcx = dec_count(vcpu.regs.rcx, addr_size);
+            if rep_count(vcpu.regs.rcx, addr_size) != 0 {
+                vcpu.user_repeat_step_trap()?;
+            }
         }
     }
     vcpu.regs.rip += ctx.cursor as u64;

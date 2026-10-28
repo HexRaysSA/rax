@@ -151,12 +151,12 @@ mod tests {
             assert!(process.state.mm.program.interp_base > 0);
             assert!(process.state.exe_host_path.is_none());
             let preloaded = expected == "preloaded-libm\n";
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            let deadline = crate::host::time::Instant::now() + std::time::Duration::from_secs(30);
             let cancelled = std::sync::atomic::AtomicBool::new(false);
             loop {
                 match process.run_slice(4096, &cancelled) {
                     RunStatus::BudgetExhausted => assert!(
-                        std::time::Instant::now() < deadline,
+                        crate::host::time::Instant::now() < deadline,
                         "{path}: native runtime exceeded 30 s"
                     ),
                     RunStatus::Complete(status) => {

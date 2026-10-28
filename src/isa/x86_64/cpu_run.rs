@@ -11,7 +11,7 @@ impl X86_64Vcpu {
         }
         #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
         maybe_spawn_mips_reporter();
-        let start_time = std::time::Instant::now();
+        let start_time = crate::host::time::Instant::now();
         let mut batch: u64 = 0;
         loop {
             // Periodic housekeeping on a stride keeps the per-instruction path

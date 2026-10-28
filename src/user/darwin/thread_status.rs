@@ -7,8 +7,10 @@
 //! words. The layouts are [`thread_state`](super::thread_state)'s.
 //!
 //! Hardware debug registers (`ARM_DEBUG_STATE64`, `x86_DEBUG_STATE64`)
-//! are kept and reported but not applied: the emulated CPUs have no
-//! breakpoint or watchpoint registers. `x86_SAVED_STATE64`,
+//! retain their breakpoint and watchpoint state without applying it: the
+//! emulated CPUs have no corresponding registers. ARM `MDSCR_EL1.SS`
+//! controls single-instruction execution in the Darwin scheduler.
+//! `x86_SAVED_STATE64`,
 //! `x86_THREAD_FULL_STATE64` (which needs a custom LDT), and the SME and
 //! SVE flavors are refused as on a machine without them.
 
@@ -493,6 +495,11 @@ fn set_arm64(
         arm::DEBUG_STATE64 => {
             exactly(count, arm::DEBUG_STATE64_COUNT)?;
             set_arm_debug(debug, state)?;
+            if arm_step_enabled(debug) {
+                // Installing debug control is a kernel interruption; a
+                // reservation from before it cannot cross the resumed step.
+                cpu.core_mut().clear_exclusive_monitor();
+            }
         }
         arm::VFP_STATE => {
             if count != arm::VFP_STATE_COUNT && count != arm::VFPV2_STATE_COUNT {
@@ -626,6 +633,29 @@ mod dbg {
     pub const MDSCR_SS: u64 = 1;
 }
 
+/// The single-step control in an `ARM_DEBUG_STATE64` image.
+pub(crate) fn arm_step_enabled(debug: &[u32]) -> bool {
+    debug.len() >= arm::DEBUG_STATE64_COUNT as usize
+        && debug[arm::DEBUG_STATE64_COUNT as usize - 2] & dbg::MDSCR_SS as u32 != 0
+}
+
+/// Changes only SS; breakpoint/watchpoint state remains intact.
+pub(crate) fn set_arm_step(debug: &mut Vec<u32>, enabled: bool) {
+    let count = arm::DEBUG_STATE64_COUNT as usize;
+    if debug.len() < count {
+        if !enabled {
+            return;
+        }
+        debug.resize(count, 0);
+    }
+    let control = &mut debug[count - 2];
+    if enabled {
+        *control |= dbg::MDSCR_SS as u32;
+    } else {
+        *control &= !(dbg::MDSCR_SS as u32);
+    }
+}
+
 /// `ARM_DEBUG_STATE64` for `thread_set_state`: no context-ID or linked
 /// breakpoints (`KERN_PROTECTION_FAILURE`); a state enabling nothing
 /// removes the thread's; otherwise the registers are masked to what a
@@ -684,6 +714,15 @@ fn set_arm_debug(debug: &mut Vec<u32>, state: &[u32]) -> Result<(), KernReturn> 
     out[2 * mdscr + 1] = (new >> 32) as u32;
     *debug = out;
     Ok(())
+}
+
+/// `user_trap` publishes the captured DR6 into an existing PCB debug image.
+pub(crate) fn update_x86_debug_status(debug: &mut [u32], status: u64) {
+    // user_trap updates DR6 only when the PCB already has debug state.
+    if debug.len() >= x86::DEBUG_STATE64_COUNT as usize {
+        debug[12] = status as u32;
+        debug[13] = (status >> 32) as u32;
+    }
 }
 
 /// `set_debug_state64`: `debug_state_is_valid64` and its fix-ups of DR7.

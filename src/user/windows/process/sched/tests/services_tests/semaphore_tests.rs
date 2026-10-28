@@ -1,10 +1,10 @@
 //! Native semaphore state, names, access grants and parked-wait integration.
 use super::event_tests::{attrs, handle, setup, status};
 use super::*;
+use crate::host::time::Instant;
 use crate::user::windows::hle::dispatch;
 use crate::user::windows::object_namespace::reparse_tests;
 use crate::user::windows::sync;
-use std::time::Instant;
 
 fn named(p: &mut Proc, at: u64, root: u64, name: &str, flags: u32) {
     let width = p.arch.ptr_size();

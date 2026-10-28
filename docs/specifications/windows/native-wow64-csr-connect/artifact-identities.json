@@ -1,0 +1,80 @@
+{
+  "initial-v8.cpp": {
+    "bytes": 31588,
+    "sha256": "edffb6d0fbb4e4224e8ae294c36a767760245d243c271e80fde4d97318d04af5",
+    "original_evidence": "native_wow64_csr_initial_v8.cpp"
+  },
+  "initial-driver-v8.py": {
+    "bytes": 5314,
+    "sha256": "2040f0dd1a121f1f96c49ba9ed5cc62a0c0911a637b001d2bf6bc710a6c3e68b",
+    "original_evidence": "native_wow64_csr_initial_controller_v8.py"
+  },
+  "initial-child-v1.cpp": {
+    "bytes": 101,
+    "sha256": "ef16f8b19e715cd4cfe2064f97326e874ff50c0d54be72dec5a511a68084af7c",
+    "original_evidence": "native_wow64_csr_initial_child_v1.cpp"
+  },
+  "initial-v4.cpp": {
+    "bytes": 18297,
+    "sha256": "a1c0c3e529c0d8bef6415866f5bff0948fd4b079bd2b673b68458c47d8bf7fbf",
+    "original_evidence": "native_wow64_csr_initial_v4.cpp"
+  },
+  "initial-driver-v4.py": {
+    "bytes": 4669,
+    "sha256": "1914bb334ea7a2557ee69f56f0183a1fa910440a6d4210b8d86360e15dbd3703",
+    "original_evidence": "native_wow64_csr_initial_controller_v4.py"
+  },
+  "family-launcher-v1.cpp": {
+    "bytes": 5764,
+    "sha256": "f872295861572a098ffca08f2e3b418e45b5f97d99ccfb250e5c75f448b91460",
+    "original_evidence": "native_wow64_csr_chpe_launcher_v1.cpp"
+  },
+  "family-v4.cpp": {
+    "bytes": 11849,
+    "sha256": "84a9af3ac8402b18e13f79cc127dd65ccb7aa566a30414b92784015084304fb4",
+    "original_evidence": "native_wow64_csr_connect_29695_v4.cpp"
+  },
+  "family-driver-v2.py": {
+    "bytes": 4574,
+    "sha256": "dc9bf9b28e0cb7f8a0ae6592e40153aec1b631a1c9a93dee4b6b35024b2dc749",
+    "original_evidence": "native_wow64_csr_family_controller_v2.py"
+  },
+  "initial-raw-v8.json": {
+    "bytes": 76845,
+    "sha256": "e5a733a485a33db8abf3bf30ffb0aea2edf1c655eb14233ab53d4af300f4e41c",
+    "original_evidence": "native-wow64-csr-initial-collected-v8.json"
+  },
+  "initial-raw-v4.json": {
+    "bytes": 4174,
+    "sha256": "475c66657c51999726095f491588d0db7a351cb4e7b726c48fe4cd37f9236b7f",
+    "original_evidence": "native-wow64-csr-initial-collected-v4.json"
+  },
+  "family-raw-v2.json": {
+    "bytes": 210637,
+    "sha256": "10b86cde365aad8dd846eda971ad45b624e1f0930d996327ad36e4745a478f31",
+    "original_evidence": "native-wow64-csr-family-collected-v2.json"
+  },
+  "initial-v9.cpp": {
+    "bytes": 32599,
+    "sha256": "868bd617de633cc742e64fa2da600a336edb36cc3359e593172c329f00504c0b",
+    "original_evidence": "native_wow64_csr_initial_v9.cpp"
+  },
+  "initial-driver-v9.py": {
+    "bytes": 4802,
+    "sha256": "6a51bfcfdc5e0aaab2afae47ab136e0c36c8f490dafd8f36dcf884e2b5027b2c",
+    "original_evidence": "native_wow64_csr_initial_controller_v9.py"
+  },
+  "initial-raw-v9.json": {
+    "bytes": 12571,
+    "sha256": "06cc80c0362be11bc7688723c83c501a2ca999fef3f2dd4e737ce2286fdd3c1b",
+    "original_evidence": "native-wow64-csr-initial-collected-v9.json"
+  },
+  "volume-control-v1.py": {
+    "bytes": 1107,
+    "sha256": "e6b1cbdd01aa8f262d8033c554c877124ab904c711d1b2ee4dd3bb441325edab"
+  },
+  "volume-control-v1.json": {
+    "bytes": 540,
+    "sha256": "dc4c4e6c91483f1559ac08b8ecc8465f70b81265be926c740786e093a1d8bc47"
+  }
+}

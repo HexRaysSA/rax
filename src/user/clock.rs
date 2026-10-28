@@ -234,6 +234,20 @@ mod platform {
     }
 }
 
+#[cfg(not(any(unix, windows)))]
+mod platform {
+    use super::*;
+
+    pub fn read(clock: HostClock) -> io::Result<(i64, i64)> {
+        // wasm32-unknown-unknown's `std::time` panics instead of reporting an error.
+        let _ = clock;
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "host clocks are not available on this target",
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,8 +289,8 @@ mod tests {
 
     #[test]
     fn native_thread_clock_excludes_another_threads_work() {
+        use crate::host::time::{Duration, Instant};
         use std::sync::{Arc, Barrier};
-        use std::time::{Duration, Instant};
         let ns = |clock| {
             let (s, n) = read(clock).unwrap();
             i128::from(s) * 1_000_000_000 + i128::from(n)
@@ -327,9 +341,11 @@ mod tests {
 
     #[test]
     fn native_clocks_are_normalized_and_cpu_time_advances() {
-        use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+        use crate::host::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
         let wall = read(HostClock::Realtime).unwrap();
-        let system = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let system = crate::host::time::system_now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap();
         assert!((i128::from(wall.0) - i128::from(system.as_secs())).abs() <= 5);
         for clock in [
             HostClock::Realtime,

@@ -71,7 +71,7 @@ pub fn umask(ctx: &mut Ctx<'_>, mask: u32) -> SysResult {
 
 /// `gettimeofday(tp, tzp, mach_absolute_time)`.
 pub fn gettimeofday(ctx: &mut Ctx<'_>, tp: u64, tzp: u64, abs: u64) -> SysResult {
-    let now = std::time::SystemTime::now()
+    let now = crate::host::time::system_now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
     let mach = super::super::mach::absolute_time(ctx.proc.abi);

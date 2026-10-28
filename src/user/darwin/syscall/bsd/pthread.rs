@@ -236,6 +236,8 @@ pub fn reap(proc: &mut Proc, thread: &mut Thread) {
     proc.post(WaitKey::ThreadExit(thread.tid));
     crate::user::darwin::exception::abandon(proc, thread);
     crate::user::darwin::syscall::mach::kmsg::destroy_receive(proc, &thread.kport);
+    #[cfg(unix)]
+    crate::user::darwin::syscall::bsd::ptrace::remote_thread_died(proc, thread.tid);
 }
 
 /// `__pthread_testcancel(1)` at a cancellation point: `EINTR` when a

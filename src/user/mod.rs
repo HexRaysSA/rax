@@ -24,6 +24,7 @@ pub mod clock;
 pub mod console;
 pub mod cpu;
 pub mod darwin;
+pub(crate) mod entropy;
 pub mod image;
 pub mod linux;
 pub mod mm;

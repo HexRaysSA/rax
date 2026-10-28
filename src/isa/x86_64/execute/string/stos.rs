@@ -59,6 +59,7 @@ fn stos_common(
     // 16/32-bit address sizes, since the bulk path advances RDI as a full
     // 64-bit linear address with no masking.
     if is_rep
+        && !vcpu.user_single_step_enabled()
         && !vcpu.mmu.mem_rec_on()
         && addr_size == StringAddressSize::Addr64
         && (vcpu.regs.rflags & flags::bits::DF) == 0
@@ -94,6 +95,9 @@ fn stos_common(
         vcpu.regs.rdi = advance_index(vcpu.regs.rdi, delta, forward, addr_size);
         if is_rep {
             vcpu.regs.rcx = dec_count(vcpu.regs.rcx, addr_size);
+            if rep_count(vcpu.regs.rcx, addr_size) != 0 {
+                vcpu.user_repeat_step_trap()?;
+            }
         }
     }
     vcpu.regs.rip += ctx.cursor as u64;

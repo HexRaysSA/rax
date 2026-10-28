@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "kernel": {
+    "major": 10,
+    "minor": 0,
+    "build": 29695,
+    "machine": "AA64",
+    "session": 0
+  },
+  "family": "pure-x86 PS_ATTRIBUTE_CHPE=0, installed NTDLL RVA 0x77490, RET20",
+  "source_sha256": {
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-initial-29695-v9\\probe.cpp": "868bd617de633cc742e64fa2da600a336edb36cc3359e593172c329f00504c0b",
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-initial-29695-v9\\child.cpp": "ef16f8b19e715cd4cfe2064f97326e874ff50c0d54be72dec5a511a68084af7c",
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-initial-29695-v9\\driver.py": "6a51bfcfdc5e0aaab2afae47ab136e0c36c8f490dafd8f36dcf884e2b5027b2c",
+    "C:\\Windows\\System32\\ntdll.dll": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+    "C:\\Windows\\SysWOW64\\ntdll.dll": "830cfffd91b39ee07578b2fcf89d9b1b838d7e805a2180597521df90ea022a0e"
+  },
+  "binary_sha256": {
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-initial-29695-v9\\build\\initial-control.exe": "b2f3329c20db85276343e0e722ae77d80c7015d9d7ec73d7a31d14c3a3569c2f",
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-wow64-csr-initial-29695-v9\\build\\controlled-child.exe": "5f15c3d85b70bb906bcbeb65786fd75e551e5aca63f8c5ccfe5d99b96d5fda2d"
+  },
+  "compiler_sha256": {
+    "arm64": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+    "x86": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad"
+  },
+  "case_count": 5,
+  "return_count": 6,
+  "samples": [
+    {
+      "mode": "lower-root",
+      "stdout_sha256": "dea3b8be3fc4c07603fc1d2d3a173e0b748cbefce7f930abf3578fc755df8c6d",
+      "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+      "steps": [
+        {
+          "ordinal": 0,
+          "status": "C000003A",
+          "new_handles": [],
+          "new_mappings": [],
+          "handles_before": 46,
+          "handles_after": 46,
+          "changed64": 0,
+          "changed32": 0
+        }
+      ]
+    },
+    {
+      "mode": "upper-root",
+      "stdout_sha256": "c2d87df3808a9189c7a5f06a15545a98123a729f638ef85be3ad87744eea9298",
+      "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+      "steps": [
+        {
+          "ordinal": 0,
+          "status": "C000003A",
+          "new_handles": [],
+          "new_mappings": [],
+          "handles_before": 46,
+          "handles_after": 46,
+          "changed64": 0,
+          "changed32": 0
+        }
+      ]
+    },
+    {
+      "mode": "trailing-root",
+      "stdout_sha256": "97651b562f20f22153c71f55a20ebd742d7c27a2f26c994c4b29fb26ba3ca088",
+      "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+      "steps": [
+        {
+          "ordinal": 0,
+          "status": "C0000033",
+          "new_handles": [],
+          "new_mappings": [],
+          "handles_before": 46,
+          "handles_after": 46,
+          "changed64": 0,
+          "changed32": 0
+        }
+      ]
+    },
+    {
+      "mode": "root-only",
+      "stdout_sha256": "933afe61a4e4050afd6aa1125798b7ede6c93a3bd310df61805d5ecc8022372d",
+      "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=70",
+      "steps": [
+        {
+          "ordinal": 0,
+          "status": "C0000033",
+          "new_handles": [],
+          "new_mappings": [],
+          "handles_before": 46,
+          "handles_after": 46,
+          "changed64": 0,
+          "changed32": 0
+        }
+      ]
+    },
+    {
+      "mode": "retry-guard-inside-null-buffer",
+      "stdout_sha256": "e207dc7facd3cbcb932cd381d3a4599989156cc4af94ef7c74f186f2dec586cb",
+      "terminal": "DONE installed=1 entered=2 returned=2 base-calls=1 pending=0 exit=70",
+      "steps": [
+        {
+          "ordinal": 0,
+          "status": "80000001",
+          "new_handles": [
+            {
+              "access": "001F0001",
+              "type": "ALPC Port",
+              "name": null
+            }
+          ],
+          "new_mappings": [
+            {
+              "bytes": 65536,
+              "state": 4096,
+              "protect": 4,
+              "type": 262144
+            },
+            {
+              "bytes": 20480,
+              "state": 4096,
+              "protect": 2,
+              "type": 262144
+            },
+            {
+              "bytes": 1028096,
+              "state": 8192,
+              "protect": 0,
+              "type": 262144
+            }
+          ],
+          "handles_before": 46,
+          "handles_after": 47,
+          "changed64": 10,
+          "changed32": 0
+        },
+        {
+          "ordinal": 1,
+          "status": "00000000",
+          "new_handles": [],
+          "new_mappings": [],
+          "handles_before": 47,
+          "handles_after": 47,
+          "changed64": 0,
+          "changed32": 10
+        }
+      ]
+    }
+  ]
+}

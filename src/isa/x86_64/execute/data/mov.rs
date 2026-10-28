@@ -249,6 +249,9 @@ pub fn mov_sreg_rm(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Optio
             unreachable!("direct segment load cannot request native deoptimization")
         }
     }
+    if matches!(target, X86SegmentLoadTarget::Ss) {
+        vcpu.suppress_user_step();
+    }
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }

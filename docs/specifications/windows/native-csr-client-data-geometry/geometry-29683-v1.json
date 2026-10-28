@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "producer": "docs/specifications/windows/native-alpc-csr/native/native-csr-client-connect-v6.cpp",
+  "producer_sha256": "b2dd00ddae8338f3757da59e53cc67785523ec5879e8e74cf006dbadad5d6b10",
+  "kernel": {
+    "major": 10,
+    "minor": 0,
+    "build": 29683
+  },
+  "samples": [
+    {
+      "arch": "arm64",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "binary_sha256": "741fc661a2947ac0611ed831708a2efcc2efe84be8562926950a396c034d13f1",
+      "binary_bytes": 155136,
+      "inputs_unchanged": true,
+      "information_sha256": "dbd99c4d41b6f4fb9610b186c9440de18456ab18f8ced04705f780025188c7bc",
+      "information_bytes": 584,
+      "trailing_canary_preserved": true,
+      "sharedinfo_identities_match": true,
+      "entry_stride": 32,
+      "views": [
+        {
+          "slot": 16,
+          "base": 2977160298496,
+          "size": 2097152,
+          "committed": 12288,
+          "regions": [
+            {
+              "offset": 0,
+              "size": 12288,
+              "state": 4096,
+              "protection": 2,
+              "kind": 262144,
+              "sha256": "56bd86f75b43dd36b39991f764e06a8c6d9bffa331e34dbf4daa08cde52db183",
+              "stable": true
+            },
+            {
+              "offset": 12288,
+              "size": 2084864,
+              "state": 8192,
+              "protection": 0,
+              "kind": 262144,
+              "sha256": null,
+              "stable": null
+            }
+          ]
+        },
+        {
+          "slot": 40,
+          "base": 2977162395648,
+          "size": 32768,
+          "committed": 32768,
+          "regions": [
+            {
+              "offset": 0,
+              "size": 32768,
+              "state": 4096,
+              "protection": 2,
+              "kind": 262144,
+              "sha256": "2abfa5f0ac9b2a2ed49b4003b52a2778ff0b0a685fb94b2b753e347ac72e4a7c",
+              "stable": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arch": "x64",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "binary_sha256": "b6c651ac22d7f1910b217df0470ff6630766845853a83543f58372a02cb43b20",
+      "binary_bytes": 166912,
+      "inputs_unchanged": true,
+      "information_sha256": "1a319c7b16ea49e6a699ad5e0b18ea1dc7eb8733e8971ee07a0d03560f3f48a4",
+      "information_bytes": 584,
+      "trailing_canary_preserved": true,
+      "sharedinfo_identities_match": true,
+      "entry_stride": 32,
+      "views": [
+        {
+          "slot": 16,
+          "base": 2206117789696,
+          "size": 2097152,
+          "committed": 12288,
+          "regions": [
+            {
+              "offset": 0,
+              "size": 12288,
+              "state": 4096,
+              "protection": 2,
+              "kind": 262144,
+              "sha256": "ba89339e9e343ae5e9996959ee46fb7dbdfd203344ccc9993980c92756056dac",
+              "stable": true
+            },
+            {
+              "offset": 12288,
+              "size": 2084864,
+              "state": 8192,
+              "protection": 0,
+              "kind": 262144,
+              "sha256": null,
+              "stable": null
+            }
+          ]
+        },
+        {
+          "slot": 40,
+          "base": 2206119886848,
+          "size": 32768,
+          "committed": 32768,
+          "regions": [
+            {
+              "offset": 0,
+              "size": 32768,
+              "state": 4096,
+              "protection": 2,
+              "kind": 262144,
+              "sha256": "2abfa5f0ac9b2a2ed49b4003b52a2778ff0b0a685fb94b2b753e347ac72e4a7c",
+              "stable": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "arch": "x86",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "b19749815b233b8341c49ec55bab8ea26a26e9ee4912e6f39f8692546ef42a52",
+      "binary_bytes": 135168,
+      "inputs_unchanged": true,
+      "information_sha256": "bc6eaae2d8793b1ce26b32652dfc9de29a6aff3847fb60df555eec9c67636fd8",
+      "information_bytes": 584,
+      "trailing_canary_preserved": true,
+      "sharedinfo_identities_match": true,
+      "entry_stride": 32,
+      "views": [
+        {
+          "slot": 16,
+          "base": 50987008,
+          "size": 2097152,
+          "committed": 12288,
+          "regions": [
+            {
+              "offset": 0,
+              "size": 12288,
+              "state": 4096,
+              "protection": 2,
+              "kind": 262144,
+              "sha256": "3742d597c5d650371efee50aaa0090a77f7e303201bbaf42cd487dffbca9f316",
+              "stable": true
+            },
+            {
+              "offset": 12288,
+              "size": 2084864,
+              "state": 8192,
+              "protection": 0,
+              "kind": 262144,
+              "sha256": null,
+              "stable": null
+            }
+          ]
+        },
+        {
+          "slot": 40,
+          "base": 53084160,
+          "size": 32768,
+          "committed": 32768,
+          "regions": [
+            {
+              "offset": 0,
+              "size": 32768,
+              "state": 4096,
+              "protection": 2,
+              "kind": 262144,
+              "sha256": "2abfa5f0ac9b2a2ed49b4003b52a2778ff0b0a685fb94b2b753e347ac72e4a7c",
+              "stable": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

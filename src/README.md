@@ -15,7 +15,7 @@ implementation path:
 | `user/` | Process-level emulation: ELF images, guest address spaces, unprivileged CPU adapters, and the Linux personality (ABI conversion, files/networking/IPC, scheduling, signals, process tracing) |
 | `debug/` | Interactive debugger protocols |
 | `observability/` | Tracing and profiling |
-| `host/` | Host console and terminal integration |
+| `host/` | Host console, terminal, and clock (`host::time`) integration |
 
 The primary collaboration graph is:
 

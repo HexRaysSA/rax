@@ -188,12 +188,23 @@ fn fault_codes(e: &Exception, insn: u32) -> Raised {
 /// reports it).
 pub fn raise_fault(proc: &mut Proc, thread: &mut Thread, e: &Exception) {
     thread.sig.entry = signal::entry_state(e);
+    if let Exception::X86(event) = e
+        && event.vector == 1
+        && event.source == crate::isa::x86_64::X86EventSource::Exception
+        && let super::arch::DarwinCpu::X86_64(cpu) = &mut thread.cpu
+    {
+        let status = cpu.vcpu_mut().capture_user_debug_status();
+        thread_status::update_x86_debug_status(&mut thread.mach.debug_state, status);
+        #[cfg(unix)]
+        super::syscall::bsd::ptrace::stepped(&mut proc.tracing, thread);
+    }
     let arm64 = proc.abi == DarwinAbi::Arm64;
     if let Exception::Breakpoint {
         imm: 0xb000..=0xbfff,
         pc,
     } = *e
         && arm64
+        && proc.tracing.tracer.is_none()
     {
         // A breakpoint of the range system libraries use to stop on a
         // disallowed condition (`user_brk_descriptors`): unrecoverable
@@ -219,6 +230,104 @@ pub fn raise_fault(proc: &mut Proc, thread: &mut Thread, e: &Exception) {
         }
     }
     triage(proc, thread, fault_codes(e, insn));
+}
+
+/// Delivers the architectural single-step exception through the normal
+/// thread, task, and host exception-port chain.
+pub(crate) fn raise_single_step(proc: &mut Proc, thread: &mut Thread) {
+    raise_single_step_with_syndrome(proc, thread, None);
+}
+
+/// Kernel inspection for a step's syndrome, before executing its instruction.
+/// This bounded read does not replace the guest fetch or perform a guest load.
+/// Kernel requests cannot change this process's code during the ensuing step.
+pub(crate) fn single_step_syndrome(proc: &Proc, thread: &Thread) -> Option<u32> {
+    use crate::isa::arm::decoder::{Mnemonic as M, aarch64::Aarch64Decoder};
+    if proc.abi != DarwinAbi::Arm64 {
+        return None;
+    }
+    // ESR_EC_SW_STEP_DEBUG_EL0, IL, and FSC_DEBUG_FAULT (proc_reg.h).
+    let mut syndrome = (0x32 << 26) | (1 << 25) | 0x22;
+    let mut bytes = [0; 4];
+    if proc.space.read_raw(thread.cpu.pc(), &mut bytes).is_ok() {
+        let decoded = Aarch64Decoder::decode(u32::from_le_bytes(bytes));
+        // The kernel's direct syscall-return step has no valid instruction
+        // syndrome. A restarted blocking call instead steps the next user
+        // instruction, for which ISV is set below.
+        if decoded.as_ref().is_ok_and(|i| i.mnemonic == M::SVC) {
+            return Some(syndrome);
+        }
+        syndrome |= 1 << 24; // ISS_SSDE_ISV.
+        // Debug arming and the preceding debug exception discard the local
+        // reservation. A stepped exclusive store therefore fails without an
+        // exclusive memory access; a retired exclusive load sets EX.
+        let exclusive = decoded.is_ok_and(|i| {
+            matches!(
+                i.mnemonic,
+                M::LDXR
+                    | M::LDXRB
+                    | M::LDXRH
+                    | M::LDAXR
+                    | M::LDAXRB
+                    | M::LDAXRH
+                    | M::LDXP
+                    | M::LDAXP
+            )
+        });
+        if exclusive {
+            syndrome |= 1 << 6; // ISS_SSDE_EX.
+        }
+    }
+    Some(syndrome)
+}
+
+/// `handle_sw_step_debug`: disarm the completed Arm step before offering its
+/// exception. A host scheduling yield never performs this transition.
+pub(crate) fn raise_single_step_with_syndrome(
+    proc: &mut Proc,
+    thread: &mut Thread,
+    arm_syndrome: Option<u32>,
+) {
+    if proc.abi == DarwinAbi::X86_64 {
+        if let super::arch::DarwinCpu::X86_64(cpu) = &mut thread.cpu {
+            let status = cpu.vcpu_mut().report_user_single_step();
+            thread_status::update_x86_debug_status(&mut thread.mach.debug_state, status);
+        }
+        thread.sig.entry = signal::EntryState {
+            trapno: 1,
+            ..Default::default()
+        };
+    } else if let super::arch::DarwinCpu::Arm64(cpu) = &mut thread.cpu {
+        thread_status::set_arm_step(&mut thread.mach.debug_state, false);
+        let psr = cpu.core().el0_spsr();
+        // PSR64_SS and DAIF_ALL, as sleh.c clears in the saved user state.
+        cpu.core_mut().set_el0_spsr(psr & !((1 << 21) | (0xf << 6)));
+        cpu.core_mut().clear_exclusive_monitor();
+        thread.sig.entry.esr = arm_syndrome.unwrap_or((0x32 << 26) | (1 << 25) | 0x22);
+    }
+    triage(
+        proc,
+        thread,
+        Raised {
+            exception: exc::BREAKPOINT,
+            codes: [1, 0],
+            ncodes: 2,
+            fatal: false,
+        },
+    );
+}
+
+/// `bsd_exception` offers an EXC_SOFT_SIGNAL only to the task exception
+/// action. A missing or unusable action returns failure without falling
+/// through to the thread or host exception handlers.
+pub(crate) fn raise_bsd_signal(proc: &mut Proc, thread: &mut Thread, signal: i32) -> bool {
+    let raised = Raised {
+        exception: exc::SOFTWARE,
+        codes: [0x10003, i64::from(signal)],
+        ncodes: 2,
+        fatal: false,
+    };
+    send(proc, thread, &raised, Level::Task).is_ok()
 }
 
 /// Raises `EXC_SYSCALL` for invalid Mach trap `number` (`X16` on arm64,
@@ -509,7 +618,15 @@ pub fn resume(proc: &mut Proc, thread: &mut Thread) {
             thread.tid, f.raised.exception, f.level
         );
     }
-    if kr != kr::KERN_SUCCESS && kr != kr::MACH_RCV_PORT_DIED {
+    if f.raised.exception == exc::SOFTWARE && f.raised.codes[0] == 0x10003 {
+        // bsd_exception does not walk to another exception level on error.
+        #[cfg(unix)]
+        super::syscall::bsd::ptrace::bsd_signal_returned(
+            &mut proc.tracing,
+            thread.tid,
+            f.raised.codes[1] as i32,
+        );
+    } else if kr != kr::KERN_SUCCESS && kr != kr::MACH_RCV_PORT_DIED {
         walk(proc, thread, f.raised, f.level.next());
     } else {
         finish(proc, &f.raised);

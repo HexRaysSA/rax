@@ -20,6 +20,7 @@ pub mod exception;
 pub mod host;
 pub mod ids;
 pub mod port;
+pub(crate) mod suspension;
 pub mod task;
 pub mod thread;
 pub mod vm;
@@ -211,7 +212,28 @@ pub fn info_reply(words: &[u32]) -> Out {
 /// Runs the kernel server for a message sent to kernel object `port` and
 /// builds its reply (`ipc_kobject_server`). Every right the request
 /// carried that the routine did not keep is destroyed.
-pub fn serve(ctx: &mut Ctx<'_>, port: &Arc<Port>, mut m: Message) -> Option<Message> {
+pub fn serve(ctx: &mut Ctx<'_>, port: &Arc<Port>, m: Message) -> Option<Message> {
+    serve_inner(ctx, port, m, None)
+}
+
+pub(crate) struct RemoteReply {
+    pub message: Option<Message>,
+    pub legacy: Option<suspension::LegacyEffect>,
+}
+
+/// A remote caller receives hidden rights in its own space, not the target's.
+pub(crate) fn serve_remote(ctx: &mut Ctx<'_>, port: &Arc<Port>, m: Message) -> RemoteReply {
+    let mut legacy = None;
+    let message = serve_inner(ctx, port, m, Some(&mut legacy));
+    RemoteReply { message, legacy }
+}
+
+fn serve_inner(
+    ctx: &mut Ctx<'_>,
+    port: &Arc<Port>,
+    mut m: Message,
+    legacy: Option<&mut Option<suspension::LegacyEffect>>,
+) -> Option<Message> {
     let reply_right = m.reply.take();
     let reply_type = bits::local(m.bits);
     let mut raw = Vec::with_capacity(m.size());
@@ -230,7 +252,7 @@ pub fn serve(ctx: &mut Ctx<'_>, port: &Arc<Port>, mut m: Message) -> Option<Mess
             .collect(),
         port: port.clone(),
     };
-    let result = dispatch(ctx, &mut req);
+    let result = dispatch(ctx, &mut req, legacy);
     if ctx.proc.config.strace {
         let name = ids::name(req.id).unwrap_or("?");
         let r = match &result {
@@ -243,6 +265,10 @@ pub fn serve(ctx: &mut Ctx<'_>, port: &Arc<Port>, mut m: Message) -> Option<Mess
     // descriptor rights the routine did not take.
     let leftovers: Vec<Item> = req.items.into_iter().map(|(_, i)| i).collect();
     m.items = leftovers.into_iter().map(|i| (0, i)).collect();
+    // The kobject server uses its destination, even on a MIG error. An
+    // abandoned suspension token has a different effect from a used one.
+    let destination = std::mem::replace(&mut m.dest, Right::Dead);
+    kmsg::consume_dest(ctx.proc, destination);
     kmsg::destroy(ctx.proc, m);
 
     let result = match result {
@@ -329,7 +355,7 @@ pub fn serve(ctx: &mut Ctx<'_>, port: &Arc<Port>, mut m: Message) -> Option<Mess
         reply: None,
         voucher: None,
         voucher_name: 0,
-        id: req.id + 100,
+        id: req.id.wrapping_add(100),
         body,
         items,
         sender: Sender::KERNEL,
@@ -349,7 +375,11 @@ fn release_descs(ctx: &mut Ctx<'_>, descs: Vec<OutDesc>) {
 
 /// Routes a request to its subsystem by message ID
 /// (`ipc_kobject_server_lookup` over every kernel subsystem).
-fn dispatch(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
+fn dispatch(
+    ctx: &mut Ctx<'_>,
+    req: &mut Req,
+    legacy: Option<&mut Option<suspension::LegacyEffect>>,
+) -> MigResult {
     let id = req.id;
     let sub = |base: i32, n: i32| (base..base + n).contains(&id);
     if sub(ids::clock::BASE, 3) {
@@ -359,6 +389,18 @@ fn dispatch(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
     } else if sub(ids::mach_port::BASE, 100) {
         port::serve(ctx, req)
     } else if sub(ids::task::BASE, 100) || sub(ids::task_restartable::BASE, 2) {
+        if suspension::is_legacy(id)
+            && let Some(slot) = legacy
+        {
+            let effect = suspension::perform(ctx, req)?;
+            let result = effect.result();
+            *slot = Some(effect);
+            return if result == 0 {
+                Ok(Out::Simple(Vec::new()))
+            } else {
+                Err(result)
+            };
+        }
         task::serve(ctx, req)
     } else if sub(ids::thread_act::BASE, 100) {
         thread::serve(ctx, req)

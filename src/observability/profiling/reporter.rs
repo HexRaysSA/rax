@@ -416,7 +416,7 @@ fn format_bytes(n: u64) -> String {
 fn chrono_timestamp() -> String {
     // Simple ISO 8601 timestamp without external dependency
     use std::time::{SystemTime, UNIX_EPOCH};
-    let duration = SystemTime::now()
+    let duration = crate::host::time::system_now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
     let secs = duration.as_secs();

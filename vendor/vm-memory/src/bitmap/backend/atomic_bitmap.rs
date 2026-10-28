@@ -194,6 +194,11 @@ impl NewBitmap for AtomicBitmap {
         // SAFETY: There's no unsafe potential in calling this function.
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGE_SIZE) };
 
+        // wasm has no host page size. Track at 4 KiB, the wasm mmap backend's
+        // region alignment and the granularity of `AtomicBitmap::default`.
+        #[cfg(all(target_family = "wasm", not(unix), not(windows)))]
+        let page_size = 0x1000usize;
+
         #[cfg(target_family = "windows")]
         let page_size = {
             use winapi::um::sysinfoapi::GetSystemInfo;

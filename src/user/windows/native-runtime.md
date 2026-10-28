@@ -1,5 +1,30 @@
 # Installed Windows runtime selection
 
+Mapped-file queries now retain the selected backing file or section identity
+through allocation lifetime. Class 2's native/WoW64 layouts, copy ordering and
+independent measurements are documented in
+[native-mapped-filename](../../../docs/specifications/windows/native-mapped-filename/README.md).
+
+Native image acquisition distinguishes logical PE bytes, executable extension
+bytes and trailing reserved owner pages. A coalesced reserved query region is
+bounded to the logical byte copy while its complete allocation lifetime and
+image metadata are retained. See the independent kernel controls and limits in
+[native-image-view-reserved-tail](../../../docs/specifications/windows/native-image-view-reserved-tail/README.md).
+
+The x86 TEB allocation includes two private pages. Installed build-29695 NTDLL
+writes its scheduler data pointer at `TEB+0x1018`; a one-page placement aliases
+that write with `PEB.ProcessHeap`. Ordinary TEBs and WoW64 companion pairs now
+own the complete extent through teardown and reuse. See the bounded trace and
+regressions in [native-teb-extent](../../../docs/specifications/windows/native-teb-extent/README.md).
+
+Installed x86 selection uses a consistent pure x86 process profile: SysWOW64
+NTDLL and relative `KnownDlls32` opens select the same pure x86 image family.
+The native host machine and WoW64 CPU flags retain their real ARM64 values.
+Explicit CHPE namespace resources remain available; selecting their mixed-ISA
+code is a separate capability. Native per-process controls and the bounded
+startup result are recorded in
+[native-x86-chpe-profile](../../../docs/specifications/windows/native-x86-chpe-profile/README.md).
+
 `WindowsConfig::native_libraries = true` selects read-only installed DLLs,
 the installed version-6 API-set namespace, and an immutable snapshot of the
 fixed system NLS CodePage registry key and installed NLS section tables on a Windows host. Its default is
@@ -58,8 +83,9 @@ initialized with a process-owned kernel frontier. With transition ESP = S,
 the internal return is at S, caller return at S+4, and argument zero at S+8.
 The kernel return consumes only 4 bytes; the installed DLL's actual `RET imm16`
 consumes its caller return and arguments. Unknown/hooked/partial encodings and
-unimplemented NT operations stop explicitly. The adapter executes no host NT
-syscall for guest requests.
+unimplemented NT operations stop explicitly. Guest syscall arguments are never
+forwarded to host NT. Narrow native-input adapters acquire selected file and
+section metadata using only host-owned handles, views and buffers.
 
 Supported kernel operations include checked NtClose, memory allocation/free/
 protection, context continuation, forced termination and bounded installed
@@ -273,7 +299,7 @@ page count with `GlobalMemoryStatusEx`, and the timer field with the largest
 | Field / offset | x86 WoW64 | ARM64 / x64 | Guest source |
 |---|---|---|---|
 | Required bytes | 44 | 64 | Native exact-length probes |
-| Actual written bytes | 41; final 3 bytes unchanged | 64; padding zero | Native canaries and inaccessible-tail probes |
+| Actual written bytes | 41; final 3 bytes unchanged | ARM64: 64 with zero padding; native AMD64: fields only, padding preserved | Native canaries and inaccessible-tail probes |
 | Timer / +4 | 10,000 units of 100 ns | Same | Guest 1 ms tick granularity; declared profile value |
 | Page size / +8 | 4096 bytes | Same | `PAGE_SIZE` |
 | Physical pages / +12 | Usable backing bytes / 4096 | Same | `VirtualMemory::commit_limit`; excludes reserved frames, no paging file |
@@ -283,6 +309,11 @@ page count with `GlobalMemoryStatusEx`, and the timer field with the largest
 | Maximum user address | +32 | +40 | `VirtualMemory::high() - 1`, inclusive; x86 normal/LAA limits differ |
 | Affinity mask | +36 | +48 | 1, matching the single virtual processor |
 | Processor count | +40 | +56 | 1, matching PEB, KUSER_SHARED_DATA and guest environment |
+
+Processor classes 1/63 and the WoW64 native-query entry use distinct caller,
+kernel and legacy views. Class114 retains a native 64-byte basic record even
+for a WoW64 caller. See the [processor adapter contract](../../../docs/specifications/windows/native-system-processor-information/adapter.md)
+for the measured probing order, virtual CPU policy and validation boundaries.
 
 Process construction now writes the same usable page count into the existing
 `KUSER_SHARED_DATA.NumberOfPhysicalPages` profile field. Physical page counts
@@ -2887,3 +2918,205 @@ Compiled regressions establish the absent-service baseline. Complete native
 platform, linked-owner and ordinary-program results belong to this group's
 validation ledger; implementing these queries does not establish full Windows
 process support or completion of the wider Linux/macOS/Windows objective.
+
+
+## CSR qualification on the updated ARM64 kernel
+
+The selected ARM64/session 0 CSR metadata, secure connection and USER exchange
+now admit Windows 10.0 builds 29683 and 29695 through one finite build predicate.
+Frozen native observers on 29695 confirm the PEB/getter identities, full 1 MiB
+readonly SharedSection geometry, client USER views and request/reply layouts.
+The primary projections, arithmetic, assumption register and reproduction inputs
+are in docs/specifications/windows/native-csr-kernel-profiles/README.md.
+This does not extend other native profiles, physical AMD64 admission, generic
+CSR services or complete installed-library startup. Original fault fixtures,
+assertions and execution limits remain unchanged.
+
+## NLS qualification on Windows 29695
+
+Initialization and query-only MUI now admit Windows 10.0 builds 29683 and
+29695 through one NLS-specific predicate shared by acquisition and dispatch.
+Independent native controls establish equivalent output, guard, mapping,
+protection and query behavior on the updated ARM64 kernel. Corrected x86
+controls use the observed three-slot `RET12` ABI; original producers remain
+unchanged. Three fresh captures correlate payload generation with the shared
+language count. Independent main/thread and resource controls also qualify
+the existing guest-owned WoW64 companion state on ARM64 kernel 29695, allowing
+the x86 installed-leaf checks to run. Sources, hashes, exact counts, bounded memory arithmetic and
+assumptions are recorded in
+docs/specifications/windows/native-nls-build-29695/README.md.
+Other native build profiles, cache mutations and complete installed-library
+execution are separate boundaries. The original hardware-fault fixture and
+execution limits remain unchanged.
+
+Selected macOS/Linux suites each pass 22 NLS, 8 MUI and 7 WoW64 tests; native
+Windows passes 30, 13 and 7, plus 39 namespace tests. Complete C API suites pass
+191 tests on every host, with no ignored cases. The unchanged original hardware
+fault fixture completes its ARM64 case, then the x86 case reaches an unqualified
+ProcessImageInformation copy on kernel29695. Overall fault-fixture completion
+and the wider installed-library objective remain unproven.
+
+
+## ProcessImageInformation on ARM64 kernel 29695
+
+The installed class 37 query admits captured ARM64 Windows 10.0.29695 alongside
+29683. Copy-group and guard policy still follows captured kernel identity,
+not caller ISA or spoofed guest version. The AMD64 20348/26100 profiles and
+built-in policy are unchanged. Four native process views contribute 2800 new
+matrix calls and 45 image profiles; separate suspended-child controls qualify
+directory presence independently of PE flags. Full replay retains 7708 query
+rows, 126 image profiles and 20 suspended-child profiles across four kernels.
+The native observer, metadata encoder, masks, rights, allocation bounds and
+unqualified image-state behavior remain unchanged. Sources, byte identities,
+exact counts and assumption PI95-A1 are in
+ docs/specifications/windows/native-process-image-information/README.md.
+
+The unchanged hardware-fault fixture completes ARM64. x86 advances beyond
+class 37, then stops at class 63 fault reporting after an earlier access violation
+at PC 0x4b314477. The earlier fault requires tracing; full exception continuation
+and the overall Linux/macOS/Windows installed-library objective remain incomplete.
+
+The selected process-query suites pass 24 cases on macOS/Linux and 28 on native
+Windows, including the installed native/WoW64 leaf. Complete C API suites pass
+191 on every host; all 17 pure projection checks also pass on each host.
+No selected case is ignored. These are combined-frame library/C API checks;
+linked current-root shipping qualification remains separate.
+
+
+## WoW64 CSR BASE startup on ARM64 kernel 29695
+
+`NtWow64CsrClientConnectToServer` now models the measured pure-x86 BASE
+connection using five stdcall arguments and a scalar byte count. The installed
+leaf owns its `RET20` cleanup. Admission binds both immutable process-owned
+WoW64 and selected CSR kernel/session metadata; guest version fields cannot
+select another native profile. No caller request reaches host CSR.
+
+The first connection owns a private peer, a 65536-byte shared client view,
+a readonly 1048576-byte selected section reservation with 20480 committed
+bytes, and an ALPC port. Native64 PEB publication precedes the Boolean store;
+x86 PEB publication follows it. First-call buffer faults retain two unmapped
+Section handles per attempt. Boolean faults preserve the connection and native
+PEB, and retries complete the pending x86 publication. An initial readonly
+buffer succeeds; a connected successful-size call requires buffer writeback.
+The bounded model admits ARM64 native kernel10.0.29695/session0 and BASE
+server1, and rejects unmeasured profiles explicitly.
+
+Independent native controls contribute 31 fresh/retry cases and 38 returns,
+plus 336 repeated calls across pure and CHPE process families. Sources,
+artifact identities, exact mapping arithmetic, copy order and assumptions
+WC1-WC3 are in
+`docs/specifications/windows/native-wow64-csr-connect/README.md`.
+The native Windows gate passes all11 CSR cases, including the actual installed
+x86 leaf. The unchanged original hardware-fault fixture completes ARM64 and
+advances through the x86 CSR connection, then stops at unimplemented
+`NtQueryInformationProcess` class26 (`ProcessWow64Information`). Its source,
+executable, assertions and budgets remain unchanged. Full fault-fixture and
+Linux/macOS/Windows installed-library qualification remain incomplete.
+
+Final macOS/Linux CSR filters each pass10 cases; complete C API filters pass191
+on all three hosts. The tail-ordinal check passes on all three, as does the
+portable evidence verifier. All listed selected gates have zero failures and
+ignored cases. Initial broad filters retain their original nonzero verdicts:
+1476/1 macOS, 1470/1 Linux, 1602/3 native Windows (passed/failed). The stale
+tail assertion was corrected and rerun; the other native failures are the
+class26 fixture frontier and a volume replay whose frozen flags0x00020020 differ
+from a direct native29695 result0x00220020. Those remaining failures prevent
+a full-green Windows or shipping-runtime claim.
+
+### Owned ProcessWow64Information
+
+Class26 now reports the existing guest PEB32 for x86 and zero for a 64-bit
+self-process. Native64 and WoW64 retain their independently measured alignment,
+length, handle-right, alias, guard and write-order behavior; failed lengths remain
+untouched. The [native build-29695 record](../../../docs/specifications/windows/native-process-wow64-information/README.md)
+contains 2,522 native cases across ARM64, x64 compatibility and default/enabled/
+disabled CHPE x86. Replay rebases only explicitly identified PEB32 output bytes.
+Foreign-process identity and unknown installed native architecture stay explicitly
+unsupported. These observations do not qualify every Windows kernel/profile or
+complete the broader host-library-backed process objective.
+
+### Permanent ProcessExecuteFlags setter
+
+Class34 NtSetInformationProcess now implements the measured rejection path for
+the existing permanent-NX guest profile. Native64 and WoW64 share alignment,
+exact size and exact pseudo-handle validation, but WoW64 retries a reached input
+read guard and classifies its actual flags. Query state and page permissions
+remain unchanged. The [native setter record](../../../docs/specifications/windows/native-process-execute-flags-set/README.md)
+binds 5286 independent calls across native64 and pure/CHPE x86, plus eight
+full-width native64 handle boundaries. Mutable/default DEP and ATL behavior
+remain unfinished requirements for full process emulation.
+
+
+## Opening retained guest thread objects (2026-10-28)
+
+`NtOpenThread` now resolves the current or retained peer thread in the guest
+object namespace. PID zero selects lookup by TID; an explicit PID must match
+its owner. Exited objects remain discoverable while handles or waits retain
+references. Generic and implied rights, independent per-handle grants and
+inheritance come from one shared model. Missing native access capture refuses
+opening rather than inventing a grant. The new export family is appended, so
+previous ordinals and trap addresses remain stable.
+
+Native64 and WoW64 use distinct measured input/output probe order. The native
+adapter creates and joins a private default-security thread, retains its native
+handle during four fixed access controls, and closes every handle. Host
+impersonation is not accepted as the captured primary subject. Guest addresses,
+IDs, handles, masks and syscall numbers never reach those host calls.
+
+The [thread-opening record](../../../docs/specifications/windows/native-open-thread/README.md)
+binds the complete C producer, 870 retained ARM64-host observations, the 867
+case replay, three explicitly bounded asynchronous-release observations, and
+native AMD64/WoW64 CI collection. Dedicated installed-leaf tests verify native
+and x86 service entry, caller state, guards, handle identity and RET16 cleanup;
+repeated native capture checks handle-count conservation.
+
+The `f3fc7b6a` baseline's unchanged installed ARM64 CMD passes its NtOpenThread frontier and
+stops at `NtSetInformationVirtualMemory` (`0x1B0` on build29695), exiting125
+before stdout. Native CMD emits the requested marker and exits0. Full
+Linux/macOS/Windows installed-library process support, Windows child-process
+namespaces, custom thread security and subsequent kernel services remain
+unfinished requirements.
+
+`NtSetInformationVirtualMemory` class0 now validates guest ranges and process
+operation rights, with separate native64/WoW64 capture order. Flag1 performs
+best-effort guest working-set population without changing commitment or target
+guards/protections; flag0 does not insert pages into the guest working set.
+The [native prefetch record](../../../docs/specifications/windows/native-memory-prefetch/README.md)
+binds the immutable native producer,1026 retained build29695 observations,
+822 selected class0/invalid-class replay cases, LastError8 on WoW64 conversion
+allocation failure, and six-argument installed-leaf/RET24 verification. The204
+exploratory observations for other declared information classes remain explicit
+frontiers. No guest request reaches a host kernel memory-prefetch operation.
+
+The subsequent installed ARM64 CMD comparison passes class0 prefetch and reaches
+`NtOpenKey: registry key outside selected runtime snapshot`. Emulation exits125
+before stdout; native CMD emits the marker and exits0. CMD's source hash is
+unchanged. Local selected replay, working-set/ordinal, CLI, C API and all-target
+checks pass on macOS, Linux and Windows; the prefetch record separates those
+results from independent AMD64-kernel qualification and full application
+compatibility.
+
+Independent AMD64 build20348/26100 controls further distinguish class0 flag1:
+20348 rejects it with `STATUS_INVALID_PARAMETER_5`, while26100 and the retained
+ARM64 kernel admit it. The model uses captured native kernel identity, never
+guest-visible version settings, for this capability. Both new retained corpora
+are replayed on every host, bringing selected prefetch coverage to1918 rows;
+uncaptured native flag1 profiles remain explicit frontiers.
+
+Final source`24c0f7ec` passes both complete native AMD64 jobs in
+https://github.com/HexRaysSA/rax/actions/runs/40636977605, including fresh
+prefetch observations, installed leaves, the whole original hardware-fault
+fixture and CLI/write regressions. The prefetch specification records both LF
+and Windows-checkout CRLF producer hashes and the final artifact digests. The
+subsequent provenance-only commit leaves all qualified code and fixture inputs
+unchanged. The broader matrix and full Linux/macOS/Windows objective remain
+separate and unfinished.
+
+
+The opening-grant consumer audit also fixes built-in `ResumeThread` to accept
+`THREAD_RESUME` (`0x1000`) as well as `THREAD_SUSPEND_RESUME` (`0x2`). Suspension
+continues requiring `0x2`. Eighteen independent ARM64-host specific/generic
+controls are replayed through NtOpenThread and both existing Win32 consumers,
+including LastError and final counts. The native handle-conservation test uses
+an isolated child test process so unrelated concurrent handle activity cannot
+invalidate its count. The opening service and public/private ABIs are unchanged.

@@ -48,7 +48,7 @@ pub use mnemonics::{InstructionCategory, categorize, get_mnemonic};
 pub use reporter::{ProfileReport, export_json, print_live_stats, print_summary};
 pub use stats::{InstructionReport, MemoryAccessStats, OpcodeKey, OpcodeStats};
 
-use std::time::Instant;
+use crate::host::time::Instant;
 
 /// Start timing an instruction execution.
 /// Returns an Instant that should be passed to `end_instruction`.

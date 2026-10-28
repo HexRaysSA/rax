@@ -15,8 +15,8 @@
 //! restarts after the handler when the action has `SA_RESTART`
 //! ([`interruption`]).
 //!
-//! Job control is the host's: a stop signal's default action stops the
-//! emulator process ([`host::stop`]), which the host continues.
+//! Connected guest children stop cooperatively so their emulator can service
+//! the parent; other job stops use the host process ([`host::stop`]).
 
 pub mod frame;
 #[cfg(unix)]
@@ -635,9 +635,11 @@ enum Target {
 
 /// Apply the optional host job-control policy. Closed processes reject this
 /// policy at construction; their stop signals never stop the embedding host.
-pub(crate) fn stop(proc: &mut Proc) {
+pub(crate) fn stop(proc: &mut Proc, signal: Signal, thread: u64) {
     #[cfg(unix)]
-    host::stop(proc);
+    if !super::syscall::bsd::ptrace::stop_job(proc, thread, signal) {
+        host::stop(proc);
+    }
     #[cfg(not(unix))]
     assert!(
         !proc.config.host_job_control,
@@ -667,6 +669,8 @@ pub fn child_changed(proc: &mut Proc, origin: &Origin) -> bool {
                     break;
                 }
                 proc.children.remove(&pid);
+                super::syscall::bsd::ptrace::remote_child_reaped(proc, pid);
+                super::syscall::bsd::ptrace::child_reaped(&mut proc.tracing, pid);
             }
             false
         }
@@ -683,6 +687,10 @@ pub fn child_changed(proc: &mut Proc, origin: &Origin) -> bool {
 /// Sends `sig` to the process (`psignal`). `running` is the thread that
 /// is executing, if any.
 pub fn psignal(proc: &mut Proc, running: Option<&mut Thread>, sig: Signal, origin: Origin) {
+    #[cfg(unix)]
+    if sig == SIGCONT {
+        super::syscall::bsd::ptrace::continue_job(proc);
+    }
     post(proc, running, Target::Process, sig, origin);
 }
 
@@ -720,12 +728,16 @@ fn post(
     debug_assert!((1..NSIG).contains(&sig));
     let b = bit(sig);
     let p = props(sig);
+    #[cfg(unix)]
+    let trace_stopped = super::syscall::bsd::ptrace::is_stopped(&proc.tracing);
+    #[cfg(not(unix))]
+    let trace_stopped = false;
     if !matches!(target, Target::Thread(_)) {
         // proc_knote(NOTE_SIGNAL | sig): EVFILT_SIGNAL counts every
         // process-directed signal, ignored or not.
         crate::user::darwin::kevent::filters::post_signal(proc, sig);
     }
-    if proc.sigacts.ignore & b != 0 || proc.exit.is_some() {
+    if (proc.sigacts.ignore & b != 0 && proc.tracing.tracer.is_none()) || proc.exit.is_some() {
         return;
     }
     let acts = &mut proc.sigacts;
@@ -774,6 +786,14 @@ fn post(
         t.sig.pending &= !CONTMASK;
     }
     t.sig.pending |= b;
+    // A traced signal is presented to the tracer before its usual action,
+    // including the default job-control stop and ignored dispositions.
+    if proc.tracing.tracer.is_some() && sig != SIGKILL {
+        if !trace_stopped {
+            abort_wait(t, false);
+        }
+        return;
+    }
     match action {
         Action::Hold => {}
         Action::Wait => {
@@ -797,8 +817,9 @@ fn post(
             if b & STOPMASK != 0 {
                 // The process stops now.
                 t.sig.pending &= !b;
+                let tid = t.tid;
                 drop(threads);
-                stop(proc);
+                stop(proc, sig, tid);
             } else if sig == SIGKILL {
                 abort_wait(t, true);
             } else if sig == SIGCONT {
@@ -823,7 +844,7 @@ fn post(
 /// it, unless the process ignores it.
 pub fn threadsignal(proc: &mut Proc, thread: &mut Thread, sig: Signal, code: i64) {
     let b = bit(sig);
-    if b & THREADMASK == 0 || proc.sigacts.ignore & b != 0 {
+    if b & THREADMASK == 0 || (proc.sigacts.ignore & b != 0 && proc.tracing.tracer.is_none()) {
         return;
     }
     thread.sig.pending |= b;
@@ -843,8 +864,11 @@ pub fn cursig(proc: &Proc, thread: &Thread) -> Option<Signal> {
     let bits = thread.sig.pending & !thread.sig.mask;
     (1..NSIG).find(|&sig| {
         let b = bit(sig);
-        if bits & b == 0 || proc.sigacts.ignore & b != 0 {
+        if bits & b == 0 || (proc.sigacts.ignore & b != 0 && proc.tracing.tracer.is_none()) {
             return false;
+        }
+        if proc.tracing.tracer.is_some() {
+            return true;
         }
         match proc.sigacts.handler[sig as usize] {
             SIG_DFL => props(sig) & prop::IGNORE == 0 || props(sig) & prop::STOP != 0,
@@ -885,19 +909,83 @@ pub fn sleep_interruption(
 /// dropped, and a stop signal's default action stops the process.
 fn issignal(proc: &mut Proc, thread: &mut Thread) -> Option<Signal> {
     loop {
-        let bits = thread.sig.pending & !thread.sig.mask;
-        if bits == 0 {
+        #[cfg(unix)]
+        if super::syscall::bsd::ptrace::job_stopped(&proc.tracing)
+            && proc.task.suspension.is_stopped()
+        {
             return None;
         }
-        let sig = bits.trailing_zeros() as Signal + 1;
+        #[cfg(unix)]
+        if super::syscall::bsd::ptrace::enter_signal_ast(
+            &mut proc.tracing,
+            thread.tid,
+            thread.sig.pending & !thread.sig.mask != 0,
+        ) {
+            return None;
+        }
+        #[cfg(unix)]
+        let verdict = super::syscall::bsd::ptrace::take_verdict(&mut proc.tracing, thread.tid);
+        #[cfg(not(unix))]
+        let verdict: Option<(Signal, Signal)> = None;
+        let sig = if let Some((sig, _)) = verdict {
+            if sig == 0 {
+                continue;
+            }
+            if thread.sig.mask & bit(sig) != 0 {
+                thread.sig.pending |= bit(sig);
+                continue;
+            }
+            sig
+        } else {
+            let bits = thread.sig.pending & !thread.sig.mask;
+            if bits == 0 {
+                return None;
+            }
+            bits.trailing_zeros() as Signal + 1
+        };
         let b = bit(sig);
-        let p = props(sig);
+        // issignal_locked keeps the stopped signal's properties when the
+        // debugger substitutes a different signal in p_xstat.
+        let p = props(verdict.map_or(sig, |(_, original)| original));
+        // A debugger-supplied signal joins the same pending bit as an
+        // already-posted instance; delivery consumes that bit once.
         thread.sig.pending &= !b;
-        if proc.sigacts.ignore & b != 0 {
+        if verdict.is_some() && sig == SIGKILL {
+            return Some(sig);
+        }
+        if verdict.is_none() {
+            #[cfg(unix)]
+            if proc.tracing.tracer.is_some() {
+                if proc.tracing.signal_exceptions {
+                    if super::syscall::bsd::ptrace::stop_for_signal(
+                        proc,
+                        thread.tid,
+                        sig,
+                        thread.cpu.pc(),
+                    ) && proc.exit.is_some()
+                    {
+                        return None;
+                    }
+                    if super::exception::raise_bsd_signal(proc, thread, sig) {
+                        return None;
+                    }
+                    super::syscall::bsd::ptrace::end_sigwait(&mut proc.tracing, thread.tid);
+                } else if super::syscall::bsd::ptrace::stop_for_signal(
+                    proc,
+                    thread.tid,
+                    sig,
+                    thread.cpu.pc(),
+                ) {
+                    return None;
+                }
+            }
+        }
+        if verdict.is_none() && proc.sigacts.ignore & b != 0 {
             continue;
         }
         match proc.sigacts.handler[sig as usize] {
-            SIG_DFL if p & prop::STOP != 0 => stop(proc),
+            SIG_DFL if p & prop::STOP != 0 && proc.tracing.tracer.is_some() => {}
+            SIG_DFL if p & prop::STOP != 0 => stop(proc, sig, thread.tid),
             SIG_DFL if p & prop::IGNORE != 0 => {}
             SIG_IGN => {}
             _ => return Some(sig),

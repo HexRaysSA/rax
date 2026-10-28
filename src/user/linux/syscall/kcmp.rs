@@ -158,13 +158,19 @@ fn tfile(ep: &OpenFile, tfd: i32, toff: u32) -> Result<Arc<OpenFile>, Errno> {
 mod tests {
     use super::*;
 
+    /// A high user-space object address at the host's pointer width.
+    #[cfg(target_pointer_width = "64")]
+    const HIGH_OBJECT: usize = 0x7fff_0000_1234;
+    #[cfg(not(target_pointer_width = "64"))]
+    const HIGH_OBJECT: usize = 0x7fff_1234;
+
     #[test]
     fn the_order_is_total_and_antisymmetric() {
         for ty in 0..8 {
             let (_, mul) = cookies(ty);
             assert_eq!(mul & 1, 1, "odd: the product is unique");
             assert_ne!(mul & (1 << 63), 0);
-            let ids = [0usize, 1, 0x1000, 0x7fff_0000_1234, usize::MAX];
+            let ids = [0usize, 1, 0x1000, HIGH_OBJECT, usize::MAX];
             for &a in &ids {
                 assert_eq!(order(a, a, ty), 0);
                 for &b in &ids {

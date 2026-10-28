@@ -9,6 +9,8 @@ pub(crate) struct SectionView {
     pub(crate) offset: u64,
     pub(crate) size: u64,
     pub(crate) extensions: [Option<ImageExtension>; 2],
+    // ImageExtensionPresent also covers reserved-only native owner tails.
+    extended: bool,
 }
 #[derive(Debug)]
 pub(super) struct LowPlacement {
@@ -67,17 +69,17 @@ impl VirtualMemory {
         {
             return Err(VmError::InvalidParameter);
         }
-        let extensions = if !large && offset == 0 && size == image.bytes.len() as u64 {
+        let full_image = !large && offset == 0 && size == image.bytes.len() as u64;
+        let extensions = if full_image {
             image.extensions.clone()
         } else {
             [None, None]
         };
-        let extent = extensions
-            .iter()
-            .flatten()
-            .map(|e| e.rva + e.bytes.len() as u64)
-            .max()
-            .unwrap_or(size);
+        let extent = if full_image {
+            image.allocation_size()
+        } else {
+            size
+        };
         if image_base
             .checked_sub(allocation_base)
             .and_then(|prefix| prefix.checked_add(extent))
@@ -162,6 +164,7 @@ impl VirtualMemory {
                 offset,
                 size,
                 extensions,
+                extended: full_image && image.allocation_size() > image.bytes.len() as u64,
             },
         );
         Ok(())
@@ -176,12 +179,7 @@ impl VirtualMemory {
         Some((
             view.image_base,
             view.section.image_size,
-            u32::from(partial)
-                | if view.extensions.iter().any(Option::is_some) {
-                    0x40
-                } else {
-                    0
-                },
+            u32::from(partial) | if view.extended { 0x40 } else { 0 },
         ))
     }
     pub(crate) fn section_image_extension(&self, address: u64, kind: u32) -> Option<(u64, u64)> {

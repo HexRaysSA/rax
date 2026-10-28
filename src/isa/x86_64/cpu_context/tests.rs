@@ -430,6 +430,90 @@ fn incompatible_isa_reconfiguration_preserves_the_existing_context() {
 }
 
 #[test]
+fn pre_integration_user_context_retains_its_original_wire_layout() {
+    let raw = include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/development/x86-context-integration/user-v1.bin"
+    ));
+    let (mut target, _) = cpu(&[0x0f, 0x05]);
+    target.enable_user_mode(Arc::new(Identity));
+    target.restore_context(raw).unwrap();
+    assert_eq!(target.current_pc(), 0x102);
+    assert_eq!(target.instruction_count(), 1);
+    assert_eq!(target.last_user_debug_status(), 0);
+    assert!(matches!(
+        target.take_user_trap(),
+        Some(crate::isa::x86_64::X86UserTrap::SystemCall {
+            insn: crate::isa::x86_64::X86SyscallInsn::Syscall,
+            insn_rip: 0x100
+        })
+    ));
+    assert_eq!(target.take_user_trap(), None);
+}
+
+#[test]
+fn versioned_user_context_preserves_consumed_debug_status() {
+    let (mut source, _) = cpu(&[0x90]);
+    source.enable_user_mode(Arc::new(Identity));
+    source.sregs.dr6 = (1 << 14) | (1 << 13);
+    let status = source.capture_user_debug_status();
+    assert_eq!(status, (1 << 14) | (1 << 13));
+    let raw = source.save_context().unwrap();
+    assert!(raw.starts_with(b"RAXX8602"));
+    let (mut target, _) = cpu(&[0x90]);
+    target.enable_user_mode(Arc::new(Identity));
+    target.restore_context(&raw).unwrap();
+    assert_eq!(target.sregs.dr6, 0);
+    assert_eq!(target.last_user_debug_status(), status);
+    assert_eq!(target.save_context().unwrap(), raw);
+}
+
+#[test]
+fn debug_status_binding_and_version_mismatches_reject_before_mutation() {
+    for user_mode in [false, true] {
+        let (mut source, _) = cpu(&[0x90]);
+        let (mut target, _) = cpu(&[0x90]);
+        if user_mode {
+            source.enable_user_mode(Arc::new(Identity));
+            target.enable_user_mode(Arc::new(Identity));
+        }
+        let raw = source.save_context().unwrap();
+        let before = target.save_context().unwrap();
+        let context = Context::decode(&raw, &source).unwrap();
+        let bad = Version2 {
+            base: &context,
+            user_debug_status: if user_mode { None } else { Some(0) },
+        };
+        let mut invalid = TAG.to_vec();
+        invalid.extend_from_slice(&crate::codec::serialize(&bad).unwrap());
+        assert!(target.restore_context(&invalid).is_err());
+        assert_eq!(target.save_context().unwrap(), before);
+
+        let mut wrong_version = raw;
+        wrong_version[..TAG.len()].copy_from_slice(LEGACY_TAG);
+        assert!(target.restore_context(&wrong_version).is_err());
+        assert_eq!(target.save_context().unwrap(), before);
+    }
+}
+
+#[test]
+fn every_versioned_user_context_prefix_rejects_before_mutation() {
+    let (mut source, _) = cpu(&[0x90]);
+    source.enable_user_mode(Arc::new(Identity));
+    source.sregs.dr6 = 1 << 14;
+    source.capture_user_debug_status();
+    let raw = source.save_context().unwrap();
+    let (mut target, _) = cpu(&[0x90]);
+    target.enable_user_mode(Arc::new(Identity));
+    target.regs.rax = 0x99;
+    let before = target.save_context().unwrap();
+    for end in 0..raw.len() {
+        assert!(target.restore_context(&raw[..end]).is_err(), "prefix {end}");
+        assert_eq!(target.save_context().unwrap(), before);
+    }
+}
+
+#[test]
 fn invalid_extended_controls_reject_on_capture_and_before_import_mutation() {
     let (mut source, _) = cpu(&[0x90]);
     source.set_apx_enabled(true);
@@ -440,8 +524,7 @@ fn invalid_extended_controls_reject_on_capture_and_before_import_mutation() {
     let raw = valid.save_context().unwrap();
     let mut context = Context::decode(&raw, &valid).unwrap();
     context.xcr0 = 0;
-    let mut bad = TAG.to_vec();
-    bad.extend_from_slice(&crate::codec::serialize(&context).unwrap());
+    let bad = context.encode().unwrap();
     let (mut target, _) = cpu(&[0x90]);
     let before = target.save_context().unwrap();
     assert!(target.restore_context(&bad).is_err());

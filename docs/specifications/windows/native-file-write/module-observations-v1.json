@@ -1,0 +1,33 @@
+{
+  "pid": 2036,
+  "source_sha256": "7ad1e49719b0db2056e02773b1f03172b9531b2d36eee6ac10d76c152a880f04",
+  "build": 29695,
+  "cases": [
+    {
+      "arch": "arm64",
+      "exit_code": 0,
+      "stdout": "module=C:\\WINDOWS\\System32\\KERNEL32.DLL\r\ntimestamp=05f295e2;image_size=00172000\r\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x86",
+      "exit_code": 0,
+      "stdout": "module=C:\\WINDOWS\\System32\\KERNEL32.DLL\r\ntimestamp=1da80894;image_size=00121000\r\n",
+      "stderr": ""
+    },
+    {
+      "arch": "x64",
+      "exit_code": 0,
+      "stdout": "module=C:\\WINDOWS\\System32\\KERNEL32.DLL\r\ntimestamp=05f295e2;image_size=00172000\r\n",
+      "stderr": ""
+    }
+  ],
+  "state": "finished",
+  "pure_x86": {
+    "path": "C:\\WINDOWS\\SysWOW64\\kernel32.dll",
+    "sha256": "0c917a264acf2790720f9b1f4b2ba6e003e09b5d9731f66d108937cc7e283450",
+    "timestamp": 1564295585,
+    "image_size": 983040
+  },
+  "live_now": false
+}

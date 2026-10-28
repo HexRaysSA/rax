@@ -122,9 +122,9 @@ reservation, raw counters, complete represented hart state and ordered pending
 adapter events. See [RISC-V backend contexts](riscv-backend-context.md) for its
 binding, admission, C API format-6 compatibility and validation boundaries.
 
-Software x86 producer kind 4 (`RAXX8601`) retains CPU/MMU private state, XCR0,
+Software x86 producer kind 4 (`RAXX8602`, with `RAXX8601` import) retains CPU/MMU private state, XCR0,
 ISA configuration, pending input/native exits, private user descriptors/traps,
-and complete BIOS bindings. Required section 15 carries deduplicated immutable
+consumed debug status, and complete BIOS bindings. Required section 15 carries deduplicated immutable
 media. Software x86 replacements are prepared before VMM publication; other
 backends and whole-VM late-failure transactions retain separate requirements.
 See [software x86 contexts](x86-backend-context.md) for format 7, resource

@@ -3,8 +3,8 @@
 use super::super::super::hle::Value;
 use super::super::super::sync::{self, Wait};
 use super::*;
+use crate::host::time::{Duration, Instant};
 use std::collections::HashSet;
-use std::time::{Duration, Instant};
 
 const INFINITE: u32 = u32::MAX;
 const WAIT_FAILED: u64 = u32::MAX as u64;

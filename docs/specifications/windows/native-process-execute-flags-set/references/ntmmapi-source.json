@@ -1,0 +1,9 @@
+{
+  "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+  "url": "https://github.com/winsiderss/phnt/blob/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntmmapi.h",
+  "git_blob": "45d6487fc72c806a8a975d22be452b384d36f424",
+  "raw_bytes": 92011,
+  "raw_sha256": "8acd89a95f890f929da824cc841383770a4f21f312bb04d0d12f03cb3a00e079",
+  "accessed": "2026-10-27",
+  "relevant_definitions": "MEM_EXECUTE_OPTION_* and MEM_EXECUTE_OPTION_VALID_FLAGS, including 0x7F"
+}

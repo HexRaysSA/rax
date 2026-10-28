@@ -1,0 +1,291 @@
+{
+  "schema": "native-wow64-csr-amd64-startup-profiles-v1",
+  "run_id": 40578893965,
+  "source_commit": "93ccb91d82d4886b8619009383623a75966f1d59",
+  "artifact_metadata": [
+    {
+      "id": 12768348327,
+      "name": "native-wow64-csr-amd64-startup-windows-2022",
+      "size_in_bytes": 2976,
+      "url": "https://api.github.com/repos/HexRaysSA/rax/actions/artifacts/12768348327",
+      "expired": false,
+      "created_at": "2026-10-27T20:34:45Z",
+      "expires_at": "2027-01-25T20:32:04Z",
+      "updated_at": "2026-10-27T20:34:45Z",
+      "digest": "sha256:a8c9b24497540607ec0b37e4d2f6220e393dc63ccdf23e7f8e1f6cab4d0db3f7",
+      "workflow_run": {
+        "id": 40578893965,
+        "repository_id": 1119561944,
+        "head_repository_id": 1119561944,
+        "head_branch": "assist/native-exception-entry-validation-20261027-v1",
+        "head_sha": "93ccb91d82d4886b8619009383623a75966f1d59"
+      }
+    },
+    {
+      "id": 12769770123,
+      "name": "native-wow64-csr-amd64-startup-windows-2025",
+      "size_in_bytes": 2960,
+      "url": "https://api.github.com/repos/HexRaysSA/rax/actions/artifacts/12769770123",
+      "expired": false,
+      "created_at": "2026-10-27T20:34:50Z",
+      "expires_at": "2027-01-25T20:32:04Z",
+      "updated_at": "2026-10-27T20:34:50Z",
+      "digest": "sha256:ae40c2b4558262d3c91dcbe2a040bef4806af887017d73318ebe3d726e2fc23b",
+      "workflow_run": {
+        "id": 40578893965,
+        "repository_id": 1119561944,
+        "head_repository_id": 1119561944,
+        "head_branch": "assist/native-exception-entry-validation-20261027-v1",
+        "head_sha": "93ccb91d82d4886b8619009383623a75966f1d59"
+      }
+    }
+  ],
+  "profiles": [
+    {
+      "native_kernel": [
+        10,
+        0,
+        20348
+      ],
+      "native_machine": 34404,
+      "directory": "\\Sessions\\2\\Windows",
+      "server_id": 1,
+      "capture_bytes": 8,
+      "fields": {
+        "before": {
+          "native-local": 0,
+          "native-statics": 0,
+          "native-server": 0,
+          "native-session": 2,
+          "wow-local": 0,
+          "wow-statics": 0,
+          "wow-server": 0,
+          "wow-session": 2
+        },
+        "after": {
+          "native-local": 2134966272,
+          "native-statics": 2134968144,
+          "native-server": 138490472103936,
+          "native-session": 2,
+          "wow-local": 2134966272,
+          "wow-statics": 2134968144,
+          "wow-server": 138490472103936,
+          "wow-session": 2
+        }
+      },
+      "raw": {
+        "schema": "native-wow64-csr-amd64-startup-v1",
+        "kernel": [
+          10,
+          0,
+          20348,
+          2,
+          ""
+        ],
+        "machine": "AMD64",
+        "pid": 6900,
+        "state": "finished",
+        "inputs": [
+          {
+            "path": "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-wow64-csr-amd64\\run-v1.py",
+            "bytes": 7015,
+            "sha256": "5a3e523af66f42ff53943dae4c174cc1869ee8903df933ead37a2eb4eb310625"
+          },
+          {
+            "path": "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-wow64-csr-amd64\\startup-v1.cpp",
+            "bytes": 19978,
+            "sha256": "60f963902ced8ff53112cee7b6cb0842468d2d08e455acf8e07bae9ef0221398"
+          },
+          {
+            "path": "D:\\a\\rax\\rax\\tests\\fixtures\\user\\windows\\native_exception_entry\\bin\\x86\\fault.exe",
+            "bytes": 2560,
+            "sha256": "4a0f28a1fba11a97b7498f6bf5b231d32c124ce15d2bcb90084816e342c09544"
+          },
+          {
+            "path": "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-exception-entry-profile\\run-v2.py",
+            "bytes": 8790,
+            "sha256": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba"
+          },
+          {
+            "path": "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.exe",
+            "bytes": 104952,
+            "sha256": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a"
+          },
+          {
+            "path": "C:\\Windows\\System32\\ntdll.dll",
+            "bytes": 2141600,
+            "sha256": "bcfe8a70a371a7d2fbcb429ab0a9e170aeebe4d73ae08d03a2da8fedec2efc78"
+          },
+          {
+            "path": "C:\\Windows\\SysWOW64\\ntdll.dll",
+            "bytes": 1754328,
+            "sha256": "1e78588dcb44d47c1656f9f6eab8ab5beb5279959bcebf74c0f869d8d1c73322"
+          }
+        ],
+        "compiler": {
+          "path": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64\\cl.exe",
+          "bytes": 677776,
+          "sha256": "fe251ef50a1545b1b0835ee17b1e785459712b38d79e45b5c1d3d28970a36619"
+        },
+        "compile_argv": [
+          "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Tools\\MSVC\\14.44.35207\\bin\\Hostx64\\x64\\cl.exe",
+          "/nologo",
+          "/std:c++20",
+          "/MT",
+          "/EHsc",
+          "/utf-8",
+          "/W4",
+          "/WX",
+          "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-wow64-csr-amd64\\startup-v1.cpp",
+          "/Fe:D:\\a\\rax\\rax\\target\\native-wow64-csr-amd64-v1-anjozkk5\\observe.exe",
+          "/Fo:D:\\a\\rax\\rax\\target\\native-wow64-csr-amd64-v1-anjozkk5\\observe.obj"
+        ],
+        "compile": {
+          "exit_code": 0,
+          "seconds": 0.6879999999999882,
+          "stdout_b64": "c3RhcnR1cC12MS5jcHANCg==",
+          "stderr_b64": ""
+        },
+        "binary": {
+          "path": "D:\\a\\rax\\rax\\target\\native-wow64-csr-amd64-v1-anjozkk5\\observe.exe",
+          "bytes": 171520,
+          "sha256": "6fcd945a8022bf930655464f51e377f3c38c6f1f32be2cf39a3d348de3efce4f"
+        },
+        "observation": {
+          "exit_code": 0,
+          "seconds": 0.07800000000003138,
+          "stdout_b64": "Q1JFQVRFIHN0YXR1cz0wMDAwMDAwMCBzdGF0ZT02IGNocGU9MA0KQ0hJTEQgcGlkPTE2NTYgdGlkPTI5NTIgY2hwZT0wDQpJTlNUQUxMRUQgZXZlbnQ9NiBiYXNlPTc3QTkwMDAwIHJ2YT03NURDMCBtYWNoaW5lPTAxNEMgcmV0LWJ5dGVzPTIwDQpFTlRSWSBvcmRpbmFsPTAgc3A9MDBEM0VDNDAgZGlyZWN0b3J5PTAwRDNFQzk4IHNlcnZlcj0xIGJ1ZmZlcj0wMEQzRUM4MCBieXRlcz04IGluc2lkZT0wMEQzRUM1Qg0KUEVCX0lERU5USVRJRVMgc3RhdHVzNjQ9MDAwMDAwMDAgc3RhdHVzMzI9MDAwMDAwMDAgbmF0aXZlPUJCRjAwMCB3b3c9QkMwMDAwDQpDU1JfRklFTERTIHBoYXNlPWJlZm9yZSBuYXRpdmUtbG9jYWw9MCBuYXRpdmUtc3RhdGljcz0wIG5hdGl2ZS1zZXJ2ZXI9MCBuYXRpdmUtc2Vzc2lvbj0yIHdvdy1sb2NhbD0wMDAwMDAwMCB3b3ctc3RhdGljcz0wMDAwMDAwMCB3b3ctc2VydmVyPTAgd293LXNlc3Npb249Mg0KREFUQSBsYWJlbD1kaXJlY3RvcnktdXRmMTYgYWRkcmVzcz0wMEQzRUM5OCBieXRlcz0yNTYgb2s9MSBnb3Q9MjU2IGhleD01QzAwNTMwMDY1MDA3MzAwNzMwMDY5MDA2RjAwNkUwMDczMDA1QzAwMzIwMDVDMDA1NzAwNjkwMDZFMDA2NDAwNkYwMDc3MDA3MzAwMDAwMDAwMDIwMDAwNzRFRkQzMDAwMDAwMDAwMDQ0MDAwMDAxRDRFQ0QzMDA0MzAwM0EwMDYyMDAwQzQwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDIwRUREMzAwMkY0MEI3NzcwMTAwMDAwMDAwMDBGQzAwMDAwMDAwMDAwMDAwRkMwMDAwMDBGQzAwMDAwMDAwMDAwMDAwRkMwMDAwMDAwMDAwN0NFREQzMDA3QjMzQjc3NzI0RUVEMzAwMzBDNkIwNzc2MjAwMEM0MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDkwRUREMzAwQTBFRUQzMDAwMDAwRkMwMDAwRkFGQzAwOTBGQkZDMDAwMTAwMDAwMDkwRkJGQzAwNkYyMzE4MDExNzIwMTgxNjcwRjVGQzAwMjhFRUQzMDBDOEVFRDMwMDMwQzZCMDc3MUYyQzcyNjFGRUZGRkZGRjEwRUVEMzAwMUY4NkFENzcyODAwMDAwMDMwMDAwMDAwMDAwMDAwMDBFMEVERDMwMA0KREFUQSBsYWJlbD1iZWZvcmUtYnVmZmVyIGFkZHJlc3M9MDBEM0VDODAgYnl0ZXM9OCBvaz0xIGdvdD04IGhleD1BMDQ5Q0M3NTAwMDAwMDAwDQpEQVRBIGxhYmVsPWJlZm9yZS1pbnNpZGUgYWRkcmVzcz0wMEQzRUM1QiBieXRlcz0xIG9rPTEgZ290PTEgaGV4PThDDQpSRVRVUk4gb3JkaW5hbD0wIHN0YXR1cz0wMDAwMDAwMCBzcD0wMEQzRUM1OA0KREFUQSBsYWJlbD1hZnRlci1idWZmZXIgYWRkcmVzcz0wMEQzRUM4MCBieXRlcz04IG9rPTEgZ290PTggaGV4PUEwNDlDQzc1MDAwMDAwMDANCkRBVEEgbGFiZWw9YWZ0ZXItaW5zaWRlIGFkZHJlc3M9MDBEM0VDNUIgYnl0ZXM9MSBvaz0xIGdvdD0xIGhleD0wMA0KQ1NSX0ZJRUxEUyBwaGFzZT1hZnRlciBuYXRpdmUtbG9jYWw9N0Y0MTAwMDAgbmF0aXZlLXN0YXRpY3M9N0Y0MTA3NTAgbmF0aXZlLXNlcnZlcj03REY0RDM2NTAwMDAgbmF0aXZlLXNlc3Npb249MiB3b3ctbG9jYWw9N0Y0MTAwMDAgd293LXN0YXRpY3M9N0Y0MTA3NTAgd293LXNlcnZlcj03REY0RDM2NTAwMDAgd293LXNlc3Npb249Mg0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTM4IGJlZm9yZT0wMCBhZnRlcj00MQ0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTM5IGJlZm9yZT0wMCBhZnRlcj03Rg0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTUyIGJlZm9yZT0wMCBhZnRlcj01MA0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTUzIGJlZm9yZT0wMCBhZnRlcj0wNw0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTU0IGJlZm9yZT0wMCBhZnRlcj00MQ0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTU1IGJlZm9yZT0wMCBhZnRlcj03Rg0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MjMyIGJlZm9yZT0wMSBhZnRlcj0wMg0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9ODk4IGJlZm9yZT0wMCBhZnRlcj02NQ0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9ODk5IGJlZm9yZT0wMCBhZnRlcj1EMw0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9OTAwIGJlZm9yZT0wMCBhZnRlcj1GNA0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9OTAxIGJlZm9yZT0wMCBhZnRlcj03RA0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NzggYmVmb3JlPTAwIGFmdGVyPTQxDQpQRUJfQ0hBTkdFIHdpZHRoPTMyIG9mZnNldD03OSBiZWZvcmU9MDAgYWZ0ZXI9N0YNClBFQl9DSEFOR0Ugd2lkdGg9MzIgb2Zmc2V0PTg0IGJlZm9yZT0wMCBhZnRlcj01MA0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9ODUgYmVmb3JlPTAwIGFmdGVyPTA3DQpQRUJfQ0hBTkdFIHdpZHRoPTMyIG9mZnNldD04NiBiZWZvcmU9MDAgYWZ0ZXI9NDENClBFQl9DSEFOR0Ugd2lkdGg9MzIgb2Zmc2V0PTg3IGJlZm9yZT0wMCBhZnRlcj03Rg0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NTg2IGJlZm9yZT0wMCBhZnRlcj02NQ0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NTg3IGJlZm9yZT0wMCBhZnRlcj1EMw0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NTg4IGJlZm9yZT0wMCBhZnRlcj1GNA0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NTg5IGJlZm9yZT0wMCBhZnRlcj03RA0KUEVCX0RFTFRBIGJ5dGVzNjQ9MjA0OCBieXRlczMyPTEyODAgY2hhbmdlZDY0PTExIGNoYW5nZWQzMj0xMCBoYW5kbGVzPTM2OjM3DQpFWENFUFRJT04gY29kZT1DMDAwMDAwNSBmaXJzdD0xDQpET05FIGluc3RhbGxlZD0xIGVudGVyZWQ9MSByZXR1cm5lZD0xIGJhc2UtY2FsbHM9MSBwZW5kaW5nPTAgZXhpdD0wDQo=",
+          "stderr_b64": "",
+          "stdout_sha256": "0044a3ef5e3adabdae8d04224145871e2e95bca578cc1aba0ea2b39a1d6074c4"
+        },
+        "inputs_unchanged": true,
+        "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=0",
+        "exit_code": 0,
+        "build_outputs_removed": true
+      }
+    },
+    {
+      "native_kernel": [
+        10,
+        0,
+        26100
+      ],
+      "native_machine": 34404,
+      "directory": "\\Sessions\\2\\Windows",
+      "server_id": 1,
+      "capture_bytes": 8,
+      "fields": {
+        "before": {
+          "native-local": 0,
+          "native-statics": 0,
+          "native-server": 0,
+          "native-session": 2,
+          "wow-local": 0,
+          "wow-statics": 0,
+          "wow-server": 0,
+          "wow-session": 2
+        },
+        "after": {
+          "native-local": 2143813632,
+          "native-statics": 2143815504,
+          "native-server": 140692003094528,
+          "native-session": 2,
+          "wow-local": 2143813632,
+          "wow-statics": 2143815504,
+          "wow-server": 140692003094528,
+          "wow-session": 2
+        }
+      },
+      "raw": {
+        "schema": "native-wow64-csr-amd64-startup-v1",
+        "kernel": [
+          10,
+          0,
+          26100,
+          2,
+          ""
+        ],
+        "machine": "AMD64",
+        "pid": 7068,
+        "state": "finished",
+        "inputs": [
+          {
+            "path": "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-wow64-csr-amd64\\run-v1.py",
+            "bytes": 7015,
+            "sha256": "5a3e523af66f42ff53943dae4c174cc1869ee8903df933ead37a2eb4eb310625"
+          },
+          {
+            "path": "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-wow64-csr-amd64\\startup-v1.cpp",
+            "bytes": 19978,
+            "sha256": "60f963902ced8ff53112cee7b6cb0842468d2d08e455acf8e07bae9ef0221398"
+          },
+          {
+            "path": "D:\\a\\rax\\rax\\tests\\fixtures\\user\\windows\\native_exception_entry\\bin\\x86\\fault.exe",
+            "bytes": 2560,
+            "sha256": "4a0f28a1fba11a97b7498f6bf5b231d32c124ce15d2bcb90084816e342c09544"
+          },
+          {
+            "path": "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-exception-entry-profile\\run-v2.py",
+            "bytes": 8790,
+            "sha256": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba"
+          },
+          {
+            "path": "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.exe",
+            "bytes": 104952,
+            "sha256": "4d6f5f81a4bca11191c4c7c6b43632694d0a4ce74e068619d8fdc161d469859a"
+          },
+          {
+            "path": "C:\\Windows\\System32\\ntdll.dll",
+            "bytes": 2541720,
+            "sha256": "160ef9b82e2895ef48fa031cb1cf683a8b123febf7cf7d5590cd3104864424b3"
+          },
+          {
+            "path": "C:\\Windows\\SysWOW64\\ntdll.dll",
+            "bytes": 1852256,
+            "sha256": "7e55aa7b3e9c9c0cdaa764bb7bdae08824139d96eb361cd1a459a4ac967ea3e3"
+          }
+        ],
+        "compiler": {
+          "path": "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+          "bytes": 893288,
+          "sha256": "b0a1818ebae6da7f18230a84e76ce839212584ac4c2ab55b97a0d5268085da57"
+        },
+        "compile_argv": [
+          "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe",
+          "/nologo",
+          "/std:c++20",
+          "/MT",
+          "/EHsc",
+          "/utf-8",
+          "/W4",
+          "/WX",
+          "D:\\a\\rax\\rax\\docs\\specifications\\windows\\native-wow64-csr-amd64\\startup-v1.cpp",
+          "/Fe:D:\\a\\rax\\rax\\target\\native-wow64-csr-amd64-v1-jfppa4el\\observe.exe",
+          "/Fo:D:\\a\\rax\\rax\\target\\native-wow64-csr-amd64-v1-jfppa4el\\observe.obj"
+        ],
+        "compile": {
+          "exit_code": 0,
+          "seconds": 0.8440000000000509,
+          "stdout_b64": "c3RhcnR1cC12MS5jcHANCg==",
+          "stderr_b64": ""
+        },
+        "binary": {
+          "path": "D:\\a\\rax\\rax\\target\\native-wow64-csr-amd64-v1-jfppa4el\\observe.exe",
+          "bytes": 172544,
+          "sha256": "9cb43860ac40c0a5cb61c6a9f6d14b08fb88d5e8ade037f239d2073e70c0dde5"
+        },
+        "observation": {
+          "exit_code": 0,
+          "seconds": 0.15599999999994907,
+          "stdout_b64": "Q1JFQVRFIHN0YXR1cz0wMDAwMDAwMCBzdGF0ZT02IGNocGU9MA0KQ0hJTEQgcGlkPTczMDggdGlkPTkwMTIgY2hwZT0wDQpJTlNUQUxMRUQgZXZlbnQ9NiBiYXNlPTc3MUEwMDAwIHJ2YT03QjBCMCBtYWNoaW5lPTAxNEMgcmV0LWJ5dGVzPTIwDQpFTlRSWSBvcmRpbmFsPTAgc3A9MDBENkVGN0MgZGlyZWN0b3J5PTAwRDZFRkQ0IHNlcnZlcj0xIGJ1ZmZlcj0wMEQ2RUZCQyBieXRlcz04IGluc2lkZT0wMEQ2RUY5Nw0KUEVCX0lERU5USVRJRVMgc3RhdHVzNjQ9MDAwMDAwMDAgc3RhdHVzMzI9MDAwMDAwMDAgbmF0aXZlPUEwMTAwMCB3b3c9QTAyMDAwDQpDU1JfRklFTERTIHBoYXNlPWJlZm9yZSBuYXRpdmUtbG9jYWw9MCBuYXRpdmUtc3RhdGljcz0wIG5hdGl2ZS1zZXJ2ZXI9MCBuYXRpdmUtc2Vzc2lvbj0yIHdvdy1sb2NhbD0wMDAwMDAwMCB3b3ctc3RhdGljcz0wMDAwMDAwMCB3b3ctc2VydmVyPTAgd293LXNlc3Npb249Mg0KREFUQSBsYWJlbD1kaXJlY3RvcnktdXRmMTYgYWRkcmVzcz0wMEQ2RUZENCBieXRlcz0yNTYgb2s9MSBnb3Q9MjU2IGhleD01QzAwNTMwMDY1MDA3MzAwNzMwMDY5MDA2RjAwNkUwMDczMDA1QzAwMzIwMDVDMDA1NzAwNjkwMDZFMDA2NDAwNkYwMDc3MDA3MzAwMDAwMDAwMDAwODAxMzAyMThGNzZGMjA3MDAwMDAwMDAwMDAwRUJGRjAwMDAwMjAwMDAwMDAwMDAxNzc1MDAwMDAwMDBGQzA0MDkwMTEwMTIxRjc1MDAwMDAwMDAxMUREQkFGRjAwMDAwMDAwRDgwNDA5MDEzQzRGMjE3NUU2REQyMTc1MDUwNjAwMDAwMDAwNjk3NjQwMDE4Rjc2MDAwMDA4MDEwMDAwMDAwMDYyMDAwQzQwMDAwMDA4MDEwMDAwNjk3NjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDg1QTIwREZCMDAwMDAwMDAwMDAwMDAwMEQwRUZENjAwNzc2MzJENzc0NEYxRDYwMDAwMDBFNTAwMDAwMDAwMDBCOEYwRDYwMDAwMDAwMDAwMzQwMEU1MDBCQ0YwRDYwMDUwNjAyRDc3MDQwMDAwMDA4MTU1NEYwMzAwMDAwMDAwMDAwMDAwMDA4MTU1NEYwM0Q4RjBENjAwM0U2NzJENzczNEYxRDYwMDAyMDAwMDAwMDAwMDAwMDA3ODkxMkQ3Nw0KREFUQSBsYWJlbD1iZWZvcmUtYnVmZmVyIGFkZHJlc3M9MDBENkVGQkMgYnl0ZXM9OCBvaz0xIGdvdD04IGhleD02MEZFOEI3NjAwMDAwMDAwDQpEQVRBIGxhYmVsPWJlZm9yZS1pbnNpZGUgYWRkcmVzcz0wMEQ2RUY5NyBieXRlcz0xIG9rPTEgZ290PTEgaGV4PUM4DQpSRVRVUk4gb3JkaW5hbD0wIHN0YXR1cz0wMDAwMDAwMCBzcD0wMEQ2RUY5NA0KREFUQSBsYWJlbD1hZnRlci1idWZmZXIgYWRkcmVzcz0wMEQ2RUZCQyBieXRlcz04IG9rPTEgZ290PTggaGV4PTYwRkU4Qjc2MDAwMDAwMDANCkRBVEEgbGFiZWw9YWZ0ZXItaW5zaWRlIGFkZHJlc3M9MDBENkVGOTcgYnl0ZXM9MSBvaz0xIGdvdD0xIGhleD0wMA0KQ1NSX0ZJRUxEUyBwaGFzZT1hZnRlciBuYXRpdmUtbG9jYWw9N0ZDODAwMDAgbmF0aXZlLXN0YXRpY3M9N0ZDODA3NTAgbmF0aXZlLXNlcnZlcj03RkY1NjhERTAwMDAgbmF0aXZlLXNlc3Npb249MiB3b3ctbG9jYWw9N0ZDODAwMDAgd293LXN0YXRpY3M9N0ZDODA3NTAgd293LXNlcnZlcj03RkY1NjhERTAwMDAgd293LXNlc3Npb249Mg0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTM4IGJlZm9yZT0wMCBhZnRlcj1DOA0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTM5IGJlZm9yZT0wMCBhZnRlcj03Rg0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTUyIGJlZm9yZT0wMCBhZnRlcj01MA0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTUzIGJlZm9yZT0wMCBhZnRlcj0wNw0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTU0IGJlZm9yZT0wMCBhZnRlcj1DOA0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9MTU1IGJlZm9yZT0wMCBhZnRlcj03Rg0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9ODk4IGJlZm9yZT0wMCBhZnRlcj1ERQ0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9ODk5IGJlZm9yZT0wMCBhZnRlcj02OA0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9OTAwIGJlZm9yZT0wMCBhZnRlcj1GNQ0KUEVCX0NIQU5HRSB3aWR0aD02NCBvZmZzZXQ9OTAxIGJlZm9yZT0wMCBhZnRlcj03Rg0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NzggYmVmb3JlPTAwIGFmdGVyPUM4DQpQRUJfQ0hBTkdFIHdpZHRoPTMyIG9mZnNldD03OSBiZWZvcmU9MDAgYWZ0ZXI9N0YNClBFQl9DSEFOR0Ugd2lkdGg9MzIgb2Zmc2V0PTg0IGJlZm9yZT0wMCBhZnRlcj01MA0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9ODUgYmVmb3JlPTAwIGFmdGVyPTA3DQpQRUJfQ0hBTkdFIHdpZHRoPTMyIG9mZnNldD04NiBiZWZvcmU9MDAgYWZ0ZXI9QzgNClBFQl9DSEFOR0Ugd2lkdGg9MzIgb2Zmc2V0PTg3IGJlZm9yZT0wMCBhZnRlcj03Rg0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NTg2IGJlZm9yZT0wMCBhZnRlcj1ERQ0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NTg3IGJlZm9yZT0wMCBhZnRlcj02OA0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NTg4IGJlZm9yZT0wMCBhZnRlcj1GNQ0KUEVCX0NIQU5HRSB3aWR0aD0zMiBvZmZzZXQ9NTg5IGJlZm9yZT0wMCBhZnRlcj03Rg0KUEVCX0RFTFRBIGJ5dGVzNjQ9MjA0OCBieXRlczMyPTEyODAgY2hhbmdlZDY0PTEwIGNoYW5nZWQzMj0xMCBoYW5kbGVzPTM5OjQwDQpFWENFUFRJT04gY29kZT1DMDAwMDAwNSBmaXJzdD0xDQpET05FIGluc3RhbGxlZD0xIGVudGVyZWQ9MSByZXR1cm5lZD0xIGJhc2UtY2FsbHM9MSBwZW5kaW5nPTAgZXhpdD0wDQo=",
+          "stderr_b64": "",
+          "stdout_sha256": "d85ab01eea188554a88968d04e786dba2df6631d2c32589d67bfaf7159fca94c"
+        },
+        "inputs_unchanged": true,
+        "terminal": "DONE installed=1 entered=1 returned=1 base-calls=1 pending=0 exit=0",
+        "exit_code": 0,
+        "build_outputs_removed": true
+      }
+    }
+  ]
+}

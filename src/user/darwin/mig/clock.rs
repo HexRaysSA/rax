@@ -18,7 +18,7 @@ pub fn system_nanotime() -> u64 {
 
 /// Nanoseconds since the epoch (`clock_get_calendar_nanotime`).
 pub fn calendar_nanotime() -> u64 {
-    std::time::SystemTime::now()
+    crate::host::time::system_now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos() as u64

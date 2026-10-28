@@ -1,4 +1,4 @@
-//! Measured query validation and zero-before-copy publication on build29683.
+//! Measured query validation and zero-before-copy publication on admitted builds.
 use super::*;
 use crate::user::mm::PAGE_SIZE;
 
@@ -11,7 +11,7 @@ pub(crate) fn query(c: &mut Ctx) -> ApiResult {
 }
 
 fn checked(c: &mut Ctx) -> ApiResult {
-    if c.p.cfg.version.major != 10 || c.p.cfg.version.minor != 0 || c.p.cfg.version.build != 29683 {
+    if !crate::user::windows::nls::supports_startup_profile(&c.p.cfg.version) {
         return Err(c.unsupported("NtGetMUIRegistryInfo native build profile is unmeasured"));
     }
     let (flags, size, output) = (c.u32(0)?, c.ptr(1)?, c.ptr(2)?);

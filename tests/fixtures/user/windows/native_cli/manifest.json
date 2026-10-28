@@ -1,0 +1,37 @@
+{
+  "source_sha256": "e2f771c03cf2453a1e85be41d1ecfb5d5a692f87b0e600253201e53f1b1f980c",
+  "tools": {
+    "clang": {
+      "name": "clang",
+      "sha256": "5eb7c3f875d5b6eba87bacc9079065ebcd200d6fd218803cf92d0db83d3b1f06"
+    },
+    "linker": {
+      "name": "lld-link",
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd"
+    },
+    "dlltool": {
+      "name": "llvm-dlltool",
+      "sha256": "23eb85adbfff81cf51765b828a264763085454f1796acf857b8c0db5a7772bab"
+    }
+  },
+  "fixtures": [
+    {
+      "arch": "x86",
+      "path": "bin/x86/probe.exe",
+      "bytes": 2560,
+      "sha256": "b031e9794f1b985d8dcabc6e90b178c745962fcf2ebe44fb89717125d1556a87"
+    },
+    {
+      "arch": "x64",
+      "path": "bin/x64/probe.exe",
+      "bytes": 2048,
+      "sha256": "c2b1966e167922eb5a3fd5db6bdd89e0a0444d23a263dc3d6a1ba3f91e82af70"
+    },
+    {
+      "arch": "arm64",
+      "path": "bin/arm64/probe.exe",
+      "bytes": 2048,
+      "sha256": "f48c491148206e17a45d22dd94c4e85a5d9d1efaece74ed473af92c39a0982b9"
+    }
+  ]
+}

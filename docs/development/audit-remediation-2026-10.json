@@ -2338,7 +2338,10 @@
         "src/user/cpu/aarch64.rs",
         "src/user/cpu/tests/aarch64_reservations.rs",
         "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/user-adapter/qualification-v1.json",
-        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/qualification-v2.json"
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/qualification-v2.json",
+        "src/isa/x86_64/cpu_context/user.rs",
+        "docs/development/x86-context-integration/README.md",
+        "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/a64-reservation-negative-v2/result.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2358,7 +2361,8 @@
         "aarch64-shared-platform-psci-smp",
         "aarch64-tracked-reservation-coherence-2026-10-28",
         "aarch64-user-physical-reservations-2026-10-28",
-        "tracked-ram-first-domain-publication-2026-10-28"
+        "tracked-ram-first-domain-publication-2026-10-28",
+        "main-integration-and-x86-user-context-version-2026-10-28"
       ]
     },
     {
@@ -128376,7 +128380,7 @@
         },
         "QG4": {
           "status": "passed-with-explicit-scope-limits",
-          "contract": "Table12+16Cbytes;record≤16MiB;section≤1GiB;O(C+P) bounded modeled packing and exact bytecounts."
+          "contract": "Table12+16Cbytes;record\u226416MiB;section\u22641GiB;O(C+P) bounded modeled packing and exact bytecounts."
         },
         "QG5": {
           "status": "passed-with-explicit-scope-limits",
@@ -191929,6 +191933,99 @@
         "C-HVF"
       ],
       "commit_receipt": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/writer-boundary/commit-receipt.json"
+    },
+    {
+      "id": "main-integration-and-x86-user-context-version-2026-10-28",
+      "status": "locally_validated",
+      "scope": "Integrate committed main40440 into the existing audit worktree. Preserve both x86 retirement/deferred-exit and new TF/RF semantics; version private x86 user context without changing legacy layout.",
+      "audit_parent": "c4e42cf90d6c3c17b13a71c940e9bd6c847cd867",
+      "main_parent": "40440f6cf914d87cbfa605800605cae66fa23c71",
+      "ownership_evidence": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/before.json",
+      "conflict_resolutions": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/resolutions.json",
+      "regression_parent": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/context-integration-red-v2.json",
+      "fixture_provenance": "docs/development/x86-context-integration/README.md",
+      "source_manifest": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/combined-source-freeze-v1.json",
+      "final_validation": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/qualification-final.json",
+      "commit_receipt": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/commit-receipt.json",
+      "assumption_register": [
+        {
+          "id": "I1",
+          "assumption": "Only the existing task worktree changes; primary main remains a committed input.",
+          "basis": "Primary source/index/diff/untracked-name hashes before merge and current refresh.",
+          "dependent_result": "Preserved user checkout and incoming committed history.",
+          "stress_test": "Five conflict resolutions plus auto-merge duplicate module removal; exact owned staging and two-parent verification.",
+          "falsification_probe": "Any unexplained primary hash change or owned blob mismatch.",
+          "status": "confirmed before merge and at15:47; recheck immediately around commit"
+        },
+        {
+          "id": "I2",
+          "assumption": "Private x86 capture occurs between synchronous core/native invocations.",
+          "basis": "Existing active-native capture rejection and target-bound prepare contract.",
+          "dependent_result": "Reconstruct attempt-local trace suppression as false; carry consumed debug status in version2.",
+          "stress_test": "Actual v1 user checkpoint, pending syscall/native I/O continuation, malformed metadata and every truncated user record.",
+          "falsification_probe": "A supported in-flight callback context requires the transient step-suppression flag at the capture boundary.",
+          "status": "retained explicit boundary; full in-flight/whole-VM publication remains open"
+        }
+      ],
+      "bounded_scope": [
+        {
+          "impact": "high",
+          "finding": "Actual AArch64 LDXR/file restore remains negative on the combined executable; no backend context.",
+          "evidence": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/a64-reservation-negative-v2/result.json"
+        },
+        {
+          "impact": "high",
+          "finding": "Physical Intel HVF validation remains unavailable; all seven known macOS peers offline at15:17.",
+          "evidence": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/native-mac-availability-v2.json"
+        },
+        {
+          "impact": "medium",
+          "finding": "Installed red appends paths to git commit; Git forbids partial commits during a merge. Exact requested invocation precedes verification and an ordinary authorized merge commit if necessary.",
+          "evidence": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/red-merge-preflight.json"
+        }
+      ],
+      "remaining_full_findings": [
+        "A32-FP",
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "owned_paths_manifest": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/owned-paths.json",
+      "merge_byte_integrity": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/merge-byte-integrity-v2.json",
+      "validation_summary": {
+        "library_passed": 11157,
+        "library_ignored": 2,
+        "x86_isa_passed": 28559,
+        "x86_isa_ignored": 3,
+        "checkpoint_passed": 187,
+        "checkpoint_binaries": 12,
+        "aarch64_cluster_passed": 26,
+        "rosetta_x86_library_passed": 1008,
+        "c_api_passed": 208,
+        "windows_personality_passed": 544,
+        "windows_cli_passed": 8,
+        "linux_passed": 43,
+        "linux_docker_ignored": 1,
+        "darwin_passed": 377,
+        "darwin_ignored": 0,
+        "c_cpp_consumers": 18,
+        "strict_abi_objects": 6,
+        "doctests_passed": 0,
+        "doctests_ignored": 5,
+        "frozen_source_files": 3924
+      },
+      "remaining_validation": [
+        "Two existing library, three x86 ISA, one Docker oracle and five doctests remain ignored.",
+        "realmode_boot and user_windows_memory were cfg-empty on this host. Independent x86 QEMU/file execution passed.",
+        "No native Windows, wasm target build or physical Intel HVF validation.",
+        "The CAPI target-kind selection failed in the original orchestration after all portable targets; the exact retained CAPI artifact and bin harnesses passed separately. Darwin kernel exit status was independently recorded.",
+        "AArch64 file restore still loses the active exclusive reservation; full C-STATE, A32-FP, C-SMP and C-HVF remain open."
+      ],
+      "actual_file_controls": [
+        "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/x86-file-v1/result.json",
+        "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/x86-capi-v1/result.json",
+        "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/a64-reservation-negative-v2/result.json"
+      ]
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -191943,29 +192040,60 @@
     }
   ],
   "integration": {
-    "main_parent": "ee96791b42237862178f1774afaf0f1ee8570ce9",
-    "audit_parent": "b4e34efdd57c7f5fe83d1b6fa4c47940019ee745",
+    "main_parent": "40440f6cf914d87cbfa605800605cae66fa23c71",
+    "audit_parent": "c4e42cf90d6c3c17b13a71c940e9bd6c847cd867",
     "status": "locally_validated",
-    "scope": "Combined main/audit integration passed all 12 broad gates. This validates the implemented components; all four full acceptance findings remain partial.",
-    "scalar_dispositions": [],
-    "uncommitted_a32_source_manifest": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/a32-profile-input/manifest.json",
-    "uncommitted_coordinator_manifest": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/coordinator-input/manifest.json",
-    "coordinator_commit": "1585a288e5f94ccee0cae5f7e4d85bfe24af3c3e",
-    "prior_broad_evidence": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/broad-v1/result.json",
-    "hvf_evidence": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/integrated-v1/result.json",
-    "validated_source_manifest": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/broad-v2/source-hashes.json",
-    "broad_result": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/broad-v2/result.json",
-    "component_parents": [
-      "1585a288e5f94ccee0cae5f7e4d85bfe24af3c3e",
-      "7af0eee2e726d237da36567b4e58a8c4610c5326"
-    ],
-    "commit_receipt": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/integration-commit.json",
-    "remaining_state_counterexamples": {
-      "riscv_file_resume": "/Users/int/dev/rax-audit-work/four-findings-backend-private-controls/actual-vmm-v2/result.json",
-      "x86_xcr0": "/Users/int/dev/rax-audit-work/four-findings-backend-private-controls/xcr0-result.json",
-      "scope": "Historical RISC-V and x86 controls remain available. RISC-V was corrected in61809906; the software-x86 context/media group passed final validation. Actual AArch64 reservation/file restore and controller ownership controls remain unresolved. Full C-STATE remains partial.",
-      "aarch64_reservation": "/Users/int/dev/rax-audit-work/recovery/aarch64-private-negative-2026-10-28/actual-vmm-v2/result.json"
+    "scope": "Combined frozen main/audit input qualified within recorded host scope. Private x86 user wire format version2 retains version1 import and consumed debug status; all four full acceptance findings remain partial.",
+    "validation": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/qualification-final.json",
+    "commit_receipt": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/commit-receipt.json",
+    "previous_integration": {
+      "main_parent": "ee96791b42237862178f1774afaf0f1ee8570ce9",
+      "audit_parent": "b4e34efdd57c7f5fe83d1b6fa4c47940019ee745",
+      "status": "locally_validated",
+      "scope": "Combined main/audit integration passed all 12 broad gates. This validates the implemented components; all four full acceptance findings remain partial.",
+      "scalar_dispositions": [],
+      "uncommitted_a32_source_manifest": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/a32-profile-input/manifest.json",
+      "uncommitted_coordinator_manifest": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/coordinator-input/manifest.json",
+      "coordinator_commit": "1585a288e5f94ccee0cae5f7e4d85bfe24af3c3e",
+      "prior_broad_evidence": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/broad-v1/result.json",
+      "hvf_evidence": "/Users/int/dev/rax-audit-work/four-findings-hvf-rmw/integrated-v1/result.json",
+      "validated_source_manifest": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/broad-v2/source-hashes.json",
+      "broad_result": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/broad-v2/result.json",
+      "component_parents": [
+        "1585a288e5f94ccee0cae5f7e4d85bfe24af3c3e",
+        "7af0eee2e726d237da36567b4e58a8c4610c5326"
+      ],
+      "commit_receipt": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/integration-commit.json",
+      "remaining_state_counterexamples": {
+        "riscv_file_resume": "/Users/int/dev/rax-audit-work/four-findings-backend-private-controls/actual-vmm-v2/result.json",
+        "x86_xcr0": "/Users/int/dev/rax-audit-work/four-findings-backend-private-controls/xcr0-result.json",
+        "scope": "Historical RISC-V and x86 controls remain available. RISC-V was corrected in61809906; the software-x86 context/media group passed final validation. Actual AArch64 reservation/file restore and controller ownership controls remain unresolved. Full C-STATE remains partial.",
+        "aarch64_reservation": "/Users/int/dev/rax-audit-work/recovery/aarch64-private-negative-2026-10-28/actual-vmm-v2/result.json"
+      },
+      "postvalidation_packaging_receipt": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/postvalidation-packaging-change.json"
     },
-    "postvalidation_packaging_receipt": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-27/postvalidation-packaging-change.json"
+    "source_manifest": "/Users/int/dev/rax-audit-work/recovery/main-integration-2026-10-28/combined-source-freeze-v1.json",
+    "validation_summary": {
+      "library_passed": 11157,
+      "library_ignored": 2,
+      "x86_isa_passed": 28559,
+      "x86_isa_ignored": 3,
+      "checkpoint_passed": 187,
+      "checkpoint_binaries": 12,
+      "aarch64_cluster_passed": 26,
+      "rosetta_x86_library_passed": 1008,
+      "c_api_passed": 208,
+      "windows_personality_passed": 544,
+      "windows_cli_passed": 8,
+      "linux_passed": 43,
+      "linux_docker_ignored": 1,
+      "darwin_passed": 377,
+      "darwin_ignored": 0,
+      "c_cpp_consumers": 18,
+      "strict_abi_objects": 6,
+      "doctests_passed": 0,
+      "doctests_ignored": 5,
+      "frozen_source_files": 3924
+    }
   }
 }

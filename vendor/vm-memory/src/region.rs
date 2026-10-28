@@ -144,7 +144,9 @@ pub trait GuestMemoryRegion: Bytes<MemoryRegionAddress, E = GuestMemoryError> {
     /// # }
     /// ```
     fn as_volatile_slice(&self) -> Result<VolatileSlice<'_, BS<'_, Self::B>>> {
-        self.get_slice(MemoryRegionAddress(0), self.len() as usize)
+        let len =
+            usize::try_from(self.len()).map_err(|_| GuestMemoryError::InvalidBackendAddress)?;
+        self.get_slice(MemoryRegionAddress(0), len)
     }
 
     /// Show if the region is based on the `HugeTLBFS`.
@@ -328,6 +330,16 @@ impl<R: GuestMemoryRegion> GuestMemory for GuestRegionCollection<R> {
 /// special access requirements.
 pub trait GuestMemoryRegionBytes: GuestMemoryRegion {}
 
+/// Converts a region-relative address to a host byte offset.
+///
+/// `MemoryRegionAddress` is `u64`, but host memory is indexed by `usize`. On a
+/// 32-bit host an offset above `usize::MAX` lies outside every region; an `as`
+/// conversion would drop its upper bits and alias a lower offset. Report the
+/// `InvalidBackendAddress` error a 64-bit host returns for the same offset.
+pub(crate) fn host_offset(addr: MemoryRegionAddress) -> Result<usize> {
+    usize::try_from(addr.raw_value()).map_err(|_| GuestMemoryError::InvalidBackendAddress)
+}
+
 impl<R: GuestMemoryRegionBytes> Bytes<MemoryRegionAddress> for R {
     type E = GuestMemoryError;
 
@@ -351,7 +363,7 @@ impl<R: GuestMemoryRegionBytes> Bytes<MemoryRegionAddress> for R {
     /// # }
     /// ```
     fn write(&self, buf: &[u8], addr: MemoryRegionAddress) -> Result<usize> {
-        let maddr = addr.raw_value() as usize;
+        let maddr = host_offset(addr)?;
         self.as_volatile_slice()?
             .write(buf, maddr)
             .map_err(Into::into)
@@ -378,21 +390,21 @@ impl<R: GuestMemoryRegionBytes> Bytes<MemoryRegionAddress> for R {
     /// # }
     /// ```
     fn read(&self, buf: &mut [u8], addr: MemoryRegionAddress) -> Result<usize> {
-        let maddr = addr.raw_value() as usize;
+        let maddr = host_offset(addr)?;
         self.as_volatile_slice()?
             .read(buf, maddr)
             .map_err(Into::into)
     }
 
     fn write_slice(&self, buf: &[u8], addr: MemoryRegionAddress) -> Result<()> {
-        let maddr = addr.raw_value() as usize;
+        let maddr = host_offset(addr)?;
         self.as_volatile_slice()?
             .write_slice(buf, maddr)
             .map_err(Into::into)
     }
 
     fn read_slice(&self, buf: &mut [u8], addr: MemoryRegionAddress) -> Result<()> {
-        let maddr = addr.raw_value() as usize;
+        let maddr = host_offset(addr)?;
         self.as_volatile_slice()?
             .read_slice(buf, maddr)
             .map_err(Into::into)
@@ -407,8 +419,9 @@ impl<R: GuestMemoryRegionBytes> Bytes<MemoryRegionAddress> for R {
     where
         F: ReadVolatile,
     {
+        let maddr = host_offset(addr)?;
         self.as_volatile_slice()?
-            .read_volatile_from(addr.0 as usize, src, count)
+            .read_volatile_from(maddr, src, count)
             .map_err(Into::into)
     }
 
@@ -421,8 +434,9 @@ impl<R: GuestMemoryRegionBytes> Bytes<MemoryRegionAddress> for R {
     where
         F: ReadVolatile,
     {
+        let maddr = host_offset(addr)?;
         self.as_volatile_slice()?
-            .read_exact_volatile_from(addr.0 as usize, src, count)
+            .read_exact_volatile_from(maddr, src, count)
             .map_err(Into::into)
     }
 
@@ -435,8 +449,9 @@ impl<R: GuestMemoryRegionBytes> Bytes<MemoryRegionAddress> for R {
     where
         F: WriteVolatile,
     {
+        let maddr = host_offset(addr)?;
         self.as_volatile_slice()?
-            .write_volatile_to(addr.0 as usize, dst, count)
+            .write_volatile_to(maddr, dst, count)
             .map_err(Into::into)
     }
 
@@ -449,8 +464,9 @@ impl<R: GuestMemoryRegionBytes> Bytes<MemoryRegionAddress> for R {
     where
         F: WriteVolatile,
     {
+        let maddr = host_offset(addr)?;
         self.as_volatile_slice()?
-            .write_all_volatile_to(addr.0 as usize, dst, count)
+            .write_all_volatile_to(maddr, dst, count)
             .map_err(Into::into)
     }
 
@@ -460,15 +476,15 @@ impl<R: GuestMemoryRegionBytes> Bytes<MemoryRegionAddress> for R {
         addr: MemoryRegionAddress,
         order: Ordering,
     ) -> Result<()> {
-        self.as_volatile_slice().and_then(|s| {
-            s.store(val, addr.raw_value() as usize, order)
-                .map_err(Into::into)
-        })
+        let maddr = host_offset(addr)?;
+        self.as_volatile_slice()
+            .and_then(|s| s.store(val, maddr, order).map_err(Into::into))
     }
 
     fn load<T: AtomicAccess>(&self, addr: MemoryRegionAddress, order: Ordering) -> Result<T> {
+        let maddr = host_offset(addr)?;
         self.as_volatile_slice()
-            .and_then(|s| s.load(addr.raw_value() as usize, order).map_err(Into::into))
+            .and_then(|s| s.load(maddr, order).map_err(Into::into))
     }
 }
 

@@ -392,7 +392,11 @@ fn probe_ends_at_the_first_fault_whatever_the_length() {
     let s = space();
     s.map(0x10000, 2 * P, Mapping::anonymous(RW)).unwrap();
     let e = s
-        .probe(0x10000, 1usize << 62, MemoryAccessKind::Write)
+        .probe(
+            0x10000,
+            1usize << (usize::BITS - 2),
+            MemoryAccessKind::Write,
+        )
         .unwrap_err();
     assert_eq!(e.address, 0x12000);
     let e = s
@@ -1220,4 +1224,22 @@ mod shared_objects {
         assert!(small.alloc_zeroed().is_ok());
         assert!(small.alloc_extent().is_err());
     }
+}
+
+#[test]
+fn explicit_code_synchronization_invalidates_the_range_without_changing_bytes() {
+    let s = space();
+    s.map(0x10000, P, Mapping::anonymous(RX)).unwrap();
+    s.write_raw(0x10000, &[1, 2, 3, 4]).unwrap();
+    let epoch = s.code_epoch();
+    s.synchronize_code(u64::MAX, 0);
+    assert_eq!(s.code_changes_since(epoch).0, CodeChanges::None);
+    s.synchronize_code(0x10000, P);
+    assert_eq!(
+        s.code_changes_since(epoch).0,
+        CodeChanges::Ranges(vec![(0x10000, P)])
+    );
+    let mut bytes = [0; 4];
+    s.fetch(0x10000, &mut bytes).unwrap();
+    assert_eq!(bytes, [1, 2, 3, 4]);
 }

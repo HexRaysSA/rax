@@ -89,6 +89,85 @@ fn scalar_state(vcpu: &X86_64Vcpu) -> [u64; 9] {
     ]
 }
 
+struct UserRam;
+
+impl crate::vm::memory::FlatTranslation for UserRam {
+    fn translate(
+        &self,
+        linear: u64,
+        access: crate::error::MemoryAccessKind,
+    ) -> std::result::Result<u64, crate::error::GuestMemoryFault> {
+        if linear < 0x1_0000 {
+            Ok(linear)
+        } else {
+            Err(crate::error::GuestMemoryFault::unmapped(linear, 1, access))
+        }
+    }
+}
+
+#[test]
+fn user_popf_enabling_tf_deoptimizes_before_any_native_commit() {
+    // POPFQ; INC EAX; SYSCALL. A helper must return at POPFQ, allowing its
+    // direct replay to arm TF without tracing POPFQ itself or running INC.
+    let memory = memory_with_code(&[0x9d, 0xff, 0xc0, 0x0f, 0x05]);
+    let mut cpu = test_vcpu(memory.clone());
+    cpu.enable_user_mode(Arc::new(UserRam));
+    cpu.regs.rsp = 0x8000;
+    memory
+        .write_obj(0x202u64 | flags::bits::TF, GuestAddress(0x8000))
+        .unwrap();
+    let mut state = helper_state(&mut cpu, 0x8000, 0x202);
+    let before_state = state;
+    cpu.jit_mem_trace = Some(Vec::new());
+    assert_eq!(
+        unsafe { rax_jit_stack_flags(&mut state, 1, 8, 0, 0x202) },
+        0
+    );
+    assert_eq!(state, before_state);
+    assert!(cpu.jit_mem_trace.as_ref().unwrap().is_empty());
+    cpu.jit_mem_trace = None;
+
+    let before = scalar_state(&cpu);
+    let region = cpu
+        .jit_compile_region()
+        .unwrap()
+        .expect("native POPFQ region");
+    cpu.jit_run_region_native(&region);
+    assert_eq!(scalar_state(&cpu), before);
+    assert!(cpu.step_with_faults().unwrap().is_none());
+    assert_eq!(cpu.regs.rip, 1);
+    assert_eq!(cpu.regs.rsp, 0x8008);
+    assert_ne!(cpu.user_rflags() & flags::bits::TF, 0);
+    assert!(matches!(
+        cpu.step_with_faults(),
+        Err(Error::GuestEvent { vector: 1 })
+    ));
+    assert_eq!(cpu.regs.rip, 3);
+    assert_eq!(cpu.regs.rax, (before[0] as u32).wrapping_add(1) as u64);
+}
+
+#[test]
+fn user_tf_rejects_cached_regions_and_hot_promotion() {
+    let memory = memory_with_code(&[0xff, 0xc0, 0xff, 0xc0, 0x0f, 0x05]);
+    let mut cpu = test_vcpu(memory);
+    cpu.enable_user_mode(Arc::new(UserRam));
+    cpu.jit_hot.insert(0, JIT_HOT_THRESHOLD - 1);
+    cpu.jit_sample_backedge(0x100);
+    assert_eq!(cpu.jit_region_count(), 1);
+    cpu.regs.rip = 0;
+    cpu.set_user_rflags(0x202 | flags::bits::TF);
+    let before = scalar_state(&cpu);
+    assert!(!cpu.jit_try_block().unwrap());
+    assert!(cpu.jit_compile_region().unwrap().is_none());
+    assert_eq!(scalar_state(&cpu), before);
+    cpu.jit_hot.insert(0, 7);
+    cpu.jit_sample_backedge(0x100);
+    assert_eq!(cpu.jit_hot.get(&0), Some(&7));
+    assert!(matches!(cpu.run(), Err(Error::GuestEvent { vector: 1 })));
+    assert_eq!(cpu.regs.rip, 2);
+    assert_eq!(cpu.regs.rax, (before[0] as u32).wrapping_add(1) as u64);
+}
+
 #[test]
 fn stack_flags_helper_commits_complete_push_and_pop_transactions() {
     let memory = memory_with_code(&[]);

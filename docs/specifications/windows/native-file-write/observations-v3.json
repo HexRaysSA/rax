@@ -1,0 +1,440 @@
+{
+  "pid": 2248,
+  "build": 29695,
+  "source_sha256": "9f69a24588e247f7b4b4acd97960e99cc19ef3033b10b1477482d19cfb508a4a",
+  "cases": [
+    {
+      "arch": "arm64",
+      "case": 0,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=00000000;iosb=00000000000000000200000000000000;prefix=\r\n",
+      "seconds": 0.11368333400059782
+    },
+    {
+      "arch": "arm64",
+      "case": 1,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.041011458000866696
+    },
+    {
+      "arch": "arm64",
+      "case": 2,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.03935620800075412
+    },
+    {
+      "arch": "arm64",
+      "case": 3,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.052195874999597436
+    },
+    {
+      "arch": "arm64",
+      "case": 4,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=00000000;iosb=00000000000000000000000000000000;prefix=\r\n",
+      "seconds": 0.046371583001018735
+    },
+    {
+      "arch": "arm64",
+      "case": 5,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.04205191700020805
+    },
+    {
+      "arch": "arm64",
+      "case": 6,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.051610375001473585
+    },
+    {
+      "arch": "arm64",
+      "case": 7,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.05861108300086926
+    },
+    {
+      "arch": "arm64",
+      "case": 8,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.06288791699989815
+    },
+    {
+      "arch": "arm64",
+      "case": 9,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c00002c5;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.04879799999980605
+    },
+    {
+      "arch": "arm64",
+      "case": 10,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.14725266700042994
+    },
+    {
+      "arch": "arm64",
+      "case": 11,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.07450833300026716
+    },
+    {
+      "arch": "arm64",
+      "case": 12,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=0000000000000000\r\n",
+      "seconds": 0.05411887499940349
+    },
+    {
+      "arch": "arm64",
+      "case": 13,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=00000000;iosb=cccccccccccccccccccccccccccccccc;prefix=cc00000000000000000200000000000000cc\r\n",
+      "seconds": 0.048372749999543885
+    },
+    {
+      "arch": "arm64",
+      "case": 14,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.04495900000074471
+    },
+    {
+      "arch": "arm64",
+      "case": 15,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.041129375000309665
+    },
+    {
+      "arch": "arm64",
+      "case": 16,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.038710500000888715
+    },
+    {
+      "arch": "arm64",
+      "case": 17,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.045331749999604654
+    },
+    {
+      "arch": "x86",
+      "case": 0,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=00000000;iosb=0000000002000000;prefix=\r\n",
+      "seconds": 0.17168279200086545
+    },
+    {
+      "arch": "x86",
+      "case": 1,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.06073666699921887
+    },
+    {
+      "arch": "x86",
+      "case": 2,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.05344549999972514
+    },
+    {
+      "arch": "x86",
+      "case": 3,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.060967667001023074
+    },
+    {
+      "arch": "x86",
+      "case": 4,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=00000000;iosb=0000000000000000;prefix=\r\n",
+      "seconds": 0.05111899999974412
+    },
+    {
+      "arch": "x86",
+      "case": 5,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.04901054100082547
+    },
+    {
+      "arch": "x86",
+      "case": 6,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.07833087499966496
+    },
+    {
+      "arch": "x86",
+      "case": 7,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.062380499999562744
+    },
+    {
+      "arch": "x86",
+      "case": 8,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.056249916000524536
+    },
+    {
+      "arch": "x86",
+      "case": 9,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c00002c5;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.06224649999967369
+    },
+    {
+      "arch": "x86",
+      "case": 10,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.04959991599935165
+    },
+    {
+      "arch": "x86",
+      "case": 11,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=c0000005;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.05211091599994688
+    },
+    {
+      "arch": "x86",
+      "case": 12,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=c0000005;iosb=cccccccccccccccc;prefix=00000000\r\n",
+      "seconds": 0.051067292000880116
+    },
+    {
+      "arch": "x86",
+      "case": 13,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=00000000;iosb=cccccccccccccccc;prefix=cc0000000002000000cc\r\n",
+      "seconds": 0.062422875000265776
+    },
+    {
+      "arch": "x86",
+      "case": 14,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.06241404100001091
+    },
+    {
+      "arch": "x86",
+      "case": 15,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.05812537500059989
+    },
+    {
+      "arch": "x86",
+      "case": 16,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.05249254199952702
+    },
+    {
+      "arch": "x86",
+      "case": 17,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccc;prefix=\r\n",
+      "seconds": 0.05239708299995982
+    },
+    {
+      "arch": "x64",
+      "case": 0,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=00000000;iosb=00000000000000000200000000000000;prefix=\r\n",
+      "seconds": 0.2436899580006866
+    },
+    {
+      "arch": "x64",
+      "case": 1,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.11972012499973061
+    },
+    {
+      "arch": "x64",
+      "case": 2,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.09493750000001455
+    },
+    {
+      "arch": "x64",
+      "case": 3,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.0851914590002707
+    },
+    {
+      "arch": "x64",
+      "case": 4,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=00000000;iosb=00000000000000000000000000000000;prefix=\r\n",
+      "seconds": 0.12584145899927535
+    },
+    {
+      "arch": "x64",
+      "case": 5,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.1544884169998113
+    },
+    {
+      "arch": "x64",
+      "case": 6,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.10522841700003482
+    },
+    {
+      "arch": "x64",
+      "case": 7,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.10565383299945097
+    },
+    {
+      "arch": "x64",
+      "case": 8,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.10382808299982571
+    },
+    {
+      "arch": "x64",
+      "case": 9,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c00002c5;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.07962695800051733
+    },
+    {
+      "arch": "x64",
+      "case": 10,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.1104729580001731
+    },
+    {
+      "arch": "x64",
+      "case": 11,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.11860458299997845
+    },
+    {
+      "arch": "x64",
+      "case": 12,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=0000000000000000\r\n",
+      "seconds": 0.11316358400108584
+    },
+    {
+      "arch": "x64",
+      "case": 13,
+      "exit_code": 0,
+      "stdout_hex": "5859",
+      "stderr": "status=00000000;iosb=cccccccccccccccccccccccccccccccc;prefix=cc00000000000000000200000000000000cc\r\n",
+      "seconds": 0.15908433299955504
+    },
+    {
+      "arch": "x64",
+      "case": 14,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.08895512500021141
+    },
+    {
+      "arch": "x64",
+      "case": 15,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.08991137500015611
+    },
+    {
+      "arch": "x64",
+      "case": 16,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000008;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.11044029100048647
+    },
+    {
+      "arch": "x64",
+      "case": 17,
+      "exit_code": 0,
+      "stdout_hex": "",
+      "stderr": "status=c0000005;iosb=cccccccccccccccccccccccccccccccc;prefix=\r\n",
+      "seconds": 0.12166150000120979
+    }
+  ],
+  "state": "finished"
+}

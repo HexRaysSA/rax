@@ -204,7 +204,9 @@ impl_atomic_access!(i32, std::sync::atomic::AtomicI32);
     target_arch = "aarch64",
     target_arch = "powerpc64",
     target_arch = "s390x",
-    target_arch = "riscv64"
+    target_arch = "riscv64",
+    target_arch = "wasm32",
+    target_arch = "wasm64"
 ))]
 impl_atomic_access!(i64, std::sync::atomic::AtomicI64);
 
@@ -216,7 +218,9 @@ impl_atomic_access!(u32, std::sync::atomic::AtomicU32);
     target_arch = "aarch64",
     target_arch = "powerpc64",
     target_arch = "s390x",
-    target_arch = "riscv64"
+    target_arch = "riscv64",
+    target_arch = "wasm32",
+    target_arch = "wasm64"
 ))]
 impl_atomic_access!(u64, std::sync::atomic::AtomicU64);
 

@@ -15,8 +15,8 @@
 //! A `signalfd` reports the calling thread's pending signals, so its
 //! readiness is evaluated by the reader; only its mask is shared.
 
+use crate::host::time::Instant;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
 
 use super::super::abi::errno::Errno;
 use super::super::host::SharedWords;

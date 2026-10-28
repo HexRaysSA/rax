@@ -8,6 +8,11 @@ use std::sync::Arc;
 
 pub(crate) const MAX_IMAGE_BYTES: u64 = 64 << 20;
 pub(crate) const MAX_EXTENSION_BYTES: u64 = 64 << 10;
+pub(crate) const MAX_IMAGE_TAIL_BYTES: u64 = 64 << 10;
+pub(crate) mod extension_query;
+#[cfg(any(windows, test))]
+pub(crate) mod region;
+pub(crate) use extension_query::ExtensionQuery;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ImageExtension {
     pub(crate) rva: u64,
@@ -26,6 +31,8 @@ pub(crate) struct ImageTemplate {
     pub(crate) preferred: u64,
     pub(crate) machine: u16,
     pub(crate) extensions: [Option<ImageExtension>; 2],
+    pub(crate) extension_query: ExtensionQuery,
+    reserved_tail: u64,
     rebased: Option<Arc<[u8]>>,
     pub(crate) large_pages: bool,
     nt_offset: usize,
@@ -39,6 +46,7 @@ impl std::fmt::Debug for ImageTemplate {
             .field("regions", &self.regions)
             .field("preferred", &self.preferred)
             .field("machine", &self.machine)
+            .field("reserved_tail", &self.reserved_tail)
             .finish()
     }
 }
@@ -150,12 +158,28 @@ impl ImageTemplate {
             preferred,
             machine,
             extensions,
+            extension_query: ExtensionQuery::Both,
+            reserved_tail: 0,
             rebased: None,
             large_pages: true,
             nt_offset: at,
             wide,
             relocations,
         }))
+    }
+    pub(crate) fn with_extension_query(
+        mut image: Arc<Self>,
+        query: ExtensionQuery,
+    ) -> io::Result<Arc<Self>> {
+        if query == ExtensionQuery::Unavailable && image.extensions.iter().any(Option::is_some)
+            || query == ExtensionQuery::NativeOnly && image.extensions[1].is_some()
+        {
+            return Err(invalid("unavailable image extension has captured payload"));
+        }
+        Arc::get_mut(&mut image)
+            .ok_or_else(|| invalid("image query policy already shared"))?
+            .extension_query = query;
+        Ok(image)
     }
     /// The compatibility syscall transport accepts LARGE_PAGES but maps
     /// ordinary image pages; combined-flag validation is still unchanged.
@@ -172,6 +196,18 @@ impl ImageTemplate {
             .map(|e| e.rva + e.bytes.len() as u64)
             .max()
             .unwrap_or(self.bytes.len() as u64)
+            + self.reserved_tail
+    }
+    /// Reserved host-owner padding follows the final image/code-extension page.
+    /// Ordinary full views retain it; partial/large views omit it.
+    pub(crate) fn with_reserved_tail(mut image: Arc<Self>, bytes: u64) -> io::Result<Arc<Self>> {
+        if bytes % 4096 != 0 || bytes > MAX_IMAGE_TAIL_BYTES {
+            return Err(invalid("selected image reserved tail geometry"));
+        }
+        Arc::get_mut(&mut image)
+            .ok_or_else(|| invalid("image tail policy already shared"))?
+            .reserved_tail = bytes;
+        Ok(image)
     }
     /// Two independent native rebase views must normalize to identical bytes,
     /// page policy and extensions. Capture kernel guard adjustments as well as
@@ -194,12 +230,16 @@ impl ImageTemplate {
             || second.relocations.size != original.relocations.size
             || first.large_pages != original.large_pages
             || second.large_pages != original.large_pages
+            || first.reserved_tail != original.reserved_tail
+            || second.reserved_tail != original.reserved_tail
             || first.machine != original.machine
             || second.machine != original.machine
             || first.regions != original.regions
             || second.regions != original.regions
             || first.extensions != original.extensions
             || second.extensions != original.extensions
+            || first.extension_query != original.extension_query
+            || second.extension_query != original.extension_query
         {
             return Err(invalid("native rebase view policy changed"));
         }

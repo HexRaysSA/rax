@@ -1,9 +1,16 @@
 # Software x86 checkpoint contexts
 
 Software x86 CPUs export producer kind 4 in required checkpoint section 14.
-The versioned `RAXX8601` record carries their represented CPU, private execution,
+The versioned `RAXX8602` record carries their represented CPU, private execution,
 MMU, and user-mode state. Complete immutable boot media are stored once in
 required section 15, independently of the 16 MiB per-CPU record limit.
+The original `RAXX8601` decoder remains available. Version 2 preserves the
+original base layout and adds the user-mode consumed DR6 snapshot; the optional
+snapshot must match the presence of a user binding. Attempt-local trace
+suppression is reconstructed as false. See the frozen
+[pre-integration control](x86-context-integration/README.md) for wire provenance
+and rejection tests. The C API outer format remains 7 and the VM producer kind
+remains 4.
 
 ## State and bindings
 
@@ -15,7 +22,7 @@ required section 15, independently of the 16 MiB per-CPU record limit.
 | Optional ISA capabilities | Preserve all nine software capability switches; reset retains the selected configuration |
 | Input completion | Preserve width, register or memory destination, and batch count, separately from any undelivered native exit |
 | Deferred native exits and VSIB restart | Use a stable exit representation independent of debug build features; deliver a pending exit once before further execution, without retirement |
-| User mode | Preserve pending syscall/exception traps, compatibility mode, and all 128 private GDT bytes |
+| User mode | Preserve pending syscall/exception traps, compatibility mode, consumed debug status, and all 128 private GDT bytes |
 | Memory observations | Preserve recording/fetch configuration and ordered buffered access records; draining consumes each record once |
 | Inline LAPIC | Preserve every modeled field and elapsed timer phase; restore rebases phase into the target clock domain |
 | RAM, shared LAPIC, PCI and process translation | Retain the target's external bindings; require matching binding modes and PCI aperture |

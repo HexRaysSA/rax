@@ -1087,15 +1087,22 @@ fn load_dll_from(p: &mut Proc, name: &str, parent: Option<&str>) -> Result<usize
 /// Maps a DLL file.
 fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError> {
     admit_new_module(p)?;
-    let bytes = (if p
-        .native
-        .as_ref()
-        .is_some_and(|runtime| path.starts_with(&runtime.directory))
-    {
-        super::native::read_image(path)
-    } else {
-        std::fs::read(path)
-    })
+    let (bytes, file) = (|| -> std::io::Result<_> {
+        let mut file = std::fs::File::open(path)?;
+        let bytes = if p
+            .native
+            .as_ref()
+            .is_some_and(|runtime| path.starts_with(&runtime.directory))
+        {
+            super::native::read_image_file(&mut file)?
+        } else {
+            let mut bytes = Vec::new();
+            std::io::Read::read_to_end(&mut file, &mut bytes)?;
+            bytes
+        };
+        let file = p.native.is_some().then_some(file);
+        Ok((bytes, file))
+    })()
     .map_err(|e| LoadError::new(STATUS_DLL_NOT_FOUND, format!("{}: {e}", path.display())))?;
     let guest_path = if let Some(runtime) = p.native.as_ref() {
         match path.strip_prefix(&runtime.directory) {
@@ -1121,7 +1128,7 @@ fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError
     } else {
         p.cfg.drives.to_windows(path)
     };
-    load_image(p, bytes, name, guest_path, Some(path.to_path_buf()))
+    load_image(p, bytes, name, guest_path, Some(path.to_path_buf()), file)
 }
 
 fn load_image(
@@ -1130,6 +1137,7 @@ fn load_image(
     name: &str,
     path: String,
     host_path: Option<PathBuf>,
+    file: Option<std::fs::File>,
 ) -> Result<usize, LoadError> {
     admit_new_module(p)?;
     let pe = PeImage::parse(bytes)
@@ -1151,10 +1159,30 @@ fn load_image(
         ));
     }
     let selected_native = native_image::map(p, &pe, host_path.as_deref())?;
+    let filename = if selected_native.is_none() {
+        file.as_ref()
+            .map(super::mapped_filename::Filename::image)
+            .transpose()
+            .map_err(|error| {
+                LoadError::new(
+                    STATUS_NOT_SUPPORTED,
+                    format!("selected image filename: {error}"),
+                )
+            })?
+            .flatten()
+    } else {
+        None
+    };
     let base = match selected_native {
         Some(base) => base,
         None => map_pe(p, &pe, name)?,
     };
+    if selected_native.is_none()
+        && let Some(filename) = filename
+    {
+        p.vm.record_mapped_filename(base, filename)
+            .map_err(|error| LoadError::new(error.status(), "cannot retain image filename"))?;
+    }
     let file_name = path.rsplit('\\').next().unwrap_or(name).to_owned();
     let module = Module {
         name: file_name,

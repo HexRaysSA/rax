@@ -819,6 +819,11 @@ impl ExceptionRecord {
 
     /// Writes the record at `addr`.
     pub fn write(&self, mem: &impl Mem, arch: WinArch, addr: u64) -> Result<(), MemFault> {
+        mem.wr(addr, &self.encode(arch))
+    }
+
+    /// The fixed-width guest image, including zero padding and unused parameters.
+    pub(crate) fn encode(&self, arch: WinArch) -> Vec<u8> {
         let p = arch.ptr_size();
         let mut b = vec![0u8; Self::size(arch) as usize];
         b[0..4].copy_from_slice(&self.code.to_le_bytes());
@@ -842,7 +847,7 @@ impl ExceptionRecord {
         for (i, &v) in self.params.iter().take(n).enumerate() {
             put(&mut b, info_off + p as usize * i, v);
         }
-        mem.wr(addr, &b)
+        b
     }
 
     /// Reads the record at `addr`. `NumberParameters` above the maximum is

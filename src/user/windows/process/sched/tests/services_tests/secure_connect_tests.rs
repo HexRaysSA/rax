@@ -9,13 +9,13 @@ const SERVICE: u32 = 0x194;
 pub(super) mod csr;
 #[cfg(windows)]
 #[path = "secure_connect_leaf_tests.rs"]
-mod installed;
+pub(super) mod installed;
 #[path = "secure_connect_readonly_tests.rs"]
 mod readonly;
 #[path = "secure_connect_replay_tests.rs"]
 mod replay;
 
-fn selected_namespace() -> Namespace {
+pub(super) fn selected_namespace() -> Namespace {
     let entry = |name: &str, kind: &str| CapturedEntry {
         name: name.encode_utf16().collect(),
         kind: kind.encode_utf16().collect(),

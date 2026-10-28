@@ -10,7 +10,7 @@ mod installed;
 mod replay;
 
 fn now() -> u64 {
-    let duration = std::time::SystemTime::now()
+    let duration = crate::host::time::system_now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap();
     116_444_736_000_000_000 + u64::try_from(duration.as_nanos() / 100).unwrap()

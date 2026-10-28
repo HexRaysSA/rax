@@ -46,10 +46,91 @@ mod f {
     pub const THREADCOUNTS: i32 = 34;
 }
 
-/// `PROC_FLAG_EXEC`, `PROC_FLAG_SLEADER`, `PROC_FLAG_CTTY`.
+/// Process flags (`bsd/sys/proc_info.h`).
+const PROC_FLAG_TRACED: u32 = 0x2;
 const PROC_FLAG_EXEC: u32 = 0x4000;
 const PROC_FLAG_SLEADER: u32 = 0x20;
 const PROC_FLAG_CTTY: u32 = 0x40;
+
+/// Project a known guest trace relationship into host process-info records.
+pub(super) fn project_traced(
+    flavor: i32,
+    bytes: &mut [u8],
+    traced: bool,
+    signal: Option<(bool, i32)>,
+) {
+    let (offset, status_offset, xstatus_offset) = match flavor {
+        f::TASKALLINFO | f::TBSDINFO | f::BSDINFOWITHUNIQID => (0, 4, Some(8)),
+        f::SHORTBSDINFO => (32, 12, None),
+        _ => return,
+    };
+    let Some(flags) = bytes.get_mut(offset..offset + 4) else {
+        return;
+    };
+    let value = u32::from_le_bytes((&*flags).try_into().expect("four flag bytes"));
+    let value = (value & !PROC_FLAG_TRACED) | if traced { PROC_FLAG_TRACED } else { 0 };
+    flags.copy_from_slice(&value.to_le_bytes());
+    if let Some((stopped, xstatus)) = signal {
+        if stopped && let Some(status) = bytes.get_mut(status_offset..status_offset + 4) {
+            status.copy_from_slice(&4u32.to_le_bytes());
+        }
+        if let Some(offset) = xstatus_offset
+            && let Some(status) = bytes.get_mut(offset..offset + 4)
+        {
+            status.copy_from_slice(&(xstatus as u32).to_le_bytes());
+        }
+    }
+}
+
+/// proc_pidinfo's zombie lookup is opt-in for the BSD identity flavors.
+/// Preserve its size-validation precedence before returning ESRCH.
+pub(super) fn zombie_lookup(a: &Args) -> Result<(), Errno> {
+    let required = min_size(a.flavor, a.buffer == 0).ok_or(Errno::EINVAL)?;
+    if a.size < required {
+        return Err(Errno::ENOMEM);
+    }
+    if a.flavor == f::PATHINFO && a.size > 4096 {
+        return Err(Errno::EOVERFLOW);
+    }
+    let allowed = matches!(
+        a.flavor,
+        f::NOTEEXIT | f::EXITREASONINFO | f::EXITREASONBASICINFO | f::PLATFORMINFO
+    ) || a.arg != 0
+        && matches!(
+            a.flavor,
+            f::TBSDINFO | f::SHORTBSDINFO | f::BSDINFOWITHUNIQID | f::UNIQIDENTIFIERINFO
+        );
+    if allowed { Ok(()) } else { Err(Errno::ESRCH) }
+}
+
+/// Both supported guest ABIs use these fixed 64-bit proc_info layouts.
+pub(super) fn project_parentage(
+    flavor: i32,
+    bytes: &mut [u8],
+    parent: Option<i32>,
+    exit: Option<i32>,
+) {
+    let (parent_offset, status_offset, xstatus_offset) = match flavor {
+        f::TASKALLINFO | f::TBSDINFO | f::BSDINFOWITHUNIQID => (16, 4, Some(8)),
+        f::SHORTBSDINFO => (4, 12, None),
+        _ => return,
+    };
+    if let Some(parent) = parent
+        && let Some(field) = bytes.get_mut(parent_offset..parent_offset + 4)
+    {
+        field.copy_from_slice(&parent.to_le_bytes());
+    }
+    if let Some(exit) = exit {
+        if let Some(field) = bytes.get_mut(status_offset..status_offset + 4) {
+            field.copy_from_slice(&5u32.to_le_bytes());
+        }
+        if let Some(offset) = xstatus_offset
+            && let Some(field) = bytes.get_mut(offset..offset + 4)
+        {
+            field.copy_from_slice(&exit.to_le_bytes());
+        }
+    }
+}
 
 /// `PROC_REGION_SHARED`.
 const PROC_REGION_SHARED: u32 = 2;
@@ -117,7 +198,16 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
         f::TASKINFO => copyout(ctx, a, &taskinfo(ctx).0),
         f::THREADINFO | f::THREADID64INFO => {
             let by_id = a.flavor == f::THREADID64INFO;
-            let o = with_thread(ctx, a.arg, by_id, threadinfo).ok_or(Errno::ESRCH)?;
+            let o = with_thread(ctx, a.arg, by_id, |t, abi, running| {
+                threadinfo(
+                    t,
+                    abi,
+                    running,
+                    ctx.proc.task.suspension.is_stopped(),
+                    super::super::ptrace::signal_waiting(&ctx.proc.tracing, t.tid),
+                )
+            })
+            .ok_or(Errno::ESRCH)?;
             copyout(ctx, a, &o.0)
         }
         f::LISTTHREADS | f::LISTTHREADIDS => listthreads(ctx, a),
@@ -168,7 +258,16 @@ pub fn own(ctx: &mut Ctx<'_>, a: &Args) -> SysResult {
             copyout(ctx, a, &o.0)
         }
         f::THREADPATHINFO => {
-            let t = with_thread(ctx, a.arg, false, threadinfo).ok_or(Errno::ESRCH)?;
+            let t = with_thread(ctx, a.arg, false, |t, abi, running| {
+                threadinfo(
+                    t,
+                    abi,
+                    running,
+                    ctx.proc.task.suspension.is_stopped(),
+                    super::super::ptrace::signal_waiting(&ctx.proc.tracing, t.tid),
+                )
+            })
+            .ok_or(Errno::ESRCH)?;
             let mut o = Out::new(1288);
             o.bytes(0, &t.0);
             copyout(ctx, a, &o.0)
@@ -319,18 +418,29 @@ fn listfds(ctx: &Ctx<'_>, a: &Args) -> SysResult {
 }
 
 /// `PROC_PIDTBSDINFO` (`proc_pidbsdinfo`): the host's record of this
-/// process with the emulated image's name, whether it has executed an
-/// image, and its descriptor table.
+/// process with the emulated image's name, exec and trace flags, and its
+/// descriptor table.
 fn bsdinfo(ctx: &Ctx<'_>) -> Result<Out, Errno> {
     let mut o = Out(host_self(ctx.proc.pid, f::TBSDINFO, 136)?);
     let flags = u32::from_le_bytes(o.0[0..4].try_into().expect("4 bytes"));
-    let flags = (flags & !PROC_FLAG_EXEC) | if ctx.proc.execed { PROC_FLAG_EXEC } else { 0 };
+    let flags = (flags & !(PROC_FLAG_EXEC | PROC_FLAG_TRACED))
+        | if ctx.proc.execed { PROC_FLAG_EXEC } else { 0 }
+        | if ctx.proc.tracing.tracer.is_some() {
+            PROC_FLAG_TRACED
+        } else {
+            0
+        };
+    let signal =
+        super::super::ptrace::known_signal_status(&ctx.proc.tracing, ctx.proc.pid, ctx.proc.pid);
     let name = image_name(ctx);
     o.u32(0, flags)
-        .u32(8, 0)
+        .u32(8, signal.map_or(0, |(_, status)| status as u32))
         .str(48, 16, &name)
         .str(64, 32, &name)
         .u32(96, fd_nfiles(ctx));
+    if signal.is_some_and(|(stopped, _)| stopped) {
+        o.u32(4, 4);
+    }
     Ok(o)
 }
 
@@ -409,7 +519,19 @@ fn taskinfo(ctx: &Ctx<'_>) -> Out {
     });
     let (du, ds) = ctx.proc.task.dead_times;
     let csw: u64 = live.iter().map(|(t, _)| t.mach.csw).sum();
-    let running = live.iter().filter(|(t, own)| *own || t.runnable()).count();
+    let running = live
+        .iter()
+        .filter(|(thread, own)| {
+            let waiting = super::super::ptrace::signal_waiting(&ctx.proc.tracing, thread.tid);
+            // TH_STATE_RUNNING: use the same projection as THREAD_BASIC_INFO.
+            crate::user::darwin::mig::thread::basic_info(
+                thread,
+                *own,
+                ctx.proc.task.suspension.is_stopped(),
+                waiting,
+            )[6] == 1
+        })
+        .count();
     let clamp = |v: u64| v.min(i32::MAX as u64) as u32;
     let mut o = Out::new(96);
     o.u64(0, vsize)
@@ -453,9 +575,15 @@ fn with_thread<R>(
 /// `proc_threadinfo` (`fill_taskthreadinfo`): the thread's basic
 /// information (its times at microsecond granularity), priorities, and
 /// name.
-fn threadinfo(t: &Thread, _: DarwinAbi, running: bool) -> Out {
+fn threadinfo(
+    t: &Thread,
+    _: DarwinAbi,
+    running: bool,
+    task_stopped: bool,
+    signal_waiting: bool,
+) -> Out {
     use crate::user::darwin::mig::thread as mt;
-    let b = mt::basic_info(t, running);
+    let b = mt::basic_info(t, running, task_stopped, signal_waiting);
     let time = |w: usize| u64::from(b[w]) * 1_000_000_000 + u64::from(b[w + 1]) * 1000;
     let mut o = Out::new(112);
     o.u64(0, time(0))
@@ -606,4 +734,70 @@ fn region_vnode(ctx: &Ctx<'_>, v: &Vma, o: &mut Out, at: usize) -> bool {
     let path = region_path(v).unwrap_or_default();
     o.path(at + 152, 1024, &path);
     true
+}
+
+#[cfg(test)]
+mod registry_tests {
+    use super::*;
+
+    fn query(flavor: i32, arg: u64) -> Args {
+        Args {
+            callnum: super::super::call::PIDINFO,
+            pid: 1002,
+            flavor,
+            flags: 0,
+            ext_id: 0,
+            extended: false,
+            arg,
+            buffer: 0x1000,
+            size: 4096,
+        }
+    }
+
+    #[test]
+    fn zombie_identity_lookup_requires_explicit_arg_and_preserves_error_priority() {
+        for flavor in [
+            f::TBSDINFO,
+            f::SHORTBSDINFO,
+            f::BSDINFOWITHUNIQID,
+            f::UNIQIDENTIFIERINFO,
+        ] {
+            assert_eq!(zombie_lookup(&query(flavor, 0)), Err(Errno::ESRCH));
+            assert_eq!(zombie_lookup(&query(flavor, 1)), Ok(()));
+        }
+        assert_eq!(zombie_lookup(&query(f::TASKALLINFO, 1)), Err(Errno::ESRCH));
+        let mut short = query(f::TBSDINFO, 0);
+        short.size = 135;
+        assert_eq!(zombie_lookup(&short), Err(Errno::ENOMEM));
+        let mut path = query(f::PATHINFO, 0);
+        path.size = 4097;
+        assert_eq!(zombie_lookup(&path), Err(Errno::EOVERFLOW));
+    }
+
+    #[test]
+    fn parent_and_zombie_projection_uses_bsd_and_short_record_layouts() {
+        for (flavor, size, parent_offset, status_offset, xstatus) in [
+            (f::TBSDINFO, 136, 16, 4, Some(8)),
+            (f::TASKALLINFO, 232, 16, 4, Some(8)),
+            (f::SHORTBSDINFO, 64, 4, 12, None),
+        ] {
+            let mut bytes = vec![0xa5; size];
+            project_parentage(flavor, &mut bytes, Some(1003), Some(0x2a00));
+            assert_eq!(
+                i32::from_le_bytes(bytes[parent_offset..parent_offset + 4].try_into().unwrap()),
+                1003
+            );
+            assert_eq!(
+                u32::from_le_bytes(bytes[status_offset..status_offset + 4].try_into().unwrap()),
+                5
+            );
+            if let Some(offset) = xstatus {
+                assert_eq!(
+                    u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()),
+                    0x2a00
+                );
+            }
+            project_parentage(flavor, &mut bytes[..3], Some(1003), Some(0x2a00));
+        }
+    }
 }

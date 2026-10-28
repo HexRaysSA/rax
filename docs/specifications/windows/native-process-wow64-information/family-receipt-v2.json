@@ -1,0 +1,66 @@
+{
+  "pid": 2376,
+  "state": "finished",
+  "commands": [
+    {
+      "label": "child-compile",
+      "exit_code": 0,
+      "seconds": 0.2557424170008744
+    },
+    {
+      "label": "parent-compile",
+      "exit_code": 0,
+      "seconds": 0.5511436250017141
+    },
+    {
+      "label": "family-launch",
+      "exit_code": 0,
+      "seconds": 1.2753085410004132
+    }
+  ],
+  "samples": [
+    {
+      "mode": "default",
+      "rows": 433,
+      "stdout_sha256": "69bf33afeffd9ef22776d044ddca4533859c9fabd48eaafbd23281ae8f2fdcff",
+      "terminal": "{\"kind\":\"complete\",\"cases\":433}"
+    },
+    {
+      "mode": "enabled",
+      "rows": 433,
+      "stdout_sha256": "0244581a267c0dabd2b3a51044df807188db50a691e1733b71357dc0b167f3a3",
+      "terminal": "{\"kind\":\"complete\",\"cases\":433}"
+    },
+    {
+      "mode": "disabled",
+      "rows": 433,
+      "stdout_sha256": "2ab6a38ddabbf08ceec9bcebcbda10c17bd165326e8ab4e94377572e7e8d6eb1",
+      "terminal": "{\"kind\":\"complete\",\"cases\":433}"
+    }
+  ],
+  "kernel": [
+    10,
+    0,
+    29695,
+    2,
+    ""
+  ],
+  "inputs_sha256": {
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-process-wow64-information-family-29695-v2\\probe.cpp": "f872295861572a098ffca08f2e3b418e45b5f97d99ccfb250e5c75f448b91460",
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-process-wow64-information-family-29695-v2\\child.cpp": "b9b9c7b686f3fe0a15e779f4ce57834087cac7f7f09a5ede1e8c9359363f86ed",
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-process-wow64-information-family-29695-v2\\driver.py": "eca2ad81b3900b9fb33d295e54590b5098615c008ebb74f64f02c08cf53c149a",
+    "C:\\Windows\\System32\\ntdll.dll": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+    "C:\\Windows\\SysWOW64\\ntdll.dll": "830cfffd91b39ee07578b2fcf89d9b1b838d7e805a2180597521df90ea022a0e"
+  },
+  "child_pid": 7312,
+  "binary_sha256": {
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-process-wow64-information-family-29695-v2\\build\\initial-control.exe": "0412bbd1e0cca1afb977108cef285cb12955ccbbbb98d0694b4385c000dc3121",
+    "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\target\\native-process-wow64-information-family-29695-v2\\build\\controlled-child.exe": "7ae4a4dd1d66f9692f98dae8fb5819b8ec7dce65abb8de6b3876786460cdc2a8"
+  },
+  "compiler_sha256": {
+    "arm64": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+    "x86": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad"
+  },
+  "exit_code": 0,
+  "inputs_unchanged": true
+}

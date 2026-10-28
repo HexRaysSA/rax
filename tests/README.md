@@ -69,6 +69,7 @@ listed below is declared explicitly with a `[[test]]` entry in the root
 | `smir_jit_thumb_aarch64` | `suites/smir/jit/thumb_aarch64.rs` |
 | `user_darwin` | `suites/user/darwin/main.rs` |
 | `user_linux` | `suites/user/linux/main.rs` |
+| `user_windows_cli` | `suites/user/windows/cli.rs` |
 | `user_windows` | `suites/user/windows/main.rs` |
 | `user_windows_memory` | `suites/user/windows_memory.rs` |
 | `x86_64_paging` | `suites/isa/x86_64/paging_contract.rs` |
@@ -358,3 +359,17 @@ no-DMA restore, pending commands/completions, interrupt state, readonly media an
 transactional malformed-input rejection. The independent controller-state parser
 checks the published bytes and controlled continuation events. Admin queues have
 a separate 4096-entry bound from I/O MQES; the admission owner covers all AQA sizes.
+
+`user_windows_cli` runs the actual Cargo-built CLI on Unix and Windows. It
+covers built-in PE execution for x86, x64, and ARM64, missing/invalid images,
+unavailable native DLL mode on Unix, and native system-DLL selection on Windows.
+The Windows cases compare stdout and all 32 exit-status bits with native
+execution of the same freestanding fixture. The fixture records the loaded
+KERNEL32 timestamp and image size, so built-in DLLs cannot satisfy that oracle.
+
+On Windows ARM64, the existing x86 profile selects pure x86 SysWOW64 DLLs;
+the native x86 control may load CHPE modules with different PE metadata.
+That case compares status and the output marker with native execution, and
+checks the DLL signature against the installed pure x86 KERNEL32 file.
+Host-ABI cases compare the complete output with native execution. CHPE execution
+remains a separate, incomplete capability.

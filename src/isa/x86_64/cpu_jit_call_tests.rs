@@ -1,8 +1,8 @@
 //! Native and helper-level tests for x86-64 lift-through-call JIT regions.
 
 use super::*;
+use crate::host::time::{Duration, Instant};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 fn test_vcpu_with_mem() -> (X86_64Vcpu, Arc<GuestMemoryMmap>) {

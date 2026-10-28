@@ -4,7 +4,7 @@
 //! `fs/select.c` (Linux 6.19); timing bounds are generous because the host
 //! schedules the test.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::harness::{Harness, each_abi};
 use crate::user::linux::abi::errno_table::*;

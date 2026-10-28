@@ -129,6 +129,12 @@ pub(super) unsafe extern "C" fn rax_jit_stack_flags(
             return 0;
         }
     };
+    if vcpu.user_mode_enabled() && new_rflags & flags::bits::TF != 0 {
+        // Enabling TF must return to direct execution at this POPF, before
+        // its stack/flag commit. Replay then arms the following instruction;
+        // a native region must not execute past that new debug frontier.
+        return 0;
+    }
     vcpu.push_jit_mem_trace((0, address, width as u8, popped));
 
     state.gpr[4] = old_rsp.wrapping_add(u64::from(width));

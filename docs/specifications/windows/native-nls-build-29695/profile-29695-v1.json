@@ -1,0 +1,366 @@
+{
+  "kernel": [
+    10,
+    0,
+    29695
+  ],
+  "scope": "One ARM64 kernel; native ARM64 and compatibility x64/x86/x86-LAA processes",
+  "profiles": [
+    {
+      "arch": "arm64",
+      "kind": "initialize",
+      "rows": 79,
+      "native_stdout_sha256": "c4d5e77826cb21a09a75e7024aca871c35bb32e344c812c7197e507f65b3a7d6",
+      "canonical_sha256": "d476bd44bcf21014e53ddcef1dc5b2531b421230e9a9d620ef7bbd46baecdf75"
+    },
+    {
+      "arch": "arm64",
+      "kind": "protect",
+      "rows": 12,
+      "native_stdout_sha256": "f2c71343d6a077fab4ec68b4bcca2bae620156ab7a19f6d29a483253a773b738",
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f"
+    },
+    {
+      "arch": "arm64",
+      "kind": "mui",
+      "rows": 1680,
+      "native_stdout_sha256": "1db9913725bcd57ebfc8d47fdb5ff881515681ae311e4529fdc0ba4cf2559fb8",
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4"
+    },
+    {
+      "arch": "x64",
+      "kind": "initialize",
+      "rows": 79,
+      "native_stdout_sha256": "4be2d4438d27c3826f1ce6510aa90d94f0fd5d06485c6d8283e960d061459230",
+      "canonical_sha256": "d476bd44bcf21014e53ddcef1dc5b2531b421230e9a9d620ef7bbd46baecdf75"
+    },
+    {
+      "arch": "x64",
+      "kind": "protect",
+      "rows": 12,
+      "native_stdout_sha256": "7437b2ff42962f7b268a2f9b8e2d626c1853f3440ae46e66318efd0f9d6c58a2",
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f"
+    },
+    {
+      "arch": "x64",
+      "kind": "mui",
+      "rows": 1680,
+      "native_stdout_sha256": "1db9913725bcd57ebfc8d47fdb5ff881515681ae311e4529fdc0ba4cf2559fb8",
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4"
+    },
+    {
+      "arch": "x86",
+      "kind": "initialize",
+      "rows": 79,
+      "native_stdout_sha256": "d8eb92179d5d9f22ba782167f23ee837e72e68d6efa91da8115745c30abfb676",
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb"
+    },
+    {
+      "arch": "x86",
+      "kind": "protect",
+      "rows": 12,
+      "native_stdout_sha256": "3df304161a9f2d963247e9d0f5cc14cf63ba3152dbd4734500eefb3da275d7f5",
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f"
+    },
+    {
+      "arch": "x86",
+      "kind": "mui",
+      "rows": 1680,
+      "native_stdout_sha256": "6c9d97bfb63aec5d8bb84b08a65462838747733c72910fbe577db389f50add60",
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4"
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "initialize",
+      "rows": 79,
+      "native_stdout_sha256": "cdb52891196aa3d6885a3a1fb529446cf35cfaefc7df86d85682df65dc6a34f0",
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb"
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "protect",
+      "rows": 12,
+      "native_stdout_sha256": "adbaa13a8a0323a009a2f025d1b16935bbf726c84f64d486eae05e182d46fcb4",
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f"
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "mui",
+      "rows": 1680,
+      "native_stdout_sha256": "6c9d97bfb63aec5d8bb84b08a65462838747733c72910fbe577db389f50add60",
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4"
+    }
+  ],
+  "sources": {
+    "docs/specifications/windows/native-nls-build-29695/native-nls-initialize-v2.cpp": "c003afe72d55ccfbf4367694fe4c516cdd82f7e3925f7bf9cab560b63f1b4e70",
+    "docs/specifications/windows/native-nls-build-29695/native-nls-initialize-protection-v2.cpp": "43fd1aa406e456c3e28ecb60d3194de39a77dee6f9cc96ef1a09ca347666256a",
+    "docs/specifications/windows/native-nls-build-29695/capture-native-mui-generation-29695-v2.py": "9a1aa486a80ebcef6c2ca1ad858ea4ac79d9fd0635678db62445c182a16e0359",
+    "docs/specifications/windows/native-nls-build-29695/observe-controller-v1.py": "53638ea34a6cdd04cbeb78d965657ae93690ed6b2a9d97d10eed73f666e141ec",
+    "docs/specifications/windows/native-nls-build-29695/wow64-controller-v1.py": "d8094e18d31ec9ac0506c11e2b06b7002f32f6639ad97c540633c2b39472acdb",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize.cpp": "b51a47f4bfaf3b322589ca56ec79f0fbd140c57faae18e3d11ad8aeec3d1394b",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize-protection.cpp": "d6f5106167585faa539beb4491405a52c57f9b5ff3b4583c8b5a54a8e93aa7c8",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize-leaf.cpp": "ebe55cfcf126e95b7160818a3e76c21353f47fe306abd986272c1d3d729dd7df",
+    "docs/specifications/windows/native-mui-query/native-mui-query-v2.cpp": "5fbe3f68518c144e46147bfe06b7ed30f455de664cf7427d30800578a0b95ce1"
+  },
+  "samples": [
+    {
+      "arch": "arm64",
+      "kind": "leaf",
+      "source_sha256": "ebe55cfcf126e95b7160818a3e76c21353f47fe306abd986272c1d3d729dd7df",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "binary_sha256": "cbd62c0d813035bbc31705f55da7bf962d20a5d90a2b76370d42ec8689564167",
+      "binary_bytes": 143872,
+      "stdout_sha256": "62a3a198562af7224cb179ac33cf39f79f8d4cba72dcbd66a4e42d2c1a1e800f",
+      "exit_code": 0,
+      "terminal": "complete leaves=3",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "arm64",
+      "kind": "mui",
+      "source_sha256": "5fbe3f68518c144e46147bfe06b7ed30f455de664cf7427d30800578a0b95ce1",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "binary_sha256": "1118d254617aa2b3c238c1ad23eeef38891cc66a4f8b80880ad598eff6843d39",
+      "binary_bytes": 162304,
+      "stdout_sha256": "1db9913725bcd57ebfc8d47fdb5ff881515681ae311e4529fdc0ba4cf2559fb8",
+      "exit_code": 0,
+      "terminal": "row flags=4 size-kind=6 output-kind=7 length=4294967295 status=c0000005 size-after=65535 output-changed=0 last-error=12345678",
+      "payload": {
+        "bytes": 1232,
+        "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+      },
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "arm64",
+      "kind": "initialize",
+      "source_sha256": "b51a47f4bfaf3b322589ca56ec79f0fbd140c57faae18e3d11ad8aeec3d1394b",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "binary_sha256": "ad9c65465ad65a082c572065df3dba129c76c9ecfe728075592cdc33344840c2",
+      "binary_bytes": 150016,
+      "stdout_sha256": "c4d5e77826cb21a09a75e7024aca871c35bb32e344c812c7197e507f65b3a7d6",
+      "exit_code": 0,
+      "terminal": "complete cases=79 success=35 failed=44 seh=0 unmapped=34",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "arm64",
+      "kind": "protect",
+      "source_sha256": "d6f5106167585faa539beb4491405a52c57f9b5ff3b4583c8b5a54a8e93aa7c8",
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "binary_sha256": "d71dac1e72aa6947a849fc4735a48387233594fce5c9aae01885fb939e9d5688",
+      "binary_bytes": 144384,
+      "stdout_sha256": "f2c71343d6a077fab4ec68b4bcca2bae620156ab7a19f6d29a483253a773b738",
+      "exit_code": 0,
+      "terminal": "complete cases=12 pointer-bytes=8",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x64",
+      "kind": "leaf",
+      "source_sha256": "ebe55cfcf126e95b7160818a3e76c21353f47fe306abd986272c1d3d729dd7df",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "binary_sha256": "d757f421cbfe8b012d4ba840e7b453df312eb62215ced2bd29f83c87fdc05385",
+      "binary_bytes": 141312,
+      "stdout_sha256": "479d0b4b1f7041010946606b3ac90ce601ae07bee7a061b3326aa7c67ebda561",
+      "exit_code": 0,
+      "terminal": "complete leaves=3",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x64",
+      "kind": "mui",
+      "source_sha256": "5fbe3f68518c144e46147bfe06b7ed30f455de664cf7427d30800578a0b95ce1",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "binary_sha256": "1b0d009b00de2cb9b275dffd37376a97a5e0d81cb6688c6368c39beec61e6188",
+      "binary_bytes": 172544,
+      "stdout_sha256": "1db9913725bcd57ebfc8d47fdb5ff881515681ae311e4529fdc0ba4cf2559fb8",
+      "exit_code": 0,
+      "terminal": "row flags=4 size-kind=6 output-kind=7 length=4294967295 status=c0000005 size-after=65535 output-changed=0 last-error=12345678",
+      "payload": {
+        "bytes": 1232,
+        "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+      },
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x64",
+      "kind": "initialize",
+      "source_sha256": "b51a47f4bfaf3b322589ca56ec79f0fbd140c57faae18e3d11ad8aeec3d1394b",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "binary_sha256": "643b0194746e16f146c2d8bb11a97daa815d5db50e4d6963d021356da391d2b7",
+      "binary_bytes": 147456,
+      "stdout_sha256": "4be2d4438d27c3826f1ce6510aa90d94f0fd5d06485c6d8283e960d061459230",
+      "exit_code": 0,
+      "terminal": "complete cases=79 success=35 failed=44 seh=0 unmapped=34",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x64",
+      "kind": "protect",
+      "source_sha256": "d6f5106167585faa539beb4491405a52c57f9b5ff3b4583c8b5a54a8e93aa7c8",
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "binary_sha256": "632de0a9f1410bbd22029083998eb7818881d76bc1c2bc4243c836803e6caee6",
+      "binary_bytes": 141824,
+      "stdout_sha256": "7437b2ff42962f7b268a2f9b8e2d626c1853f3440ae46e66318efd0f9d6c58a2",
+      "exit_code": 0,
+      "terminal": "complete cases=12 pointer-bytes=8",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x86",
+      "kind": "leaf",
+      "source_sha256": "ebe55cfcf126e95b7160818a3e76c21353f47fe306abd986272c1d3d729dd7df",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "deb87e1de91a62760f8a68a61bf32590ce81d1b97f4173755075fe0492b87171",
+      "binary_bytes": 117248,
+      "stdout_sha256": "b637897c4e5e4296f696216bd4a129d6f6630e5972c4ff653f7c0525a664bb42",
+      "exit_code": 0,
+      "terminal": "complete leaves=3",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x86",
+      "kind": "mui",
+      "source_sha256": "5fbe3f68518c144e46147bfe06b7ed30f455de664cf7427d30800578a0b95ce1",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "2cd25c466c7d18235367b32def385b69f18546fc9c94a46c85f009f3095cd9e2",
+      "binary_bytes": 132096,
+      "stdout_sha256": "6c9d97bfb63aec5d8bb84b08a65462838747733c72910fbe577db389f50add60",
+      "exit_code": 0,
+      "terminal": "row flags=4 size-kind=6 output-kind=7 length=4294967295 status=c0000005 size-after=65535 output-changed=0 last-error=12345678",
+      "payload": {
+        "bytes": 1232,
+        "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+      },
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "leaf",
+      "source_sha256": "ebe55cfcf126e95b7160818a3e76c21353f47fe306abd986272c1d3d729dd7df",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "e546965a379b68ebd437065706e719aa5cd585dcc3608c27d21fb1a7b2b8fe3f",
+      "binary_bytes": 117248,
+      "stdout_sha256": "b637897c4e5e4296f696216bd4a129d6f6630e5972c4ff653f7c0525a664bb42",
+      "exit_code": 0,
+      "terminal": "complete leaves=3",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "mui",
+      "source_sha256": "5fbe3f68518c144e46147bfe06b7ed30f455de664cf7427d30800578a0b95ce1",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "7ad6d96797cf9e7687b8e6c538ff70ab383be548fe5a7fc5d88a552c8429e951",
+      "binary_bytes": 132096,
+      "stdout_sha256": "6c9d97bfb63aec5d8bb84b08a65462838747733c72910fbe577db389f50add60",
+      "exit_code": 0,
+      "terminal": "row flags=4 size-kind=6 output-kind=7 length=4294967295 status=c0000005 size-after=65535 output-changed=0 last-error=12345678",
+      "payload": {
+        "bytes": 1232,
+        "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+      },
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x86",
+      "kind": "initialize",
+      "source_sha256": "c003afe72d55ccfbf4367694fe4c516cdd82f7e3925f7bf9cab560b63f1b4e70",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "30f2b7f6e3ef41d73b2143e80f28a8605e8b7aea8e5c461b46b2f90c54f40fb8",
+      "binary_bytes": 122880,
+      "stdout_sha256": "d8eb92179d5d9f22ba782167f23ee837e72e68d6efa91da8115745c30abfb676",
+      "exit_code": 0,
+      "terminal": "complete cases=79 success=35 failed=44 seh=0 unmapped=35",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x86",
+      "kind": "protect",
+      "source_sha256": "43fd1aa406e456c3e28ecb60d3194de39a77dee6f9cc96ef1a09ca347666256a",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "cbc2904abdc4822ce0fa7024c70a7d40d8dc938d4455080bd046249a95cfcfdf",
+      "binary_bytes": 118272,
+      "stdout_sha256": "3df304161a9f2d963247e9d0f5cc14cf63ba3152dbd4734500eefb3da275d7f5",
+      "exit_code": 0,
+      "terminal": "complete cases=12 pointer-bytes=4",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "initialize",
+      "source_sha256": "c003afe72d55ccfbf4367694fe4c516cdd82f7e3925f7bf9cab560b63f1b4e70",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "b0c22cddcacafdb915d1ba04762f4454d1182b59f76c364fcd621d72ba3cedd7",
+      "binary_bytes": 122880,
+      "stdout_sha256": "cdb52891196aa3d6885a3a1fb529446cf35cfaefc7df86d85682df65dc6a34f0",
+      "exit_code": 0,
+      "terminal": "complete cases=79 success=35 failed=44 seh=0 unmapped=35",
+      "inputs_unchanged": true
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "protect",
+      "source_sha256": "43fd1aa406e456c3e28ecb60d3194de39a77dee6f9cc96ef1a09ca347666256a",
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "binary_sha256": "c46b6141a5f6de15abe963fae0893294431c7e6a2b1cd57e489ef67661b16bf6",
+      "binary_bytes": 118272,
+      "stdout_sha256": "adbaa13a8a0323a009a2f025d1b16935bbf726c84f64d486eae05e182d46fcb4",
+      "exit_code": 0,
+      "terminal": "complete cases=12 pointer-bytes=4",
+      "inputs_unchanged": true
+    }
+  ],
+  "generation": {
+    "state": "finished",
+    "kernel": [
+      10,
+      0,
+      29695,
+      2,
+      ""
+    ],
+    "pid": 9264,
+    "scope": "Fixed readonly shared-page location plus query flags0; no cache mutation.",
+    "rows": [
+      {
+        "shared-before": 1,
+        "payload-generation": 1,
+        "shared-after": 1,
+        "bytes": 1232,
+        "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+      },
+      {
+        "shared-before": 1,
+        "payload-generation": 1,
+        "shared-after": 1,
+        "bytes": 1232,
+        "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+      },
+      {
+        "shared-before": 1,
+        "payload-generation": 1,
+        "shared-after": 1,
+        "bytes": 1232,
+        "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+      }
+    ]
+  },
+  "locale_nls": {
+    "bytes": 862808,
+    "sha256": "00d972d678db02525b731e1286e8daf53e87e5cbc58edcaf90de4222470a639a"
+  },
+  "archives": [
+    {
+      "name": "native-nls-29695-observe-results-v1.zip",
+      "bytes": 45067,
+      "sha256": "130926ac862c08cc461165cceaf5eb6e545687469fc940e36ec5bb8e95d3e881"
+    },
+    {
+      "name": "native-nls-29695-wow64-results-v1.zip",
+      "bytes": 14439,
+      "sha256": "3f4b772185742cceeb15b940b70af5a98a92b1a78421a8c4428bb1936869c0a5"
+    }
+  ]
+}

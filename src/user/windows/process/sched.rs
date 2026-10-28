@@ -14,8 +14,8 @@
 //! executable NTDLL. Absent/unsupported stubs and kernel operations stop with
 //! a diagnostic; no Windows-build table or host syscall forwarding is used.
 
+use crate::host::time::{Duration, Instant};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
 
 use super::{ExitStatus, Proc, Thread, ThreadState, lifecycle, services, thread};
 use crate::error::MemoryAccessKind;
@@ -837,6 +837,11 @@ mod tests {
             space,
             cfg: Arc::new(WindowsConfig::new("unused-test.exe", vec![])),
             native: None,
+            flush_information: Err("controlled scheduler fixture".into()),
+            thread_access: Ok(crate::user::windows::security::thread::Access::modeled()),
+            image_information: Err("test process has no admitted executable"),
+            wow64: None,
+            teb_arena: Default::default(),
             gui: Default::default(),
             registry: Default::default(),
             object_namespace: Default::default(),
@@ -900,6 +905,10 @@ mod tests {
             tid,
             cpu,
             teb,
+            teb_allocation: super::thread::teb::Allocation::single(
+                teb,
+                crate::user::windows::layout::teb_stride(p.arch),
+            ),
             stack_base: stack + size,
             stack_limit: stack,
             stack_alloc: stack,

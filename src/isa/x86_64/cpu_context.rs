@@ -8,8 +8,17 @@ use serde::{Deserialize, Serialize};
 #[path = "cpu_context/exit.rs"]
 mod exit;
 use exit::ExitContext;
-const TAG: &[u8; 8] = b"RAXX8601";
+#[path = "cpu_context/user.rs"]
+mod user;
+const LEGACY_TAG: &[u8; 8] = b"RAXX8601";
+const TAG: &[u8; 8] = b"RAXX8602";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - TAG.len();
+
+#[derive(Serialize, Deserialize)]
+struct Version2<T> {
+    base: T,
+    user_debug_status: Option<u64>,
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct X86_64Config {
@@ -49,6 +58,7 @@ struct Context {
     jit_call: bool,
     pending_exit: Option<ExitContext>,
     vsib_resume_pc: Option<u64>,
+    #[serde(with = "user")]
     user: Option<Box<UserMode>>,
     jit_disabled_by_embedder: bool,
 }
@@ -58,13 +68,41 @@ fn invalid(message: impl std::fmt::Display) -> Error {
 
 impl Context {
     fn decode(raw: &[u8], target: &X86_64Vcpu) -> Result<Self> {
-        if !raw.starts_with(TAG) || raw.len() > TAG.len() + MAX_PAYLOAD {
+        if raw.len() > TAG.len() + MAX_PAYLOAD {
             return Err(invalid("invalid tag or length"));
         }
-        let context: Self = crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(&raw[TAG.len()..])
-            .map_err(invalid)?;
+        let context = if let Some(payload) = raw.strip_prefix(LEGACY_TAG) {
+            crate::codec::deserialize_limited::<Self, MAX_PAYLOAD>(payload).map_err(invalid)?
+        } else if let Some(payload) = raw.strip_prefix(TAG) {
+            let Version2 {
+                mut base,
+                user_debug_status,
+            } = crate::codec::deserialize_limited::<Version2<Self>, MAX_PAYLOAD>(payload)
+                .map_err(invalid)?;
+            if base.user.is_some() != user_debug_status.is_some() {
+                return Err(invalid("user debug status binding differs"));
+            }
+            if let (Some(user), Some(status)) = (&mut base.user, user_debug_status) {
+                user.last_debug_status = status;
+            }
+            base
+        } else {
+            return Err(invalid("invalid tag or length"));
+        };
         context.validate(target)?;
         Ok(context)
+    }
+
+    fn encode(&self) -> Result<Vec<u8>> {
+        let versioned = Version2 {
+            base: self,
+            user_debug_status: self.user.as_ref().map(|user| user.last_debug_status),
+        };
+        let payload = crate::codec::serialize_limited(&versioned, MAX_PAYLOAD).map_err(invalid)?;
+        let mut raw = Vec::with_capacity(TAG.len() + payload.len());
+        raw.extend_from_slice(TAG);
+        raw.extend_from_slice(&payload);
+        Ok(raw)
     }
     fn validate(&self, target: &X86_64Vcpu) -> Result<()> {
         if self.id != target.id || self.user.is_some() != target.user.is_some() {
@@ -346,11 +384,7 @@ impl X86_64Vcpu {
             jit_disabled_by_embedder: *jit_disabled_by_embedder,
         };
         context.validate(self)?;
-        let payload = crate::codec::serialize_limited(&context, MAX_PAYLOAD).map_err(invalid)?;
-        let mut raw = Vec::with_capacity(TAG.len() + payload.len());
-        raw.extend_from_slice(TAG);
-        raw.extend_from_slice(&payload);
-        Ok(raw)
+        context.encode()
     }
 
     pub(super) fn prepare_context(

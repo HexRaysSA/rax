@@ -22,6 +22,7 @@ pub mod proc;
 #[cfg(target_os = "macos")]
 pub mod procinfo;
 pub mod pthread;
+pub mod ptrace;
 pub mod region;
 #[cfg(target_os = "macos")]
 pub mod sem;
@@ -100,6 +101,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         pthread::testcancel(ctx)?;
     }
     match number {
+        nr::PTRACE => ptrace::ptrace(ctx, i(0), i(1), a[2], i(3)),
         nr::EXIT => proc::exit(ctx, i(0)),
         #[cfg(unix)]
         nr::FORK => crate::user::darwin::fork::fork(ctx),

@@ -257,9 +257,12 @@ static void destruction(mach_port_t t) {
     mk_timer_arm_leeway(d, MK_TIMER_CRITICAL, mach_absolute_time() + ms(200), 0);
     expire_msg m;
     kern_return_t kr = recv(d, &m, 2000);
-    printf("second armed later fires first: %#x, first still pending %u\n", kr, status(c).mps_msgcount);
+    // Either timer can already be queued when this thread resumes. In
+    // particular, utility QoS does not bound that delay to the 200 ms gap.
+    // Check independent delivery without comparing a scheduling snapshot.
+    printf("second timer receive: %#x\n", kr);
     kr = recv(c, &m, 2000);
-    printf("then the first: %#x\n", kr);
+    printf("first timer receive: %#x\n", kr);
     mk_timer_destroy(c);
     mk_timer_destroy(d);
 }

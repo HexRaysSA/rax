@@ -1,0 +1,9 @@
+{
+  "repository": "winsiderss/phnt",
+  "revision": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+  "path": "ntexapi.h",
+  "git_blob_sha1": "bea2519220c21b579ee768b41db707328985d3bf",
+  "bytes": 386368,
+  "url": "https://github.com/winsiderss/phnt/blob/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntexapi.h",
+  "scope": "SystemFlushInformation enum position 192 and SYSTEM_FLUSH_INFORMATION layout; failure behavior comes from native controls."
+}

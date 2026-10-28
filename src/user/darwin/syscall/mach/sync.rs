@@ -6,8 +6,8 @@
 //! such waiter (the thread's restarted trap sees the targeted wake and
 //! succeeds) or, with no waiter, is stored (`SEMAPHORE_SIGNAL_PREPOST`).
 
+use crate::host::time::{Duration, Instant};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::{RESTART, sleep};
 use crate::user::darwin::abi::Errno;
@@ -234,7 +234,7 @@ pub fn semwait_signal(ctx: &mut Ctx<'_>, a: &[u64; 8]) -> SysResult {
         if relative {
             Some((s as u32, n as u32))
         } else {
-            let now = std::time::SystemTime::now()
+            let now = crate::host::time::system_now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default();
             let (ns, nn) = (now.as_secs() as i64, now.subsec_nanos() as i32);

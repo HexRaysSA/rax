@@ -14,6 +14,10 @@ const MAX_DLL_BYTES: u64 = 64 << 20;
 
 mod system;
 
+pub(crate) fn flush_information(runtime: &NativeRuntime) -> Result<[u8; 32], String> {
+    system::capture_flush(&runtime.version, runtime.object_namespace.native_machine)
+}
+
 #[derive(Debug)]
 pub(crate) struct NativeRuntime {
     pub(crate) directory: PathBuf,
@@ -36,7 +40,11 @@ fn invalid(message: impl Into<String>) -> io::Error {
 }
 
 pub(crate) fn read_image(path: &Path) -> io::Result<Vec<u8>> {
-    let file = File::open(path)?;
+    let mut file = File::open(path)?;
+    read_image_file(&mut file)
+}
+
+pub(crate) fn read_image_file(file: &mut File) -> io::Result<Vec<u8>> {
     let metadata = file.metadata()?;
     if !metadata.is_file() || metadata.len() > MAX_DLL_BYTES {
         return Err(invalid(
@@ -125,10 +133,19 @@ impl NativeRuntime {
             .ok_or_else(|| invalid("native primary-token session is not captured"))?;
         runtime.object_namespace =
             super::object_namespace::snapshot(runtime.registry.upcase_table(), token_session)?;
+        if arch == WinArch::X86 {
+            // SysWOW64 NTDLL and its pinned KnownDlls32 image select Windows'
+            // pure x86 process profile. ARM64's default CHPE redirect would mix
+            // that RTL with SyChpe32 dependencies requiring hybrid exports/code.
+            // Keep the real host machine and WoW64 CPU information unchanged.
+            runtime.object_namespace.select_wow_section_root(false)?;
+        }
         runtime.nls = Some(super::nls::snapshot(
             &runtime.registry,
             &schema_directory,
             &runtime.version,
+            runtime.object_namespace.native_machine,
+            arch,
         )?);
         runtime.appcompat =
             super::appcompat::Catalog::snapshot(&root, runtime.registry.upcase_table())?;
@@ -302,7 +319,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!(
             "rax-native-image-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now()
+            crate::host::time::system_now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos()

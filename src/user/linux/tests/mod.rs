@@ -13,6 +13,7 @@ mod arm;
 mod bounded;
 #[cfg(unix)]
 mod console;
+mod debug_step;
 mod entry;
 #[cfg(unix)]
 mod epoll;

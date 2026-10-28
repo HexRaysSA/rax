@@ -245,7 +245,7 @@ impl RtcStub {
 
     /// Compute the current host wall-clock time, broken down in UTC.
     fn now() -> DateTime {
-        let secs = SystemTime::now()
+        let secs = crate::host::time::system_now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
@@ -407,7 +407,7 @@ impl RtcStub {
                 if self.cmos[REG_B as usize] & REG_B_SET != 0 {
                     base
                 } else {
-                    let nanos = SystemTime::now()
+                    let nanos = crate::host::time::system_now()
                         .duration_since(UNIX_EPOCH)
                         .map(|d| d.subsec_nanos())
                         .unwrap_or(0);

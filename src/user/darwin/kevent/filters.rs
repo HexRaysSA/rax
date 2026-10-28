@@ -138,7 +138,7 @@ fn timer_validate(abi: DarwinAbi, kev: &Kev) -> Result<Timer, Errno> {
             (kev.data as u64, 0)
         } else {
             let deadline_ns = (kev.data as u64).checked_mul(mult).ok_or(Errno::ERANGE)?;
-            let now_ns = std::time::SystemTime::now()
+            let now_ns = crate::host::time::system_now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos() as u64)
                 .unwrap_or(0);

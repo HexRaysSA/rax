@@ -5,12 +5,12 @@
 //! that issued them. The classifications are heuristics, not declarations:
 //! they are named so that a reader can check the evidence in the same report.
 
+use crate::host::time::{Duration, Instant};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Write as _;
 use std::fs::File;
 use std::io::{self, BufReader, Read};
 use std::path::Path;
-use std::time::{Duration, Instant};
 
 use super::{
     ARCH_X86_64, HEADER_LEN, MAGIC, RECORD_LEN, TAG_EXEC, TAG_MAP, TAG_READ, TAG_SNAPSHOT,

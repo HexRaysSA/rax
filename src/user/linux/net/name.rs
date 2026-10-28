@@ -265,7 +265,7 @@ pub fn autobind(vfs: &Vfs, s: &Socket) -> Result<(UnixName, Option<OwnedFd>), Er
         };
         return Ok((UnixName::Abstract(name), None));
     }
-    let seed = std::time::SystemTime::now()
+    let seed = crate::host::time::system_now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.subsec_nanos())
         ^ std::process::id().rotate_left(12);

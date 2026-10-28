@@ -1,0 +1,1152 @@
+{
+  "schema": "native-session-windows-directory-v2",
+  "version": [
+    10,
+    0,
+    29695,
+    2,
+    ""
+  ],
+  "pointer_bytes": 8,
+  "attributes_bytes": 48,
+  "unicode_bytes": 16,
+  "process_machine": 0,
+  "native_machine": 43620,
+  "session": 0,
+  "paths": {
+    "directory": [
+      "\\Windows",
+      "\\Sessions\\0\\Windows"
+    ],
+    "section": [
+      "\\Windows\\SharedSection",
+      "\\Sessions\\0\\Windows\\SharedSection"
+    ]
+  },
+  "rows": [
+    {
+      "kind": "directory",
+      "path_index": 0,
+      "path": "\\Windows",
+      "altered_case": false,
+      "flags": 0,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 0,
+      "path": "\\Windows",
+      "altered_case": false,
+      "flags": 64,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 0,
+      "path": "\\Windows",
+      "altered_case": false,
+      "flags": 4096,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 0,
+      "path": "\\Windows",
+      "altered_case": false,
+      "flags": 4160,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 0,
+      "path": "\\wINDOWS",
+      "altered_case": true,
+      "flags": 0,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 0,
+      "path": "\\wINDOWS",
+      "altered_case": true,
+      "flags": 64,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 0,
+      "path": "\\wINDOWS",
+      "altered_case": true,
+      "flags": 4096,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 0,
+      "path": "\\wINDOWS",
+      "altered_case": true,
+      "flags": 4160,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 1,
+      "path": "\\Sessions\\0\\Windows",
+      "altered_case": false,
+      "flags": 0,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 1,
+      "path": "\\Sessions\\0\\Windows",
+      "altered_case": false,
+      "flags": 64,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 1,
+      "path": "\\Sessions\\0\\Windows",
+      "altered_case": false,
+      "flags": 4096,
+      "requested_access": 33554432,
+      "status": 3221226763,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "directory",
+      "path_index": 1,
+      "path": "\\Sessions\\0\\Windows",
+      "altered_case": false,
+      "flags": 4160,
+      "requested_access": 33554432,
+      "status": 3221226763,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "directory",
+      "path_index": 1,
+      "path": "\\sESSIONS\\0\\wINDOWS",
+      "altered_case": true,
+      "flags": 0,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 1,
+      "path": "\\sESSIONS\\0\\wINDOWS",
+      "altered_case": true,
+      "flags": 64,
+      "requested_access": 33554432,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115
+          ],
+          "text": "\\Windows"
+        },
+        "type": {
+          "units": [
+            68,
+            105,
+            114,
+            101,
+            99,
+            116,
+            111,
+            114,
+            121
+          ],
+          "text": "Directory"
+        },
+        "granted_access": 983055
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "directory",
+      "path_index": 1,
+      "path": "\\sESSIONS\\0\\wINDOWS",
+      "altered_case": true,
+      "flags": 4096,
+      "requested_access": 33554432,
+      "status": 3221226763,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "directory",
+      "path_index": 1,
+      "path": "\\sESSIONS\\0\\wINDOWS",
+      "altered_case": true,
+      "flags": 4160,
+      "requested_access": 33554432,
+      "status": 3221226763,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "section",
+      "path_index": 0,
+      "path": "\\Windows\\SharedSection",
+      "altered_case": false,
+      "flags": 0,
+      "requested_access": 4,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115,
+            92,
+            83,
+            104,
+            97,
+            114,
+            101,
+            100,
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "\\Windows\\SharedSection"
+        },
+        "type": {
+          "units": [
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "Section"
+        },
+        "granted_access": 4
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "section",
+      "path_index": 0,
+      "path": "\\Windows\\SharedSection",
+      "altered_case": false,
+      "flags": 64,
+      "requested_access": 4,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115,
+            92,
+            83,
+            104,
+            97,
+            114,
+            101,
+            100,
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "\\Windows\\SharedSection"
+        },
+        "type": {
+          "units": [
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "Section"
+        },
+        "granted_access": 4
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "section",
+      "path_index": 0,
+      "path": "\\Windows\\SharedSection",
+      "altered_case": false,
+      "flags": 4096,
+      "requested_access": 4,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115,
+            92,
+            83,
+            104,
+            97,
+            114,
+            101,
+            100,
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "\\Windows\\SharedSection"
+        },
+        "type": {
+          "units": [
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "Section"
+        },
+        "granted_access": 4
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "section",
+      "path_index": 0,
+      "path": "\\Windows\\SharedSection",
+      "altered_case": false,
+      "flags": 4160,
+      "requested_access": 4,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115,
+            92,
+            83,
+            104,
+            97,
+            114,
+            101,
+            100,
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "\\Windows\\SharedSection"
+        },
+        "type": {
+          "units": [
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "Section"
+        },
+        "granted_access": 4
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "section",
+      "path_index": 0,
+      "path": "\\wINDOWS\\sHAREDsECTION",
+      "altered_case": true,
+      "flags": 0,
+      "requested_access": 4,
+      "status": 3221225530,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "section",
+      "path_index": 0,
+      "path": "\\wINDOWS\\sHAREDsECTION",
+      "altered_case": true,
+      "flags": 64,
+      "requested_access": 4,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115,
+            92,
+            83,
+            104,
+            97,
+            114,
+            101,
+            100,
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "\\Windows\\SharedSection"
+        },
+        "type": {
+          "units": [
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "Section"
+        },
+        "granted_access": 4
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "section",
+      "path_index": 0,
+      "path": "\\wINDOWS\\sHAREDsECTION",
+      "altered_case": true,
+      "flags": 4096,
+      "requested_access": 4,
+      "status": 3221225530,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "section",
+      "path_index": 0,
+      "path": "\\wINDOWS\\sHAREDsECTION",
+      "altered_case": true,
+      "flags": 4160,
+      "requested_access": 4,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115,
+            92,
+            83,
+            104,
+            97,
+            114,
+            101,
+            100,
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "\\Windows\\SharedSection"
+        },
+        "type": {
+          "units": [
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "Section"
+        },
+        "granted_access": 4
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "section",
+      "path_index": 1,
+      "path": "\\Sessions\\0\\Windows\\SharedSection",
+      "altered_case": false,
+      "flags": 0,
+      "requested_access": 4,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115,
+            92,
+            83,
+            104,
+            97,
+            114,
+            101,
+            100,
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "\\Windows\\SharedSection"
+        },
+        "type": {
+          "units": [
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "Section"
+        },
+        "granted_access": 4
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "section",
+      "path_index": 1,
+      "path": "\\Sessions\\0\\Windows\\SharedSection",
+      "altered_case": false,
+      "flags": 64,
+      "requested_access": 4,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115,
+            92,
+            83,
+            104,
+            97,
+            114,
+            101,
+            100,
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "\\Windows\\SharedSection"
+        },
+        "type": {
+          "units": [
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "Section"
+        },
+        "granted_access": 4
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "section",
+      "path_index": 1,
+      "path": "\\Sessions\\0\\Windows\\SharedSection",
+      "altered_case": false,
+      "flags": 4096,
+      "requested_access": 4,
+      "status": 3221226763,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "section",
+      "path_index": 1,
+      "path": "\\Sessions\\0\\Windows\\SharedSection",
+      "altered_case": false,
+      "flags": 4160,
+      "requested_access": 4,
+      "status": 3221226763,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "section",
+      "path_index": 1,
+      "path": "\\sESSIONS\\0\\wINDOWS\\sHAREDsECTION",
+      "altered_case": true,
+      "flags": 0,
+      "requested_access": 4,
+      "status": 3221225530,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "section",
+      "path_index": 1,
+      "path": "\\sESSIONS\\0\\wINDOWS\\sHAREDsECTION",
+      "altered_case": true,
+      "flags": 64,
+      "requested_access": 4,
+      "status": 0,
+      "information": {
+        "name": {
+          "units": [
+            92,
+            87,
+            105,
+            110,
+            100,
+            111,
+            119,
+            115,
+            92,
+            83,
+            104,
+            97,
+            114,
+            101,
+            100,
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "\\Windows\\SharedSection"
+        },
+        "type": {
+          "units": [
+            83,
+            101,
+            99,
+            116,
+            105,
+            111,
+            110
+          ],
+          "text": "Section"
+        },
+        "granted_access": 4
+      },
+      "same_reference_status": 0
+    },
+    {
+      "kind": "section",
+      "path_index": 1,
+      "path": "\\sESSIONS\\0\\wINDOWS\\sHAREDsECTION",
+      "altered_case": true,
+      "flags": 4096,
+      "requested_access": 4,
+      "status": 3221225530,
+      "information": null,
+      "same_reference_status": null
+    },
+    {
+      "kind": "section",
+      "path_index": 1,
+      "path": "\\sESSIONS\\0\\wINDOWS\\sHAREDsECTION",
+      "altered_case": true,
+      "flags": 4160,
+      "requested_access": 4,
+      "status": 3221226763,
+      "information": null,
+      "same_reference_status": null
+    }
+  ],
+  "distinct_type_status": 3221225900,
+  "handle_count_before": 110,
+  "handle_count_after": 110,
+  "files_before": {
+    "observer": {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-session-windows-directory\\run-v2.py",
+      "bytes": 11502,
+      "sha256": "2f3219e3e030c61bc8dcc223fd69547d042879a8e2a76b815e5ab449669ddb31",
+      "pe_machine": null
+    },
+    "python": {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\python\\python.exe",
+      "bytes": 105304,
+      "sha256": "052604e9a996df81925f9d9ab865fdac5fbd7e8e89644298e88ddcdb6aa85b06",
+      "pe_machine": 43620
+    },
+    "python_dll": {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\python\\python314.dll",
+      "bytes": 6979928,
+      "sha256": "60df6739bc3d716da1b63e1b4cfba491bfc8b0726c6fe87c49632b5531a0a35b",
+      "pe_machine": 43620
+    },
+    "ntdll": {
+      "path": "C:\\Windows\\System32\\ntdll.dll",
+      "bytes": 4609280,
+      "sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+      "pe_machine": 43620
+    }
+  },
+  "files_after": {
+    "observer": {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\src-display-candidate1\\docs\\specifications\\windows\\native-session-windows-directory\\run-v2.py",
+      "bytes": 11502,
+      "sha256": "2f3219e3e030c61bc8dcc223fd69547d042879a8e2a76b815e5ab449669ddb31",
+      "pe_machine": null
+    },
+    "python": {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\python\\python.exe",
+      "bytes": 105304,
+      "sha256": "052604e9a996df81925f9d9ab865fdac5fbd7e8e89644298e88ddcdb6aa85b06",
+      "pe_machine": 43620
+    },
+    "python_dll": {
+      "path": "C:\\Windows\\Temp\\assist-native-rax-20261010\\python\\python314.dll",
+      "bytes": 6979928,
+      "sha256": "60df6739bc3d716da1b63e1b4cfba491bfc8b0726c6fe87c49632b5531a0a35b",
+      "pe_machine": 43620
+    },
+    "ntdll": {
+      "path": "C:\\Windows\\System32\\ntdll.dll",
+      "bytes": 4609280,
+      "sha256": "6eecfe756207ba6251fedab4f67e5ef90defead33f2731a15ee7674f5d09602e",
+      "pe_machine": 43620
+    }
+  }
+}

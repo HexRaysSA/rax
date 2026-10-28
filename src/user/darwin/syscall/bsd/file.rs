@@ -7,11 +7,11 @@
 //! `poll`. A descriptor in non-blocking mode fails with `EAGAIN` as the
 //! host reports.
 
+use crate::host::time::{Duration, Instant};
 use crate::user::darwin::fd::EmbeddedFile;
 #[cfg(unix)]
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};

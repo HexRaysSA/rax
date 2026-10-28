@@ -2,7 +2,7 @@
 //! overflow, waits, and registration (`io_uring/`, Linux 6.19). Each
 //! expectation names the kernel function it follows.
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 mod files;
 mod kbuf;

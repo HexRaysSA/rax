@@ -43,6 +43,11 @@ pub(super) fn acquire(file: &File, requested: u64) -> Result<Backing, Error> {
             })?;
             result
         };
+        #[cfg(not(any(unix, windows)))]
+        let read: std::io::Result<usize> = Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "positional file reads are not available on this target",
+        ));
         let read = read.map_err(|e| Error::Unavailable(format!("retained PE bytes: {e}")))?;
         if read == 0 {
             return Err(Error::Unavailable(

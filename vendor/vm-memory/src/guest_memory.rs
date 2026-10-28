@@ -520,7 +520,8 @@ impl<'a, M: GuestMemory + ?Sized> GuestMemorySliceIterator<'a, M> {
         };
 
         let cap = region.len() - start.raw_value();
-        let len = std::cmp::min(cap as usize, self.count);
+        // A capacity above `usize::MAX` (32-bit host) still bounds no more than `count`.
+        let len = usize::try_from(cap).map_or(self.count, |cap| cap.min(self.count));
 
         self.count -= len;
         self.addr = match self.addr.overflowing_add(len as GuestUsize) {

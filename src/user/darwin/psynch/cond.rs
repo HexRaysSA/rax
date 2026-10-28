@@ -3,7 +3,7 @@
 //! `__psynch_cvsignal`, `psynch_cvcontinue`, `ksyn_handle_cvbroad`,
 //! `ksyn_cvupdate_fixup`, `ksyn_queue_free_items`).
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::{
     Cont, ECVCLEARED, ECVPREPOST, Fit, KweState, Kwq, PTHRW_COUNT_MASK, PTHRW_COUNT_SHIFT,

@@ -352,7 +352,7 @@ fn elf_interpreter_is_supplied_and_missing_interpreters_do_not_fall_back() {
 struct HostFixture(std::path::PathBuf);
 impl HostFixture {
     fn new() -> Self {
-        let nonce = std::time::SystemTime::now()
+        let nonce = crate::host::time::system_now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();

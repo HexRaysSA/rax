@@ -13,8 +13,10 @@ mod directory;
 mod events;
 mod file_attributes;
 mod file_open;
+mod file_write;
 mod hotpatch;
 mod io_completion;
+mod memory_prefetch;
 mod mutant;
 mod named_object;
 mod nls;
@@ -37,6 +39,7 @@ mod secure_connect;
 mod semaphore;
 mod symbolic_link;
 mod system_time;
+mod thread_open;
 mod thread_set;
 mod timers;
 mod token;
@@ -51,8 +54,15 @@ mod wait_packet;
 mod wnf;
 mod wnf_query;
 mod worker_factory;
+mod wow64_csr;
 
 pub(super) static EXPORTS: &[Export] = &[
+    Export::func(
+        "NtWriteFile",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, I32, Ptr, Ptr],
+        file_write::write,
+    ),
     Export::func(
         "NtAlpcSendWaitReceivePort",
         Stdcall,
@@ -128,6 +138,12 @@ pub(super) static EXPORTS: &[Export] = &[
         nls::initialize::initialize,
     )
     .only(Archs::WIN64),
+    Export::func(
+        "NtConnectPort",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
+        secure_connect::connect_plain,
+    ),
     Export::func(
         "NtSecureConnectPort",
         Stdcall,
@@ -442,6 +458,41 @@ pub(super) static PROCESSOR_FEATURE_EXPORTS: &[Export] = &[Export::func(
     super::sysinfo::is_processor_feature_present,
 )
 .only(Archs::X86)];
+
+// Append a new family so prior ordinals and native service trap slots survive.
+pub(super) static NATIVE_SYSTEM_EXPORTS: &[Export] = &[Export::func(
+    "NtWow64GetNativeSystemInformation",
+    Stdcall,
+    &[I32, Ptr, I32, Ptr],
+    query::wow64_information,
+)
+.only(Archs::X86)];
+
+// Tail family preserves existing synthetic export ordinals and trap slots.
+// The installed x86 leaf takes five slots, including a scalar length, RET20.
+pub(super) static WOW64_CSR_EXPORTS: &[Export] = &[Export::func(
+    "NtWow64CsrClientConnectToServer",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32, Ptr],
+    wow64_csr::connect,
+)
+.only(Archs::X86)];
+
+// Append to preserve all prior synthetic export ordinals and trap addresses.
+pub(super) static THREAD_OPEN_EXPORTS: &[Export] = &[Export::func(
+    "NtOpenThread",
+    Stdcall,
+    &[Ptr, I32, Ptr, Ptr],
+    thread_open::open,
+)];
+
+// Append a family rather than moving existing synthetic ordinals/trap slots.
+pub(super) static MEMORY_PREFETCH_EXPORTS: &[Export] = &[Export::func(
+    "NtSetInformationVirtualMemory",
+    Stdcall,
+    &[Ptr, I32, Ptr, Ptr, Ptr, I32],
+    memory_prefetch::set,
+)];
 
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)

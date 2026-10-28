@@ -7,8 +7,8 @@
 
 mod branch;
 
+use crate::host::time::{Duration, Instant};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::{AccessFault, Isa, take_code_changes};
 use crate::error::Error;

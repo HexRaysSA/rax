@@ -10,6 +10,7 @@
 //! report themselves skipped.
 //!
 //! - `fixtures`: the C fixtures.
+//! - `ptrace_exception_fixtures`: remote exception-port fixtures.
 //! - `programs`: `/bin` and `/usr/bin` programs.
 //! - `generators`: the checked-in generated tables equal what
 //!   `tools/darwin/gen_abi.py` and `gen_mig.py` produce from the vendored
@@ -28,4 +29,6 @@ mod fixtures;
 mod generators;
 mod layouts;
 mod programs;
+mod ptrace_exception_fixtures;
+mod ptrace_registry;
 mod support;

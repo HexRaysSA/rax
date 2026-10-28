@@ -1,8 +1,8 @@
 //! PE process construction and Windows process parameters.
 
+use crate::host::time::Instant;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::Instant;
 
 use super::{Proc, SpawnError, WindowsConfig, thread};
 use crate::user::image::pe::{IMAGE_FILE_DLL, IMAGE_FILE_LARGE_ADDRESS_AWARE, PeImage};
@@ -223,11 +223,21 @@ pub(super) fn spawn(config: WindowsConfig) -> Result<Proc, SpawnError> {
             "host filesystem disabled; supply executable bytes",
         )));
     }
-    let bytes = std::fs::read(&config.exe_host_path).map_err(SpawnError::Io)?;
-    spawn_image(config, bytes)
+    let mut file = std::fs::File::open(&config.exe_host_path).map_err(SpawnError::Io)?;
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut file, &mut bytes).map_err(SpawnError::Io)?;
+    spawn_image_file(config, bytes, Some(file))
 }
 
-pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc, SpawnError> {
+pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc, SpawnError> {
+    spawn_image_file(config, bytes, None)
+}
+
+fn spawn_image_file(
+    mut config: WindowsConfig,
+    bytes: Vec<u8>,
+    file: Option<std::fs::File>,
+) -> Result<Proc, SpawnError> {
     if !config.host_filesystem
         && (config.seed.is_none()
             || config.trace
@@ -272,6 +282,15 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         Some(runtime)
     } else {
         None
+    };
+    let flush_information = native.as_ref().map_or_else(
+        || Err("SystemFlushInformation requires selected native inputs".into()),
+        crate::user::windows::native::flush_information,
+    );
+    let thread_access = if native.is_some() {
+        crate::user::windows::security::thread::snapshot()
+    } else {
+        Ok(crate::user::windows::security::thread::Access::modeled())
     };
     let high = layout::user_limit(
         arch,
@@ -353,8 +372,7 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         Some(seed) => seed,
         None => {
             let mut bytes = [0; 8];
-            getrandom::fill(&mut bytes)
-                .map_err(|e| SpawnError::Io(std::io::Error::other(e.to_string())))?;
+            crate::user::entropy::fill(&mut bytes).map_err(SpawnError::Io)?;
             u64::from_le_bytes(bytes)
         }
     };
@@ -389,6 +407,11 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         vm,
         cfg: Arc::new(config),
         native,
+        flush_information,
+        thread_access,
+        image_information: Err("executable has not been mapped"),
+        wow64: None,
+        teb_arena: Default::default(),
         gui: super::super::gui::State::new(h.subsystem_version),
         registry,
         object_namespace,
@@ -430,6 +453,16 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
             message: e.message,
         }
     })?;
+    if p.native.is_some()
+        && let Some(file) = file
+        && let Some(filename) =
+            super::super::mapped_filename::Filename::image(&file).map_err(SpawnError::Io)?
+    {
+        p.vm.record_mapped_filename(p.modules.exe().base, filename)
+            .map_err(memory)?;
+    }
+    p.image_information =
+        super::image_information::ImageInformation::capture(&pe, p.modules.exe().entry);
     p.process_heap = p
         .heaps
         .create(&mut p.vm, 0, h.heap_commit, 0)
@@ -572,7 +605,13 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
         .map_err(|e| memory(format!("{e:?}")))?;
     p.vm.poke(
         shared + kuser::NATIVE_PROCESSOR_ARCHITECTURE,
-        &arch.processor_architecture().to_le_bytes(),
+        &super::processor::native_arch(&p)
+            .map_err(|status| SpawnError::Load {
+                status,
+                message: "native kernel architecture is not supported".into(),
+            })?
+            .processor_architecture()
+            .to_le_bytes(),
     )
     .map_err(|e| memory(format!("{e:?}")))?;
     let system_root = p
@@ -591,6 +630,10 @@ pub(super) fn spawn_image(mut config: WindowsConfig, bytes: Vec<u8>) -> Result<P
             .collect::<Vec<_>>(),
     )
     .map_err(|e| memory(format!("{e:?}")))?;
+    super::wow64::initialize(&mut p).map_err(|status| SpawnError::Load {
+        status,
+        message: "cannot initialize guest-owned WoW64 startup state".into(),
+    })?;
     let entry = p.modules.exe().entry;
     let tid = thread::create(&mut p, entry, 0, 0, true).map_err(|status| SpawnError::Load {
         status,

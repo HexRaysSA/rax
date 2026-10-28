@@ -48,6 +48,11 @@ pub struct ImageSection {
     pub(super) source: OnceLock<Arc<super::installed::image::Source>>,
 }
 impl ImageSection {
+    #[cfg(windows)]
+    pub(crate) fn mapped_filename(&self) -> Option<io::Result<Vec<u16>>> {
+        self.source.get().map(|source| source.mapped_filename())
+    }
+
     #[cfg(test)]
     pub(crate) fn with_test_image(image: Arc<ImageTemplate>) -> Arc<Self> {
         let section = Self::selected(
@@ -164,11 +169,12 @@ impl ImageSection {
     }
 }
 impl Namespace {
-    /// Enable only after capturing the native host's ARM64 architecture and the
-    /// selected CHPE directory. Absolute names and paths from other roots retain
-    /// their native namespace; this is the measured direct-root WoW64 conversion.
-    pub(crate) fn select_wow_section_root(&mut self, arm64: bool) -> io::Result<()> {
-        let root = if arm64 {
+    /// The direct-root WoW64 conversion belongs to the process's CHPE profile,
+    /// not just the host architecture. Acquisition captures the default ARM64
+    /// profile; a pure x86 runtime disables it without changing native_machine
+    /// or removing the explicitly addressable CHPE directory and its images.
+    pub(crate) fn select_wow_section_root(&mut self, chpe: bool) -> io::Result<()> {
+        let root = if chpe {
             match self.lookup(
                 None,
                 &"\\KnownDllsChpe32".encode_utf16().collect::<Vec<_>>(),

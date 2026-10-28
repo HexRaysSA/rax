@@ -34,6 +34,7 @@ e0604d026880facb9dd4ab62a27056c259c253073ede645ae5433f817470465a  ./bsd/kern/ker
 56b8f4cfe7de6c0bb6aedcbdec36afd2411f5fb0d39514f5a215f70d0dbf9b7e  ./bsd/kern/mach_fat.c
 234fe095dd92cbea6135d56781619b44ccf17fe6ffd95c9c8fa06f7bb1fd4e30  ./bsd/kern/mach_loader.c
 f915a5b28dcdd78a06e08a7e4625e4b1e1c87f9ce3f1a32a14689ba9de46ad80  ./bsd/kern/mach_loader.h
+185112f9a45fb755890c1b5c4e4c64bf3fd0ceca9b401b262e145a92f304bfc4  ./bsd/kern/mach_process.c
 bd44c344880e121277d33c7539c05915a030a52c4ceab7c9f88e54f373293c67  ./bsd/kern/makesyscalls.sh
 e182b402689dd89e7784ae330a0525dc5b08ce09526b0a8f0801a7adcd4b0dd8  ./bsd/kern/posix_sem.c
 3359b814c5e3a867bf41dc6b41115c88c5259c9bc5664b6e192f275d2bd6b01b  ./bsd/kern/posix_shm.c
@@ -50,6 +51,7 @@ b23be59e62a90ec4aa7d5400014206ab79600a6cc95d1de06702152dcf689a49  ./bsd/kern/sys
 21c689b9c68b0bd876af5dd67c74d949a37e222d35a4e0890f368fa20bc37103  ./bsd/kern/uipc_syscalls.c
 cc6e5114877eb7406af817047722441665262efa606203e0cb81387ca8363ecc  ./bsd/kern/uipc_usrreq.c
 e4c53c7f0164f5cad7be1c958d76df66d5e9033e577c62cfa15863b2e181362e  ./bsd/libkern/copyio.h
+7891afb4009dd49d63420f48e3dc3f7bc9a936b44b78a9291830a97607cad94c  ./bsd/man/man2/ptrace.2
 7ab0c523cfe0e1df9097f72e4eae1987ba3332a17667956e844deac6cc8c849b  ./bsd/net/if.c
 87105e9969eea7567abccea30c62d97780751f61dffe439aecdf42ef013393f7  ./bsd/net/if.h
 8f5272dc9e4153e50f4b46068187be4894c81237b499a37d959650a78c5ab61c  ./bsd/net/if_private.h
@@ -82,6 +84,7 @@ ee6024c8fee1eb9bcd280203532cba183fb015c5549eebcd8f45f4667529ad4a  ./bsd/sys/para
 ea9c0c538c723009c22976b62f85cf8f05aec3606b431bf6e94c35e4e7040b10  ./bsd/sys/persona.h
 a4eb26cdfd3721b111f9979455d80a854625b0ef96ba4de1a4e7705f462e0f84  ./bsd/sys/proc_info.h
 4f8a8290fb644349521befe852fbaebf1a2d3a9355b0937f45ce1d89a3906a73  ./bsd/sys/proc_info_private.h
+fdbffcc0ca828b8762debf196df7441e4085d3916838a8ccdedda2ec3bd52ce8  ./bsd/sys/ptrace.h
 2efb1aca5abdfa6f9e8bad155f2db319fdca1a029400cad1558e4df981d6eeea  ./bsd/sys/signal.h
 f05feb319366d6fc2948fdb728891c87bc2406a1028041382bc13251cbf0e17e  ./bsd/sys/signalvar.h
 478453ae0823d115e3aa7c7e23589c2a47ef928983d805131f3fc0f1be855d1f  ./bsd/sys/socket.h
@@ -203,6 +206,7 @@ da7e211b68215dc2ecb33d2bfafea79f878d20019975a44b90065c3b4d61d331  ./osfmk/kern/s
 4f4dad7f2b6efb883d26d769ef5e44f2f947bb5dedce9717f5855f980b74bf5a  ./osfmk/kern/sync_sema.c
 9c84c9ea109067bbdac35c4ddcb3de872c228a7cfff51b72a6d5a109fc431820  ./osfmk/kern/syscall_sw.c
 f76e453fa002df0efcc3fc71335642e552120effa324072a4993d9e47524d4e9  ./osfmk/kern/task.c
+102b0b08628f94dbea11ed2577a3d13c5b3ee97aaf1f528bdfd5965e3640abc9  ./osfmk/kern/task.h
 538f8cab22c5020792f022bde148b533c91630e7ca82dc5743f38de3e87e8f12  ./osfmk/kern/task_ident.c
 2f3e37205d72c6547f8fc1523570845aadad5c124758863e9a478373ad6235b9  ./osfmk/kern/task_ident.h
 e9424f4236d2ff5a5b2c93bd9cef56634e06117c9e681003432eb1d1afb59cd4  ./osfmk/kern/thread.c

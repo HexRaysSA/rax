@@ -226,11 +226,26 @@ jobs:
           cache-key: test-capi-${{ matrix.name }}
       - name: Regression runner failure propagation
         run: python -m unittest discover -s tools/ci
+      - name: Windows process CLI and native library selection
+        run: cargo test --locked --no-default-features --test user_windows_cli
+      - name: C API semantic regressions
+        run: cargo test --locked -p rax-capi --no-default-features
       - name: Native Windows clock and NLS observations
         if: runner.os == 'Windows'
         run: python tools/ci/windows_installed_probe_v2.py
       - name: Shared NT clock and CPU execution boundaries
         run: python tools/ci/system_time.py
+      - name: Verify native WoW64 CSR evidence projection
+        run: python -B -m unittest discover -s docs/specifications/windows/native-wow64-csr-amd64 -p test_matrix_projection.py
+      - name: Measured Windows startup profiles
+        run: |
+          cargo test --locked --no-default-features --lib csr
+          cargo test --locked --no-default-features --lib nls
+          cargo test --locked --no-default-features --lib mui
+          cargo test --locked --no-default-features --lib user::windows::process::wow64::
+          python -m unittest discover -s docs/specifications/windows/native-process-image-information
+          cargo test --locked --no-default-features --lib user::windows::process::sched::tests::services_tests::process_query_tests::
+          cargo test --locked --no-default-features --lib mapped_filename -- --test-threads=1
       - name: Portable process, console, and supplied-file regressions
         run: python tools/ci/process_embedding.py
       - name: Unix supplied-file and io_uring buffer regressions
@@ -238,8 +253,6 @@ jobs:
         run: |
           cargo test --locked --no-default-features --lib user::linux::tests::supplied::
           cargo test --locked --no-default-features --lib user::linux::tests::uring::kbuf::
-      - name: C API semantic regressions
-        run: cargo test --locked -p rax-capi --no-default-features
       - name: Configure native SDK
         run: cmake -S capi -B capi-build -DRAX_CARGO_PROFILE=dev -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/capi-install
       - name: Build native SDK

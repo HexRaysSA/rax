@@ -19,8 +19,7 @@ fn installed_mui_generation_is_published_in_the_readonly_guest_shared_page() {
     let process = WindowsProcess::spawn_image(cfg, std::fs::read(file).unwrap()).unwrap();
     let p = process.state();
     let generation = p.nls.as_ref().unwrap().mui_generation();
-    let measured =
-        p.cfg.version.major == 10 && p.cfg.version.minor == 0 && p.cfg.version.build == 29683;
+    let measured = crate::user::windows::nls::supports_startup_profile(&p.cfg.version);
     assert_eq!(generation.is_some(), measured);
     assert_eq!(
         p.space

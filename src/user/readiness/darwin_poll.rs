@@ -68,8 +68,9 @@ pub(super) fn poll(
         entry.fd = raw;
         entry.events = libc::POLLIN;
     }
-    let deadline = (timeout_ms >= 0)
-        .then(|| std::time::Instant::now() + std::time::Duration::from_millis(timeout_ms as u64));
+    let deadline = (timeout_ms >= 0).then(|| {
+        crate::host::time::Instant::now() + std::time::Duration::from_millis(timeout_ms as u64)
+    });
     let mut remaining = timeout_ms;
     loop {
         // SAFETY: initialized array of the stated length; descriptors remain owned.
@@ -133,7 +134,7 @@ pub(super) fn poll(
         // the filter installed for a later EOF; consume data-only events and
         // preserve the caller's remaining timeout instead of returning early.
         if let Some(deadline) = deadline {
-            let now = std::time::Instant::now();
+            let now = crate::host::time::Instant::now();
             if now >= deadline {
                 break;
             }

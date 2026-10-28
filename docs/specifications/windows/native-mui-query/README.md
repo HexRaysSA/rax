@@ -10,7 +10,10 @@ existing 64 MiB combined NLS budget.
 The measured profile is Windows 10.0.29683.1000 on an ARM64 kernel. ARM64,
 x64 and x86 executable controls each contain 1,680 rows, for 5,040 native rows.
 Those are three process views of one kernel. An independent x64 kernel profile
-and equivalent behavior on other Windows builds remain unknown.
+remains unknown. Build 29695 is independently qualified in
+[the later kernel record](../native-nls-build-29695/README.md), including x86
+large-address-awareness controls and fresh generation observations. Other
+Windows builds remain unmeasured.
 
 ## Query behavior
 

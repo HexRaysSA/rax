@@ -35,12 +35,16 @@ use crate::user::mm::{AddressSpace, Mapping, MmError, PAGE_SIZE, Perms};
 mod data_section;
 pub(crate) use data_section::KernelDataView;
 mod extended;
+mod mapped_filename;
+mod prefetch;
 mod region;
 pub use region::RegionInfo;
 mod scheduler;
 mod section;
 #[cfg(test)]
 mod section_extension_tests;
+#[cfg(test)]
+mod section_padding_tests;
 #[cfg(test)]
 mod section_tests;
 mod shared_section;
@@ -535,6 +539,7 @@ pub fn page_range(start: u64, len: u64) -> Result<(u64, u64), VmError> {
 pub struct VirtualMemory {
     space: AddressSpace,
     allocs: BTreeMap<u64, Allocation>,
+    mapped_filenames: BTreeMap<u64, super::mapped_filename::Filename>,
     allocation_nodes: BTreeMap<u64, u32>,
     nls_views: BTreeSet<u64>,
     pagefile_views: BTreeSet<u64>,
@@ -569,6 +574,7 @@ impl VirtualMemory {
         VirtualMemory {
             space,
             allocs: BTreeMap::new(),
+            mapped_filenames: BTreeMap::new(),
             allocation_nodes: BTreeMap::new(),
             nls_views: BTreeSet::new(),
             pagefile_views: BTreeSet::new(),
@@ -1062,6 +1068,7 @@ impl VirtualMemory {
         });
         self.space.unmap(base, size).map_err(mm)?;
         self.allocs.remove(&base);
+        self.mapped_filenames.remove(&base);
         self.allocation_nodes.remove(&base);
         self.nls_views.remove(&base);
         self.pagefile_views.remove(&base);

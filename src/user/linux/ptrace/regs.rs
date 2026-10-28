@@ -484,7 +484,8 @@ pub fn set_prstatus(
 }
 
 /// `PTRACE_PEEKUSR` on x86-64: a word of `struct user` (the registers, the
-/// debug registers, which read as zero here, and zero elsewhere); a
+/// debug registers (DR6 retains the last trace status; others read zero),
+/// and zero elsewhere); a
 /// misaligned or outside offset is `EIO`. Other architectures have no user
 /// area (`EIO`).
 pub fn peek_user(cpu: &GuestCpu, syscall: Option<SyscallEntry>, off: u64) -> Result<u64, Errno> {
@@ -495,6 +496,12 @@ pub fn peek_user(cpu: &GuestCpu, syscall: Option<SyscallEntry>, off: u64) -> Res
         let regs = prstatus(cpu, syscall);
         let at = off as usize;
         return Ok(u64::from_le_bytes(regs[at..at + 8].try_into().unwrap()));
+    }
+    if off == X86_DEBUGREG + 6 * 8 {
+        let GuestCpu::X86_64(cpu) = cpu else {
+            unreachable!("validated x86 user area");
+        };
+        return Ok(cpu.vcpu().last_user_debug_status() & (1 << 14));
     }
     Ok(0)
 }
@@ -534,6 +541,9 @@ pub fn poke_user(
     }
     if off >= X86_REGS as u64 {
         let debug = (X86_DEBUGREG..X86_DEBUGREG + 64).contains(&off);
+        if off == X86_DEBUGREG + 6 * 8 && value == 0 {
+            c.vcpu_mut().clear_user_debug_status();
+        }
         return if debug && value != 0 {
             Err(Errno(EIO))
         } else {

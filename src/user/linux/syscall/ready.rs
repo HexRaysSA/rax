@@ -220,9 +220,9 @@ pub fn poll_files(c: &Ctx<'_>, files: &[(&OpenFile, u32)]) -> (Vec<Polled>, Wait
 
 /// The earlier of two optional instants.
 pub fn earlier(
-    a: Option<std::time::Instant>,
-    b: Option<std::time::Instant>,
-) -> Option<std::time::Instant> {
+    a: Option<crate::host::time::Instant>,
+    b: Option<crate::host::time::Instant>,
+) -> Option<crate::host::time::Instant> {
     match (a, b) {
         (Some(a), Some(b)) => Some(a.min(b)),
         (a, b) => a.or(b),

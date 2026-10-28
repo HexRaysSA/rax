@@ -155,6 +155,37 @@ mod platform {
     }
 }
 
+#[cfg(not(any(unix, windows)))]
+mod platform {
+    use super::*;
+    use std::alloc::{Layout, alloc_zeroed, dealloc};
+
+    pub fn allocate(bytes: usize) -> io::Result<NonNull<AtomicU64>> {
+        let layout = Layout::from_size_align(bytes, align_of::<AtomicU64>()).map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::OutOfMemory,
+                "shared-word allocation size overflows",
+            )
+        })?;
+        // SAFETY: size is non-zero (`SharedWords::new` allocates at least one
+        // word) and the alignment is the atomic word's alignment.
+        let ptr = unsafe { alloc_zeroed(layout) };
+        NonNull::new(ptr.cast()).ok_or_else(|| io::Error::from(io::ErrorKind::OutOfMemory))
+    }
+
+    /// # Safety
+    ///
+    /// `ptr` must be the block returned by `allocate` for `bytes`, still live,
+    /// and not shared with another owner.
+    pub unsafe fn release(ptr: NonNull<AtomicU64>, bytes: usize) {
+        let Ok(layout) = Layout::from_size_align(bytes, align_of::<AtomicU64>()) else {
+            return;
+        };
+        // SAFETY: caller owns this allocation and `layout` matches `allocate`.
+        unsafe { dealloc(ptr.as_ptr().cast(), layout) }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

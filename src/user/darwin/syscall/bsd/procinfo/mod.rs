@@ -128,6 +128,24 @@ fn dispatch(ctx: &mut Ctx<'_>, a: Args) -> SysResult {
     let own = a.pid == ctx.proc.pid;
     match a.callnum {
         call::PIDINFO if own => pidinfo::own(ctx, &a),
+        call::PIDINFO => {
+            let observed = super::ptrace::known_process_info(
+                &ctx.proc.tracing,
+                ctx.proc.pid,
+                ctx.proc.ppid,
+                a.pid,
+            );
+            if observed.is_some_and(|(_, _, _, exit)| exit.is_some()) {
+                pidinfo::zombie_lookup(&a)?;
+            }
+            let signal = super::ptrace::known_signal_status(&ctx.proc.tracing, ctx.proc.pid, a.pid);
+            passthrough(ctx, &a, |buf| {
+                if let Some((traced, _, parent, exit)) = observed {
+                    pidinfo::project_traced(a.flavor, buf, traced && exit.is_none(), signal);
+                    pidinfo::project_parentage(a.flavor, buf, parent, exit);
+                }
+            })
+        }
         call::PIDFDINFO if own => fdinfo::own(ctx, &a),
         call::SETCONTROL => selfctl::setcontrol(ctx, &a),
         call::SET_DYLD_IMAGES => selfctl::set_dyld_images(ctx, &a),

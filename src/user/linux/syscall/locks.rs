@@ -13,7 +13,7 @@
 //!
 //! [`fs::locks`]: super::super::fs::locks
 
-use std::time::{Duration, Instant};
+use crate::host::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;

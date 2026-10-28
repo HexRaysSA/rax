@@ -9,6 +9,34 @@ on:
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
       - docs/specifications/windows/native-process-execute-flags/**
+      - docs/specifications/windows/native-process-debug-port/**
+      - docs/specifications/windows/native-process-image-information/**
+      - docs/specifications/windows/native-wow64-startup-information/**
+      - docs/specifications/windows/native-system-processor-information/**
+      - docs/specifications/windows/native-system-flush-information/**
+      - docs/specifications/windows/native-session-windows-directory/**
+      - docs/specifications/windows/native-session-csr-connect/**
+      - docs/specifications/windows/native-nls-amd64-initialize/**
+      - docs/specifications/windows/native-wow64-csr-amd64/**
+      - docs/specifications/windows/native-image-extension-amd64/**
+      - docs/specifications/windows/native-file-write/**
+      - docs/specifications/windows/native-mapped-filename/**
+      - docs/specifications/windows/native-open-thread/**
+      - docs/specifications/windows/native-memory-prefetch/**
+      - src/user/windows/dll/native/memory_prefetch.rs
+      - src/user/windows/memory/prefetch.rs
+      - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests/**
+      - src/user/windows/dll/native/thread_open.rs
+      - src/user/windows/security/thread.rs
+      - src/user/windows/security/thread/**
+      - src/user/windows/dll/threading.rs
+      - src/user/windows/dll/threading/native_thread_open_resume_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/thread_open_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/thread_open_tests/**
+      - src/bin/rax_user.rs
+      - src/user/windows/dll/native/file_write.rs
+      - tests/suites/user/windows/cli.rs
   pull_request:
     paths:
       - .github/workflows/windows-exception-profile.yml
@@ -16,6 +44,33 @@ on:
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
       - docs/specifications/windows/native-process-execute-flags/**
+      - docs/specifications/windows/native-process-debug-port/**
+      - docs/specifications/windows/native-process-image-information/**
+      - docs/specifications/windows/native-wow64-startup-information/**
+      - docs/specifications/windows/native-system-processor-information/**
+      - docs/specifications/windows/native-system-flush-information/**
+      - docs/specifications/windows/native-session-windows-directory/**
+      - docs/specifications/windows/native-session-csr-connect/**
+      - docs/specifications/windows/native-nls-amd64-initialize/**
+      - docs/specifications/windows/native-wow64-csr-amd64/**
+      - docs/specifications/windows/native-image-extension-amd64/**
+      - docs/specifications/windows/native-file-write/**
+      - docs/specifications/windows/native-open-thread/**
+      - docs/specifications/windows/native-memory-prefetch/**
+      - src/user/windows/dll/native/memory_prefetch.rs
+      - src/user/windows/memory/prefetch.rs
+      - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests/**
+      - src/user/windows/dll/native/thread_open.rs
+      - src/user/windows/security/thread.rs
+      - src/user/windows/security/thread/**
+      - src/user/windows/dll/threading.rs
+      - src/user/windows/dll/threading/native_thread_open_resume_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/thread_open_tests.rs
+      - src/user/windows/process/sched/tests/services_tests/thread_open_tests/**
+      - src/bin/rax_user.rs
+      - src/user/windows/dll/native/file_write.rs
+      - tests/suites/user/windows/cli.rs
   workflow_dispatch:
 
 permissions:
@@ -29,9 +84,120 @@ jobs:
       matrix:
         os: [windows-2022, windows-2025]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Observe native AMD64 and WoW64 memory prefetch
+        run: |
+          New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
+          python -B docs/specifications/windows/native-memory-prefetch/run-v4.py --require-native-machine 0x8664 --output target/native-memory-prefetch-v4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve native memory prefetch observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-memory-prefetch-${{ matrix.os }}
+          path: target/native-memory-prefetch-v4
+          if-no-files-found: error
+      - name: Observe native AMD64 and WoW64 thread opening
+        run: |
+          New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
+          python -B docs/specifications/windows/native-open-thread/run-v6.py --require-native-machine 0x8664 --output target/native-open-thread-v6
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve native thread opening observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-open-thread-${{ matrix.os }}
+          path: target/native-open-thread-v6
+          if-no-files-found: error
+      - name: Observe native AMD64 and WoW64 mapped backing-file names
+        run: |
+          New-Item -ItemType Directory -Force (Join-Path $env:GITHUB_WORKSPACE 'target') | Out-Null
+          python -B docs/specifications/windows/native-mapped-filename/run-amd64-v3.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Observe native resume-only and execute-grant consumers
+        run: |
+          python -B docs/specifications/windows/native-open-thread/run-resume-v1.py --require-native-machine 0x8664 --output target/native-thread-resume-v1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve native thread grant consumer observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-thread-resume-${{ matrix.os }}
+          path: target/native-thread-resume-v1
+          if-no-files-found: error
+      - name: Preserve early native mapped filename observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-mapped-filename-${{ matrix.os }}
+          path: target/native-mapped-filename-amd64-v3
+          if-no-files-found: error
+      - name: Observe native AMD64 image-extension availability
+        run: python -B docs/specifications/windows/native-image-extension-amd64/run-v1.py
+      - name: Preserve native AMD64 image-extension observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-image-extension-amd64-${{ matrix.os }}
+          path: target/native-image-extension-amd64-v1.json
+          if-no-files-found: error
+      - name: Observe native AMD64 type-1 image-extension query precedence
+        run: python -B docs/specifications/windows/native-image-extension-amd64/run-query-matrix-v2.py
+      - name: Preserve native AMD64 type-1 image-extension query observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-image-extension-amd64-query-matrix-${{ matrix.os }}
+          path: target/native-image-extension-amd64-query-matrix-v2.json
+          if-no-files-found: error
+      - name: Observe independent AMD64 NLS initialization and view lifetime
+        run: python -B docs/specifications/windows/native-nls-amd64-initialize/run-v1.py
+      - name: Preserve independent AMD64 NLS observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-nls-amd64-initialize-${{ matrix.os }}
+          path: target/native-nls-amd64-initialize-v1.json
+          if-no-files-found: error
+      - name: Observe current-session native CSR startup and readonly metadata
+        run: python -B docs/specifications/windows/native-session-csr-connect/run-v3.py
+      - name: Preserve current-session native CSR observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-session-csr-connect-${{ matrix.os }}
+          path: target/native-session-csr-connect-v3.json
+          if-no-files-found: error
+      - name: Observe current-session Windows directory identities
+        run: |
+          python -B -m unittest discover -s docs/specifications/windows/native-session-windows-directory
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-session-windows-directory/run-v2.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-session-windows-directory/verify.py target/native-session-windows-directory-v2.json
+      - name: Preserve current-session Windows directory observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-session-windows-directory-${{ matrix.os }}
+          path: target/native-session-windows-directory-v2.json
+          if-no-files-found: error
+      - name: Observe native system flush information
+        run: |
+          python -m unittest discover -s docs/specifications/windows/native-system-flush-information
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-system-flush-information/run-v2.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-system-flush-information/verify.py target/native-system-flush-information-v2.json
+      - name: Preserve native system flush observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-system-flush-information-${{ matrix.os }}
+          path: target/native-system-flush-information-v2.json
+          if-no-files-found: error
       - name: Verify public instruction projection
         run: python docs/specifications/windows/native-exception-entry-profile/test_projection.py
       - name: Verify dispatcher observation projection
@@ -85,3 +251,116 @@ jobs:
           python docs/specifications/windows/native-process-execute-flags/test_projection.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python docs/specifications/windows/native-process-execute-flags/run-v2.py
+      - name: Observe process debug port without attaching a debugger
+        if: always()
+        run: |
+          python docs/specifications/windows/native-process-debug-port/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-process-debug-port/run-v3.py
+      - name: Observe process image information and independent PE metadata
+        if: always()
+        run: |
+          python docs/specifications/windows/native-process-image-information/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-process-image-information/test_pointer_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-process-image-information/test_model_profiles.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-process-image-information/run-v9.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-process-image-information/run-relocation-directory-v1.py
+      - name: Observe WoW64 companion TEB and shared startup information
+        if: always()
+        run: |
+          python docs/specifications/windows/native-wow64-startup-information/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-wow64-startup-information/run-v2.py
+      - name: Observe WoW64 startup section and quiescent work-list resources
+        if: always()
+        run: python docs/specifications/windows/native-wow64-startup-information/run-resources-v1.py
+      - name: Observe native and compatibility processor information
+        if: always()
+        run: |
+          python docs/specifications/windows/native-system-processor-information/test_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python docs/specifications/windows/native-system-processor-information/run-v1.py
+      - name: Preserve native processor information observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-system-processor-information-${{ matrix.os }}
+          path: target/native-system-processor-information-v1.json
+          if-no-files-found: error
+      - name: Observe original x86 CSR startup on independent AMD64 kernels
+        if: always()
+        run: python -B docs/specifications/windows/native-wow64-csr-amd64/run-v1.py
+      - name: Preserve original AMD64 WoW64 CSR startup observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-wow64-csr-amd64-startup-${{ matrix.os }}
+          path: target/native-wow64-csr-amd64-startup-v1.json
+          if-no-files-found: error
+      - name: Observe fresh and retry WoW64 CSR calls on independent AMD64 kernels
+        if: always()
+        run: |
+          python -B -m unittest discover -s docs/specifications/windows/native-wow64-csr-amd64 -p test_matrix_projection.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-wow64-csr-amd64/run-matrix-v1.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B docs/specifications/windows/native-wow64-csr-amd64/project-matrix-v1.py target/native-wow64-csr-amd64-matrix-v1.json target/native-wow64-csr-amd64-matrix-projected-v1.json
+      - name: Preserve independent AMD64 WoW64 CSR fresh and retry observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-wow64-csr-amd64-matrix-${{ matrix.os }}
+          path: target/native-wow64-csr-amd64-matrix-v1.json
+          if-no-files-found: error
+      - name: Prepare contained native CSR build directories
+        if: always()
+        shell: pwsh
+        run: |
+          $csrTmp = Join-Path $env:GITHUB_WORKSPACE 'target/native-csr-build-tmp'
+          New-Item -ItemType Directory -Force $csrTmp | Out-Null
+          "TMPDIR=$csrTmp" >> $env:GITHUB_ENV
+          "TMP=$csrTmp" >> $env:GITHUB_ENV
+          "TEMP=$csrTmp" >> $env:GITHUB_ENV
+          "RUSTC_WRAPPER=" >> $env:GITHUB_ENV
+          "RUSTC_WORKSPACE_WRAPPER=" >> $env:GITHUB_ENV
+      - uses: ./.github/actions/setup-rust
+        if: always()
+        with:
+          toolchain: 1.95.0
+          cache-key: native-csr-${{ matrix.os }}
+      - name: Execute installed pure x86 CSR leaf on the native AMD64 kernel
+        if: always()
+        run: cargo test --locked --no-default-features --lib wow64_csr -- --nocapture --test-threads=1
+      - name: Replay captured thread opens and execute installed NTDLL leaves
+        if: always()
+        run: |
+          $env:RAX_NATIVE_OPEN_THREAD_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-open-thread-v6/receipt.json'
+          $env:RAX_NATIVE_THREAD_RESUME_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-thread-resume-v1/receipt.json'
+          cargo test --locked --no-default-features --lib thread_open -- --nocapture --test-threads=1
+      - name: Replay native prefetch controls and execute installed six-argument leaves
+        if: always()
+        run: |
+          $env:RAX_NATIVE_MEMORY_PREFETCH_CORPUS = Join-Path $env:GITHUB_WORKSPACE 'target/native-memory-prefetch-v4/receipt.json'
+          cargo test --locked --no-default-features --lib native_memory_prefetch -- --nocapture --test-threads=1
+      - name: Execute image-extension queries through installed native leaves
+        if: always()
+        run: |
+          cargo test --locked --no-default-features --lib image_extension -- --nocapture --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --no-default-features --lib extension_query -- --nocapture --test-threads=1
+      - name: Execute the whole original installed-library hardware-fault fixture
+        if: always()
+        run: cargo test --locked --no-default-features --lib user::windows::seh::native_entry::tests::native_entry_installed_ntdll_runs_hardware_fault_veh_and_context_continuation -- --exact --nocapture --test-threads=1
+      - name: Execute installed-library CLI and native write regressions
+        if: always()
+        run: |
+          cargo test --locked --no-default-features --lib file_write_tests -- --nocapture --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --no-default-features --test user_windows_cli -- --nocapture --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:RAX_NATIVE_MAPPED_FILENAME_OBSERVATIONS = Join-Path $env:GITHUB_WORKSPACE 'target/native-mapped-filename-amd64-v3'
+          cargo test --locked --no-default-features --lib mapped_filename -- --nocapture --test-threads=1

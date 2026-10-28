@@ -128,6 +128,8 @@ pub enum KObject {
     /// A task identity token (`task_create_identity_token`), by the
     /// identity of its task's control port.
     TaskIdToken(u64),
+    /// A task's resume port; None is a proxy resolved by its connection.
+    TaskResume(Option<u64>),
     /// A proxy of a host send or send-once right: messages to it are sent
     /// on the host ([`crate::user::darwin::bridge`]). It is a message
     /// queue's, not a kernel object's, as the guest sees it.

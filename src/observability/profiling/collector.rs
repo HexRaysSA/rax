@@ -1,10 +1,10 @@
 //! Profiler singleton and data collection logic.
 
+use crate::host::time::Instant;
 use std::cell::Cell;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::Instant;
 
 use super::memory;
 use super::stats::{OpcodeKey, OpcodeStats};

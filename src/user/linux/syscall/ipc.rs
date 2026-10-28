@@ -12,9 +12,9 @@
 //! (`EINTR`: `semop` is never restarted). A message send or receive that
 //! must wait does the same, a signal ending it with `-ERESTARTNOHAND`.
 
+use crate::host::time::{Duration, Instant};
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;

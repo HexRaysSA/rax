@@ -3,8 +3,10 @@
 This group implements the measured `NtInitializeNlsFiles` initialization profile
 for Windows 10.0.29683.1000, using an immutable snapshot of the installed
 `locale.nls` mapping and its native locale ID. Guest outputs, handles and paths
-never enter host acquisition. Other Windows builds remain explicitly unsupported
-for this new service while existing NLS services retain their behavior.
+never enter host acquisition. The independently qualified 29695 profile is
+recorded in [the later kernel qualification](../native-nls-build-29695/README.md).
+Other Windows builds remain explicitly unsupported for this service while
+existing NLS services retain their behavior.
 
 Four independently inspected ARM64/x64/x86/x86-LAA producers supply 316 calls:
 140 succeed and 176 fail without caller SEH. The third and fourth declared

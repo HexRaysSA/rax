@@ -418,7 +418,7 @@ fn newseg(
 }
 
 fn now_nanos() -> u128 {
-    std::time::SystemTime::now()
+    crate::host::time::system_now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_nanos())
 }
@@ -538,7 +538,12 @@ fn allocated_bytes(path: &std::path::Path) -> std::io::Result<u64> {
             .ok_or_else(|| std::io::ErrorKind::InvalidData.into())
     }
     #[cfg(windows)]
-    super::super::host::allocated_bytes(&std::fs::File::open(path)?)
+    return super::super::host::allocated_bytes(&std::fs::File::open(path)?);
+    #[cfg(not(any(unix, windows)))]
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "allocated file size is not available on this target",
+    ))
 }
 
 /// `SHM_INFO` (`shmctl_shm_info`): `struct shm_info` and the highest
